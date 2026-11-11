@@ -1,314 +1,29 @@
 /**
- * 修復Machineの八処置と保存切断窓を反証する。
+ * 修復Machineの八処置・通知・取消と技術的な切断窓を反証する。
  * @packageDocumentation
- * @responsibility 純粋checkpointと本番順序を結合し、実OS操作とは区別する。
+ * @responsibility DIの実Machineと技術値契約を確認し、Domain保存受理との比較はDomain側ITに分離する。
  * @trace ERB-IT-014
  * @level IT
- * @scope 内部Machineと模擬技術境界。実Docker・Native・Provider要求0。
- * @boundary ERB-IT-014=Direct Boundary: 修復Machine→保存通知／技術Adapter。
+ * @scope 内部Machineと有限技術代役。実Docker・Provider要求0。
+ * @boundary 修復Machine→技術通知・実行代役。保存Schema・実OS操作の成立は主張しない。
  */
-import {
-  decodeDockerRuntimeRepairCheckpoint,
-  dockerRuntimeRepairCheckpointIsSettled,
-  type DockerRuntimeRepairCheckpoint,
-} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { runInThisContext } from "node:vm";
-import { types } from "node:util";
 import test from "node:test";
+import { types } from "node:util";
+import { runInThisContext } from "node:vm";
 import { executeRepairSteps } from "../../src/docker-desktop/repair.ts";
-import { validateDockerRuntimeRepairCheckpointTransition } from "../../../domain-model/src/index.ts";
-import * as technicalContract from "../../src/docker-desktop/validation.ts";
-import * as storedContract from "../../../domain-model/src/index.ts";
-import { parseDockerTaskRecoveryId as parseTechnicalRecovery } from "../support/cleanup.ts";
-import { parseDockerTaskRecoveryId as parseStoredRecovery } from "../../../domain-model/src/index.ts";
-
-/**
- * DI通知契約と上位保存受理契約を相互依存なしに照合する。
- * @responsibility 型一致だけでなく全fieldの閉形式・遷移・通知列・不変値を反証する。
- * @trace ERB-IT-014
- * @precondition 合成checkpointと本番Machineの模擬技術境界だけを使う。
- * @stimulus 欠測・余剰・enum差・Proxy・Accessorと正常通知列を同じ入力で比較する。
- * @observation 両decoderの拒否又はexact値、凍結、元入力との分離、遷移判定。
- * @oracle 保存受理と技術通知が同値で、いずれも資源観測の代用にしない。
- * @cleanup N/A: Process・File・Docker・保存を使わない。
- * @boundary 技術DTOと保存Schemaは別Ownerのまま値契約だけを結合する。
- */
-test("技術checkpointと保存受理は異常入力・全field・通知遷移で一致する", async () => {
-  const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-  const frozen = (value: unknown): void => {
-    if (!value || typeof value !== "object") return;
-    assert.equal(Object.isFrozen(value), true);
-    for (const child of Object.values(value)) frozen(child);
-  };
-  const pairs = [
-    [
-      technicalContract.decodeRepairCheckpoint,
-      storedContract.decodeDockerRuntimeRepairCheckpoint,
-      fixture().input.checkpoint,
-    ],
-    [
-      technicalContract.decodeRepairCheckpoint,
-      storedContract.decodeDockerRuntimeRepairCheckpoint,
-      fixture(4, true).input.checkpoint,
-    ],
-    [
-      technicalContract.decodeRepairDisposalCheckpoint,
-      storedContract.decodeDockerRuntimeRepairDisposalCheckpoint,
-      technicalContract.createRepairDisposalCheckpoint(),
-    ],
-    [
-      technicalContract.decodeRepairRetentionTargets,
-      storedContract.decodeDockerRuntimeRepairRetentionTargets,
-      {
-        primary: { dev: "1", ino: "2", birthtimeNs: "3" },
-        failed: null,
-        auxiliary: null,
-      },
-    ],
-  ] as const;
-  for (const [technical, stored, base] of pairs) {
-    const check = (value: unknown) => {
-      const a = technical(value),
-        b = stored(value);
-      assert.deepEqual(a, b);
-      frozen(a);
-      frozen(b);
-      if (a && value && typeof value === "object") assert.notEqual(a, value);
-      return a;
-    };
-    assert.ok(check(base));
-    for (const value of [
-      null,
-      undefined,
-      false,
-      0,
-      "unknown",
-      [],
-      {},
-      new Proxy(
-        {},
-        {
-          get() {
-            throw Error("proxy_read");
-          },
-        },
-      ),
-    ])
-      check(value);
-    const paths: string[][] = [[]];
-    for (let i = 0; i < paths.length; i++) {
-      let object: unknown = base;
-      for (const key of paths[i] ?? [])
-        object = (object as Record<string, unknown>)[key];
-      if (!object || typeof object !== "object") continue;
-      for (const key of Object.keys(object)) {
-        const next = [...(paths[i] ?? []), key];
-        const value = (object as Record<string, unknown>)[key];
-        if (value && typeof value === "object") paths.push(next);
-      }
-    }
-    for (const at of paths) {
-      const mutate = (change: (record: Record<string, unknown>) => void) => {
-        const value = copy(base);
-        let record: unknown = value;
-        for (const key of at) record = (record as Record<string, unknown>)[key];
-        change(record as Record<string, unknown>);
-        return value;
-      };
-      check(
-        mutate((record) => {
-          record.unexpected = true;
-        }),
-      );
-      let original: unknown = base;
-      for (const key of at)
-        original = (original as Record<string, unknown>)[key];
-      for (const key of Object.keys(original as object)) {
-        check(
-          mutate((record) => {
-            delete record[key];
-          }),
-        );
-        for (const invalid of [
-          undefined,
-          null,
-          false,
-          0,
-          "invalid",
-          [],
-          {},
-          "saved",
-          "issued",
-          "unknown",
-          "confirmed",
-          "pending",
-          "ready",
-          "absent",
-          "present",
-        ])
-          check(
-            mutate((record) => {
-              record[key] = invalid;
-            }),
-          );
-        let reads = 0;
-        check(
-          mutate((record) => {
-            Object.defineProperty(record, key, {
-              enumerable: true,
-              get() {
-                reads++;
-                throw Error("accessor_read");
-              },
-            });
-          }),
-        );
-        assert.equal(reads, 0);
-        check(
-          mutate((record) => {
-            record[key] = new Proxy(
-              {},
-              {
-                get() {
-                  reads++;
-                  throw Error("proxy_read");
-                },
-              },
-            );
-          }),
-        );
-        assert.equal(reads, 0);
-      }
-    }
-    const mutable = copy(base),
-      before = check(mutable);
-    (mutable as unknown as Record<string, unknown>).unexpected = true;
-    assert.deepEqual(before, stored(base));
-  }
-  for (const prefix of [0, 4]) {
-    const f = fixture(prefix, prefix === 4);
-    await executeRepairSteps(f.input, f.technical);
-    let before = f.input.checkpoint;
-    for (const next of f.calls.notifications) {
-      assert.deepEqual(
-        technicalContract.decodeRepairCheckpoint(next),
-        storedContract.decodeDockerRuntimeRepairCheckpoint(next),
-      );
-      assert.equal(
-        technicalContract.validateRepairCheckpointTransition(before, next),
-        storedContract.validateDockerRuntimeRepairCheckpointTransition(
-          before,
-          next,
-        ),
-      );
-      assert.equal(
-        technicalContract.isRepairCheckpointSettled(next),
-        storedContract.dockerRuntimeRepairCheckpointIsSettled(next),
-      );
-      assert.deepEqual(
-        technicalContract.prepareRepairSessionCheckpoint(next),
-        storedContract.prepareDockerRuntimeRepairSessionCheckpoint(next),
-      );
-      assert.equal(
-        technicalContract.validateRepairSessionCheckpoint(before, next),
-        storedContract.prepareDockerRuntimeRepairSessionCheckpoint(before) !==
-          null &&
-          JSON.stringify(
-            storedContract.prepareDockerRuntimeRepairSessionCheckpoint(before),
-          ) ===
-            JSON.stringify(
-              storedContract.decodeDockerRuntimeRepairCheckpoint(next),
-            ),
-      );
-      before = next;
-    }
-  }
-  const disposal = technicalContract.createRepairDisposalCheckpoint();
-  for (const purpose of technicalContract.directories) {
-    for (const request of ["not_issued", "issued", "unknown"] as const) {
-      const next = copy(disposal);
-      Object.assign(next.directories[purpose], {
-        intent: "saved",
-        request,
-        absence: "unknown",
-      });
-      assert.equal(
-        technicalContract.validateRepairDisposalTransition(
-          disposal,
-          next,
-          purpose,
-        ),
-        false,
-      );
-      assert.equal(
-        technicalContract.isRepairDisposalSettled(next),
-        storedContract.dockerRuntimeRepairDisposalIsSettled(next),
-      );
-    }
-  }
-});
-
-/**
- * Docker Task回復参照の技術文法と保存受理を照合する。
- * @responsibility Probe tokenとの混同や成分の正規化を追加しない。
- * @trace ERB-IT-014
- * @precondition メモリ内の有限な文字列だけを使用する。
- * @stimulus 各成分の長短・大文字・欠測・追加・非文字列。
- * @observation null又は元tokenとexact三成分。
- * @oracle 技術parserと保存parserが同じ入力で一致する。
- * @cleanup N/A: 外部Effectなし。
- * @boundary 解析成功は回復Authorityや資源存在を証明しない。
- */
-test("Docker Task回復IDは技術境界と保存境界で同じ三成分を保持する", () => {
-  const parts = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
-  const token = `docker-task.${parts.join(".")}`;
-  const cases: unknown[] = [
-    token,
-    null,
-    undefined,
-    {},
-    0,
-    ` ${token}`,
-    `${token}\n`,
-    `${token}.extra`,
-    token.replace("docker-task.", "docker."),
-    token.toUpperCase(),
-  ];
-  for (let index = 0; index < 3; index++)
-    for (const value of [
-      "",
-      "A".repeat(64),
-      "a".repeat(63),
-      "a".repeat(65),
-      "z".repeat(64),
-    ]) {
-      const changed = [...parts];
-      changed[index] = value;
-      cases.push(`docker-task.${changed.join(".")}`);
-    }
-  for (const value of cases)
-    assert.deepEqual(parseTechnicalRecovery(value), parseStoredRecovery(value));
-  assert.deepEqual(parseTechnicalRecovery(token), {
-    token,
-    stableLogicalHomeBindingHash: parts[0],
-    operationNonce: parts[1],
-    baseHash: parts[2],
-  });
-});
-
-const names = [
-  "stop_runtime",
-  "stop_backend",
-  "retain_runtime",
-  "start_runtime",
-  "stop_failed_runtime",
-  "retain_failed_runtime",
-  "retain_auxiliary_runtime",
-  "restart_runtime",
-] as const;
+import type { RepairCheckpoint } from "../../src/docker-desktop/types.ts";
+import {
+  decodeRepairCheckpoint,
+  isRepairCheckpointSettled,
+  validateRepairCheckpointTransition,
+} from "../../src/docker-desktop/validation.ts";
+import {
+  createRepairMachineFixture,
+  repairActionNames,
+} from "../support/repair-machine.ts";
 
 /**
  * 指定した保存故障へ実際に一度到達したことを必須断言する。
@@ -332,169 +47,6 @@ function assertCheckpointFaultReached(
 }
 
 /**
- * 一つの未処置slotへ到達する固定状態と技術境界を作る。
- * @responsibility 各試験の効果・通知・観測counterを独立させる。
- * @trace ERB-IT-014
- * @precondition 前処置は明示不要、継続時の初回起動だけ確認済み。
- * @stimulus prefixとEngine最終状態を指定する。
- * @observation 実codecが受理した状態と模擬counter。
- * @oracle 固定八操作以外を発行せず、全通知の遷移を実validatorで検査する。
- * @cleanup N/A: メモリ値のみ。
- * @boundary 合成技術境界。実OSの成立は主張しない。
- */
-function fixture(prefix = 0, continuation = false) {
-  const checkpoint = decodeDockerRuntimeRepairCheckpoint({
-    actions: Object.fromEntries(
-      names.map((name, index) => [
-        name,
-        (index === 3 || (index === 2 && continuation)) && prefix >= 4
-          ? { intent: "saved", request: "issued", result: "confirmed" }
-          : {
-              intent: "not_saved",
-              request: "not_issued",
-              result: index < prefix ? "not_required" : "unobserved",
-            },
-      ]),
-    ),
-    directories: Object.fromEntries(
-      ["primary", "failed", "auxiliary"].map((name) => [
-        name,
-        {
-          expected:
-            name === "primary" && continuation && prefix >= 4
-              ? { dev: "1", ino: "4", birthtimeNs: "3" }
-              : null,
-          source: { state: "absent", identity: null },
-          retained:
-            name === "primary" && continuation && prefix >= 4
-              ? {
-                  state: "present",
-                  identity: { dev: "1", ino: "4", birthtimeNs: "3" },
-                }
-              : { state: "absent", identity: null },
-        },
-      ]),
-    ),
-    engine: "unavailable",
-    stale: continuation && prefix >= 4 ? "retained" : "absent",
-    hostSafety: "safe",
-    cleanup: "pending",
-    cleanupFailure: null,
-  });
-  assert.ok(checkpoint);
-  const controller = new AbortController();
-  const calls = {
-    observe: 0,
-    precondition: [] as string[],
-    execute: [] as string[],
-    notifications: [] as DockerRuntimeRepairCheckpoint[],
-    engine: 0,
-  };
-  let saved = checkpoint;
-  const input = {
-    checkpoint,
-    signal: controller.signal,
-    canIssueEffect: (): unknown => true,
-    onCheckpoint: (next: DockerRuntimeRepairCheckpoint): void => {
-      assert.ok(validateDockerRuntimeRepairCheckpointTransition(saved, next));
-      calls.notifications.push(next);
-      saved = next;
-      return;
-    },
-  };
-  const technical: Parameters<typeof executeRepairSteps>[1] = {
-    observe: async (value, phase) => {
-      calls.observe++;
-      if (phase === "failed_launch") {
-        const bound = decodeDockerRuntimeRepairCheckpoint({
-          ...value,
-          directories: {
-            ...value.directories,
-            ...Object.fromEntries(
-              [
-                ["failed", "7"],
-                ["auxiliary", "8"],
-              ].map(([purpose, ino]) => {
-                const identity = { dev: "1", ino, birthtimeNs: "3" };
-                return [
-                  purpose,
-                  {
-                    expected: identity,
-                    source: { state: "present", identity },
-                    retained: { state: "absent", identity: null },
-                  },
-                ];
-              }),
-            ),
-          },
-        });
-        assert.ok(bound);
-        return bound;
-      }
-      return {
-        ...value,
-        engine:
-          value.actions.restart_runtime.result === "confirmed" ||
-          (!continuation && value.actions.start_runtime.result === "confirmed")
-            ? "ready"
-            : value.engine,
-      };
-    },
-    precondition: async (action) => {
-      calls.precondition.push(action);
-      return "proceed";
-    },
-    execute: async (action, value) => {
-      calls.execute.push(action);
-      const purpose =
-        action === "retain_runtime"
-          ? "primary"
-          : action === "retain_failed_runtime"
-            ? "failed"
-            : action === "retain_auxiliary_runtime"
-              ? "auxiliary"
-              : null;
-      const id = (purpose && value.directories[purpose].expected) ?? {
-        dev: "1",
-        ino: String(names.indexOf(action) + 1),
-        birthtimeNs: "3",
-      };
-      const observation = purpose
-        ? decodeDockerRuntimeRepairCheckpoint({
-            ...value,
-            stale: "retained",
-            directories: {
-              ...value.directories,
-              [purpose]: {
-                expected: id,
-                source: { state: "absent", identity: null },
-                retained: { state: "present", identity: id },
-              },
-            },
-          })
-        : value;
-      assert.ok(observation);
-      return { issued: true, confirmation: "confirmed", observation };
-    },
-    awaitEngine: async (stage, value) => {
-      calls.engine++;
-      assert.ok(decodeDockerRuntimeRepairCheckpoint(value));
-      assert.ok(Object.isFrozen(value));
-      if (stage === "after_initial_start")
-        assert.equal(value.actions.start_runtime.result, "confirmed");
-      else assert.equal(value.actions.restart_runtime.result, "confirmed");
-      return continuation && stage === "after_initial_start"
-        ? {
-            state: "startup_timeout",
-            continuation: { engine: "transient_unavailable" },
-          }
-        : { state: "ready", continuation: null };
-    },
-  };
-  return { input, technical, controller, calls, saved: () => saved };
-}
-
-/**
  * 通常四処置と既知失敗後四処置を同じMachineで完結する。
  * @responsibility 八slotと最終cleanup未確定を共同確認する。
  * @trace ERB-IT-014
@@ -507,16 +59,20 @@ function fixture(prefix = 0, continuation = false) {
  */
 test("修復Machine: 通常四処置と限定継続四処置", async () => {
   for (const continuation of [false, true]) {
-    const f = fixture(0, continuation);
+    const f = createRepairMachineFixture(0, continuation);
     const observed = await executeRepairSteps(f.input, f.technical);
     assert.equal(observed.status, "recovered");
     assert.equal(observed.primaryFailure, null);
     assert.equal(observed.checkpointNotificationCompleted, true);
-    assert.deepEqual(f.calls.execute, continuation ? names : names.slice(0, 4));
-    assert.ok(dockerRuntimeRepairCheckpointIsSettled(observed.checkpoint));
+    assert.deepEqual(
+      f.calls.execute,
+      continuation ? repairActionNames : repairActionNames.slice(0, 4),
+    );
+    assert.ok(isRepairCheckpointSettled(observed.checkpoint));
     assert.equal(observed.checkpoint?.cleanup, "pending");
     assert.ok(Object.isFrozen(observed.checkpoint));
-    for (const name of f.calls.execute as (typeof names)[number][]) {
+    for (const name of f.calls
+      .execute as (typeof repairActionNames)[number][]) {
       assert.deepEqual(
         f.calls.notifications
           .filter((value) => value.actions[name].intent === "saved")
@@ -544,7 +100,7 @@ test("修復Machine: 通常四処置と限定継続四処置", async () => {
  * @boundary 本番Machineと模擬保存通知。
  */
 test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async () => {
-  for (const [index, name] of names.entries()) {
+  for (const [index, name] of repairActionNames.entries()) {
     for (const stage of [
       "intent",
       "issued",
@@ -556,7 +112,7 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
       "intent_boundary",
       "effect_cancel",
     ] as const) {
-      const f = fixture(index, index >= 4);
+      const f = createRepairMachineFixture(index, index >= 4);
       const record = f.input.onCheckpoint;
       let rejectedAt = -1;
       let notifications = 0;
@@ -657,10 +213,7 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
         assert.equal(observed.reason, "runtime_repair_state_unavailable");
         assert.equal(observed.checkpointNotificationCompleted, false);
         assert.ok(
-          validateDockerRuntimeRepairCheckpointTransition(
-            f.saved(),
-            observed.checkpoint,
-          ),
+          validateRepairCheckpointTransition(f.saved(), observed.checkpoint),
         );
       }
       if (stage === "effect_cancel") {
@@ -675,8 +228,8 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
       { intent: "saved", request: "issued", result: "unknown" },
       { intent: "saved", request: "unknown", result: "unknown" },
     ]) {
-      const f = fixture(index, index >= 4);
-      const checkpoint = decodeDockerRuntimeRepairCheckpoint({
+      const f = createRepairMachineFixture(index, index >= 4);
+      const checkpoint = decodeRepairCheckpoint({
         ...f.input.checkpoint,
         actions: { ...f.input.checkpoint.actions, [name]: slot },
       });
@@ -707,7 +260,7 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
  * @boundary Machineと合成技術結果。
  */
 test("修復Machine: 八slotの不要と未発行失敗・不明を分離する", async () => {
-  for (const [index, name] of names.entries()) {
+  for (const [index, name] of repairActionNames.entries()) {
     for (const mode of [
       "not_required",
       "precondition_unknown",
@@ -717,7 +270,7 @@ test("修復Machine: 八slotの不要と未発行失敗・不明を分離する"
       "throw",
       "record_lost",
     ] as const) {
-      const f = fixture(index, index >= 4);
+      const f = createRepairMachineFixture(index, index >= 4);
       const execute = f.technical.execute;
       let attempts = 0;
       let permitRecord = true;
@@ -800,7 +353,7 @@ test("修復Machine: Engine五分類と不正通知", async () => {
     "startup_timeout",
     "unknown",
   ] as const) {
-    const f = fixture(4);
+    const f = createRepairMachineFixture(4);
     const observed = await executeRepairSteps(f.input, {
       ...f.technical,
       awaitEngine: async () => ({ state, continuation: null }),
@@ -836,7 +389,7 @@ test("修復Machine: Engine五分類と不正通知", async () => {
       },
     }),
   ]) {
-    const f = fixture();
+    const f = createRepairMachineFixture();
     const observed = await executeRepairSteps(
       { ...f.input, onCheckpoint },
       f.technical,
@@ -870,13 +423,13 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
       "known_unavailable",
       "transient_unavailable",
     ] as const) {
-      const f = fixture(4, true);
+      const f = createRepairMachineFixture(4, true);
       const stages: string[] = [];
       const result = await executeRepairSteps(f.input, {
         ...f.technical,
         awaitEngine: async (stage, checkpoint) => {
           stages.push(stage);
-          assert.ok(decodeDockerRuntimeRepairCheckpoint(checkpoint));
+          assert.ok(decodeRepairCheckpoint(checkpoint));
           if (stage === "after_initial_start") {
             assert.equal(checkpoint.actions.start_runtime.result, "confirmed");
             return { state, continuation: { engine } };
@@ -902,8 +455,8 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
     }
   }
   for (const missing of ["start_runtime", "retain_runtime"] as const) {
-    const f = fixture(4, true);
-    const checkpoint = decodeDockerRuntimeRepairCheckpoint({
+    const f = createRepairMachineFixture(4, true);
+    const checkpoint = decodeRepairCheckpoint({
       ...f.input.checkpoint,
       actions: {
         ...f.input.checkpoint.actions,
@@ -928,7 +481,7 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
     assert.equal(result.status, "incomplete");
     assert.equal(f.calls.execute.length, 0);
   }
-  const f = fixture(4, true);
+  const f = createRepairMachineFixture(4, true);
   const result = await executeRepairSteps(f.input, {
     ...f.technical,
     awaitEngine: async (stage) =>
@@ -964,7 +517,7 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
  * @cleanup 有限通知とfixtureを破棄し実Directoryは変更しない。
  */
 async function assertFailedGenerationSaved(runner: typeof executeRepairSteps) {
-  const f = fixture(4, true);
+  const f = createRepairMachineFixture(4, true);
   const order: string[] = [];
   const record = f.input.onCheckpoint;
   f.input.onCheckpoint = (checkpoint) => {
@@ -1036,8 +589,8 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
     const mutant = runInThisContext(
       `(function(decodeRepairCheckpoint, validateRepairCheckpointTransition, types){${source.replace(before, after)}; return executeRepairSteps;})`,
     )(
-      decodeDockerRuntimeRepairCheckpoint,
-      validateDockerRuntimeRepairCheckpointTransition,
+      decodeRepairCheckpoint,
+      validateRepairCheckpointTransition,
       types,
     ) as typeof executeRepairSteps;
     await assert.rejects(() => assertFailedGenerationSaved(mutant));
@@ -1055,7 +608,7 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
     "observe_cancel",
     "observe_owner_lost",
   ]) {
-    const f = fixture(4, true);
+    const f = createRepairMachineFixture(4, true);
     let phaseCalls = 0,
       issue = true;
     f.input.canIssueEffect = () => issue;
@@ -1105,14 +658,14 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
     if (mode === "save_cancel" || mode === "save_owner_lost") {
       const checkpoint = result.checkpoint;
       assert.ok(checkpoint);
-      const next = fixture(4, true);
+      const next = createRepairMachineFixture(4, true);
       const resumed = await executeRepairSteps(
         { ...next.input, checkpoint },
         next.technical,
       );
       assert.equal(resumed.reason, "runtime_repair_recovered");
       assert.equal(next.calls.observe, 2);
-      assert.deepEqual(next.calls.execute, names.slice(4));
+      assert.deepEqual(next.calls.execute, repairActionNames.slice(4));
       assert.equal(next.calls.engine, 1);
     }
   }
@@ -1130,8 +683,8 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
  * @boundary Engine観測と処置選択。
  */
 test("修復Machine: 初期Engineと追加四処置の分岐を混同しない", async () => {
-  const ready = fixture();
-  const readyCheckpoint = decodeDockerRuntimeRepairCheckpoint({
+  const ready = createRepairMachineFixture();
+  const readyCheckpoint = decodeRepairCheckpoint({
     ...ready.input.checkpoint,
     engine: "ready",
   });
@@ -1141,14 +694,14 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
     ready.technical,
   );
   assert.equal(completed.status, "recovered");
-  assert.deepEqual(ready.calls.execute, names.slice(0, 4));
+  assert.deepEqual(ready.calls.execute, repairActionNames.slice(0, 4));
   assert.deepEqual(
     ready.calls.precondition,
-    names.slice(0, 4).flatMap((name) => [name, name]),
+    repairActionNames.slice(0, 4).flatMap((name) => [name, name]),
   );
 
-  const unknown = fixture();
-  const unknownCheckpoint = decodeDockerRuntimeRepairCheckpoint({
+  const unknown = createRepairMachineFixture();
+  const unknownCheckpoint = decodeRepairCheckpoint({
     ...unknown.input.checkpoint,
     engine: "unknown",
   });
@@ -1164,8 +717,8 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
   assert.equal(refused.primaryFailure, null);
   assert.equal(unknown.calls.execute.length, 0);
 
-  const host = fixture(4);
-  const hostCheckpoint = decodeDockerRuntimeRepairCheckpoint({
+  const host = createRepairMachineFixture(4);
+  const hostCheckpoint = decodeRepairCheckpoint({
     ...host.input.checkpoint,
     hostSafety: "unknown",
   });
@@ -1177,7 +730,7 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
   assert.equal(remaining.status, "incomplete");
   assert.equal(host.calls.execute.length, 0);
   assert.equal(host.calls.precondition.length, 0);
-  for (const name of names.slice(4))
+  for (const name of repairActionNames.slice(4))
     assert.equal(remaining.checkpoint?.actions[name].result, "unobserved");
 });
 
@@ -1193,7 +746,7 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
  * @boundary 合成発行結果と保存通知。
  */
 test("修復Machine: 不正Effect観測でもunknownを保存する", async () => {
-  for (const [index, name] of names.entries()) {
+  for (const [index, name] of repairActionNames.entries()) {
     for (const fault of [
       "decode",
       "action",
@@ -1202,9 +755,9 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
       "throw",
     ] as const) {
       for (const ownerAlive of [false, true]) {
-        const f = fixture(index, index >= 4);
+        const f = createRepairMachineFixture(index, index >= 4);
         const expected = { dev: "1", ino: "999", birthtimeNs: "3" };
-        const checkpoint = decodeDockerRuntimeRepairCheckpoint({
+        const checkpoint = decodeRepairCheckpoint({
           ...f.input.checkpoint,
           directories: {
             ...f.input.checkpoint.directories,
@@ -1234,9 +787,7 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
             onCheckpoint: (next) => {
               if (effectStarted && !ownerAlive)
                 throw new Error("owner_expired");
-              assert.ok(
-                validateDockerRuntimeRepairCheckpointTransition(durable, next),
-              );
+              assert.ok(validateRepairCheckpointTransition(durable, next));
               if (next.actions[name].result === "unknown")
                 unknownNotifications++;
               durable = next;
@@ -1285,11 +836,11 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
                           },
                         };
               if (fault !== "decode")
-                assert.ok(decodeDockerRuntimeRepairCheckpoint(observation));
+                assert.ok(decodeRepairCheckpoint(observation));
               return {
                 issued: true,
                 confirmation: "confirmed",
-                observation: observation as DockerRuntimeRepairCheckpoint,
+                observation: observation as RepairCheckpoint,
               };
             },
           },
@@ -1307,10 +858,7 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
         assert.equal(observed.checkpoint?.actions[name].request, "unknown");
         assert.equal(observed.checkpoint?.actions[name].result, "unknown");
         assert.ok(
-          validateDockerRuntimeRepairCheckpointTransition(
-            beforeEffect,
-            observed.checkpoint,
-          ),
+          validateRepairCheckpointTransition(beforeEffect, observed.checkpoint),
         );
         assert.equal(durable === beforeEffect, !ownerAlive);
         assert.equal(f.calls.engine, index < 4 ? 0 : 1);
@@ -1342,16 +890,16 @@ test("修復Machine: issued通知省略は故障注入の必須到達Oracleが�
     .replace("export async function", "async function");
   const mutant = source.replace("if (!publish(issuedCandidate))", "if (false)");
   assert.notEqual(mutant, source);
-  for (const [index, name] of names.entries()) {
+  for (const [index, name] of repairActionNames.entries()) {
     for (const text of [source, mutant]) {
       const runner = runInThisContext(
         `(function(decodeRepairCheckpoint, validateRepairCheckpointTransition, types){${text}; return executeRepairSteps;})`,
       )(
-        decodeDockerRuntimeRepairCheckpoint,
-        validateDockerRuntimeRepairCheckpointTransition,
+        decodeRepairCheckpoint,
+        validateRepairCheckpointTransition,
         types,
       ) as typeof executeRepairSteps;
-      const f = fixture(index, index >= 4);
+      const f = createRepairMachineFixture(index, index >= 4);
       const injections: { action: string; stage: string }[] = [];
       let notifications = 0;
       let rejectedAt = -1;
@@ -1397,8 +945,8 @@ test("修復Machine: issued通知省略は故障注入の必須到達Oracleが�
  * @boundary 値のSchema適合と実行再入場契約を区別する。
  */
 test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", async () => {
-  const seed = fixture(4, true);
-  const captured: DockerRuntimeRepairCheckpoint[] = [];
+  const seed = createRepairMachineFixture(4, true);
+  const captured: RepairCheckpoint[] = [];
   seed.input.onCheckpoint = (value) => {
     if (value.directories.failed.expected !== null) {
       captured.push(value);
@@ -1470,12 +1018,12 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
   const mutant = runInThisContext(
     `(function(decodeRepairCheckpoint, validateRepairCheckpointTransition, types){${source.replace(guard, "false")}; return executeRepairSteps;})`,
   )(
-    decodeDockerRuntimeRepairCheckpoint,
-    validateDockerRuntimeRepairCheckpointTransition,
+    decodeRepairCheckpoint,
+    validateRepairCheckpointTransition,
     types,
   ) as typeof executeRepairSteps;
   for (const [index, candidate] of candidates.entries()) {
-    const checkpoint = decodeDockerRuntimeRepairCheckpoint(candidate);
+    const checkpoint = decodeRepairCheckpoint(candidate);
     assert.ok(checkpoint, `candidate_decode:${index}`);
     /**
      * 不正candidate checkpointが初回の技術観測へ進まないことを確認する。
@@ -1489,7 +1037,7 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
      * @boundary 修復Machineへの入力境界で実修復を起動しない。
      */
     const verify = async (runner: typeof executeRepairSteps) => {
-      const f = fixture(4, true);
+      const f = createRepairMachineFixture(4, true);
       const before = JSON.stringify(checkpoint);
       const result = await runner({ ...f.input, checkpoint }, f.technical);
       assert.equal(f.calls.observe, 0, `fresh_observation_started:${index}`);

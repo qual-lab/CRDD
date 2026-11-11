@@ -10,10 +10,7 @@
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
 
-import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
-import { acquireLock } from "../../../lock/src/index.ts";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
@@ -35,7 +32,6 @@ import * as stateModel from "../../../domain-model/src/index.ts";
 import * as historyValues from "../../../domain-model/src/index.ts";
 import * as stateRuntime from "../../../domain-model/src/index.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
   coordinatorTaskResourcesAreSettled,
   createDockerRestartRequestId,
   encodeRuntimeStateValue,
@@ -44,13 +40,16 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
 } from "../../../domain-model/src/index.ts";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { acquireLock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   requestInChild,
   type VerificationHttpTiming,
 } from "../../../workbench-server/scripts/ai-verification-http.ts";
 import * as homes from "../../src/execution/authority.ts";
+import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import * as development from "../../src/execution/diagnostics.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
@@ -2951,7 +2950,7 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v2", revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount >= 2) {
         // 再入場Caseの初期値を自己生成領域へ配置する。初期化Writerの保証はDomainが検証する。

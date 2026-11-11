@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility 既存の保存形状・業務ID・表示名・CHG相関を維持する。
  * @trace RFD-UT-030
+ * @trace CPR-UT-009
  * @level UT
  * @scope 候補保存値とPackage依存方向。
  * @boundary 同一Processの値検査。Git・保存Effectなし。
@@ -15,8 +16,10 @@ import {
   validWorkspaceDisplayName,
   type WorkspaceCandidateRequest,
 } from "../../src/index.ts";
-
-import { validCandidateRecord } from "../../src/workspace/validation.ts";
+import {
+  validCandidateRecord,
+  validCoordinatorWorkspace,
+} from "../../src/workspace/validation.ts";
 
 /**
  * 上位の保存相関と下位の技術入力検査を同じ値へ適用する。
@@ -133,4 +136,171 @@ test("技術入力の閉形式と境界条件を維持する", () => {
   assert.equal(isWorkspaceCommitId(COMMIT), true);
   assert.equal(isWorkspaceCommitId(sha256), true);
   assert.equal(isWorkspaceCommitId("a".repeat(39)), false);
+});
+
+/**
+ * VCの新技術理由を保存契約へ接続し、旧成功理由と対象外系列を拒否する。
+ * @responsibility 成功・一次失敗・回収失敗と既統合の相関を保持する。
+ * @trace CPR-UT-009
+ * @precondition 合成値だけを既存の純粋保存検査へ渡す。
+ * @stimulus 固定・Mergeの新旧成功理由、失敗系列、既統合時のnull Merge ID。
+ * @observation boolean。
+ * @oracle 新理由だけ成功として受理し、未知操作や成功相関不一致を拒否する。
+ * @cleanup N/A: 保存・Git・Process・過去保持物を使用しない。
+ * @boundary CPR-UT-009=N/A: Domain自身の保存値検査。Git・保存Effectなし。
+ */
+test("VC技術理由の保存は新成功と一次・回収失敗を区別する", () => {
+  const workspaceId = "11111111-1111-4111-8111-111111111111";
+  const operationId = "22222222-2222-4222-8222-222222222222";
+  const base = "a".repeat(40),
+    commit = "b".repeat(40);
+  const result = {
+    status: "completed",
+    reason: "commit_create_completed",
+    candidateRef: `refs/heads/crdd/candidate/${workspaceId}/${operationId}`,
+    candidateCommit: commit,
+    mergeCommit: null,
+    effectIssued: true,
+    cleanupConfirmed: true,
+    temporary: null,
+    changedPaths: ["source.txt"],
+  };
+  const candidate = {
+    request: {
+      workspaceId,
+      operationId,
+      baseCommit: base,
+      expectedWorkspaceHead: base,
+      workspaceName: null,
+      candidateName: null,
+      relatedChangeIds: [],
+      selection: [{ path: "source.txt", mode: "100644", blobId: commit }],
+    },
+    phase: "fixed",
+    candidateCommit: commit,
+    target: null,
+    mergeCommit: null,
+    disposition: null,
+    lastResult: result,
+    primaryFailure: null,
+    cleanupFailure: null,
+  };
+  const workspace = {
+    workspaceId,
+    name: null,
+    generation: 1,
+    baseCommit: base,
+    head: base,
+    phase: "ready",
+    pending: null,
+    holdUntil: null,
+    lastResult: null,
+    primaryFailure: null,
+    candidate,
+  };
+  for (const reason of [
+    "commit_create_completed",
+    "commit_create_existing_confirmed",
+    "candidate_fixed",
+    "candidate_fixed_existing",
+  ]) {
+    assert.equal(
+      validCoordinatorWorkspace({
+        ...workspace,
+        candidate: {
+          ...candidate,
+          lastResult: { ...result, reason },
+        },
+      }),
+      reason.startsWith("commit_create_"),
+      reason,
+    );
+  }
+  const merged = {
+    ...candidate,
+    phase: "merged",
+    disposition: "adopted",
+    target: { targetBranch: "main", expectedTargetHead: base },
+    mergeCommit: null,
+  };
+  for (const reason of [
+    "commit_merge_completed",
+    "commit_merge_existing_confirmed",
+    "commit_merge_already_integrated",
+    "candidate_merged",
+    "candidate_merge_existing",
+    "candidate_already_integrated",
+  ]) {
+    for (const mergeCommit of [null, "c".repeat(40)]) {
+      assert.equal(
+        validCoordinatorWorkspace({
+          ...workspace,
+          candidate: {
+            ...merged,
+            mergeCommit,
+            lastResult: { ...result, reason, mergeCommit },
+          },
+        }),
+        reason.startsWith("commit_merge_") &&
+          (mergeCommit !== null ||
+            reason === "commit_merge_already_integrated"),
+        `${reason}:${mergeCommit}`,
+      );
+    }
+  }
+  for (const reason of [
+    "commit_create_content_changed",
+    "commit_merge_conflict",
+    "commit_temporary_cleanup_unconfirmed",
+  ]) {
+    const failed = {
+      ...candidate,
+      phase: "freezing",
+      primaryFailure: reason,
+      lastResult: { ...result, status: "blocked", reason },
+    };
+    assert.equal(
+      validCoordinatorWorkspace({ ...workspace, candidate: failed }),
+      true,
+      reason,
+    );
+  }
+  for (const cleanupFailure of [
+    "commit_create_content_mismatch",
+    "commit_temporary_cleanup_unconfirmed",
+    "commit_copy_failed",
+    "commit_diff_input_invalid",
+  ]) {
+    assert.equal(
+      validCoordinatorWorkspace({
+        ...workspace,
+        candidate: {
+          ...candidate,
+          cleanupFailure,
+        },
+      }),
+      cleanupFailure.startsWith("commit_create_") ||
+        cleanupFailure.startsWith("commit_temporary_"),
+      cleanupFailure,
+    );
+  }
+  for (const reason of [
+    "commit_copy_failed",
+    "commit_diff_input_invalid",
+    "commit_push_failed",
+  ]) {
+    assert.equal(
+      validCoordinatorWorkspace({
+        ...workspace,
+        candidate: {
+          ...candidate,
+          phase: "freezing",
+          primaryFailure: reason,
+          lastResult: { ...result, status: "blocked", reason },
+        },
+      }),
+      false,
+      reason,
+    );
+  }
 });

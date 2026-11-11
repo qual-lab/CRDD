@@ -1,5 +1,9 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 終了記録の改訂と前版相関 — 2026-11-11
+
+既存PRL-UT-006へ、正常終端の候補がCleanup有無にかかわらず読取り元から一改訂だけ進む確認を接続する。資源未受領／記録あり、元版Hash差・同一改訂、Provider開始済み・外部送信不明・未受領Snapshotの混入・観測不明を反証する。安全条件不成立では候補保存0、保存拒否・解放不明では元の拒否・回復参照を保持する。対象はDomain自身のruntime-transitions UTとattempt/settlementであり、物理CASと保存後の確認はQA-000006の既存保存ITに分ける。正式項目・判定条件の追加や緩和はしない。
+
 ## 長期Leaseの共通Lock接続
 
 PRL-IT-012の既存取得・解放・Owner喪失回復に、wx Fileへの接続と二回復者の反証を追加する。新Local IDや正式Pass数は増やさない。対象は[長期Lease設計](../../../06_Architecture/Details/coordinator/01_Architecture.md#long-lease-common-lock)とDomainのfresh候補・短期保存境界である。

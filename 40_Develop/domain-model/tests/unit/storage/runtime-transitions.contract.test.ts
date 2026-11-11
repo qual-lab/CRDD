@@ -9,17 +9,16 @@
  */
 
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../../support/resource-operation.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, runInThisContext } from "node:vm";
 import {
-  COORDINATOR_STATE_SCHEMA,
   applyCoordinatorResourceEvent,
-  type CoordinatorState,
+  COORDINATOR_STATE_SCHEMA,
   type CoordinatorResourceBook,
+  type CoordinatorState,
   type CoordinatorStateTaskOperation,
   type CoordinatorUnifiedSnapshot,
   classifyCoordinatorResourcePublication,
@@ -50,7 +49,221 @@ import {
   validateCoordinatorStateTransition,
   validateCoordinatorUnifiedTransition,
 } from "../../../src/index.ts";
+import {
+  createResourceBookFixture,
+  createResourceOperationFixture,
+} from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
+
+/**
+ * 終端候補の改訂をCleanupの有無から独立させて確認する。
+ * @responsibility 本番の終端候補生成を実行し、保存直前の版・前Hash・拒否を反証する。
+ * @trace PRL-UT-006
+ * @precondition 資源未受領又は正式未発行の合成元版。保存端だけを捕捉する。
+ * @stimulus Book有無と、未開始・未発行・Snapshot相関の不成立を渡す。
+ * @observation 保存到達回数、候補bytes、元結果・回復IDと固定拒否結果。
+ * @oracle 正常時は元版+1、前Hash一致。安全条件不成立は保存0、元版差は遷移拒否。
+ * @cleanup N/A: メモリとSource読取りだけ。Filesystem・Lock・Dockerは変更しない。
+ * @boundary 候補生成のUT。物理保存と実CASは既存保存ITが確認する。
+ */
+for (const scenario of [
+  "without_resources",
+  "with_resources",
+  "provider_started",
+  "external_send_unknown",
+  "snapshot_not_received",
+  "observation_unknown",
+] as const) {
+  test(`終了記録の改訂と安全条件: ${scenario}`, () => {
+    const fixture = createResourceOperationFixture();
+    const initial = decodeRuntimeDomainSnapshot(fixture.bytes, fixture.binding);
+    assert.ok(initial);
+    const frame = createResourceBookFixture(fixture.ownershipLabel);
+    let book: CoordinatorResourceBook | null = null;
+    if (scenario === "with_resources") {
+      book = applyCoordinatorResourceEvent(null, {
+        event: "submission",
+        key: "container",
+        snapshot: frame.snapshot,
+        cleanup: frame.cleanup,
+      });
+      assert.ok(book);
+      book = applyCoordinatorResourceEvent(book, {
+        event: "not_issued",
+        key: "container",
+      });
+      assert.ok(book);
+    }
+    const beforeBytes = Buffer.from(
+      `${encodeRuntimeStateValue({
+        ...initial.snapshot,
+        operations: initial.snapshot.operations.map((operation) =>
+          operation.kind !== "docker_task"
+            ? operation
+            : {
+                ...operation,
+                resources: book,
+                execution: {
+                  ...operation.execution,
+                  ...(scenario === "provider_started"
+                    ? { providerStart: "started" }
+                    : {}),
+                  ...(scenario === "external_send_unknown"
+                    ? { externalSend: "unknown" }
+                    : {}),
+                },
+              },
+        ),
+      })}\n`,
+    );
+    const before = decodeRuntimeDomainSnapshot(beforeBytes, fixture.binding);
+    assert.ok(before);
+    const context = {},
+      cleanup = {},
+      completion = Object.freeze({
+        status: "blocked",
+        reason: "provider_result_invalid",
+        cleanupConfirmed: true,
+      });
+    const terminal = {
+      resourceSnapshot:
+        book?.snapshot ??
+        (scenario === "snapshot_not_received" ? frame.snapshot : null),
+      resources: (book?.checkpoints ?? frame.checkpoints).map((item) => ({
+        key: item.key,
+        observation:
+          scenario === "observation_unknown" ? "unknown" : "not_requested",
+      })),
+      homeLeaseReleased: true,
+      mountLeaseReleased: true,
+      recoveryCompleted: true,
+      primaryFailure: null,
+    };
+    const captured: { writes: number; bytes: Buffer | null } = {
+      writes: 0,
+      bytes: null,
+    };
+    const source = fs.readFileSync(
+      new URL("../../../src/attempt/settlement.ts", import.meta.url),
+      "utf8",
+    );
+    const execute = runInThisContext(`(dependencies) => {
+      const { readLiveSettlement, captureRuntimeOwnedCoordinatorSettlementInputs,
+        observeRuntimeTerminalForStorage, readRuntimeOwnedCoordinatorSettlementSnapshot,
+        writeCoordinatorStateSnapshot, prepareCoordinatorStateCleanupSnapshot,
+        decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, writeRuntimeOwnedCoordinatorSettlement } = dependencies;
+      ${sourceDeclaration(source, "settleRuntimeOwnedCoordinatorResult")}
+      return settleRuntimeOwnedCoordinatorResult;
+    }`)({
+      readLiveSettlement: (value: unknown) => {
+        assert.equal(value, context);
+        return {
+          repository: {
+            repositoryBinding: fixture.binding,
+            operationId: fixture.identity.operationId,
+          },
+          recoveryId: fixture.recoveryId,
+          verifyCleanup: () => true,
+        };
+      },
+      captureRuntimeOwnedCoordinatorSettlementInputs: (
+        _context: unknown,
+        receivedCleanup: unknown,
+        receivedResult: unknown,
+      ) => {
+        assert.equal(receivedCleanup, cleanup);
+        assert.equal(receivedResult, completion);
+        return true;
+      },
+      observeRuntimeTerminalForStorage: () => terminal,
+      readRuntimeOwnedCoordinatorSettlementSnapshot: () => ({
+        status: "completed",
+        value: before,
+      }),
+      writeCoordinatorStateSnapshot: () => ({
+        status: "blocked",
+        reason: "fixture_input_rejected",
+        filesystemEffectIssued: false,
+      }),
+      prepareCoordinatorStateCleanupSnapshot,
+      decodeRuntimeDomainSnapshot,
+      encodeRuntimeStateValue,
+      writeRuntimeOwnedCoordinatorSettlement: (
+        _context: unknown,
+        bytes: Buffer,
+        receivedCleanup: unknown,
+        receivedResult: unknown,
+      ) => {
+        assert.equal(_context, context);
+        assert.equal(receivedCleanup, cleanup);
+        assert.equal(receivedResult, completion);
+        captured.writes++;
+        captured.bytes = bytes;
+        return {
+          status: "blocked",
+          reason: "fixture_storage_refused",
+          lockReleased: false,
+          filesystemEffectIssued: false,
+        };
+      },
+    });
+    const result = execute(context, cleanup, completion);
+    const safe =
+      scenario === "without_resources" || scenario === "with_resources";
+    assert.equal(captured.writes, safe ? 1 : 0);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.recoveryId, fixture.recoveryId);
+    assert.equal(
+      result.reason,
+      safe ? "fixture_storage_refused" : "fixture_input_rejected",
+    );
+    if (!safe) return;
+    assert.equal(result.lockReleased, false);
+    assert.ok(captured.bytes);
+    const candidate = decodeRuntimeDomainSnapshot(
+      captured.bytes,
+      fixture.binding,
+    );
+    assert.ok(candidate);
+    assert.equal(candidate.snapshot.revision, before.snapshot.revision + 1);
+    assert.deepEqual(candidate.snapshot.previous, {
+      revision: before.snapshot.revision,
+      payloadSha256: createHash("sha256").update(beforeBytes).digest("hex"),
+    });
+    assert.equal(
+      validateCoordinatorStateTransition(
+        beforeBytes,
+        captured.bytes,
+        fixture.binding,
+      ),
+      true,
+    );
+    for (const invalid of [
+      { ...candidate.snapshot, revision: before.snapshot.revision },
+      {
+        ...candidate.snapshot,
+        previous: {
+          ...candidate.snapshot.previous,
+          payloadSha256: "f".repeat(64),
+        },
+      },
+    ])
+      assert.equal(
+        validateCoordinatorStateTransition(
+          beforeBytes,
+          Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+          fixture.binding,
+        ),
+        false,
+      );
+    assert.ok(
+      fixture.bytes.equals(
+        Buffer.from(`${encodeRuntimeStateValue(initial.snapshot)}\n`),
+      ),
+    );
+  });
+}
 
 const binding = "a".repeat(64);
 const RESOURCE_KEYS = [

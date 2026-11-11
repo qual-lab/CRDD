@@ -4,29 +4,33 @@
  * @trace ERB-IT-014
  * @boundary Host Windows試験からだけ起動する。実Docker・Provider要求は発行しない。
  */
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
-import type { CoordinatorResourceBook } from "../../../domain-model/src/index.ts";
+
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
-import { syncBuiltinESMExports } from "node:module";
 import { runInThisContext } from "node:vm";
-import { getRepository } from "../../../version-control/src/index.ts";
+import type {
+  IsolationCallbacks,
+  ResourceSnapshot,
+  ResourceTarget,
+} from "../../../docker-isolation/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import type { CoordinatorResourceBook } from "../../../domain-model/src/index.ts";
 import {
+  type CoordinatorStateOperation,
+  coordinatorAuthenticationUnknownCanClose,
+  coordinatorTaskResourcesAreSettled,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
-  type CoordinatorStateOperation,
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
   readRuntimeOwnedCoordinatorRecoverySnapshot,
-  writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
+  writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
 } from "../../../domain-model/src/index.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);
 assert.ok(root && operationId && recoveryId && scenario);
@@ -58,6 +62,10 @@ assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 // CoordinatorがDIを読み込む前に、外部CLI端の有限代役を接続する。
 const f = await createIsolationFixture({ mock });
+// 設定OwnerがDI Rootを読む前に、CLI・環境の有限境界を接続する。
+const { getIsolationSettings } = await import(
+  "../../src/execution/configuration.ts"
+);
 const { borrowRuntimeOwnedCoordinatorRecoveryRepository } = await import(
   "../../src/execution/operation.ts"
 );
@@ -356,9 +364,21 @@ try {
   );
   const result = await driver(
     owner,
-    f.api.cleanupIsolation,
-    (...args: Parameters<typeof inspectIsolation>) => {
-      const inspection = inspectIsolation(...args);
+    (target: ResourceTarget<"snapshot">, callbacks: IsolationCallbacks) =>
+      f.api.cleanupIsolation(target, getIsolationSettings(), callbacks),
+    (
+      target: ResourceTarget<"snapshot">,
+      options?: Readonly<{
+        signal?: AbortSignal;
+        stopOnUnknownAbsence?: boolean;
+      }>,
+    ) => {
+      const inspection = inspectIsolation(
+        target,
+        getIsolationSettings(),
+        options,
+      );
+      events.push(`inspect:${inspection.status}:${inspection.reason}`);
       // 発見用の追加CLI照会を、不存在確認のround数へ混入させない。
       rounds =
         inspection.resources.find((resource) => resource.key === auth.key)
@@ -427,7 +447,20 @@ try {
       closeCount = events.filter((e) => e.startsWith("close:")).length,
       writeCount = closureWrites;
     assert.equal(
-      (await driver(owner, f.api.cleanupIsolation, inspectIsolation)).status,
+      (
+        await driver(
+          owner,
+          (target: ResourceTarget<"snapshot">, callbacks: IsolationCallbacks) =>
+            f.api.cleanupIsolation(target, getIsolationSettings(), callbacks),
+          (
+            target: ResourceTarget<"snapshot">,
+            options?: Readonly<{
+              signal?: AbortSignal;
+              stopOnUnknownAbsence?: boolean;
+            }>,
+          ) => inspectIsolation(target, getIsolationSettings(), options),
+        )
+      ).status,
       "blocked",
     );
     assert.equal(f.calls.length, callCount);
@@ -487,11 +520,16 @@ try {
         "saved_reentry",
         "outer_close_failed",
       ].includes(scenario);
-      assert.equal(checkpoint.observation, savedAbsence ? "absent" : "unknown");
       const previousCheckpoint = original.checkpoints.find(
         (c) => c.key === resource.key,
       );
       assert.ok(previousCheckpoint);
+      // 二段不存在の保存前に停止した場合、観測済みという新事実を捏造しない。
+      assert.equal(
+        checkpoint.observation,
+        savedAbsence ? "absent" : previousCheckpoint.observation,
+      );
+      if (!savedAbsence) assert.deepEqual(checkpoint, previousCheckpoint);
       assert.deepEqual(
         {
           ...checkpoint,

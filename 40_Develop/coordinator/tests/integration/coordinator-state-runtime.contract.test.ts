@@ -10,21 +10,18 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
 
-import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
-  COORDINATOR_STATE_SCHEMA,
-  applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
+  applyCoordinatorResourceEvent,
   type CoordinatorResourceBook,
   type CoordinatorStateOperation,
   type CoordinatorStateTaskOperation,
@@ -36,7 +33,6 @@ import {
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  hashRuntimeStateContent,
   observeRuntimeOwnedTransientTaskCompletion,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorStateHostSnapshot,
@@ -57,8 +53,13 @@ import {
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../domain-model/src/index.ts";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  providerHomesDirectoryCandidate,
+  runtimeStateDirectoryCandidate,
+} from "../../src/execution/authority.ts";
 import { acquireProviderHomeLock } from "../../src/execution/kernel-lock.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
 import {
@@ -110,6 +111,37 @@ import {
   executionSelection,
 } from "../fixtures/ai-selection.ts";
 
+/**
+ * Host試験の共有Home・Runtime State親を今回の新品Rootへ限定する。
+ * @responsibility 実ユーザーの設定・保持物に依存せず、同じ所在から排他を導出する。
+ * @trace ERB-IT-014
+ * @precondition rootは現在Caseが作成した専用Repositoryである。
+ * @stimulus 所在取得元を自己所有Rootに設定し、既存の候補所在だけを作成する。
+ * @observation 既存Home排他と回復準備の結果をCaseが検証する。
+ * @oracle 実Homeの有無を試験前提にしない。
+ * @cleanup 元設定を復元し、Caseの既存hookがRoot全体を回収する。
+ * @boundary 試験Process内の設定と自己所有Filesystemのみ。
+ */
+function useFixtureRuntimeDirectories(t: TestContext, root: string) {
+  const previous = process.env.LOCALAPPDATA;
+  process.env.LOCALAPPDATA = root;
+  t.after(() => {
+    if (previous === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = previous;
+  });
+  for (const directory of [
+    providerHomesDirectoryCandidate(),
+    runtimeStateDirectoryCandidate(),
+  ]) {
+    assert.ok(directory);
+    const relative = path.relative(root, directory);
+    assert.ok(
+      relative && !relative.startsWith("..") && !path.isAbsolute(relative),
+    );
+    fs.mkdirSync(directory, { recursive: true });
+  }
+}
+
 const RESOURCE_KEYS = [
   "create_egress_network",
   "create_internal_network",
@@ -157,6 +189,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     "test_root",
   );
   const root = fs.mkdtempSync(path.join(tests.directory, "coordinator-state-"));
+  useFixtureRuntimeDirectories(t, root);
   let owned: ReturnType<typeof createOwnedOperationDirectories> | null = null;
   let isCleaned = false;
   t.after(() => {
@@ -208,7 +241,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const first = {
     ...emptyTaskSections,
-    schema: COORDINATOR_STATE_SCHEMA,
+    schema: "crdd-domain/runtime-state/v2",
     revision: 1,
     previous: null,
     repositoryBinding: repository.repositoryBinding,
@@ -225,7 +258,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     revision: 2,
     previous: {
       revision: 1,
-      payloadSha256: hashRuntimeStateContent(first),
+      payloadSha256: createHash("sha256")
+        .update(encodeRuntimeStateValue(first) + "\n", "utf8")
+        .digest("hex"),
     },
   };
   const secondBytes = Buffer.from(`${encodeRuntimeStateValue(second)}\n`);
@@ -239,7 +274,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const readFirst = readRuntimeOwnedCoordinatorStateSnapshot(management);
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
-  assert.equal(readFirst.value?.payloadSha256, hashRuntimeStateContent(second));
+  assert.equal(
+    readFirst.value?.payloadSha256,
+    createHash("sha256")
+      .update(encodeRuntimeStateValue(second) + "\n", "utf8")
+      .digest("hex"),
+  );
   assert.deepEqual(
     readRuntimeOwnedCoordinatorRecoverySnapshot(verifiedRoot.capability).value,
     readFirst.value,
@@ -291,7 +331,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       markerIdentity: "1:2:4",
       record: hostRecord,
     },
-    hostPaths: { root: "host-root", marker: "host-marker" },
+    hostPaths: {
+      root: path.join(root, hostRecord.rootName),
+      marker: path.join(root, hostRecord.rootName, "host-marker"),
+    },
   };
   const resourceFrame = createResourceBookFixture(
     identity.ownershipLabel,
@@ -743,7 +786,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.deepEqual(actual.value.snapshot, expected);
       assert.equal(
         actual.value.payloadSha256,
-        hashRuntimeStateContent(expected),
+        createHash("sha256")
+          .update(encodeRuntimeStateValue(expected) + "\n", "utf8")
+          .digest("hex"),
       );
     }
     fs.writeFileSync(
@@ -1309,7 +1354,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       restartOperation.recoveryId,
       verifiedRoot.capability,
     );
-    assert.equal(preparation.status, "prepared");
+    assert.equal(
+      preparation.status,
+      "prepared",
+      "reason" in preparation ? preparation.reason : undefined,
+    );
     assert.ok(preparation.capability);
     let preparationReleased = false;
     try {
@@ -2233,7 +2282,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     )
       return null;
     return Object.freeze({
-      resourceSnapshot: resourceFrame.snapshot,
+      // この正常終端fixtureはSnapshot受領も外部要求もない元版を使う。
+      resourceSnapshot: null,
       resources: resourceFrame.checkpoints.map((item) => ({
         key: item.key,
         observation: "not_requested",
@@ -2402,6 +2452,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "b".repeat(64),
       ],
       [startPlan, freshManagement, "invalid"],
+      // LabelはIdentityへ搬送されるため、Domain形式検査への接続も別に保持する。
+      [
+        { ...startPlan, ownershipLabel: "invalid" },
+        freshManagement,
+        "b".repeat(64),
+      ],
       ...[
         "authContainerName",
         "providerContainerName",
@@ -2414,13 +2470,20 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ].map(
         (key) =>
           [
-            { ...startPlan, [key]: "invalid" },
+            // この境界は所在文字列の欠測を拒否し、Docker構成の検査はDIが所有する。
+            { ...startPlan, [key]: null },
             freshManagement,
             "b".repeat(64),
           ] as const,
       ),
       [
-        { ...startPlan, proxyContainerName: startPlan.authContainerName },
+        {
+          ...startPlan,
+          executionSelection: {
+            ...startPlan.executionSelection,
+            provider: "codex" as const,
+          },
+        },
         freshManagement,
         "b".repeat(64),
       ],
@@ -2503,6 +2566,28 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       1,
     );
     assert.deepEqual(fs.readdirSync(freshArea.directory), ["state.json"]);
+    // Identityに技術資源を復元せず、現在の公開通知保存で同じFrameを登録する。
+    for (const resource of resourceFrame.snapshot.resources) {
+      assert.equal(
+        resource.identity.ownershipLabel,
+        freshIdentityValue.ownershipLabel,
+      );
+      assert.equal(resource.identity.dockerId, null);
+      assert.equal(resource.request, "not_issued");
+      const submitted = checkpointRuntimeOwnedCoordinatorResource(
+        freshManagement,
+        freshStarted.recoveryId,
+        {
+          event: "submission",
+          key: resource.key,
+          snapshot: resourceFrame.snapshot,
+          cleanup: resourceFrame.cleanup,
+        },
+      );
+      assert.equal(submitted.status, "completed");
+      assert.equal(submitted.snapshotConfirmed, true);
+      assert.equal(submitted.lockReleased, true);
+    }
     const hostBefore = borrowOwnedHostRecoverySnapshot(freshManagement);
     assert.throws(() =>
       beginOwnedDockerSubmissionRecovery({}, freshRepository.operationId),
@@ -2556,20 +2641,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     } as unknown as Parameters<
       typeof import("../../src/execution/controller.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
-    const cleanupObservations = (
-      [
-        ["create_egress_network", "egress"],
-        ["create_internal_network", "internal"],
-        ["create_provider", "provider"],
-        ["create_proxy", "proxy"],
-        ["create_subscription_auth_probe", "auth"],
-      ] as const
-    ).map(([purpose, name]) => ({
-      purpose,
-      plannedResourceName: freshIdentityValue.resources[name],
-      dockerId: null,
-      observation: "not_requested",
-    }));
     const mountRuntime = await import("../../src/execution/authority.ts");
     const mountMock = t.mock.module("../../src/execution/authority.ts", {
       namedExports: {
@@ -2641,7 +2712,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection, coordinatorTaskResourcesAreSettled } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
@@ -2765,13 +2836,56 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         },
       ])
         assert.equal(completeHost(mountResult, plan).status, "blocked");
+      const intentPending = completeHost();
+      assert.equal(intentPending.status, "blocked");
+      assert.equal(intentPending.hostTransitionRequested, false);
+      assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
       assert.equal(completeCalls, 0);
+      // このfixtureはDockerを一度も要求していない。Intent中の拒否を確認してから確定する。
+      for (const resource of resourceFrame.snapshot.resources) {
+        const notIssued = checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+          freshManagement,
+          freshStarted.recoveryId,
+          resource.key,
+        );
+        assert.equal(notIssued.status, "completed");
+        assert.equal(notIssued.snapshotConfirmed, true);
+        assert.equal(notIssued.lockReleased, true);
+      }
+      const cleanupBook = readRuntimeOwnedCoordinatorResourceBook(
+        freshManagement,
+        freshStarted.recoveryId,
+      );
+      assert.ok(cleanupBook);
+      assert.deepEqual(
+        cleanupBook.checkpoints.map((item) => item.key).sort(),
+        [...RESOURCE_KEYS].sort(),
+      );
+      for (const checkpoint of cleanupBook.checkpoints) {
+        assert.equal(checkpoint.submission, "not_issued");
+        assert.equal(checkpoint.receiptSource, null);
+      }
+      assert.ok(
+        cleanupBook.snapshot.resources.every(
+          (resource) =>
+            resource.request === "not_issued" &&
+            resource.identity.dockerId === null,
+        ),
+      );
       const cleanupSaved = checkpointRuntimeOwnedCoordinatorCleanup(
         freshManagement,
         freshStarted.recoveryId,
-        cleanupObservations,
+        {
+          snapshot: cleanupBook.snapshot,
+          observations: cleanupBook.checkpoints.map(({ key }) => ({
+            key,
+            observation: "not_requested",
+          })),
+        },
       );
       assert.equal(cleanupSaved.status, "completed");
+      assert.equal(cleanupSaved.snapshotConfirmed, true);
+      assert.equal(cleanupSaved.lockReleased, true);
       isFailHostObservation = true;
       hostObservationCalls = 0;
       const observedBeforeFailure = fs.readFileSync(freshStateFile);
@@ -2992,6 +3106,7 @@ for (const issuedFailure of [false, true]) {
       "restart_unissued_test",
     );
     const root = fs.mkdtempSync(path.join(area.directory, "restart-unissued-"));
+    useFixtureRuntimeDirectories(t, root);
     let owned: ReturnType<typeof createOwnedOperationDirectories> | null = null;
     let active = false;
     let management: object | null = null;
@@ -3040,7 +3155,7 @@ for (const issuedFailure of [false, true]) {
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
-      `${encodeRuntimeStateValue({ ...emptyTaskSections, schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeRuntimeStateValue({ ...emptyTaskSections, schema: "crdd-domain/runtime-state/v2", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     // 初期化の私有反例はDomainへ移管済み。このCaseは認証処置の前状態だけを配置する。
     assert.ok(
@@ -3370,7 +3485,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.ok(requestId);
     const snapshot = {
       ...emptyTaskSections,
-      schema: COORDINATOR_STATE_SCHEMA,
+      schema: "crdd-domain/runtime-state/v2",
       revision: 1,
       previous: null,
       repositoryBinding: repository.repositoryBinding,

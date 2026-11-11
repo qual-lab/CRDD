@@ -10,28 +10,27 @@
  */
 
 import assert from "node:assert/strict";
-import {
-  createResourceBookFixture,
-  createResourceOperationFixture,
-} from "../../../domain-model/tests/support/resource-operation.ts";
 import childProcess, { execFileSync, spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
-import { PassThrough } from "node:stream";
-import { startOwnedWindowsProcess } from "../../../docker-isolation/src/process/start.ts";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { runInNewContext, Script } from "node:vm";
+import { startOwnedWindowsProcess } from "../../../docker-isolation/src/process/start.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
+  type CoordinatorStateTaskOperation,
   coordinatorAuthenticationUnknownCanClose,
   createDockerRestartRequestId,
-  type CoordinatorStateTaskOperation,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
+import {
+  createResourceBookFixture,
+  createResourceOperationFixture,
+} from "../../../domain-model/tests/support/resource-operation.ts";
 import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -47,21 +46,21 @@ import {
 } from "../../src/execution/operation.ts";
 
 import {
+  checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
-  checkpointRuntimeOwnedCoordinatorCleanup,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorOperationStart,
 } from "../../src/execution/persistence.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
-import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
 import {
   currentAuthenticationRecoveryCliSource,
   currentRecoveryCliSource,
   hostFixtureProcessBoundarySource,
   savedAbsenceProcessProfileSource,
 } from "../fixtures/current-authentication-recovery-cli.ts";
+import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
 
 /** 本番通知本文の保存Owner選択を、実適格判定と段階別の拒否で反証する。
  * @trace ERB-IT-014
@@ -1831,7 +1830,7 @@ for (const publicationFault of [
         target.identity.consumer = "workbench";
       targetManagement = target.management;
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v2", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
       const snapshotArea = requireReadyRepositoryRuntimeDataArea(

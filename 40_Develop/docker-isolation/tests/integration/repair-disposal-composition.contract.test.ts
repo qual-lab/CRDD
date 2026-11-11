@@ -9,13 +9,13 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import test from "node:test";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
-import test from "node:test";
 import {
-  decodeDockerRuntimeRepairCheckpoint,
-  dockerRuntimeRepairCheckpointIsSettled,
-} from "../../../domain-model/src/index.ts";
+  decodeRepairCheckpoint,
+  isRepairCheckpointSettled,
+} from "../../src/docker-desktop/validation.ts";
 
 const source = stripTypeScriptTypes(
   fs.readFileSync(
@@ -89,7 +89,7 @@ for (const scenario of [
   "legacy",
 ]) {
   test("修復後の固定対象観測・廃棄: " + scenario, async () => {
-    assert.ok(decodeDockerRuntimeRepairCheckpoint(raw));
+    assert.ok(decodeRepairCheckpoint(raw));
     const controller = new AbortController();
     let allowed = true,
       current = true,
@@ -121,8 +121,8 @@ for (const scenario of [
         Object,
         Promise,
         captureIsolationSettings: (settings: unknown) => settings,
-        decodeRepairCheckpoint: decodeDockerRuntimeRepairCheckpoint,
-        isRepairCheckpointSettled: dockerRuntimeRepairCheckpointIsSettled,
+        decodeRepairCheckpoint,
+        isRepairCheckpointSettled,
         createDockerDesktopRepairDirectoryAccess(local: string, nonce: string) {
           assert.equal(local, "fixed-local");
           assert.equal(nonce, "a".repeat(64));

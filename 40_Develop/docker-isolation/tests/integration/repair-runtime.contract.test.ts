@@ -9,17 +9,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  runRepairSessionWithDependencies,
   type RepairInput,
+  runRepairSessionWithDependencies,
 } from "../../src/docker-desktop/repair-session.ts";
-import {
-  decodeDockerRuntimeRepairCheckpoint,
-  validateDockerRuntimeRepairCheckpointTransition,
-} from "../../../domain-model/src/index.ts";
 import type {
-  RepairCheckpoint,
   DesktopOperations,
+  RepairCheckpoint,
 } from "../../src/docker-desktop/types.ts";
+import {
+  decodeRepairCheckpoint,
+  validateRepairCheckpointTransition,
+} from "../../src/docker-desktop/validation.ts";
 
 function fixture(change = "") {
   const counts = {
@@ -57,11 +57,8 @@ function fixture(change = "") {
       counts.notifications++;
       if (change === "checkpoint") throw Error("save");
       assert.ok(saved);
-      assert.equal(
-        validateDockerRuntimeRepairCheckpointTransition(saved, value),
-        true,
-      );
-      assert.ok(decodeDockerRuntimeRepairCheckpoint(value));
+      assert.equal(validateRepairCheckpointTransition(saved, value), true);
+      assert.ok(decodeRepairCheckpoint(value));
       saved = value;
     },
   };

@@ -17,13 +17,10 @@ import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import * as domain from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
-  encodeRuntimeStateValue,
-} from "../../../domain-model/src/index.ts";
-import {
-  resolveVerifiedRepositoryRoot,
   getRepository,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
@@ -97,7 +94,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${encodeRuntimeStateValue({
-        schema: COORDINATOR_STATE_SCHEMA,
+        schema: "crdd-domain/runtime-state/v2",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,

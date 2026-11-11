@@ -156,7 +156,7 @@
       ],
       "verifies": [
         "docker-isolation.desktop.repair-runtime",
-        "domain-model.attempt.repair-validation",
+        "docker-isolation.desktop.technical-validation",
         "docker-isolation.desktop.runtime-directory",
         "docker-isolation.package-api"
       ]
@@ -324,7 +324,7 @@
       "verifies": [
         "docker-isolation.desktop.repair-runtime",
         "docker-isolation.desktop.repair-machine",
-        "domain-model.attempt.repair-validation"
+        "docker-isolation.desktop.technical-validation"
       ]
     },
     {
@@ -348,8 +348,7 @@
       "verifies": [
         "docker-isolation.desktop.repair-machine",
         "docker-isolation.desktop.technical-state",
-        "docker-isolation.desktop.technical-validation",
-        "domain-model.attempt.repair-validation"
+        "docker-isolation.desktop.technical-validation"
       ]
     },
     {

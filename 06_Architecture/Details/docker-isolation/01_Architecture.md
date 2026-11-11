@@ -1,5 +1,11 @@
 # Docker隔離の詳細設計
 
+## 修復試験のOwner分離 — 2026-11-11
+
+DIの製品Source・公開APIはFixを維持する。Domain公開整理の前提として、修復Machine・Session・廃棄compositionの試験をDI自身の技術codec・型へ接続し、Domain保存codecへの参照を外した。変更理由は試験Ownerの是正であり、技術判定・期限・保存通知・取消・回収の仕様変更ではない。
+
+有限なMachine入力・技術代役・通知counterは既存fixture本文をtests/support/repair-machine.tsへ移し、DI試験と保存受理側の比較ITで共用する。これは試験入力の組立てだけで、製品のFacade・公開入口・互換処理ではない。Domain importと実Docker操作はない。技術codecとDomain保存codecの全field・異常入力・凍結・独立コピー・実Machine通知遷移・再Session・廃棄／保持・回復IDの比較2ケースは、Domainの既存runtime-repair-storage ITが所有する。DI内部試験の期待値をDomainの同じ関数で生成せず、比較ITも独立した2実装を実行する。元のケース・反例を削減せず配置だけを分離し、ERB-IT-014を維持する。
+
 ## 退避Root単位のNode削除 — 2026-11-11
 
 固定退避Directoryは中身を選別せず、保存済みRoot実体・親・現在source・廃棄許可と既存の非使用条件を確認して、Node.js標準の再帰削除で回収する。PA単一entryのNative観測・特殊Socket識別・子ごとの実体照合は撤去する。公開IFと保存Schemaは不変で、削除開始後の取消は処理の完了・失敗を待ってunknownを返す。Root不存在を後観測できた場合だけ回収確認とする。個別取消・件数／深さ上限・全子の事前拒否は現行保証から外す。保証差・局所実測・未実施範囲は[今回の変更記録](../../../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#退避root全体の標準削除と単一entry-native退役--2026-11-11)を参照する。

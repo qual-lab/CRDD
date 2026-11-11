@@ -1,11 +1,11 @@
 /**
- * 修復履歴の保存・出版・種別相関をDomain保存Ownerで反証する。
+ * 修復履歴の保存・出版・種別相関とDI技術通知の保存受理をDomain Ownerで反証する。
  * @packageDocumentation
  * @responsibility 専用Owner、fresh読取り、五有限形、故障窓と非対象保全を所有する。
  * @trace ERB-IT-014
  * @level IT
- * @scope 合成技術値と自己生成Repositoryの実保存。実修復Sessionは使用しない。
- * @boundary Domain保存と実Filesystem／Kernel。Host／Docker処置はCoordinator試験の責務。
+ * @scope 合成技術値・有限Machine通知と自己生成Repositoryの実保存。実修復Sessionは使用しない。
+ * @boundary Domain保存と実Filesystem／共通Lock、DI技術値との独立比較。実Host／Docker処置は対象外。
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -13,15 +13,21 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { executeRepairSteps } from "../../../docker-isolation/src/docker-desktop/repair.ts";
+import * as technicalContract from "../../../docker-isolation/src/docker-desktop/validation.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
+import { createRepairMachineFixture } from "../../../docker-isolation/tests/support/repair-machine.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
+import * as storedContract from "../../src/attempt/repair-validation.ts";
 import * as model from "../../src/index.ts";
 import * as domain from "../../src/index.ts";
 import * as stateStore from "../../src/index.ts";
 import { encodeRuntimeStateValue } from "../../src/index.ts";
 import * as kernel from "../../src/storage/runtime-kernel-lock.ts";
 import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
-import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
+
 /**
  * 同値進捗の保存入口を実Readerの戻り値契約から独立に反証する。
  * @responsibility Readerの部分成立を保存済み同値へ補完しない。
@@ -1651,4 +1657,281 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     );
     assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
   }
+});
+
+/**
+ * DI通知契約と上位保存受理契約を相互依存なしに照合する。
+ * @responsibility 型一致だけでなく全fieldの閉形式・遷移・通知列・不変値を反証する。
+ * @trace ERB-IT-014
+ * @precondition 合成checkpointと本番Machineの模擬技術境界だけを使う。
+ * @stimulus 欠測・余剰・enum差・Proxy・Accessorと正常通知列を同じ入力で比較する。
+ * @observation 両decoderの拒否又はexact値、凍結、元入力との分離、遷移判定。
+ * @oracle 保存受理と技術通知が同値で、いずれも資源観測の代用にしない。
+ * @cleanup N/A: Process・File・Docker・保存を使わない。
+ * @boundary 技術DTOと保存Schemaは別Ownerのまま値契約だけを結合する。
+ */
+test("技術checkpointと保存受理は異常入力・全field・通知遷移で一致する", async () => {
+  const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+  const frozen = (value: unknown): void => {
+    if (!value || typeof value !== "object") return;
+    assert.equal(Object.isFrozen(value), true);
+    for (const child of Object.values(value)) frozen(child);
+  };
+  const pairs = [
+    [
+      technicalContract.decodeRepairCheckpoint,
+      storedContract.decodeDockerRuntimeRepairCheckpoint,
+      createRepairMachineFixture().input.checkpoint,
+    ],
+    [
+      technicalContract.decodeRepairCheckpoint,
+      storedContract.decodeDockerRuntimeRepairCheckpoint,
+      createRepairMachineFixture(4, true).input.checkpoint,
+    ],
+    [
+      technicalContract.decodeRepairDisposalCheckpoint,
+      storedContract.decodeDockerRuntimeRepairDisposalCheckpoint,
+      technicalContract.createRepairDisposalCheckpoint(),
+    ],
+    [
+      technicalContract.decodeRepairRetentionTargets,
+      storedContract.decodeDockerRuntimeRepairRetentionTargets,
+      {
+        primary: { dev: "1", ino: "2", birthtimeNs: "3" },
+        failed: null,
+        auxiliary: null,
+      },
+    ],
+  ] as const;
+  for (const [technical, stored, base] of pairs) {
+    const check = (value: unknown) => {
+      const a = technical(value),
+        b = stored(value);
+      assert.deepEqual(a, b);
+      frozen(a);
+      frozen(b);
+      if (a && value && typeof value === "object") assert.notEqual(a, value);
+      return a;
+    };
+    assert.ok(check(base));
+    for (const value of [
+      null,
+      undefined,
+      false,
+      0,
+      "unknown",
+      [],
+      {},
+      new Proxy(
+        {},
+        {
+          get() {
+            throw Error("proxy_read");
+          },
+        },
+      ),
+    ])
+      check(value);
+    const paths: string[][] = [[]];
+    for (let i = 0; i < paths.length; i++) {
+      let object: unknown = base;
+      for (const key of paths[i] ?? [])
+        object = (object as Record<string, unknown>)[key];
+      if (!object || typeof object !== "object") continue;
+      for (const key of Object.keys(object)) {
+        const next = [...(paths[i] ?? []), key];
+        const value = (object as Record<string, unknown>)[key];
+        if (value && typeof value === "object") paths.push(next);
+      }
+    }
+    for (const at of paths) {
+      const mutate = (change: (record: Record<string, unknown>) => void) => {
+        const value = copy(base);
+        let record: unknown = value;
+        for (const key of at) record = (record as Record<string, unknown>)[key];
+        change(record as Record<string, unknown>);
+        return value;
+      };
+      check(
+        mutate((record) => {
+          record.unexpected = true;
+        }),
+      );
+      let original: unknown = base;
+      for (const key of at)
+        original = (original as Record<string, unknown>)[key];
+      for (const key of Object.keys(original as object)) {
+        check(
+          mutate((record) => {
+            delete record[key];
+          }),
+        );
+        for (const invalid of [
+          undefined,
+          null,
+          false,
+          0,
+          "invalid",
+          [],
+          {},
+          "saved",
+          "issued",
+          "unknown",
+          "confirmed",
+          "pending",
+          "ready",
+          "absent",
+          "present",
+        ])
+          check(
+            mutate((record) => {
+              record[key] = invalid;
+            }),
+          );
+        let reads = 0;
+        check(
+          mutate((record) => {
+            Object.defineProperty(record, key, {
+              enumerable: true,
+              get() {
+                reads++;
+                throw Error("accessor_read");
+              },
+            });
+          }),
+        );
+        assert.equal(reads, 0);
+        check(
+          mutate((record) => {
+            record[key] = new Proxy(
+              {},
+              {
+                get() {
+                  reads++;
+                  throw Error("proxy_read");
+                },
+              },
+            );
+          }),
+        );
+        assert.equal(reads, 0);
+      }
+    }
+    const mutable = copy(base),
+      before = check(mutable);
+    (mutable as unknown as Record<string, unknown>).unexpected = true;
+    assert.deepEqual(before, stored(base));
+  }
+  for (const prefix of [0, 4]) {
+    const f = createRepairMachineFixture(prefix, prefix === 4);
+    await executeRepairSteps(f.input, f.technical);
+    let before = f.input.checkpoint;
+    for (const next of f.calls.notifications) {
+      assert.deepEqual(
+        technicalContract.decodeRepairCheckpoint(next),
+        storedContract.decodeDockerRuntimeRepairCheckpoint(next),
+      );
+      assert.equal(
+        technicalContract.validateRepairCheckpointTransition(before, next),
+        storedContract.validateDockerRuntimeRepairCheckpointTransition(
+          before,
+          next,
+        ),
+      );
+      assert.equal(
+        technicalContract.isRepairCheckpointSettled(next),
+        storedContract.dockerRuntimeRepairCheckpointIsSettled(next),
+      );
+      assert.deepEqual(
+        technicalContract.prepareRepairSessionCheckpoint(next),
+        storedContract.prepareDockerRuntimeRepairSessionCheckpoint(next),
+      );
+      assert.equal(
+        technicalContract.validateRepairSessionCheckpoint(before, next),
+        storedContract.prepareDockerRuntimeRepairSessionCheckpoint(before) !==
+          null &&
+          JSON.stringify(
+            storedContract.prepareDockerRuntimeRepairSessionCheckpoint(before),
+          ) ===
+            JSON.stringify(
+              storedContract.decodeDockerRuntimeRepairCheckpoint(next),
+            ),
+      );
+      before = next;
+    }
+  }
+  const disposal = technicalContract.createRepairDisposalCheckpoint();
+  for (const purpose of technicalContract.directories) {
+    for (const request of ["not_issued", "issued", "unknown"] as const) {
+      const next = copy(disposal);
+      Object.assign(next.directories[purpose], {
+        intent: "saved",
+        request,
+        absence: "unknown",
+      });
+      assert.equal(
+        technicalContract.validateRepairDisposalTransition(
+          disposal,
+          next,
+          purpose,
+        ),
+        false,
+      );
+      assert.equal(
+        technicalContract.isRepairDisposalSettled(next),
+        storedContract.dockerRuntimeRepairDisposalIsSettled(next),
+      );
+    }
+  }
+});
+
+/**
+ * Docker Task回復参照の技術文法と保存受理を照合する。
+ * @responsibility Probe tokenとの混同や成分の正規化を追加しない。
+ * @trace ERB-IT-014
+ * @precondition メモリ内の有限な文字列だけを使用する。
+ * @stimulus 各成分の長短・大文字・欠測・追加・非文字列。
+ * @observation null又は元tokenとexact三成分。
+ * @oracle 技術parserと保存parserが同じ入力で一致する。
+ * @cleanup N/A: 外部Effectなし。
+ * @boundary 解析成功は回復Authorityや資源存在を証明しない。
+ */
+test("Docker Task回復IDは技術境界と保存境界で同じ三成分を保持する", () => {
+  const parts = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
+  const token = `docker-task.${parts.join(".")}`;
+  const cases: unknown[] = [
+    token,
+    null,
+    undefined,
+    {},
+    0,
+    ` ${token}`,
+    `${token}\n`,
+    `${token}.extra`,
+    token.replace("docker-task.", "docker."),
+    token.toUpperCase(),
+  ];
+  for (let index = 0; index < 3; index++)
+    for (const value of [
+      "",
+      "A".repeat(64),
+      "a".repeat(63),
+      "a".repeat(65),
+      "z".repeat(64),
+    ]) {
+      const changed = [...parts];
+      changed[index] = value;
+      cases.push(`docker-task.${changed.join(".")}`);
+    }
+  for (const value of cases)
+    assert.deepEqual(
+      parseDockerTaskRecoveryId(value),
+      domain.parseDockerTaskRecoveryId(value),
+    );
+  assert.deepEqual(parseDockerTaskRecoveryId(token), {
+    token,
+    stableLogicalHomeBindingHash: parts[0],
+    operationNonce: parts[1],
+    baseHash: parts[2],
+  });
 });

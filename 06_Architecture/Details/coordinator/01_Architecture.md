@@ -1,5 +1,13 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Domain公開整理前の試験接続 — 2026-11-11
+
+Coordinator試験は実操作・通知・許可・元結果・再入場の接続を所有し、Domain保存規則の純粋な反例はDomain自身の試験へ置く。Workspace技術理由の保存受理ケースをDomainへ移し、Coordinator側には選択Pathと採用記録の相関を残す。保存識別子・本文Hash・確定File名は固定契約から独立に照合する。私有importや試験Facadeで内部化を回避しない。
+
+Host保存試験の共有Home・Runtime State親はともに自己生成Rootへ限定し、実ユーザーの所在・保持物の有無を試験前提にしない。認証回復子はCleanup／inspect双方へ現行DI設定を明示し、元Sessionの終了・回収結果を観測する。製品Source・公開IF・安全判定は変更しない。複雑な履歴・配送・修復fixtureの依存撤去とDomain Root削減は未完了である。
+
+認証回復子では、設定OwnerがDI Rootを読む前に有限CLI境界を登録する。追加不存在の失敗で保存へ到達しない場合は元checkpoint全体の保全を検査する。合成CLI分類のHost情報は実在する現在Hostと混ぜず、排他のPathだけを新品Root内へ限定する。資源Snapshot未受領の正常終端fixtureはnullを返し、未開始・未発行・全資源not_requested等の独立条件を合わせて検査する。これらの合成値・試験接続を実Host又は実Docker成立の根拠にはしない。
+
 <a id="long-lease-common-lock"></a>
 
 ## 長期Leaseの共通File排他への接続 — 2026-11-11

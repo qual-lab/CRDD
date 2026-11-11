@@ -12,6 +12,10 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Domain公開削減の前提となるCoordinator試験整理で見つけた終了記録の不具合を是正した。資源未受領のCleanupがno-opでも、終了候補の改訂・前Hashを読取り元へ結合する。製品差分はDomainの当該6行と注釈のみ。候補UT7件・保存IT4件・公開境界13件・Host限定2件が成功し、型検査・台帳409件・独立再レビューも確認した。Host後段の古い入力／固定5資源fixtureは既存公開操作へ追従し、拒否・再入場・記録保全を維持した。今回の局所修正は完了だが、履歴・配送・修復fixture等の全依存撤去とRoot削減は未完了。全体回帰・実AI・Docker・過去保持物は操作していない。[局所修正の結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#settlement-revision-fix)と[公開整理の残件](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#coordinator-domain-test-ownership)を参照する。
+
+Domain公開整理に先立ち、DI修復試験のOwnerを分離した。DIの3試験は自己の技術codec・型へ接続し、Domainとの独立比較2ケースは保存受理側の既存ITへ移管。基準45ケースをDI43＋Domain2として維持し、両型検査・既存公開境界20件・台帳409件を確認した。移管先の保存IT全Fileも32件成功し、独立レビューは必須残指摘0。DI製品Source・公開IFとDomain Rootは不変更、Coordinatorの接続整理は次段階。全体回帰・実AI・Docker・過去保持物は操作しない。[範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di-repair-test-ownership)を参照する。
+
 AMのRoot公開30関数・26型を維持し、内部のOutcome型を明示契約化、交換Snapshotを既存型Ownerへ移管した。本番未使用の個別発行Readerを撤去し、認証・情報非開示・提示／失効・保存不明の4試験を現役の管理一覧へ接続。Role検査重複と古い未接続コメントも是正した。限定31試験・AM／Workbench／MCP型検査、基準型との双方向6代入を確認し、Source／Consumerと文書・QAの独立レビューは残指摘0。全体回帰・実AI・Docker・過去保持物は操作しない。[現在の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#am-internal-contract-closure)を参照する。
 
 Coordinatorの長期Leaseの物理取得・保持・通常解放を共通wx Lockへ接続し、既存Owner喪失回復は維持した。回復の全fresh照合後、同じDomain短期保存排他内でFile回収・不存在・保存を行い、遅延回復者が新Ownerを処置しない。限定回帰で見つけた試験不整合は是正・再確認し、Source／契約・試験・文書の独立再レビューは必須残指摘0。別の既存Domain公開集合試験の失敗も、主体2関数の期待値漏れを追従して是正し、公開境界13試験と主体1試験の成功を確認した。初回の失敗記録は保持する。全体回帰・実AI・Docker・過去保持物の操作・実運用切替は行わない。[範囲と結果](99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#long-lease-common-lock-change)を参照する。

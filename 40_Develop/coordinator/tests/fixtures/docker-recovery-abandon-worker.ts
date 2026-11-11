@@ -17,20 +17,19 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  prepareIsolation,
-  type IsolationRequest,
-} from "../../../docker-isolation/src/index.ts";
 import { containerCreation } from "../../../docker-isolation/src/execution/preparation.ts";
 import { DIAGNOSTIC_IMAGE } from "../../../docker-isolation/src/image/assets.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
+  type IsolationRequest,
+  prepareIsolation,
+} from "../../../docker-isolation/src/index.ts";
+import {
   type CoordinatorStateOperation,
   type CoordinatorStateTaskOperation,
   encodeRuntimeStateValue,
 } from "../../../domain-model/src/index.ts";
-import { executionSelection } from "./ai-selection.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { executionSelection } from "./ai-selection.ts";
 
 const mode = process.argv[2];
 assert.ok(
@@ -220,7 +219,7 @@ if (mode !== "recovery") {
   assert.ok(binding && otherBinding);
   const initial = Buffer.from(
     `${encodeRuntimeStateValue({
-      schema: COORDINATOR_STATE_SCHEMA,
+      schema: "crdd-domain/runtime-state/v2",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],

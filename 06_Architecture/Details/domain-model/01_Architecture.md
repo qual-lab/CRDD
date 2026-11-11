@@ -1,5 +1,23 @@
 # Domain Modelの責務境界
 
+## 終了記録の改訂番号 — 2026-11-11
+
+資源Snapshot未受領かつ未開始・未発行で、Cleanupが元の本文を返す場合でも、終了結果の保存は変更を伴う。正常終端の候補は、Cleanupが返す改訂へ加算するのではなく、同じ読取り元の改訂+1と、その改訂・本文Hashをpreviousへ明示する。資源記録がある場合も一回の保存で二重に改訂を進めない。Cleanupのno-op契約、前版の遷移検査・現在版照合・Owner・Lock・終了確認は変えない。公開APIと保存Schemaは不変更である。
+
+候補生成はDomainの既存PRL-UT-006、物理保存・再入場は既存ERB-IT-003／014で確認する。候補のメモリ内検査だけを、物理確定又は実資源回収の成立へ拡張しない。
+
+## Coordinator試験からの保存規則分離 — 2026-11-11
+
+Workspace保存値がVCの技術理由を受理・拒否する純粋ケースは、Domainの既存`workspace-technical-contract.contract.test.ts`が所有する。Coordinatorの`acceptance-record.contract.test.ts`には選択Pathの拒否と採用記録の相関を残し、保存検査を上位試験のために公開し続ける理由としない。両者は既存CPR-UT-009へ接続する。固定Schema識別子・本文Hash・確定File名を比較する上位試験は、内部Helperの返却値をそのまま期待値へ使わず、固定の保存契約とNode標準Hashで独立に確認する。
+
+これはDomain公開削減前の接続整理の一部である。履歴・配送・修復のメモリWriter代役や動的Workerには別の内部依存が残る。公開Root・製品処理・保存形式はまだ変更しない。
+
+## DI通知と保存受理の試験Owner — 2026-11-11
+
+Domain公開整理の前提として、DI修復の技術通知と保存受理を比較する2ケースを、Domain側の既存tests/integration/runtime-repair-storage.contract.test.tsへ移した。DI側ではDomain保存decoder・型を使わず、DI自身の技術契約でMachine／Session／廃棄を確認する。Domain比較ITは自己の保存decoderとDIの技術実体を独立に呼び、全field変異・凍結・独立コピー・実Machine通知列・遷移・再Session・廃棄／保持・回復IDの一致を確認する。既存DIの有限fixtureだけを試験補助で共用し、保存decoderをDIへ戻す試験Facadeは作らない。
+
+この段階ではDomain Root公開、保存Schema、DI製品Source・公開IF、Coordinatorは変更しない。外部PackageからDomain内部へ直接importすることを禁じる既存検査も維持する。公開削減とCoordinator試験の接続整理は後続であり、先行段階の棚卸し案を実装完了とは扱わない。
+
 ## Desktop修復記録のIdentity — 2026-11-10
 
 `runtime_repair`は`crdd-coordinator/runtime-repair-identity/v2`の閉じた保存契約を使う。Native所有Hash・Helper実行物Hash・修復Scope Hashを保存せず、nonce・Operation ID・Repository binding・consumerと既存の内容完全性Hash／回復IDの相関を検査する。技術checkpointは公式CLI接続後の8処置とし、旧強制終了slotを含まない。終了不明は`operation_cleanup_unknown`、観測資源終了不明は別理由として保持する。旧Identity／9処置を既定値や互換Readerで補完せず、旧記録を自動変更しない。現在Owner・保存世代・CAS・未出版候補のexact本文／実体検査は維持する。

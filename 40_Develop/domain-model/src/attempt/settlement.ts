@@ -15,9 +15,9 @@ import {
 } from "../state/crud.ts";
 import { decodeRuntimeDomainSnapshot } from "../state/validation.ts";
 import {
+  captureRuntimeCleanupVerification,
   observeRuntimeSettlementStorageAccess,
   observeRuntimeTerminalForStorage,
-  captureRuntimeCleanupVerification,
   runtimeStorageOperationIdentity,
 } from "../storage/runtime-repository.ts";
 import {
@@ -321,6 +321,12 @@ export function settleRuntimeOwnedCoordinatorResult(
     if (!cleaned) return refused();
     const candidate = {
       ...cleaned.snapshot,
+      // Cleanupがno-opでも、終了結果の保存は読取り元から一改訂だけ進める。
+      revision: current.value.snapshot.revision + 1,
+      previous: {
+        revision: current.value.snapshot.revision,
+        payloadSha256: current.value.payloadSha256,
+      },
       operations: cleaned.snapshot.operations.map((item) =>
         item.kind !== "docker_task" || item.recoveryId !== settlement.recoveryId
           ? item

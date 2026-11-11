@@ -1,5 +1,23 @@
 # QA-000006 外部実行境界の検証定義
 
+## 終了記録の版付け是正に必要な限定確認 — 2026-11-11
+
+既存ERB-IT-003／014のDomain runtime-settlement ITと、Coordinator現在状態Host Caseで、資源未受領の終了が正しい次改訂・前Hashで保存され、履歴・配送・元結果・回復参照へ接続されることを確認する。資源記録あり、元版差、偽Context、再利用、Reader／Writer故障と解放不明の拒否は維持する。改訂の局所UT成功を物理保存・実Host又は実Dockerの成功へ換算しない。全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+同Host CaseのIdentity入力は、Owner・操作ID・nonce・Consumer・Provider選定・文字列欠測と、Domainへ渡すLabel形式を確認する。Docker名／Image構成・名前重複の技術検査はDIの既存試験が所有し、Identity生成での拒否と混同しない。型拒否のnullと形式拒否の不正Label文字列を別々に反証する。
+
+Host開始・完了のfixtureは廃止済みのIdentity内資源表を使わず、同じOwnerの公開通知保存から準備する。Intent未確定中は終了要求0・本文不変を確認し、実Docker要求0の事実があるCaseだけ公開操作で正式未発行へ進める。全保存の確認とLock解放を観測し、公開Book Readerの全key・IDなし・Receiptなしを照合する。Cleanupは保存済みSnapshotと同じkeyのnot_requestedを渡し、absentへ補完しない。
+
+## Coordinator保存試験の所在・DI接続追従 — 2026-11-11
+
+既存ERB-IT-003／014のHost保存Fileでは、共有HomeとRuntime Stateの親をともに今回の試験Root内へ準備し、実ユーザーの保存領域の有無へ依存しない。元設定の復元とCaseのRoot清掃を維持する。認証回復子はCleanup／inspect双方に現行DI設定を渡し、callback・Signal・stopOnUnknownAbsenceを保持する。回復Owner、二段不存在、Receipt保存前削除の拒否、通知失敗、子終了、Host／File排他の既存Oracleは削減しない。試験接続の追従を製品安全判定の変更や実Docker成立として扱わず、初回失敗と是正後結果は変更記録で区別する。
+
+有限境界を登録してからDI Rootを読むこと、保存未到達ならcheckpoint全fieldが元値のままであることを確認する。合成Host分類fixtureと実在する現在Hostを混ぜず、共通wxの固定親は新品Rootに限定する。Snapshot未受領の元版ではnullを返し、未開始・未発行・全観測not_requestedとの相関を検査する。未受領を資源不存在の単独根拠にしない。
+
+## DI修復試験と保存受理比較の分離 — 2026-11-11
+
+既存ERB-IT-014の比較2ケースはDomain側runtime-repair-storage ITへ移し、DIのMachine／Session／廃棄compositionは自己の技術codecと型で検証する。全field・異常入力・凍結・入力分離・通知遷移・再Session・廃棄／保持・回復IDの独立比較は維持し、技術実装と保存実装のどちらか一方を期待値生成に兼用しない。有限なDI入力fixtureのみ共用し、実Host・Docker・Providerは使わない。既存Suite数・正式項目数・正式結果は増減せず、各SuiteのSymbolのverifiesを実際のOwnerへ追従する。限定回帰の実測は変更記録に残し、全体QAの成立へ拡張しない。
+
 ## 要求前切断とwx再入場の確認 — 2026-11-09
 
 資源未発行、Host回収、Home／Runtime／Host Lockの終了、最終結果確定を個別に確認する。Domainの未発行枝は必須条件を一つずつ崩す否定試験を持ち、20利用先の履歴・配送・操作除去・品質表示の独立条件を回帰する。未発行だけから全体Cleanup成功を表示しない。

@@ -1,5 +1,85 @@
 # 基盤機能中心のRuntime責務再編計画
 
+<a id="settlement-revision-fix"></a>
+
+## 終了記録の改訂番号の最小是正 — 2026-11-11
+
+状態: 今回の終了記録の改訂番号修正は、限定回帰・独立再レビュー完了。Domain公開削減・Coordinator全試験依存撤去とは別の不具合修正である。
+
+修正後のDomain UT全7件、保存IT全4件（約91秒）、公開境界13件、Domain／Coordinator型検査、変更Sourceの書式・警告禁止checkと台帳409件は成功した。初回Host限定は約229秒で元の終端保存・履歴・配送を通過し、その後段の旧Plan負例で停止した。これは元の改訂不具合と区別する。
+
+後段は7つのDocker名／Image文字列の形式・重複をIdentity生成側で拒否する旧期待が残っていた。製品変更を追加せず、8項目の欠測nullで文字列型拒否を確認し、同名拒否の代わりにProvider選定不一致を反証する。ownershipLabelはDomainへ搬送されて形式検査されるため、独立した不正文字列の拒否を保持する。構成名・Imageの技術検査を撤廃せずDI既存Ownerへ残す。SourceレビューでLabel反例維持の指摘1件を受け、文書・QAレビューと統合方針を照合してから試験へ追加した。最終候補の限定確認・再レビュー結果は別途記録する。
+
+次の確認はIdentity負例を通過し、旧freshIdentityValue.resourcesとpurpose／plannedResourceName／dockerIdの観測配列に残る固定5資源形の参照で停止した。この試験前提は公開Resource checkpointへ接続し直す。初期版の確認後に同じFrameの各Intentを保存し、Host開始・再入場中は未確定状態の終了拒否を明示する。Docker要求0の既知fixtureに限って公開ResourceNotIssuedで全keyを確定し、公開Book ReaderのSnapshot・同じkey集合を現行Cleanup入力へ渡す。各保存のsnapshotConfirmed／lockReleased、全key、IDなし・Receiptなし・未発行を確認する。生Writer、旧形式の復元、保存規則のコピーは追加しない。読取り専用のSource／QA確認後に反映した。実行されるようになったHost完了関数の試験内読込みには、元の公開資源判定依存も接続した。
+
+最終候補のCoordinator Host限定は約238秒で親・内側の2件が成功し、失敗0・skip0だった。元の終端保存、履歴・配送、後段の開始・完了中断と再入場、Owner／Plan／Mount／Host相関の拒否、失敗後の保存本文保持まで通過した。最終候補前の試行では、当該読込み依存が欠けた旧fixtureも後段まで進んで停止しており、この記録を最終成功へ上書きしない。各試行の既存清掃hookに失敗は報告されず、すべての試験Processは終了している。
+
+最終確認はDomain候補UT7件、Domain保存IT4件、Domain公開境界13件、Coordinator Host限定2件の成功。DomainとCoordinatorの製品・試験型検査、変更3 Sourceの書式・警告禁止check、409件の試験台帳整合、差分空白検査も成功した。Coordinator試験に残る既存useTemplate情報6件は警告・エラーではなく、対象外の一括修正を行わない。Source／Oracleと文書・QAの独立再レビューは必須残指摘0。今回の再発防止は既存契約試験と設計の元版基準へ接続し、汎用Checkerや新しい仕組みを追加しない。
+
+本番変更はDomain終端候補の改訂・前版Hashの6行と注釈に限定する（同Fileのimport整列を除く）。DI・Executor・AI Adapter・Coordinatorの製品Source、Root公開、保存Schema、Cleanup no-op、安全判定・期限は不変更。過去保持物・実AI・Dockerを操作せず、全体回帰・実E2E・Release全体の合格は主張しない。より広いDomain公開整理の残件は次節に維持する。
+
+変更分類は正常終端の保存候補の不具合是正。基準caf490fa4と現在の作業差分で、Cleanupのno-op、終端候補、Writerの版・前Hash検査、過去の保存／Host検証を照合した。人間は終了記録の改訂番号を最小修正し、安全判定・API・Schemaを変えず、試験・文書・限定回帰・独立レビューまで行うことを承認した。読取り専用の着手前確認で、候補はCleanupの返却版でなく元の読取り版を基準に一回だけ進める方針を確認した。Source／回帰契約と文書・QAの独立レビューを行う。準拠基準・権限・Releaseを変更しないため全面監査は実施しない。追加の人間判断は不要。
+
+原因は、資源未受領の安全なCleanupが元bytesを返すのに、終端Driverがその版を更新せず終了結果を加えていたこと。メモリ確認では元改訂1／候補1は復号成功・遷移拒否、改訂2と元版Hashのみ補正した候補は復号・遷移とも成功した。変更はattempt/settlement.tsの最終候補へ元版+1とpreviousを明示するだけとし、資源記録ありでも二重加算しない。Cleanup no-op、Writer、遷移・現在版・Owner・Lock・資源終了・保存拒否の条件は不変更。
+
+既存runtime-transitions UTへ本番関数の候補生成を実行し保存端だけを捕捉する6ケースを追加した。改訂・前Hashは元bytesから独立に検査する。資源未受領／記録あり、不正開始・送信不明・Snapshot混入・観測不明、元版差、保存拒否・解放不明と元回復参照を確認する。修正前は追加6件中1件（資源未受領の改訂1≠2）が失敗、他5件成功。最小修正後は当該File全7件成功。初回型検査で試験用Operation Unionの絞込み漏れを検出し、種別を明示して是正した。物理CASはこの捕捉UTだけから成立としない。
+
+Symbolは既存Suiteのverifiesへ終端Sourceを追加し、QA-000003／006とDomain Architectureを追従する。限定の既存Domain保存ITと、前段で残っていたCoordinator Host Caseを実行する。全体回帰・実AI・Docker・過去保持物の操作、公開API・Schema変更は行わない。コミット・プッシュは未実施。
+
+<a id="coordinator-domain-test-ownership"></a>
+
+## Coordinator試験のDomain依存整理・先行分 — 2026-11-11
+
+状態: 先行是正・独立レビュー済み。限定Host確認は残1件不合格。Coordinator全依存の撤去とDomain Root削減は未完了。
+
+初回是正後も同Fileは3成功・5失敗だった。共有Homeの取得拒否からRuntime Stateの親不成立へ、Cleanup開始前の例外から通知内inspectの設定欠測へ停止点が前進した。同件数を同じ原因又は解消と扱わず、親Directory双方とDI接続双方を追従し、最新候補で再確認する。更新候補のSource／Oracleと文書・QAの独立再レビューは必須残指摘0（結果確認は別）。
+
+次のFile実行は5成功・3失敗だった。認証回復子は設定Ownerの静的importがDI Rootを有限境界の登録前に読んでいたため、境界登録後の動的importへ移した。これにより正常枝が成立し、追加不存在が失敗して保存Writerへ未到達の枝では元checkpoint全field不変を確認するよう旧期待値を追従した。保存済み不存在・Receipt・読戻し差・解放不明のOracleは維持した。
+
+その後のFile実行は7成功・1失敗（約326秒）。認証の両Consumerは全故障シナリオが成功した。残る先頭Caseは、合成CLI分類fixtureの相対host-rootを共通wxへ渡していたため、合成Record・Token・nonceは維持し、Pathだけ新品Repository内の同名絶対Root／markerへ限定した。真正な現在HostのSnapshotを分類fixtureへ混ぜる案は、現在操作として正しく拒否されたため不採用とした。合成Hostの実在又は回収を主張しない。
+
+先頭Caseの追加単独確認は後段の正常終端保存まで進んだが、未受領のSnapshotを終端代役が受領済みとして返す不整合で停止した（約185秒）。外部要求なし・資源Bookなしの元版へ戻す既存枝に限り、代役のresourceSnapshotをnullへ追従した。Domainの未開始・未発行・重複拒否・全観測not_requested条件は維持し、nullだけから不存在を推定しない。更新候補の独立Source確認は必須残指摘0、最終単独確認は実行中。
+
+最終単独確認は約159秒で終了し、内側1件成功・親1件不合格だった。入力拒否は通過し、同じ正常終端の保存でcoordinator_state_storage_unconfirmedとなった。成功へ畳まず、元結果・保存候補・Owner／清掃後の保存接続を次段階で切り分ける。これは直前のFile実行7成功に加算して全File成功と主張できる結果ではない。現在すべての試験Processは終了している。各Caseの既存清掃hookに追加失敗は報告されなかった。
+
+現候補のCoordinator試験／Domain型検査、公開境界13件、試験台帳409件、差分空白検査は成功。移管・独立期待値化の10件と受領の限定1件も成功した。独立Source／Oracleと文書・QA確認は必須残指摘0だが、この未解消試験を合格へ変換しない。Schema識別子、本文Hash、確定File名、Workspace保存検査の4公開候補へのCoordinator試験参照は撤去した。製品Source・Root公開・保存Schema・検査条件は変更していない。
+
+変更分類は試験Owner・接続の是正。基準caf490fa4からの先行DI整理を維持し、読取り専用の着手前確認で、観測補助・純Domain検査・複雑な終端fixtureの三群を区別した。外部試験の私有import、新しい試験Facade、保存規則の複製は採用しない。製品Source・保存Schema・認可・回復条件・公開IFは不変更。Source／Oracleと文書・QAの独立レビューを行い、全面準拠・Release監査は契約変更がないため対象外とする。現在追加の人間判断は不要。
+
+| 対象 | 今回の処置 | 保持する確認 |
+|---|---|---|
+| Workspace保存理由の純粋ケース | CoordinatorからDomain既存Suiteへ本文移管。CPR-UT-009／QA-000005を移管先にも接続 | 新旧成功理由、Merge IDとの相関、一次失敗、回収失敗、別系列拒否 |
+| Schema識別子・本文Hash・確定File名 | 五つのfixture／試験で固定Schema値、本文HashはNode標準、File suffixは固定期待値へ | 製品と同じHelperを期待値生成に使う自己比較を避ける。保存契約自体は不変更 |
+| Host保存の共有Home／Runtime State前提 | 今回生成Root内に両親所在を作り、Case終了時に設定復元・既存Root清掃 | 実ユーザー側の所在の有無に依存しない排他・回復準備 |
+| 認証回復子のCleanup／inspect接続 | 双方へ現行設定引数を明示し、元target・callbacks／optionsを渡す | 元Session CompletionとProcess／Cleanup確認、Signal、追加不存在の停止条件、保存・二段不存在のOracle |
+
+移管前10ケース、移管後も同じ10ケースが成功した。回復受領の限定1ケースは約108秒で成功。Coordinator試験／Domain型検査と409件の台帳検査も確認した。初回Host保存Fileは8件中3成功・5失敗で、共有Home親を実環境に依存するfixtureと、認証回復子が旧Cleanup呼出し形を使用する接続漏れを確認した。製品の安全判定を変えず試験接続だけを是正し、再確認する。初回失敗を成功へ上書きしない。型検査で補助callbackの引数型欠測2件を検出し、既存DI公開型で明示した。
+
+履歴／配送のメモリWriterや修復の独立期待値、埋込みWorkerのDomain内部候補依存は次段階に残る。実保存APIへ単語置換するとFilesystem・Lockを追加するため、試験のOwnerと故障注入点を照合してから処置する。本番利用中で元の内部化集合に含めない修復候補7種も公開維持する。全体回帰・実AI・Docker・過去保持物は操作しない。コミット・プッシュは未実施。
+
+<a id="di-repair-test-ownership"></a>
+
+## DI修復試験のOwner分離 — 2026-11-11
+
+状態: DI先行分の実装・限定回帰・固定候補の独立レビューを確認。
+
+Domain全737公開の棚卸し後、Root165件の内部化とoutcome入口撤去の着手前照合で、既存公開境界検査が外部Packageの試験からの私有importも禁止していると判明した。前案はこの試験境界を見落としていたため、そのまま適用しない。人間が指定した順序に従い、まずDIの3試験からDomain依存を外し、次にCoordinatorを整理する。この段階でRoot公開は変更しない。
+
+変更分類は試験Owner・接続の是正。基準caf490fa4のDI3試験45ケースと独立比較Oracleを確認し、読取り専用の着手前確認で、DI試験は技術契約のみ、保存側比較ITは独立2実装、有限fixtureはDI所有という配置を照合した。Source・試験義務と文書・QA・影響伝播の独立レビューを行う。製品の挙動・権限・保存・公開IF・準拠基準・Releaseを変えないため、その全面監査は対象外。現在追加の人間判断は不要。
+
+| 元の対象 | 処置・新Owner | 保持する保証 |
+|---|---|---|
+| DI repair-machineの独立比較2ケース | Domain既存runtime-repair-storage ITへ本文移管。Domain私有保存codecとDI技術codecを個別に実行 | 異常入力・全field・Accessor／Proxy非実行・凍結・入力分離、実通知列、遷移・Session・廃棄／保持・回復ID |
+| DI Machineの通常試験・fixture | Domain codec／型をDIの既存技術codec／型へ置換。fixture本文をtests/support/repair-machine.tsへ移し共用 | 八処置、通知、取消、不明、故障注入の必須到達、変異実装を拒否する反証 |
+| DI Session・廃棄composition | Domain decoderではなくDI実体へ接続 | 必須通知拒否・取消・実体差・部分成功・cleanup不明の停止 |
+| 管理情報 | 両Symbolのverifies、QA-000006、両Architectureを追従 | Suite・正式項目数・正式結果、製品Source・Root公開・保存Schema不変 |
+
+基準のDI3試験45件が成功。変更後もDI43件＋Domainへ移管した2件の計45件が成功し、両Packageの型検査が成功した。初回型検査で旧識別子の置換漏れ1箇所を検出して是正した。この45ケースは有限な技術代役とメモリ値を使い、Sourceの読取り以外に実Docker・実AI・過去保持物を使わない。全体回帰は未実施。Coordinatorの製品・試験とDomain公開削減は未着手。
+
+既存公開境界20件（Domain13＋DI7）、5試験Sourceの書式・警告禁止check、409件の試験台帳整合、差分空白検査も成功した。checkの既存useTemplate情報7件はエラー・警告ではなく、当該式を変更しない。台帳検査は試験を起動しない。Source／Oracleと文書・QA・影響伝播の独立レビューは双方の必須残指摘0。旧Machineの12ケースがDI10＋Domain2へ全件対応し、fixtureも参照名・型Owner・空白以外の本文を維持したことを独立に照合した。
+
+追加の移管先保存IT全Fileは約104秒で32件成功し、今回生成Rootの既存fixture終了処置も成功した。この32件は移管した2件を含むため、先の45件へ重複加算しない。物理保存・出版・読戻し・解放不明・用途差・Owner喪失の限定反証であり、実Docker修復や全体回帰の成立ではない。DI製品Source・Domain製品Source・Coordinatorの追跡差分0を再確認し、追加是正は不要だった。コミット・プッシュは未実施。
+
 <a id="am-internal-contract-closure"></a>
 
 ## AM内部の型正本・不要経路の整理 — 2026-11-11

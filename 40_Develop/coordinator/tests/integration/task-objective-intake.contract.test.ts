@@ -20,7 +20,6 @@ import { fileURLToPath } from "node:url";
 import {
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  getJsonCommitName,
   initializeCoordinatorSnapshot,
   requireReadyRepositoryRuntimeDataArea,
   writeCommittedJson,
@@ -1857,7 +1856,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     path.join(runtimeDirectory, receiptName),
   );
   const receiptCommitBefore = fs.readFileSync(
-    path.join(runtimeDirectory, getJsonCommitName(receiptName)),
+    path.join(runtimeDirectory, receiptName + ".crdd-commit.json"),
   );
   let runtimeAcknowledgementEffects = 0;
   const staleSettlement = {
@@ -1905,7 +1904,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
   assert.deepEqual(
     fs.readFileSync(
-      path.join(runtimeDirectory, getJsonCommitName(receiptName)),
+      path.join(runtimeDirectory, receiptName + ".crdd-commit.json"),
     ),
     receiptCommitBefore,
   );
