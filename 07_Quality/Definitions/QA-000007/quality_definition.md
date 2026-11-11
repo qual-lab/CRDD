@@ -4,6 +4,8 @@
 
 既存`RFD-UT-020`の公開集合断面を[AMのRoot公開境界](../../../06_Architecture/Details/access-management/01_Architecture.md#public-surface-closure)へ追従する。実行時30関数とSourceの明示26型を別々の固定集合へ完全一致照合し、内部5関数・3型のRoot再公開を拒否する。保存・鍵交換・Host準備の内部能力を廃止せず、その試験だけを既存宣言元へ接続する。本番Workbench／MCPは残すRoot公開を利用する。既存項目・件数・正式結果は増減せず、限定回帰の実測は変更記録へ残す。局所の成功から実Host／UATや全体QAの成立を推定しない。
 
+後続の内部整理では公開30関数・26型を維持し、Outcome3型の明示契約化と交換Snapshotの型Owner移管を行う。`RFD-IT-017`／`018`の旧個別発行Reader4ケースは、現役の資格管理Readerへ接続する。提示三状態・現在失効、認証・管理者制限、非開示、初回途中・先行材料・読取り／清掃／解放不明を同じ実Filesystem境界で確認する。旧APIの発行ID／User ID引数検査・単件不一致は専用API撤去により適用対象外とし、管理一覧がその引数を受けるとは記載しない。管理者の一覧からの整理済み対象不存在と非認可者の情報非開示を分ける。旧Reader専用処理は残さず、共有の資格構成型とWriterは保持する。正式項目数・結果の変更や検査の緩和はしない。
+
 ## Workspace保存値の純粋検査 — 2026-11-06
 
 人間が承認した追加UT義務を`RFD-UT-030`とする。導出元は`ARCH-000009`／`arch-000009.qa-000007`と[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の「候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する」という境界。Model Itemは候補要求の閉形式・保存対象のWorkspace相関・Commit形式・選択内容である。Git実体へ要求を発行する前に保存値そのものの受理条件を検査するため、実Gitの`RFD-IT-029`と分ける。公開export集合の`RCM-UT-014`、共通Outcomeの`RCM-UT-016`、管理状態専用Schemaの`RFD-UT-028`を代用しない。

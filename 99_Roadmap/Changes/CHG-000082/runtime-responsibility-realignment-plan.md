@@ -1,5 +1,29 @@
 # 基盤機能中心のRuntime責務再編計画
 
+<a id="am-internal-contract-closure"></a>
+
+## AM内部の型正本・不要経路の整理 — 2026-11-11
+
+状態: 実装・限定回帰・固定候補の独立レビューを確認。
+
+人間が採用した4系統だけを対象に、基準033382309の公開集合・全宣言参照・旧Reader4試験・現在の管理一覧・型規約を初回編集前に照合した。変更分類は内部責務の是正と本番未使用経路の撤去。読取り専用の着手前確認では型の可変性／省略／null／理由幅、旧試験の義務移管を確認した。Source／Consumerと文書・QA・影響伝播の独立レビューを行い、準拠基準・保存Schema・権限・Releaseを変更しないため全面準拠／Release監査は対象外。公開30関数・26型は固定し、追加の人間判断は不要。
+
+| 編集の一次対象 | 処置と移管先 | 保持する保証・反証 |
+|---|---|---|
+| permission/typesのOutcome3型 | 実装からのReturnType抽出を明示構造へ置換、authorizationの投影関数が戻り型を満たす方向へ固定 | 可変配列・可変property、null、省略field、理由string幅を変更しない。基準実装の推論型との双方向6代入で確認 |
+| 交換Snapshotの型Owner | 宣言本文をexchangeから既存credential/typesへ移し、exchangeがtype import | Rootへ追加公開せず、本文・readonly・段階別fieldを維持 |
+| 本番未使用の個別発行Reader | readCredentialIssuance／projectCredentialIssuance／CredentialIssuanceObservationを撤去。旧4ケースをreadCredentialAdministrationStateへ接続 | 認証／管理者制限、非秘密field、提示三状態・失効、初回途中、先行材料、読取り・清掃・解放不明を維持。現役のCredentialIssuanceSnapshotと発行・提示・失効Writerは維持 |
+| 廃止APIだけの旧入力義務 | 元発行ID／User IDの不正・不一致入力は、対象引数のない一覧へ架空の契約として移さない | 整理済み対象は正常な管理者一覧に含まれず、非認可者には一覧全体を開示しない。旧単件Receiptを一覧で再現しない |
+| Role検査・説明 | authorizationの私有isAccessRoleを削除し既存permission/validationを共用。認証／交換の未接続コメントを更新 | 三Role集合・未知値拒否を維持。新しいFacade・型alias・互換処理・Source分割なし |
+
+限定回帰は資格保存／提示／Reader移管14件＋公開集合／Role4件、管理／認証6件＋公開投影3件、交換／資格一覧4件の計31件が成功。AM・Workbench Server・MCP Serverの型検査も成功した。公開集合は30関数・26型の完全一致を維持し、本番Consumerの追加修正は不要だった。
+
+型比較は当初TypeScript Compiler APIを使う構成で起動したが、既存TypeScript 7配布に旧API Fileがなく実行不成立。依存追加はせず、基準実装を新品Repository-local比較Rootへ投影し、既存tscで旧推論型と新明示型の双方向6代入を成功確認した。比較Rootの4 Fileをexact指定で除去し、空Directoryも回収して不存在を確認した。旧保持物・既存Host・実AI・Docker・全体回帰は操作しない。
+
+最終静的確認は変更7 SourceのBiome check、AM型検査、409件の試験台帳整合、差分空白検査が成功。初回checkで残った未使用Role型importとimport順序は是正し、検査を緩めていない。台帳検査は試験起動を伴わない。Root indexの差分0、撤去したReader／投影／専用結果型の現行Source・試験参照0を確認した。Source／Consumer／試験義務と、文書・QA・影響伝播の独立レビューを統合し、双方の残指摘0。最終の公開集合4試験も再成功した。コミット・プッシュは未実施。
+
+後続の人間指示によるコミット前再確認では、40_Develop全体のTypeScriptから旧Reader・専用投影・専用観測型の参照0、Root index差分0を確認した。公開集合・Role・公開投影7試験、AM／Workbench／MCP型検査、変更7 SourceのBiome check、409件の台帳整合、差分空白検査も再成功し、追加是正は不要だった。型比較用の今回Rootも不存在を再確認した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
 <a id="am-public-surface-closure"></a>
 
 ## AMのRoot公開境界整理 — 2026-11-11

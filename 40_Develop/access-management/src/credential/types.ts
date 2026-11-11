@@ -6,7 +6,6 @@
  */
 
 import type { AccessRole } from "../role/types.ts";
-import type { KeyExchangeSnapshot } from "./exchange.ts";
 
 /**
  * 一要求で観測した本人とRole内容範囲を表す。
@@ -35,7 +34,7 @@ export type AuthenticatedRequest = Readonly<{
  * @invariant 失敗結果に対象ID・存在・状態・改訂を含めない。
  * @boundary Package認証入口。鍵管理・Transportの結果とは別。
  * @security 内部Lock回復参照・保存Path・資格材料を透過しない。
- * @compatibility 本番Consumer未接続の局所専用結果。
+ * @compatibility 通常認証の公開結果。Workbench／MCP等の要求Consumerが利用する。
  */
 export type CredentialAuthenticationResult =
   | Readonly<{ status: "completed"; snapshot: AuthenticatedRequest }>
@@ -202,23 +201,6 @@ export type CredentialManagementResult =
     }>;
 
 /**
- * 現在資格観測の閉じた結果を表す。
- * @responsibility 現在の保存事実と元要求完了・未発行を区別する。
- * @trace ARCH-000013
- * @shape observedの非秘密snapshot、または固定unavailable。
- * @invariant unavailableは未発行・削除・元要求失敗の確定ではない。
- * @boundary 同Processの管理者向けConsumer。MCPに公開しない。
- * @security 秘密・内部Path・他資格・Recovery参照なし。
- * @compatibility 通常管理read四kindは不変更。
- */
-export type CredentialIssuanceObservation =
-  | Readonly<{ status: "observed"; snapshot: CredentialIssuanceSnapshot }>
-  | Readonly<{
-      status: "unavailable";
-      reason: "credential_issuance_unavailable";
-    }>;
-
-/**
  * 鍵交換の保存済み段階と短命結果を分離する。
  * @responsibility core保存完了を提示・未解決record整理の完了にしない。
  * @trace ARCH-000013
@@ -226,7 +208,7 @@ export type CredentialIssuanceObservation =
  * @invariant 通常新規はprepared未確定でnull/null/not_started。引継ぎは旧record三値を新prepared確定後だけ新へ切替。失敗結果にtokenなし。
  * @boundary 同Process Workbench／信頼Hostの内部Consumer専用。
  * @security tokenは一回提示Ownerだけが扱い、MCP・log・履歴・一般DTOへ渡さない。
- * @compatibility 現Schema v2。提示Consumerは未接続、record終了は別内部入口。
+ * @compatibility 現Schema v2。Workbench／Hostの提示処理が接続済みで、record終了は独立操作。
  */
 export type KeyExchangeResult =
   | Readonly<{
@@ -321,6 +303,35 @@ export type KeyExchangeCompletionResult =
     }>;
 
 /**
+ * 保存済み交換の非秘密な現在段階を表す。
+ * @responsibility 段階・起点相関・提示状態をSecretや成功Receiptから分離する。
+ * @trace ARCH-000013
+ * @shape 改訂・元Recovery・操作・起点入口・範囲・発行先・旧ID集合・段階。storedだけ新資格IDと提示状態。
+ * @invariant 未解決recordの現在観測だけで、提示／終了の完了を推定しない。
+ * @boundary 現在管理者または信頼Hostへの読取り投影。
+ * @security token・salt・Verifier・Root・対象外User／資格を含めない。
+ * @compatibility 現Schema v2、非秘密観測専用。
+ */
+export type KeyExchangeSnapshot = Readonly<
+  {
+    revision: number;
+    recoveryId: string;
+    operationId: string;
+    entry: "workbench" | "host";
+    scope: "targeted" | "all";
+    recipientUserId: string;
+    oldCredentialIds: readonly string[];
+  } & (
+    | { stage: "prepared" | "revoked" }
+    | {
+        stage: "credential_stored";
+        newCredentialId: string;
+        presentation: "not_attempted" | "unconfirmed" | "confirmed";
+      }
+  )
+>;
+
+/**
  * 交換の非秘密観測と固定未取得を分離する。
  * @responsibility 記録不在・状態不明を過去の完了へ変換しない。
  * @trace ARCH-000013
@@ -330,6 +341,7 @@ export type KeyExchangeCompletionResult =
  * @security 生鍵・内部Root・Lock回復情報を含めない。
  * @compatibility 現v2の交換参照のみ。MCP非公開。
  */
+
 export type KeyExchangeObservation =
   | Readonly<{ status: "observed"; snapshot: KeyExchangeSnapshot }>
   | Readonly<{

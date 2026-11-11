@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-AMのRoot公開を合意済み30関数・26型へ整理した。Host交換・初期化準備・個別発行観測の内部実装は維持し、試験準備だけを宣言元へ接続。本番Consumerの現在認可・初回限定接続・鍵提示は変更していない。限定15試験とAM／Workbench／MCP型検査、409件の台帳整合を確認し、独立レビューのHeader指摘も是正した。全体回帰・実AI・Docker・過去保持物は操作しない。[範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#am-public-surface-closure)を参照する。
+AMのRoot公開30関数・26型を維持し、内部のOutcome型を明示契約化、交換Snapshotを既存型Ownerへ移管した。本番未使用の個別発行Readerを撤去し、認証・情報非開示・提示／失効・保存不明の4試験を現役の管理一覧へ接続。Role検査重複と古い未接続コメントも是正した。限定31試験・AM／Workbench／MCP型検査、基準型との双方向6代入を確認し、Source／Consumerと文書・QAの独立レビューは残指摘0。全体回帰・実AI・Docker・過去保持物は操作しない。[現在の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#am-internal-contract-closure)を参照する。
 
 Coordinatorの長期Leaseの物理取得・保持・通常解放を共通wx Lockへ接続し、既存Owner喪失回復は維持した。回復の全fresh照合後、同じDomain短期保存排他内でFile回収・不存在・保存を行い、遅延回復者が新Ownerを処置しない。限定回帰で見つけた試験不整合は是正・再確認し、Source／契約・試験・文書の独立再レビューは必須残指摘0。別の既存Domain公開集合試験の失敗も、主体2関数の期待値漏れを追従して是正し、公開境界13試験と主体1試験の成功を確認した。初回の失敗記録は保持する。全体回帰・実AI・Docker・過去保持物の操作・実運用切替は行わない。[範囲と結果](99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#long-lease-common-lock-change)を参照する。
 

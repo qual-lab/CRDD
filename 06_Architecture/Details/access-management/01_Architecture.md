@@ -4,13 +4,13 @@
 
 ## Root公開境界の整理 — 2026-11-11
 
-Rootは既存実装から30関数・26型を直接公開する。中間Facade、互換alias、別の共通型Fileは追加しない。これは未Releaseのライブラリ公開集合の縮小であり、以下の非公開化を内部機能の廃止や権限変更として扱わない。下段の先行段階の公開一覧より本節を優先する。
+Rootは既存実装から30関数・26型を直接公開する。中間Facade、互換alias、別の共通型Fileは追加しない。これは未Releaseのライブラリ公開集合の縮小であり、Host操作の非公開化を機能廃止や権限変更として扱わない。本番未使用の個別発行Readerだけは後続の内部整理で撤去し、詳細を下節に示す。下段の先行段階の公開一覧より本節を優先する。
 
 | 区分 | 操作・型 | 現在の配置と利用 |
 |---|---|---|
 | Root非公開 | `exchangeCredentialsFromHost`、`finishKeyExchangeFromHost`、`readKeyExchangeStateFromHost` | credential/exchangeに維持。Host CLIと内部保存試験が宣言元を直接利用する |
 | Root非公開 | `prepareHostInitializationRoot`、`HostRootPreparationResult`、`HostPreviousInputObservation` | initialization/rootに維持。明示初期化の内部段階と、自己生成Hostの試験準備だけで利用する |
-| Root非公開 | `readCredentialIssuance`、`CredentialIssuanceObservation` | credential/crud・typesに維持。内部の発行事実観測試験から直接利用し、公開の管理状態取得は`readCredentialAdministrationState`へ集約する |
+| 撤去 | 旧個別発行Reader・専用投影・専用観測結果型 | 本番未使用の専用経路を撤去。現在の資格事実は既存`readCredentialAdministrationState`で取得し、元発行ID指定の単件APIは提供しない |
 | Root維持 | 通常認証と初回用途判定・確認 | `authenticateNormalConnection`、`resolveConnectionAuthentication`、`confirmInitialConnection`を分離。初回限定資格を通常認証に昇格しない |
 | Root維持 | 現在認可・管理・Repository・ユーザー状態 | 本番Consumerが利用する完成操作と、その入力・結果型を維持。`sameAccessCollection`の待機後比較、現在資格を認証するProfile管理判定を削らない |
 | Root維持 | 資格発行・失効・交換・提示結果 | 出力Ownerが返す`updateCredentialPresentationState`を維持。発行・提示開始・出力確認・交換終了を同一事実へ畳まない |
@@ -18,7 +18,15 @@ Rootは既存実装から30関数・26型を直接公開する。中間Facade、
 
 公開型は認証・初回相関・管理・資格管理／交換／提示・認可済みRepository・初期化の入力と結果に限定する。`AuthorizedRepository`等の本番Consumerが明示参照する型を残し、非公開化した内部3型の代わりにunknownや新しい巨大Unionを導入しない。実装の保存形式、Lock、現在認証、期待改訂、秘密の一度提示、取消・出版・清掃不明の結果は不変更。
 
-既存RFD-UT-020で実行時30関数とSourceの明示26型を別々に完全一致検査する。AM内部試験とWorkbench／MCPの自己生成Host試験だけが非公開操作の宣言元へ接続し、本番ConsumerはRoot利用を維持する。新しいPackage subpath、HTTP／MCP操作、Host機能の追加はない。
+既存RFD-UT-020で実行時30関数とSourceの明示26型を別々に完全一致検査する。AM内部試験とWorkbench／MCPの自己生成Host試験だけが残した内部操作の宣言元へ接続し、本番ConsumerはRoot利用を維持する。新しいPackage subpath、HTTP／MCP操作、Host機能の追加はない。
+
+### 内部の型正本と不要経路の整理 — 2026-11-11
+
+公開集合は30関数・26型を維持する。`ManagementOperationOutcome`／`ManagementReadOutcome`／`CurrentAccessOutcome`はpermission/typesに構造を明示し、authorization側の投影関数へ戻り型を付ける。型定義から実装関数のReturnTypeを参照せず、実装が契約を満たす方向へ固定する。既存の可変配列・省略項目・null・理由の型幅を変更しない。`KeyExchangeSnapshot`も本文をcredential/typesへ移し、exchangeから型を利用する。Rootへの追加公開はしない。
+
+本番未使用だった`readCredentialIssuance`／`projectCredentialIssuance`／`CredentialIssuanceObservation`は撤去する。`CredentialIssuanceSnapshot`は現役の管理一覧の構成型なので保持する。旧Readerの4試験は、現在管理者だけの一覧取得、提示三状態・失効、非認可時の情報非開示、初回途中・保存／清掃／解放不明の拒否を現役Readerへ接続する。発行ID／User ID指定による単件不存在・不正引数の判定は廃止した専用APIだけの契約であり、引数を持たない管理一覧へ偽装しない。管理者が現在一覧から整理済み対象の不存在を確認できることと、非認可者へ対象を開示しないことを区別する。
+
+Role形式検査は既存permission/validationの`isAccessRole`を共用し、authorization内の完全重複だけを削除する。認証結果と交換結果の古い未接続コメントも現在のWorkbench／MCP／Host接続へ追従する。保存Schema、現在認可、鍵発行・提示・失効・交換、Lockと回復条件は変更しない。
 
 ## Source構造の再編 — 2026-10-19
 
@@ -80,7 +88,7 @@ Contextの初回は一つの既存Lock内で現在状態読取り・KDFによる
 | `evaluateManagementPermission`、`evaluateAiProfileManagementPermission` | 固定Role分担と現在のProfile管理可否 |
 | `resolveRepositoryAccess`、`resolveRepositoryAccessCollection`、`sameAccessCollection` | 信頼したBackend向けの認可済み実Root・集合とその同一性。外部DTOではない |
 | `authenticateNormalConnection`、`resolveConnectionAuthentication`、`confirmInitialConnection` | 通常認証と初回限定接続を区別した既存結果 |
-| `issueCredential`、`revokeCredential`、`readCredentialAdministrationState`、`updateCredentialPresentationState` | administratorの鍵操作と非秘密状態。生成成功時だけ一度提示用の秘密を保持。個別発行事実Readerは内部利用のみ |
+| `issueCredential`、`revokeCredential`、`readCredentialAdministrationState`、`updateCredentialPresentationState` | administratorの鍵操作と非秘密状態。生成成功時だけ一度提示用の秘密を保持。個別発行事実Readerは撤去済み |
 | `exchangeCredentials`、`finishKeyExchange`、`readKeyExchangeState` | Workbenchのexact交換処理・終了・再観測。Host専用経路は同じ実装Fileの内部操作として維持。MCPへ公開しない |
 | `initializeFromHost`、`readHostInitializationState`、`resolveHostRootInput`、`readExistingHostRoot` | 明示初回設定と通常Root検証を分離したHost接続。保存先準備は初期化の内部段階 |
 

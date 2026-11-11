@@ -16,8 +16,8 @@ import type {
   ManagementRequest,
 } from "../permission/types.ts";
 import type { AccessRole } from "../role/types.ts";
-import { readCurrent, settlePending } from "../storage/store.ts";
 import { locked } from "../storage/lock.ts";
+import { readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { evaluateManagementPermission } from "./management.ts";
 
@@ -121,7 +121,9 @@ export function projectCurrentAccess(
  * @security managementOperations・資格・Binding・他User・Pathを含めない。
  * @concurrency 同改訂のread結果だけ。次要求はfreshに取得する。
  */
-export function projectCurrentAccessResult(result: CurrentAccessResult) {
+export function projectCurrentAccessResult(
+  result: CurrentAccessResult,
+): CurrentAccessOutcome {
   if (result.status !== "completed")
     return { status: "unavailable" as const, reason: result.reason };
   const snapshot = result.snapshot;

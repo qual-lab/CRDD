@@ -14,16 +14,17 @@ import {
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";
 import type {
+  ManagementOperationOutcome,
   ManagementPermission,
   ManagementReadKind,
   ManagementReadOutcome,
   ManagementStateResult,
   ManagementStateSnapshot,
 } from "../permission/types.ts";
+import { isAccessRole } from "../permission/validation.ts";
 import type { RepositoryExposureManagementResult } from "../repository/types.ts";
-import type { AccessRole } from "../role/types.ts";
-import { readCurrent, settlePending } from "../storage/store.ts";
 import { locked } from "../storage/lock.ts";
+import { readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import type { UserRoleManagementResult } from "../user/types.ts";
 
@@ -115,28 +116,6 @@ export function evaluateManagementPermission(
   if (actorRole === "developer") return "denied";
   if (actorRole === "manager" && targetRequiresAdministrator) return "denied";
   return "allowed";
-}
-
-/**
- * 値が採用済み三Roleの識別子か判定する。
- *
- * @responsibility 未知Roleを既定Roleへ変換せず拒否する。
- * @trace ARCH-000013
- * @input 信頼していないRole値。
- * @returns 三Roleのいずれかである場合だけtrue。
- * @precondition N/A: 任意値を受ける。
- * @postcondition 入力を変更・正規化しない。
- * @effect N/A: primitiveの等値比較だけを行う。
- * @failure N/A: 値比較に外部故障はない。
- * @invariant management等の旧識別子を互換受理しない。
- * @boundary 同FileのRole形式検査。
- * @security Roleの実在・認証・現在性は確認しない。
- * @concurrency N/A: 共有状態を持たない。
- */
-function isAccessRole(value: unknown): value is AccessRole {
-  return (
-    value === "developer" || value === "manager" || value === "administrator"
-  );
 }
 
 /**
@@ -343,7 +322,7 @@ export function projectManagementState(
  */
 export function projectManagementOperationResult(
   result: UserRoleManagementResult | RepositoryExposureManagementResult,
-) {
+): ManagementOperationOutcome {
   if (result.status === "completed") {
     return {
       status: "completed" as const,
@@ -406,7 +385,9 @@ export function projectManagementOperationResult(
  * @security 資格・Path・Binding・回復参照を含めない。
  * @concurrency 当該read改訂だけ。認可を後続要求へ保持しない。
  */
-export function projectManagementReadResult(result: ManagementStateResult) {
+export function projectManagementReadResult(
+  result: ManagementStateResult,
+): ManagementReadOutcome {
   if (result.status === "unavailable")
     return {
       status: "unavailable" as const,

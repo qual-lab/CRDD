@@ -7,6 +7,7 @@
 
 import { types } from "node:util";
 import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
@@ -18,7 +19,6 @@ import {
   serialize,
   settlePending,
 } from "../storage/store.ts";
-import { locked } from "../storage/lock.ts";
 import type {
   AccessManagementState,
   KeyExchangeRecord,
@@ -34,6 +34,7 @@ import type {
   KeyExchangeCompletionResult,
   KeyExchangeObservation,
   KeyExchangeResult,
+  KeyExchangeSnapshot,
 } from "./types.ts";
 
 /**
@@ -370,35 +371,6 @@ export function isKeyExchangeRecoveryId(value: unknown): value is string {
     UUID.test(value.slice(prefix.length))
   );
 }
-
-/**
- * 保存済み交換の非秘密な現在段階を表す。
- * @responsibility 段階・起点相関・提示状態をSecretや成功Receiptから分離する。
- * @trace ARCH-000013
- * @shape 改訂・元Recovery・操作・起点入口・範囲・発行先・旧ID集合・段階。storedだけ新資格IDと提示状態。
- * @invariant 未解決recordの現在観測だけで、提示／終了の完了を推定しない。
- * @boundary 現在管理者または信頼Hostへの読取り投影。
- * @security token・salt・Verifier・Root・対象外User／資格を含めない。
- * @compatibility 現Schema v2、非秘密観測専用。
- */
-export type KeyExchangeSnapshot = Readonly<
-  {
-    revision: number;
-    recoveryId: string;
-    operationId: string;
-    entry: "workbench" | "host";
-    scope: "targeted" | "all";
-    recipientUserId: string;
-    oldCredentialIds: readonly string[];
-  } & (
-    | { stage: "prepared" | "revoked" }
-    | {
-        stage: "credential_stored";
-        newCredentialId: string;
-        presentation: "not_attempted" | "unconfirmed" | "confirmed";
-      }
-  )
->;
 
 /**
  * 現在Authorityからexact交換の事実だけを投影する。

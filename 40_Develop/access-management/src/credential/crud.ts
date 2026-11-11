@@ -7,6 +7,7 @@
 
 import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { evaluateManagementPermission } from "../authorization/management.ts";
+import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
@@ -18,7 +19,6 @@ import {
   serialize,
   settlePending,
 } from "../storage/store.ts";
-import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { resolveCredentialAuthentication } from "./authentication.ts";
 import { projectKeyExchangeState } from "./exchange.ts";
@@ -26,8 +26,6 @@ import { createCredentialMaterial, readCredentialId } from "./token.ts";
 import type {
   CredentialAdministrationSnapshot,
   CredentialAdministrationStateResult,
-  CredentialIssuanceObservation,
-  CredentialIssuanceSnapshot,
   CredentialManagementResult,
 } from "./types.ts";
 
@@ -183,53 +181,6 @@ export function prepareCredentialChange(
     target.revoked = true;
   }
   return { next, operation, credentialIndex };
-}
-
-/**
- * 現在管理者のexact元発行相関だけを投影する。
- * @responsibility 対象不存在や結合差を未発行確定へ丸めない。
- * @trace ARCH-000013
- * @input 鍵・完全検査済み状態・元発行UUID・User UUID。
- * @returns 所有済み凍結投影、または固定非開示拒否のnull。
- * @precondition 同Lock内の保存Ownerが完全状態を検査済み。
- * @postcondition 入力状態を変更せず、秘密・内部参照を透過しない。
- * @effect 現在BearerのVerifier照合とメモリ投影だけ。
- * @failure 初回未完了・未認証・非管理者・不正相関・record不在はnull。
- * @invariant 元発行IDは独立失効要求の受付IDではない。
- * @boundary 現在資格の意味投影。物理観測・材料処置・解放は別Owner。
- * @security 古いRoleや相関ID自体をAuthorityにしない。
- * @concurrency 同じ改訂の一読取りだけ。次要求はfresh状態で再評価する。
- */
-export function projectCredentialIssuance(
-  token: string,
-  current: AccessManagementState,
-  issuanceOperationId: string,
-  userId: string,
-): CredentialIssuanceSnapshot | null {
-  if (
-    typeof token !== "string" ||
-    typeof issuanceOperationId !== "string" ||
-    !UUID.test(issuanceOperationId) ||
-    typeof userId !== "string" ||
-    !UUID.test(userId) ||
-    current.initialization.stage !== "completed"
-  )
-    return null;
-  const actor = resolveCredentialAuthentication(token, current);
-  if (actor?.role !== "administrator") return null;
-  const credential = current.credentials.find(
-    (item) =>
-      item.operationId === issuanceOperationId && item.userId === userId,
-  );
-  if (!credential) return null;
-  return Object.freeze({
-    revision: current.revision,
-    credentialId: credential.credentialId,
-    userId: credential.userId,
-    issuanceOperationId: credential.operationId,
-    presentation: credential.presentation,
-    revoked: credential.revoked,
-  });
 }
 
 /**
@@ -520,77 +471,4 @@ export function revokeCredential(
     userId,
     credentialId,
   );
-}
-
-/**
- * 現在管理者へ元発行IDとUserのexact保存事実だけを返す。
- * @responsibility 材料処置・Lock解放不明から古い資格事実を返さない。
- * @trace ARCH-000013
- * @input 検証済みRoot・Bearer・元発行UUID・User UUID。
- * @returns 非秘密の現在観測、または固定unavailable。
- * @precondition 同Processの信頼済みWorkbench Consumerが呼ぶ。
- * @postcondition 既存材料処置がnone、Lock解放確認済みの場合だけ事実を返す。
- * @effect 同Lock current読取り・現在認証・相関確認後だけ既存材料処置。
- * @failure 材料処置・清掃・観測・解放不明、未許可は事実0。
- * @invariant 生成・再表示・Receipt・元失効要求のcompleted推定0。
- * @boundary 専用の資格読取りと既存Filesystem保存Owner。
- * @security token・salt・Verifier・内部Root・他User情報を透過しない。
- * @concurrency 同じLock内で照合し、材料を処置した要求は次のfresh要求へ戻す。
- */
-export function readCredentialIssuance(
-  root: FilesystemStoreRoot,
-  token: string,
-  issuanceOperationId: string,
-  userId: string,
-): CredentialIssuanceObservation {
-  const unavailable = Object.freeze({
-    status: "unavailable" as const,
-    reason: "credential_issuance_unavailable" as const,
-  });
-  if (
-    typeof token !== "string" ||
-    !readCredentialId(token) ||
-    typeof issuanceOperationId !== "string" ||
-    !ATTEMPT_UUID.test(issuanceOperationId) ||
-    typeof userId !== "string" ||
-    !ATTEMPT_UUID.test(userId)
-  )
-    return unavailable;
-  const result = locked<CredentialIssuanceSnapshot>(root, () => {
-    try {
-      const current = readCurrent(root);
-      const snapshot = projectCredentialIssuance(
-        token,
-        current.state,
-        issuanceOperationId,
-        userId,
-      );
-      if (!snapshot || settlePending(root, current, () => {}) !== "none")
-        return {
-          status: "unavailable",
-          reason: "credential_issuance_unavailable",
-          publication: "not_attempted",
-          revision: null,
-          cleanupConfirmed: false,
-        };
-      return {
-        status: "completed",
-        value: snapshot,
-        publication: "not_attempted",
-        revision: current.state.revision,
-        cleanupConfirmed: true,
-      };
-    } catch {
-      return {
-        status: "unavailable",
-        reason: "credential_issuance_unavailable",
-        publication: "not_attempted",
-        revision: null,
-        cleanupConfirmed: false,
-      };
-    }
-  });
-  return result.status === "completed"
-    ? Object.freeze({ status: "observed", snapshot: result.value })
-    : unavailable;
 }

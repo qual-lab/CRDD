@@ -5,11 +5,6 @@
  * @trace ARCH-000013
  */
 
-import type { projectCurrentAccessResult } from "../authorization/current.ts";
-import type {
-  projectManagementOperationResult,
-  projectManagementReadResult,
-} from "../authorization/management.ts";
 import type { AccessRole } from "../role/types.ts";
 
 /**
@@ -185,7 +180,7 @@ export type ManagementStateResult =
 
 /**
  * 通常管理保存の非秘密結果型。
- * @responsibility 同じprojectorの実結果型を利用側へ公開する。
+ * @responsibility 非秘密の結果契約を明示し、projectorがその契約を満たすことを要求する。
  * @trace ARCH-000013
  * @shape completed／rejected／unavailableの判別Union。
  * @invariant HTTPやMCP固有の理由・Envelopeを含めない。
@@ -193,13 +188,33 @@ export type ManagementStateResult =
  * @security 生Secret・Path・Bindingなし。
  * @compatibility 現行の通常管理結果だけ。
  */
-export type ManagementOperationOutcome = ReturnType<
-  typeof projectManagementOperationResult
->;
+export type ManagementOperationOutcome =
+  | ({
+      status: "completed";
+      operationId: string;
+      expectedRevision: number;
+      revision: number;
+      publication: "confirmed";
+      cleanupConfirmed: true;
+    } & (
+      | { userId: string | null; repositoryId?: undefined }
+      | { repositoryId: string; userId?: undefined }
+    ))
+  | { status: "rejected"; reason: "management_request_rejected" }
+  | {
+      status: "unavailable";
+      reason: "management_operation_unavailable";
+      primaryFailure: string;
+      operationId: string;
+      expectedRevision: number;
+      observedRevision: number | null;
+      publication: "not_attempted" | "unconfirmed" | "confirmed";
+      cleanupConfirmed: boolean;
+    };
 
 /**
  * 管理対象別readの非秘密結果型。
- * @responsibility 読取り結果のshapeをprojectorと同一Ownerへ固定する。
+ * @responsibility 対象専用の公開結果を明示し、projectorの実装から独立させる。
  * @trace ARCH-000013
  * @shape 改訂付き対象専用結果または固定未取得。
  * @invariant 各readの改訂を分離する。
@@ -207,9 +222,36 @@ export type ManagementOperationOutcome = ReturnType<
  * @security Binding・資格なし。
  * @compatibility 現行四管理readだけ。
  */
-export type ManagementReadOutcome = ReturnType<
-  typeof projectManagementReadResult
->;
+export type ManagementReadOutcome =
+  | {
+      status: "unavailable";
+      reason: "management_read_rejected" | "management_read_unavailable";
+    }
+  | ({ status: "completed"; revision: number } & (
+      | {
+          users: { userId: string; username: string; role: AccessRole }[];
+          roles?: undefined;
+          repositories?: undefined;
+        }
+      | {
+          roles: {
+            role: AccessRole;
+            workspaceIds: ("development" | "management")[];
+          }[];
+          users?: undefined;
+          repositories?: undefined;
+        }
+      | {
+          repositories:
+            | { repositoryId: string }[]
+            | {
+                repositoryId: string;
+                workspaceIds: ("development" | "management")[] | null;
+              }[];
+          users?: undefined;
+          roles?: undefined;
+        }
+    ));
 
 /**
  * 通常本人の最小公開結果型。
@@ -221,6 +263,23 @@ export type ManagementReadOutcome = ReturnType<
  * @security 他User・資格・Pathなし。
  * @compatibility 通常三Roleの表示だけ。
  */
-export type CurrentAccessOutcome = ReturnType<
-  typeof projectCurrentAccessResult
->;
+export type CurrentAccessOutcome =
+  | {
+      status: "unavailable";
+      reason:
+        | "current_access_authentication_rejected"
+        | "current_access_lock_unavailable"
+        | "current_access_cleanup_pending"
+        | "current_access_observation_unknown"
+        | "current_access_release_unknown";
+    }
+  | {
+      status: "completed";
+      revision: number;
+      user: { userId: string; username: string; role: AccessRole };
+      contentAccess: { workspaceIds: ("development" | "management")[] };
+      permittedRepositories: {
+        repositoryId: string;
+        workspaceIds: ("development" | "management")[];
+      }[];
+    };
