@@ -232,8 +232,6 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.ok(target.resources.checkpoints.filter(item=>item.key!=='create_provider').every(item=>item.submission==='none' && item.receiptSource===null && item.observation==='unobserved' && item.absenceEvidenceSha256===null));
           assert.equal(identity.provider, 'claude'); assert.equal(identity.operationMode, 'isolated_task');
           const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
-          const nativeExe = path.resolve(path.dirname(cli), '../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
-          const nativeModes = ['--system-windows-directory'];
           const expectedCommands = [
             ['version','--format','{{.Server.Os}}'],
             ['container','inspect',dockerId],
@@ -247,12 +245,6 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const syntheticChildren = [];
           const classify = function(channel, executable, argv, options) {
             try {
-              if(executable === nativeExe) {
-                assert.equal(channel,'sync');
-                assert.equal(argv.length, 1); assert.ok(nativeModes.includes(argv[0]));
-                assert.deepEqual({...options,cwd:path.resolve(options.cwd)},{env:{},cwd:path.resolve(path.dirname(nativeExe),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});
-                return originalSpawn(executable, argv, options);
-              }
               let stdout = '';
               const powershell = path.win32.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
               if(executable.toLowerCase() === powershell.toLowerCase()) {

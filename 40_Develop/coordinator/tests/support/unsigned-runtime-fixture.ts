@@ -50,7 +50,6 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
       "coordinator",
       "executor",
       "docker-isolation",
-      "platform-access",
       "lock",
       "domain-model",
       "access-management",

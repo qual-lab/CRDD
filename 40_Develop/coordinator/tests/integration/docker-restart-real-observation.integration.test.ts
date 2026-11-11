@@ -12,17 +12,13 @@ import { runtimeStateDirectoryCandidate } from "../../src/execution/authority.ts
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acquireDesktopOperations } from "../../../docker-isolation/src/docker-desktop/command.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import {
-  createChildProcessEnvironment,
-  observeSystemWindowsDirectory,
-} from "../../../platform-access/src/index.ts";
+import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import { acquireRuntimeStateLock } from "../../src/execution/kernel-lock.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
@@ -44,7 +40,9 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
     process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
   timeout: 30_000,
 }, () => {
-  const parentEnvironment = createChildProcessEnvironment();
+  const parentEnvironment = createWindowsPowerShellAuthenticodeEnvironment(
+    getIsolationSettings(),
+  );
   assert.ok(parentEnvironment);
   const profile = fs.realpathSync.native(os.userInfo().homedir);
   const temporary = fs.realpathSync.native(
@@ -56,7 +54,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
     ),
   ).href;
   const source = [
-    `import { observeTrustedDockerCli } from ${JSON.stringify(moduleUrl)};`,
+    `import { observeTrustedDockerCli, initializeIsolation } from ${JSON.stringify(moduleUrl)}; const getIsolationSettings=()=>initializeIsolation(${JSON.stringify(getIsolationSettings())});`,
     "try{const observed=observeTrustedDockerCli(getIsolationSettings());process.stdout.write(JSON.stringify({status:'completed',trustBasis:observed.trustBasis,publisherOrganization:observed.publisherOrganization,bytesPositive:observed.bytes>0,sha256Length:observed.sha256.length}));}catch(error){process.stdout.write(JSON.stringify({status:'blocked',reason:error instanceof Error?error.message:String(error)}));process.exitCode=2;}",
   ].join("");
   const result = childProcess.spawnSync(
@@ -80,100 +78,6 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
     bytesPositive: true,
     sha256Length: 64,
   });
-});
-
-/**
- * Windows environment observation completes with a shared runtime lockを検証する。
- *
- * @responsibility Windows environment observation completes with three runtime lock workersの合否判定を所有する。
- * @trace ERB-IT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows environment observation completes with three runtime lock workersの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Windows environment observation completes with three runtime lock workers", {
-  skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
-  timeout: 60_000,
-}, () => {
-  const locks = [];
-  try {
-    for (let index = 0; index < 1; index += 1) {
-      const lockAcquisition = acquireRuntimeStateLock(
-        runtimeStateDirectoryCandidate(),
-      );
-      assert.ok(lockAcquisition.status === "acquired");
-      const lock = lockAcquisition.lock;
-      assert.ok(lock);
-      locks.push(lock);
-    }
-    for (let index = 0; index < 20; index += 1) {
-      assert.ok(
-        createChildProcessEnvironment({ platform: "win32", userProfile: true }),
-      );
-    }
-  } finally {
-    const releaseResults = locks.map((lock) => lock.release());
-    assert.equal(releaseResults.length, locks.length);
-    assert.ok(releaseResults.every((wasReleased) => wasReleased === true));
-  }
-});
-
-/**
- * Windows directory bootstrap rejects incomplete or failed native resultsを検証する。
- *
- * @responsibility Windows directory bootstrap rejects incomplete or failed native resultsの合否判定を所有する。
- * @trace ERB-IT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows directory bootstrap rejects incomplete or failed native resultsの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Windows directory bootstrap rejects incomplete or failed native results", {
-  skip: process.platform !== "win32",
-}, () => {
-  const original = childProcess.spawnSync;
-  const payload = Buffer.from("C:\\Windows", "utf16le");
-  const frame = Buffer.alloc(12 + payload.length);
-  frame.write("CRDDWD01", 0, "ascii");
-  frame.writeUInt32LE(payload.length / 2, 8);
-  payload.copy(frame, 12);
-  const success = {
-    pid: 1,
-    status: 0,
-    signal: null,
-    stdout: frame,
-    stderr: Buffer.alloc(0),
-    output: [],
-  };
-  try {
-    for (const [label, result, expected] of [
-      ["valid", success, "C:\\Windows"],
-      ["exit", { ...success, status: 2 }, null],
-      ["signal", { ...success, signal: "SIGTERM" }, null],
-      ["error", { ...success, error: new Error("timeout") }, null],
-      ["stderr", { ...success, stderr: Buffer.from("unexpected") }, null],
-      ["truncated", { ...success, stdout: frame.subarray(0, -1) }, null],
-      [
-        "extra",
-        { ...success, stdout: Buffer.concat([frame, Buffer.from([0])]) },
-        null,
-      ],
-      ["magic", { ...success, stdout: Buffer.alloc(frame.length) }, null],
-    ] as const) {
-      childProcess.spawnSync = (() =>
-        result) as unknown as typeof childProcess.spawnSync;
-      syncBuiltinESMExports();
-      assert.equal(observeSystemWindowsDirectory(), expected, label);
-    }
-  } finally {
-    childProcess.spawnSync = original;
-    syncBuiltinESMExports();
-  }
 });
 
 // Explicit, read-only real-environment IT. No stop/start or Provider invocation.

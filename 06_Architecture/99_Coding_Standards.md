@@ -39,7 +39,7 @@ CRDD公式Repositoryが所有する内部Scriptは`.ts`を標準とし、Node.js
 
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path aliasまたはcompiler変換を前提とする構文を内部Scriptへ導入しない。
 
-TypeScriptだけでは安全に確認できないOS APIへ接続する最小部分は、`40_Develop/platform-access/**`のprivate Rust実装に限定できる。CRDD本体、一般CLI、Policy、契約およびProcess lifecycleはTypeScriptに保持する。Rust成果物は公開CLI、独立製品、永続準備Lifecycleまたは採用RepositoryのBuild依存を所有せず、固定protocolで要求されたOS観測と限定操作だけを行う。この例外を内部Script一般のRust移行へ拡張しない。
+v0.22で`platform-access`と固定Rust成果物を退役した。現行のOS処理はNode.js標準と既存Ownerの用途固定処理へ接続する。旧Native例外を新しいNative実装の追加許可として扱わない。再導入が必要になった場合は、具体的な必要保証と標準APIで満たせない理由を別の変更として判断する。
 
 外部Providerの公式実行物は未改造で利用し、CRDD側のアクセス・変更・通信制限は既存の隔離境界で所有する。助言目的だけを理由に公式CLI内部の制限や独自Buildを追加しない。Codex助言専用の起動PatchとSource Buildは廃止対象であり、利用側と検証・配布の切替を終えるまでの移行前実装として識別する。通常Executor／Reviewerの公式実行物を変更せず、Provider Authority、Process lifecycle、取消とRecoveryは既存TypeScript Ownerに保持する。新方式は公式CLIと公式Hostの取得済み配布Identityおよび配置用Docker Imageを検証し、採用RepositoryやRuntimeでCodex本体をBuildしない。設計の正本は[Coordinator詳細設計](Details/coordinator/01_Architecture.md#751-codex助言専用の起動制限)とする。
 
@@ -58,6 +58,8 @@ CRDD所有のTypeScript packageは、全回帰用の公開`test` scriptから、
 <a id="native-build-output"></a>
 
 ### Nativeビルドの対象環境と出力取得
+
+以下はPA退役前のBuild契約の履歴であり、現行のBuild・回帰にCargoを要求しない。再導入許可ではない。現在値は[PA退役記録](Details/platform-access/01_Architecture.md#現在の構成--2026-11-11)を参照する。
 
 CRDDが所有する`platform-access`の正式なBuild・Clippy・試験入口は、対象環境を`--target x86_64-pc-windows-msvc`で明示する。他の対象環境を採用する場合も明示指定を維持し、環境名の変更は対応Platformの設計と利用側へ接続する。
 

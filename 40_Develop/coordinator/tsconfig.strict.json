@@ -22,7 +22,6 @@
   },
   "files": [
     "src/index.ts",
-    "scripts/native-git-provenance.ts",
     "src/execution/request.ts",
     "src/cli/command.ts",
     "scripts/verification-result-record.ts",
@@ -33,12 +32,8 @@
     "scripts/check-dynamic-fake-provider-coverage.ts",
     "scripts/check-provider-authority-coverage.ts",
     "scripts/check-provider-home-coverage.ts",
-    "scripts/check-platform-access-coverage.ts",
-    "scripts/check-platform-access-ts-coverage.ts",
-    "scripts/check-native-runtime-trace.ts",
     "scripts/check-runtime-traceability.ts",
     "scripts/check-task-design-traceability.ts",
-    "scripts/platform-access-coverage-path.ts",
     "scripts/prepare-codex-image.ts",
     "scripts/verify-dynamic-fake-provider-cancellation.ts",
     "scripts/verify-dynamic-fake-provider-failures.ts",
@@ -51,8 +46,8 @@
     "../ai-adapter/src/claude/plan.ts",
     "src/execution/operation.ts",
     "../domain-model/src/plain-data/snapshot.ts",
-    "../platform-access/src/index.ts",
-    "src/execution/preparation.ts"
+    "src/execution/preparation.ts",
+    "scripts/coverage.ts"
   ],
   "include": [
     "src/**/*.ts"

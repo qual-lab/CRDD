@@ -239,14 +239,8 @@ test("config終了はENOENTだけを不存在とし再出現・観測不能・�
 test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有限CLIへ接続する", async (t) => {
   const f = await createIsolationFixture(t);
   const di = await import("../../src/index.ts");
-  const platform = await import("../../../platform-access/src/index.ts");
   let selected: "codex" | "claude" = "codex",
     released = 0;
-  t.mock.module("../../../platform-access/src/index.ts", {
-    namedExports: {
-      ...platform,
-    },
-  });
   t.mock.module(new URL("../../../lock/src/index.ts", import.meta.url).href, {
     namedExports: {
       ...(await import(

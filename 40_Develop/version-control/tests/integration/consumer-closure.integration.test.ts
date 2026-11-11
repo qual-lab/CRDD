@@ -579,7 +579,6 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     externalConsumers(/\b(?:readCommitFile|copyCommitFiles)\b/u),
     [
       "40_Develop/checker/src/repository/references.ts",
-      "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/decision/external-send-policy.ts",
     ],
   );
@@ -588,7 +587,6 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     [
       "40_Develop/checker/src/repository/discover.ts",
       "40_Develop/checker/src/repository/document.ts",
-      "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
@@ -711,9 +709,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/checker/src/repository/project-context.ts",
       "40_Develop/checker/src/repository/reality.ts",
       "40_Develop/checker/src/repository/references.ts",
-      "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
-      "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/scripts/prepare-codex-image.ts",
       "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
@@ -948,7 +944,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     "40_Develop/checker/src/repository/document.ts",
     "40_Develop/checker/src/repository/observe.ts",
     "40_Develop/checker/src/repository/references.ts",
-    "40_Develop/coordinator/scripts/native-git-provenance.ts",
     "40_Develop/coordinator/src/decision/external-send-policy.ts",
     "40_Develop/coordinator/src/execution/operation.ts",
     "40_Develop/coordinator/src/state/observation.ts",
@@ -989,9 +984,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/checker/src/repository/reality.ts",
       "40_Develop/checker/src/repository/references.ts",
       "40_Develop/checker/src/repository/semantic.ts",
-      "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
-      "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/scripts/prepare-codex-image.ts",
       "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",

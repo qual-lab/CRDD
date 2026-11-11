@@ -9,8 +9,7 @@
     "mcp-server",
     "execution-intelligence",
     "domain-model",
-    "checker",
-    "platform-access"
+    "checker"
   ],
   "contextSurfaces": [
     "crdd-context"

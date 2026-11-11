@@ -1,4 +1,24 @@
-# Windowsネイティブ部品の設計
+# Platform Accessの退役と責務の移管
+
+Status: Retired（v0.22 Feature）
+
+## 現在の構成 — 2026-11-11
+
+`platform-access`の製品Source・公開API・Rust crate・固定配布exe・専用Build／計測入口を撤去した。別PackageへのNative移管や互換入口は作らない。以下の当時の設計は履歴であり、現在の実行条件ではない。
+
+| 旧責務 | 現在のOwnerと処置 |
+|---|---|
+| Runtime State・Provider Home | Coordinatorの既存Node処理。Path・実体・wx排他と保存順序を維持。SID／厳密DACL・祖先Handleと同等の保証は主張しない |
+| Docker所在・子環境・Desktop処置 | 上位確定のDI初期設定と既存DI実装。PAの所在・子環境に製品利用が残らないため代替なしで撤去 |
+| Native成果物同一性・Git Blob照合 | 対象成果物そのものを廃止。開発SessionのSource／Git改訂照合はCoordinatorに維持 |
+| Native借用・専用資格Hash | Process-local契約から削除。Source根拠は既存観測Mapへ保持し、期限・取消・実行回数・Authority制御は維持 |
+| 共通LCOV解析 | 既存利用3ToolがあるためCoordinatorの`scripts/coverage.ts`へ縮小統合。PA専用集計・Rust計測は撤去 |
+
+Source観測の対象からPAを外し、scopeを`crdd-development-source-snapshot/v3`へ更新した。旧Native Hashを補完せず、新Sessionは現在のSource／Gitから新bindingを作る。永続記録・回復ID・保持物を移行・削除しない。旧Build cacheは製品Sourceではなく、今回清掃しない。
+
+PA廃止はLinux／macOS対応、Host保護の同等性、全体回帰またはRelease成立を意味しない。全体回帰は引き続き保留し、実AI・実Docker・過去保持物は操作しない。
+
+## 以下は退役までの判断・保証変更の履歴
 
 ## 現在の残存範囲 — 2026-11-11
 

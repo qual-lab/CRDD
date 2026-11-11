@@ -209,7 +209,7 @@ function resolvesToForbiddenWindowsAsciiModule(
  */
 function source(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
-    scope: "crdd-development-source-snapshot/v2",
+    scope: "crdd-development-source-snapshot/v3",
     sourceSha256: "0".repeat(64),
     sourceIdentitySha256: "9".repeat(64),
     crddCommit: baseCommit,
@@ -927,7 +927,7 @@ test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる
   const getter = {
     get scope() {
       getterCalls += 1;
-      return "crdd-development-source-snapshot/v2";
+      return "crdd-development-source-snapshot/v3";
     },
   };
   for (const observed of [
@@ -1096,7 +1096,7 @@ test("Source終了観測は破棄・解除後に五値を照合し内部値を�
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.effectStateUnknown, false);
     assert.equal(result.canonicalRepositoryChanged, false);
-    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v2");
+    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v3");
     assert.equal(result.sourceSha256, "0".repeat(64));
     assert.equal(result.signatureRequired, false);
     for (const key of [

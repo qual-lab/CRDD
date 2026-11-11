@@ -1,13 +1,10 @@
 /**
- * check-platform-access-ts-coverageに属する責務をまとめる。
+ * 複数の検証Toolが使うexact LCOV解析を所有する。
  *
  * @responsibility Counterを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
 // Node's V8 coverage counter is an execution count, not a bounded test-case
@@ -18,35 +15,8 @@ const maximumCoverageCount = Number.MAX_SAFE_INTEGER;
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
-export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
-  "40_Develop/coordinator/src/execution/diagnostics.ts",
-  "40_Develop/coordinator/src/execution/authority.ts",
-  "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
-  "40_Develop/platform-access/src/artifact/identity.ts",
-  "40_Develop/coordinator/scripts/native-git-provenance.ts",
-]);
-
-export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
-  "40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/native-git-provenance.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/execution/root-observation.contract.test.ts",
-]);
-
-export const PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS = Object.freeze([
-  "--experimental-test-coverage",
-  "--test",
-  "--test-concurrency=1",
-  "--experimental-test-isolation=none",
-  "--test-reporter=lcov",
-]);
-
 /**
- * check-platform-access-ts-coverageで使用するCounterの値契約を定義する。
+ * coverageで使用するCounterの値契約を定義する。
  *
  * @responsibility CounterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -58,7 +28,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS = Object.freeze([
  */
 type Counter = Readonly<{ covered: number; total: number }>;
 /**
- * check-platform-access-ts-coverageで使用するBranchの値契約を定義する。
+ * coverageで使用するBranchの値契約を定義する。
  *
  * @responsibility BranchのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -75,7 +45,7 @@ type Branch = Readonly<{
   taken: number | null;
 }>;
 /**
- * check-platform-access-ts-coverageで使用するSource Coverageの値契約を定義する。
+ * coverageで使用するSource Coverageの値契約を定義する。
  *
  * @responsibility Source CoverageのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -93,17 +63,7 @@ type SourceCoverage = Readonly<{
   uncoveredBranches: readonly Branch[];
 }>;
 
-/**
- * check-platform-access-ts-coverageで使用するCoverage Obligationの値契約を定義する。
- *
- * @responsibility Coverage ObligationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoverageObligationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoverageObligationで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoverageObligationの宣言は外部境界を開かない。
- * @security N/A: CoverageObligationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoverageObligationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
+/** 未到達分岐の根拠と再確認条件。割合だけで未確認を解消しない。 */
 export type CoverageObligation = Readonly<{
   status: "Not Verified";
   reason: string;
@@ -114,84 +74,10 @@ export type CoverageObligation = Readonly<{
   recheck: string;
 }>;
 
-const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
-  Object.freeze({
-    "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts":
-      obligation(
-        "集計器のmain guard、OS I/O failureおよび全LCOV不正組合せを同一runで到達していない",
-        "品質根拠の誤拒否または不正入力の誤受理",
-        "exact source/test母集団、LCOV grammar負例および連続出力一致",
-        "LCOV grammar、Node coverageまたは固定母集団の変更時",
-      ),
-    "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
-      "既存doctor全分岐を本変更専用coverage母集団で再到達していない",
-      "状態投影の稀なblocked理由の回帰",
-      "doctor契約試験、公開情報最小化試験および全Coordinator test",
-      "doctor投影、blockerまたはevidence母集団変更時",
-    ),
-    "40_Develop/coordinator/src/execution/authority.ts": obligation(
-      "host OS dispatcherの反対側分岐を単一OS runで到達していない／Rust結果からRoot観測へのproduction写像は未実装である",
-      "OS別dispatcherとpure字句判定の接続差／未確認主体またはProtection値の補完",
-      "Windows/POSIX pure validatorの正負・境界契約試験／selected-user binding必須、exact inputおよび固定blocked契約試験",
-      "対応OS、字句subsetまたはdispatcher変更時／Root観測mapping実装時",
-    ),
-    "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts": obligation(
-      "close failureと全Filesystem raceを同一coverage runで到達していない",
-      "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
-      "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
-      "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
-    ),
-    "40_Develop/platform-access/src/artifact/identity.ts": obligation(
-      "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
-      "Release artifact差替えの検出漏れ",
-      "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
-      "Release artifactまたはFilesystem API変更時",
-    ),
-    "40_Develop/coordinator/scripts/native-git-provenance.ts": obligation(
-      "全Git・Root・Native観測不能の分岐を同一runで到達していない",
-      "単一Nativeの出所または途中実体差の見落とし",
-      "実Git Blob・Root・Native差と読取り中差替えの契約試験",
-      "固定Native観測またはGit出所照合の変更時",
-    ),
-  });
-
 /**
- * obligationを決定する。
+ * coverageの件数を算出する。
  *
- * @responsibility obligationの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input reason: string、risk: string、alternativeVerification: string、recheck: string
- * @returns CoverageObligationを返す。
- * @precondition 「reason: string、risk: string、alternativeVerification: string、recheck: string」がobligationの入力契約を満たす。
- * @postcondition obligationの責務を完了した結果だけを返す。
- * @effect N/A: obligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: obligationは独自の失敗分岐を所有しない。
- * @invariant obligationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: obligationはProcess内の同一Subsystemで完結する。
- * @security N/A: obligationはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: obligationは共有非同期状態を持たない同期処理である。
- */
-function obligation(
-  reason: string,
-  risk: string,
-  alternativeVerification: string,
-  recheck: string,
-): CoverageObligation {
-  return Object.freeze({
-    status: "Not Verified",
-    reason,
-    risk,
-    alternativeVerification,
-    owner: "Qual-Lab",
-    humanDecision: "not_required",
-    recheck,
-  });
-}
-
-/**
- * check-platform-access-ts-coverageの件数を算出する。
- *
- * @responsibility check-platform-access-ts-coverageの計数対象、集計規則、件数結果境界を所有する。
+ * @responsibility coverageの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000004
  * @input raw: string、label: string
  * @returns countの計算結果を返す。
@@ -628,142 +514,4 @@ export function parseExactTsCoverageLcov(
       branches: total("branches"),
     }),
   });
-}
-
-/**
- * Platform Access Ts Coverage Lcovを構造化値へ解析する。
- *
- * @responsibility Platform Access Ts Coverage Lcovの入力文法、解析結果、不正文法の拒否境界を所有する。
- * @trace ARCH-000004
- * @input raw: unknown
- * @returns parsePlatformAccessTsCoverageLcovの計算結果を返す。
- * @precondition 「raw: unknown」がparsePlatformAccessTsCoverageLcovの入力契約を満たす。
- * @postcondition parsePlatformAccessTsCoverageLcovの責務を完了した結果だけを返す。
- * @effect N/A: parsePlatformAccessTsCoverageLcovは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: parsePlatformAccessTsCoverageLcovは独自の失敗分岐を所有しない。
- * @invariant parsePlatformAccessTsCoverageLcovは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: parsePlatformAccessTsCoverageLcovはProcess内の同一Subsystemで完結する。
- * @security N/A: parsePlatformAccessTsCoverageLcovはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: parsePlatformAccessTsCoverageLcovは共有非同期状態を持たない同期処理である。
- */
-export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
-  return parseExactTsCoverageLcov(raw, {
-    sources: PLATFORM_ACCESS_TS_COVERAGE_SOURCES,
-    obligations: sourceCoverageObligations,
-  });
-}
-
-/**
- * fixed Environmentを決定する。
- *
- * @responsibility fixed Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns fixedEnvironmentの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がfixedEnvironmentの入力契約を満たす。
- * @postcondition fixedEnvironmentの責務を完了した結果だけを返す。
- * @effect fixedEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: fixedEnvironmentは独自の失敗分岐を所有しない。
- * @invariant fixedEnvironmentは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: fixedEnvironmentはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: fixedEnvironmentは共有非同期状態を持たない同期処理である。
- */
-function fixedEnvironment() {
-  const environment: NodeJS.ProcessEnv = {};
-  for (const name of ["SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP"]) {
-    const value = process.env[name];
-    if (value) environment[name] = value;
-  }
-  return environment;
-}
-
-/**
- * Platform Access Ts Coverageを観測する。
- *
- * @responsibility Platform Access Ts Coverageの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns inspectPlatformAccessTsCoverageの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がinspectPlatformAccessTsCoverageの入力契約を満たす。
- * @postcondition inspectPlatformAccessTsCoverageの責務を完了した結果だけを返す。
- * @effect inspectPlatformAccessTsCoverageはFilesystemの読取りまたは書込みを実行する。
- * @failure inspectPlatformAccessTsCoverageは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant inspectPlatformAccessTsCoverageは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: inspectPlatformAccessTsCoverageはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectPlatformAccessTsCoverageは共有非同期状態を持たない同期処理である。
- */
-export function inspectPlatformAccessTsCoverage() {
-  const rootMetadata = fs.lstatSync(repositoryRoot);
-  if (
-    !rootMetadata.isDirectory() ||
-    rootMetadata.isSymbolicLink() ||
-    fs.realpathSync.native(repositoryRoot) !== repositoryRoot
-  ) {
-    throw new Error("coverage repository root invalid");
-  }
-  const result = spawnSync(
-    process.execPath,
-    [
-      ...PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS,
-      ...PLATFORM_ACCESS_TS_COVERAGE_SOURCES.map(
-        (source) => `--test-coverage-include=${source}`,
-      ),
-      ...PLATFORM_ACCESS_TS_COVERAGE_TESTS,
-    ],
-    {
-      cwd: repositoryRoot,
-      env: fixedEnvironment(),
-      encoding: "utf8",
-      windowsHide: true,
-      shell: false,
-      timeout: 60_000,
-      maxBuffer: MAXIMUM_LCOV_BYTES,
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  if (
-    result.error ||
-    result.signal !== null ||
-    result.status !== 0 ||
-    typeof result.stdout !== "string" ||
-    typeof result.stderr !== "string" ||
-    result.stderr.length !== 0
-  ) {
-    throw new Error("TypeScript coverage command failed");
-  }
-  return parsePlatformAccessTsCoverageLcov(result.stdout);
-}
-
-/**
- * Platform Access Ts Coverageを固定byte表現へ直列化する。
- *
- * @responsibility Platform Access Ts Coverageの入力値、直列化規則、出力境界を所有する。
- * @trace ARCH-000004
- * @input value: ReturnType<typeof inspectPlatformAccessTsCoverage>
- * @returns serializePlatformAccessTsCoverageの計算結果を返す。
- * @precondition 「value: ReturnType<typeof inspectPlatformAccessTsCoverage>」がserializePlatformAccessTsCoverageの入力契約を満たす。
- * @postcondition serializePlatformAccessTsCoverageの責務を完了した結果だけを返す。
- * @effect N/A: serializePlatformAccessTsCoverageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: serializePlatformAccessTsCoverageは独自の失敗分岐を所有しない。
- * @invariant serializePlatformAccessTsCoverageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: serializePlatformAccessTsCoverageはProcess内の同一Subsystemで完結する。
- * @security N/A: serializePlatformAccessTsCoverageはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: serializePlatformAccessTsCoverageは共有非同期状態を持たない同期処理である。
- */
-export function serializePlatformAccessTsCoverage(
-  value: ReturnType<typeof inspectPlatformAccessTsCoverage>,
-) {
-  return `${JSON.stringify(value)}\n`;
-}
-
-const invokedPath = process.argv[1];
-if (
-  invokedPath &&
-  import.meta.url === pathToFileURL(path.resolve(invokedPath)).href
-) {
-  process.stdout.write(
-    serializePlatformAccessTsCoverage(inspectPlatformAccessTsCoverage()),
-  );
 }

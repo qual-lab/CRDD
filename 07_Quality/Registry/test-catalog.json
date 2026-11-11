@@ -26,7 +26,6 @@
     "lock": "node_test",
     "mcp-server": "node_test",
     "version-control": "node_test",
-    "platform-access": "node_and_cargo_test",
     "visual-preview": "node_test",
     "workbench-server": "node_test"
   },
@@ -832,58 +831,6 @@
       ]
     },
     {
-      "id": "platform-access:observation-protocol",
-      "owner": "platform-access",
-      "architectureAnchor": "06_Architecture/Details/platform-access/01_Architecture.md#4-バイナリ境界",
-      "responsibilities": [
-        "request_frame_validation",
-        "windows_identity_observation",
-        "closed_response_frame"
-      ],
-      "externalBoundaries": [
-        "windows_api",
-        "stdin_stdout_protocol",
-        "filesystem_handle"
-      ],
-      "lifecycleProfile": "read_only_boundary",
-      "testIds": [
-        "platform-access:integration:cli",
-        "coordinator:integration:development-native-observation"
-      ],
-      "postconditions": [
-        "native_handles_closed",
-        "partial_frame_rejected",
-        "raw_path_and_credential_not_reported"
-      ]
-    },
-    {
-      "id": "platform-access:owned-process-effect",
-      "owner": "platform-access",
-      "architectureAnchor": "06_Architecture/Details/platform-access/01_Architecture.md#5-状態資源回復",
-      "responsibilities": [
-        "trusted_artifact_open",
-        "owned_child_process",
-        "docker_repair_and_restart_protocol"
-      ],
-      "externalBoundaries": [
-        "windows_process_api",
-        "job_object",
-        "docker_desktop_cli"
-      ],
-      "lifecycleProfile": "external_effect_operation",
-      "testIds": [
-        "platform-access:integration:cli",
-        "docker-isolation:integration:restart-machine",
-        "docker-isolation:integration:restart-runtime",
-        "coordinator:integration:docker-restart-runtime"
-      ],
-      "postconditions": [
-        "child_and_job_settled",
-        "effect_confirmation_preserved",
-        "unknown_cleanup_blocks_success"
-      ]
-    },
-    {
       "id": "lock:cooperative-file",
       "owner": "lock",
       "architectureAnchor": "06_Architecture/Details/lock/01_Architecture.md#責務と公開契約",
@@ -1289,20 +1236,18 @@
       "id": "platform:observation-to-desktop-repair",
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#11-取消と回復",
       "blockPath": [
-        "platform-access:observation-protocol",
-        "platform-access:owned-process-effect",
+        "docker-isolation:owned-execution-lifecycle",
         "coordinator:runtime-repair"
       ],
       "testIds": [
-        "platform-access:integration:cli",
         "docker-isolation:integration:restart-machine",
         "docker-isolation:integration:restart-runtime",
         "coordinator:integration:docker-restart-runtime"
       ],
       "postconditions": [
-        "native_identity_preserved",
-        "child_process_cleanup_observed",
-        "helper_result_not_equal_host_recovery"
+        "technical_cleanup_observed",
+        "directory_identity_preserved",
+        "unknown_not_completed"
       ]
     },
     {
@@ -1414,53 +1359,6 @@
       "testIds": [
         "executor:integration:public-boundary",
         "executor:unit:observation"
-      ]
-    },
-    {
-      "producerOwner": "platform-access",
-      "producerPaths": [
-        "40_Develop/platform-access/src/artifact",
-        "40_Develop/platform-access/src/filesystem/system-directory.ts",
-        "40_Develop/platform-access/src/index.ts"
-      ],
-      "consumerOwner": "coordinator",
-      "consumerStatic": true,
-      "testIds": [
-        "coordinator:integration:development-native-observation",
-        "coordinator:integration:native-git-provenance"
-      ]
-    },
-    {
-      "producerOwner": "platform-access",
-      "producerPaths": [
-        "40_Develop/platform-access/src/process/environment.ts",
-        "40_Develop/platform-access/src/index.ts"
-      ],
-      "consumerOwner": "coordinator",
-      "consumerStatic": true,
-      "testIds": [
-        "coordinator:system:interaction-boundary-regression",
-        "coordinator:unit:orchestrator-windows-platform-adapter"
-      ]
-    },
-    {
-      "producerOwner": "platform-access",
-      "producerPaths": [
-        "40_Develop/platform-access/src/artifact",
-        "40_Develop/platform-access/src/filesystem",
-        "40_Develop/platform-access/src/process",
-        "40_Develop/platform-access/src/index.ts",
-        "40_Develop/platform-access/src/docker-desktop",
-        "40_Develop/platform-access/src/host-record"
-      ],
-      "consumerOwner": "docker-isolation",
-      "consumerStatic": true,
-      "testIds": [
-        "docker-isolation:integration:cli-environment",
-        "docker-isolation:integration:owned-process",
-        "docker-isolation:integration:attached-process",
-        "docker-isolation:integration:restart-machine",
-        "docker-isolation:integration:restart-runtime"
       ]
     },
     {
@@ -1581,29 +1479,6 @@
         "checker:system:test-catalog-policy",
         "checker:unit:quality-state",
         "checker:integration:domain-results"
-      ]
-    },
-    {
-      "producerOwner": "platform-access",
-      "producerPaths": [
-        "40_Develop/platform-access/src/docker-desktop"
-      ],
-      "consumerOwner": "coordinator",
-      "consumerStatic": true,
-      "testIds": [
-        "coordinator:integration:docker-restart-runtime",
-        "coordinator:integration:docker-restart-real-observation"
-      ]
-    },
-    {
-      "producerOwner": "platform-access",
-      "producerPaths": [
-        "40_Develop/platform-access/src/host-record"
-      ],
-      "consumerOwner": "coordinator",
-      "consumerStatic": true,
-      "testIds": [
-        "coordinator:integration:host-recovery-namespace"
       ]
     }
   ],
@@ -2469,27 +2344,6 @@
       "postconditions": [
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:system-directory",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/system-directory.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "native",
-        "artifact",
-        "directory",
-        "observation"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "child_process_joined",
-        "native_process_effect_zero"
       ],
       "mandatoryByDefault": true
     },
@@ -4852,14 +4706,14 @@
       "semanticTags": [
         "coordinator",
         "development-toolchain",
-        "platform-access"
+        "node-tooling"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
         "lint_warning_rejected",
-        "platform_access_commands_exact"
+        "node_development_commands_exact"
       ],
       "mandatoryByDefault": true
     },
@@ -5348,70 +5202,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:native-runtime-trace",
+      "id": "coordinator:integration:coverage",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/native-runtime-trace.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "native",
-        "runtime",
-        "trace"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:platform-access-coverage",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/platform-access-coverage.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "access",
-        "coverage"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:artifact-identity-observation",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "access",
-        "artifact",
-        "identity-observation"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:platform-access-ts-coverage",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5419,31 +5212,6 @@
         "access",
         "ts",
         "coverage"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:native-git-provenance",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/native-git-provenance.contract.test.ts",
-      "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
-      ],
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "native",
-        "git",
-        "identity"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -8839,44 +8607,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:protocol",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/protocol/access.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "protocol"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:cli",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/native_cli.rs",
-      "level": "integration",
-      "kind": "integration",
-      "semanticTags": [
-        "cli",
-        "process",
-        "protocol"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "docker-isolation:integration:restart-machine",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/integration/restart-machine.contract.test.ts",
@@ -9217,26 +8947,6 @@
       "humanInput": false,
       "postconditions": [
         "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:windows_directory",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/filesystem/windows/windows_directory.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "windows",
-        "environment",
-        "bootstrap"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
     },
@@ -10396,25 +10106,6 @@
       "postconditions": [
         "deterministic_result_observed",
         "unknown_not_collapsed_to_pass"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:host-record-environment",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/unit/process/environment.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "environment",
-        "profile"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
       ],
       "mandatoryByDefault": true
     },

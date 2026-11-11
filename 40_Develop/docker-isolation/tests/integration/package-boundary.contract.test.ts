@@ -36,10 +36,6 @@ const ISOLATION_SETTINGS = Object.freeze({
 });
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
-const platformAccessRoot = path.resolve(
-  sourceRoot,
-  "../../platform-access/src/index.ts",
-);
 
 /**
  * 型だけの公開追加と元の入力拒否・分類を照合する。
@@ -194,8 +190,7 @@ function assertDependencyBoundary(file: string, text: string) {
     const resolved = path.resolve(path.dirname(file), specifier);
     const relative = path.relative(sourceRoot, resolved);
     assert.ok(
-      resolved === platformAccessRoot ||
-        resolved === path.resolve(sourceRoot, "../../lock/src/index.ts") ||
+      resolved === path.resolve(sourceRoot, "../../lock/src/index.ts") ||
         (relative !== ".." &&
           !relative.startsWith(`..${path.sep}`) &&
           !path.isAbsolute(relative)),
@@ -252,7 +247,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   for (const text of [
     'import fs from "node:fs";',
     'import type { Value } from "./execution/plan.ts";',
-    'export { Value } from "../../platform-access/src/index.ts";',
+    'export { Value } from "../../lock/src/index.ts";',
     'import type { ProviderAdvicePlan } from "../../ai-adapter/src/index.ts";',
     'const selected = import("./execution/plan.ts");',
     'const marker = Buffer.from("CRDDDR06");',
@@ -265,6 +260,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
     "ai-adapter",
     "workbench-server",
     "mcp-server",
+    "platform-access",
   ]) {
     const target = `../../${owner}/src/index.ts`;
     for (const text of [

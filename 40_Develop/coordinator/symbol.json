@@ -239,28 +239,8 @@
         "ai-adapter.codex.distribution"
       ]
     },
-    {
-      "symbolId": "coordinator.diagnostics.native-git-provenance",
-      "kind": "file",
-      "path": "scripts/native-git-provenance.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.native-git-provenance",
-      "kind": "test-suite",
-      "path": "tests/integration/native-git-provenance.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-IT-002"
-      ],
-      "verifies": [
-        "coordinator.diagnostics.native-git-provenance"
-      ]
-    },
+
+
     {
       "symbolId": "coordinator.test.integration.docker-probe-cancellation-projection",
       "kind": "test-suite",
@@ -648,17 +628,7 @@
         "coordinator.provider-selection-boundary"
       ]
     },
-    {
-      "symbolId": "coordinator.native-runtime-trace",
-      "kind": "file",
-      "path": "scripts/native-runtime-trace.ts",
-      "archIds": [
-        "ARCH-000008"
-      ],
-      "implements": [
-        "coordinator.external-boundary-diagnostics"
-      ]
-    },
+
     {
       "symbolId": "coordinator.public-api",
       "kind": "module",
@@ -991,39 +961,12 @@
         "version-control.source.src.repository.location"
       ]
     },
+
+
     {
-      "symbolId": "coordinator.test.integration.native-runtime-trace",
+      "symbolId": "coordinator.test.integration.coverage",
       "kind": "test-suite",
-      "path": "tests/integration/native-runtime-trace.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-004"
-      ],
-      "verifies": [
-        "coordinator.native-runtime-trace",
-        "platform-access.source.windows-child-environment"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.platform-access-coverage",
-      "kind": "test-suite",
-      "path": "tests/integration/platform-access-coverage.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001"
-      ],
-      "verifies": [
-        "coordinator.source.scripts.platform.access.coverage.path"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.platform-access-ts-coverage",
-      "kind": "test-suite",
-      "path": "tests/integration/platform-access-ts-coverage.contract.test.ts",
+      "path": "tests/integration/coverage.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1452,7 +1395,6 @@
       "verifies": [
         "coordinator.source.src.core.node.runtime.version",
         "coordinator.source.src.core.runtime.process.safety.state",
-        "platform-access.source.windows-child-environment",
         "docker-isolation.execution.cli-environment",
         "coordinator.host-execution.kernel-lock"
       ]
@@ -2021,7 +1963,6 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "platform-access.source.windows-child-environment",
         "docker-isolation.execution.cli-environment",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.host-execution.kernel-lock",
@@ -2118,8 +2059,6 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "platform-access.source.protected-root-protocol",
-        "platform-access.source.windows-child-environment",
         "coordinator.source.src.security.provider.home.windows.adapter"
       ]
     },
@@ -2435,12 +2374,8 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "platform-access.source.windows-child-environment",
         "coordinator.host-execution.kernel-lock",
-        "platform-access.source.desktop-helper",
-        "docker-isolation.desktop.restart-machine",
-        "platform-access.source.artifact-identity-observation",
-        "platform-access.source.system-directory"
+        "docker-isolation.desktop.restart-machine"
       ]
     },
     {
@@ -2700,18 +2635,11 @@
         "ARCH-000015"
       ]
     },
-    {
-      "symbolId": "coordinator.source.scripts.platform.access.coverage.path",
-      "kind": "module",
-      "path": "scripts/platform-access-coverage-path.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
+
     {
       "symbolId": "coordinator.source.scripts.check.platform.access.ts.coverage",
       "kind": "module",
-      "path": "scripts/check-platform-access-ts-coverage.ts",
+      "path": "scripts/coverage.ts",
       "archIds": [
         "ARCH-000004"
       ]

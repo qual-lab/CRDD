@@ -407,14 +407,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/platform-access/src/index.ts",
-    exportedModules: [
-      "./artifact/identity.ts",
-      "./filesystem/system-directory.ts",
-      "./process/environment.ts",
-    ],
-  },
-  {
     relativePath: "40_Develop/lock/src/index.ts",
     exportedModules: ["./operations.ts", "./types.ts"],
   },

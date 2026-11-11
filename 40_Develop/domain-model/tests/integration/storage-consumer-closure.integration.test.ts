@@ -48,7 +48,6 @@ const PROTECTED_SIGNING_SYMBOL =
   "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning";
 const expectedProtectedSigningConsumers: readonly string[] = [];
 const expectedAreaConsumers = [
-  "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
   "40_Develop/coordinator/scripts/prepare-codex-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",

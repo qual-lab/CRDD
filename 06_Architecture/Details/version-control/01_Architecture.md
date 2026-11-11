@@ -253,6 +253,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 |---|---|
 | Repository対象 | `Repository`、`RepositoryResult`、`getRepository`、`getRepositoryFromWorkingDirectory`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory` |
 | 改訂・技術Identity | `readRepositorySnapshot`、`readRepositoryFormat`、`readRepositoryRevision`、`readRepositoryStorageIdentity`、`FixedRevisionIdentity`、`RepositoryRevisionObservation` |
+| Git利用者設定 | `readGitUser`、`GitUserResult`。設定の読取りであり、本人認証やPrincipalの決定は行わない |
 | Worktree | `getWorktree`、`createWorktree`、`removeWorktree`、`WorktreeTarget`、`WorktreeResult`、`WorktreeCreateRequest`、`WorktreeRemoveRequest` |
 | 現在内容・Index | `readTree`、`readFile`、`readFileDiff`、`readWorkingChanges`、`stagePaths`、`unstagePaths`、`WorkingChanges`、`TreePage`、`FileDiff`、`PathsRequest`、`FileReadRequest`、`WorkingFile` |
 | 固定Commit・差分・コピー | `readCommitFile`、`copyCommitFiles`、`readCommitDiff`、`CommitFileReadRequest`、`CommitFile`、`CommitFilesCopyRequest`、`CommitFilesCopyResult`、`CommitDiffRequest`、`CommitDiff` |

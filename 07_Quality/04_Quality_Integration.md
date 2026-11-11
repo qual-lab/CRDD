@@ -1,5 +1,9 @@
 # Quality Integration
 
+## PA退役の限定確認 — 2026-11-11
+
+PAのSource・Native成果物・専用工具を撤去し、開発SessionのSource／Git根拠と既存Ownerの制御へ接続した。限定試験と独立レビューを実施し、旧Nativeの保証を新方式へ流用しない。現在の構成、検証結果と制約は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#pa最終退役とsourcegit根拠の維持--2026-11-11)を正本とする。以下のNative残存記述は当時の履歴であり、現在の残件ではない。全体回帰は引き続き保留し、実AI・実Docker・過去保持物は操作していない。
+
 ## Runtime StateのNode.js接続 — 2026-11-10
 
 Runtime専用の本番Native呼出しと公開入口を撤去し、固定保存先のNode初期化・実体再照合を既存Storeへ統合した。旧Native保護3試験の成功を流用せず、正常／未作成、途中File、Junction、Root置換、残存Lock、相対設定、部分作成失敗の7追加ケースを実Filesystemで確認した。Provider HomeのNative故障試験は維持する。限定回帰は重複を除き11ファイル155件が成功し、型検査3構成、書式・警告検査、独立再レビューも成功した。既存Host試験2件の固定環境値の期待漏れは試験だけを是正し、検査を緩めず再実行した。試験物は各試験の清掃で回収した。全体回帰・実AI・Docker・過去保持物操作は実施していない。Native内部Protocol・配布物は残存し、PA全廃とはしない。[変更と保証境界](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#runtime-stateのnodejs接続と祖先handle保持の削減--2026-11-10)を参照する。

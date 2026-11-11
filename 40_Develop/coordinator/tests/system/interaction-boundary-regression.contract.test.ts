@@ -14,16 +14,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
 import {
   createDockerCliEnvironment,
   createDesktopCommandEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
 } from "../../../docker-isolation/src/docker-cli/environment.ts";
-import {
-  createChildProcessEnvironment,
-  deriveWindowsSystemDrive,
-} from "../../../platform-access/src/index.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
@@ -69,57 +64,6 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     context.skip("Windows Local Personal contract");
     return;
   }
-  for (const [kind, environment] of [
-    ["console", createChildProcessEnvironment({ platform: "win32" })],
-    ["supervisor", createChildProcessEnvironment({ platform: "win32" })],
-    [
-      "native",
-      createChildProcessEnvironment({ platform: "win32", userProfile: true }),
-    ],
-  ] as const) {
-    assert.ok(environment);
-    const result = spawnSync(
-      process.execPath,
-      [
-        "-e",
-        "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR','USERPROFILE'].includes(k.toUpperCase())).every(([,v])=>v===''),systemRoot:process.env.SystemRoot,windir:process.env.WINDIR,userProfile:process.env.USERPROFILE}))",
-      ],
-      {
-        shell: false,
-        env: environment,
-        encoding: "utf8",
-        timeout: 5_000,
-      },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, "");
-    const observed = JSON.parse(result.stdout);
-    assert.equal(observed.neutral, true);
-    assert.deepEqual(
-      [
-        ...new Set(observed.keys.map((key: string) => key.toUpperCase())),
-      ].sort(),
-      [
-        ...new Set(Object.keys(environment).map((key) => key.toUpperCase())),
-      ].sort(),
-    );
-    assert.equal(
-      observed.keys.length,
-      new Set(observed.keys.map((key: string) => key.toUpperCase())).size,
-    );
-    assert.equal(typeof observed.systemRoot, "string");
-    assert.equal(observed.systemRoot.length > 0, true);
-    assert.equal(observed.windir, observed.systemRoot);
-    assert.equal(
-      observed.userProfile,
-      kind === "native" ? path.win32.normalize(os.userInfo().homedir) : "",
-    );
-    assert.equal(
-      observed.keys.includes("SystemRoot") ||
-        observed.keys.includes("SYSTEMROOT"),
-      true,
-    );
-  }
   const dockerEnvironment = createDockerCliEnvironment(getIsolationSettings(), {
     dockerConfig: "C:\\runtime-owned\\docker-config",
     dockerHome: "C:\\runtime-owned\\docker-home",
@@ -164,17 +108,10 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   assert.equal(observedDocker.systemRoot, observedDocker.windir);
   assert.equal(typeof observedDocker.systemRoot, "string");
 
-  assert.deepEqual(createDesktopCommandEnvironment(getIsolationSettings()), {
-    ...createChildProcessEnvironment({
-      platform: "win32",
-      userProfile: true,
-    }),
-    SYSTEMDRIVE: deriveWindowsSystemDrive(
-      createChildProcessEnvironment({ platform: "win32", userProfile: true })
-        ?.SystemRoot,
-    ),
-    DOCKER_CLI_HINTS: "false",
-  });
+  const desktop = createDesktopCommandEnvironment(getIsolationSettings());
+  assert.equal(desktop?.SystemRoot, getIsolationSettings().windowsDirectory);
+  assert.equal(desktop?.USERPROFILE, getIsolationSettings().userHomeDirectory);
+  assert.equal(desktop?.DOCKER_CLI_HINTS, "false");
 });
 
 /**
@@ -253,293 +190,6 @@ test("Authenticode検査用PowerShellは親環境を継承せず最小OS環境�
 });
 
 /**
- * 中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できるを検証する。
- *
- * @responsibility 中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できるの合否判定を所有する。
- * @trace EST-ST-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できる", (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows contract");
-    return;
-  }
-  const parentEnvironment = createChildProcessEnvironment();
-  assert.ok(parentEnvironment);
-  const profile = fs.realpathSync.native(os.userInfo().homedir);
-  const temporary = fs.realpathSync.native(
-    path.join(profile, "AppData", "Local", "Temp"),
-  );
-  const moduleUrl = pathToFileURL(
-    path.join(
-      coordinatorRoot,
-      "../docker-isolation/src/docker-cli/environment.ts",
-    ),
-  ).href;
-  const source = [
-    'import { spawnSync } from "node:child_process";',
-    'import path from "node:path";',
-    `import { createWindowsPowerShellAuthenticodeEnvironment } from ${JSON.stringify(moduleUrl)};`,
-    `const environment=createWindowsPowerShellAuthenticodeEnvironment(${JSON.stringify(getIsolationSettings())});`,
-    "if(!environment)process.exit(3);",
-    "const powershell=path.win32.join(environment.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');",
-    "const result=spawnSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command',\"Get-Command Get-AuthenticodeSignature | Out-Null; Write-Output 'CRDD_NESTED_AUTHENTICODE_OK'\"],{cwd:environment.SystemRoot,env:environment,encoding:'utf8',windowsHide:true,timeout:5000});",
-    "process.stdout.write(JSON.stringify({status:result.status,signal:result.signal,stdout:result.stdout,stderr:result.stderr,error:result.error?.message??null}));",
-  ].join("");
-  const nested = spawnSync(
-    process.execPath,
-    ["--input-type=module", "--eval", source],
-    {
-      cwd: coordinatorRoot,
-      env: { ...parentEnvironment, TEMP: temporary, TMP: temporary },
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: 10_000,
-    },
-  );
-  assert.equal(nested.status, 0, nested.stderr);
-  assert.equal(nested.stderr, "");
-  assert.deepEqual(JSON.parse(nested.stdout), {
-    status: 0,
-    signal: null,
-    stdout: "CRDD_NESTED_AUTHENTICODE_OK\r\n",
-    stderr: "",
-    error: null,
-  });
-});
-
-/**
- * Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否するを検証する。
- *
- * @responsibility Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否するの合否判定を所有する。
- * @trace EST-ST-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否する", () => {
-  assert.equal(deriveWindowsSystemDrive("D:\\Windows"), "D:");
-  assert.equal(deriveWindowsSystemDrive("c:\\Windows"), "c:");
-  for (const value of [
-    null,
-    "",
-    "C:",
-    "C:\\",
-    "C:Windows",
-    "\\Windows",
-    "\\\\host\\Windows",
-    "C:\\a\\..\\Windows",
-    "C:/Windows",
-    "C:\\Windows\0",
-  ]) {
-    assert.equal(deriveWindowsSystemDrive(value), null);
-  }
-});
-
-/**
- * Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持するを検証する。
- *
- * @responsibility Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持するの合否判定を所有する。
- * @trace EST-ST-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持する", (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows contract");
-    return;
-  }
-  const before = process.env.SYSTEMDRIVE;
-  try {
-    process.env.SYSTEMDRIVE = "Z:";
-    const environment = createDesktopCommandEnvironment(getIsolationSettings());
-    assert.ok(environment);
-    assert.equal(
-      environment.SYSTEMDRIVE,
-      deriveWindowsSystemDrive(environment.SystemRoot),
-    );
-    assert.equal(
-      createChildProcessEnvironment({ platform: "win32", userProfile: true })
-        ?.SYSTEMDRIVE,
-      "",
-    );
-    assert.equal(
-      (
-        createChildProcessEnvironment({ platform: "win32" }) as Readonly<
-          Record<string, string>
-        >
-      )?.SYSTEMDRIVE,
-      "",
-    );
-    const result = spawnSync(
-      process.execPath,
-      [
-        "-e",
-        "process.stdout.write(JSON.stringify({drive:process.env.SYSTEMDRIVE,hints:process.env.DOCKER_CLI_HINTS,neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR','USERPROFILE','SYSTEMDRIVE','DOCKER_CLI_HINTS'].includes(k.toUpperCase())).every(([,v])=>v==='')}))",
-      ],
-      {
-        env: environment,
-        encoding: "utf8",
-        shell: false,
-        windowsHide: true,
-        timeout: 5000,
-      },
-    );
-    assert.equal(result.status, 0);
-    assert.deepEqual(JSON.parse(result.stdout), {
-      drive: environment.SYSTEMDRIVE,
-      hints: "false",
-      neutral: true,
-    });
-  } finally {
-    if (before === undefined) delete process.env.SYSTEMDRIVE;
-    else process.env.SYSTEMDRIVE = before;
-  }
-});
-
-/**
- * Windows directoryの親環境差替えを子Environment Authorityにしないを検証する。
- *
- * @responsibility Windows directoryの親環境差替えを子Environment Authorityにしないの合否判定を所有する。
- * @trace EST-ST-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows directoryの親環境差替えを子Environment Authorityにしないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows Local Personal contract");
-    return;
-  }
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-fake-windows-"));
-  const system32 = path.join(root, "System32");
-  fs.mkdirSync(system32);
-  fs.copyFileSync(
-    path.join(String(process.env.SystemRoot), "System32", "kernel32.dll"),
-    path.join(system32, "kernel32.dll"),
-  );
-  const originalSystemRoot = process.env.SystemRoot;
-  const originalWindir = process.env.WINDIR;
-  const originalUserProfile = process.env.USERPROFILE;
-  try {
-    process.env.SystemRoot = root;
-    process.env.WINDIR = root;
-    process.env.USERPROFILE = root;
-    const consoleEnvironment = createChildProcessEnvironment({
-      platform: "win32",
-    });
-    const nativeEnvironment = createChildProcessEnvironment({
-      platform: "win32",
-      userProfile: true,
-    });
-    assert.ok(consoleEnvironment);
-    assert.ok(nativeEnvironment);
-    const consoleValues = consoleEnvironment as Readonly<
-      Record<string, string>
-    >;
-    const nativeValues = nativeEnvironment as Readonly<Record<string, string>>;
-    assert.equal(consoleValues.SystemRoot, originalSystemRoot);
-    assert.equal(consoleValues.WINDIR, originalSystemRoot);
-    assert.equal(consoleValues.USERPROFILE, "");
-    assert.equal(nativeValues.SystemRoot, originalSystemRoot);
-    assert.equal(nativeValues.WINDIR, originalSystemRoot);
-    assert.equal(
-      nativeValues.USERPROFILE,
-      path.win32.normalize(os.userInfo().homedir),
-    );
-    assert.notEqual(
-      nativeValues.USERPROFILE.toLocaleLowerCase("en-US"),
-      root.toLocaleLowerCase("en-US"),
-    );
-    const result = spawnSync(
-      process.execPath,
-      ["-e", "process.stdout.write(String(process.env.SystemRoot))"],
-      {
-        shell: false,
-        env: consoleEnvironment,
-        encoding: "utf8",
-        timeout: 5_000,
-      },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.notEqual(
-      result.stdout.toLocaleLowerCase("en-US"),
-      root.toLocaleLowerCase("en-US"),
-    );
-  } finally {
-    if (originalSystemRoot === undefined) delete process.env.SystemRoot;
-    else process.env.SystemRoot = originalSystemRoot;
-    if (originalWindir === undefined) delete process.env.WINDIR;
-    else process.env.WINDIR = originalWindir;
-    if (originalUserProfile === undefined) delete process.env.USERPROFILE;
-    else process.env.USERPROFILE = originalUserProfile;
-    fs.rmSync(path.join(system32, "kernel32.dll"));
-    fs.rmdirSync(system32);
-    fs.rmdirSync(root);
-  }
-});
-
-/**
- * Windows OS Profile判定不能は親Profileへfallbackしないを検証する。
- *
- * @responsibility Windows OS Profile判定不能は親Profileへfallbackしないの合否判定を所有する。
- * @trace EST-ST-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows OS Profile判定不能は親Profileへfallbackしないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Windows OS Profile判定不能は親Profileへfallbackしない", (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows Local Personal contract");
-    return;
-  }
-  const fixture = path.join(
-    coordinatorRoot,
-    "tests",
-    "fixtures",
-    "windows-native-helper-profile-fault.ts",
-  );
-  for (const mode of [
-    "user_info_error",
-    "missing",
-    "link",
-    "realpath_mismatch",
-  ]) {
-    const result = spawnSync(process.execPath, [fixture, mode], {
-      shell: false,
-      encoding: "utf8",
-      timeout: 5_000,
-    });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, "");
-    assert.deepEqual(JSON.parse(result.stdout), {
-      mode,
-      environmentIsNull: true,
-      parentEnvironmentFallbackUsed: false,
-      cleanupConfirmed: true,
-    });
-  }
-});
-
-/**
  * Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないを検証する。
  *
  * @responsibility Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないの合否判定を所有する。
@@ -562,7 +212,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     ...["bin", "scripts", "src"].map((name) =>
       path.join(coordinatorRoot, name),
     ),
-    path.resolve(coordinatorRoot, "../platform-access/src"),
     path.resolve(coordinatorRoot, "../lock/src"),
     path.resolve(coordinatorRoot, "../docker-isolation/src"),
   ]) {
@@ -623,7 +272,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   // 型専用importも含むSource棚卸しであり、実Process発行・Authorityの証明ではない。
   const childProcessImportSources = [
     ...sourceFiles(path.join(coordinatorRoot, "src")),
-    ...sourceFiles(path.resolve(coordinatorRoot, "../platform-access/src")),
     ...sourceFiles(path.resolve(coordinatorRoot, "../lock/src")),
     ...sourceFiles(path.resolve(coordinatorRoot, "../docker-isolation/src")),
   ]
@@ -642,7 +290,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   assert.deepEqual(
     childProcessImportSources,
     [
-      "40_Develop/platform-access/src/filesystem/system-directory.ts",
       "40_Develop/docker-isolation/src/cleanup/execute.ts",
       "40_Develop/docker-isolation/src/cleanup/container.ts",
       "40_Develop/docker-isolation/src/docker-cli/trust.ts",

@@ -1329,14 +1329,6 @@ if (mode !== "recovery") {
   assert.ok(target);
   assert.equal(target.resources, null);
   const identity = JSON.parse(target.identityJson);
-  const native = path.join(
-    distribution,
-    "template",
-    "tools",
-    "domain-model",
-    "windows-x64",
-    "crdd-platform-access.exe",
-  );
   const originals = new Map<string, unknown>();
   const violations: string[] = [];
   const calls: string[] = [];
@@ -1415,8 +1407,6 @@ if (mode !== "recovery") {
     processApi[name] = (...args: unknown[]) => {
       const [file, argv, options] = args;
       const vector = Array.isArray(argv) ? argv : null;
-      const isNative =
-        file === native && vector !== null && vector.length === 0;
       const cwd =
         options && typeof options === "object"
           ? (options as { cwd?: unknown }).cwd
@@ -1438,14 +1428,11 @@ if (mode !== "recovery") {
         options && typeof options === "object"
           ? (options as { shell?: unknown }).shell
           : undefined;
-      if (
-        !(isNative || isReadOnlyGit) ||
-        (shell !== undefined && shell !== false)
-      ) {
+      if (!isReadOnlyGit || (shell !== undefined && shell !== false)) {
         violations.push(name);
         throw new Error("abandon_fixture_unexpected_process_request");
       }
-      calls.push(isNative ? "native" : "git");
+      calls.push("git");
       return Reflect.apply(original, cp, args);
     };
   }

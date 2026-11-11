@@ -1,5 +1,15 @@
 # Platform Accessの構造・Native接続再編
 
+## PA最終退役とSource／Git根拠の維持 — 2026-11-11
+
+人間が承認した最終撤去。PA内部だけで使うWindows所在・子環境と、それを維持するNative成果物照合を代替なしで廃止した。Coordinatorの`nativeVerifications`にはSource観測根拠も混在していたため、Native資格だけを撤去しSource根拠を既存観測Mapへ保持する。Repository初回→Source観測→Repository後確認、期待Commit／Tree／Sourceとの一致、同じSessionの元Identity・期限・取消・実行回数・Authority制御は維持した。旧Native Hashの補完や別PackageへのNative移設は行わない。SessionはProcess-localであり、永続保存形式や過去記録の移行は追加しない。
+
+PA Package・Rust・配布exeと専用計測／出所／trace工具を削除し、使用中のexact LCOV解析だけをCoordinatorの`coverage.ts`へ縮小した。固定Source集合からPAを外しscopeをv3へ更新、利用側fixtureも追従した。旧Nativeを許可した試験用Processガードを撤去し、要求があれば拒否する反証へ変更した。Capability宣言・Catalog Owner／Runner／Consumer／結合経路・package設定・Symbolを同期した。旧Build cacheは保全し、Sourceとして扱わない。
+
+限定31試験と台帳410件valid、型・Lintを確認し、追加QA48件も成功した。廃止に伴う試験期待値、Source集合の件数境界、Fixtureガード、Host分類の正規表現誤読を是正した。製品の判定や上限は緩めず、存続する正常・拒否・取消の根拠を維持する。DI結合80件、保存Consumer4件、VC Consumer13件、Core境界6件、旧Nativeを含むProcess拒否ガード3件も成功した。既存のVC公開表にGit利用者読取り2 Symbol、Core責務表に既存DI初期設定Ownerが未反映だった点は文書・試験だけを同期した。Principal形式検査の共有についても、純粋な`isPrincipalId`だけを該当Consumerへ明示し、任意Domain操作は許可しない。
+
+独立完成レビューは必須指摘なし。Capability宣言と台帳の旧PA意味を追加指摘から是正し、退役記録・現在のQuality参照を同期した。今回のfixtureは各試験が所有範囲で回収した。旧Build cache・過去の物理残存・永続記録は変更しない。全体回帰・実AI・実Docker・Release成立は未実施であり、限定成功から推定しない。
+
 ## Provider HomeのNode移管とNative保護の退役 — 2026-11-11
 
 変更分類: 人間承認済みの保護Policy縮小とOwner整理。Coordinatorが上位設定のHomeをNodeで観測し、Executor単独検証入口も同じ物理実体・共有資源キーを使用する。認証・通常Attemptのwx保持区間、必要保存通知、DIのProcess終了・Cleanup不明時の保持は変更しない。SID／Token・厳密DACL・祖先Handleの独立観測を失うことを採用済みの保証変更として明記し、同等保証への置換とはしない。認証方式・Image・通信制限・実Docker操作は対象外。

@@ -74,47 +74,6 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
 });
 
 /**
- * 同じPlatform Access OwnerのNode／Rust収集と片系欠落を確認する。
- * @responsibility 既存Rustだけまたは新Nodeだけの登録を全体成立へ丸めない。
- * @trace CQS-UT-010
- * @precondition 実Repositoryに両言語の試験が存在する。
- * @stimulus Source変更から選択し、各言語の登録を欠落させる。
- * @observation 選択Path、Owner、Catalogの拒否理由。
- * @oracle 両言語が選択され、片系欠落は検査失敗、上位Consumerの静的検査も選択する。
- * @cleanup N/A: 読取りとProcess内の値変換のみ。
- * @boundary 実試験台帳・収集・選択の結合。
- */
-test("Platform AccessはNodeとRust双方を収集し片系欠落を拒否する", () => {
-  const changed = ["40_Develop/platform-access/src/artifact/identity.ts"];
-  const selected = selectRegressionTests(catalog, changed);
-  for (const suffix of [".test.ts", ".rs"]) {
-    assert.ok(
-      selected.some(
-        (entry) =>
-          entry.owner === "platform-access" && entry.path.endsWith(suffix),
-      ),
-    );
-    const incomplete = {
-      ...catalog,
-      tests: catalog.tests.filter(
-        (entry) =>
-          entry.owner !== "platform-access" || !entry.path.endsWith(suffix),
-      ),
-    };
-    assert.ok(
-      inspectTestCatalog(repositoryRoot, incomplete).some((failure) =>
-        failure.startsWith("unregistered_test:"),
-      ),
-    );
-  }
-  assert.deepEqual(selectRegressionStaticOwners(catalog, changed, selected), [
-    "coordinator",
-    "docker-isolation",
-    "platform-access",
-  ]);
-});
-
-/**
  * 新隔離Ownerの全試験と上位利用側を識別する。
  *
  * @responsibility Package境界による収集・Owner・静的Consumer選択を確認する。
@@ -298,7 +257,6 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "executor",
       "lock",
       "mcp-server",
-      "platform-access",
       "version-control",
       "visual-preview",
       "workbench-server",
@@ -338,12 +296,12 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
   const withoutPlatform = {
     ...catalog,
     integrationBlocks: catalog.integrationBlocks.filter(
-      (entry) => entry.owner !== "platform-access",
+      (entry) => entry.owner !== first.owner,
     ),
   };
   assert.ok(
     inspectTestCatalog(repositoryRoot, withoutPlatform).includes(
-      "integration_block_owner_missing:platform-access",
+      `integration_block_owner_missing:${first.owner}`,
     ),
   );
   const missingTest = {
@@ -837,7 +795,7 @@ test("文書変更はRepository規則を検査するCheckerへ接続する", () 
   for (const changedPath of [
     "16_Quality_Assurance.md",
     "40_Develop/coordinator/README.md",
-    "40_Develop/platform-access/README.md",
+    "40_Develop/lock/README.md",
   ]) {
     const selectedEntries = selectRegressionTests(catalog, [changedPath]);
     assert.ok(selectedEntries.length > 0);

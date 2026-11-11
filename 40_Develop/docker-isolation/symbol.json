@@ -365,7 +365,6 @@
       ],
       "verifies": [
         "docker-isolation.desktop.runtime-directory",
-        "platform-access.source.desktop-helper",
         "docker-isolation.desktop.backend-state",
         "docker-isolation.package-api"
       ]

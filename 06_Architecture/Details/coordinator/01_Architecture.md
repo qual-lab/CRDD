@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## PA退役後のSource／Git照合 — 2026-11-11
+
+開発実行は固定Sourceの内容・実体、Repositoryの改訂・Treeを照合し、前後Repository一致とSessionの期限・取消・実行回数・元Identity比較を維持する。Native成果物Hash・借用API・専用出所照合は対象成果物とともに撤去した。Source根拠は元Identityへ保持する。Source観測scopeは`crdd-development-source-snapshot/v3`。以下の過去段階のNative実装記述を現行要件へ読み替えない。既存保存field名に残るNative表記は、この整理を理由に変更しない。
+
 ## Desktop修復の技術境界更新 — 2026-11-10
 
 実施判断・現在Owner・Intent／結果保存はCoordinatorに維持し、Desktop停止・起動はExecutor経由でDIの公式CLI／既存Node.js処理へ委譲する。技術終了の返却fieldは`operationCleanupConfirmed`とし、Native終了という旧意味を持ち込まない。修復Identity v2と8処置の保存へ追従し、旧所有Hash・Scope Hashを復元しない。具体的な停止・Directory・排他条件と基点変更の運用条件は[DI設計](../docker-isolation/01_Architecture.md#desktop-helperの退役と公式cliへの接続--2026-11-10)を参照する。

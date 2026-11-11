@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
 import {
   type CoverageObligation,
   parseExactTsCoverageLcov,
-} from "./check-platform-access-ts-coverage.ts";
+} from "./coverage.ts";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
 export const PROVIDER_HOME_COVERAGE_MINIMUM_NODE_VERSION = "24.12.0";
@@ -24,7 +24,7 @@ export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/authority.ts",
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
   "40_Develop/coordinator/src/execution/diagnostics.ts",
-  "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
+  "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
 ]);
 
@@ -35,7 +35,7 @@ export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
 ]);
 
@@ -101,13 +101,12 @@ const coverageObligations = Object.freeze({
     "Provider lifecycle、Provider Homeまたは実Provider binding変更時／doctor report、Provider Home投影またはproduction consumer追加時",
   ),
 
-  "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts":
-    obligation(
-      "共有LCOV parserの全Filesystem／child process errorと全不正record組合せを同一runで到達していない",
-      "品質記録の不正入力を稀な組合せで受理または誤分類する可能性",
-      "exact母集団、LCOV grammar、summary、BRDA、上限およびserializerの正負・境界試験",
-      "LCOV parser、Node coverage形式または固定母集団契約変更時",
-    ),
+  "40_Develop/coordinator/scripts/coverage.ts": obligation(
+    "共有LCOV parserの全Filesystem／child process errorと全不正record組合せを同一runで到達していない",
+    "品質記録の不正入力を稀な組合せで受理または誤分類する可能性",
+    "exact母集団、LCOV grammar、summary、BRDA、上限およびserializerの正負・境界試験",
+    "LCOV parser、Node coverage形式または固定母集団契約変更時",
+  ),
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts": obligation(
     "runnerのchild process失敗、非決定出力およびRepository Root差を意図的に全発火していない",
     "品質記録生成が環境差または失敗を安全に分類できない可能性",

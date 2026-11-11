@@ -45,7 +45,6 @@ import {
   inspectResources,
   type ResourceTarget,
 } from "../../../executor/src/index.ts";
-import { observeNativeArtifact } from "../../../platform-access/src/index.ts";
 import {
   getRepositoryFromWorkingDirectory,
   readRepositorySnapshot,
@@ -1044,10 +1043,6 @@ const COMMIT = /^[a-f0-9]{40}$/u;
 
 const developmentMeasurementSessionMAX_DURATION_MS = 3_600_000;
 
-const sourceDistributionRoot = path.resolve(
-  fileURLToPath(new URL("../../../../", import.meta.url)),
-);
-
 /**
  * development-measurement-sessionで使用するProviderの値契約を定義する。
  *
@@ -1156,42 +1151,17 @@ type Configuration = Readonly<{
  */
 type Identity = Readonly<{
   sourceIdentitySha256: string;
-  nativeIdentitySha256: string;
   repositoryIdentitySha256: string;
 }>;
 
-/**
- * development-measurement-sessionで使用するNative Verificationの値契約を定義する。
- *
- * @responsibility Native VerificationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape NativeVerificationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant NativeVerificationで宣言した値と責務の対応を維持する。
- * @boundary N/A: NativeVerificationの宣言は外部境界を開かない。
- * @security NativeVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility NativeVerificationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type NativeVerification = Readonly<{
-  status: "candidate";
-  platformAccessArtifact: NonNullable<
-    ReturnType<typeof observeNativeArtifact>
-  >["artifact"];
-}>;
-
-// Only the production observer can bind a verified native result to an identity.
-// The exact immutable identity may be reused inside one already-verified native
-// lifecycle boundary; caller claims and isolated test identities remain invalid.
-const nativeVerifications = new WeakMap<
+// 本番Source観測の根拠だけを元Identityへ結合する。
+const sourceObservations = new WeakMap<
   Identity,
   Readonly<{
-    verification: NativeVerification;
-    identitySha256: string;
-    sourceObservation: Readonly<{
-      scope: NonNullable<
-        ReturnType<typeof observeRuntimeOwnedDevelopmentSource>
-      >["scope"];
-      expectedSourceSha256: string;
-    }>;
+    scope: NonNullable<
+      ReturnType<typeof observeRuntimeOwnedDevelopmentSource>
+    >["scope"];
+    expectedSourceSha256: string;
   }>
 >();
 
@@ -1207,10 +1177,7 @@ const nativeVerifications = new WeakMap<
  * @compatibility Dependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type Dependencies = Readonly<{
-  observe: (
-    configuration: Configuration,
-    priorIdentity?: Identity,
-  ) => Identity | null;
+  observe: (configuration: Configuration) => Identity | null;
   wallNow: () => number;
   monotonicNow: () => number;
   isEffectBlocked: () => boolean;
@@ -1255,10 +1222,6 @@ type TaskBinding = {
   task: Task;
   token: object;
   managementCapability: object | null;
-  nativeBoundaryIdentity: Identity | null;
-  cleanupBoundaryIdentity: Identity | null;
-  nativeBoundaryVerified: boolean;
-  cleanupBoundaryVerified: boolean;
   settled: boolean;
 };
 
@@ -1402,33 +1365,22 @@ function snapshotConfiguration(raw: unknown): Configuration | null {
 }
 
 /**
- * 固定SourceとNative実体、Task Repositoryを同じ観測区間で確認する。
+ * 固定SourceとTask Repositoryを同じ観測区間で確認する。
  *
- * @responsibility 署名配布へ依存せず、Source期待値と元Native実体の継続性を照合する。
+ * @responsibility 署名配布へ依存せず、Source期待値と元Repository実体の継続性を照合する。
  * @trace ARCH-000004
  * @input configuration: 固定入力。priorIdentity: 再観測時の元admission実体。
  * @returns Identity | nullを返す。
  * @precondition 「configuration: Configuration」がobserveProductionの入力契約を満たす。
  * @postcondition observeProductionの責務を完了した結果だけを返す。
- * @effect Source、Native、Repositoryを読み、既存私有Mapへ観測を結合する。
+ * @effect SourceとRepositoryを読み、既存私有Mapへ観測を結合する。
  * @failure 欠測・期待差・元実体観測失効・観測中差替えはnull。
- * @invariant fresh Hashだけで元Native tokenの失効を上書きしない。
- * @boundary 固定Source／NativeのFilesystem観測とRepository照合。
+ * @invariant fresh Hashだけで元Session Identityの失効を上書きしない。
+ * @boundary 固定SourceのFilesystem観測とRepository照合。
  * @security observeProductionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency 旧実体観測前後と新実体観測最終確認を重ねる。変更不能や原子的ロードは保証しない。
  */
-function observeProduction(
-  configuration: Configuration,
-  priorIdentity?: Identity,
-): Identity | null {
-  const prior =
-    priorIdentity === undefined ? null : nativeVerifications.get(priorIdentity);
-  if (
-    priorIdentity !== undefined &&
-    (!prior ||
-      !observeNativeArtifact(sourceDistributionRoot, prior.identitySha256))
-  )
-    return null;
+function observeProduction(configuration: Configuration): Identity | null {
   const repository = readRepositorySnapshot(
     getRepository(configuration.repositoryRoot).capability,
   );
@@ -1441,26 +1393,12 @@ function observeProduction(
   const source = observeRuntimeOwnedDevelopmentSource();
   if (!source || source.sourceSha256 !== configuration.expectedSourceSha256)
     return null;
-  const native = observeNativeArtifact(sourceDistributionRoot);
-  if (!native?.bootstrapVerified) return null;
   const reobserved = readRepositorySnapshot(
     getRepository(configuration.repositoryRoot).capability,
   );
   if (JSON.stringify(repository) !== JSON.stringify(reobserved)) return null;
-  if (
-    prior &&
-    !observeNativeArtifact(sourceDistributionRoot, prior.identitySha256)
-  )
-    return null;
-  if (!observeNativeArtifact(sourceDistributionRoot, native.identitySha256))
-    return null;
   const identity: Identity = Object.freeze({
     sourceIdentitySha256: source.sourceIdentitySha256,
-    nativeIdentitySha256: digest([
-      "crdd-development-bootstrap-native/v1",
-      sourceDistributionRoot,
-      native.artifact,
-    ]),
     repositoryIdentitySha256: digest([
       "crdd-development-repository/v1",
       configuration.repositoryRoot,
@@ -1477,18 +1415,11 @@ function observeProduction(
       },
     ]),
   });
-  nativeVerifications.set(
+  sourceObservations.set(
     identity,
     Object.freeze({
-      verification: Object.freeze({
-        status: "candidate",
-        platformAccessArtifact: native.artifact,
-      }),
-      identitySha256: native.identitySha256,
-      sourceObservation: Object.freeze({
-        scope: source.scope,
-        expectedSourceSha256: source.sourceSha256,
-      }),
+      scope: source.scope,
+      expectedSourceSha256: source.sourceSha256,
     }),
   );
   return identity;
@@ -1572,7 +1503,7 @@ function createSessionRuntime(dependencies: Dependencies) {
       )
         session.constraints.cancel();
       const identity = session.timing.measureIdentity(() =>
-        dependencies.observe(session.configuration, session.identity),
+        dependencies.observe(session.configuration),
       );
       const bindingSha256 =
         identity && digest(identity) === digest(session.identity)
@@ -1793,10 +1724,6 @@ function createSessionRuntime(dependencies: Dependencies) {
         task,
         token: reserved.value,
         managementCapability: null,
-        nativeBoundaryIdentity: null,
-        cleanupBoundaryIdentity: null,
-        nativeBoundaryVerified: false,
-        cleanupBoundaryVerified: false,
         settled: false,
       });
       return capability;
@@ -1940,86 +1867,6 @@ function createSessionRuntime(dependencies: Dependencies) {
         : null;
     },
     /**
-     * Native Observationを一時参照として取得する。
-     *
-     * @responsibility Native Observationの参照条件、lifetime、所有権を移さない境界を所有する。
-     * @trace ARCH-000004
-     * @input context: object、shouldInitializeIfMissing: boolean
-     * @returns borrowNativeObservationの計算結果を返す。
-     * @precondition 「context: object、shouldInitializeIfMissing: boolean」がborrowNativeObservationの入力契約を満たす。
-     * @postcondition borrowNativeObservationの責務を完了した結果だけを返す。
-     * @effect N/A: borrowNativeObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
-     * @failure borrowNativeObservationは入力不正または下位処理の失敗を呼出し側へ返す。
-     * @invariant borrowNativeObservationは入力から導いた結果以外の共有状態を変更しない。
-     * @boundary N/A: borrowNativeObservationはProcess内の同一Subsystemで完結する。
-     * @security borrowNativeObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
-     * @concurrency N/A: borrowNativeObservationは共有非同期状態を持たない同期処理である。
-     */
-    borrowNativeObservation(
-      context: object,
-      shouldInitializeIfMissing: boolean,
-    ) {
-      const session = sessions.get(context);
-      const task = taskBindings.get(context);
-      const cleanup = cleanupBindings.get(context);
-      const binding = task ?? cleanup;
-      const activeSession = session ?? binding?.session;
-      if (
-        !activeSession ||
-        binding?.settled ||
-        ((session || cleanup) && shouldInitializeIfMissing)
-      )
-        return null;
-      try {
-        let identity: Identity | null = null;
-        if (session) {
-          const observed = observe(session);
-          if (observed?.result.status !== "recorded") return null;
-          identity = observed.identity;
-        }
-        if (task) {
-          if (!task.nativeBoundaryVerified) {
-            const observed = observe(task.session);
-            if (observed?.result.status !== "recorded") return null;
-            identity = observed.identity;
-            task.nativeBoundaryIdentity = identity;
-            task.nativeBoundaryVerified = true;
-          } else {
-            if (checkBoundSession(task.session)?.result.status !== "recorded")
-              return null;
-            identity = task.nativeBoundaryIdentity;
-          }
-        }
-        // A cleanup context permits only a read-only native observation. Its
-        // owning resource lifecycle still authorizes every exact mutation.
-        if (cleanup) {
-          if (dependencies.isEffectBlocked()) return null;
-          if (!cleanup.cleanupBoundaryVerified) {
-            identity = cleanup.session.timing.measureIdentity(() =>
-              dependencies.observe(
-                cleanup.session.configuration,
-                cleanup.session.identity,
-              ),
-            );
-            if (digest(identity) !== digest(cleanup.session.identity))
-              return null;
-            cleanup.cleanupBoundaryIdentity = identity;
-            cleanup.cleanupBoundaryVerified = true;
-          } else {
-            identity = cleanup.cleanupBoundaryIdentity;
-          }
-        }
-        if (!identity) return null;
-        return Object.freeze({
-          identity,
-          distributionRoot: sourceDistributionRoot,
-          executionSourceKind: "fixed_development_candidate" as const,
-        });
-      } catch {
-        return null;
-      }
-    },
-    /**
      * reserve Invocationを決定する。
      *
      * @responsibility reserve Invocationの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -2093,12 +1940,7 @@ function createSessionRuntime(dependencies: Dependencies) {
         ).status !== "recorded"
       )
         return false;
-      // The provider-effect boundary just completed a full identity check. All
-      // native helper observations inside this invocation reuse that exact
-      // binding while their adapters still verify the native artifact before
-      // and after each helper process.
-      binding.nativeBoundaryVerified = true;
-      binding.nativeBoundaryIdentity = observed.identity;
+      // Provider Effect直前に元Source／Repositoryとの完全Identity比較を完了した。
       return true;
     },
     /**
@@ -2234,8 +2076,7 @@ function createSessionRuntime(dependencies: Dependencies) {
       checkBoundSession(session);
       return Object.freeze({
         ...session.constraints.inspect(),
-        sourceObservation:
-          nativeVerifications.get(session.identity)?.sourceObservation ?? null,
+        sourceObservation: sourceObservations.get(session.identity) ?? null,
         identityObservation: session.timing.snapshot().identityObservation,
       });
     },
@@ -2367,52 +2208,6 @@ export function cancelRuntimeOwnedDevelopmentMeasurementSession(
 }
 
 /**
- * Runtime 所有 Development Native Observationを一時参照として取得する。
- *
- * @responsibility Runtime 所有 Development Native Observationの参照条件、lifetime、所有権を移さない境界を所有する。
- * @trace ARCH-000004
- * @input context: object、shouldInitializeIfMissing: boolean
- * @returns borrowRuntimeOwnedDevelopmentNativeObservationの計算結果を返す。
- * @precondition 「context: object、shouldInitializeIfMissing: boolean」がborrowRuntimeOwnedDevelopmentNativeObservationの入力契約を満たす。
- * @postcondition borrowRuntimeOwnedDevelopmentNativeObservationの責務を完了した結果だけを返す。
- * @effect N/A: borrowRuntimeOwnedDevelopmentNativeObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: borrowRuntimeOwnedDevelopmentNativeObservationは独自の失敗分岐を所有しない。
- * @invariant borrowRuntimeOwnedDevelopmentNativeObservationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: borrowRuntimeOwnedDevelopmentNativeObservationはProcess内の同一Subsystemで完結する。
- * @security borrowRuntimeOwnedDevelopmentNativeObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: borrowRuntimeOwnedDevelopmentNativeObservationは共有非同期状態を持たない同期処理である。
- */
-export function borrowRuntimeOwnedDevelopmentNativeObservation(
-  context: object,
-  shouldInitializeIfMissing: boolean,
-) {
-  const observation = productionRuntime.borrowNativeObservation(
-    context,
-    shouldInitializeIfMissing,
-  );
-  const observedNative =
-    observation && nativeVerifications.get(observation.identity);
-  if (!observation || !observedNative) return null;
-  try {
-    if (
-      !observeNativeArtifact(
-        observation.distributionRoot,
-        observedNative.identitySha256,
-      )
-    )
-      return null;
-  } catch {
-    return null;
-  }
-  // Each borrow verifies the original native identity; the full Source snapshot
-  // remains shared inside the same already-checked lifecycle boundary.
-  return Object.freeze({
-    distributionRoot: observation.distributionRoot,
-    verification: observedNative.verification,
-  });
-}
-
-/**
  * Runtime 所有 Development Operation Contextを観測する。
  *
  * @responsibility Runtime 所有 Development Operation Contextの観測対象、取得根拠、観測不能結果の境界を所有する。
@@ -2534,7 +2329,7 @@ export function createIsolatedDevelopmentMeasurementSessionCandidate(
   return createSessionRuntime(dependencies);
 }
 
-const SOURCE_SCOPE = "crdd-development-source-snapshot/v2";
+const SOURCE_SCOPE = "crdd-development-source-snapshot/v3";
 
 const PACKAGES = [
   "access-management",
@@ -2545,7 +2340,6 @@ const PACKAGES = [
   "execution-intelligence",
   "lock",
   "mcp-server",
-  "platform-access",
   "version-control",
 ] as const;
 

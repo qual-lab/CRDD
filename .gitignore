@@ -27,6 +27,9 @@
 # Tool package dependencies are restored from their lockfiles.
 **/node_modules/
 
+# Retired PA build cache is not a product artifact; existing cache is not removed here.
+/40_Develop/platform-access/target/
+
 # Workbench Browser bundle is a deterministic generated Release artifact.
 # The fixed production bundle is tracked so signed distributions can launch
 # without restoring the build toolchain or importing React into the Node graph.

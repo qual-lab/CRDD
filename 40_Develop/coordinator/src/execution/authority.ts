@@ -6890,64 +6890,6 @@ function rootObservationBlocked(reason: string) {
 }
 
 /**
- * Platform Access Adapter 契約の公開契約を記述する。
- *
- * @responsibility Platform Access Adapter 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns describePlatformAccessAdapterContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformAccessAdapterContractの入力契約を満たす。
- * @postcondition describePlatformAccessAdapterContractの責務を完了した結果だけを返す。
- * @effect N/A: describePlatformAccessAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describePlatformAccessAdapterContractは独自の失敗分岐を所有しない。
- * @invariant describePlatformAccessAdapterContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security describePlatformAccessAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describePlatformAccessAdapterContractは共有非同期状態を持たない同期処理である。
- */
-export function describePlatformAccessAdapterContract() {
-  return Object.freeze({
-    contract: "crdd-coordinator/platform-access-adapter",
-    contractRevision: 3,
-    implementationLanguage: "rust",
-    rustCrate: "crdd-platform-access",
-    rustToolchain: "1.94.1",
-    target: "x86_64-pc-windows-msvc",
-    wireProtocol: "fixed_bounded_binary_revision_3",
-    runtimePrincipalPolicy: "local_interactive_selected_user_only",
-    observedPrincipalSource: "native_supervisor_current_process_token_user",
-    principalObservation:
-      "implemented_signed_supervisor_token_classification_fail_closed_candidate",
-    selectedUserBinding:
-      "implemented_native_current_process_primary_token_and_login_session_observation",
-    runtimePrincipalIdentity:
-      "native_current_token_user_sid_domain_separated_sha256",
-    serviceAccountMode: "not_implemented_blocked",
-    windowsCurrentProcessAccessCore: "implemented_candidate_component_only",
-    binaryReleaseIdentityBinding: "implemented_candidate_signed_manifest",
-    productionInvocation:
-      "signed_exact_artifact_spawn_with_minimal_environment_and_bounded_io",
-    maximumWorkerSpawnAttemptsPerInvocation: 1,
-    atomicJobAssignment: "implemented_candidate",
-    exactRequestResponseBinding: "implemented_candidate",
-    shellInvocation: false,
-    pathEnvironmentLookup: false,
-    cargoRuntimeInvocation: false,
-    windowsPermissionMutation: "not_implemented",
-    posixAdapter: "not_implemented",
-    absolutePathReported: false,
-    principalReported: false,
-    principalIdentityHashReported: false,
-    aclReported: false,
-    rawErrorReported: false,
-    permissionMutationIssued: false,
-    filesystemEffectIssued: false,
-    runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false,
-  });
-}
-
-/**
  * uint64 Big Endianを決定する。
  *
  * @responsibility uint64 Big Endianの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -7177,7 +7119,6 @@ export function inspectWindowsRootObservationCandidate(
  * @concurrency N/A: describeRootObservationContractは共有非同期状態を持たない同期処理である。
  */
 export function describeRootObservationContract() {
-  const platformAccess = describePlatformAccessAdapterContract();
   return Object.freeze({
     identityContract: ROOT_IDENTITY_OBSERVATION_CONTRACT,
     protectionContract: ROOT_PROTECTION_OBSERVATION_CONTRACT,
@@ -7190,10 +7131,6 @@ export function describeRootObservationContract() {
       "windows_device_file_and_birthtime_identity_without_path_disclosure",
     protectionInputs:
       "windows_fixed_drive_dacl_role_runtime_principal_and_writer_exclusivity",
-    windowsObservationCore: platformAccess.windowsCurrentProcessAccessCore,
-    windowsBinaryReleaseIdentityBinding:
-      platformAccess.binaryReleaseIdentityBinding,
-    windowsProcessInvocation: platformAccess.productionInvocation,
     windowsAdapter: "not_implemented_observation_mapping_required",
     runtimePrincipalBindingInput:
       "selected_local_user_binding_caller_claim_non_authority",

@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
 import {
   type CoverageObligation,
   parseExactTsCoverageLcov,
-} from "./check-platform-access-ts-coverage.ts";
+} from "./coverage.ts";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
@@ -28,7 +28,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
-  "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
+  "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/scripts/check-dynamic-fake-provider-coverage.ts",
 ]);
 
@@ -40,7 +40,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
 ]);
 
@@ -138,13 +138,12 @@ const coverageObligations = Object.freeze({
       "固定Docker Engine上の明示verification command、三軸container不存在およびHost cleanup確認",
       "Docker CLI、固定image、取消signalまたはcleanup変更時",
     ),
-  "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts":
-    obligation(
-      "共有LCOV parserの全Filesystem／child process errorと全不正record組合せを同一runで到達していない",
-      "品質記録の不正入力を稀な組合せで受理または誤分類する可能性",
-      "exact source母集団、LCOV grammar、summary、BRDA、上限およびserializerの正負・境界試験",
-      "LCOV parser、Node coverage形式または固定母集団契約変更時",
-    ),
+  "40_Develop/coordinator/scripts/coverage.ts": obligation(
+    "共有LCOV parserの全Filesystem／child process errorと全不正record組合せを同一runで到達していない",
+    "品質記録の不正入力を稀な組合せで受理または誤分類する可能性",
+    "exact source母集団、LCOV grammar、summary、BRDA、上限およびserializerの正負・境界試験",
+    "LCOV parser、Node coverage形式または固定母集団契約変更時",
+  ),
   "40_Develop/coordinator/scripts/check-dynamic-fake-provider-coverage.ts":
     obligation(
       "runnerのchild process失敗、非決定出力およびRepository root差を実runで意図的に発火していない",

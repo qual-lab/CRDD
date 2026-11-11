@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
 import {
   type CoverageObligation,
   parseExactTsCoverageLcov,
-} from "./check-platform-access-ts-coverage.ts";
+} from "./coverage.ts";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");

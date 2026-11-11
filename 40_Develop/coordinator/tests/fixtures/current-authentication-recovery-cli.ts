@@ -17,17 +17,11 @@ export const hostFixtureProcessBoundarySource = `
   const {syncBuiltinESMExports:boundarySync}=await import('node:module');
   const boundaryOriginal=Object.fromEntries(['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork'].map(key=>[key,boundaryCp[key]]));
   const boundaryRoot=process.cwd();
-  const boundaryNative=${JSON.stringify(new URL("../../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe", import.meta.url).pathname.replace(/^\//u, "").replaceAll("/", "\\"))};
   const boundaryViolations=[];
   function boundaryReject(){boundaryViolations.push('unexpected_process_request');throw new Error('host_fixture_process_denied');}
   for(const key of Object.keys(boundaryOriginal))boundaryCp[key]=boundaryReject;
   boundaryCp.spawnSync=function(executable,argv,options){
     try{
-    if(executable===boundaryNative){
-      assert.equal(argv.length,1);assert.equal(argv[0],'--system-windows-directory');
-      assert.deepEqual({...options,cwd:path.resolve(options.cwd)},{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});
-      return boundaryOriginal.spawnSync(executable,argv,options);
-    }
     return boundaryReject();
     }catch{boundaryViolations.push('invalid_sync_request');throw new Error('host_fixture_process_denied');}
   };
@@ -95,8 +89,6 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   assert.equal(target.dockerRestart.request,'confirmed'); assert.equal(target.dockerRestart.cleanup,'confirmed');
   assert.deepEqual(target.dockerRestart.result,{status:'completed',reason:'docker_restart_settled',request:'confirmed',effectOutcomeUnknown:false});
   const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
-  const nativeExe = path.resolve(path.dirname(cli),'../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
-  const nativeModes = ['--system-windows-directory'];
   const list = ['container','ls','--all','--no-trunc','--filter','name=^/'+authResource.identity.name+'$'];
   const name = [...list,'--format','{{.ID}}'];
   const labelled = [...list,'--filter','label='+identity.ownershipLabel,'--format','{{.ID}}'];
@@ -116,12 +108,6 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   try {
     const classify = function(channel,executable,argv,options) {
       try {
-        if(executable === nativeExe) {
-          assert.equal(channel,'sync');
-          assert.equal(argv.length,1); assert.ok(nativeModes.includes(argv[0]));
-          assert.deepEqual({...options,cwd:path.resolve(options.cwd)},{env:{},cwd:path.resolve(path.dirname(nativeExe),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});
-          return originalSpawn(executable,argv,options);
-        }
         let stdout = '', stderr = '', status = 0;
         const powershell = path.win32.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');
         if(executable.toLowerCase() === powershell.toLowerCase()) {

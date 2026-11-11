@@ -66,7 +66,7 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/src/execution/authority.ts",
     "40_Develop/domain-model/src/plain-data/snapshot.ts",
     "40_Develop/coordinator/src/execution/diagnostics.ts",
-    "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
+    "40_Develop/coordinator/scripts/coverage.ts",
     "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
   ]);
   assert.deepEqual(PROVIDER_HOME_COVERAGE_TESTS, [
@@ -76,7 +76,7 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
-    "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+    "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
     "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
   ]);
 });

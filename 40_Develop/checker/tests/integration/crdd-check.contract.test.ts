@@ -13723,11 +13723,6 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     { recursive: true },
   );
   fs.cpSync(
-    path.join(repositoryRoot, "40_Develop", "platform-access", "src"),
-    path.join(source, "40_Develop", "platform-access", "src"),
-    { recursive: true },
-  );
-  fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "lock", "src"),
     path.join(source, "40_Develop", "lock", "src"),
     { recursive: true },
@@ -13797,7 +13792,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
       "ls-files",
       "--error-unmatch",
       "--",
-      "40_Develop/platform-access/src/index.ts",
+      "40_Develop/version-control/src/index.ts",
     ],
     { encoding: "utf8" },
   );

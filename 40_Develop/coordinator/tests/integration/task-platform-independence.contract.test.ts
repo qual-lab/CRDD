@@ -155,6 +155,7 @@ const SOURCE_ROLES = {
   ],
   storage: ["decision/store.ts"],
   technicalExecution: [
+    "execution/configuration.ts",
     "execution/files.ts",
     "workspace/git.ts",
     "execution/types.ts",
@@ -472,6 +473,7 @@ function assertPureImportEdges(
           "decision/request.ts": [
             "CoordinatorAcceptanceDecision",
             "CoordinatorAcceptanceTarget",
+            "isPrincipalId",
           ],
           "state/persistence.ts": [
             "CoordinatorLeaseKind",
@@ -1020,7 +1022,7 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
     windowsAdapterSource.includes(
       'from "../../../platform-access/src/index.ts"',
     ),
-    true,
+    false,
   );
   const adapterNames = new Set([
     "createCoordinatorWindowsPlatformAdapter",

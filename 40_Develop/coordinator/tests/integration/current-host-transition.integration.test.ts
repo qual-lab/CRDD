@@ -807,7 +807,7 @@ test("回収再入場の拒否: await省略と下位Effect発行を反例で拒�
 /** 全子入口の既定拒否とfinally復元を、Processを生成しないspyで確認する。
  * @trace ERB-IT-014
  */
-test("全Host子入口: 未知Processを既定拒否しNative読取りだけ固定条件で許可する", async () => {
+test("全Host子入口: 退役Nativeを含む未知Processを既定拒否する", async () => {
   for (const source of [
     currentHostTransitionWorkerSource,
     currentAuthenticationRecoveryCliSource,
@@ -921,16 +921,16 @@ test("全Host子入口: 未知Processを既定拒否しNative読取りだけ固�
     const childTimeout = reentryMode ? 60000 : 120000;
     const stimulus =
       scenario === "native"
-        ? "cp.spawnSync(boundaryNative,['--system-windows-directory'],{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});"
+        ? "assert.throws(()=>cp.spawnSync('retired-native.exe',['--system-windows-directory'],{shell:false}));"
         : scenario === "native_options"
-          ? "for(const change of [{env:{EXTRA:'1'}},{cwd:'C:\\\\other'},{encoding:'utf8'},{timeout:5001},{extra:true}])assert.throws(()=>cp.spawnSync(boundaryNative,['--system-windows-directory'],{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer',...change}));"
+          ? "for(const change of [{env:{EXTRA:'1'}},{cwd:'C:\\\\other'},{encoding:'utf8'},{timeout:5001},{extra:true}])assert.throws(()=>cp.spawnSync('retired-native.exe',['--system-windows-directory'],{shell:false,...change}));"
           : scenario === "node_source"
             ? "await assert.rejects(()=>launchHostFixture(['unexpected'],'unexpected',60000));await assert.rejects(()=>launchHostFixture(['-','fixture','recover_cleanup','A','{}'],'worker',60000));await assert.rejects(()=>launchHostFixture(['--experimental-test-module-mocks','-','fixture'],'foreign',60000));"
             : scenario.endsWith("_child")
               ? `await launchHostFixture(${JSON.stringify(childArguments)},${JSON.stringify(childInput)},${childTimeout});`
               : "for(const key of Object.keys(boundaryOriginal))assert.throws(()=>cp[key]('docker',['version'],{shell:false}));assert.throws(()=>cp.spawnSync('git',['status'],{}));assert.throws(()=>cp.spawnSync('unexpected.exe',[],{}));";
     await runInNewContext(
-      `(async()=>{${setup}try{${stimulus}}finally{${scenario === "unknown" || scenario === "native_options" ? "assert.throws(()=>restoreHostFixtureProcesses());" : "restoreHostFixtureProcesses();"}}})()`,
+      `(async()=>{${setup}try{${stimulus}}finally{${scenario === "unknown" || scenario === "native" || scenario === "native_options" ? "assert.throws(()=>restoreHostFixtureProcesses());" : "restoreHostFixtureProcesses();"}}})()`,
       context,
     );
     for (const key of Object.keys(originals) as (keyof typeof originals)[])
@@ -949,10 +949,7 @@ test("全Host子入口: 未知Processを既定拒否しNative読取りだけ固�
           },
         ],
       ]);
-    assert.equal(
-      syncCalls,
-      scenario === "native" ? 2 : scenario.endsWith("_child") ? 1 : 0,
-    );
+    assert.equal(syncCalls, scenario.endsWith("_child") ? 1 : 0);
     assert.equal(otherCalls, 0);
     assert.equal(synchronizations, 2);
   }
@@ -1224,9 +1221,7 @@ test("回収子の技術代役は現行Moduleへ接続し旧Rootへ注入しな�
     assert.doesNotMatch(source, /docker-isolation\/src\/index\.ts/u);
     assert.doesNotMatch(source, /createDockerTaskRecoveryExecutor/u);
     assert.doesNotMatch(source, /--host-terminal-/u);
-    for (const mode of ["--system-windows-directory"]) {
-      assert.ok(source.includes(mode));
-    }
+    assert.doesNotMatch(source, /--system-windows-directory/u);
     assert.doesNotMatch(source, /--host-recovery-namespace-/u);
     assert.doesNotMatch(source, /--local-app-data-directory/u);
   }
@@ -1504,10 +1499,12 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
             run("cp.spawn(nativeExe,['--system-windows-directory'],{});"),
           );
         } else if (scenario === "native") {
-          run(
-            "for(const mode of nativeModes)cp.spawnSync(nativeExe,[mode],{env:{},cwd:path.resolve(path.dirname(nativeExe),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});",
+          assert.throws(() =>
+            run(
+              "for(const mode of nativeModes)cp.spawnSync(nativeExe,[mode],{env:{},cwd:path.resolve(path.dirname(nativeExe),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});",
+            ),
           );
-          assert.equal(originalSyncCalls, 2);
+          assert.equal(originalSyncCalls, 0);
         } else if (scenario === "native_options") {
           run(
             "for(const change of [{cwd:'C:\\\\unexpected'},{env:{EXTRA:'1'}},{encoding:'utf8'},{timeout:5001},{extra:true}])assert.throws(()=>cp.spawnSync(nativeExe,[nativeModes[0]],{env:{},cwd:path.resolve(path.dirname(nativeExe),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer',...change}));",
@@ -1593,7 +1590,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
       }
       assert.equal(synchronizations, 2);
       assert.equal(originalAsyncCalls, 0);
-      assert.equal(originalSyncCalls, scenario === "native" ? 2 : 0);
+      assert.equal(originalSyncCalls, 0);
     }
   }
 });

@@ -39,7 +39,7 @@ test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団
     "40_Develop/domain-model/src/plain-data/snapshot.ts",
     "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
     "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
-    "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
+    "40_Develop/coordinator/scripts/coverage.ts",
     "40_Develop/coordinator/scripts/check-dynamic-fake-provider-coverage.ts",
   ]);
   assert.deepEqual(DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS, [
@@ -50,7 +50,7 @@ test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団
     "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
-    "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
+    "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
     "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
   ]);
 });

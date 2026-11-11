@@ -79,7 +79,7 @@ function completed(
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v2",
+    sourceScope: "crdd-development-source-snapshot/v3",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -144,7 +144,7 @@ function safelyRetryable(
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    sourceScope: "crdd-development-source-snapshot/v2",
+    sourceScope: "crdd-development-source-snapshot/v3",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,

@@ -34,6 +34,63 @@ import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
 import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
 
+test("開発実行はNativeなしでも元SourceとGitの前後一致を要求する", () => {
+  const source = readFileSync(
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes("platform-access/src"), false);
+  const body = stripTypeScriptTypes(
+    sourceDeclaration(source, "observeProduction"),
+  );
+  for (const scenario of [
+    "normal",
+    "revision",
+    "tree",
+    "source",
+    "missing_source",
+    "git_changed",
+  ]) {
+    const sourceObservations = new WeakMap<object, object>();
+    let reads = 0;
+    const repository = { revisionIdentity: "commit", snapshotIdentity: "tree" };
+    const observe = runInNewContext(`(${body})`, {
+      getRepository: () => ({ capability: {} }),
+      readRepositorySnapshot: () => {
+        reads++;
+        return scenario === "git_changed" && reads === 2
+          ? { ...repository, snapshotIdentity: "other" }
+          : repository;
+      },
+      observeRuntimeOwnedDevelopmentSource: () =>
+        scenario === "missing_source"
+          ? null
+          : {
+              sourceSha256: "source",
+              sourceIdentitySha256: "physical",
+              scope: "scope",
+            },
+      sourceObservations,
+      digest: JSON.stringify,
+    }) as (input: object) => object | null;
+    const result = observe({
+      repositoryRoot: "root",
+      expectedCommit: scenario === "revision" ? "other" : "commit",
+      expectedTree: scenario === "tree" ? "other" : "tree",
+      expectedSourceSha256: scenario === "source" ? "other" : "source",
+    });
+    if (scenario === "normal") {
+      assert.ok(result);
+      assert.equal(reads, 2);
+      assert.equal(Object.hasOwn(result, "nativeIdentitySha256"), false);
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(sourceObservations.get(result))),
+        { scope: "scope", expectedSourceSha256: "source" },
+      );
+    } else assert.equal(result, null, scenario);
+  }
+});
+
 test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLinkを拒否する", {
   skip: process.platform !== "win32",
 }, () => {
@@ -176,7 +233,6 @@ async function createSourceObservationFixture(readMutation = "") {
       "lock",
       "mcp-server",
       "orchestrator",
-      "platform-access",
       "version-control",
     ];
     for (const name of names) {
@@ -239,8 +295,8 @@ if (process.argv[2] !== "--probe") {
     try {
       const first = fixture.observe();
       assert.ok(first);
-      assert.equal(first.fileCount, 20);
-      assert.equal(first.scope, "crdd-development-source-snapshot/v2");
+      assert.equal(first.fileCount, 18);
+      assert.equal(first.scope, "crdd-development-source-snapshot/v3");
       assert.ok(Object.isFrozen(first));
       writeFileSync(
         path.join(
@@ -398,14 +454,14 @@ if (process.argv[2] !== "--probe") {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
       const extras = path.join(base, "extras");
       mkdirSync(extras);
-      for (let i = 0; i < 2028; i += 1)
+      for (let i = 0; i < 2030; i += 1)
         writeFileSync(path.join(extras, `${i}.ts`), "");
       assert.equal(fixture.observe()?.fileCount, 2048);
       writeFileSync(path.join(extras, "overflow.ts"), "");
       assert.equal(fixture.observe(), null);
       rmSync(extras, { recursive: true });
       mkdirSync(extras);
-      for (let i = 0; i < 2037; i += 1) mkdirSync(path.join(extras, String(i)));
+      for (let i = 0; i < 2038; i += 1) mkdirSync(path.join(extras, String(i)));
       assert.ok(fixture.observe());
       mkdirSync(path.join(extras, "overflow"));
       assert.equal(fixture.observe(), null);
@@ -522,218 +578,6 @@ if (process.argv[2] !== "--probe") {
       }
       assert.equal(closes, 1);
       assert.equal(reads, scenario === "read-failure" ? 1 : 4097);
-    }
-  });
-
-  /**
-   * 本番観測本文の元token・新token・借用tokenを別々に反証する。
-   *
-   * @responsibility 同じArtifact内容だけで元実体の失効を上書きしないことを確認する。
-   * @trace ERB-IT-004
-   * @precondition 現行観測・借用の実関数本文と私有MapをVMで結合する。
-   * @stimulus Map欠測、旧token前後・新token最終の失敗と借用失敗を与える。
-   * @observation 返却値、照合順、保存されたtokenとSource情報。
-   * @oracle 同内容差替えを拒否し、各確認を省く変異は同じOracleで失敗する。
-   * @cleanup VM内の非Authority値だけを扱い実Process・Filesystemを生成しない。
-   * @boundary 実Session観測本文→PA観測契約。実Nativeの実体確認はPA試験が所有する。
-   */
-  test("development session preserves original native observations across fresh snapshots", () => {
-    const source = stripTypeScriptTypes(
-      readFileSync(
-        new URL("../../src/execution/diagnostics.ts", import.meta.url),
-        "utf8",
-      ),
-    );
-    const start = source.indexOf("function observeProduction(");
-    const end = source.indexOf("\n}", start) + 2;
-    assert.ok(start >= 0 && end > start);
-    const body = source.slice(start, end);
-    /**
-     * 同じ観測本文へ各失敗を与える。
-     *
-     * @responsibility 本番確認の省略と誤結合を同じ期待結果で検出する。
-     * @trace ERB-IT-004
-     * @precondition selectedは実本文または一箇所だけを変えた反例。
-     * @stimulus 元token欠測・旧実体交換・新観測失効を順に実行する。
-     * @observation token照合順とMap保存値。
-     * @oracle 正常だけがcandidate用Identityを返し、旧token失効はfresh観測でも拒否する。
-     * @cleanup 実資源を作らずVM終了で局所値を解放する。
-     * @boundary 実本番本文と独立した観測結果Oracle。
-     */
-    const oracle = (selected: string) => {
-      for (const scenario of [
-        "normal",
-        "map-missing",
-        "old-first",
-        "old-second",
-        "new-final",
-        "same-bytes-replaced",
-      ]) {
-        const prior = Object.freeze({});
-        const oldToken = "a".repeat(64);
-        const newToken = "b".repeat(64);
-        const artifact = Object.freeze({
-          relativePath: "native.exe",
-          target: "windows",
-          protocolRevision: 3,
-          rustToolchain: "fixed",
-          byteLength: 1,
-          sha256: "1".repeat(64),
-        });
-        const map = new WeakMap<
-          object,
-          {
-            identitySha256: string;
-            verification: object;
-            sourceObservation: object;
-          }
-        >();
-        if (scenario !== "map-missing")
-          map.set(prior, {
-            identitySha256: oldToken,
-            verification: {},
-            sourceObservation: {},
-          });
-        const events: string[] = [];
-        let oldChecks = 0;
-        let replaced = false;
-        const observe = runInNewContext(`(${selected})`, {
-          nativeVerifications: map,
-          sourceDistributionRoot: "fixed-source",
-          digest: (value: unknown) => JSON.stringify(value),
-          getRepository: () => ({ capability: {} }),
-          readRepositorySnapshot: () => {
-            events.push("repository");
-            return { revisionIdentity: "a", snapshotIdentity: "b" };
-          },
-          observeRuntimeOwnedDevelopmentSource: () => {
-            events.push("source");
-            return {
-              scope: "crdd-development-source-snapshot/v2",
-              sourceSha256: "c",
-              sourceIdentitySha256: "source-identity",
-            };
-          },
-          observeNativeArtifact: (root: string, expected?: string) => {
-            assert.equal(root, "fixed-source");
-            if (expected === undefined) {
-              events.push("begin");
-              replaced = scenario === "same-bytes-replaced";
-              return {
-                artifact,
-                identitySha256: newToken,
-                bootstrapVerified: true,
-              };
-            }
-            assert.ok(expected === oldToken || expected === newToken);
-            events.push(expected === oldToken ? "verify-old" : "verify-new");
-            if (expected === oldToken) {
-              oldChecks += 1;
-              if (
-                replaced ||
-                scenario === "old-first" ||
-                (scenario === "old-second" && oldChecks === 2)
-              )
-                return null;
-            } else if (scenario === "new-final") return null;
-            return {
-              artifact,
-              identitySha256: expected,
-              bootstrapVerified: true,
-            };
-          },
-        }) as (configuration: unknown, prior: object) => object | null;
-        const result = observe(
-          {
-            repositoryRoot: "task-repository",
-            expectedCommit: "a",
-            expectedTree: "b",
-            expectedSourceSha256: "c",
-          },
-          prior,
-        );
-        if (scenario === "normal") {
-          assert.ok(result);
-          assert.deepEqual(events, [
-            "verify-old",
-            "repository",
-            "source",
-            "begin",
-            "repository",
-            "verify-old",
-            "verify-new",
-          ]);
-          const saved = map.get(result);
-          assert.ok(saved);
-          assert.equal(saved.identitySha256, newToken);
-          assert.equal(
-            Reflect.get(saved.verification, "platformAccessArtifact"),
-            artifact,
-          );
-          assert.equal(
-            JSON.stringify(saved.sourceObservation),
-            JSON.stringify({
-              scope: "crdd-development-source-snapshot/v2",
-              expectedSourceSha256: "c",
-            }),
-          );
-          assert.ok(Object.isFrozen(saved.sourceObservation));
-        } else {
-          assert.equal(result, null, scenario);
-          if (scenario === "map-missing" || scenario === "old-first")
-            assert.equal(events.includes("source"), false);
-        }
-      }
-    };
-    oracle(body);
-    for (const pattern of [
-      /if\s*\(\s*priorIdentity !== undefined\s*&&\s*\(!prior\s*\|\|\s*!observeNativeArtifact\(\s*sourceDistributionRoot,\s*prior.identitySha256,?\s*\)\)\s*\)\s*return null;/u,
-      /if\s*\(\s*prior\s*&&\s*!observeNativeArtifact\(\s*sourceDistributionRoot,\s*prior.identitySha256,?\s*\)\s*\)\s*return null;/u,
-      /if\s*\(!observeNativeArtifact\(sourceDistributionRoot, native.identitySha256\)\)\s*return null;/u,
-    ]) {
-      const changed = body.replace(pattern, "");
-      assert.notEqual(changed, body);
-      assert.throws(() => oracle(changed), { name: "AssertionError" });
-    }
-    const borrowStart = source.indexOf(
-      "function borrowRuntimeOwnedDevelopmentNativeObservation(",
-    );
-    const borrowEnd = source.indexOf("\n}", borrowStart) + 2;
-    assert.ok(borrowStart >= 0 && borrowEnd > borrowStart);
-    const borrowBody = source.slice(borrowStart, borrowEnd);
-    for (const scenario of ["normal", "missing", "invalid", "throws"]) {
-      const identity = Object.freeze({});
-      const token = "c".repeat(64);
-      const verification = Object.freeze({ status: "candidate" });
-      const map = new WeakMap<object, object>();
-      if (scenario !== "missing")
-        map.set(identity, { identitySha256: token, verification });
-      let checks = 0;
-      const borrow = runInNewContext(`(${borrowBody})`, {
-        productionRuntime: {
-          borrowNativeObservation: () => ({
-            identity,
-            distributionRoot: "fixed-source",
-          }),
-        },
-        nativeVerifications: map,
-        observeNativeArtifact: (root: string, received?: string) => {
-          assert.equal(root, "fixed-source");
-          assert.equal(received, token);
-          checks += 1;
-          if (scenario === "throws") throw new Error("observation_failed");
-          return scenario === "invalid"
-            ? null
-            : { identitySha256: token, bootstrapVerified: true };
-        },
-      }) as (context: object, initialize: boolean) => object | null;
-      const result = borrow({}, false);
-      assert.equal(checks, scenario === "missing" ? 0 : 1);
-      if (scenario === "normal") {
-        assert.ok(result);
-        assert.equal(Reflect.get(result, "verification"), verification);
-        assert.equal("expectedRelease" in result, false);
-      } else assert.equal(result, null);
     }
   });
 

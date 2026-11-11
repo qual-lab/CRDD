@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+PAの残存機能を整理し、製品Source・Rust crate・固定配布exe・専用Build／計測入口を撤去した。開発実行はNative HashなしでSource／Gitの前後照合、観測根拠、Session期限・取消・実行回数を維持する。共有LCOV解析だけは既存利用Toolへ残し、固定Source scopeはv3へ更新。台帳はPA Ownerを退役して410件valid。選択した限定回帰と独立完成レビューを確認した。全体回帰・実AI・実Docker・過去保持物は操作していない。[現状](06_Architecture/Details/platform-access/01_Architecture.md#現在の構成--2026-11-11)を参照。以下のNative残存記述は先行段階の状態であり、この現在値を優先する。
+
 Provider HomeをNodeの所在・物理実体確認へ切り替え、共有wx排他を維持した。旧保護／OS主体HashはOperation Identity v4から削除し、旧Lock・別key認証記録は保全停止する。Executor単独検証スクリプトも追従し、旧PA Home API／Nativeと専用Protocolを撤去した。限定回帰・独立確認の結果は[現在の境界](06_Architecture/Details/platform-access/01_Architecture.md#provider-homeのnode移管)を参照。PAにはWindows所在・子環境・Artifactの残存があり、PA全廃とはしない。全体回帰・実AI・実Docker・過去保持物は操作していない。
 
 退避Directoryは保存済みRoot実体・親・現在source・廃棄許可を照合してNode標準で全体削除する方式へ整理した。子のSocket種別・個別実体照合・独自上限を撤去し、PA単一entryのNative API／実装／専用試験・診断も削除した。開始後取消は削除処理の完了を待ち、部分失敗・後観測不明を保持する。新品treeと外側Link先保全を限定確認し、特殊Socket実物・実Dockerでの新方式成立は未実施。Provider Home・Windows所在のNativeは残る。全体回帰・実AI・実Docker・過去保持物操作は行わない。[実装範囲・保証差・検証状態](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#退避root全体の標準削除と単一entry-native退役--2026-11-11)を参照する。

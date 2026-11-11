@@ -72,7 +72,6 @@ export type TestCatalogEntry = Readonly<{
     | "lock"
     | "mcp-server"
     | "version-control"
-    | "platform-access"
     | "visual-preview"
     | "workbench-server";
   path: string;
@@ -116,7 +115,6 @@ export type TestCatalog = Readonly<{
     lock: "node_test";
     "mcp-server": "node_test";
     "version-control": "node_test";
-    "platform-access": "node_and_cargo_test";
     "visual-preview": "node_test";
     "workbench-server": "node_test";
   }>;
@@ -163,7 +161,6 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "lock",
   "mcp-server",
   "version-control",
-  "platform-access",
   "visual-preview",
   "workbench-server",
 ]);
@@ -179,7 +176,6 @@ const RUNNER_PROFILES = Object.freeze({
   lock: "node_test",
   "mcp-server": "node_test",
   "version-control": "node_test",
-  "platform-access": "node_and_cargo_test",
   "visual-preview": "node_test",
   "workbench-server": "node_test",
 });
@@ -333,7 +329,6 @@ function walkFiles(root: string, directory: string): string[] {
  */
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
-    "platform-access",
     "access-management",
     "ai-adapter",
     "checker",
@@ -364,16 +359,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
       .filter((file) => file.endsWith(".test.ts"))
       .map((file) => repositoryPath(repositoryRoot, file)),
   );
-  const rustTests = walkFiles(
-    repositoryRoot,
-    path.join(repositoryRoot, "40_Develop", "platform-access"),
-  )
-    .filter((file) => file.endsWith(".rs"))
-    .filter((file) =>
-      /#\[(?:tokio::)?test\]/u.test(fs.readFileSync(file, "utf8")),
-    )
-    .map((file) => repositoryPath(repositoryRoot, file));
-  return [...nodeTests, ...rustTests].sort(ordinal);
+  return nodeTests.sort(ordinal);
 }
 
 /**
@@ -415,7 +401,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 function expectedNodeLevel(entryPath: string): string | null {
   if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|executor|lock|mcp-server|platform-access|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|executor|lock|mcp-server|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1058,8 +1044,6 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp-server";
   if (changedPath.startsWith("40_Develop/version-control/"))
     return "version-control";
-  if (changedPath.startsWith("40_Develop/platform-access/"))
-    return "platform-access";
   if (changedPath.startsWith("40_Develop/workbench-server/"))
     return "workbench-server";
   return null;
