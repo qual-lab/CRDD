@@ -274,11 +274,9 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "createChildProcessEnvironment",
 
       "deriveWindowsSystemDrive",
-      "describeProviderHomeObservationContract",
       "observeNativeArtifact",
       "observePlatformAccessArtifactCandidate",
       "observeSystemWindowsDirectory",
-      "observeWindowsProviderHome",
     ].sort(),
   );
   assert.equal(PLATFORM_ACCESS_TARGET, "x86_64-pc-windows-msvc");

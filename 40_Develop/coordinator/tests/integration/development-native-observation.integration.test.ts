@@ -8,10 +8,8 @@
  * @scope development、native、observation
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 import { spawnSync } from "node:child_process";
 import {
   mkdirSync,
@@ -26,10 +24,106 @@ import {
 } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
-import test, { mock } from "node:test";
+import test from "node:test";
+import {
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  consumeRuntimeOwnedProviderHomeObservationCapability,
+} from "../../src/execution/authority.ts";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
+
+test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLinkを拒否する", {
+  skip: process.platform !== "win32",
+}, () => {
+  const fixture = createRepositoryTestDirectory("provider-home-node-");
+  const previous = process.env.LOCALAPPDATA;
+  const parent = path.join(fixture.path, "Qual-Lab", "CRDD", "ProviderHomes");
+  const home = path.join(parent, "codex");
+  const other = path.join(parent, "claude");
+  try {
+    process.env.LOCALAPPDATA = fixture.path;
+    mkdirSync(home, { recursive: true });
+    mkdirSync(other);
+    const first = inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
+    assert.equal(first.status, "candidate");
+    assert.equal(first.processEffectIssued, false);
+    assert.equal(first.helperSpawnAttempts, 0);
+    assert.equal("providerHomeProtectionHash" in first, false);
+    assert.equal("localUserBindingHash" in first, false);
+    const observed = consumeRuntimeOwnedProviderHomeObservationCapability(
+      first.observationCapability,
+    );
+    assert.ok(observed);
+    for (const candidate of [home, home.toUpperCase()]) {
+      const standalone = observeProviderHome("codex", candidate);
+      assert.equal(standalone.status, "candidate");
+      assert.equal(
+        standalone.providerHomeIdentityHash,
+        observed.providerHomeIdentityHash,
+      );
+      assert.equal(
+        standalone.stableLogicalHomeBindingHash,
+        observed.stableLogicalHomeBindingHash,
+      );
+    }
+    writeFileSync(path.join(home, "non-secret-fixture.txt"), "updated");
+    const updated = inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
+    const current = consumeRuntimeOwnedProviderHomeObservationCapability(
+      updated.observationCapability,
+    );
+    assert.ok(current);
+    assert.equal(
+      current.providerHomeIdentityHash,
+      observed.providerHomeIdentityHash,
+    );
+    assert.equal(
+      current.stableLogicalHomeBindingHash,
+      observed.stableLogicalHomeBindingHash,
+    );
+    const claude = inspectRuntimeOwnedWindowsProviderHomeCandidate("claude");
+    const separate = consumeRuntimeOwnedProviderHomeObservationCapability(
+      claude.observationCapability,
+    );
+    assert.ok(separate);
+    assert.notEqual(
+      separate.stableLogicalHomeBindingHash,
+      current.stableLogicalHomeBindingHash,
+    );
+    const priorLock = path.join(parent, `provider-home.${"a".repeat(64)}.lock`);
+    writeFileSync(priorLock, "unresolved-fixture");
+    assert.equal(
+      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").reason,
+      "provider_home_prior_lock_unresolved",
+    );
+    assert.equal(readFileSync(priorLock, "utf8"), "unresolved-fixture");
+    assert.equal(observeProviderHome("codex", home).status, "blocked");
+    rmSync(priorLock);
+    const saved = path.join(parent, "saved-codex");
+    renameSync(home, saved);
+    symlinkSync(saved, home, "junction");
+    assert.equal(
+      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").status,
+      "blocked",
+    );
+    rmSync(home);
+    writeFileSync(home, "not-directory");
+    assert.equal(
+      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").status,
+      "blocked",
+    );
+    rmSync(home);
+    assert.equal(
+      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").status,
+      "blocked",
+    );
+  } finally {
+    if (previous === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = previous;
+    fixture.cleanup();
+  }
+});
 
 /**
  * 実Source観測本文をRepository内の自己生成Fixtureへ結合する。
@@ -755,830 +849,4 @@ if (process.argv[2] !== "--probe") {
     assert.equal(JSON.parse(rejected.stdout).status, "blocked");
     assert.deepEqual(inventory(), before);
   });
-}
-
-const targets = ["codex", "claude"];
-const scenarios = [
-  "normal",
-  "pre-artifact",
-  "post-artifact",
-  "post-source",
-  "post-native",
-  "post-repository",
-  "native-null",
-  "native-throw",
-  "environment",
-  "unknown-context",
-  "cancel",
-  "expiry",
-  "cleanup-cancel",
-  "cleanup-expiry",
-  "checkout-normal",
-  "checkout-bootstrap-missing",
-  "checkout-artifact-mismatch",
-  "checkout-pre-token",
-  "checkout-post-token",
-  "checkout-post-artifact-mismatch",
-  "admission-source-hash",
-  "source-hash-mismatch",
-  "old-token-stale",
-  "old-token-throw",
-  "old-token-second",
-  "new-token-final",
-  "borrow-token-stale",
-  "borrow-token-throw",
-  "post-borrow-token",
-  "cleanup-old-token-stale",
-];
-
-/**
- * runProbeのTest準備責務を実行する。
- *
- * @responsibility runProbeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace ERB-IT-004
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus runProbeを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-async function runProbe(target: string, scenario: string) {
-  for (const relative of [
-    "execution/diagnostics.ts",
-    "execution/authority.ts",
-    "execution/authority.ts",
-  ]) {
-    const current = readFileSync(
-      new URL(`../../src/${relative}`, import.meta.url),
-      "utf8",
-    );
-    assert.doesNotMatch(
-      current,
-      /package-verification\.ts|platform-access\/release-identity\.ts|inspectFixedDevelopmentCoordinatorPackageCandidate|inspectVerifiedNativeDistributionCandidate|verifyBundledCoordinatorPackageFromFixedManifestCandidate/u,
-      relative,
-    );
-  }
-  const realNow = Date.now;
-  let simulatedTime: number | null = null;
-  mock.method(Date, "now", () => simulatedTime ?? realNow());
-  const root = path.resolve(
-    fileURLToPath(new URL("../../../..", import.meta.url)),
-  );
-  const artifact = Object.freeze({
-    relativePath:
-      "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
-    target: "x86_64-pc-windows-msvc",
-    protocolRevision: 3,
-    rustToolchain: "1.94.1-x86_64-pc-windows-msvc",
-    byteLength: 1,
-    sha256: "1".repeat(64),
-  });
-  let nativeCalls = 0;
-  let identitySequence = 0;
-  let nativeEffectObservations = 0;
-  let publicObservationCalls = 0;
-  let readerCalls = 0;
-  let provenanceCalls = 0;
-  let admissionToken: string | null = null;
-  let latestBootstrapToken: string | null = null;
-  let warmedToken: string | null = null;
-  let priorTokenChecks = 0;
-  const bootstrapTokens = new Set<string>();
-  const isCheckout = scenario.startsWith("checkout-");
-  let isArmed = false;
-  const management = Object.freeze({});
-  const repositoryBinding = Object.freeze({});
-  /**
-   * moduleUrlのTest準備責務を実行する。
-   *
-   * @responsibility moduleUrlがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-   * @trace ERB-IT-004
-   * @precondition 呼出し元Test Caseが必要な入力を渡す。
-   * @stimulus moduleUrlを呼び出す。
-   * @observation 返却値、生成fixtureまたは観測値を取得する。
-   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
-   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
-   */
-  const moduleUrl = (name: string) => {
-    if (name === "native-artifact-observation")
-      return new URL("../../../platform-access/src/index.ts", import.meta.url)
-        .href;
-    const sources: Record<string, string> = {
-      "repository-operation-runtime": "execution/operation.ts",
-      "execution-environment": "execution/operation.ts",
-      "development-source-observation": "execution/diagnostics.ts",
-    };
-    assert.ok(sources[name], name);
-    return new URL(`../../src/${sources[name]}`, import.meta.url).href;
-  };
-  await mock.module(
-    new URL("../../scripts/native-git-provenance.ts", import.meta.url).href,
-    {
-      namedExports: {
-        inspectPlatformAccessNativeGitProvenanceCandidate: () => {
-          provenanceCalls += 1;
-          throw new Error("runtime_must_not_use_git_provenance");
-        },
-      },
-    },
-  );
-  await mock.module(
-    new URL("../../src/execution/advice.ts", import.meta.url).href,
-    {
-      namedExports: {
-        createRuntimeOwnedProviderAdviceRuntime: () => {
-          throw new Error("advice_runtime_not_used_by_native_observation");
-        },
-        classifyProviderAdviceHostFailure: () => {
-          throw new Error("advice_failure_not_used_by_native_observation");
-        },
-        recoverProviderAdviceHostOperation: () => {
-          throw new Error("advice_recovery_not_used_by_native_observation");
-        },
-      },
-    },
-  );
-  await mock.module(moduleUrl("repository-operation-runtime"), {
-    namedExports: {
-      verifyOwnedOperationManagementCapability: (operation: object) => {
-        assert.equal(operation, management);
-        return { operationId: "fixture-operation" };
-      },
-      verifyRuntimeOwnedRepositoryBindingCapability: () => {
-        throw new Error("binding_verification_not_used_by_native_observation");
-      },
-      borrowRuntimeOwnedRepositorySource: (
-        repository: object,
-        operation: object,
-      ) =>
-        repository === repositoryBinding && operation === management
-          ? {
-              operationId: "fixture-operation",
-              repositoryRoot: root,
-              revision: "a".repeat(40),
-            }
-          : null,
-    },
-  });
-  const versionControlUrl = new URL(
-    "../../../version-control/src/index.ts",
-    import.meta.url,
-  ).href;
-  await mock.module(versionControlUrl, {
-    namedExports: {
-      ...(await import(versionControlUrl)),
-      readRepositorySnapshot: () => ({
-        revisionIdentity:
-          isArmed &&
-          nativeEffectObservations > 0 &&
-          scenario === "post-repository"
-            ? "9".repeat(40)
-            : "a".repeat(40),
-        snapshotIdentity: "b".repeat(40),
-      }),
-    },
-  });
-  /**
-   * 観測時点に応じた合成Source Identityを返す。
-   * @responsibility Effect前後の再照合に使う合成Identityだけを生成する。
-   * @trace ERB-IT-004
-   * @precondition scenarioとisArmedはこの試験だけが所有する。
-   * @stimulus Effect前後又は明示したHash不一致を選ぶ。
-   * @observation 固定Hashと合成件数を観測する。
-   * @oracle 指定した段階だけIdentityが変わり、実Sourceを読まない。
-   * @effect N/A: 合成値を生成するだけ。
-   * @cleanup N/A: 資源を作成しない。
-   * @boundary Native観測の有限代役と実行前後の照合。
-   */
-  const sourceObservation = () => ({
-    scope: "crdd-development-source-snapshot/v2",
-    sourceSha256:
-      isArmed && scenario === "source-hash-mismatch"
-        ? "9".repeat(64)
-        : "c".repeat(64),
-    sourceIdentitySha256:
-      isArmed && nativeEffectObservations > 0 && scenario === "post-source"
-        ? "9".repeat(64)
-        : "2".repeat(64),
-    fileCount: 22,
-    totalBytes: 275,
-  });
-  const artifactMock = {
-    namedExports: {
-      WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE: "test_only",
-      observeNativeArtifact: (distributionRoot: string, token?: string) => {
-        if (token !== undefined) {
-          if (isArmed) {
-            if (token === admissionToken) {
-              priorTokenChecks += 1;
-              if (scenario === "old-token-throw")
-                throw new Error("original_token_observation_failed");
-              if (
-                scenario === "old-token-stale" ||
-                scenario === "cleanup-old-token-stale" ||
-                (scenario === "old-token-second" && priorTokenChecks === 2)
-              )
-                return null;
-            }
-            if (
-              scenario === "new-token-final" &&
-              token === latestBootstrapToken &&
-              token !== admissionToken
-            )
-              return null;
-            if (scenario === "borrow-token-stale" && token === warmedToken)
-              return null;
-            if (scenario === "borrow-token-throw" && token === warmedToken)
-              throw new Error("borrow_token_observation_failed");
-            if (
-              scenario === "post-borrow-token" &&
-              nativeEffectObservations > 0 &&
-              bootstrapTokens.has(token)
-            )
-              return null;
-          }
-          return { artifact, identitySha256: token, bootstrapVerified: true };
-        }
-
-        assert.equal(path.resolve(distributionRoot), root);
-        nativeCalls += 1;
-        if (isArmed && scenario === "native-throw")
-          throw new Error("private_observation_failure");
-        if (
-          isArmed &&
-          (scenario === "native-null" ||
-            scenario === "checkout-bootstrap-missing")
-        )
-          return null;
-        const currentIdentity = (++identitySequence)
-          .toString(16)
-          .padStart(64, "0");
-        bootstrapTokens.add(currentIdentity);
-        admissionToken ??= currentIdentity;
-        latestBootstrapToken = currentIdentity;
-        return {
-          artifact:
-            isArmed &&
-            nativeEffectObservations > 0 &&
-            scenario === "post-native"
-              ? { ...artifact, sha256: "9".repeat(64) }
-              : artifact,
-          identitySha256: currentIdentity,
-          bootstrapVerified: true,
-        };
-      },
-    },
-  };
-  /**
-   * PA公開APIの固定結果と開発Readerの投影だけを代替する。
-   * @responsibility Native内部の検出ではなく、上位の処置・Capability非発行を確認する。
-   * @trace ERB-IT-004
-   * @precondition 故障名は旧結合CaseとPA側検出Caseへ対応付け済み。
-   * @stimulus 選択対象と任意Readerを受ける。
-   * @observation 公開API到達、Reader回数、固定結果のEffect。
-   * @oracle 初回拒否はEffectなし、後確認拒否は発行済み事実を保持する。
-   * @cleanup N/A: Native・Filesystem・外部AIは操作しない。
-   * @boundary PA公開APIの結果代替。実Native検出の証明ではない。
-   */
-  const observeNativeResult = (
-    provider: string | null,
-    rootPath: unknown,
-    initialize: boolean,
-    reader?: () => {
-      distributionRoot: string;
-      expectedArtifact: unknown;
-    } | null,
-  ) => {
-    publicObservationCalls += 1;
-    assert.equal(typeof rootPath, "string");
-    assert.equal(initialize, false);
-    if (provider !== null) assert.equal(provider, target);
-    /**
-     * 固定された公開失敗結果を構築する。
-     * @responsibility 模擬結果の開始・終了・初期化Effectだけを保持する。
-     * @trace ERB-IT-004
-     * @precondition 故障Caseから決めた固定理由とEffectを渡す。
-     * @stimulus 停止結果を要求する。
-     * @observation immutableな公開結果を返す。
-     * @oracle 上位が処置の期待条件を確認する。
-     * @cleanup N/A: 局所値だけ。
-     * @boundary PA公開結果の代替であり実Native観測ではない。
-     */
-    const blocked = (reason: string, effect: boolean) =>
-      Object.freeze({
-        status: "blocked",
-        reason,
-        processEffectIssued: effect,
-        helperExitConfirmed: effect,
-        artifactVerifiedBeforeAndAfter: false,
-        filesystemEffectIssued: initialize && effect,
-      });
-    if (reader) {
-      readerCalls += 1;
-      const first = reader();
-      if (!first) return blocked("development_context_invalid", false);
-      assert.equal(first.distributionRoot, root);
-      assert.deepEqual(first.expectedArtifact, artifact);
-    }
-    // 固定した公開結果の注入。Artifact検出手順をここへ再実装しない。
-    const earlyFailure: Readonly<Record<string, string>> = {
-      "pre-artifact": "artifact_not_verified",
-      environment: "environment_unavailable",
-      "checkout-bootstrap-missing": "artifact_bootstrap_unavailable",
-      "checkout-artifact-mismatch": "artifact_not_verified",
-      "checkout-pre-token": "artifact_changed",
-    };
-    const earlyReason = earlyFailure[scenario];
-    if (earlyReason) return blocked(earlyReason, false);
-    nativeEffectObservations += 1;
-    const lateFailure: Readonly<Record<string, string>> = {
-      "post-artifact": "artifact_changed",
-      "checkout-post-token": "artifact_changed",
-      "checkout-post-artifact-mismatch": "artifact_changed",
-    };
-    const lateReason = lateFailure[scenario];
-    if (lateReason) return blocked(lateReason, true);
-    if (reader) {
-      readerCalls += 1;
-      if (!reader()) return blocked("artifact_changed", true);
-    }
-    return Object.freeze({
-      status: "candidate",
-      reason: provider
-        ? "runtime_owned_provider_home_observed_candidate"
-        : "runtime_owned_runtime_state_observed_candidate",
-      ...(provider
-        ? {
-            provider,
-            providerHomeIdentityHash: "1".repeat(64),
-            providerHomeProtectionHash: "2".repeat(64),
-            principalObservation: {
-              primaryToken: true,
-              interactiveGroup: true,
-              serviceGroup: false,
-              batchGroup: false,
-              networkGroup: false,
-              restrictedToken: false,
-              appContainer: false,
-              nonzeroSession: true,
-            },
-            homeObservation: {
-              directory: true,
-              fixedVolume: true,
-              noReparseChain: true,
-              stableIdentity: true,
-              ownerSelectedUser: true,
-              daclProtected: true,
-              writersRestricted: true,
-              selectedUserFullControl: true,
-              systemFullControl: true,
-            },
-            operationCapabilityIssued: false,
-          }
-        : {
-            runtimeStateIdentityHash: "1".repeat(64),
-            runtimeStateProtectionHash: "2".repeat(64),
-          }),
-      localUserBindingHash: "3".repeat(64),
-      stableLogicalHomeBindingHash: "4".repeat(64),
-      selectedUserBindingVerified: true,
-      protectionVerified: true,
-      stableIdentityObserved: true,
-      pathReported: false,
-      principalReported: false,
-      aclReported: false,
-      credentialContentRead: false,
-      runtimeAuthorityIssued: false,
-      mountGrantIssued: false,
-      networkEffectIssued: false,
-      processEffectIssued: true,
-      helperExitConfirmed: true,
-      artifactVerifiedBeforeAndAfter: true,
-      filesystemEffectIssued: initialize,
-      executionSourceKind: reader
-        ? "fixed_development_candidate"
-        : "fixed_bootstrap_native_artifact",
-    });
-  };
-  await mock.module(moduleUrl("native-artifact-observation"), {
-    namedExports: {
-      ...Object.fromEntries(
-        Object.entries(
-          await import(moduleUrl("native-artifact-observation")),
-        ).map(([name, value]) => [
-          name,
-          typeof value === "function"
-            ? () => {
-                throw new Error("native_observation_dependency_not_allowed");
-              }
-            : value,
-        ]),
-      ),
-      ...artifactMock.namedExports,
-      observeWindowsProviderHome: (
-        provider: string,
-        homePath: string,
-        reader?: Parameters<typeof observeNativeResult>[3],
-      ) => observeNativeResult(provider, homePath, false, reader),
-      describeProviderHomeObservationContract,
-    },
-  });
-  const diagnosticsUrl = moduleUrl("development-source-observation");
-  const diagnosticsSource = readFileSync(fileURLToPath(diagnosticsUrl), "utf8");
-  const declarations = [
-    "STATE_LABELS",
-    "Interval",
-    "createDevelopmentExecutionTiming",
-    "writeDevelopmentMeasurementProgress",
-    "HASH_PATTERN",
-    "MAX_DURATION_MS",
-    "CONFIG_KEYS",
-    "TASK_KEYS",
-    "OBSERVATION_KEYS",
-    "Provider",
-    "Role",
-    "StopReason",
-    "Refusal",
-    "ConstraintResult",
-    "Observation",
-    "TaskState",
-    "InvocationState",
-    "parseObservation",
-    "refuse",
-    "record",
-    "createDevelopmentMeasurementConstraints",
-    "developmentMeasurementSessionCONFIG_KEYS",
-    "SHA256",
-    "COMMIT",
-    "developmentMeasurementSessionMAX_DURATION_MS",
-    "sourceDistributionRoot",
-    "DevelopmentMeasurementSessionProvider",
-    "DevelopmentMeasurementSessionRole",
-    "Constraints",
-    "TaskRequest",
-    "Task",
-    "Configuration",
-    "Identity",
-    "NativeVerification",
-    "nativeVerifications",
-    "Dependencies",
-    "Session",
-    "TaskBinding",
-    "digest",
-    "snapshotTask",
-    "snapshotConfiguration",
-    "observeProduction",
-    "blocked",
-    "createSessionRuntime",
-    "productionRuntime",
-    "requestRuntimeOwnedDevelopmentMeasurementSession",
-    "inspectRuntimeOwnedDevelopmentMeasurementSession",
-    "readRuntimeOwnedDevelopmentMeasurementTasks",
-    "cancelRuntimeOwnedDevelopmentMeasurementSession",
-    "borrowRuntimeOwnedDevelopmentNativeObservation",
-    "inspectRuntimeOwnedDevelopmentOperationContext",
-    "reserveRuntimeOwnedDevelopmentMeasurementTask",
-    "createIsolatedDevelopmentMeasurementSessionCandidate",
-  ]
-    .map((name) => sourceDeclaration(diagnosticsSource, name))
-    .join("\n");
-  const observationKey = "__crddNativeObservationFixture";
-  (globalThis as Record<string, unknown>)[observationKey] = sourceObservation;
-  const imports = [
-    'import { createHash } from "node:crypto";',
-    'import path from "node:path";',
-    'import { performance } from "node:perf_hooks";',
-    'import { fileURLToPath } from "node:url";',
-    'import { types } from "node:util";',
-    `import { isRuntimeProcessEffectBlocked } from "${new URL("../../src/execution/process-safety-state.ts", import.meta.url).href}";`,
-    `import { snapshotCoordinatorTaskRequest } from "${new URL("../../src/execution/request.ts", import.meta.url).href}";`,
-    `import { verifyOwnedOperationManagementCapability, borrowRuntimeOwnedRepositorySource } from "${moduleUrl("execution-environment")}";`,
-    `import { snapshotPlainArray, snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
-    `import { observeNativeArtifact } from "${moduleUrl("native-artifact-observation")}";`,
-    `import { readRepositorySnapshot, getRepository } from "${versionControlUrl}";`,
-    `const observeRuntimeOwnedDevelopmentSource = globalThis[${JSON.stringify(observationKey)}];`,
-  ].join("\n");
-  const sessionSource = `${imports}\n${declarations.replaceAll("import.meta.url", JSON.stringify(diagnosticsUrl))}\nexport { createDevelopmentExecutionTiming, writeDevelopmentMeasurementProgress, createDevelopmentMeasurementConstraints, requestRuntimeOwnedDevelopmentMeasurementSession, inspectRuntimeOwnedDevelopmentMeasurementSession, readRuntimeOwnedDevelopmentMeasurementTasks, cancelRuntimeOwnedDevelopmentMeasurementSession, borrowRuntimeOwnedDevelopmentNativeObservation, inspectRuntimeOwnedDevelopmentOperationContext, reserveRuntimeOwnedDevelopmentMeasurementTask, createIsolatedDevelopmentMeasurementSessionCandidate };`;
-  const session = await import(
-    `data:text/javascript;base64,${Buffer.from(sessionSource).toString("base64")}`
-  );
-  delete (globalThis as Record<string, unknown>)[observationKey];
-  await mock.module(diagnosticsUrl, {
-    namedExports: {
-      ...session,
-      observeRuntimeOwnedDevelopmentSource: sourceObservation,
-    },
-  });
-  const authoritySource = readFileSync(
-    new URL("../../src/execution/authority.ts", import.meta.url),
-    "utf8",
-  );
-  const authorityDeclarations = [
-    "runtimeStateDirectoryCandidate",
-    "providerHomesDirectoryCandidate",
-    "PROVIDER_HOME_ROOT_SEGMENTS",
-    "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT",
-    "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION",
-    "HELPER_TIMEOUT_MS",
-    "OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS",
-    "observationCapabilities",
-    "mountSourceCapabilities",
-    "runtimeOwnedProviderHomeMountSourceCandidate",
-    "providerHomeWindowsAdapterBlocked",
-    "inspectRuntimeOwnedWindowsProviderHomeCandidate",
-    "consumeRuntimeOwnedProviderHomeObservationCapability",
-    "consumeRuntimeOwnedProviderHomeMountSourceCapability",
-    "revokeRuntimeOwnedProviderHomeMountSourceCapability",
-    "describeProviderHomeWindowsAdapterContract",
-    "AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES",
-    "WINDOWS_RESERVED_BASENAME",
-    "RESERVED_NAME_SPECIAL_UPPERCASE_MAPPINGS",
-    "reservedNameSpecialUppercaseMapping",
-    "reservedNameLimitedUppercase",
-    "hasSupportedCommonPathBytes",
-    "isSupportedWindowsAbsolutePathCandidate",
-    "describeAuthorityRootPathLexicalContract",
-    "isSupportedPosixAbsolutePathCandidate",
-    "isSupportedAuthorityRootAbsolutePath",
-  ]
-    .map((name) => sourceDeclaration(authoritySource, name))
-    .join("\n");
-  const authorityImports = [
-    'import path from "node:path";',
-    'import { performance } from "node:perf_hooks";',
-    `import { snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
-    `import { observeWindowsProviderHome, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${moduleUrl("native-artifact-observation")}";`,
-    `import { borrowRuntimeOwnedDevelopmentNativeObservation } from "${diagnosticsUrl}";`,
-  ].join("\n");
-  const provider = await import(
-    `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, consumeRuntimeOwnedProviderHomeObservationCapability, consumeRuntimeOwnedProviderHomeMountSourceCapability, revokeRuntimeOwnedProviderHomeMountSourceCapability };`).toString("base64")}`
-  );
-  const tasks = (["codex", "claude"] as const).map((executor) => ({
-    taskExecutionSelections: taskExecutionSelections(executor),
-    objective: "Bounded fixture",
-    acceptanceCriteria: ["Expected content"],
-    allowedPaths: ["fixture.txt"],
-    readPaths: ["fixture.txt"],
-    workClass: "bounded_implementation",
-    planState: "complete",
-    risk: "low",
-    difficulty: "low",
-    decisionImpact: "limited",
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
-  }));
-  const expiresAtMs = Date.now() + 60_000;
-  const admitted =
-    await session.requestRuntimeOwnedDevelopmentMeasurementSession(
-      {
-        repositoryRoot: root,
-        expectedCommit: "a".repeat(40),
-        expectedTree: "b".repeat(40),
-        expectedSourceSha256:
-          scenario === "admission-source-hash"
-            ? "d".repeat(64)
-            : "c".repeat(64),
-        tasks,
-        expiresAtMs,
-      },
-      new AbortController().signal,
-    );
-  if (scenario === "admission-source-hash") {
-    assert.equal(admitted.status, "blocked");
-    assert.equal(admitted.capability, null);
-    assert.equal(nativeCalls, 0);
-    assert.equal(nativeEffectObservations, 0);
-    assert.equal(publicObservationCalls, 0);
-    assert.equal(readerCalls, 0);
-    process.stdout.write(
-      JSON.stringify({
-        target,
-        scenario,
-        adapterNativeCalls: 0,
-        nativeEffectObservations: 0,
-      }),
-    );
-    return;
-  }
-  assert.ok(admitted.capability, JSON.stringify(admitted));
-  assert.deepEqual(
-    session.inspectRuntimeOwnedDevelopmentMeasurementSession(
-      admitted.capability,
-    )?.sourceObservation,
-    {
-      scope: "crdd-development-source-snapshot/v2",
-      expectedSourceSha256: "c".repeat(64),
-    },
-  );
-  const boundary = session.reserveRuntimeOwnedDevelopmentMeasurementTask(
-    admitted.capability,
-    tasks[0],
-    root,
-  );
-  assert.ok(boundary);
-  assert.equal(boundary.bindOperation(management, repositoryBinding), true);
-  const cleanupContext =
-    session.inspectRuntimeOwnedDevelopmentOperationContext(
-      management,
-    )?.cleanupContext;
-  assert.ok(cleanupContext);
-  const context = isCheckout
-    ? undefined
-    : scenario === "unknown-context"
-      ? {}
-      : scenario.startsWith("cleanup-")
-        ? cleanupContext
-        : boundary.context;
-  if (scenario === "normal" || scenario.startsWith("borrow-token-")) {
-    assert.ok(context);
-    const first = session.borrowRuntimeOwnedDevelopmentNativeObservation(
-      context,
-      false,
-    );
-    const second = session.borrowRuntimeOwnedDevelopmentNativeObservation(
-      context,
-      false,
-    );
-    assert.ok(first && second);
-    assert.equal(first.distributionRoot, root);
-    assert.equal("expectedRelease" in first, false);
-    assert.deepEqual(first.verification.platformAccessArtifact, artifact);
-    assert.equal(
-      Reflect.get(first, "verification"),
-      Reflect.get(second, "verification"),
-    );
-  }
-  warmedToken = latestBootstrapToken;
-  if (scenario.endsWith("cancel")) {
-    assert.equal(
-      session.cancelRuntimeOwnedDevelopmentMeasurementSession(
-        admitted.capability,
-      ),
-      true,
-    );
-  }
-  if (scenario.endsWith("expiry")) simulatedTime = expiresAtMs + 1;
-  nativeCalls = 0;
-  isArmed = true;
-  const result = provider.inspectRuntimeOwnedWindowsProviderHomeCandidate(
-    target,
-    context,
-  );
-  const shouldReturnCandidate =
-    scenario === "checkout-normal" ||
-    scenario === "normal" ||
-    scenario === "post-source" ||
-    scenario === "post-native" ||
-    scenario === "post-repository" ||
-    scenario === "cleanup-cancel" ||
-    scenario === "cleanup-expiry";
-  assert.equal(result.status, shouldReturnCandidate ? "candidate" : "blocked");
-  assert.equal(
-    result.filesystemEffectIssued,
-    false,
-    "Provider Home観測はDirectory初期化を行わない",
-  );
-  const adapterNativeCalls = nativeCalls;
-  if (
-    [
-      "source-hash-mismatch",
-      "old-token-stale",
-      "old-token-throw",
-      "borrow-token-stale",
-      "borrow-token-throw",
-      "cleanup-old-token-stale",
-    ].includes(scenario)
-  )
-    assert.equal(adapterNativeCalls, 0);
-  if (scenario === "old-token-second") {
-    assert.equal(priorTokenChecks, 2);
-    assert.equal(adapterNativeCalls, 1);
-  }
-  if (scenario === "new-token-final") assert.equal(adapterNativeCalls, 1);
-  if (shouldReturnCandidate) {
-    assert.equal(
-      adapterNativeCalls,
-      scenario === "normal" || isCheckout ? 0 : 1,
-      "one full check per lifecycle boundary; adapter post-observation reuses the same binding",
-    );
-    assert.equal(nativeEffectObservations, 1);
-    assert.equal(result.artifactVerifiedBeforeAndAfter, true);
-    if (isCheckout) {
-      assert.equal(provenanceCalls, 0);
-      assert.equal(
-        result.executionSourceKind,
-        "fixed_bootstrap_native_artifact",
-      );
-      assert.equal(result.nativeSourceRevision, null);
-      assert.equal("releaseIdentityVerified" in result, false);
-      assert.equal("nativeReleaseIdentityVerified" in result, false);
-    }
-    const capability = result.observationCapability;
-    assert.ok(capability);
-    if (
-      scenario === "post-source" ||
-      scenario === "post-native" ||
-      scenario === "post-repository"
-    ) {
-      assert.equal(
-        boundary.beginInvocation(
-          target === "claude" ? "claude" : "codex",
-          "executor",
-        ),
-        null,
-        "the next provider-effect boundary must reject the changed identity",
-      );
-    }
-  } else {
-    const isAfterSpawn =
-      scenario.startsWith("post-") || scenario.startsWith("checkout-post-");
-    assert.equal(nativeEffectObservations, isAfterSpawn ? 1 : 0);
-    assert.equal(result.manualRecoveryRequired, isAfterSpawn);
-    assert.equal(result.helperExitConfirmed, isAfterSpawn);
-    const capability = result.observationCapability;
-    assert.equal(capability, null);
-    if (isCheckout) {
-      assert.equal(provenanceCalls, 0);
-    }
-  }
-  assert.equal(publicObservationCalls, 1, "上位はPA公開観測へ一回だけ配送する");
-  assert.equal(
-    readerCalls,
-    isCheckout
-      ? 0
-      : nativeEffectObservations > 0 && scenario !== "post-artifact"
-        ? 2
-        : 1,
-    "固定結果の停止段階に対応したReader搬送",
-  );
-  assert.equal(
-    session.cancelRuntimeOwnedDevelopmentMeasurementSession(
-      admitted.capability,
-    ),
-    true,
-  );
-  assert.equal(
-    session.borrowRuntimeOwnedDevelopmentNativeObservation(
-      boundary.context,
-      false,
-    ),
-    null,
-  );
-  process.stdout.write(
-    JSON.stringify({
-      target,
-      scenario,
-      adapterNativeCalls,
-      nativeEffectObservations,
-    }),
-  );
-}
-
-if (process.argv[2] === "--probe") {
-  await runProbe(process.argv[3] ?? "", process.argv[4] ?? "");
-} else {
-  for (const target of targets)
-    for (const scenario of scenarios) {
-      /**
-       * 本番SessionとPA公開結果の結合: ${target} / ${scenario}を検証する。
-       *
-       * @responsibility 本番SessionとPA公開結果の結合: ${target} / ${scenario}の合否判定を所有する。
-       * @trace ERB-IT-004
-       * @precondition Test Fileが構築するfixtureと入力を使用する。
-       * @stimulus 本番SessionとPA公開結果の結合: ${target} / ${scenario}の対象操作を実行する。
-       * @observation 結果、状態、Effectおよび終了後条件を観測する。
-       * @oracle Test本文のassertionが期待条件を満たす。
-       * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-       * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
-       */
-      test(`本番SessionとPA公開結果の結合: ${target} / ${scenario}`, (context) => {
-        if (process.platform !== "win32") {
-          context.skip("Windows native adapter");
-          return;
-        }
-        const result = spawnSync(
-          process.execPath,
-          [
-            "--experimental-test-module-mocks",
-            "--no-warnings",
-            fileURLToPath(import.meta.url),
-            "--probe",
-            target,
-            scenario,
-          ],
-          { encoding: "utf8", shell: false, timeout: 15_000 },
-        );
-        assert.equal(result.status, 0, result.stderr);
-        assert.deepEqual(
-          [
-            JSON.parse(result.stdout).target,
-            JSON.parse(result.stdout).scenario,
-          ],
-          [target, scenario],
-        );
-      });
-    }
 }

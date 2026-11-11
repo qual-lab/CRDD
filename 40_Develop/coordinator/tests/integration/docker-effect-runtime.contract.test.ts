@@ -121,8 +121,6 @@ function createPlanFixture(
           provider,
           operationId,
           providerHomeIdentityHash: "d".repeat(64),
-          providerHomeProtectionHash: "e".repeat(64),
-          localUserBindingHash: "f".repeat(64),
           stableLogicalHomeBindingHash: "1".repeat(64),
         }),
         activeMountCapability,

@@ -413,8 +413,6 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
         "grantRef",
         "stableLogicalHomeBindingHash",
         "providerHomeIdentityHash",
-        "providerHomeProtectionHash",
-        "localUserBindingHash",
         "ownershipLabel",
         "operationMode",
       ].some(
@@ -4820,10 +4818,7 @@ function startRuntimeOwnedDevelopmentTask(
           }),
     ),
     observeProviderHome: (provider) =>
-      inspectRuntimeOwnedWindowsProviderHomeCandidate(
-        provider,
-        boundary.context,
-      ),
+      inspectRuntimeOwnedWindowsProviderHomeCandidate(provider),
     materializeWorkspace: guard(productionDependencies.materializeWorkspace),
     preflightSlate: guard(productionDependencies.preflightSlate),
     issueSelection: guard(productionDependencies.issueSelection),

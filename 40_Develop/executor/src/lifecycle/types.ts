@@ -442,8 +442,6 @@ export type AttemptRequest = Readonly<{
     }>;
     providerHomeSourcePath: string;
     providerHomeIdentityHash: string;
-    providerHomeProtectionHash: string;
-    localUserBindingHash: string;
     stableLogicalHomeBindingHash: string;
     activeMountCapability: object;
   }>;
@@ -481,8 +479,6 @@ export type AttemptPlan = AttemptRecordProjection &
     activeMountCapability: object;
     providerHomeSourcePath: string;
     providerHomeIdentityHash: string;
-    providerHomeProtectionHash: string;
-    localUserBindingHash: string;
     stableLogicalHomeBindingHash: string;
     taskRole: "executor" | "reviewer" | null;
     taskWorkload?: unknown;

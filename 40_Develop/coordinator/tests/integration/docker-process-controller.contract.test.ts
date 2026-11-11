@@ -206,8 +206,6 @@ function createPlan(
     authorityUseCapability,
     providerHomeSourcePath: "C:\\runtime-owned\\claude-home",
     providerHomeIdentityHash: "a".repeat(64),
-    providerHomeProtectionHash: "b".repeat(64),
-    localUserBindingHash: "c".repeat(64),
     stableLogicalHomeBindingHash: "d".repeat(64),
     authContainerName: `crdd-auth-${suffix}`,
     providerContainerName: `crdd-claude-${suffix}`,

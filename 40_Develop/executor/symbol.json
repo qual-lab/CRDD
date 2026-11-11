@@ -4,6 +4,14 @@
   "subsystem": "executor",
   "symbols": [
     {
+      "symbolId": "executor.verification.node-provider-home",
+      "kind": "verification-tool",
+      "path": "scripts/provider-home.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-004"],
+      "verifies": []
+    },
+    {
       "symbolId": "executor.lifecycle.execute",
       "kind": "file",
       "path": "src/lifecycle/execute.ts",

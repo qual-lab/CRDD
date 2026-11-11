@@ -23,8 +23,6 @@ import {
 } from "../../../src/execution/authority.ts";
 
 const homeIdentityHash = "a".repeat(64);
-const homeProtectionHash = "b".repeat(64);
-const localUserBindingHash = "c".repeat(64);
 const ISSUED_AT = "2026-08-22T00:00:00.000Z";
 const EXPIRES_AT = "2026-08-22T00:05:00.000Z";
 
@@ -48,8 +46,6 @@ function record(overrides: Record<string, unknown> = {}) {
     provider: "claude",
     operationId: "OP-000001",
     providerHomeIdentityHash: homeIdentityHash,
-    providerHomeProtectionHash: homeProtectionHash,
-    localUserBindingHash,
     stableLogicalHomeBindingHash: "4".repeat(64),
     state: "issued",
     issuedAt: ISSUED_AT,
@@ -81,8 +77,6 @@ function useInput(overrides: Record<string, unknown> = {}) {
     operationId: "OP-000001",
     providerHomeMountGrantRef: "PHMGRANT-000001",
     observedProviderHomeIdentityHash: homeIdentityHash,
-    observedProviderHomeProtectionHash: homeProtectionHash,
-    observedLocalUserBindingHash: localUserBindingHash,
     observedStableLogicalHomeBindingHash: "4".repeat(64),
     observedAt: "2026-08-22T00:01:00.000Z",
     ...overrides,
@@ -153,8 +147,8 @@ test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境�
   );
   assert.equal(contract.usageLimit, 1);
   assert.equal(contract.providerOperationBindingRequired, true);
-  assert.equal(contract.providerHomeIdentityAndProtectionBindingRequired, true);
-  assert.equal(contract.selectedLocalUserBindingRequired, true);
+  assert.equal(contract.providerHomeIdentityBindingRequired, true);
+  assert.equal(contract.selectedLocalUserBindingRequired, false);
   assert.equal(
     contract.useTimeInterval,
     "issued_at_inclusive_expires_at_exclusive",
@@ -475,8 +469,6 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
   }
   for (const changed of [
     { observedProviderHomeIdentityHash: "x" },
-    { observedProviderHomeProtectionHash: "x" },
-    { observedLocalUserBindingHash: "x" },
     { observedStableLogicalHomeBindingHash: "x" },
   ]) {
     const observationFailure = evaluateProviderHomeMountGrantUseCandidate({
@@ -491,8 +483,6 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
   }
   for (const changed of [
     { observedProviderHomeIdentityHash: "d".repeat(64) },
-    { observedProviderHomeProtectionHash: "e".repeat(64) },
-    { observedLocalUserBindingHash: "f".repeat(64) },
     { observedStableLogicalHomeBindingHash: "5".repeat(64) },
   ]) {
     const observationFailure = evaluateProviderHomeMountGrantUseCandidate({

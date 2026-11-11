@@ -1,6 +1,6 @@
 //! Native Workerの固定要求・応答形式を責務別に接続する。
 //!
-//! @responsibility Homeアクセスの閉じた搬送形式を分ける。
+//! @responsibility 退役要求の有界読取りと固定拒否だけを接続する。
 //! @trace ARCH-000004
 //! @trace ARCH-000008
 //! @trace ARCH-000011

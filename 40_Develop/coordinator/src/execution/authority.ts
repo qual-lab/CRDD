@@ -44,16 +44,7 @@ import {
   type RecordProjection,
   type AuthenticationOptions,
 } from "../../../executor/src/index.ts";
-import {
-  describeProviderHomeObservationContract,
-  observeWindowsProviderHome,
-  type ProviderHomeObservationProvider,
-  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../../../platform-access/src/index.ts";
-import {
-  borrowRuntimeOwnedDevelopmentNativeObservation,
-  inspectRuntimeOwnedDevelopmentOperationContext,
-} from "./diagnostics.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "./diagnostics.ts";
 import { acquireProviderHomeLock } from "./kernel-lock.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
@@ -3732,7 +3723,7 @@ export function runtimeStateDirectoryCandidate() {
 export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant-runtime";
 
-export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 4;
+export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 5;
 
 const GRANT_REFERENCE_DIGITS = 18;
 
@@ -3756,8 +3747,6 @@ type Grant = Readonly<{
   provider: string;
   operationId: string;
   providerHomeIdentityHash: string;
-  providerHomeProtectionHash: string;
-  localUserBindingHash: string;
   stableLogicalHomeBindingHash: string;
   state: string;
   issuedAt: string | null;
@@ -4105,8 +4094,6 @@ function grantRecord(
     provider: observation.provider,
     operationId: binding.operationId,
     providerHomeIdentityHash: observation.providerHomeIdentityHash,
-    providerHomeProtectionHash: observation.providerHomeProtectionHash,
-    localUserBindingHash: observation.localUserBindingHash,
     stableLogicalHomeBindingHash: observation.stableLogicalHomeBindingHash,
     state: "prepared",
     issuedAt: null,
@@ -4431,10 +4418,6 @@ function consume(
     observation.provider !== runtimeGrant.grant.provider ||
     observation.providerHomeIdentityHash !==
       runtimeGrant.grant.providerHomeIdentityHash ||
-    observation.providerHomeProtectionHash !==
-      runtimeGrant.grant.providerHomeProtectionHash ||
-    observation.localUserBindingHash !==
-      runtimeGrant.grant.localUserBindingHash ||
     observation.stableLogicalHomeBindingHash !==
       runtimeGrant.grant.stableLogicalHomeBindingHash
   ) {
@@ -5347,7 +5330,7 @@ export function describeProviderHomeMountGrantRuntimeContract() {
 export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant";
 
-export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 4;
+export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 5;
 
 export const PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS = 300_000;
 
@@ -5368,8 +5351,6 @@ const RECORD_KEYS = new Set([
   "provider",
   "operationId",
   "providerHomeIdentityHash",
-  "providerHomeProtectionHash",
-  "localUserBindingHash",
   "stableLogicalHomeBindingHash",
   "state",
   "issuedAt",
@@ -5386,8 +5367,6 @@ const USE_KEYS = new Set([
   "operationId",
   "providerHomeMountGrantRef",
   "observedProviderHomeIdentityHash",
-  "observedProviderHomeProtectionHash",
-  "observedLocalUserBindingHash",
   "observedStableLogicalHomeBindingHash",
   "observedAt",
 ]);
@@ -5539,10 +5518,6 @@ function compileInternal(raw: unknown) {
     !identifier(value.operationId, providerHomeMountGrantOPERATION_ID) ||
     typeof value.providerHomeIdentityHash !== "string" ||
     !HEX64.test(value.providerHomeIdentityHash) ||
-    typeof value.providerHomeProtectionHash !== "string" ||
-    !HEX64.test(value.providerHomeProtectionHash) ||
-    typeof value.localUserBindingHash !== "string" ||
-    !HEX64.test(value.localUserBindingHash) ||
     typeof value.stableLogicalHomeBindingHash !== "string" ||
     !HEX64.test(value.stableLogicalHomeBindingHash) ||
     typeof value.state !== "string" ||
@@ -5606,8 +5581,6 @@ function compileInternal(raw: unknown) {
     provider: value.provider as string,
     operationId: value.operationId as string,
     providerHomeIdentityHash: value.providerHomeIdentityHash as string,
-    providerHomeProtectionHash: value.providerHomeProtectionHash as string,
-    localUserBindingHash: value.localUserBindingHash as string,
     stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash as string,
     state: value.state as string,
     issuedAt: value.issuedAt as string | null,
@@ -5683,8 +5656,6 @@ function sameBinding(
     "provider",
     "operationId",
     "providerHomeIdentityHash",
-    "providerHomeProtectionHash",
-    "localUserBindingHash",
     "stableLogicalHomeBindingHash",
     "usageLimit",
   ].every(
@@ -5801,10 +5772,6 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
     if (
       typeof input.observedProviderHomeIdentityHash !== "string" ||
       !HEX64.test(input.observedProviderHomeIdentityHash) ||
-      typeof input.observedProviderHomeProtectionHash !== "string" ||
-      !HEX64.test(input.observedProviderHomeProtectionHash) ||
-      typeof input.observedLocalUserBindingHash !== "string" ||
-      !HEX64.test(input.observedLocalUserBindingHash) ||
       typeof input.observedStableLogicalHomeBindingHash !== "string" ||
       !HEX64.test(input.observedStableLogicalHomeBindingHash)
     )
@@ -5814,9 +5781,6 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
     if (
       input.observedProviderHomeIdentityHash !==
         grant.providerHomeIdentityHash ||
-      input.observedProviderHomeProtectionHash !==
-        grant.providerHomeProtectionHash ||
-      input.observedLocalUserBindingHash !== grant.localUserBindingHash ||
       input.observedStableLogicalHomeBindingHash !==
         grant.stableLogicalHomeBindingHash
     )
@@ -5878,8 +5842,8 @@ export function describeProviderHomeMountGrantContract() {
     usageLimit: 1,
     maximumLifetimeMs: PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
     providerOperationBindingRequired: true,
-    providerHomeIdentityAndProtectionBindingRequired: true,
-    selectedLocalUserBindingRequired: true,
+    providerHomeIdentityBindingRequired: true,
+    selectedLocalUserBindingRequired: false,
     useTimeInterval: "issued_at_inclusive_expires_at_exclusive",
     useCandidateSelectedGrantRefRequired: true,
     useCandidateCurrentObservationHashesRequired: true,
@@ -5907,19 +5871,15 @@ export function describeProviderHomeMountGrantContract() {
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
 
-export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 7;
-
-const HELPER_TIMEOUT_MS = 5_000;
+export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 8;
 
 const OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS = 10_000;
 
 const observationCapabilities = new WeakMap<
   object,
   Readonly<{
-    provider: ProviderHomeObservationProvider;
+    provider: Provider;
     providerHomeIdentityHash: string;
-    providerHomeProtectionHash: string;
-    localUserBindingHash: string;
     stableLogicalHomeBindingHash: string;
     observedWallClockMs: number;
     observedMonotonicMs: number;
@@ -5930,7 +5890,7 @@ const observationCapabilities = new WeakMap<
 const mountSourceCapabilities = new WeakMap<
   object,
   Readonly<{
-    provider: ProviderHomeObservationProvider;
+    provider: Provider;
     sourcePath: string;
   }>
 >();
@@ -5985,8 +5945,6 @@ function providerHomeWindowsAdapterBlocked(
     reason,
     provider: null,
     providerHomeIdentityHash: null,
-    providerHomeProtectionHash: null,
-    localUserBindingHash: null,
     stableLogicalHomeBindingHash: null,
     selectedUserBindingVerified: false,
     protectionVerified: false,
@@ -6018,99 +5976,142 @@ function providerHomeWindowsAdapterBlocked(
  *
  * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
- * @input provider: unknown、developmentContext: unknown
+ * @input provider: codexまたはclaude。所在は上位設定から選定する。
  * @returns inspectRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
- * @precondition 「provider: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
+ * @precondition Windowsローカル単一ユーザー運用。Home基点は上位設定済みで新旧方式を並走しない。
  * @postcondition inspectRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
- * @effect inspectRuntimeOwnedWindowsProviderHomeCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: inspectRuntimeOwnedWindowsProviderHomeCandidateは独自の失敗分岐を所有しない。
+ * @effect NodeのDirectory・実体読取りと短命Capability登録のみ。子Process・Credential読取りは行わない。
+ * @failure 不明実体・Link・Path差・旧Lock・観測例外は候補を発行せず停止する。
  * @invariant inspectRuntimeOwnedWindowsProviderHomeCandidateは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @boundary 上位確定HomeとNode Filesystem。SID・Token・厳密DACLの独立検証は行わない。
  * @security inspectRuntimeOwnedWindowsProviderHomeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: inspectRuntimeOwnedWindowsProviderHomeCandidateは共有非同期状態を持たない同期処理である。
  */
 export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   provider: unknown,
-  developmentContext?: unknown,
 ) {
-  if (process.platform !== "win32") {
+  if (
+    process.platform !== "win32" ||
+    (provider !== "codex" && provider !== "claude")
+  )
     return providerHomeWindowsAdapterBlocked(
-      "provider_home_windows_adapter_platform_unsupported",
+      "provider_home_node_input_invalid",
+    );
+  const source = runtimeOwnedProviderHomeMountSourceCandidate(provider);
+  if (!source)
+    return providerHomeWindowsAdapterBlocked(
+      "provider_home_location_unavailable",
+    );
+  try {
+    const read = () => {
+      const stat = fs.lstatSync(source, { bigint: true });
+      const canonical = fs.realpathSync.native(source);
+      if (
+        !stat.isDirectory() ||
+        stat.isSymbolicLink() ||
+        stat.dev <= 0n ||
+        stat.ino <= 0n ||
+        stat.birthtimeNs <= 0n ||
+        path.win32.normalize(canonical).toLocaleLowerCase("en-US") !==
+          source.toLocaleLowerCase("en-US")
+      )
+        throw new Error("provider_home_identity_unknown");
+      return stat;
+    };
+    const first = read();
+    const canonical = fs.realpathSync.native(source);
+    const parent = path.win32.dirname(canonical);
+    const binding = (kind: string) =>
+      createHash("sha256")
+        .update("crdd-provider-home-resource-v2\0")
+        .update(kind)
+        .update("\0")
+        .update(path.win32.join(parent, kind).toLocaleLowerCase("en-US"))
+        .digest("hex");
+    const knownLocks = new Set(
+      ["codex", "claude"].map((kind) => `provider-home.${binding(kind)}.lock`),
+    );
+    if (
+      fs
+        .readdirSync(parent)
+        .some(
+          (name) =>
+            name.toLowerCase().startsWith("provider-home.") &&
+            !knownLocks.has(name.toLowerCase()),
+        )
+    )
+      return providerHomeWindowsAdapterBlocked(
+        "provider_home_prior_lock_unresolved",
+      );
+    const second = read();
+    if (
+      first.dev !== second.dev ||
+      first.ino !== second.ino ||
+      first.birthtimeNs !== second.birthtimeNs
+    )
+      return providerHomeWindowsAdapterBlocked(
+        "provider_home_identity_changed",
+      );
+    const observation = Object.freeze({
+      provider,
+      providerHomeIdentityHash: createHash("sha256")
+        .update("crdd-provider-home-node-identity-v1\0")
+        .update(provider)
+        .update("\0")
+        .update(String(first.dev))
+        .update("\0")
+        .update(String(first.ino))
+        .update("\0")
+        .update(String(first.birthtimeNs))
+        .digest("hex"),
+      stableLogicalHomeBindingHash: binding(provider),
+      stableIdentityObserved: true,
+      pathReported: false,
+      principalReported: false,
+      aclReported: false,
+      credentialContentRead: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+      runtimeAuthorityIssued: false,
+      operationCapabilityIssued: false,
+      mountGrantIssued: false,
+    });
+    const observationCapability = Object.freeze({});
+    const providerHomeMountSourceCapability = Object.freeze({});
+    mountSourceCapabilities.set(
+      providerHomeMountSourceCapability,
+      Object.freeze({ provider, sourcePath: canonical }),
+    );
+    observationCapabilities.set(
+      observationCapability,
+      Object.freeze({
+        provider,
+        providerHomeIdentityHash: observation.providerHomeIdentityHash,
+        stableLogicalHomeBindingHash: observation.stableLogicalHomeBindingHash,
+        observedWallClockMs: Date.now(),
+        observedMonotonicMs: performance.now(),
+        providerHomeMountSourceCapability,
+      }),
+    );
+    return Object.freeze({
+      ...observation,
+      status: "candidate" as const,
+      reason: "runtime_owned_node_provider_home_observed_candidate",
+      executionSourceKind: "node_filesystem",
+      processEffectIssued: false,
+      helperSpawnAttempts: 0,
+      helperSpawned: false,
+      helperExitConfirmed: false,
+      processTreeTerminationConfirmed: false,
+      manualRecoveryRequired: false,
+      observationCapability: observationCapability as object,
+      runtimeOwnedObservationCapabilityIssued: true,
+    });
+  } catch {
+    return providerHomeWindowsAdapterBlocked(
+      "provider_home_node_observation_unavailable",
     );
   }
-  const mountSourcePath =
-    runtimeOwnedProviderHomeMountSourceCandidate(provider);
-  const native = observeWindowsProviderHome(
-    provider,
-    mountSourcePath,
-    developmentContext === undefined
-      ? undefined
-      : () => {
-          const development = borrowRuntimeOwnedDevelopmentNativeObservation(
-            developmentContext as object,
-            false,
-          );
-          return development
-            ? Object.freeze({
-                distributionRoot: development.distributionRoot,
-                expectedArtifact:
-                  development.verification.status === "candidate"
-                    ? development.verification.platformAccessArtifact
-                    : null,
-              })
-            : null;
-        },
-  );
-  if (native.status !== "candidate")
-    return providerHomeWindowsAdapterBlocked(
-      `provider_home_windows_adapter_${native.reason}`,
-      {
-        processEffectIssued: native.processEffectIssued,
-        helperSpawned: native.processEffectIssued,
-        helperExitConfirmed: native.helperExitConfirmed,
-      },
-    );
-  const observation = native;
-  const observedWallClockMs = Date.now();
-  const observedMonotonicMs = performance.now();
-  const observationCapability = Object.freeze({});
-  const providerHomeMountSourceCapability = Object.freeze({});
-  mountSourceCapabilities.set(
-    providerHomeMountSourceCapability,
-    Object.freeze({
-      provider: observation.provider,
-      sourcePath: mountSourcePath as string,
-    }),
-  );
-  observationCapabilities.set(
-    observationCapability,
-    Object.freeze({
-      provider: observation.provider,
-      providerHomeIdentityHash: observation.providerHomeIdentityHash,
-      providerHomeProtectionHash: observation.providerHomeProtectionHash,
-      localUserBindingHash: observation.localUserBindingHash,
-      stableLogicalHomeBindingHash: observation.stableLogicalHomeBindingHash,
-      observedWallClockMs,
-      observedMonotonicMs,
-      providerHomeMountSourceCapability,
-    }),
-  );
-  return Object.freeze({
-    ...observation,
-    reason: "runtime_owned_windows_provider_home_observed_candidate",
-    provider: observation.provider as ProviderHomeObservationProvider,
-    nativeSourceRevision: null,
-    executionSourceKind: native.executionSourceKind,
-    artifactVerifiedBeforeAndAfter: true,
-    helperSpawnAttempts: 1,
-    helperSpawned: true,
-    helperExitConfirmed: true,
-    processTreeTerminationConfirmed: false,
-    processEffectIssued: true,
-    manualRecoveryRequired: false,
-    observationCapability: observationCapability as object,
-    runtimeOwnedObservationCapabilityIssued: true,
-  });
 }
 
 /**
@@ -6229,46 +6230,17 @@ export function describeProviderHomeWindowsAdapterContract() {
     contract: PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT,
     contractRevision: PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION,
     platform: "windows",
-    distributionRoot: "module_relative_fixed_distribution_root",
-    artifactVerification: Object.freeze({
-      normal: "fixed_bootstrap_hash_and_artifact_identity_before_and_after",
-      development:
-        "fixed_development_borrowed_native_observation_and_artifact_identity_before_and_after",
-    }),
-    executablePath: "fixed_distribution_relative_absolute_path",
     providers: Object.freeze(["codex", "claude"]),
-    shellInvocation: false,
-    pathLookup: false,
-    callerSuppliedPathAccepted: false,
-    inheritedEnvironmentPathTrustedDirectly: false,
-    mountSourceBinding:
-      "runtime_candidate_hash_exactly_matched_by_native_known_folder_derivation",
-    environment: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-    environmentUnavailable: Object.freeze({
-      helperSpawnAttempts: 0,
-      filesystemEffectIssued: false,
-      networkEffectIssued: false,
-      observationCapabilityIssued: false,
-      runtimeAuthorityIssued: false,
-    }),
-    timeoutMs: HELPER_TIMEOUT_MS,
-    maximumStdoutBytes: describeProviderHomeObservationContract().responseBytes,
-    maximumStderrBytes: 0,
-    helperSpawnAttempts: 1,
-    helperChildProcessImplementation: false,
-    helperExitRequired: true,
-    processTreeTerminationConfirmation:
-      "not_implemented_step_4_runtime_process_controller_required",
-    rawPathReported: false,
-    rawPathAvailableOnlyToTrustedMountEffectAdapter: true,
-    rawPrincipalReported: false,
-    rawAclReported: false,
+    locationSource: "upper_configuration",
+    observation: "node_lstat_realpath_and_physical_identity_twice",
+    nativePolicyVerification: false,
+    osPrincipalVerification: false,
     credentialContentRead: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
+    processEffectIssued: false,
     runtimeAuthorityIssued: false,
     operationCapabilityIssued: false,
-    observationCapability: "runtime_owned_opaque_single_use_maximum_10_seconds",
     observationCapabilityMaximumAgeMs: OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS,
     mountGrantIssued: false,
   });
@@ -6606,7 +6578,7 @@ export function describeRootProtectionPolicyContract() {
 
 export const PROVIDER_HOME_CONTRACT = "crdd-coordinator/provider-home";
 
-export const PROVIDER_HOME_CONTRACT_REVISION = 5;
+export const PROVIDER_HOME_CONTRACT_REVISION = 6;
 
 export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
   "Qual-Lab",
@@ -6752,13 +6724,12 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
     status: "candidate" as const,
     reason: "provider_home_protection_effect_and_observation_required",
     provider: selectedProvider,
-    scope: "local_os_user_and_provider" as const,
+    scope: "canonical_provider_home_resource" as const,
     rootInputSource: "caller_supplied_windows_absolute_path_candidate" as const,
-    requiredEffectRootSource:
-      "windows_known_folder_local_app_data_at_explicit_bootstrap_time" as const,
+    requiredEffectRootSource: "upper_configured_provider_home_parent" as const,
     homeLayoutCandidate: true,
     persistentAcrossOperations: true,
-    sharedAcrossRepositoriesForSameOsUser: true,
+    sharedAcrossRepositoriesForSameHome: true,
     hostDefaultHomeImportAllowed: false,
     otherProviderHomeSharingAllowed: false,
     operationCleanupOwned: false,
@@ -6789,7 +6760,6 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
  * @concurrency N/A: describeProviderHomeContractは共有非同期状態を持たない同期処理である。
  */
 export function describeProviderHomeContract() {
-  const observation = describeProviderHomeObservationContract();
   const windowsAdapter = describeProviderHomeWindowsAdapterContract();
   return Object.freeze({
     contract: PROVIDER_HOME_CONTRACT,
@@ -6798,32 +6768,29 @@ export function describeProviderHomeContract() {
     providers: providerHomePROVIDERS,
     layoutCandidateInputSource:
       "caller_supplied_windows_absolute_path_candidate_non_authority",
-    requiredEffectRootSource:
-      "windows_known_folder_local_app_data_at_explicit_bootstrap_time",
+    requiredEffectRootSource: "upper_configured_provider_home_parent",
     rootSegments: PROVIDER_HOME_ROOT_SEGMENTS,
     providerDirectoryNames: providerDirectoryNames,
-    scope: "local_os_user_and_provider",
+    scope: "canonical_provider_home_resource",
     persistentAcrossOperations: true,
-    sharedAcrossRepositoriesForSameOsUser: true,
+    sharedAcrossRepositoriesForSameHome: true,
     hostDefaultHomeImportAllowed: false,
     hostCredentialImportAllowed: false,
     operationTemporaryHomeImportAllowed: false,
     otherProviderHomeSharingAllowed: false,
     operationCleanupOwned: false,
-    symlinkJunctionOrReparseAllowed: false,
+    symbolicLinkOrNoncanonicalPathAllowed: false,
     stableRootIdentityRequired: true,
-    selectedLocalUserBindingRequired: true,
-    ownerAndDaclVerificationRequired: true,
-    untrustedWriterAllowed: false,
+    selectedLocalUserBindingRequired: false,
+    ownerAndDaclVerificationRequired: false,
+    osPermissions: "operator_precondition",
     providerRefreshWriteTarget: "provider_specific_home_only",
     tokenSessionOrPathReported: false,
     bootstrapEntry: "explicit_login_only_target",
     protectionEffect: "not_implemented",
     protectionObservation:
-      "implemented_runtime_owned_read_only_native_observation_candidate",
-    selectedLocalUserBinder:
-      "implemented_runtime_owned_current_local_interactive_token_candidate",
-    runtimeOwnedObservation: observation,
+      "node_physical_directory_observation_no_acl_verification",
+    selectedLocalUserBinder: "not_performed",
     windowsAdapter,
     authSessionProbe: "not_implemented",
     logoutRevocationAndDeletion: "not_implemented_separate_bootstrap_lifecycle",
@@ -7662,7 +7629,7 @@ const authenticationPreparations = new WeakMap<
  */
 export type AuthenticationRecoveryRecord = Readonly<{
   contract: "crdd-coordinator/provider-authentication-recovery";
-  contractRevision: 2;
+  contractRevision: 3;
   provider: "codex" | "claude";
   action: "status" | "login";
   recoveryId: string;
@@ -7722,7 +7689,7 @@ export function createProviderAuthenticationRecoveryRecord(
   );
   return Object.freeze({
     contract: "crdd-coordinator/provider-authentication-recovery",
-    contractRevision: 2,
+    contractRevision: 3,
     provider: plan.provider,
     action: plan.action,
     recoveryId: `provider-auth.${plan.provider}.${plan.action}.${stableLogicalHomeBindingHash}`,
@@ -7814,6 +7781,28 @@ export function beginProviderAuthenticationRecovery(
 ): ReturnType<Dependencies["beginRecovery"]> {
   try {
     const temporary = `${record.recordPath}.pending`;
+    const recoveryDirectory = path.win32.dirname(record.recordPath);
+    try {
+      const metadata = fs.lstatSync(recoveryDirectory);
+      if (!metadata.isDirectory() || metadata.isSymbolicLink())
+        return "unknown";
+      const allowed = new Set([
+        path.win32.basename(record.recordPath),
+        path.win32.basename(temporary),
+      ]);
+      if (
+        fs
+          .readdirSync(recoveryDirectory)
+          .some(
+            (name) =>
+              name.toLowerCase().startsWith(`${record.provider}.`) &&
+              !allowed.has(name.toLowerCase()),
+          )
+      )
+        return "unknown";
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "unknown";
+    }
     const previous = fs.existsSync(record.recordPath)
       ? fs.readFileSync(record.recordPath, "utf8")
       : null;

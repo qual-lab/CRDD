@@ -66,8 +66,6 @@ export type MountGrant = Readonly<{
   provider: string;
   operationId: string;
   providerHomeIdentityHash: string;
-  providerHomeProtectionHash: string;
-  localUserBindingHash: string;
   stableLogicalHomeBindingHash: string;
 }>;
 

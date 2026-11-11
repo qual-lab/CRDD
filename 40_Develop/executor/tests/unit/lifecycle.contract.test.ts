@@ -529,8 +529,6 @@ test("Attemptの欠測・accessor・内側Proxyは乱数取得前に非評価で
     temporarySourcePath: "C:/fixture/tmp",
     providerHomeSourcePath: "C:/fixture/home",
     providerHomeIdentityHash: "a".repeat(64),
-    providerHomeProtectionHash: "b".repeat(64),
-    localUserBindingHash: "c".repeat(64),
     stableLogicalHomeBindingHash: "d".repeat(64),
     activeMountCapability: {},
   };

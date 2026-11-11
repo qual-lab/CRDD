@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Provider HomeをNodeの所在・物理実体確認へ切り替え、共有wx排他を維持した。旧保護／OS主体HashはOperation Identity v4から削除し、旧Lock・別key認証記録は保全停止する。Executor単独検証スクリプトも追従し、旧PA Home API／Nativeと専用Protocolを撤去した。限定回帰・独立確認の結果は[現在の境界](06_Architecture/Details/platform-access/01_Architecture.md#provider-homeのnode移管)を参照。PAにはWindows所在・子環境・Artifactの残存があり、PA全廃とはしない。全体回帰・実AI・実Docker・過去保持物は操作していない。
+
 退避Directoryは保存済みRoot実体・親・現在source・廃棄許可を照合してNode標準で全体削除する方式へ整理した。子のSocket種別・個別実体照合・独自上限を撤去し、PA単一entryのNative API／実装／専用試験・診断も削除した。開始後取消は削除処理の完了を待ち、部分失敗・後観測不明を保持する。新品treeと外側Link先保全を限定確認し、特殊Socket実物・実Dockerでの新方式成立は未実施。Provider Home・Windows所在のNativeは残る。全体回帰・実AI・実Docker・過去保持物操作は行わない。[実装範囲・保証差・検証状態](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#退避root全体の標準削除と単一entry-native退役--2026-11-11)を参照する。
 
 Docker Desktop Helperを退役し、Executor経由のDIで公式CLI・既存Node.js処理・共通wxを使う構成へ統合した。Native由来の修復所有Hash・重複Scope Hashは撤去し、基点を変えない運用条件と既存Directory実体検査を維持する。限定回帰・実Writer結合・独立再レビューは完了した。全体回帰、実Docker停止／起動／退避、残存Provider Home等のNative整理は未完了。[現在の結果と保証変更](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#desktop-helperの公式cli統合--2026-11-10)を参照する。

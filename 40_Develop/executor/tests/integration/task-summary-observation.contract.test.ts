@@ -340,7 +340,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
           grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
           executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-6.1-sol':'opus',identifierKind:provider==='codex'?'exact':'alias',reasoningEffort:'medium',purpose:'task'},selectionHash:'e'.repeat(64),
           activeMountCapability:mount,authorityUseCapability:authority,
-          providerHomeSourcePath:'C:/synthetic-not-accessed/home',providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),
+          providerHomeSourcePath:'C:/synthetic-not-accessed/home',providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),
           authContainerName:'crdd-auth-'+suffix,providerContainerName:'crdd-'+provider+'-'+suffix,proxyContainerName:'crdd-proxy-'+suffix,internalNetworkName:'crdd-internal-'+suffix,egressNetworkName:'crdd-egress-'+suffix,ownershipLabel:'crdd.coordinator.runtime='+suffix,
           providerImageDigest:'sha256:'+'1'.repeat(64),proxyImageDigest:'sha256:'+'2'.repeat(64),subscriptionOffering:provider==='codex'?'chatgpt_subscription_oauth':'claude_max',selectedModel:provider==='codex'?'gpt-6.1-sol':'opus',selectedEffort:'medium',
           operationMode:'isolated_task',taskRole:role,taskPacketRef:'TASKPKT-'+'A'.repeat(32),taskPacketHash:'a'.repeat(64),providerInput:'synthetic',workspaceSourcePath:'C:/synthetic-not-accessed/work',workspaceMountMode:role==='executor'?'read_write':'read_only',additionalHosts:null,taskWorkload:${JSON.stringify(workload)},commands:purposes.map(purpose=>({purpose,argv:[purpose]}))};

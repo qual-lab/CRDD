@@ -264,7 +264,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v3",
+    schema: "crdd-coordinator/operation-identity/v4",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
@@ -279,8 +279,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     taskAttempt: 0 as const,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
     repositoryBinding: repository.repositoryBinding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     operationMode: "isolated_task",
@@ -2356,8 +2354,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       taskAttempt: identity.taskAttempt,
       stableLogicalHomeBindingHash: identity.stableLogicalHomeBindingHash,
       providerHomeIdentityHash: identity.providerHomeIdentityHash,
-      providerHomeProtectionHash: identity.providerHomeProtectionHash,
-      localUserBindingHash: identity.localUserBindingHash,
       authContainerName: resourceName("create_subscription_auth_probe"),
       providerContainerName: resourceName("create_provider"),
       proxyContainerName: resourceName("create_proxy"),
@@ -3071,8 +3067,6 @@ for (const issuedFailure of [false, true]) {
         taskAttempt: 0 as const,
         stableLogicalHomeBindingHash: "c".repeat(64),
         providerHomeIdentityHash: "8".repeat(64),
-        providerHomeProtectionHash: "9".repeat(64),
-        localUserBindingHash: "6".repeat(64),
         authContainerName: "crdd-auth-0123456789abcdef",
         providerContainerName: "crdd-claude-0123456789abcdef",
         proxyContainerName: "crdd-proxy-0123456789abcdef",
@@ -3334,7 +3328,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       .digest("hex");
     const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const identityJson = `${JSON.stringify({
-      schema: "crdd-coordinator/operation-identity/v3",
+      schema: "crdd-coordinator/operation-identity/v4",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer,
@@ -3349,8 +3343,6 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       taskAttempt: 0 as const,
       stableLogicalHomeBindingHash: "c".repeat(64),
       providerHomeIdentityHash: "8".repeat(64),
-      providerHomeProtectionHash: "9".repeat(64),
-      localUserBindingHash: "6".repeat(64),
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       operationMode: "workbench_advice",

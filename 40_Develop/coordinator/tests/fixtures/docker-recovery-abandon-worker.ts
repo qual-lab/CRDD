@@ -271,8 +271,6 @@ if (mode !== "recovery") {
     }),
     taskAttempt: 0 as const,
     providerHomeIdentityHash: hash,
-    providerHomeProtectionHash: hash,
-    localUserBindingHash: hash,
     stableLogicalHomeBindingHash: hash,
     authContainerName: `crdd-auth-${suffix}`,
     providerContainerName: `crdd-codex-${suffix}`,

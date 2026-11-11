@@ -268,7 +268,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v3",
+    schema: "crdd-coordinator/operation-identity/v4",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -292,8 +292,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     operationMode: "isolated_task",
@@ -1923,7 +1921,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
       hostHash;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v3",
+      schema: "crdd-coordinator/operation-identity/v4",
       operationNonce: nonce,
       provider: "claude",
       consumer: "orchestrator",
@@ -1947,8 +1945,6 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       taskAttempt: 0,
       stableLogicalHomeBindingHash: "c".repeat(64),
       providerHomeIdentityHash: "8".repeat(64),
-      providerHomeProtectionHash: "9".repeat(64),
-      localUserBindingHash: "6".repeat(64),
       repositoryBinding: binding,
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       operationMode: "isolated_task",

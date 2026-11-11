@@ -152,20 +152,17 @@ test("Provider認証方針は標準Profileをsubscription OAuthへ限定する",
  */
 test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含めない", () => {
   const home = describeProviderLifecycleContract().dedicatedProviderHome;
-  assert.equal(home.scope, "local_os_user_and_provider");
+  assert.equal(home.scope, "canonical_provider_home_resource");
   assert.equal(home.persistentAcrossOperations, true);
-  assert.equal(home.sharedAcrossRepositoriesForSameOsUser, true);
+  assert.equal(home.sharedAcrossRepositoriesForSameHome, true);
   assert.equal(home.hostDefaultHomeImportAllowed, false);
   assert.equal(home.otherProviderHomeSharingAllowed, false);
   assert.equal(home.operationCleanupOwned, false);
   assert.equal(
     home.protectionObservation,
-    "implemented_runtime_owned_read_only_native_observation_candidate",
+    "node_physical_directory_observation_no_acl_verification",
   );
-  assert.equal(
-    home.selectedLocalUserBinder,
-    "implemented_runtime_owned_current_local_interactive_token_candidate",
-  );
+  assert.equal(home.selectedLocalUserBinder, "not_performed");
   const grant = describeProviderLifecycleContract().providerHomeMountGrant;
   assert.equal(grant.grantIssued, false);
   assert.equal(grant.tokenCopyOrInjectionAllowed, false);

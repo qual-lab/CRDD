@@ -21,7 +21,7 @@ import {
   observeRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
 import { getRepository } from "../../version-control/src/index.ts";
-import { observeWindowsProviderHome } from "../../platform-access/src/index.ts";
+import { observeProviderHome } from "./provider-home.ts";
 import {
   createExecutor,
   type ExecutorRequest,
@@ -151,25 +151,15 @@ export function createStandaloneProviderAttemptHost(
       if (!homeChecked) {
         homeChecked = true;
         operationCleanupConfirmed = false;
-        const observed = observeWindowsProviderHome(
+        const observed = observeProviderHome(
           provider,
           request.target.providerHomeSourcePath,
         );
-        operationCleanupConfirmed =
-          (!observed.processEffectIssued || observed.helperExitConfirmed) &&
-          observed.filesystemEffectIssued === false;
+        operationCleanupConfirmed = observed.filesystemEffectIssued === false;
         if (
           observed.status !== "candidate" ||
-          !observed.processEffectIssued ||
-          !observed.helperExitConfirmed ||
-          !observed.artifactVerifiedBeforeAndAfter ||
           observed.filesystemEffectIssued ||
-          [
-            "providerHomeIdentityHash",
-            "providerHomeProtectionHash",
-            "localUserBindingHash",
-            "stableLogicalHomeBindingHash",
-          ].some(
+          ["providerHomeIdentityHash", "stableLogicalHomeBindingHash"].some(
             (key) =>
               Reflect.get(observed, key) !== Reflect.get(request.target, key),
           )

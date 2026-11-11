@@ -4,42 +4,6 @@
   "subsystem": "platform-access",
   "symbols": [
     {
-      "symbolId": "platform-access.source.protected-root-protocol",
-      "kind": "module",
-      "path": "src/filesystem/protection.ts",
-      "archIds": [
-        "ARCH-000010",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.protected-root-native",
-      "kind": "module",
-      "path": "src/filesystem/root.ts",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000010",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.root-observation",
-      "kind": "test-suite",
-      "path": "tests/integration/root-observation.contract.test.ts",
-      "qaIds": [
-        "QA-000006",
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": [
-        "platform-access.source.protected-root-native",
-        "platform-access.source.protected-root-protocol"
-      ]
-    },
-    {
       "symbolId": "platform-access.source.windows-child-environment",
       "kind": "module",
       "path": "src/process/environment.ts",
@@ -107,42 +71,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.source.provider-home",
-      "kind": "module",
-      "path": "src/native/filesystem/windows/protected_root.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.process",
-      "kind": "module",
-      "path": "src/native/process/mod.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.principal",
-      "kind": "module",
-      "path": "src/native/process/windows/principal.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.protection",
-      "kind": "module",
-      "path": "src/native/filesystem/windows/protection.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
       "symbolId": "platform-access.source.filesystem",
       "kind": "module",
       "path": "src/native/filesystem/mod.rs",
@@ -195,34 +123,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.test.unit.protected-root",
-      "kind": "test-suite",
-      "path": "src/native/filesystem/windows/protected_root.rs",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-UT-005"
-      ],
-      "verifies": [
-        "platform-access.source.provider-home"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.native-protection",
-      "kind": "test-suite",
-      "path": "src/native/filesystem/windows/protection.rs",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-UT-005"
-      ],
-      "verifies": [
-        "platform-access.source.protection"
-      ]
-    },
-    {
       "symbolId": "platform-access.test.integration.cli",
       "kind": "test-suite",
       "path": "tests/integration/native_cli.rs",
@@ -252,20 +152,6 @@
       "verifies": [
         "platform-access.native-entry",
         "platform-access.source.windows-directory"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.protection",
-      "kind": "test-suite",
-      "path": "tests/unit/filesystem/protection.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005"
-      ],
-      "verifies": [
-        "platform-access.source.protected-root-protocol"
       ]
     },
     {

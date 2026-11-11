@@ -1749,7 +1749,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         stages.push(`${provider}:${role}:${attempt}`);
         const suffix = index.toString(16).padStart(16, "0");
         const identity = {
-          schema: "crdd-coordinator/operation-identity/v3",
+          schema: "crdd-coordinator/operation-identity/v4",
           operationNonce: suffix.repeat(4),
           provider,
           consumer: "orchestrator",
@@ -1774,8 +1774,6 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
             : "d"
           ).repeat(64),
           providerHomeIdentityHash: "8".repeat(64),
-          providerHomeProtectionHash: "9".repeat(64),
-          localUserBindingHash: "6".repeat(64),
           repositoryBinding: binding,
           ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
           operationMode: "isolated_task",

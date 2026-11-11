@@ -318,8 +318,6 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
           temporarySourcePath: "C:\\fixture\\tmp",
           providerHomeSourcePath: "C:\\fixture\\home",
           providerHomeIdentityHash: "a".repeat(64),
-          providerHomeProtectionHash: "b".repeat(64),
-          localUserBindingHash: "c".repeat(64),
           stableLogicalHomeBindingHash: "d".repeat(64),
           activeMountCapability: {},
           workspaceProtection: {

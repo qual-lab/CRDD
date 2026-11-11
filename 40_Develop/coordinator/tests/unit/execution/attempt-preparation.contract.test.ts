@@ -159,8 +159,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     authorityControlCapability: true,
     providerHomeSourcePath: true,
     providerHomeIdentityHash: true,
-    providerHomeProtectionHash: true,
-    localUserBindingHash: true,
     stableLogicalHomeBindingHash: true,
     preparedWallClockMs: true,
     preparedMonotonicMs: true,

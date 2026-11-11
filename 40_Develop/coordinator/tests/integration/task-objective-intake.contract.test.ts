@@ -1833,7 +1833,6 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     rootPath: runtimeDirectory,
     runtimeStateIdentityHash: "1".repeat(64),
     runtimeStateProtectionHash: "2".repeat(64),
-    localUserBindingHash: "3".repeat(64),
     stableLogicalHomeBindingHash: "4".repeat(64),
   });
   const receiptName = `completed-docker-recovery-${createHash("sha256")
@@ -1845,7 +1844,6 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     runtimeStateBinding: {
       runtimeStateIdentityHash: verifiedRoot.runtimeStateIdentityHash,
       runtimeStateProtectionHash: verifiedRoot.runtimeStateProtectionHash,
-      localUserBindingHash: verifiedRoot.localUserBindingHash,
       runtimeStateBindingHash: verifiedRoot.stableLogicalHomeBindingHash,
     },
   });

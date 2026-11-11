@@ -283,7 +283,13 @@ export function createAuthenticationExecutor(
     !settings ||
     typeof settings !== "object" ||
     types.isProxy(settings) ||
-    Reflect.ownKeys(settings).length !== 2
+    Reflect.ownKeys(settings).some(
+      (key) =>
+        !["windowsDirectory", "userHomeDirectory", "desktop"].includes(
+          String(key),
+        ) ||
+        !("value" in (Object.getOwnPropertyDescriptor(settings, key) ?? {})),
+    )
   )
     return null;
   const windows = Object.getOwnPropertyDescriptor(settings, "windowsDirectory");

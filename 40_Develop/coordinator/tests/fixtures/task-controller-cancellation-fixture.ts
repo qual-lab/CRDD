@@ -74,8 +74,6 @@ export function createTaskControllerCancellationFixture(
     authorityUseCapability,
     providerHomeSourcePath: "C:\\fixture\\claude-home",
     providerHomeIdentityHash: "a".repeat(64),
-    providerHomeProtectionHash: "b".repeat(64),
-    localUserBindingHash: "c".repeat(64),
     stableLogicalHomeBindingHash,
     authContainerName: "crdd-auth-0101010101010101",
     providerContainerName: "crdd-claude-0101010101010101",

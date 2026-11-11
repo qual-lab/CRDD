@@ -1,7 +1,7 @@
 /**
  * 単独実試験前のProvider Home観測・共有排他だけを明示確認する。
  * @packageDocumentation
- * @responsibility 既存Native観測とwx排他を接続し、認証内容・AI・Dockerを使わず終了を確認する。
+ * @responsibility Node実体観測とwx排他を接続し、認証内容・AI・Dockerを使わず終了を確認する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @boundary 試験専用。通常importと非AI単段検証からは実行しない。
@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { observeWindowsProviderHome } from "../../platform-access/src/index.ts";
+import { observeProviderHome } from "./provider-home.ts";
 import {
   acquireLock,
   type Lock,
@@ -31,7 +31,7 @@ import { getRepository } from "../../version-control/src/index.ts";
  * @trace ERB-IT-004
  * @input 検証済み64hexの安定Home Hash。
  * @returns 固定ProviderHome用途のLock要求。
- * @precondition Nativeで検証済みの安定Home Hashを渡す。
+ * @precondition 元Node観測の共有Home資源キーを渡す。
  * @postcondition 既存ProviderHome排他と同じ名前だけを返す。
  * @effect N/A: 純粋な要求構築のみ。
  * @failure 不正Hashを取得前に拒否する。
@@ -61,7 +61,7 @@ export function homeLockRequest(
  * @returns 観測一致、終了・清掃とexact試験Root。認証成立・実行許可は返さない。
  * @precondition 実Home観測・共有排他の一回取得が別途許可されている。
  * @postcondition 正常時は元Lock解放と自己生成Root不存在を確認する。
- * @effect Native metadata観測二回以下、wx排他取得一回以下、試験checkpoint保存。
+ * @effect Node実体観測二回以下、wx排他取得一回以下、試験checkpoint保存。
  * @failure 観測不能・差替え・保存拒否・解放不明で停止し、再試行しない。
  * @invariant Credential本文、SID、ACL、Home Path、四Hashを保存・表示しない。
  * @boundary 既存Platform Accessと試験専用Filesystem。実AI・Dockerには接続しない。
@@ -159,29 +159,24 @@ export async function verifyProviderHomeBoundary(
       throw new Error("home_boundary_checkpoint_mismatch");
   }
   /**
-   * Nativeの検証済み候補と明示的な終了・非書込みだけを受理する。
-   * @responsibility 観測不能や補助子終了不明を候補へ昇格しない。
+   * Nodeの実体観測候補と非書込みだけを受理する。
+   * @responsibility 観測不能を候補へ昇格しない。
    * @trace ERB-IT-002
-   * @input 元Platform Access観測。
-   * @returns 現Provider・補助子終了・Artifact確認・Filesystem Effect零の共同判定。
+   * @input 元Node実体観測。
+   * @returns 現Provider・候補状態・Filesystem Effect零の共同判定。
    * @effect N/A: 元値の照合だけ。
    * @failure 不足・別Provider・未確認はfalse。
-   * @boundary Native metadataと試験の前提確認。
+   * @boundary Node実体観測と試験の前提確認。
    */
-  const valid = (value: ReturnType<typeof observeWindowsProviderHome>) =>
+  const valid = (value: ReturnType<typeof observeProviderHome>) =>
     value.status === "candidate" &&
     value.provider === provider &&
-    value.processEffectIssued === true &&
-    value.helperExitConfirmed === true &&
-    value.artifactVerifiedBeforeAndAfter === true &&
     value.filesystemEffectIssued === false;
   try {
     checkpoint("started", false);
     operationCleanupConfirmed = false;
-    const first = observeWindowsProviderHome(provider, home);
-    operationCleanupConfirmed =
-      (!first.processEffectIssued || first.helperExitConfirmed) &&
-      first.filesystemEffectIssued === false;
+    const first = observeProviderHome(provider, home);
+    operationCleanupConfirmed = first.filesystemEffectIssued === false;
     if (!valid(first) || first.status !== "candidate") {
       primaryReason = "home_observation_unconfirmed";
     } else {
@@ -198,18 +193,13 @@ export async function verifyProviderHomeBoundary(
         lock = acquired.lock;
         try {
           operationCleanupConfirmed = false;
-          const second = observeWindowsProviderHome(provider, home);
-          operationCleanupConfirmed =
-            (!second.processEffectIssued || second.helperExitConfirmed) &&
-            second.filesystemEffectIssued === false;
+          const second = observeProviderHome(provider, home);
+          operationCleanupConfirmed = second.filesystemEffectIssued === false;
           observationMatched =
             valid(second) &&
             second.status === "candidate" &&
             first.providerHomeIdentityHash ===
               second.providerHomeIdentityHash &&
-            first.providerHomeProtectionHash ===
-              second.providerHomeProtectionHash &&
-            first.localUserBindingHash === second.localUserBindingHash &&
             first.stableLogicalHomeBindingHash ===
               second.stableLogicalHomeBindingHash;
           if (!observationMatched)

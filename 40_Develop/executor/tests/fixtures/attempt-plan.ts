@@ -42,8 +42,6 @@ export function attemptPlan(): TestAttemptPlan {
     activeMountCapability: {},
     providerHomeSourcePath: "C:/synthetic-not-accessed/home",
     providerHomeIdentityHash: "a".repeat(64),
-    providerHomeProtectionHash: "b".repeat(64),
-    localUserBindingHash: "c".repeat(64),
     stableLogicalHomeBindingHash: "d".repeat(64),
     authContainerName: `crdd-auth-${suffix}`,
     providerContainerName: `crdd-claude-${suffix}`,
@@ -103,8 +101,6 @@ export function attemptTarget(
     temporarySourcePath,
     providerHomeSourcePath: plan.providerHomeSourcePath,
     providerHomeIdentityHash: plan.providerHomeIdentityHash,
-    providerHomeProtectionHash: plan.providerHomeProtectionHash,
-    localUserBindingHash: plan.localUserBindingHash,
     stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
     activeMountCapability: plan.activeMountCapability,
   };

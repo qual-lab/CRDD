@@ -1,17 +1,11 @@
-//! Windows system directoryと固定Known Folderのread-only観測境界を提供する。
+//! Windows system directoryのread-only観測境界を提供する。
 //!
 //! @responsibility OS APIが返すsystem directoryを固定応答へ変換し、Filesystem変更やAuthority発行を行わない。
 //! @trace ARCH-000008
 //! @trace ARCH-000011
 
-use std::ffi::{OsString, c_void};
 use std::io::Write;
-use std::os::windows::ffi::OsStringExt;
-use std::path::PathBuf;
-use std::ptr::null_mut;
-use windows_sys::Win32::Foundation::HANDLE;
 use windows_sys::Win32::System::SystemInformation::GetSystemWindowsDirectoryW;
-use windows_sys::core::GUID;
 
 /// Read-only bootstrap observation. No environment, filesystem mutation or authority.
 ///
@@ -70,116 +64,6 @@ fn write_directory_frame(magic: &[u8; 8], units: &[u16], writer: &mut impl Write
         return 3;
     }
     0
-}
-
-#[link(name = "shell32")]
-unsafe extern "system" {
-    /// Windows Root・Provider Home観測のSHGetKnownFolderPath責務を実行する。
-    ///
-    /// @responsibility Windows Root・Provider Home観測のSHGetKnownFolderPath責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
-    /// @trace ARCH-000011
-    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
-    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
-    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
-    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-    /// @effect OS APIからread-only観測を取得する。
-    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-    /// @boundary Native Worker→Windows Identity／ACL API。
-    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
-    fn SHGetKnownFolderPath(
-        folder_id: *const GUID,
-        flags: u32,
-        token: HANDLE,
-        path: *mut *mut u16,
-    ) -> i32;
-}
-
-#[link(name = "ole32")]
-unsafe extern "system" {
-    /// Windows Root・Provider Home観測のCoTaskMemFree責務を実行する。
-    ///
-    /// @responsibility Windows Root・Provider Home観測のCoTaskMemFree責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
-    /// @trace ARCH-000011
-    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
-    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
-    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
-    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-    /// @effect OS APIからread-only観測を取得する。
-    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-    /// @boundary Native Worker→Windows Identity／ACL API。
-    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
-    fn CoTaskMemFree(memory: *const c_void);
-}
-
-pub(crate) const MAXIMUM_KNOWN_FOLDER_CODE_UNITS: usize = 32_767;
-
-/// Windows Root・Provider Home観測のlocal app data path責務を実行する。
-///
-/// @responsibility Windows Root・Provider Home観測のlocal app data path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
-/// @trace ARCH-000011
-/// @input N/A: 呼出し引数を持たない。
-/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
-/// @precondition 固定Build／Runtime構成が成立している。
-/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-/// @effect OS APIからread-only観測を取得する。
-/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-/// @boundary Native Worker→Windows Identity／ACL API。
-/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-/// @concurrency N/A: 共有可変状態を持たない同期処理である。
-pub(crate) fn local_app_data_path() -> Option<PathBuf> {
-    const FOLDER_ID_LOCAL_APP_DATA: GUID = GUID {
-        data1: 0xf1b32785,
-        data2: 0x6fba,
-        data3: 0x4fcf,
-        data4: [0x9d, 0x55, 0x7b, 0x8e, 0x7f, 0x15, 0x70, 0x91],
-    };
-    known_folder_path(&FOLDER_ID_LOCAL_APP_DATA)
-}
-
-/// Windows Root・Provider Home観測のknown folder path責務を実行する。
-///
-/// @responsibility Windows Root・Provider Home観測のknown folder path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
-/// @trace ARCH-000011
-/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
-/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
-/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
-/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-/// @effect OS APIからread-only観測を取得する。
-/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-/// @boundary Native Worker→Windows Identity／ACL API。
-/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-/// @concurrency N/A: 共有可変状態を持たない同期処理である。
-fn known_folder_path(folder_id: &GUID) -> Option<PathBuf> {
-    let mut raw_path = null_mut();
-    // SAFETY: raw_path is writable. On success, Shell allocates a NUL-terminated UTF-16 path
-    // that remains owned until CoTaskMemFree below.
-    if unsafe { SHGetKnownFolderPath(folder_id, 0, null_mut(), &mut raw_path) } != 0
-        || raw_path.is_null()
-    {
-        return None;
-    }
-    let mut length = 0_usize;
-    // SAFETY: SHGetKnownFolderPath returned a NUL-terminated string. The explicit maximum keeps
-    // scanning bounded before copying it into an owned OsString.
-    while length < MAXIMUM_KNOWN_FOLDER_CODE_UNITS && unsafe { *raw_path.add(length) } != 0 {
-        length += 1;
-    }
-    let result = if length == 0 || length == MAXIMUM_KNOWN_FOLDER_CODE_UNITS {
-        None
-    } else {
-        // SAFETY: the bounded scan established that length readable UTF-16 code units precede NUL.
-        let units = unsafe { std::slice::from_raw_parts(raw_path, length) };
-        Some(PathBuf::from(OsString::from_wide(units)))
-    };
-    // SAFETY: raw_path was allocated by SHGetKnownFolderPath and has not been freed yet.
-    unsafe { CoTaskMemFree(raw_path.cast()) };
-    result
 }
 
 #[cfg(test)]

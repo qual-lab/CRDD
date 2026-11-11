@@ -30,6 +30,49 @@ import {
   settleProviderAuthenticationRecovery,
 } from "../../src/execution/authority.ts";
 
+test("認証は旧keyの別名記録と旧revisionを保全して新規Effect前に停止する", () => {
+  const root = createRepositoryTestDirectory("provider-auth-old-record-");
+  try {
+    const hash = "b".repeat(64);
+    const home = path.join(root.path, "ProviderHomes", "claude");
+    const plan = prepareAuthenticationProjection(
+      "claude",
+      "status",
+      home,
+      hash.slice(0, 16),
+      null,
+    );
+    assert.ok(plan);
+    const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
+    assert.ok(record);
+    const parent = path.dirname(record.recordPath);
+    fs.mkdirSync(parent, { recursive: true });
+    const old = path.join(parent, `claude.${"a".repeat(64)}.json`);
+    fs.writeFileSync(old, "unresolved-old-record");
+    assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+    assert.equal(fs.readFileSync(old, "utf8"), "unresolved-old-record");
+    assert.equal(fs.existsSync(record.recordPath), false);
+    fs.unlinkSync(old);
+    fs.writeFileSync(`${old}.pending`, "unresolved-old-pending");
+    assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+    assert.equal(
+      fs.readFileSync(`${old}.pending`, "utf8"),
+      "unresolved-old-pending",
+    );
+    assert.equal(fs.existsSync(record.recordPath), false);
+    fs.unlinkSync(`${old}.pending`);
+    fs.writeFileSync(
+      record.recordPath,
+      JSON.stringify({ ...record, contractRevision: 2 }),
+    );
+    const before = fs.readFileSync(record.recordPath, "utf8");
+    assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+    assert.equal(fs.readFileSync(record.recordPath, "utf8"), before);
+  } finally {
+    root.cleanup();
+  }
+});
+
 test("認証記録はactiveの操作を保持しsettled後だけ次操作へ切り替わる", () => {
   const root = createRepositoryTestDirectory("provider-auth-transition-"),
     hash = randomBytes(32).toString("hex"),

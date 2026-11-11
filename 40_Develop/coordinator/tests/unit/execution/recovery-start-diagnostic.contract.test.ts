@@ -64,8 +64,6 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
         operationId: "op",
         consumer: "workbench",
         providerHomeIdentityHash: "home",
-        providerHomeProtectionHash: "protection",
-        localUserBindingHash: "user",
         stableLogicalHomeBindingHash: "a".repeat(64),
       };
       const home = { ...plan };

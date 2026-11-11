@@ -920,8 +920,6 @@ export function validateCoordinatorOperationIdentity(
     "taskAttempt",
     "stableLogicalHomeBindingHash",
     "providerHomeIdentityHash",
-    "providerHomeProtectionHash",
-    "localUserBindingHash",
     "repositoryBinding",
     "ownershipLabel",
     "operationMode",
@@ -966,8 +964,6 @@ export function validateCoordinatorOperationIdentity(
     [
       identity.stableLogicalHomeBindingHash,
       identity.providerHomeIdentityHash,
-      identity.providerHomeProtectionHash,
-      identity.localUserBindingHash,
     ].every(isSha256Hex) &&
     /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
       String(identity.ownershipLabel ?? ""),
@@ -1740,7 +1736,7 @@ export const DOCKER_TASK_RECOVERY_ID =
   /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u;
 
 export const OPERATION_IDENTITY_SCHEMA =
-  "crdd-coordinator/operation-identity/v3";
+  "crdd-coordinator/operation-identity/v4";
 
 /**
  * Host Snapshotの契約を検証する。

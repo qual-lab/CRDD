@@ -146,7 +146,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v3",
+    schema: "crdd-coordinator/operation-identity/v4",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -170,8 +170,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     operationMode: "isolated_task",
@@ -216,6 +214,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   for (const invalidIdentity of [
     { ...identity, schema: "crdd-coordinator/operation-identity/v1" },
+    { ...identity, schema: "crdd-coordinator/operation-identity/v3" },
+    {
+      ...identity,
+      providerHomeProtectionHash: "b".repeat(64),
+      localUserBindingHash: "d".repeat(64),
+    },
     { ...identity, profileId: "PROFILE-123456" },
     { ...identity, taskAttempt: 2 },
     {

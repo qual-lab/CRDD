@@ -1086,8 +1086,6 @@ type ProductionPlan = Readonly<{
   executionSelection: ExecutionSelection;
   taskAttempt: 0 | 1;
   providerHomeIdentityHash: string;
-  providerHomeProtectionHash: string;
-  localUserBindingHash: string;
   stableLogicalHomeBindingHash: string;
   authContainerName: string;
   providerContainerName: string;
@@ -3644,12 +3642,9 @@ function validProductionPlan(plan: ProductionPlan) {
     inspectExecutionSelection(plan.executionSelection)?.provider ===
       plan.provider &&
     (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
-    [
-      plan.providerHomeIdentityHash,
-      plan.providerHomeProtectionHash,
-      plan.localUserBindingHash,
-      plan.stableLogicalHomeBindingHash,
-    ].every((value) => HEX64.test(value)) &&
+    [plan.providerHomeIdentityHash, plan.stableLogicalHomeBindingHash].every(
+      (value) => HEX64.test(value),
+    ) &&
     (plan.operationMode === "boolean_probe" ||
       plan.operationMode === "isolated_task" ||
       plan.operationMode === "workbench_advice") &&
@@ -3737,7 +3732,6 @@ function beginProductionRecovery(
     stage = "provider_home";
     const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate(
       plan.provider,
-      development?.newWorkContext,
     );
     const home = consumeRuntimeOwnedProviderHomeObservationCapability(
       observation.observationCapability,
@@ -3746,8 +3740,6 @@ function beginProductionRecovery(
       observation.status !== "candidate" ||
       !home ||
       home.providerHomeIdentityHash !== plan.providerHomeIdentityHash ||
-      home.providerHomeProtectionHash !== plan.providerHomeProtectionHash ||
-      home.localUserBindingHash !== plan.localUserBindingHash ||
       home.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash
     )
       return null;
@@ -3928,7 +3920,7 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
     const initialHostRecoveryId = ownedHost.snapshot.token;
     const initialHostRecovery = ownedHost.snapshot;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v3",
+      schema: "crdd-coordinator/operation-identity/v4",
       operationNonce,
       provider: plan.provider,
       consumer,
@@ -3938,8 +3930,6 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
       taskAttempt: plan.taskAttempt,
       stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
       providerHomeIdentityHash: plan.providerHomeIdentityHash,
-      providerHomeProtectionHash: plan.providerHomeProtectionHash,
-      localUserBindingHash: plan.localUserBindingHash,
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: plan.ownershipLabel,
       operationMode: plan.operationMode,

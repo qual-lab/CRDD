@@ -29,10 +29,8 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
     "../../scripts/verify-provider-home.ts",
     import.meta.url,
   ).href;
-  const platformUrl = new URL(
-    "../../../platform-access/src/index.ts",
-    import.meta.url,
-  ).href;
+  const platformUrl = new URL("../../scripts/provider-home.ts", import.meta.url)
+    .href;
   const domainUrl = new URL(
     "../../../domain-model/src/index.ts",
     import.meta.url,
@@ -54,20 +52,16 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
     process.env.LOCALAPPDATA=${JSON.stringify("C:\\synthetic-home-not-read")};
     let mode='normal',observations=0,acquisitions=0,releases=0,held=false,pipe=null;
     mock.module(${JSON.stringify(platformUrl)},{namedExports:{...platform,
-      observeWindowsProviderHome:(provider,home)=>{
+      observeProviderHome:(provider,home)=>{
         observations++;
         assert.equal(home,path.win32.join(process.env.LOCALAPPDATA,'Qual-Lab','CRDD','ProviderHomes',provider));
         if(observations===2)assert.equal(held,true);
         if(mode==='first_throw'||(observations===2&&mode==='second_throw'))throw Error('synthetic_observation_throw');
-        if(mode==='first_native_unknown'||(observations===2&&mode==='second_native_unknown'))
-          return {status:'blocked',processEffectIssued:true,helperExitConfirmed:false,filesystemEffectIssued:false};
         if(mode==='first_blocked'||(observations===2&&mode==='second_blocked'))
           return {status:'blocked',processEffectIssued:false,helperExitConfirmed:false,filesystemEffectIssued:false};
-        return {status:'candidate',provider,processEffectIssued:mode!=='candidate_no_process',helperExitConfirmed:mode!=='helper_unknown',
-          artifactVerifiedBeforeAndAfter:mode!=='artifact_missing',filesystemEffectIssued:mode==='filesystem_effect',
-          providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),
-          localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:
-            observations===2&&mode==='changed'?'e'.repeat(64):'d'.repeat(64)};
+        return {status:'candidate',provider,processEffectIssued:false,filesystemEffectIssued:mode==='filesystem_effect',
+          providerHomeIdentityHash:'a'.repeat(64),
+          stableLogicalHomeBindingHash:observations===2&&mode==='changed'?'e'.repeat(64):'d'.repeat(64)};
       },
       }});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock: name=>{
@@ -93,7 +87,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
     assert.equal(observations,0);assert.equal(acquisitions,0);
     for(mode of ['normal','changed','first_blocked','second_blocked','first_throw','second_throw',
       'save_throw','unavailable','acquire_unknown','acquire_throw','release_unknown','release_throw',
-      'helper_unknown','artifact_missing','filesystem_effect','first_native_unknown','second_native_unknown','candidate_no_process']){
+      'filesystem_effect']){
       observations=0;acquisitions=0;releases=0;held=false;pipe=null;
       const runId='fixture-'+randomUUID();
       const provider=mode==='normal'?'codex':'claude';
@@ -102,12 +96,12 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
       assert.equal(result.authenticationChecked,false);assert.equal(result.aiIssued,false);assert.equal(result.dockerIssued,false);
       assert.equal(result.status,mode==='normal'?'observed':'blocked');
       assert.equal(result.observationMatched,['normal','release_unknown','release_throw','save_throw'].includes(mode));
-      const preRejected=['first_blocked','first_throw','helper_unknown','artifact_missing','filesystem_effect','first_native_unknown','candidate_no_process'];
+      const preRejected=['first_blocked','first_throw','filesystem_effect'];
       const acquired=![...preRejected,'unavailable','acquire_unknown','acquire_throw'].includes(mode);
       assert.equal(releases,acquired?1:0,mode);
       assert.equal(acquisitions,preRejected.includes(mode)?0:1,mode);
       if(pipe)assert.deepEqual(pipe,{directory:path.dirname(path.win32.join(process.env.LOCALAPPDATA,'Qual-Lab','CRDD','ProviderHomes',provider)), name:'provider-home.'+'d'.repeat(64)+'.lock', identity:'provider-home:'+'d'.repeat(64)});
-      const unknown=['first_throw','second_throw','acquire_unknown','acquire_throw','release_unknown','release_throw','helper_unknown','filesystem_effect','first_native_unknown','second_native_unknown'].includes(mode);
+      const unknown=['first_throw','second_throw','acquire_unknown','acquire_throw','release_unknown','release_throw','filesystem_effect'].includes(mode);
       assert.equal(result.resourceCleanupConfirmed,!unknown,mode);
       const retained=unknown||mode==='save_throw';
       assert.equal(result.fixtureCleanupConfirmed,!retained,mode);

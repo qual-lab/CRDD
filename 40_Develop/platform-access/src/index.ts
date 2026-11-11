@@ -2,7 +2,7 @@
  * Platform AccessのNode公開境界。
  *
  * @packageDocumentation
- * @responsibility 固定Native、Provider Homeの技術搬送とOS／Profile差分の子Process環境を公開する。
+ * @responsibility 固定Artifact同一性、Windows所在観測と残存するOS／Profile子Process環境を公開する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @trace ARCH-000010
@@ -26,12 +26,3 @@ export {
   createChildProcessEnvironment,
   deriveWindowsSystemDrive,
 } from "./process/environment.ts";
-export {
-  observeWindowsProviderHome,
-  type DevelopmentNativeSource,
-  type DevelopmentNativeSourceReader,
-} from "./filesystem/root.ts";
-export {
-  describeProviderHomeObservationContract,
-  type ProviderHomeObservationProvider,
-} from "./filesystem/protection.ts";

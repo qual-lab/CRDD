@@ -1175,7 +1175,7 @@ function fixtureOperation(
     management,
     repository,
     identity: {
-      schema: "crdd-coordinator/operation-identity/v3",
+      schema: "crdd-coordinator/operation-identity/v4",
       operationNonce: nonce,
       provider: "claude",
       consumer: "coordinator_cli",
@@ -1189,8 +1189,6 @@ function fixtureOperation(
       taskAttempt: 0,
       stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
       providerHomeIdentityHash: "8".repeat(64),
-      providerHomeProtectionHash: "9".repeat(64),
-      localUserBindingHash: "6".repeat(64),
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
       operationMode: "isolated_task",

@@ -1,5 +1,17 @@
 # Platform Accessの構造・Native接続再編
 
+## Provider HomeのNode移管とNative保護の退役 — 2026-11-11
+
+変更分類: 人間承認済みの保護Policy縮小とOwner整理。Coordinatorが上位設定のHomeをNodeで観測し、Executor単独検証入口も同じ物理実体・共有資源キーを使用する。認証・通常Attemptのwx保持区間、必要保存通知、DIのProcess終了・Cleanup不明時の保持は変更しない。SID／Token・厳密DACL・祖先Handleの独立観測を失うことを採用済みの保証変更として明記し、同等保証への置換とはしない。認証方式・Image・通信制限・実Docker操作は対象外。
+
+PAのHome API、専用TS搬送／Protocol・Rustの主体／保護／Home処理、不要になった内部Known Folder処理を撤去した。旧Home要求はOS観測前の一般拒否に統一する。固定配布物は122,368bytes、SHA256 `8e223559b0ce1d10423ae05be9018a1d0aed09b0c901cfd7264a86f7ddea08a5`へSourceとBootstrap・有限fixtureを同期した。PAにはSystem Windows所在・残存子環境・Artifact同一性処理が残り、PA全廃とはしない。
+
+Operation Identityをv4、認証回復記録をrevision 3へ変更し、旧保護Hash・OS主体Hashを削除した。旧形式の互換Reader、旧記録の自動移行・削除は作らない。同じHome親の未知Lock、同Providerの別key記録／pending、旧revisionは保全して停止する。新旧Processの並走と未完了記録がある状態での基点変更は禁止する。資源キーは利用者Principalや認可ではない。
+
+限定確認では、本番／単独入口の大小文字Path対照、内容更新、Link・不明実体・旧Lock、旧key記録とpending保全、正常保存・中断再入場、必須通知失敗と取消を反証した。単独script10件、PA8件、関連Coordinator68件、保存Node接続14件、公開境界11件、Executor31件、Domain純粋22件の実行を個別に確認した（重複を含み、全体回帰の集計ではない）。Rust単体3・CLI5、型構成・書式・warning禁止Lintを確認した。Test Catalogは退役したTS2・Rust2登録を削除し419件valid。実カバレッジ計測は行わず、存続4 Sourceへの期待集合と実在性を契約試験で確認した。
+
+独立Sourceレビューでカバレッジ期待集合の旧3 Source参照を指摘され、削除済み範囲だけを除去して存続ファイルの完全一致試験を追加した。旧Native説明・理由名・現在設計・管理情報も追従した。独立再レビューは追加必須指摘なし。追加保存側67件は66成功・1件が試験起動の`--experimental-test-module-mocks`欠落で開始失敗し、該当suiteを正しい条件で再実行して4件成功（先行成功との重複あり）を確認した。製品Sourceの是正や検査緩和は不要だった。今回fixtureは各試験の所有範囲内で回収した。全体回帰・実AI・実Docker・過去保持物は操作せず、Release成立を主張しない。
+
 ## 退避Root全体の標準削除と単一entry Native退役 — 2026-11-11
 
 変更分類: 人間承認済みの回収契約簡素化。対象全体の廃棄に子の種類・個別Identityを要求する過剰条件を削除する。DIを変更する理由は既存の実処置OwnerにNode標準削除を接続するため。公開IF・保存Schema・元checkpoint・上位許可／非使用・保存順序は変更しない。PA単一entry API／TS／Rust／Protocol・専用診断・試験を代替なしで撤去し、Provider Home保護・Windows所在観測の共用Nativeを維持する。着手前に既存Root・子・部分成功・取消の保証を照合し、Node標準の実行意味と失敗を公式Sourceへ接続した。技術・資源終了・利用側・文書の独立レビューを行い、準拠基準・権限・リリースは不変のため準拠／リリース監査は行わない。

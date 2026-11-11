@@ -82,9 +82,7 @@ const {
 } = await import("../../domain-model/src/index.ts");
 const { getRepository } = await import("../../version-control/src/index.ts");
 
-const { observeWindowsProviderHome } = await import(
-  "../../platform-access/src/index.ts"
-);
+const { observeProviderHome } = await import("./provider-home.ts");
 
 const { isPrimaryFailureDiagnostic } = await import(
   "./provider-attempt-host.ts"
@@ -185,7 +183,7 @@ export function buildStandaloneTrialRequest(
   spec: ReturnType<typeof describeStandaloneProviderTrial>,
   root: string,
   home: Extract<
-    ReturnType<typeof observeWindowsProviderHome>,
+    ReturnType<typeof observeProviderHome>,
     { status: "candidate" }
   >,
   homePath: string,
@@ -227,8 +225,6 @@ export function buildStandaloneTrialRequest(
       ...{
         provider: home.provider,
         providerHomeIdentityHash: home.providerHomeIdentityHash,
-        providerHomeProtectionHash: home.providerHomeProtectionHash,
-        localUserBindingHash: home.localUserBindingHash,
         stableLogicalHomeBindingHash: home.stableLogicalHomeBindingHash,
         operationId,
         grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
@@ -251,7 +247,7 @@ export function buildStandaloneTrialRequest(
  * @returns 生出力・Home metadataなしの限定結果。
  * @precondition 親の同意とIPC相関、名前付きtests領域の準備が確認済み。
  * @postcondition 元completionを待ち、未確認を成功にしない。
- * @effect 新品Root・既存Native二観測・同期排他・固定Executor一回。
+ * @effect 新品Root・Node実体観測・同期排他・固定Executor一回。
  * @failure 取得null／保存拒否／終了不明はRoot保持。
  * @invariant Signalは同じControlへ配送し、Task再送・別回復を作らない。
  * @boundary 試験用Hostだけ。本番Host喪失回復の代替ではない。
@@ -336,17 +332,9 @@ export async function runStandaloneProviderTrial(
       spec.provider,
     );
     operationCleanupConfirmed = false;
-    const first = observeWindowsProviderHome(spec.provider, homePath);
-    operationCleanupConfirmed =
-      (!first.processEffectIssued || first.helperExitConfirmed) &&
-      first.filesystemEffectIssued === false;
-    if (
-      first.status !== "candidate" ||
-      !first.processEffectIssued ||
-      !first.helperExitConfirmed ||
-      !first.artifactVerifiedBeforeAndAfter ||
-      first.filesystemEffectIssued
-    )
+    const first = observeProviderHome(spec.provider, homePath);
+    operationCleanupConfirmed = first.filesystemEffectIssued === false;
+    if (first.status !== "candidate" || first.filesystemEffectIssued)
       throw Error("trial_home_unconfirmed");
     const request = buildStandaloneTrialRequest(spec, root, first, homePath);
     const host = createStandaloneProviderAttemptHost(root, request, () => {
@@ -472,7 +460,8 @@ export async function runStandaloneProviderTrial(
   }
   if (signal.aborted) reason ??= "trial_cancelled";
   if (!releaseConfirmed) reason ??= "trial_home_release_unconfirmed";
-  if (!operationCleanupConfirmed) reason ??= "trial_native_cleanup_unconfirmed";
+  if (!operationCleanupConfirmed)
+    reason ??= "trial_home_observation_cleanup_unconfirmed";
   return Object.freeze({
     mode,
     fixtureReceipt,

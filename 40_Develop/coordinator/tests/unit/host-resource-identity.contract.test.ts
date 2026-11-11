@@ -47,8 +47,6 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
     selectionHash: "selected",
     stableLogicalHomeBindingHash: "home",
     providerHomeIdentityHash: "identity",
-    providerHomeProtectionHash: "protection",
-    localUserBindingHash: "user",
     ownershipLabel: "crdd.owner=fixture",
     operationMode: "isolated_task",
     activeMountCapability: {},

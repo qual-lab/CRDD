@@ -754,10 +754,10 @@ test("試験sessionのtokenは本番Task・native Home・Store・Runtime State�
   );
   assertPresent(taskCapability);
   for (const outcome of [
-    inspectRuntimeOwnedWindowsProviderHomeCandidate("codex", taskCapability),
+    inspectRuntimeOwnedWindowsProviderHomeCandidate("other"),
   ]) {
     assert.equal(outcome.status, "blocked");
-    assert.match(outcome.reason, /development_context_invalid$/u);
+    assert.match(outcome.reason, /node_input_invalid$/u);
     assert.equal(outcome.helperSpawnAttempts, 0);
     assert.equal(outcome.processEffectIssued, false);
     assert.equal(outcome.filesystemEffectIssued, false);

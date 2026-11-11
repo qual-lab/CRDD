@@ -2319,28 +2319,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:integration:root-observation",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/root-observation.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "protected-root",
-        "provider-home",
-        "native-boundary"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "process_effect_zero",
-        "callback_not_retained",
-        "raw_frame_not_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "docker-isolation:integration:repair-host-operations",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/integration/repair-host-operations.contract.test.ts",
@@ -8879,44 +8857,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:protected-root",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/filesystem/windows/protected_root.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "identity",
-        "protection"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "pure_contract_checked",
-        "no_external_effect"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:protection",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/filesystem/windows/protection.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "identity",
-        "protection"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "pure_contract_checked",
-        "no_external_effect"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:integration:cli",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/integration/native_cli.rs",
@@ -10456,25 +10396,6 @@
       "postconditions": [
         "deterministic_result_observed",
         "unknown_not_collapsed_to_pass"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:protected-root-protocol",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/unit/filesystem/protection.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "home",
-        "observation"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
       ],
       "mandatoryByDefault": true
     },

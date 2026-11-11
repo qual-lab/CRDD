@@ -1204,8 +1204,6 @@ export function prepareAttempt(
     "temporarySourcePath",
     "providerHomeSourcePath",
     "providerHomeIdentityHash",
-    "providerHomeProtectionHash",
-    "localUserBindingHash",
     "stableLogicalHomeBindingHash",
     "activeMountCapability",
     ...(Object.hasOwn(rawTarget, "workspaceProtection")
@@ -1221,8 +1219,6 @@ export function prepareAttempt(
     "temporarySourcePath",
     "providerHomeSourcePath",
     "providerHomeIdentityHash",
-    "providerHomeProtectionHash",
-    "localUserBindingHash",
     "stableLogicalHomeBindingHash",
   ])
     if (typeof targetData[key] !== "string") return null;
@@ -1351,8 +1347,6 @@ export function prepareAttempt(
     activeMountCapability: target.activeMountCapability,
     providerHomeSourcePath: target.providerHomeSourcePath,
     providerHomeIdentityHash: target.providerHomeIdentityHash,
-    providerHomeProtectionHash: target.providerHomeProtectionHash,
-    localUserBindingHash: target.localUserBindingHash,
     stableLogicalHomeBindingHash: target.stableLogicalHomeBindingHash,
     authContainerName,
     providerContainerName,
@@ -2266,8 +2260,6 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
         typeof digest === "string" && /^sha256:[a-f0-9]{64}$/u.test(digest),
     ) &&
     /^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) &&
-    /^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) &&
-    /^[a-f0-9]{64}$/u.test(plan.localUserBindingHash) &&
     /^[a-f0-9]{64}$/u.test(plan.stableLogicalHomeBindingHash) &&
     (isTaskPlan || isAdvicePlan
       ? Buffer.byteLength(plan.providerInput ?? "", "utf8") <=

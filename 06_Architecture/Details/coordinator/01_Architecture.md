@@ -442,7 +442,7 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 
 再開可能なEngine観測不明や準備中断は、今回の診断・技術観測と、既存の循環する運用履歴へ保持し、操作全体の不可逆な一次失敗へ自動昇格しない。`primaryFailure`は再発行不能なEffect不明等の最初の終端失敗に限定する。再入場可能な中間返却では`repairing`／outcome=nullを維持し、failed-launchの期待された追加四処置を失敗終端にしない。失敗／取消履歴の候補接続は局所・修正版実Hostと独立再レビューで限定確認済みである。後日の回復観測、保持物処置と失敗操作の終了整理は未完了であり、履歴確認や返却表示だけでこれらを完成としない。
 
-未リリースの`runtime_repair` Identity v2はnonce、Operation ID、Repository binding、consumerを保持し、Native principal由来の`ownerBindingSha256`と修復Scope Hashを持たない。同じ正規JSONから内容完全性Hashと回復IDを算出する。既存Taskの`localUserBindingHash`は別契約であり、この変更では変更しない。旧修復Identityを自動読替えせず、相関値だけをWriter資格として扱わない。同じ呼出しの現在Ownerと既存Writerの元版・読戻し・排他確認へ結合する。
+未リリースの`runtime_repair` Identity v2はnonce、Operation ID、Repository binding、consumerを保持し、Native principal由来の`ownerBindingSha256`と修復Scope Hashを持たない。同じ正規JSONから内容完全性Hashと回復IDを算出する。Task側もHome移管後のOperation Identity v4では旧`localUserBindingHash`を持たない。旧Identityを自動読替えせず、相関値だけをWriter資格として扱わない。同じ呼出しの現在Ownerと既存Writerの元版・読戻し・排他確認へ結合する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -809,23 +809,23 @@ Coordinator Runtimeは、正常に動作するOSの認証、Filesystem、Process
 
 ### 7.2 専用Provider Homeの観測
 
-専用Provider Home保護基盤（Dedicated Provider Home Protection Foundation）は、Windowsのlocal userとProvider単位の永続Home方針、固定配置および読み取り専用のRuntime所有観測をCoordinator側に保持する。OS観測だけをprivateな[Windowsプラットフォームアクセス部](../platform-access/01_Architecture.md)へ限定する。
+専用Provider Homeの配置選択と読取り専用観測はCoordinatorが所有する。上位設定の`LOCALAPPDATA`と固定`Qual-Lab/CRDD/ProviderHomes/{codex|claude}`を使用し、Node.jsのPath・Directory実体を確認する。SID／Token・厳密DACL・祖先Handle観測は撤去した。既存OS権限を運用前提とし、Nativeと同等の保護保証とはしない。
 
 **入力と取得**
 
 - 呼出し元が渡したWindows絶対Pathは、Authorityを持たない字句候補に限る。
-- Runtime observerのrequestへPath、SID、ACL、Profile IDまたはOperation IDを含めてはならない（MUST NOT）。
-- observerはWindows既知フォルダーのローカルアプリデータ（Windows Known Folder local app data）からRootを独立取得しなければならない（MUST）。
+- 本番observerはProviderだけを受け、上位設定から所在を選ぶ。SID・ACL・Profile ID・Operation IDを所在解決へ混ぜない。
+- 設定した基点はOSから独立証明した所在ではない。新旧Processは並走させず、未完了記録がある状態で基点を変更しない。
 
 **結合条件**
 
-observerは固定`Qual-Lab/CRDD/ProviderHomes/{codex|claude}`を、現在Processのlocal interactive primary token、同じlogin session、Root handle／Identity、local fixed volume、全固定segmentのnon-link／non-reparse、selected user ownerおよびprotected DACLへ結合しなければならない（MUST）。Provider Homeのwrite-capable ACEは、selected userとSYSTEMの継承付きFull Controlだけに限定する。別writer、未保護DACL、Identity差または情報不足では修復せずFail Closedとする。
+observerはHomeのDirectory・非Link・正規Pathと、二回のdev／ino／birthtimeの一致を確認する。不明・Path差・実体差は修復せず停止する。Credential更新によるmtime／ctimeの変化をHome交換とは扱わない。所有者・DACL・別ユーザーのアクセス禁止は実行時に検証しない。Path確認と利用の間の非協調Processによる置換を原子的には排除しない。
 
 **出力とCapability**
 
-- 結果は、Provider、nonce、既知flagおよびProvider Home Identity／保護／local user bindingのdomain-separated Hashだけへ限定する。
+- 結果はProvider、非秘密の物理実体Hash、Provider＋正規Home所在から導く共有資源キーに限定する。旧保護Hash・OS主体Hashへ代替値を補わない。資源キーは認可・利用者Identityではない。
 - Path、SID、login LUID、ACLまたはCredential内容を返してはならない（MUST NOT）。
-- 必要なNative Artifactの実体／Hashの起動前後一致、用途限定の元要求および上限付きProcess終了を同じRuntime invocationで確認できない場合は、観測Capabilityを発行しない。CRDD署名Manifestの有無はこの発行条件にしない。
+- 子ProcessやNative Artifactは使用しない。単独検証スクリプトも同じNode観測条件・共有資源キーを使い、大小文字Pathを含む実Directory対照試験で本番との一致を確認する。
 - 観測CapabilityはProcess-local、opaque、短命かつ一回限りとする。単独でAuthority、Operation Capability、Mount Grant、mount、loginまたはProvider spawnを成立させてはならない（MUST NOT）。
 
 observerはHome作成またはDACL修復を行わない。明示bootstrap Effect、回復、logout／revoke／削除は別Lifecycleとして再評価する。
@@ -862,7 +862,7 @@ observerはHome作成またはDACL修復を行わない。明示bootstrap Effect
 
 Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount Grant）は、同じOperation世代のopaque management Capabilityと、一回限りのRuntime所有Provider Home観測Capabilityからだけ発行しなければならない（MUST）。呼出し元が渡したOperation ID、観測Hash、時刻、Path、SID、ACLまたはCredential値を発行Authorityとして受理してはならない（MUST NOT）。
 
-Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分、使用上限1回へ固定する。Provider、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。
+Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分、使用上限1回へ固定する。Provider、Operation、Provider Homeの物理実体Hashと共有資源キーを結合する。共有Homeのwx排他・必要保存通知・Cleanup不明時の保持は維持する。
 
 Home Grant・Provider Authority・Local Personal Authority・Isolation・prelaunchは、Model Profile ID、Tier、Catalog Revision又はモデル選定を保持・入力・再検査しない。Provider固有のOffering・OriginはAI Adapterの`getAuthenticationDefinition`を正本とする。モデル側とはoperationとproviderで相関する。Model Grant・Packet・準備計画は受付時の完全選定を保持するが、Home利用許可へ搬送しない。公開利用側の旧設定撤去・本番接続と最終回帰は別の完了条件である。
 

@@ -2,6 +2,18 @@
 
 ## 現在の残存範囲 — 2026-11-11
 
+### Provider HomeのNode移管
+
+Coordinatorの認証・通常Attempt入口は、上位設定の`LOCALAPPDATA`配下にある専用HomeをNode.jsの`lstat`・`realpath`で観測する。Directory・非Link・正規所在と、二回のdev／ino／birthtimeの一致を要求する。Credential本文は読まない。内容更新に伴うmtime／ctimeの変化はHome交換と判定しない。
+
+SID／Token・選択利用者／SYSTEMだけの厳密DACL・祖先Handle保持はこの本番入口では検証しない。既存OS権限を運用前提とし、他OSユーザーによるアクセス禁止やPath差替え競合の原子的排除を保証しない。従来と同等のNative保護への置換ではない。
+
+共有Homeのwx排他は維持する。資源キーはProviderと正規Home所在から導き、Repositoryや要求者Principalから導かない。物理実体Hashと資源キーを区別し、旧保護Hash・OS主体Hashへ代替値を補わない。Operation Identityはv4、認証回復記録はrevision 3とし、旧記録を新形式として読まない。同じHome親の未知Lockと、同Providerの別key回復記録／pendingは保全して停止する。新旧Processの並走、未完了記録がある状態での基点変更は禁止する。旧基点を自動探索・移行・清掃する機構は追加しない。
+
+Executor単独検証スクリプトもNode観測へ接続した。PAのHome API、保護Protocol、SID／Token／DACL・祖先Handle実装、不要となったKnown Folder内部処理と専用試験を撤去した。旧Home要求は一般の固定拒否応答へ閉じ、互換受付は作らない。固定配布物は同じNative Sourceへ同期する。PAにはWindows所在・子環境・Artifact同一性の残存処理があり、PA全廃とはしない。以下の旧Home保護仕様は移管前の履歴であり、現在の保証へ読み替えない。全体回帰・実AI・実Docker・過去保持物の操作は実施しない。
+
+限定回帰、型・書式・warning禁止Lint、台帳419件validと独立再レビューを確認した。旧DACL検証の試験成功を新方式の保証へ流用せず、実Directory、共有キー対照、旧Lock／記録保全と停止、通知・保存・取消の試験へ対応付けた。[変更・検証記録](../../../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#provider-homeのnode移管とnative保護の退役--2026-11-11)を参照する。
+
 ### 単一Filesystem観測の退役
 
 退避DirectoryはRoot実体・同親・現在source・上位の廃棄許可を照合し、DIがNode標準の再帰削除を実行する。子のSocket種別・個別Identity・件数／深さによる選別は撤去した。PAの単一entry API・CRDDFE01・Native mode・専用実装／診断／試験も撤去し、旧modeを一般拒否へ閉じる。Provider Home保護・Windows所在観測は維持する。固定配布物とHashは同じSourceへ同期する。方式と保証差は[DI設計](../docker-isolation/01_Architecture.md#退避root単位のnode削除--2026-11-11)を正本とする。
@@ -49,13 +61,13 @@ Dockerの署名確認専用PowerShell環境は、DIの既存`docker-cli/environm
 | 残る機能と利用先 | Node.js標準だけへの置換で失うもの | 現在の処置 |
 |---|---|---|
 | Runtime State初期化：Coordinator | SID／DACL・祖先Handleの独立確認 | 本番は既存Node Storeへ移管済み。旧Native内部Protocolと初期化処理も削除済み |
-| Provider Home観測：Coordinator | 選択利用者SID、protected DACL、祖先Handle・Token照合 | Native Policyを維持。Runtime Stateの判断を認証Homeへ流用しない |
+| Provider Home観測：Coordinator | 選択利用者SID、protected DACL、祖先Handle・Token照合 | 承認済みNode移管。共有Home排他を維持し、OS権限を運用前提とする。旧PA経路は撤去 |
 | OS既定所在：Native自身の搬送 | System Windows API由来の独立観測 | PA自身に必要なSystem Windows観測は維持。DIの所在は上位確定設定へ移管し、Local AppData専用入口は退役済み |
 | Desktop Helper：退役 | 独自Process不存在・Native Handle／Job等の保証 | 公式CLIと既存Node処理へ統合済み。同等保証とは扱わず、現行条件はDI設計を参照する |
 | Desktop技術排他：DI | 旧SID Mutexの区分・Crash時自動解放 | 共通wxへ移行済み。同じ基点の運用・残存時のFail Closed・停止下明示回復とし、旧方式とは並走しない |
 | Artifact照合：上記搬送の全利用側 | 固定配布物の前後同一性とProtocol相関 | Nativeが残る間は維持 |
 
-現在維持するSourceはProvider Home、必要なSystem Windows／Native環境、Artifact搬送である。退役行を未使用Sourceの温存理由にしない。PA全廃には残る保護Policyと保証の判断が必要である。Desktopの現在結果は冒頭の退役節、wx移行の経緯は[変更記録§15](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)を参照する。以下の日付付き節は各段階の判断履歴であり、旧Pipe・Helper記述を現行機能へ読み替えない。
+現在維持するSourceはSystem Windows／残存Native環境とArtifact同一性観測である。Provider Homeは本書冒頭のNode移管を現在値とする。退役行を未使用Sourceの温存理由にしない。PA全廃には残存利用の整理が必要である。以下の日付付き節は各段階の判断履歴であり、旧保護・Pipe・Helper記述を現行機能へ読み替えない。
 
 <a id="namespaceの旧子撤去とnodejs統合の検討--2026-11-06"></a>
 
@@ -298,8 +310,7 @@ crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、
 用途別Adapter（Coordinator／Docker Isolation等）
   → Platform Accessの固定Artifact／Bootstrapで実体・Hashを観測
   → 固定Pathのcrdd-platform-access.exe
-    ├ Provider Homeの保護・実体観測
-    └ System Directoryの観測
+    └ System Directoryの観測（Home観測はCoordinatorのNode処理へ移管）
   → nonce・応答・終了・実体同一性を再確認
   → 診断／Task／Recovery結果
 ```
@@ -316,22 +327,16 @@ Coordinator／Docker Isolation
 Platform Access TypeScript（要求構築・搬送・応答・終了の技術Owner）
   ↓ 検証済み固定binary
 Rust受付・dispatch [src/native/main.rs]
-  ├→ Provider Home要求・応答 [protocol/access.rs]
-  │     └→ 固定Provider Home観測 [filesystem/windows/protected_root.rs]
-  │          ├→ 主体・Token観測 [process/windows/principal.rs]
-  │          └→ 保護・実体観測 [filesystem/windows/protection.rs]
-  └→ System Directory／内部Known Folder観測 [filesystem/windows/windows_directory.rs]
+  ├→ 退役要求の固定拒否 [protocol/access.rs]
+  └→ System Directory観測 [filesystem/windows/windows_directory.rs]
   ↓ 閉じた応答frameとProcess終了
 Platform Access側で技術相関を確認 → 上位の許可・診断／回復判断
 ```
 
 | 内部ブロック | Source群（Rustは`src/native/`基準） | 所有範囲 |
 |---|---|---|
-| 受付・応答形式 | `main.rs`、`protocol/access.rs` | 固定mode選択、Provider Home応答と不正要求拒否。旧Store値3／Runtime値4・初期化要求は拒否 |
-| Windowsフォルダ観測 | `filesystem/windows/windows_directory.rs` | System Directory公開観測とProvider Home内部のKnown Folder取得 |
-| Windows主体観測 | `process/windows/principal.rs` | Provider Home用Token／SID／認証Sessionと主体分類 |
-| Windows保護・実体観測 | `filesystem/windows/protection.rs` | Handle・Descriptor所有、Directory Identity、ACL AccessCheckとhash resource解放 |
-| 固定Provider Home観測 | `filesystem/windows/protected_root.rs` | Codex／Claudeの固定親と主体・保護Bindingを照合。Credential本文を読まず、既存Homeの作成・修復はしない |
+| 受付・応答形式 | `main.rs`、`protocol/access.rs` | 所在mode選択と固定拒否。Home・Store・Runtime・初期化要求を観測へ配送しない |
+| Windowsフォルダ観測 | `filesystem/windows/windows_directory.rs` | System Directory公開観測だけ。Home用Known Folder内部処理も撤去 |
 | Artifactと搬送 | `src/artifact/identity.ts`、`src/filesystem/` | 固定配布物のHash・実体、要求／応答相関と子Process終了を確認する |
 
 Runtime State初期化・保存はCoordinatorのNode Store、Docker Desktop操作はDIが所有する。削除したNative初期化・Desktop Helperの代替modeは設けない。Provider Homeの観測結果は既存の上位Ownerが同じ操作へ結合するものであり、Hashだけで許可やMount権限を発行しない。Linux／macOSのNative実装経路はない。
@@ -387,19 +392,19 @@ Namespaceの親・Recovery Directoryの固定child／Root範囲・非link・Path
 
 ## 4. バイナリ境界
 
-存続するProvider Homeは`protocol/access.rs`、System Directoryは固定出力実装が正本である。Namespace／Runtime State初期化はCoordinator、Docker環境操作はDIが所有する。
+System Directoryは固定出力実装が正本である。Home・Namespace／Runtime StateはCoordinator、Docker環境操作はDIが所有する。
 
 | Protocol | 識別と長さ | 確認事項 |
 |---|---|---|
 | 不正要求 | `CRDDPR03`、固定拒否応答86bytes | 旧Root・AppContainer・Namespace・Desktop専用modeは拒否。未知の標準入力を観測へ配送しない |
-| Provider Home | revision 3、`CRDDPH02`／`CRDDHO02`、要求76・応答182bytes | 値1／2、nonce、主体・保護・安定Identity。byte11は予約0のみ。旧値3／4と非0の初期化指定はOS観測前に拒否する |
+| Provider Home：退役 | 旧`CRDDPH02`の入力も固定拒否86bytes | Provider値に関係なく観測へ配送しない。旧応答frameは生成しない |
 | System Directory | `CRDDWD01`と実装の固定長・UTF-16出力 | PA自身が必要とするWindows所在の独立観測 |
 
-Provider Home入力prefixを持つ不正要求は、既存の182bytes拒否frameで返す。部分応答・nonce不一致・異常終了を成功へ補完せず、raw出力や秘密を公開しない。
+退役したProvider Home入力も一般の86bytes拒否frameで返す。部分応答・異常終了を成功へ補完せず、raw出力や秘密を公開しない。
 
 ## 5. 状態・資源・回復
 
-Provider Home観測は、要求検証、固定対象open、主体・保護・実体観測、前後一致、応答の順で行う。Directory、Token、security descriptor、Known Folderおよびhash handleは所有箇所で解放する。Runtime StateのDirectory作成Effectは発行しない。
+PAはProvider Home観測やFilesystem作成Effectを発行しない。Homeの二回のNode実体観測、共有wx排他と回復記録の保持はCoordinator／Executorの既存Ownerが扱う。
 
 TypeScript搬送は固定binaryの同一性、完全frame、相関と子Process終了を確認し、不明を正常へ補完しない。Native観測自身は耐久Recovery record・Lock・操作許可を所有しない。Docker Desktopの停止・起動・Directory処置は[DI設計](../docker-isolation/01_Architecture.md#desktop-helperの退役と公式cliへの接続--2026-11-10)へ委譲し、旧Job／Mutex／Helperを再設置しない。
 
@@ -407,7 +412,7 @@ TypeScript搬送は固定binaryの同一性、完全frame、相関と子Process�
 
 | Native／PA側 | 上位Owner側 |
 |---|---|
-| OS実体・主体・保護の観測 | Repository、Provider、同一操作との結合 |
+| 残存するWindows所在の観測 | Home所在の選定、Repository、Provider、同一操作との結合 |
 | 固定入力、nonce・flag・Hash、完全応答とProcess終了 | 操作許可、実行・回復判断、耐久記録、結果公開 |
 | Native handleの解放 | Docker、Mount、Host等をまたぐ全体Cleanup |
 
@@ -419,7 +424,7 @@ TypeScript搬送は固定binaryの同一性、完全frame、相関と子Process�
 |---|---|
 | 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/integration/native_cli.rs)、protocol内試験。存続要求のframeと旧値3／4・初期化指定の拒否を確認 |
 | 成果物同一性 | [成果物同一性試験](../../../40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts)。固定Artifact／Bootstrapと実Filesystem相関を確認し、Publisher真正性や実行許可へ昇格しない |
-| Provider Home | Native共有Hash・SID試験と[保護Protocol試験](../../../40_Develop/platform-access/tests/unit/filesystem/protection.contract.test.ts)、[公開搬送試験](../../../40_Develop/platform-access/tests/integration/root-observation.contract.test.ts) |
+| Provider Home：Node移管 | [実Directory・本番／単独入口の対照試験](../../../40_Develop/coordinator/tests/integration/development-native-observation.integration.test.ts)、[旧回復記録拒否](../../../40_Develop/coordinator/tests/integration/provider-authentication-recovery.integration.test.ts)、[単独入口の有限境界試験](../../../40_Develop/executor/tests/integration/provider-home-boundary.contract.test.ts) |
 | System Directory | [所在試験](../../../40_Develop/platform-access/tests/integration/system-directory.contract.test.ts)、Native所在試験 |
 | 移管済みRuntime State | [判断Store統合試験](../../../40_Develop/coordinator/tests/integration/task-windows-decision-store.contract.test.ts)。Nodeでの成立をNative保護成立へ読み替えない |
 | 移管済みDocker操作 | [DI技術接続試験](../../../40_Develop/docker-isolation/tests/integration/repair-runtime.contract.test.ts)、[Coordinator Writer結合試験](../../../40_Develop/coordinator/tests/integration/runtime-repair-owner.contract.test.ts)。実Docker境界は別Gate |

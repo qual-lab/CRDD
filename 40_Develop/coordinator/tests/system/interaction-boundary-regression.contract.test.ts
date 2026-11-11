@@ -540,51 +540,6 @@ test("Windows OS Profile判定不能は親Profileへfallbackしない", (context
 });
 
 /**
- * Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じるを検証する。
- *
- * @responsibility Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じるの合否判定を所有する。
- * @trace EST-ST-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じる", (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows Local Personal contract");
-    return;
-  }
-  const fixture = path.join(
-    coordinatorRoot,
-    "tests",
-    "fixtures",
-    "windows-native-helper-environment-unavailable.ts",
-  );
-  const result = spawnSync(
-    process.execPath,
-    ["--experimental-test-module-mocks", "--no-warnings", fixture],
-    {
-      shell: false,
-      encoding: "utf8",
-      timeout: 10_000,
-    },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stderr, "");
-  assert.deepEqual(JSON.parse(result.stdout), {
-    outcomes: 1,
-    spawnCalls: 0,
-    filesystemEffectIssued: false,
-    networkEffectIssued: false,
-    authorityIssued: false,
-    capabilityIssued: false,
-    manualRecoveryRequired: false,
-  });
-});
-
-/**
  * Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないを検証する。
  *
  * @responsibility Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないの合否判定を所有する。
@@ -687,9 +642,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   assert.deepEqual(
     childProcessImportSources,
     [
-      "40_Develop/platform-access/src/filesystem/root.ts",
       "40_Develop/platform-access/src/filesystem/system-directory.ts",
-      "40_Develop/platform-access/src/filesystem/entry.ts",
       "40_Develop/docker-isolation/src/cleanup/execute.ts",
       "40_Develop/docker-isolation/src/cleanup/container.ts",
       "40_Develop/docker-isolation/src/docker-cli/trust.ts",

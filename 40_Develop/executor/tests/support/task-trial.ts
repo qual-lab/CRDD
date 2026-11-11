@@ -141,8 +141,6 @@ export function buildTaskTrialRequest(
   home: Readonly<{
     provider: string;
     providerHomeIdentityHash: string;
-    providerHomeProtectionHash: string;
-    localUserBindingHash: string;
     stableLogicalHomeBindingHash: string;
   }>,
   homePath: string,
@@ -184,8 +182,6 @@ export function buildTaskTrialRequest(
       ...{
         provider: spec.provider,
         providerHomeIdentityHash: home.providerHomeIdentityHash,
-        providerHomeProtectionHash: home.providerHomeProtectionHash,
-        localUserBindingHash: home.localUserBindingHash,
         stableLogicalHomeBindingHash: home.stableLogicalHomeBindingHash,
         operationId,
         grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,

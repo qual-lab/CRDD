@@ -374,8 +374,6 @@ function fixture() {
         temporarySourcePath: "C:/synthetic/tmp",
         providerHomeSourcePath: value.providerHomeSourcePath,
         providerHomeIdentityHash: value.providerHomeIdentityHash,
-        providerHomeProtectionHash: value.providerHomeProtectionHash,
-        localUserBindingHash: value.localUserBindingHash,
         stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash,
         activeMountCapability: value.activeMountCapability,
       },

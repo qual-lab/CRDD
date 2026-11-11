@@ -34,20 +34,20 @@ test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ"
   const contract = describeProviderHomeContract();
   assert.equal(contract.contract, PROVIDER_HOME_CONTRACT);
   assert.equal(contract.contractRevision, PROVIDER_HOME_CONTRACT_REVISION);
-  assert.equal(contract.scope, "local_os_user_and_provider");
+  assert.equal(contract.scope, "canonical_provider_home_resource");
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.equal(contract.persistentAcrossOperations, true);
-  assert.equal(contract.sharedAcrossRepositoriesForSameOsUser, true);
+  assert.equal(contract.sharedAcrossRepositoriesForSameHome, true);
   assert.equal(contract.hostDefaultHomeImportAllowed, false);
   assert.equal(contract.hostCredentialImportAllowed, false);
   assert.equal(contract.operationTemporaryHomeImportAllowed, false);
   assert.equal(contract.otherProviderHomeSharingAllowed, false);
   assert.equal(contract.operationCleanupOwned, false);
-  assert.equal(contract.symlinkJunctionOrReparseAllowed, false);
+  assert.equal(contract.symbolicLinkOrNoncanonicalPathAllowed, false);
   assert.equal(contract.stableRootIdentityRequired, true);
-  assert.equal(contract.selectedLocalUserBindingRequired, true);
-  assert.equal(contract.ownerAndDaclVerificationRequired, true);
-  assert.equal(contract.untrustedWriterAllowed, false);
+  assert.equal(contract.selectedLocalUserBindingRequired, false);
+  assert.equal(contract.ownerAndDaclVerificationRequired, false);
+  assert.equal(contract.osPermissions, "operator_precondition");
   assert.equal(
     contract.mountGrant.structuralCore,
     "implemented_candidate_non_authoritative",
@@ -208,22 +208,16 @@ test("layout候補は保護・認証・mount Grantの実装済み主張へ昇格
   );
   assert.equal(
     contract.requiredEffectRootSource,
-    "windows_known_folder_local_app_data_at_explicit_bootstrap_time",
+    "upper_configured_provider_home_parent",
   );
   assert.equal(contract.protectionEffect, "not_implemented");
   assert.equal(
     contract.protectionObservation,
-    "implemented_runtime_owned_read_only_native_observation_candidate",
+    "node_physical_directory_observation_no_acl_verification",
   );
-  assert.equal(
-    contract.selectedLocalUserBinder,
-    "implemented_runtime_owned_current_local_interactive_token_candidate",
-  );
-  assert.equal(
-    contract.runtimeOwnedObservation.callerSuppliedPathAccepted,
-    false,
-  );
-  assert.equal(contract.windowsAdapter.shellInvocation, false);
+  assert.equal(contract.selectedLocalUserBinder, "not_performed");
+  assert.equal(contract.windowsAdapter.nativePolicyVerification, false);
+  assert.equal(contract.windowsAdapter.processEffectIssued, false);
   assert.equal(contract.authSessionProbe, "not_implemented");
   assert.equal(contract.callerPathConfersAuthority, false);
   assert.equal(contract.filesystemEffectIssued, false);

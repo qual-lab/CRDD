@@ -26,16 +26,16 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
     const f=await createIsolationFixture({mock});
     const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
     const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
-    const platform=await import(${JSON.stringify(url("../../../platform-access/src/index.ts"))});
+    const platform=await import(${JSON.stringify(url("../../scripts/provider-home.ts"))});
     const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
     let mode='normal',live=false,releases=0,observations=0,failKind=null,activeHost=null,activeStarted=null,cancelPromise=null;
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
       prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request,settings);},
       executeIsolation:f.api.executeIsolation,
     }});
-    mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
+    mock.module(${JSON.stringify(url("../../scripts/provider-home.ts"))},{namedExports:{...platform,
 
-      observeWindowsProviderHome:provider=>{assert.equal(live,true);observations++;if(mode==='lease_lost_native')live=false;return {status:'candidate',provider,processEffectIssued:true,helperExitConfirmed:mode!=='helper_unknown',artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:(mode==='home_changed'?'e':'b').repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
+      observeProviderHome:provider=>{assert.equal(live,true);observations++;if(mode==='lease_lost_observation')live=false;return {status:mode==='home_unavailable'?'blocked':'candidate',provider,processEffectIssued:false,filesystemEffectIssued:false,providerHomeIdentityHash:(mode==='home_changed'?'e':'a').repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
     }});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{if(mode==='lock_denied')return {status:'blocked',reason:'lock_exists',reference:null,cleanupConfirmed:true,descriptorClosed:true};live=true;return {status:'acquired',lock:{assertLive:()=>{if(mode==='lease_assert_throw')throw Error('synthetic');return live;},release:()=>{releases++;if(mode==='release_throw')throw Error('synthetic');if(mode==='release_false'||!live)return false;live=false;return true;}}};}}});
     mock.module(${JSON.stringify(url("../../../domain-model/src/index.ts"))},{namedExports:{...domain,
@@ -45,11 +45,11 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
     const {createStandaloneProviderAttemptHost}=await import(${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))}));
     const parent=path.join(repository,'.crdd','tests');
-    for(mode of ['normal','receipt_crlf','receipt_bare','receipt_invalid_short','receipt_invalid_multiple','receipt_invalid_embedded','receipt_invalid_character','receipt_invalid_uppercase','receipt_invalid_empty','cancel','process_unknown','cleanup_unknown','home_changed','helper_unknown','lock_denied','release_false','release_throw','lease_lost_native','lease_lost_provider','lease_assert_throw','cancel_notice','cancel_diagnostic','recovery_opened','read_after_write','submission_planned','receipt_recorded','provider_submission','absence_observed','terminal_received','execution_settled']){
+    for(mode of ['normal','receipt_crlf','receipt_bare','receipt_invalid_short','receipt_invalid_multiple','receipt_invalid_embedded','receipt_invalid_character','receipt_invalid_uppercase','receipt_invalid_empty','cancel','process_unknown','cleanup_unknown','home_changed','home_unavailable','lock_denied','release_false','release_throw','lease_lost_observation','lease_lost_provider','lease_assert_throw','cancel_notice','cancel_diagnostic','recovery_opened','read_after_write','submission_planned','receipt_recorded','provider_submission','absence_observed','terminal_received','execution_settled']){
       live=false;releases=0;observations=0;failKind=mode;cancelPromise=null;f.calls.length=0;f.processTermination=true;f.pendingRun=false;
       const root=fs.mkdtempSync(path.join(parent,'executor-host-contract-'));
       const identity=fs.statSync(root,{bigint:true});
-      const request={kind:'attempt',purpose:'probe',target:{operationId:'OP-123456',grantRef:'PHMGRANT-123456',provider:'claude',workspaceSourcePath:path.join(root,'work'),temporarySourcePath:path.join(root,'tmp'),providerHomeSourcePath:'C:\\\\fixture\\\\home',providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),activeMountCapability:{}},selection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task'}};
+      const request={kind:'attempt',purpose:'probe',target:{operationId:'OP-123456',grantRef:'PHMGRANT-123456',provider:'claude',workspaceSourcePath:path.join(root,'work'),temporarySourcePath:path.join(root,'tmp'),providerHomeSourcePath:'C:\\\\fixture\\\\home',providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),activeMountCapability:{}},selection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task'}};
       const waiting=Promise.withResolvers();let cancelRelease=null,gateUsed=false;
       f.waitGate=async argv=>{if(!gateUsed&&argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)===String(f.request.resources.findIndex(r=>r.key==='create_provider')+1).repeat(64)&&['cancel','process_unknown'].includes(mode)){gateUsed=true;waiting.resolve();await new Promise(resolve=>cancelRelease=resolve);}};
       f.terminationFilter=argv=>!(mode==='process_unknown'&&argv[0]==='start'&&argv.at(-1)==='2'.repeat(64));
@@ -83,11 +83,11 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
           assert.equal(host.recordTerminal({...result}),false);assert.equal(host.recordTerminal(result),false);
           if(['normal','receipt_crlf','receipt_bare'].includes(mode))assert.equal(result.status,'completed',mode);
           if(mode==='cancel'||mode==='cancel_notice'||mode==='cancel_diagnostic')assert.equal(result.status,'cancelled');
-          if(['home_changed','helper_unknown','submission_planned','lease_lost_native','lease_assert_throw'].includes(mode))assert.equal(f.calls.some(a=>a[0]==='create'||a[0]==='network'&&a[1]==='create'),false,mode);
+          if(['home_changed','home_unavailable','submission_planned','lease_lost_observation','lease_assert_throw'].includes(mode))assert.equal(f.calls.some(a=>a[0]==='create'||a[0]==='network'&&a[1]==='create'),false,mode);
           if(mode==='cancel_diagnostic'){assert.equal(result.cancellationRequested,true);assert.equal(result.normalizedResult,null);assert.equal(result.resultSha256,null);assert.equal(result.resultBytes,0);}
           if(mode==='lease_lost_provider'||mode==='cancel_notice')assert.equal(f.calls.some(a=>a[0]==='start'&&a.at(-1)==='2'.repeat(64)),false,mode);
           if(['process_unknown','cleanup_unknown'].includes(mode)){assert.equal(result.cleanupConfirmed,false);assert.equal(host.releaseConfirmed,false);}
-          if(['release_false','release_throw','lease_lost_native','lease_lost_provider'].includes(mode)){assert.equal(host.releaseConfirmed,false);assert.equal(releases,1);}
+          if(['release_false','release_throw','lease_lost_observation','lease_lost_provider'].includes(mode)){assert.equal(host.releaseConfirmed,false);assert.equal(releases,1);}
         }
       }
       const records=fs.readdirSync(root).filter(n=>/^event-[0-9]{3}\\.json$/.test(n)).map(n=>JSON.parse(fs.readFileSync(path.join(root,n),'utf8')));

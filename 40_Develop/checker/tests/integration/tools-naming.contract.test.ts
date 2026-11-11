@@ -412,8 +412,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./artifact/identity.ts",
       "./filesystem/system-directory.ts",
       "./process/environment.ts",
-      "./filesystem/root.ts",
-      "./filesystem/protection.ts",
     ],
   },
   {

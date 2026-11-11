@@ -43,24 +43,6 @@ const expectedSources = new Set(
   [
     path.join(crateRoot, "src", "native", "main.rs"),
     path.join(crateRoot, "src", "native", "protocol", "access.rs"),
-    path.join(crateRoot, "src", "native", "filesystem", "windows"),
-    path.join(
-      crateRoot,
-      "src",
-      "native",
-      "filesystem",
-      "windows",
-      "protection.rs",
-    ),
-    path.join(
-      crateRoot,
-      "src",
-      "native",
-      "filesystem",
-      "windows",
-      "protected_root.rs",
-    ),
-    path.join(crateRoot, "src", "native", "process", "windows", "principal.rs"),
     path.join(
       crateRoot,
       "src",

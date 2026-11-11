@@ -29,14 +29,10 @@ import {
 import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../../src/execution/authority.ts";
 
 const identityHash = "1".repeat(64);
-const protectionHash = "2".repeat(64);
-const userHash = "3".repeat(64);
 
 type Observation = Readonly<{
   provider: "codex" | "claude";
   providerHomeIdentityHash: string;
-  providerHomeProtectionHash: string;
-  localUserBindingHash: string;
   stableLogicalHomeBindingHash: string;
   observedWallClockMs: number;
   observedMonotonicMs: number;
@@ -92,8 +88,6 @@ function harness() {
       Object.freeze({
         provider: "claude",
         providerHomeIdentityHash: identityHash,
-        providerHomeProtectionHash: protectionHash,
-        localUserBindingHash: userHash,
         stableLogicalHomeBindingHash: "5".repeat(64),
         observedWallClockMs: wallClockMs,
         observedMonotonicMs: monotonicMs,
@@ -682,7 +676,7 @@ test("Operationと観測bindingの不一致をEffect前に拒否する", () => {
     isolated.runtime.consume(
       issued.useCapability,
       isolated.managementCapability,
-      isolated.observe({ providerHomeProtectionHash: "4".repeat(64) }),
+      isolated.observe({ providerHomeIdentityHash: "4".repeat(64) }),
     ).reason,
     "provider_home_mount_grant_runtime_observation_mismatch",
   );
@@ -807,8 +801,6 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
   for (const changed of [
     { provider: "codex" as const },
     { providerHomeIdentityHash: "4".repeat(64) },
-    { providerHomeProtectionHash: "4".repeat(64) },
-    { localUserBindingHash: "4".repeat(64) },
     { stableLogicalHomeBindingHash: "4".repeat(64) },
   ]) {
     const h = harness();
@@ -863,8 +855,6 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
     observations.set(capability, {
       provider: "claude",
       providerHomeIdentityHash: identityHash,
-      providerHomeProtectionHash: protectionHash,
-      localUserBindingHash: userHash,
       stableLogicalHomeBindingHash: "5".repeat(64),
       observedWallClockMs: 0,
       observedMonotonicMs: 0,

@@ -12,10 +12,38 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import {
   assertCoverageRunRoot,
   createCoverageRunRoot,
 } from "../../scripts/platform-access-coverage-path.ts";
+
+test("Native計測の期待Sourceは存続する実ファイルだけに対応する", () => {
+  const crateRoot = path.resolve(
+    import.meta.dirname,
+    "../../../platform-access",
+  );
+  const source = fs.readFileSync(
+    new URL("../../scripts/check-platform-access-coverage.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = sourceDeclaration(source, "expectedSources");
+  const sources = runInNewContext(
+    `(()=>{${declaration};return [...expectedSources]})()`,
+    { path, crateRoot },
+  );
+  assert.deepEqual(
+    Array.from(sources),
+    [
+      "src/native/main.rs",
+      "src/native/protocol/access.rs",
+      "src/native/filesystem/windows/windows_directory.rs",
+      "tests/integration/native_cli.rs",
+    ].map((file) => path.join(crateRoot, file)),
+  );
+  for (const file of sources) assert.equal(fs.lstatSync(file).isFile(), true);
+});
 
 /**
  * withTemporaryRootのTest準備責務を実行する。

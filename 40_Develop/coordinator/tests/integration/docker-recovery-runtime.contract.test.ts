@@ -158,8 +158,6 @@ function productionPlan(operationId: string, stableHome: string) {
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",
     providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
     stableLogicalHomeBindingHash: stableHome,
     authContainerName: "crdd-auth-0123456789abcdef",
     providerContainerName: "crdd-claude-0123456789abcdef",

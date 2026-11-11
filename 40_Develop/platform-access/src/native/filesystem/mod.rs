@@ -6,11 +6,5 @@
 //! @boundary Native WorkerとWindows APIの間。
 
 #[cfg(windows)]
-#[path = "windows/protected_root.rs"]
-pub(crate) mod protected_root;
-#[cfg(windows)]
-#[path = "windows/protection.rs"]
-pub(crate) mod protection;
-#[cfg(windows)]
 #[path = "windows/windows_directory.rs"]
 pub(crate) mod windows_directory;

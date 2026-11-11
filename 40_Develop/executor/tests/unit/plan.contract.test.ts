@@ -226,8 +226,6 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     { ...probe, subscriptionOffering: "chatgpt_subscription_oauth" },
     { ...probe, activeMountCapability: null as unknown as object },
     { ...probe, providerHomeIdentityHash: "bad" },
-    { ...probe, providerHomeProtectionHash: "bad" },
-    { ...probe, localUserBindingHash: "bad" },
     { ...probe, stableLogicalHomeBindingHash: "bad" },
     { ...probe, commands: [...probe.commands].reverse() },
     { ...task, workspaceMountMode: "read_only" },

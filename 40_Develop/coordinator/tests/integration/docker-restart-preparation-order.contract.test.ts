@@ -132,7 +132,7 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
     .digest("hex");
   const hostToken = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v3",
+    schema: "crdd-coordinator/operation-identity/v4",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
@@ -147,8 +147,6 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
     taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     operationMode: "isolated_task",

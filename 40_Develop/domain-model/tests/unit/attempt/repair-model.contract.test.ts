@@ -3801,7 +3801,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const taskIdentity = {
-    schema: "crdd-coordinator/operation-identity/v3",
+    schema: "crdd-coordinator/operation-identity/v4",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
@@ -3825,8 +3825,6 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     operationMode: "isolated_task",
