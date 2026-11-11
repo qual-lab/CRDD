@@ -655,6 +655,33 @@ function validInput(
   }) as Parameters<typeof runCoordinatorSingleTaskAttempt>[1];
 }
 
+test("実行メタデータは共通Task入口の第6引数で同じ内容を搬送する", async () => {
+  let received: unknown;
+  const { dependencies } = harness({
+    startTask: (
+      _request,
+      _root,
+      _correlation,
+      _observer,
+      _workspace,
+      metadata,
+    ) => {
+      received = metadata;
+      throw Error(COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS[0]);
+    },
+  });
+  const input = {
+    ...validInput(),
+    executionMetadata: {
+      groupId: "group-a",
+      taskId: "task-a",
+      attemptId: "attempt-a",
+    },
+  };
+  await runCoordinatorSingleTaskAttempt(dependencies, input);
+  assert.deepEqual(received, input.executionMetadata);
+});
+
 /**
  * 正常完了はattemptと固定Revisionへ結合した閉結果で返るを検証する。
  *

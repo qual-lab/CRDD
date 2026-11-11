@@ -6,16 +6,17 @@
  */
 
 import { types } from "node:util";
+import { createHash } from "node:crypto";
 import {
   readCoordinatorExecutionState,
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  readExecutionIntelligence,
-  type TaskAttemptExecutionIntelligenceEvent,
-  verifyExecutionIntelligenceRepositoryRoot,
+  listExecutions,
+  type Execution,
 } from "../../../execution-intelligence/src/index.ts";
+import { getExecutionIntelligenceStore } from "../execution/intelligence.ts";
 import {
   readRepositoryRevision,
   resolveVerifiedRepositoryRoot,
@@ -127,20 +128,57 @@ function inspectActivityRequest(
  * @concurrency 一要求の観測だけを返し、共有Cacheや固定Snapshotを作らない。
  */
 function projectActivityEvent(
-  event: TaskAttemptExecutionIntelligenceEvent,
+  event: Execution,
   repositoryId: string,
 ): RuntimeActivityEvent {
+  const metadata = event.metadata;
+  if (
+    !metadata ||
+    ["objectiveId", "taskId", "attemptId"].some(
+      (k) =>
+        typeof metadata[k] !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(metadata[k] as string),
+    )
+  )
+    throw Error("activity_execution_context_invalid");
+  const completion = event.completion;
+  if (
+    completion &&
+    (typeof completion.diagnostic?.cleanupConfirmed !== "boolean" ||
+      typeof completion.diagnostic?.manualRecoveryRequired !== "boolean")
+  )
+    throw Error("activity_execution_observation_invalid");
+  const taskStatus = completion?.diagnostic?.taskStatus;
+  const taskReason = completion?.diagnostic?.taskReason;
+  if (
+    completion &&
+    (typeof taskStatus !== "string" ||
+      !["completed", "blocked", "cancelled", "unknown"].includes(taskStatus) ||
+      typeof taskReason !== "string" ||
+      taskReason.length === 0)
+  )
+    throw Error("activity_task_settlement_not_observed");
   return Object.freeze({
     repositoryId,
-    eventId: event.eventId,
-    occurredAt: event.occurredAt,
-    objectiveId: event.identity.objectiveId,
-    taskId: event.identity.taskId,
-    attemptId: event.identity.attemptId,
-    status: event.outcome.status,
-    reason: event.outcome.reason,
-    cleanupConfirmed: event.outcome.cleanupConfirmed,
-    manualRecoveryRequired: event.outcome.manualRecoveryRequired,
+    eventId: `execution-${createHash("sha256").update(event.executionId).digest("hex")}`,
+    occurredAt: completion?.endedAt ?? event.startedAt,
+    objectiveId: metadata.objectiveId as string,
+    taskId: metadata.taskId as string,
+    attemptId: metadata.attemptId as string,
+    status:
+      (taskStatus as
+        | "completed"
+        | "blocked"
+        | "cancelled"
+        | "unknown"
+        | undefined) ?? "unknown",
+    reason:
+      typeof taskReason === "string"
+        ? taskReason
+        : "execution_completion_not_observed",
+    cleanupConfirmed: completion?.diagnostic?.cleanupConfirmed === true,
+    manualRecoveryRequired:
+      completion?.diagnostic?.manualRecoveryRequired === true,
   });
 }
 
@@ -256,22 +294,23 @@ export async function queryActivity(
           });
       }
     }
-    const verified = verifyExecutionIntelligenceRepositoryRoot(root);
-    if (verified.status !== "completed") {
+    try {
+      const store = getExecutionIntelligenceStore(repository.root, false);
+      if (store) {
+        const history = listExecutions(store, {
+          application: "CRDD",
+          operation: "task_attempt",
+          metadata: { projectId: request.projectId },
+          limit: 10_000,
+        });
+        if (history.status !== "completed") eventUnknown = true;
+        else
+          for (const event of history.value.executions)
+            events.push(projectActivityEvent(event, repository.repositoryId));
+      }
+    } catch {
       eventUnknown = true;
-      continue;
     }
-    const history = readExecutionIntelligence(verified.root);
-    if (history.status !== "completed") {
-      eventUnknown = true;
-      continue;
-    }
-    for (const event of history.events)
-      if (
-        event.eventType === "task_attempt_settled" &&
-        event.identity.projectId === request.projectId
-      )
-        events.push(projectActivityEvent(event, repository.repositoryId));
   }
   if (new Set(events.map((event) => event.eventId)).size !== events.length)
     eventUnknown = true;

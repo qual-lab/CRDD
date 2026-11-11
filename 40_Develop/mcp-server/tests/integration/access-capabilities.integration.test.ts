@@ -49,12 +49,11 @@ import {
   initializeCoordinatorSnapshot,
   saveCoordinatorManagedProject,
 } from "../../../domain-model/src/index.ts";
+import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
-  createTaskAttemptSettledEvent,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
-  writeExecutionIntelligenceEvent,
-} from "../../../execution-intelligence/src/index.ts";
+  storeFixtureExecution,
+  activityId,
+} from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
@@ -944,9 +943,21 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       ).status,
       "completed",
     );
-    const history = createTaskAttemptSettledEvent({
-      occurredAt: "2026-10-12T00:00:00.000Z",
-      identity: {
+    const history = {
+      executionId: `execution-${
+        {
+          projectId: "project.fixture",
+          milestoneId: "milestone.fixture",
+          objectiveId: "objective.fixture",
+          taskId: "task.history",
+          attemptId: "attempt.history",
+          operationId: "operation.history",
+        }.operationId
+      }`,
+      application: "CRDD",
+      operation: "task_attempt",
+      startedAt: "2026-10-12T00:00:00.000Z",
+      metadata: {
         projectId: "project.fixture",
         milestoneId: "milestone.fixture",
         objectiveId: "objective.fixture",
@@ -954,39 +965,57 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
         attemptId: "attempt.history",
         operationId: "operation.history",
       },
-      outcome: {
-        status: "completed",
-        reason: "task_completed",
-        effectState: "settled",
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        processRestartRequired: false,
-      },
-      execution: {
-        role: "executor",
-        provider: { state: "not_observed", reason: "provider_not_reported" },
-        model: { state: "not_observed", reason: "model_not_reported" },
-        inputStrategyRef: {
+      state: "closed",
+      completion: {
+        endedAt: "2026-10-12T00:00:00.000Z",
+        elapsedMs: {
           state: "not_observed",
-          reason: "input_not_reported",
+          reason: "fixture_duration_not_observed",
         },
-        durationMs: { state: "not_observed", reason: "duration_not_reported" },
-        usage: usageNotObserved("usage_not_reported"),
-        humanActiveMs: {
-          state: "not_observed",
-          reason: "human_time_not_reported",
+        outcome: {
+          status: {
+            status: "completed",
+            reason: "task_completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+          }.status,
+          reason: {
+            status: "completed",
+            reason: "task_completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+          }.reason,
         },
+        diagnostic: {
+          cleanupConfirmed: {
+            status: "completed",
+            reason: "task_completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+          }.cleanupConfirmed,
+          manualRecoveryRequired: {
+            status: "completed",
+            reason: "task_completed",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+          }.manualRecoveryRequired,
+        },
+        retention: "standard",
       },
-      quality: {
-        state: "not_applicable",
-        reason: "attempt_settlement_is_not_acceptance",
-      },
-    });
-    const ei = verifyExecutionIntelligenceRepositoryRoot(b.target);
+    } as Execution;
+    const ei = getRepository(b.target);
     assert.equal(ei.status, "completed");
     if (ei.status !== "completed") throw new Error("fixture_ei_root_invalid");
     assert.equal(
-      writeExecutionIntelligenceEvent(ei.root, history).status,
+      storeFixtureExecution(ei.capability, history).status,
       "completed",
     );
     const presentResponse = await call(
@@ -1006,8 +1035,8 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.deepEqual(present.events, [
       {
         repositoryId: b.id,
-        eventId: history.eventId,
-        occurredAt: history.occurredAt,
+        eventId: activityId(history.executionId),
+        occurredAt: history.completion?.endedAt,
         objectiveId: "objective.fixture",
         taskId: "task.history",
         attemptId: "attempt.history",

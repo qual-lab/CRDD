@@ -721,7 +721,7 @@
     {
       "id": "execution-intelligence:event-publication",
       "owner": "execution-intelligence",
-      "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#3-発行と失敗境界",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#計測と状態",
       "responsibilities": [
         "event_validation",
         "non_authority_publication",
@@ -732,10 +732,10 @@
         "execution_intelligence_public_api",
         "consumer_adapter"
       ],
-      "lifecycleProfile": "pure_component",
+      "lifecycleProfile": "durable_operation",
       "testIds": [
-        "execution-intelligence:unit:event-contract",
-        "coordinator:integration:orchestrator-execution"
+        "execution-intelligence:unit:public-api",
+        "coordinator:integration:provider-intelligence"
       ],
       "postconditions": [
         "event_never_becomes_authority",
@@ -746,21 +746,21 @@
     {
       "id": "execution-intelligence:durable-store",
       "owner": "execution-intelligence",
-      "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#4-保存と改変検知",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#保存境界と移行",
       "responsibilities": [
-        "repository_root_binding",
-        "immutable_event_publish",
+        "explicit_store_directory_identity",
+        "record_transition_publication",
         "retention_cleanup_classification"
       ],
       "externalBoundaries": [
-        "repository_filesystem",
+        "store_filesystem",
         "process_lock",
         "execution_intelligence_consumer"
       ],
       "lifecycleProfile": "durable_operation",
       "testIds": [
         "execution-intelligence:integration:store",
-        "orchestrator:integration:public-operation"
+        "coordinator:integration:provider-intelligence"
       ],
       "postconditions": [
         "event_not_overwritten",
@@ -1111,7 +1111,7 @@
       "testIds": [
         "runtime-data:integration:repository-paths",
         "execution-intelligence:integration:store",
-        "orchestrator:integration:public-operation"
+        "coordinator:integration:provider-intelligence"
       ],
       "postconditions": [
         "repository_root_identity_preserved",
@@ -1194,16 +1194,16 @@
     },
     {
       "id": "runtime:attempt-to-durable-observation",
-      "architectureAnchor": "06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md#3-発行と失敗境界",
+      "architectureAnchor": "06_Architecture/Details/execution-intelligence/01_Architecture.md#計測と状態",
       "blockPath": [
         "orchestrator:objective-task-lifecycle",
         "execution-intelligence:event-publication",
         "execution-intelligence:durable-store"
       ],
       "testIds": [
-        "coordinator:integration:orchestrator-execution",
+        "coordinator:integration:provider-intelligence",
         "execution-intelligence:integration:store",
-        "orchestrator:integration:public-operation"
+        "orchestrator:integration:runtime-activity"
       ],
       "postconditions": [
         "task_result_unchanged_by_observation",
@@ -1416,14 +1416,14 @@
     {
       "producerOwner": "execution-intelligence",
       "producerPaths": [
-        "40_Develop/execution-intelligence/src/core",
+        "40_Develop/execution-intelligence/src/record",
         "40_Develop/execution-intelligence/src/index.ts"
       ],
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:orchestrator-execution",
-        "coordinator:integration:orchestrator-full-flow"
+        "coordinator:integration:provider-intelligence",
+        "orchestrator:integration:runtime-activity"
       ]
     },
     {
@@ -1437,18 +1437,7 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "orchestrator:integration:public-operation"
-      ]
-    },
-    {
-      "producerOwner": "domain-model",
-      "producerPaths": [
-        "40_Develop/domain-model/src"
-      ],
-      "consumerOwner": "execution-intelligence",
-      "consumerStatic": true,
-      "testIds": [
-        "execution-intelligence:integration:store"
+        "coordinator:integration:provider-intelligence"
       ]
     },
     {
@@ -1460,6 +1449,7 @@
       "consumerStatic": true,
       "testIds": [
         "coordinator:integration:external-send-policy-runtime",
+        "coordinator:integration:provider-intelligence",
         "coordinator:integration:orchestrator-durable-foundation"
       ]
     },
@@ -4886,45 +4876,44 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "execution-intelligence:integration:record-projection",
+      "id": "execution-intelligence:integration:groups",
       "owner": "execution-intelligence",
-      "path": "40_Develop/execution-intelligence/tests/integration/record-projection.contract.test.ts",
+      "path": "40_Develop/execution-intelligence/tests/integration/groups.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "execution",
-        "intelligence",
-        "clock",
-        "reader",
-        "projection"
+        "group",
+        "retention",
+        "reference"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "projection_state_preserved",
-        "source_unchanged"
+        "group_state_independent",
+        "retained_references_preserved"
       ],
       "mandatoryByDefault": true
     },
     {
-      "id": "execution-intelligence:integration:record-projection-correlation",
+      "id": "execution-intelligence:integration:query-summary",
       "owner": "execution-intelligence",
-      "path": "40_Develop/execution-intelligence/tests/integration/execution-record-projection.contract.test.ts",
+      "path": "40_Develop/execution-intelligence/tests/integration/query-summary.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "execution",
-        "intelligence",
-        "correlation",
-        "candidate"
+        "query",
+        "summary",
+        "missingness"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "projection_state_preserved",
-        "authority_not_conferred",
+        "missingness_preserved",
+        "units_separated",
         "source_unchanged"
       ],
       "mandatoryByDefault": true
@@ -6384,16 +6373,15 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "execution-intelligence:unit:event-contract",
+      "id": "execution-intelligence:unit:public-api",
       "owner": "execution-intelligence",
       "path": "40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "execution",
-        "intelligence",
-        "observation",
-        "aggregation"
+        "public-api",
+        "input-rejection"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -7004,19 +6992,18 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "orchestrator:unit:execution-observation-port",
+      "id": "coordinator:integration:provider-intelligence",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/task/intelligence-adapter.contract.test.ts",
-      "level": "unit",
+      "path": "40_Develop/coordinator/tests/integration/provider-intelligence.contract.test.ts",
+      "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "project",
-        "runtime",
         "execution",
-        "observation",
-        "port"
+        "recording",
+        "completion",
+        "missingness"
       ],
-      "environment": "node_process",
+      "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
@@ -8947,27 +8934,6 @@
       "humanInput": false,
       "postconditions": [
         "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "execution-intelligence:unit:temporal-provenance",
-      "owner": "execution-intelligence",
-      "path": "40_Develop/execution-intelligence/tests/unit/temporal-provenance.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "execution",
-        "intelligence",
-        "temporal-provenance",
-        "revision"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed",
-        "source_unchanged"
       ],
       "mandatoryByDefault": true
     },

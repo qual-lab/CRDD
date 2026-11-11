@@ -1,5 +1,21 @@
 # QA-000012 実行記録の公開と再利用の検証定義
 
+## v0.22の記録モデルと限定検証 — 2026-11-11
+
+採用済みの[EI再構成](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)に合わせ、検証対象をアプリケーション非依存のExecution／ExecutionGroupへ切り替える。下段のTask専用Event・Recorder・旧Schemaの表現は移行前の設計・基準版Evidenceと区別する。旧永続履歴はフロントAIが別途移行し、本変更の試験で操作しない。
+
+| 項目 | 現在の検証義務 | 主な確認先 |
+|---|---|---|
+| `ERP-IT-001`／`ERP-IT-002`／`ERP-IT-003` | 同じIDの開始・終了・同内容再送と異内容競合、複数Process、途中出版・解放不明を区別。未知残存は保全 | EI `execution-intelligence-store.contract.test.ts` |
+| `ERP-IT-005`／`ERP-UT-006` | 旧形式・混在・不正shape・accessor・Proxy・上限・File実体差を拒否。新9操作だけを公開 | EI保存試験・`execution-intelligence.contract.test.ts` |
+| `ERP-IT-006` | Group終了が子を終了・成功化せず、未完了・未解決の子と参照Groupを期限整理から保護 | EI `groups.contract.test.ts` |
+| `ERP-IT-007` | 完全一致検索・期間・ページ境界、全対象集計、未観測／非該当／取得済み0、通貨／Credit／報告額／推定額を分離 | EI `query-summary.contract.test.ts` |
+| `ERP-IT-008` | CoordinatorがAI要求直前に開始、下位Completionで時刻を固定、最終Host判定後に同じIDへ一度だけ保存。AI結果とTask結果を混ぜず、記録失敗で実行を止めない | Coordinator `provider-intelligence.contract.test.ts`、既存Controller／Advice有限試験、活動投影試験 |
+
+EIの構造検査は、任意メタデータの未知Secret不存在証明ではない。CRDDのProducerはID・固定分類・技術結果だけを投影し、外部アプリケーションは自分の情報分類を所有する。保存不明の再送禁止とexactな記録参照、読取り不能と空履歴の区別、Writer／Lock／pendingの終了後条件は維持する。
+
+新しく追加した局所項目の存在や、台帳のvalidだけでは合格としない。現時点の実行結果・独立レビュー・未確認範囲は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)へ接続する。実Provider・全体回帰・System／UAT・Releaseの成立は今回の限定回帰から推定しない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000012`
 検証目標: 異なる作成側が実行事実を同じ契約で安全に記録し、取得側が意味を変えず再利用できること

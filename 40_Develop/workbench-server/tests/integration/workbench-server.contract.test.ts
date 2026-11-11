@@ -51,12 +51,8 @@ import {
   executionSelection,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import {
-  createTaskAttemptSettledEvent,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
-  writeExecutionIntelligenceEvent,
-} from "../../../execution-intelligence/src/index.ts";
+import type { Execution } from "../../../execution-intelligence/src/index.ts";
+import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -3088,7 +3084,7 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
   );
   try {
     execFileSync("git", ["init", "--quiet", fixture], { windowsHide: true });
-    const verified = verifyExecutionIntelligenceRepositoryRoot(fixture);
+    const verified = getRepository(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") return;
     /**
@@ -3104,9 +3100,12 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
      * @boundary ERP-IT-001=Direct Boundary: workbench Test Source→対象契約
      */
     const event = (projectId: string, taskId: string, occurredAt: string) =>
-      createTaskAttemptSettledEvent({
-        occurredAt,
-        identity: {
+      ({
+        executionId: `execution-${projectId}-${taskId}`,
+        application: "CRDD",
+        operation: "task_attempt",
+        startedAt: occurredAt,
+        metadata: {
           projectId,
           milestoneId: "milestone-a",
           objectiveId: "objective-a",
@@ -3114,42 +3113,55 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
           attemptId: `attempt-${taskId}`,
           operationId: "operation-a",
         },
-        execution: {
-          role: "executor",
-          provider: { state: "not_observed", reason: "provider_not_reported" },
-          model: { state: "not_observed", reason: "model_not_reported" },
-          inputStrategyRef: {
-            state: "observed",
-            value: "test/input/v1",
-            source: "integration_fixture",
-          },
-          durationMs: {
-            state: "observed",
-            value: 10,
-            source: "integration_clock",
-          },
-          usage: usageNotObserved("usage_not_reported"),
-          humanActiveMs: {
+        state: "closed",
+        completion: {
+          endedAt: occurredAt,
+          elapsedMs: {
             state: "not_observed",
-            reason: "human_time_not_reported",
+            reason: "fixture_duration_not_observed",
           },
+          outcome: {
+            status: {
+              status: "completed",
+              reason: "task_completed",
+              effectState: "settled",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+            }.status,
+            reason: {
+              status: "completed",
+              reason: "task_completed",
+              effectState: "settled",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+            }.reason,
+          },
+          diagnostic: {
+            cleanupConfirmed: {
+              status: "completed",
+              reason: "task_completed",
+              effectState: "settled",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+            }.cleanupConfirmed,
+            manualRecoveryRequired: {
+              status: "completed",
+              reason: "task_completed",
+              effectState: "settled",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+            }.manualRecoveryRequired,
+          },
+          retention: "standard",
         },
-        outcome: {
-          status: "completed",
-          reason: "task_completed",
-          effectState: "settled",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-        },
-        quality: {
-          state: "not_applicable",
-          reason: "attempt_settlement_is_not_acceptance",
-        },
-      });
+      }) as Execution;
     assert.equal(
-      writeExecutionIntelligenceEvent(
-        verified.root,
+      storeFixtureExecution(
+        verified.capability,
         event(
           "project-a",
           "task-old",
@@ -3159,8 +3171,8 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
       "completed",
     );
     assert.equal(
-      writeExecutionIntelligenceEvent(
-        verified.root,
+      storeFixtureExecution(
+        verified.capability,
         event(
           "project-a",
           "task-new",
@@ -3170,8 +3182,8 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
       "completed",
     );
     assert.equal(
-      writeExecutionIntelligenceEvent(
-        verified.root,
+      storeFixtureExecution(
+        verified.capability,
         event("project-b", "task-hidden", new Date().toISOString()),
       ).status,
       "completed",

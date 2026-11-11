@@ -16,6 +16,11 @@ import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
 import {
+  finishProviderExecutionRecording,
+  reportExecutionRecordingUnavailable,
+  type ProviderExecutionRecording,
+} from "./intelligence.ts";
+import {
   type CoordinatorStateTaskOperation,
   coordinatorTaskResourcesAreSettled,
   inspectExecutionSelection,
@@ -503,6 +508,7 @@ export type CoordinatorTaskDependencies = Readonly<{
       notice: ProcessStartedNotice,
     ) => void | Promise<void>,
     workspaceTarget?: BorrowedExecutionTarget,
+    executionMetadata?: Readonly<Record<string, string>>,
   ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
 }>;
@@ -1050,6 +1056,7 @@ export async function runCoordinatorTaskAttempt(
       input.operationId,
       observeStarted === undefined ? undefined : forwardStarted,
       workspaceTarget,
+      input.executionMetadata,
     );
   } catch (error) {
     isNotificationClosed = true;
@@ -1568,6 +1575,8 @@ type TaskRuntimeDependencies = Readonly<{
     observeProviderStarted?: (
       notice: ProcessStartedNotice,
     ) => void | Promise<void>,
+    executionMetadata?: Readonly<Record<string, string>>,
+    recordings?: ProviderExecutionRecording[],
   ) => RuntimeRecord;
   cancelProcess: (
     controlCapability: object,
@@ -1652,6 +1661,8 @@ type ControlRecord = {
   observeProviderStarted:
     | ((notice: ProcessStartedNotice) => void | Promise<void>)
     | undefined;
+  executionMetadata: Readonly<Record<string, string>>;
+  executionRecordings: ProviderExecutionRecording[];
 };
 
 /**
@@ -3077,6 +3088,8 @@ async function executeStageBody(
       },
       commandRestriction,
       control.observeProviderStarted,
+      control.executionMetadata,
+      control.executionRecordings,
     );
     selectionControl = null;
     taskControl = null;
@@ -4143,6 +4156,7 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
         | "workbench"
         | "orchestrator" = "coordinator_cli",
       workspaceTarget?: BorrowedExecutionTarget,
+      executionMetadata: Readonly<Record<string, string>> = {},
     ) => {
       if (
         consumer !== "coordinator_cli" &&
@@ -4181,6 +4195,8 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
         recoveryCorrelationId,
         consumer,
         observeProviderStarted,
+        executionMetadata,
+        executionRecordings: [],
         ...(workspaceTarget ? { workspaceTarget } : {}),
       };
       try {
@@ -4503,7 +4519,14 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
               workspaceResult,
             });
           }
+          for (const recording of control.executionRecordings.splice(0))
+            finishProviderExecutionRecording(recording, result);
           return result;
+        })
+        .catch((error) => {
+          for (const recording of control.executionRecordings.splice(0))
+            reportExecutionRecordingUnavailable(recording.executionId);
+          throw error;
         });
       return Object.freeze({
         status: "started" as const,
@@ -4659,6 +4682,7 @@ export function startRuntimeOwnedCoordinatorTask(
     | "workbench"
     | "orchestrator" = "coordinator_cli",
   rawWorkspaceTarget?: BorrowedExecutionTarget,
+  executionMetadata: Readonly<Record<string, string>> = {},
 ) {
   if (isRuntimeProcessEffectBlocked()) {
     throw new Error(
@@ -4696,6 +4720,7 @@ export function startRuntimeOwnedCoordinatorTask(
     observeProviderStarted,
     consumer,
     workspaceTarget,
+    executionMetadata,
   );
 }
 

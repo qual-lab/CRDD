@@ -27,10 +27,7 @@ import {
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
-import {
-  readExecutionIntelligence,
-  verifyExecutionIntelligenceRepositoryRoot,
-} from "../../../execution-intelligence/src/index.ts";
+
 import { getRepository } from "../../../version-control/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
@@ -42,7 +39,7 @@ import {
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
-import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
+
 import {
   executionSelection,
   selectionConfig,
@@ -159,8 +156,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     createCoordinatorWindowsDecisionStoreTestingAdapter(decisionRoot);
   let taskStarts = 0;
   const deliveredRequests: Readonly<Record<string, unknown>>[] = [];
-  let shouldBlockExecutionPublication = false;
-  let shouldThrowFromPublicationObserver = false;
   const publicationObservations: object[] = [];
   let storeOpens = 0;
   const runtime = createDevelopmentCoordinatorPublicObjectiveCandidate({
@@ -258,23 +253,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
           reason: "coordinator_task_control_invalid" as const,
         }),
       ),
-    recordExecutionEvent: (repositoryRoot, event) =>
-      shouldBlockExecutionPublication
-        ? Object.freeze({
-            status: "blocked" as const,
-            reason: "execution_event_store_test_unavailable",
-            effectState: "unknown" as const,
-            cleanupConfirmed: false,
-            retryAllowed: false,
-            manualRecoveryRequired: true,
-            residualArtifactIds: Object.freeze(["test-residual"]),
-          })
-        : recordCoordinatorExecutionEvent(repositoryRoot, event),
-    observeExecutionEventPublication: (observation) => {
-      publicationObservations.push(observation);
-      if (shouldThrowFromPublicationObserver)
-        throw new Error("publication_diagnostic_test_failure");
-    },
     openDecisionStore: () => {
       storeOpens += 1;
       return Object.freeze({
@@ -544,30 +522,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(cleanupBlocked.effectState, "no_effect");
   assert.deepEqual(cleanupBlocked.recoveryIds, []);
   assert.equal(taskStarts, 1);
-  const verifiedRoot = verifyExecutionIntelligenceRepositoryRoot(root);
-  assert.equal(verifiedRoot.status, "completed");
-  if (verifiedRoot.status !== "completed")
-    throw new Error("execution_intelligence_root_not_verified");
-  const executionIntelligenceResult = readExecutionIntelligence(
-    verifiedRoot.root,
-  );
-  assert.equal(executionIntelligenceResult.status, "completed");
-  if (executionIntelligenceResult.status !== "completed")
-    throw new Error("execution_intelligence_observation_failed");
-  assert.equal(executionIntelligenceResult.events.length, 1);
-  const primaryExecutionEvent = executionIntelligenceResult.events.find(
-    (entry) => entry.identity.projectId === "project-public-runtime",
-  );
-  assert.equal(
-    primaryExecutionEvent?.identity.projectId,
-    "project-public-runtime",
-  );
-  assert.equal(primaryExecutionEvent?.outcome.status, "completed");
-  assert.deepEqual(primaryExecutionEvent?.execution.provider, {
-    state: "observed",
-    value: "codex",
-    source: "single_task_verified_completion",
-  });
+  // Mock Taskの終了をAI実行済みのEI記録へ変換しない。
   const replay = await runtime.run(
     withCallerPlan({
       requestId: "request-public-runtime",
@@ -593,7 +548,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(replay.reason, "orchestrator_objective_already_accepted");
   assert.equal(taskStarts, 1);
 
-  shouldBlockExecutionPublication = true;
   const publicationBlocked = await runtime.run(
     withCallerPlan({
       requestId: "request-public-runtime-publication-blocked",
@@ -620,13 +574,9 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     publicationBlocked.reason,
     "orchestrator_quality_acceptance_required",
   );
-  assert.equal(
-    (publicationObservations.at(-1) as { status?: unknown }).status,
-    "blocked",
-  );
+  assert.equal(publicationObservations.length, 0);
   assert.equal(taskStarts, 2);
 
-  shouldThrowFromPublicationObserver = true;
   const diagnosticFailed = await runtime.run(
     withCallerPlan({
       requestId: "request-public-runtime-diagnostic-failed",
@@ -654,8 +604,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     "orchestrator_quality_acceptance_required",
   );
   assert.equal(taskStarts, 3);
-  shouldBlockExecutionPublication = false;
-  shouldThrowFromPublicationObserver = false;
   const graphRequest = {
     ...withCallerPlan({
       requestId: "request-public-runtime-two-tasks",

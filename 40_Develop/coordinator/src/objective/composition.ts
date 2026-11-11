@@ -12,10 +12,8 @@ import {
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
-import { writeCoordinatorExecutionIntelligenceDiagnostic } from "../execution/diagnostics.ts";
 import { executeCoordinatorPublicStateQuery } from "../state/query.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
-import { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
 import { executeCoordinatorPublicObjective } from "./execute.ts";
 import type {
   CoordinatorPublicDevelopmentDependencies,
@@ -28,9 +26,6 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
-    recordExecutionEvent: recordCoordinatorExecutionEvent,
-    observeExecutionEventPublication:
-      writeCoordinatorExecutionIntelligenceDiagnostic,
   });
 
 /**
@@ -97,11 +92,6 @@ export function createDevelopmentCoordinatorPublicObjectiveCandidate(
 ) {
   const fixed = Object.freeze({
     ...dependencies,
-    recordExecutionEvent:
-      dependencies.recordExecutionEvent ?? recordCoordinatorExecutionEvent,
-    observeExecutionEventPublication:
-      dependencies.observeExecutionEventPublication ??
-      writeCoordinatorExecutionIntelligenceDiagnostic,
   });
   return Object.freeze({
     productionAuthority: false,

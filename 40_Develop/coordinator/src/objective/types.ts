@@ -21,10 +21,8 @@ import type {
   CoordinatorClockIdentityPort,
   CoordinatorPersistencePorts,
 } from "../state/persistence.ts";
-import type { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
 import type {
   CoordinatorExecutionDependencies,
-  CoordinatorExecutionPublicationObservation,
   CoordinatorProcessSafetyPort,
   CoordinatorTaskRecoveryHostDependencies,
   CoordinatorTaskRecoveryPort,
@@ -90,10 +88,6 @@ export type PublicExecutionDependencies = Readonly<{
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
-  recordExecutionEvent: typeof recordCoordinatorExecutionEvent;
-  observeExecutionEventPublication: (
-    observation: CoordinatorExecutionPublicationObservation,
-  ) => void;
 }>;
 
 /**
@@ -107,16 +101,8 @@ export type PublicExecutionDependencies = Readonly<{
  * @security N/A: CoordinatorPublicDevelopmentDependenciesはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility CoordinatorPublicDevelopmentDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorPublicDevelopmentDependencies = Omit<
-  PublicExecutionDependencies,
-  "recordExecutionEvent" | "observeExecutionEventPublication"
-> &
-  Partial<
-    Pick<
-      PublicExecutionDependencies,
-      "recordExecutionEvent" | "observeExecutionEventPublication"
-    >
-  >;
+export type CoordinatorPublicDevelopmentDependencies =
+  PublicExecutionDependencies;
 
 /**
  * objective-intakeで使用するCoordinator Objective Intake Dependenciesの値契約を定義する。

@@ -1,818 +1,670 @@
-/**
- * 実行履歴の保存・読戻し・期間整理と結果の相関を所有する。
- * @responsibility 実行履歴の保存・読戻し・期間整理と結果の相関を所有する。
- * @trace ARCH-000007
- */
-import { createHash } from "node:crypto";
+/** 明示Directoryの単一履歴を検査・出版する。旧形式・未知残存を自動回収しない。 */
 import fs from "node:fs";
 import path from "node:path";
-import type { Lock } from "../../../lock/src/index.ts";
-import {
-  snapshotPlainRecord,
-  inspectExecutionIntelligenceEvent,
-} from "../record/validation.ts";
-import { summarizeExecutionIntelligence } from "../record/summary.ts";
-import type { ExecutionIntelligenceEvent } from "../record/types.ts";
-import {
-  ensureRepositoryRuntimeDataArea,
-  RepositoryRuntimeDataAreaBlockedError,
-  requireReadyRepositoryRuntimeDataArea,
-  observeRepositoryRuntimeDataArea,
-  readExecutionIntelligenceConfig,
-} from "../../../domain-model/src/index.ts";
-import {
-  resolveVerifiedRepositoryRoot,
-  type Repository,
-} from "../../../version-control/src/index.ts";
-import {
-  MutationBoundaryError,
-  type ExecutionIntelligencePublicationResult,
-  blockedPublication,
-} from "./result.ts";
-import { entryExists, acquireMutationLock } from "./lock.ts";
+import { types } from "node:util";
+import { acquireHistoryLock } from "./lock.ts";
+import type {
+  Execution,
+  ExecutionGroup,
+  ReadResult,
+  StoreOptions,
+  WriteResult,
+} from "../record/types.ts";
 
-const MAXIMUM_EVENTS = 10_000;
+type Row =
+  | Readonly<{
+      contract: "execution-intelligence/history/v3";
+      kind: "execution";
+      value: Execution;
+    }>
+  | Readonly<{
+      contract: "execution-intelligence/history/v3";
+      kind: "group";
+      value: ExecutionGroup;
+    }>;
+export type Records = { executions: Execution[]; groups: ExecutionGroup[] };
+const CONTRACT = "execution-intelligence/history/v3";
+const MAX_BYTES = 32 * 1024 * 1024;
+const MAX_RECORDS = 10_000;
+const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/u;
 
-const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;
-
-// Runtime領域の既存Reader待機。Lock取得の再試行ではない。
-const AREA_READ_ATTEMPTS = 200;
-const AREA_READ_RETRY_MS = 10;
-const AREA_READ_WAIT = new Int32Array(new SharedArrayBuffer(4));
-
-/**
- * 読取り期間の半開区間を定義する。
- * @responsibility 保存・物理保持とは独立した期間抽出条件を所有する。
- * @trace ARCH-000007
- * @shape ISO日時のfromInclusive以上、toExclusive未満。
- * @invariant 全履歴の安全検査を期間抽出によって省略しない。
- * @boundary N/A: 値契約だけを定義する。
- * @security 任意PathやProvider本文を受け取らない。
- * @compatibility 未指定では全件を返す。
- */
-export type ExecutionIntelligenceReadOptions = Readonly<{
-  period: Readonly<{ fromInclusive: string; toExclusive: string }>;
-}>;
-
-/**
- * execution-intelligence-storeで使用するStore Layoutの値契約を定義する。
- *
- * @responsibility Store LayoutのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000007
- * @shape StoreLayoutが表すProperty、識別子およびRelationを型として固定する。
- * @invariant StoreLayoutで宣言した値と責務の対応を維持する。
- * @boundary N/A: StoreLayoutの宣言は外部境界を開かない。
- * @security N/A: StoreLayoutはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility StoreLayoutの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type StoreLayout = Readonly<{
-  executionDirectory: string;
-  boundaryIdentity: string | null;
-  history: string;
-  pending: string;
-  lock: string;
-}>;
-
-/**
- * execution-intelligence-storeで使用するRuntime Data Area Resolverの値契約を定義する。
- *
- * @responsibility Runtime Data Area ResolverのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000007
- * @shape RuntimeDataAreaResolverが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RuntimeDataAreaResolverで宣言した値と責務の対応を維持する。
- * @boundary N/A: RuntimeDataAreaResolverの宣言は外部境界を開かない。
- * @security N/A: RuntimeDataAreaResolverはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RuntimeDataAreaResolverの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type RuntimeDataAreaResolver = typeof ensureRepositoryRuntimeDataArea;
-
-/**
- * sha256を決定する。
- *
- * @responsibility sha256の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000007
- * @input bytes: string | Buffer
- * @returns sha256の計算結果を返す。
- * @precondition 「bytes: string | Buffer」がsha256の入力契約を満たす。
- * @postcondition sha256の責務を完了した結果だけを返す。
- * @effect N/A: sha256は入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: sha256は独自の失敗分岐を所有しない。
- * @invariant sha256は入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: sha256はAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: sha256は共有非同期状態を持たない同期処理である。
- */
-function sha256(bytes: string | Buffer) {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
-/**
- * Pathが同一かを判定する。
- *
- * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
- * @trace ARCH-000007
- * @input left: string、right: string
- * @returns booleanを返す。
- * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
- * @postcondition samePathの責務を完了した結果だけを返す。
- * @effect N/A: Path文字列と現在OSの区別だけを参照し、Process起動・Filesystem操作・書込みを行わない。
- * @failure N/A: samePathは独自の失敗分岐を所有しない。
- * @invariant samePathは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: samePathはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: samePathは共有非同期状態を持たない同期処理である。
- */
-function samePath(left: string, right: string): boolean {
-  const normalizedLeft = path.normalize(left);
-  const normalizedRight = path.normalize(right);
-  return process.platform === "win32"
-    ? normalizedLeft.toLocaleLowerCase("en-US") ===
-        normalizedRight.toLocaleLowerCase("en-US")
-    : normalizedLeft === normalizedRight;
-}
-
-/**
- * Directoryを安全条件の下で処理する。
- *
- * @responsibility Directoryの安全条件、拒否条件、終了結果境界を所有する。
- * @trace ARCH-000007
- * @input directory: string
- * @returns booleanを返す。
- * @precondition 「directory: string」がsafeDirectoryの入力契約を満たす。
- * @postcondition safeDirectoryの責務を完了した結果だけを返す。
- * @effect safeDirectoryはFilesystemの読取りまたは書込みを実行する。
- * @failure N/A: safeDirectoryは独自の失敗分岐を所有しない。
- * @invariant safeDirectoryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: safeDirectoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: safeDirectoryは共有非同期状態を持たない同期処理である。
- */
-function safeDirectory(directory: string): boolean {
-  const metadata = fs.lstatSync(directory);
-  return (
-    metadata.isDirectory() &&
-    !metadata.isSymbolicLink() &&
-    samePath(fs.realpathSync.native(directory), path.resolve(directory))
-  );
-}
-
-/**
- * Directoryが成立する状態を確保する。
- *
- * @responsibility Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
- * @trace ARCH-000007
- * @input directory: string
- * @returns N/A: ensureDirectoryは戻り値を返さない。
- * @precondition 「directory: string」がensureDirectoryの入力契約を満たす。
- * @postcondition ensureDirectoryの責務を完了して呼出し元へ制御を戻す。
- * @effect ensureDirectoryはFilesystemの読取りまたは書込みを実行する。
- * @failure ensureDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant ensureDirectoryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: ensureDirectoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: ensureDirectoryは共有非同期状態を持たない同期処理である。
- */
-function ensureDirectory(directory: string): void {
-  try {
-    fs.mkdirSync(directory, { mode: 0o700 });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-  }
-  if (!safeDirectory(directory))
-    throw new Error("execution_store_link_or_type_rejected");
-}
-
-/**
- * store Layoutを決定する。
- *
- * @responsibility store Layoutの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000007
- * @input rootCapability: Repository、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver
- * @returns StoreLayout | nullを返す。
- * @precondition 「rootCapability: Repository、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
- * @postcondition storeLayoutの責務を完了した結果だけを返す。
- * @effect storeLayoutはFilesystemの読取りまたは書込みを実行する。
- * @failure storeLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant storeLayoutは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: storeLayoutはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: storeLayoutは共有非同期状態を持たない同期処理である。
- */
-function storeLayout(
-  rootCapability: Repository,
-  shouldCreate: boolean,
-  resolveArea: RuntimeDataAreaResolver = ensureRepositoryRuntimeDataArea,
-): StoreLayout | null {
-  const repositoryRoot = resolveVerifiedRepositoryRoot(rootCapability);
-  if (repositoryRoot === null)
-    throw new Error("execution_store_root_capability_invalid");
-  if (!shouldCreate) {
-    const area = observeRepositoryRuntimeDataArea(
-      rootCapability,
-      "execution-intelligence",
-    );
-    if (area.status === "not_observed") return null;
-    if (area.status === "blocked")
-      throw new MutationBoundaryError(area.reason, []);
-    if (area.repositoryRoot !== repositoryRoot)
-      throw new Error("execution_store_root_capability_invalid");
-    return Object.freeze({
-      executionDirectory: area.directory,
-      boundaryIdentity: area.boundaryIdentity,
-      history: path.join(area.directory, "history.jsonl"),
-      pending: path.join(area.directory, "history.pending.jsonl"),
-      lock: path.join(area.directory, "history.lock"),
-    });
-  }
-  let observedArea = resolveArea(
-    rootCapability as Repository,
-    "execution-intelligence",
-  );
-  for (
-    let attempt = 0;
-    observedArea?.status === "blocked" &&
-    observedArea.retryAllowed &&
-    attempt < AREA_READ_ATTEMPTS;
-    attempt += 1
-  ) {
-    Atomics.wait(AREA_READ_WAIT, 0, 0, AREA_READ_RETRY_MS);
-    observedArea = resolveArea(
-      rootCapability as Repository,
-      "execution-intelligence",
-    );
-  }
-  const area = requireReadyRepositoryRuntimeDataArea(
-    observedArea,
-    "execution_store_root_capability_invalid",
-  );
-  if (area.repositoryRoot !== repositoryRoot)
-    throw new Error("execution_store_root_capability_invalid");
-  const executionDirectory = area.directory;
-  for (const directory of [executionDirectory]) {
-    if (!entryExists(directory)) {
-      if (!shouldCreate) return null;
-      ensureDirectory(directory);
-    } else if (!safeDirectory(directory))
-      throw new Error("execution_store_link_or_type_rejected");
-  }
-  return Object.freeze({
-    executionDirectory,
-    boundaryIdentity: null,
-    history: path.join(executionDirectory, "history.jsonl"),
-    pending: path.join(executionDirectory, "history.pending.jsonl"),
-    lock: path.join(executionDirectory, "history.lock"),
-  });
-}
-
-/**
- * existing Publicationを決定する。
- *
- * @responsibility existing Publicationの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000007
- * @input target: string、expected: Buffer、eventId: string
- * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「target: string、expected: Buffer、eventId: string」がexistingPublicationの入力契約を満たす。
- * @postcondition existingPublicationの責務を完了した結果だけを返す。
- * @effect existingPublicationはFilesystemの読取りまたは書込みを実行する。
- * @failure 完成bytes不一致または読取り失敗をthrowし、呼出し側が公開後Effect不明として閉じる。
- * @invariant existingPublicationは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: existingPublicationはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: existingPublicationは共有非同期状態を持たない同期処理である。
- */
-function existingPublication(
-  target: string,
-  expected: Buffer,
-  eventId: string,
-): ExecutionIntelligencePublicationResult {
-  const existing = fs.readFileSync(target);
-  if (!existing.equals(expected))
-    throw new Error("execution_store_publication_readback_mismatch");
-  return Object.freeze({
-    status: "completed" as const,
-    reason: "execution_event_already_recorded" as const,
-    eventId,
-    effectState: "settled" as const,
-    effectIssued: true as const,
-    effectStateUnknown: false as const,
-    cleanupConfirmed: true as const,
-    retryAllowed: false as const,
-    manualRecoveryRequired: false as const,
-    residualArtifactIds: Object.freeze([]) as readonly [],
-    recoveryReference: null,
-  });
-}
-
-/**
- * Execution Intelligence Event With Runtime Data Areaを書き込む。
- *
- * @responsibility Execution Intelligence Event With Runtime Data Areaの書込み先、確定条件、部分書込みの失敗境界を所有する。
- * @trace ARCH-000007
- * @input rootCapability: Repository、value: unknown、resolveArea: RuntimeDataAreaResolver
- * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「rootCapability: Repository、value: unknown、resolveArea: RuntimeDataAreaResolver」がwriteExecutionIntelligenceEventWithRuntimeDataAreaの入力契約を満たす。
- * @postcondition writeExecutionIntelligenceEventWithRuntimeDataAreaの責務を完了した結果だけを返す。
- * @effect writeExecutionIntelligenceEventWithRuntimeDataAreaはFilesystemの読取りまたは書込みを実行する。
- * @failure writeExecutionIntelligenceEventWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant writeExecutionIntelligenceEventWithRuntimeDataAreaは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: writeExecutionIntelligenceEventWithRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency Root全体のLockで設定取得・読取り・保持整理・原子的公開を直列化する。
- */
-export function writeExecutionIntelligenceEventWithRuntimeDataArea(
-  rootCapability: Repository,
-  value: unknown,
-  resolveArea: RuntimeDataAreaResolver,
-  clock: () => number = Date.now,
-): ExecutionIntelligencePublicationResult {
-  const event = inspectExecutionIntelligenceEvent(value);
-  if (!event)
-    return blockedPublication("execution_event_invalid", "no_effect", true, []);
-  let layout: StoreLayout | null = null,
-    lock: Lock | null = null;
-  let isPendingOwned = false,
-    wasPublicationAttempted = false;
-  let expected: Buffer | null = null;
-  let result: ExecutionIntelligencePublicationResult | null = null;
-  try {
-    layout = storeLayout(rootCapability, true, resolveArea);
-    if (!layout) throw new Error("execution_store_directory_missing");
-    lock = acquireMutationLock(layout);
-    if (!lock)
-      return blockedPublication(
-        "execution_store_lock_unavailable",
-        "no_effect",
-        false,
-        ["history.lock"],
-        false,
-      );
-    if (entryExists(layout.pending))
-      throw new MutationBoundaryError("execution_store_pending_unresolved", [
-        "history.pending.jsonl",
-      ]);
-    const now = clock();
-    if (!Number.isFinite(now)) throw new Error("execution_store_clock_invalid");
-    const settings = readExecutionIntelligenceConfig(rootCapability);
-    if (settings.status === "blocked")
-      throw new MutationBoundaryError(settings.reason, []);
-    const cutoff =
-      now - settings.config.historyRetentionDays * 24 * 60 * 60 * 1000;
-    const protectedEvent = (entry: ExecutionIntelligenceEvent) =>
-      !entry.outcome.cleanupConfirmed ||
-      entry.outcome.manualRecoveryRequired ||
-      entry.outcome.processRestartRequired ||
-      entry.outcome.effectState === "unknown";
-    if (Date.parse(event.occurredAt) < cutoff && !protectedEvent(event)) {
-      result = blockedPublication(
-        "execution_event_retention_expired",
-        "no_effect",
-        true,
-        [],
-      );
-    } else {
-      const history = readFromExecutionDirectory(layout.executionDirectory);
-      const existing = history.events.find(
-        (entry) => entry.eventId === event.eventId,
-      );
-      if (existing && JSON.stringify(existing) !== JSON.stringify(event))
-        result = blockedPublication(
-          "execution_event_identity_conflict",
-          "no_effect",
-          true,
-          [],
-        );
-      else {
-        const retainedEvents = history.events.filter(
-          (entry) =>
-            Date.parse(entry.occurredAt) >= cutoff || protectedEvent(entry),
-        );
-        if (!existing) retainedEvents.push(event);
-        if (retainedEvents.length > MAXIMUM_EVENTS)
-          throw new MutationBoundaryError(
-            "execution_store_event_limit_exceeded",
-            [],
-          );
-        expected = Buffer.from(
-          retainedEvents.map((entry) => `${JSON.stringify(entry)}\n`).join(""),
-          "utf8",
-        );
-        if (expected.length > MAXIMUM_TOTAL_BYTES)
-          throw new MutationBoundaryError(
-            "execution_store_byte_limit_exceeded",
-            [],
-          );
-        const descriptor = fs.openSync(layout.pending, "wx", 0o600);
-        isPendingOwned = true;
-        try {
-          fs.writeFileSync(descriptor, expected);
-          fs.fsyncSync(descriptor);
-        } finally {
-          fs.closeSync(descriptor);
-        }
-        if (!fs.readFileSync(layout.pending).equals(expected))
-          throw new Error("execution_store_pending_readback_mismatch");
-        wasPublicationAttempted = true;
-        fs.renameSync(layout.pending, layout.history);
-        if (entryExists(layout.pending))
-          throw new Error("execution_store_publication_incomplete");
-        isPendingOwned = false;
-        result = existingPublication(layout.history, expected, event.eventId);
-        if (result.status === "completed")
-          result = Object.freeze({
-            ...result,
-            reason: existing
-              ? ("execution_event_already_recorded" as const)
-              : ("execution_event_recorded" as const),
-          });
-      }
+/** accessor・Proxy・循環・未定義・過大値を受理せず、入力を自前のJSON値へ固定する。 */
+export function snapshot<T>(value: T): T {
+  let nodes = 0;
+  const ancestors = new Set<object>();
+  function copy(v: unknown, depth: number): unknown {
+    if (++nodes > 50_000 || depth > 12) throw Error("record_input_limit");
+    if (v === null || typeof v === "boolean") return v;
+    if (typeof v === "string") {
+      if (v.length > 8192 || v.includes("\0"))
+        throw Error("record_string_invalid");
+      return v;
     }
-  } catch (error) {
-    const failure =
-      error instanceof RepositoryRuntimeDataAreaBlockedError ? error : null;
-    const effectState: "no_effect" | "settled" | "unknown" =
-      wasPublicationAttempted ? "unknown" : "no_effect";
-    const residuals =
-      error instanceof MutationBoundaryError ? error.residualArtifactIds : [];
-    result = blockedPublication(
-      failure?.reason ??
-        (error instanceof MutationBoundaryError
-          ? error.message
-          : "execution_event_store_unavailable"),
-      failure?.effectStateUnknown
-        ? "unknown"
-        : failure?.effectIssued
-          ? "settled"
-          : effectState,
-      failure?.cleanupConfirmed ?? (!isPendingOwned && residuals.length === 0),
-      [...(isPendingOwned ? ["history.pending.jsonl"] : []), ...residuals],
-      failure?.retryAllowed ?? false,
-      failure
-        ? {
-            effectIssued: failure.effectIssued,
-            effectStateUnknown: failure.effectStateUnknown,
-            recoveryReference: failure.recoveryReference,
-          }
-        : { recoveryReference: wasPublicationAttempted ? event.eventId : null },
-    );
-  } finally {
-    if (isPendingOwned && layout) {
-      try {
-        fs.unlinkSync(layout.pending);
-        isPendingOwned = entryExists(layout.pending);
-      } catch {
-        isPendingOwned = true;
-      }
-    }
-    const released = lock === null || lock.release();
-    if (!released || isPendingOwned)
-      result = blockedPublication(
-        "execution_event_store_cleanup_unknown",
-        result?.effectState ?? "unknown",
-        false,
-        [
-          ...(isPendingOwned ? ["history.pending.jsonl"] : []),
-          ...(released ? [] : ["history.lock"]),
-        ],
-        false,
-        {
-          effectIssued: result?.effectIssued ?? wasPublicationAttempted,
-          effectStateUnknown: result?.effectStateUnknown ?? true,
-          recoveryReference:
-            result?.recoveryReference ??
-            (wasPublicationAttempted ? event.eventId : null),
-        },
-      );
-    else if (
-      result?.status === "blocked" &&
-      result.reason === "execution_event_store_unavailable"
-    )
-      result = blockedPublication(
-        result.reason,
-        result.effectState,
-        true,
-        [],
-        false,
-        {
-          effectIssued: result.effectIssued,
-          effectStateUnknown: result.effectStateUnknown,
-          recoveryReference: result.recoveryReference,
-        },
-      );
-  }
-  return (
-    result ??
-    blockedPublication(
-      "execution_event_store_observation_unknown",
-      "unknown",
-      false,
-      ["history.lock"],
-    )
-  );
-}
-
-/**
- * Execution Intelligence Eventを書き込む。
- *
- * @responsibility Execution Intelligence Eventの書込み先、確定条件、部分書込みの失敗境界を所有する。
- * @trace ARCH-000007
- * @input rootCapability: Repository、value: unknown
- * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「rootCapability: Repository、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
- * @postcondition writeExecutionIntelligenceEventの責務を完了した結果だけを返す。
- * @effect Repository-local履歴領域を作成し、history.lockの排他取得、pending書込み、履歴のatomic置換と保持期間整理を実行する。
- * @failure 入力不正、保存・観測・排他・回収の失敗を下位保存Ownerの結果として返し、Effect不明を未発行へ畳まない。
- * @invariant 検証済みRoot内の履歴だけを変更し、同じEvent IDの内容不変と未解決記録の保持を守る。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security 検証済みRootの宣言領域へ書込みを限定し、未所有Lockやpendingを自動回収しない。
- * @concurrency history.lockを排他的に取得し、保存確定と読戻し後に所有Lockの解放結果を確認する。
- */
-export function writeExecutionIntelligenceEvent(
-  rootCapability: Repository,
-  value: unknown,
-): ExecutionIntelligencePublicationResult {
-  return writeExecutionIntelligenceEventWithRuntimeDataArea(
-    rootCapability,
-    value,
-    ensureRepositoryRuntimeDataArea,
-  );
-}
-
-/**
- * From Execution Directoryを読み取る。
- *
- * @responsibility From Execution Directoryの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000007
- * @input directory: string
- * @returns readFromExecutionDirectoryの計算結果を返す。
- * @precondition 「directory: string」がreadFromExecutionDirectoryの入力契約を満たす。
- * @postcondition readFromExecutionDirectoryの責務を完了した結果だけを返す。
- * @effect readFromExecutionDirectoryはFilesystemの読取りまたは書込みを実行する。
- * @failure readFromExecutionDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readFromExecutionDirectoryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readFromExecutionDirectoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readFromExecutionDirectoryは共有非同期状態を持たない同期処理である。
- */
-function readFromExecutionDirectory(directory: string) {
-  const history = path.join(directory, "history.jsonl");
-  const events: ExecutionIntelligenceEvent[] = [];
-  const hashes: Record<string, string> = Object.create(null);
-  const allowed = new Set([
-    "history.jsonl",
-    "history.pending.jsonl",
-    "history.lock",
-  ]);
-  if (fs.readdirSync(directory).some((name) => !allowed.has(name)))
-    throw new Error("execution_store_filename_invalid");
-  const historyExists = entryExists(history);
-  if (historyExists) {
-    const status = fs.lstatSync(history);
-    if (!status.isFile() || status.isSymbolicLink() || status.nlink !== 1)
-      throw new Error("execution_store_entry_type_invalid");
-    if (status.size > MAXIMUM_TOTAL_BYTES)
-      throw new MutationBoundaryError(
-        "execution_store_byte_limit_exceeded",
-        [],
-      );
-    const descriptor = fs.openSync(history, "r");
-    let bytes: Buffer;
-    try {
-      const actual = fs.fstatSync(descriptor);
-      if (
-        !actual.isFile() ||
-        actual.nlink !== 1 ||
-        actual.size > MAXIMUM_TOTAL_BYTES
-      )
-        throw new Error("execution_store_entry_type_invalid");
-      bytes = Buffer.alloc(actual.size);
-      let offset = 0;
-      while (offset < bytes.length) {
-        const count = fs.readSync(
-          descriptor,
-          bytes,
-          offset,
-          bytes.length - offset,
-          offset,
-        );
-        if (count === 0) throw new Error("execution_store_read_incomplete");
-        offset += count;
-      }
-    } finally {
-      fs.closeSync(descriptor);
-    }
-    const source = bytes.toString("utf8");
-    if (!Buffer.from(source, "utf8").equals(bytes))
-      throw new Error("execution_store_encoding_invalid");
-    if (source && !source.endsWith("\n"))
-      throw new Error("execution_store_incomplete_record");
-    for (const line of source ? source.slice(0, -1).split("\n") : []) {
-      if (events.length >= MAXIMUM_EVENTS)
-        throw new MutationBoundaryError(
-          "execution_store_event_limit_exceeded",
-          [],
-        );
-      const event = inspectExecutionIntelligenceEvent(JSON.parse(line));
-      if (!event || Object.hasOwn(hashes, event.eventId))
-        throw new Error("execution_store_content_invalid");
-      events.push(event);
-      hashes[event.eventId] = sha256(Buffer.from(`${line}\n`));
-    }
-  }
-  const summary = summarizeExecutionIntelligence(events);
-  if (!summary) throw new Error("execution_summary_invalid");
-  return Object.freeze({
-    status: "completed" as const,
-    reason: (historyExists
-      ? "execution_events_observed"
-      : "execution_events_not_observed") as
-      | "execution_events_observed"
-      | "execution_events_not_observed",
-    observationState: (historyExists ? "observed" : "not_observed") as
-      | "observed"
-      | "not_observed",
-    events: Object.freeze(events),
-    hashes: Object.freeze(hashes),
-    summary,
-    period: null as ExecutionIntelligenceReadOptions["period"] | null,
-  });
-}
-
-/**
- * Execution Intelligence With Runtime Data Areaを読み取る。
- *
- * @responsibility Execution Intelligence With Runtime Data Areaの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000007
- * @input rootCapability: Repository、resolveArea: RuntimeDataAreaResolver
- * @returns | ReturnType<typeof readFromExecutionDirectory> | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>を返す。
- * @precondition 「rootCapability: Repository、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
- * @postcondition readExecutionIntelligenceWithRuntimeDataAreaの責務を完了した結果だけを返す。
- * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
- * @failure readExecutionIntelligenceWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readExecutionIntelligenceWithRuntimeDataAreaは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readExecutionIntelligenceWithRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency Lock／pendingを読取り前後に観測し、原子的に公開した完全なhistory snapshotだけを返す。
- */
-export function readExecutionIntelligenceWithRuntimeDataArea(
-  rootCapability: Repository,
-  resolveArea: RuntimeDataAreaResolver,
-  options?: ExecutionIntelligenceReadOptions,
-):
-  | ReturnType<typeof readFromExecutionDirectory>
-  | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }> {
-  try {
-    let period: { fromInclusive: number; toExclusive: number } | null = null;
-    let requestedPeriod: ExecutionIntelligenceReadOptions["period"] | null =
-      null;
-    if (options !== undefined) {
-      const parsed = snapshotPlainRecord(options, new Set(["period"]));
-      const range =
-        parsed &&
-        snapshotPlainRecord(
-          parsed.period,
-          new Set(["fromInclusive", "toExclusive"]),
-        );
-      if (
-        !range ||
-        typeof range.fromInclusive !== "string" ||
-        typeof range.toExclusive !== "string"
-      )
-        return blockedPublication(
-          "execution_period_invalid",
-          "no_effect",
-          true,
-          [],
-        );
-      const fromInclusive = Date.parse(range.fromInclusive),
-        toExclusive = Date.parse(range.toExclusive);
-      if (
-        !Number.isFinite(fromInclusive) ||
-        !Number.isFinite(toExclusive) ||
-        fromInclusive >= toExclusive
-      )
-        return blockedPublication(
-          "execution_period_invalid",
-          "no_effect",
-          true,
-          [],
-        );
-      period = { fromInclusive, toExclusive };
-      requestedPeriod = Object.freeze({
-        fromInclusive: range.fromInclusive,
-        toExclusive: range.toExclusive,
-      });
-    }
-    const layout = storeLayout(rootCapability, false, resolveArea);
-    if (!layout) {
-      const summary = summarizeExecutionIntelligence([]);
-      if (!summary) throw new Error("execution_summary_invalid");
-      return Object.freeze({
-        status: "completed" as const,
-        reason: "execution_events_not_observed" as const,
-        observationState: "not_observed" as const,
-        events: Object.freeze([]),
-        hashes: Object.freeze({}),
-        summary,
-        period: requestedPeriod,
-      });
-    }
-    const unsettled = () =>
-      [layout.lock, layout.pending]
-        .filter((target) => entryExists(target))
-        .map((target) => path.basename(target));
-    let residuals = unsettled();
-    if (residuals.length)
-      return blockedPublication(
-        "execution_store_publication_pending",
-        "unknown",
-        false,
-        residuals,
-        true,
-        { effectIssued: false },
-      );
-    const result = readFromExecutionDirectory(layout.executionDirectory);
-    const finalArea = observeRepositoryRuntimeDataArea(
-      rootCapability,
-      "execution-intelligence",
-    );
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (!v || typeof v !== "object" || types.isProxy(v) || ancestors.has(v))
+      throw Error("record_input_invalid");
     if (
-      finalArea.status !== "ready" ||
-      finalArea.boundaryIdentity !== layout.boundaryIdentity ||
-      finalArea.repositoryRoot !== resolveVerifiedRepositoryRoot(rootCapability)
+      !Array.isArray(v) &&
+      Object.getPrototypeOf(v) !== Object.prototype &&
+      Object.getPrototypeOf(v) !== null
     )
-      return blockedPublication(
-        "execution_store_boundary_changed",
-        "no_effect",
-        true,
-        [],
-      );
-    residuals = unsettled();
-    if (residuals.length)
-      return blockedPublication(
-        "execution_store_publication_pending",
-        "unknown",
-        false,
-        residuals,
-        true,
-        { effectIssued: false },
-      );
-    if (!period) return result;
-    const events = result.events.filter(
-      (event) =>
-        Date.parse(event.occurredAt) >= period.fromInclusive &&
-        Date.parse(event.occurredAt) < period.toExclusive,
-    );
-    const summary = summarizeExecutionIntelligence(events);
-    if (!summary) throw new Error("execution_summary_invalid");
-    const hashes = Object.fromEntries(
-      events.map((event) => {
-        const hash = result.hashes[event.eventId];
-        if (typeof hash !== "string") throw new Error("execution_hash_missing");
-        return [event.eventId, hash] as const;
-      }),
-    );
-    return Object.freeze({
-      ...result,
-      events: Object.freeze(events),
-      hashes: Object.freeze(hashes),
-      summary,
-      period: requestedPeriod,
-    });
-  } catch (error) {
-    return blockedPublication(
-      error instanceof MutationBoundaryError
-        ? error.message
-        : "execution_event_store_observation_failed",
-      "no_effect",
-      true,
-      [],
-    );
+      throw Error("record_input_invalid");
+    ancestors.add(v);
+    const descriptors = Object.getOwnPropertyDescriptors(v);
+    if (Reflect.ownKeys(descriptors).some((k) => typeof k !== "string"))
+      throw Error("record_input_invalid");
+    const result: Record<string, unknown> | unknown[] = Array.isArray(v)
+      ? []
+      : Object.create(null);
+    for (const key of Object.keys(descriptors).sort()) {
+      if (Array.isArray(v) && key === "length") continue;
+      const d = descriptors[key];
+      if (
+        !d ||
+        !Object.hasOwn(d, "value") ||
+        !d.enumerable ||
+        key === "__proto__"
+      )
+        throw Error("record_input_invalid");
+      Object.defineProperty(result, key, {
+        value: copy(d.value, depth + 1),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+    ancestors.delete(v);
+    return Object.freeze(result);
+  }
+  return copy(value, 0) as T;
+}
+type ObjectValue = Record<string, unknown>;
+function object(value: unknown): ObjectValue {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw Error("record_object_invalid");
+  return value as ObjectValue;
+}
+function keys(value: ObjectValue, required: string[], optional: string[] = []) {
+  if (
+    required.some((k) => !Object.hasOwn(value, k)) ||
+    Object.keys(value).some(
+      (k) => !required.includes(k) && !optional.includes(k),
+    )
+  )
+    throw Error("record_fields_invalid");
+}
+function text(value: unknown) {
+  if (typeof value !== "string" || !value.length || value.length > 8192)
+    throw Error("record_text_invalid");
+}
+export function assertId(value: unknown): asserts value is string {
+  if (typeof value !== "string" || !ID.test(value))
+    throw Error("record_id_invalid");
+}
+export function instant(value: unknown): number {
+  text(value);
+  const t = Date.parse(value as string);
+  if (!/^\d{4}-\d\d-\d\dT/u.test(value as string) || !Number.isFinite(t))
+    throw Error("record_time_invalid");
+  return t;
+}
+function nonnegative(value: unknown) {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < 0 ||
+    value > Number.MAX_SAFE_INTEGER
+  )
+    throw Error("measurement_invalid");
+}
+function metadata(value: unknown) {
+  const v = object(value);
+  if (Object.keys(v).length > 64) throw Error("metadata_limit");
+  for (const [k, x] of Object.entries(v)) {
+    if (
+      !k.length ||
+      k.length > 128 ||
+      !(x === null || ["string", "number", "boolean"].includes(typeof x))
+    )
+      throw Error("metadata_invalid");
   }
 }
-
-/**
- * Execution Intelligenceを読み取る。
- *
- * @responsibility Execution Intelligenceの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000007
- * @input rootCapability: Repository
- * @returns readExecutionIntelligenceの計算結果を返す。
- * @precondition 「rootCapability: Repository」がreadExecutionIntelligenceの入力契約を満たす。
- * @postcondition readExecutionIntelligenceの責務を完了した結果だけを返す。
- * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
- * @failure N/A: readExecutionIntelligenceは独自の失敗分岐を所有しない。
- * @invariant readExecutionIntelligenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readExecutionIntelligenceはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readExecutionIntelligenceは共有非同期状態を持たない同期処理である。
- */
-export function readExecutionIntelligence(
-  rootCapability: Repository,
-  options?: ExecutionIntelligenceReadOptions,
-) {
-  return readExecutionIntelligenceWithRuntimeDataArea(
-    rootCapability,
-    ensureRepositoryRuntimeDataArea,
-    options,
+function observation(value: unknown, check: (v: unknown) => void) {
+  const v = object(value);
+  if (v.state === "observed") {
+    keys(v, ["state", "value", "source"]);
+    text(v.source);
+    check(v.value);
+  } else {
+    keys(v, ["state", "reason"]);
+    if (v.state !== "not_observed" && v.state !== "not_applicable")
+      throw Error("observation_invalid");
+    text(v.reason);
+  }
+}
+const CONTEXT = ["application", "operation", "role", "workType", "metadata"];
+function context(value: ObjectValue) {
+  for (const k of CONTEXT)
+    if (Object.hasOwn(value, k)) {
+      if (k === "metadata") metadata(value[k]);
+      else text(value[k]);
+    }
+}
+/** 新Schemaの必須field・相関を同じ検査で入力と履歴に適用する。 */
+export function validateExecution(value: Execution): void {
+  const v = object(value);
+  keys(
+    v,
+    ["executionId", "startedAt", "state", "completion"],
+    [...CONTEXT, "groupId", "configuration"],
   );
+  assertId(v.executionId);
+  if (v.groupId !== undefined) assertId(v.groupId);
+  context(v);
+  const start = instant(v.startedAt);
+  if (v.configuration !== undefined) {
+    const c = object(v.configuration);
+    keys(c, [], ["provider", "model", "reasoningEffort", "configurationRef"]);
+    for (const [k, x] of Object.entries(c))
+      if (k === "configurationRef") text(x);
+      else observation(x, text);
+  }
+  if (v.state === "open" && v.completion === null) return;
+  if (v.state !== "closed" || v.completion === null)
+    throw Error("execution_state_invalid");
+  const c = object(v.completion);
+  keys(
+    c,
+    ["endedAt", "elapsedMs", "outcome", "retention"],
+    ["providerDurationMs", "usage", "diagnostic", "artifactRef"],
+  );
+  if (instant(c.endedAt) < start) throw Error("record_time_reversed");
+  observation(c.elapsedMs, nonnegative);
+  if (c.providerDurationMs !== undefined)
+    observation(c.providerDurationMs, nonnegative);
+  if (c.retention !== "standard" && c.retention !== "unresolved")
+    throw Error("retention_invalid");
+  const outcome = object(c.outcome);
+  keys(outcome, ["status"], ["failureCategory", "reason"]);
+  if (
+    !["completed", "failed", "blocked", "cancelled", "unknown"].includes(
+      outcome.status as string,
+    )
+  )
+    throw Error("outcome_invalid");
+  for (const k of ["failureCategory", "reason"])
+    if (outcome[k] !== undefined) text(outcome[k]);
+  if (c.diagnostic !== undefined) metadata(c.diagnostic);
+  if (c.artifactRef !== undefined) text(c.artifactRef);
+  if (c.usage !== undefined) {
+    const u = object(c.usage);
+    keys(
+      u,
+      [],
+      [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "cost",
+      ],
+    );
+    for (const [k, x] of Object.entries(u))
+      observation(x, (y) => {
+        if (k !== "cost") {
+          nonnegative(y);
+          if (!Number.isSafeInteger(y)) throw Error("token_count_invalid");
+          return;
+        }
+        const cost = object(y);
+        keys(cost, ["amount", "unit", "kind", "source"]);
+        nonnegative(cost.amount);
+        text(cost.unit);
+        if (
+          !["currency", "credit"].includes(cost.kind as string) ||
+          !["reported", "estimated"].includes(cost.source as string)
+        )
+          throw Error("cost_invalid");
+      });
+  }
+}
+export function validateGroup(value: ExecutionGroup): void {
+  const v = object(value);
+  keys(v, ["groupId", "startedAt", "state", "completion"], CONTEXT);
+  assertId(v.groupId);
+  context(v);
+  const start = instant(v.startedAt);
+  if (v.state === "open" && v.completion === null) return;
+  if (v.state !== "closed" || v.completion === null)
+    throw Error("group_state_invalid");
+  const c = object(v.completion);
+  keys(c, ["endedAt", "status"]);
+  if (
+    instant(c.endedAt) < start ||
+    !["completed", "failed", "cancelled"].includes(c.status as string)
+  )
+    throw Error("group_completion_invalid");
+}
+function exists(file: string): boolean {
+  try {
+    fs.lstatSync(file);
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw e;
+  }
+}
+function directory(store: StoreOptions): fs.BigIntStats {
+  keys(object(store), ["directory", "retentionDays"]);
+  if (
+    !Number.isSafeInteger(store.retentionDays) ||
+    store.retentionDays < 1 ||
+    store.retentionDays > 36500 ||
+    !path.isAbsolute(store.directory) ||
+    path.resolve(store.directory) !== store.directory
+  )
+    throw Error("store_options_invalid");
+  const s = fs.lstatSync(store.directory, { bigint: true });
+  const same = (a: string, b: string) =>
+    process.platform === "win32"
+      ? a.toLowerCase() === b.toLowerCase()
+      : a === b;
+  if (
+    !s.isDirectory() ||
+    s.isSymbolicLink() ||
+    !same(fs.realpathSync.native(store.directory), store.directory)
+  )
+    throw Error("store_directory_invalid");
+  if (
+    fs
+      .readdirSync(store.directory)
+      .some(
+        (name) =>
+          !["history.jsonl", "history.pending.jsonl", "history.lock"].includes(
+            name,
+          ),
+      )
+  )
+    throw Error("store_unknown_residual");
+  return s;
+}
+function sameDirectory(store: StoreOptions, original: fs.BigIntStats) {
+  const now = directory(store);
+  if (now.dev !== original.dev || now.ino !== original.ino)
+    throw Error("store_directory_changed");
+}
+/** descriptor取得後も上限と元実体を確認し、固定長だけ読む。 */
+function readBoundedFile(
+  file: string,
+  expectedIdentity?: fs.BigIntStats,
+): Buffer {
+  const before = fs.lstatSync(file, { bigint: true });
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.nlink !== 1n ||
+    before.size < 0n ||
+    before.size > BigInt(MAX_BYTES) ||
+    (expectedIdentity &&
+      (before.dev !== expectedIdentity.dev ||
+        before.ino !== expectedIdentity.ino))
+  )
+    throw Error("store_file_invalid");
+  const fd = fs.openSync(file, "r");
+  try {
+    const opened = fs.fstatSync(fd, { bigint: true });
+    if (
+      !opened.isFile() ||
+      opened.nlink !== 1n ||
+      opened.size < 0n ||
+      opened.size > BigInt(MAX_BYTES) ||
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      opened.size !== before.size ||
+      opened.mtimeNs !== before.mtimeNs
+    )
+      throw Error("store_file_changed");
+    const bytes = Buffer.alloc(Number(opened.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const n = fs.readSync(fd, bytes, offset, bytes.length - offset, offset);
+      if (!n) throw Error("store_file_changed");
+      offset += n;
+    }
+    const after = fs.fstatSync(fd, { bigint: true }),
+      named = fs.lstatSync(file, { bigint: true });
+    if (
+      after.size !== opened.size ||
+      after.mtimeNs !== opened.mtimeNs ||
+      after.nlink !== 1n ||
+      named.dev !== opened.dev ||
+      named.ino !== opened.ino ||
+      named.mtimeNs !== opened.mtimeNs ||
+      named.isSymbolicLink()
+    )
+      throw Error("store_file_changed");
+    return bytes;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+function readHistory(store: StoreOptions): Records {
+  const file = path.join(store.directory, "history.jsonl");
+  if (!exists(file)) return { executions: [], groups: [] };
+  const bytes = readBoundedFile(file);
+  const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  if (decoded.length && !decoded.endsWith("\n"))
+    throw Error("store_history_incomplete");
+  const lines = decoded ? decoded.slice(0, -1).split("\n") : [];
+  if (lines.length > MAX_RECORDS) throw Error("store_record_limit");
+  const records: Records = { executions: [], groups: [] };
+  const ids = new Set<string>();
+  for (const line of lines) {
+    const row = snapshot(JSON.parse(line)) as Row;
+    if (row.contract !== CONTRACT)
+      throw Error("store_schema_migration_required");
+    keys(object(row), ["contract", "kind", "value"]);
+    let id: string;
+    if (row.kind === "execution") {
+      validateExecution(row.value);
+      records.executions.push(row.value);
+      id = row.value.executionId;
+    } else if (row.kind === "group") {
+      validateGroup(row.value);
+      records.groups.push(row.value);
+      id = row.value.groupId;
+    } else throw Error("store_record_kind_invalid");
+    const key = `${row.kind}:${id}`;
+    if (ids.has(key)) throw Error("store_identity_conflict");
+    ids.add(key);
+  }
+  const groups = new Set(records.groups.map((g) => g.groupId));
+  if (records.executions.some((e) => e.groupId && !groups.has(e.groupId)))
+    throw Error("store_group_reference_missing");
+  return records;
+}
+export function readRecords(input: StoreOptions): ReadResult<Records> {
+  try {
+    const store = snapshot(input),
+      original = directory(store);
+    if (
+      exists(path.join(store.directory, "history.lock")) ||
+      exists(path.join(store.directory, "history.pending.jsonl"))
+    )
+      throw Error("store_publication_pending");
+    const records = readHistory(store);
+    sameDirectory(store, original);
+    if (
+      exists(path.join(store.directory, "history.lock")) ||
+      exists(path.join(store.directory, "history.pending.jsonl"))
+    )
+      throw Error("store_publication_pending");
+    return { status: "completed", value: records };
+  } catch (error) {
+    return {
+      status: "blocked",
+      reason:
+        error instanceof Error && /^[a-z][a-z0-9_]+$/u.test(error.message)
+          ? error.message
+          : "store_observation_unknown",
+    };
+  }
+}
+export function blockedWrite(recordId: string, reason: string): WriteResult {
+  return {
+    status: "blocked",
+    reason,
+    recordId: typeof recordId === "string" && ID.test(recordId) ? recordId : "",
+    effectState: "no_effect",
+    effectIssued: false,
+    effectStateUnknown: false,
+    cleanupConfirmed: true,
+    retryAllowed: false,
+    manualRecoveryRequired: false,
+    residualArtifactIds: [],
+    recoveryReference: null,
+  };
+}
+
+/** 一操作を同じLock内で検査・保持整理・出版する。操作は用途でなく記録遷移。 */
+export function writeRecord(
+  input: StoreOptions,
+  kind: Row["kind"],
+  id: string,
+  phase: "create" | "complete",
+  value: unknown,
+): WriteResult {
+  let result = blockedWrite(id, "store_unavailable");
+  let lock: ReturnType<typeof acquireHistoryLock> | null = null;
+  let pendingOwned = false,
+    publicationAttempted = false,
+    descriptorClosed = true;
+  let rootIdentity: fs.BigIntStats | null = null,
+    pendingIdentity: fs.BigIntStats | null = null;
+  let store: StoreOptions | null = null;
+  try {
+    const perform = (): WriteResult => {
+      assertId(id);
+      store = snapshot(input);
+      const original = directory(store);
+      rootIdentity = original;
+      const data = snapshot(value);
+      // 旧SchemaをLock・pending作成前にも検出する。
+      const preflight = readRecords(store);
+      if (preflight.status !== "completed")
+        return blockedWrite(id, preflight.reason);
+      lock = acquireHistoryLock(store.directory);
+      if (lock.status !== "acquired")
+        return {
+          ...blockedWrite(id, lock.reason),
+          cleanupConfirmed: lock.cleanupConfirmed,
+          manualRecoveryRequired: !lock.cleanupConfirmed,
+          recoveryReference: lock.cleanupConfirmed ? null : id,
+          residualArtifactIds: lock.cleanupConfirmed ? [] : ["history.lock"],
+        };
+      if (exists(path.join(store.directory, "history.pending.jsonl")))
+        throw Error("store_publication_pending");
+      const records = readHistory(store);
+      const list: (Execution | ExecutionGroup)[] =
+        kind === "execution" ? records.executions : records.groups;
+      const current = list.find(
+        (v) => ("executionId" in v ? v.executionId : v.groupId) === id,
+      );
+      let candidate: Execution | ExecutionGroup;
+      if (phase === "create") {
+        if (
+          Object.hasOwn(object(data), "state") ||
+          Object.hasOwn(object(data), "completion")
+        )
+          throw Error("record_fields_invalid");
+        candidate = { ...object(data), state: "open", completion: null } as
+          | Execution
+          | ExecutionGroup;
+        if (
+          (kind === "execution" &&
+            (candidate as Execution).executionId !== id) ||
+          (kind === "group" && (candidate as ExecutionGroup).groupId !== id)
+        )
+          throw Error("record_identity_invalid");
+        if (current) {
+          const {
+            state: _state,
+            completion: _completion,
+            ...created
+          } = current;
+          if (JSON.stringify(snapshot(created)) !== JSON.stringify(data))
+            throw Error("record_identity_conflict");
+          return {
+            ...blockedWrite(id, "record_already_created"),
+            status: "completed",
+            effectState: "settled",
+          };
+        }
+      } else {
+        if (!current) throw Error("record_not_found");
+        if (current.state === "closed") {
+          if (
+            JSON.stringify(snapshot(current.completion)) !==
+            JSON.stringify(data)
+          )
+            throw Error("record_completion_conflict");
+          return {
+            ...blockedWrite(id, "record_already_completed"),
+            status: "completed",
+            effectState: "settled",
+          };
+        }
+        candidate = { ...current, state: "closed", completion: data } as
+          | Execution
+          | ExecutionGroup;
+      }
+      if (kind === "execution") {
+        const execution = candidate as Execution;
+        validateExecution(execution);
+        if (
+          phase === "create" &&
+          execution.groupId &&
+          !records.groups.some(
+            (g) => g.groupId === execution.groupId && g.state === "open",
+          )
+        )
+          throw Error("group_not_open");
+        records.executions = records.executions.filter(
+          (e) => e.executionId !== id,
+        );
+        records.executions.push(execution);
+      } else {
+        validateGroup(candidate as ExecutionGroup);
+        records.groups = records.groups.filter((g) => g.groupId !== id);
+        records.groups.push(candidate as ExecutionGroup);
+      }
+      const cutoff = Date.now() - store.retentionDays * 86400_000;
+      records.executions = records.executions.filter(
+        (e) =>
+          e.completion === null ||
+          e.completion?.retention === "unresolved" ||
+          e.completion?.outcome.status === "unknown" ||
+          Date.parse(e.completion.endedAt) >= cutoff ||
+          (kind === "execution" && e.executionId === id),
+      );
+      const referenced = new Set(records.executions.map((e) => e.groupId));
+      records.groups = records.groups.filter(
+        (g) =>
+          g.completion === null ||
+          referenced.has(g.groupId) ||
+          Date.parse(g.completion.endedAt) >= cutoff ||
+          (kind === "group" && g.groupId === id),
+      );
+      const rows: Row[] = [
+        ...records.groups.map(
+          (v) => ({ contract: CONTRACT, kind: "group", value: v }) as Row,
+        ),
+        ...records.executions.map(
+          (v) => ({ contract: CONTRACT, kind: "execution", value: v }) as Row,
+        ),
+      ];
+      const expected = Buffer.from(
+        rows.map((row) => `${JSON.stringify(snapshot(row))}\n`).join(""),
+      );
+      if (rows.length > MAX_RECORDS || expected.length > MAX_BYTES)
+        throw Error("store_limit_exceeded");
+      sameDirectory(store, original);
+      if (!lock.lock.assertLive()) throw Error("store_lock_lost");
+      const pending = path.join(store.directory, "history.pending.jsonl"),
+        history = path.join(store.directory, "history.jsonl");
+      const fd = fs.openSync(pending, "wx", 0o600);
+      pendingOwned = true;
+      descriptorClosed = false;
+      try {
+        pendingIdentity = fs.fstatSync(fd, { bigint: true });
+        fs.writeFileSync(fd, expected);
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+        descriptorClosed = true;
+      }
+      if (
+        !readBoundedFile(pending, pendingIdentity ?? undefined).equals(expected)
+      )
+        throw Error("store_pending_readback_mismatch");
+      sameDirectory(store, original);
+      if (!lock.lock.assertLive()) throw Error("store_lock_lost");
+      publicationAttempted = true;
+      fs.renameSync(pending, history);
+      pendingOwned = false;
+      if (
+        exists(pending) ||
+        !readBoundedFile(history, pendingIdentity ?? undefined).equals(expected)
+      )
+        throw Error("store_publication_unconfirmed");
+      sameDirectory(store, original);
+      result = {
+        ...blockedWrite(id, "record_saved"),
+        status: "completed",
+        effectState: "settled",
+        effectIssued: true,
+      };
+      return result;
+    };
+    result = perform();
+  } catch (error) {
+    result = {
+      ...blockedWrite(
+        id,
+        error instanceof Error && /^[a-z][a-z0-9_]+$/u.test(error.message)
+          ? error.message
+          : "store_unavailable",
+      ),
+      effectState: publicationAttempted ? "unknown" : "no_effect",
+      effectIssued: publicationAttempted,
+      effectStateUnknown: publicationAttempted,
+      recoveryReference: publicationAttempted ? id : null,
+      manualRecoveryRequired: publicationAttempted,
+    };
+  } finally {
+    const finalStore = store as StoreOptions | null;
+    const finalLock = lock as ReturnType<typeof acquireHistoryLock> | null;
+    if (pendingOwned && finalStore) {
+      try {
+        const root = rootIdentity as fs.BigIntStats | null,
+          identity = pendingIdentity as fs.BigIntStats | null;
+        if (root && identity && descriptorClosed) {
+          sameDirectory(finalStore, root);
+          const target = path.join(
+              finalStore.directory,
+              "history.pending.jsonl",
+            ),
+            current = fs.lstatSync(target, { bigint: true });
+          if (
+            current.isFile() &&
+            !current.isSymbolicLink() &&
+            current.nlink === 1n &&
+            current.dev === identity.dev &&
+            current.ino === identity.ino
+          ) {
+            fs.unlinkSync(target);
+            pendingOwned = exists(target);
+          }
+        }
+      } catch {
+        /* 元Root・元pendingを確認できない場合は別実体を削除しない。 */
+      }
+    }
+    const released =
+      finalLock?.status !== "acquired" || finalLock.lock.release();
+    if (!released || pendingOwned || !descriptorClosed)
+      result = {
+        ...result,
+        status: "blocked",
+        reason: "store_cleanup_unknown",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        recoveryReference: id,
+        residualArtifactIds: [
+          ...(pendingOwned ? ["history.pending.jsonl"] : []),
+          ...(!released ? ["history.lock"] : []),
+        ],
+      };
+  }
+  return result;
 }

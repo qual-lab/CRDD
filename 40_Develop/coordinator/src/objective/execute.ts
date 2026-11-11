@@ -6,6 +6,17 @@
  */
 
 import { isDeepStrictEqual } from "node:util";
+import { createHash } from "node:crypto";
+import {
+  createGroup,
+  completeGroup,
+  type StoreOptions,
+} from "../../../execution-intelligence/src/index.ts";
+import {
+  getExecutionIntelligenceStore,
+  reportExecutionRecording,
+  reportExecutionRecordingUnavailable,
+} from "../execution/intelligence.ts";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   isPrincipalId,
@@ -1789,6 +1800,33 @@ export async function executeCoordinatorPublicObjective(
       })
     );
   };
+  let eiGroup: { store: StoreOptions; groupId: string } | null = null;
+  const groupId = `group-${createHash("sha256").update(`${request.projectId}\0${request.requestId}`).digest("hex").slice(0, 40)}`;
+  try {
+    const repository = getRepository(repositoryRoot);
+    const store =
+      repository.status === "completed"
+        ? getExecutionIntelligenceStore(repository.capability, true)
+        : null;
+    if (store) {
+      const recorded = createGroup(store, {
+        groupId,
+        application: "CRDD",
+        operation: "objective_execution",
+        startedAt: new Date().toISOString(),
+        metadata: {
+          projectId: request.projectId,
+          requestId: request.requestId,
+        },
+      });
+      reportExecutionRecording(recorded);
+      if (recorded.status === "completed") eiGroup = { store, groupId };
+    } else {
+      reportExecutionRecordingUnavailable(groupId);
+    }
+  } catch (error) {
+    reportExecutionRecordingUnavailable(groupId, error);
+  }
   const execution = await runCoordinatorObjective(
     {
       authenticatedPrincipalId: authenticationContext.principalId,
@@ -1961,6 +1999,7 @@ export async function executeCoordinatorPublicObjective(
                 correlation,
                 observer,
                 workspaceTarget,
+                executionMetadata,
               ) =>
                 runtimeDependencies.startTask(
                   taskRequest,
@@ -1969,23 +2008,38 @@ export async function executeCoordinatorPublicObjective(
                   observer,
                   "orchestrator",
                   workspaceTarget,
+                  {
+                    ...executionMetadata,
+                    ...(request.workType ? { workType: request.workType } : {}),
+                    ...(eiGroup ? { groupId: eiGroup.groupId } : {}),
+                  },
                 ),
               cancelTask: runtimeDependencies.cancelTask,
               captureResultDelivery: runtimeDependencies.captureResultDelivery,
             },
             input,
           ),
-        recordTaskAttempt: (observation) =>
-          runtimeDependencies.recordExecutionEvent(repositoryRoot, observation),
-        callbacks: {
-          observePublication:
-            runtimeDependencies.observeExecutionEventPublication,
-        },
       },
     },
     request,
     cancellationSignal,
   );
+  if (eiGroup) {
+    try {
+      reportExecutionRecording(
+        completeGroup(eiGroup.store, eiGroup.groupId, {
+          endedAt: new Date().toISOString(),
+          status: cancellationSignal.aborted
+            ? "cancelled"
+            : execution.status === "completed"
+              ? "completed"
+              : "failed",
+        }),
+      );
+    } catch {
+      reportExecutionRecordingUnavailable(eiGroup.groupId);
+    }
+  }
   if (
     execution.projection?.milestoneState === "accepted" &&
     execution.reason === "orchestrator_tasks_already_integration_pending"

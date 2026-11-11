@@ -1,5 +1,11 @@
 # QA-000004 読取り投影と時間的出所の検証定義
 
+## EIの汎用記録への切替範囲 — 2026-11-11
+
+EIのTask専用投影、Revision鮮度分類、Reader注入Port、品質評価・改善候補は採用済みv0.22再構成の対象外とする。これらの旧試験を、新しい検索・集計が同じCapabilityを成立させた根拠にはしない。`PPR-UT-011`のEI専用Portと`PPR-UT-013`のEI単独鮮度分類の旧実装試験は退役し、基準版Evidenceは保全する。正式な読取り・時間的出所全体の成立やRequirement変更を、この局所再編から主張しない。
+
+存続する活動ReaderのProject／Source／Cursor相関、破損・観測不能、未知状態、許可境界はCoordinatorが所有し、`runtime-activity.contract.test.ts`とWorkbench／MCPの既存Consumer試験で維持する。EIの汎用データからTask成功を推定せず、上位Ownerが明示した最終診断だけをTask結果へ投影する。未完了・未解決記録を保護するGroup／集計の新義務は[QA-000012](../QA-000012/quality_definition.md#v022の記録モデルと限定検証--2026-11-11)で扱う。
+
 ## 構造登録と実行結果の分離 — 2026-11-06
 
 PPR-UT-017のRelation Consistency義務は維持する。CheckerがSourceのskip宣言だけでSuite全体の登録を拒否する処理と、その字句Parser専用試験は撤去する。これはskipを含むSuiteも構造登録できる受理条件変更であり、挙動不変とは扱わない。実在Path・Owner・ID・参照・QA関係の検査は残す。skip・未実施・Passは既存試験Runnerと品質評価の実行結果で確認し、登録Graphを実行済みEvidenceとしない。Parser専用の旧成功を移管先の検証成立へ繰り越さない。

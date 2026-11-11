@@ -26,6 +26,7 @@ import {
  * @compatibility CoordinatorTaskAttemptInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorTaskAttemptInput = Readonly<{
+  executionMetadata?: Readonly<Record<string, string>>;
   operationId: string;
   taskRequest: unknown;
   repositoryRoot: unknown;

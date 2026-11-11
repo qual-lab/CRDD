@@ -16,6 +16,7 @@
  * @boundary 自己生成AM／登録Repositoryだけ。公開Launcherと実Browserは別評価。
  */
 import assert from "node:assert/strict";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -33,12 +34,8 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import {
-  createTaskAttemptSettledEvent,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
-  writeExecutionIntelligenceEvent,
-} from "../../../execution-intelligence/src/index.ts";
+import type { Execution } from "../../../execution-intelligence/src/index.ts";
+import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import { observeLocalListener } from "../../../visual-preview/src/index.ts";
 import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
 import { authenticateWorkbenchConnection } from "../../src/server/credential/administration.ts";
@@ -68,9 +65,21 @@ function recordFixtureActivity(
   projectId: string,
   taskId: string,
 ) {
-  const value = createTaskAttemptSettledEvent({
-    occurredAt: new Date().toISOString(),
-    identity: {
+  const value = {
+    executionId: `execution-${
+      {
+        projectId,
+        milestoneId: "milestone.fixture",
+        objectiveId: "objective.fixture",
+        taskId,
+        attemptId: `attempt.${taskId}`,
+        operationId: `operation.${taskId}`,
+      }.operationId
+    }`,
+    application: "CRDD",
+    operation: "task_attempt",
+    startedAt: new Date().toISOString(),
+    metadata: {
       projectId,
       milestoneId: "milestone.fixture",
       objectiveId: "objective.fixture",
@@ -78,35 +87,56 @@ function recordFixtureActivity(
       attemptId: `attempt.${taskId}`,
       operationId: `operation.${taskId}`,
     },
-    outcome: {
-      status: "completed",
-      reason: "fixture_task_completed",
-      effectState: "settled",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      processRestartRequired: false,
-    },
-    execution: {
-      role: "executor",
-      provider: { state: "not_observed", reason: "provider_not_reported" },
-      model: { state: "not_observed", reason: "model_not_reported" },
-      inputStrategyRef: { state: "not_observed", reason: "input_not_reported" },
-      durationMs: { state: "not_observed", reason: "duration_not_reported" },
-      usage: usageNotObserved("usage_not_reported"),
-      humanActiveMs: {
+    state: "closed",
+    completion: {
+      endedAt: new Date().toISOString(),
+      elapsedMs: {
         state: "not_observed",
-        reason: "human_time_not_reported",
+        reason: "fixture_duration_not_observed",
       },
+      outcome: {
+        status: {
+          status: "completed",
+          reason: "fixture_task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.status,
+        reason: {
+          status: "completed",
+          reason: "fixture_task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.reason,
+      },
+      diagnostic: {
+        cleanupConfirmed: {
+          status: "completed",
+          reason: "fixture_task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.cleanupConfirmed,
+        manualRecoveryRequired: {
+          status: "completed",
+          reason: "fixture_task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.manualRecoveryRequired,
+      },
+      retention: "standard",
     },
-    quality: {
-      state: "not_applicable",
-      reason: "attempt_settlement_is_not_acceptance",
-    },
-  });
-  const verified = verifyExecutionIntelligenceRepositoryRoot(root);
+  } as Execution;
+  const verified = getRepository(root);
   assert.ok(verified.status === "completed");
   assert.equal(
-    writeExecutionIntelligenceEvent(verified.root, value).status,
+    storeFixtureExecution(verified.capability, value).status,
     "completed",
   );
   return value;

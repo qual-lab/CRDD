@@ -8,6 +8,7 @@ import {
   type ProjectResultAcceptance,
   type CoordinatorState,
   decodeProjectResultAcceptance,
+  snapshotCoordinatorWorkspaceResult,
 } from "../../../domain-model/src/index.ts";
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
@@ -19,15 +20,6 @@ import {
   inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../execution/process-safety-state.ts";
-import {
-  createTaskAttemptSettledEvent,
-  type ExecutionIntelligenceEvent,
-  type TaskAttemptExecutionIntelligenceEvent,
-  type ExecutionIntelligencePublicationResult,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
-  writeExecutionIntelligenceEvent,
-} from "../../../execution-intelligence/src/index.ts";
 
 import {
   validIdentity,
@@ -49,10 +41,7 @@ import type {
   CoordinatorExecutionResult,
   ExecutionInput,
   CoordinatorTaskExecution,
-  CoordinatorExecutionPublicationObservation,
-  CoordinatorExecutionObservationPublication,
   CoordinatorSingleTaskResult,
-  CoordinatorTaskAttemptObservation,
   CoordinatorTaskResultDelivery,
   CoordinatorExecutionHostAdapterOptions,
   CoordinatorTaskRecoveryHostDependencies,
@@ -905,7 +894,6 @@ export async function runCoordinatorOperation(
       string,
       Readonly<{ attemptId: string; operationId: string }>
     >();
-    const attemptStartedAt = new Map<string, number>();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
         let delivery: CoordinatorTaskResultDelivery | null = null;
@@ -913,8 +901,6 @@ export async function runCoordinatorOperation(
         let isDeliveryInvalid = false;
         let isNotificationClosed = false;
         const outcome = await (async () => {
-          const startedAt = dependencies.clockIdentity.now();
-          attemptStartedAt.set(attempt.attemptId, startedAt.monotonicMs);
           try {
             if (input.cancellationSignal.aborted)
               return Object.freeze({
@@ -969,6 +955,16 @@ export async function runCoordinatorOperation(
               attemptId: attempt.attemptId,
               operationId: attempt.operationId,
               authorityBindingId: attempt.execution.authorityBindingId,
+              executionMetadata: {
+                operation: "task_attempt",
+                projectId: input.projectId,
+                milestoneId: input.milestoneId,
+                objectiveId:
+                  state.tasks.find((t) => t.definition.id === attempt.taskId)
+                    ?.definition.objectiveId ?? "",
+                taskId: attempt.taskId,
+                attemptId: attempt.attemptId,
+              },
               repositoryRevision: state.repositoryRevision,
               taskRequest: attempt.execution.taskRequest,
               repositoryRoot: attempt.execution.repositoryRoot,
@@ -1065,78 +1061,6 @@ export async function runCoordinatorOperation(
               result: observation,
             }),
           );
-      }
-      const taskDefinition = state.tasks.find(
-        (task) => task.definition.id === attempt.taskId,
-      )?.definition;
-      const endedAt = dependencies.clockIdentity.now();
-      if (taskDefinition) {
-        const event = Object.freeze({
-          occurredAt: endedAt.iso,
-          startedAtMs:
-            attemptStartedAt.get(attempt.attemptId) ?? endedAt.monotonicMs,
-          endedAtMs: endedAt.monotonicMs,
-          identity: {
-            projectId: input.projectId,
-            milestoneId: input.milestoneId,
-            objectiveId: taskDefinition.objectiveId,
-            taskId: attempt.taskId,
-            attemptId: attempt.attemptId,
-            operationId: attempt.operationId,
-          },
-          outcome:
-            validatedOutcome && isExact
-              ? {
-                  status: validatedOutcome.status,
-                  reason: validatedOutcome.reason,
-                  effectState: validatedOutcome.effectState,
-                  cleanupConfirmed: validatedOutcome.cleanupConfirmed,
-                  manualRecoveryRequired:
-                    validatedOutcome.manualRecoveryRequired,
-                  processRestartRequired:
-                    validatedOutcome.processRestartRequired,
-                }
-              : {
-                  status: "unknown",
-                  reason: "task_attempt_result_not_observable",
-                  effectState: "unknown",
-                  cleanupConfirmed: false,
-                  manualRecoveryRequired: true,
-                  processRestartRequired: true,
-                },
-          ...(validatedOutcome &&
-          isExact &&
-          validatedOutcome.executorProvider !== undefined
-            ? { provider: validatedOutcome.executorProvider }
-            : {}),
-        } satisfies CoordinatorTaskAttemptObservation);
-        let publicationObservation: CoordinatorExecutionPublicationObservation;
-        try {
-          publicationObservation = dependencies.recordTaskAttempt
-            ? dependencies.recordTaskAttempt(event)
-            : Object.freeze({
-                status: "not_configured" as const,
-                reason: "execution_event_recorder_not_configured",
-                effectState: "no_effect" as const,
-                cleanupConfirmed: true,
-              });
-        } catch {
-          publicationObservation = Object.freeze({
-            status: "unknown" as const,
-            reason: "execution_event_recorder_threw",
-            effectState: "unknown" as const,
-            cleanupConfirmed: false,
-          });
-        }
-        try {
-          void Promise.resolve(
-            dependencies.callbacks?.observePublication?.(
-              publicationObservation,
-            ),
-          ).catch(() => {});
-        } catch {
-          // A secondary diagnostic is non-authority and cannot change the Task.
-        }
       }
       const effectStarted = startedAttemptIds.has(attempt.attemptId);
       const normalizedRecoveryObligations: Array<
@@ -1616,124 +1540,6 @@ export function createCoordinatorExecutionHostPorts(
     }) satisfies CoordinatorProcessSafetyPort,
   });
 }
-
-/**
- * Task Attemptの観測を欠測付きの共通Eventへ写す。
- *
- * @responsibility Coordinator Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000007
- * @input input: CoordinatorTaskAttemptObservation
- * @returns TaskAttemptExecutionIntelligenceEventを返す。
- * @precondition 「input: CoordinatorTaskAttemptObservation」がcreateCoordinatorTaskAttemptEventの入力契約を満たす。
- * @postcondition createCoordinatorTaskAttemptEventの責務を完了した結果だけを返す。
- * @effect N/A: createCoordinatorTaskAttemptEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createCoordinatorTaskAttemptEventは独自の失敗分岐を所有しない。
- * @invariant createCoordinatorTaskAttemptEventは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createCoordinatorTaskAttemptEventはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createCoordinatorTaskAttemptEventは共有非同期状態を持たない同期処理である。
- */
-export function createCoordinatorTaskAttemptEvent(
-  input: CoordinatorTaskAttemptObservation,
-): TaskAttemptExecutionIntelligenceEvent {
-  return createTaskAttemptSettledEvent({
-    occurredAt: input.occurredAt,
-    identity: input.identity,
-    execution: {
-      role: "executor",
-      provider:
-        input.provider === undefined
-          ? {
-              state: "not_observed",
-              reason: "provider_selection_not_exposed_by_single_task_result",
-            }
-          : {
-              state: "observed",
-              value: input.provider,
-              source: "single_task_verified_completion",
-            },
-      model: {
-        state: "not_observed",
-        reason: "model_selection_not_exposed_by_single_task_result",
-      },
-      inputStrategyRef: {
-        state: "observed",
-        value: "orchestrator/single-task-request/v1",
-        source: "orchestrator_execution",
-      },
-      durationMs:
-        Number.isFinite(input.startedAtMs) &&
-        Number.isFinite(input.endedAtMs) &&
-        input.endedAtMs >= input.startedAtMs
-          ? {
-              state: "observed",
-              value: Math.round(input.endedAtMs - input.startedAtMs),
-              source: "orchestrator_monotonic_clock",
-            }
-          : {
-              state: "not_observed",
-              reason: "orchestrator_monotonic_clock_invalid",
-            },
-      usage: usageNotObserved(
-        "provider_usage_not_exposed_by_single_task_result",
-      ),
-      humanActiveMs: {
-        state: "not_observed",
-        reason: "human_active_time_not_observed_for_task_attempt",
-      },
-    },
-    outcome: input.outcome,
-    quality: {
-      state: "not_applicable",
-      reason: "task_attempt_settlement_is_not_acceptance",
-    },
-  });
-}
-
-import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
-
-/**
- * 検証済みRepositoryへTask Attemptの実行記録を公開する。
- *
- * @responsibility Repository検証後だけ共通Writerを呼び、保存結果のEffect・回収・再試行条件を変更せず返す。
- * @trace ARCH-000007
- * @input repositoryRoot: string、observation: CoordinatorTaskAttemptObservation
- * @returns CoordinatorExecutionObservationPublicationを返す。
- * @precondition 観測値は上位Attemptの実測値であり、保存対象Rootを呼出側が指定する。
- * @postcondition Root拒否ではEffect 0、公開後は共通Writerの結果をそのまま保持する。
- * @effect 検証済みRepositoryの実行履歴へ共通Writerが記録を保存する。
- * @failure Root検証失敗をblockedとして返し、Event生成例外やWriterの契約外例外を入力不正へ偽装しない。
- * @invariant 欠測を補完せず、記録結果からTask受入や新しいAuthorityを導出しない。
- * @boundary Coordinatorの上位観測とExecution Intelligenceの公開保存境界。
- * @security Root検証が成功する前に保存Effectを発行せず、Provider出力本文や秘密値を新たに収集しない。
- * @concurrency 保存の排他・重複・回収は共通Writerが所有し、利用側で自動再発行しない。
- */
-export function recordCoordinatorExecutionEvent(
-  repositoryRoot: string,
-  observation: CoordinatorTaskAttemptObservation,
-): CoordinatorExecutionObservationPublication {
-  const verifiedRoot =
-    verifyExecutionIntelligenceRepositoryRoot(repositoryRoot);
-  if (verifiedRoot.status !== "completed")
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: verifiedRoot.reason,
-      effectState: "no_effect" as const,
-      cleanupConfirmed: true,
-      retryAllowed: false,
-      manualRecoveryRequired: false,
-      residualArtifactIds: Object.freeze([]),
-    });
-  return writeExecutionIntelligenceEvent(
-    verifiedRoot.root,
-    createCoordinatorTaskAttemptEvent(observation),
-  );
-}
-
-export type {
-  ExecutionIntelligenceEvent,
-  ExecutionIntelligencePublicationResult,
-};
 
 /**
  * Bind Coordinator recovery implementations to one verified Repository.

@@ -22,14 +22,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
-import {
-  BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
-  evaluateBoundedIntegratedResult,
-  notObserved,
-  observed,
-  readExecutionIntelligence,
-  verifyExecutionIntelligenceRepositoryRoot,
-} from "../../../execution-intelligence/src/index.ts";
+
 import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import {
   createCoordinatorSnapshotAcceptanceDecisionStore,
@@ -50,7 +43,7 @@ import type {
 } from "../../src/objective/types.ts";
 import { readCurrentCoordinatorState } from "../../src/state/query.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
+
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -459,9 +452,6 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
       })),
     observeLeaseOwner: () => ({ status: "absent" }),
     execution: {
-      recordTaskAttempt: (
-        event: Parameters<typeof recordCoordinatorExecutionEvent>[1],
-      ) => recordCoordinatorExecutionEvent(root, event),
       runSingleTaskAttempt: async (input: {
         attemptId: string;
         operationId: string;
@@ -521,43 +511,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
     milestoneId: request.milestoneId,
     objectiveId: "objective-bounded-evaluation",
   });
-  const verified = verifyExecutionIntelligenceRepositoryRoot(root);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") throw new Error("root_not_verified");
-  const intelligenceResult = readExecutionIntelligence(verified.root);
-  assert.equal(intelligenceResult.status, "completed");
-  if (intelligenceResult.status !== "completed")
-    throw new Error("execution_events_not_observed");
-  const evaluation = evaluateBoundedIntegratedResult({
-    contract: BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
-    evaluationId: "evaluation-bounded-evaluation",
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    expectedTaskIds: ["task-a", "task-b"],
-    taskAttemptEvents: intelligenceResult.events,
-    integratedResult: observed(
-      { result: "accepted", evidenceIds: ["evidence-milestone"] },
-      "orchestrator_integration_result",
-    ),
-    measurements: {
-      timeToAcceptedResultMs: notObserved(
-        "deterministic_contract_test_is_not_a_latency_benchmark",
-      ),
-      humanActiveMs: notObserved("no_human_activity_observer_attached"),
-      reviewLoopCount: observed(0, "bounded_test_fixture"),
-      remediationCount: observed(0, "bounded_test_fixture"),
-      retryCount: observed(0, "orchestrator_terminal_state"),
-      integrationConflictCount: observed(0, "integration_candidate"),
-      postIntegrationFindingCount: notObserved(
-        "independent_review_not_part_of_this_test",
-      ),
-    },
-  });
-  assert.equal(evaluation?.status, "completed");
-  assert.equal(evaluation?.integratedAcceptedResult, true);
-  assert.equal(evaluation?.observedTaskCount, 2);
-  assert.equal(evaluation?.attemptCount, 2);
-  assert.equal(evaluation?.taskSuccessIsIntegrationAcceptance, false);
+  // 合成Task RuntimeはAIを起動しないため、EIの実行記録・品質評価を成立根拠にしない。
 });
 
 /**

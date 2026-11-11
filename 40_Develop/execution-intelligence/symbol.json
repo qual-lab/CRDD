@@ -9,7 +9,69 @@
       "path": "src/index.ts",
       "archIds": [
         "ARCH-000007",
-        "ARCH-000016",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.types",
+      "kind": "file",
+      "path": "src/record/types.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.execution",
+      "kind": "file",
+      "path": "src/record/execution.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.group",
+      "kind": "file",
+      "path": "src/record/group.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.query",
+      "kind": "file",
+      "path": "src/record/query.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.summary",
+      "kind": "file",
+      "path": "src/record/summary.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.storage.store",
+      "kind": "file",
+      "path": "src/storage/store.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.storage.lock",
+      "kind": "file",
+      "path": "src/storage/lock.ts",
+      "archIds": [
+        "ARCH-000007",
         "ARCH-000018"
       ]
     },
@@ -27,55 +89,43 @@
         "ERP-IT-005"
       ],
       "verifies": [
-        "execution-intelligence.source.src.application.execution.intelligence.recorder",
-        "execution-intelligence.source.src.core.execution.intelligence",
-        "execution-intelligence.source.src.store.execution.intelligence.store",
-        "execution-intelligence.source.src.store.verified.repository.root",
-        "execution-intelligence.source.record.types",
-        "execution-intelligence.source.record.validation",
-        "execution-intelligence.source.record.summary",
+        "execution-intelligence.source.storage.store",
         "execution-intelligence.source.storage.lock",
-        "execution-intelligence.source.storage.result"
+        "execution-intelligence.source.record.execution"
       ]
     },
     {
-      "symbolId": "execution-intelligence.test.integration.record-projection",
+      "symbolId": "execution-intelligence.test.integration.groups",
       "kind": "test-suite",
-      "path": "tests/integration/record-projection.contract.test.ts",
+      "path": "tests/integration/groups.contract.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000012"
       ],
       "localTestIds": [
-        "PPR-IT-010",
-        "PPR-IT-012"
+        "ERP-IT-006"
       ],
       "verifies": [
-        "execution-intelligence.source.src.application.record.projection",
-        "execution-intelligence.source.src.core.temporal.provenance"
+        "execution-intelligence.source.record.group",
+        "execution-intelligence.source.storage.store"
       ]
     },
     {
-      "symbolId": "execution-intelligence.test.integration.record-projection-correlation",
+      "symbolId": "execution-intelligence.test.integration.query-summary",
       "kind": "test-suite",
-      "path": "tests/integration/execution-record-projection.contract.test.ts",
+      "path": "tests/integration/query-summary.contract.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000012"
       ],
       "localTestIds": [
-        "PPR-IT-003",
-        "PPR-IT-004"
+        "ERP-IT-007"
       ],
       "verifies": [
-        "execution-intelligence.source.src.application.execution.record.projection",
-        "execution-intelligence.source.src.core.execution.intelligence",
-        "execution-intelligence.improvement-candidates",
-        "execution-intelligence.source.record.types",
-        "execution-intelligence.source.record.validation",
+        "execution-intelligence.source.record.query",
         "execution-intelligence.source.record.summary"
       ]
     },
     {
-      "symbolId": "execution-intelligence.test.unit.event-contract",
+      "symbolId": "execution-intelligence.test.unit.public-api",
       "kind": "test-suite",
       "path": "tests/unit/execution-intelligence.contract.test.ts",
       "qaIds": [
@@ -85,139 +135,8 @@
         "ERP-UT-006"
       ],
       "verifies": [
-        "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
-        "execution-intelligence.source.src.core.execution.intelligence",
-        "execution-intelligence.improvement-candidates",
-        "execution-intelligence.source.record.types",
-        "execution-intelligence.source.record.validation",
-        "execution-intelligence.source.record.summary"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.test.unit.temporal-provenance",
-      "kind": "test-suite",
-      "path": "tests/unit/temporal-provenance.contract.test.ts",
-      "qaIds": [
-        "QA-000004"
-      ],
-      "localTestIds": [
-        "PPR-UT-013"
-      ],
-      "verifies": [
-        "execution-intelligence.source.src.core.temporal.provenance"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.application.execution.intelligence.recorder",
-      "kind": "file",
-      "path": "src/record/recorder.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.application.record.projection",
-      "kind": "file",
-      "path": "src/projection/temporal.ts",
-      "archIds": [
-        "ARCH-000007",
-        "ARCH-000016"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.application.execution.record.projection",
-      "kind": "file",
-      "path": "src/projection/execution.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.store.execution.intelligence.store",
-      "kind": "file",
-      "path": "src/storage/store.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
-      "kind": "file",
-      "path": "src/evaluation/integrated-result.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.core.execution.intelligence",
-      "kind": "file",
-      "path": "src/record/event.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.core.temporal.provenance",
-      "kind": "file",
-      "path": "src/projection/temporal.ts",
-      "archIds": [
-        "ARCH-000016"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.src.store.verified.repository.root",
-      "kind": "file",
-      "path": "src/record/recorder.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.improvement-candidates",
-      "kind": "file",
-      "path": "src/evaluation/improvement-candidates.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.record.types",
-      "kind": "file",
-      "path": "src/record/types.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.record.validation",
-      "kind": "file",
-      "path": "src/record/validation.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.record.summary",
-      "kind": "file",
-      "path": "src/record/summary.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.storage.lock",
-      "kind": "file",
-      "path": "src/storage/lock.ts",
-      "archIds": [
-        "ARCH-000007"
-      ]
-    },
-    {
-      "symbolId": "execution-intelligence.source.storage.result",
-      "kind": "file",
-      "path": "src/storage/result.ts",
-      "archIds": [
-        "ARCH-000007"
+        "execution-intelligence.public-api",
+        "execution-intelligence.source.record.types"
       ]
     }
   ]

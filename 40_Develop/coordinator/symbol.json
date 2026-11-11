@@ -4,6 +4,12 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.source.execution.intelligence",
+      "kind": "file",
+      "path": "src/execution/intelligence.ts",
+      "archIds": ["ARCH-000007", "ARCH-000018"]
+    },
+    {
       "symbolId": "coordinator.execution.isolation-configuration",
       "kind": "file",
       "path": "src/execution/configuration.ts",
@@ -1060,10 +1066,6 @@
         "coordinator.source.src.security.orchestrator.decision.capability.adapter",
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "coordinator.source.src.security.orchestrator.objective.intake",
-        "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
-        "execution-intelligence.source.src.core.execution.intelligence",
-        "execution-intelligence.source.src.store.execution.intelligence.store",
-        "execution-intelligence.source.src.store.verified.repository.root",
         "orchestrator.human-decision-application",
         "orchestrator.replanning-application",
         "orchestrator.source.src.ports.decision.port",
@@ -3701,17 +3703,19 @@
       ]
     },
     {
-      "symbolId": "orchestrator.test.unit.execution-observation-port",
+      "symbolId": "coordinator.test.integration.provider-intelligence",
       "kind": "test-suite",
-      "path": "tests/unit/task/intelligence-adapter.contract.test.ts",
+      "path": "tests/integration/provider-intelligence.contract.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000012"
       ],
       "localTestIds": [
-        "PPR-UT-011"
+        "ERP-IT-008"
       ],
       "verifies": [
-        "orchestrator.execution-observation-port"
+        "coordinator.source.execution.intelligence",
+        "execution-intelligence.source.record.execution",
+        "execution-intelligence.source.storage.store"
       ]
     },
     {
@@ -3978,8 +3982,6 @@
         "coordinator.source.src.composition.orchestrator.composition.root",
         "coordinator.source.src.security.execution.intelligence.adapter",
         "coordinator.source.src.security.orchestrator.windows.decision.store",
-        "execution-intelligence.source.src.store.execution.intelligence.store",
-        "execution-intelligence.source.src.store.verified.repository.root",
         "orchestrator.objective-application",
         "orchestrator.public-api",
         "orchestrator.state-core",

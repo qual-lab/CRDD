@@ -7,6 +7,14 @@
 
 import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { types } from "node:util";
+import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  beginProviderExecutionRecording,
+  captureProviderExecutionCompletion,
+  finishProviderExecutionRecording,
+  reportExecutionRecordingUnavailable,
+  type ProviderExecutionRecording,
+} from "./intelligence.ts";
 import { getIsolationSettings } from "./configuration.ts";
 import type { Provider } from "../../../ai-adapter/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
@@ -29,6 +37,7 @@ import {
   borrowOwnedOperationExecutionSelection,
   borrowOwnedDockerExecutionPaths,
   verifyRuntimeOwnedRepositoryOperation,
+  borrowRuntimeOwnedCoordinatorStateRepository,
 } from "./operation.ts";
 import {
   createAttemptPreparation,
@@ -112,6 +121,9 @@ function createExecutionRecordOperations(
     mountAttempted: boolean;
     mountCompleted: boolean;
   },
+  recording: { value: ProviderExecutionRecording | null; attempted: boolean },
+  executionMetadata: Readonly<Record<string, string>>,
+  recordings?: ProviderExecutionRecording[],
 ): ExecutionRecordOperations {
   return {
     recordUnstarted: recordRuntimeOwnedUnstartedAttempt,
@@ -160,7 +172,39 @@ function createExecutionRecordOperations(
             recoveryFinalizationCapability: null,
           },
     markResourceSubmission: markRuntimeOwnedDockerResourceSubmission,
-    recordProviderSubmission: recordRuntimeOwnedDockerProviderSubmission,
+    recordProviderSubmission: (...args) => {
+      const saved = recordRuntimeOwnedDockerProviderSubmission(...args);
+      if (saved === true && !recording.attempted) {
+        recording.attempted = true;
+        // 必須Recovery保存の後だけ任意EIを試す。失敗を通知から投げない。
+        try {
+          const source =
+            borrowRuntimeOwnedCoordinatorStateRepository(management);
+          const repository = source
+            ? getRepository(source.repositoryRoot)
+            : null;
+          if (repository?.status === "completed")
+            recording.value = beginProviderExecutionRecording(
+              repository.capability,
+              owned.operationId,
+              owned.provider,
+              {
+                ...executionMetadata,
+                ...(owned.taskRole ? { role: owned.taskRole } : {}),
+              },
+              owned.executionSelection,
+            );
+          else
+            reportExecutionRecordingUnavailable(
+              `execution-${owned.operationId}`,
+            );
+          if (recording.value && recordings) recordings.push(recording.value);
+        } catch {
+          reportExecutionRecordingUnavailable(`execution-${owned.operationId}`);
+        }
+      }
+      return saved;
+    },
     recordTerminalObservation: recordRuntimeOwnedDockerTerminalObservation,
     recordResourceNotIssued: recordRuntimeOwnedDockerResourceNotIssued,
     recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
@@ -274,6 +318,8 @@ export function startRuntimeOwnedDockerProcessController(
   handoff: (capability: object, recoveryId: string) => boolean,
   restriction?: (purpose: string) => boolean,
   observeStarted?: (notice: ProcessStartedNotice) => void | Promise<void>,
+  executionMetadata: Readonly<Record<string, string>> = {},
+  recordings?: ProviderExecutionRecording[],
 ): StartResult<"attempt"> {
   if (provider !== "codex" && provider !== "claude")
     return createBlockedPreparationStart(
@@ -308,6 +354,13 @@ export function startRuntimeOwnedDockerProcessController(
       selectedEffort: selection.effort,
     });
   const technical = plan;
+  const recording: {
+    value: ProviderExecutionRecording | null;
+    attempted: boolean;
+  } = {
+    value: null,
+    attempted: false,
+  };
   const admission = {
     authorityConsumed: false,
     mountAttempted: false,
@@ -323,6 +376,9 @@ export function startRuntimeOwnedDockerProcessController(
           technical,
           input.managementCapability,
           admission,
+          recording,
+          executionMetadata,
+          recordings,
         ),
       },
       technical,
@@ -347,6 +403,14 @@ export function startRuntimeOwnedDockerProcessController(
       cleanupConfirmed,
       manualRecoveryRequired: !cleanupConfirmed || started.recoveryId !== null,
     });
+  }
+  if (started.status === "started") {
+    const completion = started.completion.then((result) => {
+      captureProviderExecutionCompletion(recording.value, result);
+      if (!recordings) finishProviderExecutionRecording(recording.value);
+      return result;
+    });
+    started = { ...started, completion };
   }
   return Object.freeze({
     ...started,

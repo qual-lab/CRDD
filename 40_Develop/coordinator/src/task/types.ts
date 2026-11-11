@@ -182,6 +182,7 @@ export type CoordinatorTaskResultDelivery = Readonly<{
  * @compatibility CoordinatorSingleTaskAttemptInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorSingleTaskAttemptInput = Readonly<{
+  executionMetadata?: Readonly<Record<string, string>>;
   workspaceId?: string | null;
   ownerRepositoryRoot?: string;
   executionTree?: string;
@@ -263,40 +264,6 @@ export type CoordinatorExecutionPort = Readonly<{
 }>;
 
 /**
- * execution-observation-portで使用するCoordinator Task Attempt Observationの値契約を定義する。
- *
- * @responsibility Coordinator Task Attempt ObservationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000007
- * @shape CoordinatorTaskAttemptObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorTaskAttemptObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorTaskAttemptObservationの宣言は外部境界を開かない。
- * @security N/A: CoordinatorTaskAttemptObservationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorTaskAttemptObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorTaskAttemptObservation = Readonly<{
-  occurredAt: string;
-  startedAtMs: number;
-  endedAtMs: number;
-  identity: Readonly<{
-    projectId: string;
-    milestoneId: string;
-    objectiveId: string;
-    taskId: string;
-    attemptId: string;
-    operationId: string;
-  }>;
-  outcome: Readonly<{
-    status: "completed" | "blocked" | "cancelled" | "unknown";
-    reason: string;
-    effectState: "no_effect" | "settled" | "unknown";
-    cleanupConfirmed: boolean;
-    manualRecoveryRequired: boolean;
-    processRestartRequired: boolean;
-  }>;
-  provider?: "codex" | "claude";
-}>;
-
-/**
  * execution-observation-portで使用するCoordinator Execution Observation Publicationの値契約を定義する。
  *
  * @responsibility Coordinator Execution Observation PublicationのProperty、Identity、状態制約を型境界として所有する。
@@ -333,23 +300,6 @@ export type CoordinatorExecutionObservationPublication =
       effectState: "no_effect" | "unknown";
       cleanupConfirmed: boolean;
     }>;
-
-/**
- * 実行記録の結果を通知する。保存操作や実行可否の判断を所有しない。
- *
- * @responsibility 任意の記録結果通知だけを定義する。
- * @trace ARCH-000007
- * @shape 記録結果を受け取る任意の通知ハンドラー。
- * @invariant 通知失敗・遅延をTask結果や保存成功へ変換しない。
- * @boundary Taskの記録操作と任意の診断表示の間。
- * @security 通知から実行や受入のAuthorityを発行しない。
- * @compatibility 通知は待機せず、同期例外と返却Promiseの拒否を捕捉する。
- */
-export interface TaskExecutionCallbacks {
-  observePublication?: (
-    publication: CoordinatorExecutionObservationPublication,
-  ) => void | Promise<void>;
-}
 
 /**
  * executionで使用するCoordinator Task Executionの値契約を定義する。
@@ -401,10 +351,6 @@ export type CoordinatorExecutionDependencies = Readonly<{
   runSingleTaskAttempt: (
     input: CoordinatorSingleTaskAttemptInput,
   ) => Promise<CoordinatorSingleTaskResult>;
-  recordTaskAttempt?: (
-    observation: CoordinatorTaskAttemptObservation,
-  ) => CoordinatorExecutionObservationPublication;
-  callbacks?: TaskExecutionCallbacks;
   resultDelivery?: Readonly<{
     repositoryBindingId: string;
   }>;

@@ -20,12 +20,11 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   saveCoordinatorManagedProject,
 } from "../../../domain-model/src/index.ts";
+import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
-  createTaskAttemptSettledEvent,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
-  writeExecutionIntelligenceEvent,
-} from "../../../execution-intelligence/src/index.ts";
+  storeFixtureExecution,
+  activityId,
+} from "../fixtures/execution-intelligence.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 
@@ -173,9 +172,21 @@ function event(
   occurredAt: string,
   project = projectId,
 ) {
-  const value = createTaskAttemptSettledEvent({
-    occurredAt,
-    identity: {
+  const value = {
+    executionId: `execution-${
+      {
+        projectId: project,
+        milestoneId: "milestone-a",
+        objectiveId: "objective-a",
+        taskId,
+        attemptId: `attempt-${taskId}`,
+        operationId: `operation-${taskId}`,
+      }.operationId
+    }`,
+    application: "CRDD",
+    operation: "task_attempt",
+    startedAt: occurredAt,
+    metadata: {
       projectId: project,
       milestoneId: "milestone-a",
       objectiveId: "objective-a",
@@ -183,37 +194,58 @@ function event(
       attemptId: `attempt-${taskId}`,
       operationId: `operation-${taskId}`,
     },
-    outcome: {
-      status: "completed",
-      reason: "task_completed",
-      effectState: "settled",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      processRestartRequired: false,
-    },
-    execution: {
-      role: "executor",
-      provider: { state: "not_observed", reason: "provider_not_reported" },
-      model: { state: "not_observed", reason: "model_not_reported" },
-      inputStrategyRef: { state: "not_observed", reason: "input_not_reported" },
-      durationMs: { state: "not_observed", reason: "duration_not_reported" },
-      usage: usageNotObserved("usage_not_reported"),
-      humanActiveMs: {
+    state: "closed",
+    completion: {
+      endedAt: occurredAt,
+      elapsedMs: {
         state: "not_observed",
-        reason: "human_time_not_reported",
+        reason: "fixture_duration_not_observed",
       },
+      outcome: {
+        status: {
+          status: "completed",
+          reason: "task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.status,
+        reason: {
+          status: "completed",
+          reason: "task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.reason,
+      },
+      diagnostic: {
+        cleanupConfirmed: {
+          status: "completed",
+          reason: "task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.cleanupConfirmed,
+        manualRecoveryRequired: {
+          status: "completed",
+          reason: "task_completed",
+          effectState: "settled",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+        }.manualRecoveryRequired,
+      },
+      retention: "standard",
     },
-    quality: {
-      state: "not_applicable",
-      reason: "attempt_settlement_is_not_acceptance",
-    },
-  });
-  const verified = verifyExecutionIntelligenceRepositoryRoot(root);
+  } as Execution;
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed")
     throw new Error("fixture_ei_root_invalid");
   assert.equal(
-    writeExecutionIntelligenceEvent(verified.root, value).status,
+    storeFixtureExecution(verified.capability, value).status,
     "completed",
   );
   return value;
@@ -230,6 +262,48 @@ function event(
  * @cleanup 登録済みhookで今回Fixtureを削除し不存在を確認する。
  * @boundary PPR-IT-012=Adjacent 1 Block: 実Store Reader→活動投影。
  */
+test("AI成功後のTask清掃失敗を活動の成功へ読み替えない", async (t) => {
+  const a = repository(t, "repo-final");
+  const verified = getRepository(a.root);
+  if (verified.status !== "completed")
+    throw Error("fixture_repository_invalid");
+  storeFixtureExecution(verified.capability, {
+    executionId: "execution-final-cleanup",
+    application: "CRDD",
+    operation: "task_attempt",
+    startedAt: "2026-11-11T00:00:00.000Z",
+    metadata: {
+      projectId,
+      objectiveId: "objective-a",
+      taskId: "task-a",
+      attemptId: "attempt-a",
+    },
+    state: "closed",
+    completion: {
+      endedAt: "2026-11-11T00:00:01.000Z",
+      elapsedMs: { state: "observed", value: 1000, source: "fixture" },
+      outcome: { status: "completed", reason: "provider_completed" },
+      diagnostic: {
+        taskStatus: "blocked",
+        taskReason: "host_cleanup_failed",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+      },
+      retention: "unresolved",
+    },
+  });
+  const observed = await queryActivity({
+    projectId,
+    repositories: [a.input],
+    limit: 10,
+  });
+  assert.equal(observed.events.length, 1);
+  assert.equal(observed.events[0]?.status, "blocked");
+  assert.equal(observed.events[0]?.reason, "host_cleanup_failed");
+  assert.equal(observed.events[0]?.cleanupConfirmed, false);
+  assert.equal(observed.events[0]?.manualRecoveryRequired, true);
+});
+
 test("実状態の不存在・単一Owner・複数競合・改訂差を区別する", async (t) => {
   const a = repository(t, "repo-a"),
     b = repository(t, "repo-b");
@@ -674,13 +748,13 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   const newer = event(a.root, "task-utc-new", "2026-10-12T00:30:00Z");
   const request = { projectId, repositories: [a.input], limit: 1 };
   const first = await queryActivity(request);
-  assert.equal(first.events[0]?.eventId, newer.eventId);
+  assert.equal(first.events[0]?.eventId, activityId(newer.executionId));
   assert.ok(first.eventContinuation);
   const second = await queryActivity({
     ...request,
     cursor: first.eventContinuation,
   });
-  assert.equal(second.events[0]?.eventId, older.eventId);
+  assert.equal(second.events[0]?.eventId, activityId(older.executionId));
   assert.equal(second.eventContinuation, null);
   assert.equal(
     new Set([...first.events, ...second.events].map((item) => item.eventId))
@@ -704,9 +778,11 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   const all = await queryActivity({ ...request, limit: 20 });
   assert.deepEqual(
     all.events.slice(0, 2).map((item) => item.eventId),
-    [newer.eventId, equivalent.eventId].sort().reverse(),
+    [activityId(newer.executionId), activityId(equivalent.executionId)]
+      .sort()
+      .reverse(),
   );
-  assert.equal(all.events[2]?.eventId, older.eventId);
+  assert.equal(all.events[2]?.eventId, activityId(older.executionId));
   assert.ok(parseRuntimeActivityObservation(all));
 });
 

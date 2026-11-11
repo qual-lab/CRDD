@@ -1,5 +1,55 @@
 # 基盤機能中心のRuntime責務再編計画
 
+<a id="ei-execution-group-realignment"></a>
+
+## EIのExecution／Group再構成と開始・終了接続 — 2026-11-11
+
+状態: 新9操作と明示Store・2モデルを実装し、CoordinatorのProvider要求直前／元Completion／上位最終判定／Group／Activity Readerへ接続した候補。Source・Architecture／Quality／管理情報の独立レビューは必須残指摘0件。型検査と下記の限定回帰を確認済み。旧永続データの移行・全体回帰・実AI／Dockerは未実施。設計の正本は[EI詳細設計](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)。
+
+変更分類は公開契約・永続Schema・複数利用側へ波及するRefactor。着手前整合確認では現行EI Source／Architecture／Reality Audit、CoordinatorのProducer／Reader、Workbench／MCPの活動表示、共通Lock、過去の保存検証を照合した。読み取り専用の独立確認から、必須Recovery通知と任意EI保存の例外分離、開始前拒否の記録差、未解決保持、旧形式の出版前拒否、Provider時間の欠測を計画へ統合した。完成後はSource・保存異常・Consumerの独立レビューと限定回帰、文書・影響伝播の照合を行う。準拠基準・Releaseを変更しないため準拠／Release監査は今回選ばない。全体回帰・実AI・実Dockerは保留し、PA・DI・Executor製品Sourceを変更しない。
+
+| 基準版Capability／利用側 | 新Ownerと予定処置 | 予定する確認 |
+|---|---|---|
+| `dispatch.ts`の終了時Taskイベント生成・保存 | Provider要求直前と元Completionへ同じEI実行IDを接続。CRDD ID・Activity用技術情報はCoordinatorの投影。旧終了Writerを並走させない | Task／Advice／Provider Probe各用途で一実行一記録、開始前拒否は開始0、取消・Completion拒否は未完了／不明を保持 |
+| `provider-executor.ts`の必須Provider Intent | 既存保存成功後にEI開始記録を独立try/catch。EI失敗を既存必須通知の失敗へ変えない | Recovery保存拒否はAI要求0。EI拒否・throwは新しい停止条件を生じない |
+| Task受付時刻・Completion受領時刻 | AI要求直前の時計を別に取得。後処理込み経過時間とProvider実測時間を分離 | 準備遅延・Cleanup遅延がProvider実行時間へ混入しない。未取得は欠測 |
+| `state/observation.ts`のProject別履歴と活動投影 | EI一覧を取得し、CoordinatorがapplicationとCRDD metadataを検証して既存Activity契約へ写す | 他Project混入0。旧形式・破損・必要metadata欠測を正常空履歴へ畳まない |
+| Workbench／MCPの活動表示 | CoordinatorのActivity契約を維持。EI直接依存を追加しない | 既存活動表示・cursor・不明結果のConsumer限定回帰 |
+| Group（現本番Producerなし） | 一連の実行依頼の生涯を所有するCoordinator側で開始・終了。Task階層をEIへ移さない | Group終了後の未完了・unknown子を集計に残す。子の自動終了0 |
+| 現Storeの期限保護 | Coordinatorが既存未解決条件を汎用保持状態へ写し、EI Storeが未完了／不明／未解決を保護。未完了Groupと保持対象の子から参照されるGroupも保護 | 期限境界と未知結果・Cleanup未確認の保持。Group期限超過＋未完了子／未解決子、および全子が整理可能となる場合の参照保全 |
+| Lock・pending・fsync・出版前後確認 | EI storage＋既存共通Lock。異常時も同じ記録ID・残存参照を結果へ保持 | 複数Process競合、重複・内容競合、途中失敗・出版後確認失敗・解放不明 |
+| DM／VCによるRoot・保持設定 | Coordinatorが既存Ownerで保存先を確定し明示StoreOptionsを渡す。EIはNode実体検査 | 非リンク・別実体・Hardlink・上限・観測不能。任意親作成0 |
+| 旧永続履歴・旧Evaluation等 | フロントAIが別途移行。EIの旧Reader／fallbackなし。品質評価・改善提案・時系列評価APIを撤去 | 新品fixtureの旧形式一行でも書込み拒否、混在拒否、既存bytes保全。実保持物は非操作 |
+
+開始前のTask拒否をEIのAI実行として記録しなくなる点は意図したCapability変更である。拒否の結果はCoordinator／Domainの既存正本に保持し、EIへ架空の開始を作らない。EI履歴は実行・回復のAuthorityへ昇格しない。
+
+実装順は共通型・単一Store、9操作、Coordinator開始／終了・Activity投影、旧Source／Root export撤去、試験・台帳・文書の追従、限定回帰・独立レビューとする。途中段階を本番切替済み・EI完成と表示しない。現在、人間による追加判断は必要ない。
+
+### 候補SourceとVerificationの対応
+
+| 変更した意味 | 現在の実装・確認先 | 評価の限界 |
+|---|---|---|
+| 旧Factory・用途別Event・評価の撤去 | EIはRoot＋record五Source＋storage二Source。Rootは9関数・13型、DM／VC importなし。新公開面の契約試験 | 旧品質評価・Revision鮮度分類の成立は主張しない |
+| 単一履歴の遷移 | `history.jsonl`のv3行でExecution／Groupの現在記録を保存。createとcompleteだけが遷移し、同内容再送／異内容競合を区別 | 新しい汎用更新・回復・移行APIなし |
+| 保存・回収の異常 | 新EI42試験で旧形式・混在・破損・残存保全、出版前後故障、File増大、pending実物置換、複数Process競合、Crash残存、Group保持、検索・欠測・費用の分離を確認 | Root置換はWindowsのLock下で移動自体が拒否されるため、Root実体観測差とpending実物置換の組合せを注入。任意敵対Processへの原子性は主張しない |
+| 準備時間と終了の分離 | Coordinator `provider-intelligence.contract.test.ts`で14件成功。元CompletionでAI終了時刻を固定し、上位最終判定後に保存する。AI成功後のHost清掃失敗・取消Protocol失敗・Process再使用不可、複数AI・capture欠測・重複確定・下位再起動必要の保持・同Group ID診断・保存先準備の元Effectと回復参照の保持を確認 | 実AIの計測結果ではない。選定Modelは要求設定として保存し、実使用Model／Usageを実測済みとしない。Group開始や保存先準備の例外分岐は実Sourceを有限依存で実行した局所検証 |
+| 必須Recoveryと任意EI | 既存`docker-process-controller.contract.test.ts`117件成功。Recovery保存拒否と取消で後続要求を止める既存保証を確認 | 新しいEI通知が実AIを呼んだ根拠ではない |
+| 呼出し側・管理情報 | 活動fixtureは新公開操作へ直接接続し、旧形式Adapterを残さない。旧Revision／評価専用試験を退役し、Group・Query／Summary・Provider接続の試験へ責務別に対応。台帳409件valid | 台帳のvalidは試験合格・網羅性証明ではない。全体回帰は保留 |
+
+独立Coreレビューの4指摘（pendingの元実体照合、descriptor取得後の読取り上限、期間のexact入力、Cost非該当の分離）をSource・反証試験へ是正した。廃止機能の試験削除を、存続する保存・回収保証の省略理由にはしない。保存故障のwrite／fsync注入は共通Lockの初期化ではなく、今回pending descriptorへ実際に到達したことも確認する。
+
+Consumer再レビューでは、下位Completion直後の保存が上位Host清掃・取消判定より先行する問題、共通Task入口のメタデータ搬送不足、開始記録の前提取得失敗時に元ID診断が欠ける問題を検出した。読み取り専用の着手前再照合を経て、AI終了観測の固定と上位最終保存を分離し、Taskの短命な記録配列とAdviceの既存終了経路へ接続した。上位結果投影の例外はopenのままexact IDを診断し、未取得のProcess再使用可否をfalseへ補完しない。下位の再起動必要trueを上位falseで消さず、Groupの保存先拒否でも同じIDを診断する。Source最終再レビューの必須残指摘は0件。
+
+限定回帰の現在値はEI42件、Controller117件、Provider記録14件、共通Taskメタデータ搬送1件、Advice選定・結果7件、活動Reader9件、Task取消・回復参照2件が成功。MCP活動1件、Workbenchの現在表示・履歴継続・local／CROS管理の計4件も成功した。DM試験選択／保存ConsumerとVC Consumer照合の3 Suite42件、Coordinator責務分類6件は、旧Source・旧直接依存の期待値を現Ownerへ追従後に成功した。最終是正後はEI・Controller・Provider・Advice・責務分類の同一実行186件も全成功。EIのcheck、Coordinatorのstrict／tests、Workbench／MCPの型検査、変更Sourceのformat／lint、差分空白検査と台帳409件validを確認した。今回作成したfixtureは各試験のcleanup hookで回収した。
+
+途中候補の広めの103件実行は100件成功・3件不合格だった。内訳は撤去中の旧記録通知試験1件と、実行開始後に撤去した旧Projection試験Path2件であり、最終候補の一括成功には読み替えない。最終候補は新契約の限定回帰を個別に確認した。試験入力のnull prototype比較・重複Execution ID・旧Consumer期待値の是正も、製品の検査緩和ではなく現契約への追従である。
+
+管理情報レビューで削除済みEI Symbol参照6件、旧DM直接依存Binding、不存在Path、旧Architecture Anchor、旧Consumer試験接続と永続操作の純粋分類が見つかった。実在Symbol・現在のCoordinator搬送・保存／活動試験へ対応付けて是正し、旧Evaluationを新Queryへ名目上継承しない。全体回帰・実境界計測・旧データ移行・System／UAT・Releaseの成立は本結果に含めない。
+
+追加のConsumer試験レビューで、保存先準備に含まれるIgnore登録の既知Effect・元回復参照を通常Errorへ縮約する退行を検出した。既存のready要求／Error型をCoordinatorで利用し、同じEI recordIdと別の元recoveryReference、Effect・清掃・再試行可否を既存受動診断へ保持するよう是正した。Execution／Groupの実Sourceを有限境界へ接続して新規記録write 0・実行継続・元情報保持を確認し、Sourceと管理情報の両独立再レビューで必須残指摘0件。新しい回復機構・自動再送・EI公開型変更は追加していない。
+
+コミット前の再確認では、旧API・削除済みSource・Symbol／台帳参照と利用側を再照合し、追加の必須指摘0件だった。EI／Coordinatorの限定試験にDM／VCの接続監査試験を加えた同一実行228件が全成功。EIのcheck、Coordinator strict／tests、Workbench／MCP型検査、変更Sourceのformat／lint、台帳409件validと差分空白検査も再確認した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
 ## DI技術契約への収束（2026-11-02、完成条件の更新）
 
 準備値生成移管の文書検査は、更新四文書の対象内指摘0件。参照展開先328指摘と終了値1による全体不合格は維持し、全体QA成立へ読み替えない。

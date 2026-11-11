@@ -1,129 +1,131 @@
-/**
- * 検査済みEvent群の実績と欠測を集計する。
- * @responsibility 検査済みEvent群の実績と欠測を集計する。
- * @trace ARCH-000007
- */
-
+/** 同じ検索対象から事実だけを集計する。欠測、単位、推定値を混同しない。 */
+import { selectExecutions } from "./query.ts";
 import type {
-  ExecutionIntelligenceSummary,
-  ExecutionIntelligenceEvent,
+  ExecutionQuery,
+  ExecutionSummary,
+  Observation,
+  ReadResult,
+  StoreOptions,
 } from "./types.ts";
-import {
-  inspectExecutionIntelligenceEvent,
-  classifyExecutionUsageCompleteness,
-} from "./validation.ts";
-
-/**
- * Execution Intelligenceを要約する。
- *
- * @responsibility Execution Intelligenceの集計対象、要約規則、公開結果境界を所有する。
- * @trace ARCH-000007
- * @input values: readonly unknown[]
- * @returns ExecutionIntelligenceSummary | nullを返す。
- * @precondition 「values: readonly unknown[]」がsummarizeExecutionIntelligenceの入力契約を満たす。
- * @postcondition summarizeExecutionIntelligenceの責務を完了した結果だけを返す。
- * @effect N/A: summarizeExecutionIntelligenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: summarizeExecutionIntelligenceは独自の失敗分岐を所有しない。
- * @invariant summarizeExecutionIntelligenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: summarizeExecutionIntelligenceはProcess内の同一Subsystemで完結する。
- * @security N/A: summarizeExecutionIntelligenceはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: summarizeExecutionIntelligenceは共有非同期状態を持たない同期処理である。
- */
-export function summarizeExecutionIntelligence(
-  values: readonly unknown[],
-): ExecutionIntelligenceSummary | null {
-  const events = values.map(inspectExecutionIntelligenceEvent);
-  if (events.some((entry) => entry === null)) return null;
-  const validEvents = events as ExecutionIntelligenceEvent[];
-  if (
-    new Set(validEvents.map((event) => event.eventId)).size !==
-    validEvents.length
-  )
-    return null;
-  const durationValues = validEvents.flatMap((event) =>
-    event.execution.durationMs.state === "observed"
-      ? [event.execution.durationMs.value]
-      : [],
-  );
-  const statusCount = (
-    status: ExecutionIntelligenceEvent["outcome"]["status"],
-  ) => validEvents.filter((event) => event.outcome.status === status).length;
-  let totalObservedDurationMs: number | null = null;
-  if (durationValues.length > 0) {
-    let total = 0;
-    for (const value of durationValues) {
-      const next: number = total + value;
-      if (!Number.isSafeInteger(next)) return null;
-      total = next;
+export function summarizeExecutions(
+  store: StoreOptions,
+  query: ExecutionQuery = {},
+): ReadResult<ExecutionSummary> {
+  const selected = selectExecutions(store, query);
+  if (selected.status !== "completed") return selected;
+  const executions = selected.value;
+  const count = (s: string) =>
+    executions.filter((e) => e.completion?.outcome.status === s).length;
+  const completedCount = count("completed"),
+    failedCount = count("failed"),
+    blockedCount = count("blocked"),
+    cancelledCount = count("cancelled"),
+    unknownCount = count("unknown");
+  const denominator =
+    completedCount + failedCount + blockedCount + cancelledCount;
+  const measurements: Record<
+    string,
+    {
+      observedCount: number;
+      missingCount: number;
+      notApplicableCount: number;
+      total: number | null;
     }
-    totalObservedDurationMs = total;
+  > = {};
+  const costs: {
+    unit: string;
+    kind: "currency" | "credit";
+    source: "reported" | "estimated";
+    observedCount: number;
+    total: number;
+  }[] = [];
+  let costMissingCount = 0,
+    costNotApplicableCount = 0;
+  try {
+    for (const key of [
+      "elapsedMs",
+      "providerDurationMs",
+      "inputTokens",
+      "outputTokens",
+      "cacheReadTokens",
+      "cacheWriteTokens",
+    ] as const) {
+      const result = {
+        observedCount: 0,
+        missingCount: 0,
+        notApplicableCount: 0,
+        total: null as number | null,
+      };
+      for (const e of executions) {
+        const observed: Observation<number> | undefined =
+          key === "elapsedMs" || key === "providerDurationMs"
+            ? e.completion?.[key]
+            : e.completion?.usage?.[key];
+        if (observed?.state === "observed") {
+          result.observedCount++;
+          result.total = (result.total ?? 0) + observed.value;
+          if (
+            !Number.isFinite(result.total) ||
+            result.total > Number.MAX_SAFE_INTEGER
+          )
+            throw Error("summary_overflow");
+        } else if (observed?.state === "not_applicable")
+          result.notApplicableCount++;
+        else result.missingCount++;
+      }
+      measurements[key] = result;
+    }
+    for (const e of executions) {
+      const observed = e.completion?.usage?.cost;
+      if (observed?.state === "not_applicable") {
+        costNotApplicableCount++;
+        continue;
+      }
+      if (observed?.state !== "observed") {
+        costMissingCount++;
+        continue;
+      }
+      const c = observed.value;
+      let entry = costs.find(
+        (v) => v.unit === c.unit && v.kind === c.kind && v.source === c.source,
+      );
+      if (!entry) {
+        entry = {
+          unit: c.unit,
+          kind: c.kind,
+          source: c.source,
+          observedCount: 0,
+          total: 0,
+        };
+        costs.push(entry);
+      }
+      entry.observedCount++;
+      entry.total += c.amount;
+      if (
+        !Number.isFinite(entry.total) ||
+        entry.total > Number.MAX_SAFE_INTEGER
+      )
+        throw Error("summary_overflow");
+    }
+    return {
+      status: "completed",
+      value: {
+        executionCount: executions.length,
+        openCount: executions.filter((e) => e.state === "open").length,
+        completedCount,
+        failedCount,
+        blockedCount,
+        cancelledCount,
+        unknownCount,
+        successDenominator: denominator,
+        successRate: denominator ? completedCount / denominator : null,
+        measurements,
+        costs,
+        costMissingCount,
+        costNotApplicableCount,
+      },
+    };
+  } catch {
+    return { status: "blocked", reason: "summary_overflow" };
   }
-  return Object.freeze({
-    contract: "crdd/execution-intelligence-summary/v1" as const,
-    eventCount: validEvents.length,
-    completedCount: statusCount("completed"),
-    blockedCount: statusCount("blocked"),
-    cancelledCount: statusCount("cancelled"),
-    unknownCount: statusCount("unknown"),
-    observedDurationCount: durationValues.length,
-    totalObservedDurationMs,
-    providerObservationCount: validEvents.filter(
-      (event) => event.execution.provider.state === "observed",
-    ).length,
-    usageObservedEventCount: validEvents.filter((event) =>
-      Object.values(event.execution.usage).some(
-        (entry) => entry.state === "observed",
-      ),
-    ).length,
-    usageFullyObservedEventCount: validEvents.filter((event) =>
-      Object.values(event.execution.usage).every(
-        (entry) => entry.state === "observed",
-      ),
-    ).length,
-    observedUsageFieldCount: validEvents.reduce(
-      (count, event) =>
-        count +
-        Object.values(event.execution.usage).filter(
-          (entry) => entry.state === "observed",
-        ).length,
-      0,
-    ),
-    humanActiveObservationCount: validEvents.filter(
-      (event) => event.execution.humanActiveMs.state === "observed",
-    ).length,
-    qualityObservationCount: validEvents.filter(
-      (event) => event.quality.state === "observed",
-    ).length,
-    diagnosticObservationCount: validEvents.filter(
-      (event) => event.execution.diagnostic.state === "observed",
-    ).length,
-    assignmentFullyObservedEventCount: validEvents.filter((event) =>
-      [
-        event.execution.provider,
-        event.execution.model,
-        event.execution.profileId,
-        event.execution.profileRevision,
-        event.execution.reasoningEffort,
-        event.execution.overrideApplied,
-      ].every((entry) => entry.state === "observed"),
-    ).length,
-    usageCompleteEventCount: validEvents.filter(
-      (event) =>
-        classifyExecutionUsageCompleteness(event.execution.usage) ===
-        "complete",
-    ).length,
-    usagePartialEventCount: validEvents.filter(
-      (event) =>
-        classifyExecutionUsageCompleteness(event.execution.usage) === "partial",
-    ).length,
-    usageNotApplicableEventCount: validEvents.filter(
-      (event) =>
-        classifyExecutionUsageCompleteness(event.execution.usage) ===
-        "not_applicable",
-    ).length,
-    costObservationCount: validEvents.filter(
-      (event) => event.execution.usage.costOrCredits.state === "observed",
-    ).length,
-    missingnessPreserved: true as const,
-  });
 }

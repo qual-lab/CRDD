@@ -1,5 +1,73 @@
 # 実行記録の読取りと評価候補の詳細設計
 
+## v0.22採用済み再構成 — ExecutionとExecutionGroup
+
+状態: 実装・限定検証・独立レビュー済みの候補（2026-11-11）。本節が現在の責務を所有する。下段のTask／Attempt専用イベント、評価候補、Repository結合は旧実装・旧設計の記述である。製品切替・検証の現在値は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)を参照する。旧データの移行、全体回帰、Release成立は含めない。
+
+### 責務と公開操作
+
+EIはアプリケーション非依存のAI実行観測・記録・検索・集計ライブラリとする。実行を開始・取消せず、Taskの状態、採否、Recoveryの許可、品質評価、改善提案を所有しない。
+
+| 論理モデル | 正本 | 対象外 |
+|---|---|---|
+| `Execution` | 呼出し側が識別した一回の論理的AI実行。ID、任意Group、用途、設定、時間、使用量、結果、診断、外部参照 | Task／Attempt階層、ProcessやAPI Requestとの一対一対応の強制 |
+| `ExecutionGroup` | 呼出し側が開始・終了を所有する任意の集約単位。ID、用途、開始・終了、状態、メタデータ | 依存順序、Retry Graph、多段Group、子の自動終了、合計値の二重保存 |
+
+公開操作は`createGroup`、`completeGroup`、`createExecution`、`completeExecution`、`getExecution`、`listExecutions`、`getGroup`、`listGroups`、`summarizeExecutions`の9操作とする。いずれも明示した`StoreOptions`を受け、暗黙のプロセス全体設定、Factory、Manager、Registry、汎用更新操作を追加しない。`create`／`complete`は観測記録の保存であり、AIの実行命令ではない。
+
+Task／Attempt等のCRDD IDはCoordinatorが任意メタデータへ写す。EIはキーの業務的意味を解釈せず、IDの生成・一意性判定・許可判断に用いない。メタデータと成果物参照にも容量・形状の上限を設け、Prompt、応答本文、Credential、環境変数全体を入力契約へ追加しない。
+
+メタデータの情報分類は呼出し側が所有する。任意の文字列から未知のSecret不存在をEIが証明するものではない。CRDDの本番ProducerはID・固定分類・技術結果の真偽だけを投影し、Provider本文・自由なstderr・Host Pathを受け渡さない。旧Schemaの診断Allowlistを、他アプリケーション向けの普遍的な安全判定として残さない。
+
+### 計測と状態
+
+| 境界 | Coordinatorの接続 | 保存する意味 |
+|---|---|---|
+| Provider要求直前 | `execution/provider-executor.ts`の既存`onProviderSubmitting`。既存Recovery Intent保存の成功後、EI保存だけを別の例外境界で実施 | 開始要求直前の日時。Task受付・Plan・Container準備を含めない。推論開始の証明ではない |
+| Provider開始通知 | 既存`onStarted` | 開始要求と実際の開始観測を区別する。既存必須通知・取消条件を変更しない |
+| Completion受領 | 元ExecutorのCompletionで、同じExecution IDの終了日時・経過時間・限定したAI結果を短命な記録へ固定 | AI側の終了観測。任意`onCompleted`の発行を保存完了とみなさない |
+| 上位の最終判定 | Task／AdviceのHost清掃・取消・Process再使用可否・必要な結果投影の後、同じExecution IDへ一度だけ終了保存 | AI結果とは別にTask／Adviceの結果・未解決保持条件を記録。後段の待機時間をAI経過時間へ足さない |
+
+開始要求直前からCompletion受領までは後処理を含む経過時間である。Provider実行時間とは別の項目とし、Provider開始・終了の実測値が公開結果にない場合、Provider実行時間は欠測とする。既存`dispatch.ts`のTask準備を含み得る時計をAI開始時計へ転用しない。
+
+元Completionを観測できなかった場合、終了日時を補完せずopenを保持する。上位の最終結果が不明な場合も通常保持へ落とさず、同じExecution IDで診断する。一つのTaskから複数AIを呼ぶ場合は各AIの結果を別々に保持し、Task全体の成否で上書きしない。既存Activityへの投影はAIの成功からTask成功を推測せず、Coordinatorが保存した最終Task判定を使う。
+
+EI書込みの拒否・例外・不明で新しいAI停止条件を追加しない。Recoveryの必須Intent保存失敗は従来どおり後続Effectを停止し、EIの失敗と混ぜない。開始記録はAIが実際に始まった証明ではなく、後続の開始失敗も終了結果として区別する。AI開始要求より前に拒否されたTaskはCoordinatorの既存結果・記録に残し、EIへ開始日時を補完しない。
+
+IDは呼出し側が一度確定し、開始・終了・保存不明診断・再入場へ同じ値を伝播する。同じID・同じ操作内容の再送は記録済み、異なる内容は競合とする。終了済み結果の上書き、未完了の自動失敗化、保存不明時の自動再送・別ID生成は行わない。
+
+CRDDの既存Activity APIは外部契約の固定ID形式を維持する。EIの不透明なExecution IDからCoordinatorが決定論的なActivity IDを投影し、EIにCRDDのID形式を要求しない。保存失敗の内部診断は元のExecution／Group IDを保持する。
+
+Group終了は子Executionの終了・成功を表さない。Groupが終了しても未完了・不明な子の件数を検索・集計結果へ残す。Groupの経過時間、子の実行時間合計、成功率の分母、項目別の計測済み／欠測件数を区別する。Cache Read／Write、金額／Credit、通貨、報告額／推定額を混同・無条件合算しない。
+
+### 保存境界と移行
+
+`StoreOptions`は上位が確定した保存Directoryと保持設定を表す。CRDDではCoordinatorがDomain Modelの既存Runtime領域解決で`.crdd/execution-intelligence`を確定・準備してからEIへ渡す。EIからDomain Model／Version Controlへの依存は撤去する。任意の親DirectoryをEIが再帰作成せず、Node.jsで非リンクDirectory・固定File・実体・容量を確認し、観測不能を空Storeへ変換しない。
+
+物理保存は既存の単一履歴、共通wx Lock、短命pending、同期書込み、出版前後の確認を再利用する。Lockは`storage/lock.ts`の薄い接続だけとし、独自Recoveryを追加しない。出版後の確認不明と未出版、出版済みだがLock解放未確認を区別し、同じExecution／Group IDと保存先内の残存参照を結果へ保持する。
+
+未完了・結果不明および呼出し側が未解決と指定したExecutionは期限整理から保護する。未完了Group、および保持対象の子Executionから参照されるGroupも期限整理しない。Groupが終了しても子の保持状態を変更せず、期限整理で保持対象の子とGroupの関係を失わせない。既存のCleanup未確認、手動回復必要、Process再起動必要、Effect不明はCoordinatorが汎用の未解決保持状態へ写す。メタデータ化だけで従来の保持条件を失わせない。保持状態はRecoveryの実行許可ではない。
+
+旧永続データの移行はフロントAIの別作業とする。EIへ旧Reader・互換fallback・自動変換を追加せず、旧形式を含む履歴と未知の残存物は保全停止する。旧形式検出では新履歴・pendingを出版しない。実装・限定試験は新品fixtureで検証し、過去保持物を操作しない。
+
+### 実装配置
+
+```text
+src/
+├─ index.ts
+├─ record/
+│  ├─ types.ts
+│  ├─ execution.ts
+│  ├─ group.ts
+│  ├─ query.ts
+│  └─ summary.ts
+└─ storage/
+   ├─ store.ts
+   └─ lock.ts
+```
+
+公開入口はRootの`index.ts`だけとする。Evaluation／改善提案／Task専用Factory／Repository検証再包装を別名で温存しない。既存機能の撤去と利用側の移行は、Source移動だけで完成と表示しない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: execution-intelligence
 状態: Canonical

@@ -13,6 +13,10 @@ import {
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import type { ExecutionResult } from "../../../ai-adapter/src/index.ts";
 import type { RecordedAttemptResult } from "./types.ts";
+import {
+  finishProviderExecutionRecording,
+  type ProviderExecutionRecording,
+} from "./intelligence.ts";
 /** AI Adapterの解釈済み助言を返却内容として使用する。 */
 type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
@@ -1252,6 +1256,23 @@ function createProviderAdviceRuntime(
     let providerEffectIssued = false;
     let isOperationCleaned = false;
     let abortListener: (() => void) | null = null;
+    const executionRecordings: ProviderExecutionRecording[] = [];
+    const recordResult = (
+      result: ProviderAdviceRuntimeResult,
+    ): ProviderAdviceRuntimeResult => {
+      for (const recording of executionRecordings.splice(0)) {
+        const failure = hostFailures.get(result);
+        finishProviderExecutionRecording(recording, {
+          status: result.status,
+          reason: result.reason ?? "advice_completed",
+          cleanupConfirmed: result.cleanupConfirmed,
+          manualRecoveryRequired:
+            failure?.manualRecoveryRequired ?? !result.cleanupConfirmed,
+          processRestartRequired: isRuntimeProcessPoisoned(),
+        });
+      }
+      return result;
+    };
 
     try {
       operation = await dependencies.createOperation();
@@ -1438,6 +1459,8 @@ function createProviderAdviceRuntime(
         },
         undefined,
         dependencies.observeStarted,
+        { operation: "advice" },
+        executionRecordings,
       ) as RuntimeRecord;
       if (process.preparationFailed === true)
         throw new AdviceRuntimeError(
@@ -1538,22 +1561,24 @@ function createProviderAdviceRuntime(
       recoveryFinalizationCapability = null;
       dockerRecoveryId = null;
       if (hostCleanup === "protocol_failure_cleanup_confirmed")
-        return blocked("workbench_ai_advice_host_generation_lost", true, true);
-      if (providerCompletionReason !== null)
-        return blocked(providerCompletionReason, true, true);
-      if (advice === null)
-        return blocked(
-          "workbench_ai_advice_normalized_result_invalid",
-          true,
-          true,
+        return recordResult(
+          blocked("workbench_ai_advice_host_generation_lost", true, true),
         );
-      return Object.freeze({
-        status: "completed" as const,
-        reason: null,
-        advice,
-        providerEffectIssued: true as const,
-        cleanupConfirmed: true as const,
-      });
+      if (providerCompletionReason !== null)
+        return recordResult(blocked(providerCompletionReason, true, true));
+      if (advice === null)
+        return recordResult(
+          blocked("workbench_ai_advice_normalized_result_invalid", true, true),
+        );
+      return recordResult(
+        Object.freeze({
+          status: "completed" as const,
+          reason: null,
+          advice,
+          providerEffectIssued: true as const,
+          cleanupConfirmed: true as const,
+        }),
+      );
     } catch (error) {
       if (processControl && operation) {
         try {
@@ -1640,7 +1665,7 @@ function createProviderAdviceRuntime(
           dockerRecoveryId,
         }),
       );
-      return result;
+      return recordResult(result);
     } finally {
       if (abortListener)
         cancellationSignal.removeEventListener("abort", abortListener);

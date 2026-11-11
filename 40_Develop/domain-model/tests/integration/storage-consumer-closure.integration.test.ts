@@ -51,8 +51,8 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
   "40_Develop/coordinator/scripts/prepare-codex-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
+  "40_Develop/coordinator/src/execution/intelligence.ts",
   "40_Develop/coordinator/src/execution/lease.ts",
-  "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/executor/scripts/verify-provider-attempt.ts",
   "40_Develop/executor/scripts/verify-provider-home.ts",
   "40_Develop/executor/scripts/verify-provider-real.ts",
@@ -72,7 +72,7 @@ const coordinatorStoreFactoryNames = [
   "createCoordinatorSnapshotAcceptanceDecisionStore",
 ] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
-  "40_Develop/execution-intelligence/src/storage/store.ts";
+  "40_Develop/coordinator/src/execution/intelligence.ts";
 const blockedMeaningFields = [
   "effectIssued",
   "effectStateUnknown",
@@ -309,18 +309,16 @@ function violations(sources: SourceSet): string[] {
     findings.push(`runtime-area-consumers:${actualAreaConsumers.join(",")}`);
   for (const item of actualAreaConsumers) {
     const source = sources.get(item) ?? "";
-    const doesPreserveBlockedResult = source.includes(
-      "requireReadyRepositoryRuntimeDataArea",
-    )
-      ? true
-      : item === EXECUTION_INTELLIGENCE_CONSUMER
-        ? source.includes("readExecutionIntelligenceWithRuntimeDataArea") &&
+    const doesPreserveBlockedResult =
+      item === EXECUTION_INTELLIGENCE_CONSUMER
+        ? source.includes("requireReadyRepositoryRuntimeDataArea") &&
+          source.includes("observeRepositoryRuntimeDataArea") &&
           source.includes("RepositoryRuntimeDataAreaBlockedError") &&
-          source.includes(
-            "isEffectStateUnknown || !cleanupConfirmed || recoveryReference !== null",
-          ) &&
+          source.includes("cause.recoveryReference") &&
+          source.includes("reportExecutionRecordingUnavailable") &&
           blockedMeaningFields.every((field) => source.includes(field))
-        : blockedMeaningFields.every((field) => source.includes(field));
+        : source.includes("requireReadyRepositoryRuntimeDataArea") ||
+          blockedMeaningFields.every((field) => source.includes(field));
     if (!doesPreserveBlockedResult)
       findings.push(`runtime-area-blocked-result:${item}`);
   }

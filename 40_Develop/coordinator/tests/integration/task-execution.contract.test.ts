@@ -395,6 +395,9 @@ type BoundExecutionDependencies = Omit<
   "persistence" | "clockIdentity" | "processSafety"
 > &
   Readonly<{
+    persistence?: Parameters<
+      typeof runCoordinatorOperationWithPorts
+    >[0]["persistence"];
     now?: () => Readonly<{ monotonicMs: number; iso: string }>;
     poisonAfterCleanupUnknown?: () => void;
   }>;
@@ -420,8 +423,12 @@ function runCoordinatorOperation(
   input: BoundExecutionInput,
 ) {
   const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
-  const { now, poisonAfterCleanupUnknown, ...applicationDependencies } =
-    dependencies;
+  const {
+    now,
+    poisonAfterCleanupUnknown,
+    persistence,
+    ...applicationDependencies
+  } = dependencies;
   return runCoordinatorOperationWithPorts(
     {
       ...applicationDependencies,
@@ -429,10 +436,12 @@ function runCoordinatorOperation(
         ...(now ? { now } : {}),
         ...(poisonAfterCleanupUnknown ? { poisonAfterCleanupUnknown } : {}),
       }),
-      persistence: createCurrentCoordinatorPersistencePorts(
-        workingDirectory,
-        repositoryBindingId,
-      ),
+      persistence:
+        persistence ??
+        createCurrentCoordinatorPersistencePorts(
+          workingDirectory,
+          repositoryBindingId,
+        ),
     },
     applicationInput,
   );
@@ -605,100 +614,7 @@ function completedAfterStart(
   };
 }
 
-/**
- * recordedのTest準備責務を実行する。
- *
- * @responsibility recordedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-IT-012
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus recordedを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-function recorded(eventId: string) {
-  return Object.freeze({
-    status: "completed" as const,
-    reason: "execution_event_recorded" as const,
-    eventId,
-    effectState: "settled" as const,
-    cleanupConfirmed: true as const,
-    retryAllowed: false as const,
-    manualRecoveryRequired: false as const,
-    residualArtifactIds: Object.freeze([]) as readonly [],
-  });
-}
-
-/**
- * 記録操作と任意の記録結果通知を分けて検証する。
- * @responsibility 通知故障をTaskの成否や記録の未確認へ混同しない。
- * @trace PRL-IT-012
- * @precondition 自己所有の合成Repositoryと一Task、部分成立を返す模擬記録操作。
- * @stimulus 記録後の通知を同期throw・即時reject・完了後reject・永続pendingにする。
- * @observation Task結果、記録結果のIdentity、通知・記録・Taskの回数を取得する。
- * @oracle 拒否は未処理にならず、記録結果を成功化せずTaskだけを通常完了する。
- * @cleanup 各Rootは既存fixture hookで回収し、後着Promiseは拒否して処置する。
- * @boundary Task進行と実保存、記録操作の結果と任意通知。
- */
-test("記録結果通知の例外・拒否・未完了はTaskと記録の観測事実を変更しない", async (t) => {
-  for (const mode of ["throw", "reject", "late_reject", "pending"] as const) {
-    const { input } = fixture(t, [task("task-a")], 1);
-    let records = 0,
-      notices = 0,
-      executions = 0;
-    let rejectLate!: (error: Error) => void;
-    const late = new Promise<void>((_resolve, reject) => {
-      rejectLate = reject;
-    });
-    const publication = Object.freeze({
-      status: "blocked" as const,
-      reason: "synthetic_record_unconfirmed",
-      effectState: "unknown" as const,
-      cleanupConfirmed: false,
-      retryAllowed: false,
-      manualRecoveryRequired: true,
-      residualArtifactIds: ["synthetic-unconfirmed-record"],
-    });
-    const outcome = await runCoordinatorOperation(
-      {
-        runSingleTaskAttempt: async (attempt) => {
-          executions++;
-          return completed(attempt);
-        },
-        recordTaskAttempt: () => {
-          records++;
-          return publication;
-        },
-        callbacks: {
-          observePublication: (value) => {
-            notices++;
-            assert.equal(value, publication);
-            if (mode === "throw") throw Error("synthetic_notice_failure");
-            if (mode === "reject")
-              return Promise.reject(Error("synthetic_notice_failure"));
-            if (mode === "late_reject") return late;
-            return new Promise<void>(() => {});
-          },
-        },
-      },
-      input,
-    );
-    if (mode === "late_reject")
-      rejectLate(Error("synthetic_late_notice_failure"));
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(outcome.status, "completed", outcome.reason);
-    assert.equal(outcome.cleanupConfirmed, true);
-    assert.equal(records, 1);
-    assert.equal(notices, 1);
-    assert.equal(executions, 1);
-    assert.equal(publication.effectState, "unknown");
-    assert.equal(publication.cleanupConfirmed, false);
-    assert.deepEqual(publication.residualArtifactIds, [
-      "synthetic-unconfirmed-record",
-    ]);
-  }
-});
+// 記録の非Authority境界はprovider-intelligence.contract.test.tsへ移管。
 
 /**
  * PR-N-01 connects one durable Project task to the Single Task boundaryを検証する。
@@ -1735,7 +1651,7 @@ test("Windowsの上位bit付きIDでも状態保存・再読と開始前取消�
  * @responsibility 耐久的な開始準備とTask委譲の間の取消を閉じる。
  * @trace PRL-IT-012
  * @precondition 単一Taskを持つ自己生成Repositoryを使用する。
- * @stimulus 開始準備が保存された後の時刻取得で取消を通知する。
+ * @stimulus 実Writerが開始準備を保存して返した直後に取消を通知する。
  * @observation 保存状態、Task呼出し回数、終了結果、回復義務を観測する。
  * @oracle 委譲0回、取消完了、片付け確認済み、合成回復義務なしとなる。
  * @cleanup 登録済みhookが自己生成Repositoryを清掃する。
@@ -1746,31 +1662,36 @@ test("開始準備保存後の取消はTaskを委譲せず終了する", async (
   const controller = new AbortController();
   let effects = 0;
   let preparedObserved = false;
-  let tick = 0;
-  const events: unknown[] = [];
+  const persistence = createCurrentCoordinatorPersistencePorts(
+    root,
+    "binding-a",
+  );
   const outcome = await runCoordinatorOperation(
     {
-      now: () => {
-        const current = readCoordinatorState(root, "binding-a", "project-a");
-        if (
-          current.value?.tasks.some(
-            (entry) =>
-              entry.state === "starting" &&
-              entry.startPhase === "handoff_prepared",
-          )
-        ) {
-          preparedObserved = true;
-          controller.abort();
-        }
-        return { monotonicMs: tick++, iso: "2026-10-15T00:00:00.000Z" };
+      persistence: {
+        ...persistence,
+        state: {
+          ...persistence.state,
+          writeState: (...args) => {
+            const result = persistence.state.writeState(...args);
+            if (
+              result.status === "completed" &&
+              args[0].tasks.some(
+                (entry) =>
+                  entry.state === "starting" &&
+                  entry.startPhase === "handoff_prepared",
+              )
+            ) {
+              preparedObserved = true;
+              controller.abort();
+            }
+            return result;
+          },
+        },
       },
       runSingleTaskAttempt: async (attempt) => {
         effects += 1;
         return completed(attempt);
-      },
-      recordTaskAttempt: (event) => {
-        events.push(event);
-        return recorded("cancel-before-delegation");
       },
     },
     { ...input, cancellationSignal: controller.signal },
@@ -1785,12 +1706,7 @@ test("開始準備保存後の取消はTaskを委譲せず終了する", async (
   assert.equal(state.value?.tasks[0]?.state, "cancelled");
   assert.deepEqual(state.value?.tasks[0]?.recoveryObligations, []);
   assert.equal(outcome.effectState, "no_effect");
-  assert.equal(events.length, 1);
-  const event = events[0] as {
-    outcome: { reason: string; effectState: string };
-  };
-  assert.equal(event.outcome.reason, "single_task_cancelled_before_delegation");
-  assert.equal(event.outcome.effectState, "no_effect");
+  // AI要求前の取消なのでEI実行記録は生成しない。
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.equal(queue.status, "completed");
   assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
@@ -1819,221 +1735,4 @@ test("contract remains a partial Coordinator task-management capability", () => 
   });
 });
 
-/**
- * Task試行の終了を非Authorityの実行Eventとして一度記録するを検証する。
- *
- * @responsibility Task試行の終了を非Authorityの実行Eventとして一度記録するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Task試行の終了を非Authorityの実行Eventとして一度記録するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Task試行の終了を非Authorityの実行Eventとして一度記録する", async (t) => {
-  const { input } = fixture(t, [task("task-a")]);
-  const events: unknown[] = [];
-  let clock = 0;
-  const outcome = await runCoordinatorOperation(
-    {
-      runSingleTaskAttempt: completed,
-      recordTaskAttempt: (event) => {
-        events.push(event);
-        return recorded("event-test");
-      },
-      now: () => ({
-        monotonicMs: clock++ * 25,
-        iso: "2026-09-05T00:00:01.000Z",
-      }),
-    },
-    input,
-  );
-  assert.equal(outcome.status, "completed");
-  assert.equal(events.length, 1);
-  const event = events[0] as {
-    identity: { objectiveId: string; taskId: string };
-    outcome: { status: string };
-    startedAtMs: number;
-    endedAtMs: number;
-  };
-  assert.equal(event.identity.objectiveId, "objective-a");
-  assert.equal(event.identity.taskId, "task-a");
-  assert.equal(event.outcome.status, "completed");
-  assert.equal(event.endedAtMs - event.startedAtMs, 25);
-});
-
-for (const mismatchedField of [
-  "attemptId",
-  "operationId",
-  "authorityBindingId",
-  "repositoryRevision",
-] as const) {
-  /**
-   * 別Task結果の${mismatchedField}を実行Eventへ転記しないを検証する。
-   *
-   * @responsibility 別Task結果の${mismatchedField}を実行Eventへ転記しないの合否判定を所有する。
-   * @trace PRL-IT-012
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 別Task結果の${mismatchedField}を実行Eventへ転記しないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
-   */
-  test(`別Task結果の${mismatchedField}を実行Eventへ転記しない`, async (t) => {
-    const { input } = fixture(t, [task("task-a")]);
-    const events: unknown[] = [];
-    await runCoordinatorOperation(
-      {
-        runSingleTaskAttempt: async (attempt) => ({
-          ...completedAfterStart(attempt),
-          [mismatchedField]:
-            mismatchedField === "repositoryRevision"
-              ? "b".repeat(40)
-              : `other-${mismatchedField}`,
-          executorProvider: "codex" as const,
-        }),
-        recordTaskAttempt: (event) => {
-          events.push(event);
-          return recorded("event-mismatch-test");
-        },
-      },
-      input,
-    );
-    assert.equal(events.length, 1);
-    const observed = events[0] as {
-      outcome: { status: string; reason: string };
-      provider?: "codex" | "claude";
-    };
-    assert.deepEqual(observed.outcome, {
-      status: "unknown",
-      reason: "task_attempt_result_not_observable",
-      effectState: "unknown",
-      cleanupConfirmed: false,
-      manualRecoveryRequired: true,
-      processRestartRequired: true,
-    });
-    assert.equal(observed.provider, undefined);
-  });
-}
-
-/**
- * 実行Event記録と二次診断の失敗はTask結果を変えないを検証する。
- *
- * @responsibility 実行Event記録と二次診断の失敗はTask結果を変えないの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実行Event記録と二次診断の失敗はTask結果を変えないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("実行Event記録と二次診断の失敗はTask結果を変えない", async (t) => {
-  const { input } = fixture(t, [task("task-a")]);
-  const publications: unknown[] = [];
-  const outcome = await runCoordinatorOperation(
-    {
-      runSingleTaskAttempt: completed,
-      recordTaskAttempt: () => {
-        throw new Error("recorder_failed");
-      },
-      callbacks: {
-        observePublication: (observation) => {
-          publications.push(observation);
-          throw new Error("diagnostic_failed");
-        },
-      },
-    },
-    input,
-  );
-  assert.equal(outcome.status, "completed");
-  assert.deepEqual(publications, [
-    {
-      status: "unknown",
-      reason: "execution_event_recorder_threw",
-      effectState: "unknown",
-      cleanupConfirmed: false,
-    },
-  ]);
-});
-
-/**
- * 記録未設定を記録成功へ丸めないを検証する。
- *
- * @responsibility 記録未設定を記録成功へ丸めないの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 記録未設定を記録成功へ丸めないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("記録未設定を記録成功へ丸めない", async (t) => {
-  const { input } = fixture(t, [task("task-a")]);
-  const publications: unknown[] = [];
-  const outcome = await runCoordinatorOperation(
-    {
-      runSingleTaskAttempt: completed,
-      callbacks: {
-        observePublication: (observation) => {
-          publications.push(observation);
-        },
-      },
-    },
-    input,
-  );
-  assert.equal(outcome.status, "completed");
-  assert.equal(
-    (publications[0] as { status: string }).status,
-    "not_configured",
-  );
-});
-
-for (const invalidClock of [
-  { started: 20, ended: 10 },
-  { started: Number.NaN, ended: 10 },
-  { started: 10, ended: Number.POSITIVE_INFINITY },
-]) {
-  /**
-   * 不正な時間差を0msの観測値へ補正しないを検証する。
-   *
-   * @responsibility 不正な時間差を0msの観測値へ補正しないの合否判定を所有する。
-   * @trace PRL-IT-012
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 不正な時間差を0msの観測値へ補正しないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
-   */
-  test("不正な時間差を0msの観測値へ補正しない", async (t) => {
-    const { input } = fixture(t, [task("task-a")]);
-    const events: unknown[] = [];
-    let invocation = 0;
-    await runCoordinatorOperation(
-      {
-        runSingleTaskAttempt: completed,
-        recordTaskAttempt: (event) => {
-          events.push(event);
-          return recorded("event-clock-test");
-        },
-        now: () => {
-          invocation += 1;
-          return {
-            monotonicMs:
-              invocation === 1 ? invalidClock.started : invalidClock.ended,
-            iso: "2026-09-05T00:00:01.000Z",
-          };
-        },
-      },
-      input,
-    );
-    assert.equal(events.length, 1);
-    const observed = events[0] as { startedAtMs: number; endedAtMs: number };
-    assert.equal(observed.startedAtMs, invalidClock.started);
-    assert.equal(observed.endedAtMs, invalidClock.ended);
-  });
-}
+// EIの保存・診断失敗は新しいProvider境界の試験で確認する。

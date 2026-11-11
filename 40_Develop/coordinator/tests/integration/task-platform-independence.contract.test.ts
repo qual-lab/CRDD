@@ -153,7 +153,7 @@ const SOURCE_ROLES = {
     "selection/resolve.ts",
     "state/initialize.ts",
   ],
-  storage: ["decision/store.ts"],
+  storage: ["decision/store.ts", "execution/intelligence.ts"],
   technicalExecution: [
     "execution/configuration.ts",
     "execution/files.ts",
@@ -423,10 +423,6 @@ function assertPureImportEdges(
             specifier === "../decision/store.ts" &&
             names.length === 1 &&
             names[0] === "openRuntimeOwnedWindowsProjectDecisionStore") ||
-          (module === `${SOURCE_PREFIX}objective/types.ts` &&
-            specifier === "../task/dispatch.ts" &&
-            names.length === 1 &&
-            names[0] === "recordCoordinatorExecutionEvent") ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
             specifier === "../execution/result.ts" &&
             resolved === `${SOURCE_PREFIX}execution/result.ts` &&
