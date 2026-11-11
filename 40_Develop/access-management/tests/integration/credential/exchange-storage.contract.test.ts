@@ -18,19 +18,21 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
-import { exchangeFromHost } from "../../../src/credential/exchange.ts";
+import {
+  exchangeFromHost,
+  exchangeCredentialsFromHost,
+  finishKeyExchangeFromHost,
+  readKeyExchangeStateFromHost,
+} from "../../../src/credential/exchange.ts";
 import { verifyCredentialToken } from "../../../src/credential/token.ts";
 import {
   authenticateNormalConnection,
   exchangeCredentials,
-  exchangeCredentialsFromHost,
   finishKeyExchange,
-  finishKeyExchangeFromHost,
   issueCredential,
   type KeyExchangeResult,
   readCredentialAdministrationState,
   readKeyExchangeState,
-  readKeyExchangeStateFromHost,
   updateCredentialPresentationState,
   revokeCredential,
 } from "../../../src/index.ts";

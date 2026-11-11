@@ -1,5 +1,25 @@
 # ユーザー・資格・認可の詳細設計
 
+<a id="public-surface-closure"></a>
+
+## Root公開境界の整理 — 2026-11-11
+
+Rootは既存実装から30関数・26型を直接公開する。中間Facade、互換alias、別の共通型Fileは追加しない。これは未Releaseのライブラリ公開集合の縮小であり、以下の非公開化を内部機能の廃止や権限変更として扱わない。下段の先行段階の公開一覧より本節を優先する。
+
+| 区分 | 操作・型 | 現在の配置と利用 |
+|---|---|---|
+| Root非公開 | `exchangeCredentialsFromHost`、`finishKeyExchangeFromHost`、`readKeyExchangeStateFromHost` | credential/exchangeに維持。Host CLIと内部保存試験が宣言元を直接利用する |
+| Root非公開 | `prepareHostInitializationRoot`、`HostRootPreparationResult`、`HostPreviousInputObservation` | initialization/rootに維持。明示初期化の内部段階と、自己生成Hostの試験準備だけで利用する |
+| Root非公開 | `readCredentialIssuance`、`CredentialIssuanceObservation` | credential/crud・typesに維持。内部の発行事実観測試験から直接利用し、公開の管理状態取得は`readCredentialAdministrationState`へ集約する |
+| Root維持 | 通常認証と初回用途判定・確認 | `authenticateNormalConnection`、`resolveConnectionAuthentication`、`confirmInitialConnection`を分離。初回限定資格を通常認証に昇格しない |
+| Root維持 | 現在認可・管理・Repository・ユーザー状態 | 本番Consumerが利用する完成操作と、その入力・結果型を維持。`sameAccessCollection`の待機後比較、現在資格を認証するProfile管理判定を削らない |
+| Root維持 | 資格発行・失効・交換・提示結果 | 出力Ownerが返す`updateCredentialPresentationState`を維持。発行・提示開始・出力確認・交換終了を同一事実へ畳まない |
+| Root維持 | Host通常起動・明示初期化 | `resolveHostRootInput`／`readExistingHostRoot`と`initializeFromHost`／`readHostInitializationState`を分離。通常起動にDirectory作成を追加しない |
+
+公開型は認証・初回相関・管理・資格管理／交換／提示・認可済みRepository・初期化の入力と結果に限定する。`AuthorizedRepository`等の本番Consumerが明示参照する型を残し、非公開化した内部3型の代わりにunknownや新しい巨大Unionを導入しない。実装の保存形式、Lock、現在認証、期待改訂、秘密の一度提示、取消・出版・清掃不明の結果は不変更。
+
+既存RFD-UT-020で実行時30関数とSourceの明示26型を別々に完全一致検査する。AM内部試験とWorkbench／MCPの自己生成Host試験だけが非公開操作の宣言元へ接続し、本番ConsumerはRoot利用を維持する。新しいPackage subpath、HTTP／MCP操作、Host機能の追加はない。
+
 ## Source構造の再編 — 2026-10-19
 
 添付のSource Structure Reviewとその後の人間判断を適用する。以下は内部配置と公開APIの再編であり、Role分担、保存Schema v2、Host管理Root、同一Lock内の現在認証・期待改訂・保存・読戻し、鍵の一度提示、MCP非公開の鍵操作を変更しない。実Host ST／人間UATの残件をこのRefactorの回帰成功へ読み替えない。
@@ -60,9 +80,9 @@ Contextの初回は一つの既存Lock内で現在状態読取り・KDFによる
 | `evaluateManagementPermission`、`evaluateAiProfileManagementPermission` | 固定Role分担と現在のProfile管理可否 |
 | `resolveRepositoryAccess`、`resolveRepositoryAccessCollection`、`sameAccessCollection` | 信頼したBackend向けの認可済み実Root・集合とその同一性。外部DTOではない |
 | `authenticateNormalConnection`、`resolveConnectionAuthentication`、`confirmInitialConnection` | 通常認証と初回限定接続を区別した既存結果 |
-| `issueCredential`、`revokeCredential`、`readCredentialIssuance`、`readCredentialAdministrationState`、`updateCredentialPresentationState` | administratorの鍵操作と非秘密状態。生成成功時だけ一度提示用の秘密を保持 |
-| `exchangeCredentials`、`exchangeCredentialsFromHost`、`finishKeyExchange`、`finishKeyExchangeFromHost`、`readKeyExchangeState`、`readKeyExchangeStateFromHost` | Workbench／信頼Hostのexact交換処理・終了・再観測。MCPへ公開しない |
-| `initializeFromHost`、`readHostInitializationState`、`resolveHostRootInput`、`readExistingHostRoot`、`prepareHostInitializationRoot` | 明示初回設定と通常Root検証を分離したHost接続 |
+| `issueCredential`、`revokeCredential`、`readCredentialAdministrationState`、`updateCredentialPresentationState` | administratorの鍵操作と非秘密状態。生成成功時だけ一度提示用の秘密を保持。個別発行事実Readerは内部利用のみ |
+| `exchangeCredentials`、`finishKeyExchange`、`readKeyExchangeState` | Workbenchのexact交換処理・終了・再観測。Host専用経路は同じ実装Fileの内部操作として維持。MCPへ公開しない |
+| `initializeFromHost`、`readHostInitializationState`、`resolveHostRootInput`、`readExistingHostRoot` | 明示初回設定と通常Root検証を分離したHost接続。保存先準備は初期化の内部段階 |
 
 これは未ReleaseのPackage内部APIの破壊的整理を含むため、旧内部SymbolのRoot importを利用側・試験で同時に変更する。通信／保存Schemaの移行とは区別し、互換aliasを新設しない。Source移管の回帰結果と初回実Host／人間UATの未完了は別に追跡する。
 

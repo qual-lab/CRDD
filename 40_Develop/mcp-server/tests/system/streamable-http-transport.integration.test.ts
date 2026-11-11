@@ -29,9 +29,9 @@ import path from "node:path";
 import type { Duplex } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { prepareHostInitializationRoot } from "../../../access-management/src/initialization/root.ts";
 import {
   issueCredential,
-  prepareHostInitializationRoot,
   updateCredentialPresentationState,
   registerUser,
   revokeCredential,

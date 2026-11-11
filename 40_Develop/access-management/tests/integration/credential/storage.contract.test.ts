@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import type { FilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
+import { readCredentialIssuance } from "../../../src/credential/crud.ts";
 import {
   createCredentialMaterial,
   verifyCredentialToken,
@@ -24,7 +25,6 @@ import {
   authenticateNormalConnection,
   issueCredential,
   readCredentialAdministrationState,
-  readCredentialIssuance,
   updateCredentialPresentationState,
   revokeCredential,
 } from "../../../src/index.ts";

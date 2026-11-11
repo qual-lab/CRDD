@@ -25,10 +25,10 @@ import {
 } from "../../../../version-control/src/index.ts";
 import { runHostAccessCommand } from "../../../src/cli/command.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
+import { exchangeCredentialsFromHost } from "../../../src/credential/exchange.ts";
+import { prepareHostInitializationRoot } from "../../../src/initialization/root.ts";
 import {
-  exchangeCredentialsFromHost,
   initializeFromHost,
-  prepareHostInitializationRoot,
   readExistingHostRoot,
   updateCredentialPresentationState,
   resolveHostRootInput,

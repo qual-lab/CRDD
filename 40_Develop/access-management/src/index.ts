@@ -22,16 +22,12 @@ export { authenticateNormalConnection } from "./credential/authentication.ts";
 export {
   issueCredential,
   readCredentialAdministrationState,
-  readCredentialIssuance,
   revokeCredential,
 } from "./credential/crud.ts";
 export {
   exchangeCredentials,
-  exchangeCredentialsFromHost,
   finishKeyExchange,
-  finishKeyExchangeFromHost,
   readKeyExchangeState,
-  readKeyExchangeStateFromHost,
 } from "./credential/exchange.ts";
 export type { CredentialPresentationUpdate } from "./credential/presentation.ts";
 export { updateCredentialPresentationState } from "./credential/presentation.ts";
@@ -42,7 +38,6 @@ export type {
   CredentialAdministrationSnapshot,
   CredentialAdministrationStateResult,
   CredentialAuthenticationResult,
-  CredentialIssuanceObservation,
   CredentialManagementResult,
   InitialConnectionBinding,
   KeyExchangeCompletionResult,
@@ -58,9 +53,6 @@ export {
   initializeFromHost,
 } from "./initialization/execution.ts";
 export {
-  type HostPreviousInputObservation,
-  type HostRootPreparationResult,
-  prepareHostInitializationRoot,
   readExistingHostRoot,
   resolveHostRootInput,
 } from "./initialization/root.ts";

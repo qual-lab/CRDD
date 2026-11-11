@@ -33,8 +33,8 @@ import path from "node:path";
 import type { Duplex } from "node:stream";
 import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { prepareHostInitializationRoot } from "../../../access-management/src/initialization/root.ts";
 import {
-  prepareHostInitializationRoot,
   readHostInitializationState,
   resolveHostRootInput,
 } from "../../../access-management/src/index.ts";

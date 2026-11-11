@@ -1,5 +1,27 @@
 # 基盤機能中心のRuntime責務再編計画
 
+<a id="am-public-surface-closure"></a>
+
+## AMのRoot公開境界整理 — 2026-11-11
+
+状態: 実装・限定回帰・固定候補の独立レビューを確認。長期Lease・EI・PA・DI・Executor・AI Adapter・VCは本作業で変更しない。
+
+人間が採用した30関数・26型案を基準とし、基準db85c6deaのRoot全35関数・29型、全TypeScript参照、既存Host CLI、Workbench／MCPの製品・試験、ArchitectureとRFD-UT-020を初回編集前に照合した。変更分類は未Releaseのライブラリ公開契約縮小とConsumer追従。読取り専用の着手前確認で内部能力の維持と公開型集合の独立検査を確認した。独立のSource／Consumerレビュー、文書・QA・影響伝播確認を行う。認証・認可・保存・運用Policy・準拠基準・Releaseを変えないため、全面準拠／Release監査は対象外。追加の人間判断は不要。
+
+| 合意項目 | 編集先と処置 | 保持する意味・反証 |
+|---|---|---|
+| Rootの5関数・3型を非公開化 | AM src/index.tsから明示exportだけ除去 | 内部のHost交換・初期化準備・発行事実観測は元Fileに維持。Wrapper・Facade・subpath・互換alias・新型なし |
+| 内部Consumerの接続 | AM保存試験・Host試験・子Process fixtureは宣言元へ直接import | 実Process喪失後の交換再入場、鍵提示、保存・読戻し・失効を維持 |
+| 外部Consumer | Workbench／MCPの自己生成Host試験準備だけ宣言元へ直接import | 本番ConsumerのRoot接続・初回限定接続・現在認可・通常起動時の作成0を維持 |
+| 公開集合の固定 | RFD-UT-020の実行時30関数完全一致と、Source exportの26型完全一致 | 一律の関数数検査や型のunknown化にせず、意図しない再公開も拒否 |
+| 正本・管理情報 | AM詳細・QA-000007・現在地を追従 | Source配置と試験Suiteは不変のためsymbol.jsonと409件の台帳を変更しない。正式QA結果・項目数を局所成功で変更しない |
+
+限定結果: 公開集合・Role判定4件、鍵交換／提示／発行事実／Host Root8件、Workbench／MCPの既存Root拒否2件、子Process喪失後の交換再入場1件の計15件が成功。AM・Workbench Server・MCP Serverの型検査、変更8 Sourceの書式・警告禁止Lint、409件の試験台帳検査、差分空白検査も成功した。台帳検査は試験を起動していない。試験は各自が生成したRootだけを清掃し、既存Host・過去保持物を利用しない。全体回帰・実AI・Dockerは未実施。
+
+Source／Consumerと文書・QA・影響伝播の独立レビュー結果を統合し、機能面の必須指摘は0。軽微な試験Headerの「I/Oなし」がSource読取りの追加と不整合だったため、両レビューへ訂正案を共有してから境界説明だけ是正した。公開集合・認可期待値・試験本文は変更していない。最終結果追記とHeaderの独立再照合も残指摘0。初回実装報告時点ではコミット・プッシュを実施していない。
+
+後続の人間指示によるコミット前再確認では、40_DevelopのTypeScript 997ファイルを走査し、撤去した8公開名のRoot import／re-export残存0を確認した。公開集合4試験、AM・Workbench Server・MCP Serverの型検査、409件の台帳整合と差分空白検査も再確認した。追加のコード是正は不要。既存の限定15試験・独立再レビュー結果と区別して記録し、全体回帰・実AI・Docker・過去保持物は操作しない。
+
 <a id="ei-qa-link-closure"></a>
 
 ## EIの正式QA登録と旧リンクの是正 — 2026-11-11

@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+AMのRoot公開を合意済み30関数・26型へ整理した。Host交換・初期化準備・個別発行観測の内部実装は維持し、試験準備だけを宣言元へ接続。本番Consumerの現在認可・初回限定接続・鍵提示は変更していない。限定15試験とAM／Workbench／MCP型検査、409件の台帳整合を確認し、独立レビューのHeader指摘も是正した。全体回帰・実AI・Docker・過去保持物は操作しない。[範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#am-public-surface-closure)を参照する。
+
 Coordinatorの長期Leaseの物理取得・保持・通常解放を共通wx Lockへ接続し、既存Owner喪失回復は維持した。回復の全fresh照合後、同じDomain短期保存排他内でFile回収・不存在・保存を行い、遅延回復者が新Ownerを処置しない。限定回帰で見つけた試験不整合は是正・再確認し、Source／契約・試験・文書の独立再レビューは必須残指摘0。別の既存Domain公開集合試験の失敗も、主体2関数の期待値漏れを追従して是正し、公開境界13試験と主体1試験の成功を確認した。初回の失敗記録は保持する。全体回帰・実AI・Docker・過去保持物の操作・実運用切替は行わない。[範囲と結果](99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#long-lease-common-lock-change)を参照する。
 
 EIの責務分離と文書・Header追従は限定228試験・利用側型検査・独立再レビューを確認し、追加の正式QA3項目とEI関連旧リンク48件も是正した。QA-000012は10項目、全13定義は203 unique。追加限定64試験、EI関連の文書構造・QA／Symbol参照・リンクの検査と独立再レビューは指摘0。入力検査はvalidation、遷移・保持はoperations、物理保存はstoreとし、公開契約・保存形式・安全判定は不変。他領域の既存不整合と上位未評価は残り、全体PassやArchitecture Readyは主張しない。EI整理時点では長期Task Leaseを変更せず、後続の変更は上段に示す。全体回帰・実AI・Docker・過去保持物は操作しない。[現在の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)を参照する。

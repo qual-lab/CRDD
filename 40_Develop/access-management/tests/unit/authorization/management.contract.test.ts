@@ -1,14 +1,15 @@
 /**
- * Role別分担9行と11認可要求種別の対象を検証する。
+ * Role別分担9行・11認可要求種別とRoot公開関数・型の集合を検証する。
  *
  * @packageDocumentation
  * @responsibility 許可・拒否・入力不正を公開Root経由で確認し、純粋判定以外の成立を主張しない。
  * @trace RFD-UT-020
  * @level UT
  * @scope access-management、固定管理分担、操作別Role対象
- * @boundary N/A: I/Oを持たない純粋判定を確認する。
+ * @boundary 純粋認可判定とRepository内のPackage Root Source読取りだけ。保存・実Host操作なし。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import * as publicApi from "../../../src/index.ts";
 import {
@@ -25,10 +26,10 @@ const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
  * @trace RFD-UT-020
  * @precondition 採用済み操作と対象Roleを値として用意する。
  * @stimulus 三Roleを全11認可要求種別へ適用する。
- * @observation 33判定結果とRuntime公開Symbol集合を取得する。
- * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。Runtime公開Symbolは宣言したPackage Root集合と完全一致し、保存関数を本試験では実行しない。
+ * @observation 33判定結果、Runtime公開30関数、SourceのRoot公開26型を取得する。
+ * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。関数・型は宣言したPackage Root集合と完全一致し、保存関数を本試験では実行しない。
  * @cleanup N/A: 状態・handle・一時Fileを生成しない。
- * @boundary N/A: 純粋関数の公開入口だけを呼ぶ。
+ * @boundary 純粋認可判定の公開入口とPackage Root Sourceの読取り。保存・実Host操作なし。
  */
 test("三Roleと全11認可要求種別の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
@@ -37,19 +38,14 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "evaluateAiProfileManagementPermission",
     "evaluateManagementPermission",
     "exchangeCredentials",
-    "exchangeCredentialsFromHost",
     "finishKeyExchange",
-    "finishKeyExchangeFromHost",
     "initializeFromHost",
     "issueCredential",
-    "prepareHostInitializationRoot",
     "readCredentialAdministrationState",
-    "readCredentialIssuance",
     "readCurrentAccess",
     "readExistingHostRoot",
     "readHostInitializationState",
     "readKeyExchangeState",
-    "readKeyExchangeStateFromHost",
     "readManagementState",
     "readUserStatus",
     "registerRepository",
@@ -67,6 +63,53 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "updateRoleContentAccess",
     "updateUserName",
     "updateUserRole",
+  ]);
+  // 型は実行時列挙に出ないため、Rootの明示export集合も別に照合する。
+  const source = fs.readFileSync(
+    new URL("../../../src/index.ts", import.meta.url),
+    "utf8",
+  );
+  const publicTypes = [
+    ...source.matchAll(/export\s+(type\s+)?\{([^}]+)\}\s*from/gu),
+  ]
+    .flatMap((match) =>
+      (match[2] ?? "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(
+          (entry) =>
+            entry.length > 0 && (match[1] || entry.startsWith("type ")),
+        )
+        .map((entry) => entry.replace(/^type\s+/u, "")),
+    )
+    .sort();
+  assert.deepEqual(publicTypes, [
+    "AccessRole",
+    "AiProfileManagementPermission",
+    "AuthenticatedRequest",
+    "AuthorizedRepository",
+    "ConnectionAuthenticationResult",
+    "CredentialAdministrationSnapshot",
+    "CredentialAdministrationStateResult",
+    "CredentialAuthenticationResult",
+    "CredentialManagementResult",
+    "CredentialPresentationUpdate",
+    "CurrentAccessOutcome",
+    "HostInitializationResult",
+    "HostInitializationStateResult",
+    "InitialConnectionBinding",
+    "KeyExchangeCompletionResult",
+    "KeyExchangeObservation",
+    "KeyExchangeResult",
+    "ManagementOperationOutcome",
+    "ManagementPermission",
+    "ManagementReadKind",
+    "ManagementReadOutcome",
+    "ManagementRequest",
+    "RepositoryAccess",
+    "RepositoryAccessCollectionResult",
+    "RepositoryAccessResult",
+    "UserStatusResult",
   ]);
   const rows: readonly Readonly<{
     request: ManagementRequest;
