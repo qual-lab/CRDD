@@ -5,7 +5,7 @@
  * @trace ARCH-000013
  */
 
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import { projectManagementOperationResult } from "../authorization/management.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
 import { executeRepositoryExposureMutation } from "./register.ts";

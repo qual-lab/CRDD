@@ -265,7 +265,7 @@ test("Host初回ReaderはProcess喪失後の元試行とUserを再開できる",
     "completed",
   );
   const domainUrl = new URL(
-    "../../../../domain-model/src/index.ts",
+    "../../../src/initialization/root.ts",
     import.meta.url,
   ).href;
   const storeUrl = new URL(
@@ -475,7 +475,7 @@ test("初回資格のProcess喪失は再生成せず保存段階を保持する"
     const current = path.join(f.directory, "access-management.json");
     const before = fs.readFileSync(current);
     const domainUrl = new URL(
-      "../../../../domain-model/src/index.ts",
+      "../../../src/initialization/root.ts",
       import.meta.url,
     ).href;
     const storeUrl = new URL(
@@ -1324,7 +1324,7 @@ test("初回UserのProcess喪失はbase保持とnext再観測を区別する", (
     );
     const before = fs.readFileSync(current);
     const domainUrl = new URL(
-      "../../../../domain-model/src/index.ts",
+      "../../../src/initialization/root.ts",
       import.meta.url,
     ).href;
     const storeUrl = new URL(
@@ -1502,7 +1502,7 @@ test("初回User競合は一生成だけ採用し出版後Lock不明を保持す
     "completed",
   );
   const domainUrl = new URL(
-    "../../../../domain-model/src/index.ts",
+    "../../../src/initialization/root.ts",
     import.meta.url,
   ).href;
   const storeUrl = new URL(
@@ -1855,7 +1855,7 @@ test("初回Process喪失のpartialと完全相関を再観測する", (t) => {
     const current = path.join(f.directory, "access-management.json");
     fs.rmSync(current);
     const domainUrl = new URL(
-      "../../../../domain-model/src/index.ts",
+      "../../../src/initialization/root.ts",
       import.meta.url,
     ).href;
     const storeUrl = new URL(
@@ -1919,7 +1919,7 @@ test("初回競合は一件だけ採用し解放不明を保持する", async (t
   const f = fixture(t);
   fs.rmSync(path.join(f.directory, "access-management.json"));
   const domainUrl = new URL(
-    "../../../../domain-model/src/index.ts",
+    "../../../src/initialization/root.ts",
     import.meta.url,
   ).href;
   const storeUrl = new URL(

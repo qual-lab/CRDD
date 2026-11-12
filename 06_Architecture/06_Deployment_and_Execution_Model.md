@@ -1,8 +1,12 @@
 # 配置／実行モデル
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 ## Core独立の配置条件 — 2026-10-27
 
-[Runtime Domain契約](Details/domain-model/05_Runtime_Domain.md)のCore構成は、Coordinator／Executorが読込み不能でもMCP／Workbenchから定義CRUD・保存・再読が成立することを要求する。ExecutorはLibraryで、別ServerやWorkerを新設しない。保存先domain-modelへの切替は未有効で、実Owner・旧新状態・履歴／pendingを確認する別Gateとする。既存保持物の調査・移動・削除をこの設計から許可しない。
+[Runtime Domain契約](Details/execution-model/05_Runtime_Domain.md)のCore構成は、Coordinator／Executorが読込み不能でもMCP／Workbenchから定義CRUD・保存・再読が成立することを要求する。ExecutorはLibraryで、別ServerやWorkerを新設しない。保存先domain-modelへの切替は未有効で、実Owner・旧新状態・履歴／pendingを確認する別Gateとする。既存保持物の調査・移動・削除をこの設計から許可しない。
 
 [Workspaceの配置契約](Details/coordinator/05_Workspace.md#4-配置とroot解決)によりTool Runtimeと製品Repositoryを分離する。単体起動は共有資格初期化を必須にせず、共有配置では各操作を現在認可する。WorkbenchとMCPは独立Processで同じPackage APIを使い、共通Memory QueueやMCP常時起動を仮定しない。製品固有状態は対象Repositoryへ保持。linked worktreeからも所属Repositoryを検証し、Tool Runtimeやnested worktree配下へ暗黙保存しない。Multi-host共有排他は対象外。
 
@@ -131,7 +135,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 | Version Control | Root検証、Binding、差替え可能なPort | [Version Control](Details/version-control/01_Architecture.md) |
 | 旧Artifact Signing（廃止） | 専用Package・署名機能は廃止。通常Runtimeの配置要素ではない | [成果物署名](Details/artifact-signing/01_Architecture.md) |
 | Checker | Generic Core、現行Profile、終了・回帰 | [Checker](Details/checker/01_Architecture.md) |
-| CROSの認可／Context操作 | 現在認可、Federation、Projection、候補Lifecycle | [Access Management](Details/access-management/01_Architecture.md)、[Domain Model](Details/domain-model/01_Architecture.md)、[Context操作](Details/domain-model/02_Activity_Context.md) |
+| CROSの認可／Context操作 | 現在認可、Federation、Projection、候補Lifecycle | [Access Management](Details/access-management/01_Architecture.md)、[Domain Model](Details/domain-model/01_Architecture.md)、[Context操作](Details/document-model/02_Activity_Context.md) |
 | Source／Tests | Canonical責務との対応、未実装、旧Owner残存 | `40_Develop/**`、`template/tools/**`、`07_Quality/**` |
 
 発行／記録不明の通常発行はCredential IDとは別の元発行Identityで再観測し、交換Recoveryを追加しない。発行・記録確定後は「発行済み・受け渡し未確認」とし、別交換は別Operation／Recoveryで既存入口を再利用する。現在administratorとして接続不能なら既存Host交換2操作だけへ案内し、新Process・新Recoveryを作らない。指定交換は先発行鍵を含む対象User全旧有効資格、全員交換は先発行鍵を含む全旧有効資格を扱い、既存発行先・表示確認条件を維持する。旧事実を保持し、遅延旧応答の失効鍵利用表示、秘密再表示・保存・自動発行を禁止する。

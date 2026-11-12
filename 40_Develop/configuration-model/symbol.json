@@ -1,0 +1,255 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "configuration-model",
+  "symbols": [
+    {
+      "symbolId": "coordinator.selection.types",
+      "kind": "file",
+      "path": "src/ai-selection/types.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.output.unambiguous-json-document",
+      "kind": "file",
+      "path": "src/plain-data/json.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.storage.ai-selection",
+      "kind": "file",
+      "path": "src/storage/ai-selection.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.ai-selection-store",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-selection-store.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-005"
+      ],
+      "verifies": [
+        "coordinator.storage.ai-selection",
+        "domain-model.ai-selection.validation"
+      ]
+    },
+    {
+      "symbolId": "domain-model.ai-selection.validation",
+      "kind": "file",
+      "path": "src/ai-selection/validation.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.ai-selection.validation",
+      "kind": "test-suite",
+      "path": "tests/unit/ai-selection/validation.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.ai-selection.validation"
+      ]
+    },
+    {
+      "symbolId": "domain-model.configuration.network-policy",
+      "kind": "file",
+      "path": "src/configuration/network-policy.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.storage.network-policy",
+      "kind": "file",
+      "path": "src/storage/network-policy.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.integration.network-policy",
+      "kind": "test-suite",
+      "path": "tests/integration/network-policy.integration.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "domain-model.configuration.network-policy",
+        "domain-model.storage.network-policy"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.unit.contract",
+      "kind": "test-suite",
+      "path": "tests/unit/configuration/validate-declarations.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "runtime-data.source.src.core.runtime.data.contract"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.integration.repository-paths",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-storage-paths.integration.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "domain-model.runtime-area-result",
+        "domain-model.runtime-data-area-writer",
+        "domain-model.runtime-data-path-reader",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.source.src.core.runtime.data.contract",
+      "kind": "file",
+      "path": "src/configuration/validate-declarations.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.configuration-entry",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.runtime-data-paths",
+      "kind": "module",
+      "path": "src/configuration/storage-paths.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.configuration-types",
+      "kind": "module",
+      "path": "src/configuration/types.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.tool-runtime-config",
+      "kind": "module",
+      "path": "src/configuration/read-tool-config.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.integration.tool-runtime-config",
+      "kind": "test-suite",
+      "path": "tests/integration/tool-runtime-config.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "domain-model.tool-runtime-config"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.ai-selection.snapshot",
+      "kind": "file",
+      "path": "src/ai-selection/snapshot.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.storage.configuration-directory",
+      "kind": "file",
+      "path": "src/storage/configuration-directory.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.storage.file-snapshot",
+      "kind": "file",
+      "path": "src/storage/file-snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.storage.root-and-lock",
+      "kind": "file",
+      "path": "src/storage/root-and-lock.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.tests.support.repository-test-directory",
+      "kind": "file",
+      "path": "tests/support/repository-test-directory.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.tests.support.source-declaration",
+      "kind": "file",
+      "path": "tests/support/source-declaration.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.test.unit.public-boundary",
+      "kind": "test-suite",
+      "path": "tests/unit/public-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "configuration-model.public-api"
+      ]
+    }
+  ]
+}

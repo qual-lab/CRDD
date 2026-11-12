@@ -18,7 +18,7 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
   createCommit,
   createReference,

@@ -8,7 +8,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
+import type { AiSelectionChoice } from "../../../configuration-model/src/index.ts";
 import {
   isPrincipalId,
   type ExecutionSelection,
@@ -20,12 +20,12 @@ import {
   observeRuntimeOwnedTransientTaskCompletion,
   type ProjectQueueEntry,
   readCoordinatorTaskIntakeState,
-  readRepositoryAiSelection,
   type SingleTaskRecord,
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
   type TaskExecutionSelections,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { readRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
   readRepositoryRevision,
   resolveVerifiedRepositoryRoot,
@@ -56,10 +56,8 @@ import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../selection/resolve.ts";
-import {
-  hashExecutionSelection,
-  inspectAiSelectionChoice,
-} from "../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
+import { inspectAiSelectionChoice } from "../../../configuration-model/src/index.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
@@ -1592,5 +1590,5 @@ export async function runTask(
   return Object.freeze(result);
 }
 
-import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
-import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";

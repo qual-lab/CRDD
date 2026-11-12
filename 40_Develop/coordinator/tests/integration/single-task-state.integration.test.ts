@@ -15,7 +15,7 @@ import fs from "node:fs";
 import { devNull } from "node:os";
 import path from "node:path";
 import test, { mock } from "node:test";
-import * as snapshotStorage from "../../../domain-model/src/index.ts";
+import * as snapshotStorage from "../../../execution-model/src/index.ts";
 import {
   initializeCoordinatorSnapshot,
   inspectSingleTaskRecord,
@@ -23,7 +23,7 @@ import {
   readCoordinatorExecutionState,
   readCoordinatorTaskIntakeState,
   type SingleTaskRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
@@ -974,7 +974,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       }),
     };
     const storage = mock.module(
-      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+      new URL("../../../execution-model/src/index.ts", import.meta.url).href,
       {
         namedExports: {
           ...snapshotStorage,

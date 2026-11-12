@@ -152,7 +152,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     registerHooks({resolve(s,c,n){
       const resolved=n(s,c);
       if(resolved.url.includes('/coordinator/'))throw Error('coordinator_unavailable');
-      if(blockDomain&&resolved.url.includes('/domain-model/'))throw Error('domain_unavailable');
+      if(blockDomain&&['domain','document','execution','configuration'].some(name=>resolved.url.includes('/'+name+'-model/')))throw Error('domain_unavailable');
       return resolved;
     }});
     const api=await import(${JSON.stringify(root)});
@@ -189,8 +189,9 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     for (const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
       assert.equal(name in runtime,false,name);
     // 名前付き領域APIの依存Sourceを先にロードし、以下ではTool自体のimport Effectを検査する。
-    await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
+    await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
     await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+    await import(${JSON.stringify(new URL("../../scripts/runtime-data.ts", import.meta.url).href)});
     const {default:fs}=await import('node:fs');
     const {default:childProcess}=await import('node:child_process');
     const {syncBuiltinESMExports}=await import('node:module');
@@ -280,7 +281,7 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
     );
     assert.doesNotMatch(
       source,
-      /(?:from\s*|import\s*\()["'][^"']*(?:coordinator|domain-model)\//,
+      /(?:from\s*|import\s*\()["'][^"']*(?:coordinator|domain-model|document-model|execution-model|configuration-model)\//,
     );
   }
   const coordinator = new URL(

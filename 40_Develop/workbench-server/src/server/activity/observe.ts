@@ -10,7 +10,7 @@
  * @effect Read Model生成はEffect 0。観測は注入されたApplicationへだけ委譲する。
  * @security Recovery Authority、Credential、Host Pathまたは非開示Task内容を入力契約へ含めない。
  */
-import type { RepositoryProjectContext } from "../../../../domain-model/src/index.ts";
+import type { RepositoryProjectContext } from "../../../../document-model/src/index.ts";
 import { getRepository } from "../../../../version-control/src/index.ts";
 
 /**
@@ -245,4 +245,4 @@ export function createRepositoryWorkbenchActivityReader(
   });
 }
 
-import type { RuntimeActivityObservation } from "../../../../domain-model/src/index.ts";
+import type { RuntimeActivityObservation } from "../../../../execution-model/src/index.ts";

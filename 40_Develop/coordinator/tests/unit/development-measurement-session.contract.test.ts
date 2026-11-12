@@ -16,7 +16,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 import { fileURLToPath } from "node:url";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/execution/controller.ts";

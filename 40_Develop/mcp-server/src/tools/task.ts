@@ -18,7 +18,7 @@ import {
   isCoordinatorObjectiveProjectionCorrelationValid,
   isCoordinatorProjectionSemanticallyValid,
   isPrincipalId,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

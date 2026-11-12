@@ -10,8 +10,8 @@ import fs from "node:fs";
 import { runInThisContext } from "node:vm";
 import type { TestContext } from "node:test";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
-import { createResourceOperationFixture } from "../../../domain-model/tests/support/resource-operation.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
   applyCoordinatorResourceEvent,
   decodeRuntimeDomainSnapshot,
@@ -21,7 +21,7 @@ import {
   coordinatorTaskResourcesAreSettled,
   coordinatorAuthenticationUnknownCanClose,
   type CoordinatorResourceBook,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type {
   ResourceTarget,
   IsolationCallbacks,

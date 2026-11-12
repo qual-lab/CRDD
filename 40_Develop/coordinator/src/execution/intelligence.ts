@@ -8,10 +8,10 @@
 import {
   ensureRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
-  readExecutionIntelligenceConfig,
   requireReadyRepositoryRuntimeDataArea,
-  RepositoryRuntimeDataAreaBlockedError,
-} from "../../../domain-model/src/index.ts";
+} from "../configuration/runtime-data.ts";
+import { readExecutionIntelligenceConfig } from "../../../configuration-model/src/index.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   createExecution,

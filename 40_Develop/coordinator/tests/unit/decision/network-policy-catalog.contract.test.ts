@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import * as domain from "../../../../domain-model/src/index.ts";
+import * as domain from "../../../../configuration-model/src/index.ts";
 import type { Repository } from "../../../../version-control/src/index.ts";
 
 /**
@@ -31,7 +31,7 @@ test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用�
   const hosts = ["pypi.org", "registry.npmjs.org"];
   let unavailable = false,
     reads = 0;
-  t.mock.module("../../../../domain-model/src/index.ts", {
+  t.mock.module("../../../../configuration-model/src/index.ts", {
     namedExports: {
       ...domain,
       readNetworkPolicy(current: unknown) {

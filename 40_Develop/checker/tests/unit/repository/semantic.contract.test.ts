@@ -14,15 +14,15 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { SemanticIr } from "../../../../domain-model/src/index.ts";
+import type { SemanticIr } from "../../../../document-model/src/index.ts";
 import { getRepository } from "../../../../version-control/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
   createSemanticCoverageGraphResult,
 } from "../../../src/repository/semantic.ts";
-import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
-import { observeRealitySymbolRepository } from "../../../../domain-model/src/index.ts";
+import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../document-model/src/index.ts";
+import { observeRealitySymbolRepository } from "../../../../document-model/src/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

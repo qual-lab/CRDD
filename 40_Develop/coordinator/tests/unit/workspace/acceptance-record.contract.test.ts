@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { validWorkspaceCandidateRequest } from "../../../../domain-model/src/index.ts";
+import { validWorkspaceCandidateRequest } from "../../../../execution-model/src/index.ts";
 import type { Repository } from "../../../../version-control/src/index.ts";
 import { readWorkspaceCandidatePatch } from "../../../src/workspace/git.ts";
 

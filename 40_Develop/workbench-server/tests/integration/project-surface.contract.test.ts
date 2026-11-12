@@ -18,7 +18,7 @@ import test from "node:test";
 import {
   parseRepositoryQualityProjectionMarkdown,
   parseRepositoryReleaseProjectionMarkdown,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchOwnerArtifact,

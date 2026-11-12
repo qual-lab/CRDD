@@ -9,7 +9,7 @@ import {
   type CoordinatorAcceptanceDecision,
   type CoordinatorAcceptanceTarget,
   isPrincipalId,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 export const COORDINATOR_ACCEPTANCE_DECISION_CONTRACT =
   "crdd-coordinator/orchestrator-acceptance-decision/v1" as const;

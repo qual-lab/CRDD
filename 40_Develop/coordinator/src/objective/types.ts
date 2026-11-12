@@ -9,7 +9,7 @@ import type {
   CoordinatorObjectivePlan,
   CoordinatorState,
   ProjectTaskDefinition,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
@@ -210,4 +210,4 @@ export type CoordinatorReplanClassifier = (
   }>,
 ) => unknown;
 
-import type { CoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";
+import type { CoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";

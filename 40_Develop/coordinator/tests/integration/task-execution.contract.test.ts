@@ -17,11 +17,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
+import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import {
   encodeRuntimeStateValue,
   initializeCoordinatorSnapshot,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";

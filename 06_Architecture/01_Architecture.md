@@ -1,12 +1,16 @@
 # CRDD参照Toolのアーキテクチャ
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 ## Core独立の目標設計 — 2026-10-27
 
 2026-10-28のSource配置はDomainの共通モデル・保存と、任意のCoordinator、[Provider単段Executor](Details/executor/01_Architecture.md)へ分離する。MCP／WorkbenchのCore既定起動とAutomation明示読込みは維持する。Executorは保存・Queue・Task全体の進行を持たず、Coordinatorはその公開Rootから一段ずつ実行する。以下の旧比較基準を現在のSource未接続又は実境界成功へ読み替えない。最新の成立範囲は[移管計画](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。
 
-文書のMilestone／Roadmap／WBSと正式判断はCRDD文書群が正本。フロントAI等のCallerが実行依頼へ分解して渡し、Coordinatorは小・中規模Taskの実行・調整に限定する。[文書と実行状態の分担](Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)に従い、既存Objective／Milestoneは実行内の集約として扱う。Domainへの値・保存の移管で文書側の第二正本や自動同期を作らない。
+文書のMilestone／Roadmap／WBSと正式判断はCRDD文書群が正本。フロントAI等のCallerが実行依頼へ分解して渡し、Coordinatorは小・中規模Taskの実行・調整に限定する。[文書と実行状態の分担](Details/execution-model/05_Runtime_Domain.md#document-and-execution-ownership)に従い、既存Objective／Milestoneは実行内の集約として扱う。Domainへの値・保存の移管で文書側の第二正本や自動同期を作らない。
 
-[Runtime DomainのAPI・単一保存契約](Details/domain-model/05_Runtime_Domain.md)を、Core定義・局所CRUD・共通保存の設計正本とする。Domainが定義と局所状態、任意のCoordinatorが横断調停、Executor Libraryが単一試行を所有する。MCP／WorkbenchはDomainへ直接接続し、Core利用にCoordinatorの読込み・Provider認証・Dockerを要求しない。既存の単一Snapshot／CAS・実行Lease・真正証拠を維持する。以下のCoordinator中心記述は移管元の比較基準であり、この目標のSource実装・保存切替・QA成立は未完了である。既存属性のみの方針を承認済みとし、既存判断・根拠ID・受入条件をDomainへ移す。新しい報告機能は追加せず、保存先有効化の条件は同正本§9へ分離する。
+[Runtime DomainのAPI・単一保存契約](Details/execution-model/05_Runtime_Domain.md)を、Core定義・局所CRUD・共通保存の設計正本とする。Domainが定義と局所状態、任意のCoordinatorが横断調停、Executor Libraryが単一試行を所有する。MCP／WorkbenchはDomainへ直接接続し、Core利用にCoordinatorの読込み・Provider認証・Dockerを要求しない。既存の単一Snapshot／CAS・実行Lease・真正証拠を維持する。以下のCoordinator中心記述は移管元の比較基準であり、この目標のSource実装・保存切替・QA成立は未完了である。既存属性のみの方針を承認済みとし、既存判断・根拠ID・受入条件をDomainへ移す。新しい報告機能は追加せず、保存先有効化の条件は同正本§9へ分離する。
 
 2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/coordinator/05_Workspace.md)を横断契約とする。2026-10-22の物理統合後は単一Coordinator内で、Task／Objectiveが仕事を進行し、Executionが単発AIを実行する。Direct／IsolatedとRepository所有の境界を維持する。以下の二Package図と基準版Readyは統合前の比較対象であり、現行構成又は新版の品質根拠として扱わない。保存統合・実境界・全体QAは未完了である。
 
@@ -72,7 +76,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Tool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
-| [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | 初回Host設定、最小ユーザー、現行Role認可、資格・独立失効・通常鍵交換2操作、認可済み集合の解決とContext集約 | UI-000008 | SPEC-000012 | Access Management／Domain Model（認可済みContext集約） |
+| [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | 初回Host設定、最小ユーザー、現行Role認可、資格・独立失効・通常鍵交換2操作、認可済み集合の解決とContext集約 | UI-000008 | SPEC-000012 | Access Management／文書モデル（認可済みContext集約） |
 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | 旧Runtime Trust Evaluator（廃止・代替未接続） |
 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
@@ -90,7 +94,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000003 | Quality／変更追跡と検証Runner | 試験登録と実行集合の一致を確認し、部分Passを全体Readyとしない。 |
 | ARCH-000004 | 目標: Domain定義・局所CRUD／共通保存 → 任意Coordinator → Executor Library → AI Adapter／DI | Coreは管理実行を必要としない。実行の横断調停と単一試行、隔離技術のOwnerを分ける。目標のSource接続は未実装。 |
 | ARCH-000005 | Domain Modelの読取り投影、Coordinator内のObjective／Milestone Acceptance Decision Recordによる限定受入判断 | 読取りから書込みAuthorityを生成しない。 |
-| ARCH-000006 | Domain ModelのTopic／Meeting API | 業務状態と人間の採否を共通保存へ吸収しない。 |
+| ARCH-000006 | 文書モデルのTopic／Meeting API | 業務状態と人間の採否を共通保存へ吸収しない。 |
 | ARCH-000007 | Execution Intelligence Reader | 観測・欠測と評価候補を分ける。 |
 | ARCH-000008 | Coordinator診断、AI Adapter分類、Platform AccessのOS保証 | 診断から修復Authorityを発行しない。 |
 | ARCH-000009 | Version ControlとRoot観測 | Domain CRUDからCommit／Pushを自動発行しない。 |
@@ -100,7 +104,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 初回Host設定の状態・非秘密元試行相関・個別事実はAccess Managementが所有し、Host明示操作で開始する。Workbenchは案内のみ、MCPは初期化・状態照会とも非公開。通常Host回復は交換2操作だけで初回と分離する。Domain Modelは認可済みContext集約・中立部品だけを担当する。基本設計・AM詳細の前回限定Passは履歴。旧横断・Surface限定レビューは当時の固定版の履歴。今回の最小鍵提示候補は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、具体API・物理保存・本番公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
 | ARCH-000015 | Coordinator内Executionの候補本体、Task／Objectiveの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
-| ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |
+| ARCH-000016 | 文書モデルのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |
 | ARCH-000017 | 公式素材管理と利用側 | 権利・用途・対象版の根拠を維持する。 |
 | ARCH-000018 | Execution Intelligence Writer、Coordinator内Execution／Taskの観測作成 | Event不変性と通常履歴の保持期間を区別する。 |
 

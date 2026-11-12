@@ -7,8 +7,11 @@
 import {
   maintainCoordinatorSnapshotRecords,
   transferCoordinatorSnapshotHistoryRecords,
-} from "../../../domain-model/src/index.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+} from "../../../execution-model/src/index.ts";
+import {
+  verifyRuntimePersistenceRepository,
+  historyRepositoryInput,
+} from "../execution/persistence.ts";
 import type { StoreResult } from "./result.ts";
 
 /**
@@ -33,7 +36,9 @@ export function maintainCoordinatorSnapshot(
   now = Date.now(),
 ): StoreResult<number> {
   return maintainCoordinatorSnapshotRecords(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    historyRepositoryInput(
+      verifyRuntimePersistenceRepository(workingDirectory),
+    ),
     binding,
     now,
   );
@@ -61,7 +66,9 @@ export function transferCoordinatorSnapshotHistory(
   now = Date.now(),
 ): StoreResult<Readonly<{ recorded: number; expired: number }>> {
   return transferCoordinatorSnapshotHistoryRecords(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    historyRepositoryInput(
+      verifyRuntimePersistenceRepository(workingDirectory),
+    ),
     binding,
     now,
   );

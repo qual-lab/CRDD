@@ -1,5 +1,9 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](../06_Architecture/Details/document-model/01_Architecture.md)・[実行モデル](../06_Architecture/Details/execution-model/01_Architecture.md)・[構成モデル](../06_Architecture/Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 v0.22現在、Platform Access・Rust crate・固定Native exeと専用Build／coverage入口は退役した。以下のNative Build・計測手順は当時の再現用履歴であり、現行の通常確認手順として実行しない。現在のOwnerと保証差は[PA退役記録](../06_Architecture/Details/platform-access/01_Architecture.md#現在の構成--2026-11-11)を参照する。既存cacheや過去保持物をこの退役を理由に清掃しない。
 
 Status: Candidate (Coordinator固有署名方式は物理撤去済み。撤去後の全体回帰・実境界検証は未完了)
@@ -25,7 +29,7 @@ Workbench経由の合成Contextは、Metadataと見出しだけでなく、現�
 - 合成保存・読戻しを外部AIなしで確認し、拒否・unknown時はAIを起動しない。既存Repositoryや由来不明のGit領域を、このfixture準備の対象へ広げない。
 - 正常・失敗時とも今回のexact試験物だけを非使用・非link・外部Worktreeなしの確認後に回収し、不明な回復参照や残存を強制削除しない。
 
-準備不足の拒否と明示準備後の保存は、既存`RCM-IT-005`の[AI選択Store契約試験](../40_Develop/domain-model/tests/integration/ai-selection-store.contract.test.ts)で照合する。この局所確認は実AI・認証・Dockerの成立を示さない。
+準備不足の拒否と明示準備後の保存は、既存`RCM-IT-005`の[AI選択Store契約試験](../40_Develop/configuration-model/tests/integration/ai-selection-store.contract.test.ts)で照合する。この局所確認は実AI・認証・Dockerの成立を示さない。
 
 ## 開発実測入力の新方式への移行
 
@@ -106,7 +110,7 @@ Coordinator固有の署名用端末補助・準備・昇格Script、閉包検査
 
 この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。画面を閉じた後に結果を読むための一時記録であり、正式Evidenceや永久保管場所ではない。Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、旧署名配布物にはこの保存機能を継ぎ足さない。
 
-フロントAIは検証終了時に結果を受理し、必要な根拠を対象CHG／Releaseの`Evidence/`へ記録するか、不要の理由を確定する。原Artifactのbytesが必要ならその本体も正式保持先へ保存する。その後、現行入力・未解決参照・実行中利用がないことを確認し、一時作業物・診断を清掃して不存在を確認する。中断した実行は次回開始時に確認する。保持の設計は[Runtime Dataの終了契約](../06_Architecture/Details/domain-model/03_Repository_Storage.md#311-試験結果の受理と清掃)に従い、完了記録だけで清掃を許可しない。これは年齢による自動削除機能ではない。
+フロントAIは検証終了時に結果を受理し、必要な根拠を対象CHG／Releaseの`Evidence/`へ記録するか、不要の理由を確定する。原Artifactのbytesが必要ならその本体も正式保持先へ保存する。その後、現行入力・未解決参照・実行中利用がないことを確認し、一時作業物・診断を清掃して不存在を確認する。中断した実行は次回開始時に確認する。保持の設計は[Runtime Dataの終了契約](../06_Architecture/Details/execution-model/03_Repository_Storage.md#311-試験結果の受理と清掃)に従い、完了記録だけで清掃を許可しない。これは年齢による自動削除機能ではない。
 
 一回の検証のたびに恒久Launcherや診断Directoryを増設しない。繰り返し使用する検証は正式な実装・試験入口へ接続し、一時的な組立て物は所有Operationの作業領域へ置いて終端で回収する。旧固定Path入力を移行途中で保全する場合は、その有限集合、責任者と再評価契機を記録し、同じ場所へ新しい物を追加しない。古いScriptを保管場所へ移しただけで、現在の再実行入口として案内しない。
 
@@ -349,7 +353,7 @@ v0.21.0では、Bの署名済みRuntimeに対する最終Recovery Matrix、4経�
 - 利用・検証手順: `19_Workflows/01_Coordinator_Runtime.md`、`19_Workflows/04_MCP_Server.md`
 - 工程の候補表示: `02_UX/01_User_Experience.md`、`02_UX/02_Personas.md`、`02_UX/03_Experience_Map.md`、`02_UX/04_Service_Blueprint.md`、`02_UX/05_Quality_Expectations.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`
 - v0.21の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
-- v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/domain-model/02_Activity_Context.md`、`06_Architecture/Details/domain-model/04_Storage_Path_Reality_Audit.md`
+- v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/document-model/02_Activity_Context.md`、`06_Architecture/Details/domain-model/04_Storage_Path_Reality_Audit.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000066/change.md`、`99_Roadmap/Changes/CHG-000068/change.md`、`99_Roadmap/Changes/CHG-000070/change.md`、`99_Roadmap/Changes/CHG-000071/change.md`、`99_Roadmap/Changes/CHG-000072/change.md`、`99_Roadmap/Changes/CHG-000073/change.md`、`99_Roadmap/Changes/CHG-000074/change.md`、`99_Roadmap/Changes/CHG-000075/change.md`、`99_Roadmap/Changes/CHG-000076/change.md`、`99_Roadmap/Changes/CHG-000077/change.md`、`99_Roadmap/Changes/CHG-000078/change.md`、`99_Roadmap/Changes/CHG-000079/change.md`、`99_Roadmap/Changes/CHG-000080/change.md`
 
 正本と工程成果物の機械的遷移は、v0.21.0のCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.21完了項目を除去してv0.22以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。QualityとReality Auditは、実行済みEvidenceへ接続した項目、未観測のまま残す項目およびv0.22へ移管した項目を分け、未実行項目をPassへ変更しない。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。

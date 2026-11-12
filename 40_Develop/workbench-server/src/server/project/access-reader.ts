@@ -14,7 +14,7 @@ import {
   readRepositoryProjectContext,
   type ProjectContextSource,
   type PortfolioProjection,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 
 /**
@@ -113,10 +113,11 @@ export function readAuthorizedPortfolio(
   for (const repository of repositories) {
     if (signal.aborted)
       throw new Error("workbench_local_portfolio_unavailable");
-    const read = readRepositoryProjectContext(
-      repository.root,
-      repository.manifest,
-    );
+    const read = readRepositoryProjectContext(repository.root, {
+      projectId: repository.manifest.projectId,
+      repositoryId: repository.manifest.repositoryId,
+      repositoryRole: repository.manifest.repositoryRole,
+    });
     if (read.status === "blocked")
       throw new Error("workbench_local_portfolio_unavailable");
     sources.push(

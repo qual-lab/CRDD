@@ -17,7 +17,7 @@ import {
   runRecordedVerification,
 } from "./verification-result-record.ts";
 import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
-import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { snapshotPlainArray } from "../src/input/snapshot.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import {
   evaluateVerificationSafetyObservation,

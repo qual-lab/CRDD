@@ -1,10 +1,14 @@
 # Component／責務モデル
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 ## Core独立の責務差分 — 2026-10-27
 
-業務計画の正本はCRDD文書、計画とTask分解はCaller、渡されたTaskの実行調整はCoordinatorとする。Domainの実行依頼モデルを文書側Milestone／Roadmap／WBSモデルへ拡張しない。[用途境界](Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を参照する。
+業務計画の正本はCRDD文書、計画とTask分解はCaller、渡されたTaskの実行調整はCoordinatorとする。Domainの実行依頼モデルを文書側Milestone／Roadmap／WBSモデルへ拡張しない。[用途境界](Details/execution-model/05_Runtime_Domain.md#document-and-execution-ownership)を参照する。
 
-[Runtime Domain契約](Details/domain-model/05_Runtime_Domain.md)を目標Owner分担とする。Domainは定義・局所CRUDと共通保存、Coordinatorは選択・Claim／再試行の横断調停、Executorは単一試行を所有する。ExecutorはLibraryであり、新しい常駐Process・Queue・Domain Storeを持たない。既存DI／PA・AI Adapter・VC・Access Managementの技術責務は再実装しない。この差分は設計であり本番移管は未完了。
+[Runtime Domain契約](Details/execution-model/05_Runtime_Domain.md)を目標Owner分担とする。Domainは定義・局所CRUDと共通保存、Coordinatorは選択・Claim／再試行の横断調停、Executorは単一試行を所有する。ExecutorはLibraryであり、新しい常駐Process・Queue・Domain Storeを持たない。既存DI／PA・AI Adapter・VC・Access Managementの技術責務は再実装しない。この差分は設計であり本番移管は未完了。
 
 Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/coordinator/05_Workspace.md#3-packageの責務と依存方向)へ接続する。物理統合後は単一CoordinatorがWorkspace・Task・採用判断と単発Executionを別責務として所有する。Git操作はVersion Control、隔離資源の技術操作はDocker Isolationが所有する。以下の旧構成のCandidate Store・Workbench専用AI処理・二Package図は移行元の比較対象であり、現行構成や新版の検証根拠ではない。
 
@@ -93,7 +97,9 @@ Last Updated: 2026-10-11
   AI Adapter
 
 用途を限定して利用する基盤
-  Domain Model          意味・CRUD・Root観測・保存・設定
+  Document Model        文書・成果物・Context・文書保存
+  Execution Model       実行状態・判断・回復記録・単一保存
+  Configuration Model   設定・宣言・設定保存
   Version Control       Root／Revision検証・明示Git操作
   Platform Access       OS固有のProcess／Filesystem保証
   Execution Intelligence 実行観測の記録・読取り
@@ -115,7 +121,9 @@ Last Updated: 2026-10-11
 | `mcp-server` | Machine向け搬送、Repository単体stdio／localhost HTTP、認可された共有CROS操作 | SPEC-000011の入力範囲を無断拡張しない。共有認可はARCH-000013との共同契約である。 |
 | `coordinator` | Task／Objectiveの編成・状態・判断記録・候補採用・再入場と、単発Execution・Review・取消 | 人間判断を自動生成しない。ExecutionはTask／Objective状態・候補採用を所有せず、Task／ObjectiveはProvider固有CLI・Docker資源の技術処置を所有しない。 |
 | `ai-adapter` | Profile解決・管理、Provider別CLI／入力／出力／認証差 | 実行Authority、Docker資源、共通実行履歴Writerを所有しない。 |
-| `domain-model` | Artifact／Context／Topic／Meeting／品質変更の意味とCRUD、Repository観測・保存・設定の共通部品 | 業務状態のOwnerは各用途に残す。CRUDからGit Commit／PushやProvider Effectを発行しない。 |
+| `document-model` | Artifact／Context／Topic／Meeting／品質確認結果の意味と文書CRUD | 設定・実行モデルへ型を含め直接依存せず、認可済み期待値をConsumerから受ける。 |
+| `execution-model` | Objective／Task／Attempt／Queue／Workspace・Blocker・State／Historyと局所遷移・保存 | 設定取得・技術実行・Schedulingは所有せず、確定済み入力を検査する。 |
+| `configuration-model` | 宣言・AI希望設定・Network Policy・Runtime設定と設定保存 | 他モデルへの依存や汎用保存Helperの配布は行わない。 |
 | `access-management` | 最小ユーザー・Role詳細権限・Credential、要求毎認可、接続／公開情報、限定鍵交換 | Domain情報やTransport／Taskを所有せず、管理能力から内容閲覧を生成しない。新IAM／汎用Registryを作らない。Source移管・公開入口は未接続。 |
 | `execution-intelligence` | 用途非依存のExecution／Groupの記録・検索・欠測を保つ集計 | CoordinatorがCRDD IDと最終診断をmetadataへ投影する。品質評価・改善提案・Task状態は現EIの責務外。上位評価義務の成立は別に扱う。 |
 | `version-control` | Root／Revisionの検証と明示されたGit操作 | Domainの保存をCommitへ自動変換しない。 |

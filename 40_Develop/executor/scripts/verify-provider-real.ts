@@ -73,11 +73,13 @@ const { describeIsolationConfiguration } = await import(
 const {
   validateCoordinatorResourceBook,
   validateCoordinatorResourceBookTransition,
+  RepositoryRuntimeDataAreaBlockedError,
+} = await import("../../execution-model/src/index.ts");
+const {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
-  RepositoryRuntimeDataAreaBlockedError,
-} = await import("../../domain-model/src/index.ts");
+} = await import("./runtime-data.ts");
 const { getRepository } = await import("../../version-control/src/index.ts");
 
 const { observeProviderHome } = await import("./provider-home.ts");
@@ -793,7 +795,7 @@ export function cleanupStandaloneTrialRoot(
     let operationId: string | null = null;
     let ownershipLabel: string | null = null;
     let priorResources:
-      | import("../../domain-model/src/index.ts").CoordinatorResourceBook
+      | import("../../execution-model/src/index.ts").CoordinatorResourceBook
       | null = null;
     const kinds: string[] = [];
     for (const [i, name] of files.entries()) {

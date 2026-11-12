@@ -5,7 +5,7 @@
  * @boundary 試験専用。Docker処置・保存・Authorityを発行しない。
  */
 
-import type { CoordinatorStateTaskOperation } from "../../../domain-model/src/index.ts";
+import type { CoordinatorStateTaskOperation } from "../../../execution-model/src/index.ts";
 
 export function readRecoveryResourceSnapshots(
   operation: CoordinatorStateTaskOperation,

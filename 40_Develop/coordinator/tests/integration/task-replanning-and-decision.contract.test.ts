@@ -15,13 +15,13 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import type {} from "../../../domain-model/src/index.ts";
+import type {} from "../../../execution-model/src/index.ts";
 import {
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   hashRuntimeProjectDefinition,
   initializeCoordinatorSnapshot,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
 import type {

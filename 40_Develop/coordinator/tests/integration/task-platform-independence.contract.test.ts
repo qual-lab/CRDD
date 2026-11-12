@@ -213,7 +213,7 @@ test("Taskの純粋契約はExecutionの指定型だけを型専用で参照す�
     ],
   };
   const workspace = {
-    specifier: "../../../domain-model/src/index.ts",
+    specifier: "../../../execution-model/src/index.ts",
     typeOnly: true,
     names: ["CoordinatorWorkspaceResult"],
   };
@@ -255,7 +255,7 @@ test("Task共有型のContract参照は二定数の型専用辺だけを許可�
     "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
   ] as const;
   const workspace = {
-    specifier: "../../../domain-model/src/index.ts",
+    specifier: "../../../execution-model/src/index.ts",
     typeOnly: true,
     names: ["CoordinatorWorkspaceResult"],
   };
@@ -361,7 +361,7 @@ function assertPureImportEdges(
     );
     const workspaceEdges = scan.edges.filter(
       (edge) =>
-        edge.specifier === "../../../domain-model/src/index.ts" &&
+        edge.specifier === "../../../execution-model/src/index.ts" &&
         edge.names.includes("CoordinatorWorkspaceResult"),
     );
     const names = contractEdges.flatMap((edge) => edge.names);
@@ -438,8 +438,8 @@ function assertPureImportEdges(
         `private type dependency: ${module} -> ${specifier} (${names.join(", ")})`,
       );
     } else if (
-      specifier === "../../../domain-model/src/index.ts" &&
-      resolved === "40_Develop/domain-model/src/index.ts" &&
+      specifier === "../../../execution-model/src/index.ts" &&
+      resolved === "40_Develop/execution-model/src/index.ts" &&
       names.length > 0 &&
       names.every((name) => {
         const allowed: Readonly<Record<string, readonly string[]>> = {
@@ -714,7 +714,7 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
     /outside pure runtime closure/u,
   );
   const snapshotEdge = {
-    specifier: "../../../domain-model/src/index.ts",
+    specifier: "../../../execution-model/src/index.ts",
     typeOnly: false,
     names: ["inspectExecutionPlan"],
   };
@@ -861,7 +861,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     "void import(target);",
     'const x = require("./module.ts");',
     'import x = require("./module.ts");',
-    'import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";',
+    'import { snapshotPlainRecord } from "../../../execution-model/src/index.ts";',
     'import type { T } from "../../src/execution/task.ts";',
     'import type { Repository } from "../../../version-control/src/index.ts";',
     'import { getRepository } from "../../../version-control/src/index.ts";',

@@ -9,7 +9,7 @@
  * @boundary 同じ検証Tool内の要求・観測・終了。Task進行のAuthorityを生成しない。
  */
 import type { Writable } from "node:stream";
-import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../src/server/request/parse-json.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,

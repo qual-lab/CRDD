@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
-import { inspectRealityTestCatalog } from "../../../../domain-model/src/index.ts";
+import { inspectRealityTestCatalog } from "../../../../document-model/src/index.ts";
 /**
  * Reality Domain IssueはChecker境界で明示変換し未知種別を拒否するを検証する。
  *

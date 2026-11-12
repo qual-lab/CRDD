@@ -22,7 +22,7 @@ import {
   createPhaseChecklistItems,
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { mapUiDomainIssueToFinding } from "../report/convert.ts";
 
 /**

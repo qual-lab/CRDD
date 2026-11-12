@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../src/input/snapshot.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
 
 /**

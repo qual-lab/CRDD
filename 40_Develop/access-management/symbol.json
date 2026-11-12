@@ -697,6 +697,45 @@
         "access-management.user.status",
         "access-management.public-api"
       ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.integration.filesystem-store-root",
+      "kind": "test-suite",
+      "path": "tests/integration/filesystem-store-lock.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-021"
+      ],
+      "verifies": [
+        "access-management.public-api",
+        "domain-model.filesystem-store-root",
+        "access-management.storage-lock"
+      ]
+    },
+    {
+      "symbolId": "domain-model.filesystem-store-root",
+      "kind": "file",
+      "path": "src/initialization/root.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.unit.path-resolver",
+      "kind": "test-suite",
+      "path": "tests/unit/initialization/roots.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "access-management.initialization-host-root",
+        "runtime-data.source.src.core.runtime.data.contract"
+      ]
     }
   ]
 }

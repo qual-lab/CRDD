@@ -8,15 +8,15 @@
 import {
   inspectTaskExecutionSelections,
   type TaskExecutionSelections,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   COORDINATOR_MAXIMUM_CONCURRENCY,
   validIdentity,
   validRevision,
   uniqueStrings,
 } from "./validation.ts";
-import type { ProjectObjectiveDefinition } from "../../../domain-model/src/index.ts";
-import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
+import type { ProjectObjectiveDefinition } from "../../../execution-model/src/index.ts";
+import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import type { StateResult } from "./types.ts";
 import { snapshotDefinition, hasCycle } from "../task/lifecycle.ts";
 import { projectState } from "./projection.ts";

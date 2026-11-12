@@ -15,7 +15,7 @@
 
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../src/initialization/root.ts";
 import {
   exchangeCredentialsFromHost,
   finishKeyExchangeFromHost,

@@ -28,7 +28,7 @@ import * as dockerRestartOperations from "../../../docker-isolation/src/docker-d
 import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 const fixedImage =
@@ -380,9 +380,9 @@ async function executeApprovedAuthCreateClosure() {
     vc.resolveVerifiedRepositoryRoot(distributionVerified.capability),
     distribution,
   );
-  const domain = await import("../../../domain-model/src/index.ts");
-  const area = domain.requireReadyRepositoryRuntimeDataArea(
-    domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const areas = await import("../../src/configuration/runtime-data.ts");
+  const area = areas.requireReadyRepositoryRuntimeDataArea(
+    areas.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       distribution,
       "tests",
     ),
@@ -418,7 +418,7 @@ async function executeApprovedAuthCreateClosure() {
   const recoveryOperations = await import(
     "../../../docker-isolation/src/cleanup/execute.ts"
   );
-  const store = await import("../../../domain-model/src/index.ts");
+  const store = await import("../../../execution-model/src/index.ts");
   let recoveryMock: { restore(): void } | null = null;
   let restartMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
@@ -895,7 +895,7 @@ async function executeApprovedAuthCreateClosure() {
     );
     if (absentAuth)
       storeMock = mock.module(
-        new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
         {
           namedExports: {
             ...store,

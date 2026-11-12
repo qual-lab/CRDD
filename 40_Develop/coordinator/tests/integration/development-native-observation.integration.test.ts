@@ -26,8 +26,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,

@@ -14,7 +14,7 @@ import {
   inspectChangeDocument,
   isChangeTemplateInvalid,
   isChangeNavigationInvalid,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
 
 /**

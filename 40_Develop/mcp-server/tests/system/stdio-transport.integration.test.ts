@@ -9,7 +9,7 @@
  * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { PassThrough, Readable, Writable } from "node:stream";

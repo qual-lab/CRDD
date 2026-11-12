@@ -22,7 +22,7 @@ import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
-import { inspectArtifactSources } from "../../../domain-model/src/index.ts";
+import { inspectArtifactSources } from "../../../document-model/src/index.ts";
 import { runChecker as runDocumentChecker } from "../../src/index.ts";
 
 const testEntry = process.argv[1];
@@ -13690,8 +13690,20 @@ test("シンボリックリンク経由のルート外参照を読み取らな�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
-test("実物のGitサブモジュール内チェッカーから適用先を確認する", () => {
-  const source = fixture();
+test("実物のGitサブモジュール内チェッカーから適用先を確認する", (t) => {
+  const parent = path.join(repositoryRoot, ".crdd", "tests");
+  fs.mkdirSync(parent, { recursive: true });
+  assert.equal(fs.realpathSync.native(parent), parent);
+  const trial = fs.mkdtempSync(path.join(parent, "checker-submodule-"));
+  t.after(() => {
+    assert.equal(path.dirname(trial), parent);
+    assert.equal(fs.lstatSync(trial).isSymbolicLink(), false);
+    assert.equal(fs.realpathSync.native(trial), trial);
+    fs.rmSync(trial, { recursive: true });
+    assert.equal(fs.existsSync(trial), false);
+  });
+  const source = path.join(trial, "source");
+  fs.mkdirSync(source);
   write(
     path.join(source, "01_Principles.md"),
     ["Version: v0.10.0", '<a id="actual-submodule-rule"></a>', "## Rule"].join(
@@ -13712,11 +13724,12 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     path.join(source, "40_Develop", "checker", "bin"),
     { recursive: true },
   );
-  fs.cpSync(
-    path.join(repositoryRoot, "40_Develop", "domain-model", "src"),
-    path.join(source, "40_Develop", "domain-model", "src"),
-    { recursive: true },
-  );
+  for (const model of ["document-model", "configuration-model"])
+    fs.cpSync(
+      path.join(repositoryRoot, "40_Develop", model, "src"),
+      path.join(source, "40_Develop", model, "src"),
+      { recursive: true },
+    );
   fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "version-control", "src"),
     path.join(source, "40_Develop", "version-control", "src"),
@@ -13755,7 +13768,8 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     0,
   );
 
-  const root = fixture();
+  const root = path.join(trial, "consumer");
+  fs.mkdirSync(root);
   for (const folder of requiredFolders.filter((name) => name !== "00_CRDD")) {
     fs.mkdirSync(path.join(root, folder), { recursive: true });
   }

@@ -6,7 +6,7 @@
  */
 
 import crypto from "node:crypto";
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
   evaluateManagementPermission,
   projectManagementOperationResult,

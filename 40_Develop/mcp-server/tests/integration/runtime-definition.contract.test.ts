@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import {
   handleMcpRuntimeRequest,
   MCP_RUNTIME_READ_TOOL,

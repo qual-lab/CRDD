@@ -8,7 +8,7 @@
  * @scope coordinator、contract、node_process
  * @boundary Workbench Application PortとCoordinator依頼種別別Executorの局所境界。
  */
-import type { ExecutionSelection } from "../../../../domain-model/src/index.ts";
+import type { ExecutionSelection } from "../../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
 import test from "node:test";
 import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {

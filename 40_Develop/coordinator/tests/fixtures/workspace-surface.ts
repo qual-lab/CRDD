@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import {
   initializeCoordinatorSnapshot,
   saveCoordinatorManagedProject,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";

@@ -21,14 +21,16 @@ import test from "node:test";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
   inspectCoordinatorDecisionResult,
   RepositoryRuntimeDataAreaBlockedError,
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-  saveRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+} from "../../src/configuration/runtime-data.ts";
+import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import { getRepository } from "../../../version-control/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
@@ -108,9 +110,9 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
       null,
     );
   }
-  const domain = await import("../../../domain-model/src/index.ts");
+  const domain = await import("../../../execution-model/src/index.ts");
   let currentError = error;
-  t.mock.module("../../../domain-model/src/index.ts", {
+  t.mock.module("../../../execution-model/src/index.ts", {
     namedExports: {
       ...domain,
       readDecision: () => {
@@ -119,7 +121,12 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
     },
   });
   t.mock.module("../../src/execution/persistence.ts", {
-    namedExports: { verifyRuntimePersistenceRepository: () => ({}) },
+    namedExports: {
+      verifyRuntimePersistenceRepository: () => ({}),
+      historyRepositoryInput: () => {
+        throw new Error("unexpected_history_boundary");
+      },
+    },
   });
   const modulePath = "../../src/decision/lifecycle.ts?boundary-failure-test";
   const { executeCoordinatorPublicDecision } = await import(modulePath);

@@ -6,11 +6,11 @@
 
 ## 共通定義と実行Admissionの分離 — 2026-10-27
 
-次の公開受付は[Caller Task Graph入力](../domain-model/05_Runtime_Domain.md#caller-task-graph-intake)を目標とする。PlanのTask定義とTask別の既存実行指示・Review条件を厳密に結合し、本文を保存せず同じ受付Hashへ固定する。現在の1＋1包装と共通指示コピーは置換対象で、API・Schema・CLI／MCPの新形式追従は未実装。新しい計画器・自動再送・文書同期は作らない。
+次の公開受付は[Caller Task Graph入力](../execution-model/05_Runtime_Domain.md#caller-task-graph-intake)を目標とする。PlanのTask定義とTask別の既存実行指示・Review条件を厳密に結合し、本文を保存せず同じ受付Hashへ固定する。現在の1＋1包装と共通指示コピーは置換対象で、API・Schema・CLI／MCPの新形式追従は未実装。新しい計画器・自動再送・文書同期は作らない。
 
-ここでいうObjective／Milestoneは[実行内の集約](../domain-model/05_Runtime_Domain.md#document-and-execution-ownership)であり、CRDD文書の目標／Milestone／WBSと自動対応しない。実行Taskの計画分解はCallerが所有する。現行の公開planObjectiveは1 Objective＋1 Taskへの機械変換であり、文書解析やCallerの複数Task搬送の完成を意味しない。文書更新は明示的な依頼範囲に限り、結果から上位文書の進捗・採用を生成しない。
+ここでいうObjective／Milestoneは[実行内の集約](../execution-model/05_Runtime_Domain.md#document-and-execution-ownership)であり、CRDD文書の目標／Milestone／WBSと自動対応しない。実行Taskの計画分解はCallerが所有する。現行の公開planObjectiveは1 Objective＋1 Taskへの機械変換であり、文書解析やCallerの複数Task搬送の完成を意味しない。文書更新は明示的な依頼範囲に限り、結果から上位文書の進捗・採用を生成しない。
 
-[Runtime Domainの公開操作](../domain-model/05_Runtime_Domain.md#runtime-domain-api)を定義・判断・受付の正本とする。Plan保存は実行受付ではなく、受付も開始ではない。Coordinatorは同じ定義改訂をAdmissionへ渡し、Scheduling・Claimと実行権限の横断調停を所有する。定義変更・対象Hash・CAS・管理実行記録の相関を維持し、Task編集からAttempt／cleanupを変更させない。既存判断記録・根拠ID・局所受入をDomainへ移し、技術完了・Queue／Workspace相関は元Ownerで維持する。非管理完了APIを追加せず、既存受入条件も緩めない。
+[Runtime Domainの公開操作](../execution-model/05_Runtime_Domain.md#runtime-domain-api)を定義・判断・受付の正本とする。Plan保存は実行受付ではなく、受付も開始ではない。Coordinatorは同じ定義改訂をAdmissionへ渡し、Scheduling・Claimと実行権限の横断調停を所有する。定義変更・対象Hash・CAS・管理実行記録の相関を維持し、Task編集からAttempt／cleanupを変更させない。既存判断記録・根拠ID・局所受入をDomainへ移し、技術完了・Queue／Workspace相関は元Ownerで維持する。非管理完了APIを追加せず、既存受入条件も緩めない。
 
 <a id="task-acceptance-execution-boundary"></a>
 
@@ -206,7 +206,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は各用途の`objective/composition.ts`、`decision/lifecycle.ts`、`state/query.ts`から、既存の認証済みPrincipalの搬送は`src/decision/lifecycle.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
 
-現在状態の照会は`state/query.ts`、Task／Queue操作は`task/queue.ts`、長期Leaseは`execution/lease.ts`が編成する。状態候補はDomain Modelの`task/queue.ts`、Lease記録候補は`attempt/lease.ts`、閉鎖・退役条件は`state/transition.ts`、履歴候補は`state/history.ts`が所有し、そのI/O編成はCoordinatorの`state/retirement.ts`が所有する。共通物理Writer・短期保存Owner・終了要約の物理保存は[Domainの現在配置](../domain-model/05_Runtime_Domain.md#70-現在の物理接続--2026-10-28)が所有する。同じSnapshotを同じ短期Ownerの下で保存し、各操作は既存トランザクション内でfreshな現在値を判定する。実Lease・Process・資源不存在の観測と回復発火はCoordinatorに残し、Domainには用途固定の同期投影だけを元位置で渡す。Task回復は`execution/recovery.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。技術cleanupと耐久受領は異なる意味だが別保存Ownerへ分けない。
+現在状態の照会は`state/query.ts`、Task／Queue操作は`task/queue.ts`、長期Leaseは`execution/lease.ts`が編成する。状態候補はDomain Modelの`task/queue.ts`、Lease記録候補は`attempt/lease.ts`、閉鎖・退役条件は`state/transition.ts`、履歴候補は`state/history.ts`が所有し、そのI/O編成はCoordinatorの`state/retirement.ts`が所有する。共通物理Writer・短期保存Owner・終了要約の物理保存は[Domainの現在配置](../execution-model/05_Runtime_Domain.md#70-現在の物理接続--2026-10-28)が所有する。同じSnapshotを同じ短期Ownerの下で保存し、各操作は既存トランザクション内でfreshな現在値を判定する。実Lease・Process・資源不存在の観測と回復発火はCoordinatorに残し、Domainには用途固定の同期投影だけを元位置で渡す。Task回復は`execution/recovery.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。技術cleanupと耐久受領は異なる意味だが別保存Ownerへ分けない。
 
 上位のProject／Task／Attempt／Revision相関は`src/task/dispatch.ts`と`src/execution/controller.ts`が所有し、本番組立ては`src/objective/composition.ts`が接続する。通常実行の旧署名資格引数・発行・消費と専用Port／Adapterは撤去済みである。現在のTask・用途別許可と相関入力をCoordinatorへ渡し、上位Adapterに下位Authorityの生成・保存を移さない。Git／Artifact追跡は同一性と相関だけに用いる。上位本番組立ての物理移管は確認済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と、共通実行・通知の最終検証は未完了である。
 

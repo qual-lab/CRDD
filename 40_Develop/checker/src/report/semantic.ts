@@ -3,7 +3,7 @@
  * @responsibility 閉じたkind集合、必須Detailの拒否と既存三field診断を所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue } from "../../../domain-model/src/index.ts";
+import type { DomainIssue } from "../../../document-model/src/index.ts";
 import type { SemanticCoverageDiagnostic } from "./types.ts";
 /**
  * Domain Issueから必須の文字列Detailを取得する。

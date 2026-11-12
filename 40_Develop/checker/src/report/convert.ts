@@ -4,7 +4,7 @@
  * @responsibility DomainのArtifact IssueをCheckerの表示・重要度・位置へ対応付ける。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../domain-model/src/index.ts";
+import type { DomainIssue } from "../../../document-model/src/index.ts";
 import type { CheckerFinding, DocumentFinding } from "./types.ts";
 
 /**

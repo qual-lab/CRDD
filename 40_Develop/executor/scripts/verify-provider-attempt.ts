@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../domain-model/src/index.ts";
+} from "./runtime-data.ts";
 import { getRepository } from "../../version-control/src/index.ts";
 
 /**
@@ -61,8 +61,10 @@ export function verifyStandaloneProviderAttempt() {
   const fixtureRoot = fs.mkdtempSync(path.join(parent, "executor-standalone-"));
   const fixtureIdentity = fs.statSync(fixtureRoot, { bigint: true });
   const root = new URL("../src/index.ts", import.meta.url).href;
-  const domainRoot = new URL("../../domain-model/src/index.ts", import.meta.url)
-    .href;
+  const domainRoot = new URL(
+    "../../execution-model/src/index.ts",
+    import.meta.url,
+  ).href;
   const script = `
     import assert from 'node:assert/strict';
     import fs from 'node:fs';

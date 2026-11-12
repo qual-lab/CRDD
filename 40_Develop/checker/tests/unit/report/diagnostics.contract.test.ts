@@ -51,12 +51,12 @@ import {
   inspectArchitectureRegistryCoverage,
   inspectArchitectureComponentCoverage,
   inspectArchitectureRelations,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import type {
   CheckerFinding,
   DocumentFinding,
 } from "../../../src/report/types.ts";
-import type { DomainIssue } from "../../../../domain-model/src/index.ts";
+import type { DomainIssue } from "../../../../document-model/src/index.ts";
 
 /**
  * Architecture集合検査の七診断を表示へ接続する。

@@ -9,7 +9,7 @@
  */
 import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import type { ServerResponse } from "node:http";
-import { readRepositoryAiSelection } from "../../../../domain-model/src/index.ts";
+import { readRepositoryAiSelection } from "../../../../configuration-model/src/index.ts";
 import { readWorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
@@ -33,11 +33,11 @@ import {
 import { readWorkbenchRecordQuery } from "../presentation/record.ts";
 import type { WorkbenchTopicMeetingDocumentReader } from "../topic-meeting/action.ts";
 import { setResponseHeaders } from "../security.ts";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
 import type {
-  FilesystemStoreRoot,
   PortfolioProjection,
   TopicMeetingAccess,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import {
   type Repository,
   resolveVerifiedRepositoryRoot,

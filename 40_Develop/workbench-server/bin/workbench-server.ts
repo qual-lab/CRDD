@@ -25,7 +25,7 @@ import {
   getRepository,
   readGitUser,
 } from "../../version-control/src/index.ts";
-import { createLocalPrincipalId } from "../../domain-model/src/index.ts";
+import { createLocalPrincipalId } from "../../execution-model/src/index.ts";
 
 /**
  * 単体Repositoryの既存AI・Candidateを構成してWorkbenchを起動する。

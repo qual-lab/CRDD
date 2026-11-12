@@ -4,7 +4,7 @@
  * @responsibility ユーザー状態の意味と現在の導出方法を利用側から分離する。
  * @trace ARCH-000013
  */
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import { projectManagementState } from "../authorization/management.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";

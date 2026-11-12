@@ -64,7 +64,7 @@ test("Provider Home coverageはRepository基準Node以上だけを受理する",
 test("Provider Home coverageはrunnerと共有parserを含むexact母集団を所有する", () => {
   assert.deepEqual(PROVIDER_HOME_COVERAGE_SOURCES, [
     "40_Develop/coordinator/src/execution/authority.ts",
-    "40_Develop/domain-model/src/plain-data/snapshot.ts",
+    "40_Develop/execution-model/src/plain-data/snapshot.ts",
     "40_Develop/coordinator/src/execution/diagnostics.ts",
     "40_Develop/coordinator/scripts/coverage.ts",
     "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",

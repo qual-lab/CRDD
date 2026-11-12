@@ -14,8 +14,8 @@ import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
   type CoordinatorResourceBook,
-} from "../../../domain-model/src/index.ts";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
+} from "../../../execution-model/src/index.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { executionSelection } from "./ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -26,8 +26,8 @@ import {
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
-} from "../../../domain-model/src/index.ts";
-import { prepareCoordinatorStateHistoryLine } from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { prepareCoordinatorStateHistoryLine } from "../../../execution-model/src/index.ts";
 
 /**
  * fixture本文のSHA-256を計算する。

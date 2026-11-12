@@ -5,7 +5,7 @@
  * @trace ERB-IT-021
  * @boundary 検証用のJSON受入。本番Sourceからは参照しない。
  */
-import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "../src/input/snapshot.ts";
 import { inspectCodexExecutionObservation } from "../../ai-adapter/scripts/ai-adapter-test.ts";
 import {
   createCandidateValidationFailureDiagnostic,

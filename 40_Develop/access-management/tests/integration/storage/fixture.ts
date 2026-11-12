@@ -24,7 +24,7 @@ import type { TestContext } from "node:test";
 import {
   createFilesystemStoreRoot,
   type FilesystemStoreRoot,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/initialization/root.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import {
   createInitialAdministrator,

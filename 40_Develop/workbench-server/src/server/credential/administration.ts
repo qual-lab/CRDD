@@ -8,7 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { ServerResponse } from "node:http";
-import type { FilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
 import {
   issueCredential,
   revokeCredential,

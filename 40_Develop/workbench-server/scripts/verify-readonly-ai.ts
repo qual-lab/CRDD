@@ -11,11 +11,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { openTaskSession } from "../../coordinator/src/index.ts";
+import { createLocalPrincipalId } from "../../execution-model/src/index.ts";
 import {
-  createLocalPrincipalId,
   type AiSelectionChoice,
   readRepositoryAiSelection,
-} from "../../domain-model/src/index.ts";
+} from "../../configuration-model/src/index.ts";
 import {
   readGitUser,
   readRepositoryRevision,

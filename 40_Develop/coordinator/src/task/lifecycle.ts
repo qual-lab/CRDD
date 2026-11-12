@@ -10,17 +10,17 @@ import type {
   ProjectTaskRecoveryObligation,
   ProjectTaskRecoveryKind,
   CoordinatorState,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { uniqueStrings } from "../state/validation.ts";
 
-import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
+import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import type { StateResult } from "../state/types.ts";
 import {
   validIdentity,
   isCoordinatorRecoveryIdentity,
 } from "../state/validation.ts";
 import { projectState } from "../state/projection.ts";
-import type { ProjectMilestoneState } from "../../../domain-model/src/index.ts";
+import type { ProjectMilestoneState } from "../../../execution-model/src/index.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
 
 /**

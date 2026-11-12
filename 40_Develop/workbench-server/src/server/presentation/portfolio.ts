@@ -8,7 +8,7 @@
  * @effect N/A: 入力投影から不変の表示値を生成するだけ。
  * @security 認可集合を拡張せず、未構成と正常空、不正Cursorを区別する。
  */
-import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
+import type { PortfolioProjection } from "../../../../document-model/src/index.ts";
 
 /**
  * Portfolio継続位置を同じ検索・状態条件へ結合する。

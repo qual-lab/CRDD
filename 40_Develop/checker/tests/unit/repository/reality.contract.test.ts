@@ -14,8 +14,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { LoadedRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
-import { discoverRealitySymbols } from "../../../../domain-model/src/index.ts";
+import type { LoadedRealitySymbolManifest } from "../../../../document-model/src/index.ts";
+import { discoverRealitySymbols } from "../../../../document-model/src/index.ts";
 import {
   readRegisteredRealityTests,
   readRegisteredRealityTestsFromRepository,
@@ -27,7 +27,7 @@ import {
 } from "../../../src/repository/reality.ts";
 import { getRepository } from "../../../../version-control/src/index.ts";
 
-import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
+import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../document-model/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
 /**
  * Reality Symbol Manifestの契約を検証する。

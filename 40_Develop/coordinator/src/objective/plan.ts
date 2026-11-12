@@ -8,7 +8,7 @@
 import {
   inspectExecutionPlan,
   type CoordinatorObjectivePlan,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 /**
  * 要求と計画を検査して不変の値を返す。
@@ -32,4 +32,4 @@ export function inspectCoordinatorObjectivePlan(
 import {
   inspectCoordinatorObjectiveRequest,
   type CoordinatorObjectiveRequest,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";

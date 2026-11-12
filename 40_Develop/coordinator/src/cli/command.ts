@@ -7,7 +7,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getCapabilities, isSupportedNodeRuntime } from "../api.ts";
-import { isPrincipalId } from "../../../domain-model/src/index.ts";
+import { isPrincipalId } from "../../../execution-model/src/index.ts";
 import { runAuthenticationCommand } from "./authentication.ts";
 import { runDoctorCommand } from "./doctor.ts";
 import { runProjectCommand, runSingleTaskCommand } from "./request.ts";

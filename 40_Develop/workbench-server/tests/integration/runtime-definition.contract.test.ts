@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 
 /**
  * 非導入の実行機能を読込拒否しても定義を編集できる。

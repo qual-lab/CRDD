@@ -9,11 +9,11 @@
  * @scope project、runtime、state
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
-import type { CoordinatorState } from "../../../../domain-model/src/index.ts";
+import type { CoordinatorState } from "../../../../execution-model/src/index.ts";
 import {
   inspectCoordinatorProjection,
   isCoordinatorProjectionSemanticallyValid,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -22,7 +22,7 @@ import {
   acknowledgeProjectDockerRecoveryObligation,
   recordProjectTaskResultAcceptances,
 } from "../../../src/task/acceptance.ts";
-import { hasProjectTaskResultAcceptanceConflict } from "../../../../domain-model/src/index.ts";
+import { hasProjectTaskResultAcceptanceConflict } from "../../../../execution-model/src/index.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
@@ -32,7 +32,7 @@ import {
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
 
-import type { ProjectTaskDefinition } from "../../../../domain-model/src/index.ts";
+import type { ProjectTaskDefinition } from "../../../../execution-model/src/index.ts";
 import {
   applyCoordinatorPartialReplan,
   observeProjectTaskStarted,

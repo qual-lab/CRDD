@@ -10,7 +10,7 @@ import type {
   Provider,
   ReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
-import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
+import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
 import type {
   AttemptDiagnosticNotice,
   AttemptTerminalObservation,

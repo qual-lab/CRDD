@@ -14,7 +14,7 @@ import {
 import {
   readRepositoryAiSelection,
   type AiSelectionReadResult,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../configuration-model/src/index.ts";
 import type { Repository } from "../../../../version-control/src/index.ts";
 
 /**

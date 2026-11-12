@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { coordinatorTaskResourcesAreSettled } from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { coordinatorTaskResourcesAreSettled } from "../../../execution-model/src/index.ts";
 
 /**
  * 元相関と資源集合の各一軸だけを変更する。

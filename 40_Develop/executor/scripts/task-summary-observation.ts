@@ -13,7 +13,7 @@ import {
   type ProviderResultParseResult,
 } from "../../ai-adapter/src/provider/result.ts";
 import { extractProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
-import { containsRecognizedSecretMaterial } from "../../domain-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../execution-model/src/index.ts";
 
 type Parser = (input: ProviderResultInput) => ProviderResultParseResult;
 type Dependencies = Readonly<{

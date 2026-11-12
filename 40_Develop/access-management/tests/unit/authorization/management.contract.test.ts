@@ -26,7 +26,7 @@ const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
  * @trace RFD-UT-020
  * @precondition 採用済み操作と対象Roleを値として用意する。
  * @stimulus 三Roleを全11認可要求種別へ適用する。
- * @observation 33判定結果、Runtime公開30関数、SourceのRoot公開26型を取得する。
+ * @observation 33判定結果、Runtime公開30関数、SourceのRoot公開27型を取得する。
  * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。関数・型は宣言したPackage Root集合と完全一致し、保存関数を本試験では実行しない。
  * @cleanup N/A: 状態・handle・一時Fileを生成しない。
  * @boundary 純粋認可判定の公開入口とPackage Root Sourceの読取り。保存・実Host操作なし。
@@ -95,6 +95,7 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     "CredentialManagementResult",
     "CredentialPresentationUpdate",
     "CurrentAccessOutcome",
+    "FilesystemStoreRoot",
     "HostInitializationResult",
     "HostInitializationStateResult",
     "InitialConnectionBinding",

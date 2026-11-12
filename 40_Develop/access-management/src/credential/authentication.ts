@@ -5,7 +5,7 @@
  * @trace ARCH-000013
  */
 
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import { readCurrent, settlePending } from "../storage/store.ts";
 import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";

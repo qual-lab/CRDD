@@ -12,7 +12,7 @@ import {
   type SemanticCoverageGraph,
   type LoadedRealitySymbolManifest,
   createFilesystemRepositoryObservationPort,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import { mapSemanticDomainIssueToDiagnostic } from "../report/semantic.ts";
 import type { SemanticCoverageDiagnostic } from "../report/types.ts";

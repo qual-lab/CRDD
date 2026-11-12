@@ -16,7 +16,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { crc32, deflateSync } from "node:zlib";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 import {
   readCommitFile,
@@ -141,7 +141,7 @@ import {
   copyGitCommitTree as materializeVersionControlTree,
   readGitCommitFile,
 } from "../../../version-control/src/git/objects.ts";
-import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../../execution-model/src/index.ts";
 
 /**
  * copyGitCommitTreeのTest準備責務を実行する。

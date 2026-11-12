@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,

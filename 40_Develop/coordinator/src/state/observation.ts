@@ -11,7 +11,7 @@ import {
   readCoordinatorExecutionState,
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   listExecutions,
   type Execution,
@@ -367,11 +367,11 @@ import {
   deriveActivitySourceCorrelation,
   encodeActivityCursor,
   parseRuntimeActivityObservation,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type {
   ActivityRepository,
   ActivitySource,
   RuntimeActivityEvent,
   RuntimeActivityObservation,
   RuntimeActivityRequest,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";

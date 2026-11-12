@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type { DockerResourceReceipts } from "../support/cleanup.ts";
 import { dockerContainerInitObservationMatches } from "../../src/cleanup/init.ts";
 import type { OwnedCommandHandle } from "../../src/process/start.ts";

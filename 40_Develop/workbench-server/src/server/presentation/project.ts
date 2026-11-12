@@ -12,12 +12,12 @@ import { readCredentialAdministrationState } from "../../../../access-management
 import type {
   AiSelectionSaveResult,
   AiSelectionSnapshot,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../configuration-model/src/index.ts";
 import type {
   PortfolioProjection,
   TopicMeetingPage,
   TopicMeetingListQuery,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import type {
   ChangesResult,
   TreePage,

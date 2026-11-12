@@ -9,7 +9,7 @@ import {
   type CoordinatorState,
   decodeProjectResultAcceptance,
   snapshotCoordinatorWorkspaceResult,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";

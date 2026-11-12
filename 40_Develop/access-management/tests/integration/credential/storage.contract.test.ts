@@ -15,7 +15,7 @@ import crypto, { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import type { FilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../src/initialization/root.ts";
 import {
   createCredentialMaterial,
   verifyCredentialToken,

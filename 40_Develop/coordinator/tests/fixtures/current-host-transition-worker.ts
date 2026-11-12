@@ -74,11 +74,12 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }}});
       }
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const store = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-      const model = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-      const runtimeDomain = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-      const historyValues = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-      const stateValues = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
+      const store = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+      const model = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+      const runtimeDomain = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+      const historyValues = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+      const stateValues = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+      const historyInputs = await import(${JSON.stringify(new URL("../../src/execution/persistence.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
@@ -381,7 +382,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const hasTemporary = ['state.lock', 'state.pending.json', 'history.pending.jsonl'].some(name => fs.existsSync(path.join(path.dirname(statePath), name)));
         assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, hasTemporary ? 'blocked' : 'completed');
-        const observed = recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(verified.capability, id);
+        const observed = recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id);
         assert.equal(observed.status, 'completed'); assert.ok(recoveringDelivery ? observed.currentDeliveryPublication : observed.currentHistoryPublication);
         const fixedState = fs.readFileSync(statePath);
         if(process.argv[4] === 'history_confirm_pending') {
@@ -397,7 +398,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           for(const replacement of [null, otherLine]) {
             try {
               if(replacement === null) fs.unlinkSync(historyPath); else fs.writeFileSync(historyPath, replacement);
-              assert.equal(store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(verified.capability, id).status, 'blocked');
+              assert.equal(store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id).status, 'blocked');
               assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
               assert.deepEqual(fs.readFileSync(statePath), fixedState);
               assert.deepEqual(fs.readFileSync(pendingPath), pendingBytes); assert.deepEqual(fs.readFileSync(markerPath), markerBytes);
@@ -411,19 +412,19 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const original = fs.readFileSync(file);
           try {
             fs.writeFileSync(file, 'invalid publication');
-            assert.equal((recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(verified.capability, id)).status, 'blocked');
+            assert.equal((recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id)).status, 'blocked');
             assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
             assert.deepEqual(fs.readFileSync(statePath), fixedState);
           } finally { fs.writeFileSync(file, original); }
         }
         const unexpected = path.join(path.dirname(statePath), 'unexpected');
-        try { fs.writeFileSync(unexpected, 'fixture'); assert.equal((recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(verified.capability, id)).status, 'blocked'); }
+        try { fs.writeFileSync(unexpected, 'fixture'); assert.equal((recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id)).status, 'blocked'); }
         finally { fs.unlinkSync(unexpected); }
         if(fs.existsSync(path.join(path.dirname(statePath), 'history.pending.jsonl'))) {
           const configRoot = path.join(process.cwd(), '.crdd', 'config'), configPath = path.join(configRoot, 'coordinator.json');
           assert.equal(fs.existsSync(configPath), false); fs.mkdirSync(configRoot, { recursive: true });
           try { fs.writeFileSync(configPath, JSON.stringify({ schemaRevision: 1, historyRetentionDays: 60 }));
-            assert.equal(store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(verified.capability, id).status, 'blocked');
+            assert.equal(store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id).status, 'blocked');
             assert.deepEqual(fs.readFileSync(statePath), fixedState);
           } finally { fs.unlinkSync(configPath); }
         }

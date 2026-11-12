@@ -10,12 +10,12 @@ import {
   type ExecutionSelection,
   type TaskExecutionSelections,
   inspectTaskExecutionSelections,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   validateAiSelectionConfig as validateDomainAiSelectionConfig,
   type AiSelectionConfigResult,
-} from "../../../domain-model/src/index.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
 import {
   resolveModelSelection,
   getModelCatalog,
@@ -24,7 +24,7 @@ import {
 import type {
   AiSelectionChoice,
   AiSelectionRole,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
 
 const ROLES = Object.freeze([
   "coordinator",

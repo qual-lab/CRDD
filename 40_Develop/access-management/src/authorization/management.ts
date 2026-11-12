@@ -6,7 +6,7 @@
  */
 
 import { types } from "node:util";
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
   authenticateNormalConnection,
   resolveCredentialAuthentication,

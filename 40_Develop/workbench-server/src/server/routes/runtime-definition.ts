@@ -16,18 +16,18 @@ import {
   createTask,
   deleteObjective,
   deleteTask,
-  type FilesystemStoreRoot,
   initializeRuntimeState,
-  parseUnambiguousJsonDocument,
   queryObjectives,
   queryPlan,
   queryTasks,
   type RuntimeAccess,
   savePlan,
-  snapshotPlainRecord,
   updateObjective,
   updateTask,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
+import { snapshotPlainRecord } from "../request/snapshot.ts";
 import {
   type Repository,
   readGitUser,

@@ -11,12 +11,12 @@ import {
 import type {
   AiSelectionRole,
   AiSelectionChoice,
-  ExecutionSelection,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
+import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
 import {
   inspectExecutionSelection,
   hashExecutionSelection,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 /**
  * 上位fixtureの完全選定をExecutor向けの技術値へ投影する。

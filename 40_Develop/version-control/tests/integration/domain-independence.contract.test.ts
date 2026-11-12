@@ -28,6 +28,10 @@ test("Version Controlは型・再公開を含めDomain Modelへ依存しない",
     if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
     const file = path.join(entry.parentPath, entry.name);
     // Module参照に加え、上位Package名の実装への埋込みも拒否する。
-    assert.doesNotMatch(fs.readFileSync(file, "utf8"), /domain-model/u, file);
+    assert.doesNotMatch(
+      fs.readFileSync(file, "utf8"),
+      /(?:domain|document|execution|configuration)-model/u,
+      file,
+    );
   }
 });

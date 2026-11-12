@@ -24,13 +24,15 @@ import {
   coordinatorAuthenticationUnknownCanClose,
   createDockerRestartRequestId,
   encodeRuntimeStateValue,
+} from "../../../execution-model/src/index.ts";
+import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+} from "../../src/configuration/runtime-data.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
-} from "../../../domain-model/tests/support/resource-operation.ts";
+} from "../../../execution-model/tests/support/resource-operation.ts";
 import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 import {
   abandonOwnedHostOperationGenerationLock,

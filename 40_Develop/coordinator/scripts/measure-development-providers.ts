@@ -8,11 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
-import {
-  RepositoryRuntimeDataAreaBlockedError,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../domain-model/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../execution-model/src/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,

@@ -12,11 +12,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
-import {
-  createFilesystemRepositoryObservationPort,
-  readRepositoryAiSelection,
-  resolveRepositoryRuntimeDataPaths,
-} from "../../domain-model/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../document-model/src/index.ts";
+import { readRepositoryAiSelection } from "../../configuration-model/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../src/configuration/runtime-data.ts";
 import {
   getRepository,
   readRepositorySnapshot,

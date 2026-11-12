@@ -1,0 +1,327 @@
+/**
+ * 呼出し元が分解した実行依頼の公開入力を検査する。
+ * @packageDocumentation
+ * @responsibility 計画・Task別入力・固定対象を閉形式へ写し、受付や実行許可を発行しない。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @boundary 未信頼要求とDomainの値契約。
+ */
+
+import { snapshotPlainRecord } from "../plain-data/snapshot.ts";
+import { normalizeRepositoryRelativePath } from "../repository/path.ts";
+import {
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
+} from "../state/validation.ts";
+import type { CallerTaskInput } from "../task/types.ts";
+import type { CoordinatorObjectivePlan } from "./types.ts";
+import { inspectCallerTaskInputs, inspectExecutionPlan } from "./validation.ts";
+
+function inspectExplicitChoice(
+  candidate: unknown,
+): NonNullable<CoordinatorObjectiveRequest["choice"]> | null {
+  const value = snapshotPlainRecord(
+    candidate,
+    new Set(["provider", "model", "effort"]),
+  );
+  if (
+    !value ||
+    (value.provider !== "codex" && value.provider !== "claude") ||
+    typeof value.model !== "string" ||
+    !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(value.model) ||
+    typeof value.effort !== "string" ||
+    !["low", "medium", "high", "xhigh", "max"].includes(value.effort)
+  )
+    return null;
+  return Object.freeze({
+    provider: value.provider,
+    model: value.model,
+    effort: value.effort as NonNullable<
+      CoordinatorObjectiveRequest["choice"]
+    >["effort"],
+  });
+}
+
+/**
+ * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
+ *
+ * @responsibility Coordinator Objective RequestのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorObjectiveRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorObjectiveRequestの宣言は外部境界を開かない。
+ * @security 明示選択は編集担当の希望であり、実行Authorityまたは利用可能性を付与しない。
+ * @compatibility 新形式だけを受け、旧Profile ID／Provider自動選択入力を拒否する。
+ */
+export type CoordinatorObjectiveRequest = Readonly<{
+  intakeEpoch: string;
+  requestId: string;
+  projectId: string;
+  milestoneId: string;
+  repositoryRevision: string;
+  objective: string;
+  plan: CoordinatorObjectivePlan;
+  taskInputs: readonly CallerTaskInput[];
+  acceptanceCriteria: readonly string[];
+  allowedPaths: readonly string[];
+  readPaths: readonly string[];
+  maximumConcurrency: number;
+  maximumReplans: number;
+  originLane: "interactive" | "scheduled";
+  adoptResult: boolean;
+  workType?: string;
+  choice?: Readonly<{
+    provider: "codex" | "claude";
+    model: string;
+    effort: "low" | "medium" | "high" | "xhigh" | "max";
+  }>;
+  workspaceId?: string;
+}>;
+
+/**
+ * Idが有効か判定する。
+ *
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
+function validId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 128 &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
+  );
+}
+
+/**
+ * Revisionが有効か判定する。
+ *
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
+ * @postcondition validRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
+ * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
+ */
+function validRevision(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
+}
+
+/**
+ * Textが有効か判定する。
+ *
+ * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidTextの入力契約を満たす。
+ * @postcondition validTextの責務を完了した結果だけを返す。
+ * @effect N/A: validTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTextは独自の失敗分岐を所有しない。
+ * @invariant validTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validTextはProcess内の同一Subsystemで完結する。
+ * @security N/A: validTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
+ */
+function validText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
+  );
+}
+
+/**
+ * Stringsを観測する。
+ *
+ * @responsibility Stringsの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns readonly string[] | nullを返す。
+ * @precondition 「value: unknown」がinspectStringsの入力契約を満たす。
+ * @postcondition inspectStringsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectStringsは独自の失敗分岐を所有しない。
+ * @invariant inspectStringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectStringsはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectStringsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectStringsは共有非同期状態を持たない同期処理である。
+ */
+function inspectStrings(value: unknown): readonly string[] | null {
+  const snapshot = snapshotRuntimeStateArray(value, Number.MAX_SAFE_INTEGER);
+  if (
+    snapshot.status !== "ok" ||
+    snapshot.value.length === 0 ||
+    !snapshot.value.every((entry) => validText(entry)) ||
+    new Set(
+      snapshot.value.map((entry) =>
+        (entry as string).replaceAll("\\", "/").toUpperCase(),
+      ),
+    ).size !== snapshot.value.length
+  )
+    return null;
+  return Object.freeze([...(snapshot.value as readonly string[])]);
+}
+
+const REQUIRED_REQUEST_KEYS = Object.freeze([
+  "plan",
+  "taskInputs",
+  "intakeEpoch",
+  "requestId",
+  "projectId",
+  "milestoneId",
+  "repositoryRevision",
+  "objective",
+  "acceptanceCriteria",
+  "allowedPaths",
+  "readPaths",
+  "maximumConcurrency",
+  "maximumReplans",
+  "originLane",
+  "adoptResult",
+] as const);
+const OPTIONAL_REQUEST_KEYS = Object.freeze([
+  "workType",
+  "choice",
+  "workspaceId",
+] as const);
+const requestKeySets = Object.freeze(
+  Array.from(
+    { length: 2 ** OPTIONAL_REQUEST_KEYS.length },
+    (_entry, mask) => mask,
+  ).map(
+    (mask) =>
+      new Set([
+        ...REQUIRED_REQUEST_KEYS,
+        ...OPTIONAL_REQUEST_KEYS.filter(
+          (_optional, index) => (mask & (1 << index)) !== 0,
+        ),
+      ]),
+  ),
+);
+
+/**
+ * Coordinator Objective Requestを観測する。
+ *
+ * @responsibility 閉じたObjective入力を所有Snapshotへ変換し、分類と明示選択の形式を検査する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns CoordinatorObjectiveRequest | nullを返す。
+ * @precondition 「value: unknown」がinspectCoordinatorObjectiveRequestの入力契約を満たす。
+ * @postcondition 受理した三項目を独立Snapshotにし、省略された希望を生成しない。
+ * @effect N/A: inspectCoordinatorObjectiveRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorObjectiveRequestは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorObjectiveRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorObjectiveRequestはProcess内の同一Subsystemで完結する。
+ * @security 未知field、Accessor、Proxyと不正形式を拒否する。分類参照・技術適合性は選定Resolverが別に検証する。
+ * @concurrency N/A: inspectCoordinatorObjectiveRequestは共有非同期状態を持たない同期処理である。
+ */
+export function inspectCoordinatorObjectiveRequest(
+  value: unknown,
+): CoordinatorObjectiveRequest | null {
+  const requestSnapshot = requestKeySets.reduce<Readonly<
+    Record<string, unknown>
+  > | null>(
+    (accepted, keys) => accepted ?? snapshotRuntimeStateRecord(value, keys),
+    null,
+  );
+  if (!requestSnapshot) return null;
+  const request: Readonly<Record<string, unknown>> = requestSnapshot;
+  const choice = Object.hasOwn(request, "choice")
+    ? inspectExplicitChoice(request.choice)
+    : undefined;
+  const acceptanceCriteria = inspectStrings(request.acceptanceCriteria);
+  const allowedPaths = inspectStrings(request.allowedPaths);
+  const readPaths = inspectStrings(request.readPaths);
+  if (
+    !validId(request.intakeEpoch) ||
+    !validId(request.requestId) ||
+    !validId(request.projectId) ||
+    !validId(request.milestoneId) ||
+    !validRevision(request.repositoryRevision) ||
+    !validText(request.objective) ||
+    !acceptanceCriteria ||
+    !allowedPaths ||
+    !readPaths ||
+    !allowedPaths.every(
+      (candidate) => normalizeRepositoryRelativePath(candidate) !== null,
+    ) ||
+    !readPaths.every(
+      (candidate) => normalizeRepositoryRelativePath(candidate) !== null,
+    ) ||
+    !Number.isSafeInteger(request.maximumConcurrency) ||
+    (request.maximumConcurrency as number) < 1 ||
+    (request.maximumConcurrency as number) > 5 ||
+    !Number.isSafeInteger(request.maximumReplans) ||
+    (request.maximumReplans as number) < 0 ||
+    (request.maximumReplans as number) > 32 ||
+    (request.originLane !== "interactive" &&
+      request.originLane !== "scheduled") ||
+    typeof request.adoptResult !== "boolean" ||
+    (Object.hasOwn(request, "workType") &&
+      (typeof request.workType !== "string" ||
+        !/^[a-z0-9][a-z0-9._-]*$/u.test(request.workType))) ||
+    choice === null ||
+    (Object.hasOwn(request, "workspaceId") &&
+      (typeof request.workspaceId !== "string" ||
+        !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
+          request.workspaceId,
+        )))
+  )
+    return null;
+  const plan = inspectExecutionPlan(request.plan, { allowedPaths });
+  if (
+    !plan ||
+    JSON.stringify(plan.milestoneAcceptanceCriteria) !==
+      JSON.stringify(acceptanceCriteria)
+  )
+    return null;
+  const taskInputs = inspectCallerTaskInputs(
+    plan,
+    request.taskInputs,
+    readPaths,
+  );
+  if (!taskInputs) return null;
+  return Object.freeze({
+    plan,
+    taskInputs,
+    intakeEpoch: request.intakeEpoch,
+    requestId: request.requestId,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    repositoryRevision: request.repositoryRevision,
+    objective: request.objective,
+    acceptanceCriteria,
+    allowedPaths,
+    readPaths,
+    maximumConcurrency: request.maximumConcurrency as number,
+    maximumReplans: request.maximumReplans as number,
+    originLane: request.originLane,
+    adoptResult: request.adoptResult,
+    ...(typeof request.workType === "string"
+      ? { workType: request.workType }
+      : {}),
+    ...(choice ? { choice } : {}),
+    ...(typeof request.workspaceId === "string"
+      ? { workspaceId: request.workspaceId }
+      : {}),
+  });
+}
+export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
+  "crdd-coordinator/orchestrator-objective-intake/v2" as const;

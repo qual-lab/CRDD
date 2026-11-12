@@ -1,5 +1,11 @@
 # Checkerの設計
 
+## 3モデル分離への接続 — 2026-11-12
+
+文書構造・意味・Reality・Catalogの正本はdocument-model、Manifest等の設定はconfiguration-modelをConsumerとして別々に利用する。各モデルを結ぶFacadeを作らず、モデル間の直接型参照も置かない。Source列挙・symbol・試験CatalogのPathは新Ownerへ追従し、過去EvidenceのPathや実績は書き換えない。
+
+移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
+
 ## 展開した確認範囲の全量報告 — 2026-11-12
 
 scoped検査の`expanded_scope`は直接参照を含めた検査対象の全Pathを返し、100Fileで切り詰めない。`expanded_scope_file_count`は同じ全対象数を保持する。切詰め専用の`expanded_scope_truncated`は廃止し、互換用の常時false fieldを残さない。full検査の`.`という範囲表現・検査編成・ヘッダー解析窓・結果の合否判定は変更しない。既存の範囲展開ITを104Fileへ拡張し、末尾までの一覧と参照先・参照元の所属を対照する。

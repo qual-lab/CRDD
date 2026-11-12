@@ -8,8 +8,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
+import { ensureRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
 import { getRepository } from "../../version-control/src/index.ts";
 import buildInputs from "../../docker-isolation/images/build-inputs.json" with {
   type: "json",

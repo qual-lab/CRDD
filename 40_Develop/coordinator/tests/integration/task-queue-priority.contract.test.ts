@@ -19,10 +19,12 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import {
   initializeCoordinatorSnapshot,
   readCoordinatorExecutionState,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";

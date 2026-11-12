@@ -17,7 +17,7 @@ import {
 } from "./intelligence.ts";
 import { getIsolationSettings } from "./configuration.ts";
 import type { Provider } from "../../../ai-adapter/src/index.ts";
-import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import {
   type AttemptTerminalObservation,
   createExecutor,

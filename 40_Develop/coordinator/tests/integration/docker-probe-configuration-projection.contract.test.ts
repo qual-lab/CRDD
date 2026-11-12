@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 import type { DockerContainerConfigurationExpectation } from "../../../docker-isolation/src/cleanup/configuration.ts";
 

@@ -12,13 +12,13 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext, compileFunction } from "node:vm";
-import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
 import {
   inspectSingleTaskRecord,
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 /**

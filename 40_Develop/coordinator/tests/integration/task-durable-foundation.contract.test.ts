@@ -17,12 +17,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import type {} from "../../../domain-model/src/index.ts";
+import type {} from "../../../execution-model/src/index.ts";
 import {
   type CoordinatorState,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   hashRuntimeStateValueText,
   initializeCoordinatorSnapshot,
   normalizeCoordinatorTaskProjects,
@@ -30,13 +29,16 @@ import {
   queryRuntimeState,
   readCoordinatorExecutionState,
   readCoordinatorLeaseOwnerLoss,
-  requireReadyRepositoryRuntimeDataArea,
   reserveCoordinatorLeaseRecovery,
   saveCoordinatorIntegrationRecord,
   saveCoordinatorManagedProject,
   savePlan,
   settleCoordinatorLeaseRecovery,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import {
   getRepository,
   readRepositoryStorageIdentity,

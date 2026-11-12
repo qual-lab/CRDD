@@ -372,6 +372,14 @@
       "archIds": [
         "ARCH-000012"
       ]
+    },
+    {
+      "symbolId": "mcp-server.source.src.transport.configuration-area",
+      "kind": "file",
+      "path": "src/transport/configuration-area.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
     }
   ]
 }

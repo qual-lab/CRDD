@@ -16,8 +16,9 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
-import * as domain from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+import * as domain from "../../../execution-model/src/index.ts";
+import * as areas from "../../src/configuration/runtime-data.ts";
+import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -38,8 +39,8 @@ import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
  * @boundary 正式Root APIとHost Inspector。保存内部の故障はDomainが所有する。
  */
 test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送する", async () => {
-  const area = domain.requireReadyRepositoryRuntimeDataArea(
-    domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = areas.requireReadyRepositoryRuntimeDataArea(
+    areas.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -390,7 +391,7 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
   );
   const domainManifest = JSON.parse(
     fs.readFileSync(
-      new URL("../../../domain-model/symbol.json", import.meta.url),
+      new URL("../../../execution-model/symbol.json", import.meta.url),
       "utf8",
     ),
   );
@@ -499,7 +500,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
   let observed: unknown;
   const roots: (string | null)[] = [];
   const mocked = mock.module(
-    new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+    new URL("../../../execution-model/src/index.ts", import.meta.url).href,
     {
       namedExports: {
         ...domain,

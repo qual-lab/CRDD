@@ -9,8 +9,8 @@
  * @effect 明示されたPageの本文とRelationを注入Readerで読む。結果変換自体は同期計算だけ。
  * @security 認可集合を広げず、Root・資格・生鍵を表示へ追加しない。
  */
-import type { TopicMeetingPage } from "../../../../domain-model/src/index.ts";
-import type { TopicMeetingListQuery } from "../../../../domain-model/src/index.ts";
+import type { TopicMeetingPage } from "../../../../document-model/src/index.ts";
+import type { TopicMeetingListQuery } from "../../../../document-model/src/index.ts";
 import type {
   WorkbenchRecordDocumentView,
   WorkbenchTopicMeetingResultView,

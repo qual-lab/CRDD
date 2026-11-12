@@ -124,11 +124,17 @@ test("隔離の明示契約は必須構成と未観測分類を保持する", as
  * @boundary 実Docker・Native処置・保存・実AIは実行しない。
  */
 test("DIとDomainは相互の実行時依存なしで公開Rootを開始する", () => {
-  for (const owner of ["docker-isolation", "domain-model"]) {
+  for (const owner of ["docker-isolation", "execution-model"]) {
     const target = path.resolve(sourceRoot, "../../", owner, "src/index.ts");
     const blocked =
       owner === "docker-isolation"
-        ? ["domain-model", "coordinator"]
+        ? [
+            "domain-model",
+            "document-model",
+            "execution-model",
+            "configuration-model",
+            "coordinator",
+          ]
         : ["docker-isolation"];
     const code = `import { registerHooks } from 'node:module';
       const blocked=${JSON.stringify(blocked)};
@@ -256,6 +262,9 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   for (const owner of [
     "coordinator",
     "domain-model",
+    "document-model",
+    "execution-model",
+    "configuration-model",
     "orchestrator",
     "ai-adapter",
     "workbench-server",
@@ -275,7 +284,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   }
   for (const specifier of [
     "../../platform-access/src/process/environment.ts",
-    "../../domain-model/src/attempt/validation.ts",
+    "../../execution-model/src/attempt/validation.ts",
     "../../../../outside.ts",
   ])
     assert.throws(

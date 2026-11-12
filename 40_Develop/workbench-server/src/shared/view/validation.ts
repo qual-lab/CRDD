@@ -11,8 +11,8 @@ import type {
   AiSelectionReadResult,
   AiSelectionSaveResult,
   AiSelectionSnapshot,
-  FederatedProjectProjection,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../configuration-model/src/index.ts";
+import type { FederatedProjectProjection } from "../../../../document-model/src/index.ts";
 import type {
   WorkbenchAccessViewModel,
   WorkbenchArtifactViewModel,

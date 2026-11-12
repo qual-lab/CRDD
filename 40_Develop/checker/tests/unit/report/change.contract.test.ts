@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectChangeDocument } from "../../../../domain-model/src/index.ts";
+import { inspectChangeDocument } from "../../../../document-model/src/index.ts";
 import { mapChangeDomainIssueToFinding } from "../../../src/report/convert.ts";
 
 /**

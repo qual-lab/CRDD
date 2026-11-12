@@ -16,7 +16,7 @@ import {
   type TopicMeetingWriteResult,
   type MeetingOutcomeCommandResult,
   type TopicPromotionCommandResult,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 
 /**
  * Topic／Meetingの保存・昇格・Outcome処置が返す既存結果。

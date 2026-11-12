@@ -7,7 +7,7 @@
 import type {
   ProjectTaskRecoveryKind,
   CoordinatorState,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type { StateResult } from "../state/types.ts";
 import {
   isCoordinatorRecoveryIdentity,

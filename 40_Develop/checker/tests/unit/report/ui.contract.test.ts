@@ -18,7 +18,7 @@ import {
   inspectUiAnalysisCoverage,
   inspectUiIndexCoverage,
   inspectUiRelations,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 
 /**
  * UI診断の四項目と拒否境界を確認する。

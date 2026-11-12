@@ -15,7 +15,7 @@ import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
-import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { snapshotPlainArray } from "../src/input/snapshot.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import {
   runSignedGeneralTaskVerification,

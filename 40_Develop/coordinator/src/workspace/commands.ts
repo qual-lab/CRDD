@@ -15,7 +15,7 @@ import {
   saveCoordinatorIntegrationRecord,
   saveCoordinatorWorkspaceRecord,
   inspectWorkspaceCommand,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   readFile,
   type FileReadRequest,

@@ -13,7 +13,7 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { classifyDockerProbeCancellation } from "../../../docker-isolation/tests/support/probe-result.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 /**
  * 一意な本番関数を取得して検証VMへ接続する。

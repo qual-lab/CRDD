@@ -16,10 +16,12 @@ import path from "node:path";
 import test from "node:test";
 import {
   ensureRepositoryRuntimeDataArea,
-  initializeCoordinatorSnapshot,
   requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import {
+  initializeCoordinatorSnapshot,
   saveCoordinatorManagedProject,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
   storeFixtureExecution,
@@ -786,5 +788,5 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   assert.ok(parseRuntimeActivityObservation(all));
 });
 
-import type { ActivityRepository } from "../../../domain-model/src/index.ts";
-import { parseRuntimeActivityObservation } from "../../../domain-model/src/index.ts";
+import type { ActivityRepository } from "../../../execution-model/src/index.ts";
+import { parseRuntimeActivityObservation } from "../../../execution-model/src/index.ts";

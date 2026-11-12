@@ -1,8 +1,12 @@
 # 境界／Interfaceモデル
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 ## Core APIの境界 — 2026-10-27
 
-[API入出力正本](Details/domain-model/05_Runtime_Domain.md#runtime-domain-api)に従い、検証済みRootと現在の内容認可を区別する。定義編集は全体CASと対象定義Hashを照合し、技術実行状態・Authority・cleanup・受領は入力不可とする。Contextは信頼したHost構成からだけ渡し、HTTP／MCPのJSONから再構成しない。Core状態照会でDocker／Providerを起動せず、Coreと任意実行を同じ公開成功にまとめない。
+[API入出力正本](Details/execution-model/05_Runtime_Domain.md#runtime-domain-api)に従い、検証済みRootと現在の内容認可を区別する。定義編集は全体CASと対象定義Hashを照合し、技術実行状態・Authority・cleanup・受領は入力不可とする。Contextは信頼したHost構成からだけ渡し、HTTP／MCPのJSONから再構成しない。Core状態照会でDocker／Providerを起動せず、Coreと任意実行を同じ公開成功にまとめない。
 
 Workspace新方式の情報境界は[DI共通隔離方針](Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)へ接続する。開発用`.env`の読取りリスクを受容し、本番Secretは通常開発環境へ置かない。Direct／Candidateで同じ安全原則を使うが、用途別RW・Git／内部状態書込み禁止・認証保護・外部送信同意を維持する。全秘密fileの隠蔽や独自Secret管理は要求しない。
 

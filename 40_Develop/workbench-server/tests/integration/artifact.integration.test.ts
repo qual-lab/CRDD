@@ -21,7 +21,7 @@ import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
 import { startWorkbench } from "../../src/index.ts";

@@ -1072,6 +1072,47 @@
     {"symbolId":"workbench-server.test.integration.ai-verification-client","kind":"test-suite","path":"tests/integration/ai-verification-client.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.ai-verification-client","workbench-server.scripts.ai-verification-http","workbench-server.scripts.ai-verification-timing"]},
     {"symbolId":"workbench-server.test.integration.ai-verification-timing","kind":"test-suite","path":"tests/integration/ai-verification-timing.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.ai-verification-timing","workbench-server.scripts.ai-verification-http"]},
     {"symbolId":"workbench-server.scripts.workspace-task-diagnostic","kind":"verification-tool","path":"scripts/workspace-task-diagnostic.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
-    {"symbolId":"workbench-server.test.integration.workspace-task-diagnostic","kind":"test-suite","path":"tests/integration/workspace-task-diagnostic.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.workspace-task-diagnostic"]}
+    {"symbolId":"workbench-server.test.integration.workspace-task-diagnostic","kind":"test-suite","path":"tests/integration/workspace-task-diagnostic.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.workspace-task-diagnostic"]},
+    {
+      "symbolId": "workbench-server.source.src.server.connection.configuration-area",
+      "kind": "file",
+      "path": "src/server/connection/configuration-area.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.source.src.server.request.parse-json",
+      "kind": "file",
+      "path": "src/server/request/parse-json.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.source.src.server.request.snapshot",
+      "kind": "file",
+      "path": "src/server/request/snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.source.scripts.file-snapshot",
+      "kind": "file",
+      "path": "scripts/file-snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.source.scripts.runtime-data",
+      "kind": "file",
+      "path": "scripts/runtime-data.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000011"
+      ]
+    }
   ]
 }

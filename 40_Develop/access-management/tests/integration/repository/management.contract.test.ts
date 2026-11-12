@@ -21,7 +21,7 @@ import {
   initializeRuntimeState,
   queryPlan,
   savePlan,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
 import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,

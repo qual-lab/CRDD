@@ -19,7 +19,7 @@ import {
   parseTopicMarkdown,
   type RepositoryProjectContext,
   type TopicRecord,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import {
   type RemoteTarget,
   type WorkingChanges,

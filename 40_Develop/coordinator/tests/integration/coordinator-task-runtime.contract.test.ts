@@ -14,10 +14,10 @@
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -45,7 +45,7 @@ import {
   selectionConfig,
   executionSelection,
 } from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
@@ -67,7 +67,7 @@ import {
 import {
   prepareCoordinatorStateOperationSnapshot,
   decodeRuntimeDomainSnapshot,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 type TraceSnapshot = Readonly<{
   state: string;

@@ -10,7 +10,7 @@ import type {
   TaskStageDiagnostic,
 } from "./result.ts";
 import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
 import type { RecoveryStartFailureDiagnostic } from "./types.ts";
 import type { AttemptDiagnosticNotice } from "../../../executor/src/index.ts";
 

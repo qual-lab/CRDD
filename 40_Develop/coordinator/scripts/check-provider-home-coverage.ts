@@ -22,7 +22,7 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/authority.ts",
-  "40_Develop/domain-model/src/plain-data/snapshot.ts",
+  "40_Develop/execution-model/src/plain-data/snapshot.ts",
   "40_Develop/coordinator/src/execution/diagnostics.ts",
   "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
@@ -87,7 +87,7 @@ const coverageObligations = Object.freeze({
     "Windows／POSIXの正負・境界fixture、予約名限定mapping全件およびProvider HomeのWindows利用側試験／Codex／Claude、Root境界、Path非出力、長さ、動的入力および非昇格試験／全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
     "Path lexical規則、platform dispatchまたはProvider Home Root source変更時／Provider Home layout、Root source、Provider集合または保護Effect着手時／Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
   ),
-  "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
+  "40_Develop/execution-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",
     "動的入力の一部を実行する可能性",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

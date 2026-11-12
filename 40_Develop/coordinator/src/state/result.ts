@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 
-import type { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import type { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 
 /**
  * port-resultで使用するCoordinator Port 結果の値契約を定義する。
@@ -136,4 +136,4 @@ export function blocked<T>(
   });
 }
 
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../execution-model/src/index.ts";

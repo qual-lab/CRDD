@@ -47,11 +47,11 @@ import {
   selectionConfig,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import {
-  createFilesystemStoreRoot,
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
   getRepository,

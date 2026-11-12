@@ -38,7 +38,7 @@ import {
   sameAccessCollection,
   evaluateAiProfileManagementPermission,
 } from "../../../../access-management/src/index.ts";
-import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
+import type { PortfolioProjection } from "../../../../document-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   readTree,

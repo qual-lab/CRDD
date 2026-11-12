@@ -20,7 +20,7 @@ import {
   updateRoleContentAccess,
   updateUserName,
 } from "../../../access-management/src/index.ts";
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
 import {
   callKeys,
   inspectMcpEnvelope,

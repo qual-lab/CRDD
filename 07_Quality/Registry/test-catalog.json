@@ -20,7 +20,9 @@
     "checker": "node_test",
     "coordinator": "node_test",
     "docker-isolation": "node_test",
-    "domain-model": "node_test",
+    "document-model": "node_test",
+    "execution-model": "node_test",
+    "configuration-model": "node_test",
     "execution-intelligence": "node_test",
     "executor": "node_test",
     "lock": "node_test",
@@ -110,7 +112,8 @@
         "access-management:integration:initial-connection",
         "access-management:integration:credential-token-material",
         "access-management:integration:state-file-store",
-        "access-management:integration:host-entry"
+        "access-management:integration:host-entry",
+        "runtime-data:unit:path-resolver"
       ],
       "postconditions": [
         "current_user_role_authorization",
@@ -149,8 +152,8 @@
     },
     {
       "id": "crdd-domain-library:reality-and-repository-boundary",
-      "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/domain-model/01_Architecture.md#3-公開入口と依存方向",
+      "owner": "document-model",
+      "architectureAnchor": "06_Architecture/Details/document-model/01_Architecture.md#2-公開入口とsource",
       "responsibilities": [
         "reality_symbol_contract",
         "reality_relation_graph",
@@ -161,8 +164,7 @@
       ],
       "lifecycleProfile": "read_only_boundary",
       "testIds": [
-        "crdd-domain-library:unit:public-boundary",
-        "crdd-domain-library:integration:filesystem-store-root",
+        "document-model:unit:public-boundary",
         "crdd-domain-library:unit:repository-observation",
         "crdd-domain-library:integration:reality-repository"
       ],
@@ -176,7 +178,7 @@
     },
     {
       "id": "semantic-coverage:meaning-to-bundle",
-      "owner": "domain-model",
+      "owner": "document-model",
       "architectureAnchor": "06_Architecture/Details/semantic-coverage/01_Architecture.md#4-実行の流れ",
       "responsibilities": [
         "semantic_ir_compilation",
@@ -200,8 +202,8 @@
     },
     {
       "id": "project-operation:projection-and-candidate",
-      "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
+      "owner": "document-model",
+      "architectureAnchor": "06_Architecture/Details/document-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
       "responsibilities": [
         "project_projection",
         "candidate_decision",
@@ -353,24 +355,18 @@
     },
     {
       "id": "runtime-data:repository-storage",
-      "owner": "domain-model",
-      "architectureAnchor": "06_Architecture/Details/domain-model/03_Repository_Storage.md#2-repository-local構成と切替境界",
+      "owner": "execution-model",
+      "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#4-保存初期化回復",
       "responsibilities": [
-        "repository_root_binding",
-        "runtime_path_resolution",
-        "temporary_operation_lifecycle"
+        "execution_state_root_binding",
+        "execution_temporary_operation_lifecycle"
       ],
       "externalBoundaries": [
         "git_worktree",
-        "repository_filesystem",
-        "os_managed_root"
+        "repository_filesystem"
       ],
       "lifecycleProfile": "durable_operation",
       "testIds": [
-        "runtime-data:unit:contract",
-        "runtime-data:unit:path-resolver",
-        "domain-model:integration:network-policy",
-        "runtime-data:integration:repository-paths",
         "runtime-data:integration:temporary-operation-lifecycle",
         "runtime-data:system:temporary-operation-cleanup"
       ],
@@ -853,6 +849,35 @@
         "foreign_generation_retained",
         "owned_descriptor_closed_or_reported"
       ]
+    },
+    {
+      "id": "configuration-model:repository-configuration",
+      "owner": "configuration-model",
+      "architectureAnchor": "06_Architecture/Details/configuration-model/01_Architecture.md#4-保存とroot境界",
+      "responsibilities": [
+        "configuration_schema",
+        "fixed_configuration_storage",
+        "configuration_cas"
+      ],
+      "externalBoundaries": [
+        "git_worktree",
+        "repository_filesystem"
+      ],
+      "lifecycleProfile": "durable_operation",
+      "testIds": [
+        "domain-model:integration:network-policy",
+        "runtime-data:integration:tool-runtime-config",
+        "coordinator:integration:ai-selection-store",
+        "domain-model:unit:ai-selection:validation",
+        "runtime-data:unit:contract",
+        "runtime-data:integration:repository-paths",
+        "configuration-model:unit:public-boundary"
+      ],
+      "postconditions": [
+        "configuration_unknown_not_absent",
+        "configuration_identity_preserved",
+        "owned_handles_closed"
+      ]
     }
   ],
   "integrationCorridors": [
@@ -982,7 +1007,7 @@
     },
     {
       "id": "crdd-domain-library:reality-to-checker",
-      "architectureAnchor": "06_Architecture/Details/domain-model/01_Architecture.md#7-consumer-closure",
+      "architectureAnchor": "06_Architecture/Details/document-model/01_Architecture.md#3-利用側の投影",
       "blockPath": [
         "crdd-domain-library:reality-and-repository-boundary",
         "checker:repository-verification"
@@ -992,14 +1017,14 @@
         "checker:integration:crdd-check"
       ],
       "postconditions": [
-        "compatibility_shim_connection_observed",
+        "direct_model_consumer_connection_observed",
         "checker_consumer_result_preserved",
-        "final_consumer_migration_not_claimed"
+        "model_owner_connection_preserved"
       ]
     },
     {
       "id": "project-operation:candidate-to-project-view",
-      "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
+      "architectureAnchor": "06_Architecture/Details/document-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
       "blockPath": [
         "coordinator:workspace-execution",
         "project-operation:projection-and-candidate"
@@ -1102,14 +1127,14 @@
     },
     {
       "id": "runtime-data:repository-to-consumers",
-      "architectureAnchor": "06_Architecture/Details/domain-model/03_Repository_Storage.md#2-repository-local構成と切替境界",
+      "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#4-保存初期化回復",
       "blockPath": [
         "runtime-data:repository-storage",
         "execution-intelligence:durable-store",
         "orchestrator:objective-task-lifecycle"
       ],
       "testIds": [
-        "runtime-data:integration:repository-paths",
+        "domain-model:integration:runtime-repository",
         "execution-intelligence:integration:store",
         "coordinator:integration:provider-intelligence"
       ],
@@ -1266,6 +1291,25 @@
         "shared_runtime_state_exclusion",
         "host_lock_outlives_child_root"
       ]
+    },
+    {
+      "id": "configuration-model:settings-to-consumers",
+      "architectureAnchor": "06_Architecture/Details/configuration-model/01_Architecture.md#3-consumerの投影",
+      "blockPath": [
+        "configuration-model:repository-configuration",
+        "orchestrator:objective-task-lifecycle",
+        "workbench:production-shell"
+      ],
+      "testIds": [
+        "runtime-data:integration:repository-paths",
+        "coordinator:integration:external-send-policy-runtime",
+        "workbench:integration:production-shell"
+      ],
+      "postconditions": [
+        "fixed_configuration_root_preserved",
+        "consumer_configuration_values_preserved",
+        "execution_authority_not_conferred"
+      ]
     }
   ],
   "consumerBindings": [
@@ -1274,10 +1318,20 @@
       "producerPaths": [
         "40_Develop/lock/src"
       ],
-      "consumerOwner": "domain-model",
+      "consumerOwner": "document-model",
       "consumerStatic": true,
       "testIds": [
-        "project-operation:integration:topic-meeting-repository",
+        "project-operation:integration:topic-meeting-repository"
+      ]
+    },
+    {
+      "producerOwner": "lock",
+      "producerPaths": [
+        "40_Develop/lock/src"
+      ],
+      "consumerOwner": "execution-model",
+      "consumerStatic": true,
+      "testIds": [
         "runtime-data:integration:temporary-operation-lifecycle"
       ]
     },
@@ -1315,9 +1369,9 @@
       ]
     },
     {
-      "producerOwner": "domain-model",
+      "producerOwner": "execution-model",
       "producerPaths": [
-        "40_Develop/domain-model/src"
+        "40_Develop/execution-model/src"
       ],
       "consumerOwner": "executor",
       "consumerStatic": true,
@@ -1377,9 +1431,9 @@
       ]
     },
     {
-      "producerOwner": "domain-model",
+      "producerOwner": "document-model",
       "producerPaths": [
-        "40_Develop/domain-model/src"
+        "40_Develop/document-model/src"
       ],
       "consumerOwner": "mcp-server",
       "consumerStatic": true,
@@ -1389,10 +1443,21 @@
       ]
     },
     {
-      "producerOwner": "domain-model",
+      "producerOwner": "execution-model",
       "producerPaths": [
-        "40_Develop/domain-model/src/project-context/portfolio.ts",
-        "40_Develop/domain-model/src/index.ts"
+        "40_Develop/execution-model/src"
+      ],
+      "consumerOwner": "mcp-server",
+      "consumerStatic": true,
+      "testIds": [
+        "mcp:unit:project-context",
+        "mcp:system:stdio"
+      ]
+    },
+    {
+      "producerOwner": "document-model",
+      "producerPaths": [
+        "40_Develop/document-model/src/project-context/portfolio.ts"
       ],
       "consumerOwner": "mcp-server",
       "consumerStatic": true,
@@ -1441,9 +1506,9 @@
       ]
     },
     {
-      "producerOwner": "domain-model",
+      "producerOwner": "execution-model",
       "producerPaths": [
-        "40_Develop/domain-model/src"
+        "40_Develop/execution-model/src"
       ],
       "consumerOwner": "coordinator",
       "consumerStatic": true,
@@ -1454,9 +1519,35 @@
       ]
     },
     {
-      "producerOwner": "domain-model",
+      "producerOwner": "document-model",
       "producerPaths": [
-        "40_Develop/domain-model/src"
+        "40_Develop/document-model/src"
+      ],
+      "consumerOwner": "coordinator",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:external-send-policy-runtime",
+        "coordinator:integration:provider-intelligence",
+        "coordinator:integration:orchestrator-durable-foundation"
+      ]
+    },
+    {
+      "producerOwner": "configuration-model",
+      "producerPaths": [
+        "40_Develop/configuration-model/src"
+      ],
+      "consumerOwner": "coordinator",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:external-send-policy-runtime",
+        "coordinator:integration:provider-intelligence",
+        "coordinator:integration:orchestrator-durable-foundation"
+      ]
+    },
+    {
+      "producerOwner": "document-model",
+      "producerPaths": [
+        "40_Develop/document-model/src"
       ],
       "consumerOwner": "checker",
       "consumerStatic": true,
@@ -1470,10 +1561,127 @@
         "checker:unit:quality-state",
         "checker:integration:domain-results"
       ]
+    },
+    {
+      "producerOwner": "configuration-model",
+      "producerPaths": [
+        "40_Develop/configuration-model/src"
+      ],
+      "consumerOwner": "checker",
+      "consumerStatic": true,
+      "testIds": [
+        "checker:unit:repository-semantic",
+        "semantic-coverage:unit:public-boundary",
+        "checker:integration:semantic-command",
+        "checker:integration:crdd-check",
+        "checker:integration:test-catalog-plan",
+        "checker:system:test-catalog-policy",
+        "checker:unit:quality-state",
+        "checker:integration:domain-results"
+      ]
+    },
+    {
+      "producerOwner": "lock",
+      "producerPaths": [
+        "40_Develop/lock/src"
+      ],
+      "consumerOwner": "configuration-model",
+      "consumerStatic": true,
+      "testIds": [
+        "coordinator:integration:ai-selection-store"
+      ]
+    },
+    {
+      "producerOwner": "document-model",
+      "producerPaths": [
+        "40_Develop/document-model/src"
+      ],
+      "consumerOwner": "access-management",
+      "consumerStatic": true,
+      "testIds": [
+        "access-management:integration:repository-management"
+      ]
+    },
+    {
+      "producerOwner": "execution-model",
+      "producerPaths": [
+        "40_Develop/execution-model/src"
+      ],
+      "consumerOwner": "access-management",
+      "consumerStatic": true,
+      "testIds": [
+        "access-management:integration:repository-management"
+      ]
+    },
+    {
+      "producerOwner": "configuration-model",
+      "producerPaths": [
+        "40_Develop/configuration-model/src"
+      ],
+      "consumerOwner": "access-management",
+      "consumerStatic": true,
+      "testIds": [
+        "access-management:integration:repository-management"
+      ]
+    },
+    {
+      "producerOwner": "document-model",
+      "producerPaths": [
+        "40_Develop/document-model/src"
+      ],
+      "consumerOwner": "workbench-server",
+      "consumerStatic": true,
+      "testIds": [
+        "workbench:integration:project-surface",
+        "workbench:integration:artifact-presentation"
+      ]
+    },
+    {
+      "producerOwner": "execution-model",
+      "producerPaths": [
+        "40_Develop/execution-model/src"
+      ],
+      "consumerOwner": "workbench-server",
+      "consumerStatic": true,
+      "testIds": [
+        "workbench:integration:runtime-definition",
+        "workbench-server:integration:ai-shared-task"
+      ]
+    },
+    {
+      "producerOwner": "configuration-model",
+      "producerPaths": [
+        "40_Develop/configuration-model/src"
+      ],
+      "consumerOwner": "workbench-server",
+      "consumerStatic": true,
+      "testIds": [
+        "workbench:integration:profile-presentation",
+        "workbench:integration:production-shell"
+      ]
     }
   ],
   "tests": [
-    {"id":"coordinator:integration:continuation-decision","owner":"coordinator","path":"40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts","level":"integration","kind":"integration","semanticTags":["decision","state","history"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["boundary_result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {
+      "id": "coordinator:integration:continuation-decision",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "decision",
+        "state",
+        "history"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
     {
       "id": "coordinator:unit:authentication-management",
       "owner": "coordinator",
@@ -1638,8 +1846,8 @@
     },
     {
       "id": "domain-model:unit:resource-book",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/resource-book.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/resource-book.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -1988,8 +2196,8 @@
     },
     {
       "id": "domain-model:integration:network-policy",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/network-policy.integration.test.ts",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/integration/network-policy.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -3452,8 +3660,8 @@
     },
     {
       "id": "domain-model:unit:runtime-transitions",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/storage/runtime-transitions.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/storage/runtime-transitions.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3474,8 +3682,8 @@
     },
     {
       "id": "domain-model:unit:history-candidates",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/state/history-candidates.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/state/history-candidates.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3493,8 +3701,8 @@
     },
     {
       "id": "domain-model:unit:lease-candidates",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/attempt/lease-candidates.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/attempt/lease-candidates.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3512,8 +3720,8 @@
     },
     {
       "id": "domain-model:unit:queue-execution-candidates",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/task/queue-execution-candidates.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/task/queue-execution-candidates.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3531,8 +3739,8 @@
     },
     {
       "id": "domain-model:unit:task-queue",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/task/queue.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/task/queue.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3550,8 +3758,8 @@
     },
     {
       "id": "domain-model:unit:workspace-crud",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/workspace/crud.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/workspace/crud.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3569,8 +3777,8 @@
     },
     {
       "id": "domain-model:unit:decision-crud",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/decision/crud.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/decision/crud.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3593,8 +3801,8 @@
     },
     {
       "id": "domain-model:unit:history-summary",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/state/history-summary.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/state/history-summary.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3612,8 +3820,8 @@
     },
     {
       "id": "coordinator:unit:restart-checkpoint",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/attempt/restart-checkpoint.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/attempt/restart-checkpoint.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3634,8 +3842,8 @@
     },
     {
       "id": "runtime-data:integration:tool-runtime-config",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/tool-runtime-config.contract.test.ts",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/integration/tool-runtime-config.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3678,8 +3886,8 @@
     },
     {
       "id": "coordinator:integration:ai-selection-store",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/ai-selection-store.contract.test.ts",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/integration/ai-selection-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3701,8 +3909,8 @@
     },
     {
       "id": "domain-model:integration:state-io",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/state-io.integration.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/state-io.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3722,8 +3930,8 @@
     },
     {
       "id": "domain-model:unit:objective:validation",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/objective/validation.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/objective/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3743,8 +3951,8 @@
     },
     {
       "id": "domain-model:unit:ai-selection:validation",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/ai-selection/validation.contract.test.ts",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/unit/ai-selection/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3884,8 +4092,8 @@
     },
     {
       "id": "domain-model:integration:project-portfolio",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/project-portfolio.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/project-portfolio.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3905,8 +4113,8 @@
     },
     {
       "id": "domain-model:integration:project-context-read",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/project-context-read.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/project-context-read.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3926,8 +4134,8 @@
     },
     {
       "id": "domain-model:unit:workspace-technical-contract",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/workspace-technical-contract.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/workspace-technical-contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3968,8 +4176,8 @@
     },
     {
       "id": "crdd-domain-library:unit:public-boundary",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/public-boundary.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/public-boundary.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3991,8 +4199,8 @@
     },
     {
       "id": "crdd-domain-library:integration:filesystem-store-root",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/filesystem-store-lock.contract.test.ts",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/integration/filesystem-store-lock.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4015,8 +4223,8 @@
     },
     {
       "id": "crdd-domain-library:integration:reality-repository",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/reality-repository.integration.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/reality-repository.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -4036,8 +4244,8 @@
     },
     {
       "id": "crdd-domain-library:integration:quality-change-control",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/quality-change-control.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/quality-change-control.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4059,8 +4267,8 @@
     },
     {
       "id": "crdd-domain-library:system:quality-change-control",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/system/quality-change-control.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/system/quality-change-control.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -4082,8 +4290,8 @@
     },
     {
       "id": "crdd-domain-library:unit:repository-observation",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/repository/filesystem-observer.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/repository/filesystem-observer.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4106,8 +4314,8 @@
     },
     {
       "id": "semantic-coverage:integration:bundle-publisher",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/storage/semantic-store.integration.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/storage/semantic-store.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -4128,8 +4336,8 @@
     },
     {
       "id": "project-operation:integration:project-projection",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/project-projection.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/project-projection.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4149,8 +4357,8 @@
     },
     {
       "id": "project-operation:integration:candidate-adoption",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/candidate-adoption.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/candidate-adoption.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4171,8 +4379,8 @@
     },
     {
       "id": "project-operation:integration:repository-project-context",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/repository-project-context.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/repository-project-context.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4193,8 +4401,8 @@
     },
     {
       "id": "project-operation:integration:topic-meeting-record",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/topic-meeting-record.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/topic-meeting-record.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4216,8 +4424,8 @@
     },
     {
       "id": "project-operation:integration:topic-meeting-repository",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/topic-meeting-repository.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/topic-meeting-repository.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4250,8 +4458,8 @@
     },
     {
       "id": "project-operation:integration:topic-meeting-application",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/topic-meeting-operations.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/integration/topic-meeting-operations.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4524,8 +4732,8 @@
     },
     {
       "id": "runtime-data:unit:contract",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/configuration/validate-declarations.contract.test.ts",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/unit/configuration/validate-declarations.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4544,8 +4752,8 @@
     },
     {
       "id": "runtime-data:unit:path-resolver",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/repository/resolve-storage-paths.contract.test.ts",
+      "owner": "access-management",
+      "path": "40_Develop/access-management/tests/unit/initialization/roots.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -4565,8 +4773,8 @@
     },
     {
       "id": "runtime-data:integration:repository-paths",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/repository-storage-paths.integration.test.ts",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/integration/repository-storage-paths.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -4585,8 +4793,8 @@
     },
     {
       "id": "runtime-data:integration:consumer-closure",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/storage-consumer-closure.integration.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/storage-consumer-closure.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4607,8 +4815,8 @@
     },
     {
       "id": "runtime-data:integration:temporary-operation-lifecycle",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/temporary-operation-lifecycle.integration.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/temporary-operation-lifecycle.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -4630,8 +4838,8 @@
     },
     {
       "id": "runtime-data:system:temporary-operation-cleanup",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/system/temporary-operation-cleanup.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/system/temporary-operation-cleanup.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -5240,8 +5448,8 @@
     },
     {
       "id": "domain-model:integration:runtime-history",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-history.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-history.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6747,8 +6955,8 @@
     },
     {
       "id": "coordinator:unit:state-storage:settlement-store",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/storage/state-reentry.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/storage/state-reentry.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7588,8 +7796,8 @@
     },
     {
       "id": "domain-model:unit:outcome",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/outcome.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/outcome.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8440,8 +8648,8 @@
     },
     {
       "id": "domain-model:unit:test-catalog",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/test-catalog/inspect.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/test-catalog/inspect.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8645,8 +8853,8 @@
     },
     {
       "id": "domain-model:integration:runtime-marker-cleanup",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-marker-cleanup.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-marker-cleanup.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8797,8 +9005,8 @@
     },
     {
       "id": "docker-isolation:unit:repair-checkpoint",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/attempt/repair-state.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/attempt/repair-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8861,8 +9069,8 @@
     },
     {
       "id": "coordinator:unit:repair-state-model",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/attempt/repair-model.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/attempt/repair-model.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9301,8 +9509,8 @@
     },
     {
       "id": "domain-model:unit:semantic-coverage",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/semantic/coverage.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/semantic/coverage.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9343,8 +9551,8 @@
     },
     {
       "id": "domain-model:unit:test-catalog-plan",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/test-catalog/plan.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/test-catalog/plan.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9361,8 +9569,8 @@
     },
     {
       "id": "domain-model:unit:artifact-anchors",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/anchors.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/anchors.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9381,8 +9589,8 @@
     },
     {
       "id": "domain-model:unit:artifact-markdown",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/markdown.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/markdown.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9401,8 +9609,8 @@
     },
     {
       "id": "domain-model:unit:artifact-links",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/links.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/links.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9421,8 +9629,8 @@
     },
     {
       "id": "domain-model:unit:artifact-ux-inputs",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/ux-inputs.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/ux-inputs.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9441,8 +9649,8 @@
     },
     {
       "id": "domain-model:unit:artifact-quality-state",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/quality-state.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/quality-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9462,8 +9670,8 @@
     },
     {
       "id": "domain-model:unit:artifact-checklist",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/checklist.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/checklist.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9481,8 +9689,8 @@
     },
     {
       "id": "domain-model:unit:artifact-phase-diagrams",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/phase-diagrams.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/phase-diagrams.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9540,8 +9748,8 @@
     },
     {
       "id": "domain-model:unit:project-context-inspection",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/project-context/inspect.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/project-context/inspect.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9596,8 +9804,8 @@
     },
     {
       "id": "domain-model:unit:artifact-inspection",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/inspect.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/inspect.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9617,8 +9825,8 @@
     },
     {
       "id": "domain-model:unit:artifact-ux-handoff",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/ux-handoff.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/ux-handoff.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9636,8 +9844,8 @@
     },
     {
       "id": "domain-model:unit:artifact-ia",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/ia.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/ia.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9676,8 +9884,8 @@
     },
     {
       "id": "domain-model:unit:artifact-ui",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/ui.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/ui.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9754,8 +9962,8 @@
     },
     {
       "id": "domain-model:unit:reality-catalog",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/reality-traceability/catalog.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/reality-traceability/catalog.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9773,8 +9981,8 @@
     },
     {
       "id": "domain-model:unit:artifact-change",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/change.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/change.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9813,8 +10021,8 @@
     },
     {
       "id": "domain-model:unit:artifact-ux",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/ux.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/ux.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9833,8 +10041,8 @@
     },
     {
       "id": "domain-model:unit:artifact-discovery",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/discovery.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/discovery.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9853,8 +10061,8 @@
     },
     {
       "id": "domain-model:unit:artifact-spec",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/spec.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/spec.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9873,8 +10081,8 @@
     },
     {
       "id": "domain-model:unit:artifact-architecture",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/architecture.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/architecture.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9893,8 +10101,8 @@
     },
     {
       "id": "domain-model:unit:artifact-quality-definition",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/quality-definition.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/quality-definition.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9932,8 +10140,8 @@
     },
     {
       "id": "domain-model:unit:artifact-quality-analysis",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/quality-analysis.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/quality-analysis.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9974,8 +10182,8 @@
     },
     {
       "id": "domain-model:unit:artifact-document",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/artifact/document.contract.test.ts",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/artifact/document.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10079,8 +10287,8 @@
     },
     {
       "id": "domain-model:integration:runtime-repository",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-repository.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-repository.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10102,8 +10310,8 @@
     },
     {
       "id": "domain-model:integration:runtime-core-crud",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-core-crud.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-core-crud.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10215,8 +10423,8 @@
     },
     {
       "id": "domain-model:integration:runtime-kernel-lock",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-kernel-lock.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-kernel-lock.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10237,8 +10445,8 @@
     },
     {
       "id": "domain-model:integration:runtime-snapshot-lock",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-snapshot-lock.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-snapshot-lock.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10260,8 +10468,8 @@
     },
     {
       "id": "domain-model:integration:runtime-snapshot-io",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-snapshot-io.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-snapshot-io.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10292,8 +10500,8 @@
     },
     {
       "id": "domain-model:unit:runtime-codec",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/storage/runtime-codec.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/storage/runtime-codec.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10312,8 +10520,8 @@
     },
     {
       "id": "domain-model:integration:runtime-settlement",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-settlement.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-settlement.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10338,8 +10546,8 @@
     },
     {
       "id": "domain-model:integration:runtime-repair-storage",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/integration/runtime-repair-storage.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/integration/runtime-repair-storage.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10385,8 +10593,8 @@
     },
     {
       "id": "domain-model:unit:task-validation",
-      "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/task/validation.contract.test.ts",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/task/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10783,6 +10991,82 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "configuration-model:unit:public-boundary",
+      "owner": "configuration-model",
+      "path": "40_Develop/configuration-model/tests/unit/public-boundary.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "public-boundary",
+        "model-owner"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "owner_boundary_preserved",
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:runtime-data-protection",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/runtime-data-protection.contract.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "storage",
+        "model-owner"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "owner_boundary_preserved",
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "document-model:unit:public-boundary",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/public-boundary.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "public-boundary",
+        "model-owner"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "owner_boundary_preserved",
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-model:unit:storage:history-retention-boundary",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/storage/history-retention-boundary.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "storage",
+        "model-owner"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "owner_boundary_preserved",
         "result_observed"
       ],
       "mandatoryByDefault": true

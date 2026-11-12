@@ -32,7 +32,6 @@ import {
   decodeCoordinatorHistoryRows,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   observeRuntimeOwnedTransientTaskCompletion,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorStateHostSnapshot,
@@ -46,15 +45,18 @@ import {
   readRuntimeOwnedCoordinatorCurrentHistorySnapshot,
   readRuntimeOwnedCoordinatorRecoverySnapshot,
   readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
-  requireReadyRepositoryRuntimeDataArea,
   resumeRuntimeOwnedCoordinatorResourcePublication,
   settleRuntimeOwnedCoordinatorResult,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
-} from "../../../domain-model/src/index.ts";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   providerHomesDirectoryCandidate,
@@ -87,6 +89,8 @@ import {
   checkpointRuntimeOwnedCoordinatorResource,
   checkpointRuntimeOwnedCoordinatorResourceNotIssued,
   checkpointRuntimeOwnedCoordinatorRestart,
+  historyRepositoryInput,
+  withHistoryRetention,
   readRuntimeOwnedCoordinatorResourceBook,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorHostCleanupPreparation,
@@ -577,7 +581,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
          const setupRecovery = mock.module(${JSON.stringify(recoveryModule)}, {namedExports:
            Object.fromEntries(${JSON.stringify(recoveryExports)}.map(name=>[name,()=>{throw new Error("fixture_recovery_during_setup_forbidden")}]))});
          const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-         const store = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
+         const store = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
          const verified = vc.getRepository(process.cwd());
          const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
          const host = await import(${JSON.stringify(hostModule)});
@@ -2712,9 +2716,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection, coordinatorTaskResourcesAreSettled } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection, coordinatorTaskResourcesAreSettled } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
-        `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+        `import { parseHostRecoveryToken } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
         `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/execution/persistence.ts", import.meta.url).href}";`,
       ].join("\n");
@@ -3273,7 +3277,7 @@ for (const issuedFailure of [false, true]) {
     const checkpoint = saved.value.snapshot.operations.find(
       (
         x,
-      ): x is import("../../../domain-model/src/index.ts").CoordinatorStateTaskOperation =>
+      ): x is import("../../../execution-model/src/index.ts").CoordinatorStateTaskOperation =>
         x.kind === "docker_task" && x.recoveryId === start.recoveryId,
     )?.dockerRestart;
     assert.deepEqual(checkpoint, {
@@ -3816,7 +3820,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     fs.writeFileSync(file, corruptBytes);
     const refusedHistory = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-      verified.capability,
+      historyRepositoryInput(verified.capability),
       recoveryId,
     );
     assert.equal(refusedHistory.status, "blocked");
@@ -3825,7 +3829,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
     fs.writeFileSync(file, terminalBytes);
     const historyStart = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-      verified.capability,
+      historyRepositoryInput(verified.capability),
       recoveryId,
     );
     assert.equal(historyStart.status, "completed", historyStart.reason);
@@ -3834,7 +3838,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     let historyConfirmed = false;
     for (let stage = 0; stage < 5 && !historyConfirmed; stage++) {
       const advanced = advanceRuntimeOwnedCoordinatorRecoveryHistory(
-        repository,
+        {
+          ...repository,
+          ...withHistoryRetention(repository, verified.capability),
+        },
         recoveryId,
         () => true,
       );
@@ -3991,8 +3998,8 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
     const ownerSource = fs.readFileSync(
       new URL(
         name === "hasRuntimeStateRecordKeys"
-          ? "../../../domain-model/src/state/validation.ts"
-          : "../../../domain-model/src/attempt/validation.ts",
+          ? "../../../execution-model/src/state/validation.ts"
+          : "../../../execution-model/src/attempt/validation.ts",
         import.meta.url,
       ),
       "utf8",

@@ -12,14 +12,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
   applyCoordinatorResourceCleanup,
   applyCoordinatorResourceEvent,
   validateCoordinatorResourceBook,
   encodeRuntimeStateValue,
   type CoordinatorResourceBook,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 /**
  * 認証記録の実宣言へ保存代役だけを接続する。

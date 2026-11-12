@@ -42,13 +42,15 @@ import { executeWorkspace } from "../../../coordinator/src/index.ts";
 import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import {
-  createFilesystemStoreRoot,
   createMeetingOperations,
   createTopicOperations,
+} from "../../../document-model/src/index.ts";
+import {
   initializeCoordinatorSnapshot,
   saveCoordinatorManagedProject,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
   storeFixtureExecution,

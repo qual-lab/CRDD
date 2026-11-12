@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
-import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
 import {

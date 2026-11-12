@@ -19,7 +19,7 @@ import {
 import {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../domain-model/src/index.ts";
+} from "./runtime-data.ts";
 import { getRepository } from "../../version-control/src/index.ts";
 import { writeReport, readReport, removeReport } from "./report.ts";
 

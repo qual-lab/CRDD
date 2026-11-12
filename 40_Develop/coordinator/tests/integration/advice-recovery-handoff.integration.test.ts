@@ -15,10 +15,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import {
-  readCoordinatorQueueEntry,
-  saveRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
+import { readCoordinatorQueueEntry } from "../../../execution-model/src/index.ts";
+import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";

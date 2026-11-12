@@ -27,9 +27,8 @@ import {
   hashExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import type {
   IsolationCallbacks,
   IsolationExecution,

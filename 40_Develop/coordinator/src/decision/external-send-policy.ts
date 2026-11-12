@@ -7,11 +7,10 @@
 import { createHash } from "node:crypto";
 import {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
-  parseUnambiguousJsonDocument,
   readNetworkPolicy,
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../input/json.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   getRepository,

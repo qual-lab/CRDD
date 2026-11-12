@@ -5,13 +5,13 @@
  * @trace ARCH-000013
  */
 
+import { createFilesystemRepositoryObservationPort } from "../../../document-model/src/index.ts";
 import {
-  createFilesystemRepositoryObservationPort,
-  type FilesystemStoreRoot,
   inspectRepositoryManifest,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-  type RuntimeAccess,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
+import type { RuntimeAccess } from "../../../execution-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,

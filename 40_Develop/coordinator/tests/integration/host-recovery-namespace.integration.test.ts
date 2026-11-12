@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import fs, { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 

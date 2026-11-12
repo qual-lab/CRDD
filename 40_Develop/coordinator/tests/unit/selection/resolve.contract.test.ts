@@ -10,7 +10,7 @@
 import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -18,7 +18,7 @@ import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
-import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 
 /**
  * 編集と独立レビューを同じ受付時設定へ固定する。

@@ -8,11 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type RepositoryWorktreeResult,
-  resolveRepositoryRuntimeDataPaths,
   validWorkspaceCandidateRequest,
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../configuration/runtime-data.ts";
 import {
   type CommitTemporary,
   createCommit,

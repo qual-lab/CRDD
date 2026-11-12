@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 
 import { projectDockerRecoveryAdmission } from "../../../src/execution/result.ts";
 import { resolveRecoveryStartReason } from "../../../src/execution/validation.ts";

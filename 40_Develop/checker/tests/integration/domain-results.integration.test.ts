@@ -21,7 +21,7 @@ import {
   observeRealitySymbolRepository,
   parseMarkdownArtifact,
   validateArtifactSchema,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { runChecker, runSemanticCoverage } from "../../src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";

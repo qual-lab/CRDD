@@ -6,7 +6,7 @@
  */
 
 import crypto, { randomUUID } from "node:crypto";
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "./root.ts";
 import {
   presentKeyToTerminal,
   updateCredentialPresentationState,

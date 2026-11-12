@@ -12,7 +12,7 @@
  */
 
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   type ChildProcess,
   type ChildProcessWithoutNullStreams,
@@ -824,7 +824,7 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。

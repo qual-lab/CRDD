@@ -7,7 +7,7 @@
 
 import crypto from "node:crypto";
 import { types } from "node:util";
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "./root.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type {

@@ -5,11 +5,9 @@
  */
 
 import path from "node:path";
-import {
-  isPrincipalId,
-  parseRepositoryProjectContextMarkdown,
-  readStableFileSnapshot,
-} from "../../../domain-model/src/index.ts";
+import { isPrincipalId } from "../../../execution-model/src/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../../document-model/src/index.ts";
+import { readStableFileSnapshot } from "./file-snapshot.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,

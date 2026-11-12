@@ -5,8 +5,8 @@
  * @boundary Coordinatorの状態値と意味Owner。
  * @security 保存・外部実行・Authorityの発行は行わない。
  */
-import { COORDINATOR_STATE_CONTRACT } from "../../../domain-model/src/index.ts";
-import { normalizeRepositoryRelativePath } from "../../../domain-model/src/index.ts";
+import { COORDINATOR_STATE_CONTRACT } from "../../../execution-model/src/index.ts";
+import { normalizeRepositoryRelativePath } from "../../../execution-model/src/index.ts";
 
 import { createHash } from "node:crypto";
 

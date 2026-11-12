@@ -13,7 +13,7 @@ import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import * as actualAccess from "../../../access-management/src/index.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { McpResponse } from "../../src/index.ts";
 
 const testBase = fileURLToPath(

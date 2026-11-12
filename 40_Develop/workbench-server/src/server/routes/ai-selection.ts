@@ -8,7 +8,7 @@
  * @security Host Catalog、Credential、Provider実行を扱わない。
  */
 import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout } from "node:timers/promises";
 import {
@@ -20,12 +20,12 @@ import {
   saveRepositoryAiSelection,
   type AiSelectionReadResult,
   type AiSelectionSaveResult,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../configuration-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type Repository,
 } from "../../../../version-control/src/index.ts";
-import type { FilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import { readActionForm, setResponseHeaders } from "../security.ts";
 

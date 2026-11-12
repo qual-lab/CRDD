@@ -18,11 +18,11 @@ import {
   queryPlan,
   queryTasks,
   savePlan,
-  snapshotPlainRecord,
   updateObjective,
   updateTask,
   type RuntimeAccess,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { snapshotPlainRecord } from "../request/snapshot.ts";
 import {
   callKeys,
   inspectMcpEnvelope,

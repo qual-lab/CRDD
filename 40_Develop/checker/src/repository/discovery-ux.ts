@@ -30,7 +30,7 @@ import {
   inspectTemplateChecklist,
   omitMarkdownCommentsAndFencedCode,
   parseUxFormalInputTargets,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import {
   mapUxDomainIssueToFinding,
   mapDiscoveryDomainIssueToFinding,

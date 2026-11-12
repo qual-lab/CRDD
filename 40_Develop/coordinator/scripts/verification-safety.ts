@@ -6,7 +6,7 @@
  */
 import { types } from "node:util";
 
-import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { snapshotPlainArray } from "../src/input/snapshot.ts";
 
 /**
  * verification-safetyで使用する検証結果 Safety Schemaの値契約を定義する。

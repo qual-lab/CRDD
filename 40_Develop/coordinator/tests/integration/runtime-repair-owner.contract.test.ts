@@ -19,17 +19,22 @@ import { runInThisContext } from "node:vm";
 import * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
-import * as model from "../../../domain-model/src/index.ts";
-import * as domain from "../../../domain-model/src/index.ts";
-import * as stateStore from "../../../domain-model/src/index.ts";
+import * as model from "../../../execution-model/src/index.ts";
+import * as domain from "../../../execution-model/src/index.ts";
+import { observeRepositoryRuntimeDataArea } from "../../src/configuration/runtime-data.ts";
+import * as stateStore from "../../../execution-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
 import {
-  encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+} from "../../src/configuration/runtime-data.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import * as bindings from "../../src/execution/operation.ts";
+import {
+  historyRepositoryInput,
+  withHistoryRetention,
+} from "../../src/execution/persistence.ts";
 
 let acquireCount = 0;
 let observeCount = 0;
@@ -337,7 +342,9 @@ function createRepairOwnerFixture() {
     createHash,
     randomBytes,
     randomUUID,
-    observeRepositoryRuntimeDataArea: domain.observeRepositoryRuntimeDataArea,
+    historyRepositoryInput,
+    withHistoryRetention,
+    observeRepositoryRuntimeDataArea,
     getRepository,
     borrowRuntimeOwnedCoordinatorRecoveryRepository:
       bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
@@ -357,6 +364,8 @@ function createRepairOwnerFixture() {
     "createHash",
     "randomBytes",
     "randomUUID",
+    "historyRepositoryInput",
+    "withHistoryRetention",
     "observeRepositoryRuntimeDataArea",
     "getRepository",
     "runRepairSession",
@@ -526,7 +535,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   assert.ok(original?.kind === "runtime_repair");
   const historyBefore =
     stateStore.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-      f.capability,
+      historyRepositoryInput(f.capability),
       id,
     );
   assert.equal(historyBefore.status, "completed");
@@ -973,7 +982,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       assert.ok(fs.readFileSync(stateFile).equals(before));
       assert.ok(fs.readFileSync(pending).equals(candidate));
       const resumed = stateStore.resumeRuntimeOwnedCoordinatorRepairPublication(
-        f.capability,
+        historyRepositoryInput(f.capability),
         id,
         () => true,
       );
@@ -1031,7 +1040,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       for (let step = 0; step < 2; step++) {
         const read =
           stateStore.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-            f.capability,
+            historyRepositoryInput(f.capability),
             id,
           );
         assert.equal(read.status, "completed");
@@ -1039,6 +1048,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         const saved = stateStore.advanceRuntimeOwnedCoordinatorRepairHistory(
           {
             ...repository,
+            ...withHistoryRetention(repository, f.capability),
             operationId: JSON.parse(operation.identityJson).operationId,
           },
           id,
@@ -2238,7 +2248,7 @@ test("Host Windows: 修復出版は排他間の同bytes実体差を拒否する"
   >;
   try {
     result = stateStore.resumeRuntimeOwnedCoordinatorRepairPublication(
-      f.capability,
+      historyRepositoryInput(f.capability),
       first.recoveryId,
       () => {
         if (enumerations >= 2 && swaps === 0) {
@@ -2515,13 +2525,13 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     entries = runtimeEntries;
   assert.equal(
     stateStore.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-      f.capability,
+      historyRepositoryInput(f.capability),
       id,
     ).status,
     "blocked",
   );
   const taskResult = stateStore.advanceRuntimeOwnedCoordinatorRecoveryHistory(
-    repository,
+    { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
   );
@@ -2529,7 +2539,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   assert.ok(fs.readFileSync(stateFile).equals(original));
   const first = stateStore;
   const observed = first.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-    f.capability,
+    historyRepositoryInput(f.capability),
     id,
   );
   assert.equal(observed.status, "completed");
@@ -2539,7 +2549,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     "runtime_repair",
   );
   const fixed = first.advanceRuntimeOwnedCoordinatorRepairHistory(
-    repository,
+    { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
   );
@@ -2557,12 +2567,14 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   assert.ok(fixedOperation?.history && !fixedOperation.history.confirmed);
   const second = stateStore;
   assert.equal(
-    second.readRuntimeOwnedCoordinatorRepairHistorySnapshot(f.capability, id)
-      .currentHistoryPublication?.stage,
+    second.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
+      historyRepositoryInput(f.capability),
+      id,
+    ).currentHistoryPublication?.stage,
     "publish",
   );
   const published = second.advanceRuntimeOwnedCoordinatorRepairHistory(
-    repository,
+    { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
   );
@@ -2624,7 +2636,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         fs.writeFileSync(historyFile, bytes);
       }
       const read = stateStore.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-        f.capability,
+        historyRepositoryInput(f.capability),
         id,
       );
       const valid = historyCase === "empty" || historyCase === "other";
@@ -2655,7 +2667,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   fs.writeFileSync(historyFile, historyBytes);
   const third = stateStore;
   const confirmed = third.advanceRuntimeOwnedCoordinatorRepairHistory(
-    repository,
+    { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
   );
@@ -2711,7 +2723,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       const before = fs.readFileSync(stateFile);
       const observation =
         fresh.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-          f.capability,
+          historyRepositoryInput(f.capability),
           id,
         );
       assert.equal(observation.status, "completed");

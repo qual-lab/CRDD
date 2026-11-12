@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CoordinatorState } from "../../../../domain-model/src/index.ts";
+import type { CoordinatorState } from "../../../../execution-model/src/index.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 
@@ -245,4 +245,4 @@ test("観測不能と既存Recovery義務をEffect発行と混同しない", () 
 import {
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";

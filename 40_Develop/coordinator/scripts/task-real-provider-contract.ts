@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "../src/input/snapshot.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
 
@@ -2046,4 +2046,4 @@ export function buildCoordinatorRealProviderReport(
   });
 }
 
-import { inspectCoordinatorStateQueryResult } from "../../domain-model/src/index.ts";
+import { inspectCoordinatorStateQueryResult } from "../../execution-model/src/index.ts";

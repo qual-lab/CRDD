@@ -87,3 +87,5 @@ export type { AccessRole } from "./role/types.ts";
 
 export { registerUser, updateUserName } from "./user/crud.ts";
 export { readUserStatus, type UserStatusResult } from "./user/status.ts";
+
+export type { FilesystemStoreRoot } from "./initialization/root.ts";

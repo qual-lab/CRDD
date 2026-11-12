@@ -4081,6 +4081,54 @@
         "coordinator.diagnostics.runtime-repair",
         "coordinator.source.src.execution.validation"
       ]
+    },
+    {
+      "symbolId": "coordinator.source.src.cli.file-snapshot",
+      "kind": "file",
+      "path": "src/cli/file-snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.configuration.runtime-data",
+      "kind": "file",
+      "path": "src/configuration/runtime-data.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.input.json",
+      "kind": "file",
+      "path": "src/input/json.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.input.snapshot",
+      "kind": "file",
+      "path": "src/input/snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.runtime-data-protection",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-data-protection.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "version-control.source.src.checker.observation.index",
+        "coordinator.source.src.configuration.runtime-data"
+      ]
     }
   ]
 }

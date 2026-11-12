@@ -14,12 +14,12 @@ import {
   resolveRepositoryAccessCollection,
   sameAccessCollection,
 } from "../../../../access-management/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
 import {
-  type FilesystemStoreRoot,
   type TopicMeetingAccess,
   parseTopicMarkdown,
   parseMeetingMarkdown,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import { readWorkbenchProjectSurface } from "../project/surface.ts";
 import { composeAuthorizedTopicMeeting } from "../topic-meeting/access-resolver.ts";

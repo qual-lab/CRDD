@@ -22,7 +22,7 @@ import {
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
   type RepositoryWorktreeResult,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
 import {
   readExecutionInventory,

@@ -16,7 +16,7 @@ import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
   type CoordinatorResourceBook,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
   userHomeDirectory: "C:\\Users\\test",

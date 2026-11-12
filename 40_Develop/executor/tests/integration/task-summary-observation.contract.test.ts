@@ -12,7 +12,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 import { parseExecutionContent } from "../../../ai-adapter/src/provider/result.ts";
-import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../../execution-model/src/index.ts";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
 
 const workload = {

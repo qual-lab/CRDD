@@ -29,7 +29,7 @@ import {
   inspectTemplateChecklist,
   omitMarkdownCommentsAndFencedCode,
   omitMarkdownCommentsOutsideFencedCode,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { mapArchitectureDomainIssueToFinding } from "../report/convert.ts";
 
 /**

@@ -18,13 +18,15 @@ import { fileURLToPath } from "node:url";
 import {
   type CoordinatorWorkspace,
   encodeRuntimeStateValue,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
   readCoordinatorWorkspaceState,
-  requireReadyRepositoryRuntimeDataArea,
   saveCoordinatorWorkspaceRecord,
   selectCoordinatorQueueEntry,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";

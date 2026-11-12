@@ -8,7 +8,7 @@
  * @level IT
  * @scope 検証専用のHTTP搬送・子Process又は受動診断。実Provider／Dockerの成功は主張しない。
  */
-import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../src/server/request/parse-json.ts";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import {
   projectVerificationTransportFailure,

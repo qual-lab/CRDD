@@ -20,11 +20,13 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   encodeRuntimeStateValue,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+} from "../../src/configuration/runtime-data.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import {
   consumeDockerRecoveryReceiptAfterProjectSettlement,
@@ -2461,4 +2463,4 @@ for (const interruption of [
   });
 }
 
-import { inspectCoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";

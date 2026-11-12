@@ -21,7 +21,7 @@ import {
   updateCoordinatorSingleTaskQueue,
   validId,
   verifyCoordinatorQueueIntake,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   activeLeaseIsObserved,
   assertCoordinatorArea,

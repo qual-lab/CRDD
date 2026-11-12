@@ -16,7 +16,7 @@ Architecture ID: `ARCH-000016`
 | 所有しない責務 | 履歴参照からの現在方針採用、内容の正しさの自動判断 |
 | 主な外部境界 | Git履歴、Communication、Decision、現在正本 |
 
-実装はDomain ModelのContext／Artifact由来解決へ割り当てる。Git情報はVersion Controlの公開契約から必要な範囲を取得し、Domain CRUDからCommit／Pushを発行しない。現在Project Contextの投影、通常の運用履歴、正式Decision／CHGの根拠を分け、共通の履歴Storeへすべてを永久蓄積しない。現在の意図を採用するAuthorityは各正本の判断者に残す。
+実装は文書モデルのContext／Artifact由来解決へ割り当てる。Git情報はVersion Controlの公開契約から必要な範囲を取得し、Domain CRUDからCommit／Pushを発行しない。現在Project Contextの投影、通常の運用履歴、正式Decision／CHGの根拠を分け、共通の履歴Storeへすべてを永久蓄積しない。現在の意図を採用するAuthorityは各正本の判断者に残す。
 
 ## 2. UI観点の入力
 

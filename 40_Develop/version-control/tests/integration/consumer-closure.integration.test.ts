@@ -501,8 +501,8 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
   }
   const childConsumer = [
     "coordinator/tests/integration/coordinator-state-runtime.contract.test.ts",
-    "domain-model/tests/integration/runtime-snapshot-io.contract.test.ts",
-    "domain-model/tests/integration/runtime-settlement.contract.test.ts",
+    "execution-model/tests/integration/runtime-snapshot-io.contract.test.ts",
+    "execution-model/tests/integration/runtime-settlement.contract.test.ts",
   ]
     .map((file) => fs.readFileSync(path.join(developRoot, file), "utf8"))
     .join("\n");
@@ -600,8 +600,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/task/requests.ts",
       "40_Develop/coordinator/src/workspace/git.ts",
-      "40_Develop/domain-model/src/storage/runtime-repository.ts",
-      "40_Develop/domain-model/src/storage/runtime-store.ts",
+      "40_Develop/execution-model/src/storage/runtime-repository.ts",
+      "40_Develop/execution-model/src/storage/runtime-store.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
     ],
   );
@@ -628,8 +628,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     "40_Develop/coordinator/src/workspace/commands.ts",
     "40_Develop/coordinator/src/workspace/git.ts",
     "40_Develop/coordinator/src/workspace/operations.ts",
-    "40_Develop/domain-model/src/workspace/command.ts",
-    "40_Develop/domain-model/src/workspace/types.ts",
+    "40_Develop/execution-model/src/workspace/command.ts",
+    "40_Develop/execution-model/src/workspace/types.ts",
     "40_Develop/workbench-server/src/client/components/workspace-panel.tsx",
   ]);
 });
@@ -736,11 +736,11 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/git.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
-      "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
-      "40_Develop/domain-model/src/storage/ensure-area.ts",
-      "40_Develop/domain-model/src/storage/runtime-history.ts",
-      "40_Develop/domain-model/src/storage/runtime-lock.ts",
-      "40_Develop/domain-model/src/storage/runtime-store.ts",
+      "40_Develop/execution-model/src/repository/resolve-storage-paths.ts",
+      "40_Develop/execution-model/src/storage/ensure-area.ts",
+      "40_Develop/execution-model/src/storage/runtime-history.ts",
+      "40_Develop/execution-model/src/storage/runtime-lock.ts",
+      "40_Develop/execution-model/src/storage/runtime-store.ts",
       "40_Develop/executor/scripts/provider-attempt-host.ts",
       "40_Develop/executor/scripts/verify-provider-attempt.ts",
       "40_Develop/executor/scripts/verify-provider-home.ts",
@@ -758,7 +758,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
     ].sort(),
   );
   assert.deepEqual(consumers(/\bregisterRepositoryLocalIgnore\b/u), [
-    "40_Develop/domain-model/src/storage/ensure-area.ts",
+    "40_Develop/execution-model/src/storage/ensure-area.ts",
   ]);
 });
 
@@ -950,8 +950,8 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     "40_Develop/coordinator/src/state/observation.ts",
     "40_Develop/coordinator/src/task/requests.ts",
     "40_Develop/coordinator/src/workspace/git.ts",
-    "40_Develop/domain-model/src/storage/runtime-repository.ts",
-    "40_Develop/domain-model/src/storage/runtime-store.ts",
+    "40_Develop/execution-model/src/storage/runtime-repository.ts",
+    "40_Develop/execution-model/src/storage/runtime-store.ts",
     "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
   ]);
 
@@ -1016,23 +1016,23 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/git.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
-      "40_Develop/domain-model/src/configuration/read-tool-config.ts",
-      "40_Develop/domain-model/src/storage/ai-selection.ts",
-      "40_Develop/domain-model/src/project-context/read-context.ts",
-      "40_Develop/domain-model/src/repository/create-observer.ts",
-      "40_Develop/domain-model/src/repository/observe-symbols.ts",
-      "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
-      "40_Develop/domain-model/src/repository/types.ts",
-      "40_Develop/domain-model/src/state/projection-types.ts",
-      "40_Develop/domain-model/src/state/types.ts",
-      "40_Develop/domain-model/src/storage/ensure-area.ts",
-      "40_Develop/domain-model/src/storage/network-policy.ts",
-      "40_Develop/domain-model/src/storage/runtime-history.ts",
-      "40_Develop/domain-model/src/storage/runtime-lock.ts",
-      "40_Develop/domain-model/src/storage/runtime-repository.ts",
-      "40_Develop/domain-model/src/storage/runtime-store.ts",
-      "40_Develop/domain-model/src/storage/semantic-store.ts",
-      "40_Develop/domain-model/src/storage/temporary-operation.ts",
+      "40_Develop/configuration-model/src/configuration/read-tool-config.ts",
+      "40_Develop/configuration-model/src/storage/ai-selection.ts",
+      "40_Develop/document-model/src/project-context/read-context.ts",
+      "40_Develop/document-model/src/repository/create-observer.ts",
+      "40_Develop/document-model/src/repository/observe-symbols.ts",
+      "40_Develop/execution-model/src/repository/resolve-storage-paths.ts",
+      "40_Develop/execution-model/src/repository/types.ts",
+      "40_Develop/execution-model/src/state/projection-types.ts",
+      "40_Develop/execution-model/src/state/types.ts",
+      "40_Develop/execution-model/src/storage/ensure-area.ts",
+      "40_Develop/configuration-model/src/storage/network-policy.ts",
+      "40_Develop/execution-model/src/storage/runtime-history.ts",
+      "40_Develop/execution-model/src/storage/runtime-lock.ts",
+      "40_Develop/execution-model/src/storage/runtime-repository.ts",
+      "40_Develop/execution-model/src/storage/runtime-store.ts",
+      "40_Develop/document-model/src/storage/semantic-store.ts",
+      "40_Develop/execution-model/src/storage/temporary-operation.ts",
       "40_Develop/executor/scripts/provider-attempt-host.ts",
       "40_Develop/executor/scripts/verify-provider-attempt.ts",
       "40_Develop/executor/scripts/verify-provider-home.ts",

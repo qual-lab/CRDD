@@ -8,7 +8,7 @@ import {
   COORDINATOR_STATE_CONTRACT,
   inspectTaskExecutionSelections,
   type CoordinatorState,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 import { selectSchedulableProjectTasks } from "../task/scheduling.ts";
 
@@ -173,10 +173,10 @@ export function projectState(
   });
 }
 
-import type { CoordinatorProjection } from "../../../domain-model/src/index.ts";
+import type { CoordinatorProjection } from "../../../execution-model/src/index.ts";
 import {
   PROJECT_OBJECTIVE_STATES,
   PROJECT_TASK_STATES,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
-import { isCoordinatorProjectionSemanticallyValid } from "../../../domain-model/src/index.ts";
+import { isCoordinatorProjectionSemanticallyValid } from "../../../execution-model/src/index.ts";

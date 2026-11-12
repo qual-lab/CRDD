@@ -17,7 +17,7 @@ import { request as httpRequest } from "node:http";
 import path from "node:path";
 import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchServerConfiguration,

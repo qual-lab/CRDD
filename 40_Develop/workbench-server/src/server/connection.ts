@@ -10,7 +10,7 @@
  * @security Tokenを通常Model・URL・共有状態へ保存せず、鍵は専用応答だけに渡す。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
 import {
   authenticateWorkbenchConnection,
   executeCredentialAdministrationAction,

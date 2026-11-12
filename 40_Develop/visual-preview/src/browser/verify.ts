@@ -7,10 +7,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+import { prepareVerificationTemporaryArea } from "./temporary.ts";
 import {
   startVisualPreview,
   type VisualPreviewHandle,
@@ -66,11 +63,8 @@ export async function verifyBrowserZoom(
       throw new Error("visual_zoom_document_invalid");
   }
   for (const zoomFactor of request.zoomFactors) toChromiumZoomLevel(zoomFactor);
-  const temporaryArea = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      request.workingDirectory,
-      "tmp",
-    ),
+  const temporaryArea = prepareVerificationTemporaryArea(
+    request.workingDirectory,
     "visual_zoom_runtime_data_root_invalid",
   );
   const browserExecutablePath = resolveChromeExecutable(
@@ -215,11 +209,8 @@ export async function verifyLocalWebApplicationVisual(
   }
   for (const zoomFactor of request.zoomFactors) toChromiumZoomLevel(zoomFactor);
 
-  const temporaryArea = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      request.workingDirectory,
-      "tmp",
-    ),
+  const temporaryArea = prepareVerificationTemporaryArea(
+    request.workingDirectory,
     "local_web_visual_runtime_data_root_invalid",
   );
   const browserExecutablePath = resolveChromeExecutable(

@@ -18,7 +18,7 @@ import {
   testLevels,
   type TestCatalog,
   type TestLevel,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import {
   readWorkingChanges,
   resolveVerifiedRepositoryRoot,

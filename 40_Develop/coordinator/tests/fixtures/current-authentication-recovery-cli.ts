@@ -209,9 +209,9 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
       },()=>{technicalObservation={stage:'completion_rejected'};}).catch(()=>{technicalObservation={stage:'observer_failed'};});
       return execution;
     }}});
-    const storeUrl = ${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)};
+    const storeUrl = ${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)};
     const store = await import(storeUrl);
-    const model = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
+    const model = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
     storeMock = mock.module(storeUrl,{namedExports:{...store,
       writeRuntimeOwnedCoordinatorRecoveryCheckpoint:(...args)=>{
         const value=store.writeRuntimeOwnedCoordinatorRecoveryCheckpoint(...args);

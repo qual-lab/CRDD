@@ -14,11 +14,11 @@ import {
   isPrincipalId,
   type ProjectTaskRecoveryObligation,
   readCoordinatorTaskIntakeState,
-  readRepositoryAiSelection,
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
   type TaskExecutionSelections,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { readRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
   completeGroup,
   createGroup,
@@ -2295,4 +2295,4 @@ import {
   type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorWorkspaceResults,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";

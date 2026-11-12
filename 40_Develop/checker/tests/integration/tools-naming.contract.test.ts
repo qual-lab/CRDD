@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 
 import fs from "node:fs";
 
-import os from "node:os";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 
 import path from "node:path";
 
@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import {
   type RealitySymbolManifest,
   validateRealitySymbolManifest,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 
 import {
   assertExactCheckerTestPopulation,
@@ -236,23 +236,18 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
   },
   {
     relativePath: "40_Develop/coordinator/src/index.ts",
-    exportedModules: ["./api.ts", "../../domain-model/src/index.ts"],
+    exportedModules: ["./api.ts", "../../execution-model/src/index.ts"],
   },
   {
-    relativePath: "40_Develop/domain-model/src/index.ts",
+    relativePath: "40_Develop/document-model/src/index.ts",
     exportedModules: [
-      "./attempt/crud.ts",
-      "./workspace/types.ts",
-      "./workspace/validation.ts",
-      "./ai-selection/types.ts",
-      "./ai-selection/validation.ts",
       "./activity/federate-relations.ts",
       "./activity/operations.ts",
       "./activity/types.ts",
       "./artifact/anchors.ts",
+      "./artifact/architecture.ts",
       "./artifact/architecture-details.ts",
       "./artifact/architecture-relations.ts",
-      "./artifact/architecture.ts",
       "./artifact/change.ts",
       "./artifact/checklist.ts",
       "./artifact/discovery.ts",
@@ -273,32 +268,20 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./artifact/quality-state.ts",
       "./artifact/quality-templates.ts",
       "./artifact/release.ts",
+      "./artifact/spec.ts",
       "./artifact/spec-correspondence.ts",
       "./artifact/spec-details.ts",
-      "./artifact/spec.ts",
       "./artifact/types.ts",
       "./artifact/ui.ts",
+      "./artifact/ux.ts",
       "./artifact/ux-handoff.ts",
       "./artifact/ux-inputs.ts",
-      "./artifact/ux.ts",
       "./artifact/validate-schema.ts",
       "./artifact/verification-tables.ts",
-      "./configuration/network-policy.ts",
-      "./configuration/read-tool-config.ts",
-      "./configuration/storage-paths.ts",
-      "./configuration/types.ts",
-      "./configuration/validate-declarations.ts",
-      "./decision/types.ts",
-      "./identity/validation.ts",
       "./meeting/create-operations.ts",
       "./meeting/markdown.ts",
       "./meeting/types.ts",
-      "./objective/types.ts",
-      "./objective/validation.ts",
       "./outcome.ts",
-      "./plain-data/secret-validation.ts",
-      "./plain-data/snapshot.ts",
-      "./plain-data/json.ts",
       "./project-context/candidate-decision.ts",
       "./project-context/inspect.ts",
       "./project-context/parse-context.ts",
@@ -316,56 +299,76 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./reality-traceability/validate-manifest.ts",
       "./repository/create-observer.ts",
       "./repository/observe-symbols.ts",
-      "./repository/path.ts",
-      "./repository/require-storage-area.ts",
-      "./repository/resolve-storage-paths.ts",
       "./repository/types.ts",
       "./semantic/coverage.ts",
       "./semantic/ir.ts",
       "./semantic/publish.ts",
       "./semantic/relations.ts",
-      "./storage/file-snapshot.ts",
-      "./storage/ai-selection.ts",
-      "./storage/state.ts",
-      "./storage/ensure-area.ts",
-      "./storage/network-policy.ts",
-      "./storage/root-and-lock.ts",
       "./storage/semantic-store.ts",
-      "./storage/temporary-operation.ts",
-      "./storage/types.ts",
       "./test-catalog/inspect.ts",
       "./test-catalog/plan.ts",
-      "./task/types.ts",
       "./topic/create-operations.ts",
       "./topic/markdown.ts",
       "./topic/types.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/execution-model/src/index.ts",
+    exportedModules: [
+      "./task/types.ts",
+      "./task/validation.ts",
+      "./attempt/crud.ts",
       "./attempt/lease.ts",
       "./attempt/repair-types.ts",
       "./attempt/repair-validation.ts",
       "./attempt/settlement.ts",
       "./attempt/types.ts",
       "./attempt/validation.ts",
-      "./decision/crud.ts",
+      "./decision/request.ts",
+      "./decision/types.ts",
+      "./identity/validation.ts",
+      "./objective/request.ts",
+      "./objective/types.ts",
+      "./objective/validation.ts",
+      "./plain-data/secret-validation.ts",
+      "./repository/path.ts",
+      "./state/activity.ts",
       "./state/codec.ts",
       "./state/crud.ts",
       "./state/history.ts",
+      "./state/projection.ts",
+      "./state/projection-types.ts",
+      "./state/query.ts",
       "./state/transition.ts",
       "./state/types.ts",
       "./state/validation.ts",
       "./storage/runtime-repository.ts",
       "./storage/runtime-store.ts",
+      "./storage/state.ts",
+      "./storage/temporary-operation.ts",
+      "./storage/types.ts",
       "./task/crud.ts",
       "./task/queue.ts",
-      "./task/validation.ts",
-      "./workspace/crud.ts",
-      "./state/projection-types.ts",
-      "./state/query.ts",
-      "./state/projection.ts",
-      "./state/activity.ts",
-      "./objective/request.ts",
-      "./decision/request.ts",
-      "./workspace/result.ts",
       "./workspace/command.ts",
+      "./workspace/crud.ts",
+      "./workspace/result.ts",
+      "./workspace/types.ts",
+      "./workspace/validation.ts",
+      "./storage/runtime-result.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/configuration-model/src/index.ts",
+    exportedModules: [
+      "./ai-selection/validation.ts",
+      "./storage/ai-selection.ts",
+      "./storage/network-policy.ts",
+      "./configuration/read-tool-config.ts",
+      "./configuration/validate-declarations.ts",
+      "./configuration/storage-paths.ts",
+      "./ai-selection/types.ts",
+      "./configuration/network-policy.ts",
+      "./configuration/types.ts",
     ],
   },
   {
@@ -618,15 +621,16 @@ function collectFiles(root: string): string[] {
  * @cleanup N/A: Repository Sourceを読取り専用で観測する。
  * @boundary RCM-IT-013=Direct Boundary: checker Test Source→対象契約
  */
-test("CRDD Domain LibraryはCheckerとCLIへ逆依存しない", () => {
-  const domainSourceRoot = path.join(
-    repositoryRoot,
-    "40_Develop",
-    "domain-model",
-    "src",
+test("3モデルはCheckerとCLIへ逆依存しない", () => {
+  const modelSources = [
+    "document-model",
+    "execution-model",
+    "configuration-model",
+  ].flatMap((owner) =>
+    collectFiles(path.join(repositoryRoot, "40_Develop", owner, "src")),
   );
   const forbiddenDependencies: string[] = [];
-  for (const file of collectFiles(domainSourceRoot).filter((candidate) =>
+  for (const file of modelSources.filter((candidate) =>
     candidate.endsWith(".ts"),
   )) {
     const source = fs.readFileSync(file, "utf8");
@@ -1020,9 +1024,10 @@ test("各Tool packageの再生成可能な依存DirectoryをGit対象から除�
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
 test("Checker試験の実行集合はnested配置を含む所有集合と完全一致する", () => {
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-checker-test-discovery-"),
+  const ownedDirectory = createRepositoryTestDirectory(
+    "checker-test-discovery-",
   );
+  const temporaryRoot = ownedDirectory.path;
   try {
     const nestedRoot = path.join(temporaryRoot, "nested-subject");
     const dependencyRoot = path.join(temporaryRoot, "node_modules");
@@ -1110,7 +1115,7 @@ test("Checker試験の実行集合はnested配置を含む所有集合と完全�
       /Unsupported Checker test entry/u,
     );
   } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    ownedDirectory.cleanup();
   }
 });
 

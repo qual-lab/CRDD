@@ -11,7 +11,7 @@ import path from "node:path";
 import {
   parseMarkdownAnchors,
   parseMarkdownLinkReference,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import {
   getRepository,
   readCommitFile,

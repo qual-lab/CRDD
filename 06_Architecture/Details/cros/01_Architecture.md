@@ -102,8 +102,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 担当責任者: Qual-Lab
 最終更新日: 2026-10-07
 関連:
-- [Project Operation Context](../domain-model/02_Activity_Context.md)
-- [Runtime Dataの目標Architecture](../domain-model/03_Repository_Storage.md)
+- [Project Operation Context](../document-model/02_Activity_Context.md)
+- [Runtime Dataの目標Architecture](../execution-model/03_Repository_Storage.md)
 - [MCP Architecture](../mcp-server/01_Architecture.md)
 - [v0.22 Roadmap](../../../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)
 

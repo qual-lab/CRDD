@@ -13,8 +13,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
-import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
-import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
+import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
+import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
 
 import {

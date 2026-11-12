@@ -1,5 +1,11 @@
 # 管理APIと現在状態の保存設計
 
+## 3モデル分離への接続 — 2026-11-12
+
+Store Rootとその型はAM正本とし、既存初期化・保存・共通Lockの接続を自Ownerへ閉じる。構成モデルの私有Rootへ既存AM能力を流用せず、物理Lock Path・Hash namespace・Owner／Generation・失敗／回復情報を変えない。Model分離のための汎用Factory再公開や新しい管理認可は追加しない。
+
+移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
 状態: Candidate（Schema・保存・初回確認・Host／Workbench鍵操作・MCP非鍵管理の候補Source接続と局所確認済み。固定候補の最終回帰・独立確認は進行中。実Host ST／人間UAT・実状態移行・正式191項目の全体評価は未完了）
@@ -255,7 +261,7 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 ## 4. 物理保存の比較と未決条件
 
-[既存Host管理Root](../domain-model/03_Repository_Storage.md#6-crosとの物理分離)を維持する。Package改名で`qual-lab/cros/<trust-domain-id>`を改名せず、秘密をRepositoryへ移さない。
+[既存Host管理Root](../execution-model/03_Repository_Storage.md#6-crosとの物理分離)を維持する。Package改名で`qual-lab/cros/<trust-domain-id>`を改名せず、秘密をRepositoryへ移さない。
 
 | 候補 | 長所 | 弱点・処置 |
 |---|---|---|

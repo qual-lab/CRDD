@@ -3,7 +3,7 @@
  * @responsibility 既存の診断shape・code・文言・必要値検査を所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../domain-model/src/index.ts";
+import type { DomainIssue } from "../../../document-model/src/index.ts";
 import type { DocumentFinding } from "./types.ts";
 /**
  * 共通文書Issueを既存の公開診断へ変換する。

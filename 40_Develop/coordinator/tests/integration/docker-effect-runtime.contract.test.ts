@@ -12,9 +12,11 @@ import { planDockerIsolationCommands } from "../../../docker-isolation/tests/sup
 import {
   parseHostRecoveryToken,
   hashExecutionSelection,
+} from "../../../execution-model/src/index.ts";
+import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+} from "../../src/configuration/runtime-data.ts";
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import assert from "node:assert/strict";
 import {

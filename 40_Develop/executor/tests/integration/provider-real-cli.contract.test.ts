@@ -16,8 +16,8 @@ import { randomBytes, createHash } from "node:crypto";
 import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { compileFunction } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import type { CoordinatorResourceBook } from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import type { CoordinatorResourceBook } from "../../../execution-model/src/index.ts";
 
 /**
  * 検証結果ReaderはTool開始件数を量で欠測化しない。
@@ -82,7 +82,7 @@ test("単段検証結果Readerは旧4,096件上限を再適用しない", () => 
 
 /** 合成Receiptを実Domainイベントへ通し、保存Reader試験に使う同じBook列を作る。 @trace ERB-IT-004 */
 function createResourceRecords(
-  domain: typeof import("../../../domain-model/src/index.ts"),
+  domain: typeof import("../../../execution-model/src/index.ts"),
   resources: readonly {
     purpose: string;
     plannedResourceName: string;
@@ -307,10 +307,8 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
   assert.equal(child.error, undefined);
   assert.equal(child.signal, null);
   assert.equal(child.status, 0, child.stderr);
-  const domainEntry = new URL(
-    "../../../domain-model/src/index.ts",
-    import.meta.url,
-  ).href;
+  const domainEntry = new URL("../../scripts/runtime-data.ts", import.meta.url)
+    .href;
   for (const absent of [false, true]) {
     const blocked = spawnSync(
       process.execPath,
@@ -391,7 +389,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
     const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
     const platform=await import(${JSON.stringify(url("../../scripts/provider-home.ts"))});
-    const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
+    const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
     const createResourceRecords = ${createResourceRecords.toString()};
     let fixture=null,live=false,releases=0;
     process.env.LOCALAPPDATA='C:/fixture'.replaceAll('/',String.fromCharCode(92));
@@ -548,7 +546,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
         "-e",
         `
     import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash,randomUUID} from 'node:crypto';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {mock} from 'node:test';
-    const platform=await import(${JSON.stringify(url("../../scripts/provider-home.ts"))});const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
+    const platform=await import(${JSON.stringify(url("../../scripts/provider-home.ts"))});const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
     const report=await import(${JSON.stringify(url("../../scripts/report.ts"))});
     const awaitTaskApi=await import(${JSON.stringify(url("../support/task-trial.ts"))});
     const createResourceRecords = ${createResourceRecords.toString()};

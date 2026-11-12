@@ -5,7 +5,7 @@
  * @trace ARCH-000013
  */
 
-import type { RepositoryManifest } from "../../../domain-model/src/index.ts";
+import type { RepositoryManifest } from "../../../configuration-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 
 /**

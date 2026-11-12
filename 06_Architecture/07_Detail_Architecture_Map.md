@@ -1,5 +1,9 @@
 # Architecture詳細設計の対応表
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 2026-10-19にartifact-signing／official-asset-governanceの実装Packageを廃止した。以下の同名領域はSupersededな比較設計への参照であり、現行Packageの存在や実装完成を示さない。ARCH-IDとのRelationは旧設計の所在を失わないため保持する。
 
 [Workspace横断契約](Details/coordinator/05_Workspace.md)はCoordinator詳細へ配置する。既存ARCH-000004／008／009／011／012／013／015の担当断面を接続し、独立Subsystemや新ARCH-IDは作らない。Git技術・Domain・認可・隔離の意味は各Ownerへ維持する。新方式のRelationは設計接続でありSource／検証完了を示さない。
@@ -40,7 +44,9 @@ Quality／Development
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000008、ARCH-000010、ARCH-000012、ARCH-000014、ARCH-000015 | 共通DomainとExecutorを使う任意の横断調停。[Task設計](Details/coordinator/03_Task_Architecture.md)・[状態詳細](Details/coordinator/04_Task_Detailed_Design.md)・[Workspace](Details/coordinator/05_Workspace.md)を所有する。Domain定義・共通Writer・単一試行を重複所有しない | Candidate／Source接続済み。検証範囲は移管記録を参照 |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
-| [domain-model](Details/domain-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000004、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Domainの共通意味・局所CRUD・投影・保存。[Runtime Domain](Details/domain-model/05_Runtime_Domain.md)が定義・管理実行記録の分離、API入出力、単一CASを所有する。Scheduling・技術実行・Gitは所有しない | Candidate／Core Source接続済み。実データ移行・全体品質は別評価 |
+| [document-model](Details/document-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000013、ARCH-000016 | 文書・成果物・Topic／Meeting・Context・Semanticと文書保存。他モデルの型・実装へ直接依存しない | 移管追従中。限定確認と全体品質は区別 |
+| [execution-model](Details/execution-model/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000008、ARCH-000009、ARCH-000011 | 実行定義・State／History・判断・回復記録・単一CAS。設定Readerと技術実行は所有しない | 移管追従中。保存Identityは不変更 |
+| [configuration-model](Details/configuration-model/01_Architecture.md) | ARCH-000004、ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | 設定・宣言と設定自身の保存。Model共通HelperやRuntime領域の配布口にしない | 移管追従中。独立回帰・全体品質は別評価 |
 | [cros（旧比較資料）](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 旧Packageは撤去済み。認証・認可はAccess Management、ContextはDomain、活動・Profileは専門Ownerが所有する。旧本文のCoveredを新版へ流用しない | Historical Comparison／全体検証は未完了 |
 | [docker-isolation](Details/docker-isolation/01_Architecture.md) | ARCH-000004、ARCH-000008 | 許可済みDocker／Processの隔離、実資源Lifecycle、失敗・回復・清掃後観測。新Workspace方式の実境界はOPEN | Candidate／Partial |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | Execution／Groupの記録・検索・集計。現EIの評価候補・Revision鮮度分類は退役し、上位義務への部分対応・未実装を詳細設計で明示 | Canonical |
@@ -48,9 +54,9 @@ Quality／Development
 | [mcp-server](Details/mcp-server/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | MCP ServerとしてMachine向け公開Transportを所有し、Orchestrator／Domain Model／CROSの公開契約へ接続する。Shared Host全体や受入判断Authorityは所有しない | Candidate |
 | [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Superseded |
 | [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011、ARCH-000014 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Canonical |
-| [活動Context（domain-model）](./Details/domain-model/02_Activity_Context.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Domain Modelが実装する活動Contextの意味・状態・正本保存と現在投影。受入判断書込みは所有しない | Candidate |
+| [活動Context（document-model）](./Details/document-model/02_Activity_Context.md) | ARCH-000005、ARCH-000006、ARCH-000016 | 文書モデルが活動Contextの意味・状態・正本保存と現在投影を所有する。実行受入判断は別Owner | Candidate |
 | [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
-| [Repository保存（domain-model）](./Details/domain-model/03_Repository_Storage.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
+| [Repository保存](./Details/execution-model/03_Repository_Storage.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | 各保存Ownerの配置・保持・実体・清掃。現在のModel境界は新3Ownerの01を正本とする | 既存契約維持、Owner移管の限定確認中 |
 | [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | 廃止方式の比較設計 |
 | [semantic-coverage](Details/semantic-coverage/01_Architecture.md) | ARCH-000008 | Domain Modelによる意味・関係・Coverage・保存とCheckerによる起動・診断。独立Packageではない | Canonical |
 | [verification-runner](Details/verification-runner/01_Architecture.md) | ARCH-000003 | DomainのTest Catalog・回帰選択・計画／結果モデルとCheckerの検査入口。旧一括実行を廃止 | Canonical |
@@ -63,22 +69,22 @@ Quality／Development
 
 | Architecture定義 | 基本設計 | 接続する詳細設計領域 |
 |---|---|---|
-| ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker、domain-model |
-| ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | checker、contract-migration、domain-model、version-control |
+| ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker、document-model |
+| ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | checker、contract-migration、document-model、version-control |
 | ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control、verification-runner、visual-preview |
-| ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | ai-adapter、coordinator、domain-model、docker-isolation、platform-access、lock |
-| ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | coordinator、cros、domain-model、mcp-server、workbench-server |
-| ARCH-000006 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | cros、domain-model、workbench-server、lock |
+| ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | ai-adapter、coordinator、execution-model、configuration-model、docker-isolation、platform-access、lock |
+| ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | coordinator、cros、document-model、execution-model、mcp-server、workbench-server |
+| ARCH-000006 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | cros、document-model、workbench-server、lock |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | coordinator、execution-intelligence |
-| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、docker-isolation、domain-model、executor、platform-access、semantic-coverage、lock |
-| ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | cros、domain-model、version-control、workbench-server |
+| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、docker-isolation、document-model、execution-model、executor、platform-access、semantic-coverage、lock |
+| ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | cros、document-model、execution-model、configuration-model、version-control、workbench-server |
 | ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | ai-adapter、coordinator、cros、workbench-server |
-| ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | domain-model、platform-access、lock |
+| ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | execution-model、configuration-model、platform-access、lock |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | coordinator、mcp-server、workbench-server |
-| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management、cros、domain-model、mcp-server、workbench-server、lock |
+| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management、cros、document-model、configuration-model、mcp-server、workbench-server、lock |
 | ARCH-000014 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | artifact-signing、coordinator、platform-access、runtime-trust、version-control |
 | ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | ai-adapter、coordinator、cros、executor、mcp-server、workbench-server |
-| ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | cros、domain-model、execution-intelligence、version-control、workbench-server |
+| ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | cros、document-model、execution-model、configuration-model、execution-intelligence、version-control、workbench-server |
 | ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | official-asset-governance、workbench-server |
 | ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence、lock |
 

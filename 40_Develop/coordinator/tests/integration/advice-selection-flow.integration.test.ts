@@ -21,7 +21,7 @@ import { selectionConfig } from "../fixtures/ai-selection.ts";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
 import { resolveExecutionSelection } from "../../src/selection/resolve.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../src/execution/advice.ts";
@@ -84,7 +84,7 @@ if (scenario === "missing") fs.unlinkSync(target);
 if (scenario === "link") { fs.renameSync(target, path.join(fixture, "context.md")); fs.symlinkSync(path.join(fixture,"context.md"), target, "file"); }
 const controller = new AbortController();
 let reads = 0, calls = 0;
-const domainUrl = ${JSON.stringify(moduleUrl("40_Develop/domain-model/src/index.ts"))};
+const domainUrl = ${JSON.stringify(moduleUrl("40_Develop/execution-model/src/index.ts"))};
 const domain = await import(domainUrl);
 mock.module(domainUrl, { namedExports: { ...domain, createFilesystemRepositoryObservationPort: (...args) => {
   const observer = domain.createFilesystemRepositoryObservationPort(...args);

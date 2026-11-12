@@ -791,9 +791,9 @@ export async function simulateAuthCreateClosure(
   const loads: string[] = [];
   const expectedLoads = [
     moduleUrl("../../../version-control/src/index.ts"),
-    moduleUrl("../../../domain-model/src/index.ts"),
+    moduleUrl("../../src/configuration/runtime-data.ts"),
     recoveryUrl,
-    moduleUrl("../../../domain-model/src/index.ts"),
+    moduleUrl("../../../execution-model/src/index.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("./recovery-resource-expectations.ts"),
     moduleUrl("../../src/execution/recovery.ts?auth-create-parent"),
@@ -1165,7 +1165,7 @@ export async function simulateAuthCreateClosure(
                 return { status: "blocked" };
             }
             const writer = mocks.get(
-              moduleUrl("../../../domain-model/src/index.ts"),
+              moduleUrl("../../../execution-model/src/index.ts"),
             )?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
               ...args: unknown[]
             ) => {
@@ -1325,7 +1325,7 @@ export async function simulateAuthCreateClosure(
           recoveryUrl,
           restartUrl,
           lifecycleUrl,
-          moduleUrl("../../../domain-model/src/index.ts"),
+          moduleUrl("../../../execution-model/src/index.ts"),
         ].includes(url),
       );
       assert.equal(mocks.has(url), false);

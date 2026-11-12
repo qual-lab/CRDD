@@ -28,11 +28,8 @@ import {
   getBillingPolicy,
 } from "../../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
-import {
-  parseHostRecoveryToken,
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import {
   type CompletionResult,
   cleanupResources,

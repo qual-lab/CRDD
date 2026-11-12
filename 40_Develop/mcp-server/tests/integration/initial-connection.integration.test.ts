@@ -22,7 +22,7 @@ import {
   initializeAccessManagementState,
 } from "../../../access-management/src/initialization/execution.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import {
   createAccessMcpResolver,
   MCP_COORDINATOR_PROTOCOL_VERSION,

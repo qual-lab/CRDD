@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 3モデル分離への接続 — 2026-11-12
+
+Coordinatorは文書・実行・構成モデルを必要な操作に応じて別々に利用する。ConfigとADの結果を実行OwnerのExecutionSelectionへ投影し、文書ReaderへManifestの3期待Identityだけを渡す。保持設定は履歴を消費する操作・枝だけ搬送し、元の確認位置で期待日数付き既存revalidateを呼ぶ。通常Query／非履歴Recoveryへ設定拒否を広げない。Lease／EI領域・保護Mount等の固定準備は既存Coordinator内へ閉じ、全Path集合や旧汎用ensureの公開に依存しない。
+
+移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
+
 ## 内部要求・助言投影・診断取得量の残存制限撤去 — 2026-11-12
 
 単発Taskの内部公開要求はPrompt32,000文字とAllowedPath1,024件で拒否しない。完成Adviceの四区分について、各100項目・本文32,000文字・100参照・各512文字の後段上限を撤去し、元の全量を捕捉する。助言準備も入力16KiB、投影64項目・各64KiB・合計256KiB、生成Provider Prompt512KiB、参照512byteを制約にしない。対応する契約説明から最大量fieldを撤去する。Prompt・参照・Hash・選定・Secret検査、一回消費とEffect前通知は維持する。
@@ -203,11 +209,11 @@ ExecutorはProvider一段、Coordinatorは複数段の順序・取消・終了�
 
 ## Core独立後の目標責務 — 2026-10-27
 
-2026-10-28の公開入口分離では、Objective／Decision／状態照会／Workspaceの純粋な入力・結果検査と観測型をDomainへ実体移管した。[移管先の一覧](../domain-model/05_Runtime_Domain.md#2-共通入力返却値)を参照する。Coordinator Rootの同名公開は同じDomain宣言の再公開であり、検査実装を二重保持しない。`state/projection.ts`には投影生成とSchedulerへの接続だけを残し、実行判断をDomainへ移さない。続く[Executor分離](../executor/01_Architecture.md)では単段準備・Process制御・結果正規化・観測Mapを実体移管し、`execution/provider-executor.ts`で同じ一つの本番Runtimeへ接続する。Task順序・Workspace・共通Host清掃と保存はCoordinatorに残す。実AI／Docker境界の検証完了とは区別する。
+2026-10-28の公開入口分離では、Objective／Decision／状態照会／Workspaceの純粋な入力・結果検査と観測型をDomainへ実体移管した。[移管先の一覧](../execution-model/05_Runtime_Domain.md#2-共通入力返却値)を参照する。Coordinator Rootの同名公開は同じDomain宣言の再公開であり、検査実装を二重保持しない。`state/projection.ts`には投影生成とSchedulerへの接続だけを残し、実行判断をDomainへ移さない。続く[Executor分離](../executor/01_Architecture.md)では単段準備・Process制御・結果正規化・観測Mapを実体移管し、`execution/provider-executor.ts`で同じ一つの本番Runtimeへ接続する。Task順序・Workspace・共通Host清掃と保存はCoordinatorに残す。実AI／Docker境界の検証完了とは区別する。
 
-CoordinatorはCallerが計画・分解した小・中規模Taskを実行・調整する。CRDD文書群のMilestone／Roadmap／WBSを自律管理するOwnerではない。[既存Objective／Milestoneの用途](../domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を維持し、実行状態と文書を自動同期しない。文書処理もCallerから明示Taskとして受ける。
+CoordinatorはCallerが計画・分解した小・中規模Taskを実行・調整する。CRDD文書群のMilestone／Roadmap／WBSを自律管理するOwnerではない。[既存Objective／Milestoneの用途](../execution-model/05_Runtime_Domain.md#document-and-execution-ownership)を維持し、実行状態と文書を自動同期しない。文書処理もCallerから明示Taskとして受ける。
 
-[Runtime Domain契約](../domain-model/05_Runtime_Domain.md)に定義・局所CRUD・共通保存を移し、Coordinatorは任意の横断調停Ownerとする。単一試行の真正証拠・取消・終了はExecutor Library、技術処置は既存DI／PAへ接続する。旧単一Coordinatorの記述は移管前の比較基準であり、現在の成立範囲は[移管・検証記録](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)で確認する。真正Mapと五Contextの対応を保持し、非AI確認を実Provider／実Docker境界の完成へ流用しない。
+[Runtime Domain契約](../execution-model/05_Runtime_Domain.md)に定義・局所CRUD・共通保存を移し、Coordinatorは任意の横断調停Ownerとする。単一試行の真正証拠・取消・終了はExecutor Library、技術処置は既存DI／PAへ接続する。旧単一Coordinatorの記述は移管前の比較基準であり、現在の成立範囲は[移管・検証記録](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)で確認する。真正Mapと五Contextの対応を保持し、非AI確認を実Provider／実Docker境界の完成へ流用しない。
 
 ## 認証確認の失敗診断
 
@@ -1788,7 +1794,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 ### 現在状態と履歴を分ける縮小設計
 
-共通保存の物理OwnerはDomain Modelであり、現在の配置は、検証したRepository Root直下の`.crdd/domain-model/`にある`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`、`history.pending.jsonl`である。配置の共通責務は[Runtime Data](../domain-model/03_Repository_Storage.md#compact-owner-layout)、単一保存の契約は[Task詳細設計](04_Task_Detailed_Design.md#compact-runtime-storage)を正本とする。旧形式は移行元であり並行運用しない。Source接続と、固定全回帰・実境界の成立確認は区別する。
+共通保存の物理OwnerはDomain Modelであり、現在の配置は、検証したRepository Root直下の`.crdd/domain-model/`にある`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`、`history.pending.jsonl`である。配置の共通責務は[Runtime Data](../execution-model/03_Repository_Storage.md#compact-owner-layout)、単一保存の契約は[Task詳細設計](04_Task_Detailed_Design.md#compact-runtime-storage)を正本とする。旧形式は移行元であり並行運用しない。Source接続と、固定全回帰・実境界の成立確認は区別する。
 
 | 情報 | 所有・終了条件 |
 |---|---|

@@ -16,13 +16,16 @@ import {
   RepositoryRuntimeDataAreaBlockedError,
   readDecision,
   requestDecision,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import {
+  verifyRuntimePersistenceRepository,
+  historyRepositoryInput,
+} from "../execution/persistence.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 
@@ -140,13 +143,17 @@ export function executeCoordinatorPublicDecision(
         })),
         requestedAt,
       };
-      result = requestDecision(repository, binding, request);
+      result = requestDecision(
+        historyRepositoryInput(repository),
+        binding,
+        request,
+      );
     } else {
       if (!existing)
         return blocked("orchestrator_decision_not_observed", input.decisionId);
       if (input.operation === "answer")
         result = answerDecision(
-          repository,
+          historyRepositoryInput(repository),
           binding,
           input.decisionId,
           {
@@ -159,10 +166,15 @@ export function executeCoordinatorPublicDecision(
           existing,
         );
       else if (input.operation === "apply")
-        result = applyDecision(repository, binding, input.decisionId, existing);
+        result = applyDecision(
+          historyRepositoryInput(repository),
+          binding,
+          input.decisionId,
+          existing,
+        );
       else
         result = closeDecision(
-          repository,
+          historyRepositoryInput(repository),
           binding,
           input.decisionId,
           input.status,

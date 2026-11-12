@@ -19,7 +19,7 @@ import type { PreparationInput } from "../../../src/execution/types.ts";
 import test from "node:test";
 import fs from "node:fs";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
 import {
   beginRuntimeProcessEffectDrain,
@@ -27,7 +27,7 @@ import {
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../../../src/execution/process-safety-state.ts";
 
-import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import {

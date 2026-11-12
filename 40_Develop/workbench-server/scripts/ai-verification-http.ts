@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../src/server/request/parse-json.ts";
 import type {
   WorkbenchAiRequestCommand,
   WorkbenchAiRequests,

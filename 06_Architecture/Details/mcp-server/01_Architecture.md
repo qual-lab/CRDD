@@ -1,5 +1,11 @@
 # MCP Transportアーキテクチャ
 
+## 3モデル分離への接続 — 2026-11-12
+
+MCPはdocument-model／execution-model／configuration-modelを各操作のOwnerとして個別利用し、Model間のFacadeを設けない。AM RootはAM正本型を参照し、文書の期待値は3Identityへ投影する。JSON重複Key・閉Schema・Getter／Proxy拒否は既存Transport／入力処理へ局所化し、設定不正を非履歴Query／Recovery全体の停止へ広げない。
+
+移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
+
 ## 回復結果の集合搬送 — 2026-11-12
 
 Coordinatorの正常な回復ID／義務の集合は、公開結果の捕捉で独自128件上限を設けず全件返す。個々のID形式、義務種別、未知field・Getter／Proxy拒否、一意性、両集合のexact対応と結果のCleanup／Effect相関は維持する。これは結果DTOの件数拒否の撤去であり、MCP受信量・Tool要求Schema・認証／認可の拡大ではない。
@@ -22,7 +28,7 @@ Package Rootと各公開Tool ModuleはCore構成だけでCoordinator／Executor�
 
 ## Core API接続の目標 — 2026-10-27
 
-[Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へ直接接続する。Coreの定義CRUD・QueryはCoordinatorをloadせず提供し、管理実行は明示導入時だけ既存実行Ownerへ接続する。現在認証・対象認可を検証済みRootと区別し、Host専用ContextをMCP入力から再構成しない。2026-10-27時点ではSourceと通信契約の追従・独立起動試験は未実施だった。現在の限定接続・検証は上節を参照し、保存先変更・Executor分離・実AI境界の成立とは区別する。
+[Domain API入出力](../execution-model/05_Runtime_Domain.md#runtime-domain-api)へ直接接続する。Coreの定義CRUD・QueryはCoordinatorをloadせず提供し、管理実行は明示導入時だけ既存実行Ownerへ接続する。現在認証・対象認可を検証済みRootと区別し、Host専用ContextをMCP入力から再構成しない。2026-10-27時点ではSourceと通信契約の追従・独立起動試験は未実施だった。現在の限定接続・検証は上節を参照し、保存先変更・Executor分離・実AI境界の成立とは区別する。
 
 ## 公式SDK移行の実装境界 — 2026-10-20
 

@@ -8,11 +8,13 @@
 import { isAbsolute } from "node:path";
 import {
   createFilesystemRepositoryObservationPort,
-  type FilesystemStoreRoot,
-  inspectRepositoryManifest,
   parseRepositoryProjectContextMarkdown,
+} from "../../../document-model/src/index.ts";
+import {
+  inspectRepositoryManifest,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../../domain-model/src/index.ts";
+} from "../../../configuration-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,

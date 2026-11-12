@@ -33,7 +33,7 @@ import { createCredentialMaterial } from "../../../access-management/src/credent
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import { observeLocalListener } from "../../../visual-preview/src/index.ts";

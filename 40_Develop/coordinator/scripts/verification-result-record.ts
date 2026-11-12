@@ -10,11 +10,11 @@ import path from "node:path";
 import { types } from "node:util";
 import {
   ensureRepositoryRuntimeDataArea,
-  RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-  snapshotPlainArray,
   TESTS_RELATIVE_PATH,
-} from "../../domain-model/src/index.ts";
+} from "../src/configuration/runtime-data.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../execution-model/src/index.ts";
+import { snapshotPlainArray } from "../src/input/snapshot.ts";
 import {
   getRepository,
   readRepositorySnapshot,

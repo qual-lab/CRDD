@@ -12,7 +12,7 @@ import {
   type CallToolResult,
   type ListToolsResult,
 } from "@modelcontextprotocol/server";
-import type { TopicMeetingAccess } from "../../../domain-model/src/index.ts";
+import type { TopicMeetingAccess } from "../../../document-model/src/index.ts";
 import {
   getMcpRuntimeToolDefinitions,
   handleMcpRuntimeRequest,

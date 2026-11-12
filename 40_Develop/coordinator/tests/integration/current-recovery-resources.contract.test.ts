@@ -18,7 +18,7 @@ import { runInNewContext } from "node:vm";
 import {
   snapshotRuntimeStateRecord,
   applyCoordinatorResourceEvent,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { createRecoveryFixture } from "../support/recovery.ts";
 
 const source = fs.readFileSync(
@@ -178,6 +178,11 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
         Buffer,
         Object,
         JSON,
+        historyRepositoryInput: (input: unknown) => ({
+          root: input,
+          historyRetentionDays: 30,
+          revalidate: () => true,
+        }),
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
         encodeRuntimeStateValue: JSON.stringify,
         verifyHostOperationRecoveryGeneration() {
@@ -244,7 +249,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
           receivedRoot: unknown,
           receivedId: string,
         ) {
-          assert.equal(receivedRoot, root);
+          assert.equal((receivedRoot as { root: unknown }).root, root);
           assert.equal(receivedId, record.recoveryId);
           historyReads++;
           if (scenario === "history_throw")
@@ -679,6 +684,10 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
     const complete = runInNewContext(
       `${historyBody}; completeRuntimeOwnedDockerTaskRecoveryHistory`,
       {
+        withHistoryRetention: (repository: object) => ({
+          ...repository,
+          historyRetentionDays: 30,
+        }),
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
         observeHostRecoveryCleanup(token: string, root: string) {
           assert.equal(token, "token");
@@ -695,7 +704,10 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
         ) {
           calls++;
           borrowed.push(owner);
-          assert.equal(repository, record.repository);
+          assert.deepEqual(repository, {
+            ...record.repository,
+            historyRetentionDays: 30,
+          });
           assert.equal(recoveryId, "exact");
           if (scenario === "second_throw" && calls === 2)
             throw new Error("synthetic");

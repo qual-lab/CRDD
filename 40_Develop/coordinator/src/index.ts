@@ -69,4 +69,4 @@ export {
   type CoordinatorDecisionRequest,
   type CoordinatorStateQuery,
   type CoordinatorStateQueryResult,
-} from "../../domain-model/src/index.ts";
+} from "../../execution-model/src/index.ts";

@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectCoordinatorDecisionRequest } from "../../../../domain-model/src/index.ts";
+import { inspectCoordinatorDecisionRequest } from "../../../../execution-model/src/index.ts";
 
 /**
  * 四操作の入力と旧field拒否を確認する。

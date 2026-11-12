@@ -18,9 +18,9 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  hashExecutionSelection,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+} from "../../src/configuration/runtime-data.ts";
+import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -66,7 +66,7 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
   const sample = fs.lstatSync(import.meta.dirname, { bigint: true });
   for (const [sourcePath, names] of [
     ["../../../version-control/src/repository/layout.ts", ["identity"]],
-    ["../../../domain-model/src/storage/file-snapshot.ts", ["identity"]],
+    ["../../../configuration-model/src/storage/file-snapshot.ts", ["identity"]],
     [
       "../../src/execution/operation.ts",
       ["readFilesystemIdentity", "readFileIdentity", "readOpenFileIdentity"],

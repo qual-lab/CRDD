@@ -28,7 +28,7 @@ import {
   createMeetingOperations,
   createTopicOperations,
   type TopicMeetingAccess,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   getMcpTopicMeetingToolDefinitions,

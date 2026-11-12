@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 
-import type { ProjectTaskRecoveryKind } from "../../../domain-model/src/index.ts";
+import type { ProjectTaskRecoveryKind } from "../../../execution-model/src/index.ts";
 
 import type {
   COORDINATOR_EXECUTION_CONTRACT,
@@ -433,4 +433,4 @@ export type CoordinatorProcessSafetyPort = Readonly<{
   poisonAfterCleanupUnknown: () => void;
 }>;
 
-import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";

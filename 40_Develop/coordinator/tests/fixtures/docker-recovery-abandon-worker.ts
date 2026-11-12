@@ -27,7 +27,7 @@ import {
   type CoordinatorStateOperation,
   type CoordinatorStateTaskOperation,
   encodeRuntimeStateValue,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
 import { executionSelection } from "./ai-selection.ts";
 
@@ -187,7 +187,7 @@ function captureFixtureLocks() {
 }
 
 if (mode !== "recovery") {
-  const domain = await import("../../../domain-model/src/index.ts");
+  const domain = await import("../../../execution-model/src/index.ts");
   const host = await import("../../src/execution/operation.ts");
   const repository = await import("../../src/execution/operation.ts");
   const store = {
@@ -196,8 +196,9 @@ if (mode !== "recovery") {
   };
   const homes = await import("../../src/execution/authority.ts");
   const locks = await import("../../src/execution/kernel-lock.ts");
-  const area = domain.requireReadyRepositoryRuntimeDataArea(
-    domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
+  const areas = await import("../../src/configuration/runtime-data.ts");
+  const area = areas.requireReadyRepositoryRuntimeDataArea(
+    areas.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
     "abandon_fixture",
   );
   const owned = host.createOwnedOperationDirectories(area.directory);
@@ -242,8 +243,8 @@ if (mode !== "recovery") {
       pendingDeliveries: [],
     })}\n`,
   );
-  const snapshotArea = domain.requireReadyRepositoryRuntimeDataArea(
-    domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const snapshotArea = areas.requireReadyRepositoryRuntimeDataArea(
+    areas.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       root,
       "domain-model",
     ),
@@ -1446,7 +1447,7 @@ if (mode !== "recovery") {
     assert.deepEqual(violations, [...originals.keys()]);
     violations.splice(0);
     if (admissionVerification === "verify_admission") {
-      const actualStore = await import("../../../domain-model/src/index.ts");
+      const actualStore = await import("../../../execution-model/src/index.ts");
       const actualHost = await import("../../src/execution/operation.ts");
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
@@ -1466,7 +1467,7 @@ if (mode !== "recovery") {
         "settleRuntimeOwnedCoordinatorResult",
       ] as const;
       admissionStoreMock = mock.module(
-        new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualStore,
@@ -1529,7 +1530,7 @@ if (mode !== "recovery") {
       );
     }
     if (interruption !== undefined && interruption !== "none") {
-      const actualStore = await import("../../../domain-model/src/index.ts");
+      const actualStore = await import("../../../execution-model/src/index.ts");
       const actualHost = await import("../../src/execution/operation.ts");
       recoveryHostMock = mock.module(
         new URL("../../src/execution/operation.ts", import.meta.url).href,
@@ -1550,7 +1551,7 @@ if (mode !== "recovery") {
         },
       );
       recoveryStoreMock = mock.module(
-        new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualStore,
@@ -1677,7 +1678,7 @@ if (mode !== "recovery") {
       ).href
     );
     if (admissionVerification === "verify_admission") {
-      const model = await import("../../../domain-model/src/index.ts");
+      const model = await import("../../../execution-model/src/index.ts");
       const baselineBytes = fs.readFileSync(statePath);
       const baselineFiles = captureCoordinatorFiles();
       const pendingPath = path.join(

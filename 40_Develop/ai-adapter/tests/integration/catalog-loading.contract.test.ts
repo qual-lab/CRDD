@@ -271,7 +271,7 @@ test("公開RootはDomain Modelを解決できなくても利用できる", () =
     path.join(repositoryRoot, "40_Develop/ai-adapter/src/index.ts"),
   ).href;
   const source = `import { registerHooks } from 'node:module';
-    registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/domain-model/'))throw Error('domain_forbidden');return r;}});
+    registerHooks({resolve(s,c,next){const r=next(s,c);if(['domain-model','document-model','execution-model','configuration-model'].some(name=>r.url.includes('/'+name+'/')))throw Error('domain_forbidden');return r;}});
     const api=await import(${JSON.stringify(entry)});
     if(api.getModelCatalog().catalog.models.length===0)throw Error('catalog_empty');
     console.log('DOMAIN_FREE');`;
@@ -299,7 +299,7 @@ test("公開RootはDomain Modelを解決できなくても利用できる", () =
  */
 test("Domain保存契約はAI Adapterを解決せず同じ拒否理由を保持する", async () => {
   const entry = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/domain-model/src/index.ts"),
+    path.join(repositoryRoot, "40_Develop/execution-model/src/index.ts"),
   ).href;
   const source = `import { registerHooks } from 'node:module';
     registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/ai-adapter/'))throw Error('ai_adapter_forbidden');return r;}});
@@ -343,7 +343,13 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
       "utf8",
     );
     const projectDependencies = (input: string) => {
-      assert.equal(input.includes("domain-model"), false);
+      for (const owner of [
+        "domain-model",
+        "document-model",
+        "execution-model",
+        "configuration-model",
+      ])
+        assert.equal(input.includes(owner), false);
       let projected = input;
       for (const name of ["types.ts", "input.ts"]) {
         const dependency = JSON.stringify(`../provider/${name}`);

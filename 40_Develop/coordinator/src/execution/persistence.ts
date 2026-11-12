@@ -3,9 +3,48 @@
  * @responsibility 操作相関とfresh借用、未発行通知の既存照合を搬送し保存状態を所有しない。
  * @trace ARCH-000004、ARCH-000008
  */
-import * as runtimeStore from "../../../domain-model/src/index.ts";
+import * as runtimeStore from "../../../execution-model/src/index.ts";
+import { readCoordinatorConfig } from "../../../configuration-model/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import { getRepositoryFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorStateRepository } from "./operation.ts";
+
+/** 履歴を扱う呼出しだけ、確定日数と既存の同期現在性検査を結合する。 */
+export function historyRepositoryInput<T>(root: T) {
+  const initial = readCoordinatorConfig(root as Repository);
+  return Object.freeze({
+    root,
+    historyRetentionDays:
+      initial.status === "ready" ? initial.config.historyRetentionDays : null,
+    revalidate(expectedHistoryRetentionDays?: number) {
+      if (expectedHistoryRetentionDays === undefined) return true;
+      const fresh = readCoordinatorConfig(root as Repository);
+      return (
+        fresh.status === "ready" &&
+        fresh.config.historyRetentionDays === expectedHistoryRetentionDays
+      );
+    },
+  });
+}
+
+/** 既存の実行・終端借用の再検証を、履歴確認時だけ設定現在性へ接続する。 */
+export function withHistoryRetention<
+  T extends Readonly<{ revalidate: () => boolean }>,
+>(context: T | null, root?: unknown) {
+  if (!context) return null;
+  const history = historyRepositoryInput(
+    root ?? (context as { root?: unknown }).root,
+  );
+  return Object.freeze({
+    ...context,
+    historyRetentionDays: history.historyRetentionDays,
+    revalidate(expectedHistoryRetentionDays?: number) {
+      return (
+        context.revalidate() && history.revalidate(expectedHistoryRetentionDays)
+      );
+    },
+  });
+}
 
 /**
  * Hostが選択したRepositoryを既存VCの真正参照へ固定する。

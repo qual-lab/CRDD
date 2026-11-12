@@ -9,7 +9,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
 
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { createRecoveryFixture } from "../support/recovery.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -18,7 +18,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import {
   coordinatorAuthenticationUnknownCanClose,
   coordinatorTaskResourcesAreSettled,
@@ -29,7 +29,7 @@ import {
   parseHostRecoveryToken,
   prepareCoordinatorStateOperationSnapshot,
   validateHostRecoveryTransitionLineage,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   prepareRuntimeOwnedDockerRestart,

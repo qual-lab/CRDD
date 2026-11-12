@@ -3,7 +3,7 @@
  * @responsibility 既知分類・必須詳細の拒否とcode・path・messageを所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../domain-model/src/index.ts";
+import type { DomainIssue } from "../../../document-model/src/index.ts";
 import type { CheckerRealityFinding } from "./types.ts";
 /**
  * Reality Domain Issue To Checker Findingを対応付ける。

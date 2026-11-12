@@ -24,8 +24,8 @@ import {
   decodeRuntimeDomainSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateRestartSnapshot,
-} from "../../../domain-model/src/index.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+} from "../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
 
 /**
@@ -120,7 +120,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     assert.match(
       callerSource,
-      /import\s*\{[^}]*\btype DockerRestartCheckpoint\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/domain-model\/src\/index\.ts["']/u,
+      /import\s*\{[^}]*\btype DockerRestartCheckpoint\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/execution-model\/src\/index\.ts["']/u,
     );
     assert.doesNotMatch(
       callerSource,

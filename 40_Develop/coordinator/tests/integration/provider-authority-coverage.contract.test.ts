@@ -36,7 +36,7 @@ test("Provider Authority coverageはexact 3 sourceと9 testを所有する", () 
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_SOURCES, [
     "40_Develop/coordinator/src/execution/preparation.ts",
     "40_Develop/coordinator/src/execution/authority.ts",
-    "40_Develop/domain-model/src/plain-data/snapshot.ts",
+    "40_Develop/execution-model/src/plain-data/snapshot.ts",
   ]);
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_TESTS, [
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",

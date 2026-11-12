@@ -12,7 +12,7 @@
  */
 import { types } from "node:util";
 
-import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
+import type { PortfolioProjection } from "../../../document-model/src/index.ts";
 import {
   callKeys,
   inspectMcpEnvelope,

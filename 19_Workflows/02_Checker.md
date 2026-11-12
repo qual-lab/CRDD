@@ -1,5 +1,9 @@
 # Checkerを実行して結果を読む
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](../06_Architecture/Details/document-model/01_Architecture.md)・[実行モデル](../06_Architecture/Details/execution-model/01_Architecture.md)・[構成モデル](../06_Architecture/Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 ## 現行検査と移行の境界
 
 Checkerは現在のCRDD仕様を検査する。旧形式からの調査・移行は、フロントAIが[保守の移行条件](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)に従って実施する。旧形式の棚卸し・自動変換・互換受付をCheckerへ恒久保持しない。
@@ -13,7 +17,7 @@ Checkerは現在のCRDD仕様を検査する。旧形式からの調査・移行
 ```powershell
 node 40_Develop/checker/bin/checker.ts --test-catalog --root .
 node 40_Develop/checker/bin/checker.ts --test-catalog --root . --base main
-node 40_Develop/checker/bin/checker.ts --test-catalog --root . --changed 40_Develop/domain-model/src/test-catalog/inspect.ts --levels unit,integration,system
+node 40_Develop/checker/bin/checker.ts --test-catalog --root . --changed 40_Develop/document-model/src/test-catalog/inspect.ts --levels unit,integration,system
 ```
 
 `--changed`、`--base`、`--all`は互いに排他的である。引数不正64、台帳不整合1、Root・読取り・差分観測不能2、台帳検査／計画成功0を返す。成功0は試験Passではなく、常に試験未起動として扱う。手動UAT、外部AI、Windows固有Process制御、高負荷の必要条件を計画から確認し、実行許可がない操作は実行しない。PT／LTは全条件があっても計画のみである。

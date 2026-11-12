@@ -1,5 +1,11 @@
 # CROS Workbench詳細設計
 
+## 3モデル分離への接続 — 2026-11-12
+
+Workbenchはdocument-model／execution-model／configuration-modelの公開操作を必要な役割で別々に利用し、画面用の結合は自身が行う。AM RootはAM型を直接搬送する。文書読取りの期待値はManifestから3Identityへ投影し、保持設定を通常Queryの常時ガードにしない。共通JSON／Snapshot／汎用Root Helperを旧DMから取得せず、既存の入力・保存Ownerへ必要分を局所化する。
+
+移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
+
 ## AI編集検証とHTTP検証の分離 — 2026-10-30
 
 実AI編集ToolのTask完了待機とWorkspace操作を既存Coordinator Package APIへ直結し、Workbench Server起動・画面全体GET・定期HTTP照会を外す。実行終了後はDomain正本の同Request状態と照合する。画面情報の取得失敗を実AIの実行失敗へ読み替えない。HTTP受付・表示・取消の非AI結合試験は維持し、Browser向けHTTPや製品UIの契約は変更しない。一時回答本文は元Ownerが所有し、Domainへ追加永続化しない。実AI E2Eの結果をWorkbench HTTPの成立根拠に使わず、既知の受信前待機・event loop停止は独立した未解決故障として保持する。
@@ -20,7 +26,7 @@ Serverを所有する検証Processは、100msの短命Timerで最も大きい一
 
 ## Core API接続の目標 — 2026-10-27
 
-[Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へServerが直接接続する。Coreの設定・定義・状態表示にCoordinator・MCP・Provider認証を要求せず、現在認可と対象改訂をServerで再確認する。BrowserへRoot能力・生Controller・Host Pathを渡さない。既存助言・Workspace編集は無断撤去せず、任意実行の構成へ分離する。2026-10-27時点ではCore独立の本番接続・Browser検証は未実施だった。現在のHTTP接続と限定確認は上節を参照し、新しい計画編集UIは追加しない。Executor分離・Coordinator任意化・実AI境界は未完了である。
+[Domain API入出力](../execution-model/05_Runtime_Domain.md#runtime-domain-api)へServerが直接接続する。Coreの設定・定義・状態表示にCoordinator・MCP・Provider認証を要求せず、現在認可と対象改訂をServerで再確認する。BrowserへRoot能力・生Controller・Host Pathを渡さない。既存助言・Workspace編集は無断撤去せず、任意実行の構成へ分離する。2026-10-27時点ではCore独立の本番接続・Browser検証は未実施だった。現在のHTTP接続と限定確認は上節を参照し、新しい計画編集UIは追加しない。Executor分離・Coordinator任意化・実AI境界は未完了である。
 
 ## 検証HTTP子Processの失敗診断
 

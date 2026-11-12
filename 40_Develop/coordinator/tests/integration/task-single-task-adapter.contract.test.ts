@@ -1718,4 +1718,4 @@ test("Provider Accessorを実行せず欠測互換から除外する", async () 
   assert.equal(result.manualRecoveryRequired, true);
 });
 
-import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";

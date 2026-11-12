@@ -43,7 +43,7 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
   omitMarkdownCommentsAndFencedCode,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../report/convert.ts";
 
 /**

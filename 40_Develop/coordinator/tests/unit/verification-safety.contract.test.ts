@@ -14,8 +14,8 @@ import { types } from "node:util";
 import test from "node:test";
 import fs from "node:fs";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { snapshotPlainArray } from "../../src/input/snapshot.ts";
 import { createCandidateValidationFailureDiagnostic } from "../../src/execution/result.ts";
 
 /**

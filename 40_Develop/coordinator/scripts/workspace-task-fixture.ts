@@ -8,7 +8,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { readFileSync, lstatSync } from "node:fs";
 import path from "node:path";
-import { resolveRepositoryRuntimeDataPaths } from "../../domain-model/src/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../src/configuration/runtime-data.ts";
 import {
   getRepository,
   createWorktree,

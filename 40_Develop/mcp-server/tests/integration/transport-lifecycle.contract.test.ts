@@ -10,7 +10,7 @@
  * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract / EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
 import { PassThrough, Readable, Writable } from "node:stream";

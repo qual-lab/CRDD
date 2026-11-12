@@ -31,10 +31,8 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
   ).href;
   const platformUrl = new URL("../../scripts/provider-home.ts", import.meta.url)
     .href;
-  const domainUrl = new URL(
-    "../../../domain-model/src/index.ts",
-    import.meta.url,
-  ).href;
+  const domainUrl = new URL("../../scripts/runtime-data.ts", import.meta.url)
+    .href;
   const child = spawnSync(
     process.execPath,
     [

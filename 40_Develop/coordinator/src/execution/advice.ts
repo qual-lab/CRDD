@@ -11,8 +11,8 @@ import {
   type ExecutionSelection,
   hashExecutionSelection,
   inspectExecutionSelection,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray } from "../input/snapshot.ts";
 import {
   finishProviderExecutionRecording,
   type ProviderExecutionRecording,
@@ -22,7 +22,7 @@ import type { RecordedAttemptResult } from "./types.ts";
 /** AI Adapterの解釈済み助言を返却内容として使用する。 */
 type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
-import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../document-model/src/index.ts";
 import {
   type Repository,
   resolveVerifiedRepositoryRoot,

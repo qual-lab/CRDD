@@ -21,7 +21,7 @@ import {
   createPortfolioProjection,
   type ProjectContextSource,
   readRepositoryProjectContext,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import {
@@ -583,10 +583,11 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
         throw new Error("collection unavailable");
       const sources: ProjectContextSource[] = [];
       for (const repository of collection.repositories) {
-        const read = readRepositoryProjectContext(
-          repository.root,
-          repository.manifest,
-        );
+        const read = readRepositoryProjectContext(repository.root, {
+          projectId: repository.manifest.projectId,
+          repositoryId: repository.manifest.repositoryId,
+          repositoryRole: repository.manifest.repositoryRole,
+        });
         assert.equal(read.status, "completed");
         if (read.status !== "completed") throw new Error("context unavailable");
         sources.push(
@@ -630,10 +631,11 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
       throw new Error("collection unavailable");
     const repository = collection.repositories[0];
     assert.ok(repository);
-    const read = readRepositoryProjectContext(
-      repository.root,
-      repository.manifest,
-    );
+    const read = readRepositoryProjectContext(repository.root, {
+      projectId: repository.manifest.projectId,
+      repositoryId: repository.manifest.repositoryId,
+      repositoryRole: repository.manifest.repositoryRole,
+    });
     assert.deepEqual(read, {
       status: "unavailable",
       reason: "project_context_observation_unavailable",
@@ -1400,7 +1402,7 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
   for (const phase of ["pending", "replace", "renamed"]) {
     const f = fixture(t);
     const domainUrl = new URL(
-      "../../../../domain-model/src/index.ts",
+      "../../../src/initialization/root.ts",
       import.meta.url,
     ).href;
     const storeUrl = new URL("../../../src/storage/store.ts", import.meta.url)

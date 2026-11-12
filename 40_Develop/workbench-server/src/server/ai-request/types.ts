@@ -81,4 +81,4 @@ export type WorkbenchAiRequests = Readonly<{
   close?: () => Promise<void>;
 }>;
 
-import type { CoordinatorWorkspaceResult } from "../../../../domain-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../../execution-model/src/index.ts";

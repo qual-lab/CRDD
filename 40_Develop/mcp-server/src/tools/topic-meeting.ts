@@ -9,7 +9,7 @@ import {
   parseMeetingMarkdown,
   type TopicMeetingAccess,
   validateTopicMeetingListInput,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 
 import {
   callKeys,

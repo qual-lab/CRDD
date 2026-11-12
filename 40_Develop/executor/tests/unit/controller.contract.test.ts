@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createStartResult } from "../../src/lifecycle/attempt.ts";
 import type { StartResult } from "../../src/index.ts";
 import { createLifecycleControl } from "../../src/lifecycle/execute.ts";

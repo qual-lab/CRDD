@@ -19,7 +19,7 @@ import test from "node:test";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+} from "../../src/configuration/runtime-data.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/controller.ts";
 import {

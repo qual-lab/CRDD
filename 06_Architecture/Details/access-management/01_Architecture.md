@@ -1,5 +1,11 @@
 # ユーザー・資格・認可の詳細設計
 
+## 3モデル分離への接続 — 2026-11-12
+
+AMの公開集合は30関数・27型（FilesystemStoreRootの正本移管による1型追加）とする。AMのFilesystemStoreRoot・Host Root初期化・CROS所在はAM自身が正本となる。MCP／WorkbenchはAMの型を参照し、旧DMの汎用Root Factory／Lock Helperを経由しない。構成モデルの私有config Rootとは交換しない。認証・認可・Credential・Lock・元失敗情報は不変更で、Project Contextを読むConsumerはManifest全文でなく文書モデルへ3期待Identityを投影する。
+
+移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
+
 ## 内部保存容量制限の撤去 — 2026-11-12
 
 管理状態の正本・pending・replaceの16／17MiB固定上限と、User・Role・資格発行・交換・初期化の容量予約を撤去した。登録時のmanifest／PROJECT_CONTEXTの1MiB上限も撤去する。容量だけによる拒否理由を残さず、元操作・現在認可・Schema・Revision・Hash・Lock・実体・保存／読戻し・Secret提示の条件は維持する。HTTP・MCP・CLIの受信上限は今回変更しない。通常の蓄積を異常にせず、OS／Node.jsのメモリ不足やI/O失敗を成功に読み替えない。詳細は[管理状態とAPI](02_Management_State_and_API.md)を正本とする。
@@ -8,7 +14,7 @@
 
 ## Root公開境界の整理 — 2026-11-11
 
-Rootは既存実装から30関数・26型を直接公開する。中間Facade、互換alias、別の共通型Fileは追加しない。これは未Releaseのライブラリ公開集合の縮小であり、Host操作の非公開化を機能廃止や権限変更として扱わない。本番未使用の個別発行Readerだけは後続の内部整理で撤去し、詳細を下節に示す。下段の先行段階の公開一覧より本節を優先する。
+Rootは既存実装から30関数・27型を直接公開する。中間Facade、互換alias、別の共通型Fileは追加しない。これは未Releaseのライブラリ公開集合の縮小であり、Host操作の非公開化を機能廃止や権限変更として扱わない。本番未使用の個別発行Readerだけは後続の内部整理で撤去し、詳細を下節に示す。下段の先行段階の公開一覧より本節を優先する。
 
 | 区分 | 操作・型 | 現在の配置と利用 |
 |---|---|---|
@@ -22,11 +28,11 @@ Rootは既存実装から30関数・26型を直接公開する。中間Facade、
 
 公開型は認証・初回相関・管理・資格管理／交換／提示・認可済みRepository・初期化の入力と結果に限定する。`AuthorizedRepository`等の本番Consumerが明示参照する型を残し、非公開化した内部3型の代わりにunknownや新しい巨大Unionを導入しない。実装の保存形式、Lock、現在認証、期待改訂、秘密の一度提示、取消・出版・清掃不明の結果は不変更。
 
-既存RFD-UT-020で実行時30関数とSourceの明示26型を別々に完全一致検査する。AM内部試験とWorkbench／MCPの自己生成Host試験だけが残した内部操作の宣言元へ接続し、本番ConsumerはRoot利用を維持する。新しいPackage subpath、HTTP／MCP操作、Host機能の追加はない。
+既存RFD-UT-020で実行時30関数とSourceの明示27型を別々に完全一致検査する。AM内部試験とWorkbench／MCPの自己生成Host試験だけが残した内部操作の宣言元へ接続し、本番ConsumerはRoot利用を維持する。新しいPackage subpath、HTTP／MCP操作、Host機能の追加はない。
 
 ### 内部の型正本と不要経路の整理 — 2026-11-11
 
-公開集合は30関数・26型を維持する。`ManagementOperationOutcome`／`ManagementReadOutcome`／`CurrentAccessOutcome`はpermission/typesに構造を明示し、authorization側の投影関数へ戻り型を付ける。型定義から実装関数のReturnTypeを参照せず、実装が契約を満たす方向へ固定する。既存の可変配列・省略項目・null・理由の型幅を変更しない。`KeyExchangeSnapshot`も本文をcredential/typesへ移し、exchangeから型を利用する。Rootへの追加公開はしない。
+公開集合は30関数・27型を維持する。`ManagementOperationOutcome`／`ManagementReadOutcome`／`CurrentAccessOutcome`はpermission/typesに構造を明示し、authorization側の投影関数へ戻り型を付ける。型定義から実装関数のReturnTypeを参照せず、実装が契約を満たす方向へ固定する。既存の可変配列・省略項目・null・理由の型幅を変更しない。`KeyExchangeSnapshot`も本文をcredential/typesへ移し、exchangeから型を利用する。Rootへの追加公開はしない。
 
 本番未使用だった`readCredentialIssuance`／`projectCredentialIssuance`／`CredentialIssuanceObservation`は撤去する。`CredentialIssuanceSnapshot`は現役の管理一覧の構成型なので保持する。旧Readerの4試験は、現在管理者だけの一覧取得、提示三状態・失効、非認可時の情報非開示、初回途中・保存／清掃／解放不明の拒否を現役Readerへ接続する。発行ID／User ID指定による単件不存在・不正引数の判定は廃止した専用APIだけの契約であり、引数を持たない管理一覧へ偽装しない。管理者が現在一覧から整理済み対象の不存在を確認できることと、非認可者へ対象を開示しないことを区別する。
 
@@ -170,7 +176,7 @@ Package Rootの`src/index.ts`から明示公開し、Capability内barrelは作�
 | 初回相関 | 確認済み元試行、成立したUUID／資格、元発行処置、結果記録・Host提示・同鍵の限定接続確認と保存改訂 | 非秘密・非Authority。初回だけ接続成功を受領・接続確認とする。未作成IDを推定せず、交換Recovery／Lock回復ID・短命pendingと分離 |
 | Request Context | 現要求の認証主体、現在Roleと許可集合、観測改訂 | 要求内の派生値。永続Sessionや第二の権限Storeを作らない |
 
-保存Ownerは既存ユーザー／Host側管理領域を維持する。[保存配置契約](../domain-model/03_Repository_Storage.md#6-crosとの物理分離)と既存Root resolverを使い、Package改名でRootを変えない。非秘密設定を秘密Storeの代わりにせず、生SecretをGit、Repository-local `.crdd`、Prompt、ログ、Evidenceへ保存しない。
+保存Ownerは既存ユーザー／Host側管理領域を維持する。[保存配置契約](../execution-model/03_Repository_Storage.md#6-crosとの物理分離)と既存Root resolverを使い、Package改名でRootを変えない。非秘密設定を秘密Storeの代わりにせず、生SecretをGit、Repository-local `.crdd`、Prompt、ログ、Evidenceへ保存しない。
 
 保存に必要な保証は、関連ユーザー・Role・資格の整合読取り、期待改訂の競合拒否、失効／発行／回復相関の確定と読戻しである。旧不変Revision publishとVerifier照合は再利用候補だが、新Schema、書込み単位、Process喪失時にも部分結果を失わない確定方法、保持上限と清掃は未設計。これらが決まるまで実装Readyにしない。無期限蓄積、複数Writer用の新Lock Framework、電源断完全保証を今回採用しない。
 

@@ -29,13 +29,17 @@ import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/worksp
 import {
   createLocalPrincipalId,
   decodeCoordinatorHistoryRows,
-  observeRepositoryRuntimeDataArea,
-  readRepositoryAiSelection,
   readRuntimeOwnedCoordinatorRecoverySnapshot,
-  readStableFileSnapshot,
+} from "../../execution-model/src/index.ts";
+import {
+  observeRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
+} from "./runtime-data.ts";
+import {
+  readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../domain-model/src/index.ts";
+} from "../../configuration-model/src/index.ts";
+import { readStableFileSnapshot } from "./file-snapshot.ts";
 import {
   getRepository,
   readGitUser,

@@ -1,0 +1,1559 @@
+/**
+ * Topic／Meeting Repository CRUD契約を検証する。
+ *
+ * @packageDocumentation
+ * @responsibility 登録・編集・削除・一覧・取得、改訂競合およびRelation付き削除拒否を実Filesystemで確認する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @level IT
+ * @scope project-operation、topic、meeting、crud、repository
+ * @boundary Application CRUD→Repository Filesystem→Canonical Markdown
+ */
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import fs, { mkdtempSync, rmSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
+import test from "node:test";
+import { setTimeout } from "node:timers/promises";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { validateTopicMeetingListInput } from "../../src/activity/operations.ts";
+import {
+  createMeetingOperations,
+  createTopicOperations,
+} from "../../src/index.ts";
+import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+
+/**
+ * 長い検索文とその署名を含むCursorを同じ一覧条件へ結合する。
+ * @trace CPR-IT-010
+ * @precondition 値検査だけで保存や外部Processへ進まない。
+ * @stimulus 129文字超query/ownerと1024文字超Cursor、別Queryと不正文法を渡す。
+ * @observation 受理と既存の固定拒否理由。
+ * @oracle 量だけで拒否せずQuery署名・relation文法・ページ最大は維持する。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("一覧検索は長い自由条件を保持しCursorとQueryを照合する", () => {
+  const query = { query: "q".repeat(2049), owner: "o".repeat(129) };
+  const signature = JSON.stringify({ ...query, sort: "id_asc" });
+  const cursor = Buffer.from(
+    JSON.stringify(["id_asc", "TOPIC-000001", "", signature]),
+    "utf8",
+  ).toString("base64url");
+  assert.ok(cursor.length > 1024);
+  assert.doesNotThrow(() =>
+    validateTopicMeetingListInput("topic", { query, cursor }),
+  );
+  assert.throws(
+    () =>
+      validateTopicMeetingListInput("topic", {
+        query: { ...query, query: "other" },
+        cursor,
+      }),
+    /cursor_invalid/u,
+  );
+  assert.throws(
+    () =>
+      validateTopicMeetingListInput("topic", {
+        query: { relation: "../outside" },
+      }),
+    /query_invalid/u,
+  );
+  assert.throws(
+    () => validateTopicMeetingListInput("topic", { limit: 101 }),
+    /limit_invalid/u,
+  );
+});
+
+/**
+ * 期待Projectを保存と全読取り経路へ拘束する。
+ * @responsibility 認可済みProjectと異なる本文を保存・公開しないことを確認する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の自己生成領域と固定Project。
+ * @stimulus 両種別の正常CRUD、foreign本文、incoming Relation、不正な生成引数を渡す。
+ * @observation 返却値、固定例外、正本bytesとDirectory不存在。
+ * @oracle foreign内容は非返却・非保存、不正期待値はRoot観測前に拒否する。
+ * @cleanup 自己生成Rootだけをfinallyで回収し不存在を確認する。
+ * @boundary Domain公開生成関数→共通保存→実Filesystem。
+ */
+test("期待Projectを両種別の保存・読取り・Relationへ拘束する", () => {
+  assert.throws(
+    () => createTopicMeetingRepository("Z:/not-a-root", "BAD ID"),
+    /project_operation_expected_project_invalid/u,
+  );
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "topic-meeting-project-"));
+  const projectId = "qual-lab.crdd";
+  try {
+    const repository = createTopicMeetingRepository(root, projectId);
+    const topics = createTopicOperations(root, projectId);
+    const meetings = createMeetingOperations(root, projectId);
+    for (const createOperations of [
+      createTopicOperations,
+      createMeetingOperations,
+    ]) {
+      assert.throws(
+        () =>
+          Reflect.apply(createOperations, undefined, [repository, projectId]),
+        /project_operation_expected_project_with_injected_repository/u,
+      );
+      assert.ok(createOperations(repository));
+    }
+    for (const kind of ["topic", "meeting"] as const) {
+      const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+      const build = kind === "topic" ? topic : meeting;
+      const area = kind === "topic" ? "22_Topics" : "23_Meetings";
+      /**
+       * 同じProjectの正常Topic・Meeting本文を作る。
+       * @responsibility 同じProjectの正常Topic・Meeting本文を作る。
+       * @trace CPR-IT-010
+       * @trace CPR-IT-011
+       * @precondition 検証済みProject IDと指定改訂番号。
+       * @stimulus 固定MarkdownのProject IDだけを試験対象へ置換する。
+       * @observation Parserと保存処理へ渡す本文。
+       * @oracle foreign Project拒否の対照が同Project本文として成立する。
+       * @cleanup N/A: 文字列生成だけ。実Recordの回収はCaseが所有する。
+       * @boundary Domain保存試験の入力準備で外部送信しない。
+       */
+      const valid = (revision: number) =>
+        build(revision).replace("PRJ-001", projectId);
+      const target = path.join(root, area, id, `${kind}.md`);
+      assert.throws(
+        () => repository.create(kind, build(1)),
+        /project_operation_record_project_mismatch/u,
+      );
+      assert.equal(fs.existsSync(path.join(root, area)), false);
+      assert.equal(repository.create(kind, valid(1)).status, "completed");
+      const before = fs.readFileSync(target);
+      assert.throws(
+        () => repository.update(kind, id, 1, build(2)),
+        /project_operation_record_project_mismatch/u,
+      );
+      assert.deepEqual(fs.readFileSync(target), before);
+      assert.equal(
+        repository.update(kind, id, 1, valid(2)).status,
+        "completed",
+      );
+      assert.equal(repository.get(kind, id)?.projectId, projectId);
+      assert.equal(repository.getDocument(kind, id)?.markdown, valid(2));
+      const page = repository.list(kind);
+      assert.equal(page.records.length, 1);
+      assert.equal(page.records[0]?.projectId, projectId);
+      assert.deepEqual(page.records[0], repository.get(kind, id));
+      assert.deepEqual(repository.inspectDeletion(kind, id), {
+        record: repository.get(kind, id),
+        relationPaths: [],
+      });
+      const deleted = repository.delete({
+        kind,
+        id,
+        expectedRevision: 2,
+        confirmed: true,
+        reason: "mistaken_registration",
+      });
+      assert.equal(deleted.status, "completed");
+      assert.equal(deleted.filesystemEffectCount, 1);
+      assert.equal(fs.existsSync(path.dirname(target)), false);
+      assert.equal(repository.create(kind, valid(1)).status, "completed");
+      assert.equal(
+        repository.update(kind, id, 1, valid(2)).status,
+        "completed",
+      );
+      fs.writeFileSync(target, build(2));
+      const foreign = fs.readFileSync(target);
+      for (const read of [
+        () => repository.get(kind, id),
+        () => repository.getDocument(kind, id),
+        () => repository.list(kind),
+        () => repository.inspectDeletion(kind, id),
+        () =>
+          repository.delete({
+            kind,
+            id,
+            expectedRevision: 2,
+            confirmed: true,
+            reason: "mistaken_registration",
+          }),
+        () => topics.hasRelationTarget(kind, id),
+        () =>
+          kind === "topic"
+            ? topics.promoteTopic({
+                topicId: id,
+                expectedRevision: 2,
+                changeId: "CHG-000001",
+                reason: "採用",
+                remainingResponsibility: "確認",
+              })
+            : meetings.treatMeetingOutcome({
+                meetingId: id,
+                expectedRevision: 2,
+                outcomeId: "OUT-001",
+                disposition: "completed",
+                owner: "PM",
+                reviewTrigger: "次回",
+                target: { kind: "none", reference: "N/A: 完了" },
+                treatment: "確認",
+                completionCondition: "確認",
+                result: "完了",
+                closeMeeting: false,
+              }),
+      ])
+        assert.throws(read, /project_operation_record_project_mismatch/u);
+      assert.deepEqual(fs.readFileSync(target), foreign);
+      // incoming Relationのraw走査もforeign本文を公開しない。
+      const otherId = kind === "topic" ? "TOPIC-000043" : "MTG-000043";
+      fs.appendFileSync(target, `\n関連: ${otherId}\n`);
+      assert.throws(
+        () => repository.inspectDeletion(kind, otherId),
+        /project_operation_record_project_mismatch/u,
+      );
+      fs.writeFileSync(target, valid(2));
+      const closed = repository.delete({
+        kind,
+        id,
+        expectedRevision: 2,
+        confirmed: true,
+        reason: "mistaken_registration",
+      });
+      assert.equal(closed.status, "completed");
+      assert.equal(closed.filesystemEffectCount, 1);
+      assert.equal(fs.existsSync(path.dirname(target)), false);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  }
+});
+
+/**
+ * 既存の保存先chainにあるlink・非Directory・観測不能を拒否する。
+ * @responsibility Topic／Meetingの全Repository操作を同じ親境界へ接続する。
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の自己生成領域だけに正本と別保存先を用意する。
+ * @stimulus Root、種別親、Record親をjunction・dangling link・通常Fileへ置換する。
+ * @observation 拒否例外と退避正本bytesを照合し、観測不能とENOENTを区別する。
+ * @oracle 固定親を辿らず別保存先と正本を保持する。観測不能をnullへ畳まない。
+ * @cleanup mockを復元し、自己生成Root全体の不存在を確認する。
+ * @boundary 静的な保存先chainと公開CRUD。観測直後の同時差替え防止の証明ではない。
+ */
+test("保存先の親linkと観測不能を全操作で拒否する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = fs.lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const level of ["root", "area", "record"] as const) {
+      for (const mode of ["junction", "dangling", "file"] as const) {
+        const scope = fs.mkdtempSync(path.join(parent, "topic-meeting-chain-"));
+        try {
+          const root = path.join(scope, "repository");
+          const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+          const markdown = kind === "topic" ? topic : meeting;
+          const area = kind === "topic" ? "22_Topics" : "23_Meetings";
+          const replaced =
+            level === "root"
+              ? root
+              : level === "area"
+                ? path.join(root, area)
+                : path.join(root, area, id);
+          const retained = path.join(scope, "retained");
+          const retainedFile = path.join(
+            retained,
+            ...(level === "root" ? [area, id] : level === "area" ? [id] : []),
+            `${kind}.md`,
+          );
+          fs.mkdirSync(path.dirname(retainedFile), { recursive: true });
+          fs.writeFileSync(retainedFile, markdown(1));
+          fs.mkdirSync(path.dirname(replaced), { recursive: true });
+          const before = fs.readFileSync(retainedFile);
+          if (mode === "file") fs.writeFileSync(replaced, "not_a_directory");
+          else
+            fs.symlinkSync(
+              mode === "junction" ? retained : path.join(scope, "missing"),
+              replaced,
+              "junction",
+            );
+          if (level === "root")
+            assert.throws(
+              () => createTopicMeetingRepository(root),
+              /project_operation_repository_root_invalid/u,
+            );
+          else {
+            const repository = createTopicMeetingRepository(root);
+            for (const operation of [
+              () => repository.get(kind, id),
+              () => repository.getDocument(kind, id),
+              () => repository.list(kind),
+              () => repository.inspectDeletion(kind, id),
+              () => repository.create(kind, markdown(1)),
+              () => repository.update(kind, id, 1, markdown(2)),
+              () =>
+                repository.delete({
+                  kind,
+                  id,
+                  expectedRevision: 1,
+                  confirmed: true,
+                  reason: "mistaken_registration",
+                }),
+            ])
+              assert.throws(
+                operation,
+                /project_operation_.*(?:invalid|symlink_rejected)/u,
+              );
+          }
+          assert.deepEqual(fs.readFileSync(retainedFile), before);
+          assert.deepEqual(fs.readdirSync(path.dirname(retainedFile)), [
+            `${kind}.md`,
+          ]);
+        } finally {
+          fs.rmSync(scope, { recursive: true, force: true });
+          assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+        }
+      }
+    }
+  }
+  const scope = fs.mkdtempSync(path.join(parent, "topic-meeting-observation-"));
+  try {
+    const repository = createTopicMeetingRepository(scope);
+    assert.equal(repository.get("topic", "TOPIC-000042"), null);
+    assert.equal(repository.list("topic").status, "not_configured");
+    const failure = Object.assign(
+      new Error("fixed_parent_observation_failure"),
+      { code: "EACCES" },
+    );
+    const originalLstat = fs.lstatSync;
+    const mocked = t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof fs.lstatSync>) => {
+        if (String(args[0]) === path.join(scope, "22_Topics")) throw failure;
+        return originalLstat(...args);
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      for (const operation of [
+        () => repository.get("topic", "TOPIC-000042"),
+        () => repository.list("topic"),
+        () => repository.create("topic", topic(1)),
+      ])
+        assert.throws(operation, (error) => error === failure);
+    } finally {
+      mocked.mock.restore();
+      syncBuiltinESMExports();
+    }
+    assert.deepEqual(fs.readdirSync(scope), []);
+  } finally {
+    fs.rmSync(scope, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+  }
+});
+
+/**
+ * CHG参照の親境界と競合作成後の再観測を確認する。
+ * @responsibility hasChangeと保存mkdirを同じ非link・観測不能拒否へ接続する。
+ * @trace CPR-IT-011
+ * @precondition Repository-localの自己生成Rootとsentinelを用意する。
+ * @stimulus CHG親junction、観測不能、mkdirのEEXIST後linkを与える。
+ * @observation 参照拒否、sentinel保持、正本未作成とLock不存在を確認する。
+ * @oracle 曖昧な親を不存在へ丸めず、競合作成を通常Directoryと推定しない。
+ * @cleanup mockを復元し、自己生成Rootを回収して不存在を確認する。
+ * @boundary 固定CHG Pathと一階層mkdirの静的拒否。非協調同時置換保証ではない。
+ */
+test("CHG親とmkdir競合後のlinkを拒否する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  assert.ok(
+    fs.lstatSync(parent).isDirectory() &&
+      !fs.lstatSync(parent).isSymbolicLink(),
+  );
+  for (const level of ["99_Roadmap", "Changes", "CHG-000042"] as const) {
+    const scope = fs.mkdtempSync(
+      path.join(parent, "topic-meeting-change-chain-"),
+    );
+    try {
+      const root = path.join(scope, "repository");
+      const change = path.join(root, "99_Roadmap", "Changes", "CHG-000042");
+      const replaced =
+        level === "99_Roadmap"
+          ? path.join(root, level)
+          : level === "Changes"
+            ? path.join(root, "99_Roadmap", level)
+            : change;
+      const retained = path.join(scope, "retained");
+      const retainedFile = path.join(
+        retained,
+        ...(level === "99_Roadmap"
+          ? ["Changes", "CHG-000042"]
+          : level === "Changes"
+            ? ["CHG-000042"]
+            : []),
+        "change.md",
+      );
+      fs.mkdirSync(path.dirname(retainedFile), { recursive: true });
+      fs.writeFileSync(retainedFile, "sentinel");
+      fs.mkdirSync(path.dirname(replaced), { recursive: true });
+      fs.symlinkSync(retained, replaced, "junction");
+      const repository = createTopicMeetingRepository(root);
+      assert.throws(
+        () => repository.hasChange("CHG-000042"),
+        /symlink_rejected/u,
+      );
+      assert.equal(fs.readFileSync(retainedFile, "utf8"), "sentinel");
+    } finally {
+      fs.rmSync(scope, { recursive: true, force: true });
+      assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+    }
+  }
+  const scope = fs.mkdtempSync(path.join(parent, "topic-meeting-mkdir-race-"));
+  try {
+    const root = path.join(scope, "repository");
+    const retained = path.join(scope, "retained");
+    fs.mkdirSync(root);
+    fs.mkdirSync(retained);
+    fs.writeFileSync(path.join(retained, "sentinel"), "unchanged");
+    const repository = createTopicMeetingRepository(root);
+    const originalMkdir = fs.mkdirSync;
+    const originalLstat = fs.lstatSync;
+    const failure = Object.assign(
+      new Error("fixed_change_observation_failure"),
+      { code: "EACCES" },
+    );
+    const observeMock = t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof fs.lstatSync>) => {
+        if (String(args[0]) === path.join(root, "99_Roadmap")) throw failure;
+        return originalLstat(...args);
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      assert.throws(
+        () => repository.hasChange("CHG-000042"),
+        (error) => error === failure,
+      );
+    } finally {
+      observeMock.mock.restore();
+      syncBuiltinESMExports();
+    }
+    const mocked = t.mock.method(
+      fs,
+      "mkdirSync",
+      (...args: Parameters<typeof fs.mkdirSync>) => {
+        if (String(args[0]) === path.join(root, "22_Topics", "TOPIC-000042")) {
+          fs.symlinkSync(retained, args[0], "junction");
+          throw Object.assign(new Error("fixed_creation_conflict"), {
+            code: "EEXIST",
+          });
+        }
+        return originalMkdir(...args);
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      assert.throws(
+        () => repository.create("topic", topic(1)),
+        /symlink_rejected/u,
+      );
+    } finally {
+      mocked.mock.restore();
+      syncBuiltinESMExports();
+    }
+    assert.deepEqual(fs.readdirSync(retained), ["sentinel"]);
+    assert.equal(
+      fs.readFileSync(path.join(retained, "sentinel"), "utf8"),
+      "unchanged",
+    );
+    assert.throws(
+      () => fs.lstatSync(path.join(root, "22_Topics", ".TOPIC-000042.lock")),
+      { code: "ENOENT" },
+    );
+  } finally {
+    fs.rmSync(scope, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+  }
+});
+
+/**
+ * 所有した短命Fileの部分書込み・close失敗を公開更新から検証する。
+ *
+ * @responsibility open成功後だけ回収し、一次失敗・cleanup・正本保持を共同確認する。
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の非link親に自己生成Rootを用意する。
+ * @stimulus Topic／Meeting登録・更新へ部分write、undefined、close、unlink、EEXISTを限定注入する。
+ * @observation descriptor回収、rename／読戻し到達、例外Identity、残存Fileと正本bytesを照合する。
+ * @oracle 失敗時は公開せず、所有Fileだけを回収し、他者Fileと既存正本を保持する。
+ * @cleanup mockを復元し、自己生成Rootをexactに回収して不存在を確認する。
+ * @boundary 公開CRUD→同期Filesystem。close注入は実close後の故障報告で実OS故障の証明ではない。
+ */
+test("部分書込みの失敗は所有tmpだけを回収し正本を保持する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const stat = fs.lstatSync(directory);
+      assert.ok(stat.isDirectory() && !stat.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const originalOpen = fs.openSync;
+  const originalWrite = fs.writeFileSync;
+  const originalClose = fs.closeSync;
+  const originalUnlink = fs.unlinkSync;
+  const originalRead = fs.readFileSync;
+  const originalRename = fs.renameSync;
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const operation of ["create", "update"] as const) {
+      for (const mode of [
+        "write",
+        "undefined",
+        "write-close",
+        "write-unlink",
+        "close",
+        "exists",
+      ] as const) {
+        const root = fs.mkdtempSync(path.join(parent, "topic-meeting-write-"));
+        try {
+          const repository = createTopicMeetingRepository(root);
+          const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+          const markdown = kind === "topic" ? topic : meeting;
+          const file = path.join(
+            root,
+            kind === "topic" ? "22_Topics" : "23_Meetings",
+            id,
+            `${kind}.md`,
+          );
+          if (operation === "update")
+            assert.equal(
+              repository.create(kind, markdown(1)).status,
+              "completed",
+            );
+          const before = operation === "update" ? originalRead(file) : null;
+          const primary = new Error("fixed_partial_write_failure");
+          const closeFailure = new Error("fixed_temporary_close_failure");
+          const unlinkFailure = new Error("fixed_temporary_unlink_failure");
+          const existsFailure = Object.assign(
+            new Error("fixed_temporary_exists"),
+            { code: "EEXIST" },
+          );
+          let temporary: string | undefined;
+          let descriptor: number | undefined;
+          let openHandles = 0;
+          let renameCalls = 0;
+          let readbackCalls = 0;
+          let unlinkCalls = 0;
+          let thrown = false;
+          let failure: unknown;
+          const openMock = t.mock.method(
+            fs,
+            "openSync",
+            (input: fs.PathLike, flags: fs.OpenMode, permissions?: fs.Mode) => {
+              if (String(input).endsWith(".tmp")) {
+                temporary = String(input);
+                if (mode === "exists") {
+                  const otherDescriptor = originalOpen(input, "wx");
+                  try {
+                    originalWrite(otherDescriptor, "not_owned");
+                  } finally {
+                    originalClose(otherDescriptor);
+                  }
+                  throw existsFailure;
+                }
+                descriptor = originalOpen(input, flags, permissions);
+                openHandles++;
+                return descriptor;
+              }
+              return originalOpen(input, flags, permissions);
+            },
+          );
+          const writeMock = t.mock.method(
+            fs,
+            "writeFileSync",
+            (
+              input: fs.PathOrFileDescriptor,
+              data: string | NodeJS.ArrayBufferView,
+              options?: fs.WriteFileOptions,
+            ) => {
+              if (
+                typeof input === "number" &&
+                input === descriptor &&
+                mode !== "close"
+              ) {
+                originalWrite(input, "partial");
+                if (mode === "undefined") throw undefined;
+                throw primary;
+              }
+              return originalWrite(input, data, options);
+            },
+          );
+          const closeMock = t.mock.method(fs, "closeSync", (input: number) => {
+            originalClose(input);
+            if (input === descriptor && openHandles > 0) {
+              openHandles--;
+              if (mode === "close" || mode === "write-close")
+                throw closeFailure;
+            }
+          });
+          const unlinkMock = t.mock.method(
+            fs,
+            "unlinkSync",
+            (input: fs.PathLike) => {
+              if (String(input) === temporary) {
+                unlinkCalls++;
+                if (mode === "write-unlink") throw unlinkFailure;
+              }
+              return originalUnlink(input);
+            },
+          );
+          const renameMock = t.mock.method(
+            fs,
+            "renameSync",
+            (source: fs.PathLike, target: fs.PathLike) => {
+              renameCalls++;
+              return originalRename(source, target);
+            },
+          );
+          const readMock = t.mock.method(
+            fs,
+            "readFileSync",
+            (input: fs.PathOrFileDescriptor) => {
+              if (String(input) === file && temporary !== undefined)
+                readbackCalls++;
+              return originalRead(input);
+            },
+          );
+          syncBuiltinESMExports();
+          try {
+            if (operation === "create") repository.create(kind, markdown(1));
+            else repository.update(kind, id, 1, markdown(2));
+          } catch (error) {
+            thrown = true;
+            failure = error;
+          } finally {
+            openMock.mock.restore();
+            writeMock.mock.restore();
+            closeMock.mock.restore();
+            unlinkMock.mock.restore();
+            renameMock.mock.restore();
+            readMock.mock.restore();
+            syncBuiltinESMExports();
+            if (openHandles > 0 && descriptor !== undefined)
+              originalClose(descriptor);
+          }
+          assert.ok(thrown, `${kind}/${operation}/${mode}`);
+          assert.equal(openHandles, 0);
+          assert.equal(renameCalls, 0);
+          assert.equal(readbackCalls, 0);
+          assert.equal(unlinkCalls, mode === "exists" ? 0 : 1);
+          if (mode === "write-close" || mode === "write-unlink") {
+            assert.ok(failure instanceof AggregateError);
+            assert.equal(failure.cause, primary);
+            assert.deepEqual(failure.errors, [
+              mode === "write-close" ? closeFailure : unlinkFailure,
+            ]);
+          } else
+            assert.equal(
+              failure,
+              mode === "undefined"
+                ? undefined
+                : mode === "exists"
+                  ? existsFailure
+                  : mode === "close"
+                    ? closeFailure
+                    : primary,
+            );
+          assert.ok(temporary);
+          const observedTemporary = temporary;
+          if (mode === "exists" || mode === "write-unlink")
+            assert.equal(
+              originalRead(temporary, "utf8"),
+              mode === "exists" ? "not_owned" : "partial",
+            );
+          else
+            assert.throws(() => fs.lstatSync(observedTemporary), {
+              code: "ENOENT",
+            });
+          if (before !== null) {
+            assert.deepEqual(originalRead(file), before);
+            assert.equal(repository.get(kind, id)?.revision, 1);
+          } else assert.equal(repository.get(kind, id), null);
+          const lock = path.join(
+            root,
+            kind === "topic" ? "22_Topics" : "23_Meetings",
+            `.${id}.lock`,
+          );
+          assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+          assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+        }
+      }
+    }
+  }
+});
+
+/**
+ * topic用の試験入力または観測処理を提供する。
+ *
+ * @responsibility topic用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus topicの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary Repository試験入力→保存・失敗相関のDirect Boundary。
+ */
+function topic(revision: number, state = "open") {
+  return `# 認証方式の選択
+
+成果物種別: Topic
+Topic ID: \`TOPIC-000042\`
+Project ID: \`PRJ-001\`
+状態: \`${state}\`
+改訂: \`${revision}\`
+維持責任者: \`Project Operator\`
+
+## 1. 現在の論点
+
+### 結論
+
+利用環境別の認証方式を確定する。
+`;
+}
+
+/**
+ * meeting用の試験入力または観測処理を提供する。
+ *
+ * @responsibility meeting用の試験入力または観測処理を提供するの検証責務を所有する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @precondition 対象契約を再現できる固定入力と依存を用意する。
+ * @stimulus meetingの対象操作を実行する。
+ * @observation 返却値、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成した一時資源、ListenerまたはProcessを清掃する。
+ * @boundary Repository試験入力→登録・更新と保存後失敗照合のDirect Boundary。
+ */
+function meeting(revision: number) {
+  return `# Weekly Sync
+
+成果物種別: Meeting
+Meeting ID: \`MTG-000042\`
+Project ID: \`PRJ-001\`
+状態: \`recorded\`
+開催日時: \`2026-09-27 10:00 JST\`
+改訂: \`${revision}\`
+維持責任者: \`Project Operator\`
+
+## 1. 目的と要約
+
+### 結論
+
+認証方式の継続検討を確認した。
+
+## 4. Outcome
+
+| Local ID | 種別 | 内容 | 状態 | Owner | 期限／再評価契機 | 追跡先 |
+|---|---|---|---|---|---|---|
+| \`OUT-001\` | Action | 運用担当へ確認 | \`transferred\` | PM | 次回会議 | \`TOPIC-000042\` |
+`;
+}
+
+/**
+ * 既存Record Lockの協調Writer競合を実子Processで確認する。
+ * @responsibility Lock保留中の拒否・正本保持と、解放後の更新再利用を照合する。
+ * @trace CPR-IT-010
+ * @precondition 検証済みRepository内の自己生成Rootに両種別の正本を用意する。
+ * @stimulus 第一子の実Lock取得後、第二子の同改訂更新を実行し、第一子を解放する。
+ * @observation 子のclose、結果、正本bytes・改訂、Lockと短命Fileの不存在、失敗時だけ最大4096 bytesのstderrを確認する。
+ * @oracle 第二子はEffect 0で拒否され、第一子と後続更新だけが改訂を進める。
+ * @cleanup releaseを試み、所有子をjoinしてから自己生成Rootを回収する。
+ * @boundary 取得順を固定した協調Writer競合。異常死・同時open勝者・親差替え・電源断は対象外。
+ */
+test("TopicとMeetingの協調Writer競合とLock解放後の再利用を実Processで確認する", async () => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = fs.lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  // eval Sourceとimport先は試験が固定し、入力は所有Root内のFileだけで渡す。
+  const workerSource = `
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+const [root, kind, id, input, ready, release, result, lock, mode] = process.argv.slice(1);
+if (mode === "hold") {
+  const originalOpen = fs.openSync;
+  fs.openSync = (...args) => {
+    const descriptor = originalOpen(...args);
+    if (args[0] === lock && args[1] === "wx") {
+      try {
+        fs.writeFileSync(ready, "lock_acquired", { flag: "wx" });
+        const deadline = Date.now() + 10000;
+        const wait = new Int32Array(new SharedArrayBuffer(4));
+        while (!fs.existsSync(release)) {
+          if (Date.now() >= deadline) throw new Error("fixture_release_timeout");
+          Atomics.wait(wait, 0, 0, 10);
+        }
+      } catch (error) {
+        try {
+          fs.closeSync(descriptor);
+        } catch (closeError) {
+          throw new AggregateError([closeError], "fixture_lock_close_failed", { cause: error });
+        }
+        throw error;
+      }
+    }
+    return descriptor;
+  };
+  syncBuiltinESMExports();
+}
+const { createTopicMeetingRepository } = await import(${JSON.stringify(new URL("../../src/storage/topic-meeting-store.ts", import.meta.url).href)});
+const outcome = createTopicMeetingRepository(root).update(kind, id, 1, fs.readFileSync(input, "utf8"));
+fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
+`;
+  for (const kind of ["topic", "meeting"] as const) {
+    const scope = fs.mkdtempSync(path.join(parent, "domain-writer-"));
+    const root = path.join(scope, "repository");
+    const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+    const category = kind === "topic" ? "22_Topics" : "23_Meetings";
+    const initial = kind === "topic" ? topic(1) : meeting(1);
+    const next = kind === "topic" ? topic(2, "waiting") : meeting(2);
+    const file = path.join(root, category, id, `${kind}.md`);
+    const lock = path.join(root, category, `.${id}.lock`);
+    const input = path.join(scope, "input.md");
+    const ready = path.join(scope, "ready");
+    const release = path.join(scope, "release");
+    const children: Array<{
+      child: ReturnType<typeof spawn>;
+      closed: boolean;
+      stderr: Buffer;
+      stderrTruncated: boolean;
+      done: Promise<{
+        code: number | null;
+        signal: string | null;
+        error: Error | null;
+      }>;
+    }> = [];
+    let failure: unknown;
+    let failed = false;
+    try {
+      fs.mkdirSync(root);
+      const repository = createTopicMeetingRepository(root);
+      assert.equal(repository.create(kind, initial).status, "completed");
+      fs.writeFileSync(input, next);
+      for (const mode of ["hold", "compete"] as const) {
+        const result = path.join(scope, `${mode}.json`);
+        const child = spawn(
+          process.execPath,
+          [
+            "--input-type=module",
+            "--eval",
+            workerSource,
+            root,
+            kind,
+            id,
+            input,
+            ready,
+            release,
+            result,
+            lock,
+            mode,
+          ],
+          { stdio: ["ignore", "ignore", "pipe"] },
+        );
+        const observed = {
+          child,
+          closed: false,
+          stderr: Buffer.alloc(0),
+          stderrTruncated: false,
+          done: Promise.resolve({
+            code: null as number | null,
+            signal: null as string | null,
+            error: null as Error | null,
+          }),
+        };
+        child.stderr?.on("data", (chunk: Buffer) => {
+          const remaining = 4096 - observed.stderr.length;
+          if (chunk.length > remaining) observed.stderrTruncated = true;
+          if (remaining > 0)
+            observed.stderr = Buffer.concat([
+              observed.stderr,
+              chunk.subarray(0, remaining),
+            ]);
+        });
+        observed.done = new Promise((resolve) => {
+          let spawnError: Error | null = null;
+          child.once("error", (error) => {
+            spawnError = error;
+          });
+          child.once("close", (code, signal) => {
+            observed.closed = true;
+            resolve({ code, signal, error: spawnError });
+          });
+        });
+        children.push(observed);
+        const deadline = Date.now() + 10000;
+        if (mode === "hold") {
+          while (!fs.existsSync(ready)) {
+            assert.equal(
+              observed.closed,
+              false,
+              "Lock取得前に第一子が終了しない",
+            );
+            assert.ok(Date.now() < deadline, "Lock取得通知の期限");
+            await setTimeout(10);
+          }
+          assert.equal(fs.readFileSync(ready, "utf8"), "lock_acquired");
+          assert.ok(fs.lstatSync(lock).isFile());
+        } else {
+          while (!observed.closed) {
+            assert.ok(Date.now() < deadline, "第二子closeの期限");
+            await setTimeout(10);
+          }
+          assert.deepEqual(
+            await observed.done,
+            { code: 0, signal: null, error: null },
+            `${observed.stderr.toString("utf8")}${observed.stderrTruncated ? " [stderr truncated]" : ""}`,
+          );
+          const outcome = JSON.parse(fs.readFileSync(result, "utf8"));
+          assert.equal(outcome.status, "blocked");
+          assert.equal(outcome.reason, "record_revision_conflict");
+          assert.equal(outcome.filesystemEffectCount, 0);
+          assert.equal(children[0]?.closed, false);
+          assert.equal(fs.readFileSync(file, "utf8"), initial);
+          assert.equal(repository.get(kind, id)?.revision, 1);
+          assert.ok(fs.lstatSync(lock).isFile());
+          fs.writeFileSync(release, "release", { flag: "wx" });
+        }
+      }
+      const first = children[0];
+      assert.ok(first);
+      const deadline = Date.now() + 10000;
+      while (!first.closed) {
+        assert.ok(Date.now() < deadline, "第一子closeの期限");
+        await setTimeout(10);
+      }
+      assert.deepEqual(
+        await first.done,
+        { code: 0, signal: null, error: null },
+        `${first.stderr.toString("utf8")}${first.stderrTruncated ? " [stderr truncated]" : ""}`,
+      );
+      const accepted = JSON.parse(
+        fs.readFileSync(path.join(scope, "hold.json"), "utf8"),
+      );
+      assert.equal(accepted.status, "completed");
+      assert.equal(accepted.reason, "record_updated");
+      assert.equal(accepted.record.revision, 2);
+      assert.equal(accepted.filesystemEffectCount, 1);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      assert.equal(repository.get(kind, id)?.revision, 2);
+      assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
+      assert.deepEqual(fs.readdirSync(path.dirname(file)), [`${kind}.md`]);
+      const third = kind === "topic" ? topic(3) : meeting(3);
+      assert.equal(repository.update(kind, id, 2, third).status, "completed");
+      assert.equal(repository.get(kind, id)?.revision, 3);
+      assert.equal(fs.readFileSync(file, "utf8"), third);
+      assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
+      assert.deepEqual(fs.readdirSync(path.dirname(file)), [`${kind}.md`]);
+    } catch (error) {
+      failed = true;
+      failure = error;
+    }
+    const cleanupErrors: unknown[] = [];
+    try {
+      fs.writeFileSync(release, "release");
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    for (const observed of children) {
+      if (!observed.closed) {
+        try {
+          observed.child.kill();
+        } catch (error) {
+          cleanupErrors.push(error);
+        }
+      }
+      const deadline = Date.now() + 10000;
+      while (!observed.closed && Date.now() < deadline) await setTimeout(10);
+      if (!observed.closed)
+        cleanupErrors.push(new Error(`fixture_child_join_unknown:${scope}`));
+      else await observed.done;
+    }
+    if (children.every((observed) => observed.closed)) {
+      try {
+        fs.rmSync(scope, { recursive: true, force: true });
+        assert.throws(() => fs.lstatSync(scope), { code: "ENOENT" });
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (cleanupErrors.length > 0)
+      throw new AggregateError(
+        cleanupErrors,
+        "fixture_cleanup_failed",
+        failed ? { cause: failure } : undefined,
+      );
+    if (failed) throw failure;
+  }
+});
+
+/**
+ * TopicとMeetingのCRUDを同じRepository契約で処理する。
+ *
+ * @responsibility CRUD結果、RevisionおよびCanonical Pathを検証する。
+ * @trace CPR-IT-010
+ * @precondition 空の検証用Repository Rootを作る。
+ * @stimulus 両種別の登録・一覧・取得・更新・改訂競合・確認なし／確認付き削除を実行する。
+ * @observation 結果、改訂およびFilesystem Effect件数を観測する。
+ * @oracle 各正本は固定Pathへ一件だけ存在し、競合更新はEffect 0となる。
+ * @cleanup 検証用Rootを削除する。
+ * @boundary CPR-IT-010=Direct Boundary: Repository Test Source→CRUD契約
+ */
+test("TopicとMeetingの登録・編集・削除・一覧・取得を同じ契約で処理する", () => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const metadata = fs.lstatSync(directory);
+      assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
+    } catch (error) {
+      if (
+        typeof error !== "object" ||
+        error === null ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      )
+        throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const root = mkdtempSync(path.join(parent, "domain-crud-"));
+  try {
+    const repository = createTopicMeetingRepository(root);
+    assert.equal(repository.list("topic").status, "not_configured");
+    assert.equal(repository.list("meeting").status, "not_configured");
+    assert.equal(repository.create("topic", topic(1)).status, "completed");
+    assert.equal(repository.create("meeting", meeting(1)).status, "completed");
+    // Meetingを先に削除してTopicへの既存Relationを正当に解消する。
+    for (const kind of ["meeting", "topic"] as const) {
+      const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+      const initial = kind === "topic" ? topic(1) : meeting(1);
+      const next = kind === "topic" ? topic(2, "waiting") : meeting(2);
+      const category = kind === "topic" ? "22_Topics" : "23_Meetings";
+      const file = path.join(root, category, id, `${kind}.md`);
+      assert.equal(repository.list(kind).records.length, 1);
+      assert.equal(repository.get(kind, id)?.revision, 1);
+      assert.equal(fs.readFileSync(file, "utf8"), initial);
+      const duplicate = repository.create(kind, initial);
+      assert.equal(duplicate.reason, "record_already_exists");
+      assert.equal(duplicate.filesystemEffectCount, 0);
+      const updated = repository.update(kind, id, 1, next);
+      assert.equal(updated.status, "completed");
+      assert.equal(updated.reason, "record_updated");
+      assert.equal(updated.filesystemEffectCount, 1);
+      assert.equal(repository.get(kind, id)?.revision, 2);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      const conflicted = repository.update(kind, id, 1, `${next}\n`);
+      assert.equal(conflicted.reason, "record_revision_conflict");
+      assert.equal(conflicted.filesystemEffectCount, 0);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      assert.equal(repository.get(kind, id)?.revision, 2);
+      const request = {
+        kind,
+        id,
+        expectedRevision: 2,
+        reason: "mistaken_registration" as const,
+      };
+      const unconfirmed = repository.delete({ ...request, confirmed: false });
+      assert.equal(unconfirmed.reason, "record_delete_confirmation_required");
+      assert.equal(unconfirmed.filesystemEffectCount, 0);
+      assert.equal(fs.readFileSync(file, "utf8"), next);
+      const deleted = repository.delete({ ...request, confirmed: true });
+      assert.equal(deleted.reason, "record_deleted");
+      assert.equal(deleted.filesystemEffectCount, 1);
+      assert.equal(repository.get(kind, id), null);
+      assert.equal(repository.list(kind).records.length, 0);
+      assert.throws(() => fs.lstatSync(path.dirname(file)), { code: "ENOENT" });
+      assert.throws(
+        () => fs.lstatSync(path.join(root, category, `.${id}.lock`)),
+        { code: "ENOENT" },
+      );
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+  }
+});
+
+/**
+ * Relation付きRecordを確認なしで物理削除しない。
+ *
+ * @responsibility 影響表示、Relation解消、明示確認および対象限定削除を検証する。
+ * @trace CPR-IT-010
+ * @precondition Topicと、そのIDを参照するMeetingを作成する。
+ * @stimulus 未確認削除、Relation付き削除、Relation解消後の確認済み削除を順に要求する。
+ * @observation 拒否理由、Relation Path、Effect件数および残存Recordを観測する。
+ * @oracle Relation中はEffect 0で、解消後の誤登録理由＋明示確認だけが対象Topicを削除する。
+ * @cleanup 検証用Rootを削除する。
+ * @boundary CPR-IT-010=Direct Boundary: Repository Test Source→CRUD契約
+ */
+test("Relation解消と明示確認なしに物理削除しない", () => {
+  const ownedRoot = createRepositoryTestDirectory("crdd-topic-delete-");
+  const root = ownedRoot.path;
+  try {
+    const repository = createTopicMeetingRepository(root);
+    repository.create("topic", topic(1));
+    repository.create("meeting", meeting(1));
+    const impact = repository.inspectDeletion("topic", "TOPIC-000042");
+    assert.deepEqual(impact.relationPaths, [
+      "23_Meetings/MTG-000042/meeting.md",
+    ]);
+    const blocked = repository.delete({
+      kind: "topic",
+      id: "TOPIC-000042",
+      expectedRevision: 1,
+      confirmed: true,
+      reason: "mistaken_registration",
+    });
+    assert.equal(blocked.reason, "record_relations_require_resolution");
+    assert.equal(blocked.filesystemEffectCount, 0);
+
+    rmSync(path.join(root, "23_Meetings"), { recursive: true });
+    const confirmationRequired = repository.delete({
+      kind: "topic",
+      id: "TOPIC-000042",
+      expectedRevision: 1,
+      confirmed: false,
+      reason: "mistaken_registration",
+    });
+    assert.equal(
+      confirmationRequired.reason,
+      "record_delete_confirmation_required",
+    );
+    const deleted = repository.delete({
+      kind: "topic",
+      id: "TOPIC-000042",
+      expectedRevision: 1,
+      confirmed: true,
+      reason: "mistaken_registration",
+    });
+    assert.equal(deleted.reason, "record_deleted");
+    assert.equal(repository.get("topic", "TOPIC-000042"), null);
+  } finally {
+    ownedRoot.cleanup();
+  }
+});
+
+/**
+ * 保存の一次失敗とLock・短命File回収の失敗を独立に保持する。
+ *
+ * @responsibility 標準Filesystem APIへの限定注入で例外Identity・cause・cleanup順序と実改訂を照合する。
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepository内の非link試験親へ自己生成RootとRevision 1を用意する。
+ * @stimulus rename、短命File unlink、Lock close・unlinkへ対象限定の故障を注入する。
+ * @observation 一次例外、AggregateErrorのcause／errors、両cleanup試行と保存済みRevisionを確認する。
+ * @oracle 一次失敗は上書きされず、close失敗でもunlinkを試み、保存後故障をEffect 0へ変換しない。
+ * @cleanup mockを復元して実Handleと自己生成Rootを回収し、Root不存在を確認する。
+ * @boundary Repository公開更新→同期Filesystem保存・cleanup。実OS故障の網羅証明ではない。
+ */
+test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const stat = fs.lstatSync(directory);
+      assert.ok(stat.isDirectory() && !stat.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const originalRename = fs.renameSync;
+  const originalOpen = fs.openSync;
+  const originalClose = fs.closeSync;
+  const originalUnlink = fs.unlinkSync;
+  const originalRm = fs.rmSync;
+  for (const mode of [
+    "primary",
+    "undefined",
+    "lock",
+    "temporary",
+    "temporary-absent",
+    "nested",
+    "published",
+  ] as const) {
+    const root = fs.mkdtempSync(path.join(parent, "topic-meeting-failure-"));
+    try {
+      const repository = createTopicMeetingRepository(root);
+      assert.equal(repository.create("topic", topic(1)).status, "completed");
+      const lockPath = path.join(root, "22_Topics", ".TOPIC-000042.lock");
+      fs.writeFileSync(lockPath, "owned_conflict", { flag: "wx" });
+      assert.equal(
+        repository.update("topic", "TOPIC-000042", 1, topic(2)).reason,
+        "record_revision_conflict",
+      );
+      assert.equal(repository.get("topic", "TOPIC-000042")?.revision, 1);
+      fs.unlinkSync(lockPath);
+      const primary = new Error("fixed_rename_failure");
+      const closeFailure = new Error("fixed_close_failure");
+
+      const temporaryFailure = new Error("fixed_temporary_unlink_failure");
+      const attempts: string[] = [];
+      const lockFails = ["lock", "nested", "published"].includes(mode);
+      const temporaryFails = ["temporary", "nested"].includes(mode);
+      let thrown = false;
+      let failure: unknown;
+      let lockDescriptor: number | undefined;
+      const openMock = t.mock.method(
+        fs,
+        "openSync",
+        (file: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
+          const descriptor = originalOpen(file, flags, mode);
+          if (String(file) === lockPath && flags === "wx")
+            lockDescriptor = descriptor;
+          return descriptor;
+        },
+      );
+      const renameMock = t.mock.method(
+        fs,
+        "renameSync",
+        (source: fs.PathLike, destination: fs.PathLike) => {
+          if (mode === "published") return originalRename(source, destination);
+          if (mode === "temporary-absent") originalUnlink(source);
+          if (mode === "undefined") throw undefined;
+          throw primary;
+        },
+      );
+      const closeMock = t.mock.method(fs, "closeSync", (descriptor: number) => {
+        originalClose(descriptor);
+        if (descriptor === lockDescriptor) {
+          attempts.push("close");
+          if (lockFails) throw closeFailure;
+        }
+      });
+      const unlinkMock = t.mock.method(
+        fs,
+        "unlinkSync",
+        (file: fs.PathLike) => {
+          const lock = String(file).endsWith(".lock");
+          attempts.push(lock ? "lock-unlink" : "temporary-unlink");
+          if (!lock && temporaryFails) throw temporaryFailure;
+          return originalUnlink(file);
+        },
+      );
+      const removeMock = t.mock.method(
+        fs,
+        "rmSync",
+        (file: fs.PathLike, options?: fs.RmOptions) => {
+          if (String(file) === lockPath) attempts.push("lock-remove");
+          return originalRm(file, options);
+        },
+      );
+      syncBuiltinESMExports();
+      try {
+        repository.update("topic", "TOPIC-000042", 1, topic(2, "waiting"));
+      } catch (error) {
+        thrown = true;
+        failure = error;
+      } finally {
+        renameMock.mock.restore();
+        openMock.mock.restore();
+        closeMock.mock.restore();
+        unlinkMock.mock.restore();
+        removeMock.mock.restore();
+        syncBuiltinESMExports();
+      }
+      assert.ok(thrown, mode);
+      assert.equal(attempts.includes("close"), true);
+      assert.equal(attempts.includes("lock-remove"), !lockFails);
+      if (mode === "primary" || mode === "temporary-absent")
+        assert.equal(failure, primary);
+      else if (mode === "undefined") assert.equal(failure, undefined);
+      else {
+        assert.ok(failure instanceof AggregateError);
+        if (lockFails) {
+          assert.equal(failure.errors.length, 1);
+          assert.equal(
+            failure.errors[0].message,
+            "project_operation_record_lock_release_failed",
+          );
+          assert.equal(fs.existsSync(lockPath), true);
+        } else assert.deepEqual(failure.errors, [temporaryFailure]);
+        if (mode === "published")
+          assert.equal(
+            Object.hasOwn(failure, "cause"),
+            false,
+            failure.cause instanceof Error
+              ? failure.cause.stack
+              : String(failure.cause),
+          );
+        else if (mode === "nested") {
+          assert.ok(failure.cause instanceof AggregateError);
+          assert.equal(failure.cause.cause, primary);
+          assert.deepEqual(failure.cause.errors, [temporaryFailure]);
+        } else assert.equal(failure.cause, primary);
+      }
+      assert.equal(
+        repository.get("topic", "TOPIC-000042")?.revision,
+        mode === "published" ? 2 : 1,
+      );
+      const directory = path.join(root, "22_Topics", "TOPIC-000042");
+      assert.equal(
+        fs.readdirSync(directory).filter((file) => file.endsWith(".tmp"))
+          .length,
+        temporaryFails ? 1 : 0,
+      );
+      assert.equal(
+        fs.existsSync(path.join(root, "22_Topics", ".TOPIC-000042.lock")),
+        lockFails,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+    }
+  }
+});
+
+/**
+ * 登録・更新の同一読戻しと保存後失敗を照合する。
+ *
+ * @responsibility TopicとMeetingの保存済みbytes・Identity・改訂と公開成功／例外を相関する。
+ * @trace CPR-IT-010
+ * @trace CPR-IT-011
+ * @precondition 検証済みRepositoryの非link試験親に自己生成Rootを用意する。
+ * @stimulus create／updateを実保存し、保存後読取りの欠落・故障・内容差とLock回収故障を限定注入する。
+ * @observation rename後の読取り回数、Lock存在、実bytes・改訂、一次例外とcleanupを観測する。
+ * @oracle 一致時だけ成功し、保存後失敗は実保存を残したまま内部例外を返す。不正UTF-8を同一文字列として受理しない。
+ * @cleanup 注入を復元して自己生成Rootを回収し、Root不存在を確認する。
+ * @boundary 同期Repository保存→同一File読戻し。電源断・親差替え・実Process競合は対象外。
+ */
+test("登録・更新はLock内の同一読戻しを確認し保存後失敗を隠さない", (t) => {
+  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
+    import.meta.dirname,
+  );
+  const parent = path.join(verified, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    try {
+      const stat = fs.lstatSync(directory);
+      assert.ok(stat.isDirectory() && !stat.isSymbolicLink());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      fs.mkdirSync(directory);
+    }
+  }
+  const originalRead = fs.readFileSync;
+  const originalRename = fs.renameSync;
+  const originalExists = fs.existsSync;
+  const originalLstat = fs.lstatSync;
+  const originalRm = fs.rmSync;
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const operation of ["create", "update"] as const) {
+      for (const mode of [
+        "normal",
+        "read-error",
+        "missing",
+        "bytes",
+        "identity",
+        "revision",
+        "project",
+        "utf8",
+        "parse",
+        "cleanup",
+      ] as const) {
+        const root = fs.mkdtempSync(
+          path.join(parent, "topic-meeting-readback-"),
+        );
+        try {
+          const repository = createTopicMeetingRepository(root);
+          const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
+          const directory = path.join(
+            root,
+            kind === "topic" ? "22_Topics" : "23_Meetings",
+          );
+          const file = path.join(directory, id, `${kind}.md`);
+          const lock = path.join(directory, `.${id}.lock`);
+          const fixture = kind === "topic" ? topic : meeting;
+          if (operation === "update")
+            assert.equal(
+              repository.create(kind, fixture(1)).status,
+              "completed",
+            );
+          const revision = operation === "create" ? 1 : 2;
+          const markdown = fixture(revision).replace(
+            "### 結論",
+            "### 結論\n\n置換文字: \uFFFD",
+          );
+          const readFailure = new Error("fixed_readback_failure");
+          const cleanupFailure = new Error("fixed_readback_cleanup_failure");
+          let published = false;
+          let readCount = 0;
+          const renameMock = t.mock.method(
+            fs,
+            "renameSync",
+            (source: fs.PathLike, destination: fs.PathLike) => {
+              const result = originalRename(source, destination);
+              published = true;
+              return result;
+            },
+          );
+          const lstatMock = t.mock.method(
+            fs,
+            "lstatSync",
+            (...args: Parameters<typeof fs.lstatSync>) => {
+              if (published && String(args[0]) === file && mode === "missing")
+                throw Object.assign(new Error("fixed_readback_missing"), {
+                  code: "ENOENT",
+                });
+              return originalLstat(...args);
+            },
+          );
+          const readMock = t.mock.method(
+            fs,
+            "readFileSync",
+            (...args: Parameters<typeof fs.readFileSync>) => {
+              if (!published || String(args[0]) !== file)
+                return originalRead(...args);
+              readCount++;
+              assert.ok(originalExists(lock));
+              assert.equal(args[1], undefined);
+              if (mode === "read-error" || mode === "cleanup")
+                throw readFailure;
+              let observed = originalRead(file);
+              if (mode === "bytes") observed = Buffer.from(`${markdown}\n`);
+              if (mode === "identity")
+                observed = Buffer.from(
+                  markdown.replace(id, id.replace("042", "043")),
+                );
+              if (mode === "revision")
+                observed = Buffer.from(
+                  markdown.replace(`改訂: \`${revision}\``, "改訂: `3`"),
+                );
+              if (mode === "project")
+                observed = Buffer.from(markdown.replace("PRJ-001", "PRJ-002"));
+              if (mode === "parse") observed = Buffer.from("not a record");
+              if (mode === "utf8") {
+                const offset = observed.indexOf(Buffer.from("\uFFFD"));
+                assert.ok(offset >= 0);
+                observed = Buffer.concat([
+                  observed.subarray(0, offset),
+                  Buffer.from([0xff]),
+                  observed.subarray(offset + 3),
+                ]);
+                assert.equal(observed.toString("utf8"), markdown);
+              }
+              return observed;
+            },
+          );
+          const removeMock = t.mock.method(
+            fs,
+            "rmSync",
+            (target: fs.PathLike, options?: fs.RmOptions) => {
+              if (mode === "cleanup" && String(target) === lock)
+                throw cleanupFailure;
+              return originalRm(target, options);
+            },
+          );
+          syncBuiltinESMExports();
+          try {
+            /**
+             * 今回の登録または更新を一度実行する。
+             *
+             * @responsibility 同じ入力を正常返却と例外観測の両経路へ与える。
+             * @trace CPR-IT-010
+             * @trace CPR-IT-011
+             * @precondition 対象種別・ID・期待改訂と限定注入が設定済みである。
+             * @stimulus 選択したRepository create／updateを一度呼ぶ。
+             * @observation 返却結果または保存後の一次例外を呼出し側へ渡す。
+             * @oracle 外側のassertionで実保存・読戻し・cleanupとの相関を判定する。
+             * @cleanup 外側のfinallyが注入と自己生成Rootを回収する。
+             * @boundary Repository公開CRUD→実Filesystem保存と注入観測。
+             */
+            const attemptRecordWrite = () =>
+              operation === "create"
+                ? repository.create(kind, markdown)
+                : repository.update(kind, id, 1, markdown);
+            if (mode === "normal") {
+              const result = attemptRecordWrite();
+              assert.equal(result.status, "completed");
+              assert.equal(result.record?.revision, revision);
+            } else {
+              assert.throws(attemptRecordWrite, (error: unknown) => {
+                if (mode === "read-error") assert.equal(error, readFailure);
+                else if (mode === "cleanup") {
+                  assert.ok(error instanceof AggregateError);
+                  assert.equal(error.cause, readFailure);
+                  assert.equal(error.errors.length, 1);
+                  assert.equal(
+                    error.errors[0].message,
+                    "project_operation_record_lock_release_failed",
+                  );
+                } else {
+                  assert.ok(error instanceof Error);
+                  if (mode !== "parse")
+                    assert.equal(
+                      error.message,
+                      mode === "missing"
+                        ? "project_operation_record_readback_missing"
+                        : "project_operation_record_readback_mismatch",
+                    );
+                }
+                return true;
+              });
+            }
+            assert.ok(published);
+            assert.equal(readCount, mode === "missing" ? 0 : 1);
+          } finally {
+            renameMock.mock.restore();
+            readMock.mock.restore();
+            lstatMock.mock.restore();
+            removeMock.mock.restore();
+            syncBuiltinESMExports();
+          }
+          assert.deepEqual(originalRead(file), Buffer.from(markdown));
+          assert.equal(repository.get(kind, id)?.revision, revision);
+          assert.equal(originalExists(lock), mode === "cleanup");
+          assert.deepEqual(fs.readdirSync(path.dirname(file)), [`${kind}.md`]);
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+          assert.throws(() => fs.lstatSync(root), { code: "ENOENT" });
+        }
+      }
+    }
+  }
+});

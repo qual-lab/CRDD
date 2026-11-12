@@ -61,7 +61,7 @@ test("公開台帳入口は検査と選択を返すが試験を起動しない",
   assert.equal(JSON.parse(inspection.stdout).status, "valid");
   const result = invoke([
     "--changed",
-    "40_Develop/domain-model/src/test-catalog/inspect.ts",
+    "40_Develop/document-model/src/test-catalog/inspect.ts",
   ]);
   assert.equal(result.status, 0, result.stderr + result.stdout);
   const plan = JSON.parse(result.stdout);

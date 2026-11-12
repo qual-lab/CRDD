@@ -13,17 +13,17 @@ import type {
   TopicMeetingListQuery,
   TopicMeetingPage,
   TopicMeetingRelation,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import type {
   ChangesResult,
   FileDiff,
   TreePage,
 } from "../../../../version-control/src/index.ts";
-import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
+import type { PortfolioProjection } from "../../../../document-model/src/index.ts";
 import type {
   AiSelectionSaveResult,
   AiSelectionSnapshot,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../configuration-model/src/index.ts";
 import type { WorkbenchAiSelectionSurface } from "../../server/ai-selection/projection.ts";
 import type { WorkbenchAiRequestSnapshot } from "../../server/ai-request/types.ts";
 import type { CredentialAdministrationSnapshot } from "../../../../access-management/src/index.ts";

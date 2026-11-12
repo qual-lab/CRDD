@@ -7,7 +7,7 @@ import * as fs from "node:fs/promises";
 import type { Stats } from "node:fs";
 import path from "node:path";
 import { getRepositoryFromWorkingDirectory } from "../../../../version-control/src/index.ts";
-import { observeRepositoryRuntimeDataArea } from "../../../../domain-model/src/index.ts";
+import { observeRepositoryRuntimeDataArea } from "./configuration-area.ts";
 
 /**
  * 共有Workbenchの公開OriginをHTTPSのauthorityだけへ限定する。

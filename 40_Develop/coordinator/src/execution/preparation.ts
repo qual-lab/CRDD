@@ -19,9 +19,8 @@ import {
   type ExecutionSelection,
   hashExecutionSelection,
   inspectExecutionSelection,
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import type {
   CompletionResult,
   Executor,

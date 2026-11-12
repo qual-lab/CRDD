@@ -6,9 +6,9 @@
  */
 
 import fs from "node:fs";
-import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
-import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray } from "../input/snapshot.ts";
+import { parseUnambiguousJsonDocument } from "../input/json.ts";
 
 const MAXIMUM_ARGUMENTS = 16;
 const MAXIMUM_ARGUMENT_LENGTH = 4_096;

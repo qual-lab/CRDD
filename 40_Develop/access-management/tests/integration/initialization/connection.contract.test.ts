@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { removeKnownStoppedTestLock } from "../storage/fixture.ts";
-import { createFilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../src/initialization/root.ts";
 import {
   authenticateNormalConnection,
   confirmInitialConnection,
@@ -519,7 +519,7 @@ test("初回確認の実Process喪失はbase保持とnext再観測を分ける",
   for (const phase of ["pending", "renamed"]) {
     const f = fixture(t);
     const domainUrl = new URL(
-      "../../../../domain-model/src/index.ts",
+      "../../../src/initialization/root.ts",
       import.meta.url,
     ).href;
     const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;
@@ -579,7 +579,7 @@ test("初回確認の実Process喪失はbase保持とnext再観測を分ける",
 test("並行Processの初回確認は一出版とexact再観測へ収束する", async (t) => {
   const f = fixture(t);
   const domainUrl = new URL(
-    "../../../../domain-model/src/index.ts",
+    "../../../src/initialization/root.ts",
     import.meta.url,
   ).href;
   const storeUrl = new URL("../../../src/index.ts", import.meta.url).href;

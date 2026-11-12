@@ -27,21 +27,23 @@ import * as isolation from "../../../docker-isolation/src/index.ts";
 import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
-import * as stateModel from "../../../domain-model/src/index.ts";
-import * as historyValues from "../../../domain-model/src/index.ts";
-import * as stateRuntime from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import * as stateModel from "../../../execution-model/src/index.ts";
+import * as historyValues from "../../../execution-model/src/index.ts";
+import * as stateRuntime from "../../../execution-model/src/index.ts";
 import {
   coordinatorTaskResourcesAreSettled,
   createDockerRestartRequestId,
   encodeRuntimeStateValue,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   isDockerRestartCheckpointSettled,
-  requireReadyRepositoryRuntimeDataArea,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
-} from "../../../domain-model/src/index.ts";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
@@ -2572,7 +2574,7 @@ for (const { repeatCount, retained } of [
         );
         let writerFault: ReturnType<typeof mock.module> | null = retained
           ? mock.module(
-              new URL("../../../domain-model/src/index.ts", import.meta.url)
+              new URL("../../../execution-model/src/index.ts", import.meta.url)
                 .href,
               {
                 namedExports: {
@@ -3189,13 +3191,14 @@ for (const { repeatCount, retained } of [
       );
       const actualStore: typeof stateRuntime = await import(
         new URL(
-          `../../../domain-model/src/index.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          `../../../execution-model/src/index.ts?normal-owner-physical-${repeatCount}-${retained}`,
           import.meta.url,
         ).href
       );
       substitutions.push(
         mock.module(
-          new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+          new URL("../../../execution-model/src/index.ts", import.meta.url)
+            .href,
           { namedExports: { ...actualStore } },
         ),
       );
@@ -3215,10 +3218,10 @@ for (const { repeatCount, retained } of [
         cleanupExports.verifyRuntimeOwnedDockerCleanupOutcome;
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
         `const verifyRuntimeOwnedDockerCleanupOutcome = globalThis[${JSON.stringify(cleanupKey)}];`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
-        `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+        `import { parseHostRecoveryToken } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
         `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/execution/persistence.ts", import.meta.url).href}";`,
       ].join("\n");
@@ -4216,7 +4219,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+      new URL("../../../execution-model/src/index.ts", import.meta.url).href,
       {
         namedExports: {
           ...stateModel,

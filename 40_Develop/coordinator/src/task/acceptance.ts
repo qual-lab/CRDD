@@ -9,7 +9,7 @@ import {
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectResultAcceptance,
   decodeProjectResultAcceptance,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { projectState } from "../state/projection.ts";
 import type { StateResult } from "../state/types.ts";
 import {

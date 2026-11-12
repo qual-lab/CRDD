@@ -18,7 +18,7 @@ temporary／durable／recovery_required／cleanup／unknownを用途別に分け
 | 所有しない責務 | 各Toolの業務データ意味、任意Pathへの書込み、由来不明残存の削除 |
 | 主な外部境界 | Filesystem、Repository Root、OS-managed Runtime Root |
 
-共通実装は`domain-model`のRepository観測・保存・設定の用途別部品へ統合する。`runtime-data`を汎用の親フォルダまたは全状態のOwnerとして残さない。Coordinator現在状態、OrchestratorのTask／受付世代、Execution Intelligence履歴、候補本体、認証・署名はそれぞれの意味・保護・保持契約を維持する。共通保存部品が各Ownerの業務状態やAuthorityを再定義しない。
+文書・実行・構成の3モデルと各保存Ownerが、必要なRepository観測・固定保存・設定処理を自身の内部で所有する。モデル間の型・実装依存は置かず、共通Packageや汎用Helperの公開配布は追加しない。`runtime-data`を汎用の親フォルダまたは全状態のOwnerとして残さない。Coordinator現在状態、OrchestratorのTask／受付世代、Execution Intelligence履歴、候補本体、認証・署名はそれぞれの意味・保護・保持契約を維持する。共通保存部品が各Ownerの業務状態やAuthorityを再定義しない。
 
 通常の現在状態は解決済み項目を除く閉集合、通常履歴は時刻付きで保持期間に従う循環記録、正式Evidenceは所有成果物へ残す検証根拠として分ける。保存確定途中の短命ファイルと処理の作業本体も用途を区別する。旧形式の整理はFront AIの移行手順へ渡し、Runtimeへ永久互換Readerや旧形式復活のFallbackを追加しない。
 
@@ -125,7 +125,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
 - [現行照合先](../../Details/domain-model/04_Storage_Path_Reality_Audit.md)
-- [現行照合先](../../Details/domain-model/03_Repository_Storage.md)
+- [現行照合先](../../Details/execution-model/03_Repository_Storage.md)
 
 ## Checklist
 

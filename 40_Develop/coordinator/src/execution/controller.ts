@@ -26,15 +26,14 @@ import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   parseHostRecoveryToken,
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
   checkpointRuntimeOwnedCoordinatorHost,
   readRuntimeOwnedCoordinatorStateSnapshot,
 } from "../execution/persistence.ts";
-import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
@@ -5313,6 +5312,6 @@ export function describeCoordinatorSingleTaskAdapterContract() {
   });
 }
 
-import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
 
-import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";

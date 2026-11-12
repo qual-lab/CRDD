@@ -13,13 +13,16 @@ import {
   RepositoryRuntimeDataAreaBlockedError,
   readDecision,
   recordDecision,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import {
+  verifyRuntimePersistenceRepository,
+  historyRepositoryInput,
+} from "../execution/persistence.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
@@ -190,7 +193,7 @@ export function executeCoordinatorPublicAcceptanceDecision(
       requestedAt: existing?.requestedAt ?? now,
     };
     const saved = recordDecision(
-      repository,
+      historyRepositoryInput(repository),
       repositoryBindingId,
       request,
       {

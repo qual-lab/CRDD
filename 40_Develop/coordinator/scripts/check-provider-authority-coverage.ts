@@ -22,7 +22,7 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/preparation.ts",
   "40_Develop/coordinator/src/execution/authority.ts",
-  "40_Develop/domain-model/src/plain-data/snapshot.ts",
+  "40_Develop/execution-model/src/plain-data/snapshot.ts",
 ]);
 
 export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
@@ -92,7 +92,7 @@ const coverageObligations = Object.freeze({
     "Registry Schema、Authority context、Grant評価またはplain-data境界変更時／Prelaunch context、Runtime時計、File BundleまたはProvider launch結合変更時／Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時／Operation管理参照、固定Profile、Authority source lifetimeまたはLocal Personal許可境界変更時",
   ),
 
-  "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
+  "40_Develop/execution-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐なし",
     "現固定版では追加残存riskなし",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

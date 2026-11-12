@@ -252,4 +252,4 @@ export async function handleMcpWorkspaceRequest(
   }
 }
 
-import { inspectWorkspaceCommand } from "../../../domain-model/src/index.ts";
+import { inspectWorkspaceCommand } from "../../../execution-model/src/index.ts";

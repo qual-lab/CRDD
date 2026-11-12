@@ -22,9 +22,9 @@ import {
   createMeetingOperations,
   federateTopicMeetingRelations,
   readRepositoryProjectContext,
-  type FilesystemStoreRoot,
   type ProjectContextSource,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import { createMcpServerFactory } from "./server.ts";
 import { createInitialConnectionHandler } from "./initial-connection.ts";
@@ -253,10 +253,11 @@ export function createAccessMcpResolver(
               for (const repository of collection.repositories) {
                 if (signal.aborted)
                   throw new Error("project_context_unavailable");
-                const read = readRepositoryProjectContext(
-                  repository.root,
-                  repository.manifest,
-                );
+                const read = readRepositoryProjectContext(repository.root, {
+                  projectId: repository.manifest.projectId,
+                  repositoryId: repository.manifest.repositoryId,
+                  repositoryRole: repository.manifest.repositoryRole,
+                });
                 if (read.status === "blocked")
                   throw new Error("project_context_unavailable");
                 sources.push(

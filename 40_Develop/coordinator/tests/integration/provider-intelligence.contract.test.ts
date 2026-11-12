@@ -24,10 +24,8 @@ import {
   listExecutions,
 } from "../../../execution-intelligence/src/index.ts";
 import { fixture } from "../../../execution-intelligence/tests/fixtures/store.ts";
-import {
-  requireReadyRepositoryRuntimeDataArea,
-  RepositoryRuntimeDataAreaBlockedError,
-} from "../../../domain-model/src/index.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../src/configuration/runtime-data.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 import {
   beginProviderExecutionRecording,
   captureProviderExecutionCompletion,

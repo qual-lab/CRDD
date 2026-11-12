@@ -12,7 +12,8 @@ import path from "node:path";
 import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
 import { getIsolationSettings } from "./configuration.ts";
-import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
+import { historyRepositoryInput, withHistoryRetention } from "./persistence.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   advanceRuntimeOwnedCoordinatorRepairHistory,
@@ -37,7 +38,6 @@ import {
   encodeRuntimeStateValue,
   inspectExecutionSelection,
   isDockerRestartCheckpointSettled,
-  observeRepositoryRuntimeDataArea,
   parseHostRecoveryToken,
   prepareCoordinatorRepairHistorySummary,
   prepareCoordinatorStateHostSnapshot,
@@ -63,7 +63,6 @@ import {
   resumeRuntimeOwnedCoordinatorRepairPublication,
   resumeRuntimeOwnedCoordinatorResourcePublication,
   settleRuntimeOwnedCoordinatorResult,
-  snapshotPlainRecord,
   validateHostRecoveryTransitionLineage,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
   writeRuntimeOwnedCoordinatorRecoveredHostCleanup,
@@ -71,7 +70,7 @@ import {
   writeRuntimeOwnedCoordinatorRecoveryTerminal,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type {
   IsolationCallbacks,
   IsolationExecution,
@@ -152,6 +151,8 @@ import type {
 } from "./types.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
 
+import { snapshotPlainRecord } from "../input/snapshot.ts";
+import { observeRepositoryRuntimeDataArea } from "../configuration/runtime-data.ts";
 /**
  * docker-cleanup-eligibilityで使用するDocker 清掃 Handoff 候補の値契約を定義する。
  *
@@ -1489,7 +1490,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       ) === true;
     if (savedTerminal)
       initial = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-        rootCapability,
+        historyRepositoryInput(rootCapability),
         parsed.token,
       );
     if (initial.status === "blocked" && initial.lockReleased)
@@ -1499,7 +1500,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       );
     if (initial.status !== "completed" && initial.lockReleased)
       initial = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-        rootCapability,
+        historyRepositoryInput(rootCapability),
         parsed.token,
       );
     if (initial.status !== "completed" && initial.lockReleased)
@@ -1657,7 +1658,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
           )
         : initial.currentHistoryPublication
           ? readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-              rootCapability,
+              historyRepositoryInput(rootCapability),
               parsed.token,
             )
           : initial.currentCompletionPublication
@@ -1954,7 +1955,7 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
       record.hostCleanupPublication === null
     )
       current = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-        record.rootCapability,
+        historyRepositoryInput(record.rootCapability),
         record.recoveryId,
       );
     if (!current.lockReleased) record.cleanupUnknown = true;
@@ -2166,7 +2167,10 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
   try {
     for (let stage = 0; stage < 2; stage++) {
       const saved = advanceRuntimeOwnedCoordinatorRecoveryHistory(
-        record.repository,
+        {
+          ...record.repository,
+          ...withHistoryRetention(record.repository, record.rootCapability),
+        },
         record.recoveryId,
         () => {
           if (
@@ -6189,7 +6193,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           step === 0 && initial
             ? initial
             : readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-                rootCapability,
+                historyRepositoryInput(rootCapability),
                 recoveryId,
               );
         historyLockReleased = read.lockReleased;
@@ -6253,6 +6257,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         const saved = advanceRuntimeOwnedCoordinatorRepairHistory(
           {
             ...repository,
+            ...withHistoryRetention(repository, rootCapability),
             operationId: JSON.parse(operation.identityJson).operationId,
           },
           recoveryId,
@@ -6445,7 +6450,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           }
           {
             let history = readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-              rootCapability,
+              historyRepositoryInput(rootCapability),
               requestedRecoveryId,
             );
             historyLockReleased = history.lockReleased;
@@ -6453,7 +6458,7 @@ export async function repairRuntimeOwnedDockerRuntime(
             if (history.status !== "completed") {
               // 技術fallbackではなく、既存の有限metadata出版だけを一度試す。
               statePublication = resumeRuntimeOwnedCoordinatorRepairPublication(
-                rootCapability,
+                historyRepositoryInput(rootCapability),
                 requestedRecoveryId,
                 currentOwner,
               );
@@ -6465,7 +6470,7 @@ export async function repairRuntimeOwnedDockerRuntime(
               )
                 return stopped();
               history = readRuntimeOwnedCoordinatorRepairHistorySnapshot(
-                rootCapability,
+                historyRepositoryInput(rootCapability),
                 requestedRecoveryId,
               );
               historyLockReleased = history.lockReleased;
@@ -6515,7 +6520,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         }
         if (statePublication === null)
           statePublication = resumeRuntimeOwnedCoordinatorRepairPublication(
-            rootCapability,
+            historyRepositoryInput(rootCapability),
             requestedRecoveryId,
             currentOwner,
           );

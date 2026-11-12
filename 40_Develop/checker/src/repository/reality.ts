@@ -13,7 +13,7 @@ import {
   createFilesystemRepositoryObservationPort,
   type RepositoryObservationPort,
   inspectRealityTestCatalog,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../report/reality.ts";
 import type { CheckerRealityFinding } from "../report/types.ts";

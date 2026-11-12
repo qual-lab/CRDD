@@ -63,7 +63,7 @@ import {
   inspectPhaseDiagramTemplates,
   phaseDiagramTemplatePaths,
   parseMarkdownLinkTargets,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import { inspectRealityRepository } from "../repository/reality.ts";
 
 import { createFindingCollector } from "../report/collect.ts";

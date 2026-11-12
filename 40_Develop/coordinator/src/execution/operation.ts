@@ -8,12 +8,10 @@
 import {
   parseHostRecoveryToken,
   inspectExecutionSelection,
-  snapshotPlainRecord,
   hashExecutionSelection,
   type ExecutionSelection,
   containsRecognizedSecretMaterial,
-  checkRepositoryRuntimeDataProtectionDirectory,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 import {
   getRepository,
@@ -42,6 +40,8 @@ import { acquireHostOperationLock } from "./kernel-lock.ts";
 import type { Lock } from "../../../lock/src/index.ts";
 import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 
+import { snapshotPlainRecord } from "../input/snapshot.ts";
+import { checkRepositoryRuntimeDataProtectionDirectory } from "../configuration/runtime-data.ts";
 /**
  * Coordinatorが管理する操作領域の全Pathを定義する。
  * @responsibility 作業・Home・記録と管理領域の所在を上位Ownerに閉じる。
@@ -6916,4 +6916,4 @@ export function describeRepositoryOperationRuntimeContract() {
   });
 }
 
-import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";

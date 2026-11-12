@@ -19,7 +19,7 @@ import path, { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { createLocalPrincipalId } from "../../../domain-model/src/index.ts";
+import { createLocalPrincipalId } from "../../../execution-model/src/index.ts";
 
 /**
  * UIを起動せず公開Package API・実Git・Domain保存の事前確認を結合する。
@@ -101,8 +101,8 @@ import {
 import {
   initializeCoordinatorSnapshot,
   readRuntimeOwnedCoordinatorRecoverySnapshot,
-  saveRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
   getRepository,
   readRepositoryRevision,

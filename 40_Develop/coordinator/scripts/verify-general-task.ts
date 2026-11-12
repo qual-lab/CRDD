@@ -43,7 +43,7 @@ import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
 } from "../src/execution/result.ts";
-import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { snapshotPlainArray } from "../src/input/snapshot.ts";
 import {
   isCanonicalCrddGitObjectId,
   isSupportedCrddRuntimeGitObjectId,

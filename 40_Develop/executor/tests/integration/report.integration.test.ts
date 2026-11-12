@@ -15,7 +15,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import {
   getReportCommitName,
   readReport,
@@ -98,7 +98,7 @@ test("recovery test directories ignore ambient roots and preserve siblings", () 
 test("recovery test directory rejects uncertain roots before creation or deletion", () => {
   const sourceDirectory = path.resolve(
     import.meta.dirname,
-    "../../../domain-model/tests/support",
+    "../../../execution-model/tests/support",
   );
   const repositoryRoot = path.resolve(sourceDirectory, "../../../..");
   const source = fs.readFileSync(

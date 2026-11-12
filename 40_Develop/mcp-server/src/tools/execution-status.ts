@@ -180,4 +180,4 @@ export async function handleMcpExecutionStatusRequest(
 import {
   parseRuntimeActivityObservation,
   type RuntimeActivityObservation,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";

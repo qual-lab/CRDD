@@ -18,7 +18,7 @@ import test, { type TestContext } from "node:test";
 import {
   type CrosRootInput,
   resolveCrosRuntimeRoots,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/initialization/root.ts";
 import {
   resolveVerifiedRepositoryRoot,
   getRepositoryFromWorkingDirectory,

@@ -18,7 +18,7 @@ import type {
   ResourceTarget,
 } from "../../../docker-isolation/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
-import type { CoordinatorResourceBook } from "../../../domain-model/src/index.ts";
+import type { CoordinatorResourceBook } from "../../../execution-model/src/index.ts";
 import {
   type CoordinatorStateOperation,
   coordinatorAuthenticationUnknownCanClose,
@@ -28,8 +28,8 @@ import {
   readRuntimeOwnedCoordinatorRecoverySnapshot,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
   writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
-} from "../../../domain-model/src/index.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+} from "../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);

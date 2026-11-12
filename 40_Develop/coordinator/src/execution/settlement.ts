@@ -3,7 +3,8 @@
  * @responsibility 保存状態を所有せず既存のHost・Controller照合を接続する。
  * @trace ARCH-000008
  */
-import * as runtimeSettlement from "../../../domain-model/src/index.ts";
+import * as runtimeSettlement from "../../../execution-model/src/index.ts";
+import { withHistoryRetention } from "./persistence.ts";
 import {
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
@@ -39,9 +40,15 @@ export function prepareRuntimeOwnedCoordinatorSettlement(
     {
       identity: managementCapability,
       observeRepository: () =>
-        borrowRuntimeOwnedCoordinatorStateRepository(managementCapability),
+        withHistoryRetention(
+          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability),
+        ),
       observeSettlementRepository: () =>
-        borrowRuntimeOwnedCoordinatorSettlementRepository(managementCapability),
+        withHistoryRetention(
+          borrowRuntimeOwnedCoordinatorSettlementRepository(
+            managementCapability,
+          ),
+        ),
       captureCleanupVerification: () =>
         captureOwnedOperationCleanupVerification(managementCapability),
       observeTerminal,

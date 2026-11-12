@@ -17,7 +17,7 @@ import test from "node:test";
 import type {
   CoordinatorAcceptanceDecision,
   CoordinatorState,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";

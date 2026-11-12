@@ -11,7 +11,7 @@
  */
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../../domain-model/tests/fixtures/execution-plan.ts";
+import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
@@ -312,6 +312,6 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
   assert.equal(unknown.cleanupConfirmed, false);
 });
 
-import { inspectCoordinatorWorkspaceResults } from "../../../../domain-model/src/index.ts";
-import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../../../domain-model/src/index.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../../../domain-model/src/index.ts";
+import { inspectCoordinatorWorkspaceResults } from "../../../../execution-model/src/index.ts";
+import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../../../execution-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../../execution-model/src/index.ts";

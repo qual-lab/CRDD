@@ -22,7 +22,7 @@ import {
   dockerIsolationCommandsMatch,
   planDockerIsolationCommands,
 } from "../../../docker-isolation/tests/support/execution-plan.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
 import {
   prepareAttempt,

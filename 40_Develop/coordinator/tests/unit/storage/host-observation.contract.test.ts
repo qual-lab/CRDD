@@ -17,7 +17,7 @@ import {
   decodeRuntimeDomainSnapshot,
   decodeDockerRestartCheckpoint,
   prepareCoordinatorStateOperationSnapshot,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../../src/execution/validation.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 

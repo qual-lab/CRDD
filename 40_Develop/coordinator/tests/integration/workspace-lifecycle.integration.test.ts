@@ -32,8 +32,8 @@ import {
   readRuntimeOwnedCoordinatorRecoverySnapshot,
   saveCoordinatorManagedProject,
   saveCoordinatorWorkspaceRecord,
-} from "../../../domain-model/src/index.ts";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+} from "../../../execution-model/src/index.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
@@ -2482,4 +2482,4 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   assert.equal(f.snapshot().queueEntries[0]?.state, "integration_pending");
 });
 
-import { inspectWorkspaceCommand } from "../../../domain-model/src/index.ts";
+import { inspectWorkspaceCommand } from "../../../execution-model/src/index.ts";

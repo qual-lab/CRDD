@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 /**
  * 固定子のexclusive作成と元実体・空・明示不存在を反証する。

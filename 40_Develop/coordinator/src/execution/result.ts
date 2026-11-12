@@ -5,18 +5,15 @@
  * @trace ARCH-000008
  */
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 
 import type {
   TaskCompletionRecord,
   RuntimeLifecycleState,
 } from "./controller.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
-import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord, snapshotPlainArray } from "../input/snapshot.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import type { CoordinatorTaskRecoveryObligation } from "./recovery.ts";
 import {
   resolveRecoveryReference,
@@ -657,4 +654,4 @@ export function formatHostRecoveryToken(
   return `host.${rootName}.${nonce}.${recordHash}`;
 }
 
-import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";

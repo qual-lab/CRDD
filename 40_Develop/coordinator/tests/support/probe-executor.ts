@@ -14,7 +14,7 @@ import type {
   IsolationRequest,
 } from "../../../docker-isolation/src/execution/types.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createLifecycleControl } from "../../../executor/src/lifecycle/execute.ts";
 import { describeIsolationProbeProfile } from "../../../executor/src/lifecycle/probe.ts";
 

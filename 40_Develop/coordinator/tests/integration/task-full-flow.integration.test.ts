@@ -12,8 +12,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { initializeCoordinatorSnapshot } from "../../../domain-model/src/index.ts";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { initializeCoordinatorSnapshot } from "../../../execution-model/src/index.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";

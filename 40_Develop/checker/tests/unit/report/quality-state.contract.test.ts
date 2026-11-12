@@ -16,7 +16,7 @@ import test from "node:test";
 import {
   inspectArtifactSources,
   inspectQualityDesignStates,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 
 /**
  * 品質状態Issueを両readinessの既存Findingへ変換することを検証する。

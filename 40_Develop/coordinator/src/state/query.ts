@@ -11,7 +11,7 @@ import {
   RepositoryRuntimeDataAreaBlockedError,
   readCoordinatorCurrentState,
   readCoordinatorExecutionState,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
@@ -306,9 +306,9 @@ export function readCurrentCoordinatorState(
 import type {
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   COORDINATOR_STATE_QUERY_CONTRACT,
   inspectCoordinatorStateQuery,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";

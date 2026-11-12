@@ -11,27 +11,29 @@ import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import {
   confirmCoordinatorLeaseAcquisition,
   hashRuntimeStateValueText,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   hasRuntimeStateKeys,
   type LeaseKind,
   leaseAcquisitionRecoveryId,
   leaseIdentity,
-  observeRepositoryRuntimeDataArea,
   type ProjectQueueEntry,
   isRuntimeStateObject,
-  type RepositoryRuntimeDataAreaObservation,
   readCoordinatorLeaseAcquisitionOwner,
   readCoordinatorLeaseOwnerLoss,
   reconcileCoordinatorReleasedLease,
-  requireReadyRepositoryRuntimeDataArea,
   reserveCoordinatorLeaseAcquisition,
   reserveCoordinatorLeaseRecovery,
-  resolveRepositoryRuntimeDataPaths,
   saveCoordinatorLeaseReleaseIntent,
   settleCoordinatorLeaseRecovery,
   settleCoordinatorLeaseRelease,
   validId,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  observeRepositoryRuntimeDataArea,
+  type RepositoryRuntimeDataAreaObservation,
+  requireReadyRepositoryRuntimeDataArea,
+  resolveRepositoryRuntimeDataPaths,
+} from "../configuration/runtime-data.ts";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,

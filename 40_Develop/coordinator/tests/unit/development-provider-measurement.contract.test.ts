@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
 import { compileFunction } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 /**
  * 計測設定ReaderのFile量拒否だけを撤去したことを検証する。
@@ -106,7 +106,7 @@ import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,
 } from "../../scripts/measure-development-providers.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
 type Dependencies = Parameters<

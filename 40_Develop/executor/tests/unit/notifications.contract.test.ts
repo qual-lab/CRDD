@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import test, { mock } from "node:test";
 import { runInNewContext } from "node:vm";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
   createExecutorTestRuntime,
   bindLegacyTestIsolation,

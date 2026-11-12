@@ -14,9 +14,9 @@ import test from "node:test";
 import {
   inspectQualityDefinition,
   inspectQualityLocalItemOwnership,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 
-import type { DomainIssue } from "../../../../domain-model/src/index.ts";
+import type { DomainIssue } from "../../../../document-model/src/index.ts";
 
 /**
  * 実本文と所有重複のIssueを表示まで接続する。

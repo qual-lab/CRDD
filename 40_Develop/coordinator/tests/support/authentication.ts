@@ -11,7 +11,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getAuthenticationDefinition } from "../../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import { plannedResourceSnapshot } from "../../../docker-isolation/src/execution/preparation.ts";
@@ -22,7 +22,7 @@ import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
 import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import type { RecordProjection } from "../../../executor/src/index.ts";
 import {
   authenticateProvider,

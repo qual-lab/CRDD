@@ -14,7 +14,7 @@ import type { McpServerDependencies } from "../../src/request/server.ts";
 import { createMcpServerFactory } from "../../src/request/server.ts";
 import test from "node:test";
 
-import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
+import type { PortfolioProjection } from "../../../document-model/src/index.ts";
 import {
   handleMcpProjectContextRequest,
   MCP_PROJECT_CONTEXT_GET_TOOL,

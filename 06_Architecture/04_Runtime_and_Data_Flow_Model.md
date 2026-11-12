@@ -1,10 +1,14 @@
 # Runtime／Data Flowモデル
 
+## 3モデル分離の現在境界 — 2026-11-12
+
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+
 ## Coreと任意実行の目標Flow — 2026-10-27
 
 上流の流れは「CRDD文書をCallerが読む → フロントAI等がTaskを計画・分解 → 実行依頼を明示搬送 → Coordinatorが実行 → Callerへ結果返却」である。必要な文書更新はCallerが別途判断・実施し、委譲するなら文書処理自体をTaskにする。Runtimeのaccepted／completedから文書の完了を自動反映する矢印は設けない。
 
-Coreは「MCP／Workbench → 現在認可 → Domain局所操作 → 単一保存CAS → 読戻し・結果」で閉じる。管理実行は「共通Planの同じ改訂 → Coordinator Admission／選択 → Executor → 既存AI Adapter／DI／PA → 元観測の保存・結果伝播」であり、独自Plan正本を追加しない。[保存の更新順序](Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)を参照する。目標の実装・実境界検証は未完了。
+Coreは「MCP／Workbench → 現在認可 → Domain局所操作 → 単一保存CAS → 読戻し・結果」で閉じる。管理実行は「共通Planの同じ改訂 → Coordinator Admission／選択 → Executor → 既存AI Adapter／DI／PA → 元観測の保存・結果伝播」であり、独自Plan正本を追加しない。[保存の更新順序](Details/execution-model/05_Runtime_Domain.md#runtime-domain-storage)を参照する。目標の実装・実境界検証は未完了。
 
 新方式の流れは[Workspace契約§3〜5](Details/coordinator/05_Workspace.md#3-packageの責務と依存方向)を正本とする。明示対象→現在認可→Coordinator内のTask／Objective→Execution→AI Adapter／DI→結果・必要なGit成果→人間判断であり、CRUDはDomainへ直接接続できる。コード成果の固定と提案一般の保存を分ける。旧Bundle Storeや二Packageを通る以下の経路は統合前の比較対象で、新方式の接続済み根拠にしない。
 
@@ -85,7 +89,9 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 | 単一実行、Docker資源、未解決回復、未搬送結果 | Coordinator | 現在状態の閉集合を単一Writerで保存する。記録の存在だけで実資源の存在・不存在を推定しない。 |
 | 候補本体 | Coordinator内Workspace | 作業領域とCandidateの寿命・明示採否を扱う。Git操作はVersion Controlへ委譲し、Execution完了だけで採用・統合しない。 |
 | 実行観測と履歴 | Execution Intelligence | Coordinator内Execution／Taskの観測を区別する。Readerから事実を生成しない。 |
-| 共通Root観測・保存・設定 | Domain Model | 各業務Ownerの意味とAuthorityを持たず、CRUDからGit確定を発行しない。 |
+| 文書観測・文書保存 | 文書モデル | 設定・実行モデルへ直接依存せず、認可済み期待値を受ける。 |
+| 実行State・History保存 | 実行モデル | 単一CASと既存失敗・回復相関を維持し、技術実行を発行しない。 |
+| 設定取得・設定保存 | 構成モデル | 設定自身の固定所在だけを扱い、他モデルへ型や汎用Helperを配布しない。 |
 
 以下のRuntime Dataはデータ分類の総称であり、独立Packageや単一の業務状態Ownerではない。上位再入場と下位資源終了を分け、回復完了からProviderの再実行を自動発行しない。現在状態、通常履歴、候補本体、正式Evidence、短命な保存途中ファイルは、同じ永続記録へまとめない。
 

@@ -15,15 +15,17 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { readExecutionCancellation } from "../../src/execution/authority.ts";
 import * as coordinator from "../../src/index.ts";
 import {
   readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "../../../configuration-model/src/index.ts";
+import {
   isPrincipalId,
   createLocalPrincipalId,
-  saveRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 

@@ -14,7 +14,7 @@ import {
   createMeetingOperations,
   federateTopicMeetingRelations,
   type TopicMeetingAccess,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 

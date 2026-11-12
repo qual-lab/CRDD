@@ -25,12 +25,12 @@ import {
   resolveConnectionAuthentication,
   resolveRepositoryAccess,
 } from "../../../access-management/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
 import {
-  type FilesystemStoreRoot,
   type PortfolioProjection,
   createMeetingOperations,
   createTopicOperations,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,

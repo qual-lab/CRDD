@@ -16,10 +16,10 @@ import path from "node:path";
 import test from "node:test";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  initializeCoordinatorSnapshot,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+} from "../../src/configuration/runtime-data.ts";
+import { initializeCoordinatorSnapshot } from "../../../execution-model/src/index.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";

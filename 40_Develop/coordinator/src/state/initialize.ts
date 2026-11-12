@@ -6,10 +6,8 @@
  * @security 任意Binding・保存先・既存状態の上書きを要求へ追加しない。
  */
 
-import {
-  initializeCoordinatorSnapshot,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+import { initializeCoordinatorSnapshot } from "../../../execution-model/src/index.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";

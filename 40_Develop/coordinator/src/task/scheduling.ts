@@ -6,7 +6,7 @@
 import type {
   ProjectTaskRecord,
   CoordinatorState,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 
 /**
  * For Capacityが有効な状態か判定する。

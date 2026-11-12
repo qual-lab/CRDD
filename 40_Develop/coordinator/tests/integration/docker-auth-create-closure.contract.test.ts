@@ -12,9 +12,9 @@
 import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -35,7 +35,7 @@ import {
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+} from "../../src/configuration/runtime-data.ts";
 import { simulateAuthCreateClosure } from "../fixtures/docker-auth-create-closure-simulation.ts";
 
 /**

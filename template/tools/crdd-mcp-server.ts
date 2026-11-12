@@ -21,22 +21,20 @@ import {
 } from "../../40_Develop/mcp-server/src/index.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createTopicOperations } from "../../40_Develop/domain-model/src/index.ts";
+import { createTopicOperations } from "../../40_Develop/document-model/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../40_Develop/document-model/src/index.ts";
 import {
-  createFilesystemRepositoryObservationPort,
   inspectRepositoryManifest,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../40_Develop/domain-model/src/index.ts";
+} from "../../40_Develop/configuration-model/src/index.ts";
 import {
   getRepository,
   readGitUser,
   resolveVerifiedRepositoryRoot,
 } from "../../40_Develop/version-control/src/index.ts";
-import {
-  createMeetingOperations,
-  createLocalPrincipalId,
-} from "../../40_Develop/domain-model/src/index.ts";
-import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/index.ts";
+import { createMeetingOperations } from "../../40_Develop/document-model/src/index.ts";
+import { createLocalPrincipalId } from "../../40_Develop/execution-model/src/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
 import {
   resolveHostRootInput,

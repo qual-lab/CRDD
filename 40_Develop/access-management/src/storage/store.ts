@@ -9,9 +9,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import {
   type FilesystemStoreRoot,
-  readStableFileSnapshot,
   resolveFilesystemStorePath,
-} from "../../../domain-model/src/index.ts";
+} from "../initialization/root.ts";
+import path from "node:path";
 import { locked } from "./lock.ts";
 import { parseAccessManagementState } from "./parse.ts";
 import type { AccessManagementState, StateStoreResult } from "./types.ts";
@@ -75,6 +75,105 @@ export function serialize(value: unknown): Buffer {
     })}\n`,
     "utf8",
   );
+}
+
+type StableFileIdentity = Readonly<{
+  dev: bigint;
+  ino: bigint;
+  birthtimeNs: bigint;
+  ctimeNs: bigint;
+  mtimeNs: bigint;
+  size: bigint;
+  mode: bigint;
+}>;
+/** AM保存Fileの既存実体・EOF・close検査を維持する。 @responsibility 保存Owner内の読取り検査。 @trace ARCH-000013 */
+function normalizeFileId(ino: bigint): bigint {
+  return process.platform === "win32" &&
+    typeof ino === "bigint" &&
+    ino >= -(1n << 63n) &&
+    ino < 0n
+    ? BigInt.asUintN(64, ino)
+    : ino;
+}
+
+/** AM保存Fileの既存実体・EOF・close検査を維持する。 @responsibility 保存Owner内の読取り検査。 @trace ARCH-000013 */
+function identity(metadata: fs.BigIntStats): StableFileIdentity {
+  const ino = normalizeFileId(metadata.ino);
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    typeof ino !== "bigint" ||
+    metadata.dev <= 0n ||
+    ino <= 0n ||
+    metadata.birthtimeNs <= 0n ||
+    metadata.size <= 0n
+  )
+    throw new Error("file_snapshot_invalid");
+  return Object.freeze({
+    dev: metadata.dev,
+    ino,
+    birthtimeNs: metadata.birthtimeNs,
+    ctimeNs: metadata.ctimeNs,
+    mtimeNs: metadata.mtimeNs,
+    size: metadata.size,
+    mode: metadata.mode,
+  });
+}
+
+/** AM保存Fileの既存実体・EOF・close検査を維持する。 @responsibility 保存Owner内の読取り検査。 @trace ARCH-000013 */
+function sameStableFileIdentity(
+  left: StableFileIdentity,
+  right: StableFileIdentity,
+) {
+  return (
+    left.dev === right.dev &&
+    normalizeFileId(left.ino) === normalizeFileId(right.ino) &&
+    left.birthtimeNs === right.birthtimeNs &&
+    left.ctimeNs === right.ctimeNs &&
+    left.mtimeNs === right.mtimeNs &&
+    left.size === right.size &&
+    left.mode === right.mode
+  );
+}
+
+/** AM保存Fileの既存実体・EOF・close検査を維持する。 @responsibility 保存Owner内の読取り検査。 @trace ARCH-000013 */
+function readStableFileSnapshot(file: string) {
+  if (!path.isAbsolute(file)) throw new Error("file_snapshot_invalid");
+  const resolved = path.resolve(file);
+  const before = identity(fs.lstatSync(resolved, { bigint: true }));
+  if (fs.realpathSync.native(resolved) !== resolved)
+    throw new Error("file_snapshot_invalid");
+  const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY);
+  try {
+    const opened = identity(fs.fstatSync(descriptor, { bigint: true }));
+    if (!sameStableFileIdentity(before, opened))
+      throw new Error("file_snapshot_changed");
+    const chunks = [];
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let byteLength = 0;
+    while (true) {
+      const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (count === 0) break;
+      byteLength += count;
+      chunks.push(Buffer.from(buffer.subarray(0, count)));
+    }
+    const after = identity(fs.fstatSync(descriptor, { bigint: true }));
+    const pathAfter = identity(fs.lstatSync(resolved, { bigint: true }));
+    if (
+      byteLength !== Number(opened.size) ||
+      !sameStableFileIdentity(opened, after) ||
+      !sameStableFileIdentity(opened, pathAfter) ||
+      fs.realpathSync.native(resolved) !== resolved
+    )
+      throw new Error("file_snapshot_changed");
+    return Object.freeze({
+      path: resolved,
+      identity: opened,
+      bytes: Buffer.concat(chunks, byteLength),
+    });
+  } finally {
+    fs.closeSync(descriptor);
+  }
 }
 
 /**

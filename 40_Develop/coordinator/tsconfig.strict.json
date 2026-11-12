@@ -45,7 +45,7 @@
     "src/execution/authority.ts",
     "../ai-adapter/src/claude/plan.ts",
     "src/execution/operation.ts",
-    "../domain-model/src/plain-data/snapshot.ts",
+    "src/input/snapshot.ts",
     "src/execution/preparation.ts",
     "scripts/coverage.ts"
   ],

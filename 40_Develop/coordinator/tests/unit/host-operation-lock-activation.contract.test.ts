@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { runInNewContext } from "node:vm";
 import { recoverDockerIsolationProbe } from "../../src/execution/diagnostics.ts";
 import { createIsolatedSharedHostRecoveryDirectoryCandidate } from "../../src/execution/operation.ts";

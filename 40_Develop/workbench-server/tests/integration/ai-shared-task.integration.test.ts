@@ -24,7 +24,7 @@ import {
 } from "../../../access-management/src/index.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import type { WorkbenchAiRequestSnapshot } from "../../src/server/ai-request/types.ts";
 import { startWorkbench } from "../../src/index.ts";

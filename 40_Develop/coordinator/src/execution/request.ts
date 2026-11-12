@@ -5,14 +5,11 @@
  * @trace ARCH-000008
  */
 
-import { inspectTaskExecutionSelections } from "../../../domain-model/src/index.ts";
+import { inspectTaskExecutionSelections } from "../../../execution-model/src/index.ts";
 import type { BorrowedExecutionTarget } from "./operation.ts";
 import type { TaskStartCallbacks } from "../task/types.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-  containsRecognizedSecretScope,
-} from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord, snapshotPlainArray } from "../input/snapshot.ts";
+import { containsRecognizedSecretScope } from "../../../execution-model/src/index.ts";
 
 /**
  * execution-portで使用するCoordinator Single Task Attempt 入力の値契約を定義する。

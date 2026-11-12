@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 
-import type { CoordinatorState } from "../../../domain-model/src/index.ts";
+import type { CoordinatorState } from "../../../execution-model/src/index.ts";
 
 /**
  * stateで使用する状態 結果の値契約を定義する。

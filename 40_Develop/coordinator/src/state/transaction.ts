@@ -4,7 +4,7 @@
  * @trace ARCH-000004、ARCH-000008
  */
 
-import { readCoordinatorSnapshotIntakeEpoch } from "../../../domain-model/src/index.ts";
+import { readCoordinatorSnapshotIntakeEpoch } from "../../../execution-model/src/index.ts";
 import {
   acquireCoordinatorSnapshotLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,

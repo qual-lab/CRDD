@@ -12,12 +12,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout } from "node:timers/promises";
 import { resolveRepositoryAccess } from "../../../../access-management/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../../document-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
 import {
-  createFilesystemRepositoryObservationPort,
-  type FilesystemStoreRoot,
   inspectRepositoryManifest,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../configuration-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -186,4 +186,4 @@ export async function handleWorkspaceAction({
   }
 }
 
-import { inspectWorkspaceCommand } from "../../../../domain-model/src/index.ts";
+import { inspectWorkspaceCommand } from "../../../../execution-model/src/index.ts";

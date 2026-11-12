@@ -24,13 +24,15 @@ import { describeDockerProviderExecutionLocations } from "../../../../docker-iso
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
 import {
   hashExecutionSelection,
-  snapshotPlainArray,
-  snapshotPlainRecord,
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../../execution-model/src/index.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../src/input/snapshot.ts";
 import { snapshotCoordinatorTaskRequest } from "../../../src/execution/request.ts";
-import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import {

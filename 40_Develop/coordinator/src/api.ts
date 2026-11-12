@@ -20,7 +20,7 @@ import {
   resolveVerifiedRepositoryRoot,
   type Repository,
 } from "../../version-control/src/index.ts";
-import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "./input/snapshot.ts";
 import type { AuthenticationRequest } from "./execution/authority.ts";
 export type { AuthenticationRequest } from "./execution/authority.ts";
 
@@ -68,7 +68,7 @@ export function authenticateProvider(
   return runProviderAuthenticationRequest("login", request, signal);
 }
 
-export type { ExecutionSelection } from "../../domain-model/src/index.ts";
+export type { ExecutionSelection } from "../../execution-model/src/index.ts";
 export type { SingleTaskCommand } from "./task/requests.ts";
 
 export {
@@ -367,33 +367,33 @@ export async function retainRepair(
 
 export { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "./execution/authority.ts";
 
-export { inspectCoordinatorDecisionRequest } from "../../domain-model/src/index.ts";
-export { inspectCoordinatorObjectiveRequest } from "../../domain-model/src/index.ts";
-export { inspectCoordinatorWorkspaceResults } from "../../domain-model/src/index.ts";
-export { inspectCoordinatorStateQuery } from "../../domain-model/src/index.ts";
-export { inspectCoordinatorStateQueryResult } from "../../domain-model/src/index.ts";
-export { isCoordinatorObjectiveProjectionCorrelationValid } from "../../domain-model/src/index.ts";
-export { isCoordinatorProjectionSemanticallyValid } from "../../domain-model/src/index.ts";
-export { COORDINATOR_HUMAN_DECISION_CONTRACT } from "../../domain-model/src/index.ts";
-export { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../domain-model/src/index.ts";
-export { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../domain-model/src/index.ts";
-export type { CoordinatorProjection } from "../../domain-model/src/index.ts";
-export type { CoordinatorWorkspaceResult } from "../../domain-model/src/index.ts";
-export type { WorkspaceCommand } from "../../domain-model/src/index.ts";
+export { inspectCoordinatorDecisionRequest } from "../../execution-model/src/index.ts";
+export { inspectCoordinatorObjectiveRequest } from "../../execution-model/src/index.ts";
+export { inspectCoordinatorWorkspaceResults } from "../../execution-model/src/index.ts";
+export { inspectCoordinatorStateQuery } from "../../execution-model/src/index.ts";
+export { inspectCoordinatorStateQueryResult } from "../../execution-model/src/index.ts";
+export { isCoordinatorObjectiveProjectionCorrelationValid } from "../../execution-model/src/index.ts";
+export { isCoordinatorProjectionSemanticallyValid } from "../../execution-model/src/index.ts";
+export { COORDINATOR_HUMAN_DECISION_CONTRACT } from "../../execution-model/src/index.ts";
+export { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../execution-model/src/index.ts";
+export { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../execution-model/src/index.ts";
+export type { CoordinatorProjection } from "../../execution-model/src/index.ts";
+export type { CoordinatorWorkspaceResult } from "../../execution-model/src/index.ts";
+export type { WorkspaceCommand } from "../../execution-model/src/index.ts";
 export type { WorkspaceView } from "./workspace/commands.ts";
-export { inspectWorkspaceCommand } from "../../domain-model/src/index.ts";
-export { parseRuntimeActivityObservation } from "../../domain-model/src/index.ts";
-export { inspectRuntimeActivityObservation } from "../../domain-model/src/index.ts";
-export type { ActivityRepository } from "../../domain-model/src/index.ts";
-export type { ActivitySource } from "../../domain-model/src/index.ts";
-export type { RuntimeActivityEvent } from "../../domain-model/src/index.ts";
-export type { RuntimeActivityObservation } from "../../domain-model/src/index.ts";
-export type { RuntimeActivityRequest } from "../../domain-model/src/index.ts";
+export { inspectWorkspaceCommand } from "../../execution-model/src/index.ts";
+export { parseRuntimeActivityObservation } from "../../execution-model/src/index.ts";
+export { inspectRuntimeActivityObservation } from "../../execution-model/src/index.ts";
+export type { ActivityRepository } from "../../execution-model/src/index.ts";
+export type { ActivitySource } from "../../execution-model/src/index.ts";
+export type { RuntimeActivityEvent } from "../../execution-model/src/index.ts";
+export type { RuntimeActivityObservation } from "../../execution-model/src/index.ts";
+export type { RuntimeActivityRequest } from "../../execution-model/src/index.ts";
 export { readRepositoryNetworkHosts } from "./decision/external-send-policy.ts";
-export type { CoordinatorObjectiveRequest } from "../../domain-model/src/index.ts";
-export type { CoordinatorDecisionRequest } from "../../domain-model/src/index.ts";
-export type { CoordinatorStateQuery } from "../../domain-model/src/index.ts";
-export type { CoordinatorStateQueryResult } from "../../domain-model/src/index.ts";
+export type { CoordinatorObjectiveRequest } from "../../execution-model/src/index.ts";
+export type { CoordinatorDecisionRequest } from "../../execution-model/src/index.ts";
+export type { CoordinatorStateQuery } from "../../execution-model/src/index.ts";
+export type { CoordinatorStateQueryResult } from "../../execution-model/src/index.ts";
 export {
   isSupportedNodeRuntime,
   getCapabilities,

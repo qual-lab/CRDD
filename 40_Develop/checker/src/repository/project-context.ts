@@ -13,12 +13,15 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
-import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
 import {
   isProjectContextProjectionInvalid,
   isProjectContextManifestIdentityInvalid,
-  resolveRepositoryRuntimeDataPaths,
-} from "../../../domain-model/src/index.ts";
+} from "../../../document-model/src/index.ts";
+import { REPOSITORY_MANIFEST_RELATIVE_PATH } from "../../../configuration-model/src/index.ts";
 
 /**
  * project-context成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -96,11 +99,14 @@ export function inspectProjectContextRepository(
     }
     if (!target.template) {
       const verifiedRoot = getRepository(root);
-      const runtimePaths =
+      const repositoryRoot =
         verifiedRoot.status === "completed"
-          ? resolveRepositoryRuntimeDataPaths(verifiedRoot.capability)
+          ? resolveVerifiedRepositoryRoot(verifiedRoot.capability)
           : null;
-      const manifestPath = runtimePaths?.repositoryManifest;
+      const manifestPath =
+        repositoryRoot === null
+          ? null
+          : path.join(repositoryRoot, REPOSITORY_MANIFEST_RELATIVE_PATH);
       if (!manifestPath) {
         add(
           "error",

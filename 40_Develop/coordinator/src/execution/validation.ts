@@ -7,9 +7,9 @@ import {
   type CoordinatorStateTaskOperation,
   isDockerRestartCheckpointSettled,
   coordinatorTaskResourcesAreSettled,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import { types } from "node:util";
-import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import type { RecoveryStartFailureDiagnostic, Recovery } from "./types.ts";
 
 /**

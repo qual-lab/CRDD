@@ -7,7 +7,7 @@
 import {
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
-} from "../../../domain-model/src/index.ts";
+} from "../../../execution-model/src/index.ts";
 import {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
@@ -17,7 +17,7 @@ import type {
   CoordinatorReplanInput,
   CoordinatorReplanClassifier,
 } from "./types.ts";
-import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
+import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";
 
 export const COORDINATOR_REPLANNING_CONTRACT =
