@@ -10,6 +10,14 @@ Checkerの検証対象は成果物・ID・参照・台帳・関係の構造整�
 
 Checker自身のAPI・配布入口・依存方向・試験Runnerの契約と、宣言済みTSツール間の既存公開Module結合は製品試験として維持する。これは任意言語の全Packageに適用するChecker能力ではない。台帳で受理できることは実装済み・実行済み・規約適合を意味せず、検証Toolの拡張子から実行能力を推定しない。旧コード走査の指摘は責務変更による対象外であり、Source是正済みや正式Passへ転記しない。
 
+## 構成モデルの論理領域と公開境界 — 2026-11-12
+
+構成モデルはAI選定・Network Policy・保持設定・Manifestの各crud／validation／typesと保存部品へ配置する。既存`RCM-UT-001`の固定公開集合は8関数・2定数・14型で、Trust専用検査／型を外し、完成したManifest読取りと結果型を含める。Manifest検査関数は内部から直接試験し、Root公開の不在も固定期待で確認する。`RCM-IT-005`のAI設定CAS・前後認可・UTF-8／JSON・実体・出版後不明・元回復参照は変更せず、Module Mockを実際の保存Ownerへ接続する。旧SourceへのWrapperやRoot再公開で試験を通さない。
+
+既存の正式Local Itemと結果は維持し、内部File再配置を新たな受入・Release成立とみなさない。Manifestの読取り境界は`QA-000008`の既存`RDL-IT-001`で確認する。通信受信・子Process出力等の別契約は今回変更しない。
+
+Manifestの内容Identityは旧Readerが返した復号後全文を基準とし、生byte同一性を新たな変更拒否条件にしない。AI設定の厳密JSON・UTF-8・単一link条件や生byte Hashを他の設定へ統一することは、この配置整理の検証義務に含めない。Manifest／保持設定の既存JSON.parse条件と、他設定の既存Hash／CASは維持する。
+
 ## 技術カタログとRepository別AI選択の新形式 — 2026-10-24
 
 AI AdapterのDomain非依存化では、`RCM-IT-005`の新品Node ProcessでDomainへのModule解決を拒否して公開Root・Catalogが利用できることを確認する。Catalogの正常・欠落・不正JSON・Schema不正も同じ内部入力検査へ接続し、失敗を成功へ補完しない。試験子は予期するModule拒否を捕捉して終了値1と固定理由を返し、Windows Nodeの未捕捉例外終了と区別する。Domainが保存に利用する四技術型の値域・readonly・optional性と既存公開名を維持し、各利用側の型検査と保存codecの反例へ接続する。

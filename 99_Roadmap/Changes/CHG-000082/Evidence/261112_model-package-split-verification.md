@@ -86,3 +86,69 @@ Workbenchの局所Record Helperは保存なしの直接対照でも正常値・f
 ## 未実施
 
 全体回帰、実AI／実Docker E2E、過去保持物の検査・回収・移行。
+
+## 後続区切り：構成モデルの内部責務整理 — 2026-11-12
+
+本節の基準改訂版は`3a69f4af108340db7d1c59bb129ceaa965bc4fde`。上記3分離時点の固定結果とは別の候補であり、今回範囲の実装・限定検証・独立再レビューを完了した。AI選定・Network Policy・保持設定・Manifestの4領域と保存にSourceを統合し、既存Schema・固定所在・JSON条件・Lock／CAS・失敗／回復相関を保持する。
+
+既存の7試験Suiteと安定IDを維持し、Root固定期待、deep Source参照、保存故障注入、EM／VCのConsumer閉包とCoの実体ID取得対照を新Ownerへ接続する。Trust専用の未接続2試験は撤去し、Manifestの完成読取りについて正常Hash・真正不存在・不正Schema・Link・読取り中の置換・close失敗の対照を追加する。Catalogの件数変更や正式QAの自動成功化はしない。
+
+この区切りの構成モデル型検査は成功した。既存7 Suiteの35件は初回28件成功、Link／hardlink権限による6件の停止を同じ6件だけ必要権限付きで再実行して成功、新Manifestの差替え1件は故障注入先をManifest自身のdescriptorに限定して再確認成功した。close失敗も先行するVCのmetadata読取りでなくManifest自身のdescriptorを一度閉じてから例外化し、公開結果のunavailableを確認した。期待する安全判定は緩和していない。
+
+その後、初回候補ではManifestのJSON.parseによる重複Key最終値の受理と生byte Hashを対照し、既存7 Suiteは35件成功・失敗0・skip0、約5.9秒だった。ただし後続の独立レビューで、同候補のManifest受理条件とHash定義に旧Readerとの差異を検出した。この35件の成功を、以下の是正後候補の旧契約維持の根拠へ流用しない。
+
+利用側の限定確認はEM保存Consumer閉包4件、Co実体ID取得点1件とLCOV4件、VC Consumer集合2件が成功した。VCでは今回のCM移設に加え、先行3分離時のCo／Executor／MCP／WB／Visual Previewの実Callerと、撤去済みEM型importの期待表漏れが露出したため、実SourceのNamed importを確認してexact集合へ追従した。Consumer除外や検査対象の縮小は行っていない。
+
+親担当の静的対照では、既存39関数を上記基準版と新Ownerから`sourceDeclaration`で抽出し、型・Block Comment・空白を除いた宣言本文が一致した。新Manifest Readerと撤去したTrust関数はこの母集団に含めない。この対照は移管時の既存関数本文不変の補助根拠であり、全動作同等や未実施境界の成立証明ではない。関係する11型設定も再検査に成功した。
+
+親担当のChecker限定対照「Test Catalog・Symbol・Quality Local Itemの成果物関係を照合する」1件も成功し、CMの15 Source、Symbolの参照Path不存在0、既存Catalog411件との対応を再確認した。
+
+WorkbenchのManifest内容Identity再検証の追加対照は、既存Suiteから実Workspace Routeとひな型MCP LauncherのSource本文を検査する。保持日数の再検証とは別契約である。Suiteの`verifies`へ既存`workbench.http.workspace`を追加する。ひな型Launcher専用の既存Symbolはないため架空IDや新登録体系は作らず、対象Source Pathを既存QAと試験境界の説明で追跡する。この限定対照をRepository全体のSymbol登録漏れ是正とは扱わない。
+
+Manifest利用側はAMのRepository管理23件・AM所在4件・MCP Launcherの公開接続1件が成功した。WB／ひな型MCPの実Sourceから取り出した再認可処理を、同Hash・変更Hash・不存在・観測不能・Root変更・取消と各2回呼出しに接続する局所1件も成功した。Readerの実呼出回数を含めて対照し、手書きした判定の代役で製品経路を置換していない。MCP Launcher確認は公開接続までであり、Workspace EffectやWB実E2Eの成功とはしない。
+
+初回候補の限定確認は構成35件、EM／Co／VCの11件、AM／MCP／WBの29件、Checker関係整合1件で計76件。初回の環境拒否・是正後の同じ試験の再成功は重複計上していない。
+
+上記予定の限定試験は既存のRepository-local生成Rootを終了hookで回収し、今回物以外の列挙・操作は行っていない。下記の検証手順逸脱はこの主張から分離する。正式QA結果を限定試験件数から自動更新せず、独立レビューは別途実施する。全体回帰・実AI／Docker・過去保持物の操作は含めない。
+
+### 独立レビュー後のManifest契約是正（再レビュー済み）
+
+3名の初回独立レビューを統合した結果、2系統を是正した。第1はManifest Readerが旧Document Readerにはなかった単一link拒否と厳密UTF-8拒否を追加し、生byte HashでWB／MCPの旧復号全文比較を変更していたこと。第2はQA記述がAI選定固有の厳密JSON・data descriptor条件をManifest／保持設定にも適用するよう読めたことである。
+
+最初の確認者の一人は、厳密UTF-8／単一linkを既存保証の維持と評価したが、これは誤りだった。着手前の案を旧契約の事実と混同し、旧`fs.readFileSync(fd, "utf8")`の置換復号・nlink非検査との対照が不足していた。親担当は全指摘受領後に実装計画を修正し、各確認者との整合確認を経て、Manifestだけ`bytes.toString("utf8")`と復号後全文のSHA-256へ是正した。JSON.parseの重複Key最終値採用・BOM拒否を維持し、AI等の他設定の厳密JSONや生byte Hash・CASは変更しない。
+
+反証では、displayName内の0x80／0x81がともに置換文字へ復号され、生byte Hashは異なっても旧Readerが返す本文と新Identityは同じになることを確認した。有効hardlink、正常多byte、異本文の異Hash、BOM拒否も同じ既存ケース内へ追加した。是正後の固定Sourceでは構成7 Suite・35件が成功（失敗0・skip0、約6.1秒）。EM／Co／VCの予定11件とChecker関係整合1件も正しい選択条件で再確認成功した。是正後のAM／MCP／WBの同対象29件も再成功し、関係11型設定と変更TS30 Fileのformatter／警告を失敗とするlintを再確認した。是正候補の内容指紋`33e5747a7160d068a4d74b4d6514789cfc98150f952a7dcfd70e38cff0a3ede8`を3名へ読取り専用で再提示し、必須残指摘0件を確認した。全結果終了後は本書・設計・計画・現在投影の状態表示だけを実結果へ更新し、製品Sourceと試験は変更していない。検証手順逸脱の正当化や全生成物不存在の証明へ拡大しない。
+
+### 検証手順の逸脱と影響
+
+Coの予定5件を再確認する際、実行担当が`--test-name-pattern`を最初のFile引数の後ろへ置いた。そのためNodeが選択条件を適用せず、LCOV4件に加え`repository-operation-runtime.contract.test.ts`の13件全体を起動した。後者は11件成功・2件がLink作成のEPERMで停止した。この実行を76件や是正後の予定成功件数へ加算せず、失敗2件の権限付き再実行は行っていない。
+
+13件の実行対象は次のとおりである。
+
+1. 実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件を維持する
+2. Windowsの上位bit付きIDで操作作成・再検証・回収が成立する
+3. Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合する
+4. 保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない
+5. 保存借用は呼出しごとの二探索と実体差替え拒否を維持する
+6. Repository実体と開始Revisionをopaque capabilityへ固定して再照合する
+7. 開始後にHEAD参照先が変わればEffectと結果公開の双方で失効する
+8. detached HEADとpacked refを限定形式で解決し不正入力を拒否する
+9. SHA-256 RepositoryはOperation capability発行前の専用preflightで拒否する
+10. 宣言Object Formatとdetached／loose／packed Revision幅の不一致をpreflightで拒否する
+11. loose refの中間junctionと最終symlinkをRepository境界外としてpreflightで拒否する（EPERM）
+12. linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否する（EPERM）
+13. 公開契約はcaller supplied identityを採用せずPathを返さない
+
+既存fixtureの`temporaryRepository`／`linkedRepository`と外部Ref試験がOS一時領域へ新品Rootを作成し、今回のRepository限定境界に反した。各試験の終了hookには自分が作ったexact Rootの回収が登録され、実行は終了した。失敗出力から特定できた4 Root（`crdd-operation-external-ref-ndp2V6`、`crdd-operation-repository-ZZt9Fy`、`crdd-operation-linked-external-ref-HwZaON`、`crdd-operation-linked-repository-vSJWVO`）は、そのexact Pathだけを読取り確認し、すべて不存在だった。それ以外の生成Rootは出力にexact Pathがなく、終了hookの例外がなかったこと以上の不存在実測は主張しない。過去Rootの列挙や新しい削除は行っていない。
+
+Sourceと既存出力を照合した範囲では、追加13件のEffectは合成Git Metadata・操作Directoryの作成、変更、観測と回収であり、実AI・Docker・外部送信・Desktop／OSサービス変更の呼出しはない。限定選択肢をFile前に固定する条件へ戻し、同じCo予定5件だけの再実行は成功した。以後の追加実行は停止し、試験自身のOS一時領域使用は今回の機能是正とは分けて親担当へ報告した。
+
+### Root公開の最終精査とコミット前確認
+
+人間の追加指示に従い、外部本番利用がなくなった`inspectRepositoryManifest`のRoot再exportだけを撤去した。Manifest Readerと局所試験は`manifest/validation.ts`の検査を継続利用し、関数の実装・受理条件・保存形式は変更しない。公開は8関数・2定数・14型の24項目となる。前段の25項目はその確認時点の記録であり、現在集合は構成モデルの設計と固定期待試験を正本とする。
+
+追加試験は構成モデルの公開境界2件とManifest値検査2件の明示した2 File、およびCheckerのCatalog／Symbol／正式QA関係検査1件だけとし、全5件が成功した。選択条件はすべてFile引数より前に指定し、他Suite・Coの試験・実資源を起動していない。整形差1箇所を修正した後、構成モデルのformatter・型・警告を失敗とするlintも成功した。
+
+Symbol台帳はFile／Module単位であり、内部の検査実装とRoot Moduleは存続するため安定IDや件数を不必要に変更しない。既存CatalogのSuite Path／IDも維持し、Root固定集合と非公開化の負例、正式QA・現行設計・計画を24項目へ追従した。過去の固定Evidenceや試験手順逸脱の観測限界は上書きしない。
+
+固定候補の内容指紋`138122e83c1ab852accd7bb36ae01fa3f38b776353354108249f8863dd71592c`を、作成担当から分離した確認者へ読取り専用で渡した。Root24項目、内部検査の継続、外部参照不存在、台帳と現行文書、過去結果・誤起動の観測限界との分離を確認し、必須残件は0件。確認終了後はこの状態記録だけを更新し、製品Source・試験は変更していない。人間の指示に従い既存作業ブランチへコミット・プッシュする。main統合・Release・全体QAの成功を意味しない。今回も全体回帰・実AI・Docker・過去保持物は操作していない。

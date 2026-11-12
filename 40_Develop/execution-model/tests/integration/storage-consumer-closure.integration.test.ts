@@ -20,15 +20,15 @@ const RUNTIME_STORAGE_OWNERS = new Set([
   "40_Develop/execution-model/src/storage/runtime-store.ts",
   // CurrentState wxの固定所在だけを所有する。任意Consumerのraw Root利用は認めない。
   "40_Develop/execution-model/src/storage/runtime-kernel-lock.ts",
-  "40_Develop/configuration-model/src/storage/ai-selection.ts",
-  "40_Develop/configuration-model/src/storage/network-policy.ts",
+  "40_Develop/configuration-model/src/ai-selection/crud.ts",
+  "40_Develop/configuration-model/src/network-policy/crud.ts",
   RESOLVER_PATH,
   "40_Develop/execution-model/src/repository/require-storage-area.ts",
   "40_Develop/execution-model/src/repository/types.ts",
-  "40_Develop/configuration-model/src/configuration/storage-paths.ts",
-  "40_Develop/configuration-model/src/configuration/validate-declarations.ts",
-  "40_Develop/configuration-model/src/configuration/read-tool-config.ts",
-  "40_Develop/configuration-model/src/configuration/types.ts",
+  "40_Develop/configuration-model/src/manifest/crud.ts",
+  "40_Develop/configuration-model/src/manifest/validation.ts",
+  "40_Develop/configuration-model/src/history/crud.ts",
+  "40_Develop/configuration-model/src/manifest/types.ts",
   "40_Develop/execution-model/src/storage/ensure-area.ts",
   "40_Develop/execution-model/src/storage/temporary-operation.ts",
   "40_Develop/execution-model/src/storage/initialization.ts",
@@ -87,8 +87,8 @@ const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   "40_Develop/execution-model/src/storage/runtime-kernel-lock.ts",
   "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
   "40_Develop/execution-model/src/storage/ensure-area.ts",
-  "40_Develop/configuration-model/src/storage/configuration-directory.ts",
-  "40_Develop/configuration-model/src/storage/root-and-lock.ts",
+  "40_Develop/configuration-model/src/storage/store.ts",
+  "40_Develop/configuration-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/configuration/runtime-data.ts",
   "40_Develop/executor/scripts/runtime-data.ts",
   "40_Develop/workbench-server/scripts/runtime-data.ts",
@@ -537,8 +537,10 @@ test("3Rootの内部保存公開と予定外の保護署名Consumerを拒否す�
     "40_Develop/future-tool/scripts/sign.ts",
     `${PROTECTED_SIGNING_SYMBOL}();\n`,
   );
+  const publicEntry = runtimePublicEntries[0];
+  assert.ok(publicEntry);
   sources.set(
-    runtimePublicEntries[0]!,
+    publicEntry,
     'export { resolveRepositoryRuntimeDataPathsForInternalUse } from "./private.ts";\n',
   );
   const findings = violations(sources);

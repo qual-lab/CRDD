@@ -4,14 +4,12 @@
  * @responsibility RepositoryManifestを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000011
  */
-import type { RepositoryManifest, CrosTrustPolicy } from "./types.ts";
+import type { RepositoryManifest } from "./types.ts";
 
 export const REPOSITORY_MANIFEST_SCHEMA =
   "crdd/repository-manifest/v2" as const;
-export const CROS_TRUST_POLICY_SCHEMA = "cros/trust-policy/v1" as const;
 
 const ID = /^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/u;
-export const CROS_DIRECTORY_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
 const CAPABILITY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
 /**
@@ -159,72 +157,5 @@ export function inspectRepositoryManifest(
     contextSurfaces,
     externalSendPolicy:
       record.externalSendPolicy as RepositoryManifest["externalSendPolicy"],
-  });
-}
-
-/**
- * Cros Trust Policyを観測する。
- *
- * @responsibility Cros Trust Policyの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000011
- * @input value: unknown
- * @returns CrosTrustPolicy | nullを返す。
- * @precondition 「value: unknown」がinspectCrosTrustPolicyの入力契約を満たす。
- * @postcondition inspectCrosTrustPolicyの責務を完了した結果だけを返す。
- * @effect N/A: inspectCrosTrustPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectCrosTrustPolicyは独自の失敗分岐を所有しない。
- * @invariant inspectCrosTrustPolicyは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectCrosTrustPolicyはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectCrosTrustPolicyはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectCrosTrustPolicyは共有非同期状態を持たない同期処理である。
- */
-export function inspectCrosTrustPolicy(value: unknown): CrosTrustPolicy | null {
-  const record = plainRecord(value);
-  if (
-    !record ||
-    !exactKeys(record, [
-      "allowUnsignedLocalDevelopment",
-      "maximumCapabilities",
-      "repositoryAdmission",
-      "schema",
-      "transports",
-      "trustDomainId",
-      "trustedRuntimePublishers",
-    ]) ||
-    record.schema !== CROS_TRUST_POLICY_SCHEMA ||
-    typeof record.trustDomainId !== "string" ||
-    !CROS_DIRECTORY_ID.test(record.trustDomainId) ||
-    record.trustDomainId === "default" ||
-    record.repositoryAdmission !== "explicit-binding-only" ||
-    typeof record.allowUnsignedLocalDevelopment !== "boolean"
-  )
-    return null;
-  const publishers = identifiers(
-    record.trustedRuntimePublishers,
-    CROS_DIRECTORY_ID,
-  );
-  const maximumCapabilities = identifiers(
-    record.maximumCapabilities,
-    CAPABILITY,
-  );
-  const transports = identifiers(
-    record.transports,
-    /^(?:stdio|local-http|remote-http)$/u,
-  );
-  if (
-    !publishers ||
-    publishers.length === 0 ||
-    !maximumCapabilities ||
-    !transports
-  )
-    return null;
-  return Object.freeze({
-    schema: CROS_TRUST_POLICY_SCHEMA,
-    trustDomainId: record.trustDomainId,
-    trustedRuntimePublishers: publishers,
-    repositoryAdmission: "explicit-binding-only",
-    maximumCapabilities,
-    transports: transports as CrosTrustPolicy["transports"],
-    allowUnsignedLocalDevelopment: record.allowUnsignedLocalDevelopment,
   });
 }

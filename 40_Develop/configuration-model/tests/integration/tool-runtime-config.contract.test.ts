@@ -15,7 +15,7 @@ import { createRepositoryTestDirectory } from "../support/repository-test-direct
 import {
   readExecutionIntelligenceConfig,
   readCoordinatorConfig,
-} from "../../src/configuration/read-tool-config.ts";
+} from "../../src/history/crud.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 
 /**

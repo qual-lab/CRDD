@@ -66,7 +66,7 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
   const sample = fs.lstatSync(import.meta.dirname, { bigint: true });
   for (const [sourcePath, names] of [
     ["../../../version-control/src/repository/layout.ts", ["identity"]],
-    ["../../../configuration-model/src/storage/file-snapshot.ts", ["identity"]],
+    ["../../../configuration-model/src/storage/store.ts", ["identity"]],
     [
       "../../src/execution/operation.ts",
       ["readFilesystemIdentity", "readFileIdentity", "readOpenFileIdentity"],
@@ -75,10 +75,12 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
     const source = stripTypeScriptTypes(
       fs.readFileSync(new URL(sourcePath, import.meta.url), "utf8"),
     );
-    const dependencies = sourcePath.includes("file-snapshot")
+    const dependencies = sourcePath.includes(
+      "configuration-model/src/storage/store.ts",
+    )
       ? source.match(/function normalizeFileId\([\s\S]*?\r?\n\}/u)?.[0]
       : "";
-    if (sourcePath.includes("file-snapshot"))
+    if (sourcePath.includes("configuration-model/src/storage/store.ts"))
       assert.ok(dependencies, "normalizeFileId");
     for (const name of names) {
       const body = source.match(
@@ -102,7 +104,7 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
         }) as (...args: unknown[]) => { ino: bigint };
         const args = sourcePath.includes("layout.ts")
           ? [metadata, "directory"]
-          : sourcePath.includes("file-snapshot")
+          : sourcePath.includes("configuration-model/src/storage/store.ts")
             ? [metadata]
             : ["fixture"];
         for (const ino of [1n, 42n, 1n << 63n]) {

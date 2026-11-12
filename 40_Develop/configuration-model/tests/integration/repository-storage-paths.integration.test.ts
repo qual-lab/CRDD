@@ -8,6 +8,7 @@
  * @boundary 自己生成Repository-local Fixtureのみ。
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
@@ -19,12 +20,13 @@ import {
   configurationPaths,
   ensureConfigurationDirectory,
   observeConfigurationDirectory,
-} from "../../src/storage/configuration-directory.ts";
+} from "../../src/storage/store.ts";
 import {
   readStableFileSnapshot,
   sameStableFileIdentity,
-} from "../../src/storage/file-snapshot.ts";
+} from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { readRepositoryManifest } from "../../src/index.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 /**
  * WindowsのFile ID表現を上限付き保存Readerへ接続する。
@@ -332,4 +334,233 @@ test("廃止verification Areaに新規Effectや互換aliasを発行しない", a
     "requireReadyRepositoryRuntimeDataArea",
   ])
     assert.equal(Object.hasOwn(api, name), false, name);
+});
+
+/** 固定Manifestの読取りは既存UTF-8復号本文のIdentityとSchemaを結合する。 @trace RDL-IT-001 */
+test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0で区別する", (t) => {
+  const root = fixture(t);
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  if (repository.status !== "completed") assert.fail("fixture_invalid");
+  const entries = fs.readdirSync(root);
+  assert.deepEqual(readRepositoryManifest(repository.capability), {
+    status: "missing",
+    reason: "repository_manifest_missing",
+  });
+  assert.deepEqual(fs.readdirSync(root), entries);
+  const directory = path.join(root, ".crdd", "config");
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, "repository-manifest.json");
+  const manifest = {
+    schema: "crdd/repository-manifest/v2",
+    projectId: "qual-lab.crdd",
+    repositoryId: "qual-lab.crdd-standard",
+    displayName: "CRDD",
+    repositoryRole: "crdd-standard",
+    capabilities: ["coordinator"],
+    contextSurfaces: ["crdd-context"],
+    externalSendPolicy: null,
+  };
+  const bytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+  fs.writeFileSync(file, bytes);
+  const observed = readRepositoryManifest(repository.capability);
+  assert.equal(observed.status, "ready");
+  if (observed.status !== "ready") assert.fail("manifest_not_ready");
+  assert.deepEqual(observed.manifest, manifest);
+  assert.equal(
+    observed.identity,
+    createHash("sha256").update(bytes.toString("utf8")).digest("hex"),
+  );
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  // Manifestは既存JSON.parseの最終Key採用を維持し、AI設定の重複拒否へ統一しない。
+  const duplicate = Buffer.from(
+    JSON.stringify(manifest).replace(
+      '"displayName":"CRDD"',
+      '"displayName":"first","displayName":"CRDD"',
+    ),
+  );
+  fs.writeFileSync(file, duplicate);
+  const parsedDuplicate = readRepositoryManifest(repository.capability);
+  assert.equal(parsedDuplicate.status, "ready");
+  if (parsedDuplicate.status !== "ready")
+    assert.fail("duplicate_manifest_not_ready");
+  assert.equal(parsedDuplicate.manifest.displayName, "CRDD");
+  assert.equal(
+    parsedDuplicate.identity,
+    createHash("sha256").update(duplicate.toString("utf8")).digest("hex"),
+  );
+  const linked = path.join(directory, "manifest-alias.json");
+  fs.linkSync(file, linked);
+  assert.equal(readRepositoryManifest(repository.capability).status, "ready");
+  fs.unlinkSync(linked);
+
+  const template = JSON.stringify({
+    ...manifest,
+    displayName: "byte-placeholder",
+  });
+  const offset = template.indexOf("byte-placeholder");
+  assert.ok(offset >= 0);
+  const invalidBytes = [0x80, 0x81].map((byte) =>
+    Buffer.concat([
+      Buffer.from(template.slice(0, offset)),
+      Buffer.from([byte]),
+      Buffer.from(template.slice(offset + "byte-placeholder".length)),
+    ]),
+  );
+  const identities: string[] = [];
+  for (const body of invalidBytes) {
+    fs.writeFileSync(file, body);
+    const replaced = readRepositoryManifest(repository.capability);
+    assert.equal(replaced.status, "ready");
+    if (replaced.status !== "ready")
+      assert.fail("legacy_utf8_replacement_rejected");
+    assert.equal(replaced.manifest.displayName, "\ufffd");
+    assert.equal(
+      replaced.identity,
+      createHash("sha256").update(body.toString("utf8")).digest("hex"),
+    );
+    identities.push(replaced.identity);
+  }
+  assert.equal(identities[0], identities[1]);
+  const rawIdentities = invalidBytes.map((body) =>
+    createHash("sha256").update(body).digest("hex"),
+  );
+  assert.notEqual(rawIdentities[0], rawIdentities[1]);
+  const multibyte = Buffer.from(
+    JSON.stringify({ ...manifest, displayName: "日本語🙂" }),
+  );
+  fs.writeFileSync(file, multibyte);
+  const unicode = readRepositoryManifest(repository.capability);
+  assert.equal(unicode.status, "ready");
+  if (unicode.status !== "ready") assert.fail("unicode_manifest_rejected");
+  assert.equal(unicode.manifest.displayName, "日本語🙂");
+  assert.equal(
+    unicode.identity,
+    createHash("sha256").update(multibyte).digest("hex"),
+  );
+  assert.notEqual(unicode.identity, observed.identity);
+  const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]);
+  fs.writeFileSync(file, bom);
+  assert.deepEqual(readRepositoryManifest(repository.capability), {
+    status: "blocked",
+    reason: "repository_manifest_invalid",
+  });
+  for (const invalid of [
+    "{}",
+    "{",
+    JSON.stringify({ ...manifest, authority: true }),
+  ]) {
+    fs.writeFileSync(file, invalid);
+    assert.deepEqual(readRepositoryManifest(repository.capability), {
+      status: "blocked",
+      reason: "repository_manifest_invalid",
+    });
+    assert.equal(fs.readFileSync(file, "utf8"), invalid);
+  }
+});
+
+/** Linkと読取り中の別実体を不存在へ変換しない。 @trace RDL-IT-001 */
+test("Manifest読取りはLink・中途差替えを拒否し読取りdescriptorを閉じる", (t) => {
+  const root = fixture(t);
+  const repository = getRepository(root);
+  if (repository.status !== "completed") assert.fail("fixture_invalid");
+  const directory = path.join(root, ".crdd", "config");
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, "repository-manifest.json");
+  const target = path.join(directory, "original.json");
+  fs.writeFileSync(target, "{}");
+  fs.symlinkSync(target, file, "file");
+  assert.deepEqual(readRepositoryManifest(repository.capability), {
+    status: "blocked",
+    reason: "repository_manifest_unavailable",
+  });
+  fs.unlinkSync(file);
+  fs.writeFileSync(file, "{}");
+  const originalOpen = fs.openSync;
+  const originalRead = fs.readSync;
+  const originalClose = fs.closeSync;
+  let manifestDescriptor: number | null = null;
+  let closes = 0;
+  let replaced = false;
+  t.mock.method(
+    fs,
+    "openSync",
+    new Proxy(originalOpen, {
+      apply(target, receiver, args) {
+        const descriptor = Reflect.apply(target, receiver, args);
+        if (
+          String(args[0]) === file &&
+          (args[1] === "r" || args[1] === fs.constants.O_RDONLY)
+        )
+          manifestDescriptor = descriptor;
+        return descriptor;
+      },
+    }),
+  );
+  t.mock.method(fs, "readSync", (...args: Parameters<typeof originalRead>) => {
+    const result = Reflect.apply(originalRead, fs, args);
+    if (!replaced && args[0] === manifestDescriptor) {
+      replaced = true;
+      fs.renameSync(file, path.join(directory, "displaced.json"));
+      fs.writeFileSync(file, "{}");
+    }
+    return result;
+  });
+  t.mock.method(fs, "closeSync", (descriptor: number) => {
+    if (descriptor === manifestDescriptor) {
+      closes++;
+      manifestDescriptor = null;
+    }
+    originalClose(descriptor);
+  });
+  const replacedResult = readRepositoryManifest(repository.capability);
+  assert.equal(replaced, true);
+  assert.equal(closes, 1);
+  assert.deepEqual(replacedResult, {
+    status: "blocked",
+    reason: "repository_manifest_unavailable",
+  });
+});
+
+/** close失敗を正常な設定Snapshotへ変換しない。 @trace RDL-IT-001 */
+test("Manifest読取りはclose失敗をunavailableとして返す", (t) => {
+  const root = fixture(t);
+  const repository = getRepository(root);
+  if (repository.status !== "completed") assert.fail("fixture_invalid");
+  const directory = path.join(root, ".crdd", "config");
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, "repository-manifest.json");
+  fs.writeFileSync(file, "{}");
+  const originalOpen = fs.openSync;
+  const originalClose = fs.closeSync;
+  let manifestDescriptor: number | null = null;
+  let closes = 0;
+  t.mock.method(
+    fs,
+    "openSync",
+    new Proxy(originalOpen, {
+      apply(target, receiver, args) {
+        const descriptor = Reflect.apply(target, receiver, args);
+        if (
+          String(args[0]) === file &&
+          (args[1] === "r" || args[1] === fs.constants.O_RDONLY)
+        )
+          manifestDescriptor = descriptor;
+        return descriptor;
+      },
+    }),
+  );
+  t.mock.method(fs, "closeSync", (descriptor: number) => {
+    originalClose(descriptor);
+    if (descriptor === manifestDescriptor) {
+      closes++;
+      manifestDescriptor = null;
+      throw new Error("fixture_manifest_close_failed");
+    }
+  });
+  assert.deepEqual(readRepositoryManifest(repository.capability), {
+    status: "blocked",
+    reason: "repository_manifest_unavailable",
+  });
+  assert.equal(closes, 1);
 });

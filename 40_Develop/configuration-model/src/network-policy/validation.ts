@@ -4,20 +4,7 @@
  * @trace ARCH-000011
  */
 
-/**
- * Repositoryが宣言する追加Hostを表す。
- * @responsibility 非秘密設定の版と不変の文字列配列を所有する。
- * @trace ARCH-000011
- * @shape version=1、allowedHosts。
- * @invariant 最大32要素・各253文字で深く凍結する。
- * @boundary JSON設定とDomain値。
- * @security この値は認可・通信許可ではない。
- * @compatibility 空配列は追加Hostなし。
- */
-export type NetworkPolicy = Readonly<{
-  version: 1;
-  allowedHosts: readonly string[];
-}>;
+import type { NetworkPolicy } from "./types.ts";
 
 export const DEFAULT_NETWORK_POLICY: NetworkPolicy = Object.freeze({
   version: 1,

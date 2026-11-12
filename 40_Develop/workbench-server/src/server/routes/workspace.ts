@@ -12,12 +12,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout } from "node:timers/promises";
 import { resolveRepositoryAccess } from "../../../../access-management/src/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../../../document-model/src/index.ts";
 import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
-import {
-  inspectRepositoryManifest,
-  REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../../../configuration-model/src/index.ts";
+import { readRepositoryManifest } from "../../../../configuration-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -131,24 +127,20 @@ export async function handleWorkspaceAction({
       const verified = getRepository(ownerRoot);
       if (verified.status !== "completed")
         throw new Error("workspace_access_unavailable");
-      const observer = createFilesystemRepositoryObservationPort(
-        verified.capability,
-      );
-      const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
-      if (file.status !== "resolved")
+      const initial = readRepositoryManifest(verified.capability);
+      if (initial.status !== "ready")
         throw new Error("workspace_access_unavailable");
-      const source = file.source;
-      const manifest = inspectRepositoryManifest(JSON.parse(source));
-      if (!manifest || manifest.repositoryId !== repositoryId)
+      const manifest = initial.manifest;
+      if (manifest.repositoryId !== repositoryId)
         throw new Error("workspace_access_unavailable");
       projectId = manifest.projectId;
       authorize = () => {
-        const fresh = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
+        const fresh = readRepositoryManifest(verified.capability);
         return (
           !requestSignal.aborted &&
           resolveVerifiedRepositoryRoot(verified.capability) === ownerRoot &&
-          fresh.status === "resolved" &&
-          fresh.source === source
+          fresh.status === "ready" &&
+          fresh.identity === initial.identity
         );
       };
     }

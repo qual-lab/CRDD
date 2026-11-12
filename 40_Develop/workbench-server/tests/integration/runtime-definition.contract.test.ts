@@ -10,9 +10,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 /**
  * 非導入の実行機能を読込拒否しても定義を編集できる。
@@ -201,6 +203,130 @@ test("任意Owner待機後の失効・取消は設定Readerを発行しない", 
       if (condition === "revoked") await assert.rejects(result);
       else await result;
       assert.equal(reads, condition === "live" ? 1 : 0);
+    }
+  }
+});
+
+/**
+ * Manifestの再観測をWBと配布MCPの実Closureへ接続する。
+ * @responsibility Hash比較を手書きせず、実Sourceの再確認位置とReader呼出し回数を固定する。
+ * @trace PRL-IT-012
+ * @precondition 型を除去した現Sourceと非秘密の有限読取り代役だけを使う。
+ * @stimulus 同Hash、別Hash、不在、観測不能、Root変更、取消を各Closureへ渡す。
+ * @observation 判定と毎回のReader呼出し数。
+ * @oracle 同Hashだけtrue。WBは読取り後、MCPは外側のSignal／Root確認後に再読取りする。
+ * @cleanup N/A: 同Process内の値と関数だけを作り、File・HTTP・AIを起動しない。
+ * @boundary 製品の再認可Closure。代役から実AM認可・File安定性の成立を推定しない。
+ */
+test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否する", async () => {
+  const wbSource = stripTypeScriptTypes(
+    fs.readFileSync(
+      new URL("../../src/server/routes/workspace.ts", import.meta.url),
+      "utf8",
+    ),
+  );
+  const wbInitial = wbSource.indexOf(
+    "const initial = readRepositoryManifest(verified.capability);",
+  );
+  const wbStart = wbSource.indexOf("authorize = () => {", wbInitial);
+  const wbEnd = wbSource.indexOf("\n      };", wbStart);
+  assert.ok(wbInitial > 0 && wbStart > wbInitial && wbEnd > wbStart);
+  const wbClosure = wbSource.slice(wbStart, wbEnd + "\n      };".length);
+  const templateSource = fs.readFileSync(
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    "utf8",
+  );
+  const routingDeclaration = sourceDeclaration(
+    templateSource,
+    "createRequestRoutingDependencies",
+  );
+  const capability = {};
+  const root = "fixture-root";
+  for (const owner of ["workbench", "mcp"] as const) {
+    for (const condition of [
+      "same",
+      "changed",
+      "missing",
+      "blocked",
+      "root",
+      "cancelled",
+    ] as const) {
+      let reads = 0;
+      let currentRoot: string | null = root;
+      let current: unknown = {
+        status: "ready",
+        identity: "original-bytes-hash",
+        manifest: { repositoryId: "repository.fixture", projectId: "project" },
+      };
+      const initial = current;
+      const signal = { aborted: false };
+      const read = () => {
+        reads++;
+        return current;
+      };
+      let authorize: () => boolean;
+      if (owner === "workbench") {
+        authorize = new Function(
+          "readRepositoryManifest",
+          "verified",
+          "requestSignal",
+          "resolveVerifiedRepositoryRoot",
+          "ownerRoot",
+          "initial",
+          `let authorize;${wbClosure};return authorize;`,
+        )(read, { capability }, signal, () => currentRoot, root, initial);
+      } else {
+        const makeRouting = new Function(
+          "getRepository",
+          "readRepositoryManifest",
+          "resolveVerifiedRepositoryRoot",
+          "resolveVerifiedRepositoryRootFromWorkingDirectory",
+          "createTopicOperations",
+          "createMeetingOperations",
+          "readGitUser",
+          "createLocalPrincipalId",
+          `${routingDeclaration};return createRequestRoutingDependencies;`,
+        )(
+          () => ({ status: "completed", capability }),
+          read,
+          () => currentRoot,
+          () => root,
+          () => ({}),
+          () => ({}),
+          () => ({ status: "completed", email: "test@example.invalid" }),
+          () => "local-principal",
+        );
+        const routing = await makeRouting(false);
+        const context = routing.runtimeDefinition("repository.fixture", signal);
+        assert.ok(context);
+        assert.equal(reads, 1, "MCPの初回Contextは実workspace Closureで読む");
+        authorize = () =>
+          context.revalidate("definition.read", { projectId: "project" });
+      }
+      reads = 0;
+      if (condition === "changed")
+        current = { status: "ready", identity: "changed-bytes-hash" };
+      if (condition === "missing")
+        current = { status: "missing", reason: "repository_manifest_missing" };
+      if (condition === "blocked")
+        current = {
+          status: "blocked",
+          reason: "repository_manifest_unavailable",
+        };
+      if (condition === "root") currentRoot = "different-root";
+      if (condition === "cancelled") signal.aborted = true;
+      for (let call = 1; call <= 2; call++) {
+        assert.equal(
+          authorize(),
+          condition === "same",
+          `${owner}:${condition}`,
+        );
+        const expectedReads =
+          owner === "mcp" && (condition === "root" || condition === "cancelled")
+            ? 0
+            : call;
+        assert.equal(reads, expectedReads, `${owner}:${condition}:Reader`);
+      }
     }
   }
 });

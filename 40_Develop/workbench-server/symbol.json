@@ -7,9 +7,19 @@
       "symbolId": "workbench.shared.repository.types",
       "kind": "file",
       "path": "src/shared/repository/types.ts",
-      "archIds": ["ARCH-000009", "ARCH-000012"]
+      "archIds": [
+        "ARCH-000009",
+        "ARCH-000012"
+      ]
     },
-    { "symbolId": "workbench.verification.workspace-summary", "kind": "file", "path": "scripts/verify-workspace-summary.ts", "archIds": ["ARCH-000015"] },
+    {
+      "symbolId": "workbench.verification.workspace-summary",
+      "kind": "file",
+      "path": "scripts/verify-workspace-summary.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
     {
       "symbolId": "workbench.verification.readonly-cli",
       "kind": "file",
@@ -1063,16 +1073,103 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "workbench.runtime-definition"
+        "workbench.runtime-definition",
+        "workbench.http.workspace"
       ]
     },
-    {"symbolId":"workbench-server.scripts.ai-verification-client","kind":"verification-tool","path":"scripts/ai-verification-client.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
-    {"symbolId":"workbench-server.scripts.ai-verification-http","kind":"verification-tool","path":"scripts/ai-verification-http.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
-    {"symbolId":"workbench-server.scripts.ai-verification-timing","kind":"verification-tool","path":"scripts/ai-verification-timing.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
-    {"symbolId":"workbench-server.test.integration.ai-verification-client","kind":"test-suite","path":"tests/integration/ai-verification-client.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.ai-verification-client","workbench-server.scripts.ai-verification-http","workbench-server.scripts.ai-verification-timing"]},
-    {"symbolId":"workbench-server.test.integration.ai-verification-timing","kind":"test-suite","path":"tests/integration/ai-verification-timing.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.ai-verification-timing","workbench-server.scripts.ai-verification-http"]},
-    {"symbolId":"workbench-server.scripts.workspace-task-diagnostic","kind":"verification-tool","path":"scripts/workspace-task-diagnostic.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
-    {"symbolId":"workbench-server.test.integration.workspace-task-diagnostic","kind":"test-suite","path":"tests/integration/workspace-task-diagnostic.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.workspace-task-diagnostic"]},
+    {
+      "symbolId": "workbench-server.scripts.ai-verification-client",
+      "kind": "verification-tool",
+      "path": "scripts/ai-verification-client.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "workbench-server.scripts.ai-verification-http",
+      "kind": "verification-tool",
+      "path": "scripts/ai-verification-http.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "workbench-server.scripts.ai-verification-timing",
+      "kind": "verification-tool",
+      "path": "scripts/ai-verification-timing.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "workbench-server.test.integration.ai-verification-client",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-verification-client.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": [
+        "workbench-server.scripts.ai-verification-client",
+        "workbench-server.scripts.ai-verification-http",
+        "workbench-server.scripts.ai-verification-timing"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.test.integration.ai-verification-timing",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-verification-timing.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": [
+        "workbench-server.scripts.ai-verification-timing",
+        "workbench-server.scripts.ai-verification-http"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.scripts.workspace-task-diagnostic",
+      "kind": "verification-tool",
+      "path": "scripts/workspace-task-diagnostic.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "workbench-server.test.integration.workspace-task-diagnostic",
+      "kind": "test-suite",
+      "path": "tests/integration/workspace-task-diagnostic.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": [
+        "workbench-server.scripts.workspace-task-diagnostic"
+      ]
+    },
     {
       "symbolId": "workbench-server.source.src.server.connection.configuration-area",
       "kind": "file",

@@ -10,10 +10,7 @@ import {
   createFilesystemRepositoryObservationPort,
   parseRepositoryProjectContextMarkdown,
 } from "../../../document-model/src/index.ts";
-import {
-  inspectRepositoryManifest,
-  REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../../configuration-model/src/index.ts";
+import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
   getRepository,
@@ -135,12 +132,12 @@ function observeRegistration(
   const observer = createFilesystemRepositoryObservationPort(
     verified.capability,
   );
-  const manifestFile = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
+  const manifestRead = readRepositoryManifest(verified.capability);
   const contextFile = observer.observeFile("PROJECT_CONTEXT.md");
-  if (manifestFile.status !== "resolved" || contextFile.status !== "resolved")
+  if (manifestRead.status !== "ready" || contextFile.status !== "resolved")
     return null;
-  const manifest = inspectRepositoryManifest(JSON.parse(manifestFile.source));
-  if (!manifest || manifest.repositoryId !== repositoryId) return null;
+  const manifest = manifestRead.manifest;
+  if (manifest.repositoryId !== repositoryId) return null;
   const context = parseRepositoryProjectContextMarkdown(contextFile.source);
   if (
     context.projectId !== manifest.projectId ||

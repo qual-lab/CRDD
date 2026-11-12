@@ -22,11 +22,7 @@ import {
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createTopicOperations } from "../../40_Develop/document-model/src/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../40_Develop/document-model/src/index.ts";
-import {
-  inspectRepositoryManifest,
-  REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../40_Develop/configuration-model/src/index.ts";
+import { readRepositoryManifest } from "../../40_Develop/configuration-model/src/index.ts";
 import {
   getRepository,
   readGitUser,
@@ -200,14 +196,10 @@ async function createRequestRoutingDependencies(
   ) => {
     const verified = getRepository(repositoryRoot);
     if (verified.status !== "completed") return null;
-    const observer = createFilesystemRepositoryObservationPort(
-      verified.capability,
-    );
-    const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
-    const source = file.status === "resolved" ? file.source : null;
-    const manifest =
-      source === null ? null : inspectRepositoryManifest(JSON.parse(source));
-    if (!manifest || manifest.repositoryId !== repositoryId) return null;
+    const initial = readRepositoryManifest(verified.capability);
+    if (initial.status !== "ready") return null;
+    const manifest = initial.manifest;
+    if (manifest.repositoryId !== repositoryId) return null;
     return {
       ownerRoot: repositoryRoot,
       projectId: manifest.projectId,
@@ -216,8 +208,8 @@ async function createRequestRoutingDependencies(
           resolveVerifiedRepositoryRoot(verified.capability) !== repositoryRoot
         )
           return false;
-        const fresh = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
-        return fresh.status === "resolved" && fresh.source === source;
+        const fresh = readRepositoryManifest(verified.capability);
+        return fresh.status === "ready" && fresh.identity === initial.identity;
       },
     };
   };

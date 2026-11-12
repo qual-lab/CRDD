@@ -16,7 +16,7 @@ const SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/src/execution/diagnostics.ts",
   "40_Develop/coordinator/src/execution/authority.ts",
-  "40_Develop/configuration-model/src/storage/file-snapshot.ts",
+  "40_Develop/configuration-model/src/storage/store.ts",
   "40_Develop/executor/scripts/provider-home.ts",
   "40_Develop/executor/src/lifecycle/attempt.ts",
 ]);

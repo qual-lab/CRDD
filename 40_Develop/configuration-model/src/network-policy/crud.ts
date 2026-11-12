@@ -4,42 +4,17 @@
  * @trace ARCH-000011
  */
 
+import type { NetworkPolicyReadResult } from "./types.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   DEFAULT_NETWORK_POLICY,
-  type NetworkPolicy,
   parseNetworkPolicyDocument,
-} from "../configuration/network-policy.ts";
-import { configurationPaths } from "./configuration-directory.ts";
-import { readStableFileSnapshot } from "./file-snapshot.ts";
-
-/**
- * 設定の読取り状態を表す。
- * @responsibility 不在・有効File・不正・観測不能を分離する。
- * @trace ARCH-000011
- * @shape readyにはpolicyとsource、fileだけ生Hash。blockedには固定reasonだけ。
- * @invariant blockedに設定やHashを返さない。
- * @boundary Repository Filesystemと呼出し元。
- * @security Path・本文・認可を公開しない。
- * @compatibility 既定値は真正不存在だけ。0-byte Fileは不正。
- */
-export type NetworkPolicyReadResult =
-  | Readonly<
-      {
-        status: "ready";
-        policy: NetworkPolicy;
-      } & (
-        | { source: "default"; sourceFileHash: null }
-        | { source: "file"; sourceFileHash: string }
-      )
-    >
-  | Readonly<{
-      status: "blocked";
-      reason: "network_policy_invalid" | "network_policy_unavailable";
-    }>;
+} from "./validation.ts";
+import { configurationPaths } from "../storage/store.ts";
+import { readStableFileSnapshot } from "../storage/store.ts";
 
 /**
  * 検証済みRootの現在設定を一回固定する。

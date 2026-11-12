@@ -5,11 +5,7 @@
  * @trace ARCH-000013
  */
 
-import { createFilesystemRepositoryObservationPort } from "../../../document-model/src/index.ts";
-import {
-  inspectRepositoryManifest,
-  REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../../configuration-model/src/index.ts";
+import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
 import type { RuntimeAccess } from "../../../execution-model/src/index.ts";
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
@@ -312,14 +308,10 @@ export function observeRepositoryAccess(
       registration.bindingId
   )
     return null;
-  const observer = createFilesystemRepositoryObservationPort(
-    verified.capability,
-  );
-  const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
-  if (file.status !== "resolved") return null;
-  const manifest = inspectRepositoryManifest(JSON.parse(file.source));
+  const manifestRead = readRepositoryManifest(verified.capability);
+  if (manifestRead.status !== "ready") return null;
+  const manifest = manifestRead.manifest;
   if (
-    !manifest ||
     manifest.repositoryId !== registration.repositoryId ||
     resolveVerifiedRepositoryRoot(verified.capability) !== root
   )

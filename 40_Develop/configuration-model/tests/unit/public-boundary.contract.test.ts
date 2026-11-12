@@ -1,7 +1,7 @@
 /**
  * 設定モデルの公開集合とModel間の独立性を固定する。
  * @packageDocumentation
- * @responsibility 採用した25 Symbolをliteral期待へ固定し、汎用Helperの再公開を拒否する。
+ * @responsibility 採用した24 Symbolをliteral期待へ固定し、汎用Helperの再公開を拒否する。
  * @trace RCM-UT-001
  * @level UT
  * @scope Root、型宣言、Package公開metadata、Source import。
@@ -18,12 +18,11 @@ const values = [
   "EXTERNAL_SEND_POLICY_RELATIVE_PATH",
   "REPOSITORY_MANIFEST_RELATIVE_PATH",
   "inspectAiSelectionChoice",
-  "inspectCrosTrustPolicy",
-  "inspectRepositoryManifest",
   "readCoordinatorConfig",
   "readExecutionIntelligenceConfig",
   "readNetworkPolicy",
   "readRepositoryAiSelection",
+  "readRepositoryManifest",
   "saveRepositoryAiSelection",
   "validateAiSelectionConfig",
 ] as const;
@@ -36,17 +35,21 @@ const types = [
   "AiSelectionRole",
   "AiSelectionSaveResult",
   "AiSelectionSnapshot",
-  "CrosTrustPolicy",
   "NetworkPolicy",
   "NetworkPolicyReadResult",
   "RepositoryManifest",
+  "RepositoryManifestReadResult",
   "ToolRuntimeConfig",
   "ToolRuntimeConfigResult",
 ] as const;
 
 /** 完成した設定操作と主要契約だけをRootから公開する。 @trace RCM-UT-001 */
-test("設定Rootは採用した11値・14型と単一公開入口だけを提供する", () => {
+test("設定Rootは採用した10値・14型と単一公開入口だけを提供する", () => {
   assert.deepEqual(Object.keys(configuration).sort(), [...values].sort());
+  assert.equal(
+    Object.hasOwn(configuration, "inspectRepositoryManifest"),
+    false,
+  );
   const source = fs.readFileSync(
     new URL("../../src/index.ts", import.meta.url),
     "utf8",

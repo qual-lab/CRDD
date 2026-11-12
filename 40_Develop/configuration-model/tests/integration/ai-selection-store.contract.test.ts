@@ -24,7 +24,7 @@ import { validateAiSelectionConfig } from "../../src/index.ts";
 
 const LEGACY_SELECTION_BYTES = 1024 * 1024;
 
-import * as configurationDirectory from "../../src/storage/configuration-directory.ts";
+import * as configurationDirectory from "../../src/storage/store.ts";
 
 /**
  * 合成設定だけを作る。
@@ -728,7 +728,7 @@ test("領域確保の元失敗契約とexact回復参照を保持する", async 
     recoveryReference: `repository-local-ignore.${"a".repeat(64)}`,
     repositoryPathReported: false as const,
   });
-  const mocked = t.mock.module("../../src/storage/configuration-directory.ts", {
+  const mocked = t.mock.module("../../src/storage/store.ts", {
     namedExports: {
       ...configurationDirectory,
       ensureConfigurationDirectory: () => failure,
@@ -736,10 +736,10 @@ test("領域確保の元失敗契約とexact回復参照を保持する", async 
   });
   try {
     const url = new URL(
-      "../../src/storage/ai-selection.ts?setup-failure",
+      "../../src/ai-selection/crud.ts?setup-failure",
       import.meta.url,
     ).href;
-    const isolated: typeof import("../../src/storage/ai-selection.ts") =
+    const isolated: typeof import("../../src/ai-selection/crud.ts") =
       await import(url);
     const result = isolated.saveRepositoryAiSelection(
       f.capability,

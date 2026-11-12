@@ -14,7 +14,7 @@
     {
       "symbolId": "ai-adapter.output.unambiguous-json-document",
       "kind": "file",
-      "path": "src/plain-data/json.ts",
+      "path": "src/ai-selection/validation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -22,7 +22,7 @@
     {
       "symbolId": "coordinator.storage.ai-selection",
       "kind": "file",
-      "path": "src/storage/ai-selection.ts",
+      "path": "src/ai-selection/crud.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -68,7 +68,7 @@
     {
       "symbolId": "domain-model.configuration.network-policy",
       "kind": "file",
-      "path": "src/configuration/network-policy.ts",
+      "path": "src/network-policy/validation.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -76,7 +76,7 @@
     {
       "symbolId": "domain-model.storage.network-policy",
       "kind": "file",
-      "path": "src/storage/network-policy.ts",
+      "path": "src/network-policy/crud.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -130,7 +130,7 @@
     {
       "symbolId": "runtime-data.source.src.core.runtime.data.contract",
       "kind": "file",
-      "path": "src/configuration/validate-declarations.ts",
+      "path": "src/manifest/validation.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -146,7 +146,7 @@
     {
       "symbolId": "domain-model.runtime-data-paths",
       "kind": "module",
-      "path": "src/configuration/storage-paths.ts",
+      "path": "src/manifest/crud.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -154,7 +154,7 @@
     {
       "symbolId": "domain-model.configuration-types",
       "kind": "module",
-      "path": "src/configuration/types.ts",
+      "path": "src/manifest/types.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -162,7 +162,7 @@
     {
       "symbolId": "domain-model.tool-runtime-config",
       "kind": "module",
-      "path": "src/configuration/read-tool-config.ts",
+      "path": "src/history/crud.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -192,7 +192,7 @@
     {
       "symbolId": "configuration-model.source.src.ai-selection.snapshot",
       "kind": "file",
-      "path": "src/ai-selection/snapshot.ts",
+      "path": "src/ai-selection/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -200,7 +200,7 @@
     {
       "symbolId": "configuration-model.source.src.storage.configuration-directory",
       "kind": "file",
-      "path": "src/storage/configuration-directory.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -208,7 +208,7 @@
     {
       "symbolId": "configuration-model.source.src.storage.file-snapshot",
       "kind": "file",
-      "path": "src/storage/file-snapshot.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -216,7 +216,7 @@
     {
       "symbolId": "configuration-model.source.src.storage.root-and-lock",
       "kind": "file",
-      "path": "src/storage/root-and-lock.ts",
+      "path": "src/storage/lock.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -249,6 +249,30 @@
       ],
       "verifies": [
         "configuration-model.public-api"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.network-policy.types",
+      "kind": "file",
+      "path": "src/network-policy/types.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.history.types",
+      "kind": "file",
+      "path": "src/history/types.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "configuration-model.source.src.history.validation",
+      "kind": "file",
+      "path": "src/history/validation.ts",
+      "archIds": [
+        "ARCH-000011"
       ]
     }
   ]

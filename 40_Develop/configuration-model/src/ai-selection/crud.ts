@@ -12,123 +12,26 @@ import fs from "node:fs";
 import type { Repository } from "../../../version-control/src/index.ts";
 import type {
   AiSelectionCatalog,
-  AiSelectionSnapshot,
-} from "../ai-selection/types.ts";
-import { validateAiSelectionConfig } from "../ai-selection/validation.ts";
+  AiSelectionReadResult,
+  AiSelectionSaveResult,
+  AiSelectionTemporaryReference,
+  ConfigAreaFailure,
+} from "./types.ts";
+import {
+  validateAiSelectionConfig,
+  snapshotConfigurationRecord,
+  parseUnambiguousJsonDocument,
+} from "./validation.ts";
+import { withConfigurationLock } from "../storage/lock.ts";
 import {
   createConfigurationStoreRoot,
   resolveConfigurationFile,
-  withConfigurationLock,
-} from "./root-and-lock.ts";
-import {
   ensureConfigurationDirectory,
   observeConfigurationDirectory,
-} from "./configuration-directory.ts";
-import { readStableFileSnapshot } from "./file-snapshot.ts";
-import { snapshotConfigurationRecord } from "../ai-selection/snapshot.ts";
-import { parseUnambiguousJsonDocument } from "../plain-data/json.ts";
+  readStableFileSnapshot,
+} from "../storage/store.ts";
 
 const CONFIG_FILE = "ai-selection.json";
-
-/**
- * 正本の検証済みSnapshot、真正不存在、拒否を区別する。
- * @responsibility 観測不能を空設定へ変換しない。
- * @trace ARCH-000004
- * @shape 状態で絞り込む閉じた結果。
- * @invariant availableだけが設定値を持つ。
- * @boundary 設定Readerと利用側。
- * @security Host Path・秘密値なし。
- * @compatibility 新形式専用。
- */
-export type AiSelectionReadResult = Readonly<
-  | { status: "available"; snapshot: AiSelectionSnapshot; reason: null }
-  | { status: "missing"; snapshot: null; reason: "ai_selection_not_configured" }
-  | {
-      status: "blocked";
-      snapshot: null;
-      reason:
-        | "ai_selection_boundary_unconfirmed"
-        | "ai_selection_file_invalid"
-        | "ai_selection_config_invalid"
-        | "ai_selection_read_unconfirmed";
-    }
->;
-
-/**
- * 今回作成した非正本Fileの観測値を介入担当へ渡す。
- * @responsibility 自動削除のAuthorityでないexact参照を保持する。
- * @trace ARCH-000004
- * @shape Repository束縛、相対名、観測可能な場合だけ実Identity。
- * @invariant 不明なIdentityを補完せず正本の設定へ利用しない。
- * @boundary Store失敗と既存フロントAI／運用清掃。
- * @security 絶対Path・File内容・秘密値なし。
- * @compatibility 新しい回復Registryではない。
- */
-export type AiSelectionTemporaryReference = Readonly<{
-  repositoryBinding: string;
-  boundaryIdentity: string;
-  relativePath: string;
-  identity: Readonly<{
-    dev: string;
-    ino: string;
-    birthtimeNs: string;
-    size: string;
-    mtimeNs: string;
-    ctimeNs: string;
-  }> | null;
-  status: "cleanup_unconfirmed";
-}>;
-
-/**
- * 保存の成功・競合・拒否と未確認のEffectを分離する。
- * @responsibility 設定公開と一時File／Lockの終了を成功条件へ結合する。
- * @trace ARCH-000004
- * @shape saved以外は設定本文を返さない。
- * @invariant 公開後の失敗を保存前拒否へ畳まない。
- * @boundary 設定Storeと管理操作。
- * @security 未確認の保存を自動再送させず、既存回復参照は同じまま保持する。
- * @compatibility 初回作成のexpectedIdentityはnull。
- */
-export type AiSelectionSaveResult = Readonly<
-  | { status: "saved"; reason: null; snapshot: AiSelectionSnapshot }
-  | {
-      status: "conflict";
-      reason: "ai_selection_identity_conflict";
-      snapshot: null;
-    }
-  | {
-      status: "blocked";
-      reason: string;
-      snapshot: null;
-      recoveryId?: string;
-      setupFailure?: ConfigAreaFailure;
-    }
-  | {
-      status: "unknown";
-      reason: string;
-      snapshot: null;
-      publication: "not_published" | "unconfirmed" | "confirmed";
-      cleanupConfirmed: boolean;
-      recoveryId: string | null;
-      temporary: AiSelectionTemporaryReference | null;
-      setupFailure?: ConfigAreaFailure;
-    }
->;
-
-/**
- * 既存config領域確保の失敗契約をそのまま保持する。
- * @responsibility Ignoreの未確認Effectと元回復参照を新Storeで失わない。
- * @trace ARCH-000004
- * @shape 既存Domain結果のblocked部分。
- * @invariant 元のreason・cleanup・回復Identityを再生成しない。
- * @boundary Domainの領域確保と設定保存。
- * @security 認可された管理Callerだけへ搬送する内部契約。
- * @compatibility 既存Domain契約を変更しない。
- */
-type ConfigAreaFailure = Extract<
-  NonNullable<ReturnType<typeof ensureConfigurationDirectory>>,
-  { status: "blocked" }
->;
 
 /**
  * 公開結果に含めないFile bytesとともに固定正本だけを読む。

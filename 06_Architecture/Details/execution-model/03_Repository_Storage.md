@@ -387,6 +387,8 @@ Manifest v2では`projectId`と`repositoryId`を必須とし、同じ値を拒�
 
 ManifestはRepository Identityの正本であり、非秘密の共有設定としてGit管理する。Repositoryルートの`PROJECT_CONTEXT.md`は`projectId`、`repositoryId`および`repositoryRole`を表示用に投影し、Manifestと異なるIdentityを所有しない。Consumerは両者の不一致を一方の値で暗黙補完せず、現在投影の競合として拒否する。
 
+次のTrust Policyを含む式は旧CROS配置案の比較説明であり、今回撤去する未接続の`CrosTrustPolicy`型・検査が製品で強制されていたことを示さない。現在の認証・認可は[AMの正本](../access-management/01_Architecture.md)が所有し、Manifestの宣言だけで実行許可が成立しない条件は維持する。式の各項を現行実装済みの独立した検査APIと読み替えない。
+
 ```text
 Repository Manifestの宣言
   ∩ CROS／配置先のTrust Policy
@@ -396,6 +398,8 @@ Repository Manifestの宣言
 ```
 
 ## 6. CROSとの物理分離
+
+本節のTrust Policy付き配置図は旧CROSの比較配置を保持したものであり、現行のTrust設定File・Schema・保存・強制処理の存在を示さない。今回の構成モデル整理は未接続の宣言検査を撤去するだけで、既存AMの認証・認可、Host Root所在、CredentialやLockの保証を変更しない。CROS全体の設計再編や新たなTrust機構の採用は本変更の範囲外である。
 
 複数Repositoryを束ねるCROS状態は、MCPを起動したRepositoryの`.crdd`へ保存しない。CRDDの子Directoryにもせず、配布主体とApplicationを識別できるOS管理の専用Runtime Rootを使用する。OS間で同じ論理Pathを識別できるよう、WindowsとLinuxのDirectory名はともにASCII小文字`kebab-case`へ統一する。
 

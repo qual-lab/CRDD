@@ -44,6 +44,8 @@ v0.21.0はGroup AだけをRelease範囲とする。Group B以降のCanonical設�
 
 ### 1.2. v0.22.0 — Project運営・複数Repository
 
+構成モデルの後続整理では、15 Sourceへの責務再配置、未接続Trust検査の撤去、完成したManifest読取りと内容Identity再検証へのConsumer接続を実装した。既存Schema・固定配置・JSON・Lock／CAS・失敗相関は維持する。予定の限定76件と関係11型設定は成功し、独立再レビューの必須残指摘は0件。検証指定ミスによる予定外Co試験13件と回収観測の限界はEvidenceへ別記し、この成功件数へ合算しない。[現在設計](../06_Architecture/Details/configuration-model/01_Architecture.md)と[限定結果](Changes/CHG-000082/Evidence/261112_model-package-split-verification.md#後続区切り構成モデルの内部責務整理--2026-11-12)を正本とし、先行3分離の完了やRelease成立と混同しない。全体回帰・実AI／Docker・過去保持物は操作しない。
+
 | 日程項目 | 現在値 | 根拠・扱い |
 |---|---|---|
 | 目標リリース日 | `2026-10-03` | 2026-09-25にQual-Labが設定 |

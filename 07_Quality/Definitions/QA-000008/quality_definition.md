@@ -1,5 +1,11 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## 構成モデルの責務配置とManifest読取り — 2026-11-12
+
+既存`RDL-UT-005`のManifest値検査、`RDL-IT-001`の固定config観測・保存・実体検査を構成モデルの15 Sourceへ対応付ける。`readRepositoryManifest`は従来のUTF-8置換復号後本文のHash、真正不存在、不正Schema、Symbolic Link・読取り中の差替え・close失敗を区別し、読取りで書込みを開始しないことを確認する。有効hardlink、不正byteの置換受理、BOM拒否、正常多byte、同本文へ復号される異byte列の同一Hashと、異本文の異Hashを対照する。保持設定はCoordinator／EIの値を読むだけで、履歴本文の保存Ownerを変更しない。
+
+本番未接続のCROS Trust Policy検査と専用2試験を撤去する。`RDL-UT-005`全体は退役せず、ManifestとAMの現役Path分類試験を維持する。AI選定に固有のJSON重複Key・data descriptor・Proxy／accessor拒否をManifestや保持設定へ横展開せず、両者の従来のJSON.parse条件を保持する。既存Schema・実体照合・Lock Identity・CAS・元Effect／回復参照は保持し、試験Pathの変更だけで既存の正式評価を成功へ変更しない。容量上限の再導入、全体回帰、実AI／Docker、過去保持物の操作は今回の検証に含めない。
+
 ## 検証報告の専用化 — 2026-11-12
 
 既存RDL-UT-005／RDL-IT-001のうち、報告本文・sidecar・中断intentのbyte／Hash／実体照合、部分保存・観測不能・削除対象外保全をExecutorのreport UT／ITへ接続する。共通Lock・本番State・判断保存の保証はDomainの既存試験が所有し、報告保存の成功で代用しない。旧Domain committed-jsonの本番公開と専用試験Pathは退役する。容量制限付きReaderはState・設定・AM・CLIの現役Consumerに必要な一実装を維持し、用途別コピーを増やさない。

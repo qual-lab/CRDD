@@ -11,37 +11,36 @@ export {
 export {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "./storage/ai-selection.ts";
-export { readNetworkPolicy } from "./storage/network-policy.ts";
+} from "./ai-selection/crud.ts";
+export { readNetworkPolicy } from "./network-policy/crud.ts";
 export {
   readCoordinatorConfig,
   readExecutionIntelligenceConfig,
-} from "./configuration/read-tool-config.ts";
-export {
-  inspectCrosTrustPolicy,
-  inspectRepositoryManifest,
-} from "./configuration/validate-declarations.ts";
+} from "./history/crud.ts";
+export { readRepositoryManifest } from "./manifest/crud.ts";
 export {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "./configuration/storage-paths.ts";
+} from "./manifest/crud.ts";
 export type {
   AiSelectionCatalog,
   AiSelectionChoice,
   AiSelectionConfig,
   AiSelectionRole,
   AiSelectionSnapshot,
-} from "./ai-selection/types.ts";
-export type { AiSelectionConfigResult } from "./ai-selection/validation.ts";
-export type {
+  AiSelectionConfigResult,
   AiSelectionReadResult,
   AiSelectionSaveResult,
-} from "./storage/ai-selection.ts";
-export type { NetworkPolicy } from "./configuration/network-policy.ts";
-export type { NetworkPolicyReadResult } from "./storage/network-policy.ts";
+} from "./ai-selection/types.ts";
 export type {
-  CrosTrustPolicy,
+  NetworkPolicy,
+  NetworkPolicyReadResult,
+} from "./network-policy/types.ts";
+export type {
   RepositoryManifest,
+  RepositoryManifestReadResult,
+} from "./manifest/types.ts";
+export type {
   ToolRuntimeConfig,
   ToolRuntimeConfigResult,
-} from "./configuration/types.ts";
+} from "./history/types.ts";
