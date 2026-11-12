@@ -25,8 +25,8 @@ import {
   savePlan,
   updateTask,
 } from "../../src/index.ts";
-import { readStableFileSnapshot } from "../../src/storage/file-snapshot.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { readStableFileSnapshot } from "../../src/storage/store.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 

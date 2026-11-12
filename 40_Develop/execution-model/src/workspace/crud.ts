@@ -1,277 +1,150 @@
 /**
- * Workspaceの論理記録と統合結果の固定用途候補を所有する。
- * @packageDocumentation
- * @responsibility 世代・Queue結合・不変な結果本文の局所判断を提供する。
- * @trace ARCH-000004、ARCH-000008
- * @boundary 保存・Git・実Owner・Authorityは所有しない。
+ * Workspaceと統合結果の完成した保存・読取り操作を提供する。
+ * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
+ * @trace ARCH-000008
  */
-import type { CoordinatorSnapshot } from "../state/types.ts";
-import type { CoordinatorResultRecord, CoordinatorWorkspace } from "./types.ts";
+
+import type { Repository } from "../../../version-control/src/index.ts";
 import {
-  validCoordinatorResultRecord,
-  validCoordinatorWorkspace,
-  COORDINATOR_INTEGRATION_CONTRACT,
+  readRuntimeContent,
+  withCoordinatorSnapshotOperation,
+} from "../state/crud.ts";
+import type { CoordinatorSnapshot, RuntimeAccess } from "../state/types.ts";
+import type { StoreResult } from "../storage/lock.ts";
+import { blocked, completed } from "../storage/lock.ts";
+import { readCoordinatorSnapshot } from "../storage/store.ts";
+import {
+  prepareCoordinatorIntegrationRecordCreation,
+  prepareCoordinatorWorkspaceRecordUpdate,
 } from "./validation.ts";
-import { hashRuntimeStateValueText, historyRow } from "../state/validation.ts";
-import { encodeRuntimeStateValue } from "../state/codec.ts";
+
 /**
- * Workspaceの現在記録を元世代と非使用条件へ限定して更新する。
- * @responsibility Queue・Lease値・世代・未解決参照・破棄確認を元の順序で検査する。
+ * 同じ成果Identityの統合記録を作成する。
+ * @responsibility 同内容の再送は無書込みとし、異内容の同IDとQueue結合差を拒否する。
  * @trace ARCH-000004、ARCH-000008
- * @input current: fresh Snapshot、対象ID・期待世代・次値、observations: 同じOwnerが取得するProcess IDと有限時刻観測。
- * @returns 既存結果封筒の変更候補又は投影、拒否時は元の固定理由。
- * @precondition 同じ短期保存Ownerがfresh SnapshotとRepository結合を検証している。
- * @postcondition 入力と対象外区画を変更せず、拒否・非削除では時計を呼ばない。
- * @effect 成功する削除候補の末尾でだけ同期時計を二回観測する。保存・Git操作なし。
- * @failure 元の判定順と拒否理由を維持する。
- * @invariant 候補のcompletedを耐久保存・認可・実資源終了の証明へ読み替えない。
- * @boundary Coordinator専用メモリ投影と、別Ownerが持つ単一Writer。
- * @security 値はAuthorityではなく、保存Ownerや任意Snapshot callbackを公開せず、用途固定の同期clock以外を受けない。
- * @concurrency 保存CASと現在Owner再確認・解放は既存Writerが行う。
+ * @input workingDirectory、binding: 検証対象と既存結合。対象結合と統合記録。
+ * @returns 既存の保存結果又は解放確認付き停止。
+ * @precondition 呼出し側が現在の操作認可を確認している。
+ * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
+ * @effect 読取りと必要な場合だけ既存Writerで保存する。
+ * @failure 候補不正・競合・保存又は解放不明は停止する。
+ * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
+ * @boundary 固定用途と唯一の保存Owner。
+ * @security 保存成功を実行Authorityや資源回収と扱わない。
+ * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
-
-export function prepareCoordinatorWorkspaceRecordUpdate(
-  current: CoordinatorSnapshot,
-  projectId: string,
-  queueId: string,
-  ownerGeneration: string,
-  workspaceId: string,
-  expectedGeneration: number,
-  nextRecord: CoordinatorWorkspace | null,
-  observations: Readonly<{ processId: number; now: () => number }>,
+export function saveCoordinatorIntegrationRecord(
+  workingDirectory: Repository,
+  binding: string,
+  ...input: Parameters<
+    typeof prepareCoordinatorIntegrationRecordCreation
+  > extends [unknown, ...infer Rest]
+    ? Rest
+    : never
 ) {
-  const queue = current.queueEntries.find(
-    (entry) => entry.queueId === queueId && entry.projectId === projectId,
+  return withCoordinatorSnapshotOperation<
+    Extract<
+      ReturnType<typeof prepareCoordinatorIntegrationRecordCreation>,
+      { status: "completed" }
+    >["value"]["value"]
+  >(workingDirectory, binding, (current) =>
+    prepareCoordinatorIntegrationRecordCreation(current, ...input),
   );
-  const owned = current.leaseIntents.some(
-    (intent) =>
-      intent.projectId === projectId &&
-      intent.queueId === queueId &&
-      intent.kind === "project-operation" &&
-      intent.phase === "lock_owned" &&
-      intent.ownerGeneration === ownerGeneration &&
-      intent.ownerProcessId === observations.processId,
-  );
-  if (!queue || !owned) return blocked("orchestrator_workspace_lease_mismatch");
-  const previous = current.workspaces.find(
-    (entry) => entry.workspaceId === workspaceId,
-  );
-  if ((previous?.generation ?? 0) !== expectedGeneration)
-    return blocked("orchestrator_workspace_generation_conflict");
-  if (queue.workspaceId != null && queue.workspaceId !== workspaceId)
-    return blocked("orchestrator_workspace_target_mismatch");
-  if (
-    nextRecord &&
-    (!validCoordinatorWorkspace(nextRecord) ||
-      nextRecord.workspaceId !== workspaceId ||
-      nextRecord.generation !== expectedGeneration + 1)
-  )
-    return blocked("orchestrator_workspace_record_invalid");
-  // binding-wide操作Leaseを維持し、既存Task／回復参照から非使用を導く。
-  const affectedProjects = new Set(
-    current.queueEntries
-      .filter((entry) => entry.workspaceId === workspaceId)
-      .map((entry) => entry.projectId),
-  );
-  affectedProjects.add(projectId);
-  const singleTaskBusy = current.queueEntries.some(
-    (entry) =>
-      affectedProjects.has(entry.projectId) &&
-      entry.singleTask &&
-      (entry.singleTask.phase !== "settled" ||
-        !entry.singleTask.cleanupConfirmed ||
-        entry.singleTask.recoveryIds.length > 0),
-  );
-  const busy =
-    singleTaskBusy ||
-    current.projects
-      .filter((entry) => affectedProjects.has(entry.projectId))
-      .some((entry) =>
-        entry.tasks.some(
-          (task) =>
-            [
-              "starting",
-              "running",
-              "cleanup_pending",
-              "recovery_required",
-            ].includes(task.state) ||
-            task.recoveryUnresolved ||
-            task.recoveryObligations.some(
-              (obligation) =>
-                !["settled", "acknowledged"].includes(obligation.phase),
-            ),
-        ),
-      );
-  if (busy) return blocked("orchestrator_workspace_in_use_or_unresolved");
-  if (
-    (nextRecord?.phase === "discarding" || nextRecord === null) &&
-    current.queueEntries.some(
-      (entry) =>
-        entry.workspaceId === workspaceId &&
-        entry.queueId !== queueId &&
-        !["completed", "cancelled"].includes(entry.state),
-    )
-  )
-    return blocked("orchestrator_workspace_other_queue_pending");
-  if (
-    nextRecord?.phase === "discarding" &&
-    previous?.holdUntil !== null &&
-    previous?.holdUntil !== undefined
-  )
-    return blocked("orchestrator_workspace_held");
-  if (
-    nextRecord === null &&
-    (previous?.lastResult?.worktreeRemoved !== true ||
-      previous.lastResult.branchRemoved !== true ||
-      previous.lastResult.workspaceDirectoryRetained !== false)
-  )
-    return blocked("orchestrator_workspace_disposal_unconfirmed");
-  const workspaces = current.workspaces.filter(
-    (entry) => entry.workspaceId !== workspaceId,
-  );
-  if (nextRecord) workspaces.push(nextRecord);
-  return completed("orchestrator_workspace_record_saved", {
-    next: {
-      ...current,
-      workspaces,
-      queueEntries: current.queueEntries.map((entry) =>
-        entry.queueId === queueId ||
-        (nextRecord === null && entry.workspaceId === workspaceId)
-          ? {
-              ...entry,
-              workspaceId: nextRecord === null ? null : workspaceId,
-              ...(nextRecord === null &&
-              !["completed", "cancelled"].includes(entry.state)
-                ? { state: "cancelled" as const, resumeCondition: null }
-                : {}),
-              generation: entry.generation + 1,
-            }
-          : entry,
-      ),
-      historyPending:
-        nextRecord === null
-          ? [
-              ...current.historyPending,
-              historyRow(
-                {
-                  id: `workspace-${workspaceId}`,
-                  occurredAt: new Date(observations.now()).toISOString(),
-                  outcome: "cancelled",
-                  primaryFailure: previous?.primaryFailure ? "cleanup" : null,
-                  cleanup: "confirmed",
-                },
-                observations.now(),
-              ),
-            ]
-          : current.historyPending,
-    },
-    value: nextRecord,
-  });
 }
 
 /**
- * 候補生成の完了形を元の外側freezeだけで構築する。
- * @responsibility 保存完了でない既存三fieldを保持する。
- * @trace ARCH-000004
- * @input reason: 固定理由、value: 局所値。
- * @returns 既存完了封筒。
- * @precondition 局所検査済み。
- * @postcondition nested値はfreeze・cloneしない。
- * @effect N/A: 値構築のみ。
- * @failure N/A: 判定は用途別関数。
- * @invariant 保存・認可成立を表さない。
- * @boundary 非公開constructor。
- * @security Authorityなし。
- * @concurrency N/A: 状態なし。
- */
-function completed<T>(reason: string, value: T) {
-  return Object.freeze({ status: "completed" as const, reason, value });
-}
-/**
- * 拒否形を元の五fieldと外側freezeで構築する。
- * @responsibility 候補生成の拒否を保存失敗と混同しない。
- * @trace ARCH-000004
- * @input reason: 元の固定理由。
- * @returns 回復参照なしの拒否。
- * @precondition I/O未発行。
- * @postcondition 回復義務を生成しない。
- * @effect N/A: 値構築のみ。
- * @failure N/A: 判定は用途別関数。
- * @invariant 保存Ownerの失敗を覆わない。
- * @boundary 非公開constructor。
- * @security 秘密・Authorityなし。
- * @concurrency N/A: 状態なし。
- */
-function blocked(reason: string) {
-  return Object.freeze({
-    status: "blocked" as const,
-    reason,
-    value: null,
-    manualRecoveryRequired: false,
-    recoveryId: null,
-  });
-}
-
-/**
- * 候補公開・採用結果の保存候補を同じIdentityへ限定する。
- * @responsibility 結果本文の不変・Queue所属と同内容再入場を判定する。
+ * 同じ操作LeaseのWorkspace記録を比較更新する。
+ * @responsibility 対象世代・Queue・Leaseを照合し、削除時だけ元の時計二回を使う。
  * @trace ARCH-000004、ARCH-000008
- * @input current: 元Snapshot、binding: 保存結合の値、record: 統合又は採用結果。
- * @returns 既存結果封筒の変更候補又は投影、拒否時は元の固定理由。
- * @precondition 同じ短期保存Ownerがfresh SnapshotとRepository結合を検証している。
- * @postcondition 入力と対象外区画を変更しない。
- * @effect N/A: メモリ内の値操作だけ。
- * @failure 元の判定順と拒否理由を維持する。
- * @invariant 候補のcompletedを耐久保存・認可・実資源終了の証明へ読み替えない。
- * @boundary Coordinator専用メモリ投影と、別Ownerが持つ単一Writer。
- * @security 値はAuthorityではなく、保存Ownerや任意callbackを公開しない。
- * @concurrency 保存CASと現在Owner再確認・解放は既存Writerが行う。
+ * @input workingDirectory、binding: 検証対象と既存結合。Project、Queue、Owner世代、Workspace、元世代と次記録。
+ * @returns 既存の保存結果又は解放確認付き停止。
+ * @precondition 呼出し側が現在の操作認可を確認している。
+ * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
+ * @effect 読取りと必要な場合だけ既存Writerで保存する。
+ * @failure 候補不正・競合・保存又は解放不明は停止する。
+ * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
+ * @boundary 固定用途と唯一の保存Owner。
+ * @security 保存成功を実行Authorityや資源回収と扱わない。
+ * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
-
-export function prepareCoordinatorIntegrationRecordCreation(
-  current: CoordinatorSnapshot,
-  binding: Pick<
-    CoordinatorResultRecord,
-    "repositoryBindingId" | "projectId" | "milestoneId" | "queueId"
-  >,
-  record: Pick<CoordinatorResultRecord, "kind" | "identity" | "value">,
+export function saveCoordinatorWorkspaceRecord(
+  workingDirectory: Repository,
+  binding: string,
+  ...input: Parameters<typeof prepareCoordinatorWorkspaceRecordUpdate> extends [
+    unknown,
+    ...infer Rest,
+  ]
+    ? Rest
+    : never
 ) {
-  const value: CoordinatorResultRecord = {
-    contract: COORDINATOR_INTEGRATION_CONTRACT,
-    kind: record.kind,
-    repositoryBindingId: binding.repositoryBindingId,
-    projectId: binding.projectId,
-    milestoneId: binding.milestoneId,
-    queueId: binding.queueId,
-    identity: record.identity,
-    contentHash: hashRuntimeStateValueText(
-      encodeRuntimeStateValue(record.value),
-    ),
-    value: record.value,
-  };
-  if (!validCoordinatorResultRecord(value))
-    return blocked("orchestrator_result_invalid");
-  const queue = current.queueEntries.find(
-    (item) => item.queueId === binding.queueId,
+  return withCoordinatorSnapshotOperation<
+    Extract<
+      ReturnType<typeof prepareCoordinatorWorkspaceRecordUpdate>,
+      { status: "completed" }
+    >["value"]["value"]
+  >(workingDirectory, binding, (current) =>
+    prepareCoordinatorWorkspaceRecordUpdate(current, ...input),
   );
-  if (
-    (value.kind === "integration" && (!queue || queue.singleTask)) ||
-    (value.milestoneId === null && !queue?.singleTask) ||
-    (queue &&
-      (queue.projectId !== binding.projectId ||
-        queue.milestoneId !== binding.milestoneId))
-  )
-    return blocked("orchestrator_result_binding_invalid");
-  const old = current.results.find(
-    (item) =>
-      item.kind === value.kind &&
-      item.projectId === value.projectId &&
-      item.identity === value.identity,
+}
+
+/**
+ * Workspace操作に必要な保存区画だけを読む。
+ * @responsibility 全Snapshotや保存Ownerを外へ渡さず用途固定の観測を返す。
+ * @trace ARCH-000008
+ * @input workingDirectory、binding: 現在Repositoryと期待結合。
+ * @returns 選択区画、明示不存在又は元の停止結果。
+ * @precondition Hostが同じRepositoryの操作認可を確認する。
+ * @postcondition I/O・改訂・解放確認の既存条件を保つ。
+ * @effect 単一Readerと短期排他の読取りだけ。
+ * @failure 不正Root・不一致・観測不能・解放不明を元の理由で拒否する。
+ * @invariant 状態変更・実行・回復Authorityを生成しない。
+ * @boundary Domain保存と用途別Consumer。
+ * @security 任意投影callbackを受けず、技術区画を一括返却しない。
+ * @concurrency 元の短期排他を一回取得・解放する。
+ */
+export function readCoordinatorWorkspaceState(
+  workingDirectory: Repository,
+  binding: string,
+): StoreResult<Pick<
+  CoordinatorSnapshot,
+  "projects" | "queueEntries" | "results" | "workspaces" | "snapshotRevision"
+> | null> {
+  if (typeof workingDirectory !== "object" || workingDirectory === null)
+    return blocked("orchestrator_repository_root_invalid");
+  const result = readCoordinatorSnapshot(workingDirectory, binding);
+  if (result.status !== "completed") return result;
+  return completed(
+    result.reason,
+    result.value === null
+      ? null
+      : {
+          projects: result.value.projects,
+          queueEntries: result.value.queueEntries,
+          results: result.value.results,
+          workspaces: result.value.workspaces,
+          snapshotRevision: result.value.snapshotRevision,
+        },
   );
-  if (old && encodeRuntimeStateValue(old) !== encodeRuntimeStateValue(value))
-    return blocked("orchestrator_result_identity_conflict");
-  return completed("orchestrator_result_durable", {
-    next: old ? null : { ...current, results: [...current.results, value] },
-    value: { written: true as const },
-  });
+}
+
+/**
+ * 対象に結合したWorkspaceを照会する。
+ * @responsibility workspacesの有限投影だけを返す。
+ * @trace ARCH-000008
+ * @input access、request: Host認可と対象ID。
+ * @returns 値・不存在・拒否・観測不能。
+ * @precondition 既存内容権限を使用する。
+ * @postcondition 値を実行又は回復Authorityにしない。
+ * @effect 共通Readerの有限照会だけ。
+ * @failure 現在認可・保存・排他の不明を隠さない。
+ * @invariant AI・Git・Docker・自動受付を起動しない。
+ * @boundary 一般QueryとDomain保存。
+ * @security Snapshot全体・Host Pathを返さない。
+ * @concurrency 返却前に再認可する。
+ */
+export function queryWorkspaces(
+  access: RuntimeAccess,
+  request: Readonly<{ projectId: string; milestoneId: string }>,
+) {
+  return readRuntimeContent(access, "workspaces", request);
 }

@@ -1,5 +1,5 @@
 /**
- * 既知Secretパターンの純粋な検査をDomain Modelで所有する。
+ * 外部AI入力の既知SecretパターンをCoordinatorで検査する。
  * @responsibility 既知の秘密値・参照の検出条件を共有し、未知Secretの不存在は保証しない。
  * @trace ARCH-000014
  */

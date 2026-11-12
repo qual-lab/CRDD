@@ -152,3 +152,50 @@ Sourceと既存出力を照合した範囲では、追加13件のEffectは合成
 Symbol台帳はFile／Module単位であり、内部の検査実装とRoot Moduleは存続するため安定IDや件数を不必要に変更しない。既存CatalogのSuite Path／IDも維持し、Root固定集合と非公開化の負例、正式QA・現行設計・計画を24項目へ追従した。過去の固定Evidenceや試験手順逸脱の観測限界は上書きしない。
 
 固定候補の内容指紋`138122e83c1ab852accd7bb36ae01fa3f38b776353354108249f8863dd71592c`を、作成担当から分離した確認者へ読取り専用で渡した。Root24項目、内部検査の継続、外部参照不存在、台帳と現行文書、過去結果・誤起動の観測限界との分離を確認し、必須残件は0件。確認終了後はこの状態記録だけを更新し、製品Source・試験は変更していない。人間の指示に従い既存作業ブランチへコミット・プッシュする。main統合・Release・全体QAの成功を意味しない。今回も全体回帰・実AI・Docker・過去保持物は操作していない。
+
+
+## 後続区切り：実行モデルの24 Source整理 — 2026-11-12
+
+基準改訂版は`c878b9798`。実行モデルを7モデルのcrud／validation／typesとstorage/store／lock、Rootの24 Sourceへ統合した。旧PathのWrapperや新しい保存Storeを作らず、保存Path・Schema・Hash・Lock Identity・CAS・現在性確認・保持条件・失敗／回復参照・State短命Mapの一回使用を保持する。機密検査の7値はCoordinatorのinput/secret-validationへ移管し、他のRoot公開を追加縮減しない。現在Rootは364項目（279値・85型）。
+
+作成担当は旧663宣言を新Ownerへ対応付け、実衝突する私有名と必要な内部import／export以外の本文を、型・空白・block comment除去による補助比較で照合した。mapped conditional typeの先頭union整形差一件は目視確認した。これは構造変更の補助証拠であり、全挙動・実環境同等を証明しない。終了候補Reader二関数はState終端Protocolが呼ぶ固定条件のState Readerであり、最終候補ではstate/crudへ配置して値循環を解消した。
+
+試験の私有import・Source抽出・Module Mock・型投影を実Ownerへ追従した。保存試験補助は9個の実Sourceを一度ずつ同じ閉包へ展開し、Stateの短命Mapを複製しない。既存EM32 Suiteを明示列挙して限定検証し、Repository-localの自己生成Rootだけを終了hookで回収する。実AI／Docker・Repository全体回帰・過去保持物は操作しない。結果と独立再レビューはこの区切りへ追記し、前段結果と合算しない。
+
+利用側担当は二Reader移管後の候補SourceでCoordinator／Workbench／Executorの限定35件を再確認し全成功、CoStrict／CoTests／Executor／Workbenchの型4設定も成功した。先行の同35件とは重複計上しない。製品Sourceの独立確認はこの時点で必須残指摘0だったが、試験・台帳・文書を含む総合候補の独立再レビューはまだ未完了だった。後続の是正と最終独立再レビューの結果は次節へ記録する。
+
+
+### 限定回帰の初回失敗・是正・最終確認
+
+初回はEMの既存32 SuiteをFileごとに明示列挙し、255件中206成功・49失敗、cancel／skip0、324.84秒で終了した。これを成功記録へ上書きしない。失敗の原因と処置は次のとおりで、製品の期待安全条件を緩めていない。
+
+| 失敗系統 | 原因と是正 | 成功した確認との対応 |
+|---|---|---|
+| link／一時操作の初期作成 | 最初のsymlink／hardlink APIがEPERM。通常実行でこれを捕捉した一時操作はblockedとなった。同じ自己生成Root限定の既存試験を必要権限付きで確認 | temporary-operation-lifecycle＋temporary-operation-cleanupの25件成功。実履歴のaliasは同じ履歴Suiteの11件成功。CoreとSnapshotのLink対照は最終4 Suiteに含む |
+| 故障注入の同一binding | Module統合後の内部関数宣言へ旧外部overrideが届かず、解放／読戻し故障を発火できなかった。途中の実Lock namespace注入だけでは、内部acquireの差替えも届かなかった | 最終fixtureは9実Sourceを各一度だけ展開し、取得／借用照合／解放は同じLock閉包・Mapで揃える。指定内部functionだけ同じbindingへ差替え、StateのMap三個も各一実体。最終4 Suiteの88件全成功 |
+| Error classの同一性 | fixture内でError classも再評価し、Root正本とのinstanceofが一致しなかった | classだけ再生成せず唯一のRoot正本を依存として注入。現在Readerのinstanceof期待を保持し最終88件で成功 |
+| Source抽出の旧Owner・隣接宣言依存 | marker、修復候補、認証差分、配送Reader等が旧Sourceや次の関数位置を前提としていた。実Ownerへ追従し、必要箇所は既存の宣言抽出Helperを使う | 抽出・閉包の最小10件全成功、marker二件全成功、最終88件の対応ケースも成功 |
+| markerの最小State fixture | 現v3の必須decisions／blockersが欠測していた。両配列を正規の空値として補完し、製品の欠測拒否は維持 | markerの模擬境界と実保存境界の二件全成功 |
+| 履歴保持値の上位搬送 | 修復履歴ReaderとDecisionのfixtureが先行3分離のHistoryRepositoryInputへ未追従。保持日数30と既存revalidateによる現在確認を明示搬送した | 修復の再Reader・Decision Stateの後続ケースまで最終88件で成功。config_changedは下記の製品側引数搬送漏れも反証した |
+| 終端の二つのModule実体 | 9 Source fixtureへactual dynamic Attempt namespaceを後から上書きし、新配置の直接Readerが試験閉包を迂回していた | 不要なdynamic再import／state module mockを撤去し、同じ実Source fixtureで終端Context・Reader・Writer・通知を接続。別Context拒否、一回consume、解放不明を最終88件で確認 |
+| 固定Consumer集合 | Coの純粋state/validationを例外捕捉Ownerとして期待する旧表と、VC利用宣言の旧配置・重複が残っていた | Coの実境界state/queryと新OwnerのNamed import集合へ追従。検査式は不変更。Co coverage六件とVC閉包13件が成功 |
+
+上位保持値を搬送した後、修復のconfig_changed一子ケースが正常完了へ誤昇格することを検出した。current_historyとcurrent_deliveryの短命Writer wrapperが、元repository.revalidateへ任意の期待保持日数を渡していなかった。作成担当が両bindingと対応する私有型だけを是正し、active・Map同一性・used・元assertOwnerの条件を保持した。初期663宣言の本文比較はこの是正前の構造移管に対する補助結果であり、最終Source全ての本文不変更を意味しない。
+
+既存PRL-UT-006へ実二宣言の局所評価を追加し、used前拒否、同日数true、日数変更false、Owner失効false、終了後のMap退役を両枝で確認した。同Suiteは六件全成功。修復の実保存対照でもconfig_changedを拒否した。Scopeは履歴消費枝の引数搬送だけで、通常再検証へ設定Readerや別Contextを追加していない。
+
+最終Sourceで共通fixtureを利用する四Suite（runtime-core-crud、runtime-repair-storage、runtime-settlement、runtime-snapshot-io）を全件再実行し、88件全成功、fail／cancel／skip／todo0、161.42秒で終了した。途中の77件67成功10失敗、66件63成功3失敗、対象三親ケースの31件29成功2失敗は切分け中の結果であり、最終成功件数へ合算しない。後者の二失敗は同じconfig_changed子ケースとその親である。
+
+初回32 Suite全件と是正影響subsetの再実行で解消を確認したものであり、最終候補で32 Suiteを再度一括実行したとは主張しない。子ケースが前段の失敗を越えて到達した分も含むため、異なる実行の件数を足して単一の総数へしない。今回exact Rootの各終了hookは完了し例外報告はない。過去保持物の走査・操作は行わず、全Rootを別途手動観測したとは主張しない。
+
+親担当がCheckerのexact「Test Catalog・Symbol・Quality Local Itemの成果物関係を照合する」一件を読取り専用で確認し、1成功・失敗／skip／cancel0、625.97msだった。既存CatalogのSuite ID／Path／件数を維持し、移管した機密SymbolのIDとARCH-000014を保持した。新Ownerの未収録五Sourceだけを追加し、対応する既存verifiesへ結合した。現24 SourceのSymbol Pathは全て実在する。正式QAの評価を移管だけで成功へ変更しない。
+
+最終追補後、実行モデルとVCの型検査、EM試験42 Fileの整形検査、同Fileの警告を失敗とするlint、外部四試験Fileの整形・lint、diff whitespace検査は成功した。EM lintには基準からの情報レベル10件が残るが、警告・エラーは0である。製品Sourceをformat対象へ含めて再変更していない。
+
+試験・台帳・設計を含む最終固定候補を読取り専用の独立レビューへ渡し、文書の責務説明1件を是正した。「全物理I/Oはstore」という記述を、storeの共通I/O、lockの共通排他、state/crudの短命Mapに結合したCAS・出版／回復とrename／unlink発行の分担へ修正した。製品Sourceの追加移動やWrapperは不要とし、同じ確認者の再確認で残指摘0となった。過去比較基準と明示したEM05／Coordinator04の旧Source説明は履歴として保持する判断も確認済み。現在、人間の追加判断は必要ない。実AI・Docker・Repository全体回帰・過去保持物は操作していない。
+
+### 完了表示と参照の再照合 — 2026-11-12
+
+完了後の再照合で、現行Architecture先頭に限定検証・独立再レビュー待ちの状態表示が残っていたため、既存の成功記録と同じ限定完了へ是正した。本記録の先行確認に残る未完了表示も、その時点の経過と後続結果を明示し、履歴を現在状態へ読み違えない形にした。製品Source・公開API・保存形式・安全判定は変更していない。
+
+40_Developとtemplateの実装・試験・Scriptの静的import／dynamic import／URL参照を照合し、廃止した実行モデルSourceへの参照と外部からの内部Source参照は0件だった。現24 SourceのRoot直下はindex.tsだけである。既存の公開境界5件と保持設定6件の計11件、および成果物・Symbol・正式QA関係の限定1件を再確認し、全て成功、失敗・取消・skip0。これらはSource読取りと合成値の確認であり、物理保存や実AI／Dockerの追加成立を主張しない。今回も全体回帰・実AI・Docker・過去保持物は操作していない。

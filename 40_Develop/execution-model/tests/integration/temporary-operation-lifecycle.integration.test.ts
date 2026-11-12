@@ -23,11 +23,11 @@ import {
   resumeTemporaryOperation,
   settleTemporaryOperation,
   verifyTemporaryOperationEvidencePromotion,
-} from "../../src/storage/temporary-operation.ts";
-import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../../src/repository/resolve-storage-paths.ts";
+} from "../../src/storage/store.ts";
+import type { TemporaryOperationRecoveryReference } from "../../src/storage/store.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../src/storage/store.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { settleTemporaryOperationWithRemovalForVerification } from "../../src/storage/temporary-operation.ts";
+import { settleTemporaryOperationWithRemovalForVerification } from "../../src/storage/store.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 

@@ -1,10 +1,69 @@
 /**
- * 判断・受入・回復参照の非秘密な記録値を定義する。
- * @packageDocumentation
- * @responsibility 対象と世代・根拠・記録状態を所有し、現在Authorityと実行結果を生成しない。
- * @trace ARCH-000004、ARCH-000005、ARCH-000008
- * @boundary Domain値。技術Capabilityは含まない。
+ * Blockerの提案・回答・適用履歴の保存値と操作契約を定義する。
+ * @responsibility 保存Schemaを変更せず、完成操作と検査が共有する型の正本を持つ。
+ * @trace ARCH-000008
  */
+
+import type { CoordinatorSnapshot } from "../state/types.ts";
+import type { COORDINATOR_HUMAN_DECISION_CONTRACT } from "./validation.ts";
+
+/** 同一保存内で判断の意味を検査する区画。保存RootやAuthorityは含めない。 */
+export type DecisionSnapshot = Pick<
+  CoordinatorSnapshot,
+  | "decisions"
+  | "blockers"
+  | "projects"
+  | "queueEntries"
+  | "leaseIntents"
+  | "results"
+>;
+
+/** 認証済み入口が同じ対象へ搬送する判断操作。Bearerや自由入力の主体を含まない。 */
+export type CoordinatorDecisionRequest = Readonly<{
+  operation: "request" | "answer" | "apply" | "close";
+  decisionId: string;
+  projectId: string;
+  milestoneId: string;
+  generation: number;
+  repositoryRevision: string;
+}> &
+  (
+    | Readonly<{
+        operation: "request";
+        blockerId: string;
+        queueId: string;
+        question: string;
+        allowedOptions: readonly ("resume" | "cancel")[];
+      }>
+    | Readonly<{
+        operation: "answer";
+        selectedOption: "resume" | "cancel";
+        comment?: string;
+      }>
+    | Readonly<{ operation: "apply" }>
+    | Readonly<{
+        operation: "close";
+        status: "invalidated";
+        reason: string;
+      }>
+  );
+
+/** 状態と履歴の確定を区別する非秘密な公開結果。 */
+export type CoordinatorDecisionResult = Readonly<{
+  contract: typeof COORDINATOR_HUMAN_DECISION_CONTRACT;
+  status: "completed" | "blocked";
+  reason: string;
+  decisionId: string | null;
+  recoveryId: string | null;
+  decision: Decision | null;
+  history:
+    | Readonly<{ status: "confirmed" }>
+    | Readonly<{ status: "unconfirmed"; reason: string }>
+    | null;
+  cleanupConfirmed: boolean;
+  manualRecoveryRequired: boolean;
+  effectState: "settled" | "no_effect" | "unknown";
+}>;
 
 /**
  * 判断の所属先と、回答が対象とする業務世代を定義する。
@@ -220,4 +279,12 @@ export type CoordinatorAcceptanceDecisionInput = Readonly<{
   targetId: string;
   decision: CoordinatorAcceptanceDecision;
   criterionEvidenceIds: readonly string[];
+}>;
+
+/** 判断の状態確定と履歴確定を分けて返す。未確定履歴を未適用へ畳まない。 */
+export type DecisionSaveValue = Readonly<{
+  decision: Decision;
+  history:
+    | Readonly<{ status: "confirmed" }>
+    | Readonly<{ status: "unconfirmed"; reason: string }>;
 }>;

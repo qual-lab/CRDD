@@ -1,11 +1,46 @@
 /**
- * 呼出し元が分解した実行要求の共有値モデル。
- * @packageDocumentation
- * @responsibility 実行集約の定義と記録を所有し、文書計画の生成・実行・資源管理は行わない。
- * @trace ARCH-000004
- * @boundary 純粋な値の型境界。保存や実行の許可を付与しない。
+ * Objectiveと実行計画の保存値と操作契約を定義する。
+ * @responsibility 保存Schemaを変更せず、完成操作と検査が共有する型の正本を持つ。
+ * @trace ARCH-000008
  */
-import type { ProjectTaskDefinition } from "../task/types.ts";
+
+import type { CallerTaskInput, ProjectTaskDefinition } from "../task/types.ts";
+
+/**
+ * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
+ *
+ * @responsibility Coordinator Objective RequestのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorObjectiveRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorObjectiveRequestの宣言は外部境界を開かない。
+ * @security 明示選択は編集担当の希望であり、実行Authorityまたは利用可能性を付与しない。
+ * @compatibility 新形式だけを受け、旧Profile ID／Provider自動選択入力を拒否する。
+ */
+export type CoordinatorObjectiveRequest = Readonly<{
+  intakeEpoch: string;
+  requestId: string;
+  projectId: string;
+  milestoneId: string;
+  repositoryRevision: string;
+  objective: string;
+  plan: CoordinatorObjectivePlan;
+  taskInputs: readonly CallerTaskInput[];
+  acceptanceCriteria: readonly string[];
+  allowedPaths: readonly string[];
+  readPaths: readonly string[];
+  maximumConcurrency: number;
+  maximumReplans: number;
+  originLane: "interactive" | "scheduled";
+  adoptResult: boolean;
+  workType?: string;
+  choice?: Readonly<{
+    provider: "codex" | "claude";
+    model: string;
+    effort: "low" | "medium" | "high" | "xhigh" | "max";
+  }>;
+  workspaceId?: string;
+}>;
 
 /**
  * Objective計画の共有型契約を定義する。
@@ -115,3 +150,6 @@ export type ProjectMilestoneRecord = Readonly<{
   state: ProjectMilestoneState;
   criterionEvidenceIds: readonly string[];
 }>;
+
+/** 計画検査の外側の実行範囲。認可済みであることは表さない。 */
+export type ExecutionPlanScope = Readonly<{ allowedPaths: readonly string[] }>;

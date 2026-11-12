@@ -1,5 +1,11 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## 実行モデルの24 Source配置への追従 — 2026-11-12
+
+既存のState／History／Decision／Task／Attempt／Workspaceの検査・保存・終了・回復項目を、各モデルのcrud／validation／typesとstorage/store／lockへ対応付ける。正式項目のID・評価を移動だけで変更しない。Source抽出・私有import・故障注入を新Ownerへ接続し、Stateの短命Mapと一回使用Protocolを同じ実体で確認する。旧PathのWrapperや試験用のRoot公開を追加せず、機密検査はCoordinatorの送信境界試験で確認する。
+
+保存先・Schema・Hash・Identity・Lock・CAS・現在性確認・保持条件・部分Effect／Cleanup・回復参照は維持する。EM既存32 Suiteと影響する利用側の限定結果は変更Evidenceへ記録し、全体回帰・実AI／Docker・過去保持物の成立を主張しない。
+
 ## 構成モデルの責務配置とManifest読取り — 2026-11-12
 
 既存`RDL-UT-005`のManifest値検査、`RDL-IT-001`の固定config観測・保存・実体検査を構成モデルの15 Sourceへ対応付ける。`readRepositoryManifest`は従来のUTF-8置換復号後本文のHash、真正不存在、不正Schema、Symbolic Link・読取り中の差替え・close失敗を区別し、読取りで書込みを開始しないことを確認する。有効hardlink、不正byteの置換受理、BOM拒否、正常多byte、同本文へ復号される異byte列の同一Hashと、異本文の異Hashを対照する。保持設定はCoordinator／EIの値を読むだけで、履歴本文の保存Ownerを変更しない。

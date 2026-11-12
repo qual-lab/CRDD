@@ -16,6 +16,8 @@ import {
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
   containsRecognizedSecretText,
+} from "../input/secret-validation.ts";
+import {
   type ExecutionSelection,
   hashExecutionSelection,
   inspectExecutionSelection,

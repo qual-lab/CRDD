@@ -1,5 +1,11 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 実行モデルの24 Source配置への追従 — 2026-11-12
+
+既存のState／History／Decision／Task／Attempt／Workspaceの検査・保存・終了・回復項目を、各モデルのcrud／validation／typesとstorage/store／lockへ対応付ける。正式項目のID・評価を移動だけで変更しない。Source抽出・私有import・故障注入を新Ownerへ接続し、Stateの短命Mapと一回使用Protocolを同じ実体で確認する。旧PathのWrapperや試験用のRoot公開を追加せず、機密検査はCoordinatorの送信境界試験で確認する。
+
+保存先・Schema・Hash・Identity・Lock・CAS・現在性確認・保持条件・部分Effect／Cleanup・回復参照は維持する。EM既存32 Suiteと影響する利用側の限定結果は変更Evidenceへ記録し、全体回帰・実AI／Docker・過去保持物の成立を主張しない。
+
 ## 内部要求・結果・検証Toolの残存量制約撤去 — 2026-11-12
 
 単発Task内部APIの旧Prompt32,000文字・AllowedPath1,024件、Advice公開DTOの100項目／100参照／参照512・本文32,000文字、開発受付JSON64KiBとAdvice準備の各旧量境界を超える有効入力を対照する。外側の元回復ID129件以上と検証記録17件以上を末尾まで保持し、末尾不正は元IDの保全・不完全判定と区別する。Timeline31件、計測設定128KiB、LCOV32MiB、追跡Reader8MiB・相対Path512の内容側制限も同契約で追従する。

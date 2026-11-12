@@ -12,8 +12,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { acquireCoordinatorStorageOwnerForRepository } from "../../src/storage/runtime-lock.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireCoordinatorStorageOwnerForRepository } from "../../src/storage/lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
 
 function fixture(t: TestContext) {
   const parent = fileURLToPath(

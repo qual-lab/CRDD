@@ -1,10 +1,11 @@
 /**
- * 呼出し元が分解した実行要求の共有値モデル。
- * @packageDocumentation
- * @responsibility 実行集約の定義と記録を所有し、文書計画の生成・実行・資源管理は行わない。
- * @trace ARCH-000004
- * @boundary 純粋な値の型境界。保存や実行の許可を付与しない。
+ * Task・Queue・単独実行状態の保存値と操作契約を定義する。
+ * @responsibility 保存Schemaを変更せず、完成操作と検査が共有する型の正本を持つ。
+ * @trace ARCH-000008
  */
+
+import type { ModelSelection } from "../../../ai-adapter/src/index.ts";
+
 /**
  * stateで使用するProject Task Definitionの値契約を定義する。
  *
@@ -40,8 +41,6 @@ export type CallerTaskInput = Readonly<{
   acceptanceCriteria: readonly string[];
   readPaths: readonly string[];
 }>;
-
-import type { ModelSelection } from "../../../ai-adapter/src/index.ts";
 
 /** 確定済み実行入力。設定モデルを参照せず、当時の選定と相関値を保持する。 */
 export type ExecutionSelection = ModelSelection &

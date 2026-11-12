@@ -21,7 +21,7 @@ import {
   observeRuntimeSettlementRepository,
   observeRuntimeStorageRepository,
   runtimeStorageOperationIdentity,
-} from "../../src/storage/runtime-repository.ts";
+} from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 
@@ -234,7 +234,7 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
  */
 test("継承したthenはgetterを評価せずRoot照合前に拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/storage/runtime-repository.ts", import.meta.url),
+    new URL("../../src/storage/lock.ts", import.meta.url),
     "utf8",
   );
   const context = vm.createContext({ types });

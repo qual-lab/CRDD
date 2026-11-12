@@ -10,8 +10,8 @@ import {
   inspectExecutionSelection,
   hashExecutionSelection,
   type ExecutionSelection,
-  containsRecognizedSecretMaterial,
 } from "../../../execution-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../input/secret-validation.ts";
 
 import {
   getRepository,

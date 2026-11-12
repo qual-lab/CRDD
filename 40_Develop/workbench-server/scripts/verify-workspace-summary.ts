@@ -18,7 +18,12 @@ if (
   const { installTaskSummaryObservation } = await import(
     "../../executor/scripts/task-summary-observation.ts"
   );
-  const observation = installTaskSummaryObservation();
+  const { containsRecognizedSecretMaterial } = await import(
+    "../../coordinator/src/input/secret-validation.ts"
+  );
+  const observation = installTaskSummaryObservation(
+    containsRecognizedSecretMaterial,
+  );
   try {
     process.argv.splice(
       2,
@@ -39,4 +44,5 @@ if (
     observation.close();
   }
 }
+
 export {};

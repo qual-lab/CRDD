@@ -25,7 +25,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/operation.ts",
   "40_Develop/coordinator/src/execution/recovery.ts",
   "40_Develop/coordinator/src/state/probe-record.ts",
-  "40_Develop/execution-model/src/plain-data/snapshot.ts",
+  "40_Develop/coordinator/src/input/snapshot.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
   "40_Develop/coordinator/scripts/coverage.ts",
@@ -117,7 +117,7 @@ const coverageObligations = Object.freeze({
     "Probe記録のHash、固定ID、Root／子実体、link置換と部分欠測の拒否試験",
     "Probe記録schemaまたはReader／Writer変更時",
   ),
-  "40_Develop/execution-model/src/plain-data/snapshot.ts": obligation(
+  "40_Develop/coordinator/src/input/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",
     "動的入力の一部を実行する可能性",
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",

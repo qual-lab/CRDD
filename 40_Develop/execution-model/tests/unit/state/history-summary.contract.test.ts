@@ -16,7 +16,7 @@ import {
   prepareCoordinatorStateOperationSnapshot,
   decodeRuntimeDomainSnapshot,
 } from "../../../src/index.ts";
-import { prepareCoordinatorStateHistorySummary } from "../../../src/state/crud.ts";
+import { prepareCoordinatorStateHistorySummary } from "../../../src/state/validation.ts";
 const binding = "a".repeat(64);
 
 /**

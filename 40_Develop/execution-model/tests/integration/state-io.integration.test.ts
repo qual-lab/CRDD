@@ -18,7 +18,7 @@ import {
   type RuntimeStatePendingFileName,
   readRuntimeStateFile,
 } from "../../src/index.ts";
-import type { StableFileIdentity } from "../../src/storage/file-snapshot.ts";
+import type { StableFileIdentity } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 /**

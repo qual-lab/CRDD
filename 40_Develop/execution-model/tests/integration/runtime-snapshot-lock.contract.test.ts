@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/runtime-lock.ts";
+import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 /**

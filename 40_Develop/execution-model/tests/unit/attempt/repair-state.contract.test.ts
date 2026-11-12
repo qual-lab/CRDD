@@ -20,11 +20,11 @@ import {
   validateDockerRuntimeRepairCheckpointTransition,
   createDockerRuntimeRepairDisposalCheckpoint,
   validateDockerRuntimeRepairDisposalTransition,
-} from "../../../src/attempt/repair-validation.ts";
+} from "../../../src/attempt/validation.ts";
 import {
   prepareDockerRuntimeRepairSessionCheckpoint,
   validateDockerRuntimeRepairSessionCheckpoint,
-} from "../../../src/attempt/repair-validation.ts";
+} from "../../../src/attempt/validation.ts";
 
 /**
  * 保持対象の形検査を元checkpointや実観測と分離する。

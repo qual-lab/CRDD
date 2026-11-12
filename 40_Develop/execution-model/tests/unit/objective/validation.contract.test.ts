@@ -20,7 +20,7 @@ import {
   inspectRuntimePlanDefinition,
   inspectRuntimeProjectDefinition,
 } from "../../../src/objective/validation.ts";
-import { repositoryPathWithin } from "../../../src/repository/path.ts";
+import { repositoryPathWithin } from "../../../src/state/validation.ts";
 
 /**
  * planでDomainへ移管した実行計画の値境界を検証する。。

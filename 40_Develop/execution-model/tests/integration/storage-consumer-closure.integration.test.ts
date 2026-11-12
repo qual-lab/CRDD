@@ -14,25 +14,24 @@ import path from "node:path";
 import test from "node:test";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
-const RESOLVER_PATH =
-  "40_Develop/execution-model/src/repository/resolve-storage-paths.ts";
+const RESOLVER_PATH = "40_Develop/execution-model/src/storage/store.ts";
 const RUNTIME_STORAGE_OWNERS = new Set([
-  "40_Develop/execution-model/src/storage/runtime-store.ts",
+  "40_Develop/execution-model/src/state/crud.ts",
   // CurrentState wxの固定所在だけを所有する。任意Consumerのraw Root利用は認めない。
-  "40_Develop/execution-model/src/storage/runtime-kernel-lock.ts",
+  "40_Develop/execution-model/src/storage/lock.ts",
   "40_Develop/configuration-model/src/ai-selection/crud.ts",
   "40_Develop/configuration-model/src/network-policy/crud.ts",
   RESOLVER_PATH,
-  "40_Develop/execution-model/src/repository/require-storage-area.ts",
-  "40_Develop/execution-model/src/repository/types.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/manifest/crud.ts",
   "40_Develop/configuration-model/src/manifest/validation.ts",
   "40_Develop/configuration-model/src/history/crud.ts",
   "40_Develop/configuration-model/src/manifest/types.ts",
-  "40_Develop/execution-model/src/storage/ensure-area.ts",
-  "40_Develop/execution-model/src/storage/temporary-operation.ts",
-  "40_Develop/execution-model/src/storage/initialization.ts",
-  "40_Develop/execution-model/src/storage/runtime-result.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/configuration/runtime-data.ts",
   "40_Develop/executor/scripts/runtime-data.ts",
   "40_Develop/workbench-server/scripts/runtime-data.ts",
@@ -84,9 +83,9 @@ const blockedMeaningFields = [
 ] as const;
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
-  "40_Develop/execution-model/src/storage/runtime-kernel-lock.ts",
+  "40_Develop/execution-model/src/storage/lock.ts",
   "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
-  "40_Develop/execution-model/src/storage/ensure-area.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/configuration/runtime-data.ts",

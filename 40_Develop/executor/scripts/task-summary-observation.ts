@@ -6,20 +6,19 @@
  * @boundary 製品APIではない。Module計測付き診断で、通常E2Eの成立根拠にしない。
  */
 import { mock } from "node:test";
+import { extractProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
 import * as original from "../../ai-adapter/src/index.ts";
 import {
-  parseExecutionContent,
   type ProviderResultInput,
   type ProviderResultParseResult,
+  parseExecutionContent,
 } from "../../ai-adapter/src/provider/result.ts";
-import { extractProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
-import { containsRecognizedSecretMaterial } from "../../execution-model/src/index.ts";
 
 type Parser = (input: ProviderResultInput) => ProviderResultParseResult;
 type Dependencies = Readonly<{
   normalize: Parser;
   parse: typeof extractProviderResult;
-  secret: typeof containsRecognizedSecretMaterial;
+  secret: (relativePath: string | null, value: string | Uint8Array) => boolean;
 }>;
 type Trace = {
   provider: unknown;
@@ -259,11 +258,11 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
  * @trace ERB-IT-002
  * @effect このProcessのModule参照だけを計測する。製品Fileは変更しない。
  */
-export function installTaskSummaryObservation() {
+export function installTaskSummaryObservation(secret: Dependencies["secret"]) {
   const observation = createTaskSummaryObservation({
     normalize: parseExecutionContent,
     parse: extractProviderResult,
-    secret: containsRecognizedSecretMaterial,
+    secret,
   });
   const replacement = mock.module(
     new URL("../../ai-adapter/src/index.ts", import.meta.url).href,

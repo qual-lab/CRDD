@@ -9,7 +9,7 @@ import { inspectTaskExecutionSelections } from "../../../execution-model/src/ind
 import type { BorrowedExecutionTarget } from "./operation.ts";
 import type { TaskStartCallbacks } from "../task/types.ts";
 import { snapshotPlainRecord, snapshotPlainArray } from "../input/snapshot.ts";
-import { containsRecognizedSecretScope } from "../../../execution-model/src/index.ts";
+import { containsRecognizedSecretScope } from "../input/secret-validation.ts";
 
 /**
  * execution-portで使用するCoordinator Single Task Attempt 入力の値契約を定義する。

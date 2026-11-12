@@ -144,7 +144,7 @@ for (const scenario of [
       bytes: null,
     };
     const source = fs.readFileSync(
-      new URL("../../../src/attempt/settlement.ts", import.meta.url),
+      new URL("../../../src/attempt/crud.ts", import.meta.url),
       "utf8",
     );
     const execute = runInThisContext(`(dependencies) => {
@@ -763,13 +763,18 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(coordinatorTaskResourcesAreSettled(badEvidence), false);
   // 実Writer外側の値差分guardだけを分離する。Kernel/FSの成立はHost試験が所有する。
   const storeSource = fs.readFileSync(
-    new URL("../../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
-  const helperStart = storeSource.indexOf(
-    "function authenticationUnknownAbsenceChanged(",
+  const helperSource = fs.readFileSync(
+    new URL("../../../src/state/validation.ts", import.meta.url),
+    "utf8",
   );
-  const helperEnd = storeSource.indexOf("\n/**", helperStart);
+  const helperStart = helperSource.indexOf(
+    "export function authenticationUnknownAbsenceChanged(",
+  );
+  const nextHelper = helperSource.indexOf("\n/**", helperStart);
+  const helperEnd = nextHelper < 0 ? helperSource.length : nextHelper;
   const guardStart = storeSource.indexOf(
     "  if (\n    !currentAuthenticationClosure &&",
   );
@@ -784,7 +789,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       guardEnd > guardStart,
   );
   const differenceBody = stripTypeScriptTypes(
-    storeSource.slice(helperStart, helperEnd),
+    helperSource
+      .slice(helperStart, helperEnd)
+      .replaceAll("export function", "function"),
   );
   const outerBody = stripTypeScriptTypes(
     `function extractedGuard(){\n${storeSource.slice(guardStart, guardEnd)}\n}`,

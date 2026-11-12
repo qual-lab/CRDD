@@ -12,9 +12,9 @@
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
 import assert from "node:assert/strict";
-import * as areaRequirement from "../../src/repository/require-storage-area.ts";
-import * as areaInitialization from "../../src/storage/ensure-area.ts";
-import * as areaObservation from "../../src/repository/resolve-storage-paths.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
+import * as areaObservation from "../../src/storage/store.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -42,23 +42,28 @@ import {
   readCoordinatorCurrentState,
   saveCoordinatorManagedProject,
 } from "../../src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/ensure-area.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/store.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../src/storage/store.ts";
 import {
   leaseAcquisitionRecoveryId,
   leaseIdentity,
 } from "../../src/state/validation.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/runtime-lock.ts";
-import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
-import * as privateStore from "../../src/storage/runtime-store.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
+import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
+import { observeRuntimeStorageRepository } from "../../src/storage/lock.ts";
+import * as privateStorageStore from "../../src/storage/store.ts";
+import * as privateStateCrud from "../../src/state/crud.ts";
+import * as privateDecisionCrud from "../../src/decision/crud.ts";
+import * as privateHistoryCrud from "../../src/history/crud.ts";
 import {
   describeCoordinatorDurableFoundation,
-  initializeCoordinatorSnapshot as initializeSnapshot,
   readCoordinatorSnapshot,
+} from "../../src/storage/store.ts";
+import {
+  initializeCoordinatorSnapshot as initializeSnapshot,
   writeCoordinatorSnapshot,
   writeCoordinatorSnapshotState,
-} from "../../src/storage/runtime-store.ts";
+} from "../../src/state/crud.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
@@ -395,23 +400,23 @@ const emptyTaskSections = {
  * @precondition 現行保存Sourceだけを読む。
  * @stimulus 型消去後のimportを照合する。
  * @observation 禁止依存と有限観測Moduleへの直接接続。
- * @oracle Controllerへ依存せずruntime-repositoryへ接続する。
+ * @oracle Controllerへ依存せずstorage/lockへ接続する。
  * @cleanup 読取りだけで資源なし。
  * @boundary Domain保存OwnerのSource境界。Host・Dockerは実行しない。
  */
 test("保存観測はControllerに依存せず有限Repository観測へ接続する", () => {
   const runtime = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/storage/runtime-store.ts", import.meta.url),
+      new URL("../../src/state/crud.ts", import.meta.url),
       "utf8",
     ),
   );
   assert.doesNotMatch(runtime, /from\s+["'][^"']*controller\.ts["']/);
-  assert.match(runtime, /from\s+["'][^"']*runtime-repository\.ts["']/);
+  assert.match(runtime, /from\s+["'][^"']*storage\/lock\.ts["']/);
 });
 
 const storeSource = fs.readFileSync(
-  new URL("../../src/storage/runtime-store.ts", import.meta.url),
+  new URL("../../src/attempt/crud.ts", import.meta.url),
   "utf8",
 );
 const storeStart = storeSource.indexOf(
@@ -868,7 +873,7 @@ test("現在Host清掃Writerは固定元版・既知終端と保持中Ownerだ�
  */
 test("初期不存在Readerは排他取得後のOwner失効を補完しない", () => {
   const readerSource = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const branchStart = readerSource.indexOf(
@@ -1282,11 +1287,12 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   };
   const firstBytes = Buffer.from(`${encodeRuntimeStateValue(first)}\n`);
   assert.equal(
-    privateStore.readRuntimeOwnedCoordinatorStateSnapshot(management).status,
+    privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot(management)
+      .status,
     "blocked",
   );
   assert.equal(
-    privateStore.prepareRuntimeOwnedCoordinatorStateInitialization(
+    privateStateCrud.prepareRuntimeOwnedCoordinatorStateInitialization(
       management,
       firstBytes,
     ).status,
@@ -1297,18 +1303,18 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "state_root",
   );
   assert.equal(
-    privateStore.prepareRuntimeOwnedCoordinatorStateInitialization(
+    privateStateCrud.prepareRuntimeOwnedCoordinatorStateInitialization(
       management,
       firstBytes,
     ).status,
     "blocked",
   );
   assert.equal(
-    privateStore.writeRuntimeOwnedCoordinatorStateSnapshot({}, firstBytes)
+    privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot({}, firstBytes)
       .filesystemEffectIssued,
     false,
   );
-  const result = privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
+  const result = privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
     management,
     firstBytes,
   );
@@ -1317,7 +1323,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   assert.equal(result.lockReleased, true);
   assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
   const readFirst =
-    privateStore.readRuntimeOwnedCoordinatorStateSnapshot(management);
+    privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot(management);
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
   assert.equal(readFirst.value?.snapshot.revision, 1);
@@ -1326,7 +1332,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     domain.hashRuntimeStateContent(first),
   );
   assert.equal(
-    privateStore.readRuntimeOwnedCoordinatorStateSnapshot({}).status,
+    privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot({}).status,
     "blocked",
   );
   const recoveryRead = domain.readRuntimeOwnedCoordinatorRecoverySnapshot(
@@ -1443,18 +1449,19 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   );
   assert.equal(fs.existsSync(path.join(area.directory, "state.json")), false);
   assert.equal(
-    privateStore.readRuntimeOwnedCoordinatorStateSnapshot(management).status,
+    privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot(management)
+      .status,
     "blocked",
   );
   assert.equal(
-    privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
+    privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
       management,
       firstBytes,
     ).filesystemEffectIssued,
     false,
   );
   assert.equal(
-    privateStore.prepareRuntimeOwnedCoordinatorStateInitialization(
+    privateStateCrud.prepareRuntimeOwnedCoordinatorStateInitialization(
       management,
       firstBytes,
     ).status,
@@ -1486,10 +1493,11 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     }
   };
   try {
-    const replacement = privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
-      management,
-      secondBytes,
-    );
+    const replacement =
+      privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
+        management,
+        secondBytes,
+      );
     assert.equal(replacement.status, "blocked");
     assert.equal(replacement.snapshotConfirmed, false);
     assert.deepEqual(
@@ -1511,7 +1519,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     { flag: "wx" },
   );
   assert.equal(
-    privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
+    privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
       management,
       secondBytes,
     ).status,
@@ -1529,7 +1537,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     { flag: "wx" },
   );
   assert.equal(
-    privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
+    privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
       management,
       secondBytes,
     ).status,
@@ -1539,7 +1547,8 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     flag: "wx",
   });
   assert.equal(
-    privateStore.readRuntimeOwnedCoordinatorStateSnapshot(management).reason,
+    privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot(management)
+      .reason,
     "coordinator_state_reentry_required",
   );
   assert.equal(
@@ -1547,7 +1556,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
       .reason,
     "coordinator_state_reentry_required",
   );
-  const rejected = privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
+  const rejected = privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
     management,
     secondBytes,
   );
@@ -1565,11 +1574,12 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   const hardlink = path.join(root, "state-hardlink");
   fs.linkSync(path.join(area.directory, "state.json"), hardlink);
   assert.equal(
-    privateStore.readRuntimeOwnedCoordinatorStateSnapshot(management).status,
+    privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot(management)
+      .status,
     "blocked",
   );
   assert.equal(
-    privateStore.writeRuntimeOwnedCoordinatorStateSnapshot(
+    privateStateCrud.writeRuntimeOwnedCoordinatorStateSnapshot(
       management,
       secondBytes,
     ).filesystemEffectIssued,
@@ -1660,7 +1670,7 @@ test("Host Windows: 旧SnapshotとWorkspace集合欠落を補完しない", {
  */
 test("配送Readerは確定版と同一のpendingを拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const guards = [
@@ -1833,6 +1843,11 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("root_invalid");
   const repository = verified.capability;
+  const historyRepository = {
+    root: repository,
+    historyRetentionDays: 30,
+    revalidate: () => true,
+  };
   assert.equal(
     domain.initializeCoordinatorSnapshot(repository, "binding-a").status,
     "completed",
@@ -1890,8 +1905,8 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     },
   });
   for (const invalid of [accessorRequest, proxyRequest]) {
-    const rejected = privateStore.requestDecision(
-      repository,
+    const rejected = privateDecisionCrud.requestDecision(
+      historyRepository,
       "binding-a",
       invalid,
     );
@@ -1909,7 +1924,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   }
   assert.equal(evaluated, 0);
   const held = domain.recordDecision(
-    repository,
+    historyRepository,
     "binding-a",
     {
       ...request,
@@ -1928,15 +1943,18 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.equal(held.status, "completed", JSON.stringify(held));
   answeredAt = new Date().toISOString();
   request = { ...request, requestedAt: answeredAt };
-  const requested = privateStore.requestDecision(
-    repository,
+  const requested = privateDecisionCrud.requestDecision(
+    historyRepository,
     "binding-a",
     request,
   );
   assert.equal(requested.status, "completed", JSON.stringify(requested));
   if (requested.status === "completed")
     assert.equal(requested.value.history.status, "confirmed");
-  const before = privateStore.readCoordinatorSnapshot(repository, "binding-a");
+  const before = privateStorageStore.readCoordinatorSnapshot(
+    repository,
+    "binding-a",
+  );
   assert.equal(before.status, "completed");
   if (before.status !== "completed" || !before.value)
     throw Error("before_invalid");
@@ -2096,8 +2114,8 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   const historyPending = path.join(directory, "history.pending.jsonl");
   const originalState = fs.readFileSync(path.join(directory, "state.json"));
   const originalHistory = fs.readFileSync(historyFile);
-  const wrongRespondent = privateStore.answerDecision(
-    repository,
+  const wrongRespondent = privateDecisionCrud.answerDecision(
+    historyRepository,
     "binding-a",
     request.decisionId,
     {
@@ -2142,10 +2160,10 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     }
     return Reflect.apply(rename, fs, [from, to]);
   }) as typeof rename);
-  let result: ReturnType<typeof privateStore.answerDecision>;
+  let result: ReturnType<typeof privateDecisionCrud.answerDecision>;
   try {
-    result = privateStore.answerDecision(
-      repository,
+    result = privateDecisionCrud.answerDecision(
+      historyRepository,
       "binding-a",
       request.decisionId,
       answer,
@@ -2163,11 +2181,11 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   const pendingBeforeResume = fs.readFileSync(historyPending);
   clockOffset = 2 * dayMs;
   assert.equal(
-    privateStore.readCoordinatorSnapshot(repository, "binding-a").status,
+    privateStorageStore.readCoordinatorSnapshot(repository, "binding-a").status,
     "blocked",
   );
-  const resumed = privateStore.answerDecision(
-    repository,
+  const resumed = privateDecisionCrud.answerDecision(
+    historyRepository,
     "binding-a",
     request.decisionId,
     answer,
@@ -2181,7 +2199,10 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   );
   assert.deepEqual(fs.readFileSync(historyFile), pendingBeforeResume);
   assert.equal(fs.existsSync(historyPending), false);
-  const after = privateStore.readCoordinatorSnapshot(repository, "binding-a");
+  const after = privateStorageStore.readCoordinatorSnapshot(
+    repository,
+    "binding-a",
+  );
   assert.equal(after.status, "completed");
   if (after.status !== "completed" || !after.value)
     throw Error("after_invalid");
@@ -2213,8 +2234,8 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.equal(events[1].answer.reason, answer.reason);
   assert.equal(events[2].application.nextState, "accepted");
   assert.equal(
-    privateStore.answerDecision(
-      repository,
+    privateDecisionCrud.answerDecision(
+      historyRepository,
       "binding-a",
       request.decisionId,
       answer,
@@ -2224,10 +2245,15 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.deepEqual(fs.readFileSync(file), bytes);
   assert.deepEqual(fs.readFileSync(historyFile), history);
   assert.equal(
-    privateStore.answerDecision(repository, "binding-a", request.decisionId, {
-      ...answer,
-      selectedOption: "return",
-    }).status,
+    privateDecisionCrud.answerDecision(
+      historyRepository,
+      "binding-a",
+      request.decisionId,
+      {
+        ...answer,
+        selectedOption: "return",
+      },
+    ).status,
     "blocked",
   );
   assert.deepEqual(fs.readFileSync(file), bytes);
@@ -2239,7 +2265,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
       .join("\n")}\n`,
   );
   fs.writeFileSync(historyFile, missingOldProposal);
-  const partialRetirement = privateStore.writeCoordinatorSnapshot(
+  const partialRetirement = privateStateCrud.writeCoordinatorSnapshot(
     repository,
     "binding-a",
     domain.encodeRuntimeStateValue({
@@ -2273,8 +2299,8 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     ),
   ]) {
     fs.writeFileSync(historyFile, invalidHistory);
-    const stopped = privateStore.answerDecision(
-      repository,
+    const stopped = privateDecisionCrud.answerDecision(
+      historyRepository,
       "binding-a",
       request.decisionId,
       answer,
@@ -2284,7 +2310,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
       assert.equal(stopped.value.history.status, "unconfirmed");
     assert.deepEqual(fs.readFileSync(file), bytes);
     assert.deepEqual(fs.readFileSync(historyFile), invalidHistory);
-    const retirement = privateStore.writeCoordinatorSnapshot(
+    const retirement = privateStateCrud.writeCoordinatorSnapshot(
       repository,
       "binding-a",
       domain.encodeRuntimeStateValue({
@@ -2312,13 +2338,16 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     ),
     null,
   );
-  const retired = privateStore.maintainCoordinatorSnapshotRecords(
-    repository,
+  const retired = privateHistoryCrud.maintainCoordinatorSnapshotRecords(
+    historyRepository,
     "binding-a",
   );
   assert.equal(retired.status, "completed", JSON.stringify(retired));
   if (retired.status === "completed") assert.equal(retired.value, 2);
-  const final = privateStore.readCoordinatorSnapshot(repository, "binding-a");
+  const final = privateStorageStore.readCoordinatorSnapshot(
+    repository,
+    "binding-a",
+  );
   assert.equal(final.status, "completed");
   if (final.status === "completed") {
     assert.equal(final.value?.decisions.length, 0);
@@ -2339,24 +2368,32 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   );
   assert.deepEqual(fs.readFileSync(historyFile), retainedHistory);
   const retiredStateBytes = fs.readFileSync(file);
-  const reissued = privateStore.requestDecision(repository, "binding-a", {
-    ...request,
-    target: { ...request.target, generation: 2 },
-  });
+  const reissued = privateDecisionCrud.requestDecision(
+    historyRepository,
+    "binding-a",
+    {
+      ...request,
+      target: { ...request.target, generation: 2 },
+    },
+  );
   assert.equal(reissued.status, "blocked");
   assert.equal(reissued.reason, "decision_identity_retired");
   assert.deepEqual(fs.readFileSync(file), retiredStateBytes);
-  const reopened = privateStore.requestDecision(repository, "binding-a", {
-    ...request,
-    decisionId: "new-proposal-for-retired-blocker",
-    target: { ...request.target, generation: 2 },
-  });
+  const reopened = privateDecisionCrud.requestDecision(
+    historyRepository,
+    "binding-a",
+    {
+      ...request,
+      decisionId: "new-proposal-for-retired-blocker",
+      target: { ...request.target, generation: 2 },
+    },
+  );
   assert.equal(reopened.status, "blocked");
   assert.equal(reopened.reason, "decision_blocker_retired");
   assert.deepEqual(fs.readFileSync(file), retiredStateBytes);
   if (resumed.status !== "completed") throw Error("original_applied_missing");
   const retiredReplay = domain.recordDecision(
-    repository,
+    historyRepository,
     "binding-a",
     request,
     answer,
@@ -2387,7 +2424,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     selectedOption: "wait",
     evidenceIds: [],
   };
-  const inlineBefore = privateStore.readCoordinatorSnapshot(
+  const inlineBefore = privateStorageStore.readCoordinatorSnapshot(
     repository,
     "binding-a",
   );
@@ -2402,7 +2439,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   let inline: ReturnType<typeof domain.recordDecision>;
   try {
     inline = domain.recordDecision(
-      repository,
+      historyRepository,
       "binding-a",
       inlineRequest,
       inlineAnswer,
@@ -2429,7 +2466,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     { ...inlineRequest, status: "pending" as const, result: null },
   ]) {
     const deniedReplay = domain.recordDecision(
-      repository,
+      historyRepository,
       "binding-a",
       inlineRequest,
       inlineAnswer,
@@ -2441,7 +2478,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     assert.deepEqual(fs.readFileSync(historyPending), originalInlinePending);
   }
   const wrongReplayAnswer = domain.recordDecision(
-    repository,
+    historyRepository,
     "binding-a",
     inlineRequest,
     {
@@ -2456,7 +2493,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.deepEqual(fs.readFileSync(file), inlineState);
   assert.deepEqual(fs.readFileSync(historyPending), originalInlinePending);
   const inlineResumed = domain.recordDecision(
-    repository,
+    historyRepository,
     "binding-a",
     inlineRequest,
     inlineAnswer,
@@ -2470,7 +2507,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   if (inlineResumed.status === "completed")
     assert.equal(inlineResumed.value.history.status, "confirmed");
   assert.deepEqual(fs.readFileSync(file), inlineState);
-  const inlineAfter = privateStore.readCoordinatorSnapshot(
+  const inlineAfter = privateStorageStore.readCoordinatorSnapshot(
     repository,
     "binding-a",
   );
@@ -3585,7 +3622,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
   let hostPreparationLoseOwnerAfterRead = false;
   const hostPreparationOwner = Object.freeze({});
   const saveHostPreparation = runInThisContext(
-    `(scope) => { const { encodeRuntimeStateValue, decodeRuntimeDomainSnapshot, prepareCoordinatorStateHostSnapshot, observeRuntimeExecutionRepository, readCoordinatorStateSnapshot, writeCoordinatorStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/storage/runtime-store.ts", import.meta.url), "utf8"), "saveRuntimeOwnedCoordinatorHostCleanupPreparation")}\nreturn saveRuntimeOwnedCoordinatorHostCleanupPreparation; }`,
+    `(scope) => { const { encodeRuntimeStateValue, decodeRuntimeDomainSnapshot, prepareCoordinatorStateHostSnapshot, observeRuntimeExecutionRepository, readCoordinatorStateSnapshot, writeCoordinatorStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/attempt/crud.ts", import.meta.url), "utf8"), "saveRuntimeOwnedCoordinatorHostCleanupPreparation")}\nreturn saveRuntimeOwnedCoordinatorHostCleanupPreparation; }`,
   )({
     Buffer,
     Object,
@@ -3726,7 +3763,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
  */
 test("修復Writerの二重scope guardは他操作と参照の変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf(
@@ -3734,9 +3771,17 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
   );
   const end = text.indexOf("\n/**", start);
   assert.ok(start > 0 && end > start);
-  const dispatchStart = text.indexOf("function validateRepairWriteCandidate(");
+  const validationSource = fs.readFileSync(
+    new URL("../../src/state/validation.ts", import.meta.url),
+    "utf8",
+  );
+  const dispatchStart = validationSource.indexOf(
+    "export function validateRepairWriteCandidate(",
+  );
   const dispatch = stripTypeScriptTypes(
-    text.slice(dispatchStart, text.indexOf("\n/**", dispatchStart)),
+    validationSource
+      .slice(dispatchStart, validationSource.indexOf("\n/**", dispatchStart))
+      .replaceAll("export function", "function"),
   );
   assert.ok(dispatchStart > 0);
   const wrapper = stripTypeScriptTypes(text.slice(start, end)).replace(
@@ -3900,7 +3945,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
  */
 test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf(
@@ -4078,7 +4123,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
     ownedDirectory.cleanup();
   });
   const text = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf(
@@ -4087,9 +4132,16 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
   const body = stripTypeScriptTypes(
     text.slice(start, text.indexOf("\n/**", start)),
   ).replace("export function", "function");
-  const dispatchStart = text.indexOf("function validateRepairWriteCandidate(");
-  const dispatch = stripTypeScriptTypes(
-    text.slice(dispatchStart, text.indexOf("\n/**", dispatchStart)),
+  const validationSource = fs.readFileSync(
+    new URL("../../src/state/validation.ts", import.meta.url),
+    "utf8",
+  );
+  const dispatchStart = validationSource.indexOf(
+    "export function validateRepairWriteCandidate(",
+  );
+  const dispatch = sourceDeclaration(
+    validationSource,
+    "validateRepairWriteCandidate",
   );
   assert.ok(dispatchStart > 0);
   const mutant = body.replace(
@@ -4225,7 +4277,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
  */
 test("Task Writerの修復保全guardは新規・変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const functionStart = text.indexOf(
@@ -4377,7 +4429,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     "create_subscription_auth_probe",
   ] as const;
   const storeSource = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
   const writerStart = storeSource.indexOf(

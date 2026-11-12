@@ -1,5 +1,5 @@
-import { createTemporaryOperation } from "../../src/storage/temporary-operation.ts";
-import { createTemporaryOperationWithInterruptionForVerification } from "../../src/storage/temporary-operation.ts";
+import { createTemporaryOperation } from "../../src/storage/store.ts";
+import { createTemporaryOperationWithInterruptionForVerification } from "../../src/storage/store.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = process.argv[2];

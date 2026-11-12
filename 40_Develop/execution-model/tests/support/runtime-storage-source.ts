@@ -15,18 +15,15 @@ import path from "node:path";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
 import * as versionControl from "../../../version-control/src/index.ts";
-import * as decisionCandidates from "../../src/decision/crud.ts";
-import * as decisionOperations from "../../src/decision/operations.ts";
+import * as sharedLock from "../../../lock/src/index.ts";
+import * as attemptValidation from "../../src/attempt/validation.ts";
+import * as decisionValidation from "../../src/decision/validation.ts";
 import * as domain from "../../src/index.ts";
-import * as definitionCandidates from "../../src/objective/crud.ts";
-import * as plainData from "../../src/plain-data/snapshot.ts";
-import * as runtimeAreas from "../../src/repository/resolve-storage-paths.ts";
-import * as areaRequirement from "../../src/repository/require-storage-area.ts";
-import * as areaPreparation from "../../src/storage/ensure-area.ts";
-import * as stableFiles from "../../src/storage/file-snapshot.ts";
-import * as kernel from "../../src/storage/runtime-kernel-lock.ts";
-import * as storageRepository from "../../src/storage/runtime-repository.ts";
-import * as stateResults from "../../src/storage/runtime-result.ts";
+import * as historyValidation from "../../src/history/validation.ts";
+import * as objectiveValidation from "../../src/objective/validation.ts";
+import * as stateValidation from "../../src/state/validation.ts";
+import * as taskValidation from "../../src/task/validation.ts";
+import * as workspaceValidation from "../../src/workspace/validation.ts";
 /**
  * 現行の実Writer・Lock・固定I/Oを一つの同期依存閉包へ接続する。
  * @responsibility 一つのfixture内でMapを一実体としてReader／Writerで共有する。
@@ -41,21 +38,37 @@ import * as stateResults from "../../src/storage/runtime-result.ts";
 export function createRuntimeStorageSourceFixture(
   transform: (source: string) => string = (source) => source,
   overrides: Readonly<Record<string, unknown>> = {},
-): typeof import("../../src/storage/runtime-store.ts") {
+): typeof import("../../src/state/crud.ts") &
+  typeof import("../../src/attempt/crud.ts") &
+  typeof import("../../src/decision/crud.ts") &
+  typeof import("../../src/history/crud.ts") &
+  typeof import("../../src/objective/crud.ts") &
+  typeof import("../../src/task/crud.ts") &
+  typeof import("../../src/workspace/crud.ts") &
+  typeof import("../../src/storage/store.ts") &
+  typeof import("../../src/storage/lock.ts") {
   const files = [
-    "../../src/storage/runtime-lock.ts",
-    "../../src/storage/state.ts",
-    "../../src/storage/runtime-history.ts",
-    "../../src/storage/runtime-store.ts",
+    "../../src/storage/store.ts",
+    "../../src/storage/lock.ts",
+    "../../src/state/crud.ts",
+    "../../src/attempt/crud.ts",
+    "../../src/decision/crud.ts",
+    "../../src/history/crud.ts",
+    "../../src/objective/crud.ts",
+    "../../src/task/crud.ts",
+    "../../src/workspace/crud.ts",
   ];
   const sources = files.map((file) =>
     fs.readFileSync(new URL(file, import.meta.url), "utf8"),
   );
-  const exports = [
-    ...(sources[3] ?? "").matchAll(
-      /^export\s+(?:function|const)\s+([A-Za-z0-9_]+)/gm,
-    ),
-  ].map((match) => match[1]);
+  assertUniqueFiles(files);
+  const exports = sources.flatMap((source) =>
+    [
+      ...source.matchAll(
+        /^export\s+(?:function|const|class)\s+([A-Za-z0-9_]+)/gm,
+      ),
+    ].map((match) => match[1]),
+  );
   const body = transform(
     sources
       .map((source) =>
@@ -64,6 +77,9 @@ export function createRuntimeStorageSourceFixture(
           .replace(/^export\s+/gmu, ""),
       )
       .join("\n"),
+  ).replace(
+    /^class RepositoryRuntimeDataAreaBlockedError[\s\S]*?^\}\r?\n/gmu,
+    "",
   );
   const dependencies = {
     createHash,
@@ -73,17 +89,14 @@ export function createRuntimeStorageSourceFixture(
     types,
     ...domain,
     ...versionControl,
-    ...storageRepository,
-    ...stateResults,
-    ...plainData,
-    ...definitionCandidates,
-    ...decisionOperations,
-    ...decisionCandidates,
-    ...runtimeAreas,
-    ...areaRequirement,
-    ...areaPreparation,
-    ...stableFiles,
-    ...kernel,
+    ...sharedLock,
+    ...attemptValidation,
+    ...decisionValidation,
+    ...historyValidation,
+    ...objectiveValidation,
+    ...taskValidation,
+    ...workspaceValidation,
+    ...stateValidation,
     ...overrides,
   };
   const declarations = new Set(
@@ -94,8 +107,29 @@ export function createRuntimeStorageSourceFixture(
   const entries = Object.entries(dependencies).filter(
     ([name]) => !declarations.has(name),
   );
+  const overriddenFunctions = Object.keys(overrides).filter(
+    (name) =>
+      declarations.has(name) &&
+      new RegExp(`^function ${name}\\(`, "m").test(body),
+  );
   const fixture = runInThisContext(
-    `(function(${entries.map(([name]) => name).join(",")}){${body};return {${exports.join(",")}};})`,
-  )(...entries.map(([, value]) => value));
+    `(function(__fixtureOverrides,${entries.map(([name]) => name).join(",")}){${body};${overriddenFunctions.map((name) => `${name}=__fixtureOverrides[${JSON.stringify(name)}];`).join("\n")}return {${exports.join(",")}};})`,
+  )(overrides, ...entries.map(([, value]) => value));
   return fixture;
+}
+
+/**
+ * 同一Mapを持つSourceの二重展開を試験補助側で拒否する。
+ * @responsibility 一つのfixtureで一つのSourceを複数回評価しない。
+ * @trace ERB-IT-014
+ * @precondition 同一閉包へ展開する実Source一覧を受け取る。
+ * @stimulus Source Pathの重複を照合する。
+ * @observation 重複時の例外。
+ * @oracle 異なるMap実体を同名で二重生成しない。
+ * @cleanup N/A: 配列値だけ。
+ * @boundary 試験の依存閉包組立て。
+ */
+function assertUniqueFiles(files: readonly string[]) {
+  if (new Set(files).size !== files.length)
+    throw Error("duplicate_fixture_source");
 }

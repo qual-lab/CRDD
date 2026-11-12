@@ -1,10 +1,7 @@
 /**
- * 実行状態の共有値・純粋検査を所有する。
- * @packageDocumentation
- * @responsibility 既存の保存形状・相関・三値を保持し、実行・資源観測・Authorityを発行しない。
- * @trace ARCH-000004
+ * Workspaceと統合結果の保存値と操作契約を定義する。
+ * @responsibility 保存Schemaを変更せず、完成操作と検査が共有する型の正本を持つ。
  * @trace ARCH-000008
- * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
 import type {
@@ -12,6 +9,62 @@ import type {
   CommitTemporary,
 } from "../../../version-control/src/index.ts";
 import type { COORDINATOR_INTEGRATION_CONTRACT } from "./validation.ts";
+
+/**
+ * 公開入力の閉じた操作集合。
+ * @responsibility 読取り・固定・採用・終了を別要求にする。
+ * @trace ARCH-000004
+ * @shape Project／Queue／Workspace IDと確認済み操作値。
+ * @invariant Root・Binding・認可関数を含めない。
+ * @boundary JSON入力。
+ * @security 参照解放の自己申告を受けない。
+ * @compatibility 新Workspace専用、旧Bundleの採用契約とは別。
+ */
+export type WorkspaceCommand =
+  | Readonly<{
+      operation: "list";
+      projectId: string;
+      cursor: string | null;
+      limit: number;
+    }>
+  | (Readonly<{ projectId: string; queueId: string; workspaceId: string }> &
+      (
+        | { operation: "get" }
+        | { operation: "inspect"; path: string }
+        | { operation: "candidate-diff"; path: string }
+        | (Readonly<{ expectedGeneration: number }> &
+            (
+              | { operation: "create"; baseCommit: string; name: string | null }
+              | { operation: "select" }
+              | { operation: "rename"; name: string | null }
+              | { operation: "hold"; until: string | null }
+              | {
+                  operation: "discard";
+                  expectedHead: string;
+                  discardChanges: boolean;
+                }
+              | {
+                  operation: "freeze";
+                  operationId: string;
+                  baseCommit: string;
+                  expectedHead: string;
+                  selection: readonly CommitSelection[];
+                  candidateName: string | null;
+                  relatedChangeIds: readonly string[];
+                }
+              | {
+                  operation: "adopt";
+                  candidateCommit: string;
+                  targetBranch: string;
+                  expectedTargetHead: string;
+                }
+              | {
+                  operation: "close-candidate";
+                  expectedCommit: string | null;
+                  disposition: "adopted" | "rejected";
+                }
+            ))
+      ));
 
 /**
  * Isolated Workspaceの現在値を表す。
@@ -142,6 +195,7 @@ export type WorkspaceCandidateRequest = Readonly<{
   candidateName: string | null;
   relatedChangeIds: readonly string[];
 }>;
+
 /** 候補固定・取込の結果と元操作相関を保存するDomain値。 */
 export type WorkspaceCandidateResult = Readonly<{
   status: "completed" | "blocked";

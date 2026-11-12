@@ -9,8 +9,8 @@
  * @boundary 保存Ownerのみ。実Host・Docker・Providerの終了証明はCoordinator試験が担う。
  */
 import assert from "node:assert/strict";
-import * as areaRequirement from "../../src/repository/require-storage-area.ts";
-import * as areaInitialization from "../../src/storage/ensure-area.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { execFileSync } from "node:child_process";
 import { stripTypeScriptTypes } from "node:module";
@@ -26,7 +26,7 @@ import {
   readRuntimeOwnedCoordinatorSettlementSnapshot,
   writeRuntimeOwnedCoordinatorHistoryCheckpoint,
   writeRuntimeOwnedCoordinatorSettlement,
-} from "../../src/attempt/settlement.ts";
+} from "../../src/attempt/crud.ts";
 import * as domain from "../../src/index.ts";
 import {
   coordinatorOperationSummaryBytes,
@@ -41,13 +41,11 @@ import {
   prepareCoordinatorStateReferencesSnapshot,
   prepareCoordinatorStateResourceSnapshot,
 } from "../../src/index.ts";
-import * as stateKernelLocks from "../../src/storage/runtime-kernel-lock.ts";
-import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
-import {
-  readRuntimeOwnedCoordinatorRecoverySnapshot,
-  readRuntimeOwnedCoordinatorStateSnapshot,
-  writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/storage/runtime-store.ts";
+import * as stateKernelLocks from "../../src/storage/lock.ts";
+import { observeRuntimeStorageRepository } from "../../src/storage/lock.ts";
+import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../../src/attempt/crud.ts";
+import { readRuntimeOwnedCoordinatorStateSnapshot } from "../../src/storage/store.ts";
+import { writeRuntimeOwnedCoordinatorStateSnapshot } from "../../src/state/crud.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
@@ -64,7 +62,11 @@ import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-so
  */
 test("transient終了WriterはReader五故障を保存成功へ補完しない", () => {
   const storeSource = fs.readFileSync(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url),
+    new URL("../../src/attempt/crud.ts", import.meta.url),
+    "utf8",
+  );
+  const helperSource = fs.readFileSync(
+    new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const storeStart = storeSource.indexOf(
@@ -72,16 +74,18 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
   );
   const storeEnd = storeSource.indexOf("\n/**", storeStart);
   assert.ok(storeStart >= 0 && storeEnd > storeStart);
-  const helperStart = storeSource.indexOf(
-    "function completeCoordinatorCurrentRecovery(",
+  const helperStart = helperSource.indexOf(
+    "export function completeCoordinatorCurrentRecovery(",
   );
-  const helperEnd = storeSource.indexOf("\n/**", helperStart);
+  const helperEnd = helperSource.indexOf("\n/**", helperStart);
   assert.ok(helperStart >= 0 && helperEnd > helperStart);
   const storeBody = stripTypeScriptTypes(
     storeSource
       .slice(storeStart, storeEnd)
       .replaceAll("export function", "function") +
-      storeSource.slice(helperStart, helperEnd),
+      helperSource
+        .slice(helperStart, helperEnd)
+        .replaceAll("export function", "function"),
   );
 
   for (const scenario of [
@@ -530,7 +534,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   let completionReleaseCount = 0;
   let completionActualReleaseConfirmed = false;
   const completionLockObservationMock = t.mock.module(
-    "../../src/storage/runtime-kernel-lock.ts",
+    "../../src/storage/lock.ts",
     {
       namedExports: {
         ...stateKernelLocks,
@@ -560,24 +564,11 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     },
   );
   t.after(() => completionLockObservationMock.restore());
-  const currentCompletionKernel = await import(
-    "../../src/storage/runtime-kernel-lock.ts"
-  );
+  const currentCompletionKernel = await import("../../src/storage/lock.ts");
   const historyStore = createRuntimeStorageSourceFixture(undefined, {
     acquireRuntimeStateLock: currentCompletionKernel.acquireRuntimeStateLock,
   });
-  const historyStorageMock = t.mock.module(
-    new URL("../../src/storage/runtime-store.ts", import.meta.url).href,
-    { namedExports: { ...historyStore } },
-  );
-  t.after(() => historyStorageMock.restore());
-  const historySettlementRuntime = (await import(
-    new URL(
-      "../../src/attempt/settlement.ts?history-filesystem-fixture",
-      import.meta.url,
-    ).href
-  )) as typeof import("../../src/attempt/settlement.ts");
-  const historyRuntime = { ...historyStore, ...historySettlementRuntime };
+  const historyRuntime = historyStore;
   const historySettlement =
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
@@ -1169,7 +1160,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
         "-e",
         `(async () => {
           const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/storage/runtime-store.ts", import.meta.url).href)});
+          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/attempt/crud.ts", import.meta.url).href)});
           const root = getRepository(process.argv[1]);
           process.stdout.write(JSON.stringify(readRuntimeOwnedCoordinatorRecoveryResult(root.capability, process.argv[2])));
         })().catch(() => { process.exitCode = 1; });`,

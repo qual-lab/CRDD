@@ -8,9 +8,9 @@
  * @boundary Domain保存と実Filesystem／共通Lock、DI技術値との独立比較。実Host／Docker処置は対象外。
  */
 import assert from "node:assert/strict";
-import * as areaRequirement from "../../src/repository/require-storage-area.ts";
-import * as areaInitialization from "../../src/storage/ensure-area.ts";
-import * as fileObservation from "../../src/storage/file-snapshot.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
+import * as fileObservation from "../../src/storage/store.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -21,13 +21,13 @@ import * as technicalContract from "../../../docker-isolation/src/docker-desktop
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
 import { createRepairMachineFixture } from "../../../docker-isolation/tests/support/repair-machine.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import * as storedContract from "../../src/attempt/repair-validation.ts";
+import * as storedContract from "../../src/attempt/validation.ts";
 import * as model from "../../src/index.ts";
 import * as domain from "../../src/index.ts";
 import * as stateStore from "../../src/index.ts";
 import { encodeRuntimeStateValue } from "../../src/index.ts";
-import * as kernel from "../../src/storage/runtime-kernel-lock.ts";
-import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
+import * as kernel from "../../src/storage/lock.ts";
+import { observeRuntimeStorageRepository } from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
@@ -309,7 +309,27 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const f = { root, capability: verified.capability };
-  const borrowed = observeRuntimeStorageRepository(f.capability);
+  const historyInput = {
+    root: f.capability,
+    historyRetentionDays: 30,
+    revalidate(expected?: number) {
+      if (expected === undefined) return true;
+      try {
+        const config = JSON.parse(
+          fs.readFileSync(
+            path.join(f.root, ".crdd", "config", "coordinator.json"),
+            "utf8",
+          ),
+        );
+        return config.historyRetentionDays === expected;
+      } catch (error) {
+        return (
+          (error as NodeJS.ErrnoException).code === "ENOENT" && expected === 30
+        );
+      }
+    },
+  };
+  const borrowed = observeRuntimeStorageRepository(historyInput);
   assert.ok(borrowed);
   const identityJson =
     JSON.stringify({
@@ -997,7 +1017,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.equal(taskResult.status, "blocked");
   assert.ok(fs.readFileSync(stateFile).equals(original));
   const first = stateStoreSource((source) => source);
-  const observed = first.readHistory(f.capability, id);
+  const observed = first.readHistory(historyInput, id);
   assert.equal(observed.status, "completed");
   assert.equal(observed.currentHistoryPublication?.stage, "checkpoint");
   assert.equal(
@@ -1019,7 +1039,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.ok(fixedOperation?.history && !fixedOperation.history.confirmed);
   const second = stateStoreSource((source) => source);
   assert.equal(
-    second.readHistory(f.capability, id).currentHistoryPublication?.stage,
+    second.readHistory(historyInput, id).currentHistoryPublication?.stage,
     "publish",
   );
   const published = second.advanceHistory(repository, id, () => true);
@@ -1126,7 +1146,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         fs.writeFileSync(historyFile, bytes);
       }
       const read = stateStoreSource((source) => source).readHistory(
-        f.capability,
+        historyInput,
         id,
       );
       const valid = historyCase === "empty" || historyCase === "other";

@@ -10,12 +10,12 @@
 import path from "node:path";
 import {
   type CoordinatorWorkspace,
-  containsRecognizedSecretText,
   readCoordinatorWorkspaceState,
   saveCoordinatorIntegrationRecord,
   saveCoordinatorWorkspaceRecord,
   inspectWorkspaceCommand,
 } from "../../../execution-model/src/index.ts";
+import { containsRecognizedSecretText } from "../input/secret-validation.ts";
 import {
   readFile,
   type FileReadRequest,

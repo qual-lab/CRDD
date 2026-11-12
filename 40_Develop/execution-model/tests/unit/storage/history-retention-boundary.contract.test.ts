@@ -14,7 +14,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { types } from "node:util";
 import { compileFunction } from "node:vm";
 import test from "node:test";
-import { readHistoryRetentionDays } from "../../../src/storage/runtime-repository.ts";
+import { readHistoryRetentionDays } from "../../../src/storage/lock.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
 type Policy =
@@ -29,6 +29,104 @@ type HistoryInput = {
   historyRetentionDays: number | null;
   revalidate: (days?: number) => boolean;
 };
+
+/**
+ * 履歴と配送の一回保存Ownerが保持日数を元の上位確認へ渡す。
+ * @responsibility 同じMapとused条件を維持したまま任意の日数引数を搬送する。
+ * @trace PRL-UT-006
+ * @precondition 製品の二つの完成操作宣言と合成Reader／Writerだけを使用する。
+ * @stimulus Writer到達後にusedを確定し、同日数・途中変更・Owner失効を照合する。
+ * @observation 元revalidateの引数、各判定と終了後のMap退役。
+ * @oracle 同じ30日はtrue、31日へ変更又はOwner失効はfalse。used前も拒否する。
+ * @cleanup N/A: 値と局所VMのみ。
+ * @boundary 実Filesystem・書込み・実Lockは使用しない。
+ */
+test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両方確認する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/state/crud.ts", import.meta.url),
+    "utf8",
+  );
+  for (const name of [
+    "advanceCoordinatorCurrentHistory",
+    "registerRuntimeOwnedCoordinatorRecoveryResultDelivery",
+  ]) {
+    const settlements = new WeakMap<object, { used: boolean }>();
+    let currentDays = 30;
+    let ownerLive = true;
+    let writerCalls = 0;
+    let key: object | null = null;
+    const received: (number | undefined)[] = [];
+    const repository = {
+      historyRetentionDays: 30,
+      revalidate(expected?: number) {
+        received.push(expected);
+        return expected === undefined || expected === currentDays;
+      },
+    };
+    const publication = {
+      needsWrite: true,
+      operationKind: "runtime_repair",
+      before: Buffer.from("before"),
+      candidate: Buffer.from("candidate"),
+      stage: "publish",
+      historyFile: null,
+      pendingHistoryFile: null,
+      retentionDays: 30,
+      deliveryPending: true,
+    };
+    const operation = compileFunction(
+      `${sourceDeclaration(source, name)}; return ${name};`,
+      [
+        "Buffer",
+        "settlements",
+        "readCoordinatorStateSnapshot",
+        "writeCoordinatorStateSnapshot",
+      ],
+    )(
+      Buffer,
+      settlements,
+      () => ({
+        status: "completed",
+        lockReleased: true,
+        value: {},
+        currentHistoryPublication: publication,
+        currentDeliveryPublication: publication,
+      }),
+      (
+        _before: unknown,
+        bound: { revalidate: (days?: number) => boolean } | null,
+        _candidate: unknown,
+        admission: { currentHistory?: object; currentDelivery?: object },
+      ) => {
+        const result = {
+          status: "blocked",
+          lockReleased: true,
+          snapshotConfirmed: false,
+        };
+        if (!bound) return result;
+        writerCalls++;
+        key = admission.currentHistory ?? admission.currentDelivery ?? null;
+        assert.ok(key);
+        const binding = settlements.get(key);
+        assert.ok(binding);
+        assert.equal(bound.revalidate(30), false, `${name}: used前`);
+        binding.used = true;
+        assert.equal(bound.revalidate(30), true, `${name}: 同日数`);
+        currentDays = 31;
+        assert.equal(bound.revalidate(30), false, `${name}: 設定変更`);
+        currentDays = 30;
+        ownerLive = false;
+        assert.equal(bound.revalidate(30), false, `${name}: Owner失効`);
+        return result;
+      },
+    );
+    operation(repository, "recovery", () => ownerLive, "runtime_repair");
+    assert.equal(writerCalls, 1, name);
+    assert.deepEqual(received, [30, 30], name);
+    assert.ok(key);
+    assert.equal(settlements.has(key), false, name);
+  }
+});
 
 /**
  * 実Consumer宣言を有限の設定観測へ接続する。
@@ -215,7 +313,7 @@ test("保持値の意味検査と元Ownerの拒否を維持する", () => {
  */
 test("EMのRepository観測は保持日数を転送し通常照合とRevision条件を維持する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/storage/runtime-repository.ts", import.meta.url),
+    new URL("../../../src/storage/lock.ts", import.meta.url),
     "utf8",
   );
   let revision = "a".repeat(40);

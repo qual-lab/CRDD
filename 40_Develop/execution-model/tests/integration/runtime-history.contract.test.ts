@@ -22,19 +22,19 @@ import {
   maintainCoordinatorSnapshotRecords,
   transferCoordinatorSnapshotHistoryRecords,
 } from "../../src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/ensure-area.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
+import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/store.ts";
+import { requireReadyRepositoryRuntimeDataArea } from "../../src/storage/store.ts";
 import {
   inspectCoordinatorHistorySettlement,
   updateCoordinatorHistoryOwned,
   updateCoordinatorHistoryPilot,
-} from "../../src/storage/runtime-history.ts";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/runtime-lock.ts";
+} from "../../src/storage/store.ts";
+import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
 import {
   initializeCoordinatorSnapshot,
-  readCoordinatorSnapshot,
   writeCoordinatorSnapshot,
-} from "../../src/storage/runtime-store.ts";
+} from "../../src/state/crud.ts";
+import { readCoordinatorSnapshot } from "../../src/storage/store.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");

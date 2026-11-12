@@ -34,7 +34,7 @@ import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
 } from "../../src/execution/operation.ts";
-import { containsRecognizedSecretMaterial } from "../../../execution-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../src/input/secret-validation.ts";
 import {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,

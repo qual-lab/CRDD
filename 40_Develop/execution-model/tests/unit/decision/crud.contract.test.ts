@@ -19,7 +19,7 @@ import {
   prepareDecisionSubmission,
   validateDecisionRetirement,
   validateDecisionSnapshotTransition,
-} from "../../../src/decision/crud.ts";
+} from "../../../src/decision/validation.ts";
 import {
   inspectDecisionHistoryEvent,
   prepareDecisionAnswer,
@@ -28,7 +28,7 @@ import {
   prepareDecisionRequest,
   projectDecisionHistory,
   validateDecisionCollections,
-} from "../../../src/decision/operations.ts";
+} from "../../../src/decision/validation.ts";
 import type {
   Blocker,
   DecisionAnswer,
@@ -41,8 +41,8 @@ import {
   decodeCoordinatorHistoryRows,
   encodeRuntimeStateValue,
 } from "../../../src/index.ts";
-import { coordinatorQueueIsClosed } from "../../../src/state/transition.ts";
-import { inspectCoordinatorDecisionRequest } from "../../../src/decision/request.ts";
+import { coordinatorQueueIsClosed } from "../../../src/state/validation.ts";
+import { inspectCoordinatorDecisionRequest } from "../../../src/decision/validation.ts";
 
 /** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {

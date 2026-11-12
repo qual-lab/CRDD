@@ -14,7 +14,7 @@ import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import {
   applyCoordinatorResourceCleanup,
   applyCoordinatorResourceEvent,
-} from "../../src/attempt/crud.ts";
+} from "../../src/attempt/validation.ts";
 import type { CoordinatorResourceBook } from "../../src/attempt/types.ts";
 import {
   coordinatorTaskResourcesAreSettled,

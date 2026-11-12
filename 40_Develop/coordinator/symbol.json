@@ -3,19 +3,47 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
-    {"symbolId":"coordinator.test.integration.continuation-decision","kind":"test-suite","path":"tests/integration/continuation-decision.integration.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-IT-005","PRL-IT-014"],"verifies":["orchestrator.decision-public-operation","domain-model.decision.crud"]},
-    {"symbolId":"coordinator.test.fixture.decision-state","kind":"file","path":"tests/fixtures/decision-state.ts","archIds":["ARCH-000004","ARCH-000005"]},
+    {
+      "symbolId": "coordinator.test.integration.continuation-decision",
+      "kind": "test-suite",
+      "path": "tests/integration/continuation-decision.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005",
+        "PRL-IT-014"
+      ],
+      "verifies": [
+        "orchestrator.decision-public-operation",
+        "domain-model.decision.crud"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.fixture.decision-state",
+      "kind": "file",
+      "path": "tests/fixtures/decision-state.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000005"
+      ]
+    },
     {
       "symbolId": "coordinator.source.execution.intelligence",
       "kind": "file",
       "path": "src/execution/intelligence.ts",
-      "archIds": ["ARCH-000007", "ARCH-000018"]
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000018"
+      ]
     },
     {
       "symbolId": "coordinator.execution.isolation-configuration",
       "kind": "file",
       "path": "src/execution/configuration.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.workspace.git",
@@ -247,8 +275,6 @@
         "ai-adapter.codex.distribution"
       ]
     },
-
-
     {
       "symbolId": "coordinator.test.integration.docker-probe-cancellation-projection",
       "kind": "test-suite",
@@ -636,7 +662,6 @@
         "coordinator.provider-selection-boundary"
       ]
     },
-
     {
       "symbolId": "coordinator.public-api",
       "kind": "module",
@@ -969,8 +994,6 @@
         "version-control.source.src.repository.location"
       ]
     },
-
-
     {
       "symbolId": "coordinator.test.integration.coverage",
       "kind": "test-suite",
@@ -2594,7 +2617,6 @@
         "ARCH-000015"
       ]
     },
-
     {
       "symbolId": "coordinator.source.scripts.check.platform.access.ts.coverage",
       "kind": "module",
@@ -4128,6 +4150,14 @@
       "verifies": [
         "version-control.source.src.checker.observation.index",
         "coordinator.source.src.configuration.runtime-data"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.secret.material.policy",
+      "kind": "file",
+      "path": "src/input/secret-validation.ts",
+      "archIds": [
+        "ARCH-000014"
       ]
     }
   ]

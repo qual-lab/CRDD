@@ -16,7 +16,7 @@ import {
   decodeProjectResultAcceptance,
   hashExecutionSelection,
 } from "../../../src/index.ts";
-import { parseRuntimeActivityObservation } from "../../../src/state/activity.ts";
+import { parseRuntimeActivityObservation } from "../../../src/history/validation.ts";
 import type { CoordinatorState } from "../../../src/state/types.ts";
 
 /**

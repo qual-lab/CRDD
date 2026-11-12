@@ -7,7 +7,7 @@
  * @scope 固定Hashだけ。
  * @boundary 今回試験のProcessと既存OS排他。
  */
-import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
 
 const lock = acquireRuntimeStateLock(process.argv[2], process.argv[3] ?? "");
 if (lock.status !== "acquired") process.exit(2);

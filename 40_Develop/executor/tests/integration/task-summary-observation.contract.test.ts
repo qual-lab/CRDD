@@ -8,11 +8,12 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 import { parseExecutionContent } from "../../../ai-adapter/src/provider/result.ts";
-import { containsRecognizedSecretMaterial } from "../../../execution-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../../coordinator/src/input/secret-validation.ts";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
 
 const workload = {
@@ -303,13 +304,29 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
       import.meta.url,
     ),
   );
+  const composition = fs.readFileSync(entry, "utf8");
+  assert.match(
+    composition,
+    /containsRecognizedSecretMaterial\s*\}\s*=\s*await import\(\s*["']\.\.\/\.\.\/coordinator\/src\/input\/secret-validation\.ts["']/u,
+  );
+  assert.match(
+    composition,
+    /installTaskSummaryObservation\(\s*containsRecognizedSecretMaterial,?\s*\)/u,
+  );
+  const forbidScannerImport = `data:text/javascript,${encodeURIComponent(
+    "import {registerHooks} from 'node:module';registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/coordinator/src/input/secret-validation.ts'))throw Error('unapproved_scanner_import');return r;}});",
+  )}`;
   for (const argv of [[], ["--external-send-and-summary-confirmed"]]) {
-    const rejected = spawnSync(process.execPath, [entry, ...argv], {
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: 15_000,
-      maxBuffer: 4096,
-    });
+    const rejected = spawnSync(
+      process.execPath,
+      ["--import", forbidScannerImport, entry, ...argv],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 15_000,
+        maxBuffer: 4096,
+      },
+    );
     assert.equal(rejected.error, undefined);
     assert.equal(rejected.signal, null);
     assert.equal(rejected.status, 64);
@@ -329,8 +346,11 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
       "-e",
       `
     import assert from 'node:assert/strict';
+    import {registerHooks} from 'node:module';
+    registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/coordinator/')||r.url.includes('/plain-data/secret-validation.ts'))throw Error('diagnostic_owner_dependency_forbidden');return r;}});
     const {installTaskSummaryObservation}=await import(${JSON.stringify(helper)});
-    const observer=installTaskSummaryObservation();
+    let secretChecks=0;
+    const observer=installTaskSummaryObservation((relativePath,value)=>{assert.equal(relativePath,'summary.txt');assert.equal(typeof value,'string');secretChecks++;return false;});
     const {attemptPlan}=await import(${JSON.stringify(new URL("../fixtures/attempt-plan.ts", import.meta.url).href)});
     try { const module=await import(${JSON.stringify(consumer)});
       const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
@@ -367,6 +387,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
       const seen=[];
       assert.equal(observer.finish(${JSON.stringify(report())},text=>seen.push(text)).displayed,true);
       assert.deepEqual(seen,['synthetic']);
+      assert.ok(secretChecks>0);
     } finally {observer.close();}
     console.log('SUMMARY_CONNECTION_OK');
   `,

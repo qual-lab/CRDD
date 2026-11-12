@@ -258,8 +258,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "RUNTIME_REPAIR_ACTIONS",
     "RUNTIME_REPAIR_DIRECTORIES",
     "RepositoryRuntimeDataAreaBlockedError",
-    "SECRET_MATERIAL_POLICY_CONTRACT",
-    "SECRET_MATERIAL_POLICY_CONTRACT_REVISION",
     "advanceRuntimeOwnedCoordinatorRecoveryHistory",
     "advanceRuntimeOwnedCoordinatorRepairHistory",
     "answerDecision",
@@ -286,9 +284,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "completeRuntimeOwnedCoordinatorRepair",
     "completeRuntimeOwnedCoordinatorSettlement",
     "confirmCoordinatorLeaseAcquisition",
-    "containsRecognizedSecretMaterial",
-    "containsRecognizedSecretScope",
-    "containsRecognizedSecretText",
     "coordinatorAdoptionWasRejected",
     "coordinatorAuthenticationClosureEvidence",
     "coordinatorAuthenticationUnknownCanClose",
@@ -325,7 +320,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "deleteObjective",
     "deleteTask",
     "deriveActivitySourceCorrelation",
-    "describeSecretMaterialPolicyContract",
     "dockerProcessControllerPublicCompletionReasons",
     "dockerRuntimeRepairCheckpointIsSettled",
     "dockerRuntimeRepairDisposalIsSettled",
@@ -361,7 +355,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "isCoordinatorProjectionSemanticallyValid",
     "isDockerRestartCheckpointSettled",
     "isPrincipalId",
-    "isRecognizedSecretBearingPath",
     "isRuntimeStateObject",
     "isSha256Hex",
     "isWorkspaceCommitId",
@@ -621,8 +614,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "RuntimeStateFileName",
     "RuntimeStatePendingFileName",
     "RuntimeWriteResult",
-    "SECRET_MATERIAL_POLICY_CONTRACT",
-    "SECRET_MATERIAL_POLICY_CONTRACT_REVISION",
     "SingleTaskRecord",
     "StateVersion",
     "TaskExecutionSelections",
@@ -659,9 +650,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "completeRuntimeOwnedCoordinatorRepair",
     "completeRuntimeOwnedCoordinatorSettlement",
     "confirmCoordinatorLeaseAcquisition",
-    "containsRecognizedSecretMaterial",
-    "containsRecognizedSecretScope",
-    "containsRecognizedSecretText",
     "coordinatorAdoptionWasRejected",
     "coordinatorAuthenticationClosureEvidence",
     "coordinatorAuthenticationUnknownCanClose",
@@ -698,7 +686,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "deleteObjective",
     "deleteTask",
     "deriveActivitySourceCorrelation",
-    "describeSecretMaterialPolicyContract",
     "dockerProcessControllerPublicCompletionReasons",
     "dockerRuntimeRepairCheckpointIsSettled",
     "dockerRuntimeRepairDisposalIsSettled",
@@ -734,7 +721,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "isCoordinatorProjectionSemanticallyValid",
     "isDockerRestartCheckpointSettled",
     "isPrincipalId",
-    "isRecognizedSecretBearingPath",
     "isRuntimeStateObject",
     "isSha256Hex",
     "isWorkspaceCommitId",
@@ -996,10 +982,8 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
       [],
     );
     assert.deepEqual(
-      imports(
-        `${prefix}"../../../execution-model/src/storage/runtime-store.ts"`,
-      ),
-      ["../../../execution-model/src/storage/runtime-store.ts"],
+      imports(`${prefix}"../../../execution-model/src/state/crud.ts"`),
+      ["../../../execution-model/src/state/crud.ts"],
     );
     assert.deepEqual(
       imports(
@@ -1068,7 +1052,7 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
     reachesPrivate(
       syntheticEntry,
       new Set(),
-      new Map([[syntheticEntry, 'import "../src/storage/runtime-store.ts";']]),
+      new Map([[syntheticEntry, 'import "../src/state/crud.ts";']]),
     ),
     true,
   );
@@ -1078,10 +1062,7 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
       new Set(),
       new Map([
         [syntheticEntry, 'import "../../neutral-fixture.ts";'],
-        [
-          syntheticHop,
-          'import "./execution-model/src/storage/runtime-store.ts";',
-        ],
+        [syntheticHop, 'import "./execution-model/src/state/crud.ts";'],
       ]),
     ),
     true,

@@ -141,7 +141,7 @@ import {
   copyGitCommitTree as materializeVersionControlTree,
   readGitCommitFile,
 } from "../../../version-control/src/git/objects.ts";
-import { containsRecognizedSecretMaterial } from "../../../execution-model/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../src/input/secret-validation.ts";
 
 /**
  * copyGitCommitTreeのTest準備責務を実行する。

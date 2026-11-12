@@ -16,7 +16,7 @@
     {
       "symbolId": "domain-model.identity.validation",
       "kind": "file",
-      "path": "src/identity/validation.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -56,7 +56,7 @@
     {
       "symbolId": "domain-model.attempt.lease",
       "kind": "file",
-      "path": "src/attempt/lease.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -79,7 +79,7 @@
     {
       "symbolId": "domain-model.task.queue",
       "kind": "file",
-      "path": "src/task/queue.ts",
+      "path": "src/task/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -117,7 +117,7 @@
     {
       "symbolId": "domain-model.workspace.crud",
       "kind": "file",
-      "path": "src/workspace/crud.ts",
+      "path": "src/workspace/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -158,7 +158,7 @@
     {
       "symbolId": "domain-model.decision.operations",
       "kind": "file",
-      "path": "src/decision/operations.ts",
+      "path": "src/decision/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005",
@@ -168,7 +168,7 @@
     {
       "symbolId": "domain-model.decision.crud",
       "kind": "file",
-      "path": "src/decision/crud.ts",
+      "path": "src/decision/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005",
@@ -178,7 +178,7 @@
     {
       "symbolId": "coordinator.source.src.state.settlement",
       "kind": "file",
-      "path": "src/state/transition.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -187,7 +187,7 @@
     {
       "symbolId": "coordinator.source.src.state.transition",
       "kind": "file",
-      "path": "src/state/transition.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -212,7 +212,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "domain-model.state.crud"
+        "domain-model.state.crud",
+        "execution-model.source.src.history.types"
       ]
     },
     {
@@ -247,7 +248,7 @@
     {
       "symbolId": "domain-model.state.crud",
       "kind": "file",
-      "path": "src/state/crud.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -256,7 +257,7 @@
     {
       "symbolId": "domain-model.state.history",
       "kind": "file",
-      "path": "src/state/history.ts",
+      "path": "src/history/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -265,7 +266,7 @@
     {
       "symbolId": "domain-model.task.crud",
       "kind": "file",
-      "path": "src/task/crud.ts",
+      "path": "src/task/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -274,7 +275,7 @@
     {
       "symbolId": "domain-model.state.transition",
       "kind": "file",
-      "path": "src/state/transition.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -283,7 +284,7 @@
     {
       "symbolId": "domain-model.state.codec",
       "kind": "file",
-      "path": "src/state/codec.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -310,7 +311,7 @@
     {
       "symbolId": "domain-model.attempt.repair-types",
       "kind": "file",
-      "path": "src/attempt/repair-types.ts",
+      "path": "src/attempt/types.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -318,7 +319,7 @@
     {
       "symbolId": "domain-model.attempt.repair-validation",
       "kind": "file",
-      "path": "src/attempt/repair-validation.ts",
+      "path": "src/attempt/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -397,7 +398,7 @@
     {
       "symbolId": "domain-model.storage.state-io",
       "kind": "file",
-      "path": "src/storage/state.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -417,17 +418,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.secret.material.policy",
-      "kind": "file",
-      "path": "src/plain-data/secret-validation.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.bounded.file.snapshot",
       "kind": "file",
-      "path": "src/storage/file-snapshot.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -435,7 +428,7 @@
     {
       "symbolId": "coordinator.source.src.security.plain.data.snapshot",
       "kind": "file",
-      "path": "src/plain-data/snapshot.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -458,7 +451,7 @@
     {
       "symbolId": "domain-model.temporary-operation-types",
       "kind": "file",
-      "path": "src/storage/types.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -522,7 +515,7 @@
     {
       "symbolId": "runtime-data.source.src.store.temporary.operation.store",
       "kind": "file",
-      "path": "src/storage/temporary-operation.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -530,7 +523,7 @@
     {
       "symbolId": "domain-model.runtime-data-path-reader",
       "kind": "file",
-      "path": "src/repository/resolve-storage-paths.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -538,7 +531,7 @@
     {
       "symbolId": "domain-model.runtime-data-area-writer",
       "kind": "file",
-      "path": "src/storage/ensure-area.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -546,7 +539,7 @@
     {
       "symbolId": "domain-model.runtime-area-result",
       "kind": "file",
-      "path": "src/repository/require-storage-area.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -554,7 +547,7 @@
     {
       "symbolId": "coordinator.source.src.storage.lock",
       "kind": "file",
-      "path": "src/storage/runtime-lock.ts",
+      "path": "src/storage/lock.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -563,7 +556,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-runtime",
       "kind": "file",
-      "path": "src/storage/runtime-store.ts",
+      "path": "src/state/crud.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -571,7 +564,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-model",
       "kind": "file",
-      "path": "src/storage/runtime-store.ts",
+      "path": "src/state/crud.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -579,7 +572,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.durable.foundation",
       "kind": "file",
-      "path": "src/storage/runtime-store.ts",
+      "path": "src/state/crud.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005",
@@ -594,7 +587,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.history",
       "kind": "file",
-      "path": "src/storage/runtime-history.ts",
+      "path": "src/history/crud.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -602,7 +595,7 @@
     {
       "symbolId": "orchestrator.storage.result-record",
       "kind": "file",
-      "path": "src/storage/runtime-store.ts",
+      "path": "src/state/crud.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -610,7 +603,7 @@
     {
       "symbolId": "domain-model.storage.runtime-kernel-lock",
       "kind": "file",
-      "path": "src/storage/runtime-kernel-lock.ts",
+      "path": "src/storage/lock.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -619,7 +612,7 @@
     {
       "symbolId": "domain-model.storage.runtime-result",
       "kind": "file",
-      "path": "src/storage/runtime-result.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -628,7 +621,7 @@
     {
       "symbolId": "domain-model.storage.runtime-repository",
       "kind": "file",
-      "path": "src/storage/runtime-repository.ts",
+      "path": "src/storage/lock.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -637,7 +630,7 @@
     {
       "symbolId": "domain-model.attempt.settlement",
       "kind": "file",
-      "path": "src/attempt/settlement.ts",
+      "path": "src/attempt/crud.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -646,7 +639,7 @@
     {
       "symbolId": "domain-model.objective.crud",
       "kind": "file",
-      "path": "src/objective/crud.ts",
+      "path": "src/objective/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -689,7 +682,10 @@
       "verifies": [
         "domain-model.storage.runtime-repository",
         "coordinator.state-storage.coordinator-state-runtime",
-        "domain-model.objective.crud"
+        "domain-model.objective.crud",
+        "execution-model.source.src.objective.crud",
+        "execution-model.source.src.task.crud",
+        "execution-model.source.src.workspace.crud"
       ]
     },
     {
@@ -791,7 +787,8 @@
         "coordinator.source.src.security.orchestrator.history",
         "domain-model.decision.crud",
         "domain-model.decision.operations",
-        "domain-model.state.history"
+        "domain-model.state.history",
+        "execution-model.source.src.decision.crud"
       ]
     },
     {
@@ -890,7 +887,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.objective.request",
       "kind": "file",
-      "path": "src/objective/request.ts",
+      "path": "src/objective/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -898,7 +895,7 @@
     {
       "symbolId": "coordinator.state.request",
       "kind": "file",
-      "path": "src/state/query.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -906,7 +903,7 @@
     {
       "symbolId": "domain-model.decision.request",
       "kind": "file",
-      "path": "src/decision/request.ts",
+      "path": "src/decision/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -915,7 +912,7 @@
     {
       "symbolId": "domain-model.state.activity",
       "kind": "file",
-      "path": "src/state/activity.ts",
+      "path": "src/history/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -924,7 +921,7 @@
     {
       "symbolId": "domain-model.state.projection-types",
       "kind": "file",
-      "path": "src/state/projection-types.ts",
+      "path": "src/state/types.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -933,7 +930,7 @@
     {
       "symbolId": "domain-model.state.projection",
       "kind": "file",
-      "path": "src/state/projection.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -942,7 +939,7 @@
     {
       "symbolId": "domain-model.workspace.command",
       "kind": "file",
-      "path": "src/workspace/command.ts",
+      "path": "src/workspace/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -951,7 +948,7 @@
     {
       "symbolId": "domain-model.workspace.result",
       "kind": "file",
-      "path": "src/workspace/result.ts",
+      "path": "src/workspace/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -960,7 +957,7 @@
     {
       "symbolId": "domain-model.src.attempt.crud",
       "kind": "file",
-      "path": "src/attempt/crud.ts",
+      "path": "src/attempt/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -991,7 +988,7 @@
     {
       "symbolId": "domain-model.src.repository.path",
       "kind": "file",
-      "path": "src/repository/path.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -1030,7 +1027,7 @@
     {
       "symbolId": "execution-model.source.src.repository.types",
       "kind": "file",
-      "path": "src/repository/types.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -1105,6 +1102,46 @@
         "domain-model.storage.runtime-repository",
         "execution-model.source.tests.support.source-declaration",
         "coordinator.execution.persistence"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.decision.crud",
+      "kind": "file",
+      "path": "src/decision/crud.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.history.types",
+      "kind": "file",
+      "path": "src/history/types.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.objective.crud",
+      "kind": "file",
+      "path": "src/objective/crud.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.task.crud",
+      "kind": "file",
+      "path": "src/task/crud.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.workspace.crud",
+      "kind": "file",
+      "path": "src/workspace/crud.ts",
+      "archIds": [
+        "ARCH-000004"
       ]
     }
   ]

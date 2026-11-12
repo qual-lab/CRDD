@@ -22,11 +22,11 @@ import {
 } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
+import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import {
-  hashExecutionSelection,
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
-} from "../../../../execution-model/src/index.ts";
+} from "../../../src/input/secret-validation.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
