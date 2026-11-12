@@ -41,7 +41,6 @@ export function commitChanges(
   if (
     typeof request.message !== "string" ||
     request.message.trim().length === 0 ||
-    request.message.length > 4096 ||
     /[\u0000\u007f]/u.test(request.message)
   )
     throw Error("change_publication_message_invalid");
@@ -200,12 +199,7 @@ export function createCommit(
             run(["update-index", "--force-remove", "--", item.path]);
           } else {
             const info = fs.lstatSync(absolute);
-            if (
-              !info.isFile() ||
-              info.isSymbolicLink() ||
-              info.nlink !== 1 ||
-              info.size > 64 * 1024 * 1024
-            )
+            if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
               throw new Error("commit_create_path_invalid");
             const bytes = fs.readFileSync(absolute);
             const calculated = createHash(
@@ -508,15 +502,13 @@ function validCommitCreateRequest(
     r.baseCommit.length !== r.expectedHead.length ||
     typeof r.message !== "string" ||
     !r.message.trim() ||
-    r.message.length > 4096 ||
     /[\x00\x7f]/u.test(r.message) ||
     typeof r.temporaryDirectory !== "string" ||
     (r.previousCommit !== undefined &&
       r.previousCommit !== null &&
       !isCommitId(r.previousCommit)) ||
     !Array.isArray(r.selection) ||
-    r.selection.length < 1 ||
-    r.selection.length > 1000
+    r.selection.length < 1
   )
     return false;
   const paths = new Set<string>();
@@ -546,7 +538,6 @@ export function isCommitPath(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.length > 0 &&
-    value.length <= 1000 &&
     !value
       .split("/")
       .some(

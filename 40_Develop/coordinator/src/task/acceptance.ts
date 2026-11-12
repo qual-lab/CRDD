@@ -57,8 +57,7 @@ export function recordProjectTaskResultAcceptances(
       (entry) =>
         entry.phase !== (entry.kind === "docker" ? "acknowledged" : "settled"),
     ) ||
-    !Array.isArray(acceptances) ||
-    acceptances.length > 128
+    !Array.isArray(acceptances)
   )
     return rejected;
   const decodedAcceptances = Array.from(

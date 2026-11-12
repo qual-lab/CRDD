@@ -491,7 +491,7 @@ function row(id: string, occurredAt = referenceTime) {
  *
  * @responsibility 30日ちょうどを保持し、期限外だけを除く。
  * @trace PRL-IT-012
- * @precondition 101行と期限外・境界の行を持つ正規履歴。
+ * @precondition 旧16MiBを超える100,000行と期限外・境界の行を持つ正規履歴。
  * @stimulus 履歴を更新する。
  * @observation 行数、保持Identity、pending不存在。
  * @oracle 件数で削除せず30日境界を正しく判定する。
@@ -507,7 +507,7 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
   const rows = [
     row("expired", referenceTime - 30 * DAY - 1),
     row("boundary", referenceTime - 30 * DAY),
-    ...Array.from({ length: 101 }, (_unusedValue, i) => row(`job-${i}`)),
+    ...Array.from({ length: 100_000 }, (_unusedValue, i) => row(`job-${i}`)),
   ];
   const body = rows
     .map((record) => {
@@ -519,6 +519,7 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
       })}\n`;
     })
     .join("");
+  assert.ok(Buffer.byteLength(body) > 16 * 1024 * 1024);
   fs.writeFileSync(f.current, body);
   assert.equal(
     updateCoordinatorHistoryPilot(f.root, null, referenceTime).status,
@@ -529,7 +530,7 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
     .trimEnd()
     .split("\n")
     .map((line) => JSON.parse(line).summary.record);
-  assert.equal(savedRows.length, 102);
+  assert.equal(savedRows.length, 100_001);
   assert.equal(
     savedRows.some((item) => item.id === "expired"),
     false,

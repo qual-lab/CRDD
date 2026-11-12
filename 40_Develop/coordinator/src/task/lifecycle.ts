@@ -288,7 +288,6 @@ export function settleProjectTask(
     (input.outcome === "completed" && !input.cleanupConfirmed) ||
     (input.outcome === "cancelled" && !input.cleanupConfirmed) ||
     !Array.isArray(input.recoveryObligations) ||
-    input.recoveryObligations.length > 128 ||
     new Set(
       input.recoveryObligations.map(
         (entry) => `${entry.kind}\0${entry.recoveryId}`,
@@ -765,17 +764,14 @@ export function snapshotDefinition(
     return null;
   const dependencies = uniqueStrings(
     definition.dependencies,
-    128,
     "identity_or_path",
   );
   const allowedPaths = uniqueStrings(
     definition.allowedPaths,
-    128,
     "repository_path",
   );
   const conflictKeys = uniqueStrings(
     definition.conflictKeys,
-    128,
     "identity_or_path",
   );
   if (

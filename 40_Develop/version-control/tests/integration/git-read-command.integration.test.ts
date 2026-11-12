@@ -10,40 +10,100 @@
  */
 import assert from "node:assert/strict";
 import childProcess, { execFileSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { devNull } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runGitReadCommand } from "../../src/git/read.ts";
 import {
-  readWorkingChanges,
-  stagePaths,
-} from "../../src/repository/working-directory.ts";
-import { readFileDiff } from "../../src/repository/changes.ts";
-import {
-  readTree,
-  readFile,
-  commitChanges,
-  unstagePaths,
-  type FileReadRequest,
-  type WorkingFile,
-  type PathsRequest,
   type ChangesCommitRequest,
   type ChangesResult,
+  commitChanges,
+  type FileReadRequest,
+  type PathsRequest,
+  readCommitDiff,
+  readFile,
+  readTree,
+  unstagePaths,
+  type WorkingFile,
 } from "../../src/index.ts";
+import { readFileDiff } from "../../src/repository/changes.ts";
+import { readRepositoryEntries } from "../../src/repository/discovery.ts";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
 } from "../../src/repository/location.ts";
-import { runGitReadCommand } from "../../src/git/read.ts";
-import { readRepositoryEntries } from "../../src/repository/discovery.ts";
+import {
+  readWorkingChanges,
+  stagePaths,
+} from "../../src/repository/working-directory.ts";
 
 const repository = path.resolve(
   fileURLToPath(new URL("../../../..", import.meta.url)),
 );
 const testsRoot = path.join(repository, ".crdd", "tests");
 const emptyConfig = process.platform === "win32" ? "NUL" : devNull;
+
+/**
+ * 表示と現在File読取りの旧容量上限を超える正常内容を確認する。
+ * @responsibility 容量で切詰め・拒否せず、現在内容とCommit差分を区別する。
+ * @trace RFD-IT-005 RFD-IT-008
+ * @precondition Repository-localの自己生成Repositoryだけを使う。
+ * @stimulus 1MiB超の通常Fileと256KiB超の差分を公開入口で読む。
+ * @observation 全内容、差分末尾、返却fieldと元HEAD。
+ * @oracle 全内容が返り、旧切詰めfieldを公開しない。
+ * @cleanup 自己生成Rootの実体と範囲を確認して回収する。
+ * @boundary 実Gitと通常File。Git Object上限・Process出力上限は変更しない。
+ */
+test("現在Fileと差分表示は旧容量上限だけで拒否・切詰めしない", (t) => {
+  fs.mkdirSync(testsRoot, { recursive: true });
+  const root = fs.mkdtempSync(path.join(testsRoot, "vc-display-capacity-"));
+  t.after(() => {
+    assert.equal(path.dirname(root), testsRoot);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  git(root, ["init", "--initial-branch=main", "--template="]);
+  git(root, ["config", "user.name", "CRDD Test"]);
+  git(root, ["config", "user.email", "test@example.invalid"]);
+  const content = "a".repeat(1024 * 1024 + 1);
+  fs.writeFileSync(path.join(root, "large.txt"), content);
+  fs.writeFileSync(path.join(root, "patch.txt"), "base\n");
+  git(root, ["add", "--", "large.txt", "patch.txt"]);
+  git(root, ["commit", "-m", "base"]);
+  const base = git(root, ["rev-parse", "HEAD"]).trim();
+  const verified = getRepository(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") throw Error("fixture_root_invalid");
+  const read = readFile(verified.capability, { path: "large.txt" });
+  assert.equal(read.content, content);
+  assert.equal(Object.hasOwn(read, "truncated"), false);
+  const patchContent = `${"changed content for the entire selected file\n".repeat(8000)}TAIL-CAPACITY\n`;
+  fs.writeFileSync(path.join(root, "patch.txt"), patchContent);
+  const diff = readFileDiff(
+    verified.capability,
+    { unregisteredPaths: [] },
+    "patch.txt",
+  );
+  assert.ok(Buffer.byteLength(diff.workingPatch) > 256 * 1024);
+  assert.ok(diff.workingPatch.includes("TAIL-CAPACITY"));
+  assert.equal(Object.hasOwn(diff, "preparedTruncated"), false);
+  assert.equal(Object.hasOwn(diff, "workingTruncated"), false);
+  git(root, ["add", "--", "patch.txt"]);
+  git(root, ["commit", "-m", "changed"]);
+  const commitId = git(root, ["rev-parse", "HEAD"]).trim();
+  const committed = readCommitDiff(verified.capability, {
+    baseCommit: base,
+    commitId,
+    path: "patch.txt",
+  });
+  assert.ok(Buffer.byteLength(committed.patch) > 256 * 1024);
+  assert.ok(committed.patch.includes("TAIL-CAPACITY"));
+  assert.equal(Object.hasOwn(committed, "truncated"), false);
+});
 
 /**
  * 省略BaseでもHEAD・Object形式・安定読取りの拒否条件を維持する。

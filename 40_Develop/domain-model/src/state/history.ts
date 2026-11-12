@@ -18,10 +18,7 @@ import {
   projectDecisionHistory,
 } from "../decision/operations.ts";
 import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
-import {
-  encodeRuntimeStateValue,
-  RUNTIME_STATE_MAXIMUM_BYTES,
-} from "./codec.ts";
+import { encodeRuntimeStateValue } from "./codec.ts";
 import {
   decodeRuntimeDomainSnapshot,
   hasRuntimeStateRecordKeys,
@@ -38,7 +35,7 @@ import {
  * @precondition File実体とRootは物理Ownerが確認する。
  * @postcondition 全行を検証するまで部分結果を返さない。
  * @effect N/A: メモリ内の復号と検査だけ。
- * @failure 容量超過、不正UTF-8、部分行、未知Schema、重複はnull。
+ * @failure 不正UTF-8、部分行、未知Schema、重複はnull。
  * @invariant 容量・破損を行削除で解消せず、履歴をAuthorityへ昇格しない。
  * @boundary 終了履歴の値契約と物理Writer。
  * @security 未検査fieldや任意Pathを許可せず、判断本文を現在のAuthorityへ昇格しない。
@@ -46,8 +43,7 @@ import {
  */
 export function decodeCoordinatorHistoryRows(bytes: unknown) {
   try {
-    if (!Buffer.isBuffer(bytes) || bytes.length > RUNTIME_STATE_MAXIMUM_BYTES)
-      return null;
+    if (!Buffer.isBuffer(bytes)) return null;
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     if (!Buffer.from(text, "utf8").equals(bytes)) return null;
     if (text === "") return Object.freeze([]);

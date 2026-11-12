@@ -8,8 +8,8 @@
  */
 import { createHash } from "node:crypto";
 import {
-  resolveVerifiedRepositoryRoot,
   type Repository,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import type { RepositoryManifest } from "../configuration/types.ts";
 import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
@@ -43,10 +43,10 @@ export function readRepositoryProjectContext(
         status: "blocked",
         reason: "project_context_repository_unavailable",
       });
-    const observed = createFilesystemRepositoryObservationPort(
-      root,
-      1_048_576,
-    ).observeFile("PROJECT_CONTEXT.md");
+    const observed =
+      createFilesystemRepositoryObservationPort(root).observeFile(
+        "PROJECT_CONTEXT.md",
+      );
     if (resolveVerifiedRepositoryRoot(root) !== observedRoot)
       return Object.freeze({
         status: "blocked",

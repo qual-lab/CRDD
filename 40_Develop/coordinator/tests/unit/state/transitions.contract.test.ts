@@ -10,6 +10,10 @@
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
 import type { CoordinatorState } from "../../../../domain-model/src/index.ts";
+import {
+  inspectCoordinatorProjection,
+  isCoordinatorProjectionSemanticallyValid,
+} from "../../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -117,6 +121,73 @@ function stateFor(
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
+/**
+ * 保存量の旧上限を超える初期状態を投影まで接続する。
+ * @responsibility 定義件数・受入条件・Path集合を容量だけで拒否しない。
+ * @trace PRL-UT-006
+ * @precondition 129 Objectiveと1,025 Taskの一意な相関を構築する。
+ * @stimulus 旧512文字超の本文・Pathと129件の集合を同じ状態へ渡す。
+ * @observation 全量の状態・投影と不正入力の拒否を観測する。
+ * @oracle 正常値は全量を保持し、重複IDと同時実行数不正は拒否する。
+ * @cleanup N/A: メモリ内の値のみ。
+ * @boundary 初期状態作成からDomain公開投影の検査。
+ */
+it("状態作成は旧Objective・Task・本文・Path集合上限を復活させない", () => {
+  const criteria = Array.from(
+    { length: 129 },
+    (_, index) => `${index}-${"a".repeat(513)}`,
+  );
+  const longPath = `${"segment/".repeat(75)}source.txt`;
+  const objectives = Array.from({ length: 129 }, (_, index) => ({
+    id: `objective-${index}`,
+    acceptanceCriteria: criteria,
+  }));
+  const tasks = Array.from({ length: 1025 }, (_, index) => ({
+    id: `task-${index}`,
+    objectiveId: `objective-${index % objectives.length}`,
+    dependencies:
+      index === 1024 ? Array.from({ length: 129 }, (_, i) => `task-${i}`) : [],
+    allowedPaths: [
+      longPath,
+      ...Array.from({ length: 128 }, (_, i) => `work/${i}.txt`),
+    ],
+    conflictKeys: Array.from({ length: 129 }, (_, i) => `key-${i}`),
+  }));
+  const input = {
+    taskExecutionSelections: taskExecutionSelections(),
+    projectId: "crdd",
+    milestoneId: "v0.19",
+    repositoryRevision: revision,
+    maximumConcurrency: 5,
+    milestoneAcceptanceCriteria: criteria,
+    objectives,
+    tasks,
+    ownerGeneration: "owner-1",
+  };
+  const result = createCoordinatorState(input);
+  assert.equal(result.status, "completed");
+  assert.ok(result.state);
+  assert.equal(result.state.objectives.length, 129);
+  assert.equal(result.state.tasks.length, 1025);
+  assert.equal(result.state.tasks[1024]?.definition.allowedPaths[0], longPath);
+  const projection = projectCoordinatorState(result.state);
+  assert.equal(
+    inspectCoordinatorProjection(projection)?.objectiveTaskSummaries.length,
+    129,
+  );
+  assert.equal(isCoordinatorProjectionSemanticallyValid(projection), true);
+  assert.equal(
+    createCoordinatorState({ ...input, maximumConcurrency: 6 }).status,
+    "blocked",
+  );
+  const firstTask = tasks[0];
+  assert.ok(firstTask);
+  assert.equal(
+    createCoordinatorState({ ...input, tasks: [firstTask, firstTask] }).status,
+    "blocked",
+  );
+});
+
 function start(
   state: CoordinatorState,
   taskId: string,
@@ -154,7 +225,7 @@ function start(
 
 /**
  * 通常終端の全結果受領を回復義務へ変換せず固定する。
- * @responsibility 正常・失敗・取消と0／1／2件受領の世代・対象相関を検証する。
+ * @responsibility 正常・失敗・取消と0／1／2／129件受領の世代・対象相関を検証する。
  * @trace PRL-UT-006
  * @precondition 純粋モデルの開始済みTaskを使用する。
  * @stimulus 終端候補へ受領集合を記録し、欠落・重複・別Attemptと再入場を与える。
@@ -200,18 +271,15 @@ it("通常結果の受領集合はTask終端と初回受領世代を維持する
       ).state,
       state,
     );
-    for (const count of [1, 2]) {
+    for (const count of [1, 2, 129]) {
       const groups =
         count === 1
           ? [acceptance]
-          : [
-              acceptance,
-              {
-                ...acceptance,
-                recoveryId: "recovery-b",
-                resultId: "c".repeat(64),
-              },
-            ];
+          : Array.from({ length: count }, (_, index) => ({
+              ...acceptance,
+              recoveryId: `recovery-${index}`,
+              resultId: (index + 1).toString(16).padStart(64, "0"),
+            }));
       const recorded = recordProjectTaskResultAcceptances(
         state,
         running.generation,
@@ -223,6 +291,46 @@ it("通常結果の受領集合はTask終端と初回受領世代を維持する
       assert.equal(recorded.state.tasks[0]?.state, outcome);
       assert.deepEqual(recorded.state.tasks[0]?.recoveryObligations, []);
       assert.equal(recorded.state.tasks[0]?.resultAcceptances.length, count);
+      if (count === 129) {
+        assert.equal(
+          recordProjectTaskResultAcceptances(
+            state,
+            running.generation,
+            "task-a",
+            groups.map((entry, index) =>
+              index === 128
+                ? { ...entry, settlementGeneration: state.generation + 1 }
+                : entry,
+            ),
+          ).status,
+          "blocked",
+        );
+        assert.equal(
+          recordProjectTaskResultAcceptances(
+            state,
+            running.generation,
+            "task-a",
+            [...groups, groups[128]],
+          ).status,
+          "blocked",
+        );
+        const uncleanState = {
+          ...state,
+          tasks: state.tasks.map((entry) => ({
+            ...entry,
+            cleanupConfirmed: false,
+          })),
+        };
+        assert.equal(
+          recordProjectTaskResultAcceptances(
+            uncleanState,
+            running.generation,
+            "task-a",
+            groups,
+          ).status,
+          "blocked",
+        );
+      }
       assert.equal(
         hasProjectTaskResultAcceptanceConflict(state, recorded.state),
         false,

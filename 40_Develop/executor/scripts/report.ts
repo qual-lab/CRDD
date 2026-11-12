@@ -9,7 +9,6 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const MAX_RECORD_BYTES = 262_144;
 const COMMIT_SUFFIX = ".crdd-commit.json";
 const TEMP_PREFIX = ".crdd-pending-";
 const DELETE_PREFIX = ".crdd-delete-";
@@ -149,7 +148,7 @@ function exactKeys(value: unknown, keys: readonly string[]) {
 /**
  * Stable Fileを読み取る。
  *
- * @responsibility Stable Fileの読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility Stable Fileの読取り元と読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string
  * @returns readStableFileの計算結果を返す。
@@ -164,12 +163,7 @@ function exactKeys(value: unknown, keys: readonly string[]) {
  */
 function readStableFile(file: string) {
   const before = fs.lstatSync(file, { bigint: true });
-  if (
-    !before.isFile() ||
-    before.isSymbolicLink() ||
-    before.size <= 0n ||
-    before.size > BigInt(MAX_RECORD_BYTES)
-  )
+  if (!before.isFile() || before.isSymbolicLink() || before.size <= 0n)
     throw new Error("docker_task_recovery_record_invalid");
   const serialized = fs.readFileSync(file, "utf8");
   const after = fs.lstatSync(file, { bigint: true });
@@ -368,7 +362,7 @@ function writeIntentAnchor(anchor: string, value: unknown) {
 /**
  * Intent Anchorを読み取る。
  *
- * @responsibility Intent Anchorの読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility Intent Anchorの読取り元と読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns readIntentAnchorの計算結果を返す。
@@ -680,7 +674,7 @@ export function writeReport(
 /**
  * 確定JSONを読み取る。
  *
- * @responsibility 確定JSONの読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility 確定JSONの読取り元と読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string、expectedLogicalKey
  * @returns VerificationReportを返す。

@@ -12,14 +12,12 @@ import {
   updateCredentialPresentationState,
 } from "../credential/presentation.ts";
 import { createCredentialMaterial } from "../credential/token.ts";
+import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
   CURRENT,
-  CURRENT_LIMIT,
-  hash,
   PENDING,
-  PENDING_LIMIT,
   present,
   publishState,
   REPLACE,
@@ -28,7 +26,6 @@ import {
   settlePending,
   writeExclusive,
 } from "../storage/store.ts";
-import { locked } from "../storage/lock.ts";
 import type {
   AccessManagementState,
   StateStoreResult,
@@ -444,37 +441,6 @@ export function createInitialAdministrator(
       if (!serialize(expected).equals(current.bytes))
         throw new Error("initial_baseline_conflict");
       expected.revision = 2;
-      expected.operationId = "eeeeeeee-eeee-4eee-beee-eeeeeeeeeeee";
-      const reservedUserId = "ffffffff-ffff-4fff-bfff-ffffffffffff";
-      expected.users = [
-        {
-          userId: reservedUserId,
-          username,
-          role: "administrator",
-        },
-      ];
-      expected.initialization = {
-        stage: "user_stored",
-        attemptId,
-        userId: reservedUserId,
-      };
-      const reservation = serialize(expected);
-      const pendingReservation = serialize({
-        contract: "crdd-access-management/pending",
-        schemaRevision: 1,
-        kind: "initialization",
-        baseRevision: current.state.revision,
-        baseSha256: hash(current.bytes),
-        nextRevision: expected.revision,
-        nextSha256: hash(reservation),
-        operationId: expected.operationId,
-        nextSnapshot: expected,
-      });
-      if (
-        reservation.byteLength > CURRENT_LIMIT ||
-        pendingReservation.byteLength > PENDING_LIMIT
-      )
-        throw new Error("initial_user_capacity");
       const userId = crypto.randomUUID();
       const operationId = crypto.randomUUID();
       if (
@@ -614,43 +580,6 @@ export function createInitialCredential(
       )
         throw new Error("initial_user_conflict");
       expected.revision = 3;
-      expected.operationId = "eeeeeeee-eeee-4eee-beee-eeeeeeeeeeee";
-      expected.credentials = [
-        {
-          credentialId: "f".repeat(24),
-          userId: user.userId,
-          tokenVersion: 1,
-          tokenSalt: "f".repeat(32),
-          tokenVerifier: "f".repeat(64),
-          revoked: false,
-          operationId: attemptId,
-          presentation: "not_attempted",
-        },
-      ];
-      expected.initialization = {
-        stage: "credential_stored",
-        attemptId,
-        userId: user.userId,
-        initialCredentialId: "f".repeat(24),
-        confirmationCredentialId: "f".repeat(24),
-      };
-      const reservation = serialize(expected);
-      const pendingReservation = serialize({
-        contract: "crdd-access-management/pending",
-        schemaRevision: 1,
-        kind: "initialization",
-        baseRevision: current.state.revision,
-        baseSha256: hash(current.bytes),
-        nextRevision: 3,
-        nextSha256: hash(reservation),
-        operationId: expected.operationId,
-        nextSnapshot: expected,
-      });
-      if (
-        reservation.byteLength > CURRENT_LIMIT ||
-        pendingReservation.byteLength > PENDING_LIMIT
-      )
-        throw new Error("initial_credential_capacity");
       const operationId = crypto.randomUUID();
       if (
         !ATTEMPT_UUID.test(operationId) ||
@@ -661,18 +590,25 @@ export function createInitialCredential(
         throw new Error("uuid_collision");
       const material = createCredentialMaterial();
       expected.operationId = operationId;
-      expected.credentials[0] = {
+      expected.credentials = [
+        {
+          userId: user.userId,
+          tokenVersion: 1,
+          revoked: false,
+          operationId: attemptId,
+          presentation: "not_attempted",
+          credentialId: material.credentialId,
+          tokenSalt: material.tokenSalt,
+          tokenVerifier: material.tokenVerifier,
+        },
+      ];
+      expected.initialization = {
+        stage: "credential_stored",
+        attemptId,
         userId: user.userId,
-        tokenVersion: 1,
-        revoked: false,
-        operationId: attemptId,
-        presentation: "not_attempted",
-        credentialId: material.credentialId,
-        tokenSalt: material.tokenSalt,
-        tokenVerifier: material.tokenVerifier,
+        initialCredentialId: material.credentialId,
+        confirmationCredentialId: material.credentialId,
       };
-      expected.initialization.initialCredentialId = material.credentialId;
-      expected.initialization.confirmationCredentialId = material.credentialId;
       const parsed = parseAccessManagementState(serialize(expected));
       if (parsed.status !== "parsed")
         throw new Error("initial_credential_invalid");

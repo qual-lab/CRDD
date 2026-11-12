@@ -1,5 +1,9 @@
 # MCP Transportアーキテクチャ
 
+## 回復結果の集合搬送 — 2026-11-12
+
+Coordinatorの正常な回復ID／義務の集合は、公開結果の捕捉で独自128件上限を設けず全件返す。個々のID形式、義務種別、未知field・Getter／Proxy拒否、一意性、両集合のexact対応と結果のCleanup／Effect相関は維持する。これは結果DTOの件数拒否の撤去であり、MCP受信量・Tool要求Schema・認証／認可の拡大ではない。
+
 ## 継続判断のState接続 — 2026-11-12
 
 `crdd.submit_decision`はDomain所有のv2操作契約へ接続する。`operation`はrequest／answer／apply／closeの閉集合で、対象Project・Milestone・元世代・Repository Revisionを共通に搬送する。要求には明示blockerId・Queue・質問・表示選択肢に対応する値、回答には選択と任意comment、閉鎖にはinvalidatedと理由を指定する。同じ問題への再提案は同じblockerIdと新しいdecisionIdを使い、判断IDからBlockerを推測しない。判断の期限は設けず、旧lifetimeMs・expiresAt・expiredは未知入力として拒否する。回答先Principalは現在の認証ContextからCoordinatorへ搬送し、Tool入力で指定しない。再提案でも元回答先との一致をDomainの同Owner内で確認する。
@@ -344,7 +348,7 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 本人表示の別責務として、通常Resolverは`crdd.get_current_access`を提供する。空の閉入力でAM `readCurrentAccess`をfresh一回だけ呼び、通常三Roleすべてへ提供する。結果はcompleted／revision／user／contentAccess／permittedRepositories、拒否・不明はunavailableとAMの固定理由だけ。managementOperations、他User、資格、Root／Bindingは返さない。管理四read／六保存の認可とは混同しない。初回限定Handlerとserver/discoverは不変更。developerは18、manager／administratorは28。Workspace二操作を含む現在集合であり、旧16／26は追加前の局所履歴である。Repository登録はMCP非公開であり、登録用Toolを加算しない。旧25／29は本人Tool追加前の局所履歴である。
 
-非鍵管理の閉結果投影はAM `management/result.ts`へ移し、MCP固有のenvelope・isError・固定説明・最終UTF-8 16 MiB上限だけを本Adapterへ残す。Workbench直接呼出しでも同じ投影を用い、意味変換を二重管理しない。出力上限超過のmanagement_response_too_largeはMCPが所有し、AM結果へ混ぜない。
+非鍵管理の閉結果投影はAM `management/result.ts`へ移し、MCP固有のenvelope・isError・固定説明だけを本Adapterへ残す。Workbench直接呼出しでも同じ投影を用い、意味変換を二重管理しない。旧16MiBの出力容量拒否とmanagement_response_too_largeは撤去し、完了した管理結果を量だけで未取得へ置換しない。MCP受信本文の上限は別契約として維持する。
 
 状態: 非鍵管理の十操作はAM Resolverと公開Launcherへ接続済み。Repository登録はWorkbenchだけに採用済みであり、MCPのSource／Schema／一覧／dispatchに追加しない。この事項の現在判断待ちはない。Workbenchは専門APIへ直接接続する。正式評価と後続E2Eの未確認範囲は保持し、鍵とHost操作の非公開境界は不変更。
 
@@ -365,7 +369,7 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 Tool一覧では要求時の現在通常認証に基づきmanager／administratorへ採用した管理Tool集合を表示し、developer、初回限定、管理Context未構成には管理操作を追加しない。本人一Toolだけは通常三Roleへ提供する。managerへ一覧表示してもadministratorを含むRole変更・登録・内容設定は許可されず、call時のAM判定を維持する。旧Local／stdioの固定依存へ自動追加しない。Context二操作、Topic／Meeting十二操作、活動一操作、Workspace二操作と本人一操作を合わせdeveloperは18、manager／administratorは非鍵管理十操作を加えて28となる。Repository登録はWorkbench限定であり、MCPの一覧・Schema・dispatchには存在しない。
 
-四読取りは別々の現在改訂である。Role内容読取りはmanagerへadministrator行を補完せず、User読取りはmanagerによるadministrator名前管理の既存範囲を保持する。公開範囲のnull（設定なし）と空配列（明示範囲0）を区別する。内部DTOのkind・bindingId・Path・資格は公開しない。拒否・観測／清掃／解放不明を空一覧にしない。非鍵管理応答はJSON-RPC最終ObjectのUTF-8で16 MiB以下とし、超過は固定未取得として全体を拒否する。部分一覧、暗黙Paging、新Inventoryは作らず、他のToolへこの局所上限を一律適用しない。
+四読取りは別々の現在改訂である。Role内容読取りはmanagerへadministrator行を補完せず、User読取りはmanagerによるadministrator名前管理の既存範囲を保持する。公開範囲のnull（設定なし）と空配列（明示範囲0）を区別する。内部DTOのkind・bindingId・Path・資格は公開しない。拒否・観測／清掃／解放不明を空一覧にしない。非鍵管理応答は検査済みの全結果をJSON-RPCへ搬送し、独自byte上限・部分一覧・暗黙Paging・新Inventoryを設けない。
 
 公開結果は次の閉Unionとする。表にないfieldを追加せず、管理状態Root、登録Root、Binding、資格・秘密、例外本文、内部Recovery参照を返さない。JSON-RPC入力不正は既存`-32602`、開始前／終了後取消は既存`-32800`であり、以下のAM実行結果と混同しない。
 
@@ -374,7 +378,6 @@ Tool一覧では要求時の現在通常認証に基づきmanager／administrato
 | 管理読取り成功 | `status: completed`、`revision`（1以上のsafe integer）、上表Tool固有の`users`／`roles`／`repositories`配列だけ |
 | 管理読取り拒否 | `status: unavailable`、`reason: management_read_rejected`だけ。AM認証／参照拒否を同じ結果へ閉じる |
 | 管理読取り不明 | `status: unavailable`、`reason: management_read_unavailable`だけ。観測・材料清掃・Lock終了の不明を空一覧にしない |
-| 応答上限超過 | `status: unavailable`、`reason: management_response_too_large`だけ。部分配列なし |
 | 保存成功 | `status: completed`、`operationId`、`expectedRevision`、`revision`、操作別`userId`または`repositoryId`、`publication: confirmed`、`cleanupConfirmed: true`。Role内容保存のuserIdはnull |
 | 保存拒否 | `status: rejected`、`reason: management_request_rejected`だけ。認可前・対象不明・改訂競合を区別開示しない |
 | 認可後保存未完了 | `status: unavailable`、`reason: management_operation_unavailable`、`operationId`、`expectedRevision`、`observedRevision`（safe integerまたはnull）、`publication`（not_attempted／unconfirmed／confirmed）、`cleanupConfirmed`（boolean）、`primaryFailure`（下表の閉enum） |
@@ -402,7 +405,7 @@ Tool一覧では要求時の現在通常認証に基づきmanager／administrato
 
 実装の責務配置は`src/tools/access-management.ts`（十Toolの閉入力・現在通常認証・AM委譲・閉結果）、`request/server.ts`（一覧／SDK登録）と`request/authentication.ts`（Header資格の要求専用構成）とする。外部Consumerは既存Package Rootの`createAccessMcpResolver`と`createMcpServerFactory`を使い、新たなCapability barrelや管理Storeを追加しない。Repository登録を含めない採用済みTool集合の配置であり、正式評価・後続E2Eは未完了として保持する。
 
-上記の閉結果Unionは、既存Tool応答方式と同じ`structuredContent`へ置く。`content`は秘密・入力・内部理由を複製しない固定説明だけ、`isError`は管理結果がcompleted以外ならtrueとする。外側のJSON-RPC／Protocol metadataは既存契約を保持し、16 MiBはその最終応答全体で検査する。Schema不正や取消等のProtocol errorを、管理結果のstructuredContentへ混在させない。
+上記の閉結果Unionは、既存Tool応答方式と同じ`structuredContent`へ置く。`content`は秘密・入力・内部理由を複製しない固定説明だけ、`isError`は管理結果がcompleted以外ならtrueとする。外側のJSON-RPC／Protocol metadataは既存契約を保持する。Schema不正や取消等のProtocol errorを、管理結果のstructuredContentへ混在させない。Runtime／OS自体のメモリ・文字列限界は残り、致命的OOMや終了時の応答返却は保証しない。
 
 ### 3.4. 初回Host設定の非公開境界
 
@@ -463,7 +466,7 @@ Remote CROSのProject Context MCPは、同じ`/mcp` Protocolを使うが認証Ow
 - `tools/list`も許可済みHandlerから返し、Remote Project Context入口でTask／Objective操作を暗黙公開しない。
 - 共有配置でもMCP Listenerはloopback限定とし、同一Hostの外部TLS終端から`/mcp`へ直接配送する。CROS RESTの`/v1/...`と専用Shared Gatewayは設けない。WorkbenchとMCPを同一Originに固定しない。
 - `mcp-server.json`のHTTPS公開Originと公開Host、TLS終端の確定Header、許可Originを検証する。TLS終端はClient由来のForwarded Headerを除去して上書きし、内部接続からの偽装を防ぐHost配置が確認できない場合は公開しない。認証後はAccess Managementが要求毎の現在認可を確認し、Local直接呼出しと同じ制約を用いる。鍵操作を除く公開能力だけを接続する。
-- 非秘密設定は起動Repositoryの`.crdd/config/mcp-server.json`。現在の閉Schemaは任意の`publicOrigin`文字列だけで、空ObjectまたはFile不存在はlocalhost既定とする。`--cros`明示時だけ読み、Host設定や資格を含めない。例は[配布設定](../../../template/.crdd/config/mcp-server.example.json)。重複・余剰field、不正UTF-8、16KiB超過、観測時のDirectory／File link、取得時File Identity不一致、取得済みDescriptorのサイズ・mtime不一致は固定拒否にする。通常localhostとstdioは設定の存在で共有へ切り替えない。portは既存CLI引数が所有する。公開Originは案内URL、内部Listener URLは運用・試験の観測用として区別する。 これは起動時Snapshotの検査で、取得後のPath／Directory不変を保証しない。配置Ownerが設定変更と再起動を管理する。
+- 非秘密設定は起動Repositoryの`.crdd/config/mcp-server.json`。現在の閉Schemaは任意の`publicOrigin`文字列だけで、空ObjectまたはFile不存在はlocalhost既定とする。`--cros`明示時だけ読み、Host設定や資格を含めない。例は[配布設定](../../../template/.crdd/config/mcp-server.example.json)。16KiBの独自容量拒否と固定Bufferを撤去し、開いたFileの観測sizeまで全量を読み取る。重複・余剰field、不正UTF-8、Directory／File link、取得時File Identity不一致、Descriptorのsize・mtime不一致、read／close異常は固定拒否にする。通常localhostとstdioは設定の存在で共有へ切り替えない。portは既存CLI引数が所有する。公開Originは案内URL、内部Listener URLは運用・試験の観測用として区別する。これは起動時Snapshotの検査で、取得後のPath／Directory不変を保証しない。HTTP／MCP受信量・Credential形式・許可Originは変更しない。配置Ownerが設定変更と再起動を管理する。
 - Bearer TokenはRequest Headerからだけ受け取り、CLI引数、環境変数、共有設定、Repositoryまたはlogへ保存しない。公開証明書の管理はTLS終端の運用責務であり、MCP Transportは証明書Authorityを所有しない。
 - MCP Server停止は自身の受付停止、Request取消、Application join、Listener／Socket回収と終了結果までを一つの終了条件とし、親Processの標準入力終了でも同じ経路を通る。WorkbenchやTLS終端の終了を所有しない。旧Gateway終了試験だけでこの新しい公開経路の終了を証明しない。
 

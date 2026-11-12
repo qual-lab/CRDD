@@ -10,13 +10,66 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  createExecution,
   completeExecution,
+  createExecution,
+  type ExecutionQuery,
+  getExecution,
   listExecutions,
   summarizeExecutions,
-  type ExecutionQuery,
 } from "../../src/index.ts";
-import { fixture, startedAt, completion } from "../fixtures/store.ts";
+import { completion, fixture, startedAt } from "../fixtures/store.ts";
+
+/**
+ * 長い本文と大きいMetadataを保存・再読・検索で同じ契約へ接続する。
+ * @trace ERP-IT-007
+ * @precondition fixtureが所有する新品Storeだけを使う。
+ * @stimulus 8193文字のcontext・値、65field、129文字keyと同量の不正形を渡す。
+ * @observation 現行記録と検索母集合、Schema・NULの拒否。
+ * @oracle 各経路で量だけを再拒否せず不正型は拒否する。
+ * @cleanup fixtureの既存hookがexact Rootを回収する。
+ */
+test("長い記録とMetadataは保存後も全量検索できる", (t) => {
+  const s = fixture(t);
+  const application = "a".repeat(8193);
+  const metadata = Object.fromEntries(
+    Array.from({ length: 65 }, (_, index) => [
+      `key-${index}-${"k".repeat(129)}`,
+      `value-${index}-${"v".repeat(8193)}`,
+    ]),
+  );
+  assert.equal(
+    createExecution(s, {
+      executionId: "large-record",
+      startedAt,
+      application,
+      metadata,
+    }).status,
+    "completed",
+  );
+  const observed = getExecution(s, "large-record");
+  assert.equal(observed.status, "completed");
+  if (observed.status === "completed") {
+    assert.equal(observed.value?.application, application);
+    assert.deepEqual({ ...observed.value?.metadata }, metadata);
+  }
+  const found = listExecutions(s, { application, metadata });
+  assert.equal(found.status, "completed");
+  if (found.status === "completed") assert.equal(found.value.total, 1);
+  assert.equal(
+    createExecution(s, {
+      executionId: "invalid-nul",
+      startedAt,
+      metadata: { note: "x\0" },
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    listExecutions(s, {
+      metadata: { invalid: {} },
+    } as unknown as ExecutionQuery).status,
+    "blocked",
+  );
+});
 /** 複数記録の絞込み・ページと全母集合の集計値を対照し、入力履歴を変更しない。
  * @trace ERP-IT-007
  */

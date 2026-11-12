@@ -451,24 +451,24 @@ test("閉集合と参照・相関の負例", () => {
 });
 
 /**
- * raw byteの上限とUTF-8異常を検証する。
- * @responsibility 再serializeで空白を落として容量検査を迂回しない。
+ * 旧容量上限の撤去とUTF-8異常を検証する。
+ * @responsibility 容量による拒否を行わず、内容・文字コード検査を保持する。
  * @trace RFD-UT-028
  * @precondition 16 MiB境界にJSONの末尾空白を足す。
- * @stimulus 上限ちょうど・上限+1、壊れたUTF-8、非byte、ProxyとbyteLength accessorを与える。
+ * @stimulus 旧上限ちょうど・旧上限+1、壊れたUTF-8、非byte、ProxyとbyteLength accessorを与える。
  * @observation statusと固定reasonを確認する。
- * @oracle 境界はparsed、超過はtoo_large、壊れた符号化はencoding_invalid、非byteはinput_invalid。Proxy／accessorを実行しない。
+ * @oracle 旧境界・超過ともparsed、壊れた符号化はencoding_invalid、非byteはinput_invalid。Proxy／accessorを実行しない。
  * @cleanup N/A: 所有メモリだけ。
- * @boundary N/A: bounded File Readerとは別の純粋検査。
+ * @boundary N/A: File Readerとは別の純粋検査。
  */
-test("容量の正確なbyte境界とUTF-8", () => {
+test("旧容量上限を超える有効JSONとUTF-8", () => {
   const json = Buffer.from(JSON.stringify(createBaseline()));
   const boundary = Buffer.alloc(16_777_216, 32);
   json.copy(boundary);
   assert.equal(parseAccessManagementState(boundary).status, "parsed");
   assert.deepEqual(
     parseAccessManagementState(Buffer.concat([boundary, Buffer.from(" ")])),
-    { status: "invalid", reason: "state_too_large" },
+    { status: "parsed", state: createBaseline() },
   );
   assert.deepEqual(parseAccessManagementState(new Uint8Array([0xc3, 0x28])), {
     status: "invalid",

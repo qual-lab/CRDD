@@ -22,7 +22,7 @@ import {
   queryPlan,
   queryTasks,
   type RuntimeAccess,
-  readStableBoundedFileSnapshot,
+  readStableFileSnapshot,
   savePlan,
   updateTask,
 } from "../../src/index.ts";
@@ -489,14 +489,14 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
       };
       const fixture = createRuntimeStorageSourceFixture(undefined, {
         fs: hostFs,
-        readStableBoundedFileSnapshot: (
-          ...args: Parameters<typeof readStableBoundedFileSnapshot>
+        readStableFileSnapshot: (
+          ...args: Parameters<typeof readStableFileSnapshot>
         ) => {
           if (mode === "readback" && renamed && String(args[0]) === file) {
             injected++;
             throw Error("synthetic_readback");
           }
-          return readStableBoundedFileSnapshot(...args);
+          return readStableFileSnapshot(...args);
         },
         acquireRuntimeStateLock: (
           ...args: Parameters<typeof acquireRuntimeStateLock>

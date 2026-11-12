@@ -151,10 +151,9 @@ function assertReadonlyTiming(input: unknown) {
   };
   const value = record(
     input,
-    "limit,dropped,subscriptionsClosed,loopDelay,clients,servers,owners",
+    "observationFailures,subscriptionsClosed,loopDelay,clients,servers,owners",
   );
-  assert.equal(value.limit, 512);
-  integer(value.dropped);
+  integer(value.observationFailures);
   assert.equal(value.subscriptionsClosed, true);
   if (value.loopDelay !== null) {
     const delay = record(value.loopDelay, "expectedAt,observedAt,delayMs");
@@ -164,7 +163,7 @@ function assertReadonlyTiming(input: unknown) {
   }
   for (const kind of ["clients", "servers", "owners"] as const) {
     const rows = value[kind];
-    assert.ok(Array.isArray(rows) && rows.length <= 512);
+    assert.ok(Array.isArray(rows));
     for (const row of rows) {
       const r = record(
         row,
@@ -220,14 +219,13 @@ function assertReadonlyTiming(input: unknown) {
 /**
  * 計測summaryの閉じた形を不正値から反証する。
  * @trace ERB-IT-021
- * @stimulus 余分field・未知段階・経路・method、負数・過大配列・解除未確認。
+ * @stimulus 余分field・未知段階・経路・method、負数・旧容量境界超過・解除未確認。
  * @oracle 正常値と明示的な欠測だけ受理し、自由文字列を拒否する。
  * @cleanup 値だけで実資源なし。
  */
-test("読取り計測summaryは閉じた型と上限・欠測を検査する", () => {
+test("読取り計測summaryは閉じた型と欠測を検査し容量で拒否しない", () => {
   const value = {
-    limit: 512,
-    dropped: 0,
+    observationFailures: 0,
     subscriptionsClosed: true,
     loopDelay: null,
     clients: [
@@ -265,9 +263,13 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
     ],
   };
   assertReadonlyTiming(value);
+  assertReadonlyTiming({
+    ...value,
+    clients: Array(513).fill(value.clients[0]),
+  });
   for (const invalid of [
     { ...value, secret: "synthetic-secret" },
-    { ...value, dropped: -1 },
+    { ...value, observationFailures: -1 },
     { ...value, subscriptionsClosed: false },
     { ...value, loopDelay: { expectedAt: 1, observedAt: 3, delayMs: 1 } },
     {
@@ -279,7 +281,6 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
         text: "synthetic-secret",
       },
     },
-    { ...value, clients: Array(513).fill(value.clients[0]) },
     ...[
       { stage: "synthetic-secret" },
       { method: "synthetic-secret" },
@@ -1546,7 +1547,8 @@ test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬�
           assert.equal(options.timeout, 20_000);
           if (fault === "failure")
             throw new Error("synthetic_capacity_or_transport_failure");
-          if (args[0] === "ps") return `${id(10)}\n`;
+          if (args[0] === "ps")
+            return data.containers.map((item) => item.Id).join("\n");
           if (args[0] === "network" && args[1] === "ls")
             return data.networks.map((n) => n.Id).join("\n");
           if (fault === "json") return "{";
@@ -1558,6 +1560,30 @@ test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬�
     );
   const baseline = run(raw());
   assert.ok(baseline);
+  const many = raw();
+  const container = many.containers[0];
+  const network = many.networks[3];
+  assert.ok(container && network);
+  many.containers = Array.from({ length: 257 }, (_, index) => ({
+    ...container,
+    Id: id(1000 + index),
+    Name: `/container-${index}`,
+  }));
+  many.networks = [
+    ...many.networks.slice(0, 3),
+    ...Array.from({ length: 257 }, (_, index) => ({
+      ...network,
+      Id: id(2000 + index),
+      Name: `network-${index}`,
+    })),
+  ];
+  const all = run(many);
+  assert.equal(all?.containers.length, 257);
+  assert.equal(all?.networks.length, 260);
+  assert.equal(
+    assessVerificationDockerInventory(all, all, true).status,
+    "verified",
+  );
   const changed = raw();
   const bridge = changed.networks[0];
   assert.ok(bridge);

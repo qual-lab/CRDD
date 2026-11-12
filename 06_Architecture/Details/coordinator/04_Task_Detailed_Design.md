@@ -720,7 +720,7 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 回復開始の失敗は、既存の受動的な境界通知 `coordinator_provider_recovery_start_failed` で固定段階だけを伝える。段階は入力検査、操作Context、Provider Home、Home排他、操作結合、状態競合、開始保存、終了処理結合、Host受付、Home排他解放、判定不能の閉集合とする。回復IDは取得・照合済みの場合だけ同じexact値を使用し、取得前はnullとする。任意例外本文、Path、Capability、認証情報、Provider生出力を通知しない。
 
 - 通知は回復開始失敗につき一回。通知の欠落・拒否・例外は公開Task結果、Effect許可、清掃条件を変更しない。通常の現在状態・履歴Schemaへ診断を追加しない。
-- Workspace実AI検証Toolだけが既存stderrの当該通知を最大16件・一書込み4096 bytesで取得し、既存の安全な結果JSONへ保存する。他の出力は保持せず、分割通知を再構成しない。
+- Workspace実AI検証Toolだけが既存stderrの当該通知を件数・一通知byte数で切り詰めず取得し、既存の安全な結果JSONへ保存する。他の出力は保持せず、単一行・Schema・相関の検査を維持し、分割通知を再構成しない。子Process全体の出力上限は別契約として維持する。
 - Provider・役割・試行・操作ID・Task相関・回復IDを既存の耐久操作と全照合できた場合だけ `captured` とする。耐久操作への完全帰属ができずTask相関だけ確認できる場合は `task_only` とし、操作確定とは扱わない。
 - 欠測、不正、超過、取得器利用不能を区別する。取得器の元stderrへの復元が確認できなければToolの終了確認は不成立とし、同Processでは再設置しない。
 
@@ -732,7 +732,7 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 
 - 診断は候補取得の固定分類、候補／申告Path件数、一致結果と既存の非秘密実行観測だけ。Path・Command・Provider本文・例外本文を含めない。欠測はnullであり、件数零や成功へ補完しない。
 - 操作ID・Provider・Executor役割・試行0／1・Task相関は既存Ownerから結合する。通知の同期例外・非同期拒否・欠落は元結果を変更しない。実行観測の閉形式検査は`execution/result.ts`を共用する。
-- Workspace検証Toolは既存collector一つで回復開始と候補拒否を取得し、両診断の欠測・不正・上限を別々に返す。上限16件・一書込み4096 bytes・元stderrの透過と終了時復元を維持する。
+- Workspace検証Toolは既存collector一つで回復開始と候補拒否を取得し、両診断の欠測・不正を区別して返す。診断取得の16件・一通知4096 bytes上限は撤去し、元stderrの透過と終了時復元、相関・重複・Schema検査を維持する。
 - 現在操作の全Identityが一致する場合だけ`captured`。操作履歴の操作ID・Task相関だけ一致する場合は`task_history_only`とし、履歴にないProvider・役割・試行を推定しない。別相関・重複・欠測・観測不能を完全帰属へ昇格しない。
 - 同一操作・Taskの複数Stage履歴は、既存Decoderで検査した回復IDが相互に異なる場合に限り履歴相関として受け入れる。同じ回復IDの重複は拒否する。両診断のJSONは既存の曖昧性拒否Parserで読み、eventの完全一致と閉形式を検査する。
 - 通知は診断であり、実AI成功・変更成立・資源終了・実行許可の根拠ではない。過去の保持物へ診断を補完せず、元失敗の一意原因を遡及確定しない。

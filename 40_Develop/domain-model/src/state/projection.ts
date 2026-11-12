@@ -6,17 +6,19 @@
  * @trace ARCH-000008
  * @boundary Domain値と利用側の入力・公開結果。
  */
+
+import type { ProjectTaskState } from "../task/types.ts";
 import type {
   CoordinatorProjection,
   CoordinatorStateQueryResult,
 } from "./projection-types.ts";
-import type { ProjectTaskState } from "../task/types.ts";
+import { COORDINATOR_STATE_QUERY_CONTRACT } from "./query.ts";
 import {
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
   validId,
 } from "./validation.ts";
-import { COORDINATOR_STATE_QUERY_CONTRACT } from "./query.ts";
+
 /**
  * 公開照会と同じGit改訂の字句境界を検査する。
  * @responsibility 値の形式だけを判定し、実Gitの現在性を保証しない。
@@ -24,8 +26,6 @@ import { COORDINATOR_STATE_QUERY_CONTRACT } from "./query.ts";
  */
 const validRevision = (value: unknown): value is string =>
   typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
-export const COORDINATOR_MAXIMUM_OBJECTIVES = 128;
-export const COORDINATOR_MAXIMUM_TASKS = 1024;
 export const PROJECT_OBJECTIVE_STATES = Object.freeze([
   "planned",
   "executing",
@@ -132,9 +132,9 @@ function validReason(value: unknown): value is string {
  *
  * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000004
- * @input value: unknown、states: readonly T[]、maximum: number
+ * @input value: unknown、states: readonly T[]
  * @returns Readonly<Record<T, number>> | nullを返す。
- * @precondition 「value: unknown、states: readonly T[]、maximum: number」がcountSnapshotの入力契約を満たす。
+ * @precondition 「value: unknown、states: readonly T[]」がcountSnapshotの入力契約を満たす。
  * @postcondition countSnapshotの責務を完了した結果だけを返す。
  * @effect N/A: countSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: countSnapshotは独自の失敗分岐を所有しない。
@@ -146,7 +146,6 @@ function validReason(value: unknown): value is string {
 function countSnapshot<T extends string>(
   value: unknown,
   states: readonly T[],
-  maximum: number,
 ): Readonly<Record<T, number>> | null {
   const record = snapshotRuntimeStateRecord(value, new Set(states));
   if (!record) return null;
@@ -156,7 +155,7 @@ function countSnapshot<T extends string>(
     const count = record[state];
     if (!Number.isSafeInteger(count) || Number(count) < 0) return null;
     total += Number(count);
-    if (!Number.isSafeInteger(total) || total > maximum) return null;
+    if (!Number.isSafeInteger(total)) return null;
     entries.push([state, Number(count)]);
   }
   return Object.freeze(Object.fromEntries(entries)) as Readonly<
@@ -188,16 +187,11 @@ export function inspectCoordinatorProjection(
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
     OBJECTIVE_STATES,
-    COORDINATOR_MAXIMUM_OBJECTIVES,
   );
-  const taskCounts = countSnapshot(
-    record.taskCounts,
-    TASK_STATES,
-    COORDINATOR_MAXIMUM_TASKS,
-  );
+  const taskCounts = countSnapshot(record.taskCounts, TASK_STATES);
   const rawSummaries = snapshotRuntimeStateArray(
     record.objectiveTaskSummaries,
-    COORDINATOR_MAXIMUM_OBJECTIVES,
+    Number.MAX_SAFE_INTEGER,
   );
   if (!objectiveCounts || !taskCounts || rawSummaries.status !== "ok")
     return null;
@@ -208,11 +202,7 @@ export function inspectCoordinatorProjection(
       raw,
       new Set(["objectiveId", "objectiveState", "taskCounts"]),
     );
-    const counts = countSnapshot(
-      summary?.taskCounts,
-      TASK_STATES,
-      COORDINATOR_MAXIMUM_TASKS,
-    );
+    const counts = countSnapshot(summary?.taskCounts, TASK_STATES);
     if (
       !summary ||
       !validId(summary.objectiveId) ||
@@ -360,31 +350,24 @@ export function inspectCoordinatorStateQueryResult(
 export function isCoordinatorProjectionSemanticallyValid(
   projection: CoordinatorProjection,
 ) {
-  const boundedTotal = <T extends string>(
+  const countTotal = <T extends string>(
     counts: Readonly<Record<T, number>>,
     states: readonly T[],
-    maximum: number,
   ) => {
     let total = 0;
     for (const state of states) {
       const value = counts[state];
-      if (!Number.isSafeInteger(value) || value < 0 || value > maximum)
-        return null;
+      if (!Number.isSafeInteger(value) || value < 0) return null;
       total += value;
-      if (!Number.isSafeInteger(total) || total > maximum) return null;
+      if (!Number.isSafeInteger(total)) return null;
     }
     return total;
   };
-  const objectiveTotal = boundedTotal(
+  const objectiveTotal = countTotal(
     projection.objectiveCounts,
     PROJECT_OBJECTIVE_STATES,
-    COORDINATOR_MAXIMUM_OBJECTIVES,
   );
-  const taskTotal = boundedTotal(
-    projection.taskCounts,
-    PROJECT_TASK_STATES,
-    COORDINATOR_MAXIMUM_TASKS,
-  );
+  const taskTotal = countTotal(projection.taskCounts, PROJECT_TASK_STATES);
   if (objectiveTotal === null || taskTotal === null) return false;
   if (objectiveTotal < 1 || taskTotal < 1) return false;
   if (
@@ -401,17 +384,12 @@ export function isCoordinatorProjectionSemanticallyValid(
     PROJECT_TASK_STATES.map((state) => [state, 0]),
   ) as Record<ProjectTaskState, number>;
   for (const summary of projection.objectiveTaskSummaries) {
-    const summaryTotal = boundedTotal(
-      summary.taskCounts,
-      PROJECT_TASK_STATES,
-      COORDINATOR_MAXIMUM_TASKS,
-    );
+    const summaryTotal = countTotal(summary.taskCounts, PROJECT_TASK_STATES);
     if (summaryTotal === null || summaryTotal < 1) return false;
     for (const state of PROJECT_TASK_STATES) {
       const next =
         mutableSummarizedTaskCounts[state] + summary.taskCounts[state];
-      if (!Number.isSafeInteger(next) || next > COORDINATOR_MAXIMUM_TASKS)
-        return false;
+      if (!Number.isSafeInteger(next)) return false;
       mutableSummarizedTaskCounts[state] = next;
     }
   }

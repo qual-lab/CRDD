@@ -9,8 +9,8 @@
  * @boundary PRL-UT-006=N/A: 現在入場・回復観測を固定公開理由／DTOへ投影する純粋値境界。外部実行境界・処置Authorityを持たない。
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import fs from "node:fs";
+import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 
@@ -156,6 +156,64 @@ function observation(overrides: Record<string, unknown> = {}) {
 
 const one = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const two = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
+
+/**
+ * 回復参照と対応するHome集合を旧256件を超えて公開投影する。
+ * @responsibility 集合量の拒否だけを撤去し識別・単数相関・所属検査を維持する。
+ * @trace PRL-UT-006
+ * @precondition 一意な257件の正規Recovery IDとHome Hashを生成する。
+ * @stimulus 全量集合と重複・非所属Hash・単数IDの矛盾を投入する。
+ * @observation 投影された全IDの順序と不正時の値非公開。
+ * @oracle 正常集合は保持し不正集合は回復不可分類へ閉じる。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary 回復観測の純粋投影。実回復を実行しない。
+ */
+test("回復観測は257件を保持しHash所属と単数相関を検査する", () => {
+  const hashes = Array.from({ length: 257 }, (_, index) =>
+    (index + 1).toString(16).padStart(64, "0"),
+  );
+  const ids = hashes.map(
+    (hash) => `docker-task.${hash}.${"2".repeat(64)}.${"3".repeat(64)}`,
+  );
+  const candidate = observation({
+    reason: "docker_task_multiple_recovery_inventory_available",
+    manualRecoveryRequired: true,
+    dockerRecoveryIds: ids,
+    activeStableLogicalHomeBindingHashes: hashes,
+  });
+  assert.deepEqual(projectDockerRecoveryAdmission(candidate), {
+    status: "blocked",
+    reason: "docker_process_controller_recovery_conflict",
+    manualRecoveryRequired: true,
+    dockerRecoveryId: null,
+    dockerRecoveryIds: ids,
+  });
+  for (const invalid of [
+    {
+      ...candidate,
+      activeStableLogicalHomeBindingHashes: [...hashes, "f".repeat(64)],
+    },
+    {
+      ...candidate,
+      activeStableLogicalHomeBindingHashes: [...hashes, hashes[0]],
+    },
+    { ...candidate, dockerRecoveryIds: [...ids, ids[0]] },
+    { ...candidate, dockerRecoveryId: ids[0] },
+    {
+      ...candidate,
+      dockerRecoveryIds: [ids[0]],
+      activeStableLogicalHomeBindingHashes: [hashes[0]],
+    },
+  ]) {
+    assert.deepEqual(projectDockerRecoveryAdmission(invalid), {
+      status: "blocked",
+      reason: "docker_process_controller_recovery_unavailable",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: [],
+    });
+  }
+});
 
 /**
  * production Recovery inventory形状はcleanだけをTask Admissionへ通すを検証する。

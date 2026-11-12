@@ -58,7 +58,7 @@ export function inspectWorkbenchPublicOrigin(
  * @returns 公開Originだけの閉じた非秘密構成。
  * @precondition CLIが--crosを明示した後だけ呼ぶ。資格やHost管理Rootを読まない。
  * @postcondition 不存在以外の観測不能・余剰・重複field・不正Originを拒否する。
- * @effect 検証済みRoot内の固定設定Fileを上限16KiBで読み、所有Descriptorを閉じる。
+ * @effect 検証済みRoot内の固定設定Fileを全量読み、所有Descriptorを閉じる。
  * @failure 固定設定例外で停止し、単体fallbackや設定修復をしない。
  * @invariant 設定の存在は利用mode・認証・外部Bindを変更しない。
  * @boundary Repository-local非秘密設定とServer起動構成。
@@ -97,8 +97,7 @@ export async function readWorkbenchServerConfiguration(
       }
       throw error;
     }
-    if (!before.isFile() || before.isSymbolicLink() || before.size > 16384)
-      throw new Error("invalid");
+    if (!before.isFile() || before.isSymbolicLink()) throw new Error("invalid");
     const handle = await fs.open(file, "r");
     try {
       const opened = await handle.stat();
@@ -109,8 +108,18 @@ export async function readWorkbenchServerConfiguration(
         opened.mtimeMs !== before.mtimeMs
       )
         throw new Error("invalid");
-      const buffer = Buffer.alloc(16385);
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+      const buffer = Buffer.alloc(opened.size);
+      let bytesRead = 0;
+      while (bytesRead < buffer.length) {
+        const chunk = await handle.read(
+          buffer,
+          bytesRead,
+          buffer.length - bytesRead,
+          bytesRead,
+        );
+        if (chunk.bytesRead === 0) throw new Error("invalid");
+        bytesRead += chunk.bytesRead;
+      }
       const after = await handle.stat();
       if (
         bytesRead !== opened.size ||

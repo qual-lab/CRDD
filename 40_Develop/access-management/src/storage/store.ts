@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import {
   type FilesystemStoreRoot,
-  readStableBoundedFileSnapshot,
+  readStableFileSnapshot,
   resolveFilesystemStorePath,
 } from "../../../domain-model/src/index.ts";
 import { locked } from "./lock.ts";
@@ -21,10 +21,6 @@ export const CURRENT = "access-management.json";
 export const PENDING = "access-management.pending.json";
 
 export const REPLACE = "access-management.replace.json";
-
-export const CURRENT_LIMIT = 16_777_216;
-
-export const PENDING_LIMIT = 17_825_792;
 
 const HASH = /^[a-f0-9]{64}$/u;
 
@@ -128,23 +124,22 @@ export function present(root: FilesystemStoreRoot, name: string): boolean {
 
 /**
  * 現在状態を完全検査して読み取る。
- * @responsibility 既存bounded Readerと状態parserを組み合わせる。
+ * @responsibility 既存Readerと状態parserを組み合わせる。
  * @trace ARCH-000013
  * @input RootCapability。
  * @returns 完全状態と正確なbyte。
  * @precondition 同じ用途限定Rootと既存排他を使用する内部保存Ownerだけが呼び出す。
  * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
- * @effect 上限付きFile読取りとdescriptor開閉。
- * @failure 不在・破損・容量超過・Root差は停止する。
+ * @effect File読取りとdescriptor開閉。
+ * @failure 不在・破損・Root差は停止する。
  * @invariant 不在を未初期化へ変換しない。
  * @boundary 保存RootとUTF-8状態。
  * @security Snapshot・Verifier・salt・内部Pathを外部応答や例外本文へ出さない。
  * @concurrency 同じLock内だけで読む。
  */
 export function readCurrent(root: FilesystemStoreRoot) {
-  const snapshot = readStableBoundedFileSnapshot(
+  const snapshot = readStableFileSnapshot(
     resolveFilesystemStorePath(root, CURRENT),
-    CURRENT_LIMIT,
   );
   const parsed = parseAccessManagementState(snapshot.bytes);
   if (parsed.status !== "parsed")
@@ -160,7 +155,7 @@ export function readCurrent(root: FilesystemStoreRoot) {
  * @returns 検査済み包絡と次状態byte。
  * @precondition 同じ用途限定Rootと既存排他を使用する内部保存Ownerだけが呼び出す。
  * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
- * @effect 上限付きpending読取り。
+ * @effect pending読取り。
  * @failure 未知field・Hash差・改訂差・不正状態は停止する。
  * @invariant 旧形式の推測や補完をしない。
  * @boundary 短命包絡と現在Schema。
@@ -168,9 +163,8 @@ export function readCurrent(root: FilesystemStoreRoot) {
  * @concurrency 同じLock内で読む。
  */
 function readPending(root: FilesystemStoreRoot) {
-  const bytes = readStableBoundedFileSnapshot(
+  const bytes = readStableFileSnapshot(
     resolveFilesystemStorePath(root, PENDING),
-    PENDING_LIMIT,
   ).bytes;
   const raw: unknown = JSON.parse(
     new TextDecoder("utf-8", { fatal: true }).decode(bytes),
@@ -312,9 +306,8 @@ export function settlePending(
     hash(current.bytes) === pending.nextSha256;
   if (published) recordPublication();
   if (hasReplace) {
-    const replacement = readStableBoundedFileSnapshot(
+    const replacement = readStableFileSnapshot(
       resolveFilesystemStorePath(root, REPLACE),
-      CURRENT_LIMIT,
     ).bytes;
     if (!replacement.equals(nextBytes))
       throw new Error("state_store_replace_invalid");
@@ -498,25 +491,13 @@ export function publishState(
       next,
       kind,
     );
-    if (
-      nextBytes.byteLength > CURRENT_LIMIT ||
-      pendingBytes.byteLength > PENDING_LIMIT
-    )
-      return {
-        status: "unavailable",
-        reason: "state_store_capacity_exceeded",
-        publication,
-        revision,
-        cleanupConfirmed: true,
-      };
     writeExclusive(root, PENDING, pendingBytes);
     if (!readPending(root).nextBytes.equals(nextBytes))
       throw new Error("pending_invalid");
     writeExclusive(root, REPLACE, nextBytes);
     if (
-      !readStableBoundedFileSnapshot(
+      !readStableFileSnapshot(
         resolveFilesystemStorePath(root, REPLACE),
-        CURRENT_LIMIT,
       ).bytes.equals(nextBytes)
     )
       throw new Error("replace_invalid");
@@ -559,7 +540,7 @@ export function publishState(
 
 /**
  * 現在byteと次状態から同じ出版材料を構築する。
- * @responsibility 容量予約と実出版で同じbyte表現を使う。
+ * @responsibility 次状態と出版包絡で同じbyte表現を使う。
  * @trace ARCH-000013
  * @input 完全現在byte・次状態・処置種別。
  * @returns 所有済みnext／pending bytes。

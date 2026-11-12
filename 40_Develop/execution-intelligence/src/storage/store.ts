@@ -6,25 +6,25 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { acquireHistoryLock } from "./lock.ts";
-import {
-  recordObject,
-  assertRecordFields,
-  snapshot,
-  assertId,
-  validRecordId,
-  validateExecution,
-  validateGroup,
-} from "../record/validation.ts";
 import { applyRecord, retainRecords } from "../record/operations.ts";
 import type {
   Execution,
   ExecutionGroup,
   ReadResult,
+  Records,
   StoreOptions,
   WriteResult,
-  Records,
 } from "../record/types.ts";
+import {
+  assertId,
+  assertRecordFields,
+  recordObject,
+  snapshot,
+  validateExecution,
+  validateGroup,
+  validRecordId,
+} from "../record/validation.ts";
+import { acquireHistoryLock } from "./lock.ts";
 
 /** v3 JSONLの一行。確定履歴は種別ごとのIDを一意にし、旧Schemaを混在させない。 */
 type Row =
@@ -39,8 +39,6 @@ type Row =
       value: ExecutionGroup;
     }>;
 const CONTRACT = "execution-intelligence/history/v3";
-const MAX_BYTES = 32 * 1024 * 1024;
-const MAX_RECORDS = 10_000;
 
 /** ENOENTだけを不存在にし、権限拒否・観測不能は例外として保存Ownerへ返す。 */
 function exists(file: string): boolean {
@@ -94,11 +92,11 @@ function sameDirectory(store: StoreOptions, original: fs.BigIntStats) {
     throw Error("store_directory_changed");
 }
 /**
- * descriptor取得前後に同じ通常File・上限を照合し、固定長だけ読む。
+ * descriptor取得前後に同じ通常Fileを照合し、固定長だけ読む。
  * @failure 途中変更・短い読取り・終了不明は例外とし、部分byteを正常履歴へ返さない。
  * @postcondition 今回取得したdescriptorをfinallyで閉じる。他のhandleやPathを回収しない。
  */
-function readBoundedFile(
+function readStableFile(
   file: string,
   expectedIdentity?: fs.BigIntStats,
 ): Buffer {
@@ -108,7 +106,6 @@ function readBoundedFile(
     before.isSymbolicLink() ||
     before.nlink !== 1n ||
     before.size < 0n ||
-    before.size > BigInt(MAX_BYTES) ||
     (expectedIdentity &&
       (before.dev !== expectedIdentity.dev ||
         before.ino !== expectedIdentity.ino))
@@ -121,7 +118,6 @@ function readBoundedFile(
       !opened.isFile() ||
       opened.nlink !== 1n ||
       opened.size < 0n ||
-      opened.size > BigInt(MAX_BYTES) ||
       opened.dev !== before.dev ||
       opened.ino !== before.ino ||
       opened.size !== before.size ||
@@ -156,12 +152,11 @@ function readBoundedFile(
 function readHistory(store: StoreOptions): Records {
   const file = path.join(store.directory, "history.jsonl");
   if (!exists(file)) return { executions: [], groups: [] };
-  const bytes = readBoundedFile(file);
+  const bytes = readStableFile(file);
   const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   if (decoded.length && !decoded.endsWith("\n"))
     throw Error("store_history_incomplete");
   const lines = decoded ? decoded.slice(0, -1).split("\n") : [];
-  if (lines.length > MAX_RECORDS) throw Error("store_record_limit");
   const records: Records = { executions: [], groups: [] };
   const ids = new Set<string>();
   for (const line of lines) {
@@ -306,8 +301,6 @@ export function writeRecord(
       const expected = Buffer.from(
         rows.map((row) => `${JSON.stringify(snapshot(row))}\n`).join(""),
       );
-      if (rows.length > MAX_RECORDS || expected.length > MAX_BYTES)
-        throw Error("store_limit_exceeded");
       sameDirectory(store, original);
       if (!lock.lock.assertLive()) throw Error("store_lock_lost");
       const pending = path.join(store.directory, "history.pending.jsonl"),
@@ -324,7 +317,7 @@ export function writeRecord(
         descriptorClosed = true;
       }
       if (
-        !readBoundedFile(pending, pendingIdentity ?? undefined).equals(expected)
+        !readStableFile(pending, pendingIdentity ?? undefined).equals(expected)
       )
         throw Error("store_pending_readback_mismatch");
       sameDirectory(store, original);
@@ -334,7 +327,7 @@ export function writeRecord(
       pendingOwned = false;
       if (
         exists(pending) ||
-        !readBoundedFile(history, pendingIdentity ?? undefined).equals(expected)
+        !readStableFile(history, pendingIdentity ?? undefined).equals(expected)
       )
         throw Error("store_publication_unconfirmed");
       sameDirectory(store, original);

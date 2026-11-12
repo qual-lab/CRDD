@@ -1,5 +1,13 @@
 # QA-000012 実行記録の公開と再利用の検証定義
 
+## EI内部記録・Metadata・Queryの量制約撤去 — 2026-11-12
+
+旧50,000ノード・深度12・文字列8,192・Metadata64field／key128とQueryの同じ量制約を超える正規値を、既存捕捉・保存／再読取り・照会で対照する。既存branch-local ancestors Setによる直接循環拒否を維持し、共有する非循環subtreeは受理する。Proxy／accessor／非plain-data・余分field・不正ID・不正数値を拒否し、ID160・保持日数Policy・ページ取得・共通Lockを変更しない。OS／Nodeの表現可能性やOOM時の結果返却まで保証するものではない。今回自己生成Storeだけを回収し、過去履歴は操作しない。
+
+## 内部履歴の固定容量・総件数制限撤去 — 2026-11-12
+
+既存ERP-IT-001／005の保存試験に、旧32MiBかつ10,000行を超える現行Schema履歴を自己生成し、読取り・追加保存・再読取りと明示ページ指定を確認する反例を接続する。同じ大容量履歴へ未知kindを追加した場合は既存Schema拒否とbyte保全を確認する。記録保持・一意ID・Group参照・実体・Lock・保存不明は維持し、固定容量を外しただけで未解決記録を退役しない。正式項目数・結果を自動更新せず、限定成功を全体QAへ換算しない。
+
 ## v0.22の記録モデルと限定検証 — 2026-11-11
 
 採用済みの[EI再構成](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)に合わせ、現行の局所検証はアプリケーション非依存のExecution／ExecutionGroupを対象とする。正式Source由来のLocal ItemとST／UAT義務は維持し、現EIでの実装・評価がない項目を、別の局所成功で合格へ置換しない。旧永続履歴はフロントAIが別途移行し、本変更の試験で操作しない。
@@ -7,7 +15,7 @@
 | 項目 | 現在の検証義務 | 主な確認先 |
 |---|---|---|
 | `ERP-IT-001`／`ERP-IT-002`／`ERP-IT-003` | 同じIDの開始・終了・同内容再送と異内容競合、複数Process、途中出版・解放不明を区別。未知残存は保全 | EI `execution-intelligence-store.contract.test.ts` |
-| `ERP-IT-005`／`ERP-UT-006` | 旧形式・混在・不正shape・accessor・Proxy・上限・File実体差を拒否。新9操作だけを公開 | EI保存試験・`execution-intelligence.contract.test.ts` |
+| `ERP-IT-005`／`ERP-UT-006` | 旧形式・混在・不正shape・accessor・Proxy・File実体差を拒否し、旧容量・総件数上限を超える有効履歴を受理。新9操作だけを公開 | EI保存試験・`execution-intelligence.contract.test.ts` |
 | `ERP-IT-006` | Group終了が子を終了・成功化せず、未完了・未解決の子と参照Groupを期限整理から保護 | EI `groups.contract.test.ts` |
 | `ERP-IT-007` | 完全一致検索・期間・ページ境界、全対象集計、未観測／非該当／取得済み0、通貨／Credit／報告額／推定額を分離 | EI `query-summary.contract.test.ts` |
 | `ERP-IT-008` | CoordinatorがAI要求直前に開始、下位Completionで時刻を固定、最終Host判定後に同じIDへ一度だけ保存。AI結果とTask結果を混ぜず、記録失敗で実行を止めない | Coordinator `provider-intelligence.contract.test.ts`、既存Controller／Advice有限試験、活動投影試験 |

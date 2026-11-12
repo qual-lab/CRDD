@@ -1,5 +1,5 @@
 /**
- * 読取り検証のHTTP・Owner観測を本文なしで有限計測する。
+ * 読取り検証のHTTP・Owner観測を本文なしで計測する。
  * @responsibility 検証用の要求番号・固定段階・時刻と購読解除だけを所有する。
  * @trace ERB-IT-021
  * @boundary Node HTTP診断通知と同じToolのClient／Owner。Task状態は変更しない。
@@ -26,7 +26,7 @@ type ServerTiming = {
  * 既存の有限な検証Sessionへ時計だけを付加する。
  * @trace ERB-IT-021
  * @effect bind後だけNode診断通知を購読し、disposeで解除する。
- * @failure 欠測・上限超過は件数として残し、元の処理結果を変更しない。
+ * @failure 観測の例外は件数として残し、元の処理結果を変更しない。
  * @concurrency 同じToolの逐次HTTP。Ownerの相関候補が複数ならnullとする。
  * @responsibility createReadonlyVerificationTimingで検証用の要求・観測を搬送する。
  * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
@@ -37,12 +37,11 @@ type ServerTiming = {
  * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
  */
 export function createReadonlyVerificationTiming() {
-  const limit = 512;
   let stage: Stage = "initial";
   let port: number | null = null;
   let bound = false;
   let closed = false;
-  let dropped = 0;
+  let observationFailures = 0;
   let clientOrdinal = 0;
   let serverOrdinal = 0;
   let ownerOrdinal = 0;
@@ -99,10 +98,6 @@ export function createReadonlyVerificationTiming() {
       )
         return;
       serverOrdinal++;
-      if (servers.length >= limit) {
-        dropped++;
-        return;
-      }
       const row = {
         ordinal: serverOrdinal,
         stage,
@@ -113,7 +108,7 @@ export function createReadonlyVerificationTiming() {
       servers.push(row);
       responses.set(response, row);
     } catch {
-      dropped++;
+      observationFailures++;
     }
   };
   /**
@@ -134,7 +129,7 @@ export function createReadonlyVerificationTiming() {
       );
       if (!closed && row) row.finishedAt = Date.now();
     } catch {
-      dropped++;
+      observationFailures++;
     }
   };
   return {
@@ -178,10 +173,6 @@ export function createReadonlyVerificationTiming() {
         const routeKind = routeOf(timing.route);
         if (closed || !routeKind) return;
         clientOrdinal++;
-        if (clients.length >= limit) {
-          dropped++;
-          return;
-        }
         // 固定経路だけを再構成し、Callerの任意fieldは複製しない。
         clients.push({
           ordinal: clientOrdinal,
@@ -200,7 +191,7 @@ export function createReadonlyVerificationTiming() {
           closedAt: timing.closedAt,
         });
       } catch {
-        dropped++;
+        observationFailures++;
       }
     },
     async observeOwner<T>(operation: () => Promise<T>): Promise<T> {
@@ -208,22 +199,19 @@ export function createReadonlyVerificationTiming() {
       try {
         if (!closed) {
           ownerOrdinal++;
-          if (owners.length >= limit) dropped++;
-          else {
-            const active = servers.filter((item) => item.finishedAt === null);
-            row = {
-              ordinal: ownerOrdinal,
-              serverOrdinal:
-                active.length === 1 ? (active[0]?.ordinal ?? null) : null,
-              stage,
-              startedAt: Date.now(),
-              completedAt: null,
-            };
-            owners.push(row);
-          }
+          const active = servers.filter((item) => item.finishedAt === null);
+          row = {
+            ordinal: ownerOrdinal,
+            serverOrdinal:
+              active.length === 1 ? (active[0]?.ordinal ?? null) : null,
+            stage,
+            startedAt: Date.now(),
+            completedAt: null,
+          };
+          owners.push(row);
         }
       } catch {
-        dropped++;
+        observationFailures++;
       }
       try {
         return await operation();
@@ -246,8 +234,7 @@ export function createReadonlyVerificationTiming() {
     snapshot() {
       // 取得時点の投影。dispose前に始まったOwnerの完了時計は後から更新され得る。
       return {
-        limit,
-        dropped,
+        observationFailures,
         subscriptionsClosed: closed && !bound,
         loopDelay: loopDelay === null ? null : { ...loopDelay },
         clients: clients.map((row) => ({ ...row })),

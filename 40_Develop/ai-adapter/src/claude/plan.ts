@@ -10,8 +10,8 @@ import { type BillingPolicy, getBillingPolicy } from "../billing/policy.ts";
 import { snapshotPlainRecord } from "../provider/input.ts";
 
 import type {
-  ProviderModelSelection,
   ProviderAdvicePlan,
+  ProviderModelSelection,
 } from "../provider/plan.ts";
 
 import type { ProviderExecutionLocations } from "../provider/types.ts";
@@ -326,7 +326,7 @@ const FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT =
 const TASK_SETTINGS_PATH = "claude-task-settings.json";
 
 const EXECUTOR_SCHEMA_ARGUMENT =
-  '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
+  '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1},"changedPaths":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"verification":{"type":"array","items":{"type":"string","minLength":1}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
 
 const FIXED_ARGV = Object.freeze([
   "--safe-mode",
@@ -446,18 +446,17 @@ export function planClaudeTaskTurnBudget(
   const workload = snapshotPlainRecord(taskWorkload, TASK_WORKLOAD_KEYS);
   if (!workload || (taskRole !== "executor" && taskRole !== "reviewer"))
     return blocked("claude_task_workload_invalid");
-  for (const [key, minimum, maximum] of [
-    ["readPathCount", 1, 64],
-    ["allowedPathCount", 1, 64],
-    ["acceptanceCriterionCount", 1, 16],
-    ["remediationFindingCount", 0, 64],
+  for (const [key, minimum] of [
+    ["readPathCount", 1],
+    ["allowedPathCount", 1],
+    ["acceptanceCriterionCount", 1],
+    ["remediationFindingCount", 0],
   ] as const) {
     const value = workload[key];
     if (
       typeof value !== "number" ||
-      !Number.isInteger(value) ||
-      value < minimum ||
-      value > maximum
+      !Number.isSafeInteger(value) ||
+      value < minimum
     )
       return blocked("claude_task_workload_invalid");
   }

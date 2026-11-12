@@ -1,8 +1,8 @@
 /**
- * coordinator:integration:bounded-file-snapshotの検証範囲を定義する。
+ * coordinator:integration:file-snapshotの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:integration:bounded-file-snapshotが所有する検証責務を実行する。
+ * @responsibility coordinator:integration:file-snapshotが所有する検証責務を実行する。
  * @trace RFD-IT-008
  * @level IT
  * @scope bounded、file、snapshot
@@ -10,11 +10,10 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { readStableBoundedFileSnapshot } from "../../../domain-model/src/index.ts";
+import { readStableFileSnapshot } from "../../../domain-model/src/index.ts";
 
 /**
  * temporaryFileのTest準備責務を実行する。
@@ -29,35 +28,34 @@ import { readStableBoundedFileSnapshot } from "../../../domain-model/src/index.t
  * @boundary RFD-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
 function temporaryFile(bytes: Buffer) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-bounded-file-"));
+  const base = path.resolve(import.meta.dirname, "../../../../.crdd");
+  fs.mkdirSync(base, { recursive: true });
+  const root = fs.mkdtempSync(path.join(base, "crdd-file-snapshot-"));
   const file = path.join(root, "artifact.exe");
   fs.writeFileSync(file, bytes);
   return { root, file };
 }
 
 /**
- * bounded snapshotは上限exactを同一fdから読み上限+1を拒否するを検証する。
+ * file snapshotは旧容量境界を超える内容も同一fdから読むを検証する。
  *
- * @responsibility bounded snapshotは上限exactを同一fdから読み上限+1を拒否するの合否判定を所有する。
+ * @responsibility file snapshotは旧容量境界を超える内容も同一fdから読むの合否判定を所有する。
  * @trace RFD-IT-008
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus bounded snapshotは上限exactを同一fdから読み上限+1を拒否するの対象操作を実行する。
+ * @stimulus file snapshotは旧容量境界を超える内容も同一fdから読むの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-test("bounded snapshotは上限exactを同一fdから読み上限+1を拒否する", () => {
+test("file snapshotは旧容量境界を超える内容も同一fdから読む", () => {
   const exact = temporaryFile(Buffer.alloc(4096, 0x5a));
   const oversized = temporaryFile(Buffer.alloc(4097, 0x5a));
   try {
-    const snapshot = readStableBoundedFileSnapshot(exact.file, 4096);
+    const snapshot = readStableFileSnapshot(exact.file);
     assert.equal(snapshot.bytes.length, 4096);
     assert.equal(snapshot.identity.size, 4096n);
-    assert.throws(
-      () => readStableBoundedFileSnapshot(oversized.file, 4096),
-      /bounded_file_snapshot_invalid/u,
-    );
+    assert.equal(readStableFileSnapshot(oversized.file).bytes.length, 4097);
   } finally {
     fs.rmSync(exact.root, { recursive: true, force: true });
     fs.rmSync(oversized.root, { recursive: true, force: true });
@@ -65,18 +63,18 @@ test("bounded snapshotは上限exactを同一fdから読み上限+1を拒否す�
 });
 
 /**
- * bounded snapshotは読取り中growthとtruncateを拒否するを検証する。
+ * file snapshotは読取り中growthとtruncateを拒否するを検証する。
  *
- * @responsibility bounded snapshotは読取り中growthとtruncateを拒否するの合否判定を所有する。
+ * @responsibility file snapshotは読取り中growthとtruncateを拒否するの合否判定を所有する。
  * @trace RFD-IT-008
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus bounded snapshotは読取り中growthとtruncateを拒否するの対象操作を実行する。
+ * @stimulus file snapshotは読取り中growthとtruncateを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-test("bounded snapshotは読取り中growthとtruncateを拒否する", () => {
+test("file snapshotは読取り中growthとtruncateを拒否する", () => {
   for (const mutation of ["growth", "truncate"] as const) {
     const value = temporaryFile(Buffer.alloc(4096, 0x31));
     const originalReadSync = fs.readSync;
@@ -105,8 +103,8 @@ test("bounded snapshotは読取り中growthとtruncateを拒否する", () => {
     fs.readSync = replacement as unknown as typeof fs.readSync;
     try {
       assert.throws(
-        () => readStableBoundedFileSnapshot(value.file, 8192),
-        /bounded_file_snapshot_(?:changed|invalid)/u,
+        () => readStableFileSnapshot(value.file),
+        /file_snapshot_(?:changed|invalid)/u,
       );
     } finally {
       fs.readSync = originalReadSync;
@@ -116,18 +114,18 @@ test("bounded snapshotは読取り中growthとtruncateを拒否する", () => {
 });
 
 /**
- * bounded snapshotは同長leaf replacementとparent replacementを拒否するを検証する。
+ * file snapshotは同長leaf replacementとparent replacementを拒否するを検証する。
  *
- * @responsibility bounded snapshotは同長leaf replacementとparent replacementを拒否するの合否判定を所有する。
+ * @responsibility file snapshotは同長leaf replacementとparent replacementを拒否するの合否判定を所有する。
  * @trace RFD-IT-008
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus bounded snapshotは同長leaf replacementとparent replacementを拒否するの対象操作を実行する。
+ * @stimulus file snapshotは同長leaf replacementとparent replacementを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-008=Direct Boundary: coordinator Test Source→対象契約
  */
-test("bounded snapshotは同長leaf replacementとparent replacementを拒否する", () => {
+test("file snapshotは同長leaf replacementとparent replacementを拒否する", () => {
   for (const mutation of ["leaf", "parent"] as const) {
     const value = temporaryFile(Buffer.alloc(4096, 0x41));
     const originalReadSync = fs.readSync;
@@ -163,8 +161,8 @@ test("bounded snapshotは同長leaf replacementとparent replacementを拒否す
     fs.readSync = replacement as unknown as typeof fs.readSync;
     try {
       assert.throws(
-        () => readStableBoundedFileSnapshot(value.file, 8192),
-        /(?:bounded_file_snapshot_changed|EPERM)/u,
+        () => readStableFileSnapshot(value.file),
+        /(?:file_snapshot_changed|EPERM)/u,
       );
     } finally {
       fs.readSync = originalReadSync;

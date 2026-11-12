@@ -469,8 +469,6 @@ test("CLIは明示したローカル要求主体だけを渡し、欠測時に�
 test("統合Rootは業務操作と単発実行の明示公開集合を保持する", () => {
   assert.deepEqual(Object.keys(coordinator).sort(), [
     "COORDINATOR_HUMAN_DECISION_CONTRACT",
-    "COORDINATOR_MAXIMUM_OBJECTIVES",
-    "COORDINATOR_MAXIMUM_TASKS",
     "COORDINATOR_OBJECTIVE_INTAKE_CONTRACT",
     "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
     "acceptResult",

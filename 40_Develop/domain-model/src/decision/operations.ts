@@ -28,13 +28,9 @@ function capture<T>(value: T): T | null {
   }
 }
 
-/** 空白だけの表示・理由と過大な値を拒否する。本文を補完しない。 */
-function text(value: unknown, maximum: number): value is string {
-  return (
-    typeof value === "string" &&
-    value.trim().length > 0 &&
-    value.length <= maximum
-  );
+/** 空白だけの表示・理由を拒否する。本文を補完しない。 */
+function text(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 /** 日時の曖昧なローカル解釈を避け、UTCの正規表記だけを受理する。 */
@@ -55,9 +51,8 @@ function validAnswer(reply: DecisionAnswer): boolean {
       ["resume", "cancel", "accept", "return", "wait"].includes(
         reply.selectedOption,
       ) &&
-      (reply.reason === null || text(reply.reason, 8192)) &&
+      (reply.reason === null || text(reply.reason)) &&
       Array.isArray(reply.evidenceIds) &&
-      reply.evidenceIds.length <= 256 &&
       reply.evidenceIds.every((id) => typeof id === "string" && ID.test(id)) &&
       new Set(reply.evidenceIds).size === reply.evidenceIds.length,
   );
@@ -82,8 +77,10 @@ function validApplication(
       Number.isSafeInteger(applied.afterGeneration) &&
       applied.afterGeneration ===
         applied.beforeGeneration + (waiting ? 0 : 1) &&
-      text(applied.previousState, 128) &&
-      text(applied.nextState, 128) &&
+      text(applied.previousState) &&
+      applied.previousState.length <= 128 &&
+      text(applied.nextState) &&
+      applied.nextState.length <= 128 &&
       typeof applied.blockerResolved === "boolean" &&
       (reply.selectedOption !== "cancel" ||
         applied.nextState === "cancelled") &&
@@ -130,7 +127,7 @@ function validRequest(value: DecisionRequest): boolean {
     !ID.test(value.decisionId) ||
     typeof value.blockerId !== "string" ||
     !ID.test(value.blockerId) ||
-    !text(value.question, 8192) ||
+    !text(value.question) ||
     !time(value.requestedAt) ||
     !validTarget(target) ||
     !Array.isArray(value.options) ||
@@ -153,7 +150,7 @@ function validRequest(value: DecisionRequest): boolean {
         option &&
         Object.keys(option).sort().join() === "label,value" &&
         allowed.includes(option.value) &&
-        text(option.label, 1024),
+        text(option.label),
     )
   );
 }
@@ -228,7 +225,7 @@ export function prepareDecisionAnswer(
     return null;
   const applied = value.application;
   if (applied === null) {
-    if (!text(value.unappliedReason, 1024)) return null;
+    if (!text(value.unappliedReason)) return null;
     return {
       decision: {
         ...request,
@@ -339,7 +336,7 @@ export function prepareDecisionClosure(
     !time(closedAt) ||
     closedAt < value.requestedAt ||
     (value.result && closedAt < value.result.answer.answeredAt) ||
-    !text(reason, 1024)
+    !text(reason)
   )
     return null;
   return { ...value, status, closedAt, closeReason: reason };
@@ -482,7 +479,7 @@ export function inspectDecisionHistoryEvent(
       !isPrincipalId(value.respondentPrincipalId) ||
       !time(value.occurredAt) ||
       !validTarget(value.target) ||
-      !text(value.question, 8192) ||
+      !text(value.question) ||
       !Array.isArray(value.options) ||
       value.options.length < 1 ||
       value.options.length > 3
@@ -501,7 +498,7 @@ export function inspectDecisionHistoryEvent(
           !option ||
           Object.keys(option).sort().join() !== "label,value" ||
           !family.includes(option.value) ||
-          !text(option.label, 1024),
+          !text(option.label),
       )
     )
       return null;
@@ -550,7 +547,7 @@ export function inspectDecisionHistoryEvent(
       } else if (value.answer.answeredAt !== value.occurredAt) return null;
     } else if (value.kind === "decision_invalidated") {
       common.push("reason");
-      if (!text(value.reason, 1024)) return null;
+      if (!text(value.reason)) return null;
     }
     return Object.keys(value).sort().join() === common.sort().join()
       ? value
@@ -585,9 +582,7 @@ export function validateDecisionCollections(
     if (
       !value ||
       !Array.isArray(value.decisions) ||
-      !Array.isArray(value.blockers) ||
-      value.decisions.length > 4096 ||
-      value.blockers.length > 4096
+      !Array.isArray(value.blockers)
     )
       return false;
     const records = value.decisions as Decision[];
@@ -609,7 +604,7 @@ export function validateDecisionCollections(
             : "blockerId,currentDecisionId,kind,reason,status,target") ||
         typeof condition.blockerId !== "string" ||
         !ID.test(condition.blockerId) ||
-        !text(condition.reason, 8192) ||
+        !text(condition.reason) ||
         !["active", "resolved", "cancelled"].includes(condition.status) ||
         !validTarget(condition.target) ||
         !projectIds.includes(condition.target.projectId)

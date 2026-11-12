@@ -1,5 +1,23 @@
 # QA-000006 外部実行境界の検証定義
 
+## Executor検証診断の内部量制約追従 — 2026-11-12
+
+既存単独計測のsummaryは旧2,048byte超でも制御文字・Path・認識済みSecretの検査を維持して一回表示し、本文をLog／Fileへ追加保存しない。実E2E結果の再捕捉はCommand／File変更通知4,097件も非負安全整数として保持するが、Profile固定の呼出し数・開始／終了／取消・Cleanup・元ID相関は緩めない。今回は合成・模擬境界の限定試験であり、実AI・Dockerの再実行は行わない。前段実E2Eの成功を本変更後の実測へ流用しない。
+
+## Claude作業量と診断の後段量制約追従 — 2026-11-12
+
+既存ERB-UT-023でClaude条件16／17件が9／10Turnの候補となり、旧64件超は入力不正でなく実計算のTurn超過として拒否されることを確認する。負・小数・安全整数逸脱・余分fieldは不正のまま、硬上限16と既存計算式は維持する。AIT-UT-005では実Source宣言を局所評価し、1,001Pathの一致・末尾差・不正配列と65所見を対照する。Path診断型の不正件数と、検証Toolの単一Fixture以外のmetadata_invalidも維持する。実AI・Docker・全体回帰は行わず、前段の実E2Eをこの変更後の再実測へ読み替えない。
+
+## Codex結果Schemaの実配布確認 — 2026-11-12
+
+既存ERB-IT-002／004の単独Executor入口で、新固定Task Imageの編集・レビュー・開始後取消を各一回確認する。実Image内のExecutor／Reviewer Schema二Hashと公式実行物三Hashが正本に一致し、各結果のProcess終了・Container／Network不存在・Cleanup・Home解放・終端保存・自己生成Root回収を観測する。レビューのCommand／File変更開始件数はCLI観測として保持し、全Tool不使用の一般保証に拡張しない。実測結果はCHG-000082のCodex新Schema限定E2E記録を参照する。旧容量超の任意量の実AI成立、上位Task全体E2E、Claude再E2Eと全体回帰はこの三ケースから推定しない。
+
+## AI Adapterの受領済み結果量と内容検査の分離 — 2026-11-12
+
+既存`ERB-UT-023`でTaskの1001件超Path・1024文字超Path、33件の検証、65件の所見、長い要約／所見、17番以降の基準番号と正の安全整数境界を確認する。助言は公開計画から同じ公開Parserへ1025許可参照、65項目、17根拠と旧容量超の本文を両Providerの合成Envelopeで搬送する。Codex／Claudeの結果Schemaから任意の最大量だけを撤去し、閉Schema、Path逸脱、重複・未許可参照、所見とdecisionの矛盾は拒否する。
+
+既存`ERB-UT-032`で4097件のJSONL通知を含む正常Task／Adviceと、旧64KiB・8KiB・128行を超える異常出力を対照する。大きい既知説明は元の固定理由を保持し、同量の未知説明は一般失敗とする。NUL・重複JSON Key・未知イベント・通常回答の不採用、stderr／Claude subtypeの優先順位と生本文非公開を維持する。Codex boolean Probeの容量契約、既知警告文面の分類条件、Process出力量・Transport入力・Timeout・Turn Budget・課金条件は変更しない。純粋試験の成功を実Provider・実Docker・全体回帰の成立へ換算しない。
+
 ## 終了記録の版付け是正に必要な限定確認 — 2026-11-11
 
 既存ERB-IT-003／014のDomain runtime-settlement ITと、Coordinator現在状態Host Caseで、資源未受領の終了が正しい次改訂・前Hashで保存され、履歴・配送・元結果・回復参照へ接続されることを確認する。資源記録あり、元版差、偽Context、再利用、Reader／Writer故障と解放不明の拒否は維持する。改訂の局所UT成功を物理保存・実Host又は実Dockerの成功へ換算しない。全体回帰・実AI・Docker・過去保持物は対象外とする。
@@ -991,8 +1009,8 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 - 回復開始診断の型・固定段階・失敗通知はCoordinatorに存在し、Executor製品Sourceに残らない。上位Reporterへ直接報告し、Workbench／Coordinator検証ツールは同じCoordinator検査正本で未知値・余分field・別相関を拒否する。
 - 上位で記録確定後にHomeを取得する。競合・未開始記録保存の失敗でも同じ回復参照を保持し、未開始を清掃完了へ変換しない。
 - モデル入力はexact五項目の不変コピーを経てAI Adapterの既存Resolverへ四項目だけを渡し、identifierKindを含む一致とCatalog Identity非搬送を確認する。独自のModel／Effort列挙を持たない。
-- 基本形の一正本をHome取得前と完全構成照合前に使う。三用途・編集／レビューの正規構成、操作・Grant・選定・Offering・Mount・資源Identity・Home四Hash・九Command順序の負例を確認する。本文128KiB受理／超過拒否、Path禁止文字、Advice Hash差、Command argv差は完全照合の独立した負例とする。不正基本形では下位Session開始零を観測する。単一Command開始・契約説明は試験入口だけに存在し、通常Rootと製品Runtime接続に露出しない。構成診断の固定event・fieldと秘密非搬送、任意通知失敗の非波及を維持する。
-- 助言参照はAI Adapterの同じ入力ParserをExecutor準備と内容検査で利用する。256・257・1024件の受理と1025件拒否、512／513byte、周辺空白・重複・sparse・symbol・accessor・Proxy拒否、元値変更後の不変性を確認する。不正入力の乱数・Home・隔離Runtime構築は零。Setup理由Mapは継承名を拒否し、未知用途を固定fallbackへ閉じる。
+- 基本形の一正本をHome取得前と完全構成照合前に使う。三用途・編集／レビューの正規構成、操作・Grant・選定・Offering・Mount・資源Identity・Home四Hash・九Command順序の負例を確認する。本文128KiB超も受理し、Path禁止文字、Advice Hash差、Command argv差は完全照合の独立した負例とする。不正基本形では下位Session開始零を観測する。単一Command開始・契約説明は試験入口だけに存在し、通常Rootと製品Runtime接続に露出しない。構成診断の固定event・fieldと秘密非搬送、任意通知失敗の非波及を維持する。
+- 助言参照はAI Adapterの同じ入力ParserをExecutor準備と内容検査で利用する。256・257・1024・1025件と513byte超参照の受理、周辺空白・重複・sparse・symbol・accessor・Proxy拒否、元値変更後の不変性を確認する。不正入力の乱数・Home・隔離Runtime構築は零。Setup理由Mapは継承名を拒否し、未知用途を固定fallbackへ閉じる。
 - 必須の通知はvoid／Promise<void>を待ち、throw／reject時は次の新規Effectを出さず技術回収する。任意onCompleted／onDiagnosticの例外を結果へ伝播しない。
 - 開始済みProcessの同期技術signalと公開非同期通知を区別する。公開通知pending中も技術回収は一回進むが、Parserは零回、completionは未確定。resolve後だけParser一回、遅いreject・取消ならParser零回・同じID・技術回収事実を保持する。不正Provider結果を即時通知成功と遅延成功の両経路へ流し、理由・一次故障・結果本文・Hash・byte数・清掃を含む同一結果とParser各一回を確認する。
 - 上位終端保存throw／非同期rejectではTask成功を返さず、技術的に解放済みのHomeを未解放へ戻さない。七つの必須通知を欠落させたSource変異も拒否する。

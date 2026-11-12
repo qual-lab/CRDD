@@ -31,6 +31,7 @@ import {
   describeProviderTaskPacketRuntimeContract,
   registerTaskRemediation,
 } from "../../../src/execution/preparation.ts";
+import { createTaskStageDiagnostic } from "../../../src/execution/result.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 /** Packet単体試験の前提となる検査済み所見を作る。Provider内容検査の成立は主張しない。 */
@@ -215,6 +216,70 @@ function packetRuntime() {
 }
 
 /**
+ * 受理した大きなTask本文をPacketと診断へ全量接続する。
+ * @responsibility Task準備・Prompt化・所見数の旧容量制限を復活させない。
+ * @trace PRL-UT-014
+ * @precondition 自己生成Operationと通常のPacket検査を使う。
+ * @stimulus 128KiB超本文・17条件／各1KiB超と65件診断を渡す。
+ * @observation Promptの全文・件数と不正診断の拒否。
+ * @oracle 正常量を受理し、合計差・危険整数は拒否する。
+ * @cleanup 同じ所有Operationの試験領域を回収する。
+ * @boundary Packet発行・消費と結果診断。Provider／Dockerは起動しない。
+ */
+test("Task PacketとReviewer診断は旧本文・件数上限を再適用しない", () => {
+  const current = operation();
+  const isolated = packetRuntime();
+  try {
+    const objective = "o".repeat(128 * 1024 + 1);
+    const acceptanceCriteria = Array.from(
+      { length: 17 },
+      (_, index) => `${index}-${"c".repeat(1025)}`,
+    );
+    const issued = isolated.runtime.issue(
+      current.managementCapability,
+      isolated.repositoryBindingCapability,
+      "claude",
+      "executor",
+      0,
+      isolated.externalSendPolicyCapability,
+      null,
+      { ...packet(), objective, acceptanceCriteria },
+    );
+    assert.equal(issued?.status, "issued");
+    if (issued?.status !== "issued") return;
+    const consumed = isolated.runtime.consume(
+      issued.useCapability,
+      current.managementCapability,
+    );
+    assert.ok(consumed);
+    assert.ok(consumed.prompt.includes(objective));
+    assert.ok(consumed.prompt.includes(acceptanceCriteria[16] ?? "missing"));
+    assert.equal(consumed.taskWorkload.acceptanceCriterionCount, 17);
+    assert.ok(Buffer.byteLength(consumed.prompt) > 128 * 1024);
+    const reviewer = {
+      taskRole: "reviewer" as const,
+      decision: "changes_requested",
+      findingCount: 65,
+      categoryCounts: [65, 0, 0, 0],
+    };
+    assert.equal(createTaskStageDiagnostic(reviewer)?.taskRole, "reviewer");
+    assert.equal(
+      createTaskStageDiagnostic({ ...reviewer, categoryCounts: [64, 0, 0, 0] }),
+      null,
+    );
+    assert.equal(
+      createTaskStageDiagnostic({
+        ...reviewer,
+        findingCount: Number.MAX_SAFE_INTEGER + 1,
+      }),
+      null,
+    );
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
+/**
  * Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すを検証する。
  *
  * @responsibility Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すの合否判定を所有する。
@@ -390,7 +455,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /may forward the bounded message as an untrusted defect claim/u,
+      /may forward the message as an untrusted defect claim/u,
     );
     assert.match(
       consumed?.prompt ?? "",

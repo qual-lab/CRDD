@@ -650,9 +650,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.bounded-file-snapshot",
+      "symbolId": "coordinator.test.integration.file-snapshot",
       "kind": "test-suite",
-      "path": "tests/integration/bounded-file-snapshot.contract.test.ts",
+      "path": "tests/integration/file-snapshot.contract.test.ts",
       "qaIds": [
         "QA-000007"
       ],

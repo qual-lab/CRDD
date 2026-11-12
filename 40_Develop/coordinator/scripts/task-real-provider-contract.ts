@@ -546,7 +546,6 @@ function parseKnownDiagnosticLine(
       parsed.speedMode.length > 32 ||
       typeof parsed.selectionReason !== "string" ||
       parsed.selectionReason.length < 1 ||
-      parsed.selectionReason.length > 16_384 ||
       parsed.inputBasis !==
         "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight" ||
       !Array.isArray(attributes) ||

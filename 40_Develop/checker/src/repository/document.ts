@@ -992,12 +992,8 @@ export function inspectDocumentRepository(
     root,
     requested_scope: requestedScopes.map(relative),
     expanded_scope:
-      requestedScopes.length === 0
-        ? ["."]
-        : markdownFiles.slice(0, 100).map(relative),
+      requestedScopes.length === 0 ? ["."] : markdownFiles.map(relative),
     expanded_scope_file_count: markdownFiles.length,
-    expanded_scope_truncated:
-      requestedScopes.length > 0 && markdownFiles.length > 100,
     global_checks: [
       "canonical document versions",
       "current bilingual release and migration-note completeness",

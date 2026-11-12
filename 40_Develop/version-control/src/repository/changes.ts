@@ -1,17 +1,15 @@
 /**
  * 選択FileのIndex／作業内容の差分を固定Git実装から読み取る。
- * @responsibility 原本・Pathの確認、差分の区分、出力上限と観測不能時の拒否を所有する。
+ * @responsibility 原本・Pathの確認、差分の区分と観測不能時の拒否を所有する。
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
-import { isCommitId, isCommitPath } from "./commit.ts";
-import type { CommitDiffRequest, CommitDiff, FileDiff } from "./types.ts";
+
 import { runGitReadCommand } from "../git/read.ts";
-import { resolveVerifiedRepositoryRoot, type Repository } from "./location.ts";
-
+import { isCommitId, isCommitPath } from "./commit.ts";
 import { readRepositoryPaths, validateRelativePath } from "./files.ts";
-
-const MAX_PATCH_BYTES = 256 * 1024;
+import { type Repository, resolveVerifiedRepositoryRoot } from "./location.ts";
+import type { CommitDiff, CommitDiffRequest, FileDiff } from "./types.ts";
 
 /**
  * Git Commandを固定Repository Rootで実行する。
@@ -45,38 +43,30 @@ function readPatchBytes(
 }
 
 /**
- * Patchを固定上限へ切り詰め、UTF-8 Textへ変換する。
+ * Gitから取得したPatch全体をUTF-8 Textへ変換する。
  *
- * @responsibility Git出力を公開上限内へ切り詰め、切詰め有無とTextを同時に返す。
+ * @responsibility 取得した差分を独自の表示容量で切り詰めず返す。
  * @trace ARCH-000002
  * @trace ARCH-000009
  * @input bytes: Gitから得たPatch Buffer。
- * @returns UTF-8 Textと切詰め状態。
+ * @returns 取得したPatch全体のUTF-8 Text。
  * @precondition bytesは現在のGit Process出力である。
- * @postcondition textの元Byte数は固定上限以下である。
+ * @postcondition 取得済みの差分を途中で欠落させない。
  * @effect N/A: Bufferを読取るだけである。
  * @failure N/A: Buffer入力だけを扱う。
- * @invariant 切詰め時はisTruncated=trueを返す。
+ * @invariant 容量だけを理由に差分を不完全な表示へ変換しない。
  * @boundary Git Byte出力とWorkbench Diff Textの境界。
- * @security 上限を超える出力をMemoryへ複製しない。
+ * @security Path・外部変換の制限は読取りOwnerが保持する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function patchText(
-  bytes: Buffer,
-): Readonly<{ text: string; truncated: boolean }> {
-  const isTruncated = bytes.byteLength > MAX_PATCH_BYTES;
-  return Object.freeze({
-    text: new TextDecoder("utf-8").decode(
-      isTruncated ? bytes.subarray(0, MAX_PATCH_BYTES) : bytes,
-    ),
-    truncated: isTruncated,
-  });
+function patchText(bytes: Buffer): string {
+  return new TextDecoder("utf-8").decode(bytes);
 }
 
 /**
  * 選択FileのPrepared／Working差分を観測する。
  *
- * @responsibility Treeで選択した一Fileの差分区分と切詰め状態を公開する。
+ * @responsibility Treeで選択した一Fileの差分区分と取得した差分全体を公開する。
  * @trace ARCH-000009
  * @input capability、変更Path集合、選択Pathを受け取る。
  * @returns Prepared／Working Patchと未追跡状態を返す。
@@ -126,10 +116,8 @@ export function readFileDiff(
     ]),
   );
   const patch = {
-    preparedPatch: prepared.text,
-    workingPatch: working.text,
-    preparedTruncated: prepared.truncated,
-    workingTruncated: working.truncated,
+    preparedPatch: prepared,
+    workingPatch: working,
   };
   return Object.freeze({
     path: selectedPath,
@@ -161,8 +149,6 @@ export function readCommitDiff(
     "--",
     request.path,
   ]);
-  if (bytes.length > MAX_PATCH_BYTES)
-    throw Error("commit_diff_observation_unavailable");
   const patch = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   return {
     baseCommit: request.baseCommit,
@@ -170,6 +156,5 @@ export function readCommitDiff(
     path: request.path,
     binary: patch.includes("Binary files "),
     patch,
-    truncated: false,
   };
 }

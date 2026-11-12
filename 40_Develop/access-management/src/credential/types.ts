@@ -248,7 +248,6 @@ export type KeyExchangeResult =
         | "read"
         | "pending"
         | "candidate"
-        | "capacity"
         | "generation"
         | "prepare"
         | "publish"
@@ -295,7 +294,6 @@ export type KeyExchangeCompletionResult =
         | "publish"
         | "read_back"
         | "cleanup"
-        | "capacity"
         | "release";
       secondaryFailure: "release" | null;
       publication: "not_attempted" | "unconfirmed" | "confirmed";

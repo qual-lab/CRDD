@@ -60,12 +60,11 @@ export type CoordinatorDecisionResult = Readonly<{
 }>;
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-/** 判断本文の非空・UTF-8容量・制御文字条件だけを確認する。 */
-function text(value: unknown, limit: number): value is string {
+/** 判断本文の非空・制御文字条件だけを確認する。 */
+function text(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.trim().length > 0 &&
-    Buffer.byteLength(value, "utf8") <= limit &&
     !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
   );
 }
@@ -136,7 +135,7 @@ export function inspectCoordinatorDecisionRequest(
       !ID.test(v.blockerId) ||
       typeof v.queueId !== "string" ||
       !ID.test(v.queueId) ||
-      !text(v.question, 8192) ||
+      !text(v.question) ||
       !Array.isArray(v.allowedOptions) ||
       v.allowedOptions.length < 1 ||
       v.allowedOptions.length > 2 ||
@@ -154,7 +153,6 @@ export function inspectCoordinatorDecisionRequest(
       (v.selectedOption !== "resume" && v.selectedOption !== "cancel") ||
       (Object.hasOwn(v, "comment") &&
         (typeof v.comment !== "string" ||
-          Buffer.byteLength(v.comment, "utf8") > 1024 ||
           /[\r\n\u0000-\u001f\u007f]/u.test(v.comment)))
     )
       return null;
@@ -164,7 +162,7 @@ export function inspectCoordinatorDecisionRequest(
     if (
       !keys(v, [...common, "status", "reason"]) ||
       v.status !== "invalidated" ||
-      !text(v.reason, 1024)
+      !text(v.reason)
     )
       return null;
   } else return null;
@@ -207,13 +205,14 @@ export function inspectCoordinatorDecisionResult(
     ]) ||
     v.contract !== COORDINATOR_HUMAN_DECISION_CONTRACT ||
     (v.status !== "completed" && v.status !== "blocked") ||
-    !text(v.reason, 1024) ||
+    !text(v.reason) ||
     typeof v.cleanupConfirmed !== "boolean" ||
     typeof v.manualRecoveryRequired !== "boolean" ||
     !["settled", "no_effect", "unknown"].includes(String(v.effectState)) ||
     (v.decisionId !== null &&
       (typeof v.decisionId !== "string" || !ID.test(v.decisionId))) ||
-    (v.recoveryId !== null && !text(v.recoveryId, 512))
+    (v.recoveryId !== null &&
+      (!text(v.recoveryId) || Buffer.byteLength(v.recoveryId, "utf8") > 512))
   )
     return null;
   if (v.decision === null) {
@@ -243,7 +242,7 @@ export function inspectCoordinatorDecisionResult(
         ? !keys(h, ["status"])
         : h.status !== "unconfirmed" ||
           !keys(h, ["status", "reason"]) ||
-          !text(h.reason, 1024))
+          !text(h.reason))
     )
       return null;
     if (

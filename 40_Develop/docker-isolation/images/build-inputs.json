@@ -39,10 +39,10 @@
       "executorSeccompProfilePath": "40_Develop/docker-isolation/src/execution/codex-executor-seccomp.json",
       "executorSeccompBaselineCommit": "c3065211177705ada59a9ccf8b5c182f286f8c97",
       "executorSeccompBaselineSha256": "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74",
-      "fixedImageBytes": 709806305,
-      "executorSchemaSha256": "daf04adf5282157984b43559298a82f1ab16de837cfb5f6cc929805390f776ce",
+      "fixedImageBytes": 709806252,
+      "executorSchemaSha256": "0fdac2f68b6270b604c795adcd30f48965fc46be85605d478076fccc6204388d",
       "resultSchemaSha256": "e6a10c7bb431bf4841aebc32f60da169f6f33e81bdf34f92be3aba034c722312",
-      "reviewerSchemaSha256": "09e8592838b1642f738eee07fb2c1b366dc25d6a3e842dbb0649930c94a25df8",
+      "reviewerSchemaSha256": "673413342fcc405ed2db11553b28d97c659358717c6e8fbd16ab1cece09c1abd",
       "imageBuildDefinition": "40_Develop/docker-isolation/images/codex-provider.Dockerfile",
       "imageBuildDefinitionSha256": "79273184577a14d046588cd13adf76318d776a86d9fae81cd342e26c19b8fd6f",
       "releaseUrl": "https://github.com/openai/codex/releases/tag/rust-v0.164.0"

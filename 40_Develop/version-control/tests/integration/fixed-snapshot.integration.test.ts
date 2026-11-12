@@ -87,8 +87,8 @@ test("固定CommitのFileと選択コピーはHEAD・通常Indexを変更しな�
     readCommitFile(f.repository, {
       commit: f.commit,
       path: "docs/fixed.txt",
-      maximumBytes: 3,
-    }),
+      extra: 3,
+    } as CommitFileReadRequest),
     null,
   );
   const selected = ["docs/fixed.txt"];
@@ -115,7 +115,7 @@ test("固定CommitのFileと選択コピーはHEAD・通常Indexを変更しな�
   assert.equal(JSON.stringify(result).includes(f.root), false);
 });
 
-/** 原本・Commit・Path・上限とAccessorを、Effect前に検査する。 */
+/** 原本・Commit・Path・未知fieldとAccessorを、Effect前に検査する。 */
 test("固定File読取りは偽Root・不正入力・Accessorを拒否する", (t) => {
   const f = fixture(t);
   assert.equal(
@@ -134,8 +134,8 @@ test("固定File読取りは偽Root・不正入力・Accessorを拒否する", (
     readCommitFile(f.repository, {
       commit: f.commit,
       path: "a.txt",
-      maximumBytes: Infinity,
-    }),
+      extra: Infinity,
+    } as CommitFileReadRequest),
     null,
   );
   let wasInvoked = false;

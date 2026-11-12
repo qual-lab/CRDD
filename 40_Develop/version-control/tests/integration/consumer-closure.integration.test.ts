@@ -592,6 +592,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/scripts/verify-general-task.ts",
       "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
       "40_Develop/coordinator/src/decision/acceptance.ts",
+      "40_Develop/coordinator/src/decision/lifecycle.ts",
       "40_Develop/coordinator/src/execution/diagnostics.ts",
       "40_Develop/coordinator/src/execution/operation.ts",
       "40_Develop/coordinator/src/objective/execute.ts",

@@ -67,7 +67,6 @@ export type VerificationSafetyObservation = Readonly<{
   recoveryIds: readonly string[];
 }>;
 
-const MAXIMUM_RECOVERY_IDS = 128;
 const MAXIMUM_RECOVERY_ID_LENGTH = 1024;
 const RECOVERY_ID_PATTERNS: Readonly<Record<VerificationRecoveryKind, RegExp>> =
   Object.freeze({
@@ -225,7 +224,7 @@ export function salvageVerificationRecoveryPair(
     if (pluralObserved.status === "exact") {
       const plural = snapshotPlainArray<unknown>(
         pluralObserved.value,
-        MAXIMUM_RECOVERY_IDS,
+        Number.MAX_SAFE_INTEGER,
       );
       if (plural.status !== "ok") isAmbiguous = true;
       else {
@@ -239,21 +238,18 @@ export function salvageVerificationRecoveryPair(
       }
     }
     const uniqueItems = [...new Set(ids)];
-    if (uniqueItems.length > MAXIMUM_RECOVERY_IDS) isAmbiguous = true;
-    const boundedItems = Object.freeze(
-      uniqueItems.slice(0, MAXIMUM_RECOVERY_IDS),
-    );
+    const capturedItems = Object.freeze(uniqueItems);
     if (
       singular.status === "exact" &&
       pluralObserved.status === "exact" &&
-      ((boundedItems.length === 0 && singular.value !== null) ||
-        (boundedItems.length === 1 && singular.value !== boundedItems[0]) ||
-        (boundedItems.length > 1 && singular.value !== null))
+      ((capturedItems.length === 0 && singular.value !== null) ||
+        (capturedItems.length === 1 && singular.value !== capturedItems[0]) ||
+        (capturedItems.length > 1 && singular.value !== null))
     )
       isAmbiguous = true;
     return Object.freeze({
-      singular: boundedItems.length === 1 ? (boundedItems[0] ?? null) : null,
-      plural: boundedItems,
+      singular: capturedItems.length === 1 ? (capturedItems[0] ?? null) : null,
+      plural: capturedItems,
       ambiguous: isAmbiguous,
     });
   } catch {
@@ -328,7 +324,7 @@ export function evaluateVerificationSafetyObservation(
         throw new Error("safety_observation_recovery_unknown");
       const plural = snapshotPlainArray<unknown>(
         pluralObserved.value,
-        MAXIMUM_RECOVERY_IDS,
+        Number.MAX_SAFE_INTEGER,
       );
       if (
         plural.status !== "ok" ||

@@ -1,5 +1,33 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 内部要求・助言投影・診断取得量の残存制限撤去 — 2026-11-12
+
+単発Taskの内部公開要求はPrompt32,000文字とAllowedPath1,024件で拒否しない。完成Adviceの四区分について、各100項目・本文32,000文字・100参照・各512文字の後段上限を撤去し、元の全量を捕捉する。助言準備も入力16KiB、投影64項目・各64KiB・合計256KiB、生成Provider Prompt512KiB、参照512byteを制約にしない。対応する契約説明から最大量fieldを撤去する。Prompt・参照・Hash・選定・Secret検査、一回消費とEffect前通知は維持する。
+
+開発計測TaskのJSON65,536byteとTimeline31区間、外側Completionの回復ID128件、検証結果記録の回復ID16件も撤去する。元ID・相関・不明情報を保全し、未知状態は引き続き診断不完全とする。計測設定128KiB、LCOV32MiB、追跡Source／台帳8MiB、相対Path512文字、選定理由16,384文字という内部Reader制限は撤去する。通常File・Path所属・Schema・Hashの検査を量制約と混同しない。
+
+HTTP／MCP／CLI入力、子Process出力、Authority／Origin／Rootの独立Policy、Session保持数、固定実測Profile、Turn・課金・期限は今回変更しない。Node.jsの表現限界やメモリ枯渇を解消する保証ではなく、捕捉不能な致命的OOM／OS終了時の結果返却は保証しない。検証は非秘密合成値・模擬依存の限定回帰に留め、全体回帰・実AI／Docker・過去保持物の操作を含めない。
+
+## 候補拒否診断の後段件数追従 — 2026-11-12
+
+候補拒否のPath診断は1,001件以降も元集合の件数と一致／不一致を保持する。報告側の配列捕捉と結果診断型の双方から1,000件上限を撤去し、不正配列・非文字列・不明を零や一致へ補完しない。件数は非負の安全整数、捕捉状態・比較可能性・一致と両件数の相関を維持する。既存general-task検証ToolのReviewer所見数も65件以降を欠測化しないが、同Tool固有の一File・対象Path・期待bytes／Hashという合成Fixture条件は維持する。
+
+## Task本文・Provider結果の全量接続 — 2026-11-12
+
+Domainが受理したTaskのobjective・受入条件を、実行要求捕捉・準備・Task Packetで8KiB／16件／各1KiBの旧上限により再拒否しない。Reviewerの所見・category集計・診断投影、Executorの変更PathとReviewer確認対象、Advice許可参照にも任意件数・全Path長の上限を再適用しない。正の安全整数、所見数と分類合計、受入条件番号と現在Taskの実条件数、Path／Secret／参照・選定・Operation・Hash相関は維持する。Remediation一回という実行制御は保存量と区別して維持する。
+
+正常量の拡大を実Source局所試験・Packet発行／消費・AD結果解析・Executor Plan検査まで接続する。HTTP／MCP／CLI受信、Process出力・Timeout・コスト／Turn予算は変更しない。Codex Task結果Schemaの更新は既存Image準備の固定Hashへ追従し、追加承認後に実Image再構築・Image内Hash照合・固定Identity更新とExecutor編集／レビュー／取消を確認した。既存Imageへの自動反映ではなく、新固定Imageの明示採用である。大容量そのものの実AI試験・上位Task全体E2E・全体回帰を実施したとは扱わない。実測値と終了後条件はCHG-000082の限定E2E記録を正本とする。
+
+## 回復・受領情報の全量搬送 — 2026-11-12
+
+Domainが受理した回復義務・受領集合を、Task Adapter・Completion捕捉・Cleanup適格性・受領保存の後段で128件／256件の独自上限により再拒否しない。Runtime回復一覧の元IDと対応するHome binding Hash、引渡し・終端集合も全量を照合する。単数IDと複数IDの相関、正規ID／Hash・一意性・能力・同じTask／Operation／世代・終端／Cleanup条件は維持する。受領集合が空の場合や、末尾を含む相関不正は容量撤去後も拒否する。
+
+同じ結果を読む検証Toolも、厳密観測・不完全観測からの正規ID保全・複数結果集約で128件切詰めを行わない。量の増加だけを曖昧な結果とせず、不正値・欠測・重複・単数相関差による不明は維持する。検証Toolの取消／待機期限、子Process出力・受信制限、実処置の許可境界は変更しない。合成257IDのReader／集約と模擬129結果の受領を実AI／Dockerの成立へ拡張しない。
+
+## Source診断取得量の固定予算撤去 — 2026-11-12
+
+開発Sourceの診断Hash取得は、固定Package・対象Directoryの選定を維持し、独自の1File容量・合計容量・File数・Directory数・列挙件数・深さの上限を撤去する。通常Sourceの増加だけで観測不能へ変換しない。内容Hash・実体Hash、二読取りの一致、Root・Path・Link・通常File・descriptor終了の検査は維持する。過去段階の有界Snapshotという説明を、現行の取得量制限として適用しない。後続のGit Object取得量・展開深度の撤去は[VC詳細](../version-control/01_Architecture.md#git-objectの独自容量展開深度制限撤去--2026-11-12)へ従い、子Process出力上限は変更しない。
+
 ## Domain公開整理前の試験接続 — 2026-11-11
 
 Coordinator試験は実操作・通知・許可・元結果・再入場の接続を所有し、Domain保存規則の純粋な反例はDomain自身の試験へ置く。Workspace技術理由の保存受理ケースをDomainへ移し、Coordinator側には選択Pathと採用記録の相関を残す。保存識別子・本文Hash・確定File名は固定契約から独立に照合する。私有importや試験Facadeで内部化を回避しない。
@@ -299,7 +327,7 @@ Workbench用途で上位の回復相関を持つ新しい終了要約に限り�
 | 4. 旧capture／Review／publishの分離 | 旧Candidate capture／Bundleを要求しない新成果返却へ切替。レビュー対象の差分・基準・未確定事項を実結果と相関する | AI完了によるCommit・採用・Promotionなし。成果を保全できない箇所は旧能力の置換済みとしない |
 | 5. 利用側・失敗・終了後確認 | 正常・開始前後取消・通知失敗・配送失敗・親喪失と次Taskを確認する | 一次失敗・元回復参照を維持。Task終端からTree削除・resetへ進まない |
 
-借用実行は`/work`のbindと`.git`・`.crdd`の空placeholderのRO bindという三本構成を使用する。ExecutorはSourceをRW、ReviewerはROとし、二保護領域は常にROとする。作成計画と保存する回収Identityに同じ保護Sourceを結合し、実観測の欠落・RW化・Source差を拒否する。固定Path書込み境界の実測は[DIの限定確認](../docker-isolation/01_Architecture.md#固定path書込み境界の限定確認)に限り、全別名経路や任意Repositoryを保証しない。借用走査はlink・複数hardlink・入れ子Git・既存の容量／件数上限超過を拒否し、保証不能な対象を新しいACL等で自動補完しない。
+借用実行は`/work`のbindと`.git`・`.crdd`の空placeholderのRO bindという三本構成を使用する。ExecutorはSourceをRW、ReviewerはROとし、二保護領域は常にROとする。作成計画と保存する回収Identityに同じ保護Sourceを結合し、実観測の欠落・RW化・Source差を拒否する。固定Path書込み境界の実測は[DIの限定確認](../docker-isolation/01_Architecture.md#固定path書込み境界の限定確認)に限り、全別名経路や任意Repositoryを保証しない。借用走査はlink・複数hardlink・入れ子Git・実体不一致を拒否し、容量・件数だけでは拒否しない。保証不能な対象を新しいACL等で自動補完しない。
 
 ### 借用実行の具体接続
 
@@ -313,7 +341,7 @@ Workbench用途で上位の回復相関を持つ新しい終了要約に限り�
 
 Coordinatorの内部完了値は`workspaceResult`にWorkspace ID、開始後の変更Pathまたは観測不能のnull、帰属未確定、CoordinatorによるTree削除要求なしを返す。Directの`canonicalRepositoryChanged`は実観測からboolean／nullへ投影し、Isolatedの変更を所属RootのSource変更と混同しない。これは成果のGit採用や永続受領の代わりではなく、Orchestratorの既存完了・配送契約を維持する。取消・失敗後も同じ開始基準で観測する。Treeの現存を未観測のまま`retained=true`とは表示しない。
 
-借用走査の現行上限は20,000 file・全体256MiB・単一64MiBである。依存物等も走査に含むため上限を超えるTreeは実行前拒否となる。任意の開発Treeへ適用可能とは主張しない。実Providerを使用した公開E2E・親喪失・利用者確認は、本接続の局所／結合試験と別の未実施範囲である。
+借用走査の旧20,000 File・全体256MiB・単一64MiB・深さ64・全Path長1,024byteによる独自拒否を撤去する。`readExecutionFile(target)`は容量引数を持たず全文を取得し、Root・Path文法・Link・通常File・前後実体・Hash・descriptor終了は維持する。変更Path旧1,000件、許可／読取りPath旧64件、Reviewer旧1MiB／256Fileも撤去し、要求捕捉・準備・終了観測と保存値検査まで全量を搬送する。Runtime／OSのメモリ・Buffer・Path・Stack限界は残り、任意Treeの成功や致命的OOM／OS終了時の結果返却は保証しない。HTTP等の入口受信・別のGit固定候補selection・署名予算・子Process出力／Timeoutはこの変更に含めない。実Providerを使用した公開E2E・親喪失・利用者確認は、本接続の局所／結合試験と別の未実施範囲である。
 
 変更観測は全終端処理の後の共通投影で生成する。Host清掃意図／Receipt保存の失敗等で先に返った場合も、元理由・exact回復参照・清掃結果は不変のまま、変更あり／なし／観測不能を補う。`workspaceResult`自身に`canonicalRepositoryChanged`を結合し、TaskAttemptで方式とPathの閉じた相関を検査する。必須の観測metadata欠落・別Workspaceは変更なしへ補正しない。同じmetadataをOrchestrator単発結果から、今回runのTask／Attempt／Operationに結合した`workspaceResults`へ搬送し、途中失敗やLease解放失敗でも既得観測を落とさない。これは今回runの返却情報であり、新しいdurable Stage・State・履歴Storeは追加しない。既存段階結果の参照／ACKはこの最終観測の代替としない。
 
@@ -579,7 +607,7 @@ Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実�
 
 呼出し元別の`workbench-ai/`は解体する。助言の値型は`execution/result.ts` / `execution/observation.ts` / `execution/recovery.ts` / `execution/advice.ts` / `execution/request.ts`、計画は`provider-plan.ts`、入力投影は`task-packet.ts`、結果検査は`task-structured-result.ts`へ統合する。同形の結果Itemと文字列検査を共通化するが、助言と編集のSchema、Hash領域、一回消費のAuthorityは混合しない。`provider-packet.ts`は一回Packet、`provider-execution.ts`は既存Controllerによる非共有実行と回収を所有する。
 
-上位は公開`runRepositoryAdvice`を一度呼び、結果・cleanup確認・元Host回復参照を受け取る。Orchestrator側に助言用Factoryの連鎖を置かない。Contextは要求ごとのDomain Model Observerで`PROJECT_CONTEXT.md`一件だけを安定観測し、65,536-byte上限とUTF-8本文Hashを維持する。欠測、Link、不正、観測不能は既存の投影取得不能へ閉じ、読取り前後・Catalog解決後・配送前に取消を確認する。Runtime応答が不明なら、応答を観測していないことからcleanup済みを推定しない。Host再入場は公開`recoverProviderAdviceHostOperation`を使い、上位へ内部実装importを要求しない。編集・Reviewer・Repository／Workspace Mountを助言へ追加しない。
+上位は公開`runRepositoryAdvice`を一度呼び、結果・cleanup確認・元Host回復参照を受け取る。Orchestrator側に助言用Factoryの連鎖を置かない。Contextは要求ごとのDomain Model Observerで`PROJECT_CONTEXT.md`一件だけを容量引数なしで安定観測し、UTF-8本文Hashを維持する。欠測、Link、不正、観測不能は既存の投影取得不能へ閉じ、読取り前後・Catalog解決後・配送前に取消を確認する。Runtime応答が不明なら、応答を観測していないことからcleanup済みを推定しない。Host再入場は公開`recoverProviderAdviceHostOperation`を使い、上位へ内部実装importを要求しない。編集・Reviewer・Repository／Workspace Mountを助言へ追加しない。
 
 同じ制御参照への取消搬送、元の完了待機と監視解除は`execution/observation.ts`が所有する。開始通知の登録・重複抑止と登録先の待機は`execution/controller.ts`が所有し、Handle返却時に上位状態を更新しない。取消の返値・失敗を資源回収の根拠にせず、元の完了通知を待ち、完了拒否は観測不能として上位へ返す。上位Attempt・Revisionの相関と状態保存は登録先が所有し、この共通処理へ持ち込まない。
 
@@ -1052,7 +1080,7 @@ Git改訂の単一Native出所照合は、追跡／任意配布の読取りと�
 
 Orchestrator実Provider検証Toolは、公開MCPの起動要求前と発行後の不明を区別する。起動引数の構築を終えてspawn要求を発行する直前に、当該Process内だけの発行状態を固定する。未発行で停止した場合は`verification_not_started`と`no_effect`を標準出力だけへ返し、回復・再起動・結果保存・fixture書戻しを要求しない。ここでのjoin／清掃成立は子資源を生成せず回収義務がない意味であり、実子の終了観測を意味しない。発行後の例外は、同期spawn例外も含め既存の不明結果と保存を維持する。通常の試験Directory作成は結果保存直前まで遅らせる。これは署名依存切替の前段是正であり、同Toolの旧署名依存撤去や実Provider E2Eの成立を示さない。
 
-同Toolの現在方式は、引数で別配布Rootを受け取らず、module自身のCheckoutにある公開MCP入口を起動する。現行9Package Source観測に加え、固定`template/tools/crdd-mcp-server.ts`を既存Domain Readerの64KiB上限で読み、通常File・非Link・単一Linkと前後の実体一致を確認する。`mcpEntrySourceSha256`はReaderが返したUTF8文字列のHashであり、生byteの完全性Hashではない。開始前と全経路終了後のSource・内部実体・Git・入口を照合し、最終欠測は`unavailable`、差分は`changed`として検証完成だけを拒否する。既知の回収結果・一次問題をSource不成立で上書きしない。
+同Toolの現在方式は、引数で別配布Rootを受け取らず、module自身のCheckoutにある公開MCP入口を起動する。現行9Package Source観測に加え、固定`template/tools/crdd-mcp-server.ts`を既存Domain Readerで容量引数なしに読み、通常File・非Link・単一Linkと前後の実体一致を確認する。`mcpEntrySourceSha256`はReaderが返したUTF8文字列のHashであり、生byteの完全性Hashではない。開始前と全経路終了後のSource・内部実体・Git・入口を照合し、最終欠測は`unavailable`、差分は`changed`として検証完成だけを拒否する。既知の回収結果・一次問題をSource不成立で上書きしない。
 
 結果改訂12は作業対象の`executionIdentity`と実行Sourceの`runtimeSource`を分離する。後者はScope・内容Hash・Commit／Tree・入口文字列Hash・固定観測状態・署名不要の七項目だけを再構築し、実体Hash・時刻・絶対Root・未知fieldを公開しない。旧`distributionIdentity`や署名Manifestを新版の根拠へ流用せず、歴史Evidenceは不変更。正常二経路・取消・親喪失・同じRequestの再入場・公開受付世代取得・fixture復元を維持し、Source観測の成功だけをそれらの実成立と表示しない。
 
@@ -1165,7 +1193,7 @@ Process、Workerまたは対話入力Readerの生成を所有する本番leafは
 
 Executorは上位で解決した現在Tree（Direct）または独立Worktree（Isolated）を編集する。Coordinatorは対象を借用するだけで、Workspaceの登録・検索・作成・採否・Git統合・削除を所有しない。変更Path、実行開始時の内容、構造化結果を照合し、allowedPathsは事後の変更範囲観測であって書込みACLではない。Directの既存dirtyと変更は失敗・取消後も自動rollbackしない。Git管理領域・内部状態の保護と技術資源の回収は既存Docker境界で維持する。
 
-Reviewerには、実変更を捕捉した後にRuntimeが`readPaths`から生成したUTF-8内容投影だけを渡す。捕捉はGit Commitによる候補固定ではなく、同じ実行内の一時観測である。内容投影はPatch Hashと内容Manifest Hashへ結合し、合計1 MiB・256ファイルを上限として、認識済みSecret、非UTF-8、上限超過、差替えまたは読取り不能をReviewer開始前に拒否する。投影EnvelopeとbindingはRuntimeが保証するReview Evidenceであり、埋め込まれた内容は指示やAuthorityとしてだけ非信頼とする。ReviewerはFilesystem／Shell Toolを持たず、投影内容から閉集合Findingを返す。自由文はAuthorityや修正指示へ直接昇格しない。
+Reviewerには、実変更を捕捉した後にRuntimeが`readPaths`から生成したUTF-8内容投影だけを渡す。捕捉はGit Commitによる候補固定ではなく、同じ実行内の一時観測である。内容投影はPatch Hashと内容Manifest Hashへ結合する。独自容量・File数の上限は設けず、認識済みSecret、非UTF-8、Hash／総byte数相関の不正、差替えまたは読取り不能をReviewer開始前に拒否する。投影EnvelopeとbindingはRuntimeが保証するReview Evidenceであり、埋め込まれた内容は指示やAuthorityとしてだけ非信頼とする。ReviewerはFilesystem／Shell Toolを持たず、投影内容から閉集合Findingを返す。自由文はAuthorityや修正指示へ直接昇格しない。
 
 一般Taskの検証Toolは自己生成する固定BaseのWorktreeを既存Version Controlで用意する。Toolだけが成果の実Byte・末尾LF・Hashと上位の明示終了を所有する。作成済み対象はTask結果の任意fieldから再構成せず、元UUIDを失敗・取消・結果欠測でも保持する。終端・技術回収・非再起動・未解決回復なし・元対象一致を共同確認できた場合だけ専用WorktreeとBranchを除去し、不明なら保持する。Task一次失敗、上位の作業領域回収失敗、Source終了観測を別に記録する。取消ACKだけを完了とせず、元completionとのjoin・Signal解除後に既存の固定Source範囲を再照合する。新Registry、共有State、Lock又はRecovery Frameworkは追加しない。
 

@@ -7,13 +7,13 @@
  * @boundary Domain値と利用側の入力・公開結果。
  */
 import { types } from "node:util";
-import type { CoordinatorWorkspaceResult } from "./types.ts";
 import {
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
   validId,
 } from "../state/validation.ts";
-import { COORDINATOR_MAXIMUM_TASKS } from "../state/projection.ts";
+import type { CoordinatorWorkspaceResult } from "./types.ts";
+
 /**
  * Read one own data property exactly once. Accessor properties, prototype
  *
@@ -129,7 +129,6 @@ export function snapshotCoordinatorWorkspaceResult(
       if (
         !Array.isArray(paths) ||
         types.isProxy(paths) ||
-        paths.length > 1000 ||
         Reflect.ownKeys(paths).length !== paths.length + 1
       )
         return null;
@@ -139,7 +138,6 @@ export function snapshotCoordinatorWorkspaceResult(
         if (
           typeof value !== "string" ||
           value.length === 0 ||
-          Buffer.byteLength(value) > 1024 ||
           /[\\:\0\r\n]/u.test(value) ||
           value
             .split("/")
@@ -195,7 +193,7 @@ export function inspectCoordinatorWorkspaceResults(
       result: CoordinatorWorkspaceResult;
     }>[]
   | null {
-  const array = snapshotRuntimeStateArray(raw, COORDINATOR_MAXIMUM_TASKS);
+  const array = snapshotRuntimeStateArray(raw, Number.MAX_SAFE_INTEGER);
   if (array.status !== "ok" || array.value.length === 0) return null;
   const entries: Readonly<{
     taskId: string;

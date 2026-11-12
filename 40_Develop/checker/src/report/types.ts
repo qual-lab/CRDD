@@ -118,7 +118,6 @@ export type DocumentReport = Readonly<{
   requested_scope: readonly string[];
   expanded_scope: readonly string[];
   expanded_scope_file_count: number;
-  expanded_scope_truncated: boolean;
   global_checks: readonly string[];
   unchecked: readonly string[];
   executed_at: string;

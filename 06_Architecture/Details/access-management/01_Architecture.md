@@ -1,5 +1,9 @@
 # ユーザー・資格・認可の詳細設計
 
+## 内部保存容量制限の撤去 — 2026-11-12
+
+管理状態の正本・pending・replaceの16／17MiB固定上限と、User・Role・資格発行・交換・初期化の容量予約を撤去した。登録時のmanifest／PROJECT_CONTEXTの1MiB上限も撤去する。容量だけによる拒否理由を残さず、元操作・現在認可・Schema・Revision・Hash・Lock・実体・保存／読戻し・Secret提示の条件は維持する。HTTP・MCP・CLIの受信上限は今回変更しない。通常の蓄積を異常にせず、OS／Node.jsのメモリ不足やI/O失敗を成功に読み替えない。詳細は[管理状態とAPI](02_Management_State_and_API.md)を正本とする。
+
 <a id="public-surface-closure"></a>
 
 ## Root公開境界の整理 — 2026-11-11

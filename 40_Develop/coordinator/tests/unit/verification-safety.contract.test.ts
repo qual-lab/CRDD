@@ -9,11 +9,123 @@
  * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { types } from "node:util";
 import test from "node:test";
+import fs from "node:fs";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
+import { createCandidateValidationFailureDiagnostic } from "../../src/execution/result.ts";
+
+/**
+ * 本番と検証Toolの診断が旧件数を欠測へ変換しない。
+ * @responsibility 同じPath・所見の件数と相関を末尾まで保持する。
+ * @trace AIT-UT-005
+ * @precondition 実Source宣言を局所評価し実行基盤は使わない。
+ * @stimulus 1001Pathの一致・末尾差・不正と65所見・不正数値を渡す。
+ * @observation 診断件数・一致判定と固定Fixture条件。
+ * @oracle 正常量は保持、不正は欠測、単一File以外はmetadata_invalid。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary 診断への投影。実AI・Docker・保存なし。
+ */
+test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/controller.ts", import.meta.url),
+    "utf8",
+  );
+  const notices: Record<string, unknown>[] = [];
+  const report = runInNewContext(
+    `${["objectCapability", "samePaths", "reportCandidateValidationFailure"]
+      .map((name) => sourceDeclaration(source, name))
+      .join("\n")};reportCandidateValidationFailure`,
+    {
+      Object,
+      Array,
+      Buffer,
+      snapshotPlainArray,
+      createCandidateValidationFailureDiagnostic: (
+        raw: Parameters<typeof createCandidateValidationFailureDiagnostic>[0],
+      ) => createCandidateValidationFailureDiagnostic({ ...raw }),
+      reportTaskDiagnostic: (
+        _state: unknown,
+        notice: Record<string, unknown>,
+      ) => notices.push(notice),
+    },
+  ) as (...args: unknown[]) => void;
+  const paths = Array.from({ length: 1001 }, (_, i) => `src/f-${i}.ts`);
+  const candidate = {
+    status: "candidate",
+    candidateCapability: {},
+    changedPaths: paths,
+  };
+  for (const [reported, expected] of [
+    [paths, true],
+    [[...paths.slice(0, -1), "src/other.ts"], false],
+    [[null], null],
+  ] as const) {
+    report({}, { operationId: "synthetic" }, null, "codex", 0, candidate, {
+      changedPaths: reported,
+    });
+    const diagnostic = notices.at(-1)?.diagnostic as Record<string, unknown>;
+    assert.equal(diagnostic.candidatePathCount, 1001);
+    assert.equal(diagnostic.reportedPathCount, expected === null ? null : 1001);
+    assert.equal(diagnostic.pathsMatch, expected);
+  }
+  const general = fs.readFileSync(
+    new URL("../../scripts/verify-general-task.ts", import.meta.url),
+    "utf8",
+  );
+  const project = runInNewContext(
+    `${[
+      "TARGET_PATH",
+      "BASE_CONTENT",
+      "EXPECTED_CONTENT",
+      "plainRecord",
+      "sha256",
+      "reviewerDiagnosisProjection",
+    ]
+      .map((name) => sourceDeclaration(general, name))
+      .join("\n")};reviewerDiagnosisProjection`,
+    { Object, Array, Reflect, Buffer, types, createHash, snapshotPlainArray },
+  ) as (raw: unknown) => Record<string, unknown>;
+  for (const count of [64, 65]) {
+    assert.equal(
+      project({
+        reviewerResult: { decision: "changes_requested", findingCount: count },
+      }).reviewerFindingCount,
+      count,
+    );
+  }
+  for (const count of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(
+      createCandidateValidationFailureDiagnostic({
+        captureStatus: "captured",
+        pathsMatch: true,
+        candidatePathCount: count,
+        reportedPathCount: count,
+        providerExecutionObservation: null,
+      }),
+      null,
+    );
+    assert.equal(
+      project({
+        reviewerResult: { decision: "changes_requested", findingCount: count },
+      }).reviewerFindingCount,
+      null,
+    );
+  }
+  assert.equal(
+    project({ reviewerProjectionEvidence: { files: [{}, {}] } })
+      .reviewerProjectedTargetClassification,
+    "metadata_invalid",
+  );
+});
 
 import {
   evaluateVerificationSafetyObservation,
   salvageVerificationRecoveryPair,
+  salvageVerificationNullableRecovery,
 } from "../../scripts/verification-safety.ts";
 
 const hostA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
@@ -41,6 +153,103 @@ const SCHEMA = Object.freeze({
     }),
   ]),
   effectUnknownField: "effectStateUnknown",
+});
+
+/**
+ * 検証レポートへ回復IDの全量を保持する。
+ * @responsibility 本番結果を検証Readerと複数結果集約で切り詰めない。
+ * @trace AIT-UT-005
+ * @precondition 合成した257件の正規Docker回復IDだけを使う。
+ * @stimulus 全量・二分した結果と重複／単数相関不正を渡す。
+ * @observation 厳密観測、救済読取りと集約の全ID・曖昧性。
+ * @oracle 正常値は全文を保持し、不正相関は不明のまま維持する。
+ * @cleanup N/A: Source宣言を局所評価するだけで外部実行しない。
+ * @boundary 実検証Reader／集約関数。実AI・Dockerを使用しない。
+ */
+test("検証Readerと集約は257件の回復IDを容量だけで拒否・切詰めしない", () => {
+  const ids = Array.from(
+    { length: 257 },
+    (_, index) =>
+      `docker-task.${index.toString(16).padStart(64, "0")}.${"2".repeat(64)}.${"3".repeat(64)}`,
+  );
+  const input = exact({
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    dockerRecoveryIds: ids,
+  });
+  const observed = evaluateVerificationSafetyObservation(input, SCHEMA);
+  assert.equal(observed.status, "exact");
+  assert.deepEqual(observed.recoveryIds, ids);
+  const pair = SCHEMA.recoveryPairs[1];
+  assert.ok(pair);
+  const salvaged = salvageVerificationRecoveryPair(input, pair);
+  assert.equal(salvaged.ambiguous, false);
+  assert.deepEqual(salvaged.plural, ids);
+  assert.equal(
+    salvageVerificationRecoveryPair(
+      { ...input, dockerRecoveryIds: [...ids, ids[0]] },
+      pair,
+    ).ambiguous,
+    true,
+  );
+  assert.equal(
+    salvageVerificationRecoveryPair(
+      { ...input, dockerRecoveryId: ids[0] },
+      pair,
+    ).ambiguous,
+    true,
+  );
+  const generalSource = fs.readFileSync(
+    new URL("../../scripts/verify-general-task.ts", import.meta.url),
+    "utf8",
+  );
+  const collect = runInNewContext(
+    sourceDeclaration(generalSource, "collectRecoveryIds") +
+      ";collectRecoveryIds",
+    {
+      Object,
+      Set,
+      salvageVerificationRecoveryPair,
+      salvageVerificationNullableRecovery,
+    },
+  ) as (
+    values: readonly unknown[],
+    singular: string,
+    kind: string,
+    plural: string,
+  ) => { ids: readonly string[]; ambiguous: boolean };
+  const rows = [ids.slice(0, 129), ids.slice(129)].map((values) => ({
+    ...input,
+    dockerRecoveryIds: values,
+    candidateRecoveryId: null,
+    candidateRecoveryIds: [],
+    candidateStoreRecoveryId: null,
+    candidateStoreRecoveryIds: [],
+  }));
+  const collected = collect(
+    rows,
+    "dockerRecoveryId",
+    "docker",
+    "dockerRecoveryIds",
+  );
+  assert.equal(collected.ambiguous, false);
+  assert.deepEqual(Array.from(collected.ids), ids);
+  const routeSource = fs.readFileSync(
+    new URL("../../scripts/verify-route-matrix.ts", import.meta.url),
+    "utf8",
+  );
+  const aggregate = runInNewContext(
+    ["RECOVERY_PAIRS", "sanitizedRouteRecovery", "aggregateRouteRecovery"]
+      .map((name) => sourceDeclaration(routeSource, name))
+      .join("\n") + ";aggregateRouteRecovery",
+    { Object, Set, salvageVerificationRecoveryPair },
+  ) as (values: readonly unknown[]) => {
+    dockerRecoveryIds: readonly string[];
+    recoveryIdentityAmbiguous: boolean;
+  };
+  const aggregated = aggregate(rows);
+  assert.equal(aggregated.recoveryIdentityAmbiguous, false);
+  assert.deepEqual(Array.from(aggregated.dockerRecoveryIds), ids);
 });
 
 /**
@@ -280,18 +489,18 @@ test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () 
 });
 
 /**
- * partial salvageはown-dataのcanonical IDだけをboundedに保持するを検証する。
+ * partial salvageはown-dataのcanonical IDだけを保持することを検証する。
  *
- * @responsibility partial salvageはown-dataのcanonical IDだけをboundedに保持するの合否判定を所有する。
+ * @responsibility partial salvageはown-dataのcanonical IDだけを保持する条件の合否判定を所有する。
  * @trace AIT-UT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus partial salvageはown-dataのcanonical IDだけをboundedに保持するの対象操作を実行する。
+ * @stimulus partial salvageへ正規IDと不正な値を混在させる。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("partial salvageはown-dataのcanonical IDだけをboundedに保持する", () => {
+test("partial salvageはown-dataのcanonical IDだけを保持する", () => {
   const mixed = salvageVerificationRecoveryPair(
     Object.freeze({
       hostRecoveryId: hostA,

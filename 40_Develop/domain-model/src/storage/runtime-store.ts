@@ -65,10 +65,7 @@ import {
   resolveRepositoryRuntimeDataPaths,
 } from "../repository/resolve-storage-paths.ts";
 import type { RepositoryRuntimeDataAreaObservation } from "../repository/types.ts";
-import {
-  encodeRuntimeStateValue,
-  RUNTIME_STATE_MAXIMUM_BYTES,
-} from "../state/codec.ts";
+import { encodeRuntimeStateValue } from "../state/codec.ts";
 import {
   classifyCoordinatorRepairPublication,
   classifyCoordinatorResourcePublication,
@@ -133,15 +130,15 @@ import {
   validId,
 } from "../state/validation.ts";
 import {
-  readStableBoundedFileSnapshot,
-  type StableFileIdentity,
-  sameStableFileIdentity,
-} from "../storage/bounded-file-snapshot.ts";
-import {
   assertRuntimeStateInitializationBoundary,
   createCoordinatorRuntimeDataArea,
   ensureRepositoryRuntimeDataArea,
 } from "../storage/ensure-area.ts";
+import {
+  readStableFileSnapshot,
+  type StableFileIdentity,
+  sameStableFileIdentity,
+} from "../storage/file-snapshot.ts";
 import {
   classifyRuntimeSnapshotReentry,
   createRuntimeStatePendingFile,
@@ -219,8 +216,6 @@ type CoordinatorStorageRepository = Pick<
   NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
   "repositoryRoot" | "repositoryBinding" | "revalidate"
 >;
-
-export const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
 /**
  * 本番Portを現在の受付世代へ接続するための読取りを行う。
@@ -711,7 +706,6 @@ export function writeCoordinatorSnapshotState(
     if (
       !validId(binding) ||
       typeof stateJson !== "string" ||
-      Buffer.byteLength(stateJson, "utf8") > MAX_RECORD_BYTES ||
       !Number.isSafeInteger(expectedGeneration) ||
       expectedGeneration < 0
     )
@@ -924,7 +918,6 @@ export function writeCoordinatorSnapshotOwned(
       !isLiveCoordinatorSnapshotOwner(lock) ||
       !validId(binding) ||
       typeof payloadJson !== "string" ||
-      Buffer.byteLength(payloadJson, "utf8") > MAX_RECORD_BYTES ||
       !Number.isSafeInteger(expectedRevision) ||
       expectedRevision < 0
     )
@@ -2125,7 +2118,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
     let originalNames: string[] = [];
     const original = new Map<
       string,
-      ReturnType<typeof readStableBoundedFileSnapshot>
+      ReturnType<typeof readStableFileSnapshot>
     >();
     // 取得、処置直前、処置後の三観測。同じ本文でも別実体は拒否する。
     for (let pass = 0; pass < 3; pass++) {
@@ -2171,10 +2164,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
           metadata.nlink !== 1n
         )
           throw new Error("file");
-        const observed = readStableBoundedFileSnapshot(
-          file,
-          name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
-        );
+        const observed = readStableFileSnapshot(file);
         const final = fs.lstatSync(file, { bigint: true });
         if (
           final.nlink !== 1n ||
@@ -2227,10 +2217,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
         throw new Error("area_changed");
       for (const name of names) {
         const file = path.join(area.directory, name);
-        const current = readStableBoundedFileSnapshot(
-          file,
-          name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
-        );
+        const current = readStableFileSnapshot(file);
         const before = original.get(name);
         if (
           !before ||
@@ -3022,11 +3009,9 @@ export function readCoordinatorStateSnapshot(
     retentionDays: number | null;
   }> | null = null;
   let repairHistoryState: "technical_state" | "publication" | null = null;
-  let recoveryHistory: ReturnType<typeof readStableBoundedFileSnapshot> | null =
+  let recoveryHistory: ReturnType<typeof readStableFileSnapshot> | null = null;
+  let recoveryHistoryPending: ReturnType<typeof readStableFileSnapshot> | null =
     null;
-  let recoveryHistoryPending: ReturnType<
-    typeof readStableBoundedFileSnapshot
-  > | null = null;
   let recoveryRetentionDays: number | null = null;
   let deliveryAbsent = false;
   let repairCompletionAbsent = false;
@@ -3093,18 +3078,14 @@ export function readCoordinatorStateSnapshot(
     const metadata = fs.lstatSync(file);
     if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.nlink !== 1)
       throw new Error("file");
-    const observed = readStableBoundedFileSnapshot(
-      file,
-      RUNTIME_STATE_MAXIMUM_BYTES,
-    );
+    const observed = readStableFileSnapshot(file);
     const decoded = decodeRuntimeDomainSnapshot(
       observed.bytes,
       repository.repositoryBinding,
     );
     if (!decoded) throw new Error("content");
-    let completedHistory: ReturnType<
-      typeof readStableBoundedFileSnapshot
-    > | null = null;
+    let completedHistory: ReturnType<typeof readStableFileSnapshot> | null =
+      null;
     const completedHistoryFile = path.join(initial.directory, "history.jsonl");
     if (completedTransientTask) {
       const target = completedTransientTask.recoveryId;
@@ -3132,10 +3113,7 @@ export function readCoordinatorStateSnapshot(
         metadata.nlink !== 1
       )
         throw new Error("completion_history_file");
-      completedHistory = readStableBoundedFileSnapshot(
-        completedHistoryFile,
-        RUNTIME_STATE_MAXIMUM_BYTES,
-      );
+      completedHistory = readStableFileSnapshot(completedHistoryFile);
       const rows = decodeCoordinatorHistoryRows(completedHistory.bytes);
       const row = rows?.find((entry) => entry.recoveryId === target);
       const summary = row ? JSON.parse(row.line).summary : null;
@@ -3148,8 +3126,8 @@ export function readCoordinatorStateSnapshot(
         throw new Error("completion_history_unconfirmed");
       deliveryAbsent = true;
     }
-    let pending: ReturnType<typeof readStableBoundedFileSnapshot> | null = null;
-    let marker: ReturnType<typeof readStableBoundedFileSnapshot> | null = null;
+    let pending: ReturnType<typeof readStableFileSnapshot> | null = null;
+    let marker: ReturnType<typeof readStableFileSnapshot> | null = null;
     const markerFile = path.join(initial.directory, "state.lock");
     if (
       (resourcePublicationRecoveryId !== null ||
@@ -3166,7 +3144,7 @@ export function readCoordinatorStateSnapshot(
         metadata.nlink !== 1
       )
         throw new Error("marker_file");
-      marker = readStableBoundedFileSnapshot(markerFile, 1024);
+      marker = readStableFileSnapshot(markerFile);
       const expected = Buffer.from(
         `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
       );
@@ -3183,10 +3161,7 @@ export function readCoordinatorStateSnapshot(
         metadata.nlink !== 1
       )
         throw new Error("pending_file");
-      pending = readStableBoundedFileSnapshot(
-        pendingFile,
-        RUNTIME_STATE_MAXIMUM_BYTES,
-      );
+      pending = readStableFileSnapshot(pendingFile);
       if (
         !classifyCoordinatorResourcePublication(
           observed.bytes,
@@ -3240,10 +3215,7 @@ export function readCoordinatorStateSnapshot(
           metadata.nlink !== 1
         )
           throw new Error("pending_file");
-        pending = readStableBoundedFileSnapshot(
-          pendingFile,
-          RUNTIME_STATE_MAXIMUM_BYTES,
-        );
+        pending = readStableFileSnapshot(pendingFile);
         if (
           operation.host.cleanup === "confirmed" ||
           !pending.bytes.equals(candidate)
@@ -3300,10 +3272,7 @@ export function readCoordinatorStateSnapshot(
         metadata.nlink !== 1
       )
         throw new Error("repair_completion_history_invalid");
-      recoveryHistory = readStableBoundedFileSnapshot(
-        historyFile,
-        RUNTIME_STATE_MAXIMUM_BYTES,
-      );
+      recoveryHistory = readStableFileSnapshot(historyFile);
       const rows = decodeCoordinatorHistoryRows(recoveryHistory.bytes);
       const row = rows?.find(
         (item) => item.recoveryId === currentCompletionRecoveryId,
@@ -3419,10 +3388,7 @@ export function readCoordinatorStateSnapshot(
           metadata.nlink !== 1
         )
           throw new Error("history_file");
-        const contents = readStableBoundedFileSnapshot(
-          target,
-          RUNTIME_STATE_MAXIMUM_BYTES,
-        );
+        const contents = readStableFileSnapshot(target);
         if (name === "history.jsonl") recoveryHistory = contents;
         else if (name === "history.pending.jsonl")
           recoveryHistoryPending = contents;
@@ -4443,10 +4409,8 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
       lockReleased: false,
     };
   const lock = acquisition.lock;
-  let files: Map<
-    string,
-    ReturnType<typeof readStableBoundedFileSnapshot>
-  > | null = null;
+  let files: Map<string, ReturnType<typeof readStableFileSnapshot>> | null =
+    null;
   let boundaryIdentity: string | null = null;
   let publication: ReturnType<typeof classifyCoordinatorRepairPublication> =
     null;
@@ -4485,10 +4449,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
       const stat = fs.lstatSync(file, { bigint: true });
       if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n)
         throw new Error("file");
-      const value = readStableBoundedFileSnapshot(
-        file,
-        name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
-      );
+      const value = readStableFileSnapshot(file);
       if (!sameStableFileIdentity(value.identity, stat))
         throw new Error("changed");
       files.set(name, value);
@@ -4528,10 +4489,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
     }
     for (const [name, previous] of files) {
       const file = path.join(area.directory, name);
-      const value = readStableBoundedFileSnapshot(
-        file,
-        name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
-      );
+      const value = readStableFileSnapshot(file);
       if (
         !sameStableFileIdentity(previous.identity, value.identity) ||
         !previous.bytes.equals(value.bytes) ||
@@ -5185,7 +5143,6 @@ function commitCoordinatorStateSnapshotOwned(
         directory,
         name,
         fileIdentities,
-        RUNTIME_STATE_MAXIMUM_BYTES,
         assertBoundary,
       );
     };
@@ -5213,7 +5170,6 @@ function commitCoordinatorStateSnapshotOwned(
         name,
         content,
         fileIdentities,
-        RUNTIME_STATE_MAXIMUM_BYTES,
         assertBoundary,
         () => {
           filesystemEffectIssued = true;

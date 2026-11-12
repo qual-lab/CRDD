@@ -122,10 +122,7 @@ import {
 } from "../attempt/validation.ts";
 import { associateCoordinatorTaskOperations } from "../task/crud.ts";
 import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
-import {
-  encodeRuntimeStateValue,
-  RUNTIME_STATE_MAXIMUM_BYTES,
-} from "./codec.ts";
+import { encodeRuntimeStateValue } from "./codec.ts";
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
@@ -1800,12 +1797,7 @@ function copyCoordinatorRepairHistoryBytes(input: unknown): Buffer | null {
       intrinsic,
       "byteLength",
     )?.get?.call(input);
-    if (
-      !Number.isSafeInteger(length) ||
-      length < 0 ||
-      length > RUNTIME_STATE_MAXIMUM_BYTES
-    )
-      return null;
+    if (!Number.isSafeInteger(length) || length < 0) return null;
     const buffer = Object.getOwnPropertyDescriptor(
       intrinsic,
       "buffer",
@@ -1925,12 +1917,7 @@ export function prepareCoordinatorRecoveredHistoryPublication(
         intrinsic,
         "byteLength",
       )?.get?.call(input);
-      if (
-        !Number.isSafeInteger(length) ||
-        length < 0 ||
-        length > RUNTIME_STATE_MAXIMUM_BYTES
-      )
-        return null;
+      if (!Number.isSafeInteger(length) || length < 0) return null;
       const buffer = Object.getOwnPropertyDescriptor(
         intrinsic,
         "buffer",

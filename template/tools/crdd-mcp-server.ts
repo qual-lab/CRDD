@@ -204,7 +204,6 @@ async function createRequestRoutingDependencies(
     if (verified.status !== "completed") return null;
     const observer = createFilesystemRepositoryObservationPort(
       verified.capability,
-      1_048_576,
     );
     const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
     const source = file.status === "resolved" ? file.source : null;

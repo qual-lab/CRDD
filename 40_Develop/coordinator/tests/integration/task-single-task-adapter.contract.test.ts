@@ -22,6 +22,7 @@ import {
 } from "../../src/execution/controller.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
+import { validSingleTaskResult } from "../../src/task/dispatch.ts";
 
 /**
  * 変更観測の意味と閉じた形を固定する。
@@ -1037,6 +1038,65 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
     "recovery-candidate",
     "recovery-store",
   ]);
+  const recoveryIds = Array.from(
+    { length: 129 },
+    (_, index) => `recovery-${index}`,
+  );
+  const many = harness({
+    completion: Promise.resolve(
+      completionRecord({
+        status: "blocked",
+        reason: "coordinator_task_cleanup_unknown",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        candidateId: null,
+        dockerRecoveryIds: recoveryIds,
+      }),
+    ),
+  });
+  const collected = await runCoordinatorSingleTaskAttempt(
+    many.dependencies,
+    validInput(),
+  );
+  assert.deepEqual(collected.recoveryIds, recoveryIds);
+  assert.equal(collected.recoveryObligations?.length, 129);
+  assert.equal(validSingleTaskResult(collected, new Map()), true);
+  assert.equal(
+    validSingleTaskResult({ ...collected, cleanupConfirmed: true }, new Map()),
+    false,
+  );
+  const obligations = collected.recoveryObligations ?? [];
+  assert.equal(
+    validSingleTaskResult(
+      { ...collected, recoveryObligations: [...obligations, obligations[0]] },
+      new Map(),
+    ),
+    false,
+  );
+  assert.equal(
+    validSingleTaskResult(
+      { ...collected, recoveryObligations: obligations.slice(1) },
+      new Map(),
+    ),
+    false,
+  );
+  assert.equal(
+    validSingleTaskResult(
+      {
+        ...collected,
+        recoveryObligations: obligations.map((item, index) =>
+          index === 128 ? { ...item, kind: "runtime_process" } : item,
+        ),
+      },
+      new Map([
+        [
+          recoveryIds[128] ?? "",
+          { attemptId: "foreign", operationId: OPERATION_ID },
+        ],
+      ]),
+    ),
+    false,
+  );
 });
 
 /**

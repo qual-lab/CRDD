@@ -136,6 +136,50 @@ test("Docker cleanup eligibilityは0/1/N exact finalizable集合だけを受理�
 });
 
 /**
+ * 元回復IDと引渡し・完了集合を旧128件を超えて照合する。
+ * @responsibility 全量が同一能力で一致する場合だけ回収可能とし件数だけで拒否しない。
+ * @trace RDL-UT-005
+ * @precondition 既存fixtureで129件の独立能力と引渡しを生成する。
+ * @stimulus 全量正常、末尾欠落・能力差・重複・未完了を与える。
+ * @observation eligibleとexact_match理由、反例のfalse。
+ * @oracle 件数ではなく元集合・参照・終端の一致で可否を決める。
+ * @cleanup N/A: 合成値だけ。実資源を削除しない。
+ * @boundary 回収可否の純粋判定。
+ */
+test("Docker cleanup eligibilityは129件の元集合と能力を全量照合する", () => {
+  const ids = Array.from({ length: 129 }, (_, index) => `recovery-${index}`);
+  const value = candidate(ids);
+  const input = { raw: raw(ids), ...cleanupState(value) };
+  assert.deepEqual(evaluateManagedDockerCleanupEligibility(input), {
+    eligible: true,
+    reason: "exact_match",
+  });
+  for (const invalid of [
+    { ...input, raw: raw(ids.slice(0, -1)) },
+    { ...input, raw: raw([...ids, exactAt(ids, 128)]) },
+    { ...input, handoffs: value.handoffs.slice(0, -1) },
+    { ...input, finalizations: value.finalizations.slice(0, -1) },
+    { ...input, handoffs: [...value.handoffs, exactAt(value.handoffs, 128)] },
+    {
+      ...input,
+      finalizations: value.finalizations.map((entry, index) =>
+        index === 128 ? { ...entry, capability: {} } : entry,
+      ),
+    },
+    {
+      ...input,
+      handoffs: value.handoffs.map((entry, index) =>
+        index === 128 ? { ...entry, state: "active" } : entry,
+      ),
+    },
+  ])
+    assert.equal(
+      evaluateManagedDockerCleanupEligibility(invalid).eligible,
+      false,
+    );
+});
+
+/**
  * raw recovery projectionの不正shapeは認証済みhandoffがあっても拒否するを検証する。
  *
  * @responsibility raw recovery projectionの不正shapeは認証済みhandoffがあっても拒否するの合否判定を所有する。

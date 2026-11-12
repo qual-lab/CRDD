@@ -83,23 +83,21 @@ export function createTaskStageDiagnostic(
     reviewer?.taskRole !== "reviewer" ||
     !["approved", "changes_requested"].includes(reviewer.decision as string) ||
     !Number.isSafeInteger(reviewer.findingCount) ||
-    (reviewer.findingCount as number) < 0 ||
-    (reviewer.findingCount as number) > 64
+    (reviewer.findingCount as number) < 0
   )
     return null;
   const counts = snapshotPlainArray<unknown>(reviewer.categoryCounts, 4);
   if (
     counts.status !== "ok" ||
     counts.value.length !== 4 ||
-    !counts.value.every(
-      (n) =>
-        Number.isSafeInteger(n) && (n as number) >= 0 && (n as number) <= 64,
-    )
+    !counts.value.every((n) => Number.isSafeInteger(n) && (n as number) >= 0)
   )
     return null;
   const categoryCounts = counts.value as number[];
+  const total = categoryCounts.reduce((a, b) => a + b, 0);
   if (
-    categoryCounts.reduce((a, b) => a + b, 0) !== reviewer.findingCount ||
+    !Number.isSafeInteger(total) ||
+    total !== reviewer.findingCount ||
     (reviewer.decision === "approved") !== (reviewer.findingCount === 0)
   )
     return null;
@@ -135,8 +133,7 @@ export function createCandidateValidationFailureDiagnostic(
     ]),
   );
   const count = (v: unknown) =>
-    v === null ||
-    (Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= 1000);
+    v === null || (Number.isSafeInteger(v) && (v as number) >= 0);
   if (
     !value ||
     !["unavailable", "capability_unavailable", "captured"].includes(
@@ -335,7 +332,10 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([] as string[]),
     });
-  const idsSnapshot = snapshotPlainArray(observation.dockerRecoveryIds, 256);
+  const idsSnapshot = snapshotPlainArray(
+    observation.dockerRecoveryIds,
+    Number.MAX_SAFE_INTEGER,
+  );
   const parsedIds =
     idsSnapshot.status === "ok"
       ? idsSnapshot.value.map(parseDockerTaskRecoveryId)
@@ -351,7 +351,7 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
       : undefined;
   const hashes = snapshotPlainArray(
     observation.activeStableLogicalHomeBindingHashes,
-    256,
+    Number.MAX_SAFE_INTEGER,
   );
   const hashValues =
     hashes.status === "ok" && hashes.value.every(isSha256Hex)

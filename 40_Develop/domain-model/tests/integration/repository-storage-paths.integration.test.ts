@@ -14,27 +14,26 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
-  readStableBoundedFileSnapshot,
-  sameStableFileIdentity,
-} from "../../src/storage/bounded-file-snapshot.ts";
-
+  getRepository,
+  getRepositoryFromWorkingDirectory,
+} from "../../../version-control/src/index.ts";
 import {
-  ensureRepositoryRuntimeDataArea,
-  checkRepositoryRuntimeDataProtectionDirectory,
-} from "../../src/storage/ensure-area.ts";
+  RepositoryRuntimeDataAreaBlockedError,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/repository/require-storage-area.ts";
 import {
   observeRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
 } from "../../src/repository/resolve-storage-paths.ts";
 import type { RepositoryRuntimeArea } from "../../src/repository/types.ts";
 import {
-  RepositoryRuntimeDataAreaBlockedError,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/repository/require-storage-area.ts";
+  checkRepositoryRuntimeDataProtectionDirectory,
+  ensureRepositoryRuntimeDataArea,
+} from "../../src/storage/ensure-area.ts";
 import {
-  getRepository,
-  getRepositoryFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+  readStableFileSnapshot,
+  sameStableFileIdentity,
+} from "../../src/storage/file-snapshot.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -75,7 +74,7 @@ test("Windowsの上位bit付きFile IDで保存Readerの同一性確認を維持
       return metadata;
     });
   }
-  const observed = readStableBoundedFileSnapshot(file, 128);
+  const observed = readStableFileSnapshot(file);
   assert.equal(observed.identity.ino, expected);
   assert.equal(observed.bytes.toString(), '{"state":"ready"}');
   const signed = { ...observed.identity, ino: BigInt.asIntN(64, expected) };
@@ -115,17 +114,11 @@ test("Windowsの上位bit付きFile IDで保存Readerの同一性確認を維持
     false,
   );
   changed = true;
-  assert.throws(
-    () => readStableBoundedFileSnapshot(file, 128),
-    /bounded_file_snapshot_changed/,
-  );
+  assert.throws(() => readStableFileSnapshot(file), /file_snapshot_changed/);
   changed = false;
   for (const value of [0n, -(1n << 63n) - 1n]) {
     invalid = value;
-    assert.throws(
-      () => readStableBoundedFileSnapshot(file, 128),
-      /bounded_file_snapshot_invalid/,
-    );
+    assert.throws(() => readStableFileSnapshot(file), /file_snapshot_invalid/);
   }
 });
 

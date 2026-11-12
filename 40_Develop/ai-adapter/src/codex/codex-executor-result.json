@@ -2,16 +2,14 @@
   "type": "object",
   "properties": {
     "status": { "type": "string", "const": "completed" },
-    "summary": { "type": "string", "minLength": 1, "maxLength": 8192 },
+    "summary": { "type": "string", "minLength": 1 },
     "changedPaths": {
       "type": "array",
-      "maxItems": 1000,
-      "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      "items": { "type": "string", "minLength": 1 }
     },
     "verification": {
       "type": "array",
-      "maxItems": 32,
-      "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      "items": { "type": "string", "minLength": 1 }
     }
   },
   "required": ["status", "summary", "changedPaths", "verification"],

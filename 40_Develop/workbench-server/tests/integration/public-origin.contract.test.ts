@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { type FileHandle, open } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
@@ -99,6 +100,72 @@ test("Workbench設定Readerは当該Repositoryの閉設定だけを受理する"
     assert.deepEqual(await readWorkbenchServerConfiguration(fixture), {
       publicOrigin: "https://workbench.example",
     });
+    for (const size of [16383, 16384, 16385, 65537]) {
+      const body = '{"publicOrigin":"https://workbench.example"}';
+      fs.writeFileSync(
+        file,
+        `${" ".repeat(size - Buffer.byteLength(body))}${body}`,
+      );
+      assert.deepEqual(await readWorkbenchServerConfiguration(fixture), {
+        publicOrigin: "https://workbench.example",
+      });
+    }
+    const originalRead = prototype.read;
+    const originalOpen = fs.promises.open;
+    for (const fault of ["partial", "read", "eof", "close"]) {
+      let closes = 0;
+      const readMock = t.mock.method(
+        prototype,
+        "read",
+        async function (
+          this: FileHandle,
+          buffer: Buffer,
+          offset: number,
+          length: number,
+          position: number,
+        ) {
+          if (fault === "read") throw Error("injected_read");
+          if (fault === "eof") return { bytesRead: 0, buffer };
+          return Reflect.apply(originalRead, this, [
+            buffer,
+            offset,
+            Math.min(length, 7),
+            position,
+          ]);
+        },
+      );
+      const closeMock = t.mock.method(
+        fs.promises,
+        "open",
+        async (...args: Parameters<typeof originalOpen>) => {
+          const handle = await originalOpen(...args);
+          const close = handle.close.bind(handle);
+          handle.close = async () => {
+            await close();
+            closes++;
+            if (fault === "close") throw Error("injected_close");
+          };
+          return handle;
+        },
+      );
+      syncBuiltinESMExports();
+      try {
+        if (fault === "partial")
+          assert.deepEqual(await readWorkbenchServerConfiguration(fixture), {
+            publicOrigin: "https://workbench.example",
+          });
+        else
+          await assert.rejects(
+            readWorkbenchServerConfiguration(fixture),
+            /workbench_server_configuration_invalid/u,
+          );
+        assert.equal(closes, 1, fault);
+      } finally {
+        readMock.mock.restore();
+        closeMock.mock.restore();
+        syncBuiltinESMExports();
+      }
+    }
     for (const invalid of [
       "null",
       "[]",

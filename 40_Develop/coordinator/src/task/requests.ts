@@ -168,7 +168,10 @@ export function inspectSingleTaskCommand(
     snapshotRuntimeStateRecord(raw, new Set([...keys, "choice"])) ??
     snapshotRuntimeStateRecord(raw, new Set(keys));
   const refs = snapshotRuntimeStateArray<string>(r?.contextReferences, 1);
-  const paths = snapshotRuntimeStateArray<string>(r?.allowedPaths, 1024);
+  const paths = snapshotRuntimeStateArray<string>(
+    r?.allowedPaths,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (
     !r ||
     Object.keys(r).length !== 6 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
@@ -182,7 +185,6 @@ export function inspectSingleTaskCommand(
     (Object.hasOwn(r, "choice") && !inspectAiSelectionChoice(r.choice)) ||
     typeof r.prompt !== "string" ||
     r.prompt.trim().length === 0 ||
-    r.prompt.length > 32000 ||
     refs.status !== "ok" ||
     refs.value.length !== 1 ||
     refs.value[0] !== "PROJECT_CONTEXT.md" ||
@@ -1140,7 +1142,7 @@ function snapshotSingleTaskOutcome(
     ]) {
       const items = snapshotRuntimeStateArray(
         groups[key as keyof typeof groups],
-        100,
+        Number.MAX_SAFE_INTEGER,
       );
       if (items.status !== "ok") return null;
       const rows = [];
@@ -1149,14 +1151,12 @@ function snapshotSingleTaskOutcome(
           item,
           new Set(["text", "references"]),
         );
-        if (
-          !row ||
-          typeof row.text !== "string" ||
-          row.text.length === 0 ||
-          row.text.length > 32000
-        )
+        if (!row || typeof row.text !== "string" || row.text.length === 0)
           return null;
-        const refs = snapshotRuntimeStateArray<string>(row.references, 100);
+        const refs = snapshotRuntimeStateArray<string>(
+          row.references,
+          Number.MAX_SAFE_INTEGER,
+        );
         if (
           refs.status !== "ok" ||
           refs.value.length === 0 ||
@@ -1164,7 +1164,6 @@ function snapshotSingleTaskOutcome(
             (ref) =>
               typeof ref !== "string" ||
               ref.length === 0 ||
-              ref.length > 512 ||
               /[\r\n\0]/u.test(ref),
           )
         )

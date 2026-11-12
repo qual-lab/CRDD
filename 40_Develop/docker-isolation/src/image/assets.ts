@@ -38,7 +38,7 @@ const CODEX = Object.freeze({
   },
   fixedDigestImageRequired: true,
   fixedImageDigest:
-    "sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4",
+    "sha256:9f585128d400a0537679df549c91917940880044588517c66943af915dec4349",
   autoUpdateAllowed: false,
   runtimePullAllowed: false,
 } as const);

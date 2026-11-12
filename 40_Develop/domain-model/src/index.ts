@@ -369,9 +369,9 @@ export {} from "./decision/crud.ts";
 export {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
   type CoordinatorDecisionRequest,
+  type CoordinatorDecisionResult,
   inspectCoordinatorDecisionRequest,
   inspectCoordinatorDecisionResult,
-  type CoordinatorDecisionResult,
 } from "./decision/request.ts";
 export type {
   CoordinatorAcceptanceDecision,
@@ -562,7 +562,6 @@ export {
 export {
   encodeRuntimeStateValue,
   hashRuntimeStateContent,
-  RUNTIME_STATE_MAXIMUM_BYTES,
 } from "./state/codec.ts";
 export {
   classifyCoordinatorRepairPublication,
@@ -605,8 +604,6 @@ export {
   prepareCoordinatorTerminalRecordRetirement,
 } from "./state/history.ts";
 export {
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   inspectCoordinatorProjection,
   inspectCoordinatorStateQueryResult,
@@ -695,16 +692,16 @@ export {
   saveRepositoryAiSelection,
 } from "./storage/ai-selection.ts";
 export {
-  readStableBoundedFileSnapshot,
-  type StableFileIdentity,
-  sameStableFileIdentity,
-} from "./storage/bounded-file-snapshot.ts";
-export {
   checkRepositoryRuntimeDataProtectionDirectory,
   createCoordinatorRuntimeDataArea,
   ensureRepositoryRuntimeDataArea,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
 } from "./storage/ensure-area.ts";
+export {
+  readStableFileSnapshot,
+  type StableFileIdentity,
+  sameStableFileIdentity,
+} from "./storage/file-snapshot.ts";
 export {
   type NetworkPolicyReadResult,
   readNetworkPolicy,
@@ -722,6 +719,8 @@ export type {
 export {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   advanceRuntimeOwnedCoordinatorRepairHistory,
+  answerDecision,
+  applyDecision,
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
   checkpointRuntimeOwnedCoordinatorLifecycle,
@@ -731,6 +730,7 @@ export {
   checkpointRuntimeOwnedCoordinatorRestart,
   cleanupRuntimeOwnedCoordinatorStateMarker,
   closeCoordinatorUnstartedTaskQueue,
+  closeDecision,
   completeRuntimeOwnedCoordinatorCurrentRecovery,
   completeRuntimeOwnedCoordinatorRepair,
   confirmCoordinatorLeaseAcquisition,
@@ -775,11 +775,8 @@ export {
   readRuntimeOwnedCoordinatorStateSnapshot,
   reconcileCoordinatorReleasedLease,
   recordDecision,
-  requestDecision,
-  answerDecision,
-  applyDecision,
-  closeDecision,
   registerRuntimeOwnedCoordinatorRecoveryResultDelivery,
+  requestDecision,
   reserveCoordinatorLeaseAcquisition,
   reserveCoordinatorLeaseRecovery,
   resumeRuntimeOwnedCoordinatorRepairPublication,

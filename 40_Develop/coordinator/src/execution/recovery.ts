@@ -203,8 +203,6 @@ export type RawDockerRecoveryProjection = Readonly<{
   plural: unknown;
 }>;
 
-const MAX_RECOVERY_IDS = 128;
-
 const MAX_RECOVERY_ID_LENGTH = 512;
 
 /**
@@ -333,8 +331,7 @@ function exactDenseStringArray(value: unknown) {
     typeof value !== "object" ||
     types.isProxy(value) ||
     !Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Array.prototype ||
-    value.length > MAX_RECOVERY_IDS
+    Object.getPrototypeOf(value) !== Array.prototype
   )
     return null;
   const ownKeys = Reflect.ownKeys(value);
@@ -440,8 +437,7 @@ function exactPlainRecordArray(
     typeof value !== "object" ||
     types.isProxy(value) ||
     !Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Array.prototype ||
-    value.length > MAX_RECOVERY_IDS
+    Object.getPrototypeOf(value) !== Array.prototype
   )
     return null;
   const keys = Reflect.ownKeys(value);

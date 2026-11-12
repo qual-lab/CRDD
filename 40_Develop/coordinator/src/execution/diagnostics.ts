@@ -23,7 +23,6 @@ import { performance } from "node:perf_hooks";
 import type { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
-import { getIsolationSettings } from "./configuration.ts";
 import {
   getAuthenticationDefinition,
   getBillingPolicy,
@@ -35,21 +34,21 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  type IsolationProbeFacts,
   type CompletionResult,
   cleanupResources,
   createExecutor,
   type Executor,
   type ExecutorRequest,
+  type IsolationProbeFacts,
   type IsolationProbeOptions,
   inspectResources,
   type ResourceTarget,
 } from "../../../executor/src/index.ts";
 import {
+  getRepository,
   getRepositoryFromWorkingDirectory,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   type DockerMounts,
@@ -70,6 +69,7 @@ import {
   describeRootProtectionPolicyContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "./authority.ts";
+import { getIsolationSettings } from "./configuration.ts";
 import { observeLeaseOwner } from "./kernel-lock.ts";
 import {
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -246,7 +246,7 @@ export function createDevelopmentExecutionTiming(
      */
     observeLifecycleState(state: string) {
       if (isFinished || state === currentState) return;
-      if (!Object.hasOwn(STATE_LABELS, state) || intervals.length >= 31) {
+      if (!Object.hasOwn(STATE_LABELS, state)) {
         measurementComplete = false;
         return;
       }
@@ -1268,8 +1268,6 @@ function snapshotTask(raw: unknown): Task | null {
     const parsed = snapshotCoordinatorTaskRequest(raw);
     if (parsed?.status !== "accepted") return null;
     const request = parsed.request;
-    if (Buffer.byteLength(JSON.stringify(request), "utf8") > 65_536)
-      return null;
     const executor = request.taskExecutionSelections?.executor.provider;
     if (
       (executor !== "codex" && executor !== "claude") ||
@@ -2357,16 +2355,6 @@ const sourceRoot = path.resolve(
   fileURLToPath(new URL("../../../../", import.meta.url)),
 );
 
-const MAX_FILES = 2048;
-
-const MAX_DIRECTORIES = 2048;
-
-const MAX_FILE_BYTES = 1024 * 1024;
-
-const MAX_TOTAL_BYTES = 64 * 1024 * 1024;
-
-const MAX_DEPTH = 8;
-
 /**
  * Snapshotの観測事実を保持する。実行許可や配布元真正性は表さない。
  *
@@ -2387,30 +2375,28 @@ type SourceObservation = Readonly<{
 }>;
 
 /**
- * Directory名を上限内で列挙し、同じhandleを必ず閉じる。
+ * Directory名を列挙し、同じhandleを必ず閉じる。
  *
- * @responsibility 件数拒否より先に無制限の配列を生成しない。
+ * @responsibility Source診断の対象名を独自の件数上限で欠落させない。
  * @trace ARCH-000004
  * @input directory: 固定Scope内のDirectory。
- * @returns コード単位順に並べた最大4096名。
+ * @returns コード単位順に並べた名前集合。
  * @precondition 呼出し元がDirectory種別を確認している。
  * @postcondition 成功・失敗とも開いたhandleのcloseを一回試行する。
  * @effect Directoryを読取り専用で開閉する。
- * @failure 列挙・close失敗と4097件目で例外を返す。
+ * @failure 列挙・close失敗は例外を返す。
  * @invariant 外部への書込みと永続状態を作らない。
  * @boundary Node Directory handleの所有期間。
- * @security File名だけを内部で保持し、上限を自動拡張しない。
+ * @security File名だけを内部で保持し、対象Scopeを拡張しない。
  * @concurrency 後続の二読取りが追加・欠落差を照合する。
  */
-function readBoundedDirectoryNames(directory: string): string[] {
+function readDirectoryNames(directory: string): string[] {
   const handle = opendirSync(directory);
   const names: string[] = [];
   try {
     for (;;) {
       const entry = handle.readSync();
       if (!entry) break;
-      if (names.length >= MAX_FILES + MAX_DIRECTORIES)
-        throw new Error("development_source_directory_limit");
       names.push(entry.name);
     }
     return names.sort();
@@ -2425,11 +2411,11 @@ function readBoundedDirectoryNames(directory: string): string[] {
  * @responsibility 通常Fileの内容とRoot・Directory・File実体の前後一致を確認する。
  * @trace ARCH-000004
  * @input root: 内部で固定したSource Root。
- * @returns 一致した不変観測値。観測不能・不一致・上限超過はnull。
+ * @returns 一致した不変観測値。観測不能・不一致はnull。
  * @precondition 呼出し元が観測対象Rootを固定している。
  * @postcondition 部分結果を成功値として返さない。
  * @effect Filesystemの読取りだけを行う。
- * @failure link、欠落、非通常File、読取り差、上限超過を拒否する。
+ * @failure link、欠落、非通常File、読取り差を拒否する。
  * @invariant 外部へ実行許可を発行せず、内容Hashと実体Hashを分ける。
  * @boundary Node Filesystemから読取り可能な固定Sourceだけを観測する。
  * @security linkを辿らず、外部Rootを返さず、書込みを行わない。
@@ -2443,13 +2429,11 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
       const content: unknown[] = [SOURCE_SCOPE, PACKAGES, DIRECTORIES];
       const identities: unknown[] = [];
       let fileCount = 0;
-      let directoryCount = 0;
       let totalBytes = 0;
       const packagesWithSource = new Set<string>();
       const pending: Array<{
         absolute: string;
         relative: string;
-        depth: number;
       }> = [];
       // Root parents are checked independently; root mtime is intentionally not
       // included because excluded .crdd/document updates do not change Source.
@@ -2479,7 +2463,6 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
         pending.push({
           absolute: path.join(absolute, "package.json"),
           relative: `${relative}/package.json`,
-          depth: 0,
         });
         for (const directory of DIRECTORIES) {
           const child = path.join(absolute, directory);
@@ -2500,7 +2483,6 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
           pending.push({
             absolute: child,
             relative: `${relative}/${directory}`,
-            depth: 0,
           });
         }
       }
@@ -2512,10 +2494,7 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
         if (entry.relative.endsWith("/package.json") && !before.isFile())
           return null;
         if (before.isDirectory()) {
-          directoryCount += 1;
-          if (directoryCount > MAX_DIRECTORIES || entry.depth > MAX_DEPTH)
-            return null;
-          const names = readBoundedDirectoryNames(entry.absolute);
+          const names = readDirectoryNames(entry.absolute);
           content.push([entry.relative, "directory", names]);
           identities.push([
             entry.relative,
@@ -2527,24 +2506,16 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
             pending.push({
               absolute: path.join(entry.absolute, name),
               relative: `${entry.relative}/${name}`,
-              depth: entry.depth + 1,
             });
           }
           continue;
         }
-        if (
-          !before.isFile() ||
-          before.nlink !== 1n ||
-          entry.depth > MAX_DEPTH ||
-          before.size > BigInt(MAX_FILE_BYTES)
-        )
-          return null;
+        if (!before.isFile() || before.nlink !== 1n) return null;
         fileCount += 1;
         const sourcePackage = entry.relative.match(
           /^40_Develop\/([^/]+)\/src\//u,
         )?.[1];
         if (sourcePackage) packagesWithSource.add(sourcePackage);
-        if (fileCount > MAX_FILES) return null;
         const descriptor = openSync(
           entry.absolute,
           constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
@@ -2633,7 +2604,6 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
         )
           return null;
         totalBytes += bytes.length;
-        if (totalBytes > MAX_TOTAL_BYTES) return null;
         content.push([
           entry.relative,
           bytes.length,
@@ -2689,11 +2659,11 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
  * @responsibility Sessionと入力生成Toolの固定Source観測入口を共有する。
  * @trace ARCH-000004
  * @input N/A: RootとScopeはModuleから固定し、呼出し元に選ばせない。
- * @returns 有界Snapshotの観測値。不完全な観測はnull。
+ * @returns 固定Scope全体のSnapshot観測値。不完全な観測はnull。
  * @precondition 固定9Packageと必要Sourceが読取り可能である。
  * @postcondition 成功値は二読取りで内容・実体が一致する。
  * @effect Sourceを同期読取りする。永続状態を作らない。
- * @failure 欠落、不正実体、途中変更、上限超過はnull。
+ * @failure 欠落、不正実体、途中変更はnull。
  * @invariant この値は実行Authorityでも配布署名でもない。
  * @boundary 固定RepositoryのSourceのみを読み取る。
  * @security 任意Root、期待値自動補完、Source本文の公開を許さない。

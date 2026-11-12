@@ -63,12 +63,7 @@ function validId(value: unknown): value is string {
  * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
  */
 function validText(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 512 &&
-    !value.includes("\0")
-  );
+  return typeof value === "string" && value.length > 0 && !value.includes("\0");
 }
 
 /**
@@ -76,9 +71,9 @@ function validText(value: unknown): value is string {
  *
  * @responsibility Stringsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
- * @input value: unknown、maximum: number、isEmptyAllowed: boolean
+ * @input value: unknown、isEmptyAllowed: boolean
  * @returns inspectStringsの計算結果を返す。
- * @precondition 「value: unknown、maximum: number、isEmptyAllowed: boolean」がinspectStringsの入力契約を満たす。
+ * @precondition 「value: unknown、isEmptyAllowed: boolean」がinspectStringsの入力契約を満たす。
  * @postcondition inspectStringsの責務を完了した結果だけを返す。
  * @effect N/A: inspectStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: inspectStringsは独自の失敗分岐を所有しない。
@@ -87,12 +82,11 @@ function validText(value: unknown): value is string {
  * @security N/A: inspectStringsはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: inspectStringsは共有非同期状態を持たない同期処理である。
  */
-function inspectStrings(
-  value: unknown,
-  maximum: number,
-  isEmptyAllowed: boolean,
-) {
-  const snapshot = snapshotRuntimeStateArray<string>(value, maximum);
+function inspectStrings(value: unknown, isEmptyAllowed: boolean) {
+  const snapshot = snapshotRuntimeStateArray<string>(
+    value,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (
     snapshot.status !== "ok" ||
     (!isEmptyAllowed && snapshot.value.length === 0) ||
@@ -131,9 +125,9 @@ function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
     ] as const),
   );
   if (!task || !validId(task.id) || !validId(task.objectiveId)) return null;
-  const dependencies = inspectStrings(task.dependencies, 128, true);
-  const allowedPaths = inspectStrings(task.allowedPaths, 128, false);
-  const conflictKeys = inspectStrings(task.conflictKeys, 128, true);
+  const dependencies = inspectStrings(task.dependencies, true);
+  const allowedPaths = inspectStrings(task.allowedPaths, false);
+  const conflictKeys = inspectStrings(task.conflictKeys, true);
   return dependencies && allowedPaths && conflictKeys
     ? Object.freeze({
         id: task.id,
@@ -194,7 +188,10 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
     !validId(partial.failedTaskId)
   )
     return null;
-  const replacements = snapshotRuntimeStateArray(partial.replacements, 128);
+  const replacements = snapshotRuntimeStateArray(
+    partial.replacements,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (replacements.status !== "ok" || replacements.value.length === 0)
     return null;
   const inspectedTasks = replacements.value.map(inspectTaskDefinition);

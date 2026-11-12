@@ -19,7 +19,7 @@
  * @boundary CPR-IT-010=Workbench操作→Domain保存→改訂・状態・確認結果。
  * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -41,25 +41,23 @@ import path from "node:path";
 import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
-  saveRepositoryAiSelection,
-  readRepositoryAiSelection,
-} from "../../../domain-model/src/index.ts";
-import {
-  selectionConfig,
   executionSelection,
+  selectionConfig,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
+import {
+  createFilesystemStoreRoot,
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "../../../domain-model/src/index.ts";
+import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
-import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
-import type { WorkbenchClientModel } from "../../src/shared/view/types.ts";
 import {
   createRepositoryWorkbenchActivityReader,
   readWorkbenchProjectSurface,
@@ -68,6 +66,8 @@ import {
   type WorkbenchAiRequestCommand,
   type WorkbenchAiRequests,
 } from "../../src/index.ts";
+import type { WorkbenchClientModel } from "../../src/shared/view/types.ts";
+import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -894,7 +894,6 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       binary: false,
       oldPath: null,
       patch: "diff",
-      truncated: false,
       reason: null,
     };
     assert.throws(
@@ -3476,7 +3475,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     for (const bytes of [24 * 1024, 1024 * 1024, 1024 * 1024 + 1]) {
       const large = structuredClone(selectionConfig());
       large.workTypes.coding = { label: "設定" };
-      const baseline = Buffer.byteLength(JSON.stringify(large, null, 2) + "\n");
+      const baseline = Buffer.byteLength(`${JSON.stringify(large, null, 2)}\n`);
       large.workTypes.coding.label += "x".repeat(bytes - baseline);
       const input = new URLSearchParams({
         actionToken: initial.actionToken,
@@ -3486,19 +3485,14 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
       const reply = await post(input);
       assert.equal(reply.status, 200);
       const value = JSON.parse(reply.body.toString("utf8"));
-      if (bytes <= 1024 * 1024) {
-        assert.equal(value.status, "saved");
-        identity = value.snapshot.identity;
-        assert.equal(
-          Buffer.byteLength(
-            JSON.stringify(value.snapshot.config, null, 2) + "\n",
-          ),
-          bytes,
-        );
-      } else {
-        assert.equal(value.status, "blocked");
-        assert.equal(value.reason, "ai_selection_file_too_large");
-      }
+      assert.equal(value.status, "saved");
+      identity = value.snapshot.identity;
+      assert.equal(
+        Buffer.byteLength(
+          `${JSON.stringify(value.snapshot.config, null, 2)}\n`,
+        ),
+        bytes,
+      );
     }
     const oversized = new URLSearchParams(form);
     oversized.set("config", "x".repeat(3 * 1024 * 1024 + 16 * 1024));

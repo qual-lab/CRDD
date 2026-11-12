@@ -1,7 +1,7 @@
 /**
  * Owner成果物原文ModelのBrowser境界を検証する。
  * @packageDocumentation
- * @responsibility 種別・出所・閉field・UTF8容量を反証する。
+ * @responsibility 種別・出所・閉fieldと原文全量保持を反証する。
  * @trace EST-IT-002
  * @trace RFD-IT-024
  * @level IT
@@ -14,7 +14,7 @@ import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts
 
 /**
  * 同じRepositoryの原文だけを閉Modelへ受理する。
- * @responsibility 余剰field・別種別・別出所・過大本文を拒否する。
+ * @responsibility 余剰field・別種別・別出所を拒否し、本文容量だけでは拒否しない。
  * @trace EST-IT-002
  * @trace RFD-IT-024
  * @precondition 元のReaderが検査した非秘密Model。
@@ -54,7 +54,6 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
     { identity: "99_Roadmap/01_Roadmap.md" },
     { markdown: null },
     { root: "hidden" },
-    { markdown: "あ".repeat(174763) },
   ])
     assert.throws(() =>
       inspectWorkbenchClientModel({
@@ -62,6 +61,14 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
         artifact: { ...valid.artifact, ...extra },
       }),
     );
+  const largeMarkdown = "あ".repeat(174763);
+  const large = inspectWorkbenchClientModel({
+    ...valid,
+    artifact: { ...valid.artifact, markdown: largeMarkdown },
+  });
+  assert.equal(large.view, "artifact");
+  if (large.view === "artifact")
+    assert.equal(large.artifact.markdown, largeMarkdown);
   const owner = {
     ...valid,
     artifact: {

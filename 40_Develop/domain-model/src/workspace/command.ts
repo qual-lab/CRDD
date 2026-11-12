@@ -246,8 +246,14 @@ export function inspectWorkspaceCommand(
   )
     return null;
   if (operation === "freeze") {
-    const selection = snapshotRuntimeStateArray(r.selection, 1000);
-    const changes = snapshotRuntimeStateArray(r.relatedChangeIds, 100);
+    const selection = snapshotRuntimeStateArray(
+      r.selection,
+      Number.MAX_SAFE_INTEGER,
+    );
+    const changes = snapshotRuntimeStateArray(
+      r.relatedChangeIds,
+      Number.MAX_SAFE_INTEGER,
+    );
     if (selection.status !== "ok" || changes.status !== "ok") return null;
     const items = selection.value.map((item) =>
       snapshotRuntimeStateRecord(item, new Set(["path", "blobId", "mode"])),

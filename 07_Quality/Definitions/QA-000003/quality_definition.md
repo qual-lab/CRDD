@@ -1,5 +1,41 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 内部要求・結果・検証Toolの残存量制約撤去 — 2026-11-12
+
+単発Task内部APIの旧Prompt32,000文字・AllowedPath1,024件、Advice公開DTOの100項目／100参照／参照512・本文32,000文字、開発受付JSON64KiBとAdvice準備の各旧量境界を超える有効入力を対照する。外側の元回復ID129件以上と検証記録17件以上を末尾まで保持し、末尾不正は元IDの保全・不完全判定と区別する。Timeline31件、計測設定128KiB、LCOV32MiB、追跡Reader8MiB・相対Path512の内容側制限も同契約で追従する。
+
+型・非空・閉Schema・相関／一意性・Path／Secret・選定・一回consumeと認可／通知／取消・Cleanupは維持する。Session100、Authority／Origin、Root全長、HTTP／MCP／CLI入力、子Process出力、固定Fake Profile・Turn／試行／期限は別枠として変更しない。限定局所・模擬境界と実Git等を区別し、実AI／Docker・全体回帰・過去保持物は操作しない。
+
+## Task準備・Provider入力・結果診断の容量追従
+
+既存PRL-UT-014と準備／Plan契約で、8KiB超objective、17件・各1KiB超の受入条件、128KiB超Prompt／Provider入力、65件Reviewer診断を受理する対照を確認する。Packet相関・正の安全整数・分類合計・Task実条件数・Secret／Path・Role／Authority不正は引き続き拒否する。ADのTask／Advice結果とWorkbench Owner Artifactの全量搬送は各Ownerの限定試験へ接続し、Transport／Process出力上限・Timeout・実行回数は別契約として維持する。CodexのSource SchemaとImage準備入力Hashを非Docker契約で照合し、実Imageの更新・実AIの成功とは扱わない。
+
+## 回復・受領情報の後段容量拒否撤去
+
+既存Task Adapter・状態遷移・受領保存・Cleanup適格性・MCP結果・回復投影へ、129件の回復ID／義務／引渡し／終端／受領と、257件の正規回復ID・対応Home Hashを接続する。正常集合の末尾まで保持し、129番目の不正世代・不正Hashや重複・未参照・能力不一致・未清掃を拒否する。実処置や資源不存在を配列の大きさから推定しない。
+
+検証Readerと複数結果の集約は、257件の正規回復IDを切り詰めず保持し、量だけで曖昧としない。不正値・単数／複数の相関差・重複を不明として残す。実AI・Dockerを使わず、実保存・模擬依存・実Source宣言の局所評価を区別して結果を記録する。全体QA・E2Eの成功とはしない。
+
+## 保存前のモデル件数・本文容量制限の撤去
+
+既存のPRL-UT-006／007／015と保存・Git候補・一時操作の契約へ、129 Objective／1,025 Task、129受入条件・Path・回復義務・受領、65回復ID、長い作業指示・条件・Path、257根拠IDと判断本文の全量を接続する。Coordinator作成・再計画、Domainの候補／保存値／投影とMCP結果検査で同じ量を再拒否しない。重複・未参照・相関不正・Hash不正・安全整数逸脱と、同時実行／再計画の制御は別の負例として維持する。
+
+候補selection1,001件・関連CHG101件・長Pathは実Source検査とDomain捕捉、64MiB超Fileと4,097文字Commitは実Git、一時操作purpose513文字・allowedContent65件は新規作成・読戻し・終端回収で確認する。大量selectionの全Git発行と局所入力検査、制限環境のfixture生成失敗と製品判定は区別する。Reader旧名は現行試験の`file-snapshot`識別子・Header・台帳へ追従し、過去Evidenceの名前や安定Context IDは変更しない。正式項目全体のPassへ合算せず、実施結果と未実施範囲はCHG-000082へ残す。全体回帰・実AI・Docker・過去保持物は対象外。
+
+## 内部保存と診断表示の容量制限撤去
+
+Domainの内部State・履歴の16MiB、AI選択設定1MiB、通信設定16KiB、Blocker／Decision蓄積4,096件・技術記録64件による独自拒否を撤去する。旧byte境界の直前・一致・超過で正常保存と再読取りを確認し、不正Schema・UTF-8・相関差・Lock／Revision競合の拒否は維持する。Readerは`readStableFileSnapshot(file)`へ追従し、容量引数・旧公開上限定数や互換別名を残さない。実体の多重照合そのものの簡素化は今回別扱いとする。
+
+Source診断・表示の独自容量／取得件数／切詰めを撤去した対照を既存ERB-IT-004、RFD-IT-005／008へ接続する。この先行段階ではHTTP・MCP・CLIの受信、Git Object展開・再帰深度、子Process出力上限を変更しなかった。全体回帰・実AI・Docker・過去保持物は対象外。
+
+## Git Object取得の独自容量・展開制限撤去
+
+後続の人間判断に基づき、Git Object Readerの容量・File数・Pack数・Path byte数・再帰深度の独自拒否を撤去する。旧64KiB／64MiB超の全量読取り、深いTree／Deltaと共有subtreeを既存RFD-IT-008／012へ接続し、Hash・宣言サイズ・checksum・不正参照・mode・Path・Link・Secret検知等の拒否は維持する。OFS自己参照とTree／REF循環の検査を容量制限で代用しない。HTTP・MCP・CLI受信量と子Process出力・Timeoutは不変更。Pack512MiB超・Index96MiB超の巨大実境界、全体回帰・実AI・Docker・過去保持物はこの限定確認では未実施とする。メモリ不足等でRuntime／OSが終了する場合の結果返却は保証しない。正式項目全体のPassとは分離し、実測結果はCHG-000082へ記録する。
+
+## Coordinator借用Treeの独自容量・件数制限撤去
+
+既存RFD-IT-013へ、実File64MiB超・70段／全Path1,024byte超、整合したFilesystem代役による20,002 File・合計256MiB超の全量観測とdescriptor終了を接続する。変更1,001件・許可Path65件を候補生成／終了観測へ搬送し、Reviewerの256File／1MiB超本文も全量取得する。PRL-UT-014では実準備宣言・要求捕捉の後段検査へ同じPath集合とReviewer内容を渡し、Hash・総byte数・文法・Accessor不正を拒否する。Domain保存値の既存CPR-UT-009では終了観測と候補lastResultの1,001 Path・長Pathの保持を反証する。Link・実体変更・未知Capability・内容差・Secret・清掃不明の既存負例は維持する。別Git固定候補selection、受信制限、署名予算、子Process出力／Timeoutは対象外。Runtime／OSの限界と致命的OOM等の結果返却非保証を明記し、局所成功を全体回帰・実AI／Docker E2E・正式項目全体のPassへ拡張しない。
+
 ## 判断・阻害条件・履歴の統合候補 — 実装中
 
 ### Blockerと提案・回答の1:N接続
@@ -52,7 +88,7 @@ PRL-IT-012の既存取得・解放・Owner喪失回復に、wx Fileへの接続�
 
 `PRL-IT-012`ではCoordinator／ExecutorのModule解決を拒否した実子ProcessからMCPとWorkbenchのPackage Rootを読み、正式Factory／HTTPを通して初期化・定義CRUD・保存・再読取り・古いCAS拒否を確認する。MCPの既存同期結果Inspectorも同条件で同期呼出しし、単体Toolだけの読込み成功で上位入口の成立を代用しない。Automation区画の非対象保全と保存不明は既存Domain実保存シナリオで別に確認する。
 
-Workbenchの公開binでは既定Coreと明示`--automation`を分け、前者は実行Owner読込み零、後者だけ同じ既存Task Sessionを構成する。有限代役を使うbin構成試験と、実HTTP／実保存試験を別の根拠とする。共有接続の動的読込み待機中の失効・Root差・取消では、Policy又はWorkspaceの実観測前に停止する。定義POSTの有限搬送上限はDomain上限に整合させ、大きい合法入力を別仕様として拒否しない。上限超・不正Token・閉入力違反では保存Effect零を確認する。
+Workbenchの公開binでは既定Coreと明示`--automation`を分け、前者は実行Owner読込み零、後者だけ同じ既存Task Sessionを構成する。有限代役を使うbin構成試験と、実HTTP／実保存試験を別の根拠とする。共有接続の動的読込み待機中の失効・Root差・取消では、Policy又はWorkspaceの実観測前に停止する。定義POSTの有限搬送上限は既存48MiB＋16KiBを維持し、Domain内部保存上限とは独立させる。HTTP上限超・不正Token・閉入力違反では保存Effect零を確認する。
 
 これらの結果は変更計画へ記録し、Executor単独・全結合実AI・保存先の実データ移行又はQA項目全体の合格へ拡張しない。
 

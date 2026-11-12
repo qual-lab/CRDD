@@ -34,7 +34,6 @@ export function mergeCommit(
       !isCommitId(request.baseCommit) ||
       typeof request.message !== "string" ||
       !request.message.trim() ||
-      request.message.length > 4096 ||
       /[\x00\x7f]/u.test(request.message)
     )
       throw Error("commit_merge_input_invalid");

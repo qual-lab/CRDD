@@ -5,45 +5,34 @@
  * @trace ARCH-000015
  */
 
-import type { Provider, TurnCountDiagnostic } from "./types.ts";
-
-import {
-  type ExecutionPlan,
-  type ProviderExecutionPurpose,
-  evaluateProviderTaskScope,
-} from "./plan.ts";
-
+import { types } from "node:util";
 import type { AuthenticationDefinition } from "../authentication/plan.ts";
-
 import {
   evaluateProviderAuthentication,
   type ProviderAuthenticationResult,
 } from "../authentication/result.ts";
-
+import { normalizeClaudeStructuredResult } from "../claude/result.ts";
+import {
+  type CodexExecutionObservationResult,
+  inspectCodexExecutionObservation,
+} from "../codex/observation.ts";
+import { normalizeCodexStructuredResult } from "../codex/result.ts";
+import { type AdviceResult, parseAdviceResult } from "./advice-result.ts";
 import { convertProviderError } from "./error.ts";
 
-import { types } from "node:util";
-
-import {
-  inspectCodexExecutionObservation,
-  type CodexExecutionObservationResult,
-} from "../codex/observation.ts";
-
+import { snapshotPlainArray, snapshotPlainRecord } from "./input.ts";
 import { parseUnambiguousJsonDocument } from "./json.ts";
-
-import { snapshotPlainRecord, snapshotPlainArray } from "./input.ts";
-
+import {
+  type ExecutionPlan,
+  evaluateProviderTaskScope,
+  type ProviderExecutionPurpose,
+} from "./plan.ts";
 import {
   inspectTaskResultContent,
   type TaskResult,
   type TaskReviewFinding,
 } from "./task-result.ts";
-
-import { parseAdviceResult, type AdviceResult } from "./advice-result.ts";
-
-import { normalizeCodexStructuredResult } from "../codex/result.ts";
-
-import { normalizeClaudeStructuredResult } from "../claude/result.ts";
+import type { Provider, TurnCountDiagnostic } from "./types.ts";
 
 /**
  * 用途別の結果解析入力を表す。
@@ -213,12 +202,6 @@ export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
   "workbench_ai_claude_structured_output_invalid",
 ] as const);
 
-const TASK_MAXIMUM_RAW_BYTES = 65_536;
-
-const ADVICE_MAXIMUM_RAW_BYTES = 262_144;
-
-const MAXIMUM_EVENTS = 4_096;
-
 /**
  * 用途別出力を共通の解析結果へ変換する。
  * @responsibility 用途を照合し、既存の抽出・拒否・観測を保持する。
@@ -308,7 +291,6 @@ export function extractProviderResult<const I extends ProviderEnvelopeInput>(
         : undefined;
   } else if (
     typeof input.raw !== "string" ||
-    Buffer.byteLength(input.raw, "utf8") > TASK_MAXIMUM_RAW_BYTES ||
     (input.taskRole !== "executor" && input.taskRole !== "reviewer")
   ) {
     reason = "provider_task_result_json_invalid";
@@ -383,8 +365,7 @@ export function parseTaskContent(
     (selectedEffort !== "low" &&
       selectedEffort !== "medium" &&
       selectedEffort !== "high") ||
-    typeof raw !== "string" ||
-    Buffer.byteLength(raw, "utf8") > TASK_MAXIMUM_RAW_BYTES
+    typeof raw !== "string"
   ) {
     return Object.freeze({
       status: "blocked" as const,
@@ -628,9 +609,12 @@ export function parseProviderResult(
   if (purpose === "advice") {
     const expected = snapshotPlainArray(
       own(execution, "allowedReferences"),
-      1024,
+      Number.MAX_SAFE_INTEGER,
     );
-    const actual = snapshotPlainArray(own(context, "allowedReferences"), 1024);
+    const actual = snapshotPlainArray(
+      own(context, "allowedReferences"),
+      Number.MAX_SAFE_INTEGER,
+    );
     if (
       expected.status !== "ok" ||
       actual.status !== "ok" ||
@@ -782,7 +766,7 @@ function isTaskEnvelopeRecord(
  * @trace ARCH-000015
  * @input provider: "codex" | "claude"、taskRole: "executor" | "reviewer"、raw: string
  * @returns 構造化入力、固定拒否理由、報告Turn数と本文非公開のCodex実行観測。
- * @precondition 呼出し側がProvider・Roleと出力全体のbyte上限を検証している。
+ * @precondition 呼出し側がProvider・Roleと出力の文字列型を検証している。
  * @postcondition 共通Executor／Reviewer Schemaの判定は呼出し側へ残す。
  * @effect N/A: 文字列の純粋解析だけを行う。
  * @failure 不正JSONL、失敗Envelope、Turn超過、不正課金情報とReviewer搬送不正を区別して拒否する。
@@ -805,7 +789,6 @@ function extractProviderTaskEnvelope(
       .map((line) => parseUnambiguousJsonDocument(line));
     if (
       events.length === 0 ||
-      events.length > 4_096 ||
       events.some((event) => !isTaskEnvelopeRecord(event))
     )
       return Object.freeze({
@@ -1092,10 +1075,7 @@ function extractProviderTaskEnvelope(
       reason: null,
       providerReportedTurns: numberOfTurns,
     });
-  if (
-    typeof parsed.result !== "string" ||
-    Buffer.byteLength(parsed.result, "utf8") > TASK_MAXIMUM_RAW_BYTES
-  )
+  if (typeof parsed.result !== "string")
     return Object.freeze({
       value: null,
       reason: "provider_task_reviewer_result_transport_invalid" as const,
@@ -1121,7 +1101,7 @@ function extractProviderTaskEnvelope(
  * @precondition rawは対応する固定CLIのstdoutだけである。
  * @postcondition confirmedの場合も内容のSchema・参照許可は後段Normalizerが再検証する。
  * @effect N/A: 文字列の構文検査と安全な再直列化だけを行う。
- * @failure 過大出力、曖昧JSON、失敗Turn、未知・不正Item、複数最終本文または不正Envelopeをblockedにする。
+ * @failure 曖昧JSON、失敗Turn、未知・不正Item、複数最終本文または不正Envelopeをblockedにする。
  * @invariant Provider metadataを助言本文として扱わない。
  * @boundary Provider固有TransportとProvider非依存Result Contractの間。
  * @security Session、Cost、Token、Command、Pathおよび生Provider出力を返さない。
@@ -1131,11 +1111,7 @@ function extractWorkbenchAiAdviceProviderOutput(
   provider: "codex" | "claude",
   raw: unknown,
 ) {
-  if (
-    typeof raw !== "string" ||
-    raw.length === 0 ||
-    Buffer.byteLength(raw, "utf8") > ADVICE_MAXIMUM_RAW_BYTES
-  )
+  if (typeof raw !== "string" || raw.length === 0)
     return blocked("workbench_ai_provider_output_invalid");
   return provider === "codex" ? extractCodex(raw) : extractClaude(raw);
 }
@@ -1158,8 +1134,7 @@ function extractWorkbenchAiAdviceProviderOutput(
  */
 function extractCodex(raw: string) {
   const lines = raw.split(/\r?\n/u).filter((line) => line.length > 0);
-  if (lines.length === 0 || lines.length > MAXIMUM_EVENTS)
-    return blocked("workbench_ai_codex_output_invalid");
+  if (lines.length === 0) return blocked("workbench_ai_codex_output_invalid");
   const events = lines.map((line) => parseUnambiguousJsonDocument(line));
   if (events.some((event) => !isAdviceEnvelopeRecord(event)))
     return blocked("workbench_ai_codex_output_invalid");

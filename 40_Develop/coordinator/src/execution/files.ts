@@ -1,7 +1,7 @@
 /**
  * Coordinatorが借用する実行領域のFileとinventoryを安定読取りする。
  * @packageDocumentation
- * @responsibility File実体・容量・Path・linkと読取り前後差を検査する。
+ * @responsibility File実体・Path・linkと読取り前後差を検査する。
  * @trace ARCH-000008
  * @trace ARCH-000013
  * @boundary Git非管理の実行領域を含む、上位で所在を確定したFilesystemの読取り。
@@ -10,10 +10,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
-const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
-const MAXIMUM_WORKSPACE_FILES = 20_000;
-const MAXIMUM_ALLOWED_PATH_BYTES = 1_024;
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
@@ -83,7 +79,6 @@ export function isExecutionRelativePath(relativePath: string) {
   return (
     relativePath.length > 0 &&
     !path.isAbsolute(relativePath) &&
-    Buffer.byteLength(relativePath, "utf8") <= MAXIMUM_ALLOWED_PATH_BYTES &&
     !relativePath.includes("\\") &&
     relativePath.split("/").every(validSegment)
   );
@@ -94,9 +89,9 @@ export function isExecutionRelativePath(relativePath: string) {
  *
  * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000013
- * @input target: string、maximumBytes: number
+ * @input target: string
  * @returns stableFileの計算結果を返す。
- * @precondition 「target: string、maximumBytes: number」がstableFileの入力契約を満たす。
+ * @precondition 「target: string」がstableFileの入力契約を満たす。
  * @postcondition stableFileの責務を完了した結果だけを返す。
  * @effect stableFileはFileを読取り、descriptorとPathの前後Identityを観測する。
  * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -105,14 +100,15 @@ export function isExecutionRelativePath(relativePath: string) {
  * @security stableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
  */
-function stableFile(target: string, maximumBytes: number) {
+function stableFile(target: string) {
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
     if (
       !before.isFile() ||
       before.isSymbolicLink() ||
-      before.size > BigInt(maximumBytes)
+      before.size < 0n ||
+      !Number.isSafeInteger(Number(before.size))
     ) {
       throw new Error("repository_workspace_file_invalid");
     }
@@ -166,9 +162,9 @@ function stableFile(target: string, maximumBytes: number) {
  *
  * @responsibility File Contentの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000013
- * @input target: string、maximumBytes: number
+ * @input target: string
  * @returns readExecutionFileの計算結果を返す。
- * @precondition 「target: string、maximumBytes: number」がreadExecutionFileの入力契約を満たす。
+ * @precondition 「target: string」がreadExecutionFileの入力契約を満たす。
  * @postcondition readExecutionFileの責務を完了した結果だけを返す。
  * @effect readExecutionFileは内容と実体を読取り、書込みを発行しない。
  * @failure readExecutionFileは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -177,14 +173,15 @@ function stableFile(target: string, maximumBytes: number) {
  * @security readExecutionFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: readExecutionFileは共有非同期状態を持たない同期処理である。
  */
-export function readExecutionFile(target: string, maximumBytes: number) {
+export function readExecutionFile(target: string) {
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
     if (
       !before.isFile() ||
       before.isSymbolicLink() ||
-      before.size > BigInt(maximumBytes)
+      before.size < 0n ||
+      !Number.isSafeInteger(Number(before.size))
     ) {
       throw new Error("repository_workspace_file_invalid");
     }
@@ -251,16 +248,15 @@ export function readExecutionInventory(workspace: string, borrowed = false) {
     throw new Error("repository_workspace_root_invalid");
   const entries: ExecutionFileEntry[] = [];
   const comparisonPaths = new Set<string>();
-  let totalBytes = 0;
 
   /**
    * visitを決定する。
    *
    * @responsibility visitの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000013
-   * @input directory: string、parentPath: string、depth: number
+   * @input directory: string、parentPath: string
    * @returns N/A: visitは戻り値を返さない。
-   * @precondition 「directory: string、parentPath: string、depth: number」がvisitの入力契約を満たす。
+   * @precondition 「directory: string、parentPath: string」がvisitの入力契約を満たす。
    * @postcondition visitの責務を完了して呼出し元へ制御を戻す。
    * @effect visitはDirectoryとFileの読取りだけを行う。
    * @failure visitは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -269,8 +265,7 @@ export function readExecutionInventory(workspace: string, borrowed = false) {
    * @security visitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
    * @concurrency N/A: visitは共有非同期状態を持たない同期処理である。
    */
-  function visit(directory: string, parentPath: string, depth: number) {
-    if (depth > 64) throw new Error("repository_workspace_depth_exceeded");
+  function visit(directory: string, parentPath: string) {
     const directoryEntries = fs.readdirSync(directory, { withFileTypes: true });
     const comparisonNames = new Set<string>();
     for (const entry of directoryEntries) {
@@ -300,7 +295,7 @@ export function readExecutionInventory(workspace: string, borrowed = false) {
       if (metadata.isSymbolicLink())
         throw new Error("repository_workspace_link_rejected");
       if (entry.isDirectory() && metadata.isDirectory()) {
-        visit(target, relativePath, depth + 1);
+        visit(target, relativePath);
         continue;
       }
       if (!entry.isFile() || !metadata.isFile())
@@ -309,14 +304,7 @@ export function readExecutionInventory(workspace: string, borrowed = false) {
       if (comparisonPaths.has(comparisonPath))
         throw new Error("repository_workspace_case_collision");
       comparisonPaths.add(comparisonPath);
-      const observed = stableFile(target, MAXIMUM_FILE_BYTES);
-      totalBytes += observed.byteLength;
-      if (
-        entries.length + 1 > MAXIMUM_WORKSPACE_FILES ||
-        totalBytes > MAXIMUM_WORKSPACE_BYTES
-      ) {
-        throw new Error("repository_workspace_budget_exceeded");
-      }
+      const observed = stableFile(target);
       entries.push(
         Object.freeze({
           relativePath,
@@ -327,7 +315,7 @@ export function readExecutionInventory(workspace: string, borrowed = false) {
     }
   }
 
-  visit(root, "", 0);
+  visit(root, "");
   entries.sort((left, right) =>
     Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
   );

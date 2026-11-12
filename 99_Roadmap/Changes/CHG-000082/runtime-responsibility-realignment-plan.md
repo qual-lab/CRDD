@@ -1,5 +1,380 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## 内部データ量の35群是正とAM表示名の保留 — 2026-11-12
+
+状態: AM表示名一群を除く34群の実装・利用側追従・限定回帰・独立再レビューを完了。人間が下段棚卸し表1の35群を採用し、その後AM User表示名の上限撤去一群を明示保留したため、今回の完了対象は残る34群とした。表2の判断対象23群、表3の保留入力／ページング、Transport／Process・通信・実行予算・Identity／Secretの文法は変更していない。追加のStore・Registry・Framework・互換alias・切詰め・自動再試行は導入していない。
+
+着手前に棚卸し表の各群を実Source・利用側・既存検証へ対応付け、型・閉Schema・非空・不正参照・正規Path／Root／Link・ID／Hash・認可・Lock／Revision・通知／取消／Cleanupを非退行条件として確認した。Owner別Source／Consumer追従と専門観点の独立レビューを行い、規範・準拠基準・Releaseを変更しないため全体準拠監査は実施しない。全体回帰・実AI・Docker・過去保持物は対象外。
+
+| 棚卸し表1の処置単位 | 群数 | 実施Owner／確認先 |
+|---|---:|---|
+| Co内部要求・結果・Advice・診断・ToolとExecutor計測 | 13 | Co／Executorの既存Source・局所／模擬試験 |
+| publicOrigin Reader・MCP出力・WB検証Inventory／診断 | 4 | WB／MCPと配布入口の既存Consumer |
+| VC Path／Git管理File／ignore／Worktree探索／Cursor／Merge／User | 8 | VCのReader・完成操作・実Git限定試験 |
+| DM宣言／検索／活動結果／保存Path／Workspace表示名 | 5 | DMの入力・保存Decoder・公開投影 |
+| EI捕捉／本文・Metadata／Query | 3 | 既存ancestor循環拒否を維持した記録・保存・Query |
+| Checker展開範囲の全量報告 | 1 | scoped検査と報告型・出力Consumer |
+| AM User表示名 | 1 | **人間判断で保留。今回変更しない** |
+
+DM／EI／AMの一括Source処理は環境の安全審査により途中停止した。適用済みはVC7・DM5・EI2 Source、未適用はAM表示名3 Sourceであった。拒否された一括処理を迂回／再試行せず現物を読取り確認し、人間がAM保留を選択した。適用済みの許可範囲は試験・文書・形式・限定回帰で閉じ、AMの登録／保存Reader／初期化は変更しない。EIのdepth12は表1の対象であり、既存branch-local ancestors Setによる直接循環拒否があることを確認して量制限のみ撤去する。表2のDM codec深度32は別契約として不変更。
+
+Checkerは展開済み全Pathの報告へ接続し、切詰め専用fieldを撤去した。fullの`.`表現とヘッダー解析窓は維持した。既存ITの範囲展開104 File一件、出力Unit三件と文書変換Unit一件は成功し、今回生成したRepository-local試験Rootは回収した。
+
+利用側の限定回帰で、配布MCP入口に旧Filesystem観測Portの容量引数が残っていたため、現行の一引数契約へ追従した。また検証記録の同じ正常結果投影にReviewer所見64件の取り残しと、現ProducerのSourceScope v3を欠測化するv2限定Readerがあった。非負安全整数と既知値のみの扱いを維持して所見65件以降も保持し、SourceScopeは既存v2・現行v3だけを投影、未知はnullのままとした。観測本体・Hash計算・実行許可の判定は変更していない。
+
+| 実施した限定確認 | 観測結果・限界 |
+|---|---|
+| Co／Executorの担当回帰 | 既存11 Fileの拡充と局所宣言評価。Co六Suite44件、記録16件、計測10件、選択通知1件、Executor summary2件・counter1件が成功。旧Prompt／Path／Advice／投影・回復ID・Timeline・LCOV／Source Reader・説明／summary・件数を対照。重複した後続再実行は合算しない |
+| DM／EIの担当回帰 | 六File37件とTopic検索対照1件が成功。宣言129・長表示名／Path・検索／Cursor、活動10,001source／singleTasksと51event、EI50,001ノード・深16・長本文／65Metadataの保存→再読→Query、循環拒否／非循環共有を確認。ID／Relation／ページング条件は維持 |
+| VCの担当回帰 | 四File41件中39件成功、既存Host権限制約の二件は同じケースを許可付きで再実行し双方成功。大きいGit管理File・exclude出版、100,001列挙・長いPath／Cursor・Git表示名・Merge本文を実Gitと局所対照で区別 |
+| WB／MCPの担当回帰 | 選択した35ケースは初回32成功、診断の旧1,001件拒否期待一件を現契約へ修正後に同File15件成功、loopback接続権限の二件は同じケースの必要権限再実行で成功。単一runで全35成功とは表示しない。保存設定Reader二件も必要権限で成功。Inventory257／260・通知17件／4KiB超・MCP大きい正常出力を確認 |
+| 静的確認 | 直接利用側の型12設定、担当単位の形式・Lint、差分確認が成功。試験台帳は407 Fileでvalid、実行計画のみの確認でtestExecution not_started／Effect false。既存Info推奨はerror／warningと区別する。新規試験File／正式QA itemは追加せず、既存試験・Owner設計・検証定義を更新 |
+
+独立レビューは担当を交換し、Co／Executor／Checker、VC／DM／EI、WB／MCP／配布入口の固定候補を確認した。Sourceの必須指摘はVC Readerの直接EOF観測の消失一件、文書はCo Header二箇所・Executor旧byte上限句・MCP旧容量エラー表行・Checker件数表記であった。全結果を統合して是正方針を各確認者へ提示し、期待size全読取り後の一byte EOF確認と既存close／前後実体照合を維持する最小是正を適用した。容量上限は復活させていない。
+
+是正後のReader Suite21件は正常全量／EOF、期待size後の余分byte、短読、close、各出版失敗、二Process競合、Main／Linkedまで成功し、別確認者の独立再実行でも21件すべて成功した。別の独立確認はCo／Executor等63件、DM／EI／Topic38件、VCの通常39件と既報のHost権限二件、WB／MCPの設定Reader2・Inventory1・診断／結果18件を確認した。担当実行と独立実行、部分再実行の重複は合算しない。修正版の独立再レビューは必須残指摘0。
+
+今回の試験Processは終了し、自己生成Fixtureは既存hook又は親のexact Root清掃で回収済み。11月7日由来のVC残存四Directoryは過去保持物のため触っていない。新規AM表示名変更・データ移行、実AI・Docker・全体回帰・過去保持物の操作は行っていない。Node／OSのメモリ・Stack等の表現限界や致命的OOM時の結果返却まで保証するものではない。先行の実E2Eを今回の変更後の実測へ読み替えず、全ガード撤去済み・全体QA Pass・Release完了とは表示しない。
+
+人間のコミット・プッシュ指示に先立つ追加確認では、`40_Develop`／`template/tools`の固定差分Hash `11f2aa55fa2532b7f38e3b8d7af988c0b0f25bf7ae1b174bc85e78f068c7bea5`が前回独立レビュー候補と一致した。AM表示名128／256の保持、EOF確認・SourceScopeの既知値・旧Readerの本番参照不存在・保留境界を別の確認者が再確認し、必須追加指摘は0件。局所五File24件と台帳407 File validを追加確認した。台帳確認はtestExecution not_startedであり、全体回帰を開始した記録ではない。Source・試験の新たな変更はなく、記録の現在表記だけを更新した。対象は既存作業ブランチへの反映であり、main統合・Release判断ではない。
+
+## 容量・件数・取得範囲ガードの全Package棚卸し — 2026-11-12
+
+状態: 読取り調査完了。以下は上段34群是正より前の固定改訂版に対する抽出一覧であり、処置の現在値は上段を優先する。人間の「全部抽出」の指示に基づく調査時点の現存一覧であり、この棚卸し自体は各制約の撤去を採用した記録ではない。調査では製品Source・試験を変更せず、実AI・Docker・全体回帰・過去保持物を操作していない。
+
+### 対象と確認方法
+
+- 基準HEAD: `d8b666d251f534df127433fc30e0cdce1706fc06`。未コミット変更を含む`40_Develop`／`template/tools`の`git diff --binary`のSHA-256は`f60d6d82f6542b7c3d9203ccbbb0d486cac9403336e2b689ef833fe64e16175a`。未追跡Fileも走査へ含むが、このGit差分Hashの対象には含まれない。本節の追加前後で製品差分は不変更。
+- 母集団: 全13Packageと`template/tools`の本番Source・bin・scripts・内部JSON／Schema等566 File。`tests`／依存Package／package-lock／coverage／配布binaryは走査母集団から除外した。必要な既存試験はConsumer確認のため読取りのみとする。
+- Package別File数: AM34、AD32、Checker35、Coordinator94、DI42、DM140、EI13、Executor18、Lock6、MCP24、VC24、Visual Preview12、WB82、template10。担当者の実行コード母集団はCo／Executor／AD133、WB／MCP97、DM／VC／EI／AM199であり、JSON等の包含差を全体数と混同しない。Co／Executor／ADはroot JSON11 Fileも追加照合し144 File全体に対応する。
+- 数値の直接比較だけでなく、名前付き定数・Helperへ渡す上限、固定Buffer、深さ／ノード数、Schemaの最大値、slice等による切詰め、Query／ページ取得、Process出力制限の定義と利用先を走査した。該当する処理を読んで拒否・欠測・切詰め・予算・形式の意味を分類した。全Fileの全行を手作業で読んだ、静的解析で不存在を証明した、又は全体回帰済みという主張ではない。
+- パッケージ別読取りを分担し、親が直接経路・Policy同値・固定Fixtureと任意量の区別を統合した。ID／Hash／enum／固定field数／非空／安全整数／割合／OSのPath成分等は容量ガードと区別し、同族をまとめて下段へ示す。既に撤去済みの制限を再計上しない。
+
+### 1. 任意量による拒否・欠測・切詰めとして是正候補にする残存
+
+以下のPathは`40_Develop/`基準。行番号は棚卸し時点であり、同じ行の複数制限を一行へまとめている。容量だけを撤去しても、同じデータの前後段・保存・再読取り・利用側を一体で追従する必要がある。
+
+| 対象 | 所在 | 現存値・作用 | 最小の処置方針 |
+|---|---|---|---|
+| 単発Taskの内部要求 | `coordinator/src/task/requests.ts:171,185` | AllowedPath1,024件、Prompt32,000文字で拒否。HTTP本文のbyte制限ではなく内部公開API | 量比較だけ撤去。mode・Context固定・Path文法・重複・主体／認可は維持 |
+| Advice公開前DTO | 同`:1141,1156,1159,1167` | 4区分各100項目、本文32,000文字、参照100件／各512文字。ADが受理した結果をnull化 | 同じ結果の全量再捕捉へ追従。非空・参照制御文字・閉形式・元値分離は維持 |
+| 開発実行Task受付 | `coordinator/src/execution/diagnostics.ts:1271` | 正規要求のJSON全体65,536byteでadmission／reserve拒否 | byte比較を撤去。固定2Task・選定／分類・Hash・Authorityは維持 |
+| 外側の完了結果再捕捉 | `coordinator/src/execution/controller.ts:4238` | `dockerRecoveryIds`128件。超過時に元結果でなくcontrol側ID集合へfallbackし得る | 全量捕捉へ。129件超と末尾ID保全を反証 |
+| 検証結果の回復ID記録 | `coordinator/scripts/verification-result-record.ts:269` | plural16件。17件で集合が空・complete falseになる | 件数上限のみ撤去。正規ID・不正時complete false・正規分保持は維持 |
+| Advice準備の前後段 | `coordinator/src/execution/preparation.ts:835,1261,2595-2601,2690-2715,2932` | providerPrompt512KiB、入力Prompt16KiB、投影1項目64KiB／合計256KiB／64項目、参照512byte | 同じ準備契約の全量化と説明fieldを一括追従。Secret・Hash・参照認可・一回consumeは維持 |
+| 実行状態の診断Timeline | `coordinator/src/execution/diagnostics.ts:249` | 状態interval31件でmeasurementComplete false | 同状態skip・時刻／状態文法を残し取得量だけ撤去 |
+| 計測Tool設定Reader | `coordinator/scripts/measure-development-providers.ts:344` | 通常設定File128KiBで拒否 | 通常File・JSON／実体検査を残し容量拒否撤去 |
+| Coverage／追跡情報Reader | `coordinator/scripts/coverage.ts:9,404`、`scripts/check-runtime-traceability.ts:12,57` | LCOV32MiB、Source／台帳8MiBで解析前拒否 | 内容文法・所有範囲は維持。子Process側出力上限とは分離 |
+| 追跡ToolのRepository相対Path | `coordinator/scripts/runtime-traceability.ts:449` | 512文字で検証不能 | 非空・Path文法／所属を残し総長だけ撤去 |
+| 選定診断Reader | `coordinator/scripts/task-real-provider-contract.ts:549` | selectionReason16,384文字で診断不正 | 固定field・選定相関・非空を残し自由説明の量拒否だけ撤去 |
+| Executor計測用summary | `executor/scripts/task-summary-observation.ts:125` | 2,048byteでsummary_text_rejected | Secret・制御文字・Path非開示を維持して量条件のみ撤去候補 |
+| Executor実E2E診断の再捕捉 | `executor/scripts/verify-provider-real.ts:402,588` | Command／File変更開始件数4,096。4,097通知をADが受理してもreviewToolObservationを欠測化／結果Reader拒否 | 非負安全整数・exact fieldを残して診断件数quotaだけ撤去候補 |
+| publicOrigin保存設定Reader | `workbench-server/src/server/connection/configuration.ts:100,112`、`mcp-server/src/transport/configuration.ts:98,110` | File16KiB、固定Buffer16,385byte。通常設定の再取得を拒否 | 両Reader一体で上限と固定Buffer撤去。Schema・実体・読取り後照合を維持 |
+| MCP管理結果の出力 | `mcp-server/src/tools/access-management.ts:168-174` | 完成結果16MiBでmanagement_response_too_largeへ置換 | 出力の量だけの失敗と理由を撤去候補。MCP受信上限とは別 |
+| Docker検証Inventory | `workbench-server/scripts/ai-verification-http.ts:484,611` | Container／Network各256件を観測不成立化 | 集合量だけ撤去。ID・Hash・一意性は維持 |
+| Lifecycle診断Collector | `workbench-server/scripts/workspace-task-diagnostic.ts:118-123` | 1通知4,096byte・合計16件でoverflow | 内部診断取得量として撤去候補。Process全体の出力枠と分離 |
+| VC共通Path | `version-control/src/repository/layout.ts:10,52`、`repository/files.ts:88` | Root／相対Path各4,096文字。複数VC操作を発行前拒否 | Node／Windows共通の必須上限ではない。Path文法・Root・Link検査を維持 |
+| VC Git管理FileReader | `version-control/src/repository/layout.ts:139-145,514-556,637,679,848,1073,1198` | 制御File4KiB、config1MiB、exclude128KiB、packed-refs4MiB。事前stat・Buffer・事後長さで拒否 | Reader上限引数・定数・全Consumerを一体撤去候補。OID／Ref／Git配置検査は維持 |
+| VC Revision用の別Reader | `version-control/src/repository/revision.ts:29-30,131-139,214,244,260` | HEAD／Ref4KiB、packed-refs4MiB | 共通Readerだけでなくこちらも追従し、同じRepositoryの後段再拒否を防ぐ |
+| VC local ignore | `version-control/src/repository/ignore.ts:100,258,387,423,513` | 本文128KiB、entry1,024文字。解析・既存取得・更新後読戻しでも拒否 | 全経路を同時追従。Path文法・安全な出版は維持 |
+| Worktree削除前の列挙 | `version-control/src/worktree/crud.ts:355` | 入れ子Repository探索100,000項目で停止 | 件数だけで止めず、入れ子Git／Link／対象Rootの拒否は維持 |
+| VC Tree Cursor | `version-control/src/repository/files.ts:123` | Cursor8,192文字 | 閉形式・Directory結合を残し総長を分離 |
+| VC Merge本文 | `version-control/src/repository/merge.ts:37` | Commit message4,096文字 | 非空・NUL等を維持して自由本文の上限撤去候補 |
+| Git User設定 | `version-control/src/repository/user.ts:59` | name／email512文字で設定をunknown化 | 自由nameとメール形式を区別。量だけで既知値を失わない形へ |
+| DM宣言集合・表示名 | `domain-model/src/configuration/validate-declarations.ts:88,142` | ID集合128件、displayName160文字 | ID文法・一意性を残し集合量／表示名量だけ分離 |
+| DM Topic／Meeting検索 | `domain-model/src/activity/operations.ts:71,275` | query／owner／relation128文字、Cursor1,024文字 | 自由検索文／表示名と正規relation IDを分離し、Query結合を維持 |
+| DM活動結果Decoder | `domain-model/src/state/activity.ts:261,333,467` | singleTasks10,000、取得済events50、sources10,000件でnull化 | ページ取得の選択量と、取得済み結果を再拒否する量制限を分離 |
+| DM保存Path | `domain-model/src/attempt/validation.ts:989` | gitSourcePath／internalSourcePath4,096文字 | 保存Identityの正規Path条件を残し全長quotaを分離 |
+| DM Workspace表示名 | `domain-model/src/workspace/validation.ts:436` | 120コードポイント | 自由表示名の上限撤去候補。WB入力側との同時追従が必要 |
+| EI共通入力捕捉 | `execution-intelligence/src/record/validation.ts:22,25` | 50,000ノード、深度12、全文字列8,192文字で記録／Query／履歴を拒否 | ノード／文字量の撤去候補。深度は循環の直接検出と切り分ける |
+| EI本文・Metadata | 同`:89,119,123` | text8,192文字、Metadata64field、key128文字 | スカラー型・閉Schema・危険key等は維持し量条件だけ分離 |
+| EI Query | `execution-intelligence/src/record/query.ts:45,58` | 検索値8,192文字、Metadata条件64項目 | 保存側とQuery側を一体追従 |
+| AM User表示名 | `access-management/src/user/crud.ts:53,56`、`storage/parse.ts:139`、`initialization/execution.ts:103,380` | 256 UTF-16／128コードポイント。登録・改名・保存Reader・初期化で拒否 | 同一表示名の全Owner／Consumerを一括追従。UsernameとIDを混ぜない |
+| Checkerの報告範囲表示 | `checker/src/repository/document.ts:997-1000` | scoped報告のexpanded_scopeを100Fileへ切詰め | 実検査対象全体を報告するなら切詰め撤去候補。全検査そのものが100件で打切りとは表示しない |
+
+### 2. 追加の設計判断・正本照合が必要な残存
+
+既存に存在するだけでは必要性の証明にならない。以下は無条件維持でも無条件撤去でもなく、何を守るかを照合する対象である。
+
+| 対象・所在 | 現存値 | 分けるべき意味／影響 |
+|---|---|---|
+| Co `task/requests.ts:525-538`、WB `server/start.ts:232` | Session要求Map／共有AI Session各100 | 同時実行排他と、終了本文の保持・eviction・後観測を分離。上限だけ外すと保持Lifecycleの意味を変える |
+| Co `execution/authority.ts:66,182,1218,1332,1525,1870,1929,1994` | Bundle／Trust設定4KiB、Grant64、registry／canonical128KiB | 通常設定の容量だが認可のReader／Writer全経路を同時照合。Hash・資格・期限・許可Originを緩めない |
+| Co `preparation.ts:222,411,459`／`authority.ts:1715,1723` | Origin16件、各256文字 | 正規Origin文法・許可集合と任意集合量を分離 |
+| Co `authority.ts:6851,6963,6992-6999` | Root観測entity等2,049 | 旧保護観測モデルの全件性とquotaを分離。古い保護モデル自体の必要性も確認 |
+| Co `authority.ts:7151,7225`／`operation.ts:6325,6375`、AM `repository/register.ts:42,99` | Root4,096byte／4,096文字／32,768 UTF-16 | OSの正規Pathと独自全長Policy。全OSに同じ値が必須とはしない |
+| 共通Lock `lock/src/operations.ts:17,170`、Co `execution/lease.ts:830,844,865` | Lock record2KiB、Reader Buffer2,049 | 正規Writerが生成できる最大形式と照合。一般データ容量とは別。世代／File Identity／exact bytes検査は維持 |
+| Executor `lifecycle/attempt.ts:2035,2039,2054` | argv256、環境64、Bootstrap JSON128KiB | stdin Promptとは別の固定CLI構成契約。前回明示対象外。混入防止と任意量を分離して再評価可能 |
+| Executor `scripts/verify-provider-real.ts:791,810` | eventFile100、event／commit各32KiB | 今回物の回収前検査。超過時は削除せず保持。固定3桁file名・連番・Hash／実体と一体で評価 |
+| Co `scripts/verification-result-record.ts:299` | results／scenarios各12件 | 実在する固定Scenario集合の完全性か便宜上の上限かを確認。超過は空＋Complete false |
+| DM `state/codec.ts:28` | JSON深度32 | 現状は循環も最終的に深度で拒否。撤去時は直接循環検出を用い、単純削除しない |
+| DM `attempt/validation.ts:1815` | childIdentities8件 | Host子Identityの固定種類数なのか、任意件数なのかを確認 |
+| DM `state/activity.ts:65,79,328,432,443` | Cursor1,024、日時64、reason512 | Cursor／正規時刻文法・Query／Source結合・固定reasonと自由説明を分離 |
+| VC `layout.ts:151`／`revision.ts:32,476`／`reference.ts:44`／`working-directory.ts:251` | layout／revisionのRef検査は`refs/heads/`・`refs/tags/`後のsuffix1,024文字。referenceは全Ref、selector／比較基準は全文1,024文字 | Git文法・成分制約と独自総長を分離。Git自体の必須上限と断定しない |
+| VC `repository/merge.ts:276,282` | MERGE_HEAD256byte／257byte Buffer | 40／64hex一行の単一Mergeのみを扱う固定構造。一般本文Readerとは異なる |
+| DM `artifact/release.ts:553`、Checker `repository/document.ts:197,218,533,573` | README20行、ヘッダー40／16行のみ解析 | 構文上ヘッダー位置を限定する契約か、単なる便宜上の読取り範囲かを確認 |
+| DM `plain-data/secret-validation.ts:16-38,139` | key128・値4,096・引数1,024等 | 拒否容量ではなくSecret検出の正規表現範囲。変更は検出漏れ・誤検出へ波及するため別Security観点が必要 |
+| DI `cleanup/execute.ts:443` | 回復config同prefix96件 | 旧／残存configが蓄積すると新しい明示回収を拒否。自動削除は追加せず容量の必要性を確認 |
+| DI `cleanup/container.ts:206,232,251` | 期待argv64、Command64、Mount64 | 技術構成の閉形式と任意件数の混在。既存固定構成の数と外部要求契約を確認 |
+| DI `docker-desktop/directory.ts:50,695,874` | 基点Path4,096byte、観測entry64 | 正規Path・対象実体・Lock観測と量を分離。64超は安全確認不明になるので、未知を成功へ変えて外さない |
+| DI `docker-cli/trust.ts:34,193` | docker.exe256MiB | 固定CLIの信頼検査に容量が混在。通常File・所在・Hash観測と不要な量拒否の区別が必要 |
+| EI `storage/store.ts:59` | retentionDays最大36,500日 | 保存件数ではなく保持／退役の運用Policy。ミリ秒安全整数限界とは別 |
+| AD `codex/result.ts:56`／`provider/result.ts:943` | boolean Probe16KiB、既知警告4,096文字 | 前回明示対象外の個別解析・診断条件。Task／Advice受理条件とは別だが、任意量値が存在することは記録 |
+| MCP `tools/task.ts:363,380,434,531` | 内部結果DTOの回復ID512文字・結果reason256文字 | 入力Fieldの保留とは別。Domain正規Identity／固定理由codeと自由説明をOwnerへ照合して判断 |
+
+### 3. 保留中のHTTP／MCP／CLI入力項目・ページ取得
+
+受信byte制限と、その内側の業務field制限は別物である。ただし前回のHTTP／MCP入力範囲の除外に含まれるため、今回これらを「是正済みのはずの新漏れ」と断定しない。今後どこまで撤去するかを同じOwnerで決める。
+
+| 所在 | 現存値・対象 |
+|---|---|
+| MCP `src/tools/workspace.ts:143,150` | relatedCHG20、Selection1,000 |
+| MCP `src/tools/task.ts:899,910,915,930-995` | Question8,192／Comment・Close理由1,024文字、受入条件・Objective・Dependency・Allowed／Read Path・Conflict各128件、Task／TaskInput各1,024件、Objective16,384文字 |
+| WB `src/server/routes/ai.ts:197,200,204`／`client/components/ai-request-panel.tsx:249,261` | Server Prompt16,000文字、AllowedPath64件／各512文字。Browser Prompt16,000、Path欄8,192文字 |
+| WB `shared/repository/validation.ts:70,89,103`／`client/components/repository-panel.tsx:201` | Stage Path・Commit Message・Remote／Branch／Revision各4,096文字、Browser Message4,096 |
+| WB `shared/management/validation.ts:182-184`／`client/components/management-panel.tsx:326,375` | User表示名128コードポイント／256 UTF-16。AM正本変更時の直接Consumer |
+| WB `client/components/workspace-panel.tsx:396,502,625` | Workspace表示名120文字。DM正本変更時の直接Consumer |
+| MCP `request/validation.ts:74` | JSON-RPC ID128文字。本文byte上限とは別のIdentity入力契約 |
+| DM `activity/operations.ts:313-315,420` | Topic／Meeting既定20・最大100件、継続Cursorあり |
+| DM `workspace/command.ts:177-180` | Workspace Cursor1,024、limit最大50 |
+| Co `state/observation.ts:58,65` | Repository集合10,000、limit最大50、Cursor1,024 |
+| VC `repository/files.ts:224-225,248` | Tree既定50・最大100件、nextCursorあり |
+| EI `record/query.ts:156-158,186` | Execution／Group一覧の省略時100件。最大quotaはなくoffset／limitあり |
+| MCP `tools/execution-status.ts:79,134,144`／`workspace.ts:137`／`topic-meeting.ts:348,698` | 実行一覧1〜50・既定20、Workspace最大50、Topic／Meeting最大100 |
+| WB `server/activity/observe.ts:130,238`／`server/presentation/portfolio.ts:96`／`client/components/management-panel.tsx:342`／`workspace-panel.tsx:218` | 既定20／20件ページ・次ページ導線、Workspace結果50件の検査 |
+
+### 4. 明示的に別枠のTransport・Process・通信出力制限
+
+以下も実在する容量ガードであり、全ガード撤去済みとは表示しない。既存の対象外合意により今回単独では緩めない。
+
+| 所在 | 現存値・実施点 |
+|---|---|
+| Co `cli/options.ts:13,156,182`／`cli/command.ts:56,61` | CLI引数16件／各4,096、Task stdin128KiB |
+| MCP `transport/http.ts:42,293,380,383`／`transport/stdio.ts:30,130,215,258` | HTTP本文・stdio行／待機Queue／SDK Buffer128KiB |
+| WB `server/security.ts:101,111,118`／`routes/ai-selection.ts:161`／`runtime-definition.ts:40,114` | Form既定16KiB、AI設定3MiB＋16KiB、Runtime定義48MiB＋16KiB |
+| WB `scripts/ai-verification-http.ts:851,89`／`ai-verification-client.ts:115` | 検証HTTP応答1MiB、子IPC入力256KiB |
+| 同`:41,197,208,463` | 子stdout6MiB＋4KiB、stderr4KiB、Docker CLI出力1MiB |
+| Co `scripts/task-real-provider-contract.ts:886`／`verify-task-real-providers.ts:102,373,544` | 子Process出力上限。指定値4MiB |
+| Co `scripts/check-provider-home-coverage.ts:18,211`／`check-provider-authority-coverage.ts:18,161`／`check-dynamic-fake-provider-coverage.ts:18,214` | 子Coverage出力maxBuffer32MiB。LCOV内容Readerの32MiBとは別 |
+| VC `git/execute.ts:14,105`／`git/read.ts:30,36,64` | 共通Git起動が呼出し元のmaxBufferを適用 |
+| VC `repository/files.ts:44`／`changes.ts:38`／`worktree/crud.ts:88` | Path一覧・Patch・Worktree出力2MiB |
+| VC `repository/discovery.ts:15,51,134`／`working-directory.ts:334`／`revision.ts:482` | Discovery・変更集合・Revision解決出力16MiB |
+| VC `working-directory.ts:44,72,104,136,150`／`commit.ts:50,67`／`reference.ts:63`／`remote.ts:22` | Index・Stage・Commit・Ref・Remote等4MiB |
+| VC `repository/user.ts:28` | Git User設定Process出力8KiB |
+| DI `process/start.ts:160-168,225`／`execution/result.ts:24-25,145-147`／`execution/preparation.ts:270-275` | Process stdout既定1MiB・stderr既定256KiB、Step指定値は各最大1MiB。超過時取消・不明／失敗へ |
+| DI `cleanup/resource.ts:249-260`／`cleanup/operations.ts:93,130`／`cleanup/execute.ts:200` | inspect／回復CLI出力1MiB |
+| DI `cleanup/container.ts:306`／`docker-cli/trust.ts:148` | CLI maxBuffer64KiB／版観測512byte |
+| DI `docker-desktop/backend.ts:46,117,207`／`engine.ts:271,349,463`／`restart-state.ts:349`／`command.ts:138-139` | Desktop・Backend等のProcess／解析出力4KiB・16KiB・64KiB |
+| DI `network/provider-egress-proxy.py:36,85-87,116,123,162,222,277` | Policy JSON16KiB、CONNECT Header8KiB／64行、DNS32件、Tunnel片方向16MiB、接続待ちQueue16。通信Policyと可用性の別設計判断 |
+
+### 5. 容量撤去と混同しない形式・Policy・実行予算
+
+| 系統 | 具体的な残存・根拠／影響 |
+|---|---|
+| 同時実行／再計画 | DM `objective/request.ts:241,244`／`task/validation.ts:147`の同時実行1〜5・再計画0〜32、Co `state/validation.ts:13`／`task/lifecycle.ts:697`。Effect回数の制御 |
+| Claudeの予算 | AD `claude/plan.ts:290,469,772-773`のTask硬Turn16、Advice2Turn／$0.10、`claude/result.ts:15,119`の費用相関。前段で入力件数の旧上限は撤去済み |
+| 是正・試行・期限 | Co `preparation.ts:1640`のRemediation1回、`authority.ts:3730`の参照生成8try・観測10秒・Grant300秒、route検証retry3、Executor単独maximumProviderRequests1・待機820秒。各許可された実行範囲 |
+| 固定Fake Profile | Co `diagnostics.ts:5274-5280,5459-5530`のstdin／stdout1MiB・stderr256KiB・結果1、期限300秒・取消5秒。合成観測で各量2倍・結果2・exit255を検査する。通常Task Promptの後段ではなくdoctorの固定negative scenario |
+| 固定Fixture・閉集合 | Co診断Task2／invocations4・計8、general-task投影File1、route期待変更Path1、空配列0、summary観測calls4等。固定Scenarioが変わる場合は同時変更するが、任意結果量とは混同しない |
+| Network Policy | DM `configuration/network-policy.ts:78,80`、Co `preparation.ts:1757`／`advice.ts:602,891`、WB `shared/view/validation.ts:659-661`、DI `network/policy.ts:120,140,148,242`とProxyは追加Host32・許可Host35・Host253・label63で同値。以前の維持合意があり、表示側だけ緩めない |
+| 機密検査・認証 | MCP `transport/http.ts:123-124`のCredential32〜512、WB `server/credential/administration.ts:68`／`server/start.ts:354`／`client/api/connection.ts:49`の4,096、AM／Providerの固定認証形式、Secret検出の対象文法。長い自由説明とは区別。変更は漏えい／なりすまし境界へ影響 |
+| ID・Hash・Ref・Pathの構文 | 通常ID128、EI ID160、MCP `tools/task.ts:1024-1025`のModel ID128、Recovery／Candidate参照512／1,024、OID40／64、decimal実体ID40桁、Grant6〜80、Docker名63、Path成分255byte、UUID・Hash等。対象を一意に識別する契約であり自由本文quotaとは別。Refのsuffix／全長1,024とRootの全長Policyは上段で再評価対象へ分離 |
+| 一意性と固定事実数 | 回復義務4種、Lease取得／解放2事実、Decision選択肢2／3、同じ資源の実体候補は1件、Git fanout256・header／checksum／offset形式。Co `execution/recovery.ts:2387`のcorrelation最大5は`objective/execute.ts:579-596`が渡す同時active Operation集合に対応し、全履歴の量とは異なる。件数を緩めると別の意味になる |
+| 数値の表現可能性 | MAX_SAFE_INTEGER、時刻変換の最大104,249,991日、port0〜65,535、percentage0〜100。任意の業務容量予算ではない |
+| 解析・ID生成のslice | Hashの先頭16／32／40hex、Drive先頭2、構文区間、改行末尾、明示ページ選択。本文の隠れた切詰めとは別。Checker expanded_scope100だけは上段の報告量候補 |
+| Visual Preview | Source／bin／browser12 Fileを走査。新たな自由本文・集合の容量拒否は見つからず、port文法・待機期限・回収retry10等の実行条件が残る |
+| Checker／配布Schema | Checkerは実行Authorityの時間・回数・Credit、templateのpilot block最大2・空配列maxItems0は固定Schema。Markdown見出し1〜6、割合値域等も形式条件。ヘッダー読取り窓と報告100件は別項で再評価 |
+
+### 結論と次の処置単位
+
+「対応漏れはもうない」とは言えない。Source整理の局所経路だけでは、共通Reader・保存Decoder・外側の結果再捕捉・Browser入力・検証Toolへの波及を拾い切れていなかった。今後は上表を母集団に、同じデータ契約の入口→内部捕捉→保存→再読取り→結果→表示／検証を一括して是正する。
+
+推奨順序は、(1)回復IDの情報保全と通常結果／内部Reader、(2)VCのGit管理File、(3)EI／表示名等の保存モデルと全Consumer、(4)DI／Lock／Authority／深度の必要性判断、(5)保留中のHTTP／MCP項目別制限とページング。全部を単一の容量設定Frameworkへ置換しない。深度の撤去は循環検出、LockはWriter／Reader一致、Policyは現行許可境界を確認して進める。全体回帰と実AI／Dockerの追加実行は今回の調査に含めない。
+
+担当別の抽出結果と統合表を別の読取り確認者へ照合し、母集団WB82の列挙欠落・MCP内部結果DTOの個別項目欠落・VC Ref suffixと全長の表現差を是正した。修正版の担当範囲再確認は必須残指摘0。これは抽出表の整合確認であり、Source全体の安全性Pass・全容量制約の不要判断・製品全体完成を意味しない。Source／試験は不変更で、今回の記録更新だけを行った。
+
+## Claude作業量・候補拒否診断・検証投影の取り残し是正 — 2026-11-12
+
+人間の是正指示に基づき、Claude作業量の旧Path64／条件16／所見64件、候補拒否Path診断の1,000件、general-task検証投影の所見64件上限を撤去した。変更分類は前段の容量制約撤去に対する直接Consumer適合是正であり、着手前にTurn予算と入力件数、元診断と後段型、単一合成Fixture条件を区別した。新API・Wrapper・Store・自動再送は追加しない。
+
+候補診断の1,001Path対照試験で、配列捕捉を追従しても結果診断型の1,000件検査が通知を拒否することを検出し、同じ経路の結果型も是正した。SourceはAD Claude plan、Co controller／resultと既存verify-general-taskの四File。負・小数・危険整数、閉Schema、Path相関と不明、固定一Fileの対象Path・期待Hashは維持する。Claudeの計算式と硬Turn上限16、予算超過時split_requiredは不変更。HTTPフォームとBootstrap構成の別制限も不変更。
+
+実Source宣言を使う局所診断試験では1,001Pathの一致・末尾差・不正配列、65所見・不正数値と複数File拒否を確認した。Claudeは条件16／17件で9／10Turnの候補、旧件数超でも入力不正でなく計算予算超過の拒否となることを対照した。初期の局所試験の失敗を後段型の取り残し検出として是正し、最終のAD Task／Claude結果・Co準備／Packet／検証安全性の5 File 54件は全成功した。型検査3設定、担当形式・Lint・差分確認は成功。Lint情報通知一件は既存箇所の文字列連結推奨であり、error／warningと区別する。
+
+固定候補の独立Source・試験・文書レビューは必須残指摘0。独立確認者は結果診断の実関数まで接続していることを再確認し、AD Task・Co診断／Packet／Codex準備・Executor Planの5 File 56件も全成功した。親54件との重複は合算しない。前段レビューで見落とされた後段上限を実Source接続試験で検出したため、局所代役だけで下位拒否の不在を推定しない確認を今回の是正根拠とする。
+
+前段のCodex実Image・実E2E結果はその候補の証拠として保持するが、この変更後の実AI再検証へ読み替えない。今回、実AI・Docker・全体回帰・過去保持物は操作していない。
+
+## Codex新Schemaの実Image反映とExecutor限定E2E — 2026-11-12
+
+人間が実Docker・実AIの限定実行と、その後Docker Desktopの通常起動を明示承認した。既存CLI起動要求ではDesktop Process／Engineが現れず、その要求を終了後、インストール済みDesktopを通常起動した。再起動・修復は行っていない。Engine 29.8.1応答と稼働Container零を確認した。
+
+変更分類は前段Schema変更の実配布物・固定Identity追従と実境界検証。既存のImage準備・固定実行物検査、Executorの単独試験入口を使用し、DIの公開IF・技術処理・許可条件は変更しない。必要なSource・利用側・品質観点の独立レビューを実施し、標準規範・準拠基準・Releaseを変更しないため全体準拠監査は行わない。全体回帰も人間の指示により未実施とする。
+
+旧固定Imageから今回作成した停止Containerを介して公式CLI・Code Mode Host・bwrapだけを読み出し、既存prepareCodexImageで各size／Hash・Dockerfile・Schemaを検証した。抽出Containerは回収済み。既存固定ベースと`--pull=false --network=none`で新品Imageを構築し、Task primaryだけを次の実測Identityへ更新した。旧Image・Advice Image・Claude Imageは削除・変更していない。
+
+| 対象 | 実測値 |
+|---|---|
+| 新Task Image | `sha256:9f585128d400a0537679df549c91917940880044588517c66943af915dec4349`、709,806,252 bytes |
+| Executor Schema | `0fdac2f68b6270b604c795adcd30f48965fc46be85605d478076fccc6204388d` |
+| Reviewer Schema | `673413342fcc405ed2db11553b28d97c659358717c6e8fbd16ab1cece09c1abd` |
+
+ネットワーク・Host Mountなし、read-onlyの今回使い捨てContainerで、Image内Schema二件と公式実行物三件のHashが正本と一致することを確認した。同Containerは終了・削除済み。変更はDI assetsのprimary digestとbuild-inputsの実size／二Schema Hashのみで、版・実行物Hash・Seccomp・Network／Proxy・Dockerfileは不変更。既存runtime-assetsとExecutor planの7件、DI型・形式・Lint・差分検査は成功した。
+
+実AIは既存Subscription認証・Codex `gpt-6.1-sol`／mediumを使用し、各一回を逐次実行した。送信は固定合成指示とsource.txtの`BASE`／`EDITED_OK`・固定差分だけであり、本体Repository本文・秘密値・過去保持物は送っていない。実AI自動再送は行わない。
+
+| 実行ID | 内容・結果 | 結果Hash／bytes |
+|---|---|---|
+| `EXEC-20261112-SCHEMA-EDIT` | 編集completed、内容照合true | `a6181339d123a8e1299025bd95a66a2f1581dba986682a222c9895c05bb0ac55`／2,013 |
+| `EXEC-20261112-SCHEMA-REVIEW` | レビューcompleted、内容照合true。CLI観測のCommand開始・File変更開始は各0 | `321a0590040892d5203263b524fde80c6a68ac3551d5a13a0dbc8c16da4dbf50`／819 |
+| `EXEC-20261112-SCHEMA-CANCEL` | 開始後取消cancelled、`provider_operation_cancelled`、取消確認true | 結果本文なし／0 |
+
+三件すべて親子close・Process終了・Container／Network不存在・Cleanup・Home解放・終端保存・Operation回収・fixture回収がtrue。各exact試験Rootの不存在を別途確認した。今回のビルド用Root `codex-schema-build-20261112`と準備Context `codex-task-image-7yhgD2`は、Repository-local tmp下の絶対Path・非Link・既知File集合を確認して回収し、各Root不存在を確認した。新採用Imageは保持する。終了後の稼働Containerは零、今回の抽出／確認用Containerの残存も零である。
+
+この結果により、下段で未実施としていたCodex新SchemaのImage組込み・固定digest／bytes追従・Executor実境界Gateを閉じる。旧上限超の任意量を実Providerで試した根拠ではなく、大容量の局所Parser／Plan試験と今回の有限な実E2Eを区別する。全体回帰・Claude再E2E・上位Task全体E2Eは未実施。過去保持物は操作していない。
+
+固定Identity差分・利用側・実測結果と終了後条件・現在投影・QAの独立読取りレビューを実施し、必須残指摘は0件。独立確認者はDocker／AIを再実行せず、親の実測と記録の対応を確認した。Source・記録は未コミットであり、Release・統合の完了を意味しない。
+
+## Task実行・Owner Artifact・Provider結果の後段容量制約是正 — 2026-11-12
+
+状態: 人間の是正指示に基づくSource・利用側・試験・設計の限定対応。通常Task本文／受入条件、Workbench Owner Artifactの相対Path、AI AdapterのTask／Advice結果に残った量だけの拒否を撤去した。同じデータを受けるCoordinator診断・Advice許可参照とExecutor stdinの旧上限も追従した。新しいFramework・公開API・自動分割・再送・切詰めは追加しない。
+
+変更分類は承認済み容量制約撤去の直接Consumer適合是正。着手前に入口・準備・Packet・Provider Plan／結果・診断・Browser投影を照合した。Schema・型・非空・ID／Hash・Path／Root／Link・Secret・参照一意性・実受入条件数・所見集計相関、Authority・通知・Process終了・Cleanupは維持する。HTTP／MCP／CLI受信、Process出力・Timeout、Claude Turn／コスト、一回Remediationは別契約とし不変更。正常Task／Adviceと別のboolean Probe出力検査、既知警告本文の診断分類も不変更。規範・準拠基準・Releaseを変更しないため全体文書／準拠監査は行わない。
+
+DIの製品Source・公開IFは不変更。ただしCodex SchemaがImageへ組み込まれる直接利用側なので、`images/build-inputs.json`のSchema二Hashだけ更新し、固定Hash検査自体は維持した。既存の実Imageは旧固定digestのままであり、新Schemaへ更新済みとは扱わない。後続で許可された実Image再build・digest／bytes追従・Image内Schema照合・実E2Eが必要。この実境界Gateと、Source／模擬依存の限定成立を明確に分離する。
+
+| 限定検証 | 結果と範囲 |
+|---|---|
+| Co準備・Packet／Executor Plan | 3 File 39件成功。8KiB超objective、17条件・各1KiB超、128KiB超stdinと65所見診断、Role／選定／参照／Secret／相関の拒否を対照 |
+| Executor通知／Advice | 2 File 7件成功。1,025件・各513byte超の許可参照も受理し、不正入力は乱数・Home・DI構築前に拒否。必須通知失敗・取消・元Receipt／解放事実の維持を確認 |
+| ADと直接Consumer | AD内容・エラー・Provider契約35件とCo計画／選定Consumer12件成功。Task／Advice本文・件数・JSON／JSONLと異常分類を全量接続。重複実行は合算しない |
+| WB Owner Artifact | 647文字の正規相対PathをCatalogからBrowserまで接続し、越境・Link・Catalog外・実体差等は拒否。既存大容量Markdown試験の旧期待値も追従。Junction fixture生成の環境拒否は権限を整えた同一限定試験で再確認し、製品失敗と区別 |
+| Image準備入力 | 非Dockerの既存runtime-assets 4件成功。Source Schema・二Hash・COPYレシピと準備本体を照合。実Image再構築の証拠ではない |
+
+Co本番／試験・Executor・AD・WBの型5設定、担当範囲の形式・Lintと差分検査は成功。独立確認者はAD／Co／Executorの6 File 55件とWB／Image契約を確認した。WBのリンクfixture権限不足一件は、同じ限定caseを必要権限で再実行して成功し、回収hookも完了した。追加試験・QA・現在投影を含む独立最終レビューの必須残指摘は0件。実行単位間の重複件数は合算しない。
+
+全体回帰・実AI・Docker・過去保持物は操作していない。自己生成fixtureだけを既存hookで回収した。Source整理の限定完了と、残る実Image更新Gateを区別する。
+
+## 回復・受領情報の後段量制限の追加是正 — 2026-11-12
+
+状態: 人間の継続指示に基づく実装・限定回帰・独立確認を完了。前段Domainの量制限を撤去した後も、回復／受領情報の利用側に128件／256件の拒否が残っていた。Task Adapter・元Completionと後段の再捕捉、受領Reader／保存候補、MCP結果DTO、Runtime回復ID／Home Hash投影の量だけの拒否を撤去した。再走査で同じCleanup適格性の元ID／引渡し／終端集合にも128件上限を発見し、同じ契約として是正した。
+
+変更分類は既存回復・受領情報の全量搬送への適合是正。着手前に入口・変換・保存・再観測と全直接Consumerを照合した。Array／plain-data・descriptor・Proxy拒否、正規ID／Hash、種別・一意性・単数／複数／元集合の相関、能力・Task／Operation／世代・終端／Cleanupの条件は維持する。未知状態を成功又は空集合へ補完しない。上限専用の定数・分岐は撤去し、新Store・Registry・Framework・自動再送／切詰めは追加しない。
+
+検証ToolのReader・正規ID保全・集約にも128件切詰めが残っていたため、本番結果のConsumerとして容量分岐だけを撤去する。`boundedRecoveryIds`は無制限の集約という現責務に合わせ私有`collectRecoveryIds`へ改名し、別名Wrapperは作らない。HTTP／MCP／CLI受信・子Process出力・取消／待機期限・認可／実処置境界は不変更。実AI・Docker・過去保持物・全体回帰は操作しない。
+
+固定候補の限定回帰と独立レビューを実施し、Owner設計・QA・現在投影へ結果を接続する。規範・準拠基準・Releaseを変更しないため全体文書／準拠監査は実施しない。
+
+最終SourceはCoordinator本番五File（controller／result／recovery／dispatch／acceptance）、MCPのtask結果検査一File、Coordinator検証Script三File。公開関数・結果Schemaは増減せず、私有集約関数だけ現責務へ改名した。変更後の同じ回復・受領配列の128／256件拒否・切詰め残存は再走査で0件。ID長、別の明示操作数・固定種別・Transport／Process限界はこれと区別する。
+
+| 限定検証 | 実際の結果 |
+|---|---|
+| 回復投影・Cleanup判定・MCP | 3 Suite 38件成功。257正規IDと対応Home Hash、129元ID／引渡し／終端集合、MCP129ID／義務の全量と、不一致・重複・単数相関・能力差・未完了の負例を確認 |
+| Adapter・状態受領 | 2 File 58件成功。129ID／義務、129受領と129番目の世代差・重複・未清掃拒否を確認 |
+| 実保存の局所結合 | 既存2結果のnormal、129結果のmany_results、129番目だけ不正の3 Case成功。正常129件を受領Snapshot／Receiptへ保存し、末尾不正では受領保存0・未受領129件を保持。実AI／Dockerは使用しない |
+| 検証Tool Reader・集約 | 単体File全8件成功。257IDのstrict／salvageとgeneral／route集約を実Source宣言の局所評価で全量保持。不正値・重複・単数相関差は不明を維持。Scriptの実E2Eを実施した証拠とはしない |
+| 静的・独立確認 | Co本番／試験・MCPの型3設定、担当ごとの形式・Lint、差分確認が成功。Lint情報通知は失敗扱いのWarningとは分離。Source／試験／設計／QAの独立レビューは必須残指摘0、別確認者の6 File 104件もすべて成功 |
+
+実行単位間の重複Caseは合算しない。試験Fixtureは既定2件を維持しつつ、129件でも固定長・一意な64hexを生成するよう整合した。今回の試験Processはすべて終了し、自己生成Rootの回収hook完了を確認した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+## 保存前モデルの量制限と旧Reader表記の是正 — 2026-11-12
+
+状態: 人間の追加是正指示に基づく実装・限定回帰・独立最終確認を完了。物理Writerのbyte上限を撤去しても、保存前のDomain候補・validationと利用側に残っていた任意件数・自由本文・全Path長による拒否を是正した。旧Reader実装は既に削除済みであり、現在の試験Header・Symbol／試験台帳の旧`bounded-file-snapshot`識別子を`file-snapshot`へ追従した。過去Evidence・正式Context ID・保存済みデータ・移行Readerは変更しない。
+
+着手前に各容量条件を意味上の条件と分離し、基準のRoot／型・候補／保存／利用側・失敗試験へ対応付けた。Objective128／Task1,024、受入条件・依存・Path集合、回復義務・受領・回復ID、公開集計とWorkspace結果集合の量制限をDomainからCoordinator・MCP結果検査まで一括撤去する。質問・回答・理由・条件説明・選択肢表示と根拠集合、一時操作purpose／allowedContent、Git候補selection／関連CHG／全Path長と生成Commit本文・Stage File容量も同じ内部契約として追従する。旧公開上限定数はRootから撤去し、互換aliasや空Wrapperを作らない。
+
+変更分類は保存候補と公開結果の量拒否契約・不要な公開定数の整理。型・非空・閉Schema・重複／参照／世代／状態／Hash・Root・Path・Lock／CAS・Effect／cleanupを維持する。ID／Hashの文法と識別形式、固定状態種別・選択肢、一世代Leaseの取得／解放二事実、同時実行数・再計画回数は保存量とは違う意味上の契約として維持する。既存Snapshot helperには数値表現限界を渡し、別の任意予算へ置換しない。新しいStore／Registry／自動分割・切詰め・再試行は追加しない。
+
+HTTP・MCP・CLIの受信、別設定モデル（Network Policy等）の構成制約、表示名／Cursorと明示ページ取得、活動Queryの取得窓は今回の保存前契約とは別とし、全制約撤去済みとは表示しない。OS／Runtimeの実資源限界は残る。限定回帰・実Source局所検査・実Gitと模擬境界の区別、独立レビューを既存QA・Owner設計へ記録する。規範・認可・準拠基準・Releaseを変更しないため全体文書／準拠監査は実施しない。全体回帰・実AI・Docker・過去保持物の操作は行わない。
+
+最終候補では、Domainの状態・Task・Objective・Path・Workspace結果と判断本文、Coordinatorの初期作成・定義捕捉・再計画・終端、一時操作とVC Commit、MCPの公開結果検査を追従した。Rootの旧二上限定数・再Exportと既知Consumerを撤去し、公開集合試験を更新した。現行Source・設計・QAに対する旧Reader名／旧上限定数の参照走査は0件（歴史CHGは対象外）。Reader試験は同じ3件を新識別子で実行し、型・実体・途中変更の拒否を維持した。
+
+| 限定検証 | 実施結果と限界 |
+|---|---|
+| Domain中核の担当回帰 | 5 Suite 34件成功。129 Objective・1,025 Task、長本文／129条件／Path、129回復義務・受領・65回復ID、129件のexact Operation対応と不正参照／重複を対照 |
+| 状態作成・判断・Reader | 3 File 43件成功。Co初期作成からDomain投影まで129／1,025を保持し、旧本文超・257根拠IDの判断候補と履歴、Readerの途中変更拒否を確認 |
+| MCPの結果搬送 | 1 File 22件成功。129 Objective Summary・1,025 Taskの整合した結果を公開搬送し、不正相関・getter・認可拒否は維持。受信Schema拡大の試験ではない |
+| Root公開集合・Consumer | Domain／Coの3 File 30件成功。旧二定数の再Export撤去、既存CLI受信・主体搬送・Core独立性を確認 |
+| 候補・一時操作・VC | Domain候補入力の既存Case、VCの局所入力検査・実64MiB超File・Main／Linked正常の3 Case、4,097文字Commitとローカルbare送信1 Caseが成功。一時操作は必要権限付きで同File 24件成功。1,001選択の全Git発行は未実測 |
+| 静的確認 | Domain・Co本番／試験・MCP・VCの型5設定、担当ごとの形式・Lint、差分確認が成功。新Co試験の非null assertion警告3箇所は同値の値構築・assertionへ是正し、同Case・Lint・独立再確認が成功 |
+
+上記は重複するCaseを含む実行単位別の結果であり合算しない。独立レビューはSource・試験・設計・QA・命名追従を対象に必須残指摘0、独立実行もDomain／Co／MCPの5 File 71件成功だった。一時操作の通常制限環境の作成失敗は必要権限付き同Case・同Fileで再成功したが、単一syscall原因まで断定しない。VCの通常制限環境の失敗はfixture用Git pushのmsys起動拒否で、同Caseの必要権限付き再実行が成功した。製品判定や期限を緩めず、今回自己生成の試験物を既存終了処理で回収した。実AI・Docker・過去保持物・全体回帰は未実施である。
+
+## 借用作業Treeの独自容量・件数・深さ制限撤去 — 2026-11-12
+
+状態: 人間の追加指示に基づく実装・限定回帰・独立再確認を完了。Git Objectではなく、実行用に指定された現在の作業Directoryの一覧・Hash観測と、その結果を受け取る内部契約を対象とした。単一64MiB・合計256MiB・20,000 File・64階層・相対Path全体1,024 UTF-8 bytesの独自拒否を撤去した。後段の変更一覧1,000件、内部Allowed／Read Path64件、Reviewer向け取得内容1MiB／256 Fileと同じ結果のDomain保存側の件数・Path容量拒否も同時追従した。
+
+変更分類は作業内容観測・内部実行入力・結果保存の容量拒否契約の変更。着手前にSource、全直接呼出し、既存境界試験と保存側を照合した。Root／Pathの文法、Link／hardlink・入れ子Git・大小文字衝突の拒否、前後のFile実体とHash、Capability相関、許可範囲、Secret検査、Lock、取消、期限、回収条件は維持する。上限が担っていた数値表現の前提は非負の安全整数検査で保持し、Hash読取りの64KiB chunkは容量拒否ではないため維持する。通常Directoryを辿る際のLink拒否は維持し、新しい循環Managerや走査Frameworkは作らない。
+
+Consumer照合でPreparation／Request／Domainの二重上限を特定し、同じ内部契約として撤去する。HTTP・MCP・CLIなどSurfaceの入力制限、Objective／受入条件等の別入力契約、Gitの明示固定候補selection契約、子Process出力・Timeoutは変更しない。今回の変更であらゆる入口から無制限入力できるとは主張しない。新しい自動分割・切詰め・再試行は追加しない。メモリ不足やOS／Runtimeの実限界まで取り除く変更でもない。
+
+既存RFD-IT-013等の実行領域試験、Preparation契約、Domainの技術結果保存対照へ接続し、Source・試験・設計・QAを追従する。固定候補で独立レビューと限定回帰を実施する。規範・認可・準拠基準・Releaseを変更しないため全体文書監査・準拠監査は今回実施しない。全体回帰・実AI・Docker・過去保持物の操作は行わない。
+
+最終SourceはCoordinatorの`execution/files.ts`、`operation.ts`、`preparation.ts`、`request.ts`とDomainの`workspace/result.ts`、`validation.ts`の六File。実行領域契約改訂を8へ更新し、旧容量専用の拒否理由・契約説明を撤去した。Provider別の別契約改訂は変更しない。`readExecutionFile(target)`は一引数となり、内容一覧・Hash集計・Reviewer全量・終了結果を後段で容量だけによって拒否またはnullへ畳まない。Root公開関数や新しい永続形式は追加していない。
+
+実行領域Suiteは22件中21成功・1件がJunction作成権限不足で製品判定前に停止した。同じ1件を必要権限付きで再実行し成功した。一括22件再成功と合算せず、環境制約と製品判断を分ける。実64MiB超Fileの全量とHash、70段かつ1,024byte超のPath、1,001変更と65許可Path、Reviewerの1,002 File・1MiB超内容を確認した。20,002 Fileと256MiB超は整合したFilesystem代役で全量観測・descriptor終了を確認し、同量の物理Filesystem実測とは区別する。元Repositoryの不変・部分回収・実体差・不正Capability等の既存対照も成功した。
+
+Codex／Claude準備とDomain技術契約の三File全43件、要求搬送・計測の二File10件、Task Adapterの終了観測Snapshot一件も成功した。準備の追加対照は実Source宣言の局所検証であり、Provider送信や実AI実行の成立とはしない。Domainでは1,001件・長Pathの結果Snapshotと保存値validationの受理、不正Path・重複の拒否を確認した。Coordinator本番・試験とDomainの三型設定、変更九TypeScriptの形式・Lint、差分確認が成功した。独立レビューはSource六File・試験三File・設計／QA二Fileで必須残指摘0、別確認者の追加八Caseも七成功・同じJunction権限不足一件で、前述の同Case再成功と区別して記録する。今回の試験Processは終了し、自己生成Rootの回収hook完了を確認した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+<a id="internal-storage-capacity-removal"></a>
+
+## Git Objectの独自容量・件数・深さ制限撤去 — 2026-11-12
+
+状態: 人間の追加指示に基づく実装・限定回帰・独立再レビューを完了。先行の内部保存変更とは別の後続範囲として、Git Object ReaderのPack／Index／Object容量、展開量、Delta／Tree深さ、Pack／Object／File件数、Tree合計容量と相対Path全長の独自上限を撤去した。単件File読取りの`maximumBytes`引数も撤去し、VCの入力型・接続とCheckerの固定履歴読取りを同時追従した。HTTP・MCP・CLI受信、子Process出力、一般Git Layout／Worktreeの制約は変更しない。
+
+着手前にVC実装・利用側、既存試験・設計、循環と異常形式を読み取り照合した。深さ上限へ依存していたOFS Delta自己参照とTree祖先循環は、回数制限でなく参照の正当性で拒否する。OFS Deltaは[GitのPack形式](https://git-scm.com/docs/gitformat-pack)に従い、Pack内で自分より前に位置するObjectを参照することを要求する。Hash、宣言サイズ一致、CRC、offset／整数表現、Tree mode、Path／link、秘密情報の選択、失敗時回収は維持する。Node.js／OSの実資源限界を撤廃するものではなく、資源不足による停止まで防げるとは主張しない。
+
+変更分類は技術Readerの容量拒否契約と入力契約の変更。VC・CheckerのConsumer、限定契約試験、設計・QAを追従し、固定候補で独立レビューを行う。全体回帰・実AI・Docker・過去保持物の操作は行わない。大容量Pack／Indexの旧上限そのものを越える実測は未実施として区別する。規範・準拠基準・認可境界の変更は行わず、全体文書監査・準拠監査は今回実行しない。
+
+Reader契約改訂は5へ更新し、旧容量の説明fieldを撤去した。追加した入力負例で、保持する三項目のGetterを内部Readerが実行する既存潜在不整合を検出したため、own data descriptorから一度だけ値を確定する最小是正を加えた。通常入力は維持し、各項目と廃止fieldのGetterは呼出し0で拒否する。新しい公開関数・設定・Wrapperは追加していない。
+
+最終候補の限定結果は、Co Git Object契約とVC固定Snapshotの28件、Git生成Packによる既存統合14件がすべて成功。旧64KiB／64MiB超の全量とHash、70段Tree／OFS・REF Delta、共有subtree、Tree祖先循環と終了時解除、OFS距離0・metadata境界切れの形式拒否を確認した。Hash・offset・宣言サイズ等の破損、Path／mode／Secret、部分コピーと回収不明の既存反例も維持した。VC、Co本番・試験、Checkerの四型設定、対象六Fileの形式・lintと差分確認が成功した（lintの既存情報レベル一件は変更しない）。独立再レビューは必須残指摘0で、別確認者も28件を独立実行して成功した。自己生成した今回の試験物は各試験の終了処理で回収・不存在確認を行った。
+
+途中のVC Package限定統合実行は89件中81成功・8失敗だった。7件はGit補助Process／Link作成の実行環境制約で、該当7件を必要権限付きで再実行してすべて成功した。一括89件の再成功とは合算しない。残った1件は既存のConsumer一覧が`coordinator/src/decision/lifecycle.ts`の利用を欠く期待集合不整合だった。人間の追加是正指示に基づき、同Sourceが判断要求時のRepository Revision照合に公開`readRepositorySnapshot()`を使用することを確認し、期待一覧へ1行追加した。比較方式・製品Source・公開APIは変更せず、該当契約試験1件の再実行が成功した。残件は解消したが、個別再成功をVC Package全体の一括合格とは扱わない。
+
+## 内部保存・表示・診断の独自容量制限撤去 — 2026-11-12
+
+状態: 今回の限定範囲の実装・限定回帰・独立再レビューは完了。基準は`d8b666d25`。容量ガードの全撤去案は実行環境で拒否され、途中差分をすべて基準へ復元した後、人間が「先に内部State・履歴・設定と表示・診断だけを対応」と範囲を限定した。HTTP・MCP・CLIの受信量、Git Objectの展開量・再帰深度、子Processの出力量は今回変更しない。
+
+変更分類は内部保存・表示結果の容量拒否契約の変更。着手前に各保存Owner・利用側と、旧上限の前後、正常大容量、不正Schema、保存失敗・回復・Path・実体差の反例を照合した。容量専用の定数・引数・拒否理由・切詰めfieldを撤去し、常時falseの互換fieldや別Readerの上限へ移し替えない。Schema、UTF-8、認可、Root／Path、Hash、Lock、Revision、保存順序、実体観測、Timeout、保持条件は維持する。新Manager・Store・Frameworkや自動移行は作らない。
+
+| Owner／利用側 | 変更と対照 |
+|---|---|
+| Domain State・履歴 | Reader・codec・純粋候補・物理Writer・履歴Readerの重複16MiB制限、Blocker／Decision4,096件・技術記録64件の蓄積制限を撤去。旧境界の直前／一致／超過と100,000行の履歴を保存・再読取りし、相関破損の拒否を維持 |
+| Domain設定 | AI選択1MiB・通信設定16KiBのFile容量拒否を撤去。正常な大容量設定と不正JSON／Schema／linkの拒否を分ける |
+| 共通Reader・Consumer | `bounded-file-snapshot.ts`を廃止し、容量引数のない`file-snapshot.ts`／`readStableFileSnapshot(file)`へ変更。今回の限定範囲では既存の実体同一性照合は維持し、後続の簡素化と混同しない。AM／CLI内部設定読取り・検証Script・Root公開集合・試験・台帳を追従 |
+| AM | 状態16MiB・pending17MiB、解析の二重拒否、容量予約専用処理を撤去。登録時の正常Repository設定1MiB制限も撤去。認証／認可・資格生成・改訂オーバーフロー・保存不明は維持 |
+| EI | 履歴32MiB・10,000記録と明示Query limitの固定10,000拒否を撤去。保持Policy、未完了区別と明示ページ指定は維持 |
+| VC・Workbench | 差分256KiB切詰め、現在File1MiB拒否、文書512KiB・タイトル8KiB、内部応答16MiB等を撤去。Git Object・Process出力上限とHTTP受信上限は不変更 |
+| Coordinator診断・検証報告 | 診断SourceのFile／総byte、取得件数・走査深度と診断通知512件の切詰めを撤去。観測例外は容量超過と分けて保持。Executor検証報告の256KiB、Coordinator検証記録の32KiB・保存先256項目による拒否も撤去 |
+
+Workbenchの定義POST受信は既存48MiB＋16KiBのexact値を独立したTransport定数にし、Domain保存上限の撤去へ連動して拡大しない。MCP・HTTP・CLI受信の再設計は別の判断である。OS／Node.jsの実際の資源限界による失敗まで不存在とする変更ではなく、内部データの正常な増加をCRDD独自の固定容量だけで異常扱いしない変更である。
+
+既存QA-000003／004／007／012とRFD-IT-005／008、ERB-IT-004、RCM-IT-005、RDL-IT-001へ対応付ける。Source／保存契約、Consumerと境界・除外範囲、文書／QA／台帳の独立レビューを固定候補で実施し、全結果を統合してから是正する。未公開実装の限定変更であり、準拠基準・安定Context ID・Releaseを変更しないため準拠／Release監査は実施しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+初回独立レビューの三結果をすべて受領し、設定登録後の再観測に残る上限、65件技術記録の検証不足、撤去済み理由を残すMCP試験、旧仕様の説明・歴史記録の誤改変、資源不足時の結果保証の過大表現を統合した。方針を各確認者へ戻して、通常Filesystem設定ObserverのOptional容量引数・bounded分岐を正本から撤去し、AM認可・Domain Context・Coordinator Advice／検証Script・Workbenchの再観測を同時追従した。登録後Accessも大容量設定を再読取りできること、65件の個別正規codec生成とHash改変拒否を追加した。Root・link・descriptor・改訂の意味は変更しない。
+
+歴史的EI監査とAM旧Source比較の今回の書換えだけを基準へ戻し、現在の仕様は現行設計へ限定した。捕捉できるI/O等の例外は既存結果へ分類するが、致命的OOMやOSによるProcess終了時まで結果返却を保証しない。新しい上限・監視機構は追加しない。Readerのprivate Source抽出試験に残っていた旧名分岐と引数も修正し、13件が成功した。試験時の一時File書込み失敗では現物を再読して適用済み／未適用を確認し、同じ編集以外の迂回は行わない。
+
+最終のSource・試験・設計・QA・台帳は、変更後に存在する103 File（本計画とPROJECT_CONTEXTを除外）のPath昇順・Path／NUL／本文bytes／NULでSHA-256 `7e74e807187baa7acf1f2d5ce3132b06fddb40c2b10afbc8b619adacd2421438`へ固定した。Source／保存契約、他PackageのConsumer／境界、文書／QA／台帳の三独立再レビューは必須残指摘0。最後の非必須注記であった公開境界試験の旧容量刺激説明もRoot拒否の現本文へ合わせた。検証専用記録の32KiB・保存先256項目の残存拒否も最終一覧で見つけて撤去し、既存ST2件の旧境界超正常保存／flush故障対照、型・形式確認、追加2 Fileの独立再確認二担当はすべて成功・必須残指摘0である。以後は結果記録と現在投影だけを更新する。
+
+| 限定検証 | 確認結果と限界 |
+|---|---|
+| Domain・Reader・設定・Report・直接Consumer | 最終まとめ実行115件成功。16MiB前後のState保存／再読取り1 IT、16MiB超100,000行履歴の保持／再読取り1 ITも成功。これらは全体回帰ではない |
+| AM | 限定9 Suite 131件成功。容量予約の生成故障対照、登録設定旧1MiB超受理、登録後のExposure／現在Access／管理集合再観測の是正後対照も成功。反復件数は合算しない |
+| EI | 限定3 Suite 37件成功。旧32MiB・10,000行超の正常読書き／取得と大容量不正Schema拒否を確認 |
+| VC・Coordinator診断 | VC限定2 Suite 10件成功、全Source固定後の診断8件も成功。検証専用記録の追加ST2件も成功。途中編集時のHash差拒否を正常へ読み替えず、固定後に同じ試験で再確認 |
+| Workbench・MCP直接Consumer | Workbench限定13件と診断観測例外の追加対照が成功。MCPは試験fixtureの廃止理由への追従3件だけ成功、製品上限は不変更 |
+| 静的確認 | Domain・Coordinator製品／試験・MCP・Executor・AM・EI・VC・Workbenchの型9設定成功。変更TSの形式確認は成功、先行箇所のuseTemplate情報通知は別扱い。差分の空白検査も成功 |
+
+初回のhardlink／子HTTPの制限環境失敗とModule mock用起動flag不足は、製品検査・期限を緩めず、必要な権限と正規の試験flagで同じ限定試験を再確認した。自己生成試験領域は既存cleanupで回収し、作業用一時編集Scriptは削除済み。実AI・Docker・過去保持物は操作していない。
+
+別残件として、Checkerのtools-naming契約試験は基準Commitの時点からEI Root Moduleの旧期待集合が不一致であり、今回成功とは表示しない（HEADの試験期待とHEADのEI Rootから確認）。同試験のlink作成は制限環境でも失敗した。今回の台帳PathとSymbol存在は独立確認で一致したが、全体Checker合格・全体品質の完成へ拡張しない。実体照合そのものの簡素化、単件入力・計画Schema制約、HTTP等の後続設計も今回の完成範囲外である。
+
+### 追加是正: EI公開Moduleの旧試験期待 — 2026-11-12
+
+人間の追加指示で、`tools-naming.contract.test.ts`のEI公開Module期待を確定済みの現行Rootへ追従した。旧evaluation／projection／recorder等の11Moduleから、execution／group／query／summary／typesの5Moduleへ一意に更新しただけで、正規表現・集合の完全一致比較・EI製品Sourceは変更していない。今回の容量変更の固定候補とは別の後続是正である。該当契約試験1件と形式・差分確認が成功し、上記EI期待不整合は解消済みとなった。試験FileのSHA-256は`8fdc4d4a8299b77c7bd4b27e9c93e91679fe976969f024e6943e5bf2cabfc918`。全体Checkerや全体回帰の成功とはしない。実AI・Docker・過去保持物は操作していない。
+
 <a id="blocker-progress-and-read"></a>
 
 ## 既知Blockerの進行制御と読取りの是正 — 2026-11-12

@@ -551,6 +551,23 @@ test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認
   const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
+  for (const malformed of [
+    { purpose: "", allowedContent: ["fixture"] },
+    { purpose: "valid", allowedContent: [] },
+    { purpose: "valid", allowedContent: ["fixture", "fixture"] },
+    { purpose: "valid", allowedContent: ["../outside"] },
+  ]) {
+    const rejected = createTemporaryOperation(root.capability, {
+      operationId: `runtime-data-test-input-${process.pid}`,
+      owner: "runtime-data-test",
+      identity: randomUUID(),
+      ...malformed,
+      evidencePromotion: "not_required",
+    });
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "temporary_operation_input_invalid");
+    assert.equal(rejected.recoveryReference, null);
+  }
   for (const outcome of [
     "completed",
     "failed",
@@ -562,12 +579,25 @@ test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認
       operationId,
       owner: "runtime-data-test",
       identity: randomUUID(),
-      purpose: "temporary lifecycle verification",
-      allowedContent: ["fixture"],
+      purpose: "p".repeat(513),
+      allowedContent: Array.from(
+        { length: 65 },
+        (_, index) => `fixture-${index}`,
+      ),
       evidencePromotion: "not_required",
     });
-    assert.equal(opened.status, "completed");
+    assert.equal(opened.status, "completed", opened.reason);
     if (opened.status !== "completed") continue;
+    const paths = resolveRepositoryRuntimeDataPaths(root.capability);
+    assert.ok(paths);
+    const document = JSON.parse(
+      fs.readFileSync(
+        path.join(paths.temporary, ".operations", `${operationId}.json`),
+        "utf8",
+      ),
+    );
+    assert.equal(document.purpose.length, 513);
+    assert.equal(document.allowedContent.length, 65);
     fs.writeFileSync(
       path.join(opened.workDirectory, "fixture.txt"),
       "fixture\n",

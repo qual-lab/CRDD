@@ -467,8 +467,6 @@ function assertPureImportEdges(
             "ProjectTaskResultFact",
           ],
           "state/create.ts": [
-            "COORDINATOR_MAXIMUM_OBJECTIVES",
-            "COORDINATOR_MAXIMUM_TASKS",
             "ProjectObjectiveDefinition",
             "ProjectTaskDefinition",
             "TaskExecutionSelections",

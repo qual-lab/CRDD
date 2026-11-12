@@ -481,7 +481,6 @@ export function observeVerificationDockerInventory(): VerificationDockerInventor
         .filter(Boolean);
     const containerIds = list("ps", "-aq", "--no-trunc");
     const networkIds = list("network", "ls", "-q", "--no-trunc");
-    if (containerIds.length > 256 || networkIds.length > 256) return null;
     if (
       [...containerIds, ...networkIds].some((id) => !/^[a-f0-9]{64}$/u.test(id))
     )
@@ -608,7 +607,6 @@ function validInventory(value: unknown): value is VerificationDockerInventory {
   const common = (
     items: readonly { id: string; name: string; configurationHash: string }[],
   ) =>
-    items.length <= 256 &&
     items.every(
       (r) =>
         r &&

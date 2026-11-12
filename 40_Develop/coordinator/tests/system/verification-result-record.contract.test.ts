@@ -17,21 +17,23 @@ import type { TestContext } from "node:test";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { deflateSync } from "node:zlib";
-import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-route-matrix.ts";
-import {
-  projectVerificationResult,
-  runRecordedVerification,
-} from "../../scripts/verification-result-record.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
 } from "../../scripts/verification-result-reasons.ts";
-import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
+import {
+  projectVerificationResult,
+  runRecordedVerification,
+} from "../../scripts/verification-result-record.ts";
+import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-route-matrix.ts";
+import {
+  coordinatorTaskPublicReasons,
+  formatHostRecoveryToken,
+} from "../../src/execution/result.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
 } from "../../src/state/probe-record.ts";
-import { formatHostRecoveryToken } from "../../src/execution/result.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");
@@ -281,6 +283,25 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
  * @boundary 検証Producer→共有記録用投影。
  */
 test("Source観測は固定語彙とHashで投影し旧Producerの配布情報を保つ", () => {
+  assert.equal(
+    projectVerificationResult({ reviewerFindingCount: 65 })
+      .reviewerFindingCount,
+    65,
+  );
+  for (const count of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1])
+    assert.equal(
+      projectVerificationResult({ reviewerFindingCount: count })
+        .reviewerFindingCount,
+      null,
+    );
+  for (const scope of [
+    "crdd-development-source-snapshot/v2",
+    "crdd-development-source-snapshot/v3",
+  ])
+    assert.equal(
+      projectVerificationResult({ sourceScope: scope }).sourceScope,
+      scope,
+    );
   const valid = {
     sourceScope: "crdd-development-source-snapshot/v3",
     sourceSha256: "a".repeat(64),
@@ -503,6 +524,14 @@ test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し�
 test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録する", () => {
   const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
   const digest = "a".repeat(64);
+  const manyIds = Array.from(
+    { length: 17 },
+    (_, index) =>
+      `docker-task.${digest}.${digest}.${index.toString(16).padStart(64, "0")}`,
+  );
+  const many = projectVerificationResult({ dockerRecoveryIds: manyIds });
+  assert.deepEqual(many.dockerRecoveryIds, manyIds);
+  assert.equal(many.recoveryFieldsComplete, true);
   const probe = formatDockerIsolationRecoveryToken(
     "crdd-coordinator-doctor-test",
     nonce,
@@ -826,18 +855,18 @@ test("終了記録の短読・読戻し差・file同定差は実行結果を保�
 });
 
 /**
- * 同時runは別UUIDへ保存し、容量に異物・未完了記録も数えるを検証する。
+ * 同時runと旧件数境界超過の保存を検証する。
  *
- * @responsibility 同時runは別UUIDへ保存し、容量に異物・未完了記録も数えるの合否判定を所有する。
+ * @responsibility UUIDの分離と既存記録の保全を確認する。
  * @trace ERP-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 同時runは別UUIDへ保存し、容量に異物・未完了記録も数えるの対象操作を実行する。
+ * @stimulus 同時runと256件の既存項目がある保存先への追加を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数える", async (t) => {
+test("同時runは別UUIDへ保存し、旧256件を超えても既存記録を保持する", async (t) => {
   const root = fixture(t);
   const outcomes = await Promise.all(
     Array.from({ length: 4 }, () =>
@@ -859,9 +888,9 @@ test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数�
     },
     failure,
   );
-  assert.equal(full.recordingOutcome, "start_failed");
-  assert.equal(wasVerificationCalled, false);
-  assert.equal(fs.readdirSync(store(root)).length, 256);
+  assert.equal(full.recordingOutcome, "saved");
+  assert.equal(wasVerificationCalled, true);
+  assert.equal(fs.readdirSync(store(root)).length, 257);
 });
 
 /**
@@ -902,18 +931,18 @@ test("実子が開始後に終了してもstartedが残り、成功記録は生�
 });
 
 /**
- * 終了記録のflush失敗は保存成功にせず、byte上限も緩和しないを検証する。
+ * 終了記録のflush失敗と大容量正常記録を区別する。
  *
- * @responsibility 終了記録のflush失敗は保存成功にせず、byte上限も緩和しないの合否判定を所有する。
+ * @responsibility 保存故障を成功にせず、容量だけで正常記録を拒否しない。
  * @trace ERP-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 終了記録のflush失敗は保存成功にせず、byte上限も緩和しないの対象操作を実行する。
+ * @stimulus flush失敗と旧32KiBを超える正常記録を渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("終了記録のflush失敗は保存成功にせず、byte上限も緩和しない", async (t) => {
+test("終了記録のflush失敗は保存成功にせず、大容量正常記録は保存する", async (t) => {
   const root = fixture(t);
   let restore = () => {};
   const flushFailure = await runRecordedVerification(
@@ -957,8 +986,9 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
     }),
     failure,
   );
-  assert.equal(large.recordingOutcome, "finish_failed");
-  assert.equal(fs.existsSync(resultPath(root, large.recordId)), false);
+  assert.equal(large.recordingOutcome, "saved");
+  assert.equal(fs.existsSync(resultPath(root, large.recordId)), true);
+  assert.ok(fs.statSync(resultPath(root, large.recordId)).size > 32 * 1024);
 });
 
 /**

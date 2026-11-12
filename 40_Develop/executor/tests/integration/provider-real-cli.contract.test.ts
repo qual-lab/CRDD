@@ -14,7 +14,71 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes, createHash } from "node:crypto";
 import test from "node:test";
+import { stripTypeScriptTypes } from "node:module";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import type { CoordinatorResourceBook } from "../../../domain-model/src/index.ts";
+
+/**
+ * 検証結果ReaderはTool開始件数を量で欠測化しない。
+ * @responsibility 非負安全整数と結果相関を維持して4,097件以降を搬送する。
+ * @trace ERB-IT-004
+ * @precondition 本番Reader宣言と局所代役を使い子Processを起動しない。
+ * @stimulus 正常4,097件と負数・小数・安全整数超過を渡す。
+ * @observation 結果保持又はnull。
+ * @oracle 正常数値は保持、不正数値は拒否する。
+ * @cleanup メモリ内値のみ。
+ * @boundary 検証子結果の値捕捉。
+ */
+test("単段検証結果Readerは旧4,096件上限を再適用しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-provider-real.ts", import.meta.url),
+    "utf8",
+  );
+  const capture = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "trialResult"))});`,
+    ["validFixtureReceipt", "beforeRecoveryFailure", "isTrialDiagnostic"],
+  )(
+    () => true,
+    () => false,
+    () => true,
+  ) as (value: unknown, mode: string) => unknown;
+  const result = {
+    mode: "review",
+    status: "completed",
+    fixtureReceipt: {},
+    cancellationConfirmed: false,
+    reviewToolObservation: {
+      commandExecutionStartedCount: 4097,
+      fileChangeStartedCount: 4097,
+    },
+    reason: null,
+    recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+    cleanupConfirmed: true,
+    releaseConfirmed: true,
+    terminalSaved: true,
+    operationCleanupConfirmed: true,
+    contentConfirmed: true,
+    resultSha256: "d".repeat(64),
+    resultBytes: 1,
+    diagnostic: {},
+  };
+  assert.deepEqual(capture(result, "review"), result);
+  for (const count of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1])
+    assert.equal(
+      capture(
+        {
+          ...result,
+          reviewToolObservation: {
+            ...result.reviewToolObservation,
+            commandExecutionStartedCount: count,
+          },
+        },
+        "review",
+      ),
+      null,
+    );
+});
 
 /** 合成Receiptを実Domainイベントへ通し、保存Reader試験に使う同じBook列を作る。 @trace ERB-IT-004 */
 function createResourceRecords(

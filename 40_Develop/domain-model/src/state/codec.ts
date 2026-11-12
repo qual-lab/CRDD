@@ -1,16 +1,13 @@
 /**
  * Runtime状態の正規JSON byte表現と内容Hashを所有する。
  * @packageDocumentation
- * @responsibility 深度・容量・UTF-8・通常データ制約と一意encodingを既存条件で検査する。
+ * @responsibility 深度・UTF-8・通常データ制約と一意encodingを既存条件で検査する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @boundary Schemaの意味・操作認可・状態遷移・実資源の観測を所有しない。
  */
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-
-/** 現在状態の既存byte上限。通常の設定JSONの上限とは区別する。 */
-export const RUNTIME_STATE_MAXIMUM_BYTES = 16 * 1024 * 1024;
 
 /**
  * 宣言したJSON値を再帰的なkey順序で一意に符号化する。
@@ -92,14 +89,14 @@ export function hashRuntimeStateContent(value: unknown): string {
 
 /**
  * 保存Bufferを一意なJSON値として安全に復号する。
- * @responsibility intrinsic Buffer境界、UTF-8、深度・容量と正規encodingを検査する。
+ * @responsibility intrinsic Buffer境界、UTF-8、深度と正規encodingを検査する。
  * @trace ARCH-000008
  * @input input: 未信頼のBuffer候補。
  * @returns 不変JSON値と本文Hash、又はnull。意味Schemaは呼出し側が検査する。
  * @precondition N/A: 任意の入力を拒否可能な境界として扱う。
  * @postcondition Proxyや入力側のlength Getterを評価せず一意byte形式だけを受理する。
  * @effect N/A: メモリ内の復号だけ。
- * @failure 不正Buffer、UTF-8、JSON、容量・深度超過、非正規encodingはnull。
+ * @failure 不正Buffer、UTF-8、JSON、深度超過、非正規encodingはnull。
  * @invariant Propertyの重複や順序差を黙って正規化しない。
  * @boundary Buffer byte列と意味検証前のJSON値。
  * @security 本文を実資源不存在、所有権または処置許可へ昇格しない。
@@ -113,12 +110,7 @@ export function decodeRuntimeStateBytes(input: unknown) {
       intrinsic,
       "byteLength",
     )?.get?.call(input);
-    if (
-      !Number.isSafeInteger(length) ||
-      length === 0 ||
-      length > RUNTIME_STATE_MAXIMUM_BYTES
-    )
-      return null;
+    if (!Number.isSafeInteger(length) || length === 0) return null;
     const buffer = Object.getOwnPropertyDescriptor(
       intrinsic,
       "buffer",

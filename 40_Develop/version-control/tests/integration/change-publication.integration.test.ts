@@ -177,7 +177,7 @@ test("選択差分だけをRevision化し確認済みRemoteへ通常公開する
     });
     assert.equal(unprepared.status, "completed");
     const revision = commitChanges(verified.capability, {
-      message: "selected change",
+      message: "m".repeat(4097),
     });
     assert.equal(revision.status, "completed");
     assert.ok(revision.revisionIdentity);

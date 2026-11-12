@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { mock } from "node:test";
+import { fileURLToPath } from "node:url";
 import * as actualAccess from "../../../access-management/src/index.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import type { McpResponse } from "../../src/index.ts";
@@ -91,7 +91,6 @@ try {
   const failureReasons = [
     "previous_materials_settled",
     "previous_materials_unavailable",
-    "capacity_exceeded",
     "identity_generation_failed",
     "candidate_invalid",
     "repository_validation_failed",
@@ -296,13 +295,10 @@ try {
   );
   assert.deepEqual(
     (over.result as { structuredContent: unknown }).structuredContent,
-    {
-      status: "unavailable",
-      reason: "management_response_too_large",
-    },
+    readResult,
   );
-  assert.equal((over.result as { isError: boolean }).isError, true);
-  assert.ok(Buffer.byteLength(JSON.stringify(over), "utf8") < 1024);
+  assert.equal((over.result as { isError: boolean }).isError, false);
+  assert.equal(Buffer.byteLength(JSON.stringify(over), "utf8"), limit + 1);
   assert.equal(update.mock.callCount(), failureReasons.length + 1);
 } finally {
   replacement.restore();

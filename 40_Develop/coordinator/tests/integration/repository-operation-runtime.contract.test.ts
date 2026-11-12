@@ -10,44 +10,43 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
 import type { TestContext } from "node:test";
 import test from "node:test";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-
+import { runInNewContext } from "node:vm";
 import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  hashExecutionSelection,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import {
+  bindOwnedOperationExecutionSelection,
+  bindRuntimeOwnedRepositoryOperation,
+  borrowOwnedOperationExecutionSelection,
+  borrowRuntimeOwnedCoordinatorRecoveryRepository,
+  borrowRuntimeOwnedCoordinatorSettlementRepository,
+  borrowRuntimeOwnedCoordinatorStateRepository,
+  borrowRuntimeOwnedCoordinatorStorageRepository,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-  bindOwnedOperationExecutionSelection,
-  borrowOwnedOperationExecutionSelection,
-} from "../../src/execution/operation.ts";
-import {
-  executionSelection,
-  attemptSelection,
-} from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
-import {
-  bindRuntimeOwnedRepositoryOperation,
-  borrowRuntimeOwnedCoordinatorStorageRepository,
-  borrowRuntimeOwnedCoordinatorStateRepository,
-  borrowRuntimeOwnedCoordinatorRecoveryRepository,
-  borrowRuntimeOwnedCoordinatorSettlementRepository,
   describeRepositoryOperationRuntimeContract,
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "../../src/execution/operation.ts";
 import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+  attemptSelection,
+  executionSelection,
+} from "../fixtures/ai-selection.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -67,10 +66,7 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
   const sample = fs.lstatSync(import.meta.dirname, { bigint: true });
   for (const [sourcePath, names] of [
     ["../../../version-control/src/repository/layout.ts", ["identity"]],
-    [
-      "../../../domain-model/src/storage/bounded-file-snapshot.ts",
-      ["identity"],
-    ],
+    ["../../../domain-model/src/storage/file-snapshot.ts", ["identity"]],
     [
       "../../src/execution/operation.ts",
       ["readFilesystemIdentity", "readFileIdentity", "readOpenFileIdentity"],
@@ -79,10 +75,10 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
     const source = stripTypeScriptTypes(
       fs.readFileSync(new URL(sourcePath, import.meta.url), "utf8"),
     );
-    const dependencies = sourcePath.includes("bounded-file-snapshot")
+    const dependencies = sourcePath.includes("file-snapshot")
       ? source.match(/function normalizeFileId\([\s\S]*?\r?\n\}/u)?.[0]
       : "";
-    if (sourcePath.includes("bounded-file-snapshot"))
+    if (sourcePath.includes("file-snapshot"))
       assert.ok(dependencies, "normalizeFileId");
     for (const name of names) {
       const body = source.match(
@@ -106,8 +102,8 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
         }) as (...args: unknown[]) => { ino: bigint };
         const args = sourcePath.includes("layout.ts")
           ? [metadata, "directory"]
-          : sourcePath.includes("bounded-file")
-            ? [metadata, 128]
+          : sourcePath.includes("file-snapshot")
+            ? [metadata]
             : ["fixture"];
         for (const ino of [1n, 42n, 1n << 63n]) {
           metadata.ino = ino;

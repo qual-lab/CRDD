@@ -485,8 +485,7 @@ function aggregateRouteRecovery(
       if (recovery.recoveryIdentityAmbiguous === true) isAmbiguous = true;
     }
     const allUniqueItems = [...new Set(ids)];
-    if (allUniqueItems.length > 128) isAmbiguous = true;
-    const uniqueItems = Object.freeze(allUniqueItems.slice(0, 128));
+    const uniqueItems = Object.freeze(allUniqueItems);
     aggregate[pair.singular] = uniqueItems.length === 1 ? uniqueItems[0] : null;
     aggregate[pair.plural] = uniqueItems;
   }

@@ -9,12 +9,12 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as access from "../../../src/index.ts";
+import { projectCurrentAccessResult } from "../../../src/authorization/current.ts";
 import {
   projectManagementOperationResult,
   projectManagementReadResult,
 } from "../../../src/authorization/management.ts";
-import { projectCurrentAccessResult } from "../../../src/authorization/current.ts";
+import * as access from "../../../src/index.ts";
 
 /**
  * Rootから内部操作を取得できないことを確認する。
@@ -132,7 +132,6 @@ test("公開投影は内部理由と非公開fieldを閉じた結果へ変換す
   const mappings = [
     ["state_store_previous_pending_settled", "previous_materials_settled"],
     ["state_store_pending_failed", "previous_materials_unavailable"],
-    ["state_store_capacity_exceeded", "capacity_exceeded"],
     ["state_store_identity_failed", "identity_generation_failed"],
     ["state_store_candidate_failed", "candidate_invalid"],
     ["state_store_repository_binding_failed", "repository_validation_failed"],

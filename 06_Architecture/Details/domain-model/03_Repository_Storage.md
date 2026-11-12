@@ -22,7 +22,7 @@
 
 ### 保存ReaderのFile ID表現
 
-`storage/bounded-file-snapshot.ts`は、WindowsのNode BigInt statが返すinodeのうち`-2^63`以上・`-1`以下だけを、同じ64bit列の符号なし値へ正規化する。読取り前後のPathとdescriptor、およびReaderの結果と生のstatを比較する保存Writerは同じ私有変換を使用し、IDそのものの比較を省略しない。ゼロ、型不正、下限逸脱、POSIXの負値、File型・link・dev・birthtime・容量・途中変更の拒否は維持する。既存の正値と保存済み記録は変更せず、新たな状態・移行Reader・排他を追加しない。Coordinatorの状態保存・再読はこのReaderと同一性比較へ接続する。
+`storage/file-snapshot.ts`は、WindowsのNode BigInt statが返すinodeのうち`-2^63`以上・`-1`以下だけを、同じ64bit列の符号なし値へ正規化する。読取り前後のPathとdescriptor、およびReaderの結果と生のstatを比較する保存Writerは同じ私有変換を使用し、IDそのものの比較を省略しない。ゼロ、型不正、下限逸脱、POSIXの負値、File型・link・dev・birthtime・途中変更の拒否は維持する。容量引数と固定byte上限は撤去し、旧16MiBを超える正常Stateも同じSchema・CAS・排他で保存・再読取りする。既存の正値と保存済み記録は変更せず、新たな状態・移行Reader・排他を追加しない。
 
 ## 基本設計との関係
 

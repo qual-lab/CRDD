@@ -67,11 +67,8 @@ function normalizeQuery(
   const owner = query?.owner?.trim();
   const relation = query?.relation?.trim();
   if (
-    [text, owner, relation].some(
-      (value) => value !== undefined && value.length > 128,
-    ) ||
-    (relation !== undefined &&
-      !/^(?:TOPIC|MTG|CHG|REQ|UX|IA|UI|SPEC|ARCH|QA)-\d{6}$/u.test(relation))
+    relation !== undefined &&
+    !/^(?:TOPIC|MTG|CHG|REQ|UX|IA|UI|SPEC|ARCH|QA)-\d{6}$/u.test(relation)
   )
     throw new Error("project_operation_list_query_invalid");
   const allowedStates =
@@ -272,7 +269,7 @@ function decodeCursor(
   sort: string,
   querySignature: string,
 ): CollectionCursor {
-  if (cursor.length === 0 || cursor.length > 1_024)
+  if (cursor.length === 0)
     throw new Error("project_operation_list_cursor_invalid");
   let value: unknown;
   try {

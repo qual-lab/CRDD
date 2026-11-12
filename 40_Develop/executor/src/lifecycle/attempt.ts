@@ -162,8 +162,6 @@ export const SETUP_COMMAND_FAILURE_REASONS = Object.freeze({
 
 const BLOCKED_COMPLETION_REASONS = new Set<string>(ATTEMPT_COMPLETION_REASONS);
 
-const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
-
 /**
  * 一試行の実行・通知・資源回収を完了まで管理する。
  *
@@ -2261,10 +2259,6 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
     ) &&
     /^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) &&
     /^[a-f0-9]{64}$/u.test(plan.stableLogicalHomeBindingHash) &&
-    (isTaskPlan || isAdvicePlan
-      ? Buffer.byteLength(plan.providerInput ?? "", "utf8") <=
-        PROVIDER_INPUT_LIMIT_BYTES
-      : true) &&
     !!plan.isolationRequest &&
     Array.isArray(plan.isolationRequest.resources) &&
     plan.isolationRequest.resources.length === 5 &&

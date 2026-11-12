@@ -750,22 +750,22 @@ test("通常鍵失効は最後の管理資格も失効し遅延提示で復活�
 });
 
 /**
- * 発行の容量予約と生成故障を実保存前に反証する。
- * @responsibility 予約前生成0と生成失敗後の保存0を分ける。
+ * 旧容量上限を超える状態でも生成段階へ進み、生成故障を実保存前に反証する。
+ * @responsibility 容量による早期拒否を行わず、生成失敗後の保存0を維持する。
  * @trace RFD-IT-017
  * @precondition 自己生成Rootと管理資格。容量例は有効な最大近傍Snapshot。
  * @stimulus 容量超過、乱数例外、生成KDF例外、資格ID衝突。
  * @observation randomBytes回数、固定失敗、current byteと材料不存在。
- * @oracle 容量時生成0、その他は再試行0・Secret返却0・current不変。
+ * @oracle 旧上限超過でも生成へ進み、故障時は再試行0・Secret返却0・current不変。
  * @cleanup crypto差替えをfinally復元しFixture回収。
- * @boundary Node crypto生成と既存保存容量Gate。
+ * @boundary Node crypto生成と既存保存境界。
  */
-test("通常鍵発行は容量前生成0と生成故障後保存0を保持する", (t) => {
-  for (const mode of ["capacity", "random", "kdf", "collision"] as const) {
+test("通常鍵発行は旧容量上限を超えても生成故障後の保存0を保持する", (t) => {
+  for (const mode of ["large_state", "random", "kdf", "collision"] as const) {
     const f = managementFixture(t);
     const userId = f.state.users[0]?.userId;
     assert.ok(userId);
-    if (mode === "capacity") {
+    if (mode === "large_state") {
       const repository = {
         repositoryId: "capacity-fixture",
         repositoryRoot: `${path.parse(f.directory).root.replaceAll("\\", "/")}x`,
@@ -796,7 +796,7 @@ test("通常鍵発行は容量前生成0と生成故障後保存0を保持する
     let kdfCalls = 0;
     crypto.randomBytes = ((size: number) => {
       generated++;
-      if (mode === "random" || mode === "capacity")
+      if (mode === "random" || mode === "large_state")
         throw new Error("injected_random");
       if (mode === "collision" && size === 12)
         return Buffer.from(f.state.credentials[0]?.credentialId ?? "", "hex");
@@ -818,8 +818,7 @@ test("通常鍵発行は容量前生成0と生成故障後保存0を保持する
       );
       assert.equal(result.status, "unavailable");
       assert.equal(Object.hasOwn(result, "token"), false);
-      if (mode === "capacity") assert.equal(generated, 0);
-      else assert.ok(generated > 0 && generated <= 3);
+      assert.ok(generated > 0 && generated <= 3);
     } finally {
       crypto.randomBytes = random;
       crypto.scryptSync = scrypt;

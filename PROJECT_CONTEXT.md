@@ -10,7 +10,23 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+内部データ量の撤去候補35群のうち、追加判断で保留したAM表示名一群を除く34群を是正した。利用側・既存試験・Owner設計・QA定義を追従し、直接Consumerの型12設定と限定回帰・独立再レビューを確認。VCのEOF確認差と残存する旧説明も是正済み。判断対象23群・保留入力／ページング・Transport／Process／通信・実行予算は不変更で、全ガード撤去済みとはしない。[実施範囲と限定結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#内部データ量の35群是正とam表示名の保留--2026-11-12)を参照。コミット前の追加確認でも固定Source差分・保留範囲の一致と限定24件の成功を確認した。今回、実AI・Docker・全体回帰・過去保持物は操作していない。
+
+容量ガードを全Packageへ横断走査した結果、既に是正した局所経路以外にも、内部Reader・外側結果捕捉・保存モデル・検証Tool等の任意量制約を発見した。13Packageとtemplateの566 Fileを母集団に、是正候補・Owner判断・保留入力／ページング・Transport／Process・形式／実行Policyを[全量棚卸し](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#容量件数取得範囲ガードの全package棚卸し--2026-11-12)へ記録した。この棚卸し段階では調査のみで製品Source・試験を変更しておらず、その後の34群是正は上段を参照する。実AI・Docker・全体回帰・過去保持物は操作していない。全ガード撤去済み・全体完成とはしない。
+
+追加走査でClaude作業量・候補拒否Path診断・検証Tool所見投影の旧件数制約を発見し、後段診断型も含め是正した。硬Turn上限16・不正値／相関／固定Fixture条件を維持し、5 File 54件の限定回帰は成功。今回の実AI・Docker・全体回帰は未実施で、下段の先行実E2Eと区別する。[取り残し是正](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#claude作業量候補拒否診断検証投影の取り残し是正--2026-11-12)を参照する。
+
+Task実行準備・Workbench Owner Artifact・AD Task／Advice結果の任意容量制約を、直接Consumerまで追従是正した。追加承認の範囲でCodex Task Imageを再構築し、新Schema二件と公式実行物三件の実Hashを照合して固定digest／bytesを更新した。新ImageによるExecutorの編集・レビュー・取消各一回は、終了・Cleanup・Home解放・終端保存・今回Root回収まで成功した。大容量の局所試験と有限の実E2Eは区別し、全体回帰・上位Task全体E2Eは未実施。Docker再起動／修復・過去保持物の操作は行っていない。[実Image反映と限定E2E](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#codex新schemaの実image反映とexecutor限定e2e--2026-11-12)を参照する。
+
 ### 結論
+
+内部State・履歴・設定と表示・診断の独自容量拒否を撤去する限定変更を完了した。先行変更ではHTTP・MCP・CLI受信、Git Object展開・再帰深度、子Process出力の上限は不変更。Readerの容量引数と旧公開上限定数、設定再観測のOptional容量指定を撤去し、正常な旧容量超過は受理、不正Schema・相関・保存故障は拒否する。最終まとめ115件、旧16MiB超Stateと履歴の実保存、AM／EI／VC／Workbench・診断の限定回帰と型9設定、三独立再レビューを確認した。既存実体照合そのものの簡素化とは分離する。先行CheckerのEI旧期待集合は追加指示で現契約へ追従し、該当1試験が成功した。全体Checker・全体回帰の成功ではなく、全体品質の完成とはしない。実AI・Docker・過去保持物は操作していない。[対象範囲と検証](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#internal-storage-capacity-removal)を参照する。
+
+追加指示により、Git Object Readerの独自容量・件数・深さ上限と`maximumBytes`入力を撤去した。Hash・宣言サイズ・形式・循環・Path検査は維持し、関連42試験・型四設定・独立再レビューを完了した。その段階ではHTTP・MCP・CLI受信、子Process出力と別契約の借用Tree予算は不変更。VC限定統合で見つけた既存Consumer一覧漏れ1件は、実利用を確認して期待一覧へ追従し、該当試験が成功した。一括回帰の成功へ合算しない。巨大Pack／Indexの旧上限超実測は未実施。詳細は[後続のGit Object整理](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。
+
+続く追加指示で、借用作業Treeの単一File／合計容量・件数・深さ・全Path長の独自拒否も撤去し、変更一覧・許可／読取りPath・Reviewer取得内容とDomain結果保存まで同じ内部契約として追従した。実行領域22件は21成功・Junction権限不足1件を同Case権限付き再実行で成功、準備／Domain43件・要求等11件、型三設定と独立レビューを確認した。物理大容量Fileと代役による大量File／合計容量の検証を区別する。その段階ではSurface受信・別のGit固定候補selection・子Process出力／Timeoutは不変更。全体回帰・実AI・Docker・過去保持物は操作していない。[対象と限定結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。
+
+保存前モデルに残っていたObjective／Task・回復記録・候補選択等の件数、自由本文・Path容量制限も追加指示で撤去し、Co作成／再計画・Domain保存値／投影・MCP結果・VC Commitまで追従した。旧二上限定数の公開と現行Reader試験・台帳の旧bounded名も整理済み。限定回帰・型5設定・独立レビューと独立71件成功を確認した。その後の再確認で発見した回復／受領情報の後段128／256件拒否と、検証Reader／集約の切詰めも追加是正した。正常129受領の実保存・129番目不正時の未受領129保持、257回復ID全量、型3設定・独立104件成功まで確認した。受信量、同時実行／再計画制御、ID／状態形式、別設定モデルやページ取得の制約は維持し、全ガード撤去済みとはしない。実AI・Docker・過去保持物・全体回帰は未実施。[今回の範囲・検証の区別](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。
 
 判断・阻害条件・履歴を同じState Writerへ統合し、旧Host Store・Bearer・二段階Port・判断期限を撤去した。Blockerと提案・回答の1:N、再提案、中止と解消の区別、履歴確認後の問題単位退役を実装した。追加確認で見つけた進行制御と読取りも是正し、関連承認が揃うまで元回答を未適用で保持する。同じ効果・根拠の承認だけを共同適用し、正式回復の完了記録を新規実行と区別する。queryDecisionsはBlockerと提案を同じ改訂から返す。局所88件・公開境界13件・保存IT1件・公開判断IT4件・通常進行と品質受入4件、型4設定が成功し、Source／利用側・文書の独立再確認は必須残指摘0。今回の三点の修正は完了した。[追加是正の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-progress-and-read)を参照する。
 

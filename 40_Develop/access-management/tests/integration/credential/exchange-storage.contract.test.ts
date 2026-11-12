@@ -19,8 +19,8 @@ import { Writable } from "node:stream";
 import test from "node:test";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
 import {
-  exchangeFromHost,
   exchangeCredentialsFromHost,
+  exchangeFromHost,
   finishKeyExchangeFromHost,
   readKeyExchangeStateFromHost,
 } from "../../../src/credential/exchange.ts";
@@ -33,8 +33,8 @@ import {
   type KeyExchangeResult,
   readCredentialAdministrationState,
   readKeyExchangeState,
-  updateCredentialPresentationState,
   revokeCredential,
+  updateCredentialPresentationState,
 } from "../../../src/index.ts";
 import { createInitialCredential } from "../../../src/initialization/execution.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
@@ -893,18 +893,18 @@ test("鍵交換保存は主Failureと解放不明を分離する", (t) => {
 });
 
 /**
- * 失効確定後の容量・生成故障を保存前に閉じる。
+ * 失効確定後は旧容量上限を超えても生成段階へ進み、生成故障を保存前に閉じる。
  * @responsibility 固定revoked事実を新資格成功や未失効へ変えない。
  * @trace RFD-IT-017
  * @precondition 自己生成currentにexact revoked交換を保存済み。
  * @stimulus 容量超過、乱数故障、KDF故障、資格ID衝突。
  * @observation current byte、乱数／KDF回数、Failure、Secretと新材料0。
- * @oracle 容量は生成0、生成失敗は再試行0、旧失効・同Recoveryを保持する。
+ * @oracle 旧上限超過でも生成へ進み、生成失敗は再試行0、旧失効・同Recoveryを保持する。
  * @cleanup 暗号Hook復元とFixture回収。
  * @boundary 失効後の予約・生成・出版前。
  */
-test("鍵交換保存は失効確定後の容量と生成故障を保持する", (t) => {
-  for (const mode of ["capacity", "random", "kdf", "collision"] as const) {
+test("鍵交換保存は旧容量上限を超えても失効確定と生成故障を保持する", (t) => {
+  for (const mode of ["large_state", "random", "kdf", "collision"] as const) {
     const f = managementFixture(t);
     const target = f.state.credentials[0];
     assert.ok(target);
@@ -923,7 +923,7 @@ test("鍵交換保存は失効確定後の容量と生成故障を保持する",
         oldCredentialIds: [target.credentialId],
       },
     ];
-    if (mode === "capacity") {
+    if (mode === "large_state") {
       const repository = {
         repositoryId: "capacity-fixture",
         repositoryRoot: `${path.parse(f.directory).root.replaceAll("\\", "/")}x`,
@@ -954,7 +954,7 @@ test("鍵交換保存は失効確定後の容量と生成故障を保持する",
     let kdf = 0;
     crypto.randomBytes = ((size: number) => {
       generated++;
-      if (mode === "random" || mode === "capacity")
+      if (mode === "random" || mode === "large_state")
         throw new Error("injected_random");
       if (mode === "collision" && size === 12)
         return Buffer.from(target.credentialId, "hex");
@@ -987,19 +987,14 @@ test("鍵交換保存は失効確定後の容量と生成故障を保持する",
       result.reason !== "key_exchange_unavailable"
     )
       continue;
-    assert.equal(
-      result.firstFailure,
-      mode === "capacity" ? "capacity" : "generation",
-    );
+    assert.equal(result.firstFailure, "generation");
     assert.equal(result.lastConfirmedStage, "revoked");
     assert.equal(
       result.recoveryId,
       f.state.unresolvedKeyExchanges[0]?.recoveryId,
     );
-    if (mode === "capacity") {
-      assert.equal(generated, 0);
-      assert.equal(kdf, 0);
-    } else assert.ok(generated > 0 && generated <= 3);
+    assert.ok(generated > 0 && generated <= 3);
+    if (mode === "large_state" || mode === "random") assert.equal(kdf, 0);
     assert.deepEqual(fs.readFileSync(current), before);
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   }

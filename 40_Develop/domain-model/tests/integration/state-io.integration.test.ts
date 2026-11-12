@@ -12,11 +12,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  readRuntimeStateFile,
   createRuntimeStatePendingFile,
   flushRuntimeStateFile,
   type RuntimeStateFileName,
   type RuntimeStatePendingFileName,
+  readRuntimeStateFile,
   type StableFileIdentity,
 } from "../../src/index.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
@@ -44,7 +44,7 @@ test("出版前flushは対象別の実体・Owner・Effect照合順と失敗を�
       const file = path.join(fixture.path, name);
       fs.writeFileSync(file, "snapshot");
       const observed = new Map<string, StableFileIdentity>();
-      readRuntimeStateFile(fixture.path, name, observed, 1024, () => {});
+      readRuntimeStateFile(fixture.path, name, observed, () => {});
       for (const fault of [
         "none",
         "missing",
@@ -185,7 +185,7 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
       checks++;
     };
     assert.equal(
-      readRuntimeStateFile(fixture.path, "state.json", identities, 1024, check),
+      readRuntimeStateFile(fixture.path, "state.json", identities, check),
       null,
     );
     assert.equal(checks, 2);
@@ -194,7 +194,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
       "state.pending.json",
       Buffer.from("candidate\n"),
       identities,
-      1024,
       check,
       () => {
         effects++;
@@ -207,7 +206,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
         fixture.path,
         "state.pending.json",
         identities,
-        1024,
         check,
       )?.toString(),
       "candidate\n",
@@ -219,7 +217,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
           "state.pending.json",
           Buffer.from("different\n"),
           identities,
-          1024,
           check,
           () => {
             effects++;
@@ -237,7 +234,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
           fixture.path,
           "state.pending.json",
           identities,
-          1024,
           check,
         ),
       /file_replaced/,
@@ -249,7 +245,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
           fixture.path,
           "state.pending.json",
           identities,
-          1024,
           check,
         ),
       /file_disappeared/,
@@ -265,7 +260,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
             fixture.path,
             name as RuntimeStateFileName,
             identities,
-            1024,
             check,
           ),
         /state_file_name_invalid/,
@@ -277,7 +271,6 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
             name as RuntimeStatePendingFileName,
             Buffer.from("bad"),
             identities,
-            1024,
             check,
             () => {
               effects++;
@@ -289,7 +282,7 @@ test("固定I/Oは同じMapと照合点を維持し、置換・消失・不正�
     assert.equal(effects, 2);
     fs.writeFileSync(path.join(fixture.path, "state.json"), "large");
     assert.throws(() =>
-      readRuntimeStateFile(fixture.path, "state.json", identities, 1, check),
+      readRuntimeStateFile(fixture.path, "state.json", identities, check),
     );
   } finally {
     fixture.cleanup();
@@ -320,7 +313,6 @@ test("固定I/OはOwner失効とI/O故障を伝播し、作成前にEffectを記
             "state.pending.json",
             Buffer.from("candidate"),
             new Map(),
-            1024,
             () => {
               if (++checks === failAt) throw new Error("owner_expired");
             },
@@ -356,7 +348,6 @@ test("固定I/OはOwner失効とI/O故障を伝播し、作成前にEffectを記
               "state.pending.json",
               Buffer.from("candidate"),
               new Map(),
-              1024,
               () => {},
               () => {
                 issued = true;
@@ -379,7 +370,6 @@ test("固定I/OはOwner失効とI/O故障を伝播し、作成前にEffectを記
         "state.pending.json",
         Buffer.from("candidate"),
         new Map(),
-        1024,
         () => {},
         () => {},
       ),
@@ -403,13 +393,7 @@ test("固定I/OはOwner失効とI/O故障を伝播し、作成前にEffectを記
     );
     assert.throws(
       () =>
-        readRuntimeStateFile(
-          fixture.path,
-          "state.json",
-          new Map(),
-          1024,
-          () => {},
-        ),
+        readRuntimeStateFile(fixture.path, "state.json", new Map(), () => {}),
       /file/,
     );
     t.mock.restoreAll();

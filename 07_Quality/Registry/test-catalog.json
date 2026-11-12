@@ -4674,9 +4674,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:bounded-file-snapshot",
+      "id": "coordinator:integration:file-snapshot",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/file-snapshot.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [

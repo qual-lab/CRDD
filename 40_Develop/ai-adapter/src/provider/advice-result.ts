@@ -5,9 +5,8 @@
  * @trace ARCH-000015
  */
 
-import { parseUnambiguousJsonDocument } from "./json.ts";
-
 import { snapshotPlainArray } from "./input.ts";
+import { parseUnambiguousJsonDocument } from "./json.ts";
 
 /**
  * 検査済み助言の一項目を表す。
@@ -77,16 +76,6 @@ export type AdviceReferencesResult =
       references: null;
     }>;
 
-const MAXIMUM_RAW_BYTES = 65_536;
-
-const MAXIMUM_TEXT_BYTES = 8_192;
-
-const MAXIMUM_REFERENCE_BYTES = 512;
-
-const MAXIMUM_ITEMS_PER_SECTION = 64;
-
-const MAXIMUM_REFERENCES_PER_ITEM = 16;
-
 const resultKeys = [
   "status",
   "facts",
@@ -118,11 +107,11 @@ const adviceResultSchema = Object.freeze({
 
 /**
  * 助言項目に使用できる有限の文字列か判定する。
- * @responsibility 空値・周辺空白・NUL・byte超過を拒否する。
+ * @responsibility 空値・周辺空白・NULを拒否する。
  * @trace ARCH-000015
- * @input value: 未検査値、maximumBytes: 内容契約の上限。
+ * @input value: 未検査値。
  * @returns 条件を満たす文字列だけtrue。
- * @precondition 上限は呼出し元の固定内容契約である。
+ * @precondition 未検査値を受け取り拒否できる。
  * @postcondition 入力を変更しない。
  * @effect N/A: 同期の値検査のみ。
  * @failure 不適合値はfalse。
@@ -131,13 +120,12 @@ const adviceResultSchema = Object.freeze({
  * @security 秘密不存在やアクセス許可を証明しない。
  * @concurrency N/A: 共有状態なし。
  */
-function validString(value: unknown, maximumBytes: number): value is string {
+function validString(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.trim() === value &&
     value.length > 0 &&
-    !value.includes("\0") &&
-    Buffer.byteLength(value, "utf8") <= maximumBytes
+    !value.includes("\0")
   );
 }
 
@@ -151,10 +139,10 @@ function validString(value: unknown, maximumBytes: number): value is string {
  * @precondition allowedReferencesはProviderへ渡した読取り投影から生成する。
  * @postcondition 全項目は本文と一件以上の許可済み参照を持つ。
  * @effect N/A: 入力検証と値の複製だけを行う。
- * @failure JSON、Schema、文字数または参照が不正なら生出力を含めずadviceResultRejectedにする。
+ * @failure JSON、Schemaまたは参照が不正なら生出力を含めずadviceResultRejectedにする。
  * @invariant 四つの結果区分と本文・参照の対応を変えない。
  * @boundary 生Provider出力と許可参照付きの読取り助言結果の境界。
- * @security 許可集合外参照、重複Key、余分なKeyおよび過大出力を拒否する。
+ * @security 許可集合外参照、重複Keyおよび余分なKeyを拒否する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function parseAdviceResult(
@@ -164,11 +152,7 @@ export function parseAdviceResult(
   const references = parseAdviceReferences(allowedReferences);
   const allowed =
     references.status === "confirmed" ? new Set(references.references) : null;
-  if (
-    typeof raw !== "string" ||
-    Buffer.byteLength(raw, "utf8") > MAXIMUM_RAW_BYTES ||
-    allowed === null
-  )
+  if (typeof raw !== "string" || allowed === null)
     return adviceResultRejected("workbench_ai_advice_result_input_invalid");
 
   const value = parseUnambiguousJsonDocument(raw);
@@ -215,12 +199,12 @@ export function parseAdviceResult(
 /**
  * 公開結果契約を返す。
  *
- * @responsibility Provider Adapterが固定すべきContract Identity、上限および非公開条件を宣言する。
+ * @responsibility Provider Adapterが固定すべき内容検査と非公開条件を宣言する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns 読取り助言結果の固定契約。
  * @precondition N/A: 定数だけを参照する。
- * @postcondition 実装と試験が同じ上限を参照できる。
+ * @postcondition 実装と試験が同じ内容検査境界を参照できる。
  * @effect N/A: 固定値を返すだけである。
  * @failure N/A: 失敗分岐を持たない。
  * @invariant 生Provider出力を公開しない。
@@ -230,9 +214,6 @@ export function parseAdviceResult(
  */
 export function describeAdviceResultContract() {
   return Object.freeze({
-    maximumRawBytes: MAXIMUM_RAW_BYTES,
-    maximumItemsPerSection: MAXIMUM_ITEMS_PER_SECTION,
-    maximumReferencesPerItem: MAXIMUM_REFERENCES_PER_ITEM,
     duplicateKeysAllowed: false,
     outOfProjectionReferencesAllowed: false,
     rawOutputReported: false,
@@ -246,18 +227,18 @@ export function describeAdviceResultContract() {
  * @input 未検査の参照配列。許可集合の選択自体は上位が所有する。
  * @returns confirmedと凍結配列、又はblockedと固定理由。
  * @effect N/A: 既存plain-data検査とメモリ内のコピーのみ。
- * @failure 1024件超・空値・512byte超・周辺空白・重複・動的Propertyを固定理由へ閉じる。
+ * @failure 空値・周辺空白・重複・動的Propertyを固定理由へ閉じる。
  * @invariant getter・Proxyを評価せず、許可集合を拡張しない。
  * @boundary Executorの準備入力とAI Adapterの助言内容検査。
  */
 export function parseAdviceReferences(value: unknown): AdviceReferencesResult {
-  const snapshot = snapshotPlainArray(value, 1_024);
+  const snapshot = snapshotPlainArray(value, Number.MAX_SAFE_INTEGER);
   const references = snapshot.status === "ok" ? snapshot.value : null;
   if (
     !references ||
     references.length === 0 ||
     !references.every((reference): reference is string =>
-      validString(reference, MAXIMUM_REFERENCE_BYTES),
+      validString(reference),
     ) ||
     new Set(references).size !== references.length
   )
@@ -290,20 +271,17 @@ function inspectItems(
   value: unknown,
   allowedReferences: ReadonlySet<string>,
 ): readonly AdviceResultItem[] | null {
-  if (!Array.isArray(value) || value.length > MAXIMUM_ITEMS_PER_SECTION)
-    return null;
+  if (!Array.isArray(value)) return null;
   const items: AdviceResultItem[] = [];
   for (const item of value) {
     if (
       !isExactRecord(item, itemKeys) ||
-      !validString(item.text, MAXIMUM_TEXT_BYTES) ||
+      !validString(item.text) ||
       !Array.isArray(item.references) ||
       item.references.length === 0 ||
-      item.references.length > MAXIMUM_REFERENCES_PER_ITEM ||
       item.references.some(
         (reference) =>
-          !validString(reference, MAXIMUM_REFERENCE_BYTES) ||
-          !allowedReferences.has(reference),
+          !validString(reference) || !allowedReferences.has(reference),
       ) ||
       new Set(item.references).size !== item.references.length
     )
@@ -384,7 +362,7 @@ function isExactRecord<const Keys extends readonly string[]>(
  * @input N/A: 固定Schemaだけを生成する。
  * @returns 助言項目配列のJSON Schema。
  * @precondition N/A: 呼出し条件を持たない。
- * @postcondition 余分Property、空参照および過大配列を許可しない。
+ * @postcondition 余分Propertyと空参照を許可しない。
  * @effect N/A: 固定Objectを生成するだけである。
  * @failure N/A: 失敗分岐を持たない。
  * @invariant Result Normalizerより強い意味主張を追加しない。
@@ -395,20 +373,17 @@ function isExactRecord<const Keys extends readonly string[]>(
 function itemArraySchema() {
   return Object.freeze({
     type: "array",
-    maxItems: 64,
     items: Object.freeze({
       type: "object",
       properties: Object.freeze({
-        text: Object.freeze({ type: "string", minLength: 1, maxLength: 8192 }),
+        text: Object.freeze({ type: "string", minLength: 1 }),
         references: Object.freeze({
           type: "array",
           minItems: 1,
-          maxItems: 16,
           uniqueItems: true,
           items: Object.freeze({
             type: "string",
             minLength: 1,
-            maxLength: 512,
           }),
         }),
       }),

@@ -52,8 +52,6 @@ export {
   isCoordinatorObjectiveProjectionCorrelationValid,
   isCoordinatorProjectionSemanticallyValid,
   COORDINATOR_HUMAN_DECISION_CONTRACT,
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
   COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   type CoordinatorProjection,

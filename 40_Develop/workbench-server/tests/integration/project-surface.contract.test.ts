@@ -10,22 +10,24 @@
  * @boundary PPR-IT-019=Direct Boundary: Repository→Project Operation Reader→Workbench Project Surface
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
-
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   parseRepositoryQualityProjectionMarkdown,
   parseRepositoryReleaseProjectionMarkdown,
 } from "../../../domain-model/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
-  readWorkbenchProjectSurface,
-  readWorkbenchOwnerArtifactCatalog,
   readWorkbenchOwnerArtifact,
+  readWorkbenchOwnerArtifactCatalog,
+  readWorkbenchProjectSurface,
+  type WorkbenchOwnerArtifactCatalog,
 } from "../../src/index.ts";
+import { inspectWorkbenchArtifactModel } from "../../src/shared/view/validation.ts";
+import { readWorkbenchArtifactSelection } from "../../src/server/presentation/project.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -103,22 +105,23 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
 });
 
 /**
- * 一覧の bounded 見出しと本文上限を別々に検証する。
- * @responsibility 巨大文書で一覧全体を失わず、本文拒否・読取り量・終了条件を維持する。
+ * 文書の容量で見出し・本文を欠落させないことを検証する。
+ * @responsibility 元の容量境界を超える文書と読取り失敗・終了条件を確認する。
  * @trace PPR-IT-019
  * @precondition Repository内の自己生成通常Fileだけを使う。
- * @stimulus 容量境界、完全行／途中行、UTF-8途中、欠落、read／close失敗と実体差。
+ * @stimulus 旧容量・Path長境界、後方の見出し、不正文法・Link・越境とread／close失敗・実体差。
  * @observation Catalog状態、表示名、本文可否、実読取り量とclose回数。
- * @oracle 一覧は8KiB以下、本文は512KiB以下、観測不能はunknown。
+ * @oracle 全文を読み、容量だけでは拒否・切詰めず、観測不能はunknown。
  * @cleanup handleを終了し、代役を復元して自己生成Rootを回収する。
  * @boundary 実FilesystemからOwner Catalog／本文API。
  */
-test("Owner一覧の見出し取得は巨大本文と独立し8KiBと終了条件を守る", async (t) => {
+test("Owner文書は旧容量境界を超えて見出しと本文を返し終了条件を守る", async (t) => {
   const parent = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(parent, { recursive: true });
-  const root = await mkdtemp(path.join(parent, "owner-header-"));
-  const relative = "case.md";
-  const file = path.join(root, relative);
+  const fixtureRoot = await mkdtemp(path.join(parent, "owner-header-"));
+  const root = path.join(fixtureRoot, "repository");
+  let relative = "case.md";
+  let file = path.join(root, relative);
   const originalOpen = fs.promises.open;
   let fault = "",
     reads = 0,
@@ -159,13 +162,63 @@ test("Owner一覧の見出し取得は巨大本文と独立し8KiBと終了条�
       await mkdir(path.dirname(path.join(root, fixed)), { recursive: true });
       await writeFile(path.join(root, fixed), "# fixed\n");
     }
+    relative = `${"segment/".repeat(80)}long.md`;
+    assert.ok(relative.length > 512);
+    assert.equal(
+      readWorkbenchArtifactSelection(
+        new URLSearchParams({ route: "/owner-artifact", path: relative }),
+        false,
+      )?.identity,
+      relative,
+    );
+    file = path.join(root, ...relative.split("/"));
+    await mkdir(path.dirname(file), { recursive: true });
+    const longBody = "# long path\ncomplete body\n";
+    await writeFile(file, longBody);
+    const longCatalog = await readWorkbenchOwnerArtifactCatalog(
+      root,
+      `[long](${relative})`,
+    );
+    assert.equal(longCatalog.state, "available");
+    assert.equal(
+      longCatalog.artifacts.find((entry) => entry.relativePath === relative)
+        ?.title,
+      "long path",
+    );
+    assert.equal(
+      await readWorkbenchOwnerArtifact(root, longCatalog, relative),
+      longBody,
+    );
+    assert.equal(
+      await readWorkbenchOwnerArtifact(root, longCatalog, `${relative}.md`),
+      null,
+    );
+    const firstArtifact = longCatalog.artifacts[0];
+    assert.ok(firstArtifact);
+    for (const invalid of [
+      "../outside.md",
+      "/absolute.md",
+      "bad\\path.md",
+      "not-markdown.txt",
+      "a//b.md",
+    ]) {
+      const invalidCatalog: WorkbenchOwnerArtifactCatalog = {
+        ...longCatalog,
+        artifacts: [{ ...firstArtifact, relativePath: invalid }],
+      };
+      assert.equal(
+        await readWorkbenchOwnerArtifact(root, invalidCatalog, invalid),
+        null,
+        invalid,
+      );
+    }
     for (const [body, title, bodyAllowed] of [
       ["# small\n", "small", true],
       [`# exact\n${"x".repeat(524288 - 8)}`, "exact", true],
-      [`# large\n${"x".repeat(524289)}`, "large", false],
-      [`${"x".repeat(8192)}\n# late\n`, relative, true],
-      [`${"\n".repeat(8190)}# long heading\n`, relative, true],
-      [`${"\n".repeat(8188)}# あいう\n`, relative, true],
+      [`# large\n${"x".repeat(524289)}`, "large", true],
+      [`${"x".repeat(8192)}\n# late\n`, "late", true],
+      [`${"\n".repeat(8190)}# long heading\n`, "long heading", true],
+      [`${"\n".repeat(8188)}# あいう\n`, "あいう", true],
       [`${"\n".repeat(8188)}# a\nmore`, "a", true],
       ["no heading", relative, true],
     ] as const) {
@@ -181,11 +234,23 @@ test("Owner一覧の見出し取得は巨大本文と独立し8KiBと終了条�
           ?.title,
         title,
       );
-      assert.ok(reads <= 8192);
+      assert.equal(reads, Buffer.byteLength(body));
       assert.equal(closes, 1);
       assert.equal(
         (await readWorkbenchOwnerArtifact(root, catalog, relative)) !== null,
         bodyAllowed,
+      );
+      const model = {
+        contract: "crdd/workbench/client-model/v1",
+        view: "artifact",
+        logoPath: "/brand/logo.jpg",
+        repositoryId: "repository-a",
+        selectedRepositoryId: null,
+        artifact: { kind: "owner", identity: relative, markdown: body },
+      };
+      assert.equal(
+        inspectWorkbenchArtifactModel(model).artifact.markdown,
+        body,
       );
     }
     for (fault of ["read", "close", "replace"]) {
@@ -213,10 +278,41 @@ test("Owner一覧の見出し取得は巨大本文と独立し8KiBと終了条�
         .state,
       "unknown",
     );
+    const outside = path.join(fixtureRoot, "outside");
+    await mkdir(outside);
+    const outsideFile = path.join(outside, "outside.md");
+    await writeFile(outsideFile, "# outside\n");
+    await fs.promises.symlink(
+      outsideFile,
+      path.join(root, "linked.md"),
+      "file",
+    );
+    assert.equal(
+      (await readWorkbenchOwnerArtifactCatalog(root, "[linked](linked.md)"))
+        .state,
+      "unknown",
+    );
+    await fs.promises.symlink(
+      outside,
+      path.join(root, "external"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(
+      (
+        await readWorkbenchOwnerArtifactCatalog(
+          root,
+          "[external](external/outside.md)",
+        )
+      ).state,
+      "unknown",
+    );
   } finally {
     mocked.mock.restore();
     syncBuiltinESMExports();
-    await rm(root, { recursive: true, force: true });
+    assert.equal(path.dirname(fixtureRoot), parent);
+    assert.equal(await fs.promises.realpath(fixtureRoot), fixtureRoot);
+    await rm(fixtureRoot, { recursive: true, force: true });
+    assert.equal(fs.existsSync(fixtureRoot), false);
   }
 });
 

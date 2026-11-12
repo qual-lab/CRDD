@@ -1,14 +1,14 @@
 /**
- * 上限付きの安定したファイル読取りを共通保存部品として提供する。
+ * 実体の安定性を確認するファイル読取りを共通保存部品として提供する。
  *
- * @responsibility 読取り前後の実体同一性、容量上限とdescriptor終了を確認する。利用側の状態や回復方針は所有しない。
+ * @responsibility 読取り前後の実体同一性、descriptor終了を確認する。利用側の状態や回復方針は所有しない。
  * @trace ARCH-000014
  */
 import fs from "node:fs";
 import path from "node:path";
 
 /**
- * bounded-file-snapshotで使用するStable File Identityの値契約を定義する。
+ * file-snapshotで使用するStable File Identityの値契約を定義する。
  *
  * @responsibility Stable File IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
@@ -33,9 +33,9 @@ export type StableFileIdentity = Readonly<{
  *
  * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
- * @input metadata: fs.BigIntStats、maximumBytes: number
+ * @input metadata: fs.BigIntStats
  * @returns identityの計算結果を返す。
- * @precondition 「metadata: fs.BigIntStats、maximumBytes: number」がidentityの入力契約を満たす。
+ * @precondition 「metadata: fs.BigIntStats」がidentityの入力契約を満たす。
  * @postcondition identityの責務を完了した結果だけを返す。
  * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure identityは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -44,7 +44,7 @@ export type StableFileIdentity = Readonly<{
  * @security identityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
  */
-function identity(metadata: fs.BigIntStats, maximumBytes: number) {
+function identity(metadata: fs.BigIntStats) {
   const ino = normalizeFileId(metadata.ino);
   if (
     !metadata.isFile() ||
@@ -53,10 +53,9 @@ function identity(metadata: fs.BigIntStats, maximumBytes: number) {
     metadata.dev <= 0n ||
     ino <= 0n ||
     metadata.birthtimeNs <= 0n ||
-    metadata.size <= 0n ||
-    metadata.size > BigInt(maximumBytes)
+    metadata.size <= 0n
   )
-    throw new Error("bounded_file_snapshot_invalid");
+    throw new Error("file_snapshot_invalid");
   return Object.freeze({
     dev: metadata.dev,
     ino,
@@ -124,80 +123,50 @@ export function sameStableFileIdentity(
 }
 
 /**
- * Stable Bounded File Snapshotを読み取る。
+ * Stable File Snapshotを読み取る。
  *
- * @responsibility Stable Bounded File Snapshotの読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility Stable File Snapshotの読取り元と読取不能時の結果境界を所有する。
  * @trace ARCH-000014
- * @input file: string、maximumBytes: number
- * @returns readStableBoundedFileSnapshotの計算結果を返す。
- * @precondition 「file: string、maximumBytes: number」がreadStableBoundedFileSnapshotの入力契約を満たす。
- * @postcondition readStableBoundedFileSnapshotの責務を完了した結果だけを返す。
+ * @input file: string
+ * @returns readStableFileSnapshotの計算結果を返す。
+ * @precondition 「file: string」がreadStableFileSnapshotの入力契約を満たす。
+ * @postcondition readStableFileSnapshotの責務を完了した結果だけを返す。
  * @effect Filesystemを読み取り、読取り用descriptorを開閉する。書込みは行わない。
- * @failure readStableBoundedFileSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readStableBoundedFileSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @failure readStableFileSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readStableFileSnapshotは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security readStableBoundedFileSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: readStableBoundedFileSnapshotは共有非同期状態を持たない同期処理である。
+ * @security readStableFileSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readStableFileSnapshotは共有非同期状態を持たない同期処理である。
  */
-export function readStableBoundedFileSnapshot(
-  file: string,
-  maximumBytes: number,
-) {
-  if (
-    !Number.isSafeInteger(maximumBytes) ||
-    maximumBytes <= 0 ||
-    !path.isAbsolute(file)
-  )
-    throw new Error("bounded_file_snapshot_invalid");
+export function readStableFileSnapshot(file: string) {
+  if (!path.isAbsolute(file)) throw new Error("file_snapshot_invalid");
   const resolved = path.resolve(file);
-  const before = identity(
-    fs.lstatSync(resolved, { bigint: true }),
-    maximumBytes,
-  );
+  const before = identity(fs.lstatSync(resolved, { bigint: true }));
   if (fs.realpathSync.native(resolved) !== resolved)
-    throw new Error("bounded_file_snapshot_invalid");
+    throw new Error("file_snapshot_invalid");
   const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY);
   try {
-    const opened = identity(
-      fs.fstatSync(descriptor, { bigint: true }),
-      maximumBytes,
-    );
+    const opened = identity(fs.fstatSync(descriptor, { bigint: true }));
     if (!sameStableFileIdentity(before, opened))
-      throw new Error("bounded_file_snapshot_changed");
+      throw new Error("file_snapshot_changed");
     const chunks: Buffer[] = [];
-    const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, maximumBytes + 1));
+    const buffer = Buffer.allocUnsafe(64 * 1024);
     let byteLength = 0;
     while (true) {
-      const remaining = maximumBytes + 1 - byteLength;
-      if (remaining <= 0) throw new Error("bounded_file_snapshot_invalid");
-      const count = fs.readSync(
-        descriptor,
-        buffer,
-        0,
-        Math.min(buffer.length, remaining),
-        null,
-      );
+      const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
       if (count === 0) break;
       byteLength += count;
-      if (byteLength > maximumBytes)
-        throw new Error("bounded_file_snapshot_invalid");
       chunks.push(Buffer.from(buffer.subarray(0, count)));
     }
-    const after = identity(
-      fs.fstatSync(descriptor, { bigint: true }),
-      maximumBytes,
-    );
-    const pathAfter = identity(
-      fs.lstatSync(resolved, { bigint: true }),
-      maximumBytes,
-    );
+    const after = identity(fs.fstatSync(descriptor, { bigint: true }));
+    const pathAfter = identity(fs.lstatSync(resolved, { bigint: true }));
     if (
       byteLength !== Number(opened.size) ||
       !sameStableFileIdentity(opened, after) ||
       !sameStableFileIdentity(opened, pathAfter) ||
       fs.realpathSync.native(resolved) !== resolved
     )
-      throw new Error("bounded_file_snapshot_changed");
+      throw new Error("file_snapshot_changed");
     return Object.freeze({
       path: resolved,
       identity: opened,

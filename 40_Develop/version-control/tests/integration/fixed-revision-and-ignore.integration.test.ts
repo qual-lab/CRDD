@@ -13,14 +13,70 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-
-import {
-  writeRepositoryLocalExclude,
-  registerRepositoryLocalIgnore,
-} from "../../src/repository/ignore.ts";
-import { getRepository } from "../../src/repository/location.ts";
-import { resolveRepositoryGitLayout } from "../../src/repository/layout.ts";
 import { readRepositorySnapshot } from "../../src/index.ts";
+import {
+  registerRepositoryLocalIgnore,
+  writeRepositoryLocalExclude,
+} from "../../src/repository/ignore.ts";
+import {
+  readStableFileBytes,
+  resolveRepositoryGitLayout,
+} from "../../src/repository/layout.ts";
+import { getRepository } from "../../src/repository/location.ts";
+
+/**
+ * 全量Readerが期待byte数の後も明示的にEOFを確認する。
+ * @responsibility 容量撤去で末尾追加・短読・descriptor解放の保証を失わない。
+ * @trace RFD-IT-008
+ * @precondition 自己生成の通常Fileとread境界の局所代役だけを使う。
+ * @stimulus 正常EOF、期待サイズ後の余分byte、途中EOFを返す。
+ * @observation 追加一byteの読取り要求、元理由とclose回数。
+ * @oracle 正常は全量、非EOF・短読はchanged拒否し全経路でcloseする。
+ * @cleanup 自己生成Rootだけを回収し、mockを復元する。
+ * @boundary FileReader。Gitや外部Providerは起動しない。
+ */
+test("通常FileReaderは全量後のEOFと短読拒否・closeを維持する", (t) => {
+  const root = createFixtureDirectory("vc-reader-eof-");
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const target = path.join(root, "source.txt");
+  const bytes = Buffer.alloc(4097, 0x61);
+  fs.writeFileSync(target, bytes);
+  const originalRead = fs.readSync;
+  const read = t.mock.method(fs, "readSync");
+  const close = t.mock.method(fs, "closeSync");
+  assert.deepEqual(readStableFileBytes(target).value, bytes);
+  assert.equal(read.mock.calls.length, 2);
+  const eofArguments = read.mock.calls[1]?.arguments as
+    | readonly unknown[]
+    | undefined;
+  assert.equal(eofArguments?.[3], 1);
+  assert.equal(close.mock.calls.length, 1);
+  let calls = 0;
+  read.mock.mockImplementation((...args: unknown[]) => {
+    if (calls++ === 0)
+      return originalRead(
+        args[0] as number,
+        args[1] as Uint8Array,
+        args[2] as number,
+        args[3] as number,
+        args[4] as number | null,
+      );
+    assert.equal(args[3], 1);
+    return 1;
+  });
+  assert.throws(
+    () => readStableFileBytes(target),
+    /repository_git_file_changed/u,
+  );
+  assert.equal(calls, 2);
+  assert.equal(close.mock.calls.length, 2);
+  read.mock.mockImplementation(() => 0);
+  assert.throws(
+    () => readStableFileBytes(target),
+    /repository_git_file_changed/u,
+  );
+  assert.equal(close.mock.calls.length, 3);
+});
 
 /**
  * 自己生成Git試験領域をRepository内だけに作成する。
@@ -74,6 +130,57 @@ function observationRepository(t: test.TestContext) {
   ]);
   return root;
 }
+
+/**
+ * Git管理Fileを旧容量上限だけで拒否しない。
+ * @trace RFD-IT-008
+ * @precondition 自己生成したGit RepositoryとFileだけを使う。
+ * @stimulus 1MiB超config、128KiB超exclude、4MiB超packed-refsと通常Fileを読む。
+ * @observation Root・Revision・ignore出版と共通Readerの全文。
+ * @oracle 内容・実体・Hashの検査を維持し量だけでunknownへ変えない。
+ * @cleanup 既存after hookが今回Rootを回収する。
+ */
+test("Git管理情報とignoreは旧容量超でも全文を観測する", (t) => {
+  const root = observationRepository(t);
+  const gitDirectory = path.join(root, ".git");
+  fs.appendFileSync(
+    path.join(gitDirectory, "config"),
+    `\n#${"c".repeat(1024 * 1024 + 1)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(gitDirectory, "info", "exclude"),
+    `#${"e".repeat(128 * 1024 + 1)}\n`,
+  );
+  const head = git(root, ["rev-parse", "HEAD"]);
+  fs.writeFileSync(
+    path.join(gitDirectory, "packed-refs"),
+    `# pack-refs with: peeled fully-peeled sorted\n#${"p".repeat(4 * 1024 * 1024 + 1)}\n${head} refs/heads/main\n`,
+  );
+  fs.unlinkSync(path.join(gitDirectory, "refs", "heads", "main"));
+  const verified = getRepository(root);
+  assert.equal(verified.status, "completed");
+  assert.equal(
+    readRepositorySnapshot(verified.capability)?.revisionIdentity,
+    head,
+  );
+  const entry = `${"segment/".repeat(150)}runtime/`;
+  assert.equal(
+    registerRepositoryLocalIgnore(verified.capability, entry).status,
+    "registered",
+  );
+  assert.ok(
+    fs
+      .readFileSync(path.join(gitDirectory, "info", "exclude"), "utf8")
+      .endsWith(`${entry}\n`),
+  );
+  const target = path.join(root, "large-reader.txt");
+  const bytes = Buffer.alloc(4 * 1024 * 1024 + 1, 0x61);
+  fs.writeFileSync(target, bytes);
+  assert.deepEqual(readStableFileBytes(target).value, bytes);
+  assert.throws(() =>
+    registerRepositoryLocalIgnore(verified.capability, "../outside"),
+  );
+});
 
 /**
  * 不正入力をGit観測候補へ補完しない。

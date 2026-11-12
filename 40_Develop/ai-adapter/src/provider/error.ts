@@ -8,9 +8,8 @@
  * @security 生出力を公開結果や例外へ複製しない。
  */
 
-import type { Provider } from "./types.ts";
-
 import { parseUnambiguousJsonDocument } from "./json.ts";
+import type { Provider } from "./types.ts";
 
 /**
  * 非正常終了から判別する共通の失敗理由を表す。
@@ -59,7 +58,7 @@ export type ProviderError = Readonly<{
  * @postcondition Provider生出力と実行Authorityを返さない。
  * @effect N/A: 同期の入力分類だけを行う。
  * @failure 不正または未認識の出力は一般の非正常終了理由へ分類する。
- * @invariant 出力上限、Provider固有の構造化結果と診断の判定順序を保持する。
+ * @invariant Provider固有の構造化結果と診断の判定順序を保持する。
  * @boundary CLI出力の意味分類と実資源Lifecycleを分離する。
  * @security 秘密値、任意生出力、Process Capabilityを公開しない。
  * @concurrency N/A: 共有可変状態を持たない。
@@ -71,10 +70,7 @@ export function convertProviderError(
   let claudeEnvelope: Record<string, unknown> | null = null;
   if (provider === "claude") {
     let envelope: unknown = null;
-    if (
-      !execution.stdout.includes("\0") &&
-      Buffer.byteLength(execution.stdout, "utf8") <= 65_536
-    ) {
+    if (!execution.stdout.includes("\0")) {
       try {
         envelope = parseUnambiguousJsonDocument(execution.stdout);
       } catch {
@@ -106,10 +102,7 @@ export function convertProviderError(
         });
     }
   }
-  if (
-    execution.stderr.includes("\0") ||
-    Buffer.byteLength(execution.stderr, "utf8") > 8_192
-  )
+  if (execution.stderr.includes("\0"))
     return Object.freeze({ provider, reason: "provider_process_exit_nonzero" });
   const stderrReason = classifyDiagnostic(execution.stderr);
   if (stderrReason !== "provider_process_exit_nonzero")
@@ -125,15 +118,15 @@ export function convertProviderError(
 }
 
 /**
- * Claudeの明示的な実行失敗Envelopeから有界な説明だけを取り出す。
+ * Claudeの明示的な実行失敗Envelopeから説明だけを取り出す。
  * @responsibility 通常回答・未知形を診断へ読み替えず、既存理由への一時入力を作る。
  * @trace ARCH-000010
- * @input envelope: 容量・NUL・曖昧性を確認した単一result JSON、又はnull。
+ * @input envelope: NUL・曖昧性を確認した単一result JSON、又はnull。
  * @returns 非公開の短命な説明、又はnull。
  * @precondition 呼出し側が非0終了と既知stderr理由の不在を確認している。
  * @postcondition 生本文や未知fieldを公開結果・永続記録へ返さない。
  * @effect N/A: 同期の値検査だけ。
- * @failure 不正・欠測・未知subtype・件数／個別／合計容量超過はnull。
+ * @failure 不正・欠測・未知subtypeはnull。
  * @invariant successのresult本文やmessageをエラー説明として使わない。
  * @boundary Claude JSONから既存の固定理由分類への変換。
  * @security 認証値・Session ID・任意本文を保存しない。
@@ -146,8 +139,7 @@ function claudeErrorMessages(
     envelope?.subtype !== "error_during_execution" ||
     envelope.is_error !== true ||
     !Array.isArray(envelope.errors) ||
-    envelope.errors.length === 0 ||
-    envelope.errors.length > 128
+    envelope.errors.length === 0
   )
     return null;
   const messages: string[] = [];
@@ -155,36 +147,34 @@ function claudeErrorMessages(
     if (
       typeof message !== "string" ||
       message.length === 0 ||
-      message.includes("\0") ||
-      Buffer.byteLength(message, "utf8") > 8_192
+      message.includes("\0")
     )
       return null;
     messages.push(message);
   }
   const text = messages.join("\n");
-  return Buffer.byteLength(text, "utf8") > 8_192 ? null : text;
+  return text;
 }
 
 /**
- * 固定Codexのエラーイベントだけを容量上限内で抽出する。
+ * 固定Codexのエラーイベントだけを抽出する。
  * @responsibility 通常回答や未知イベントをエラー説明へ読み替えない。
  * @trace ARCH-000010
  * @input 同じ非0終了の標準出力。
  * @returns 一時的な分類入力、又は不正・欠測のnull。本文は保存しない。
  * @precondition 呼出し側がCodexの非0終了とstderrの一般分類を観測している。
- * @postcondition 既知のエラー通知だけを上限付きの分類入力へまとめる。
+ * @postcondition 既知のエラー通知だけを分類入力へまとめる。
  * @effect N/A: 文字列解析だけ。
- * @failure 過大・NUL・曖昧JSON・未知イベント・不正messageはnull。
+ * @failure NUL・曖昧JSON・未知イベント・不正messageはnull。
  * @invariant 通常のagent_messageを障害説明へ読み替えない。
  * @boundary Codex JSONLから非公開の診断分類入力への変換。
  * @security エラー本文を公開結果・永続記録へ返さない。
  * @concurrency N/A: 解析内の配列だけを使う同期処理。
  */
 function codexErrorMessages(raw: string): string | null {
-  if (raw.includes("\0") || Buffer.byteLength(raw, "utf8") > 65_536)
-    return null;
+  if (raw.includes("\0")) return null;
   const lines = raw.split(/\r?\n/u).filter((line) => line.length > 0);
-  if (lines.length === 0 || lines.length > 128) return null;
+  if (lines.length === 0) return null;
   const known = new Set([
     "thread.started",
     "turn.started",
@@ -197,7 +187,6 @@ function codexErrorMessages(raw: string): string | null {
   ]);
   const messages: string[] = [];
   for (const line of lines) {
-    if (Buffer.byteLength(line, "utf8") > 8_192) return null;
     const event = parseUnambiguousJsonDocument(line);
     if (!event || typeof event !== "object" || Array.isArray(event))
       return null;
@@ -214,25 +203,18 @@ function codexErrorMessages(raw: string): string | null {
         return null;
       message = (record.error as Record<string, unknown>).message;
     } else continue;
-    if (
-      typeof message !== "string" ||
-      message.length === 0 ||
-      Buffer.byteLength(message, "utf8") > 8_192
-    )
-      return null;
+    if (typeof message !== "string" || message.length === 0) return null;
     messages.push(message);
   }
   const text = messages.join("\n");
-  return text.length === 0 || Buffer.byteLength(text, "utf8") > 8_192
-    ? null
-    : text;
+  return text.length === 0 ? null : text;
 }
 
 /**
  * 診断本文を既存の閉じた失敗理由へ変換する。
  * @responsibility 出力先によらず同じ分類順序を維持し、本文を返さない。
  * @trace ARCH-000010
- * @input 上限確認済みの一時的な説明。
+ * @input 一時的な説明。
  * @returns 固定理由のみ。
  * @precondition 呼出し側がProviderの非0終了を観測している。
  * @postcondition quota・認証・起動・通信・serviceの既存分類順を保持する。

@@ -9,10 +9,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  readStableBoundedFileSnapshot,
-  sameStableFileIdentity,
+  readStableFileSnapshot,
   type StableFileIdentity,
-} from "./bounded-file-snapshot.ts";
+  sameStableFileIdentity,
+} from "./file-snapshot.ts";
 
 /**
  * Coordinator現在状態の保存途中から予定できる次処置を分類する。
@@ -109,13 +109,13 @@ export type RuntimeStatePendingFileName =
  * 同じ取引で観測した固定ファイルの実体と本文を読む。
  * @responsibility 観測不能と明示不存在、置換と同一実体を区別する。
  * @trace ARCH-000008
- * @input 検証済みdirectory、固定name、同じ取引のidentities、容量上限と現在Owner照合。
+ * @input 検証済みdirectory、固定name、同じ取引のidentities、現在Owner照合。
  * @returns 安定したbyte又は初回の明示不存在null。
  * @precondition 呼出し側が短期排他を保持し、Mapを取引全体で共有する。
  * @postcondition 同名置換・既観測ファイルの消失を拒否する。
  * @effect metadataと本文を読み、既存Mapへ実体を記録する。
  * @failure 不正名・link・過大・置換・I/O故障は例外。nullへ畳まない。
- * @invariant 元の照合順序・例外・容量を保持する。
+ * @invariant 元の照合順序・例外を保持する。
  * @boundary 保存OwnerとFilesystem。領域を作成しない。
  * @security nameは型だけでなく実行時にも検査する。
  * @concurrency 呼出し前後のassertBoundaryを省略・キャッシュしない。
@@ -124,7 +124,6 @@ export function readRuntimeStateFile(
   directory: string,
   name: RuntimeStateFileName,
   identities: Map<string, StableFileIdentity>,
-  maximumBytes: number,
   assertBoundary: () => void,
 ): Buffer | null {
   if (
@@ -150,7 +149,7 @@ export function readRuntimeStateFile(
   }
   if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.nlink !== 1)
     throw new Error("file");
-  const observed = readStableBoundedFileSnapshot(file, maximumBytes);
+  const observed = readStableFileSnapshot(file);
   const expected = identities.get(name);
   if (expected && !sameStableFileIdentity(expected, observed.identity))
     throw new Error("file_replaced");
@@ -180,7 +179,6 @@ export function createRuntimeStatePendingFile(
   name: RuntimeStatePendingFileName,
   content: Buffer,
   identities: Map<string, StableFileIdentity>,
-  maximumBytes: number,
   assertBoundary: () => void,
   markEffect: () => void,
 ): void {
@@ -204,7 +202,6 @@ export function createRuntimeStatePendingFile(
     directory,
     name,
     identities,
-    maximumBytes,
     assertBoundary,
   );
   if (!saved?.equals(content)) throw new Error("readback");

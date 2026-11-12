@@ -6,22 +6,22 @@
 
 import path from "node:path";
 import {
-  initializeProject,
-  runObjective,
-  runTask,
-  inspectSingleTaskCommand,
-} from "../api.ts";
-import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
-  getRepository,
-} from "../../../version-control/src/index.ts";
-import {
   isPrincipalId,
   parseRepositoryProjectContextMarkdown,
-  readStableBoundedFileSnapshot,
+  readStableFileSnapshot,
 } from "../../../domain-model/src/index.ts";
-import { UsageError, readBoundedTaskRequestFromStdin } from "./options.ts";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+} from "../../../version-control/src/index.ts";
+import {
+  initializeProject,
+  inspectSingleTaskCommand,
+  runObjective,
+  runTask,
+} from "../api.ts";
 import { bindTaskCliCancellationSignals } from "./cancellation.ts";
+import { readBoundedTaskRequestFromStdin, UsageError } from "./options.ts";
 /**
  * Project Commandを実行する。
  *
@@ -193,9 +193,8 @@ export async function runSingleTaskCommand(args: readonly string[]) {
     if (verified.status !== "completed")
       throw new UsageError("task_repository_configuration_unavailable");
     const context = parseRepositoryProjectContextMarkdown(
-      readStableBoundedFileSnapshot(
+      readStableFileSnapshot(
         path.join(root, "PROJECT_CONTEXT.md"),
-        1048576,
       ).bytes.toString("utf8"),
     );
     cancellation = bindTaskCliCancellationSignals(async () =>

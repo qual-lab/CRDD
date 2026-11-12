@@ -14,7 +14,7 @@ Serverを所有する検証Processは、100msの短命Timerで最も大きい一
 
 `GET /api/runtime-definition`は`operation=plan/objectives/tasks`、`projectId`、`milestoneId`を受ける。`POST /api/runtime-definition`は既存Origin・Action Token保護のFormで`command` JSONを一度だけ受け、Domainの初期化・Plan保存・Objective／Task CRUDへ直接接続する。共有接続では`repositoryId`も指定し、Access Managementの現在development内容権限へ結合する。ローカルは起動Host利用者が同じ検証済みRootを操作し、Action TokenをユーザーIdentityと解釈しない。
 
-閉入力、全体CAS・対象Hash、Domainの保存結果・unknown・exact参照を保持し、競合の再送、AI実行、判断承認、Queue投入、文書計画の同期は行わない。Form上限はDomainの16MiB上限へpercent encoding最悪三倍と固定field分を加えた有限値とし、保存の上限自体は変更しない。計画編集用の新UIは追加せず、公開HTTP操作の接続を扱う。
+閉入力、全体CAS・対象Hash、Domainの保存結果・unknown・exact参照を保持し、競合の再送、AI実行、判断承認、Queue投入、文書計画の同期は行わない。Form受信上限は保存容量と分離し、従来と同じ48MiB＋16KiBをHTTP入口のローカル定数で維持する。内部Stateの固定容量上限撤去からHTTP受信の無制限化を推定しない。計画編集用の新UIは追加せず、公開HTTP操作の接続を扱う。
 
 公開RootはCoordinator／ExecutorのModule読込みを要求しない。公開binも既定はCoreだけを構成し、`--automation`を明示した場合だけ従来のTask Sessionを追加する。既存の単体／`--cros`・port指定は保ち、従来のAI付き起動はフロントAIが`--automation`付きへ更新する。既存Runtimeの自動移行やAI機能の削除ではない。Workspace実行・活動照会・実効通信設定は、任意機能を使う要求でだけ固定Ownerを読み、待機後に取消・現在認可／Rootを再確認する。
 
@@ -28,7 +28,7 @@ Serverを所有する検証Processは、100msの短命Timerで最も大きい一
 
 検証HTTP子への入力はstdinのEOF待ちを使わず、Node標準IPCで一つのJSON文字列だけを送る。子は一件受領後にIPCを切断してから検査・HTTPへ進み、型不正・parse拒否・HTTP失敗でも通信路を残さない。親の256KiB事前検査と子のUTF-8容量再検査、曖昧JSON・閉じたshape・loopback／固定route検査は維持する。親のstdioはstdin ignore・stdout/stderr pipe・ipcを明示し、send例外／callback失敗／channel欠測・送信前切断は既存pipe故障へ接続する。send falseはbackpressureとして再送せず既存監視で待つ。送信後のdisconnect自体を入力受理又はHTTP成功の証明にせず、従来のframeと実closeを共同確認する。Token／Formはargv・env・File・logへ移さず、追加のRuntime子・Worker・Queueを作らない。未到達・子早期終了・取消も既存の有限監視と元子一回の終了要求で扱う。
 
-読取り検証Toolの`httpTiming`は、固定段階（initial／start／observe／cancel／close）とClient／Server／Ownerそれぞれの観測番号、要求開始・headers受信・本文完了・親close処理、Server受信・finish、Owner.observe開始・終了の時刻だけを保持する。各配列は最大512件で超過はdroppedへ計上し、本文・Token・生URLは保持しない。ClientとServerの番号は独立した相関候補で、同一IDの証明ではない。時刻・固定経路・段階と欠測を併せて評価し、未完了・相関候補複数・上限超過から正常を補完しない。診断購読は対象listenerのloopback portと固定経路に限定し、Client終了後、Server／Task Ownerの終了待ちより先に解除する。snapshotは取得時点であり、解除前に開始したOwner観測の終了時計は後で確定し得る。製品HTTP・Task Lifecycle・期限・認可を変更しない。
+読取り検証Toolの`httpTiming`は、固定段階（initial／start／observe／cancel／close）とClient／Server／Ownerそれぞれの観測番号、要求開始・headers受信・本文完了・親close処理、Server受信・finish、Owner.observe開始・終了の時刻だけを保持する。512件での収集切詰めとlimit／dropped fieldを撤去し、観測例外だけをobservationFailuresへ計上する。本文・Token・生URLは保持しない。ClientとServerの番号は独立した相関候補で、同一IDの証明ではない。時刻・固定経路・段階と欠測を併せて評価し、未完了・相関候補複数から正常を補完しない。診断購読は対象listenerのloopback portと固定経路に限定し、Client終了後、Server／Task Ownerの終了待ちより先に解除する。snapshotは取得時点であり、解除前に開始したOwner観測の終了時計は後で確定し得る。製品HTTP・Task Lifecycle・期限・認可を変更しない。
 
 編集検証Toolも同じ三境界時計を再利用する。Owner.observe wrapper・Client callback・Server bind・固定段階・購読解除を一組で接続し、最後に既存evidenceの`httpTiming`へ投影する。Workspace操作の時計は従来の別投影を維持し、Task観測と混同しない。欠測・相関候補複数を単一の停止区間へ補完せず、計測の成功を実AI編集又は全体QAの成立へ拡張しない。
 
@@ -176,7 +176,7 @@ Local接続の完全Formは同Origin・Host・Content-Type・Body容量をHTTP O
 
 `client/api/connection.ts`は当該タブmemoryの鍵参照と要求世代を所有する。接続確認POSTの200・閉JSONを確認してから鍵を保持し、次のAPI要求だけにAuthorization Headerを添える。Serverは毎要求の現在認証・認可を所有する。切断・画面終了でmemory参照を解放し、URL、Web Storage、Cookie、通常Model、logへ鍵を保存しない。物理的なstring消去や外部Effectの取消は保証しない。
 
-同Origin以外への送信とCaller指定のAuthorizationは拒否し、redirectを追従しない。本文は16 MiBまで読み、上限超過時はReaderを取消・解放する。応答待機後にも要求世代と取消を確認し、旧接続の応答を次の主体へ渡さない。自動再送はしない。接続POSTの失敗・不明では資格参照と旧表示を破棄し、既知保存をrollbackしない。
+同Origin以外への送信とCaller指定のAuthorizationは拒否し、redirectを追従しない。内部結果の応答本文は16MiBを超えても容量だけで拒否せず、読取り終了時にReaderを解放する。応答待機後にも要求世代と取消を確認し、旧接続の応答を次の主体へ渡さない。自動再送はしない。接続POSTの失敗・不明では資格参照と旧表示を破棄し、既知保存をrollbackしない。HTTP要求の受信上限は今回変更しない。
 
 Browserのmanual redirect応答はstatus・Header・本文を隠すため、303を接続確認に使わない（[Fetch Standard](https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect)）。接続結果は秘密・本人・内容・管理情報を含まない確認だけであり、内容は後続のfresh認可要求で取得する。Sourceと合成Transportに加え、鍵管理／接続の局所実Browser8件とWorkbench回帰50件を確認した。限定独立再レビューは残指摘0である。全内容Navigation・共有公開配置・公開CLI・MCP依存撤去・正式191項目の成立は未確認であり、この局所成功を全体完成へ流用しない。
 
@@ -214,13 +214,15 @@ Browserの共有Git接続は既存Repositoryフォームを再利用し、選択
 
 ### 選択成果物の原文表示 — 2026-10-13
 
-Owner Artifact一覧は本文表示の成立条件と分離する。通常File・相対Path・実PathのRepository内所属を確認し、開いた実体と読取り前後を照合して先頭最大8KiBだけを読む。その範囲内の完全行から第一H1を得て、未完了行・UTF-8途中・見出し未観測は相対Path表示へ戻す。handleは成功／失敗ともcloseし、read／close・実体変更の不明では一覧全体をunknownとする。一覧のavailableは掲載対象の観測成立であり、全本文の表示可能性を保証しない。大きい文書が含まれても計画投影と一覧を失わず、明示本文要求には従来の512KiB制限を維持する。新しいCache・Store・公開fieldは追加しない。
+Owner Artifact一覧は本文表示の成立条件と分離する。通常File・相対Path・実PathのRepository内所属を確認し、開いた実体と読取り前後を照合して文書全体を読む。第一H1を表示名とし、見出しがなければ相対Path表示へ戻す。先頭8KiBによる見出し切詰めと512KiBによる本文拒否は撤去する。handleは成功／失敗ともcloseし、read／close・実体変更の不明では一覧全体をunknownとする。一覧のavailableは掲載対象の観測成立であり、別要求時の本文観測成功を保証しない。新しいCache・Store・公開fieldは追加しない。
+
+Owner Artifactの相対Pathは512文字という独自上限を置かず、Catalog構築・指定本文読取り・選択Query・Browser Modelまで同じ文法で搬送する。`.md`、非空、親参照／空segment／外部URL／絶対Path／逆slashの拒否、exact Catalog membership、realpathのRepository内所属・通常File・非Linkの条件は維持する。選択後の再観測で不成立なら本文を返さず、量制限の撤去をPath認可の拡大や任意文書探索へ変えない。HTTP受信上限・CHG ID文法・Repository ID形式は変更しない。OS／FilesystemのPath限界は残り、任意長の成功を保証しない。
 
 `/change`／`/owner-artifact`のnative GETは固定Document Shellだけを返し、原文は既知CSR navigationから同Originの`/api/workbench-view`へ要求する。同Host CROSでは今回の明示Repository IDをAM集合のRootへ結合し、CHG-ID固定Readerまたは選択Rootの現在Owner Catalog Readerをawaitした後、取消と既存C2を確認して公開する。単体は検証済みContextのRepository IDを出所とし、別IDを明示した要求は拒否する。旧RemoteではMCP照会も起動Root原文fallbackも行わない。
 
-Queryは本文種別ごとのroute／repositoryId／idまたはpathだけをexact一件で受け、重複・余剰・越境はRoot本文観測前に拒否する。Readerは従来のlexical／realpath／通常File／非link境界と512KiB上限を維持し、取得したUTF8文字列の容量も再確認する。async読取りを途中放棄せず完了をjoinし、取消・失効・公開集合／manifest変化では本文を返さない。新Cache・Lock・Recoveryは追加しない。
+Queryは本文種別ごとのroute／repositoryId／idまたはpathだけをexact一件で受け、重複・余剰・越境はRoot本文観測前に拒否する。Readerは従来のlexical／realpath／通常File／非link境界を維持し、容量だけでは本文を拒否しない。async読取りを途中放棄せず完了をjoinし、取消・失効・公開集合／manifest変化では本文を返さない。新Cache・Lock・Recoveryは追加しない。
 
-閉じた`artifact` Modelは出所Repository ID、共有選択（単体はnull）、種別、既存Identity（CHG-ID／相対Path）と原文だけを持つ。Browserはkind／Identity／選択と要求URLの一致、512KiB、余剰fieldを検査し、原文をReactの`pre` textとして表示する。Markdown／HTML／本文linkを実行・操作入口化しない。戻る／履歴移動は現在選択とmemory資格を保持してfresh取得し、遅延旧応答を採用しない。reload／新タブは資格なしで接続画面へ戻し、私有本文を復元しない。このAPI Media Type変更は原文取得能力をJSON→text表示へ移すもので、旧native text/markdownを併存させない。
+閉じた`artifact` Modelは出所Repository ID、共有選択（単体はnull）、種別、既存Identity（CHG-ID／相対Path）と原文だけを持つ。Browserはkind／Identity／選択と要求URLの一致、余剰fieldを検査し、原文をReactの`pre` textとして表示する。容量だけの解析拒否は行わない。Markdown／HTML／本文linkを実行・操作入口化しない。戻る／履歴移動は現在選択とmemory資格を保持してfresh取得し、遅延旧応答を採用しない。reload／新タブは資格なしで接続画面へ戻し、私有本文を復元しない。このAPI Media Type変更は原文取得能力をJSON→text表示へ移すもので、旧native text/markdownを併存させない。
 
 本文接続は実HTTP・実Browser・全Browser回帰と限定独立レビューで確認した。これは本文能力の限定成立であり、Git操作・通常CLI・共有配置・旧Remote撤去・正式191項目とAM全体完成は別に確認する。
 
@@ -424,7 +426,9 @@ Workbenchは単体・共有とも同Hostの専門Package APIを直接利用す�
 
 共有公開時はWorkbench自身の非秘密`publicOrigin`へHTTPS Originを明示し、`localAccessRoot`の現在認証Ownerを必須とする。単体の資格不要内容を暗黙共有化しない。内部Listenerと`baseUrl`／`healthUrl`はloopbackのまま、利用者向け`publicUrl`は明示公開Originとする。各要求は単一Host・`x-forwarded-proto: https`・公開Hostに一致する単一`x-forwarded-host`をAM観測前に検査する。Originは存在時exact一致、POSTでは必須とし、欠測・重複・混在は固定421で拒否する。TLS終端は同HostでClient案内Headerを除去・上書きし、内部Listenerの到達範囲を配置Ownerが管理する。Header一致だけを実TLS通信やHost内非信頼Processへの防御成立として表示しない。WorkbenchとMCPに同一Originを要求せず、第三Gatewayを作らない。現在はServer optionsの局所候補であり、CLI設定と実TLS配置は未完了である。
 
-非秘密設定は起動Repositoryの`.crdd/config/workbench-server.json`。閉Schemaは任意の`publicOrigin`文字列だけで、空ObjectまたはFile不存在はlocalhost既定とする。`--cros`明示時だけ読み、portは既存CLI引数が所有する。例は[配布設定](../../../template/.crdd/config/workbench-server.example.json)。資格・Host管理情報を含めず、重複・余剰field、不正UTF-8、16KiB超過、観測時のDirectory／File link、取得時File Identity不一致、取得済みDescriptorのサイズ・mtime不一致は固定拒否にする。単体起動は設定があっても共有へ自動切替しない。ReaderとCLIは接続候補であり、実TLS配置と共有縦断検証を別に閉じる。 これは起動時Snapshotの検査で、取得後のPath／Directory不変を保証しない。配置Ownerが設定変更と再起動を管理する。
+非秘密設定は起動Repositoryの`.crdd/config/workbench-server.json`。閉Schemaは任意の`publicOrigin`文字列だけで、空ObjectまたはFile不存在はlocalhost既定とする。`--cros`明示時だけ読み、portは既存CLI引数が所有する。例は[配布設定](../../../template/.crdd/config/workbench-server.example.json)。資格・Host管理情報を含めず、独自16KiB拒否と固定Bufferは設けず開いたFileの観測sizeまで全量を読む。重複・余剰field、不正UTF-8、Directory／File link、取得時File Identity不一致、Descriptorのsize・mtime不一致、read／close異常は固定拒否にする。単体起動は設定があっても共有へ自動切替しない。ReaderとCLIは接続候補であり、実TLS配置と共有縦断検証を別に閉じる。これは起動時Snapshotの検査で、取得後のPath／Directory不変を保証しない。HTTP受信量・Credential形式・許可Originは変更しない。配置Ownerが設定変更と再起動を管理する。
+
+検証ToolのDocker InventoryはContainer／Network各256件で拒否せず、全件のID・名前・構成Hash・一意性と標準Network条件を照合する。Lifecycle診断Collectorは一通知4KiB・合計16件の量制限とoverflow状態を撤去し、全通知のSchema・Task／Operation相関・重複・元write復元を検査する。不正情報や観測不能を正常へ補完しない。HTTP応答1MiB・子Process出力／IPC・期限の別契約は変更せず、実Docker／AIの追加試験を実施した証拠にはしない。Runtime／OSの限界と致命的OOM等の結果返却非保証は残る。
 
 ## 5. Dataと状態
 
@@ -581,7 +585,7 @@ Topic／Meeting POSTは、入力評価と操作配送を分ける。token、kind
 | AI Provider失敗 | 確認済み事実、保存済み分析、依頼種別、入力 | 推論を事実化、読取り助言を変更候補へ読み替える、候補を採用 | 同じIdentityと依頼種別で再観測、別の明示選択／Repository設定、元Screen |
 | AI候補のRevision／Scope競合 | Candidate ID、安全な確認Metadata、現在Revision、dirty Path、操作結果 | 古い候補の自動採用、確認済み範囲外の変更、暗黙再試行 | 候補を再生成するか、現在Repositoryとの差を確認して明示操作へ戻る |
 | Runtime状態未接続／観測不能 | Project Contextと観測理由 | Objective 0件、完了または直前値への畳込み | State Query Adapter接続、再観測 |
-| Owner Artifact欠落／越境／過大 | Project ContextとCatalog観測理由 | 部分Catalog公開、任意Path探索 | Catalog全体をunknownとしOwner側を確認する |
+| Owner Artifact欠落／越境／観測不明 | Project ContextとCatalog観測理由 | 部分Catalog公開、任意Path探索 | Catalog全体をunknownとしOwner側を確認する |
 | Logo／CSS取得失敗 | Application request状態 | 代替Brandの創作 | Asset経路診断、再取得 |
 | React Client Bundle欠落／不一致 | Server起動前のBuild結果 | HTMLだけを完全なReact移行として表示、任意Asset配信 | Vite Buildを再実行し、固定Assetの存在とHTTP契約を再確認 |
 | JSON Read Model取得失敗／不正 | 固定Document Shellと取得失敗理由 | 空画面、直前値またはBrowser推測での補完 | 同じRoute条件で再取得し、Server側Owner Artifact／Adapterを診断する |

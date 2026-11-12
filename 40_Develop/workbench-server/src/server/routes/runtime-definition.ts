@@ -11,31 +11,33 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { resolveRuntimeContentAccess } from "../../../../access-management/src/index.ts";
 import {
-  initializeRuntimeState,
   createLocalPrincipalId,
-  savePlan,
-  queryPlan,
-  queryObjectives,
-  queryTasks,
   createObjective,
-  updateObjective,
-  deleteObjective,
   createTask,
-  updateTask,
+  deleteObjective,
   deleteTask,
-  snapshotPlainRecord,
-  parseUnambiguousJsonDocument,
-  type RuntimeAccess,
-  RUNTIME_STATE_MAXIMUM_BYTES,
   type FilesystemStoreRoot,
+  initializeRuntimeState,
+  parseUnambiguousJsonDocument,
+  queryObjectives,
+  queryPlan,
+  queryTasks,
+  type RuntimeAccess,
+  savePlan,
+  snapshotPlainRecord,
+  updateObjective,
+  updateTask,
 } from "../../../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRoot,
-  readGitUser,
   type Repository,
+  readGitUser,
+  resolveVerifiedRepositoryRoot,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import { readActionForm, setResponseHeaders } from "../security.ts";
+
+// HTTP受信上限は内部State容量と分離し、従来の受信量を維持する。
+const MAXIMUM_RUNTIME_DEFINITION_REQUEST_BYTES = 3 * 16 * 1024 * 1024 + 16384;
 
 const fields = {
   initialize: ["expectedAbsence"],
@@ -107,10 +109,9 @@ export async function handleRuntimeDefinition({
           "application/x-www-form-urlencoded"
       )
         throw new Error("runtime_input_invalid");
-      // 定義本文は既存Domain上限で検査する。搬送にはpercent encoding分だけ余裕を持つ。
       const form = await readActionForm(
         incoming,
-        3 * RUNTIME_STATE_MAXIMUM_BYTES + 16384,
+        MAXIMUM_RUNTIME_DEFINITION_REQUEST_BYTES,
       );
       if (
         [...form.keys()].some(

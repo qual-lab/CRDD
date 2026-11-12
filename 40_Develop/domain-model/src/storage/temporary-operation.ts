@@ -191,10 +191,8 @@ function validInput(input: TemporaryOperationInput): boolean {
     ID.test(input.identity) &&
     typeof input.purpose === "string" &&
     input.purpose.length > 0 &&
-    input.purpose.length <= 512 &&
     Array.isArray(input.allowedContent) &&
     input.allowedContent.length > 0 &&
-    input.allowedContent.length <= 64 &&
     input.allowedContent.every(
       (item) => typeof item === "string" && ID.test(item),
     ) &&
@@ -285,10 +283,8 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
     !["preparing", "active", "recovery_required"].includes(String(r.state)) ||
     typeof r.purpose !== "string" ||
     r.purpose.length < 1 ||
-    r.purpose.length > 512 ||
     !Array.isArray(r.allowedContent) ||
     r.allowedContent.length < 1 ||
-    r.allowedContent.length > 64 ||
     !r.allowedContent.every(
       (item) => typeof item === "string" && ID.test(item),
     ) ||

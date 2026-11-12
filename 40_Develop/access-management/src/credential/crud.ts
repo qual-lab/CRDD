@@ -11,9 +11,6 @@ import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
-  CURRENT_LIMIT,
-  PENDING_LIMIT,
-  preparePublicationBytes,
   publishState,
   readCurrent,
   serialize,
@@ -87,7 +84,7 @@ export function projectCredentialAdministration(
 
 /**
  * 保存前の鍵変更候補と対象位置を表す。
- * @responsibility 発行の容量予約用資格と失効対象を区別する。
+ * @responsibility 発行候補の資格と失効対象を区別する。
  * @trace ARCH-000013
  * @shape 所有済みnext状態・operation・credentialIndex。
  * @invariant 発行placeholderは実資格でも保存許可でもない。
@@ -251,7 +248,7 @@ export function readCredentialAdministrationState(
 
 /**
  * 通常鍵変更の現在判定と物理保存を同じLockで実行する。
- * @responsibility 容量予約前の生成を禁止し、保存後の不明でSecretを返さない。
+ * @responsibility 認可・対象・改訂を生成前に確認し、保存後の不明でSecretを返さない。
  * @trace ARCH-000013
  * @input 検証済みRoot・Bearer・期待改訂・受付UUID・固定操作・exact対象。
  * @returns 閉じた管理結果。新規成功発行だけ短命token。
@@ -329,17 +326,6 @@ function executeCredentialManagementMutation(
           revision,
           cleanupConfirmed: true,
         };
-      stage = "capacity";
-      const reservation = preparePublicationBytes(
-        current,
-        prepared.next,
-        "credential",
-      );
-      if (
-        reservation.nextBytes.byteLength > CURRENT_LIMIT ||
-        reservation.pendingBytes.byteLength > PENDING_LIMIT
-      )
-        throw new Error("credential_capacity");
       const target = prepared.next.credentials[prepared.credentialIndex];
       if (!target) throw new Error("credential_target_invalid");
       if (operation === "issueCredential") {
@@ -415,7 +401,7 @@ function executeCredentialManagementMutation(
  * @returns 新規成功保存時だけ短命鍵と非秘密相関、または未完了。
  * @precondition 通常Workbenchの同Process提示Ownerだけが呼ぶ。
  * @postcondition 既存資格失効0、元受付Identityを資格へ保存する。
- * @effect 容量予約後の鍵生成と既存状態出版。
+ * @effect 候補確認後の鍵生成と既存状態出版。
  * @failure 生成・保存・清掃・解放不明ではSecret返却0。
  * @invariant 元発行の再要求からSecretを再取得・再発行しない。
  * @boundary 内部保存APIと一度提示Owner。

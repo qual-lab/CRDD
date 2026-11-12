@@ -11,11 +11,12 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { deflateSync } from "node:zlib";
+import { runInNewContext } from "node:vm";
+import { crc32, deflateSync } from "node:zlib";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 
 import {
   readCommitFile,
@@ -23,24 +24,24 @@ import {
 } from "../../../version-control/src/index.ts";
 
 /**
- * 固定Snapshotの既定上限と用途限定の明示上限を検証する。
- * @responsibility 旧Consumerの64KiB既定と明示64MiB境界の両方を反証する。
+ * 固定Snapshotの旧容量上限撤去と構造検査の維持を検証する。
+ * @responsibility 旧64KiB・64MiBを超える正常Blobと不正入力を対照化する。
  * @trace RFD-IT-012
  * @precondition Repository-localの所有fixtureだけを使用する。
- * @stimulus 同じ固定Blobを省略・明示上限・不正上限で要求する。
- * @observation byte数、返却拒否、getter不実行、Port引数搬送を観測する。
- * @oracle 既定を拡張せず、明示上限内だけ読み取り、上限外と不正入力はnull。
+ * @stimulus 旧上限の前後の固定Blobを容量指定なしで要求する。
+ * @observation byte数・Hash・mode、返却拒否、getter不実行を観測する。
+ * @oracle 正常Blobは全量を返し、廃止field・不正入力はnull。
  * @cleanup exact所有Rootを確認して回収する。
  * @boundary RFD-IT-012=Direct Boundary: Fixed Snapshot Port→Git object Reader
  */
-test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だけを受理する", (t) => {
+test("固定Snapshotは旧64KiB・64MiBを超えるBlobを容量指定なしで読み取る", (t) => {
   const repository = path.resolve(
     fileURLToPath(new URL("../../../../", import.meta.url)),
   );
   const testsRoot = path.join(repository, ".crdd", "tests");
   fs.mkdirSync(testsRoot, { recursive: true });
   assert.equal(fs.realpathSync.native(testsRoot), testsRoot);
-  const root = fs.mkdtempSync(path.join(testsRoot, "git-read-bound-"));
+  const root = fs.mkdtempSync(path.join(testsRoot, "git-read-object-"));
   const commonDirectory = path.join(root, ".git");
   fs.mkdirSync(path.join(commonDirectory, "objects"), { recursive: true });
   fs.mkdirSync(path.join(commonDirectory, "refs", "heads"), {
@@ -60,7 +61,8 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
-  const entries = [65_536, 65_537, 64 * 1024 * 1024].map((size) => {
+  const sizes = [65_536, 65_537, 64 * 1024 * 1024 + 1];
+  const entries = sizes.map((size) => {
     const oid = writeObject(commonDirectory, "blob", Buffer.alloc(size, 0x61));
     return treeEntry("100644", `input-${size}.bin`, oid);
   });
@@ -77,57 +79,37 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
     `${revision}\n`,
   );
   const base = { commonDirectory, revision, relativePath: "input-65537.bin" };
-  assert.equal(
-    readGitCommitFile({ ...base, relativePath: "input-65536.bin" })?.bytes
-      .length,
-    65_536,
-  );
-  assert.equal(readGitCommitFile(base), null);
-  assert.equal(
-    readGitCommitFile({ ...base, maximumBytes: 65_537 })?.bytes.length,
-    65_537,
-  );
-  assert.equal(readGitCommitFile({ ...base, maximumBytes: 65_536 }), null);
-  assert.equal(
-    readGitCommitFile({
+  for (const size of sizes) {
+    const read = readGitCommitFile({
       ...base,
-      relativePath: "input-67108864.bin",
-      maximumBytes: 64 * 1024 * 1024,
-    })?.bytes.length,
-    64 * 1024 * 1024,
-  );
-  assert.equal(
-    readGitCommitFile({
-      ...base,
-      relativePath: "input-67108864.bin",
-      maximumBytes: 64 * 1024 * 1024 - 1,
-    }),
-    null,
-  );
-  for (const maximumBytes of [
-    0,
-    -1,
-    0.5,
-    NaN,
-    Infinity,
-    "65537",
-    {},
-    64 * 1024 * 1024 + 1,
-  ])
-    assert.equal(readGitCommitFile({ ...base, maximumBytes }), null);
-  assert.equal(
-    readGitCommitFile({ ...base, maximumBytes: 65_537, extra: true }),
-    null,
-  );
-  let getterCalls = 0;
-  const accessor = Object.defineProperty({ ...base }, "maximumBytes", {
-    get() {
-      getterCalls += 1;
-      return 65_537;
-    },
-  });
-  assert.equal(readGitCommitFile(accessor), null);
-  assert.equal(getterCalls, 0);
+      relativePath: `input-${size}.bin`,
+    });
+    assert.equal(read?.bytes.length, size);
+    assert.equal(read?.mode, "100644");
+    assert.equal(read?.revision, revision);
+    assert.equal(
+      read?.sha256,
+      createHash("sha256").update(Buffer.alloc(size, 0x61)).digest("hex"),
+    );
+  }
+  assert.equal(readGitCommitFile({ ...base, maximumBytes: 65_537 }), null);
+  assert.equal(readGitCommitFile({ ...base, extra: true }), null);
+  for (const key of [
+    "commonDirectory",
+    "revision",
+    "relativePath",
+    "maximumBytes",
+  ] as const) {
+    let getterCalls = 0;
+    const accessor = Object.defineProperty({ ...base }, key, {
+      get() {
+        getterCalls += 1;
+        return key === "maximumBytes" ? 65_537 : base[key];
+      },
+    });
+    assert.equal(readGitCommitFile(accessor) === null, true, key);
+    assert.equal(getterCalls, 0, key);
+  }
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
@@ -135,23 +117,20 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
     readCommitFile(verified.capability, {
       commit: revision,
       path: base.relativePath,
-    }),
-    null,
-  );
-  assert.equal(
-    readCommitFile(verified.capability, {
-      commit: revision,
-      path: base.relativePath,
-      maximumBytes: 65_537,
     })?.bytes.length,
     65_537,
   );
   assert.equal(
-    readCommitFile(verified.capability, {
-      commit: revision,
-      path: base.relativePath,
-      maximumBytes: Infinity,
-    }),
+    readCommitFile(
+      verified.capability,
+      Object.assign(
+        {
+          commit: revision,
+          path: base.relativePath,
+        },
+        { maximumBytes: Infinity },
+      ),
+    ),
     null,
   );
 });
@@ -196,14 +175,21 @@ function copyGitCommitTree(candidate: unknown) {
  * @boundary RFD-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function temporaryFixture(t: test.TestContext) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-git-reader-"));
+  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "git-reader-"));
   const commonDirectory = path.join(root, ".git");
   const workspace = path.join(root, "workspace");
   fs.mkdirSync(path.join(commonDirectory, "objects", "pack"), {
     recursive: true,
   });
   fs.mkdirSync(workspace);
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => {
+    assert.equal(path.dirname(root), parent);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
   return Object.freeze({ commonDirectory, workspace });
 }
 
@@ -253,6 +239,282 @@ function treeEntry(mode: string, name: string, objectId: string) {
     Buffer.from(`${mode} ${name}\0`),
     Buffer.from(objectId, "hex"),
   ]);
+}
+
+/**
+ * 深いTreeと共有subtreeを旧深度quotaなしで読み取る。
+ * @trace RFD-IT-012
+ * @precondition Repository-localの自己生成Objectだけを使う。
+ * @stimulus 70段Treeと別Pathから共有したsubtreeを読む。
+ * @observation 完全Path・bytesと改ざんObjectの拒否を確認する。
+ * @oracle 深い正常構造と共有subtreeは受理し、Hash不一致は拒否する。
+ * @cleanup temporaryFixtureがexact所有Rootだけを回収する。
+ * @boundary 固定GitObject→選択File読取り。
+ */
+test("Treeは70段と共有subtreeを受理し不正Hashを拒否する", (t) => {
+  const f = temporaryFixture(t);
+  const blob = writeObject(f.commonDirectory, "blob", Buffer.from("deep\n"));
+  const shared = writeObject(
+    f.commonDirectory,
+    "tree",
+    treeEntry("100644", "f.txt", blob),
+  );
+  let tree = shared;
+  for (let index = 0; index < 70; index += 1)
+    tree = writeObject(
+      f.commonDirectory,
+      "tree",
+      treeEntry("40000", "d", tree),
+    );
+  const root = writeObject(
+    f.commonDirectory,
+    "tree",
+    Buffer.concat([
+      treeEntry("40000", "deep", tree),
+      treeEntry("40000", "left", shared),
+      treeEntry("40000", "right", shared),
+    ]),
+  );
+  const revision = writeObject(
+    f.commonDirectory,
+    "commit",
+    Buffer.from(`tree ${root}\n\nfixture\n`),
+  );
+  for (const relativePath of [
+    `deep/${"d/".repeat(70)}f.txt`,
+    "left/f.txt",
+    "right/f.txt",
+  ])
+    assert.equal(
+      readGitCommitFile({
+        commonDirectory: f.commonDirectory,
+        revision,
+        relativePath,
+      })?.bytes.toString(),
+      "deep\n",
+    );
+  const copied = copyGitCommitTree({
+    commonDirectory: f.commonDirectory,
+    revision,
+    workspace: f.workspace,
+  });
+  assert.equal(copied?.status, "materialized");
+  assert.equal(copied?.fileCount, 3);
+  const blobPath = path.join(
+    f.commonDirectory,
+    "objects",
+    blob.slice(0, 2),
+    blob.slice(2),
+  );
+  fs.writeFileSync(blobPath, deflateSync(Buffer.from("blob 5\0wrong")));
+  assert.equal(
+    readGitCommitFile({
+      commonDirectory: f.commonDirectory,
+      revision,
+      relativePath: "right/f.txt",
+    }),
+    null,
+  );
+});
+
+/**
+ * Tree祖先循環の直接拒否を、Hash照合の前提とは分離して反証する。
+ * @trace RFD-IT-012
+ * @precondition 実Sourceの私有parseTreeだけを既存構文解析補助で取り出す。
+ * @stimulus 自己参照Tree、OFSの正距離・ゼロ距離・参照境界越えを入力する。
+ * @observation 構造エラー理由、祖先集合解放、正常OFSのoffsetを確認する。
+ * @oracle 循環を深度quotaやStack overflowで代用せず、不正offsetを直接拒否する。
+ * @cleanup VMと代役Objectは同じProcess内だけで保持する。
+ * @boundary 私有Tree走査の局所境界。正Hashの実Object成立を示す試験ではない。
+ */
+test("Tree祖先循環とOFS不正距離を直接拒否し正常構造を維持する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../version-control/src/git/objects.ts", import.meta.url),
+    "utf8",
+  );
+  const parse = runInNewContext(
+    `${sourceDeclaration(source, "parseTree")};parseTree`,
+    {
+      Buffer,
+      decodeTreeName: (bytes: Buffer) => bytes.toString("utf8"),
+    },
+  ) as (
+    read: (id: string) => { type: string; bytes: Buffer },
+    tree: string,
+    parent: string,
+    entries: unknown[],
+    summary: { bytes: number; files: number },
+    paths: null,
+    ancestors: Set<string>,
+  ) => void;
+  const tree = "a".repeat(40);
+  const ancestors = new Set<string>();
+  assert.throws(
+    () =>
+      parse(
+        () => ({ type: "tree", bytes: treeEntry("40000", "self", tree) }),
+        tree,
+        "",
+        [],
+        { bytes: 0, files: 0 },
+        null,
+        ancestors,
+      ),
+    /git_tree_cycle_detected/u,
+  );
+  assert.equal(ancestors.size, 0);
+  parse(
+    () => ({ type: "tree", bytes: Buffer.alloc(0) }),
+    tree,
+    "",
+    [],
+    { bytes: 0, files: 0 },
+    null,
+    ancestors,
+  );
+  assert.equal(ancestors.size, 0);
+  const decode = runInNewContext(
+    `${sourceDeclaration(source, "decodePackOffset")};decodePackOffset`,
+    { Buffer },
+  ) as (
+    bytes: Buffer,
+    start: number,
+    offset: number,
+    end: number,
+  ) => {
+    baseOffset: number;
+    nextIndex: number;
+  };
+  const decoded = decode(Buffer.from([3]), 0, 20, 1);
+  assert.equal(decoded.baseOffset, 17);
+  assert.equal(decoded.nextIndex, 1);
+  assert.throws(
+    () => decode(Buffer.from([0]), 0, 20, 1),
+    /git_pack_offset_invalid/u,
+  );
+  assert.throws(
+    () => decode(Buffer.from([0x80, 0]), 0, 200, 1),
+    /git_pack_offset_invalid/u,
+  );
+});
+
+/**
+ * 小さいPackだけで旧64段を越えるDeltaと形式不正を対照化する。
+ * @trace RFD-IT-012
+ * @precondition Repository-localに有効checksum付きの自己生成Packを置く。
+ * @stimulus 70段のOFS／REF Deltaを読み、最後の参照だけを不正にする。
+ * @observation 完全bytes・Hashと不正参照の拒否を確認する。
+ * @oracle 正常chainは受理しOFS自己参照／REF循環は拒否する。
+ * @cleanup temporaryFixtureがexact所有Rootだけを回収する。
+ * @boundary Pack／Index→Git Object Reader。
+ */
+for (const kind of ["ofs", "ref"] as const) {
+  test(`Packの70段${kind} Deltaは復元し自己参照は拒否する`, (t) => {
+    const f = temporaryFixture(t);
+    const header = Buffer.alloc(12);
+    header.write("PACK");
+    header.writeUInt32BE(2, 4);
+    header.writeUInt32BE(71, 8);
+    const chunks: Buffer[] = [];
+    const entries: { id: Buffer; offset: number; bytes: Buffer }[] = [];
+    let offset = 12;
+    for (let index = 0; index <= 70; index += 1) {
+      const body = Buffer.from(`value-${String(index).padStart(3, "0")}\n`);
+      const id = createHash("sha1")
+        .update(Buffer.from(`blob ${body.length}\0`))
+        .update(body)
+        .digest();
+      const delta = Buffer.concat([
+        Buffer.from([body.length, body.length, body.length]),
+        body,
+      ]);
+      const payload = index === 0 ? body : delta;
+      const code = index === 0 ? 3 : kind === "ofs" ? 6 : 7;
+      const sizeHeader =
+        payload.length < 16
+          ? Buffer.from([(code << 4) | payload.length])
+          : Buffer.from([
+              (code << 4) | 0x80 | (payload.length & 15),
+              payload.length >> 4,
+            ]);
+      const previous = entries[index - 1];
+      const reference = !previous
+        ? Buffer.alloc(0)
+        : kind === "ref"
+          ? previous.id
+          : Buffer.from([offset - previous.offset]);
+      assert.ok(!previous || kind === "ref" || offset - previous.offset < 128);
+      const bytes = Buffer.concat([
+        sizeHeader,
+        reference,
+        deflateSync(payload),
+      ]);
+      entries.push({ id, offset, bytes });
+      chunks.push(bytes);
+      offset += bytes.length;
+    }
+    const target = entries[70];
+    assert.ok(target);
+    const tree = writeObject(
+      f.commonDirectory,
+      "tree",
+      treeEntry("100644", "deep.txt", target.id.toString("hex")),
+    );
+    const revision = writeObject(
+      f.commonDirectory,
+      "commit",
+      Buffer.from(`tree ${tree}\n\nfixture\n`),
+    );
+    // IndexとPackを同じchecksumへ結び付け、破損時にも外枠checksumは正しく保つ。
+    const publish = () => {
+      const content = Buffer.concat([header, ...chunks]);
+      const checksum = createHash("sha1").update(content).digest();
+      const pack = Buffer.concat([content, checksum]);
+      const sorted = [...entries].sort((a, b) => Buffer.compare(a.id, b.id));
+      const prefix = Buffer.alloc(8 + 256 * 4);
+      prefix.writeUInt32BE(0xff744f63, 0);
+      prefix.writeUInt32BE(2, 4);
+      for (let byte = 0; byte < 256; byte += 1)
+        prefix.writeUInt32BE(
+          sorted.filter((entry) => (entry.id[0] ?? 0) <= byte).length,
+          8 + byte * 4,
+        );
+      const crcs = Buffer.alloc(entries.length * 4);
+      const offsets = Buffer.alloc(entries.length * 4);
+      sorted.forEach((entry, index) => {
+        crcs.writeUInt32BE(crc32(entry.bytes), index * 4);
+        offsets.writeUInt32BE(entry.offset, index * 4);
+      });
+      const index = Buffer.concat([
+        prefix,
+        ...sorted.map((entry) => entry.id),
+        crcs,
+        offsets,
+        checksum,
+      ]);
+      const name = `pack-${checksum.toString("hex")}`;
+      const directory = path.join(f.commonDirectory, "objects", "pack");
+      for (const old of fs.readdirSync(directory))
+        fs.unlinkSync(path.join(directory, old));
+      fs.writeFileSync(path.join(directory, `${name}.pack`), pack);
+      fs.writeFileSync(
+        path.join(directory, `${name}.idx`),
+        Buffer.concat([index, createHash("sha1").update(index).digest()]),
+      );
+    };
+    publish();
+    const input = {
+      commonDirectory: f.commonDirectory,
+      revision,
+      relativePath: "deep.txt",
+    };
+    assert.equal(readGitCommitFile(input)?.bytes.toString(), "value-070\n");
+    const referenceOffset = (target.bytes[0] ?? 0) & 0x80 ? 2 : 1;
+    if (kind === "ofs") target.bytes[referenceOffset] = 0;
+    else target.id.copy(target.bytes, referenceOffset);
+    publish();
+    assert.equal(readGitCommitFile(input), null);
+  });
 }
 
 /**
@@ -941,7 +1203,10 @@ test("object改変、余分field、SHA-256 Repository IDと動的入力をfail c
  */
 test("公開契約は限定Git object readerと非Authority境界を固定する", () => {
   const contract = describeGitObjectReaderContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
+  assert.equal("maximumWorkspaceFiles" in contract, false);
+  assert.equal("maximumWorkspaceBytes" in contract, false);
+  assert.equal(contract.fixedRevisionFileRead, "single_explicit_non_git_path");
   assert.equal(contract.objectFormat, "sha1_only");
   assert.equal(contract.externalGitCliUsed, false);
   assert.deepEqual(contract.rejectedTreeModes, ["120000", "160000", "unknown"]);

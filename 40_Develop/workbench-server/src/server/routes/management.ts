@@ -11,8 +11,8 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout } from "node:timers/promises";
-import type { CredentialAdministration } from "../credential/administration.ts";
 import type { ManagementView } from "../../shared/management/validation.ts";
+import type { CredentialAdministration } from "../credential/administration.ts";
 import {
   executeWorkbenchManagement,
   readWorkbenchManagement,
@@ -119,12 +119,7 @@ export async function handleManagementRequest({
       }
       await setTimeout(0);
       if (controller.signal.aborted || response.destroyed) return;
-      let body = JSON.stringify(result);
-      if (Buffer.byteLength(body, "utf8") > 16777216)
-        body = JSON.stringify({
-          status: "unavailable",
-          reason: "management_response_too_large",
-        });
+      const body = JSON.stringify(result);
       response.end(body);
     } catch (error) {
       if (

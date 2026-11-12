@@ -4,20 +4,21 @@
  * @responsibility 元の参照解決順、短命cache、Hash照合、未観測と診断を維持する。
  * @trace ARCH-000001
  */
+
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import {
-  getRepository,
-  readCommitFile,
-} from "../../../version-control/src/index.ts";
 import {
   parseMarkdownAnchors,
   parseMarkdownLinkReference,
 } from "../../../domain-model/src/index.ts";
-import { isWithin, pathContainsSymbolicLink, samePath } from "./observe.ts";
-import type { LinkResolution, LinkRecord } from "./types.ts";
+import {
+  getRepository,
+  readCommitFile,
+} from "../../../version-control/src/index.ts";
 import type { DocumentReferenceMap } from "../report/types.ts";
+import { isWithin, pathContainsSymbolicLink, samePath } from "./observe.ts";
+import type { LinkRecord, LinkResolution } from "./types.ts";
 
 /**
  * 現在参照と固定履歴参照を解決する起動内Readerを構築する。
@@ -316,7 +317,6 @@ export function createDocumentReferenceReader(
         ? (readCommitFile(repository.capability, {
             commit: fixedHistoryMigration.sourceCommit,
             path: normalized,
-            maximumBytes: 16 * 1024 * 1024,
           })?.bytes.toString("utf8") ?? null)
         : null;
     historicalContentCache.set(normalized, content);

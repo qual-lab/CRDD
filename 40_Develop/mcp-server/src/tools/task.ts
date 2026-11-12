@@ -6,8 +6,6 @@
  */
 
 import {
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
   COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   type CoordinatorProjection,
@@ -200,9 +198,9 @@ const projectionKeys = new Set([
  *
  * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000012
- * @input value: unknown、keys: ReadonlySet<string>、maximumTotal: number
+ * @input value: unknown、keys: ReadonlySet<string>
  * @returns countSnapshotの計算結果を返す。
- * @precondition 「value: unknown、keys: ReadonlySet<string>、maximumTotal: number」がcountSnapshotの入力契約を満たす。
+ * @precondition 「value: unknown、keys: ReadonlySet<string>」がcountSnapshotの入力契約を満たす。
  * @postcondition countSnapshotの責務を完了した結果だけを返す。
  * @effect N/A: countSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: countSnapshotは独自の失敗分岐を所有しない。
@@ -211,11 +209,7 @@ const projectionKeys = new Set([
  * @security N/A: countSnapshotはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: countSnapshotは共有非同期状態を持たない同期処理である。
  */
-function countSnapshot(
-  value: unknown,
-  keys: ReadonlySet<string>,
-  maximumTotal: number,
-) {
+function countSnapshot(value: unknown, keys: ReadonlySet<string>) {
   const record = snapshotPlainRecord(value, keys);
   if (
     !record ||
@@ -227,7 +221,7 @@ function countSnapshot(
   let total = 0;
   for (const key of keys) {
     total += Number(record[key]);
-    if (!Number.isSafeInteger(total) || total > maximumTotal) return null;
+    if (!Number.isSafeInteger(total)) return null;
   }
   return Object.freeze(
     Object.fromEntries([...keys].map((key) => [key, Number(record[key])])),
@@ -256,16 +250,11 @@ function projectionSnapshot(value: unknown) {
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
     objectiveCountKeys,
-    COORDINATOR_MAXIMUM_OBJECTIVES,
   );
-  const taskCounts = countSnapshot(
-    record.taskCounts,
-    taskCountKeys,
-    COORDINATOR_MAXIMUM_TASKS,
-  );
+  const taskCounts = countSnapshot(record.taskCounts, taskCountKeys);
   const rawSummaries = snapshotPlainArray(
     record.objectiveTaskSummaries,
-    COORDINATOR_MAXIMUM_OBJECTIVES,
+    Number.MAX_SAFE_INTEGER,
   );
   const objectiveTaskSummaries: Array<
     CoordinatorProjection["objectiveTaskSummaries"][number]
@@ -276,11 +265,7 @@ function projectionSnapshot(value: unknown) {
       rawSummary,
       new Set(["objectiveId", "objectiveState", "taskCounts"]),
     );
-    const summaryTaskCounts = countSnapshot(
-      summary?.taskCounts,
-      taskCountKeys,
-      COORDINATOR_MAXIMUM_TASKS,
-    );
+    const summaryTaskCounts = countSnapshot(summary?.taskCounts, taskCountKeys);
     if (
       !summary ||
       !stable(summary.objectiveId) ||
@@ -367,8 +352,11 @@ function projectionSnapshot(value: unknown) {
  * @concurrency N/A: recoverySnapshotは共有非同期状態を持たない同期処理である。
  */
 function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
-  const ids = snapshotPlainArray(rawIds, 128);
-  const obligations = snapshotPlainArray(rawObligations, 128);
+  const ids = snapshotPlainArray(rawIds, Number.MAX_SAFE_INTEGER);
+  const obligations = snapshotPlainArray(
+    rawObligations,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (ids.status !== "ok" || obligations.status !== "ok") return null;
   const copiedIds: string[] = [];
   for (const id of ids.value) {

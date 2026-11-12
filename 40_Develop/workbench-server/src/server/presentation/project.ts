@@ -133,7 +133,6 @@ export function readWorkbenchArtifactSelection(
     change
       ? !/^CHG-\d{6}$/u.test(identity)
       : identity.length === 0 ||
-        identity.length > 512 ||
         !identity.endsWith(".md") ||
         identity.startsWith("/") ||
         identity.includes("\\") ||

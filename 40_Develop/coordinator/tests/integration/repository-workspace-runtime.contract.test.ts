@@ -170,12 +170,9 @@ test("検証ToolのWorktreeは実Byteを読み取消終了不明では保持し�
     false,
   );
   assert.ok(first.some((entry) => entry.relativePath === "untracked.txt"));
-  const read = readExecutionFile(path.join(root, "source.txt"), 6);
+  const read = readExecutionFile(path.join(root, "source.txt"));
   assert.equal(read.content.toString(), "dirty\n");
-  assert.throws(
-    () => readExecutionFile(path.join(root, "source.txt"), 5),
-    /repository_workspace_file_invalid/u,
-  );
+  assert.equal(read.byteLength, 6);
   fs.rmSync(path.join(root, "untracked.txt"));
   assert.equal(
     readExecutionInventory(root, true).some(
@@ -611,8 +608,9 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
           );
           fs.writeFileSync(path.join(tree, "limit-999.txt"), "synthetic");
           assert.equal(
-            (await deliver(borrowed.workspaceCapability, true)).changedPaths,
-            null,
+            (await deliver(borrowed.workspaceCapability, true)).changedPaths
+              ?.length,
+            1001,
           );
           for (let index = 0; index < 1000; index++)
             fs.unlinkSync(path.join(tree, `limit-${index}.txt`));
@@ -1026,18 +1024,18 @@ function virtualInventory(
 }
 
 /**
- * 変更path上限1000件を受理し1001件は候補を発行しないを検証する。
+ * 旧変更件数・許可Path数・Reviewer取得量を超える正常値を検証する。
  *
- * @responsibility 変更path上限1000件を受理し1001件は候補を発行しないの合否判定を所有する。
+ * @responsibility 変更候補とReviewerへの全量搬送で容量だけの拒否がないことを確認する。
  * @trace RFD-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 変更path上限1000件を受理し1001件は候補を発行しないの対象操作を実行する。
+ * @stimulus 1001変更、65許可Path、1MiB超本文を構築して候補と内容投影を得る。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
-test("変更path上限1000件を受理し1001件は候補を発行しない", (t) => {
+test("1001変更・65許可PathとReviewerの256File・1MiB超を全量搬送する", (t) => {
   const source = repository(t);
   const runtime = operation(t, source.root);
   const beforeFiles = snapshotRepositoryFiles(source.root);
@@ -1071,7 +1069,7 @@ test("変更path上限1000件を受理し1001件は候補を発行しない", (t
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
       runtime.mountCapability,
-      ["src/"],
+      ["src/", ...Array.from({ length: 64 }, (_, index) => `unused-${index}/`)],
     );
   const boundary = capture();
   assert.equal(boundary?.status, "candidate");
@@ -1080,24 +1078,45 @@ test("変更path上限1000件を受理し1001件は候補を発行しない", (t
     1000,
   );
   fs.writeFileSync(path.join(runtime.workspace, "src", "overflow.txt"), "a");
-  assert.equal(capture(), null);
+  const content = "a".repeat(1024 * 1024 + 1);
+  fs.writeFileSync(path.join(runtime.workspace, "src", "added-0.txt"), content);
+  const large = capture();
+  assert.equal(large?.status, "candidate");
+  if (large?.status !== "candidate") return;
+  assert.equal(large.changedPaths.length, 1001);
+  const projection = projectReviewerReadContent(
+    materialized?.workspaceCapability,
+    large.candidateCapability,
+    runtime.bound.repositoryBindingCapability,
+    runtime.managementCapability,
+    runtime.mountCapability,
+    ["src/"],
+  );
+  assert.equal(projection?.status, "projected");
+  if (projection?.status !== "projected") return;
+  assert.equal(projection.files.length, 1002);
+  assert.ok(projection.totalBytes > 1024 * 1024);
+  assert.equal(
+    projection.files.find((file) => file.path === "src/added-0.txt")?.content,
+    content,
+  );
   assert.deepEqual(snapshotRepositoryFiles(source.root), beforeFiles);
 });
 
 for (const scenario of ["file_count", "total_bytes"] as const) {
   /**
-   * workspace ${scenario}の境界到達と超過停止を後段guardから区別するを検証する。
+   * workspaceの旧件数・合計容量境界を超えて全件観測する。
    *
-   * @responsibility workspace ${scenario}の境界到達と超過停止を後段guardから区別するの合否判定を所有する。
+   * @responsibility 大きい正常inventoryの全量観測とdescriptor終了を確認する。
    * @trace RFD-IT-013
    * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus workspace ${scenario}の境界到達と超過停止を後段guardから区別するの対象操作を実行する。
+   * @stimulus 旧境界と超過側の整合したFile実体代役を渡す。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
    * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
    */
-  test(`workspace ${scenario}の境界到達と超過停止を後段guardから区別する`, (t) => {
+  test(`workspace ${scenario}は旧境界の前後で全量観測と候補生成を完了する`, (t) => {
     const source = repository(t);
     const runtime = operation(t, source.root);
     const beforeFiles = snapshotRepositoryFiles(source.root);
@@ -1128,19 +1147,8 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
           runtime.mountCapability,
           ["src/"],
         );
-        // Boundary control completes inventory, then fails changed-path count
-        // or allowed-path scope. Overflow must stop before its final sentinel.
-        if (scenario === "file_count" || isOverflow)
-          assert.equal(candidate, null);
-        else assert.equal(candidate?.status, "candidate");
-        const expectedCount =
-          scenario === "file_count"
-            ? isOverflow
-              ? 20_001
-              : 20_000
-            : isOverflow
-              ? 5
-              : 6;
+        assert.equal(candidate?.status, "candidate");
+        const expectedCount = fileSizes.length;
         assert.deepEqual(
           observed.openedIndices,
           Array.from({ length: expectedCount }, (_value, index) => index),
@@ -1321,23 +1329,23 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
 });
 
 for (const [scenario, label] of [
-  ["depth", "深さ上限超過"],
-  ["file_size", "単一file容量超過"],
+  ["depth", "70段・全Path長1024byte超"],
+  ["file_size", "単一File64MiB超"],
   ["junction", "junction entry"],
 ] as const) {
   /**
-   * 実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持するを検証する。
+   * 大きい正常値は候補化し、junctionは拒否して元Repositoryを保持する。
    *
-   * @responsibility 実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持するの合否判定を所有する。
+   * @responsibility 容量・深さとLink境界を混同せず、借用対象を変更・清掃しない。
    * @trace RFD-IT-013
    * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持するの対象操作を実行する。
+   * @stimulus 深い長Path、旧64MiB超の実File、junctionを個別に構築する。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
    * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
    */
-  test(`実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持する`, (t) => {
+  test(`実行後workspaceの${label}は構造条件だけで判定し元Repositoryを保持する`, (t) => {
     if (scenario === "junction" && process.platform !== "win32") {
       t.skip("Windows junction boundary only");
       return;
@@ -1357,10 +1365,20 @@ for (const [scenario, label] of [
     try {
       if (scenario === "depth") {
         let directory = runtime.workspace;
-        for (let depth = 0; depth < 65; depth += 1) {
-          directory = path.join(directory, "d");
+        for (let depth = 0; depth < 70; depth += 1) {
+          directory = path.join(
+            directory,
+            `depth-${String(depth).padStart(3, "0")}-segment`,
+          );
           fs.mkdirSync(directory);
         }
+        const relativePath = path
+          .relative(runtime.workspace, path.join(directory, "deep.txt"))
+          .split(path.sep)
+          .join("/");
+        assert.ok(Buffer.byteLength(relativePath) > 1024);
+        assert.equal(isExecutionRelativePath(relativePath), true);
+        fs.writeFileSync(path.join(directory, "deep.txt"), "deep\n");
       } else if (scenario === "file_size") {
         const oversizedFile = path.join(runtime.workspace, "src", "large.bin");
         const descriptor = fs.openSync(oversizedFile, "wx");
@@ -1370,21 +1388,28 @@ for (const [scenario, label] of [
           fs.closeSync(descriptor);
         }
         assert.equal(fs.statSync(oversizedFile).size, 64 * 1024 * 1024 + 1);
+        const read = readExecutionFile(oversizedFile);
+        assert.equal(read.content.length, 64 * 1024 * 1024 + 1);
+        assert.equal(
+          read.sha256,
+          createHash("sha256").update(read.content).digest("hex"),
+        );
       } else {
         const target = path.join(runtime.workspace, "src");
         fs.symlinkSync(target, linkPath, "junction");
         linkCreated = true;
         assert.equal(fs.lstatSync(linkPath).isSymbolicLink(), true);
       }
+      const captured = captureExecutionChangeSnapshot(
+        materialized?.workspaceCapability,
+        runtime.bound.repositoryBindingCapability,
+        runtime.managementCapability,
+        runtime.mountCapability,
+        ["src/", "depth-000-segment/"],
+      );
       assert.equal(
-        captureExecutionChangeSnapshot(
-          materialized?.workspaceCapability,
-          runtime.bound.repositoryBindingCapability,
-          runtime.managementCapability,
-          runtime.mountCapability,
-          ["src/", "d/"],
-        ),
-        null,
+        captured?.status ?? null,
+        scenario === "junction" ? null : "candidate",
       );
       assert.deepEqual(snapshotRepositoryFiles(source.root), beforeFiles);
       const currentIdentity = fs.lstatSync(runtime.workspace, { bigint: true });
@@ -1539,7 +1564,7 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
  */
 test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
   const contract = describeExecutionChangeSnapshotContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(contract.providerGitMetadataVisible, false);
   assert.equal(contract.workspaceWrite, "caller_resolved_execution_tree");
   assert.deepEqual(contract.candidateRevision, [

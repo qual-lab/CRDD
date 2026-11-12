@@ -13,12 +13,59 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { stripTypeScriptTypes } from "node:module";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { inspectCoordinatorRuntimeTraceability } from "../../scripts/runtime-traceability.ts";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../..",
 );
+
+/**
+ * 追跡Readerは量でなく所属・通常実体・Path文法を判定する。
+ * @responsibility 旧8MiBと512文字を超える正常入力を保持する。
+ * @trace PPR-IT-018
+ * @precondition 本番宣言と模擬Filesystemを用いFileを作らない。
+ * @stimulus 8MiB超の本文と512文字超の相対Path、Link・Traversalを渡す。
+ * @observation 全本文又はnull、Pathの真偽。
+ * @oracle 量だけで拒否せず不正境界を拒否する。
+ * @cleanup メモリ内値のみ。
+ * @boundary 追跡Tool読取り境界。
+ */
+test("追跡Readerは旧容量・Path総長上限を再適用しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/check-runtime-traceability.ts", import.meta.url),
+    "utf8",
+  );
+  const text = "a".repeat(8 * 1024 * 1024 + 1);
+  let link = false;
+  const filesystem = {
+    lstatSync: () => ({ isSymbolicLink: () => link }),
+    statSync: () => ({ isFile: () => true, size: Buffer.byteLength(text) }),
+    realpathSync: { native: (value: string) => value },
+    readFileSync: () => text,
+  };
+  const read = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "readRegularRepositoryText"))});`,
+    ["fs", "path", "repositoryRoot"],
+  )(filesystem, path, repositoryRoot) as (relative: string) => string | null;
+  const relative = `${Array(80).fill("segment").join("/")}/file.ts`;
+  assert.equal(read(relative), text);
+  assert.equal(read("../outside"), null);
+  link = true;
+  assert.equal(read(relative), null);
+  const pathsSource = fs.readFileSync(
+    new URL("../../scripts/runtime-traceability.ts", import.meta.url),
+    "utf8",
+  );
+  const valid = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(pathsSource, "isSafeRepositoryPath"))});`,
+  )() as (value: string) => boolean;
+  assert.equal(valid(relative), true);
+  assert.equal(valid("../outside"), false);
+});
 
 /**
  * currentTraceのTest準備責務を実行する。

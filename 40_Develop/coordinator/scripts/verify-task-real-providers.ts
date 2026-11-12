@@ -4,33 +4,34 @@
  * @responsibility stableDirectoryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { getModelCatalog } from "../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import {
   createFilesystemRepositoryObservationPort,
-  resolveRepositoryRuntimeDataPaths,
   readRepositoryAiSelection,
+  resolveRepositoryRuntimeDataPaths,
 } from "../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRoot,
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
   readRepositorySnapshot,
+  resolveVerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
-import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
+import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import {
   buildCoordinatorRealProviderReport,
   captureCanonicalRepositorySnapshot,
-  type JsonRecord,
-  type PublicProcessObservation,
-  observePublicMcpProcess,
   inspectPublishedCoordinatorIntakeEpoch,
+  type JsonRecord,
+  observePublicMcpProcess,
+  type PublicProcessObservation,
 } from "./task-real-provider-contract.ts";
 
 const MARKER =
@@ -145,7 +146,6 @@ function observeRuntimeSource() {
       return null;
     const entry = createFilesystemRepositoryObservationPort(
       verified.capability,
-      64 * 1024,
     ).observeFile("template/tools/crdd-mcp-server.ts");
     const entryAfter = fs.lstatSync(entryPath, { bigint: true });
     if (

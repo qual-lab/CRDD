@@ -14,8 +14,8 @@ import {
   REPOSITORY_MANIFEST_RELATIVE_PATH,
 } from "../../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRoot,
   getRepository,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import {
   evaluateManagementPermission,
@@ -25,6 +25,7 @@ import { resolveCredentialAuthentication } from "../credential/authentication.ts
 import { readCredentialId } from "../credential/token.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
 import { parseContentAreaIds } from "../permission/validation.ts";
+import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
@@ -34,14 +35,11 @@ import {
   serialize,
   settlePending,
 } from "../storage/store.ts";
-import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { deriveRepositoryBindingId } from "./binding.ts";
 import type { RepositoryExposureManagementResult } from "./types.ts";
 
 const ROOT_CODE_UNIT_LIMIT = 32_768;
-
-const REGISTRATION_FILE_BYTE_LIMIT = 1_048_576;
 
 /**
  * 登録と公開範囲の三操作入力。
@@ -113,7 +111,7 @@ export function acceptsRepositoryExposureChange(
  * 登録RootのCanonical Identityと表示投影を照合する。
  * @responsibility 既存VC／Domain公開APIから検証済み登録tupleだけを得る。
  * @trace ARCH-000013
- * @input 検査済み登録IDと絶対Root。固定manifestとPROJECT_CONTEXTは各1 MiB以下。
+ * @input 検査済み登録IDと絶対Root。固定manifestとPROJECT_CONTEXTを通常Fileとして観測する。
  * @returns 登録tupleまたはnull。
  * @precondition 保存Ownerが同じ現在改訂を使い、外部観測前に認可する。
  * @postcondition 入力状態と対象Repository本文を変更しない。
@@ -134,7 +132,6 @@ function observeRegistration(
   if (root === null) return null;
   const observer = createFilesystemRepositoryObservationPort(
     verified.capability,
-    REGISTRATION_FILE_BYTE_LIMIT,
   );
   const manifestFile = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
   const contextFile = observer.observeFile("PROJECT_CONTEXT.md");

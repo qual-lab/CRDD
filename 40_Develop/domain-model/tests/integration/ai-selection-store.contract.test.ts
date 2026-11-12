@@ -7,23 +7,24 @@
  * @scope 新形式AI選択Storeと既存Repository Root・Filesystem排他。
  * @boundary RCM-IT-005=Direct Boundary: Domain Store→Repository-local Filesystem。
  */
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-import {
   readRepositoryAiSelection,
+  requireReadyRepositoryRuntimeDataArea,
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { validateAiSelectionConfig } from "../../src/index.ts";
-import { AI_SELECTION_MAXIMUM_BYTES } from "../../src/storage/ai-selection.ts";
+
+const LEGACY_SELECTION_BYTES = 1024 * 1024;
+
 import * as domain from "../../../domain-model/src/index.ts";
 
 /**
@@ -250,24 +251,24 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
 });
 
 /**
- * 厳密JSON・UTF-8・容量・hardlinkを拒否する。
- * @responsibility 読取り失敗を空設定へ丸めずbyte上限を一致させる。
+ * 厳密JSON・UTF-8・hardlinkの拒否と大容量設定の受理を確認する。
+ * @responsibility 読取り失敗を空設定へ丸めず正常な大容量設定を保存する。
  * @trace RCM-IT-005
  * @precondition 合成config領域。
  * @stimulus 不正bytes、重複key、旧形式、上限超過、hardlink。
  * @observation blockedと元File保全。
- * @oracle 読取りと保存が同じ1MiBを強制する。
+ * @oracle 正常設定は旧1MiB上限を超えて保存・再読取りできる。
  * @cleanup 自己生成Rootだけ回収。
  * @boundary File bytesと設定Schema。
  */
-test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否する", (t) => {
+test("不正UTF-8・重複JSON・旧形式・hardlinkを拒否し大容量設定は保存する", (t) => {
   const f = fixture(t);
   fs.mkdirSync(f.directory, { recursive: true });
   for (const bytes of [
     Buffer.from([0xff]),
     Buffer.from('{"revision":1,"revision":1}'),
     Buffer.from('{"profiles":[]}'),
-    Buffer.alloc(AI_SELECTION_MAXIMUM_BYTES + 1, 32),
+    Buffer.alloc(LEGACY_SELECTION_BYTES + 1, 32),
   ]) {
     fs.writeFileSync(f.file, bytes);
     assert.equal(
@@ -276,15 +277,16 @@ test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否す
     );
   }
   const huge = config();
-  huge.workTypes.coding.label = "あ".repeat(AI_SELECTION_MAXIMUM_BYTES / 2);
+  huge.workTypes.coding.label = "あ".repeat(LEGACY_SELECTION_BYTES / 2);
+  fs.unlinkSync(f.file);
   assert.equal(
     saveRepositoryAiSelection(
       f.capability,
       { expectedIdentity: null, config: huge },
       () => true,
       getModelCatalog().catalog,
-    ).reason,
-    "ai_selection_file_too_large",
+    ).status,
+    "saved",
   );
   fs.writeFileSync(f.file, JSON.stringify(config()));
   fs.linkSync(f.file, path.join(f.directory, "other.json"));
@@ -301,11 +303,11 @@ test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否す
  * @precondition 合成Repositoryと現在の閉形式。
  * @stimulus 1MiB丁度、1byte超過、symlink、open前の正本置換。
  * @observation 保存・読取り結果と正本以外の保全。
- * @oracle 上限丁度は保存でき、超過・link・置換は拒否する。
+ * @oracle 旧上限の前後は保存でき、link・置換は拒否する。
  * @cleanup mock復元後に自己生成Rootだけ回収。
  * @boundary 安定bytes・File Identityと設定Store。
  */
-test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否する", (t) => {
+test("旧1MiB境界を超えて保存し、symlink・読取り中の置換を拒否する", (t) => {
   const f = fixture(t);
   const value = config();
   value.workTypes.coding.label = "あ";
@@ -318,7 +320,7 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
   const size = Buffer.byteLength(
     `${JSON.stringify(normalized.value.config, null, 2)}\n`,
   );
-  value.workTypes.coding.label += "x".repeat(AI_SELECTION_MAXIMUM_BYTES - size);
+  value.workTypes.coding.label += "x".repeat(LEGACY_SELECTION_BYTES - size);
   const saved = saveRepositoryAiSelection(
     f.capability,
     { expectedIdentity: null, config: value },
@@ -326,7 +328,7 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
     getModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved", JSON.stringify(saved));
-  assert.equal(fs.statSync(f.file).size, AI_SELECTION_MAXIMUM_BYTES);
+  assert.equal(fs.statSync(f.file).size, LEGACY_SELECTION_BYTES);
   value.workTypes.coding.label += "x";
   assert.equal(
     saveRepositoryAiSelection(
@@ -334,8 +336,8 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
       { expectedIdentity: saved.snapshot?.identity, config: value },
       () => true,
       getModelCatalog().catalog,
-    ).reason,
-    "ai_selection_file_too_large",
+    ).status,
+    "saved",
   );
   fs.renameSync(f.file, path.join(f.directory, "linked.json"));
   fs.symlinkSync(path.join(f.directory, "linked.json"), f.file, "file");

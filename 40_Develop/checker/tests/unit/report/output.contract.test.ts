@@ -41,7 +41,6 @@ const report: DocumentReport = {
   requested_scope: [],
   expanded_scope: ["."],
   expanded_scope_file_count: 2,
-  expanded_scope_truncated: false,
   global_checks: [],
   unchecked: ["未確認"],
   executed_at: "2026-10-19T00:00:00.000Z",

@@ -25,25 +25,11 @@ type ContentPolicy = (relativePath: string, bytes: Uint8Array) => boolean;
 export const GIT_OBJECT_READER_CONTRACT =
   "crdd-version-control/git-object-reader/v1";
 
-export const GIT_OBJECT_READER_CONTRACT_REVISION = 4;
+export const GIT_OBJECT_READER_CONTRACT_REVISION = 5;
 
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
 
 const PACK_INDEX_MAGIC = 0xff744f63;
-
-const MAXIMUM_PACK_BYTES = 512 * 1024 * 1024;
-
-const MAXIMUM_INDEX_BYTES = 96 * 1024 * 1024;
-
-const MAXIMUM_OBJECT_BYTES = 64 * 1024 * 1024;
-
-const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
-
-const MAXIMUM_WORKSPACE_FILES = 20_000;
-
-const MAXIMUM_TREE_DEPTH = 64;
-
-const MAXIMUM_RELATIVE_PATH_BYTES = 1_024;
 
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
@@ -172,9 +158,9 @@ function treeSelected(relativePath: string, readPaths: readonly string[]) {
  *
  * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000002
- * @input target: string、maximumBytes: number
+ * @input target: string
  * @returns stableFileの計算結果を返す。
- * @precondition 「target: string、maximumBytes: number」がstableFileの入力契約を満たす。
+ * @precondition 「target: string」がstableFileの入力契約を満たす。
  * @postcondition stableFileの責務を完了した結果だけを返す。
  * @effect stableFileはFilesystemの読取りまたは書込みを実行する。
  * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -183,7 +169,7 @@ function treeSelected(relativePath: string, readPaths: readonly string[]) {
  * @security N/A: stableFileはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
  */
-function stableFile(target: string, maximumBytes: number) {
+function stableFile(target: string) {
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
@@ -191,7 +177,7 @@ function stableFile(target: string, maximumBytes: number) {
       !before.isFile() ||
       before.isSymbolicLink() ||
       before.size < 1n ||
-      before.size > BigInt(maximumBytes)
+      !Number.isSafeInteger(Number(before.size))
     ) {
       throw new Error("git_object_file_invalid");
     }
@@ -301,9 +287,7 @@ function verifyObjectIdentity(
  * @concurrency N/A: parseLooseObjectは共有非同期状態を持たない同期処理である。
  */
 function parseLooseObject(objectId: string, compressed: Buffer): GitObject {
-  const inflated = inflateSync(compressed, {
-    maxOutputLength: MAXIMUM_OBJECT_BYTES + 128,
-  });
+  const inflated = inflateSync(compressed);
   const headerEnd = inflated.indexOf(0);
   if (headerEnd < 1) throw new Error("git_loose_object_invalid");
   const header = inflated.subarray(0, headerEnd).toString("ascii");
@@ -314,8 +298,7 @@ function parseLooseObject(objectId: string, compressed: Buffer): GitObject {
   const bytes = Buffer.from(inflated.subarray(headerEnd + 1));
   if (
     !Number.isSafeInteger(declaredSize) ||
-    declaredSize !== bytes.byteLength ||
-    bytes.byteLength > MAXIMUM_OBJECT_BYTES
+    declaredSize !== bytes.byteLength
   ) {
     throw new Error("git_loose_object_invalid");
   }
@@ -340,7 +323,7 @@ function parseLooseObject(objectId: string, compressed: Buffer): GitObject {
  * @concurrency N/A: parsePackIndexは共有非同期状態を持たない同期処理である。
  */
 function parsePackIndex(indexPath: string): PackIndex {
-  const bytes = stableFile(indexPath, MAXIMUM_INDEX_BYTES);
+  const bytes = stableFile(indexPath);
   if (
     bytes.byteLength < 8 + 256 * 4 + 40 ||
     bytes.readUInt32BE(0) !== PACK_INDEX_MAGIC ||
@@ -357,8 +340,6 @@ function parsePackIndex(indexPath: string): PackIndex {
     priorCount = count;
   }
   const objectCount = priorCount;
-  if (objectCount > 2_000_000)
-    throw new Error("git_pack_index_budget_exceeded");
   const identifiersStart = fanoutStart + 256 * 4;
   const crcStart = identifiersStart + objectCount * 20;
   const offsetsStart = crcStart + objectCount * 4;
@@ -468,8 +449,6 @@ function applyDelta(base: Buffer, delta: Buffer) {
   if (baseSize.value !== base.byteLength)
     throw new Error("git_delta_base_size_mismatch");
   const resultSize = readVariableInteger(delta, baseSize.nextIndex);
-  if (resultSize.value > MAXIMUM_OBJECT_BYTES)
-    throw new Error("git_delta_budget_exceeded");
   const chunks: Buffer[] = [];
   let outputSize = 0;
   let nextIndex = resultSize.nextIndex;
@@ -522,9 +501,9 @@ function applyDelta(base: Buffer, delta: Buffer) {
  *
  * @responsibility Pack Offsetの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000002
- * @input bytes: Buffer、startIndex: number、objectOffset: number
+ * @input bytes: Buffer、startIndex: number、objectOffset: number、endIndex: 当該Objectのmetadata読取り終端。
  * @returns decodePackOffsetの計算結果を返す。
- * @precondition 「bytes: Buffer、startIndex: number、objectOffset: number」がdecodePackOffsetの入力契約を満たす。
+ * @precondition endIndexは次Object又はPack末尾checksumの開始位置である。
  * @postcondition decodePackOffsetの責務を完了した結果だけを返す。
  * @effect N/A: decodePackOffsetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure decodePackOffsetは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -537,14 +516,24 @@ function decodePackOffset(
   bytes: Buffer,
   startIndex: number,
   objectOffset: number,
+  endIndex: number,
 ) {
+  if (
+    !Number.isSafeInteger(startIndex) ||
+    !Number.isSafeInteger(objectOffset) ||
+    !Number.isSafeInteger(endIndex) ||
+    startIndex < 0 ||
+    startIndex >= endIndex ||
+    endIndex > bytes.byteLength ||
+    objectOffset < 12
+  )
+    throw new Error("git_pack_offset_invalid");
   let nextIndex = startIndex;
   let current = bytes[nextIndex] as number;
   nextIndex += 1;
   let distance = current & 0x7f;
   while ((current & 0x80) !== 0) {
-    if (nextIndex >= bytes.byteLength)
-      throw new Error("git_pack_offset_invalid");
+    if (nextIndex >= endIndex) throw new Error("git_pack_offset_invalid");
     current = bytes[nextIndex] as number;
     nextIndex += 1;
     distance = (distance + 1) * 128 + (current & 0x7f);
@@ -552,7 +541,13 @@ function decodePackOffset(
       throw new Error("git_pack_offset_invalid");
   }
   const baseOffset = objectOffset - distance;
-  if (baseOffset < 12) throw new Error("git_pack_offset_invalid");
+  if (
+    distance <= 0 ||
+    !Number.isSafeInteger(baseOffset) ||
+    baseOffset < 12 ||
+    baseOffset >= objectOffset
+  )
+    throw new Error("git_pack_offset_invalid");
   return Object.freeze({ baseOffset, nextIndex });
 }
 
@@ -595,7 +590,6 @@ function safePackIndexes(commonDirectory: string) {
   const indexNames = names.filter((name) =>
     /^pack-[a-f0-9]{40}\.idx$/u.test(name),
   );
-  if (indexNames.length > 128) throw new Error("git_pack_count_exceeded");
   return Object.freeze(
     indexNames
       .sort()
@@ -644,7 +638,7 @@ function createObjectReader(commonDirectory: string) {
   function packBytes(index: PackIndex) {
     const cached = packCache.get(index.packPath);
     if (cached) return cached;
-    const bytes = stableFile(index.packPath, MAXIMUM_PACK_BYTES);
+    const bytes = stableFile(index.packPath);
     if (
       bytes.byteLength < 32 ||
       bytes.subarray(0, 4).toString("ascii") !== "PACK" ||
@@ -668,9 +662,9 @@ function createObjectReader(commonDirectory: string) {
    *
    * @responsibility Pack Objectの候補集合、解決規則、曖昧時の拒否境界を所有する。
    * @trace ARCH-000002
-   * @input index: PackIndex、objectId: string、objectOffset: number、depth: number
+   * @input index: PackIndex、objectId: string、objectOffset: number
    * @returns GitObjectを返す。
-   * @precondition 「index: PackIndex、objectId: string、objectOffset: number、depth: number」がresolvePackObjectの入力契約を満たす。
+   * @precondition 「index: PackIndex、objectId: string、objectOffset: number」がresolvePackObjectの入力契約を満たす。
    * @postcondition resolvePackObjectの責務を完了した結果だけを返す。
    * @effect 必要に応じてFilesystem上のloose／pack形式のGit Objectを読み取る。書込み・Git子Process起動は行わない。
    * @failure resolvePackObjectは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -683,14 +677,20 @@ function createObjectReader(commonDirectory: string) {
     index: PackIndex,
     objectId: string,
     objectOffset: number,
-    depth: number,
   ): GitObject {
-    if (depth > MAXIMUM_TREE_DEPTH) throw new Error("git_delta_depth_exceeded");
     const bytes = packBytes(index);
     const sortedIndex = index.sortedOffsets.indexOf(objectOffset);
     if (sortedIndex < 0) throw new Error("git_pack_index_invalid");
     const nextOffset =
       index.sortedOffsets[sortedIndex + 1] ?? bytes.byteLength - 20;
+    if (
+      !Number.isSafeInteger(objectOffset) ||
+      !Number.isSafeInteger(nextOffset) ||
+      objectOffset < 12 ||
+      nextOffset <= objectOffset ||
+      nextOffset > bytes.byteLength - 20
+    )
+      throw new Error("git_pack_object_header_invalid");
     let nextIndex = objectOffset;
     let current = bytes[nextIndex] as number;
     nextIndex += 1;
@@ -705,15 +705,17 @@ function createObjectReader(commonDirectory: string) {
       declaredSize += (current & 0x7f) * 2 ** shift;
       shift += 7;
     }
-    if (
-      !Number.isSafeInteger(declaredSize) ||
-      declaredSize > MAXIMUM_OBJECT_BYTES
-    )
-      throw new Error("git_pack_object_budget_exceeded");
+    if (!Number.isSafeInteger(declaredSize))
+      throw new Error("git_pack_object_header_invalid");
     let baseOffset: number | null = null;
     let baseObjectId: string | null = null;
     if (typeCode === 6) {
-      const decoded = decodePackOffset(bytes, nextIndex, objectOffset);
+      const decoded = decodePackOffset(
+        bytes,
+        nextIndex,
+        objectOffset,
+        nextOffset,
+      );
       baseOffset = decoded.baseOffset;
       nextIndex = decoded.nextIndex;
     } else if (typeCode === 7) {
@@ -723,9 +725,7 @@ function createObjectReader(commonDirectory: string) {
       nextIndex += 20;
     }
     const inflated = Buffer.from(
-      inflateSync(bytes.subarray(nextIndex, nextOffset), {
-        maxOutputLength: MAXIMUM_OBJECT_BYTES + 1,
-      }),
+      inflateSync(bytes.subarray(nextIndex, nextOffset)),
     );
     if (inflated.byteLength !== declaredSize)
       throw new Error("git_pack_object_size_mismatch");
@@ -737,11 +737,11 @@ function createObjectReader(commonDirectory: string) {
     } else {
       let base: GitObject;
       if (baseObjectId) {
-        base = readObject(baseObjectId, depth + 1);
+        base = readObject(baseObjectId);
       } else if (baseOffset !== null) {
         const offsetObjectId = index.offsetObjectIds.get(baseOffset);
         if (!offsetObjectId) throw new Error("git_pack_delta_base_missing");
-        base = resolvePackObject(index, offsetObjectId, baseOffset, depth + 1);
+        base = resolvePackObject(index, offsetObjectId, baseOffset);
       } else {
         throw new Error("git_pack_object_type_invalid");
       }
@@ -757,11 +757,11 @@ function createObjectReader(commonDirectory: string) {
   /**
    * Objectを読み取る。
    *
-   * @responsibility Objectの読取り元、上限、読取不能時の結果境界を所有する。
+   * @responsibility Objectの読取り元、循環・不正構造、読取不能時の結果境界を所有する。
    * @trace ARCH-000002
-   * @input objectId: string、depth
+   * @input objectId: string
    * @returns GitObjectを返す。
-   * @precondition 「objectId: string、depth」がreadObjectの入力契約を満たす。
+   * @precondition 「objectId: string」がreadObjectの入力契約を満たす。
    * @postcondition readObjectの責務を完了した結果だけを返す。
    * @effect 必要に応じてFilesystem上のloose／pack形式のGit Objectを読み取る。書込み・Git子Process起動は行わない。
    * @failure readObjectは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -770,7 +770,7 @@ function createObjectReader(commonDirectory: string) {
    * @security N/A: readObjectはAuthority、秘密値または信頼判断を扱わない。
    * @concurrency N/A: readObjectは共有非同期状態を持たない同期処理である。
    */
-  function readObject(objectId: string, depth = 0): GitObject {
+  function readObject(objectId: string): GitObject {
     if (!OBJECT_ID.test(objectId)) throw new Error("git_object_id_invalid");
     const cached = objectCache.get(objectId);
     if (cached) return cached;
@@ -786,10 +786,7 @@ function createObjectReader(commonDirectory: string) {
       );
       let result: GitObject | null = null;
       try {
-        result = parseLooseObject(
-          objectId,
-          stableFile(loosePath, MAXIMUM_OBJECT_BYTES),
-        );
+        result = parseLooseObject(objectId, stableFile(loosePath));
       } catch (error) {
         if (
           !error ||
@@ -804,7 +801,7 @@ function createObjectReader(commonDirectory: string) {
         for (const index of indexes) {
           const objectOffset = index.objectOffsets.get(objectId);
           if (objectOffset === undefined) continue;
-          result = resolvePackObject(index, objectId, objectOffset, depth);
+          result = resolvePackObject(index, objectId, objectOffset);
           break;
         }
       }
@@ -911,9 +908,9 @@ function commitTree(object: GitObject) {
  *
  * @responsibility Treeの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000002
- * @input readObject: (objectId: string) => GitObject、treeId: string、parentPath: string、entries: WorkspaceEntry[]、depth: number、budget: { bytes: number; files: number }、readPaths: readonly string[] | null
+ * @input Object読取り、対象Tree、親Path、取得先、件数・byte集計、選択Pathと現在分岐の祖先Tree集合。
  * @returns N/A: parseTreeは戻り値を返さない。
- * @precondition 「readObject: (objectId: string) => GitObject、treeId: string、parentPath: string、entries: WorkspaceEntry[]、depth: number、budget: { bytes: number; files: number }、readPaths: readonly string[] | null」がparseTreeの入力契約を満たす。
+ * @precondition readObjectは各ObjectのHashと形式を検証する。
  * @postcondition parseTreeの責務を完了して呼出し元へ制御を戻す。
  * @effect N/A: parseTreeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure parseTreeは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -927,81 +924,78 @@ function parseTree(
   treeId: string,
   parentPath: string,
   entries: WorkspaceEntry[],
-  depth: number,
-  budget: { bytes: number; files: number },
+  summary: { bytes: number; files: number },
   readPaths: readonly string[] | null,
+  ancestors = new Set<string>(),
 ) {
-  if (depth > MAXIMUM_TREE_DEPTH) throw new Error("git_tree_depth_exceeded");
-  const tree = readObject(treeId);
-  if (tree.type !== "tree") throw new Error("git_tree_object_invalid");
-  let nextIndex = 0;
-  const comparisonNames = new Set<string>();
-  while (nextIndex < tree.bytes.byteLength) {
-    const spaceIndex = tree.bytes.indexOf(0x20, nextIndex);
-    const nulIndex = tree.bytes.indexOf(0, spaceIndex + 1);
-    if (
-      spaceIndex <= nextIndex ||
-      nulIndex <= spaceIndex + 1 ||
-      nulIndex + 21 > tree.bytes.byteLength
-    ) {
-      throw new Error("git_tree_object_invalid");
-    }
-    const mode = tree.bytes.subarray(nextIndex, spaceIndex).toString("ascii");
-    const segment = decodeTreeName(
-      tree.bytes.subarray(spaceIndex + 1, nulIndex),
-    );
-    const comparisonName = segment.toUpperCase();
-    if (comparisonNames.has(comparisonName))
-      throw new Error("git_tree_case_collision");
-    comparisonNames.add(comparisonName);
-    const objectId = tree.bytes
-      .subarray(nulIndex + 1, nulIndex + 21)
-      .toString("hex");
-    const relativePath = parentPath ? `${parentPath}/${segment}` : segment;
-    if (Buffer.byteLength(relativePath, "utf8") > MAXIMUM_RELATIVE_PATH_BYTES)
-      throw new Error("git_tree_path_budget_exceeded");
-    if (mode === "40000" || mode === "040000") {
-      if (!readPaths || treeSelected(relativePath, readPaths)) {
-        parseTree(
-          readObject,
-          objectId,
-          relativePath,
-          entries,
-          depth + 1,
-          budget,
-          readPaths,
-        );
-      }
-    } else if (mode === "100644" || mode === "100755") {
-      if (readPaths && !pathSelected(relativePath, readPaths)) {
-        nextIndex = nulIndex + 21;
-        continue;
-      }
-      const blob = readObject(objectId);
-      if (blob.type !== "blob") throw new Error("git_blob_object_invalid");
-      budget.files += 1;
-      budget.bytes += blob.bytes.byteLength;
+  if (ancestors.has(treeId)) throw new Error("git_tree_cycle_detected");
+  ancestors.add(treeId);
+  try {
+    const tree = readObject(treeId);
+    if (tree.type !== "tree") throw new Error("git_tree_object_invalid");
+    let nextIndex = 0;
+    const comparisonNames = new Set<string>();
+    while (nextIndex < tree.bytes.byteLength) {
+      const spaceIndex = tree.bytes.indexOf(0x20, nextIndex);
+      const nulIndex = tree.bytes.indexOf(0, spaceIndex + 1);
       if (
-        budget.files > MAXIMUM_WORKSPACE_FILES ||
-        budget.bytes > MAXIMUM_WORKSPACE_BYTES
+        spaceIndex <= nextIndex ||
+        nulIndex <= spaceIndex + 1 ||
+        nulIndex + 21 > tree.bytes.byteLength
       ) {
-        throw new Error("git_workspace_budget_exceeded");
+        throw new Error("git_tree_object_invalid");
       }
-      entries.push(
-        Object.freeze({
-          relativePath,
-          mode,
-          bytes: Buffer.from(blob.bytes),
-        }),
+      const mode = tree.bytes.subarray(nextIndex, spaceIndex).toString("ascii");
+      const segment = decodeTreeName(
+        tree.bytes.subarray(spaceIndex + 1, nulIndex),
       );
-    } else if (
-      !readPaths ||
-      pathSelected(relativePath, readPaths) ||
-      treeSelected(relativePath, readPaths)
-    ) {
-      throw new Error("git_tree_mode_not_supported");
+      const comparisonName = segment.toUpperCase();
+      if (comparisonNames.has(comparisonName))
+        throw new Error("git_tree_case_collision");
+      comparisonNames.add(comparisonName);
+      const objectId = tree.bytes
+        .subarray(nulIndex + 1, nulIndex + 21)
+        .toString("hex");
+      const relativePath = parentPath ? `${parentPath}/${segment}` : segment;
+      if (mode === "40000" || mode === "040000") {
+        if (!readPaths || treeSelected(relativePath, readPaths)) {
+          parseTree(
+            readObject,
+            objectId,
+            relativePath,
+            entries,
+            summary,
+            readPaths,
+            ancestors,
+          );
+        }
+      } else if (mode === "100644" || mode === "100755") {
+        if (readPaths && !pathSelected(relativePath, readPaths)) {
+          nextIndex = nulIndex + 21;
+          continue;
+        }
+        const blob = readObject(objectId);
+        if (blob.type !== "blob") throw new Error("git_blob_object_invalid");
+        summary.files += 1;
+        summary.bytes += blob.bytes.byteLength;
+        entries.push(
+          Object.freeze({
+            relativePath,
+            mode,
+            bytes: Buffer.from(blob.bytes),
+          }),
+        );
+      } else if (
+        !readPaths ||
+        pathSelected(relativePath, readPaths) ||
+        treeSelected(relativePath, readPaths)
+      ) {
+        throw new Error("git_tree_mode_not_supported");
+      }
+      nextIndex = nulIndex + 21;
     }
-    nextIndex = nulIndex + 21;
+  } finally {
+    ancestors.delete(treeId);
   }
 }
 
@@ -1194,11 +1188,11 @@ export function copyGitCommitTree(
     const readObject = createObjectReader(commonDirectory);
     const treeId = commitTree(readObject(value.revision));
     const entries: WorkspaceEntry[] = [];
-    const budget = { bytes: 0, files: 0 };
+    const summary = { bytes: 0, files: 0 };
     const readPaths = Array.isArray(value.readPaths)
       ? Object.freeze([...(value.readPaths as string[])])
       : null;
-    parseTree(readObject, treeId, "", entries, 0, budget, readPaths);
+    parseTree(readObject, treeId, "", entries, summary, readPaths);
     entries.sort((left, right) =>
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
@@ -1235,8 +1229,8 @@ export function copyGitCommitTree(
       status: "materialized" as const,
       baseCommit: value.revision,
       baseTree: treeId,
-      fileCount: budget.files,
-      byteLength: budget.bytes,
+      fileCount: summary.files,
+      byteLength: summary.bytes,
       contentManifestHash: contentManifest(entries),
       repositoryPathReported: false,
       workspacePathReported: false,
@@ -1249,13 +1243,13 @@ export function copyGitCommitTree(
 /**
  * Git Commit File 候補を読み取る。
  *
- * @responsibility Git Commit File 候補の読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility Git Commit File 候補の読取り元、形式・実体、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns readGitCommitFileの計算結果を返す。
  * @precondition 「candidate: unknown」がreadGitCommitFileの入力契約を満たす。
  * @postcondition readGitCommitFileの責務を完了した結果だけを返す。
- * @effect 固定Objectと対象Blobを有界で読み取る。書込みは行わない。
+ * @effect 固定Objectと対象Blobを読み取る。書込みは行わない。
  * @failure readGitCommitFileは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant readGitCommitFileは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -1264,22 +1258,33 @@ export function copyGitCommitTree(
  */
 export function readGitCommitFile(candidate: unknown) {
   try {
-    const value = candidate as Record<string, unknown>;
     if (
       !candidate ||
       typeof candidate !== "object" ||
-      Array.isArray(candidate) ||
-      ![3, 4].includes(Reflect.ownKeys(candidate).length) ||
-      !Reflect.ownKeys(candidate).every(
+      Array.isArray(candidate)
+    ) {
+      return null;
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(candidate);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== 3 ||
+      !keys.every(
         (key) =>
           typeof key === "string" &&
-          [
-            "commonDirectory",
-            "revision",
-            "relativePath",
-            "maximumBytes",
-          ].includes(key),
-      ) ||
+          ["commonDirectory", "revision", "relativePath"].includes(key) &&
+          descriptors[key] !== undefined &&
+          Object.hasOwn(descriptors[key], "value"),
+      )
+    ) {
+      return null;
+    }
+    const value = {
+      commonDirectory: descriptors.commonDirectory?.value as unknown,
+      revision: descriptors.revision?.value as unknown,
+      relativePath: descriptors.relativePath?.value as unknown,
+    };
+    if (
       typeof value.commonDirectory !== "string" ||
       typeof value.revision !== "string" ||
       typeof value.relativePath !== "string" ||
@@ -1292,38 +1297,22 @@ export function readGitCommitFile(candidate: unknown) {
     ) {
       return null;
     }
-    const maximumDescriptor = Object.getOwnPropertyDescriptor(
-      value,
-      "maximumBytes",
-    );
-    if (maximumDescriptor && !("value" in maximumDescriptor)) return null;
-    const maximumBytes =
-      maximumDescriptor?.value === undefined ? 65_536 : maximumDescriptor.value;
-    if (
-      typeof maximumBytes !== "number" ||
-      !Number.isSafeInteger(maximumBytes) ||
-      maximumBytes < 1 ||
-      maximumBytes > MAXIMUM_OBJECT_BYTES
-    )
-      return null;
     const commonDirectory = fs.realpathSync.native(value.commonDirectory);
     const readObject = createObjectReader(commonDirectory);
     const treeId = commitTree(readObject(value.revision));
     const entries: WorkspaceEntry[] = [];
-    const budget = { bytes: 0, files: 0 };
+    const summary = { bytes: 0, files: 0 };
     parseTree(
       readObject,
       treeId,
       "",
       entries,
-      0,
-      budget,
+      summary,
       Object.freeze([value.relativePath]),
     );
     if (
       entries.length !== 1 ||
-      entries[0]?.relativePath !== value.relativePath ||
-      entries[0].bytes.byteLength > maximumBytes
+      entries[0]?.relativePath !== value.relativePath
     ) {
       return null;
     }
@@ -1369,15 +1358,12 @@ export function describeGitObjectReaderContract() {
     unsupportedModeProjection:
       "unselected_skipped_selected_or_full_rejected" as const,
     windowsNameCollision: "fail_closed",
-    maximumWorkspaceFiles: MAXIMUM_WORKSPACE_FILES,
-    maximumWorkspaceBytes: MAXIMUM_WORKSPACE_BYTES,
     pathReported: false,
     readProjection: "explicit_file_or_directory_prefix_when_supplied",
     recognizedSecretMaterial:
       "high_confidence_path_or_content_rejected_before_workspace_write",
     completeSecretAbsenceVerified: false,
-    fixedRevisionFileRead:
-      "single_explicit_non_git_path_bounded_to_65536_bytes",
+    fixedRevisionFileRead: "single_explicit_non_git_path",
     authorityEstablished: false,
   });
 }

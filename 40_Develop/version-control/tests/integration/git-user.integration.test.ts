@@ -59,6 +59,18 @@ test("公開APIは有効設定を読み、名前・メール以外を返さな�
   assert.equal(fs.existsSync(path.join(f.root, "never-execute-this")), false);
 });
 
+/** 同じ8KiBのProcess出力枠の中で値512文字の旧再拒否だけを除く。 */
+test("Git設定の長いnameを量だけでunknownへ変えない", (t) => {
+  const f = fixture(t);
+  const name = "n".repeat(513);
+  f.git("config", "user.name", name);
+  assert.deepEqual(readGitUser(f.repository), {
+    status: "completed",
+    name,
+    email: "Fixture@Example.invalid",
+  });
+});
+
 test("空設定と観測不能は区別し、履歴やAuthor環境へfallbackしない", (t) => {
   const f = fixture(t);
   f.git("config", "user.name", "");

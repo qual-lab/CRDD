@@ -142,15 +142,15 @@ function parseManagementArguments(name: string, value: unknown) {
 }
 
 /**
- * 管理結果を標準Tool応答と固定上限へ接続する。
+ * 管理結果を標準Tool応答へ全量接続する。
  * @responsibility 閉UnionをstructuredContentに置き、部分結果を返さない。
  * @trace ARCH-000012
  * @input 元Request IDと投影済み非秘密結果。
- * @returns 通常Tool応答、上限超過なら固定未取得。
+ * @returns 閉じた管理結果を保持した通常Tool応答。
  * @precondition 値は本Adapterの閉投影で生成する。
  * @postcondition 説明textへ入力・理由・状態を複製しない。
  * @effect N/A: メモリ内serializeのみ。
- * @failure 16 MiB超過は全体未取得。
+ * @failure 下位結果の失敗分類を保持し、出力量だけでは結果を置換しない。
  * @invariant 保存や認可を再実行しない。
  * @boundary MCP Tool結果とJSON-RPC搬送。
  * @security Path・秘密を追加しない。
@@ -160,21 +160,11 @@ function completeManagementResponse(
   id: JsonRpcId,
   result: Readonly<Record<string, unknown>>,
 ): McpResponse {
-  const response = protocolComplete(id, {
+  return protocolComplete(id, {
     content: [{ type: "text", text: "アクセス管理結果を取得しました。" }],
     structuredContent: result,
     isError: result.status !== "completed",
   });
-  return Buffer.byteLength(JSON.stringify(response), "utf8") <= 16_777_216
-    ? response
-    : protocolComplete(id, {
-        content: [{ type: "text", text: "アクセス管理結果を取得できません。" }],
-        structuredContent: {
-          status: "unavailable",
-          reason: "management_response_too_large",
-        },
-        isError: true,
-      });
 }
 
 /**

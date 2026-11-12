@@ -816,8 +816,7 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
   const reviewerFindingCount =
     typeof reviewerResult?.findingCount === "number" &&
     Number.isSafeInteger(reviewerResult.findingCount) &&
-    reviewerResult.findingCount >= 0 &&
-    reviewerResult.findingCount <= 64
+    reviewerResult.findingCount >= 0
       ? reviewerResult.findingCount
       : null;
   const matches = (content: string) => {
@@ -877,22 +876,22 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
 }
 
 /**
- * bounded 回復 Idsを決定する。
+ * 回復 Idsを決定する。
  *
- * @responsibility bounded 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input results: readonly (RuntimeRecord | null)[]、singularField: string、kind: "host" | "docker" | "candidate" | "candidate_store"、pluralField: string
- * @returns boundedRecoveryIdsの計算結果を返す。
- * @precondition 「results: readonly (RuntimeRecord | null)[]、singularField: string、kind: "host" | "docker" | "candidate" | "candidate_store"、pluralField: string」がboundedRecoveryIdsの入力契約を満たす。
- * @postcondition boundedRecoveryIdsの責務を完了した結果だけを返す。
- * @effect N/A: boundedRecoveryIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: boundedRecoveryIdsは独自の失敗分岐を所有しない。
- * @invariant boundedRecoveryIdsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: boundedRecoveryIdsはProcess内の同一Subsystemで完結する。
- * @security N/A: boundedRecoveryIdsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: boundedRecoveryIdsは共有非同期状態を持たない同期処理である。
+ * @returns collectRecoveryIdsの計算結果を返す。
+ * @precondition 「results: readonly (RuntimeRecord | null)[]、singularField: string、kind: "host" | "docker" | "candidate" | "candidate_store"、pluralField: string」がcollectRecoveryIdsの入力契約を満たす。
+ * @postcondition collectRecoveryIdsの責務を完了した結果だけを返す。
+ * @effect N/A: collectRecoveryIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: collectRecoveryIdsは独自の失敗分岐を所有しない。
+ * @invariant collectRecoveryIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: collectRecoveryIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: collectRecoveryIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: collectRecoveryIdsは共有非同期状態を持たない同期処理である。
  */
-function boundedRecoveryIds(
+function collectRecoveryIds(
   results: readonly (RuntimeRecord | null)[],
   singularField: string,
   kind: "host" | "docker" | "candidate" | "candidate_store",
@@ -926,9 +925,8 @@ function boundedRecoveryIds(
     }
   }
   const uniqueItems = [...new Set(ids)];
-  if (uniqueItems.length > 128) isAmbiguous = true;
   return Object.freeze({
-    ids: Object.freeze(uniqueItems.slice(0, 128)),
+    ids: Object.freeze(uniqueItems),
     ambiguous: isAmbiguous,
   });
 }
@@ -956,19 +954,19 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
     !isRuntimeProcessPoisoned()
   )
     ensureRuntimeProcessPoisoned();
-  const hostRecovery = boundedRecoveryIds(sources, "hostRecoveryId", "host");
-  const dockerRecovery = boundedRecoveryIds(
+  const hostRecovery = collectRecoveryIds(sources, "hostRecoveryId", "host");
+  const dockerRecovery = collectRecoveryIds(
     sources,
     "dockerRecoveryId",
     "docker",
     "dockerRecoveryIds",
   );
-  const candidateRecovery = boundedRecoveryIds(
+  const candidateRecovery = collectRecoveryIds(
     sources,
     "candidateRecoveryId",
     "candidate",
   );
-  const candidateStoreRecovery = boundedRecoveryIds(
+  const candidateStoreRecovery = collectRecoveryIds(
     sources,
     "candidateStoreRecoveryId",
     "candidate_store",

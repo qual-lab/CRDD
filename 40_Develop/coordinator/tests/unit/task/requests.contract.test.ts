@@ -11,9 +11,91 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, compileFunction } from "node:vm";
 import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
+import {
+  inspectSingleTaskRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
+} from "../../../../domain-model/src/index.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
+
+/**
+ * Adviceの完成結果を全量再捕捉し、末尾不正は拒否する。
+ * @responsibility 旧項目数・本文長・参照数・参照長を後段で再適用しない。
+ * @trace PRL-UT-006
+ * @precondition 製品の非公開宣言と実Schema検査を使う。
+ * @stimulus 101項目、32,001文字、101参照と513文字参照、末尾制御文字。
+ * @observation 完成結果の全件保持又はnull。
+ * @oracle 正常量は保全し、不正参照だけ拒否する。
+ * @cleanup メモリ内値のみ。
+ * @boundary 単発Ownerの結果搬送。
+ */
+test("単発Advice結果は旧量上限を超えて末尾まで捕捉する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/task/requests.ts", import.meta.url),
+    "utf8",
+  );
+  const capture = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "snapshotSingleTaskOutcome"))});`,
+    [
+      "snapshotRuntimeStateArray",
+      "snapshotRuntimeStateRecord",
+      "inspectSingleTaskRecord",
+    ],
+  )(
+    snapshotRuntimeStateArray,
+    snapshotRuntimeStateRecord,
+    inspectSingleTaskRecord,
+  ) as (
+    raw: unknown,
+    selection: unknown,
+  ) => { advice: { facts: { text: string; references: string[] }[] } } | null;
+  const references = Array.from(
+    { length: 101 },
+    (_, index) => `${"r".repeat(513)}-${index}`,
+  );
+  const facts = Array.from({ length: 101 }, () => ({
+    text: "a".repeat(32_001),
+    references,
+  }));
+  const raw = {
+    mode: "read_only_advice",
+    status: "completed",
+    reason: null,
+    cleanupConfirmed: true,
+    recoveryIds: [],
+    workspaceResult: null,
+    advice: {
+      facts,
+      sharedAnalysis: [],
+      additionalInferences: [],
+      nextOptions: [],
+    },
+  };
+  const result = capture(raw, executionSelection("advice"));
+  assert.ok(result);
+  assert.equal(result.advice.facts.length, 101);
+  assert.equal(result.advice.facts[100]?.text, facts[100]?.text);
+  assert.equal(result.advice.facts[100]?.references[100], references[100]);
+  assert.equal(
+    capture(
+      {
+        ...raw,
+        advice: {
+          ...raw.advice,
+          facts: [
+            ...facts.slice(0, 100),
+            { text: "valid", references: ["bad\nref"] },
+          ],
+        },
+      },
+      executionSelection("advice"),
+    ),
+    null,
+  );
+});
 
 /**
  * 固定ContextとmodeごとのPath条件を照合する。
@@ -36,6 +118,19 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     workspaceId: null,
   };
   assert.ok(inspectSingleTaskCommand(command));
+  assert.ok(
+    inspectSingleTaskCommand({ ...command, prompt: "合成".repeat(16001) }),
+  );
+  assert.ok(
+    inspectSingleTaskCommand({
+      ...command,
+      mode: "workspace_edit",
+      allowedPaths: Array.from(
+        { length: 1025 },
+        (_, index) => `src/file-${index}.ts`,
+      ),
+    }),
+  );
   assert.ok(
     inspectSingleTaskCommand({
       ...command,

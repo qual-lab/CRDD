@@ -375,8 +375,6 @@ export { inspectCoordinatorStateQueryResult } from "../../domain-model/src/index
 export { isCoordinatorObjectiveProjectionCorrelationValid } from "../../domain-model/src/index.ts";
 export { isCoordinatorProjectionSemanticallyValid } from "../../domain-model/src/index.ts";
 export { COORDINATOR_HUMAN_DECISION_CONTRACT } from "../../domain-model/src/index.ts";
-export { COORDINATOR_MAXIMUM_OBJECTIVES } from "../../domain-model/src/index.ts";
-export { COORDINATOR_MAXIMUM_TASKS } from "../../domain-model/src/index.ts";
 export { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../domain-model/src/index.ts";
 export { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../domain-model/src/index.ts";
 export type { CoordinatorProjection } from "../../domain-model/src/index.ts";

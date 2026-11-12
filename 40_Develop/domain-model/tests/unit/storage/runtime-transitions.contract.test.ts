@@ -45,7 +45,6 @@ import {
   prepareCoordinatorStateResultDeliverySnapshot,
   prepareCoordinatorUnifiedTaskSnapshot,
   projectCoordinatorTaskSettlement,
-  RUNTIME_STATE_MAXIMUM_BYTES,
   validateCoordinatorStateTransition,
   validateCoordinatorUnifiedTransition,
 } from "../../../src/index.ts";
@@ -3381,8 +3380,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   for (const [canonical, pending] of [
     [proxyBuffer, null],
     [Buffer.alloc(0), proxyBuffer],
-    [Buffer.alloc(RUNTIME_STATE_MAXIMUM_BYTES + 1), null],
-    [Buffer.alloc(0), Buffer.alloc(RUNTIME_STATE_MAXIMUM_BYTES + 1)],
+    [Buffer.alloc(16 * 1024 * 1024 + 1), null],
+    [Buffer.alloc(0), Buffer.alloc(16 * 1024 * 1024 + 1)],
   ])
     assert.equal(
       prepareCoordinatorRecoveredHistoryPublication(

@@ -3,17 +3,18 @@
  * @responsibility 固定Path・実体・容量・不存在と障害を確認する。
  * @trace ARCH-000011
  */
+
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 import type { Repository } from "../../../version-control/src/index.ts";
-import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../repository/resolve-storage-paths.ts";
 import {
   DEFAULT_NETWORK_POLICY,
-  parseNetworkPolicyDocument,
   type NetworkPolicy,
+  parseNetworkPolicyDocument,
 } from "../configuration/network-policy.ts";
-import { readStableBoundedFileSnapshot } from "./bounded-file-snapshot.ts";
+import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../repository/resolve-storage-paths.ts";
+import { readStableFileSnapshot } from "./file-snapshot.ts";
 
 /**
  * 設定の読取り状態を表す。
@@ -94,12 +95,12 @@ export function readNetworkPolicy(
     if (before) {
       if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n)
         throw new Error("file");
-      if (before.size === 0n || before.size > 16_384n)
+      if (before.size === 0n)
         return Object.freeze({
           status: "blocked",
           reason: "network_policy_invalid",
         });
-      const snapshot = readStableBoundedFileSnapshot(file, 16_384);
+      const snapshot = readStableFileSnapshot(file);
       const after = fs.lstatSync(file, { bigint: true });
       if (
         after.nlink !== 1n ||

@@ -5,79 +5,83 @@
  * @trace ARCH-000010
  * @trace ARCH-000015
  */
+
+import type { ExecutionResult } from "../../../ai-adapter/src/index.ts";
 import {
+  type ExecutionSelection,
+  hashExecutionSelection,
   inspectExecutionSelection,
   snapshotPlainArray,
-  type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
-import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
-import type { ExecutionResult } from "../../../ai-adapter/src/index.ts";
-import type { RecordedAttemptResult } from "./types.ts";
 import {
   finishProviderExecutionRecording,
   type ProviderExecutionRecording,
 } from "./intelligence.ts";
+import type { RecordedAttemptResult } from "./types.ts";
+
 /** AI Adapterの解釈済み助言を返却内容として使用する。 */
 type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
-import {
-  type ProviderAdviceExecutionPlan,
-  type AdviceTaskPacket,
-  prepareAdviceTask,
-  prepareProviderAdvicePlan,
-  issueRuntimeOwnedProviderAdvicePacket,
-  revokeRuntimeOwnedProviderAdvicePacket,
-} from "./preparation.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
 import {
   type Repository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 
 import { readRepositoryNetworkHosts } from "../decision/external-send-policy.ts";
-import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
+import {
+  type AdviceTaskPacket,
+  issueRuntimeOwnedProviderAdvicePacket,
+  type ProviderAdviceExecutionPlan,
+  prepareAdviceTask,
+  prepareProviderAdvicePlan,
+  revokeRuntimeOwnedProviderAdvicePacket,
+} from "./preparation.ts";
 import { resolveRecoveryReference } from "./validation.ts";
+
 /** 解釈済み助言の一項目を内容型の正本から再利用する。 */
 type AdviceResultItem = AdviceResult["facts"][number];
-import path from "node:path";
+
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import {
-  observeHostRecoveryCleanup,
-  prepareRuntimeOwnedDockerHostCleanup,
-  finalizeRuntimeOwnedDockerRecovery,
-  abandonRuntimeOwnedDockerRecovery,
-  recordRuntimeOwnedDockerHostCleanupReceipt,
-} from "./recovery.ts";
-import {
-  recoverOwnedOperationDirectories,
-  cleanupOwnedOperationDirectoriesAsync,
-  verifyOwnedOperationCleanupOutcome,
-  abandonOwnedHostOperationGenerationLock,
-  classifyOwnedCoordinatorOperationCreationFailure,
-  classifyOwnedOperationDirectoryCreationFailure,
-  activateOwnedHostOperationGenerationLock,
-  assertOwnedHostOperationLock,
-  createRuntimeOwnedCoordinatorOperation,
-  bindRuntimeOwnedRepositoryOperation,
-} from "./operation.ts";
-import {
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  issueRuntimeOwnedProviderHomeMountGrant,
   consumeRuntimeOwnedProviderHomeMountGrant,
-  revokeRuntimeOwnedProviderHomeMountGrant,
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
   issueRuntimeOwnedDelegationSelectionGrant,
+  issueRuntimeOwnedProviderHomeMountGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
+  revokeRuntimeOwnedProviderHomeMountGrant,
 } from "./authority.ts";
 import {
-  startRuntimeOwnedDockerProcessController,
-  abandonRuntimeOwnedExecutorAttempt,
-  cancelRuntimeOwnedDockerProcessController,
-} from "./provider-executor.ts";
+  abandonOwnedHostOperationGenerationLock,
+  activateOwnedHostOperationGenerationLock,
+  assertOwnedHostOperationLock,
+  bindRuntimeOwnedRepositoryOperation,
+  classifyOwnedCoordinatorOperationCreationFailure,
+  classifyOwnedOperationDirectoryCreationFailure,
+  cleanupOwnedOperationDirectoriesAsync,
+  createRuntimeOwnedCoordinatorOperation,
+  recoverOwnedOperationDirectories,
+  verifyOwnedOperationCleanupOutcome,
+} from "./operation.ts";
 import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "./process-safety-state.ts";
+import {
+  abandonRuntimeOwnedExecutorAttempt,
+  cancelRuntimeOwnedDockerProcessController,
+  startRuntimeOwnedDockerProcessController,
+} from "./provider-executor.ts";
+import {
+  abandonRuntimeOwnedDockerRecovery,
+  finalizeRuntimeOwnedDockerRecovery,
+  observeHostRecoveryCleanup,
+  prepareRuntimeOwnedDockerHostCleanup,
+  recordRuntimeOwnedDockerHostCleanupReceipt,
+} from "./recovery.ts";
 
 /**
  * 読取り助言Provider ExecutorのRuntime接続境界で使用するProviderAdviceRuntimeResultの構造を固定する。
@@ -326,7 +330,6 @@ async function prepareRepositoryAdvicePacket(
     if (cancellationSignal.aborted) return null;
     const observed = createFilesystemRepositoryObservationPort(
       repositoryRootCapability,
-      65_536,
     ).observeFile(PROJECT_CONTEXT_REFERENCE);
     if (observed.status !== "resolved") return null;
     const content = observed.source;

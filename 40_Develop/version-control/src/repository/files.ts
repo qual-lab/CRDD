@@ -4,30 +4,31 @@
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
-import fs from "node:fs";
+
 import { createHash } from "node:crypto";
-import { createWorktreeGitContext } from "../worktree/crud.ts";
-import { isCommitId, isCommitPath } from "./commit.ts";
+import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
 import { copyGitCommitTree, readGitCommitFile } from "../git/objects.ts";
-import { resolveRepositoryGitLayout } from "./layout.ts";
 import { runGitReadCommand } from "../git/read.ts";
-import { readRepositoryFormat } from "./revision.ts";
+import { createWorktreeGitContext } from "../worktree/crud.ts";
+import { isCommitId, isCommitPath } from "./commit.ts";
+import { resolveRepositoryGitLayout } from "./layout.ts";
 import {
   getRepositoryFromWorkingDirectory,
-  resolveVerifiedRepositoryRoot,
   type Repository,
+  resolveVerifiedRepositoryRoot,
 } from "./location.ts";
+import { readRepositoryFormat } from "./revision.ts";
 import type {
-  FileReadRequest,
-  WorkingFile,
-  TreeEntry,
-  TreePage,
   CommitFile,
   CommitFileReadRequest,
   CommitFilesCopyRequest,
   CommitFilesCopyResult,
+  FileReadRequest,
+  TreeEntry,
+  TreePage,
+  WorkingFile,
 } from "./types.ts";
 
 /**
@@ -84,7 +85,6 @@ export function validateRelativePath(
   const normalized = value.replaceAll("\\", "/");
   if (
     (!isRootAllowed && normalized.length === 0) ||
-    normalized.length > 4_096 ||
     normalized.startsWith("/") ||
     /^[A-Za-z]:/u.test(normalized) ||
     normalized
@@ -119,7 +119,7 @@ export function validateRelativePath(
  */
 function decodeCursor(value: unknown, directory: string): string | null {
   if (value === undefined || value === null || value === "") return null;
-  if (typeof value !== "string" || value.length > 8_192)
+  if (typeof value !== "string")
     throw new Error("repository_worktree_cursor_invalid");
   try {
     const decoded = JSON.parse(
@@ -303,7 +303,7 @@ function captureFileRequest(
 
 /**
  * 固定CommitのFileを既存Object Readerで読み取る。
- * @responsibility Root原本・Commit・Path・mode・bytes・checksumと上限を同じ結果へ結合する。
+ * @responsibility Root原本・Commit・Path・mode・bytes・checksumを同じ結果へ結合する。
  * @trace ARCH-000002
  * @effect Git Objectの読取りのみ。作業TreeとIndexは変更しない。
  * @failure 不正Request、欠測Object、読取り不能はnull。
@@ -315,11 +315,7 @@ export function readCommitFile(
   try {
     const root = resolveVerifiedRepositoryRoot(repository);
     if (root === null) return null;
-    const input = captureFileRequest(request, [
-      "commit",
-      "path",
-      "maximumBytes",
-    ]);
+    const input = captureFileRequest(request, ["commit", "path"]);
     if (
       !input ||
       typeof input.commit !== "string" ||
@@ -331,9 +327,6 @@ export function readCommitFile(
         resolveRepositoryGitLayout(root).commonDirectory.realPath,
       revision: input.commit,
       relativePath: input.path,
-      ...(input.maximumBytes === undefined
-        ? {}
-        : { maximumBytes: input.maximumBytes }),
     });
     return result?.status === "read"
       ? Object.freeze({
@@ -607,7 +600,7 @@ export function copyCommitFiles(
  * @trace ARCH-000002
  * @trace ARCH-000009
  * @failure HEADなし・不正Base・形式不一致・内容／HEAD変更は拒否する。
- * @security Path・link・容量・期限の既存検査を維持し、読取りを採用許可にしない。
+ * @security Path・link・期限の既存検査を維持し、読取りを採用許可にしない。
  */
 export function readFile(
   capability: Repository,
@@ -655,16 +648,9 @@ export function readFile(
   let mode: "100644" | "100755" | null = null;
   try {
     const info = fs.lstatSync(file);
-    if (
-      !info.isFile() ||
-      info.isSymbolicLink() ||
-      info.nlink !== 1 ||
-      info.size > 1024 * 1024
-    )
+    if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
       throw new Error("repository_file_path_invalid");
     bytes = fs.readFileSync(file);
-    if (bytes.length > 1024 * 1024)
-      throw new Error("repository_file_content_too_large");
     const tracked = ctx.run(ctx.owner, [
       "ls-tree",
       baseCommit,
@@ -692,7 +678,7 @@ export function readFile(
     "--",
     selectedPath,
   ]);
-  if (diff.status !== 0 || Buffer.byteLength(diff.stdout) > 256 * 1024)
+  if (diff.status !== 0)
     throw new Error("repository_file_observation_unavailable");
   if (ctx.inspect().head !== before.head)
     throw new Error("repository_file_worktree_mismatch");
@@ -702,7 +688,6 @@ export function readFile(
       !fresh.isFile() ||
       fresh.isSymbolicLink() ||
       fresh.nlink !== 1 ||
-      fresh.size > 1024 * 1024 ||
       !fs.readFileSync(file).equals(bytes)
     )
       throw new Error("repository_file_content_changed");
@@ -743,6 +728,5 @@ export function readFile(
     content,
     binary,
     patch: diff.stdout,
-    truncated: false,
   };
 }

@@ -14,13 +14,13 @@ import { setTimeout } from "node:timers/promises";
 import { resolveRepositoryAccess } from "../../../../access-management/src/index.ts";
 import {
   createFilesystemRepositoryObservationPort,
+  type FilesystemStoreRoot,
   inspectRepositoryManifest,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
-  type FilesystemStoreRoot,
 } from "../../../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRoot,
   getRepository,
+  resolveVerifiedRepositoryRoot,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import { readActionForm, setResponseHeaders } from "../security.ts";
@@ -133,7 +133,6 @@ export async function handleWorkspaceAction({
         throw new Error("workspace_access_unavailable");
       const observer = createFilesystemRepositoryObservationPort(
         verified.capability,
-        1_048_576,
       );
       const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
       if (file.status !== "resolved")
@@ -154,7 +153,7 @@ export async function handleWorkspaceAction({
       };
     }
     dispatched = true;
-    const { executeWorkspace: executeWorkspace } = await import(
+    const { executeWorkspace } = await import(
       "../../../../coordinator/src/index.ts"
     );
     if (requestSignal.aborted || response.destroyed) return;

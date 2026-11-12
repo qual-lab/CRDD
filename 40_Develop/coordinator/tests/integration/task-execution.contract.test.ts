@@ -58,6 +58,8 @@ const revision = "a".repeat(40);
  */
 for (const mode of [
   "normal",
+  "many_results",
+  "many_results_invalid",
   "none",
   "read_failure",
   "double_notification",
@@ -184,7 +186,8 @@ for (const mode of [
                       ? (results[0]?.recoveryId ?? "fixture-missing")
                       : result.recoveryId,
                   resultId:
-                    mode === "second_result_invalid" && index === 1
+                    (mode === "second_result_invalid" && index === 1) ||
+                    (mode === "many_results_invalid" && index === 128)
                       ? "0".repeat(64)
                       : result.resultId,
                   consumer: "orchestrator" as const,
@@ -201,7 +204,13 @@ for (const mode of [
             attempt.bindResultReader?.(delivery);
           const result = await completed(attempt);
           if (mode !== "none")
-            results = registerSyntheticResults(root, attempt.operationId);
+            results = registerSyntheticResults(
+              root,
+              attempt.operationId,
+              mode === "many_results" || mode === "many_results_invalid"
+                ? 129
+                : 2,
+            );
           const history = path.join(
             root,
             ".crdd",
@@ -346,7 +355,7 @@ for (const mode of [
       outcome.status,
       mode === "cancelled"
         ? "cancelled"
-        : mode === "normal" || mode === "none"
+        : mode === "normal" || mode === "many_results" || mode === "none"
           ? "completed"
           : "blocked",
       JSON.stringify(outcome),
@@ -357,14 +366,22 @@ for (const mode of [
       stored.value.tasks[0]?.state,
       mode === "cancelled"
         ? "cancelled"
-        : mode === "normal" || mode === "none" || mode === "save_after_effect"
+        : mode === "normal" ||
+            mode === "many_results" ||
+            mode === "none" ||
+            mode === "save_after_effect"
           ? "completed"
           : "running",
     );
     assert.equal(
       stored.value.tasks[0]?.resultAcceptances.length,
-      mode === "normal" || mode === "save_after_effect" || mode === "cancelled"
-        ? 2
+      mode === "normal" ||
+        mode === "many_results" ||
+        mode === "save_after_effect" ||
+        mode === "cancelled"
+        ? mode === "many_results"
+          ? 129
+          : 2
         : 0,
     );
     assert.ok(
@@ -377,15 +394,20 @@ for (const mode of [
       ),
     );
     const accepted =
-      mode === "normal" || mode === "save_after_effect" || mode === "cancelled";
-    assert.equal(savedRoot.resultReceipts.length, accepted ? 2 : 0);
+      mode === "normal" ||
+      mode === "many_results" ||
+      mode === "save_after_effect" ||
+      mode === "cancelled";
+    const resultCount =
+      mode === "many_results" || mode === "many_results_invalid" ? 129 : 2;
+    assert.equal(savedRoot.resultReceipts.length, accepted ? resultCount : 0);
     assert.equal(
       savedRoot.operations.length,
-      mode === "none" || accepted ? 0 : 2,
+      mode === "none" || accepted ? 0 : resultCount,
     );
     assert.equal(
       savedRoot.pendingDeliveries.length,
-      mode === "none" || accepted ? 0 : 2,
+      mode === "none" || accepted ? 0 : resultCount,
     );
   });
 }

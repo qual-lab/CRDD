@@ -215,9 +215,12 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
       if (scenario === "display-throw") throw Error("PRIVATE");
       displayed.push(text);
     });
-    const expectedDisplay = ["ok", "remediation", "fixture-retained"].includes(
-      scenario,
-    );
+    const expectedDisplay = [
+      "ok",
+      "remediation",
+      "fixture-retained",
+      "oversize",
+    ].includes(scenario);
     assert.equal(result.displayed, expectedDisplay);
     assert.deepEqual(displayed, expectedDisplay ? [summary] : []);
     assert.equal(

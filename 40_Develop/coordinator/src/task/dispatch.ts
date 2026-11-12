@@ -160,7 +160,6 @@ export function validSingleTaskResult(
           record.candidateId.length > 512)) ||
       !Array.isArray(record.recoveryIds) ||
       types.isProxy(record.recoveryIds) ||
-      record.recoveryIds.length > 128 ||
       Reflect.ownKeys(record.recoveryIds).some(
         (key) =>
           key !== "length" &&
@@ -188,11 +187,7 @@ export function validSingleTaskResult(
     }
     const rawObligations = record.recoveryObligations;
     if (rawObligations !== undefined) {
-      if (
-        !Array.isArray(rawObligations) ||
-        types.isProxy(rawObligations) ||
-        rawObligations.length > 128
-      )
+      if (!Array.isArray(rawObligations) || types.isProxy(rawObligations))
         return false;
       const identities = new Set<string>();
       const ids = new Set<string>();
@@ -1220,7 +1215,7 @@ export async function runCoordinatorOperation(
               { state, completedTaskIds, processRestartRequired },
             );
           if (observed.status === "completed") {
-            if (observed.results.length === 0 || observed.results.length > 128)
+            if (observed.results.length === 0)
               return finalizeOwnedFailure(
                 "orchestrator_result_delivery_invalid",
                 { state, completedTaskIds, processRestartRequired },

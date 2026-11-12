@@ -1,5 +1,9 @@
 # AI Adapter詳細設計
 
+## Claude入力件数とTurn予算の分離 — 2026-11-12
+
+Claude作業量のread／allowed Path数・受入条件数・是正所見数には、旧64／16／64件の個別上限を再適用しない。各値は既存最小値以上の安全整数とし、閉Schemaを維持する。Turn計算式と硬上限16、超過時の`claude_task_workload_split_required`は変更しない。したがって条件17件でも推計10Turnなら計画可能だが、作業量から計算した予算が16を超えれば引き続き拒否する。結果の容量受理とProvider実行予算の承認を混同しない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: ai-adapter
 状態: Candidate
@@ -19,7 +23,7 @@ Task JSONLの非秘密実行観測には、完了Itemのerror型件数`itemError
 
 `itemErrorKnownWarningTextCount`は固定0.164.0の開発中機能警告・モデルCode Mode対応警告の全文定型に一致したitem数を示す。可変部分は機能key集合・設定Path・Model識別子だけとし、4096文字以内の単一行を検査する。元通知種別はJSONLで失われるため、同じ文面の通常ErrorItemと区別せず、Warning由来・非故障・成功を表さない。総数・Code Mode件数・語句分類・未分類件数から減算せず共同保持する。未知本文は一致零とし、新fieldが存在しない旧記録は欠測のまま維持する。件数は0〜itemErrorCountだけを受理する。
 
-内部error messageの語句観測は`itemErrorHostMentionCount`、`itemErrorSpawnMentionCount`、`itemErrorProtocolMentionCount`、`itemErrorConnectionMentionCount`、`itemErrorToolMentionCount`、`itemErrorPermissionMentionCount`、`itemErrorMissingPathMentionCount`、`itemErrorTimeoutMentionCount`で区別する。各値は該当語句を含むerror item数で、同じitemの複数語句は重複計上する。いずれの語句にも一致しないitemとmessage欠測は`itemErrorUnclassifiedCount`に含める。単にCode Modeを言及するだけでは分類済みとしない。これらは原因・発生点を確定するcodeではなく、実行許可・採否・清掃成立へ利用しない。本文はメモリ内でだけ処理し、任意Path・Command・秘密値を保存しない。各件数は0〜itemErrorCount、総数上限4096。旧観測に九fieldがない場合は欠測を維持し、部分集合や零補完を受理しない。
+内部error messageの語句観測は`itemErrorHostMentionCount`、`itemErrorSpawnMentionCount`、`itemErrorProtocolMentionCount`、`itemErrorConnectionMentionCount`、`itemErrorToolMentionCount`、`itemErrorPermissionMentionCount`、`itemErrorMissingPathMentionCount`、`itemErrorTimeoutMentionCount`で区別する。各値は該当語句を含むerror item数で、同じitemの複数語句は重複計上する。いずれの語句にも一致しないitemとmessage欠測は`itemErrorUnclassifiedCount`に含める。単にCode Modeを言及するだけでは分類済みとしない。これらは原因・発生点を確定するcodeではなく、実行許可・採否・清掃成立へ利用しない。本文はメモリ内でだけ処理し、任意Path・Command・秘密値を保存しない。各件数は0〜itemErrorCountとする。旧観測に九fieldがない場合は欠測を維持し、部分集合や零補完を受理しない。
 
 Codexの非秘密実行観測の検査は`codex/observation.ts`の内部`inspectCodexExecutionObservation(raw: unknown)`が所有する。固定field、数値、mention相関、本文非公開を検査し、凍結観測又はnullを返す。既存`provider/input.ts`の通常データ捕捉を再利用し、現行形・warning欠測形・mention欠測形・旧transport形の読取りを欠測補完せず維持する。Provider解析は生成直後に内部検査を一回通し、不成立時は既存の不正結果へ閉じる。通常RootにはInspectorを公開せず、公開Parserの返却型からExecutorのCompletionResult、Coordinatorの段階結果まで検査済み観測型を伝播させる。同Processの製品利用側は再検査しない。検証ツールの未信頼JSON受入だけが、既存の`./testing`入口から内部Inspectorを利用する。この検査はProvider固有の診断値の受理だけで、実行許可・原因確定・回収成立を意味しない。
 
@@ -114,11 +118,15 @@ Provider・Effort・技術Model選定・Turn診断の宣言は既存`provider/ty
 
 Provider入力は内部の`provider/input.ts`で通常Object／Arrayを捕捉し、応答JSONは`provider/json.ts`で重複key・不正文法・余剰文字を拒否する。Catalog検査からProvider計画へ循環しない純粋Moduleに閉じ、保存機能や共通ライブラリを新設しない。Domainの保存入力検査とは適用境界を分け、AI Adapterの入力検査からDomainを呼ばない。汎用JSON解析は内部に隠し、上位の一般JSON読取りはDomainの既存APIを使う。
 
-助言参照の入力固定と内容検査は同じ`parseAdviceReferences`を使用する。既存の1024件・512byte上限と文字列・重複条件へ統一し、既存plain-data配列検査で動的Propertyを評価せずコピーする。Executor独自の256件上限は撤去する。新しい汎用Snapshot API、Registry、保存処理は公開しない。
+助言参照の入力固定と内容検査は同じ`parseAdviceReferences`を使用する。独自の参照件数・byte上限を持たず、空値・NUL・周辺空白・重複を拒否し、既存plain-data配列検査で動的Propertyを評価せずコピーする。新しい汎用Snapshot API、Registry、保存処理は公開しない。
 
 Provider応答の共通内容正規化は`provider/task-result.ts`（編集・レビュー）と`provider/advice-result.ts`（助言・許可参照・Schema）が所有する。個別内容検査・Schema取得はRoot非公開とし、利用側は`parseProviderResult`の検査済み結果だけを使用する。Envelope抽出と内容検査を一回の共通入口で完了し、既存の拒否順序・理由・返却shapeを維持する。是正許可の発行はCoordinatorに残す。
 
-Domainにあった同じ内容検査は保存処理から利用されていなかったため、元試験とともにAI Adapterへ一実体移管し、Domainの旧ファイル・公開APIは撤去する。正規値・欠測・余剰・動的Property・不正所見・許可外参照と全拒否理由を元契約へ照合する。SchemaのJSON bytesと既存Command Hashも同一とし、Domainの保存Schema・Writer・遷移は変更しない。
+Domainにあった同じ内容検査は保存処理から利用されていなかったため、元試験とともにAI Adapterへ一実体移管し、Domainの旧ファイル・公開APIは撤去した。正規値・欠測・余剰・動的Property・不正所見・許可外参照と拒否理由は現行内容契約へ照合する。Domainの保存Schema・Writer・遷移は変更しない。
+
+Task／Adviceでは、受領済み結果の総byte、要約・所見・助言本文、Path全長、Path・検証・所見・項目・参照・JSONLイベント件数による独自拒否を撤去する。Codex同梱JSON Schema、Claudeの固定Schema、共通内容ParserとEnvelope抽出を同時に追従する。Reviewerの`criterionNumber`は正の安全整数とし、実際の受入条件数との照合はCoordinatorが所有する。閉Schema・重複JSON Key・Path文法・所見と判断の整合・許可集合へのexact参照・動的入力拒否は維持する。内部契約から旧容量fieldを撤去し、互換用の定数や常時無制限fieldは残さない。
+
+実Process出力量・Transport入力・Timeout、Claudeの実行Turn Budget・課金条件は別契約として維持する。Codex boolean Probeの16KiBと既知警告文面の4096文字以内という分類条件はTask／Adviceの受理条件ではなく、今回変更しない。結果の量を許すことはNode.jsのメモリや文字列表現限界をなくす保証ではない。
 
 ## 4. Schemaと拒否境界
 
@@ -178,7 +186,7 @@ AI AdapterへTask State、Consumer ACK、Recovery Registry、認証Home Lockを�
 
 認証の記述やエラー分類だけから再試行・Docker再起動・回収・Authorityを発行しない。
 
-Claudeの非0終了では、NULなし・UTF-8 64KiB以下の曖昧でない単一`result` JSONだけを解釈する。既存の予算・Turn・構造化再試行上限の三subtypeを優先し、次に既存stderr分類（NULなし・8KiB以下）を維持する。stderrで理由を特定できない場合だけ、`error_during_execution`かつ`is_error: true`の`errors`を既存理由へ変換する。説明は一〜128件の非空文字列、各8KiB以下・NULなし、改行結合後も8KiB以下に限る。不正stdoutは分類材料にせず、既知stderrの判定を妨げない。通常回答・未知subtype・`result`本文・未知fieldはエラー説明として使わない。解析例外はstdoutの解釈不能へ閉じる。本文は呼出し内の短命な値に限り、公開／保存するのは従来のProviderと固定理由だけである。
+Claudeの非0終了では、NULなし・曖昧でない単一`result` JSONだけを解釈する。既存の予算・Turn・構造化再試行上限の三subtypeを優先し、次にNULを拒否する既存stderr分類を維持する。stderrで理由を特定できない場合だけ、`error_during_execution`かつ`is_error: true`の非空`errors`配列にある非空・NULなし文字列を既存理由へ変換する。Codexも既知のエラーイベントだけを分類材料とし、通常agent_messageを採用しない。受領済みstdout／stderr、行・説明件数、個別・結合本文の独自容量拒否を撤去する。不正stdoutは分類材料にせず、既知stderrの判定を妨げない。通常回答・未知subtype・`result`本文・未知fieldはエラー説明として使わない。解析例外はstdoutの解釈不能へ閉じる。本文は呼出し内の短命な値に限り、公開／保存するのは従来のProviderと固定理由だけである。
 
 ## 7. Provider差の公開契約と実行境界
 

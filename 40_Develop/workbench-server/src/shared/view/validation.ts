@@ -8,18 +8,18 @@
  * @security 資格・認可Authorityを新設せず、既存の秘密非搬送と受理条件を維持する。
  */
 import type {
+  AiSelectionReadResult,
   AiSelectionSaveResult,
   AiSelectionSnapshot,
-  AiSelectionReadResult,
+  FederatedProjectProjection,
 } from "../../../../domain-model/src/index.ts";
-import type { FederatedProjectProjection } from "../../../../domain-model/src/index.ts";
 import type {
+  WorkbenchAccessViewModel,
+  WorkbenchArtifactViewModel,
+  WorkbenchClientModel,
   WorkbenchMainViewModel,
   WorkbenchProjectDetailViewModel,
   WorkbenchRecordDetailViewModel,
-  WorkbenchArtifactViewModel,
-  WorkbenchClientModel,
-  WorkbenchAccessViewModel,
 } from "./types.ts";
 /**
  * JSON境界の未知値がWorkbench Client Modelの必須外形を満たすか検査する。
@@ -111,7 +111,7 @@ export function inspectWorkbenchClientModel(
  * @precondition HTTP成功をCallerが確認済み。
  * @postcondition 共有選択と出所が一致し、原文を変更しない。
  * @effect N/A: メモリ内検査。
- * @failure 不正外形・種別・Identity・512KiB超過は固定例外。
+ * @failure 不正外形・種別・Identityは固定例外。
  * @invariant 表示検査をRoot認可やFile安全性の証明へ使わない。
  * @boundary Reader JSONとReact表示。
  * @security Root・Token等の余剰fieldを拒否する。
@@ -135,8 +135,7 @@ export function inspectWorkbenchArtifactModel(
     !isRecord(value.artifact) ||
     Object.keys(value.artifact).sort().join(",") !== "identity,kind,markdown" ||
     typeof value.artifact.identity !== "string" ||
-    typeof value.artifact.markdown !== "string" ||
-    new TextEncoder().encode(value.artifact.markdown).byteLength > 512 * 1024
+    typeof value.artifact.markdown !== "string"
   )
     throw new Error("workbench_client_model_invalid");
   const artifact = value.artifact;
@@ -147,7 +146,6 @@ export function inspectWorkbenchArtifactModel(
     const identity = String(artifact.identity);
     if (
       identity.length === 0 ||
-      identity.length > 512 ||
       !identity.endsWith(".md") ||
       identity.startsWith("/") ||
       identity.includes("\\") ||
@@ -642,8 +640,6 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof value.worktree.diff.path === "string" &&
         typeof value.worktree.diff.preparedPatch === "string" &&
         typeof value.worktree.diff.workingPatch === "string" &&
-        typeof value.worktree.diff.preparedTruncated === "boolean" &&
-        typeof value.worktree.diff.workingTruncated === "boolean" &&
         typeof value.worktree.diff.unregistered === "boolean")) &&
     isCredentialAdministrationView(value.credentials) &&
     (value.aiSelection === null ||

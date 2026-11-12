@@ -419,7 +419,6 @@ export function projectCoordinatorTaskSettlement(
       typeof fact.resultUnresolved !== "boolean" ||
       !Array.isArray(fact.recoveryIds) ||
       fact.recoveryIds.length === 0 ||
-      fact.recoveryIds.length > 128 ||
       !fact.recoveryIds.every((id) => typeof id === "string") ||
       new Set(fact.recoveryIds).size !== fact.recoveryIds.length
     )
@@ -749,26 +748,24 @@ function validRuntimeTaskReferences(
     if (history.has(item.id)) return false;
     history.add(item.id);
   }
-  {
-    for (const groups of evidenceGroups.values()) {
-      const acquired = groups.find(
-        (item) => item.content.disposition === "acquired",
-      );
-      if (
-        groups.length === 1 &&
-        acquired &&
-        !snapshot.leaseIntents.some(
-          (item) =>
-            item.projectId === acquired.projectId &&
-            item.queueId === acquired.content.queueId &&
-            item.kind === acquired.content.kind &&
-            item.ownerGeneration === acquired.content.ownerGeneration &&
-            item.ownerProcessId === acquired.content.ownerProcessId &&
-            item.phase === "lock_owned",
-        )
+  for (const groups of evidenceGroups.values()) {
+    const acquired = groups.find(
+      (item) => item.content.disposition === "acquired",
+    );
+    if (
+      groups.length === 1 &&
+      acquired &&
+      !snapshot.leaseIntents.some(
+        (item) =>
+          item.projectId === acquired.projectId &&
+          item.queueId === acquired.content.queueId &&
+          item.kind === acquired.content.kind &&
+          item.ownerGeneration === acquired.content.ownerGeneration &&
+          item.ownerProcessId === acquired.content.ownerProcessId &&
+          item.phase === "lock_owned",
       )
-        return false;
-    }
+    )
+      return false;
   }
   return true;
 }
@@ -1249,9 +1246,9 @@ export function nullableId(value: unknown) {
  *
  * @responsibility string Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input value: unknown、maximum
+ * @input value: unknown
  * @returns value is readonly string[]を返す。
- * @precondition 「value: unknown、maximum」がstringArrayの入力契約を満たす。
+ * @precondition 「value: unknown」がstringArrayの入力契約を満たす。
  * @postcondition stringArrayの責務を完了した結果だけを返す。
  * @effect N/A: stringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: stringArrayは独自の失敗分岐を所有しない。
@@ -1260,17 +1257,10 @@ export function nullableId(value: unknown) {
  * @security stringArrayはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: stringArrayは共有非同期状態を持たない同期処理である。
  */
-export function stringArray(
-  value: unknown,
-  maximum = 128,
-): value is readonly string[] {
+export function stringArray(value: unknown): value is readonly string[] {
   return (
     Array.isArray(value) &&
-    value.length <= maximum &&
-    value.every(
-      (item) =>
-        typeof item === "string" && item.length > 0 && item.length <= 512,
-    )
+    value.every((item) => typeof item === "string" && item.length > 0)
   );
 }
 

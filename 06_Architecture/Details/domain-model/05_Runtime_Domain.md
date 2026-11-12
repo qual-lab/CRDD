@@ -154,7 +154,7 @@ Contextは認証済み主体・同じRootへ結合する。入口と、短期排
 | `readRepositoryAiSelection` | 検証済みRootと信頼したHostの非秘密Catalog値 | 現行available／missing／blockedとidentityを維持。Catalogを要求本文から取得しない |
 | `saveRepositoryAiSelection` | 既存config・expected identity・認可・信頼したCatalog値の結合 | 現行saved／conflict／blocked／unknownと元参照を維持。state.jsonとの二File同時更新を新設しない |
 
-Query集合は現在Snapshotの有限サイズ制約（16MiB）内を対象とする。新しいページングFramework・Cacheは作らず、既存の実行状況ページングだけを維持する。件数や文字数の既存入力上限は移管時に一覧照合し、Coordinatorの同時実行上限を一般Domain Entity数へ転用しない。
+Query集合は現在Snapshotを対象とし、内部保存の固定16MiB制約は撤去する。新しいページングFramework・Cacheは作らず、既存の実行状況ページングだけを維持する。Blocker・Decisionの蓄積4,096件や技術記録64件による拒否も撤去し、Coordinatorの同時実行上限を一般Domain Entity数へ転用しない。
 
 `PlanDefinition`は既存`milestoneAcceptanceCriteria/objectives/tasks`の集合、`ObjectiveDefinition`は`id/acceptanceCriteria`、`TaskDefinition`は`id/objectiveId/dependencies/allowedPaths/conflictKeys`に限る。新たな`planId/goal/title/sourceDocuments`を上記の型に暗黙追加しない。値は不変の通常データへ固定し、未知key、getter／Proxy、不正ID・Path値をEffect前に拒否する。
 
@@ -204,7 +204,9 @@ TaskのallowedPathsはglobal書込み範囲、readPathsはglobal読取り範囲�
 - Planと全Task別入力を一度の通常データSnapshotへ固定し、既存受付requestHashへ結合する。object keyは既存の決定論的Serializer、配列はCallerの宣言順を保持する。同じ意味でも並べ替えて再送したものを同IDで自動同一視しない。
 - 同IDで本文・Task条件・依存・Pathだけが変わった場合も拒否する。選定・Authority・同意はHash一致から発行せず、既存の別検査を維持する。
 - 指示本文は現行と同じProcess内だけに保持する。永続する受付Hashは本文の復元機能ではない。Owner喪失後に同ID同Hashが分かっただけでAIを自動再開しない。
-- Objective最大128、Task最大1024、ID最大128文字、作業指示最大16,384文字、受入条件最大128件・各2,048文字、Path集合最大128件・各512文字という既存境界を維持する。CLIは依頼全体128KiB、HTTP等も各Transportの既存総量上限を維持し、Task数に合わせて上限を増やさない。各要素の最大値を同時に満載できる保証ではない。
+- Objective／Taskの総件数、作業指示・受入条件の本文量、Path集合の件数・全Path長、回復義務・受領・回復IDの蓄積件数による独自拒否は設けない。同じ値を受けるCoordinatorの作成・再計画、公開投影とMCPの結果検査も固定件数で再拒否しない。IDの文法・長さ、非空、型、重複・参照・状態相関と数値の安全整数条件は維持する。同時実行数・再計画回数は外部Effectの動作制御であり、保存容量とは分離して維持する。CLIの依頼全体128KiBとHTTP等の各Transportの既存受信上限は変更せず、Task数に合わせて上限を増やさない。Runtime／OSの資源限界や、あらゆる入口で無制限入力できることを保証しない。
+
+判断の質問・選択肢表示・回答理由・未適用理由・閉鎖理由・条件の説明と根拠ID集合は、容量・件数だけで拒否せずStateと履歴候補へ全量を保持する。ID／Hash・状態名・選択肢の固定種類、回答者・対象・世代・適用結果の相関は変更しない。一時操作記録のpurposeとallowedContent集合も固定容量・件数で拒否せず、用途・Root・世代・Lock、個々のArtifact IDと許可集合への所属確認、固定終端種別と回収条件を維持する。Git候補の選択・関連Change集合・PathはDomainからVCまで同じ全量を渡し、空・重複・不正Path・OID差・Root差を拒否する。
 - 既存`maximumReplans`やReplan関数があるだけで、公開経路で自動再計画が成立しているとは扱わない。Callerが用意していない新Task IDや指示が必要になった場合は、対象Taskを開始せず既存の停止・判断結果へ戻す。先行Taskの成功・失敗・unknown・回復参照を保持し、全体未実行・cleanup済みへ巻き戻さない。既存Replanの適用範囲への影響を実装差分で照合する。
 - 旧Schemaの互換読取り・自動変換は製品へ追加しない。新しい通信Contract版とSchemaは全利用側と同じ固定候補で切り替え、フロントAIの移行案内へ接続する。今回はSourceとObjective受付契約をv2へ変更し、既存Runtimeデータの移行・操作は行わない。
 
@@ -358,7 +360,7 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 
 保存中に外部AI、Docker、Git、長い待機、通知を行わない。認可確認は有限のローカル既存状態確認に限り、ネットワーク認証待機を短期Lockに持ち込まない。Lockの取得／解放／Owner喪失の意味は既存Kernel実装を再利用し、marker削除をOS Lock解放にしない。
 
-保存Fileの16MiB上限・正規UTF-8・固定Schema・未知区画拒否、単一Root、前後実体確認、元Hash、履歴の順序を維持する。一般`committed-json.ts`の256KiB・sidecar方式へ無条件に置き換えない。
+保存Fileの独自16MiB上限は撤去し、正規UTF-8・固定Schema・未知区画拒否、単一Root、前後実体確認、元Hash、履歴の順序を維持する。容量による拒否を別のReaderへ移し替えず、新Storeや自動移行も追加しない。
 
 ### 5.3 一回使用証拠
 
@@ -424,7 +426,7 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 続くSource更新で、Domainの計画検査へID相関・依存循環拒否と`CallerTaskInput`の一対一固定を追加し、Coordinatorの受付Hash二箇所・Task別入力搬送・MCPの閉Schemaを接続した。Objective受付結果は`crdd-coordinator/orchestrator-objective-intake/v2`、MCP Adapter説明はv4。保存SchemaやMCP Protocol版は変更しない。
 
-設定の`ai-selection/types.ts`・`ai-selection/validation.ts`・`storage/ai-selection.ts`はDomainが所有する。技術Catalogの値は信頼したHostがAI Adapterから得て検査・読取り・保存へ明示注入し、HTTP／MCPの要求から受け取らない。Storeは既存1MiB上限・固定Path・CAS・短期排他・出版読戻し・一時物参照を保つ。Domainの一般JSON解析は`plain-data/json.ts`が所有する。AI AdapterはProvider境界内の独立parserを内部利用し、Domainへ依存しない。Workbenchの設定入口はDomainへ直接接続する。Coordinatorの実行Snapshot WriterとPlan／Task／Decisionの一般CRUDは引き続き未完了であり、Core全体の単独稼働を完成としない。
+設定の`ai-selection/types.ts`・`ai-selection/validation.ts`・`storage/ai-selection.ts`はDomainが所有する。技術Catalogの値は信頼したHostがAI Adapterから得て検査・読取り・保存へ明示注入し、HTTP／MCPの要求から受け取らない。Storeの固定1MiB上限を撤去し、固定Path・CAS・短期排他・出版読戻し・一時物参照を保つ。通信設定の16KiBによる拒否も撤去する。Domainの一般JSON解析は`plain-data/json.ts`が所有する。AI AdapterはProvider境界内の独立parserを内部利用し、Domainへ依存しない。Workbenchの設定入口はDomainへ直接接続する。Coordinatorの実行Snapshot WriterとPlan／Task／Decisionの一般CRUDは引き続き未完了であり、Core全体の単独稼働を完成としない。
 
 共通保存の`storage/state.ts`は、固定五ファイルの読取りと三つの確定前ファイルの排他的作成を所有する。`readRuntimeStateFile`と`createRuntimeStatePendingFile`は同じ取引の実体Map・既存Owner照合を受け、現在境界の確認、nlink、上限、wx、発行前記録、fsync、close、読戻しの既存順序を保持する。ファイル名は実行時にも閉集合検査する。任意Snapshot・認可・状態遷移・CASを受け持つAPIではなく、Context消費、技術状態判断と取引全体の確定は今回まだCoordinatorに残る。新しい保存先・Lock・Registryは追加しない。
 

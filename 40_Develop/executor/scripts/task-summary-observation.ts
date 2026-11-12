@@ -122,7 +122,6 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
       if (
         typeof text !== "string" ||
         text.length === 0 ||
-        Buffer.byteLength(text, "utf8") > 2048 ||
         /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(text) ||
         /(?:^|[\s"'`(])(?:[a-zA-Z]:[\\/]|\/|~[\\/]|\\\\|\.\.[\\/])|https?:\/\//u.test(
           text,

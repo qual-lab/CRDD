@@ -51,12 +51,7 @@ function readHistoryFile(file: string): Buffer | null {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
-  if (
-    !before.isFile() ||
-    before.isSymbolicLink() ||
-    before.nlink !== 1 ||
-    before.size > 16 * 1024 * 1024
-  )
+  if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1)
     throw new Error("history_file_invalid");
   const fd = fs.openSync(file, "r");
   try {

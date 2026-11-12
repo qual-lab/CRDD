@@ -258,7 +258,10 @@ export function parseRuntimeActivityObservation(
     RuntimeActivityObservation["singleTasks"]
   >[number][] = [];
   if (Object.hasOwn(record, "singleTasks")) {
-    const items = snapshotRuntimeStateArray(record.singleTasks, 10000);
+    const items = snapshotRuntimeStateArray(
+      record.singleTasks,
+      Number.MAX_SAFE_INTEGER,
+    );
     if (items.status !== "ok") return null;
     for (const item of items.value) {
       const task = snapshotRuntimeStateRecord(
@@ -330,7 +333,10 @@ export function parseRuntimeActivityObservation(
     (record.eventState === "unknown" && record.eventContinuation !== null)
   )
     return null;
-  const rawEvents = snapshotRuntimeStateArray(record.events, 50);
+  const rawEvents = snapshotRuntimeStateArray(
+    record.events,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (rawEvents.status !== "ok") return null;
   if (record.eventState === "unknown" && rawEvents.value.length !== 0)
     return null;
@@ -464,7 +470,7 @@ function parseRuntimeEvent(value: unknown): RuntimeActivityEvent | null {
 function parseActivitySources(
   value: unknown,
 ): readonly ActivitySource[] | null {
-  const raw = snapshotRuntimeStateArray(value, 10000);
+  const raw = snapshotRuntimeStateArray(value, Number.MAX_SAFE_INTEGER);
   if (raw.status !== "ok" || raw.value.length === 0) return null;
   const sources: ActivitySource[] = [];
   for (const entry of raw.value) {

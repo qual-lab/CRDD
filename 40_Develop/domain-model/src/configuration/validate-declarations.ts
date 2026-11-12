@@ -85,7 +85,7 @@ function identifiers(
   value: unknown,
   pattern: RegExp,
 ): readonly string[] | null {
-  if (!Array.isArray(value) || value.length > 128) return null;
+  if (!Array.isArray(value)) return null;
   const identifiers: string[] = [];
   for (const item of value) {
     if (
@@ -139,7 +139,6 @@ export function inspectRepositoryManifest(
     record.repositoryId === record.projectId ||
     typeof record.displayName !== "string" ||
     record.displayName.length < 1 ||
-    record.displayName.length > 160 ||
     typeof record.repositoryRole !== "string" ||
     !ID.test(record.repositoryRole) ||
     ![null, "config/external-send-policy.json"].includes(

@@ -53,11 +53,7 @@ export function readGitUser(repository: Repository): GitUserResult {
         const separator = entry.indexOf("\n");
         const key = entry.slice(0, separator).toLowerCase();
         const value = entry.slice(separator + 1);
-        if (
-          separator < 0 ||
-          /[\u0000-\u001f\u007f]/u.test(value) ||
-          value.length > 512
-        )
+        if (separator < 0 || /[\u0000-\u001f\u007f]/u.test(value))
           throw Error("configuration_invalid");
         if (key === "user.name") name = value || null;
         else if (key === "user.email") email = value || null;

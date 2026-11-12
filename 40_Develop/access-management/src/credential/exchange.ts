@@ -11,9 +11,6 @@ import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
-  CURRENT_LIMIT,
-  PENDING_LIMIT,
-  preparePublicationBytes,
   publishState,
   readCurrent,
   serialize,
@@ -876,7 +873,7 @@ export function prepareKeyExchangeCompletion(
  * @returns 保存完了結果または非秘密の拒否・未完了。
  * @precondition 同Processの提示Ownerまたはログイン済みHost入口。事前表示はConsumerが完了済み。
  * @postcondition 未解決recordと提示not_attemptedを保持し、新規保存・清掃・解放成功時だけtokenを返す。
- * @effect prepared・revoked・credential_storedを別出版。失効確定後だけ容量予約・一生成。
+ * @effect prepared・revoked・credential_storedを別出版。失効確定後だけ候補確認・一生成。
  * @failure 各境界不成立で先へ進まず、最初の失敗と最後の確認段階を分ける。
  * @invariant 同要求内で失効後の旧鍵再認可0。別要求はfresh認可。stored再生成0。
  * @boundary 現在Authority、Filesystem出版、短命提示用結果。
@@ -1015,7 +1012,7 @@ function executeKeyExchange(
             exchange.recoveryId,
           );
         else if (!next && exchange?.stage === "revoked") {
-          firstFailure = "capacity";
+          firstFailure = "candidate";
           const reservation = prepareExchangedCredential(
             current.state,
             exchange.recoveryId,
@@ -1026,16 +1023,6 @@ function executeKeyExchange(
             },
           );
           if (!reservation) throw new Error("candidate");
-          const reserved = preparePublicationBytes(
-            current,
-            reservation,
-            "credential",
-          );
-          if (
-            reserved.nextBytes.byteLength > CURRENT_LIMIT ||
-            reserved.pendingBytes.byteLength > PENDING_LIMIT
-          )
-            throw new Error("capacity");
           firstFailure = "generation";
           const material = createCredentialMaterial();
           if (
@@ -1082,9 +1069,7 @@ function executeKeyExchange(
                 ? "read_back"
                 : published.reason === "state_store_cleanup_failed"
                   ? "cleanup"
-                  : published.reason === "state_store_capacity_exceeded"
-                    ? "capacity"
-                    : "prepare";
+                  : "prepare";
           return published;
         }
         firstFailure = "read_back";
@@ -1320,9 +1305,7 @@ function completeKeyExchange(
                 ? "read_back"
                 : published.reason === "state_store_cleanup_failed"
                   ? "cleanup"
-                  : published.reason === "state_store_capacity_exceeded"
-                    ? "capacity"
-                    : "prepare";
+                  : "prepare";
         return published;
       } catch {
         return {

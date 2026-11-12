@@ -297,7 +297,7 @@
     {
       "symbolId": "coordinator.source.src.security.bounded.file.snapshot",
       "kind": "file",
-      "path": "src/storage/bounded-file-snapshot.ts",
+      "path": "src/storage/file-snapshot.ts",
       "archIds": [
         "ARCH-000014"
       ]

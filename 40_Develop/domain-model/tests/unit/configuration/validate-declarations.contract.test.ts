@@ -41,6 +41,35 @@ test("Repository ManifestはIdentityと宣言だけを受理する", () => {
   });
   assert.equal(manifest?.projectId, "qual-lab.crdd");
   assert.equal(manifest?.repositoryId, "qual-lab.crdd-standard");
+  const capabilities = Array.from(
+    { length: 129 },
+    (_, index) => `capability-${index}`,
+  );
+  const large = {
+    ...manifest,
+    displayName: "表示名".repeat(161),
+    capabilities,
+    contextSurfaces: capabilities,
+  };
+  assert.equal(inspectRepositoryManifest(large)?.capabilities.length, 129);
+  assert.equal(
+    inspectRepositoryManifest(large)?.displayName,
+    large.displayName,
+  );
+  assert.equal(
+    inspectRepositoryManifest({
+      ...large,
+      capabilities: [...capabilities, capabilities[0]],
+    }),
+    null,
+  );
+  assert.equal(
+    inspectRepositoryManifest({
+      ...large,
+      capabilities: [...capabilities, "../bad"],
+    }),
+    null,
+  );
   assert.equal(
     inspectRepositoryManifest({ ...manifest, repositoryRoot: "C:\\secret" }),
     null,

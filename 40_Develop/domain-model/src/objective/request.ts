@@ -6,16 +6,17 @@
  * @trace ARCH-000008
  * @boundary 未信頼要求とDomainの値契約。
  */
+
+import type { AiSelectionChoice } from "../ai-selection/types.ts";
+import { inspectAiSelectionChoice } from "../ai-selection/validation.ts";
+import { normalizeRepositoryRelativePath } from "../repository/path.ts";
 import {
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
 } from "../state/validation.ts";
-import { normalizeRepositoryRelativePath } from "../repository/path.ts";
-import { inspectExecutionPlan, inspectCallerTaskInputs } from "./validation.ts";
-import type { CoordinatorObjectivePlan } from "./types.ts";
 import type { CallerTaskInput } from "../task/types.ts";
-import { inspectAiSelectionChoice } from "../ai-selection/validation.ts";
-import type { AiSelectionChoice } from "../ai-selection/types.ts";
+import type { CoordinatorObjectivePlan } from "./types.ts";
+import { inspectCallerTaskInputs, inspectExecutionPlan } from "./validation.ts";
 /**
  * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
  *
@@ -98,9 +99,9 @@ function validRevision(value: unknown): value is string {
  *
  * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
- * @input value: unknown、maximum: number
+ * @input value: unknown
  * @returns value is stringを返す。
- * @precondition 「value: unknown、maximum: number」がvalidTextの入力契約を満たす。
+ * @precondition 「value: unknown」がvalidTextの入力契約を満たす。
  * @postcondition validTextの責務を完了した結果だけを返す。
  * @effect N/A: validTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: validTextは独自の失敗分岐を所有しない。
@@ -109,11 +110,10 @@ function validRevision(value: unknown): value is string {
  * @security N/A: validTextはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
  */
-function validText(value: unknown, maximum: number): value is string {
+function validText(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.length > 0 &&
-    value.length <= maximum &&
     !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
   );
 }
@@ -123,9 +123,9 @@ function validText(value: unknown, maximum: number): value is string {
  *
  * @responsibility Stringsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
- * @input value: unknown、maximumItems: number、maximumText: number
+ * @input value: unknown
  * @returns readonly string[] | nullを返す。
- * @precondition 「value: unknown、maximumItems: number、maximumText: number」がinspectStringsの入力契約を満たす。
+ * @precondition 「value: unknown」がinspectStringsの入力契約を満たす。
  * @postcondition inspectStringsの責務を完了した結果だけを返す。
  * @effect N/A: inspectStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: inspectStringsは独自の失敗分岐を所有しない。
@@ -134,16 +134,12 @@ function validText(value: unknown, maximum: number): value is string {
  * @security N/A: inspectStringsはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: inspectStringsは共有非同期状態を持たない同期処理である。
  */
-function inspectStrings(
-  value: unknown,
-  maximumItems: number,
-  maximumText: number,
-): readonly string[] | null {
-  const snapshot = snapshotRuntimeStateArray(value, maximumItems);
+function inspectStrings(value: unknown): readonly string[] | null {
+  const snapshot = snapshotRuntimeStateArray(value, Number.MAX_SAFE_INTEGER);
   if (
     snapshot.status !== "ok" ||
     snapshot.value.length === 0 ||
-    !snapshot.value.every((entry) => validText(entry, maximumText)) ||
+    !snapshot.value.every((entry) => validText(entry)) ||
     new Set(
       snapshot.value.map((entry) =>
         (entry as string).replaceAll("\\", "/").toUpperCase(),
@@ -221,20 +217,16 @@ export function inspectCoordinatorObjectiveRequest(
   const choice = Object.hasOwn(request, "choice")
     ? inspectAiSelectionChoice(request.choice)
     : undefined;
-  const acceptanceCriteria = inspectStrings(
-    request.acceptanceCriteria,
-    128,
-    2_048,
-  );
-  const allowedPaths = inspectStrings(request.allowedPaths, 128, 512);
-  const readPaths = inspectStrings(request.readPaths, 128, 512);
+  const acceptanceCriteria = inspectStrings(request.acceptanceCriteria);
+  const allowedPaths = inspectStrings(request.allowedPaths);
+  const readPaths = inspectStrings(request.readPaths);
   if (
     !validId(request.intakeEpoch) ||
     !validId(request.requestId) ||
     !validId(request.projectId) ||
     !validId(request.milestoneId) ||
     !validRevision(request.repositoryRevision) ||
-    !validText(request.objective, 16_384) ||
+    !validText(request.objective) ||
     !acceptanceCriteria ||
     !allowedPaths ||
     !readPaths ||

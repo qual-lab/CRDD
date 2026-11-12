@@ -737,12 +737,34 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
   const end = source.indexOf("\n/**", start);
   assert.ok(start > 0 && end > start);
   const prefix = "[Coordinator lifecycle] ";
+  const selectionPrefix = "[Coordinator selection] ";
+  const selectionKeys = [
+    "callerDeclaredAttributes",
+    "effort",
+    "event",
+    "highCostSelectionAllowed",
+    "inputBasis",
+    "model",
+    "provider",
+    "selectionReason",
+    "speedMode",
+    "taskRole",
+  ];
+  const attributes = [
+    "workClass",
+    "planState",
+    "risk",
+    "difficulty",
+    "decisionImpact",
+  ];
   const parse = runInNewContext(
     `${stripTypeScriptTypes(source.slice(start, end))};parseKnownDiagnosticLine`,
     {
-      KNOWN_PREFIXES: [prefix],
+      KNOWN_PREFIXES: [prefix, selectionPrefix],
       LIFECYCLE_PREFIX: prefix,
-      SELECTION_PREFIX: "selection",
+      SELECTION_PREFIX: selectionPrefix,
+      SELECTION_KEYS: selectionKeys,
+      CALLER_DECLARED_ATTRIBUTES: attributes,
       parseJsonRecord: JSON.parse,
       provider: (v: unknown) => v === "codex" || v === "claude",
       role: (v: unknown) => v === "executor" || v === "reviewer",
@@ -752,6 +774,29 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
         Object.keys(v).sort().join() === [...keys].sort().join(),
       inspectTaskStageDiagnostic,
     },
+  );
+  const selection = {
+    event: "coordinator_selection_before_provider_effect",
+    taskRole: "executor",
+    provider: "codex",
+    model: "synthetic",
+    effort: "medium",
+    speedMode: "standard",
+    selectionReason: "a".repeat(16_385),
+    inputBasis:
+      "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+    callerDeclaredAttributes: attributes,
+    highCostSelectionAllowed: false,
+  };
+  assert.equal(
+    parse(selectionPrefix + JSON.stringify(selection)).kind,
+    "runtime",
+  );
+  assert.equal(
+    parse(
+      selectionPrefix + JSON.stringify({ ...selection, selectionReason: "" }),
+    ).kind,
+    "violation",
   );
   const value = {
     event: "coordinator_task_stage_observed",

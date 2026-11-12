@@ -14024,13 +14024,19 @@ test("範囲指定を直接の参照元と参照先へ広げる", () => {
     path.join(root, "03_IA", "C.md"),
     "[Discovery](../01_Discovery/A.md)\n",
   );
+  const extraPaths = Array.from(
+    { length: 101 },
+    (_, i) => `01_Discovery/Extra-${String(i).padStart(3, "0")}.md`,
+  );
+  for (const extra of extraPaths) write(path.join(root, extra), "# Extra\n");
 
   const result = runChecker(root, "--scope", "01_Discovery");
   assert.equal(result.status, 0);
   assert.deepEqual(
     new Set(result.report.expanded_scope),
-    new Set(["01_Discovery/A.md", "02_UX/B.md", "03_IA/C.md"]),
+    new Set(["01_Discovery/A.md", "02_UX/B.md", "03_IA/C.md", ...extraPaths]),
   );
+  assert.equal(result.report.expanded_scope.length, 104);
 });
 
 /**

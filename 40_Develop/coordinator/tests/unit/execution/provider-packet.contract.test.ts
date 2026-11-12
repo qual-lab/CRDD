@@ -249,7 +249,6 @@ test("助言Packetの非共有契約を維持する", () => {
   assert.deepEqual(describeProviderAdvicePacketContract(), {
     contract: "crdd-executor/advice-input",
     contractRevision: 2,
-    maximumPromptBytes: 524288,
     singleUse: true,
     repositoryMounted: false,
     workspaceMounted: false,

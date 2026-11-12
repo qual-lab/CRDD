@@ -1,5 +1,9 @@
 # QA-000009 外部送信と公開Transportの検証定義
 
+## 保存設定Readerと完成出力の内部量制約撤去 — 2026-11-12
+
+WB／MCPのpublicOrigin保存設定を旧16KiB超でも読み取り、Schema・非Link・実体と読取り後照合・close失敗の扱いを維持する。MCP完成管理結果の16MiB置換を撤去して同じ公開結果を保持する一方、HTTP／MCP受信byte・Field上限・Credential／ID形式は変更しない。検証Inventoryは257件と末尾不正を、Lifecycle診断は17通知・旧4,096byte超と不正通知を対照する。実Docker観測や実AI送信を行わず、局所・合成境界として記録する。
+
 B2のReader移管では、`EST-ST-003`の技術入力・子Process・取消と終了観測をPA内の`terminal-reader`System試験へ移す。Coordinator側はRoot APIへの本番接続、Task標準入力との分離、上位poisonと送信許可を確認する。六桁は搬送文法であり、コード生成・期待値一致・同意をPAの責務へ移さない。過去の試験結果を移管先の現在Passへ流用しない。
 
 成果物種別: Quality定義

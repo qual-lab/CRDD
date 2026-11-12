@@ -9,7 +9,6 @@
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
  */
 
-import type { Lock } from "../../../lock/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -17,13 +16,13 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import type { Lock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  RUNTIME_STATE_MAXIMUM_BYTES,
   requireReadyRepositoryRuntimeDataArea,
   sameStableFileIdentity,
 } from "../../src/index.ts";
@@ -189,7 +188,6 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
         Object,
         JSON,
         path,
-        RUNTIME_STATE_MAXIMUM_BYTES,
         sameStableFileIdentity,
         decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
         decodeCoordinatorHistoryRows: (bytes: Buffer) =>
@@ -258,7 +256,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
                 : "same",
           };
         },
-        readStableBoundedFileSnapshot: (file: string) => {
+        readStableFileSnapshot: (file: string) => {
           const name = path.basename(file),
             count = (reads.get(name) ?? 0) + 1;
           reads.set(name, count);

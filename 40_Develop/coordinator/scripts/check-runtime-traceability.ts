@@ -9,7 +9,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectCoordinatorRuntimeTraceability } from "./runtime-traceability.ts";
 
-const MAXIMUM_TEXT_BYTES = 8 * 1024 * 1024;
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "../../..");
 const TRACE_PATH = "07_Quality/Registry/coordinator-runtime-traceability.json";
@@ -17,7 +16,7 @@ const TRACE_PATH = "07_Quality/Registry/coordinator-runtime-traceability.json";
 /**
  * Regular Repository Textを読み取る。
  *
- * @responsibility Regular Repository Textの読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility Regular Repository Textの読取り元、実体・Path確認と読取不能時の結果境界を所有する。
  * @trace ARCH-000018
  * @input repositoryRelativePath: string
  * @returns string | nullを返す。
@@ -54,8 +53,7 @@ function readRegularRepositoryText(
     const relative = path.relative(repositoryRoot, resolved);
     if (relative.startsWith("..") || path.isAbsolute(relative)) return null;
     const stats = fs.statSync(resolved);
-    if (!stats.isFile() || stats.size <= 0 || stats.size > MAXIMUM_TEXT_BYTES)
-      return null;
+    if (!stats.isFile() || stats.size <= 0) return null;
     return fs.readFileSync(resolved, "utf8");
   } catch {
     return null;

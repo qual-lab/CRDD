@@ -7,8 +7,8 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import type { ReactElement } from "react";
-import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 import type { WorkbenchMainViewModel } from "../../shared/view/types.ts";
+import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 
 /**
  * Repositoryの現在差分と許可済み操作を表示する。
@@ -146,14 +146,8 @@ export function Repository({
                 ) : null}
                 <h5>Prepared</h5>
                 <pre>{diff.preparedPatch || "差分なし"}</pre>
-                {diff.preparedTruncated ? (
-                  <small>表示上限で切り詰めました。</small>
-                ) : null}
                 <h5>Working</h5>
                 <pre>{diff.workingPatch || "差分なし"}</pre>
-                {diff.workingTruncated ? (
-                  <small>表示上限で切り詰めました。</small>
-                ) : null}
               </section>
             )}
           </>

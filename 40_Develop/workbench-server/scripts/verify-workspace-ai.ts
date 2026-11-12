@@ -30,10 +30,9 @@ import {
   createLocalPrincipalId,
   decodeCoordinatorHistoryRows,
   observeRepositoryRuntimeDataArea,
-  RUNTIME_STATE_MAXIMUM_BYTES,
   readRepositoryAiSelection,
   readRuntimeOwnedCoordinatorRecoverySnapshot,
-  readStableBoundedFileSnapshot,
+  readStableFileSnapshot,
   resolveRepositoryRuntimeDataPaths,
   saveRepositoryAiSelection,
 } from "../../domain-model/src/index.ts";
@@ -695,10 +694,7 @@ async function verify(
                 const metadata = fs.lstatSync(historyFile);
                 assert.equal(metadata.isSymbolicLink(), false);
                 assert.equal(metadata.nlink, 1);
-                const history = readStableBoundedFileSnapshot(
-                  historyFile,
-                  RUNTIME_STATE_MAXIMUM_BYTES,
-                );
+                const history = readStableFileSnapshot(historyFile);
                 const rows = decodeCoordinatorHistoryRows(history.bytes);
                 assert.ok(rows, "diagnostic_history_invalid");
                 for (const row of rows) {

@@ -12,6 +12,59 @@ import test from "node:test";
 import { convertProviderError } from "../../../src/provider/error.ts";
 
 /**
+ * 受領済み異常出力の量だけで既知理由を失わない。
+ * @responsibility 大きい既知・未知の同量対照と既存優先順位を確認する。
+ * @trace ERB-UT-032
+ * @precondition 合成stdout・stderrだけを使う。
+ * @stimulus 旧64KiB・8KiB・128行を超えるエラーと同量未知説明を渡す。
+ * @observation 固定理由だけが返り本文は返らない。
+ * @oracle 既知理由は保持し未知は一般失敗、stderr・subtype優先を保つ。
+ * @cleanup N/A: 実Processなし。
+ * @boundary 未信頼文字列と固定分類の間。
+ */
+test("大きい異常出力も既知理由を保持し同量未知出力は一般失敗にする", () => {
+  const known = `authentication failed ${"x".repeat(70000)}`;
+  const unknown = "x".repeat(known.length);
+  for (const provider of ["codex", "claude"] as const) {
+    const wrap = (message: string) =>
+      provider === "claude"
+        ? JSON.stringify({
+            type: "result",
+            subtype: "error_during_execution",
+            is_error: true,
+            errors: Array(129).fill(message),
+          })
+        : Array(129)
+            .fill(JSON.stringify({ type: "error", message }))
+            .join("\n");
+    assert.deepEqual(
+      convertProviderError(provider, { stdout: wrap(known), stderr: "" }),
+      { provider, reason: "provider_authentication_expired" },
+    );
+    assert.equal(
+      convertProviderError(provider, { stdout: wrap(unknown), stderr: "" })
+        .reason,
+      "provider_process_exit_nonzero",
+    );
+    assert.equal(
+      convertProviderError(provider, { stdout: "", stderr: known }).reason,
+      "provider_authentication_expired",
+    );
+    assert.equal(
+      convertProviderError(provider, { stdout: "", stderr: unknown }).reason,
+      "provider_process_exit_nonzero",
+    );
+    assert.equal(
+      convertProviderError(provider, {
+        stdout: wrap(known),
+        stderr: "quota exceeded",
+      }).reason,
+      "provider_subscription_quota_exhausted",
+    );
+  }
+});
+
+/**
  * 正式エラーイベントだけを既存理由へ分類する。
  * @trace ERB-UT-032
  * @precondition 合成本文のみ。
@@ -22,7 +75,7 @@ import { convertProviderError } from "../../../src/provider/error.ts";
  * @responsibility 正式エラーイベントだけを既存理由へ分類する。
  * @boundary Provider出力の合成値と固定分類。Process・通信なし。
  */
-test("Codex非0終了は有界な構造化エラーだけを分類する", () => {
+test("Codex非0終了は構造化エラーだけを分類する", () => {
   const error = JSON.stringify({
     type: "error",
     message: "unexpected argument '--approve-for-me' found",
@@ -56,19 +109,13 @@ test("Codex非0終了は有界な構造化エラーだけを分類する", () =>
     JSON.stringify({ type: "error", message: 42 }),
     JSON.stringify({ type: "turn.failed", error: "unsupported model" }),
     `${error}\nnot-json`,
-    JSON.stringify({
-      type: "error",
-      message: `unsupported model${"x".repeat(8192)}`,
-    }),
-    Array(129).fill(error).join("\n"),
-    `${" ".repeat(65_537)}${error}`,
     `${error}\0`,
   ])
     assert.equal(
       convertProviderError("codex", { stdout, stderr: "" }).reason,
       "provider_process_exit_nonzero",
     );
-  for (const stderr of ["\0", "x".repeat(8193)])
+  for (const stderr of ["\0"])
     assert.equal(
       convertProviderError("codex", { stdout: error, stderr }).reason,
       "provider_process_exit_nonzero",
@@ -108,7 +155,7 @@ test("Codex非0終了は有界な構造化エラーだけを分類する", () =>
  * @cleanup N/A: 純粋同期処理。
  * @boundary 外部AI・Process・保存なし。
  */
-test("Claude非0終了は有界な実行失敗JSONを既存理由へ変換する", () => {
+test("Claude非0終了は実行失敗JSONを既存理由へ変換する", () => {
   const encode = (
     errors: readonly string[],
     subtype = "error_during_execution",
@@ -199,16 +246,16 @@ test("Claude非0終了は有界な実行失敗JSONを既存理由へ変換する
   );
   assert.equal(
     convertProviderError("claude", { stdout: ` ${exact}`, stderr: "" }).reason,
-    "provider_process_exit_nonzero",
+    "provider_authentication_expired",
   );
 });
 
 /**
- * Claudeの未知・曖昧・過大な入力を説明として利用しない。
- * @responsibility 通常回答の誤分類とエラー説明の容量逸脱を防ぐ。
+ * Claudeの未知・曖昧な入力を説明として利用しない。
+ * @responsibility 通常回答の誤分類と不正なエラー説明の利用を防ぐ。
  * @trace ERB-UT-032
  * @precondition 合成入力だけを使用する。
- * @stimulus 件数・UTF-8容量境界、不正JSON、深いJSON、未知Envelope。
+ * @stimulus 不正JSON、深いJSON、未知Envelope。
  * @observation 固定理由と例外の不在。
  * @oracle 不正stdoutは分類に使わず、既知stderrの判定は維持する。
  * @cleanup N/A: 純粋同期処理。
@@ -237,15 +284,6 @@ test("Claude非0終了は通常回答・未知形・不正なエラー説明を�
     encode({ errors: [{}] }),
     encode({ errors: [""] }),
     encode({ errors: ["authentication failed\0"] }),
-    encode({ errors: ["authentication failed", "x".repeat(8_193)] }),
-    encode({ errors: ["authentication failed", "あ".repeat(2_731)] }),
-    encode({
-      errors: [
-        "authentication failed",
-        "x".repeat(8_192 - Buffer.byteLength("authentication failed")),
-      ],
-    }),
-    encode({ errors: Array(129).fill("authentication failed") }),
     '{"type":"result","subtype":"error_during_execution","is_error":true,"errors":["authentication failed"],"errors":["network error"]}',
     `${JSON.stringify(envelope)}\n{}`,
     `${JSON.stringify(envelope)}\0`,
@@ -264,7 +302,7 @@ test("Claude非0終了は通常回答・未知形・不正なエラー説明を�
       "provider_authentication_expired",
     );
   }
-  for (const stderr of ["\0", "x".repeat(8_193)])
+  for (const stderr of ["\0"])
     assert.equal(
       convertProviderError("claude", {
         stdout: JSON.stringify(envelope),

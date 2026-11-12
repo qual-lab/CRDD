@@ -11,6 +11,97 @@
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import path from "node:path";
+import { stripTypeScriptTypes } from "node:module";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+
+/**
+ * 計測設定ReaderのFile量拒否だけを撤去したことを検証する。
+ * @responsibility 旧128KiB超の設定を既存の検証Ownerへ全量渡す。
+ * @trace PPR-UT-006
+ * @precondition 全I/OとProvider実行を局所代役にする。
+ * @stimulus 正常FileとLinkの設定を読み取る。
+ * @observation 元設定、実行回数、結果書込みとlistener解放。
+ * @oracle 正常量は搬送、Linkは実行前拒否、外部Effectなし。
+ * @cleanup メモリ内代役だけ。
+ * @boundary 計測CLIの内部設定読取り。
+ */
+test("計測設定は旧128KiBを超えても通常実体なら全量搬送する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/measure-development-providers.ts", import.meta.url),
+    "utf8",
+  );
+  const configuration = { description: "a".repeat(131_073) };
+  const raw = JSON.stringify(configuration);
+  const root = path.resolve("synthetic-unused-root");
+  let link = false;
+  let calls = 0;
+  let writes = 0;
+  let listeners = 0;
+  const processStub = {
+    versions: { node: process.versions.node },
+    argv: ["node", "script"],
+    cwd: () => root,
+    pid: 1,
+    on: () => listeners++,
+    off: () => listeners--,
+    stdout: { write: () => true },
+    exitCode: 0,
+  };
+  const filesystem = {
+    lstatSync: (target: string) => ({
+      isDirectory: () => !target.endsWith(".json"),
+      isFile: () => target.endsWith(".json"),
+      isSymbolicLink: () => link && target.endsWith(".json"),
+      size: Buffer.byteLength(raw),
+      dev: 1,
+      ino: 1,
+      birthtimeMs: 1,
+    }),
+    realpathSync: { native: (target: string) => target },
+    readFileSync: () => raw,
+    writeFileSync: () => writes++,
+  };
+  const main = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "main"))});`,
+    [
+      "assertSupportedCoordinatorNodeRuntime",
+      "process",
+      "fs",
+      "path",
+      "resolveVerifiedRepositoryRootFromWorkingDirectory",
+      "getRepository",
+      "ensureRepositoryRuntimeDataArea",
+      "requireReadyRepositoryRuntimeDataArea",
+      "runDevelopmentProviderMeasurement",
+      "AbortController",
+    ],
+  )(
+    () => {},
+    processStub,
+    filesystem,
+    path,
+    () => ({}),
+    () => ({ status: "completed", capability: {} }),
+    () => ({}),
+    () => ({ directory: root }),
+    async (value: unknown) => {
+      calls++;
+      assert.deepEqual(value, configuration);
+      return { status: "completed" };
+    },
+    AbortController,
+  ) as () => Promise<void>;
+  await main();
+  assert.equal(calls, 1);
+  assert.equal(writes, 1);
+  assert.equal(listeners, 0);
+  link = true;
+  await assert.rejects(main(), /measurement_request_invalid/u);
+  assert.equal(calls, 1);
+});
 import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,

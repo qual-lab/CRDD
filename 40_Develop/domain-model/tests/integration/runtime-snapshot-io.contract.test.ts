@@ -3338,18 +3338,18 @@ function stateDirectory(root: string) {
 }
 
 /**
- * PR-D-A-01 enforces the exact stored-record byte boundaryを検証する。
+ * PR-D-A-01 accepts valid records across the former byte boundaryを検証する。
  *
- * @responsibility PR-D-A-01 enforces the exact stored-record byte boundaryの合否判定を所有する。
+ * @responsibility PR-D-A-01 accepts valid records across the former byte boundaryの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus PR-D-A-01 enforces the exact stored-record byte boundaryの対象操作を実行する。
+ * @stimulus PR-D-A-01 accepts valid records across the former byte boundaryの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: domain-model Test Source→対象契約
  */
-test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
+test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
   for (const snapshotBytes of [
     MAX_RECORD_BYTES - 1,
     MAX_RECORD_BYTES,
@@ -3391,38 +3391,17 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
       boundary,
       0,
     );
-    if (snapshotBytes > MAX_RECORD_BYTES) {
-      assert.equal(written.status, "blocked");
-      assert.equal(written.reason, "orchestrator_snapshot_input_invalid");
-      assert.equal(written.manualRecoveryRequired, false);
-      assert.equal(fs.readFileSync(location, "utf8"), baseJson);
-      assert.equal(
-        fs.existsSync(
-          path.join(root, ".crdd", "domain-model", "state.pending.json"),
-        ),
-        false,
-      );
-      assert.equal(
-        readCoordinatorCurrentState(
-          repository.capability,
-          "binding-a",
-          "project-a",
-        ).value,
-        null,
-      );
-    } else {
-      assert.equal(written.status, "completed", JSON.stringify(written));
-      assert.equal(fs.statSync(location).size, inputBytes - dtoOverhead);
-      assert.equal(
-        readCoordinatorCurrentState(
-          repository.capability,
-          "binding-a",
-          "project-a",
-        ).status,
-        "completed",
-      );
-      assert.equal(fs.existsSync(stateDirectory(root)), false);
-    }
+    assert.equal(written.status, "completed", JSON.stringify(written));
+    assert.equal(fs.statSync(location).size, inputBytes - dtoOverhead);
+    assert.equal(
+      readCoordinatorCurrentState(
+        repository.capability,
+        "binding-a",
+        "project-a",
+      ).status,
+      "completed",
+    );
+    assert.equal(fs.existsSync(stateDirectory(root)), false);
   }
   const { root, state } = fixture(t);
   assert.equal(
@@ -3446,12 +3425,9 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
       0,
       binding,
     );
-    if (physicalBytes > MAX_RECORD_BYTES) assert.equal(encoded, null);
-    else {
-      assert.ok(encoded);
-      assert.equal(encoded.length, physicalBytes);
-      assert.ok(decodeRuntimeDomainSnapshot(encoded, binding));
-    }
+    assert.ok(encoded);
+    assert.equal(encoded.length, physicalBytes);
+    assert.ok(decodeRuntimeDomainSnapshot(encoded, binding));
   }
 });
 

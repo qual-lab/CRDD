@@ -10,15 +10,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  inspectCoordinatorObjectiveRequest,
+  inspectCoordinatorProjection,
   inspectExecutionPlan,
   normalizeRepositoryRelativePath,
 } from "../../../src/index.ts";
-import { repositoryPathWithin } from "../../../src/repository/path.ts";
 import {
   inspectExecutionPlanDefinition,
   inspectRuntimePlanDefinition,
   inspectRuntimeProjectDefinition,
 } from "../../../src/objective/validation.ts";
+import { repositoryPathWithin } from "../../../src/repository/path.ts";
 
 /**
  * planでDomainへ移管した実行計画の値境界を検証する。。
@@ -46,6 +48,155 @@ function plan() {
     ],
   };
 }
+
+/**
+ * 旧容量を超える計画を入力・保存定義・公開投影へ接続する。
+ * @responsibility 件数と本文量による拒否だけを撤去し、相関と形式の拒否を維持する。
+ * @trace PPR-UT-006
+ * @precondition 129 Objectiveと1025 Taskの一意な合成計画を用意する。
+ * @stimulus 長い本文・129 Path・受入条件と対応する公開投影を検査する。
+ * @observation 返却配列長、全文、相関不正と安全整数境界の拒否。
+ * @oracle 旧上限超過は受理し、欠測・重複・参照不正・制御文字・範囲逸脱は拒否する。
+ * @cleanup N/A: メモリ内の値のみ。
+ * @boundary Domainの公開純粋入力・投影。
+ */
+test("計画と公開投影は旧件数と本文容量を超えても相関を検査する", () => {
+  const paths = Array.from({ length: 129 }, (_, index) => `src/path-${index}`);
+  const longPath = `src/${"part/".repeat(110)}file.ts`;
+  paths.push(longPath);
+  const criteria = Array.from(
+    { length: 129 },
+    (_, index) => `${index}:${"確認".repeat(2049)}`,
+  );
+  const largePlan = {
+    milestoneAcceptanceCriteria: criteria,
+    objectives: Array.from({ length: 129 }, (_, index) => ({
+      id: `objective-${index}`,
+      acceptanceCriteria: criteria,
+    })),
+    tasks: Array.from({ length: 1025 }, (_, index) => ({
+      id: `task-${index}`,
+      objectiveId: `objective-${index % 129}`,
+      dependencies: [],
+      allowedPaths: index === 0 ? paths : ["src/path-0"],
+      conflictKeys: [],
+    })),
+  };
+  const validated = inspectExecutionPlan(largePlan, { allowedPaths: paths });
+  assert.equal(validated?.objectives.length, 129);
+  assert.equal(validated?.tasks.length, 1025);
+  assert.equal(normalizeRepositoryRelativePath(longPath), longPath);
+  const request = {
+    intakeEpoch: "epoch-a",
+    requestId: "request-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    objective: "説明".repeat(16385),
+    plan: largePlan,
+    taskInputs: largePlan.tasks.map((task) => ({
+      taskId: task.id,
+      objective: "作業".repeat(16385),
+      acceptanceCriteria: ["完了条件"],
+      readPaths: ["src/path-0"],
+    })),
+    acceptanceCriteria: criteria,
+    allowedPaths: paths,
+    readPaths: paths,
+    maximumConcurrency: 5,
+    maximumReplans: 32,
+    originLane: "interactive",
+    adoptResult: false,
+  };
+  const accepted = inspectCoordinatorObjectiveRequest(request);
+  assert.equal(accepted?.objective, request.objective);
+  assert.equal(accepted?.taskInputs.length, 1025);
+  assert.equal(
+    accepted?.taskInputs[1024]?.objective,
+    request.taskInputs[1024]?.objective,
+  );
+  for (const invalid of [
+    { ...request, objective: "" },
+    { ...request, objective: "invalid\0text" },
+    { ...request, allowedPaths: [...paths, paths[0]] },
+    { ...request, readPaths: ["../outside"] },
+    { ...request, taskInputs: request.taskInputs.slice(1) },
+    { ...request, maximumConcurrency: 6 },
+    { ...request, maximumReplans: 33 },
+  ])
+    assert.equal(inspectCoordinatorObjectiveRequest(invalid), null);
+  const objectiveCounts = {
+    planned: 129,
+    executing: 0,
+    integration_pending: 0,
+    accepted: 0,
+    returned: 0,
+    blocked: 0,
+    cancelled: 0,
+  };
+  const taskCounts = {
+    planned: 0,
+    waiting_dependency: 0,
+    ready: 1025,
+    starting: 0,
+    running: 0,
+    cleanup_pending: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+    recovery_required: 0,
+    superseded: 0,
+  };
+  const projection = {
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    generation: 1,
+    milestoneState: "planned",
+    objectiveCounts,
+    taskCounts,
+    objectiveTaskSummaries: largePlan.objectives.map((objective) => ({
+      objectiveId: objective.id,
+      objectiveState: "planned",
+      taskCounts: {
+        ...taskCounts,
+        ready: largePlan.tasks.filter(
+          (task) => task.objectiveId === objective.id,
+        ).length,
+      },
+    })),
+    workProgress: "not_started",
+    qualityState: "not_evaluated",
+    humanDecisionRequired: false,
+    recoveryRequired: false,
+    nextAction: "schedule_task",
+  };
+  assert.equal(
+    inspectCoordinatorProjection(projection)?.taskCounts.ready,
+    1025,
+  );
+  for (const ready of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1])
+    assert.equal(
+      inspectCoordinatorProjection({
+        ...projection,
+        taskCounts: { ...taskCounts, ready },
+      }),
+      null,
+    );
+  assert.equal(
+    inspectCoordinatorProjection({
+      ...projection,
+      taskCounts: { ...taskCounts, ready: Number.MAX_SAFE_INTEGER, running: 1 },
+    }),
+    null,
+  );
+  assert.equal(
+    inspectCoordinatorProjection({
+      ...projection,
+      objectiveTaskSummaries: projection.objectiveTaskSummaries.slice(1),
+    }),
+    null,
+  );
+});
 
 /**
  * 一般CRUDの中間定義と実行受付を混同しない。
@@ -86,15 +237,15 @@ test("Coreの作成途中の計画は実行開始可能な計画ではない", (
 /**
  * Coreの中間保存でも既存の構造検査を維持する。
  * @trace PPR-UT-006
- * @precondition 不正参照・重複・循環・上限超過の値を作る。
+ * @precondition 不正参照・重複・循環の値を作る。
  * @stimulus Core検査と実行受付へ同じ反例を渡す。
  * @observation 両方のnull結果。
  * @oracle 未完成を許しても不正な定義は受理しない。
  * @cleanup 局所値のみ。
  * @boundary 純粋な値検査。
- * @responsibility Coreと実行受付は不正参照・重複・循環・上限超過を共に拒否する
+ * @responsibility Coreと実行受付は不正参照・重複・循環を共に拒否する
  */
-test("Coreと実行受付は不正参照・重複・循環・上限超過を共に拒否する", () => {
+test("Coreと実行受付は不正参照・重複・循環を共に拒否する", () => {
   const complete = plan();
   const task = complete.tasks[0];
   assert.ok(task);

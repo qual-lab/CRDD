@@ -130,11 +130,7 @@ export async function requestWorkbench(
         const chunk = await reader.read();
         if (chunk.done) break;
         size += chunk.value.byteLength;
-        if (
-          size > 16777216 ||
-          expectedGeneration !== generation ||
-          options.signal?.aborted
-        ) {
+        if (expectedGeneration !== generation || options.signal?.aborted) {
           await reader.cancel();
           throw new Error("workbench_response_unavailable");
         }

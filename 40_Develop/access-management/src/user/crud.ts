@@ -15,19 +15,16 @@ import { resolveCredentialAuthentication } from "../credential/authentication.ts
 import { readCredentialId } from "../credential/token.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
 import { isAccessRole } from "../permission/validation.ts";
+import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
-  CURRENT_LIMIT,
   ordinaryChange,
-  PENDING_LIMIT,
-  preparePublicationBytes,
   publishState,
   readCurrent,
   serialize,
   settlePending,
 } from "../storage/store.ts";
-import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import type {
   PreparedUserRoleChange,
@@ -212,23 +209,6 @@ export function executeUserRoleManagementMutation(
         return {
           status: "unavailable" as const,
           reason: "state_store_previous_pending_settled",
-          publication: "not_attempted" as const,
-          revision,
-          cleanupConfirmed: true,
-        };
-      stage = "capacity";
-      const reservation = preparePublicationBytes(
-        current,
-        prepared.next,
-        "management",
-      );
-      if (
-        reservation.nextBytes.byteLength > CURRENT_LIMIT ||
-        reservation.pendingBytes.byteLength > PENDING_LIMIT
-      )
-        return {
-          status: "unavailable" as const,
-          reason: "state_store_capacity_exceeded",
           publication: "not_attempted" as const,
           revision,
           cleanupConfirmed: true,

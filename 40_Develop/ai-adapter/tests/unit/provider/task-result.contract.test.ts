@@ -9,14 +9,202 @@
  * @scope 合成値のみ。AI・Docker・保存なし。
  */
 import assert from "node:assert/strict";
-import {
-  planExecution,
-  parseProviderResult,
-  getAuthenticationDefinition,
-  type ExecutionPlan,
-} from "../../../src/index.ts";
+import fs from "node:fs";
 import test from "node:test";
+import {
+  type ExecutionPlan,
+  getAuthenticationDefinition,
+  parseProviderResult,
+  planExecution,
+} from "../../../src/index.ts";
+import { parseTaskContent } from "../../../src/provider/result.ts";
 import { inspectTaskResultContent } from "../../../src/provider/task-result.ts";
+import { evaluateProviderTaskScope } from "../../../src/provider/plan.ts";
+
+/**
+ * Claudeの入力件数と実行Turn予算を分離する。
+ * @responsibility 旧件数だけの拒否を撤去し、硬いTurn上限と入力文法を維持する。
+ * @trace ERB-UT-023
+ * @precondition 合成作業量を使いProviderは起動しない。
+ * @stimulus 16／17条件、旧64件超、負・小数・危険整数を評価する。
+ * @observation 予算値とinvalid／split_requiredの区別。
+ * @oracle 17条件は10Turn、実行予算超過は拒否、不正文法も拒否する。
+ * @cleanup N/A: 純粋値のみ。
+ * @boundary 共通Task計画の内部予算評価。
+ */
+test("Claudeは旧件数でなくTurn予算と安全整数で作業量を評価する", () => {
+  const base = {
+    readPathCount: 1,
+    allowedPathCount: 1,
+    acceptanceCriterionCount: 16,
+    remediationFindingCount: 0,
+  };
+  for (const [count, turns] of [
+    [16, 9],
+    [17, 10],
+  ] as const) {
+    const result = evaluateProviderTaskScope("claude", "executor", {
+      ...base,
+      acceptanceCriterionCount: count,
+    });
+    assert.equal(result.status, "candidate");
+    if (result.status === "candidate") {
+      assert.equal(result.maximumTurns, turns);
+      assert.equal(result.hardMaximumTurns, 16);
+    }
+  }
+  for (const key of Object.keys(base)) {
+    const large = evaluateProviderTaskScope("claude", "executor", {
+      ...base,
+      [key]: 65,
+    });
+    assert.equal(large.status, "blocked");
+    if (large.status === "blocked")
+      assert.equal(large.reason, "claude_task_workload_split_required");
+    for (const invalid of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const result = evaluateProviderTaskScope("claude", "executor", {
+        ...base,
+        [key]: invalid,
+      });
+      assert.equal(result.status, "blocked");
+      if (result.status === "blocked")
+        assert.equal(result.reason, "claude_task_workload_invalid");
+    }
+  }
+  assert.equal(
+    evaluateProviderTaskScope("claude", "executor", { ...base, extra: 1 })
+      .status,
+    "blocked",
+  );
+});
+
+/**
+ * 受領済みTask内容を独自容量・件数で再拒否しない。
+ * @responsibility Provider包装と共通Parserで同じ正常内容を保持する。
+ * @trace ERB-UT-023
+ * @precondition 大きい合成JSONと固定作業量だけを使う。
+ * @stimulus 1001Path、33検証、65所見、長い本文、17番以上の基準、4097eventを与える。
+ * @observation 両Provider経路の結果・Hashと不正対照の拒否。
+ * @oracle 容量は拒否条件にせずSchema・Path・安全整数・判断相関を維持する。
+ * @cleanup N/A: 外部Processなし。
+ * @boundary Provider包装の文字列→共通Task内容。
+ */
+test("Task結果は旧容量と件数を超えても両Providerで内容を検査する", () => {
+  const longPath = `src/${"part/".repeat(210)}file.ts`;
+  const editing = {
+    status: "completed",
+    summary: "要約".repeat(8193),
+    changedPaths: Array.from(
+      { length: 1001 },
+      (_, index) => `src/file-${index}.ts`,
+    ).concat(longPath),
+    verification: Array.from(
+      { length: 33 },
+      (_, index) => `${index}:${"検証".repeat(1025)}`,
+    ),
+  };
+  const finding = {
+    severity: "high",
+    path: longPath,
+    category: "implementation_defect",
+    criterionNumber: 17,
+    message: "所見".repeat(4097),
+  };
+  const review = {
+    decision: "changes_requested",
+    summary: editing.summary,
+    findings: Array.from({ length: 65 }, (_, index) => ({
+      ...finding,
+      criterionNumber: index + 17,
+    })),
+  };
+  const workload = {
+    readPathCount: 1,
+    allowedPathCount: 1,
+    acceptanceCriterionCount: 1,
+    remediationFindingCount: 0,
+  };
+  for (const [role, content] of [
+    ["executor", editing],
+    ["reviewer", review],
+  ] as const) {
+    for (const provider of ["codex", "claude"] as const) {
+      const raw =
+        provider === "claude"
+          ? JSON.stringify({
+              type: "result",
+              subtype: "success",
+              is_error: false,
+              num_turns: 1,
+              total_cost_usd: 0,
+              ...(role === "executor"
+                ? { structured_output: content }
+                : { result: JSON.stringify(content) }),
+            })
+          : [
+              ...Array.from({ length: 4097 }, () => ({
+                type: "thread.started",
+                thread_id: "synthetic",
+              })),
+              {
+                type: "item.completed",
+                item: { type: "agent_message", text: JSON.stringify(content) },
+              },
+              { type: "turn.completed" },
+            ]
+              .map((event) => JSON.stringify(event))
+              .join("\n");
+      assert.ok(Buffer.byteLength(raw) > 65536);
+      const parsed = parseTaskContent(provider, role, "medium", raw, workload);
+      assert.equal(parsed.status, "confirmed", `${provider}:${role}`);
+      assert.ok(parsed.normalizedResult);
+    }
+  }
+  for (const criterionNumber of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])
+    assert.equal(
+      inspectTaskResultContent(
+        { ...review, findings: [{ ...finding, criterionNumber }] },
+        "reviewer",
+      ).normalizedResult,
+      null,
+    );
+  assert.ok(
+    inspectTaskResultContent(
+      {
+        ...review,
+        findings: [{ ...finding, criterionNumber: Number.MAX_SAFE_INTEGER }],
+      },
+      "reviewer",
+    ).normalizedResult,
+  );
+  assert.equal(
+    inspectTaskResultContent(
+      { ...editing, changedPaths: ["../outside"] },
+      "executor",
+    ).normalizedResult,
+    null,
+  );
+  assert.equal(
+    inspectTaskResultContent({ ...review, decision: "approved" }, "reviewer")
+      .normalizedResult,
+    null,
+  );
+  for (const name of [
+    "codex-executor-result.json",
+    "codex-reviewer-result.json",
+  ]) {
+    const schema = JSON.parse(
+      fs.readFileSync(
+        new URL(`../../../src/codex/${name}`, import.meta.url),
+        "utf8",
+      ),
+    );
+    const serialized = JSON.stringify(schema);
+    assert.equal(/"max(?:Items|Length)"/u.test(serialized), false);
+    assert.equal(serialized.includes('"maximum":16'), false);
+    assert.equal(schema.additionalProperties, false);
+  }
+});
 
 /**
  * 作業量の解析条件は元計画から取得し、contextへ二重保持しない。
@@ -52,6 +240,12 @@ test("公開解析はTaskの役割・Effortと元計画の作業量を使用す�
   });
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") throw Error("fixture_plan_blocked");
+  const schemaIndex = plan.plan.argv.indexOf("--json-schema");
+  assert.ok(schemaIndex >= 0);
+  assert.equal(
+    /"max(?:Items|Length)"/u.test(plan.plan.argv[schemaIndex + 1] ?? ""),
+    false,
+  );
   assert.equal(Object.hasOwn(plan.plan.resultContext, "taskWorkload"), false);
   const observation = {
     exitCode: 0,
@@ -251,7 +445,6 @@ test("Task内容は役割別の閉形式・Path・所見相関を維持し、動
     { ...review, decision: "approved" },
     { ...review, findings: [] },
     { ...review, findings: [{ ...finding, criterionNumber: 0 }] },
-    { ...review, findings: new Array(65).fill(finding) },
   ])
     assert.equal(
       inspectTaskResultContent(candidate, "reviewer").normalizedResult,

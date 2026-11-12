@@ -26,8 +26,6 @@ export const FIXED_REVISION_IDENTITY_CONTRACT =
 
 export const FIXED_REVISION_IDENTITY_CONTRACT_REVISION = 1;
 
-const MAX_HEAD_BYTES = 4_096;
-const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
 const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
@@ -117,9 +115,9 @@ export function readRepositorySnapshot(
  *
  * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000002
- * @input target: string、maximumBytes: number
+ * @input target: string
  * @returns Bufferを返す。
- * @precondition 「target: string、maximumBytes: number」がstableFileの入力契約を満たす。
+ * @precondition 「target: string」がstableFileの入力契約を満たす。
  * @postcondition stableFileの責務を完了した結果だけを返す。
  * @effect 指定Fileを有界で読み取りdescriptorを閉じる。書込みは行わない。
  * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -128,7 +126,7 @@ export function readRepositorySnapshot(
  * @security N/A: stableFileはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
  */
-function stableFile(target: string, maximumBytes: number): Buffer {
+function stableFile(target: string): Buffer {
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
@@ -136,7 +134,7 @@ function stableFile(target: string, maximumBytes: number): Buffer {
       !before.isFile() ||
       before.isSymbolicLink() ||
       before.size < 1n ||
-      before.size > BigInt(maximumBytes)
+      !Number.isSafeInteger(Number(before.size))
     )
       throw new Error("fixed_revision_file_invalid");
     const bytes = Buffer.alloc(Number(before.size));
@@ -209,10 +207,7 @@ function decodeControl(bytes: Buffer): string {
  */
 function readPacked(commonDirectory: string, ref: string): string {
   const matches = decodeControl(
-    stableFile(
-      path.join(commonDirectory, "packed-refs"),
-      MAX_PACKED_REFS_BYTES,
-    ),
+    stableFile(path.join(commonDirectory, "packed-refs")),
   )
     .split("\n")
     .filter((line) => !line.startsWith("#") && !line.startsWith("^"))
@@ -241,7 +236,7 @@ function readPacked(commonDirectory: string, ref: string): string {
  */
 function readRevision(layout: RepositoryGitLayout): string {
   const head = decodeControl(
-    stableFile(path.join(layout.gitDirectory.realPath, "HEAD"), MAX_HEAD_BYTES),
+    stableFile(path.join(layout.gitDirectory.realPath, "HEAD")),
   );
   if (OBJECT_ID.test(head)) return head;
   if (!head.startsWith("ref: ")) throw new Error("fixed_revision_head_invalid");
@@ -255,10 +250,7 @@ function readRevision(layout: RepositoryGitLayout): string {
     throw new Error("fixed_revision_ref_invalid");
   try {
     const revision = decodeControl(
-      stableFile(
-        path.join(layout.commonDirectory.realPath, ...ref.split("/")),
-        MAX_HEAD_BYTES,
-      ),
+      stableFile(path.join(layout.commonDirectory.realPath, ...ref.split("/"))),
     );
     if (!OBJECT_ID.test(revision))
       throw new Error("fixed_revision_ref_invalid");

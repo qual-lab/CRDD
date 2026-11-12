@@ -6,10 +6,10 @@
  * @boundary CSRと同Origin Workspace API。
  * @security Root・資格・任意commandを入力させずReact Textで表示する。
  */
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { WorkspaceView } from "../../../../coordinator/src/index.ts";
-import type { CommitSelection } from "../../../../version-control/src/index.ts";
 import type { WorkspaceCommand } from "../../../../domain-model/src/index.ts";
+import type { CommitSelection } from "../../../../version-control/src/index.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { WorkbenchPanel } from "./elements.ts";
 
@@ -30,7 +30,6 @@ type FilePreview = Readonly<{
   content: string | null;
   patch: string;
   binary: boolean;
-  truncated: false;
 }>;
 
 /**
@@ -268,7 +267,6 @@ export function WorkspacePanel({
           data.selection?.path !== command.path ||
           typeof data.patch !== "string" ||
           typeof data.binary !== "boolean" ||
-          data.truncated !== false ||
           !(data.content === null || typeof data.content === "string") ||
           !(
             data.selection.blobId === null ||

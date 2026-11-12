@@ -4,8 +4,9 @@
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
-import type { REPOSITORY_LOCATION_CONTRACT } from "./location.ts";
+
 import type { WorktreeTarget } from "../worktree/types.ts";
+import type { REPOSITORY_LOCATION_CONTRACT } from "./location.ts";
 import type {
   LOCAL_CHANGE_SET_CONTRACT,
   LOCAL_CHANGE_SET_CONTRACT_REVISION,
@@ -133,13 +134,11 @@ export type TreePage = Readonly<{
   nextCursor: string | null;
 }>;
 
-/** 一Fileの差分と取得可否・制限を返す。 */
+/** 一Fileの取得済み差分全体と未追跡状態を返す。 */
 export type FileDiff = Readonly<{
   path: string;
   preparedPatch: string;
   workingPatch: string;
-  preparedTruncated: boolean;
-  workingTruncated: boolean;
   unregistered: boolean;
 }>;
 
@@ -147,7 +146,6 @@ export type FileDiff = Readonly<{
 export type CommitFileReadRequest = Readonly<{
   commit: string;
   path: string;
-  maximumBytes?: number;
 }>;
 /** 固定Commitから得た一Fileの内容・形式と取得結果。 */
 export type CommitFile = Readonly<{
@@ -256,7 +254,6 @@ export type WorkingFile = Readonly<{
   content: string | null;
   binary: boolean;
   patch: string;
-  truncated: false;
 }>;
 /** 比較するCommitと差分の対象範囲を指定する。 */
 export type CommitDiffRequest = Readonly<{
@@ -271,5 +268,4 @@ export type CommitDiff = Readonly<{
   path: string;
   binary: boolean;
   patch: string;
-  truncated: false;
 }>;

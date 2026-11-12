@@ -7,23 +7,23 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  validWorkspaceCandidateRequest,
-  resolveRepositoryRuntimeDataPaths,
   type RepositoryWorktreeResult,
+  resolveRepositoryRuntimeDataPaths,
+  validWorkspaceCandidateRequest,
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
 } from "../../../domain-model/src/index.ts";
 import {
-  mergeCommit,
-  getRepository,
-  readCommitDiff,
   type CommitTemporary,
   createCommit,
   createReference,
-  removeReference,
-  readRepositoryRevision,
-  resolveVerifiedRepositoryRoot,
+  getRepository,
+  mergeCommit,
   type Repository,
+  readCommitDiff,
+  readRepositoryRevision,
+  removeReference,
+  resolveVerifiedRepositoryRoot,
   type WorktreeResult,
   type WorktreeTarget,
 } from "../../../version-control/src/index.ts";
@@ -391,6 +391,5 @@ export function readWorkspaceCandidatePatch(
     content: null,
     binary: diff.binary,
     patch: diff.patch,
-    truncated: diff.truncated,
   };
 }

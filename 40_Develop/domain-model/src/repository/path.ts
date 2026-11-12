@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 /**
- * Normalize a bounded repository-relative path without consulting the Host filesystem.
+ * HostのFilesystemを参照せずRepository相対Pathを正規化する。
  *
  * @responsibility Repository Relative Pathの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000004
@@ -24,7 +24,6 @@ export function normalizeRepositoryRelativePath(value: unknown): string | null {
   if (
     typeof value !== "string" ||
     value.length === 0 ||
-    value.length > 512 ||
     /[\u0000-\u001f\u007f]/u.test(value)
   )
     return null;

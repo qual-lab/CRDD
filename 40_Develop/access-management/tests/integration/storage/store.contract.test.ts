@@ -34,8 +34,8 @@ import {
 import { createInitialCredential } from "../../../src/initialization/execution.ts";
 import { saveExposure } from "../../../src/repository/exposure.ts";
 import {
-  saveUserRole,
   saveRoleContentAccess,
+  saveUserRole,
 } from "../../../src/role/assign.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import {
@@ -43,7 +43,7 @@ import {
   updateAccessManagementState,
 } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
-import { saveUserRegistration, saveUserName } from "../../../src/user/crud.ts";
+import { saveUserName, saveUserRegistration } from "../../../src/user/crud.ts";
 import type { UserRoleManagementResult } from "../../../src/user/types.ts";
 import {
   bytes,
@@ -1123,13 +1123,13 @@ test("通常保存・読戻し・改訂競合", (t) => {
  * @responsibility 検査前の準備File作成を防ぐ。
  * @trace RFD-IT-021
  * @precondition 実Hostとは分離した自己生成試験領域と非秘密fixtureを使用する。
- * @stimulus 巨大bytes、改訂再利用、初回事実・資格・未解決交換・既存User IDの変更を返す。
+ * @stimulus 巨大な不正JSON bytes、改訂再利用、初回事実・資格・未解決交換・既存User IDの変更を返す。
  * @observation 状態byte・改訂・結果・材料不存在を別に確認する。
  * @oracle current不変・pending/replace不存在。
  * @cleanup Repository-localな自己生成試験Rootを削除し不存在を確認する。
  * @boundary Node FilesystemとAM内部保存Ownerの直接境界。
  */
-test("不正候補・容量超過・対象外変更は出版しない", (t) => {
+test("不正JSON・不正候補・対象外変更は出版しない", (t) => {
   const f = fixture(t);
   f.state.users.push({
     userId: "00000000-0000-4000-8000-000000000009",

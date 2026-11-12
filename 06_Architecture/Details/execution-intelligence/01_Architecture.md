@@ -1,5 +1,15 @@
 # AI実行記録・検索・集計の詳細設計
 
+## 記録・検索入力の任意量制限の整理 — 2026-11-12
+
+記録投影の50,000要素・深度12・文字列8,192文字、メタデータ64項目・キー128文字、検索文字列8,192文字とメタデータ64項目による独自拒否を撤去する。現在分岐の祖先集合による直接の循環拒否は維持し、別分岐から同じ非循環部分木を共有する正常入力は受理する。plain-dataの形状、Accessor拒否、ID、NUL、非有限数、相関・状態の検査は維持する。
+
+検索の既定ページ取得と保持期間の契約は今回変更しない。独自容量制限を撤去しても、Runtimeのメモリ・文字列・再帰Stack限界は残り、致命的OOMやOSによるProcess終了時の結果返却は保証しない。
+
+## 内部履歴容量制限の撤去 — 2026-11-12
+
+履歴の32MiB・10,000記録と検索ページの固定10,000上限を撤去した。全行のSchema・一意ID・Group参照・文字コード・部分行・固定Path・Lock・実体確認と保持条件は維持する。上限撤去は無限容量を保証せず、捕捉できるメモリ割当例外やI/O失敗だけを既存のblocked／保存不明へ分類する。致命的OOM・OSによる終了では結果返却を保証しない。外部入力・Provider出力・Git展開の制限はこの変更へ含めない。
+
 ## v0.22採用済み再構成 — ExecutionとExecutionGroup
 
 状態: v0.22採用済み契約。2026-11-11の責務配置・文書整理は限定検証中。本書は現行の2モデル・9操作を所有する。過去方式と当時Evidenceは[基準版監査](02_Current_Implementation_Reality_Audit.md)、現在の検証結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)で区別する。旧データ移行、全体回帰、Release成立は含めない。
@@ -15,7 +25,7 @@ EIはアプリケーション非依存のAI実行観測・記録・検索・集�
 
 公開操作は`createGroup`、`completeGroup`、`createExecution`、`completeExecution`、`getExecution`、`listExecutions`、`getGroup`、`listGroups`、`summarizeExecutions`の9操作とする。いずれも明示した`StoreOptions`を受け、暗黙のプロセス全体設定、Factory、Manager、Registry、汎用更新操作を追加しない。`create`／`complete`は観測記録の保存であり、AIの実行命令ではない。
 
-Task／Attempt等のCRDD IDはCoordinatorが任意メタデータへ写す。EIはキーの業務的意味を解釈せず、IDの生成・一意性判定・許可判断に用いない。メタデータと成果物参照にも容量・形状の上限を設け、Prompt、応答本文、Credential、環境変数全体を入力契約へ追加しない。
+Task／Attempt等のCRDD IDはCoordinatorが任意メタデータへ写す。EIはキーの業務的意味を解釈せず、IDの生成・一意性判定・許可判断に用いない。メタデータと成果物参照は既存の型・形状を検査し、独自の容量上限は設けない。Prompt、応答本文、Credential、環境変数全体を入力契約へ追加しない。
 
 メタデータの情報分類は呼出し側が所有する。任意の文字列から未知のSecret不存在をEIが証明するものではない。CRDDの本番ProducerはID・固定分類・技術結果の真偽だけを投影し、Provider本文・自由なstderr・Host Pathを受け渡さない。旧Schemaの診断Allowlistを、他アプリケーション向けの普遍的な安全判定として残さない。
 
@@ -94,7 +104,7 @@ Taskの状態・採否・Recovery判断はCoordinator／Domain Modelが所有す
 | record/operations.ts | create／complete・冪等・競合、Group参照、保持対象の変更 | 時計取得、保存、Lock取得 |
 | record/execution.ts・group.ts | 用途別の公開記録入口 | 独立Store、AI実行 |
 | record/query.ts・summary.ts | 条件検索、ページ、欠測・単位を分けた集計 | 状態更新、品質採用 |
-| storage/store.ts | v3 Row、JSONL、実体・上限、fresh読取り、保存確認、失敗・回収結果 | Task知識、モデル規則の再実装 |
+| storage/store.ts | v3 Row、JSONL、実体、fresh読取り、保存確認、失敗・回収結果 | Task知識、モデル規則の再実装 |
 | storage/lock.ts | 固定Lock名・Identityの共通Lock接続 | 独自回復、Directory作成 |
 
 依存はvalidation→types、operations→validation／types、storage→validation／operations／types、公開記録入口→validation／storage、query→validation／storage、summary→query／typesとする。検査から保存への逆参照、循環依存、Manager／Registry／汎用Runnerは作らない。
@@ -159,7 +169,7 @@ Node.jsのライブラリであり、独立Process・HTTP Serverは持たない�
 
 任意メタデータの情報分類・Storeアクセス許可は利用側が所有する。構造検査で未知Secret不存在を証明しない。EIはPrompt・応答本文・Credential・任意環境全体を専用入力として要求しない。
 
-Storeは非リンク実体・通常File・単一Link・32MiB／10,000行上限を検査する。確認後の非協調Processによる差替えを原子的に防ぐ保証は主張しない。共通Lockの単一Host・協調Process前提を継承する。
+Storeは非リンク実体・通常File・単一Linkを検査する。32MiB／10,000行の固定上限は撤去し、有効な履歴の増加を容量だけで拒否しない。検索の明示limit／offsetも固定10,000上限を持たず、正の件数・非負offsetと安全な整数を検査する。既存のページ指定と保持条件は維持する。確認後の非協調Processによる差替えを原子的に防ぐ保証は主張しない。共通Lockの単一Host・協調Process前提を継承する。
 
 ## 10. 実行知の共通観測と保存契約
 

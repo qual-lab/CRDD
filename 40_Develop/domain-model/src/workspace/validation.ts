@@ -337,7 +337,6 @@ export function validCandidateRecord(
       typeof result.cleanupConfirmed !== "boolean" ||
       typeof result.effectIssued !== "boolean" ||
       !Array.isArray(result.changedPaths) ||
-      result.changedPaths.length > 1000 ||
       result.changedPaths.some((p) => typeof p !== "string")
     )
       return false;
@@ -434,7 +433,6 @@ export function validWorkspaceDisplayName(
     (typeof value === "string" &&
       value.trim() === value &&
       value.length > 0 &&
-      [...value].length <= 120 &&
       !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value))
   );
 }
@@ -474,14 +472,12 @@ export function validWorkspaceCandidateRequest(
     !validWorkspaceDisplayName(r.workspaceName) ||
     !validWorkspaceDisplayName(r.candidateName) ||
     !Array.isArray(r.relatedChangeIds) ||
-    r.relatedChangeIds.length > 20 ||
     r.relatedChangeIds.some(
       (id) => typeof id !== "string" || !/^CHG-\d{6}$/u.test(id),
     ) ||
     new Set(r.relatedChangeIds).size !== r.relatedChangeIds.length ||
     !Array.isArray(r.selection) ||
-    r.selection.length < 1 ||
-    r.selection.length > 1000
+    r.selection.length < 1
   )
     return false;
   const selected = new Set<string>();
@@ -492,7 +488,6 @@ export function validWorkspaceCandidateRequest(
       Array.isArray(item) ||
       Object.keys(item).sort().join(",") !== "blobId,mode,path" ||
       typeof item.path !== "string" ||
-      item.path.length > 1000 ||
       item.path
         .split("/")
         .some(

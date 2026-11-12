@@ -164,7 +164,7 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
     starting: 0,
     running: 0,
     cleanup_pending: 0,
-    completed: 1,
+    completed: 1025,
     failed: 0,
     cancelled: 0,
     recovery_required: 0,
@@ -179,19 +179,17 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
       planned: 0,
       executing: 0,
       integration_pending: 0,
-      accepted: 1,
+      accepted: 129,
       returned: 0,
       blocked: 0,
       cancelled: 0,
     },
     taskCounts,
-    objectiveTaskSummaries: [
-      {
-        objectiveId: "objective-a",
-        objectiveState: "accepted",
-        taskCounts: { ...taskCounts },
-      },
-    ],
+    objectiveTaskSummaries: Array.from({ length: 129 }, (_, index) => ({
+      objectiveId: `objective-${index}`,
+      objectiveState: "accepted",
+      taskCounts: { ...taskCounts, completed: index === 0 ? 1 : 8 },
+    })),
     workProgress: "tasks_complete",
     qualityState: "accepted",
     humanDecisionRequired: false,
@@ -234,7 +232,11 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
     content: readonly { type: string; text: string }[];
     structuredContent: {
       observationState: string;
-      projection: { milestoneState: string };
+      projection: {
+        milestoneState: string;
+        objectiveTaskSummaries: readonly unknown[];
+        taskCounts: { completed: number };
+      };
       effectState: string;
     };
   };
@@ -245,6 +247,14 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
     "accepted",
   );
   assert.equal(observed.structuredContent.effectState, "no_effect");
+  assert.equal(
+    observed.structuredContent.projection.objectiveTaskSummaries.length,
+    129,
+  );
+  assert.equal(
+    observed.structuredContent.projection.taskCounts.completed,
+    1025,
+  );
   assert.equal(observed.content[0]?.type, "text");
   assert.equal(observed.content[0]?.text, "処理が完了しました。");
 });
@@ -1491,6 +1501,91 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         .structuredContent.reason,
       "mcp_coordinator_result_invalid",
       `malformed projection case ${index}`,
+    );
+  }
+});
+
+/**
+ * 回復結果の全量をMCP公開DTOへ搬送し集合相関を維持する。
+ * @responsibility 旧128件を超えるID・義務の受理と重複・集合差の拒否を確認する。
+ * @trace PRL-UT-014
+ * @precondition Coordinator依存は合成された129件の回復結果を返す。
+ * @stimulus handlerへ正常結果、ID重複、義務重複と片側欠落を渡す。
+ * @observation 公開DTOの全配列と不正結果理由。
+ * @oracle 正常は順序・件数を保持し不正はmcp_coordinator_result_invalidになる。
+ * @cleanup N/A: Process内の値と有限Promiseだけ。
+ * @boundary MCP handler→Coordinator代役結果→公開DTO。外部AI・Dockerなし。
+ */
+test("MCPは129件の回復IDと義務を全量搬送し集合差を拒否する", async () => {
+  const recoveryIds = Array.from(
+    { length: 129 },
+    (_, index) => `host-task.${index}`,
+  );
+  const recoveryObligations = recoveryIds.map((recoveryId) => ({
+    kind: "host",
+    recoveryId,
+  }));
+  const base = {
+    contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+    status: "blocked",
+    reason: "recovery_required",
+    requestId: "request-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    projection: null,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: false,
+    recoveryIds,
+    recoveryObligations,
+    effectState: "unknown",
+  };
+  const envelope = request("tools/call", {
+    _meta: META,
+    name: MCP_COORDINATOR_OBJECTIVE_TOOL,
+    arguments: objective(),
+  });
+  const response = await handleMcpCoordinatorRequest(
+    envelope,
+    dependencies({ runObjective: async () => base }),
+  );
+  const result = response.result as {
+    structuredContent: {
+      reason: string;
+      recoveryIds: readonly string[];
+      recoveryObligations: readonly { kind: string; recoveryId: string }[];
+    };
+  };
+  assert.equal(result.structuredContent.reason, "recovery_required");
+  assert.deepEqual(result.structuredContent.recoveryIds, recoveryIds);
+  assert.deepEqual(
+    result.structuredContent.recoveryObligations,
+    recoveryObligations,
+  );
+  for (const invalid of [
+    { ...base, recoveryIds: [...recoveryIds, recoveryIds[0]] },
+    {
+      ...base,
+      recoveryObligations: [...recoveryObligations, recoveryObligations[0]],
+    },
+    { ...base, recoveryIds: recoveryIds.slice(1) },
+    { ...base, recoveryObligations: recoveryObligations.slice(1) },
+    {
+      ...base,
+      recoveryObligations: recoveryObligations.map((entry, index) =>
+        index === 0 ? { ...entry, recoveryId: "host-task.other" } : entry,
+      ),
+    },
+  ]) {
+    const rejected = await handleMcpCoordinatorRequest(
+      envelope,
+      dependencies({ runObjective: async () => invalid }),
+    );
+    assert.equal(
+      (rejected.result as { structuredContent: { reason: string } })
+        .structuredContent.reason,
+      "mcp_coordinator_result_invalid",
     );
   }
 });

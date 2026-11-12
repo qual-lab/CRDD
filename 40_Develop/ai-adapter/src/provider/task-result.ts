@@ -74,14 +74,6 @@ type ResultMismatchReason =
   | "provider_task_reviewer_finding_invalid"
   | "provider_task_reviewer_decision_inconsistent";
 
-const MAXIMUM_SUMMARY_BYTES = 8_192;
-
-const MAXIMUM_PATHS = 1_000;
-
-const MAXIMUM_FINDINGS = 64;
-
-const MAXIMUM_FINDING_MESSAGE_BYTES = 4_096;
-
 const SEVERITIES = new Set(["critical", "high", "medium", "low", "info"]);
 
 const FINDING_CATEGORIES = new Set([
@@ -117,24 +109,23 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
  * 内容として扱える有限文字列を確認する。
  * @responsibility Task内容の固定条件を検査する。
  * @trace ARCH-000015
- * @input 未検査値と固定byte上限。
+ * @input 未検査値。
  * @returns 適合する場合だけtrue。
  * @precondition 入力の動的Propertyは呼出し境界で拒否済み。
  * @postcondition 入力を変更しない。
  * @effect N/A: 値検査だけ。
- * @failure 空・NUL・周辺空白・容量超過はfalse。
+ * @failure 空・NUL・周辺空白はfalse。
  * @invariant 内容の正しさや実行許可を推測しない。
  * @boundary AI Adapterの内容検査内部。
  * @security 秘密不存在の証明ではない。
  * @concurrency N/A: 共有状態なし。
  */
-function validString(value: unknown, maximumBytes: number): value is string {
+function validString(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.trim() === value &&
     value.length > 0 &&
-    !value.includes("\0") &&
-    Buffer.byteLength(value, "utf8") <= maximumBytes
+    !value.includes("\0")
   );
 }
 
@@ -183,7 +174,6 @@ function validPath(value: unknown) {
   return (
     typeof value === "string" &&
     value.length > 0 &&
-    value.length <= 1_024 &&
     !value.startsWith("/") &&
     !value.includes("\\") &&
     !value.includes("\0") &&
@@ -232,8 +222,11 @@ function rejected(reason: ResultMismatchReason) {
  * @concurrency N/A: executorResultは共有非同期状態を持たない同期処理である。
  */
 function executorResult(value: Record<string, unknown>) {
-  const paths = snapshotPlainArray(value.changedPaths, MAXIMUM_PATHS);
-  const verification = snapshotPlainArray(value.verification, 32);
+  const paths = snapshotPlainArray(value.changedPaths, Number.MAX_SAFE_INTEGER);
+  const verification = snapshotPlainArray(
+    value.verification,
+    Number.MAX_SAFE_INTEGER,
+  );
   value = {
     ...value,
     changedPaths: paths.status === "ok" ? paths.value : null,
@@ -242,15 +235,13 @@ function executorResult(value: Record<string, unknown>) {
   if (
     !exactKeys(value, ["status", "summary", "changedPaths", "verification"]) ||
     value.status !== "completed" ||
-    !validString(value.summary, MAXIMUM_SUMMARY_BYTES) ||
+    !validString(value.summary) ||
     !Array.isArray(value.changedPaths) ||
-    value.changedPaths.length > MAXIMUM_PATHS ||
     !value.changedPaths.every(validPath) ||
     new Set(value.changedPaths.map((item) => item.toUpperCase())).size !==
       value.changedPaths.length ||
     !Array.isArray(value.verification) ||
-    value.verification.length > 32 ||
-    !value.verification.every((item) => validString(item, 1_024))
+    !value.verification.every((item) => validString(item))
   ) {
     return rejected("provider_task_executor_shape_invalid");
   }
@@ -281,7 +272,7 @@ function executorResult(value: Record<string, unknown>) {
  * @concurrency N/A: reviewerResultは共有非同期状態を持たない同期処理である。
  */
 function reviewerResult(value: Record<string, unknown>) {
-  const snapshot = snapshotPlainArray(value.findings, MAXIMUM_FINDINGS);
+  const snapshot = snapshotPlainArray(value.findings, Number.MAX_SAFE_INTEGER);
   value = {
     ...value,
     findings: snapshot.status === "ok" ? snapshot.value : null,
@@ -290,12 +281,9 @@ function reviewerResult(value: Record<string, unknown>) {
     return rejected("provider_task_reviewer_keys_invalid");
   if (value.decision !== "approved" && value.decision !== "changes_requested")
     return rejected("provider_task_reviewer_decision_invalid");
-  if (!validString(value.summary, MAXIMUM_SUMMARY_BYTES))
+  if (!validString(value.summary))
     return rejected("provider_task_reviewer_summary_invalid");
-  if (
-    !Array.isArray(value.findings) ||
-    value.findings.length > MAXIMUM_FINDINGS
-  )
+  if (!Array.isArray(value.findings))
     return rejected("provider_task_reviewer_findings_invalid");
   const findings = value.findings.map((rawFinding) => {
     const finding = snapshotPlainRecord(
@@ -317,10 +305,9 @@ function reviewerResult(value: Record<string, unknown>) {
       typeof finding.category !== "string" ||
       !FINDING_CATEGORIES.has(finding.category) ||
       typeof finding.criterionNumber !== "number" ||
-      !Number.isInteger(finding.criterionNumber) ||
+      !Number.isSafeInteger(finding.criterionNumber) ||
       finding.criterionNumber < 1 ||
-      finding.criterionNumber > 16 ||
-      !validString(finding.message, MAXIMUM_FINDING_MESSAGE_BYTES)
+      !validString(finding.message)
     ) {
       return null;
     }
@@ -375,14 +362,14 @@ function reviewerResult(value: Record<string, unknown>) {
 
 /**
  * 解析済みTask内容を役割別の正規値へ検査する。
- * @responsibility 編集内容・レビュー所見の閉形式と上限を所有する。
+ * @responsibility 編集内容・レビュー所見の閉形式と相関を所有する。
  * @trace ARCH-000015
  * @input value: Envelope解析済み値、role: executor又はreviewer。
  * @returns 検査済み内容と内部所見、又は内容なしの固定理由。
  * @precondition Envelopeの妥当性はAI Adapterが別途検査する。
  * @postcondition 生Envelopeや実行許可を生成しない。
  * @effect N/A: 値検査と非秘密Hash計算のみ。
- * @failure 不正field・Path・件数・decision相関は拒否する。
+ * @failure 不正field・Path・decision相関は拒否する。
  * @invariant 所見本文は内部搬送用で、通常内容にはHash投影だけを返す。
  * @boundary AI AdapterのTask内容と単段実行の接続。
  * @security getter・Proxyを評価せず、次試行Capabilityを発行しない。

@@ -7,8 +7,8 @@
  */
 import type {
   CurrentAccessOutcome,
-  ManagementReadOutcome,
   ManagementOperationOutcome,
+  ManagementReadOutcome,
 } from "../../../../access-management/src/index.ts";
 
 /**
@@ -31,7 +31,7 @@ export type ManagementView =
  * AM共通結果とTransportだけの未取得を表示へ渡す。
  * @responsibility 意味Ownerの型を再利用し、Transport非提供を成功にしない。
  * @trace ARCH-000013
- * @shape AM三結果Unionと容量超過・未構成。
+ * @shape AM三結果Unionと未構成。
  * @invariant Transport理由をAM保存結果へ戻さない。
  * @boundary 非秘密の管理表示。
  * @security 新しい秘密・回復参照なし。
@@ -43,7 +43,7 @@ export type WorkbenchManagementResult =
   | ManagementOperationOutcome
   | Readonly<{
       status: "unavailable";
-      reason: "management_response_too_large" | "management_not_configured";
+      reason: "management_not_configured";
     }>;
 
 /**
@@ -234,11 +234,9 @@ export function inspectManagementResult(
         : view === "mutation"
           ? []
           : ["management_read_rejected", "management_read_unavailable"];
-    valid = [
-      ...permitted,
-      "management_response_too_large",
-      "management_not_configured",
-    ].includes(result.reason as string);
+    valid = [...permitted, "management_not_configured"].includes(
+      result.reason as string,
+    );
   } else if (view === "mutation") {
     if (result.status === "rejected")
       valid =
@@ -274,7 +272,6 @@ export function inspectManagementResult(
         [
           "previous_materials_settled",
           "previous_materials_unavailable",
-          "capacity_exceeded",
           "identity_generation_failed",
           "candidate_invalid",
           "repository_validation_failed",

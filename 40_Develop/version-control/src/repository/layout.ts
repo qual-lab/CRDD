@@ -7,8 +7,6 @@ import path from "node:path";
 import { types, TextDecoder } from "node:util";
 import fs from "node:fs";
 
-const MAX_PATH_CHARACTERS = 4096;
-
 /**
  * Exact Repository Rootを読み取る。
  *
@@ -49,7 +47,6 @@ function readExactRepositoryRoot(value: unknown): string | null {
     const candidate = descriptor.value;
     return typeof candidate === "string" &&
       candidate.length > 0 &&
-      candidate.length <= MAX_PATH_CHARACTERS &&
       path.isAbsolute(candidate) &&
       !/[\u0000-\u001f\u007f]/u.test(candidate)
       ? candidate
@@ -135,14 +132,6 @@ export function inspectGitRepositoryLayout(rawInput: unknown) {
     return response("blocked", "repository_git_layout_invalid");
   }
 }
-
-const MAX_CONTROL_FILE_BYTES = 4096;
-
-const MAX_CONFIG_FILE_BYTES = 1024 * 1024;
-
-const MAX_EXCLUDE_FILE_BYTES = 128 * 1024;
-
-const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
 
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -496,11 +485,11 @@ function directoryRealpath(target: string): EntitySnapshot {
 /**
  * Stable File Bytesを読み取る。
  *
- * @responsibility Stable File Bytesの読取り元、上限、読取不能時の結果境界を所有する。
+ * @responsibility Stable File Bytesの読取り元、実体、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
- * @input target: string、maximumBytes: number、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty
+ * @input target: string、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty
  * @returns StableFileBytesを返す。
- * @precondition 「target: string、maximumBytes: number、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty」がreadStableFileBytesの入力契約を満たす。
+ * @precondition 「target: string、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty」がreadStableFileBytesの入力契約を満たす。
  * @postcondition readStableFileBytesの責務を完了した結果だけを返す。
  * @effect readStableFileBytesはFilesystemの読取りまたは書込みを実行する。
  * @failure readStableFileBytesは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -511,7 +500,6 @@ function directoryRealpath(target: string): EntitySnapshot {
  */
 export function readStableFileBytes(
   target: string,
-  maximumBytes: number,
   parentSnapshots: readonly EntitySnapshot[] = [],
   shouldAllowEmpty = false,
 ): StableFileBytes {
@@ -522,9 +510,9 @@ export function readStableFileBytes(
   const pathBefore = identity(fs.lstatSync(target, { bigint: true }), "file");
   if (
     (!shouldAllowEmpty && pathBefore.size <= 0n) ||
-    pathBefore.size > BigInt(maximumBytes)
+    !Number.isSafeInteger(Number(pathBefore.size))
   ) {
-    throw new Error("repository_git_file_budget_invalid");
+    throw new Error("repository_git_file_size_invalid");
   }
   const noFollow =
     process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
@@ -534,13 +522,10 @@ export function readStableFileBytes(
   try {
     descriptor = fs.openSync(target, fs.constants.O_RDONLY | noFollow);
     const before = identity(fs.fstatSync(descriptor, { bigint: true }), "file");
-    if (
-      !sameIdentity(pathBefore, before) ||
-      before.size > BigInt(maximumBytes)
-    ) {
+    if (!sameIdentity(pathBefore, before)) {
       throw new Error("repository_git_file_changed");
     }
-    const buffer = Buffer.alloc(maximumBytes + 1);
+    const buffer = Buffer.alloc(Number(before.size));
     let offset = 0;
     while (offset < buffer.length) {
       const count = fs.readSync(
@@ -553,7 +538,9 @@ export function readStableFileBytes(
       if (count === 0) break;
       offset += count;
     }
-    if (offset > maximumBytes || BigInt(offset) !== before.size)
+    if (BigInt(offset) !== before.size)
+      throw new Error("repository_git_file_changed");
+    if (fs.readSync(descriptor, Buffer.alloc(1), 0, 1, null) !== 0)
       throw new Error("repository_git_file_changed");
     const after = identity(fs.fstatSync(descriptor, { bigint: true }), "file");
     const pathAfter = identity(fs.lstatSync(target, { bigint: true }), "file");
@@ -632,11 +619,7 @@ function readControlFile(
   target: string,
   parentSnapshots: readonly EntitySnapshot[] = [],
 ): Readonly<{ line: string; snapshot: EntitySnapshot }> {
-  const bytes = readStableFileBytes(
-    target,
-    MAX_CONTROL_FILE_BYTES,
-    parentSnapshots,
-  );
+  const bytes = readStableFileBytes(target, parentSnapshots);
   const decoded = decodeUtf8(
     bytes.value,
     "repository_git_control_file_invalid",
@@ -676,9 +659,7 @@ function parseNarrowRepositoryConfig(
   objectFormat: "sha1" | "sha256";
   worktree: string | null;
 }> {
-  const bytes = readStableFileBytes(target, MAX_CONFIG_FILE_BYTES, [
-    commonDirectory,
-  ]);
+  const bytes = readStableFileBytes(target, [commonDirectory]);
   const text = decodeUtf8(bytes.value, "repository_git_config_unsupported");
   if (/\r(?!\n)/u.test(text))
     throw new Error("repository_git_config_unsupported");
@@ -845,7 +826,6 @@ function inspectRevisionHexLength(
       if (!isEnoent(error)) throw error;
       const packed = readStableFileBytes(
         path.join(commonDirectory.realPath, "packed-refs"),
-        MAX_PACKED_REFS_BYTES,
         [commonDirectory],
       );
       snapshots.push(packed.snapshot);
@@ -1070,7 +1050,6 @@ function resolveExcludeBoundary(
   try {
     const bytes = readStableFileBytes(
       path.join(infoDirectory.realPath, "exclude"),
-      MAX_EXCLUDE_FILE_BYTES,
       [commonDirectory, infoDirectory],
       true,
     );
@@ -1194,5 +1173,3 @@ export function summarizeRepositoryGitLayout(
     referencedRepositoriesModified: false,
   });
 }
-
-export const REPOSITORY_GIT_EXCLUDE_MAX_BYTES = MAX_EXCLUDE_FILE_BYTES;

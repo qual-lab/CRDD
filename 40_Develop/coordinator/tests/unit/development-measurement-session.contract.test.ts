@@ -12,11 +12,18 @@ import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
+import fs from "node:fs";
+import { createHash } from "node:crypto";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 import { fileURLToPath } from "node:url";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/execution/controller.ts";
 import {
   createIsolatedDevelopmentMeasurementSessionCandidate,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
+  createDevelopmentExecutionTiming,
 } from "../../src/execution/diagnostics.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
@@ -26,6 +33,46 @@ const repositoryRoot = path.resolve(
 );
 const COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const TREE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+/**
+ * 計測の内部入力とTimelineに独自容量を再適用しない。
+ * @responsibility 正常なTask全量と繰返し状態遷移を保持する。
+ * @trace PPR-UT-006
+ * @precondition 合成Taskと単調時計だけを使用する。
+ * @stimulus 65,536byte超Task、40遷移、未知状態を与える。
+ * @observation Taskの一致、全interval、measurementComplete。
+ * @oracle 正常量は受理し、未知状態と不正Taskは拒否する。
+ * @cleanup メモリ内値のみ。
+ * @boundary 開発計測の入力・診断。
+ */
+test("計測TaskとTimelineは旧量上限を再適用しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
+    "utf8",
+  );
+  const capture = runInNewContext(
+    `(${stripTypeScriptTypes(sourceDeclaration(source, "snapshotTask"))})`,
+    {
+      snapshotCoordinatorTaskRequest,
+      digest: (value: unknown) =>
+        createHash("sha256").update(JSON.stringify(value)).digest("hex"),
+    },
+  ) as (raw: unknown) => { request: { objective: string } } | null;
+  const request = { ...task("codex"), objective: "a".repeat(65_537) };
+  assert.equal(capture(request)?.request.objective, request.objective);
+  assert.equal(capture({ ...request, risk: "invalid" }), null);
+  const labels = ["STATE-ADMISSION", "STATE-OPERATION-READY"];
+  let now = 0;
+  const timing = createDevelopmentExecutionTiming(() => now++);
+  for (let index = 0; index < 40; index++)
+    timing.observeLifecycleState(labels[index % labels.length] ?? "missing");
+  timing.finish();
+  assert.equal(timing.snapshot().measurementComplete, true);
+  assert.equal(timing.snapshot().intervals.length, 40);
+  const invalid = createDevelopmentExecutionTiming(() => now++);
+  invalid.observeLifecycleState("not-a-state");
+  assert.equal(invalid.snapshot().measurementComplete, false);
+});
 /**
  * taskのTest準備責務を実行する。
  *

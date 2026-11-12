@@ -5,15 +5,15 @@
  * @boundary 認可・Store選択は上位。履歴・Lock・Directoryを作成又は変更しない。
  */
 import { readRecords } from "../storage/store.ts";
-import { assertId, instant, snapshot } from "./validation.ts";
 import type {
   Execution,
   ExecutionGroup,
   ExecutionQuery,
   GroupQuery,
-  StoreOptions,
   ReadResult,
+  StoreOptions,
 } from "./types.ts";
+import { assertId, instant, snapshot } from "./validation.ts";
 
 /** 検索条件だけを固定し、未知キーや期間・ページ境界を拒否する。 */
 export function inspectQuery(
@@ -42,8 +42,7 @@ export function inspectQuery(
     throw Error("query_invalid");
   for (const [k, v] of Object.entries(q)) {
     if (["limit", "offset", "metadata", "period"].includes(k)) continue;
-    if (typeof v !== "string" || !v.length || v.length > 8192)
-      throw Error("query_invalid");
+    if (typeof v !== "string" || !v.length) throw Error("query_invalid");
   }
   const statuses = execution
     ? ["open", "completed", "failed", "blocked", "cancelled", "unknown"]
@@ -55,7 +54,6 @@ export function inspectQuery(
     (!q.metadata ||
       typeof q.metadata !== "object" ||
       Array.isArray(q.metadata) ||
-      Object.keys(q.metadata).length > 64 ||
       Object.values(q.metadata).some(
         (v) =>
           v !== null && !["string", "number", "boolean"].includes(typeof v),
@@ -74,9 +72,9 @@ export function inspectQuery(
   }
   if (
     (q.limit !== undefined &&
-      (!Number.isSafeInteger(q.limit) || q.limit < 1 || q.limit > 10_000)) ||
+      (!Number.isSafeInteger(q.limit) || q.limit < 1)) ||
     (q.offset !== undefined &&
-      (!Number.isSafeInteger(q.offset) || q.offset < 0 || q.offset > 10_000))
+      (!Number.isSafeInteger(q.offset) || q.offset < 0))
   )
     throw Error("query_page_invalid");
   return q;

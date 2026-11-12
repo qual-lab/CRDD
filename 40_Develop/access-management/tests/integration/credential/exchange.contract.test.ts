@@ -685,7 +685,7 @@ test("鍵交換引継ぎ候補は現在条件と旧新資格の必須包含を�
     "confirmed",
     "non_admin",
     "confirmation",
-    "capacity",
+    "revision_overflow",
   ] as const) {
     const state = structuredClone(f.stored);
     let ids = [f.material.credentialId];
@@ -703,7 +703,8 @@ test("鍵交換引継ぎ候補は現在条件と旧新資格の必須包含を�
       assert.ok(credential);
       credential.presentation = "confirmed";
     }
-    if (mode === "capacity") state.revision = Number.MAX_SAFE_INTEGER - 5;
+    if (mode === "revision_overflow")
+      state.revision = Number.MAX_SAFE_INTEGER - 5;
     const next = prepareKeyExchange(
       state,
       mode === "non_admin" ? "workbench" : "host",

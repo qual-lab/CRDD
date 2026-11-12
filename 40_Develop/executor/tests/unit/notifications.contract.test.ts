@@ -668,7 +668,7 @@ test("通知待機中の取消は未発行を通知し、Home競合は同IDの�
  * @responsibility 実ParserとFactoryへ接続し準備失敗のEffect零を確認する。
  * @trace ERB-UT-023
  * @precondition 隔離構築だけを有限代役へ替え、外部AI・Dockerは使わない。
- * @stimulus 未登録Model・種別差・動的項目、参照の重複・hole・Proxy・件数超過。
+ * @stimulus 未登録Model・種別差・動的項目と参照の重複・hole・Proxy、旧容量超の正常参照。
  * @observation 正例の準備成功と、負例の乱数・Runtime構築・Home取得零。
  * @oracle getter／Proxyを実行せず、Providerへ到達しない。
  * @cleanup Module代役を復元する。実資源は生成しない。
@@ -753,7 +753,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
         return Buffer.alloc(size, 1);
       },
     };
-    for (const count of [1, 257, 1024]) {
+    for (const count of [1, 257, 1024, 1025]) {
       randoms = 0;
       runtimes = 0;
       assert.ok(
@@ -762,7 +762,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
             ...base,
             allowedReferences: Array.from(
               { length: count },
-              (_, i) => `ref-${i}`,
+              (_, i) => `ref-${i}-${"r".repeat(513)}`,
             ),
           },
           {
@@ -803,12 +803,10 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
         selection: { ...base.selection, catalogIdentity: "not_input" },
       },
       { ...base, selection: dynamic },
-      ...[
-        ["ref-0", "ref-0"],
-        new Array(1),
-        proxy,
-        Array.from({ length: 1025 }, (_, i) => `ref-${i}`),
-      ].map((allowedReferences) => ({ ...base, allowedReferences })),
+      ...[["ref-0", "ref-0"], new Array(1), proxy].map((allowedReferences) => ({
+        ...base,
+        allowedReferences,
+      })),
     ];
     for (const candidate of invalid) {
       randoms = 0;

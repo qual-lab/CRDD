@@ -338,11 +338,7 @@ async function main() {
     "development-measurement-request.json",
   );
   const metadata = fs.lstatSync(inputPath);
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size > 131_072
-  )
+  if (!metadata.isFile() || metadata.isSymbolicLink())
     throw new Error("measurement_request_invalid");
   const configuration: unknown = JSON.parse(fs.readFileSync(inputPath, "utf8"));
   const abort = new AbortController();

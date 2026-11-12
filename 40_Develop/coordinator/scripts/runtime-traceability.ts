@@ -446,7 +446,6 @@ function checkReferences(
 function isSafeRepositoryPath(value: string): boolean {
   return (
     value.length > 0 &&
-    value.length <= 512 &&
     !value.includes("\\") &&
     !value.startsWith("/") &&
     !value.includes("\0") &&

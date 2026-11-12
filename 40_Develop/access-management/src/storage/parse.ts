@@ -10,8 +10,6 @@ import { types } from "node:util";
 import { deriveRepositoryBindingId } from "../repository/binding.ts";
 import type { AccessManagementState } from "./types.ts";
 
-const MAX_STATE_BYTES = 16_777_216;
-
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -35,7 +33,6 @@ export type StateParseResult =
       status: "invalid";
       reason:
         | "state_input_invalid"
-        | "state_too_large"
         | "state_encoding_invalid"
         | "state_schema_invalid";
     };
@@ -73,14 +70,14 @@ function requireClosedRecord(
 
 /**
  * 管理状態のraw bytesを完全検査する。
- * @responsibility parse前容量、strict UTF-8、閉Schema、現在・歴史参照と段階相関を検査する。
+ * @responsibility 入力型、strict UTF-8、閉Schema、現在・歴史参照と段階相関を検査する。
  * @trace ARCH-000013
- * @input Uint8ArrayのUTF-8 JSON。16 MiB以下。
+ * @input Uint8ArrayのUTF-8 JSON。固定byte上限は持たない。
  * @returns 新しく所有した状態または固定拒否理由。
  * @precondition 保存Readerは別にRoot・実体同一性・Lockを確認する。
  * @postcondition 不正入力にSnapshotを返さず、変換・補完・旧形式fallbackをしない。
  * @effect N/A: I/O・鍵生成・認可・保存なし。
- * @failure 容量、文字コード、Schema・参照不一致を区別する。
+ * @failure 文字コード、Schema・参照不一致を区別する。
  * @invariant parse成功から保存・Authority・配送確認を推定しない。
  * @boundary 保存の純粋検査部分だけ。
  * @security Secretを受理するfieldがなく、失敗へ本文を添付しない。
@@ -91,12 +88,6 @@ export function parseAccessManagementState(
 ): StateParseResult {
   if (!types.isUint8Array(bytes))
     return { status: "invalid", reason: "state_input_invalid" };
-  const byteLength = Object.getOwnPropertyDescriptor(
-    Object.getPrototypeOf(Uint8Array.prototype),
-    "byteLength",
-  )?.get?.call(bytes) as number;
-  if (byteLength > MAX_STATE_BYTES)
-    return { status: "invalid", reason: "state_too_large" };
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);

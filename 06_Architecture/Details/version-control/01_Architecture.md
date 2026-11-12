@@ -1,5 +1,35 @@
 # Version Control境界
 
+## Git管理情報と内部表示量の追加整理 — 2026-11-12
+
+Git管理Fileの独自容量制限（制御File 4KiB、設定1MiB、除外設定128KiB、packed-refs 4MiB）を撤去する。安定読取りは実Fileのサイズに対応した読取りを行い、正しい文字コード、Link拒否、実体・読取り前後の一致、サイズの安全整数、完全読取りとHandle解放の検査を維持する。容量指定引数は残さない。
+
+内部Pathの4,096文字、Tree Cursorの8,192文字、Merge本文の4,096文字、Git表示名の512文字、入れ子Repository走査の100,000項目による独自拒否も撤去する。Path文法と境界、CursorのRoot・Directory相関、本文の非空・制御文字、入れ子Gitの拒否は維持する。Refの1,024文字、単一OIDを読むMERGE_HEADの形式検査、明示ページ選択、Git子Process出力量とTimeoutは今回の対象外である。
+
+限定試験では旧容量境界を超えるGit管理Fileと内部入力を確認する。長いPath文字列の入力検査と、OS上でその長さのPathを作成できることは区別する。任意量の処理成功、OS／Runtime資源不足時の結果返却は保証しない。
+
+## 保存前の候補・Commit入力の独自容量制限撤去 — 2026-11-12
+
+固定選択のFile数1,000・全Path長1,000文字、Commit本文4,096文字、Stage時の単一File64MiBによる独自拒否を撤去する。Domain側の同じ選択・関連Change集合の入力と保存値も追従し、生成されたRelated-CHG本文を長さだけで再拒否しない。Pathの非空・Traversal・管理領域・制御文字、Root／Ref／OID／mode／一意性、Filter拒否、Git Commandの固定argvと子Process出力・Timeout、部分Effectと回収不明の扱いは維持する。Commit本文の非空・NUL／DEL拒否も維持する。
+
+旧境界超の入力検査と、既存Main／Linked実Git、実64MiB超File、4,097文字Commitを限定確認する。1,001件の選択は実Sourceの入力検査で確認し、その件数分のGit発行全量実測とは区別する。任意量の実行成功やOS／Runtime資源不足時の結果返却は保証しない。
+
+## 現在File・差分表示の固定容量制限撤去 — 2026-11-12
+
+現在のWorktree Fileは独自の1MiB上限を設けず読み取る。作業差分とCommit間差分は、Gitから取得できた内容を256KiBで切り詰めたり容量だけで拒否したりしない。`preparedTruncated`／`workingTruncated`／`truncated`は公開結果から撤去し、利用側も不完全表示を推測しない。
+
+この先行変更は表示・現在内容取得の制限だけを対象とした。後続のGit Object取得量の扱いは次節とし、Git子Processの出力上限・Timeoutは引き続き変更しない。Root・Path・Link・HEAD・内容変化の既存検査は維持する。
+
+## Git Objectの独自容量・展開深度制限撤去 — 2026-11-12
+
+Object ReaderのPack／Index／Objectのbyte上限、Pack個数、Treeの深度・Path byte数・File数・合計byte、Deltaの展開byte・深度による独自拒否を撤去する。`readCommitFile`は`{commit, path}`で固定Fileの全内容を読み、`maximumBytes`は公開型・実行時入力から削除する。旧fieldを許容する互換処理は置かない。内部Reader契約は改訂5とする。
+
+容量とは別に、Object ID・Hash・宣言サイズ・Pack／Index checksum・offset・Delta命令範囲・Tree mode・Path境界・Link・Windows名衝突の検査を維持する。OFS Deltaは正の距離で過去offsetだけを参照し、REFの循環とTreeの現在分岐の祖先循環は直接拒否する。同一subtreeを別Pathから使う正常構造は拒否しない。明示Read Projection・内容検査・Root実体・出力先回収の条件も変えない。
+
+RuntimeやOS自身のBuffer・文字列・メモリ・再帰Stack等の限界は残る。大量展開で応答遅延・メモリ不足・Process終了が起こり得て、致命的なメモリ不足やOS終了時の停止結果返却は保証しない。独自quotaを撤去することは、任意の容量・深度の取得成功を保証することではない。Git子Processの出力上限・Timeout、HTTP／MCP／CLI受信量は今回変更しない。
+
+旧64KiB・64MiB超の正常読取り、70段Tree／Delta、共有subtreeと不正参照・Hashの対照を既存RFD-IT-008／012へ接続する。Pack512MiB超・Index96MiB超の巨大実境界は限定試験では実測せず、その上限撤去はSource確認と通常Pack回帰に分けて記録する。全体回帰・実AI・Docker・過去保持物は対象外。
+
 ## Gitユーザー設定の読取り — 2026-11-10
 
 `readGitUser(repository)`と`GitUserResult`を公開する。検証済みRepositoryで有効な`user.name`／`user.email`だけを取得し、未設定は`completed`のnull、Root拒否は`blocked`、Git失敗・不正出力は`unknown`として区別する。Gitの既存設定優先順位と末尾の有効値を使用し、名前・メールの自動補完・小文字化・ハッシュ化をしない。メールの本人確認やPrincipal生成はVCの責務ではない。
@@ -218,7 +248,7 @@ Release／Signing ──────┘                 ▼
 |---|---|---|---|---|
 | Repository Location | 起点Directory | 検証済みの最寄り／exact Repository RootとRepository形態 | いいえ | Runtime Data、Execution Intelligence、Checker |
 | Local Change Set Observation | 検証済みRoot、必要な比較基準 | Revision差、準備済み差分、作業中差分、未登録Pathと観測状態 | いいえ | Checker、回帰選択、Workbench |
-| Repository Worktree View | 検証済みRoot、Directory、Cursor、選択File | Directory直下Entry、変更区分、Query拘束Continuation、Prepared／Working Patchと切詰め状態 | いいえ | Workbench |
+| Repository Worktree View | 検証済みRoot、Directory、Cursor、選択File | Directory直下Entry、変更区分、Query拘束Continuation、取得済みPrepared／Working Patch全体 | いいえ | Workbench |
 | Change Publication | 検証済みRoot、選択差分、Commit内容、確認済みRemote・Branch・送信Commit、人間Authority | Stage／Unstage、Commit、通常Pushの各結果と終了後状態 | いいえ | Workbench |
 | Fixed Snapshot Read | 検証済みRoot、明示Revision、対象Path | Revision／Snapshot Identity付きの固定内容または観測不能 | はい | 固定履歴、外部送信Policy、候補生成 |
 | Candidate Materialization | 固定Commit、許可Path、検証済み出力Repository内の空Directory。独立Tokenは発行しない | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Orchestrator統合 |
@@ -241,7 +271,7 @@ Version ControlはGit技術PackageとしてCommit・Index・Refを明示する�
 
 Release Identity、Runtime Execution Identity、署名対象集合およびRelease GateはVersion Controlの出力ではない。Release／SigningがFixed Revision IdentityとRuntime対象集合を入力に合成する。
 
-固定内容の読取りは、一Fileあたり既定64KiBの上限を維持する。Runtime署名の出所照合など、必要な大きいSource／Nativeを読む利用側だけが`maximumBytes`を明示できる。値は1以上64MiB以下の安全な整数に限定し、既存Git objectの総読取り上限、Root・Revision・Path・modeと安定読取りの確認を緩めない。省略は既定値、不正値・上限超過・観測不能は内容なしの停止結果とする。通常の文書読取りへ大容量値を暗黙適用しない。この追加契約の実装・境界試験は[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)で検証中である。
+固定内容の読取りは、検証済みRepositoryと`{commit, path}`からFile全体を取得する。旧64KiB既定・明示64MiBまでの`maximumBytes`は廃止する。Root・Revision・Path・mode・Object Hashと安定読取りの確認は維持し、不正入力・観測不能は内容なしの停止結果とする。Runtime由来の限界と検証範囲は「Git Objectの独自容量・展開深度制限撤去」に従い、変更結果は[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)へ記録する。
 
 Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境界はAdapter内部へ隔離するだけでは完了しない。署名Runtimeを構成する側は、実在する呼出し元、実行primitive、固定実行ファイルprefix、許可引数prefixおよび結果受領箇所をRuntime依存閉包へ全数登録し、配布物の静的観測と一致する場合だけ候補として扱う。Version Control側はGit操作の意味と失敗正規化を所有し、署名・Release Authorityは引き続き所有しない。
 
@@ -280,7 +310,7 @@ VCの成功・失敗理由は技術操作Ownerへ揃える。Commit生成はcomm
 
 resolveVerifiedRepositoryRootは、Domain等のRepository-local保存や所在照合のために維持する。Root取得はGit操作を利用側へ移す入口ではない。内容・Index・Commit・Reference・Merge・Remote操作はVCの完成操作で完結する。本番srcのRoot利用を点検した範囲では、RootからGit操作を自作する確定事例はない。検証Scriptの実GitによるRoot対照と自己生成fixtureの準備・観測は、本番のGit操作再実装とは区別する。
 
-`readFile(repository,{path,baseCommit?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、容量超過、観測中のHEAD／内容変更は拒否する。この操作の失敗名はrepository_file系とし、候補固定の失敗と区別する。CoordinatorのWorkspace内容確認は保存済みBaseを引き続き明示する。
+`readFile(repository,{path,baseCommit?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、観測中のHEAD／内容変更は拒否する。この操作の失敗名はrepository_file系とし、候補固定の失敗と区別する。CoordinatorのWorkspace内容確認は保存済みBaseを引き続き明示する。
 
 内容・Index操作の対象は渡された検証済みRepositoryである。Main固定ではなく、LinkedのRootを取得すれば同じ操作を利用できる。実Git対照試験では異なるHEAD・Index・作業内容を設定し、読取りとStage／Unstage／Commitの対象一致、反対側のHEAD・Index・作業File不変を両方向で確認する。共有Object Databaseや対象Branchの更新はこの不変条件に含めない。
 

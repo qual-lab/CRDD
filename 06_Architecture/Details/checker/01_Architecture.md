@@ -1,5 +1,9 @@
 # Checkerの設計
 
+## 展開した確認範囲の全量報告 — 2026-11-12
+
+scoped検査の`expanded_scope`は直接参照を含めた検査対象の全Pathを返し、100Fileで切り詰めない。`expanded_scope_file_count`は同じ全対象数を保持する。切詰め専用の`expanded_scope_truncated`は廃止し、互換用の常時false fieldを残さない。full検査の`.`という範囲表現・検査編成・ヘッダー解析窓・結果の合否判定は変更しない。既存の範囲展開ITを104Fileへ拡張し、末尾までの一覧と参照先・参照元の所属を対照する。
+
 ## 回帰試験のGit境界 — 2026-11-06
 
 通常のRepository試験は、その試験が作成したRootを独立Git Repositoryとして初期化し、Gitが返すRootの実体一致を確認する。共通のDirectory fixtureを一律初期化せず、非Git応答・Git未導入・Filesystem探索は明示した試験条件として分離する。親Repositoryのignoreを製品側で無視する処理は追加しない。
@@ -374,7 +378,7 @@ Checker
 |---|---|---|
 | 発見集合 | Git追跡済み＋非無視の未追跡、またはFilesystem探索で得たもの | 発見方式と失敗理由を保持 |
 | 要求した範囲 | 利用者が`--scope`で指定した対象 | `requested_scope` |
-| 展開した範囲 | 直接の参照関係を追加した確認対象 | `expanded_scope`、件数と省略表示の有無 |
+| 展開した範囲 | 直接の参照関係を追加した確認対象 | `expanded_scope`と全対象件数（省略なし） |
 | 全体検査 | 限定時にも行う構造等の確認 | `global_checks` |
 | 除外・未確認 | Git無視、Gitlink境界、確認できない範囲等 | 除外情報と`unchecked`。指摘0へ吸収しない |
 

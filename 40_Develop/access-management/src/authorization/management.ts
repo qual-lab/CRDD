@@ -344,7 +344,6 @@ export function projectManagementOperationResult(
   const reasons: Readonly<Record<string, string>> = {
     state_store_previous_pending_settled: "previous_materials_settled",
     state_store_pending_failed: "previous_materials_unavailable",
-    state_store_capacity_exceeded: "capacity_exceeded",
     state_store_identity_failed: "identity_generation_failed",
     state_store_candidate_failed: "candidate_invalid",
     state_store_repository_binding_failed: "repository_validation_failed",

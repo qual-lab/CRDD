@@ -43,7 +43,6 @@ function snapshotObjectiveDefinition(
   if (!validIdentity(definition.id)) return null;
   const acceptanceCriteria = uniqueStrings(
     definition.acceptanceCriteria,
-    128,
     "human_text",
   );
   if (!acceptanceCriteria || acceptanceCriteria.length === 0) return null;
@@ -92,9 +91,7 @@ export function createCoordinatorState(
     input.maximumConcurrency < 1 ||
     input.maximumConcurrency > COORDINATOR_MAXIMUM_CONCURRENCY ||
     input.tasks.length === 0 ||
-    input.tasks.length > COORDINATOR_MAXIMUM_TASKS ||
-    input.objectives.length === 0 ||
-    input.objectives.length > COORDINATOR_MAXIMUM_OBJECTIVES
+    input.objectives.length === 0
   ) {
     return Object.freeze({
       status: "blocked",
@@ -109,7 +106,6 @@ export function createCoordinatorState(
   );
   const milestoneAcceptanceCriteria = uniqueStrings(
     input.milestoneAcceptanceCriteria,
-    128,
     "human_text",
   );
   if (definitions.some((definition) => !definition)) {
@@ -216,8 +212,3 @@ export function createCoordinatorState(
     taskIds: Object.freeze(tasks.map((task) => task.definition.id)),
   });
 }
-
-import {
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
-} from "../../../domain-model/src/index.ts";

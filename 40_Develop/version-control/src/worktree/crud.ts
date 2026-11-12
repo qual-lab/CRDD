@@ -332,8 +332,8 @@ function safeDirectoryPath(root: string, target: string) {
  * @returns N/A: 検証のみ。
  * @precondition 登録と実体は検証済み。
  * @postcondition gitlink・入れ子Git・link Directoryなし。
- * @effect 有界Filesystem／Git読取り。
- * @failure 不明・上限超過は拒否。
+ * @effect Filesystem／Git読取り。
+ * @failure 不明は拒否。
  * @invariant 入れ子Repositoryを再帰削除しない。
  * @boundary 専用Worktree。
  * @security linkは追従しない。
@@ -347,12 +347,10 @@ function rejectNestedRepositories(ctx: WorktreeGitContext) {
   )
     throw new Error("worktree_nested_repository_unsupported");
   const directories = [ctx.target];
-  let count = 0;
   while (directories.length) {
     const current = directories.pop();
     if (!current) break;
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      if (++count > 100_000) throw new Error("worktree_scan_limit");
       if (entry.name.toLowerCase() === ".git") {
         if (current !== ctx.target)
           throw new Error("worktree_nested_repository_unsupported");

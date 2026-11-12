@@ -1,5 +1,21 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## VC管理Fileと内容操作の内部容量追従 — 2026-11-12
+
+VCのGit管理FileReader二経路、local ignoreの解析・更新・再読取り、Path／Tree Cursor・Merge本文・Git User設定とWorktree探索の旧量制約を、同じ完成操作と利用側へ接続する。実Gitで構成できる大きいconfig／exclude／packed-refs等は新品のRepository-local Fixtureで確認し、OS上で生成できない全Path長・巨大列挙の局所対照は実Git境界の成功と区別する。元File／Root／Link・OID／Ref文法・Lock／Revision・Effect／Cleanupの確認と、Process maxBuffer・Ref長Policy・ページ取得枠は維持する。実AI／Docker・全体回帰・過去保持物は操作しない。
+
+期待sizeで読取りBufferを確保しても、その直後の一byte読取りによるEOF観測を省略しない。大きい正常Fileと、期待size後の余分byte・短読・close回数を実Readerへの局所代役で対照し、前後metadataだけから直接EOFを観測したと推定しない。旧容量上限を戻す処置ではない。
+
+## Git Object取得の独自容量・展開制限撤去 — 2026-11-12
+
+既存RFD-IT-008／012で、固定File読取りの旧64KiB／64MiB超、70段Tree／OFS・REF Delta、別Pathで共有するsubtreeの正常取得を確認する。旧`maximumBytes`入力とReader契約の容量fieldは廃止し、未知field拒否・Accessor不実行を維持する。Hash／checksum／宣言サイズ・不正Delta命令／参照・Path／mode／Link・出力先・内容検査の負対照を維持し、OFS自己参照とREF循環を正常chainと対照化する。Treeの祖先循環は私有関数への局所入力で直接拒否を確認し、正Hashの実Object境界とは区別する。
+
+Runtime・OSのメモリ／Buffer／Stack限界は残り、致命的OOMやOSによる終了時に結果が返る保証はしない。Pack512MiB超・Index96MiB超の巨大実データは今回未実測とし、Source上の上限撤去と通常Pack回帰を区別する。既存Local Item・正式結果は増減せず、全体回帰・実AI・Docker・過去保持物は対象外。HTTP・MCP・CLI受信量と子Process出力・Timeoutは変更しない。
+
+## 内部管理状態の固定容量制限撤去 — 2026-11-12
+
+既存RFD-UT-028／RFD-IT-021で、旧16MiBを超える有効JSONの解析・User登録・保存と再読取りを確認する。登録時はmanifestとPROJECT_CONTEXTが旧1MiBを超えても内容が有効なら登録でき、巨大な不正内容は拒否してdescriptorを閉じることをRFD-IT-002で対照する。登録後に公開範囲を設定し、同じ大容量manifestで現在アクセスと集合再観測も成立することを確認する。RFD-IT-017では大きな状態でも資格生成段階へ進むことと、乱数／KDF／衝突故障時の保存0・Secret返却0・失効事実保全を確認する。容量だけの拒否は撤去し、Schema・現在認可・改訂・元操作・Lock・実体・出版不明の条件は維持する。HTTP・MCP・CLI受信上限は今回対象外。既存項目と正式結果は増減せず、限定実測と全体QAを区別する。
+
 ## AM公開集合の追従 — 2026-11-11
 
 既存`RFD-UT-020`の公開集合断面を[AMのRoot公開境界](../../../06_Architecture/Details/access-management/01_Architecture.md#public-surface-closure)へ追従する。実行時30関数とSourceの明示26型を別々の固定集合へ完全一致照合し、内部5関数・3型のRoot再公開を拒否する。保存・鍵交換・Host準備の内部能力を廃止せず、その試験だけを既存宣言元へ接続する。本番Workbench／MCPは残すRoot公開を利用する。既存項目・件数・正式結果は増減せず、限定回帰の実測は変更記録へ残す。局所の成功から実Host／UATや全体QAの成立を推定しない。
@@ -324,7 +340,7 @@ Source契約は[Workbench詳細§6.2.1](../../../06_Architecture/Details/workben
 |---|---|
 | RFD-IT-013 | Header認証後の現在Role／資格失効を次のWorkbench要求または独立MCP list／callへ反映。developerの通常認証・用途解決は維持し、四管理read／七保存API呼出しと管理情報開示は0。managerのadministrator名前変更は許可、administrator登録・Role変更・内容設定は拒否 |
 | RFD-IT-021 | 七保存の正常、改訂競合、対象不明、先行材料処置、出版・読戻し・清掃・解放不明を利用側へ搬送。解除は同一操作／改訂で登録とExposureの両除去、本体・対象外状態保持。入口固有Store0 |
-| RFD-ST-022 | 四readの既存filter、改訂独立、Exposure nullと明示空、管理状態Root／Bindingを入力外とし、応答のPath／Bindingは0。登録対象RootはWorkbenchの明示入力だけで、管理保存Rootと区別する。独立MCPの登録field／Toolは0。16 MiB応答境界と超過時の部分返却0。Workbenchの直接AM POST／CSRと独立MCP Surfaceでそれぞれ拒否・既知出版・後段不明を別表示。更新後はfresh読取り、応答喪失で自動再送0 |
+| RFD-ST-022 | 四readの既存filter、改訂独立、Exposure nullと明示空、管理状態Root／Bindingを入力外とし、応答のPath／Bindingは0。登録対象RootはWorkbenchの明示入力だけで、管理保存Rootと区別する。独立MCPの登録field／Toolは0。Workbenchの独自16MiB応答拒否は撤去し、有効な管理状態の増加だけで返却を拒否しない。独立MCPの既存16MiB応答境界と超過時の部分返却0は今回維持する。Workbenchの直接AM POST／CSRと独立MCP Surfaceでそれぞれ拒否・既知出版・後段不明を別表示。更新後はfresh読取り、応答喪失で自動再送0 |
 | RFD-UAT-007 | manager／administratorが対象・Role変更前後・保持情報、登録と公開、解除と本体削除、既知保存と清掃未確認の違いを理解できる。全Roleの本人表示を管理一覧と混同しない |
 
 Workbenchの閉HTTP入力・直接AM接続と、独立MCPのTool名・閉Schema・dispatchを分け、HTTP取消／終了をQA-000009のEST-IT-002／010・EST-ST-013へ接続する。同期保存前取消のAPI呼出し0と、開始後の完了待ち・応答抑止・保存非rollbackを別に観測する。鍵・Host・初回操作のMCP公開0を維持し、採用する非鍵Toolを旧「非採用Tool」の禁止へ誤分類しない。Workbench登録では認可前Root観測0、入力上限、Host上Pathの説明と既存AM検証を確認する。部分接続や一覧件数から公開Launcher・通常接続・AM全体完成を推定しない。
@@ -353,7 +369,7 @@ Root準備・User UUID生成・鍵・配送・本番Hostは未接続で、初回
 
 RFD-IT-021の保存部分を`access-management/tests/integration/state/file-store.contract.test.ts`へ接続する。新Local Itemは追加せず、191項目の正式評価はNot Runを維持する。通常認可・六操作・公開縦断までの項目全体Passではない。
 
-反証は改訂競合時callback0、不正候補／容量超過時current不変、pending flush後・replace flush後・rename後の実子Process喪失と新入場、base一致通常材料の破棄後に新更新0、鍵由来baseの保持停止、next一致の既知出版保持、partial／孤立replace／current欠測の保持停止、rename失敗、出版後清掃失敗、主FailureとLock解放不明の分離である。子Process終了をjoinし、自己生成試験Rootの不存在を確認する。実Host・生Secret・Provider・Dockerは使用しない。
+反証は改訂競合時callback0、不正候補時current不変、pending flush後・replace flush後・rename後の実子Process喪失と新入場、base一致通常材料の破棄後に新更新0、鍵由来baseの保持停止、next一致の既知出版保持、partial／孤立replace／current欠測の保持停止、rename失敗、出版後清掃失敗、主FailureとLock解放不明の分離である。子Process終了をjoinし、自己生成試験Rootの不存在を確認する。実Host・生Secret・Provider・Dockerは使用しない。
 
 初回RFD-IT-024・鍵RFD-IT-017／018の本番保存・認可・提示は未接続のまま、通常保存の破棄規則を一般化しない。追加の短命replaceは一件の出版材料であり、履歴保存や新Recovery Storeではない。
 
@@ -367,11 +383,11 @@ RFD-IT-024の通常起動用既存Root Readerは局所Source／Testへ接続し�
 
 | 既存項目 | 追加する反証・観測 |
 |---|---|
-| RFD-IT-021 | current 16 MiB／pending 17 MiBの境界・超過、parse前の拒否、容量超過で既存current不変、未知field・重複・孤立参照拒否、Workspaceから管理操作を暗黙付与しない、RootとRepository Identity再検証、解除でExposure同時除去・本体削除0 |
-| RFD-IT-024 | 初回排他的作成とrevision 1完全baselineの全項目・3Role初期値・空集合検査、partial currentを未初期化へ戻さない、相関読戻し前のUser／資格Effect 0、User保存後に同じIDを再観測、容量不足時に鍵生成を先行しない |
+| RFD-IT-021 | 旧16MiB超の有効状態の解析・更新・保存・再読取り、未知field・重複・孤立参照拒否、Workspaceから管理操作を暗黙付与しない、RootとRepository Identity再検証、解除でExposure同時除去・本体削除0 |
+| RFD-IT-024 | 初回排他的作成とrevision 1完全baselineの全項目・3Role初期値・空集合検査、partial currentを未初期化へ戻さない、相関読戻し前のUser／資格Effect 0、User保存後に同じIDを再観測、旧容量上限を理由に生成を拒否せず、生成・保存故障時に成功を返さない |
 | RFD-IT-017／RFD-IT-018 | 通常発行の完全Credential＋元発行ID同時出版、出版前Process喪失で永続資格0／元要求不明、出版後同ID再観測、交換対象集合先行、失効・新資格保存・提示の個別確認、秘密非保存／再表示0、未解決参照中の資格整理0、別交換から旧受領を推定しない |
 
-全項目はNot Runを維持する。容量値は割当制限であり製品規模保証ではない。実装時に判別Union・相関不変条件・保存前後の観測を具体試験へ接続し、文書追加や安全な拒否だけから保存全体成立を表示しない。
+全項目はNot Runを維持する。旧固定容量上限は撤去済みであり、無限容量や資源不足時の成功を保証しない。実装時に判別Union・相関不変条件・保存前後の観測を具体試験へ接続し、文書追加や安全な拒否だけから保存全体成立を表示しない。
 
 前節までの内容権限語彙・容量・初回／鍵段階の未確定表示は候補時点の履歴で、現在方針はAM設計§4.5を使う。操作別認可は追加せず内容Workspaceだけを固定する。機械Schema・状態組合せ・公開API・物理保存／本番接続・配送観測・移行実行は未完了。Profile管理等の既存Owner判定をこの範囲から暗黙付与しない。
 

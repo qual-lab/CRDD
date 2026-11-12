@@ -11,7 +11,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  inspectCoordinatorWorkspaceResults,
+  inspectWorkspaceCommand,
   isWorkspaceCommitId,
+  snapshotCoordinatorWorkspaceResult,
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
   type WorkspaceCandidateRequest,
@@ -81,6 +84,54 @@ const REQUEST: WorkspaceCandidateRequest = {
 };
 
 /**
+ * Task別Workspace観測の旧1024件上限を超える集合を検査する。
+ * @responsibility 観測量では拒否せず対象相関・一意性・不明状態を維持する。
+ * @trace CPR-UT-009
+ * @precondition 一つのWorkspaceに属する1025件の合成観測を用意する。
+ * @stimulus 正常集合、重複Operation、別対象と欠測を渡す。
+ * @observation 返却件数と不正集合のnull。
+ * @oracle 旧上限超過だけは受理し、不正観測を空集合や正常へ補完しない。
+ * @cleanup N/A: 値検査だけ。
+ * @boundary 公開結果の純粋検査。Gitや削除を発行しない。
+ */
+test("Task別Workspace観測は旧1024件を超えても対象相関を検査する", () => {
+  const values = Array.from({ length: 1025 }, (_, index) => ({
+    taskId: `task-${index}`,
+    attemptId: `attempt-${index}`,
+    operationId: `operation-${index}`,
+    result: {
+      workspaceId: WORKSPACE_ID,
+      changedPaths: [],
+      canonicalRepositoryChanged: false,
+      changeAttribution: "unattributed",
+      workspaceDeletionIssued: false,
+    },
+  }));
+  assert.equal(
+    inspectCoordinatorWorkspaceResults(values, WORKSPACE_ID)?.length,
+    1025,
+  );
+  assert.equal(
+    inspectCoordinatorWorkspaceResults([...values, values[0]], WORKSPACE_ID),
+    null,
+  );
+  assert.equal(
+    inspectCoordinatorWorkspaceResults(
+      values,
+      "00000000-0000-0000-0000-000000000002",
+    ),
+    null,
+  );
+  assert.equal(
+    inspectCoordinatorWorkspaceResults(
+      values.map(({ result, ...entry }) => entry),
+      WORKSPACE_ID,
+    ),
+    null,
+  );
+});
+
+/**
  * 移管前の正常・境界・不正・欠測を技術正本で確認する。
  * @responsibility 要求・Commit形式・選択Path・表示名・関連CHGの受理境界を固定する。
  * @trace RFD-UT-030
@@ -93,6 +144,55 @@ const REQUEST: WorkspaceCandidateRequest = {
  */
 test("技術入力の閉形式と境界条件を維持する", () => {
   assert.equal(validWorkspaceCandidateRequest(REQUEST), true);
+  const longPath = `${"segment/".repeat(150)}source.txt`;
+  const many = {
+    ...REQUEST,
+    relatedChangeIds: Array.from(
+      { length: 101 },
+      (_, index) => `CHG-${String(index).padStart(6, "0")}`,
+    ),
+    selection: [
+      ...Array.from({ length: 1000 }, (_, index) => ({
+        path: `src/${index}.txt`,
+        blobId: COMMIT,
+        mode: "100644",
+      })),
+      { path: longPath, blobId: COMMIT, mode: "100644" },
+    ],
+  };
+  assert.equal(validWorkspaceCandidateRequest(many), true);
+  const frozen = inspectWorkspaceCommand({
+    operation: "freeze",
+    projectId: "project-1",
+    queueId: "queue-1",
+    workspaceId: WORKSPACE_ID,
+    expectedGeneration: 1,
+    operationId: WORKSPACE_ID,
+    baseCommit: COMMIT,
+    expectedHead: COMMIT,
+    candidateName: null,
+    relatedChangeIds: many.relatedChangeIds,
+    selection: many.selection,
+  });
+  assert.equal(frozen?.operation, "freeze");
+  if (frozen?.operation === "freeze") {
+    assert.equal(frozen.selection.length, 1001);
+    assert.equal(frozen.relatedChangeIds.length, 101);
+  }
+  assert.equal(
+    validWorkspaceCandidateRequest({
+      ...many,
+      selection: [...many.selection, many.selection[0]],
+    }),
+    false,
+  );
+  assert.equal(
+    validWorkspaceCandidateRequest({
+      ...many,
+      relatedChangeIds: [...many.relatedChangeIds, many.relatedChangeIds[0]],
+    }),
+    false,
+  );
   const sha256 = "b".repeat(64);
   assert.equal(
     validWorkspaceCandidateRequest({
@@ -132,7 +232,9 @@ test("技術入力の閉形式と境界条件を維持する", () => {
   );
   assert.equal(validWorkspaceDisplayName(null), true);
   assert.equal(validWorkspaceDisplayName("あ".repeat(120)), true);
-  assert.equal(validWorkspaceDisplayName("あ".repeat(121)), false);
+  assert.equal(validWorkspaceDisplayName("あ".repeat(121)), true);
+  assert.equal(validWorkspaceDisplayName("表示".repeat(4097)), true);
+  assert.equal(validWorkspaceDisplayName("invalid\nname"), false);
   assert.equal(isWorkspaceCommitId(COMMIT), true);
   assert.equal(isWorkspaceCommitId(sha256), true);
   assert.equal(isWorkspaceCommitId("a".repeat(39)), false);
@@ -198,6 +300,43 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
     primaryFailure: null,
     candidate,
   };
+  const longPath = `${"segment/".repeat(150)}source.txt`;
+  const changedPaths = [
+    ...Array.from({ length: 1000 }, (_, index) => `src/${index}.txt`),
+    longPath,
+  ];
+  const observation = {
+    workspaceId,
+    changedPaths,
+    canonicalRepositoryChanged: false,
+    changeAttribution: "unattributed",
+    workspaceDeletionIssued: false,
+  };
+  const snapshot = snapshotCoordinatorWorkspaceResult(observation);
+  assert.equal(snapshot?.changedPaths?.length, 1001);
+  assert.equal(snapshot?.changedPaths?.[1000], longPath);
+  assert.equal(Object.isFrozen(snapshot?.changedPaths), true);
+  assert.equal(
+    snapshotCoordinatorWorkspaceResult({
+      ...observation,
+      changedPaths: ["../outside"],
+    }),
+    null,
+  );
+  assert.equal(
+    snapshotCoordinatorWorkspaceResult({
+      ...observation,
+      changedPaths: ["same", "same"],
+    }),
+    null,
+  );
+  assert.equal(
+    validCoordinatorWorkspace({
+      ...workspace,
+      candidate: { ...candidate, lastResult: { ...result, changedPaths } },
+    }),
+    true,
+  );
   for (const reason of [
     "commit_create_completed",
     "commit_create_existing_confirmed",

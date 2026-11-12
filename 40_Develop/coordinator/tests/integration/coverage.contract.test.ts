@@ -16,7 +16,7 @@ const SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/src/execution/diagnostics.ts",
   "40_Develop/coordinator/src/execution/authority.ts",
-  "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
+  "40_Develop/domain-model/src/storage/file-snapshot.ts",
   "40_Develop/executor/scripts/provider-home.ts",
   "40_Develop/executor/src/lifecycle/attempt.ts",
 ]);
@@ -130,6 +130,29 @@ test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", 
       recheck: "LCOV grammar、Node coverageまたは固定母集団の変更時",
     },
   });
+});
+
+/**
+ * LCOV文法とexact母集団を保ち内部総量だけを制限しない。
+ * @responsibility 旧32MiB超の正常LCOVを解析する。
+ * @trace ERB-IT-001
+ * @precondition 同じ固定Source集合と単一Functionを使う。
+ * @stimulus Function名を17MiBにしFN/FNDAで32MiBを超える。
+ * @observation 元と同じ集計値。
+ * @oracle 量のみでは拒否せず不正文法の既存負例を維持する。
+ * @cleanup メモリ内文字列のみ。
+ * @boundary LCOV解析入力。
+ */
+test("LCOVは旧32MiBを超えても正規文法を全量解析する", () => {
+  const name = "f".repeat(17 * 1024 * 1024);
+  const raw = exactLcov()
+    .replace("FN:1,fixture", `FN:1,${name}`)
+    .replace("FNDA:1,fixture", `FNDA:1,${name}`);
+  assert.ok(Buffer.byteLength(raw, "utf8") > 32 * 1024 * 1024);
+  assert.deepEqual(
+    parseCoverage(raw).totals,
+    parseCoverage(exactLcov()).totals,
+  );
 });
 
 /**

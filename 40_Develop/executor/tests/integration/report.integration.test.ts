@@ -19,8 +19,8 @@ import { createRepositoryTestDirectory } from "../../../domain-model/tests/suppo
 import {
   getReportCommitName,
   readReport,
-  writeReport,
   removeReport,
+  writeReport,
 } from "../../scripts/report.ts";
 
 /**
@@ -365,17 +365,27 @@ test("symlink経由の読取りと削除は元pairを変更せず拒否する", 
 });
 
 /**
- * File種類・長さ・JSON上限の拒否を維持する。
+ * 大容量正常値の受理とFile種類・本文相関の拒否を確認する。
  * @responsibility 不正本文を成功へ補正せず保存物を保持する。
  * @trace RDL-IT-001
  * @precondition 各刺激で新品の正常組を生成する。
- * @stimulus 空、上限超過、不正JSON、Directoryへ本文を変える。
+ * @stimulus 旧上限を超える正常値、空、不正本文、Directoryを渡す。
  * @observation read／removeの例外と変更後状態の保持。
  * @oracle 不正入力では削除intentすら発行しない。
  * @cleanup 自己生成Rootのみを回収する。
  * @boundary 公開保存APIと実Filesystem。
  */
-test("空・上限超過・不正JSON・Directoryは保存本文として受理しない", () => {
+test("大容量正常値を受理し、空・不正JSON・内容不一致・Directoryは拒否する", () => {
+  const large = createRepositoryTestDirectory("report-large-");
+  try {
+    const value = { content: "x".repeat(262145) };
+    const report = writeReport(large.path, "large.json", "large.json", value);
+    assert.deepEqual(readReport(report.target).value, value);
+    removeReport(report.target);
+    assert.equal(fs.existsSync(report.target), false);
+  } finally {
+    large.cleanup();
+  }
   for (const mode of ["empty", "oversize", "json", "directory"]) {
     const f = createRepositoryTestDirectory("committed-json-size-");
     try {

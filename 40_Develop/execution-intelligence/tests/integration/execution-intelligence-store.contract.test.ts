@@ -11,19 +11,19 @@
  * @boundary 試験生成Storeだけを操作し、失敗注入を復元後に自己生成Rootを回収する。実AI・Dockerは使わない。
  */
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
-  createExecution,
   completeExecution,
+  createExecution,
+  type ExecutionCreateInput,
   getExecution,
   listExecutions,
-  type ExecutionCreateInput,
 } from "../../src/index.ts";
-import { fixture, completion, startedAt } from "../fixtures/store.ts";
+import { completion, fixture, startedAt } from "../fixtures/store.ts";
 
 /** 同じIDの開始・終了・再送・競合を実履歴で確認し、終了内容の上書きを拒否する。
  * @trace ERP-IT-001
@@ -81,6 +81,63 @@ test("開始のない終了・未知field・逆行時間は履歴出版前に拒
     "record_time_reversed",
   );
 });
+/** 旧32MiB・10,000行を超えても有効な履歴を読み、追加保存・再読取りできる。
+ * @responsibility 容量だけの拒否を撤去し、全行Schema検査と元履歴の保全を対照する。
+ * @trace ERP-IT-001
+ * @trace ERP-IT-005
+ * @precondition 自己生成Storeへ現行Schemaのopen実行を10,001件だけ用意する。
+ * @stimulus 旧容量超過の読取り、新規実行追加、全件ページと末尾ページ、未知fieldを与える。
+ * @observation 公開API結果・全件数・末尾ID・current本文と残存材料。
+ * @oracle 有効履歴は保存・読取りでき、不正Schemaは容量にかかわらず拒否し元byteを保持する。
+ * @cleanup fixtureが今回作成したRootだけを回収する。
+ * @boundary 実Filesystemの保存・読取り。実AI・Docker・過去履歴は使わない。
+ */
+test("旧容量・総件数上限を超える履歴の読取りと追加保存", (t) => {
+  const s = fixture(t),
+    history = path.join(s.directory, "history.jsonl"),
+    note = "x".repeat(3500);
+  const rows = Array.from({ length: 10_001 }, (_, index) => ({
+    contract: "execution-intelligence/history/v3",
+    kind: "execution",
+    value: {
+      executionId: `capacity-${index}`,
+      startedAt,
+      metadata: { note },
+      state: "open",
+      completion: null,
+    },
+  }));
+  fs.writeFileSync(
+    history,
+    rows.map((row) => `${JSON.stringify(row)}\n`).join(""),
+  );
+  assert.ok(fs.statSync(history).size > 32 * 1024 * 1024);
+  assert.equal(getExecution(s, "capacity-10000").status, "completed");
+  assert.equal(
+    createExecution(s, { executionId: "after-capacity", startedAt }).status,
+    "completed",
+  );
+  const all = listExecutions(s, { limit: 10_002 });
+  assert.equal(all.status, "completed");
+  if (all.status !== "completed") throw Error("history_read_failed");
+  assert.equal(all.value.total, 10_002);
+  assert.equal(all.value.executions.length, 10_002);
+  const tail = listExecutions(s, { offset: 10_001, limit: 1 });
+  assert.equal(tail.status, "completed");
+  if (tail.status !== "completed") throw Error("history_tail_failed");
+  assert.equal(tail.value.executions.length, 1);
+  const invalid = Buffer.concat([
+    fs.readFileSync(history),
+    Buffer.from(
+      '{"contract":"execution-intelligence/history/v3","kind":"unknown","value":{}}\n',
+    ),
+  ]);
+  fs.writeFileSync(history, invalid);
+  assert.equal(listExecutions(s).status, "blocked");
+  assert.deepEqual(fs.readFileSync(history), invalid);
+  assert.deepEqual(fs.readdirSync(s.directory), ["history.jsonl"]);
+});
+
 for (const contents of [
   '{"contract":"crdd/execution-intelligence-event/v2"}\n',
   '{"contract":"execution-intelligence/history/v3"}\n{"contract":"old"}\n',

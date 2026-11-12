@@ -1,7 +1,7 @@
 /**
  * Browser接続の要求・応答世代を有限のTransport fixtureで検証する。
  * @packageDocumentation
- * @responsibility 同Origin搬送、非永続資格、切替後の遅延応答拒否と本文上限を反証する。
+ * @responsibility 同Origin搬送、非永続資格、切替後の遅延応答拒否と全文搬送を反証する。
  * @trace EST-IT-002
  * @level IT
  * @scope Browser connection module→合成fetch／stream→Caller。
@@ -10,9 +10,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  setWorkbenchCredential,
   clearWorkbenchCredential,
   requestWorkbench,
+  setWorkbenchCredential,
 } from "../../src/client/api/connection.ts";
 
 /**
@@ -22,7 +22,7 @@ import {
  * @precondition Node内の自己所有fetch／location fixtureだけを使用する。
  * @stimulus 未接続・接続・切断・鍵変更・不正Origin／Header・過大本文を与える。
  * @observation 送信回数、Header、redirect構成、Reader取消／解放、固定失敗。
- * @oracle 別Origin送信0、再送0、旧応答0、容量超過時Reader取消・解放。
+ * @oracle 別Origin送信0、再送0、旧応答0。旧容量境界を超える本文も搬送しReaderを解放する。
  * @cleanup 元fetchとlocation descriptorを復元し、資格memoryを解放する。
  * @boundary 合成Transportの局所確認。Browser DOM／実API成立は別検証。
  */
@@ -99,16 +99,16 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new Uint8Array(16777217));
+        controller.close();
       },
       cancel() {
         cancelledReader = true;
       },
     });
     globalThis.fetch = async () => new Response(stream);
-    await assert.rejects(requestWorkbench("/api/workbench-view"), {
-      message: "workbench_response_unavailable",
-    });
-    assert.equal(cancelledReader, true);
+    const large = await requestWorkbench("/api/workbench-view");
+    assert.equal((await large.arrayBuffer()).byteLength, 16777217);
+    assert.equal(cancelledReader, false);
     assert.equal(stream.locked, false);
     clearWorkbenchCredential();
     globalThis.fetch = async (_, options) => {

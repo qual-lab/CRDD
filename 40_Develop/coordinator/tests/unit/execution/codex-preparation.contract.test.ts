@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test, { mock } from "node:test";
@@ -21,7 +22,14 @@ import {
 } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
-import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import {
+  hashExecutionSelection,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+  containsRecognizedSecretMaterial,
+  containsRecognizedSecretScope,
+} from "../../../../domain-model/src/index.ts";
+import { snapshotCoordinatorTaskRequest } from "../../../src/execution/request.ts";
 import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
@@ -37,8 +45,151 @@ import {
 import {
   preparationSelection,
   executionSelection,
+  taskExecutionSelections,
 } from "../../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
+
+/**
+ * 借用内容の全量を要求捕捉・準備検査へ搬送し、Schema拒否を保持する。
+ * @responsibility Path集合とReviewer内容の旧容量上限を後段で復活させない。
+ * @trace PRL-UT-014
+ * @precondition 私有準備関数の実宣言と実Domain値検査を局所VMへ接続する。
+ * @stimulus 65Path・長Path、257File・1MiB超本文とHash／相関不正を渡す。
+ * @observation 全件数・全文、拒否結果、元入力非変更。
+ * @oracle 容量だけで拒否せず、Hash・totalBytes・Path文法・Accessor不正は拒否する。
+ * @cleanup N/A: 局所値のみ。実AI送信・Docker・Filesystem保存なし。
+ * @boundary 本番要求捕捉と実準備宣言の値検査。Provider実行は対象外。
+ */
+test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schemaを拒否する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/preparation.ts", import.meta.url),
+    "utf8",
+  );
+  const names = [
+    "INVALID_WINDOWS_CHARACTER",
+    "RESERVED_WINDOWS_SEGMENT",
+    "SCOPE_KEYS",
+    "validText",
+    "validSegment",
+    "normalizedAllowedPath",
+    "normalizedStrings",
+    "normalizedPaths",
+    "normalizeTaskScope",
+    "normalizedReviewerReadProjection",
+  ];
+  const api = runInNewContext(
+    names.map((name) => sourceDeclaration(source, name)).join("\n") +
+      ";({paths:normalizedPaths,scope:normalizeTaskScope,reviewer:normalizedReviewerReadProjection})",
+    {
+      Buffer,
+      TextDecoder,
+      createHash,
+      snapshotPlainArray,
+      snapshotPlainRecord,
+      containsRecognizedSecretMaterial,
+      containsRecognizedSecretScope,
+    },
+  ) as {
+    paths: (value: unknown) => readonly string[] | null;
+    scope: (value: unknown) => {
+      allowedPaths: readonly string[];
+      readPaths: readonly string[];
+      acceptanceCriteria: readonly string[];
+    } | null;
+    reviewer: (
+      value: unknown,
+    ) => { totalBytes: number; files: readonly { content?: string }[] } | null;
+  };
+  const longPath = `${"segment/".repeat(150)}file.txt`;
+  const paths = [
+    ...Array.from({ length: 64 }, (_, index) => `src/${index}.txt`),
+    longPath,
+  ];
+  assert.ok(Buffer.byteLength(longPath) > 1024);
+  assert.equal(api.paths(paths)?.length, 65);
+  assert.equal(api.paths(["../outside"]), null);
+  assert.equal(api.paths(["same", "SAME"]), null);
+  const scope = {
+    objective: "o".repeat(8193),
+    acceptanceCriteria: Array.from(
+      { length: 17 },
+      (_, index) => `${index}-${"c".repeat(1025)}`,
+    ),
+    allowedPaths: paths,
+    readPaths: paths,
+  };
+  assert.equal(api.scope(scope)?.readPaths.length, 65);
+  assert.equal(api.scope(scope)?.acceptanceCriteria?.length, 17);
+  assert.equal(api.scope({ ...scope, readPaths: [0] }), null);
+  const request = {
+    ...scope,
+    taskExecutionSelections: taskExecutionSelections(),
+    workClass: "bounded_implementation",
+    planState: "complete",
+    risk: "low",
+    difficulty: "low",
+    decisionImpact: "limited",
+    isLocalCandidateOnly: true,
+    hasUnresolvedDirection: false,
+    requiresCrossContextAlignment: false,
+  };
+  const captured = snapshotCoordinatorTaskRequest(request);
+  assert.equal(captured?.status, "accepted");
+  if (captured?.status === "accepted")
+    assert.equal(captured.request.readPaths.length, 65);
+  assert.equal(
+    snapshotCoordinatorTaskRequest({ ...request, allowedPaths: [0] }),
+    null,
+  );
+  const content = "a".repeat(1024 * 1024 + 1);
+  const files = Array.from({ length: 257 }, (_, index) => {
+    const text = index === 0 ? content : "a";
+    return {
+      path: `src/${index}.txt`,
+      state: "present",
+      byteLength: Buffer.byteLength(text),
+      sha256: createHash("sha256").update(text).digest("hex"),
+      encoding: "utf-8",
+      content: text,
+    };
+  });
+  const candidatePatchHash = "a".repeat(64);
+  const projectionHash = createHash("sha256")
+    .update("crdd-candidate-read-projection-v1\0")
+    .update(candidatePatchHash)
+    .update("\0")
+    .update(JSON.stringify(files))
+    .digest("hex");
+  const projection = {
+    status: "projected",
+    candidatePatchHash,
+    candidateContentManifestHash: "b".repeat(64),
+    projectionHash,
+    totalBytes: content.length + 256,
+    files,
+  };
+  const normalized = api.reviewer(projection);
+  assert.equal(normalized?.files.length, 257);
+  assert.equal(normalized?.files[0]?.content, content);
+  assert.equal(
+    api.reviewer({ ...projection, totalBytes: projection.totalBytes - 1 }),
+    null,
+  );
+  assert.equal(
+    api.reviewer({ ...projection, projectionHash: "c".repeat(64) }),
+    null,
+  );
+  let getterCalls = 0;
+  const accessor = Object.defineProperty({ ...projection }, "files", {
+    get() {
+      getterCalls += 1;
+      return files;
+    },
+  });
+  assert.equal(api.reviewer(accessor), null);
+  assert.equal(getterCalls, 0);
+  assert.equal(files[0]?.content, content);
+});
 
 /**
  * 上位の管理情報がExecutor向け実値へ流れないことを反証する。

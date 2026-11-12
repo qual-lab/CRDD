@@ -6,26 +6,26 @@
  * @effect 明示保存だけが既存config領域を確保し、一時File・正本・短期Lockを更新する。
  * @security 旧Profile・Host設定へfallbackせず、実行Authority・AI・Dockerを開始しない。
  */
+
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { randomUUID, createHash } from "node:crypto";
+import type { Repository } from "../../../version-control/src/index.ts";
+import type {
+  AiSelectionCatalog,
+  AiSelectionSnapshot,
+} from "../ai-selection/types.ts";
+import { validateAiSelectionConfig } from "../ai-selection/validation.ts";
 import {
   createFilesystemStoreRoot,
   ensureRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
-  readStableBoundedFileSnapshot,
+  readStableFileSnapshot,
   resolveFilesystemStorePath,
   snapshotPlainRecord,
   withFilesystemStoreLock,
 } from "../index.ts";
 import { parseUnambiguousJsonDocument } from "../plain-data/json.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
-import { validateAiSelectionConfig } from "../ai-selection/validation.ts";
-import type {
-  AiSelectionSnapshot,
-  AiSelectionCatalog,
-} from "../ai-selection/types.ts";
 
-export const AI_SELECTION_MAXIMUM_BYTES = 1024 * 1024;
 const CONFIG_FILE = "ai-selection.json";
 
 /**
@@ -47,7 +47,6 @@ export type AiSelectionReadResult = Readonly<
       reason:
         | "ai_selection_boundary_unconfirmed"
         | "ai_selection_file_invalid"
-        | "ai_selection_file_too_large"
         | "ai_selection_config_invalid"
         | "ai_selection_read_unconfirmed";
     }
@@ -138,7 +137,7 @@ type ConfigAreaFailure = Extract<
  * @precondition 作成・初期設定の採用は行わない。
  * @postcondition 親境界とFile実体の前後一致を確認する。
  * @effect 既存metadataと一つの読取りdescriptorを利用し閉じる。
- * @failure 不在・不正・容量超過・不明を分離する。
+ * @failure 不在・不正・不明を分離する。
  * @invariant 同名以外や一時Fileは読み込まない。
  * @boundary Repository Fileと設定値。
  * @security Link・hardlink・重複JSON・旧Schemaを拒否する。
@@ -194,12 +193,7 @@ function inspectSelectionFile(
       before.size <= 0n
     )
       return blocked("ai_selection_file_invalid");
-    if (before.size > BigInt(AI_SELECTION_MAXIMUM_BYTES))
-      return blocked("ai_selection_file_too_large");
-    const snapshot = readStableBoundedFileSnapshot(
-      file,
-      AI_SELECTION_MAXIMUM_BYTES,
-    );
+    const snapshot = readStableFileSnapshot(file);
     const after = fs.lstatSync(file, { bigint: true });
     const endArea = observeRepositoryRuntimeDataArea(capability, "config");
     if (
@@ -352,8 +346,6 @@ export function saveRepositoryAiSelection(
     `${JSON.stringify(checked.value.config, null, 2)}\n`,
     "utf8",
   );
-  if (payload.byteLength > AI_SELECTION_MAXIMUM_BYTES)
-    return blocked("ai_selection_file_too_large");
   if (!authorized(authorize)) return blocked("ai_selection_access_unconfirmed");
   let lastPublication: "not_published" | "unconfirmed" | "confirmed" =
     "not_published";
@@ -443,9 +435,8 @@ export function saveRepositoryAiSelection(
               handleClosed = true;
             }
           }
-          const prepared = readStableBoundedFileSnapshot(
+          const prepared = readStableFileSnapshot(
             resolveFilesystemStorePath(root, name),
-            AI_SELECTION_MAXIMUM_BYTES,
           );
           const stage = fs.lstatSync(pending, { bigint: true });
           if (

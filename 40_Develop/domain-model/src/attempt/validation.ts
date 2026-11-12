@@ -7,32 +7,36 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import { validateDockerRuntimeRepairSessionCheckpoint } from "./repair-validation.ts";
-import { validateDockerRuntimeRepairCheckpointTransition } from "./repair-validation.ts";
-import type { CoordinatorStateSnapshot } from "../state/types.ts";
-import type { CoordinatorStateOperation } from "./types.ts";
-import { hasRuntimeStateRecordKeys } from "../state/validation.ts";
 import { createHash } from "node:crypto";
-import { isSha256Hex } from "../state/validation.ts";
-import { coordinatorOperationSummaryBytes } from "../state/validation.ts";
-import { coordinatorHistoryLineBytes } from "../state/validation.ts";
-import type { CoordinatorStateRepairOperation } from "./types.ts";
-import { decodeDockerRuntimeRepairCheckpoint } from "./repair-validation.ts";
-import { decodeDockerRuntimeRepairDisposalCheckpoint } from "./repair-validation.ts";
-import { dockerRuntimeRepairDisposalIsSettled } from "./repair-validation.ts";
-import { dockerRuntimeRepairCheckpointIsSettled } from "./repair-validation.ts";
-import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
 import { inspectExecutionSelection } from "../ai-selection/validation.ts";
-import type { DockerRestartCheckpoint } from "./types.ts";
 import { snapshotPlainRecord } from "../plain-data/snapshot.ts";
-import type {
-  CoordinatorStateTaskOperation,
-  CoordinatorResourceBook,
-} from "./types.ts";
-import type { CoordinatorRepairRetentionReceipt } from "./types.ts";
-import { decodeDockerRuntimeRepairRetentionTargets } from "./repair-validation.ts";
-import type { DockerRuntimeRepairCheckpoint } from "./repair-types.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
+import type { CoordinatorStateSnapshot } from "../state/types.ts";
+import {
+  coordinatorHistoryLineBytes,
+  coordinatorOperationSummaryBytes,
+  hasRuntimeStateRecordKeys,
+  isSha256Hex,
+} from "../state/validation.ts";
+import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
+import type { DockerRuntimeRepairCheckpoint } from "./repair-types.ts";
+import {
+  decodeDockerRuntimeRepairCheckpoint,
+  decodeDockerRuntimeRepairDisposalCheckpoint,
+  decodeDockerRuntimeRepairRetentionTargets,
+  dockerRuntimeRepairCheckpointIsSettled,
+  dockerRuntimeRepairDisposalIsSettled,
+  validateDockerRuntimeRepairCheckpointTransition,
+  validateDockerRuntimeRepairSessionCheckpoint,
+} from "./repair-validation.ts";
+import type {
+  CoordinatorRepairRetentionReceipt,
+  CoordinatorResourceBook,
+  CoordinatorStateOperation,
+  CoordinatorStateRepairOperation,
+  CoordinatorStateTaskOperation,
+  DockerRestartCheckpoint,
+} from "./types.ts";
 
 /**
  * 保存された資源集合の形と相関を確認する。実在や削除許可は判定しない。
@@ -340,11 +344,8 @@ export function validCoordinatorExecutionState(
 ): boolean {
   if (
     !Array.isArray(snapshot.operations) ||
-    snapshot.operations.length > MAX_COORDINATOR_STATE_OPERATIONS ||
     !Array.isArray(snapshot.unresolvedRecoveries) ||
-    snapshot.unresolvedRecoveries.length > MAX_COORDINATOR_STATE_OPERATIONS ||
-    !Array.isArray(snapshot.pendingDeliveries) ||
-    snapshot.pendingDeliveries.length > MAX_COORDINATOR_STATE_OPERATIONS
+    !Array.isArray(snapshot.pendingDeliveries)
   )
     return false;
   const operations = new Map<string, CoordinatorStateOperation>();
@@ -613,8 +614,6 @@ export function validCoordinatorExecutionState(
   }
   return true;
 }
-
-export const MAX_COORDINATOR_STATE_OPERATIONS = 64;
 
 /**
  * 修復variantの不変Identityと技術・上位状態の相関を検査する。
@@ -985,10 +984,7 @@ export function validateCoordinatorOperationIdentity(
         Object.values(
           identity.workspaceProtection as Record<string, unknown>,
         ).every(
-          (item) =>
-            typeof item === "string" &&
-            item.length <= 4096 &&
-            !/[\0\r\n,]/u.test(item),
+          (item) => typeof item === "string" && !/[\0\r\n,]/u.test(item),
         ))) &&
     (!Object.hasOwn(identity, "workspaceProtection") ||
       identity.workspaceProtected === true) &&

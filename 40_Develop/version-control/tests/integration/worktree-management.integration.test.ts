@@ -9,23 +9,26 @@
  */
 import assert from "node:assert/strict";
 import childProcess, { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { devNull } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { types } from "node:util";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import {
   createCommit,
+  createReference,
+  createWorktree,
+  getRepository,
+  getWorktree,
   mergeCommit,
   readRepositoryRevision,
-  createWorktree,
-  removeWorktree,
-  getWorktree,
-  getRepository,
-  createReference,
   removeReference,
+  removeWorktree,
 } from "../../src/index.ts";
 
 const repository = path.resolve(
@@ -33,6 +36,175 @@ const repository = path.resolve(
 );
 const testsRoot = path.join(repository, ".crdd", "tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
+
+/**
+ * 走査件数とRoot全長だけを境界確認の失敗へ変えない。
+ * @trace RFD-IT-029
+ * @precondition 既存私有宣言を有限のFilesystem観測へ接続する。
+ * @stimulus 100001通常項目、入れ子Gitと4097文字超Root・制御文字を与える。
+ * @observation 通常集合の全走査と不正文法／入れ子の拒否。
+ * @oracle 量ではなく文法・対象境界で停止する。
+ * @cleanup N/A: VM値だけ。実Filesystem操作は発行しない。
+ */
+test("Worktree安全走査は100001項目を量だけで拒否しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/worktree/crud.ts", import.meta.url),
+    "utf8",
+  );
+  const entries = Array.from({ length: 100001 }, (_, index) => ({
+    name: `file-${index}`,
+    isSymbolicLink: () => false,
+    isDirectory: () => false,
+  }));
+  const scan = runInNewContext(
+    sourceDeclaration(source, "rejectNestedRepositories") +
+      "\nrejectNestedRepositories",
+    { path, fs: { readdirSync: () => entries } },
+  );
+  const context = { target: "fixture", run: () => ({ status: 0, stdout: "" }) };
+  assert.doesNotThrow(() => scan(context));
+  const nested = runInNewContext(
+    sourceDeclaration(source, "rejectNestedRepositories") +
+      "\nrejectNestedRepositories",
+    {
+      path,
+      fs: {
+        readdirSync: (current: string) =>
+          current === "fixture"
+            ? [
+                {
+                  name: "nested",
+                  isSymbolicLink: () => false,
+                  isDirectory: () => true,
+                },
+              ]
+            : [
+                {
+                  name: ".git",
+                  isSymbolicLink: () => false,
+                  isDirectory: () => false,
+                },
+              ],
+      },
+    },
+  );
+  assert.throws(() => nested(context), /nested_repository_unsupported/u);
+  const layoutSource = fs.readFileSync(
+    new URL("../../src/repository/layout.ts", import.meta.url),
+    "utf8",
+  );
+  const readRoot = runInNewContext(
+    sourceDeclaration(layoutSource, "readExactRepositoryRoot") +
+      "\nreadExactRepositoryRoot",
+    { path, types },
+  );
+  const root = path.resolve(`/${"segment/".repeat(600)}`);
+  assert.ok(root.length > 4096);
+  const input = Object.assign(Object.create(null), { repositoryRoot: root });
+  assert.equal(readRoot(input), root);
+  assert.equal(
+    readRoot(
+      Object.assign(Object.create(null), { repositoryRoot: `${root}\0` }),
+    ),
+    null,
+  );
+});
+
+/**
+ * Commit選択の旧件数・Path・message制限だけを撤去し形式拒否を維持する。
+ * @trace RFD-IT-029
+ * @precondition 実Sourceの私有入力検査だけを既存構文解析補助で抽出する。
+ * @stimulus 1001選択・長Path・4097文字messageと重複／管理Path／制御文字を渡す。
+ * @observation 入力検査のtrue／false。
+ * @oracle 量だけで拒否せず、Git内容の実測・Root・Effect確認は別の実Git試験へ残す。
+ * @cleanup N/A: VMと合成値だけ。4000件相当のGit Process発行はしない。
+ * @boundary 私有入力検査の局所境界。1001選択の実Git出版成功は主張しない。
+ */
+test("Commit選択は1001件・長Path・4097文字を受理し形式不正を拒否する", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/repository/commit.ts", import.meta.url),
+    "utf8",
+  );
+  const validate = runInNewContext(
+    `${["isCommitId", "isCommitPath", "validCommitCreateRequest"]
+      .map((name) => sourceDeclaration(source, name))
+      .join("\n")};validCommitCreateRequest`,
+  ) as (value: unknown) => boolean;
+  const commit = "a".repeat(40);
+  const selection = [
+    ...Array.from({ length: 1000 }, (_, index) => ({
+      path: `src/${index}.txt`,
+      blobId: commit,
+      mode: "100644",
+    })),
+    {
+      path: `${"segment/".repeat(150)}source.txt`,
+      blobId: commit,
+      mode: "100644",
+    },
+  ];
+  const request = {
+    baseCommit: commit,
+    expectedHead: commit,
+    selection,
+    message: "m".repeat(4097),
+    temporaryDirectory: ".crdd/commit-area",
+  };
+  assert.equal(validate(request), true);
+  assert.equal(
+    validate({ ...request, selection: [...selection, selection[0]] }),
+    false,
+  );
+  assert.equal(
+    validate({
+      ...request,
+      selection: [{ ...selection[0], path: "../outside" }],
+    }),
+    false,
+  );
+  assert.equal(validate({ ...request, message: "bad\0message" }), false);
+  assert.equal(validate({ ...request, message: "bad\x7fmessage" }), false);
+});
+
+/**
+ * 旧64MiBを超える実Fileの選択Commitを作り通常IndexとHEADを保全する。
+ * @trace RFD-IT-029
+ * @precondition 自己生成Repositoryの未追跡Fileと専用一時領域だけを使用する。
+ * @stimulus 64MiB+1の内容Hashと4097文字messageを公開createCommitへ渡す。
+ * @observation Commit成功、Blobの内容長と通常Index／HEAD不変、清掃確認。
+ * @oracle 容量だけで拒否せず、元Hash・固定Base・一時物回収を維持する。
+ * @cleanup fixtureのexact所有Rootを回収する。
+ * @boundary Repository-local実Git。AI・Docker・通信なし。
+ */
+test("createCommitは64MiB超の実FileをHash照合して固定し通常Indexを保全する", (t) => {
+  const f = fixture(t);
+  const bytes = Buffer.alloc(64 * 1024 * 1024 + 1, 0x61);
+  fs.writeFileSync(path.join(f.root, "large.txt"), bytes);
+  const blobId = createHash("sha1")
+    .update(`blob ${bytes.length}\0`)
+    .update(bytes)
+    .digest("hex");
+  const index = fs.readFileSync(path.join(f.root, ".git", "index"));
+  const temporaryDirectory = ".crdd/large-commit";
+  fs.mkdirSync(path.join(f.root, temporaryDirectory), { recursive: true });
+  const result = createCommit(f.capability, {
+    baseCommit: f.base,
+    expectedHead: f.base,
+    selection: [{ path: "large.txt", blobId, mode: "100644" }],
+    message: "m".repeat(4097),
+    temporaryDirectory,
+  });
+  assert.equal(result.status, "completed", result.reason);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.ok(result.commitId);
+  assert.equal(
+    git(f.root, ["cat-file", "-s", `${result.commitId}:large.txt`]),
+    String(bytes.length),
+  );
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  assert.deepEqual(fs.readFileSync(path.join(f.root, ".git", "index")), index);
+  assert.deepEqual(fs.readdirSync(path.join(f.root, temporaryDirectory)), []);
+});
 
 /**
  * 上位が選んだRefだけをCAS作成・削除し、別OID・Symbolic Ref・使用中Branchを拒否する。
@@ -1079,7 +1251,7 @@ test("mergeCommitは入力LinkedのHEADとIndexだけを更新する", (t) => {
     sourceCommit: fixed.commitId,
     targetBranch: target.branch,
     expectedHead: f.base,
-    message: "synthetic merge",
+    message: "m".repeat(4097),
   });
   assert.equal(merged.status, "completed", merged.reason);
   assert.ok(merged.commitId);

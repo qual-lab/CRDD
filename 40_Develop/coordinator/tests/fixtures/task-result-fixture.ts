@@ -83,10 +83,10 @@ export function registerSyntheticOperations(
     };
     const hostHash = hash(`${JSON.stringify(hostRecord)}\n`);
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
-    const suffix = String(index).repeat(16);
+    const suffix = index.toString(16).padStart(16, "0");
     const identity = {
       schema: "crdd-coordinator/operation-identity/v4",
-      operationNonce: String(index).repeat(64),
+      operationNonce: index.toString(16).padStart(64, "0"),
       provider: "claude",
       consumer: "orchestrator",
       operationId: `OP-${123456 + index}`,
@@ -98,7 +98,7 @@ export function registerSyntheticOperations(
         model: "opus",
         effort: "high",
       }),
-      stableLogicalHomeBindingHash: String(index + 2).repeat(64),
+      stableLogicalHomeBindingHash: (index + 2).toString(16).padStart(64, "0"),
       providerHomeIdentityHash: "8".repeat(64),
       repositoryBinding: binding,
       ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
@@ -275,12 +275,16 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
  * 通常受領試験用に二つの技術終端を構成する。
  * @responsibility 登録と終端の既存fixtureを同じ論理操作へ接続する。
  * @trace PRL-IT-012
- * @input root: 自己生成Root、operationId: Task論理操作。
+ * @input root: 自己生成Root、operationId: Task論理操作、count: 登録数（省略時2）。
  * @returns exact結果集合。
  * @effect fixture内の技術状態と履歴を作る。
  */
-export function registerSyntheticResults(root: string, operationId: string) {
-  return registerSyntheticOperations(root, operationId).map((item) =>
+export function registerSyntheticResults(
+  root: string,
+  operationId: string,
+  count = 2,
+) {
+  return registerSyntheticOperations(root, operationId, count).map((item) =>
     settleSyntheticOperation(root, item.recoveryId),
   );
 }

@@ -7,20 +7,22 @@
  * @packageDocumentation
  * @responsibility Workspace試験の回復開始・候補検査診断を、同じTaskと有限な安全結果へ結合する。
  */
-import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 
 import assert from "node:assert/strict";
-import { Writable } from "node:stream";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
+import { Writable } from "node:stream";
 import test from "node:test";
-import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-diagnostic.ts";
+import { runInNewContext } from "node:vm";
+import {
+  extractProviderResult,
+  inspectCodexExecutionObservation,
+} from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
 } from "../../../coordinator/scripts/task-diagnostic.ts";
-import { inspectCodexExecutionObservation } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-diagnostic.ts";
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -66,6 +68,57 @@ const identity = {
   recoveryCorrelationId: correlation,
   recoveryId,
 };
+
+/**
+ * 診断の件数・通知byte量では正規情報を失わない。
+ * @responsibility 同じTaskの全通知を保持し相関・復元を維持する。
+ * @trace ERB-IT-021
+ * @precondition 自己生成のWritableと正規診断だけを使う。
+ * @stimulus 17通知と4KiB超の正規通知を同じCollectorへ渡す。
+ * @observation 全件・末尾Identity、captured、元write復元。
+ * @oracle 量だけで失敗へ変換せず、不正文法の既存負例は拒否する。
+ * @cleanup finishで元stream.writeへ復元し、外部Processを作らない。
+ * @boundary Process内の受動診断。AI・Dockerなし。
+ */
+test("診断Collectorは17通知と4KiB超の正規通知を全量保持する", () => {
+  const stream = new Writable({
+    write(_chunk, _encoding, done) {
+      done();
+    },
+  });
+  const original = stream.write;
+  const collector = captureWorkspaceTaskDiagnostic(stream);
+  const identities = Array.from({ length: 17 }, (_, index) => ({
+    ...identity,
+    operationId:
+      index === 16 ? `OP-${"1".repeat(5000)}` : `OP-${123456 + index}`,
+    recoveryId: `docker-task.${(index + 1).toString(16).padStart(64, "0")}.${"b".repeat(64)}.${"c".repeat(64)}`,
+  }));
+  for (const item of identities) {
+    const text = frame(
+      event({
+        operationId: item.operationId,
+        diagnostic: {
+          stage: "operation_start_save",
+          recoveryId: item.recoveryId,
+        },
+      }),
+    );
+    if (item === identities[16]) assert.ok(Buffer.byteLength(text) > 4096);
+    stream.write(text);
+  }
+  const result = collector.finish(
+    correlation,
+    identities.map((item) => item.recoveryId),
+    true,
+    identities,
+  );
+  assert.equal(result.captureStatus, "captured");
+  assert.equal(result.events.length, 17);
+  assert.equal(result.events[16]?.operationId, identities[16]?.operationId);
+  assert.equal(result.closed, true);
+  assert.equal(stream.write, original);
+});
 
 /**
  * 合成Provider応答を実Parserで投影し、検査対象の私有Key一覧には依存しない。
@@ -132,7 +185,7 @@ test("境界終端診断は要求・応答・Receiptの停止点を完全相関�
       "duplicate",
       "extra",
       "raw-primary",
-      "overflow",
+      "foreign-many",
     ] as const) {
       let forwarded = 0;
       const stream = new Writable({
@@ -187,7 +240,7 @@ test("境界終端診断は要求・応答・Receiptの停止点を完全相関�
       };
       if (mode !== "missing") stream.write(frame(value));
       if (mode === "duplicate") stream.write(frame(value));
-      if (mode === "overflow")
+      if (mode === "foreign-many")
         for (let i = 1; i <= 16; i++)
           stream.write(
             frame({
@@ -214,9 +267,7 @@ test("境界終端診断は要求・応答・Receiptの停止点を完全相関�
           ? "captured"
           : mode === "missing"
             ? "missing"
-            : mode === "overflow"
-              ? "overflow"
-              : "invalid",
+            : "invalid",
       );
       assert.equal(
         result.boundary.events.length,
@@ -349,7 +400,7 @@ test("段階診断は初回・是正の編集とレビューを本文なしで�
     "extra",
     "missing-category",
     "role-mismatch",
-    "overflow",
+    "foreign-many",
   ] as const) {
     const stream = new Writable({
       write(_c, _e, done) {
@@ -401,7 +452,7 @@ test("段階診断は初回・是正の編集とレビューを本文なしで�
         };
         stream.write(frame(value));
         if (mode === "duplicate") stream.write(frame(value));
-        if (mode === "overflow")
+        if (mode === "foreign-many")
           for (let i = 0; i < 17; i++)
             stream.write(
               frame({
@@ -429,11 +480,7 @@ test("段階診断は初回・是正の編集とレビューを本文なしで�
     assert.equal(stream.write, original);
     assert.equal(
       result.stages.captureStatus,
-      mode === "valid"
-        ? "task_history_only"
-        : mode === "overflow"
-          ? "overflow"
-          : "invalid",
+      mode === "valid" ? "task_history_only" : "invalid",
     );
     assert.equal(result.stages.events.length, mode === "valid" ? 4 : 0);
     assert.equal(JSON.stringify(result).includes("DO_NOT_RETAIN"), false);
@@ -823,16 +870,16 @@ test("候補collectorは既存一取得器で完全相関・履歴相関と独�
 
 /**
  * 無関係・不正・重複を受領済みへ畳まず、本文を結果へ複製しない。
- * @responsibility 候補collectorは不正・別相関・重複・超過を拒否する
+ * @responsibility 候補collectorは不正・別相関・重複を拒否する
  * @trace ERB-IT-021
  * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
- * @stimulus 候補collectorは不正・別相関・重複・超過を拒否するの対照入力・故障条件を与える。
+ * @stimulus 候補collectorは不正・別相関・重複を拒否する対照入力・故障条件を与える。
  * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
- * @oracle 候補collectorは不正・別相関・重複・超過を拒否するという条件をassertionで判定する。
+ * @oracle 候補collectorは不正・別相関・重複を拒否するという条件をassertionで判定する。
  * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  * @boundary 受動通知→検証Toolの結果記録。
  */
-test("候補collectorは不正・別相関・重複・超過を拒否する", () => {
+test("候補collectorは不正・別相関・重複を拒否する", () => {
   for (const scenario of [
     "foreign-task",
     "foreign-owner",
@@ -842,7 +889,7 @@ test("候補collectorは不正・別相関・重複・超過を拒否する", ()
     "duplicate",
     "history-duplicate",
     "missing-history",
-    "overflow",
+    "foreign-many",
   ] as const) {
     const stream = new Writable({
       write(_c, _e, done) {
@@ -873,7 +920,7 @@ test("候補collectorは不正・別相関・重複・超過を拒否する", ()
     );
     stream.write(frame(value));
     if (scenario === "duplicate") stream.write(frame(value));
-    if (scenario === "overflow")
+    if (scenario === "foreign-many")
       for (let i = 0; i < 16; i++)
         stream.write(
           frame(candidateEvent({ operationId: `OP-${123457 + i}` })),
@@ -893,10 +940,7 @@ test("候補collectorは不正・別相関・重複・超過を拒否する", ()
       true,
       scenario === "history-duplicate" ? [history, history] : [],
     );
-    assert.equal(
-      result.candidateValidation.captureStatus,
-      scenario === "overflow" ? "overflow" : "invalid",
-    );
+    assert.equal(result.candidateValidation.captureStatus, "invalid");
     assert.deepEqual(result.candidateValidation.events, []);
     assert.equal(result.closed, true);
     assert.equal(JSON.stringify(result).includes("DO_NOT_RETAIN"), false);
@@ -974,10 +1018,16 @@ test("候補診断の閉形式は相関する件数と非秘密観測だけを�
     providerExecutionObservation: observation,
   };
   assert.ok(inspectCandidateValidationFailureDiagnostic(valid));
+  assert.ok(
+    inspectCandidateValidationFailureDiagnostic({
+      ...valid,
+      reportedPathCount: 1001,
+    }),
+  );
   for (const change of [
     { pathsMatch: true },
     { candidatePathCount: -1 },
-    { reportedPathCount: 1001 },
+    { reportedPathCount: 1.5 },
     { captureStatus: "unavailable" },
     { pathsMatch: null },
     { privateText: "DO_NOT_RETAIN" },
@@ -1051,17 +1101,17 @@ test("回復開始collectorは元stderrを透過し同じTaskだけ取得する"
 });
 
 /**
- * 欠測・拒否・過大・別相関・重複を成功診断へ丸めない。
- * @responsibility 回復開始collectorは欠測・不正・過大・別Taskを区別する
+ * 欠測・拒否・余分なField・別相関・重複を成功診断へ丸めない。
+ * @responsibility 回復開始collectorは欠測・不正・別Taskを区別する
  * @trace ERB-IT-021
  * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
- * @stimulus 回復開始collectorは欠測・不正・過大・別Taskを区別するの対照入力・故障条件を与える。
+ * @stimulus 回復開始collectorは欠測・不正・別Taskを区別する対照入力・故障条件を与える。
  * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
- * @oracle 回復開始collectorは欠測・不正・過大・別Taskを区別するという条件をassertionで判定する。
+ * @oracle 回復開始collectorは欠測・不正・別Taskを区別するという条件をassertionで判定する。
  * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  * @boundary 受動通知→検証Toolの結果記録。
  */
-test("回復開始collectorは欠測・不正・過大・別Taskを区別する", () => {
+test("回復開始collectorは欠測・不正・別Taskを区別する", () => {
   for (const scenario of [
     "empty-success",
     "missing",
@@ -1072,8 +1122,8 @@ test("回復開始collectorは欠測・不正・過大・別Taskを区別する"
     "foreign-correlation",
     "foreign-recovery",
     "duplicate",
-    "overflow",
-    "oversized",
+    "foreign-many",
+    "extra-field-large",
     "double-install",
   ]) {
     const stream = new Writable({
@@ -1122,12 +1172,12 @@ test("回復開始collectorは欠測・不正・過大・別Taskを区別する"
     else if (scenario === "duplicate") {
       stream.write(frame(event()));
       stream.write(frame(event()));
-    } else if (scenario === "overflow") {
-      expected = "overflow";
+    } else if (scenario === "foreign-many") {
+      expected = "invalid";
       for (let n = 0; n < 17; n++)
         stream.write(frame(event({ operationId: `OP-${123456 + n}` })));
-    } else if (scenario === "oversized") {
-      expected = "overflow";
+    } else if (scenario === "extra-field-large") {
+      expected = "invalid";
       stream.write(frame(event({ padding: "x".repeat(5000) })));
     } else if (scenario === "double-install") {
       expected = "captured";
@@ -1273,8 +1323,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
           lstatSync: () => ({ isSymbolicLink: () => false, nlink: 1 }),
         },
         assert,
-        RUNTIME_STATE_MAXIMUM_BYTES: 4096,
-        readStableBoundedFileSnapshot: () => ({
+        readStableFileSnapshot: () => ({
           bytes: Buffer.from("synthetic"),
         }),
         decodeCoordinatorHistoryRows: () => [

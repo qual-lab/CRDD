@@ -10,6 +10,34 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as api from "../../src/index.ts";
+import { snapshot } from "../../src/record/validation.ts";
+
+/**
+ * 入力捕捉の量制限と直接循環検出を切り分ける。
+ * @trace ERP-UT-006
+ * @precondition メモリ内の通常値だけを使う。
+ * @stimulus 旧ノード・深さ・文字長超過、循環と共有非循環部分木を渡す。
+ * @observation 全量の凍結値、循環・Accessor・NULの拒否。
+ * @oracle 任意量だけで拒否せず同じ祖先への参照だけを拒否する。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("入力捕捉は旧量制限を超えても循環だけを直接拒否する", () => {
+  const values = Array.from({ length: 50_001 }, (_, index) => index);
+  assert.equal(snapshot(values).length, values.length);
+  assert.equal(snapshot("x".repeat(8193)).length, 8193);
+  let deep: unknown = "leaf";
+  for (let index = 0; index < 16; index++) deep = { next: deep };
+  assert.ok(Object.isFrozen(snapshot(deep)));
+  const shared = { text: "shared" };
+  const copied = snapshot({ left: shared, right: shared });
+  assert.deepEqual({ ...copied.left }, shared);
+  assert.deepEqual({ ...copied.right }, shared);
+  assert.notEqual(copied.left, copied.right);
+  const cycle: Record<string, unknown> = {};
+  cycle.next = cycle;
+  assert.throws(() => snapshot(cycle), /record_input_invalid/u);
+  assert.throws(() => snapshot("x\0"), /record_string_invalid/u);
+});
 /** 公開実体を列挙して完成9操作の集合と照合する。型専用exportを実行時の余剰と数えない。
  * @trace ERP-UT-006
  */

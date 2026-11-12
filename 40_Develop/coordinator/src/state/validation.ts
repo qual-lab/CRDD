@@ -87,9 +87,9 @@ export function isCoordinatorRecoveryIdentity(value: unknown): value is string {
  *
  * @responsibility Stringsの重複判定、順序規則、結果集合境界を所有する。
  * @trace ARCH-000004
- * @input values: readonly string[]、maximum: number、kind: "identity_or_path" | "repository_path" | "human_text"
+ * @input values: readonly string[]、kind: "identity_or_path" | "repository_path" | "human_text"
  * @returns readonly string[] | nullを返す。
- * @precondition 「values: readonly string[]、maximum: number、kind: "identity_or_path" | "repository_path" | "human_text"」がuniqueStringsの入力契約を満たす。
+ * @precondition 「values: readonly string[]、kind: "identity_or_path" | "repository_path" | "human_text"」がuniqueStringsの入力契約を満たす。
  * @postcondition uniqueStringsの責務を完了した結果だけを返す。
  * @effect N/A: uniqueStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: uniqueStringsは独自の失敗分岐を所有しない。
@@ -100,15 +100,12 @@ export function isCoordinatorRecoveryIdentity(value: unknown): value is string {
  */
 export function uniqueStrings(
   values: readonly string[],
-  maximum: number,
   kind: "identity_or_path" | "repository_path" | "human_text",
 ): readonly string[] | null {
-  if (values.length > maximum) return null;
   const resultItems: string[] = [];
   const seen = new Set<string>();
   for (const value of values) {
-    if (typeof value !== "string" || value.length === 0 || value.length > 512)
-      return null;
+    if (typeof value !== "string" || value.length === 0) return null;
     const normalized =
       kind === "repository_path"
         ? normalizeRepositoryRelativePath(value)

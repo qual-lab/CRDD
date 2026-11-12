@@ -18,12 +18,53 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout } from "node:timers/promises";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-
-import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
+import { validateTopicMeetingListInput } from "../../src/activity/operations.ts";
 import {
-  createTopicOperations,
   createMeetingOperations,
+  createTopicOperations,
 } from "../../src/index.ts";
+import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
+
+/**
+ * 長い検索文とその署名を含むCursorを同じ一覧条件へ結合する。
+ * @trace CPR-IT-010
+ * @precondition 値検査だけで保存や外部Processへ進まない。
+ * @stimulus 129文字超query/ownerと1024文字超Cursor、別Queryと不正文法を渡す。
+ * @observation 受理と既存の固定拒否理由。
+ * @oracle 量だけで拒否せずQuery署名・relation文法・ページ最大は維持する。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("一覧検索は長い自由条件を保持しCursorとQueryを照合する", () => {
+  const query = { query: "q".repeat(2049), owner: "o".repeat(129) };
+  const signature = JSON.stringify({ ...query, sort: "id_asc" });
+  const cursor = Buffer.from(
+    JSON.stringify(["id_asc", "TOPIC-000001", "", signature]),
+    "utf8",
+  ).toString("base64url");
+  assert.ok(cursor.length > 1024);
+  assert.doesNotThrow(() =>
+    validateTopicMeetingListInput("topic", { query, cursor }),
+  );
+  assert.throws(
+    () =>
+      validateTopicMeetingListInput("topic", {
+        query: { ...query, query: "other" },
+        cursor,
+      }),
+    /cursor_invalid/u,
+  );
+  assert.throws(
+    () =>
+      validateTopicMeetingListInput("topic", {
+        query: { relation: "../outside" },
+      }),
+    /query_invalid/u,
+  );
+  assert.throws(
+    () => validateTopicMeetingListInput("topic", { limit: 101 }),
+    /limit_invalid/u,
+  );
+});
 
 /**
  * 期待Projectを保存と全読取り経路へ拘束する。

@@ -1232,8 +1232,8 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       };
       const worker = stateStoreSource((source) => source, {
         fs: hostFs,
-        readStableBoundedFileSnapshot: (
-          ...args: Parameters<typeof domain.readStableBoundedFileSnapshot>
+        readStableFileSnapshot: (
+          ...args: Parameters<typeof domain.readStableFileSnapshot>
         ) => {
           if (
             fault === "readback_unknown" &&
@@ -1244,7 +1244,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
             hit++;
             throw new Error("synthetic_readback_unknown");
           }
-          return domain.readStableBoundedFileSnapshot(...args);
+          return domain.readStableFileSnapshot(...args);
         },
         acquireRuntimeStateLock: (
           ...args: Parameters<typeof kernel.acquireRuntimeStateLock>

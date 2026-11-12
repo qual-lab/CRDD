@@ -80,6 +80,16 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
   ]) {
     assert.equal(isAttemptPlanValid(plan as TestAttemptPlan), true);
   }
+  const largeInput = "x".repeat(128 * 1024 + 1);
+  assert.equal(
+    isAttemptPlanValid({ ...task, providerInput: largeInput }),
+    true,
+  );
+  assert.equal(
+    isAttemptPlanValid({ ...advice, providerInput: largeInput }),
+    true,
+  );
+  assert.equal(isAttemptPlanValid({ ...task, providerInput: null }), false);
   for (const overrides of [
     { executionSelection: { ...probe.executionSelection, provider: "codex" } },
     { commands: [...probe.commands].reverse() },
@@ -283,13 +293,12 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     /synthetic_session_reached/,
   );
   assert.equal(starts, 1);
-  const maximum = withCommands({
+  const largeInput = withCommands({
     ...task,
-    providerInput: "x".repeat(128 * 1024),
+    providerInput: "x".repeat(128 * 1024 + 1),
   });
-  assert.ok(resolveValidatedPlan(maximum, temporary));
+  assert.ok(resolveValidatedPlan(largeInput, temporary));
   for (const plan of [
-    { ...task, providerInput: "x".repeat(128 * 1024 + 1) },
     { ...task, workspaceSourcePath: "C:/synthetic,bad" },
     { ...probe, providerHomeSourcePath: "" },
     { ...probe, providerHomeSourcePath: "C:/synthetic\nbad" },

@@ -1,6 +1,6 @@
 /**
  * 読取り検証の有限時計と購読解除を外部AIなしで確認する。
- * @responsibility 元結果・例外の同一性、対象選別、欠測・上限と終了を検査する。
+ * @responsibility 元結果・例外の同一性、対象選別、欠測・全件収集と終了を検査する。
  * @trace ERB-IT-021
  * @level IT
  * @scope 合成loopback通信と有限Owner。Docker・資格・Repositoryを使わない。
@@ -97,17 +97,17 @@ test("有限時計は実HTTPとOwnerを観測し購読解除する", async () =>
 });
 
 /**
- * 他接続・未知経路と過大通知を保存せず、相関不能をnullで保持する。
+ * 他接続・未知経路を保存せず、全通知と相関不能を保持する。
  * @trace ERB-IT-021
  * @stimulus 合成通知、別port／address／path、513通知。
- * @oracle 各配列上限512、曖昧なOwner相関null、dispose後不変。
+ * @oracle 旧上限超過も全件保持、曖昧なOwner相関null、dispose後不変。
  * @cleanup 診断購読だけをfinallyで解除する。
- * @responsibility 有限時計は対象を限定し過大・曖昧な通知を成功へ補完しない
+ * @responsibility 観測時計は対象を限定し曖昧な相関を成功へ補完しない
  * @precondition 合成loopback通信と有限Owner。Docker・資格・Repositoryを使わない。
  * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
  * @boundary 診断通知と検証Toolのみ。
  */
-test("有限時計は対象を限定し過大・曖昧な通知を成功へ補完しない", async () => {
+test("観測時計は旧容量境界を超えて通知を保持し曖昧な相関を補完しない", async () => {
   const timing = createReadonlyVerificationTiming();
   timing.bind("http://127.0.0.1:12345");
   const start = channel("http.server.request.start");
@@ -128,9 +128,15 @@ test("有限時計は対象を限定し過大・曖昧な通知を成功へ補�
     for (let i = 0; i < 513; i++) publish();
     await timing.observeOwner(async () => true);
     const result = timing.snapshot();
-    assert.equal(result.servers.length, 512);
-    assert.equal(result.dropped, 1);
+    assert.equal(result.servers.length, 513);
+    assert.equal(result.observationFailures, 0);
     assert.equal(result.owners[0]?.serverOrdinal, null);
+    start.publish(null);
+    const failedObservation = timing.snapshot();
+    assert.equal(failedObservation.observationFailures, 1);
+    assert.deepEqual(failedObservation.servers, result.servers);
+    assert.deepEqual(failedObservation.clients, result.clients);
+    assert.deepEqual(failedObservation.owners, result.owners);
   } finally {
     timing.dispose();
   }

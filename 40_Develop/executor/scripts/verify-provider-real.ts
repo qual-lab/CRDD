@@ -398,8 +398,7 @@ export async function runStandaloneProviderTrial(
             ["commandExecutionStartedCount", "fileChangeStartedCount"].every(
               (k) =>
                 Number.isSafeInteger(Reflect.get(observed, k)) &&
-                Number(Reflect.get(observed, k)) >= 0 &&
-                Number(Reflect.get(observed, k)) <= 4096,
+                Number(Reflect.get(observed, k)) >= 0,
             )
           )
             reviewToolObservation = Object.freeze({
@@ -584,9 +583,7 @@ function trialResult(
     if (
       Object.keys(o).sort().join(",") !==
         "commandExecutionStartedCount,fileChangeStartedCount" ||
-      Object.values(o).some(
-        (n) => !Number.isSafeInteger(n) || Number(n) < 0 || Number(n) > 4096,
-      )
+      Object.values(o).some((n) => !Number.isSafeInteger(n) || Number(n) < 0)
     )
       return null;
   }

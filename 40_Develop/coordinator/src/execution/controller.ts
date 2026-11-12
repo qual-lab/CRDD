@@ -869,7 +869,6 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       !optionalIdentity(candidateStoreRecoveryId) ||
       !Array.isArray(rawDockerRecoveryIds) ||
       types.isProxy(rawDockerRecoveryIds) ||
-      rawDockerRecoveryIds.length > 128 ||
       (executorProvider !== undefined &&
         executorProvider !== "codex" &&
         executorProvider !== "claude" &&
@@ -1981,7 +1980,7 @@ function projectReviewerResultDiagnostics(value: unknown) {
   const findingCount = ownPlainDataValue(value, "findingCount");
   const diagnostics = snapshotPlainArray<unknown>(
     ownPlainDataValue(value, "findingDiagnostics"),
-    64,
+    Number.MAX_SAFE_INTEGER,
   );
   if (
     (decision !== "approved" && decision !== "changes_requested") ||
@@ -2041,7 +2040,7 @@ function projectExecutorResultDiagnostics(
   const status = ownPlainDataValue(value, "status");
   const changedPaths = snapshotPlainArray<unknown>(
     ownPlainDataValue(value, "changedPaths"),
-    1_000,
+    Number.MAX_SAFE_INTEGER,
   );
   const verificationCount = ownPlainDataValue(value, "verificationCount");
   const observation = executionObservation;
@@ -2081,7 +2080,7 @@ function projectExecutorResultDiagnostics(
 function projectReviewerProjectionEvidence(value: unknown) {
   const record = snapshotPlainRecord(value, REVIEWER_PROJECTION_KEYS);
   const files = record
-    ? snapshotPlainArray<unknown>(record.files, 1_000)
+    ? snapshotPlainArray<unknown>(record.files, Number.MAX_SAFE_INTEGER)
     : null;
   if (
     record?.status !== "projected" ||
@@ -2697,7 +2696,7 @@ function reportCandidateValidationFailure(
           ? "capability_unavailable"
           : "captured";
     const paths = (raw: unknown) => {
-      const value = snapshotPlainArray<unknown>(raw, 1000);
+      const value = snapshotPlainArray<unknown>(raw, Number.MAX_SAFE_INTEGER);
       return value.status === "ok" &&
         value.value.every((p) => typeof p === "string")
         ? value.value
@@ -3907,7 +3906,10 @@ async function runCoordinatorTask(
     "dockerRecoveryIds",
   );
   const plural = pluralDescriptor
-    ? snapshotPlainArray<unknown>(pluralDescriptor.value, 128)
+    ? snapshotPlainArray<unknown>(
+        pluralDescriptor.value,
+        Number.MAX_SAFE_INTEGER,
+      )
     : null;
   const isProjectionInvalid =
     !singularDescriptor ||
@@ -4233,7 +4235,7 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
           const cleanupProjectionEligible = outcome.dockerCleanupEligible;
           const observedDockerRecoveryIds = snapshotPlainArray<string>(
             rawResultRecord.dockerRecoveryIds,
-            128,
+            Number.MAX_SAFE_INTEGER,
           );
           const projectedDockerRecoveryIds = Object.freeze(
             observedDockerRecoveryIds.status === "ok"

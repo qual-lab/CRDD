@@ -8,16 +8,16 @@
  * @boundary 検証済みRootから自己生成Fileの読取り。通信許可・Docker操作なし。
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 import test, { type TestContext } from "node:test";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
-  readNetworkPolicy,
   ensureRepositoryRuntimeDataArea,
+  readNetworkPolicy,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
 
 /**
  * 現在Repository内だけに独立した試験Rootを作る。
@@ -180,11 +180,13 @@ test("不正設定は重複key・型・UTF-8・容量を既定値へ畳まず拒
     assert.equal(readNetworkPolicy(fixture.capability).status, "ready");
   }
   const valid = '{"version":1,"allowedHosts":[]}';
-  fs.writeFileSync(
-    fixture.file,
-    valid + " ".repeat(16_384 - Buffer.byteLength(valid)),
-  );
-  assert.equal(readNetworkPolicy(fixture.capability).status, "ready");
+  for (const bytes of [16_384, 16_385]) {
+    fs.writeFileSync(
+      fixture.file,
+      valid + " ".repeat(bytes - Buffer.byteLength(valid)),
+    );
+    assert.equal(readNetworkPolicy(fixture.capability).status, "ready");
+  }
 });
 
 /**

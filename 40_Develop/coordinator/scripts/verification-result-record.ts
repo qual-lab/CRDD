@@ -12,27 +12,25 @@ import {
   ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
-  TESTS_RELATIVE_PATH,
   snapshotPlainArray,
+  TESTS_RELATIVE_PATH,
 } from "../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
   readRepositorySnapshot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
-import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
-import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
 import { isSupportedNodeRuntime } from "../src/execution/diagnostics.ts";
+import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
+import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
 } from "./verification-result-reasons.ts";
+import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
 
 const CONTRACT = "crdd-coordinator/local-verification-record";
 const CONTRACT_REVISION = 5;
-const MAX_RECORD_BYTES = 32 * 1024;
-const MAX_EXISTING_ENTRIES = 256;
 const reasons = new Set([
   ...Object.values(SIGNED_ROUTE_MATRIX_REASONS),
   ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
@@ -212,9 +210,11 @@ export function projectVerificationResult(
     "verification_workspace_retained"
       ? "verification_workspace_retained"
       : null;
+  const sourceScope = ownValue(value, "sourceScope");
   summary.sourceScope =
-    ownValue(value, "sourceScope") === "crdd-development-source-snapshot/v2"
-      ? "crdd-development-source-snapshot/v2"
+    sourceScope === "crdd-development-source-snapshot/v2" ||
+    sourceScope === "crdd-development-source-snapshot/v3"
+      ? sourceScope
       : null;
   summary.sourceObservationStatus = known(
     ownValue(value, "sourceObservationStatus"),
@@ -229,8 +229,7 @@ export function projectVerificationResult(
   summary.reviewerFindingCount =
     typeof reviewerFindingCount === "number" &&
     Number.isSafeInteger(reviewerFindingCount) &&
-    reviewerFindingCount >= 0 &&
-    reviewerFindingCount <= 64
+    reviewerFindingCount >= 0
       ? reviewerFindingCount
       : null;
   summary.reviewerProjectedTargetClassification = known(
@@ -268,7 +267,10 @@ export function projectVerificationResult(
   let recoveryFieldsComplete = true;
   for (const [single, plural, kind] of recoveryPairs) {
     const id = ownValue(value, single);
-    const ids = snapshotPlainArray<unknown>(ownValue(value, plural), 16);
+    const ids = snapshotPlainArray<unknown>(
+      ownValue(value, plural),
+      Number.MAX_SAFE_INTEGER,
+    );
     const collected = new Set<string>();
     if (isCanonicalVerificationRecoveryId(id, kind)) collected.add(id);
     else if (id !== null && id !== undefined) recoveryFieldsComplete = false;
@@ -427,8 +429,6 @@ function writeNewRecord(
   value: unknown,
 ) {
   const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
-  if (bytes.length > MAX_RECORD_BYTES)
-    throw new Error("verification_record_too_large");
   recheck(directories);
   const target = path.join(lastDirectory(directories), name);
   const descriptor = fs.openSync(target, "wx+", 0o600);
@@ -516,11 +516,6 @@ export async function runRecordedVerification<T, E>(
       observeDirectory(root),
       observeDirectory(verificationArea.directory),
     ];
-    // Admission bound, not a cross-process atomic quota. Never delete old evidence.
-    if (
-      fs.readdirSync(lastDirectory(directories)).length >= MAX_EXISTING_ENTRIES
-    )
-      throw new Error("verification_record_capacity_exceeded");
     recordId = randomUUID();
     const runPath = path.join(lastDirectory(directories), recordId);
     recheck(directories);

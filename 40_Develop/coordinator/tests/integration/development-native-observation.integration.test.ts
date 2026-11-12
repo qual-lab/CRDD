@@ -9,14 +9,13 @@
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { spawnSync } from "node:child_process";
 import {
-  mkdirSync,
   linkSync,
   lstatSync,
-  readFileSync,
+  mkdirSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -25,14 +24,15 @@ import {
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import {
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  consumeRuntimeOwnedProviderHomeObservationCapability,
-} from "../../src/execution/authority.ts";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
+import {
+  consumeRuntimeOwnedProviderHomeObservationCapability,
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+} from "../../src/execution/authority.ts";
 
 test("開発実行はNativeなしでも元SourceとGitの前後一致を要求する", () => {
   const source = readFileSync(
@@ -207,12 +207,7 @@ async function createSourceObservationFixture(readMutation = "") {
       "PACKAGES",
       "DIRECTORIES",
       "sourceRoot",
-      "MAX_FILES",
-      "MAX_DIRECTORIES",
-      "MAX_FILE_BYTES",
-      "MAX_TOTAL_BYTES",
-      "MAX_DEPTH",
-      "readBoundedDirectoryNames",
+      "readDirectoryNames",
       "captureDevelopmentSource",
       "observeRuntimeOwnedDevelopmentSource",
     ];
@@ -359,6 +354,49 @@ if (process.argv[2] !== "--probe") {
   });
 
   /**
+   * 診断Sourceの容量と深さを独自の予算で拒否しない。
+   * @responsibility 旧1MiB／64MiB／深度8を超える正常な固定Scopeを確認する。
+   * @trace ERB-IT-004
+   * @precondition Repository-localの自己生成最小Sourceだけを使う。
+   * @stimulus 合計66MiBの通常Fileと深度10のDirectoryを追加する。
+   * @observation 全Fileの件数・byte数、内容Hashと実体Hash。
+   * @oracle 固定Scope全体の二読取りを完了し、容量だけでnullにしない。
+   * @cleanup 自己生成Fixtureをfinallyで回収する。
+   * @boundary Node Filesystemの診断読取り。実AI・Docker・Git Objectは使わない。
+   */
+  test("development source snapshot observes normal source beyond former capacity and depth budgets", async () => {
+    const fixture = await createSourceObservationFixture();
+    try {
+      const source = path.join(
+        fixture.root,
+        "40_Develop",
+        "coordinator",
+        "src",
+      );
+      const content = Buffer.alloc(33 * 1024 * 1024, 0x61);
+      writeFileSync(path.join(source, "large-a.ts"), content);
+      writeFileSync(path.join(source, "large-b.ts"), content);
+      const nested = path.join(
+        source,
+        ...Array.from({ length: 10 }, (_, i) => `nested-${i}`),
+      );
+      mkdirSync(nested, { recursive: true });
+      writeFileSync(
+        path.join(nested, "entry.ts"),
+        "export const nested = true;\n",
+      );
+      const observed = fixture.observe();
+      assert.ok(observed);
+      assert.equal(observed.fileCount, 21);
+      assert.ok(observed.totalBytes > 64 * 1024 * 1024);
+      assert.equal(observed.sourceSha256.length, 64);
+      assert.equal(observed.sourceIdentitySha256.length, 64);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  /**
    * 必須Scopeの欠落・空SourceとFile以外の入力を拒否する。
    *
    * @responsibility 部分Snapshotとlink経由の外部Sourceを成功へ畳まない。
@@ -405,18 +443,18 @@ if (process.argv[2] !== "--probe") {
   });
 
   /**
-   * File byte数と階層の上限で観測を停止する。
+   * File byte数と階層の旧上限を超える正常観測を確認する。
    *
-   * @responsibility Source追加による無制限読取りを防止する。
+   * @responsibility 正常Sourceを旧容量・深度予算だけで拒否しない。
    * @trace ERB-IT-004
    * @precondition 通常Fixtureが存在する。
    * @stimulus 1MiB境界、超過、深さ8境界と超過を生成する。
-   * @observation 有界Snapshotの成功またはnull。
-   * @oracle 境界内を受理し、単一Fileと深さの超過を拒否する。
+   * @observation Snapshotの成功と全内容の件数・容量。
+   * @oracle 旧境界の両側を受理する。
    * @cleanup 自己生成Fixture全体をfinallyで削除する。
-   * @boundary 実Filesystemと有界File読取り。
+   * @boundary 実Filesystemの通常FileとDirectory。
    */
-  test("development source snapshot enforces single-file and depth limits", async () => {
+  test("development source snapshot accepts source beyond former single-file and depth limits", async () => {
     const fixture = await createSourceObservationFixture();
     try {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
@@ -424,13 +462,13 @@ if (process.argv[2] !== "--probe") {
       writeFileSync(file, Buffer.alloc(1024 * 1024));
       assert.ok(fixture.observe());
       writeFileSync(file, Buffer.alloc(1024 * 1024 + 1));
-      assert.equal(fixture.observe(), null);
+      assert.ok(fixture.observe());
       writeFileSync(file, "x");
       const deepest = path.join(base, ...Array<string>(8).fill("nested"));
       mkdirSync(deepest, { recursive: true });
       assert.ok(fixture.observe());
       writeFileSync(path.join(deepest, "too-deep.ts"), "x");
-      assert.equal(fixture.observe(), null);
+      assert.ok(fixture.observe());
     } finally {
       fixture.cleanup();
     }
@@ -439,16 +477,16 @@ if (process.argv[2] !== "--probe") {
   /**
    * 全体File数、Directory数、合計byteの境界を実際に構成する。
    *
-   * @responsibility 個別File上限だけで全体有界性を推定しない。
+   * @responsibility Sourceの正常増加を独自の集合予算で拒否しない。
    * @trace ERB-IT-004
    * @precondition 9対象Package・18通常File（別に対象外の旧Coordinator一Directory）の最小Fixtureが存在する。
    * @stimulus File数2048、Directory数2048、64MiBの境界と各超過を作る。
-   * @observation 各Snapshotの件数・byte数と拒否。
-   * @oracle 各上限を受理し、一つでも超えたらnullとする。
+   * @observation 各Snapshotの件数・byte数。
+   * @oracle 旧境界の両側で対象全体を観測する。
    * @cleanup 自己生成Fixtureをfinallyで全回収する。
-   * @boundary 実Node Filesystemと固定Scopeの有界観測。
+   * @boundary 実Node Filesystemと固定Scopeの観測。
    */
-  test("development source snapshot enforces aggregate count and byte limits", async () => {
+  test("development source snapshot accepts aggregate counts and bytes beyond former limits", async () => {
     const fixture = await createSourceObservationFixture();
     try {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
@@ -458,13 +496,13 @@ if (process.argv[2] !== "--probe") {
         writeFileSync(path.join(extras, `${i}.ts`), "");
       assert.equal(fixture.observe()?.fileCount, 2048);
       writeFileSync(path.join(extras, "overflow.ts"), "");
-      assert.equal(fixture.observe(), null);
+      assert.equal(fixture.observe()?.fileCount, 2049);
       rmSync(extras, { recursive: true });
       mkdirSync(extras);
       for (let i = 0; i < 2038; i += 1) mkdirSync(path.join(extras, String(i)));
       assert.ok(fixture.observe());
       mkdirSync(path.join(extras, "overflow"));
-      assert.equal(fixture.observe(), null);
+      assert.ok(fixture.observe());
       rmSync(extras, { recursive: true });
       const original = fixture.observe();
       assert.ok(original);
@@ -477,7 +515,7 @@ if (process.argv[2] !== "--probe") {
       );
       assert.equal(fixture.observe()?.totalBytes, 64 * 1024 * 1024);
       writeFileSync(path.join(base, "one-byte-over"), "x");
-      assert.equal(fixture.observe(), null);
+      assert.equal(fixture.observe()?.totalBytes, 64 * 1024 * 1024 + 1);
     } finally {
       fixture.cleanup();
     }
@@ -507,25 +545,25 @@ if (process.argv[2] !== "--probe") {
   });
 
   /**
-   * 列挙の実本文で上限とhandle回収を確認する。
+   * 列挙の実本文で固定上限の撤去とhandle回収を確認する。
    *
-   * @responsibility 拒否前の無制限列挙と失敗時のhandle残存を検出する。
+   * @responsibility 旧上限を超える通常列挙と失敗時のhandle回収を確認する。
    * @trace ERB-IT-004
    * @precondition 現行私有関数の本文を試験VMへ読み込む。
-   * @stimulus 4096件・4097件・readSync例外・closeSync例外を返すDirectory handleを使う。
+   * @stimulus 4096件・5000件・readSync例外・closeSync例外を返すDirectory handleを使う。
    * @observation 読取り回数、close回数、返却件数または例外。
-   * @oracle 正常は整列4096名、超過は4097読取り時に停止し、全経路でclose一回。
+   * @oracle 両件数とも全名を整列し、全経路でclose一回。
    * @cleanup VM内の値だけを扱い、実Directory handleは生成しない。
    * @boundary 実列挙本文からNode Directory handle契約への呼出し。
    */
-  test("development source snapshot bounds enumeration and closes its exact handle", () => {
+  test("development source snapshot enumerates beyond the former limit and closes its exact handle", () => {
     const source = stripTypeScriptTypes(
       readFileSync(
         new URL("../../src/execution/diagnostics.ts", import.meta.url),
         "utf8",
       ),
     );
-    const start = source.indexOf("function readBoundedDirectoryNames(");
+    const start = source.indexOf("function readDirectoryNames(");
     const end = source.indexOf("\n}", start) + 2;
     assert.ok(start >= 0 && end > start);
     const body = source.slice(start, end);
@@ -538,10 +576,8 @@ if (process.argv[2] !== "--probe") {
       let reads = 0;
       let closes = 0;
       const invoke = runInNewContext(
-        `${body}; () => readBoundedDirectoryNames("fixture")`,
+        `${body}; () => readDirectoryNames("fixture")`,
         {
-          MAX_FILES: 2048,
-          MAX_DIRECTORIES: 2048,
           opendirSync: (directory: string) => {
             assert.equal(directory, "fixture");
             return {
@@ -563,21 +599,20 @@ if (process.argv[2] !== "--probe") {
           },
         },
       ) as () => string[];
-      if (scenario === "boundary") {
+      if (scenario === "boundary" || scenario === "overflow") {
         const names = invoke();
-        assert.equal(names.length, 4096);
+        const count = scenario === "overflow" ? 5000 : 4096;
+        assert.equal(names.length, count);
         assert.equal(names[0], "0000");
-        assert.equal(names[4095], "4095");
+        assert.equal(names[count - 1], String(count - 1));
       } else {
-        assert.throws(invoke, {
-          message:
-            scenario === "overflow"
-              ? "development_source_directory_limit"
-              : scenario,
-        });
+        assert.throws(invoke, { message: scenario });
       }
       assert.equal(closes, 1);
-      assert.equal(reads, scenario === "read-failure" ? 1 : 4097);
+      assert.equal(
+        reads,
+        scenario === "read-failure" ? 1 : scenario === "overflow" ? 5001 : 4097,
+      );
     }
   });
 

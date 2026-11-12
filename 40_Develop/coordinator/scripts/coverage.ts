@@ -6,11 +6,9 @@
  */
 import path from "node:path";
 
-const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
-// Node's V8 coverage counter is an execution count, not a bounded test-case
-// count. Filesystem and parser loops can legitimately exceed one million while
-// the LCOV payload remains bounded separately. Preserve the exact integer and
-// reject only values JavaScript cannot represent without loss.
+// Node.jsのV8 coverage counterは試験件数でなく実行回数である。
+// Filesystemやparserの反復は正当に百万回を超え得るため、
+// 正確な整数を保持し、JavaScriptで無損失に表現できない値だけ拒否する。
 const maximumCoverageCount = Number.MAX_SAFE_INTEGER;
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
@@ -399,10 +397,7 @@ export function parseExactTsCoverageLcov(
     obligations: Readonly<Record<string, CoverageObligation>>;
   }>,
 ) {
-  if (
-    typeof raw !== "string" ||
-    Buffer.byteLength(raw, "utf8") > MAXIMUM_LCOV_BYTES
-  ) {
+  if (typeof raw !== "string") {
     throw new Error("invalid LCOV input");
   }
   const records = lcovRecords(raw);

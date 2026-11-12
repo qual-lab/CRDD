@@ -60,17 +60,7 @@ type OperationPaths = Readonly<{
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
 
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 7;
-
-const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
-
-const MAXIMUM_CHANGED_PATHS = 1_000;
-
-const MAXIMUM_ALLOWED_PATHS = 64;
-
-const MAXIMUM_REVIEW_PROJECTION_BYTES = 1024 * 1024;
-
-const MAXIMUM_REVIEW_PROJECTION_FILES = 256;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 8;
 
 /**
  * 借用Treeの最終観測を内容なしで投影する。
@@ -91,13 +81,9 @@ export function projectBorrowedExecutionResult(
   capability: object | undefined,
   target: BorrowedExecutionTarget,
 ): CoordinatorWorkspaceResult {
-  const observedPaths = capability
+  const changedPaths = capability
     ? observeBorrowedExecutionChanges(capability)
     : null;
-  const changedPaths =
-    observedPaths !== null && observedPaths.length > MAXIMUM_CHANGED_PATHS
-      ? null
-      : observedPaths;
   return Object.freeze({
     workspaceId: target.workspaceId,
     changedPaths,
@@ -260,11 +246,7 @@ function entryMap(entries: readonly ExecutionFileEntry[]) {
  * @concurrency N/A: allowedPathsは共有非同期状態を持たない同期処理である。
  */
 function allowedPaths(rawAllowedPaths: unknown) {
-  if (
-    !Array.isArray(rawAllowedPaths) ||
-    rawAllowedPaths.length > MAXIMUM_ALLOWED_PATHS
-  )
-    return null;
+  if (!Array.isArray(rawAllowedPaths)) return null;
   const normalizedAllowedPaths: string[] = [];
   try {
     const descriptors = Object.getOwnPropertyDescriptors(rawAllowedPaths);
@@ -557,11 +539,10 @@ export function captureExecutionChangeSnapshot(
       currentEntries,
     );
     if (
-      changes.length > MAXIMUM_CHANGED_PATHS ||
-      (!current.workspaceRecord.sourceTree &&
-        changes.some(
-          (relativePath) => !isAllowed(relativePath, normalizedAllowedPaths),
-        ))
+      !current.workspaceRecord.sourceTree &&
+      changes.some(
+        (relativePath) => !isAllowed(relativePath, normalizedAllowedPaths),
+      )
     ) {
       return null;
     }
@@ -582,7 +563,6 @@ export function captureExecutionChangeSnapshot(
       }
       const observed = readExecutionFile(
         path.join(current.workspace, ...relativePath.split("/")),
-        MAXIMUM_FILE_BYTES,
       );
       if (
         observed.byteLength !== inventoryEntry.byteLength ||
@@ -706,24 +686,12 @@ export function projectReviewerReadContent(
     const selectedEntries = currentInventory.filter((entry) =>
       isAllowed(entry.relativePath, readPaths),
     );
-    if (selectedEntries.length > MAXIMUM_REVIEW_PROJECTION_FILES)
-      return Object.freeze({
-        status: "blocked" as const,
-        reason: "candidate_read_projection_budget_exceeded" as const,
-      });
-
     let totalBytes = 0;
     const files: Readonly<Record<string, unknown>>[] = [];
     for (const entry of selectedEntries) {
       totalBytes += entry.byteLength;
-      if (totalBytes > MAXIMUM_REVIEW_PROJECTION_BYTES)
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "candidate_read_projection_budget_exceeded" as const,
-        });
       const observed = readExecutionFile(
         path.join(current.workspace, ...entry.relativePath.split("/")),
-        MAXIMUM_REVIEW_PROJECTION_BYTES,
       );
       if (
         observed.byteLength !== entry.byteLength ||
@@ -880,9 +848,9 @@ export function describeExecutionChangeSnapshotContract() {
     providerReadProjection:
       "explicit_file_or_directory_prefix_plus_write_scope",
     reviewerReadProjection:
-      "candidate_identity_bound_explicit_utf8_content_maximum_1_mib_without_provider_filesystem_tool",
+      "candidate_identity_bound_explicit_utf8_content_without_provider_filesystem_tool",
     reviewerContentProjection:
-      "candidate_identity_bound_utf8_content_for_explicit_read_paths_with_secret_and_size_guards",
+      "candidate_identity_bound_utf8_content_for_explicit_read_paths_with_secret_detection",
     recognizedSecretMaterial:
       "rejected_before_reviewer_content_delivery_development_env_may_be_visible_to_executor",
     completeSecretAbsenceVerified: false,

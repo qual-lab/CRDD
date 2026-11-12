@@ -25,6 +25,8 @@ import {
 } from "../../../../version-control/src/index.ts";
 import {
   describeAdviceTaskContract,
+  issueRuntimeOwnedProviderAdvicePacket,
+  revokeRuntimeOwnedProviderAdvicePacket,
   prepareAdviceTask,
   PROVIDER_ADVICE_TASK_CONTRACT,
 } from "../../../src/execution/preparation.ts";
@@ -132,6 +134,64 @@ test("許可済み投影からEffect 0の読取り助言Task Packetを作る", (
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
+/**
+ * 正常な旧容量超過は保存済みHashと参照を変えず準備する。
+ * @responsibility Prompt・投影件数・本文・参照の量だけによる拒否を再発させない。
+ * @trace ERB-UT-023
+ * @precondition 非秘密の合成値だけを渡す。
+ * @stimulus 65投影、各65,537byte、16KiB超Promptと512byte超参照を準備する。
+ * @observation 元の許可参照、全量providerPromptとEffect非発行。
+ * @oracle 全件preparedで、Hash不一致・秘密値等は別負例で拒否する。
+ * @cleanup メモリ内値のみ。
+ * @boundary Advice準備の純粋入力。
+ */
+test("助言準備は旧容量超過の正常なPromptと投影を全量保持する", () => {
+  const content = "a".repeat(65_537);
+  const projection = Array.from({ length: 65 }, (_, index) => ({
+    reference: `${"reference".repeat(65)}-${index}.md`,
+    content,
+    sha256: createHash("sha256").update(content).digest("hex"),
+  }));
+  const prepared = prepareAdviceTask({
+    executionSelection: executionSelection("advice"),
+    prompt: "合成".repeat(9000),
+    projection,
+  });
+  assert.equal(prepared.status, "prepared");
+  assert.deepEqual(
+    prepared.taskPacket?.allowedReferences,
+    projection.map((item) => item.reference),
+  );
+  assert.ok(
+    Buffer.byteLength(prepared.taskPacket?.providerPrompt ?? "", "utf8") >
+      512 * 1024,
+  );
+  assert.equal(prepared.providerEffectIssued, false);
+  assert.equal(prepared.filesystemEffectIssued, false);
+  const issued = issueRuntimeOwnedProviderAdvicePacket({
+    operationId: "OP-000999",
+    executionSelection: executionSelection("advice"),
+    provider: "codex",
+    taskHash: "a".repeat(64),
+    projectionHash: "b".repeat(64),
+    providerPrompt: prepared.taskPacket?.providerPrompt ?? "",
+    allowedReferences: projection.map((item) => item.reference),
+    additionalHosts: Object.freeze([]),
+  });
+  assert.equal(issued.status, "issued");
+  assert.equal(
+    revokeRuntimeOwnedProviderAdvicePacket(issued.ownerCapability),
+    true,
+  );
+  for (const field of [
+    "maximumPromptBytes",
+    "maximumProjectionItemBytes",
+    "maximumProjectionBytes",
+    "maximumProjectionItems",
+  ])
+    assert.equal(Object.hasOwn(describeAdviceTaskContract(), field), false);
+});
+
 test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否する", () => {
   const content = "# Current Project";
   const hash = createHash("sha256").update(content).digest("hex");

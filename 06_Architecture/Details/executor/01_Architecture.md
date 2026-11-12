@@ -1,5 +1,13 @@
 # Provider単段Executorの詳細設計
 
+## 計測表示・検証診断の残存制限撤去 — 2026-11-12
+
+Task要約の計測表示は2,048byteで非表示にせず、正常な本文を全量表示する。制御文字・秘密値・Host Path・役割・実行順序・元結果保全・回収確認という表示条件は維持する。実E2E検証ToolのCommand／File開始件数も4,096を超えたことだけで欠測化しない。非負の安全整数・固定field・結果相関は維持する。Bootstrap、実Process出力、イベントFile清掃の別契約は今回変更しない。限定回帰は模擬結果のみであり、実AI／Dockerや全体回帰を実施したとは扱わない。
+
+## Provider入力の独自容量制限撤去 — 2026-11-12
+
+Task／Adviceで確定済みの`providerInput`を128KiBという量だけで再拒否しない。型・非空・用途と選定の相関・完全Plan照合は維持し、stdinをargv／環境へ移さない。Bootstrap構成payloadの上限は別契約であり、Process出力・Timeout・取消・Cleanup・Home Leaseは変更しない。旧境界超の基本検査と完全Plan検査を模擬依存で確認し、実Provider／Dockerの成立とは区別する。
+
 ## DI環境の明示設定 — 2026-11-10
 
 三用途のOptionsは、上位が`initializeIsolation({ windowsDirectory, userHomeDirectory })`で取得したDI正本の`IsolationSettings`を`settings`に受け取る。認証・通常AttemptはFactoryで値を捕捉し、Probeは準備で固定する。ExecutorはHostの環境変数やユーザー所在を再取得せず、Provider Home・管理領域・一時領域をこの設定から推測しない。`inspectResources(target, settings, options?)`／`cleanupResources(target, settings, callbacks?)`と環境操作にも同じ明示設定を渡す。設定をResourceSnapshot・保存投影へ追加しない。
@@ -56,7 +64,7 @@ AttemptのCompletionResultは信頼した上位へ非秘密ResourceSnapshotを�
 
 ## 基本設計との関係
 
-`scripts/task-summary-observation.ts`は合成診断だけのModule観測であり、製品公開APIではない。専用新品Node Processでconsumer import前に元normalizerを包み、同じ引数・同じreturn object／例外を維持する。最初のCodex executorのsummary候補一件だけをメモリで保持し、外側の単一Task終了・段階順序・資源回収結果を照合後、人間承認した端末へ一回表示する。元関数にはTask／Attempt IDがないため、観測seam単独のexact identity証明とはしない。表示前のbyte上限・制御文字・Path・認識済みSecret検査の不成立は非表示へ閉じ、元結果と採否・回収を変更しない。本文はLog／File／APIに保存せず、端末scrollback残存は人間の限定受容を必要とする。復元はmock解除だけでなく専用Process終了まで確認する。計測付きの結果を通常Source無計測E2E成立へ算入しない。
+`scripts/task-summary-observation.ts`は合成診断だけのModule観測であり、製品公開APIではない。専用新品Node Processでconsumer import前に元normalizerを包み、同じ引数・同じreturn object／例外を維持する。最初のCodex executorのsummary候補一件だけをメモリで保持し、外側の単一Task終了・段階順序・資源回収結果を照合後、人間承認した端末へ一回表示する。元関数にはTask／Attempt IDがないため、観測seam単独のexact identity証明とはしない。表示前の制御文字・Path・認識済みSecret検査の不成立は非表示へ閉じ、元結果と採否・回収を変更しない。本文はLog／File／APIに保存せず、端末scrollback残存は人間の限定受容を必要とする。復元はmock解除だけでなく専用Process終了まで確認する。計測付きの結果を通常Source無計測E2E成立へ算入しない。
 
 表示前には結果記録成功と試験物の処置結果の相関も確認する。Task・実行資源の回収と試験フォルダの物理削除は区別し、既存Gateが故障証拠を保持する場合も、その保持判断を変更しない。
 
@@ -351,7 +359,7 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 
 `lifecycle/attempt.ts`の`parseModelSelection`は、exact五項目を動的Propertyなしでコピーし、AI Adapterの既存`resolveModelSelection`へ四項目だけを明示投影する。返却値と元五項目の一致を検査し、Catalog Identityを含めない新しい凍結値を返す。Provider・Model・推論強度の独自列挙は持たない。privateな`copyPlainDataRecord`はこの入力コピーの補助であり、保存記録やRegistryではない。
 
-助言の許可参照はAI Adapterの`parseAdviceReferences`が内容条件と不変コピーを所有する。Executorは準備時のconfirmed配列を保持するだけで、独自の256件上限を持たない。正本は既存の1024件・512byte・非空・周辺空白なし・重複なしであり、sparse・symbol・accessor・Proxyを拒否する。拒否時は乱数・Home取得・隔離Runtime構築前に停止する。
+助言の許可参照はAI Adapterが内容条件と不変コピーを所有する。Executorは準備時のconfirmed配列を保持するだけで、独自の件数・文字数上限を持たない。非空・周辺空白なし・重複なしと、sparse・symbol・accessor・Proxyの拒否は維持する。拒否時は乱数・Home取得・隔離Runtime構築前に停止する。
 
 `readOwnDataProperty`は開始参照からown data propertyを読む局所補助であり、`lifecycle/attempt.ts`に置く。結果の検査・保存成立・Authority判断は行わず、Rootへ公開しない。Setup用途の判定は一箇所の失敗理由Map参照に統合し、own keyだけを採用する。`isAttemptFailureReason`は試行結果・試験用診断で共有する固定理由の照合として`lifecycle/attempt.ts`へ残す。成功・取消はFactoryが固定値を生成するため同種の動的理由検査を作らない。
 

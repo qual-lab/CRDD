@@ -1,7 +1,7 @@
 /**
  * 単発AI実行要求を副作用のない値として検査する。
  *
- * @responsibility Task入力の閉集合と上限を検査し、実行や保存を発行しない。
+ * @responsibility Task入力の閉集合と文法を検査し、実行や保存を発行しない。
  * @trace ARCH-000008
  */
 
@@ -59,9 +59,9 @@ const REQUEST_KEYS = new Set([
  * @input rawRequest: unknown
  * @returns 正常時はacceptedとSnapshot、認識済み秘密情報はblocked、それ以外の入力不正はnull。
  * @precondition 任意値として受け取り、検査前には信頼しない。
- * @postcondition 明示field・固定選定の文法、配列上限を検査し、許可Pathを読取り範囲へ含める。
+ * @postcondition 明示field・固定選定の文法と配列の実体を検査し、許可Pathを読取り範囲へ含める。
  * @effect N/A: snapshotCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure 不正な形・固定選定・配列上限はnull、認識済み秘密情報は固定blocked結果で拒否する。
+ * @failure 不正な形・固定選定はnull、認識済み秘密情報は固定blocked結果で拒否する。
  * @invariant snapshotCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: snapshotCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
  * @security snapshotCoordinatorTaskRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
@@ -70,14 +70,17 @@ const REQUEST_KEYS = new Set([
 export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
   const acceptance = request
-    ? snapshotPlainArray<string>(request.acceptanceCriteria, 16)
+    ? snapshotPlainArray<string>(
+        request.acceptanceCriteria,
+        Number.MAX_SAFE_INTEGER,
+      )
     : null;
   const paths = request
-    ? snapshotPlainArray<string>(request.allowedPaths, 64)
+    ? snapshotPlainArray<string>(request.allowedPaths, Number.MAX_SAFE_INTEGER)
     : null;
   const requestedReadPaths =
     request && request.readPaths !== undefined
-      ? snapshotPlainArray<string>(request.readPaths, 64)
+      ? snapshotPlainArray<string>(request.readPaths, Number.MAX_SAFE_INTEGER)
       : paths;
   if (
     !request ||
@@ -103,7 +106,6 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
       ]),
     ).values(),
   ];
-  if (readPaths.length > 64) return null;
   const normalized = Object.freeze({
     ...request,
     taskExecutionSelections: inspectTaskExecutionSelections(

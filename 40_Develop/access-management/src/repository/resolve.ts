@@ -13,15 +13,15 @@ import {
   type RuntimeAccess,
 } from "../../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRoot,
   getRepository,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
-import { selectConnectionAuthentication } from "../initialization/connection.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";
-import { hash, readCurrent, settlePending } from "../storage/store.ts";
+import { selectConnectionAuthentication } from "../initialization/connection.ts";
 import { locked } from "../storage/lock.ts";
+import { hash, readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { deriveRepositoryBindingId } from "./binding.ts";
 import type {
@@ -291,7 +291,7 @@ export function selectRepositoryAccess(
  * @returns 同要求だけの内部相関値、またはnull。
  * @precondition 現在認可と短命材料清掃を確認済みである。
  * @postcondition 固定manifestのID・Root・Bindingが一致する場合だけ能力を返す。
- * @effect 既存VC Root検証とDomain固定manifestの最大1MiB読取り。
+ * @effect 既存VC Root検証とDomain固定manifestの読取り。
  * @failure Root・Binding・manifestの欠測・不正・観測不能はnull。例外は保存Ownerが固定理由へ変換する。
  * @invariant PROJECT_CONTEXTの存在・内容はアクセスAuthorityにしない。
  * @boundary AM実アクセス判定→VC／Domain既存観測。
@@ -314,7 +314,6 @@ export function observeRepositoryAccess(
     return null;
   const observer = createFilesystemRepositoryObservationPort(
     verified.capability,
-    1_048_576,
   );
   const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
   if (file.status !== "resolved") return null;
@@ -463,7 +462,7 @@ export function resolveRepositoryAccess(
  * @invariant 内容範囲とExposureの積集合を保持し、管理能力を内容許可にしない。
  * @boundary AM現在認可→VC／Domain技術的観測。本文は解放後のConsumerが取得する。
  * @security Root・資格をTransportへ透過せず、cache・保存・次要求への再利用を禁止する。
- * @concurrency 同じ既存Lock内の改訂。観測量は既存16MiB状態内の登録数に比例する。
+ * @concurrency 同じ既存Lock内の改訂。観測量は現在状態内の登録数に比例する。
  */
 export function resolveRepositoryAccessCollection(
   root: FilesystemStoreRoot,

@@ -1,5 +1,11 @@
 # Domain Modelの責務境界
 
+## 内部宣言・検索・観測量の追加整理 — 2026-11-12
+
+構成宣言の128項目・表示名160文字、一覧検索の自由条件128文字・Cursor 1,024文字、Activity観測の10,000 Source／Taskと50 Event、Workspace保護Pathの4,096文字、Workspace表示名120文字による独自拒否を撤去する。宣言ID・一意性、検索条件とCursorの相関、Activityの並び・参照・重複拒否、Pathの文法とNUL拒否、閉じたSchemaと状態遷移は維持する。
+
+状態Codecの構造深度、Network Policy、Activity Cursor・日時・理由の固有契約、明示ページ選択はこの変更で緩めない。BrowserのWorkspace表示名入力とAMのユーザー表示名は今回保留であり、内部保存の受理範囲と入口の制約が完全統一されたとは扱わない。旧境界超の正例と不正形状・重複・参照不一致の負例を既存試験で確認し、任意容量での成功や致命的OOM時の結果返却は保証しない。
+
 ## 判断・阻害条件・履歴の統合 — 実装中
 
 ### 既知の問題による進行制限と読取り
@@ -62,7 +68,7 @@ Host専用Root、世代別JSON、前Hash連鎖、継続Bearer Capability・Hash�
 
 履歴の各判断行は`decision-event/v1`の内容を持ち、同じIDの別本文・部分行・重複・未知fieldは保全停止する。現在の判断から導けるイベントを履歴保持期間だけで削除しない。resolved又はcancelledの終了Blockerに属する全提案を、全履歴確認・Project／Queue／結果と中止参照の条件が共同成立した時だけ一つのState保存で退役する。過去の拒否・保留・無効化・未回答があっても個別の永久保持又は単独除去とはせず、問題単位で扱う。active又は参照中の問題は全件保持する。保持中の履歴に同じ判断ID又はBlocker IDがあれば新規発行を拒否し、永久のID台帳は追加しない。
 
-旧Host記録の自動読取り・変換・削除はしない。切替前にフロントAIが旧未完了判断を明示処置する運用条件であり、新Runtimeは旧保存領域を探索しない。旧Schemaの不足fieldを補完するReaderは設けず拒否する。汎用`committed-json`とDomain Rootの4保存Helperを撤去し、検証用報告だけをExecutorの`scripts/report.ts`へ専用化する。`bounded-file-snapshot`はState・AM・CLI・設定の現役Consumerが容量、Link、読取り中の実体差、descriptor終了を共通に確認する具体的なNode読取り処理として維持する。用途ごとのコピーや新Storeは追加しない。
+旧Host記録の自動読取り・変換・削除はしない。切替前にフロントAIが旧未完了判断を明示処置する運用条件であり、新Runtimeは旧保存領域を探索しない。旧Schemaの不足fieldを補完するReaderは設けず拒否する。汎用`committed-json`とDomain Rootの4保存Helperを撤去し、検証用報告だけをExecutorの`scripts/report.ts`へ専用化する。容量を理由とした内部保存の拒否を撤去し、Readerは`storage/file-snapshot.ts`の`readStableFileSnapshot(file)`へ変更した。今回の限定変更ではLink・読取り中の実体差・descriptor終了の確認を維持し、実体照合そのものの簡素化とは分離する。用途ごとのコピーや新Storeは追加しない。
 
 現在の実装範囲と検証結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#decision-state-unification)を参照する。3モデルへのPackage分離は本変更後の別段階とする。
 
@@ -529,7 +535,7 @@ CRDD Domain Library
 
 純粋な解析・意味変換は`node:fs`実装へ依存せず、Repositoryの観測結果または呼出し側が取得した内容を受け取る。統合Package内のCRUDと設定読取りは責務別のRepository／保存公開面を利用し、純粋Coreから暗黙に呼び出さない。Checker AdapterがDomainの構造化Issueを`CheckerFinding`へ変換し、RuleとPipelineが最終結果を構成する。
 
-`storage/bounded-file-snapshot.ts`は容量上限、開いた実体とPathの読取り前後の同一性を確認し、descriptorを終了する共通読取り部品である。CoordinatorのTask・技術実行を統合した保存OwnerがPackage Rootの宣言済みSymbolを利用する。読取り可能なPathを保存・回復Authorityへ昇格せず、Root・用途・内容の判定は利用側が保持する。上限超過、増減、同長差替え、親Directory差替えを拒否し、部品自体は書込みや状態遷移を所有しない。
+`storage/file-snapshot.ts`は開いた実体とPathの読取り前後の同一性を確認し、descriptorを終了する共通読取り部品である。内部State・履歴・設定の容量引数や固定byte上限は持たない。CoordinatorのTask・技術実行を統合した保存OwnerがPackage Rootの宣言済みSymbolを利用する。読取り可能なPathを保存・回復Authorityへ昇格せず、Root・用途・内容の判定は利用側が保持する。増減、同長差替え、親Directory差替えを拒否し、部品自体は書込みや状態遷移を所有しない。Node.js・OSの実際の資源限界を超える処理の成功は保証しない。
 
 ### 4.1. 認可済みContext／Portfolioの集約
 

@@ -11,12 +11,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { readFileDiff } from "../../src/repository/changes.ts";
-import { readTree } from "../../src/repository/files.ts";
+import { readTree, validateRelativePath } from "../../src/repository/files.ts";
 import { getRepository } from "../../src/repository/location.ts";
 
 /**
@@ -51,7 +50,9 @@ function git(root: string, gitArguments: readonly string[]): string {
  * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("Repository Treeを遅延展開し選択Fileの差分を区分して読む", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-tree-"));
+  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "crdd-vc-tree-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   git(root, ["init"]);
   git(root, ["config", "user.name", "CRDD Test"]);
@@ -86,6 +87,19 @@ test("Repository Treeを遅延展開し選択Fileの差分を区分して読む"
     unregisteredPaths: ["docs/new.md"],
   } as const;
   const first = readTree(verified.capability, changes, "", undefined, 1);
+  const longPath = `${"segment/".repeat(600)}file.txt`;
+  assert.equal(validateRelativePath(longPath, false), longPath);
+  assert.throws(() => validateRelativePath(`${longPath}/../outside`, false));
+  const paddedCursor = Buffer.from(
+    ` ${" ".repeat(8193)}${JSON.stringify(["", "docs"])}`,
+    "utf8",
+  ).toString("base64url");
+  assert.ok(paddedCursor.length > 8192);
+  const resumed = readTree(verified.capability, changes, "", paddedCursor, 1);
+  assert.ok(resumed.entries.every((entry) => entry.path > "docs"));
+  assert.throws(() =>
+    readTree(verified.capability, changes, "docs", paddedCursor, 1),
+  );
   assert.deepEqual(first.entries, [
     {
       path: "docs",

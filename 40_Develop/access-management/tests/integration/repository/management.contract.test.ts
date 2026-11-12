@@ -13,9 +13,9 @@
 import assert from "node:assert/strict";
 import crypto, { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import {
   initializeRuntimeState,
@@ -25,8 +25,8 @@ import {
 import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,
-  resolveRuntimeContentAccess,
   resolveRepositoryAccessCollection,
+  resolveRuntimeContentAccess,
   sameAccessCollection,
 } from "../../../src/index.ts";
 import { saveExposure } from "../../../src/repository/exposure.ts";
@@ -564,17 +564,17 @@ test("本人権限は管理候補と内容・Exposure交差を分離する", (t)
 });
 
 /**
- * 登録UUIDの生成前に正確な容量境界で停止する。
- * @responsibility 上限内currentから上限超過nextを作る前処置を確認する。
+ * 旧容量上限を超えても通常の登録・保存・再読取りが成立する。
+ * @responsibility 容量を異常条件にせず、Schema・改訂・保存手順を維持する。
  * @trace RFD-IT-021
  * @precondition Schema-validな上限直前Snapshotを自己生成Rootに置く。
  * @stimulus 128文字の新User登録を要求する。
- * @observation current byte容量、UUID件数、固定容量失敗、byte不変、材料不存在。
- * @oracle UUID生成0、出版0、上限の引上げ・入力切捨てなし。
+ * @observation current byte容量、UUID件数、出版結果と次改訂、材料不存在。
+ * @oracle UUID生成1、出版成功、容量を理由に内容を切り捨てない。
  * @cleanup 差替えを復元しFixtureがRoot不存在を確認する。
- * @boundary 公開登録→容量予約→実保存前停止。
+ * @boundary 公開登録→実保存→再読取り。
  */
-test("User登録の容量超過はUUID生成前に拒否する", (t) => {
+test("旧容量上限を超えるUser登録を保存し再読取りできる", (t) => {
   const f = managementFixture(t);
   const currentPath = path.join(f.directory, "access-management.json");
   const repository = {
@@ -615,17 +615,15 @@ test("User登録の容量超過はUUID生成前に拒否する", (t) => {
       "x".repeat(128),
       "developer",
     );
-    assert.equal(result.status, "unavailable");
-    if (
-      result.status === "unavailable" &&
-      result.reason === "management_operation_unavailable"
-    ) {
-      assert.equal(result.primaryFailure, "state_store_capacity_exceeded");
-      assert.equal(result.publication, "not_attempted");
-      assert.equal(result.cleanupConfirmed, true);
-    } else assert.fail("容量拒否が欠落した");
-    assert.equal(generated, 0);
-    assert.deepEqual(fs.readFileSync(currentPath), before);
+    assert.equal(result.status, "completed", JSON.stringify(result));
+    assert.equal(generated, 1);
+    const published = fs.readFileSync(currentPath);
+    assert.ok(published.byteLength > 16_777_216);
+    const parsed = parseAccessManagementState(published);
+    assert.equal(parsed.status, "parsed");
+    if (parsed.status !== "parsed") throw Error("published_invalid");
+    assert.equal(parsed.state.revision, 2);
+    assert.equal(parsed.state.users.at(-1)?.username, "x".repeat(128));
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   } finally {
     crypto.randomUUID = originalUUID;
@@ -1147,17 +1145,17 @@ test("登録は認可前にRootを観測せずIdentity差を保存しない", (t
 });
 
 /**
- * 登録固定Fileの容量上限とdescriptor解放を確認する。
- * @responsibility manifestとContextの個別超過で出版しない。
+ * 登録固定Fileの旧容量上限撤去とdescriptor解放を確認する。
+ * @responsibility 容量と不正内容を区別し、通常の設定増加で登録を拒否しない。
  * @trace RFD-IT-002
  * @precondition 非秘密の自己生成StoreとGit Repository。
- * @stimulus 各固定Fileを1 MiB+1とし、Contextの1 MiB正常例も比較する。
- * @observation current完全byte、pending／replace、開閉descriptor件数。
- * @oracle 超過はpublication not_attempted・保存0、上限内正常例は登録成功。
+ * @stimulus 各固定Fileの1MiB超の不正例と、有効Schema／Contextを1MiB超へ拡大した正常例を比較する。
+ * @observation current完全byte、pending／replace、登録後の現在アクセス・集合再観測、開閉descriptor件数。
+ * @oracle 不正内容はpublication not_attempted・保存0、旧上限超過の正常例は登録成功。
  * @cleanup 観測関数を復元しFixtureが自己生成Rootを削除する。
- * @boundary AM公開登録とDomain上限付き実File観測。
+ * @boundary AM公開登録とDomainの実File観測。
  */
-test("登録固定Fileは各1 MiB上限と開閉の一致を守る", (t) => {
+test("登録固定Fileは旧1MiB超も内容を検査し開閉の一致を守る", (t) => {
   const f = managementFixture(t),
     target = repositoryFixture(t);
   const currentPath = path.join(f.directory, "access-management.json");
@@ -1204,18 +1202,17 @@ test("登録固定Fileは各1 MiB上限と開閉の一致を守る", (t) => {
         result.reason === "management_operation_unavailable"
       )
         assert.equal(result.publication, "not_attempted");
-      else assert.fail("容量拒否が欠測");
+      else assert.fail("内容拒否が欠測");
       assert.deepEqual(fs.readFileSync(currentPath), before);
       assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
       assert.equal(live.size, 0);
       assert.equal(opened, closed);
     }
-    fs.writeFileSync(target.manifestPath, JSON.stringify(target.manifest));
     fs.writeFileSync(
-      contextPath,
-      target.context +
-        " ".repeat(1_048_576 - Buffer.byteLength(target.context, "utf8")),
+      target.manifestPath,
+      JSON.stringify(target.manifest) + " ".repeat(1_048_577),
     );
+    fs.writeFileSync(contextPath, target.context + " ".repeat(1_048_577));
     assert.equal(
       saveRepositoryRegistration(
         f.root,
@@ -1228,6 +1225,35 @@ test("登録固定Fileは各1 MiB上限と開閉の一致を守る", (t) => {
       "completed",
     );
     assert.ok(opened > 0);
+    assert.equal(
+      saveExposure(
+        f.root,
+        f.tokens.manager,
+        2,
+        "00000000-0000-4000-8000-000000000091",
+        target.manifest.repositoryId,
+        ["development"],
+      ).status,
+      "completed",
+    );
+    const access = resolveRepositoryAccess(
+      f.root,
+      f.tokens.developer,
+      target.manifest.repositoryId,
+      "development",
+    );
+    assert.equal(access.status, "completed");
+    const collection = resolveRepositoryAccessCollection(
+      f.root,
+      f.tokens.manager,
+    );
+    assert.equal(collection.status, "completed");
+    if (collection.status !== "completed") throw Error("collection_failed");
+    assert.ok(
+      collection.repositories.some(
+        (entry) => entry.repositoryId === target.manifest.repositoryId,
+      ),
+    );
     assert.equal(live.size, 0);
     assert.equal(opened, closed);
   } finally {

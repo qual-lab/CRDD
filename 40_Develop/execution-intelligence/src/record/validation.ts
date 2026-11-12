@@ -11,19 +11,16 @@ import type { Execution, ExecutionGroup } from "./types.ts";
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/u;
 
 /**
- * accessor・Proxy・循環・未定義・過大値を拒否し、入力を自前の凍結JSON値へ固定する。
+ * accessor・Proxy・循環・未定義を拒否し、入力を自前の凍結JSON値へ固定する。
  * @failure GetterやProxyを評価せず例外で拒否する。情報分類や未知Secret不存在は保証しない。
  * @effect 値の複製だけ。Filesystem・Lock・呼出し側Objectを変更しない。
  */
 export function snapshot<T>(value: T): T {
-  let nodes = 0;
   const ancestors = new Set<object>();
-  function copy(v: unknown, depth: number): unknown {
-    if (++nodes > 50_000 || depth > 12) throw Error("record_input_limit");
+  function copy(v: unknown): unknown {
     if (v === null || typeof v === "boolean") return v;
     if (typeof v === "string") {
-      if (v.length > 8192 || v.includes("\0"))
-        throw Error("record_string_invalid");
+      if (v.includes("\0")) throw Error("record_string_invalid");
       return v;
     }
     if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -53,7 +50,7 @@ export function snapshot<T>(value: T): T {
       )
         throw Error("record_input_invalid");
       Object.defineProperty(result, key, {
-        value: copy(d.value, depth + 1),
+        value: copy(d.value),
         enumerable: true,
         writable: true,
         configurable: true,
@@ -62,7 +59,7 @@ export function snapshot<T>(value: T): T {
     ancestors.delete(v);
     return Object.freeze(result);
   }
-  return copy(value, 0) as T;
+  return copy(value) as T;
 }
 type ObjectValue = Record<string, unknown>;
 /** 非null・非配列Objectを要求する。安全な捕捉は先行するsnapshotが担当する。 */
@@ -86,7 +83,7 @@ export function assertRecordFields(
     throw Error("record_fields_invalid");
 }
 function text(value: unknown) {
-  if (typeof value !== "string" || !value.length || value.length > 8192)
+  if (typeof value !== "string" || !value.length)
     throw Error("record_text_invalid");
 }
 /** 呼出し側が確定した記録IDの形式を確認する。ID生成・所有権判断は行わない。 */
@@ -116,11 +113,9 @@ function nonnegative(value: unknown) {
 }
 function metadata(value: unknown) {
   const v = recordObject(value);
-  if (Object.keys(v).length > 64) throw Error("metadata_limit");
   for (const [k, x] of Object.entries(v)) {
     if (
       !k.length ||
-      k.length > 128 ||
       !(x === null || ["string", "number", "boolean"].includes(typeof x))
     )
       throw Error("metadata_invalid");

@@ -18,6 +18,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { type FileHandle, open } from "node:fs/promises";
 import { type ClientRequest, request as httpRequest } from "node:http";
 import {
@@ -201,6 +202,72 @@ test("共有MCP設定Readerは当該Repositoryの閉設定だけを受理する"
     assert.deepEqual(await readMcpServerConfiguration(fixture), {
       publicOrigin: "https://mcp.example",
     });
+    for (const size of [16383, 16384, 16385, 65537]) {
+      const body = '{"publicOrigin":"https://mcp.example"}';
+      fs.writeFileSync(
+        file,
+        `${" ".repeat(size - Buffer.byteLength(body))}${body}`,
+      );
+      assert.deepEqual(await readMcpServerConfiguration(fixture), {
+        publicOrigin: "https://mcp.example",
+      });
+    }
+    const originalRead = prototype.read;
+    const originalOpen = fs.promises.open;
+    for (const fault of ["partial", "read", "eof", "close"]) {
+      let closes = 0;
+      const readMock = t.mock.method(
+        prototype,
+        "read",
+        async function (
+          this: FileHandle,
+          buffer: Buffer,
+          offset: number,
+          length: number,
+          position: number,
+        ) {
+          if (fault === "read") throw Error("injected_read");
+          if (fault === "eof") return { bytesRead: 0, buffer };
+          return Reflect.apply(originalRead, this, [
+            buffer,
+            offset,
+            Math.min(length, 7),
+            position,
+          ]);
+        },
+      );
+      const closeMock = t.mock.method(
+        fs.promises,
+        "open",
+        async (...args: Parameters<typeof originalOpen>) => {
+          const handle = await originalOpen(...args);
+          const close = handle.close.bind(handle);
+          handle.close = async () => {
+            await close();
+            closes++;
+            if (fault === "close") throw Error("injected_close");
+          };
+          return handle;
+        },
+      );
+      syncBuiltinESMExports();
+      try {
+        if (fault === "partial")
+          assert.deepEqual(await readMcpServerConfiguration(fixture), {
+            publicOrigin: "https://mcp.example",
+          });
+        else
+          await assert.rejects(
+            readMcpServerConfiguration(fixture),
+            /mcp_server_configuration_invalid/u,
+          );
+        assert.equal(closes, 1, fault);
+      } finally {
+        readMock.mock.restore();
+        closeMock.mock.restore();
+        syncBuiltinESMExports();
+      }
+    }
     for (const invalid of [
       "null",
       "[]",

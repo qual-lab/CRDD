@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+import { validateCoordinatorOperationIdentity } from "../../../src/attempt/validation.ts";
 import {
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   COORDINATOR_STATE_SCHEMA,
@@ -20,15 +21,153 @@ import {
   encodeRuntimeStateValue,
   hashRuntimeProjectDefinition,
   hashRuntimeStateContent,
+  prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorUnifiedTaskSnapshot,
   projectCoordinatorTaskSettlement,
   type RuntimeProjectDefinition,
   validateCoordinatorUnifiedTransition,
   validCoordinatorSnapshot,
 } from "../../../src/index.ts";
+import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
 
 const binding = "a".repeat(64);
+
+/**
+ * 保存された保護Pathを独自総長で再拒否しない。
+ * @trace PRL-UT-006
+ * @precondition 正規codecで準備したOperation Identityを使う。
+ * @stimulus 4097文字超Pathと禁止区切り・未知fieldを渡す。
+ * @observation Identity検査の受理／拒否。
+ * @oracle 所在の量だけを外しSchema・nonce・Repository結合は維持する。
+ * @cleanup N/A: メモリだけ。実Hostを参照しない。
+ */
+test("保護Pathの長さだけで正規Identityを拒否しない", () => {
+  const fixture = createResourceOperationFixture();
+  const identity = {
+    ...fixture.identity,
+    workspaceProtected: true,
+    workspaceProtection: {
+      gitSourcePath: "p".repeat(4097),
+      internalSourcePath: "i".repeat(4097),
+    },
+  };
+  assert.equal(
+    validateCoordinatorOperationIdentity(
+      identity,
+      identity.operationNonce,
+      fixture.binding,
+    ),
+    true,
+  );
+  assert.equal(
+    validateCoordinatorOperationIdentity(
+      {
+        ...identity,
+        workspaceProtection: {
+          ...identity.workspaceProtection,
+          gitSourcePath: "invalid\0",
+        },
+      },
+      identity.operationNonce,
+      fixture.binding,
+    ),
+    false,
+  );
+  assert.equal(
+    validateCoordinatorOperationIdentity(
+      {
+        ...identity,
+        workspaceProtection: {
+          ...identity.workspaceProtection,
+          extra: "unknown",
+        },
+      },
+      identity.operationNonce,
+      fixture.binding,
+    ),
+    false,
+  );
+});
+
+/**
+ * 技術記録の蓄積件数と相関検査を分離する。
+ * @responsibility 旧64件を超える正規Operationを受理しHash改変は拒否する。
+ * @trace PRL-UT-006
+ * @precondition 正規codecで各Operationを個別生成する。
+ * @stimulus 独立nonceと回復IDの129件、同じ集合の終端投影、及び末尾Hash改変を渡す。
+ * @observation codecの受理・拒否と記録数。
+ * @oracle 蓄積量だけで拒否せずIdentity相関を維持する。
+ * @cleanup N/A: メモリ内の自己生成値のみ。
+ */
+test("内部技術記録は旧64件を超えても正規相関を維持する", () => {
+  const fixture = createResourceOperationFixture();
+  const initial = decodeRuntimeDomainSnapshot(fixture.bytes, fixture.binding);
+  assert.ok(initial);
+  const operations = Array.from({ length: 129 }, (_, index) => {
+    const identity = {
+      ...fixture.identity,
+      operationNonce: (index + 1).toString(16).padStart(64, "0"),
+      operationId: `OP-${String(index + 1).padStart(6, "0")}`,
+      recoveryCorrelationId: `task-operation-${index}`,
+    };
+    const bytes = prepareCoordinatorStateOperationSnapshot(
+      null,
+      `${JSON.stringify(identity)}\n`,
+      fixture.binding,
+    );
+    assert.ok(bytes);
+    const observed = decodeRuntimeDomainSnapshot(bytes, fixture.binding);
+    assert.ok(observed);
+    const operation = observed.snapshot.operations[0];
+    assert.ok(operation);
+    return operation;
+  });
+  const state = { ...initial.snapshot, operations };
+  const observed = decodeRuntimeDomainSnapshot(
+    Buffer.from(`${encodeRuntimeStateValue(state)}\n`),
+    fixture.binding,
+  );
+  assert.ok(observed);
+  assert.equal(observed.snapshot.operations.length, 129);
+  const fact = {
+    kind: "operations",
+    recoveryIds: operations.map((operation) => operation.recoveryId),
+    resultUnresolved: true,
+  };
+  assert.deepEqual(projectCoordinatorTaskSettlement(fact, state), {
+    cleanupConfirmed: false,
+    recoveryUnresolved: true,
+  });
+  assert.equal(
+    projectCoordinatorTaskSettlement(
+      { ...fact, recoveryIds: [...fact.recoveryIds, "missing"] },
+      state,
+    ),
+    null,
+  );
+  assert.equal(
+    projectCoordinatorTaskSettlement(
+      { ...fact, recoveryIds: [...fact.recoveryIds, fact.recoveryIds[0]] },
+      state,
+    ),
+    null,
+  );
+  const tampered = operations.map((operation, index) =>
+    index === 128
+      ? { ...operation, identitySha256: "f".repeat(64) }
+      : operation,
+  );
+  assert.equal(
+    decodeRuntimeDomainSnapshot(
+      Buffer.from(
+        `${encodeRuntimeStateValue({ ...state, operations: tampered })}\n`,
+      ),
+      fixture.binding,
+    ),
+    null,
+  );
+});
 const taskExecutionSelections = () => ({
   executor: {
     provider: "codex",

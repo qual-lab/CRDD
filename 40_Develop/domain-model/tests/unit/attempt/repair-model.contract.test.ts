@@ -19,7 +19,6 @@ import {
   type CoordinatorStateRepairOperation,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
-  RUNTIME_STATE_MAXIMUM_BYTES,
 } from "../../../src/index.ts";
 
 type DockerRuntimeRepairDisposalCheckpoint = NonNullable<
@@ -2485,7 +2484,7 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
     prepareCoordinatorRepairHistoryPublication(
       initialHistory,
       id,
-      Buffer.alloc(RUNTIME_STATE_MAXIMUM_BYTES + 1),
+      Buffer.alloc(16 * 1024 * 1024 + 1),
       null,
       30,
       binding,

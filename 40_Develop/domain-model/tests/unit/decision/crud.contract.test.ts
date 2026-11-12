@@ -42,6 +42,7 @@ import {
   encodeRuntimeStateValue,
 } from "../../../src/index.ts";
 import { coordinatorQueueIsClosed } from "../../../src/state/transition.ts";
+import { inspectCoordinatorDecisionRequest } from "../../../src/decision/request.ts";
 
 /** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {
@@ -109,6 +110,84 @@ function newDecisionFixture() {
   };
   return { request, answer, application };
 }
+
+/**
+ * 判断の自由本文と根拠集合を旧上限で拒否しない。
+ * @responsibility 要求・回答・履歴の同じ本文を全量保持する。
+ * @trace PRL-UT-015
+ * @precondition 有効な対象・回答主体と257件の一意な根拠を使う。
+ * @stimulus 旧8,192／1,024文字を超える本文と大きな根拠集合を渡す。
+ * @observation 候補・履歴・公開要求の全量と不正集合の拒否。
+ * @oracle 正常値を受理し、重複根拠と不正選択肢は拒否する。
+ * @cleanup N/A: メモリ内の値だけ。
+ * @boundary Domain判断候補と公開要求の検査。
+ */
+test("判断本文と根拠集合は容量だけで拒否せず履歴へ保持する", () => {
+  const fixture = newDecisionFixture();
+  const request = {
+    ...fixture.request,
+    question: "q".repeat(8193),
+    options: fixture.request.options.map((option) => ({
+      ...option,
+      label: "l".repeat(1025),
+    })),
+  };
+  const created = prepareDecisionRequest(request);
+  assert.ok(created);
+  const answer = {
+    ...fixture.answer,
+    reason: "r".repeat(8193),
+    evidenceIds: Array.from({ length: 257 }, (_, index) => `evidence-${index}`),
+  };
+  const answered = prepareDecisionAnswer(
+    created.decision,
+    answer,
+    fixture.application,
+    null,
+  );
+  assert.ok(answered);
+  assert.equal(answered.decision.result?.answer.evidenceIds.length, 257);
+  assert.equal(answered.decision.result?.answer.reason, answer.reason);
+  const history = projectDecisionHistory(answered.decision);
+  assert.ok(history && history.length > 0);
+  assert.equal(
+    history.every((event) => inspectDecisionHistoryEvent(event) !== null),
+    true,
+  );
+  assert.equal(
+    prepareDecisionAnswer(
+      created.decision,
+      { ...answer, evidenceIds: ["same", "same"] },
+      fixture.application,
+      null,
+    ),
+    null,
+  );
+  const base = {
+    decisionId: request.decisionId,
+    projectId: request.target.projectId,
+    milestoneId: request.target.milestoneId,
+    generation: request.target.generation,
+    repositoryRevision: request.target.repositoryRevision,
+  };
+  assert.ok(
+    inspectCoordinatorDecisionRequest({
+      ...base,
+      operation: "answer",
+      selectedOption: "resume",
+      comment: "c".repeat(1025),
+    }),
+  );
+  assert.equal(
+    inspectCoordinatorDecisionRequest({
+      ...base,
+      operation: "answer",
+      selectedOption: "unknown",
+      comment: "c".repeat(1025),
+    }),
+    null,
+  );
+});
 
 /**
  * 拒否・保留後の再提案と問題単位の退役を確認する。
@@ -1781,4 +1860,43 @@ test("新要求は未知field・種類混同・accessor・Proxyを受け付け�
   });
   assert.equal(prepareDecisionRequest(proxy), null);
   assert.equal(observed, false);
+});
+
+/**
+ * 蓄積した判断集合を件数だけで不正にしない。
+ * @responsibility 旧4,096件超の正常集合と相関破損の拒否を区別する。
+ * @trace PRL-UT-015
+ * @precondition 自己生成した独立の提案とBlockerを使用する。
+ * @stimulus 4,097件の正常集合と末尾参照の欠測を渡す。
+ * @observation 正常集合の受理と不正集合の拒否。
+ * @oracle 件数では拒否せず、参照整合は維持する。
+ * @cleanup N/A: メモリ内のみ。
+ */
+test("判断とBlockerは旧4,096件を超えても相関が正しければ受理する", () => {
+  const { request } = newDecisionFixture();
+  const prepared = Array.from({ length: 4097 }, (_, index) =>
+    prepareDecisionRequest({
+      ...request,
+      decisionId: `decision-${index}`,
+      blockerId: `blocker-${index}`,
+    }),
+  );
+  const decisions = prepared.map((item) => {
+    assert.ok(item);
+    return item.decision;
+  });
+  const blockers = prepared.map((item) => {
+    assert.ok(item);
+    return item.blocker;
+  });
+  assert.equal(
+    validateDecisionCollections(decisions, blockers, ["project-a"]),
+    true,
+  );
+  assert.equal(
+    validateDecisionCollections(decisions, blockers.slice(0, -1), [
+      "project-a",
+    ]),
+    false,
+  );
 });

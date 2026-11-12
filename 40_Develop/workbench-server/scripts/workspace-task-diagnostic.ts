@@ -1,5 +1,5 @@
 /**
- * 合成Workspace試験の回復開始・候補検査・段階・境界終了診断を一つの取得器で有限に取得する。
+ * 合成Workspace試験の回復開始・候補検査・段階・境界終了診断を一つの取得器で全量取得する。
  * @responsibility 元stderrの意味を変えず、固定診断を既存の安全な結果へ搬送する。
  * @trace ERB-IT-021
  * @security 生出力・任意本文は保持せず、別Taskの診断を受領しない。
@@ -39,7 +39,6 @@ type Status =
   | "task_only"
   | "missing"
   | "invalid"
-  | "overflow"
   | "collector_unavailable";
 let installed = false;
 export type RecoveryDiagnosticIdentity = Readonly<{
@@ -114,164 +113,147 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
       (chunk.startsWith(marker) || isCandidate || isStage || isBoundary)
     ) {
       try {
-        if (
-          Buffer.byteLength(chunk, "utf8") > 4096 ||
-          events.length +
-            candidateEvents.length +
-            stageEvents.length +
-            boundaryEvents.length >=
-            16
-        ) {
-          if (isBoundary) boundaryStatus = "overflow";
-          else if (isStage) stageStatus = "overflow";
-          else if (isCandidate) candidateStatus = "overflow";
-          else status = "overflow";
-        } else {
-          if (!chunk.endsWith("\n") || chunk.slice(0, -1).includes("\n"))
-            throw new Error("frame");
-          const parsed = parseUnambiguousJsonDocument(
-            chunk.slice("[Coordinator lifecycle] ".length),
-          );
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-            throw new Error("shape");
-          const value = parsed as Record<string, unknown>;
-          if (isBoundary) {
-            const booleanKeys = [
-              "providerContainerCreatedObserved",
-              "providerProcessStartedObserved",
-              "providerProcessCompletionObserved",
-              "processTreeTerminationObserved",
-              "containersAbsentObserved",
-              "networksAbsentObserved",
-              "cleanupConfirmed",
-            ];
-            if (
-              !exact(value, [
-                "event",
-                "provider",
-                "taskRole",
-                "operationId",
-                "taskAttempt",
-                "recoveryCorrelationId",
-                "recoveryId",
-                "primaryFailure",
-                "providerProcessExitStatusClass",
-                ...booleanKeys,
-              ]) ||
-              value.event !== "coordinator_provider_boundary_settled" ||
-              !["codex", "claude"].includes(value.provider as string) ||
-              !["executor", "reviewer"].includes(value.taskRole as string) ||
-              ![0, 1].includes(value.taskAttempt as number) ||
-              typeof value.operationId !== "string" ||
-              !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
-              typeof value.recoveryCorrelationId !== "string" ||
-              !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
-              typeof value.recoveryId !== "string" ||
-              !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
-                value.recoveryId,
-              ) ||
-              !booleanKeys.every((key) => typeof value[key] === "boolean") ||
-              ![
-                "zero",
-                "one",
-                "one_two_six",
-                "one_two_seven",
-                "other_nonzero",
-                "signal",
-                "not_observed",
-              ].includes(value.providerProcessExitStatusClass as string) ||
-              !isPrimaryFailureDiagnostic(value.primaryFailure)
-            )
-              throw new Error("boundary_shape");
-            const event = Object.freeze({ ...value }) as BoundaryEvent;
-            if (
-              boundaryEvents.some(
-                (old) =>
-                  old.recoveryId === event.recoveryId ||
-                  (old.operationId === event.operationId &&
-                    old.provider === event.provider &&
-                    old.taskRole === event.taskRole &&
-                    old.taskAttempt === event.taskAttempt &&
-                    old.recoveryCorrelationId === event.recoveryCorrelationId),
-              )
-            )
-              throw new Error("boundary_duplicate");
-            boundaryEvents.push(event);
-          } else {
-            if (
-              value.event !==
-              (isStage
-                ? "coordinator_task_stage_observed"
-                : isCandidate
-                  ? "coordinator_task_candidate_validation_failed"
-                  : "coordinator_provider_recovery_start_failed")
-            )
-              throw new Error("event");
-            const diagnostic = isStage
-              ? inspectTaskStageDiagnostic(value.diagnostic)
-              : isCandidate
-                ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
-                : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
-            if (
-              !exact(value, [
-                "event",
-                "provider",
-                "taskRole",
-                "operationId",
-                "taskAttempt",
-                "recoveryCorrelationId",
-                "diagnostic",
-              ]) ||
-              !["codex", "claude"].includes(value.provider as string) ||
-              ![null, "executor", "reviewer"].includes(
-                value.taskRole as string | null,
-              ) ||
-              (isCandidate && value.taskRole !== "executor") ||
-              (isStage &&
-                (!diagnostic ||
-                  !("taskRole" in diagnostic) ||
-                  diagnostic.taskRole !== value.taskRole)) ||
-              typeof value.operationId !== "string" ||
-              !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
-              ![0, 1].includes(value.taskAttempt as number) ||
-              typeof value.recoveryCorrelationId !== "string" ||
-              !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
-              !diagnostic
-            )
-              throw new Error("shape");
-            const event = Object.freeze({ ...value, diagnostic }) as
-              | Event
-              | CandidateEvent
-              | StageEvent;
-            if (
-              (isStage
-                ? stageEvents
-                : isCandidate
-                  ? candidateEvents
-                  : events
-              ).some(
-                (old) =>
-                  old.operationId === event.operationId &&
+        if (!chunk.endsWith("\n") || chunk.slice(0, -1).includes("\n"))
+          throw new Error("frame");
+        const parsed = parseUnambiguousJsonDocument(
+          chunk.slice("[Coordinator lifecycle] ".length),
+        );
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+          throw new Error("shape");
+        const value = parsed as Record<string, unknown>;
+        if (isBoundary) {
+          const booleanKeys = [
+            "providerContainerCreatedObserved",
+            "providerProcessStartedObserved",
+            "providerProcessCompletionObserved",
+            "processTreeTerminationObserved",
+            "containersAbsentObserved",
+            "networksAbsentObserved",
+            "cleanupConfirmed",
+          ];
+          if (
+            !exact(value, [
+              "event",
+              "provider",
+              "taskRole",
+              "operationId",
+              "taskAttempt",
+              "recoveryCorrelationId",
+              "recoveryId",
+              "primaryFailure",
+              "providerProcessExitStatusClass",
+              ...booleanKeys,
+            ]) ||
+            value.event !== "coordinator_provider_boundary_settled" ||
+            !["codex", "claude"].includes(value.provider as string) ||
+            !["executor", "reviewer"].includes(value.taskRole as string) ||
+            ![0, 1].includes(value.taskAttempt as number) ||
+            typeof value.operationId !== "string" ||
+            !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
+            typeof value.recoveryCorrelationId !== "string" ||
+            !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
+            typeof value.recoveryId !== "string" ||
+            !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+              value.recoveryId,
+            ) ||
+            !booleanKeys.every((key) => typeof value[key] === "boolean") ||
+            ![
+              "zero",
+              "one",
+              "one_two_six",
+              "one_two_seven",
+              "other_nonzero",
+              "signal",
+              "not_observed",
+            ].includes(value.providerProcessExitStatusClass as string) ||
+            !isPrimaryFailureDiagnostic(value.primaryFailure)
+          )
+            throw new Error("boundary_shape");
+          const event = Object.freeze({ ...value }) as BoundaryEvent;
+          if (
+            boundaryEvents.some(
+              (old) =>
+                old.recoveryId === event.recoveryId ||
+                (old.operationId === event.operationId &&
                   old.provider === event.provider &&
                   old.taskRole === event.taskRole &&
                   old.taskAttempt === event.taskAttempt &&
-                  old.recoveryCorrelationId === event.recoveryCorrelationId,
-              )
+                  old.recoveryCorrelationId === event.recoveryCorrelationId),
             )
-              throw new Error("duplicate");
-            if (isStage) stageEvents.push(event as StageEvent);
-            else if (isCandidate) candidateEvents.push(event as CandidateEvent);
-            else events.push(event as Event);
-          }
+          )
+            throw new Error("boundary_duplicate");
+          boundaryEvents.push(event);
+        } else {
+          if (
+            value.event !==
+            (isStage
+              ? "coordinator_task_stage_observed"
+              : isCandidate
+                ? "coordinator_task_candidate_validation_failed"
+                : "coordinator_provider_recovery_start_failed")
+          )
+            throw new Error("event");
+          const diagnostic = isStage
+            ? inspectTaskStageDiagnostic(value.diagnostic)
+            : isCandidate
+              ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
+              : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
+          if (
+            !exact(value, [
+              "event",
+              "provider",
+              "taskRole",
+              "operationId",
+              "taskAttempt",
+              "recoveryCorrelationId",
+              "diagnostic",
+            ]) ||
+            !["codex", "claude"].includes(value.provider as string) ||
+            ![null, "executor", "reviewer"].includes(
+              value.taskRole as string | null,
+            ) ||
+            (isCandidate && value.taskRole !== "executor") ||
+            (isStage &&
+              (!diagnostic ||
+                !("taskRole" in diagnostic) ||
+                diagnostic.taskRole !== value.taskRole)) ||
+            typeof value.operationId !== "string" ||
+            !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
+            ![0, 1].includes(value.taskAttempt as number) ||
+            typeof value.recoveryCorrelationId !== "string" ||
+            !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
+            !diagnostic
+          )
+            throw new Error("shape");
+          const event = Object.freeze({ ...value, diagnostic }) as
+            | Event
+            | CandidateEvent
+            | StageEvent;
+          if (
+            (isStage
+              ? stageEvents
+              : isCandidate
+                ? candidateEvents
+                : events
+            ).some(
+              (old) =>
+                old.operationId === event.operationId &&
+                old.provider === event.provider &&
+                old.taskRole === event.taskRole &&
+                old.taskAttempt === event.taskAttempt &&
+                old.recoveryCorrelationId === event.recoveryCorrelationId,
+            )
+          )
+            throw new Error("duplicate");
+          if (isStage) stageEvents.push(event as StageEvent);
+          else if (isCandidate) candidateEvents.push(event as CandidateEvent);
+          else events.push(event as Event);
         }
       } catch {
-        if (isBoundary) {
-          if (boundaryStatus !== "overflow") boundaryStatus = "invalid";
-        } else if (isStage) {
-          if (stageStatus !== "overflow") stageStatus = "invalid";
-        } else if (isCandidate) {
-          if (candidateStatus !== "overflow") candidateStatus = "invalid";
-        } else if (status !== "overflow") status = "invalid";
+        if (isBoundary) boundaryStatus = "invalid";
+        else if (isStage) stageStatus = "invalid";
+        else if (isCandidate) candidateStatus = "invalid";
+        else status = "invalid";
       }
     }
     return Reflect.apply(original, this, [chunk, ...rest]);

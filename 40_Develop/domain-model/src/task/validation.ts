@@ -7,28 +7,34 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
+import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+} from "../ai-selection/validation.ts";
 import { isPrincipalId } from "../identity/validation.ts";
-import type { ProjectResultAcceptance } from "./types.ts";
-import { snapshotRuntimeStateRecord } from "../state/validation.ts";
 import type { CoordinatorState } from "../state/types.ts";
-import { isRuntimeStateObject } from "../state/validation.ts";
-import { hasRuntimeStateKeys } from "../state/validation.ts";
-import { inspectTaskExecutionSelections } from "../ai-selection/validation.ts";
-import { validId } from "../state/validation.ts";
-import { REVISION } from "../state/validation.ts";
-import { nullableId } from "../state/validation.ts";
-import { stringArray } from "../state/validation.ts";
-import { nullableCandidateId } from "../state/validation.ts";
-import type { ProjectQueueEntry } from "./types.ts";
-import { singleTaskQueueIsConsistent } from "../state/validation.ts";
-import type { SingleTaskRecord } from "./types.ts";
-import { HASH } from "../state/validation.ts";
-import type { ProjectQueueState } from "./types.ts";
-import { nullableResultReference } from "../state/validation.ts";
-import type { ProjectTaskRecoveryObligation } from "./types.ts";
-import { nullableRecoveryId } from "../state/validation.ts";
-import { inspectExecutionSelection } from "../ai-selection/validation.ts";
-import { snapshotRuntimeStateArray } from "../state/validation.ts";
+import {
+  HASH,
+  hasRuntimeStateKeys,
+  isRuntimeStateObject,
+  nullableCandidateId,
+  nullableId,
+  nullableRecoveryId,
+  nullableResultReference,
+  REVISION,
+  singleTaskQueueIsConsistent,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
+  stringArray,
+  validId,
+} from "../state/validation.ts";
+import type {
+  ProjectQueueEntry,
+  ProjectQueueState,
+  ProjectResultAcceptance,
+  ProjectTaskRecoveryObligation,
+  SingleTaskRecord,
+} from "./types.ts";
 
 /**
  * 新しい結果受理本文の閉じた形式を検査する。
@@ -161,10 +167,8 @@ export function validCoordinatorState(
     ]).has(String(value.milestone.state)) ||
     !Array.isArray(value.objectives) ||
     value.objectives.length < 1 ||
-    value.objectives.length > 128 ||
     !Array.isArray(value.tasks) ||
-    value.tasks.length < 1 ||
-    value.tasks.length > 1024
+    value.tasks.length < 1
   )
     return false;
 
@@ -422,7 +426,7 @@ export function recoveryObligations(
     generation: number;
   }>,
 ): value is readonly ProjectTaskRecoveryObligation[] {
-  if (!Array.isArray(value) || value.length > 128) return false;
+  if (!Array.isArray(value)) return false;
   const identities = new Set<string>();
   for (const entry of value) {
     const acknowledgement = decodeProjectResultAcceptance(
@@ -501,7 +505,7 @@ export function resultAcceptances(
     task: CoordinatorState["tasks"][number];
   }>,
 ): boolean {
-  if (!Array.isArray(value) || value.length > 128) return false;
+  if (!Array.isArray(value)) return false;
   const task = scope.task;
   if (
     value.length > 0 &&
@@ -677,7 +681,10 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
     )
   )
     return null;
-  const recoveries = snapshotRuntimeStateArray(value.recoveryIds, 64);
+  const recoveries = snapshotRuntimeStateArray(
+    value.recoveryIds,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (recoveries.status !== "ok") return null;
   const recoveryIds: string[] = [];
   for (const recoveryId of recoveries.value) {
