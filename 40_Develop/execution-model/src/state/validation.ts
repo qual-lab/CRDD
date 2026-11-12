@@ -880,55 +880,6 @@ function dataDescriptor(
 }
 
 /**
- * Plain 記録を所有Snapshotへ変換する。
- *
- * @responsibility Plain 記録の取得範囲、plain-data制約、拒否境界を所有する。
- * @trace ARCH-000014
- * @input value: unknown、allowedKeys: ReadonlySet<K>
- * @returns Readonly<Record<K, unknown>> | nullを返す。
- * @precondition 「value: unknown、allowedKeys: ReadonlySet<K>」がsnapshotPlainRecordの入力契約を満たす。
- * @postcondition snapshotPlainRecordの責務を完了した結果だけを返す。
- * @effect N/A: snapshotPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure snapshotPlainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant snapshotPlainRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotPlainRecordはProcess内の同一Subsystemで完結する。
- * @security snapshotPlainRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: snapshotPlainRecordは共有非同期状態を持たない同期処理である。
- */
-export function snapshotPlainRecord<const K extends string>(
-  value: unknown,
-  allowedKeys: ReadonlySet<K>,
-): Readonly<Record<K, unknown>> | null {
-  try {
-    if (
-      !value ||
-      typeof value !== "object" ||
-      types.isProxy(value) ||
-      Array.isArray(value)
-    )
-      return null;
-    const prototype = Object.getPrototypeOf(value);
-    if (prototype !== Object.prototype && prototype !== null) return null;
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    const keys = Reflect.ownKeys(descriptors);
-    if (
-      keys.length !== allowedKeys.size ||
-      keys.some((key) => typeof key !== "string" || !allowedKeys.has(key as K))
-    )
-      return null;
-    const snapshot = Object.create(null) as Record<K, unknown>;
-    for (const key of allowedKeys) {
-      const descriptor = descriptors[key];
-      if (!dataDescriptor(descriptor)) return null;
-      snapshot[key] = descriptor.value;
-    }
-    return Object.freeze(snapshot);
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Plain Arrayを所有Snapshotへ変換する。
  *
  * @responsibility Plain Arrayの取得範囲、plain-data制約、拒否境界を所有する。

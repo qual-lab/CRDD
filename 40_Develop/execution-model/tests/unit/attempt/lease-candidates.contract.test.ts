@@ -7,16 +7,19 @@
  * @scope 九つの用途固定候補、Root／Lock／不存在の同期投影。
  * @boundary メモリの局所fixtureだけ。実Lock・保存・全体codec・回復完了の根拠ではない。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorSnapshot,
   encodeRuntimeStateValue,
   hashRuntimeStateValueText,
   type LeaseEvidenceEnvelope,
   leaseIdentity,
   type ProjectQueueEntry,
+} from "../../../src/index.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   prepareCoordinatorLeaseAcquisitionConfirmation,
   prepareCoordinatorLeaseAcquisitionReservation,
   prepareCoordinatorLeaseRecoveryReservation,
@@ -26,7 +29,7 @@ import {
   prepareCoordinatorReleasedLeaseReconciliation,
   projectCoordinatorLeaseAcquisitionOwner,
   projectCoordinatorLeaseOwnerLossState,
-} from "../../../src/index.ts";
+} from "../../../src/state/validation.ts";
 
 /**
  * 九用途の局所元版を作る。

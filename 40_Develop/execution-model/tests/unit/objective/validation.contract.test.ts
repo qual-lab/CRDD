@@ -20,7 +20,116 @@ import {
   inspectRuntimePlanDefinition,
   inspectRuntimeProjectDefinition,
 } from "../../../src/objective/validation.ts";
-import { repositoryPathWithin } from "../../../src/state/validation.ts";
+import {
+  repositoryPathWithin,
+  snapshotRuntimeStateRecord,
+} from "../../../src/state/validation.ts";
+
+/**
+ * 共通Record取得の一正本化で受理集合と無実行境界を変えない。
+ * @responsibility 普通／null prototype、閉Key集合、getter／Proxyを独立に対照する。
+ * @trace PPR-UT-006
+ * @precondition 合成値と明示したKey集合だけを渡す。
+ * @stimulus 正規・空・未知／欠測・非列挙・symbol・accessor・ProxyとKey集合不正を与える。
+ * @observation 返却値、凍結null prototype、getter／trap回数と入れ子参照。
+ * @oracle 正規の浅い値だけを保持し、不正値をnullとする。入れ子の取得や再解釈はしない。
+ * @cleanup N/A: 値だけ。
+ * @boundary 共通値取得だけ。Schema・認可・物理保存の成立は確認しない。
+ */
+test("Record Snapshotは旧二実装の受理集合と無実行境界を維持する", () => {
+  let effects = 0;
+  const nested: unknown[] = [];
+  const getter = Object.defineProperty({}, "value", {
+    enumerable: true,
+    get() {
+      effects++;
+      return 1;
+    },
+  });
+  const proxy = new Proxy(
+    { value: 1 },
+    {
+      ownKeys() {
+        effects++;
+        return ["value"];
+      },
+      get() {
+        effects++;
+        return 1;
+      },
+    },
+  );
+  const revoked = Proxy.revocable({}, {});
+  revoked.revoke();
+  const nullPrototype = Object.assign(Object.create(null), { value: 2 });
+  const cases: readonly [
+    unknown,
+    Readonly<Record<string, unknown>> | null,
+    Readonly<Record<string, unknown>> | null,
+  ][] = [
+    [{ value: 1 }, { value: 1 }, null],
+    [nullPrototype, { value: 2 }, null],
+    [{ value: nested }, { value: nested }, null],
+    [{}, null, {}],
+    [null, null, null],
+    [undefined, null, null],
+    [0, null, null],
+    ["value", null, null],
+    [[], null, null],
+    [getter, null, null],
+    [proxy, null, null],
+    [revoked.proxy, null, null],
+    [Object.assign(Object.create({ custom: true }), { value: 1 }), null, null],
+    [{ value: 1, extra: 2 }, null, null],
+    [
+      Object.defineProperty({}, "value", { value: 1, enumerable: false }),
+      null,
+      null,
+    ],
+    [{ value: 1, [Symbol("extra")]: 2 }, null, null],
+  ];
+  const keySets: readonly [unknown, "exact" | "empty" | "invalid"][] = [
+    [new Set(["value"]), "exact"],
+    [new Set(), "empty"],
+    [null, "invalid"],
+    [undefined, "invalid"],
+    [0, "invalid"],
+    [{}, "invalid"],
+    [
+      {
+        size: 1,
+        has: () => true,
+        *[Symbol.iterator]() {
+          yield "value";
+        },
+      },
+      "exact",
+    ],
+    [new Proxy(new Set(["value"]), {}), "invalid"],
+  ];
+  for (const [value, exact, empty] of cases) {
+    for (const [keys, kind] of keySets) {
+      const actual = Reflect.apply(snapshotRuntimeStateRecord, null, [
+        value,
+        keys,
+      ]);
+      const expected =
+        kind === "exact" ? exact : kind === "empty" ? empty : null;
+      assert.deepEqual(
+        actual,
+        expected === null ? null : Object.assign(Object.create(null), expected),
+      );
+      if (actual !== null) {
+        assert.equal(Object.getPrototypeOf(actual), null);
+        assert.equal(Object.isFrozen(actual), true);
+        if (exact?.value === nested && kind === "exact")
+          assert.equal(actual.value, nested);
+      }
+    }
+  }
+  assert.equal(effects, 0);
+  assert.equal(Object.isFrozen(nested), false);
+});
 
 /**
  * planでDomainへ移管した実行計画の値境界を検証する。。

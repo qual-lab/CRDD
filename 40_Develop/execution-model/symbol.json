@@ -449,14 +449,6 @@
       ]
     },
     {
-      "symbolId": "domain-model.temporary-operation-types",
-      "kind": "file",
-      "path": "src/storage/store.ts",
-      "archIds": [
-        "ARCH-000011"
-      ]
-    },
-    {
       "symbolId": "runtime-data.test.integration.consumer-closure",
       "kind": "test-suite",
       "path": "tests/integration/storage-consumer-closure.integration.test.ts",
@@ -470,54 +462,6 @@
         "access-management.public-api",
         "crdd-domain-library.repository-entry",
         "domain-model.configuration-entry"
-      ]
-    },
-    {
-      "symbolId": "runtime-data.test.integration.temporary-operation-lifecycle",
-      "kind": "test-suite",
-      "path": "tests/integration/temporary-operation-lifecycle.integration.test.ts",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-IT-003",
-        "RDL-IT-004"
-      ],
-      "verifies": [
-        "domain-model.runtime-area-result",
-        "domain-model.runtime-data-area-writer",
-        "domain-model.runtime-data-path-reader",
-        "runtime-data.source.src.store.temporary.operation.store",
-        "version-control.source.src.repository.location"
-      ]
-    },
-    {
-      "symbolId": "runtime-data.test.system.temporary-operation-cleanup",
-      "kind": "test-suite",
-      "path": "tests/system/temporary-operation-cleanup.contract.test.ts",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-ST-002"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "crdd-domain-library.repository-entry",
-        "domain-model.configuration-entry",
-        "domain-model.runtime-area-result",
-        "domain-model.runtime-data-area-writer",
-        "domain-model.runtime-data-path-reader",
-        "runtime-data.source.src.store.temporary.operation.store",
-        "version-control.source.src.repository.location"
-      ]
-    },
-    {
-      "symbolId": "runtime-data.source.src.store.temporary.operation.store",
-      "kind": "file",
-      "path": "src/storage/store.ts",
-      "archIds": [
-        "ARCH-000011"
       ]
     },
     {
@@ -1005,7 +949,8 @@
       ],
       "verifies": [
         "domain-model.src.objective.validation",
-        "domain-model.src.repository.path"
+        "domain-model.src.repository.path",
+        "domain-model.state.validation"
       ]
     },
     {
@@ -1033,25 +978,9 @@
       ]
     },
     {
-      "symbolId": "execution-model.source.tests.fixtures.create-temporary-operation-and-exit",
-      "kind": "file",
-      "path": "tests/fixtures/create-temporary-operation-and-exit.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "execution-model.source.tests.fixtures.execution-plan",
       "kind": "file",
       "path": "tests/fixtures/execution-plan.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "execution-model.source.tests.fixtures.resume-temporary-operation-and-exit",
-      "kind": "file",
-      "path": "tests/fixtures/resume-temporary-operation-and-exit.ts",
       "archIds": [
         "ARCH-000004"
       ]

@@ -7,24 +7,23 @@
  * @scope 固定八処置、三用途実体、発行と確認の相関、元修復と分離した回収進捗の純粋値。
  * @boundary N/A: メモリ内の固定値だけ。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  decodeDockerRuntimeRepairCheckpoint,
-  dockerRuntimeRepairCheckpointIsSettled,
-  decodeDockerRuntimeRepairDisposalCheckpoint,
-  dockerRuntimeRepairDisposalIsSettled,
-  decodeDockerRuntimeRepairRetentionTargets,
-} from "../../../src/index.ts";
-import {
-  validateDockerRuntimeRepairCheckpointTransition,
   createDockerRuntimeRepairDisposalCheckpoint,
-  validateDockerRuntimeRepairDisposalTransition,
-} from "../../../src/attempt/validation.ts";
-import {
+  decodeDockerRuntimeRepairCheckpoint,
+  decodeDockerRuntimeRepairDisposalCheckpoint,
+  decodeDockerRuntimeRepairRetentionTargets,
   prepareDockerRuntimeRepairSessionCheckpoint,
+  validateDockerRuntimeRepairCheckpointTransition,
+  validateDockerRuntimeRepairDisposalTransition,
   validateDockerRuntimeRepairSessionCheckpoint,
 } from "../../../src/attempt/validation.ts";
+import {
+  dockerRuntimeRepairCheckpointIsSettled,
+  dockerRuntimeRepairDisposalIsSettled,
+} from "../../../src/index.ts";
 
 /**
  * 保持対象の形検査を元checkpointや実観測と分離する。

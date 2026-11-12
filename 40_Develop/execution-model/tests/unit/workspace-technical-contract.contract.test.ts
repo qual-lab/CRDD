@@ -8,18 +8,19 @@
  * @scope 候補保存値とPackage依存方向。
  * @boundary 同一Processの値検査。Git・保存Effectなし。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
   inspectCoordinatorWorkspaceResults,
   inspectWorkspaceCommand,
-  isWorkspaceCommitId,
   snapshotCoordinatorWorkspaceResult,
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
   type WorkspaceCandidateRequest,
 } from "../../src/index.ts";
 import {
+  isWorkspaceCommitId,
   validCandidateRecord,
   validCoordinatorWorkspace,
 } from "../../src/workspace/validation.ts";

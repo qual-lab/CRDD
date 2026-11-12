@@ -1,5 +1,13 @@
 # CROS WorkbenchのProduction実装
 
+## 未接続Temporary Operationの退役 — 2026-11-12
+
+現行の実行モデルから、旧署名準備向けTemporary Operationの作成・再開・根拠昇格・終了、専用のMap・型・故障注入Variantを代替なしで撤去する。基準38d51403fの全製品src／bin／scriptsとtemplateではRoot再export以外のCallerはなく、最後の本番Caller `prepare-release-runtime.ts` はa04ecb703で署名準備・昇格一式とともに撤去されている。以後の移管とwx化は専用ライブラリの保持・試験であり、本番再接続ではなかった。
+
+共有の固定領域・File I/O・Error class・通常State／Attemptの回復は変更しない。既存の専用IT／STとfixture二個を退役し、Catalog・Symbolのactive集合を追従する。正式QA ID・元の検証義務と過去Evidenceは保持し、旧一時操作の自動化slice退役を全項目の免除や成功へ読み替えない。
+
+過去のtmp／.operations記録は今回未走査・未操作であり、不存在と断定しない。旧APIによる自動再開・清掃は提供しなくなるため、由来不明物は保全し、必要な場合は対象確認と個別承認を伴う処置へ残す。互換Reader・移行・代替Store・新しい清掃Toolは追加しない。
+
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab

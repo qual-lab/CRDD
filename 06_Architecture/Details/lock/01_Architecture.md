@@ -77,11 +77,10 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 | Host操作世代 | Coordinator | 対象Rootの親Directoryの`host-operation.<generation-binding>.lock`。子Root清掃後まで保持 |
 | EI履歴Writer | Execution Intelligence | 既存履歴Directoryの`history.lock`。pending検査から保存・pending終了処置まで保持 |
 | Topic／Meeting | Domain Model | 既存種別Rootの`.TOPIC-xxxxxx.lock`／`.MTG-xxxxxx.lock`。改訂確認から保存／削除・読戻しまで保持 |
-| 一時Operation | Domain Model | 既存`.operations/<operationId>.lock`。再入場の最初の変更前から公開・読戻しまで、終端では文書・資源回収まで保持 |
 
-EI、Topic／Meeting、一時OperationとCoordinator長期Leaseも同じ`acquireLock`を利用する。別のFile排他方式・PID判定だけの自動奪取を持たない。各OwnerにはScope、保持区間、保存・世代・一次失敗と終了不明の合成を残す。固定名は既存の有効ID域を維持するため大文字・先頭dot・途中の連続dotを許す。単一ASCII basenameの255文字上限、`.lock`終端、先頭の二連dot・区切り文字拒否と固定親境界を維持する。
+EI、Topic／MeetingとCoordinator長期Leaseも同じ`acquireLock`を利用する。別のFile排他方式・PID判定だけの自動奪取を持たない。各OwnerにはScope、保持区間、保存・世代・一次失敗と終了不明の合成を残す。固定名は既存の有効ID域を維持するため大文字・先頭dot・途中の連続dotを許す。単一ASCII basenameの255文字上限、`.lock`終端、先頭の二連dot・区切り文字拒否と固定親境界を維持する。
 
-一時Operationの業務文書のstaging／hardlink公開は保存処理として残す。Lock専用のstaging、active／released文書、hardlink公開、PID不在による自動削除は撤去する。Lock解放だけが失敗した場合、資源回収済みを巻き戻して資源や業務文書を再生成しない。同じOperation参照でLock残存を示し、停止下の明示処置後に直接不存在を確認する。
+旧署名Temporary Operationの`.operations`排他・業務文書・staging公開と再入場APIは、a04ecb703で本番Callerが撤去された後の未接続機能として退役する。以前のwx移管・専用検証はその当時の成立記録であり、現在の共通Lock Consumer一覧へ含めない。既存の未知・由来不明残存物は今回操作せず、共通Lockによる新たな自動回復・移行を追加しない。
 
 旧Pipe／Worker／Supervisor取得API、子起動・ready往復・喪失Promiseは撤去する。代わりの監視Promiseや自動回復は作らない。Hostの通常取消とDI Completionは維持し、Effect前・待機後に上位が保持を確認する。待機中の能動的喪失通知は提供しない。File保持が不明ならHost破壊的清掃へ進まず、回復記録を保全する。
 

@@ -7,14 +7,18 @@
  * @scope 七固定用途の値と有限同期観測。
  * @boundary 実Lease・Scheduling方針・実回復・保存の成功は主張しない。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorSnapshot,
   encodeRuntimeStateValue,
   inspectSingleTaskRecord,
   type ProjectQueueEntry,
+  type SingleTaskRecord,
+} from "../../../src/index.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import {
   prepareCoordinatorQueueLeaseReleaseSettlement,
   prepareCoordinatorQueueOperationUpdate,
   prepareCoordinatorQueueRecoverySettlement,
@@ -22,9 +26,8 @@ import {
   prepareCoordinatorSingleTaskQueueCreation,
   prepareCoordinatorSingleTaskQueueUpdate,
   prepareCoordinatorUnstartedTaskQueueClosure,
-  type SingleTaskRecord,
   validQueueEntry,
-} from "../../../src/index.ts";
+} from "../../../src/task/validation.ts";
 
 /**
  * 単発Taskと一般Queue用の局所元版を作成する。

@@ -1,5 +1,13 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 実行モデルの完成修復APIへの接続 — 2026-11-12
+
+明示修復の保存は、期待改訂と固定の論理更新を`RepairWriteRequest`でEMへ渡す。Coordinatorは修復の次Snapshotや符号化byteを構築せず、保存・解放と成功valueの共同成立後だけ、確定Versionと対象Operationを保持する。不明・拒否は既存のsticky停止と元回復参照を維持し、自動再基準化・再試行を追加しない。Input／Result・CASとモデルOwnerの正本は[実行モデルの修復契約](../execution-model/01_Architecture.md#repair-write-contract)を参照する。
+
+通常Operation／HostのSnapshot helperは、Identity初期形の検査や保存値の照合Oracleとしての利用を区別する。単に名称にSnapshotがあることを理由に廃止せず、次版構築をWriterへ渡す旧修復経路だけをEMへ回収する。外部Coordinator試験のfixture・局所検査が依存する24 helperはRoot限定Guardを維持して残し、公開最小化完了とは扱わない。
+
+旧署名準備のTemporary Operationは、本番Callerの撤去後に未接続となっていたため実装・専用試験を代替なし退役する。通常State／Attempt回復やCoordinator固有の一時領域処置は変更せず、過去保持物は未走査・未操作とする。以下の旧署名経路に関する記述は比較記録であり、現在APIの本番接続を示さない。
+
 ## 3モデル分離への接続 — 2026-11-12
 
 Coordinatorは文書・実行・構成モデルを必要な操作に応じて別々に利用する。ConfigとADの結果を実行OwnerのExecutionSelectionへ投影し、文書ReaderへManifestの3期待Identityだけを渡す。保持設定は履歴を消費する操作・枝だけ搬送し、元の確認位置で期待日数付き既存revalidateを呼ぶ。通常Query／非履歴Recoveryへ設定拒否を広げない。Lease／EI領域・保護Mount等の固定準備は既存Coordinator内へ閉じ、全Path集合や旧汎用ensureの公開に依存しない。
@@ -1116,6 +1124,8 @@ Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検�
 | 設定 | 固定Security Policyは署名対象のまま維持する。Repository Manifestと外部送信Policyはそれぞれの既存Ownerが検証・更新する。 | Repository固有設定を署名済みRuntime設定と誤表示せず、秘密・Credential・現在状態を署名対象に混ぜない。 |
 | 形式と利用側 | 新しい意味をManifest revision 6と署名domain V6で識別し、署名／検証を同時に変更する。 | V5署名をV6の現在実行許可へ読み替えない。必要な旧履歴専用検証は旧domainのまま分離する。 |
 | 一時配置 | 通常試験は作業Sourceで実行する。署名・原子配置に必要な最小集合だけを固定`tmp/signature/work/`へ配置する。 | 全Repositoryコピー、恒久候補Directoryの累積、新しい清掃Frameworkは作らない。 |
+
+> 2026-11-12追記: 以下はa04ecb703で撤去した署名準備経路の比較記録であり、現行の実行モデルTemporary Operation APIの本番接続を示さない。同APIも未接続機能として退役する。通常State／Attempt回復と、実行中の一時領域を各Ownerが直接回収する現行処理は別契約として維持する。
 
 署名準備はOrchestratorのAI実行キューとは別の入口であり、キューへの保存を回復参照の保持根拠にしない。起動するフロントAIが最初の作成前に`operationId`と`identity`を確定・保持し、CLIから準備処理へ同じ値を渡す。初期参照は既存Runtime Dataの固定Owner `coordinator-release-runtime`と世代`1`へ結合する。内部生成後の端末表示だけに依存せず、既存の一時操作記録とexact参照による再入場を利用する。識別子から操作能力を復元せず、新しいstate・キュー・回復DBを作らない。
 

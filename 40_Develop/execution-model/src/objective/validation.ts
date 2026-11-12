@@ -13,7 +13,6 @@ import {
   normalizeRepositoryRelativePath,
   repositoryPathWithin,
   snapshotPlainArray,
-  snapshotPlainRecord,
   snapshotRuntimeStateArray,
   snapshotRuntimeStateRecord,
   validId,
@@ -97,7 +96,7 @@ export function prepareRuntimeDefinitionChange(
       | "target_missing"
       | "target_exists",
   ) => ({ status: "blocked" as const, reason });
-  const request = snapshotPlainRecord(
+  const request = snapshotRuntimeStateRecord(
     raw,
     new Set([
       "projectId",
@@ -117,7 +116,7 @@ export function prepareRuntimeDefinitionChange(
   );
   if (!request || !validId(request.projectId) || !validId(request.milestoneId))
     return denied("input_invalid");
-  const expected = snapshotPlainRecord(
+  const expected = snapshotRuntimeStateRecord(
     request.expected,
     new Set(["revision", "payloadSha256"]),
   );
@@ -195,7 +194,7 @@ export function prepareRuntimeDefinitionChange(
     const rows = objective ? objectives.map((o) => o.definition) : tasks;
     const definition = kind.endsWith(".delete")
       ? null
-      : snapshotPlainRecord(
+      : snapshotRuntimeStateRecord(
           request.definition,
           new Set(
             objective
@@ -324,7 +323,7 @@ export function prepareRuntimeDefinitionChange(
 function inspectExplicitChoice(
   candidate: unknown,
 ): NonNullable<CoordinatorObjectiveRequest["choice"]> | null {
-  const value = snapshotPlainRecord(
+  const value = snapshotRuntimeStateRecord(
     candidate,
     new Set(["provider", "model", "effort"]),
   );
@@ -725,7 +724,7 @@ export function inspectExecutionPlan(
   raw: unknown,
   request: ExecutionPlanScope,
 ): CoordinatorObjectivePlan | null {
-  const scope = snapshotPlainRecord(request, new Set(["allowedPaths"]));
+  const scope = snapshotRuntimeStateRecord(request, new Set(["allowedPaths"]));
   if (!scope) return null;
   const allowedRoots = snapshotPlainArray(
     scope.allowedPaths,
@@ -796,7 +795,7 @@ export function inspectExecutionPlanDefinition(
 export function inspectRuntimePlanDefinition(
   raw: unknown,
 ): CoordinatorObjectivePlan | null {
-  const plan = snapshotPlainRecord(
+  const plan = snapshotRuntimeStateRecord(
     raw,
     new Set(["milestoneAcceptanceCriteria", "objectives", "tasks"] as const),
   );
@@ -817,7 +816,7 @@ export function inspectRuntimePlanDefinition(
     return null;
   const objectives: ProjectObjectiveDefinition[] = [];
   for (const rawObjective of rawObjectives.value) {
-    const objective = snapshotPlainRecord(
+    const objective = snapshotRuntimeStateRecord(
       rawObjective,
       new Set(["id", "acceptanceCriteria"] as const),
     );
@@ -828,7 +827,7 @@ export function inspectRuntimePlanDefinition(
   }
   const tasks: ProjectTaskDefinition[] = [];
   for (const rawTask of rawTasks.value) {
-    const task = snapshotPlainRecord(
+    const task = snapshotRuntimeStateRecord(
       rawTask,
       new Set([
         "id",
@@ -920,7 +919,7 @@ export function inspectRuntimePlanDefinition(
 export function inspectRuntimeProjectDefinition(
   raw: unknown,
 ): RuntimeProjectDefinition | null {
-  const project = snapshotPlainRecord(
+  const project = snapshotRuntimeStateRecord(
     raw,
     new Set([
       "contract",
@@ -946,7 +945,7 @@ export function inspectRuntimeProjectDefinition(
       !validObjectiveId(project.decisionApplicationId))
   )
     return null;
-  const milestone = snapshotPlainRecord(
+  const milestone = snapshotRuntimeStateRecord(
     project.milestone,
     new Set(["id", "acceptanceCriteria", "state", "criterionEvidenceIds"]),
   );
@@ -978,7 +977,7 @@ export function inspectRuntimeProjectDefinition(
   if (!milestoneEvidence) return null;
   const records: ProjectObjectiveRecord[] = [];
   for (const rawObjective of objectives.value) {
-    const objective = snapshotPlainRecord(
+    const objective = snapshotRuntimeStateRecord(
       rawObjective,
       new Set(["definition", "state", "criterionEvidenceIds"]),
     );
@@ -1067,7 +1066,7 @@ export function inspectCallerTaskInputs(
   const seen = new Set<string>();
   const inputs: CallerTaskInput[] = [];
   for (const entry of entries.value) {
-    const input = snapshotPlainRecord(
+    const input = snapshotRuntimeStateRecord(
       entry,
       new Set(["taskId", "objective", "acceptanceCriteria", "readPaths"]),
     );

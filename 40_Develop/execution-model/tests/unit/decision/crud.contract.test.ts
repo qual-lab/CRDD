@@ -8,27 +8,9 @@
  * @scope 合成Snapshotの判断要求・回答・適用・閉鎖・履歴候補。
  * @boundary 値操作だけ。実保存・現在認可・人間判断の真正性は別試験が所有する。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  prepareDecisionApplying,
-  prepareDecisionClosing,
-  prepareDecisionCreation,
-  prepareDecisionRecording,
-  prepareDecisionRetirement,
-  prepareDecisionSubmission,
-  validateDecisionRetirement,
-  validateDecisionSnapshotTransition,
-} from "../../../src/decision/validation.ts";
-import {
-  inspectDecisionHistoryEvent,
-  prepareDecisionAnswer,
-  prepareDecisionApplication,
-  prepareDecisionClosure,
-  prepareDecisionRequest,
-  projectDecisionHistory,
-  validateDecisionCollections,
-} from "../../../src/decision/validation.ts";
 import type {
   Blocker,
   DecisionAnswer,
@@ -36,13 +18,32 @@ import type {
   DecisionRequest,
 } from "../../../src/decision/types.ts";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  inspectCoordinatorDecisionRequest,
+  inspectDecisionHistoryEvent,
+  prepareDecisionAnswer,
+  prepareDecisionApplication,
+  prepareDecisionApplying,
+  prepareDecisionClosing,
+  prepareDecisionClosure,
+  prepareDecisionCreation,
+  prepareDecisionRecording,
+  prepareDecisionRequest,
+  prepareDecisionRetirement,
+  prepareDecisionSubmission,
+  projectDecisionHistory,
+  validateDecisionCollections,
+  validateDecisionRetirement,
+  validateDecisionSnapshotTransition,
+} from "../../../src/decision/validation.ts";
+import {
   type CoordinatorSnapshot,
   decodeCoordinatorHistoryRows,
   encodeRuntimeStateValue,
 } from "../../../src/index.ts";
-import { coordinatorQueueIsClosed } from "../../../src/state/validation.ts";
-import { inspectCoordinatorDecisionRequest } from "../../../src/decision/validation.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  coordinatorQueueIsClosed,
+} from "../../../src/state/validation.ts";
 
 /** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {

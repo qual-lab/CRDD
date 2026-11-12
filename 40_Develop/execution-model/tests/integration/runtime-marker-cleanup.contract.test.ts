@@ -14,29 +14,29 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../support/source-declaration.ts";
 import type { Lock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
 } from "../../src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/store.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/storage/store.ts";
-import { sameStableFileIdentity } from "../../src/storage/store.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
+import { COORDINATOR_STATE_SCHEMA } from "../../src/state/validation.ts";
 import {
   acquireCoordinatorStorageOwner,
+  acquireRuntimeStateLock,
+  observeRuntimeRecoveryRepository,
   storageLockFailure,
 } from "../../src/storage/lock.ts";
-import { observeRuntimeRecoveryRepository } from "../../src/storage/lock.ts";
 import {
   cleanupRuntimeOwnedCoordinatorStateMarker,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   readCoordinatorStorageSnapshotOwned,
+  requireReadyRepositoryRuntimeDataArea,
+  sameStableFileIdentity,
 } from "../../src/storage/store.ts";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * markerだけの清掃を、保存本文・実体・取得／解放の全停止点で確認する。

@@ -7,27 +7,30 @@
  * @scope メモリ内の固定合成値。
  * @boundary 実保存・Host・AI・Dockerは使用しない。
  */
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { validateCoordinatorOperationIdentity } from "../../../src/attempt/validation.ts";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  COORDINATOR_STATE_SCHEMA,
   type CoordinatorState,
   type CoordinatorUnifiedSnapshot,
   coordinatorConsumerCompletionPolicy,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   hashRuntimeProjectDefinition,
-  hashRuntimeStateContent,
   prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorUnifiedTaskSnapshot,
-  projectCoordinatorTaskSettlement,
   type RuntimeProjectDefinition,
+} from "../../../src/index.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  COORDINATOR_STATE_SCHEMA,
+  hashRuntimeStateContent,
+  projectCoordinatorTaskSettlement,
   validateCoordinatorUnifiedTransition,
   validCoordinatorSnapshot,
-} from "../../../src/index.ts";
+} from "../../../src/state/validation.ts";
+import { prepareCoordinatorUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
 

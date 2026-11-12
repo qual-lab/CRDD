@@ -14,10 +14,9 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 import { runInThisContext } from "node:vm";
+import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as technicalValidation from "../../../docker-isolation/src/docker-desktop/validation.ts";
-
-import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import type { CoordinatorStateRepairOperation } from "../../../execution-model/src/index.ts";
 import * as model from "../../../execution-model/src/index.ts";
 import * as historyValues from "../../../execution-model/src/index.ts";
@@ -160,7 +159,9 @@ function fixture(transform: (source: string) => string = (source) => source) {
     if (operation?.kind !== "runtime_repair") return refused;
     const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
     if (
-      _root !== root ||
+      (_root as { root?: unknown })?.root !== root ||
+      (_root as { historyRetentionDays?: unknown })?.historyRetentionDays !==
+        30 ||
       typeof id !== "string" ||
       !value ||
       !operation ||
@@ -517,25 +518,99 @@ function fixture(transform: (source: string) => string = (source) => source) {
     writeRuntimeOwnedCoordinatorRepairSnapshot: (
       _root: unknown,
       id: string,
-      before: Buffer | null,
-      candidate: Buffer,
+      request: model.RepairWriteRequest,
       owner: () => unknown,
-      purpose: string,
     ) => {
       state.calls++;
-      if (purpose === "disposal_decision" && state.pauseBeforeDisposal)
+      const before = state.bytes;
+      const current = model.decodeRuntimeDomainSnapshot(before, binding);
+      assert.deepEqual(
+        request.expected,
+        current
+          ? {
+              revision: current.snapshot.revision,
+              payloadSha256: current.payloadSha256,
+            }
+          : null,
+      );
+      const change = request.change;
+      if (change.kind === "disposal_decision" && state.pauseBeforeDisposal)
         return {
           status: "blocked",
           snapshotConfirmed: false,
           lockReleased: true,
+          value: null,
         };
+      let candidate: Buffer | null;
+      let purpose: string;
+      switch (change.kind) {
+        case "create":
+          purpose = "checkpoint";
+          candidate = model.prepareCoordinatorStateRepairSnapshot(
+            before,
+            change.identityJson,
+            binding,
+          );
+          break;
+        case "checkpoint":
+          purpose = "checkpoint";
+          candidate = model.prepareCoordinatorStateRepairCheckpointSnapshot(
+            before,
+            id,
+            change.update,
+            binding,
+          );
+          break;
+        case "session_begin": {
+          purpose = "session_begin";
+          candidate = model.prepareCoordinatorStateRepairSessionSnapshot(
+            before,
+            id,
+            binding,
+          );
+          const sessionOperation = model
+            .decodeRuntimeDomainSnapshot(candidate, binding)
+            ?.snapshot.operations.find((item) => item.recoveryId === id);
+          assert.ok(sessionOperation?.kind === "runtime_repair");
+          assert.deepEqual(sessionOperation.checkpoint, change.checkpoint);
+          break;
+        }
+        case "retention_handoff":
+          purpose = "retention_handoff";
+          candidate =
+            model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+              before,
+              id,
+              change.receipt,
+              binding,
+            );
+          break;
+        case "disposal_decision":
+          purpose = "disposal_decision";
+          candidate =
+            model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+              before,
+              id,
+              change.decidedAt,
+              binding,
+            );
+          break;
+        case "disposal_progress":
+          purpose = `disposal_${change.purpose}`;
+          candidate =
+            model.prepareCoordinatorStateRepairDisposalProgressSnapshot(
+              before,
+              id,
+              change.purpose,
+              change.checkpoint,
+              binding,
+            );
+          break;
+      }
+      assert.ok(candidate);
       const decoded = model.decodeRuntimeDomainSnapshot(candidate, binding);
       assert.ok(decoded);
       assert.equal(owner(), true);
-      assert.equal(
-        state.bytes === null ? before === null : before?.equals(state.bytes),
-        true,
-      );
       assert.ok(
         purpose === "session_begin"
           ? model.validateCoordinatorStateRepairSessionTransition(
@@ -583,6 +658,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
           status: "blocked",
           snapshotConfirmed: false,
           lockReleased: true,
+          value: null,
         };
       }
       const match =
@@ -601,6 +677,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
           status: state.faultKind === "reject" ? "blocked" : "completed",
           snapshotConfirmed: state.faultKind === "release",
           lockReleased: state.faultKind !== "release",
+          value: null,
         };
       }
       state.bytes = Buffer.from(candidate);
@@ -616,6 +693,13 @@ function fixture(transform: (source: string) => string = (source) => source) {
         status: "completed",
         snapshotConfirmed: true,
         lockReleased: true,
+        value: {
+          version: {
+            revision: decoded.snapshot.revision,
+            payloadSha256: decoded.payloadSha256,
+          },
+          operation: target,
+        },
       };
     },
     runRepairSession: (input: Input) => {

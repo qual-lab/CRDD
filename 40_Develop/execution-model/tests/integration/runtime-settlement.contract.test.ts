@@ -8,45 +8,48 @@
  * @scope 自己生成Repository、実保存、有限の合成Host観測。
  * @boundary 保存Ownerのみ。実Host・Docker・Providerの終了証明はCoordinator試験が担う。
  */
+
 import assert from "node:assert/strict";
-import * as areaRequirement from "../../src/storage/store.ts";
-import * as areaInitialization from "../../src/storage/store.ts";
-import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { execFileSync } from "node:child_process";
-import { stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   prepareRuntimeOwnedCoordinatorSettlement,
   publishRuntimeOwnedCoordinatorHistory,
+  readRuntimeOwnedCoordinatorRecoverySnapshot,
   readRuntimeOwnedCoordinatorSettlementSnapshot,
   writeRuntimeOwnedCoordinatorHistoryCheckpoint,
   writeRuntimeOwnedCoordinatorSettlement,
 } from "../../src/attempt/crud.ts";
 import * as domain from "../../src/index.ts";
 import {
-  coordinatorOperationSummaryBytes,
   applyCoordinatorResourceEvent,
   type CoordinatorResourceBook,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
-  prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
   prepareCoordinatorStateResourceSnapshot,
 } from "../../src/index.ts";
+import { writeRuntimeOwnedCoordinatorStateSnapshot } from "../../src/state/crud.ts";
+import {
+  coordinatorOperationSummaryBytes,
+  prepareCoordinatorStateCompletionSnapshot,
+} from "../../src/state/validation.ts";
 import * as stateKernelLocks from "../../src/storage/lock.ts";
 import { observeRuntimeStorageRepository } from "../../src/storage/lock.ts";
-import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../../src/attempt/crud.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
 import { readRuntimeOwnedCoordinatorStateSnapshot } from "../../src/storage/store.ts";
-import { writeRuntimeOwnedCoordinatorStateSnapshot } from "../../src/state/crud.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
 /**

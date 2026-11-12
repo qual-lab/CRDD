@@ -11,10 +11,8 @@
  * @scope 自己生成Repositoryと同一Processの故障注入。
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
+
 import assert from "node:assert/strict";
-import * as areaRequirement from "../../src/storage/store.ts";
-import * as areaInitialization from "../../src/storage/store.ts";
-import * as areaObservation from "../../src/storage/store.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -24,9 +22,10 @@ import test from "node:test";
 import { types } from "node:util";
 import { runInNewContext, runInThisContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
+import * as privateDecisionCrud from "../../src/decision/crud.ts";
+import * as privateHistoryCrud from "../../src/history/crud.ts";
 import * as domain from "../../src/index.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
   type CoordinatorResourceBook,
   type CoordinatorState,
   type CoordinatorStateTaskOperation,
@@ -37,33 +36,44 @@ import {
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateResourceSnapshot,
-  prepareCoordinatorUnifiedTaskSnapshot,
   projectCoordinatorTaskSnapshot,
   readCoordinatorCurrentState,
   saveCoordinatorManagedProject,
 } from "../../src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/store.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/storage/store.ts";
-import {
-  leaseAcquisitionRecoveryId,
-  leaseIdentity,
-} from "../../src/state/validation.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
-import { observeRuntimeStorageRepository } from "../../src/storage/lock.ts";
-import * as privateStorageStore from "../../src/storage/store.ts";
 import * as privateStateCrud from "../../src/state/crud.ts";
-import * as privateDecisionCrud from "../../src/decision/crud.ts";
-import * as privateHistoryCrud from "../../src/history/crud.ts";
-import {
-  describeCoordinatorDurableFoundation,
-  readCoordinatorSnapshot,
-} from "../../src/storage/store.ts";
 import {
   initializeCoordinatorSnapshot as initializeSnapshot,
   writeCoordinatorSnapshot,
   writeCoordinatorSnapshotState,
 } from "../../src/state/crud.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  hashRuntimeStateContent,
+  isSha256Hex,
+  leaseAcquisitionRecoveryId,
+  leaseIdentity,
+  snapshotRuntimeStateRecord,
+  validateCoordinatorUnifiedTransition,
+} from "../../src/state/validation.ts";
+import {
+  acquireCoordinatorSnapshotPilotLock,
+  acquireRuntimeStateLock,
+  observeRuntimeStorageRepository,
+} from "../../src/storage/lock.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
+import * as areaObservation from "../../src/storage/store.ts";
+import * as privateStorageStore from "../../src/storage/store.ts";
+import {
+  describeCoordinatorDurableFoundation,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  readCoordinatorSnapshot,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/storage/store.ts";
+import {
+  prepareCoordinatorQueueRecoverySettlement,
+  prepareCoordinatorUnifiedTaskSnapshot,
+} from "../../src/task/validation.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
@@ -1277,7 +1287,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   });
   const first = {
     ...emptyTaskSections,
-    schema: domain.COORDINATOR_STATE_SCHEMA,
+    schema: COORDINATOR_STATE_SCHEMA,
     revision: 1,
     previous: null,
     repositoryBinding: repository.repositoryBinding,
@@ -1327,10 +1337,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
   assert.equal(readFirst.value?.snapshot.revision, 1);
-  assert.equal(
-    readFirst.value?.payloadSha256,
-    domain.hashRuntimeStateContent(first),
-  );
+  assert.equal(readFirst.value?.payloadSha256, hashRuntimeStateContent(first));
   assert.equal(
     privateStorageStore.readRuntimeOwnedCoordinatorStateSnapshot({}).status,
     "blocked",
@@ -1475,7 +1482,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     revision: 2,
     previous: {
       revision: 1,
-      payloadSha256: domain.hashRuntimeStateContent(first),
+      payloadSha256: hashRuntimeStateContent(first),
     },
   };
   const secondBytes = Buffer.from(`${encodeRuntimeStateValue(second)}\n`);
@@ -1977,7 +1984,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     sourceWithBlocker.toString("utf8"),
   ).repositoryBinding;
   assert.equal(
-    domain.prepareCoordinatorUnifiedTaskSnapshot(
+    prepareCoordinatorUnifiedTaskSnapshot(
       sourceWithBlocker,
       starting,
       pendingState.generation,
@@ -2014,7 +2021,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     `${domain.encodeRuntimeStateValue(recoverySource)}\n`,
   );
   assert.ok(domain.decodeRuntimeDomainSnapshot(recoveryBytes, physicalBinding));
-  const settlement = domain.prepareCoordinatorQueueRecoverySettlement(
+  const settlement = prepareCoordinatorQueueRecoverySettlement(
     {
       ...before.value,
       queueEntries: recoverySource.queueEntries,
@@ -2030,7 +2037,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     revision: recoverySource.revision + 1,
     previous: {
       revision: recoverySource.revision,
-      payloadSha256: domain.hashRuntimeStateContent(recoverySource),
+      payloadSha256: hashRuntimeStateContent(recoverySource),
     },
     queueEntries: [settlement.value.value],
   };
@@ -2038,7 +2045,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     `${domain.encodeRuntimeStateValue(settledSource)}\n`,
   );
   assert.equal(
-    domain.validateCoordinatorUnifiedTransition(
+    validateCoordinatorUnifiedTransition(
       recoveryBytes,
       settledBytes,
       physicalBinding,
@@ -2050,7 +2057,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     { resultReference: "recovery-other" },
   ])
     assert.equal(
-      domain.validateCoordinatorUnifiedTransition(
+      validateCoordinatorUnifiedTransition(
         recoveryBytes,
         Buffer.from(
           `${domain.encodeRuntimeStateValue({
@@ -2063,7 +2070,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
       false,
     );
   assert.equal(
-    domain.validateCoordinatorUnifiedTransition(
+    validateCoordinatorUnifiedTransition(
       settledBytes,
       Buffer.from(
         `${domain.encodeRuntimeStateValue({
@@ -2071,7 +2078,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
           revision: settledSource.revision + 1,
           previous: {
             revision: settledSource.revision,
-            payloadSha256: domain.hashRuntimeStateContent(settledSource),
+            payloadSha256: hashRuntimeStateContent(settledSource),
           },
           queueEntries: [
             {
@@ -2095,7 +2102,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     })}\n`,
   );
   assert.ok(
-    domain.prepareCoordinatorUnifiedTaskSnapshot(
+    prepareCoordinatorUnifiedTaskSnapshot(
       unblockedSource,
       starting,
       pendingState.generation,
@@ -3788,7 +3795,9 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
     "export function",
     "function",
   );
-  const guardStart = wrapper.indexOf("      encodeRuntimeStateValue(");
+  const guardStart = wrapper.indexOf(
+    "      encodeRuntimeStateValue(\n        previous?.snapshot.operations.filter(",
+  );
   const guardEnd = wrapper.indexOf(
     "      !validateRepairWriteCandidate(",
     guardStart,
@@ -3862,13 +3871,25 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
         `${dispatch}\n${mutated ? wrapperMutant : wrapper}; writeRuntimeOwnedCoordinatorRepairSnapshot`,
         {
           Buffer,
+          snapshotRuntimeStateRecord,
+          isSha256Hex,
           types: types,
           settlements: new WeakMap(),
           initializations: new WeakMap(),
           observeRuntimeRecoveryRepository: () => repository,
           decodeRuntimeDomainSnapshot: (value: Buffer) => ({
             snapshot: JSON.parse(value.toString("utf8")),
+            payloadSha256: "b".repeat(64),
           }),
+          readCoordinatorStateSnapshot: () => ({
+            status: "completed",
+            lockReleased: true,
+            value: {
+              snapshot: { ...before, revision: 1 },
+              payloadSha256: "b".repeat(64),
+            },
+          }),
+          prepareCoordinatorStateRepairCheckpointSnapshot: () => bytes,
           validateCoordinatorStateTransition: () => true,
           encodeRuntimeStateValue: JSON.stringify,
           writeCoordinatorStateSnapshot: (_owner: unknown, root: unknown) => {
@@ -3880,10 +3901,11 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
       evaluateWrapper(
         {},
         "target",
-        beforeBytes,
-        bytes,
+        {
+          expected: { revision: 1, payloadSha256: "b".repeat(64) },
+          change: { kind: "checkpoint", update: {} },
+        },
         () => true,
-        "checkpoint",
       );
       assert.equal(requests, scenario === "preserved" || mutated ? 1 : 0);
       let continuations = 0;
@@ -4190,6 +4212,8 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
           Object,
           Promise,
           types: types,
+          snapshotRuntimeStateRecord,
+          isSha256Hex,
           settlements: new WeakMap(),
           initializations: new WeakMap(),
           observeRuntimeRecoveryRepository: () => ({
@@ -4198,6 +4222,8 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
             revalidate: () => true,
           }),
           decodeRuntimeDomainSnapshot: () => ({ snapshot: candidate }),
+          prepareCoordinatorStateRepairSnapshot: () =>
+            Buffer.from(JSON.stringify(candidate)),
           validateCoordinatorStateTransition: () => true,
           encodeRuntimeStateValue: JSON.stringify,
           prepareCoordinatorStateInitialization: () => {
@@ -4238,10 +4264,14 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
       return wrapper(
         {},
         "target",
-        null,
-        Buffer.from(JSON.stringify(candidate)),
+        {
+          expected: null,
+          change: {
+            kind: "create",
+            identityJson: '{"operationId":"OP-123456"}',
+          },
+        },
         () => true,
-        "checkpoint",
       );
     };
     const result = evaluate(body, true);

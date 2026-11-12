@@ -7,16 +7,20 @@
  * @scope 固定Identity、三利用側、一次失敗、元本文Hashと終端前の拒否。
  * @boundary メモリ内だけ。Filesystem・実行Owner・外部AIを使用しない。
  */
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
-  encodeRuntimeStateValue,
-  hashRuntimeStateContent,
-  prepareCoordinatorStateOperationSnapshot,
   decodeRuntimeDomainSnapshot,
+  encodeRuntimeStateValue,
+  prepareCoordinatorStateOperationSnapshot,
 } from "../../../src/index.ts";
-import { prepareCoordinatorStateHistorySummary } from "../../../src/state/validation.ts";
+import {
+  hashRuntimeStateContent,
+  prepareCoordinatorStateHistorySummary,
+} from "../../../src/state/validation.ts";
+
 const binding = "a".repeat(64);
 
 /**

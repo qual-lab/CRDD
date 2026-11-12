@@ -6,6 +6,7 @@
 
 import type { TurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
+import type { StateVersion } from "../state/types.ts";
 import type {
   RUNTIME_REPAIR_ACTIONS,
   RUNTIME_REPAIR_DIRECTORIES,
@@ -329,5 +330,38 @@ export type RepairWritePurpose =
   | "disposal_primary"
   | "disposal_failed"
   | "disposal_auxiliary";
+
+/**
+ * 修復の論理更新と、その更新が基づく保存改訂を表す。
+ * @responsibility 次Snapshotや任意の出版候補を上位から受け取らず、既存の固定操作だけを指定する。
+ * @trace ARCH-000008
+ * @invariant expected=nullは真正不存在からの新規作成に限り、既存改訂の自動再読込み・再試行を許可しない。
+ */
+export type RepairWriteRequest = Readonly<{
+  expected: StateVersion | null;
+  change:
+    | Readonly<{ kind: "create"; identityJson: string }>
+    | Readonly<{
+        kind: "checkpoint";
+        update: Pick<
+          CoordinatorStateRepairOperation,
+          "phase" | "checkpoint" | "disposition" | "primaryFailure" | "outcome"
+        >;
+      }>
+    | Readonly<{
+        kind: "session_begin";
+        checkpoint: DockerRuntimeRepairCheckpoint;
+      }>
+    | Readonly<{
+        kind: "retention_handoff";
+        receipt: CoordinatorRepairRetentionReceipt;
+      }>
+    | Readonly<{ kind: "disposal_decision"; decidedAt: string }>
+    | Readonly<{
+        kind: "disposal_progress";
+        purpose: "primary" | "failed" | "auxiliary";
+        checkpoint: DockerRuntimeRepairDisposalCheckpoint;
+      }>;
+}>;
 
 export type { TurnCountDiagnostic };

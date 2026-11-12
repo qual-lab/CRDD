@@ -8,9 +8,6 @@
  * @boundary Domain保存と実Filesystem／共通Lock、DI技術値との独立比較。実Host／Docker処置は対象外。
  */
 import assert from "node:assert/strict";
-import * as areaRequirement from "../../src/storage/store.ts";
-import * as areaInitialization from "../../src/storage/store.ts";
-import * as fileObservation from "../../src/storage/store.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -28,8 +25,31 @@ import * as stateStore from "../../src/index.ts";
 import { encodeRuntimeStateValue } from "../../src/index.ts";
 import * as kernel from "../../src/storage/lock.ts";
 import { observeRuntimeStorageRepository } from "../../src/storage/lock.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
+import * as fileObservation from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
+
+/**
+ * 固定byte oracleの元改訂だけを公開Requestへ投影する。
+ * @responsibility 保存本文そのものをWriterへの候補入力にしない。
+ * @trace ERB-IT-014
+ * @precondition 正規codecで読める試験本文。
+ * @stimulus 改訂番号と本文Hashを読む。
+ * @observation 論理Requestのexpected値。
+ * @oracle 本文候補・用途・保存処理を生成しない。
+ * @cleanup N/A: 値だけ。
+ * @boundary 試験内の元版投影。
+ */
+function repairVersion(bytes: Buffer, binding: string): model.StateVersion {
+  const value = model.decodeRuntimeDomainSnapshot(bytes, binding);
+  assert.ok(value);
+  return {
+    revision: value.snapshot.revision,
+    payloadSha256: value.payloadSha256,
+  };
+}
 
 /**
  * 同値進捗の保存入口を実Readerの戻り値契約から独立に反証する。
@@ -119,6 +139,8 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
   assert.ok(bytes);
   const decoded = model.decodeRuntimeDomainSnapshot(bytes, binding);
   assert.ok(decoded);
+  const operation = decoded.snapshot.operations[0];
+  assert.ok(operation?.kind === "runtime_repair" && operation.disposal);
   for (const mode of [
     "normal",
     "blocked",
@@ -129,6 +151,14 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
     "owner_lost",
     "owner_throw",
     "owner_promise",
+    "blocked_after",
+    "missing_after",
+    "release_after",
+    "hash_after",
+    "bytes_after",
+    "owner_lost_after",
+    "owner_throw_after",
+    "owner_promise_after",
   ] as const) {
     let reads = 0,
       writes = 0,
@@ -149,7 +179,7 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
         assert.ok(writer > 0 && writerEnd > writer);
         changed =
           changed.slice(0, writer) +
-          "function writeCoordinatorStateSnapshot() { return writeProbe(); }\n" +
+          "function writeCoordinatorStateSnapshot(...args) { return writeProbe(...args); }\n" +
           changed.slice(writerEnd);
         return changed.replaceAll(
           "settlements.set(context, {",
@@ -163,8 +193,8 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
           revalidate: () => true,
         }),
         contextProbe: () => contexts++,
-        writeProbe: () => {
-          writes++;
+        writeProbe: (_owner: unknown, repository: unknown) => {
+          if (repository) writes++;
           return {
             status: "blocked",
             snapshotConfirmed: false,
@@ -174,24 +204,29 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
         },
         readProbe: (repository: { revalidate: () => boolean }) => {
           reads++;
+          const fault = mode.endsWith("_after")
+            ? reads > 1
+              ? mode.slice(0, -6)
+              : "normal"
+            : mode;
           if (
-            mode === "owner_lost" ||
-            mode === "owner_throw" ||
-            mode === "owner_promise"
+            fault === "owner_lost" ||
+            fault === "owner_throw" ||
+            fault === "owner_promise"
           )
             assert.equal(repository.revalidate(), false);
           return {
-            status: mode === "blocked" ? "blocked" : "completed",
-            lockReleased: mode !== "release",
+            status: fault === "blocked" ? "blocked" : "completed",
+            lockReleased: fault !== "release",
             value:
-              mode === "missing"
+              fault === "missing"
                 ? null
                 : {
                     ...decoded,
                     payloadSha256:
-                      mode === "hash" ? "0".repeat(64) : decoded.payloadSha256,
+                      fault === "hash" ? "0".repeat(64) : decoded.payloadSha256,
                     snapshot:
-                      mode === "bytes"
+                      fault === "bytes"
                         ? {
                             ...decoded.snapshot,
                             revision: decoded.snapshot.revision + 1,
@@ -205,14 +240,26 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
     const saved = worker.write(
       {},
       id,
-      bytes,
-      bytes,
-      () => {
-        if (reads > 0 && mode === "owner_throw") throw new Error("owner_lost");
-        if (reads > 0 && mode === "owner_promise") return Promise.resolve(true);
-        return !(reads > 0 && mode === "owner_lost");
+      {
+        expected: repairVersion(bytes, binding),
+        change: {
+          kind: "disposal_progress",
+          purpose: "primary",
+          checkpoint: operation.disposal.checkpoint,
+        },
       },
-      "disposal_primary",
+      () => {
+        const fault = mode.endsWith("_after")
+          ? reads > 1
+            ? mode.slice(0, -6)
+            : "normal"
+          : reads > 0
+            ? mode
+            : "normal";
+        if (fault === "owner_throw") throw new Error("owner_lost");
+        if (fault === "owner_promise") return Promise.resolve(true);
+        return fault !== "owner_lost";
+      },
     );
     assert.equal(saved.snapshotConfirmed, mode === "normal", mode);
     assert.equal(
@@ -221,8 +268,11 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
       mode,
     );
     assert.equal(saved.filesystemEffectIssued, false);
-    assert.equal(saved.lockReleased, mode !== "release");
-    assert.equal(reads, 1);
+    assert.equal(
+      saved.lockReleased,
+      mode !== "release" && mode !== "release_after",
+    );
+    assert.equal(reads, mode === "normal" || mode.endsWith("_after") ? 2 : 1);
     assert.equal(writes, 0);
     assert.equal(contexts, 0);
   }
@@ -355,13 +405,13 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.ok(initialOperation?.kind === "runtime_repair");
   const technicalCheckpoint = {
     actions: Object.fromEntries(
-      model.RUNTIME_REPAIR_ACTIONS.map((action) => [
+      storedContract.RUNTIME_REPAIR_ACTIONS.map((action) => [
         action,
         { intent: "not_saved", request: "not_issued", result: "not_required" },
       ]),
     ),
     directories: Object.fromEntries(
-      model.RUNTIME_REPAIR_DIRECTORIES.map((purpose) => [
+      storedContract.RUNTIME_REPAIR_DIRECTORIES.map((purpose) => [
         purpose,
         {
           expected: null,
@@ -376,7 +426,9 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     cleanup: "confirmed",
     cleanupFailure: null,
   };
-  assert.ok(model.decodeDockerRuntimeRepairCheckpoint(technicalCheckpoint));
+  assert.ok(
+    storedContract.decodeDockerRuntimeRepairCheckpoint(technicalCheckpoint),
+  );
   const lastPreOutcomeCheckpoint = Buffer.from(
     encodeRuntimeStateValue({
       ...initialState.snapshot,
@@ -477,6 +529,48 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       }
       assert.ok(model.decodeRuntimeDomainSnapshot(before, binding));
       fs.writeFileSync(stateFile, before);
+      if (mode === "session_begin") {
+        const sessionOperation = model
+          .decodeRuntimeDomainSnapshot(candidate, binding)
+          ?.snapshot.operations.find((item) => item.recoveryId === id);
+        assert.ok(
+          sessionOperation?.kind === "runtime_repair" &&
+            sessionOperation.checkpoint,
+        );
+        const rejected = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
+          f.capability,
+          id,
+          {
+            expected: repairVersion(before, binding),
+            change: {
+              kind: "session_begin",
+              checkpoint: {
+                ...sessionOperation.checkpoint,
+                engine:
+                  sessionOperation.checkpoint.engine === "ready"
+                    ? "unobserved"
+                    : "ready",
+              },
+            },
+          },
+          () => true,
+        );
+        assert.equal(rejected.status, "blocked");
+        assert.equal(rejected.snapshotConfirmed, false);
+        assert.equal(rejected.filesystemEffectIssued, false);
+        assert.equal(rejected.value, null);
+        assert.ok(fs.readFileSync(stateFile).equals(before));
+        assert.equal(
+          fs.existsSync(
+            path.join(path.dirname(stateFile), "state.pending.json"),
+          ),
+          false,
+        );
+        assert.equal(
+          fs.existsSync(path.join(path.dirname(stateFile), "state.lock")),
+          false,
+        );
+      }
       const pending = path.join(path.dirname(stateFile), "state.pending.json"),
         marker = path.join(path.dirname(stateFile), "state.lock");
       fs.writeFileSync(pending, candidate, { flag: "wx" });
@@ -573,35 +667,58 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         const refused = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
           f.capability,
           id,
-          original,
-          decision,
+          {
+            expected: repairVersion(original, borrowed.repositoryBinding),
+            change: {
+              kind: purpose,
+              candidate: decision,
+            },
+          } as unknown as model.RepairWriteRequest,
           () => true,
-          purpose,
         );
         assert.equal(refused.snapshotConfirmed, false);
         assert.equal(refused.filesystemEffectIssued, false);
         assert.ok(fs.readFileSync(stateFile).equals(original));
       }
       for (const bypass of ["outer", "inner", "both"] as const) {
-        const worker = stateStoreSource((source) => {
-          const outer =
-            /!validateRepairWriteCandidate\(\s*before,\s*candidateBytes,\s*recoveryId,\s*purpose,\s*repository\.repositoryBinding,\s*\)/u;
-          const inner =
-            /validateRepairWriteCandidate\(\s*currentBytes,\s*(?:pendingBytes|bytes),\s*currentRepair\.recoveryId,\s*currentRepair\.purpose,\s*repository\.repositoryBinding,\s*\)/gu;
-          assert.equal(source.match(outer)?.length, 1);
-          assert.equal([...source.matchAll(inner)].length, 2);
-          let changed =
-            bypass === "inner" ? source : source.replace(outer, "false");
-          if (bypass !== "outer") changed = changed.replace(inner, "true");
-          return changed;
-        });
+        const worker = stateStoreSource(
+          (source) => {
+            const outer =
+              /!validateRepairWriteCandidate\(\s*before,\s*candidateBytes,\s*recoveryId,\s*purpose,\s*repository\.repositoryBinding,\s*\)/u;
+            const inner =
+              /validateRepairWriteCandidate\(\s*currentBytes,\s*(?:pendingBytes|bytes),\s*currentRepair\.recoveryId,\s*currentRepair\.purpose,\s*repository\.repositoryBinding,\s*\)/gu;
+            assert.equal(source.match(outer)?.length, 1);
+            assert.equal([...source.matchAll(inner)].length, 2);
+            let changed =
+              bypass === "inner" ? source : source.replace(outer, "false");
+            if (bypass !== "outer") changed = changed.replace(inner, "true");
+            return changed;
+          },
+          {
+            prepareCoordinatorStateRepairDisposalProgressSnapshot: () =>
+              decision,
+          },
+        );
+        const decisionOperation = model.decodeRuntimeDomainSnapshot(
+          decision,
+          borrowed.repositoryBinding,
+        )?.snapshot.operations[0];
+        assert.ok(
+          decisionOperation?.kind === "runtime_repair" &&
+            decisionOperation.disposal,
+        );
         const rejected = worker.write(
           f.capability,
           id,
-          original,
-          decision,
+          {
+            expected: repairVersion(original, borrowed.repositoryBinding),
+            change: {
+              kind: "disposal_progress",
+              purpose: "primary",
+              checkpoint: decisionOperation.disposal.checkpoint,
+            },
+          },
           () => true,
-          "disposal_primary",
         );
         if (bypass === "both") {
           assert.equal(
@@ -620,10 +737,14 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       const saved = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
         f.capability,
         id,
-        original,
-        decision,
+        {
+          expected: repairVersion(original, borrowed.repositoryBinding),
+          change: {
+            kind: "disposal_decision",
+            decidedAt: "2026-10-17T00:00:00.000Z",
+          },
+        },
         () => true,
-        "disposal_decision",
       );
       assert.equal(saved.status, "completed");
       assert.equal(saved.snapshotConfirmed, true);
@@ -678,10 +799,14 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           const refused = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
             f.capability,
             id,
-            before,
-            next,
+            {
+              expected: repairVersion(before, borrowed.repositoryBinding),
+              change: {
+                kind: wrong,
+                candidate: next,
+              },
+            } as unknown as model.RepairWriteRequest,
             () => true,
-            wrong,
           );
           assert.equal(refused.snapshotConfirmed, false);
           assert.equal(refused.filesystemEffectIssued, false);
@@ -715,10 +840,15 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           const written = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
             f.capability,
             id,
-            before,
-            next,
+            {
+              expected: repairVersion(before, borrowed.repositoryBinding),
+              change: {
+                kind: "disposal_progress",
+                purpose,
+                checkpoint: nextCheckpoint,
+              },
+            },
             () => true,
-            writePurpose,
           );
           assert.equal(written.snapshotConfirmed, purpose === "auxiliary");
           assert.equal(written.filesystemEffectIssued, true);
@@ -854,10 +984,15 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           const same = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
             f.capability,
             id,
-            next,
-            noOpCandidate,
+            {
+              expected: repairVersion(next, borrowed.repositoryBinding),
+              change: {
+                kind: "disposal_progress",
+                purpose,
+                checkpoint: nextCheckpoint,
+              },
+            },
             () => true,
-            writePurpose,
           );
           assert.equal(same.status, "completed");
           assert.equal(same.snapshotConfirmed, true);
@@ -893,10 +1028,15 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
               stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
                 f.capability,
                 id,
-                next,
-                next,
+                {
+                  expected: repairVersion(next, borrowed.repositoryBinding),
+                  change: {
+                    kind: "disposal_progress",
+                    purpose,
+                    checkpoint: nextCheckpoint,
+                  },
+                },
                 () => true,
-                writePurpose,
               );
             assert.equal(rejected.snapshotConfirmed, false);
             assert.equal(rejected.filesystemEffectIssued, false);
@@ -961,26 +1101,56 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         // 後半は未確認履歴を持つcodec合法なfixture。実保存の根拠にはしない。
         fs.writeFileSync(stateFile, before);
         for (const bypassOuter of [false, true]) {
-          const writer = stateStoreSource((source) => {
-            if (!bypassOuter) return source;
-            const guard =
-              /target\.summarySha256 !== \(previousTarget\?\.summarySha256 \?\? null\) \|\|\s*encodeRuntimeStateValue\(target\.history\) !==\s*encodeRuntimeStateValue\(previousTarget\?\.history \?\? null\) \|\|/u;
-            assert.equal(source.match(guard)?.length, 1);
-            return source.replace(guard, "");
-          }).write;
+          let contexts = 0;
+          const writer = stateStoreSource(
+            (source) => {
+              const guard =
+                /target\.summarySha256 !== \(previousTarget\?\.summarySha256 \?\? null\) \|\|\s*encodeRuntimeStateValue\(target\.history\) !==\s*encodeRuntimeStateValue\(previousTarget\?\.history \?\? null\) \|\|/u;
+              assert.equal(source.match(guard)?.length, 1);
+              return (
+                bypassOuter ? source.replace(guard, "") : source
+              ).replaceAll(
+                "settlements.set(context, {",
+                "contextProbe(); settlements.set(context, {",
+              );
+            },
+            {
+              contextProbe: () => contexts++,
+              prepareCoordinatorStateRepairCheckpointSnapshot: () => candidate,
+            },
+          ).write;
+          const target = model
+            .decodeRuntimeDomainSnapshot(before, repository.repositoryBinding)
+            ?.snapshot.operations.find((item) => item.recoveryId === id);
+          assert.ok(target?.kind === "runtime_repair");
           reads = 0;
           const blocked = writer(
             f.capability,
             id,
-            before,
-            candidate,
+            {
+              expected: repairVersion(before, repository.repositoryBinding),
+              change: {
+                kind: "checkpoint",
+                update: {
+                  phase: target.phase,
+                  checkpoint: target.checkpoint,
+                  disposition: target.disposition,
+                  primaryFailure: target.primaryFailure,
+                  outcome: target.outcome,
+                },
+              },
+            },
             () => true,
-            "checkpoint",
           );
           assert.equal(blocked.status, "blocked");
           assert.equal(blocked.filesystemEffectIssued, false);
           assert.equal(blocked.lockReleased, true);
-          assert.equal(reads > 0, bypassOuter, "inner_writer_must_be_reached");
+          assert.equal(
+            contexts > 0,
+            bypassOuter,
+            "inner_writer_must_be_reached",
+          );
+          assert.ok(reads > 0, "expected版は候補生成前にfresh観測する");
           assert.ok(fs.readFileSync(stateFile).equals(before));
           assert.throws(
             () =>

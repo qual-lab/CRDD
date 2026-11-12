@@ -7,14 +7,15 @@
  * @scope 共通保存状態の局所判定。
  * @boundary Process内の純粋判定。実保存・資源回収の証明ではない。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { CoordinatorSnapshot } from "../../../src/index.ts";
 import {
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  type CoordinatorSnapshot,
-  classifyRuntimeSnapshotReentry,
   coordinatorSnapshotIntakeMatches,
-} from "../../../src/index.ts";
+} from "../../../src/state/validation.ts";
+import { classifyRuntimeSnapshotReentry } from "../../../src/storage/store.ts";
 
 /**
  * 受付世代と同じ依頼の再入場を局所判定する。

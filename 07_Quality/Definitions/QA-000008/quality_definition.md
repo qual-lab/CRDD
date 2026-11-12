@@ -1,5 +1,11 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## 未接続Temporary Operationの退役 — 2026-11-12
+
+旧署名準備の本番Callerがa04ecb703で撤去されたため、実行モデルのTemporary Operation実装・専用IT／ST・fixture二個を代替なしで退役する。active Catalogの`runtime-data:integration:temporary-operation-lifecycle`と`runtime-data:system:temporary-operation-cleanup`を退役し、過去の結果は変更Evidenceへ残す。`RDL-IT-003`・`RDL-IT-004`・`RDL-ST-002`の正式ID・元の検証義務は削除せず、この旧一時操作APIに対応した自動化sliceだけを現行適用範囲から外す。これを正式項目全体のPass、未評価範囲の免除又は一般清掃保証の成立としない。
+
+通常State／Attempt／履歴の保存・回復・Root／Path・実体・Lock・CASは維持する。退役APIの成功を期待するだけの代替試験は作らず、現役state-io／保存Consumer閉包／共通wxの既存試験で共有処理の非退行を確認する。過去保持物は走査・操作せず、旧一時文書が不存在とは主張しない。
+
 ## 実行モデルの24 Source配置への追従 — 2026-11-12
 
 既存のState／History／Decision／Task／Attempt／Workspaceの検査・保存・終了・回復項目を、各モデルのcrud／validation／typesとstorage/store／lockへ対応付ける。正式項目のID・評価を移動だけで変更しない。Source抽出・私有import・故障注入を新Ownerへ接続し、Stateの短命Mapと一回使用Protocolを同じ実体で確認する。旧PathのWrapperや試験用のRoot公開を追加せず、機密検査はCoordinatorの送信境界試験で確認する。

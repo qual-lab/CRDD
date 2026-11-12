@@ -199,3 +199,61 @@ Symbol台帳はFile／Module単位であり、内部の検査実装とRoot Modul
 完了後の再照合で、現行Architecture先頭に限定検証・独立再レビュー待ちの状態表示が残っていたため、既存の成功記録と同じ限定完了へ是正した。本記録の先行確認に残る未完了表示も、その時点の経過と後続結果を明示し、履歴を現在状態へ読み違えない形にした。製品Source・公開API・保存形式・安全判定は変更していない。
 
 40_Developとtemplateの実装・試験・Scriptの静的import／dynamic import／URL参照を照合し、廃止した実行モデルSourceへの参照と外部からの内部Source参照は0件だった。現24 SourceのRoot直下はindex.tsだけである。既存の公開境界5件と保持設定6件の計11件、および成果物・Symbol・正式QA関係の限定1件を再確認し、全て成功、失敗・取消・skip0。これらはSource読取りと合成値の確認であり、物理保存や実AI／Dockerの追加成立を主張しない。今回も全体回帰・実AI・Docker・過去保持物は操作していない。
+
+## 後続区切り：実行モデルの内部責務・公開契約整理 — 2026-11-12
+
+基準改訂版は`38d51403f`。先行24 Source整理の完了記録と、この後続変更の候補・検証結果を区別する。Rootの未使用93値と内部File名／退役Temporaryの5型を外し、完成`RepairWriteRequest`を1型追加した候補は267項目（186値・81型）。NodeによるRoot読取りでも186値を確認した。外部Coordinator試験がfixture・局所検査に使用する24 helperはRoot限定Guardを維持して残し、公開最小化完了とは表示しない。exact一覧・用途・再評価Ownerは実行モデルArchitectureへ記録する。
+
+修復の本番Callerは期待改訂と六つの固定論理更新だけを渡し、EMの完成操作が現在のStateを観測して同exact対象・元版・Ownerを照合し、候補構築と単一Writerへ接続する。成功・保存確認・解放が共同成立したときだけ確定Versionと対象Operationを返す。Request型はattempt/types、完成保存はstate/crud、利用側はCo execution/recoveryへ対応付ける。次Snapshotや任意出版byteの受渡し、期待差の自動再基準化、再試行、新しいStoreは追加しない。通常Operation／HostのhelperによるIdentity検査・照合Oracleは別用途として維持する。
+
+### Temporary Operation退役の根拠と範囲
+
+現基準の製品src／bin／scriptsとtemplateに、Temporary APIの本番CallerはなくRoot再exportだけだった。Git履歴では、導入`15209e748`からRuntime Data／Domain移管`337319269`、署名準備の本番Callerを持つ`a04ecb703^`までを照合した。同親版の`coordinator/scripts/prepare-release-runtime.ts`はcreate／resume／settleを実使用し、`a04ecb703`で署名準備・署名・昇格一式とともに撤去された。以後のwx統合`53209fad7`、3モデル分離`3a69f4af1`、24 Source整理`38d51403f`には新たな本番Callerがなかった。過去の25件成功等は当時の専用ライブラリ契約の記録で、本番接続の証拠へ拡大しない。
+
+store.tsのprivate ID／SHA256／終端集合から末尾まで約1,600行を撤去した。create／resume／settle／evidence promotion、verification三Variant、型三個、Map二個と全専用helper、専用acquireLock値importを対象とし、Rootから隠すだけの実装や代替は残さない。共有のLock型・固定領域・安定File I/O・Error class・通常Reader／Writer・State codecは保持した。IT／ST各一Fileとfixture二Fileを退役し、active Catalogは411から409件、EMのSuiteは32から30件となる。実体のないPathを互換登録として残さない。
+
+Catalogのrepository-storage corridorは現役のstate-io／保存Consumer閉包へ、Lock→EMの接続は現役のkernel／snapshot Lock試験へ対応付けた。専用Symbol六件を退役し、正式RDL-IT-003／004／ST-002のIDと元の検証義務は保持する。旧APIの自動化slice退役を、正式項目全体の成功・免除・一般清掃保証へ読み替えない。旧署名経路を説明する現行案内へ退役注記を加え、過去Evidence本文は変更しない。
+
+過去tmp／.operations文書・回復参照の存在は未走査である。API退役後はその旧形式を製品APIから自動再開・清掃しない。由来不明物は保全し、必要な場合は個別承認の対象確認・処置へ残す。今回、過去保持物の移行・復旧・清掃は行わない。固定領域resolverのtmp枝は共有I/Oの受理域を変えないため維持し、旧Temporary Protocolが現役であるとは扱わない。
+
+### Record取得の一正本化
+
+Git基準のsnapshotPlainRecordと現snapshotRuntimeStateRecordを、製品変更前に宣言単位で局所評価した。普通／null prototype・空・未知／欠測Key・非列挙・symbol・getter・Proxy／revoked Proxy等15値と、通常／空／欠測／不正／callback／ProxyのKey集合八形を組み合わせ、120対照すべて同値、入力値のgetter／trap実行0、非null結果の凍結null prototypeを確認した。Key集合へ明示したcallbackは受理域比較のため従来どおり呼ばれる条件を含み、任意callbackの無実行保証へ拡大しない。Gitからの読取りだけで、基準コードの別経路を保存・配布しない。
+
+受理域が同じRecord二実装は既存snapshotRuntimeStateRecordへ統一し、旧関数全文と別名Wrapperを撤去、四Sourceの内部consumerを同じ実名へ接続した。配列二種は理由分類とmaximumLength引数検査が異なるため統合せず、descriptorの直接null入力等の挙動も変更しない。共通改訂／codecは初回・同値no-op・区画間保全条件が異なるため一律にまとめない。State単一Snapshot全体の構築は跨モデルCASの責務として現Ownerに残し、名前・行数だけを根拠に大移動しない。EM内部validationの既存相互参照を今回全解消したとは主張しない。
+
+既存objective validation Suiteへ128組の期待値反証を一Case追加し、浅い入れ子参照の保持・入れ子非凍結も確認した。同Case一件と、objective／runtime-codec／repair-modelの三Suite37件は全成功（重複合算しない）。Temporary退役後の共有I/Oはstate-io三件・runtime-repository四件・storage-consumer-closure四件の計11件が成功した。いずれもfail／cancel／skip0。後者の生成物は自己生成Repository-local Rootだけで、各終了hookに例外報告はなかった。全Rootの別途手動観測や過去物の不存在は主張しない。
+
+担当四Sourceとobjective試験Fileの整形検査は成功、警告を失敗とするlintは警告・エラー0（情報レベル一件は残存）、diff whitespace検査も成功した。親担当がEM、Co strict／tests、Executor、Workbench、MCP本体／launcher、AMの関係八型設定を確認し全て成功した。Catalog／Symbol／正式QA関係のexact一Caseは1成功・失敗／skip／cancel0、465.5msだった。当初結果待ちだったRepairの限定回帰と候補全体の独立レビューは、下記の最終限定確認で結果を確定した。先行結果を流用して完了とはせず、全体回帰・実AI／Docker・過去保持物は操作していない。
+
+### 親担当の検証順序の是正
+
+CoのRepair Owner対照を起動した時点で、対象二Fileのimport整形と試験の非null assertion警告が静的段階に残っていた。exact一Caseは20.36秒で成功し、対象の自己生成Rootの終了hookも完了したが、静的確認を先行させる手順が揃っていないため正式の最終成功件数へ合算しない。Sourceの安全判定を緩めず、assert.okによる存在確認とimport整形を是正した。親担当が型・整形・警告を失敗とするlintの成功後、同じexact一Caseだけを再確認し、1成功・失敗／skip／cancel0、20.165秒で終了した。Root内の自己生成修復Stateと失効中初期化の終了hookにも例外はなかった。Co strict／tests、EM型、新Source二Fileの整形、親試験二Fileの警告を失敗とするlintは成功した。Scope拡大、実AI／Docker、過去保持物の操作はない。
+
+Co reentryの故障注入wrapperを新四引数へ追従した点は、親担当が型・静的確認を行った。全reentry Suiteの広域実行はしていない。模擬DIを使うOwner／回復の関係subsetは別の限定結果として記録し、型確認だけから実統合成功を主張しない。
+
+### 最終限定確認と今回範囲の完了
+
+模擬DIを使うOwnerの既存13親ケースは、45子ケースを含む58件が全成功し、失敗・取消・skip0、1,448.531秒（約24分8.5秒）で正常終了した。再実行・期限変更は行わず、各fixtureの終了hookが通過した。途中の進行確認はexact scriptに限った親／子の作成世代とCPU時間のCIM読取りで、コマンドライン本文の出力、kill、別の試験起動はしていない。終了後のケース別時間を照合し、保持引渡し約228秒、保持三cut約300秒等、実保存を繰り返す個別ケースの時間が積み上がったことを確認した。一般的な性能保証や個々のOS I/O遅延の原因特定へ拡大しない。
+
+利用側担当の最終限定集合はEM37件・VM二件・Co純粋26件・Owner58件で123件が成功した。Session不一致の追加Host対照29件の再成功はEM37件内との重複であり、足さない。Record担当の純粋37件・共有I/O11件、親担当のCo修復Ownerexact一件と各途中再確認も、これらと重なり得るため独立した数字のまま保持し、総数へ合算しない。親担当のCo修復Owner最終一件は20.165秒で成功し、前述の静的是正前の同一件は正式成功件数へ含めない。
+
+固定したSource・試験・台帳・文書の独立レビュー結果をすべて受領し、必須残指摘は0だった。これにより今回範囲を限定完了とする。Root267項目（186値・81型）、Source24 File、Catalog409件、EM既存Suite30件を現在値とし、退役専用slice・旧基準の実行件数とは区別する。Rootに残した24 helperの最小化は未完であり、既存Guardを緩めず利用側のOwner・契約を再評価する残件として実行モデル設計へ追跡する。
+
+この状態更新では製品Source・試験・台帳を変更していない。全体回帰・実AI／Docker・過去保持物は引き続き未実施・未操作で、全体QA、統合、Release又は公開最小化完了の主張ではない。
+
+### 最終静的確認と変更済み試験20 Fileの追補
+
+上段の限定完了後、変更済みの実在TypeScript 33 Fileを横断する`biome check`で、import整列・type-only import・折返しの取り残しを検出した。format単独とlint単独ではimport整列の要求を取り切れていなかった。安全な自動是正だけを23 Fileへ適用し、unsafe修正、判定本文・期待値・fixture条件の変更は行わない。33 Fileの警告を失敗とする統合check、EM／Coordinator試験の型検査、diff whitespace検査は成功した。独立確認者の再確認でも追加の必須指摘は0だった。
+
+変更済みEM試験の実在20 File（結合5・単体15。退役Suite二件とfixture二件を除く）だけを明示列挙して追加確認した。189件中185成功・4失敗、取消・skip0、147.885秒で終了した。失敗三件は試験自身のhardlink作成に対するEPERMで、marker一件とSnapshot I/O二件である。残る終端保存一件は、親担当が既存の`--experimental-test-module-mocks`起動設定を付けずに実行したことによる`mock.module`未提供だった。既定のFile並行実行であったことも含め、Package標準設定による全件成功とは扱わない。
+
+製品Source・安全判定・試験期待値を変えず、必要なhardlink作成権限と既存Module Mock設定、File逐次実行を指定し、失敗した四つのexactケースだけを再確認した。4成功・失敗／取消／skip0、31.634秒で終了した。各ケースの自己生成Repository-local試験物の終了hookに例外報告はなかった。先の185成功と、この失敗四件の解消を対応付けた結果であり、189件全件を再実行したとは表示せず、先行の123件等とも合算しない。過去保持物は走査・操作していない。
+
+成果物・Symbol・正式QA関係のexact一件も再確認し、1成功・失敗／取消／skip0、435.693msだった。現行設計の「他のRoot公開は今回追加削減せず」という先行24 Source整理時の文を、先行段階と後続267項目への縮減を区別する説明へ是正した。追加の製品挙動変更はない。今回範囲の限定完了、公開最小化の24 helper未完、全体回帰・実AI／Docker未実施という境界を維持する。
+
+### コミット前の限定再確認
+
+人間からの再確認・コミット指示に従い、基準`38d51403f`との差分、完成修復Inputへの利用側接続、退役処理・公開集合、台帳と現行説明を再照合した。今回範囲の追加漏れは検出しなかった。独立確認者も最終二文書を読取り専用で再確認し、必須残指摘0だった。既知の24 helperは追跡中の残件であり、公開最小化完了とはしない。
+
+長い保存試験を繰り返さず、EMの公開境界とobjective検査の既存二Fileだけを再確認し、13成功・失敗／取消／skip0、1.181秒だった。成果物・Symbol・正式QA関係のexact一件も1成功、661.007ms。EMとCoordinator試験の型二設定、変更済み33 TypeScript Fileの統合静的検査、差分の空白検査はすべて成功した。これらは先行結果と合算しない。製品Source・試験の追加変更はなく、全体回帰・実AI・Docker・過去保持物は操作していない。今回の確認結果を既存作業ブランチへコミット・プッシュし、main統合・Releaseは行わない。

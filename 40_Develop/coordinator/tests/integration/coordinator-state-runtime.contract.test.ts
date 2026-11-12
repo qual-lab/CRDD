@@ -51,13 +51,13 @@ import {
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../execution-model/src/index.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../src/configuration/runtime-data.ts";
-import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
 import {
   providerHomesDirectoryCandidate,
   runtimeStateDirectoryCandidate,
@@ -90,11 +90,11 @@ import {
   checkpointRuntimeOwnedCoordinatorResourceNotIssued,
   checkpointRuntimeOwnedCoordinatorRestart,
   historyRepositoryInput,
-  withHistoryRetention,
   readRuntimeOwnedCoordinatorResourceBook,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorHostCleanupPreparation,
   saveRuntimeOwnedCoordinatorOperationStart,
+  withHistoryRetention,
 } from "../../src/execution/persistence.ts";
 import {
   finalizeRuntimeOwnedDockerRestartPreparation,
@@ -4276,14 +4276,57 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   assert.ok(initial);
   const recoveryId = initial.snapshot.operations[0]?.recoveryId;
   assert.ok(recoveryId);
+  // 新Requestの試験データと保存byte oracleを同じ正規fixtureから投影する。
+  // 旧Writer引数を受ける互換Adapterや、Model候補生成の代替実装ではない。
+  const versionFixture = (fixture: Buffer) => {
+    const value = decodeRuntimeDomainSnapshot(
+      fixture,
+      repository.repositoryBinding,
+    );
+    assert.ok(value);
+    return {
+      revision: value.snapshot.revision,
+      payloadSha256: value.payloadSha256,
+    };
+  };
+  const repairFixture = (
+    fixture: Buffer,
+    id: string,
+    binding = repository.repositoryBinding,
+  ) => {
+    const value = decodeRuntimeDomainSnapshot(
+      fixture,
+      binding,
+    )?.snapshot.operations.find((operation) => operation.recoveryId === id);
+    assert.ok(value?.kind === "runtime_repair");
+    return value;
+  };
+  const checkpointFixture = (fixture: Buffer, id: string) => {
+    const value = repairFixture(fixture, id);
+    return {
+      phase: value.phase,
+      checkpoint: value.checkpoint,
+      disposition: value.disposition,
+      primaryFailure: value.primaryFailure,
+      outcome: value.outcome,
+    };
+  };
   for (const invalidRoot of [{}, { ...verified.capability }]) {
     const rejected = writeRuntimeOwnedCoordinatorRepairSnapshot(
       invalidRoot,
       recoveryId,
-      null,
-      first,
+      {
+        expected: null,
+        change: {
+          kind: "create",
+          identityJson: repairFixture(
+            first,
+            recoveryId,
+            repository.repositoryBinding,
+          ).identityJson,
+        },
+      },
       () => true,
-      "checkpoint",
     );
     assert.equal(rejected.filesystemEffectIssued, false);
   }
@@ -4291,10 +4334,18 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     writeRuntimeOwnedCoordinatorRepairSnapshot(
       verified.capability,
       recoveryId,
-      null,
-      first,
+      {
+        expected: null,
+        change: {
+          kind: "create",
+          identityJson: repairFixture(
+            first,
+            recoveryId,
+            repository.repositoryBinding,
+          ).identityJson,
+        },
+      },
       () => false,
-      "checkpoint",
     ).filesystemEffectIssued,
     false,
   );
@@ -4302,10 +4353,18 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   const saved = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    null,
-    first,
+    {
+      expected: null,
+      change: {
+        kind: "create",
+        identityJson: repairFixture(
+          first,
+          recoveryId,
+          repository.repositoryBinding,
+        ).identityJson,
+      },
+    },
     () => true,
-    "checkpoint",
   );
   assert.equal(saved.status, "completed");
   assert.equal(saved.snapshotConfirmed, true);
@@ -4390,10 +4449,14 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     writeRuntimeOwnedCoordinatorRepairSnapshot(
       verified.capability,
       recoveryId,
-      first,
-      prepared,
+      {
+        expected: versionFixture(first),
+        change: {
+          kind: "checkpoint",
+          update: checkpointFixture(prepared, recoveryId),
+        },
+      },
       () => true,
-      "checkpoint",
     ).status,
     "completed",
   );
@@ -4420,10 +4483,14 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     writeRuntimeOwnedCoordinatorRepairSnapshot(
       verified.capability,
       recoveryId,
-      prepared,
-      cleanSession,
+      {
+        expected: versionFixture(prepared),
+        change: {
+          kind: "checkpoint",
+          update: checkpointFixture(cleanSession, recoveryId),
+        },
+      },
       () => true,
-      "checkpoint",
     ).snapshotConfirmed,
     true,
   );
@@ -4433,13 +4500,22 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     repository.repositoryBinding,
   );
   assert.ok(sessionBeginning);
+  const beginningCheckpoint = repairFixture(
+    sessionBeginning,
+    recoveryId,
+  ).checkpoint;
+  assert.ok(beginningCheckpoint);
   const refusedSession = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    cleanSession,
-    sessionBeginning,
+    {
+      expected: versionFixture(cleanSession),
+      change: {
+        kind: "checkpoint",
+        update: checkpointFixture(sessionBeginning, recoveryId),
+      },
+    },
     () => true,
-    "checkpoint",
   );
   assert.equal(refusedSession.filesystemEffectIssued, false);
   assert.equal(refusedSession.snapshotConfirmed, false);
@@ -4447,10 +4523,14 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   const resumed = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    cleanSession,
-    sessionBeginning,
+    {
+      expected: versionFixture(cleanSession),
+      change: {
+        kind: "session_begin",
+        checkpoint: beginningCheckpoint,
+      },
+    },
     () => true,
-    "session_begin",
   );
   assert.equal(resumed.status, "completed");
   assert.equal(resumed.snapshotConfirmed, true);
@@ -4460,10 +4540,14 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   const repeated = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    cleanSession,
-    sessionBeginning,
+    {
+      expected: versionFixture(cleanSession),
+      change: {
+        kind: "session_begin",
+        checkpoint: beginningCheckpoint,
+      },
+    },
     () => true,
-    "session_begin",
   );
   assert.equal(repeated.filesystemEffectIssued, false);
   assert.equal(repeated.snapshotConfirmed, false);
@@ -4488,30 +4572,42 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   const failedOwner = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    prepared,
-    complete,
+    {
+      expected: versionFixture(prepared),
+      change: {
+        kind: "checkpoint",
+        update: checkpointFixture(complete, recoveryId),
+      },
+    },
     () => false,
-    "checkpoint",
   );
   assert.equal(failedOwner.filesystemEffectIssued, false);
   assert.ok(fs.readFileSync(state).equals(prepared));
   const completed = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    prepared,
-    complete,
+    {
+      expected: versionFixture(prepared),
+      change: {
+        kind: "checkpoint",
+        update: checkpointFixture(complete, recoveryId),
+      },
+    },
     () => true,
-    "checkpoint",
   );
   assert.equal(completed.status, "completed");
   assert.equal(completed.lockReleased, true);
   const stale = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
-    first,
-    complete,
+    {
+      expected: versionFixture(first),
+      change: {
+        kind: "checkpoint",
+        update: checkpointFixture(complete, recoveryId),
+      },
+    },
     () => true,
-    "checkpoint",
   );
   assert.equal(stale.status, "blocked");
   assert.equal(stale.filesystemEffectIssued, false);
@@ -4555,10 +4651,14 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     writeRuntimeOwnedCoordinatorRepairSnapshot(
       verified.capability,
       recoveryId,
-      complete,
-      deliveredFixture,
+      {
+        expected: versionFixture(complete),
+        change: {
+          kind: "checkpoint",
+          update: checkpointFixture(deliveredFixture, recoveryId),
+        },
+      },
       () => true,
-      "checkpoint",
     ).status,
     "completed",
   );
@@ -4581,10 +4681,15 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   const added = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     nextId,
-    complete,
-    next,
+    {
+      expected: versionFixture(complete),
+      change: {
+        kind: "create",
+        identityJson: repairFixture(next, nextId, repository.repositoryBinding)
+          .identityJson,
+      },
+    },
     () => true,
-    "checkpoint",
   );
   assert.equal(added.status, "completed");
   const observed = decodeRuntimeDomainSnapshot(
@@ -4653,8 +4758,17 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   const lost = writeRuntimeOwnedCoordinatorRepairSnapshot(
     failedVerified.capability,
     failedId,
-    null,
-    failedFirst,
+    {
+      expected: null,
+      change: {
+        kind: "create",
+        identityJson: repairFixture(
+          failedFirst,
+          failedId,
+          failedBinding.repositoryBinding,
+        ).identityJson,
+      },
+    },
     () => {
       if (!fs.existsSync(failedDirectory)) return true;
       if (!sawCreatedArea) {
@@ -4663,7 +4777,6 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
       }
       return false;
     },
-    "checkpoint",
   );
   assert.equal(lost.status, "blocked");
   assert.equal(lost.reason, "coordinator_state_storage_unconfirmed");

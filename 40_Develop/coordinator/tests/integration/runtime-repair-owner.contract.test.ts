@@ -21,20 +21,44 @@ import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import * as model from "../../../execution-model/src/index.ts";
 import * as domain from "../../../execution-model/src/index.ts";
-import { observeRepositoryRuntimeDataArea } from "../../src/configuration/runtime-data.ts";
 import * as stateStore from "../../../execution-model/src/index.ts";
 import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  observeRepositoryRuntimeDataArea,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import * as bindings from "../../src/execution/operation.ts";
 import {
   historyRepositoryInput,
   withHistoryRetention,
 } from "../../src/execution/persistence.ts";
+
+/**
+ * 固定本文の元版を論理保存Requestへ投影する。
+ * @responsibility 公開Writerへ完成候補bytesを渡さない。
+ * @trace ERB-IT-014
+ * @precondition 正規保存本文または初期不存在。
+ * @stimulus 元版のrevisionとpayloadHashを読む。
+ * @observation expected値。
+ * @oracle 保存候補や遷移は生成しない。
+ * @cleanup N/A: 値だけ。
+ * @boundary 試験fixtureの元版投影。
+ */
+function repairVersion(
+  bytes: Buffer | null,
+  binding: string,
+): model.StateVersion | null {
+  if (bytes === null) return null;
+  const value = model.decodeRuntimeDomainSnapshot(bytes, binding);
+  assert.ok(value);
+  return {
+    revision: value.snapshot.revision,
+    payloadSha256: value.payloadSha256,
+  };
+}
 
 let acquireCount = 0;
 let observeCount = 0;
@@ -80,37 +104,34 @@ const storeModule = {
       >
     ) => {
       writeCalls++;
-      const candidate = JSON.parse(args[3].toString("utf8"));
-      const target = candidate.operations.find(
-        (value: { recoveryId: string }) => value.recoveryId === args[1],
-      );
+      const change = args[2].change;
       if (
-        (args[5] === "disposal_decision" && pauseBeforeDisposal) ||
-        (args[5] === "disposal_primary" &&
+        (change.kind === "disposal_decision" && pauseBeforeDisposal) ||
+        (change.kind === "disposal_progress" &&
+          change.purpose === "primary" &&
           refuseDisposalProgress &&
-          target.disposal?.checkpoint.directories.primary.absence ===
-            "confirmed_absent")
+          change.checkpoint.directories.primary.absence === "confirmed_absent")
       ) {
-        if (args[5] === "disposal_primary") refuseDisposalProgress = false;
+        if (change.kind === "disposal_progress") refuseDisposalProgress = false;
         return stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
           null,
           args[1],
           args[2],
           args[3],
-          args[4],
-          args[5],
         );
       }
       const matches =
         faultStage === "identity"
-          ? target.checkpoint === null
+          ? change.kind === "create"
           : faultStage === "checkpoint"
-            ? target.checkpoint?.cleanup === "pending"
+            ? change.kind === "checkpoint" &&
+              change.update.checkpoint?.cleanup === "pending"
             : faultStage === "cleanup"
-              ? target.checkpoint?.cleanup === "confirmed" &&
-                target.outcome === null
+              ? change.kind === "checkpoint" &&
+                change.update.checkpoint?.cleanup === "confirmed" &&
+                change.update.outcome === null
               : faultStage === "outcome"
-                ? target.outcome !== null
+                ? change.kind === "checkpoint" && change.update.outcome !== null
                 : false;
       if (matches && faultHits === 0) {
         faultHits++;
@@ -121,8 +142,6 @@ const storeModule = {
           args[1],
           args[2],
           args[3],
-          args[4],
-          args[5],
         );
         if (faultKind === "reject") return rejected;
         return {
@@ -136,20 +155,23 @@ const storeModule = {
         ...args,
       );
       lastWriteResult = saved;
+      const target = saved.value?.operation;
       if (
         saved.status === "completed" &&
         saved.snapshotConfirmed &&
-        target?.outcome !== null &&
+        target &&
+        target.outcome !== null &&
         target?.history === null
       )
-        lastOutcomeCheckpoint = Buffer.from(args[3]);
+        lastOutcomeCheckpoint = fs.readFileSync(stateFile);
       if (
         saved.status === "completed" &&
         saved.snapshotConfirmed &&
-        target?.outcome === null &&
+        target &&
+        target.outcome === null &&
         target?.checkpoint?.cleanup === "confirmed"
       )
-        lastPreOutcomeCheckpoint = Buffer.from(args[3]);
+        lastPreOutcomeCheckpoint = fs.readFileSync(stateFile);
       return saved;
     },
   },
@@ -870,10 +892,14 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const refused = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
         f.capability,
         id,
-        before,
-        candidate,
+        {
+          expected: repairVersion(before, repository.repositoryBinding),
+          change: {
+            kind: purpose,
+            candidate,
+          },
+        } as unknown as model.RepairWriteRequest,
         () => true,
-        purpose,
       );
       assert.equal(refused.snapshotConfirmed, false);
       assert.equal(refused.filesystemEffectIssued, false);
@@ -928,10 +954,16 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const refused = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
         f.capability,
         id,
-        before,
-        changed,
+        {
+          expected: repairVersion(before, repository.repositoryBinding),
+          change: {
+            kind: "retention_handoff",
+            receipt,
+            checkpoint: JSON.parse(changed.toString("utf8")).operations[0]
+              .checkpoint,
+          },
+        } as unknown as model.RepairWriteRequest,
         () => true,
-        "retention_handoff",
       );
       assert.equal(refused.snapshotConfirmed, false);
       assert.equal(refused.filesystemEffectIssued, false);
@@ -964,10 +996,14 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const saved = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
         f.capability,
         id,
-        before,
-        candidate,
+        {
+          expected: repairVersion(before, repository.repositoryBinding),
+          change: {
+            kind: "retention_handoff",
+            receipt,
+          },
+        },
         () => true,
-        "retention_handoff",
       );
       assert.equal(saved.snapshotConfirmed, stage === "normal");
       assert.equal(saved.status, stage === "normal" ? "completed" : "blocked");
@@ -1026,10 +1062,14 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     const same = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
       f.capability,
       id,
-      candidate,
-      candidate,
+      {
+        expected: repairVersion(candidate, repository.repositoryBinding),
+        change: {
+          kind: "retention_handoff",
+          receipt,
+        },
+      },
       () => true,
-      "retention_handoff",
     );
     assert.equal(same.snapshotConfirmed, false);
     assert.equal(same.filesystemEffectIssued, false);
@@ -2153,10 +2193,18 @@ test("Host Windows: 修復の未出版pendingをexact本文だけ確定する", 
       const late = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
         f.capability,
         first.recoveryId,
-        old,
-        expected,
+        {
+          expected: repairVersion(
+            old,
+            JSON.parse(publicationExpected.toString("utf8")).repositoryBinding,
+          ),
+          change: {
+            kind: "create",
+            identityJson: JSON.parse(publicationExpected.toString("utf8"))
+              .operations[0].identityJson,
+          },
+        },
         () => true,
-        "checkpoint",
       );
       assert.equal(late.status, "blocked");
       assert.equal(late.snapshotConfirmed, false);

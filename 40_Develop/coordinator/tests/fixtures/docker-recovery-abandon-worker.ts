@@ -1463,7 +1463,6 @@ if (mode !== "recovery") {
         "writeRuntimeOwnedCoordinatorRecoveryCheckpoint",
         "writeRuntimeOwnedCoordinatorRecoveredHostCleanup",
         "saveRuntimeOwnedCoordinatorOperationStart",
-        "completeRuntimeOwnedCoordinatorSettlement",
         "settleRuntimeOwnedCoordinatorResult",
       ] as const;
       admissionStoreMock = mock.module(

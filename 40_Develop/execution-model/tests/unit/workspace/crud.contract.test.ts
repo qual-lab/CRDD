@@ -7,19 +7,24 @@
  * @scope 合成Snapshotの値操作と有限同期時刻観測。
  * @boundary 実Git・保存・認可・資源不存在を証明しない。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorSnapshot,
   type CoordinatorState,
   type CoordinatorWorkspace,
   encodeRuntimeStateValue,
+} from "../../../src/index.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  projectCoordinatorCurrentState,
+} from "../../../src/state/validation.ts";
+import {
   prepareCoordinatorIntegrationRecordCreation,
   prepareCoordinatorWorkspaceRecordUpdate,
-  projectCoordinatorCurrentState,
   validCoordinatorWorkspace,
-} from "../../../src/index.ts";
+} from "../../../src/workspace/validation.ts";
 
 /**
  * 局所候補の共通値を組み立てる。

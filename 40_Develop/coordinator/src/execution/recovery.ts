@@ -5,15 +5,15 @@
  * @trace ARCH-000008
  */
 
-import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
-import { getIsolationSettings } from "./configuration.ts";
-import { historyRepositoryInput, withHistoryRetention } from "./persistence.ts";
-import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
+import type {
+  IsolationCallbacks,
+  IsolationExecution,
+} from "../../../docker-isolation/src/index.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   advanceRuntimeOwnedCoordinatorRepairHistory,
@@ -38,16 +38,12 @@ import {
   encodeRuntimeStateValue,
   inspectExecutionSelection,
   isDockerRestartCheckpointSettled,
+  parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
   prepareCoordinatorRepairHistorySummary,
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorStateRepairCheckpointSnapshot,
-  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
-  prepareCoordinatorStateRepairDisposalProgressSnapshot,
-  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
-  prepareCoordinatorStateRepairSessionSnapshot,
-  prepareCoordinatorStateRepairSnapshot,
+  type RepairWriteRequest,
   readRuntimeOwnedCoordinatorAdmissionSnapshot,
   readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
   readRuntimeOwnedCoordinatorCurrentDeliverySnapshot,
@@ -62,6 +58,7 @@ import {
   registerRuntimeOwnedCoordinatorRecoveryResultDelivery,
   resumeRuntimeOwnedCoordinatorRepairPublication,
   resumeRuntimeOwnedCoordinatorResourcePublication,
+  type StateVersion,
   settleRuntimeOwnedCoordinatorResult,
   validateHostRecoveryTransitionLineage,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
@@ -72,28 +69,25 @@ import {
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../execution-model/src/index.ts";
 import type {
-  IsolationCallbacks,
-  IsolationExecution,
-} from "../../../docker-isolation/src/index.ts";
-import type {
+  CompletionResult,
   Executor,
   StartResult,
-  CompletionResult,
 } from "../../../executor/src/index.ts";
 import {
   type ResourceCleanupResult as AttemptResourceCleanupResult,
   cleanupResources,
-  type DockerEnvironmentResult,
   type DockerEnvironmentRestartEvent,
+  type DockerEnvironmentResult,
   inspectResources,
   type ResourceInspection,
   type ResourceTarget,
   restartDockerEnvironment,
 } from "../../../executor/src/index.ts";
 import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
+import { observeRepositoryRuntimeDataArea } from "../configuration/runtime-data.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorLifecycle,
@@ -103,14 +97,16 @@ import {
   saveRuntimeOwnedCoordinatorHostCleanupPreparation,
   saveRuntimeOwnedCoordinatorOperationStart,
 } from "../execution/persistence.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
 import { readCurrentCoordinatorState } from "../state/query.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
   providerHomesDirectoryCandidate,
-  runtimeStateDirectoryCandidate,
   readExecutionCancellation,
+  runtimeStateDirectoryCandidate,
 } from "./authority.ts";
+import { getIsolationSettings } from "./configuration.ts";
 import {
   beginRuntimeOwnedCoordinatorHostSubmission,
   completeRuntimeOwnedCoordinatorHostSubmission,
@@ -120,9 +116,9 @@ import {
   recoverDockerIsolationProbe,
 } from "./diagnostics.ts";
 import {
-  acquireRuntimeStateLock,
   acquireHostOperationLock,
   acquireProviderHomeLock,
+  acquireRuntimeStateLock,
 } from "./kernel-lock.ts";
 import {
   acquireHostOperationRecoveryGeneration,
@@ -140,7 +136,9 @@ import {
   verifyHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
 } from "./operation.ts";
+import { historyRepositoryInput, withHistoryRetention } from "./persistence.ts";
 import { registerTaskRemediation } from "./preparation.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
 import type {
   AttemptCleanupInput,
@@ -150,9 +148,6 @@ import type {
   ResourceCleanupResult,
 } from "./types.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
-
-import { snapshotPlainRecord } from "../input/snapshot.ts";
-import { observeRepositoryRuntimeDataArea } from "../configuration/runtime-data.ts";
 /**
  * docker-cleanup-eligibilityで使用するDocker 清掃 Handoff 候補の値契約を定義する。
  *
@@ -5789,7 +5784,7 @@ export async function repairRuntimeOwnedDockerRuntime(
   let storageFailed = false;
   let prepared = false;
   let preparedCalls = 0;
-  let bytes: Buffer | null = null;
+  let version: StateVersion | null = null;
   let target: CoordinatorStateRepairOperation | null = null;
   let operationCleanupConfirmed = false;
   let finalCheckpointConfirmed = false;
@@ -5872,10 +5867,10 @@ export async function repairRuntimeOwnedDockerRuntime(
     }
   };
   /**
-   * 一つの固定次版を同じWriterで保存・読戻し確認する。
-   * @responsibility 確認済み元版だけを次のCAS元版へ進める。
+   * 修復の論理更新をモデルへ渡して確定結果を受け取る。
+   * @responsibility Snapshotを構築せず、保存確認済みの改訂だけを次のCAS元版へ進める。
    * @trace ARCH-000008
-   * @input candidate: 純粋モデルの次版、purpose: 通常またはSession開始。
+   * @input change: 技術観測または保持・廃棄判断に基づく固定更新。
    * @returns 保存確認と排他解放が共同成立した場合だけtrue。
    * @precondition 同exact回復参照と現在Ownerが確定済み。
    * @postcondition 不明保存後のcallback再利用を拒否する。
@@ -5886,11 +5881,8 @@ export async function repairRuntimeOwnedDockerRuntime(
    * @security 新Store・Lock・Pathを作らない。
    * @concurrency 元版全文のCASは既存Writerへ委譲する。
    */
-  const save = (
-    candidate: Buffer | null,
-    purpose: Parameters<typeof writeRuntimeOwnedCoordinatorRepairSnapshot>[5],
-  ) => {
-    if (!candidate || !repository || !recoveryId || !currentOwner()) {
+  const save = (change: RepairWriteRequest["change"]) => {
+    if (!repository || !recoveryId || !currentOwner()) {
       storageFailed = true;
       return false;
     }
@@ -5898,33 +5890,20 @@ export async function repairRuntimeOwnedDockerRuntime(
       const result = writeRuntimeOwnedCoordinatorRepairSnapshot(
         rootCapability,
         recoveryId,
-        bytes,
-        candidate,
+        { expected: version, change },
         currentOwner,
-        purpose,
       );
       if (
         result.status !== "completed" ||
         !result.snapshotConfirmed ||
-        !result.lockReleased
+        !result.lockReleased ||
+        !result.value
       ) {
         storageFailed = true;
         return false;
       }
-      const decoded = decodeRuntimeDomainSnapshot(
-        candidate,
-        repository.repositoryBinding,
-      );
-      const next = decoded?.snapshot.operations.find(
-        (item): item is CoordinatorStateRepairOperation =>
-          item.kind === "runtime_repair" && item.recoveryId === recoveryId,
-      );
-      if (!next) {
-        storageFailed = true;
-        return false;
-      }
-      bytes = Buffer.from(candidate);
-      target = next;
+      version = result.value.version;
+      target = result.value.operation;
       return true;
     } catch {
       storageFailed = true;
@@ -5951,26 +5930,21 @@ export async function repairRuntimeOwnedDockerRuntime(
     primaryFailure: CoordinatorStateRepairOperation["primaryFailure"] = null,
   ) => {
     if (!prepared || !target || !repository) return false;
-    return save(
-      prepareCoordinatorStateRepairCheckpointSnapshot(
-        bytes,
-        recoveryId,
-        {
-          phase: target.phase,
-          checkpoint: value,
-          disposition:
-            value.stale === "retained"
-              ? target.disposition === "retained_by_human_decision"
-                ? target.disposition
-                : "pending_human_decision"
-              : "not_applicable",
-          primaryFailure: target.primaryFailure ?? primaryFailure,
-          outcome: target.outcome,
-        },
-        repository.repositoryBinding,
-      ),
-      "checkpoint",
-    );
+    return save({
+      kind: "checkpoint",
+      update: {
+        phase: target.phase,
+        checkpoint: value,
+        disposition:
+          value.stale === "retained"
+            ? target.disposition === "retained_by_human_decision"
+              ? target.disposition
+              : "pending_human_decision"
+            : "not_applicable",
+        primaryFailure: target.primaryFailure ?? primaryFailure,
+        outcome: target.outcome,
+      },
+    });
   };
   /**
    * 元修復を変えず、固定三用途を意図保存と実回収へ直列接続する。
@@ -5991,7 +5965,7 @@ export async function repairRuntimeOwnedDockerRuntime(
     if (
       !repository ||
       !target ||
-      !bytes ||
+      !version ||
       !recoveryId ||
       !currentOwner() ||
       signal.aborted
@@ -6002,15 +5976,10 @@ export async function repairRuntimeOwnedDockerRuntime(
       target.disposition === "pending_human_decision"
     ) {
       if (
-        !save(
-          prepareCoordinatorStateRepairDisposalDecisionSnapshot(
-            bytes,
-            recoveryId,
-            new Date().toISOString(),
-            repository.repositoryBinding,
-          ),
-          "disposal_decision",
-        )
+        !save({
+          kind: "disposal_decision",
+          decidedAt: new Date().toISOString(),
+        })
       )
         return false;
     }
@@ -6027,11 +5996,6 @@ export async function repairRuntimeOwnedDockerRuntime(
     const identity = JSON.parse(identityJson) as {
       operationNonce: string;
     };
-    const writes = {
-      primary: "disposal_primary",
-      failed: "disposal_failed",
-      auxiliary: "disposal_auxiliary",
-    } as const;
     for (const purpose of ["primary", "failed", "auxiliary"] as const) {
       if (
         !target?.disposal ||
@@ -6055,20 +6019,15 @@ export async function repairRuntimeOwnedDockerRuntime(
         },
       };
       if (
-        !save(
-          prepareCoordinatorStateRepairDisposalProgressSnapshot(
-            bytes,
-            recoveryId,
-            purpose,
-            intent,
-            repository.repositoryBinding,
-          ),
-          writes[purpose],
-        )
+        !save({
+          kind: "disposal_progress",
+          purpose: purpose,
+          checkpoint: intent,
+        })
       )
         return false;
-      if (!target?.disposal || !target.checkpoint || !bytes) return false;
-      const expectedBytes = Buffer.from(bytes);
+      if (!target?.disposal || !target.checkpoint || !version) return false;
+      const expectedVersion = version;
       const decidedAt = target.disposal.decidedAt;
       item = target.disposal.checkpoint.directories[purpose];
       /**
@@ -6096,9 +6055,8 @@ export async function repairRuntimeOwnedDockerRuntime(
           !read.value ||
           !currentOwner() ||
           signal.aborted ||
-          !Buffer.from(
-            `${encodeRuntimeStateValue(read.value.snapshot)}\n`,
-          ).equals(expectedBytes)
+          read.value.snapshot.revision !== expectedVersion.revision ||
+          read.value.payloadSha256 !== expectedVersion.payloadSha256
         )
           return false;
         const matches = read.value.snapshot.operations.filter(
@@ -6145,16 +6103,11 @@ export async function repairRuntimeOwnedDockerRuntime(
         },
       };
       if (
-        !save(
-          prepareCoordinatorStateRepairDisposalProgressSnapshot(
-            bytes,
-            recoveryId,
-            purpose,
-            progress,
-            repository.repositoryBinding,
-          ),
-          writes[purpose],
-        ) ||
+        !save({
+          kind: "disposal_progress",
+          purpose: purpose,
+          checkpoint: progress,
+        }) ||
         result.absence !== "confirmed_absent"
       )
         return false;
@@ -6230,7 +6183,10 @@ export async function repairRuntimeOwnedDockerRuntime(
           )
         )
           break;
-        bytes = canonical;
+        version = {
+          revision: read.value.snapshot.revision,
+          payloadSha256: read.value.payloadSha256,
+        };
         target = operation;
         retentionConfirmed =
           operation.disposition === "retained_by_human_decision" &&
@@ -6552,7 +6508,10 @@ export async function repairRuntimeOwnedDockerRuntime(
         !currentOwner()
       )
         return stopped();
-      bytes = Buffer.from(`${encodeRuntimeStateValue(read.value.snapshot)}\n`);
+      version = {
+        revision: read.value.snapshot.revision,
+        payloadSha256: read.value.payloadSha256,
+      };
       const repairs = read.value.snapshot.operations.filter(
         (item): item is CoordinatorStateRepairOperation =>
           item.kind === "runtime_repair",
@@ -6590,15 +6549,10 @@ export async function repairRuntimeOwnedDockerRuntime(
               Date.parse(decidedAt) + 604800000,
             ).toISOString();
             if (
-              !save(
-                prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-                  bytes,
-                  requestedRecoveryId,
-                  { decidedAt, reviewAfter, targets },
-                  repository.repositoryBinding,
-                ),
-                "retention_handoff",
-              )
+              !save({
+                kind: "retention_handoff",
+                receipt: { decidedAt, reviewAfter, targets },
+              })
             )
               return stopped();
           }
@@ -6650,7 +6604,9 @@ export async function repairRuntimeOwnedDockerRuntime(
               target.checkpoint?.cleanup === "confirmed";
             if (
               prepareCoordinatorRepairHistorySummary(
-                bytes,
+                Buffer.from(
+                  `${encodeRuntimeStateValue(read.value.snapshot)}\n`,
+                ),
                 recoveryId,
                 repository.repositoryBinding,
               ) &&
@@ -6695,25 +6651,20 @@ export async function repairRuntimeOwnedDockerRuntime(
           operationCleanupConfirmed = savedCheckpoint.cleanup === "confirmed";
           finalCheckpointConfirmed = true;
           if (
-            !save(
-              prepareCoordinatorStateRepairCheckpointSnapshot(
-                bytes,
-                recoveryId,
-                {
-                  phase: "settling",
-                  checkpoint: savedCheckpoint,
-                  disposition: target.disposition,
-                  primaryFailure: savedFailure,
-                  outcome: {
-                    status: "blocked",
-                    reason: savedFailure.reason,
-                    cleanupConfirmed: operationCleanupConfirmed,
-                  },
+            !save({
+              kind: "checkpoint",
+              update: {
+                phase: "settling",
+                checkpoint: savedCheckpoint,
+                disposition: target.disposition,
+                primaryFailure: savedFailure,
+                outcome: {
+                  status: "blocked",
+                  reason: savedFailure.reason,
+                  cleanupConfirmed: operationCleanupConfirmed,
                 },
-                repository.repositoryBinding,
-              ),
-              "checkpoint",
-            )
+              },
+            })
           )
             return stopped();
           outcomeConfirmed = true;
@@ -6780,41 +6731,12 @@ export async function repairRuntimeOwnedDockerRuntime(
             if (target === null) {
               const identityJson = `${JSON.stringify({ schema: "crdd-coordinator/runtime-repair-identity/v2", kind: "runtime_repair", operationNonce: nonce, operationId, repositoryBinding: repository.repositoryBinding, consumer: "coordinator_cli" })}\n`;
               recoveryId = `docker-runtime-repair.${nonce}.${createHash("sha256").update(identityJson).digest("hex")}`;
-              if (
-                !save(
-                  prepareCoordinatorStateRepairSnapshot(
-                    bytes,
-                    identityJson,
-                    repository.repositoryBinding,
-                  ),
-                  "checkpoint",
-                )
-              )
+              if (!save({ kind: "create", identityJson: identityJson }))
                 throw new Error("docker_repair_record_unconfirmed");
             }
             if (!target) throw new Error("docker_repair_record_unconfirmed");
             if (target.checkpoint !== null) {
-              const candidate = prepareCoordinatorStateRepairSessionSnapshot(
-                bytes,
-                recoveryId,
-                repository.repositoryBinding,
-              );
-              const preparedTarget = candidate
-                ? decodeRuntimeDomainSnapshot(
-                    candidate,
-                    repository.repositoryBinding,
-                  )?.snapshot.operations.find(
-                    (item): item is CoordinatorStateRepairOperation =>
-                      item.kind === "runtime_repair" &&
-                      item.recoveryId === recoveryId,
-                  )
-                : null;
-              if (
-                !preparedTarget ||
-                encodeRuntimeStateValue(preparedTarget.checkpoint) !==
-                  encodeRuntimeStateValue(value) ||
-                !save(candidate, "session_begin")
-              )
+              if (!save({ kind: "session_begin", checkpoint: value }))
                 throw new Error("docker_repair_record_unconfirmed");
             } else {
               prepared = true;
@@ -6901,25 +6823,20 @@ export async function repairRuntimeOwnedDockerRuntime(
     }
     if (
       outcome !== null &&
-      !save(
-        prepareCoordinatorStateRepairCheckpointSnapshot(
-          bytes,
-          recoveryId,
-          {
-            phase:
-              outcome.status === "recovered" &&
-              target.disposition === "pending_human_decision"
-                ? "awaiting_disposition"
-                : "settling",
-            checkpoint: target.checkpoint,
-            disposition: target.disposition,
-            primaryFailure: target.primaryFailure,
-            outcome,
-          },
-          repository.repositoryBinding,
-        ),
-        "checkpoint",
-      )
+      !save({
+        kind: "checkpoint",
+        update: {
+          phase:
+            outcome.status === "recovered" &&
+            target.disposition === "pending_human_decision"
+              ? "awaiting_disposition"
+              : "settling",
+          checkpoint: target.checkpoint,
+          disposition: target.disposition,
+          primaryFailure: target.primaryFailure,
+          outcome,
+        },
+      })
     )
       return stopped();
     outcomeConfirmed = outcome !== null;

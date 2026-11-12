@@ -7,21 +7,24 @@
  * @scope 局所合成値と有限観測。完全codec・実保存は対象外。
  * @boundary メモリだけ。publisher・実Owner・Fileを操作しない。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  COORDINATOR_INTEGRATION_CONTRACT,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  prepareCoordinatorHistoryPending,
+  prepareCoordinatorHistoryTransfer,
+  prepareCoordinatorTerminalRecordRetirement,
+} from "../../../src/history/validation.ts";
+import {
   type CoordinatorResultRecord,
   type CoordinatorSnapshot,
   encodeRuntimeStateValue,
   type HistoryRow,
   type LeaseEvidenceEnvelope,
   type ProjectQueueEntry,
-  prepareCoordinatorHistoryPending,
-  prepareCoordinatorHistoryTransfer,
-  prepareCoordinatorTerminalRecordRetirement,
 } from "../../../src/index.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import { COORDINATOR_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
 
 /**
  * 一般Queue終了条件を検査する局所fixtureを作る。

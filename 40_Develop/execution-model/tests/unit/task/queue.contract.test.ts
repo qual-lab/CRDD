@@ -7,20 +7,25 @@
  * @scope 四つの固定値操作。実行選択・資源観測・保存は対象外。
  * @boundary メモリの局所入力。全体codec・実Ownerの証明ではない。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorQueueEnqueueInput,
   type CoordinatorSnapshot,
   type CoordinatorState,
   type CoordinatorWorkspace,
   encodeRuntimeStateValue,
+} from "../../../src/index.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  projectCoordinatorQueueProjectState,
+} from "../../../src/state/validation.ts";
+import {
   inspectCoordinatorQueueIntake,
   prepareCoordinatorQueueEntryCreation,
   projectCoordinatorQueueEntry,
-  projectCoordinatorQueueProjectState,
-} from "../../../src/index.ts";
+} from "../../../src/task/validation.ts";
 
 /**
  * 四操作の局所前提値を用意する。

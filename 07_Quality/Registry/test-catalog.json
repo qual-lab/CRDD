@@ -358,8 +358,7 @@
       "owner": "execution-model",
       "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#4-保存初期化回復",
       "responsibilities": [
-        "execution_state_root_binding",
-        "execution_temporary_operation_lifecycle"
+        "execution_state_root_binding"
       ],
       "externalBoundaries": [
         "git_worktree",
@@ -367,13 +366,12 @@
       ],
       "lifecycleProfile": "durable_operation",
       "testIds": [
-        "runtime-data:integration:temporary-operation-lifecycle",
-        "runtime-data:system:temporary-operation-cleanup"
+        "domain-model:integration:state-io",
+        "runtime-data:integration:consumer-closure"
       ],
       "postconditions": [
         "repository_boundary_exact",
-        "unregistered_path_not_issued",
-        "temporary_artifact_absent_or_recovery_exact"
+        "unregistered_path_not_issued"
       ]
     },
     {
@@ -1332,7 +1330,8 @@
       "consumerOwner": "execution-model",
       "consumerStatic": true,
       "testIds": [
-        "runtime-data:integration:temporary-operation-lifecycle"
+        "domain-model:integration:runtime-kernel-lock",
+        "domain-model:integration:runtime-snapshot-lock"
       ]
     },
     {
@@ -4810,51 +4809,6 @@
         "consumer_set_exact",
         "raw_root_not_reinterpreted",
         "internal_resolver_not_exported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "runtime-data:integration:temporary-operation-lifecycle",
-      "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/temporary-operation-lifecycle.integration.test.ts",
-      "level": "integration",
-      "kind": "integration",
-      "semanticTags": [
-        "runtime-data",
-        "temporary",
-        "lifecycle",
-        "cleanup",
-        "recovery"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "all_terminal_paths_classified",
-        "cleanup_nonexistence_observed",
-        "parent_loss_recovery_exact"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "runtime-data:system:temporary-operation-cleanup",
-      "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/system/temporary-operation-cleanup.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": [
-        "runtime-data",
-        "temporary-operation",
-        "cleanup",
-        "recovery",
-        "public-api"
-      ],
-      "environment": "fixed_system_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "public_result_observed",
-        "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
     },

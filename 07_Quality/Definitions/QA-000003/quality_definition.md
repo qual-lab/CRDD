@@ -1,5 +1,9 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 未接続Temporary Operationの退役 — 2026-11-12
+
+旧署名準備の未接続Temporary Operationを実装・専用試験ごと退役するため、下段の過去の容量対照に含まれるpurpose513文字／allowedContent65件は現在の自動試験対象ではなくなる。他の現役State・Task・候補保存の検証義務は変更しない。正式IDと旧一時操作の検証sliceの扱いは[QA-000008](../QA-000008/quality_definition.md#未接続temporary-operationの退役--2026-11-12)を正本とし、退役を正式項目全体の成功・免除へ読み替えない。
+
 ## 実行モデルの24 Source配置への追従 — 2026-11-12
 
 既存のState／History／Decision／Task／Attempt／Workspaceの検査・保存・終了・回復項目を、各モデルのcrud／validation／typesとstorage/store／lockへ対応付ける。正式項目のID・評価を移動だけで変更しない。Source抽出・私有import・故障注入を新Ownerへ接続し、Stateの短命Mapと一回使用Protocolを同じ実体で確認する。旧PathのWrapperや試験用のRoot公開を追加せず、機密検査はCoordinatorの送信境界試験で確認する。

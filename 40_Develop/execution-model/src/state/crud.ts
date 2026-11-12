@@ -15,8 +15,10 @@ import {
 } from "../../../version-control/src/index.ts";
 import type { readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot } from "../attempt/crud.ts";
 import type {
+  CoordinatorStateRepairOperation,
   CoordinatorStateTaskOperation,
   RepairWritePurpose,
+  RepairWriteRequest,
 } from "../attempt/types.ts";
 import {
   coordinatorTaskResourcesAreSettled,
@@ -103,6 +105,7 @@ import type {
   RuntimeDefinitionValues,
   RuntimeReadResult,
   RuntimeWriteResult,
+  StateVersion,
 } from "./types.ts";
 import {
   assertCoordinatorSnapshotTransition,
@@ -114,6 +117,7 @@ import {
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   hashRuntimeProjectDefinition,
+  isSha256Hex,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorLeaseAcquisitionConfirmation,
   prepareCoordinatorLeaseAcquisitionReservation,
@@ -133,14 +137,20 @@ import {
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
+  prepareCoordinatorStateRepairCheckpointSnapshot,
   prepareCoordinatorStateRepairCompletionSnapshot,
+  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
+  prepareCoordinatorStateRepairDisposalProgressSnapshot,
+  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
+  prepareCoordinatorStateRepairSessionSnapshot,
+  prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
   prepareCoordinatorStateRestartSnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
   projectCoordinatorCurrentState,
   projectCoordinatorLeaseAcquisitionOwner,
   projectCoordinatorLeaseOwnerLossState,
-  snapshotPlainRecord,
+  snapshotRuntimeStateRecord,
   validateCoordinatorStateTransition,
   validateCoordinatorUnifiedTransition,
   validateRepairWriteCandidate,
@@ -1812,43 +1822,38 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
 }
 
 /**
- * 明示修復呼出しの一保存を同じ物理Writerへ結合する。
- * @responsibility Root借用に加えて呼出しOwner・exact対象・元版を私有Contextへ固定する。
+ * 修復の論理更新を既存の単一Writerへ接続する。
+ * @responsibility 期待改訂を照合して内部で候補を構築し、呼出しOwner・exact対象・元版を私有Contextへ固定する。
  * @trace ARCH-000008
- * @input rootCapability: 検証Root、recoveryId: exact修復、before: 元版、candidateBytes: 次版、assertInvocation: 同じ呼出しの現在確認、purpose: 通常更新または新Session準備。
- * @returns 既存Writerの保存確認・解放・Effectを分けた結果。
+ * @input rootCapability: 検証Root、recoveryId: exact修復、request: 期待改訂と固定の論理更新、assertInvocation: 同じ呼出しの現在確認。
+ * @returns 保存確認・解放・Effectを分け、共同成立した場合だけ確定改訂と対象操作を返す。
  * @precondition 内部の明示介入compositionがDIの準備・通知と呼出し生存を結合済み。
  * @postcondition Task管理Capabilityを要求せず、対象以外を変更しない。
  * @effect 初回の固定領域作成と既存状態Writerだけ。
  * @failure 偽Root、失効、別対象、元版差、不正遷移、保存不明は停止。
  * @invariant 保存JSON・主体Hashだけを実修復許可へ昇格しない。
  * @boundary 明示修復compositionと私有保存Context。
- * @security Package Rootから公開せず、任意Path／Task資格を受けない。
+ * @security 任意Snapshot・出版候補・Path・Task資格を受けない。元版の差を最新値で自動補完しない。
  * @concurrency 同期の一保存へ限定し、物理I/Oは既存Kernel排他を使う。
  */
 export function writeRuntimeOwnedCoordinatorRepairSnapshot(
   rootCapability: unknown,
   recoveryId: string,
-  before: Buffer | null,
-  candidateBytes: Buffer,
+  request: RepairWriteRequest,
   assertInvocation: () => unknown,
-  purpose: RepairWritePurpose,
 ) {
-  const blocked = () => writeCoordinatorStateSnapshot(null, null, null, null);
+  const blocked = () => ({
+    ...writeCoordinatorStateSnapshot(null, null, null, null),
+    value: null as Readonly<{
+      version: StateVersion;
+      operation: CoordinatorStateRepairOperation;
+    }> | null,
+  });
   let initializationEffectIssued = false;
   try {
     if (
       typeof assertInvocation !== "function" ||
-      types.isAsyncFunction(assertInvocation) ||
-      ![
-        "checkpoint",
-        "session_begin",
-        "retention_handoff",
-        "disposal_decision",
-        "disposal_primary",
-        "disposal_failed",
-        "disposal_auxiliary",
-      ].includes(purpose)
+      types.isAsyncFunction(assertInvocation)
     )
       return blocked();
     const repository = observeRuntimeRecoveryRepository(rootCapability);
@@ -1882,8 +1887,156 @@ export function writeRuntimeOwnedCoordinatorRepairSnapshot(
         return false;
       }
     };
-    if (!assertOwner() || (before !== null && !Buffer.isBuffer(before)))
+    if (!assertOwner()) return blocked();
+    const captured = snapshotRuntimeStateRecord(
+      request,
+      new Set(["expected", "change"]),
+    );
+    if (!captured) return blocked();
+    const expected =
+      captured.expected === null
+        ? null
+        : snapshotRuntimeStateRecord(
+            captured.expected,
+            new Set(["revision", "payloadSha256"]),
+          );
+    if (
+      captured.expected !== null &&
+      (!expected ||
+        !Number.isSafeInteger(expected.revision) ||
+        (expected.revision as number) < 1 ||
+        !isSha256Hex(expected.payloadSha256))
+    )
       return blocked();
+    const input = captured.change;
+    if (!input || typeof input !== "object" || types.isProxy(input))
+      return blocked();
+    const descriptor = Object.getOwnPropertyDescriptor(input, "kind");
+    if (
+      !descriptor ||
+      !Object.hasOwn(descriptor, "value") ||
+      descriptor.get ||
+      descriptor.set
+    )
+      return blocked();
+    const keys = {
+      create: ["kind", "identityJson"],
+      checkpoint: ["kind", "update"],
+      session_begin: ["kind", "checkpoint"],
+      retention_handoff: ["kind", "receipt"],
+      disposal_decision: ["kind", "decidedAt"],
+      disposal_progress: ["kind", "purpose", "checkpoint"],
+    } as const;
+    const kind = descriptor.value;
+    if (typeof kind !== "string" || !Object.hasOwn(keys, kind))
+      return blocked();
+    const change = snapshotRuntimeStateRecord(
+      input,
+      new Set(keys[kind as keyof typeof keys] as readonly string[]),
+    );
+    if (!change) return blocked();
+    let before: Buffer | null = null;
+    if (expected !== null) {
+      const current = readCoordinatorStateSnapshot(repository, null);
+      if (
+        current.status !== "completed" ||
+        !current.value ||
+        !current.lockReleased
+      )
+        return {
+          ...blocked(),
+          reason: current.reason,
+          lockReleased: current.lockReleased,
+        };
+      if (
+        current.value.snapshot.revision !== expected.revision ||
+        current.value.payloadSha256 !== expected.payloadSha256 ||
+        !assertOwner()
+      )
+        return blocked();
+      before = Buffer.from(
+        encodeRuntimeStateValue(current.value.snapshot) + "\n",
+      );
+    }
+    let purpose: RepairWritePurpose;
+    let candidateBytes: Buffer | null;
+    switch (kind) {
+      case "create":
+        purpose = "checkpoint";
+        candidateBytes = prepareCoordinatorStateRepairSnapshot(
+          before,
+          change.identityJson,
+          repository.repositoryBinding,
+        );
+        break;
+      case "checkpoint":
+        purpose = "checkpoint";
+        candidateBytes = prepareCoordinatorStateRepairCheckpointSnapshot(
+          before,
+          recoveryId,
+          change.update,
+          repository.repositoryBinding,
+        );
+        break;
+      case "session_begin":
+        purpose = "session_begin";
+        candidateBytes = prepareCoordinatorStateRepairSessionSnapshot(
+          before,
+          recoveryId,
+          repository.repositoryBinding,
+        );
+        if (candidateBytes) {
+          const operation = decodeRuntimeDomainSnapshot(
+            candidateBytes,
+            repository.repositoryBinding,
+          )?.snapshot.operations.find(
+            (item): item is CoordinatorStateRepairOperation =>
+              item.recoveryId === recoveryId && item.kind === "runtime_repair",
+          );
+          if (
+            !operation ||
+            encodeRuntimeStateValue(operation.checkpoint) !==
+              encodeRuntimeStateValue(change.checkpoint)
+          )
+            return blocked();
+        }
+        break;
+      case "retention_handoff":
+        purpose = "retention_handoff";
+        candidateBytes = prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+          before,
+          recoveryId,
+          change.receipt,
+          repository.repositoryBinding,
+        );
+        break;
+      case "disposal_decision":
+        purpose = "disposal_decision";
+        candidateBytes = prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+          before,
+          recoveryId,
+          change.decidedAt,
+          repository.repositoryBinding,
+        );
+        break;
+      case "disposal_progress":
+        if (
+          !["primary", "failed", "auxiliary"].includes(change.purpose as string)
+        )
+          return blocked();
+        purpose = ("disposal_" + change.purpose) as RepairWritePurpose;
+        candidateBytes = prepareCoordinatorStateRepairDisposalProgressSnapshot(
+          before,
+          recoveryId,
+          change.purpose,
+          change.checkpoint,
+          repository.repositoryBinding,
+        );
+        break;
+      default:
+        return blocked();
+    }
+    if (!candidateBytes) return blocked();
     const candidate = decodeRuntimeDomainSnapshot(
       candidateBytes,
       repository.repositoryBinding,
@@ -1893,7 +2046,7 @@ export function writeRuntimeOwnedCoordinatorRepairSnapshot(
         ? null
         : decodeRuntimeDomainSnapshot(before, repository.repositoryBinding);
     const target = candidate?.snapshot.operations.find(
-      (operation) =>
+      (operation): operation is CoordinatorStateRepairOperation =>
         operation.kind === "runtime_repair" &&
         operation.recoveryId === recoveryId,
     );
@@ -1971,6 +2124,15 @@ export function writeRuntimeOwnedCoordinatorRepairSnapshot(
         snapshotConfirmed: confirmed,
         filesystemEffectIssued: false,
         lockReleased: observed.lockReleased,
+        value: confirmed
+          ? Object.freeze({
+              version: Object.freeze({
+                revision: candidate.snapshot.revision,
+                payloadSha256: candidate.payloadSha256,
+              }),
+              operation: target,
+            })
+          : null,
       });
     }
     const context = Object.freeze({});
@@ -2014,6 +2176,18 @@ export function writeRuntimeOwnedCoordinatorRepairSnapshot(
         ...saved,
         filesystemEffectIssued:
           initializationEffectIssued || saved.filesystemEffectIssued,
+        value:
+          saved.status === "completed" &&
+          saved.snapshotConfirmed &&
+          saved.lockReleased
+            ? Object.freeze({
+                version: Object.freeze({
+                  revision: candidate.snapshot.revision,
+                  payloadSha256: candidate.payloadSha256,
+                }),
+                operation: target,
+              })
+            : null,
       });
     } finally {
       settlements.delete(context);
@@ -4764,7 +4938,7 @@ export function initializeRuntimeState(
     expectedAbsence: true;
   }>,
 ): RuntimeWriteResult<Readonly<{ intakeEpoch: string }>> {
-  const input = snapshotPlainRecord(
+  const input = snapshotRuntimeStateRecord(
     request,
     new Set(["projectId", "milestoneId", "expectedAbsence"]),
   );
@@ -4906,7 +5080,7 @@ export function readRuntimeContent<K extends keyof RuntimeContentViews>(
   kind: K,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ): RuntimeReadResult<RuntimeContentViews[K]> {
-  const input = snapshotPlainRecord(
+  const input = snapshotRuntimeStateRecord(
     request,
     new Set(["projectId", "milestoneId"]),
   );

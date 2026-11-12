@@ -14,26 +14,21 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext, runInThisContext } from "node:vm";
+import { prepareCoordinatorHistoryRetention } from "../../../src/history/validation.ts";
 import {
   applyCoordinatorResourceEvent,
-  COORDINATOR_STATE_SCHEMA,
   type CoordinatorResourceBook,
   type CoordinatorState,
   type CoordinatorStateTaskOperation,
   type CoordinatorUnifiedSnapshot,
-  classifyCoordinatorResourcePublication,
   coordinatorAuthenticationUnknownCanClose,
   coordinatorTaskResourcesAreSettled,
   createDockerRestartRequestId,
   decodeCoordinatorHistoryRows,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
-  hashRuntimeStateContent,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
-  prepareCoordinatorHistoryRetention,
-  prepareCoordinatorRecoveredHistoryPublication,
   prepareCoordinatorStateCleanupSnapshot,
-  prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateHostSnapshot,
@@ -43,11 +38,18 @@ import {
   prepareCoordinatorStateResourceSnapshot,
   prepareCoordinatorStateRestartSnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
-  prepareCoordinatorUnifiedTaskSnapshot,
-  projectCoordinatorTaskSettlement,
   validateCoordinatorStateTransition,
-  validateCoordinatorUnifiedTransition,
 } from "../../../src/index.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  classifyCoordinatorResourcePublication,
+  hashRuntimeStateContent,
+  prepareCoordinatorRecoveredHistoryPublication,
+  prepareCoordinatorStateCompletionSnapshot,
+  projectCoordinatorTaskSettlement,
+  validateCoordinatorUnifiedTransition,
+} from "../../../src/state/validation.ts";
+import { prepareCoordinatorUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,

@@ -14,12 +14,17 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInThisContext } from "node:vm";
+import { coordinatorRepairCanComplete } from "../../../src/attempt/validation.ts";
+import { prepareCoordinatorHistoryRetention } from "../../../src/history/validation.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
   type CoordinatorStateRepairOperation,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
 } from "../../../src/index.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  validateCoordinatorUnifiedTransition,
+} from "../../../src/state/validation.ts";
 
 type DockerRuntimeRepairDisposalCheckpoint = NonNullable<
   CoordinatorStateRepairOperation["disposal"]
@@ -27,9 +32,7 @@ type DockerRuntimeRepairDisposalCheckpoint = NonNullable<
 
 import {
   classifyCoordinatorRepairPublication,
-  coordinatorRepairCanComplete,
   decodeCoordinatorHistoryRows,
-  prepareCoordinatorHistoryRetention,
   prepareCoordinatorRepairHistoryLine,
   prepareCoordinatorRepairHistoryPublication,
   prepareCoordinatorRepairHistorySnapshot,
@@ -49,7 +52,6 @@ import {
   validateCoordinatorStateRepairRetentionHandoffTransition,
   validateCoordinatorStateRepairSessionTransition,
   validateCoordinatorStateTransition,
-  validateCoordinatorUnifiedTransition,
 } from "../../../src/index.ts";
 
 const binding = "a".repeat(64);

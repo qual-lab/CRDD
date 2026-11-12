@@ -13,7 +13,7 @@ import {
   encodeRuntimeStateValue,
   hasRuntimeStateRecordKeys,
   isSha256Hex,
-  snapshotPlainRecord,
+  snapshotRuntimeStateRecord,
 } from "../state/validation.ts";
 import {
   coordinatorConsumerCompletionPolicy,
@@ -1835,7 +1835,7 @@ export function validateCoordinatorOperationIdentity(
 export function decodeDockerRestartCheckpoint(
   value: unknown,
 ): DockerRestartCheckpoint | null {
-  const record = snapshotPlainRecord(
+  const record = snapshotRuntimeStateRecord(
     value,
     new Set(["requestId", "scopeSha256", "request", "cleanup", "result"]),
   );
@@ -1854,7 +1854,7 @@ export function decodeDockerRestartCheckpoint(
   const result =
     record.result === null
       ? null
-      : snapshotPlainRecord(
+      : snapshotRuntimeStateRecord(
           record.result,
           new Set(["status", "reason", "request", "effectOutcomeUnknown"]),
         );

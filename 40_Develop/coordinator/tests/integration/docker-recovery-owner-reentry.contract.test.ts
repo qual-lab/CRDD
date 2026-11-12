@@ -38,10 +38,6 @@ import {
   isDockerRestartCheckpointSettled,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
 } from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
@@ -50,6 +46,10 @@ import {
   requestInChild,
   type VerificationHttpTiming,
 } from "../../../workbench-server/scripts/ai-verification-http.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import * as homes from "../../src/execution/authority.ts";
 import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import * as development from "../../src/execution/diagnostics.ts";
@@ -2584,7 +2584,7 @@ for (const { repeatCount, retained } of [
                       typeof writeRuntimeOwnedCoordinatorRepairSnapshot
                     >
                   ) => {
-                    if (args[5] === "disposal_decision") {
+                    if (args[2].change.kind === "disposal_decision") {
                       disposalDecisionRefusals++;
                       assert.equal(disposalDecisionRefusals, 1);
                       return writeRuntimeOwnedCoordinatorRepairSnapshot(
@@ -2592,8 +2592,6 @@ for (const { repeatCount, retained } of [
                         args[1],
                         args[2],
                         args[3],
-                        args[4],
-                        args[5],
                       );
                     }
                     return writeRuntimeOwnedCoordinatorRepairSnapshot(...args);
