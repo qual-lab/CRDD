@@ -1,6 +1,6 @@
 /**
- * CoordinatorのTask終了要約を共通履歴へ保存する。
- * @responsibility 技術要約と同じ保存Root・短期Owner・保持設定で履歴を確定する。
+ * CoordinatorのTask終了要約と判断イベントを共通履歴へ保存する。
+ * @responsibility 同じ保存Root・短期Ownerで出版・再入場・保持整理・退役確認を所有する。
  * @trace ARCH-000004、ARCH-000008
  */
 
@@ -8,6 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { readCoordinatorConfig } from "../configuration/read-tool-config.ts";
+import {
+  inspectDecisionHistoryEvent,
+  projectDecisionHistory,
+} from "../decision/operations.ts";
+import type { Decision, DecisionHistoryEvent } from "../decision/types.ts";
 import { observeRepositoryRuntimeDataArea } from "../repository/resolve-storage-paths.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
 import {
@@ -101,17 +106,28 @@ function taskHistoryLine(row: HistoryRow): Buffer {
   );
 }
 
+/** 同じ判断イベントを出版と退役確認で同じ正規行へ変換する。 */
+function decisionHistoryLine(event: DecisionHistoryEvent): Buffer {
+  return Buffer.from(
+    `${encodeRuntimeStateValue({
+      schema: "crdd-coordinator/history-row/v2",
+      occurredAt: event.occurredAt,
+      summary: { schema: "crdd-coordinator/decision-event/v1", record: event },
+    })}\n`,
+  );
+}
+
 /**
- * Task要約を同じ保存Ownerで共通履歴へ確定する。
+ * Task要約とState由来の判断イベントを同じ保存Ownerで共通履歴へ確定する。
  * @responsibility 全行検査・保持期間・中断候補の完全一致・読戻しを接続する。
  * @trace ARCH-000004、ARCH-000008
- * @input owner: 真正保存Owner、recordJson: 一要約・同一保存意図の要約配列又はnull、now: 評価時刻。
+ * @input owner: 真正保存Owner、recordJson: 要約又はnull、now: 評価時刻、mode: 既存更新・判断出版・判断再入場。
  * @returns 履歴確定結果。借用Ownerは解放しない。
  * @precondition 統一state.jsonを初期化済み。
  * @postcondition completedでは確定履歴とpending不存在を観測済み。
  * @effect history.pending.jsonl作成・flush・rename・読戻し。
  * @failure 不一致・破損・不明では候補を保持して停止する。
- * @invariant 未搬送要約と未確認技術履歴は期間だけで削除しない。
+ * @invariant 判断出版は既存行を保持し、現在時刻による期限整理と元候補再入場を混同しない。
  * @boundary 共通履歴と単一保存Root。
  * @security 任意Path・外部callbackを受け付けない。
  * @concurrency 同じOwnerを借用し外部待機をしない。
@@ -120,6 +136,7 @@ export function updateCoordinatorHistoryOwned(
   owner: CoordinatorStorageOwner,
   recordJson: string | null,
   now = Date.now(),
+  mode: "update" | "decision" | "resume_decision" = "update",
 ) {
   const blocked = {
     status: "blocked" as const,
@@ -129,7 +146,9 @@ export function updateCoordinatorHistoryOwned(
     !isLiveCoordinatorStorageOwner(owner) ||
     !Number.isSafeInteger(now) ||
     now < 0 ||
-    now > 8_640_000_000_000_000
+    now > 8_640_000_000_000_000 ||
+    !["update", "decision", "resume_decision"].includes(mode) ||
+    (mode !== "update" && recordJson !== null)
   )
     return blocked;
   try {
@@ -154,6 +173,12 @@ export function updateCoordinatorHistoryOwned(
     );
     const currentFile = path.join(directory, "history.jsonl"),
       pendingFile = path.join(directory, "history.pending.jsonl");
+    // 新しい業務更新より先に、前回の物理出版だけを完了する。
+    if (mode === "resume_decision" && readHistoryFile(pendingFile) === null)
+      return {
+        status: "completed" as const,
+        reason: "coordinator_history_no_pending",
+      };
     const assertOwner = () => {
       const fresh = observeRepositoryRuntimeDataArea(
         root.capability,
@@ -194,16 +219,38 @@ export function updateCoordinatorHistoryOwned(
         additions.push(line);
       }
     }
+    // 未搬送の判断履歴はStateの元記録から再構成する。別のpending集合は持たない。
+    for (const decision of state.value.snapshot.decisions) {
+      const events = projectDecisionHistory(decision);
+      if (!events) return blocked;
+      for (const event of events) {
+        if (Date.parse(event.occurredAt) > now) return blocked;
+        const line = decisionHistoryLine(event);
+        const id = `decision-history.${event.eventId}`;
+        const same = known.get(id);
+        if (same && !line.equals(same)) return blocked;
+        if (!same) {
+          known.set(id, line);
+          additions.push(line);
+        }
+      }
+    }
     const joined = additions.length
       ? Buffer.concat([before, ...additions])
       : before;
-    const after = prepareCoordinatorHistoryRetention(
-      stateBytes,
-      joined,
-      new Date(now).toISOString(),
-      policy.config.historyRetentionDays,
-      owner.repositoryBinding,
-    );
+    // 判断の出版と期限整理を分離し、再入場の候補を時刻経過だけで変形しない。
+    const after =
+      mode === "update"
+        ? prepareCoordinatorHistoryRetention(
+            stateBytes,
+            joined,
+            new Date(now).toISOString(),
+            policy.config.historyRetentionDays,
+            owner.repositoryBinding,
+          )
+        : decodeCoordinatorHistoryRows(joined)
+          ? joined
+          : null;
     if (!after) return blocked;
     const pending = readHistoryFile(pendingFile);
     if (pending && !pending.equals(after)) return blocked;
@@ -349,6 +396,110 @@ export function inspectCoordinatorHistorySettlement(
       final.boundaryIdentity === area.boundaryIdentity &&
       isLiveCoordinatorStorageOwner(owner)
       ? "recorded"
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 判断の全出来事が同じ本文で履歴へ確定したことを確認する。
+ * @responsibility pending・不在・破損・同ID別本文を退役可能へ畳まない。
+ * @trace ARCH-000004、ARCH-000008
+ * @input owner: 保持中の保存Owner、decision: 退役予定のexact記録。
+ * @returns 全行確定の場合recorded、それ以外null。
+ * @precondition 判断の終端・現在参照は別の純粋候補で検査する。
+ * @postcondition 同じIDだけでなく同じ本文を全出来事で確認する。
+ * @effect 固定Rootと履歴の読取りのみ。
+ * @failure 観測不能・pending・一部欠測・本文不一致はnull。
+ * @invariant 期限だけで確定や退役を認めない。
+ * @boundary Stateの判断記録と長期履歴の実保存。
+ * @security 履歴を現在の操作認可として使わない。
+ * @concurrency 同じ短期Ownerを借用し、取得・解放しない。
+ */
+export function inspectDecisionHistorySettlement(
+  owner: CoordinatorStorageOwner,
+  decision: Decision,
+): "recorded" | null {
+  const observed = readDecisionHistoryOwned(owner, {
+    decisionId: decision.decisionId,
+  });
+  const expected = projectDecisionHistory(decision);
+  return observed &&
+    expected?.every((event) =>
+      observed.some(
+        (record) =>
+          encodeRuntimeStateValue(event) === encodeRuntimeStateValue(record),
+      ),
+    )
+    ? "recorded"
+    : null;
+}
+
+/**
+ * 保持中の判断履歴を読取り、真正な欠測と観測不能を区別する。
+ * @responsibility 同じIDの再発行拒否と退役確認へ、検査済みの出来事だけを返す。
+ * @trace ARCH-000004、ARCH-000008
+ * @input owner: 同Rootの保持Owner、identity: 非Authorityな提案又はBlockerの識別子。
+ * @returns 検査済みイベント配列（空は真正欠測）、観測不能はnull。
+ * @precondition 認可・公開範囲は呼出し側が確認する。
+ * @postcondition pendingや破損を空配列へ丸めない。
+ * @effect 固定履歴とRoot境界の読取りのみ。
+ * @failure 不正ID・Root差・不正行・pending・I/O不明はnull。
+ * @invariant 履歴から現在の操作Authorityを発行しない。
+ * @boundary 長期履歴と現在の要求・退役判定。
+ * @security Pathを受けず、外部へ保存所在を返さない。
+ * @concurrency 同じ短期Ownerを借用する。
+ */
+export function readDecisionHistoryOwned(
+  owner: CoordinatorStorageOwner,
+  identity: Readonly<{ decisionId: string }> | Readonly<{ blockerId: string }>,
+): readonly DecisionHistoryEvent[] | null {
+  const key = "decisionId" in identity ? "decisionId" : "blockerId";
+  const id =
+    "decisionId" in identity ? identity.decisionId : identity.blockerId;
+  if (
+    !isLiveCoordinatorStorageOwner(owner) ||
+    typeof id !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(id)
+  )
+    return null;
+  try {
+    const root = getRepository(owner.repositoryRoot);
+    if (root.status !== "completed") return null;
+    const area = observeRepositoryRuntimeDataArea(
+      root.capability,
+      "domain-model",
+    );
+    if (
+      area.status !== "ready" ||
+      readHistoryFile(path.join(area.directory, "history.pending.jsonl")) !==
+        null
+    )
+      return null;
+    const rows = decodeCoordinatorHistoryRows(
+      readHistoryFile(path.join(area.directory, "history.jsonl")) ??
+        Buffer.alloc(0),
+    );
+    if (!rows) return null;
+    const events: DecisionHistoryEvent[] = [];
+    for (const row of rows) {
+      if (!row.recoveryId.startsWith("decision-history.")) continue;
+      const event = inspectDecisionHistoryEvent(
+        JSON.parse(row.line).summary.record,
+      );
+      if (!event || row.recoveryId !== `decision-history.${event.eventId}`)
+        return null;
+      if (event[key] === id) events.push(event);
+    }
+    const final = observeRepositoryRuntimeDataArea(
+      root.capability,
+      "domain-model",
+    );
+    return final.status === "ready" &&
+      final.boundaryIdentity === area.boundaryIdentity &&
+      isLiveCoordinatorStorageOwner(owner)
+      ? events
       : null;
   } catch {
     return null;

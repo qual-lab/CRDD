@@ -1,5 +1,9 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## 検証報告の専用化 — 2026-11-12
+
+既存RDL-UT-005／RDL-IT-001のうち、報告本文・sidecar・中断intentのbyte／Hash／実体照合、部分保存・観測不能・削除対象外保全をExecutorのreport UT／ITへ接続する。共通Lock・本番State・判断保存の保証はDomainの既存試験が所有し、報告保存の成功で代用しない。旧Domain committed-jsonの本番公開と専用試験Pathは退役する。容量制限付きReaderはState・設定・AM・CLIの現役Consumerに必要な一実装を維持し、用途別コピーを増やさない。
+
 ## Runtime Domain共通保存の追加シナリオ — 2026-10-27
 
 [単一保存契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)と[検証への引渡し](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を既存RDL項目へ接続する。新Local Item・総数変更は行わず、すべてNot Run。

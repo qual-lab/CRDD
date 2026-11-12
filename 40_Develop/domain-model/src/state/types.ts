@@ -10,10 +10,7 @@
 import type { Repository } from "../../../version-control/src/index.ts";
 import type { TaskExecutionSelections } from "../ai-selection/types.ts";
 import type { CoordinatorStateOperation } from "../attempt/types.ts";
-import type {
-  CoordinatorAcceptanceDecisionEnvelope,
-  CoordinatorDecisionRecoveryIntent,
-} from "../decision/types.ts";
+import type { Blocker, Decision } from "../decision/types.ts";
 import type {
   ProjectMilestoneRecord,
   ProjectObjectiveRecord,
@@ -61,7 +58,7 @@ export type CoordinatorUnifiedSnapshot = Omit<
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-domain/runtime-state/v2";
+    schema: "crdd-domain/runtime-state/v3";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
     projects: readonly RuntimeProjectDefinition[];
@@ -204,12 +201,9 @@ export type CoordinatorSnapshot = Readonly<{
 }> &
   Readonly<{
     schema: typeof COORDINATOR_PROJECT_SNAPSHOT_SCHEMA;
-    schemaRevision: 5;
-    acceptanceDecisions: readonly CoordinatorAcceptanceDecisionEnvelope[];
-    decisionRecoveries: readonly Readonly<{
-      generation: number;
-      value: CoordinatorDecisionRecoveryIntent;
-    }>[];
+    schemaRevision: 6;
+    decisions: readonly Decision[];
+    blockers: readonly Blocker[];
   }>;
 
 /** Repository共有状態を構成する各保存領域のSnapshot。 */
@@ -422,7 +416,7 @@ export type RuntimeManagedExecution = Pick<
  * @invariant 新しいState File・Registry・二重Writerを持たない。
  * @boundary 新Schemaの値モデル。保存先有効化は別の条件。
  * @security codec成立から認可・出版・資源不存在を推定しない。
- * @compatibility crdd-domain/runtime-state/v2のみを表す。
+ * @compatibility crdd-domain/runtime-state/v3のみを表す。
  */
 export type RuntimeDomainSnapshot = CoordinatorUnifiedSnapshot;
 

@@ -1,5 +1,5 @@
 /**
- * 現在状態へ結合する終了履歴の値検査と保持候補を所有する。
+ * 現在状態へ結合する実行・判断履歴の値検査と保持候補を所有する。
  * @packageDocumentation
  * @responsibility 全行検査と期間整理を物理保存・現在Ownerの確認から分離する。
  * @trace ARCH-000004、ARCH-000008
@@ -7,26 +7,30 @@
  */
 import { createHash } from "node:crypto";
 import {
-  RUNTIME_STATE_MAXIMUM_BYTES,
+  isDockerRestartCheckpointSettled,
+  parseDockerTaskRecoveryId,
+  validCoordinatorOutcome,
+  validCoordinatorPrimaryFailure,
+  validCoordinatorRepairSummary,
+} from "../attempt/validation.ts";
+import {
+  inspectDecisionHistoryEvent,
+  projectDecisionHistory,
+} from "../decision/operations.ts";
+import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
+import {
   encodeRuntimeStateValue,
+  RUNTIME_STATE_MAXIMUM_BYTES,
 } from "./codec.ts";
 import {
-  hasRuntimeStateRecordKeys,
-  isSha256Hex,
-  historyRow,
   decodeRuntimeDomainSnapshot,
+  hasRuntimeStateRecordKeys,
+  historyRow,
+  isSha256Hex,
 } from "./validation.ts";
-import {
-  validCoordinatorRepairSummary,
-  isDockerRestartCheckpointSettled,
-  validCoordinatorPrimaryFailure,
-  validCoordinatorOutcome,
-  parseDockerTaskRecoveryId,
-} from "../attempt/validation.ts";
-import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
 
 /**
- * 終了履歴を全行検査し、exact行の相関だけを返す。
+ * 実行・判断履歴を全行検査し、exact行の相関だけを返す。
  * @responsibility 破損、部分行、重複、未知値を期間整理へ渡さない。
  * @trace ARCH-000008
  * @input bytes: 固定履歴Fileから安定読取りしたUTF-8本文。
@@ -37,7 +41,7 @@ import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
  * @failure 容量超過、不正UTF-8、部分行、未知Schema、重複はnull。
  * @invariant 容量・破損を行削除で解消せず、履歴をAuthorityへ昇格しない。
  * @boundary 終了履歴の値契約と物理Writer。
- * @security 自由本文、秘密値、任意Pathを許可しない。
+ * @security 未検査fieldや任意Pathを許可せず、判断本文を現在のAuthorityへ昇格しない。
  * @concurrency 元Fileと元状態の再照合は物理Ownerが行う。
  */
 export function decodeCoordinatorHistoryRows(bytes: unknown) {
@@ -55,6 +59,35 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
       .map((line) => {
         const row = JSON.parse(line);
         const summary = row?.summary;
+        if (summary?.schema === "crdd-coordinator/decision-event/v1") {
+          const event = inspectDecisionHistoryEvent(summary.record);
+          if (
+            !event ||
+            !hasRuntimeStateRecordKeys(row, [
+              "schema",
+              "occurredAt",
+              "summary",
+            ]) ||
+            row.schema !== "crdd-coordinator/history-row/v2" ||
+            !hasRuntimeStateRecordKeys(summary, ["schema", "record"]) ||
+            row.occurredAt !== event.occurredAt ||
+            `${encodeRuntimeStateValue(row)}\n` !== `${line}\n`
+          )
+            throw new Error("decision_history_row_invalid");
+          const recoveryId = `decision-history.${event.eventId}`;
+          if (seen.has(recoveryId))
+            throw new Error("decision_history_identity_duplicate");
+          seen.add(recoveryId);
+          return Object.freeze({
+            line: `${line}\n`,
+            occurredAt: event.occurredAt,
+            recoveryId,
+            lineSha256: createHash("sha256").update(`${line}\n`).digest("hex"),
+            summarySha256: createHash("sha256")
+              .update(`${encodeRuntimeStateValue(summary)}\n`)
+              .digest("hex"),
+          });
+        }
         if (summary?.schema === "crdd-coordinator/task-summary/v1") {
           if (
             !hasRuntimeStateRecordKeys(row, [
@@ -259,6 +292,12 @@ export function prepareCoordinatorHistoryRetention(
   if (!Number.isSafeInteger(cutoff)) return null;
   const byRecovery = new Map(rows.map((row) => [row.recoveryId, row]));
   const protectedRecoveries = new Set<string>();
+  for (const decision of current.snapshot.decisions) {
+    const events = projectDecisionHistory(decision);
+    if (!events) return null;
+    for (const event of events)
+      protectedRecoveries.add(`decision-history.${event.eventId}`);
+  }
   for (const row of current.snapshot.historyPending)
     protectedRecoveries.add(`task-history.${row.id}`);
   for (const delivery of current.snapshot.pendingDeliveries)
@@ -299,15 +338,15 @@ export function prepareCoordinatorHistoryRetention(
   );
 }
 
-import type { CoordinatorSnapshot, HistoryRow } from "./types.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "./validation.ts";
 import {
-  coordinatorQueueIsClosed,
+  type CoordinatorSnapshotObservations,
   coordinatorAdoptionWasRejected,
+  coordinatorQueueIsClosed,
   coordinatorRejectedAdoptionEvidenceCanRetire,
   coordinatorStandaloneAdoptionIsClosed,
-  type CoordinatorSnapshotObservations,
 } from "./transition.ts";
+import type { CoordinatorSnapshot, HistoryRow } from "./types.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "./validation.ts";
 
 /**
  * 終了要約のpending候補を生成する。
@@ -511,9 +550,6 @@ export function prepareCoordinatorTerminalRecordRetirement(
                 )
               ),
           ),
-          decisionRecoveries: current.decisionRecoveries.filter(
-            (item) => !retired.has(item.value.queueId),
-          ),
           results: current.results.filter(
             (item) =>
               (!current.queueEntries.some(
@@ -537,21 +573,6 @@ export function prepareCoordinatorTerminalRecordRetirement(
                 (queue) =>
                   !retired.has(queue.queueId) &&
                   queue.resultReference === item.identity,
-              ),
-          ),
-          acceptanceDecisions: current.acceptanceDecisions.filter(
-            (item) =>
-              !current.queueEntries.some(
-                (queue) =>
-                  retired.has(queue.queueId) &&
-                  queue.projectId === item.record.projectId &&
-                  queue.milestoneId === item.record.milestoneId,
-              ) ||
-              current.queueEntries.some(
-                (queue) =>
-                  !retired.has(queue.queueId) &&
-                  queue.projectId === item.record.projectId &&
-                  queue.milestoneId === item.record.milestoneId,
               ),
           ),
           historyPending: current.historyPending.filter(

@@ -6,7 +6,6 @@
 
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
@@ -25,7 +24,6 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     startTask: startRuntimeOwnedCoordinatorTask,
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
-    openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
   });
 
 /**
@@ -114,7 +112,6 @@ export function createDevelopmentCoordinatorPublicObjectiveCandidate(
       authenticationContext?: Readonly<{ principalId: string }>,
     ) =>
       executeCoordinatorPublicDecision(
-        fixed.openDecisionStore,
         rawRequest,
         workingDirectory,
         authenticationContext,
@@ -125,7 +122,6 @@ export function createDevelopmentCoordinatorPublicObjectiveCandidate(
       authenticationContext?: Readonly<{ principalId: string }>,
     ) =>
       executeCoordinatorPublicStateQuery(
-        fixed.openDecisionStore,
         rawRequest,
         workingDirectory,
         authenticationContext,

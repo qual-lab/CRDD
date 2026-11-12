@@ -203,7 +203,7 @@ Related:
 
 `state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。Coordinator固有署名方式の撤去に伴い、署名専用の`tmp/signature/`プロファイルをSourceから除去した。通常の一時操作v3は維持する。旧入力拒否・通常保存・再入場を含むDomain全122件と限定独立確認を通過した。初回の競合試験1件Timeoutは原因未確定として変更計画に保持し、再実行成功で初回記録を置換しない。Docker現在状態の切替は別に処置する。
 
-状態のSchema・物理保存は[Runtime Domain](05_Runtime_Domain.md)、Taskの進行・履歴条件は[Coordinator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
+状態のSchema・物理保存は[Runtime Domain](05_Runtime_Domain.md)、Taskの進行・履歴条件は[Coordinator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。判断は承認済みの統合方針に従い、非秘密の要求・回答・適用事実をRepository-local Stateへ保存する。秘密・署名鍵・Provider Homeを同じJSONへ統合する許可ではない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
 
 ## 3. 各領域の意味
 
@@ -548,15 +548,11 @@ CRDDのCoordinatorが`readExecutionIntelligenceConfig`又は`readCoordinatorConf
 
 OPEN: 各Ownerの保持上限値・自動循環・旧形式の清掃は未完了。CHG-000082の後続段階で具体化し、実装・実切替・独立確認の結果が揃うまで、設計記載だけを実装済みとしない。
 
-## 共通JSONの確定保存
+## 検証報告と容量制限付き読取りのOwner
 
-同意Storeと保護判断Storeが実利用するJSON本文と確定sidecarの保存は、`storage/committed-json.ts`が所有する。公開操作は`getJsonCommitName`、`writeCommittedJson`、`readCommittedJson`、`removeCommittedJson`の4つに限定する。Task、Docker回復ID、認可、旧回復Directoryの探索・移動は所有しない。
+汎用JSON確定StoreはDomainの責務から撤去する。旧sidecar方式の現役利用はExecutorの検証報告だけであるため、実装をExecutorの `scripts/report.ts` へ専用化する。報告本文・確定sidecar・中断時intentの同一性、byte・Hash照合、部分保存・観測不能時の停止を維持し、本番判断Stateの保存や旧Host記録の互換読取りには使用しない。形式とsuffixは既存検証報告の契約として維持する。
 
-既存の形式、suffix、Schema、Hash・Identity・byte照合、失敗分類を維持する。呼出し側はOwner Rootと対象名を検証し、必要な排他と業務Schema・認可を所有する。保存途中の不完全な組は成功へ丸めず、削除は同じIdentityの本文・確定記録・削除intentだけを対象にする。新しいAuthorityやLock Frameworkは作らない。
-
-Symlink、同じPathの実体差替え、観測不能は拒否する。ただし別名Hardlinkの全探索・拒否・消去や秘密値の完全消去は保証しない。確認範囲は通常の保存・読戻しと同じ組の照合であり、電源断耐久性やDocker回復全体の完成を意味しない。
-
-検証は削除4状態、正常・不正な確定組、実子Processのfsync／rename境界での中断、不存在と観測不能の区別、別名と対象外Fileの保全を含む。旧Evidenceを移管後の実測根拠として再利用しない。
+容量制限付きReaderはState・設定・AM・CLIの現役Consumerが共有する具体的なNode処理として維持する。容量上限、正規UTF-8、Link・実体差替え、descriptor終了の保証は各公開操作の境界に応じて用いる。汎用永続Storeや新しいFacadeへ拡張せず、用途別コピーも増やさない。
 
 ## Checklist
 

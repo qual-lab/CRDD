@@ -10,20 +10,20 @@
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。 / PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 
 import {
   describeMcpCoordinatorAdapterContract,
-  inspectMcpCoordinatorObjectiveResult,
   handleMcpCoordinatorRequest,
+  inspectMcpCoordinatorObjectiveResult,
   MCP_COORDINATOR_DECISION_TOOL,
   MCP_COORDINATOR_OBJECTIVE_TOOL,
-  MCP_COORDINATOR_STATE_TOOL,
   MCP_COORDINATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_STATE_TOOL,
   type McpCoordinatorDependencies,
 } from "../../src/index.ts";
 import { protocolError } from "../../src/request/validation.ts";
@@ -440,13 +440,67 @@ test("MCP envelope and authentication reject accessors and proxies without invok
  */
 function decision() {
   return {
+    operation: "answer",
     decisionId: "decision-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
     generation: 4,
     repositoryRevision: revision,
     selectedOption: "resume",
-    continuationCapability: "opaque-public-capability",
+  };
+}
+
+/** 検査対象と同じ新判断値を返し、旧結果の互換変換は行わない。 */
+function decisionOutcome(input: ReturnType<typeof decision>) {
+  const time = "2026-11-12T00:00:00.000Z";
+  return {
+    contract: "crdd-coordinator/orchestrator-human-decision/v2",
+    status: "completed",
+    reason: "decision_applied",
+    decisionId: input.decisionId,
+    recoveryId: null,
+    decision: {
+      decisionId: input.decisionId,
+      blockerId: "blocker-a",
+      kind: "continuation",
+      queueId: "queue-a",
+      respondentPrincipalId: "principal-a",
+      target: {
+        projectId: input.projectId,
+        milestoneId: input.milestoneId,
+        kind: "milestone",
+        id: input.milestoneId,
+        generation: input.generation,
+        repositoryRevision: input.repositoryRevision,
+      },
+      question: "継続しますか",
+      options: [{ value: "resume", label: "継続" }],
+      requestedAt: time,
+      status: "applied",
+      result: {
+        status: "applied",
+        answer: {
+          principalId: "principal-a",
+          answeredAt: time,
+          selectedOption: "resume",
+          reason: null,
+          evidenceIds: [],
+        },
+        application: {
+          applicationId: input.decisionId,
+          appliedAt: time,
+          beforeGeneration: 4,
+          afterGeneration: 5,
+          previousState: "executing",
+          nextState: "executing",
+          blockerResolved: true,
+        },
+      },
+    },
+    history: { status: "confirmed" },
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "settled",
   };
 }
 /**
@@ -481,17 +535,8 @@ function dependencies(
       recoveryIds: [],
       recoveryObligations: [],
     }),
-    submitDecision: async (input) => ({
-      contract: "crdd-coordinator/orchestrator-human-decision/v1",
-      status: "completed",
-      reason: "decision_complete",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      effectState: "settled",
-      decisionId: input.decisionId,
-      applicationId: "application-a",
-      generation: 5,
-    }),
+    submitDecision: async (input) =>
+      decisionOutcome({ ...decision(), ...input }),
     getProjectState: async (input) => ({
       contract: "crdd-coordinator/orchestrator-state-query/v1",
       status: "completed",
@@ -872,19 +917,12 @@ test("MCP Decision uses a separate entry and never forwards comment to Objective
       },
       submitDecision: async (input, authentication) => {
         calls += 1;
-        assert.equal(input.selectedOption, "resume");
+        assert.equal(
+          input.operation === "answer" && input.selectedOption,
+          "resume",
+        );
         assert.deepEqual(authentication, { principalId: "principal-a" });
-        return {
-          contract: "crdd-coordinator/orchestrator-human-decision/v1",
-          status: "completed",
-          reason: "decision_applied",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          effectState: "settled",
-          decisionId: input.decisionId,
-          applicationId: "application-a",
-          generation: 5,
-        };
+        return decisionOutcome({ ...decision(), ...input });
       },
     }),
   );

@@ -17,43 +17,36 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import type {
-  CoordinatorAcceptanceDecisionRecord,
-  CoordinatorDecisionRecoveryIntent,
-} from "../../../domain-model/src/index.ts";
+import type {} from "../../../domain-model/src/index.ts";
 import {
   type CoordinatorState,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  hashRuntimeStateValueText,
   initializeCoordinatorSnapshot,
   normalizeCoordinatorTaskProjects,
   projectCoordinatorTaskSnapshot,
   queryRuntimeState,
   readCoordinatorExecutionState,
-  requireReadyRepositoryRuntimeDataArea,
-  savePlan,
-  saveCoordinatorManagedProject,
-  saveCoordinatorIntegrationRecord,
-  hashRuntimeStateValueText,
   readCoordinatorLeaseOwnerLoss,
+  requireReadyRepositoryRuntimeDataArea,
   reserveCoordinatorLeaseRecovery,
+  saveCoordinatorIntegrationRecord,
+  saveCoordinatorManagedProject,
+  savePlan,
   settleCoordinatorLeaseRecovery,
 } from "../../../domain-model/src/index.ts";
 import {
+  getRepository,
   readRepositoryStorageIdentity,
   resolveVerifiedRepositoryRoot,
-  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
-  createCoordinatorSnapshotAcceptanceDecisionStore,
-  createCoordinatorSnapshotDecisionRecoveryStore,
-} from "../../src/decision/lifecycle.ts";
-import {
   acquireCoordinatorSnapshotLease,
+  borrowCoordinatorActiveLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
   reconcileCoordinatorSnapshotLeaseOwnerLoss,
-  borrowCoordinatorActiveLease,
 } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
@@ -71,6 +64,7 @@ import {
 import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
 import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 // 保存の生Writer反例はDomainの保存試験が所有する。
 
 /**
@@ -240,7 +234,7 @@ for (const fault of ["unobservable", "alias"] as const) {
     if (acquired.status !== "completed")
       throw new Error("fixture_lease_failed");
     const beforeSnapshot = readFixtureSnapshot(root, "binding-a").value;
-    assert.ok(beforeSnapshot?.schemaRevision === 5);
+    assert.ok(beforeSnapshot?.schemaRevision === 6);
     const recoveryId = beforeSnapshot.leaseIntents[0]?.recoveryId;
     assert.ok(recoveryId);
     const temporary = path.join(root, ".crdd", "tmp");
@@ -772,8 +766,8 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
     const rootHash = fixtureRepositoryHash(root);
     assert.equal(
       seedSnapshot(root, {
-        schema: "crdd-coordinator/project-snapshot/v5",
-        schemaRevision: 5,
+        schema: "crdd-coordinator/project-snapshot/v6",
+        schemaRevision: 6,
         workspaces: [],
         repositoryRootHash: rootHash,
         repositoryBindingId: "binding-a",
@@ -805,8 +799,8 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         leaseEvidence: [],
         results: [],
         historyPending: [],
-        acceptanceDecisions: [],
-        decisionRecoveries: [],
+        decisions: [],
+        blockers: [],
       }).status,
       "completed",
     );
@@ -1097,8 +1091,8 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
     const { root, state } = fixture(t);
     const rootHash = fixtureRepositoryHash(root);
     const payload = {
-      schema: "crdd-coordinator/project-snapshot/v5",
-      schemaRevision: 5,
+      schema: "crdd-coordinator/project-snapshot/v6",
+      schemaRevision: 6,
       workspaces: [],
       repositoryRootHash: rootHash,
       repositoryBindingId: "binding-a",
@@ -1127,8 +1121,8 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
       leaseIntents: [],
       results: [],
       historyPending: [],
-      acceptanceDecisions: [],
-      decisionRecoveries: [],
+      decisions: [],
+      blockers: [],
     };
     assert.equal(seedSnapshot(root, payload).status, "completed");
     const directory = path.join(root, ".crdd", "domain-model");
@@ -1338,17 +1332,17 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
 });
 
 /**
- * 判断記録と判断回復の統合保存を確認する。
- * @responsibility 一回限り作成、完全一致比較交換と世代連鎖を検証する。
+ * 統合・採用の結果記録とLease終了の一体保存を確認する。
+ * @responsibility 結果の同一再送、異内容拒否とLease解放後のQueue整合を検証する。
  * @trace PRL-IT-005
- * @precondition 自己所有Repositoryのv2保存を使う。
- * @stimulus 作成・再送・異内容・確定・回復更新・破損世代を与える。
+ * @precondition 自己所有Repositoryの現行State保存を使う。
+ * @stimulus 結果作成・再送・異内容・Lease取得／解放・Queue終了を与える。
  * @observation 保存内容と再構築したPortの返却値を照合する。
- * @oracle 競合時はbytesを変えず、二世代単独・未知欄を拒否する。
+ * @oracle 結果競合時はbytesを変えず、Lease解放前のQueue終了解決を拒否する。
  * @cleanup 自己所有fixtureを回収する。
- * @boundary PRL-IT-005=Direct Boundary: 判断Store Port→統合保存。
+ * @boundary PRL-IT-005=Direct Boundary: 結果記録・Lease→統合保存。
  */
-test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存する", {
+test("Host Windows: 統合結果記録とLease終了を同じStateへ保存する", {
   skip: process.platform !== "win32",
 }, (t) => {
   const { root, state } = fixture(t);
@@ -1369,8 +1363,8 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
     resultReference: null,
   };
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v5",
-    schemaRevision: 5,
+    schema: "crdd-coordinator/project-snapshot/v6",
+    schemaRevision: 6,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -1383,117 +1377,11 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
-  const store = createCoordinatorSnapshotAcceptanceDecisionStore(
-    root,
-    "binding-a",
-  );
-  const decision: CoordinatorAcceptanceDecisionRecord = {
-    recordId: "decision-a",
-    decisionId: "authority-a",
-    sourceSpecId: "SPEC-000002",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    repositoryRevision: "a".repeat(40),
-    expectedGeneration: 1,
-    target: "objective",
-    targetId: "objective-a",
-    decision: "accept",
-    criterionEvidenceIds: ["evidence-a"],
-    principalId: "principal-a",
-    disposition: "prepared",
-    newGeneration: null,
-  };
-  assert.equal(store.read("missing").value, null);
-  assert.equal(store.create(decision).status, "completed");
   const file = path.join(root, ".crdd", "domain-model", "state.json");
-  const before = fs.readFileSync(file, "utf8");
-  assert.equal(store.create(decision).status, "blocked");
-  const finalized = {
-    ...decision,
-    disposition: "finalized" as const,
-    newGeneration: 2,
-  };
-  assert.equal(
-    store.compareAndSet({ ...decision, principalId: "different" }, finalized)
-      .status,
-    "blocked",
-  );
-  assert.equal(fs.readFileSync(file, "utf8"), before);
-  assert.equal(store.compareAndSet(decision, finalized).status, "completed");
-  assert.equal(store.compareAndSet(decision, finalized).status, "blocked");
-  assert.deepEqual(
-    createCoordinatorSnapshotAcceptanceDecisionStore(root, "binding-a").read(
-      decision.recordId,
-    ).value,
-    finalized,
-  );
-  const recovery: CoordinatorDecisionRecoveryIntent = {
-    recoveryId: "recovery-a",
-    recordId: "decision-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    queueId: "queue-a",
-    applicationId: "application-a",
-    expectedGeneration: 1,
-    newGeneration: 2,
-    observedDisposition: "prepared",
-    unknownBoundary: "project_readback",
-    disposition: "required",
-  };
-  const recoveryStore = createCoordinatorSnapshotDecisionRecoveryStore(
-    root,
-    "binding-a",
-  );
-  const created = recoveryStore.create(recovery) as { status: string };
-  assert.equal(created.status, "completed");
-  assert.equal(
-    (recoveryStore.create(recovery) as { status: string }).status,
-    "blocked",
-  );
-  const settled = { ...recovery, disposition: "settled" as const };
-  assert.equal(
-    (
-      recoveryStore.compareAndSet(
-        { ...recovery, unknownBoundary: "other" },
-        settled,
-      ) as { status: string }
-    ).status,
-    "blocked",
-  );
-  assert.equal(
-    (recoveryStore.compareAndSet(recovery, settled) as { status: string })
-      .status,
-    "completed",
-  );
-  assert.deepEqual(
-    (
-      createCoordinatorSnapshotDecisionRecoveryStore(root, "binding-a").read(
-        "recovery-a",
-      ) as { value: unknown }
-    ).value,
-    settled,
-  );
-  const observed = readFixtureSnapshot(root, "binding-a");
-  assert.equal(observed.status, "completed");
-  if (
-    observed.status !== "completed" ||
-    !observed.value ||
-    observed.value.schemaRevision !== 5
-  )
-    throw new Error("snapshot_fixture_failed");
-  assert.equal(observed.value.decisionRecoveries[0]?.generation, 2);
-  assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "domain-model", "state")),
-    false,
-  );
-  assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "domain-model", "recovery")),
-    false,
-  );
   const results = createCoordinatorSnapshotIntegrationRecordPort({
     workingDirectory: root,
     repositoryBindingId: "binding-a",
@@ -1850,8 +1738,8 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
   const { root, state } = fixture(t);
   const repositoryRootHash = fixtureRepositoryHash(root);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v5",
-    schemaRevision: 5,
+    schema: "crdd-coordinator/project-snapshot/v6",
+    schemaRevision: 6,
     workspaces: [],
     repositoryRootHash,
     repositoryBindingId: "binding-a",
@@ -1864,8 +1752,8 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
   const ports = createCoordinatorSnapshotPersistencePorts(
@@ -2060,7 +1948,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const observed = readFixtureSnapshot(root, "binding-a");
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
-    if (observed.value.schema !== "crdd-coordinator/project-snapshot/v5")
+    if (observed.value.schema !== "crdd-coordinator/project-snapshot/v6")
       throw new Error("fixture_schema_invalid");
     const rootHash = observed.value.repositoryRootHash;
     const resultValue = {
@@ -4846,10 +4734,9 @@ test("長期Lease File観測はopened実体を先に検査し固定上限で読�
         if (!injected && mode === "grow-at-read") {
           injected = true;
           const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
-          fs.appendFileSync(
-            path.join(locks, fs.readdirSync(locks)[0]!),
-            "x".repeat(4096),
-          );
+          const lockName = fs.readdirSync(locks)[0];
+          assert.ok(lockName);
+          fs.appendFileSync(path.join(locks, lockName), "x".repeat(4096));
         }
       }
       return Reflect.apply(read, fs, args);

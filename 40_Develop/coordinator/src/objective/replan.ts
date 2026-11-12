@@ -12,7 +12,6 @@ import {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
 } from "../task/lifecycle.ts";
-import { requestCoordinatorHumanDecision } from "../decision/transition.ts";
 import type {
   CoordinatorReplanDecision,
   CoordinatorReplanInput,
@@ -294,6 +293,9 @@ export function resolveCoordinatorReplan(
     decision = null;
   }
   if (!decision) return blocked("orchestrator_replan_decision_invalid");
+  // 分類は判断の発行ではない。認証済みrequest操作がBlockerとQueueを一度に保存する。
+  if (decision.disposition === "human_decision")
+    return blocked("orchestrator_human_decision_required");
   const transition =
     decision.disposition === "maintain_plan"
       ? retryCoordinatorTask(
@@ -302,27 +304,18 @@ export function resolveCoordinatorReplan(
           failedTaskIds[0] ?? "",
           input.maximumReplans,
         )
-      : decision.disposition === "partial_replan"
-        ? applyCoordinatorPartialReplan(state, state.generation, {
-            failedTaskId: decision.failedTaskId,
-            replacements: decision.replacements,
-            maximumReplans: input.maximumReplans,
-          })
-        : requestCoordinatorHumanDecision(
-            state,
-            state.generation,
-            decision.objectiveId,
-          );
+      : applyCoordinatorPartialReplan(state, state.generation, {
+          failedTaskId: decision.failedTaskId,
+          replacements: decision.replacements,
+          maximumReplans: input.maximumReplans,
+        });
   if (transition.status !== "completed" || !transition.state)
     return blocked(transition.reason);
   const written = statePort.writeState(transition.state, state.generation);
   if (written.status !== "completed") return blocked(written.reason, true);
   state = written.value;
   const queueUpdate = statePort.updateQueue(input.queueId, queue.generation, {
-    state:
-      decision.disposition === "human_decision"
-        ? "human_decision_required"
-        : "queued",
+    state: "queued",
     lease: null,
     resumeCondition:
       decision.disposition === "maintain_plan"
@@ -333,18 +326,13 @@ export function resolveCoordinatorReplan(
     resultReference:
       decision.disposition === "maintain_plan"
         ? (failedTaskIds[0] ?? null)
-        : decision.disposition === "partial_replan"
-          ? decision.failedTaskId
-          : decision.objectiveId,
+        : decision.failedTaskId,
   });
   if (queueUpdate.status !== "completed")
     return blocked(queueUpdate.reason, true);
   return Object.freeze({
     contract: COORDINATOR_REPLANNING_CONTRACT,
-    status:
-      decision.disposition === "human_decision"
-        ? ("blocked" as const)
-        : ("completed" as const),
+    status: "completed" as const,
     reason:
       decision.disposition === "maintain_plan"
         ? "orchestrator_same_plan_retry_ready"

@@ -25,13 +25,13 @@ import test, { type TestContext } from "node:test";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
-  initializeCoordinatorSnapshot,
-  saveCoordinatorManagedProject,
-  readRuntimeOwnedCoordinatorRecoverySnapshot,
-  projectCoordinatorTaskSnapshot,
-  saveCoordinatorWorkspaceRecord,
   type CoordinatorWorkspace,
   encodeRuntimeStateValue,
+  initializeCoordinatorSnapshot,
+  projectCoordinatorTaskSnapshot,
+  readRuntimeOwnedCoordinatorRecoverySnapshot,
+  saveCoordinatorManagedProject,
+  saveCoordinatorWorkspaceRecord,
 } from "../../../domain-model/src/index.ts";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
@@ -377,6 +377,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
         const input = {
           contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
           decisionId: "quality-objective",
+          blockerId: "blocker-quality-objective",
           sourceSpecId: "SPEC-000002",
           projectId: "project-a",
           milestoneId: "milestone-a",
@@ -548,7 +549,6 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
       const accepted = await decide(isolated);
       assert.equal(accepted.status, "completed", JSON.stringify(accepted));
       const query = executeCoordinatorPublicStateQuery(
-        () => ({ status: "completed" }) as never,
         {
           requestId: "query-after-adoption",
           projectId: "project-a",

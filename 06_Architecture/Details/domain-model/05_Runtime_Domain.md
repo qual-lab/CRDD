@@ -141,8 +141,8 @@ Contextは認証済み主体・同じRootへ結合する。入口と、短期排
 | `updateTask` | `Target & {expected:Expected; taskId:string; expectedDefinitionHash:DefinitionHash; definition:TaskDefinition}` | 同じIDの編集可能な完全定義。参照中・依存不正・基準差を拒否 |
 | `deleteTask` | `Target & {expected:Expected; taskId:string; expectedDefinitionHash:DefinitionHash}` | 削除したID。逆依存、受付、Attempt、受領・判断・Candidate参照があれば拒否 |
 | `queryTasks` | `Target` | 定義・Hashと管理実行の読取り専用投影。技術fieldは編集要求へ含めない |
-| `recordDecision` | `Target & {expected:Expected; decisionId:string; target:{kind:"objective"|"milestone"; id:string; definitionHash:DefinitionHash}; decision:"accept"|"return"|"wait"; criterionEvidenceIds:readonly string[]}` | 既存の判断記録と適用結果。対象・現在認可・根拠相関・受入可能状態を照合し、実行再開をしない。同IDは既存記録と照合し、別内容で再適用しない |
-| `queryDecisions` | `Target` | 認可対象の判断記録。Capability秘密値は返さない |
+| `recordDecision` | `Target & {expected:Expected; decisionId:string; blockerId:string; target:{kind:"objective"|"milestone"; id:string; definitionHash:DefinitionHash}; decision:"accept"|"return"|"wait"; criterionEvidenceIds:readonly string[]}` | 設計候補。既存の判断記録と適用結果。提案とBlockerは1:Nとして同じ問題を明示し、対象・現在認可・根拠相関・受入可能状態を照合する。実行再開をせず、同IDは既存記録と照合し、別内容で再適用しない |
+| `queryDecisions` | `Target` | 認可対象の`{blockers, decisions}`を同一改訂で取得。Capability秘密値は返さない |
 | `queryAttempts` | `Target & {taskId:string}` | Attempt ID、Operation／結果／元回復参照と観測出所。再実行・回復なし |
 | `queryWorkspaces` | `Target` | 論理WorkspaceとCandidate／統合参照。Git実行なし |
 | `enqueueOperation` | `Target & {expected:Expected; requestId:string; definitionHash:DefinitionHash; workspaceId:string|null}` | 同IDの受付記録。既存の受付世代・Hash照合を維持。異なる内容のID再利用を拒否、実行開始なし |
@@ -242,8 +242,8 @@ TaskのallowedPathsはglobal書込み範囲、readPathsはglobal読取り範囲�
 |---|---|---|
 | `task/lifecycle.ts: settleProjectTask` | running・startPhase、Task／Attempt／Operation／authorityBindingの一致、cleanup・回復義務を照合してTaskを終端化する | 技術観測・真正根拠はExecutor、横断調停はCoordinator。根拠ID登録をTask完了の代わりにしない |
 | 同関数のObjective集約 | superseded以外の対象Taskがすべてcompletedならintegration_pendingへ進める。自動acceptはしない | 値の集約規則はDomainへ。元の技術終端条件を緩和しない |
-| `decision/transition.ts: applyCoordinatorAcceptanceDecision` | 対象はTaskではなくObjective／Milestone。accept／return／wait、対象世代・状態、根拠IDを照合する。Milestoneは全Objective受入を要求 | 既存の局所受入・状態遷移をDomain decisionへ移す。新しい手動Task完了遷移なし |
-| `decision/records.ts`と`decision/acceptance.ts` | decisionId・対象・Repository改訂・期待世代・Principal・criterionEvidenceIdsを記録。prepared→状態更新→finalized、同一判断の再入場・別内容の横取り拒否 | 記録型と局所適用はDomain、物理保存は共通Storage。順序と同ID相関を維持し、別の判断台帳を作らない |
+| Domain `decision/crud.ts`・`decision/operations.ts` | 受入対象はObjective／Milestone。accept／return／wait、対象世代・状態、根拠IDを照合する。Milestoneは全Objective受入を要求 | 要求・回答・適用を同じState候補へ導出する。新しい手動Task完了遷移なし |
+| Domain `decision/types.ts`・`decision/crud.ts`とCoordinator判断入口 | 対象・回答先・元世代・質問・選択肢・理由・根拠・適用を一つのStateへ記録し、同一回答の再入場と異内容拒否を保つ | 元本文と対象状態を同じWriterで照合し、独立した判断台帳や二段階記録を作らない |
 | 同公開受入経路と`workspace/operations.ts: workspacePlanReadyForAcceptance` | 現在Principal／Repository相関、integration_pendingのQueueとOwner解放、DirectのHEAD一致又はIsolatedの同計画採用・Merge記録を再観測する | 実行・Queue／Gitの横断条件はCoordinator／VCの既存Owner。純粋受入関数を公開してこの検査を迂回しない |
 
 `criterionEvidenceIds`は既に判断RecordとObjective／Milestoneへ保存される。確認した経路では識別子の形式・重複・必要件数・対象／再入場相関を検査するが、Evidence本文・Fileの実在、根拠が受入基準を満たす内容か、試験品質の成立までは読み取って検証しない。「根拠IDの結合」と「Evidence検証済み」は異なる。この限界を維持し、自動Evidence評価器・本文の複製・新しい根拠Registryは追加しない。他の文書検査や品質工程の保証まで否定するものではない。
@@ -288,8 +288,8 @@ Package Rootの`acceptResult`は既存実装を公開している。一方、今
 | results | results: 既存結果配列 | 空を許す。Git／実行結果を定義入力から生成しない |
 | resultReceipts | resultReceipts: 既存受領配列 | 空を許す。既存の一回受領相関を維持 |
 | historyPending | historyPending: 既存固定行配列 | 空を許す。出版確認前に削除しない |
-| acceptanceDecisions | acceptanceDecisions: 既存判断Envelope配列 | 空を許す。対象・根拠・世代を同じCASで照合 |
-| decisionRecoveries | decisionRecoveries: 既存判断回復配列 | 空を許す。元参照と適用不明を保持 |
+| decisions | 判断要求・回答・適用・閉鎖の現在値 | 対象・回答先・世代を同じCASで照合 |
+| blockers | 進行を妨げる条件 | 判断と相関し、閉鎖だけでは解消しない |
 
 Projectの分解は次の全数対応とする。
 
@@ -342,7 +342,7 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 | operations／unresolvedRecoveries | Executorの技術観測 | Core更新ではそのまま保全。技術unknownとexact参照を変更しない |
 | leaseEvidence／leaseIntents | Coordinator／既存実排他Owner | 保存Lockと実行Leaseを混同せず、記録削除で解放を証明しない |
 | resultReceipts／pendingDeliveries | 結果Owner／受領Consumer | 単一の受領・配送参照を保全。Core更新からACKを生成しない |
-| acceptanceDecisions／decisionRecoveries | Domain記録／Coordinator横断判断 | 元対象と適用世代、未解決義務を保全 |
+| decisions／blockers | Domain記録／Coordinator判断 | 元対象・回答・適用世代・未解決条件を保全 |
 | historyPending／history | 保存出版Owner | 元行Hash・時刻・改訂を保ち、移送確定前に元結果を除去しない |
 
 全体相関検査はDomain `state/validation.ts`、局所遷移は各Entityの`crud.ts/validation.ts`、物理保存は`storage/state.ts`へ配置する。StorageからSchedulerやProviderを呼ばない。
@@ -408,7 +408,7 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 | 一般定義CRUD | `objective/crud.ts`の純粋候補を、同じ`runtime-store.ts`のReader／Writerへ接続。初期化・Plan保存、Objective／Taskの追加・更新・削除と用途別照会はCoordinatorなしで利用する |
 | 元Owner・Home・Host・Processの現在観測 | Coordinator。`execution/persistence.ts`／`settlement.ts`は既存Ownerから有限の同期観測を搬送し、保存Mapや第二Writerを持たない |
 | 実Leaseと資源不存在の観測 | Coordinator `execution/lease.ts`。Domain候補の観測位置・短絡順を維持し、Rootへ生Path観測helperを公開しない |
-| 保護されたHost判断Store | Coordinator `decision/store.ts`を維持。privateの一回Root資格消費・Native観測・Kernelを切り離して構造Path＋callbackのStore factoryをDomain Rootへ公開してはならない。JSONの物理確定primitiveは既存Domain共通保存を利用する |
+| 判断State | Domainの既存State Writerへ統合。Coordinatorは認証済み回答先・対象・操作を搬送する。Host専用Store・独立Hash連鎖・Bearerは使用しない |
 
 一般CRUDのHost入力`RuntimeAccess`は現在認可を持ち、真正Rootだけで権限を代用しない。技術保存の真正Rootも実行Authorityではなく、既存Host限定の利用側から渡す。長命Portは構築時の同じ参照を保持し、各保存入口がfreshに再検証する。値と同じ構造のObject、別のRootやcaller指定Pathへの付替えを認めない。
 
@@ -432,7 +432,7 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 保存途中版の局所再入場規則は、同じDomain保存Ownerの`classifyRuntimeSnapshotReentry`が所有する。元版Hash・次版Hash・Repository結合と初回領域の明示不存在を照合し、出版候補・pending回収候補・拒否だけを返す。観測不能を不存在に変換せず、この分類を状態全体の妥当性、処置Authority、実処置または回収完了の証明には使わない。Coordinator Writerは旧分類関数を保持せずDomain Root APIを同じ呼出し位置で利用する。
 
-続く移管では、判断記録・受入対象／判断入力・保存世代Envelope・回復参照の型を`decision/types.ts`、既存の純粋な閉形式／相関検査を`decision/validation.ts`へ分離した。Coordinatorの判断受付・状態照合・Snapshot codec・保護された判断Storeと試験はDomain Root APIを参照し、旧`coordinator/decision/records.ts`は撤去した。現在Authorityの発行／検証、判断の横断適用、物理保存は移管前のOwnerに残る。判断記録のOwner移管を一般CRUDとWriter全面の成立へ拡張しない。
+判断記録・回答先・質問・回答・適用／閉鎖とBlockerはDomainの`decision/types.ts`、純粋値と履歴の検査は`decision/operations.ts`、対象状態と一体の候補は`decision/crud.ts`が所有する。Coordinatorは認証Context・現在認可と操作を搬送し、単一State Writerへ接続する。旧Envelope・判断回復専用記録・Host Store・継続Bearerの互換Readerは設けない。Package全体の3モデル分離・一般CRUD完成は別段階として区別する。
 
 観測は既存Request／Project／Task／Attempt／Operation／Recovery ID、改訂・Hash、有限失敗分類で相関する。入力本文・回答・Credential・Host Pathを診断へ複製しない。保存成功とTask開始・Provider Effect・cleanup・受領は別の事実とする。
 

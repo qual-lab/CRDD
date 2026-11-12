@@ -14,8 +14,8 @@ import {
 } from "../../../domain-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
-  readCommitFile,
   getRepository,
+  readCommitFile,
 } from "../../../version-control/src/index.ts";
 import {
   borrowRuntimeOwnedRepositorySource,

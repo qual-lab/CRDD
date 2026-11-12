@@ -8,21 +8,50 @@
  * @scope project、runtime、state、query、public
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
-import type { CoordinatorState } from "../../../../domain-model/src/index.ts";
-import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
 import test from "node:test";
-
+import type { CoordinatorState } from "../../../../domain-model/src/index.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
-
-import { queryCoordinatorState } from "../../../src/state/query.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
+
+import {
+  executeCoordinatorPublicStateQuery,
+  queryCoordinatorState,
+} from "../../../src/state/query.ts";
+import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
 const request = Object.freeze({
   requestId: "query-a",
   projectId: "project-a",
   repositoryRevision: revision,
+});
+
+/**
+ * Host Storeを渡さない公開照会でも、認証Contextの欠測を拒否する。
+ * @trace PPR-UT-006
+ * @precondition 正規の照会要求と、参照してはならない所在を使う。
+ * @stimulus 認証Contextなし又は不正Principalで照会する。
+ * @observation 本人確認の固定拒否理由とEffect状態。
+ * @oracle Repositoryを解決する前に認証不足で停止する。
+ * @cleanup N/A: 読取り・保存前の拒否のみ。
+ * @boundary 同一Processの公開入力検査。認証そのものの実測ではない。
+ */
+test("公開状態照会はHost Storeを認証の代替にせず未認証入力を拒否する", () => {
+  for (const authentication of [undefined, { principalId: "" }]) {
+    const result = executeCoordinatorPublicStateQuery(
+      request,
+      "must-not-be-read",
+      authentication,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "orchestrator_authenticated_principal_not_verified",
+    );
+    assert.equal(result.effectState, "no_effect");
+  }
 });
 
 /**
@@ -213,5 +242,7 @@ test("観測不能と既存Recovery義務をEffect発行と混同しない", () 
   assert.equal(result.effectState, "no_effect");
 });
 
-import { inspectCoordinatorStateQuery } from "../../../../domain-model/src/index.ts";
-import { inspectCoordinatorStateQueryResult } from "../../../../domain-model/src/index.ts";
+import {
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+} from "../../../../domain-model/src/index.ts";

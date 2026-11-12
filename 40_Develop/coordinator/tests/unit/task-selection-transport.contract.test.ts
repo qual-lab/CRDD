@@ -47,21 +47,13 @@ const objective = Object.freeze(
  * @cleanup N/A: メモリ内の純粋関数だけを実行する。
  * @boundary N/A: 実Task、ProviderとHost資源を起動しない。
  */
-test("Objectiveの固定選定は全八組合せでTask契約へexactに搬送する", () => {
-  for (let mask = 0; mask < 8; mask++) {
+test("Objectiveの固定選定は全四組合せでTask契約へexactに搬送する", () => {
+  for (let mask = 0; mask < 4; mask++) {
     const raw = {
       ...objective,
-      ...(mask & 2 ? { workType: "coding" } : {}),
-      ...(mask & 4
+      ...(mask & 1 ? { workType: "coding" } : {}),
+      ...(mask & 2
         ? { choice: { provider: "codex", model: "gpt-5.5", effort: "low" } }
-        : {}),
-      ...(mask & 1
-        ? {
-            decisionCapabilityReplacement: {
-              decisionId: "decision-1",
-              replacementRequestId: "request-2",
-            },
-          }
         : {}),
     };
     const request = inspectCoordinatorObjectiveRequest(raw);

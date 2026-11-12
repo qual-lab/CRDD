@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
+    {"symbolId":"coordinator.test.integration.continuation-decision","kind":"test-suite","path":"tests/integration/continuation-decision.integration.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-IT-005","PRL-IT-014"],"verifies":["orchestrator.decision-public-operation","domain-model.decision.crud"]},
+    {"symbolId":"coordinator.test.fixture.decision-state","kind":"file","path":"tests/fixtures/decision-state.ts","archIds":["ARCH-000004","ARCH-000005"]},
     {
       "symbolId": "coordinator.source.execution.intelligence",
       "kind": "file",
@@ -984,22 +986,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.orchestrator-decision-recovery-store",
-      "kind": "test-suite",
-      "path": "tests/integration/task-decision-recovery-store.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-013"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.orchestrator.durable.foundation",
-        "orchestrator.source.src.ports.decision.port",
-        "orchestrator.decision.decision-recovery-record"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.orchestrator-design-traceability",
       "kind": "test-suite",
       "path": "tests/integration/task-design-traceability.contract.test.ts",
@@ -1063,14 +1049,14 @@
       ],
       "verifies": [
         "coordinator.source.src.security.execution.intelligence.adapter",
-        "coordinator.source.src.security.orchestrator.decision.capability.adapter",
+        "orchestrator.decision-public-operation",
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.human-decision-application",
         "orchestrator.replanning-application",
-        "orchestrator.source.src.ports.decision.port",
+        "domain-model.decision.operations",
         "orchestrator.decision.acceptance-decision-record",
-        "orchestrator.decision.decision-recovery-record"
+        "domain-model.decision.types"
       ]
     },
     {
@@ -1086,7 +1072,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.docker.project.recovery.settlement",
-        "domain-model.storage.committed-json",
+        "executor.verification.report",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.source.src.security.orchestrator.durable.foundation",
@@ -1137,13 +1123,13 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.source.src.security.orchestrator.decision.capability.adapter",
+        "orchestrator.decision-public-operation",
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "coordinator.source.src.security.orchestrator.execution.host.adapter",
         "orchestrator.execution",
         "orchestrator.human-decision-application",
         "orchestrator.replanning-application",
-        "orchestrator.source.src.ports.decision.port",
+        "domain-model.decision.operations",
         "orchestrator.state-core"
       ]
     },
@@ -1162,21 +1148,6 @@
         "coordinator.task.task-completion-observation",
         "coordinator.task.task-attempt-runtime",
         "coordinator.task-runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.orchestrator-windows-decision-store",
-      "kind": "test-suite",
-      "path": "tests/integration/task-windows-decision-store.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-005"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.orchestrator.windows.decision.store",
-        "orchestrator.source.src.ports.decision.port"
       ]
     },
     {
@@ -1938,20 +1909,6 @@
       "verifies": [
         "coordinator.source.src.security.orchestrator.execution.host.adapter",
         "coordinator.source.src.security.orchestrator.task.recovery.adapter"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.orchestrator-decision-capability-adapter",
-      "kind": "test-suite",
-      "path": "tests/unit/task-decision-capability-adapter.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.orchestrator.decision.capability.adapter"
       ]
     },
     {
@@ -2737,7 +2694,7 @@
         "PRL-ST-009"
       ],
       "verifies": [
-        "coordinator.orchestrator.acceptance-authority-adapter",
+        "orchestrator.source.src.public.contract.decision.request",
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "coordinator.source.src.composition.orchestrator.composition.root",
         "orchestrator.acceptance-decision-application",
@@ -3359,14 +3316,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.orchestrator.windows.decision.store",
-      "kind": "file",
-      "path": "src/decision/store.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "orchestrator.task.windows-platform-adapter",
       "kind": "file",
       "path": "src/execution/diagnostics.ts",
@@ -3420,25 +3369,6 @@
       "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.decision.capability.adapter",
-      "kind": "file",
-      "path": "src/decision/lifecycle.ts",
-      "archIds": [
-        "ARCH-000005"
-      ]
-    },
-    {
-      "symbolId": "coordinator.orchestrator.acceptance-authority-adapter",
-      "kind": "file",
-      "path": "src/decision/request.ts",
-      "archIds": [
-        "ARCH-000005"
-      ],
-      "implements": [
-        "orchestrator.acceptance-decision-authority"
       ]
     },
     {
@@ -3551,18 +3481,6 @@
       ],
       "implements": [
         "orchestrator.objective-task-lifecycle"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.decision-transitions",
-      "kind": "file",
-      "path": "src/decision/transition.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000005"
-      ],
-      "implements": [
-        "orchestrator.acceptance-decision-authority"
       ]
     },
     {
@@ -3697,9 +3615,9 @@
       ],
       "verifies": [
         "orchestrator.acceptance-decision-application",
-        "coordinator.orchestrator.acceptance-authority-adapter",
+        "orchestrator.source.src.public.contract.decision.request",
         "orchestrator.state-core",
-        "orchestrator.decision-transitions"
+        "domain-model.decision.crud"
       ]
     },
     {
@@ -3747,7 +3665,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "orchestrator.source.src.ports.decision.port",
+        "domain-model.decision.operations",
         "orchestrator.source.src.ports.execution.port",
         "orchestrator.source.src.public.contract.decision.request",
         "orchestrator.source.src.public.contract.objective.request",
@@ -3805,15 +3723,7 @@
         "orchestrator.task-recovery-transitions",
         "coordinator.task.acceptance",
         "orchestrator.objective-replan-transitions",
-        "orchestrator.decision-transitions"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.source.src.ports.acceptance.decision.port",
-      "kind": "file",
-      "path": "src/decision/types.ts",
-      "archIds": [
-        "ARCH-000005"
+        "domain-model.decision.crud"
       ]
     },
     {
@@ -3981,7 +3891,7 @@
       "verifies": [
         "coordinator.source.src.composition.orchestrator.composition.root",
         "coordinator.source.src.security.execution.intelligence.adapter",
-        "coordinator.source.src.security.orchestrator.windows.decision.store",
+        "coordinator.source.src.security.orchestrator.durable.foundation",
         "orchestrator.objective-application",
         "orchestrator.public-api",
         "orchestrator.state-core",
@@ -4009,14 +3919,6 @@
         "coordinator.selection.types",
         "domain-model.ai-selection.validation",
         "coordinator.selection.resolve"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.source.src.ports.decision.capability",
-      "kind": "file",
-      "path": "src/decision/types.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {

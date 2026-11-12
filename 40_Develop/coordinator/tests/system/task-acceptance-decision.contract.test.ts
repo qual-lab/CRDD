@@ -2,244 +2,30 @@
  * 公開Acceptance DecisionのSystem境界を検証する。
  *
  * @packageDocumentation
- * @responsibility 公開入口→Coordinator→耐久Decision Store→状態投影のAcceptance Decision全経路を検証する。
+ * @responsibility 公開入口→Coordinator→Domain単一State Writer／History→状態投影のAcceptance Decision全経路を検証する。
  * @trace PRL-ST-009
  * @level ST
  * @scope coordinator、orchestrator、runtime-data、repository-local-store
- * @boundary PRL-ST-009=System/E2E: 公開入口→Coordinator→Acceptance Decision Store→状態投影
+ * @boundary PRL-ST-009=System/E2E: 公開入口→Coordinator→Domain単一State Writer／History→状態投影
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import type {
   CoordinatorAcceptanceDecision,
-  CoordinatorAcceptanceDecisionRecord,
-} from "../../../domain-model/src/index.ts";
-import {
-  type CoordinatorState,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  initializeCoordinatorSnapshot,
-  requireReadyRepositoryRuntimeDataArea,
+  CoordinatorState,
 } from "../../../domain-model/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import { createCoordinatorSnapshotAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  reserveProjectTaskStart,
-  settleProjectTask,
-} from "../../src/task/lifecycle.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
-
-/**
- * Git管理された固定Repositoryを構築する。
- *
- * @responsibility System Testが使用する検証可能なRepository RootとRevisionを決定論的に作成する。
- * @trace PRL-ST-009
- * @precondition Git CLIを利用できる。
- * @stimulus 一つの追跡FileをCommitする。
- * @observation Repository RootとHEAD Revisionを返す。
- * @oracle RootがGit RepositoryでRevisionが40桁Hashとなる。
- * @cleanup 呼出し側のTest hookがRootを再帰削除する。
- * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
- */
-function createRepository(t: test.TestContext) {
-  const temporary = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      fileURLToPath(new URL("../../../../", import.meta.url)),
-      "tmp",
-    ),
-    "fixture_repository_root_invalid",
-  ).directory;
-  const root = fs.mkdtempSync(path.join(temporary, "crdd-acceptance-st-"));
-  t.after(() => {
-    assert.equal(path.dirname(root), temporary);
-    assert.equal(fs.realpathSync.native(root), root);
-    fs.rmSync(root, { recursive: true, force: true });
-    assert.equal(fs.existsSync(root), false);
-  });
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  execFileSync(
-    "git",
-    ["-C", root, "config", "user.email", "test@example.invalid"],
-    { windowsHide: true },
-  );
-  execFileSync("git", ["-C", root, "config", "user.name", "CRDD Test"], {
-    windowsHide: true,
-  });
-  fs.writeFileSync(
-    path.join(root, "README.md"),
-    "acceptance fixture\n",
-    "utf8",
-  );
-  execFileSync("git", ["-C", root, "add", "README.md"], {
-    windowsHide: true,
-  });
-  execFileSync("git", ["-C", root, "commit", "--quiet", "-m", "fixture"], {
-    windowsHide: true,
-  });
-  const revision = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-    windowsHide: true,
-  }).trim();
-  return Object.freeze({ root, revision });
-}
-
-/**
- * Task完了後かつObjective受入前の状態を全世代耐久化する。
- *
- * @responsibility 下位Task完了と上位Acceptance Decisionを分離したSystem Test前提状態を作る。
- * @trace PRL-ST-009
- * @precondition RootとBindingが検証済みで、同じProject IDの状態が存在しない。
- * @stimulus State Machineを作成、予約、Handoff、開始、完了へ進め、各世代を書き込む。
- * @observation 最終状態はObjective=`integration_pending`、Milestone=`executing`となる。
- * @oracle Task完了だけでObjective／Milestoneがacceptedにならない。
- * @cleanup Repository Root削除によりRuntime Dataも削除する。
- * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
- */
-function persistAcceptancePendingState(
-  root: string,
-  repositoryBindingId: string,
-  projectId: string,
-  revision: string,
-) {
-  const state = createCoordinatorState({
-    taskExecutionSelections: taskExecutionSelections(),
-    projectId,
-    milestoneId: `milestone-${projectId}`,
-    repositoryRevision: revision,
-    maximumConcurrency: 1,
-    milestoneAcceptanceCriteria: ["milestone-criterion"],
-    objectives: [
-      {
-        id: `objective-${projectId}`,
-        acceptanceCriteria: ["objective-criterion"],
-      },
-    ],
-    tasks: [
-      {
-        id: `task-${projectId}`,
-        objectiveId: `objective-${projectId}`,
-        dependencies: [],
-        allowedPaths: ["README.md"],
-        conflictKeys: [],
-      },
-    ],
-    ownerGeneration: `owner-${projectId}`,
-  });
-  assert.ok(state.state);
-  assert.equal(
-    initializeCoordinatorSnapshot(
-      verifyRuntimePersistenceRepository(root),
-      repositoryBindingId,
-    ).status,
-    "completed",
-  );
-  const ports = createCurrentCoordinatorPersistencePorts(
-    root,
-    repositoryBindingId,
-  );
-  const port = ports.state;
-  let current: CoordinatorState = state.state;
-  assert.equal(port.writeState(current, 0).status, "completed");
-  const transitions = [
-    () =>
-      reserveProjectTaskStart(
-        current,
-        current.generation,
-        `task-${projectId}`,
-        `attempt-${projectId}`,
-        `authority-${projectId}`,
-      ),
-    () =>
-      prepareProjectTaskHandoff(
-        current,
-        current.generation,
-        `task-${projectId}`,
-        `attempt-${projectId}`,
-        `operation-${projectId}`,
-      ),
-    () =>
-      observeProjectTaskStarted(
-        current,
-        current.generation,
-        `task-${projectId}`,
-        `attempt-${projectId}`,
-        `operation-${projectId}`,
-      ),
-    () =>
-      settleProjectTask(current, current.generation, {
-        taskId: `task-${projectId}`,
-        attemptId: `attempt-${projectId}`,
-        operationId: `operation-${projectId}`,
-        authorityBindingId: `authority-${projectId}`,
-        outcome: "completed",
-        cleanupConfirmed: true,
-        recoveryObligations: [],
-        recoveryUnresolved: false,
-      }),
-  ];
-  for (const transition of transitions) {
-    const next = transition();
-    assert.ok(next.state);
-    assert.equal(
-      port.writeState(next.state, current.generation).status,
-      "completed",
-    );
-    current = next.state;
-  }
-  assert.equal(current.objectives[0]?.state, "integration_pending");
-  assert.equal(current.milestone.state, "executing");
-  const queueId = `queue-${projectId}`;
-  const queued = port.enqueueOperation({
-    queueId,
-    projectId,
-    milestoneId: current.milestone.id,
-    requestHash: createHash("sha256").update(queueId).digest("hex"),
-    originLane: "interactive",
-    repositoryRevision: revision,
-    scopeHash: createHash("sha256").update(projectId).digest("hex"),
-  });
-  assert.equal(queued.status, "completed", queued.reason);
-  const acquired = ports.lease.acquire(projectId, queueId, "project-operation");
-  assert.equal(acquired.status, "completed", acquired.reason);
-  assert.ok(acquired.value && queued.value);
-  let queue = queued.value;
-  for (const state of ["leased", "running", "integration_pending"] as const) {
-    const updated = port.updateQueue(queueId, queue.generation, {
-      state,
-      lease: acquired.value,
-      resumeCondition: null,
-      resultReference: null,
-    });
-    assert.equal(updated.status, "completed", updated.reason);
-    assert.ok(updated.value);
-    queue = updated.value;
-  }
-  assert.equal(acquired.value.release().status, "completed");
-  assert.ok(queue.ownerGeneration);
-  const released = port.settleQueueLeaseRelease(
-    queueId,
-    queue.generation,
-    queue.ownerGeneration,
-  );
-  assert.equal(released.status, "completed", released.reason);
-  assert.equal(released.value?.ownerGeneration, null);
-  return current;
-}
+  createRepository,
+  persistAcceptancePendingState,
+} from "../fixtures/decision-state.ts";
 
 /**
  * Acceptance Decision公開要求を構築する。
@@ -262,6 +48,7 @@ function decisionRequest(
   return Object.freeze({
     contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
     decisionId: `decision-${state.projectId}-${suffix}`,
+    blockerId: `blocker-${state.projectId}-${target}`,
     sourceSpecId: "SPEC-000002",
     projectId: state.projectId,
     milestoneId: state.milestoneId,
@@ -289,33 +76,11 @@ function decisionRequest(
  * @stimulus 各ProjectでObjectiveを受入後、Milestoneをaccept／return／waitへ分岐する。
  * @observation 公開結果、耐久Record、状態投影および重複拒否を観測する。
  * @oracle 各判断は一度だけ記録され、Projectionはaccepted／returned／integratingを区別する。
- * @cleanup Test終了時にRepositoryとDecision Store fixtureを削除する。
+ * @cleanup Test終了時に自己生成RepositoryとそのState／Historyを回収する。
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開入口からObjective受入後のMilestone三判断を一度だけ記録し投影する", (t) => {
   const repository = createRepository(t);
-  const decisionRoot = path.join(repository.root, ".authenticated-principal");
-  fs.mkdirSync(decisionRoot);
-  const authenticationStore =
-    createCoordinatorWindowsDecisionStoreTestingAdapter(decisionRoot);
-  /**
-   * 状態照会用のDecision Storeを返す。
-   *
-   * @responsibility 操作主体を返さず状態投影へ耐久Storeを供給する。
-   * @trace PRL-ST-009
-   * @precondition Test Fixtureが作成したauthenticationStoreを保持している。
-   * @stimulus 状態照会公開入口からStoreを開く。
-   * @observation completed状態とStoreを返す。
-   * @oracle 判断記録と状態投影が同じStoreを参照する。
-   * @cleanup N/A: Storeのcleanupは親Test Caseが所有する。
-   * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
-   */
-  const openStateQueryAuthentication = () =>
-    Object.freeze({
-      status: "completed" as const,
-      store: authenticationStore,
-    });
-
   for (const [decision, expectedMilestoneState] of [
     ["accept", "accepted"],
     ["return", "returned"],
@@ -361,23 +126,68 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       decision,
       `milestone-${decision}`,
     );
-    const result = executeCoordinatorPublicAcceptanceDecision(
+    const originalRename = fs.renameSync;
+    const historyFault =
+      decision === "wait"
+        ? t.mock.method(fs, "renameSync", ((from, to) => {
+            if (String(from).endsWith("history.pending.jsonl"))
+              throw Object.assign(
+                new Error("synthetic decision history failure"),
+                { code: "EACCES" },
+              );
+            return Reflect.apply(originalRename, fs, [from, to]);
+          }) as typeof originalRename)
+        : null;
+    let result: ReturnType<typeof executeCoordinatorPublicAcceptanceDecision>;
+    try {
+      result = executeCoordinatorPublicAcceptanceDecision(
+        milestoneRequest,
+        repository.root,
+        Object.freeze({ principalId: "operator-a" }),
+      );
+    } finally {
+      historyFault?.mock.restore();
+    }
+    assert.equal(result.status, "completed", result.reason);
+    assert.ok("history" in result && "decision" in result);
+    assert.ok(
+      result.history &&
+        typeof result.history === "object" &&
+        "status" in result.history,
+    );
+    assert.ok(
+      result.decision &&
+        typeof result.decision === "object" &&
+        "status" in result.decision,
+    );
+    assert.equal(
+      result.history.status,
+      decision === "wait" ? "unconfirmed" : "confirmed",
+    );
+    assert.equal(result.decision.status, "applied");
+    const stateFile = path.join(
+      repository.root,
+      ".crdd",
+      "domain-model",
+      "state.json",
+    );
+    const beforeResend = fs.readFileSync(stateFile);
+    const resent = executeCoordinatorPublicAcceptanceDecision(
       milestoneRequest,
       repository.root,
       Object.freeze({ principalId: "operator-a" }),
     );
-    assert.equal(result.status, "completed", result.reason);
-    assert.equal(
-      executeCoordinatorPublicAcceptanceDecision(
-        milestoneRequest,
-        repository.root,
-        Object.freeze({ principalId: "operator-a" }),
-      ).reason,
-      "orchestrator_acceptance_decision_duplicate",
+    assert.equal(resent.status, "completed", JSON.stringify(resent));
+    assert.ok("history" in resent);
+    assert.ok(
+      resent.history &&
+        typeof resent.history === "object" &&
+        "status" in resent.history,
     );
+    assert.equal(resent.history.status, "confirmed");
+    assert.deepEqual(fs.readFileSync(stateFile), beforeResend);
 
     const projection = executeCoordinatorPublicStateQuery(
-      openStateQueryAuthentication,
       Object.freeze({
         requestId: `query-${decision}`,
         projectId,
@@ -389,141 +199,4 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
     assert.equal(projection.status, "completed");
     assert.equal(projection.projection?.milestoneState, expectedMilestoneState);
   }
-});
-
-/**
- * Acceptance Decisionの前世代Hash改ざんを拒否することを検証する。
- *
- * @responsibility generation 2のpreviousHashをgeneration 1実体と照合し、形式だけ正しい改ざんを拒否する。
- * @trace PRL-ST-009
- * @precondition prepared→finalizedの二世代Recordを耐久化済みである。
- * @stimulus generation 2のpreviousHashを別の有効なSHA-256値へ置換してreadする。
- * @observation Storeの状態、理由および手動回復要否を観測する。
- * @oracle Snapshotの内容不正としてblockedとなり、改ざん後Recordを返さず保存bytesも変更しない。
- * @cleanup Test終了時にRepository-local Runtime Dataを削除する。
- * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
-  const repository = createRepository(t);
-  const bindingId = "binding-hash-chain";
-  assert.equal(
-    initializeCoordinatorSnapshot(
-      verifyRuntimePersistenceRepository(repository.root),
-      bindingId,
-    ).status,
-    "completed",
-  );
-  const created = createCoordinatorState({
-    taskExecutionSelections: taskExecutionSelections(),
-    projectId: "project-hash-chain",
-    milestoneId: "milestone-hash-chain",
-    repositoryRevision: repository.revision,
-    maximumConcurrency: 1,
-    milestoneAcceptanceCriteria: ["criterion-hash-chain"],
-    objectives: [
-      {
-        id: "objective-hash-chain",
-        acceptanceCriteria: ["criterion-hash-chain"],
-      },
-    ],
-    tasks: [
-      {
-        id: "task-hash-chain",
-        objectiveId: "objective-hash-chain",
-        dependencies: [],
-        allowedPaths: ["README.md"],
-        conflictKeys: [],
-      },
-    ],
-    ownerGeneration: "owner-hash-chain",
-  });
-  assert.equal(created.status, "completed");
-  if (created.status !== "completed") throw new Error("fixture_state_invalid");
-  assert.equal(
-    createCurrentCoordinatorPersistencePorts(
-      repository.root,
-      bindingId,
-    ).state.writeState(created.state, 0).status,
-    "completed",
-  );
-  const store = createCoordinatorSnapshotAcceptanceDecisionStore(
-    repository.root,
-    bindingId,
-  );
-  const prepared: CoordinatorAcceptanceDecisionRecord = Object.freeze({
-    recordId: "decision-record-hash-chain",
-    decisionId: "decision-hash-chain",
-    sourceSpecId: "SPEC-000002",
-    projectId: "project-hash-chain",
-    milestoneId: "milestone-hash-chain",
-    repositoryRevision: repository.revision,
-    expectedGeneration: 1,
-    target: "objective",
-    targetId: "objective-hash-chain",
-    decision: "accept",
-    criterionEvidenceIds: Object.freeze(["criterion-hash-chain"]),
-    principalId: "operator-a",
-    disposition: "prepared",
-    newGeneration: null,
-  });
-  const finalized: CoordinatorAcceptanceDecisionRecord = Object.freeze({
-    ...prepared,
-    disposition: "finalized",
-    newGeneration: 2,
-  });
-  const statePath = path.join(
-    repository.root,
-    ".crdd",
-    "domain-model",
-    "state.json",
-  );
-  const initialRevision = JSON.parse(
-    fs.readFileSync(statePath, "utf8"),
-  ).revision;
-  assert.equal(store.create(prepared).status, "completed");
-  const createdBytes = fs.readFileSync(statePath);
-  assert.equal(
-    JSON.parse(createdBytes.toString("utf8")).revision,
-    initialRevision + 1,
-  );
-  assert.equal(store.read(prepared.recordId).status, "completed");
-  assert.deepEqual(fs.readFileSync(statePath), createdBytes);
-  const invalidBinding = createCoordinatorSnapshotAcceptanceDecisionStore(
-    repository.root,
-    "invalid binding",
-  ).create(prepared);
-  assert.equal(invalidBinding.status, "blocked");
-  assert.equal(invalidBinding.reason, "orchestrator_snapshot_input_invalid");
-  assert.deepEqual(fs.readFileSync(statePath), createdBytes);
-  assert.equal(store.compareAndSet(prepared, finalized).status, "completed");
-  assert.equal(
-    JSON.parse(fs.readFileSync(statePath, "utf8")).revision,
-    initialRevision + 2,
-  );
-  const original = fs.readFileSync(statePath);
-  const saved = JSON.parse(original.toString("utf8"));
-  assert.ok(decodeRuntimeDomainSnapshot(original, saved.repositoryBinding));
-  const second = saved.acceptanceDecisions.find(
-    (entry: { recordId: string; generation: number }) =>
-      entry.recordId === prepared.recordId && entry.generation === 2,
-  );
-  assert.ok(second);
-  const previousHash = second.previousHash;
-  assert.notEqual(previousHash, "f".repeat(64));
-  second.previousHash = "f".repeat(64);
-  fs.writeFileSync(statePath, `${encodeRuntimeStateValue(saved)}\n`, "utf8");
-  const before = fs.readFileSync(statePath);
-  const observed = createCoordinatorSnapshotAcceptanceDecisionStore(
-    repository.root,
-    bindingId,
-  ).read(prepared.recordId);
-  assert.equal(observed.status, "blocked");
-  assert.equal(observed.reason, "coordinator_state_read_unconfirmed");
-  assert.equal(observed.manualRecoveryRequired, true);
-  assert.deepEqual(fs.readFileSync(statePath), before);
-  second.previousHash = previousHash;
-  assert.equal(
-    `${encodeRuntimeStateValue(saved)}\n`,
-    original.toString("utf8"),
-  );
 });

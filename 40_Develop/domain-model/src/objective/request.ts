@@ -46,10 +46,6 @@ export type CoordinatorObjectiveRequest = Readonly<{
   workType?: string;
   choice?: AiSelectionChoice;
   workspaceId?: string;
-  decisionCapabilityReplacement?: Readonly<{
-    decisionId: string;
-    replacementRequestId: string;
-  }>;
 }>;
 
 /**
@@ -176,7 +172,6 @@ const REQUIRED_REQUEST_KEYS = Object.freeze([
   "adoptResult",
 ] as const);
 const OPTIONAL_REQUEST_KEYS = Object.freeze([
-  "decisionCapabilityReplacement",
   "workType",
   "choice",
   "workspaceId",
@@ -233,13 +228,6 @@ export function inspectCoordinatorObjectiveRequest(
   );
   const allowedPaths = inspectStrings(request.allowedPaths, 128, 512);
   const readPaths = inspectStrings(request.readPaths, 128, 512);
-  const replacement =
-    request.decisionCapabilityReplacement === undefined
-      ? undefined
-      : snapshotRuntimeStateRecord(
-          request.decisionCapabilityReplacement,
-          new Set(["decisionId", "replacementRequestId"] as const),
-        );
   if (
     !validId(request.intakeEpoch) ||
     !validId(request.requestId) ||
@@ -273,11 +261,7 @@ export function inspectCoordinatorObjectiveRequest(
       (typeof request.workspaceId !== "string" ||
         !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
           request.workspaceId,
-        ))) ||
-    (request.decisionCapabilityReplacement !== undefined &&
-      (!replacement ||
-        !validId(replacement.decisionId) ||
-        !validId(replacement.replacementRequestId)))
+        )))
   )
     return null;
   const plan = inspectExecutionPlan(request.plan, { allowedPaths });
@@ -315,14 +299,6 @@ export function inspectCoordinatorObjectiveRequest(
     ...(choice ? { choice } : {}),
     ...(typeof request.workspaceId === "string"
       ? { workspaceId: request.workspaceId }
-      : {}),
-    ...(replacement
-      ? {
-          decisionCapabilityReplacement: Object.freeze({
-            decisionId: replacement.decisionId as string,
-            replacementRequestId: replacement.replacementRequestId as string,
-          }),
-        }
       : {}),
   });
 }

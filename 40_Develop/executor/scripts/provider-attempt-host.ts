@@ -13,14 +13,13 @@ import os from "node:os";
 import { initializeIsolation } from "../../docker-isolation/src/index.ts";
 import { fileURLToPath } from "node:url";
 import {
-  readCommittedJson,
-  writeCommittedJson,
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
   type CoordinatorResourceBook,
   observeRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
 import { getRepository } from "../../version-control/src/index.ts";
+import { readReport, writeReport } from "./report.ts";
 import { observeProviderHome } from "./provider-home.ts";
 import {
   createExecutor,
@@ -134,8 +133,8 @@ export function createStandaloneProviderAttemptHost(
       sequence,
       ...fields,
     };
-    const written = writeCommittedJson(root, name, name, value);
-    const read = readCommittedJson(written.target, name);
+    const written = writeReport(root, name, name, value);
+    const read = readReport(written.target, name);
     if (
       read.hash !== written.hash ||
       read.identityText !== written.identityText ||

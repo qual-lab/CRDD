@@ -12,6 +12,10 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+判断・阻害条件・履歴を同じState Writerへ統合し、旧Host Store・Bearer・二段階Port・判断期限を撤去した。Blockerと提案・回答の1:N、再提案、中止と解消の区別、履歴確認後の問題単位退役を実装した。追加確認で見つけた進行制御と読取りも是正し、関連承認が揃うまで元回答を未適用で保持する。同じ効果・根拠の承認だけを共同適用し、正式回復の完了記録を新規実行と区別する。queryDecisionsはBlockerと提案を同じ改訂から返す。局所88件・公開境界13件・保存IT1件・公開判断IT4件・通常進行と品質受入4件、型4設定が成功し、Source／利用側・文書の独立再確認は必須残指摘0。今回の三点の修正は完了した。[追加是正の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-progress-and-read)を参照する。
+
+変更適用による別Blockerの副次解決・新問題の出現などの自動再評価は、人間の指示で今回の対象から分離し、担当・影響・再検討条件付きのv0.22残件とした。旧記録の自動移行・探索・削除は行わない。横断文書Checkerの先行未合格は残り、横断品質全体の完成ではない。全体回帰・実AI・Docker・過去保持物は操作しない。3モデル分離は別段階である。[再評価の残件](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-progress-and-read)と[先行の一体実装](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-proposal-cardinality)を参照する。
+
 Domain公開削減の前提となるCoordinator試験整理で見つけた終了記録の不具合を是正した。資源未受領のCleanupがno-opでも、終了候補の改訂・前Hashを読取り元へ結合する。製品差分はDomainの当該6行と注釈のみ。候補UT7件・保存IT4件・公開境界13件・Host限定2件が成功し、型検査・台帳409件・独立再レビューも確認した。Host後段の古い入力／固定5資源fixtureは既存公開操作へ追従し、拒否・再入場・記録保全を維持した。今回の局所修正は完了だが、履歴・配送・修復fixture等の全依存撤去とRoot削減は未完了。全体回帰・実AI・Docker・過去保持物は操作していない。[局所修正の結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#settlement-revision-fix)と[公開整理の残件](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#coordinator-domain-test-ownership)を参照する。
 
 Domain公開整理に先立ち、DI修復試験のOwnerを分離した。DIの3試験は自己の技術codec・型へ接続し、Domainとの独立比較2ケースは保存受理側の既存ITへ移管。基準45ケースをDI43＋Domain2として維持し、両型検査・既存公開境界20件・台帳409件を確認した。移管先の保存IT全Fileも32件成功し、独立レビューは必須残指摘0。DI製品Source・公開IFとDomain Rootは不変更、Coordinatorの接続整理は次段階。全体回帰・実AI・Docker・過去保持物は操作しない。[範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di-repair-test-ownership)を参照する。

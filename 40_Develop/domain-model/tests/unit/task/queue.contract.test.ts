@@ -10,17 +10,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type CoordinatorQueueEnqueueInput,
+  type CoordinatorSnapshot,
+  type CoordinatorState,
+  type CoordinatorWorkspace,
+  encodeRuntimeStateValue,
   inspectCoordinatorQueueIntake,
   prepareCoordinatorQueueEntryCreation,
   projectCoordinatorQueueEntry,
   projectCoordinatorQueueProjectState,
-  encodeRuntimeStateValue,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  type CoordinatorSnapshot,
-  type CoordinatorState,
-  type CoordinatorQueueEnqueueInput,
-  type CoordinatorWorkspace,
 } from "../../../src/index.ts";
+
 /**
  * 四操作の局所前提値を用意する。
  * @responsibility 受付相関・局所CRUD・対象外保持を検証する。
@@ -38,7 +39,7 @@ function fixture() {
   const project = { projectId: "project-a" } as CoordinatorState;
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -51,8 +52,8 @@ function fixture() {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   const input: CoordinatorQueueEnqueueInput = {
     queueId: "queue-a",

@@ -74,7 +74,7 @@ const taskExecutionSelections = () => ({
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-domain/runtime-state/v2",
+    schema: "crdd-domain/runtime-state/v3",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -92,8 +92,8 @@ function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
     resultReceipts: [],
   };
 }
@@ -121,7 +121,7 @@ const empty = {
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
     ...emptyUnifiedSnapshot(),
-    schema: "crdd-domain/runtime-state/v2",
+    schema: "crdd-domain/runtime-state/v3",
     repositoryBindingId: "binding-a",
     intakeEpoch: "epoch-a",
     managedExecutions: [],
@@ -756,22 +756,9 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   } as const;
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("state_fixture_invalid");
-  const recovery = {
-    recoveryId: "recovery-a",
-    recordId: "decision-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    queueId: "queue-a",
-    applicationId: "application-a",
-    expectedGeneration: 1,
-    newGeneration: 2,
-    observedDisposition: "prepared",
-    unknownBoundary: "project_readback",
-    disposition: "required",
-  };
   const snapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: binding,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -800,34 +787,27 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [{ generation: 1, value: recovery }],
+    decisions: [],
+    blockers: [],
   };
   const before = JSON.stringify(snapshot);
   assert.equal(validCoordinatorSnapshot(snapshot, "binding-a", binding), true);
   for (const invalid of [
     {
       ...snapshot,
-      decisionRecoveries: [{ generation: 1, snapshot: recovery }],
+      decisions: [{}],
     },
     {
       ...snapshot,
-      decisionRecoveries: [
-        { generation: 1, value: { ...recovery, secret: "forbidden" } },
-      ],
+      blockers: [{}],
     },
     {
       ...snapshot,
-      decisionRecoveries: [
-        snapshot.decisionRecoveries[0],
-        snapshot.decisionRecoveries[0],
-      ],
+      acceptanceDecisions: [],
     },
     {
       ...snapshot,
-      decisionRecoveries: [
-        { generation: 1, value: { ...recovery, queueId: "other-queue" } },
-      ],
+      decisionRecoveries: [],
     },
     { ...snapshot, unknown: [] },
   ])
@@ -860,7 +840,6 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     intakeEpoch: snapshot.intakeEpoch,
     intakeBindings: snapshot.intakeBindings,
     queueEntries: snapshot.queueEntries,
-    decisionRecoveries: snapshot.decisionRecoveries,
     projects: storedProjects,
   };
   /**

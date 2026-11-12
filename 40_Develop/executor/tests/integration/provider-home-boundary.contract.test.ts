@@ -49,6 +49,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
     registerHooks({resolve(s,c,n){const r=n(s,c);if(r.url.includes('/coordinator/'))throw Error('coordinator_forbidden');return r;}});
     const platform=await import(${JSON.stringify(platformUrl)});
     const domain=await import(${JSON.stringify(domainUrl)});
+    const report=await import(${JSON.stringify(new URL("../../scripts/report.ts", import.meta.url).href)});
     process.env.LOCALAPPDATA=${JSON.stringify("C:\\synthetic-home-not-read")};
     let mode='normal',observations=0,acquisitions=0,releases=0,held=false,pipe=null;
     mock.module(${JSON.stringify(platformUrl)},{namedExports:{...platform,
@@ -77,10 +78,10 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
         }}};
       }
     }});
-    mock.module(${JSON.stringify(domainUrl)},{namedExports:{...domain,
-      writeCommittedJson:(directory,name,key,value)=>{
+    mock.module(${JSON.stringify(new URL("../../scripts/report.ts", import.meta.url).href)},{namedExports:{...report,
+      writeReport:(directory,name,key,value)=>{
         if(mode==='save_throw'&&name==='observed.json')throw Error('synthetic_save_throw');
-        return domain.writeCommittedJson(directory,name,key,value);
+        return report.writeReport(directory,name,key,value);
       }
     }});
     const api=await import(${JSON.stringify(scriptUrl)});

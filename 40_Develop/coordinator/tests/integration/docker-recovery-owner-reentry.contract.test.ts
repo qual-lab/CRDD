@@ -2950,7 +2950,7 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v2", revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v3", revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount >= 2) {
         // 再入場Caseの初期値を自己生成領域へ配置する。初期化Writerの保証はDomainが検証する。

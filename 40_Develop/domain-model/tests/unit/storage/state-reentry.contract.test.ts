@@ -10,10 +10,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  classifyRuntimeSnapshotReentry,
-  coordinatorSnapshotIntakeMatches,
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorSnapshot,
+  classifyRuntimeSnapshotReentry,
+  coordinatorSnapshotIntakeMatches,
 } from "../../../src/index.ts";
 
 /**
@@ -30,7 +30,7 @@ import {
 test("受付照合は新規の現世代と既存Queueの元世代を混同しない", () => {
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -43,8 +43,8 @@ test("受付照合は新規の現世代と既存Queueの元世代を混同しな
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   const intake = {
     epoch: "epoch-a",

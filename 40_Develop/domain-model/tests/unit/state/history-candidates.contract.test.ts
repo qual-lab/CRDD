@@ -10,18 +10,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  prepareCoordinatorHistoryPending,
-  prepareCoordinatorTerminalRecordRetirement,
-  prepareCoordinatorHistoryTransfer,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   COORDINATOR_INTEGRATION_CONTRACT,
-  encodeRuntimeStateValue,
-  type CoordinatorSnapshot,
-  type ProjectQueueEntry,
-  type HistoryRow,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorResultRecord,
+  type CoordinatorSnapshot,
+  encodeRuntimeStateValue,
+  type HistoryRow,
   type LeaseEvidenceEnvelope,
+  type ProjectQueueEntry,
+  prepareCoordinatorHistoryPending,
+  prepareCoordinatorHistoryTransfer,
+  prepareCoordinatorTerminalRecordRetirement,
 } from "../../../src/index.ts";
+
 /**
  * 一般Queue終了条件を検査する局所fixtureを作る。
  * @responsibility 有限観測の順序と対象外保持を検証する。
@@ -62,7 +63,7 @@ function fixture() {
   ] as unknown as CoordinatorSnapshot["projects"];
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -75,8 +76,8 @@ function fixture() {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   const row: HistoryRow = {
     id: "queue-a",
@@ -117,6 +118,7 @@ function observations() {
             calls.push("inner-history");
             return "recorded" as const;
           },
+          decisionHistorySettlement: () => null,
         };
       },
       historySettlement: (row: HistoryRow) => {

@@ -219,7 +219,7 @@ if (mode !== "recovery") {
   assert.ok(binding && otherBinding);
   const initial = Buffer.from(
     `${encodeRuntimeStateValue({
-      schema: "crdd-domain/runtime-state/v2",
+      schema: "crdd-domain/runtime-state/v3",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -231,8 +231,8 @@ if (mode !== "recovery") {
       leaseIntents: [],
       results: [],
       historyPending: [],
-      acceptanceDecisions: [],
-      decisionRecoveries: [],
+      decisions: [],
+      blockers: [],
       resultReceipts: [],
       revision: 1,
       previous: null,

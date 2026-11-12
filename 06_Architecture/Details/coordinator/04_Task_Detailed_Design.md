@@ -30,7 +30,7 @@ Cの物理統合により、本書が所有するTask・Objective・状態保存
 | 統合・採用の成果 | 既存のintegration／adoption結果契約 | AI単発実行結果と同じものではない。`results`区画を機械統合しない |
 | 履歴移送 | 元の終端記録と小さな確定checkpoint | 要約本文の正本を二つ作らず、固定Identity・行Hash・段階で相関。未確定の元記録は履歴確定まで保持する |
 
-Taskが後から必要とする結果・受理・未解決義務を、期限で消える履歴だけへの参照にしない。Operationから技術資源情報を整理できるのは、必要な耐久結果・受理と未解決義務が失われず、履歴確定も確認できた場合だけである。Host保護判断は現行の別保存・世代チェーンを維持し、通常履歴の30日期限処理へ混ぜない。
+Taskが後から必要とする結果・受理・未解決義務を、期限で消える履歴だけへの参照にしない。Operationから技術資源情報を整理できるのは、必要な耐久結果・受理と未解決義務が失われず、履歴確定も確認できた場合だけである。判断は同じStateへ保存し、参照中又は必要な履歴未確定の判断を通常履歴の期限だけで退役させない。
 
 <a id="task-attempt-storage-facts"></a>
 
@@ -66,7 +66,7 @@ Docker回復の`required`／`settled`は元Operationから読み取る。回復�
 
 ### 受付時の固定選定と実行の寿命
 
-現在StateとProject Snapshotはv5、Operation Identityはv2だけを受理する。SingleTaskは主担当の完全な`executionSelection`を一つ保存し、旧`profileId / catalogRevision`を持たない。Objectiveは同じ設定Snapshot由来のExecutor／Reviewer組をRootで一度保持し、Taskはその組へ相関する。SingleTaskの受付Processだけは二役の不変組を実行closureへ保持し、主担当を保存値へ完全一致させる。二重の選定Storeを追加しない。
+現在Stateはruntime-state/v3、Project Snapshotはv6、Operation Identityはv2だけを受理する。SingleTaskは主担当の完全な`executionSelection`を一つ保存し、旧`profileId / catalogRevision`を持たない。Objectiveは同じ設定Snapshot由来のExecutor／Reviewer組をRootで一度保持し、Taskはその組へ相関する。SingleTaskの受付Processだけは二役の不変組を実行closureへ保持し、主担当を保存値へ完全一致させる。二重の選定Storeを追加しない。
 
 Model Grant／Task Packet／準備計画は対象stageの操作・役割・試行番号・完全選定Hashを照合する。技術Operationは既存の`beginRecovery`でIdentity保存と読戻しを確認してからDocker要求へ進む。作成されたHost領域やProcess内Grantより前に全I/Oを禁止する保証ではない。Grant後・Identity保存前の失敗は既存清掃へ戻し、保存後のOwner喪失は元Identityの回収・終了だけを再入場する。SingleTask本文は非永続のままで、自動再実行や新stage生成をしない。
 
@@ -233,9 +233,7 @@ Executionの開始・終了通知だけではTask／Queueの保存確定は成�
 | `REC-TASK-ATTEMPT` | `IF-PROJECT-CORE` | `RES-SINGLE-TASK-BINDING` | `before_effect_intent` | `attempt_operation_authority_binding`<br>`start_phase_reserved_handoff_prepared_running_or_settled`<br>`typed_recovery_obligations_host_docker_candidate_or_candidate_store`<br>`exact_technical_references_with_fresh_operation_phase_and_cleanup_projection`<br>`task_owned_result_unresolved_and_root_receipt_task_reference_in_one_cas`<br>`unresolved_recovery_without_synthetic_identity` |
 | `REC-INTEGRATION` | `IF-INTEGRATION` | `RES-INTEGRATION-WORKSPACE` | `after_effect_result` | — |
 | `REC-ADOPTION` | `IF-INTEGRATION` | `RES-ADOPTION-LEASE` | `after_effect_receipt` | — |
-| `REC-HUMAN-DECISION` | `IF-DECISION` | `RES-PENDING-DECISION` | `generation_state` | `decision_project_milestone_generation_revision`<br>`selected_user_principal`<br>`continuation_record_id`<br>`decision_application_generation`<br>`decision_lifecycle_state` |
-| `REC-DECISION-CONTINUATION` | `IF-DECISION` | `RES-DECISION-CONTINUATION` | `before_effect_intent` | `continuation_hash`<br>`selected_user_principal`<br>`decision_project_milestone_generation_revision`<br>`continuation_expiry`<br>`continuation_consumed_or_invalidated_state`<br>`replacement_request_identity`<br>`decision_application_id`<br>`expected_project_generation`<br>`new_project_generation`<br>`application_disposition_issued_prepared_finalized_recovery_invalidated_or_expired` |
-| `REC-DECISION-RECOVERY-INTENT` | `IF-PLATFORM` | `RES-DECISION-RECOVERY-INTENT` | `before_effect_intent` | `exact_continuation_record_identity`<br>`last_confirmed_disposition`<br>`decision_application_id`<br>`expected_project_generation`<br>`new_project_generation`<br>`unknown_observation_boundary`<br>`recovery_identity`<br>`recovery_disposition_required_or_settled` |
+| `REC-HUMAN-DECISION` | `IF-DECISION` | `RES-PENDING-DECISION` | `generation_state` | `exact_target_generation_revision`<br>`respondent_principal`<br>`question_and_labelled_options`<br>`answer_and_application_separate`<br>`explicit_closure_without_expiry`<br>`blocker_one_to_many_proposals`<br>`single_answer_per_proposal`<br>`current_proposal_and_group_retirement`<br>`stable_history_events_derived_from_state` |
 | `REC-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `IF-STATE-STORE` | `RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `after_effect_receipt` | `exact_docker_recovery_identity`<br>`repository_binding_and_fixed_result_identity`<br>`project_task_attempt_logical_operation_binding`<br>`first_acceptance_generation_preserved`<br>`root_receipt_and_task_reference_with_matching_delivery_removal_in_one_cas_after_history_confirmation`<br>`absence_is_not_acknowledgement` |
 
 <a id="compact-runtime-storage"></a>
@@ -319,7 +317,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 #### 統合保存入口の接続
 
-`writeCoordinatorSnapshot`は、部分codecとは別の統合保存契約を使用する。現在は判断区画とWorkspace区画を含む`crdd-coordinator/project-snapshot/v5`に固定し、旧版（v1〜v4）からの暗黙拡張や旧DirectoryへのFallbackを行わない。
+`writeCoordinatorSnapshot`は、部分codecとは別の統合保存契約を使用する。現在は判断・阻害条件とWorkspace区画を含む`crdd-coordinator/project-snapshot/v6`に固定し、旧版（v1〜v4）からの暗黙拡張や旧DirectoryへのFallbackを行わない。
 
 | 区画 | 固定する値 |
 |---|---|
@@ -338,7 +336,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 `readCoordinatorSnapshot`は内部保存の読取り入口であり、利用者向け結果取得・受領機能ではない。取得済みRootと親Directoryを順に検証し、領域を作成せず真正不存在だけをnullとして返す。固定pendingが存在する場合は保全停止し、この入口から確定・回収しない。正規File、単一link、安定した上限付き読取り、UTF-8、全区画・Hash・Root・Bindingを確認する。破損・alias・途中消失・観測不能から旧形式へFallbackしない。短期排他の解放確認後だけ成功を返す。本番State読取りはこのv3入口へ接続する。
 
-保存の内部処置は取得済みOwnerを受け取り、自ら排他を再取得・解放しない。外側の入口が取得と解放確認を担当し、読取り・操作固有更新・保存を同じOwnerへ接続する。OwnerはJSONや呼出し元指定Hashから復元しない。本番CompositionはState／Queue・Lease・結果・受入判断・判断回復の新版Portを一組で使用する。
+保存の内部処置は取得済みOwnerを受け取り、自ら排他を再取得・解放しない。外側の入口が取得と解放確認を担当し、読取り・操作固有更新・保存を同じOwnerへ接続する。OwnerはJSONや呼出し元指定Hashから復元しない。本番CompositionはState／Queue・Lease・結果・判断を同じDomain Writerへ接続する。
 
 Project状態更新は入力・上限・期待世代を取得前に検証し、同じOwner内で現在値の読取り、世代比較、受付結合の再検査、更新と保存を行う。Snapshot不存在から自動初期化しない。Project不在だけは期待世代0で追加し、既存Projectは現在世代一致時だけ置換する。他Project・Queue・受付結合・Lease・結果・未搬送履歴を保持する。未整理QueueがあるProjectのMilestone置換は拒否する。pendingは保全停止し、保存専用入口の再入場で処置する。
 
@@ -365,13 +363,13 @@ Project状態更新は入力・上限・期待世代を取得前に検証し、�
 | State／Queueの8操作 | 世代比較、同依頼再送、優先順位、使用中の割込み禁止、exact回復参照。 | 本番Objective・判断・受入・統合Compositionが新版Factoryを使用する。 |
 | Leaseの4操作 | 取得途中の耐久記録、実排他、解放確認、Owner喪失の再観測。 | 本番Factoryが短期保存排他と長期実行Leaseを分離して使用する。 |
 | integration／adoption結果の保存 | 同Identity・同内容再送、採用後保存失敗から再適用しない。 | 本番統合とWorkbench独立採用がv3結果Portを使用する。 |
-| 受入判断の作成・読取り・比較交換 | preparedの第1世代とfinalizedの第2世代、作成一回限り、期待値の完全一致。 | 本番受入入口がv3判断Storeを使用する。旧二世代をRuntime内で移行しない。 |
-| 判断回復の作成・読取り・比較交換 | exact回復Identity、期待値完全一致、途中状態保全。 | 本番判断入口がv3回復Storeを使用する。旧連鎖を再構築しない。 |
+| 判断要求・回答・明示受入 | 回答先・対象・世代・選択肢を照合し、回答と適用を区別して一回CAS。 | 公開request／answerとacceptResultが同じ新判断Writerを使用する。 |
+| 後日適用・明示閉鎖 | 元回答を保持しfreshな条件で適用する。閉鎖だけでBlockerを解消しない。 | apply／closeも同じWriterと履歴再入場を使用し、別回復Storeを設けない。 |
 | 未搬送終了要約の履歴への搬送 | 全内容一致再送、履歴確定後だけ現在値から除去、30日保持。 | Objective・判断・受入・Workbench採用の終了処置が整理入口を使用する。 |
 
 Lease解放後にQueueの所有解除だけが中断した場合、再入場は既存の終了確定操作へ接続する。観測した受付世代、Queue世代、Owner、exact終了証拠、未解決取得意図の不存在と実排他不存在を再照合し、統合待ち等の終了意図・結果参照を保持して所有だけを解除する。実行中のOwner喪失を`recovery_required`へ移す処置とは区別し、終了証拠欠落・結合不一致・観測不能では保存を保全して停止する。過去の解放要求発行や物理排他の不存在だけから正式終了を推定しない。
 
-受入判断・判断回復・Workspace現在集合を持つ保存形式は`crdd-coordinator/project-snapshot/v5`として区別する。旧版（v1〜v4）の値に欄を暗黙追加せず、未知版、不正な旧版、未確定保存から旧DirectoryへFallbackしない。`acceptanceDecisions`は記録ごとに第1世代と、存在する場合だけ第2世代を保持し、第2世代単独を許さない。`decisionRecoveries`は記録ごとの現在値・保存世代を保持する。新形式の比較交換は同じ排他内の完全な期待値照合とSnapshot確定で行う。旧形式はフロントAIの切替手順で整理し、Runtime内で旧連鎖を再構築しない。
+判断・阻害条件を持つTask Viewは`crdd-coordinator/project-snapshot/v6`、物理Stateは`crdd-domain/runtime-state/v3`とする。判断集合は`decisions`、進行を妨げる条件は`blockers`へ保存する。要求・回答・適用・閉鎖は同じWriterを使い、対象・Queue・世代・回答先を同じ排他内で検査して一回CASする。回答と履歴確定を区別し、履歴失敗からの再入場で回答を再適用しない。旧版の暗黙補完、旧Host Store・二世代Envelope・Bearer・再発行へのfallbackは設けない。切替前の旧記録はフロントAIが別途明示処置する。
 
 両欄はRepository内の非秘密の処理記録であり、保護された判断AuthorityやCapabilityを複製しない。履歴へ移す場合も、保護記録の参照、Project適用、Queue、回復と後処理が解消する前に除去しない。退役受付世代によって過去判断の作成や再適用が復活しないことを確認する。
 
@@ -402,9 +400,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `RES-CANCELLATION-CONTROLLER` | `parent_coordinator` | `—` | `all_target_tasks_terminated_cleaned_and_projected` |
 | `RES-PROJECT-RECOVERY-EVIDENCE` | `issuing_runtime` | `—` | `exact_recovery_completed_and_resource_absence_observed` |
 | `RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `coordinator_unified_state_store` | `repository_local_coordinator_current_state/result_receipt` | `single_snapshot_receipt_and_matching_pending_delivery_removal_read_back` |
-| `RES-PENDING-DECISION` | `human_decision_controller` | `—` | `accepted_stale_superseded_or_cancelled_record_durable` |
-| `RES-DECISION-CONTINUATION` | `human_decision_controller_via_platform_adapter` | `os_managed_runtime_protected_root_outside_repository` | `hash_finalized_invalidated_expired_or_recovery_obligation_settled_and_raw_capability_absent_from_runtime_owned_surfaces` |
-| `RES-DECISION-RECOVERY-INTENT` | `platform_adapter_recovery_store` | `separate_verified_runtime_owned_recovery_store` | `exact_recovery_join_settled_and_intent_settlement_read_back` |
+| `RES-PENDING-DECISION` | `domain_state_writer` | `repository_local_state` | `applied_resolved_unreferenced_and_exact_history_confirmed_before_retirement` |
 
 ## 5. Lock
 
@@ -420,12 +416,12 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | ID | 所有者 | 範囲／発行 | 終了条件 |
 |---|---|---|---|
 | `AUTH-MILESTONE` | `authenticated_human_via_parent_coordinator` | `one_project_one_repository_one_milestone_and_declared_limits` | `milestone_terminal_or_authority_revoked` |
-| `AUTH-TASK` | `orchestrator` | `strict_subset_of_milestone_for_one_task_attempt`<br>`binding_derived_from_current_project_milestone_objective_task_attempt_and_repository_revision; durable_handoff_then_cancellation_and_current_authority_check_before_delegation; no_separate_signed_package_execution_authorization` | `attempt_settled_or_superseded_or_revoked` |
+| `AUTH-TASK` | `orchestrator` | `strict_subset_of_milestone_for_one_task_attempt` | `attempt_settled_or_superseded_or_revoked` |
 | `AUTH-SINGLE-TASK-OPERATION` | `single_task_adapter` | `one_exact_single_task_operation_and_candidate_boundary` | `operation_cleanup_or_exact_recovery_obligation_observed` |
 | `AUTH-INTEGRATION` | `integration_owner` | `fixed_task_result_set_and_acceptance_criteria_without_canonical_write` | `integration_candidate_fixed_or_discarded` |
 | `AUTH-ADOPTION` | `authenticated_human_via_parent_coordinator` | `fixed_candidate_fixed_paths_and_fresh_canonical_revision` | `adoption_receipt_or_no_effect_rejection_observed` |
 | `AUTH-RECOVERY` | `issuing_runtime` | `exact_operation_resource_and_recovery_identity_only` | `exact_recovery_completed_or_human_transfer_recorded` |
-| `AUTH-HUMAN-DECISION` | `parent_coordinator_verifying_selected_user_and_runtime_owned_continuation` | `exact_pending_decision_project_milestone_generation_revision_allowed_option_and_single_use_continuation` | `protected_finalized_or_exact_recovery_obligation_durable_or_runtime_owned_stale_superseded_cancelled_project_terminal_or_expired; invalid_input_preserves_existing_capability` |
+| `AUTH-HUMAN-DECISION` | `authenticated_entry_via_coordinator` | `exact_target_respondent_generation_revision_and_allowed_option` | `decision_applied_or_invalidated; stored_values_are_not_current_authorization` |
 
 ## 7. Effect
 
@@ -437,9 +433,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `EFFECT-INTEGRATION-CANDIDATE` | `integration_owner` | `isolated_workspace_and_candidate_generation` | `candidate_hash_conflict_and_workspace_cleanup` |
 | `EFFECT-CANONICAL-ADOPTION` | `integration_owner` | `canonical_repository_path_mutation` | `fresh_base_revision_changed_paths_receipt_and_post_revision` |
 | `EFFECT-RECOVERY` | `issuing_runtime` | `exact_residual_resource_reconciliation` | `recovery_receipt_and_resource_absence` |
-| `EFFECT-DECISION-STATE` | `human_decision_controller` | `one_repository_local_atomic_decision_and_milestone_project_state_generation_application` | `expected_generation atomic_replace and project_state_readback show decision_and_milestone_all_old_or_all_new` |
-| `EFFECT-DECISION-CONTINUATION` | `platform_adapter_for_human_decision_controller` | `os_managed_runtime_protected_continuation_record_cas_mutation` | `selected_user_protection application_id expected_and_new_generation disposition and atomic_update_readback` |
-| `EFFECT-DECISION-RECOVERY-INTENT` | `platform_adapter_recovery_store` | `separate_runtime_owned_exact_decision_recovery_intent_mutation` | `recovery_identity unknown_boundary last_confirmed_disposition and atomic_update_readback` |
+| `EFFECT-DECISION-STATE` | `domain_state_writer` | `one_cas_for_decision_blocker_project_and_queue` | `state_confirmation_and_history_publication_are_separate; same_answer_reentry_writes_no_state` |
 
 ## 8. 状態機械と遷移
 
@@ -452,14 +446,14 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 
 | 遷移ID | From | To | 資源 | 不変条件 | 検証 |
 |---|---|---|---|---|---|
-| `TRANS-TASK-PLAN-WAIT` | `planned` | `waiting_dependency` | — | `INV-REVALIDATE-AFTER-WAIT` | `PR-N-03` |
-| `TRANS-TASK-PLAN-READY` | `planned`<br>`waiting_dependency` | `ready` | — | `INV-REVALIDATE-AFTER-WAIT`<br>`INV-MAX-FIVE-CLEANUP-AWARE` | `PR-N-02`<br>`PR-N-03`<br>`PR-Q-01`<br>`PR-A-01` |
+| `TRANS-TASK-PLAN-WAIT` | `planned` | `waiting_dependency` |  | `INV-REVALIDATE-AFTER-WAIT` | `PR-N-03` |
+| `TRANS-TASK-PLAN-READY` | `planned`<br>`waiting_dependency` | `ready` |  | `INV-REVALIDATE-AFTER-WAIT`<br>`INV-MAX-FIVE-CLEANUP-AWARE` | `PR-N-02`<br>`PR-N-03`<br>`PR-Q-01`<br>`PR-A-01` |
 | `TRANS-TASK-READY-STARTING` | `ready` | `starting` | `RES-SCHEDULER-SLOT`<br>`RES-CONFLICT-RESERVATION`<br>`RES-SINGLE-TASK-BINDING` | `INV-DURABLE-BEFORE-TASK-EFFECT`<br>`INV-EXACT-RESULT-IDENTITY` | `PR-N-02`<br>`PR-A-02`<br>`PR-A-04` |
 | `TRANS-TASK-STARTING-RUNNING` | `starting` | `running` | `RES-SINGLE-TASK-BINDING` | `INV-NARROWED-AUTHORITY`<br>`INV-REVALIDATE-AFTER-WAIT`<br>`INV-DURABLE-BEFORE-TASK-EFFECT` | `PR-N-01`<br>`PR-A-03`<br>`PR-A-04` |
 | `TRANS-TASK-ACTIVE-CLEANUP` | `starting`<br>`running` | `cleanup_pending` | `RES-SCHEDULER-SLOT`<br>`RES-CONFLICT-RESERVATION`<br>`RES-SINGLE-TASK-BINDING` | `INV-MAX-FIVE-CLEANUP-AWARE`<br>`INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-Q-04`<br>`PR-A-05` |
 | `TRANS-TASK-CLEANUP-COMPLETED` | `cleanup_pending` | `completed` | `RES-SINGLE-TASK-BINDING` | `INV-TASK-COMPLETE-NOT-ACCEPTED`<br>`INV-EXACT-RESULT-IDENTITY` | `PR-N-01`<br>`PR-I-01` |
 | `TRANS-TASK-ACTIVE-FAILED` | `starting`<br>`running`<br>`cleanup_pending` | `failed` | `RES-SINGLE-TASK-BINDING` | `INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-Q-02`<br>`PR-A-03` |
-| `TRANS-TASK-FAILED-SUPERSEDED` | `failed` | `superseded` | — | `INV-OLD-IDENTITY-IMMUTABLE` | `PR-Q-02` |
+| `TRANS-TASK-FAILED-SUPERSEDED` | `failed` | `superseded` |  | `INV-OLD-IDENTITY-IMMUTABLE` | `PR-Q-02` |
 | `TRANS-TASK-ACTIVE-CANCELLED` | `planned`<br>`waiting_dependency`<br>`ready`<br>`starting`<br>`running`<br>`cleanup_pending`<br>`failed` | `cancelled` | `RES-CANCELLATION-CONTROLLER` | `INV-CANCEL-AFTER-CLEANUP` | `PR-Q-04` |
 | `TRANS-TASK-ACTIVE-RECOVERY` | `starting`<br>`running`<br>`cleanup_pending`<br>`failed` | `recovery_required` | `RES-PROJECT-RECOVERY-EVIDENCE` | `INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-A-04`<br>`PR-A-05` |
 | `TRANS-TASK-RECOVERY-SETTLED` | `recovery_required` | `ready` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-EXACT-RESULT-IDENTITY` | `PR-A-04`<br>`PR-A-05` |
@@ -471,10 +465,10 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 
 | 遷移ID | From | To | 資源 | 不変条件 | 検証 |
 |---|---|---|---|---|---|
-| `TRANS-OBJECTIVE-PLAN-EXECUTE` | `planned`<br>`blocked` | `executing` | — | `INV-NARROWED-AUTHORITY` | `PR-N-03`<br>`PR-Q-02` |
-| `TRANS-OBJECTIVE-EXECUTE-INTEGRATE` | `executing` | `integration_pending` | `RES-INTEGRATION-WORKSPACE` | `INV-TASK-COMPLETE-NOT-ACCEPTED` | `PR-I-01` |
+| `TRANS-OBJECTIVE-PLAN-EXECUTE` | `planned`<br>`blocked` | `executing` |  | `INV-NARROWED-AUTHORITY` | `PR-N-03`<br>`PR-Q-02` |
+| `TRANS-OBJECTIVE-EXECUTE-INTEGRATE` | `executing` | `integration_pending` | `RES-INTEGRATION-WORKSPACE` | `INV-TASK-COMPLETE-NOT-ACCEPTED`<br>`INV-CANONICAL-CANDIDATE-IDENTITY` | `PR-I-01` |
 | `TRANS-OBJECTIVE-INTEGRATE-ACCEPT` | `integration_pending` | `accepted` | `RES-INTEGRATION-WORKSPACE` | `INV-INTEGRATE-BEFORE-ADOPTION` | `PR-I-02` |
-| `TRANS-OBJECTIVE-ACTIVE-BLOCK` | `planned`<br>`executing`<br>`integration_pending` | `blocked` | — | `INV-NO-SUCCESS-FROM-UNKNOWN` | `PR-H-01`<br>`PR-I-01` |
+| `TRANS-OBJECTIVE-ACTIVE-BLOCK` | `planned`<br>`executing`<br>`integration_pending` | `blocked` |  | `INV-NO-SUCCESS-FROM-UNKNOWN` | `PR-H-01`<br>`PR-I-01` |
 | `TRANS-OBJECTIVE-ACTIVE-CANCEL` | `planned`<br>`executing`<br>`integration_pending`<br>`blocked` | `cancelled` | `RES-CANCELLATION-CONTROLLER` | `INV-CANCEL-AFTER-CLEANUP` | `PR-Q-04` |
 
 ### `SM-MILESTONE`
@@ -485,11 +479,11 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | 遷移ID | From | To | 資源 | 不変条件 | 検証 |
 |---|---|---|---|---|---|
 | `TRANS-MILESTONE-PLAN-EXECUTE` | `planned` | `executing` | `RES-PROJECT-OPERATION-LEASE` | `INV-NARROWED-AUTHORITY`<br>`INV-EXACT-RESULT-IDENTITY`<br>`INV-PLATFORM-NO-FALLBACK`<br>`INV-TRANSPORT-NO-AUTHORITY` | `PR-N-01`<br>`PR-A-07` |
-| `TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `human_decision_required` | `executing` | `RES-PENDING-DECISION`<br>`RES-DECISION-CONTINUATION`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-RECEIPT-BEFORE-RESUME`<br>`INV-DECISION-ATOMIC-APPLICATION`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-H-02`<br>`PR-Q-06` |
+| `TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `executing`<br>`human_decision_required` | `executing` | `RES-PENDING-DECISION`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-RECEIPT-BEFORE-RESUME`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
 | `TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `recovery_required` | `executing` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `TRANS-MILESTONE-EXECUTE-INTEGRATE` | `executing` | `integrating` | `RES-INTEGRATION-WORKSPACE` | `INV-TASK-COMPLETE-NOT-ACCEPTED` | `PR-I-01` |
 | `TRANS-MILESTONE-INTEGRATE-ACCEPT` | `integrating` | `accepted` | `RES-INTEGRATION-WORKSPACE`<br>`RES-ADOPTION-LEASE` | `INV-INTEGRATE-BEFORE-ADOPTION`<br>`INV-CANONICAL-EFFECT-SERIALIZED`<br>`INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | `PR-I-02`<br>`PR-D-A-01` |
-| `TRANS-MILESTONE-ACTIVE-HUMAN` | `executing`<br>`integrating` | `human_decision_required` | — | `INV-NO-SUCCESS-FROM-UNKNOWN` | `PR-H-01` |
+| `TRANS-MILESTONE-ACTIVE-HUMAN` | `executing`<br>`integrating` | `human_decision_required` |  | `INV-NO-SUCCESS-FROM-UNKNOWN` | `PR-H-01` |
 | `TRANS-MILESTONE-ACTIVE-RECOVERY` | `executing`<br>`integrating`<br>`human_decision_required` | `recovery_required` | `RES-PROJECT-RECOVERY-EVIDENCE` | `INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-A-04`<br>`PR-A-05` |
 | `TRANS-MILESTONE-ACTIVE-CANCEL` | `planned`<br>`executing`<br>`integrating`<br>`human_decision_required`<br>`recovery_required` | `cancelled` | `RES-CANCELLATION-CONTROLLER` | `INV-CANCEL-AFTER-CLEANUP` | `PR-Q-04` |
 
@@ -501,7 +495,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | 遷移ID | From | To | 資源 | 不変条件 | 検証 |
 |---|---|---|---|---|---|
 | `TRANS-QUEUE-ENQUEUE-LEASE` | `queued` | `leased` | `RES-PROJECT-QUEUE`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-DURABLE-BEFORE-TASK-EFFECT`<br>`INV-INTERACTIVE-PRIORITY-NO-PREEMPTION`<br>`INV-DURABLE-RECORD-CLOSED`<br>`INV-QUEUE-OWNER-IS-LIVE-LEASE`<br>`INV-LEASE-ACQUISITION-RECOVERABLE` | `PR-D-N-01`<br>`PR-D-Q-01`<br>`PR-Q-03`<br>`PR-Q-05`<br>`PR-A-04`<br>`PR-A-06` |
-| `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `human_decision_required` | `replan_required` | `RES-PENDING-DECISION`<br>`RES-DECISION-CONTINUATION`<br>`RES-PROJECT-QUEUE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-RECEIPT-BEFORE-RESUME`<br>`INV-DECISION-APPLICATION-FINALIZED-BEFORE-QUEUE` | `PR-H-02`<br>`PR-Q-06` |
+| `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `human_decision_required` | `replan_required` | `RES-PENDING-DECISION`<br>`RES-PROJECT-QUEUE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-RECEIPT-BEFORE-RESUME`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
 | `TRANS-QUEUE-REPLAN-QUEUED` | `replan_required` | `queued` | `RES-PROJECT-QUEUE` | `INV-REVALIDATE-AFTER-WAIT` | `PR-Q-02`<br>`PR-Q-06` |
 | `TRANS-QUEUE-WAITING-QUEUED` | `waiting_foreground` | `queued` | `RES-PROJECT-QUEUE` | `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-Q-05` |
 | `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `recovery_required` | `queued` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
@@ -516,44 +510,14 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 
 ### `SM-DECISION`
 
-- 状態: `pending`<br>`accepted`<br>`stale`<br>`superseded`<br>`cancelled`
-- 終端状態: `accepted`<br>`stale`<br>`superseded`<br>`cancelled`
+- 状態: `pending`<br>`answered`<br>`applied`<br>`invalidated`
+- 終端状態: `applied`<br>`invalidated`
 
 | 遷移ID | From | To | 資源 | 不変条件 | 検証 |
 |---|---|---|---|---|---|
-| `TRANS-DECISION-PENDING-ACCEPTED` | `pending` | `accepted` | `RES-PENDING-DECISION`<br>`RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-MCP-NO-HUMAN-AUTHORITY`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-DECISION-PENDING-STALE` | `pending` | `stale` | `RES-PENDING-DECISION`<br>`RES-DECISION-CONTINUATION` | `INV-DECISION-BINDING-CURRENT` | `PR-Q-06` |
-| `TRANS-DECISION-PENDING-SUPERSEDED` | `pending` | `superseded` | `RES-PENDING-DECISION`<br>`RES-DECISION-CONTINUATION` | `INV-DECISION-BINDING-CURRENT` | `PR-Q-06` |
-| `TRANS-DECISION-PENDING-CANCELLED` | `pending` | `cancelled` | `RES-PENDING-DECISION`<br>`RES-DECISION-CONTINUATION` | `INV-DECISION-BINDING-CURRENT` | `PR-Q-06` |
-
-### `SM-DECISION-CONTINUATION`
-
-- 状態: `absent`<br>`issued`<br>`prepared`<br>`finalized`<br>`recovery_required`<br>`invalidated`<br>`expired`
-- 終端状態: `finalized`<br>`invalidated`<br>`expired`
-
-| 遷移ID | From | To | 資源 | 不変条件 | 検証 |
-|---|---|---|---|---|---|
-| `TRANS-CONTINUATION-ABSENT-ISSUED` | `absent` | `issued` | `RES-DECISION-CONTINUATION` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-CAPABILITY-ISSUED-BEFORE-RETURN` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-CONTINUATION-ISSUED-PREPARED` | `issued` | `prepared` | `RES-DECISION-CONTINUATION` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-CONTINUATION-PROTOCOL` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-CONTINUATION-PREPARED-FINALIZED` | `prepared` | `finalized` | `RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY` | `prepared` | `recovery_required` | `RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE`<br>`RES-DECISION-RECOVERY-INTENT` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-UNKNOWN-PRESERVES-RECOVERY`<br>`INV-DECISION-SEPARATE-RECOVERY-INTENT` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `TRANS-CONTINUATION-ISSUED-INVALIDATED` | `issued` | `invalidated` | `RES-DECISION-CONTINUATION` | `INV-DECISION-CONTINUATION-PROTOCOL` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-CONTINUATION-PREPARED-UNAPPLIED-INVALIDATED` | `prepared` | `invalidated` | `RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-PREPARED-INVALIDATION-READBACK` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-CONTINUATION-RECOVERY-FINALIZED` | `recovery_required` | `finalized` | `RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE`<br>`RES-PROJECT-RECOVERY-EVIDENCE` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-RECOVERY-SETTLEMENT` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `TRANS-CONTINUATION-RECOVERY-INVALIDATED` | `recovery_required` | `invalidated` | `RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE`<br>`RES-PROJECT-RECOVERY-EVIDENCE` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-RECOVERY-SETTLEMENT` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `TRANS-CONTINUATION-PROTECTED-RECOVERY-ISSUED-INVALIDATED` | `issued` | `invalidated` | `RES-DECISION-CONTINUATION`<br>`RES-DECISION-RECOVERY-INTENT` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-SEPARATE-RECOVERY-INTENT` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `TRANS-CONTINUATION-PROTECTED-RECOVERY-PREPARED-REQUIRED` | `prepared` | `recovery_required` | `RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE`<br>`RES-DECISION-RECOVERY-INTENT` | `INV-DECISION-CONTINUATION-PROTOCOL`<br>`INV-DECISION-SEPARATE-RECOVERY-INTENT`<br>`INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `TRANS-CONTINUATION-ISSUED-EXPIRED` | `issued` | `expired` | `RES-DECISION-CONTINUATION` | `INV-DECISION-CONTINUATION-PROTOCOL` | `PR-H-02`<br>`PR-Q-06` |
-
-### `SM-DECISION-RECOVERY-INTENT`
-
-- 状態: `absent`<br>`required`<br>`settled`
-- 終端状態: `settled`
-
-| 遷移ID | From | To | 資源 | 不変条件 | 検証 |
-|---|---|---|---|---|---|
-| `TRANS-DECISION-RECOVERY-ABSENT-REQUIRED` | `absent` | `required` | `RES-DECISION-RECOVERY-INTENT` | `INV-DECISION-SEPARATE-RECOVERY-INTENT`<br>`INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `TRANS-DECISION-RECOVERY-REQUIRED-SETTLED` | `required` | `settled` | `RES-DECISION-RECOVERY-INTENT`<br>`RES-DECISION-CONTINUATION`<br>`RES-PROJECT-STATE` | `INV-DECISION-SEPARATE-RECOVERY-INTENT`<br>`INV-DECISION-RECOVERY-SETTLEMENT` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
+| `TRANS-DECISION-PENDING-APPLIED` | `pending`<br>`answered` | `applied` | `RES-PENDING-DECISION`<br>`RES-PROJECT-STATE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-MCP-NO-HUMAN-AUTHORITY`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
+| `TRANS-DECISION-PENDING-ANSWERED` | `pending` | `answered` | `RES-PENDING-DECISION` | `INV-DECISION-BINDING-CURRENT` | `PR-H-02`<br>`PR-Q-06` |
+| `TRANS-DECISION-INVALIDATED` | `pending`<br>`answered` | `invalidated` | `RES-PENDING-DECISION` | `INV-DECISION-BINDING-CURRENT` | `PR-Q-06` |
 
 ## 9. 遷移と保証の対応
 
@@ -576,7 +540,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-OBJECTIVE-ACTIVE-BLOCK` | `TRANS-OBJECTIVE-ACTIVE-BLOCK` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-PROJECT-STATE` | `unknown or conflict remains explicit before blocked projection` | `PR-H-01`<br>`PR-I-01` |
 | `BIND-OBJECTIVE-ACTIVE-CANCEL` | `TRANS-OBJECTIVE-ACTIVE-CANCEL` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-SINGLE-TASK-OPERATION` | `EFFECT-SINGLE-TASK`<br>`EFFECT-PROJECT-STATE` | `all target task cancellation cleanup precedes objective cancellation projection` | `PR-Q-04` |
 | `BIND-MILESTONE-PLAN-EXECUTE` | `TRANS-MILESTONE-PLAN-EXECUTE` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-PROJECT-STATE` | `platform binding revision and authority validation precede execution state` | `PR-N-01`<br>`PR-A-07` |
-| `BIND-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `logical milestone projection in the same project state atomic replace as decision acceptance; standalone issue forbidden` | `PR-H-02`<br>`PR-Q-06` |
+| `BIND-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `判断適用と同じState CASで確定する投影。独立した後段書込みは禁止。` | `PR-H-02`<br>`PR-Q-06` |
 | `BIND-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `技術終端・cleanup・実履歴確認の後、root受領本文・Task参照・該当配送待ち解除を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `BIND-MILESTONE-EXECUTE-INTEGRATE` | `TRANS-MILESTONE-EXECUTE-INTEGRATE` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-INTEGRATION` | `EFFECT-INTEGRATION-CANDIDATE`<br>`EFFECT-PROJECT-STATE` | `all objectives accepted before isolated milestone integration` | `PR-I-01` |
 | `BIND-MILESTONE-INTEGRATE-ACCEPT` | `TRANS-MILESTONE-INTEGRATE-ACCEPT` | `LOCK-PROJECT-OPERATION`<br>`LOCK-ADOPTION`<br>`LOCK-PROJECT-STATE` | `AUTH-INTEGRATION`<br>`AUTH-ADOPTION`<br>`AUTH-MILESTONE` | `EFFECT-CANONICAL-ADOPTION`<br>`EFFECT-PROJECT-STATE` | `fixed candidate fresh canonical revision and adoption receipt precede accepted projection` | `PR-A-06`<br>`PR-I-02` |
@@ -584,7 +548,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-MILESTONE-ACTIVE-RECOVERY` | `TRANS-MILESTONE-ACTIVE-RECOVERY` | `LOCK-PROJECT-STATE` | `AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `unknown resource evidence is durable without normal resume` | `PR-A-04`<br>`PR-A-05` |
 | `BIND-MILESTONE-ACTIVE-CANCEL` | `TRANS-MILESTONE-ACTIVE-CANCEL` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-SINGLE-TASK-OPERATION` | `EFFECT-SINGLE-TASK`<br>`EFFECT-PROJECT-STATE` | `all task cancellation cleanup and recovery reconciliation precede milestone cancellation` | `PR-Q-04` |
 | `BIND-QUEUE-ENQUEUE-LEASE` | `TRANS-QUEUE-ENQUEUE-LEASE` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `queue intent is durable before operation lease and locks are not held together` | `PR-D-N-01`<br>`PR-D-Q-01`<br>`PR-Q-03`<br>`PR-Q-05`<br>`PR-A-06` |
-| `BIND-QUEUE-DECISION-ACCEPTED-REPLAN` | `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `fresh read only protected finalized observation and matching project application generation precede the durable replan_required generation; no lease is issued on this transition` | `PR-H-02`<br>`PR-Q-06` |
+| `BIND-QUEUE-DECISION-ACCEPTED-REPLAN` | `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `判断適用と同じState CASで確定する投影。独立した後段書込みは禁止。` | `PR-H-02`<br>`PR-Q-06` |
 | `BIND-QUEUE-REPLAN-QUEUED` | `TRANS-QUEUE-REPLAN-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `bounded replanning is durably complete before the queue returns to queued for a fresh selection` | `PR-Q-02`<br>`PR-Q-06` |
 | `BIND-QUEUE-WAITING-QUEUED` | `TRANS-QUEUE-WAITING-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `a fresh binding-wide scan confirms no foreground owner before the scheduled queue returns to queued` | `PR-Q-05` |
 | `BIND-QUEUE-RECOVERY-SETTLED-QUEUED` | `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-RECOVERY` | `EFFECT-RECOVERY`<br>`EFFECT-QUEUE-STATE` | `技術終端・cleanup・実履歴確認の後、root受領本文・Task参照・該当配送待ち解除を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
@@ -596,23 +560,9 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-QUEUE-ACTIVE-HUMAN` | `TRANS-QUEUE-ACTIVE-HUMAN` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `decision need is durable and operation remains owned` | `PR-H-01` |
 | `BIND-QUEUE-ACTIVE-RECOVERY` | `TRANS-QUEUE-ACTIVE-RECOVERY` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-QUEUE-STATE` | `exact recovery evidence is durable without recovery effect or lease release` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `BIND-QUEUE-ACTIVE-CANCEL` | `TRANS-QUEUE-ACTIVE-CANCEL` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE`<br>`AUTH-SINGLE-TASK-OPERATION` | `EFFECT-SINGLE-TASK`<br>`EFFECT-QUEUE-STATE` | `all target cancellation cleanup and resource reconciliation precede queue cancellation` | `PR-Q-04` |
-| `BIND-DECISION-PENDING-ACCEPTED` | `TRANS-DECISION-PENDING-ACCEPTED` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `protected continuation consume intent precedes one expected generation atomic decision and milestone project state replace then readback; queue lease is a later idempotent transition` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-DECISION-PENDING-STALE` | `TRANS-DECISION-PENDING-STALE` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-DECISION-STATE` | `parent observed project generation change precedes runtime owned stale transition` | `PR-Q-06` |
-| `BIND-DECISION-PENDING-SUPERSEDED` | `TRANS-DECISION-PENDING-SUPERSEDED` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-DECISION-STATE` | `parent issued replacement decision before runtime owned superseded transition` | `PR-Q-06` |
-| `BIND-DECISION-PENDING-CANCELLED` | `TRANS-DECISION-PENDING-CANCELLED` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-DECISION-STATE` | `milestone cancellation precedes runtime owned decision cancellation` | `PR-Q-06` |
-| `BIND-CONTINUATION-ABSENT-ISSUED` | `TRANS-CONTINUATION-ABSENT-ISSUED` | `LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-DECISION-CONTINUATION` | `unique pending decision or replacement request identity precedes protected create CAS and fresh readback; raw capability is returned to the client only after issued readback and duplicate request reuses the same issued record` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-CONTINUATION-ISSUED-PREPARED` | `TRANS-CONTINUATION-ISSUED-PREPARED` | `LOCK-PROJECT-OPERATION` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-CONTINUATION` | `validated exact submission precedes protected CAS from issued to prepared and protected readback precedes project state effect` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-CONTINUATION-PREPARED-FINALIZED` | `TRANS-CONTINUATION-PREPARED-FINALIZED` | `LOCK-PROJECT-OPERATION` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-CONTINUATION` | `fresh project state readback with matching application id and new generation precedes protected CAS from prepared to finalized and protected readback` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-CONTINUATION-PROJECT-UNKNOWN-RECOVERY` | `TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-CONTINUATION` | `when project observation alone is unknown a separate recovery intent required readback already exists before protected prepared to recovery_required CAS and readback; protected unknown never claims this transition` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `BIND-CONTINUATION-ISSUED-INVALIDATED` | `TRANS-CONTINUATION-ISSUED-INVALIDATED` | `LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-DECISION-CONTINUATION` | `runtime owned stale superseded cancelled terminal or explicit replacement cause precedes issued record invalidation CAS and readback` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-CONTINUATION-PREPARED-UNAPPLIED-INVALIDATED` | `TRANS-CONTINUATION-PREPARED-UNAPPLIED-INVALIDATED` | `LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-DECISION-CONTINUATION` | `fresh project state readback proves expected old generation and application absent before prepared record invalidation CAS and readback; matching new generation must finalize instead` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-CONTINUATION-RECOVERY-FINALIZED` | `TRANS-CONTINUATION-RECOVERY-FINALIZED` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-CONTINUATION` | `exact recovery fresh readback proves matching new project generation and application id before protected recovery to finalized CAS and readback` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `BIND-CONTINUATION-RECOVERY-INVALIDATED` | `TRANS-CONTINUATION-RECOVERY-INVALIDATED` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-CONTINUATION` | `exact recovery fresh readback proves expected old project generation and application absent before protected recovery to invalidated CAS and readback` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `BIND-CONTINUATION-PROTECTED-RECOVERY-ISSUED-INVALIDATED` | `TRANS-CONTINUATION-PROTECTED-RECOVERY-ISSUED-INVALIDATED` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-CONTINUATION` | `independent recovery intent required readback and fresh issued observation with no project application precede protected issued to invalidated CAS and readback` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `BIND-CONTINUATION-PROTECTED-RECOVERY-PREPARED-REQUIRED` | `TRANS-CONTINUATION-PROTECTED-RECOVERY-PREPARED-REQUIRED` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-CONTINUATION` | `independent recovery intent required readback and fresh prepared observation precede protected prepared to recovery_required CAS and readback; exact project reconciliation follows through recovery transitions` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `BIND-CONTINUATION-ISSUED-EXPIRED` | `TRANS-CONTINUATION-ISSUED-EXPIRED` | `LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-DECISION-CONTINUATION` | `runtime observed finite expiry precedes protected expiry CAS and readback` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-DECISION-RECOVERY-ABSENT-REQUIRED` | `TRANS-DECISION-RECOVERY-ABSENT-REQUIRED` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-RECOVERY-INTENT` | `project-only unknown or protected observation or CAS readback unknown first creates and reads back one exact independent recovery intent; protected unknown then stops without claiming a continuation transition; unavailable recovery store requires manual recovery effect unknown and process reuse forbidden` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
-| `BIND-DECISION-RECOVERY-REQUIRED-SETTLED` | `TRANS-DECISION-RECOVERY-REQUIRED-SETTLED` | `LOCK-PROJECT-OPERATION` | `AUTH-RECOVERY` | `EFFECT-DECISION-RECOVERY-INTENT` | `independent intent joins fresh protected and project observations; any required continuation transition settles and reads back first and intent settlement CAS and readback completes last` | `PR-H-02`<br>`PR-Q-06`<br>`PR-A-05` |
+| `BIND-DECISION-PENDING-APPLIED` | `TRANS-DECISION-PENDING-APPLIED` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `認証済み主体・同Ownerの対象と元本文を確認し一回State CAS。履歴確定は別結果。AI再送なし。` | `PR-H-02`<br>`PR-Q-06` |
+| `BIND-DECISION-PENDING-ANSWERED` | `TRANS-DECISION-PENDING-ANSWERED` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `認証済み主体・同Ownerの対象と元本文を確認し一回State CAS。履歴確定は別結果。AI再送なし。` | `PR-H-02`<br>`PR-Q-06` |
+| `BIND-DECISION-INVALIDATED` | `TRANS-DECISION-INVALIDATED` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `認証済み主体・同Ownerの対象と元本文を確認し一回State CAS。履歴確定は別結果。AI再送なし。` | `PR-Q-06` |
 
 ## 10. 不変条件
 
@@ -640,17 +590,11 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | `Every post-acquire exit attempts physical release; lease release intent is durable before lock removal and unresolved exact evidence blocks reacquisition` |
 | `INV-LEASE-ACQUISITION-RECOVERABLE` | `An atomically published acquisition marker bound to lease kind source queue owner generation process and deterministic recovery identity precedes the physical lock; a second exact marker proves lock ownership; project operation and canonical adoption pre-owner failures reach fresh complete rollback, exact common recovery with all markers and lock absent, or unchanged manual recovery obligation` |
 | `INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | `Queue owner is cleared only after fresh lock absence exact released evidence and release-marker absence` |
-| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | 各Task義務のexact Identityをrequired／recovering／settledまで保持する。Docker結果は技術終端・cleanup・実履歴行の確認後に読み、Repository・Task・Attempt・Operation・回復参照・固定結果・Consumerを照合する。Task受領参照、単一受領事実、対応する内部配送待ちの解消と除去可能なOperationの終了は、一つのSnapshot CASで確定する。保存後応答喪失は同じ候補の再入場で一重確定し、別のACK更新や結果読取りから解除しない。保存と排他解放の確認前は完了を返さず、unknownと元参照は保持する。不存在やIDだけを受領・削除Authorityにしない。回復後に世代・Revision・競合を新しく確認する。 |
+| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | `各Task義務のexact Identityをrequired／recovering／settledまで保持する。Docker結果は技術終端・cleanup・実履歴行の確認後に読み、Repository・Task・Attempt・Operation・回復参照・固定結果・Consumerを照合する。Task受領参照、単一受領事実、対応する内部配送待ちの解消と除去可能なOperationの終了は、一つのSnapshot CASで確定する。保存後応答喪失は同じ候補の再入場で一重確定し、別のACK更新や結果読取りから解除しない。保存と排他解放の確認前は完了を返さず、unknownと元参照は保持する。不存在やIDだけを受領・削除Authorityにしない。回復後に世代・Revision・競合を新しく確認する。 ／` |
 | `INV-DECISION-BINDING-CURRENT` | `Human decision applies only to the exact current decision project milestone generation revision and allowed option` |
 | `INV-MCP-NO-HUMAN-AUTHORITY` | `MCP metadata session provider identity and comment never create Human Authority` |
-| `INV-DECISION-RECEIPT-BEFORE-RESUME` | `Milestone and queue resume only once from an exact accepted decision receipt and fresh project generation` |
-| `INV-DECISION-ATOMIC-APPLICATION` | `Protected continuation record is prepared before one atomic decision and milestone project state replace then reconciled and finalized without claiming cross root atomicity` |
-| `INV-DECISION-APPLICATION-FINALIZED-BEFORE-QUEUE` | `Queue lease occurs only after fresh protected continuation finalized observation and matching project state application id and generation readback` |
-| `INV-DECISION-CONTINUATION-PROTOCOL` | `Only Platform Adapter owned protected CAS creates issued and transitions issued to prepared and prepared to finalized; invalid input leaves the record unchanged; project-only unknown may enter protected recovery after independent intent readback while protected-root unknown records only independent recovery intent and claims no protected transition` |
-| `INV-DECISION-CAPABILITY-ISSUED-BEFORE-RETURN` | `Raw capability is returned only after unique protected issued record create and fresh readback; duplicate issuance request reuses the same record and replacement first invalidates the old hash` |
-| `INV-DECISION-PREPARED-INVALIDATION-READBACK` | `Prepared continuation invalidates only after fresh project state proves the expected old generation and application id absent; matching new generation finalizes and unknown recovers` |
-| `INV-DECISION-RECOVERY-SETTLEMENT` | `Recovery settles matching new project generation to continuation finalized and verified old unapplied to continuation invalidated; exact absent with raw not returned or exact expired with project unapplied safely settles no-effect; unknown or conflict preserves the observable continuation state and keeps the independent recovery intent required` |
-| `INV-DECISION-SEPARATE-RECOVERY-INTENT` | `Protected observation unknown never claims a protected transition and uses a separate verified recovery store; if that store is unknown manual recovery and process reuse prohibition remain` |
+| `INV-DECISION-RECEIPT-BEFORE-RESUME` | `継続回答は同じ対象・回答先・現在世代・Queue条件へ一度適用し、再計画待ちに進めるだけでAIを自動再送しない。` |
+| `INV-DECISION-ATOMIC-APPLICATION` | `回答・適用・対象状態・Queueは同じState CAS。履歴失敗は適用を戻さず、同一再送ではStateを再保存しない。` |
 
 ## 11. 失敗注入
 
@@ -669,9 +613,9 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `FAIL-ADOPTION-REVISION` | `TRANS-QUEUE-ACTIVE-REPLAN`<br>`TRANS-QUEUE-ACTIVE-HUMAN` | `canonical_effect_zero` | `PR-A-06` |
 | `FAIL-TRANSPORT-DISCONNECT` | `TRANS-TASK-ACTIVE-CANCELLED` | `cancel_request_separate_from_durable_completion` | `PR-Q-04` |
 | `FAIL-PLATFORM-UNAVAILABLE` | `TRANS-MILESTONE-PLAN-EXECUTE` | `no_fallback_and_effect_zero` | `PR-A-07` |
-| `FAIL-DECISION-STALE` | `TRANS-DECISION-PENDING-ACCEPTED` | `invalid_submit_causes_no_decision_transition_project_change_task_effect_or_authority_generation` | `PR-Q-06`<br>`PR-H-02` |
-| `FAIL-DECISION-ATOMIC-APPLICATION` | `TRANS-CONTINUATION-ISSUED-PREPARED`<br>`TRANS-DECISION-PENDING-ACCEPTED`<br>`TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE`<br>`TRANS-CONTINUATION-PREPARED-FINALIZED`<br>`TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY`<br>`TRANS-DECISION-RECOVERY-ABSENT-REQUIRED`<br>`TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `protected issued_to_prepared CAS and readback precede project_write_flush_readback; matching application_id_and_generations precede prepared_to_finalized CAS and readback; project_only_unknown may update protected recovery after independent intent while protected_unknown records only independent recovery intent; decision_and_milestone all_old_or_all_new; queue fresh_observes_finalized and task_effect_at_most_once` | `PR-Q-06`<br>`PR-H-02` |
-| `FAIL-DECISION-CONTINUATION` | `TRANS-CONTINUATION-ABSENT-ISSUED`<br>`TRANS-CONTINUATION-ISSUED-PREPARED`<br>`TRANS-CONTINUATION-PREPARED-FINALIZED`<br>`TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY`<br>`TRANS-CONTINUATION-ISSUED-INVALIDATED`<br>`TRANS-CONTINUATION-PREPARED-UNAPPLIED-INVALIDATED`<br>`TRANS-CONTINUATION-RECOVERY-FINALIZED`<br>`TRANS-CONTINUATION-RECOVERY-INVALIDATED`<br>`TRANS-CONTINUATION-PROTECTED-RECOVERY-ISSUED-INVALIDATED`<br>`TRANS-CONTINUATION-PROTECTED-RECOVERY-PREPARED-REQUIRED`<br>`TRANS-CONTINUATION-ISSUED-EXPIRED`<br>`TRANS-DECISION-RECOVERY-ABSENT-REQUIRED`<br>`TRANS-DECISION-RECOVERY-REQUIRED-SETTLED` | `protected_create_failure returns no raw capability; duplicate pending decision or replacement request reuses one issued record; response_loss does not auto_replace; invalid_submit_preserves_legitimate_capability; initial create unknown settles exact absent without effect or invalidates fresh issued; expiry unknown settles fresh expired or invalidates fresh issued; fresh prepared enters exact protected recovery; project_only_unknown persists independent intent then protected recovery; protected_unknown never claims unobserved transition and persists exact independent intent; recovery joins fresh roots then settles continuation before intent; unavailable intent store returns manual_recovery effect_unknown process_reuse_forbidden; no duplicate authority effect or raw capability persistence` | `PR-Q-06`<br>`PR-H-02` |
+| `FAIL-DECISION-STALE` | `TRANS-DECISION-PENDING-APPLIED` | `invalid_submit_causes_no_decision_transition_project_change_task_effect_or_authority_generation` | `PR-Q-06`<br>`PR-H-02` |
+| `FAIL-DECISION-ATOMIC-APPLICATION` | `TRANS-DECISION-PENDING-APPLIED`<br>`TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `同一State一回CAS。履歴保存失敗でも元回答と適用を保持し、再入場ではState再保存0。` | `PR-Q-06`<br>`PR-H-02` |
+| `FAIL-DECISION-CONTINUATION` | `TRANS-DECISION-PENDING-APPLIED`<br>`TRANS-DECISION-PENDING-ANSWERED`<br>`TRANS-DECISION-INVALIDATED` | `別主体・対象・世代・選択肢は適用しない。適用不能回答は理由付きで保持。明示閉鎖はBlockerとQueueを保持し、AI再送0。` | `PR-Q-06`<br>`PR-H-02` |
 
 ## 12. 実装・検証への接続
 
@@ -684,11 +628,11 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `IMPL-PROJECT-STATE-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-SCHEDULER`<br>`IF-INTEGRATION` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/state/create.ts`<br>`40_Develop/coordinator/src/state/validation.ts`<br>`40_Develop/coordinator/src/state/types.ts`<br>`40_Develop/coordinator/src/state/projection.ts`<br>`40_Develop/coordinator/src/task/scheduling.ts`<br>`40_Develop/coordinator/src/task/lifecycle.ts`<br>`40_Develop/coordinator/src/task/recovery.ts`<br>`40_Develop/coordinator/src/task/acceptance.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
 | `IMPL-PUBLIC-OBJECTIVE-INTAKE-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-QUEUE`<br>`IF-TRANSPORT` | `partial` | `public_objective_intake` | `40_Develop/domain-model/src/objective/request.ts`<br>`40_Develop/coordinator/src/objective/plan.ts`<br>`40_Develop/coordinator/src/objective/execute.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/objective/plan.contract.test.ts`<br>`40_Develop/coordinator/bin/coordinator.ts`<br>`40_Develop/coordinator/src/objective/composition.ts`<br>`40_Develop/coordinator/src/decision/acceptance.ts`<br>`40_Develop/coordinator/src/decision/lifecycle.ts`<br>`40_Develop/coordinator/src/state/query.ts`<br>`40_Develop/coordinator/src/execution/diagnostics.ts`<br>`40_Develop/coordinator/src/state/result.ts`<br>`40_Develop/coordinator/src/execution/controller.ts`<br>`40_Develop/coordinator/src/execution/result.ts`<br>`40_Develop/coordinator/src/execution/operation.ts`<br>`40_Develop/coordinator/scripts/task-real-provider-contract.ts`<br>`40_Develop/coordinator/scripts/verify-task-real-providers.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts` |
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`<br>`IF-PROJECT-CORE`<br>`IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/domain-model/src/objective/request.ts`<br>`40_Develop/coordinator/src/decision/request.ts`<br>`40_Develop/coordinator/src/state/result.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/mcp-server/src/index.ts`<br>`40_Develop/mcp-server/src/tools/task.ts`<br>`40_Develop/mcp-server/src/transport/stdio.ts`<br>`40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts`<br>`40_Develop/mcp-server/tests/system/stdio-transport.integration.test.ts` |
-| `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`<br>`IF-PLATFORM`<br>`IF-INTEGRATION`<br>`IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/decision/types.ts`<br>`40_Develop/domain-model/src/decision/types.ts`<br>`40_Develop/domain-model/src/decision/validation.ts`<br>`40_Develop/coordinator/src/task/types.ts`<br>`40_Develop/coordinator/src/execution/diagnostics.ts`<br>`40_Develop/coordinator/tests/unit/task/intelligence-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/platform/contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/coordinator/src/workspace/operations.ts`<br>`40_Develop/coordinator/src/decision/store.ts`<br>`40_Develop/coordinator/src/execution/kernel-lock.ts`<br>`40_Develop/coordinator/src/execution/controller.ts`<br>`40_Develop/coordinator/src/task/dispatch.ts`<br>`40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-windows-decision-store.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-single-task-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-platform-independence.contract.test.ts` |
+| `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`<br>`IF-PLATFORM`<br>`IF-INTEGRATION`<br>`IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/domain-model/src/decision/types.ts`<br>`40_Develop/domain-model/src/decision/operations.ts`<br>`40_Develop/coordinator/src/task/types.ts`<br>`40_Develop/coordinator/src/execution/diagnostics.ts`<br>`40_Develop/coordinator/tests/integration/provider-intelligence.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/platform/contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/coordinator/src/workspace/operations.ts`<br>`40_Develop/domain-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/src/execution/kernel-lock.ts`<br>`40_Develop/coordinator/src/execution/controller.ts`<br>`40_Develop/coordinator/src/task/dispatch.ts`<br>`40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/task-single-task-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-platform-independence.contract.test.ts` |
 | `IMPL-DURABLE-FOUNDATION-CANDIDATE` | `IF-STATE-STORE`<br>`IF-QUEUE` | `partial` | `durable_foundation` | `40_Develop/coordinator/src/state/create.ts`<br>`40_Develop/coordinator/src/state/validation.ts`<br>`40_Develop/coordinator/src/state/persistence.ts`<br>`40_Develop/coordinator/src/state/result.ts`<br>`40_Develop/domain-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts` |
 | `IMPL-PROJECT-EXECUTION-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-SCHEDULER`<br>`IF-INTEGRATION`<br>`IF-TRANSPORT` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/task/dispatch.ts`<br>`40_Develop/coordinator/src/state/persistence.ts`<br>`40_Develop/coordinator/src/task/types.ts`<br>`40_Develop/coordinator/src/execution/process-safety-state.ts`<br>`40_Develop/coordinator/tests/unit/task-execution-host-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts` |
 | `IMPL-REPLANNING-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-SCHEDULER` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/objective/replan.ts`<br>`40_Develop/coordinator/src/state/persistence.ts`<br>`40_Develop/domain-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts` |
-| `IMPL-HUMAN-DECISION-CANDIDATE` | `IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/decision/lifecycle.ts`<br>`40_Develop/coordinator/src/decision/request.ts`<br>`40_Develop/coordinator/src/decision/types.ts`<br>`40_Develop/domain-model/src/decision/types.ts`<br>`40_Develop/domain-model/src/decision/validation.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/coordinator/src/decision/store.ts`<br>`40_Develop/domain-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/tests/unit/task-decision-capability-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-windows-decision-store.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-decision-recovery-store.contract.test.ts` |
+| `IMPL-HUMAN-DECISION-CANDIDATE` | `IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/decision/lifecycle.ts`<br>`40_Develop/coordinator/src/decision/request.ts`<br>`40_Develop/domain-model/src/decision/types.ts`<br>`40_Develop/domain-model/src/decision/operations.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/domain-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/tests/unit/decision/lifecycle.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts`<br>`40_Develop/domain-model/tests/integration/runtime-snapshot-io.contract.test.ts` |
 | `IMPL-INTEGRATION-CANDIDATE` | `IF-INTEGRATION`<br>`IF-PROJECT-CORE` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/workspace/record.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/domain-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/src/workspace/operations.ts`<br>`40_Develop/coordinator/src/objective/composition.ts`<br>`40_Develop/coordinator/src/decision/acceptance.ts`<br>`40_Develop/coordinator/src/decision/lifecycle.ts`<br>`40_Develop/coordinator/src/state/query.ts`<br>`40_Develop/coordinator/src/execution/diagnostics.ts`<br>`40_Develop/coordinator/src/state/result.ts`<br>`40_Develop/coordinator/tests/integration/task-integration-record-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/public-operation.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/task-full-flow.integration.test.ts` |
 
 ### 検証接続
@@ -706,13 +650,13 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `PR-Q-03` | `quasi_normal` | `partial` | `40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts` |
 | `PR-Q-04` | `quasi_normal` | `partial` | `40_Develop/mcp-server/tests/system/stdio-transport.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts` |
 | `PR-Q-05` | `quasi_normal` | `partial` | `40_Develop/coordinator/tests/integration/task-queue-priority.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts` |
-| `PR-Q-06` | `quasi_normal` | `partial` | `40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-windows-decision-store.contract.test.ts`<br>`40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts` |
+| `PR-Q-06` | `quasi_normal` | `partial` | `40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts`<br>`40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts` |
 | `PR-H-01` | `human_decision` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts` |
-| `PR-H-02` | `human_decision` | `partial` | `40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-windows-decision-store.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-decision-recovery-store.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-full-flow.integration.test.ts` |
+| `PR-H-02` | `human_decision` | `partial` | `40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts`<br>`40_Develop/domain-model/tests/integration/runtime-snapshot-io.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-full-flow.integration.test.ts` |
 | `PR-A-01` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
 | `PR-A-02` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
 | `PR-A-03` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts` |
-| `PR-A-04` | `abnormal` | `partial` | `40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts`<br>`40_Develop/domain-model/tests/integration/committed-json.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-settlement.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/coordinator-state-runtime.contract.test.ts`<br>`40_Develop/docker-isolation/tests/integration/resource-recovery.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` |
+| `PR-A-04` | `abnormal` | `partial` | `40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts`<br>`40_Develop/executor/tests/integration/report.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-settlement.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/coordinator-state-runtime.contract.test.ts`<br>`40_Develop/docker-isolation/tests/integration/resource-recovery.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` |
 | `PR-A-05` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` |
 | `PR-A-06` | `abnormal` | `partial` | `40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`<br>`40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts` |
 | `PR-A-07` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/platform/contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts` |

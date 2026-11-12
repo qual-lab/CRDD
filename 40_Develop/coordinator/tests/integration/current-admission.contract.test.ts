@@ -94,7 +94,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${encodeRuntimeStateValue({
-        schema: "crdd-domain/runtime-state/v2",
+        schema: "crdd-domain/runtime-state/v3",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
@@ -109,8 +109,8 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
         leaseIntents: [],
         results: [],
         historyPending: [],
-        acceptanceDecisions: [],
-        decisionRecoveries: [],
+        decisions: [],
+        blockers: [],
         operations: [],
         unresolvedRecoveries: [],
         pendingDeliveries: [],

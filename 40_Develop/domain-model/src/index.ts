@@ -29,22 +29,22 @@ export type {
   TopicPromotionCommandResult,
 } from "./activity/types.ts";
 export type {
-  ModelSelection,
-  Provider,
-  ReasoningEffort,
   AiSelectionCatalog,
   AiSelectionChoice,
   AiSelectionConfig,
   AiSelectionRole,
   AiSelectionSnapshot,
   ExecutionSelection,
+  ModelSelection,
+  Provider,
+  ReasoningEffort,
   TaskExecutionSelections,
 } from "./ai-selection/types.ts";
 export {
   type AiSelectionConfigResult,
-  inspectExecutionSelection,
-  inspectAiSelectionChoice,
   hashExecutionSelection,
+  inspectAiSelectionChoice,
+  inspectExecutionSelection,
   inspectTaskExecutionSelections,
   validateAiSelectionConfig,
 } from "./ai-selection/validation.ts";
@@ -266,6 +266,10 @@ export {
   inspectRemediationTable,
 } from "./artifact/verification-tables.ts";
 export {
+  applyCoordinatorResourceCleanup,
+  applyCoordinatorResourceEvent,
+} from "./attempt/crud.ts";
+export {
   prepareCoordinatorLeaseAcquisitionConfirmation,
   prepareCoordinatorLeaseAcquisitionReservation,
   prepareCoordinatorLeaseRecoveryReservation,
@@ -282,14 +286,14 @@ export type {
   DockerRuntimeRepairRetentionTargets,
 } from "./attempt/repair-types.ts";
 export {
-  RUNTIME_REPAIR_ACTIONS,
   decodeDockerRuntimeRepairCheckpoint,
   decodeDockerRuntimeRepairDisposalCheckpoint,
   decodeDockerRuntimeRepairRetentionTargets,
-  RUNTIME_REPAIR_DIRECTORIES,
   dockerRuntimeRepairCheckpointIsSettled,
   dockerRuntimeRepairDisposalIsSettled,
   prepareDockerRuntimeRepairSessionCheckpoint,
+  RUNTIME_REPAIR_ACTIONS,
+  RUNTIME_REPAIR_DIRECTORIES,
   validateDockerRuntimeRepairCheckpointTransition,
 } from "./attempt/repair-validation.ts";
 export {
@@ -304,20 +308,14 @@ export {
 } from "./attempt/settlement.ts";
 export type {
   CoordinatorRepairRetentionReceipt,
+  CoordinatorResourceBook,
   CoordinatorStateOperation,
   CoordinatorStateRepairOperation,
   CoordinatorStateTaskOperation,
-  CoordinatorResourceBook,
   DockerRestartCheckpoint,
   TurnCountDiagnostic,
 } from "./attempt/types.ts";
 export {
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
-} from "./attempt/crud.ts";
-export {
-  validateCoordinatorResourceBook,
-  validateCoordinatorResourceBookTransition,
   coordinatorAuthenticationClosureEvidence,
   coordinatorAuthenticationUnknownCanClose,
   coordinatorOperationNonce,
@@ -335,6 +333,8 @@ export {
   parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
   purposeResource,
+  validateCoordinatorResourceBook,
+  validateCoordinatorResourceBookTransition,
   validateHostRecoveryTransitionLineage,
   validCoordinatorOutcome,
   validCoordinatorPrimaryFailure,
@@ -365,29 +365,26 @@ export {
   inspectRepositoryManifest,
   REPOSITORY_MANIFEST_SCHEMA,
 } from "./configuration/validate-declarations.ts";
+export {} from "./decision/crud.ts";
 export {
-  prepareCoordinatorAcceptanceDecisionCreation,
-  prepareCoordinatorAcceptanceDecisionFinalization,
-  prepareCoordinatorDecisionRecoveryCreation,
-  prepareCoordinatorDecisionRecoveryUpdate,
-  projectCoordinatorAcceptanceDecisionRecord,
-  projectCoordinatorDecisionRecoveryRecord,
-} from "./decision/crud.ts";
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  type CoordinatorDecisionRequest,
+  inspectCoordinatorDecisionRequest,
+  inspectCoordinatorDecisionResult,
+  type CoordinatorDecisionResult,
+} from "./decision/request.ts";
 export type {
   CoordinatorAcceptanceDecision,
-  CoordinatorAcceptanceDecisionEnvelope,
   CoordinatorAcceptanceDecisionInput,
-  CoordinatorAcceptanceDecisionRecord,
   CoordinatorAcceptanceTarget,
-  CoordinatorDecisionRecord,
-  CoordinatorDecisionRecoveryIntent,
+  Decision,
+  DecisionAnswer,
+  DecisionRequest,
 } from "./decision/types.ts";
 export {
-  COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
-  isCoordinatorDecisionRecord,
-  validCoordinatorAcceptanceDecisionRecord,
-  validCoordinatorDecisionRecoveryIntent,
-} from "./decision/validation.ts";
+  createLocalPrincipalId,
+  isPrincipalId,
+} from "./identity/validation.ts";
 export { createMeetingOperations } from "./meeting/create-operations.ts";
 export {
   applyMeetingOutcomeTreatment,
@@ -400,6 +397,11 @@ export type {
   MeetingRecord,
   MeetingState,
 } from "./meeting/types.ts";
+export {
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  type CoordinatorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+} from "./objective/request.ts";
 export type {
   CoordinatorObjectivePlan,
   ProjectMilestoneRecord,
@@ -550,6 +552,14 @@ export {
   type QualitySemanticRelation,
 } from "./semantic/relations.ts";
 export {
+  compareActivityEventPositions,
+  decodeActivityCursor,
+  deriveActivitySourceCorrelation,
+  encodeActivityCursor,
+  inspectRuntimeActivityObservation,
+  parseRuntimeActivityObservation,
+} from "./state/activity.ts";
+export {
   encodeRuntimeStateValue,
   hashRuntimeStateContent,
   RUNTIME_STATE_MAXIMUM_BYTES,
@@ -595,6 +605,31 @@ export {
   prepareCoordinatorTerminalRecordRetirement,
 } from "./state/history.ts";
 export {
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  inspectCoordinatorProjection,
+  inspectCoordinatorStateQueryResult,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+  PROJECT_OBJECTIVE_STATES,
+  PROJECT_TASK_STATES,
+} from "./state/projection.ts";
+export type {
+  ActivityRepository,
+  ActivitySource,
+  CoordinatorProjection,
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+} from "./state/projection-types.ts";
+export {
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  inspectCoordinatorStateQuery,
+} from "./state/query.ts";
+export {
   assertCoordinatorSnapshotTransition,
   type CoordinatorSnapshotObservations,
   coordinatorAdoptionWasRejected,
@@ -612,7 +647,6 @@ export type {
   CoordinatorStoredTask,
   CoordinatorTaskSettlementFact,
   CoordinatorUnifiedSnapshot,
-  RuntimeStateEnvelope,
   HistoryRow,
   LeaseEvidenceContent,
   LeaseEvidenceEnvelope,
@@ -622,6 +656,7 @@ export type {
   RuntimeManagedExecution,
   RuntimeProjectDefinition,
   RuntimeReadResult,
+  RuntimeStateEnvelope,
   RuntimeWriteResult,
   StateVersion,
 } from "./state/types.ts";
@@ -633,15 +668,15 @@ export {
   coordinatorHistoryLineBytes,
   coordinatorOperationSummaryBytes,
   decodeRuntimeDomainSnapshot,
+  hashRuntimeProjectDefinition,
   hashRuntimeStateValueText,
   hasRuntimeStateKeys,
   hasRuntimeStateRecordKeys,
-  hashRuntimeProjectDefinition,
   historyRow,
+  isRuntimeStateObject,
   isSha256Hex,
   leaseAcquisitionRecoveryId,
   leaseIdentity,
-  isRuntimeStateObject,
   prepareCoordinatorStateHistoryLine,
   projectCoordinatorTaskSettlement,
   snapshotRuntimeStateArray,
@@ -664,12 +699,6 @@ export {
   type StableFileIdentity,
   sameStableFileIdentity,
 } from "./storage/bounded-file-snapshot.ts";
-export {
-  getJsonCommitName,
-  readCommittedJson,
-  removeCommittedJson,
-  writeCommittedJson,
-} from "./storage/committed-json.ts";
 export {
   checkRepositoryRuntimeDataProtectionDirectory,
   createCoordinatorRuntimeDataArea,
@@ -705,15 +734,12 @@ export {
   completeRuntimeOwnedCoordinatorCurrentRecovery,
   completeRuntimeOwnedCoordinatorRepair,
   confirmCoordinatorLeaseAcquisition,
-  createCoordinatorAcceptanceDecision,
-  createCoordinatorDecisionRecovery,
   createCoordinatorQueueEntry,
   createCoordinatorSingleTaskQueue,
   createObjective,
   createTask,
   deleteObjective,
   deleteTask,
-  finalizeCoordinatorAcceptanceDecision,
   initializeCoordinatorSnapshot,
   initializeRuntimeState,
   maintainCoordinatorSnapshotRecords,
@@ -725,9 +751,7 @@ export {
   queryRuntimeState,
   queryTasks,
   queryWorkspaces,
-  readCoordinatorAcceptanceDecision,
   readCoordinatorCurrentState,
-  readCoordinatorDecisionRecovery,
   readCoordinatorExecutionState,
   readCoordinatorLeaseAcquisitionOwner,
   readCoordinatorLeaseOwnerLoss,
@@ -736,6 +760,7 @@ export {
   readCoordinatorSnapshotIntakeEpoch,
   readCoordinatorTaskIntakeState,
   readCoordinatorWorkspaceState,
+  readDecision,
   readRuntimeOwnedCoordinatorAdmissionSnapshot,
   readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
   readRuntimeOwnedCoordinatorCurrentDeliverySnapshot,
@@ -745,10 +770,15 @@ export {
   readRuntimeOwnedCoordinatorRecoverySnapshot,
   readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
   readRuntimeOwnedCoordinatorRepairHistorySnapshot,
-  readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
   readRuntimeOwnedCoordinatorResourceBook,
+  readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
   readRuntimeOwnedCoordinatorStateSnapshot,
   reconcileCoordinatorReleasedLease,
+  recordDecision,
+  requestDecision,
+  answerDecision,
+  applyDecision,
+  closeDecision,
   registerRuntimeOwnedCoordinatorRecoveryResultDelivery,
   reserveCoordinatorLeaseAcquisition,
   reserveCoordinatorLeaseRecovery,
@@ -767,7 +797,6 @@ export {
   settleCoordinatorQueueLeaseRelease,
   settleCoordinatorQueueRecovery,
   transferCoordinatorSnapshotHistoryRecords,
-  updateCoordinatorDecisionRecovery,
   updateCoordinatorQueueEntry,
   updateCoordinatorSingleTaskQueue,
   updateObjective,
@@ -884,93 +913,32 @@ export type {
   TopicState,
 } from "./topic/types.ts";
 export {
+  inspectWorkspaceCommand,
+  type WorkspaceCommand,
+} from "./workspace/command.ts";
+export {
   prepareCoordinatorIntegrationRecordCreation,
   prepareCoordinatorWorkspaceRecordUpdate,
 } from "./workspace/crud.ts";
+
+export {
+  inspectCoordinatorWorkspaceResults,
+  snapshotCoordinatorWorkspaceResult,
+} from "./workspace/result.ts";
 export type {
   CoordinatorResultRecord,
   CoordinatorWorkspace,
   CoordinatorWorkspaceCandidate,
-} from "./workspace/types.ts";
-export {
-  COORDINATOR_INTEGRATION_CONTRACT,
-  validCoordinatorResultRecord,
-  validCoordinatorWorkspace,
-} from "./workspace/validation.ts";
-
-export type {
-  ActivityRepository,
-  ActivitySource,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
-  CoordinatorStateQuery,
-  CoordinatorStateQueryResult,
-  CoordinatorProjection,
-} from "./state/projection-types.ts";
-
-export {
-  COORDINATOR_STATE_QUERY_CONTRACT,
-  inspectCoordinatorStateQuery,
-} from "./state/query.ts";
-
-export {
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
-  PROJECT_OBJECTIVE_STATES,
-  PROJECT_TASK_STATES,
-  inspectCoordinatorProjection,
-  inspectCoordinatorStateQueryResult,
-  isCoordinatorProjectionSemanticallyValid,
-  isCoordinatorObjectiveProjectionCorrelationValid,
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-} from "./state/projection.ts";
-
-export {
-  deriveActivitySourceCorrelation,
-  decodeActivityCursor,
-  encodeActivityCursor,
-  compareActivityEventPositions,
-  inspectRuntimeActivityObservation,
-  parseRuntimeActivityObservation,
-} from "./state/activity.ts";
-
-export {
-  type CoordinatorObjectiveRequest,
-  inspectCoordinatorObjectiveRequest,
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-} from "./objective/request.ts";
-
-export {
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  type CoordinatorDecisionRequest,
-  inspectCoordinatorDecisionRequest,
-} from "./decision/request.ts";
-
-export {
-  snapshotCoordinatorWorkspaceResult,
-  inspectCoordinatorWorkspaceResults,
-} from "./workspace/result.ts";
-
-export {
-  type WorkspaceCommand,
-  inspectWorkspaceCommand,
-} from "./workspace/command.ts";
-
-export type { CoordinatorWorkspaceResult } from "./workspace/types.ts";
-
-export type { RepositoryWorktreeResult } from "./workspace/types.ts";
-
-export type {
+  CoordinatorWorkspaceResult,
+  RepositoryWorktreeResult,
   WorkspaceCandidateRequest,
   WorkspaceCandidateResult,
 } from "./workspace/types.ts";
 export {
-  validWorkspaceDisplayName,
-  validWorkspaceCandidateRequest,
+  COORDINATOR_INTEGRATION_CONTRACT,
   isWorkspaceCommitId,
+  validCoordinatorResultRecord,
+  validCoordinatorWorkspace,
+  validWorkspaceCandidateRequest,
+  validWorkspaceDisplayName,
 } from "./workspace/validation.ts";
-export {
-  createLocalPrincipalId,
-  isPrincipalId,
-} from "./identity/validation.ts";

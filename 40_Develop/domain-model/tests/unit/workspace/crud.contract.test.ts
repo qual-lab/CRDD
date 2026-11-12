@@ -10,16 +10,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type CoordinatorSnapshot,
+  type CoordinatorState,
+  type CoordinatorWorkspace,
+  encodeRuntimeStateValue,
   prepareCoordinatorIntegrationRecordCreation,
   prepareCoordinatorWorkspaceRecordUpdate,
   projectCoordinatorCurrentState,
   validCoordinatorWorkspace,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  encodeRuntimeStateValue,
-  type CoordinatorSnapshot,
-  type CoordinatorWorkspace,
-  type CoordinatorState,
 } from "../../../src/index.ts";
+
 /**
  * 局所候補の共通値を組み立てる。
  * @responsibility 元の判定順・返却形・対象外保持を反証する。
@@ -62,7 +63,7 @@ function fixture() {
   assert.equal(validCoordinatorWorkspace(workspace), true);
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -101,8 +102,8 @@ function fixture() {
     ],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   return { id, workspace, current };
 }

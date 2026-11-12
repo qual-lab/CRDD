@@ -5,11 +5,11 @@
  * @trace ARCH-000004、ARCH-000008
  * @boundary 純粋な値操作。保存・実行・現在Authorityの発行は行わない。
  */
-import type { CoordinatorSnapshot } from "../state/types.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../state/validation.ts";
-import { isRuntimeStateObject } from "../state/validation.ts";
-import { validCoordinatorSnapshot } from "../state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../state/codec.ts";
+import { validateCoordinatorUnifiedTransition } from "../state/transition.ts";
 import type {
+  CoordinatorSnapshot,
   CoordinatorState,
   CoordinatorStoredTask,
   CoordinatorTaskSettlementFact,
@@ -18,16 +18,17 @@ import type {
   RuntimeStoredManagedProject,
 } from "../state/types.ts";
 import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   decodeRuntimeDomainSnapshot,
-  hasRuntimeStateRecordKeys,
   hashRuntimeProjectDefinition,
+  hasRuntimeStateRecordKeys,
+  isRuntimeStateObject,
+  validCoordinatorSnapshot,
 } from "../state/validation.ts";
 import {
-  validCoordinatorState,
   decodeProjectResultAcceptance,
+  validCoordinatorState,
 } from "./validation.ts";
-import { encodeRuntimeStateValue } from "../state/codec.ts";
-import { validateCoordinatorUnifiedTransition } from "../state/transition.ts";
 
 /**
  * Taskの確定済み業務更新を単一保存の一改訂へ組み込む。
@@ -363,7 +364,7 @@ export function projectCoordinatorTaskSnapshot(
   if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
   return {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash,
     repositoryBindingId: s.repositoryBindingId,
     intakeEpoch: s.intakeEpoch,
@@ -376,8 +377,8 @@ export function projectCoordinatorTaskSnapshot(
     leaseIntents: s.leaseIntents,
     results: s.results,
     historyPending: s.historyPending,
-    acceptanceDecisions: s.acceptanceDecisions,
-    decisionRecoveries: s.decisionRecoveries,
+    decisions: s.decisions,
+    blockers: s.blockers,
   };
 }
 

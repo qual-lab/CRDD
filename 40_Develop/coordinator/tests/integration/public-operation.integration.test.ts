@@ -20,8 +20,10 @@ import { Writable } from "node:stream";
 import test from "node:test";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
+  inspectCoordinatorDecisionResult,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   saveRepositoryAiSelection,
@@ -30,7 +32,6 @@ import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-p
 
 import { getRepository } from "../../../version-control/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
 import {
   COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
   createCoordinatorExecutionIntelligenceDiagnosticReporter,
@@ -57,7 +58,7 @@ import {
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
-test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影する", () => {
+test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影する", async (t) => {
   const error = new RepositoryRuntimeDataAreaBlockedError({
     status: "blocked",
     reason: "repository_runtime_data_ignore_registration_blocked",
@@ -81,6 +82,90 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
     retryAllowed: false,
     recoveryIds: ["repository-local-ignore.test-reference"],
   });
+  for (const effectState of ["unknown", "settled", "no_effect"] as const) {
+    const result = {
+      contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
+      status: "blocked",
+      reason: error.reason,
+      decisionId: "decision-a",
+      recoveryId: error.recoveryReference,
+      decision: null,
+      history: null,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState,
+    };
+    assert.deepEqual(inspectCoordinatorDecisionResult(result), result);
+    assert.equal(
+      inspectCoordinatorDecisionResult({ ...result, status: "completed" }),
+      null,
+    );
+    assert.equal(
+      inspectCoordinatorDecisionResult({
+        ...result,
+        manualRecoveryRequired: false,
+      }),
+      null,
+    );
+  }
+  const domain = await import("../../../domain-model/src/index.ts");
+  let currentError = error;
+  t.mock.module("../../../domain-model/src/index.ts", {
+    namedExports: {
+      ...domain,
+      readDecision: () => {
+        throw currentError;
+      },
+    },
+  });
+  t.mock.module("../../src/execution/persistence.ts", {
+    namedExports: { verifyRuntimePersistenceRepository: () => ({}) },
+  });
+  const modulePath = "../../src/decision/lifecycle.ts?boundary-failure-test";
+  const { executeCoordinatorPublicDecision } = await import(modulePath);
+  for (const [issued, unknown, cleanup] of [
+    [true, true, false],
+    [true, false, true],
+    [false, false, true],
+  ] as const) {
+    currentError = new RepositoryRuntimeDataAreaBlockedError({
+      status: "blocked",
+      reason: "repository_runtime_data_ignore_registration_blocked",
+      effectIssued: issued,
+      effectStateUnknown: unknown,
+      effectConfirmation: issued || unknown ? "unknown" : "not_issued",
+      cleanupConfirmed: cleanup,
+      retryAllowed: false,
+      recoveryReference: "repository-local-ignore.exact-reference",
+      repositoryPathReported: false,
+    });
+    if (!issued)
+      Object.defineProperty(currentError, "cause", {
+        value: "coordinator_snapshot_lock_release_unconfirmed",
+      });
+    const result = executeCoordinatorPublicDecision(
+      {
+        operation: "apply",
+        decisionId: "decision-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        generation: 1,
+        repositoryRevision: "a".repeat(40),
+      },
+      path.resolve(import.meta.dirname, "../../../.."),
+      { principalId: "operator-a" },
+    );
+    const expected = coordinatorDataBoundaryBlocked(currentError);
+    assert.equal(result.reason, expected.reason);
+    assert.equal(result.recoveryId, expected.recoveryIds[0]);
+    assert.equal(result.effectState, expected.effectState);
+    assert.equal(result.cleanupConfirmed, expected.cleanupConfirmed);
+    assert.equal(
+      result.manualRecoveryRequired,
+      expected.manualRecoveryRequired,
+    );
+    assert.deepEqual(inspectCoordinatorDecisionResult(result), result);
+  }
 });
 
 /**
@@ -131,7 +216,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     encoding: "utf8",
     windowsHide: true,
   }).trim();
-  const decisionRoot = path.join(root, ".decision-store");
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed")
@@ -151,13 +235,9 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   );
   assert.equal(initialized.status, "completed");
   let intakeEpoch = initialized.value as string;
-  fs.mkdirSync(decisionRoot);
-  const decisionStore =
-    createCoordinatorWindowsDecisionStoreTestingAdapter(decisionRoot);
   let taskStarts = 0;
   const deliveredRequests: Readonly<Record<string, unknown>>[] = [];
   const publicationObservations: object[] = [];
-  let storeOpens = 0;
   const runtime = createDevelopmentCoordinatorPublicObjectiveCandidate({
     captureResultDelivery: () =>
       Object.freeze({
@@ -253,13 +333,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
           reason: "coordinator_task_control_invalid" as const,
         }),
       ),
-    openDecisionStore: () => {
-      storeOpens += 1;
-      return Object.freeze({
-        status: "completed" as const,
-        store: decisionStore,
-      });
-    },
   });
   // 主体欠測・不正は保存先の観測・初期化より前に拒否する。
   for (const context of [
@@ -280,16 +353,15 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       denied.reason,
       "orchestrator_authenticated_principal_not_verified",
     );
-    assert.equal(storeOpens, 0);
     const decisionDenied = runtime.runDecision(
       {
+        operation: "answer",
         decisionId: "decision-no-principal",
         projectId: "project-public-runtime",
         milestoneId: "milestone-public-runtime",
         generation: 1,
         repositoryRevision: revision,
         selectedOption: "cancel",
-        continuationCapability: "fixture-capability",
       },
       root,
       context,
@@ -298,7 +370,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       decisionDenied.reason,
       "orchestrator_authenticated_principal_not_verified",
     );
-    assert.equal(storeOpens, 0);
     const acceptanceDenied = executeCoordinatorPublicAcceptanceDecision(
       {},
       root,
@@ -411,6 +482,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       {
         contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
         decisionId,
+        blockerId: `blocker-${decisionId}`,
         sourceSpecId: "SPEC-000002",
         projectId: "project-public-runtime",
         milestoneId: "milestone-public-runtime",
@@ -658,7 +730,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       },
     ],
   };
-  const opensBeforeDeniedObjectives = storeOpens;
   for (const context of [
     undefined,
     { principalId: "" },
@@ -674,7 +745,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       denied.reason,
       "orchestrator_authenticated_principal_not_verified",
     );
-    assert.equal(storeOpens, opensBeforeDeniedObjectives);
     assert.equal(taskStarts, 3);
   }
   const graphResult = await runtime.run(

@@ -10,7 +10,6 @@ import type {
   CoordinatorState,
   ProjectTaskDefinition,
 } from "../../../domain-model/src/index.ts";
-import type { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
 import type {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
@@ -84,7 +83,6 @@ export type PublicExecutionDependencies = Readonly<{
   startTask: typeof startRuntimeOwnedCoordinatorTask;
   cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
   captureResultDelivery: typeof captureRuntimeOwnedCoordinatorTaskResultDelivery;
-  openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;

@@ -15,9 +15,9 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createObjective,
   createTask,
+  decodeRuntimeDomainSnapshot,
   deleteObjective,
   deleteTask,
-  decodeRuntimeDomainSnapshot,
   initializeRuntimeState,
   queryPlan,
   queryTasks,
@@ -357,7 +357,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
-  assert.equal(state.schema, "crdd-domain/runtime-state/v2");
+  assert.equal(state.schema, "crdd-domain/runtime-state/v3");
   for (const key of [
     "managedExecutions",
     "operations",

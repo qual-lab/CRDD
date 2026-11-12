@@ -12,8 +12,6 @@ import assert from "node:assert/strict";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
 
-import { isCoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
-
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
@@ -227,13 +225,13 @@ function objectiveRequest() {
  */
 function decisionRequest() {
   return {
+    operation: "answer",
     decisionId: "decision-1",
     projectId: "project-1",
     milestoneId: "milestone-1",
     generation: 2,
     repositoryRevision,
     selectedOption: "resume",
-    continuationCapability: "opaque-capability",
     comment: "再開する",
   } as const;
 }
@@ -264,30 +262,24 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
 });
 
 /**
- * Objectiveの任意四項目を全組合せで固定する。
+ * Objectiveの任意三項目を全組合せで固定する。
  *
- * @responsibility 明示選択・分類／Workspaceのexact搬送と省略時の非生成を全十六組合せで検証する。
+ * @responsibility 明示選択・分類／Workspaceのexact搬送と省略時の非生成を全八組合せで検証する。
  * @trace PRL-UT-014
- * @precondition 正常なObjectiveと四つの任意入力を使用する。
- * @stimulus 四項目の有無を全十六組合せで入力検査へ渡す。
+ * @precondition 正常なObjectiveと三つの任意入力を使用する。
+ * @stimulus 三項目の有無を全八組合せで入力検査へ渡す。
  * @observation Snapshot全体、選択の三項目、所有Propertyと不変性を確認する。
  * @oracle 同じ入力だけが固定され、省略した選択を補完しない。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary N/A: 純粋な入力検査。
  */
-test("Objectiveの任意四項目は全十六組合せでexactにsnapshotする", () => {
+test("Objectiveの任意三項目は全八組合せでexactにsnapshotする", () => {
   const optionalFieldNames = [
-    {
-      decisionCapabilityReplacement: {
-        decisionId: "decision-1",
-        replacementRequestId: "request-2",
-      },
-    },
     { workType: "coding" },
     { choice: { provider: "codex", model: "gpt-5.5", effort: "high" } },
     { workspaceId: "11111111-1111-1111-1111-111111111111" },
   ];
-  for (let mask = 0; mask < 16; mask += 1) {
+  for (let mask = 0; mask < 8; mask += 1) {
     const source = Object.assign(
       { ...objectiveRequest() },
       ...optionalFieldNames.filter(
@@ -297,7 +289,7 @@ test("Objectiveの任意四項目は全十六組合せでexactにsnapshotする"
     const inspected = inspectCoordinatorObjectiveRequest(source);
     assert.ok(inspected, `mask=${mask}`);
     assert.deepEqual(inspected, source);
-    assert.equal(Object.hasOwn(inspected, "choice"), (mask & 4) !== 0);
+    assert.equal(Object.hasOwn(inspected, "choice"), (mask & 2) !== 0);
     assert.ok(Object.isFrozen(inspected));
   }
   const source = {
@@ -532,76 +524,17 @@ test("Objective要求はRepository外を指すPath表現をEffect前に拒否す
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
   assert.equal(
     COORDINATOR_HUMAN_DECISION_CONTRACT,
-    "crdd-coordinator/orchestrator-human-decision/v1",
+    "crdd-coordinator/orchestrator-human-decision/v2",
   );
   const source = decisionRequest();
   const inspected = inspectCoordinatorDecisionRequest(source);
   assert.ok(inspected);
+  assert.equal(inspected.operation, "answer");
   assert.notEqual(inspected, source);
   assert.ok(Object.isFrozen(inspected));
-  assert.equal(inspected.selectedOption, "resume");
-});
-
-/**
- * 判断Store RecordはCoordinatorの閉じた意味契約で検証するを検証する。
- *
- * @responsibility 判断Store RecordはCoordinatorの閉じた意味契約で検証するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 判断Store RecordはCoordinatorの閉じた意味契約で検証するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
- */
-test("判断Store RecordはOrchestratorの閉じた意味契約で検証する", () => {
-  const record = {
-    recordId: "decision-record-1",
-    decisionId: "decision-1",
-    projectId: "project-1",
-    milestoneId: "milestone-1",
-    queueId: "queue-1",
-    repositoryRevision,
-    expectedGeneration: 1,
-    principalId: "principal-1",
-    allowedOptions: ["resume", "cancel"],
-    capabilityHash: "b".repeat(64),
-    expiresAtEpochMs: 1,
-    disposition: "pending",
-    applicationId: null,
-    selectedOption: null,
-    newGeneration: null,
-    replacementRequestId: null,
-  } as const;
-  assert.equal(isCoordinatorDecisionRecord(record), true);
   assert.equal(
-    isCoordinatorDecisionRecord({ ...record, provider: "codex" }),
-    false,
-  );
-  assert.equal(
-    isCoordinatorDecisionRecord({
-      ...record,
-      disposition: "completed",
-    }),
-    false,
-  );
-  assert.equal(
-    isCoordinatorDecisionRecord({
-      ...record,
-      selectedOption: "resume",
-      newGeneration: 1,
-    }),
-    false,
-  );
-  assert.equal(
-    isCoordinatorDecisionRecord(
-      new Proxy(record, {
-        getPrototypeOf: () => {
-          throw new Error("untrusted-record");
-        },
-      }),
-    ),
-    false,
+    inspected.operation === "answer" && inspected.selectedOption,
+    "resume",
   );
 });
 

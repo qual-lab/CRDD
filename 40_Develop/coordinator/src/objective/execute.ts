@@ -5,23 +5,13 @@
  * @trace ARCH-000004
  */
 
-import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
-import {
-  createGroup,
-  completeGroup,
-  type StoreOptions,
-} from "../../../execution-intelligence/src/index.ts";
-import {
-  getExecutionIntelligenceStore,
-  reportExecutionRecording,
-  reportExecutionRecordingUnavailable,
-} from "../execution/intelligence.ts";
+import { isDeepStrictEqual } from "node:util";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
-  isPrincipalId,
   type CoordinatorState,
   inspectTaskExecutionSelections,
+  isPrincipalId,
   type ProjectTaskRecoveryObligation,
   readCoordinatorTaskIntakeState,
   readRepositoryAiSelection,
@@ -30,15 +20,25 @@ import {
   type TaskExecutionSelections,
 } from "../../../domain-model/src/index.ts";
 import {
+  completeGroup,
+  createGroup,
+  type StoreOptions,
+} from "../../../execution-intelligence/src/index.ts";
+import {
+  getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  getRepository,
 } from "../../../version-control/src/index.ts";
 import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
 import {
   createCoordinatorWindowsPlatformAdapter,
   writeCoordinatorRecoveryDiagnostic,
 } from "../execution/diagnostics.ts";
+import {
+  getExecutionIntelligenceStore,
+  reportExecutionRecording,
+  reportExecutionRecordingUnavailable,
+} from "../execution/intelligence.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import {
   consumeDockerRecoveryReceiptAfterProjectSettlement,
@@ -1768,16 +1768,6 @@ export async function executeCoordinatorPublicObjective(
   const identity = readRepositorySnapshot(
     getRepository(repositoryRoot).capability,
   );
-  const decisionStore = runtimeDependencies.openDecisionStore();
-  if (decisionStore.status !== "completed")
-    return Object.freeze({
-      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-      status: "blocked" as const,
-      reason: "orchestrator_authenticated_principal_not_verified",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      effectState: "no_effect" as const,
-    });
   const platform =
     process.platform === "win32"
       ? createCoordinatorWindowsPlatformAdapter()
@@ -2299,11 +2289,10 @@ export async function runCoordinatorObjective(
   return result;
 }
 
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
-import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../../domain-model/src/index.ts";
 import {
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
+  inspectCoordinatorWorkspaceResults,
 } from "../../../domain-model/src/index.ts";
-
-import { inspectCoordinatorWorkspaceResults } from "../../../domain-model/src/index.ts";

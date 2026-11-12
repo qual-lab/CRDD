@@ -11,29 +11,13 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
 import test from "node:test";
-import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  initializeCoordinatorSnapshot,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+import { initializeCoordinatorSnapshot } from "../../../domain-model/src/index.ts";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 
-import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import {
-  createCoordinatorSnapshotAcceptanceDecisionStore,
-  createCoordinatorDecisionCapabilityAdapter,
-  issueCoordinatorHumanDecision,
-  submitCoordinatorHumanDecision,
-} from "../../src/decision/lifecycle.ts";
-import {
-  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-  createCoordinatorAcceptanceAuthorityAdapter,
-} from "../../src/decision/request.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";
+import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { runCoordinatorObjective } from "../../src/objective/execute.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
@@ -43,10 +27,9 @@ import type {
 } from "../../src/objective/types.ts";
 import { readCurrentCoordinatorState } from "../../src/state/query.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
-
-const revision = "a".repeat(40);
+import { createRepository } from "../fixtures/decision-state.ts";
 
 /**
  * resolveCoordinatorReplanのTest準備責務を実行する。
@@ -93,18 +76,6 @@ function acceptIntegratedResult(
     objectiveId: string;
   }>,
 ) {
-  const persistence = createCurrentCoordinatorPersistencePorts(
-    input.root,
-    input.repositoryBindingId,
-  );
-  const dependencies = Object.freeze({
-    state: persistence.state,
-    authority: createCoordinatorAcceptanceAuthorityAdapter("operator-a"),
-    store: createCoordinatorSnapshotAcceptanceDecisionStore(
-      input.root,
-      input.repositoryBindingId,
-    ),
-  });
   const decide = (
     target: "objective" | "milestone",
     targetId: string,
@@ -117,20 +88,25 @@ function acceptIntegratedResult(
     );
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
-    return recordCoordinatorAcceptanceDecision(dependencies, {
-      contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-      decisionId: `decision-${input.projectId}-${suffix}`,
-      sourceSpecId: "SPEC-000002",
-      projectId: input.projectId,
-      milestoneId: input.milestoneId,
-      repositoryRevision: revision,
-      expectedGeneration: observed.value.generation,
-      target,
-      targetId,
-      decision: "accept",
-      criterionEvidenceIds: [`evidence-${suffix}`],
-      principalId: "operator-a",
-    });
+    return executeCoordinatorPublicAcceptanceDecision(
+      {
+        contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+        decisionId: `decision-${input.projectId}-${suffix}`,
+        blockerId: `blocker-${input.projectId}-${suffix}`,
+        sourceSpecId: "SPEC-000002",
+        projectId: input.projectId,
+        milestoneId: input.milestoneId,
+        repositoryRevision: observed.value.repositoryRevision,
+        expectedGeneration: observed.value.generation,
+        target,
+        targetId,
+        decision: "accept",
+        criterionEvidenceIds: [`evidence-${suffix}`],
+        principalId: "operator-a",
+      },
+      input.root,
+      { principalId: "operator-a" },
+    );
   };
   assert.equal(
     decide("objective", input.objectiveId, "objective").status,
@@ -155,23 +131,10 @@ function acceptIntegratedResult(
  * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(t: test.TestContext) {
-  const root = fs.mkdtempSync(
-    path.join(
-      requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-          path.resolve(import.meta.dirname, "../../../.."),
-          "tests",
-        ),
-        "fixture_root_invalid",
-      ).directory,
-      "crdd-project-full-flow-",
-    ),
-  );
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { root, revision } = createRepository(t);
   const initialized = initializeCoordinatorSnapshot(
     verifyRuntimePersistenceRepository(root),
-    "binding-full",
+    deriveCoordinatorRepositoryBindingId(root),
   );
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
@@ -198,7 +161,7 @@ function fixture(t: test.TestContext) {
     authenticatedPrincipalId: "principal-full",
     verifyProjectBinding: () => ({
       status: "verified",
-      repositoryBindingId: "binding-full",
+      repositoryBindingId: deriveCoordinatorRepositoryBindingId(root),
       repositoryRevision: revision,
       workingDirectory: root,
       repositoryRoot: root,
@@ -307,7 +270,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
   const replanned = resolveCoordinatorReplan(
     {
       workingDirectory: context.root,
-      repositoryBindingId: "binding-full",
+      repositoryBindingId: deriveCoordinatorRepositoryBindingId(context.root),
       projectId: context.request.projectId,
       milestoneId: context.request.milestoneId,
       queueId: first.queueId ?? "invalid",
@@ -328,14 +291,14 @@ test("public intake, bounded retry, progress and integration form one accepted f
   assert.equal(context.attempts, 2);
   acceptIntegratedResult({
     root: context.root,
-    repositoryBindingId: "binding-full",
+    repositoryBindingId: deriveCoordinatorRepositoryBindingId(context.root),
     projectId: context.request.projectId,
     milestoneId: context.request.milestoneId,
     objectiveId: "objective-full",
   });
   const finalState = readCurrentCoordinatorState(
     context.root,
-    "binding-full",
+    deriveCoordinatorRepositoryBindingId(context.root),
     context.request.projectId,
   );
   assert.equal(
@@ -357,23 +320,10 @@ test("public intake, bounded retry, progress and integration form one accepted f
  * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続する", async (t) => {
-  const root = fs.mkdtempSync(
-    path.join(
-      requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-          path.resolve(import.meta.dirname, "../../../.."),
-          "tests",
-        ),
-        "fixture_root_invalid",
-      ).directory,
-      "crdd-project-bounded-evaluation-",
-    ),
-  );
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { root, revision } = createRepository(t);
   const initialized = initializeCoordinatorSnapshot(
     verifyRuntimePersistenceRepository(root),
-    "binding-bounded-evaluation",
+    deriveCoordinatorRepositoryBindingId(root),
   );
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
@@ -402,7 +352,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
     authenticatedPrincipalId: "principal-bounded-evaluation",
     verifyProjectBinding: () => ({
       status: "verified",
-      repositoryBindingId: "binding-bounded-evaluation",
+      repositoryBindingId: deriveCoordinatorRepositoryBindingId(root),
       repositoryRevision: revision,
       workingDirectory: root,
       repositoryRoot: root,
@@ -506,7 +456,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
   assert.notEqual(lifecycle[0], lifecycle[2]);
   acceptIntegratedResult({
     root,
-    repositoryBindingId: "binding-bounded-evaluation",
+    repositoryBindingId: deriveCoordinatorRepositoryBindingId(root),
     projectId: request.projectId,
     milestoneId: request.milestoneId,
     objectiveId: "objective-bounded-evaluation",
@@ -535,7 +485,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
   );
   const input = {
     workingDirectory: context.root,
-    repositoryBindingId: "binding-full",
+    repositoryBindingId: deriveCoordinatorRepositoryBindingId(context.root),
     projectId: context.request.projectId,
     milestoneId: context.request.milestoneId,
     queueId: first.queueId ?? "invalid",
@@ -549,62 +499,38 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
   assert.equal(escalated.reason, "orchestrator_human_decision_required");
   const state = readCurrentCoordinatorState(
     context.root,
-    "binding-full",
+    deriveCoordinatorRepositoryBindingId(context.root),
     context.request.projectId,
   );
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value)
     throw new Error("state missing");
-  const records = new Map<string, CoordinatorDecisionRecord>();
-  const store = {
-    create(record: CoordinatorDecisionRecord) {
-      records.set(record.recordId, record);
-      return { status: "completed", value: record };
-    },
-    read(recordId: string) {
-      const value = records.get(recordId);
-      return value ? { status: "completed", value } : { status: "blocked" };
-    },
-    compareAndSet(
-      expected: CoordinatorDecisionRecord,
-      next: CoordinatorDecisionRecord,
-    ) {
-      if (records.get(expected.recordId) !== expected)
-        return { status: "blocked" };
-      records.set(expected.recordId, next);
-      return { status: "completed", value: next };
-    },
-  };
-  const commonFields = {
-    ...input,
-    capability: createCoordinatorDecisionCapabilityAdapter(),
-    persistence: createCurrentCoordinatorPersistencePorts(
-      context.root,
-      "binding-full",
-    ),
-    principalId: "principal-full",
-    store,
-  };
-  const issued = issueCoordinatorHumanDecision(commonFields, {
+  const common = {
     decisionId: "decision-full",
-    repositoryRevision: revision,
-    expectedGeneration: state.value.generation,
-    allowedOptions: ["resume"],
-    lifetimeMs: 60_000,
-    nowEpochMs: 1_000,
-  });
-  assert.equal(issued.status, "completed");
-  if (issued.status !== "completed") throw new Error("decision not issued");
-  const applied = submitCoordinatorHumanDecision(commonFields, {
-    decisionId: "decision-full",
-    recordId: issued.recordId,
-    repositoryRevision: revision,
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
     generation: state.value.generation,
-    selectedOption: "resume",
-    continuationCapability: issued.continuationCapability,
-    nowEpochMs: 2_000,
-  });
-  assert.equal(applied.status, "completed");
+    repositoryRevision: state.value.repositoryRevision,
+  };
+  const issued = executeCoordinatorPublicDecision(
+    {
+      ...common,
+      operation: "request",
+      blockerId: "blocker-full",
+      queueId: input.queueId,
+      question: "継続しますか",
+      allowedOptions: ["resume"],
+    },
+    context.root,
+    { principalId: "principal-full" },
+  );
+  assert.equal(issued.status, "completed", issued.reason);
+  const applied = executeCoordinatorPublicDecision(
+    { ...common, operation: "answer", selectedOption: "resume" },
+    context.root,
+    { principalId: "principal-full" },
+  );
+  assert.equal(applied.status, "completed", applied.reason);
   const resumed = resolveCoordinatorReplan(input, () => ({
     disposition: "maintain_plan",
     reason: "human authorized retry",

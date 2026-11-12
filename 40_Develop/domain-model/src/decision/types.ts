@@ -5,7 +5,178 @@
  * @trace ARCH-000004、ARCH-000005、ARCH-000008
  * @boundary Domain値。技術Capabilityは含まない。
  */
-import type { COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT } from "./validation.ts";
+
+/**
+ * 判断の所属先と、回答が対象とする業務世代を定義する。
+ * @responsibility Objective／Task／Milestoneを区別し、Attemptを所有者にしない。
+ * @trace ARCH-000004、ARCH-000005、ARCH-000008
+ * @boundary Repository内の判断値。認可・実資源の所在を表さない。
+ */
+export type DecisionTarget = Readonly<{
+  projectId: string;
+  milestoneId: string;
+  kind: "objective" | "task" | "milestone";
+  id: string;
+  generation: number;
+  repositoryRevision: string;
+}>;
+
+/**
+ * 進行できない理由を判断要求とは別に保持する。
+ * @responsibility 問題を一件保持し、現在の提案と過去の提案・回答を分離する。
+ * @trace ARCH-000004、ARCH-000008
+ * @invariant resolvedだけで実行開始やCleanup完了を意味しない。
+ * @boundary 状態値。解消の許可と実施は各Lifecycleが所有する。
+ */
+export type Blocker = Readonly<{
+  blockerId: string;
+  target: DecisionTarget;
+  reason: string;
+}> &
+  (
+    | Readonly<{ status: "active" | "resolved" }>
+    | Readonly<{ status: "cancelled"; cancelledByDecisionId: string }>
+  ) &
+  (
+    | Readonly<{ kind: "human_decision"; currentDecisionId: string }>
+    | Readonly<{
+        kind: "dependency" | "input" | "resource" | "recovery";
+        currentDecisionId: null;
+      }>
+  );
+
+/**
+ * 判断要求の非秘密な本文を固定する。
+ * @responsibility 質問、表示付き選択肢、対象を後の回答・履歴へ引き継ぐ。
+ * @trace ARCH-000004、ARCH-000005、ARCH-000008
+ * @invariant Bearer Capability、Host Path、保存済み認可を持たない。
+ * @boundary 信頼入口で認可された要求とDomain値。
+ */
+export type DecisionRequest = Readonly<{
+  decisionId: string;
+  blockerId: string;
+  respondentPrincipalId: string;
+  target: DecisionTarget;
+  question: string;
+  requestedAt: string;
+}> &
+  (
+    | Readonly<{
+        kind: "continuation";
+        queueId: string;
+        options: readonly Readonly<{
+          value: "resume" | "cancel";
+          label: string;
+        }>[];
+      }>
+    | Readonly<{
+        kind: "acceptance";
+        options: readonly Readonly<{
+          value: "accept" | "return" | "wait";
+          label: string;
+        }>[];
+      }>
+  );
+
+/**
+ * 人間の回答を、実際の状態への反映とは別の事実として保持する。
+ * @responsibility 回答者・日時・選択・理由・根拠を欠測補完せず保存する。
+ * @trace ARCH-000004、ARCH-000005、ARCH-000008
+ * @boundary Principalは入口から搬送する値であり、本人認証の証明ではない。
+ */
+export type DecisionAnswer = Readonly<{
+  principalId: string;
+  answeredAt: string;
+  selectedOption: "resume" | "cancel" | "accept" | "return" | "wait";
+  reason: string | null;
+  evidenceIds: readonly string[];
+}>;
+
+/**
+ * 同じState更新で確定する判断の適用事実を定義する。
+ * @responsibility 適用相関、前後世代、実際の状態変化とBlocker処置を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @invariant 保留の適用も表せる。適用済みをBlocker解消へ読み替えない。
+ * @boundary 純粋候補と唯一のState Writer。保存成功は別途確認する。
+ */
+export type DecisionApplication = Readonly<{
+  applicationId: string;
+  appliedAt: string;
+  beforeGeneration: number;
+  afterGeneration: number;
+  previousState: string;
+  nextState: string;
+  blockerResolved: boolean;
+}>;
+
+/**
+ * 回答の受理と適用可否を相関する結果値。
+ * @responsibility 未適用理由を必須にし、未確認の適用を成功にしない。
+ * @trace ARCH-000004、ARCH-000008
+ * @boundary 値契約。現在の認可・保存・実行を代替しない。
+ */
+export type DecisionResult = Readonly<{ answer: DecisionAnswer }> &
+  (
+    | Readonly<{ status: "applied"; application: DecisionApplication }>
+    | Readonly<{ status: "unapplied"; reason: string }>
+  );
+
+/**
+ * 一つの提案と、最大一件の回答・適用・明示無効化の相関を保持する。
+ * @responsibility 同じBlockerへの再提案を別IDで保持し、過去回答を上書きしない。
+ * @trace ARCH-000004、ARCH-000005、ARCH-000008
+ * @invariant pendingに回答を持たせず、終端化しても既存回答を失わない。
+ * @boundary 新Schemaの保存値。明示受入・継続判断を同じRoot Writerへ接続する。
+ */
+export type Decision = DecisionRequest &
+  (
+    | Readonly<{ status: "pending"; result: null }>
+    | Readonly<{
+        status: "answered";
+        result: Extract<DecisionResult, { status: "unapplied" }>;
+      }>
+    | Readonly<{
+        status: "applied";
+        result: Extract<DecisionResult, { status: "applied" }>;
+      }>
+    | Readonly<{
+        status: "invalidated";
+        result: DecisionResult | null;
+        closedAt: string;
+        closeReason: string;
+      }>
+  );
+
+/**
+ * 判断記録から再構成する、内容付きの履歴イベント。
+ * @responsibility 元の質問・表示付き選択肢と、出来事時点の回答・適用を残す。
+ * @trace ARCH-000004、ARCH-000005、ARCH-000008
+ * @invariant 薄いID参照だけにせず、要求イベントへ未来の回答を混入しない。
+ * @boundary 内部投影。追記・重複照合・退役確認は履歴保存Ownerが行う。
+ */
+export type DecisionHistoryEvent = Readonly<{
+  eventId: string;
+  decisionId: string;
+  blockerId: string;
+  respondentPrincipalId: string;
+  target: DecisionTarget;
+  question: string;
+  options: DecisionRequest["options"];
+  occurredAt: string;
+}> &
+  (
+    | Readonly<{ kind: "decision_requested" }>
+    | Readonly<{ kind: "decision_answered"; answer: DecisionAnswer }>
+    | Readonly<{
+        kind: "decision_applied";
+        answer: DecisionAnswer;
+        application: DecisionApplication;
+      }>
+    | Readonly<{
+        kind: "decision_invalidated";
+        reason: string;
+      }>
+  );
 
 /**
  * Coordinatorの受入判断対象を定義する。
@@ -49,113 +220,4 @@ export type CoordinatorAcceptanceDecisionInput = Readonly<{
   targetId: string;
   decision: CoordinatorAcceptanceDecision;
   criterionEvidenceIds: readonly string[];
-}>;
-
-/**
- * 一回のObjective／Milestone受入判断記録を定義する。
- *
- * @responsibility 判断Identity、対象、根拠、状態適用前後および記録Dispositionを耐久境界として所有する。
- * @trace ARCH-000005
- * @shape 一つの明示判断とその適用状態を表す。
- * @invariant Capability秘密値、Task作成情報またはProvider Effect情報を保持しない。
- * @boundary Coordinator Coreと受入判断Storeの境界。
- * @security Authority秘密値を保存せず、検証済みPrincipalとBindingだけを保持する。
- * @compatibility `prepared`から`finalized`への一方向遷移を維持する。
- */
-export type CoordinatorAcceptanceDecisionRecord = Readonly<{
-  recordId: string;
-  decisionId: string;
-  sourceSpecId: "SPEC-000002";
-  projectId: string;
-  milestoneId: string;
-  repositoryRevision: string;
-  expectedGeneration: number;
-  target: CoordinatorAcceptanceTarget;
-  targetId: string;
-  decision: CoordinatorAcceptanceDecision;
-  criterionEvidenceIds: readonly string[];
-  principalId: string;
-  disposition: "prepared" | "finalized";
-  newGeneration: number | null;
-}>;
-
-/**
- * decision-portで使用するCoordinator Decision 記録の値契約を定義する。
- *
- * @responsibility Coordinator Decision 記録のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorDecisionRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorDecisionRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorDecisionRecordの宣言は外部境界を開かない。
- * @security N/A: CoordinatorDecisionRecordはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorDecisionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorDecisionRecord = Readonly<{
-  recordId: string;
-  decisionId: string;
-  projectId: string;
-  milestoneId: string;
-  queueId: string;
-  repositoryRevision: string;
-  expectedGeneration: number;
-  principalId: string;
-  allowedOptions: readonly ("resume" | "cancel")[];
-  capabilityHash: string;
-  expiresAtEpochMs: number;
-  disposition:
-    | "pending"
-    | "prepared"
-    | "finalized"
-    | "invalidated"
-    | "expired"
-    | "recovery_required";
-  applicationId: string | null;
-  selectedOption: "resume" | "cancel" | null;
-  newGeneration: number | null;
-  replacementRequestId: string | null;
-}>;
-
-/**
- * decision-portで使用するCoordinator Decision 回復 Intentの値契約を定義する。
- *
- * @responsibility Coordinator Decision 回復 IntentのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorDecisionRecoveryIntentが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorDecisionRecoveryIntentで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorDecisionRecoveryIntentの宣言は外部境界を開かない。
- * @security N/A: CoordinatorDecisionRecoveryIntentはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorDecisionRecoveryIntentの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorDecisionRecoveryIntent = Readonly<{
-  recoveryId: string;
-  recordId: string;
-  projectId: string;
-  milestoneId: string;
-  queueId: string;
-  applicationId: string | null;
-  expectedGeneration: number;
-  newGeneration: number | null;
-  observedDisposition: CoordinatorDecisionRecord["disposition"] | "unknown";
-  unknownBoundary: string;
-  disposition: "required" | "settled";
-}>;
-
-/**
- * Acceptance Decision Recordの耐久世代Envelopeを定義する。
- *
- * @responsibility Binding、Record Identity、世代、前世代HashおよびRecord本体を一つの耐久契約へ閉じる。
- * @trace ARCH-000005
- * @shape generation 1のprepared Recordまたはgeneration 2のfinalized Recordと、その前世代参照を表す。
- * @invariant generation 1はpreviousHashを持たず、generation 2はgeneration 1のHashを持つ。
- * @boundary Coordinator Acceptance Decision StoreとRepository-local JSONの型境界。
- * @security 秘密値、CapabilityまたはHost絶対Pathを保持しない。
- * @compatibility contract値とgeneration意味を変更せず、利用側は宣言済みPropertyだけへ依存する。
- */
-export type CoordinatorAcceptanceDecisionEnvelope = Readonly<{
-  contract: typeof COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT;
-  repositoryBindingId: string;
-  recordId: string;
-  generation: 1 | 2;
-  previousHash: string | null;
-  record: CoordinatorAcceptanceDecisionRecord;
 }>;

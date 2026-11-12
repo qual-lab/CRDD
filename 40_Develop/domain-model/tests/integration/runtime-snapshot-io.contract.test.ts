@@ -4,6 +4,7 @@
  * @responsibility pending・marker・観測不能・境界置換の保存保証を所有する。
  * @trace PRL-IT-005
  * @trace PRL-IT-012
+ * @trace PRL-IT-014
  * @trace ERB-IT-004
  * @trace ERB-IT-014
  * @level IT
@@ -11,7 +12,6 @@
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -21,10 +21,11 @@ import test from "node:test";
 import { types } from "node:util";
 import { runInNewContext, runInThisContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
+import * as domain from "../../src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
-  type CoordinatorState,
   type CoordinatorResourceBook,
+  type CoordinatorState,
   type CoordinatorStateTaskOperation,
   coordinatorTaskResourcesAreSettled,
   decodeRuntimeDomainSnapshot,
@@ -40,12 +41,14 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   saveCoordinatorManagedProject,
 } from "../../src/index.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
 import {
-  leaseIdentity,
   leaseAcquisitionRecoveryId,
+  leaseIdentity,
 } from "../../src/state/validation.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
 import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/runtime-lock.ts";
+import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
+import * as privateStore from "../../src/storage/runtime-store.ts";
 import {
   describeCoordinatorDurableFoundation,
   initializeCoordinatorSnapshot as initializeSnapshot,
@@ -54,11 +57,9 @@ import {
   writeCoordinatorSnapshotState,
 } from "../../src/storage/runtime-store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
-import { sourceDeclaration } from "../support/source-declaration.ts";
-import * as domain from "../../src/index.ts";
-import * as privateStore from "../../src/storage/runtime-store.ts";
-import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
+import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * 現在Readerの初回・部分保存・排他終了と故障結果を検証する。
@@ -311,8 +312,8 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         leaseIntents: [],
         results: [],
         historyPending: [],
-        acceptanceDecisions: [],
-        decisionRecoveries: [],
+        decisions: [],
+        blockers: [],
         operations: [],
         unresolvedRecoveries: [],
         pendingDeliveries: [],
@@ -371,8 +372,8 @@ const emptyTaskSections = {
   leaseIntents: [],
   results: [],
   historyPending: [],
-  acceptanceDecisions: [],
-  decisionRecoveries: [],
+  decisions: [],
+  blockers: [],
   resultReceipts: [],
 };
 
@@ -1156,105 +1157,29 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   assert.equal(fs.readFileSync(pendingPath, "utf8"), pending);
 
   fs.unlinkSync(pendingPath);
-  const decision: domain.CoordinatorAcceptanceDecisionRecord = {
-    recordId: "decision-a",
-    decisionId: "authority-a",
-    sourceSpecId: "SPEC-000002",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    repositoryRevision: "a".repeat(40),
-    expectedGeneration: 1,
-    target: "objective",
-    targetId: "objective-a",
-    decision: "accept",
-    criterionEvidenceIds: ["evidence-a"],
-    principalId: "principal-a",
-    disposition: "prepared",
-    newGeneration: null,
-  };
-
-  assert.equal(
-    domain.createCoordinatorAcceptanceDecision(
-      cap,
-      "binding-a",
-      "binding-a",
-      decision,
-    ).status,
-    "completed",
-  );
-  const finalized = {
-    ...decision,
-    disposition: "finalized" as const,
-    newGeneration: 2,
-  };
-  assert.equal(
-    domain.finalizeCoordinatorAcceptanceDecision(
-      cap,
-      "binding-a",
-      "binding-a",
-      decision,
-      finalized,
-    ).status,
-    "completed",
-  );
-  const recovery: domain.CoordinatorDecisionRecoveryIntent = {
-    recoveryId: "recovery-a",
-    recordId: "decision-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    queueId: "queue-a",
-    applicationId: "application-a",
-    expectedGeneration: 1,
-    newGeneration: 2,
-    observedDisposition: "prepared",
-    unknownBoundary: "project_readback",
-    disposition: "required",
-  };
-
-  assert.equal(
-    domain.createCoordinatorDecisionRecovery(cap, "binding-a", recovery).status,
-    "completed",
-  );
-  const settled = { ...recovery, disposition: "settled" as const };
-  assert.equal(
-    domain.updateCoordinatorDecisionRecovery(
-      cap,
-      "binding-a",
-      recovery,
-      settled,
-    ).status,
-    "completed",
-  );
   const file = current;
   const observed = readCoordinatorSnapshot(root, "binding-a");
   assert.ok(observed.value);
   for (const malformed of [
     {
       ...observed.value,
+      decisions: [{}],
       snapshotRevision: observed.value.snapshotRevision + 1,
-      acceptanceDecisions: observed.value.acceptanceDecisions.filter(
-        (item) => item.generation === 2,
-      ),
     },
     {
       ...observed.value,
+      blockers: [{}],
       snapshotRevision: observed.value.snapshotRevision + 1,
-      decisionRecoveries: [
-        { generation: 2, value: { ...settled, secret: "forbidden" } },
-      ],
     },
     {
       ...observed.value,
+      acceptanceDecisions: [],
       snapshotRevision: observed.value.snapshotRevision + 1,
-      decisionRecoveries: [{ generation: 2, snapshot: settled }],
     },
     {
       ...observed.value,
+      decisionRecoveries: [],
       snapshotRevision: observed.value.snapshotRevision + 1,
-      decisionRecoveries: [
-        { generation: 2, value: settled },
-        { generation: 2, value: settled },
-      ],
     },
     {
       ...observed.value,
@@ -1872,6 +1797,706 @@ function fixture(t: test.TestContext) {
 }
 
 /**
+ * 判断の一回保存と履歴の故障・再入場・退役を確認する。
+ * @responsibility Stateと履歴の結果分離、時間経過後の再入場、入力の非評価を反証する。
+ * @trace PRL-IT-014
+ * @precondition 自己生成Repositoryと現行Writerだけを使用する。
+ * @stimulus getter／Proxy要求、回答、履歴rename故障、2日後再送、不正履歴、退役・再発行、旧Schemaを与える。
+ * @observation State改訂・判断・対象状態・Blocker、履歴・pendingと結果、getter評価数。
+ * @oracle 回答は一改訂。時間経過後の再送はState保存0で元履歴候補を確定し、不正履歴と早過ぎる退役を保全停止する。
+ * @cleanup fixtureの同一実体限定cleanupを実行する。
+ * @boundary 実Filesystemと共通wx。AI・Docker・旧記録は使わない。
+ */
+test("Decision State: 回答と対象状態を一回保存し同一再送では保存しない", (t) => {
+  const { root, state } = fixture(t);
+  const nativeNow = Date.now;
+  let clockOffset = 0;
+  const dayMs = 86_400_000;
+  t.mock.method(Date, "now", () => nativeNow() + clockOffset);
+  let answeredAt = new Date().toISOString();
+  const requestedAt = new Date(Date.parse(answeredAt) - 60_000).toISOString();
+  const verified = getRepository(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") throw Error("root_invalid");
+  const repository = verified.capability;
+  assert.equal(
+    domain.initializeCoordinatorSnapshot(repository, "binding-a").status,
+    "completed",
+  );
+  const pendingState: CoordinatorState = {
+    ...state,
+    milestone: { ...state.milestone, state: "executing" },
+    objectives: state.objectives.map((item) => ({
+      ...item,
+      state: "integration_pending",
+    })),
+  };
+  assert.equal(
+    domain.saveCoordinatorManagedProject(
+      repository,
+      "binding-a",
+      pendingState,
+      0,
+    ).status,
+    "completed",
+  );
+  let request: import("../../src/decision/types.ts").DecisionRequest = {
+    decisionId: "decision-a",
+    blockerId: "blocker-a",
+    respondentPrincipalId: "operator-a",
+    kind: "acceptance",
+    target: {
+      projectId: state.projectId,
+      milestoneId: state.milestoneId,
+      kind: "objective",
+      id: "objective-a",
+      generation: 1,
+      repositoryRevision: state.repositoryRevision,
+    },
+    question: "Objectiveの成果を受け入れますか？",
+    options: [{ value: "accept", label: "根拠を確認して受入" }],
+    requestedAt,
+  };
+  const pristineState = fs.readFileSync(
+    path.join(root, ".crdd", "domain-model", "state.json"),
+  );
+  let evaluated = 0;
+  const accessorRequest = { ...request };
+  Object.defineProperty(accessorRequest, "decisionId", {
+    enumerable: true,
+    get() {
+      evaluated += 1;
+      throw Error("getter_must_not_run");
+    },
+  });
+  const proxyRequest = new Proxy(request, {
+    get() {
+      evaluated += 1;
+      throw Error("proxy_must_not_run");
+    },
+  });
+  for (const invalid of [accessorRequest, proxyRequest]) {
+    const rejected = privateStore.requestDecision(
+      repository,
+      "binding-a",
+      invalid,
+    );
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "decision_input_invalid");
+    assert.deepEqual(
+      fs.readFileSync(path.join(root, ".crdd", "domain-model", "state.json")),
+      pristineState,
+    );
+    assert.throws(
+      () =>
+        fs.lstatSync(path.join(root, ".crdd", "domain-model", "history.jsonl")),
+      { code: "ENOENT" },
+    );
+  }
+  assert.equal(evaluated, 0);
+  const held = domain.recordDecision(
+    repository,
+    "binding-a",
+    {
+      ...request,
+      decisionId: "proposal-held",
+      requestedAt: new Date(Date.parse(answeredAt) - 120_000).toISOString(),
+      options: [{ value: "wait", label: "保留" }],
+    },
+    {
+      principalId: "operator-a",
+      answeredAt: new Date(Date.parse(answeredAt) - 90_000).toISOString(),
+      selectedOption: "wait",
+      reason: "次の案を確認する",
+      evidenceIds: [],
+    },
+  );
+  assert.equal(held.status, "completed", JSON.stringify(held));
+  answeredAt = new Date().toISOString();
+  request = { ...request, requestedAt: answeredAt };
+  const requested = privateStore.requestDecision(
+    repository,
+    "binding-a",
+    request,
+  );
+  assert.equal(requested.status, "completed", JSON.stringify(requested));
+  if (requested.status === "completed")
+    assert.equal(requested.value.history.status, "confirmed");
+  const before = privateStore.readCoordinatorSnapshot(repository, "binding-a");
+  assert.equal(before.status, "completed");
+  if (before.status !== "completed" || !before.value)
+    throw Error("before_invalid");
+  const starting: CoordinatorState = {
+    ...pendingState,
+    generation: pendingState.generation + 1,
+    tasks: pendingState.tasks.map((task) => ({
+      ...task,
+      state: "starting",
+      startPhase: "reserved",
+      attemptId: "attempt-new",
+      authorityBindingId: "authority-new",
+      operationId: null,
+    })),
+  };
+  const sourceWithBlocker = fs.readFileSync(
+    path.join(root, ".crdd", "domain-model", "state.json"),
+  );
+  const physicalBinding = JSON.parse(
+    sourceWithBlocker.toString("utf8"),
+  ).repositoryBinding;
+  assert.equal(
+    domain.prepareCoordinatorUnifiedTaskSnapshot(
+      sourceWithBlocker,
+      starting,
+      pendingState.generation,
+      physicalBinding,
+    ),
+    null,
+  );
+  const decodedSource = domain.decodeRuntimeDomainSnapshot(
+    sourceWithBlocker,
+    physicalBinding,
+  );
+  assert.ok(decodedSource);
+  const recoveringQueue: domain.ProjectQueueEntry = {
+    queueId: "queue-recovering",
+    projectId: pendingState.projectId,
+    milestoneId: pendingState.milestoneId,
+    requestHash: "a".repeat(64),
+    originLane: "interactive",
+    repositoryRevision: pendingState.repositoryRevision,
+    scopeHash: "b".repeat(64),
+    state: "recovery_required",
+    generation: 1,
+    ownerGeneration: null,
+    resumeCondition: "exact_recovery",
+    resultReference: "recovery-a",
+    workspaceId: null,
+  };
+  const recoverySource = {
+    ...decodedSource.snapshot,
+    queueEntries: [recoveringQueue],
+    intakeBindings: [{ queueId: recoveringQueue.queueId, epoch: "epoch-a" }],
+  };
+  const recoveryBytes = Buffer.from(
+    `${domain.encodeRuntimeStateValue(recoverySource)}\n`,
+  );
+  assert.ok(domain.decodeRuntimeDomainSnapshot(recoveryBytes, physicalBinding));
+  const settlement = domain.prepareCoordinatorQueueRecoverySettlement(
+    {
+      ...before.value,
+      queueEntries: recoverySource.queueEntries,
+      intakeBindings: recoverySource.intakeBindings,
+    },
+    recoveringQueue.queueId,
+    recoveringQueue.generation,
+    "recovery-a",
+  );
+  if (settlement.status !== "completed") throw Error("recovery_fixture");
+  const settledSource = {
+    ...recoverySource,
+    revision: recoverySource.revision + 1,
+    previous: {
+      revision: recoverySource.revision,
+      payloadSha256: domain.hashRuntimeStateContent(recoverySource),
+    },
+    queueEntries: [settlement.value.value],
+  };
+  const settledBytes = Buffer.from(
+    `${domain.encodeRuntimeStateValue(settledSource)}\n`,
+  );
+  assert.equal(
+    domain.validateCoordinatorUnifiedTransition(
+      recoveryBytes,
+      settledBytes,
+      physicalBinding,
+    ),
+    true,
+  );
+  for (const change of [
+    { generation: recoveringQueue.generation + 2 },
+    { resultReference: "recovery-other" },
+  ])
+    assert.equal(
+      domain.validateCoordinatorUnifiedTransition(
+        recoveryBytes,
+        Buffer.from(
+          `${domain.encodeRuntimeStateValue({
+            ...settledSource,
+            queueEntries: [{ ...settlement.value.value, ...change }],
+          })}\n`,
+        ),
+        physicalBinding,
+      ),
+      false,
+    );
+  assert.equal(
+    domain.validateCoordinatorUnifiedTransition(
+      settledBytes,
+      Buffer.from(
+        `${domain.encodeRuntimeStateValue({
+          ...settledSource,
+          revision: settledSource.revision + 1,
+          previous: {
+            revision: settledSource.revision,
+            payloadSha256: domain.hashRuntimeStateContent(settledSource),
+          },
+          queueEntries: [
+            {
+              ...settlement.value.value,
+              generation: settlement.value.value.generation + 1,
+              state: "leased",
+              ownerGeneration: "owner-blocked",
+            },
+          ],
+        })}\n`,
+      ),
+      physicalBinding,
+    ),
+    false,
+  );
+  const unblockedSource = Buffer.from(
+    `${domain.encodeRuntimeStateValue({
+      ...decodedSource.snapshot,
+      decisions: [],
+      blockers: [],
+    })}\n`,
+  );
+  assert.ok(
+    domain.prepareCoordinatorUnifiedTaskSnapshot(
+      unblockedSource,
+      starting,
+      pendingState.generation,
+      physicalBinding,
+    ),
+  );
+  const answer: import("../../src/decision/types.ts").DecisionAnswer = {
+    principalId: "operator-a",
+    answeredAt,
+    selectedOption: "accept",
+    reason: "根拠を確認した",
+    evidenceIds: ["evidence-a"],
+  };
+  const directory = path.join(root, ".crdd", "domain-model");
+  const historyFile = path.join(directory, "history.jsonl");
+  const historyPending = path.join(directory, "history.pending.jsonl");
+  const originalState = fs.readFileSync(path.join(directory, "state.json"));
+  const originalHistory = fs.readFileSync(historyFile);
+  const wrongRespondent = privateStore.answerDecision(
+    repository,
+    "binding-a",
+    request.decisionId,
+    {
+      ...answer,
+      principalId: "operator-b",
+    },
+  );
+  assert.equal(wrongRespondent.status, "blocked");
+  assert.deepEqual(
+    fs.readFileSync(path.join(directory, "state.json")),
+    originalState,
+  );
+  assert.deepEqual(fs.readFileSync(historyFile), originalHistory);
+  // 保持期限直前の非保護行を用意する。判断の再入場では削らず、後の保守で期限整理する。
+  const legacyAt = new Date(nativeNow() - 29 * dayMs).toISOString();
+  const legacyLine = `${domain.encodeRuntimeStateValue({
+    schema: "crdd-coordinator/history-row/v2",
+    occurredAt: legacyAt,
+    summary: {
+      schema: "crdd-coordinator/task-summary/v1",
+      record: {
+        id: "legacy-task",
+        occurredAt: legacyAt,
+        outcome: "completed",
+        primaryFailure: null,
+        cleanup: "not_required",
+      },
+    },
+  })}\n`;
+  fs.writeFileSync(
+    historyFile,
+    Buffer.concat([Buffer.from(legacyLine), fs.readFileSync(historyFile)]),
+  );
+  let injected = 0;
+  const rename = fs.renameSync;
+  const historyFault = t.mock.method(fs, "renameSync", ((from, to) => {
+    if (String(from) === historyPending) {
+      injected += 1;
+      throw Object.assign(new Error("synthetic history publication failure"), {
+        code: "EACCES",
+      });
+    }
+    return Reflect.apply(rename, fs, [from, to]);
+  }) as typeof rename);
+  let result: ReturnType<typeof privateStore.answerDecision>;
+  try {
+    result = privateStore.answerDecision(
+      repository,
+      "binding-a",
+      request.decisionId,
+      answer,
+    );
+  } finally {
+    historyFault.mock.restore();
+  }
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  assert.equal(injected, 1);
+  if (result.status === "completed") {
+    assert.equal(result.value.decision.status, "applied");
+    assert.equal(result.value.history.status, "unconfirmed");
+  }
+  const stateAfterFailure = fs.readFileSync(path.join(directory, "state.json"));
+  const pendingBeforeResume = fs.readFileSync(historyPending);
+  clockOffset = 2 * dayMs;
+  assert.equal(
+    privateStore.readCoordinatorSnapshot(repository, "binding-a").status,
+    "blocked",
+  );
+  const resumed = privateStore.answerDecision(
+    repository,
+    "binding-a",
+    request.decisionId,
+    answer,
+  );
+  assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+  if (resumed.status === "completed")
+    assert.equal(resumed.value.history.status, "confirmed");
+  assert.deepEqual(
+    fs.readFileSync(path.join(directory, "state.json")),
+    stateAfterFailure,
+  );
+  assert.deepEqual(fs.readFileSync(historyFile), pendingBeforeResume);
+  assert.equal(fs.existsSync(historyPending), false);
+  const after = privateStore.readCoordinatorSnapshot(repository, "binding-a");
+  assert.equal(after.status, "completed");
+  if (after.status !== "completed" || !after.value)
+    throw Error("after_invalid");
+  assert.equal(after.value.snapshotRevision, before.value.snapshotRevision + 1);
+  assert.equal(after.value.decisions[0]?.status, "applied");
+  assert.equal(after.value.blockers[0]?.status, "resolved");
+  assert.equal(after.value.projects[0]?.objectives[0]?.state, "accepted");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const bytes = fs.readFileSync(file);
+  const history = fs.readFileSync(historyFile);
+  const allEvents = history
+    .toString("utf8")
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line))
+    .filter(
+      (row) => row.summary.schema === "crdd-coordinator/decision-event/v1",
+    )
+    .map((row) => row.summary.record);
+  assert.equal(allEvents.length, 6);
+  assert.ok(allEvents.every((event) => event.blockerId === request.blockerId));
+  const events = allEvents.filter(
+    (event) => event.decisionId === request.decisionId,
+  );
+  assert.deepEqual(
+    events.map((event) => event.eventId),
+    ["decision-a:requested", "decision-a:answered", "decision-a:applied"],
+  );
+  assert.equal(events[1].answer.reason, answer.reason);
+  assert.equal(events[2].application.nextState, "accepted");
+  assert.equal(
+    privateStore.answerDecision(
+      repository,
+      "binding-a",
+      request.decisionId,
+      answer,
+    ).status,
+    "completed",
+  );
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  assert.deepEqual(fs.readFileSync(historyFile), history);
+  assert.equal(
+    privateStore.answerDecision(repository, "binding-a", request.decisionId, {
+      ...answer,
+      selectedOption: "return",
+    }).status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  const missingOldProposal = Buffer.from(
+    `${history
+      .toString("utf8")
+      .split("\n")
+      .filter((line) => line && !line.includes('"decisionId":"proposal-held"'))
+      .join("\n")}\n`,
+  );
+  fs.writeFileSync(historyFile, missingOldProposal);
+  const partialRetirement = privateStore.writeCoordinatorSnapshot(
+    repository,
+    "binding-a",
+    domain.encodeRuntimeStateValue({
+      ...after.value,
+      snapshotRevision: after.value.snapshotRevision + 1,
+      decisions: [],
+      blockers: [],
+    }),
+    after.value.snapshotRevision,
+  );
+  assert.equal(partialRetirement.status, "blocked");
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  fs.writeFileSync(historyFile, history);
+  for (const invalidHistory of [
+    Buffer.concat([history, Buffer.from("{partial")]),
+    Buffer.from(
+      `${history
+        .toString("utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          const row = JSON.parse(line);
+          if (
+            row.summary.schema === "crdd-coordinator/decision-event/v1" &&
+            row.summary.record.kind === "decision_requested"
+          )
+            row.summary.record.question = "同じIDの別の質問";
+          return domain.encodeRuntimeStateValue(row);
+        })
+        .join("\n")}\n`,
+    ),
+  ]) {
+    fs.writeFileSync(historyFile, invalidHistory);
+    const stopped = privateStore.answerDecision(
+      repository,
+      "binding-a",
+      request.decisionId,
+      answer,
+    );
+    assert.equal(stopped.status, "completed");
+    if (stopped.status === "completed")
+      assert.equal(stopped.value.history.status, "unconfirmed");
+    assert.deepEqual(fs.readFileSync(file), bytes);
+    assert.deepEqual(fs.readFileSync(historyFile), invalidHistory);
+    const retirement = privateStore.writeCoordinatorSnapshot(
+      repository,
+      "binding-a",
+      domain.encodeRuntimeStateValue({
+        ...after.value,
+        snapshotRevision: after.value.snapshotRevision + 1,
+        decisions: [],
+        blockers: [],
+      }),
+      after.value.snapshotRevision,
+    );
+    assert.equal(retirement.status, "blocked");
+    assert.deepEqual(fs.readFileSync(file), bytes);
+  }
+  fs.writeFileSync(historyFile, history);
+  const old = {
+    ...JSON.parse(bytes.toString("utf8")),
+    schema: "crdd-domain/runtime-state/v2",
+  };
+  delete old.decisions;
+  delete old.blockers;
+  assert.equal(
+    domain.decodeRuntimeDomainSnapshot(
+      Buffer.from(`${domain.encodeRuntimeStateValue(old)}\n`),
+      old.repositoryBinding,
+    ),
+    null,
+  );
+  const retired = privateStore.maintainCoordinatorSnapshotRecords(
+    repository,
+    "binding-a",
+  );
+  assert.equal(retired.status, "completed", JSON.stringify(retired));
+  if (retired.status === "completed") assert.equal(retired.value, 2);
+  const final = privateStore.readCoordinatorSnapshot(repository, "binding-a");
+  assert.equal(final.status, "completed");
+  if (final.status === "completed") {
+    assert.equal(final.value?.decisions.length, 0);
+    assert.equal(final.value?.blockers.length, 0);
+    assert.equal(final.value?.projects[0]?.objectives[0]?.state, "accepted");
+  }
+  const retainedHistory = Buffer.from(
+    `${history
+      .toString("utf8")
+      .split("\n")
+      .filter(
+        (line) =>
+          line &&
+          JSON.parse(line).summary.schema ===
+            "crdd-coordinator/decision-event/v1",
+      )
+      .join("\n")}\n`,
+  );
+  assert.deepEqual(fs.readFileSync(historyFile), retainedHistory);
+  const retiredStateBytes = fs.readFileSync(file);
+  const reissued = privateStore.requestDecision(repository, "binding-a", {
+    ...request,
+    target: { ...request.target, generation: 2 },
+  });
+  assert.equal(reissued.status, "blocked");
+  assert.equal(reissued.reason, "decision_identity_retired");
+  assert.deepEqual(fs.readFileSync(file), retiredStateBytes);
+  const reopened = privateStore.requestDecision(repository, "binding-a", {
+    ...request,
+    decisionId: "new-proposal-for-retired-blocker",
+    target: { ...request.target, generation: 2 },
+  });
+  assert.equal(reopened.status, "blocked");
+  assert.equal(reopened.reason, "decision_blocker_retired");
+  assert.deepEqual(fs.readFileSync(file), retiredStateBytes);
+  if (resumed.status !== "completed") throw Error("original_applied_missing");
+  const retiredReplay = domain.recordDecision(
+    repository,
+    "binding-a",
+    request,
+    answer,
+    resumed.value.decision,
+  );
+  assert.equal(retiredReplay.status, "blocked");
+  assert.equal(retiredReplay.reason, "decision_replay_state_changed");
+  assert.deepEqual(fs.readFileSync(file), retiredStateBytes);
+  assert.deepEqual(fs.readFileSync(historyFile), retainedHistory);
+
+  const inlineTime = new Date().toISOString();
+  const inlineRequest: domain.DecisionRequest = {
+    ...request,
+    decisionId: "decision-inline",
+    blockerId: "blocker-inline",
+    target: {
+      ...request.target,
+      kind: "milestone",
+      id: state.milestoneId,
+      generation: 2,
+    },
+    requestedAt: inlineTime,
+    options: [{ value: "wait", label: "保留する" }],
+  };
+  const inlineAnswer: domain.DecisionAnswer = {
+    ...answer,
+    answeredAt: inlineTime,
+    selectedOption: "wait",
+    evidenceIds: [],
+  };
+  const inlineBefore = privateStore.readCoordinatorSnapshot(
+    repository,
+    "binding-a",
+  );
+  assert.equal(inlineBefore.status, "completed");
+  const inlineFault = t.mock.method(fs, "renameSync", ((from, to) => {
+    if (String(from) === historyPending)
+      throw Object.assign(new Error("synthetic inline history failure"), {
+        code: "EACCES",
+      });
+    return Reflect.apply(rename, fs, [from, to]);
+  }) as typeof rename);
+  let inline: ReturnType<typeof domain.recordDecision>;
+  try {
+    inline = domain.recordDecision(
+      repository,
+      "binding-a",
+      inlineRequest,
+      inlineAnswer,
+    );
+  } finally {
+    inlineFault.mock.restore();
+  }
+  assert.equal(inline.status, "completed", JSON.stringify(inline));
+  if (inline.status === "completed") {
+    assert.equal(inline.value.decision.status, "applied");
+    assert.equal(inline.value.history.status, "unconfirmed");
+  }
+  const inlineState = fs.readFileSync(file);
+  const observedInline = domain.readDecision(
+    repository,
+    "binding-a",
+    inlineRequest.decisionId,
+  );
+  if (observedInline.status !== "completed" || !observedInline.value)
+    throw Error("inline_observation_missing");
+  const originalInlinePending = fs.readFileSync(historyPending);
+  for (const wrongExpected of [
+    { ...observedInline.value, question: "別の本文" },
+    { ...inlineRequest, status: "pending" as const, result: null },
+  ]) {
+    const deniedReplay = domain.recordDecision(
+      repository,
+      "binding-a",
+      inlineRequest,
+      inlineAnswer,
+      wrongExpected,
+    );
+    assert.equal(deniedReplay.status, "blocked");
+    assert.equal(deniedReplay.reason, "decision_replay_state_changed");
+    assert.deepEqual(fs.readFileSync(file), inlineState);
+    assert.deepEqual(fs.readFileSync(historyPending), originalInlinePending);
+  }
+  const wrongReplayAnswer = domain.recordDecision(
+    repository,
+    "binding-a",
+    inlineRequest,
+    {
+      ...inlineAnswer,
+      selectedOption: "accept",
+      evidenceIds: ["different-evidence"],
+    },
+    observedInline.value,
+  );
+  assert.equal(wrongReplayAnswer.status, "blocked");
+  assert.equal(wrongReplayAnswer.reason, "decision_replay_state_changed");
+  assert.deepEqual(fs.readFileSync(file), inlineState);
+  assert.deepEqual(fs.readFileSync(historyPending), originalInlinePending);
+  const inlineResumed = domain.recordDecision(
+    repository,
+    "binding-a",
+    inlineRequest,
+    inlineAnswer,
+    observedInline.value,
+  );
+  assert.equal(
+    inlineResumed.status,
+    "completed",
+    JSON.stringify(inlineResumed),
+  );
+  if (inlineResumed.status === "completed")
+    assert.equal(inlineResumed.value.history.status, "confirmed");
+  assert.deepEqual(fs.readFileSync(file), inlineState);
+  const inlineAfter = privateStore.readCoordinatorSnapshot(
+    repository,
+    "binding-a",
+  );
+  if (
+    inlineBefore.status !== "completed" ||
+    inlineAfter.status !== "completed" ||
+    !inlineBefore.value ||
+    !inlineAfter.value
+  )
+    throw Error("inline_state_unknown");
+  assert.equal(
+    inlineAfter.value.snapshotRevision,
+    inlineBefore.value.snapshotRevision + 1,
+  );
+  assert.equal("acceptanceDecisions" in inlineAfter.value, false);
+  assert.equal(
+    domain.readDecision(repository, "binding-a", "decision-inline").status,
+    "completed",
+  );
+  const decisionRead = domain.queryDecisions(
+    { root: repository, principalId: "operator-a", revalidate: () => true },
+    { projectId: state.projectId, milestoneId: state.milestoneId },
+  );
+  assert.equal(decisionRead.status, "available", JSON.stringify(decisionRead));
+  if (decisionRead.status === "available") {
+    assert.deepEqual(
+      decisionRead.value.decisions.map((item) => item.decisionId),
+      ["decision-inline"],
+    );
+    assert.equal(decisionRead.value.blockers[0]?.blockerId, "blocker-inline");
+    assert.equal(decisionRead.value.blockers[0]?.status, "active");
+  }
+  const deniedRead = domain.queryDecisions(
+    { root: repository, principalId: "operator-b", revalidate: () => false },
+    { projectId: state.projectId, milestoneId: state.milestoneId },
+  );
+  assert.equal(deniedRead.status, "blocked");
+});
+
+/**
  * Task保存のpending作成前失敗と部分作成・観測不能を区別する。
  * @responsibility 今回作ったmarkerだけの回収と元本文保全を確認する。
  * @trace PRL-IT-005
@@ -2275,8 +2900,8 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v5",
-    schemaRevision: 5,
+    schema: "crdd-coordinator/project-snapshot/v6",
+    schemaRevision: 6,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -2289,8 +2914,8 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
   assert.deepEqual(readCoordinatorSnapshot(root, "binding-a").value, payload);
@@ -2389,8 +3014,8 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v5",
-    schemaRevision: 5,
+    schema: "crdd-coordinator/project-snapshot/v6",
+    schemaRevision: 6,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -2403,8 +3028,8 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   const current = path.join(root, ".crdd", "domain-model", "state.json");
   const pending = path.join(
@@ -2509,8 +3134,8 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v5",
-    schemaRevision: 5,
+    schema: "crdd-coordinator/project-snapshot/v6",
+    schemaRevision: 6,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -2523,8 +3148,8 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   for (const invalid of [
     { ...payload, repositoryRootHash: "0".repeat(64) },

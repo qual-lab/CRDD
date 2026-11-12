@@ -36,7 +36,7 @@ physicalIdentity未確定時は、取得前に不存在を確認した唯一のa
 
 ## Runtime StateのNode.js初期化と実体照合 — 2026-11-10
 
-判断記録の保存先はCoordinatorの`decision/store.ts`が所有する。Windowsでは起動元の`LOCALAPPDATA`設定から既存の固定末尾`Qual-Lab/CRDD/RuntimeState`を組み立てる。設定はOS Known Folderによる独立証明ではなく、ローカル単一ユーザーの信頼された起動設定として扱う。要求主体は上位から渡される別の値であり、保存先やOSユーザーから導出しない。
+判断記録はDomainのRepository-local Stateへ保存する。Coordinatorは認証済み入口のPrincipalと対象を搬送し、保存先やOSユーザーから主体を導出しない。AppData/LocalのHost判断Storeと専用Root設定は撤去する。旧記録の処置は切替前の明示運用であり、Runtimeの探索・自動移行・fallbackは設けない。
 
 | 処理 | 現行の保証と範囲 |
 |---|---|
@@ -55,7 +55,7 @@ Runtime専用のNative観測呼出し、Root CapabilityのWeakMapと保護Hash�
 | 要求主体（Principal Identity） | AM接続では認証済みユーザーID、信頼されたローカル入口では対象RepositoryのGitメールに由来するID。入口が確定し、Coordinatorは既存Contextで受け取りDM・判断記録へ伝播する |
 | OS実行主体（Execution Identity） | 実際にFilesystem・Docker等を操作するOSアカウント・権限。技術Ownerが必要な範囲で確認し、要求主体へ読み替えない |
 
-Decision Storeは保存操作と利用可否だけを返し、主体の探索・補完・置換を行わない。同じOS実行主体で複数のAMユーザーの要求を処理し得るため、両Identityの一致を要求しない。Runtime Directoryの実体照合・wx排他・保存世代の確認は別の技術境界として維持する。
+判断Writerは主体の探索・補完・置換を行わない。同じOS実行主体で複数のAMユーザーの要求を処理し得るため、両Identityの一致を要求しない。DomainのRoot実体照合・wx排他・State改訂比較を維持し、要求時の回答先と回答Principalをexact一致で確認する。
 
 ### ローカル入口と明示搬送
 
@@ -573,7 +573,7 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 
 `authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査の承認済み目標OwnerはDomain Modelの`plain-data/secret-validation.ts`とし、Workspace・送信範囲・実行入力・結果取込は同じ純粋検査の利用側とする。現SourceはDomain Modelへ移管済みで、CoordinatorはDomain Rootの公開Symbolを利用する。既知pattern・Path・文字列の検査を維持し、秘密値の保存・Credential管理・未知Secret不存在証明を追加しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
 
-Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/recovery.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。同意Storeと保護判断Storeが実利用する共通JSON確定保存4操作はDomain Modelの`storage/committed-json.ts`を利用する。旧Journalの残る17操作は、唯一の本番Consumerが`a04ecb703`で撤去済みであり、旧回復Directoryへfallbackしない既存方針に従って退役する。現在の回復は`execution/recovery.ts`と現在状態checkpoint、Docker Isolationの実資源回収へ対応付け、旧方式の試験を現方式の保証と混同しない。`execution/controller.ts`は開始前予定保存、Host実遷移、清掃・Mount終了根拠の照合と後続checkpointを所有する。保存Schema・失敗分類・確定順序は維持し、StoreはReaderと既存Writer操作だけを提供する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
+Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/recovery.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。判断はDomainの単一State Writerへ統合する。検証報告のsidecar保存だけをExecutorの`scripts/report.ts`が所有し、Domainの汎用JSON保存公開は撤去する。旧Journalの残る17操作は、唯一の本番Consumerが`a04ecb703`で撤去済みであり、旧回復Directoryへfallbackしない既存方針に従って退役する。現在の回復は`execution/recovery.ts`と現在状態checkpoint、Docker Isolationの実資源回収へ対応付け、旧方式の試験を現方式の保証と混同しない。`execution/controller.ts`は開始前予定保存、Host実遷移、清掃・Mount終了根拠の照合と後続checkpointを所有する。保存Schema・失敗分類・確定順序は維持し、StoreはReaderと既存Writer操作だけを提供する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
 
 診断記録はOrchestratorのTask進行状態ではなく単発の技術実行記録である。上位へ移すためだけのWrapperや私有APIの大量公開を作らず、CoordinatorからOrchestratorへ依存しない。Probeの本番回復と故障／取消検証は同じ相関Mapを一実体で維持し、検証用操作のConsumerだけをscripts／試験に限定する。passive doctorにも一時Operation作成があるため読取り専用・Effect 0とは表示しない。処置対応と検証義務は[解体計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#16-workspace診断folderの解体と実責務への分配)を参照する。
 
@@ -2369,7 +2369,7 @@ Fileの統合では、私有WeakMap／Set、元Control・通知、期限時計�
 
 Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease Owner観測は`execution/kernel-lock`へ置く。Root／Homeの保護候補・Path検査は`execution/authority`、OS原語は既存PA APIを利用する。未実装のRoot観測は未実装のまま拒否し、今回の配置で保証を追加しない。助言のHost失敗Mapと回復関数は`execution/advice`、認証計画と回復Mapは`execution/authority`に一体保持する。回復という名前だけを理由にMapから処理を切り離さない。
 
-先行構造でStateの`model`に集約した値・遷移は、下節の承認Afterに従い分解する。Task／Queue／単発記録の型は`task/types`、Objective／Milestoneの型は`objective/types`、統合状態の型は`state/types`、初期値構築は`state/create`、人間判断の純粋遷移は`decision/transition`、共有plain data／相対Path／Repository Bindingと状態相関の検査は`state/validation`へ置く。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は状態・公開観測の共有値型であり、全Packageの型の汎用置場にはしない。`request`は照会入力と契約定数、`projection`は統合状態と公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
+先行構造でStateの`model`に集約した値・遷移は、下節の承認Afterに従い分解する。Task／Queue／単発記録の型は`task/types`、Objective／Milestoneの型は`objective/types`、統合状態の型は`state/types`、初期値構築は`state/create`、人間判断の純粋遷移はDomainの`decision/crud`と`decision/operations`、共有plain data／相対Path／Repository Bindingと状態相関の検査は`state/validation`へ置く。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は状態・公開観測の共有値型であり、全Packageの型の汎用置場にはしない。`request`は照会入力と契約定数、`projection`は統合状態と公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
 
 `query`は読取りPortを受ける単一Project照会、`public-query`は現在の認証・Repository・Snapshotへの本番接続、`observation`は認可済みRepository集合の現在状態とEI履歴の集約を所有する。後二者のI/Oをmodel／request／projectionへ取り込まない。`persistence`は保存・Lease・Clockの型契約だけであり、OS排他やWriterを生成しない。`result`は既存二種類の結果Shapeと公開失敗投影を保持し、同じShapeへ無理に統一しない。元の契約文字列、Hash／Cursorのbyte形式、公開Symbolの意味はこの配置で変更しない。
 
@@ -2409,7 +2409,7 @@ Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease 
 | `storage/lock.ts` | 既存の短期保存Lock、保存Ownerの発行・借用・生存・解放 | Task scheduling、Provider Home／Host／Docker実行排他は持たない。State／History／保護Decisionの既存取得方式と順序を保持 |
 | `storage/state.ts` | 統合SnapshotのSchema・Codec、bounded読取り、元版Hash・Revision・CAS・原子保存・pending再入場・構造不変条件 | Task進行・実行許可・実資源回復・採用判断を決めない。Task／Execution／Decision／WorkspaceとState照会が利用 |
 | `storage/history.ts` | 履歴Codec、pending搬送、確定・読戻し・保持・再入場 | Provider成功・資源不存在を推測しない。各終了OwnerとState退役処理が利用 |
-| `decision/store.ts` | 既存保護Rootの判断記録、Generation、Hash Chain、読戻し、専用排他 | 判断内容やAuthorityを生成しない。Decisionとその公開利用側が利用 |
+| `decision/lifecycle.ts` | 認証済みの要求・回答・後日適用・閉鎖をDomainの同一Writerへ接続 | 判断・履歴・回復要否を分けて返し、技術Storeを所有しない |
 | Domain `ai-selection/validation.ts`・`storage/ai-selection.ts` | Repository設定の値検査、Expected Identity、既存Filesystem Lock、CASと読戻し | Coordinatorは同梱Catalog値を渡して利用する。設定の物理WriterはDomain。Catalog・進行中の再選定は持たない |
 
 Storageは上記五Fileに固定する。既存の`model.ts`、`current-state.ts`、`settlement-store.ts`をそのまま`state.ts`へ連結しない。`result-record.ts`の意味型とPortは結果受領・Workspaceの責務へ戻し、永続行のCodecだけを保存側へ置く。`state/model.ts`も人間判断・Task値・統合投影・検査へ分解し、`selection/model.ts`は`types.ts`と`validation.ts`へ分ける。型専用Fileに実行時検査を残さず、転送だけの`crud.ts`や互換barrelは作らない。

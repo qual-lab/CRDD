@@ -5,29 +5,32 @@
  * @trace ARCH-000004、ARCH-000008
  * @boundary 値比較と既存Ownerへ束縛した有限の同期観測。I/O・保存・実行・現在Authorityの発行は所有しない。
  */
-import {
-  decodeRuntimeDomainSnapshot,
-  prepareCoordinatorStateHistoryLine,
-  projectCoordinatorTaskSettlement,
-} from "./validation.ts";
+
 import { coordinatorRepairCanComplete } from "../attempt/validation.ts";
-import { encodeRuntimeStateValue } from "./codec.ts";
-import type {
-  HistoryRow,
-  CoordinatorSnapshot,
-  LeaseEvidenceEnvelope,
-} from "./types.ts";
+import {
+  validateDecisionRetirement,
+  validateDecisionSnapshotTransition,
+} from "../decision/crud.ts";
+import type { Decision } from "../decision/types.ts";
+import { normalizeRepositoryRelativePath } from "../repository/path.ts";
 import type { ProjectQueueEntry, SingleTaskRecord } from "../task/types.ts";
 import type { CoordinatorResultRecord } from "../workspace/types.ts";
-import type { CoordinatorDecisionRecoveryIntent } from "../decision/types.ts";
+import { encodeRuntimeStateValue } from "./codec.ts";
+import type {
+  CoordinatorSnapshot,
+  HistoryRow,
+  LeaseEvidenceEnvelope,
+} from "./types.ts";
 import {
+  decodeRuntimeDomainSnapshot,
   hasRuntimeStateKeys,
-  leaseIdentity,
   isRuntimeStateObject,
   isSha256Hex,
+  leaseIdentity,
+  prepareCoordinatorStateHistoryLine,
+  projectCoordinatorTaskSettlement,
   validId,
 } from "./validation.ts";
-import { normalizeRepositoryRelativePath } from "../repository/path.ts";
 
 /**
  * 単一保存の改訂、受領不変性と操作除去の同更新を検査する。
@@ -56,7 +59,9 @@ export function validateCoordinatorUnifiedTransition(
       return (
         next.snapshot.revision === 1 &&
         next.snapshot.previous === null &&
-        next.snapshot.resultReceipts.length === 0
+        next.snapshot.resultReceipts.length === 0 &&
+        next.snapshot.decisions.length === 0 &&
+        next.snapshot.blockers.length === 0
       );
     const current = decodeRuntimeDomainSnapshot(
       currentBytes,
@@ -72,6 +77,76 @@ export function validateCoordinatorUnifiedTransition(
           current.snapshot.repositoryBindingId)
     )
       return false;
+    const beforeDecisions = { ...current.snapshot, projects: current.projects };
+    const afterDecisions = { ...next.snapshot, projects: next.projects };
+    if (
+      !validateDecisionSnapshotTransition(beforeDecisions, afterDecisions) &&
+      !validateDecisionRetirement(beforeDecisions, afterDecisions)
+    )
+      return false;
+    // 新規実行の保存点だけを止める。結果受領・取消・回復・解放の保存は止めない。
+    for (const queue of next.snapshot.queueEntries) {
+      const previous = current.snapshot.queueEntries.find(
+        (item) => item.queueId === queue.queueId,
+      );
+      // 正式回復の完了記録は開始許可ではない。対象外fieldも元値のままに限る。
+      const recoverySettlement =
+        previous?.state === "recovery_required" &&
+        previous.ownerGeneration === null &&
+        previous.resumeCondition === "exact_recovery" &&
+        previous.resultReference !== null &&
+        encodeRuntimeStateValue(queue) ===
+          encodeRuntimeStateValue({
+            ...previous,
+            state: "queued",
+            generation: previous.generation + 1,
+            resumeCondition: "exact_recovery_settled",
+          });
+      if (
+        previous?.state !== queue.state &&
+        ["queued", "leased", "running"].includes(queue.state) &&
+        !recoverySettlement &&
+        current.snapshot.blockers.some(
+          (blocker) =>
+            blocker.status === "active" &&
+            blocker.target.projectId === queue.projectId &&
+            blocker.target.milestoneId === queue.milestoneId,
+        )
+      )
+        return false;
+    }
+    for (const project of next.projects) {
+      const previous = current.projects.find(
+        (item) => item.projectId === project.projectId,
+      );
+      for (const task of project.tasks) {
+        if (!["reserved", "handoff_prepared"].includes(task.startPhase))
+          continue;
+        const old = previous?.tasks.find(
+          (item) => item.definition.id === task.definition.id,
+        );
+        if (
+          old?.startPhase === task.startPhase &&
+          old.attemptId === task.attemptId &&
+          old.operationId === task.operationId
+        )
+          continue;
+        if (
+          current.snapshot.blockers.some(
+            (blocker) =>
+              blocker.status === "active" &&
+              blocker.target.projectId === project.projectId &&
+              blocker.target.milestoneId === project.milestoneId &&
+              (blocker.target.kind === "milestone" ||
+                (blocker.target.kind === "objective" &&
+                  blocker.target.id === task.definition.objectiveId) ||
+                (blocker.target.kind === "task" &&
+                  blocker.target.id === task.definition.id)),
+          )
+        )
+          return false;
+      }
+    }
     return validateCoordinatorSettlementTransition(
       current,
       next,
@@ -287,6 +362,7 @@ export type CoordinatorSnapshotObservations = Readonly<{
   processId: number;
   leaseResourcesAbsent: (identity: string) => boolean;
   historySettlement: (row: HistoryRow) => "recorded" | "expired" | null;
+  decisionHistorySettlement: (decision: Decision) => "recorded" | null;
 }>;
 
 /**
@@ -309,6 +385,24 @@ export function assertCoordinatorSnapshotTransition(
   payload: CoordinatorSnapshot,
   owner: CoordinatorSnapshotObservations,
 ): void {
+  if (
+    !current &&
+    (payload.decisions.length !== 0 || payload.blockers.length !== 0)
+  )
+    throw new Error("decision_initial_state_not_empty");
+  if (current && !validateDecisionSnapshotTransition(current, payload)) {
+    if (!validateDecisionRetirement(current, payload))
+      throw new Error("decision_snapshot_transition_invalid");
+    for (const record of current.decisions) {
+      if (
+        !payload.decisions.some(
+          (item) => item.decisionId === record.decisionId,
+        ) &&
+        owner.decisionHistorySettlement(record) !== "recorded"
+      )
+        throw new Error("decision_history_retirement_unconfirmed");
+    }
+  }
   if (payload.snapshotRevision !== (current?.snapshotRevision ?? 0) + 1)
     throw new Error("snapshot_revision_conflict");
   for (const intent of payload.leaseIntents) {
@@ -364,21 +458,6 @@ export function assertCoordinatorSnapshotTransition(
         )
         .map((item) => item.queueId),
     );
-    const retiredMilestones = new Set(
-      current.queueEntries
-        .filter(
-          (queue) =>
-            retired.has(queue.queueId) &&
-            !payload.queueEntries.some(
-              (item) =>
-                item.projectId === queue.projectId &&
-                item.milestoneId === queue.milestoneId,
-            ),
-        )
-        .map((queue) =>
-          encodeRuntimeStateValue([queue.projectId, queue.milestoneId]),
-        ),
-    );
     const currentEvidenceIds = new Set(
       [...current.projects, ...payload.projects].flatMap((project) => [
         ...project.milestone.criterionEvidenceIds,
@@ -398,65 +477,6 @@ export function assertCoordinatorSnapshotTransition(
     }
     if (retired.size > 0 !== (payload.intakeEpoch !== current.intakeEpoch))
       throw new Error("snapshot_intake_epoch_transition_invalid");
-    if (current.schema === owner.schema && payload.schema === owner.schema) {
-      for (const old of current.acceptanceDecisions) {
-        if (
-          retiredMilestones.has(
-            encodeRuntimeStateValue([
-              old.record.projectId,
-              old.record.milestoneId,
-            ]),
-          ) &&
-          current.acceptanceDecisions.some(
-            (item) =>
-              item.recordId === old.recordId &&
-              item.generation === 2 &&
-              item.record.disposition === "finalized",
-          ) &&
-          !payload.decisionRecoveries.some(
-            (item) => item.value.recordId === old.recordId,
-          )
-        )
-          continue;
-        if (
-          !payload.acceptanceDecisions.some(
-            (item) =>
-              encodeRuntimeStateValue(item) === encodeRuntimeStateValue(old),
-          )
-        )
-          throw new Error("snapshot_acceptance_decision_removed");
-      }
-      for (const old of current.decisionRecoveries) {
-        if (
-          retired.has(old.value.queueId) &&
-          old.value.disposition === "settled" &&
-          !payload.decisionRecoveries.some(
-            (item) => item.value.recoveryId === old.value.recoveryId,
-          )
-        )
-          continue;
-        const next = payload.decisionRecoveries.find(
-          (item) => item.value.recoveryId === old.value.recoveryId,
-        );
-        if (
-          !next ||
-          (encodeRuntimeStateValue(next) !== encodeRuntimeStateValue(old) &&
-            (next.generation !== old.generation + 1 ||
-              [
-                "recordId",
-                "projectId",
-                "milestoneId",
-                "queueId",
-                "expectedGeneration",
-              ].some(
-                (key) =>
-                  next.value[key as keyof CoordinatorDecisionRecoveryIntent] !==
-                  old.value[key as keyof CoordinatorDecisionRecoveryIntent],
-              )))
-        )
-          throw new Error("snapshot_decision_recovery_transition_invalid");
-      }
-    }
     for (const collection of ["results", "leaseEvidence"] as const) {
       for (const old of current[collection])
         if (
@@ -820,10 +840,11 @@ export function coordinatorQueueIsClosed(
       return false;
     if (
       current.leaseIntents.some((item) => item.projectId === queue.projectId) ||
-      current.decisionRecoveries.some(
+      current.blockers.some(
         (item) =>
-          item.value.queueId === queueId &&
-          item.value.disposition !== "settled",
+          item.target.projectId === queue.projectId &&
+          item.target.milestoneId === queue.milestoneId &&
+          item.status === "active",
       )
     )
       return false;
@@ -852,23 +873,6 @@ export function coordinatorQueueIsClosed(
       )
         return false;
     }
-    const decisions = current.acceptanceDecisions.filter(
-      (item) =>
-        item.record.projectId === queue.projectId &&
-        item.record.milestoneId === queue.milestoneId,
-    );
-    if (
-      decisions.some(
-        (item) =>
-          !decisions.some(
-            (next) =>
-              next.recordId === item.recordId &&
-              next.generation === 2 &&
-              next.record.disposition === "finalized",
-          ),
-      )
-    )
-      return false;
     for (const kind of ["project-operation", "canonical-adoption"] as const)
       if (
         !owner.leaseResourcesAbsent(
@@ -1032,10 +1036,12 @@ export function coordinatorStandaloneAdoptionIsClosed(
             other.kind === "adoption" &&
             !coordinatorAdoptionWasRejected(other),
         )) ||
-      current.decisionRecoveries.some(
+      current.blockers.some(
         (item) =>
-          item.value.projectId === record.projectId &&
-          item.value.disposition !== "settled",
+          item.target.projectId === record.projectId &&
+          (record.milestoneId === null ||
+            item.target.milestoneId === record.milestoneId) &&
+          item.status === "active",
       ) ||
       current.projects.some(
         (project) =>

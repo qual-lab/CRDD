@@ -1,5 +1,71 @@
 # Domain Modelの責務境界
 
+## 判断・阻害条件・履歴の統合 — 実装中
+
+### 既知の問題による進行制限と読取り
+
+承認回答の保存と、対象状態の進行は区別する。他の関連active問題がある間は回答をanswered／unappliedとして保持し、Blocker・Project・Queue・業務世代は進めない。同exact対象・kind・世代・Revision・進行効果・Queueの現在提案がすべて必要な承認を持ち、適用条件が成立した時だけ、関係する回答の適用・Blocker解消・対象状態・Queueを一回CASで共同更新する。元回答は変更せず、業務世代は一回だけ進める。保留・拒否・技術問題・不一致が残れば待機し、同じ回答の再送から新しい適用を発火しない。後日適用は明示applyを使う。
+
+resume／Milestone受入は同Project・Milestoneの問題を確認する。Objective受入は同Objective、Milestone全体、そのObjective所属Taskの問題を確認し、Task所属が不明なら無関係と推測しない。異種scope・異なる進行効果の適用順序は自動決定せず未適用で止める。対象改訂後の旧回答を現在の承認数へ含めず、明示再提案を要する。新しい適用待ちState、Coordinator側の第二Writer、汎用依存解決器は追加しない。
+
+終了済みMilestone／対象への新規問題・再提案は保存前に拒否するが、保存済み同一要求の再観測は維持する。既存Queue更新と共通Task保存境界でも、active問題がある範囲のqueued／leased／runningへの遷移、新規reserved／handoff開始を拒否する。結果受領・取消・回復・Cleanup・Lease解放は止めない。
+
+共同適用は根拠を含む導出結果の全体一致を要する。継続判断の因果IDだけは発火元を保存し、同じ承認だからといって異なる根拠を合成・選択しない。正式なexact回復の`recovery_required → queued`は回復完了記録として保存できるが、その後のleased／running／Task開始はactive問題があれば拒否する。
+
+既存queryDecisionsは、同Owner・同認可・同対象・同じ改訂から`{blockers, decisions}`を返す。提案がpendingでも中止済みのBlockerはcancelledであること、承認待ちはanswered／unappliedかつactiveであることを、利用側の推測ではなく正本値として観測できる。新しい照会APIは増やさない。
+
+副次解決・別問題の出現・問題の再分類など、変更適用後のBlocker再評価はv0.22では未実装の残件である。今回の既知問題の進行検査を再評価の実装とは扱わず、後続でOwner・根拠・適用範囲と失効条件を定義して再検討する。
+
+人間は、Blockerは承認と必要な適用完了で解消、拒否・保留・未適用ではOpen、中止は解消と区別して終了する意味を採用した。Blockerと提案・回答を1:Nへ接続し、Queue終了と記録退役も同時に整理する。同じ対象だから別のBlockerを一括解消する処理は作らない。判断期限は撤去済み。限定検証と現在の完成範囲は変更記録を参照し、実AI・Dockerや横断品質全体の完成を推定しない。
+
+AppData/Local側のDecision Storeを廃止し、判断の現在状態をRepositoryの既存`state.json`へ統合する。明示受入は`recordDecision`、継続判断は`requestDecision`／`answerDecision`、後日適用は`applyDecision`、明示閉鎖は`closeDecision`を使用する。`readDecision`は状態だけを観測する。すべて同じState Writerと履歴出版へ接続し、旧Port・Host Store・継続Bearerの互換経路を設けない。検証中の範囲は変更記録へ分ける。
+
+阻害条件（Blocker）は進めない理由を一件保持し、提案・回答（Decision）は一提案と回答0..1件、`DecisionResult`は回答と適用事実を所有する。Blockerと提案は1:Nであり、提案ごとの`blockerId`を共通にする。Blockerの初期対象・理由は不変、`currentDecisionId`だけが現在の提案を指す。各提案は要求時点の世代・Revision・回答先を保持する。Objective／Taskに所属し、既存Milestone受入も維持する。Attemptは関連先にはできるが判断の所有者ではない。
+
+| 回答・処置 | Blockerの状態 | 保存する事実 |
+|---|---|---|
+| accept／resumeの承認と必要な適用完了 | resolved | 元の提案・回答・適用結果。時間経過だけでは閉じない |
+| returnによる拒否・waitによる保留 | active | 異なる回答の意味を保持する。保留は同じ状態・世代、差戻しは従来の対象状態遷移を維持する |
+| 回答済み・適用不能 | active | 未適用理由を必須にし、後日適用でも元回答を変えない |
+| cancelの明示中止と必要な適用完了 | cancelled | 既存の中止範囲である同Project・Milestoneのactive問題を中止終了し、cancelledByDecisionIdで適用済みcancelを参照する。解消とは扱わない |
+| 提案の明示無効化 | active | 無効化理由と既存回答を保持。Blocker自体を閉じない |
+
+再提案では新しい`decisionId`と同じ`blockerId`を明示する。現在提案がpending、Blockerが終了済み、対象ID・種類・Queue・回答先が異なる場合は拒否し、暗黙の再開や回答先変更を認めない。再提案時点の現在世代・Revisionを照合し、元提案の時刻より前へ戻さない。過去の提案への同一再送は記録の再観測だけで、現在参照を戻さず、別回答・遅延適用・新しい無効化から現在Blockerを変更しない。
+
+Queueと採用結果の終了条件は、過去の全提案がappliedかではなく、同Project・MilestoneのactiveなBlockerが残るかを確認する。技術Cleanup・Lease不存在・Task終端の条件は維持する。中止は既存cancelの対象範囲にだけ伝播し、別scopeや既に終了した問題を変更しない。中止参照はcancelledだけに必須で、同scopeの実際に適用済みcancelをcodecで確認する。他問題の提案・回答・現在参照は変更しない。中止適用の履歴が示すscopeと各問題の履歴から因果を再構成できるが、技術回復完了の証明とは扱わない。
+
+判断記録の退役はBlocker単位で、終了済み・全関連提案の参照不存在・全履歴本文確認が共同成立した時だけ全提案とBlockerを同時除去する。一部提案だけの削除は拒否する。cancelledByDecisionIdの参照先だけ先に削除せず、共同退役又は参照元からの退役を行う。技術問題の記録整理はそのOwnerに残し、参照中の人間判断を保全する。履歴イベントに共通blockerIdを残し、退役後も関係を再構成できる。
+
+旧継続判断の特定回答者への結合は、要求の`respondentPrincipalId`へ移す。要求生成時に信頼入口の認証Contextから固定し、回答のPrincipalとexact一致を要求する。形式が正しい別主体を許可せず、欠測を回答者から補完しない。要求・回答・適用・失効の履歴にも同じ回答先を保持する。これは認証・現在認可の代替ではなく、同じ回答先に限定する値条件である。継続判断の公開入口も同じ新集合へ接続し、回答者は入口で認証した回答先に限定する。
+
+Coordinatorの状態照会は、認証Context、検証済みRoot、現在Revision又は採用済み計画との相関、保存状態の観測を維持する。一方、旧Host Decision Storeが開けることを本人確認の追加条件にはしない。状態照会から旧Storeへの接続と使われない引数を撤去し、認証済みなら旧Store不在でも状態を照会できる。Objective受付にも同じ未使用の可用性Gateがあったため撤去し、認証Context・Root・Revision・既存受付と実行の検査へ接続する。匿名利用を許可する変更ではない。継続判断の発行・回答も同じWriterへ接続し、Storeを開くことを認証として扱わない。
+
+通常回答は、質問・選択肢・現在認可・対象・世代を検査した後、回答・適用結果・対象状態・必要なQueue更新を一つのState更新で確定し、Historyへ一回追記する。回答と適用のためにprepared／finalizedを別保存しない。履歴追記失敗はStateの適用済みを取り消さず、結果で両者を区別する。
+
+既存の明示受入commandは、質問の事前発行ではなく、固定された受入の問いと回答を同時に記録する。`recordDecision`は要求生成→回答候補をメモリ内で導出して一回CASへ載せ、保存遷移検査も四区画を同じ順序で再導出して全文比較する。画面で事前提示されたという意味は付与しない。現行commandにない期限を追加せず、Objectiveのaccept／returnは基準数分の根拠を要し、waitは件数確認から除く。Milestone returnでは既存Stateの根拠を保全し、今回回答の根拠は判断本文へ別に保持する。
+
+Coordinatorの新規受入ではRoot・Revision・Workspace採用・認証Principal・対象を確認する。適用済みの同一再送は、保存済みの要求・回答日時を再利用し、Domain Writerの全文一致で新たな適用を拒否して履歴の再入場だけを行う。この再送は新規受入ではないためWorkspace採用の再検査から新たな許可を導かない。`readDecision`は履歴pending時も検証済みStateの判断値だけを観測できるが、履歴確定は主張せず保存もしない。公開結果は`decision`と`history`を搬送し、適用済み・履歴未確定ならその理由と回復要否を明示する。正常回答後の保守を追加State保存の必須段階にしない。
+
+再送で新規受入のGateを省略する場合、`recordDecision`へ非永続の比較値`expectedApplied`を渡す。同じ保存Ownerの現在Stateで、同IDのapplied・比較値全文一致・要求と回答の再導出が保存不要であることを、履歴再入場より前に確認する。不在・別status・別本文では新規作成へ戻らず停止する。この値は認可ではなく、事前観測と保存の間の競合を拒否する前提条件である。
+
+`queryDecisions`は同じ新集合の受入・継続判断とBlockerをProject／Milestoneで絞って共同で返す。既存の`decision.read`認可・返却前の再認可・Lock解放確認を維持し、旧Envelopeを正本として返さない。旧受入・回復区画を含む旧Schemaは受理せず、切替前の処置は明示移行が所有する。旧記録を変換・削除するReaderは作らない。
+
+判断の要求・回答・適用・明示無効化は、判断記録から安定IDと同じ本文で再構成する。判断の期限切れは設けず、未回答・保留は時間経過だけで失効させない。履歴には元の質問、表示付き選択肢、回答者・回答日時、入力された理由・根拠、実際の状態変化を残す。汎用の`revision`や別の判断用`historyPending`配列、履歴保存済みフラグを追加しない。履歴Writerが同じIDの本文を照合し、一致は追記不要、不一致・不完全末尾・観測不能は停止する。必要な履歴の確定前に判断記録を退役させない。既存の実行終了要約も含む現行`historyPending`の撤去は、その生成元と退役条件をすべて置換してから行い、型から先に消さない。
+
+Host専用Root、世代別JSON、前Hash連鎖、継続Bearer Capability・Hash・再発行を撤去する。認証・現在認可・対象世代・選択肢・有効性・重複拒否・CAS・Lock・Path境界は維持する。信頼された入口とAIから書換えできないRuntime領域を前提とし、同じHostユーザーによるStateの任意改ざん・巻戻しへの独立防御を維持したとは扱わない。AIのMount境界・保存領域の運用前提は維持する。限定回帰と実AI／Dockerの検証結果は区別する。
+
+保存Schemaは`crdd-domain/runtime-state/v3`、メモリTask Viewは`crdd-coordinator/project-snapshot/v6`・`schemaRevision:6`として構造変更を明示し、旧形式の不足fieldを既定値で補わない。新品初期化では判断集合を空にし、意味検査は要求・回答から同じ全区画候補を再導出して片側更新を拒否する。新Writerは回答検査を適用導出前に行い、同Owner下で対象・世代・Revision・Queueを照合する。要求→回答→適用の日時順序と未来回答の拒否は維持する。回答日時と実際の適用日時を混同せず、同一回答の再観測は追加のState保存を行わない。未公開の新Schemaから期限field・期限切れ状態を撤去し、それらを含む記録を自動変換しない。
+
+判断のWriterはState確定と履歴確定を`value.decision`／`value.history`に分ける。State確認後に履歴が失敗しても適用済みを返し、履歴は`unconfirmed`とする。既存の物理`history.pending.jsonl`があれば新しい判断更新より先に同じ本文の出版を再入場する。通常の論理追記は既存の全履歴pending→flush→rename方式を再利用し、部分appendを復旧する別Protocolは追加しない。これはState内に判断用のpending配列を作ることとは異なる。
+
+判断の出版／再入場では既存の正規行を保持してState由来イベントだけを追加し、保持期限整理は既存の保守処理へ分ける。これにより、rename故障から再入場までに旧Task行が期限を跨いでも、元pending候補を時刻だけで変形しない。判断モードでも元pendingとのexact一致を要求し、別用途の不一致候補を自動受理しない。入力要求はID参照と履歴再入場より前に通常データへ安全に捕捉し、同じコピーを以後の照合へ渡す。不正getter／ProxyではState・Historyの保存を発行しない。
+
+履歴の各判断行は`decision-event/v1`の内容を持ち、同じIDの別本文・部分行・重複・未知fieldは保全停止する。現在の判断から導けるイベントを履歴保持期間だけで削除しない。resolved又はcancelledの終了Blockerに属する全提案を、全履歴確認・Project／Queue／結果と中止参照の条件が共同成立した時だけ一つのState保存で退役する。過去の拒否・保留・無効化・未回答があっても個別の永久保持又は単独除去とはせず、問題単位で扱う。active又は参照中の問題は全件保持する。保持中の履歴に同じ判断ID又はBlocker IDがあれば新規発行を拒否し、永久のID台帳は追加しない。
+
+旧Host記録の自動読取り・変換・削除はしない。切替前にフロントAIが旧未完了判断を明示処置する運用条件であり、新Runtimeは旧保存領域を探索しない。旧Schemaの不足fieldを補完するReaderは設けず拒否する。汎用`committed-json`とDomain Rootの4保存Helperを撤去し、検証用報告だけをExecutorの`scripts/report.ts`へ専用化する。`bounded-file-snapshot`はState・AM・CLI・設定の現役Consumerが容量、Link、読取り中の実体差、descriptor終了を共通に確認する具体的なNode読取り処理として維持する。用途ごとのコピーや新Storeは追加しない。
+
+現在の実装範囲と検証結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#decision-state-unification)を参照する。3モデルへのPackage分離は本変更後の別段階とする。
+
 ## 終了記録の改訂番号 — 2026-11-11
 
 資源Snapshot未受領かつ未開始・未発行で、Cleanupが元の本文を返す場合でも、終了結果の保存は変更を伴う。正常終端の候補は、Cleanupが返す改訂へ加算するのではなく、同じ読取り元の改訂+1と、その改訂・本文Hashをpreviousへ明示する。資源記録がある場合も一回の保存で二重に改訂を進めない。Cleanupのno-op契約、前版の遷移検査・現在版照合・Owner・Lock・終了確認は変えない。公開APIと保存Schemaは不変更である。

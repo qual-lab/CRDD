@@ -142,11 +142,8 @@ export function prepareRuntimeDefinitionChange(
     return denied("target_exists");
   const referenced =
     snapshot.managedExecutions.some((p) => p.projectId === request.projectId) ||
-    snapshot.acceptanceDecisions.some(
-      (row) => row.record.projectId === request.projectId,
-    ) ||
-    snapshot.decisionRecoveries.some(
-      (row) => row.value.projectId === request.projectId,
+    snapshot.decisions.some(
+      (row) => row.target.projectId === request.projectId,
     ) ||
     [snapshot.queueEntries, snapshot.results, snapshot.resultReceipts].some(
       (rows) => rows.some((row) => row.projectId === request.projectId),

@@ -6,24 +6,23 @@
  */
 
 import {
-  isPrincipalId,
   type CoordinatorState,
+  isPrincipalId,
   RepositoryRuntimeDataAreaBlockedError,
   readCoordinatorCurrentState,
   readCoordinatorExecutionState,
 } from "../../../domain-model/src/index.ts";
 import {
+  getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  getRepository,
 } from "../../../version-control/src/index.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
 import { projectCoordinatorState } from "./projection.ts";
 
-import { type StoreResult, coordinatorDataBoundaryBlocked } from "./result.ts";
+import { coordinatorDataBoundaryBlocked, type StoreResult } from "./result.ts";
 import { createCurrentCoordinatorPersistencePorts } from "./transaction.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
@@ -116,9 +115,9 @@ export function queryCoordinatorState(
  *
  * @responsibility Coordinator Public 状態 Queryの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @input rawRequest: unknown、workingDirectory、authenticationContext: 入口が認証・認可したPrincipal。
  * @returns executeCoordinatorPublicStateQueryの計算結果を返す。
- * @precondition 「openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteCoordinatorPublicStateQueryの入力契約を満たす。
+ * @precondition 入口が現在の認証・認可を確認する。Decision Storeの所在や可用性を本人確認へ使わない。
  * @postcondition executeCoordinatorPublicStateQueryの責務を完了した結果だけを返す。
  * @effect Repositoryと保存済みSnapshotを観測する。Task実行や状態変更は行わない。
  * @failure executeCoordinatorPublicStateQueryは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -128,7 +127,6 @@ export function queryCoordinatorState(
  * @concurrency 返却される読取り処理の完了・失敗を呼出し側へ搬送する。
  */
 export function executeCoordinatorPublicStateQuery(
-  openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
@@ -210,16 +208,6 @@ export function executeCoordinatorPublicStateQuery(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const decisionStore = openDecisionStore();
-  if (decisionStore.status !== "completed")
-    return Object.freeze({
-      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-      status: "blocked" as const,
-      reason: "orchestrator_authenticated_principal_not_verified",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      effectState: "no_effect" as const,
-    });
   const snapshot = readCoordinatorExecutionState(
     verifyRuntimePersistenceRepository(repositoryRoot),
     deriveCoordinatorRepositoryBindingId(repositoryRoot),
@@ -227,7 +215,7 @@ export function executeCoordinatorPublicStateQuery(
   if (
     snapshot.status !== "completed" ||
     snapshot.value === null ||
-    snapshot.value.schemaRevision !== 5
+    snapshot.value.schemaRevision !== 6
   )
     return Object.freeze({
       contract: COORDINATOR_STATE_QUERY_CONTRACT,
@@ -277,10 +265,6 @@ export function queryState(
 ) {
   try {
     return executeCoordinatorPublicStateQuery(
-      () =>
-        openRuntimeOwnedWindowsProjectDecisionStore({
-          initializeIfMissing: false,
-        }),
       rawRequest,
       workingDirectory,
       authenticationContext,
@@ -319,12 +303,12 @@ export function readCurrentCoordinatorState(
   );
 }
 
-import {
-  COORDINATOR_STATE_QUERY_CONTRACT,
-  inspectCoordinatorStateQuery,
-} from "../../../domain-model/src/index.ts";
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
 import type {
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
+} from "../../../domain-model/src/index.ts";
+import {
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  inspectCoordinatorStateQuery,
 } from "../../../domain-model/src/index.ts";

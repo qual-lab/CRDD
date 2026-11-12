@@ -1,46 +1,53 @@
 /**
  * 判断記録の固定CRUD候補を検証する。
  * @packageDocumentation
- * @responsibility 二世代・exact比較・対象外保持と既存拒否理由を反証する。
+ * @responsibility 判断と対象状態のexact比較・対象外保持・後日適用・閉鎖を反証する。
  * @trace PRL-UT-007
+ * @trace PRL-UT-015
  * @level UT
- * @scope 合成Snapshot上の受入判断・判断回復の六操作。
+ * @scope 合成Snapshotの判断要求・回答・適用・閉鎖・履歴候補。
  * @boundary 値操作だけ。実保存・現在認可・人間判断の真正性は別試験が所有する。
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import test from "node:test";
 import {
-  prepareCoordinatorAcceptanceDecisionCreation,
-  projectCoordinatorAcceptanceDecisionRecord,
-  prepareCoordinatorAcceptanceDecisionFinalization,
-  prepareCoordinatorDecisionRecoveryCreation,
-  projectCoordinatorDecisionRecoveryRecord,
-  prepareCoordinatorDecisionRecoveryUpdate,
-  validCoordinatorAcceptanceDecisionRecord,
-  validCoordinatorDecisionRecoveryIntent,
-  encodeRuntimeStateValue,
+  prepareDecisionApplying,
+  prepareDecisionClosing,
+  prepareDecisionCreation,
+  prepareDecisionRecording,
+  prepareDecisionRetirement,
+  prepareDecisionSubmission,
+  validateDecisionRetirement,
+  validateDecisionSnapshotTransition,
+} from "../../../src/decision/crud.ts";
+import {
+  inspectDecisionHistoryEvent,
+  prepareDecisionAnswer,
+  prepareDecisionApplication,
+  prepareDecisionClosure,
+  prepareDecisionRequest,
+  projectDecisionHistory,
+  validateDecisionCollections,
+} from "../../../src/decision/operations.ts";
+import type {
+  Blocker,
+  DecisionAnswer,
+  DecisionApplication,
+  DecisionRequest,
+} from "../../../src/decision/types.ts";
+import {
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   type CoordinatorSnapshot,
-  type CoordinatorAcceptanceDecisionRecord,
-  type CoordinatorDecisionRecoveryIntent,
+  decodeCoordinatorHistoryRows,
+  encodeRuntimeStateValue,
 } from "../../../src/index.ts";
+import { coordinatorQueueIsClosed } from "../../../src/state/transition.ts";
 
-/**
- * 局所候補の検査に必要な既存値だけを組み立てる。
- * @responsibility 固定の判断・回復値と空の共通Snapshotを用意する。
- * @trace PRL-UT-007
- * @precondition N/A: 外部入力なし。
- * @stimulus 六操作の共通前提を作成する。
- * @observation 型付きSnapshot・判断・回復値を返す。
- * @oracle 判断値は既存validatorを通り、Snapshotは値操作の入力形状を持つ。
- * @cleanup N/A: メモリ値だけ。
- * @boundary 全体codec・実保存・認可の成立は主張しない。
- */
+/** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -53,270 +60,1725 @@ function fixture() {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
-  const record: CoordinatorAcceptanceDecisionRecord = {
-    recordId: "record-a",
-    decisionId: "decision-a",
-    sourceSpecId: "SPEC-000002",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    repositoryRevision: "b".repeat(40),
-    expectedGeneration: 1,
-    target: "objective",
-    targetId: "objective-a",
-    decision: "accept",
-    criterionEvidenceIds: ["criterion-a"],
-    principalId: "operator-a",
-    disposition: "prepared",
-    newGeneration: null,
-  };
-  const intent: CoordinatorDecisionRecoveryIntent = {
-    recoveryId: "recovery-a",
-    recordId: "record-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
+  return { current };
+}
+
+/** 新判断候補だけを検査する。保存・認可・実際のQueue遷移は含まない。
+ * @trace PRL-UT-015
+ */
+function newDecisionFixture() {
+  const request: DecisionRequest = {
+    decisionId: "decision-new",
+    blockerId: "blocker-new",
+    respondentPrincipalId: "local.email.user@example.test",
+    kind: "continuation",
     queueId: "queue-a",
-    applicationId: "application-a",
-    expectedGeneration: 1,
-    newGeneration: 2,
-    observedDisposition: "prepared",
-    unknownBoundary: "project_readback",
-    disposition: "required",
+    question: "範囲を縮小して再計画しますか？",
+    options: [
+      { value: "resume", label: "再計画して継続" },
+      { value: "cancel", label: "取り消す" },
+    ],
+    requestedAt: "2026-11-11T00:00:00.000Z",
+    target: {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      kind: "milestone",
+      id: "milestone-a",
+      generation: 2,
+      repositoryRevision: "b".repeat(40),
+    },
   };
-  assert.equal(validCoordinatorAcceptanceDecisionRecord(record), true);
-  assert.equal(validCoordinatorDecisionRecoveryIntent(intent), true);
-  return { current, record, intent };
+  const answer: DecisionAnswer = {
+    principalId: "local.email.user@example.test",
+    answeredAt: "2026-11-11T01:00:00.000Z",
+    selectedOption: "resume",
+    reason: "対象範囲を縮小するため",
+    evidenceIds: ["evidence-a"],
+  };
+  const application: DecisionApplication = {
+    applicationId: "application-a",
+    appliedAt: answer.answeredAt,
+    beforeGeneration: 2,
+    afterGeneration: 3,
+    previousState: "human_decision_required",
+    nextState: "executing",
+    blockerResolved: true,
+  };
+  return { request, answer, application };
 }
 
 /**
- * 受入判断を初回から二世代へ固定する。
- * @responsibility Envelope全文Hash・優先順・重複と比較競合を保持する。
- * @trace PRL-UT-007
- * @precondition 合成したprepared判断と値Snapshotを使用する。
- * @stimulus 作成・読取り・確定と各既存拒否条件を評価する。
- * @observation 結果封筒、二世代、対象外参照と入力本文。
- * @oracle 読取りは候補なし、作成と確定は他区画不変で二世代を結び、禁止条件を拒否する。
- * @cleanup N/A: 外部資源なし。
- * @boundary 局所候補の検査。耐久保存・Authorityは含まない。
+ * 拒否・保留後の再提案と問題単位の退役を確認する。
+ * @responsibility 一問題N提案・一提案一回答と履歴保全、片側除去拒否を検証する。
+ * @trace PRL-UT-015
+ * @precondition Objectiveの成果確認待ちを値で構成する。
+ * @stimulus return又はwait、再提案、accept、退役を順に候補化する。
+ * @observation 全提案、現在参照、Blocker状態、履歴と元本文。
+ * @oracle 拒否・保留はOpen、承認適用だけ解消、全履歴確定前には退役しない。
+ * @cleanup N/A: 値操作だけ。
  */
-test("受入判断の三操作は二世代と元Envelope Hashを保持する", () => {
-  const { current, record } = fixture();
-  const before = JSON.stringify({ current, record });
-  assert.deepEqual(
-    projectCoordinatorAcceptanceDecisionRecord(current, record.recordId),
-    {
-      status: "completed",
-      reason: "orchestrator_acceptance_record_observed",
-      value: { next: null, value: null },
-    },
-  );
-  const created = prepareCoordinatorAcceptanceDecisionCreation(
-    current,
-    "binding-a",
-    record,
-  );
-  assert.equal(created.status, "completed");
-  if (created.status !== "completed") throw Error("creation_refused");
-  const first = created.value.next;
-  assert.equal(Object.isFrozen(created), true);
-  assert.equal(Object.isFrozen(created.value), false);
-  assert.equal(first.projects, current.projects);
-  assert.equal(first.decisionRecoveries, current.decisionRecoveries);
-  assert.equal(created.value.value, record);
-  assert.equal(first.acceptanceDecisions[0]?.previousHash, null);
-  assert.equal(
-    projectCoordinatorAcceptanceDecisionRecord(first, record.recordId).value
-      ?.value,
-    record,
-  );
-  const finalized: CoordinatorAcceptanceDecisionRecord = {
-    ...record,
-    disposition: "finalized",
-    newGeneration: 2,
-  };
-  const committed = prepareCoordinatorAcceptanceDecisionFinalization(
-    first,
-    "binding-a",
-    record,
-    finalized,
-  );
-  assert.equal(committed.status, "completed");
-  if (committed.status !== "completed") throw Error("finalization_refused");
-  const second = committed.value.next;
-  assert.equal(second.acceptanceDecisions.length, 2);
-  assert.equal(
-    second.acceptanceDecisions[1]?.previousHash,
-    createHash("sha256")
-      .update(encodeRuntimeStateValue(first.acceptanceDecisions[0]))
-      .digest("hex"),
-  );
-  assert.equal(second.acceptanceDecisions[1]?.generation, 2);
-  assert.equal(second.projects, first.projects);
-  assert.equal(
-    projectCoordinatorAcceptanceDecisionRecord(second, record.recordId).value
-      ?.value,
-    finalized,
-  );
-  assert.equal(
-    prepareCoordinatorAcceptanceDecisionCreation(first, "binding-a", record)
-      .reason,
-    "orchestrator_acceptance_record_exists",
-  );
-  assert.equal(
-    prepareCoordinatorAcceptanceDecisionCreation(
-      current,
-      "binding-a",
-      finalized,
-    ).reason,
-    "orchestrator_acceptance_record_invalid",
-  );
-  assert.deepEqual(
-    prepareCoordinatorAcceptanceDecisionCreation(current, "binding-a", {
-      ...record,
-      recordId: "",
-    }),
-    {
-      status: "blocked",
-      reason: "orchestrator_acceptance_record_invalid",
-      value: null,
-      manualRecoveryRequired: false,
-      recoveryId: null,
-    },
-  );
-  assert.equal(
-    projectCoordinatorAcceptanceDecisionRecord(current, "").reason,
-    "orchestrator_acceptance_record_identity_invalid",
-  );
-  assert.equal(
-    prepareCoordinatorAcceptanceDecisionFinalization(
-      current,
-      "binding-a",
-      record,
-      finalized,
-    ).reason,
-    "orchestrator_acceptance_record_generation_mismatch",
-  );
-  assert.equal(
-    prepareCoordinatorAcceptanceDecisionFinalization(
-      first,
-      "binding-a",
-      { ...record, principalId: "operator-b" },
-      finalized,
-    ).reason,
-    "orchestrator_acceptance_record_generation_mismatch",
-  );
-  assert.equal(
-    prepareCoordinatorAcceptanceDecisionFinalization(
-      first,
-      "binding-a",
-      record,
+test("同じBlockerへ拒否・保留後に再提案し承認適用後だけ全提案を退役する", () => {
+  for (const selectedOption of ["return", "wait"] as const) {
+    const { current } = fixture(),
+      { request, answer } = newDecisionFixture();
+    const { queueId: _queueId, ...common } = request as Extract<
+      DecisionRequest,
+      { kind: "continuation" }
+    >;
+    const proposal: DecisionRequest = {
+      ...common,
+      kind: "acceptance",
+      target: { ...request.target, kind: "objective", id: "objective-a" },
+      options: [
+        { value: "accept", label: "受入" },
+        { value: "return", label: "拒否" },
+        { value: "wait", label: "保留" },
+      ],
+    };
+    const source = {
+      ...current,
+      projects: [
+        {
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          repositoryRevision: request.target.repositoryRevision,
+          generation: 2,
+          decisionApplicationId: null,
+          milestone: {
+            id: "milestone-a",
+            state: "executing",
+            criterionEvidenceIds: [],
+          },
+          objectives: [
+            {
+              definition: {
+                id: "objective-a",
+                acceptanceCriteria: ["criterion"],
+              },
+              state: "integration_pending",
+              criterionEvidenceIds: [],
+            },
+          ],
+          tasks: [],
+        },
+      ] as unknown as CoordinatorSnapshot["projects"],
+    };
+    for (const reversed of [false, true]) {
+      const firstProposal: DecisionRequest = reversed
+        ? { ...proposal, decisionId: "evidence-b", blockerId: "evidence-b" }
+        : proposal;
+      const secondProposal: DecisionRequest = reversed
+        ? proposal
+        : { ...proposal, decisionId: "evidence-b", blockerId: "evidence-b" };
+      const first: ReturnType<
+        typeof prepareDecisionCreation<CoordinatorSnapshot>
+      > = prepareDecisionCreation(source, firstProposal);
+      if (first.status !== "completed" || !first.value.next)
+        throw Error("fixture");
+      const second: ReturnType<
+        typeof prepareDecisionCreation<CoordinatorSnapshot>
+      > = prepareDecisionCreation(first.value.next, secondProposal);
+      if (second.status !== "completed" || !second.value.next)
+        throw Error("fixture");
+      const answerFor = (id: string): DecisionAnswer => ({
+        ...answer,
+        selectedOption: "accept",
+        evidenceIds: [id === proposal.decisionId ? "evidence-a" : "evidence-b"],
+      });
+      const early: ReturnType<
+        typeof prepareDecisionSubmission<CoordinatorSnapshot>
+      > = prepareDecisionSubmission(
+        second.value.next,
+        firstProposal.decisionId,
+        answerFor(firstProposal.decisionId),
+        answer.answeredAt,
+      );
+      if (early.status !== "completed" || !early.value.next)
+        throw Error("fixture");
+      const last: ReturnType<
+        typeof prepareDecisionSubmission<CoordinatorSnapshot>
+      > = prepareDecisionSubmission(
+        early.value.next,
+        secondProposal.decisionId,
+        answerFor(secondProposal.decisionId),
+        answer.answeredAt,
+      );
+      if (last.status !== "completed" || !last.value.next)
+        throw Error("fixture");
+      assert.ok(
+        last.value.next.decisions.every((d) => d.status === "answered"),
+      );
+      assert.ok(last.value.next.blockers.every((b) => b.status === "active"));
+      assert.deepEqual(last.value.next.projects, source.projects);
+      for (const decision of last.value.next.decisions)
+        assert.deepEqual(
+          decision.result?.answer,
+          answerFor(decision.decisionId),
+        );
+      assert.equal(
+        validateDecisionSnapshotTransition(early.value.next, last.value.next),
+        true,
+      );
+    }
+    if (selectedOption === "return") {
+      const a = prepareDecisionCreation(source, proposal);
+      if (a.status !== "completed" || !a.value.next) throw Error("fixture");
+      const proposalB: DecisionRequest = {
+        ...proposal,
+        decisionId: "problem-b-proposal",
+        blockerId: "problem-b",
+      };
+      const b = prepareDecisionCreation(a.value.next, proposalB);
+      if (b.status !== "completed" || !b.value.next) throw Error("fixture");
+      const approvedA = prepareDecisionSubmission(
+        b.value.next,
+        proposal.decisionId,
+        { ...answer, selectedOption: "accept" },
+        answer.answeredAt,
+      );
+      if (approvedA.status !== "completed" || !approvedA.value.next)
+        throw Error("fixture");
+      assert.equal(approvedA.value.value.status, "answered");
+      const rejectedB = prepareDecisionSubmission(
+        approvedA.value.next,
+        proposalB.decisionId,
+        { ...answer, selectedOption: "return" },
+        answer.answeredAt,
+      );
+      if (rejectedB.status !== "completed" || !rejectedB.value.next)
+        throw Error("fixture");
+      const revised = {
+        ...rejectedB.value.next,
+        projects: rejectedB.value.next.projects.map((p) => ({
+          ...p,
+          objectives: p.objectives.map((o) => ({
+            ...o,
+            state: "integration_pending" as const,
+          })),
+        })),
+      };
+      const currentProject = revised.projects[0];
+      assert.ok(currentProject);
+      const freshB: DecisionRequest = {
+        ...proposalB,
+        decisionId: "problem-b-revised",
+        target: { ...proposal.target, generation: currentProject.generation },
+        requestedAt: "2026-11-11T02:00:00.000Z",
+      };
+      const waitingB = prepareDecisionRecording(
+        revised,
+        freshB,
+        { ...answer, selectedOption: "accept", answeredAt: freshB.requestedAt },
+        freshB.requestedAt,
+      );
+      if (waitingB.status !== "completed" || !waitingB.value.next)
+        throw Error("fixture");
+      assert.equal(waitingB.value.value.status, "answered");
+      assert.equal(
+        waitingB.value.next.projects[0]?.objectives[0]?.state,
+        "integration_pending",
+      );
+      const freshA: DecisionRequest = {
+        ...proposal,
+        decisionId: "problem-a-revised",
+        target: freshB.target,
+        requestedAt: "2026-11-11T03:00:00.000Z",
+      };
+      const acceptedAll = prepareDecisionRecording(
+        waitingB.value.next,
+        freshA,
+        { ...answer, selectedOption: "accept", answeredAt: freshA.requestedAt },
+        freshA.requestedAt,
+      );
+      if (acceptedAll.status !== "completed" || !acceptedAll.value.next)
+        throw Error("fixture");
+      assert.equal(
+        acceptedAll.value.next.projects[0]?.objectives[0]?.state,
+        "accepted",
+      );
+      assert.equal(
+        validateDecisionSnapshotTransition(
+          waitingB.value.next,
+          acceptedAll.value.next,
+        ),
+        true,
+      );
+      assert.deepEqual(
+        acceptedAll.value.next.decisions.find(
+          (d) => d.decisionId === proposal.decisionId,
+        ),
+        approvedA.value.value,
+      );
+      const terminal = prepareDecisionCreation(acceptedAll.value.next, {
+        ...proposal,
+        decisionId: "late",
+        blockerId: "late",
+        target: {
+          ...proposal.target,
+          generation: currentProject.generation + 1,
+        },
+      });
+      assert.equal(terminal.status, "blocked");
+    }
+    const first = prepareDecisionRecording(
+      source,
+      proposal,
+      { ...answer, selectedOption },
+      answer.answeredAt,
+    );
+    assert.equal(first.status, "completed");
+    if (first.status !== "completed" || !first.value.next)
+      throw Error("fixture");
+    assert.equal(first.value.next.blockers[0]?.status, "active");
+    const old = encodeRuntimeStateValue(first.value.value);
+    // return後の再統合は用途Ownerの別遷移。ここでは再統合済みの現在値だけを合成する。
+    const ready = {
+      ...first.value.next,
+      projects: first.value.next.projects.map((p) => ({
+        ...p,
+        objectives: p.objectives.map((o) => ({
+          ...o,
+          state: "integration_pending" as const,
+        })),
+      })),
+    };
+    const readyProject = ready.projects[0];
+    assert.ok(readyProject);
+    const nextProposal: DecisionRequest = {
+      ...proposal,
+      decisionId: "proposal-b",
+      requestedAt: "2026-11-11T02:00:00.000Z",
+      target: { ...proposal.target, generation: readyProject.generation },
+    };
+    assert.equal(
+      prepareDecisionCreation(ready, {
+        ...nextProposal,
+        respondentPrincipalId: "other-user",
+      }).status,
+      "blocked",
+    );
+    assert.equal(
+      prepareDecisionCreation(ready, {
+        ...nextProposal,
+        target: { ...nextProposal.target, id: "other" },
+      }).status,
+      "blocked",
+    );
+    const second = prepareDecisionCreation(ready, nextProposal);
+    assert.equal(second.status, "completed");
+    if (second.status !== "completed" || !second.value.next)
+      throw Error("fixture");
+    const pending = second.value.next;
+    assert.equal(pending.blockers.length, 1);
+    assert.equal(pending.decisions.length, 2);
+    assert.equal(
+      validateDecisionCollections(pending.decisions, pending.blockers, [
+        "project-a",
+      ]),
+      true,
+    );
+    assert.equal(validateDecisionSnapshotTransition(ready, pending), true);
+    assert.equal(
+      prepareDecisionCreation(pending, {
+        ...nextProposal,
+        decisionId: "proposal-c",
+      }).status,
+      "blocked",
+    );
+    assert.equal(prepareDecisionCreation(pending, proposal).value?.next, null);
+    assert.equal(
+      prepareDecisionSubmission(
+        pending,
+        proposal.decisionId,
+        { ...answer, selectedOption: "accept" },
+        "2026-11-11T03:00:00.000Z",
+      ).status,
+      "blocked",
+    );
+    assert.equal(
+      prepareDecisionClosing(
+        pending,
+        proposal.decisionId,
+        "invalidated",
+        "2026-11-11T03:00:00.000Z",
+        "遅延",
+      ).status,
+      "blocked",
+    );
+    const accepted = prepareDecisionSubmission(
+      pending,
+      nextProposal.decisionId,
       {
-        ...finalized,
-        recordId: "record-b",
+        ...answer,
+        selectedOption: "accept",
+        answeredAt: "2026-11-11T03:00:00.000Z",
       },
-    ).reason,
-    "orchestrator_acceptance_record_transition_invalid",
-  );
-  assert.equal(
-    prepareCoordinatorAcceptanceDecisionFinalization(
-      second,
-      "binding-a",
-      record,
-      finalized,
-    ).reason,
-    "orchestrator_acceptance_record_exists",
-  );
-  assert.equal(JSON.stringify({ current, record }), before);
+      "2026-11-11T03:00:00.000Z",
+    );
+    assert.equal(accepted.status, "completed");
+    if (accepted.status !== "completed" || !accepted.value.next)
+      throw Error("fixture");
+    const done = accepted.value.next;
+    assert.equal(done.blockers[0]?.status, "resolved");
+    assert.equal(
+      prepareDecisionCreation(done, {
+        ...nextProposal,
+        decisionId: "proposal-after-resolution",
+      }).status,
+      "blocked",
+    );
+    assert.equal(encodeRuntimeStateValue(done.decisions[0]), old);
+    assert.equal(
+      validateDecisionCollections(done.decisions, done.blockers, ["project-a"]),
+      true,
+    );
+    for (const record of done.decisions) {
+      const events = projectDecisionHistory(record);
+      assert.ok(events);
+      for (const event of events)
+        assert.equal(event.blockerId, proposal.blockerId);
+    }
+    assert.equal(
+      prepareDecisionRetirement(done, (d) =>
+        d.decisionId === proposal.decisionId ? null : "recorded",
+      ).status,
+      "blocked",
+    );
+    const retired = prepareDecisionRetirement(done, () => "recorded");
+    assert.equal(retired.status, "completed");
+    if (retired.status !== "completed" || !retired.value.next)
+      throw Error("fixture");
+    assert.equal(retired.value.value, 2);
+    assert.equal(retired.value.next.blockers.length, 0);
+    assert.equal(validateDecisionRetirement(done, retired.value.next), true);
+    const firstDecision = done.decisions[0];
+    assert.ok(firstDecision);
+    assert.equal(
+      validateDecisionRetirement(done, {
+        ...retired.value.next,
+        decisions: [firstDecision],
+      }),
+      false,
+    );
+  }
 });
 
 /**
- * 判断回復のexact本文を同じ参照で比較更新する。
- * @responsibility 重複、別ID、元本文差を拒否し、対象外の実体を保持する。
- * @trace PRL-UT-007
- * @precondition 合成したrequired回復記録を使用する。
- * @stimulus 作成・読取り・更新と不正入力・期待値差を評価する。
- * @observation 世代、対象外entry、返却参照と入力本文。
- * @oracle 同じ回復だけが世代を一つ進め、真正不存在と不正IDを区別する。
- * @cleanup N/A: 外部資源なし。
- * @boundary 値更新のみで実Recoveryの実行・成立を示さない。
+ * 無効化した提案を残したまま、同じ問題への明示中止でQueueを終了する。
+ * @responsibility 中止と解消を区別し、遅延適用・未確定履歴・部分退役を拒否する。
+ * @trace PRL-UT-015
+ * @precondition 対象Taskがなく、Lease資源不存在の有限観測を使用する。
+ * @stimulus 無効化、再提案、取消回答、Queue終了、全履歴確定を候補化する。
+ * @observation Blockerのcancelledと全提案の保全、終了可否。
+ * @oracle 元提案が未適用でも終了でき、Openや未解放Leaseなら終了できない。
+ * @cleanup N/A: メモリだけ。
  */
-test("判断回復の三操作はexact期待本文と対象外entryを保持する", () => {
-  const { current, intent } = fixture();
-  const before = JSON.stringify({ current, intent });
-  const other = {
-    generation: 3,
-    value: { ...intent, recoveryId: "recovery-b" },
+test("無効化後の再提案を中止すると解消扱いにせず古い提案を保ってQueueを終了できる", () => {
+  const { current } = fixture(),
+    { request, answer } = newDecisionFixture();
+  const source = {
+    ...current,
+    projects: [
+      {
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        generation: 2,
+        repositoryRevision: request.target.repositoryRevision,
+        decisionApplicationId: null,
+        milestone: {
+          id: "milestone-a",
+          state: "human_decision_required",
+          criterionEvidenceIds: [],
+        },
+        objectives: [],
+        tasks: [],
+      },
+    ] as unknown as CoordinatorSnapshot["projects"],
+    queueEntries: [
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: request.target.repositoryRevision,
+        generation: 1,
+        state: "human_decision_required",
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ] as unknown as CoordinatorSnapshot["queueEntries"],
   };
-  const base: CoordinatorSnapshot = { ...current, decisionRecoveries: [other] };
-  assert.deepEqual(
-    projectCoordinatorDecisionRecoveryRecord(base, intent.recoveryId),
+  const created = prepareDecisionCreation(source, request);
+  if (created.status !== "completed" || !created.value.next)
+    throw Error("fixture");
+  const closed = prepareDecisionClosing(
+    created.value.next,
+    request.decisionId,
+    "invalidated",
+    answer.answeredAt,
+    "別案に変更",
+  );
+  if (closed.status !== "completed" || !closed.value.next)
+    throw Error("fixture");
+  const nextRequest: DecisionRequest = {
+    ...request,
+    decisionId: "proposal-b",
+    requestedAt: "2026-11-11T02:00:00.000Z",
+  };
+  const proposed = prepareDecisionCreation(closed.value.next, nextRequest);
+  if (proposed.status !== "completed" || !proposed.value.next)
+    throw Error("fixture");
+  assert.equal(
+    prepareDecisionApplying(
+      proposed.value.next,
+      request.decisionId,
+      nextRequest.requestedAt,
+    ).status,
+    "blocked",
+  );
+  const another = prepareDecisionCreation(proposed.value.next, {
+    ...nextRequest,
+    decisionId: "proposal-other-problem",
+    blockerId: "blocker-other-problem",
+  });
+  if (another.status !== "completed" || !another.value.next)
+    throw Error("fixture");
+  const approvedFirst = prepareDecisionSubmission(
+    another.value.next,
+    nextRequest.decisionId,
     {
-      status: "completed",
-      reason: "orchestrator_decision_recovery_observed",
-      value: { next: null, value: null },
+      ...answer,
+      selectedOption: "resume",
+      answeredAt: nextRequest.requestedAt,
     },
+    nextRequest.requestedAt,
   );
-  const created = prepareCoordinatorDecisionRecoveryCreation(base, intent);
-  assert.equal(created.status, "completed");
-  if (created.status !== "completed") throw Error("creation_refused");
-  const first = created.value.next;
-  assert.equal(first.acceptanceDecisions, base.acceptanceDecisions);
+  if (approvedFirst.status !== "completed" || !approvedFirst.value.next)
+    throw Error("fixture");
+  assert.equal(approvedFirst.value.value.status, "answered");
+  assert.deepEqual(
+    approvedFirst.value.next.projects,
+    another.value.next.projects,
+  );
+  assert.deepEqual(
+    approvedFirst.value.next.queueEntries,
+    another.value.next.queueEntries,
+  );
+  assert.ok(
+    approvedFirst.value.next.blockers.every((b) => b.status === "active"),
+  );
+  const firstAnswer = approvedFirst.value.value.result?.answer;
+  const approvedBoth = prepareDecisionSubmission(
+    approvedFirst.value.next,
+    "proposal-other-problem",
+    {
+      ...answer,
+      selectedOption: "resume",
+      answeredAt: nextRequest.requestedAt,
+    },
+    nextRequest.requestedAt,
+  );
+  if (approvedBoth.status !== "completed" || !approvedBoth.value.next)
+    throw Error("fixture");
+  assert.equal(approvedBoth.value.next.projects[0]?.generation, 3);
   assert.equal(
-    projectCoordinatorDecisionRecoveryRecord(first, intent.recoveryId).value
-      ?.value,
-    intent,
+    approvedBoth.value.next.queueEntries[0]?.state,
+    "replan_required",
   );
-  const next: CoordinatorDecisionRecoveryIntent = {
-    ...intent,
-    disposition: "settled",
+  assert.ok(
+    approvedBoth.value.next.blockers.every((b) => b.status === "resolved"),
+  );
+  assert.deepEqual(
+    approvedBoth.value.next.decisions.find(
+      (d) => d.decisionId === nextRequest.decisionId,
+    )?.result?.answer,
+    firstAnswer,
+  );
+  assert.equal(
+    validateDecisionSnapshotTransition(
+      approvedFirst.value.next,
+      approvedBoth.value.next,
+    ),
+    true,
+  );
+  assert.equal(
+    validateDecisionSnapshotTransition(approvedFirst.value.next, {
+      ...approvedBoth.value.next,
+      decisions: approvedBoth.value.next.decisions.map((d) =>
+        d.decisionId === nextRequest.decisionId ? approvedFirst.value.value : d,
+      ),
+    }),
+    false,
+  );
+  assert.equal(
+    prepareDecisionSubmission(
+      approvedFirst.value.next,
+      nextRequest.decisionId,
+      {
+        ...answer,
+        selectedOption: "resume",
+        answeredAt: nextRequest.requestedAt,
+      },
+      nextRequest.requestedAt,
+    ).value?.next,
+    null,
+  );
+  const technical: Blocker = {
+    blockerId: "input-pending",
+    kind: "input",
+    currentDecisionId: null,
+    target: request.target,
+    reason: "入力待ち",
+    status: "active",
   };
-  const updated = prepareCoordinatorDecisionRecoveryUpdate(first, intent, next);
-  assert.equal(updated.status, "completed");
-  if (updated.status !== "completed") throw Error("update_refused");
-  assert.equal(updated.value.next.decisionRecoveries[0], other);
-  assert.equal(updated.value.next.decisionRecoveries[1]?.generation, 2);
+  const otherMilestone: Blocker = {
+    ...technical,
+    blockerId: "input-other-milestone",
+    target: {
+      ...request.target,
+      id: "milestone-other",
+      milestoneId: "milestone-other",
+    },
+  };
+  const alreadyResolved: Blocker = {
+    ...technical,
+    blockerId: "input-resolved",
+    status: "resolved",
+  };
+  const combined = {
+    ...another.value.next,
+    blockers: [
+      ...another.value.next.blockers,
+      technical,
+      otherMilestone,
+      alreadyResolved,
+    ],
+  };
+  const pendingTechnical = prepareDecisionSubmission(
+    { ...combined, decisions: approvedFirst.value.next.decisions },
+    "proposal-other-problem",
+    {
+      ...answer,
+      selectedOption: "resume",
+      answeredAt: nextRequest.requestedAt,
+    },
+    nextRequest.requestedAt,
+  );
+  assert.equal(pendingTechnical.status, "completed");
+  if (pendingTechnical.status !== "completed" || !pendingTechnical.value.next)
+    throw Error("fixture");
+  assert.equal(pendingTechnical.value.value.status, "answered");
+  const releasedTechnical = {
+    ...pendingTechnical.value.next,
+    blockers: pendingTechnical.value.next.blockers.map((b) =>
+      b.blockerId === technical.blockerId
+        ? { ...b, status: "resolved" as const }
+        : b,
+    ),
+  };
   assert.equal(
-    projectCoordinatorDecisionRecoveryRecord(
-      updated.value.next,
-      intent.recoveryId,
-    ).value?.value,
-    next,
+    prepareDecisionApplying(
+      releasedTechnical,
+      nextRequest.decisionId,
+      nextRequest.requestedAt,
+    ).status,
+    "completed",
   );
   assert.equal(
-    prepareCoordinatorDecisionRecoveryCreation(first, intent).reason,
-    "orchestrator_decision_recovery_exists",
+    validateDecisionCollections(combined.decisions, combined.blockers, [
+      "project-a",
+    ]),
+    true,
+  );
+  const cancelled = prepareDecisionSubmission(
+    combined,
+    nextRequest.decisionId,
+    {
+      ...answer,
+      selectedOption: "cancel",
+      answeredAt: nextRequest.requestedAt,
+    },
+    nextRequest.requestedAt,
+  );
+  assert.equal(cancelled.status, "completed");
+  if (cancelled.status !== "completed" || !cancelled.value.next)
+    throw Error("fixture");
+  const done = cancelled.value.next;
+  assert.equal(done.blockers[0]?.status, "cancelled");
+  assert.equal(
+    cancelled.value.value.result?.status === "applied" &&
+      cancelled.value.value.result.application.blockerResolved,
+    false,
   );
   assert.equal(
-    prepareCoordinatorDecisionRecoveryCreation(base, {
-      ...intent,
-      recoveryId: "",
-    }).reason,
-    "orchestrator_decision_recovery_invalid",
+    validateDecisionCollections(done.decisions, done.blockers, ["project-a"]),
+    true,
+  );
+  assert.equal(validateDecisionSnapshotTransition(combined, done), true);
+  for (const id of [
+    request.blockerId,
+    "blocker-other-problem",
+    "input-pending",
+  ]) {
+    const blocker = done.blockers.find((b) => b.blockerId === id);
+    assert.equal(blocker?.status, "cancelled");
+    assert.equal(
+      blocker?.status === "cancelled" && blocker.cancelledByDecisionId,
+      nextRequest.decisionId,
+    );
+  }
+  assert.deepEqual(
+    done.blockers.find((b) => b.blockerId === otherMilestone.blockerId),
+    otherMilestone,
+  );
+  assert.deepEqual(
+    done.blockers.find((b) => b.blockerId === alreadyResolved.blockerId),
+    alreadyResolved,
+  );
+  for (const cause of ["missing", "proposal-other-problem"])
+    assert.equal(
+      validateDecisionCollections(
+        done.decisions,
+        done.blockers.map((b) =>
+          b.status === "cancelled" ? { ...b, cancelledByDecisionId: cause } : b,
+        ),
+        ["project-a"],
+      ),
+      false,
+    );
+  assert.equal(
+    validateDecisionCollections(
+      done.decisions.map((d) =>
+        d.decisionId === nextRequest.decisionId &&
+        d.result?.status === "applied"
+          ? {
+              ...d,
+              result: {
+                ...d.result,
+                application: {
+                  ...d.result.application,
+                  nextState: "executing",
+                },
+              },
+            }
+          : d,
+      ),
+      done.blockers,
+      ["project-a"],
+    ),
+    false,
   );
   assert.equal(
-    projectCoordinatorDecisionRecoveryRecord(first, "").reason,
-    "orchestrator_decision_recovery_invalid",
+    validateDecisionSnapshotTransition(combined, {
+      ...done,
+      blockers: done.blockers.map((b) =>
+        b.blockerId === technical.blockerId ? technical : b,
+      ),
+    }),
+    false,
+  );
+  const owner = {
+    schema: current.schema,
+    leaseResourcesAbsent: () => true,
+  } as unknown as Parameters<typeof coordinatorQueueIsClosed>[2];
+  assert.equal(coordinatorQueueIsClosed(done, "queue-a", owner), true);
+  assert.equal(
+    coordinatorQueueIsClosed(
+      {
+        ...done,
+        blockers: done.blockers.map((b) => ({
+          ...b,
+          status: "active" as const,
+        })),
+      },
+      "queue-a",
+      owner,
+    ),
+    false,
   );
   assert.equal(
-    prepareCoordinatorDecisionRecoveryUpdate(base, intent, next).reason,
-    "orchestrator_decision_recovery_generation_mismatch",
+    coordinatorQueueIsClosed(done, "queue-a", {
+      ...owner,
+      leaseResourcesAbsent: () => false,
+    }),
+    false,
+  );
+  const referencesFirst = prepareDecisionRetirement(done, () => "recorded");
+  assert.equal(referencesFirst.status, "completed");
+  if (referencesFirst.status !== "completed" || !referencesFirst.value.next)
+    throw Error("fixture");
+  assert.equal(referencesFirst.value.value, 1);
+  assert.ok(
+    referencesFirst.value.next.decisions.some(
+      (d) => d.decisionId === nextRequest.decisionId,
+    ),
   );
   assert.equal(
-    prepareCoordinatorDecisionRecoveryUpdate(
-      first,
-      { ...intent, unknownBoundary: "other" },
-      next,
+    validateDecisionRetirement(done, referencesFirst.value.next),
+    true,
+  );
+  const unresolved = {
+    ...done,
+    projects: done.projects.map((p) => ({
+      ...p,
+      tasks: [
+        { state: "failed", cleanupConfirmed: true, recoveryUnresolved: true },
+      ] as unknown as typeof p.tasks,
+    })),
+  };
+  assert.equal(coordinatorQueueIsClosed(unresolved, "queue-a", owner), false);
+  assert.equal(
+    validateDecisionRetirement(done, {
+      ...done,
+      projects: [],
+      queueEntries: [],
+      decisions: done.decisions.filter(
+        (d) => d.blockerId !== request.blockerId,
+      ),
+      blockers: done.blockers.filter((b) => b.blockerId !== request.blockerId),
+    }),
+    false,
+  );
+  // 技術問題の実体・記録処置はそのOwnerが終えてから、人間判断グループを整理する。
+  const unreferenced = {
+    ...done,
+    projects: [],
+    queueEntries: [],
+    blockers: done.blockers.filter((b) => b.kind === "human_decision"),
+  };
+  const retired = prepareDecisionRetirement(unreferenced, () => "recorded");
+  assert.equal(retired.status, "completed");
+  if (retired.status !== "completed" || !retired.value.next)
+    throw Error("fixture");
+  assert.equal(retired.value.value, 3);
+  assert.equal(
+    validateDecisionRetirement(unreferenced, retired.value.next),
+    true,
+  );
+});
+
+/**
+ * 要求時の回答先を後から回答者や履歴本文で置換できないことを確認する。
+ * @trace PRL-UT-015
+ * @precondition 認可された回答先を持つ新判断要求を使う。
+ * @stimulus 別主体・欠測した回答先・改ざん履歴を与える。
+ * @observation 候補と独立履歴検査の拒否、元要求の不変を観測する。
+ * @oracle 別主体の回答を記録せず、要求先欠測を補完しない。
+ * @cleanup N/A: 値操作のみ。
+ * @boundary Domainの値検査。本人認証の成立は主張しない。
+ */
+test("回答は要求時の回答先に限定し履歴にも同じ主体を保持する", () => {
+  const { request, answer } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  const before = encodeRuntimeStateValue(prepared);
+  assert.equal(
+    prepareDecisionAnswer(
+      prepared.decision,
+      { ...answer, principalId: "other-user" },
+      null,
+      "未適用",
+    ),
+    null,
+  );
+  const { respondentPrincipalId: _respondent, ...missing } = request;
+  assert.equal(prepareDecisionRequest(missing as DecisionRequest), null);
+  assert.equal(
+    prepareDecisionRequest({ ...request, respondentPrincipalId: "" }),
+    null,
+  );
+  const answered = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    null,
+    "未適用",
+  );
+  assert.ok(answered);
+  const events = projectDecisionHistory(answered.decision);
+  assert.ok(events);
+  for (const event of events) {
+    assert.equal(event.respondentPrincipalId, answer.principalId);
+    const { respondentPrincipalId: _id, ...incomplete } = event;
+    assert.equal(inspectDecisionHistoryEvent(incomplete), null);
+    if (event.kind === "decision_answered")
+      assert.equal(
+        inspectDecisionHistoryEvent({
+          ...event,
+          respondentPrincipalId: "other-user",
+        }),
+        null,
+      );
+  }
+  assert.equal(encodeRuntimeStateValue(prepared), before);
+});
+
+/**
+ * 即時判断も既存の要求・回答候補から導出し、中間保存や片側更新を許可しない。
+ * @trace PRL-UT-015
+ * @precondition 現在のObjectiveが統合待ちである。
+ * @stimulus 要求と回答を一括入力し、Projectだけを元へ戻す変異を与える。
+ * @observation 最終候補の全区画、元値不変、遷移検査を確認する。
+ * @oracle 不正回答では要求も残さず、任意の新規applied値を通さない。
+ * @cleanup N/A: 値操作のみ。
+ * @boundary 同一Stateの候補生成と再導出。
+ */
+test("即時の要求と回答も中間Stateなしで全区画を一候補へまとめる", () => {
+  const { request, answer } = newDecisionFixture();
+  const { current } = fixture();
+  const source = {
+    ...current,
+    projects: [
+      {
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: request.target.repositoryRevision,
+        generation: 2,
+        milestone: { id: "milestone-a", state: "executing" },
+        objectives: [
+          {
+            definition: { id: "objective-a", acceptanceCriteria: ["根拠確認"] },
+            state: "integration_pending",
+          },
+        ],
+        tasks: [],
+        decisionApplicationId: null,
+      },
+    ] as unknown as import("../../../src/state/types.ts").CoordinatorState[],
+  };
+  const acceptance: DecisionRequest = {
+    decisionId: request.decisionId,
+    blockerId: request.blockerId,
+    respondentPrincipalId: request.respondentPrincipalId,
+    question: request.question,
+    requestedAt: request.requestedAt,
+    kind: "acceptance",
+    target: { ...request.target, kind: "objective", id: "objective-a" },
+    options: [
+      { value: "accept", label: "受入" },
+      { value: "return", label: "差戻し" },
+    ],
+  };
+  const before = encodeRuntimeStateValue(source);
+  const accepted = prepareDecisionRecording(
+    source,
+    acceptance,
+    { ...answer, selectedOption: "accept" },
+    answer.answeredAt,
+  );
+  assert.equal(accepted.status, "completed");
+  if (accepted.status !== "completed" || !accepted.value.next)
+    throw Error("candidate_missing");
+  assert.equal(accepted.value.value.status, "applied");
+  assert.equal(accepted.value.next.decisions.length, 1);
+  assert.equal(
+    validateDecisionSnapshotTransition(source, accepted.value.next),
+    true,
+  );
+  assert.equal(
+    validateDecisionSnapshotTransition(source, {
+      ...accepted.value.next,
+      projects: source.projects,
+    }),
+    false,
+  );
+  assert.equal(
+    prepareDecisionRecording(
+      source,
+      acceptance,
+      { ...answer, selectedOption: "accept", principalId: "other-user" },
+      answer.answeredAt,
+    ).status,
+    "blocked",
+  );
+  const returned = prepareDecisionRecording(
+    source,
+    acceptance,
+    { ...answer, selectedOption: "return", evidenceIds: [] },
+    answer.answeredAt,
+  );
+  assert.equal(returned.status, "completed");
+  if (returned.status === "completed") {
+    assert.equal(returned.value.value.status, "answered");
+    assert.deepEqual(returned.value.next?.projects, source.projects);
+  }
+  const evidencedReturn = prepareDecisionRecording(
+    source,
+    acceptance,
+    {
+      ...answer,
+      selectedOption: "return",
+      evidenceIds: ["return-evidence"],
+    },
+    answer.answeredAt,
+  );
+  assert.equal(evidencedReturn.status, "completed");
+  if (evidencedReturn.status === "completed")
+    assert.equal(evidencedReturn.value.value.status, "applied");
+  const milestoneSource = {
+    ...source,
+    projects: source.projects.map((project) => ({
+      ...project,
+      milestone: {
+        ...project.milestone,
+        state: "integrating" as const,
+        acceptanceCriteria: ["criterion"],
+        criterionEvidenceIds: ["original-evidence"],
+      },
+      objectives: project.objectives.map((objective) => ({
+        ...objective,
+        state: "accepted" as const,
+      })),
+    })),
+  };
+  const milestoneReturn = prepareDecisionRecording(
+    milestoneSource,
+    {
+      ...acceptance,
+      target: { ...acceptance.target, kind: "milestone", id: "milestone-a" },
+    },
+    { ...answer, selectedOption: "return", evidenceIds: ["answer-evidence"] },
+    answer.answeredAt,
+  );
+  assert.equal(milestoneReturn.status, "completed");
+  if (milestoneReturn.status === "completed") {
+    assert.equal(milestoneReturn.value.value.status, "applied");
+    assert.deepEqual(milestoneReturn.value.value.result?.answer.evidenceIds, [
+      "answer-evidence",
+    ]);
+    assert.deepEqual(
+      milestoneReturn.value.next?.projects[0]?.milestone.criterionEvidenceIds,
+      ["original-evidence"],
+    );
+  }
+  assert.equal(encodeRuntimeStateValue(source), before);
+});
+
+test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と再適用を拒否する", () => {
+  const { request, answer } = newDecisionFixture();
+  const { current } = fixture();
+  // 局所候補が参照する区画だけを構成する。全体codecの成立は別ITが確認する。
+  const project = {
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "b".repeat(40),
+    generation: 2,
+    milestone: { id: "milestone-a", state: "human_decision_required" },
+    objectives: [],
+    tasks: [],
+    decisionApplicationId: null,
+  } as unknown as import("../../../src/state/types.ts").CoordinatorState;
+  const source = {
+    ...current,
+    projects: [project],
+    queueEntries: [
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: "b".repeat(40),
+        requestHash: "a".repeat(64),
+        scopeHash: "c".repeat(64),
+        originLane: "interactive" as const,
+        state: "human_decision_required" as const,
+        generation: 4,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ],
+  };
+  const created = prepareDecisionCreation(source, request);
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw Error("request_failed");
+  const pending = created.value.next;
+  assert.ok(pending);
+  assert.equal(validateDecisionSnapshotTransition(source, pending), true);
+  // 回答時のLease競合は回答を保持する。後日適用では現在の条件を再検査する。
+  const contended = {
+    ...pending,
+    queueEntries: pending.queueEntries.map((q) => ({
+      ...q,
+      ownerGeneration: "other-owner",
+    })),
+  };
+  const answered = prepareDecisionSubmission(
+    contended,
+    request.decisionId,
+    answer,
+    answer.answeredAt,
+  );
+  assert.equal(answered.status, "completed");
+  if (answered.status !== "completed" || !answered.value.next)
+    throw Error("answered_missing");
+  assert.equal(answered.value.value.status, "answered");
+  const waiting = {
+    ...answered.value.next,
+    queueEntries: pending.queueEntries,
+  };
+  const originalAnswer = answered.value.value.result?.answer;
+  const replacement = prepareDecisionCreation(waiting, {
+    ...request,
+    decisionId: "proposal-replacing-unapplied",
+    requestedAt: "2026-11-11T02:00:00.000Z",
+  });
+  assert.equal(replacement.status, "completed");
+  if (replacement.status !== "completed" || !replacement.value.next)
+    throw Error("fixture");
+  assert.equal(
+    prepareDecisionApplying(
+      replacement.value.next,
+      request.decisionId,
+      "2026-11-11T03:00:00.000Z",
     ).reason,
-    "orchestrator_decision_recovery_generation_mismatch",
+    "decision_proposal_not_current",
   );
   assert.equal(
-    prepareCoordinatorDecisionRecoveryUpdate(first, intent, {
-      ...next,
-      recoveryId: "recovery-c",
-    }).reason,
-    "orchestrator_decision_recovery_invalid",
+    prepareDecisionApplying(
+      answered.value.next,
+      request.decisionId,
+      answer.answeredAt,
+    ).status,
+    "blocked",
   );
-  assert.equal(JSON.stringify({ current, intent }), before);
+  assert.equal(
+    prepareDecisionApplying(
+      waiting,
+      request.decisionId,
+      "2036-11-12T00:00:00.000Z",
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    prepareDecisionApplying(
+      {
+        ...waiting,
+        projects: waiting.projects.map((p) => ({
+          ...p,
+          generation: p.generation + 1,
+        })),
+      },
+      request.decisionId,
+      answer.answeredAt,
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    prepareDecisionApplying(
+      {
+        ...waiting,
+        leaseIntents: [
+          {
+            queueId: request.kind === "continuation" ? request.queueId : "",
+          } as never,
+        ],
+      },
+      request.decisionId,
+      answer.answeredAt,
+    ).status,
+    "blocked",
+  );
+  const later = prepareDecisionApplying(
+    waiting,
+    request.decisionId,
+    "2026-11-11T03:00:00.000Z",
+  );
+  assert.equal(later.status, "completed");
+  if (later.status === "completed" && later.value.next) {
+    assert.deepEqual(later.value.value.result?.answer, originalAnswer);
+    assert.equal(
+      validateDecisionSnapshotTransition(waiting, later.value.next),
+      true,
+    );
+    assert.equal(
+      prepareDecisionApplying(
+        later.value.next,
+        request.decisionId,
+        "2026-11-11T04:00:00.000Z",
+      ).value?.next,
+      null,
+    );
+    assert.equal(
+      prepareDecisionClosing(
+        later.value.next,
+        request.decisionId,
+        "invalidated",
+        answer.answeredAt,
+        "中止",
+      ).status,
+      "blocked",
+    );
+  }
+  const closed = prepareDecisionClosing(
+    waiting,
+    request.decisionId,
+    "invalidated",
+    "2026-11-11T02:00:00.000Z",
+    "中止",
+  );
+  assert.equal(closed.status, "completed");
+  if (closed.status === "completed" && closed.value.next) {
+    assert.deepEqual(closed.value.value.result?.answer, originalAnswer);
+    assert.equal(
+      validateDecisionSnapshotTransition(waiting, closed.value.next),
+      true,
+    );
+    assert.equal(
+      prepareDecisionApplying(
+        closed.value.next,
+        request.decisionId,
+        answer.answeredAt,
+      ).status,
+      "blocked",
+    );
+    assert.equal(
+      prepareDecisionSubmission(
+        closed.value.next,
+        request.decisionId,
+        answer,
+        answer.answeredAt,
+      ).status,
+      "blocked",
+    );
+  }
+  const applied = prepareDecisionSubmission(
+    pending,
+    request.decisionId,
+    answer,
+    "2026-11-11T02:00:00.000Z",
+  );
+  assert.equal(applied.status, "completed");
+  if (applied.status !== "completed") throw Error("answer_failed");
+  const next = applied.value.next;
+  assert.ok(next);
+  assert.equal(next.projects[0]?.generation, 3);
+  assert.equal(next.queueEntries[0]?.generation, 6);
+  assert.equal(next.queueEntries[0]?.state, "replan_required");
+  assert.equal(next.blockers[0]?.status, "resolved");
+  assert.equal(
+    prepareDecisionRetirement(next, () => "recorded").value?.next,
+    null,
+  );
+  const unreferenced = {
+    ...next,
+    projects: next.projects.map((item) => ({
+      ...item,
+      decisionApplicationId: null,
+    })),
+    queueEntries: [],
+  };
+  assert.equal(
+    prepareDecisionRetirement(unreferenced, () => null).status,
+    "blocked",
+  );
+  const retired = prepareDecisionRetirement(unreferenced, () => "recorded");
+  assert.equal(retired.status, "completed");
+  if (retired.status === "completed") {
+    assert.ok(retired.value.next);
+    assert.equal(retired.value.next.decisions.length, 0);
+    assert.equal(retired.value.next.blockers.length, 0);
+    assert.equal(
+      validateDecisionRetirement(unreferenced, retired.value.next),
+      true,
+    );
+    assert.equal(
+      validateDecisionRetirement(unreferenced, {
+        ...retired.value.next,
+        blockers: unreferenced.blockers,
+      }),
+      false,
+    );
+  }
+  const recorded = next.decisions[0]?.result;
+  assert.equal(recorded?.answer.answeredAt, answer.answeredAt);
+  assert.equal(recorded?.status, "applied");
+  if (recorded?.status === "applied")
+    assert.equal(recorded.application.appliedAt, "2026-11-11T02:00:00.000Z");
+  assert.equal(
+    validateDecisionCollections(next.decisions, next.blockers, ["project-a"]),
+    true,
+  );
+  assert.equal(validateDecisionSnapshotTransition(pending, next), true);
+  assert.equal(
+    validateDecisionSnapshotTransition(pending, {
+      ...next,
+      queueEntries: pending.queueEntries,
+    }),
+    false,
+  );
+  assert.equal(
+    validateDecisionSnapshotTransition(pending, {
+      ...next,
+      projects: pending.projects,
+    }),
+    false,
+  );
+  assert.equal(
+    validateDecisionSnapshotTransition(pending, {
+      ...next,
+      blockers: pending.blockers,
+    }),
+    false,
+  );
+  assert.equal(
+    validateDecisionSnapshotTransition(next, { ...next, decisions: [] }),
+    false,
+  );
+  const replay = prepareDecisionSubmission(
+    next,
+    request.decisionId,
+    answer,
+    answer.answeredAt,
+  );
+  assert.equal(replay.status, "completed");
+  if (replay.status === "completed") assert.equal(replay.value.next, null);
+  assert.equal(
+    prepareDecisionSubmission(
+      next,
+      request.decisionId,
+      {
+        ...answer,
+        selectedOption: "cancel",
+      },
+      answer.answeredAt,
+    ).status,
+    "blocked",
+  );
+  const stale = prepareDecisionSubmission(
+    { ...pending, projects: [{ ...project, generation: 3 }] },
+    request.decisionId,
+    answer,
+    answer.answeredAt,
+  );
+  assert.equal(stale.status, "completed");
+  if (stale.status === "completed") {
+    assert.equal(stale.value.value.status, "answered");
+    assert.equal(stale.value.next?.queueEntries, pending.queueEntries);
+  }
+  assert.equal(
+    prepareDecisionSubmission(
+      pending,
+      request.decisionId,
+      answer,
+      "2036-11-12T00:00:00.000Z",
+    ).reason,
+    "decision_applied",
+  );
+  const { queueId: _queueId, ...acceptance } = request as Extract<
+    DecisionRequest,
+    { kind: "continuation" }
+  >;
+  const acceptanceRequest: DecisionRequest = {
+    ...acceptance,
+    kind: "acceptance",
+    target: { ...request.target, kind: "objective", id: "objective-a" },
+    options: [
+      { value: "accept", label: "受入" },
+      { value: "return", label: "差戻し" },
+    ],
+  };
+  const acceptanceSource = {
+    ...source,
+    projects: [
+      {
+        ...project,
+        objectives: [
+          {
+            definition: {
+              id: "objective-a",
+              acceptanceCriteria: ["criterion-a"],
+            },
+            state: "integration_pending" as const,
+            criterionEvidenceIds: [],
+          },
+        ],
+      },
+    ],
+  };
+  const accepted = prepareDecisionCreation(acceptanceSource, acceptanceRequest);
+  assert.equal(accepted.status, "completed");
+  if (accepted.status !== "completed" || !accepted.value.next)
+    throw Error("acceptance_fixture_failed");
+  const acceptanceBefore = encodeRuntimeStateValue(accepted.value.next);
+  for (const selectedOption of ["accept", "return"] as const) {
+    for (const evidenceIds of [null, "not-an-array", undefined]) {
+      const invalid = {
+        ...answer,
+        selectedOption,
+        evidenceIds,
+      } as unknown as DecisionAnswer;
+      assert.equal(
+        prepareDecisionSubmission(
+          accepted.value.next,
+          request.decisionId,
+          invalid,
+          answer.answeredAt,
+        ).reason,
+        "decision_answer_invalid",
+      );
+      assert.equal(
+        encodeRuntimeStateValue(accepted.value.next),
+        acceptanceBefore,
+      );
+    }
+  }
+});
+
+test("判断履歴は元の質問・回答者・理由・状態変化を安定IDで再構成する", () => {
+  const { request, answer, application } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  const waiting = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    null,
+    "再評価待ち",
+  );
+  assert.ok(waiting);
+  const applied = prepareDecisionApplication(waiting.decision, application);
+  assert.ok(applied);
+  const events = projectDecisionHistory(applied.decision);
+  assert.ok(events);
+  assert.deepEqual(
+    events.map((event) => event.eventId),
+    ["decision-new:requested", "decision-new:answered", "decision-new:applied"],
+  );
+  assert.deepEqual(events, projectDecisionHistory(applied.decision));
+  for (const event of events)
+    assert.deepEqual(inspectDecisionHistoryEvent(event), event);
+  const lines = events
+    .map(
+      (event) =>
+        `${encodeRuntimeStateValue({
+          schema: "crdd-coordinator/history-row/v2",
+          occurredAt: event.occurredAt,
+          summary: {
+            schema: "crdd-coordinator/decision-event/v1",
+            record: event,
+          },
+        })}\n`,
+    )
+    .join("");
+  assert.equal(decodeCoordinatorHistoryRows(Buffer.from(lines))?.length, 3);
+  assert.equal(decodeCoordinatorHistoryRows(Buffer.from(lines + lines)), null);
+  assert.equal(
+    decodeCoordinatorHistoryRows(Buffer.from(`${lines}{partial`)),
+    null,
+  );
+  assert.equal(
+    inspectDecisionHistoryEvent({ ...events[0], unknown: true }),
+    null,
+  );
+  assert.equal(events[0]?.question, request.question);
+  assert.deepEqual(events[0]?.options, request.options);
+  assert.ok(events[0]);
+  assert.equal("answer" in events[0], false);
+  assert.equal(events[1]?.kind, "decision_answered");
+  if (events[1]?.kind === "decision_answered") {
+    assert.equal(events[1].answer.reason, answer.reason);
+    assert.equal(events[1].answer.principalId, answer.principalId);
+    assert.equal("application" in events[1], false);
+  }
+  assert.equal(events[2]?.kind, "decision_applied");
+  if (events[2]?.kind === "decision_applied")
+    assert.equal(events[2].application.nextState, "executing");
+  assert.equal(prepareDecisionApplication(applied.decision, application), null);
+});
+
+/**
+ * 明示無効化と撤去済み期限契約を区別する。
+ * @responsibility 時間経過を閉鎖理由にせず、既存回答と履歴の保全を検証する。
+ * @trace PRL-UT-015
+ */
+test("明示無効化は既存回答を保持し、旧期限閉鎖は受け付けない", () => {
+  const { request, answer } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  assert.equal(
+    inspectDecisionHistoryEvent({
+      ...projectDecisionHistory(prepared.decision)?.[0],
+      kind: "decision_expired",
+      eventId: `${request.decisionId}:expired`,
+      reason: "旧期限",
+    }),
+    null,
+  );
+  assert.equal(
+    prepareDecisionClosure(
+      prepared.decision,
+      "expired" as never,
+      answer.answeredAt,
+      "期限切れ",
+    ),
+    null,
+  );
+  const answered = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    null,
+    "他の阻害条件が残る",
+  );
+  assert.ok(answered);
+  const invalidated = prepareDecisionClosure(
+    answered.decision,
+    "invalidated",
+    answer.answeredAt,
+    "対象変更",
+  );
+  assert.ok(invalidated);
+  assert.equal(invalidated.result?.answer.reason, answer.reason);
+  assert.deepEqual(
+    projectDecisionHistory(invalidated)?.map((event) => event.kind),
+    ["decision_requested", "decision_answered", "decision_invalidated"],
+  );
+  assert.equal(
+    prepareDecisionClosure(
+      answered.decision,
+      "expired" as never,
+      "2036-11-12T00:00:00.000Z",
+      "期限切れ",
+    ),
+    null,
+  );
+  assert.equal(
+    prepareDecisionClosure(
+      invalidated,
+      "invalidated",
+      answer.answeredAt,
+      "再度",
+    ),
+    null,
+  );
+});
+
+test("履歴投影は状態と回答の矛盾や未知fieldを正規化して受理しない", () => {
+  const { request, answer, application } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  const applied = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    application,
+    null,
+  );
+  assert.ok(applied);
+  assert.equal(
+    projectDecisionHistory({ ...applied.decision, status: "pending" } as never),
+    null,
+  );
+  assert.equal(
+    projectDecisionHistory({ ...prepared.decision, unknown: true } as never),
+    null,
+  );
+});
+
+test("後適用と閉鎖は壊れた元判断を例外なしで拒否する", () => {
+  const { request, answer, application } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  const answered = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    null,
+    "再評価待ち",
+  );
+  assert.ok(answered);
+  for (const invalid of [
+    { ...answered.decision, result: null },
+    { ...answered.decision, result: {} },
+    {
+      ...answered.decision,
+      result: { answer, status: "applied", application },
+    },
+    {
+      ...answered.decision,
+      result: { answer, status: "unapplied", reason: "" },
+    },
+    { ...prepared.decision, question: "" },
+    { ...prepared.decision, target: null },
+    { ...prepared.decision, unknown: true },
+    {
+      ...prepared.decision,
+      result: { answer, status: "unapplied", reason: "矛盾" },
+    },
+  ]) {
+    assert.equal(
+      prepareDecisionApplication(invalid as never, application),
+      null,
+    );
+    assert.equal(
+      prepareDecisionClosure(
+        invalid as never,
+        "invalidated",
+        answer.answeredAt,
+        "対象変更",
+      ),
+      null,
+    );
+  }
+});
+
+test("新判断は質問・表示・回答理由・適用を一候補へ保持する", () => {
+  const { request, answer, application } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  assert.equal(prepared.blocker.kind, "human_decision");
+  assert.equal(prepared.blocker.status, "active");
+  const result = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    application,
+    null,
+  );
+  assert.ok(result);
+  assert.equal(result.decision.status, "applied");
+  assert.deepEqual(result.decision.result, {
+    answer,
+    status: "applied",
+    application,
+  });
+  assert.equal(result.decision.question, request.question);
+  assert.deepEqual(result.decision.options, request.options);
+  assert.notEqual(result.decision.target, request.target);
+  assert.notEqual(result.decision.result?.answer, answer);
+  assert.equal(prepared.decision.status, "pending");
+});
+
+test("適用できない回答も理由と共に保持しBlockerを解消しない", () => {
+  const { request, answer } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  const result = prepareDecisionAnswer(
+    prepared.decision,
+    answer,
+    null,
+    "対象状態が変更された",
+  );
+  assert.ok(result);
+  assert.equal(result.decision.status, "answered");
+  assert.equal(result.blockerResolved, false);
+  assert.deepEqual(result.decision.result, {
+    answer,
+    status: "unapplied",
+    reason: "対象状態が変更された",
+  });
+  assert.equal(
+    prepareDecisionAnswer(prepared.decision, answer, null, null),
+    null,
+  );
+  assert.equal(
+    prepareDecisionAnswer(result.decision, answer, null, "再回答"),
+    null,
+  );
+});
+
+/**
+ * 期限を持たなくても要求・回答・適用の日時順序を維持する。
+ * @responsibility 旧期限境界とは独立した主体・選択肢・世代検査を検証する。
+ * @trace PRL-UT-015
+ */
+test("時間順序・未知選択・異種選択・不整合世代を拒否する", () => {
+  const { request, answer, application } = newDecisionFixture();
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  for (const invalid of [
+    { ...answer, answeredAt: "2026-11-10T00:00:00.000Z" },
+    { ...answer, selectedOption: "accept" as const },
+    { ...answer, principalId: "" },
+    { ...answer, evidenceIds: ["same", "same"] },
+  ])
+    assert.equal(
+      prepareDecisionAnswer(prepared.decision, invalid, application, null),
+      null,
+    );
+  for (const invalid of [
+    { ...application, beforeGeneration: 1 },
+    { ...application, afterGeneration: 4 },
+    { ...application, appliedAt: request.requestedAt },
+  ])
+    assert.equal(
+      prepareDecisionAnswer(prepared.decision, answer, invalid, null),
+      null,
+    );
+});
+
+test("保留の適用は同世代・同状態のままBlockerを保持する", () => {
+  const { request, answer, application } = newDecisionFixture();
+  const { queueId: _queueId, ...acceptanceRequest } = request as Extract<
+    DecisionRequest,
+    { kind: "continuation" }
+  >;
+  const prepared = prepareDecisionRequest({
+    ...acceptanceRequest,
+    kind: "acceptance",
+    options: [{ value: "wait", label: "保留する" }],
+  });
+  assert.ok(prepared);
+  const waiting = {
+    ...application,
+    afterGeneration: application.beforeGeneration,
+    nextState: application.previousState,
+    blockerResolved: false,
+  };
+  const reply = { ...answer, selectedOption: "wait" as const };
+  const result = prepareDecisionAnswer(prepared.decision, reply, waiting, null);
+  assert.ok(result);
+  assert.equal(result.decision.status, "applied");
+  assert.equal(result.blockerResolved, false);
+  assert.equal(
+    prepareDecisionAnswer(
+      prepared.decision,
+      reply,
+      { ...waiting, blockerResolved: true },
+      null,
+    ),
+    null,
+  );
+});
+
+test("新要求は未知field・種類混同・accessor・Proxyを受け付けない", () => {
+  const { request } = newDecisionFixture();
+  for (const oldField of ["expiresAt", "lifetimeMs"])
+    assert.equal(
+      prepareDecisionRequest({ ...request, [oldField]: null }),
+      null,
+    );
+  assert.equal(
+    prepareDecisionRequest({ ...request, extra: true } as DecisionRequest),
+    null,
+  );
+  assert.equal(
+    prepareDecisionRequest({
+      ...request,
+      decisionId: null,
+    } as unknown as DecisionRequest),
+    null,
+  );
+  assert.equal(
+    prepareDecisionRequest({
+      ...request,
+      options: [{ value: "accept", label: "受入" }],
+    } as unknown as DecisionRequest),
+    null,
+  );
+  let observed = false;
+  const accessor = { ...request };
+  Object.defineProperty(accessor, "question", {
+    get() {
+      observed = true;
+      throw new Error("getter");
+    },
+    enumerable: true,
+  });
+  assert.equal(prepareDecisionRequest(accessor), null);
+  const proxy = new Proxy(request, {
+    get() {
+      observed = true;
+      throw new Error("proxy");
+    },
+  });
+  assert.equal(prepareDecisionRequest(proxy), null);
+  assert.equal(observed, false);
 });

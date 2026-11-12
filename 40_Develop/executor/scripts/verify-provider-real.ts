@@ -10,6 +10,7 @@
 import { fork, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
+import { readReport, writeReport, removeReport } from "./report.ts";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,9 +71,6 @@ const { describeIsolationConfiguration } = await import(
 );
 
 const {
-  readCommittedJson,
-  writeCommittedJson,
-  removeCommittedJson,
   validateCoordinatorResourceBook,
   validateCoordinatorResourceBookTransition,
   ensureRepositoryRuntimeDataArea,
@@ -813,7 +811,7 @@ export function cleanupStandaloneTrialRoot(
         )
           return false;
       }
-      const record = readCommittedJson(path.join(root, name), name).value;
+      const record = readReport(path.join(root, name), name).value;
       if (!record || typeof record !== "object") return false;
       const v = record as Record<string, unknown>;
       if (
@@ -1130,7 +1128,7 @@ export function cleanupStandaloneTrialRoot(
       if (rootIdentity(path.join(root, name)) !== expected) return false;
     for (const name of files) {
       verifyRootInventory();
-      removeCommittedJson(path.join(root, name), name);
+      removeReport(path.join(root, name), name);
       remainingRootNames.delete(name);
       remainingRootNames.delete(`${name}.crdd-commit.json`);
     }
@@ -1374,7 +1372,7 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
     if (closeObserved && identity !== null && knownRecoveryId === null) {
       try {
         if (rootIdentity(root) !== identity) throw Error("trial_root_changed");
-        const saved = readCommittedJson(
+        const saved = readReport(
           path.join(root, "event-001.json"),
           "event-001.json",
         ).value;
@@ -1425,8 +1423,8 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
           unexpectedStdout: outputSeen,
           result: finalResult,
         };
-        const written = writeCommittedJson(root, "outcome.json", runId, value);
-        const read = readCommittedJson(written.target, runId);
+        const written = writeReport(root, "outcome.json", runId, value);
+        const read = readReport(written.target, runId);
         retentionRecordConfirmed =
           read.hash === written.hash &&
           JSON.stringify(read.value) === JSON.stringify(value);

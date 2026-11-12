@@ -68,8 +68,6 @@ const COORDINATOR_BLOCKED_PROJECTION =
   "40_Develop/coordinator/src/state/result.ts";
 const coordinatorStoreFactoryNames = [
   "createCurrentCoordinatorPersistencePorts",
-  "createCoordinatorSnapshotDecisionRecoveryStore",
-  "createCoordinatorSnapshotAcceptanceDecisionStore",
 ] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
   "40_Develop/coordinator/src/execution/intelligence.ts";

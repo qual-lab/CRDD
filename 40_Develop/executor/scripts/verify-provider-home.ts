@@ -17,13 +17,11 @@ import {
   type LockRequest,
 } from "../../lock/src/index.ts";
 import {
-  writeCommittedJson,
-  readCommittedJson,
-  removeCommittedJson,
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
 import { getRepository } from "../../version-control/src/index.ts";
+import { writeReport, readReport, removeReport } from "./report.ts";
 
 /**
  * 既存共有Home排他と同じFile要求を試験側で導出する。
@@ -149,8 +147,8 @@ export async function verifyProviderHomeBoundary(
       reviewAfter: new Date(Date.now() + 7 * 86400_000).toISOString(),
     };
     names.push(name);
-    const written = writeCommittedJson(root, `${name}.json`, name, value);
-    const read = readCommittedJson(written.target, name);
+    const written = writeReport(root, `${name}.json`, name, value);
+    const read = readReport(written.target, name);
     if (
       read.hash !== written.hash ||
       read.identityText !== written.identityText ||
@@ -249,7 +247,7 @@ export async function verifyProviderHomeBoundary(
           throw new Error("home_boundary_contents_changed");
       }
       for (const name of names)
-        removeCommittedJson(path.join(root, `${name}.json`), name);
+        removeReport(path.join(root, `${name}.json`), name);
       fs.rmdirSync(root);
       fixtureCleanupConfirmed = !fs.existsSync(root);
     } catch {

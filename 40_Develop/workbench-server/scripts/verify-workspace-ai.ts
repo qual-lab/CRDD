@@ -14,8 +14,8 @@ import path from "node:path";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 import {
-  openTaskSession,
   executeWorkspace,
+  openTaskSession,
   type TaskSession,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
@@ -38,9 +38,9 @@ import {
   saveRepositoryAiSelection,
 } from "../../domain-model/src/index.ts";
 import {
+  getRepository,
   readGitUser,
   resolveVerifiedRepositoryRoot,
-  getRepository,
 } from "../../version-control/src/index.ts";
 import {
   assessVerificationDockerInventory,
@@ -896,8 +896,8 @@ function assessFixtureRemoval(
           "leaseIntents",
           "workspaces",
           "resultReceipts",
-          "acceptanceDecisions",
-          "decisionRecoveries",
+          "decisions",
+          "blockers",
         ] as const)
           assert.equal(s[key].length, 0);
         assert.equal(s.historyPending.length, historyCount);

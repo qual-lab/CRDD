@@ -4,6 +4,23 @@
  * @responsibility McpCoordinatorDependenciesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000012
  */
+
+import {
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  type CoordinatorProjection,
+  inspectCoordinatorDecisionRequest,
+  inspectCoordinatorDecisionResult,
+  inspectCoordinatorObjectiveRequest,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+  inspectCoordinatorWorkspaceResults,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+  isPrincipalId,
+} from "../../../domain-model/src/index.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -16,26 +33,10 @@ import {
   listKeys,
   listKeysNoCursor,
   MCP_COORDINATOR_PROTOCOL_VERSION,
+  type McpResponse,
   protocolComplete,
   protocolError,
-  type McpResponse,
 } from "../request/validation.ts";
-import {
-  isPrincipalId,
-  inspectCoordinatorDecisionRequest,
-  inspectCoordinatorObjectiveRequest,
-  inspectCoordinatorWorkspaceResults,
-  inspectCoordinatorStateQuery,
-  inspectCoordinatorStateQueryResult,
-  isCoordinatorObjectiveProjectionCorrelationValid,
-  isCoordinatorProjectionSemanticallyValid,
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  type CoordinatorProjection,
-} from "../../../domain-model/src/index.ts";
 
 export const MCP_COORDINATOR_ADAPTER_CONTRACT =
   "crdd-mcp/coordinator-adapter/v4" as const;
@@ -91,49 +92,6 @@ const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
   "manualRecoveryRequired",
   "effectState",
 ]);
-const decisionBlockedRestartKeys = new Set([
-  ...PUBLIC_BLOCKED_RESULT_KEYS,
-  "processRestartRequired",
-  "recoveryId",
-]);
-const decisionAppliedResultKeys = new Set([
-  "contract",
-  "status",
-  "reason",
-  "decisionId",
-  "applicationId",
-  "generation",
-  "cleanupConfirmed",
-  "manualRecoveryRequired",
-  "effectState",
-] as const);
-const decisionIssuedResultKeys = new Set([
-  "contract",
-  "status",
-  "reason",
-  "decisionId",
-  "recordId",
-  "continuationCapability",
-  "allowedOptions",
-  "expiresAtEpochMs",
-  "cleanupConfirmed",
-  "manualRecoveryRequired",
-  "effectState",
-] as const);
-const decisionReplacedResultKeys = new Set([
-  ...decisionIssuedResultKeys,
-  "replacementRequestId",
-]);
-const decisionRecoveredResultKeys = new Set([
-  "contract",
-  "status",
-  "reason",
-  "decisionId",
-  "applicationId",
-  "cleanupConfirmed",
-  "manualRecoveryRequired",
-  "effectState",
-] as const);
 
 /**
  * adapterを安定Identityへ変換する。
@@ -501,109 +459,6 @@ function publicBlockedSnapshot(
 }
 
 /**
- * decision Snapshotを決定する。
- *
- * @responsibility decision Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000012
- * @input raw: unknown
- * @returns Readonly<Record<string, unknown>> | nullを返す。
- * @precondition 「raw: unknown」がdecisionSnapshotの入力契約を満たす。
- * @postcondition decisionSnapshotの責務を完了した結果だけを返す。
- * @effect N/A: decisionSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: decisionSnapshotは独自の失敗分岐を所有しない。
- * @invariant decisionSnapshotは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: decisionSnapshotはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: decisionSnapshotは共有非同期状態を持たない同期処理である。
- */
-function decisionSnapshot(
-  raw: unknown,
-): Readonly<Record<string, unknown>> | null {
-  const simple = publicBlockedSnapshot(
-    raw,
-    new Set([
-      COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-      COORDINATOR_HUMAN_DECISION_CONTRACT,
-    ]),
-  );
-  if (simple) return simple;
-  const restart = snapshotPlainRecord(raw, decisionBlockedRestartKeys);
-  if (
-    restart &&
-    restart.status === "blocked" &&
-    restart.contract === COORDINATOR_HUMAN_DECISION_CONTRACT &&
-    text(restart.reason, 256) &&
-    restart.cleanupConfirmed === false &&
-    restart.manualRecoveryRequired === true &&
-    restart.effectState === "unknown" &&
-    restart.processRestartRequired === true &&
-    (restart.recoveryId === null || stable(restart.recoveryId))
-  )
-    return Object.freeze({ ...restart });
-  const applied = snapshotPlainRecord(raw, decisionAppliedResultKeys);
-  if (
-    applied &&
-    applied.contract === COORDINATOR_HUMAN_DECISION_CONTRACT &&
-    applied.status === "completed" &&
-    text(applied.reason, 256) &&
-    stable(applied.decisionId) &&
-    stable(applied.applicationId) &&
-    Number.isSafeInteger(applied.generation) &&
-    Number(applied.generation) > 0 &&
-    applied.cleanupConfirmed === true &&
-    applied.manualRecoveryRequired === false &&
-    applied.effectState === "settled"
-  )
-    return Object.freeze({ ...applied });
-  const issued =
-    snapshotPlainRecord(raw, decisionIssuedResultKeys) ??
-    snapshotPlainRecord(raw, decisionReplacedResultKeys);
-  if (issued) {
-    const allowed = snapshotPlainArray(issued.allowedOptions, 2);
-    if (
-      issued.contract !== COORDINATOR_HUMAN_DECISION_CONTRACT ||
-      issued.status !== "completed" ||
-      !text(issued.reason, 256) ||
-      !stable(issued.decisionId) ||
-      !stable(issued.recordId) ||
-      !text(issued.continuationCapability, 512) ||
-      allowed.status !== "ok" ||
-      allowed.value.length === 0 ||
-      new Set(allowed.value).size !== allowed.value.length ||
-      !allowed.value.every(
-        (value) => value === "resume" || value === "cancel",
-      ) ||
-      !Number.isSafeInteger(issued.expiresAtEpochMs) ||
-      Number(issued.expiresAtEpochMs) < 1 ||
-      issued.cleanupConfirmed !== true ||
-      issued.manualRecoveryRequired !== false ||
-      issued.effectState !== "settled" ||
-      (Object.hasOwn(issued, "replacementRequestId") &&
-        !stable((issued as Record<string, unknown>).replacementRequestId))
-    )
-      return null;
-    return Object.freeze({
-      ...issued,
-      allowedOptions: Object.freeze([...allowed.value]),
-    });
-  }
-  const recovered = snapshotPlainRecord(raw, decisionRecoveredResultKeys);
-  if (
-    recovered &&
-    recovered.contract === COORDINATOR_HUMAN_DECISION_CONTRACT &&
-    recovered.status === "completed" &&
-    text(recovered.reason, 256) &&
-    stable(recovered.decisionId) &&
-    (recovered.applicationId === null || stable(recovered.applicationId)) &&
-    recovered.cleanupConfirmed === true &&
-    recovered.manualRecoveryRequired === false &&
-    recovered.effectState === "settled"
-  )
-    return Object.freeze({ ...recovered });
-  return null;
-}
-
-/**
  * objective Snapshotを決定する。
  *
  * @responsibility objective Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -886,7 +741,7 @@ export async function handleMcpCoordinatorRequest(
               : null,
           )
         : params.name === MCP_COORDINATOR_DECISION_TOOL
-          ? decisionSnapshot(raw)
+          ? inspectCoordinatorDecisionResult(raw)
           : inspectCoordinatorStateQueryResult(raw);
   } catch {
     snapshot = null;
@@ -966,24 +821,10 @@ export const objectiveKeys = new Set([
   "maximumReplans",
   "originLane",
   "adoptResult",
-  "decisionCapabilityReplacement",
   "workType",
   "choice",
   "workspaceId",
 ] as const);
-export const decisionKeys = new Set([
-  "decisionId",
-  "projectId",
-  "milestoneId",
-  "generation",
-  "repositoryRevision",
-  "selectedOption",
-  "continuationCapability",
-  "comment",
-] as const);
-export const decisionKeysNoComment = new Set(
-  [...decisionKeys].filter((key) => key !== "comment"),
-);
 export const stateQueryKeys = new Set([
   "requestId",
   "projectId",
@@ -1055,6 +896,37 @@ export function getMcpCoordinatorToolDefinitions() {
       maxItems: maximum,
       items: Object.freeze({ type: "string" }),
     });
+  const decisionBase = {
+    operation: { enum: ["request", "answer", "apply", "close"] },
+    decisionId: id,
+    projectId: id,
+    milestoneId: id,
+    generation: { type: "integer", minimum: 1 },
+    repositoryRevision: rev,
+  };
+  const decisionVariants = {
+    request: {
+      blockerId: id,
+      queueId: id,
+      question: { type: "string", minLength: 1, maxLength: 8192 },
+      allowedOptions: {
+        type: "array",
+        minItems: 1,
+        maxItems: 2,
+        uniqueItems: true,
+        items: { enum: ["resume", "cancel"] },
+      },
+    },
+    answer: {
+      selectedOption: { enum: ["resume", "cancel"] },
+      comment: { type: "string", maxLength: 1024 },
+    },
+    apply: {},
+    close: {
+      status: { enum: ["invalidated"] },
+      reason: { type: "string", minLength: 1, maxLength: 1024 },
+    },
+  };
   return Object.freeze([
     tool(
       MCP_COORDINATOR_OBJECTIVE_TOOL,
@@ -1147,15 +1019,6 @@ export function getMcpCoordinatorToolDefinitions() {
           enum: Object.freeze(["interactive", "scheduled"]),
         }),
         adoptResult: Object.freeze({ type: "boolean" }),
-        decisionCapabilityReplacement: Object.freeze({
-          type: "object",
-          additionalProperties: false,
-          required: Object.freeze(["decisionId", "replacementRequestId"]),
-          properties: Object.freeze({
-            decisionId: id,
-            replacementRequestId: id,
-          }),
-        }),
         workType: Object.freeze({
           type: "string",
           pattern: "^[a-z0-9][a-z0-9._-]*$",
@@ -1185,31 +1048,43 @@ export function getMcpCoordinatorToolDefinitions() {
       },
       [...objectiveKeys].filter(
         (key) =>
-          key !== "decisionCapabilityReplacement" &&
-          key !== "workType" &&
-          key !== "choice" &&
-          key !== "workspaceId",
+          key !== "workType" && key !== "choice" && key !== "workspaceId",
       ),
     ),
-    tool(
-      MCP_COORDINATOR_DECISION_TOOL,
-      "CRDDの判断を送信",
-      "現在の判断要求へ、一回限りの継続権限を使って選択を返します。",
-      {
-        decisionId: id,
-        projectId: id,
-        milestoneId: id,
-        generation: Object.freeze({ type: "integer", minimum: 1 }),
-        repositoryRevision: rev,
-        selectedOption: id,
-        continuationCapability: Object.freeze({
-          type: "string",
-          maxLength: 512,
-        }),
-        comment: Object.freeze({ type: "string", maxLength: 1024 }),
-      },
-      [...decisionKeysNoComment],
-    ),
+    Object.freeze({
+      ...tool(
+        MCP_COORDINATOR_DECISION_TOOL,
+        "CRDDの判断を処理",
+        "認証済みの同じ利用者が継続判断を要求・回答・明示適用・閉鎖します。回答だけでAIを再実行しません。",
+        Object.assign({}, decisionBase, ...Object.values(decisionVariants)),
+        Object.keys(decisionBase),
+      ),
+      inputSchema: Object.freeze({
+        type: "object",
+        additionalProperties: false,
+        properties: Object.assign(
+          {},
+          decisionBase,
+          ...Object.values(decisionVariants),
+        ),
+        required: Object.keys(decisionBase),
+        oneOf: Object.entries(decisionVariants).map(
+          ([operation, properties]) => ({
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              ...decisionBase,
+              operation: { const: operation },
+              ...properties,
+            },
+            required: [
+              ...Object.keys(decisionBase),
+              ...Object.keys(properties).filter((key) => key !== "comment"),
+            ],
+          }),
+        ),
+      }),
+    }),
     tool(
       MCP_COORDINATOR_STATE_TOOL,
       "CRDDのTask実行状態を取得",

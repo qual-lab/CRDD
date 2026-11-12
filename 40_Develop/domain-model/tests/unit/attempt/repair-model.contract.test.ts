@@ -7,56 +7,51 @@
  * @scope v2-only、variant Identity、修復checkpoint、対象外全文。
  * @boundary N/A: メモリ値だけ。Writer・実修復は対象外。
  */
-import {
-  COORDINATOR_STATE_SCHEMA,
-  decodeRuntimeDomainSnapshot,
-  type CoordinatorStateRepairOperation,
-} from "../../../src/index.ts";
-import {
-  encodeRuntimeStateValue,
-  RUNTIME_STATE_MAXIMUM_BYTES,
-} from "../../../src/index.ts";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { runInThisContext } from "node:vm";
 import test from "node:test";
+import { runInThisContext } from "node:vm";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  type CoordinatorStateRepairOperation,
+  decodeRuntimeDomainSnapshot,
+  encodeRuntimeStateValue,
+  RUNTIME_STATE_MAXIMUM_BYTES,
+} from "../../../src/index.ts";
 
 type DockerRuntimeRepairDisposalCheckpoint = NonNullable<
   CoordinatorStateRepairOperation["disposal"]
 >["checkpoint"];
-import {
-  prepareCoordinatorStateRepairSnapshot,
-  prepareCoordinatorStateRepairCheckpointSnapshot,
-  prepareCoordinatorStateRepairSessionSnapshot,
-  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
-  prepareCoordinatorStateRepairDisposalProgressSnapshot,
-  validateCoordinatorStateRepairDisposalTransition,
-  validateCoordinatorStateRepairSessionTransition,
-  prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorStateResourceSnapshot,
-  validateCoordinatorStateTransition,
-  classifyCoordinatorRepairPublication,
-  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
-  validateCoordinatorStateRepairRetentionHandoffTransition,
-  prepareCoordinatorRepairHistorySummary,
-  prepareCoordinatorRepairHistorySnapshot,
-  prepareCoordinatorRepairHistoryLine,
-  prepareCoordinatorRepairHistoryPublication,
-  prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateRepairCompletionSnapshot,
-} from "../../../src/index.ts";
-import {
-  prepareCoordinatorStateHistoryLine,
-  validateCoordinatorUnifiedTransition,
-} from "../../../src/index.ts";
 
 import {
+  classifyCoordinatorRepairPublication,
+  coordinatorRepairCanComplete,
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
+  prepareCoordinatorRepairHistoryLine,
+  prepareCoordinatorRepairHistoryPublication,
+  prepareCoordinatorRepairHistorySnapshot,
+  prepareCoordinatorRepairHistorySummary,
+  prepareCoordinatorStateHistoryLine,
+  prepareCoordinatorStateHistorySnapshot,
+  prepareCoordinatorStateOperationSnapshot,
+  prepareCoordinatorStateRepairCheckpointSnapshot,
+  prepareCoordinatorStateRepairCompletionSnapshot,
+  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
+  prepareCoordinatorStateRepairDisposalProgressSnapshot,
+  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
+  prepareCoordinatorStateRepairSessionSnapshot,
+  prepareCoordinatorStateRepairSnapshot,
+  prepareCoordinatorStateResourceSnapshot,
+  validateCoordinatorStateRepairDisposalTransition,
+  validateCoordinatorStateRepairRetentionHandoffTransition,
+  validateCoordinatorStateRepairSessionTransition,
+  validateCoordinatorStateTransition,
+  validateCoordinatorUnifiedTransition,
 } from "../../../src/index.ts";
-import { coordinatorRepairCanComplete } from "../../../src/index.ts";
 
 const binding = "a".repeat(64);
 const identity = {
@@ -1611,7 +1606,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-domain/runtime-state/v2",
+      schema: "crdd-domain/runtime-state/v3",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -1622,8 +1617,8 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
       leaseIntents: [],
       results: [],
       historyPending: [],
-      acceptanceDecisions: [],
-      decisionRecoveries: [],
+      decisions: [],
+      blockers: [],
       resultReceipts: [],
     };
   };

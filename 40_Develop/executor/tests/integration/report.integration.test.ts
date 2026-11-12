@@ -1,10 +1,10 @@
 /**
- * 共通JSON保存の確定・拒否・中断を実Filesystemで検証する。
+ * 検証結果JSONの確定・拒否・中断を実Filesystemで検証する。
  * @packageDocumentation
  * @responsibility 本文とsidecarの同一性、未知状態の保持と試験Rootの境界を確認する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @level IT
- * @scope 共通保存と自己生成試験領域。
+ * @scope 検証結果と自己生成試験領域。
  * @boundary ローカルFilesystemと自己生成子Process。Docker・認証・外部AIなし。
  */
 import assert from "node:assert/strict";
@@ -15,19 +15,19 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
 import {
-  getJsonCommitName,
-  readCommittedJson,
-  writeCommittedJson,
-  removeCommittedJson,
-} from "../../src/index.ts";
+  getReportCommitName,
+  readReport,
+  writeReport,
+  removeReport,
+} from "../../scripts/report.ts";
 
 /**
  * 試験Rootの作成・清掃が現在Repositoryへ閉じることを確認する。
  *
  * @responsibility CWD・一時領域環境値に依存しない作成と兄弟保全を反証する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 現在Repositoryの実Rootを読み取れる。
  * @stimulus CWDとTEMP系環境を変えて二つの試験Rootを作り一方を清掃する。
  * @observation 生成先、兄弟本文、対象の不存在、二重清掃の拒否。
@@ -87,7 +87,7 @@ test("recovery test directories ignore ambient roots and preserve siblings", () 
  * 試験Directory helperの実本文を故障Filesystemへ接続する。
  *
  * @responsibility 作成前拒否と清掃前拒否を要求回数で分離する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 本番と独立した閉じたFilesystem模型を使う。
  * @stimulus prefix、Repository確認、祖先、実体または観測を一軸変更する。
  * @observation mkdtemp／rm回数と保持されたDirectory集合。
@@ -96,7 +96,10 @@ test("recovery test directories ignore ambient roots and preserve siblings", () 
  * @boundary 実helper本文→注入Filesystem。実Docker・Processは発行しない。
  */
 test("recovery test directory rejects uncertain roots before creation or deletion", () => {
-  const sourceDirectory = path.resolve(import.meta.dirname, "../support");
+  const sourceDirectory = path.resolve(
+    import.meta.dirname,
+    "../../../domain-model/tests/support",
+  );
   const repositoryRoot = path.resolve(sourceDirectory, "../../../..");
   const source = fs.readFileSync(
     path.join(sourceDirectory, "repository-test-directory.ts"),
@@ -138,7 +141,7 @@ test("recovery test directory rejects uncertain roots before creation or deletio
     /**
      * 模型のDirectory実体と観測故障を返す。
      * @responsibility 実Filesystemに触れず対象別の状態を供給する。
-     * @trace PRL-IT-013
+     * @trace RDL-IT-001
      * @precondition シナリオ固有のDirectory集合を保持している。
      * @stimulus 実helperからPathを照会する。
      * @observation 実体属性または明示的なENOENT／EACCES。
@@ -250,7 +253,7 @@ test("recovery test directory rejects uncertain roots before creation or deletio
 /**
  * 指定切断点で自己生成子を終了し残存を親へ返す。
  * @responsibility fsyncと二段renameを実Processの終了で反証する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 同じ試験が生成した空Directory。
  * @stimulus 合成JSON保存の指定境界で子自身を終了する。
  * @observation 子の終了状態と本文・sidecar。
@@ -259,8 +262,7 @@ test("recovery test directory rejects uncertain roots before creation or deletio
  * @boundary 専用子とローカルFilesystem。外部Runtimeなし。
  */
 function crashWriter(directory: string, point: string) {
-  const url = new URL("../../src/storage/committed-json.ts", import.meta.url)
-    .href;
+  const url = new URL("../../scripts/report.ts", import.meta.url).href;
   const script = [
     'import fs from "node:fs";',
     "const originalFsync = fs.fsyncSync, originalRename = fs.renameSync; let syncCount = 0, renameCount = 0;",
@@ -271,7 +273,7 @@ function crashWriter(directory: string, point: string) {
       JSON.stringify(point) +
       '==="rename-"+(++renameCount)) process.kill(process.pid,"SIGKILL"); return r;};',
     `const store = await import(${JSON.stringify(url)});`,
-    "store.writeCommittedJson(" +
+    "store.writeReport(" +
       JSON.stringify(directory) +
       ',"record.json","record.json",{schema:"fixture/v1",value:true});',
   ].join("\n");
@@ -285,7 +287,7 @@ function crashWriter(directory: string, point: string) {
 /**
  * 四操作のbyte・相関と成功時の対象限定削除を確認する。
  * @responsibility commit Schema・Hash・Identity・logicalKey・改行を固定する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 自己生成Directoryと合成JSONのみ。
  * @stimulus 保存、読戻し、誤key拒否、削除を実行する。
  * @observation 本文・marker・返却値と削除後一覧。
@@ -298,12 +300,7 @@ test("共通保存四操作はbyte・Hash・logicalKeyと対象外Fileを維持�
   try {
     fs.writeFileSync(path.join(f.path, "other.txt"), "unchanged");
     const value = { schema: "fixture/v1", value: true };
-    const written = writeCommittedJson(
-      f.path,
-      "record.json",
-      "record-key",
-      value,
-    );
+    const written = writeReport(f.path, "record.json", "record-key", value);
     const bytes = `${JSON.stringify(value)}\n`;
     assert.equal(fs.readFileSync(written.target, "utf8"), bytes);
     assert.equal(
@@ -311,7 +308,7 @@ test("共通保存四操作はbyte・Hash・logicalKeyと対象外Fileを維持�
       createHash("sha256").update(bytes).digest("hex"),
     );
     assert.equal(
-      getJsonCommitName("record.json"),
+      getReportCommitName("record.json"),
       "record.json.crdd-commit.json",
     );
     assert.deepEqual(JSON.parse(fs.readFileSync(written.commit, "utf8")), {
@@ -321,16 +318,11 @@ test("共通保存四操作はbyte・Hash・logicalKeyと対象外Fileを維持�
       contentIdentity: written.identityText,
       contentBytes: Buffer.byteLength(bytes),
     });
-    assert.deepEqual(
-      readCommittedJson(written.target, "record-key").value,
-      value,
-    );
-    assert.throws(() => readCommittedJson(written.target, "wrong-key"));
-    assert.throws(() =>
-      writeCommittedJson(f.path, "record.json", "record-key", {}),
-    );
+    assert.deepEqual(readReport(written.target, "record-key").value, value);
+    assert.throws(() => readReport(written.target, "wrong-key"));
+    assert.throws(() => writeReport(f.path, "record.json", "record-key", {}));
     assert.equal(fs.readFileSync(written.target, "utf8"), bytes);
-    assert.equal(removeCommittedJson(written.target, "record-key"), true);
+    assert.equal(removeReport(written.target, "record-key"), true);
     assert.deepEqual(fs.readdirSync(f.path), ["other.txt"]);
     assert.equal(
       fs.readFileSync(path.join(f.path, "other.txt"), "utf8"),
@@ -344,7 +336,7 @@ test("共通保存四操作はbyte・Hash・logicalKeyと対象外Fileを維持�
 /**
  * symlink経由の本文を保存対象へ読み替えない。
  * @responsibility lstatによる既存拒否と対象外本文の保持を確認する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 正常組と同じRoot内の自己生成symlink。
  * @stimulus alias名をread／removeへ渡す。
  * @observation 両操作の失敗と元pair・aliasの残存。
@@ -355,15 +347,15 @@ test("共通保存四操作はbyte・Hash・logicalKeyと対象外Fileを維持�
 test("symlink経由の読取りと削除は元pairを変更せず拒否する", () => {
   const f = createRepositoryTestDirectory("committed-json-symlink-");
   try {
-    const r = writeCommittedJson(f.path, "record.json", "record.json", {
+    const r = writeReport(f.path, "record.json", "record.json", {
       ok: true,
     });
     const alias = path.join(f.path, "alias.json");
     fs.symlinkSync(r.target, alias, "file");
     const bytes = fs.readFileSync(r.target),
       marker = fs.readFileSync(r.commit);
-    assert.throws(() => readCommittedJson(alias));
-    assert.throws(() => removeCommittedJson(alias));
+    assert.throws(() => readReport(alias));
+    assert.throws(() => removeReport(alias));
     assert.deepEqual(fs.readFileSync(r.target), bytes);
     assert.deepEqual(fs.readFileSync(r.commit), marker);
     assert.equal(fs.lstatSync(alias).isSymbolicLink(), true);
@@ -375,7 +367,7 @@ test("symlink経由の読取りと削除は元pairを変更せず拒否する", 
 /**
  * File種類・長さ・JSON上限の拒否を維持する。
  * @responsibility 不正本文を成功へ補正せず保存物を保持する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 各刺激で新品の正常組を生成する。
  * @stimulus 空、上限超過、不正JSON、Directoryへ本文を変える。
  * @observation read／removeの例外と変更後状態の保持。
@@ -387,7 +379,7 @@ test("空・上限超過・不正JSON・Directoryは保存本文として受理�
   for (const mode of ["empty", "oversize", "json", "directory"]) {
     const f = createRepositoryTestDirectory("committed-json-size-");
     try {
-      const r = writeCommittedJson(f.path, "record.json", "record.json", {
+      const r = writeReport(f.path, "record.json", "record.json", {
         ok: true,
       });
       if (mode === "directory") {
@@ -398,11 +390,11 @@ test("空・上限超過・不正JSON・Directoryは保存本文として受理�
           r.target,
           mode === "empty" ? "" : mode === "json" ? "{" : "x".repeat(262145),
         );
-      assert.throws(() => readCommittedJson(r.target));
-      assert.throws(() => removeCommittedJson(r.target));
+      assert.throws(() => readReport(r.target));
+      assert.throws(() => removeReport(r.target));
       assert.deepEqual(
         fs.readdirSync(f.path).sort(),
-        ["record.json", getJsonCommitName("record.json")].sort(),
+        ["record.json", getReportCommitName("record.json")].sort(),
       );
       assert.equal(fs.lstatSync(r.target).isDirectory(), mode === "directory");
     } finally {
@@ -414,7 +406,7 @@ test("空・上限超過・不正JSON・Directoryは保存本文として受理�
 /**
  * 削除intentの各不正fieldを処置前に拒否する。
  * @responsibility sidecarから捕捉したnamed pairの相関を全数維持する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 各自己生成子で正常組を作成する。
  * @stimulus intentの確定直後に一fieldだけ不正化する。
  * @observation 削除失敗と元本文・sidecarの残存。
@@ -443,15 +435,12 @@ test("削除intentの不正Schema・実体・各pair要素は処置前に拒否�
   ]) {
     const f = createRepositoryTestDirectory("committed-json-intent-");
     try {
-      const url = new URL(
-        "../../src/storage/committed-json.ts",
-        import.meta.url,
-      ).href;
+      const url = new URL("../../scripts/report.ts", import.meta.url).href;
       const script = [
         'import fs from "node:fs";import {createHash} from "node:crypto";',
         "const store=await import(" +
           JSON.stringify(url) +
-          "); const r=store.writeCommittedJson(" +
+          "); const r=store.writeReport(" +
           JSON.stringify(f.path) +
           ',"record.json","record.json",{ok:true});',
         `const rename=fs.renameSync;const field=${JSON.stringify(field)};`,
@@ -459,7 +448,7 @@ test("削除intentの不正Schema・実体・各pair要素は処置前に拒否�
         'if(field==="schema"||field==="parentIdentity")v[field]="invalid";else if(field==="pair")v.pair=null;else if(field==="extra")v.pair.unexpected=true;',
         'else if(field==="commitSchema"){const c=JSON.parse(v.pair.commitSerialized);c.schema="invalid";v.pair.commitSerialized=JSON.stringify(c)+"\\n";v.pair.commitHash=createHash("sha256").update(v.pair.commitSerialized).digest("hex");v.pair.commitBytes=Buffer.byteLength(v.pair.commitSerialized);}',
         'else v.pair[field]=field.endsWith("Bytes")?-1:field.endsWith("Name")?"../outside":"invalid";fs.writeFileSync(a[1],JSON.stringify(v)+"\\n");}return result;};',
-        'try{store.removeCommittedJson(r.target);process.stdout.write("unexpected_success");}catch{process.stdout.write("blocked");}',
+        'try{store.removeReport(r.target);process.stdout.write("unexpected_success");}catch{process.stdout.write("blocked");}',
       ].join("\n");
       const child = spawnSync(
         process.execPath,
@@ -479,7 +468,7 @@ test("削除intentの不正Schema・実体・各pair要素は処置前に拒否�
         field,
       );
       assert.equal(
-        fs.existsSync(path.join(f.path, getJsonCommitName("record.json"))),
+        fs.existsSync(path.join(f.path, getReportCommitName("record.json"))),
         true,
         field,
       );
@@ -492,7 +481,7 @@ test("削除intentの不正Schema・実体・各pair要素は処置前に拒否�
 /**
  * 削除途中の四組合せを公開操作から確認する。
  * @responsibility 私有分類の全入力を実処置と保持へ接続する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 各子が正常組を作成し、同じintentを確定する。
  * @stimulus intent確定直後に既知の内容／sidecar不存在を注入する。
  * @observation 完了またはthird stateと残るPath。
@@ -504,20 +493,17 @@ test("削除の全四状態は既知三形の完了と不整合保持へ接続�
   for (const mode of ["both", "commit_only", "neither", "content_only"]) {
     const f = createRepositoryTestDirectory("committed-json-delete-");
     try {
-      const url = new URL(
-        "../../src/storage/committed-json.ts",
-        import.meta.url,
-      ).href;
+      const url = new URL("../../scripts/report.ts", import.meta.url).href;
       const script = [
         'import fs from "node:fs";const store=await import(' +
           JSON.stringify(url) +
           ");",
-        "const r=store.writeCommittedJson(" +
+        "const r=store.writeReport(" +
           JSON.stringify(f.path) +
           ',"record.json","record.json",{ok:true});',
         `const rename=fs.renameSync;const mode=${JSON.stringify(mode)};`,
         'fs.renameSync=(...a)=>{const result=rename(...a);if(String(a[1]).includes(".crdd-delete-")&&!String(a[1]).endsWith(".pending")){if(mode==="commit_only"||mode==="neither")fs.rmSync(r.target);if(mode==="content_only"||mode==="neither")fs.rmSync(r.commit);}return result;};',
-        'try{store.removeCommittedJson(r.target);process.stdout.write("completed");}catch(e){process.stdout.write(e.message);}',
+        'try{store.removeReport(r.target);process.stdout.write("completed");}catch(e){process.stdout.write(e.message);}',
       ].join("\n");
       const child = spawnSync(
         process.execPath,
@@ -550,7 +536,7 @@ test("削除の全四状態は既知三形の完了と不整合保持へ接続�
 /**
  * 本文とmarkerの相関欠損を不変で拒否する。
  * @responsibility Schema・Hash・Identity・長さ・正規byteの検査を維持する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 各刺激で新品の正常組を生成する。
  * @stimulus 組の一要素だけを不正にする。
  * @observation read／removeの例外と拒否後のbyte。
@@ -568,7 +554,7 @@ test("不正Schema・Hash・Identity・長さ・非正規本文は保持して�
   ]) {
     const f = createRepositoryTestDirectory("committed-json-invalid-");
     try {
-      const record = writeCommittedJson(f.path, "record.json", "record.json", {
+      const record = writeReport(f.path, "record.json", "record.json", {
         ok: true,
       });
       if (field === "noncanonical") fs.appendFileSync(record.target, " ");
@@ -580,8 +566,8 @@ test("不正Schema・Hash・Identity・長さ・非正規本文は保持して�
       }
       const before = fs.readFileSync(record.target),
         marker = fs.readFileSync(record.commit);
-      assert.throws(() => readCommittedJson(record.target), field);
-      assert.throws(() => removeCommittedJson(record.target), field);
+      assert.throws(() => readReport(record.target), field);
+      assert.throws(() => removeReport(record.target), field);
       assert.deepEqual(fs.readFileSync(record.target), before);
       assert.deepEqual(fs.readFileSync(record.commit), marker);
     } finally {
@@ -593,7 +579,7 @@ test("不正Schema・Hash・Identity・長さ・非正規本文は保持して�
 /**
  * hardlinkが存在しても削除対象を指定名へ限定する。
  * @responsibility 別名の本文を再書込み・削除しない既存範囲を確認する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 自己生成の正常組。
  * @stimulus 同じRoot内へhardlinkを作る。
  * @observation 指定pairの削除、別名のbyteとdev／ino。
@@ -604,18 +590,18 @@ test("不正Schema・Hash・Identity・長さ・非正規本文は保持して�
 test("hardlink別名を残して指定本文と確定記録だけを削除する", () => {
   const f = createRepositoryTestDirectory("committed-json-link-");
   try {
-    const r = writeCommittedJson(f.path, "record.json", "record.json", {
+    const r = writeReport(f.path, "record.json", "record.json", {
       ok: true,
     });
     const alias = path.join(f.path, "alias.json");
     fs.linkSync(r.target, alias);
     const before = fs.statSync(alias, { bigint: true });
-    assert.deepEqual(readCommittedJson(r.target).value, { ok: true });
+    assert.deepEqual(readReport(r.target).value, { ok: true });
     assert.throws(
-      () => readCommittedJson(alias),
+      () => readReport(alias),
       /docker_task_recovery_commit_missing/u,
     );
-    assert.equal(removeCommittedJson(r.target), true);
+    assert.equal(removeReport(r.target), true);
     assert.equal(fs.existsSync(alias), true);
     assert.equal(fs.existsSync(r.target), false);
     assert.equal(fs.existsSync(r.commit), false);
@@ -632,7 +618,7 @@ test("hardlink別名を残して指定本文と確定記録だけを削除する
 /**
  * 確定途中の中断を完成へ補正しない。
  * @responsibility fsync・本文rename・commit renameの三境界を区別する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 境界ごとに新品Rootを使う。
  * @stimulus 保存中の実子Processを子自身が終了する。
  * @observation 子終了・本文・sidecar・読戻し。
@@ -648,7 +634,7 @@ test("fsyncと二段renameの中断で不完全組と完全組を区別する", 
       assert.equal(child.error, undefined);
       assert.notEqual(child.status, 0);
       const target = path.join(f.path, "record.json"),
-        marker = path.join(f.path, getJsonCommitName("record.json"));
+        marker = path.join(f.path, getReportCommitName("record.json"));
       if (point === "fsync") {
         assert.equal(fs.existsSync(target), false);
         assert.equal(fs.existsSync(marker), false);
@@ -658,15 +644,15 @@ test("fsyncと二段renameの中断で不完全組と完全組を区別する", 
         assert.equal(fs.existsSync(marker), false);
         const before = fs.readFileSync(target);
         assert.throws(
-          () => readCommittedJson(target),
+          () => readReport(target),
           /docker_task_recovery_commit_missing/u,
         );
         assert.throws(() =>
-          writeCommittedJson(f.path, "record.json", "record.json", {}),
+          writeReport(f.path, "record.json", "record.json", {}),
         );
         assert.deepEqual(fs.readFileSync(target), before);
       } else
-        assert.deepEqual(readCommittedJson(target).value, {
+        assert.deepEqual(readReport(target).value, {
           schema: "fixture/v1",
           value: true,
         });
@@ -679,7 +665,7 @@ test("fsyncと二段renameの中断で不完全組と完全組を区別する", 
 /**
  * 削除後の観測不能を明示不存在へ縮退させない。
  * @responsibility 失敗理由と残るsidecar／intentを保持する。
- * @trace PRL-IT-013
+ * @trace RDL-IT-001
  * @precondition 自己生成Rootと子内の限定fs代役。
  * @stimulus 本文削除後だけlstatをEACCESにする。
  * @observation 固定失敗理由とsidecar／intentの残存。
@@ -690,19 +676,18 @@ test("fsyncと二段renameの中断で不完全組と完全組を区別する", 
 test("削除後の観測不能は失敗理由とintentを保持する", () => {
   const f = createRepositoryTestDirectory("committed-json-unknown-");
   try {
-    const url = new URL("../../src/storage/committed-json.ts", import.meta.url)
-      .href;
+    const url = new URL("../../scripts/report.ts", import.meta.url).href;
     const script = [
       'import fs from "node:fs";const store=await import(' +
         JSON.stringify(url) +
         ");",
-      "const r=store.writeCommittedJson(" +
+      "const r=store.writeReport(" +
         JSON.stringify(f.path) +
         ',"record.json","record.json",{ok:true});',
       "const rm=fs.rmSync,stat=fs.lstatSync;let removed=false;",
       "fs.rmSync=(...a)=>{const v=rm(...a);if(a[0]===r.target)removed=true;return v;};",
       'fs.lstatSync=(...a)=>{if(removed&&a[0]===r.target)throw Object.assign(new Error("synthetic"),{code:"EACCES"});return stat(...a);};',
-      'try{store.removeCommittedJson(r.target);process.stdout.write("unexpected_success");}catch(e){process.stdout.write(e.message);}',
+      'try{store.removeReport(r.target);process.stdout.write("unexpected_success");}catch(e){process.stdout.write(e.message);}',
     ].join("\n");
     const child = spawnSync(
       process.execPath,
@@ -717,7 +702,7 @@ test("削除後の観測不能は失敗理由とintentを保持する", () => {
     assert.equal(child.status, 0, child.stderr);
     assert.equal(child.stdout, "docker_recovery_path_observation_unknown");
     assert.equal(
-      fs.existsSync(path.join(f.path, getJsonCommitName("record.json"))),
+      fs.existsSync(path.join(f.path, getReportCommitName("record.json"))),
       true,
     );
     assert.equal(

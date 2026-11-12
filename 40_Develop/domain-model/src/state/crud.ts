@@ -88,50 +88,58 @@ export function projectCoordinatorCurrentState(
       });
 }
 
-import { decodeRuntimeDomainSnapshot } from "./validation.ts";
-import { encodeRuntimeStateValue } from "./codec.ts";
-import type {
-  CoordinatorStateTaskOperation,
-  CoordinatorResourceBook,
-} from "../attempt/types.ts";
-import { coordinatorAuthenticationClosureEvidence } from "../attempt/validation.ts";
-import {
-  coordinatorTaskResourcesAreSettled,
-  validateCoordinatorResourceBookTransition,
-} from "../attempt/validation.ts";
-import { isSha256Hex } from "./validation.ts";
-import type { CoordinatorStateSnapshot } from "./types.ts";
-import { COORDINATOR_STATE_SCHEMA } from "./validation.ts";
-import { associateCoordinatorTaskOperations } from "../task/crud.ts";
-import {
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
-} from "../attempt/crud.ts";
-import type { CoordinatorStateRepairOperation } from "../attempt/types.ts";
-import { validCoordinatorRepairOperation } from "../attempt/validation.ts";
-import { coordinatorOperationNonce } from "../attempt/validation.ts";
-import { hasRuntimeStateRecordKeys } from "./validation.ts";
-import { prepareDockerRuntimeRepairSessionCheckpoint } from "../attempt/repair-validation.ts";
-import { validCoordinatorRepairRetentionReceipt } from "../attempt/validation.ts";
-import { dockerRuntimeRepairCheckpointIsSettled } from "../attempt/repair-validation.ts";
-import { coordinatorRepairRetentionMatchesCheckpoint } from "../attempt/validation.ts";
-import { createDockerRuntimeRepairDisposalCheckpoint } from "../attempt/repair-validation.ts";
-import { decodeDockerRuntimeRepairDisposalCheckpoint } from "../attempt/repair-validation.ts";
-import { validateDockerRuntimeRepairDisposalTransition } from "../attempt/repair-validation.ts";
-import { parseDockerTaskRecoveryId } from "../attempt/validation.ts";
-import { coordinatorOperationSummaryBytes } from "./validation.ts";
-import { coordinatorRepairCanSummarize } from "../attempt/validation.ts";
-import { coordinatorRepairSummaryBytes } from "../attempt/validation.ts";
-import { coordinatorRepairHistoryLineBytes } from "../attempt/validation.ts";
-import { RUNTIME_STATE_MAXIMUM_BYTES } from "./codec.ts";
-import { decodeCoordinatorHistoryRows } from "./history.ts";
-import { prepareCoordinatorHistoryRetention } from "./history.ts";
-import { prepareCoordinatorStateHistoryLine } from "./validation.ts";
-import { coordinatorHistoryLineBytes } from "./validation.ts";
-import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
-import { coordinatorRepairCanComplete } from "../attempt/validation.ts";
-import { validateCoordinatorOperationTransitions } from "../attempt/validation.ts";
 import { createHash } from "node:crypto";
+import {
+  applyCoordinatorResourceCleanup,
+  applyCoordinatorResourceEvent,
+} from "../attempt/crud.ts";
+import {
+  createDockerRuntimeRepairDisposalCheckpoint,
+  decodeDockerRuntimeRepairDisposalCheckpoint,
+  dockerRuntimeRepairCheckpointIsSettled,
+  prepareDockerRuntimeRepairSessionCheckpoint,
+  validateDockerRuntimeRepairDisposalTransition,
+} from "../attempt/repair-validation.ts";
+import type {
+  CoordinatorResourceBook,
+  CoordinatorStateRepairOperation,
+  CoordinatorStateTaskOperation,
+} from "../attempt/types.ts";
+import {
+  coordinatorAuthenticationClosureEvidence,
+  coordinatorOperationNonce,
+  coordinatorRepairCanComplete,
+  coordinatorRepairCanSummarize,
+  coordinatorRepairHistoryLineBytes,
+  coordinatorRepairRetentionMatchesCheckpoint,
+  coordinatorRepairSummaryBytes,
+  coordinatorTaskResourcesAreSettled,
+  parseDockerTaskRecoveryId,
+  validateCoordinatorOperationTransitions,
+  validateCoordinatorResourceBookTransition,
+  validCoordinatorRepairOperation,
+  validCoordinatorRepairRetentionReceipt,
+} from "../attempt/validation.ts";
+import { associateCoordinatorTaskOperations } from "../task/crud.ts";
+import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
+import {
+  encodeRuntimeStateValue,
+  RUNTIME_STATE_MAXIMUM_BYTES,
+} from "./codec.ts";
+import {
+  decodeCoordinatorHistoryRows,
+  prepareCoordinatorHistoryRetention,
+} from "./history.ts";
+import type { CoordinatorStateSnapshot } from "./types.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  coordinatorHistoryLineBytes,
+  coordinatorOperationSummaryBytes,
+  decodeRuntimeDomainSnapshot,
+  hasRuntimeStateRecordKeys,
+  isSha256Hex,
+  prepareCoordinatorStateHistoryLine,
+} from "./validation.ts";
 
 /**
  * 二組四観測を同じauth unknownへだけ保存する候補を導出する。
@@ -2379,8 +2387,8 @@ function validateCoordinatorStateTransitionValue(
         "leaseIntents",
         "results",
         "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
+        "decisions",
+        "blockers",
         "resultReceipts",
       ] as const;
       if (
@@ -2433,7 +2441,7 @@ const EMPTY_COORDINATOR_TASK_SECTIONS = {
   leaseIntents: [],
   results: [],
   historyPending: [],
-  acceptanceDecisions: [],
-  decisionRecoveries: [],
+  decisions: [],
+  blockers: [],
   resultReceipts: [],
 } as const;

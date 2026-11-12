@@ -83,7 +83,8 @@ export function verifyStandaloneProviderAttempt() {
       }
       return resolved;
     }});
-    const {hashExecutionSelection,writeCommittedJson,readCommittedJson}=await import(${JSON.stringify(domainRoot)});
+    const {hashExecutionSelection}=await import(${JSON.stringify(domainRoot)});
+    const {writeReport,readReport}=await import(${JSON.stringify(new URL("./report.ts", import.meta.url).href)});
     const fixtureRoot=${JSON.stringify(fixtureRoot)};
     const {attemptPlan,attemptTarget}=await import(${JSON.stringify(new URL("../tests/fixtures/attempt-plan.ts", import.meta.url).href)});
     await import(${JSON.stringify(root)});
@@ -114,8 +115,8 @@ export function verifyStandaloneProviderAttempt() {
         if(!lockHeld||owner!==management||gate()!==true)return false;
         const name='event-'+String(++sequence).padStart(3,'0')+'.json';
         const value={kind,operationId:'OP-123456',recoveryId,sequence,provider};
-        const written=writeCommittedJson(directory,name,name,value);
-        const read=readCommittedJson(written.target,name);
+        const written=writeReport(directory,name,name,value);
+        const read=readReport(written.target,name);
         assert.equal(read.hash,written.hash);
         assert.equal(read.identityText,written.identityText);
         assert.deepEqual(read.value,value);

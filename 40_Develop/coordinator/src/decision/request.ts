@@ -5,45 +5,11 @@
  * @trace ARCH-000004
  */
 
-import type { CoordinatorAcceptanceDecisionAuthorityPort } from "./types.ts";
 import {
-  isPrincipalId,
-  type CoordinatorAcceptanceTarget,
   type CoordinatorAcceptanceDecision,
+  type CoordinatorAcceptanceTarget,
+  isPrincipalId,
 } from "../../../domain-model/src/index.ts";
-
-const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-
-/**
- * 認証済みPrincipalへ限定したAcceptance Decision Authority Adapterを構築する。
- *
- * @responsibility 認証境界で確定したPrincipalと判断要求のPrincipalをexact比較する。
- * @trace ARCH-000005
- * @input authenticatedPrincipalId: Transportが検証したPrincipal Identity。
- * @returns CoordinatorAcceptanceDecisionAuthorityPortを返す。
- * @precondition Principalは上位の呼出し側で認証・認可済みである。
- * @postcondition 同じPrincipal、SPEC-000002および有効な対象Bindingだけを許可する。
- * @effect N/A: Authorityの比較だけを行い、CapabilityやEffectを発行しない。
- * @failure 不正PrincipalまたはBindingはfalseへ閉じる。
- * @invariant 読取り投影、Task完了またはProvider結果からAuthorityを生成しない。
- * @boundary 上位で確定した操作主体とCoordinator Authority Portの境界。
- * @security Principalを拡張せず、秘密値を生成・保存・公開しない。
- * @concurrency N/A: 不変値の同期比較だけを行う。
- */
-export function createCoordinatorAcceptanceAuthorityAdapter(
-  authenticatedPrincipalId: string,
-): CoordinatorAcceptanceDecisionAuthorityPort {
-  if (!isPrincipalId(authenticatedPrincipalId))
-    throw new Error("orchestrator_acceptance_principal_invalid");
-  return Object.freeze({
-    verify: (binding) =>
-      binding.sourceSpecId === "SPEC-000002" &&
-      binding.principalId === authenticatedPrincipalId &&
-      ID.test(binding.projectId) &&
-      ID.test(binding.milestoneId) &&
-      ID.test(binding.targetId),
-  });
-}
 
 export const COORDINATOR_ACCEPTANCE_DECISION_CONTRACT =
   "crdd-coordinator/orchestrator-acceptance-decision/v1" as const;
@@ -66,6 +32,7 @@ const REVISION = /^[0-9a-f]{40,64}$/u;
 export type CoordinatorAcceptanceDecisionRequest = Readonly<{
   contract: typeof COORDINATOR_ACCEPTANCE_DECISION_CONTRACT;
   decisionId: string;
+  blockerId: string;
   sourceSpecId: string;
   projectId: string;
   milestoneId: string;
@@ -106,6 +73,7 @@ export function validRequest(
     candidate.sourceSpecId === "SPEC-000002" &&
     [
       candidate.decisionId,
+      candidate.blockerId,
       candidate.projectId,
       candidate.milestoneId,
       candidate.targetId,

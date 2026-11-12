@@ -289,7 +289,7 @@ const RESOURCE_KEYS = [
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-domain/runtime-state/v2",
+    schema: "crdd-domain/runtime-state/v3",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -307,8 +307,8 @@ function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
     resultReceipts: [],
   };
 }
@@ -409,7 +409,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(technical);
   const domainTechnical = {
     ...technical.snapshot,
-    schema: "crdd-domain/runtime-state/v2",
+    schema: "crdd-domain/runtime-state/v3",
     managedExecutions: [],
   };
   const domainRead = decodeRuntimeDomainSnapshot(

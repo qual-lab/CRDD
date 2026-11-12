@@ -76,16 +76,16 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | 容量・Conflict判定の競合 | 6件目起動、同一資源の並行変更 | 状態世代と同じtransactionでslot／Conflictを予約し、Effect直前に再検証 | 上限外・競合Task Effect 0 |
 | Transport・Schedule入力のAuthority化 | 未承認Objective、Scope拡張 | CLI／MCP／Scheduleは検証済み要求の搬送だけを行い、Authority生成を禁止 | Adapter由来Authority 0 |
 | 古い・置換済み人間判断の適用 | 誤再計画、別Milestoneの再開、Authority偽装 | decision ID、Project／Milestone、世代、改訂版、選択肢、認証済み人間主体を現在の判断要求へ結合し、accepted decision receiptを専用再開遷移へ要求する。MCP metadataやProvider identityからAuthorityを作らない | stale／superseded／不正入力によるDecision Record・Project変更・Task Effect・Authority生成0 |
-| 判断用継続Capabilityの盗難・replay・残存 | 別主体による判断、二重再開、長期Authority残存 | raw値はClientへ一度だけ返し、Runtimeは対象・主体・世代・改訂版・有限期限へ結合したhashと消費状態だけをRepository外のOS管理・Runtime保護Rootへ先に耐久化。Root identity、選択ユーザー、固定Volume、非reparse chain、Owner／Protection、atomic updateをPlatform Adapterで観測する | Repository状態改変・Root保護差・別主体・別decision・期限切れ・replayのEffect 0、無効入力後も正規Capabilityは期限内に一度だけ利用可能、raw値のRepository／Provider／Task Packet／ログ／Record保存0、終端後の失効確認 |
-| 判断Capability発行・受理後の部分状態 | 保護Record作成前のraw返却、二重発行、Capabilityだけ消費、MilestoneとQueueの不整合、`prepared`だけの失効、観測不能な保護Rootへの架空遷移、二重Lease、二重Task Effect | Platform Adapterだけが保護Recordを`absent → issued`へ作成・readbackし、その後だけraw値を返す。Root間の原子性を仮定せず、同Adapterが`issued → prepared`へCAS更新・readbackする。Decision／MilestoneをProject Stateへ一括適用・readbackした後だけ`prepared → finalized`へCAS更新・readbackする。Project側だけが不明で保護Rootを更新できる場合は、別の検証済みRecovery Storeへexactな回復意図を先に耐久化してから保護Recordを`recovery_required`へ進める。保護Root自体が不明なら同Rootの遷移を主張せず、別Recovery Storeだけへ回復意図を残す。そこも不明なら手動回復・Effect不明・Process再利用禁止とする。`prepared`の失効はProject旧世代・未適用のfresh確認後だけ、Recoveryは回復意図・保護Root・Project Stateを結合し、matching new世代ならfinalized、verified old/unappliedならinvalidatedへ収束してから回復意図をsettleする。Queueは保護Rootの`finalized`とProject側のID・世代一致をfreshに読取り観測した後に別更新する | 発行保存失敗・応答喪失、`prepared`後、Project適用後、保護Root読取り失敗、CAS応答喪失、readback不明、Recovery Store不明、取消・置換・期限、Process喪失を含む故障・再送で、確認できた状態だけを記録する。架空の保護Root遷移0、不明時Queue／Task Effect 0、Capability、Lease、Task Effectは各最大1回 |
-| Capability応答喪失 | 判断不能の長期停止、複数Capabilityの同時有効化 | raw未受領を自動推定せず、同じ主体・Objective requestの明示置換だけを受ける。旧hash失効receipt後に新しい1件を発行し、置換requestを冪等化 | 旧token Effect 0、新token一回成立、二重置換・replay拒否、旧・新同時有効0 |
-| 人間判断commentの注入・漏洩 | Prompt injection、Secret漏洩、表示崩れ | bounded UTF-8単一行として検証し、Authority・Scope・選択肢から分離。raw値をProvider、Task Packet、ログ、永続Record、通常結果へ渡さない | comment有無で判断結果不変、拒否時Effect 0、外部送信・永続化・反射0 |
+| 別主体による判断・同じ回答の再送 | 誤適用、二重再開 | 継続Bearerは廃止する。信頼入口で認証したPrincipalを要求時の回答先へ固定し、回答時にexact一致を確認。対象・世代・Revision・選択肢を同Ownerで検査し、時間経過だけの失効は設けない | 別主体・別対象・世代差・未知選択の適用0。同一回答の再入場はState再保存0、AI自動再送0 |
+| 判断保存と履歴確定の部分状態 | 回答喪失、状態とQueueの不整合、重複適用 | 判断・Blocker・対象状態・必要なQueue変更を同じState CASで確定する。履歴失敗でも保存済み回答・適用を保持し、再入場で同じ履歴を出版する。State確定不明を無保存へ変換しない | State旧／新の相関、履歴未確定の表示、再入場で元回答・適用時刻不変、片側更新0 |
+| 判断応答喪失 | 二重記録・二重適用 | 同じIDの要求・回答を再観測し、同じ本文だけ保存不要で再送可能とする。別本文への置換や新しい権限発行を行わない | 同一要求／回答はState保存0。別回答・別本文を拒否し、履歴だけ再入場できる |
+| 人間判断理由の注入・漏洩 | Prompt injection、秘密混入、表示崩れ | bounded UTF-8単一行として検査し、選択肢・対象・認可から分離する。非空commentは判断理由としてStateと履歴へ保存するが、Provider・Task Packet・診断ログへ転送しない。利用者が秘密を入力しない運用を前提とする | 理由からAuthorityやScopeを拡張しない。現在認可された読取りだけに理由を返し、外部AI送信0 |
 | 個別Task成功のProject成功化 | 未統合成果物の採用、受入誤判定 | Task、Objective、Milestoneを別状態・別世代とし、受入EvidenceとCross-task整合を要求 | Integration前のMilestone受入0 |
 | Integration候補の正本混入 | 未承認変更、既存変更の上書き | 隔離Workspace、固定候補hash、Adoption Authority、fresh Revision、短時間Adoption Lock | 採用前の正本Effect 0 |
 | 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | Orchestrator CoreをPlatform Contractへ限定し、Adapter不在・保証未成立をFail Closed | Project／Task／Provider Effect 0 |
 | Project取消・Parent喪失後の部分残存 | slot誤解放、後続Task起動、Recovery衝突 | 対象Taskごとの終了・cleanup・Project State投影を分離し、unknownをexact Recoveryへ保持 | 全資源照合前のQueue完了0 |
 
-保護更新ごとの回復母集団には、初回作成、prepare、finalize、失効および期限更新のCAS未成立、成立後の応答喪失、readback不明を含める。fresh確認で、exactな`absent`＋raw未返却＋Project未適用はEffect 0で回復意図だけを終端し、`issued`は失効、`prepared`は回復待ち、matching newはfinalized、verified old/unappliedはinvalidated、`expired`＋Project未適用はexpiredのまま安全に終端する。不明・競合では観測できた継続状態を変えず、独立Recovery Intentをrequiredに保持する。
+回復母集団は要求・回答・後日適用・閉鎖の保存前、CAS確定、応答喪失、履歴出版失敗と再送を含む。回答済み・未適用は理由と元回答を保持し、現在条件での明示applyだけを許可する。閉鎖だけではBlocker・Queueを解消しない。Host独立世代・Hash連鎖・SID／DACL・祖先Handleによる判断保護は維持しない。同じOSユーザーによるStateの意図的改変・巻戻しは新方式の独立防御対象外で、AIへRuntime領域の書換え権限を与えないことと、旧記録の明示切替を運用条件にする。
 
 ## 5. 任意の正式配布署名と移管前V6方式の比較基準
 

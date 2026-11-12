@@ -446,11 +446,15 @@ export function inspectCoordinatorDesignTraceability(
     (item) => item.id === "REC-HUMAN-DECISION",
   );
   const requiredDecisionMeanings = [
-    "decision_project_milestone_generation_revision",
-    "selected_user_principal",
-    "continuation_record_id",
-    "decision_application_generation",
-    "decision_lifecycle_state",
+    "exact_target_generation_revision",
+    "respondent_principal",
+    "question_and_labelled_options",
+    "answer_and_application_separate",
+    "explicit_closure_without_expiry",
+    "blocker_one_to_many_proposals",
+    "single_answer_per_proposal",
+    "current_proposal_and_group_retirement",
+    "stable_history_events_derived_from_state",
   ];
   const decisionMeanings =
     humanDecisionRecord !== undefined &&
@@ -464,60 +468,6 @@ export function inspectCoordinatorDesignTraceability(
     )
   )
     issues.push("REC-HUMAN-DECISION:continuation_lifecycle_missing");
-  const continuationRecord = records.entries.find(
-    (item) => item.id === "REC-DECISION-CONTINUATION",
-  );
-  const requiredContinuationMeanings = [
-    "continuation_hash",
-    "selected_user_principal",
-    "decision_project_milestone_generation_revision",
-    "continuation_expiry",
-    "continuation_consumed_or_invalidated_state",
-    "replacement_request_identity",
-    "decision_application_id",
-    "expected_project_generation",
-    "new_project_generation",
-    "application_disposition_issued_prepared_finalized_recovery_invalidated_or_expired",
-  ];
-  const continuationMeanings =
-    continuationRecord !== undefined &&
-    strings(continuationRecord.requiredMeaning)
-      ? continuationRecord.requiredMeaning
-      : [];
-  if (
-    continuationRecord === undefined ||
-    continuationRecord.durabilityRelation !== "before_effect_intent" ||
-    requiredContinuationMeanings.some(
-      (meaning) => !continuationMeanings.includes(meaning),
-    )
-  )
-    issues.push("REC-DECISION-CONTINUATION:protected_lifecycle_missing");
-  const recoveryIntentRecord = records.entries.find(
-    (item) => item.id === "REC-DECISION-RECOVERY-INTENT",
-  );
-  const requiredRecoveryIntentMeanings = [
-    "exact_continuation_record_identity",
-    "last_confirmed_disposition",
-    "decision_application_id",
-    "expected_project_generation",
-    "new_project_generation",
-    "unknown_observation_boundary",
-    "recovery_identity",
-    "recovery_disposition_required_or_settled",
-  ];
-  const recoveryIntentMeanings =
-    recoveryIntentRecord !== undefined &&
-    strings(recoveryIntentRecord.requiredMeaning)
-      ? recoveryIntentRecord.requiredMeaning
-      : [];
-  if (
-    recoveryIntentRecord === undefined ||
-    recoveryIntentRecord.durabilityRelation !== "before_effect_intent" ||
-    requiredRecoveryIntentMeanings.some(
-      (meaning) => !recoveryIntentMeanings.includes(meaning),
-    )
-  )
-    issues.push("REC-DECISION-RECOVERY-INTENT:lifecycle_missing");
   const requiredDurabilityRelations = new Map([
     ["REC-PROJECT-STATE", "generation_state"],
     ["REC-QUEUE-ENTRY", "before_effect_intent"],
@@ -535,76 +485,19 @@ export function inspectCoordinatorDesignTraceability(
     if (!text(item.owner) || !text(item.terminalCondition))
       issues.push(`${String(item.id)}:resource_shape_invalid`);
   }
-  if (!resources.ids.has("RES-DECISION-CONTINUATION"))
-    issues.push("decision_continuation_resource_missing");
-  const continuationResource = resources.entries.find(
-    (item) => item.id === "RES-DECISION-CONTINUATION",
+  const decisionResource = resources.entries.find(
+    (item) => item.id === "RES-PENDING-DECISION",
   );
-  const requiredSecurityBindings = [
-    "selected_user_principal",
-    "fixed_volume",
-    "non_reparse_chain",
-    "owner_and_protection",
-    "atomic_update",
-  ];
-  const securityBindings =
-    continuationResource !== undefined &&
-    strings(continuationResource.securityBindings)
-      ? continuationResource.securityBindings
-      : [];
-  const requiredApplicationProtocols = [
-    "absent_to_issued_and_read_back_before_raw_client_return",
-    "issued_to_prepared_before_project_effect",
-    "project_state_applied_and_read_back_without_protected_applied_state",
-    "prepared_to_finalized_after_cross_root_reconciliation",
-    "prepared_to_recovery_only_when_project_observation_unknown_and_protected_cas_readback_succeeds",
-    "protected_observation_unknown_uses_separate_recovery_store_without_claiming_continuation_transition",
-    "prepared_invalidation_only_after_fresh_old_unapplied_project_readback",
-    "recovery_settles_finalized_for_matching_new_or_invalidated_for_verified_old_unapplied",
-    "separate_recovery_intent_settles_only_after_joined_fresh_observations",
-    "finalized_fresh_observation_before_queue_lease",
-  ];
-  const applicationProtocolItems =
-    continuationResource !== undefined &&
-    strings(continuationResource.applicationProtocol)
-      ? continuationResource.applicationProtocol
-      : [];
   if (
-    continuationResource === undefined ||
-    continuationResource.storageBoundary !==
-      "os_managed_runtime_protected_root_outside_repository" ||
-    continuationResource.accessMode !==
-      "platform_owned_mutation_and_fresh_read_only_observation" ||
-    continuationResource.invalidInputDisposition !== "unchanged" ||
-    !text(continuationResource.replacement) ||
-    requiredSecurityBindings.some(
-      (binding) => !securityBindings.includes(binding),
-    ) ||
-    applicationProtocolItems.length !== requiredApplicationProtocols.length ||
-    requiredApplicationProtocols.some(
-      (step, index) => applicationProtocolItems[index] !== step,
-    )
+    decisionResource?.storageBoundary !== "repository_local_state" ||
+    decisionResource.accessMode !== "single_owner_single_state_cas"
   )
-    issues.push("RES-DECISION-CONTINUATION:protection_contract_invalid");
-  const decisionRecoveryResource = resources.entries.find(
-    (item) => item.id === "RES-DECISION-RECOVERY-INTENT",
-  );
-  const recoverySecurityBindings =
-    decisionRecoveryResource !== undefined &&
-    strings(decisionRecoveryResource.securityBindings)
-      ? decisionRecoveryResource.securityBindings
-      : [];
-  if (
-    decisionRecoveryResource === undefined ||
-    decisionRecoveryResource.storageBoundary !==
-      "separate_verified_runtime_owned_recovery_store" ||
-    decisionRecoveryResource.unavailableDisposition !==
-      "manual_recovery_required_effect_state_unknown_and_process_reuse_forbidden" ||
-    requiredSecurityBindings.some(
-      (binding) => !recoverySecurityBindings.includes(binding),
-    )
-  )
-    issues.push("RES-DECISION-RECOVERY-INTENT:protection_contract_invalid");
+    issues.push("RES-PENDING-DECISION:state_contract_invalid");
+  for (const id of [
+    "RES-DECISION-CONTINUATION",
+    "RES-DECISION-RECOVERY-INTENT",
+  ])
+    if (resources.ids.has(id)) issues.push(`${id}:retired_resource`);
   for (const item of authorities.entries) {
     if (!text(item.owner) || !text(item.scope) || !text(item.terminalCondition))
       issues.push(`${String(item.id)}:authority_shape_invalid`);
@@ -854,34 +747,21 @@ export function inspectCoordinatorDesignTraceability(
       transition.from.includes("recovery_required");
     const isCancellation = transition.to === "cancelled";
     const isRecoverySettlement = doesResumeFromRecovery && !isCancellation;
-    const isContinuationRecoverySettlement =
-      isRecoverySettlement &&
-      transition.machineId === "SM-DECISION-CONTINUATION";
     if (isRecoverySettlement) {
       const expectedTarget = new Map([
         ["SM-TASK", "ready"],
         ["SM-MILESTONE", "executing"],
         ["SM-QUEUE", "queued"],
       ]).get(transition.machineId);
-      const isValidContinuationTarget =
-        isContinuationRecoverySettlement &&
-        ["finalized", "invalidated"].includes(transition.to) &&
-        transition.invariantIds.includes("INV-DECISION-RECOVERY-SETTLEMENT") &&
-        authorityIds.includes("AUTH-RECOVERY") &&
-        effectIds.length === 1 &&
-        effectIds[0] === "EFFECT-DECISION-CONTINUATION";
-      const isValidOrdinaryTarget =
-        !isContinuationRecoverySettlement &&
-        expectedTarget !== undefined &&
-        transition.to === expectedTarget &&
-        transition.invariantIds.includes("INV-RECOVERY-SETTLED-BEFORE-RESUME");
-      if (!isValidContinuationTarget && !isValidOrdinaryTarget)
+      if (
+        expectedTarget === undefined ||
+        transition.to !== expectedTarget ||
+        !transition.invariantIds.includes("INV-RECOVERY-SETTLED-BEFORE-RESUME")
+      )
         issues.push(`${transitionId}:recovery_resume_without_settlement`);
     }
     const doesOwnOrdinaryRecoveryEffect =
-      isRecoverySettlement &&
-      !isContinuationRecoverySettlement &&
-      transition.machineId === "SM-QUEUE";
+      isRecoverySettlement && transition.machineId === "SM-QUEUE";
     if (effectIds.includes("EFFECT-RECOVERY") !== doesOwnOrdinaryRecoveryEffect)
       issues.push(
         `${String(binding.id)}:recovery_effect_applicability_invalid`,
@@ -907,18 +787,12 @@ export function inspectCoordinatorDesignTraceability(
     }
     if (
       transition.machineId === "SM-DECISION" &&
-      transition.to === "accepted" &&
+      transition.to === "applied" &&
       !authorityIds.includes("AUTH-HUMAN-DECISION")
     )
       issues.push(
         `${String(binding.id)}:decision_acceptance_authority_missing`,
       );
-    if (
-      transition.machineId === "SM-DECISION" &&
-      ["stale", "superseded", "cancelled"].includes(transition.to) &&
-      authorityIds.includes("AUTH-HUMAN-DECISION")
-    )
-      issues.push(`${String(binding.id)}:decision_lifecycle_authority_invalid`);
     if (
       effectIds.includes("EFFECT-CANONICAL-ADOPTION") &&
       !(
@@ -932,373 +806,56 @@ export function inspectCoordinatorDesignTraceability(
         `${String(binding.id)}:adoption_effect_applicability_invalid`,
       );
   }
-  const decisionApplicationBindings = [
-    ["TRANS-DECISION-PENDING-ACCEPTED", "root", true],
-    ["TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE", "milestone", false],
+  const decisionSpecs = [
+    ["TRANS-DECISION-PENDING-APPLIED", ["pending", "answered"], "applied"],
+    ["TRANS-DECISION-PENDING-ANSWERED", ["pending"], "answered"],
+    ["TRANS-DECISION-INVALIDATED", ["pending", "answered"], "invalidated"],
   ] as const;
-  for (const [
-    transitionId,
-    role,
-    standaloneAllowed,
-  ] of decisionApplicationBindings) {
-    const binding = exactActionBindings.get(transitionId);
-    const transition = transitionModels.get(transitionId);
-    const effectIds =
-      binding !== undefined && strings(binding.effectIds)
-        ? binding.effectIds
-        : [];
+  for (const [id, from, to] of decisionSpecs) {
+    const transition = transitionModels.get(id),
+      binding = exactActionBindings.get(id);
     if (
-      binding === undefined ||
+      transition?.machineId !== "SM-DECISION" ||
+      transition.to !== to ||
+      [...transition.from].sort().join() !== [...from].sort().join() ||
+      !transition.resourceIds.includes("RES-PENDING-DECISION") ||
+      !transition.invariantIds.includes("INV-DECISION-BINDING-CURRENT") ||
+      !binding ||
+      !strings(binding.authorityIds) ||
+      !binding.authorityIds.includes("AUTH-HUMAN-DECISION") ||
+      !strings(binding.effectIds) ||
+      binding.effectIds.length !== 1 ||
+      binding.effectIds[0] !== "EFFECT-DECISION-STATE"
+    )
+      issues.push(`${id}:decision_state_protocol_invalid`);
+  }
+  const decisionApplicationBindings = [
+    ["TRANS-DECISION-PENDING-APPLIED", "root", true],
+    ["TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE", "milestone", false],
+    ["TRANS-QUEUE-DECISION-ACCEPTED-REPLAN", "queue", false],
+  ] as const;
+  for (const [id, role, standalone] of decisionApplicationBindings) {
+    const binding = exactActionBindings.get(id),
+      transition = transitionModels.get(id);
+    if (
+      !binding ||
+      !transition ||
       binding.transactionId !== "decision_application" ||
       binding.projectionRole !== role ||
-      binding.standaloneAllowed !== standaloneAllowed ||
-      effectIds.length !== 1 ||
-      effectIds[0] !== "EFFECT-DECISION-STATE" ||
-      transition === undefined ||
-      !transition.resourceIds.includes("RES-DECISION-CONTINUATION") ||
+      binding.standaloneAllowed !== standalone ||
+      !strings(binding.lockIds) ||
+      binding.lockIds.length !== 1 ||
+      binding.lockIds[0] !== "LOCK-PROJECT-STATE" ||
+      !strings(binding.authorityIds) ||
+      !binding.authorityIds.includes("AUTH-HUMAN-DECISION") ||
+      !strings(binding.effectIds) ||
+      binding.effectIds.length !== 1 ||
+      binding.effectIds[0] !== "EFFECT-DECISION-STATE" ||
+      !transition.resourceIds.includes("RES-PENDING-DECISION") ||
       !transition.invariantIds.includes("INV-DECISION-ATOMIC-APPLICATION")
     )
-      issues.push(`${transitionId}:decision_atomic_application_invalid`);
+      issues.push(`${id}:decision_atomic_application_invalid`);
   }
-  const continuationProtocol = [
-    {
-      transitionId: "TRANS-CONTINUATION-ABSENT-ISSUED",
-      from: ["absent"],
-      to: "issued",
-      authorityId: "AUTH-MILESTONE",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "issue",
-      requiredResources: ["RES-DECISION-CONTINUATION"],
-      requiredInvariant: "INV-DECISION-CAPABILITY-ISSUED-BEFORE-RETURN",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-ISSUED-PREPARED",
-      from: ["issued"],
-      to: "prepared",
-      authorityId: "AUTH-HUMAN-DECISION",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "prepare",
-      requiredResources: ["RES-DECISION-CONTINUATION"],
-      requiredInvariant: "INV-DECISION-CONTINUATION-PROTOCOL",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-PREPARED-FINALIZED",
-      from: ["prepared"],
-      to: "finalized",
-      authorityId: "AUTH-HUMAN-DECISION",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "finalize",
-      requiredResources: ["RES-DECISION-CONTINUATION", "RES-PROJECT-STATE"],
-      requiredInvariant: "INV-DECISION-ATOMIC-APPLICATION",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY",
-      from: ["prepared"],
-      to: "recovery_required",
-      authorityId: "AUTH-RECOVERY",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "project_unknown_recovery",
-      requiredResources: [
-        "RES-DECISION-CONTINUATION",
-        "RES-PROJECT-STATE",
-        "RES-DECISION-RECOVERY-INTENT",
-      ],
-      requiredInvariant: "INV-UNKNOWN-PRESERVES-RECOVERY",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-ISSUED-INVALIDATED",
-      from: ["issued"],
-      to: "invalidated",
-      authorityId: "AUTH-MILESTONE",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "invalidate_issued",
-      requiredResources: ["RES-DECISION-CONTINUATION"],
-      requiredInvariant: "INV-DECISION-CONTINUATION-PROTOCOL",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-PREPARED-UNAPPLIED-INVALIDATED",
-      from: ["prepared"],
-      to: "invalidated",
-      authorityId: "AUTH-MILESTONE",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "invalidate_prepared_unapplied",
-      requiredResources: ["RES-DECISION-CONTINUATION", "RES-PROJECT-STATE"],
-      requiredInvariant: "INV-DECISION-PREPARED-INVALIDATION-READBACK",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-RECOVERY-FINALIZED",
-      from: ["recovery_required"],
-      to: "finalized",
-      authorityId: "AUTH-RECOVERY",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "recover_finalize",
-      requiredResources: [
-        "RES-DECISION-CONTINUATION",
-        "RES-PROJECT-STATE",
-        "RES-PROJECT-RECOVERY-EVIDENCE",
-      ],
-      requiredInvariant: "INV-DECISION-RECOVERY-SETTLEMENT",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-RECOVERY-INVALIDATED",
-      from: ["recovery_required"],
-      to: "invalidated",
-      authorityId: "AUTH-RECOVERY",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "recover_invalidate",
-      requiredResources: [
-        "RES-DECISION-CONTINUATION",
-        "RES-PROJECT-STATE",
-        "RES-PROJECT-RECOVERY-EVIDENCE",
-      ],
-      requiredInvariant: "INV-DECISION-RECOVERY-SETTLEMENT",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-PROTECTED-RECOVERY-ISSUED-INVALIDATED",
-      from: ["issued"],
-      to: "invalidated",
-      authorityId: "AUTH-RECOVERY",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "protected_recovery_invalidate_issued",
-      requiredResources: [
-        "RES-DECISION-CONTINUATION",
-        "RES-DECISION-RECOVERY-INTENT",
-      ],
-      requiredInvariant: "INV-DECISION-SEPARATE-RECOVERY-INTENT",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-PROTECTED-RECOVERY-PREPARED-REQUIRED",
-      from: ["prepared"],
-      to: "recovery_required",
-      authorityId: "AUTH-RECOVERY",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "protected_recovery_prepare_required",
-      requiredResources: [
-        "RES-DECISION-CONTINUATION",
-        "RES-PROJECT-STATE",
-        "RES-DECISION-RECOVERY-INTENT",
-      ],
-      requiredInvariant: "INV-DECISION-SEPARATE-RECOVERY-INTENT",
-    },
-    {
-      transitionId: "TRANS-CONTINUATION-ISSUED-EXPIRED",
-      from: ["issued"],
-      to: "expired",
-      authorityId: "AUTH-MILESTONE",
-      effectIds: ["EFFECT-DECISION-CONTINUATION"],
-      stage: "expire",
-      requiredResources: ["RES-DECISION-CONTINUATION"],
-      requiredInvariant: "INV-DECISION-CONTINUATION-PROTOCOL",
-    },
-  ] as const;
-  for (const expected of continuationProtocol) {
-    const transition = transitionModels.get(expected.transitionId);
-    const binding = exactActionBindings.get(expected.transitionId);
-    const authorityIds =
-      binding !== undefined && strings(binding.authorityIds)
-        ? binding.authorityIds
-        : [];
-    const effectIds =
-      binding !== undefined && strings(binding.effectIds)
-        ? binding.effectIds
-        : [];
-    if (
-      transition === undefined ||
-      transition.machineId !== "SM-DECISION-CONTINUATION" ||
-      transition.to !== expected.to ||
-      transition.from.length !== expected.from.length ||
-      expected.from.some((state) => !transition.from.includes(state)) ||
-      expected.requiredResources.some(
-        (resource) => !transition.resourceIds.includes(resource),
-      ) ||
-      !transition.invariantIds.includes("INV-DECISION-CONTINUATION-PROTOCOL") ||
-      !transition.invariantIds.includes(expected.requiredInvariant) ||
-      binding === undefined ||
-      binding.protocolStage !== expected.stage ||
-      !authorityIds.includes(expected.authorityId) ||
-      effectIds.length !== expected.effectIds.length ||
-      expected.effectIds.some((effect) => !effectIds.includes(effect))
-    )
-      issues.push(
-        `${expected.transitionId}:decision_continuation_protocol_invalid`,
-      );
-  }
-  const recoveryIntentProtocol = [
-    {
-      transitionId: "TRANS-DECISION-RECOVERY-ABSENT-REQUIRED",
-      from: ["absent"],
-      to: "required",
-      stage: "observation_unknown_intent",
-      requiredResources: ["RES-DECISION-RECOVERY-INTENT"],
-    },
-    {
-      transitionId: "TRANS-DECISION-RECOVERY-REQUIRED-SETTLED",
-      from: ["required"],
-      to: "settled",
-      stage: "decision_recovery_intent_settlement",
-      requiredResources: [
-        "RES-DECISION-RECOVERY-INTENT",
-        "RES-DECISION-CONTINUATION",
-        "RES-PROJECT-STATE",
-      ],
-    },
-  ] as const;
-  for (const expected of recoveryIntentProtocol) {
-    const transition = transitionModels.get(expected.transitionId);
-    const binding = exactActionBindings.get(expected.transitionId);
-    const authorityIds =
-      binding !== undefined && strings(binding.authorityIds)
-        ? binding.authorityIds
-        : [];
-    const effectIds =
-      binding !== undefined && strings(binding.effectIds)
-        ? binding.effectIds
-        : [];
-    const freshJoinResourceIds =
-      binding !== undefined && strings(binding.freshJoinResourceIds)
-        ? binding.freshJoinResourceIds
-        : [];
-    const allowedContinuationSettlementStates =
-      binding !== undefined &&
-      strings(binding.allowedContinuationSettlementStates)
-        ? binding.allowedContinuationSettlementStates
-        : [];
-    const triggerBoundaries =
-      binding !== undefined && strings(binding.triggerBoundaries)
-        ? binding.triggerBoundaries
-        : [];
-    const safeSettlementOutcomes =
-      binding !== undefined && strings(binding.safeSettlementOutcomes)
-        ? binding.safeSettlementOutcomes
-        : [];
-    const isRequiredTransition =
-      expected.transitionId === "TRANS-DECISION-RECOVERY-ABSENT-REQUIRED";
-    const isSettlementTransition =
-      expected.transitionId === "TRANS-DECISION-RECOVERY-REQUIRED-SETTLED";
-    if (
-      transition === undefined ||
-      transition.machineId !== "SM-DECISION-RECOVERY-INTENT" ||
-      transition.to !== expected.to ||
-      transition.from.length !== expected.from.length ||
-      expected.from.some((state) => !transition.from.includes(state)) ||
-      expected.requiredResources.some(
-        (resource) => !transition.resourceIds.includes(resource),
-      ) ||
-      !transition.invariantIds.includes(
-        "INV-DECISION-SEPARATE-RECOVERY-INTENT",
-      ) ||
-      (isSettlementTransition &&
-        !transition.invariantIds.includes(
-          "INV-DECISION-RECOVERY-SETTLEMENT",
-        )) ||
-      binding === undefined ||
-      binding.protocolStage !== expected.stage ||
-      !authorityIds.includes("AUTH-RECOVERY") ||
-      effectIds.length !== 1 ||
-      effectIds[0] !== "EFFECT-DECISION-RECOVERY-INTENT" ||
-      (isRequiredTransition &&
-        (triggerBoundaries.length !== 2 ||
-          !triggerBoundaries.includes("project_observation_unknown") ||
-          !triggerBoundaries.includes(
-            "protected_observation_or_cas_readback_unknown",
-          ) ||
-          binding.protectedUnknownContinuationTransitionClaimed !== false)) ||
-      (isSettlementTransition &&
-        (freshJoinResourceIds.length !== 3 ||
-          expected.requiredResources.some(
-            (resource) => !freshJoinResourceIds.includes(resource),
-          ) ||
-          allowedContinuationSettlementStates.length !== 4 ||
-          !allowedContinuationSettlementStates.includes("absent") ||
-          !allowedContinuationSettlementStates.includes("finalized") ||
-          !allowedContinuationSettlementStates.includes("invalidated") ||
-          !allowedContinuationSettlementStates.includes("expired") ||
-          safeSettlementOutcomes.length !== 4 ||
-          !safeSettlementOutcomes.includes(
-            "record_absent_raw_not_returned_project_unapplied",
-          ) ||
-          !safeSettlementOutcomes.includes("record_finalized_matching_new") ||
-          !safeSettlementOutcomes.includes(
-            "record_invalidated_verified_old_unapplied",
-          ) ||
-          !safeSettlementOutcomes.includes(
-            "record_expired_project_unapplied",
-          ) ||
-          binding.continuationSettlementReadbackBeforeIntent !== true ||
-          binding.intentSettlementReadbackLast !== true))
-    )
-      issues.push(
-        `${expected.transitionId}:decision_recovery_intent_protocol_invalid`,
-      );
-  }
-  const projectUnknownBinding = exactActionBindings.get(
-    "TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY",
-  );
-  if (
-    projectUnknownBinding === undefined ||
-    projectUnknownBinding.requiredRecoveryIntentState !==
-      "required_read_back" ||
-    projectUnknownBinding.protectedUnknownContinuationTransitionClaimed !==
-      false
-  )
-    issues.push(
-      "TRANS-CONTINUATION-PROJECT-UNKNOWN-RECOVERY:decision_recovery_intent_precondition_invalid",
-    );
-  for (const transitionId of [
-    "TRANS-CONTINUATION-PROTECTED-RECOVERY-ISSUED-INVALIDATED",
-    "TRANS-CONTINUATION-PROTECTED-RECOVERY-PREPARED-REQUIRED",
-  ]) {
-    const binding = exactActionBindings.get(transitionId);
-    if (
-      binding === undefined ||
-      binding.requiredRecoveryIntentState !== "required_read_back"
-    )
-      issues.push(
-        `${transitionId}:decision_recovery_intent_precondition_invalid`,
-      );
-  }
-  const queueDecisionTransition = transitionModels.get(
-    "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN",
-  );
-  const queueDecisionBinding = exactActionBindings.get(
-    "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN",
-  );
-  const queueDecisionAuthorities =
-    queueDecisionBinding !== undefined &&
-    strings(queueDecisionBinding.authorityIds)
-      ? queueDecisionBinding.authorityIds
-      : [];
-  const queueDecisionEffects =
-    queueDecisionBinding !== undefined &&
-    strings(queueDecisionBinding.effectIds)
-      ? queueDecisionBinding.effectIds
-      : [];
-  if (
-    queueDecisionTransition === undefined ||
-    queueDecisionBinding === undefined ||
-    !queueDecisionTransition.from.includes("human_decision_required") ||
-    queueDecisionTransition.to !== "replan_required" ||
-    queueDecisionBinding.transactionId !== undefined ||
-    queueDecisionAuthorities.includes("AUTH-HUMAN-DECISION") ||
-    !queueDecisionAuthorities.includes("AUTH-MILESTONE") ||
-    queueDecisionEffects.length !== 1 ||
-    queueDecisionEffects[0] !== "EFFECT-QUEUE-STATE" ||
-    !queueDecisionTransition.resourceIds.includes(
-      "RES-DECISION-CONTINUATION",
-    ) ||
-    queueDecisionTransition.invariantIds.includes(
-      "INV-DECISION-ATOMIC-APPLICATION",
-    ) ||
-    !queueDecisionTransition.invariantIds.includes(
-      "INV-DECISION-RECEIPT-BEFORE-RESUME",
-    ) ||
-    !queueDecisionTransition.invariantIds.includes(
-      "INV-DECISION-APPLICATION-FINALIZED-BEFORE-QUEUE",
-    )
-  )
-    issues.push(
-      "TRANS-QUEUE-DECISION-ACCEPTED-REPLAN:decision_post_commit_replan_invalid",
-    );
   for (const requiredFailure of [
     "FAIL-DECISION-ATOMIC-APPLICATION",
     "FAIL-DECISION-CONTINUATION",

@@ -10,21 +10,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  prepareCoordinatorSingleTaskQueueCreation,
-  prepareCoordinatorSingleTaskQueueUpdate,
-  prepareCoordinatorUnstartedTaskQueueClosure,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type CoordinatorSnapshot,
+  encodeRuntimeStateValue,
+  inspectSingleTaskRecord,
+  type ProjectQueueEntry,
+  prepareCoordinatorQueueLeaseReleaseSettlement,
   prepareCoordinatorQueueOperationUpdate,
   prepareCoordinatorQueueRecoverySettlement,
   prepareCoordinatorQueueSelection,
-  prepareCoordinatorQueueLeaseReleaseSettlement,
-  inspectSingleTaskRecord,
-  validQueueEntry,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  encodeRuntimeStateValue,
-  type CoordinatorSnapshot,
-  type ProjectQueueEntry,
+  prepareCoordinatorSingleTaskQueueCreation,
+  prepareCoordinatorSingleTaskQueueUpdate,
+  prepareCoordinatorUnstartedTaskQueueClosure,
   type SingleTaskRecord,
+  validQueueEntry,
 } from "../../../src/index.ts";
+
 /**
  * 単発Taskと一般Queue用の局所元版を作成する。
  * @responsibility 固定候補と観測順・拒否・対象外保持を反証する。
@@ -82,7 +83,7 @@ function fixture() {
   assert.equal(validQueueEntry(entry), true);
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -95,8 +96,8 @@ function fixture() {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   const { singleTask: _singleTask, ...regular } = entry;
   void _singleTask;
@@ -550,6 +551,39 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
     leaseIsNull: false,
   };
   const stale = observations();
+  const denied = observations();
+  assert.equal(
+    prepareCoordinatorQueueOperationUpdate(
+      {
+        ...state,
+        blockers: [
+          {
+            blockerId: "blocker-a",
+            kind: "input",
+            currentDecisionId: null,
+            status: "active",
+            reason: "入力待ち",
+            target: {
+              projectId: regular.projectId,
+              milestoneId: regular.milestoneId,
+              kind: "milestone",
+              id: regular.milestoneId,
+              generation: 1,
+              repositoryRevision: regular.repositoryRevision,
+            },
+          },
+        ],
+      },
+      "repository-a",
+      "binding-a",
+      "queue-a",
+      1,
+      next,
+      denied.ops,
+    ).reason,
+    "orchestrator_queue_blocker_active",
+  );
+  assert.deepEqual(denied.calls, []);
   assert.equal(
     prepareCoordinatorQueueOperationUpdate(
       state,

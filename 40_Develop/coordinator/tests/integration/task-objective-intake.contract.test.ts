@@ -11,6 +11,7 @@
  */
 
 import assert from "node:assert/strict";
+import { writeReport } from "../../../executor/scripts/report.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -22,7 +23,6 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
   requireReadyRepositoryRuntimeDataArea,
-  writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
@@ -1245,18 +1245,18 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
 });
 
 /**
- * Objective intake accepts only a closed explicit decision-capability replacement requestを検証する。
+ * Objective受付は廃止済みの判断Capability再発行fieldを拒否するを検証する。
  *
- * @responsibility Objective intake accepts only a closed explicit decision-capability replacement requestの合否判定を所有する。
+ * @responsibility Objective受付は廃止済みの判断Capability再発行fieldを拒否するの合否判定を所有する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Objective intake accepts only a closed explicit decision-capability replacement requestの対象操作を実行する。
+ * @stimulus Objective受付は廃止済みの判断Capability再発行fieldを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Objective intake accepts only a closed explicit decision-capability replacement request", () => {
+test("Objective受付は廃止済みの判断Capability再発行fieldを拒否する", () => {
   const base = request();
   const accepted = inspectCoordinatorObjectiveRequest({
     ...base,
@@ -1265,10 +1265,7 @@ test("Objective intake accepts only a closed explicit decision-capability replac
       replacementRequestId: "replacement-a",
     },
   });
-  assert.equal(
-    accepted?.decisionCapabilityReplacement?.replacementRequestId,
-    "replacement-a",
-  );
+  assert.equal(accepted, null);
   assert.equal(
     inspectCoordinatorObjectiveRequest({
       ...base,
@@ -1837,7 +1834,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   const receiptName = `completed-docker-recovery-${createHash("sha256")
     .update(recoveryId)
     .digest("hex")}.json`;
-  writeCommittedJson(runtimeDirectory, receiptName, receiptName, {
+  writeReport(runtimeDirectory, receiptName, receiptName, {
     schema: "crdd-coordinator-docker-recovery-completion/v1",
     recoveryId,
     runtimeStateBinding: {

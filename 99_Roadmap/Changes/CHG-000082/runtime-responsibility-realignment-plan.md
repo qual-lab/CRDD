@@ -1,5 +1,177 @@
 # 基盤機能中心のRuntime責務再編計画
 
+<a id="blocker-progress-and-read"></a>
+
+## 既知Blockerの進行制御と読取りの是正 — 2026-11-12
+
+状態: 今回の三点の実装・限定検証・独立再確認は完了。先行段階の完成確認後に、別のactive問題を残した進行、終端対象への新規問題保存、判断照会のBlocker欠測を追加検出した。今回の対象はこの三点に限定する。
+
+承認回答はまず元の提案へ保持し、関連問題が残る間はanswered／unappliedとする。同exact対象・用途・世代・改訂・進行効果の承認が揃う場合だけ、一回CASで共同適用する。旧回答は変更せず、異種効果の順序は推測しない。既存Queue／Task開始の保存境界も確認するが、結果受領・取消・回復・Cleanup・解放は止めない。終端対象への新規要求は拒否し、既存同一要求の再観測は維持する。既存queryDecisionsは同じ改訂・認可・対象から`{blockers, decisions}`を返す。新しい入口・保存先・解決Frameworkは追加しない。
+
+独立確認では、共同適用時の根拠差の暗黙選択と、進行Gateによる正式回復完了記録の拒否を検出した。全結果を統合して両確認者へ是正方針を提示した。導出結果は根拠まで一致を要求し、異なる場合は未適用で保全する。回復完了は既存exact候補と同一のQueue遷移だけを区別し、回復後の実行開始は引き続き拒否する。試験の追加時に生じた型注釈不足・Hash入力誤りは試験側で是正し、製品検査は緩めない。
+
+最終のSource／試験9 FileとDomain設計01／05・QA-000003の計12 Fileの固定候補は`6efead56f1ca1e2a4ab7c9a09a780d952d289b7c239af987a5ef26738e79795c`（Path昇順・Path／NUL／本文bytes／NULのSHA-256）。両独立再確認は必須残指摘0件。局所88件、Root境界13件、保存・Query IT1件、公開判断IT4件、Domain／Coordinator製品・試験／MCPの型4設定が成功した。8 TypeScriptの形式・Lint確認も成功。runtime-storeの先行箇所に残る文字列連結の情報通知は今回変更しない。試験の型注釈・Hash入力不整合による初回不合格は是正後に再実行し、検査条件を緩めていない。全体Checkerの先行3,227件は今回baseline差分を確定しておらず、既存だけ又は新規零とは主張しない。
+
+同じ最終候補で通常full-flowと公開品質受入STの計4件も成功した。通常の複数Task・継続判断後の再計画・Objective受入後のMilestone三判断と再送を確認し、全体回帰の代替とはしない。結果記録と現在投影の独立確認も追加指摘なし。今回の試験は自己生成領域の既存cleanupで終了し、実AI・Docker・過去保持物は操作していない。
+
+### 残件: 変更適用後のBlocker再評価
+
+| 項目 | 扱い |
+|---|---|
+| 内容 | 一つの判断や代替案の適用による、別Blockerの副次解決・新たな問題の出現・対象や分類の変化を再評価する |
+| 今回の判断 | 人間の指示によりv0.22の今回修正から分離。自動再評価・自動開閉・異種効果の自動順序付けは実装しない |
+| 保留の影響 | 状況が変わっても他のBlockerを自動解消しない。不一致の承認は未適用で停止し、明示的な確認・再提案が必要となる |
+| 担当責任者 | Qual-LabのDomain Model／Coordinator設計Owner |
+| 再評価契機 | 後続版の設計時、又は代替案適用後の問題集合更新を自動化する必要が具体化した時 |
+| 再検討する条件 | 評価主体・根拠・対象範囲・旧提案の失効・履歴と、別問題の解消／出現を誤認しない検証を定義してから採否を判断する |
+
+自動再評価は今回の完成条件へ含めず、既知問題の進行制御を再評価機能の完成として表示しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+<a id="blocker-proposal-cardinality"></a>
+
+## Blockerと提案・回答の1:N化 — 2026-11-12
+
+状態: 人間採用済みの一体変更について実装・限定回帰・独立確認を完了。基準Commitは`812c2dee3`、既存の未Commit判断統合・期限撤去差分へ続ける。変更分類は未公開Schema・公開入力・状態終了契約の変更。問題一件に複数提案、提案ごとに回答0..1件を保持し、過去の拒否・保留・無効化を新提案で上書きしない。
+
+| Owner／利用側 | 今回の処置 |
+|---|---|
+| Domain判断モデル | Blockerの初期対象・理由を保持し、currentDecisionIdだけを現在提案へ更新。Decision.blockerIdを1:Nへ接続。accept／resume適用だけresolved、return／wait／未適用はactive、cancel適用はcancelled |
+| Domain候補・Writer | 同Ownerの現在対象・回答先・世代・Revision・Queue・前本文を照合し、判断・Blocker・適用Stateを一回CAS。新Manager・Store・Lockは作らない |
+| 履歴・退役 | 全イベントへblockerIdを追加。全関連提案の履歴本文を確認し、現Project・Queue・結果の参照がなければ終了Blockerと全提案を一括退役。一部だけの削除は拒否 |
+| Coordinator／MCP | 新規提案要求と受入入力でblockerIdを必須搬送。IDからの推測・fallbackはせず、再提案の回答先変更も許可しない |
+| Queue／採用結果の終了 | 過去の全判断applied検査をactiveなBlocker検査へ置換。Task終端・Cleanup・Lease不存在の確認は維持 |
+
+着手前は親と読取り専用確認者で、回答先乗っ取り、過去提案の遅延処置、初期対象と各提案世代の相関、履歴欠測・部分退役、通常／中止の終了条件を照合した。対象・kind・Queue・回答先が異なる再提案、pending中の重複、終了Blockerの再開は拒否する。過去提案の同一再送は保存0の再観測だけで現在参照を戻さない。新たな人間判断は不要。
+
+旧一対一の保存値・履歴は自動変換せず拒否し、過去保持物の移行・操作は行わない。処理Timeout・Lease期限・保持Policy・DI・Executor・AI Adapterの製品Sourceは不変更。Source／契約の独立確認と、利用側・文書／QAの独立確認を実施する。文書と限定影響確認を対象とし、準拠基準・Releaseを変えないため準拠／Release監査は非該当。全体回帰・実AI・Dockerは実施しない。
+
+初回固定31 Fileの候補`5a25e598503caf8fe2baefa0fdf9d7af0975ea27ab0c8c7bd33e3cd8c0be07ae`の独立確認を両方受領した。Sourceは「別Blockerが複数ある場合のcancel後の永久終了待ち」、文書は旧一対一退役条件の残存を指摘した。全結果を統合して両確認者へ是正案を戻した。既存cancelはMilestone全体を中止するため、採用済みの中止意味に従い同Project・Milestoneのactive問題を同CASでcancelledへ投影し、物理Effect・認可のscopeは拡大しない。cancelledだけcancelledByDecisionIdを必須にし、同scopeの適用済みcancelを保存codecで確認する。参照先の先行退役を拒否し、技術回復・Cleanup・Lease条件は保持する。新field・依存を含むため着手前整合確認と独立レビューを更新候補でやり直し、初回結果を完成根拠に流用しない。
+
+是正候補`eebec478c7cc929530ff1d5fe1f848d5aec4ce3b5bb4424543576f9a57cfc00a`のSource／Consumer独立再確認はいずれも追加必須指摘0件。最後にcancel適用結果のnextStateがcancelledであることを検査し、実行継続状態への改ざん反例を追加した2 Fileも両者が確認して残指摘0件。最終の31 File候補は`5c337d9c60e0a0e06a25d53232d3f18ea4b6f838246daf544b2f56ae8f03650d`。各HashはPath昇順・Path／NUL／本文bytes／NULのSHA-256で、index移動の有無とは独立に現物を識別する。以後の変更は結果記録と現在投影だけで、製品Sourceは固定する。
+
+最終の局所単体・MCP・保存codec・終了／退役候補・設計対応は80件成功、Root公開境界13件も成功。公開受入・継続判断の4 ITは同じ問題への保留後承認、別問題2件を含む中止、履歴故障・Lease競合を実保存で確認した。Domainの保存ITは2提案の履歴保全、過去提案だけの履歴欠測時の退役拒否、全提案の一括退役、保持履歴中のBlocker ID再利用拒否を確認して成功。最終のcancel先状態相関の一行は局所80件で再確認した。先行候補の通常full-flow／品質受入STの4件も成功したが、最後の中止scope是正の実境界根拠へ流用しない。重複実行件数は合算しない。
+
+Coordinator製品／試験・Domain・MCPの型4設定、最終16 TypeScript Fileの静的確認、設計対応CLI（40遷移・40結合）とdiff空白確認は成功。保存ITの初回拡張で、fixtureの新要求時刻が旧提案の実適用時刻より前だったため拒否を検出し、fixture時刻を実順序へ是正した。製品の順序検査は緩めていない。今回生成したRepositoryと試験物は各hookで回収した。横断文書Checkerの先行未合格は残り、全体品質のPass・全体回帰・実AI／Docker E2E成立を主張しない。既存保持物・自動移行・Commit／Pushは操作していない。現在、この限定実装に追加の人間判断は不要。
+
+<a id="decision-without-expiry"></a>
+
+## 判断期限の撤去 — 2026-11-12
+
+状態: 判断期限の撤去と限定検証は完了。判断の`expiresAt`、要求の`lifetimeMs`、状態`expired`、履歴`decision_expired`と期限遷移を撤去した。時間経過は問題の解消や判断不要を意味しないため、未回答・保留を自動失効させない。処理Timeout、Lease期限、履歴保持期間は別契約として不変更。
+
+対象はDomainの判断値・候補・公開入力・Writer、Coordinatorの要求構築、MCP Schema、正式QAと設計対応表、その直接試験である。既存作業差分を基準にした後続是正で、旧経路や互換Reader、新たな保存物は追加しない。未公開の新Schemaに旧期限fieldを持つ記録は自動変換せず拒否し、旧保持物へは触れない。
+
+着手前に要求→回答→適用→明示無効化の所有者と全利用側を照合した。日時形式・順序・未来回答拒否、現在の主体・対象・世代・Revision・Queue・Lease・CAS・履歴確定は維持する。正例は時間経過後の正規回答・後日適用、拒否例は旧field／旧期限閉鎖／旧履歴、境界例は要求より前の回答・回答より前の適用、情報不足例は対象・時刻欠測での停止とする。
+
+Source・保存契約の独立確認と、文書・利用側・QAの独立確認を実施する。文書監査と限定した影響確認は現行Owner・Schema・追跡表へ絞り、準拠基準・安定ID・Releaseは変更しないため準拠監査／Release監査は対象外。全体回帰・実AI・Docker・過去保持物は操作しない。現在の期限撤去に新しい人間判断は不要。
+
+Blockerの開閉については、承認＋必要な適用完了だけ解消、拒否・保留・未適用はOpen、中止は解消と区別して終了する意味を人間が採用した。旧閉鎖Blockerを対象一致だけで一括解消する案は撤回する。このモデルのSource反映と再提案接続は別の残実装であり、期限撤去の限定成功から5系統全体の完成を主張しない。先行節の期限・人間判断待ちの記載はこの見直し前の経緯として読む。
+
+固定候補24 FileのPath昇順と各Path・NUL・本文bytes・NULのSHA-256は`2f12d31fc143c70301b6e3c1d8659e69799bd4f086a6af89f3a6aa5b15e978c3`。実行時は未Commit差分で、基準Commitだけからの根拠とは扱わない。Source／保存契約とConsumer／文書／QAの独立確認を両方受領し、追加必須指摘は0件。確認中に差分がindexへ移ったが、確認者は取得済み差分と現物を照合した。レビュー後はこの結果記録以外の製品Sourceを変更していない。
+
+実行結果は、Domain判断UT・公開判断入力UT・MCP UT・設計対応ITの45件、公開受入／継続判断ITの4件、DomainのState／履歴再入場ITの1件、通常受付・二Task・判断後再計画のfull-flow ITの3件が成功。設計対応CLIは40遷移・40結合でaccepted、Coordinator製品／試験・Domain・MCPの型4設定も成功。今回の16 TypeScript Fileの静的確認はエラー・警告0、既存の文字列連結に情報指摘1件で、無関係な書換えはしない。横断文書Checkerの先行不合格は解消したと主張せず、全体回帰も実行していない。
+
+<a id="decision-state-consumer-closure"></a>
+
+## 判断統合の残り5系統 — 2026-11-12
+
+状態: 実装と限定回帰を進行中。先行段階の未完了表示は以下の現在値で更新する。基準Commitは引き続き`812c2dee3`。変更分類は採用済みの保存Schema・公開契約・状態遷移・信頼境界の整理であり、Release／準拠基準を変更しない。着手前の読取り専用確認で、継続判断の保存前後、回答先、Queue／Lease、後日適用の期限、旧試験の安全反例、報告保存Consumerを照合した。
+
+| 対象 | 現在の実装と保持条件 |
+|---|---|
+| 継続判断 | 公開`submitDecision`のrequest／answer／apply／closeをDomainの同一Writerへ接続。質問発行時にBlockerとQueue待機を保存し、回答は現在認証主体と元回答先をexact一致させる。resumeは再計画待ちに進めるだけでAIを再送しない |
+| 利用側 | MCPはv2の操作別閉SchemaとDomainの結果検査を使用。主体を入力から自己指定させず、判断・履歴・回復要否を分けて搬送する。Workbenchの判断照会は既存認可付きQueryを維持する。未使用のHost opener引数・接続・試験counterを撤去 |
+| 旧経路 | Host Store、継続Bearer／Hash／再発行、二段階Port、旧Envelope・判断回復区画と専用CRUD・検査を撤去。旧Schema・旧fieldは拒否し、Readerや自動移行を設けない。旧保持物の処置はフロントAIが別途明示実施 |
+| 後日適用・閉鎖 | 元回答を保持し、同Ownerで元本文・現在世代・Queue／Lease Intent・現在期限を再検査する。適用済みの再送はState保存0。明示閉鎖はBlocker／Queueを解消せず、回答済み期限切れは明示無効化で扱う |
+| 保存Helper | Domainの汎用committed-jsonとRoot公開を撤去し、現役の検証報告だけExecutorの`scripts/report.ts`へ専用化。sidecar・Hash・byte・実体・部分保存／削除不明の意味は維持する。bounded ReaderはState／AM／設定／CLIの現役共通義務がある一実装として維持し、コピー・新Package・Storeを増やさない |
+
+新しいRuntime機構ではなく、旧専用経路を削減する。再計画分類で人間への質問が必要と分かっただけではDecisionを発行したことにせず、認証済みrequest操作が質問・Blocker・Queueを一回保存する。必須のState保存と履歴の論理追記は別結果で、履歴故障からの再入場は元回答・元適用時刻を変更しない。
+
+### 退役試験と保証の対応
+
+| 旧試験・処理 | 現在の確認先又は撤去理由 |
+|---|---|
+| Capability Adapter／発行Token・Hash試験 | Token機構は代替なしで退役。別主体・旧field・未知操作は新`decision/lifecycle` UT、現在世代・回答先・再送は公開continuation IT |
+| Windows Decision Store／独立Recovery Store | Host固有保存・独立Hash連鎖は保証対象から撤去。一回State CAS・原本相関・履歴保存不明はDomainのruntime-snapshot-io ITと公開continuation IT |
+| 旧受入Port／Coordinator内の重複純粋遷移 | 新`acceptance-decision.integration`の公開acceptResult実保存、既存ST三分岐、Domainの判断候補UTへ接続。Task完了だけの上位受入を引き続き禁止 |
+| replan／full-flowの旧Map・Bearer fixture | retry／部分再計画は既存試験を保持し、質問発行と回答を公開入口へ接続。新しい実Git HEAD・正規Binding・実Stateを使用 |
+| 旧Domain committed-json UT／IT | Executor report UT／ITへ移管。本番判断Storeの証明として流用せず、報告本文・sidecar・削除状態・中断・対象外File保全だけを担当 |
+| 設計整合Checkerの旧継続Protocol | 旧別Store・prepared／finalized条件を撤去。現在の判断5状態、回答先・内容付き履歴、同一CASの判断／Milestone／Queue投影、閉鎖後の不適用を明示検査し、条件欠落の負例も置換 |
+
+限定確認では、公開入力・Domain・MCPの57件、変更対象の純粋処理133件、設計整合10件、公開受入／継続回答／閉鎖3件、実Lease競合後の明示適用1件、DomainのState／履歴再入場1件、受入ST・全体flow／再計画等の結合試験を確認した。報告保存の移管試験12件は最終Sourceで成功。初回の報告試験では移管した試験の参照Path誤り1件と、制限環境でのHardlink作成拒否1件を検出し、Path是正と許可された今回試験領域だけの再実行で確認した。製品検査は緩めていない。重複実行を合算した総件数は表示しない。
+
+Domain・Coordinatorの製品／試験・Executor・MCP・Workbenchの型検査は成功。台帳は旧専用3 Suite退役・新continuation IT追加・報告2 Suite移管により407件でvalid。正式QA項目数は205件のまま。文書・Source・QAの独立完成レビューと残る選択結合試験は実施中で、現時点では完了を主張しない。公開Module集合検査はDomainの追従後、既存EI allowlist不整合で停止した。成果物関係の別2検査は成功し、これを横断Checker全体Passにしない。
+
+全体回帰・実AI・Docker・過去保持物への操作・自動移行は実施しない。試験は今回生成したRepositoryと報告だけを終了hookで回収し、過去保持物を探索・清掃しない。新しい認可・Lock・Manager・互換Facadeは追加しない。
+
+### 独立確認の是正と現在の判断待ち
+
+固定候補`0012424542ac5517f7db011f451ccb37d001e7121c7ad3bead34c2ffc2d1129c`に対するSource／契約とConsumer／文書の独立確認を全件受領した。Sourceは2系統、Consumer／文書は3点の必須指摘で、両確認者へ統合是正案を戻し整合を確認した。
+
+一意に是正できる受入差戻しの実効条件差、現行文書の旧Bearer規定、正式ITの終了条件、移管したSPEC／Evidence差替え反例を是正した。Objective returnも基準数分の根拠を適用条件へ戻し、Milestone returnはStateの既存根拠を保全する。今回回答の根拠はDecisionに独立保持する。是正後の候補UT・公開受入ITは13件成功した。
+
+追加の選択結合7 Suiteは62件中59件成功・3件失敗だった。うちRuntime Data境界試験は、新継続判断の例外結果が回復参照・Effect・清掃条件を落とす実装漏れを検出した。既存の境界投影を利用し、結果検査も判断本文未観測とEffect観測を区別する契約へ追従した。実判断入口へ有限代役から例外を投入し、exact回復参照、Effect既知／未知、Owner解放未確認が失われないことを検証した。公開境界と投影の最終2件、型検査、対象3 Sourceの静的検査は成功。残るローカルHTTPの2失敗は接続制限下で再現し、許可された局所再実行では2件とも成功した。実AI・Dockerは使わず、製品の判定・期限を変更していない。初回62件全成功とは表示しない。
+
+追加の独立確認は、実装投影に新たな意味変更がないことを確認した一方、実例外経路の試験不足と現行Symbol表の旧経路を指摘した。実入口試験を追加し、現行表をacceptResult／submitDecisionの四操作、同State CAS・回答先照合・履歴別結果へ是正した。更新後のSource再確認は追加必須指摘なし。Consumer再確認で残った公開Ownerの導入一文もCoordinatorの現在Rootへ訂正した。最終のDomain判断・公開搬送・MCP単体35件は成功。今回だけの調査補助6 Fileは削除し、既存Runtime保持物は操作していない。閉鎖後Blockerの未解決指摘は残り、全体完了ではない。
+
+残る設計判断は、閉鎖した判断のBlockerと後続判断の解決との関係である。現行closeはBlockerをactiveのまま保持するが、Queue終了解決と判断退役がapplied／解消済みだけを認めるため、旧判断が新しい明示判断の完了後も整理を永久に妨げる。閉鎖単独でQueue／Blockerを解消する変更や、終了検査の単純撤去は行わない。同じexact対象・世代・Revision・Queueに対する後続の明示回答が実際に適用された時だけ旧閉鎖Blockerも解消する案を推奨候補とし、採用は人間へ戻す。現時点では未実装・未解決であり、5系統全体の完成やコミット可能とは表示しない。
+
+追加の文書CheckerはScopeから参照先へ展開して3,227指摘で不合格。変更Path上には既存PA品質関係、中央品質集合・条件の不整合、旧Native Symbol参照が残る。これは全体回帰の実行ではなく読取り検査である。基準との全数差分比較は今回未実施のため、全件を既存と断定したり、今回追加0と表示したりしない。
+
+<a id="decision-state-unification"></a>
+
+## 判断・阻害条件・履歴の統合 — 2026-11-11
+
+状態: 実装中。人間は6項目の統合方針を採用し実装を指示した。基準は`812c2dee3`、着手時は作業差分なし。AppData/LocalのDecision Store廃止を固定し、Package分離の前に判断モデル・保存単位を整理する。新モデル・Schema・内部Writer・履歴出版／再入場／退役確認を接続したが、本番公開入口・旧経路撤去・6項目全体の完了は主張しない。
+
+変更分類は保存Schema、公開契約、状態遷移、信頼境界の変更。設計OwnerはDomain／Coordinator詳細、検証OwnerはQA-000003の既存判断契約。実装前に現行の判断型、State codec・閉集合検査、Writer、Queue、履歴退役、Coordinatorの本番Host Storeと受入経路を照合した。読取り専用の保存契約確認者から、純粋遷移→新Schema→同Ownerの一回Writer→履歴再構成→利用側→旧経路撤去の順を確認した。これは完成後の独立レビューではない。
+
+実装・契約と利用側・検証・文書の独立レビューを行う。今回の製品変更はCRDD標準の準拠基準やRelease権限を変更しないため全面準拠監査は実施しない。全体回帰、実AI、Docker、過去保持物への読書き・清掃は対象外。旧保存物の自動移行・互換Reader・新Manager／Registry／Storeも追加しない。
+
+保持するCapabilityは、入口認証・現在認可、対象・世代・選択肢・期限、重複回答と適用拒否、同じStateのCAS、履歴確定前の退役拒否、Root／Link／Lock境界。不採用にする旧保証は、判断消費状態をRepository外へ隔離することと、Host独立世代・Hash系列・Bearerによる保護。同一Hostユーザーの任意改ざん・巻戻しは新方式の独立防御対象としない。AIからRuntime領域を書換えできない実接続の確認と、旧判断を無視して二重発行しない切替条件は未完了。
+
+初回実装は`decision/types.ts`のBlocker／Decision／回答・適用／内容付き履歴型、`decision/operations.ts`の要求・回答・後日適用・失効・履歴投影。質問と表示付き選択肢、入力された理由・根拠を保持する。回答・適用候補は一つで返し、外部の認可やQueue状態を検査したとは主張しない。要求・回答・適用の出来事を同じ判断から再構成し、要求時の履歴へ未来の回答を混入しない。日時はUTC正規形、期限ちょうどは回答拒否、種類違い・不整合世代・未知field・getter／Proxyを拒否する。
+
+既存PRL-UT-007のFileへ初回8ケースを追加し、元の2ケースと合わせ10件成功。独立Sourceレビューで、後日適用・閉鎖が元の状態と結果を全体検査せず、破損値を例外又は候補へ通す指摘1系統を受けた。両入口で元判断を既存の要求・回答検査から再構成し全文一致を確認するよう是正した。null／空／矛盾した結果、空理由、空質問、不正対象、未知field、pendingへの回答混入を両入口で例外なしnullとして拒否する追加ケースを含め、最終候補11件が成功した。Domain型検査、変更3 Sourceの書式・警告禁止check、試験台帳409件・差分空白検査も成功。独立Source再レビューは必須残指摘0。確認者は読取りのみで試験を再実行していない。純粋値の試験であり、CAS・履歴追記・実保存・本番認可・旧Store撤去の成立根拠にはしない。
+
+後続でSchemaをruntime-state/v3、Task Viewをproject-snapshot/v6へ更新し、decisions／blockersを必須にした。codec・初期化・投影・技術更新時の業務区画維持・試験fixture・表示／検証scriptの固定版を追従した。新要求と回答は既存の同Owner・一回Writerへ接続したがRootへまだ公開しない。回答候補はProject・Queue・Blockerを共同更新し、保存遷移検査が同じ候補を再導出する。履歴Gate未接続中は判断の退役を拒否する。
+
+初回の局所26試験は25成功・1失敗。不正な製品受理ではなく、型未指定の非空回復fixtureに新必須集合が欠けていたため、既存のexact参照反証を維持してfixtureへ空集合を明示した。再実行は全26成功、公開境界を含む再確認39成功、Lease／Queue／Workspace／履歴候補の追加28成功。実保存の選択ITは自己生成Repositoryで要求・回答・一改訂の状態確定・同一回答再送保存0・別回答保存0・旧版拒否を確認した。約9秒で1件成功し、fixtureの同一実体限定清掃hookに失敗なし。全体回帰ではない。
+
+独立レビューで回答検査より先に適用を導出する例外経路1件を受け、検査用の未適用候補をメモリ内だけで構成し、その後に最終候補を導出するよう是正した。accept／returnそれぞれのevidenceIds欠測・null・非配列で、例外なし固定拒否・元本文不変を確認する。Writerのfresh現在時刻を期限Gateへ供給し、過去の回答日時だけで現在の期限を通さない。追加指摘の適用日時も、回答日時でなく観測時刻を保存するよう是正し、履歴再導出には保存した適用時刻を用いる。修正後の独立再レビューは必須残指摘0。確認者は読取りのみで実試験は再実行していない。
+
+前段候補（Schema／内部Writer接続）の結果は判断・codec・遷移・公開境界の選択39件が成功。実保存の選択ITも再実行し、約17秒で1件成功、skip・失敗0で自己生成fixtureの清掃失敗は報告されていない。Domain型検査、Coordinator製品／試験のstrict検査、変更TypeScript32 Fileの書式・警告禁止check、台帳409件、HEAD基準の差分空白検査が成功した。静的checkの既存useTemplate情報14件はwarning／errorではなく、対象外の一括修正は行わない。全体回帰・実AI・Docker・過去保持物の操作、コミット・プッシュはしていない。
+
+今回の履歴接続候補では、Stateの判断から全イベントを再構成し、既存の共通履歴Writerのpending→flush→renameへ接続した。State確定と履歴確定は別結果にし、履歴失敗を未適用へ戻さない。必要な全イベントの同ID・同本文を実確認した後だけ、非参照・適用済み・Blocker解消済みの判断と対応Blockerを一つの保存で退役する。保持履歴に同じIDがある新規要求は、State保存前に拒否する。永久のID Registryは追加しない。
+
+是正前の履歴接続候補では、純粋値・公開境界の選択31件、履歴故障／再入場／退役の選択IT1件（約25秒）、従来の履歴再搬送／pending／fsync・rename故障4件が成功した。独立Sourceレビュー2件と文書・QAレビュー2系統の結果を統合した。Sourceでは期限跨ぎで元pendingが時刻由来の保持整理結果と不一致になる経路、要求捕捉前のID getter／Proxy評価を是正対象とした。両確認者へ統合案を提示し、整合確認後に適用した。判断publicationは既存行を保持し、期限整理を既存保守へ分ける。request全体を履歴再入場・ID参照より先に安全に捕捉し、同じコピーを用いる。
+
+正式QAは既存PRL-UT-007／IT-012／IT-013の意味を拡張せず、新しくPRL-UT-015（純粋判断値）とPRL-IT-014（判断State／History直接保存）を定義し、Suite／Case Header、Symbol、既存台帳Entryのtag／終了条件を接続した。新IDは全体利用を照合して未使用を確認した。台帳のPath・Level・既存ID・試験数409件は変えない。是正後の選択31件とIT1件（約16秒）は成功し、ITでは期限直前の非保護行を含むpendingを2日後に同じ本文で確定、State再保存0、後続保守での期限整理、getter／Proxy評価0・State／History保存0も確認した。前段の成功結果を今回候補の結果へ流用しない。Source／契約と文書／QAの独立再レビューはいずれも必須残指摘0。確認者は読取りのみで実試験は再実行していない。従来の履歴4件も是正後に再実行して成功した。
+
+限定文書検査から新QA2件の中央集約への未伝播を検出し、Quality Center／Integration／現実照合の現在集合とLocal Item一覧を追従した。全13定義の正式項目を読み取り再計数し205件、QA-000003は16件と確認した。追加3文書の独立確認も必須指摘0。過去の件数は履歴として残し、設計登録を実行・Pass件数へ読み替えない。台帳409件と差分空白検査も再確認した。QA-000003とDomain詳細を指定した文書検査は関連先へ展開し252指摘で終了1。同じ検査へ変更対象のHEAD本文を読取り時だけ投影した基準版比較も252指摘で、指摘全体の追加0・除去0だった。基準版の一時Directory、旧保持物の読書きは追加していない。今回差分による追加指摘0と横断文書全体のPassを区別する。
+
+残る接続は、後日適用／無効化のWriter、Root API・Coordinator／Workbench／MCP／CLIの公開入口、旧Host Store・Bearer・中間Port撤去、保存Helperの全Consumer追従。履歴出版・判断再入場・退役確認は内部接続済みだが、本番公開Capabilityと6項目全体は未完了。現行の終端履歴pendingを判断用配列と誤認して先に消さず、全生成元を置換する。旧Schemaは暗黙変換せず、過去保持物は不変更とする。
+
+公開入口切替の着手前確認で、旧継続判断は特定Principalに回答を限定している一方、新要求には回答先が欠けていると判明した。回答者集合を広げず、`respondentPrincipalId`を要求と履歴の共通値へ追加し、別主体・欠測を拒否する。入口の認証・認可からの設定は公開要求生成の切替時に接続する。同時に状態照会から旧Host Storeの開閉を本人確認として扱う接続を撤去し、全呼出し元・旧認証Store用fixtureを追従した。認証Context・Root・Revision・State観測は維持し、旧Storeがない認証済み照会を可能とする。これは全回答入口・旧Store撤去の完了ではない。
+
+同じ照合でObjective受付にも旧Storeの未使用可用性Gateを検出し、同じ認証Context分離の方針で撤去した。公開操作結合試験の偽認証StoreとDirectory生成を除き、openerが呼ばれたら失敗させる反例へ変更する。旧Storeの保存機能と回答の実相関を使うrunDecision側は未切替として残し、名前だけの互換引数は追加しない。
+
+今回の限定確認は判断／公開境界／履歴候補31件、状態照会6件、判断Stateの実保存1件（約16秒）、公開受入・照会の選択ST1件（約129秒）、Workspace・採用後照会の選択IT1件（約376秒）、公開Objective・照会・品質受入・再入場の選択IT1件（約160秒）の計41件が成功した。最後の公開操作ITではHost Store opener呼出し0を確認し、未認証の既存拒否を維持する。公開操作IT中にEIの同ID再送を`record_identity_conflict`・Effectなしで拒否する診断が出たが、EI全体の成立確認や是正は今回の対象ではない。型3設定、書式・警告禁止検査、台帳409件、差分空白検査も成功。useTemplate情報16件はwarning／errorではなく一括修正しない。Sourceと利用側・QA文書の独立再レビューは必須残指摘0（確認者の実試験再実行なし）。自己生成fixtureの試験終了hookが清掃を担い失敗は報告されていない。全体回帰・実AI・Docker・過去保持物の操作・コミット・プッシュは行っていない。
+
+### 明示受入の新判断集合への接続 — 2026-11-12
+
+変更分類・対象外・人間採用範囲は上記6項目を継承する。着手前の読取り確認により、既存受入commandは質問の事前発行を持たないため、要求と回答を同じOwnerの一回CASへ載せる固定操作を選択した。Domain Rootに`recordDecision`／`readDecision`と実利用するDecision／DecisionRequest／DecisionAnswerを明示公開し、別Facade・Portは追加しない。四区画をメモリ内のCreation→Submissionで再導出し、新規appliedを単に許可する緩和は行わない。既存差戻しで任意だったEvidence件数を新モデルが必須化していた点も、acceptだけ件数を照合する既存意味へ是正する。
+
+公開acceptResultはRoot／Revision／Workspace採用／Principal照合を保って新Writerへ接続し、旧prepared／finalizedの保存を経由しない。固定の受入質問は既存commandの意味を記録するもので、事前表示や新しい同意を主張しない。保存済み日時を再利用し、同じ回答は再適用せず履歴を確定する。適用済み再送は新規受入の許可ではなく、同一要求・回答の全文一致をWriterで確認する。履歴pending中の専用判断ReaderはStateの観測だけを許可する。公開結果でdecisionとhistoryを分け、正常回答後の保守を追加State保存の必須段階にしない。
+
+queryDecisionsの本番Readerと型を新集合へ同期し、現在認可・対象絞込み・返却前再認可・解放確認は維持する。現Stateの対象に旧判断記録があれば明示移行待ちで停止し、旧保存物の自動読取り・変換・削除はしない。継続判断、旧受入Portの試験、Host Store／Bearer、後日適用／無効化Writer、汎用保存Helperの撤去は未完了として残す。
+
+初回の純粋値・公開境界は27件中26成功で、失敗は追加Root名の期待配列の並び順だった。配列を実公開の辞書順へ追従し、Root13件が成功した。公開操作ITでは主体不一致の拒否結果から既存effectStateが落ちた1件を検出し、拒否条件を変えず元のno_effect封筒へ是正した。修正後の公開操作IT1件（約186秒）とWorkspace・採用後受入IT1件（約354秒）は成功した。これらは後述の競合是正前の経路確認であり、是正後候補の結果へ流用しない。
+
+独立Sourceレビューで、別Lockの適用済み観測から新規Gateを省略した後、Writerが既存不在時にCreationへ戻れる指摘1件を受けた。文書レビューでは、未切替の文言を継続判断へ限定すること、正式ST-009の保存単位・終了条件を新State／Blocker／Historyへ追従することの2系統を受けた。全結果と是正案を両確認者へ提示し、整合確認後に適用した。非永続のexpectedApplied比較値を既存入力捕捉へ含め、同Owner内・履歴処置前に現在applied全文一致と要求／回答再導出のnext:nullを必須にする。不在・別status・別本文・別回答ではCreationへ戻らず処置0で停止する。認可・Schema・Lock・通常新規記録の一回CASは変更しない。
+
+是正後は純粋判断・公開境界・履歴候補32件、判断State実保存の選択IT1件（約22秒）、公開受入・履歴故障再入場の選択ST1件（約92秒）が成功した。実保存ITは退役後の既存欠測、別本文・別status・別回答の拒否でState／履歴pending本文不変を確認し、同じexpected値の再送だけ履歴を確定する。公開STも同じ入力の再送でState本文不変を確認する。Domain／Coordinator製品／Coordinator試験の型3設定、書式・警告禁止検査、台帳409件、差分空白検査は成功。既存useTemplate情報16件は一括修正しない。Sourceと文書・利用側の独立再レビューは必須残指摘0（確認者の試験再実行なし）。自己生成fixtureの終了hookに清掃失敗の報告はない。全体回帰・実AI・Docker・過去保持物操作・コミット・プッシュは行っていない。
+
 <a id="settlement-revision-fix"></a>
 
 ## 終了記録の改訂番号の最小是正 — 2026-11-11

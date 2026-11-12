@@ -161,8 +161,8 @@ const emptyTaskSections = {
   leaseIntents: [],
   results: [],
   historyPending: [],
-  acceptanceDecisions: [],
-  decisionRecoveries: [],
+  decisions: [],
+  blockers: [],
   resultReceipts: [],
 };
 
@@ -241,7 +241,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const first = {
     ...emptyTaskSections,
-    schema: "crdd-domain/runtime-state/v2",
+    schema: "crdd-domain/runtime-state/v3",
     revision: 1,
     previous: null,
     repositoryBinding: repository.repositoryBinding,
@@ -3155,7 +3155,7 @@ for (const issuedFailure of [false, true]) {
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
-      `${encodeRuntimeStateValue({ ...emptyTaskSections, schema: "crdd-domain/runtime-state/v2", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeRuntimeStateValue({ ...emptyTaskSections, schema: "crdd-domain/runtime-state/v3", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     // 初期化の私有反例はDomainへ移管済み。このCaseは認証処置の前状態だけを配置する。
     assert.ok(
@@ -3485,7 +3485,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.ok(requestId);
     const snapshot = {
       ...emptyTaskSections,
-      schema: "crdd-domain/runtime-state/v2",
+      schema: "crdd-domain/runtime-state/v3",
       revision: 1,
       previous: null,
       repositoryBinding: repository.repositoryBinding,

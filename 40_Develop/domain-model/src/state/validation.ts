@@ -7,45 +7,53 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { RuntimeStoredManagedProject } from "./types.ts";
-import type { CoordinatorState } from "./types.ts";
-import { decodeRuntimeStateBytes } from "./codec.ts";
-import { validCoordinatorExecutionState } from "../attempt/validation.ts";
-import type { ProjectResultAcceptance } from "../task/types.ts";
-import { decodeProjectResultAcceptance } from "../task/validation.ts";
-import type { CoordinatorStoredTask } from "./types.ts";
-import type { ProjectTaskRecord } from "../task/types.ts";
-import type { ProjectTaskRecoveryObligation } from "../task/types.ts";
-import type { CoordinatorStateSnapshot } from "./types.ts";
-import { encodeRuntimeStateValue } from "./codec.ts";
-import { types } from "node:util";
-import { isDockerRestartCheckpointSettled } from "../attempt/validation.ts";
-import { coordinatorTaskResourcesAreSettled } from "../attempt/validation.ts";
-import type { CoordinatorSnapshot } from "./types.ts";
-import { validCoordinatorState } from "../task/validation.ts";
-import { validQueueEntry } from "../task/validation.ts";
-import { validCoordinatorWorkspace } from "../workspace/validation.ts";
-import type { LeaseEvidenceEnvelope } from "./types.ts";
-import { validCoordinatorResultRecord } from "../workspace/validation.ts";
-import type { CoordinatorAcceptanceDecisionEnvelope } from "../decision/types.ts";
-import { validCoordinatorAcceptanceDecisionEnvelope } from "../decision/validation.ts";
-import { validCoordinatorDecisionRecoveryIntent } from "../decision/validation.ts";
-import type { CoordinatorStateTaskOperation } from "../attempt/types.ts";
 import { createHash } from "node:crypto";
-import type { CoordinatorLeaseKind } from "./types.ts";
-import type { HistoryRow } from "./types.ts";
-import type { ProjectQueueEntry } from "../task/types.ts";
-import type { SingleTaskRecord } from "../task/types.ts";
-import type { ArraySnapshot } from "./types.ts";
-import type {
-  RuntimeDomainSnapshot,
-  RuntimeProjectDefinition,
-} from "./types.ts";
+import { types } from "node:util";
+import type { CoordinatorStateTaskOperation } from "../attempt/types.ts";
+import {
+  coordinatorTaskResourcesAreSettled,
+  isDockerRestartCheckpointSettled,
+  validCoordinatorExecutionState,
+} from "../attempt/validation.ts";
+import { validateDecisionCollections } from "../decision/operations.ts";
 import {
   inspectExecutionPlanDefinition,
   inspectRuntimeProjectDefinition,
 } from "../objective/validation.ts";
-import { hashRuntimeStateContent } from "./codec.ts";
+import type {
+  ProjectQueueEntry,
+  ProjectResultAcceptance,
+  ProjectTaskRecord,
+  ProjectTaskRecoveryObligation,
+  SingleTaskRecord,
+} from "../task/types.ts";
+import {
+  decodeProjectResultAcceptance,
+  validCoordinatorState,
+  validQueueEntry,
+} from "../task/validation.ts";
+import {
+  validCoordinatorResultRecord,
+  validCoordinatorWorkspace,
+} from "../workspace/validation.ts";
+import {
+  decodeRuntimeStateBytes,
+  encodeRuntimeStateValue,
+  hashRuntimeStateContent,
+} from "./codec.ts";
+import type {
+  ArraySnapshot,
+  CoordinatorLeaseKind,
+  CoordinatorSnapshot,
+  CoordinatorState,
+  CoordinatorStateSnapshot,
+  CoordinatorStoredTask,
+  HistoryRow,
+  LeaseEvidenceEnvelope,
+  RuntimeDomainSnapshot,
+  RuntimeProjectDefinition,
+  RuntimeStoredManagedProject,
+} from "./types.ts";
 
 /**
  * 保存済みcheckpointから同じ終了履歴行を導出する。
@@ -160,15 +168,15 @@ export function decodeRuntimeDomainSnapshot(
         "leaseIntents",
         "results",
         "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
+        "decisions",
+        "blockers",
         "resultReceipts",
       ])
     )
       return null;
     const snapshot = value as RuntimeDomainSnapshot;
     if (
-      snapshot.schema !== "crdd-domain/runtime-state/v2" ||
+      snapshot.schema !== "crdd-domain/runtime-state/v3" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -522,6 +530,14 @@ function validRuntimeTaskReferences(
     Readonly<{ projects: readonly Readonly<{ projectId: string }>[] }>,
   binding: string,
 ): boolean {
+  if (
+    !validateDecisionCollections(
+      snapshot.decisions,
+      snapshot.blockers,
+      snapshot.projects.map((project) => project.projectId),
+    )
+  )
+    return false;
   for (const key of [
     "intakeBindings",
     "projects",
@@ -753,99 +769,6 @@ function validRuntimeTaskReferences(
       )
         return false;
     }
-    if (
-      !Array.isArray(snapshot.acceptanceDecisions) ||
-      !Array.isArray(snapshot.decisionRecoveries)
-    )
-      return false;
-    const decisions = new Map<
-      string,
-      CoordinatorAcceptanceDecisionEnvelope[]
-    >();
-    for (const item of snapshot.acceptanceDecisions) {
-      if (
-        !isRuntimeStateObject(item) ||
-        !hasRuntimeStateKeys(item, [
-          "contract",
-          "repositoryBindingId",
-          "recordId",
-          "generation",
-          "previousHash",
-          "record",
-        ]) ||
-        !validId(item.recordId) ||
-        !validCoordinatorAcceptanceDecisionEnvelope(
-          item,
-          binding,
-          item.recordId,
-        ) ||
-        !isRuntimeStateObject(item.record) ||
-        !hasRuntimeStateKeys(item.record, [
-          "recordId",
-          "decisionId",
-          "sourceSpecId",
-          "projectId",
-          "milestoneId",
-          "repositoryRevision",
-          "expectedGeneration",
-          "target",
-          "targetId",
-          "decision",
-          "criterionEvidenceIds",
-          "principalId",
-          "disposition",
-          "newGeneration",
-        ]) ||
-        !projects.has(item.record.projectId)
-      )
-        return false;
-      const groups = decisions.get(item.recordId) ?? [];
-      groups.push(item);
-      decisions.set(item.recordId, groups);
-    }
-    for (const groups of decisions.values()) {
-      const first = groups.find((item) => item.generation === 1);
-      const second = groups.find((item) => item.generation === 2);
-      if (
-        !first ||
-        groups.length > 2 ||
-        new Set(groups.map((item) => item.generation)).size !== groups.length ||
-        (second &&
-          second.previousHash !==
-            hashRuntimeStateValueText(encodeRuntimeStateValue(first)))
-      )
-        return false;
-    }
-    const recoveries = new Set<string>();
-    for (const item of snapshot.decisionRecoveries) {
-      if (
-        !isRuntimeStateObject(item) ||
-        !hasRuntimeStateKeys(item, ["generation", "value"]) ||
-        !Number.isSafeInteger(item.generation) ||
-        Number(item.generation) < 1 ||
-        !validCoordinatorDecisionRecoveryIntent(item.value) ||
-        !isRuntimeStateObject(item.value) ||
-        !hasRuntimeStateKeys(item.value, [
-          "recoveryId",
-          "recordId",
-          "projectId",
-          "milestoneId",
-          "queueId",
-          "applicationId",
-          "expectedGeneration",
-          "newGeneration",
-          "observedDisposition",
-          "unknownBoundary",
-          "disposition",
-        ]) ||
-        queues.get(item.value.queueId)?.projectId !== item.value.projectId ||
-        queues.get(item.value.queueId)?.milestoneId !==
-          item.value.milestoneId ||
-        recoveries.has(item.value.recoveryId)
-      )
-        return false;
-      recoveries.add(item.value.recoveryId);
-    }
   }
   return true;
 }
@@ -859,7 +782,7 @@ export const COORDINATOR_STATE_CONTRACT =
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const COORDINATOR_STATE_SCHEMA = "crdd-domain/runtime-state/v2";
+export const COORDINATOR_STATE_SCHEMA = "crdd-domain/runtime-state/v3";
 
 /**
  * 検証済み操作の要約本文を一意に符号化する。
@@ -1236,7 +1159,7 @@ export function historyRow(value: unknown, now: number): HistoryRow {
 }
 
 export const COORDINATOR_PROJECT_SNAPSHOT_SCHEMA =
-  "crdd-coordinator/project-snapshot/v5";
+  "crdd-coordinator/project-snapshot/v6";
 
 /**
  * Plain 記録かを判定する。
@@ -1833,8 +1756,8 @@ function projectRuntimeSnapshotSections(
         "leaseIntents",
         "results",
         "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
+        "decisions",
+        "blockers",
       ].some(
         (key) =>
           !Array.isArray(
@@ -1899,12 +1822,12 @@ export function validCoordinatorSnapshot(
         "leaseIntents",
         "results",
         "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
+        "decisions",
+        "blockers",
         "workspaces",
       ]) ||
       value.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-      value.schemaRevision !== 5 ||
+      value.schemaRevision !== 6 ||
       value.repositoryBindingId !== binding ||
       value.repositoryRootHash !== rootHash ||
       !validId(binding) ||

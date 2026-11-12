@@ -1830,7 +1830,7 @@ for (const publicationFault of [
         target.identity.consumer = "workbench";
       targetManagement = target.management;
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v2", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v3", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
       const snapshotArea = requireReadyRepositoryRuntimeDataArea(

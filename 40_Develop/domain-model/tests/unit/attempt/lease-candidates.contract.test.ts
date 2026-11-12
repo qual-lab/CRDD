@@ -10,23 +10,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  projectCoordinatorLeaseAcquisitionOwner,
-  prepareCoordinatorLeaseAcquisitionReservation,
-  prepareCoordinatorLeaseAcquisitionConfirmation,
-  prepareCoordinatorLeaseReleaseIntent,
-  prepareCoordinatorLeaseReleaseSettlement,
-  projectCoordinatorLeaseOwnerLossState,
-  prepareCoordinatorReleasedLeaseReconciliation,
-  prepareCoordinatorLeaseRecoveryReservation,
-  prepareCoordinatorLeaseRecoverySettlement,
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type CoordinatorSnapshot,
   encodeRuntimeStateValue,
   hashRuntimeStateValueText,
-  leaseIdentity,
-  type CoordinatorSnapshot,
-  type ProjectQueueEntry,
   type LeaseEvidenceEnvelope,
+  leaseIdentity,
+  type ProjectQueueEntry,
+  prepareCoordinatorLeaseAcquisitionConfirmation,
+  prepareCoordinatorLeaseAcquisitionReservation,
+  prepareCoordinatorLeaseRecoveryReservation,
+  prepareCoordinatorLeaseRecoverySettlement,
+  prepareCoordinatorLeaseReleaseIntent,
+  prepareCoordinatorLeaseReleaseSettlement,
+  prepareCoordinatorReleasedLeaseReconciliation,
+  projectCoordinatorLeaseAcquisitionOwner,
+  projectCoordinatorLeaseOwnerLossState,
 } from "../../../src/index.ts";
+
 /**
  * 九用途の局所元版を作る。
  * @responsibility 元対象・観測順・証拠全文・対象外不変を反証する。
@@ -57,7 +58,7 @@ function fixture() {
   };
   const current: CoordinatorSnapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 5,
+    schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -70,8 +71,8 @@ function fixture() {
     leaseIntents: [],
     results: [],
     historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
+    decisions: [],
+    blockers: [],
   };
   const intent: CoordinatorSnapshot["leaseIntents"][number] = {
     projectId: "project-a",

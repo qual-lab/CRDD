@@ -1,5 +1,11 @@
 # MCP Transportアーキテクチャ
 
+## 継続判断のState接続 — 2026-11-12
+
+`crdd.submit_decision`はDomain所有のv2操作契約へ接続する。`operation`はrequest／answer／apply／closeの閉集合で、対象Project・Milestone・元世代・Repository Revisionを共通に搬送する。要求には明示blockerId・Queue・質問・表示選択肢に対応する値、回答には選択と任意comment、閉鎖にはinvalidatedと理由を指定する。同じ問題への再提案は同じblockerIdと新しいdecisionIdを使い、判断IDからBlockerを推測しない。判断の期限は設けず、旧lifetimeMs・expiresAt・expiredは未知入力として拒否する。回答先Principalは現在の認証ContextからCoordinatorへ搬送し、Tool入力で指定しない。再提案でも元回答先との一致をDomainの同Owner内で確認する。
+
+結果の`decision`と`history`を分けて搬送し、回答保存済み・未適用、適用済み・履歴未確定、明示閉鎖を成功推定へ畳まない。旧continuationCapability・再発行・Host保存Rootを受け付けず、MCP独自の判断Storeや認可を追加しない。公開結果もDomainの閉形式検査を利用し、認証・現在の内容認可・返却前再認可は既存入口で維持する。
+
 ## Core実行依頼定義の直接接続 — 2026-10-28
 
 配布入口`template/tools/crdd-mcp-server.ts`もCoreを既定とする。単体stdio／HTTPでは起動RepositoryのManifestと真正Rootへ結合した定義操作を構成し、`--automation`を最初の引数として明示した場合だけCoordinatorの四操作を固定Moduleから構成する。読込み失敗は終了値2で停止しCore-onlyへfallbackしない。`--cros`は従来のAM認可付きCore入口であり、未接続の`--cros`と`--automation`の併用、重複又は位置違いは起動前に64で拒否する。Nodeの既存24.12.0下限は当入口の現在Processで検査し、Coordinator診断の読込みを必要としない。

@@ -3,6 +3,9 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    {"symbolId":"executor.verification.report","kind":"file","path":"scripts/report.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"executor.test.unit.report","kind":"test-suite","path":"tests/unit/report.contract.test.ts","qaIds":["QA-000008"],"localTestIds":["RDL-UT-005"],"verifies":["executor.verification.report"]},
+    {"symbolId":"executor.test.integration.report","kind":"test-suite","path":"tests/integration/report.integration.test.ts","qaIds":["QA-000008"],"localTestIds":["RDL-IT-001"],"verifies":["executor.verification.report"]},
     {
       "symbolId": "executor.verification.node-provider-home",
       "kind": "verification-tool",

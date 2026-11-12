@@ -5,15 +5,18 @@
  * @trace ARCH-000004、ARCH-000008
  * @boundary 実行対象選択・Scheduling・回復判断・物理保存は所有しない。
  */
-import type { CoordinatorSnapshot } from "../state/types.ts";
-import type {
-  ProjectQueueEntry,
-  CoordinatorQueueEnqueueInput,
-} from "./types.ts";
-import { validId } from "../state/validation.ts";
-import { validQueueEntry } from "./validation.ts";
+
 import { coordinatorSnapshotIntakeMatches } from "../state/transition.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../state/validation.ts";
+import type { CoordinatorSnapshot } from "../state/types.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  validId,
+} from "../state/validation.ts";
+import type {
+  CoordinatorQueueEnqueueInput,
+  ProjectQueueEntry,
+} from "./types.ts";
+import { validQueueEntry } from "./validation.ts";
 /**
  * 実行Ownerが要求したQueueのLease解放確定候補を導出する。
  * @responsibility 世代・元Owner・解放証拠・intentを照合し、実資源不存在は元位置の観測だけを使う。
@@ -261,6 +264,7 @@ export function prepareCoordinatorQueueSelection(
 
 import { validResultReference } from "../state/validation.ts";
 import type { ProjectQueueState } from "./types.ts";
+
 const QUEUE_TRANSITIONS = Object.freeze({
   queued: Object.freeze(["leased", "waiting_foreground", "cancelled"]),
   leased: Object.freeze([
@@ -373,6 +377,17 @@ export function prepareCoordinatorQueueOperationUpdate(
     ).includes(next.state)
   )
     return blocked("orchestrator_queue_transition_invalid");
+  if (
+    next.state !== previous.state &&
+    ["queued", "leased", "running"].includes(next.state) &&
+    current.blockers.some(
+      (blocker) =>
+        blocker.status === "active" &&
+        blocker.target.projectId === previous.projectId &&
+        blocker.target.milestoneId === previous.milestoneId,
+    )
+  )
+    return blocked("orchestrator_queue_blocker_active");
   if (
     previous.state === "recovery_required" &&
     next.state === "recovery_required" &&
@@ -503,9 +518,9 @@ export function prepareCoordinatorQueueRecoverySettlement(
 }
 
 import { encodeRuntimeStateValue } from "../state/codec.ts";
-import { inspectSingleTaskRecord } from "./validation.ts";
-import type { SingleTaskRecord } from "./types.ts";
 import { historyRow } from "../state/validation.ts";
+import type { SingleTaskRecord } from "./types.ts";
+import { inspectSingleTaskRecord } from "./validation.ts";
 /**
  * 単発Taskの受付候補を既存Queueへ限定する。
  * @responsibility 元ID・世代・失敗・回復参照と対象外区画を保全する。

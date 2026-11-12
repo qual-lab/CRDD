@@ -117,12 +117,10 @@ const SOURCE_ROLES = {
   pure: [
     "state/projection.ts",
     "state/types.ts",
-    "decision/types.ts",
     "decision/request.ts",
     "state/persistence.ts",
     "state/create.ts",
     "state/validation.ts",
-    "decision/transition.ts",
     "objective/types.ts",
     "objective/plan.ts",
     "state/result.ts",
@@ -153,7 +151,7 @@ const SOURCE_ROLES = {
     "selection/resolve.ts",
     "state/initialize.ts",
   ],
-  storage: ["decision/store.ts", "execution/intelligence.ts"],
+  storage: ["execution/intelligence.ts"],
   technicalExecution: [
     "execution/configuration.ts",
     "execution/files.ts",
@@ -419,10 +417,6 @@ function assertPureImportEdges(
                 "captureRuntimeOwnedCoordinatorTaskResultDelivery",
               ].includes(name),
             )) ||
-          (module === `${SOURCE_PREFIX}objective/types.ts` &&
-            specifier === "../decision/store.ts" &&
-            names.length === 1 &&
-            names[0] === "openRuntimeOwnedWindowsProjectDecisionStore") ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
             specifier === "../execution/result.ts" &&
             resolved === `${SOURCE_PREFIX}execution/result.ts` &&
@@ -459,13 +453,6 @@ function assertPureImportEdges(
             "isCoordinatorProjectionSemanticallyValid",
           ],
           "state/types.ts": ["CoordinatorState"],
-          "decision/types.ts": [
-            "CoordinatorAcceptanceDecision",
-            "CoordinatorAcceptanceDecisionRecord",
-            "CoordinatorAcceptanceTarget",
-            "CoordinatorDecisionRecord",
-            "CoordinatorDecisionRecoveryIntent",
-          ],
           "decision/request.ts": [
             "CoordinatorAcceptanceDecision",
             "CoordinatorAcceptanceTarget",
@@ -490,10 +477,6 @@ function assertPureImportEdges(
           "state/validation.ts": [
             "COORDINATOR_STATE_CONTRACT",
             "normalizeRepositoryRelativePath",
-          ],
-          "decision/transition.ts": [
-            "CoordinatorAcceptanceDecisionInput",
-            "CoordinatorState",
           ],
           "objective/types.ts": [
             "CoordinatorObjectivePlan",

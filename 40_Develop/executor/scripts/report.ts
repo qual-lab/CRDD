@@ -1,10 +1,9 @@
 /**
- * JSON本文と確定sidecarの同一性を検証して保存・読取り・削除する。
- * @responsibility 実体・Hash・byteの確定と観測不能拒否だけを所有し、Task・Docker回復ID・認可を解釈しない。
+ * Executor検証用の結果本文と確定sidecarを保存・観測・回収する。
+ * @responsibility 試験Root内の結果相関・実体・Hash・byteの確定と観測不能拒否を所有する。製品State・判断・認可を保存しない。
  * @trace ARCH-000008
- * @trace ARCH-000003
  * @boundary 呼出し元が検証した保存Rootと同一FileIdentity。Lock・利用許可・業務Schemaは呼出し元が所有する。
- * @compatibility 既存commit Schema・suffix・有限失敗理由を維持する。停電耐久性は保証しない。
+ * @compatibility 検証結果だけのSchema・suffix・有限失敗理由を維持する。旧判断Storeの互換読取りや自動回復は提供しない。
  */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -17,7 +16,7 @@ const DELETE_PREFIX = ".crdd-delete-";
 const INTENT_PENDING_SUFFIX = ".pending";
 
 /**
- * committed-jsonで使用するFile Identityの値契約を定義する。
+ * 検証報告のFile Identityの値契約を定義する。
  *
  * @responsibility File IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
@@ -34,17 +33,17 @@ type FileIdentity = Readonly<{
 }>;
 
 /**
- * committed-jsonで使用するCommitted Jsonの値契約を定義する。
+ * 検証報告の確定本文とsidecarの値契約を定義する。
  *
  * @responsibility Committed JsonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @shape CommittedJsonが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CommittedJsonで宣言した値と責務の対応を維持する。
- * @boundary N/A: CommittedJsonの宣言は外部境界を開かない。
- * @security CommittedJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility CommittedJsonの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape VerificationReportが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerificationReportで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerificationReportの宣言は外部境界を開かない。
+ * @security VerificationReportはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerificationReportの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type CommittedJson = Readonly<{
+type VerificationReport = Readonly<{
   target: string;
   commit: string;
   serialized: string;
@@ -395,9 +394,9 @@ function readIntentAnchor(anchor: string) {
  *
  * @responsibility committed Pair Evidenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
- * @input source: CommittedJson
+ * @input source: VerificationReport
  * @returns committedPairEvidenceの計算結果を返す。
- * @precondition 「source: CommittedJson」がcommittedPairEvidenceの入力契約を満たす。
+ * @precondition 「source: VerificationReport」がcommittedPairEvidenceの入力契約を満たす。
  * @postcondition committedPairEvidenceの責務を完了した結果だけを返す。
  * @effect 呼出し元が検証・排他したRoot内で、対象Fileと確定用短命物のI/Oだけを行う。
  * @failure N/A: committedPairEvidenceは独自の失敗分岐を所有しない。
@@ -406,7 +405,7 @@ function readIntentAnchor(anchor: string) {
  * @security committedPairEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: committedPairEvidenceは共有非同期状態を持たない同期処理である。
  */
-function committedPairEvidence(source: CommittedJson) {
+function committedPairEvidence(source: VerificationReport) {
   const commit = readStableFile(source.commit);
   return Object.freeze({
     logicalKey: source.logicalKey,
@@ -539,7 +538,7 @@ function resumeDeleteAnchor(anchor: string) {
     String(pair.commitSerialized),
     String(pair.commitIdentity),
   );
-  const state = classifyCommittedPairDeleteState(targetPresent, commitPresent);
+  const state = classifyReportDeleteState(targetPresent, commitPresent);
   if (state === "third_state")
     throw new Error("docker_recovery_delete_intent_third_state");
   if (state === "remove_content") fs.rmSync(target);
@@ -614,17 +613,17 @@ function writeAtomicFile(
  * @responsibility docker 回復 Commit Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input name: string
- * @returns getJsonCommitNameの計算結果を返す。
- * @precondition 「name: string」がgetJsonCommitNameの入力契約を満たす。
- * @postcondition getJsonCommitNameの責務を完了した結果だけを返す。
- * @effect N/A: getJsonCommitNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: getJsonCommitNameは独自の失敗分岐を所有しない。
- * @invariant getJsonCommitNameは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: getJsonCommitNameはProcess内の同一Subsystemで完結する。
- * @security getJsonCommitNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: getJsonCommitNameは共有非同期状態を持たない同期処理である。
+ * @returns getReportCommitNameの計算結果を返す。
+ * @precondition 「name: string」がgetReportCommitNameの入力契約を満たす。
+ * @postcondition getReportCommitNameの責務を完了した結果だけを返す。
+ * @effect N/A: getReportCommitNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: getReportCommitNameは独自の失敗分岐を所有しない。
+ * @invariant getReportCommitNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: getReportCommitNameはProcess内の同一Subsystemで完結する。
+ * @security getReportCommitNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: getReportCommitNameは共有非同期状態を持たない同期処理である。
  */
-export function getJsonCommitName(name: string) {
+export function getReportCommitName(name: string) {
   return `${name}${COMMIT_SUFFIX}`;
 }
 
@@ -634,24 +633,24 @@ export function getJsonCommitName(name: string) {
  * @responsibility 確定JSONの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、name: string、logicalKey: string、value: unknown
- * @returns CommittedJsonを返す。
+ * @returns VerificationReportを返す。
  * @precondition 呼出し元がRoot・exact Path・basenameと権限を検証し、排他を保持している。
- * @postcondition writeCommittedJsonの責務を完了した結果だけを返す。
+ * @postcondition writeReportの責務を完了した結果だけを返す。
  * @effect 呼出し元が検証・排他したRoot内で、対象Fileと確定用短命物のI/Oだけを行う。
- * @failure writeCommittedJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure writeReportは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 指定named pairと同じRootの確定用短命物以外を変更しない。
  * @boundary 検証済み保存RootとFilesystem。同時操作の排他は呼出し元が所有する。
  * @security symlinkと同一Path置換を拒否する。別名hardlinkの発見・拒否・消去や秘密の完全消去は保証しない。
- * @concurrency N/A: writeCommittedJsonは共有非同期状態を持たない同期処理である。
+ * @concurrency N/A: writeReportは共有非同期状態を持たない同期処理である。
  */
-export function writeCommittedJson(
+export function writeReport(
   directory: string,
   name: string,
   logicalKey: string,
   value: unknown,
-): CommittedJson {
+): VerificationReport {
   const target = path.join(directory, name);
-  const commit = path.join(directory, getJsonCommitName(name));
+  const commit = path.join(directory, getReportCommitName(name));
   if (pathPresent(target) || pathPresent(commit))
     throw new Error("docker_recovery_record_already_exists");
   const serialized = canonical(value);
@@ -684,20 +683,20 @@ export function writeCommittedJson(
  * @responsibility 確定JSONの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string、expectedLogicalKey
- * @returns CommittedJsonを返す。
+ * @returns VerificationReportを返す。
  * @precondition 呼出し元がRoot・exact Path・basenameと権限を検証し、排他を保持している。
- * @postcondition readCommittedJsonの責務を完了した結果だけを返す。
+ * @postcondition readReportの責務を完了した結果だけを返す。
  * @effect 呼出し元が検証・排他したRoot内で、対象Fileと確定用短命物のI/Oだけを行う。
- * @failure readCommittedJsonは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readCommittedJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @failure readReportは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readReportは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 検証済み保存RootとFilesystem。同時操作の排他は呼出し元が所有する。
  * @security symlinkと同一Path置換を拒否する。別名hardlinkの発見・拒否・消去や秘密の完全消去は保証しない。
- * @concurrency N/A: readCommittedJsonは共有非同期状態を持たない同期処理である。
+ * @concurrency N/A: readReportは共有非同期状態を持たない同期処理である。
  */
-export function readCommittedJson(
+export function readReport(
   file: string,
   expectedLogicalKey = path.basename(file),
-): CommittedJson {
+): VerificationReport {
   const content = readStableFile(file);
   const value = JSON.parse(content.serialized);
   if (canonical(value) !== content.serialized)
@@ -742,21 +741,21 @@ export function readCommittedJson(
  * @responsibility 確定JSONの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input file: string、expectedLogicalKey
- * @returns removeCommittedJsonの計算結果を返す。
+ * @returns removeReportの計算結果を返す。
  * @precondition 呼出し元がRoot・exact Path・basenameと権限を検証し、排他を保持している。
- * @postcondition removeCommittedJsonの責務を完了した結果だけを返す。
+ * @postcondition removeReportの責務を完了した結果だけを返す。
  * @effect 呼出し元が検証・排他したRoot内で、対象Fileと確定用短命物のI/Oだけを行う。
- * @failure N/A: removeCommittedJsonは独自の失敗分岐を所有しない。
+ * @failure N/A: removeReportは独自の失敗分岐を所有しない。
  * @invariant 指定named pairと同じRootの確定用短命物以外を変更しない。
  * @boundary 検証済み保存RootとFilesystem。同時操作の排他は呼出し元が所有する。
  * @security symlinkと同一Path置換を拒否する。別名hardlinkの発見・拒否・消去や秘密の完全消去は保証しない。
- * @concurrency N/A: removeCommittedJsonは共有非同期状態を持たない同期処理である。
+ * @concurrency N/A: removeReportは共有非同期状態を持たない同期処理である。
  */
-export function removeCommittedJson(
+export function removeReport(
   file: string,
   expectedLogicalKey = path.basename(file),
 ) {
-  const source = readCommittedJson(file, expectedLogicalKey);
+  const source = readReport(file, expectedLogicalKey);
   const directory = path.dirname(file);
   const digest = hashText(
     `${path.basename(file)}\0${source.hash}\0${source.identityText}`,
@@ -779,17 +778,17 @@ export function removeCommittedJson(
  * @responsibility Committed Pair Delete 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input contentPresent: boolean、commitPresent: boolean
- * @returns classifyCommittedPairDeleteStateの計算結果を返す。
- * @precondition 「contentPresent: boolean、commitPresent: boolean」がclassifyCommittedPairDeleteStateの入力契約を満たす。
- * @postcondition classifyCommittedPairDeleteStateの責務を完了した結果だけを返す。
- * @effect N/A: classifyCommittedPairDeleteStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: classifyCommittedPairDeleteStateは独自の失敗分岐を所有しない。
- * @invariant classifyCommittedPairDeleteStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: classifyCommittedPairDeleteStateはProcess内の同一Subsystemで完結する。
- * @security classifyCommittedPairDeleteStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: classifyCommittedPairDeleteStateは共有非同期状態を持たない同期処理である。
+ * @returns classifyReportDeleteStateの計算結果を返す。
+ * @precondition 「contentPresent: boolean、commitPresent: boolean」がclassifyReportDeleteStateの入力契約を満たす。
+ * @postcondition classifyReportDeleteStateの責務を完了した結果だけを返す。
+ * @effect N/A: classifyReportDeleteStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyReportDeleteStateは独自の失敗分岐を所有しない。
+ * @invariant classifyReportDeleteStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyReportDeleteStateはProcess内の同一Subsystemで完結する。
+ * @security classifyReportDeleteStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyReportDeleteStateは共有非同期状態を持たない同期処理である。
  */
-function classifyCommittedPairDeleteState(
+function classifyReportDeleteState(
   contentPresent: boolean,
   commitPresent: boolean,
 ) {

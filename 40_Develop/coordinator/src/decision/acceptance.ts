@@ -6,34 +6,27 @@
  */
 
 import {
-  isPrincipalId,
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  type CoordinatorAcceptanceDecisionRecord,
+  type DecisionRequest,
+  encodeRuntimeStateValue,
+  isPrincipalId,
   RepositoryRuntimeDataAreaBlockedError,
+  readDecision,
+  recordDecision,
 } from "../../../domain-model/src/index.ts";
 import {
+  getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  getRepository,
 } from "../../../version-control/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
-import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import { createCoordinatorSnapshotAcceptanceDecisionStore } from "./lifecycle.ts";
 import {
   COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-  type CoordinatorAcceptanceDecisionRequest,
-  createCoordinatorAcceptanceAuthorityAdapter,
   validRequest,
 } from "./request.ts";
-import { applyCoordinatorAcceptanceDecision } from "./transition.ts";
-import type {
-  CoordinatorAcceptanceDecisionAuthorityBinding,
-  CoordinatorAcceptanceDecisionDependencies,
-  CoordinatorAcceptanceDecisionResult,
-} from "./types.ts";
 
 /**
  * 受入判断要求を理由付き停止結果へ変換する。
@@ -55,7 +48,7 @@ function blocked(
   reason: string,
   recordId: string | null = null,
   manualRecoveryRequired = false,
-): CoordinatorAcceptanceDecisionResult {
+) {
   return Object.freeze({
     contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
     status: "blocked",
@@ -68,249 +61,6 @@ function blocked(
 }
 
 /**
- * 耐久化済みの準備Recordが再入場要求と同一かを判定する。
- *
- * @responsibility 再入場を同じ判断Identity、対象、世代、根拠およびPrincipalへ限定する。
- * @trace ARCH-000005
- * @input record: 既存Record、input: 再入場要求。
- * @returns 全Propertyが一致する場合だけtrueを返す。
- * @precondition recordとinputは各境界で構造検証済みである。
- * @postcondition 比較以外の状態を変更しない。
- * @effect N/A: Plain Dataを比較するだけである。
- * @failure N/A: 不一致はfalseへ閉じる。
- * @invariant 別の判断、根拠またはPrincipalを既存Recordへ結合しない。
- * @boundary 耐久Recordと再入場要求の相関境界。
- * @security Principal以外のCredential値を扱わない。
- * @concurrency N/A: 不変値の同期比較だけを行う。
- */
-function samePreparedDecision(
-  record: CoordinatorAcceptanceDecisionRecord,
-  input: CoordinatorAcceptanceDecisionRequest,
-): boolean {
-  return (
-    record.disposition === "prepared" &&
-    record.decisionId === input.decisionId &&
-    record.sourceSpecId === input.sourceSpecId &&
-    record.projectId === input.projectId &&
-    record.milestoneId === input.milestoneId &&
-    record.repositoryRevision === input.repositoryRevision &&
-    record.expectedGeneration === input.expectedGeneration &&
-    record.target === input.target &&
-    record.targetId === input.targetId &&
-    record.decision === input.decision &&
-    record.principalId === input.principalId &&
-    JSON.stringify(record.criterionEvidenceIds) ===
-      JSON.stringify(input.criterionEvidenceIds)
-  );
-}
-
-/**
- * 準備Recordの判断が現在状態へ既に適用済みかを判定する。
- *
- * @responsibility 観測不能後の再入場で状態Effectを重複発行せず、適用済み判断だけを確定可能にする。
- * @trace ARCH-000005
- * @input state: 現在状態、record: 同一性確認済み準備Record。
- * @returns 判断結果と世代が一致する場合だけtrueを返す。
- * @precondition recordはsamePreparedDecisionで再入場要求と一致している。
- * @postcondition 判定以外の状態を変更しない。
- * @effect N/A: 現在状態を読むだけである。
- * @failure N/A: 不一致または対象不存在はfalseへ閉じる。
- * @invariant accept／returnは次世代、waitは元世代だけを適用済みとみなす。
- * @boundary 耐久RecordとCoordinator Stateの相関境界。
- * @security Authorityを生成せず、検証済みRecordの意味だけを照合する。
- * @concurrency 世代一致を必須として競合更新を適用済みへ誤認しない。
- */
-function decisionAlreadyApplied(
-  state: Readonly<{
-    generation: number;
-    milestone: Readonly<{ state: string }>;
-    objectives: readonly Readonly<{
-      definition: Readonly<{ id: string }>;
-      state: string;
-    }>[];
-  }>,
-  record: CoordinatorAcceptanceDecisionRecord,
-): boolean {
-  if (record.target === "objective") {
-    const objective = state.objectives.find(
-      ({ definition }) => definition.id === record.targetId,
-    );
-    const expectedState =
-      record.decision === "accept"
-        ? "accepted"
-        : record.decision === "return"
-          ? "returned"
-          : "integration_pending";
-    const expectedGeneration =
-      record.expectedGeneration + (record.decision === "wait" ? 0 : 1);
-    return (
-      state.generation === expectedGeneration &&
-      objective?.state === expectedState
-    );
-  }
-  const expectedState =
-    record.decision === "accept"
-      ? "accepted"
-      : record.decision === "return"
-        ? "returned"
-        : "integrating";
-  const expectedGeneration =
-    record.expectedGeneration + (record.decision === "wait" ? 0 : 1);
-  return (
-    state.generation === expectedGeneration &&
-    state.milestone.state === expectedState
-  );
-}
-
-/**
- * Project運営者の受入判断をAuthority検証し、一つのRecordと状態へ適用する。
- *
- * @responsibility exactなProject、対象、世代、SourceおよびAuthorityだけを処置し、Decision Recordを状態Effectより先に耐久化する。
- * @trace ARCH-000005
- * @input dependencies: CoordinatorAcceptanceDecisionDependencies、input: CoordinatorAcceptanceDecisionRequest
- * @returns CoordinatorAcceptanceDecisionResultを返す。
- * @precondition Composition Rootが検証済みRepositoryに結合したState、AuthorityおよびStore Portを供給する。
- * @postcondition 成功時は一つのRecordが`finalized`となり、受入・差戻しだけが対応状態を更新する。
- * @effect Decision Storeへ一つの論理Recordを作成し、必要な場合だけCoordinator Stateを一度更新する。
- * @failure 不正入力、Authority不一致、重複、古い世代またはStore／State観測不能を理由別に停止する。
- * @invariant Task作成、Provider Effect、Projection Authority生成および下位完了からの自動受入を行わない。
- * @boundary Project運営者Authority→Acceptance Decision Port→Decision Store／State StoreのDirect Boundary。
- * @security 認証済みPrincipalのIdentityだけを検証Portへ渡し、Authority秘密値をRecordや結果へ保存しない。
- * @concurrency State世代とRecord IDの比較交換により重複・競合判断を拒否する。
- */
-export function recordCoordinatorAcceptanceDecision(
-  dependencies: CoordinatorAcceptanceDecisionDependencies,
-  input: unknown,
-): CoordinatorAcceptanceDecisionResult {
-  if (!validRequest(input))
-    return blocked("orchestrator_acceptance_decision_request_invalid");
-  const recordId = `acceptance-${input.decisionId}`;
-  const existing = dependencies.store.read(recordId);
-  if (existing.status !== "completed")
-    return blocked(
-      "orchestrator_acceptance_decision_observation_unknown",
-      recordId,
-      existing.manualRecoveryRequired,
-    );
-  if (existing.value?.disposition === "finalized")
-    return blocked("orchestrator_acceptance_decision_duplicate", recordId);
-  const observed = dependencies.state.readState(input.projectId);
-  if (observed.status !== "completed" || !observed.value)
-    return blocked(
-      "orchestrator_acceptance_state_observation_unknown",
-      recordId,
-      observed.status === "blocked" && observed.manualRecoveryRequired,
-    );
-  const state = observed.value;
-  const preparedRecord = existing.value;
-  if (
-    state.projectId !== input.projectId ||
-    state.milestoneId !== input.milestoneId ||
-    state.repositoryRevision !== input.repositoryRevision
-  )
-    return blocked("orchestrator_acceptance_decision_target_mismatch");
-  if (preparedRecord && !samePreparedDecision(preparedRecord, input))
-    return blocked("orchestrator_acceptance_decision_duplicate", recordId);
-  const binding: CoordinatorAcceptanceDecisionAuthorityBinding = Object.freeze({
-    sourceSpecId: "SPEC-000002",
-    projectId: input.projectId,
-    milestoneId: input.milestoneId,
-    repositoryRevision: input.repositoryRevision,
-    expectedGeneration: input.expectedGeneration,
-    target: input.target,
-    targetId: input.targetId,
-    decision: input.decision,
-    principalId: input.principalId,
-  });
-  let isAuthorized = false;
-  try {
-    isAuthorized = dependencies.authority.verify(binding);
-  } catch {
-    isAuthorized = false;
-  }
-  if (!isAuthorized)
-    return blocked("orchestrator_acceptance_decision_authority_invalid");
-  const prepared: CoordinatorAcceptanceDecisionRecord =
-    preparedRecord ??
-    Object.freeze({
-      recordId,
-      decisionId: input.decisionId,
-      sourceSpecId: "SPEC-000002",
-      projectId: input.projectId,
-      milestoneId: input.milestoneId,
-      repositoryRevision: input.repositoryRevision,
-      expectedGeneration: input.expectedGeneration,
-      target: input.target,
-      targetId: input.targetId,
-      decision: input.decision,
-      criterionEvidenceIds: Object.freeze([...input.criterionEvidenceIds]),
-      principalId: input.principalId,
-      disposition: "prepared",
-      newGeneration: null,
-    });
-  if (!preparedRecord) {
-    if (state.generation !== input.expectedGeneration)
-      return blocked("orchestrator_acceptance_decision_target_mismatch");
-    const created = dependencies.store.create(prepared);
-    if (created.status !== "completed")
-      return blocked(
-        "orchestrator_acceptance_decision_record_unknown",
-        recordId,
-        true,
-      );
-  }
-  let nextState = state;
-  if (!decisionAlreadyApplied(state, prepared)) {
-    if (state.generation !== input.expectedGeneration)
-      return blocked(
-        "orchestrator_acceptance_decision_recovery_state_unknown",
-        recordId,
-        true,
-      );
-    const transition = applyCoordinatorAcceptanceDecision(
-      state,
-      input.expectedGeneration,
-      input,
-    );
-    if (transition.status !== "completed") return blocked(transition.reason);
-    nextState = transition.state;
-  }
-  if (nextState !== state) {
-    const written = dependencies.state.writeState(
-      nextState,
-      input.expectedGeneration,
-    );
-    if (written.status !== "completed")
-      return blocked(
-        "orchestrator_acceptance_state_write_unknown",
-        recordId,
-        true,
-      );
-  }
-  const finalized: CoordinatorAcceptanceDecisionRecord = Object.freeze({
-    ...prepared,
-    disposition: "finalized",
-    newGeneration: nextState.generation,
-  });
-  const committed = dependencies.store.compareAndSet(prepared, finalized);
-  if (committed.status !== "completed")
-    return blocked(
-      "orchestrator_acceptance_decision_finalize_unknown",
-      recordId,
-      true,
-    );
-  return Object.freeze({
-    contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-    status: "completed",
-    reason: "orchestrator_acceptance_decision_recorded",
-    recordId,
-    newGeneration: finalized.newGeneration,
-    cleanupConfirmed: true,
-    manualRecoveryRequired: false,
-  });
-}
-
-/**
  * Public Acceptance Decisionを検証済みRepository、認証Principal、耐久Storeおよび状態Storeへ接続する。
  *
  * @responsibility SPEC-000002の明示判断だけを公開入口からAcceptance Decision Applicationへ搬送する。
@@ -319,7 +69,7 @@ export function recordCoordinatorAcceptanceDecision(
  * @returns Acceptance Decision Applicationの公開結果を返す。
  * @precondition 認証ContextはRuntime-owned認証境界で構築される。
  * @postcondition 成功時は一つのDecision Recordと必要な状態更新だけを確定する。
- * @effect Repository-local Acceptance Decision StoreとCoordinator Stateだけを更新する。
+ * @effect Repository-local Stateの判断・適用状態とHistoryを更新する。
  * @failure Root、Revision、Principal、AuthorityまたはStoreを確認できない場合はEffectを拡張せず停止する。
  * @invariant Task作成、Provider EffectおよびProjection由来Authorityを発行しない。
  * @boundary 公開Transport→Coordinatorの受入判断→Repository-local Storeの境界。
@@ -344,6 +94,14 @@ export function executeCoordinatorPublicAcceptanceDecision(
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
+    // 未信頼要求の副作用付きgetterをRoot照会・保存より前に拒否する。
+    try {
+      rawRequest = JSON.parse(encodeRuntimeStateValue(rawRequest));
+    } catch {
+      return blocked("orchestrator_acceptance_decision_request_invalid");
+    }
+    if (!validRequest(rawRequest))
+      return blocked("orchestrator_acceptance_decision_request_invalid");
     let repositoryRoot: string;
     try {
       repositoryRoot =
@@ -361,46 +119,8 @@ export function executeCoordinatorPublicAcceptanceDecision(
     const identity = readRepositorySnapshot(
       getRepository(repositoryRoot).capability,
     );
-    const candidate =
-      rawRequest && typeof rawRequest === "object"
-        ? (rawRequest as Readonly<{
-            repositoryRevision?: unknown;
-            projectId?: unknown;
-            milestoneId?: unknown;
-            principalId?: unknown;
-            decision?: unknown;
-          }>)
-        : null;
-    if (
-      !identity ||
-      typeof candidate?.repositoryRevision !== "string" ||
-      typeof candidate.projectId !== "string" ||
-      typeof candidate.milestoneId !== "string" ||
-      !(
-        (candidate.decision !== "accept" &&
-          identity.revisionIdentity === candidate.repositoryRevision) ||
-        workspacePlanReadyForAcceptance(
-          repositoryRoot,
-          deriveCoordinatorRepositoryBindingId(repositoryRoot),
-          candidate.projectId,
-          candidate.milestoneId,
-          candidate.repositoryRevision,
-          identity.revisionIdentity,
-        )
-      )
-    )
-      return Object.freeze({
-        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-        status: "blocked" as const,
-        reason: "orchestrator_acceptance_revision_mismatch",
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        effectState: "no_effect" as const,
-      });
-    if (
-      candidate.principalId !== authenticationContext.principalId ||
-      typeof candidate.projectId !== "string"
-    )
+    const candidate = rawRequest;
+    if (candidate.principalId !== authenticationContext.principalId)
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
@@ -411,37 +131,110 @@ export function executeCoordinatorPublicAcceptanceDecision(
       });
     const repositoryBindingId =
       deriveCoordinatorRepositoryBindingId(repositoryRoot);
-    const result = recordCoordinatorAcceptanceDecision(
-      Object.freeze({
-        state: createCurrentCoordinatorPersistencePorts(
-          repositoryRoot,
-          repositoryBindingId,
-        ).state,
-        authority: createCoordinatorAcceptanceAuthorityAdapter(
-          authenticationContext.principalId,
-        ),
-        store: createCoordinatorSnapshotAcceptanceDecisionStore(
-          repositoryRoot,
-          repositoryBindingId,
-        ),
-      }),
-      rawRequest,
+    const repository = verifyRuntimePersistenceRepository(repositoryRoot);
+    const observed = readDecision(
+      repository,
+      repositoryBindingId,
+      candidate.decisionId,
     );
-    if (result.status === "completed") {
-      const maintenance = maintainCoordinatorSnapshot(
-        repositoryRoot,
-        repositoryBindingId,
+    if (observed.status !== "completed")
+      return blocked(observed.reason, null, observed.manualRecoveryRequired);
+    const existing = observed.value;
+    // 適用済みの再送は新たな受入を行わない。Writerで元要求・回答の全文一致を確認する。
+    const alreadyApplied = existing?.status === "applied";
+    if (
+      !identity ||
+      (!alreadyApplied &&
+        !(
+          (candidate.decision !== "accept" &&
+            identity.revisionIdentity === candidate.repositoryRevision) ||
+          workspacePlanReadyForAcceptance(
+            repositoryRoot,
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+            candidate.projectId,
+            candidate.milestoneId,
+            candidate.repositoryRevision,
+            identity.revisionIdentity,
+          )
+        ))
+    )
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_acceptance_revision_mismatch",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    const now = new Date().toISOString();
+    // 既存commandの意味を記録する質問。画面で事前提示済みという主張ではない。
+    const request: DecisionRequest = {
+      decisionId: rawRequest.decisionId,
+      blockerId: rawRequest.blockerId,
+      kind: "acceptance",
+      respondentPrincipalId: authenticationContext.principalId,
+      target: {
+        projectId: rawRequest.projectId,
+        milestoneId: rawRequest.milestoneId,
+        kind: rawRequest.target,
+        id: rawRequest.targetId,
+        generation: rawRequest.expectedGeneration,
+        repositoryRevision: rawRequest.repositoryRevision,
+      },
+      question: `SPEC-000002: ${rawRequest.target}「${rawRequest.targetId}」の成果を受け入れますか？`,
+      options: [
+        { value: "accept", label: "受け入れる" },
+        { value: "return", label: "差し戻す" },
+        { value: "wait", label: "判断を保留する" },
+      ],
+      requestedAt: existing?.requestedAt ?? now,
+    };
+    const saved = recordDecision(
+      repository,
+      repositoryBindingId,
+      request,
+      {
+        principalId: authenticationContext.principalId,
+        answeredAt: existing?.result?.answer.answeredAt ?? now,
+        selectedOption: rawRequest.decision,
+        reason: null,
+        evidenceIds: rawRequest.criterionEvidenceIds,
+      },
+      alreadyApplied ? existing : null,
+    );
+    if (saved.status !== "completed")
+      return blocked(
+        saved.reason === "decision_identity_retired" ||
+          saved.reason === "decision_identity_conflict" ||
+          saved.reason === "decision_answer_conflict"
+          ? "orchestrator_acceptance_decision_duplicate"
+          : saved.reason,
+        `acceptance-${rawRequest.decisionId}`,
+        saved.manualRecoveryRequired,
       );
-      if (maintenance.status !== "completed")
-        return Object.freeze({
-          ...result,
-          status: "blocked" as const,
-          reason: maintenance.reason,
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-        });
-    }
-    return result;
+    const { decision, history } = saved.value;
+    const applied = decision.result?.status === "applied";
+    return Object.freeze({
+      contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+      status: applied ? ("completed" as const) : ("blocked" as const),
+      reason:
+        history.status !== "confirmed"
+          ? "orchestrator_acceptance_state_saved_history_unconfirmed"
+          : applied
+            ? "orchestrator_acceptance_decision_recorded"
+            : decision.result?.status === "unapplied"
+              ? decision.result.reason
+              : "orchestrator_acceptance_decision_not_applied",
+      recordId: `acceptance-${decision.decisionId}`,
+      newGeneration:
+        decision.result?.status === "applied"
+          ? decision.result.application.afterGeneration
+          : null,
+      decision,
+      history,
+      cleanupConfirmed: history.status === "confirmed",
+      manualRecoveryRequired: history.status !== "confirmed",
+    });
   } catch (error) {
     if (error instanceof RepositoryRuntimeDataAreaBlockedError)
       return coordinatorDataBoundaryBlocked(error);
@@ -465,7 +258,7 @@ export function executeCoordinatorPublicAcceptanceDecision(
  * @returns executeCoordinatorPublicAcceptanceDecisionの結果を返す。
  * @precondition 呼出し側が操作主体の認証・認可を完了している。
  * @postcondition StoreやOSから操作主体を取得・補完しない。
- * @effect Acceptance Decision Recordと必要なCoordinator Stateだけを更新する。
+ * @effect 同じStateの判断・適用結果・対象状態とHistoryを更新する。
  * @failure 操作主体未指定・要求との不一致またはRuntime Data観測不能を理由付き停止へ変換する。
  * @invariant 保存先の利用可否を本人認証として扱わない。
  * @boundary Local TransportとProduction Composition Rootの境界。

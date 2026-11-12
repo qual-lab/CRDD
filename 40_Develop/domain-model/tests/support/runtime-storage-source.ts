@@ -15,13 +15,15 @@ import path from "node:path";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
 import * as versionControl from "../../../version-control/src/index.ts";
+import * as decisionCandidates from "../../src/decision/crud.ts";
+import * as decisionOperations from "../../src/decision/operations.ts";
 import * as domain from "../../src/index.ts";
 import * as definitionCandidates from "../../src/objective/crud.ts";
 import * as plainData from "../../src/plain-data/snapshot.ts";
+import { assertRuntimeStateInitializationBoundary } from "../../src/storage/ensure-area.ts";
 import * as kernel from "../../src/storage/runtime-kernel-lock.ts";
 import * as storageRepository from "../../src/storage/runtime-repository.ts";
 import * as stateResults from "../../src/storage/runtime-result.ts";
-import { assertRuntimeStateInitializationBoundary } from "../../src/storage/ensure-area.ts";
 /**
  * 現行の実Writer・Lock・固定I/Oを一つの同期依存閉包へ接続する。
  * @responsibility 一つのfixture内でMapを一実体としてReader／Writerで共有する。
@@ -72,6 +74,8 @@ export function createRuntimeStorageSourceFixture(
     ...stateResults,
     ...plainData,
     ...definitionCandidates,
+    ...decisionOperations,
+    ...decisionCandidates,
     assertRuntimeStateInitializationBoundary,
     ...kernel,
     ...overrides,

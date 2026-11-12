@@ -88,6 +88,7 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
   fs.rmdirSync(root);
   assert.equal(fs.existsSync(root), false);
 });
+
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
 import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
@@ -103,8 +104,8 @@ import {
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
 import {
-  readRepositoryRevision,
   getRepository,
+  readRepositoryRevision,
 } from "../../../version-control/src/index.ts";
 import {
   assessVerificationDockerInventory,
@@ -1057,8 +1058,8 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "workspaces",
     "results",
     "resultReceipts",
-    "acceptanceDecisions",
-    "decisionRecoveries",
+    "decisions",
+    "blockers",
     "leaseEvidence",
   ];
   for (const scenario of [

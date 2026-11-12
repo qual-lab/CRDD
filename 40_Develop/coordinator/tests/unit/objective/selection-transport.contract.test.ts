@@ -40,28 +40,19 @@ const objective = Object.freeze(
  * @responsibility 公開Objectiveの検査後にbuilderが完全選定をTask要求へ保持することを検証する。
  * @trace PRL-UT-014
  * @precondition 正常Objective、三つの任意項目と二Providerの技術対応済み選択を使用する。
- * @stimulus 全八組合せを公開検査、選定とbuilderへ渡す。
+ * @stimulus 全四組合せを公開検査、選定とbuilderへ渡す。
  * @observation 二役割の完全値、複製配列と旧fieldの不存在を確認する。
  * @oracle 同じ受付の選定だけを搬送し、Front Providerによる再選定や権限を追加しない。
  * @cleanup N/A: メモリ内の純粋関数だけを実行する。
  * @boundary N/A: 実Task、ProviderとHost資源を起動しない。
  */
-test("Objective選定は全八組合せでTask契約へexactに搬送する", () => {
+test("Objective選定は全四組合せでTask契約へexactに搬送する", () => {
   for (const choice of [
     { provider: "codex", model: "gpt-5.5", effort: "high" },
     { provider: "claude", model: "opus", effort: "high" },
   ] as const) {
-    const optionalFieldNames = [
-      {
-        decisionCapabilityReplacement: {
-          decisionId: "decision-1",
-          replacementRequestId: "request-2",
-        },
-      },
-      { workType: "coding" },
-      { choice },
-    ];
-    for (let mask = 0; mask < 8; mask += 1) {
+    const optionalFieldNames = [{ workType: "coding" }, { choice }];
+    for (let mask = 0; mask < 4; mask += 1) {
       const request = inspectCoordinatorObjectiveRequest(
         Object.assign(
           { ...objective },
@@ -81,7 +72,7 @@ test("Objective選定は全八組合せでTask契約へexactに搬送する", ()
       assert.deepEqual(snapshot.taskExecutionSelections, resolved.value);
       assert.equal(
         snapshot.taskExecutionSelections.executor.provider,
-        mask & 4 ? choice.provider : "codex",
+        mask & 2 ? choice.provider : "codex",
       );
       assert.equal(Object.hasOwn(task, "frontProvider"), false);
       assert.equal(Object.hasOwn(task, "requestedProfileId"), false);
