@@ -915,6 +915,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
  */
 test("MCP Decision uses a separate entry and never forwards comment to Objective", async () => {
   let calls = 0;
+  const outcome = decisionOutcome(decision());
   const response = await handleMcpCoordinatorRequest(
     request("tools/call", {
       _meta: META,
@@ -932,12 +933,21 @@ test("MCP Decision uses a separate entry and never forwards comment to Objective
           "resume",
         );
         assert.deepEqual(authentication, { principalId: "principal-a" });
-        return decisionOutcome({ ...decision(), ...input });
+        return outcome;
       },
     }),
   );
   assert.equal(calls, 1);
   assert.equal((response.result as { isError: boolean }).isError, false);
+  const accepted = (response.result as { structuredContent: typeof outcome })
+    .structuredContent;
+  assert.deepEqual(accepted, outcome);
+  assert.notEqual(accepted.decision, outcome.decision);
+  assert.equal(Object.isFrozen(accepted.decision), true);
+  outcome.decision.question = "changed after receipt";
+  outcome.decision.result.answer.principalId = "another-principal";
+  assert.equal(accepted.decision.question, "継続しますか");
+  assert.equal(accepted.decision.result.answer.principalId, "principal-a");
 });
 
 /**

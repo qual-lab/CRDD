@@ -82,8 +82,8 @@ function readFixtureSnapshot(root: string, binding: string) {
       read.value.snapshot.intakeEpoch !== null,
   );
   const projected = {
-    schema: "crdd-coordinator/project-snapshot/v6" as const,
-    schemaRevision: 6 as const,
+    schema: "crdd-execution-model/project-snapshot/v7" as const,
+    schemaRevision: 7 as const,
     repositoryRootHash: read.value.snapshot.repositoryBinding,
     repositoryBindingId: read.value.snapshot.repositoryBindingId,
     intakeEpoch: read.value.snapshot.intakeEpoch,
@@ -2420,9 +2420,6 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
         resolveCorrelations: () => null,
         recover: () => {
           throw new Error("unexpected_recovery");
-        },
-        acknowledgeDocker: () => {
-          throw new Error("unexpected_docker");
         },
         observeTransition: () => {},
       },

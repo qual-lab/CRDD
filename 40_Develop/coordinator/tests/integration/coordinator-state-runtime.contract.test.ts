@@ -10,7 +10,6 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -18,25 +17,23 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import * as executionModel from "../../../execution-model/src/index.ts";
 import {
   advanceOwnedRecoveryHistory,
   applyResourceCleanup,
   applyResourceEvent,
-  areTaskResourcesSettled,
   completeOperation,
   completeRecovery,
-  createDockerRestartRequestId,
   type ExecutionOperationRecord,
   type OperationRecord,
   type OperationResources,
-  observeTransientTaskCompletion,
   type RestartCheckpoint,
+  readOperationCompletion,
   readRecoveryState,
   resumeResourcePublication,
   saveRecoveryCheckpoint,
   saveUnknownAuthenticationClosureStage,
 } from "../../../execution-model/src/index.ts";
-import * as executionModel from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
@@ -96,6 +93,10 @@ import {
   executionSelection,
 } from "../fixtures/ai-selection.ts";
 import { expectedHostCheckpoint } from "../fixtures/task-result-fixture.ts";
+import {
+  canonicalJson,
+  restartRequestIdFixture,
+} from "../support/contract-assertions.ts";
 
 /**
  * Host試験の共有Home・Runtime State親を今回の新品Rootへ限定する。
@@ -149,7 +150,6 @@ const emptyTaskSections = {
   historyPending: [],
   decisions: [],
   blockers: [],
-  resultReceipts: [],
 };
 
 /**
@@ -224,13 +224,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const first = {
     ...emptyTaskSections,
-    schema: "crdd-domain/runtime-state/v3",
+    schema: "crdd-execution-model/state/v4",
     revision: 1,
     previous: null,
     repositoryBinding: repository.repositoryBinding,
     operations: [],
     unresolvedRecoveries: [],
-    pendingDeliveries: [],
   };
   const area = requireReadyRepositoryExecutionDataArea(
     ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "domain-model"),
@@ -1204,9 +1203,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
               : operation,
         ),
       );
-      assert.deepEqual(
-        afterFixed.value.snapshot.pendingDeliveries,
-        beforeFixed.value.snapshot.pendingDeliveries,
+      assert.equal(
+        Object.hasOwn(afterFixed.value.snapshot, "pendingDeliveries"),
+        false,
+      );
+      assert.equal(
+        Object.hasOwn(beforeFixed.value.snapshot, "pendingDeliveries"),
+        false,
       );
       assert.deepEqual(
         afterFixed.value.snapshot.unresolvedRecoveries,
@@ -1271,9 +1274,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           : operation,
       ),
     );
-    assert.deepEqual(
-      afterRecovery.value.snapshot.pendingDeliveries,
-      beforeLifecycle.value.snapshot.pendingDeliveries,
+    assert.equal(
+      Object.hasOwn(afterRecovery.value.snapshot, "pendingDeliveries"),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(beforeLifecycle.value.snapshot, "pendingDeliveries"),
+      false,
     );
     assert.deepEqual(
       afterRecovery.value.snapshot.unresolvedRecoveries,
@@ -1420,7 +1427,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.ok(restartOperation);
   const restartScope = "e".repeat(64);
   const restartRequest = {
-    requestId: createDockerRestartRequestId(
+    requestId: restartRequestIdFixture(
       repository.repositoryBinding,
       restartOperation.identitySha256,
       restartOperation.recoveryId,
@@ -1495,9 +1502,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           observed.value.snapshot.unresolvedRecoveries,
           beforeCheckpoint.value.snapshot.unresolvedRecoveries,
         );
-        assert.deepEqual(
-          observed.value.snapshot.pendingDeliveries,
-          beforeCheckpoint.value.snapshot.pendingDeliveries,
+        assert.equal(
+          Object.hasOwn(observed.value.snapshot, "pendingDeliveries"),
+          false,
+        );
+        assert.equal(
+          Object.hasOwn(beforeCheckpoint.value.snapshot, "pendingDeliveries"),
+          false,
         );
         previousBytes = bytes;
       }
@@ -1594,9 +1605,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         terminalRead.value.snapshot.unresolvedRecoveries,
         beforeCheckpoint.value.snapshot.unresolvedRecoveries,
       );
-      assert.deepEqual(
-        terminalRead.value.snapshot.pendingDeliveries,
-        beforeCheckpoint.value.snapshot.pendingDeliveries,
+      assert.equal(
+        Object.hasOwn(terminalRead.value.snapshot, "pendingDeliveries"),
+        false,
+      );
+      assert.equal(
+        Object.hasOwn(beforeCheckpoint.value.snapshot, "pendingDeliveries"),
+        false,
       );
       assert.equal(
         finalizeRuntimeOwnedDockerRestartPreparation(
@@ -2235,7 +2250,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     operation.recoveryId,
     {
       kind: "references",
-      value: { recovery: references.recovery, deliveries: [] },
+      value: { recovery: references.recovery },
     },
   );
   assert.equal(savedRecoveryOnly.status, "completed", savedRecoveryOnly.reason);
@@ -2246,7 +2261,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     afterReferences.value?.snapshot.revision,
     (afterLifecycle.value?.snapshot.revision ?? 0) + 1,
   );
-  assert.deepEqual(afterReferences.value?.snapshot.pendingDeliveries, []);
+  assert.equal(
+    Object.hasOwn(afterReferences.value.snapshot, "pendingDeliveries"),
+    false,
+  );
   assert.deepEqual(
     afterReferences.value?.snapshot.operations,
     afterLifecycle.value?.snapshot.operations,
@@ -2369,7 +2387,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(settled.status, "completed", settled.reason);
   assert.equal(settled.snapshotConfirmed, true);
   assert.equal(settled.lockReleased, true);
-  assert.equal(settled.deliveryPending, true);
+  assert.equal(Object.hasOwn(settled, "deliveryPending"), false);
   const settledRead = readRecoveryState(verifiedRoot.capability, {
     kind: "history",
   });
@@ -2378,11 +2396,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const settledOperation = settledRead.value?.snapshot.operations.find(
     (item) => item.recoveryId === operation.recoveryId,
   );
-  assert.ok(settledOperation?.kind === "docker_task");
-  assert.equal(settledOperation.phase, "settling");
-  assert.equal(settledOperation.history?.confirmed, true);
-  assert.deepEqual(settledOperation.primaryFailure, lifecycle.primaryFailure);
-  assert.equal(settledRead.value?.snapshot.pendingDeliveries.length, 1);
+  assert.equal(settledOperation, undefined);
+  assert.equal(settledRead.historyRows?.[0]?.recoveryId, operation.recoveryId);
+  assert.equal(
+    Object.hasOwn(settledRead.value.snapshot, "pendingDeliveries"),
+    false,
+  );
   const historyFile = path.join(area.directory, "history.jsonl");
   assert.equal(settledRead.historyRows?.length, 1);
   assert.equal(readOperationStateStage(management).status, "blocked");
@@ -2394,7 +2413,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(settledAgain.status, "completed");
   assert.equal(settledAgain.snapshotConfirmed, true);
   assert.equal(settledAgain.lockReleased, true);
-  assert.equal(settledAgain.deliveryPending, true);
+  assert.equal(Object.hasOwn(settledAgain, "deliveryPending"), false);
   assert.deepEqual(
     readRecoveryState(verifiedRoot.capability).value,
     settledRead.value,
@@ -2598,7 +2617,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const freshState = JSON.parse(fs.readFileSync(freshStateFile, "utf8"));
     assert.deepEqual(freshState, {
       ...emptyTaskSections,
-      schema: "crdd-domain/runtime-state/v3",
+      schema: "crdd-execution-model/state/v4",
       revision: 1,
       previous: null,
       repositoryBinding: freshRepository.repositoryBinding,
@@ -2633,7 +2652,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         },
       ],
       unresolvedRecoveries: [],
-      pendingDeliveries: [],
     });
     assert.equal(
       readOperationStateStage(freshManagement).value?.snapshot.revision,
@@ -2789,7 +2807,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection, areTaskResourcesSettled } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection } from "${new URL("../../src/selection/resolve.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
@@ -3237,7 +3255,7 @@ for (const issuedFailure of [false, true]) {
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
-      `${canonicalJson({ ...emptyTaskSections, schema: "crdd-domain/runtime-state/v3", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${canonicalJson({ ...emptyTaskSections, schema: "crdd-execution-model/state/v4", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
     );
     // 初期化の私有反例はDomainへ移管済み。このCaseは認証処置の前状態だけを配置する。
     // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
@@ -3384,7 +3402,10 @@ for (const issuedFailure of [false, true]) {
     assert.ok(after.value);
     assert.deepEqual(after.value.snapshot.operations, []);
     assert.deepEqual(after.value.snapshot.unresolvedRecoveries, []);
-    assert.deepEqual(after.value.snapshot.pendingDeliveries, []);
+    assert.equal(
+      Object.hasOwn(after.value.snapshot, "pendingDeliveries"),
+      false,
+    );
     const rows = fs
       .readFileSync(
         path.join(root, ".crdd", "domain-model", "history.jsonl"),
@@ -3552,7 +3573,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       .update(identityJson)
       .digest("hex");
     const recoveryId = `docker-task.${"c".repeat(64)}.${"b".repeat(64)}.${identitySha256}`;
-    const requestId = createDockerRestartRequestId(
+    const requestId = restartRequestIdFixture(
       repository.repositoryBinding,
       identitySha256,
       recoveryId,
@@ -3561,7 +3582,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.ok(requestId);
     const snapshot = {
       ...emptyTaskSections,
-      schema: "crdd-domain/runtime-state/v3",
+      schema: "crdd-execution-model/state/v4",
       revision: 1,
       previous: null,
       repositoryBinding: repository.repositoryBinding,
@@ -3632,7 +3653,6 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         },
       ],
       unresolvedRecoveries: [],
-      pendingDeliveries: [],
     };
     const before = Buffer.from(`${canonicalJson(snapshot)}\n`);
     const decodedBefore = {
@@ -3757,7 +3777,14 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     });
     const operation = read.value.snapshot.operations[0];
     assert.ok(operation?.kind === "docker_task");
-    assert.equal(areTaskResourcesSettled(operation), true);
+    assert.ok(
+      read.value.operationStates.some(
+        (state) =>
+          state.kind === "docker_task" &&
+          state.operation === operation &&
+          state.resourcesSettled,
+      ),
+    );
     assert.deepEqual(
       { ...operation, resources: snapshot.operations[0]?.resources },
       snapshot.operations[0],
@@ -3951,7 +3978,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.equal(finishedSnapshot.lockReleased, true);
     assert.ok(finishedSnapshot.value);
     assert.deepEqual(finishedSnapshot.value.snapshot.operations, []);
-    assert.deepEqual(finishedSnapshot.value.snapshot.pendingDeliveries, []);
+    assert.equal(
+      Object.hasOwn(finishedSnapshot.value.snapshot, "pendingDeliveries"),
+      false,
+    );
     assert.deepEqual(finishedSnapshot.value.snapshot.unresolvedRecoveries, []);
     const historyRows = fs
       .readFileSync(path.join(directory, "history.jsonl"), "utf8")
@@ -3966,20 +3996,18 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "crdd-coordinator/operation-summary/v4",
     );
     assert.equal(
-      observeTransientTaskCompletion(
+      readOperationCompletion(
         verified.capability,
         recoveryId,
         "task-operation-a",
-        consumer,
       ).completionConfirmed,
       true,
     );
     assert.equal(
-      observeTransientTaskCompletion(
+      readOperationCompletion(
         verified.capability,
         recoveryId,
         "another-operation",
-        consumer,
       ).completionConfirmed,
       false,
     );
@@ -4043,11 +4071,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         assert.equal(history.historyRows?.[0]?.line, line, mutation);
       }
       assert.equal(
-        observeTransientTaskCompletion(
+        readOperationCompletion(
           verified.capability,
           recoveryId,
           "task-operation-a",
-          consumer,
         ).completionConfirmed,
         false,
         mutation,

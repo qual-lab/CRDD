@@ -221,7 +221,7 @@ if (mode !== "recovery") {
   assert.ok(binding && otherBinding);
   const initial = Buffer.from(
     `${canonicalJson({
-      schema: "crdd-domain/runtime-state/v3",
+      schema: "crdd-execution-model/state/v4",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -235,13 +235,11 @@ if (mode !== "recovery") {
       historyPending: [],
       decisions: [],
       blockers: [],
-      resultReceipts: [],
       revision: 1,
       previous: null,
       repositoryBinding: binding.repositoryBinding,
       operations: [],
       unresolvedRecoveries: [],
-      pendingDeliveries: [],
     })}\n`,
   );
   const snapshotArea = areas.requireReadyRepositoryExecutionDataArea(
@@ -1447,7 +1445,6 @@ if (mode !== "recovery") {
         "saveOperationCheckpoint",
         "saveResourceNotIssuedStage",
         "completeRecovery",
-        "registerOwnedRecoveryResultDelivery",
         "advanceOwnedRecoveryHistory",
         "saveRecoveryCheckpoint",
         "saveOperationStart",
@@ -1755,7 +1752,6 @@ if (mode !== "recovery") {
             hostCleanupConfirmed: false,
             locksReleased: true,
             historyConfirmed: false,
-            deliveryPending: false,
             operationRetained: null,
             operationRemovalConfirmed: false,
             taskRecoveryCompleted: false,
@@ -1798,7 +1794,6 @@ if (mode !== "recovery") {
         hostCleanupConfirmed: false,
         locksReleased: true,
         historyConfirmed: false,
-        deliveryPending: false,
         operationRetained: null,
         operationRemovalConfirmed: false,
         taskRecoveryCompleted: false,
@@ -1839,7 +1834,7 @@ if (mode !== "recovery") {
       assert.equal(report.operationRemovalConfirmed, true);
       assert.equal(report.taskRecoveryCompleted, true);
       assert.equal(report.operationRetained, false);
-      assert.equal(report.deliveryPending, false);
+      assert.equal(Object.hasOwn(report, "deliveryPending"), false);
       assert.equal(report.cleanupReason, null);
       assert.throws(() => fs.lstatSync(identity.hostPaths.root), {
         code: "ENOENT",

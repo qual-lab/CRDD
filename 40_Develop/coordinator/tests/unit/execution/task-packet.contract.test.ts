@@ -13,7 +13,6 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
-import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
 
@@ -278,6 +277,8 @@ test("Task PacketとReviewer診断は旧本文・件数上限を再適用しな�
     cleanupOwnedOperationDirectories(current.owned);
   }
 });
+
+import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 
 /**
  * Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すを検証する。

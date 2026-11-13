@@ -31,25 +31,22 @@ type HistoryInput = {
 };
 
 /**
- * 履歴と配送の一回保存Ownerが保持日数を元の上位確認へ渡す。
+ * 履歴の一回保存Ownerが保持日数を元の上位確認へ渡す。
  * @responsibility 同じMapとused条件を維持したまま任意の日数引数を搬送する。
  * @trace PRL-UT-006
- * @precondition 製品の二つの完成操作宣言と合成Reader／Writerだけを使用する。
+ * @precondition 履歴の完成操作宣言と合成Reader／Writerだけを使用する。
  * @stimulus Writer到達後にusedを確定し、同日数・途中変更・Owner失効を照合する。
  * @observation 元revalidateの引数、各判定と終了後のMap退役。
  * @oracle 同じ30日はtrue、31日へ変更又はOwner失効はfalse。used前も拒否する。
  * @cleanup N/A: 値と局所VMのみ。
  * @boundary 実Filesystem・書込み・実Lockは使用しない。
  */
-test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両方確認する", () => {
+test("履歴の一回Ownerは保持日数と元Ownerの現在性を両方確認する", () => {
   const source = fs.readFileSync(
     new URL("../../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
-  for (const name of [
-    "advanceCurrentHistory",
-    "registerOwnedRecoveryResultDelivery",
-  ]) {
+  for (const name of ["advanceCurrentHistory"]) {
     const settlements = new WeakMap<object, { used: boolean }>();
     let currentDays = 30;
     let ownerLive = true;
@@ -72,7 +69,6 @@ test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両�
       historyFile: null,
       pendingHistoryFile: null,
       retentionDays: 30,
-      deliveryPending: true,
     };
     const operation = compileFunction(
       `${sourceDeclaration(source, name)}; return ${name};`,
@@ -85,13 +81,12 @@ test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両�
         lockReleased: true,
         value: {},
         currentHistoryPublication: publication,
-        currentDeliveryPublication: publication,
       }),
       (
         _before: unknown,
         bound: { revalidate: (days?: number) => boolean } | null,
         _candidate: unknown,
-        admission: { currentHistory?: object; currentDelivery?: object },
+        admission: { currentHistory?: object },
       ) => {
         const result = {
           status: "blocked",
@@ -100,7 +95,7 @@ test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両�
         };
         if (!bound) return result;
         writerCalls++;
-        key = admission.currentHistory ?? admission.currentDelivery ?? null;
+        key = admission.currentHistory ?? null;
         assert.ok(key);
         const binding = settlements.get(key);
         assert.ok(binding);

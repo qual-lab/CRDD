@@ -9,7 +9,6 @@
 import type { ExecutionResult } from "../../../ai-adapter/src/index.ts";
 import {
   type ExecutionSelection,
-  hashExecutionSelection,
   inspectExecutionSelection,
 } from "../../../execution-model/src/index.ts";
 import { snapshotPlainArray } from "../input/snapshot.ts";
@@ -210,6 +209,8 @@ export type AdviceDispatch = (
   input: AdviceDispatchInput,
   cancellationSignal: AbortSignal,
 ) => Promise<CoordinatorAiRequestResult>;
+
+import { hashExecutionSelection } from "../selection/resolve.ts";
 
 /**
  * 固定Contextの読取り助言だけを単発実行Ownerへ提供する。

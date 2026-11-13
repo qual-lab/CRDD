@@ -6630,29 +6630,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "orchestrator:integration:docker-recovery-settlement",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/docker-recovery-settlement.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "orchestrator",
-        "recovery",
-        "result-acceptance",
-        "fixed-repository"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "fixed_repository_binding_preserved",
-        "stored_ack_only",
-        "closed_completion_result",
-        "no_legacy_receipt_fallback"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "orchestrator:integration:workspace-lifecycle",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/workspace-lifecycle.integration.test.ts",
@@ -6839,25 +6816,6 @@
         "docker",
         "cleanup",
         "eligibility"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:host-recovery-record",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/host-recovery-record.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "recovery",
-        "record"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

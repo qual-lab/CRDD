@@ -15,7 +15,6 @@ import {
   type StoreOptions,
 } from "../../../execution-intelligence/src/index.ts";
 import {
-  inspectTaskExecutionSelections,
   isPrincipalId,
   type ProjectExecutionState,
   type ProjectTaskRecoveryObligation,
@@ -39,7 +38,6 @@ import {
 } from "../execution/intelligence.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import {
-  consumeDockerRecoveryReceiptAfterProjectSettlement,
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
@@ -52,13 +50,12 @@ import { projectCoordinatorState } from "../state/projection.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
-import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
+
 import {
   createCoordinatorExecutionHostPorts,
   createCoordinatorTaskRecoveryAdapter,
   runCoordinatorOperation,
 } from "../task/dispatch.ts";
-import { inspectCoordinatorSnapshotIntake } from "../task/queue.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
@@ -155,7 +152,7 @@ function recoveryApplicationId(
 /**
  * 回復の技術終端を種類別の固定条件へ照合する。
  *
- * @responsibility Dockerの耐久受領待ちとProcess回復の既存終端を区別する。
+ * @responsibility Dockerの技術終端とProcess回復の既存終端を区別する。
  * @trace ARCH-000008
  * @input value: 下位結果、kind: 保存済み義務種別、recoveryId: exact回復参照。
  * @returns 同じ義務の技術終端条件を満たす場合だけtrue。
@@ -185,7 +182,6 @@ function exactRecoveryCompleted(
         "hostCleanupConfirmed",
         "locksReleased",
         "historyConfirmed",
-        "deliveryPending",
         "operationRetained",
         "operationRemovalConfirmed",
         "taskRecoveryCompleted",
@@ -194,14 +190,13 @@ function exactRecoveryCompleted(
     );
     return (
       record?.contract === "crdd-coordinator/current-task-recovery" &&
-      record.status === "awaiting_delivery" &&
-      record.reason === "docker_task_recovery_durable_acceptance_pending" &&
+      record.status === "completed" &&
+      record.reason === "docker_task_recovery_terminal_confirmed" &&
       record.recoveryId === recoveryId &&
       record.dockerCleanupConfirmed === true &&
       record.hostCleanupConfirmed === true &&
       record.locksReleased === true &&
       record.historyConfirmed === true &&
-      record.deliveryPending === true &&
       record.operationRetained === true &&
       record.operationRemovalConfirmed === false &&
       record.taskRecoveryCompleted === false &&
@@ -475,9 +470,15 @@ export async function executeCoordinatorObjective(
     const written = persistence.state.writeState(created.state, 0);
     if (written.status !== "completed")
       return blocked(request, written.reason, {
-        cleanupConfirmed: false,
+        cleanupConfirmed:
+          written.reason === "orchestrator_intake_epoch_retired" &&
+          !written.manualRecoveryRequired,
         manualRecoveryRequired: written.manualRecoveryRequired,
-        effectState: "unknown",
+        effectState:
+          written.reason === "orchestrator_intake_epoch_retired" &&
+          !written.manualRecoveryRequired
+            ? "no_effect"
+            : "unknown",
       });
     state = Object.freeze({
       status: "completed" as const,
@@ -513,7 +514,9 @@ export async function executeCoordinatorObjective(
   });
   if (queued.status !== "completed")
     return blocked(request, queued.reason, {
-      cleanupConfirmed: false,
+      cleanupConfirmed:
+        queued.reason === "orchestrator_intake_epoch_retired" &&
+        !queued.manualRecoveryRequired,
       manualRecoveryRequired: queued.manualRecoveryRequired,
       effectState: queued.manualRecoveryRequired ? "unknown" : "no_effect",
     });
@@ -785,8 +788,6 @@ export async function executeCoordinatorObjective(
             !after ||
             !prior ||
             !next ||
-            prior.acknowledgement !== undefined ||
-            next.acknowledgement !== undefined ||
             !["required", "settled"].includes(prior.phase) ||
             !(
               next.phase === prior.phase ||
@@ -837,8 +838,7 @@ export async function executeCoordinatorObjective(
       for (const item of recoveries.filter(
         (entry) =>
           ["docker", "runtime_process"].includes(entry.kind) &&
-          entry.phase !== "settled" &&
-          entry.phase !== "acknowledged",
+          entry.phase !== "settled",
       )) {
         if (item.phase === "required" && item.kind !== "docker") {
           const recovering = markProjectTaskRecoveryObligationRecovering(
@@ -1040,188 +1040,81 @@ export async function executeCoordinatorObjective(
         });
       }
     }
-    for (const item of recoveries.filter((entry) => entry.kind === "docker")) {
-      const settledTask = recoveryState.tasks.find(
-        (entry) => entry.definition.id === item.taskId,
-      );
-      if (
-        !settledTask?.attemptId ||
-        !settledTask.operationId ||
-        !settledTask.recoveryObligations.some(
-          (entry) =>
-            entry.kind === "docker" &&
-            entry.recoveryId === item.recoveryId &&
-            ["settled", "acknowledged"].includes(entry.phase),
-        )
-      )
-        return blocked(
-          request,
-          "orchestrator_task_recovery_acknowledgement_not_settled",
-          {
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-            effectState: "unknown",
-            recoveryIds: [item.recoveryId],
-            recoveryObligations: [
-              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
-            ],
-          },
-        );
-      let currentObligation = settledTask.recoveryObligations.find(
-        (entry) =>
-          entry.kind === "docker" && entry.recoveryId === item.recoveryId,
-      );
-      if (currentObligation?.phase === "settled") {
-        let acknowledgementResult: unknown;
-        try {
-          if (!readCurrentRecoveryState())
-            throw new Error("orchestrator_recovery_boundary_changed");
-          acknowledgementResult = taskRecovery.acknowledgeDocker(
-            Object.freeze({
-              projectId: request.projectId,
-              milestoneId: request.milestoneId,
-              stateGeneration: recoveryState.generation,
-              taskId: item.taskId,
-              attemptId: settledTask.attemptId,
-              operationId: settledTask.operationId,
-              kind: "docker" as const,
-              recoveryId: item.recoveryId,
-            }),
-          );
-        } catch {
-          acknowledgementResult = null;
-        }
-        const acknowledged = snapshotPlainRecord(
-          acknowledgementResult,
-          new Set(["status", "reason", "acknowledgement"]),
-        );
-        const evidence = snapshotPlainRecord(
-          acknowledged?.acknowledgement,
-          new Set([
-            "repositoryBinding",
-            "operationId",
-            "recoveryId",
-            "resultId",
-            "consumer",
-          ]),
+    const recoveredDocker = recoveries.filter(
+      (entry) => entry.kind === "docker",
+    );
+    if (recoveredDocker.length > 0) {
+      for (const item of recoveredDocker) {
+        const task = recoveryState.tasks.find(
+          (t) => t.definition.id === item.taskId,
         );
         if (
-          acknowledged?.status !== "completed" ||
-          typeof acknowledged.reason !== "string" ||
-          !evidence ||
-          evidence.operationId !== settledTask.operationId ||
-          evidence.recoveryId !== item.recoveryId ||
-          evidence.consumer !== "orchestrator" ||
-          typeof evidence.repositoryBinding !== "string" ||
-          !/^[a-f0-9]{64}$/u.test(evidence.repositoryBinding) ||
-          typeof evidence.resultId !== "string" ||
-          !/^[a-f0-9]{64}$/u.test(evidence.resultId)
+          !task?.attemptId ||
+          !task.operationId ||
+          !task.cleanupConfirmed ||
+          task.recoveryUnresolved ||
+          !task.recoveryObligations.some(
+            (o) =>
+              o.kind === "docker" &&
+              o.recoveryId === item.recoveryId &&
+              o.phase === "settled",
+          )
         )
-          return blocked(
-            request,
-            "orchestrator_task_recovery_acknowledgement_not_settled",
-            {
-              cleanupConfirmed: false,
-              manualRecoveryRequired: true,
-              effectState: "unknown",
-              recoveryIds: [item.recoveryId],
-              recoveryObligations: [
-                Object.freeze({
-                  kind: item.kind,
-                  recoveryId: item.recoveryId,
-                }),
-              ],
-            },
-          );
-        const durableAcknowledgement = Object.freeze({
-          repositoryBindingId: dependencies.repositoryBindingId,
-          projectId: request.projectId,
-          milestoneId: request.milestoneId,
-          taskId: item.taskId,
-          attemptId: settledTask.attemptId,
-          operationId: settledTask.operationId,
-          recoveryId: item.recoveryId,
-          settlementGeneration: recoveryState.generation + 1,
-          repositoryBinding: evidence.repositoryBinding,
-          resultId: evidence.resultId,
-          consumer: "orchestrator" as const,
-        });
-        const marked = acknowledgeProjectDockerRecoveryObligation(
-          recoveryState,
-          recoveryState.generation,
-          durableAcknowledgement,
-        );
-        if (marked.status !== "completed" || !marked.state)
-          return blocked(request, marked.reason, {
+          return blocked(request, "orchestrator_task_recovery_not_settled", {
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
             effectState: "unknown",
+            recoveryIds: recoveredDocker.map((entry) => entry.recoveryId),
+            recoveryObligations: recoveredDocker.map((entry) => ({
+              kind: "docker" as const,
+              recoveryId: entry.recoveryId,
+            })),
           });
-        const markedWrite = persistence.state.writeState(
-          marked.state,
-          recoveryState.generation,
-        );
-        if (markedWrite.status !== "completed")
-          return blocked(request, markedWrite.reason, {
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-            effectState: "unknown",
-          });
-        recoveryState = markedWrite.value;
-        state = Object.freeze({
-          status: "completed" as const,
-          reason: markedWrite.reason,
-          value: markedWrite.value,
-        });
-        await taskRecovery.observeTransition({
-          phase: "acknowledged",
-          projectId: request.projectId,
-          milestoneId: request.milestoneId,
-          queueId,
-          taskId: item.taskId,
-          operationId: settledTask.operationId,
-          recoveryId: item.recoveryId,
-          stateGeneration: recoveryState.generation,
-        });
-        currentObligation = recoveryState.tasks
-          .find((entry) => entry.definition.id === item.taskId)
-          ?.recoveryObligations.find(
-            (entry) =>
-              entry.kind === "docker" && entry.recoveryId === item.recoveryId,
-          );
       }
-      if (
-        currentObligation?.phase !== "acknowledged" ||
-        !currentObligation.acknowledgement
-      )
-        return blocked(
-          request,
-          "orchestrator_task_recovery_acknowledgement_not_settled",
-          {
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-            effectState: "unknown",
-          },
-        );
-      await taskRecovery.observeTransition({
-        phase: "verification_resources_finalized",
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
-        queueId,
-        taskId: item.taskId,
-        operationId: settledTask.operationId,
-        recoveryId: item.recoveryId,
-        stateGeneration: recoveryState.generation,
-      });
       if (!readCurrentRecoveryState())
         return blocked(request, "orchestrator_task_recovery_not_settled", {
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
-          recoveryIds: [item.recoveryId],
-          recoveryObligations: [
-            Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
-          ],
+          recoveryIds: recoveredDocker.map((entry) => entry.recoveryId),
+          recoveryObligations: recoveredDocker.map((entry) => ({
+            kind: "docker" as const,
+            recoveryId: entry.recoveryId,
+          })),
+        });
+      const saved = persistence.state.writeState(
+        { ...recoveryState, generation: recoveryState.generation + 1 },
+        recoveryState.generation,
+      );
+      if (saved.status !== "completed")
+        return blocked(request, saved.reason, {
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+          recoveryIds: recoveredDocker.map((entry) => entry.recoveryId),
+          recoveryObligations: recoveredDocker.map((entry) => ({
+            kind: "docker" as const,
+            recoveryId: entry.recoveryId,
+          })),
+        });
+      recoveryState = saved.value;
+      state = {
+        status: "completed" as const,
+        reason: saved.reason,
+        value: saved.value,
+      };
+      for (const item of recoveredDocker)
+        await taskRecovery.observeTransition({
+          phase: "verification_resources_finalized",
+          projectId: request.projectId,
+          milestoneId: request.milestoneId,
+          queueId,
+          taskId: item.taskId,
+          operationId:
+            recoveryState.tasks.find((t) => t.definition.id === item.taskId)
+              ?.operationId ?? null,
+          recoveryId: item.recoveryId,
+          stateGeneration: recoveryState.generation,
         });
     }
     const externallyOwnedItems = recoveryState.tasks.flatMap((task) =>
@@ -1240,20 +1133,12 @@ export async function executeCoordinatorObjective(
         effectState: "unknown",
         recoveryIds: recoveryState.tasks.flatMap((task) =>
           task.recoveryObligations
-            .filter(
-              (entry) =>
-                entry.phase !==
-                (entry.kind === "docker" ? "acknowledged" : "settled"),
-            )
+            .filter((entry) => entry.phase !== "settled")
             .map((entry) => entry.recoveryId),
         ),
         recoveryObligations: recoveryState.tasks.flatMap((task) =>
           task.recoveryObligations
-            .filter(
-              (entry) =>
-                entry.phase !==
-                (entry.kind === "docker" ? "acknowledged" : "settled"),
-            )
+            .filter((entry) => entry.phase !== "settled")
             .map(({ kind, recoveryId }) => Object.freeze({ kind, recoveryId })),
         ),
       });
@@ -1287,11 +1172,7 @@ export async function executeCoordinatorObjective(
           task.state === "recovery_required" &&
           !task.recoveryUnresolved &&
           task.recoveryObligations.length > 0 &&
-          task.recoveryObligations.every(
-            (entry) =>
-              entry.phase ===
-              (entry.kind === "docker" ? "acknowledged" : "settled"),
-          ),
+          task.recoveryObligations.every((entry) => entry.phase === "settled"),
       )
       .map((task) => task.definition.id);
     if (retryTaskIds.length > 0) {
@@ -1414,11 +1295,7 @@ export async function executeCoordinatorObjective(
   if (queue.state !== "queued" && state.value) {
     const manualRecoveryRequired = queue.state === "recovery_required";
     const outstandingRecoveries = state.value.tasks.flatMap((task) =>
-      task.recoveryObligations.filter(
-        (entry) =>
-          entry.phase !==
-          (entry.kind === "docker" ? "acknowledged" : "settled"),
-      ),
+      task.recoveryObligations.filter((entry) => entry.phase !== "settled"),
     );
     return createCoordinatorObjectiveResult(request, {
       status: "blocked",
@@ -1681,10 +1558,8 @@ export function buildObjectiveTaskRequest(
   request: CoordinatorObjectiveRequest,
   taskExecutionSelections: TaskExecutionSelections,
 ) {
-  const selections = inspectTaskExecutionSelections(taskExecutionSelections);
-  if (!selections) throw new Error("coordinator_task_selection_invalid");
   return Object.freeze({
-    taskExecutionSelections: selections,
+    taskExecutionSelections,
     objective: request.objective,
     acceptanceCriteria: Object.freeze([...request.acceptanceCriteria]),
     allowedPaths: Object.freeze([...request.allowedPaths]),
@@ -1816,7 +1691,7 @@ export async function executeCoordinatorPublicObjective(
   } catch (error) {
     reportExecutionRecordingUnavailable(groupId, error);
   }
-  const execution = await runCoordinatorObjective(
+  const execution = await executeAcceptedCoordinatorObjective(
     {
       authenticatedPrincipalId: authenticationContext.principalId,
       resolveTaskSelections(request) {
@@ -1957,13 +1832,6 @@ export async function executeCoordinatorPublicObjective(
           signal,
         );
       },
-      acknowledgeTaskRecovery: (settlement) =>
-        consumeDockerRecoveryReceiptAfterProjectSettlement(settlement, {
-          workingDirectory,
-          repositoryRoot,
-          repositoryBindingId:
-            deriveCoordinatorRepositoryBindingId(repositoryRoot),
-        }),
       resolveTaskRecoveryCorrelations:
         runtimeDependencies.resolveTaskRecoveryCorrelations ??
         ((ids) => {
@@ -1975,10 +1843,6 @@ export async function executeCoordinatorPublicObjective(
         }),
       observeRecoveryTransition: writeCoordinatorRecoveryDiagnostic,
       execution: {
-        resultDelivery: {
-          repositoryBindingId:
-            deriveCoordinatorRepositoryBindingId(repositoryRoot),
-        },
         runSingleTaskAttempt: (input) =>
           runCoordinatorSingleTaskAttempt(
             {
@@ -2004,7 +1868,6 @@ export async function executeCoordinatorPublicObjective(
                   },
                 ),
               cancelTask: runtimeDependencies.cancelTask,
-              captureResultDelivery: runtimeDependencies.captureResultDelivery,
             },
             input,
           ),
@@ -2161,8 +2024,41 @@ export async function runCoordinatorObjective(
   cancellationSignal: AbortSignal,
 ) {
   const request = inspectCoordinatorObjectiveRequest(rawRequest);
+  if (!request)
+    return blocked(
+      Object.freeze({
+        requestId: "invalid",
+        projectId: "invalid",
+        milestoneId: "invalid",
+      }) as CoordinatorObjectiveRequest,
+      "orchestrator_objective_request_invalid",
+    );
+
+  return executeAcceptedCoordinatorObjective(
+    dependencies,
+    request,
+    cancellationSignal,
+  );
+}
+
+/**
+ * 受付済み要求を元のBinding・保存・実行へ接続する。
+ * @responsibility 同じ要求を再捕捉せず、認証主体・取消Signal・依存結果の検査を維持する。
+ * @trace ARCH-000004
+ * @input dependencies: 既存依存、request: 要求受付が捕捉した値、cancellationSignal: 取消入力。
+ * @returns 元の公開実行結果。
+ * @precondition requestは同Moduleの公開入口で検査済み。
+ * @effect 元のRepository観測・保存・実行・終了後整理だけ。
+ * @failure 主体・Signal・Binding・依存結果の不正を元理由で停止する。
+ * @boundary 外部要求受付と内部実行。
+ * @security 検査済み入力を実行許可と同一視しない。
+ */
+async function executeAcceptedCoordinatorObjective(
+  dependencies: CoordinatorObjectiveIntakeDependencies,
+  request: CoordinatorObjectiveRequest,
+  cancellationSignal: AbortSignal,
+) {
   if (
-    !request ||
     !(cancellationSignal instanceof AbortSignal) ||
     !isPrincipalId(dependencies.authenticatedPrincipalId)
   )
@@ -2221,20 +2117,6 @@ export async function runCoordinatorObjective(
       }),
     ),
   };
-  const admitted = inspectCoordinatorSnapshotIntake(
-    binding.workingDirectory,
-    binding.repositoryBindingId,
-    intake,
-  );
-  if (admitted.status !== "completed")
-    return createCoordinatorObjectiveResult(request, {
-      status: "blocked",
-      reason: admitted.reason,
-      cleanupConfirmed: !admitted.manualRecoveryRequired,
-      manualRecoveryRequired: admitted.manualRecoveryRequired,
-      recoveryIds: admitted.recoveryId ? [admitted.recoveryId] : [],
-      effectState: admitted.manualRecoveryRequired ? "unknown" : "no_effect",
-    });
   const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
@@ -2250,11 +2132,7 @@ export async function runCoordinatorObjective(
       ),
       clockIdentity: hostPorts.clockIdentity,
       processSafety: hostPorts.processSafety,
-      taskRecovery: createCoordinatorTaskRecoveryAdapter(
-        binding.workingDirectory,
-        binding.repositoryBindingId,
-        dependencies,
-      ),
+      taskRecovery: createCoordinatorTaskRecoveryAdapter(dependencies),
       createTaskExecutions: (objectiveRequest, state) =>
         dependencies.createTaskExecutions(
           objectiveRequest,

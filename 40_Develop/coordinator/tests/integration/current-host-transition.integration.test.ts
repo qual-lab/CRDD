@@ -9,7 +9,6 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Driver→Host／現在状態Writer。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import childProcess, { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -20,11 +19,7 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { runInNewContext, Script } from "node:vm";
 import { startOwnedWindowsProcess } from "../../../docker-isolation/src/process/start.ts";
-import {
-  canCloseUnknownAuthentication,
-  createDockerRestartRequestId,
-  type ExecutionOperationRecord,
-} from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
@@ -46,7 +41,6 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
-
 import {
   readOperationStateStage,
   saveOperationCheckpoint,
@@ -61,6 +55,10 @@ import {
   savedAbsenceProcessProfileSource,
 } from "../fixtures/current-authentication-recovery-cli.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
+import {
+  canonicalJson,
+  restartRequestIdFixture,
+} from "../support/contract-assertions.ts";
 
 /** 本番通知本文の保存Owner選択を、実適格判定と段階別の拒否で反証する。
  * @trace ERB-IT-014
@@ -113,7 +111,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
     ),
   };
   const scopeSha256 = "d".repeat(64);
-  const requestId = createDockerRestartRequestId(
+  const requestId = restartRequestIdFixture(
     fixture.binding,
     original.identitySha256,
     fixture.recoveryId,
@@ -144,7 +142,6 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       },
     },
   };
-  assert.equal(canCloseUnknownAuthentication(eligible), true);
   for (const scenario of [
     "eligible",
     "receipt",
@@ -223,7 +220,6 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       "missing_book",
       "generic_refused",
     ].includes(scenario);
-    assert.equal(canCloseUnknownAuthentication(operation), !generalPath);
     const counts = { generic: 0, inspect: 0, writer: 0, read: 0 };
     let currentCalls = 0;
     const capability = {},
@@ -251,7 +247,6 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       signal: undefined,
       authenticationClosureConfirmed: false,
       inspectionConfigConfirmed: true,
-      canCloseUnknownAuthentication,
       current: () => {
         currentCalls++;
         if (record.persistenceFailed || record.cleanupUnknown)
@@ -262,10 +257,13 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           (scenario === "owner_after_inspect" && counts.inspect > 0)
         )
           throw Error("fixture_owner_lost");
-        return scenario === "becomes_eligible_after_generic" &&
-          counts.generic > 0
-          ? eligible
-          : operation;
+        const becameEligible =
+          scenario === "becomes_eligible_after_generic" && counts.generic > 0;
+        // このCaseはReaderの前後で条件が変わる搬送を検証する。モデル条件自体はEMの反証が所有する。
+        return {
+          operation: becameEligible ? eligible : operation,
+          authenticationClosureAllowed: becameEligible || !generalPath,
+        };
       },
       persistRuntimeOwnedDockerTaskRecoveryCheckpoint: (
         owner: unknown,
@@ -355,6 +353,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           lockReleased: true,
           value: {
             snapshot: { revision: 2 },
+            operationStates: [],
             sourceText: '{"revision":2}\n',
             payloadSha256: scenario === "readback_failed" ? "changed" : "saved",
           },
@@ -842,7 +841,6 @@ test("全Host子入口: 退役Nativeを含む未知Processを既定拒否する"
     "auth_child",
     "reentry_child",
     "history_child",
-    "delivery_child",
   ]) {
     let syncCalls = 0,
       otherCalls = 0,
@@ -898,9 +896,7 @@ test("全Host子入口: 退役Nativeを含む未知Processを既定拒否する"
         ? "recover_cleanup"
         : scenario === "history_child"
           ? "recover_history"
-          : scenario === "delivery_child"
-            ? "recover_delivery"
-            : null;
+          : null;
     const childArguments = reentryMode
       ? [
           "-",
@@ -1730,10 +1726,6 @@ for (const publicationFault of [
   "history_published",
   "history_confirm_pending",
   "history_confirm_published",
-  "delivery_none",
-  "delivery_pending",
-  "delivery_published",
-  "delivery_marker",
   "workbench_transient",
   "driver",
   "completion_cli",
@@ -1811,10 +1803,7 @@ for (const publicationFault of [
           children: info.isDirectory() ? fs.readdirSync(file).sort() : null,
         };
       });
-      if (
-        publicationFault.startsWith("delivery_") ||
-        publicationFault.startsWith("cli_entry_orchestrator")
-      )
+      if (publicationFault.startsWith("cli_entry_orchestrator"))
         target.identity.consumer = "orchestrator";
       if (publicationFault.startsWith("cli_entry_orchestrator"))
         Object.assign(target.identity, {
@@ -1828,7 +1817,7 @@ for (const publicationFault of [
         target.identity.consumer = "workbench";
       targetManagement = target.management;
       const initial = Buffer.from(
-        `${canonicalJson({ schema: "crdd-domain/runtime-state/v3", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${canonicalJson({ schema: "crdd-execution-model/state/v4", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], operations: [], unresolvedRecoveries: [] })}\n`,
       );
       // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
       const snapshotArea = requireReadyRepositoryExecutionDataArea(
@@ -2242,6 +2231,7 @@ for (const publicationFault of [
         publicationFault === "handoff_failure" ||
         publicationFault === "cli_entry_cli" ||
         publicationFault === "cli_entry_workbench" ||
+        publicationFault.startsWith("cli_entry_orchestrator") ||
         publicationFault.startsWith("restart_")
       ) {
         assert.equal(finalOperation, undefined);
@@ -2281,63 +2271,14 @@ for (const publicationFault of [
         publicationFault === "none" ||
         publicationFault === "null_outcome" ||
         publicationFault.startsWith("history_") ||
-        publicationFault.startsWith("delivery_") ||
         publicationFault === "workbench_transient" ||
-        publicationFault === "driver" ||
-        publicationFault.startsWith("cli_entry_orchestrator");
+        publicationFault === "driver";
       assert.equal(
         finalState.revision,
         before.value.snapshot.revision +
-          (publicationFault.startsWith("cli_entry_orchestrator")
-            ? 9
-            : publicationFault.startsWith("delivery_") ||
-                publicationFault === "driver"
-              ? 8
-              : terminalSaved
-                ? 7
-                : 4),
+          (publicationFault === "driver" ? 7 : terminalSaved ? 7 : 4),
       );
       assert.equal(finalOperation.host.pendingTransitionJson, null);
-      if (publicationFault.startsWith("cli_entry_orchestrator")) {
-        const deliveries = finalState.pendingDeliveries.filter(
-          (item: { operationNonce: string }) =>
-            item.operationNonce === target.identity.operationNonce,
-        );
-        assert.equal(deliveries.length, 1);
-        assert.equal(deliveries[0].consumer, "orchestrator");
-        assert.equal(deliveries[0].recoveryId, started.recoveryId);
-        assert.deepEqual(Object.keys(deliveries[0]).sort(), [
-          "consumer",
-          "operationNonce",
-          "recoveryId",
-          "resultId",
-        ]);
-        assert.equal(
-          finalState.resultReceipts.filter(
-            (item: { resultId: string }) =>
-              item.resultId === deliveries[0].resultId,
-          ).length,
-          0,
-        );
-        assert.equal(
-          JSON.parse(finalOperation.identityJson).recoveryCorrelationId,
-          "upper-current-host",
-        );
-        if (publicationFault === "cli_entry_orchestrator_identified") {
-          const recoveredResource =
-            finalOperation.resources.snapshot.resources.find(
-              (item: { key: string }) => item.key === "create_provider",
-            );
-          const checkpoint = finalOperation.resources.checkpoints.find(
-            (item: { key: string }) => item.key === "create_provider",
-          );
-          assert.equal(recoveredResource.request, "issued");
-          assert.equal(recoveredResource.identity.dockerId, "c".repeat(64));
-          assert.equal(checkpoint.receiptSource, "docker_create_result");
-          assert.equal(checkpoint.observation, "absent");
-          assert.match(checkpoint.absenceEvidenceSha256, /^[a-f0-9]{64}$/);
-        }
-      }
       assert.equal(finalOperation.host.cleanup, "confirmed");
       assert.equal(finalOperation.phase, "settling");
       assert.equal(

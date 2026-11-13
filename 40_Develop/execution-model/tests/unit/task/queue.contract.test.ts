@@ -18,11 +18,11 @@ import type {
   WorkspaceRecord,
 } from "../../../src/index.ts";
 import {
+  snapshotIntakeMatches,
   PROJECT_SNAPSHOT_SCHEMA,
   projectCurrentState,
 } from "../../../src/state/validation.ts";
 import {
-  inspectQueueIntake,
   prepareQueueEntryCreation,
   projectQueueEntry,
 } from "../../../src/task/validation.ts";
@@ -44,7 +44,7 @@ function fixture() {
   const project = { projectId: "project-a" } as ProjectExecutionState;
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -93,11 +93,7 @@ function fixture() {
 test("受付固定照合はepoch・ID・Hashを元の順序で保持する", () => {
   const { current, input, intake } = fixture();
   const before = encodeStateValue(current);
-  assert.deepEqual(inspectQueueIntake(current, intake), {
-    status: "completed",
-    reason: "orchestrator_intake_verified",
-    value: { next: null, value: true },
-  });
+  assert.equal(snapshotIntakeMatches(current, intake), true);
   for (const change of [
     { epoch: "epoch-b" },
     { queueId: "../escape" },
@@ -105,19 +101,16 @@ test("受付固定照合はepoch・ID・Hashを元の順序で保持する", () 
     { projectId: "../escape" },
     { milestoneId: "../escape" },
   ])
-    assert.deepEqual(inspectQueueIntake(current, { ...intake, ...change }), {
-      status: "blocked",
-      reason: "orchestrator_intake_epoch_retired",
-      value: null,
-      manualRecoveryRequired: false,
-      recoveryId: null,
-    });
+    assert.equal(
+      snapshotIntakeMatches(current, { ...intake, ...change }),
+      false,
+    );
   const created = prepareQueueEntryCreation(current, "epoch-a", input);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
   const rotated = { ...created.value.next, intakeEpoch: "epoch-b" };
-  assert.equal(inspectQueueIntake(rotated, intake).status, "completed");
+  assert.equal(snapshotIntakeMatches(rotated, intake), true);
   for (const change of [
     { epoch: "epoch-b" },
     { requestHash: "d".repeat(64) },
@@ -125,12 +118,12 @@ test("受付固定照合はepoch・ID・Hashを元の順序で保持する", () 
     { milestoneId: "milestone-b" },
   ])
     assert.equal(
-      inspectQueueIntake(rotated, { ...intake, ...change }).status,
-      "blocked",
+      snapshotIntakeMatches(rotated, { ...intake, ...change }),
+      false,
     );
   assert.equal(
-    inspectQueueIntake({ ...rotated, intakeBindings: [] }, intake).status,
-    "blocked",
+    snapshotIntakeMatches({ ...rotated, intakeBindings: [] }, intake),
+    false,
   );
   assert.equal(encodeStateValue(current), before);
 });

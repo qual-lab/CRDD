@@ -8,13 +8,16 @@
  * @boundary メモリの局所fixtureだけ。実Lock・保存・全体codec・回復完了の根拠ではない。
  */
 
-import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { leaseIdentity, type ProjectQueueEntry } from "../../../src/index.ts";
-import type { LeaseEvidenceEnvelope } from "../../../src/state/types.ts";
+import type { ProjectQueueEntry } from "../../../src/index.ts";
+import type {
+  LeaseEvidenceEnvelope,
+  Snapshot,
+} from "../../../src/state/types.ts";
 import {
+  encodeStateValue,
+  leaseIdentity,
   PROJECT_SNAPSHOT_SCHEMA,
   prepareLeaseAcquisitionConfirmation,
   prepareLeaseAcquisitionReservation,
@@ -57,7 +60,7 @@ function fixture() {
   };
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -520,6 +523,8 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
       intents: [f.intent],
       queue: f.queue,
       intakeEpoch: f.current.intakeEpoch,
+      identity: "project-operation-binding-a",
+      recoveryId: "lease-acquisition-beca53628fa8df5e62cfb429478812053280ef5a",
       ...f.root,
     });
 });

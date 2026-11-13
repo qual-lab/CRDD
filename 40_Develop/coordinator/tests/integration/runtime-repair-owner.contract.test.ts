@@ -9,7 +9,6 @@
  * @boundary 修復呼出し→実Writer、実DI Runtime／Machine。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -24,7 +23,6 @@ import * as isolation from "../../../docker-isolation/src/index.ts";
 import * as model from "../../../execution-model/src/index.ts";
 import * as domain from "../../../execution-model/src/index.ts";
 import * as stateStore from "../../../execution-model/src/index.ts";
-
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
@@ -33,11 +31,12 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import * as bindings from "../../src/execution/operation.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
 import {
   historyRepositoryInput,
   withHistoryRetention,
 } from "../../src/execution/persistence.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
  * 固定本文の元版を論理保存Requestへ投影する。
@@ -362,8 +361,6 @@ function createRepairOwnerFixture() {
     observeRepairDirectories:
       isolationModule.namedExports.observeRepairDirectories,
     cleanupRepairDirectory: isolationModule.namedExports.cleanupRepairDirectory,
-    isRepairCheckpointSettled: domain.isRepairCheckpointSettled,
-    isRepairDisposalSettled: domain.isRepairDisposalSettled,
   };
   const names = [
     "Date",
@@ -377,7 +374,6 @@ function createRepairOwnerFixture() {
     "observeRepositoryExecutionDataArea",
     "getRepository",
     "runRepairSession",
-    "isRepairCheckpointSettled",
     "borrowRuntimeOwnedCoordinatorRecoveryRepository",
     "canonicalJson",
     "observeRepairDirectories",
@@ -385,10 +381,9 @@ function createRepairOwnerFixture() {
     "advanceOwnedRepairHistory",
     "completeRepair",
     "resumeRepairPublication",
-    "removeStatePublicationMarker",
+    "completeStatePublication",
     "saveRepairState",
     "cleanupRepairDirectory",
-    "isRepairDisposalSettled",
   ] as const;
   const realOperations = {
     runRepairSession: directoryOperations.runRepairSession,
@@ -587,7 +582,12 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
     ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
   ).operations.find((operation) => operation.recoveryId === id);
   assert.ok(final?.kind === "runtime_repair" && final.disposal);
-  assert.equal(domain.isRepairDisposalSettled(final.disposal.checkpoint), true);
+  assert.deepEqual(
+    Object.values(final.disposal.checkpoint.directories).map(
+      (item) => item.absence,
+    ),
+    ["confirmed_absent", "confirmed_absent", "confirmed_absent"],
+  );
   assert.equal(
     final.disposal.checkpoint.directories.primary.request,
     "unknown",
@@ -1046,7 +1046,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       assert.ok(fs.readFileSync(stateFile).equals(candidate));
       assert.equal(fs.existsSync(pending), false);
       assert.equal(fs.existsSync(marker), true);
-      const cleaned = stateStore.removeStatePublicationMarker(f.capability);
+      const cleaned = stateStore.completeStatePublication(f.capability);
       assert.equal(cleaned.storageConfirmed, true);
       assert.equal(cleaned.status, "completed");
       assert.equal(cleaned.lockReleased, true);
@@ -1418,7 +1418,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.equal(absent.repairCompletionAbsent, true);
   assert.equal(absent.repairRetentionReviewAfter, null);
   assert.equal(absent.currentCompletionPublication, null);
-  const cleaned = stateStore.removeStatePublicationMarker(f.capability);
+  const cleaned = stateStore.completeStatePublication(f.capability);
   assert.equal(cleaned.status, "completed");
   assert.equal(cleaned.markerAbsentConfirmed, true);
   assert.equal(
@@ -1835,7 +1835,10 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
       assert.ok(fs.readFileSync(stateFile).equals(expectedCompletion));
       assert.equal(after.operations.length, 0);
       assert.deepEqual(after.unresolvedRecoveries, before.unresolvedRecoveries);
-      assert.deepEqual(after.pendingDeliveries, before.pendingDeliveries);
+      assert.ok(after);
+      assert.equal(Object.hasOwn(after, "pendingDeliveries"), false);
+      assert.ok(before);
+      assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
       assert.equal(after.revision, before.revision + 4);
       const history = fs.readFileSync(historyFile);
       const historyRead = domain.readRecoveryState(f.capability, {
@@ -2517,7 +2520,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         // 正規の非対象終端Repairを含むfixture。実処置の履歴を捏造するものではない。
         const other = {
           ...original,
-          phase: "awaiting_delivery",
+          phase: "terminal",
           checkpoint: null,
           primaryFailure: null,
           outcome: {
@@ -2752,10 +2755,10 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         next.snapshot.unresolvedRecoveries,
         prior.snapshot.unresolvedRecoveries,
       );
-      assert.deepEqual(
-        next.snapshot.pendingDeliveries,
-        prior.snapshot.pendingDeliveries,
-      );
+      assert.ok(next.snapshot);
+      assert.equal(Object.hasOwn(next.snapshot, "pendingDeliveries"), false);
+      assert.ok(prior.snapshot);
+      assert.equal(Object.hasOwn(prior.snapshot, "pendingDeliveries"), false);
       if (mode === "identity")
         assert.deepEqual(
           next.snapshot.operations.filter((item) => item.recoveryId !== id),

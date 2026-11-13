@@ -556,13 +556,13 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
  * @responsibility 部分成立・CLI清掃不明・未知fieldを正常完了表示へ混入させない。
  * @trace PRL-ST-001
  * @precondition 固定公開fieldだけを持つ診断を構成する。
- * @stimulus 正常transient、durable待ち、相関欠落と余剰fieldを渡す。
+ * @stimulus 単独完了、Task保存待ち、相関欠落と余剰fieldを渡す。
  * @observation 人間表示・JSON・終了コードを比較する。
- * @oracle 正常と受領待ちを区別し、余剰fieldは出力しない。
+ * @oracle 単独完了とTask保存待ちを区別し、余剰fieldは出力しない。
  * @cleanup N/A: 値変換だけ。
  * @boundary PRL-ST-001=Direct Boundary: 固定診断→renderer。
  */
-test("現在回復rendererは完了と耐久受領待ちを区別する", () => {
+test("現在回復rendererは操作除去とTask保存待ちを区別する", () => {
   const base = {
     contract: "crdd-coordinator/current-task-recovery",
     status: "recovered",
@@ -572,7 +572,6 @@ test("現在回復rendererは完了と耐久受領待ちを区別する", () => 
     hostCleanupConfirmed: true,
     locksReleased: true,
     historyConfirmed: true,
-    deliveryPending: false,
     operationRetained: false,
     operationRemovalConfirmed: true,
     taskRecoveryCompleted: true,
@@ -592,9 +591,8 @@ test("現在回復rendererは完了と耐久受領待ちを区別する", () => 
   );
   const pending = {
     ...base,
-    status: "awaiting_delivery",
-    reason: "docker_task_recovery_durable_acceptance_pending",
-    deliveryPending: true,
+    status: "completed",
+    reason: "docker_task_recovery_terminal_confirmed",
     operationRetained: true,
     operationRemovalConfirmed: false,
     taskRecoveryCompleted: false,
@@ -602,7 +600,7 @@ test("現在回復rendererは完了と耐久受領待ちを区別する", () => 
   assert.equal(renderDockerRecoveryDoctorReport(pending, true).exitCode, 0);
   assert.match(
     renderDockerRecoveryDoctorReport(pending, false).stdout,
-    /技術回収済み・Task側の受領待ち/,
+    /技術回収済み・Task保存待ち/,
   );
   for (const field of [
     "dockerCleanupConfirmed",
@@ -807,7 +805,6 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
     hostCleanupConfirmed: false,
     locksReleased: true,
     historyConfirmed: false,
-    deliveryPending: false,
     operationRetained: null,
     operationRemovalConfirmed: false,
     taskRecoveryCompleted: false,

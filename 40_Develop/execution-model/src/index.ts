@@ -6,13 +6,14 @@
  * @boundary 他モデルへの直接依存を持たないPackage境界。
  */
 export {
+  applyResourceCleanup,
+  applyResourceEvent,
   completeOperation,
   completeRecovery,
   completeRepair,
-  observeTransientTaskCompletion,
+  readOperationCompletion,
   readOperationResourcesStage,
-  readOperationResult,
-  readOwnedRecoveryResult,
+  readOperationStateStage,
   readRecoveryState,
   resumeResourcePublication,
   saveHostCleanupPreparation,
@@ -29,19 +30,10 @@ export type {
   RepairSaveRequest,
   RestartCheckpoint,
 } from "./attempt/types.ts";
+export { dockerProcessControllerPublicCompletionReasons } from "./attempt/types.ts";
 export {
-  applyResourceCleanup,
-  applyResourceEvent,
-  areTaskResourcesSettled,
-  canCloseUnknownAuthentication,
-  createDockerRestartRequestId,
-  dockerProcessControllerPublicCompletionReasons,
-  isDockerRestartCheckpointSettled,
-  isRepairCheckpointSettled,
-  isRepairDisposalSettled,
   parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
-  validateHostRecoveryTransitionLineage,
   validateResourceBook,
   validateResourceBookTransition,
 } from "./attempt/validation.ts";
@@ -80,23 +72,25 @@ export type {
   ProjectMilestoneState,
   ProjectObjectiveDefinition,
 } from "./objective/types.ts";
+export { OBJECTIVE_STATES } from "./objective/types.ts";
 export { inspectExecutionPlan } from "./objective/validation.ts";
 export {
   acquireLease,
+  completeStatePublication,
+  createLocalPrincipalId,
   initializeExecutionState,
   initializeExecutionStore,
   queryExecutionState,
   readLease,
   readProjectExecutionState,
+  readState,
   recoverLease,
-  registerOwnedRecoveryResultDelivery,
   releaseLease,
   resumeRepairPublication,
   saveOperationCheckpoint,
   saveProjectExecutionState,
   saveRepairState,
   saveUnknownAuthenticationClosureStage,
-  readState,
 } from "./state/crud.ts";
 export type {
   ExecutionModelAccess,
@@ -105,22 +99,9 @@ export type {
   ProjectExecutionState,
   StateVersion,
 } from "./state/types.ts";
-export {
-  createLocalPrincipalId,
-  isPrincipalId,
-  leaseAcquisitionRecoveryId,
-  leaseIdentity,
-  OBJECTIVE_STATES,
-  PROJECT_STATE_CONTRACT,
-  TASK_STATES,
-  validId,
-} from "./state/validation.ts";
-export {
-  ExecutionStorageBlockedError,
-  readOperationStateStage,
-  readSnapshotIntakeEpoch,
-  removeStatePublicationMarker,
-} from "./storage/store.ts";
+export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
+export { isPrincipalId } from "./state/validation.ts";
+export { ExecutionStorageBlockedError } from "./storage/store.ts";
 export {
   createQueue,
   createTask,
@@ -132,14 +113,11 @@ export {
   selectQueueEntry,
   updateQueue,
   updateTask,
-  verifyQueueIntake,
 } from "./task/crud.ts";
 export type {
   ExecutionSelection,
-  ProjectDockerRecoveryAcknowledgement,
   ProjectQueueEntry,
   ProjectQueueState,
-  ProjectResultAcceptance,
   ProjectTaskDefinition,
   ProjectTaskRecord,
   ProjectTaskRecoveryKind,
@@ -150,12 +128,9 @@ export type {
   SingleTaskRecord,
   TaskExecutionSelections,
 } from "./task/types.ts";
+export { TASK_STATES } from "./task/types.ts";
 export {
-  decodeProjectResultAcceptance,
-  getConsumerCompletionPolicy,
-  hashExecutionSelection,
   inspectExecutionSelection,
-  inspectSingleTaskRecord,
   inspectTaskExecutionSelections,
 } from "./task/validation.ts";
 export {
@@ -168,10 +143,4 @@ export type {
   WorkspaceCandidateRequest,
   WorkspaceCandidateResult,
   WorkspaceRecord,
-  WorkspaceResult,
 } from "./workspace/types.ts";
-export {
-  inspectWorkspaceResult,
-  validWorkspaceCandidateRequest,
-  validWorkspaceDisplayName,
-} from "./workspace/validation.ts";

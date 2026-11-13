@@ -7,19 +7,22 @@
  * @packageDocumentation
  * @scope 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
  */
-import { decodeStateSnapshot } from "../../src/state/validation.ts";
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
-import type { OperationResources } from "../../src/attempt/types.ts";
 import {
   applyResourceCleanup,
   applyResourceEvent,
+} from "../../src/attempt/crud.ts";
+import type { OperationResources } from "../../src/attempt/types.ts";
+import {
   areTaskResourcesSettled,
   validateOperationIdentity,
   validateResourceBook,
   validateResourceBookTransition,
 } from "../../src/attempt/validation.ts";
+import { decodeStateSnapshot } from "../../src/state/validation.ts";
 
 import { createResourceOperationFixture } from "../support/resource-operation.ts";
 

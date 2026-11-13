@@ -20,10 +20,7 @@ import {
   validPrimaryFailure,
 } from "../../../src/attempt/validation.ts";
 import { decodeHistoryRows } from "../../../src/history/validation.ts";
-import {
-  getConsumerCompletionPolicy,
-  type ProjectExecutionState,
-} from "../../../src/index.ts";
+import type { ProjectExecutionState } from "../../../src/index.ts";
 import type {
   ProjectDefinition,
   UnifiedSnapshot,
@@ -82,8 +79,7 @@ test("履歴の旧行と別操作行は形式成立と操作対応を分ける",
   };
   const current = {
     ...legacy,
-    schema: "crdd-coordinator/operation-summary/v4",
-    consumer: "workbench",
+    schema: "crdd-execution-model/operation-summary/v5",
     recoveryCorrelationId: "upper-current-host",
   };
   const otherNonce = "d".repeat(64);
@@ -93,7 +89,7 @@ test("履歴の旧行と別操作行は形式成立と操作対応を分ける",
     operationNonce: otherNonce,
     recoveryId: `docker-task.${binding}.${otherNonce}.${identitySha256}`,
   };
-  for (const summary of [legacy, current, other]) {
+  for (const summary of [current, other]) {
     const line = `${encodeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-09-01T00:00:00.000Z", summary })}\n`;
     const rows = decodeHistoryRows(Buffer.from(line));
     assert.equal(rows?.length, 1);
@@ -293,7 +289,7 @@ const taskExecutionSelections = () => ({
  */
 function emptyUnifiedSnapshot(): UnifiedSnapshot {
   return {
-    schema: "crdd-domain/runtime-state/v3",
+    schema: "crdd-execution-model/state/v4",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -301,7 +297,6 @@ function emptyUnifiedSnapshot(): UnifiedSnapshot {
     intakeEpoch: null,
     operations: [],
     unresolvedRecoveries: [],
-    pendingDeliveries: [],
     projects: [],
     managedExecutions: [],
     queueEntries: [],
@@ -313,7 +308,6 @@ function emptyUnifiedSnapshot(): UnifiedSnapshot {
     historyPending: [],
     decisions: [],
     blockers: [],
-    resultReceipts: [],
   };
 }
 const empty = {
@@ -324,7 +318,6 @@ const empty = {
   repositoryBinding: binding,
   operations: [],
   unresolvedRecoveries: [],
-  pendingDeliveries: [],
 };
 /**
  * 新SchemaでCore定義を管理実行から独立して復号する。
@@ -340,7 +333,7 @@ const empty = {
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
     ...emptyUnifiedSnapshot(),
-    schema: "crdd-domain/runtime-state/v3",
+    schema: "crdd-execution-model/state/v4",
     repositoryBindingId: "binding-a",
     intakeEpoch: "epoch-a",
     managedExecutions: [],
@@ -426,7 +419,6 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
         startPhase: "none",
         settlement: { kind: "pending" },
         recoveryObligations: [],
-        resultAcceptanceIds: [],
         candidateId: null,
         retryCount: 0,
         supersededBy: null,
@@ -553,7 +545,7 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
     { ...snapshot, repositoryRootHash: binding },
     { ...snapshot, revision: 2 },
     { ...snapshot, previous: { revision: 0, payloadSha256: binding } },
-    { ...snapshot, resultReceipts: [{}] },
+    { ...snapshot, pendingDeliveries: [] },
     { ...snapshot, workspaces: [{}] },
     { ...snapshot, payload: snapshot },
   ])
@@ -676,55 +668,6 @@ test("Task終端投影: 空の技術集合と明示未発行を区別する", ()
 });
 
 /**
- * 耐久受領の候補保持を本番wrapper本文で検証する。
- * @responsibility 保存途中の候補を後続Effect 0で失わず、元Bufferとも分離する。
- * @trace PRL-UT-006
- * @precondition WriterとReaderはメモリ代役で、Kernel・実保存は対象外。
- * @stimulus 初回未発行、部分保存、再入場未発行、三確認成功を返す。
- * @observation Reader回数、保持pair全文、Writer受渡しと入力Buffer変異。
- * @oracle 初回Effect 0だけ破棄、部分保存後は三確認成功まで同候補を保持する。
- * @cleanup N/A: VMメモリ以外の資源を作らない。
- * @boundary 保存wrapperの候補lifecycle。実保存・実Consumer ACKを証明しない。
- */
-test("結果受領方式: 固定利用側と任意降格の拒否", () => {
-  assert.equal(getConsumerCompletionPolicy("coordinator_cli"), "transient");
-  assert.equal(getConsumerCompletionPolicy("workbench"), "transient");
-  assert.equal(getConsumerCompletionPolicy("orchestrator"), "durable");
-  let evaluations = 0;
-  const hostile = Object.defineProperty({}, "consumer", {
-    get() {
-      evaluations += 1;
-      throw new Error("not_evaluated");
-    },
-  });
-  const proxy = new Proxy(
-    {},
-    {
-      get() {
-        evaluations += 1;
-        throw new Error("not_evaluated");
-      },
-    },
-  );
-  for (const invalid of [
-    "",
-    "unknown_consumer",
-    "transient",
-    "durable",
-    null,
-    undefined,
-    0,
-    { consumer: "orchestrator", completionPolicy: "transient" },
-    ["orchestrator"],
-    new String("orchestrator"),
-    hostile,
-    proxy,
-  ])
-    assert.equal(getConsumerCompletionPolicy(invalid), null);
-  assert.equal(evaluations, 0);
-});
-
-/**
  * 正規本文と改訂相関、Repository結合を検証する。
  * @responsibility 現在状態codecの構造相関を検証する。
  * @trace PRL-UT-006
@@ -746,7 +689,7 @@ test("Snapshot: 正規本文、改訂、結合と空集合", () => {
     { ...empty, revision: 0 },
     { ...empty, revision: 2 },
     { ...empty, unknown: true },
-    { ...empty, pendingDeliveries: [{ operationNonce: binding }] },
+    { ...empty, resultReceipts: [] },
   ])
     assert.equal(
       decodeStateSnapshot(
@@ -858,7 +801,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   const created = {
     status: "completed",
     state: {
-      contract: "crdd-coordinator/project-state/v2",
+      contract: "crdd-execution-model/project-state/v3",
       taskExecutionSelections: {
         executor: {
           provider: "codex",
@@ -928,7 +871,6 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
           startPhase: "none",
           cleanupConfirmed: false,
           recoveryObligations: [],
-          resultAcceptances: [],
           recoveryUnresolved: false,
           candidateId: null,
           retryCount: 0,
@@ -941,7 +883,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   if (created.status !== "completed") throw new Error("state_fixture_invalid");
   const snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash: binding,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -1002,13 +944,11 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
       const {
         cleanupConfirmed: _cleanup,
         recoveryUnresolved: _unresolved,
-        resultAcceptances: _receipts,
         ...record
       } = task;
       return {
         ...record,
         settlement: { kind: "pending" as const },
-        resultAcceptanceIds: [],
       };
     }),
   }));
@@ -1142,7 +1082,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     { cleanupConfirmed: false },
     { recoveryUnresolved: false },
     { resultAcceptances: [] },
-    { resultAcceptanceIds: ["missing"] },
+    { resultAcceptanceIds: [] },
     {
       settlement: {
         kind: "operations",
@@ -1173,7 +1113,94 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     resultId: "d".repeat(64),
     consumer: "orchestrator",
   };
-  const withReceipt = { ...unified, resultReceipts: [oldReceipt] };
+  const recoveredTask = {
+    ...storedTask,
+    state: "recovery_required",
+    attemptId: "attempt-old",
+    operationId: "operation-old",
+    authorityBindingId: "authority-old",
+    startPhase: "settled",
+    settlement: {
+      kind: "executor_result",
+      cleanupConfirmed: true,
+      recoveryUnresolved: false,
+    },
+    recoveryObligations: [
+      {
+        kind: "docker",
+        recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+        phase: "settled",
+      },
+    ],
+  };
+  const recovered = createManagedRuntimeSnapshotFixture({
+    ...unified,
+    projects: [{ ...storedProjects[0], tasks: [recoveredTask] }],
+  });
+  const recoveredBytes = Buffer.from(`${encodeStateValue(recovered)}\n`);
+  assert.ok(decodeStateSnapshot(recoveredBytes, binding));
+  const retryReady = createManagedRuntimeSnapshotFixture({
+    ...unified,
+    revision: 2,
+    previous: {
+      revision: 1,
+      payloadSha256: createHash("sha256").update(recoveredBytes).digest("hex"),
+    },
+    projects: [
+      {
+        ...storedProjects[0],
+        generation: 2,
+        tasks: [
+          {
+            ...recoveredTask,
+            state: "ready",
+            attemptId: null,
+            operationId: null,
+            authorityBindingId: null,
+            startPhase: "none",
+            candidateId: null,
+            retryCount: recoveredTask.retryCount + 1,
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(
+    validateUnifiedTransition(
+      recoveredBytes,
+      Buffer.from(`${encodeStateValue(retryReady)}\n`),
+      binding,
+    ),
+    true,
+    "確定済みの回復義務は再試行の実行IDリセット後も保持できる",
+  );
+  const retryDecoded = decodeStateSnapshot(
+    Buffer.from(`${encodeStateValue(retryReady)}\n`),
+    binding,
+  );
+  assert.ok(retryDecoded);
+  const forgedRetry = {
+    ...retryDecoded.snapshot,
+    managedExecutions: retryDecoded.snapshot.managedExecutions.map(
+      (project) => ({
+        ...project,
+        tasks: project.tasks.map((task) => ({
+          ...task,
+          operationId: "other-operation",
+        })),
+      }),
+    ),
+  };
+  assert.equal(
+    validateUnifiedTransition(
+      recoveredBytes,
+      Buffer.from(`${encodeStateValue(forgedRetry)}\n`),
+      binding,
+    ),
+    false,
+    "実行IDの任意付替えを正規retryとして認めない",
+  );
+  const withReceipt = { ...unified };
   assert.ok(decodeUnified(withReceipt));
   const receiptBytes = Buffer.from(
     `${encodeStateValue(createManagedRuntimeSnapshotFixture(withReceipt))}\n`,
@@ -1228,7 +1255,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
           tasks: [
             {
               ...retry.projects[0]?.tasks[0],
-              resultAcceptanceIds: [oldReceipt.recoveryId],
+              resultAcceptanceIds: [],
             },
           ],
         },
@@ -1310,8 +1337,7 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
   ];
   for (const primaryFailure of primaryFailures) {
     const summary = {
-      schema: "crdd-coordinator/operation-summary/v4",
-      consumer: "workbench",
+      schema: "crdd-execution-model/operation-summary/v5",
       recoveryCorrelationId: "request-synthetic",
       operationId: "OP-123456",
       operationNonce: nonce,

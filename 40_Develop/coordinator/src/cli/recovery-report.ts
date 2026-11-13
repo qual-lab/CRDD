@@ -263,7 +263,6 @@ export function renderDockerRecoveryDoctorReport(
       "hostCleanupConfirmed",
       "locksReleased",
       "historyConfirmed",
-      "deliveryPending",
       "operationRetained",
       "operationRemovalConfirmed",
       "taskRecoveryCompleted",
@@ -285,7 +284,7 @@ export function renderDockerRecoveryDoctorReport(
       ]),
     );
     if (
-      !["blocked", "recovered", "awaiting_delivery"].includes(safe.status) ||
+      !["blocked", "recovered", "completed"].includes(safe.status) ||
       typeof safe.reason !== "string" ||
       !/^[a-z0-9_]{1,160}$/u.test(safe.reason) ||
       (safe.recoveryId !== null &&
@@ -316,15 +315,13 @@ export function renderDockerRecoveryDoctorReport(
       technical &&
       safe.status === "recovered" &&
       safe.reason === "docker_task_recovery_completed" &&
-      !safe.deliveryPending &&
       safe.operationRetained === false &&
       safe.operationRemovalConfirmed &&
       safe.taskRecoveryCompleted;
     const pending =
       technical &&
-      safe.status === "awaiting_delivery" &&
-      safe.reason === "docker_task_recovery_durable_acceptance_pending" &&
-      safe.deliveryPending &&
+      safe.status === "completed" &&
+      safe.reason === "docker_task_recovery_terminal_confirmed" &&
       safe.operationRetained === true &&
       !safe.operationRemovalConfirmed &&
       !safe.taskRecoveryCompleted;
@@ -335,7 +332,7 @@ export function renderDockerRecoveryDoctorReport(
       safe.operationRetained !== false &&
       ![
         "docker_task_recovery_completed",
-        "docker_task_recovery_durable_acceptance_pending",
+        "docker_task_recovery_terminal_confirmed",
       ].includes(safe.reason);
     const valid =
       (blocked || recovered || pending) &&
@@ -347,7 +344,7 @@ export function renderDockerRecoveryDoctorReport(
       stdout: shouldOutputJson
         ? `${JSON.stringify(safe, null, 2)}\n`
         : [
-            `Coordinator Task回復: ${recovered ? "完了" : pending ? "技術回収済み・Task側の受領待ち" : "停止"}`,
+            `Coordinator Task回復: ${recovered ? "完了" : pending ? "技術回収済み・Task保存待ち" : "停止"}`,
             `- 理由: ${safe.reason}`,
             ...(safe.recoveryId === null
               ? []

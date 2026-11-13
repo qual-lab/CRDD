@@ -21,7 +21,6 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
@@ -277,11 +276,11 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
 /**
  * 外部Effect不明後もexact Recovery Identityで再入場してretryする。
  *
- * @responsibility Effect前の耐久記録、観測不能の保持、exact回復、acknowledgement再開および一回だけのretryを検証する。
+ * @responsibility Effect前の耐久記録、観測不能の保持、exact回復、Task保存後の再開および一回だけのretryを検証する。
  * @trace PRL-ST-004
  * @precondition 初回TaskはDocker cleanup不明とexact Recovery Identityを返す。
  * @stimulus 同じObjectiveへ再入場し、Runtime Process義務を別Process相当でsettleして再開する。
- * @observation Public結果、回復呼出し、acknowledgement回数、attempt回数、retryCountおよび耐久義務を観測する。
+ * @observation Public結果、回復呼出し、attempt回数、retryCountおよび耐久義務を観測する。
  * @oracle 不明状態では再実行せず、同じIdentityのsettlement後だけ一回retryして完了する。
  * @cleanup Test Rootと全耐久状態をTest終了時に削除する。
  * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
@@ -289,11 +288,8 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
 test("外部Effect不明後もexact Recovery Identityで再入場してretryする", async (t) => {
   const workingDirectory = root(t);
   let recoveryId = "";
-  let resultReference: ReturnType<typeof settleSyntheticOperation> | null =
-    null;
   let attempts = 0;
   let recoveries = 0;
-  let acknowledgements = 0;
   const dependencies = {
     authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
@@ -331,52 +327,20 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
     recoverTaskRecovery: (exact: string) => {
       recoveries += 1;
       assert.equal(exact, recoveryId);
-      resultReference = settleSyntheticOperation(workingDirectory, exact);
+      settleSyntheticOperation(workingDirectory, exact);
       return {
         contract: "crdd-coordinator/current-task-recovery",
-        status: "awaiting_delivery",
-        reason: "docker_task_recovery_durable_acceptance_pending",
+        status: "completed",
+        reason: "docker_task_recovery_terminal_confirmed",
         recoveryId: exact,
         dockerCleanupConfirmed: true,
         hostCleanupConfirmed: true,
         locksReleased: true,
         historyConfirmed: true,
-        deliveryPending: true,
         operationRetained: true,
         operationRemovalConfirmed: false,
         taskRecoveryCompleted: false,
         cleanupReason: null,
-      };
-    },
-    acknowledgeTaskRecovery: (settlement: {
-      workingDirectory: string;
-      repositoryBindingId: string;
-      recoveryId: string;
-      projectId: string;
-      milestoneId: string;
-      stateGeneration: number;
-      taskId: string;
-      attemptId: string;
-      operationId: string;
-      kind: "docker";
-    }) => {
-      acknowledgements += 1;
-      const consumed =
-        consumeDockerRecoveryReceiptAfterProjectSettlement(settlement);
-      assert.notEqual(
-        consumed.reason,
-        "docker_task_recovery_settlement_not_verified",
-      );
-      if (acknowledgements === 1)
-        return {
-          status: "blocked" as const,
-          reason: "acknowledgement_interrupted",
-        };
-      assert.ok(resultReference);
-      return {
-        status: "completed" as const,
-        reason: "acknowledged",
-        acknowledgement: resultReference,
       };
     },
     observeRecoveryTransition: async () => {
@@ -430,16 +394,6 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
   assert.equal(attempts, 1);
 
   settleRuntimeProcessAsFreshProcess(workingDirectory);
-  const interrupted = await runCoordinatorObjective(
-    dependencies,
-    request(),
-    new AbortController().signal,
-  );
-  assert.equal(
-    interrupted.reason,
-    "orchestrator_task_recovery_acknowledgement_not_settled",
-  );
-
   const completedResult = await runCoordinatorObjective(
     dependencies,
     request(),
@@ -451,7 +405,6 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
     JSON.stringify(completedResult),
   );
   assert.equal(recoveries, 1);
-  assert.equal(acknowledgements, 2);
   assert.equal(attempts, 2);
   const latest = readCoordinatorState(
     workingDirectory,

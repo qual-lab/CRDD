@@ -18,10 +18,10 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { restartDesktopForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import { createDockerRestartRequestId } from "../../../execution-model/src/index.ts";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
+import { restartRequestIdFixture } from "../support/contract-assertions.ts";
 
 /**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。
@@ -210,7 +210,7 @@ async function compose(fault: string = "normal") {
   assert.ok(operation);
   const recoveryId = operation.recoveryId;
   const scopeSha256 = "b".repeat(64);
-  const requestId = createDockerRestartRequestId(
+  const requestId = restartRequestIdFixture(
     binding,
     operation.identitySha256,
     recoveryId,

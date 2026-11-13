@@ -11,10 +11,10 @@ import {
 } from "../../../execution-model/src/index.ts";
 
 /**
- * 要求と計画を検査して不変の値を返す。
- * @responsibility Coordinator要求の検査とDomain値検査を接続する。
+ * 受付済み要求の範囲と、依存処理が返した計画を照合する。
+ * @responsibility 要求を捕捉し直さず、未知の計画だけをDomain値検査へ接続する。
  * @trace ARCH-000004
- * @input 未信頼の計画とCoordinator要求。
+ * @input 未信頼の計画と、既存要求受付で捕捉済みのCoordinator要求。
  * @returns 不正入力はnull。正常時だけ検査済み計画。
  * @effect 外部Effectなし。
  * @security 入力検査を実行Authorityとして扱わない。
@@ -23,10 +23,7 @@ export function inspectCoordinatorObjectivePlan(
   raw: unknown,
   request: CoordinatorObjectiveRequest,
 ): ObjectivePlan | null {
-  const accepted = inspectCoordinatorObjectiveRequest(request);
-  return accepted
-    ? inspectExecutionPlan(raw, { allowedPaths: accepted.allowedPaths })
-    : null;
+  return inspectExecutionPlan(raw, { allowedPaths: request.allowedPaths });
 }
 
 import {

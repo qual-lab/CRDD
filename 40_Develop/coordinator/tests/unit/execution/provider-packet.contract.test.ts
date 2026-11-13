@@ -172,6 +172,10 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
     { executionSelection: executionSelection("executor") },
     { providerPrompt: "" },
     { providerPrompt: 123 },
+    { providerPrompt: " synthetic" },
+    { providerPrompt: "synthetic\0" },
+    { taskHash: "wrong" },
+    { projectionHash: "wrong" },
     { allowedReferences: ["same", "same"] },
     { providerCommand: { workspaceMountRequired: true } },
   ]) {
@@ -223,6 +227,7 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
   value.allowedReferences.push("later");
   value.additionalHosts.push("later.example");
   value.providerPrompt = "later";
+  value.executionSelection = executionSelection("executor");
   const packet = consumeRuntimeOwnedProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
@@ -231,6 +236,7 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
   assert.deepEqual(packet.allowedReferences, ["PROJECT_CONTEXT.md"]);
   assert.equal(packet.additionalHosts.includes("later.example"), false);
   assert.equal(packet.providerPrompt, "synthetic");
+  assert.equal(packet.executionSelection.role, "advice");
   assert.equal(Object.isFrozen(packet.additionalHosts), true);
 });
 

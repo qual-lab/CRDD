@@ -7,13 +7,11 @@
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { types } from "node:util";
-import {
-  decodeProjectResultAcceptance,
-  inspectWorkspaceResult,
-  type ProjectExecutionState,
-  type ProjectResultAcceptance,
-  type ProjectTaskRecoveryKind,
+import type {
+  ProjectExecutionState,
+  ProjectTaskRecoveryKind,
 } from "../../../execution-model/src/index.ts";
+import { inspectWorkspaceResult } from "../workspace/record.ts";
 import {
   createRuntimeProcessRecoveryIdentity,
   getRuntimeProcessInstanceIdentity,
@@ -26,7 +24,6 @@ import {
   isCoordinatorRecoveryIdentity,
   validIdentity,
 } from "../state/validation.ts";
-import { recordProjectTaskResultAcceptances } from "./acceptance.ts";
 
 import {
   observeProjectTaskStarted,
@@ -37,7 +34,6 @@ import {
 } from "./lifecycle.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
 import type {
-  CoordinatorDockerRecoveryIdentity,
   CoordinatorExecutionDependencies,
   CoordinatorExecutionHostAdapterOptions,
   CoordinatorExecutionResult,
@@ -47,7 +43,6 @@ import type {
   CoordinatorTaskExecution,
   CoordinatorTaskRecoveryHostDependencies,
   CoordinatorTaskRecoveryPort,
-  CoordinatorTaskResultDelivery,
   ExecutionInput,
 } from "./types.ts";
 
@@ -892,10 +887,6 @@ export async function runCoordinatorOperation(
     >();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
-        let delivery: CoordinatorTaskResultDelivery | null = null;
-        let hasDeliveryNotification = false;
-        let isDeliveryInvalid = false;
-        let isNotificationClosed = false;
         const outcome = await (async () => {
           try {
             if (input.cancellationSignal.aborted)
@@ -975,35 +966,13 @@ export async function runCoordinatorOperation(
                 : {}),
               cancellationSignal: input.cancellationSignal,
               observeStarted: () => observeStarted(attempt),
-              ...(dependencies.resultDelivery
-                ? {
-                    bindResultReader: (
-                      captured: CoordinatorTaskResultDelivery | null,
-                    ) => {
-                      if (
-                        isNotificationClosed ||
-                        hasDeliveryNotification ||
-                        !captured
-                      ) {
-                        isDeliveryInvalid = true;
-                        return;
-                      }
-                      hasDeliveryNotification = true;
-                      delivery = captured;
-                    },
-                  }
-                : {}),
             });
           } catch {
             return null;
           }
         })();
-        isNotificationClosed = true;
         return Object.freeze({
           outcome,
-          delivery: delivery as CoordinatorTaskResultDelivery | null,
-          deliveryNotified: hasDeliveryNotification,
-          deliveryInvalid: isDeliveryInvalid,
         });
       }),
     );
@@ -1181,106 +1150,7 @@ export async function runCoordinatorOperation(
           completedTaskIds,
           processRestartRequired,
         });
-      let settlementState = settlement.state;
-      const delivery = capturedOutcome?.delivery;
-      const pendingDeliveries: ProjectResultAcceptance[] = [];
-      if (!recoveryRequired && dependencies.resultDelivery) {
-        if (
-          capturedOutcome?.deliveryInvalid ||
-          (!delivery &&
-            (effectStarted || validatedOutcome?.effectState !== "no_effect"))
-        )
-          return finalizeOwnedFailure(
-            "orchestrator_result_delivery_not_captured",
-            {
-              state,
-              completedTaskIds,
-              processRestartRequired,
-            },
-          );
-        if (delivery) {
-          let observed: ReturnType<
-            CoordinatorTaskResultDelivery["readResults"]
-          >;
-          try {
-            observed = delivery.readResults();
-          } catch {
-            return finalizeOwnedFailure(
-              "orchestrator_result_delivery_read_unknown",
-              { state, completedTaskIds, processRestartRequired },
-            );
-          }
-          if (observed.status === "blocked")
-            return finalizeOwnedFailure(
-              "orchestrator_result_delivery_read_unknown",
-              { state, completedTaskIds, processRestartRequired },
-            );
-          if (observed.status === "completed") {
-            if (observed.results.length === 0)
-              return finalizeOwnedFailure(
-                "orchestrator_result_delivery_invalid",
-                { state, completedTaskIds, processRestartRequired },
-              );
-            for (const reference of observed.results) {
-              const keys = [
-                "repositoryBinding",
-                "operationId",
-                "recoveryId",
-                "resultId",
-                "consumer",
-              ] as const;
-              if (
-                !reference ||
-                typeof reference !== "object" ||
-                types.isProxy(reference) ||
-                Reflect.ownKeys(reference).length !== keys.length ||
-                keys.some((key) => {
-                  const descriptor = Object.getOwnPropertyDescriptor(
-                    reference,
-                    key,
-                  );
-                  return !descriptor || !("value" in descriptor);
-                }) ||
-                reference.operationId !== attempt.operationId ||
-                reference.consumer !== "orchestrator"
-              )
-                return finalizeOwnedFailure(
-                  "orchestrator_result_delivery_invalid",
-                  { state, completedTaskIds, processRestartRequired },
-                );
-              const acceptance = decodeProjectResultAcceptance({
-                ...reference,
-                repositoryBindingId:
-                  dependencies.resultDelivery.repositoryBindingId,
-                projectId: input.projectId,
-                milestoneId: input.milestoneId,
-                taskId: attempt.taskId,
-                attemptId: attempt.attemptId,
-                settlementGeneration: settlementState.generation,
-              });
-              if (!acceptance)
-                return finalizeOwnedFailure(
-                  "orchestrator_result_delivery_invalid",
-                  { state, completedTaskIds, processRestartRequired },
-                );
-              pendingDeliveries.push(acceptance);
-            }
-            const accepted = recordProjectTaskResultAcceptances(
-              settlementState,
-              state.generation,
-              attempt.taskId,
-              pendingDeliveries,
-            );
-            if (accepted.status !== "completed" || !accepted.state)
-              return finalizeOwnedFailure(accepted.reason, {
-                state,
-                completedTaskIds,
-                processRestartRequired,
-              });
-            settlementState = accepted.state;
-          }
-        }
-      }
+      const settlementState = settlement.state;
       const settlementWrite = persistedState(
         dependencies,
         settlementState,
@@ -1554,8 +1424,6 @@ export function createCoordinatorExecutionHostPorts(
  * @concurrency 回復操作の結果は通常APIへ返す。任意診断は同期発行だけを行い、返却Promiseを待たず拒否を捕捉する。後着から回復を再実行しない。
  */
 export function createCoordinatorTaskRecoveryAdapter(
-  workingDirectory: string,
-  repositoryBindingId: string,
   dependencies: CoordinatorTaskRecoveryHostDependencies,
 ): CoordinatorTaskRecoveryPort {
   return Object.freeze({
@@ -1563,14 +1431,6 @@ export function createCoordinatorTaskRecoveryAdapter(
       dependencies.resolveTaskRecoveryCorrelations?.(correlationIds) ?? null,
     recover: (recoveryId: string, signal: AbortSignal) =>
       dependencies.recoverTaskRecovery?.(recoveryId, signal) ?? null,
-    acknowledgeDocker: (identity: CoordinatorDockerRecoveryIdentity) =>
-      dependencies.acknowledgeTaskRecovery?.(
-        Object.freeze({
-          workingDirectory,
-          repositoryBindingId,
-          ...identity,
-        }),
-      ) ?? null,
     observeTransition: (event: CoordinatorRecoveryTransition) => {
       try {
         // 任意診断は回復を待たせない。後着は拒否の消費だけで再実行しない。

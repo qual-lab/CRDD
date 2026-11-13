@@ -4,7 +4,7 @@
  * @trace ARCH-000004、ARCH-000008
  */
 
-import { readSnapshotIntakeEpoch } from "../../../execution-model/src/index.ts";
+import { readState } from "../../../execution-model/src/index.ts";
 import {
   acquireCoordinatorSnapshotLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
@@ -37,18 +37,19 @@ export function createCurrentCoordinatorPersistencePorts(
   workingDirectory: string,
   binding: string,
 ): CoordinatorPersistencePorts {
-  const observed = readSnapshotIntakeEpoch(
+  const observed = readState(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
+    "intake",
   );
   if (observed.reason === "orchestrator_snapshot_lock_release_unconfirmed")
     throw new Error("orchestrator_snapshot_lock_release_unconfirmed");
-  if (observed.status !== "completed")
+  if (observed.status !== "completed" || observed.value === null)
     throw new Error("orchestrator_snapshot_not_initialized");
   return createCoordinatorSnapshotPersistencePorts(
     workingDirectory,
     binding,
-    observed.value,
+    observed.value.intakeEpoch,
   );
 }
 

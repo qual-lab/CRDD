@@ -390,7 +390,6 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     "startPhase",
     "settlement",
     "recoveryObligations",
-    "resultAcceptanceIds",
     "candidateId",
   ] as const)
     assert.deepEqual(superseded[key], failed[key]);

@@ -12,7 +12,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { validWorkspaceCandidateRequest } from "../../../../execution-model/src/index.ts";
 import type { Repository } from "../../../../version-control/src/index.ts";
 import { readWorkspaceCandidatePatch } from "../../../src/workspace/git.ts";
 
@@ -82,7 +81,6 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
   const ready = new Function(
     "readState",
     "verifyRuntimePersistenceRepository",
-    "validWorkspaceCandidateRequest",
     `${code}; return workspacePlanReadyForAcceptance;`,
   )(
     (root: unknown, binding: unknown) => {
@@ -94,7 +92,6 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
       assert.equal(root, "root");
       return verifiedRoot;
     },
-    validWorkspaceCandidateRequest,
   ) as (...args: string[]) => boolean;
   const base = "a".repeat(40),
     head = "b".repeat(40);
@@ -191,13 +188,100 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
 
 /**
  * @trace RFD-UT-030
- * @responsibility 要求量では拒否せず、固定候補操作の閉形式を検査する。
+ * @responsibility 入力の閉形式とユーザー型変換の非実行を検査する。
  * @precondition 純粋なコマンド入力だけを使用する。
- * @stimulus 1001選択と101関連変更を渡す。
- * @observation 凍結操作と全件数。
- * @oracle 内容を切り詰めず同じ要求を返す。
+ * @stimulus 不正Path・mode・重複選択・改行名を渡す。
+ * @observation 拒否結果と型変換の呼出し回数。
+ * @oracle 不正入力は拒否しユーザーのtoStringを実行しない。
  * @cleanup 外部資源なし。
  * @boundary Coordinator入力検査。Git操作なし。
+ */
+test("Workspace入力は型変換せずPathと選択と名前を拒否する", () => {
+  const command = {
+    operation: "freeze",
+    projectId: "project",
+    queueId: "queue",
+    workspaceId: "11111111-1111-4111-8111-111111111111",
+    expectedGeneration: 1,
+    operationId: "22222222-2222-4222-8222-222222222222",
+    baseCommit: "a".repeat(40),
+    expectedHead: "a".repeat(40),
+    candidateName: null,
+    relatedChangeIds: [],
+    selection: [
+      { path: "src/file.ts", blobId: "b".repeat(40), mode: "100644" },
+    ],
+  };
+  assert.ok(inspectWorkspaceCommand(command));
+  let conversions = 0;
+  for (const mode of [
+    100644,
+    {
+      toString() {
+        conversions++;
+        return "100644";
+      },
+    },
+  ])
+    assert.equal(
+      inspectWorkspaceCommand({
+        ...command,
+        selection: [{ ...command.selection[0], mode }],
+      }),
+      null,
+    );
+  assert.equal(conversions, 0);
+  for (const path of [
+    "../file",
+    ".git/config",
+    ".crdd/state",
+    "a//b",
+    "a/../b",
+    "a\\b",
+    "a*",
+    "/a",
+  ])
+    assert.equal(
+      inspectWorkspaceCommand({
+        ...command,
+        selection: [{ ...command.selection[0], path }],
+      }),
+      null,
+    );
+  assert.equal(
+    inspectWorkspaceCommand({
+      ...command,
+      selection: [
+        ...command.selection,
+        { ...command.selection[0], path: "SRC/FILE.ts" },
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    inspectWorkspaceCommand({ ...command, candidateName: "line\nbreak" }),
+    null,
+  );
+  assert.equal(
+    inspectWorkspaceCommand({ ...command, operationId: "../escape" }),
+    null,
+  );
+  assert.equal(
+    inspectWorkspaceCommand({ ...command, expectedHead: "a".repeat(64) }),
+    null,
+  );
+});
+
+/**
+ * 要求量では拒否せず固定候補の全件を保持する。
+ * @responsibility 選択と関連変更の旧容量制限を復活させない。
+ * @trace RFD-UT-030
+ * @precondition 純粋なコマンド入力。
+ * @stimulus 1001選択と101関連変更。
+ * @observation 返却件数。
+ * @oracle 内容の切捨てなし。
+ * @cleanup 外部資源なし。
+ * @boundary 値検査。
  */
 test("固定候補操作は旧件数を超える入力を保持する", () => {
   const WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";

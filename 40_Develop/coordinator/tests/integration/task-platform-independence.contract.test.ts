@@ -115,6 +115,9 @@ const allModules = discoverCoordinatorModules();
 // Folder名ではなく現行ArchitectureのFile責務を全数固定する。
 const SOURCE_ROLES = {
   pure: [
+    "input/json.ts",
+    "input/secret-validation.ts",
+    "input/snapshot.ts",
     "state/projection.ts",
     "state/types.ts",
     "decision/request.ts",
@@ -127,7 +130,6 @@ const SOURCE_ROLES = {
     "task/types.ts",
     "task/scheduling.ts",
     "task/lifecycle.ts",
-    "task/acceptance.ts",
     "task/recovery.ts",
   ],
   workflow: [
@@ -153,6 +155,7 @@ const SOURCE_ROLES = {
   ],
   storage: ["execution/intelligence.ts"],
   technicalExecution: [
+    "configuration/runtime-data.ts",
     "execution/configuration.ts",
     "execution/files.ts",
     "workspace/git.ts",
@@ -169,13 +172,13 @@ const SOURCE_ROLES = {
     "execution/provider-executor.ts",
     "execution/advice.ts",
     "execution/request.ts",
-    "execution/settlement.ts",
     "execution/persistence.ts",
     "execution/validation.ts",
     "execution/kernel-lock.ts",
     "execution/process-safety-state.ts",
   ],
   runtimeCli: [
+    "cli/file-snapshot.ts",
     "cli/command.ts",
     "cli/options.ts",
     "cli/request.ts",
@@ -213,7 +216,7 @@ test("Taskの純粋契約はExecutionの指定型だけを型専用で参照す�
     ],
   };
   const workspace = {
-    specifier: "../../../execution-model/src/index.ts",
+    specifier: "../workspace/record.ts",
     typeOnly: true,
     names: ["WorkspaceResult"],
   };
@@ -224,6 +227,10 @@ test("Taskの純粋契約はExecutionの指定型だけを型専用で参照す�
   for (const edges of [
     [contracts],
     [contracts, workspace, workspace],
+    [
+      contracts,
+      { ...workspace, specifier: "../../../execution-model/src/index.ts" },
+    ],
     [contracts, { ...workspace, typeOnly: false }],
     [contracts, { ...workspace, names: ["UnapprovedExecutionType"] }],
     [
@@ -255,7 +262,7 @@ test("Task共有型のContract参照は二定数の型専用辺だけを許可�
     "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
   ] as const;
   const workspace = {
-    specifier: "../../../execution-model/src/index.ts",
+    specifier: "../workspace/record.ts",
     typeOnly: true,
     names: ["WorkspaceResult"],
   };
@@ -361,7 +368,7 @@ function assertPureImportEdges(
     );
     const workspaceEdges = scan.edges.filter(
       (edge) =>
-        edge.specifier === "../../../execution-model/src/index.ts" &&
+        edge.specifier === "../workspace/record.ts" &&
         edge.names.includes("WorkspaceResult"),
     );
     const names = contractEdges.flatMap((edge) => edge.names);
@@ -418,8 +425,8 @@ function assertPureImportEdges(
               ].includes(name),
             )) ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
-            specifier === "../execution/result.ts" &&
-            resolved === `${SOURCE_PREFIX}execution/result.ts` &&
+            specifier === "../workspace/record.ts" &&
+            resolved === `${SOURCE_PREFIX}workspace/record.ts` &&
             names.length === 1 &&
             names[0] === "WorkspaceResult") ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
@@ -457,6 +464,8 @@ function assertPureImportEdges(
             "AcceptanceDecision",
             "AcceptanceTarget",
             "isPrincipalId",
+            "Decision",
+            "inspectDecision",
           ],
           "state/persistence.ts": [
             "LeaseKind",
@@ -502,12 +511,6 @@ function assertPureImportEdges(
             "ProjectTaskRecoveryKind",
             "ProjectTaskRecoveryObligation",
             "ProjectTaskState",
-          ],
-          "task/acceptance.ts": [
-            "ProjectExecutionState",
-            "ProjectDockerRecoveryAcknowledgement",
-            "ProjectResultAcceptance",
-            "decodeProjectResultAcceptance",
           ],
           "task/recovery.ts": [
             "ProjectExecutionState",

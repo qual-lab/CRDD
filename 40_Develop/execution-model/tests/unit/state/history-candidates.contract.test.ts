@@ -64,7 +64,7 @@ function fixture() {
   ] as unknown as Snapshot["projects"];
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,

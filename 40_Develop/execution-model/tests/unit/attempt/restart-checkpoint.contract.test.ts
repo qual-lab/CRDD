@@ -4,7 +4,7 @@
  * @responsibility 値の完成相関とID不変を実Host保証から分離して確認する。
  * @trace PRL-UT-006
  * @level UT
- * @scope 再起動現在値の純粋なHash・復号・遷移。
+ * @scope 再起動現在値の純粋なHash・復号・遷移、Host記録の遷移相関と準備Readerの値搬送。
  * @boundary N/A: メモリ内だけ。実処置・Writer・排他を実行しない。
  */
 
@@ -14,12 +14,139 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { validateDockerRestartCheckpointTransition } from "../../../src/attempt/validation.ts";
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
-} from "../../../src/index.ts";
+  parseDockerTaskRecoveryId,
+  validateDockerRestartCheckpointTransition,
+} from "../../../src/attempt/validation.ts";
+import {
+  decodeStateSnapshot,
+  isSha256Hex,
+  snapshotStateRecord,
+} from "../../../src/state/validation.ts";
+import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
+
+/**
+ * 再起動の既存再読取りが同じ操作からだけ要求IDを返すことを確認する。
+ * @responsibility 追加読取り・保存なしで元IDとScopeを結合し、異なるfenceや不正要求を準備成功へ補完しない。
+ * @trace PRL-UT-006
+ * @precondition 値Readerは有限代役。入力捕捉・ID規則・対象選択は本番関数を使用する。
+ * @stimulus 正常、Scope違い、別ID、余剰field、Getterと不正Scopeを渡す。
+ * @observation 読取り回数、同じ操作参照、要求IDと準備なしの結果。
+ * @oracle 一読取りの同版操作だけ準備値を返し、不正入力はRepository観測0。
+ * @cleanup N/A: Process内の値のみ。
+ * @boundary 実資源の排他・再起動や保存成立はこの試験の対象外。
+ */
+test("再起動準備Readerは同版操作・Scopeと要求IDを結合する", () => {
+  const fixture = createResourceOperationFixture();
+  const decoded = decodeStateSnapshot(fixture.bytes, fixture.binding);
+  assert.ok(decoded);
+  const operation = decoded.snapshot.operations[0];
+  assert.ok(operation?.kind === "docker_task");
+  const scopeSha256 = "e".repeat(64);
+  let reads = 0,
+    observations = 0;
+  let value = { ...decoded, sourceText: fixture.bytes.toString("utf8") };
+  const inputFailure = {
+    status: "blocked",
+    reason: "input_invalid",
+    lockReleased: true,
+    value: null,
+  };
+  const invoke = runInNewContext(
+    `(dependencies) => { const {snapshotStateRecord,parseDockerTaskRecoveryId,isSha256Hex,observeExecutionRecoveryRepository,readStateSnapshot,createDockerRestartRequestId} = dependencies; ${sourceDeclaration(fs.readFileSync(new URL("../../../src/attempt/crud.ts", import.meta.url), "utf8"), "readRecoveryState")} return readRecoveryState; }`,
+  )({
+    snapshotStateRecord,
+    parseDockerTaskRecoveryId,
+    isSha256Hex,
+    createDockerRestartRequestId,
+    observeExecutionRecoveryRepository: () => {
+      observations++;
+      return { repositoryBinding: fixture.binding };
+    },
+    readStateSnapshot: (repository: unknown) => {
+      if (!repository) return inputFailure;
+      reads++;
+      return {
+        status: "completed",
+        reason: "read_confirmed",
+        lockReleased: true,
+        value,
+      };
+    },
+  });
+  const request = {
+    kind: "restart_preparation",
+    recoveryId: operation.recoveryId,
+    scopeSha256,
+  };
+  const result = invoke({}, request);
+  assert.equal(result.status, "completed");
+  assert.equal(result.restartPreparation.operation, operation);
+  assert.equal(
+    result.restartPreparation.requestId,
+    createDockerRestartRequestId(
+      fixture.binding,
+      operation.identitySha256,
+      operation.recoveryId,
+      scopeSha256,
+    ),
+  );
+  assert.equal(reads, 1);
+  const priorRequestId = createDockerRestartRequestId(
+    fixture.binding,
+    operation.identitySha256,
+    operation.recoveryId,
+    "f".repeat(64),
+  );
+  assert.ok(priorRequestId);
+  const prior = {
+    requestId: priorRequestId,
+    scopeSha256: "f".repeat(64),
+    request: "not_issued" as const,
+    cleanup: "not_required" as const,
+    result: null,
+  };
+  value = {
+    ...value,
+    snapshot: {
+      ...value.snapshot,
+      operations: [{ ...operation, dockerRestart: prior }],
+    },
+  };
+  assert.equal(invoke({}, request).restartPreparation, null);
+  assert.equal(reads, 2);
+  assert.equal(
+    invoke(
+      {},
+      {
+        ...request,
+        recoveryId: `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`,
+      },
+    ).restartPreparation,
+    null,
+  );
+  const before = observations;
+  let getters = 0;
+  const accessor = Object.defineProperty({ ...request }, "scopeSha256", {
+    enumerable: true,
+    get() {
+      getters++;
+      throw Error("must_not_read");
+    },
+  });
+  for (const invalid of [
+    accessor,
+    { ...request, scopeSha256: "bad" },
+    { ...request, extra: true },
+    { kind: "current", recoveryId: operation.recoveryId, scopeSha256 },
+  ])
+    assert.equal(invoke({}, invalid).status, "blocked");
+  assert.equal(observations, before);
+  assert.equal(getters, 0);
+});
 
 const repositoryBinding = "a".repeat(64);
 const identitySha256 = "b".repeat(64);
@@ -441,4 +568,130 @@ test("再起動終了判定はEffect不明条件の省略を検出する", () =>
   assert.throws(() => assert.equal(mutant(value), false));
 });
 
-import { decodeDockerRestartCheckpoint } from "../../../src/attempt/validation.ts";
+import {
+  decodeDockerRestartCheckpoint,
+  validateHostRecoveryTransitionLineage,
+} from "../../../src/attempt/validation.ts";
+
+const ROOT_NAME = "crdd-coordinator-doctor-fixture";
+const NONCE = "01234567-89ab-cdef-0123-456789abcdef";
+
+/**
+ * canonicalのTest準備責務を実行する。
+ *
+ * @responsibility canonicalがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus canonicalを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ */
+function canonical(value: unknown) {
+  return `${JSON.stringify(value)}\n`;
+}
+
+/**
+ * tokenのTest準備責務を実行する。
+ *
+ * @responsibility tokenがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus tokenを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ */
+function token(record: unknown) {
+  const hash = createHash("sha256").update(canonical(record)).digest("hex");
+  return `host.${ROOT_NAME}.${NONCE}.${hash}`;
+}
+
+/**
+ * intentのTest準備責務を実行する。
+ *
+ * @responsibility intentがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus intentを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ */
+function intent() {
+  const recordBefore = Object.freeze({
+    schema: "crdd-coordinator-host-recovery/v1",
+    rootName: ROOT_NAME,
+    state: "docker_submission_started",
+    childIdentities: Object.freeze({}),
+  });
+  const successor = Object.freeze({ ...recordBefore, state: "host_only" });
+  return Object.freeze({
+    currentToken: token(recordBefore),
+    expectedToken: token(successor),
+    rootName: ROOT_NAME,
+    nonce: NONCE,
+    currentState: "docker_submission_started",
+    nextState: "host_only",
+    recordBefore,
+  });
+}
+
+/**
+ * Host intentはcurrent recordから決定論的successor tokenだけを受理するを検証する。
+ *
+ * @responsibility Host intentはcurrent recordから決定論的successor tokenだけを受理するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host intentはcurrent recordから決定論的successor tokenだけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ */
+test("Host intentはcurrent recordから決定論的successor tokenだけを受理する", () => {
+  const accepted = validateHostRecoveryTransitionLineage(intent(), "host_only");
+  assert.equal(accepted.current.nonce, NONCE);
+  assert.equal(
+    accepted.expected.recordHash,
+    token({
+      ...intent().recordBefore,
+      state: "host_only",
+    })
+      .split(".")
+      .at(-1),
+  );
+});
+
+/**
+ * 同nonce別state、偽currentState、誤nextStateを第三状態として拒否するを検証する。
+ *
+ * @responsibility 同nonce別state、偽currentState、誤nextStateを第三状態として拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同nonce別state、偽currentState、誤nextStateを第三状態として拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ */
+test("同nonce別state、偽currentState、誤nextStateを第三状態として拒否する", () => {
+  const valid = intent();
+  const alternate = Object.freeze({
+    ...valid.recordBefore,
+    state: "docker_absent_confirmed",
+  });
+  for (const candidate of [
+    { ...valid, expectedToken: token(alternate) },
+    { ...valid, currentState: "host_only" },
+    { ...valid, nextState: "docker_absent_confirmed" },
+    { ...valid, recordBefore: { ...valid.recordBefore, extra: true } },
+  ])
+    assert.throws(
+      () => validateHostRecoveryTransitionLineage(candidate, "host_only"),
+      /docker_task_recovery_host_transition_mismatch/u,
+    );
+});

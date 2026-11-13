@@ -100,7 +100,6 @@ export function reserveProjectTaskStart(
       operationId: null,
       startPhase: "reserved" as const,
       recoveryObligations: Object.freeze([]),
-      resultAcceptances: Object.freeze([]),
       recoveryUnresolved: false,
     }),
   );
@@ -617,7 +616,6 @@ export function applyCoordinatorPartialReplan(
       startPhase: "none" as const,
       cleanupConfirmed: false,
       recoveryObligations: Object.freeze([]),
-      resultAcceptances: Object.freeze([]),
       recoveryUnresolved: false,
       candidateId: null,
       retryCount: 0,
@@ -631,7 +629,6 @@ export function applyCoordinatorPartialReplan(
         ? Object.freeze({
             ...task,
             state: "superseded" as const,
-            resultAcceptances: Object.freeze([]),
             supersededBy: replacementHead,
           })
         : task,
@@ -712,7 +709,6 @@ export function retryCoordinatorTask(
       startPhase: "none" as const,
       cleanupConfirmed: false,
       recoveryObligations: Object.freeze([]),
-      resultAcceptances: Object.freeze([]),
       recoveryUnresolved: false,
       candidateId: null,
       retryCount: task.retryCount + 1,

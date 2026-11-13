@@ -12,7 +12,6 @@ import path from "node:path";
 import { types } from "node:util";
 import {
   type ExecutionSelection,
-  hashExecutionSelection,
   inspectExecutionSelection,
   parseHostRecoveryToken,
 } from "../../../execution-model/src/index.ts";
@@ -6915,4 +6914,6 @@ export function describeRepositoryOperationRuntimeContract() {
   });
 }
 
-import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../workspace/record.ts";
+
+import { hashExecutionSelection } from "../selection/resolve.ts";

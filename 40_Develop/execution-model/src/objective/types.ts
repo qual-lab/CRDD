@@ -6,6 +6,17 @@
 
 import type { ProjectTaskDefinition } from "../task/types.ts";
 
+/** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
+export const OBJECTIVE_STATES = Object.freeze([
+  "planned",
+  "executing",
+  "integration_pending",
+  "accepted",
+  "returned",
+  "blocked",
+  "cancelled",
+] as const);
+
 /**
  * Objective計画の共有型契約を定義する。
  *
@@ -34,14 +45,7 @@ export type ObjectivePlan = Readonly<{
  * @security N/A: ProjectObjectiveStateはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility ProjectObjectiveStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type ProjectObjectiveState =
-  | "planned"
-  | "executing"
-  | "integration_pending"
-  | "accepted"
-  | "returned"
-  | "blocked"
-  | "cancelled";
+export type ProjectObjectiveState = (typeof OBJECTIVE_STATES)[number];
 
 /**
  * stateで使用するProject Milestone 状態の値契約を定義する。

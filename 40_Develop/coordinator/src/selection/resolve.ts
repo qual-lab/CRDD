@@ -6,10 +6,11 @@
  * @effect N/A: 値のSnapshotとHash計算だけ。
  * @security 認証・権限・外部送信・保存・実行を開始しない。
  */
+import { createHash } from "node:crypto";
 import {
   type ExecutionSelection,
   type TaskExecutionSelections,
-  inspectTaskExecutionSelections,
+  inspectExecutionSelection,
 } from "../../../execution-model/src/index.ts";
 import {
   validateAiSelectionConfig as validateDomainAiSelectionConfig,
@@ -211,9 +212,7 @@ export function resolveTaskExecutionSelections(
   | {
       status: "blocked";
       value: null;
-      reason:
-        | Exclude<ExecutionSelectionResult["reason"], null>
-        | "ai_selection_pair_invalid";
+      reason: Exclude<ExecutionSelectionResult["reason"], null>;
     }
 > {
   const request =
@@ -243,17 +242,11 @@ export function resolveTaskExecutionSelections(
     workType: request.workType,
   });
   if (reviewer.status !== "resolved") return reviewer;
-  const value = inspectTaskExecutionSelections({
+  const value = Object.freeze({
     executor: executor.value,
     reviewer: reviewer.value,
   });
-  return value
-    ? Object.freeze({ status: "resolved", value, reason: null })
-    : Object.freeze({
-        status: "blocked",
-        value: null,
-        reason: "ai_selection_pair_invalid",
-      });
+  return Object.freeze({ status: "resolved", value, reason: null });
 }
 
 /**
@@ -277,3 +270,25 @@ export type ExecutionSelectionResult = Readonly<
         | "ai_selection_choice_unsupported";
     }
 >;
+
+/**
+ * 確定済み実行入力の非Authority Identityを導く。
+ * @responsibility Provider・選定元・当時の構成を正規化順序のままHash化する。
+ * @trace ARCH-000004
+ * @input candidate: 十項目の未信頼な選定候補。
+ * @returns 正規SHA-256又は不正時null。
+ * @precondition 実行可否・認可は別Ownerが検査する。
+ * @postcondition 元値を変更せず当時の値を保持する。
+ * @effect N/A: 値検査と局所Hash計算のみ。
+ * @failure 型・相関不正はnull。
+ * @invariant Hashを実行Authorityにしない。
+ * @boundary Task・Packet・保存選定の値相関。
+ * @security 設定Storeや現在Catalogへアクセスしない。
+ * @concurrency 同期で独立Snapshotだけを使用する。
+ */
+export function hashExecutionSelection(candidate: unknown): string | null {
+  const value = inspectExecutionSelection(candidate);
+  return value
+    ? createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")
+    : null;
+}

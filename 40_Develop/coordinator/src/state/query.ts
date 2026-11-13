@@ -216,7 +216,7 @@ export function executeCoordinatorPublicStateQuery(
   if (
     snapshot.status !== "completed" ||
     snapshot.value === null ||
-    snapshot.value.schemaRevision !== 6
+    snapshot.value.schemaRevision !== 7
   )
     return Object.freeze({
       contract: COORDINATOR_STATE_QUERY_CONTRACT,

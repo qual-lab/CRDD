@@ -35,7 +35,7 @@ export const hostFixtureProcessBoundarySource = `
       const cliSources=await import(${JSON.stringify(import.meta.url)});
       assert.ok([cliSources.currentRecoveryCliSource,cliSources.currentAuthenticationRecoveryCliSource].includes(input));
     }else{
-      assert.equal(argv.length,5);assert.ok(['recover_cleanup','recover_history','recover_delivery'].includes(argv[2]));
+      assert.equal(argv.length,5);assert.ok(['recover_cleanup','recover_history'].includes(argv[2]));
       const own=await import(${JSON.stringify(new URL("./current-host-transition-worker.ts", import.meta.url).href)});
       assert.equal(input,own.currentHostTransitionWorkerSource);
     }

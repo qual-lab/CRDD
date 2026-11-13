@@ -19,7 +19,6 @@ import {
 } from "../input/secret-validation.ts";
 import {
   type ExecutionSelection,
-  hashExecutionSelection,
   inspectExecutionSelection,
 } from "../../../execution-model/src/index.ts";
 import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
@@ -91,6 +90,8 @@ export function capturePreparationInput(value: unknown) {
     capture(common)
   );
 }
+
+import { hashExecutionSelection } from "../selection/resolve.ts";
 
 /**
  * 固定準備Hostへ渡す助言Packetの実契約を参照する。
@@ -660,10 +661,10 @@ function consumeAttemptAdvicePacket(use: unknown, owner: unknown) {
 }
 
 /**
- * 完全選定を検査して一試行に必要な技術値だけへ投影する。
+ * 捕捉済みの完全選定を一試行に必要な技術値だけへ投影する。
  * @responsibility 保存元情報と完全選定Hashを上位で確定し下位へ相関を搬送する。
  * @trace ARCH-000015
- * @input 完全な選定候補。
+ * @input 入口又は元Grantで独立捕捉・凍結済みの選定。
  * @returns 技術六項目と導出Hash、不正時null。
  * @precondition AuthorityとCapabilityの一回消費は既存Ownerが担当する。
  * @postcondition Catalog／設定Identity・分類・選定元をExecutorへ渡さない。
@@ -674,10 +675,9 @@ function consumeAttemptAdvicePacket(use: unknown, owner: unknown) {
  * @security HashはAuthorityではない。
  * @concurrency 元値から独立した凍結値を返す。
  */
-function projectAttemptSelection(candidate: unknown) {
-  const selection = inspectExecutionSelection(candidate);
+function projectAttemptSelection(selection: ExecutionSelection) {
   const selectionHash = hashExecutionSelection(selection);
-  if (!selection || !selectionHash) return null;
+  if (!selectionHash) return null;
   return Object.freeze({
     selectionHash,
     executionSelection: Object.freeze({
@@ -1053,7 +1053,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     ]),
   );
   const fixed = inspectExecutionSelection(snapshot?.executionSelection);
-  const projected = projectAttemptSelection(fixed);
+  const projected = fixed ? projectAttemptSelection(fixed) : null;
   const allowedReferences = normalizedStrings(
     snapshot?.allowedReferences,
     Number.MAX_SAFE_INTEGER,
@@ -1088,7 +1088,19 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
   }
   if (
     !additionalHosts ||
-    !validInput(input) ||
+    typeof input.operationId !== "string" ||
+    typeof input.taskHash !== "string" ||
+    typeof input.projectionHash !== "string" ||
+    typeof input.providerPrompt !== "string" ||
+    !providerPacketOPERATION_ID.test(input.operationId) ||
+    fixed.role !== "advice" ||
+    fixed.provider !== input.provider ||
+    fixed.purpose !== "advice" ||
+    !SHA256.test(input.taskHash) ||
+    !SHA256.test(input.projectionHash) ||
+    input.providerPrompt.trim() !== input.providerPrompt ||
+    input.providerPrompt.length === 0 ||
+    input.providerPrompt.includes("\0") ||
     !token ||
     !/^[a-f0-9]{32}$/u.test(token)
   )
@@ -1110,9 +1122,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
         contractRevision: ADVICE_INPUT_CONTRACT_REVISION,
         packetRef,
         operationId: input.operationId,
-        executionSelection: inspectExecutionSelection(
-          input.executionSelection,
-        ) as ExecutionSelection,
+        executionSelection: fixed,
         provider: input.provider,
         taskHash: input.taskHash,
         projectionHash: input.projectionHash,
@@ -1221,42 +1231,6 @@ function revoke(state: RuntimeState, ownerCapability: unknown) {
   state.owners.delete(record.ownerCapability);
   state.uses.delete(record.useCapability);
   return true;
-}
-
-/**
- * 読取り助言Runtime Packet発行入力を検証する。
- *
- * @responsibility Identity、上限およびProvider Commandの非共有条件を一括評価する。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input input: Packet発行候補。
- * @returns 固定条件をすべて満たす場合だけtrueを返す。
- * @precondition inputの型宣言だけを信頼せず実値を検査する。
- * @postcondition trueの場合はPrompt・参照・PolicyをPacketへ固定できる。
- * @effect N/A: 値の読取りだけを行う。
- * @failure 不正値をfalseへ閉じる。
- * @invariant Repository／Workspace共有、Tool、Sessionを許可しない。
- * @boundary 型付き入力と実行可能Packetの間。
- * @security PathやCredentialを補完しない。
- * @concurrency N/A: 共有状態を変更しない同期判定である。
- */
-function validInput(input: ProviderAdvicePacketInput) {
-  const selection = inspectExecutionSelection(input.executionSelection);
-  return (
-    typeof input.operationId === "string" &&
-    typeof input.taskHash === "string" &&
-    typeof input.projectionHash === "string" &&
-    typeof input.providerPrompt === "string" &&
-    providerPacketOPERATION_ID.test(input.operationId) &&
-    selection?.role === "advice" &&
-    selection.provider === input.provider &&
-    selection.purpose === "advice" &&
-    SHA256.test(input.taskHash) &&
-    SHA256.test(input.projectionHash) &&
-    input.providerPrompt.trim() === input.providerPrompt &&
-    input.providerPrompt.length > 0 &&
-    !input.providerPrompt.includes("\0")
-  );
 }
 
 /**
@@ -1416,9 +1390,7 @@ export function prepareProviderAdvicePlan(
       contractRevision: PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION,
       mode: "workbench_advice" as const,
       provider: input.provider,
-      executionSelection: inspectExecutionSelection(
-        input.executionSelection,
-      ) as ExecutionSelection,
+      executionSelection: fixed,
       exactModelId: input.exactModelId,
       reasoningEffort: input.reasoningEffort,
       offering: input.offering,
@@ -2675,8 +2647,11 @@ export type AdviceTaskPacket = Readonly<{
 export function prepareAdviceTask(input: unknown) {
   if (!isExactRecord(input, inputKeys))
     return advicePacketRejected("workbench_ai_advice_task_schema_invalid");
+  const executionSelection = inspectExecutionSelection(
+    input.executionSelection,
+  );
   if (
-    inspectExecutionSelection(input.executionSelection)?.role !== "advice" ||
+    executionSelection?.role !== "advice" ||
     !validText(input.prompt) ||
     containsRecognizedSecretText(input.prompt) ||
     !Array.isArray(input.projection) ||
@@ -2714,7 +2689,7 @@ export function prepareAdviceTask(input: unknown) {
   const frozenProjectionItems = Object.freeze(projectionItems);
   const projectionHash = sha256(JSON.stringify(frozenProjectionItems));
   const providerPrompt = buildProviderPrompt(
-    hashExecutionSelection(input.executionSelection) ?? "",
+    hashExecutionSelection(executionSelection) ?? "",
     input.prompt,
     frozenProjectionItems,
   );
@@ -2722,9 +2697,7 @@ export function prepareAdviceTask(input: unknown) {
     JSON.stringify({
       contract: PROVIDER_ADVICE_TASK_CONTRACT,
       contractRevision: PROVIDER_ADVICE_TASK_CONTRACT_REVISION,
-      executionSelection: inspectExecutionSelection(
-        input.executionSelection,
-      ) as ExecutionSelection,
+      executionSelection,
       prompt: input.prompt,
       projectionHash,
       providerPrompt,
@@ -2736,9 +2709,7 @@ export function prepareAdviceTask(input: unknown) {
     taskPacket: Object.freeze({
       contract: PROVIDER_ADVICE_TASK_CONTRACT,
       contractRevision: PROVIDER_ADVICE_TASK_CONTRACT_REVISION,
-      executionSelection: inspectExecutionSelection(
-        input.executionSelection,
-      ) as ExecutionSelection,
+      executionSelection,
       prompt: input.prompt,
       projection: frozenProjectionItems,
       allowedReferences: Object.freeze(allowedReferences),

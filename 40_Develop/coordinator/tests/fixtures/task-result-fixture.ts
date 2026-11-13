@@ -1,5 +1,5 @@
 /**
- * Task受領試験の合成技術Operationと履歴を実Snapshotへ配置する。
+ * Task終端保存試験の合成技術Operationと履歴を実Snapshotへ配置する。
  * @packageDocumentation
  * @responsibility 任意回復参照のfallbackを作らず、元Operationからexact結果を構成する。
  * @trace PRL-IT-005
@@ -94,8 +94,6 @@ export function registerSyntheticOperations(
     repositoryBinding: string;
     operationId: string;
     recoveryId: string;
-    resultId: string;
-    consumer: "orchestrator";
   }[] = [];
   for (let index = 1; index <= count; index++) {
     const before = fs.readFileSync(file);
@@ -228,19 +226,17 @@ export function registerSyntheticOperations(
       repositoryBinding: binding,
       operationId,
       recoveryId: operation.recoveryId,
-      resultId: "",
-      consumer: "orchestrator",
     });
   }
   return results;
 }
 /**
- * 同じ合成Operationを技術終端・履歴・配送待ちまで進める。
+ * 同じ合成Operationを技術終端・履歴・履歴確認済み終端まで進める。
  * @responsibility Task側の段階や受領を偽造せず、元技術正本だけを更新する。
  * @trace PRL-IT-005
  * @trace PRL-IT-012
  * @input root: 自己生成Root、recoveryId: 登録済みexact参照。
- * @returns 実配送登録に結合した五項目。
+ * @returns 同じ操作に結合した技術終端参照。
  * @effect fixtureのstate.jsonとhistory.jsonlを更新する。
  */
 export function settleSyntheticOperation(root: string, recoveryId: string) {
@@ -292,7 +288,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
               request: "issued" as const,
               identity: {
                 ...r.identity,
-                dockerId: hash(recoveryId + ":" + r.key),
+                dockerId: hash(`${recoveryId}:${r.key}`),
               },
             }
           : r,
@@ -323,7 +319,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     reason: "provider_operation_completed",
     cleanupConfirmed: true,
   };
-  let bytes: Buffer = Buffer.from(`${canonicalJson(state)}\n`);
+  const bytes: Buffer = Buffer.from(`${canonicalJson(state)}\n`);
   fs.writeFileSync(file, bytes);
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
@@ -354,31 +350,18 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     assert.equal(recorded.lockReleased, true);
     assert.equal(recorded.historyConfirmed, stage === 1);
   }
-  const delivered = registerOwnedRecoveryResultDelivery(
-    repository,
-    recoveryId,
-    () => true,
-  );
-  assert.equal(delivered.status, "completed", delivered.reason);
-  assert.equal(delivered.snapshotConfirmed, true);
-  assert.equal(delivered.lockReleased, true);
-  assert.equal(delivered.deliveryPending, true);
-  bytes = fs.readFileSync(file);
   const saved = readRecoveryState(verified.capability);
   assert.equal(saved.status, "completed", saved.reason);
-  assert.equal(saved.lockReleased, true);
   assert.ok(saved.value);
-  assert.deepEqual(Buffer.from(saved.value.sourceText, "utf8"), bytes);
-  const delivery = saved.value.snapshot.pendingDeliveries.find(
+  const terminal = saved.value.snapshot.operations.find(
     (item) => item.recoveryId === recoveryId,
   );
-  assert.ok(delivery);
+  assert.ok(terminal);
+  assert.equal(terminal.history?.confirmed, true);
   return {
     repositoryBinding: binding,
     operationId: identity.recoveryCorrelationId ?? identity.operationId,
     recoveryId,
-    resultId: delivery.resultId,
-    consumer: "orchestrator" as const,
   };
 }
 
@@ -390,7 +373,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
  * @returns exact結果集合。
  * @effect fixture内の技術状態と履歴を作る。
  */
-export function registerSyntheticResults(
+export function settleSyntheticOperations(
   root: string,
   operationId: string,
   count = 2,
@@ -400,9 +383,6 @@ export function registerSyntheticResults(
   );
 }
 
-import {
-  advanceOwnedRecoveryHistory,
-  registerOwnedRecoveryResultDelivery,
-} from "../../../execution-model/src/index.ts";
+import { advanceOwnedRecoveryHistory } from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";

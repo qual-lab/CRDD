@@ -26,7 +26,7 @@ Cの物理統合により、本書が所有するTask・Objective・状態保存
 | Task／Objectiveの進行、Queue、Workspace | 既存業務モデルの各記録 | Operation終了と別寿命。WorkspaceをTask完了で削除せず、Taskも後続判断・参照がある間は残す |
 | Process・Container等の観測、一次失敗、cleanup | 元Operationの技術記録 | Task側の技術状態は参照から導出する。同じcleanup真偽を別の正本へ保存しない |
 | exact回復義務 | 発生元のOperation又は既存Lease／判断記録に一度だけ保持 | Taskは参照と再開判断を持つ。Task失敗・試験終了や履歴期限を義務解消にしない |
-| Taskへの結果反映・耐久Consumerの初回受領 | 同じSnapshot内の一つの受領事実 | Task／Attempt／論理操作／実行操作／回復参照／結果を照合。異なるIdentityを同一視せず、初回受理世代を上書きしない |
+| Taskへの結果反映・Task固有の終端事実 | 同じSnapshotのTask結果と関連Operation除去 | Task／Attempt／Operation／回復参照を照合し、異なる実行へ付け替えない。保存済み応答喪失は同じ候補で再確認する |
 | 統合・採用の成果 | 既存のintegration／adoption結果契約 | AI単発実行結果と同じものではない。`results`区画を機械統合しない |
 | 履歴移送 | 元の終端記録と小さな確定checkpoint | 要約本文の正本を二つ作らず、固定Identity・行Hash・段階で相関。未確定の元記録は履歴確定まで保持する |
 
@@ -36,84 +36,48 @@ Taskが後から必要とする結果・受理・未解決義務を、期限で�
 
 #### Task／Attempt固有の事実と技術Operationの境界
 
-`cleanupConfirmed`／`recoveryUnresolved`の保存コピーを除くことと、Taskが観測した事実を除くことは異なる。単発技術Operationが存在しない経路へ架空のDocker操作を作らない。
+Taskが観測した結果不明と、技術Operationのcleanup不明を区別する。単発技術Operationがない経路へ架空のDocker記録を作らない。Taskのsettlementは、未終端・明示未発行・技術保存を持たないExecutorの元結果・同じ論理操作に属する技術Operation集合のいずれかを保持する。
 
-Taskの公開`recoveryUnresolved`は、Task自身が受け取った結果の不明を表す`settlement.resultUnresolved`から導出する。技術Operationの未解決義務はexact参照・義務段階・cleanupから別に判定し、Task固有の不明へ複製しない。配送待ちだけを理由にTask結果を不明へ変えると、その配送を解消する耐久受領自体が停止するためである。Task固有の結果不明、未解決の技術義務、元参照の欠落は、引き続きそれぞれの検査で受領・除去・再実行を拒否する。
+公開cleanupConfirmed／recoveryUnresolvedは保存した元事実と技術Operationから投影する。結果不明、元参照欠落、未解決義務はそれぞれ停止条件とし、Operationが見つからないことを問題不存在へ読み替えない。複数Provider／Reviewerに対応する同じTaskの技術Operationは全件を照合する。
 
-Docker回復の`required`／`settled`は元Operationから読み取る。回復要求の`recovering`通知は局所的な診断であり、Task側へ同じ技術進捗を独立保存しない。待機後は対象Taskの同じexact義務の`required`→`settled`とcleanupの前進だけを許し、業務世代・Attempt・Queue・他Task・受領本文の差、逆行、取消又は観測不能では後続保存へ進まない。耐久受領後の通知中に取消された場合も、確定した受領を巻き戻さず、Queue更新・再実行前に停止する。
-
-| 経路・情報 | 一意に保持する元事実 | 公開状態の導出・保持条件 |
-|---|---|---|
-| 開始前拒否・未委譲 | Task／Attemptによる未発行の終端結果 | Operation集合が空という理由ではなく、未発行を確認した同じAttemptの結果から導出する |
-| 委譲済み・結果不正・開始通知との矛盾 | Task／Attemptの委譲観測と結果未確定 | Operationが見つからないことを問題不存在にしない。既存Process安全状態由来の義務はその発生元へ結合する |
-| 既存の差替えExecutor | Task／Attemptが受け取った終了結果 | 技術Operationを耐久保存しないExecutorにも、架空のDocker記録を補完しない |
-| executor／reviewerを伴う本番実行 | Attemptから同じ実行に属する技術Operation集合への参照 | Taskの論理操作IDと技術Operationを一対一と仮定しない。役割、exact回復参照、固定結果の対応を維持する |
-| retryで新しいAttemptへ移る場合 | 必要な旧Attemptの終端事実と初回耐久受領 | 現在TaskのAttempt／操作IDを解除しても、旧結果・未解決参照・初回受理世代を別Attemptへ付け替えない |
-| 回復義務 | Dockerは元Operation、Lease／判断／Process安全状態は既存の各発生元 | Taskは参照と再開判断を持つ。全義務をDockerの未解決集合へ機械移管しない |
-
-これらは単一Snapshot内の既存Task／Attemptと発生元の情報配置であり、別Registry、別保存、監視又は回復Frameworkを追加するものではない。結果受領はcleanupとは別の事実であり、Operationの整理後にも必要な結果Identityと初回受理世代を保持する。
-
-保存形式は`crdd-coordinator/current-state/v5`とし、改訂・元Hash・物理Repository結合と各現在区画を平坦に保存する。Taskを使わない単発実行では、業務Repository結合と受付世代をともにnull、Task関連区画を空集合にする。Task初期化は既存の技術操作を失わず同じ保存の更新として行う。旧二Snapshotを内包する形式や、旧形式を補完するReaderは作らない。Taskの`CoordinatorSnapshot`はメモリ内の表示・更新DTOであり、独立した保存Envelopeではない。
-
-| 新形式の値 | 保存・投影の境界 |
+| 情報 | 保存・投影の境界 |
 |---|---|
-| Taskの`settlement` | 未終端、明示未発行、技術保存を持たないExecutorの元結果、又は同じ論理操作に属する全技術Operation参照。公開`cleanupConfirmed`／`recoveryUnresolved`は投影し保存しない |
-| `resultReceipts` | 既存十一項目の受領本文を一度だけ保持する。本文自身が旧Attemptの固定Scopeを持ち、Task側は`resultAcceptanceIds`で参照する。retry後も旧本文を現在Attemptへ付け替えない |
-| Docker回復義務のTask参照 | `kind`とexact`recoveryId`だけ。技術段階は元Operation、受領済みは同じRootの受領本文から導出し、Task側へ独立した`phase`やACK本文を保存しない。Task／Lease／判断／Process固有の段階は元の責務へ残す |
-| 内部配送待ち | 固定結果とConsumerの参照だけ。受領Hashを複製せず、受領保存と同じ更新で対象の配送待ちを除く |
+| Task結果 | 技術Operation参照又はExecutorの確認済み終端事実。同じAttempt／Operationへ結合し、retry時に別Attemptへ付け替えない |
+| Docker回復義務 | exact kind／recoveryIdで元Operationを参照し、技術段階・cleanupを投影する |
+| Task固有義務 | Lease／判断／Processの元Ownerを維持し、必要なrequired／recovering／settledを保存する |
+| 技術Operation | Task終端の同時保存まで保持。単独操作は既存の終了Writerで整理する |
+| 結果受領・配送 | 独立した受領本文・resultReceipts・resultAcceptanceIds・pendingDeliveries・ACK段階は持たない |
 
-共通遷移検査は初回受領の出所・初回世代・本文不変と、Operation除去／Task参照置換／配送解消の同更新を照合する。これだけを任意更新の許可とせず、既存の業務遷移・技術操作・実観測・排他の検証を別途維持する。
+状態はcrdd-execution-model/state/v4として、改訂・元Hash・物理Repository結合・各区画を一つのstate.jsonへ保存する。Task未使用の単独操作では業務結合と受付世代をnull、Task区画を空にする。旧二Snapshotを内包するEnvelopeや互換Readerは作らない。旧データの移行はフロントAIが担当する。
 
-### 受付時の固定選定と実行の寿命
+### 履歴とTask終端の保存順序
 
-現在Stateはruntime-state/v3、Project Snapshotはv6、Operation Identityはv2だけを受理する。SingleTaskは主担当の完全な`executionSelection`を一つ保存し、旧`profileId / catalogRevision`を持たない。Objectiveは同じ設定Snapshot由来のExecutor／Reviewer組をRootで一度保持し、Taskはその組へ相関する。SingleTaskの受付Processだけは二役の不変組を実行closureへ保持し、主担当を保存値へ完全一致させる。二重の選定Storeを追加しない。
+1. Effect前Intentと元Identityを保存する。
+2. 実終端・資源回収・Lease解放の観測を元Operationへ保存する。Task結果不明と技術不明を混ぜない。
+3. 元終端から同じ履歴行・時刻・Hashを固定し、history.pending.jsonlの出版と読戻しを確認する。重複appendや時刻再生成をしない。
+4. Task結合では同じTask／Attempt／Operationと全技術終端・実履歴行を照合し、Task結果保存と関連Operation除去を一つのSnapshot CASで確定する。単独Operationは既存終了Writerへ接続する。
+5. 保存・読戻し・排他解放後に現在世代・Revision・競合を再確認してQueue整理／retryへ進む。Task保存前の取消・不明では保持中のexact回復参照を返す。
 
-Model Grant／Task Packet／準備計画は対象stageの操作・役割・試行番号・完全選定Hashを照合する。技術Operationは既存の`beginRecovery`でIdentity保存と読戻しを確認してからDocker要求へ進む。作成されたHost領域やProcess内Grantより前に全I/Oを禁止する保証ではない。Grant後・Identity保存前の失敗は既存清掃へ戻し、保存後のOwner喪失は元Identityの回収・終了だけを再入場する。SingleTask本文は非永続のままで、自動再実行や新stage生成をしない。
-
-元設定が変更・削除されても、開始済みの選定を現在設定から補完しない。公開入口の新規受付だけがRepository設定を読む。旧Schema・旧Profile混入・異なる役割／試行／Hashは拒否する。旧記録の実移行はフロントAIが事前に行い、保持②と過去Evidenceは変更しない。保存形式の変更を実AI・実Docker・人間操作の成立証明として扱わない。
-
-### 保存排他と結果受理
-
-単一Writerは一つの保存改訂、短期排他、比較交換、保存途中の再入場手順を意味し、常駐Writer Processの新設ではない。二ファイルを同時に原子保存できるという意味でもない。
-
-1. 検証済みRepositoryへ結合した既存Kernel Lock一つを取得する。
-2. 同じOwnerから一つのSnapshotを読み、期待保存改訂と現在Identity・許可された遷移を照合する。
-3. 履歴確認済みの同じ結果について、Task／Objectiveによる耐久Consumerの受領事実を同じSnapshotへ一度保存し、その同じ更新でProducer側の内部配送待ちを解消する。内部受理という別事実を作らない。
-4. 短命な`state.pending.json`から確定し、exact内容の読戻しを確認する。
-5. 排他解放を確認してから呼出し元へ結果を返す。保存成功と解放成功は別に観測する。
-
-現行の「技術保存Lock→上位受理Reader→Task保存Lock」は撤去対象である。Lock名だけを同一化して自己再取得させず、受理照合を同じOwner・同じSnapshot内へ移す。短期排他を保持した外部Reader呼出し、Provider／子Process待機、Docker回収、外部通知を禁止する。履歴の更新も同じ排他を利用し、保持済みOwnerを借りる内部処理が再取得しない構成とする。
-
-保存用短期排他だけを一本化する。Task実行Lease、Provider Home、Host世代・実行環境回復等の別寿命の排他は維持する。`state.lock`は保存途中markerであり実効排他の代替ではない。これらの取得・解放失敗をFile削除で解除しない。
-
-Task保存で`state.pending.json`の作成が失敗した場合、同じ呼出しが新規作成した`state.lock`だけは、真正Owner・Root・領域・marker実体と本文の一致、pendingと履歴pendingの明示不存在、元の正規本文の不変を確認できる場合に限り回収する。回収後も不存在と元本文を再確認し、保存結果は失敗のまま返す。部分作成、既存marker、実体置換、本文差又は観測不能では残存を保持する。Process喪失後のmarker-only状態まで、この同一呼出し内の回収で解決したとは扱わない。
-
-Taskの未搬送要約は、同じ保存意図の全集合を一回の履歴候補として公開し、同じ集合で再入場する。通常保守も先行する別意図のtrimや一行ずつの出版を挟まない。各正規行を読戻した後、既存のQueue・採用・Leaseごとの退役条件を照合し、条件を満たす現在記録だけを単一Writerで除く。履歴pendingを読む経路は保守・搬送の既存専用読取りに限定し、通常Readerやstate出版pendingの拒否は緩めない。
-
-回復後の耐久受領本文は、受領と配送解消を保存する次の業務世代を参照する。初回保存後はその世代と本文を維持し、再入場時の現在世代へ上書きしない。履歴の設定不正・前後変更・時計逆行では保存確認と整理を停止し、期限経過だけを受領や搬送完了へ変換しない。
-
-同時保存が成立した内部経路では、現行の上位受理Reader再読取りと`pendingDeliveries.acceptanceSha256`への転記、同じ受領を二度確定するACKリレーを削除する。耐久Consumerが受領した事実自体やIdentity照合を削除しない。履歴の確定・確認前には耐久受領を保存しない。CLI／Workbenchの返却は一時返却のままとし、画面表示・既読・任意保存のACKを追加しない。実在する別保存先のConsumer受領は、この内部統合だけで完了扱いにしない。
+未解決参照、未確認cleanup、必要履歴欠測・重複・内容差、Task省略又はID付替えは除去を拒否する。現在Operationが参照する行は通常の保持期限を超えても保持し、除去後だけ設定に従う期限整理へ戻す。履歴保持期限を越えたことだけで回復・Task完了を補完しない。
 
 ### 正常・中断・整理
 
 | 経路 | 残す情報と次の処置 | 禁止する短絡 |
 |---|---|---|
-| 正常 | Effect前の意図→開始観測→固定結果・必要成果保全→実終端・回収観測→履歴確定・確認→必要な耐久Consumer受領→不要な現在記録の整理 | AI終了だけでTask、Workspace、採用を一括完了にしない |
-| 開始前取消 | 未発行を確認し、取得済みの今回資源だけを解放する | 取消通知だけから未発行や解放成功を生成しない |
-| 開始後取消・親喪失 | 元Identityと発行済み／unknownを保持。新OwnerでRoot・実資源・排他をfresh確認し同じ義務へ再入場する | WeakMap／実行Capabilityの復元、別Task生成、自動AI再実行をしない |
-| 結果保存済み・耐久Consumer未受領 | 固定結果と履歴確認を再観測し、未完了の搬送・受領だけを再開する | 未受領を受領済みにせず、元Provider又は回収を自動再発行しない |
-| 受領保存済み・Producer完了応答喪失 | 同じ受領事実と同更新の内部配送待ち解消を再観測し、必要な終端応答・整理だけを再開する | 再配送・再受領しない。受領だけが別更新で保存される新しい部分状態を作らない |
-| 受理済み・cleanup不明 | 受理と未解決回収を別事実として保持する | 受理済みをcleanup完了へ読み替えない |
-| 履歴保存中断 | 元終端記録から固定した同じ行・時刻・Hashを使い、同一行の出版だけを再開する | 重複append、時刻再生成、未確認の元記録削除をしない |
-| 通常期限整理 | 既定30日を超えた終了要約を設定に従って整理する | 未解決義務・未確定移送・後続参照中の結果を期限削除しない |
+| 正常 | 技術終端・履歴確認後にTask結果とOperation除去を同時保存 | AI終了だけでTask／Workspace／採用を一括完了にしない |
+| 開始前取消 | 未発行を確認し、今回取得資源だけを解放 | 取消通知から未発行・解放成功を補完しない |
+| 開始後取消・親喪失 | 同じIdentity・発行済み／unknownを保持し、fresh Root・資源・排他で再入場 | Capabilityの復元・別Task生成・自動AI再実行をしない |
+| 履歴保存中断 | 同じ固定行と元Operationを保持して出版のみ再開 | Provider再実行・未確認Operation除去をしない |
+| Task保存前停止 | 技術終端を巻き戻さず、Operationとexact参照を保持 | 技術回収だけでTask保存を成功にしない |
+| 保存済み応答喪失 | 同じ候補・改訂・元Hash・Ownerと現在本文を照合して一重確定 | 別ACK保存・新候補の自動再適用をしない |
+| 期限整理 | 参照が解消した要約だけ設定に従って整理 | 未解決・参照中の履歴を削除しない |
 
-`state.json`と`history.jsonl`の確定は別更新である。元結果を残して行Identity・Hash・段階を固定し、短命`history.pending.jsonl`の出版・読戻し後にstateの確定段階を進める。既に同じ行があれば再appendせず確認する。state更新がその後失敗しても、履歴確定前へ巻き戻したりProviderを再実行したりしない。現在値／候補／履歴の相関が不明なら同じ参照を保持して停止する。通常の保存・読戻し確認を、突然の電源断に対する無条件保証へ強めない。
-
+state.jsonとhistory.jsonlの確定は別更新であり、原子的な二File保存とは主張しない。元結果を残し、履歴確認後にだけOperationを除去する。通常のflush／rename／読戻しを突然の電源断への無条件保証へ拡大しない。
 ### 実装の切替単位と成立確認
 
 - 統一Schemaと一意な情報配置を固定し、保存モデル・遷移を純粋試験で確認する。
 - 既存の保存処理を一つのWriterと保存排他へ実移管する。並行した二重書込み・第三Writerを本番へ接続しない。
-- OperationとTask／Queue／Workspaceを同じ保存へ接続し、履歴確認後の耐久Consumer受領を一度だけ保存する。内部ACKリレー・受理Readerの保存再入場を撤去する。
+- OperationとTask／Queue／Workspaceを同じ保存へ接続し、履歴確認後のTask終端と関連Operation除去を同時保存する。内部ACKリレー・受理Readerの保存再入場を撤去する。
 - 履歴出版と期限整理を同じOwnerの再入場へ接続し、旧Writer・旧保存Root／設定Readerを撤去する。
 - 実Filesystemでwrite／flush／rename／読戻しの各中断、保存済み／応答喪失、履歴出版済み／state未確認、同時更新を反証する。取消・親喪失は合成子Processでjoinと残存を観測する。
 
@@ -230,37 +194,29 @@ Executionの開始・終了通知だけではTask／Queueの保存確定は成�
 | `REC-PROJECT-STATE` | `IF-STATE-STORE` | `RES-PROJECT-STATE` | `generation_state` | — |
 | `REC-QUEUE-ENTRY` | `IF-QUEUE` | `RES-PROJECT-QUEUE` | `before_effect_intent` | — |
 | `REC-PROJECT-LEASE` | `IF-QUEUE` | `RES-PROJECT-OPERATION-LEASE` | `before_effect_intent` | — |
-| `REC-TASK-ATTEMPT` | `IF-PROJECT-CORE` | `RES-SINGLE-TASK-BINDING` | `before_effect_intent` | `attempt_operation_authority_binding`<br>`start_phase_reserved_handoff_prepared_running_or_settled`<br>`typed_recovery_obligations_host_docker_candidate_or_candidate_store`<br>`exact_technical_references_with_fresh_operation_phase_and_cleanup_projection`<br>`task_owned_result_unresolved_and_root_receipt_task_reference_in_one_cas`<br>`unresolved_recovery_without_synthetic_identity` |
+| `REC-TASK-ATTEMPT` | `IF-PROJECT-CORE` | `RES-SINGLE-TASK-BINDING` | `before_effect_intent` | `attempt_operation_authority_binding`<br>`start_phase_reserved_handoff_prepared_running_or_settled`<br>`typed_recovery_obligations_host_docker_candidate_or_candidate_store`<br>`exact_technical_references_with_fresh_operation_phase_and_cleanup_projection`<br>`task_result_and_related_operation_removal_in_one_cas`<br>`unresolved_recovery_without_synthetic_identity` |
 | `REC-INTEGRATION` | `IF-INTEGRATION` | `RES-INTEGRATION-WORKSPACE` | `after_effect_result` | — |
 | `REC-ADOPTION` | `IF-INTEGRATION` | `RES-ADOPTION-LEASE` | `after_effect_receipt` | — |
 | `REC-HUMAN-DECISION` | `IF-DECISION` | `RES-PENDING-DECISION` | `generation_state` | `exact_target_generation_revision`<br>`respondent_principal`<br>`question_and_labelled_options`<br>`answer_and_application_separate`<br>`explicit_closure_without_expiry`<br>`blocker_one_to_many_proposals`<br>`single_answer_per_proposal`<br>`current_proposal_and_group_retirement`<br>`stable_history_events_derived_from_state` |
-| `REC-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `IF-STATE-STORE` | `RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `after_effect_receipt` | `exact_docker_recovery_identity`<br>`repository_binding_and_fixed_result_identity`<br>`project_task_attempt_logical_operation_binding`<br>`first_acceptance_generation_preserved`<br>`root_receipt_and_task_reference_with_matching_delivery_removal_in_one_cas_after_history_confirmation`<br>`absence_is_not_acknowledgement` |
 
 <a id="compact-runtime-storage"></a>
 
-### 結果受領と単一保存の確定境界
+### Task終端と単一保存の確定境界
 
-耐久Consumerの受領は、Repository、Project、Milestone、Task、Attempt、論理操作、回復参照、初回受理世代、Repository結合Hash、結果ID、固定利用側の十一項目で表す。実項目は`repositoryBindingId / projectId / milestoneId / taskId / attemptId / operationId / recoveryId / settlementGeneration / repositoryBinding / resultId / consumer`で、`consumer`の既存実値は`orchestrator`を維持する。Path、旧AppData Rootや旧領収書のHashを受領本文へ含めない。既存の`ACKNOWLEDGEMENT`系安定ID・Symbolは論理受領の識別名であり、独立ACK Store、別の受理Reader又は二段更新を意味しない。
+利用側別の耐久ACK、受領本文、配送待ち集合、結果領収書は廃止する。consumerは相関用の不透明な値であり、終了方式を選択しない。
 
-保存正本はRootの`resultReceipts`であり、Taskは`resultAcceptanceIds`だけを持つ。メモリDTOの`resultAcceptances`は同じ受領の投影で、別の物理保存ではない。`decodeProjectResultAcceptance`は閉形式を検査し、Writerは固定Repository／Task／Attempt／論理操作／回復参照／結果を現在値と照合する。初回世代と本文を後の世代や別Attemptへ付け替えない。形式成立だけで耐久保存、資源清掃又はTask成功を主張しない。
+Taskに結合したOperationは、技術終端・cleanup・実履歴行の確認後も、同じTaskの終端保存まで保持する。Task・Attempt・Operation・回復参照を照合し、一つのSnapshot CASでTask終端と除去可能な全Operationを確定する。結合Taskの省略・ID付替え、未解決参照・未確認履歴・cleanup不明がある場合は除去しない。
 
-通常Taskは開始直後・元Control除去前に結果読取り閉包を捕捉する。捕捉又は通知の失敗でも元Taskの完了・取消join・清掃を待ち、Effect前拒否へ読み替えない。閉包はHost清掃・全handoff終端後に固定結果集合だけを返し、関数やCapabilityを公開結果・Stateへ保存しない。結果0件の`not_required`は元Taskの許可された終端、Host清掃、旧操作なし、handoffとfinalizationがともに0件の場合の配送不要であり、Provider未発行の証明ではない。
+単独Operationは既存の終了Writerで整理する。Task成功・Queue終了・再実行許可を技術回収だけから補完しない。新しい受領Reader、ACK Store、後続配送解除Writerは追加しない。
 
-技術終端・cleanup・実履歴行の確認後、Task終端候補、Root受領本文、Task参照、対応する内部配送待ちの解消、除去可能なOperationの整理を一つのSnapshot CASで確定する。`recordProjectTaskResultAcceptances`はこの候補を構築する純粋遷移であり、独立したACK Writerではない。正常の清掃済み終端・同じAttempt・固定結果全件を要求し、重複、二件目不正、本文変更、未来世代、通常受領と別の回復受領の混同を拒否する。受領からcleanupや元outcomeを補完しない。
+保存済み応答喪失とpending再入場は、元の候補・現在本文・改訂・元Hash・Ownerを照合し、同じ候補だけを一重確定する。別候補・未知marker・相関不明ではbytesとexact参照を保全して停止する。Task保存前の取消・保存不明でも、保持中Operationの同じ回復IDを返す。
 
-通常Taskの捕捉済み結果集合は全件を一括受領する。複数のDocker回復義務は既存のexact参照ごとの順次処置を維持し、一件の受領CASでそのOperationだけを除ける。残るOperationがある間はTaskの技術参照集合を保持し、全対象の受領後にだけ技術Operation参照を持たない終端事実へ切り替える。各受領で元終端・履歴・同じTask／Attempt／論理操作・初回受理世代、前後のcleanupとTask固有不明の一致を確認し、未受領参照の欠落、除去済み参照の残留、配送・技術義務の片側除去を拒否する。
-
-回復後も、先に同じexact義務の技術終端・履歴確認を保存し、現在Root・業務世代・Task／Attempt・固定結果を照合した受領候補を同じWriterへ渡す。受領だけを保存して後から別Writerで配送解除する経路は持たない。保存・読戻し・排他解放の確認後にだけ完了を返し、以後のQueue整理・retryは現在世代・Revision・競合を新しく確認する。
-
-保存済み応答喪失やpending再入場は、元の固定候補と現在本文・改訂・元Hash・Ownerを照合し、同じ候補だけを一重確定する。通常Queryはpendingを拒否する。別候補、未知marker、部分結果又は相関不明ではbytesとexact参照を保全して停止し、Provider・技術回収・受領を自動再発行しない。別Process再提示の合成試験は、実Docker回復又は保持②の再入場成立を意味しない。
-
-通常履歴は受領本文を複製しない。未受領配送・未解決義務・未確定移送から参照される行は30日を超えても保持し、必要行の欠落・重複・内容差・確認不能を履歴確定や受領成功にしない。参照解消後だけ通常の期限整理へ戻す。古い物理保存形式の移行・清掃はフロントAIが担当し、本番互換Readerや新しい台帳を追加しない。
-
+現在Operationが参照する履歴行は期限を超えても保持し、必要行の欠落・重複・内容差・観測不能を成功へ変換しない。Operation除去後だけ通常の期限整理へ戻す。過去保存物の自動変換・削除や互換Readerを追加しない。
 ### 3.1. 現在状態の一体保存と有限履歴
 
-実Provider検証Reportの現在終了根拠は、同じ回復対象の公開再入場に限る。`required → recovering → settled → acknowledged → verification_resources_finalized → queue_settled → retry_ready`の順序・件数・Identity・世代と、同じ公開結果のrequest／Project／節目、受入判断待ち、cleanup／回復要否／Process再起動／Effect状態を共同確認する。`verification_resources_finalized`は現在Consumer・耐久ACK・終了確定の完了後だけ通知する。旧global Inventoryの空値を参照せず、無関係な操作や取消対象の不存在へ転用しない。
+実Provider検証Reportの現在終了根拠は、同じ回復対象の公開再入場に限る。`required → recovering → settled → verification_resources_finalized → queue_settled → retry_ready`の順序・件数・Identity・世代と、同じ公開結果のrequest／Project／節目、受入判断待ち、cleanup／回復要否／Process再起動／Effect状態を共同確認する。`verification_resources_finalized`は同じTaskの保存と関連Operationの終了確定の完了後だけ通知する。旧global Inventoryの空値を参照せず、無関係な操作や取消対象の不存在へ転用しない。
 
-Report revision 11の`completed`は、予定した検証結果を確認した意味であり、取消後の上位回復義務が解消した意味ではない。各公開結果にcleanup未確認・手動回復要・Process再起動要・Effect不明が残る場合は、Report上位にも保守的に保持する。取消は同Identityの完全なProvider清掃通知を必要とし、正常完了またはProcess Tree終了を許す。開始直後に親を強制終了する別試験は、旧親からの清掃通知を仮定せず、強制終了確認とfresh再入場・耐久ACK・現在終了確定で対象操作を確認する。試験用Processの成功を実Provider E2E成立へ昇格しない。
+Report revision 11の`completed`は、予定した検証結果を確認した意味であり、取消後の上位回復義務が解消した意味ではない。各公開結果にcleanup未確認・手動回復要・Process再起動要・Effect不明が残る場合は、Report上位にも保守的に保持する。取消は同Identityの完全なProvider清掃通知を必要とし、正常完了またはProcess Tree終了を許す。開始直後に親を強制終了する別試験は、旧親からの清掃通知を仮定せず、強制終了確認とfresh再入場・Task保存・現在終了確定で対象操作を確認する。試験用Processの成功を実Provider E2E成立へ昇格しない。
 
 保存統合Bでは、検証したRepository Rootの`.crdd/domain-model/`へTask進行と技術実行を一体保存する。[単一保存Lifecycle](#unified-storage-lifecycle)を正本とし、旧Orchestratorの保存先・物理Envelope・Writerを並行運用しない。上表のRecordは論理責務として維持し、ファイル統合によって判断Authorityや仕事全体の一括確定を追加保証しない。旧E2E清掃・初期化の[歴史記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)は、新方式の成立根拠へ流用しない。
 
@@ -307,7 +263,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 保存統合と長期実行排他は責務を分ける。短期保存排他は固定`state.lock`とRepositoryへ結合したOS排他を使用する。長期Leaseの短命な実体は`.crdd/tmp/orchestrator-leases/`へ置き、取得意図を保存してから実体を作り、実体Identityと取得証拠を保存する。解放時も意図保存、物理解放の確認、終了証拠とQueueの確定を順序付ける。短期保存排他を保持したままProvider完了を待たない。旧`orchestrator/work/locks/`へ本番処理を戻さない。
 
-`history.jsonl`はHeader行を持たず、各行に閉じた種別・UTC時刻・終了要約を持つ。Task、技術実行、修復の要約を区別し、自由記述の診断本文や秘密値は保存しない。全行を検証し、ちょうど30日前の行は残す。未受領配送・未解決義務・未搬送履歴が必要とする行は期限外でも保護し、その行の欠落を確認済みとして扱わない。参照終了後だけ通常の期限整理へ戻す。時計逆行・未来時刻・途中行を期限切れとして削除しない。
+`history.jsonl`はHeader行を持たず、各行に閉じた種別・UTC時刻・終了要約を持つ。Task、技術実行、修復の要約を区別し、自由記述の診断本文や秘密値は保存しない。全行を検証し、ちょうど30日前の行は残す。現在Operation・未解決義務・未搬送履歴が必要とする行は期限外でも保護し、その行の欠落を確認済みとして扱わない。参照終了後だけ通常の期限整理へ戻す。時計逆行・未来時刻・途中行を期限切れとして削除しない。
 
 短命な`history.pending.jsonl`は同じDirectory内の置換候補であり、履歴世代を蓄積しない。同じRoot排他下で、現在の全体Hashが候補と一致すれば候補の回収だけを行い、変更前Hashと一致すれば同じ候補の保存を再開する。不一致・破損は上書きせず保持する。確定後はread-backと短命Fileの不存在を確認する。履歴確定後だけ終了記録を除く。
 
@@ -399,7 +355,6 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `RES-ADOPTION-LEASE` | `integration_owner` | `—` | `adoption_receipt_and_repository_revision_observed` |
 | `RES-CANCELLATION-CONTROLLER` | `parent_coordinator` | `—` | `all_target_tasks_terminated_cleaned_and_projected` |
 | `RES-PROJECT-RECOVERY-EVIDENCE` | `issuing_runtime` | `—` | `exact_recovery_completed_and_resource_absence_observed` |
-| `RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `coordinator_unified_state_store` | `repository_local_coordinator_current_state/result_receipt` | `single_snapshot_receipt_and_matching_pending_delivery_removal_read_back` |
 | `RES-PENDING-DECISION` | `domain_state_writer` | `repository_local_state` | `applied_resolved_unreferenced_and_exact_history_confirmed_before_retirement` |
 
 ## 5. Lock
@@ -456,7 +411,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `TRANS-TASK-FAILED-SUPERSEDED` | `failed` | `superseded` |  | `INV-OLD-IDENTITY-IMMUTABLE` | `PR-Q-02` |
 | `TRANS-TASK-ACTIVE-CANCELLED` | `planned`<br>`waiting_dependency`<br>`ready`<br>`starting`<br>`running`<br>`cleanup_pending`<br>`failed` | `cancelled` | `RES-CANCELLATION-CONTROLLER` | `INV-CANCEL-AFTER-CLEANUP` | `PR-Q-04` |
 | `TRANS-TASK-ACTIVE-RECOVERY` | `starting`<br>`running`<br>`cleanup_pending`<br>`failed` | `recovery_required` | `RES-PROJECT-RECOVERY-EVIDENCE` | `INV-UNKNOWN-PRESERVES-RECOVERY` | `PR-A-04`<br>`PR-A-05` |
-| `TRANS-TASK-RECOVERY-SETTLED` | `recovery_required` | `ready` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-EXACT-RESULT-IDENTITY` | `PR-A-04`<br>`PR-A-05` |
+| `TRANS-TASK-RECOVERY-SETTLED` | `recovery_required` | `ready` | `RES-PROJECT-RECOVERY-EVIDENCE` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-EXACT-RESULT-IDENTITY` | `PR-A-04`<br>`PR-A-05` |
 
 ### `SM-OBJECTIVE`
 
@@ -480,7 +435,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 |---|---|---|---|---|---|
 | `TRANS-MILESTONE-PLAN-EXECUTE` | `planned` | `executing` | `RES-PROJECT-OPERATION-LEASE` | `INV-NARROWED-AUTHORITY`<br>`INV-EXACT-RESULT-IDENTITY`<br>`INV-PLATFORM-NO-FALLBACK`<br>`INV-TRANSPORT-NO-AUTHORITY` | `PR-N-01`<br>`PR-A-07` |
 | `TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `executing`<br>`human_decision_required` | `executing` | `RES-PENDING-DECISION`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-RECEIPT-BEFORE-RESUME`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
-| `TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `recovery_required` | `executing` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
+| `TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `recovery_required` | `executing` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `TRANS-MILESTONE-EXECUTE-INTEGRATE` | `executing` | `integrating` | `RES-INTEGRATION-WORKSPACE` | `INV-TASK-COMPLETE-NOT-ACCEPTED` | `PR-I-01` |
 | `TRANS-MILESTONE-INTEGRATE-ACCEPT` | `integrating` | `accepted` | `RES-INTEGRATION-WORKSPACE`<br>`RES-ADOPTION-LEASE` | `INV-INTEGRATE-BEFORE-ADOPTION`<br>`INV-CANONICAL-EFFECT-SERIALIZED`<br>`INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | `PR-I-02`<br>`PR-D-A-01` |
 | `TRANS-MILESTONE-ACTIVE-HUMAN` | `executing`<br>`integrating` | `human_decision_required` |  | `INV-NO-SUCCESS-FROM-UNKNOWN` | `PR-H-01` |
@@ -498,7 +453,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `human_decision_required` | `replan_required` | `RES-PENDING-DECISION`<br>`RES-PROJECT-QUEUE` | `INV-DECISION-BINDING-CURRENT`<br>`INV-DECISION-RECEIPT-BEFORE-RESUME`<br>`INV-DECISION-ATOMIC-APPLICATION` | `PR-H-02`<br>`PR-Q-06` |
 | `TRANS-QUEUE-REPLAN-QUEUED` | `replan_required` | `queued` | `RES-PROJECT-QUEUE` | `INV-REVALIDATE-AFTER-WAIT` | `PR-Q-02`<br>`PR-Q-06` |
 | `TRANS-QUEUE-WAITING-QUEUED` | `waiting_foreground` | `queued` | `RES-PROJECT-QUEUE` | `INV-INTERACTIVE-PRIORITY-NO-PREEMPTION`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-Q-05` |
-| `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `recovery_required` | `queued` | `RES-PROJECT-RECOVERY-EVIDENCE`<br>`RES-DOCKER-RECOVERY-ACKNOWLEDGEMENT` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
+| `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `recovery_required` | `queued` | `RES-PROJECT-RECOVERY-EVIDENCE` | `INV-RECOVERY-SETTLED-BEFORE-RESUME`<br>`INV-REVALIDATE-AFTER-WAIT` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `TRANS-QUEUE-LEASE-RUN` | `leased` | `running` | `RES-PROJECT-OPERATION-LEASE` | `INV-REVALIDATE-AFTER-WAIT`<br>`INV-NO-LOCK-ACROSS-EXTERNAL-WAIT`<br>`INV-QUEUE-OWNER-IS-LIVE-LEASE`<br>`INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | `PR-D-Q-01`<br>`PR-D-A-01`<br>`PR-N-01`<br>`PR-A-06` |
 | `TRANS-QUEUE-RUN-INTEGRATE` | `running` | `integration_pending` | `RES-INTEGRATION-WORKSPACE`<br>`RES-PROJECT-OPERATION-LEASE` | `INV-INTEGRATE-BEFORE-ADOPTION`<br>`INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | `PR-I-01`<br>`PR-D-A-01` |
 | `TRANS-QUEUE-INTEGRATE-COMPLETE` | `integration_pending` | `completed` | `RES-PROJECT-OPERATION-LEASE` | `INV-CANONICAL-EFFECT-SERIALIZED`<br>`INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | `PR-I-02`<br>`PR-D-A-01` |
@@ -533,7 +488,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-TASK-FAILED-SUPERSEDED` | `TRANS-TASK-FAILED-SUPERSEDED` | `LOCK-PROJECT-STATE` | `AUTH-TASK` | `EFFECT-PROJECT-STATE` | `old identity remains immutable before successor linkage` | `PR-Q-02` |
 | `BIND-TASK-ACTIVE-CANCELLED` | `TRANS-TASK-ACTIVE-CANCELLED` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-TASK`<br>`AUTH-SINGLE-TASK-OPERATION` | `EFFECT-SINGLE-TASK`<br>`EFFECT-PROJECT-STATE` | `cancellation request precedes termination cleanup and final state projection` | `PR-Q-04` |
 | `BIND-TASK-ACTIVE-RECOVERY` | `TRANS-TASK-ACTIVE-RECOVERY` | `LOCK-PROJECT-STATE` | `AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `unknown settlement is durably projected without issuing recovery effect` | `PR-A-04`<br>`PR-A-05` |
-| `BIND-TASK-RECOVERY-SETTLED` | `TRANS-TASK-RECOVERY-SETTLED` | `LOCK-PROJECT-STATE` | `AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `技術終端・cleanup・実履歴確認の後、root受領本文・Task参照・該当配送待ち解除を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05` |
+| `BIND-TASK-RECOVERY-SETTLED` | `TRANS-TASK-RECOVERY-SETTLED` | `LOCK-PROJECT-STATE` | `AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `技術終端・cleanup・実履歴確認の後、Task結果・回復義務と関連Operationの除去を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05` |
 | `BIND-OBJECTIVE-PLAN-EXECUTE` | `TRANS-OBJECTIVE-PLAN-EXECUTE` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-PROJECT-STATE` | `objective authority and current generation precede execution state` | `PR-N-03`<br>`PR-Q-02` |
 | `BIND-OBJECTIVE-EXECUTE-INTEGRATE` | `TRANS-OBJECTIVE-EXECUTE-INTEGRATE` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-INTEGRATION` | `EFFECT-INTEGRATION-CANDIDATE`<br>`EFFECT-PROJECT-STATE` | `all task cleanup precedes isolated integration and integration pending projection` | `PR-I-01` |
 | `BIND-OBJECTIVE-INTEGRATE-ACCEPT` | `TRANS-OBJECTIVE-INTEGRATE-ACCEPT` | `LOCK-PROJECT-STATE` | `AUTH-INTEGRATION` | `EFFECT-PROJECT-STATE` | `acceptance evidence and fixed integration result precede accepted projection` | `PR-I-02` |
@@ -541,7 +496,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-OBJECTIVE-ACTIVE-CANCEL` | `TRANS-OBJECTIVE-ACTIVE-CANCEL` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-SINGLE-TASK-OPERATION` | `EFFECT-SINGLE-TASK`<br>`EFFECT-PROJECT-STATE` | `all target task cancellation cleanup precedes objective cancellation projection` | `PR-Q-04` |
 | `BIND-MILESTONE-PLAN-EXECUTE` | `TRANS-MILESTONE-PLAN-EXECUTE` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-PROJECT-STATE` | `platform binding revision and authority validation precede execution state` | `PR-N-01`<br>`PR-A-07` |
 | `BIND-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `TRANS-MILESTONE-DECISION-ACCEPTED-EXECUTE` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `判断適用と同じState CASで確定する投影。独立した後段書込みは禁止。` | `PR-H-02`<br>`PR-Q-06` |
-| `BIND-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `技術終端・cleanup・実履歴確認の後、root受領本文・Task参照・該当配送待ち解除を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
+| `BIND-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `TRANS-MILESTONE-RECOVERY-SETTLED-EXECUTE` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-RECOVERY` | `EFFECT-PROJECT-STATE` | `技術終端・cleanup・実履歴確認の後、Task結果・回復義務と関連Operationの除去を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `BIND-MILESTONE-EXECUTE-INTEGRATE` | `TRANS-MILESTONE-EXECUTE-INTEGRATE` | `LOCK-PROJECT-OPERATION`<br>`LOCK-PROJECT-STATE` | `AUTH-MILESTONE`<br>`AUTH-INTEGRATION` | `EFFECT-INTEGRATION-CANDIDATE`<br>`EFFECT-PROJECT-STATE` | `all objectives accepted before isolated milestone integration` | `PR-I-01` |
 | `BIND-MILESTONE-INTEGRATE-ACCEPT` | `TRANS-MILESTONE-INTEGRATE-ACCEPT` | `LOCK-PROJECT-OPERATION`<br>`LOCK-ADOPTION`<br>`LOCK-PROJECT-STATE` | `AUTH-INTEGRATION`<br>`AUTH-ADOPTION`<br>`AUTH-MILESTONE` | `EFFECT-CANONICAL-ADOPTION`<br>`EFFECT-PROJECT-STATE` | `fixed candidate fresh canonical revision and adoption receipt precede accepted projection` | `PR-A-06`<br>`PR-I-02` |
 | `BIND-MILESTONE-ACTIVE-HUMAN` | `TRANS-MILESTONE-ACTIVE-HUMAN` | `LOCK-PROJECT-STATE` | `AUTH-MILESTONE` | `EFFECT-PROJECT-STATE` | `decision need and impact are durable before human transfer` | `PR-H-01` |
@@ -551,7 +506,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-QUEUE-DECISION-ACCEPTED-REPLAN` | `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `判断適用と同じState CASで確定する投影。独立した後段書込みは禁止。` | `PR-H-02`<br>`PR-Q-06` |
 | `BIND-QUEUE-REPLAN-QUEUED` | `TRANS-QUEUE-REPLAN-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `bounded replanning is durably complete before the queue returns to queued for a fresh selection` | `PR-Q-02`<br>`PR-Q-06` |
 | `BIND-QUEUE-WAITING-QUEUED` | `TRANS-QUEUE-WAITING-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `a fresh binding-wide scan confirms no foreground owner before the scheduled queue returns to queued` | `PR-Q-05` |
-| `BIND-QUEUE-RECOVERY-SETTLED-QUEUED` | `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-RECOVERY` | `EFFECT-RECOVERY`<br>`EFFECT-QUEUE-STATE` | `技術終端・cleanup・実履歴確認の後、root受領本文・Task参照・該当配送待ち解除を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
+| `BIND-QUEUE-RECOVERY-SETTLED-QUEUED` | `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-RECOVERY` | `EFFECT-RECOVERY`<br>`EFFECT-QUEUE-STATE` | `技術終端・cleanup・実履歴確認の後、Task結果・回復義務と関連Operationの除去を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `BIND-QUEUE-LEASE-RUN` | `TRANS-QUEUE-LEASE-RUN` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `lease identity is revalidated before running projection` | `PR-N-01`<br>`PR-A-06` |
 | `BIND-QUEUE-RUN-INTEGRATE` | `TRANS-QUEUE-RUN-INTEGRATE` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-INTEGRATION` | `EFFECT-INTEGRATION-CANDIDATE`<br>`EFFECT-QUEUE-STATE` | `all task cleanup precedes integration and queue projection` | `PR-I-01` |
 | `BIND-QUEUE-INTEGRATE-COMPLETE` | `TRANS-QUEUE-INTEGRATE-COMPLETE` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `milestone terminal state and all resource release observations precede queue completion` | `PR-I-02` |
@@ -590,7 +545,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `INV-LEASE-RELEASE-UNKNOWN-BLOCKS-REUSE` | `Every post-acquire exit attempts physical release; lease release intent is durable before lock removal and unresolved exact evidence blocks reacquisition` |
 | `INV-LEASE-ACQUISITION-RECOVERABLE` | `An atomically published acquisition marker bound to lease kind source queue owner generation process and deterministic recovery identity precedes the physical lock; a second exact marker proves lock ownership; project operation and canonical adoption pre-owner failures reach fresh complete rollback, exact common recovery with all markers and lock absent, or unchanged manual recovery obligation` |
 | `INV-QUEUE-OWNER-CLEARED-AFTER-LEASE-SETTLEMENT` | `Queue owner is cleared only after fresh lock absence exact released evidence and release-marker absence` |
-| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | `各Task義務のexact Identityをrequired／recovering／settledまで保持する。Docker結果は技術終端・cleanup・実履歴行の確認後に読み、Repository・Task・Attempt・Operation・回復参照・固定結果・Consumerを照合する。Task受領参照、単一受領事実、対応する内部配送待ちの解消と除去可能なOperationの終了は、一つのSnapshot CASで確定する。保存後応答喪失は同じ候補の再入場で一重確定し、別のACK更新や結果読取りから解除しない。保存と排他解放の確認前は完了を返さず、unknownと元参照は保持する。不存在やIDだけを受領・削除Authorityにしない。回復後に世代・Revision・競合を新しく確認する。 ／` |
+| `INV-RECOVERY-SETTLED-BEFORE-RESUME` | 各Task義務のexact Identity、技術終端・cleanup・実履歴行・同じTask／Attempt／Operationを照合する。Task終端と関連Operationの除去を一つのSnapshot CASで確定し、保存と排他解放の確認前に完了を返さない。取消・unknown時の保持参照を失わず、復帰後は世代・Revision・競合を再確認する。 |
 | `INV-DECISION-BINDING-CURRENT` | `Human decision applies only to the exact current decision project milestone generation revision and allowed option` |
 | `INV-MCP-NO-HUMAN-AUTHORITY` | `MCP metadata session provider identity and comment never create Human Authority` |
 | `INV-DECISION-RECEIPT-BEFORE-RESUME` | `継続回答は同じ対象・回答先・現在世代・Queue条件へ一度適用し、再計画待ちに進めるだけでAIを自動再送しない。` |
@@ -625,7 +580,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 
 | ID | Interface | 状態 | 段階 | Path |
 |---|---|---|---|---|
-| `IMPL-PROJECT-STATE-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-SCHEDULER`<br>`IF-INTEGRATION` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/state/create.ts`<br>`40_Develop/coordinator/src/state/validation.ts`<br>`40_Develop/coordinator/src/state/types.ts`<br>`40_Develop/coordinator/src/state/projection.ts`<br>`40_Develop/coordinator/src/task/scheduling.ts`<br>`40_Develop/coordinator/src/task/lifecycle.ts`<br>`40_Develop/coordinator/src/task/recovery.ts`<br>`40_Develop/coordinator/src/task/acceptance.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
+| `IMPL-PROJECT-STATE-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-SCHEDULER`<br>`IF-INTEGRATION` | `partial` | `responsibility_separation` | `40_Develop/coordinator/src/state/create.ts`<br>`40_Develop/coordinator/src/state/validation.ts`<br>`40_Develop/coordinator/src/state/types.ts`<br>`40_Develop/coordinator/src/state/projection.ts`<br>`40_Develop/coordinator/src/task/scheduling.ts`<br>`40_Develop/coordinator/src/task/lifecycle.ts`<br>`40_Develop/coordinator/src/task/recovery.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
 | `IMPL-PUBLIC-OBJECTIVE-INTAKE-CANDIDATE` | `IF-PROJECT-CORE`<br>`IF-QUEUE`<br>`IF-TRANSPORT` | `partial` | `public_objective_intake` | `40_Develop/execution-model/src/objective/request.ts`<br>`40_Develop/coordinator/src/objective/plan.ts`<br>`40_Develop/coordinator/src/objective/execute.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/objective/plan.contract.test.ts`<br>`40_Develop/coordinator/bin/coordinator.ts`<br>`40_Develop/coordinator/src/objective/composition.ts`<br>`40_Develop/coordinator/src/decision/acceptance.ts`<br>`40_Develop/coordinator/src/decision/lifecycle.ts`<br>`40_Develop/coordinator/src/state/query.ts`<br>`40_Develop/coordinator/src/execution/diagnostics.ts`<br>`40_Develop/coordinator/src/state/result.ts`<br>`40_Develop/coordinator/src/execution/controller.ts`<br>`40_Develop/coordinator/src/execution/result.ts`<br>`40_Develop/coordinator/src/execution/operation.ts`<br>`40_Develop/coordinator/scripts/task-real-provider-contract.ts`<br>`40_Develop/coordinator/scripts/verify-task-real-providers.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts` |
 | `IMPL-MCP-ADAPTER-CANDIDATE` | `IF-TRANSPORT`<br>`IF-PROJECT-CORE`<br>`IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/execution-model/src/objective/request.ts`<br>`40_Develop/coordinator/src/decision/request.ts`<br>`40_Develop/coordinator/src/state/result.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/mcp-server/src/index.ts`<br>`40_Develop/mcp-server/src/tools/task.ts`<br>`40_Develop/mcp-server/src/transport/stdio.ts`<br>`40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts`<br>`40_Develop/mcp-server/tests/system/stdio-transport.integration.test.ts` |
 | `IMPL-RESPONSIBILITY-SEPARATION-CANDIDATE` | `IF-SINGLE-TASK`<br>`IF-PLATFORM`<br>`IF-INTEGRATION`<br>`IF-DECISION` | `partial` | `responsibility_separation` | `40_Develop/execution-model/src/decision/types.ts`<br>`40_Develop/execution-model/src/decision/operations.ts`<br>`40_Develop/coordinator/src/task/types.ts`<br>`40_Develop/coordinator/src/execution/diagnostics.ts`<br>`40_Develop/coordinator/tests/integration/provider-intelligence.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/platform/contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/public-contract.contract.test.ts`<br>`40_Develop/coordinator/src/workspace/operations.ts`<br>`40_Develop/execution-model/src/storage/runtime-store.ts`<br>`40_Develop/coordinator/src/execution/kernel-lock.ts`<br>`40_Develop/coordinator/src/execution/controller.ts`<br>`40_Develop/coordinator/src/task/dispatch.ts`<br>`40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/continuation-decision.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/task-single-task-adapter.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-platform-independence.contract.test.ts` |
@@ -656,7 +611,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `PR-A-01` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
 | `PR-A-02` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts` |
 | `PR-A-03` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts` |
-| `PR-A-04` | `abnormal` | `partial` | `40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts`<br>`40_Develop/executor/tests/integration/report.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-settlement.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/coordinator-state-runtime.contract.test.ts`<br>`40_Develop/docker-isolation/tests/integration/resource-recovery.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` |
+| `PR-A-04` | `abnormal` | `partial` | `40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts`<br>`40_Develop/executor/tests/integration/report.integration.test.ts`<br>`40_Develop/coordinator/tests/integration/current-recovery-resources.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/coordinator-state-runtime.contract.test.ts`<br>`40_Develop/docker-isolation/tests/integration/resource-recovery.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` |
 | `PR-A-05` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-execution.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts` |
 | `PR-A-06` | `abnormal` | `partial` | `40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts`<br>`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`<br>`40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts` |
 | `PR-A-07` | `abnormal` | `partial` | `40_Develop/coordinator/tests/unit/platform/contract.contract.test.ts`<br>`40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts` |
@@ -742,7 +697,7 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 Host清掃結果の受領で既存終了driverがcompletedを返した場合、その凍結済み結果を同じProcess内の元Ownerへ保持する。後続Stageが現在状態を進めた後の最終確定では、この同Ownerの確定結果を使用し、古いbefore／candidateで終了保存を再実行しない。
 
 - completed以外又は結果欠測では、既存driverによる再入場と全安全検査を維持する。
-- transientは最終確定後に元Capabilityを退役し、複製Capabilityや退役後の再確定を拒否する。durableの配送待ちは従来どおり元Ownerを保持する。
+- 最終確定後に元Capabilityを退役し、複製Capabilityや退役後の再確定を拒否する。Task関連Operationの耐久記録はTask終端保存まで保持する。
 - 履歴、公開Task結果、Effect三値、Writer、回復参照、認可及びHTTP十五秒期限は変更しない。保存済みJSONからこのProcess内結果を復元しない。
 - 一括受領→一括最終確定を実Writer試験に接続する。並行HTTPは実Server受信後に同期保存を開始し、既存子Client時計で応答・終了を確認する。単純loopback応答の確認をWorkbench全画面生成や元実AI故障の解消へ一般化しない。
 - 各Stageの受領では、成功したWriterから排他解放済みで戻った直後だけNode標準のsetImmediateでI/Oへ制御を返す。固定時間待機・新Worker・新Queueは追加せず、失敗時は従来どおり停止する。制御返却中に取消を受けても清掃を放棄せず、全受領・全確定・既存のHost再観測を継続し、元の取消完了を待つ。

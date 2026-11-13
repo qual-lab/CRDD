@@ -876,14 +876,14 @@ function assessFixtureRemoval(
         for (const key of [
           "operations",
           "unresolvedRecoveries",
-          "pendingDeliveries",
           "leaseIntents",
           "workspaces",
-          "resultReceipts",
           "decisions",
           "blockers",
         ] as const)
           assert.equal(s[key].length, 0);
+        assert.equal(Object.hasOwn(s, "pendingDeliveries"), false);
+        assert.equal(Object.hasOwn(s, "resultReceipts"), false);
         assert.equal(s.historyPending.length, historyCount);
         if (historyCount) {
           const row = s.historyPending[0];
@@ -933,7 +933,7 @@ function assessFixtureRemoval(
         ] as const)
           assert.equal(task[key], null);
         assert.deepEqual(task.recoveryObligations, []);
-        assert.deepEqual(task.resultAcceptanceIds, []);
+        assert.equal(Object.hasOwn(task, "resultAcceptanceIds"), false);
         if (mode === "direct") {
           assert.equal(s.results.length, 0);
           assert.equal(s.leaseEvidence.length, 0);

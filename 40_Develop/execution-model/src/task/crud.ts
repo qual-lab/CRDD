@@ -15,7 +15,7 @@ import type {
   Snapshot,
   StateVersion,
 } from "../state/types.ts";
-import { snapshotStateRecord } from "../state/validation.ts";
+import { leaseIdentity, snapshotStateRecord } from "../state/validation.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import { readSnapshot } from "../storage/store.ts";
@@ -26,7 +26,6 @@ import type {
   QueueUpdateRequest,
 } from "./types.ts";
 import {
-  inspectQueueIntake,
   prepareQueueEntryCreation,
   prepareQueueLeaseReleaseSettlement,
   prepareQueueOperationUpdate,
@@ -37,41 +36,6 @@ import {
   prepareUnstartedTaskQueueClosure,
   projectQueueEntry,
 } from "./validation.ts";
-
-/**
- * 発行時の受付世代と同ID相関を照合する。
- * @responsibility 退役した受付世代を拒否し、照合だけでは保存を変更しない。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。発行時の受付結合。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function verifyQueueIntake(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<typeof inspectQueueIntake> extends [
-    unknown,
-    ...infer Rest,
-  ]
-    ? Rest
-    : never
-) {
-  return withSnapshotOperation<
-    Extract<
-      ReturnType<typeof inspectQueueIntake>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    inspectQueueIntake(current, ...input),
-  );
-}
 
 /**
  * 同じSnapshotのQueue一件を照会する。
@@ -468,7 +432,15 @@ export function updateQueue(
           input[2],
           {
             resourcesAbsent: (projectId) =>
-              input[3].resourcesAbsent(owner.repositoryRoot, projectId),
+              input[3].resourcesAbsent(
+                owner.repositoryRoot,
+                leaseIdentity(
+                  binding,
+                  projectId,
+                  input[0],
+                  "project-operation",
+                ),
+              ),
           },
         ),
       );

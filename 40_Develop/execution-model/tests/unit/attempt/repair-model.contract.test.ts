@@ -732,7 +732,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
  */
 test("修復回収: 専用判断と一用途進捗だけを結合する", () => {
   const f = retentionFixture("awaiting_disposition");
-  const sibling = retentionFixture("awaiting_delivery").operation;
+  const sibling = retentionFixture("terminal").operation;
   const siblingIdentity = {
     ...identity,
     operationNonce: "f".repeat(64),
@@ -787,10 +787,8 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
     actual.snapshot.unresolvedRecoveries,
     f.current.snapshot.unresolvedRecoveries,
   );
-  assert.deepEqual(
-    actual.snapshot.pendingDeliveries,
-    f.current.snapshot.pendingDeliveries,
-  );
+  assert.equal(Object.hasOwn(actual.snapshot, "pendingDeliveries"), false);
+  assert.equal(Object.hasOwn(f.current.snapshot, "pendingDeliveries"), false);
   assert.equal(actual.snapshot.revision, f.current.snapshot.revision + 1);
   assert.deepEqual(actual.snapshot.previous, {
     revision: f.current.snapshot.revision,
@@ -1422,10 +1420,8 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     next.snapshot.unresolvedRecoveries,
     previous.snapshot.unresolvedRecoveries,
   );
-  assert.deepEqual(
-    next.snapshot.pendingDeliveries,
-    previous.snapshot.pendingDeliveries,
-  );
+  assert.equal(Object.hasOwn(next.snapshot, "pendingDeliveries"), false);
+  assert.equal(Object.hasOwn(previous.snapshot, "pendingDeliveries"), false);
   assert.equal(validateStateTransition(confirmed, removed, binding), false);
   assert.equal(
     prepareStateRepairCompletionSnapshot(confirmed, "wrong", binding),
@@ -1471,7 +1467,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-domain/runtime-state/v3",
+      schema: "crdd-execution-model/state/v4",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -1484,7 +1480,6 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
       historyPending: [],
       decisions: [],
       blockers: [],
-      resultReceipts: [],
     };
   };
   for (const [bytes, expected] of [
@@ -1721,7 +1716,7 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
   for (const phase of [
     "repairing",
     "awaiting_disposition",
-    "awaiting_delivery",
+    "terminal",
   ] as const) {
     const invalid = retentionFixture(phase);
     assert.equal(
@@ -2213,8 +2208,8 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
       future,
       30,
       binding,
-    )?.length,
-    0,
+    )?.equals(line),
+    true,
   );
   assert.equal(
     prepareHistoryRetention(
@@ -2223,8 +2218,8 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
       future,
       30,
       binding,
-    )?.length,
-    0,
+    ),
+    null,
   );
   assert.ok(
     prepareHistoryRetention(
@@ -2337,10 +2332,8 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     actual.snapshot.unresolvedRecoveries,
     f.current.snapshot.unresolvedRecoveries,
   );
-  assert.deepEqual(
-    actual.snapshot.pendingDeliveries,
-    f.current.snapshot.pendingDeliveries,
-  );
+  assert.equal(Object.hasOwn(actual.snapshot, "pendingDeliveries"), false);
+  assert.equal(Object.hasOwn(f.current.snapshot, "pendingDeliveries"), false);
   assert.equal(actual.snapshot.revision, f.current.snapshot.revision + 1);
   assert.deepEqual(actual.snapshot.previous, {
     revision: f.current.snapshot.revision,
@@ -2415,7 +2408,7 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     ),
     null,
   );
-  for (const phase of ["repairing", "settling", "awaiting_delivery"] as const) {
+  for (const phase of ["repairing", "settling", "terminal"] as const) {
     const other = retentionFixture(phase);
     assert.equal(
       prepareStateRepairRetentionHandoffSnapshot(
@@ -2487,16 +2480,16 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
     "repairing",
     "settling",
     "awaiting_disposition",
-    "awaiting_delivery",
+    "terminal",
   ] as const;
   const allowed = new Set([
     "repairing:repairing",
     "repairing:settling",
     "repairing:awaiting_disposition",
     "settling:settling",
-    "settling:awaiting_delivery",
+    "settling:terminal",
     "awaiting_disposition:awaiting_disposition",
-    "awaiting_delivery:awaiting_delivery",
+    "terminal:terminal",
   ]);
   for (const from of phases) {
     const f = retentionFixture(from);
@@ -2507,7 +2500,7 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
         disposition:
           to === "awaiting_disposition"
             ? "pending_human_decision"
-            : to === "awaiting_delivery" ||
+            : to === "terminal" ||
                 (from === "awaiting_disposition" && to === "settling")
               ? "retained_by_human_decision"
               : f.operation.disposition,
@@ -2619,7 +2612,7 @@ test("修復出版: 初回・次版・同値と不正候補を区別する", () 
     "session_begin",
   );
   const empty = Buffer.from(
-    `${encodeStateValue({ ...f.observed.snapshot, revision: 1, previous: null, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+    `${encodeStateValue({ ...f.observed.snapshot, revision: 1, previous: null, operations: [], unresolvedRecoveries: [] })}\n`,
   );
   const added = prepareStateRepairSnapshot(empty, text, binding);
   assert.ok(added);
@@ -2692,7 +2685,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
   assert.ok(otherValue?.kind === "runtime_repair");
   const other = {
     ...otherValue,
-    phase: "awaiting_delivery",
+    phase: "terminal",
     outcome: {
       status: "blocked",
       reason: "runtime_repair_failed_closed",
@@ -3093,7 +3086,7 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
       ],
     },
     { ...after.snapshot, unresolvedRecoveries: [{}] },
-    { ...after.snapshot, pendingDeliveries: [{}] },
+    { ...after.snapshot, pendingDeliveries: [] },
   ])
     assert.equal(
       validateStateRepairSessionTransition(
@@ -3179,8 +3172,7 @@ test("修復variant: 回復結果は全八処置の確認または明示不要�
       operations: [
         {
           ...operation,
-          phase:
-            confirmedCount === 0 ? "awaiting_delivery" : "awaiting_disposition",
+          phase: confirmedCount === 0 ? "terminal" : "awaiting_disposition",
           disposition:
             confirmedCount === 0 ? "not_applicable" : "pending_human_decision",
           checkpoint: technical,
@@ -3498,7 +3490,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     prepareStateRepairCheckpointSnapshot(
       settled,
       operation.recoveryId,
-      update(operation, { ...next, phase: "awaiting_delivery" }),
+      update(operation, { ...next, phase: "terminal" }),
       binding,
     ),
     null,
@@ -3508,7 +3500,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     operation.recoveryId,
     update(operation, {
       ...next,
-      phase: "awaiting_delivery",
+      phase: "terminal",
       checkpoint: { ...confirmed, hostSafety: "safe" },
     }),
     binding,
@@ -3732,7 +3724,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   assert.ok(otherValue?.kind === "runtime_repair");
   const other = {
     ...otherValue,
-    phase: "awaiting_delivery",
+    phase: "terminal",
     outcome: {
       status: "blocked",
       reason: "runtime_repair_failed_closed",
@@ -3775,14 +3767,6 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
         obligations: ["host_cleanup"],
       },
     ],
-    pendingDeliveries: [
-      {
-        operationNonce: taskIdentity.operationNonce,
-        recoveryId: task.recoveryId,
-        resultId: "4".repeat(64),
-        consumer: "orchestrator",
-      },
-    ],
   };
   const mixed = Buffer.from(`${encodeStateValue(nonempty)}\n`);
   assert.ok(decodeStateSnapshot(mixed, binding));
@@ -3821,10 +3805,8 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       changed.snapshot.unresolvedRecoveries,
       nonempty.unresolvedRecoveries,
     );
-    assert.deepEqual(
-      changed.snapshot.pendingDeliveries,
-      nonempty.pendingDeliveries,
-    );
+    assert.equal(Object.hasOwn(changed.snapshot, "pendingDeliveries"), false);
+    assert.equal(Object.hasOwn(nonempty, "pendingDeliveries"), false);
     return candidate;
   };
   const repairPending = preserve(prepareRepairHistorySnapshot);
@@ -3946,10 +3928,8 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       value.snapshot.unresolvedRecoveries,
       before.snapshot.unresolvedRecoveries,
     );
-    assert.deepEqual(
-      value.snapshot.pendingDeliveries,
-      before.snapshot.pendingDeliveries,
-    );
+    assert.equal(Object.hasOwn(value.snapshot, "pendingDeliveries"), false);
+    assert.equal(Object.hasOwn(before.snapshot, "pendingDeliveries"), false);
     assert.equal(value.snapshot.revision, before.snapshot.revision + 1);
     assert.equal(value.snapshot.previous?.payloadSha256, before.payloadSha256);
   };
@@ -4033,7 +4013,10 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
         Buffer.from(
           oldTaskLine
             .toString("utf8")
-            .replace("operation-summary/v2", "repair-summary/v1"),
+            .replace(
+              "crdd-execution-model/operation-summary/v5",
+              "crdd-coordinator/repair-summary/v1",
+            ),
         ),
       ]),
     ),

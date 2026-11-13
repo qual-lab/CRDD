@@ -174,7 +174,6 @@ export function createCoordinatorState(
       startPhase: "none" as const,
       cleanupConfirmed: false,
       recoveryObligations: Object.freeze([]),
-      resultAcceptances: Object.freeze([]),
       recoveryUnresolved: false,
       candidateId: null,
       retryCount: 0,

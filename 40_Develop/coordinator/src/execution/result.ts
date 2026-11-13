@@ -655,4 +655,4 @@ export function formatHostRecoveryToken(
   return `host.${rootName}.${nonce}.${recordHash}`;
 }
 
-import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../workspace/record.ts";

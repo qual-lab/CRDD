@@ -9,12 +9,11 @@
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { isDeepStrictEqual } from "node:util";
 import test, { after, mock, type TestContext } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { runInThisContext } from "node:vm";
 import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
@@ -24,10 +23,11 @@ import type {
   RepairSaveRequest,
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
 import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 let fixedRevision: {
   root: Repository;
@@ -420,7 +420,7 @@ function fixture(
     };
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,isRepairCheckpointSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readRecoveryState,advanceOwnedRepairHistory,completeRepair,resumeRepairPublication,removeStatePublicationMarker,saveRepairState,cleanupRepairDirectory,isRepairDisposalSettled}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readRecoveryState,advanceOwnedRepairHistory,completeRepair,resumeRepairPublication,completeStatePublication,saveRepairState,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
     isDeepStrictEqual,
@@ -454,7 +454,6 @@ function fixture(
         auxiliary: input.checkpoint.directories.auxiliary.retained.identity,
       };
     },
-    isRepairDisposalSettled,
     cleanupRepairDirectory: async (input: RepairDisposalInput) => {
       state.disposalCalls.push(input.purpose);
       if (input.canIssueEffect() !== true)
@@ -521,7 +520,6 @@ function fixture(
             lockReleased: fault !== "release" && result.lockReleased,
           };
     },
-    isRepairCheckpointSettled,
     borrowRuntimeOwnedCoordinatorRecoveryRepository: (value: unknown) =>
       value === root
         ? {
@@ -552,7 +550,7 @@ function fixture(
         filesystemEffectIssued: state.publicationFault !== "none",
       };
     },
-    removeStatePublicationMarker: (targetRoot: unknown) => {
+    completeStatePublication: (targetRoot: unknown) => {
       state.markers++;
       const fault =
         state.markerFaultAt === 0 || state.markers === state.markerFaultAt
@@ -560,8 +558,7 @@ function fixture(
           : "none";
       if (fault === "throw") throw new Error("marker_fault");
       if (fault === "owner") state.alive = false;
-      if (fault === "none")
-        return model.removeStatePublicationMarker(targetRoot);
+      if (fault === "none") return model.completeStatePublication(targetRoot);
       return {
         status: fault === "status" ? "blocked" : "completed",
         storageConfirmed: fault !== "storage",
@@ -646,6 +643,19 @@ function fixture(
         return result;
       const bytes = state.bytes;
       assert.ok(bytes);
+      assert.ok(result.value);
+      assert.equal(
+        result.value.checkpointSettled,
+        technicalValidation.isRepairCheckpointSettled(
+          result.value.operation.checkpoint,
+        ),
+      );
+      assert.equal(
+        result.value.disposalSettled,
+        technicalValidation.isRepairDisposalSettled(
+          result.value.operation.disposal?.checkpoint,
+        ),
+      );
       saved.push(Buffer.from(bytes));
       if (state.cancelAfterWrite) controller.abort();
       if (state.lossAt === "prepared" && state.calls === 2) {
@@ -899,7 +909,12 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
       },
       before,
     );
-    assert.equal(isRepairDisposalSettled(final.disposal.checkpoint), true);
+    assert.deepEqual(
+      Object.values(final.disposal.checkpoint.directories).map(
+        (item) => item.absence,
+      ),
+      ["confirmed_absent", "confirmed_absent", "confirmed_absent"],
+    );
     assert.equal(
       final.disposal.checkpoint.directories.primary.request,
       failure === "save" ? "unknown" : "issued",
@@ -1622,7 +1637,10 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
       f.snapshot()?.unresolvedRecoveries,
       before.unresolvedRecoveries,
     );
-    assert.deepEqual(f.snapshot()?.pendingDeliveries, before.pendingDeliveries);
+    assert.ok(f.snapshot());
+    assert.equal(Object.hasOwn(f.snapshot(), "pendingDeliveries"), false);
+    assert.ok(before);
+    assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
     const saved = Buffer.from(f.state.bytes ?? []);
     const reads = f.state.retentionReads,
       dates = f.state.dateReads;
@@ -2330,7 +2348,10 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
         .digest("hex"),
     });
     assert.deepEqual(after.unresolvedRecoveries, before.unresolvedRecoveries);
-    assert.deepEqual(after.pendingDeliveries, before.pendingDeliveries);
+    assert.ok(after);
+    assert.equal(Object.hasOwn(after, "pendingDeliveries"), false);
+    assert.ok(before);
+    assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
     const terminalBytes = Buffer.from(f.state.bytes as Buffer);
     const refused = await f.run(id);
     assert.equal(refused.status, "observed");
@@ -2589,24 +2610,5 @@ test("修復出版: 部分成立の後は新処置へ進まない", async (t) =>
       assert.equal(result.statePublication?.filesystemEffectIssued, true);
   }
 });
-
-/**
- * 保存Ownerへの判定移管が既存技術検査と同じ結果を返すことを反証する。
- * @responsibility 既存の正常・不明・保存故障fixture全件を両Ownerで照合する。
- * @trace ERB-IT-014
- * @boundary 値検査だけ。実資源の不存在を推定しない。
- */
-function isRepairCheckpointSettled(value: unknown): boolean {
-  const result = model.isRepairCheckpointSettled(value);
-  assert.equal(result, technicalValidation.isRepairCheckpointSettled(value));
-  return result;
-}
-
-/** 廃棄判定も同じ保存fixtureで両Ownerの同値性を確認する。 */
-function isRepairDisposalSettled(value: unknown): boolean {
-  const result = model.isRepairDisposalSettled(value);
-  assert.equal(result, technicalValidation.isRepairDisposalSettled(value));
-  return result;
-}
 
 import path from "node:path";

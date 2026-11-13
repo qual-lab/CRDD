@@ -61,10 +61,6 @@ export function verifyStandaloneProviderAttempt() {
   const fixtureRoot = fs.mkdtempSync(path.join(parent, "executor-standalone-"));
   const fixtureIdentity = fs.statSync(fixtureRoot, { bigint: true });
   const root = new URL("../src/index.ts", import.meta.url).href;
-  const domainRoot = new URL(
-    "../../execution-model/src/index.ts",
-    import.meta.url,
-  ).href;
   const script = `
     import assert from 'node:assert/strict';
     import fs from 'node:fs';
@@ -85,7 +81,7 @@ export function verifyStandaloneProviderAttempt() {
       }
       return resolved;
     }});
-    const {hashExecutionSelection}=await import(${JSON.stringify(domainRoot)});
+    const {createHash}=await import("node:crypto");
     const {writeReport,readReport}=await import(${JSON.stringify(new URL("./report.ts", import.meta.url).href)});
     const fixtureRoot=${JSON.stringify(fixtureRoot)};
     const {attemptPlan,attemptTarget}=await import(${JSON.stringify(new URL("../tests/fixtures/attempt-plan.ts", import.meta.url).href)});
@@ -151,7 +147,7 @@ export function verifyStandaloneProviderAttempt() {
         commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
       };
       const fullSelection=plan.executionSelection;
-      const selectionHash=hashExecutionSelection(fullSelection);
+      const selectionHash=createHash("sha256").update(JSON.stringify(fullSelection),"utf8").digest("hex");
       plan={...plan,selectionHash,executionSelection:{provider:fullSelection.provider,modelIdentifier:fullSelection.modelIdentifier,identifierKind:fullSelection.identifierKind,reasoningEffort:fullSelection.reasoningEffort,purpose:fullSelection.purpose}};
       const tmp='C:/synthetic-not-accessed/tmp';
       {

@@ -368,7 +368,7 @@ export async function retainRepair(
   );
 }
 
-export type { WorkspaceResult } from "../../execution-model/src/index.ts";
+export type { WorkspaceResult } from "./workspace/record.ts";
 export { readRepositoryNetworkHosts } from "./decision/external-send-policy.ts";
 export type { CoordinatorDecisionRequest } from "./decision/request.ts";
 export {

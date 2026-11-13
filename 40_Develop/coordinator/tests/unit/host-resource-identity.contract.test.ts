@@ -11,7 +11,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { areTaskResourcesSettled } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
 /**
@@ -102,7 +101,12 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
       readOperationStateStage: () => ({
         status: "completed",
         lockReleased: true,
-        value: { snapshot: { operations: [operation] } },
+        value: {
+          snapshot: { operations: [operation] },
+          operationStates: [
+            { kind: "docker_task", operation, resourcesSettled: true },
+          ],
+        },
       }),
       borrowRuntimeOwnedCoordinatorStateRepository: () => ({
         operationId: plan.operationId,
@@ -114,7 +118,6 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
           record: { state: "docker_submission_started" },
         },
       }),
-      areTaskResourcesSettled,
       verifyRuntimeOwnedProviderHomeMountCompletion: (
         value: unknown,
         management: unknown,

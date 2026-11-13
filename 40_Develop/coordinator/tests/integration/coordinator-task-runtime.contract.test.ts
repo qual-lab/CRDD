@@ -25,7 +25,6 @@ import test from "node:test";
 import { types } from "node:util";
 import {
   dockerProcessControllerPublicCompletionReasons,
-  hashExecutionSelection,
   initializeExecutionStore,
   readRecoveryState,
   saveOperationStart,
@@ -348,6 +347,41 @@ const taskTraceAssertions: Readonly<
   "CASE-RECOVERY-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED": assertRuntimeTraceCase,
 });
+/**
+ * Consumer別のACK経路を持たず、CompletionとControl失効で単一実行を終端する。
+ * @responsibility 技術終端の既存通知と一回の実行結果を検証する。
+ * @trace PRL-IT-012
+ * @precondition DockerとHostの模擬Ownerを使う。
+ * @stimulus 既存の各入口分類で実行してCompletionを待つ。
+ * @observation 結果、失効したControl、公開された操作を確認する。
+ * @oracle 独立した受領操作を提供せず、完了後にControlを再利用できない。
+ * @cleanup 外部資源を作らない。
+ * @boundary 単一Task制御と模擬Owner。
+ */
+test("単一Taskは受領APIを持たずCompletionで終端する", async () => {
+  for (const consumer of [
+    "orchestrator",
+    "coordinator_cli",
+    "workbench",
+  ] as const) {
+    const harness = fixture({ hostCleanupWal: true });
+    const started = harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "upper-operation",
+      undefined,
+      consumer,
+    );
+    assert.equal(
+      Object.hasOwn(harness.runtime, "captureResultDelivery"),
+      false,
+    );
+    assert.equal((await started.completion).status, "completed");
+    await harness.observeLastControlInvalid();
+  }
+});
+
+import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 const executedTaskTraceCases = new Set<string>();
 
 /**
@@ -721,6 +755,7 @@ function fixture(
     selectionMismatchAt?: number;
     selectionRefreshFailureAt?: number;
     selectionRefreshMismatchAt?: number;
+    selectionRefreshValue?: unknown;
     selectionRefreshRevokeFailureAt?: number;
     providerHomeObservationFailure?: Readonly<{
       at: 1 | 2;
@@ -1130,7 +1165,12 @@ function fixture(
               : "codex"
             : executor,
         operationId: selection.operationId,
-        executionSelection: selected,
+        executionSelection:
+          selectionPhase === "refresh" &&
+          logicalSelectionCount === 1 &&
+          Object.hasOwn(options, "selectionRefreshValue")
+            ? options.selectionRefreshValue
+            : selected,
         taskAttempt: selection.taskAttempt,
         selectionHash: hashExecutionSelection(selected),
         selectionNotice: `selection-${logicalSelectionCount}`,
@@ -1649,7 +1689,6 @@ function fixture(
       return started;
     },
     cancel: baseRuntime.cancel,
-    captureResultDelivery: baseRuntime.captureResultDelivery,
   });
   return {
     runtime,
@@ -3251,6 +3290,18 @@ test("固定した両Providerの選定をEffect前確認と独立Reviewerへ接�
       harness.slateRequests[0]?.taskExecutionSelections,
       selections,
     );
+    const captured = harness.slateRequests[0]
+      ?.taskExecutionSelections as typeof selections;
+    assert.notEqual(captured, selections);
+    assert.equal(Object.isFrozen(captured), true);
+    assert.equal(
+      harness.selectionRequests[0]?.executionSelection,
+      captured.executor,
+    );
+    assert.equal(
+      harness.selectionRequests[1]?.executionSelection,
+      captured.reviewer,
+    );
   }
 });
 
@@ -3423,6 +3474,25 @@ test("Provider Homeの不正・不明分類は初回観測と再観測のどち�
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止する", async () => {
+  const original = fixedSelections().executor;
+  for (const [selectionRefreshValue, matches] of [
+    [Object.fromEntries(Object.entries(original).reverse()), true],
+    [{ ...original, modelIdentifier: "different-model" }, false],
+    [{ ...original, configIdentity: "f".repeat(64) }, false],
+    [{ ...original, unknown: true }, false],
+    [null, false],
+  ] as const) {
+    const harness = fixture({ selectionRefreshValue });
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.equal(result.status, matches ? "completed" : "blocked");
+    assert.equal(harness.processStartCount(), matches ? 2 : 0);
+    if (!matches)
+      assert.equal(
+        result.reason,
+        "coordinator_task_provider_selection_refresh_mismatch",
+      );
+  }
   for (const [options, reason] of [
     [
       { selectionRefreshFailureAt: 1 },
@@ -3719,118 +3789,6 @@ test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinali
     "docker-host-cleanup-receipt",
     "docker-finalize",
   ]);
-});
-
-/**
- * 耐久結果配送は元Control・終端・全件相関・fresh ACKを要求する。
- * @responsibility Task寿命と上位保存寿命の分離で配送権限が拡大しないことを検証する。
- * @trace PRL-IT-012
- * @precondition HostとDocker Ownerを明示した隔離fixtureを使用する。
- * @stimulus 終端前後の捕捉・集合読取り・ACK未確認と再入場を実行する。
- * @observation 元capability、呼出し数、集合結果、Control失効を観測する。
- * @oracle 部分集合や別Task配送を返さず、ACK失敗を保持し同じ参照で再入場できる。
- * @cleanup fixtureは外部Docker・Provider・Filesystem Effectを発行しない。
- * @boundary PRL-IT-012=Task→元終了Ownerの明示模擬境界。実Dockerと上位保存は対象外。
- */
-test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む", async () => {
-  const harness = fixture({
-    hostCleanupWal: true,
-    dockerProjectCompleteFailsAt: 1,
-  });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "upper-operation",
-    undefined,
-    "orchestrator",
-  );
-  assert.equal(harness.runtime.captureResultDelivery({}), null);
-  assert.equal(
-    harness.runtime.captureResultDelivery({ ...started.controlCapability }),
-    null,
-  );
-  const delivery = harness.runtime.captureResultDelivery(
-    started.controlCapability,
-  );
-  assert.ok(delivery);
-  assert.deepEqual(delivery.readResults(), {
-    status: "blocked",
-    results: null,
-  });
-  assert.equal(Object.hasOwn(delivery, "complete"), false);
-  assert.equal(harness.dockerProjectReadCount(), 0);
-  assert.equal(harness.dockerProjectCompleteCount(), 0);
-  assert.equal((await started.completion).status, "completed");
-  assert.equal(
-    harness.runtime.captureResultDelivery(started.controlCapability),
-    null,
-  );
-  await harness.observeLastControlInvalid();
-  const observed = delivery.readResults();
-  assert.equal(observed.status, "completed");
-  assert.equal(observed.results?.length, 2);
-  assert.equal(Object.hasOwn(delivery, "complete"), false);
-  assert.equal(harness.dockerProjectCompleteCount(), 0);
-  assert.equal(harness.dockerProjectCompleteCount(), 0);
-  for (const options of [
-    { dockerProjectReadFailsAt: 2 },
-    { dockerProjectReadLockUnknownAt: 2 },
-    { dockerProjectReadWrongIdAt: 2 },
-    { dockerFinalizeFailsAt: 2 },
-  ]) {
-    const partial = fixture({ hostCleanupWal: true, ...options });
-    const attempt = partial.runtime.start(
-      request(),
-      "C:\\repository",
-      "upper-operation",
-      undefined,
-      "orchestrator",
-    );
-    const captured = partial.runtime.captureResultDelivery(
-      attempt.controlCapability,
-    );
-    assert.ok(captured);
-    await attempt.completion;
-    assert.deepEqual(captured.readResults(), {
-      status: "blocked",
-      results: null,
-    });
-  }
-  for (const consumer of ["coordinator_cli", "workbench"] as const) {
-    const transient = fixture({ hostCleanupWal: true });
-    const attempt = transient.runtime.start(
-      request(),
-      "C:\\repository",
-      null,
-      undefined,
-      consumer,
-    );
-    assert.equal(
-      transient.runtime.captureResultDelivery(attempt.controlCapability),
-      null,
-    );
-    await attempt.completion;
-  }
-  const empty = fixture({
-    hostCleanupWal: true,
-    externalSendPolicyDenied: true,
-  });
-  const denied = empty.runtime.start(
-    request(),
-    "C:\\repository",
-    "upper-operation",
-    undefined,
-    "orchestrator",
-  );
-  const emptyDelivery = empty.runtime.captureResultDelivery(
-    denied.controlCapability,
-  );
-  assert.ok(emptyDelivery);
-  await denied.completion;
-  assert.deepEqual(emptyDelivery.readResults(), {
-    status: "not_required",
-    results: null,
-  });
 });
 
 /**

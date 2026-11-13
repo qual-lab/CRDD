@@ -18,7 +18,6 @@ import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
-import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 
 /**
  * 編集と独立レビューを同じ受付時設定へ固定する。
@@ -40,6 +39,9 @@ test("Task選定組は同じ設定から二役割を固定し明示指定を編�
   assert.equal(result.status, "resolved");
   assert.ok(result.value);
   const { executor, reviewer } = result.value;
+  assert.equal(Object.isFrozen(result.value), true);
+  assert.equal(Object.isFrozen(executor), true);
+  assert.equal(Object.isFrozen(reviewer), true);
   assert.equal(executor.role, "executor");
   assert.equal(executor.source, "explicit");
   assert.equal(executor.reasoningEffort, "high");
@@ -63,6 +65,45 @@ test("Task選定組は同じ設定から二役割を固定し明示指定を編�
     "blocked",
   );
 });
+
+/**
+ * 移管前に固定した内容Hashを維持する。
+ * @responsibility 型Owner移管によるIdentity変更やAuthority追加を拒否する。
+ * @trace RCM-UT-001
+ * @precondition 既存試験の十項目と既知Hashを使う。
+ * @stimulus 入力Property順と過剰fieldを変える。
+ * @observation Hashと拒否結果。
+ * @oracle 正規順序に依存せず既存Hash一致、過剰fieldはnull。
+ * @cleanup N/A: 値だけ。
+ * @boundary 選定内容と非Authority Identity。
+ */
+test("固定選定のHashは移管前のbyteと一致する", () => {
+  const selection = {
+    provider: "codex",
+    modelIdentifier: "historical-model",
+    identifierKind: "exact",
+    reasoningEffort: "medium",
+    purpose: "task",
+    catalogIdentity: "a".repeat(64),
+    configIdentity: "b".repeat(64),
+    role: "executor",
+    workType: null,
+    source: "explicit",
+  };
+  assert.equal(
+    hashExecutionSelection(selection),
+    "5fa860b97b4251d54285de02ae6b0a4c25ecdf967e1d4958cc3dd91c8b06a70e",
+  );
+  assert.equal(
+    hashExecutionSelection(
+      Object.fromEntries(Object.entries(selection).reverse()),
+    ),
+    hashExecutionSelection(selection),
+  );
+  assert.equal(hashExecutionSelection({ ...selection, authority: true }), null);
+});
+
+import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 
 /**
  * 保存された選定組の役割と設定相関を検査する。

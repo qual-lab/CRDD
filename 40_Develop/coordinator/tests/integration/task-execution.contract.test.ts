@@ -11,13 +11,11 @@
 
 import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
@@ -39,64 +37,40 @@ import {
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
 
-import { registerSyntheticResults } from "../fixtures/task-result-fixture.ts";
+import { settleSyntheticOperations } from "../fixtures/task-result-fixture.ts";
 
 const revision = "a".repeat(40);
 
 /**
- * 通常Taskの結果集合を単一CASで受理し、応答喪失を元Task結果と分ける。
- * @responsibility 実Snapshot・履歴・配送待ちの本番Application接続を検証する。
+ * 通常Taskの終端と結合Operationの除去を単一CASで保存する。
+ * @responsibility 実Snapshot・技術履歴・Task終端の本番Application接続を検証する。
  * @trace PRL-IT-012
  * @precondition 新版Git Root、Queueと模擬下位操作の確認済み履歴を用意する。
- * @stimulus 二結果、0件、読取り失敗、二重通知、保存前失敗、保存後応答喪失と二件目不正を実行する。
- * @observation Task起動数、受領保存、Operation／配送除去、Task終端と結果fieldを確認する。
- * @oracle 受領と全対象除去が一回で成立し、部分不正では一件目も受領せず再実行しない。
+ * @stimulus 二Operation・0件・大集合・取消・保存失敗・応答喪失・履歴不正を実行する。
+ * @observation Task起動数、Operation除去、Task終端と結果fieldを確認する。
+ * @oracle 技術終端と履歴が成立した場合だけ対象を除去し、不明時は保持する。
  * @cleanup 自己所有fixtureを終了hookで回収する。Docker/Providerは使用しない。
  * @boundary PRL-IT-012=Direct Boundary: Application→単一物理Writer→実Snapshot／履歴。
  */
 for (const mode of [
   "normal",
-  "many_results",
-  "many_results_invalid",
+  "many_operations",
   "none",
-  "read_failure",
-  "double_notification",
-  "save_failure",
-  "second_result_invalid",
-  "missing_capture",
-  "wrong_operation",
-  "duplicate_reference",
-  "save_after_effect",
   "cancelled",
-  "pending_reentry",
+  "save_failure",
+  "save_after_effect",
   "history_missing",
   "history_duplicate",
   "history_mismatch",
   "history_unconfirmed",
 ] as const) {
-  /**
-   * 配送と受領保存の各失敗段階を同じ正式接続で反証する。
-   * @responsibility Task終端と未受領結果の整理条件を区別する。
-   * @trace PRL-IT-012
-   * @precondition modeごとに独立した合成Repositoryを作成する。
-   * @stimulus 正常、取消、重複、相関不正又は保存失敗を注入する。
-   * @observation 起動数、物理Snapshot、履歴と公開結果を取得する。
-   * @oracle 一括受領条件が成立した場合だけ対象を整理し、失敗時に再送しない。
-   * @cleanup Caseの終了hookで自己所有Rootを回収する。
-   * @boundary PRL-IT-012=Direct Boundary: Applicationと現在状態・履歴Writer。
-   */
-  test(`通常結果配送は上位実保存後だけ整理しTask結果を保持する ${mode}`, async (t) => {
+  test(`Task終端保存は確認済みOperationだけを原子的に整理する ${mode}`, async (t) => {
     const { root, input } = fixture(t, [task("task-a")], 1);
     const persistence = createCurrentCoordinatorPersistencePorts(
       root,
       "binding-a",
     );
     let starts = 0;
-    let reads = 0;
-    let completes = 0;
-    const publication: {
-      args?: Parameters<typeof persistence.state.writeState>;
-    } = {};
     const outcome = await runCoordinatorOperationWithPorts(
       {
         ...createCoordinatorExecutionHostPorts({}),
@@ -104,117 +78,40 @@ for (const mode of [
           ...persistence,
           state: {
             ...persistence.state,
-            writeState: (state, generation, resultFacts) => {
-              if (
-                mode === "pending_reentry" &&
-                state.tasks.some((item) => item.resultAcceptances.length > 0)
-              ) {
-                publication.args = [state, generation, resultFacts];
-                const rename = t.mock.method(
-                  fs,
-                  "renameSync",
-                  (source: fs.PathLike, target: fs.PathLike) => {
-                    assert.equal(
-                      path.basename(String(source)),
-                      "state.pending.json",
-                    );
-                    assert.equal(path.basename(String(target)), "state.json");
-                    throw new Error("fixture_receipt_publication_interrupted");
-                  },
-                );
-                try {
-                  return persistence.state.writeState(
-                    state,
-                    generation,
-                    resultFacts,
-                  );
-                } finally {
-                  rename.mock.restore();
-                }
-              }
+            writeState: (state, generation, facts) => {
               if (
                 (mode === "save_failure" || mode === "save_after_effect") &&
-                state.tasks.some((item) => item.resultAcceptances.length > 0)
+                state.tasks.some((item) => item.startPhase === "settled")
               ) {
                 if (mode === "save_after_effect")
                   assert.equal(
-                    persistence.state.writeState(state, generation, resultFacts)
+                    persistence.state.writeState(state, generation, facts)
                       .status,
                     "completed",
                   );
                 return {
                   status: "blocked",
-                  reason: "fixture_ack_save_failure",
+                  reason: "fixture_terminal_save_failure",
                   value: null,
                   manualRecoveryRequired: true,
                   recoveryId: null,
                 };
               }
-              return persistence.state.writeState(
-                state,
-                generation,
-                resultFacts,
-              );
+              return persistence.state.writeState(state, generation, facts);
             },
           },
         },
-        resultDelivery: {
-          repositoryBindingId: "binding-a",
-        },
         runSingleTaskAttempt: async (attempt) => {
           starts += 1;
-          let results: ReturnType<typeof registerSyntheticResults> = [];
-          const delivery = Object.freeze({
-            readResults: () => {
-              reads += 1;
-              if (mode === "none")
-                return { status: "not_required" as const, results: null };
-              if (mode === "read_failure")
-                return { status: "blocked" as const, results: null };
-              return {
-                status: "completed" as const,
-                results: results.map((result, index) => ({
-                  ...result,
-                  operationId:
-                    mode === "wrong_operation"
-                      ? "other-operation"
-                      : attempt.operationId,
-                  recoveryId:
-                    mode === "duplicate_reference"
-                      ? (results[0]?.recoveryId ?? "fixture-missing")
-                      : result.recoveryId,
-                  resultId:
-                    (mode === "second_result_invalid" && index === 1) ||
-                    (mode === "many_results_invalid" && index === 128)
-                      ? "0".repeat(64)
-                      : result.resultId,
-                  consumer: "orchestrator" as const,
-                })),
-              };
-            },
-            complete: () => {
-              completes += 1;
-              throw new Error("removed_ack_relay_must_not_be_called");
-            },
-          });
-          if (mode !== "missing_capture") attempt.bindResultReader?.(delivery);
-          if (mode === "double_notification")
-            attempt.bindResultReader?.(delivery);
           const result = await completed(attempt);
           if (mode !== "none")
-            results = registerSyntheticResults(
+            settleSyntheticOperations(
               root,
               attempt.operationId,
-              mode === "many_results" || mode === "many_results_invalid"
-                ? 129
-                : 2,
+              mode === "many_operations" ? 129 : 2,
             );
-          const history = path.join(
-            root,
-            ".crdd",
-            "domain-model",
-            "history.jsonl",
-          );
+          const area = path.join(root, ".crdd", "domain-model");
+          const history = path.join(area, "history.jsonl");
           if (mode === "history_missing") fs.unlinkSync(history);
           if (mode === "history_duplicate") {
             const bytes = fs.readFileSync(history);
@@ -235,7 +132,7 @@ for (const mode of [
             );
           }
           if (mode === "history_unconfirmed") {
-            const file = path.join(root, ".crdd", "domain-model", "state.json");
+            const file = path.join(area, "state.json");
             const state = JSON.parse(fs.readFileSync(file, "utf8"));
             for (const operation of state.operations)
               operation.history.confirmed = false;
@@ -249,164 +146,38 @@ for (const mode of [
       input,
     );
     assert.equal(starts, 1);
-    assert.equal(completes, 0, JSON.stringify(outcome));
-    if (mode === "pending_reentry") {
-      assert.equal(outcome.status, "blocked");
-      assert.ok(publication.args);
-      const args = publication.args;
-      const area = path.join(root, ".crdd", "domain-model");
-      const file = path.join(area, "state.json");
-      const pending = path.join(area, "state.pending.json");
-      const marker = path.join(area, "state.lock");
-      const before = fs.readFileSync(file);
-      const intended = fs.readFileSync(pending);
-      const markerBytes = fs.readFileSync(marker);
-      const history = fs.readFileSync(path.join(area, "history.jsonl"));
-      assert.equal(JSON.parse(before.toString()).resultReceipts.length, 0);
-      assert.equal(JSON.parse(before.toString()).operations.length, 2);
-      assert.equal(JSON.parse(intended.toString()).resultReceipts.length, 2);
-      assert.equal(JSON.parse(intended.toString()).operations.length, 0);
-      for (const fault of ["marker", "pending", "state", "facts"] as const) {
-        if (fault === "marker") fs.writeFileSync(marker, "{}\n");
-        if (fault === "pending") fs.writeFileSync(pending, "{}\n");
-        if (fault === "state") {
-          const value = JSON.parse(before.toString());
-          value.revision += 1;
-          fs.writeFileSync(file, `${canonicalJson(value)}\n`);
-        }
-        const fixedState = fs.readFileSync(file);
-        const fixedPending = fs.readFileSync(pending);
-        const fixedMarker = fs.readFileSync(marker);
-        const attempted =
-          fault === "facts"
-            ? persistence.state.writeState(
-                args[0],
-                args[1],
-                args[2]?.map((fact) => ({
-                  ...fact,
-                  recoveryUnresolved: !fact.recoveryUnresolved,
-                })),
-              )
-            : persistence.state.writeState(...args);
-        assert.equal(attempted.status, "blocked", fault);
-        assert.deepEqual(fs.readFileSync(file), fixedState);
-        assert.deepEqual(fs.readFileSync(pending), fixedPending);
-        assert.deepEqual(fs.readFileSync(marker), fixedMarker);
-        fs.writeFileSync(file, before);
-        fs.writeFileSync(pending, intended);
-        fs.writeFileSync(marker, markerBytes);
-      }
-      const child = fileURLToPath(
-        new URL(
-          "../fixtures/task-result-publication-worker.ts",
-          import.meta.url,
-        ),
-      );
-      for (let replay = 0; replay < 2; replay++) {
-        const processEnv = { ...process.env };
-        delete processEnv.NODE_TEST_CONTEXT;
-        const worker = spawn(process.execPath, [child], {
-          env: processEnv,
-          windowsHide: true,
-          stdio: ["pipe", "pipe", "pipe"],
-        });
-        let output = "",
-          errors = "";
-        worker.stdout.on("data", (data) => {
-          output += data.toString();
-        });
-        worker.stderr.on("data", (data) => {
-          errors += data.toString();
-        });
-        const joined = once(worker, "close", {
-          signal: AbortSignal.timeout(60_000),
-        });
-        worker.stdin.end(JSON.stringify({ root, args }));
-        try {
-          const [code] = await joined;
-          assert.equal(code, 0, errors);
-        } finally {
-          if (worker.exitCode === null && worker.signalCode === null) {
-            const closed = once(worker, "close");
-            worker.kill();
-            await closed;
-          }
-        }
-        const saved = JSON.parse(output);
-        assert.equal(saved.status, "completed", JSON.stringify(saved));
-        assert.deepEqual(fs.readFileSync(file), intended);
-        assert.deepEqual(
-          fs.readFileSync(path.join(area, "history.jsonl")),
-          history,
-        );
-        assert.equal(fs.existsSync(pending), false);
-        assert.equal(fs.existsSync(marker), false);
-      }
-      assert.equal(starts, 1);
-      return;
-    }
-    assert.equal(
-      reads,
-      mode === "double_notification" || mode === "missing_capture" ? 0 : 1,
-    );
+    const confirmed = [
+      "normal",
+      "many_operations",
+      "none",
+      "cancelled",
+    ].includes(mode);
     assert.equal(
       outcome.status,
-      mode === "cancelled"
-        ? "cancelled"
-        : mode === "normal" || mode === "many_results" || mode === "none"
-          ? "completed"
-          : "blocked",
+      mode === "cancelled" ? "cancelled" : confirmed ? "completed" : "blocked",
       JSON.stringify(outcome),
     );
-    const stored = persistence.state.readState("project-a");
-    assert.ok(stored.value);
-    assert.equal(
-      stored.value.tasks[0]?.state,
-      mode === "cancelled"
-        ? "cancelled"
-        : mode === "normal" ||
-            mode === "many_results" ||
-            mode === "none" ||
-            mode === "save_after_effect"
-          ? "completed"
-          : "running",
-    );
-    assert.equal(
-      stored.value.tasks[0]?.resultAcceptances.length,
-      mode === "normal" ||
-        mode === "many_results" ||
-        mode === "save_after_effect" ||
-        mode === "cancelled"
-        ? mode === "many_results"
-          ? 129
-          : 2
-        : 0,
-    );
-    assert.ok(
-      Object.values(outcome).every((value) => typeof value !== "function"),
-    );
-    const savedRoot = JSON.parse(
+    const snapshot = JSON.parse(
       fs.readFileSync(
         path.join(root, ".crdd", "domain-model", "state.json"),
         "utf8",
       ),
     );
-    const accepted =
-      mode === "normal" ||
-      mode === "many_results" ||
-      mode === "save_after_effect" ||
-      mode === "cancelled";
-    const resultCount =
-      mode === "many_results" || mode === "many_results_invalid" ? 129 : 2;
-    assert.equal(savedRoot.resultReceipts.length, accepted ? resultCount : 0);
-    assert.equal(
-      savedRoot.operations.length,
-      mode === "none" || accepted ? 0 : resultCount,
-    );
-    assert.equal(
-      savedRoot.pendingDeliveries.length,
-      mode === "none" || accepted ? 0 : resultCount,
-    );
+    const committed = confirmed || mode === "save_after_effect";
+    assert.equal(snapshot.operations.length, committed ? 0 : 2);
+    for (const key of ["pendingDeliveries", "resultReceipts"])
+      assert.equal(Object.hasOwn(snapshot, key), false);
+    const stored = persistence.state.readState("project-a");
+    if (stored.value) {
+      assert.equal(
+        stored.value.tasks[0]?.startPhase,
+        committed ? "settled" : "running",
+      );
+      assert.equal(
+        Object.hasOwn(stored.value.tasks[0] ?? {}, "resultAcceptances"),
+        false,
+      );
+    }
   });
 }
 

@@ -66,6 +66,9 @@ const REQUEST_KEYS = new Set([
  */
 export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
+  const taskExecutionSelections = request
+    ? inspectTaskExecutionSelections(request.taskExecutionSelections)
+    : null;
   const acceptance = request
     ? snapshotPlainArray<string>(
         request.acceptanceCriteria,
@@ -81,7 +84,7 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
       : paths;
   if (
     !request ||
-    !inspectTaskExecutionSelections(request.taskExecutionSelections) ||
+    !taskExecutionSelections ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     acceptance?.status !== "ok" ||
@@ -105,9 +108,7 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   ];
   const normalized = Object.freeze({
     ...request,
-    taskExecutionSelections: inspectTaskExecutionSelections(
-      request.taskExecutionSelections,
-    ),
+    taskExecutionSelections,
     objective: request.objective,
     acceptanceCriteria: acceptance.value,
     allowedPaths: paths.value,

@@ -16,6 +16,8 @@ import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execu
 import {
   createCoordinatorObjectiveResult,
   createCoordinatorTaskExecutionSet,
+  executeCoordinatorPublicObjective,
+  runCoordinatorObjective,
 } from "../../../src/objective/execute.ts";
 import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
@@ -90,6 +92,21 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
     inspectCoordinatorObjectivePlan(COORDINATOR_OBJECTIVE_PLAN, request),
     COORDINATOR_OBJECTIVE_PLAN,
   );
+  let getters = 0;
+  const accessor = {
+    ...COORDINATOR_OBJECTIVE_PLAN,
+    get tasks() {
+      getters++;
+      return COORDINATOR_OBJECTIVE_PLAN.tasks;
+    },
+  };
+  for (const raw of [
+    accessor,
+    new Proxy(COORDINATOR_OBJECTIVE_PLAN, {}),
+    { ...COORDINATOR_OBJECTIVE_PLAN, unknown: true },
+  ])
+    assert.equal(inspectCoordinatorObjectivePlan(raw, request), null);
+  assert.equal(getters, 0);
   assert.equal(
     inspectCoordinatorObjectivePlan(
       {
@@ -104,6 +121,62 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
       request,
     ),
     null,
+  );
+});
+
+/**
+ * 外部受付を通らない入力からBinding・保存・Taskを開始しない。
+ * @responsibility 受付と内部実行の分離後も要求・主体・Signalの拒否を維持する。
+ * @trace PRL-UT-006
+ * @precondition 外部処理はすべて到達時に失敗する依存へ差し替える。
+ * @stimulus 二入口へ不正要求・主体を渡し、直接受付には不正Signalも渡す。
+ * @observation 元の拒否理由と依存への到達0。
+ * @oracle 受付失敗からBinding・保存・Taskへ進まない。
+ * @cleanup N/A: メモリ内の値だけ。
+ * @boundary 外部要求受付と内部実行。実AI・Docker・Filesystemは使用しない。
+ */
+test("Objectiveの要求・主体・Signal拒否は内部実行への接続前に成立する", async () => {
+  const unexpected = () =>
+    assert.fail("execution boundary must not be reached");
+  const dependencies: Parameters<typeof runCoordinatorObjective>[0] = {
+    authenticatedPrincipalId: "principal-a",
+    resolveTaskSelections: unexpected,
+    verifyProjectBinding: unexpected,
+    planObjective: unexpected,
+    createTaskExecutions: unexpected,
+    observeLeaseOwner: unexpected,
+    execution: { runSingleTaskAttempt: unexpected },
+  };
+  const signal = new AbortController().signal;
+  for (const [deps, request, inputSignal] of [
+    [dependencies, null, signal],
+    [
+      { ...dependencies, authenticatedPrincipalId: "" },
+      objectiveRequest,
+      signal,
+    ],
+    [dependencies, objectiveRequest, null as unknown as AbortSignal],
+  ] as const) {
+    const result = await runCoordinatorObjective(deps, request, inputSignal);
+    assert.equal(result.reason, "orchestrator_objective_request_invalid");
+  }
+  const runtimeDependencies = { startTask: unexpected, cancelTask: unexpected };
+  const invalid = await executeCoordinatorPublicObjective(
+    runtimeDependencies,
+    null,
+    signal,
+  );
+  assert.equal(invalid.reason, "orchestrator_objective_request_invalid");
+  const unauthenticated = await executeCoordinatorPublicObjective(
+    runtimeDependencies,
+    objectiveRequest,
+    signal,
+    undefined,
+    { principalId: "" },
+  );
+  assert.equal(
+    unauthenticated.reason,
+    "orchestrator_authenticated_principal_not_verified",
   );
 });
 

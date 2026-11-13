@@ -64,6 +64,7 @@ test("Objectiveの固定選定は全四組合せでTask契約へexactに搬送�
     assert.equal(selected.status, "resolved");
     if (selected.status !== "resolved") assert.fail("selection_rejected");
     const task = buildObjectiveTaskRequest(request, selected.value);
+    assert.equal(task.taskExecutionSelections, selected.value);
     const normalized = snapshotCoordinatorTaskRequest(task);
     assert.equal(normalized?.status, "accepted");
     if (normalized?.status !== "accepted") assert.fail("task_rejected");

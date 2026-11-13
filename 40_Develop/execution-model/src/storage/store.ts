@@ -7,7 +7,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Lock } from "../../../lock/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   getRepository,
@@ -21,6 +20,7 @@ import {
   isDockerRestartCheckpointSettled,
   isRepairDisposalSettled,
   parseDockerTaskRecoveryId,
+  projectOperationState,
 } from "../attempt/validation.ts";
 import type { Decision, DecisionHistoryEvent } from "../decision/types.ts";
 import {
@@ -39,7 +39,6 @@ import {
   encodeStateValue,
   historyRow,
   isInitialOperationHost,
-  PROJECT_SNAPSHOT_SCHEMA,
   prepareRecoveredHistoryPublication,
   prepareRepairHistoryLine,
   prepareRepairHistoryPublication,
@@ -49,17 +48,11 @@ import {
   prepareStateHistoryLine,
   prepareStateHistorySnapshot,
   prepareStateHostSnapshot,
-  prepareStateOperationSnapshot,
   prepareStateRepairCompletionSnapshot,
-  prepareStateResultDeliverySnapshot,
   STORAGE_CONTRACT,
-  snapshotStateRecord,
   validId,
 } from "../state/validation.ts";
-import {
-  getConsumerCompletionPolicy,
-  projectTaskSnapshot,
-} from "../task/validation.ts";
+import { projectTaskSnapshot } from "../task/validation.ts";
 import type {
   HistoryRepositoryInput,
   SnapshotOwner,
@@ -67,7 +60,6 @@ import type {
   StoreResult,
 } from "./lock.ts";
 import {
-  acquireExecutionStateLock,
   acquireSnapshotPilotLock,
   acquireStorageOwner,
   acquireStorageOwnerForRepository,
@@ -76,11 +68,10 @@ import {
   completed,
   isLiveSnapshotOwner,
   isLiveStorageOwner,
-  observeExecutionRecoveryRepository,
-  observeOperationRepository,
+  type observeExecutionRecoveryRepository,
+  type observeOperationRepository,
   readHistoryRetentionDays,
   readStorageOwnerBinding,
-  storageLockFailure,
 } from "./lock.ts";
 
 /**
@@ -1245,45 +1236,6 @@ export type StorageRepository = Pick<
 >;
 
 /**
- * 本番Portを現在の受付世代へ接続するための読取りを行う。
- * @responsibility 生Ownerを外へ渡さず、元の読取りモードと解放条件で受付世代だけを返す。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory: Repository内起点、binding: 期待する保存結合。
- * @returns 保存済みの受付世代、又は構成停止理由。
- * @precondition 明示初期化が完了している。
- * @postcondition 旧形式・不存在・不正を受付世代へ補完しない。
- * @effect 同じ短期排他の取得・読取り・解放だけ。
- * @failure 取得不能・不正本文は未初期化、解放不明は専用停止。
- * @invariant 受付世代の照会で状態・実行Authorityを生成しない。
- * @boundary Port構成と保存内部のOwner。
- * @security Snapshot全体・Kernel handleを返さない。
- * @concurrency 読取りと解放確認を同じ呼出しに閉じる。
- */
-export function readSnapshotIntakeEpoch(
-  workingDirectory: Repository,
-  binding: string,
-): StoreResult<string> {
-  if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked("orchestrator_repository_root_invalid");
-  const acquired = acquireSnapshotPilotLock(workingDirectory);
-  if (acquired.status !== "completed")
-    return blocked("orchestrator_snapshot_not_initialized");
-  const observed = readSnapshotOwned(acquired.value, binding, true);
-  if (!acquired.value.release())
-    return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
-  if (
-    observed.status !== "completed" ||
-    !observed.value ||
-    observed.value.schema !== PROJECT_SNAPSHOT_SCHEMA
-  )
-    return blocked("orchestrator_snapshot_not_initialized");
-  return completed(
-    "orchestrator_snapshot_intake_epoch_observed",
-    observed.value.intakeEpoch,
-  );
-}
-
-/**
  * 検証済みRootから名前付きPathだけを投影する。
  * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
  * @trace ARCH-000004
@@ -1610,12 +1562,16 @@ export function ensureDirectory(parent: string, name: string) {
 export function readSnapshot(
   workingDirectory: string | Repository,
   binding: string,
+  readMode: boolean | "history" = false,
 ): StoreResult<Snapshot | null> {
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
   const acquired = acquireSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
-  const outcome = readSnapshotOwned(lock, binding);
+  const outcome =
+    readMode === false
+      ? readSnapshotOwned(lock, binding)
+      : readSnapshotOwned(lock, binding, readMode);
   if (!lock.release())
     return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
   return outcome;
@@ -1697,346 +1653,6 @@ export function describeDurableFoundation() {
 }
 
 /**
- * 保存確定済みの最新Snapshotを現在の操作Ownerへ返す。
- * @responsibility 保存途中・不存在・観測不能を成功へ畳まず、版と本文Hashを取得する。
- * @trace ARCH-000008
- * @input managementCapability: 現在操作Owner。request: 初回Identity又は同じ操作のHost清掃前検査。
- * @returns operation_startは検査済みIdentityの非Authority相関だけ。stateは確認済みSnapshotと必要なHost清掃準備。
- * @precondition Repository操作Ownerが有効である。
- * @postcondition 排他解放と読取り確認の両方が成立した場合だけ値を返す。
- * @effect operation_startはState読取り・Lock取得・保存0。stateだけ固定File読取りと短期排他を行う。
- * @failure Root不一致、保存途中、本文不正、解放不明は停止する。
- * @invariant 初回検査のcompletedを保存・開始許可へ昇格しない。初回検査のlockReleased:trueはLock未取得を表す。
- * @boundary Repository-local現在状態と操作Owner。
- * @security 呼出し元Pathや旧形式から保存先を選ばない。
- * @concurrency Writerと同じ短期排他下で取得し、上位待機へLockを搬送しない。
- */
-export function readOperationStateStage(
-  managementCapability: unknown,
-  request?:
-    | Readonly<{ kind: "host_cleanup"; recoveryId: unknown }>
-    | Readonly<{ kind: "operation_start"; identityJson: unknown }>,
-) {
-  const captured =
-    request === undefined
-      ? null
-      : (snapshotStateRecord(request, new Set(["kind", "recoveryId"])) ??
-        snapshotStateRecord(request, new Set(["kind", "identityJson"])));
-  if (captured?.kind === "operation_start") {
-    let operationIdentity: Readonly<{
-      recoveryId: string;
-      identitySha256: string;
-      operationId: string;
-    }> | null = null;
-    if (Object.hasOwn(captured, "identityJson")) {
-      try {
-        const repository = observeOperationRepository(managementCapability);
-        const bytes = repository
-          ? prepareStateOperationSnapshot(
-              null,
-              captured.identityJson,
-              repository.repositoryBinding,
-            )
-          : null;
-        const operation =
-          bytes && repository
-            ? decodeStateSnapshot(bytes, repository.repositoryBinding)?.snapshot
-                .operations[0]
-            : null;
-        if (
-          operation?.kind === "docker_task" &&
-          repository &&
-          JSON.parse(operation.identityJson).operationId ===
-            repository.operationId &&
-          repository.revalidate() === true
-        )
-          operationIdentity = Object.freeze({
-            recoveryId: operation.recoveryId,
-            identitySha256: operation.identitySha256,
-            operationId: repository.operationId,
-          });
-      } catch {
-        operationIdentity = null;
-      }
-    }
-    return Object.freeze({
-      kind: "operation_start" as const,
-      status: operationIdentity ? ("completed" as const) : ("blocked" as const),
-      reason: operationIdentity
-        ? "coordinator_state_read_confirmed"
-        : "coordinator_state_input_invalid",
-      value: null,
-      lockReleased: true,
-      hostCleanupPreparation: null,
-      operationIdentity,
-    });
-  }
-  if (
-    request !== undefined &&
-    (captured?.kind !== "host_cleanup" ||
-      !Object.hasOwn(captured, "recoveryId"))
-  )
-    return Object.freeze({
-      kind: "state" as const,
-      status: "blocked" as const,
-      reason: "coordinator_state_owner_invalid",
-      lockReleased: true,
-      value: null,
-      operationIdentity: null,
-      hostCleanupPreparation: null,
-    });
-  const repository = observeOperationRepository(managementCapability);
-  const current = readStateSnapshot(repository, null);
-  let hostCleanupPreparation: Readonly<{
-    recoveryId: string;
-    hostToken: string;
-    before: Buffer;
-  }> | null = null;
-  if (
-    captured &&
-    repository &&
-    current.status === "completed" &&
-    current.lockReleased &&
-    current.value
-  ) {
-    const operation = current.value.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === captured.recoveryId,
-    );
-    const before = Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`);
-    if (
-      operation &&
-      operation.host.cleanup === "not_requested" &&
-      operation.lease === "released" &&
-      JSON.parse(operation.identityJson).operationId ===
-        repository.operationId &&
-      prepareStateHostSnapshot(
-        before,
-        operation.recoveryId,
-        { ...operation.host, cleanup: "pending" },
-        repository.repositoryBinding,
-      )
-    )
-      hostCleanupPreparation = Object.freeze({
-        recoveryId: operation.recoveryId,
-        hostToken: operation.host.currentToken,
-        before,
-      });
-  }
-  return Object.freeze({
-    ...current,
-    kind: "state" as const,
-    operationIdentity: null,
-    hostCleanupPreparation,
-  });
-}
-
-/**
- * 出版済み現在状態に残ったRepository結合markerだけを回収する。
- * @responsibility Taskや受領の根拠を使わず、同じ保存本文を保全して短命markerだけを除去する。
- * @trace ARCH-000008
- * @input rootCapability: 明示検証済みの現在Repository Root。
- * @returns markerの処置・不存在、保存内容保全と排他解放の個別確認。
- * @precondition 正規currentが既に出版済みで、pendingや未知Fileが存在しない。
- * @postcondition Task結果・履歴・配送・実行Authorityを生成せず、処置不明を完了にしない。
- * @effect 既存Kernel排他、固定三Fileの読取りとexact state.lockへのunlink一回だけ。
- * @failure 不正・置換・観測不能は停止し、unlinkや解放の例外を自動再試行しない。
- * @invariant 通常ReaderやTask Writerの成立条件を緩めない。
- * @boundary 現在Repositoryの保存領域と短命出版marker。
- * @security 任意Path・Task ID・Consumer・成功値を入力に受け取らない。
- * @concurrency 既存短期排他と前後の実体・全文照合を使い、非協調Processとの原子性を主張しない。
- */
-export function removeStatePublicationMarker(rootCapability: unknown) {
-  let markerRemoved = false,
-    markerAbsentConfirmed = false,
-    storageConfirmed = false,
-    filesystemEffectIssued = false,
-    lockReleased = true;
-  let reason = "coordinator_state_marker_cleanup_unconfirmed";
-  const repository = observeExecutionRecoveryRepository(rootCapability);
-  let lock: Lock | null = null;
-  try {
-    if (!repository) throw new Error("root");
-    lockReleased = false;
-    const acquisition = acquireExecutionStateLock(
-      repository.repositoryBinding,
-      repository.repositoryRoot,
-    );
-    if (acquisition.status !== "acquired") {
-      reason = storageLockFailure(acquisition).reason;
-      throw new Error(reason);
-    }
-    lock = acquisition.lock;
-    let boundary: string | null = null;
-    let originalNames: string[] = [];
-    const original = new Map<
-      string,
-      ReturnType<typeof readStableFileSnapshot>
-    >();
-    // 取得、処置直前、処置後の三観測。同じ本文でも別実体は拒否する。
-    for (let pass = 0; pass < 3; pass++) {
-      if (!repository.revalidate() || !lock.assertLive())
-        throw new Error("owner");
-      const verified = getRepository(repository.repositoryRoot);
-      if (verified.status !== "completed") throw new Error("root");
-      const area = observeRepositoryExecutionDataArea(
-        verified.capability,
-        "domain-model",
-      );
-      if (
-        area.status !== "ready" ||
-        area.repositoryRoot !== repository.repositoryRoot ||
-        (boundary !== null && area.boundaryIdentity !== boundary)
-      )
-        throw new Error("area");
-      boundary = area.boundaryIdentity;
-      const names = fs.readdirSync(area.directory).sort();
-      if (
-        !names.includes("state.json") ||
-        names.some(
-          (name) =>
-            !["state.json", "history.jsonl", "state.lock"].includes(name),
-        )
-      )
-        throw new Error("pending_or_unknown");
-      if (pass === 0) originalNames = names;
-      else {
-        const expected =
-          pass === 2
-            ? originalNames.filter((name) => name !== "state.lock")
-            : originalNames;
-        if (JSON.stringify(names) !== JSON.stringify(expected))
-          throw new Error("names_changed");
-      }
-      for (const name of names) {
-        const file = path.join(area.directory, name);
-        const metadata = fs.lstatSync(file, { bigint: true });
-        if (
-          !metadata.isFile() ||
-          metadata.isSymbolicLink() ||
-          metadata.nlink !== 1n
-        )
-          throw new Error("file");
-        const observed = readStableFileSnapshot(file);
-        const final = fs.lstatSync(file, { bigint: true });
-        if (
-          final.nlink !== 1n ||
-          !sameStableFileIdentity(observed.identity, final)
-        )
-          throw new Error("file_changed");
-        if (
-          (name === "state.json" &&
-            !decodeStateSnapshot(
-              observed.bytes,
-              repository.repositoryBinding,
-            )) ||
-          (name === "history.jsonl" && !decodeHistoryRows(observed.bytes)) ||
-          (name === "state.lock" &&
-            !observed.bytes.equals(
-              Buffer.from(
-                `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
-              ),
-            ))
-        )
-          throw new Error("content");
-        if (pass === 0) original.set(name, observed);
-        else {
-          const before = original.get(name);
-          if (
-            !before ||
-            !sameStableFileIdentity(before.identity, observed.identity) ||
-            !before.bytes.equals(observed.bytes)
-          )
-            throw new Error("changed");
-        }
-      }
-      if (
-        !repository.revalidate() ||
-        !lock.assertLive() ||
-        JSON.stringify(fs.readdirSync(area.directory).sort()) !==
-          JSON.stringify(names)
-      )
-        throw new Error("changed");
-      const currentArea = observeRepositoryExecutionDataArea(
-        verified.capability,
-        "domain-model",
-      );
-      if (
-        currentArea.status !== "ready" ||
-        currentArea.directory !== area.directory ||
-        currentArea.boundaryIdentity !== boundary
-      )
-        throw new Error("area_changed");
-      for (const name of names) {
-        const file = path.join(area.directory, name);
-        const current = readStableFileSnapshot(file);
-        const before = original.get(name);
-        if (
-          !before ||
-          fs.lstatSync(file, { bigint: true }).nlink !== 1n ||
-          !sameStableFileIdentity(before.identity, current.identity) ||
-          !before.bytes.equals(current.bytes)
-        )
-          throw new Error("changed_before_effect");
-      }
-      if (pass === 1 && names.includes("state.lock")) {
-        const marker = path.join(area.directory, "state.lock");
-        filesystemEffectIssued = true;
-        try {
-          fs.unlinkSync(marker);
-          markerRemoved = true;
-        } catch {
-          try {
-            fs.lstatSync(marker);
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-              markerRemoved = true;
-              markerAbsentConfirmed = true;
-            }
-          }
-          throw new Error("unlink_unconfirmed");
-        }
-      }
-      if (pass === 2) {
-        markerAbsentConfirmed = true;
-        storageConfirmed = true;
-      }
-    }
-    reason = markerRemoved
-      ? "coordinator_state_marker_cleanup_confirmed"
-      : "coordinator_state_marker_absent";
-  } catch {
-    // 一次失敗と、既に確認できた処置事実を保持する。
-  } finally {
-    if (lock) {
-      try {
-        lockReleased = lock.release();
-      } catch {
-        lockReleased = false;
-      }
-    }
-  }
-  return Object.freeze({
-    status:
-      storageConfirmed && markerAbsentConfirmed && lockReleased
-        ? ("completed" as const)
-        : ("blocked" as const),
-    reason:
-      storageConfirmed && !lockReleased
-        ? "coordinator_state_lock_release_unconfirmed"
-        : reason,
-    markerRemoved,
-    markerAbsentConfirmed,
-    storageConfirmed,
-    filesystemEffectIssued,
-    lockReleased,
-    cleanupReason: lockReleased
-      ? null
-      : "coordinator_state_lock_release_unconfirmed",
-  });
-}
-
-/**
  * 検証済み保存結合のSnapshotを共通経路で取得する。
  * @responsibility 通常と終端の同じRoot・File・版・排他観測を所有する。
  * @trace ARCH-000008
@@ -2061,16 +1677,14 @@ export function readStateSnapshot(
   recoveryId: string | null,
   hostCleanupRecoveryId: string | null = null,
   currentHistoryRecoveryId: string | null = null,
-  currentDeliveryRecoveryId: string | null = null,
   currentCompletionRecoveryId: string | null = null,
   currentHistoryKind: "docker_task" | "runtime_repair" = "docker_task",
   currentCompletionKind: "docker_task" | "runtime_repair" = "docker_task",
   allowUninitialized = false,
   resourcePublicationRecoveryId: string | null = null,
-  completedTransientTask: Readonly<{
+  completedOperation: Readonly<{
     recoveryId: string;
     correlationId: string;
-    consumer: "workbench" | "coordinator_cli";
   }> | null = null,
   storageOwner: StorageOwner | null = null,
   taskPublicationRead: boolean | "history" = false,
@@ -2098,11 +1712,10 @@ export function readStateSnapshot(
       reason,
       lockReleased,
       value: null,
-      deliveryAbsent: false,
+      operationCompletionConfirmed: false,
       hostCleanupPublication: null,
       currentHistoryPublication: null,
       repairHistoryState: null,
-      currentDeliveryPublication: null,
       currentCompletionPublication: null,
       repairCompletionAbsent: false,
       repairRetentionReviewAfter: null,
@@ -2133,6 +1746,9 @@ export function readStateSnapshot(
   let value:
     | (NonNullable<ReturnType<typeof decodeStateSnapshot>> & {
         readonly sourceText: string;
+        readonly operationStates: readonly ReturnType<
+          typeof projectOperationState
+        >[];
       })
     | null = null;
   let historyRows: ReturnType<typeof decodeHistoryRows> = null;
@@ -2147,16 +1763,6 @@ export function readStateSnapshot(
     mode: "A" | "B" | "C";
   }> | null = null;
   let reason = "coordinator_state_read_unconfirmed";
-  let currentDeliveryPublication: Readonly<{
-    before: Buffer;
-    candidate: Buffer;
-    needsWrite: boolean;
-    deliveryPending: boolean;
-    historyFile: Readonly<{
-      bytes: Buffer;
-      identity: StableFileIdentity;
-    }> | null;
-  }> | null = null;
   let currentCompletionPublication: Readonly<{
     before: Buffer;
     candidate: Buffer;
@@ -2186,7 +1792,7 @@ export function readStateSnapshot(
   let recoveryHistoryPending: ReturnType<typeof readStableFileSnapshot> | null =
     null;
   let recoveryRetentionDays: number | null = null;
-  let deliveryAbsent = false;
+  let operationCompletionConfirmed = false;
   let repairCompletionAbsent = false;
   let repairRetentionReviewAfter: string | null = null;
   try {
@@ -2234,7 +1840,6 @@ export function readStateSnapshot(
           : taskPublicationRead ||
               resourcePublicationRecoveryId !== null ||
               hostCleanupRecoveryId !== null ||
-              currentDeliveryRecoveryId !== null ||
               currentCompletionRecoveryId !== null
             ? [
                 "state.json",
@@ -2277,15 +1882,14 @@ export function readStateSnapshot(
     let completedHistory: ReturnType<typeof readStableFileSnapshot> | null =
       null;
     const completedHistoryFile = path.join(initial.directory, "history.jsonl");
-    if (completedTransientTask) {
-      const target = completedTransientTask.recoveryId;
+    if (completedOperation) {
+      const target = completedOperation.recoveryId;
       const parsed = parseDockerTaskRecoveryId(target);
       if (
         !parsed ||
         [
           decoded.snapshot.operations,
           decoded.snapshot.unresolvedRecoveries,
-          decoded.snapshot.pendingDeliveries,
         ].some((entries) =>
           entries.some(
             (entry) =>
@@ -2309,12 +1913,11 @@ export function readStateSnapshot(
       const summary = row ? JSON.parse(row.line).summary : null;
       if (
         !row ||
-        summary.schema !== "crdd-coordinator/operation-summary/v4" ||
-        summary.consumer !== completedTransientTask.consumer ||
-        summary.recoveryCorrelationId !== completedTransientTask.correlationId
+        summary.schema !== "crdd-execution-model/operation-summary/v5" ||
+        summary.recoveryCorrelationId !== completedOperation.correlationId
       )
         throw new Error("completion_history_unconfirmed");
-      deliveryAbsent = true;
+      operationCompletionConfirmed = true;
     }
     let pending: ReturnType<typeof readStableFileSnapshot> | null = null;
     let marker: ReturnType<typeof readStableFileSnapshot> | null = null;
@@ -2323,7 +1926,6 @@ export function readStateSnapshot(
       (resourcePublicationRecoveryId !== null ||
         hostCleanupRecoveryId !== null ||
         currentHistoryRecoveryId !== null ||
-        currentDeliveryRecoveryId !== null ||
         currentCompletionRecoveryId !== null) &&
       names.includes("state.lock")
     ) {
@@ -2418,9 +2020,7 @@ export function readStateSnapshot(
       });
     }
     const currentPublicationRecoveryId =
-      currentHistoryRecoveryId ??
-      currentDeliveryRecoveryId ??
-      currentCompletionRecoveryId;
+      currentHistoryRecoveryId ?? currentCompletionRecoveryId;
     if (
       currentCompletionRecoveryId !== null &&
       currentCompletionKind === "runtime_repair" &&
@@ -2431,7 +2031,6 @@ export function readStateSnapshot(
       if (
         hostCleanupRecoveryId !== null ||
         currentHistoryRecoveryId !== null ||
-        currentDeliveryRecoveryId !== null ||
         names.includes("state.pending.json")
       )
         throw new Error("repair_completion_absence_scope_invalid");
@@ -2440,7 +2039,6 @@ export function readStateSnapshot(
         [
           decoded.snapshot.operations,
           decoded.snapshot.unresolvedRecoveries,
-          decoded.snapshot.pendingDeliveries,
         ].some((entries) =>
           entries.some(
             (item) =>
@@ -2502,11 +2100,9 @@ export function readStateSnapshot(
     if (currentPublicationRecoveryId !== null && !repairCompletionAbsent) {
       if (
         hostCleanupRecoveryId !== null ||
-        [
-          currentHistoryRecoveryId,
-          currentDeliveryRecoveryId,
-          currentCompletionRecoveryId,
-        ].filter((value) => value !== null).length !== 1
+        [currentHistoryRecoveryId, currentCompletionRecoveryId].filter(
+          (value) => value !== null,
+        ).length !== 1
       )
         throw new Error("history_reentry_mode_conflict");
       const expectedKind =
@@ -2596,7 +2192,6 @@ export function readStateSnapshot(
       } else if (currentCompletionRecoveryId !== null) {
         if (operation.kind !== currentCompletionKind)
           throw new Error("current_completion_kind_invalid");
-        const identity = JSON.parse(operation.identityJson);
         const line = (
           currentCompletionKind === "runtime_repair"
             ? prepareRepairHistoryLine
@@ -2614,8 +2209,6 @@ export function readStateSnapshot(
             : prepareStateCompletionSnapshot
         )(before, currentCompletionRecoveryId, repository.repositoryBinding);
         if (
-          (currentCompletionKind === "docker_task" &&
-            getConsumerCompletionPolicy(identity.consumer) !== "transient") ||
           !operation.history?.confirmed ||
           !line ||
           !rows ||
@@ -2637,62 +2230,6 @@ export function readStateSnapshot(
         currentCompletionPublication = Object.freeze({
           before,
           candidate: Buffer.from(candidate),
-          historyFile:
-            recoveryHistory === null
-              ? null
-              : {
-                  bytes: Buffer.from(recoveryHistory.bytes),
-                  identity: recoveryHistory.identity,
-                },
-        });
-      } else if (currentDeliveryRecoveryId !== null) {
-        if (operation.kind !== "docker_task")
-          throw new Error("current_delivery_kind_invalid");
-        const identity = JSON.parse(operation.identityJson);
-        const policy = getConsumerCompletionPolicy(identity.consumer);
-        const line = prepareStateHistoryLine(
-          before,
-          currentDeliveryRecoveryId,
-          repository.repositoryBinding,
-        );
-        const rows = decodeHistoryRows(
-          recoveryHistory?.bytes ?? Buffer.alloc(0),
-        );
-        const row = rows?.find(
-          (item) => item.recoveryId === currentDeliveryRecoveryId,
-        );
-        if (
-          !policy ||
-          !operation.history?.confirmed ||
-          !line ||
-          !rows ||
-          createHash("sha256").update(line).digest("hex") !==
-            operation.history.lineSha256 ||
-          (row && !Buffer.from(row.line).equals(line)) ||
-          recoveryHistoryPending ||
-          decoded.snapshot.resultReceipts.some(
-            (item) => item.recoveryId === currentDeliveryRecoveryId,
-          ) ||
-          (pending && !marker) ||
-          (policy === "transient" && (pending || marker))
-        )
-          throw new Error("current_delivery_target_invalid");
-        candidate = prepareStateResultDeliverySnapshot(
-          before,
-          currentDeliveryRecoveryId,
-          policy === "durable" ? ["orchestrator"] : [],
-          repository.repositoryBinding,
-        );
-        stage = "confirmed";
-        if (!candidate || (pending && !pending.bytes.equals(candidate)))
-          throw new Error("current_delivery_candidate_invalid");
-        if (pending && candidate.equals(before))
-          throw new Error("current_delivery_already_published_pending");
-        currentDeliveryPublication = Object.freeze({
-          before,
-          candidate: Buffer.from(candidate),
-          needsWrite: !candidate.equals(before) || marker !== null,
-          deliveryPending: policy === "durable",
           historyFile:
             recoveryHistory === null
               ? null
@@ -2781,10 +2318,9 @@ export function readStateSnapshot(
           !line ||
           !rows ||
           (!row &&
-            [
-              ...decoded.snapshot.pendingDeliveries,
-              ...decoded.snapshot.unresolvedRecoveries,
-            ].some((item) => item.recoveryId === operation.recoveryId)) ||
+            [...decoded.snapshot.unresolvedRecoveries].some(
+              (item) => item.recoveryId === operation.recoveryId,
+            )) ||
           (row && !Buffer.from(row.line).equals(line))
         )
           throw new Error("history_confirmed_line_invalid");
@@ -2930,6 +2466,9 @@ export function readStateSnapshot(
     value = Object.freeze({
       ...decoded,
       sourceText: observed.bytes.toString("utf8"),
+      operationStates: Object.freeze(
+        decoded.snapshot.operations.map(projectOperationState),
+      ),
     });
   } catch {
     value = null;
@@ -2956,11 +2495,10 @@ export function readStateSnapshot(
     lockReleased,
     ...(borrowedOwner ? { ownerHeld: true as const } : {}),
     value,
-    deliveryAbsent,
+    operationCompletionConfirmed,
     hostCleanupPublication,
     currentHistoryPublication,
     repairHistoryState,
-    currentDeliveryPublication,
     currentCompletionPublication,
     repairCompletionAbsent,
     repairRetentionReviewAfter,
@@ -2994,7 +2532,6 @@ export function readStorageSnapshotOwned(
   if (!binding) return readStateSnapshot(null, null);
   return readStateSnapshot(
     binding.repository,
-    null,
     null,
     null,
     null,

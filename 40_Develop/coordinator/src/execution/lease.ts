@@ -10,13 +10,10 @@ import path from "node:path";
 import {
   acquireLease,
   type LeaseKind,
-  leaseAcquisitionRecoveryId,
-  leaseIdentity,
   type ProjectQueueEntry,
   readLease,
   recoverLease,
   releaseLease,
-  validId,
 } from "../../../execution-model/src/index.ts";
 import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import {
@@ -186,28 +183,12 @@ export function acquireCoordinatorSnapshotLease(
   kind: LeaseKind,
 ): StoreResult<CoordinatorLease> {
   if (
-    ![binding, projectId, queueId].every(validId) ||
+    ![binding, projectId, queueId].every(validIdentity) ||
     (kind !== "project-operation" && kind !== "canonical-adoption")
   )
     return blocked("orchestrator_lease_identity_invalid");
-  const identity = leaseIdentity(binding, projectId, queueId, kind);
-  const recoveryId = leaseAcquisitionRecoveryId(
-    binding,
-    projectId,
-    queueId,
-    kind,
-  );
   const ownerGeneration = randomUUID();
-  const intent = {
-    projectId,
-    queueId,
-    kind,
-    ownerGeneration,
-    ownerProcessId: process.pid,
-    recoveryId,
-    phase: "acquisition_reserved" as const,
-    physicalIdentity: null,
-  };
+  let recoveryId: string | null = null;
   let intentSaveRequested = false;
   const reserved = acquireLease(
     verifyRuntimePersistenceRepository(workingDirectory),
@@ -215,14 +196,12 @@ export function acquireCoordinatorSnapshotLease(
     {
       kind: "intent",
       input: [
-        binding,
         projectId,
         queueId,
         kind,
-        identity,
-        intent,
+        { ownerGeneration, ownerProcessId: process.pid },
         {
-          resourcesAbsent: (repositoryRoot: string) =>
+          resourcesAbsent: (repositoryRoot: string, identity: string) =>
             snapshotLeaseResourcesAbsent(repositoryRoot, identity),
           observeRoot: (repositoryRoot: string) => {
             const metadata = fs.lstatSync(repositoryRoot);
@@ -240,7 +219,8 @@ export function acquireCoordinatorSnapshotLease(
                 .digest("hex"),
             };
           },
-          markIntentSaveRequested: () => {
+          markIntentSaveRequested: (id: string) => {
+            recoveryId = id;
             intentSaveRequested = true;
           },
         },
@@ -251,7 +231,8 @@ export function acquireCoordinatorSnapshotLease(
     return intentSaveRequested && reserved.manualRecoveryRequired
       ? blocked(reserved.reason, true, recoveryId)
       : reserved;
-  const { repositoryRoot, rootIdentity } = reserved.value;
+  const { repositoryRoot, rootIdentity, identity, intent } = reserved.value;
+  recoveryId = reserved.value.recoveryId;
   const leasePaths = resolveNamedPaths(repositoryRoot);
   if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
     return blocked(
@@ -477,18 +458,11 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   Readonly<{ queue: ProjectQueueEntry | null; recoveryId: string | null }>
 > {
   if (
-    ![binding, projectId, queueId].every(validId) ||
+    ![binding, projectId, queueId].every(validIdentity) ||
     !["project-operation", "canonical-adoption"].includes(kind) ||
     typeof observeOwner !== "function"
   )
     return blocked("orchestrator_lease_recovery_input_invalid");
-  const recoveryId = leaseAcquisitionRecoveryId(
-    binding,
-    projectId,
-    queueId,
-    kind,
-  );
-  const identity = leaseIdentity(binding, projectId, queueId, kind);
   const inspected = readLease(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
@@ -520,8 +494,9 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     },
   );
   if (inspected.status !== "completed")
-    return blocked(inspected.reason, true, recoveryId);
+    return blocked(inspected.reason, true, inspected.recoveryId);
   const initial = inspected.value;
+  const { recoveryId, identity } = initial;
   const leasePaths = resolveNamedPaths(initial.repositoryRoot);
   if (!leasePaths || leasePaths.repositoryRoot !== initial.repositoryRoot)
     return blocked(
@@ -826,6 +801,9 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     ? settled
     : blocked(recoveryFailureReason ?? settled.reason, true, recoveryId);
 }
+
+import { validIdentity } from "../state/validation.ts";
+
 /**
  * Directoryを表明どおりか検査する。
  *

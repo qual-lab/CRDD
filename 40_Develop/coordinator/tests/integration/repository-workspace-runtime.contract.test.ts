@@ -17,11 +17,10 @@ import {
   removeWorkspaceCandidate,
 } from "../../src/workspace/git.ts";
 
-import {
-  validWorkspaceDisplayName,
-  type WorkspaceCandidateRequest,
-  type WorkspaceCandidateResult,
-  type RepositoryWorktreeResult,
+import type {
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+  RepositoryWorktreeResult,
 } from "../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
 import {
@@ -2242,24 +2241,30 @@ test("固定は内容変更・管理Path・不正名を拒否し削除は明示�
     freezeWorkspaceCandidate(f.capability, input).reason,
     "commit_create_content_changed",
   );
+  const command = {
+    operation: "freeze",
+    projectId: "project",
+    queueId: "queue",
+    workspaceId: input.workspaceId,
+    expectedGeneration: 1,
+    operationId: input.operationId,
+    baseCommit: input.baseCommit,
+    expectedHead: input.expectedWorkspaceHead,
+    selection: input.selection,
+    candidateName: input.candidateName,
+    relatedChangeIds: input.relatedChangeIds,
+  };
   assert.equal(
-    freezeWorkspaceCandidate(f.capability, {
-      ...input,
-      candidateName: "line\nbreak",
-    }).reason,
-    "candidate_input_invalid",
+    inspectWorkspaceCommand({ ...command, candidateName: "line\nbreak" }),
+    null,
   );
   assert.equal(
-    freezeWorkspaceCandidate(f.capability, {
-      ...input,
+    inspectWorkspaceCommand({
+      ...command,
       selection: [{ path: ".git/config", blobId: null, mode: null }],
-    }).reason,
-    "candidate_input_invalid",
+    }),
+    null,
   );
-  assert.equal(validWorkspaceDisplayName(null), true);
-  assert.equal(validWorkspaceDisplayName("改善"), true);
-  for (const invalid of ["", " a", "\u2028", "x".repeat(121)])
-    assert.equal(validWorkspaceDisplayName(invalid), false);
   fs.unlinkSync(path.join(f.target(id), "source.txt"));
   const deleted = freezeWorkspaceCandidate(f.capability, {
     ...input,
@@ -2277,6 +2282,8 @@ test("固定は内容変更・管理Path・不正名を拒否し削除は明示�
   );
   assert.deepEqual(fs.readdirSync(path.dirname(f.target(id))), ["worktree"]);
 });
+
+import { inspectWorkspaceCommand } from "../../src/workspace/commands.ts";
 
 /**
  * FF可能時も二親Mergeを残し、再入場と独立Ref回収を確認する。

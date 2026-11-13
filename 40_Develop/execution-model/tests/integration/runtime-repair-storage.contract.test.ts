@@ -7,10 +7,7 @@
  * @scope 合成技術値・有限Machine通知と自己生成Repositoryの実保存。実修復Sessionは使用しない。
  * @boundary Domain保存と実Filesystem／共通Lock、DI技術値との独立比較。実Host／Docker処置は対象外。
  */
-import {
-  encodeStateValue,
-  decodeStateSnapshot,
-} from "../../src/state/validation.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -27,6 +24,10 @@ import { decodeHistoryRows } from "../../src/history/validation.ts";
 import type * as model from "../../src/index.ts";
 import * as domain from "../../src/index.ts";
 import * as stateStore from "../../src/index.ts";
+import {
+  decodeStateSnapshot,
+  encodeStateValue,
+} from "../../src/state/validation.ts";
 
 import * as kernel from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
@@ -265,6 +266,12 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
       },
     );
     assert.equal(saved.snapshotConfirmed, mode === "normal", mode);
+    if (mode === "normal") {
+      assert.equal(saved.value?.checkpointSettled, true);
+      assert.equal(saved.value?.operation.recoveryId, id);
+    } else {
+      assert.equal(saved.value, null, mode);
+    }
     assert.equal(
       saved.status,
       mode === "normal" ? "completed" : "blocked",
@@ -486,7 +493,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       if (mode === "identity") {
         const other = {
           ...initialOperation,
-          phase: "awaiting_delivery",
+          phase: "terminal",
           checkpoint: null,
           primaryFailure: null,
           outcome: {
@@ -855,7 +862,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           assert.equal(cut, 1);
           assert.ok(fs.readFileSync(stateFile).equals(next));
           assert.equal(fs.existsSync(pending), false);
-          const cleaned = stateStore.removeStatePublicationMarker(f.capability);
+          const cleaned = stateStore.completeStatePublication(f.capability);
           assert.equal(cleaned.storageConfirmed, true);
           assert.equal(cleaned.markerAbsentConfirmed, true);
         }
@@ -1708,7 +1715,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         operation,
         {
           ...other,
-          phase: "awaiting_delivery",
+          phase: "terminal",
           outcome: {
             status: "blocked",
             reason: "runtime_repair_failed_closed",
@@ -1740,14 +1747,6 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           obligations: ["host_cleanup"],
         },
       ],
-      pendingDeliveries: [
-        {
-          operationNonce: taskIdentity.operationNonce,
-          recoveryId: task.recoveryId,
-          resultId: "4".repeat(64),
-          consumer: "orchestrator",
-        },
-      ],
     };
     const mixedBytes = Buffer.from(`${encodeStateValue(mixed)}\n`);
     assert.ok(decodeStateSnapshot(mixedBytes, repository.repositoryBinding));
@@ -1774,10 +1773,8 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         after.snapshot.unresolvedRecoveries,
         mixed.unresolvedRecoveries,
       );
-      assert.deepEqual(
-        after.snapshot.pendingDeliveries,
-        mixed.pendingDeliveries,
-      );
+      assert.equal(Object.hasOwn(after.snapshot, "pendingDeliveries"), false);
+      assert.equal(Object.hasOwn(mixed, "pendingDeliveries"), false);
     }
   });
   fs.writeFileSync(stateFile, currentBytes);
@@ -2254,6 +2251,20 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   assert.equal(saved.status, "completed");
   assert.equal(saved.snapshotConfirmed, true);
   assert.equal(saved.lockReleased, true);
+  assert.equal(saved.value?.checkpointSettled, false);
+  const observedOperation = domain.readRecoveryState(verified.capability);
+  assert.ok(observedOperation.value);
+  const observedState = observedOperation.value.operationStates[0];
+  assert.equal(observedState?.kind, "runtime_repair");
+  assert.equal(
+    observedState?.operation,
+    observedOperation.value.snapshot.operations[0],
+  );
+  assert.equal(Object.isFrozen(observedOperation.value.operationStates), true);
+  assert.equal(Object.isFrozen(observedState), true);
+  if (observedState?.kind !== "runtime_repair")
+    throw Error("wrong_operation_kind");
+  assert.equal(observedState.disposalSettled, false);
   const directory = path.join(root, ".crdd", "domain-model");
   const state = path.join(directory, "state.json");
   assert.ok(fs.readFileSync(state).equals(first));
@@ -2510,7 +2521,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     complete,
     recoveryId,
     {
-      phase: "awaiting_delivery",
+      phase: "terminal",
       checkpoint: settledRepair.checkpoint,
       disposition: settledRepair.disposition,
       primaryFailure: settledRepair.primaryFailure,
@@ -2668,5 +2679,5 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
 import {
   prepareRepairHistoryLine,
   prepareRepairHistorySnapshot,
+  prepareStateOperationSnapshot,
 } from "../../src/state/validation.ts";
-import { prepareStateOperationSnapshot } from "../../src/state/validation.ts";

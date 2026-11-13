@@ -5,12 +5,12 @@
  * @level IT
  * @scope メモリWriter応答代役と既存有限CLI代役。実Writer・CASの試験とは区別し、実Docker・AI・保持物を操作しない。
  */
-import { canonicalJson } from "./contract-assertions.ts";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { isDeepStrictEqual } from "node:util";
 import type { TestContext } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { runInThisContext } from "node:vm";
 import type {
   IsolationCallbacks,
@@ -19,14 +19,13 @@ import type {
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import {
   applyResourceEvent,
-  areTaskResourcesSettled,
-  canCloseUnknownAuthentication,
-  type OperationResources,
   type ExecutionStateSnapshot,
+  type OperationResources,
 } from "../../../execution-model/src/index.ts";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { canonicalJson } from "./contract-assertions.ts";
 
 export async function createRecoveryFixture(
   t: TestContext,
@@ -94,12 +93,33 @@ export async function createRecoveryFixture(
     })}\n`,
   );
   const read = () => {
+    const snapshot = JSON.parse(
+      bytes.toString("utf8"),
+    ) as ExecutionStateSnapshot;
     return {
-      snapshot: JSON.parse(bytes.toString("utf8")) as ExecutionStateSnapshot,
+      snapshot,
+      // この有限fixtureは再起動なし。回収通知の前後という既知の段階だけを投影する。
+      operationStates: snapshot.operations.map((operation) => {
+        assert.equal(operation.kind, "docker_task");
+        if (operation.kind !== "docker_task")
+          throw Error("fixture_operation_kind");
+        assert.equal(operation.dockerRestart, null);
+        return {
+          kind: "docker_task" as const,
+          operation,
+          resourcesSettled:
+            operation.resources?.checkpoints.every(
+              (resource) => resource.observation === "absent",
+            ) === true,
+          restartSettled: true,
+          authenticationClosureAllowed: false,
+        };
+      }),
       payloadSha256: createHash("sha256").update(bytes).digest("hex"),
       sourceText: bytes.toString("utf8"),
     };
   };
+  const initialObserved = read();
   const capability = {},
     root = {},
     repository = { repositoryBinding: base.binding, revalidate: () => live };
@@ -124,7 +144,8 @@ export async function createRecoveryFixture(
     repository,
     recoveryId: base.recoveryId,
     before: bytes,
-    snapshot: read().snapshot,
+    snapshot: initialObserved.snapshot,
+    operationStates: initialObserved.operationStates,
     hostToken: "host-token",
     hostGeneration: "host-generation",
   };
@@ -138,7 +159,7 @@ export async function createRecoveryFixture(
     "recoverRuntimeOwnedDockerTaskResources",
   ];
   const api =
-    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,areTaskResourcesSettled,canCloseUnknownAuthentication,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
+    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
  ${names.map((n) => sourceDeclaration(source, n)).join("\n")}
  return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
       {
@@ -220,29 +241,24 @@ export async function createRecoveryFixture(
                       },
                     );
                   }
-                  const candidate =
-                    resources &&
-                    validateResourceBookTransition(
-                      operation.resources,
-                      resources,
-                    )
-                      ? Buffer.from(
-                          `${canonicalJson({
-                            ...current.snapshot,
-                            revision: current.snapshot.revision + 1,
-                            previous: {
-                              revision: current.snapshot.revision,
-                              payloadSha256: current.payloadSha256,
-                            },
-                            operations: current.snapshot.operations.map(
-                              (item) =>
-                                item.recoveryId === id
-                                  ? { ...item, resources }
-                                  : item,
-                            ),
-                          })}\n`,
-                        )
-                      : null;
+                  // 公開更新操作が元記録との遷移を検査済み。不成立はnullのまま保存しない。
+                  const candidate = resources
+                    ? Buffer.from(
+                        `${canonicalJson({
+                          ...current.snapshot,
+                          revision: current.snapshot.revision + 1,
+                          previous: {
+                            revision: current.snapshot.revision,
+                            payloadSha256: current.payloadSha256,
+                          },
+                          operations: current.snapshot.operations.map((item) =>
+                            item.recoveryId === id
+                              ? { ...item, resources }
+                              : item,
+                          ),
+                        })}\n`,
+                      )
+                    : null;
                   if (!candidate)
                     return {
                       status: "blocked",
@@ -281,8 +297,6 @@ export async function createRecoveryFixture(
             assertCurrent: () => borrowLive,
           };
         },
-        areTaskResourcesSettled,
-        canCloseUnknownAuthentication,
         coordinatorReleasedTaskCanObserveHostAbsence: () => false,
       },
     ) as {
@@ -371,8 +385,5 @@ export async function createRecoveryFixture(
   };
 }
 
-import {
-  applyResourceCleanup,
-  validateResourceBookTransition,
-} from "../../../execution-model/src/index.ts";
+import { applyResourceCleanup } from "../../../execution-model/src/index.ts";
 import { snapshotJsonValue } from "../../src/input/snapshot.ts";

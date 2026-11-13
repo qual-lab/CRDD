@@ -22,7 +22,6 @@ import {
   applyResourceCleanup,
   applyResourceEvent,
   type ExecutionSelection,
-  hashExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   type OperationResources,
@@ -130,6 +129,8 @@ function blocked(reason: string) {
     runtimeCapabilityIssued: false,
   });
 }
+
+import { hashExecutionSelection } from "../selection/resolve.ts";
 
 /**
  * canonical Jsonを決定する。
@@ -2490,11 +2491,11 @@ function removeSelectionRecord(
  * @returns issueSelectionGrantの計算結果を返す。
  * @precondition 「state: RuntimeState、managementCapability: unknown、rawRequest: unknown」がissueSelectionGrantの入力契約を満たす。
  * @postcondition issueSelectionGrantの責務を完了した結果だけを返す。
- * @effect N/A: issueSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: issueSelectionGrantは独自の失敗分岐を所有しない。
+ * @effect 既存の発行本体へ接続し、Process内Mapへ短命Grantを登録する。保存・Provider実行は0。
+ * @failure 操作・要求・技術適合・観測・時計・IDの不正では発行しない。
  * @invariant issueSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: issueSelectionGrantはProcess内の同一Subsystemで完結する。
- * @security issueSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @boundary 未信頼要求の受付と短命Grantの発行。
+ * @security 管理Capability・操作相関を確認し、選定値だけからProvider実行権限を発行しない。
  * @concurrency N/A: issueSelectionGrantは共有非同期状態を持たない同期処理である。
  */
 function issueSelectionGrant(
@@ -2519,6 +2520,34 @@ function issueSelectionGrant(
     (request.taskAttempt !== 0 && request.taskAttempt !== 1)
   )
     return createBlockedResult("delegation_selection_request_invalid");
+  return issueCapturedSelectionGrant(
+    state,
+    managementCapability,
+    operation.operationId,
+    selection,
+    request.taskAttempt,
+  );
+}
+
+/**
+ * 捕捉済み選定から短命Grantを発行する。
+ * @responsibility 現在の利用可否・技術適合・時計・IDを確認し、既存MapへCapabilityを登録する。
+ * @trace ARCH-000010
+ * @input 元管理参照、確認済み操作ID・捕捉済み選定・試行番号。
+ * @returns 発行結果又は元の停止理由。
+ * @precondition 呼出し側が元操作と要求の相関を検査済み。
+ * @effect Process内の既存MapへGrantと二つのCapabilityを登録する。
+ * @failure 観測不能・技術不一致・時計又はID不正では登録しない。
+ * @boundary raw受付とGrant発行。
+ * @security 保存・Provider実行・新しいOwnerは追加しない。
+ */
+function issueCapturedSelectionGrant(
+  state: DelegationSelectionGrantRuntimeState,
+  managementCapability: object,
+  operationId: string,
+  selection: ExecutionSelection,
+  taskAttempt: 0 | 1,
+) {
   const availability = snapshotPlainArray<unknown>(
     state.observeProviderEligibility(),
     2,
@@ -2566,11 +2595,11 @@ function issueSelectionGrant(
   const useCapability = Object.freeze({});
   const record: SelectionRecord = {
     selectionRecordId,
-    operationId: operation.operationId,
+    operationId: operationId,
     managementCapability,
     selection,
     selectionHash,
-    taskAttempt: request.taskAttempt,
+    taskAttempt: taskAttempt,
     selectionNotice: [
       selection.provider,
       selection.modelIdentifier,
@@ -2592,7 +2621,7 @@ function issueSelectionGrant(
     selectionRecordId,
     controlCapability,
     useCapability,
-    operationId: operation.operationId,
+    operationId: operationId,
     executorProvider: selection.provider,
     executionSelection: selection,
     selectionHash,
@@ -2738,11 +2767,11 @@ function revokeSelectionGrant(
  * @returns supersedeSelectionGrantの計算結果を返す。
  * @precondition 「state: RuntimeState、controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown」がsupersedeSelectionGrantの入力契約を満たす。
  * @postcondition supersedeSelectionGrantの責務を完了した結果だけを返す。
- * @effect N/A: supersedeSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: supersedeSelectionGrantは独自の失敗分岐を所有しない。
+ * @effect 有効な元Grantの置換では新Grantの登録成功後だけ元を除去する。無効・期限切れの元Grantは従来どおり退役する。保存・Provider実行は0。
+ * @failure 更新拒否・操作確認例外・利用不可・ID失敗では有効な元Grantを保持する。
  * @invariant supersedeSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: supersedeSelectionGrantはProcess内の同一Subsystemで完結する。
- * @security supersedeSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @boundary 未信頼要求の受付と短命Grantの発行。
+ * @security 管理Capability・操作相関を確認し、選定値だけからProvider実行権限を発行しない。
  * @concurrency N/A: supersedeSelectionGrantは共有非同期状態を持たない同期処理である。
  */
 function supersedeSelectionGrant(
@@ -2773,10 +2802,15 @@ function supersedeSelectionGrant(
     requested?.taskAttempt !== previousRecord.taskAttempt
   )
     return createBlockedResult("delegation_selection_replacement_mismatch");
-  const replacement = issueSelectionGrant(
+  const operation = state.verifyOperation(managementCapability);
+  if (requested.operationId !== operation.operationId)
+    return createBlockedResult("delegation_selection_request_invalid");
+  const replacement = issueCapturedSelectionGrant(
     state,
-    managementCapability,
-    rawReplacementRequest,
+    previousRecord.managementCapability,
+    operation.operationId,
+    selection,
+    previousRecord.taskAttempt,
   );
   if (replacement.status !== "issued") {
     return replacement;

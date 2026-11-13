@@ -181,7 +181,7 @@ export function inspectCoordinatorDecisionRequest(
  * @responsibility 部分確定を成功へ丸めず、旧秘密値を公開結果へ通さない。
  * @trace ARCH-000004、ARCH-000008
  * @input value: Coordinatorから搬送された未信頼値。
- * @returns 検査済み結果又はnull。
+ * @returns 質問・回答・適用を省略せず、モデル検査で捕捉した判断を持つ結果又はnull。
  * @precondition 返却値を認証・認可として使用しない。
  * @postcondition 未知fieldと矛盾した確定表示を拒否する。
  * @effect N/A: 値検査のみ。
@@ -236,13 +236,14 @@ export function inspectCoordinatorDecisionResult(
     )
       return null;
   } else {
-    const decision = v.decision as Decision;
+    const decision = inspectDecision(v.decision);
     if (
-      inspectDecision(decision) === null ||
+      decision === null ||
       decision.decisionId !== v.decisionId ||
       v.effectState !== "settled"
     )
       return null;
+    v.decision = decision;
     const h = v.history as { status?: unknown; reason?: unknown } | null;
     if (
       !h ||

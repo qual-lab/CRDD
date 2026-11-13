@@ -12,8 +12,6 @@ import { isDeepStrictEqual } from "node:util";
 import {
   type RepositoryWorktreeResult,
   readState,
-  validWorkspaceCandidateRequest,
-  validWorkspaceDisplayName,
   type WorkspaceCandidateResult,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
@@ -30,6 +28,7 @@ import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
 import {
+  inspectWorkspaceCommand,
   createCoordinatorSnapshotIntegrationRecordPort,
   writeCoordinatorWorkspaceRecord,
 } from "./commands.ts";
@@ -101,10 +100,25 @@ export function workspacePlanReadyForAcceptance(
       value.mergeCommit !== currentHead ||
       typeof value.candidateCommit !== "string" ||
       !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value.candidateCommit) ||
-      !validWorkspaceCandidateRequest(value.request)
+      !value.request ||
+      typeof value.request !== "object" ||
+      Array.isArray(value.request)
     )
       return false;
-    const request = value.request;
+    const request = value.request as Record<string, unknown>;
+    if (
+      typeof request.workspaceId !== "string" ||
+      !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
+        request.workspaceId,
+      ) ||
+      typeof request.operationId !== "string" ||
+      !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
+        request.operationId,
+      ) ||
+      typeof request.baseCommit !== "string" ||
+      !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(request.baseCommit)
+    )
+      return false;
     const target = value.target as Record<string, unknown> | null;
     return (
       request.workspaceId === queue.workspaceId &&
@@ -467,7 +481,14 @@ export function manageCoordinatorWorkspace(
       if (request.operation === "rename") {
         if (
           record.phase !== "ready" ||
-          !validWorkspaceDisplayName(request.name)
+          !inspectWorkspaceCommand({
+            operation: "rename",
+            projectId: request.projectId,
+            queueId: request.queueId,
+            workspaceId: request.workspaceId,
+            expectedGeneration: record.generation,
+            name: request.name,
+          })
         )
           throw new Error("orchestrator_workspace_name_invalid");
         save({
@@ -499,7 +520,21 @@ export function manageCoordinatorWorkspace(
               !isDeepStrictEqual(record.candidate.request, intent))
           )
             throw new Error("orchestrator_candidate_pending");
-          if (!validWorkspaceCandidateRequest(intent))
+          if (
+            !inspectWorkspaceCommand({
+              operation: "freeze",
+              projectId: request.projectId,
+              queueId: request.queueId,
+              workspaceId: request.workspaceId,
+              expectedGeneration: record.generation,
+              operationId: request.operationId,
+              baseCommit: request.baseCommit,
+              expectedHead: request.expectedHead,
+              selection: request.selection,
+              candidateName: request.candidateName,
+              relatedChangeIds: request.relatedChangeIds,
+            })
+          )
             throw new Error("orchestrator_candidate_input_invalid");
           if (record.head !== request.expectedHead || !request.authorize())
             throw new Error("orchestrator_candidate_not_authorized");
@@ -537,9 +572,12 @@ export function manageCoordinatorWorkspace(
           });
           if (!request.authorize())
             throw new Error("orchestrator_candidate_not_authorized");
+          const accepted = result.workspace?.candidate;
+          if (!accepted)
+            throw new Error("orchestrator_candidate_input_invalid");
           result.candidateResult = freezeWorkspaceCandidate(
             verified.capability,
-            intent,
+            accepted.request,
             previousCommit,
             previousResult?.temporary ?? null,
           );

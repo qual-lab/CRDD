@@ -13,10 +13,7 @@ import type {
   AiSelectionChoice,
 } from "../../../configuration-model/src/index.ts";
 import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
-import {
-  inspectExecutionSelection,
-  hashExecutionSelection,
-} from "../../../execution-model/src/index.ts";
+import { inspectExecutionSelection } from "../../../execution-model/src/index.ts";
 
 /**
  * 上位fixtureの完全選定をExecutor向けの技術値へ投影する。
@@ -54,6 +51,8 @@ export function preparationSelection(candidate: unknown) {
     selectionHash: hashExecutionSelection(candidate) ?? "invalid",
   };
 }
+
+import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 
 /**
  * 検査済み上位選定からExecutor用の五項目だけを作る。

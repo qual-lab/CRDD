@@ -263,8 +263,8 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
       JSON.parse(row("expired", referenceTime - 31 * DAY)),
     ];
     const payload = {
-      schema: "crdd-coordinator/project-snapshot/v6",
-      schemaRevision: 6,
+      schema: "crdd-execution-model/project-snapshot/v7",
+      schemaRevision: 7,
       workspaces: [],
       repositoryRootHash: owner.repositoryRootHash,
       repositoryBindingId: "binding-a",

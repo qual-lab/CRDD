@@ -13,7 +13,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
-import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
 import {
@@ -31,6 +30,8 @@ const fixedSelection = executionSelection("independent_reviewer", {
   model: "opus",
   effort: "low",
 });
+
+import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",

@@ -169,8 +169,8 @@ describe("Orchestrator design traceability", () => {
       {
         status: "accepted",
         interfaces: 9,
-        persistentRecords: 8,
-        resources: 12,
+        persistentRecords: 7,
+        resources: 11,
         locks: 4,
         authorities: 7,
         effects: 7,

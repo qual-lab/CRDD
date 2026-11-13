@@ -9,12 +9,13 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
+import type { Lock } from "../../../lock/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   getRepository,
   readRepositoryRevision,
 } from "../../../version-control/src/index.ts";
-import { readRecoveryState } from "../attempt/crud.ts";
+import { readOperationStateStage, readRecoveryState } from "../attempt/crud.ts";
 import type {
   ExecutionOperationRecord,
   OperationCheckpointRequest,
@@ -22,7 +23,11 @@ import type {
   RepairSaveRequest,
   RepairWritePurpose,
 } from "../attempt/types.ts";
-import { areTaskResourcesSettled } from "../attempt/validation.ts";
+import {
+  areTaskResourcesSettled,
+  isRepairCheckpointSettled,
+  isRepairDisposalSettled,
+} from "../attempt/validation.ts";
 import {
   decodeHistoryRows,
   prepareHistoryRetention,
@@ -75,7 +80,6 @@ import {
   observeRepositoryExecutionDataArea,
   pathConfirmedAbsent,
   readExecutionStateFile,
-  readOperationStateStage,
   readSnapshot,
   readSnapshotOwned,
   readStableFileSnapshot,
@@ -86,8 +90,6 @@ import {
 } from "../storage/store.ts";
 import type { ProjectTaskResultFact } from "../task/types.ts";
 import {
-  getConsumerCompletionPolicy,
-  hasProjectTaskResultAcceptanceConflict,
   prepareUnifiedTaskSections,
   projectTaskSnapshot,
   validState,
@@ -108,6 +110,7 @@ import type {
   SnapshotObservations,
   StateVersion,
 } from "./types.ts";
+import { LOCAL_EMAIL_PREFIX } from "./types.ts";
 import {
   assertSnapshotTransition,
   authenticationUnknownAbsenceChanged,
@@ -117,6 +120,8 @@ import {
   encodeStateValue,
   hashExecutionProjectDefinition,
   isSha256Hex,
+  leaseAcquisitionRecoveryId,
+  leaseIdentity,
   PROJECT_SNAPSHOT_SCHEMA,
   prepareAuthenticationUnknownClosureSnapshot,
   prepareLeaseAcquisitionConfirmation,
@@ -146,10 +151,10 @@ import {
   prepareStateRepairSnapshot,
   prepareStateResourceSnapshot,
   prepareStateRestartSnapshot,
-  prepareStateResultDeliverySnapshot,
   projectCurrentState,
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
+  projectTaskSettlement,
   snapshotIntakeMatches,
   snapshotStateArray,
   snapshotStateRecord,
@@ -166,6 +171,238 @@ import {
  * @responsibility 受付世代、保存比較交換、排他意図・根拠、終了整理と再入場を同じ保存Ownerへ結合する。
  * @trace ARCH-000004
  */
+
+/**
+ * 明示メールからローカル主体IDを構築する。
+ * @responsibility 同じ入力検査とprefixを使い、本人認証・正規化・OS探索を行わない。
+ * @trace ARCH-000008
+ * @input email: 入口が明示したローカル利用者のメール。
+ * @returns 同じメールを保持する主体ID、又は入力不正のnull。
+ * @precondition 主体を決める入口がメールを明示する。
+ * @postcondition メール本文をHash化・正規化・補完しない。
+ * @effect N/A: 同期の値構築だけ。
+ * @failure 型・形式不正はnull。別主体へfallbackしない。
+ * @invariant 保存やOSから主体を勝手に解決しない。
+ * @boundary ローカル主体の値契約。AM認証の証明ではない。
+ * @security IDの構築を認証・認可の証明にしない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+export function createLocalPrincipalId(email: unknown): string | null {
+  if (
+    typeof email !== "string" ||
+    email.length > 254 ||
+    !/^[^\s@<>\\\u0000-\u001f\u007f]+@[^\s@<>\\\u0000-\u001f\u007f]+$/u.test(
+      email,
+    )
+  )
+    return null;
+  return `${LOCAL_EMAIL_PREFIX}${email}`;
+}
+
+/**
+ * 出版済みStateの本文を保全し、残る出版markerの除去まで確認する。
+ * @responsibility Taskや受領の根拠を使わず、同じ保存本文を保全して短命markerだけを除去する。
+ * @trace ARCH-000008
+ * @input rootCapability: 明示検証済みの現在Repository Root。
+ * @returns markerの処置・不存在、保存内容保全と排他解放の個別確認。
+ * @precondition 正規currentが既に出版済みで、pendingや未知Fileが存在しない。
+ * @postcondition Task結果・履歴・配送・実行Authorityを生成せず、処置不明を完了にしない。
+ * @effect 既存Kernel排他、固定三Fileの読取りとexact state.lockへのunlink一回だけ。
+ * @failure 不正・置換・観測不能は停止し、unlinkや解放の例外を自動再試行しない。
+ * @invariant 通常ReaderやTask Writerの成立条件を緩めない。
+ * @boundary 現在Repositoryの保存領域と短命出版marker。
+ * @security 任意Path・Task ID・Consumer・成功値を入力に受け取らない。
+ * @concurrency 既存短期排他と前後の実体・全文照合を使い、非協調Processとの原子性を主張しない。
+ */
+export function completeStatePublication(rootCapability: unknown) {
+  let markerRemoved = false,
+    markerAbsentConfirmed = false,
+    storageConfirmed = false,
+    filesystemEffectIssued = false,
+    lockReleased = true;
+  let reason = "coordinator_state_marker_cleanup_unconfirmed";
+  const repository = observeExecutionRecoveryRepository(rootCapability);
+  let lock: Lock | null = null;
+  try {
+    if (!repository) throw new Error("root");
+    lockReleased = false;
+    const acquisition = acquireExecutionStateLock(
+      repository.repositoryBinding,
+      repository.repositoryRoot,
+    );
+    if (acquisition.status !== "acquired") {
+      reason = storageLockFailure(acquisition).reason;
+      throw new Error(reason);
+    }
+    lock = acquisition.lock;
+    let boundary: string | null = null;
+    let originalNames: string[] = [];
+    const original = new Map<
+      string,
+      ReturnType<typeof readStableFileSnapshot>
+    >();
+    // 取得、処置直前、処置後の三観測。同じ本文でも別実体は拒否する。
+    for (let pass = 0; pass < 3; pass++) {
+      if (!repository.revalidate() || !lock.assertLive())
+        throw new Error("owner");
+      const verified = getRepository(repository.repositoryRoot);
+      if (verified.status !== "completed") throw new Error("root");
+      const area = observeRepositoryExecutionDataArea(
+        verified.capability,
+        "domain-model",
+      );
+      if (
+        area.status !== "ready" ||
+        area.repositoryRoot !== repository.repositoryRoot ||
+        (boundary !== null && area.boundaryIdentity !== boundary)
+      )
+        throw new Error("area");
+      boundary = area.boundaryIdentity;
+      const names = fs.readdirSync(area.directory).sort();
+      if (
+        !names.includes("state.json") ||
+        names.some(
+          (name) =>
+            !["state.json", "history.jsonl", "state.lock"].includes(name),
+        )
+      )
+        throw new Error("pending_or_unknown");
+      if (pass === 0) originalNames = names;
+      else {
+        const expected =
+          pass === 2
+            ? originalNames.filter((name) => name !== "state.lock")
+            : originalNames;
+        if (JSON.stringify(names) !== JSON.stringify(expected))
+          throw new Error("names_changed");
+      }
+      for (const name of names) {
+        const file = path.join(area.directory, name);
+        const metadata = fs.lstatSync(file, { bigint: true });
+        if (
+          !metadata.isFile() ||
+          metadata.isSymbolicLink() ||
+          metadata.nlink !== 1n
+        )
+          throw new Error("file");
+        const observed = readStableFileSnapshot(file);
+        const final = fs.lstatSync(file, { bigint: true });
+        if (
+          final.nlink !== 1n ||
+          !sameStableFileIdentity(observed.identity, final)
+        )
+          throw new Error("file_changed");
+        if (
+          (name === "state.json" &&
+            !decodeStateSnapshot(
+              observed.bytes,
+              repository.repositoryBinding,
+            )) ||
+          (name === "history.jsonl" && !decodeHistoryRows(observed.bytes)) ||
+          (name === "state.lock" &&
+            !observed.bytes.equals(
+              Buffer.from(
+                `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
+              ),
+            ))
+        )
+          throw new Error("content");
+        if (pass === 0) original.set(name, observed);
+        else {
+          const before = original.get(name);
+          if (
+            !before ||
+            !sameStableFileIdentity(before.identity, observed.identity) ||
+            !before.bytes.equals(observed.bytes)
+          )
+            throw new Error("changed");
+        }
+      }
+      if (
+        !repository.revalidate() ||
+        !lock.assertLive() ||
+        JSON.stringify(fs.readdirSync(area.directory).sort()) !==
+          JSON.stringify(names)
+      )
+        throw new Error("changed");
+      const currentArea = observeRepositoryExecutionDataArea(
+        verified.capability,
+        "domain-model",
+      );
+      if (
+        currentArea.status !== "ready" ||
+        currentArea.directory !== area.directory ||
+        currentArea.boundaryIdentity !== boundary
+      )
+        throw new Error("area_changed");
+      for (const name of names) {
+        const file = path.join(area.directory, name);
+        const current = readStableFileSnapshot(file);
+        const before = original.get(name);
+        if (
+          !before ||
+          fs.lstatSync(file, { bigint: true }).nlink !== 1n ||
+          !sameStableFileIdentity(before.identity, current.identity) ||
+          !before.bytes.equals(current.bytes)
+        )
+          throw new Error("changed_before_effect");
+      }
+      if (pass === 1 && names.includes("state.lock")) {
+        const marker = path.join(area.directory, "state.lock");
+        filesystemEffectIssued = true;
+        try {
+          fs.unlinkSync(marker);
+          markerRemoved = true;
+        } catch {
+          try {
+            fs.lstatSync(marker);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+              markerRemoved = true;
+              markerAbsentConfirmed = true;
+            }
+          }
+          throw new Error("unlink_unconfirmed");
+        }
+      }
+      if (pass === 2) {
+        markerAbsentConfirmed = true;
+        storageConfirmed = true;
+      }
+    }
+    reason = markerRemoved
+      ? "coordinator_state_marker_cleanup_confirmed"
+      : "coordinator_state_marker_absent";
+  } catch {
+    // 一次失敗と、既に確認できた処置事実を保持する。
+  } finally {
+    if (lock) {
+      try {
+        lockReleased = lock.release();
+      } catch {
+        lockReleased = false;
+      }
+    }
+  }
+  return Object.freeze({
+    status:
+      storageConfirmed && markerAbsentConfirmed && lockReleased
+        ? ("completed" as const)
+        : ("blocked" as const),
+    reason:
+      storageConfirmed && !lockReleased
+        ? "coordinator_state_lock_release_unconfirmed"
+        : reason,
+    markerRemoved,
+    markerAbsentConfirmed,
+    storageConfirmed,
+    filesystemEffectIssued,
+    lockReleased,
+    cleanupReason: lockReleased
+      ? null
+      : "coordinator_state_lock_release_unconfirmed",
+  });
+}
 
 /**
  * 同じ短期保存Ownerへ現在観測を束縛する。
@@ -281,6 +518,9 @@ export function writeSnapshotState(
     const parsed: unknown = JSON.parse(stateJson);
     if (!validState(parsed) || parsed.generation !== expectedGeneration + 1)
       throw new Error("snapshot_state_input_invalid");
+    Object.freeze(parsed.taskExecutionSelections.executor);
+    Object.freeze(parsed.taskExecutionSelections.reviewer);
+    Object.freeze(parsed.taskExecutionSelections);
     state = parsed;
   } catch {
     return blocked("orchestrator_state_generation_mismatch");
@@ -298,50 +538,56 @@ export function writeSnapshotState(
     else {
       const current = observed.value;
       if (intake && !snapshotIntakeMatches(current, intake))
-        throw new Error("orchestrator_intake_epoch_retired");
-      const previous = current.projects.find(
-        (item) => item.projectId === state.projectId,
-      );
-      if (
-        previous?.generation === expectedGeneration + 1 &&
-        encodeStateValue(previous) === encodeStateValue(state)
-      ) {
-        const saved = writeSnapshotOwned(
-          lock,
-          binding,
-          encodeStateValue(current),
-          current.snapshotRevision - 1,
-          resultFacts.map((fact) => ({ ...fact, projectId: state.projectId })),
-        );
-        outcome =
-          saved.status === "completed"
-            ? completed("orchestrator_state_durable", previous)
-            : saved;
-      } else if ((previous?.generation ?? 0) !== expectedGeneration)
-        outcome = blocked("orchestrator_state_generation_conflict");
-      else if (hasProjectTaskResultAcceptanceConflict(previous, state))
-        outcome = blocked("orchestrator_result_acceptance_conflict");
+        outcome = blocked("orchestrator_intake_epoch_retired");
       else {
-        const projects = previous
-          ? current.projects.map((item) =>
-              item.projectId === state.projectId ? state : item,
-            )
-          : [...current.projects, state];
-        const saved = writeSnapshotOwned(
-          lock,
-          binding,
-          encodeStateValue({
-            ...current,
-            snapshotRevision: current.snapshotRevision + 1,
-            projects,
-          }),
-          current.snapshotRevision,
-          resultFacts.map((fact) => ({ ...fact, projectId: state.projectId })),
+        const previous = current.projects.find(
+          (item) => item.projectId === state.projectId,
         );
-        outcome =
-          saved.status === "completed"
-            ? completed("orchestrator_state_durable", state)
-            : saved;
+        if (
+          previous?.generation === expectedGeneration + 1 &&
+          encodeStateValue(previous) === encodeStateValue(state)
+        ) {
+          const saved = writeSnapshotOwned(
+            lock,
+            binding,
+            encodeStateValue(current),
+            current.snapshotRevision - 1,
+            resultFacts.map((fact) => ({
+              ...fact,
+              projectId: state.projectId,
+            })),
+          );
+          outcome =
+            saved.status === "completed"
+              ? completed("orchestrator_state_durable", previous)
+              : saved;
+        } else if ((previous?.generation ?? 0) !== expectedGeneration)
+          outcome = blocked("orchestrator_state_generation_conflict");
+        else {
+          const projects = previous
+            ? current.projects.map((item) =>
+                item.projectId === state.projectId ? state : item,
+              )
+            : [...current.projects, state];
+          const saved = writeSnapshotOwned(
+            lock,
+            binding,
+            encodeStateValue({
+              ...current,
+              snapshotRevision: current.snapshotRevision + 1,
+              projects,
+            }),
+            current.snapshotRevision,
+            resultFacts.map((fact) => ({
+              ...fact,
+              projectId: state.projectId,
+            })),
+          );
+          outcome =
+            saved.status === "completed"
+              ? completed("orchestrator_state_durable", state)
+              : saved;
+        }
       }
     }
   } catch (error) {
@@ -746,19 +992,6 @@ const settlements = new WeakMap<
       used: boolean;
     }
   | {
-      kind: "current_delivery";
-      repository: StorageRepository & { operationId: string };
-      recoveryId: string;
-      before: Buffer;
-      candidate: Buffer;
-      historyFile: Readonly<{
-        bytes: Buffer;
-        identity: StableFileIdentity;
-      }> | null;
-      assertOwner: (expectedHistoryRetentionDays?: number) => boolean;
-      used: boolean;
-    }
-  | {
       kind: "current_history";
       operationKind: "docker_task" | "runtime_repair";
       repository: StorageRepository & { operationId: string };
@@ -825,44 +1058,8 @@ export function advanceCurrentHistory(
       null,
       recoveryId,
       null,
-      null,
       operationKind,
     );
-    if (
-      operationKind === "docker_task" &&
-      observed.status !== "completed" &&
-      observed.lockReleased
-    ) {
-      const delivery = readStateSnapshot(
-        repository,
-        recoveryId,
-        null,
-        null,
-        recoveryId,
-      );
-      if (
-        delivery.status === "completed" &&
-        delivery.value &&
-        delivery.lockReleased &&
-        delivery.currentDeliveryPublication &&
-        assertOwner() === true
-      )
-        return Object.freeze({
-          status: "completed" as const,
-          reason: "coordinator_state_snapshot_confirmed",
-          revision: delivery.value.snapshot.revision,
-          payloadSha256: delivery.value.payloadSha256,
-          snapshotConfirmed: true,
-          lockReleased: true,
-          filesystemEffectIssued: false,
-          historyConfirmed: true,
-        });
-      return Object.freeze({
-        ...refused(),
-        reason: delivery.reason,
-        lockReleased: delivery.lockReleased,
-      });
-    }
     const publication = observed.currentHistoryPublication;
     if (
       observed.status !== "completed" ||
@@ -947,117 +1144,6 @@ export function advanceCurrentHistory(
   }
 }
 
-/**
- * 保存済み利用形態から必要な耐久配送だけを登録する。
- * @responsibility 現在回収Ownerとexact登録候補を既存Writerへ短命に結合する。
- * @trace ARCH-000008
- * @input repository、recoveryId: 固定回収対象。assertOwner: 同じ解放済みOwnerの同期確認。
- * @returns 保存確認、排他解放、EffectとCoordinator配送待ちを分けた結果。
- * @precondition 資源・Host終端と履歴確認済みで旧OwnerのEffectは無効。
- * @postcondition CLI／Workbenchの操作は除去せず、耐久ACKを合成しない。
- * @effect 同じstate.jsonと既存短命保存物だけ。履歴の更新は行わない。
- * @failure 元版・候補・履歴実体・Owner不一致は後続保存を停止する。
- * @invariant 必要な利用側は保存Identityだけから導出する。
- * @boundary 現在回収と結果配送のRepository-local保存。
- * @security Callerから利用側、結果本文、Path、受領Hashを受け取らない。
- * @concurrency 同じ短期Kernel排他と各I/O前のOwner確認を使う。
- */
-export function registerOwnedRecoveryResultDelivery(
-  repository: StorageRepository & { operationId: string },
-  recoveryId: string,
-  assertOwner: () => boolean,
-) {
-  const refused = Object.freeze({
-    ...writeStateSnapshot(null, null, null, null),
-    deliveryPending: false,
-  });
-  let context: object | null = null;
-  let active = true;
-  try {
-    if (typeof assertOwner !== "function" || assertOwner() !== true)
-      return refused;
-    const observed = readStateSnapshot(
-      repository,
-      recoveryId,
-      null,
-      null,
-      recoveryId,
-    );
-    const publication = observed.currentDeliveryPublication;
-    if (
-      observed.status !== "completed" ||
-      !observed.value ||
-      !observed.lockReleased ||
-      !publication ||
-      assertOwner() !== true
-    )
-      return Object.freeze({
-        ...refused,
-        reason: observed.reason,
-        lockReleased: observed.lockReleased,
-      });
-    if (!publication.needsWrite)
-      return Object.freeze({
-        status: "completed" as const,
-        reason: "coordinator_state_snapshot_confirmed",
-        revision: observed.value.snapshot.revision,
-        payloadSha256: observed.value.payloadSha256,
-        snapshotConfirmed: true,
-        lockReleased: true,
-        filesystemEffectIssued: false,
-        deliveryPending: publication.deliveryPending,
-      });
-    context = Object.freeze({});
-    const key = context;
-    const binding = {
-      kind: "current_delivery" as const,
-      repository,
-      recoveryId,
-      before: Buffer.from(publication.before),
-      candidate: Buffer.from(publication.candidate),
-      historyFile:
-        publication.historyFile === null
-          ? null
-          : {
-              bytes: Buffer.from(publication.historyFile.bytes),
-              identity: publication.historyFile.identity,
-            },
-      assertOwner: (expectedHistoryRetentionDays?: number) =>
-        active &&
-        settlements.get(key) === binding &&
-        binding.used &&
-        assertOwner() === true &&
-        repository.revalidate(expectedHistoryRetentionDays),
-      used: false,
-    };
-    settlements.set(key, binding);
-    const saved = writeStateSnapshot(
-      null,
-      { ...repository, revalidate: binding.assertOwner },
-      binding.candidate,
-      {
-        recoveryId,
-        cleanupStatus: null,
-        dockerTerminal: null,
-        currentDelivery: key,
-      },
-    );
-    return Object.freeze({
-      ...saved,
-      deliveryPending:
-        saved.status === "completed" &&
-        saved.snapshotConfirmed &&
-        saved.lockReleased &&
-        publication.deliveryPending,
-    });
-  } catch {
-    return refused;
-  } finally {
-    active = false;
-    if (context) settlements.delete(context);
-  }
-}
-
 const historyAttempts = new WeakMap<
   object,
   Map<
@@ -1104,6 +1190,84 @@ export function completeCurrentRecovery(
     if (typeof assertOwner !== "function" || assertOwner() !== true)
       return refused;
     const repository = observeExecutionRecoveryRepository(rootCapability);
+    if (operationKind === "docker_task") {
+      const current = readStateSnapshot(
+        repository,
+        null,
+        null,
+        null,
+        null,
+        "docker_task",
+        "docker_task",
+        false,
+        null,
+        null,
+        null,
+        false,
+        null,
+        true,
+      );
+      if (
+        current.status !== "completed" ||
+        !current.value ||
+        !current.lockReleased ||
+        assertOwner() !== true
+      )
+        return {
+          ...refused,
+          reason: current.reason,
+          lockReleased: current.lockReleased,
+        };
+      const related = current.value.snapshot.managedExecutions.some((p) =>
+        p.tasks.some(
+          (t) =>
+            t.settlement.kind === "operations" &&
+            t.settlement.recoveryIds.includes(String(recoveryId)),
+        ),
+      );
+      if (related) {
+        const terminal = projectTaskSettlement(
+          {
+            kind: "operations",
+            recoveryIds: [recoveryId],
+            resultUnresolved: false,
+          },
+          current.value.snapshot,
+        );
+        const operation = current.value.snapshot.operations.find(
+          (o) => o.recoveryId === recoveryId,
+        );
+        const line = prepareStateHistoryLine(
+          Buffer.from(encodeStateValue(current.value.snapshot) + "\n"),
+          recoveryId,
+          repository?.repositoryBinding,
+        );
+        if (
+          !terminal?.cleanupConfirmed ||
+          !operation?.history?.confirmed ||
+          !line ||
+          current.value.snapshot.unresolvedRecoveries.some(
+            (r) => r.recoveryId === recoveryId,
+          ) ||
+          !current.historyRows?.some(
+            (row) =>
+              row.recoveryId === recoveryId &&
+              Buffer.from(row.line).equals(line),
+          )
+        )
+          return refused;
+        return {
+          ...refused,
+          status: "completed" as const,
+          reason: "operation_terminal_recorded",
+          revision: current.value.snapshot.revision,
+          payloadSha256: current.value.payloadSha256,
+          snapshotConfirmed: true,
+          lockReleased: true,
+          operationRetained: true,
+        };
+      }
+    }
     const observed = readRecoveryState(rootCapability, {
       kind:
         operationKind === "runtime_repair"
@@ -1130,11 +1294,6 @@ export function completeCurrentRecovery(
     )
       return refused;
     const identity = JSON.parse(target.identityJson);
-    if (
-      operationKind === "docker_task" &&
-      getConsumerCompletionPolicy(identity.consumer) !== "transient"
-    )
-      return refused;
     context = Object.freeze({});
     const bound = Object.freeze({
       ...repository,
@@ -1304,8 +1463,6 @@ export function writeStorageTaskSnapshotOwned(
           repositoryBinding: issued.repositoryBinding,
           operations: [],
           unresolvedRecoveries: [],
-          pendingDeliveries: [],
-          resultReceipts: [],
           managedExecutions: [],
         })}\n`,
       );
@@ -1342,7 +1499,6 @@ export function writeStorageTaskSnapshotOwned(
       currentAuthenticationClosure: null,
       initializationOwner: owner,
       currentHistory: null,
-      currentDelivery: null,
       currentCompletion: null,
       attempt: {
         revision: candidate.snapshot.revision,
@@ -1457,10 +1613,7 @@ function prepareStateInitialization(
         JSON.parse(operation.identityJson).operationId !==
         repository.operationId,
     ) ||
-    [
-      ...candidate.snapshot.unresolvedRecoveries,
-      ...candidate.snapshot.pendingDeliveries,
-    ].some((item) => {
+    [...candidate.snapshot.unresolvedRecoveries].some((item) => {
       const operation = candidate.snapshot.operations.find(
         (value): value is ExecutionOperationRecord =>
           value.kind === "docker_task" && value.recoveryId === item.recoveryId,
@@ -1793,7 +1946,7 @@ export function resumeRepairPublication(
  * @responsibility 期待改訂を照合して内部で候補を構築し、呼出しOwner・exact対象・元版を私有Contextへ固定する。
  * @trace ARCH-000008
  * @input rootCapability: 検証Root、recoveryId: exact修復、request: 期待改訂と固定の論理更新、assertInvocation: 同じ呼出しの現在確認。
- * @returns 保存確認・解放・Effectを分け、共同成立した場合だけ確定改訂と対象操作を返す。
+ * @returns 保存確認・解放・Effectを分け、共同成立した場合だけ確定改訂・対象操作と同版のCheckpoint終端判定を返す。
  * @precondition 内部の明示介入compositionがDIの準備・通知と呼出し生存を結合済み。
  * @postcondition Task管理Capabilityを要求せず、対象以外を変更しない。
  * @effect 初回の固定領域作成と既存状態Writerだけ。
@@ -1814,6 +1967,8 @@ export function saveRepairState(
     value: null as Readonly<{
       version: StateVersion;
       operation: RepairOperationRecord;
+      checkpointSettled: boolean;
+      disposalSettled: boolean;
     }> | null,
   });
   let initializationEffectIssued = false;
@@ -2037,8 +2192,6 @@ export function saveRepairState(
         ) ||
       encodeStateValue(previous?.snapshot.unresolvedRecoveries ?? []) !==
         encodeStateValue(candidate.snapshot.unresolvedRecoveries) ||
-      encodeStateValue(previous?.snapshot.pendingDeliveries ?? []) !==
-        encodeStateValue(candidate.snapshot.pendingDeliveries) ||
       !validateRepairWriteCandidate(
         before,
         candidateBytes,
@@ -2096,6 +2249,10 @@ export function saveRepairState(
                 payloadSha256: candidate.payloadSha256,
               }),
               operation: target,
+              checkpointSettled: isRepairCheckpointSettled(target.checkpoint),
+              disposalSettled: isRepairDisposalSettled(
+                target.disposal?.checkpoint,
+              ),
             })
           : null,
       });
@@ -2151,6 +2308,10 @@ export function saveRepairState(
                   payloadSha256: candidate.payloadSha256,
                 }),
                 operation: target,
+                checkpointSettled: isRepairCheckpointSettled(target.checkpoint),
+                disposalSettled: isRepairDisposalSettled(
+                  target.disposal?.checkpoint,
+                ),
               })
             : null,
       });
@@ -2197,10 +2358,8 @@ function prepareStateWrite(
     historyInitial?: true;
     historyPublish?: true;
     currentHistory?: object;
-    currentDelivery?: object;
     currentCompletion?: object;
-    deliveryRegistration?: unknown;
-    consumer?: "coordinator_cli" | "orchestrator" | "workbench";
+    consumer?: string;
     completion?: { before: Buffer; candidate: Buffer };
     managementCapability?: unknown;
   } | null,
@@ -2227,11 +2386,6 @@ function prepareStateWrite(
     : null;
   const currentHistory =
     historyBinding?.kind === "current_history" ? historyBinding : null;
-  const deliveryBinding = settlement?.currentDelivery
-    ? settlements.get(settlement.currentDelivery)
-    : null;
-  const currentDelivery =
-    deliveryBinding?.kind === "current_delivery" ? deliveryBinding : null;
   const completionBinding = settlement?.currentCompletion
     ? settlements.get(settlement.currentCompletion)
     : null;
@@ -2261,13 +2415,10 @@ function prepareStateWrite(
         currentAuthenticationClosure?.used ||
         settlement !== null)) ||
     (settlement?.currentHistory && (!currentHistory || currentHistory.used)) ||
-    (settlement?.currentDelivery &&
-      (!currentDelivery || currentDelivery.used)) ||
     (settlement?.currentCompletion &&
       (!currentCompletion || currentCompletion.used)) ||
-    [currentHistory, currentDelivery, currentCompletion].filter(
-      (value) => value !== null,
-    ).length > 1
+    [currentHistory, currentCompletion].filter((value) => value !== null)
+      .length > 1
   )
     return Object.freeze({
       ...attempt,
@@ -2294,7 +2445,6 @@ function prepareStateWrite(
     // 主Kernel内で必ず再検査する。一般入口だけは通常Readerを用いる。
     const fixedPairs = [
       currentHistory,
-      currentDelivery,
       currentCompletion,
       currentRepair,
       settlement?.completion,
@@ -2357,7 +2507,6 @@ function prepareStateWrite(
     currentAuthenticationClosure,
     initializationOwner,
     currentHistory,
-    currentDelivery,
     currentCompletion,
     attempt,
     storageOwner,
@@ -2409,14 +2558,12 @@ function commitStateSnapshotOwned(
     currentAuthenticationClosure,
     initializationOwner,
     currentHistory,
-    currentDelivery,
     currentCompletion,
     taskPublication,
     corePublication,
     lock,
   } = prepared;
   if (currentHistory) currentHistory.used = true;
-  if (currentDelivery) currentDelivery.used = true;
   if (currentCompletion) currentCompletion.used = true;
   if (currentRepair) currentRepair.used = true;
   if (currentAuthenticationClosure) currentAuthenticationClosure.used = true;
@@ -2696,8 +2843,6 @@ function commitStateSnapshotOwned(
           ) ||
         encodeStateValue(current?.snapshot.unresolvedRecoveries ?? []) !==
           encodeStateValue(candidate.snapshot.unresolvedRecoveries) ||
-        encodeStateValue(current?.snapshot.pendingDeliveries ?? []) !==
-          encodeStateValue(candidate.snapshot.pendingDeliveries) ||
         currentRepair.assertOwner() !== true
       )
         throw new Error("repair_writer_scope_invalid");
@@ -2715,7 +2860,6 @@ function commitStateSnapshotOwned(
         settlement ||
         currentRepair ||
         currentHistory ||
-        currentDelivery ||
         currentCompletion ||
         !currentBytes?.equals(corePublication.before) ||
         expected.status !== "prepared" ||
@@ -2751,8 +2895,7 @@ function commitStateSnapshotOwned(
               taskPublication.initialBoundary !== initial.boundaryIdentity ||
               candidate.snapshot.operations.length !== 0 ||
               candidate.snapshot.projects.length !== 0 ||
-              candidate.snapshot.queueEntries.length !== 0 ||
-              candidate.snapshot.resultReceipts.length !== 0
+              candidate.snapshot.queueEntries.length !== 0
             : !currentBytes?.equals(taskPublication.before))) ||
         (!same &&
           !validateUnifiedTransition(
@@ -2794,17 +2937,17 @@ function commitStateSnapshotOwned(
         )
           throw new Error("task_result_fact_invalid");
       }
-      for (const receipt of candidate.snapshot.resultReceipts) {
+      for (const operation of current?.snapshot.operations ?? []) {
         if (
-          current?.snapshot.resultReceipts.some(
-            (r) => r.recoveryId === receipt.recoveryId,
+          candidate.snapshot.operations.some(
+            (o) => o.recoveryId === operation.recoveryId,
           )
         )
           continue;
         const line = currentBytes
           ? prepareStateHistoryLine(
               currentBytes,
-              receipt.recoveryId,
+              operation.recoveryId,
               repository.repositoryBinding,
             )
           : null;
@@ -2815,11 +2958,11 @@ function commitStateSnapshotOwned(
           !line ||
           !rows?.some(
             (row) =>
-              row.recoveryId === receipt.recoveryId &&
+              row.recoveryId === operation.recoveryId &&
               Buffer.from(row.line).equals(line),
           )
         )
-          throw new Error("task_receipt_history_unconfirmed");
+          throw new Error("task_operation_history_unconfirmed");
       }
       completionConfirmed = true;
       savedTerminalConfirmed = true;
@@ -2841,11 +2984,9 @@ function commitStateSnapshotOwned(
         !bytes.equals(currentCompletion.candidate) ||
         currentCompletion.assertOwner() !== true ||
         settlement.currentHistory ||
-        settlement.currentDelivery ||
         settlement.completion ||
         settlement.historyInitial ||
         settlement.historyPublish ||
-        settlement.deliveryRegistration !== undefined ||
         settlement.managementCapability ||
         settlement.cleanupStatus !== null ||
         settlement.dockerTerminal !== null ||
@@ -2881,8 +3022,6 @@ function commitStateSnapshotOwned(
       if (
         !operation?.history?.confirmed ||
         identity?.operationId !== repository.operationId ||
-        (currentCompletion.operationKind === "docker_task" &&
-          getConsumerCompletionPolicy(identity.consumer) !== "transient") ||
         !expected?.equals(bytes) ||
         !line ||
         !rows ||
@@ -2895,84 +3034,6 @@ function commitStateSnapshotOwned(
       )
         throw new Error("current_completion_candidate_invalid");
       completionConfirmed = true;
-      savedTerminalConfirmed = true;
-    } else if (currentDelivery) {
-      const history = read("history.jsonl"),
-        identity = fileIdentities.get("history.jsonl") ?? null;
-      const expectedHistory = currentDelivery.historyFile;
-      if (
-        (expectedHistory === null
-          ? history !== null
-          : !history ||
-            !identity ||
-            !history.equals(expectedHistory.bytes) ||
-            !sameStableFileIdentity(expectedHistory.identity, identity)) ||
-        currentDelivery.repository.repositoryRoot !==
-          repository.repositoryRoot ||
-        currentDelivery.repository.repositoryBinding !==
-          repository.repositoryBinding ||
-        currentDelivery.repository.operationId !== repository.operationId ||
-        currentDelivery.recoveryId !== settlement?.recoveryId ||
-        !currentBytes?.equals(currentDelivery.before) ||
-        !bytes.equals(currentDelivery.candidate) ||
-        !current ||
-        currentDelivery.assertOwner() !== true ||
-        settlement.currentHistory ||
-        settlement.completion ||
-        settlement.historyInitial ||
-        settlement.historyPublish ||
-        settlement.deliveryRegistration !== undefined ||
-        settlement.managementCapability ||
-        settlement.cleanupStatus !== null ||
-        settlement.dockerTerminal !== null ||
-        read("history.pending.jsonl") !== null
-      )
-        throw new Error("current_delivery_scope_invalid");
-      const operation = current.snapshot.operations.find(
-        (item): item is ExecutionOperationRecord =>
-          item.kind === "docker_task" &&
-          item.recoveryId === settlement.recoveryId,
-      );
-      const sourceIdentity = operation
-        ? JSON.parse(operation.identityJson)
-        : null;
-      const line = prepareStateHistoryLine(
-        currentBytes,
-        settlement.recoveryId,
-        repository.repositoryBinding,
-      );
-      const rows = decodeHistoryRows(history ?? Buffer.alloc(0));
-      const row = rows?.find(
-        (item) => item.recoveryId === settlement.recoveryId,
-      );
-      const expected = prepareStateResultDeliverySnapshot(
-        currentBytes,
-        settlement.recoveryId,
-        ["orchestrator"],
-        repository.repositoryBinding,
-      );
-      if (
-        !operation?.history?.confirmed ||
-        sourceIdentity?.consumer !== "orchestrator" ||
-        sourceIdentity.operationId !== repository.operationId ||
-        !line ||
-        !rows ||
-        createHash("sha256").update(line).digest("hex") !==
-          operation.history.lineSha256 ||
-        (row && !Buffer.from(row.line).equals(line)) ||
-        current.snapshot.resultReceipts.some(
-          (item) => item.recoveryId === settlement.recoveryId,
-        ) ||
-        !expected?.equals(bytes) ||
-        (read("state.pending.json") !== null && oldMarker === null) ||
-        currentDelivery.assertOwner() !== true
-      )
-        throw new Error("current_delivery_candidate_invalid");
-      if (
-        read("state.pending.json") !== null &&
-        expected?.equals(currentBytes ?? Buffer.alloc(0))
-      )
-        throw new Error("current_delivery_already_published_pending");
       savedTerminalConfirmed = true;
     } else if (currentHistory) {
       for (const [name, expected] of [
@@ -3004,7 +3065,6 @@ function commitStateSnapshotOwned(
         settlement.completion ||
         settlement.historyInitial ||
         settlement.historyPublish ||
-        settlement.deliveryRegistration !== undefined ||
         settlement.managementCapability ||
         currentHistory.assertOwner() !== true ||
         !currentBytes?.equals(currentHistory.before) ||
@@ -3114,15 +3174,9 @@ function commitStateSnapshotOwned(
         settlement.recoveryId,
         repository.repositoryBinding,
       );
-      const savedConsumer = previous
-        ? JSON.parse(previous.identityJson).consumer
-        : null;
-      const completionPolicy = getConsumerCompletionPolicy(savedConsumer);
       if (
         !before ||
         !previous ||
-        !completionPolicy ||
-        savedConsumer !== settlement.consumer ||
         JSON.parse(previous.identityJson).operationId !==
           repository.operationId ||
         !expected?.equals(bytes) ||
@@ -3135,15 +3189,8 @@ function commitStateSnapshotOwned(
         !settlement.dockerTerminal?.homeLeaseReleased ||
         !settlement.dockerTerminal.mountLeaseReleased ||
         !settlement.dockerTerminal.recoveryCompleted ||
-        completionPolicy !== "transient" ||
-        settlement.deliveryRegistration !== undefined ||
         settlement.historyInitial ||
-        settlement.historyPublish ||
-        before.snapshot.pendingDeliveries.some(
-          (delivery) =>
-            delivery.recoveryId === settlement.recoveryId &&
-            delivery.consumer !== "orchestrator",
-        )
+        settlement.historyPublish
       )
         throw new Error("completion_scope_unconfirmed");
       const observed = prepareStateCleanupSnapshot(
@@ -3195,10 +3242,9 @@ function commitStateSnapshotOwned(
     historyAlreadyConfirmed =
       settlement?.historyPublish === true &&
       currentBytes?.equals(bytes) === true &&
-      ![
-        ...(current?.snapshot.pendingDeliveries ?? []),
-        ...(current?.snapshot.unresolvedRecoveries ?? []),
-      ].some((item) => item.recoveryId === settlement.recoveryId) &&
+      ![...(current?.snapshot.unresolvedRecoveries ?? [])].some(
+        (item) => item.recoveryId === settlement.recoveryId,
+      ) &&
       current?.snapshot.operations.some(
         (operation) =>
           operation.recoveryId === settlement.recoveryId &&
@@ -3294,14 +3340,7 @@ function commitStateSnapshotOwned(
         (currentBytes === null && !isInitialRoot))
     )
       throw new Error("transition");
-    if (
-      !taskPublication &&
-      settlement?.deliveryRegistration === undefined &&
-      !currentDelivery &&
-      encodeStateValue(current?.snapshot.pendingDeliveries ?? []) !==
-        encodeStateValue(candidate.snapshot.pendingDeliveries)
-    )
-      throw new Error("delivery_owner_required");
+
     if (settlement && !savedTerminalConfirmed) {
       if (!current) throw new Error("settlement_current_missing");
       if (
@@ -3310,22 +3349,9 @@ function commitStateSnapshotOwned(
           current.snapshot.operations.length !==
             candidate.snapshot.operations.length ||
           encodeStateValue(current.snapshot.unresolvedRecoveries) !==
-            encodeStateValue(candidate.snapshot.unresolvedRecoveries) ||
-          (settlement.deliveryRegistration === undefined &&
-            current.snapshot.pendingDeliveries.length !==
-              candidate.snapshot.pendingDeliveries.length))
+            encodeStateValue(candidate.snapshot.unresolvedRecoveries))
       )
         throw new Error("settlement_scope");
-      if (settlement.deliveryRegistration !== undefined) {
-        const expected = prepareStateResultDeliverySnapshot(
-          currentBytes,
-          settlement.recoveryId,
-          settlement.deliveryRegistration,
-          repository.repositoryBinding,
-        );
-        if (!expected?.equals(bytes))
-          throw new Error("settlement_result_registration_invalid");
-      }
       for (const previous of current.snapshot.operations) {
         if (previous.kind !== "docker_task") {
           const retained = candidate.snapshot.operations.find(
@@ -3418,24 +3444,6 @@ function commitStateSnapshotOwned(
             !areTaskResourcesSettled(next))
         )
           throw new Error("settlement_cleanup_unconfirmed");
-      }
-      for (const previous of current.snapshot.pendingDeliveries) {
-        if (
-          completionConfirmed &&
-          previous.recoveryId === settlement.recoveryId
-        )
-          continue;
-        const next = candidate.snapshot.pendingDeliveries.find(
-          (value) =>
-            value.recoveryId === previous.recoveryId &&
-            value.consumer === previous.consumer,
-        );
-        if (
-          !next ||
-          (previous.recoveryId !== settlement.recoveryId &&
-            encodeStateValue(previous) !== encodeStateValue(next))
-        )
-          throw new Error("settlement_delivery");
       }
     }
     // 保存対象を変更する操作だけを現在のOwnerへ結合する。
@@ -3550,18 +3558,10 @@ function commitStateSnapshotOwned(
       )
         throw new Error("operation_owner");
     }
-    for (const collection of [
-      "unresolvedRecoveries",
-      "pendingDeliveries",
-    ] as const) {
+    for (const collection of ["unresolvedRecoveries"] as const) {
       for (const item of candidate.snapshot[collection]) {
         const previous = current?.snapshot[collection].find(
-          (value) =>
-            value.operationNonce === item.operationNonce &&
-            (collection !== "pendingDeliveries" ||
-              ("consumer" in value &&
-                "consumer" in item &&
-                value.consumer === item.consumer)),
+          (value) => value.operationNonce === item.operationNonce,
         );
         if (
           !previous ||
@@ -3897,15 +3897,6 @@ function commitStateSnapshotOwned(
       )
         throw new Error("history_final_readback_unconfirmed");
     }
-    if (currentDelivery) {
-      const history = read("history.jsonl");
-      if (
-        currentDelivery.historyFile === null
-          ? history !== null
-          : !history?.equals(currentDelivery.historyFile.bytes)
-      )
-        throw new Error("current_delivery_history_changed");
-    }
     if (currentCompletion) {
       const history = read("history.jsonl");
       if (
@@ -4100,12 +4091,7 @@ export function saveOperationCheckpoint(
   if (!next) return blocked;
   if (kind === "references") {
     const candidate = decodeStateSnapshot(next, repository.repositoryBinding);
-    if (
-      !candidate ||
-      encodeStateValue(candidate.snapshot.pendingDeliveries) !==
-        encodeStateValue(current.value.snapshot.pendingDeliveries)
-    )
-      return blocked;
+    if (!candidate) return blocked;
   }
   return writeOwnedStateSnapshot(managementCapability, next);
 }
@@ -4167,6 +4153,7 @@ export function readProjectExecutionState(
 }
 /** 複合取得で許可する保存区画。技術記録・Owner・生Snapshotは含めない。 */
 type StateReadViews = {
+  intake: Pick<Snapshot, "intakeEpoch">;
   execution: Pick<
     Snapshot,
     "projects" | "queueEntries" | "intakeEpoch" | "schemaRevision"
@@ -4179,9 +4166,9 @@ type StateReadViews = {
 
 /**
  * 同じ保存版から指定したモデル間の関連情報を取得する。
- * @responsibility 固定二範囲のfieldだけを構築し、モデル単体CRUDと複合取得を分離する。
+ * @responsibility 固定viewのfieldだけを構築し、モデル単体CRUDと複合取得を分離する。
  * @trace ARCH-000008
- * @input workingDirectory、binding: 現在Repositoryと結合。scope: execution又はworkspace。
+ * @input workingDirectory、binding: 現在Repositoryと結合。scope: intake、execution又はworkspace。
  * @returns 元の保存結果と範囲限定の値、又は明示不存在。
  * @precondition 呼出し側が同じRepositoryの操作認可を確認する。
  * @postcondition 生Snapshot・技術記録・Owner・任意field選択を公開しない。
@@ -4199,27 +4186,32 @@ export function readState<K extends keyof StateReadViews>(
 ): StoreResult<StateReadViews[K] | null> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked("orchestrator_repository_root_invalid");
-  if (scope !== "execution" && scope !== "workspace")
+  if (scope !== "intake" && scope !== "execution" && scope !== "workspace")
     return blocked("orchestrator_state_read_scope_invalid");
-  const result = readSnapshot(workingDirectory, binding);
+  const result =
+    scope === "intake"
+      ? readSnapshot(workingDirectory, binding, true)
+      : readSnapshot(workingDirectory, binding);
   if (result.status !== "completed") return result;
   if (result.value === null) return completed(result.reason, null);
   const current = result.value;
   const value =
-    scope === "execution"
-      ? {
-          projects: current.projects,
-          queueEntries: current.queueEntries,
-          intakeEpoch: current.intakeEpoch,
-          schemaRevision: current.schemaRevision,
-        }
-      : {
-          projects: current.projects,
-          queueEntries: current.queueEntries,
-          results: current.results,
-          workspaces: current.workspaces,
-          snapshotRevision: current.snapshotRevision,
-        };
+    scope === "intake"
+      ? { intakeEpoch: current.intakeEpoch }
+      : scope === "execution"
+        ? {
+            projects: current.projects,
+            queueEntries: current.queueEntries,
+            intakeEpoch: current.intakeEpoch,
+            schemaRevision: current.schemaRevision,
+          }
+        : {
+            projects: current.projects,
+            queueEntries: current.queueEntries,
+            results: current.results,
+            workspaces: current.workspaces,
+            snapshotRevision: current.snapshotRevision,
+          };
   return completed(result.reason, value as StateReadViews[K]);
 }
 
@@ -4357,7 +4349,6 @@ export function saveExecutionDefinition<
             currentAuthenticationClosure: null,
             initializationOwner: owner,
             currentHistory: null,
-            currentDelivery: null,
             currentCompletion: null,
             attempt: {
               revision: decoded.snapshot.revision,
@@ -4481,7 +4472,7 @@ function initializeExecutionSnapshotOwned(
     const revision = observed.value?.snapshot.revision ?? 0;
     const payload: Snapshot = {
       schema: PROJECT_SNAPSHOT_SCHEMA,
-      schemaRevision: 6,
+      schemaRevision: 7,
       repositoryRootHash: owner.repositoryRootHash,
       repositoryBindingId: binding,
       snapshotRevision: revision + 1,
@@ -4957,8 +4948,21 @@ export function readLease(
       if (tuple.status !== "ok" || tuple.value.length < 4)
         return blocked("orchestrator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
+      if (
+        !validId(binding) ||
+        !validId(input[0]) ||
+        !validId(input[1]) ||
+        (input[2] !== "project-operation" && input[2] !== "canonical-adoption")
+      )
+        return blocked("orchestrator_snapshot_input_invalid");
+      const recoveryId = leaseAcquisitionRecoveryId(
+        binding,
+        input[0],
+        input[1],
+        input[2],
+      );
 
-      return withSnapshotOperation<
+      const result = withSnapshotOperation<
         Extract<
           ReturnType<typeof projectLeaseOwnerLossState>,
           { status: "completed" }
@@ -4968,6 +4972,12 @@ export function readLease(
           observeRoot: () => input[3].observeRoot(owner.repositoryRoot),
         }),
       );
+      return result.status === "completed"
+        ? result
+        : Object.freeze({
+            ...result,
+            recoveryId: result.recoveryId ?? recoveryId,
+          });
     }
   }
   return blocked("orchestrator_snapshot_input_invalid");
@@ -5253,10 +5263,43 @@ export function acquireLease(
   if (!captured) return blocked("orchestrator_snapshot_input_invalid");
   switch (captured.kind) {
     case "intent": {
-      const tuple = snapshotStateArray(captured.input, 7);
-      if (tuple.status !== "ok" || tuple.value.length < 7)
+      const tuple = snapshotStateArray(captured.input, 5);
+      if (tuple.status !== "ok" || tuple.value.length !== 5)
         return blocked("orchestrator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
+      const owner = snapshotStateRecord(
+        input[3],
+        new Set(["ownerGeneration", "ownerProcessId"]),
+      );
+      if (
+        !validId(binding) ||
+        !validId(input[0]) ||
+        !validId(input[1]) ||
+        (input[2] !== "project-operation" &&
+          input[2] !== "canonical-adoption") ||
+        !owner ||
+        !validId(owner.ownerGeneration) ||
+        !Number.isSafeInteger(owner.ownerProcessId) ||
+        (owner.ownerProcessId as number) <= 0
+      )
+        return blocked("orchestrator_snapshot_input_invalid");
+      const identity = leaseIdentity(binding, input[0], input[1], input[2]);
+      const recoveryId = leaseAcquisitionRecoveryId(
+        binding,
+        input[0],
+        input[1],
+        input[2],
+      );
+      const intent: Snapshot["leaseIntents"][number] = {
+        projectId: input[0],
+        queueId: input[1],
+        kind: input[2],
+        ownerGeneration: owner.ownerGeneration,
+        ownerProcessId: owner.ownerProcessId as number,
+        recoveryId,
+        phase: "acquisition_reserved",
+        physicalIdentity: null,
+      };
 
       return withSnapshotOperation<
         Extract<
@@ -5266,17 +5309,18 @@ export function acquireLease(
       >(workingDirectory, binding, (current, owner) =>
         prepareLeaseAcquisitionReservation(
           current,
+          binding,
           input[0],
           input[1],
           input[2],
-          input[3],
-          input[4],
-          input[5],
+          identity,
+          intent,
           {
             resourcesAbsent: () =>
-              input[6].resourcesAbsent(owner.repositoryRoot),
-            observeRoot: () => input[6].observeRoot(owner.repositoryRoot),
-            markIntentSaveRequested: input[6].markIntentSaveRequested,
+              input[4].resourcesAbsent(owner.repositoryRoot, identity),
+            observeRoot: () => input[4].observeRoot(owner.repositoryRoot),
+            markIntentSaveRequested: () =>
+              input[4].markIntentSaveRequested(recoveryId),
           },
         ),
       );

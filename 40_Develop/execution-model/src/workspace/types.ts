@@ -84,24 +84,6 @@ export type WorkspaceCandidateRecord = Readonly<{
   cleanupFailure: string | null;
 }>;
 
-/**
- * 借用Treeの開始後変更について観測できた範囲を返す。
- * @responsibility 欠測と変更なし、採用と観測を混同しない。
- * @trace ARCH-000004
- * @shape Workspace ID、変更Path又はnull、所属Tree変更、帰属未確定、削除非発行。
- * @invariant 内容・Host Path・新しいAuthorityを含めない。
- * @boundary Task完了から上位Attempt。
- * @security 相対Pathだけを認可済み利用側へ渡す。
- * @compatibility 非借用の旧結果では省略する。
- */
-export type WorkspaceResult = Readonly<{
-  workspaceId: string | null;
-  changedPaths: readonly string[] | null;
-  canonicalRepositoryChanged: boolean | null;
-  changeAttribution: "unattributed";
-  workspaceDeletionIssued: false;
-}>;
-
 /** Workspace記録へ保持するGit Worktreeの技術結果。 */
 export type RepositoryWorktreeResult = Readonly<{
   status: "completed" | "blocked";

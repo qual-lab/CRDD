@@ -448,10 +448,6 @@ export function writeCoordinatorWorkspaceRecord(
 }
 
 import { types } from "node:util";
-import {
-  validWorkspaceCandidateRequest,
-  validWorkspaceDisplayName,
-} from "../../../execution-model/src/index.ts";
 import type { CommitSelection } from "../../../version-control/src/index.ts";
 import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 /**
@@ -566,6 +562,30 @@ const isWorkspaceId = (value: unknown): value is string =>
 const isGitObjectId = (value: unknown): value is string =>
   typeof value === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value);
 
+/** コマンドの表示名を検査する。保存値の成立はEMのWriterが別に確認する。 */
+const validDisplayName = (value: unknown): value is string | null =>
+  value === null ||
+  (typeof value === "string" &&
+    value.trim() === value &&
+    value.length > 0 &&
+    !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value));
+
+/** コマンドが指定する相対File Pathを検査し、仮のCandidateを組み立てない。 */
+const validFilePath = (value: unknown): value is string =>
+  typeof value === "string" &&
+  !value
+    .split("/")
+    .some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        segment.trim() !== segment ||
+        /[. ]$/u.test(segment) ||
+        /^\.(?:git|crdd)$/iu.test(segment) ||
+        /[\\:\x00-\x1f\x7f*?[\]]/u.test(segment),
+    );
+
 const fields: Readonly<Record<string, readonly string[]>> = {
   get: [],
   inspect: ["path"],
@@ -651,7 +671,7 @@ export function inspectWorkspaceCommand(
     return null;
   if (
     (operation === "rename" || operation === "create") &&
-    !validWorkspaceDisplayName(r.name)
+    !validDisplayName(r.name)
   )
     return null;
   if (
@@ -699,33 +719,41 @@ export function inspectWorkspaceCommand(
     if (items.some((item) => item === null)) return null;
     const safe = { ...r, selection: items, relatedChangeIds: changes.value };
     if (
-      !validWorkspaceCandidateRequest({
-        workspaceId: r.workspaceId,
-        operationId: r.operationId,
-        baseCommit: r.baseCommit,
-        expectedWorkspaceHead: r.expectedHead,
-        selection: safe.selection,
-        candidateName: r.candidateName,
-        workspaceName: null,
-        relatedChangeIds: safe.relatedChangeIds,
-      })
+      !isWorkspaceId(r.operationId) ||
+      !isGitObjectId(r.baseCommit) ||
+      !isGitObjectId(r.expectedHead) ||
+      r.baseCommit.length !== r.expectedHead.length ||
+      !validDisplayName(r.candidateName) ||
+      changes.value.some(
+        (id) => typeof id !== "string" || !/^CHG-\d{6}$/u.test(id),
+      ) ||
+      new Set(changes.value).size !== changes.value.length ||
+      items.length === 0
     )
       return null;
+    const paths = new Set<string>();
+    for (const item of items) {
+      if (
+        !item ||
+        !validFilePath(item.path) ||
+        !(
+          (item.blobId === null && item.mode === null) ||
+          (isGitObjectId(item.blobId) &&
+            item.blobId.length === r.baseCommit.length &&
+            typeof item.mode === "string" &&
+            ["100644", "100755"].includes(item.mode))
+        )
+      )
+        return null;
+      const key = item.path.toLowerCase();
+      if (paths.has(key)) return null;
+      paths.add(key);
+    }
     return safe as unknown as WorkspaceCommand;
   }
   if (
     (operation === "inspect" || operation === "candidate-diff") &&
-    (typeof r.path !== "string" ||
-      !validWorkspaceCandidateRequest({
-        workspaceId: r.workspaceId,
-        operationId: r.workspaceId,
-        baseCommit: "0".repeat(40),
-        expectedWorkspaceHead: "0".repeat(40),
-        selection: [{ path: r.path, mode: null, blobId: null }],
-        workspaceName: null,
-        candidateName: null,
-        relatedChangeIds: [],
-      }))
+    !validFilePath(r.path)
   )
     return null;
   return r as WorkspaceCommand;

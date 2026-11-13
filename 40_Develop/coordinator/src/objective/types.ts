@@ -12,7 +12,6 @@ import type {
 } from "../../../execution-model/src/index.ts";
 import type {
   cancelRuntimeOwnedCoordinatorTask,
-  captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
 import type { resolveTaskExecutionSelections } from "../selection/resolve.ts";
@@ -82,7 +81,6 @@ export type CoordinatorObjectiveExecutionDependencies = Readonly<{
 export type PublicExecutionDependencies = Readonly<{
   startTask: typeof startRuntimeOwnedCoordinatorTask;
   cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
-  captureResultDelivery: typeof captureRuntimeOwnedCoordinatorTaskResultDelivery;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;

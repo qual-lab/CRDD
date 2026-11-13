@@ -70,6 +70,7 @@ test("Objective選定は全四組合せでTask契約へexactに搬送する", ()
       const task = buildObjectiveTaskRequest(request, resolved.value);
       const snapshot = task;
       assert.deepEqual(snapshot.taskExecutionSelections, resolved.value);
+      assert.equal(snapshot.taskExecutionSelections, resolved.value);
       assert.equal(
         snapshot.taskExecutionSelections.executor.provider,
         mask & 2 ? choice.provider : "codex",

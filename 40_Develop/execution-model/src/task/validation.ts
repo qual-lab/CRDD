@@ -4,7 +4,6 @@
  * @trace ARCH-000008
  */
 
-import { createHash } from "node:crypto";
 import { types } from "node:util";
 import type {
   ExecutionStoredManagedProject,
@@ -29,6 +28,7 @@ import {
   nullableId,
   nullableRecoveryId,
   nullableResultReference,
+  projectTaskSettlement,
   PROJECT_SNAPSHOT_SCHEMA,
   REVISION,
   singleTaskQueueIsConsistent,
@@ -45,7 +45,6 @@ import type {
   ExecutionSelection,
   ProjectQueueEntry,
   ProjectQueueState,
-  ProjectResultAcceptance,
   ProjectTaskRecoveryObligation,
   QueueEnqueueInput,
   SingleTaskRecord,
@@ -183,31 +182,71 @@ export function normalizeTaskProjects(
     )
   )
     return null;
-  const receipts = new Map(
-    current.snapshot.resultReceipts.map((r) => [r.recoveryId, r]),
-  );
-  const newlyAccepted = new Set<string>();
-  for (const state of states)
-    for (const task of state.tasks) {
-      for (const value of [
-        ...task.resultAcceptances,
-        ...task.recoveryObligations.flatMap((o) =>
-          o.acknowledgement ? [o.acknowledgement] : [],
-        ),
-      ]) {
-        const receipt = decodeProjectResultAcceptance(value);
-        if (!receipt) return null;
-        const previous = receipts.get(receipt.recoveryId);
-        if (previous && encodeStateValue(previous) !== encodeStateValue(value))
+  const completed = new Set<string>();
+  for (const priorProject of current.snapshot.managedExecutions) {
+    const project = states.find((p) => p.projectId === priorProject.projectId);
+    const priorGeneration = current.projects.find(
+      (p) => p.projectId === priorProject.projectId,
+    )?.generation;
+    if (
+      !project ||
+      priorGeneration === undefined ||
+      project.generation !== priorGeneration + 1
+    )
+      continue;
+    for (const prior of priorProject.tasks) {
+      if (prior.settlement.kind !== "operations") continue;
+      const task = project.tasks.find((t) => t.definition.id === prior.taskId);
+      if (
+        !task ||
+        task.attemptId !== prior.attemptId ||
+        task.operationId !== prior.operationId
+      )
+        return null;
+      if (
+        task.startPhase !== "settled" ||
+        !task.cleanupConfirmed ||
+        task.recoveryUnresolved ||
+        task.recoveryObligations.some((o) => o.phase !== "settled")
+      )
+        continue;
+      // 未解決参照が残るTaskは、同じ状態を保存してもOperation除去へ進めない。
+      if (
+        current.snapshot.unresolvedRecoveries.some(
+          (recovery) =>
+            prior.settlement.kind === "operations" &&
+            prior.settlement.recoveryIds.includes(recovery.recoveryId),
+        )
+      )
+        continue;
+      for (const id of prior.settlement.recoveryIds) {
+        const operation = current.snapshot.operations.find(
+          (o) => o.recoveryId === id,
+        );
+        const identity =
+          operation?.kind === "docker_task"
+            ? JSON.parse(operation.identityJson)
+            : null;
+        const terminal = projectTaskSettlement(
+          { kind: "operations", recoveryIds: [id], resultUnresolved: false },
+          current.snapshot,
+        );
+        if (
+          operation?.kind !== "docker_task" ||
+          !identity ||
+          (identity.recoveryCorrelationId ?? identity.operationId) !==
+            task.operationId ||
+          operation.history?.confirmed !== true ||
+          !terminal?.cleanupConfirmed ||
+          current.snapshot.unresolvedRecoveries.some((r) => r.recoveryId === id)
+        )
           return null;
-        if (!previous) {
-          receipts.set(receipt.recoveryId, value);
-          newlyAccepted.add(receipt.recoveryId);
-        }
+        completed.add(id);
       }
     }
+  }
   const operations = current.snapshot.operations.filter(
-    (o) => !newlyAccepted.has(o.recoveryId),
+    (o) => !completed.has(o.recoveryId),
   );
   const projects: ExecutionStoredManagedProject[] = [];
   for (const state of states) {
@@ -238,9 +277,8 @@ export function normalizeTaskProjects(
             return false;
           const identity = JSON.parse(o.identityJson);
           return (
-            identity.consumer === "orchestrator" &&
             (identity.recoveryCorrelationId ?? identity.operationId) ===
-              task.operationId
+            task.operationId
           );
         })
         .map((o) => o.recoveryId);
@@ -258,32 +296,14 @@ export function normalizeTaskProjects(
       const {
         cleanupConfirmed: _cleanup,
         recoveryUnresolved: _unresolved,
-        resultAcceptances: _receipts,
         recoveryObligations: _obligations,
         ...record
       } = task;
-      const recoveryObligations: StoredTask["recoveryObligations"][number][] =
-        [];
-      for (const o of task.recoveryObligations) {
-        if (o.kind === "docker")
-          recoveryObligations.push({
-            kind: "docker",
-            recoveryId: o.recoveryId,
-          });
-        else {
-          if (o.phase === "acknowledged") return null;
-          recoveryObligations.push({
-            kind: o.kind,
-            recoveryId: o.recoveryId,
-            phase: o.phase,
-          });
-        }
-      }
+      const recoveryObligations = task.recoveryObligations;
       tasks.push({
         ...record,
         settlement,
         recoveryObligations,
-        resultAcceptanceIds: task.resultAcceptances.map((r) => r.recoveryId),
       });
     }
     projects.push({ ...state, tasks });
@@ -337,16 +357,8 @@ export function normalizeTaskProjects(
     ],
     managedExecutions,
     operations,
-    resultReceipts: [...receipts.values()].filter((r) =>
-      states.some((p) => p.projectId === r.projectId),
-    ),
-    pendingDeliveries: current.snapshot.pendingDeliveries.filter(
-      (d) => !newlyAccepted.has(d.recoveryId),
-    ),
     unresolvedRecoveries: current.snapshot.unresolvedRecoveries.filter(
-      (r) =>
-        !newlyAccepted.has(r.recoveryId) ||
-        r.obligations.some((o) => o !== "result_delivery"),
+      (r) => !completed.has(r.recoveryId),
     ),
   };
 }
@@ -374,7 +386,7 @@ export function projectTaskSnapshot(
   if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
   return {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash,
     repositoryBindingId: s.repositoryBindingId,
     intakeEpoch: s.intakeEpoch,
@@ -486,9 +498,8 @@ export function associateTaskOperations(
             return false;
           const identity = JSON.parse(operation.identityJson);
           return (
-            identity.consumer === "orchestrator" &&
             (identity.recoveryCorrelationId ?? identity.operationId) ===
-              task.operationId
+            task.operationId
           );
         })
         .map((operation) => operation.recoveryId);
@@ -507,74 +518,6 @@ export function associateTaskOperations(
       };
     }),
   }));
-}
-
-/**
- * Task結果受領集合の遷移が固定本文・初回世代と競合するか判定する。
- * @responsibility 同一Attemptの受領不変と明示再計画の限定的な置換条件を所有する。
- * @trace ARCH-000004、ARCH-000008
- * @input previous: Lock内で読み直した元Project、state: 保存候補。
- * @returns 受領差が保存を拒否すべき場合だけtrue。
- * @precondition 両状態は構造検査済み。Writerが元世代と受付結合を別途照合する。
- * @postcondition 入力を変更せず、受領の欠測を補完しない。
- * @effect N/A: 同期値判定だけ。
- * @failure 初回受領の世代差・固定本文変更は競合。
- * @invariant 判定を実資源回収・保存成功へ読み替えない。
- * @boundary Taskの受領意味と統合保存Writer。
- * @security 保存・実行Authorityを発行しない。
- * @concurrency Writerは同じ短期Lock内のfresh元版に対して呼ぶ。
- */
-export function hasProjectTaskResultAcceptanceConflict(
-  previous: ProjectExecutionState | undefined,
-  state: ProjectExecutionState,
-): boolean {
-  return state.tasks.some((task) => {
-    if (!previous) return task.resultAcceptances.length !== 0;
-    const prior = previous?.tasks.find(
-      (item) => item.definition.id === task.definition.id,
-    );
-    const isSameAttempt =
-      prior?.attemptId === task.attemptId &&
-      prior?.operationId === task.operationId;
-    if (
-      prior?.state === "failed" &&
-      prior.supersededBy === null &&
-      task.state === "superseded" &&
-      task.resultAcceptances.length === 0 &&
-      task.supersededBy !== null &&
-      !previous.tasks.some(
-        (item) => item.definition.id === task.supersededBy,
-      ) &&
-      state.tasks.some(
-        (item) =>
-          item.definition.id === task.supersededBy &&
-          item.definition.objectiveId === prior.definition.objectiveId &&
-          item.attemptId === null &&
-          item.operationId === null &&
-          item.resultAcceptances.length === 0 &&
-          (item.state === "ready" || item.state === "waiting_dependency"),
-      )
-    )
-      return false;
-    if (!isSameAttempt || !prior?.resultAcceptances.length)
-      return task.resultAcceptances.some(
-        (item) => item.settlementGeneration !== state.generation,
-      );
-    return (
-      prior.resultAcceptances.length !== task.resultAcceptances.length ||
-      prior.resultAcceptances.some((item) => {
-        const next = task.resultAcceptances.find(
-          (value) => value.recoveryId === item.recoveryId,
-        );
-        return (
-          !next ||
-          Object.entries(item).some(
-            ([key, value]) => next[key as keyof typeof next] !== value,
-          )
-        );
-      })
-    );
-  });
 }
 
 /**
@@ -1195,7 +1138,7 @@ export function prepareSingleTaskQueueUpdate(
   binding: string,
   queueId: string,
   expectedGeneration: number,
-  record: SingleTaskRecord,
+  rawRecord: unknown,
   observations: Readonly<{
     borrowActiveLease: () =>
       | Readonly<{
@@ -1211,6 +1154,8 @@ export function prepareSingleTaskQueueUpdate(
     now: () => number;
   }>,
 ) {
+  const record = inspectSingleTaskRecord(rawRecord);
+  if (!record) return blocked("orchestrator_single_task_record_invalid");
   const previous = current.queueEntries.find(
     (entry) => entry.queueId === queueId,
   );
@@ -1443,33 +1388,6 @@ function blocked(
 }
 
 /**
- * 発行時の受付結合を同じSnapshotへ照合する。
- * @responsibility 新規受付又は同じ要求だけを受理候補にする。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 元Snapshot、intake: 発行時の五項目。
- * @returns 元の結果封筒で固定候補又は投影を返す。
- * @precondition 既存短期Ownerがfresh SnapshotとRepository結合を検証済み。
- * @postcondition 元Snapshotと対象外の区画を変更しない。
- * @effect N/A: 同期の値操作だけ。
- * @failure 元の検査順と固定理由で拒否する。
- * @invariant 候補を保存完了、現在認可、実行順序決定や回復成立にしない。
- * @boundary Coordinatorの検証済み値と既存の単一Writer。
- * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
- * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
- */
-export function inspectQueueIntake(
-  current: Snapshot,
-  intake: Parameters<typeof snapshotIntakeMatches>[1],
-) {
-  return snapshotIntakeMatches(current, intake)
-    ? completed("orchestrator_intake_verified", {
-        next: null,
-        value: true as const,
-      })
-    : blocked("orchestrator_intake_epoch_retired");
-}
-
-/**
  * 計画TaskのQueue追加候補を導出する。
  * @responsibility 同一受付・発行時世代・Workspace結合を保持する。
  * @trace ARCH-000004、ARCH-000008
@@ -1493,13 +1411,13 @@ export function prepareQueueEntryCreation(
     (item) => item.queueId === input.queueId,
   );
   if (existing) {
-    const epoch = current.intakeBindings.find(
-      (item) => item.queueId === input.queueId,
-    )?.epoch;
-    return epoch === intakeEpoch &&
-      existing.requestHash === input.requestHash &&
-      existing.projectId === input.projectId &&
-      existing.milestoneId === input.milestoneId
+    return snapshotIntakeMatches(current, {
+      epoch: intakeEpoch,
+      queueId: input.queueId,
+      requestHash: input.requestHash,
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+    })
       ? completed("orchestrator_queue_request_reused", {
           next: null,
           value: existing,
@@ -1575,67 +1493,6 @@ export function projectQueueEntry(current: Snapshot, queueId: string) {
 }
 
 /**
- * 新しい結果受理本文の閉じた形式を検査する。
- * @responsibility 欠落・追加項目・旧形式と不正な識別子、Hash、世代を拒否する。
- * @trace ARCH-000004
- * @input value: 未検証の受理本文。
- * @returns 検査済み固定本文、またはnull。
- * @precondition N/A: 任意の入力を拒否可能な境界として扱う。
- * @postcondition 初回受理世代や入力の値を補完・更新しない。
- * @effect N/A: 局所値の検査だけ。
- * @failure 不正本文、getter、Proxy、欠落、旧項目、空値はnull。
- * @invariant 形式成立を保存・受理・cleanup成立へ昇格しない。
- * @boundary 上位の保存本文とその利用側。
- * @security 外部Authorityを発行せず入力の関数を呼ばない。
- * @concurrency N/A: 共有状態を持たない同期処理。
- */
-export function decodeProjectResultAcceptance(
-  value: unknown,
-): ProjectResultAcceptance | null {
-  const acceptance = snapshotStateRecord(
-    value,
-    new Set([
-      "repositoryBindingId",
-      "projectId",
-      "milestoneId",
-      "taskId",
-      "attemptId",
-      "operationId",
-      "recoveryId",
-      "settlementGeneration",
-      "repositoryBinding",
-      "resultId",
-      "consumer",
-    ]),
-  );
-  if (
-    !acceptance ||
-    [
-      "repositoryBindingId",
-      "projectId",
-      "milestoneId",
-      "taskId",
-      "attemptId",
-      "operationId",
-      "recoveryId",
-    ].some(
-      (key) =>
-        typeof acceptance[key] !== "string" ||
-        acceptance[key].length === 0 ||
-        acceptance[key].length > 1024,
-    ) ||
-    !Number.isSafeInteger(acceptance.settlementGeneration) ||
-    Number(acceptance.settlementGeneration) < 1 ||
-    acceptance.consumer !== "orchestrator" ||
-    [acceptance.repositoryBinding, acceptance.resultId].some(
-      (item) => typeof item !== "string" || !/^[a-f0-9]{64}$/u.test(item),
-    )
-  )
-    return null;
-  return Object.freeze(acceptance) as ProjectResultAcceptance;
-}
-
-/**
  * Coordinator 状態が有効か判定する。
  *
  * @responsibility Coordinator 状態の有効条件、拒否条件、判定結果境界を所有する。
@@ -1668,7 +1525,7 @@ export function validState(value: unknown): value is ProjectExecutionState {
       "objectives",
       "tasks",
     ]) ||
-    value.contract !== "crdd-coordinator/project-state/v2" ||
+    value.contract !== "crdd-execution-model/project-state/v3" ||
     !inspectTaskExecutionSelections(value.taskExecutionSelections) ||
     !validId(value.projectId) ||
     !validId(value.milestoneId) ||
@@ -1761,7 +1618,6 @@ export function validState(value: unknown): value is ProjectExecutionState {
         "startPhase",
         "cleanupConfirmed",
         "recoveryObligations",
-        "resultAcceptances",
         "recoveryUnresolved",
         "candidateId",
         "retryCount",
@@ -1803,12 +1659,7 @@ export function validState(value: unknown): value is ProjectExecutionState {
         String(task.startPhase),
       ) ||
       typeof task.cleanupConfirmed !== "boolean" ||
-      !recoveryObligations(task.recoveryObligations, {
-        projectId: String(value.projectId),
-        milestoneId: String(value.milestoneId),
-        taskId: String(task.definition.id),
-        generation: Number(value.generation),
-      }) ||
+      !recoveryObligations(task.recoveryObligations) ||
       typeof task.recoveryUnresolved !== "boolean" ||
       (task.state === "recovery_required" &&
         task.recoveryObligations.length === 0 &&
@@ -1816,19 +1667,9 @@ export function validState(value: unknown): value is ProjectExecutionState {
       (task.state !== "recovery_required" &&
         task.recoveryUnresolved === true) ||
       (task.state === "ready" &&
-        task.recoveryObligations.some(
-          (entry) =>
-            entry.phase !==
-            (entry.kind === "docker" ? "acknowledged" : "settled"),
-        )) ||
+        task.recoveryObligations.some((entry) => entry.phase !== "settled")) ||
       (!["ready", "recovery_required"].includes(String(task.state)) &&
         task.recoveryObligations.length > 0) ||
-      !resultAcceptances(task.resultAcceptances, {
-        projectId: String(value.projectId),
-        milestoneId: String(value.milestoneId),
-        generation: Number(value.generation),
-        task: task as unknown as ProjectExecutionState["tasks"][number],
-      }) ||
       !validTaskLifecycleTuple(
         task as unknown as ProjectExecutionState["tasks"][number],
       ) ||
@@ -1842,6 +1683,33 @@ export function validState(value: unknown): value is ProjectExecutionState {
     dependencies.push(taskDependencies as readonly string[]);
   }
   return dependencies.every((items) => items.every((id) => taskIds.has(id)));
+}
+/** 回復義務の型・対象識別子・単調段階を検査する。受領や利用側は扱わない。 */
+export function recoveryObligations(
+  value: unknown,
+): value is readonly ProjectTaskRecoveryObligation[] {
+  if (!Array.isArray(value)) return false;
+  const identities = new Set<string>();
+  for (const entry of value) {
+    if (
+      !isStateObject(entry) ||
+      !hasStateKeys(entry, ["kind", "recoveryId", "phase"]) ||
+      ![
+        "host",
+        "docker",
+        "candidate",
+        "candidate_store",
+        "runtime_process",
+      ].includes(String(entry.kind)) ||
+      !["required", "recovering", "settled"].includes(String(entry.phase)) ||
+      typeof entry.recoveryId !== "string" ||
+      !nullableRecoveryId(entry.recoveryId) ||
+      identities.has(entry.recoveryId)
+    )
+      return false;
+    identities.add(entry.recoveryId);
+  }
+  return true;
 }
 
 /**
@@ -1908,192 +1776,6 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
           value.workspaceId,
         )))
   );
-}
-
-/**
- * 本番利用側に固定された結果受領方式を返す。
- * @responsibility 一時的な返却と後続再開用の耐久ACKを区別する。
- * @trace ARCH-000008
- * @input consumer: 固定組立てが選択した利用側識別子。
- * @returns transient、durable、または未知利用側のnull。
- * @precondition N/A: 未知値も受け取り拒否する。
- * @postcondition Coordinatorの耐久受領を入力指定で降格しない。
- * @effect N/A: 値の同期判定だけで保存や配送を行わない。
- * @failure 未知識別子・非文字列ではnull。
- * @invariant 受領方式は資源回収やCandidate保全の証明ではない。
- * @boundary 本番組立ての利用側と保存モデルの固定契約。
- * @security Objectの変換・getter・Proxyを評価しない。
- * @concurrency N/A: 共有状態を変更しない。
- */
-export function getConsumerCompletionPolicy(
-  consumer: unknown,
-): "transient" | "durable" | null {
-  if (consumer === "orchestrator") return "durable";
-  if (consumer === "coordinator_cli" || consumer === "workbench")
-    return "transient";
-  return null;
-}
-
-/**
- * recovery Obligationsを決定する。
- *
- * @responsibility recovery Obligationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: 未検証の回復義務、scope: 保存状態のProject・節目・Task・世代。
- * @returns value is readonly ProjectTaskRecoveryObligation[]を返す。
- * @precondition 「value: unknown」がrecoveryObligationsの入力契約を満たす。
- * @postcondition recoveryObligationsの責務を完了した結果だけを返す。
- * @effect N/A: recoveryObligationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: recoveryObligationsは独自の失敗分岐を所有しない。
- * @invariant recoveryObligationsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: recoveryObligationsはProcess内の同一Subsystemで完結する。
- * @security recoveryObligationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: recoveryObligationsは共有非同期状態を持たない同期処理である。
- */
-export function recoveryObligations(
-  value: unknown,
-  scope: Readonly<{
-    projectId: string;
-    milestoneId: string;
-    taskId: string;
-    generation: number;
-  }>,
-): value is readonly ProjectTaskRecoveryObligation[] {
-  if (!Array.isArray(value)) return false;
-  const identities = new Set<string>();
-  for (const entry of value) {
-    const acknowledgement = decodeProjectResultAcceptance(
-      entry?.acknowledgement,
-    );
-    const isValidAcknowledgement =
-      acknowledgement !== null &&
-      [
-        acknowledgement.repositoryBindingId,
-        acknowledgement.projectId,
-        acknowledgement.milestoneId,
-        acknowledgement.taskId,
-        acknowledgement.attemptId,
-        acknowledgement.operationId,
-      ].every(validId) &&
-      nullableRecoveryId(acknowledgement.recoveryId) &&
-      acknowledgement.recoveryId !== null &&
-      acknowledgement.projectId === scope.projectId &&
-      acknowledgement.milestoneId === scope.milestoneId &&
-      acknowledgement.taskId === scope.taskId &&
-      acknowledgement.settlementGeneration <= scope.generation;
-    if (
-      !isStateObject(entry) ||
-      !hasStateKeys(
-        entry,
-        entry.phase === "acknowledged"
-          ? ["kind", "recoveryId", "phase", "acknowledgement"]
-          : ["kind", "recoveryId", "phase"],
-      ) ||
-      ![
-        "host",
-        "docker",
-        "candidate",
-        "candidate_store",
-        "runtime_process",
-      ].includes(String(entry.kind)) ||
-      !nullableRecoveryId(entry.recoveryId) ||
-      entry.recoveryId === null ||
-      !["required", "recovering", "settled", "acknowledged"].includes(
-        String(entry.phase),
-      ) ||
-      (entry.phase === "acknowledged" &&
-        (entry.kind !== "docker" ||
-          !isValidAcknowledgement ||
-          acknowledgement?.recoveryId !== entry.recoveryId))
-    )
-      return false;
-    const identity = `${entry.kind}\0${entry.recoveryId}`;
-    if (identities.has(identity)) return false;
-    identities.add(identity);
-  }
-  return true;
-}
-
-/**
- * 通常Taskの受領集合と保存世代の相関を検査する。
- * @responsibility 回復義務とは別の固定受領本文をSnapshotの閉集合へ接続する。
- * @trace ARCH-000004
- * @input value: 保存本文、scope: Project・節目・世代と検査済みTask。
- * @returns 全要素の形式・相関・終端条件が成立するか。
- * @precondition Taskの基本項目と回復義務は先行して検査済みである。
- * @postcondition 未記載を空配列へ補完せず、旧Attemptや未来世代を拒否する。
- * @effect N/A: 保存値の検査だけ。
- * @failure 不正本文、重複、非終端受領、未解決義務はfalse。
- * @invariant ACKの有無を資源不存在の証明にしない。
- * @boundary 単一現在Snapshotの保存・読戻し。
- * @security 任意関数を受領本文として実行しない。
- * @concurrency N/A: 同期値検査であり排他は既存保存Ownerが所有する。
- */
-export function resultAcceptances(
-  value: unknown,
-  scope: Readonly<{
-    projectId: string;
-    milestoneId: string;
-    generation: number;
-    task: ProjectExecutionState["tasks"][number];
-  }>,
-): boolean {
-  if (!Array.isArray(value)) return false;
-  const task = scope.task;
-  if (
-    value.length > 0 &&
-    (!["completed", "failed", "cancelled"].includes(task.state) ||
-      task.startPhase !== "settled" ||
-      !task.cleanupConfirmed ||
-      task.recoveryUnresolved ||
-      task.recoveryObligations.some(
-        (entry) =>
-          entry.phase !==
-          (entry.kind === "docker" ? "acknowledged" : "settled"),
-      ))
-  )
-    return false;
-  const identities = new Set<string>();
-  let repositoryBindingId: string | null = null;
-  let repositoryBinding: string | null = null;
-  let settlementGeneration: number | null = null;
-  for (const valueEntry of value) {
-    const entry = decodeProjectResultAcceptance(valueEntry);
-    if (
-      !entry ||
-      ![
-        entry.repositoryBindingId,
-        entry.projectId,
-        entry.milestoneId,
-        entry.taskId,
-        entry.attemptId,
-        entry.operationId,
-      ].every(validId) ||
-      entry.projectId !== scope.projectId ||
-      entry.milestoneId !== scope.milestoneId ||
-      entry.taskId !== task.definition.id ||
-      entry.attemptId !== task.attemptId ||
-      entry.operationId !== task.operationId ||
-      entry.settlementGeneration > scope.generation ||
-      !nullableRecoveryId(entry.recoveryId) ||
-      identities.has(entry.recoveryId) ||
-      task.recoveryObligations.some(
-        (obligation) => obligation.recoveryId === entry.recoveryId,
-      ) ||
-      (repositoryBindingId !== null &&
-        repositoryBindingId !== entry.repositoryBindingId) ||
-      (repositoryBinding !== null &&
-        repositoryBinding !== entry.repositoryBinding) ||
-      (settlementGeneration !== null &&
-        settlementGeneration !== entry.settlementGeneration)
-    )
-      return false;
-    identities.add(entry.recoveryId);
-    repositoryBindingId = entry.repositoryBindingId;
-    repositoryBinding = entry.repositoryBinding;
-    settlementGeneration = entry.settlementGeneration;
-  }
-  return true;
 }
 
 /**
@@ -2194,11 +1876,14 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
   if (!isPrincipalId(value.principalId)) return null;
   for (const key of ["taskId", "attemptId", "operationId"])
     if (typeof value[key] !== "string" || !ID.test(value[key])) return null;
+  const executionSelection = inspectExecutionSelection(
+    value.executionSelection,
+  );
   if (
     typeof value.mode !== "string" ||
     !["read_only_advice", "workspace_edit"].includes(value.mode) ||
-    !inspectExecutionSelection(value.executionSelection) ||
-    inspectExecutionSelection(value.executionSelection)?.role !==
+    !executionSelection ||
+    executionSelection.role !==
       (value.mode === "read_only_advice" ? "advice" : "executor") ||
     typeof value.phase !== "string" ||
     !["accepted", "starting", "running", "settled"].includes(value.phase) ||
@@ -2245,7 +1930,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
     return null;
   return Object.freeze({
     ...value,
-    executionSelection: inspectExecutionSelection(value.executionSelection),
+    executionSelection,
     ...(adviceOperation
       ? { adviceOperation: Object.freeze(adviceOperation) }
       : {}),
@@ -2431,26 +2116,4 @@ export function inspectTaskExecutionSelections(
   )
     return null;
   return Object.freeze({ executor, reviewer });
-}
-
-/**
- * 確定済み実行入力の非Authority Identityを導く。
- * @responsibility Provider・選定元・当時の構成を正規化順序のままHash化する。
- * @trace ARCH-000004
- * @input candidate: 十項目の未信頼な選定候補。
- * @returns 正規SHA-256又は不正時null。
- * @precondition 実行可否・認可は別Ownerが検査する。
- * @postcondition 元値を変更せず当時の値を保持する。
- * @effect N/A: 値検査と局所Hash計算のみ。
- * @failure 型・相関不正はnull。
- * @invariant Hashを実行Authorityにしない。
- * @boundary Task・Packet・保存選定の値相関。
- * @security 設定Storeや現在Catalogへアクセスしない。
- * @concurrency 同期で独立Snapshotだけを使用する。
- */
-export function hashExecutionSelection(candidate: unknown): string | null {
-  const value = inspectExecutionSelection(candidate);
-  return value
-    ? createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")
-    : null;
 }

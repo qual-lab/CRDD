@@ -6,11 +6,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  type RepositoryWorktreeResult,
-  validWorkspaceCandidateRequest,
-  type WorkspaceCandidateRequest,
-  type WorkspaceCandidateResult,
+import type {
+  RepositoryWorktreeResult,
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
 } from "../../../execution-model/src/index.ts";
 import {
   type CommitTemporary,
@@ -146,7 +145,6 @@ export function freezeWorkspaceCandidate(
     temporary: previousTemporary,
     changedPaths: [],
   };
-  if (!validWorkspaceCandidateRequest(request)) return result;
   const root = resolveVerifiedRepositoryRoot(repository);
   if (root === null)
     return { ...result, reason: "worktree_repository_invalid" };
@@ -231,7 +229,6 @@ export function removeWorkspaceCandidate(
     temporary: previousTemporary,
     changedPaths: [],
   };
-  if (!validWorkspaceCandidateRequest(request)) return result;
   if (expectedCommit !== null) {
     const verified = createCommit(repository, {
       baseCommit: request.baseCommit,
@@ -309,7 +306,6 @@ export function mergeWorkspaceCandidate(
     temporary: null,
     changedPaths: [],
   };
-  if (!validWorkspaceCandidateRequest(request)) return result;
   const held = readRepositoryRevision(repository, { reference });
   if (held.status !== "completed")
     return {
@@ -363,8 +359,6 @@ export function readWorkspaceCandidatePatch(
   commit: string,
   selectedPath: string,
 ) {
-  if (!validWorkspaceCandidateRequest(request))
-    throw Error("candidate_input_invalid");
   const selection = request.selection.find(
     (item) => item.path === selectedPath,
   );

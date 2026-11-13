@@ -11,6 +11,7 @@
 import type {
   ExecutionSelection,
   SingleTaskCommand,
+  WorkspaceResult,
 } from "../../../../coordinator/src/index.ts";
 
 /** Workbenchが受け付けるAI依頼の用途区分。 */
@@ -80,5 +81,3 @@ export type WorkbenchAiRequests = Readonly<{
   cancel: (requestId: string) => Promise<WorkbenchAiRequestSnapshot>;
   close?: () => Promise<void>;
 }>;
-
-import type { WorkspaceResult } from "../../../../execution-model/src/index.ts";

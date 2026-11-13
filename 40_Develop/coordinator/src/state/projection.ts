@@ -6,7 +6,6 @@
 
 import type { ProjectTaskState } from "../../../execution-model/src/index.ts";
 import {
-  inspectTaskExecutionSelections,
   PROJECT_STATE_CONTRACT,
   type ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
@@ -148,10 +147,10 @@ export function projectCoordinatorState(
  * @trace ARCH-000004
  * @input state: Omit<ProjectExecutionState, "contract">
  * @returns ProjectExecutionStateを返す。
- * @precondition 「state: Omit<ProjectExecutionState, "contract">」がprojectStateの入力契約を満たす。
+ * @precondition 受付又は保存Readerで捕捉した不変の選定組を持つ状態を渡す。
  * @postcondition projectStateの責務を完了した結果だけを返す。
  * @effect N/A: projectStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure 選定組が閉形式・役割相関を満たさない場合は例外で停止する。
+ * @failure N/A: 未検証の要求を受理する入口ではない。
  * @invariant projectStateは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: projectStateはProcess内の同一Subsystemで完結する。
  * @security N/A: projectStateはAuthority、秘密値または信頼判断を扱わない。
@@ -160,14 +159,9 @@ export function projectCoordinatorState(
 export function projectState(
   state: Omit<ProjectExecutionState, "contract">,
 ): ProjectExecutionState {
-  const selections = inspectTaskExecutionSelections(
-    state.taskExecutionSelections,
-  );
-  if (!selections) throw new Error("coordinator_state_selection_invalid");
   return Object.freeze({
     contract: PROJECT_STATE_CONTRACT,
     ...state,
-    taskExecutionSelections: selections,
     milestone: Object.freeze({ ...state.milestone }),
     objectives: Object.freeze([...state.objectives]),
     tasks: Object.freeze([...state.tasks]),

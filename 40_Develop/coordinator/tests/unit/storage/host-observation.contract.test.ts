@@ -17,6 +17,20 @@ import { createResourceOperationFixture } from "../../../../execution-model/test
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../../src/execution/validation.ts";
 
 /**
+ * この試験の固定値に対応するReader判定を供給する。
+ * @responsibility Co固有のHost条件だけを反証し、モデルの資源判定そのものはEM試験へ分離する。
+ * @trace PRL-UT-006
+ * @boundary nullまたは未解決再起動だけを持つ有限fixture。汎用モデル検査ではない。
+ */
+function fixtureHostAbsence(operation: ExecutionOperationRecord) {
+  return coordinatorReleasedTaskCanObserveHostAbsence(operation, {
+    operation,
+    resourcesSettled: true,
+    restartSettled: operation.dockerRestart === null,
+  });
+}
+
+/**
  * 元の解放済み操作と拒否例を同じHost条件へ渡す。
  * @trace PRL-UT-006
  * @precondition Domainの正規codecが認める合成Identityを使用する。
@@ -78,13 +92,30 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     },
   };
 
+  assert.equal(fixtureHostAbsence(releasedOperation), true);
   assert.equal(
-    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation),
-    true,
+    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation, undefined),
+    false,
+  );
+  assert.equal(
+    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation, {
+      operation: { ...releasedOperation },
+      resourcesSettled: true,
+      restartSettled: true,
+    }),
+    false,
+  );
+  assert.equal(
+    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation, {
+      operation: releasedOperation,
+      resourcesSettled: false,
+      restartSettled: true,
+    }),
+    false,
   );
   // 型で禁止される入力も、実行時の拒否条件を個別に反証する。
   assert.equal(
-    coordinatorReleasedTaskCanObserveHostAbsence({
+    fixtureHostAbsence({
       ...releasedOperation,
       execution: { ...releasedOperation.execution, workspaceReusable: true },
     } as unknown as ExecutionOperationRecord),
@@ -104,7 +135,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
       },
     };
     assert.equal(
-      coordinatorReleasedTaskCanObserveHostAbsence({
+      fixtureHostAbsence({
         ...releasedOperation,
         dockerRestart,
       }),
@@ -166,7 +197,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
       },
     },
   ])
-    assert.equal(coordinatorReleasedTaskCanObserveHostAbsence(invalid), false);
+    assert.equal(fixtureHostAbsence(invalid), false);
   const normalOld = initialOperation;
   const recoveryId = initialOperation.recoveryId;
   const lifecycleSource = fs.readFileSync(

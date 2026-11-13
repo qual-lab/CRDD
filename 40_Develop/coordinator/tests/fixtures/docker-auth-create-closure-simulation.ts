@@ -317,7 +317,6 @@ export async function simulateAuthCreateClosure(
   let snapshot = {
     operations: [target as Record<string, unknown>, other],
     unresolvedRecoveries: [],
-    pendingDeliveries: [],
   };
   const fakeFs = {
     realpathSync: (location: string) => {

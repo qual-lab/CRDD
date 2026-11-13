@@ -262,7 +262,7 @@ test("Core Projectの新形式は実行資格なしで固定し未知値を拒�
     { ...input, generation: 0 },
     { ...input, repositoryRevision: "bad" },
     { ...input, milestone: { ...input.milestone, id: "other" } },
-    { ...input, contract: "crdd-coordinator/project-state/v2" },
+    { ...input, contract: "crdd-execution-model/project-state/v3" },
   ])
     assert.equal(inspectExecutionProjectDefinition(invalid), null);
   let effects = 0;

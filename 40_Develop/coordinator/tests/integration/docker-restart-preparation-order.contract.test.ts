@@ -9,23 +9,17 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { isDeepStrictEqual } from "node:util";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { runInNewContext, runInThisContext } from "node:vm";
 import {
-  areTaskResourcesSettled,
-  canCloseUnknownAuthentication,
-  createDockerRestartRequestId,
-  isDockerRestartCheckpointSettled,
   parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
-  validateHostRecoveryTransitionLineage,
 } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import {
@@ -35,8 +29,12 @@ import {
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/execution/recovery.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../src/execution/validation.ts";
-import { createRecoveryFixture } from "../support/recovery.ts";
 import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import {
+  canonicalJson,
+  restartRequestIdFixture,
+} from "../support/contract-assertions.ts";
+import { createRecoveryFixture } from "../support/recovery.ts";
 
 /**
  * restart preparation rejects arbitrary capability and invalid task before publicationを検証する。
@@ -160,6 +158,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
   let changeAtRead = false,
     writerFault = false,
     markerFault = false;
+  let modelReadBlocked = false;
   let hostFault: "none" | "before" | "after" | "wrong_token" = "none";
   let writerFaultAt = 0;
   let cleanupRoot: "present" | "absent" | "unknown" = "present";
@@ -229,6 +228,10 @@ function fixture(mode: "restart" | "recovery" = "restart") {
       operation(secondToken, "b", second),
     ],
   };
+  // この有限fixtureのplanned Bookは全要求未発行。未知の差替えBookは採用しない。
+  const settledBooks = new WeakSet(
+    snapshot.operations.map((operation) => operation.resources),
+  );
   const repository = {
     repositoryRoot: path.resolve("fixture-root"),
     repositoryBinding: "c".repeat(64),
@@ -302,27 +305,8 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     isDeepStrictEqual,
     canonicalJson: (value: unknown) =>
       canonicalJson(JSON.parse(JSON.stringify(value))),
-    createDockerRestartRequestId,
-    isDockerRestartCheckpointSettled: (value: unknown) =>
-      isDockerRestartCheckpointSettled(JSON.parse(JSON.stringify(value))),
-    areTaskResourcesSettled: (
-      value: Parameters<typeof areTaskResourcesSettled>[0],
-    ) => areTaskResourcesSettled(JSON.parse(JSON.stringify(value))),
-    coordinatorReleasedTaskCanObserveHostAbsence: (
-      value: Parameters<typeof coordinatorReleasedTaskCanObserveHostAbsence>[0],
-    ) =>
-      coordinatorReleasedTaskCanObserveHostAbsence(
-        JSON.parse(JSON.stringify(value)),
-      ),
-    canCloseUnknownAuthentication: (
-      value: Parameters<typeof canCloseUnknownAuthentication>[0],
-    ) => canCloseUnknownAuthentication(JSON.parse(JSON.stringify(value))),
+    coordinatorReleasedTaskCanObserveHostAbsence,
     canonical: (value: unknown) => `${JSON.stringify(value)}\n`,
-    validateHostRecoveryTransitionLineage: (value: unknown, required: string) =>
-      validateHostRecoveryTransitionLineage(
-        JSON.parse(JSON.stringify(value)),
-        required,
-      ),
     expectedHostSuccessor: (token: string, nextState: string) => {
       const loaded = hostTransitionRecords.get(token);
       assert.ok(loaded);
@@ -602,23 +586,88 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     },
     borrowRuntimeOwnedCoordinatorRecoveryRepository: (candidate: unknown) =>
       candidate === root && rootValid ? repository : null,
-    readRecoveryState: () => {
+    readRecoveryState: (
+      _root: unknown,
+      request?: { kind: string; recoveryId: string; scopeSha256: string },
+    ) => {
       reads++;
       if ((changeAtRead && reads >= 2) || reads === changeAtReadNumber)
         snapshot = { ...snapshot, revision: snapshot.revision + 1 };
+      const selected =
+        request?.kind === "restart_preparation"
+          ? snapshot.operations.find(
+              (operation) => operation.recoveryId === request.recoveryId,
+            )
+          : undefined;
+      const requestId =
+        selected && request
+          ? restartRequestIdFixture(
+              repository.repositoryBinding,
+              selected.identitySha256,
+              selected.recoveryId,
+              request.scopeSha256,
+            )
+          : null;
+      const prior = selected?.dockerRestart as
+        | { requestId: string; scopeSha256: string }
+        | null
+        | undefined;
       return {
-        status: rootValid ? "completed" : "blocked",
+        status: rootValid && !modelReadBlocked ? "completed" : "blocked",
         lockReleased: true,
         unsubmittedHostRecoveryIds: [],
-        value: rootValid
+        ...(request?.kind === "restart_preparation"
           ? {
-              snapshot,
-              sourceText: `${canonicalJson(snapshot)}\n`,
-              payloadSha256: createHash("sha256")
-                .update(`${canonicalJson(snapshot)}\n`)
-                .digest("hex"),
+              restartPreparation:
+                selected &&
+                requestId &&
+                (!prior ||
+                  (prior.requestId === requestId &&
+                    prior.scopeSha256 === request.scopeSha256))
+                  ? {
+                      operation: selected,
+                      requestId,
+                      scopeSha256: request.scopeSha256,
+                    }
+                  : null,
             }
-          : null,
+          : {}),
+        value:
+          rootValid && !modelReadBlocked
+            ? {
+                snapshot,
+                // 既知Bookに結合した有限事実だけを返す。判定規則の反証はEMが所有する。
+                operationStates: snapshot.operations.map((operation) => ({
+                  kind: "docker_task" as const,
+                  operation,
+                  resourcesSettled: settledBooks.has(operation.resources),
+                  restartSettled: operation.dockerRestart === null,
+                  authenticationClosureAllowed: false,
+                  hostTransition:
+                    operation.host.pendingTransitionJson === null
+                      ? null
+                      : (() => {
+                          const intent = JSON.parse(
+                            operation.host.pendingTransitionJson,
+                          );
+                          return {
+                            currentToken: intent.currentToken,
+                            expectedToken: intent.expectedToken,
+                            current: parseHostRecoveryToken(
+                              intent.currentToken,
+                            ),
+                            expected: parseHostRecoveryToken(
+                              intent.expectedToken,
+                            ),
+                          };
+                        })(),
+                })),
+                sourceText: `${canonicalJson(snapshot)}\n`,
+                payloadSha256: createHash("sha256")
+                  .update(`${canonicalJson(snapshot)}\n`)
+                  .digest("hex"),
+              }
+            : null,
       };
     },
     providerHomesDirectoryCandidate: () => path.resolve("ProviderHomes"),
@@ -703,6 +752,9 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     },
     get snapshot() {
       return snapshot;
+    },
+    set modelReadBlocked(value: boolean) {
+      modelReadBlocked = value;
     },
     get writes() {
       return writes;
@@ -954,7 +1006,7 @@ test("現在回収Ownerは部分取得と解放不明を共同保持する", () 
  * 保存済みHost意図と実markerの二状態だけをfresh Ownerへ結合する。
  * @responsibility 旧tokenと予定tokenの採用条件、未知状態の取得前停止を反証する。
  * @trace ERB-IT-014
- * @precondition 本番準備本文、実lineage検証と模擬Reader・排他を使う。
+ * @precondition 本番準備本文と有限の検査済みReader事実・排他を使う。
  * @stimulus old／expected marker、本文差、欠測、active Owner、unknown資源、正式なbegin／cancel pending、元版変化を与える。
  * @observation 取得数、保持token、Writer 0と取得済み排他の全解放。
  * @oracle exact二状態だけprepared、その他は同じ回復参照で停止しHost処置・保存を行わない。
@@ -1026,6 +1078,8 @@ test("現在回収Ownerは保存済みHost予定tokenだけを再入場へ採用
       pending.expectedToken = pending.currentToken;
       operation.host.pendingTransitionJson =
         `${JSON.stringify(pending)}\n` as unknown as null;
+      // 系譜自体の検査はEMの試験が所有し、CoにはReader拒否を搬送する。
+      f.modelReadBlocked = true;
     }
     if (fault === "revision") f.changeAtRead = true;
     const refused = f.api.prepare(f.token, f.root);
@@ -1041,7 +1095,7 @@ test("現在回収Ownerは保存済みHost予定tokenだけを再入場へ採用
  * Host遷移の意図・実処置・保存確定を同じ現在Ownerへ接続する。
  * @responsibility 四状態の再入場と返却・保存不明後の追加処置0を反証する。
  * @trace ERB-IT-014
- * @precondition 本番回収本文・実lineage、模擬Host／Writer／排他だけを使用する。
+ * @precondition 本番回収本文・検査済み系譜の有限事実、模擬Host／Writer／排他を使用する。
  * @stimulus pendingなし、旧marker、予定marker、確定後再入場、前後例外、処置直前元版差、保存拒否と汎用保存による先行token更新を与える。
  * @observation 保存と処置の順序・件数、Host欄、他操作／一次失敗／結果、保持排他の解放。
  * @oracle 意図読戻し後だけ一度遷移し、予定markerでは再遷移せず、失敗後の同Owner再処置は0。
@@ -1487,7 +1541,7 @@ test("清掃済み別操作は再起動Scopeの完全一致を妨げない", () 
     closed = f.snapshot.operations[1];
   assert.ok(closed);
   Object.assign(closed, {
-    phase: "awaiting_delivery",
+    phase: "terminal",
     outcome: { cleanupConfirmed: true },
     lease: "released",
   });

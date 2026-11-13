@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
-  type CoordinatorSingleTaskDependencies,
+  type CoordinatorTaskDependencies,
   describeCoordinatorSingleTaskAdapterContract,
   runCoordinatorSingleTaskAttempt,
   startRuntimeOwnedCoordinatorTask,
@@ -43,6 +43,22 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
     changeAttribution: "unattributed",
     workspaceDeletionIssued: false,
   };
+  const longPath = `${"segment/".repeat(150)}source.txt`;
+  const changedPaths = [
+    ...Array.from({ length: 1000 }, (_, index) => `src/${index}.txt`),
+    longPath,
+  ];
+  const observation = {
+    ...base,
+    changedPaths,
+    canonicalRepositoryChanged: true,
+  };
+  const snapshot = inspectWorkspaceResult(observation);
+  assert.equal(snapshot?.changedPaths?.length, 1001);
+  assert.equal(snapshot?.changedPaths?.[1000], longPath);
+  assert.equal(Object.isFrozen(snapshot?.changedPaths), true);
+  changedPaths.push("later.txt");
+  assert.equal(snapshot?.changedPaths?.length, 1001);
   assert.deepEqual(inspectWorkspaceResult(base), base);
   for (const raw of [
     { ...base, canonicalRepositoryChanged: false },
@@ -80,88 +96,43 @@ const OPERATION_ID = "operation-0001";
 const AUTHORITY_BINDING_ID = "authority-0001";
 const repositoryRevisionValue = "a".repeat(40);
 const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
-
 /**
- * 元Controlをawait前に捕捉し、Reader受渡し失敗でも元Taskの完了観測を維持する。
- * @responsibility 同Processの配送捕捉と公開結果の境界を確認する。
+ * 廃止した配送捕捉を介さず元TaskのCompletionを待つ。
+ * @responsibility 終端前の早期返却と結果への内部関数混入を拒否する。
  * @trace PRL-IT-005
- * @precondition 未完了Promiseと元Controlを持つ模擬Taskを用意する。
- * @stimulus 捕捉成功、捕捉例外、Reader受渡し例外を実行する。
- * @observation 捕捉順序、Reader受渡し、元完了結果と公開fieldを取得する。
- * @oracle 捕捉は同期区間で実施し、例外をEffectなしへ変換せず、関数を公開しない。
- * @cleanup 全Promiseを終端し、外部Processは起動しない。
- * @boundary Coordinator Adapter→元Coordinator Task Control。
+ * @precondition 未完了Promiseを持つ模擬Task。
+ * @stimulus 開始後、元Taskの結果を遅れて確定する。
+ * @observation 起動回数、未完了時の返却有無、最終公開結果。
+ * @oracle 元Completion前に返さず、独立した配送操作を生成しない。
+ * @cleanup Promiseを終端する。外部資源なし。
+ * @boundary Coordinator Adapterと元Task。
  */
-test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () => {
-  for (const mode of [
-    "success",
-    "capture_throw",
-    "binding_throw",
-    "binding_reject",
-    "binding_pending",
-    "binding_late_reject",
-  ] as const) {
-    let resolve!: (value: unknown) => void;
-    const completion = new Promise<unknown>((done) => {
-      resolve = done;
-    });
-    const { dependencies, controlCapability } = harness({ completion });
-    const callOrderEntries: string[] = [];
-    const delivery = Object.freeze({
-      readResults: () =>
-        Object.freeze({ status: "not_required" as const, results: null }),
-      complete: () => {
-        throw new Error("no_result");
-      },
-    });
-    let isReturned = false;
-    let rejectBinding!: (error: Error) => void;
-    const lateBinding = new Promise<void>((_resolve, reject) => {
-      rejectBinding = reject;
-    });
-    const pending = runCoordinatorSingleTaskAttempt(
-      {
-        ...dependencies,
-        captureResultDelivery: (control) => {
-          assert.equal(control, controlCapability);
-          callOrderEntries.push("capture");
-          if (mode === "capture_throw") throw new Error("capture_failed");
-          return delivery;
-        },
-      },
-      validInput({
-        bindResultReader: (captured: unknown) => {
-          callOrderEntries.push("bind");
-          assert.equal(captured, mode === "capture_throw" ? null : delivery);
-          if (mode === "binding_throw") throw new Error("binding_failed");
-          if (mode === "binding_reject")
-            return Promise.reject(Error("binding_failed"));
-          if (mode === "binding_pending") return new Promise<void>(() => {});
-          if (mode === "binding_late_reject") return lateBinding;
-        },
-      }),
-    ).then((outcome) => {
-      isReturned = true;
-      return outcome;
-    });
-    assert.deepEqual(callOrderEntries, ["capture", "bind"]);
-    await Promise.resolve();
-    assert.equal(isReturned, false);
-    resolve(completionRecord());
-    const outcome = await pending;
-    assert.equal(outcome.status, "completed");
-    assert.equal(outcome.effectState, "settled");
-    assert.ok(
-      Object.values(outcome).every((value) => typeof value !== "function"),
-    );
-    assert.equal(Object.hasOwn(outcome, "delivery"), false);
-    if (mode === "binding_late_reject") {
-      rejectBinding(Error("binding_failed_after_completion"));
-      await new Promise<void>((done) => setImmediate(done));
-      assert.equal(outcome.status, "completed");
-      assert.deepEqual(callOrderEntries, ["capture", "bind"]);
-    }
-  }
+test("単発Adapterは配送捕捉なしで元TaskのCompletionを待つ", async () => {
+  let resolve!: (value: unknown) => void;
+  const completion = new Promise<unknown>((done) => {
+    resolve = done;
+  });
+  const { dependencies, startCalls } = harness({ completion });
+  let returned = false;
+  const pending = runCoordinatorSingleTaskAttempt(
+    dependencies,
+    validInput({}),
+  ).then((value) => {
+    returned = true;
+    return value;
+  });
+  assert.equal(startCalls.length, 1);
+  await Promise.resolve();
+  assert.equal(returned, false);
+  resolve(completionRecord());
+  const outcome = await pending;
+  assert.equal(outcome.status, "completed");
+  assert.equal(outcome.effectState, "settled");
+  assert.equal(startCalls.length, 1);
+  assert.ok(
+    Object.values(outcome).every((value) => typeof value !== "function"),
+  );
+  assert.equal(Object.hasOwn(outcome, "delivery"), false);
 });
 
 /**
@@ -193,7 +164,7 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
   );
   assert.equal(saves, 0);
   const notify = startCalls[0]?.[3] as NonNullable<
-    Parameters<CoordinatorSingleTaskDependencies["startTask"]>[3]
+    Parameters<CoordinatorTaskDependencies["startTask"]>[3]
   >;
   assert.equal(typeof notify, "function");
   const notice = Object.freeze({
@@ -249,7 +220,7 @@ test("必須開始通知の欠落・保存拒否・例外を成功へ補正し�
   assert.equal(missing.manualRecoveryRequired, false);
   assert.equal(missing.candidateId, null);
   for (const isThrows of [false, true]) {
-    const dependencies: CoordinatorSingleTaskDependencies = {
+    const dependencies: CoordinatorTaskDependencies = {
       startTask: (_request, _root, _correlation, notify) => ({
         status: "started",
         controlCapability: Object.freeze({}),
@@ -307,13 +278,13 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
     releaseSave = resolve;
   });
   let notify!: NonNullable<
-    Parameters<CoordinatorSingleTaskDependencies["startTask"]>[3]
+    Parameters<CoordinatorTaskDependencies["startTask"]>[3]
   >;
   let settle!: (value: unknown) => void;
   const completion = new Promise<unknown>((resolve) => {
     settle = resolve;
   });
-  const dependencies: CoordinatorSingleTaskDependencies = {
+  const dependencies: CoordinatorTaskDependencies = {
     startTask: (_request, _root, _correlation, observer) => {
       assert.ok(observer);
       notify = observer;
@@ -371,7 +342,7 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
 test("開始保存reject後のjoinでもexact回復参照と清掃事実を失わない", async () => {
   for (const clean of [true, false]) {
     let saves = 0;
-    const dependencies: CoordinatorSingleTaskDependencies = {
+    const dependencies: CoordinatorTaskDependencies = {
       startTask: (_request, _root, _correlation, notify) => ({
         status: "started",
         controlCapability: Object.freeze({}),
@@ -594,15 +565,15 @@ function completionRecord(
  */
 function harness(
   overrides: Readonly<{
-    startTask?: CoordinatorSingleTaskDependencies["startTask"];
-    cancelTask?: CoordinatorSingleTaskDependencies["cancelTask"];
+    startTask?: CoordinatorTaskDependencies["startTask"];
+    cancelTask?: CoordinatorTaskDependencies["cancelTask"];
     completion?: Promise<unknown>;
   }> = Object.freeze({}),
 ) {
   const startCalls: unknown[][] = [];
   const cancelCalls: unknown[] = [];
   const controlCapability = Object.freeze({});
-  const dependencies: CoordinatorSingleTaskDependencies = Object.freeze({
+  const dependencies: CoordinatorTaskDependencies = Object.freeze({
     startTask:
       overrides.startTask ??
       ((...startArguments: unknown[]) => {
@@ -1389,7 +1360,7 @@ test("startTask実行中の同期abortも一度だけ転送される", async () 
   const controller = new AbortController();
   const cancelCalls: unknown[] = [];
   const controlCapability = Object.freeze({});
-  const dependencies: CoordinatorSingleTaskDependencies = Object.freeze({
+  const dependencies: CoordinatorTaskDependencies = Object.freeze({
     startTask: () => {
       controller.abort();
       return Object.freeze({
@@ -1719,4 +1690,4 @@ test("Provider Accessorを実行せず欠測互換から除外する", async () 
   assert.equal(result.manualRecoveryRequired, true);
 });
 
-import { inspectWorkspaceResult } from "../../../execution-model/src/index.ts";
+import { inspectWorkspaceResult } from "../../src/workspace/record.ts";

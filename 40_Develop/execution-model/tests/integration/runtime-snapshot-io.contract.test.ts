@@ -12,10 +12,6 @@
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -26,14 +22,16 @@ import test from "node:test";
 import { types } from "node:util";
 import { runInNewContext, runInThisContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
-import * as privateDecisionCrud from "../../src/decision/crud.ts";
-import * as privateHistoryCrud from "../../src/history/crud.ts";
-import * as domain from "../../src/index.ts";
-import type { DecisionAnswer } from "../../src/decision/types.ts";
 import {
   areTaskResourcesSettled,
-  type ExecutionOperationRecord,
   isDockerRestartCheckpointSettled,
+} from "../../src/attempt/validation.ts";
+import * as privateDecisionCrud from "../../src/decision/crud.ts";
+import type { DecisionAnswer } from "../../src/decision/types.ts";
+import * as privateHistoryCrud from "../../src/history/crud.ts";
+import * as domain from "../../src/index.ts";
+import {
+  type ExecutionOperationRecord,
   type OperationResources,
   type ProjectExecutionState,
   readProjectExecutionState,
@@ -46,7 +44,9 @@ import {
   writeSnapshotState,
 } from "../../src/state/crud.ts";
 import {
+  decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
+  encodeStateValue,
   hashExecutionStateContent,
   isSha256Hex,
   leaseAcquisitionRecoveryId,
@@ -107,7 +107,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     projects: [{ projectId: "project-a" }],
     queueEntries: [{ queueId: "queue-a" }],
     intakeEpoch: "epoch-a",
-    schemaRevision: 6,
+    schemaRevision: 7,
     results: [{ id: "result-a" }],
     workspaces: [{ workspaceId: "workspace-a" }],
     snapshotRevision: 7,
@@ -115,6 +115,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     leaseIntents: ["INTERNAL_ONLY"],
   };
   let reads = 0;
+  const readModes: unknown[] = [];
   let reply: unknown = {
     status: "completed",
     reason: "fixture_read",
@@ -126,10 +127,11 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     "completed",
     `${source}; return readState;`,
   )(
-    (actualRoot: unknown, binding: string) => {
+    (actualRoot: unknown, binding: string, mode?: unknown) => {
       assert.strictEqual(actualRoot, root);
       assert.equal(binding, "binding-a");
       reads++;
+      readModes.push(mode);
       return reply;
     },
     (reason: string) => ({ status: "blocked", reason, value: null }),
@@ -140,6 +142,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     }),
   );
   for (const [scope, keys] of [
+    ["intake", ["intakeEpoch"]],
     [
       "execution",
       ["projects", "queueEntries", "intakeEpoch", "schemaRevision"],
@@ -152,6 +155,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     const before = reads;
     const actual = read(root, "binding-a", scope);
     assert.equal(reads, before + 1);
+    assert.equal(readModes.at(-1), scope === "intake" ? true : undefined);
     assert.equal(actual.status, "completed");
     assert.deepEqual(Object.keys(actual.value).sort(), [...keys].sort());
     for (const key of keys)
@@ -192,7 +196,7 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
-  for (const scope of ["execution", "workspace"] as const) {
+  for (const scope of ["intake", "execution", "workspace"] as const) {
     const empty: ReturnType<typeof domain.readState> = domain.readState(
       verified.capability,
       "binding-a",
@@ -215,9 +219,12 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
     "binding-a",
     "workspace",
   );
+  const intake = domain.readState(verified.capability, "binding-a", "intake");
   assert.equal(execution.status, "completed");
   assert.equal(workspace.status, "completed");
   assert.ok(execution.value && workspace.value);
+  assert.equal(intake.status, "completed");
+  assert.deepEqual(intake.value, { intakeEpoch: execution.value.intakeEpoch });
   assert.deepEqual(Object.keys(execution.value).sort(), [
     "intakeEpoch",
     "projects",
@@ -235,8 +242,26 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   assert.deepEqual(execution.value.queueEntries, workspace.value.queueEntries);
   assert.equal(workspace.value.snapshotRevision, 1);
   const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const marker = path.join(root, ".crdd", "domain-model", "state.lock");
+  fs.writeFileSync(
+    marker,
+    `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: "binding-a" })}\n`,
+  );
+  try {
+    assert.deepEqual(
+      domain.readState(verified.capability, "binding-a", "intake").value,
+      intake.value,
+    );
+    for (const scope of ["execution", "workspace"] as const)
+      assert.equal(
+        domain.readState(verified.capability, "binding-a", scope).status,
+        "blocked",
+      );
+  } finally {
+    fs.rmSync(marker);
+  }
   fs.writeFileSync(file, "invalid fixture");
-  for (const scope of ["execution", "workspace"] as const) {
+  for (const scope of ["intake", "execution", "workspace"] as const) {
     const rejected: ReturnType<typeof domain.readState> = domain.readState(
       verified.capability,
       "binding-a",
@@ -505,8 +530,6 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         blockers: [],
         operations: [],
         unresolvedRecoveries: [],
-        pendingDeliveries: [],
-        resultReceipts: [],
       })}\n`,
     );
     fs.writeFileSync(file, bytes);
@@ -564,7 +587,6 @@ const emptyTaskSections = {
   historyPending: [],
   decisions: [],
   blockers: [],
-  resultReceipts: [],
 };
 
 /**
@@ -1138,26 +1160,80 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
     queueId,
     "project-operation",
   );
+  let rejectedCallbacks = 0;
+  const invalidOwner = {
+    get ownerGeneration(): string {
+      rejectedCallbacks++;
+      throw Error("must_not_read_owner_getter");
+    },
+    ownerProcessId: process.pid,
+  };
+  for (const owner of [
+    invalidOwner,
+    { ownerGeneration: "owner-a", ownerProcessId: 0 },
+    { ownerGeneration: "owner-a", ownerProcessId: process.pid, extra: true },
+  ]) {
+    const rejected = domain.acquireLease(cap, "binding-a", {
+      kind: "intent",
+      input: [
+        "project-a",
+        queueId,
+        "project-operation",
+        owner,
+        {
+          resourcesAbsent: () => {
+            rejectedCallbacks++;
+            return true;
+          },
+          observeRoot: () => {
+            rejectedCallbacks++;
+            throw Error("must_not_observe");
+          },
+          markIntentSaveRequested: () => {
+            rejectedCallbacks++;
+          },
+        },
+      ],
+    });
+    assert.equal(rejected.status, "blocked");
+  }
+  assert.equal(rejectedCallbacks, 0);
+  const reservationCalls: string[] = [];
   const reserved = domain.acquireLease(cap, "binding-a", {
     kind: "intent",
     input: [
-      "binding-a",
       "project-a",
       queueId,
       "project-operation",
-      identity,
-      intent,
       {
-        resourcesAbsent: () => true,
-        observeRoot: () => ({
-          repositoryRoot: root,
-          rootIdentity: "f".repeat(64),
-        }),
-        markIntentSaveRequested: () => {},
+        ownerGeneration: intent.ownerGeneration,
+        ownerProcessId: intent.ownerProcessId,
+      },
+      {
+        resourcesAbsent: (observedRoot, observedIdentity) => {
+          assert.equal(observedRoot, root);
+          assert.equal(observedIdentity, identity);
+          reservationCalls.push("absent");
+          return true;
+        },
+        observeRoot: () => {
+          reservationCalls.push("root");
+          return {
+            repositoryRoot: root,
+            rootIdentity: "f".repeat(64),
+          };
+        },
+        markIntentSaveRequested: (recoveryId) => {
+          assert.equal(recoveryId, intent.recoveryId);
+          reservationCalls.push("mark");
+        },
       },
     ],
   });
   assert.equal(reserved.status, "completed", JSON.stringify(reserved));
+  assert.equal(reserved.value?.identity, identity);
+  assert.deepEqual(reserved.value?.intent, intent);
+  assert.deepEqual(reservationCalls, ["absent", "root", "mark"]);
   const current = path.join(root, ".crdd", "domain-model", "state.json");
   const leaseSnapshot = readSnapshot(root, "binding-a").value;
   assert.ok(leaseSnapshot);
@@ -1442,13 +1518,9 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     repositoryBinding: repository.repositoryBinding,
     operations: [],
     unresolvedRecoveries: [],
-    pendingDeliveries: [],
   };
   const firstBytes = Buffer.from(`${encodeStateValue(first)}\n`);
-  assert.equal(
-    privateStorageStore.readOperationStateStage(management).status,
-    "blocked",
-  );
+  assert.equal(domain.readOperationStateStage(management).status, "blocked");
   assert.equal(
     privateStateCrud.prepareOwnedStateInitialization(management, firstBytes)
       .status,
@@ -1476,7 +1548,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   assert.equal(result.snapshotConfirmed, true);
   assert.equal(result.lockReleased, true);
   assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
-  const readFirst = privateStorageStore.readOperationStateStage(management);
+  const readFirst = domain.readOperationStateStage(management);
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
   assert.equal(readFirst.value?.snapshot.revision, 1);
@@ -1484,10 +1556,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     readFirst.value?.payloadSha256,
     hashExecutionStateContent(first),
   );
-  assert.equal(
-    privateStorageStore.readOperationStateStage({}).status,
-    "blocked",
-  );
+  assert.equal(domain.readOperationStateStage({}).status, "blocked");
   const recoveryRead = domain.readRecoveryState(verifiedRoot.capability);
   assert.equal(recoveryRead.status, "completed");
   assert.equal(recoveryRead.lockReleased, true);
@@ -1597,10 +1666,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "blocked",
   );
   assert.equal(fs.existsSync(path.join(area.directory, "state.json")), false);
-  assert.equal(
-    privateStorageStore.readOperationStateStage(management).status,
-    "blocked",
-  );
+  assert.equal(domain.readOperationStateStage(management).status, "blocked");
   assert.equal(
     privateStateCrud.writeOwnedStateSnapshot(management, firstBytes)
       .filesystemEffectIssued,
@@ -1684,7 +1750,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     flag: "wx",
   });
   assert.equal(
-    privateStorageStore.readOperationStateStage(management).reason,
+    domain.readOperationStateStage(management).reason,
     "coordinator_state_reentry_required",
   );
   assert.equal(
@@ -1708,10 +1774,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   fs.unlinkSync(path.join(area.directory, "state.pending.json"));
   const hardlink = path.join(root, "state-hardlink");
   fs.linkSync(path.join(area.directory, "state.json"), hardlink);
-  assert.equal(
-    privateStorageStore.readOperationStateStage(management).status,
-    "blocked",
-  );
+  assert.equal(domain.readOperationStateStage(management).status, "blocked");
   assert.equal(
     privateStateCrud.writeOwnedStateSnapshot(management, secondBytes)
       .filesystemEffectIssued,
@@ -1832,8 +1895,10 @@ test("配送Readerは確定版と同一のpendingを拒否する", () => {
   }
 });
 
-import { prepareStateResourceSnapshot } from "../../src/state/validation.ts";
-import { prepareStateOperationSnapshot } from "../../src/state/validation.ts";
+import {
+  prepareStateOperationSnapshot,
+  prepareStateResourceSnapshot,
+} from "../../src/state/validation.ts";
 
 /**
  * 自己生成Rootを既存の真正参照検査へ渡す。
@@ -1870,7 +1935,7 @@ function fixture(t: test.TestContext) {
     windowsHide: true,
   });
   const state = {
-    contract: "crdd-coordinator/project-state/v2",
+    contract: "crdd-execution-model/project-state/v3",
     taskExecutionSelections: {
       executor: {
         provider: "codex",
@@ -1940,7 +2005,6 @@ function fixture(t: test.TestContext) {
         startPhase: "none",
         cleanupConfirmed: false,
         recoveryObligations: [],
-        resultAcceptances: [],
         recoveryUnresolved: false,
         candidateId: null,
         retryCount: 0,
@@ -3026,8 +3090,8 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v6",
-    schemaRevision: 6,
+    schema: "crdd-execution-model/project-snapshot/v7",
+    schemaRevision: 7,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -3134,8 +3198,8 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v6",
-    schemaRevision: 6,
+    schema: "crdd-execution-model/project-snapshot/v7",
+    schemaRevision: 7,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -3252,8 +3316,8 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v6",
-    schemaRevision: 6,
+    schema: "crdd-execution-model/project-snapshot/v7",
+    schemaRevision: 7,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -3679,7 +3743,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
   let identityOwnerLive = true;
   let hostReadBefore = hostPreparationBefore;
   const readHostPreparation = runInThisContext(
-    `(scope) => { const { snapshotStateRecord, observeOperationRepository, readStateSnapshot, encodeStateValue, prepareStateHostSnapshot, prepareStateOperationSnapshot, decodeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/storage/store.ts", import.meta.url), "utf8"), "readOperationStateStage")}\nreturn readOperationStateStage; }`,
+    `(scope) => { const { snapshotStateRecord, observeOperationRepository, readStateSnapshot, encodeStateValue, prepareStateHostSnapshot, prepareStateOperationSnapshot, decodeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/attempt/crud.ts", import.meta.url), "utf8"), "readOperationStateStage")}\nreturn readOperationStateStage; }`,
   )({
     snapshotStateRecord,
     encodeStateValue,
@@ -4019,7 +4083,6 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
       { kind: "runtime_repair", recoveryId: "other", value: 0 },
     ],
     unresolvedRecoveries: [{ value: 0 }],
-    pendingDeliveries: [{ value: 0 }],
   };
   const original = JSON.stringify(before);
   for (const scenario of [
@@ -4370,7 +4433,6 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
         },
       ],
       unresolvedRecoveries: [],
-      pendingDeliveries: [],
     };
     /**
      * 回復Writer断面へ固定Repo・state・Capabilityを結合する。
@@ -4713,7 +4775,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
         operationId: scenario === "operation_changed" ? "other" : "OP-1",
       }),
       recoveryId: "exact-recovery",
-      phase: scenario === "awaiting" ? "awaiting_delivery" : "settling",
+      phase: scenario === "awaiting" ? "terminal" : "settling",
       host: {
         cleanup: scenario === "host_pending" ? "pending" : "confirmed",
         pendingTransitionJson:

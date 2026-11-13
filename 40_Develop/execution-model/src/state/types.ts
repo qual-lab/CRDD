@@ -5,6 +5,13 @@
  */
 
 import type { Repository } from "../../../version-control/src/index.ts";
+
+/** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
+export const PROJECT_STATE_CONTRACT =
+  "crdd-execution-model/project-state/v3" as const;
+/** ローカル主体とAM主体を混同しない固定namespace。Root公開しない。 */
+export const LOCAL_EMAIL_PREFIX = "local.email.";
+
 import type { OperationRecord } from "../attempt/types.ts";
 import type { Blocker, Decision } from "../decision/types.ts";
 import type { HistoryRow } from "../history/types.ts";
@@ -16,7 +23,6 @@ import type {
 } from "../objective/types.ts";
 import type {
   ProjectQueueEntry,
-  ProjectResultAcceptance,
   ProjectTaskDefinition,
   ProjectTaskRecord,
   ProjectTaskRecoveryObligation,
@@ -26,7 +32,6 @@ import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
 import type {
   EXECUTION_STATE_SCHEMA,
   PROJECT_SNAPSHOT_SCHEMA,
-  PROJECT_STATE_CONTRACT,
   STORAGE_CONTRACT,
 } from "./validation.ts";
 
@@ -87,18 +92,15 @@ export type SnapshotObservations = Readonly<{
 
 /**
  * Taskと技術操作を同じ改訂で保存する閉集合を定義する。
- * @responsibility 改訂・元Hash・物理結合を一組にし、受領本文を一度だけ保持する。
+ * @responsibility 改訂・元Hash・物理結合を一組にし、モデルと技術終端を同じ保存単位で保持する。
  * @trace ARCH-000004、ARCH-000008
  * @shape 平坦な現在区画。Task未初期化時は業務結合と受付世代がともにnull。
- * @invariant 二つの旧Snapshotや二重の受領Hashを内包しない。
+ * @invariant 二つの旧Snapshotや独立した配送・受領記録を内包しない。
  * @boundary 単一Writerへ接続する値モデル。
  * @security Schema成立を実資源観測や保存成功へ昇格しない。
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
-export type UnifiedSnapshot = Omit<
-  ExecutionOverview,
-  "schema" | "pendingDeliveries"
-> &
+export type UnifiedSnapshot = Omit<ExecutionOverview, "schema"> &
   Omit<
     Snapshot,
     | "schema"
@@ -110,13 +112,11 @@ export type UnifiedSnapshot = Omit<
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-domain/runtime-state/v3";
+    schema: "crdd-execution-model/state/v4";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
     projects: readonly ProjectDefinition[];
     managedExecutions: readonly ManagedExecution[];
-    resultReceipts: readonly ProjectResultAcceptance[];
-    pendingDeliveries: ExecutionOverview["pendingDeliveries"];
   }>;
 
 /**
@@ -169,48 +169,27 @@ export type ExecutionOverview = Readonly<{
       | "docker_resources"
       | "host_cleanup"
       | "lease_release"
-      | "result_delivery"
     )[];
-  }>[];
-  pendingDeliveries: readonly Readonly<{
-    operationNonce: string;
-    recoveryId: string;
-    resultId: string;
-    consumer: "orchestrator";
   }>[];
 }>;
 
 /**
  * 単一保存内のTaskを、技術状態の複製を持たない値として定義する。
- * @responsibility 終端元事実と受領参照を保存し、公開Taskの導出値を分離する。
+ * @responsibility 終端元事実とOperation相関を保存し、公開Taskの導出値を分離する。
  * @trace ARCH-000004、ARCH-000008
- * @shape 既存Taskの業務値、settlement、受領IDと回復参照。
- * @invariant 受領本文と技術cleanupの正本をTaskへ複製しない。
+ * @shape 既存Taskの業務値、settlementと回復参照。
+ * @invariant 技術cleanupの正本をTaskへ複製しない。
  * @boundary 保存codec内部。公開Task DTOは既存契約を維持する。
  * @security 値から実行Authorityを復元しない。
  * @compatibility 本番切替前の純粋モデルであり、旧保存Readerではない。
  */
 export type StoredTask = Omit<
   ProjectTaskRecord,
-  | "cleanupConfirmed"
-  | "recoveryUnresolved"
-  | "resultAcceptances"
-  | "recoveryObligations"
+  "cleanupConfirmed" | "recoveryUnresolved" | "recoveryObligations"
 > &
   Readonly<{
     settlement: TaskSettlementFact;
-    resultAcceptanceIds: readonly string[];
-    recoveryObligations: readonly (
-      | Readonly<{ kind: "docker"; recoveryId: string }>
-      | Readonly<{
-          kind: Exclude<ProjectTaskRecoveryObligation["kind"], "docker">;
-          recoveryId: string;
-          phase: Exclude<
-            ProjectTaskRecoveryObligation["phase"],
-            "acknowledged"
-          >;
-        }>
-    )[];
+    recoveryObligations: readonly ProjectTaskRecoveryObligation[];
   }>;
 
 /**
@@ -253,7 +232,7 @@ export type Snapshot = Readonly<{
 }> &
   Readonly<{
     schema: typeof PROJECT_SNAPSHOT_SCHEMA;
-    schemaRevision: 6;
+    schemaRevision: 7;
     decisions: readonly Decision[];
     blockers: readonly Blocker[];
   }>;
@@ -442,13 +421,13 @@ export type ManagedExecution = Pick<
  * @invariant 新しいState File・Registry・二重Writerを持たない。
  * @boundary 新Schemaの値モデル。保存先有効化は別の条件。
  * @security codec成立から認可・出版・資源不存在を推定しない。
- * @compatibility crdd-domain/runtime-state/v3のみを表す。
+ * @compatibility crdd-execution-model/state/v4のみを表す。
  */
 export type DecodedStateSnapshot = UnifiedSnapshot;
 
 /**
  * 管理実行の保存行へCore定義を結合した、codec内部だけの導出値。
- * @responsibility 受領・技術相関の検査に必要なTask定義をメモリ上で結合する。
+ * @responsibility 終端・技術相関の検査に必要なTask定義をメモリ上で結合する。
  * @trace ARCH-000004、ARCH-000008
  * @shape 既存管理Projectと元事実Task行。
  * @invariant この値を物理Snapshotへ保存せず、Core-only対象へ生成しない。
@@ -754,11 +733,25 @@ export type LeaseReleaseRequest = Readonly<
 export type LeaseAcquisitionRequest = Readonly<
   | {
       kind: "intent";
-      input: RootObservedInput<
-        Parameters<
-          typeof import("./validation.ts").prepareLeaseAcquisitionReservation
-        >
-      >;
+      input: [
+        projectId: string,
+        queueId: string,
+        kind: LeaseKind,
+        owner: Pick<
+          Snapshot["leaseIntents"][number],
+          "ownerGeneration" | "ownerProcessId"
+        >,
+        observations: Readonly<{
+          resourcesAbsent: (
+            repositoryRoot: string,
+            identity: string,
+          ) => boolean;
+          observeRoot: (
+            repositoryRoot: string,
+          ) => Readonly<{ repositoryRoot: string; rootIdentity: string }>;
+          markIntentSaveRequested: (recoveryId: string) => void;
+        }>,
+      ];
     }
   | {
       kind: "observed";

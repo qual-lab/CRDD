@@ -18,7 +18,6 @@ import {
   supersedeRuntimeOwnedDelegationSelectionGrant,
 } from "../../../src/execution/authority.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 /**
  * 三項目の固定要求を合成する。
  * @responsibility 完全選定の相関・拒否・消費を確認する。
@@ -113,6 +112,8 @@ test("固定選定を一回消費する", () => {
   );
   assert.equal(h.runtime.consume(r.useCapability, h.owner), null);
 });
+
+import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 
 /**
  * 明示選定を完全に保持する。
@@ -248,12 +249,37 @@ test("後続変更と実行可能Propertyを遮断する", () => {
  * @boundary PRL-UT-006=N/A: Process内の合成値だけ。
  */
 test("同じ選定と試行の更新だけを受理する", () => {
-  const h = fixture();
+  let operationChecks = 0;
+  const replacement = request();
+  const capturedSelection = replacement.executionSelection;
+  const h = fixture({
+    verifyOperation: () => {
+      operationChecks++;
+      if (operationChecks === 2)
+        replacement.executionSelection = executionSelection("executor", {
+          provider: "claude",
+          model: "opus",
+          effort: "high",
+        });
+      return {
+        operationId: "OP-123456",
+        createdAt: "2026-10-24T00:00:00.000Z",
+      };
+    },
+  });
   const r = h.runtime.issue(h.owner, request());
-  const next = h.runtime.supersede(r.controlCapability, h.owner, request());
+  assert.equal(operationChecks, 1);
+  const next = h.runtime.supersede(r.controlCapability, h.owner, replacement);
   assert.equal(next.status, "issued");
+  assert.equal(operationChecks, 2);
+  assert.deepEqual(next.executionSelection, capturedSelection);
+  assert.equal(next.selectionHash, r.selectionHash);
+  assert.notDeepEqual(replacement.executionSelection, capturedSelection);
   assert.equal(h.runtime.consume(r.useCapability, h.owner), null);
-  assert.ok(h.runtime.consume(next.useCapability, h.owner));
+  const consumed = h.runtime.consume(next.useCapability, h.owner);
+  assert.ok(consumed);
+  assert.deepEqual(consumed.executionSelection, capturedSelection);
+  assert.equal(h.runtime.consume(next.useCapability, h.owner), null);
 });
 
 /**
@@ -269,6 +295,7 @@ test("同じ選定と試行の更新だけを受理する", () => {
  */
 test("差替えの更新拒否で元Grantを維持する", () => {
   for (const replacement of [
+    request({ operationId: "OP-654321" }),
     request({ taskAttempt: 1 }),
     request({
       executionSelection: executionSelection("executor", {
@@ -285,6 +312,36 @@ test("差替えの更新拒否で元Grantを維持する", () => {
       "blocked",
     );
     assert.ok(h.runtime.consume(r.useCapability, h.owner));
+  }
+  for (const failure of ["operation", "eligibility", "identity"] as const) {
+    let updating = false;
+    const h = fixture({
+      verifyOperation: () => {
+        if (updating && failure === "operation") throw new Error("operation");
+        return {
+          operationId: "OP-123456",
+          createdAt: "2026-10-24T00:00:00.000Z",
+        };
+      },
+      observeProviderEligibility: () => {
+        if (updating && failure === "eligibility") return [];
+        return [{ provider: "codex", status: "eligible", reason: "ready" }];
+      },
+      randomBytes: (size) => {
+        if (updating && failure === "identity") return Buffer.alloc(0);
+        return Buffer.alloc(size, 1);
+      },
+    });
+    const original = h.runtime.issue(h.owner, request());
+    assert.equal(original.status, "issued");
+    updating = true;
+    const result = h.runtime.supersede(
+      original.controlCapability,
+      h.owner,
+      request(),
+    );
+    assert.equal(result.status, "blocked", failure);
+    assert.ok(h.runtime.consume(original.useCapability, h.owner), failure);
   }
 });
 

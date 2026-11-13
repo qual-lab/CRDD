@@ -6,9 +6,7 @@
 
 import { types } from "node:util";
 import {
-  areTaskResourcesSettled,
   type ExecutionOperationRecord,
-  isDockerRestartCheckpointSettled,
   parseDockerTaskRecoveryId,
 } from "../../../execution-model/src/index.ts";
 import type { Recovery, RecoveryStartFailureDiagnostic } from "./types.ts";
@@ -75,14 +73,21 @@ const RECOVERY_START_REASON_CLASS = new Map<string, string>([
  */
 export function coordinatorReleasedTaskCanObserveHostAbsence(
   operation: ExecutionOperationRecord,
+  state:
+    | Readonly<{
+        operation: ExecutionOperationRecord;
+        resourcesSettled: boolean;
+        restartSettled: boolean;
+      }>
+    | undefined,
 ): boolean {
   return (
+    state?.operation === operation &&
     operation.lease === "released" &&
     operation.execution.ownerEffect === "disabled" &&
     operation.execution.workspaceReusable === false &&
     operation.host.pendingTransitionJson === null &&
-    (operation.dockerRestart === null ||
-      isDockerRestartCheckpointSettled(operation.dockerRestart)) &&
+    state.restartSettled &&
     operation.resources !== null &&
     operation.resources.checkpoints.length > 0 &&
     operation.resources.checkpoints.length ===
@@ -91,7 +96,7 @@ export function coordinatorReleasedTaskCanObserveHostAbsence(
       (resource) =>
         resource.receiptSource !== null && resource.observation === "absent",
     ) &&
-    areTaskResourcesSettled(operation)
+    state.resourcesSettled
   );
 }
 

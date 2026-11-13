@@ -8,7 +8,6 @@ import { ExecutionStorageBlockedError } from "../../../execution-model/src/index
 import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
-  captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
 import { executeCoordinatorPublicStateQuery } from "../state/query.ts";
@@ -23,7 +22,6 @@ const productionExecutionDependencies: PublicExecutionDependencies =
   Object.freeze({
     startTask: startRuntimeOwnedCoordinatorTask,
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
-    captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
   });
 
 /**

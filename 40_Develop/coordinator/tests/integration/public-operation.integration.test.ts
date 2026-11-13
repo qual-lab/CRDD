@@ -247,14 +247,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   const deliveredRequests: Readonly<Record<string, unknown>>[] = [];
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentCoordinatorPublicObjectiveCandidate({
-    captureResultDelivery: () =>
-      Object.freeze({
-        readResults: () =>
-          Object.freeze({ status: "not_required" as const, results: null }),
-        complete: () => {
-          throw new Error("fixture_has_no_docker_result");
-        },
-      }),
     startTask: (
       taskRequest,
       _root,
@@ -803,6 +795,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(changedGraph.status, "blocked");
   assert.equal(changedGraph.reason, "orchestrator_intake_epoch_retired");
   assert.equal(changedGraph.effectState, "no_effect");
+  assert.equal(changedGraph.cleanupConfirmed, true);
   assert.equal(taskStarts, 5);
 });
 

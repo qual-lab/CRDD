@@ -185,14 +185,10 @@ export function retrySettledProjectTaskRecoveries(
         (candidate) => candidate.definition.id === taskId,
       );
       return (
-        !task ||
+        !task?.cleanupConfirmed ||
         task.recoveryUnresolved ||
         task.recoveryObligations.length === 0 ||
-        task.recoveryObligations.some(
-          (entry) =>
-            entry.phase !==
-            (entry.kind === "docker" ? "acknowledged" : "settled"),
-        ) ||
+        task.recoveryObligations.some((entry) => entry.phase !== "settled") ||
         (task.state !== "recovery_required" && task.state !== "ready")
       );
     })
@@ -215,7 +211,6 @@ export function retrySettledProjectTaskRecoveries(
       startPhase: "none" as const,
       cleanupConfirmed: true,
       candidateId: null,
-      resultAcceptances: Object.freeze([]),
       retryCount: task.retryCount + 1,
     });
   });
@@ -331,7 +326,6 @@ export function recordProjectTaskOwnerLossRecoveries(
         startPhase: "none" as const,
         cleanupConfirmed: true,
         recoveryObligations: Object.freeze([]),
-        resultAcceptances: Object.freeze([]),
         recoveryUnresolved: false,
         candidateId: null,
       });
@@ -341,7 +335,6 @@ export function recordProjectTaskOwnerLossRecoveries(
           state: "recovery_required" as const,
           startPhase: "settled" as const,
           cleanupConfirmed: false,
-          resultAcceptances: Object.freeze([]),
           recoveryObligations: Object.freeze([
             Object.freeze({
               kind: "docker" as const,

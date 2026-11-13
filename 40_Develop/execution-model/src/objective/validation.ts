@@ -150,8 +150,8 @@ export function prepareExecutionDefinitionChange(
     snapshot.decisions.some(
       (row) => row.target.projectId === request.projectId,
     ) ||
-    [snapshot.queueEntries, snapshot.results, snapshot.resultReceipts].some(
-      (rows) => rows.some((row) => row.projectId === request.projectId),
+    [snapshot.queueEntries, snapshot.results].some((rows) =>
+      rows.some((row) => row.projectId === request.projectId),
     );
   if (
     referenced ||

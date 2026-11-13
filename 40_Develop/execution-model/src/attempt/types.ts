@@ -9,6 +9,75 @@ import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { StateVersion } from "../state/types.ts";
 import type { REPAIR_ACTIONS, REPAIR_DIRECTORIES } from "./validation.ts";
 
+/** Provider応答の失敗理由。公開完了理由と内部要約検査が共有する値契約。 */
+export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
+  "workbench_ai_provider_output_invalid",
+  "workbench_ai_codex_output_invalid",
+  "workbench_ai_codex_completion_invalid",
+  "workbench_ai_codex_tool_event_forbidden",
+  "workbench_ai_codex_final_message_invalid",
+  "workbench_ai_claude_envelope_invalid",
+  "workbench_ai_claude_completion_invalid",
+  "workbench_ai_claude_turn_count_invalid",
+  "workbench_ai_claude_metadata_invalid",
+  "workbench_ai_claude_structured_output_invalid",
+] as const);
+
+/** 実行失敗の公開語彙。保存・結果投影で同じ不変集合を参照する。 */
+export const dockerProcessControllerPublicCompletionReasons = Object.freeze([
+  "provider_deadline_exceeded",
+  "docker_setup_deadline_exceeded",
+  "provider_output_limit_exceeded",
+  "provider_process_signalled",
+  "provider_process_exit_nonzero",
+  "provider_subscription_quota_exhausted",
+  "provider_authentication_expired",
+  "provider_operation_budget_exceeded",
+  "provider_turn_limit_exceeded",
+  "provider_structured_output_retry_exhausted",
+  "provider_invocation_rejected",
+  "provider_network_unavailable",
+  "provider_service_unavailable",
+  "docker_setup_create_subscription_auth_probe_failed",
+  "docker_setup_start_subscription_auth_probe_attached_failed",
+  "docker_setup_create_internal_network_failed",
+  "docker_setup_create_egress_network_failed",
+  "docker_setup_create_proxy_failed",
+  "docker_setup_connect_proxy_egress_failed",
+  "docker_setup_create_provider_failed",
+  "docker_setup_start_proxy_failed",
+  "docker_setup_command_failed",
+  "docker_resource_submission_record_unavailable",
+  "docker_resource_receipt_unavailable",
+  "docker_process_controller_execution_restricted",
+  "provider_subscription_auth_not_confirmed",
+  "provider_result_invalid",
+  "workbench_ai_advice_result_identity_invalid",
+  "workbench_ai_advice_result_input_invalid",
+  "workbench_ai_advice_result_items_invalid",
+  "workbench_ai_advice_result_schema_invalid",
+  ...PROVIDER_ADVICE_OUTPUT_REASONS,
+  "provider_task_result_input_invalid",
+  "provider_task_result_json_invalid",
+  "provider_task_result_envelope_status_invalid",
+  "provider_task_result_turn_count_invalid",
+  "provider_task_result_turn_limit_mismatch",
+  "provider_task_result_cost_metadata_invalid",
+  "provider_task_reviewer_result_transport_invalid",
+  "provider_task_executor_shape_invalid",
+  "provider_task_reviewer_shape_invalid",
+  "provider_task_reviewer_keys_invalid",
+  "provider_task_reviewer_decision_invalid",
+  "provider_task_reviewer_summary_invalid",
+  "provider_task_reviewer_findings_invalid",
+  "provider_task_reviewer_finding_invalid",
+  "provider_task_reviewer_decision_inconsistent",
+  "docker_process_controller_execution_failed_closed",
+  "docker_process_controller_provider_start_failed",
+  "docker_process_controller_provider_start_observation_failed",
+  "repository_revision_changed",
+] as const);
+
 /**
  * 修復Machineが所有し保存Ownerへ渡す技術状態。
  * @responsibility 固定8処置と三用途の世代実体、現在結果と回収失敗を保持する。
@@ -164,7 +233,7 @@ export type ExecutionOperationRecord = Readonly<{
   identityJson: string;
   identitySha256: string;
   recoveryId: string;
-  phase: "executing" | "settling" | "awaiting_delivery";
+  phase: "executing" | "settling" | "terminal";
   resources: OperationResources | null;
   host: Readonly<{
     currentToken: string;
@@ -223,11 +292,7 @@ export type RepairOperationRecord = Readonly<{
   identityJson: string;
   identitySha256: string;
   recoveryId: string;
-  phase:
-    | "repairing"
-    | "settling"
-    | "awaiting_disposition"
-    | "awaiting_delivery";
+  phase: "repairing" | "settling" | "awaiting_disposition" | "terminal";
   // Nativeだけでなく同じSession内の観測資源cleanupもDI契約のまま保持する。
   checkpoint: RepairCheckpoint | null;
   disposition:
@@ -269,6 +334,29 @@ export type RepairOperationRecord = Readonly<{
  * @compatibility 判別不能な旧形状を受理しない。
  */
 export type OperationRecord = ExecutionOperationRecord | RepairOperationRecord;
+
+/**
+ * 取得済みの操作と同じ保存版に結び付いた値上の判定。
+ * @responsibility 未保存の入力検査を公開せず、Readerの確認済み値から次処置の前提を返す。
+ * @trace ARCH-000008
+ * @boundary 保存済みモデルの観測。実資源の不存在や処置Authorityは表さない。
+ */
+export type OperationState =
+  | Readonly<{
+      kind: "docker_task";
+      operation: ExecutionOperationRecord;
+      resourcesSettled: boolean;
+      restartSettled: boolean;
+      authenticationClosureAllowed: boolean;
+      hostTransition: ReturnType<
+        typeof import("./validation.ts").validateHostRecoveryTransitionLineage
+      > | null;
+    }>
+  | Readonly<{
+      kind: "runtime_repair";
+      operation: RepairOperationRecord;
+      disposalSettled: boolean;
+    }>;
 
 /**
  * 一操作に一度だけ結合する再起動要求の現在値。
@@ -378,6 +466,11 @@ export type { TurnCountDiagnostic };
 export type RecoveryReadRequest =
   | Readonly<{ kind: "current" | "admission" | "history" }>
   | Readonly<{
+      kind: "restart_preparation";
+      recoveryId: unknown;
+      scopeSha256: unknown;
+    }>
+  | Readonly<{
       kind:
         | "resource_publication"
         | "host_cleanup"
@@ -385,8 +478,7 @@ export type RecoveryReadRequest =
         | "execution_history"
         | "repair_history"
         | "execution_completion"
-        | "repair_completion"
-        | "delivery";
+        | "repair_completion";
       recoveryId: unknown;
     }>;
 

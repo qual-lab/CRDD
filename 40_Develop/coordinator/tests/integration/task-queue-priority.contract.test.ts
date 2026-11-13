@@ -28,7 +28,6 @@ import {
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -123,24 +122,6 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   assert.equal(
     ports.state.readQueue("../escape").reason,
     "orchestrator_queue_input_invalid",
-  );
-  const intake = {
-    epoch: previous.value.intakeEpoch,
-    queueId: input.queueId,
-    requestHash: input.requestHash,
-    projectId: input.projectId,
-    milestoneId: input.milestoneId,
-  };
-  assert.equal(
-    inspectCoordinatorSnapshotIntake(root, "binding-a", intake).status,
-    "completed",
-  );
-  assert.equal(
-    inspectCoordinatorSnapshotIntake(root, "binding-a", {
-      ...intake,
-      requestHash: hash("other"),
-    }).reason,
-    "orchestrator_intake_epoch_retired",
   );
   assert.deepEqual(fs.readFileSync(file), after);
   const scenarios = [

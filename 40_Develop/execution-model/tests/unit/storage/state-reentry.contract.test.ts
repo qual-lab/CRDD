@@ -32,7 +32,7 @@ import { classifyExecutionSnapshotReentry } from "../../../src/storage/store.ts"
 test("受付照合は新規の現世代と既存Queueの元世代を混同しない", () => {
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,

@@ -49,6 +49,7 @@ import {
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
+import { projectState } from "../../src/state/projection.ts";
 import {
   createCoordinatorSnapshotPersistencePorts,
   createCurrentCoordinatorPersistencePorts,
@@ -59,7 +60,6 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
-import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
 import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
@@ -206,8 +206,8 @@ function taskView(root: string, bytes: string) {
       decoded.snapshot.intakeEpoch !== null,
   );
   const view = {
-    schema: "crdd-coordinator/project-snapshot/v6" as const,
-    schemaRevision: 6 as const,
+    schema: "crdd-execution-model/project-snapshot/v7" as const,
+    schemaRevision: 7 as const,
     repositoryRootHash: rootHash,
     repositoryBindingId: decoded.snapshot.repositoryBindingId,
     intakeEpoch: decoded.snapshot.intakeEpoch,
@@ -259,7 +259,7 @@ for (const fault of ["unobservable", "alias"] as const) {
     if (acquired.status !== "completed")
       throw new Error("fixture_lease_failed");
     const beforeSnapshot = readFixtureSnapshot(root, "binding-a").value;
-    assert.ok(beforeSnapshot?.schemaRevision === 6);
+    assert.ok(beforeSnapshot?.schemaRevision === 7);
     const recoveryId = beforeSnapshot.leaseIntents[0]?.recoveryId;
     assert.ok(recoveryId);
     const temporary = path.join(root, ".crdd", "tmp");
@@ -718,21 +718,20 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
     projectId: "project-new",
     milestoneId: "milestone-new",
   };
-  assert.equal(
-    inspectCoordinatorSnapshotIntake(root, "binding-a", stale).status,
-    "blocked",
-  );
   const stalePorts = createCoordinatorSnapshotPersistencePorts(
     root,
     "binding-a",
     epoch,
     stale,
   );
-  assert.equal(
-    stalePorts.state.writeState({ ...state, projectId: "project-new" }, 0)
-      .status,
-    "blocked",
+  const staleWrite = stalePorts.state.writeState(
+    { ...state, projectId: "project-new" },
+    0,
   );
+  assert.equal(staleWrite.status, "blocked");
+  assert.equal(staleWrite.reason, "orchestrator_intake_epoch_retired");
+  assert.equal(staleWrite.manualRecoveryRequired, false);
+  assert.equal(staleWrite.recoveryId, null);
   assert.equal(
     readFixtureSnapshot(root, "binding-a").value?.projects.some(
       (item) => item.projectId === "project-new",
@@ -791,8 +790,8 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
     const rootHash = fixtureRepositoryHash(root);
     assert.equal(
       seedSnapshot(root, {
-        schema: "crdd-coordinator/project-snapshot/v6",
-        schemaRevision: 6,
+        schema: "crdd-execution-model/project-snapshot/v7",
+        schemaRevision: 7,
         workspaces: [],
         repositoryRootHash: rootHash,
         repositoryBindingId: "binding-a",
@@ -1120,8 +1119,8 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
     const { root, state } = fixture(t);
     const rootHash = fixtureRepositoryHash(root);
     const payload = {
-      schema: "crdd-coordinator/project-snapshot/v6",
-      schemaRevision: 6,
+      schema: "crdd-execution-model/project-snapshot/v7",
+      schemaRevision: 7,
       workspaces: [],
       repositoryRootHash: rootHash,
       repositoryBindingId: "binding-a",
@@ -1392,8 +1391,8 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
     resultReference: null,
   };
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v6",
-    schemaRevision: 6,
+    schema: "crdd-execution-model/project-snapshot/v7",
+    schemaRevision: 7,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -1602,17 +1601,17 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
 });
 
 /**
- * 通常終端を実保存し、技術記録の裏付けがない受領を拒否する。
- * @responsibility Task受領本文の相関と拒否時の元本文保全を実Filesystemで反証する。
+ * 通常終端を実保存し、退役した受領fieldの混入を拒否する。
+ * @responsibility 現行Task契約の余剰field拒否と元本文保全を実Filesystemで反証する。
  * @trace PRL-IT-005
  * @precondition 自己所有Git Repositoryと現行Snapshotを使う。
- * @stimulus 通常終了候補と、技術Operation・履歴がない受領集合を与える。
+ * @stimulus 通常終了候補と、旧受領fieldを追加した候補を与える。
  * @observation state.json bytes、世代、保存結果を確認する。
- * @oracle 裏付けがない受領では元bytesを変更せず、通常終端だけは保存する。
+ * @oracle 旧受領fieldを持つ候補では元bytesを変更せず、通常終端だけは保存する。
  * @cleanup 自己所有fixtureを終了hookで回収する。
  * @boundary PRL-IT-005=Direct Boundary: Taskモデル→実Snapshot Writer。Dockerは対象外。
  */
-test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", {
+test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", {
   skip: process.platform !== "win32",
 }, (t) => {
   const created = fixture(t);
@@ -1735,7 +1734,7 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
         state.generation,
       ).status,
       "blocked",
-      "技術Operation・履歴の裏付けがない受領を作成しない",
+      "退役した受領fieldを現行Task契約へ混入させない",
     );
     assert.deepEqual(fs.readFileSync(file), bytes);
   }
@@ -1767,8 +1766,8 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
   const { root, state } = fixture(t);
   const repositoryRootHash = fixtureRepositoryHash(root);
   const payload = {
-    schema: "crdd-coordinator/project-snapshot/v6",
-    schemaRevision: 6,
+    schema: "crdd-execution-model/project-snapshot/v7",
+    schemaRevision: 7,
     workspaces: [],
     repositoryRootHash,
     repositoryBindingId: "binding-a",
@@ -1977,7 +1976,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const observed = readFixtureSnapshot(root, "binding-a");
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
-    if (observed.value.schema !== "crdd-coordinator/project-snapshot/v6")
+    if (observed.value.schema !== "crdd-execution-model/project-snapshot/v7")
       throw new Error("fixture_schema_invalid");
     const rootHash = observed.value.repositoryRootHash;
     const resultValue = {
@@ -2384,6 +2383,12 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
   const write = ports.state.writeState(state, 0);
   assert.equal(write.status, "completed");
+  assert.ok(write.value);
+  const selections = write.value.taskExecutionSelections;
+  assert.equal(Object.isFrozen(selections), true);
+  assert.equal(Object.isFrozen(selections.executor), true);
+  assert.equal(Object.isFrozen(selections.reviewer), true);
+  assert.equal(projectState(write.value).taskExecutionSelections, selections);
   const read = ports.state.readState("project-a");
   assert.equal(read.status, "completed");
   assert.deepEqual(read.value, state);
@@ -2392,6 +2397,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   const before = fs.readFileSync(target);
   const replay = ports.state.writeState(state, 0);
   assert.equal(replay.status, "completed");
+  assert.equal(Object.isFrozen(replay.value?.taskExecutionSelections), true);
   assert.deepEqual(fs.readFileSync(target), before);
   const stale = ports.state.writeState(
     {
@@ -2480,7 +2486,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   const rewritten = { ...original };
   const payload = rewritten as { projects: unknown[] };
   payload.projects[0] = {
-    contract: "crdd-coordinator/project-state/v2",
+    contract: "crdd-execution-model/project-state/v3",
   };
   fs.writeFileSync(record, `${canonicalJson(rewritten)}\n`, "utf8");
   const invalidBytes = fs.readFileSync(record);

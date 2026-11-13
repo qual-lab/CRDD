@@ -15,15 +15,13 @@ import {
   decodeEnvironmentRepairCheckpoint,
   decodeEnvironmentRepairDisposalCheckpoint,
   decodeEnvironmentRepairRetentionTargets,
+  isRepairCheckpointSettled,
+  isRepairDisposalSettled,
   prepareEnvironmentRepairSessionCheckpoint,
   validateEnvironmentRepairCheckpointTransition,
   validateEnvironmentRepairDisposalTransition,
   validateEnvironmentRepairSessionCheckpoint,
 } from "../../../src/attempt/validation.ts";
-import {
-  isRepairCheckpointSettled,
-  isRepairDisposalSettled,
-} from "../../../src/index.ts";
 
 /**
  * 保持対象の形検査を元checkpointや実観測と分離する。

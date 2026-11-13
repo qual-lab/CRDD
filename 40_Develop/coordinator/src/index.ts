@@ -7,7 +7,7 @@
  * @security 内部Storage・Authority・Factoryを公開しない。
  */
 
-export type { WorkspaceResult } from "../../execution-model/src/index.ts";
+export type { WorkspaceResult } from "./workspace/record.ts";
 export {
   type AuthenticationRequest,
   type AuthenticationResult,

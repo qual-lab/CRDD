@@ -22,7 +22,6 @@ import {
 } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
-import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import {
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
@@ -192,6 +191,8 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
   assert.equal(getterCalls, 0);
   assert.equal(files[0]?.content, content);
 });
+
+import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 
 /**
  * 上位の管理情報がExecutor向け実値へ流れないことを反証する。

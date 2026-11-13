@@ -9,10 +9,6 @@
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -21,8 +17,12 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import type { Lock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-
-import { EXECUTION_STATE_SCHEMA } from "../../src/state/validation.ts";
+import { completeStatePublication } from "../../src/state/crud.ts";
+import {
+  decodeStateSnapshot,
+  EXECUTION_STATE_SCHEMA,
+  encodeStateValue,
+} from "../../src/state/validation.ts";
 import {
   acquireExecutionStateLock,
   acquireStorageOwner,
@@ -32,7 +32,6 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   readStorageSnapshotOwned,
-  removeStatePublicationMarker,
   requireReadyRepositoryExecutionDataArea,
   sameStableFileIdentity,
 } from "../../src/storage/store.ts";
@@ -52,10 +51,10 @@ import { sourceDeclaration } from "../support/source-declaration.ts";
  */
 test("現在保存marker: exact処置・全文保全・停止と解放の相関", () => {
   const source = fs.readFileSync(
-    new URL("../../src/storage/store.ts", import.meta.url),
+    new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
-  const body = sourceDeclaration(source, "removeStatePublicationMarker");
+  const body = sourceDeclaration(source, "completeStatePublication");
   for (const scenario of [
     "normal",
     "no_marker",
@@ -97,7 +96,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     const binding = "a".repeat(64),
       capability = Object.freeze({});
     const stateBytes = Buffer.from(
-      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [] })}\n`,
     );
     const files = new Map<string, Buffer>([
       [
@@ -172,7 +171,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
       };
     };
     const result = runInNewContext(
-      `${body}; removeStatePublicationMarker(capability)`,
+      `${body}; completeStatePublication(capability)`,
       {
         capability,
         Buffer,
@@ -424,29 +423,29 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       marker = path.join(storage.directory, "state.lock"),
       pending = path.join(storage.directory, "state.pending.json");
     const bytes = Buffer.from(
-      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
     );
     const markerBytes = Buffer.from(
       `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
     );
     fs.writeFileSync(state, bytes, { flag: "wx" });
     const before = fs.lstatSync(state, { bigint: true });
-    const absent = removeStatePublicationMarker(verified.capability);
+    const absent = completeStatePublication(verified.capability);
     assert.equal(absent.status, "completed");
     assert.equal(absent.filesystemEffectIssued, false);
     fs.writeFileSync(marker, markerBytes, { flag: "wx" });
-    const cleaned = removeStatePublicationMarker(verified.capability);
+    const cleaned = completeStatePublication(verified.capability);
     assert.equal(cleaned.status, "completed");
     assert.equal(cleaned.markerRemoved, true);
     assert.equal(cleaned.storageConfirmed, true);
     assert.equal(cleaned.lockReleased, true);
     assert.throws(() => fs.lstatSync(marker), { code: "ENOENT" });
-    const fresh = removeStatePublicationMarker(verified.capability);
+    const fresh = completeStatePublication(verified.capability);
     assert.equal(fresh.status, "completed");
     assert.equal(fresh.filesystemEffectIssued, false);
     fs.writeFileSync(marker, "foreign", { flag: "wx" });
     assert.equal(
-      removeStatePublicationMarker(verified.capability).filesystemEffectIssued,
+      completeStatePublication(verified.capability).filesystemEffectIssued,
       false,
     );
     assert.equal(fs.readFileSync(marker, "utf8"), "foreign");
@@ -454,7 +453,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     fs.writeFileSync(marker, markerBytes, { flag: "wx" });
     fs.writeFileSync(pending, "pending", { flag: "wx" });
     assert.equal(
-      removeStatePublicationMarker(verified.capability).status,
+      completeStatePublication(verified.capability).status,
       "blocked",
     );
     assert.equal(fs.readFileSync(pending, "utf8"), "pending");
@@ -468,7 +467,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     held = heldAcquisition.lock;
     assert.ok(held);
     assert.equal(held.assertLive(), true);
-    const busy = removeStatePublicationMarker(verified.capability);
+    const busy = completeStatePublication(verified.capability);
     assert.equal(busy.status, "blocked");
     assert.equal(busy.filesystemEffectIssued, false);
     assert.deepEqual(fs.readFileSync(marker), markerBytes);
@@ -476,7 +475,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     held = null;
     const alias = path.join(root, "marker-hardlink");
     fs.linkSync(marker, alias);
-    const hardlink = removeStatePublicationMarker(verified.capability);
+    const hardlink = completeStatePublication(verified.capability);
     assert.equal(hardlink.status, "blocked");
     assert.equal(hardlink.filesystemEffectIssued, false);
     assert.deepEqual(fs.readFileSync(alias), markerBytes);
@@ -490,7 +489,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       }
       return result;
     };
-    const afterThrow = removeStatePublicationMarker(verified.capability);
+    const afterThrow = completeStatePublication(verified.capability);
     fs.unlinkSync = unlink;
     assert.equal(attempts, 1);
     assert.equal(afterThrow.status, "blocked");
@@ -499,7 +498,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     assert.equal(afterThrow.storageConfirmed, false);
     assert.equal(afterThrow.lockReleased, true);
     assert.equal(
-      removeStatePublicationMarker(verified.capability).status,
+      completeStatePublication(verified.capability).status,
       "completed",
     );
     assert.deepEqual(fs.readFileSync(state), bytes);

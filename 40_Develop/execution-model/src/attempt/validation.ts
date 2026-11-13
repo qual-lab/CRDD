@@ -15,16 +15,14 @@ import {
   operationSummaryBytes,
   snapshotStateRecord,
 } from "../state/validation.ts";
-import {
-  getConsumerCompletionPolicy,
-  inspectExecutionSelection,
-} from "../task/validation.ts";
+import { inspectExecutionSelection } from "../task/validation.ts";
 import type {
   DirectoryIdentity,
   DirectoryObservation,
   ExecutionOperationRecord,
   OperationRecord,
   OperationResources,
+  OperationState,
   RepairAction,
   RepairCheckpoint,
   RepairDisposalCheckpoint,
@@ -33,194 +31,7 @@ import type {
   RepairRetentionTargets,
   RestartCheckpoint,
 } from "./types.ts";
-
-/**
- * 初期Snapshotと最初のIntent、又は同じ資源の後続観測を適用する。
- * @responsibility 通知の保存断面だけを扱い、ID欠測や成功から未発行を推測しない。
- * @trace ARCH-000008
- * @input previous: 元資源記録。value: 発行前・Receipt・発見・正式未発行のイベント。
- * @returns 検査済み次値、又はnull。nullは更新拒否であり不存在ではない。
- * @effect N/A: 値変換だけ。
- */
-export function applyResourceEvent(
-  previous: OperationResources | null,
-  value: unknown,
-): OperationResources | null {
-  try {
-    const event = JSON.parse(encodeStateValue(value));
-    if (
-      !validateResourceBook(previous) ||
-      typeof event.key !== "string" ||
-      !["submission", "receipt", "identified", "not_issued"].includes(
-        event.event,
-      ) ||
-      !hasExecutionStateRecordKeys(
-        event,
-        event.event === "not_issued"
-          ? ["event", "key"]
-          : ["event", "key", "snapshot", "cleanup"],
-      )
-    )
-      return null;
-    if (!previous && event.event !== "submission") return null;
-    const snapshot =
-      event.event === "not_issued" ? previous?.snapshot : event.snapshot;
-    const cleanup =
-      event.event === "not_issued" ? previous?.cleanup : event.cleanup;
-    if (!snapshot || !Array.isArray(snapshot.resources)) return null;
-    const checkpoints =
-      previous?.checkpoints ??
-      snapshot.resources.map((item: { key: string }) => ({
-        key: item.key,
-        submission: "none",
-        receiptSource: null,
-        observation: "unobserved",
-        absenceEvidenceSha256: null,
-      }));
-    const prior = checkpoints.find(
-      (item: { key: string }) => item.key === event.key,
-    );
-    const resource = snapshot.resources.find(
-      (item: { key: string }) => item.key === event.key,
-    );
-    if (!prior || !resource) return null;
-    let checkpoint: OperationResources["checkpoints"][number];
-    if (event.event === "submission") {
-      if (prior.submission !== "none" || resource.identity.dockerId !== null)
-        return null;
-      checkpoint = { ...prior, submission: "intent_saved" };
-    } else if (event.event === "not_issued") {
-      if (
-        prior.submission !== "intent_saved" ||
-        resource.identity.dockerId !== null ||
-        resource.request !== "not_issued"
-      )
-        return null;
-      checkpoint = { ...prior, submission: "not_issued" };
-    } else {
-      if (
-        prior.submission !== "intent_saved" ||
-        !isSha256Hex(resource.identity.dockerId)
-      )
-        return null;
-      checkpoint = {
-        ...prior,
-        receiptSource:
-          event.event === "receipt"
-            ? "docker_create_result"
-            : "runtime_reconciliation",
-        observation:
-          event.event === "identified" ? "present" : prior.observation,
-        absenceEvidenceSha256: null,
-      };
-    }
-    const book = {
-      snapshot,
-      cleanup,
-      checkpoints: checkpoints.map((item: { key: string }) =>
-        item.key === event.key ? checkpoint : item,
-      ),
-    };
-    return validateResourceBook(book) &&
-      validateResourceBookTransition(previous, book)
-      ? book
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 元Snapshotとkey別の終了観測を同じ記録へ結合する。
- * @responsibility 観測の相関だけを保存値にし、物理的不存在の観測を実行しない。
- * @trace ARCH-000008
- * @input previous: 元記録。snapshotValue・observationsValue: 同じ技術Ownerの元結果。evidence: 元版と回復参照。
- * @returns 次の資源記録、又は相関不成立のnull。
- * @effect N/A: 値と相関Hashの構築だけ。
- * @invariant IDの差替えを拒否するが現在構成の更新は許可する。
- */
-export function applyResourceCleanup(
-  previous: OperationResources,
-  snapshotValue: unknown,
-  observationsValue: unknown,
-  evidence: Readonly<{ recoveryId: string; previousPayloadSha256: string }>,
-): OperationResources | null {
-  try {
-    const snapshot = JSON.parse(
-      encodeStateValue(snapshotValue),
-    ) as OperationResources["snapshot"];
-    const observations = JSON.parse(encodeStateValue(observationsValue));
-    if (
-      !validateResourceBook(previous) ||
-      !snapshot ||
-      !Array.isArray(snapshot.resources) ||
-      !Array.isArray(observations) ||
-      observations.length !== previous.checkpoints.length ||
-      new Set(observations.map((item: { key: unknown }) => item.key)).size !==
-        previous.checkpoints.length
-    )
-      return null;
-    const checkpoints = previous.checkpoints.map((checkpoint) => {
-      const observed = observations.find(
-        (item: { key: unknown }) => item.key === checkpoint.key,
-      );
-      const resource = snapshot.resources.find(
-        (item) => item.key === checkpoint.key,
-      );
-      if (
-        !hasExecutionStateRecordKeys(observed, ["key", "observation"]) ||
-        !resource ||
-        !["not_requested", "absent", "unknown"].includes(observed.observation)
-      )
-        throw Error("resource_observation_invalid");
-      const original = previous.snapshot.resources.find(
-        (item) => item.key === checkpoint.key,
-      );
-      if (
-        !original ||
-        original.identity.dockerId !== resource.identity.dockerId
-      )
-        throw Error("resource_receipt_required");
-      if (observed.observation === "not_requested") {
-        if (
-          resource.identity.dockerId !== null ||
-          resource.request !== "not_issued" ||
-          checkpoint.submission === "intent_saved"
-        )
-          throw Error("resource_observation_invalid");
-        return checkpoint;
-      }
-      if (checkpoint.submission !== "intent_saved")
-        throw Error("resource_observation_invalid");
-      return {
-        ...checkpoint,
-        receiptSource: checkpoint.receiptSource,
-        observation: observed.observation,
-        absenceEvidenceSha256:
-          observed.observation === "absent"
-            ? checkpoint.observation === "absent" &&
-              checkpoint.absenceEvidenceSha256 !== null
-              ? checkpoint.absenceEvidenceSha256
-              : createHash("sha256")
-                  .update(
-                    encodeStateValue({
-                      ...evidence,
-                      observation: observed,
-                    }),
-                  )
-                  .digest("hex")
-            : null,
-      };
-    });
-    const book = { ...previous, snapshot, checkpoints };
-    return validateResourceBook(book) &&
-      validateResourceBookTransition(previous, book)
-      ? book
-      : null;
-  } catch {
-    return null;
-  }
-}
+import { dockerProcessControllerPublicCompletionReasons } from "./types.ts";
 
 /**
  * 有限な修復checkpointを独立した凍結DTOへ復号する。
@@ -1086,7 +897,6 @@ export function repairCanComplete(
   operation: RepairOperationRecord,
   snapshot: Readonly<{
     unresolvedRecoveries: readonly Readonly<{ recoveryId: string }>[];
-    pendingDeliveries: readonly Readonly<{ recoveryId: string }>[];
   }>,
 ): boolean {
   return !(
@@ -1115,25 +925,9 @@ export function repairCanComplete(
     JSON.parse(operation.identityJson).consumer !== "coordinator_cli" ||
     snapshot.unresolvedRecoveries.some(
       (item) => item.recoveryId === operation.recoveryId,
-    ) ||
-    snapshot.pendingDeliveries.some(
-      (item) => item.recoveryId === operation.recoveryId,
     )
   );
 }
-
-export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
-  "workbench_ai_provider_output_invalid",
-  "workbench_ai_codex_output_invalid",
-  "workbench_ai_codex_completion_invalid",
-  "workbench_ai_codex_tool_event_forbidden",
-  "workbench_ai_codex_final_message_invalid",
-  "workbench_ai_claude_envelope_invalid",
-  "workbench_ai_claude_completion_invalid",
-  "workbench_ai_claude_turn_count_invalid",
-  "workbench_ai_claude_metadata_invalid",
-  "workbench_ai_claude_structured_output_invalid",
-] as const);
 
 /**
  * 技術実行区画を保存Envelopeから独立して検証する。
@@ -1151,16 +945,12 @@ export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
  * @concurrency N/A: 共有状態を変更しない。
  */
 export function validExecutionState(
-  snapshot: Pick<
-    ExecutionStateSnapshot,
-    "operations" | "unresolvedRecoveries" | "pendingDeliveries"
-  >,
+  snapshot: Pick<ExecutionStateSnapshot, "operations" | "unresolvedRecoveries">,
   repositoryBinding: string,
 ): boolean {
   if (
     !Array.isArray(snapshot.operations) ||
-    !Array.isArray(snapshot.unresolvedRecoveries) ||
-    !Array.isArray(snapshot.pendingDeliveries)
+    !Array.isArray(snapshot.unresolvedRecoveries)
   )
     return false;
   const operations = new Map<string, OperationRecord>();
@@ -1175,7 +965,7 @@ export function validExecutionState(
       if (nonce <= previousNonce) return false;
       previousNonce = nonce;
       operations.set(nonce, operation);
-      if (operation.phase !== "awaiting_delivery" && ++unresolvedRepairs > 1)
+      if (operation.phase !== "terminal" && ++unresolvedRepairs > 1)
         return false;
       continue;
     }
@@ -1243,9 +1033,7 @@ export function validExecutionState(
     }
     operations.set(recovery.operationNonce, operation);
     if (
-      !["executing", "settling", "awaiting_delivery"].includes(
-        operation.phase,
-      ) ||
+      !["executing", "settling", "terminal"].includes(operation.phase) ||
       !["held", "released", "unknown"].includes(operation.lease) ||
       (operation.summarySha256 !== null &&
         !isSha256Hex(operation.summarySha256))
@@ -1386,44 +1174,14 @@ export function validExecutionState(
     let previousObligation = "";
     for (const obligation of recovery.obligations) {
       if (
-        ![
-          "docker_resources",
-          "host_cleanup",
-          "lease_release",
-          "result_delivery",
-        ].includes(obligation) ||
+        !["docker_resources", "host_cleanup", "lease_release"].includes(
+          obligation,
+        ) ||
         obligation <= previousObligation
       )
         return false;
       previousObligation = obligation;
     }
-  }
-  let previousDelivery = "";
-  const deliveryResultIds = new Map<string, string>();
-  for (const delivery of snapshot.pendingDeliveries) {
-    const deliveryOperation = operations.get(delivery.operationNonce);
-    if (
-      !hasExecutionStateRecordKeys(delivery, [
-        "operationNonce",
-        "recoveryId",
-        "resultId",
-        "consumer",
-      ]) ||
-      !deliveryOperation ||
-      deliveryOperation.kind !== "docker_task" ||
-      deliveryOperation.recoveryId !== delivery.recoveryId ||
-      !isSha256Hex(delivery.resultId) ||
-      delivery.consumer !== "orchestrator" ||
-      JSON.parse(deliveryOperation.identityJson).consumer !== delivery.consumer
-    )
-      return false;
-    const key = `${delivery.operationNonce}:${delivery.consumer}`;
-    if (key <= previousDelivery) return false;
-    const fixedResultId = deliveryResultIds.get(delivery.operationNonce);
-    if (fixedResultId !== undefined && fixedResultId !== delivery.resultId)
-      return false;
-    deliveryResultIds.set(delivery.operationNonce, delivery.resultId);
-    previousDelivery = key;
   }
   return true;
 }
@@ -1484,7 +1242,8 @@ export function validRepairOperation(
       !isSha256Hex(identity.operationNonce) ||
       typeof identity.operationId !== "string" ||
       !/^OP-[0-9]{6,}$/u.test(identity.operationId) ||
-      identity.consumer !== "coordinator_cli" ||
+      typeof identity.consumer !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(identity.consumer) ||
       `${JSON.stringify(identity)}\n` !== operation.identityJson
     )
       return false;
@@ -1495,12 +1254,9 @@ export function validRepairOperation(
       operation.identitySha256 !== hash ||
       operation.recoveryId !==
         `docker-runtime-repair.${identity.operationNonce}.${hash}` ||
-      ![
-        "repairing",
-        "settling",
-        "awaiting_disposition",
-        "awaiting_delivery",
-      ].includes(operation.phase) ||
+      !["repairing", "settling", "awaiting_disposition", "terminal"].includes(
+        operation.phase,
+      ) ||
       ![
         "not_applicable",
         "pending_human_decision",
@@ -1609,7 +1365,7 @@ export function validRepairOperation(
     )
       return false;
     if (
-      operation.phase === "awaiting_delivery" &&
+      operation.phase === "terminal" &&
       (!outcome?.cleanupConfirmed ||
         (checkpoint !== null && checkpoint.hostSafety !== "safe") ||
         operation.disposition === "pending_human_decision")
@@ -1756,7 +1512,8 @@ export function validateOperationIdentity(
   }
   return (
     identity.schema === OPERATION_IDENTITY_SCHEMA &&
-    getConsumerCompletionPolicy(identity.consumer) !== null &&
+    typeof identity.consumer === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(identity.consumer) &&
     identity.operationNonce === nonce &&
     identity.repositoryBinding === repositoryBinding &&
     isSha256Hex(identity.repositoryBinding) &&
@@ -2678,60 +2435,6 @@ export const failureStages = [
   "provider_result_normalization",
 ];
 
-export const dockerProcessControllerPublicCompletionReasons = Object.freeze([
-  "provider_deadline_exceeded",
-  "docker_setup_deadline_exceeded",
-  "provider_output_limit_exceeded",
-  "provider_process_signalled",
-  "provider_process_exit_nonzero",
-  "provider_subscription_quota_exhausted",
-  "provider_authentication_expired",
-  "provider_operation_budget_exceeded",
-  "provider_turn_limit_exceeded",
-  "provider_structured_output_retry_exhausted",
-  "provider_invocation_rejected",
-  "provider_network_unavailable",
-  "provider_service_unavailable",
-  "docker_setup_create_subscription_auth_probe_failed",
-  "docker_setup_start_subscription_auth_probe_attached_failed",
-  "docker_setup_create_internal_network_failed",
-  "docker_setup_create_egress_network_failed",
-  "docker_setup_create_proxy_failed",
-  "docker_setup_connect_proxy_egress_failed",
-  "docker_setup_create_provider_failed",
-  "docker_setup_start_proxy_failed",
-  "docker_setup_command_failed",
-  "docker_resource_submission_record_unavailable",
-  "docker_resource_receipt_unavailable",
-  "docker_process_controller_execution_restricted",
-  "provider_subscription_auth_not_confirmed",
-  "provider_result_invalid",
-  "workbench_ai_advice_result_identity_invalid",
-  "workbench_ai_advice_result_input_invalid",
-  "workbench_ai_advice_result_items_invalid",
-  "workbench_ai_advice_result_schema_invalid",
-  ...PROVIDER_ADVICE_OUTPUT_REASONS,
-  "provider_task_result_input_invalid",
-  "provider_task_result_json_invalid",
-  "provider_task_result_envelope_status_invalid",
-  "provider_task_result_turn_count_invalid",
-  "provider_task_result_turn_limit_mismatch",
-  "provider_task_result_cost_metadata_invalid",
-  "provider_task_reviewer_result_transport_invalid",
-  "provider_task_executor_shape_invalid",
-  "provider_task_reviewer_shape_invalid",
-  "provider_task_reviewer_keys_invalid",
-  "provider_task_reviewer_decision_invalid",
-  "provider_task_reviewer_summary_invalid",
-  "provider_task_reviewer_findings_invalid",
-  "provider_task_reviewer_finding_invalid",
-  "provider_task_reviewer_decision_inconsistent",
-  "docker_process_controller_execution_failed_closed",
-  "docker_process_controller_provider_start_failed",
-  "docker_process_controller_provider_start_observation_failed",
-  "repository_revision_changed",
-] as const);
-
 export const finalReasons = new Set<string>([
   ...dockerProcessControllerPublicCompletionReasons,
   "provider_operation_completed",
@@ -3184,7 +2887,7 @@ export function validateOperationTransitions(
         operation,
       ]),
     );
-    const phases = ["executing", "settling", "awaiting_delivery"];
+    const phases = ["executing", "settling", "terminal"];
     for (const operation of next.snapshot.operations) {
       const nonce = operationNonce(operation);
       const prior = priorOperations.get(nonce);
@@ -3240,8 +2943,7 @@ export function validateOperationTransitions(
                 ["settling", "awaiting_disposition"].includes(
                   operation.phase,
                 )) ||
-              (prior.phase === "settling" &&
-                operation.phase === "awaiting_delivery")
+              (prior.phase === "settling" && operation.phase === "terminal")
             )
           )
             return false;
@@ -3339,7 +3041,7 @@ export function validateOperationTransitions(
           next.snapshot.operations.some((other) => {
             if (other.recoveryId === operation.recoveryId) return false;
             if (other.kind === "runtime_repair")
-              return other.phase !== "awaiting_delivery";
+              return other.phase !== "terminal";
             if (
               JSON.parse(other.identityJson).stableLogicalHomeBindingHash !==
               identity.stableLogicalHomeBindingHash
@@ -3399,11 +3101,7 @@ export function validateOperationTransitions(
               }) ||
               [current?.snapshot, next.snapshot].some((snapshot) =>
                 snapshot?.unresolvedRecoveries.some(
-                  (recovery) =>
-                    recovery.recoveryId === other.recoveryId &&
-                    recovery.obligations.some(
-                      (obligation) => obligation !== "result_delivery",
-                    ),
+                  (recovery) => recovery.recoveryId === other.recoveryId,
                 ),
               )
             );
@@ -3559,19 +3257,6 @@ export function validateOperationTransitions(
       )
         return false;
     }
-    for (const before of current?.snapshot.pendingDeliveries ?? []) {
-      const after = next.snapshot.pendingDeliveries.find(
-        (item) =>
-          item.operationNonce === before.operationNonce &&
-          item.consumer === before.consumer,
-      );
-      if (
-        !after ||
-        after.recoveryId !== before.recoveryId ||
-        after.resultId !== before.resultId
-      )
-        return false;
-    }
     return true;
   } catch {
     return false;
@@ -3636,4 +3321,47 @@ export function validateDockerRestartCheckpointTransition(
       `${before.cleanup}:${after.cleanup}`,
     )
   );
+}
+
+/**
+ * Readerが確認した操作に同じ版の判定を添える。
+ * @responsibility 既存検査を一正本のまま使用し、操作種別ごとの事実を混ぜない。
+ * @trace ARCH-000008
+ * @input operation: 正常Readerが取得した保存済み操作。
+ * @returns 同じ操作参照と不変の判定値。
+ * @precondition SnapshotのSchemaと本文はReaderが確認している。
+ * @postcondition 保存本文・操作参照・実資源を変更しない。
+ * @effect N/A: 同期の値投影だけ。
+ * @failure 既存検査のfalseを成功へ補完しない。
+ * @invariant 値上の判定を実体観測やAuthorityへ昇格しない。
+ * @boundary 保存Readerから利用側への同版の観測。
+ * @security 秘密値や別操作の情報を追加しない。
+ * @concurrency 同じReaderの返却値と一緒にだけ使用する。
+ */
+export function projectOperationState(
+  operation: OperationRecord,
+): OperationState {
+  return operation.kind === "docker_task"
+    ? Object.freeze({
+        kind: operation.kind,
+        operation,
+        resourcesSettled: areTaskResourcesSettled(operation),
+        restartSettled: isDockerRestartCheckpointSettled(
+          operation.dockerRestart,
+        ),
+        authenticationClosureAllowed: canCloseUnknownAuthentication(operation),
+        hostTransition:
+          operation.host.pendingTransitionJson === null
+            ? null
+            : validateHostRecoveryTransitionLineage(
+                JSON.parse(operation.host.pendingTransitionJson),
+              ),
+      })
+    : Object.freeze({
+        kind: operation.kind,
+        operation,
+        disposalSettled: isRepairDisposalSettled(
+          operation.disposal?.checkpoint,
+        ),
+      });
 }

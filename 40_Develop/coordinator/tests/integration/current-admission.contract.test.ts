@@ -96,7 +96,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${canonicalJson({
-        schema: "crdd-domain/runtime-state/v3",
+        schema: "crdd-execution-model/state/v4",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
@@ -115,8 +115,6 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
         blockers: [],
         operations: [],
         unresolvedRecoveries: [],
-        pendingDeliveries: [],
-        resultReceipts: [],
       })}\n`,
     );
 
@@ -551,17 +549,14 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
       {
         operations: [{ kind: "docker_task", phase: "active" }],
         unresolvedRecoveries: [{ kind: "resource" }],
-        pendingDeliveries: [],
       },
       {
-        operations: [{ kind: "docker_task", phase: "awaiting_delivery" }],
+        operations: [{ kind: "docker_task", phase: "terminal" }],
         unresolvedRecoveries: [],
-        pendingDeliveries: [{ kind: "result_delivery" }],
       },
       {
-        operations: [{ kind: "runtime_repair", phase: "awaiting_delivery" }],
+        operations: [{ kind: "runtime_repair", phase: "terminal" }],
         unresolvedRecoveries: [],
-        pendingDeliveries: [],
       },
     ]) {
       observed = {

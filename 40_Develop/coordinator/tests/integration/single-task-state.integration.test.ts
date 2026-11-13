@@ -18,7 +18,6 @@ import test, { mock } from "node:test";
 import * as snapshotStorage from "../../../execution-model/src/index.ts";
 import {
   initializeExecutionStore,
-  inspectSingleTaskRecord,
   type ProjectQueueEntry,
   readState,
   readTaskIntakeState,
@@ -610,73 +609,6 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
 });
 
 /**
- * 単発保存の閉じた相関と不正入力の非実行を確認する。
- * @responsibility getter／Proxy、本文混入と未回収成功を拒否する。
- * @trace CPR-IT-004
- * @precondition 合成値だけを使用する。
- * @stimulus 不正shapeと終端相関違反。
- * @observation nullとgetter呼出し0。
- * @oracle 不明・未回収を成功へ変換しない。
- * @cleanup Process内値のみ。
- * @boundary codec。
- */
-test("単発記録は本文・getter・未回収成功を受理しない", () => {
-  const record = {
-    principalId: "user",
-    mode: "read_only_advice",
-    executionSelection: executionSelection("advice"),
-    taskId: "task",
-    attemptId: "attempt",
-    operationId: "operation",
-    phase: "settled",
-    status: "completed",
-    reason: null,
-    cleanupConfirmed: true,
-    recoveryIds: [],
-  };
-  assert.ok(inspectSingleTaskRecord(record));
-  assert.equal(
-    inspectSingleTaskRecord({ ...record, prompt: "never persisted" }),
-    null,
-  );
-  assert.equal(
-    inspectSingleTaskRecord({ ...record, cleanupConfirmed: false }),
-    null,
-  );
-  assert.equal(
-    inspectSingleTaskRecord({
-      ...record,
-      recoveryIds: ["docker-task.pending"],
-    }),
-    null,
-  );
-  let hits = 0;
-  assert.equal(
-    inspectSingleTaskRecord({
-      ...record,
-      get phase() {
-        hits++;
-        return "settled";
-      },
-    }),
-    null,
-  );
-  assert.equal(
-    inspectSingleTaskRecord({
-      ...record,
-      recoveryIds: new Proxy([], {
-        ownKeys() {
-          hits++;
-          return [];
-        },
-      }),
-    }),
-    null,
-  );
-  assert.equal(hits, 0);
-});
-
-/**
  * 耐久acceptedと実行開始を実Writer・別Processで分離する。
  * @responsibility 即時取消・close・受付直後のOwner喪失を既存終端へ接続する。
  * @trace PRL-IT-013
@@ -883,11 +815,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   ) as {
     operations: unknown[];
     unresolvedRecoveries: unknown[];
-    pendingDeliveries: unknown[];
   };
   assert.deepEqual(technical.operations, []);
   assert.deepEqual(technical.unresolvedRecoveries, []);
-  assert.deepEqual(technical.pendingDeliveries, []);
+  assert.equal(Object.hasOwn(technical, "pendingDeliveries"), false);
 });
 
 /**

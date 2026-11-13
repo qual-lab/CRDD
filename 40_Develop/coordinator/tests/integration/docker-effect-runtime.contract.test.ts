@@ -16,10 +16,7 @@ import test, { mock } from "node:test";
 import type { DockerIsolationRuntimePlan } from "../../../docker-isolation/tests/support/execution.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import {
-  hashExecutionSelection,
-  parseHostRecoveryToken,
-} from "../../../execution-model/src/index.ts";
+import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
 import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
 import {
   bindIsolationRuntime,
@@ -408,6 +405,8 @@ test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", a
   assert.equal(result.cleanup.confirmed, true);
   assert.equal(cleanups, 1);
 });
+
+import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 
 /**
  * 元清掃結果と同じOwner・回復相関を縮約せず搬送する。

@@ -1171,7 +1171,8 @@
         "coordinator.source.src.security.orchestrator.single.task.adapter",
         "coordinator.task.task-completion-observation",
         "coordinator.task.task-attempt-runtime",
-        "coordinator.task-runtime"
+        "coordinator.task-runtime",
+        "orchestrator.workspace.record"
       ]
     },
     {
@@ -1804,20 +1805,6 @@
       ],
       "verifies": [
         "coordinator.task.cleanup-eligibility"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.host-execution.recovery-record",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/host-recovery-record.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.host.recovery.record"
       ]
     },
     {
@@ -3139,7 +3126,8 @@
         "RFD-UT-030"
       ],
       "verifies": [
-        "orchestrator.workspace.operations"
+        "orchestrator.workspace.operations",
+        "orchestrator.workspace.commands"
       ]
     },
     {
@@ -3270,22 +3258,6 @@
         "orchestrator.activity.read",
         "orchestrator.activity.cursor",
         "orchestrator.identity.repository-binding"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.test.docker-recovery-settlement",
-      "kind": "test-suite",
-      "path": "tests/integration/docker-recovery-settlement.contract.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-003",
-        "PRL-IT-013"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.docker.project.recovery.settlement"
       ]
     },
     {
@@ -3479,17 +3451,6 @@
       "symbolId": "orchestrator.task-recovery-transitions",
       "kind": "file",
       "path": "src/task/recovery.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.recovery-obligation"
-      ]
-    },
-    {
-      "symbolId": "coordinator.task.acceptance",
-      "kind": "file",
-      "path": "src/task/acceptance.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3749,7 +3710,6 @@
         "orchestrator.task-scheduling",
         "orchestrator.task-state-lifecycle",
         "orchestrator.task-recovery-transitions",
-        "coordinator.task.acceptance",
         "orchestrator.objective-replan-transitions",
         "domain-model.decision.crud"
       ]

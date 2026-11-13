@@ -516,22 +516,9 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
         /new URL\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts", import\.meta\.url\)/gu,
       ),
     ].length,
-    3,
-    "保存Owner分離後も三つのfresh child Processは、pending再入場を含め公開Rootだけを使う",
+    2,
+    "旧結果読取り子の退役後も二つのfresh child Processは、pending再入場を含め公開Rootだけを使う",
   );
-  const mockConsumer = fs.readFileSync(
-    path.join(
-      developRoot,
-      "coordinator/tests/integration/docker-recovery-settlement.contract.test.ts",
-    ),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    mockConsumer,
-    /version-control\/src\/repository\/location\.ts/u,
-  );
-  assert.match(mockConsumer, /sourceDeclaration\(source, name\)/u);
-  assert.match(mockConsumer, /\.\.\.versionControl\.namedExports/u);
 });
 
 /**

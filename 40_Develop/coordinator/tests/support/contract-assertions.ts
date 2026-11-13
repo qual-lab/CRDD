@@ -20,8 +20,41 @@
  * @boundary N/A: 渡された値を同期判定するだけで、外部資源・Authorityを発行しない。
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 
 export type MutableRecord = Record<PropertyKey, unknown>;
+
+/**
+ * 既知の試験入力から再起動要求IDの期待値を構築する。
+ * @responsibility 固定Envelopeの期待値を生成し、製品の入力検査やReaderを代替しない。
+ * @trace PRL-UT-006、ERB-IT-014
+ * @precondition 呼出し側が有効な固定非秘密文字列を構成済み。
+ * @stimulus 同じ四相関値から期待Hashを作る。
+ * @observation 返る64hex文字列。
+ * @oracle 固定Envelopeのfield・順序・値を保持する。
+ * @cleanup N/A: 値だけ。
+ * @boundary 試験データだけ。Authority・保存・外部Effectは生成しない。
+ */
+export function restartRequestIdFixture(
+  repositoryBinding: string,
+  identitySha256: string,
+  recoveryId: string,
+  scopeSha256: string,
+): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        schema: "crdd-coordinator/docker-restart-request/v1",
+        purpose: "docker_restart",
+        repositoryBinding,
+        identitySha256,
+        recoveryId,
+        scopeSha256,
+      }),
+      "utf8",
+    )
+    .digest("hex");
+}
 
 export function assertPresent<T>(
   value: T,

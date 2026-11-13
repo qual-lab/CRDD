@@ -230,7 +230,8 @@
       ],
       "verifies": [
         "coordinator.state-storage.restart-checkpoint",
-        "docker-isolation.cleanup.recovery-identity"
+        "docker-isolation.cleanup.recovery-identity",
+        "domain-model.src.attempt.crud"
       ]
     },
     {
@@ -906,7 +907,7 @@
     {
       "symbolId": "domain-model.src.attempt.crud",
       "kind": "file",
-      "path": "src/attempt/validation.ts",
+      "path": "src/attempt/crud.ts",
       "archIds": [
         "ARCH-000008"
       ]

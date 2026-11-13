@@ -12,10 +12,9 @@ import type { Snapshot } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  inspectSingleTaskRecord,
-  type ProjectQueueEntry,
-  type SingleTaskRecord,
+import type {
+  ProjectQueueEntry,
+  SingleTaskRecord,
 } from "../../../src/index.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
 import {
@@ -86,7 +85,7 @@ function fixture() {
   assert.equal(validQueueEntry(entry), true);
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 6,
+    schemaRevision: 7,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -199,6 +198,8 @@ test("単発受付候補は反復・旧epoch・元Identityを区別する", () =
   );
   assert.equal(encodeStateValue(empty), before);
 });
+
+import { inspectSingleTaskRecord } from "../../../src/task/validation.ts";
 /**
  * 単発更新の借用・相関・生存の元順序を確認する。
  * @responsibility 固定候補と観測順・拒否・対象外保持を反証する。

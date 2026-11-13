@@ -57,14 +57,6 @@ export type CoordinatorExecutionHostAdapterOptions = Readonly<{
  */
 export type CoordinatorTaskRecoveryHostDependencies = Readonly<{
   recoverTaskRecovery?: (recoveryId: string, signal: AbortSignal) => unknown;
-  acknowledgeTaskRecovery?: (
-    settlement: Readonly<
-      CoordinatorDockerRecoveryIdentity & {
-        workingDirectory: string;
-        repositoryBindingId: string;
-      }
-    >,
-  ) => unknown;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
@@ -111,7 +103,6 @@ export type CoordinatorRecoveryTransition = Readonly<{
     | "required"
     | "recovering"
     | "settled"
-    | "acknowledged"
     | "verification_resources_finalized"
     | "queue_settled"
     | "retry_ready";
@@ -138,35 +129,9 @@ export type CoordinatorRecoveryTransition = Readonly<{
 export type CoordinatorTaskRecoveryPort = Readonly<{
   resolveCorrelations: (correlationIds: readonly string[]) => unknown;
   recover: (recoveryId: string, signal: AbortSignal) => unknown;
-  acknowledgeDocker: (identity: CoordinatorDockerRecoveryIdentity) => unknown;
   observeTransition: (
     event: CoordinatorRecoveryTransition,
   ) => void | Promise<void>;
-}>;
-
-/**
- * 同Processで捕捉した元Taskの結果配送だけを表す。
- * @responsibility 結果読取りと耐久受理後の整理を内部利用側へ型接続する。
- * @trace ARCH-000004
- * @shape 元Task閉包の読取りと終了操作。公開値ではない。
- * @invariant 開始・取消権限や新しいOwnerを追加しない。
- * @boundary Task調停と単発実行の同Process配送境界。
- * @security JSON要求・公開結果・永続Stateに格納しない。
- * @compatibility 現行の同Process配送契約だけを利用する。
- */
-export type CoordinatorTaskResultDelivery = Readonly<{
-  readResults: () =>
-    | Readonly<{ status: "blocked" | "not_required"; results: null }>
-    | Readonly<{
-        status: "completed";
-        results: readonly Readonly<{
-          repositoryBinding: string;
-          operationId: string;
-          recoveryId: string;
-          resultId: string;
-          consumer: "orchestrator";
-        }>[];
-      }>;
 }>;
 
 /**
@@ -194,8 +159,6 @@ export type CoordinatorSingleTaskAttemptInput = Readonly<{
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;
-  // 同Processの読取り操作を同期的に受け渡す。通知や保存ACKではない。
-  bindResultReader?: (delivery: CoordinatorTaskResultDelivery | null) => void;
 }> &
   TaskStartCallbacks;
 
@@ -350,9 +313,6 @@ export type CoordinatorExecutionDependencies = Readonly<{
   runSingleTaskAttempt: (
     input: CoordinatorSingleTaskAttemptInput,
   ) => Promise<CoordinatorSingleTaskResult>;
-  resultDelivery?: Readonly<{
-    repositoryBindingId: string;
-  }>;
 }>;
 
 /**
@@ -432,4 +392,4 @@ export type CoordinatorProcessSafetyPort = Readonly<{
   poisonAfterCleanupUnknown: () => void;
 }>;
 
-import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../workspace/record.ts";

@@ -11,14 +11,11 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  inspectWorkspaceResult,
-  validWorkspaceCandidateRequest,
-  validWorkspaceDisplayName,
-  type WorkspaceCandidateRequest,
-} from "../../src/index.ts";
+import type { WorkspaceCandidateRequest } from "../../src/index.ts";
 
 import {
+  validWorkspaceCandidateRequest,
+  validWorkspaceDisplayName,
   isWorkspaceCommitId,
   validCandidateRecord,
   validWorkspace,
@@ -239,31 +236,6 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
     ...Array.from({ length: 1000 }, (_, index) => `src/${index}.txt`),
     longPath,
   ];
-  const observation = {
-    workspaceId,
-    changedPaths,
-    canonicalRepositoryChanged: false,
-    changeAttribution: "unattributed",
-    workspaceDeletionIssued: false,
-  };
-  const snapshot = inspectWorkspaceResult(observation);
-  assert.equal(snapshot?.changedPaths?.length, 1001);
-  assert.equal(snapshot?.changedPaths?.[1000], longPath);
-  assert.equal(Object.isFrozen(snapshot?.changedPaths), true);
-  assert.equal(
-    inspectWorkspaceResult({
-      ...observation,
-      changedPaths: ["../outside"],
-    }),
-    null,
-  );
-  assert.equal(
-    inspectWorkspaceResult({
-      ...observation,
-      changedPaths: ["same", "same"],
-    }),
-    null,
-  );
   assert.equal(
     validWorkspace({
       ...workspace,

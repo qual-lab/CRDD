@@ -8,10 +8,6 @@
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -19,7 +15,12 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext, runInThisContext } from "node:vm";
 import { prepareHistoryRetention } from "../../../src/history/validation.ts";
-import { prepareStateHostSnapshot } from "../../../src/state/validation.ts";
+import {
+  decodeStateSnapshot,
+  encodeStateValue,
+  prepareStateHostSnapshot,
+} from "../../../src/state/validation.ts";
+import { validState } from "../../../src/task/validation.ts";
 
 /**
  * 開始保存と終端準備を一つの完成操作として検証する。
@@ -327,15 +328,18 @@ test("終了入力の受理後例外でも元参照と未確定を返す", () =>
 });
 
 import {
-  applyResourceEvent,
   areTaskResourcesSettled,
   canCloseUnknownAuthentication,
   createDockerRestartRequestId,
+  projectOperationState,
+} from "../../../src/attempt/validation.ts";
+import { decodeHistoryRows } from "../../../src/history/validation.ts";
+import {
+  applyResourceEvent,
   type ExecutionOperationRecord,
   type OperationResources,
   type ProjectExecutionState,
 } from "../../../src/index.ts";
-import { decodeHistoryRows } from "../../../src/history/validation.ts";
 import type { UnifiedSnapshot } from "../../../src/state/types.ts";
 import {
   classifyResourcePublication,
@@ -582,7 +586,7 @@ const RESOURCE_KEYS = [
  */
 function emptyUnifiedSnapshot(): UnifiedSnapshot {
   return {
-    schema: "crdd-domain/runtime-state/v3",
+    schema: "crdd-execution-model/state/v4",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -590,7 +594,6 @@ function emptyUnifiedSnapshot(): UnifiedSnapshot {
     intakeEpoch: null,
     operations: [],
     unresolvedRecoveries: [],
-    pendingDeliveries: [],
     projects: [],
     managedExecutions: [],
     queueEntries: [],
@@ -602,7 +605,6 @@ function emptyUnifiedSnapshot(): UnifiedSnapshot {
     historyPending: [],
     decisions: [],
     blockers: [],
-    resultReceipts: [],
   };
 }
 
@@ -614,7 +616,6 @@ const empty = {
   repositoryBinding: binding,
   operations: [],
   unresolvedRecoveries: [],
-  pendingDeliveries: [],
 };
 
 /**
@@ -702,7 +703,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(technical);
   const domainTechnical = {
     ...technical.snapshot,
-    schema: "crdd-domain/runtime-state/v3",
+    schema: "crdd-execution-model/state/v4",
     managedExecutions: [],
   };
   const domainRead = decodeStateSnapshot(
@@ -909,6 +910,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(limitedOperation?.kind === "docker_task");
   assert.equal(canCloseUnknownAuthentication(limitedOperation), true);
   assert.equal(areTaskResourcesSettled(limitedOperation), false);
+  const limitedObservation = projectOperationState(limitedOperation);
+  assert.equal(limitedObservation.kind, "docker_task");
+  assert.equal(limitedObservation.operation, limitedOperation);
+  assert.equal(Object.isFrozen(limitedObservation), true);
+  if (limitedObservation.kind !== "docker_task")
+    throw Error("wrong_operation_kind");
+  assert.equal(limitedObservation.resourcesSettled, false);
+  assert.equal(limitedObservation.authenticationClosureAllowed, true);
   const observations = [
     { round: 1, name: "absent", name_label: "absent" },
     { round: 2, name: "absent", name_label: "absent" },
@@ -925,6 +934,16 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   const closedOperation = closedDecoded?.snapshot.operations[0];
   assert.ok(closedOperation?.kind === "docker_task");
   assert.equal(areTaskResourcesSettled(closedOperation), true);
+  const closedState = projectOperationState(closedOperation);
+  assert.equal(closedState.operation, closedOperation);
+  if (closedState.kind !== "docker_task") throw Error("wrong_operation_kind");
+  assert.equal(closedState.resourcesSettled, true);
+  // 受付の前提は終端後も成立する。実行の要否はresourcesSettledと区別する。
+  assert.equal(closedState.authenticationClosureAllowed, true);
+  assert.equal(
+    closedState.authenticationClosureAllowed,
+    canCloseUnknownAuthentication(closedOperation),
+  );
   assert.deepEqual(
     { ...closedOperation, resources: limitedOperation.resources },
     limitedOperation,
@@ -1098,7 +1117,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(decodeStateSnapshot(badAuthBytes, binding));
   const pairKinds = [
     "currentHistory",
-    "currentDelivery",
     "currentCompletion",
     "currentRepair",
     "settlement.completion",
@@ -1162,7 +1180,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           Buffer,
           currentAuthenticationClosure: null,
           currentHistory: null,
-          currentDelivery: null,
           currentCompletion: null,
           currentRepair: null,
           hostCleanupPublication: null,
@@ -1187,7 +1204,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           settlement[kind.slice("settlement.".length)] = pair;
         else environment[kind] = pair;
         if (scenario === "multiple") {
-          if (kind === "currentHistory") environment.currentDelivery = pair;
+          if (kind === "currentHistory") environment.currentCompletion = pair;
           else environment.currentHistory = pair;
         }
         runInNewContext(
@@ -1494,21 +1511,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       binding,
     );
     assert.ok(historyConfirmed, consumer);
-    const delivered = prepareStateResultDeliverySnapshot(
-      historyConfirmed,
-      consumerRecoveryId,
-      consumer === "orchestrator" ? ["orchestrator"] : [],
-      binding,
-    );
+    const delivered = historyConfirmed;
     assert.ok(delivered, consumer);
     const accepted = delivered;
-    if (consumer === "orchestrator") {
-      assert.equal(
-        prepareStateCompletionSnapshot(delivered, consumerRecoveryId, binding),
-        null,
-      );
-      continue;
-    }
     const completed = prepareStateCompletionSnapshot(
       accepted,
       consumerRecoveryId,
@@ -1519,7 +1524,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(completedState);
     assert.deepEqual(completedState.snapshot.operations, []);
     assert.deepEqual(completedState.snapshot.unresolvedRecoveries, []);
-    assert.deepEqual(completedState.snapshot.pendingDeliveries, []);
+    assert.equal(
+      Object.hasOwn(completedState.snapshot, "pendingDeliveries"),
+      false,
+    );
     const nextIdentityJson = `${JSON.stringify({ ...consumerIdentity, operationNonce: "d".repeat(64), operationId: "OP-654321" })}\n`;
     assert.ok(
       prepareStateOperationSnapshot(accepted, nextIdentityJson, binding),
@@ -1558,16 +1566,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
       consumer,
     );
-    assert.equal(
-      prepareStateResultDeliverySnapshot(
-        rejected,
-        consumerRecoveryId,
-        [],
-        binding,
-      ),
-      null,
-      consumer,
-    );
+
     assert.equal(
       prepareStateCompletionSnapshot(rejected, consumerRecoveryId, binding),
       null,
@@ -1665,18 +1664,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   const confirmedHistory = decodeStateSnapshot(confirmedHistoryBytes, binding);
   assert.ok(confirmedHistory);
   // 結果IDは履歴確認・改訂から独立し、再登録で既存受理を巻き戻さない。
-  const registeredPending = prepareStateResultDeliverySnapshot(
-    pendingHistoryBytes,
-    recoveryId,
-    ["orchestrator"],
-    binding,
-  );
-  const registeredConfirmed = prepareStateResultDeliverySnapshot(
-    confirmedHistoryBytes,
-    recoveryId,
-    ["orchestrator"],
-    binding,
-  );
+  const registeredPending = pendingHistoryBytes;
+  const registeredConfirmed = confirmedHistoryBytes;
   assert.ok(registeredPending);
   assert.ok(registeredConfirmed);
   for (const consumer of ["coordinator_cli", "workbench"]) {
@@ -1712,7 +1701,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       externalSend: "not_issued",
       sharedWrite: "not_issued",
     };
-    transientState.pendingDeliveries = [];
     transientState.unresolvedRecoveries = [];
     const transientUnfixed = Buffer.from(
       `${encodeStateValue(transientState)}\n`,
@@ -1725,24 +1713,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       binding,
     );
     assert.ok(transientFixed);
-    assert.deepEqual(
-      prepareStateResultDeliverySnapshot(
-        transientFixed,
-        transientRecoveryId,
-        [],
-        binding,
-      ),
-      transientFixed,
-    );
-    assert.equal(
-      prepareStateResultDeliverySnapshot(
-        transientFixed,
-        transientRecoveryId,
-        ["orchestrator"],
-        binding,
-      ),
-      null,
-    );
+
     const transientCompletionReady = prepareStateHistorySnapshot(
       transientFixed,
       transientRecoveryId,
@@ -1825,16 +1796,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         settled,
         `${label}: history`,
       );
-      assert.equal(
-        prepareStateResultDeliverySnapshot(
-          matrixBytes,
-          transientRecoveryId,
-          [],
-          binding,
-        ) !== null,
-        settled,
-        `${label}: delivery`,
-      );
+
       assert.equal(
         prepareStateCompletionSnapshot(
           matrixBytes,
@@ -1881,8 +1843,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(transientCompletedSnapshot);
     assert.equal(transientCompletedSnapshot.snapshot.operations.length, 0);
     assert.equal(
-      transientCompletedSnapshot.snapshot.pendingDeliveries.length,
-      0,
+      Object.hasOwn(transientCompletedSnapshot.snapshot, "pendingDeliveries"),
+      false,
     );
     assert.equal(
       prepareStateCompletionSnapshot(
@@ -1966,19 +1928,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     }
     const injectedPending = {
       ...JSON.parse(transientFixed.toString("utf8")),
-      pendingDeliveries: [
-        {
-          operationNonce: nonce,
-          recoveryId: transientRecoveryId,
-          resultId: decodeStateSnapshot(
-            transientFixed,
-            binding,
-          )?.snapshot.operations.find((item) => item.kind === "docker_task")
-            ?.summarySha256,
-          consumer: "orchestrator",
-          acceptanceSha256: null,
-        },
-      ],
+      pendingDeliveries: [],
     };
     assert.equal(
       decodeStateSnapshot(
@@ -1992,69 +1942,17 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   const confirmedResult = decodeStateSnapshot(registeredConfirmed, binding);
   assert.ok(pendingResult);
   assert.ok(confirmedResult);
-  assert.deepEqual(
-    pendingResult.snapshot.pendingDeliveries,
-    confirmedResult.snapshot.pendingDeliveries,
+  assert.equal(
+    Object.hasOwn(pendingResult.snapshot, "pendingDeliveries"),
+    false,
   );
   assert.equal(
-    confirmedResult.snapshot.pendingDeliveries[0]?.resultId,
-    confirmedHistory.snapshot.operations.find(
-      (item) => item.kind === "docker_task",
-    )?.summarySha256,
-  );
-  const forgedAcceptedResultBytes = prepareStateReferencesSnapshot(
-    registeredConfirmed,
-    recoveryId,
-    {
-      recovery: null,
-      deliveries: confirmedResult.snapshot.pendingDeliveries.map(
-        (delivery) => ({
-          ...delivery,
-          acceptanceSha256: "f".repeat(64),
-        }),
-      ),
-    },
-    binding,
+    Object.hasOwn(confirmedResult.snapshot, "pendingDeliveries"),
+    false,
   );
   assert.equal(
-    forgedAcceptedResultBytes,
-    null,
-    "技術参照更新では受領を代筆できない",
-  );
-  const acceptedResultBytes = registeredConfirmed;
-  assert.deepEqual(
-    prepareStateResultDeliverySnapshot(
-      acceptedResultBytes,
-      recoveryId,
-      ["orchestrator"],
-      binding,
-    ),
-    acceptedResultBytes,
-  );
-  for (const invalidConsumers of [
-    [],
-    ["orchestrator", "workbench"],
-    ["workbench", "workbench"],
-    ["unknown"],
-    ["coordinator_cli"],
-  ])
-    assert.equal(
-      prepareStateResultDeliverySnapshot(
-        acceptedResultBytes,
-        recoveryId,
-        invalidConsumers,
-        binding,
-      ),
-      null,
-    );
-  assert.equal(
-    prepareStateResultDeliverySnapshot(
-      readyHistoryBytes,
-      recoveryId,
-      ["orchestrator"],
-      binding,
-    ),
-    null,
+    Object.hasOwn(confirmedResult.snapshot, "pendingDeliveries"),
+    false,
   );
   const knownBeforeFixed = JSON.parse(readyHistoryBytes.toString("utf8"));
   knownBeforeFixed.operations.find(
@@ -2103,31 +2001,13 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         operationNonce: nonce,
         recoveryId,
         reason: "provider_operation_completed",
-        obligations: [
-          "docker_resources",
-          "host_cleanup",
-          "lease_release",
-          "result_delivery",
-        ],
+        obligations: ["docker_resources", "host_cleanup", "lease_release"],
       },
     ],
-    pendingDeliveries: ["orchestrator"].map((consumer) => ({
-      operationNonce: nonce,
-      recoveryId,
-      resultId: knownHistory.snapshot.operations.find(
-        (item) => item.kind === "docker_task",
-      )?.summarySha256,
-      consumer,
-    })),
   };
   const acceptedCompletionBytes = Buffer.from(
     `${encodeStateValue(acceptedCompletionState)}\n`,
   );
-  const sameHomeNextIdentity = `${JSON.stringify({
-    ...identity,
-    operationNonce: "0".repeat(64),
-    operationId: "OP-654321",
-  })}\n`;
   // 同一Hostの技術終端と、別Hostに必要な物理清掃を混同しない。
   {
     const normalOld = {
@@ -2400,78 +2280,13 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       { code: "ERR_ASSERTION" },
     );
   }
-  const deliveryOnlyState = {
-    ...acceptedCompletionState,
-    unresolvedRecoveries: acceptedCompletionState.unresolvedRecoveries.map(
-      (value) => ({ ...value, obligations: ["result_delivery"] }),
-    ),
-    pendingDeliveries: acceptedCompletionState.pendingDeliveries,
-  };
-  const deliveryOnlyBytes = Buffer.from(
-    `${encodeStateValue(deliveryOnlyState)}\n`,
-  );
-  const sameHomeStarted = prepareStateOperationSnapshot(
-    deliveryOnlyBytes,
-    sameHomeNextIdentity,
-    binding,
-  );
   assert.ok(
-    sameHomeStarted,
-    "資源終端後の耐久ACK待ちだけでは同Home開始を妨げない",
-  );
-  const sameHomeStartedState = JSON.parse(sameHomeStarted.toString("utf8"));
-  sameHomeStartedState.unresolvedRecoveries[0].obligations = [
-    "docker_resources",
-    "result_delivery",
-  ];
-  assert.equal(
-    validateStateTransition(
-      deliveryOnlyBytes,
-      Buffer.from(`${encodeStateValue(sameHomeStartedState)}\n`),
-      binding,
-    ),
-    false,
-    "新操作追加と同時に旧操作へ資源義務を戻す候補を拒否する",
-  );
-  assert.equal(
-    prepareStateOperationSnapshot(
-      acceptedCompletionBytes,
-      sameHomeNextIdentity,
-      binding,
-    ),
-    null,
-    "資源回復義務が残る間は開始しない",
-  );
-  for (const invalidDeliveries of [
-    [],
-    acceptedCompletionState.pendingDeliveries.map((delivery) => ({
-      ...delivery,
-      resultId: "e".repeat(64),
-    })),
-    acceptedCompletionState.pendingDeliveries.map((delivery) => ({
-      ...delivery,
-      consumer: "workbench",
-    })),
-  ]) {
-    assert.equal(
-      prepareStateCompletionSnapshot(
-        Buffer.from(
-          `${encodeStateValue({ ...acceptedCompletionState, pendingDeliveries: invalidDeliveries })}\n`,
-        ),
-        recoveryId,
-        binding,
-      ),
-      null,
-    );
-  }
-  assert.equal(
     prepareStateCompletionSnapshot(
       acceptedCompletionBytes,
       recoveryId,
       binding,
     ),
-    null,
-    "Taskを伴わない技術保存だけでは耐久配送を完了しない",
+    "Taskに結合しない技術終端は独立したACKなしで整理できる",
   );
   assert.equal(
     prepareStateCompletionSnapshot(pendingHistoryBytes, recoveryId, binding),
@@ -2533,22 +2348,20 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
   }
-  const unaccepted = Buffer.from(
-    `${encodeStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: null })) })}\n`,
-  );
   assert.equal(
-    prepareStateCompletionSnapshot(unaccepted, recoveryId, binding),
+    prepareStateCompletionSnapshot(
+      Buffer.from(
+        encodeStateValue({
+          ...acceptedCompletionState,
+          pendingDeliveries: [],
+        }) + "\n",
+      ),
+      recoveryId,
+      binding,
+    ),
     null,
+    "旧配送fieldは補完しない",
   );
-  for (const consumer of ["orchestrator"]) {
-    const missingAcceptance = Buffer.from(
-      `${encodeStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: value.consumer === consumer ? null : "forbidden" })) })}\n`,
-    );
-    assert.equal(
-      prepareStateCompletionSnapshot(missingAcceptance, recoveryId, binding),
-      null,
-    );
-  }
   assert.equal(
     confirmedHistory.snapshot.operations.find(
       (item) => item.kind === "docker_task",
@@ -2604,7 +2417,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const projectFixture = {
       status: "completed",
       state: {
-        contract: "crdd-coordinator/project-state/v2",
+        contract: "crdd-execution-model/project-state/v3",
         taskExecutionSelections: {
           executor: {
             provider: "codex",
@@ -2671,7 +2484,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             startPhase: "none",
             cleanupConfirmed: false,
             recoveryObligations: [],
-            resultAcceptances: [],
             recoveryUnresolved: false,
             candidateId: null,
             retryCount: 0,
@@ -2688,7 +2500,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const {
       cleanupConfirmed: _cleanup,
       recoveryUnresolved: _unresolved,
-      resultAcceptances: _acceptances,
       ...storedRecord
     } = initialTask;
     const boundTask = {
@@ -2703,7 +2514,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         recoveryIds: [recoveryId],
         resultUnresolved: false,
       },
-      resultAcceptanceIds: [],
     };
     const { managedExecutions: _emptyManaged, ...emptyDefinitionFixture } =
       emptyUnifiedSnapshot();
@@ -2713,14 +2523,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       intakeEpoch: "epoch-a",
       operations: [terminalOperation],
       projects: [{ ...projectFixture.state, tasks: [boundTask] }],
-      pendingDeliveries: [
-        {
-          operationNonce: nonce,
-          recoveryId,
-          resultId: terminalOperation.summarySha256,
-          consumer: "orchestrator",
-        },
-      ],
     };
     /**
      * 相関反証の単一状態を正規bytesへ固定する。
@@ -2747,7 +2549,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             operationNonce: nonce,
             recoveryId,
             reason: terminalOperation.outcome.reason,
-            obligations: ["result_delivery"],
+            obligations: ["docker_resources"],
           },
         ],
         projects: [
@@ -2761,7 +2563,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
                   ...boundTask.settlement,
                   resultUnresolved: taskUnresolved,
                 },
-                recoveryObligations: [{ kind: "docker", recoveryId }],
+                recoveryObligations: [
+                  { kind: "docker", recoveryId, phase: "required" },
+                ],
               },
             ],
           },
@@ -2863,19 +2667,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         taskUnresolved,
       );
     }
-    const receipt = {
-      repositoryBindingId: "binding-a",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      taskId: "task-a",
-      attemptId: "attempt-a",
-      operationId: identity.recoveryCorrelationId,
-      recoveryId,
-      settlementGeneration: 2,
-      repositoryBinding: binding,
-      resultId: terminalOperation.summarySha256,
-      consumer: "orchestrator",
-    };
     {
       const secondIdentity = {
         ...identity,
@@ -2893,7 +2684,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
               {
                 ...boundTask,
                 state: "recovery_required",
-                recoveryObligations: [{ kind: "docker", recoveryId }],
+                recoveryObligations: [
+                  { kind: "docker", recoveryId, phase: "required" },
+                ],
               },
             ],
           },
@@ -2925,6 +2718,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       physical.managedExecutions[0].tasks[0].recoveryObligations.push({
         kind: "docker",
         recoveryId: second.recoveryId,
+        phase: "required",
       });
       let multi: Buffer = encodeUnified(physical);
       for (const confirmed of [false, true]) {
@@ -2938,118 +2732,86 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         assert.ok(checkpoint);
         multi = checkpoint;
       }
-      const delivered = prepareStateResultDeliverySnapshot(
+      const decoded = decodeStateSnapshot(multi, binding);
+      const view = decoded?.projects[0];
+      assert.ok(decoded && view);
+      const proposed = { ...view, generation: view.generation + 1 };
+      const completed = prepareUnifiedTaskSnapshot(
         multi,
-        second.recoveryId,
-        ["orchestrator"],
+        proposed,
+        view.generation,
         binding,
       );
-      assert.ok(delivered);
-      multi = delivered;
-      for (const id of [recoveryId, second.recoveryId]) {
-        const decoded = decodeStateSnapshot(multi, binding);
-        const view = decoded?.projects[0];
-        assert.ok(decoded && view);
-        const operation = decoded.snapshot.operations.find(
-          (item) => item.recoveryId === id,
+      assert.ok(completed, "同じTaskの全技術終端をTask保存と同時に整理する");
+      const saved = decodeStateSnapshot(completed, binding);
+      assert.ok(saved);
+      assert.equal(saved.snapshot.operations.length, 0);
+      assert.equal(
+        saved.snapshot.managedExecutions[0]?.tasks[0]?.settlement.kind,
+        "executor_result",
+      );
+      assert.equal(
+        saved.projects[0]?.tasks[0]?.recoveryObligations.every(
+          (item) => item.phase === "settled",
+        ),
+        true,
+      );
+      for (const operation of decoded.snapshot.operations) {
+        const unconfirmed: unknown = {
+          ...decoded.snapshot,
+          operations: decoded.snapshot.operations.map((item) =>
+            item.recoveryId === operation.recoveryId
+              ? { ...item, history: { ...item.history, confirmed: false } }
+              : item,
+          ),
+        };
+        assert.equal(
+          prepareUnifiedTaskSnapshot(
+            encodeUnified(unconfirmed),
+            proposed,
+            view.generation,
+            binding,
+          ),
+          null,
+          "一つでも未確認なら一部だけ除去しない",
         );
-        assert.ok(operation?.kind === "docker_task");
-        const acceptance = {
-          ...receipt,
-          recoveryId: id,
-          resultId: operation.summarySha256,
-          settlementGeneration: view.generation + 1,
-        };
-        const proposed = {
-          ...view,
-          generation: view.generation + 1,
-          tasks: view.tasks.map((task) => ({
-            ...task,
-            recoveryObligations: task.recoveryObligations.map((item) =>
-              item.recoveryId === id
-                ? {
-                    ...item,
-                    phase: "acknowledged",
-                    acknowledgement: acceptance,
-                  }
-                : item,
-            ),
-          })),
-        };
-        const next = prepareUnifiedTaskSnapshot(
+      }
+      const changedAttempt = {
+        ...proposed,
+        tasks: proposed.tasks.map((task) => ({
+          ...task,
+          attemptId: "other-attempt",
+        })),
+      };
+      assert.equal(
+        prepareUnifiedTaskSnapshot(
           multi,
-          proposed,
+          changedAttempt,
           view.generation,
           binding,
-        );
-        assert.ok(next, "二つの回復を同じTaskで一件ずつ耐久受領できる");
-        const saved = JSON.parse(next.toString());
-        const stored = saved.managedExecutions[0].tasks[0];
-        assert.equal(saved.operations.length, id === recoveryId ? 1 : 0);
-        assert.equal(
-          stored.settlement.kind,
-          id === recoveryId ? "operations" : "executor_result",
-        );
-        assert.equal(saved.resultReceipts.length, id === recoveryId ? 1 : 2);
-        for (const mutate of [
-          (value: typeof saved) => {
-            value.resultReceipts = [];
-          },
-          (value: typeof saved) => {
-            value.pendingDeliveries = decoded.snapshot.pendingDeliveries;
-          },
-          (value: typeof saved) => {
-            value.managedExecutions[0].tasks[0].attemptId = "other-attempt";
-          },
-          (value: typeof saved) => {
-            const fact = value.managedExecutions[0].tasks[0].settlement;
-            if (fact.kind === "operations") fact.resultUnresolved = true;
-            else fact.recoveryUnresolved = true;
-          },
-        ]) {
-          const invalid = structuredClone(saved);
-          mutate(invalid);
-          assert.equal(
-            validateUnifiedTransition(multi, encodeUnified(invalid), binding),
-            false,
-          );
-        }
-        if (id === recoveryId) {
-          const premature = structuredClone(saved);
-          premature.managedExecutions[0].tasks[0].settlement = {
-            kind: "executor_result",
-            cleanupConfirmed: true,
-            recoveryUnresolved: false,
-          };
-          assert.equal(
-            validateUnifiedTransition(multi, encodeUnified(premature), binding),
-            false,
-            "未受領のOperationが残る間は技術参照なし終端へ移れない",
-          );
-          for (const references of [
-            [],
-            [recoveryId],
-            [recoveryId, second.recoveryId],
-          ]) {
-            const invalid = structuredClone(saved);
-            invalid.managedExecutions[0].tasks[0].settlement.recoveryIds =
-              references;
-            assert.equal(
-              validateUnifiedTransition(multi, encodeUnified(invalid), binding),
-              false,
-            );
-          }
-        }
-        multi = next;
-      }
-      const receipts = decodeStateSnapshot(multi, binding)?.snapshot
-        .resultReceipts;
+        ),
+        null,
+      );
+      const omittedBoundTask = {
+        ...proposed,
+        tasks: proposed.tasks.map((task) => ({
+          ...task,
+          definition: { ...task.definition, id: "different-task" },
+        })),
+      };
+      assert.equal(validState(omittedBoundTask), true);
       assert.equal(
-        receipts?.find((item) => item.recoveryId === recoveryId)
-          ?.settlementGeneration,
-        2,
+        prepareUnifiedTaskSnapshot(
+          multi,
+          omittedBoundTask,
+          view.generation,
+          binding,
+        ),
+        null,
+        "Operationに結合したTaskを省略して単独Completionへ迂回できない",
       );
     }
+
     const acceptedUnified = {
       ...unifiedTerminal,
       revision: 2,
@@ -3058,8 +2820,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         payloadSha256: createHash("sha256").update(unifiedBefore).digest("hex"),
       },
       operations: [],
-      pendingDeliveries: [],
-      resultReceipts: [receipt],
       projects: [
         {
           ...projectFixture.state,
@@ -3072,7 +2832,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
                 cleanupConfirmed: true,
                 recoveryUnresolved: false,
               },
-              resultAcceptanceIds: [recoveryId],
             },
           ],
         },
@@ -3141,8 +2900,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(receiptRetained);
     assert.deepEqual(
-      decodeStateSnapshot(receiptRetained, binding)?.snapshot.resultReceipts,
-      acceptedDecoded.snapshot.resultReceipts,
+      decodeStateSnapshot(receiptRetained, binding)?.snapshot.operations,
+      acceptedDecoded.snapshot.operations,
     );
     assert.equal(
       validateUnifiedTransition(
@@ -3161,7 +2920,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             {
               ...storedRecord,
               settlement: { kind: "pending" },
-              resultAcceptanceIds: [],
             },
           ],
         },
@@ -3173,11 +2931,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ...acceptedUnified,
       previous: {
         revision: 1,
-        payloadSha256: createHash("sha256").update(unboundBytes).digest("hex"),
+        payloadSha256: createHash("sha256").update(unifiedBefore).digest("hex"),
       },
-      resultReceipts: [
-        { ...receipt, operationId: "another-logical-operation" },
-      ],
       projects: [
         {
           ...acceptedUnified.projects[0],
@@ -3193,7 +2948,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(decodeStateSnapshot(encodeUnified(wrongLogicalReceipt), binding));
     assert.equal(
       validateUnifiedTransition(
-        unboundBytes,
+        unifiedBefore,
         encodeUnified(wrongLogicalReceipt),
         binding,
       ),
@@ -3202,11 +2957,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     for (const invalid of [
       { ...acceptedUnified, projects: unifiedTerminal.projects },
       { ...acceptedUnified, operations: unifiedTerminal.operations },
-      {
-        ...acceptedUnified,
-        pendingDeliveries: unifiedTerminal.pendingDeliveries,
-      },
       { ...acceptedUnified, resultReceipts: [] },
+      { ...acceptedUnified, pendingDeliveries: [] },
     ])
       assert.equal(
         validateUnifiedTransition(
@@ -3242,7 +2994,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
                 resultUnresolved: true,
               },
               recoveryObligations: [
-                { kind: "docker", recoveryId: second.recoveryId },
+                {
+                  kind: "docker",
+                  recoveryId: second.recoveryId,
+                  phase: "required",
+                },
               ],
             },
           ],
@@ -3278,7 +3034,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
       null,
     );
-    for (const phase of ["settled", "acknowledged", "required"])
+    for (const phase of ["settled", "acknowledged", "unknown"])
       assert.equal(
         decodeStateSnapshot(
           encodeUnified({
@@ -3355,14 +3111,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             operationNonce: nonce,
             recoveryId: id,
             reason: "provider_operation_completed",
-            obligations: ["result_delivery"],
+            obligations: ["docker_resources"],
           },
         ],
       }),
       { cleanupConfirmed: true, recoveryUnresolved: false },
     );
   }
-  const goldenTaskLine = `{"occurredAt":"2026-10-08T00:00:00.000Z","schema":"crdd-coordinator/history-row/v2","summary":{"execution":{"externalSend":"unknown","ownerEffect":"disabled","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"confirmed","identitySha256":"${identitySha256}","lease":"released","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":true,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryId":"${recoveryId}","schema":"crdd-coordinator/operation-summary/v2"}}\n`;
+  const goldenTaskLine = `{"occurredAt":"2026-10-08T00:00:00.000Z","schema":"crdd-coordinator/history-row/v2","summary":{"execution":{"externalSend":"unknown","ownerEffect":"disabled","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"confirmed","identitySha256":"${identitySha256}","lease":"released","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":true,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryCorrelationId":"task-operation-a","recoveryId":"${recoveryId}","schema":"crdd-execution-model/operation-summary/v5"}}\n`;
   assert.equal(historyLine.toString("utf8"), goldenTaskLine);
   assert.equal(
     createHash("sha256").update(historyLine).digest("hex"),
@@ -3392,7 +3148,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   };
   const restartHistoryRow = JSON.parse(goldenTaskLine);
-  restartHistoryRow.summary.schema = "crdd-coordinator/operation-summary/v3";
   restartHistoryRow.summary.dockerRestart = restartHistoryCheckpoint;
   const restartHistoryLine = Buffer.from(
     `${encodeStateValue(restartHistoryRow)}\n`,
@@ -3403,13 +3158,16 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   v4Restart.summary.schema = "crdd-coordinator/operation-summary/v4";
   v4Restart.summary.consumer = "workbench";
   v4Restart.summary.recoveryCorrelationId = "operation-a";
-  assert.ok(decodeHistoryRows(Buffer.from(`${encodeStateValue(v4Restart)}\n`)));
+  assert.equal(
+    decodeHistoryRows(Buffer.from(`${encodeStateValue(v4Restart)}\n`)),
+    null,
+  );
   for (const checkpoint of [
     null,
     { ...restartHistoryCheckpoint, cleanup: "unknown" },
     { unexpected: true },
   ]) {
-    const invalid = structuredClone(v4Restart);
+    const invalid = structuredClone(restartHistoryRow);
     invalid.summary.dockerRestart = checkpoint;
     assert.equal(
       decodeHistoryRows(Buffer.from(`${encodeStateValue(invalid)}\n`)),
@@ -3427,7 +3185,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       binding,
     ),
     null,
-    "固定済みv2結果へv3履歴を再結合しない",
+    "固定済み要約へ異なる再起動情報の履歴を再結合しない",
   );
   for (const checkpoint of [
     null,
@@ -3455,7 +3213,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   }
   for (const mutation of ["missing", "v2", "extra"]) {
     const row = structuredClone(restartHistoryRow);
-    if (mutation === "missing") delete row.summary.dockerRestart;
+    if (mutation === "missing") delete row.summary.recoveryCorrelationId;
     else if (mutation === "v2")
       row.summary.schema = "crdd-coordinator/operation-summary/v2";
     else row.summary.extra = true;
@@ -3730,15 +3488,26 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   assert.deepEqual(
     retain(confirmedHistoryBytes, historyLine, afterCutoff, 30),
+    historyLine,
+    "現在のOperationが参照している間は終端行を保持する",
+  );
+  const noLongerCurrent = prepareStateCompletionSnapshot(
+    knownConfirmed,
+    recoveryId,
+    binding,
+  );
+  assert.ok(noLongerCurrent);
+  assert.deepEqual(
+    retain(noLongerCurrent, historyLine, afterCutoff, 30),
     Buffer.alloc(0),
   );
   assert.deepEqual(
     retain(pendingHistoryBytes, historyLine, afterCutoff, 30),
     historyLine,
   );
-  assert.deepEqual(
+  assert.equal(
     retain(confirmedHistoryBytes, Buffer.alloc(0), afterCutoff, 30),
-    Buffer.alloc(0),
+    null,
   );
   assert.equal(
     retain(pendingHistoryBytes, Buffer.alloc(0), afterCutoff, 30),
@@ -4007,7 +3776,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   for (const invalidIdentity of [
     { ...identity, consumer: undefined },
-    { ...identity, consumer: "durable" },
+    { ...identity, consumer: "invalid consumer" },
     { ...identity, consumer: { consumer: "orchestrator" } },
     { ...identity, completionPolicy: "transient" },
     { ...identity, schema: "crdd-coordinator-task-docker-recovery/v1" },
@@ -4029,7 +3798,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   }
   const preparedState = decodeStateSnapshot(prepared, binding);
   assert.ok(preparedState);
-  for (const consumer of ["coordinator_cli", "orchestrator", "workbench"]) {
+  for (const consumer of [
+    "coordinator_cli",
+    "orchestrator",
+    "workbench",
+    "custom_client",
+  ]) {
     const consumerIdentity = `${JSON.stringify({ ...identity, consumer })}\n`;
     const consumerSnapshot = prepareStateOperationSnapshot(
       null,
@@ -4761,14 +4535,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         obligations: ["docker_resources"],
       },
     ],
-    pendingDeliveries: [
-      {
-        operationNonce: nonce,
-        recoveryId,
-        resultId: "e".repeat(64),
-        consumer: "orchestrator",
-      },
-    ],
   };
   const stoppedBytes = Buffer.from(`${encodeStateValue(stopped)}\n`);
   const lifecycle = {
@@ -4809,7 +4575,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   const references = {
     recovery: stopped.unresolvedRecoveries[0],
-    deliveries: stopped.pendingDeliveries,
   };
   const referencesBytes = prepareStateReferencesSnapshot(
     lifecycleBytes,
@@ -4820,7 +4585,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(referencesBytes);
   const acceptedReferences = {
     ...references,
-    deliveries: stopped.pendingDeliveries,
   };
   const acceptedBytes = prepareStateReferencesSnapshot(
     referencesBytes,
@@ -4835,37 +4599,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     lifecycleState.snapshot.operations,
   );
   assert.equal(
-    acceptedState?.snapshot.pendingDeliveries.some((item) =>
-      Object.hasOwn(item, "acceptanceSha256"),
-    ),
+    Object.hasOwn(acceptedState.snapshot, "pendingDeliveries"),
     false,
   );
   for (const invalid of [
     { recovery: null, deliveries: [] },
+    { ...references, deliveries: [] },
     {
       ...references,
-      deliveries: references.deliveries.map((item) => ({
-        ...item,
-        acceptanceSha256: null,
-      })),
-    },
-    {
-      ...acceptedReferences,
-      deliveries: acceptedReferences.deliveries.map((item) => ({
-        ...item,
-        resultId: "a".repeat(64),
-      })),
-    },
-    {
-      ...acceptedReferences,
       recovery: { ...references.recovery, operationNonce: "0".repeat(64) },
-    },
-    {
-      ...acceptedReferences,
-      deliveries: [
-        ...acceptedReferences.deliveries,
-        ...acceptedReferences.deliveries,
-      ],
     },
     { ...acceptedReferences, extra: true },
   ]) {
@@ -4948,18 +4690,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     })),
     { ...stoppedNext, unresolvedRecoveries: [] },
     { ...stoppedNext, pendingDeliveries: [] },
-    {
-      ...stoppedNext,
-      pendingDeliveries: [
-        { ...stopped.pendingDeliveries[0], resultId: "a".repeat(64) },
-      ],
-    },
-    {
-      ...stoppedNext,
-      pendingDeliveries: [
-        { ...stopped.pendingDeliveries[0], acceptanceSha256: null },
-      ],
-    },
+    { ...stoppedNext, resultReceipts: [] },
+    { ...stoppedNext, resultAcceptances: [] },
     {
       ...stoppedNext,
       operations: [
@@ -5011,7 +4743,6 @@ import {
   prepareStateReferencesSnapshot,
   prepareStateResourceSnapshot,
   prepareStateRestartSnapshot,
-  prepareStateResultDeliverySnapshot,
 } from "../../../src/state/validation.ts";
 
 /**
@@ -5212,7 +4943,7 @@ test("初期Hostモデルは全文差分・参照・未終了再起動を拒否�
     const changed = structuredClone(retired);
     changed[field] =
       field === "phase"
-        ? "awaiting_delivery"
+        ? "terminal"
         : field === "lease"
           ? "released"
           : { changed: true };
@@ -5385,7 +5116,7 @@ test("初期Hostモデルは全文差分・参照・未終了再起動を拒否�
       field,
     );
   }
-  for (const collection of ["unresolvedRecoveries", "pendingDeliveries"]) {
+  for (const collection of ["unresolvedRecoveries"]) {
     for (const key of ["recoveryId", "operationNonce"]) {
       const changed = structuredClone(before);
       changed[collection].push({
@@ -5427,8 +5158,6 @@ test("初期Hostモデルは全文差分・参照・未終了再起動を拒否�
   }
 });
 
-import {
-  applyResourceCleanup,
-  isDockerRestartCheckpointSettled,
-} from "../../../src/index.ts";
+import { isDockerRestartCheckpointSettled } from "../../../src/attempt/validation.ts";
+import { applyResourceCleanup } from "../../../src/index.ts";
 import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";

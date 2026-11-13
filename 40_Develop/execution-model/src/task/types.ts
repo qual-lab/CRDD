@@ -5,7 +5,21 @@
  */
 
 import type { ModelSelection } from "../../../ai-adapter/src/index.ts";
-import type { RootObservedInput } from "../state/types.ts";
+
+/** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
+export const TASK_STATES = Object.freeze([
+  "planned",
+  "waiting_dependency",
+  "ready",
+  "starting",
+  "running",
+  "cleanup_pending",
+  "completed",
+  "failed",
+  "cancelled",
+  "recovery_required",
+  "superseded",
+] as const);
 
 /**
  * stateで使用するProject Task Definitionの値契約を定義する。
@@ -48,30 +62,6 @@ export type TaskExecutionSelections = Readonly<{
 }>;
 
 /**
- * 同じ結果に対する上位の耐久受理本文を定義する。
- * @responsibility Repository・仕事・Attempt・結果と初回受理世代の結合を所有する。
- * @trace ARCH-000004
- * @shape 十一項目の固定本文。consumerはorchestratorだけ。
- * @invariant 実行操作IDで上位論理操作IDを代用しない。
- * @boundary Coordinatorの結果投影とCoordinatorの耐久保存。
- * @security Path・秘密値・処置Authorityを含めない。
- * @compatibility 旧Runtime領収書を新本文へ読み替えない。
- */
-export type ProjectResultAcceptance = Readonly<{
-  repositoryBindingId: string;
-  projectId: string;
-  milestoneId: string;
-  taskId: string;
-  attemptId: string;
-  operationId: string;
-  recoveryId: string;
-  settlementGeneration: number;
-  repositoryBinding: string;
-  resultId: string;
-  consumer: "orchestrator";
-}>;
-
-/**
  * 同じTask試行から保存へ搬送する結果の元事実。
  * @responsibility Task・Attempt・Operationの相関と未解決観測を一つの値契約にする。
  * @trace ARCH-000004、ARCH-000008
@@ -108,7 +98,6 @@ export type ProjectTaskRecord = Readonly<{
   startPhase: ProjectTaskStartPhase;
   cleanupConfirmed: boolean;
   recoveryObligations: readonly ProjectTaskRecoveryObligation[];
-  resultAcceptances: readonly ProjectResultAcceptance[];
   recoveryUnresolved: boolean;
   candidateId: string | null;
   retryCount: number;
@@ -129,8 +118,7 @@ export type ProjectTaskRecord = Readonly<{
 export type ProjectTaskRecoveryObligation = Readonly<{
   kind: ProjectTaskRecoveryKind;
   recoveryId: string;
-  phase: "required" | "recovering" | "settled" | "acknowledged";
-  acknowledgement?: ProjectDockerRecoveryAcknowledgement;
+  phase: "required" | "recovering" | "settled";
 }>;
 
 /**
@@ -144,18 +132,7 @@ export type ProjectTaskRecoveryObligation = Readonly<{
  * @security N/A: ProjectTaskStateはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility ProjectTaskStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type ProjectTaskState =
-  | "planned"
-  | "waiting_dependency"
-  | "ready"
-  | "starting"
-  | "running"
-  | "cleanup_pending"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "recovery_required"
-  | "superseded";
+export type ProjectTaskState = (typeof TASK_STATES)[number];
 
 /**
  * stateで使用するProject Task Start Phaseの値契約を定義する。
@@ -192,19 +169,6 @@ export type ProjectTaskRecoveryKind =
   | "candidate"
   | "candidate_store"
   | "runtime_process";
-
-/**
- * stateで使用するProject Docker 回復 Acknowledgementの値契約を定義する。
- *
- * @responsibility Project Docker 回復 AcknowledgementのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape ProjectDockerRecoveryAcknowledgementが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ProjectDockerRecoveryAcknowledgementで宣言した値と責務の対応を維持する。
- * @boundary N/A: ProjectDockerRecoveryAcknowledgementの宣言は外部境界を開かない。
- * @security N/A: ProjectDockerRecoveryAcknowledgementはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility ProjectDockerRecoveryAcknowledgementの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type ProjectDockerRecoveryAcknowledgement = ProjectResultAcceptance;
 
 /**
  * state-portで使用するCoordinator Queue Enqueue 入力の値契約を定義する。
@@ -342,11 +306,17 @@ export type QueueUpdateRequest = Readonly<
     }
   | {
       kind: "lease_released";
-      input: RootObservedInput<
-        Parameters<
-          typeof import("./validation.ts").prepareQueueLeaseReleaseSettlement
-        >
-      >;
+      input: [
+        queueId: string,
+        expectedGeneration: number,
+        ownerGeneration: string,
+        observations: Readonly<{
+          resourcesAbsent: (
+            repositoryRoot: string,
+            identity: string,
+          ) => boolean;
+        }>,
+      ];
     }
 >;
 

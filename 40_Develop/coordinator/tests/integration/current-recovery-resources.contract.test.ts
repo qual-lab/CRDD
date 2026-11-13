@@ -9,7 +9,6 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -21,6 +20,7 @@ import {
   snapshotJsonValue,
   snapshotPlainRecord,
 } from "../../src/input/snapshot.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import { createRecoveryFixture } from "../support/recovery.ts";
 
 const source = fs.readFileSync(
@@ -214,7 +214,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
     const operation = {
       kind: "docker_task",
       recoveryId: "exact",
-      phase: scenario === "late_phase" ? "awaiting_delivery" : "executing",
+      phase: scenario === "late_phase" ? "terminal" : "executing",
       execution: {
         ownerEffect:
           scenario.includes("disabled") ||
@@ -1169,17 +1169,25 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
         canonicalJson: JSON.stringify,
         readRecoveryState: (received: unknown) => {
           assert.equal(received, root);
+          const observedSnapshot =
+            saves && fault === "stale"
+              ? beforeSnapshot
+              : saves && fault === "revision"
+                ? { ...snapshot, revision: 3 }
+                : snapshot;
           return {
             status: saves && fault === "read" ? "blocked" : "completed",
             lockReleased: !(saves && fault === "unlock"),
             value: {
               sourceText: `${JSON.stringify(saves && fault === "stale" ? beforeSnapshot : saves && fault === "revision" ? { ...snapshot, revision: 3 } : snapshot)}\n`,
-              snapshot:
-                saves && fault === "stale"
-                  ? beforeSnapshot
-                  : saves && fault === "revision"
-                    ? { ...snapshot, revision: 3 }
-                    : snapshot,
+              snapshot: observedSnapshot,
+              operationStates: observedSnapshot.operations.map((operation) => ({
+                kind: "docker_task",
+                operation,
+                resourcesSettled: saves > 0,
+                restartSettled: true,
+                authenticationClosureAllowed: saves === 0,
+              })),
               payloadSha256: saves && fault === "hash" ? "wrong" : "saved-hash",
             },
           };
@@ -1188,8 +1196,6 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
           directory: "fixture",
           assertCurrent: () => true,
         }),
-        areTaskResourcesSettled: () => false,
-        canCloseUnknownAuthentication: () => true,
         projectResourceTarget: () => ({
           resources: { resources: [{ key: "create_subscription_auth_probe" }] },
         }),
@@ -1385,7 +1391,6 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
       snapshotJsonValue,
       isDeepStrictEqual,
       canonicalJson: encode,
-      areTaskResourcesSettled: () => true,
       assertCurrentRecoveryOwner: () =>
         !(scenario === "owner_lost_after_pending" && stages.length > 0),
       readRecoveryState: () => ({
@@ -1393,6 +1398,13 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
         lockReleased: true,
         value: {
           snapshot,
+          operationStates: snapshot.operations.map((operation) => ({
+            kind: "docker_task",
+            operation,
+            resourcesSettled: true,
+            restartSettled: true,
+            authenticationClosureAllowed: false,
+          })),
           sourceText: `${encode(snapshot)}\n`,
           payloadSha256: `hash-${snapshot.revision}`,
         },
@@ -1555,6 +1567,14 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
     };
     const before = Buffer.from(record.before);
     const beforeSnapshot = record.snapshot;
+    const operationStates = record.snapshot.operations.map((operation) => ({
+      kind: "docker_task",
+      operation,
+      resourcesSettled: true,
+      restartSettled: true,
+      authenticationClosureAllowed: false,
+    }));
+    Object.assign(record, { operationStates });
     let writes = 0;
     const persist = runInThisContext(
       `(environment) => { const { Buffer, dockerRecoveryPreparations, snapshotJsonValue, isDeepStrictEqual, canonicalJson, assertCurrentRecoveryOwner, coordinatorReleasedTaskCanObserveHostAbsence, saveRecoveryCheckpoint, readRecoveryState } = environment; ${body}; return persistRuntimeOwnedDockerTaskRecoveryCheckpoint; }`,
@@ -1629,6 +1649,13 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
                 : snapshot,
           payloadSha256:
             scenario === "readback_sha" ? "different-hash" : "hash",
+          operationStates: snapshot.operations.map((operation) => ({
+            kind: "docker_task",
+            operation,
+            resourcesSettled: true,
+            restartSettled: true,
+            authenticationClosureAllowed: false,
+          })),
         },
       }),
     });
@@ -1735,11 +1762,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
     "history_failed",
     "history_throw",
     "history_unlock_failed",
-    "delivery_failed",
-    "delivery_throw",
-    "delivery_unlock_failed",
-    "delivery_unconfirmed_pending",
-    "durable_delivery",
     "cancel_1",
     "cancel_2",
     "cancel_3",
@@ -1899,25 +1921,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
             reason: "fixture_history_failed",
           };
         },
-        registerRuntimeOwnedDockerTaskRecoveryDelivery(key: unknown) {
-          events.push("delivery");
-          assert.equal(key, capability);
-          if (scenario === "delivery_throw") throw new Error("fixture");
-          return {
-            status: scenario === "delivery_failed" ? "blocked" : "completed",
-            snapshotConfirmed: ![
-              "delivery_failed",
-              "delivery_unconfirmed_pending",
-            ].includes(scenario),
-            lockReleased: scenario !== "delivery_unlock_failed",
-            deliveryPending: [
-              "durable_delivery",
-              "delivery_unlock_failed",
-              "delivery_unconfirmed_pending",
-            ].includes(scenario),
-            reason: "fixture_delivery_failed",
-          };
-        },
         safeRecoveryReason: (error: Error, fallback: string) =>
           error.message || fallback,
       },
@@ -1936,7 +1939,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       dockerCleanupConfirmed: boolean;
       hostCleanupConfirmed: boolean;
       locksReleased: boolean;
-      deliveryPending: boolean;
       preparation: unknown;
     }>;
     const result = await driver(
@@ -1955,7 +1957,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       "already_absent",
       "host_publication",
       "undefined_signal",
-      "durable_delivery",
     ].includes(scenario);
     assert.equal(result.status, successful ? "completed" : "blocked", scenario);
     assert.equal(result.operationRetained, true);
@@ -1978,7 +1979,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       acquired ? 1 : 0,
       scenario,
     );
-    for (const phase of ["terminal", "history", "delivery"])
+    for (const phase of ["terminal", "history"])
       if (events.includes(phase))
         assert.ok(events.indexOf("release") < events.indexOf(phase), scenario);
     if (scenario === "normal")
@@ -1996,7 +1997,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         "yield",
         "history",
         "yield",
-        "delivery",
       ]);
     if (scenario === "already_absent") {
       assert.equal(events.includes("resources"), false);
@@ -2020,7 +2020,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       );
     if (scenario.startsWith("cancel_") || scenario === "pre_cancel")
       assert.equal(result.reason, "docker_task_recovery_cancelled");
-    if (["delivery_failed", "delivery_throw", "cancel_6"].includes(scenario))
+    if (["cancel_6"].includes(scenario))
       assert.equal(result.historyConfirmed, true);
     if (!acquired)
       assert.equal(
@@ -2028,12 +2028,12 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
       );
     assert.equal(proxyTraps, 0, scenario);
-    // 各行は「理由、exact呼出し列、Docker、Host、解放、履歴、配送待ち」。
+    // 各行は「理由、exact呼出し列、Docker、Host、解放、履歴」。
     const completeEvents =
-      "prepare yield resources yield absence yield host release yield terminal yield history yield delivery";
+      "prepare yield resources yield absence yield host release yield terminal yield history yield";
     const matrix: Record<
       string,
-      readonly [string, string, boolean, boolean, boolean, boolean, boolean]
+      readonly [string, string, boolean, boolean, boolean, boolean]
     > = {
       normal: [
         "docker_task_recovery_runtime_state_settled",
@@ -2042,7 +2042,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         true,
-        false,
       ],
       undefined_signal: [
         "docker_task_recovery_runtime_state_settled",
@@ -2051,34 +2050,23 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         true,
-        false,
       ],
-      durable_delivery: [
-        "docker_task_recovery_runtime_state_settled",
-        completeEvents,
-        true,
-        true,
-        true,
-        true,
-        true,
-      ],
+
       already_absent: [
         "docker_task_recovery_runtime_state_settled",
-        "prepare yield yield release yield terminal yield history yield delivery",
+        "prepare yield yield release yield terminal yield history yield",
         true,
         true,
         true,
         true,
-        false,
       ],
       host_publication: [
         "docker_task_recovery_runtime_state_settled",
-        "prepare yield yield host release yield terminal yield history yield delivery",
+        "prepare yield yield host release yield terminal yield history yield",
         true,
         true,
         true,
         true,
-        false,
       ],
       invalid_id: [
         "docker_task_recovery_id_invalid",
@@ -2086,7 +2074,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         false,
         true,
-        false,
         false,
       ],
       invalid_signal: [
@@ -2096,7 +2083,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       proxy_signal: [
         "docker_task_recovery_cancellation_invalid",
@@ -2104,7 +2090,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         false,
         true,
-        false,
         false,
       ],
       pre_cancel: [
@@ -2114,12 +2099,10 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       prepare_failed: [
         "fixture_prepare_failed",
         "prepare",
-        false,
         false,
         false,
         false,
@@ -2132,7 +2115,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       retirement_cancelled: [
         "docker_task_recovery_cancelled",
@@ -2140,7 +2122,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         false,
         true,
-        false,
         false,
       ],
       resources_failed: [
@@ -2150,7 +2131,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       resources_throw: [
         "fixture_resources_throw",
@@ -2158,7 +2138,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         false,
         true,
-        false,
         false,
       ],
       absence_failed: [
@@ -2168,7 +2147,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       host_failed: [
         "docker_task_recovery_host_cleanup_unconfirmed",
@@ -2177,14 +2155,12 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       release_false: [
         "docker_task_recovery_release_unconfirmed",
         "prepare yield resources yield absence yield host release",
         true,
         true,
-        false,
         false,
         false,
       ],
@@ -2195,12 +2171,10 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         false,
         false,
-        false,
       ],
       resources_failed_release_false: [
         "fixture_resources_failed",
         "prepare yield resources release",
-        false,
         false,
         false,
         false,
@@ -2213,7 +2187,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         false,
-        false,
       ],
       terminal_throw: [
         "docker_task_recovery_terminal_unconfirmed",
@@ -2222,14 +2195,12 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         false,
-        false,
       ],
       terminal_unlock_failed: [
         "docker_task_recovery_terminal_unconfirmed",
         "prepare yield resources yield absence yield host release yield terminal",
         true,
         true,
-        false,
         false,
         false,
       ],
@@ -2240,7 +2211,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         false,
-        false,
       ],
       history_throw: [
         "docker_task_recovery_history_unconfirmed",
@@ -2248,7 +2218,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         true,
-        false,
         false,
       ],
       history_unlock_failed: [
@@ -2258,51 +2227,14 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         false,
         true,
-        false,
       ],
-      delivery_failed: [
-        "fixture_delivery_failed",
-        completeEvents,
-        true,
-        true,
-        true,
-        true,
-        false,
-      ],
-      delivery_throw: [
-        "docker_task_recovery_delivery_unconfirmed",
-        completeEvents,
-        true,
-        true,
-        true,
-        true,
-        false,
-      ],
-      delivery_unlock_failed: [
-        "fixture_delivery_failed",
-        completeEvents,
-        true,
-        true,
-        false,
-        true,
-        true,
-      ],
-      delivery_unconfirmed_pending: [
-        "fixture_delivery_failed",
-        completeEvents,
-        true,
-        true,
-        true,
-        true,
-        false,
-      ],
+
       cancel_1: [
         "docker_task_recovery_cancelled",
         "prepare yield release",
         false,
         false,
         true,
-        false,
         false,
       ],
       cancel_2: [
@@ -2312,7 +2244,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         false,
         true,
         false,
-        false,
       ],
       cancel_3: [
         "docker_task_recovery_cancelled",
@@ -2320,7 +2251,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         false,
         true,
-        false,
         false,
       ],
       cancel_4: [
@@ -2330,7 +2260,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         false,
-        false,
       ],
       cancel_5: [
         "docker_task_recovery_cancelled",
@@ -2338,7 +2267,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         true,
-        false,
         false,
       ],
       cancel_6: [
@@ -2348,7 +2276,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         true,
         true,
         true,
-        false,
       ],
     };
     const row = matrix[scenario];
@@ -2362,7 +2289,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       hostCleanupConfirmed: row[3],
       locksReleased: row[4],
       historyConfirmed: row[5],
-      deliveryPending: row[6],
       operationRetained: true,
       taskRecoveryCompleted: false,
       cleanupReason: row[4] ? null : "docker_task_recovery_release_unconfirmed",
@@ -2379,7 +2305,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       "hostCleanupConfirmed",
       "locksReleased",
       "historyConfirmed",
-      "deliveryPending",
     ] as const)
       if (expectedResult[field])
         assert.throws(() =>
@@ -2541,19 +2466,18 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
     if (scenario === "unlock") assert.equal(result.lockReleased, false);
   }
 });
-
 /**
- * 通常入口向け回復組立ての固定consumerと公開結果を反証する。
- * @responsibility 技術結果の部分成立・配送方式差・終了不明を完了表示へ昇格しない。
+ * 現在回復の技術終端と実Writerの保持結果を公開診断へ対応付ける。
+ * @responsibility consumer名ではなくTask関連有無で終端状態を区別する。
  * @trace ERB-IT-014
- * @precondition 本番組立て本文と技術Driver／終了処理の固定模擬を使う。
- * @stimulus 技術field欠測、三consumer、未知consumer、保存失敗を渡す。
- * @observation 終了処理回数と公開結果の全fieldを観測する。
- * @oracle 共同成立した固定transientだけ一回終了し、durableは受領待ちを保持する。
- * @cleanup N/A: メモリ内だけで外部資源を生成しない。
- * @boundary ERB-IT-014=Related 2 Blocks: 技術Driver→用途別終了→公開診断。
+ * @precondition 本番の結果組立てと固定技術結果を使用する。
+ * @stimulus 技術欠測、Task保持、単独除去、保存失敗と例外を渡す。
+ * @observation 完了処理回数・全公開field・内部値の非公開。
+ * @oracle 全共同条件成立時だけ完了し、Task保持をTask回復完了へ強めない。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary ERB-IT-014=Related 2 Blocks: 技術回復→終了Writer→公開診断。
  */
-test("現在回復の公開組立て: 固定consumer・共同成立・内部値非公開", async () => {
+test("現在回復の公開組立て: Task相関・共同成立・内部値非公開", async () => {
   const begin = source.indexOf(
     "export async function recoverRuntimeOwnedDockerTaskForCurrentConsumer(",
   );
@@ -2563,21 +2487,15 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
     source.slice(begin, end).replace("export async function", "async function"),
   );
   for (const scenario of [
-    "cli",
-    "workbench",
-    "orchestrator",
-    "unknown_consumer",
-    "wrong_delivery",
-    "missing_owner",
-    "wrong_id",
-    "wrong_kind",
-    "decoy",
+    "removed",
+    "retained",
     "dockerCleanupConfirmed",
     "hostCleanupConfirmed",
     "locksReleased",
     "historyConfirmed",
     "cleanupReason",
     "technical_blocked",
+    "missing_preparation",
     "completion_blocked",
     "snapshotConfirmed",
     "lockReleased",
@@ -2590,116 +2508,69 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
       status: "completed",
       reason: "technical_ready",
       recoveryId: "exact",
-      preparation: key,
+      preparation: scenario === "missing_preparation" ? null : key,
       dockerCleanupConfirmed: true,
       hostCleanupConfirmed: true,
       locksReleased: true,
       historyConfirmed: true,
       cleanupReason: null as string | null,
-      deliveryPending:
-        scenario === "orchestrator" || scenario === "wrong_delivery",
       secret: "must_not_escape",
     };
-    if (
-      [
-        "dockerCleanupConfirmed",
-        "hostCleanupConfirmed",
-        "locksReleased",
-        "historyConfirmed",
-      ].includes(scenario)
-    )
-      Object.assign(technical, { [scenario]: false });
+    const technicalField = [
+      "dockerCleanupConfirmed",
+      "hostCleanupConfirmed",
+      "locksReleased",
+      "historyConfirmed",
+    ].includes(scenario);
+    if (technicalField) Object.assign(technical, { [scenario]: false });
     if (scenario === "cleanupReason")
       technical.cleanupReason = "release_unknown";
     if (scenario === "technical_blocked") technical.status = "blocked";
-    const consumer =
-      scenario === "orchestrator"
-        ? "orchestrator"
-        : scenario === "workbench"
-          ? "workbench"
-          : scenario === "unknown_consumer"
-            ? "unknown"
-            : "coordinator_cli";
     let calls = 0;
-    const owner = {
-      kind: "recovery",
-      before: Buffer.from("before"),
-      repository: { repositoryBinding: "binding" },
-      snapshot: {
-        operations: [
-          {
-            kind: "docker_task",
-            recoveryId: "exact",
-            identityJson: JSON.stringify({ consumer }),
-          },
-        ],
-      },
-    };
-    const targetOperation = owner.snapshot.operations[0];
-    assert.ok(targetOperation);
-    if (scenario === "wrong_id") targetOperation.recoveryId = "other";
-    if (scenario === "wrong_kind") targetOperation.kind = "runtime_repair";
-    if (scenario === "decoy")
-      owner.snapshot.operations.unshift({
-        kind: "docker_task",
-        recoveryId: "other",
-        identityJson: JSON.stringify({ consumer: "orchestrator" }),
-      });
     const run = runInNewContext(
-      `${body}; recoverRuntimeOwnedDockerTaskForCurrentConsumer`,
+      body + "; recoverRuntimeOwnedDockerTaskForCurrentConsumer",
       {
         Object,
-        JSON,
         recoverRuntimeOwnedDockerTaskFromCurrentRepository: async () =>
           technical,
-        dockerRecoveryPreparations: new WeakMap(
-          scenario === "missing_owner" ? [] : [[key, owner]],
-        ),
-        getConsumerCompletionPolicy: (value: string) =>
-          value === "orchestrator"
-            ? "durable"
-            : ["coordinator_cli", "workbench"].includes(value)
-              ? "transient"
-              : null,
-        completeRuntimeOwnedDockerTaskTransientRecovery(received: unknown) {
+        completeRuntimeOwnedDockerTaskRecovery(received: unknown) {
           assert.equal(received, key);
           calls++;
           if (scenario === "completion_throw") throw new Error("secret");
           return {
             status: scenario === "completion_blocked" ? "blocked" : "completed",
             reason: "completion_stopped",
+            operationRetained: scenario === "retained",
             snapshotConfirmed: scenario !== "snapshotConfirmed",
             lockReleased: scenario !== "lockReleased",
-            operationRemovalConfirmed: scenario !== "operationRemovalConfirmed",
-            taskRecoveryCompleted: scenario !== "taskRecoveryCompleted",
+            operationRemovalConfirmed:
+              scenario !== "retained" &&
+              scenario !== "operationRemovalConfirmed",
+            taskRecoveryCompleted:
+              scenario !== "retained" && scenario !== "taskRecoveryCompleted",
           };
         },
       },
     ) as () => Promise<Record<string, unknown>>;
     const result = await run();
-    const normal = ["cli", "workbench", "decoy"].includes(scenario);
+    const removed = scenario === "removed";
+    const retained = scenario === "retained";
     assert.equal(
       result.status,
-      normal
-        ? "recovered"
-        : scenario === "orchestrator"
-          ? "awaiting_delivery"
-          : "blocked",
+      removed ? "recovered" : retained ? "completed" : "blocked",
       scenario,
     );
-    assert.equal(result.taskRecoveryCompleted, normal, scenario);
+    assert.equal(result.taskRecoveryCompleted, removed, scenario);
+    assert.equal(result.operationRemovalConfirmed, removed, scenario);
+    if (retained) assert.equal(result.operationRetained, true);
     assert.equal(
       calls,
-      normal ||
-        scenario.startsWith("completion_") ||
-        [
-          "snapshotConfirmed",
-          "lockReleased",
-          "operationRemovalConfirmed",
-          "taskRecoveryCompleted",
-        ].includes(scenario)
-        ? 1
-        : 0,
+      technicalField ||
+        ["cleanupReason", "technical_blocked", "missing_preparation"].includes(
+          scenario,
+        )
+        ? 0
+        : 1,
       scenario,
     );
     assert.deepEqual(
@@ -2713,7 +2584,6 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
         "hostCleanupConfirmed",
         "locksReleased",
         "historyConfirmed",
-        "deliveryPending",
         "operationRetained",
         "operationRemovalConfirmed",
         "taskRecoveryCompleted",
@@ -2723,7 +2593,7 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
     );
     assert.doesNotMatch(
       JSON.stringify(result),
-      /must_not_escape|preparation|secret|before/,
+      /must_not_escape|preparation|secret/,
     );
     if (scenario === "lockReleased")
       assert.equal(
@@ -2735,17 +2605,17 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
 
 /**
  * 上位の技術終端判定と非同期前後照合を本番本文で反証する。
- * @responsibility 部分診断と待機中変更から上位保存・ACKへ進めない。
+ * @responsibility 部分診断と待機中変更から上位Task保存へ進めない。
  * @trace ERB-IT-014
  * @trace PRL-IT-005
  * @precondition 本番Objectiveの値判定と現在境界callbackだけを使う。
  * @stimulus 各共同field差、旧形式、getter／Proxy、取消・世代・Queue差を渡す。
  * @observation 判定値とtrap数を観測する。
- * @oracle 正規耐久待ちと同じ現在境界だけを受理する。
+ * @oracle 同じ技術終端と同じ現在境界だけを受理する。
  * @cleanup N/A: 外部資源を生成しない。
  * @boundary ERB-IT-014=Related 2 Blocks: 下位診断→上位の技術settled条件。
  */
-test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求する", () => {
+test("Objective回復はexact技術終端と待機後の同じ境界を要求する", () => {
   const source = fs.readFileSync(
     new URL("../../src/objective/execute.ts", import.meta.url),
     "utf8",
@@ -2758,14 +2628,13 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
   ) as (value: unknown, kind: string, id: string) => boolean;
   const base = {
     contract: "crdd-coordinator/current-task-recovery",
-    status: "awaiting_delivery",
-    reason: "docker_task_recovery_durable_acceptance_pending",
+    status: "completed",
+    reason: "docker_task_recovery_terminal_confirmed",
     recoveryId: "exact",
     dockerCleanupConfirmed: true,
     hostCleanupConfirmed: true,
     locksReleased: true,
     historyConfirmed: true,
-    deliveryPending: true,
     operationRetained: true,
     operationRemovalConfirmed: false,
     taskRecoveryCompleted: false,
@@ -2897,65 +2766,7 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
 });
 
 /**
- * 耐久受領の準備読取り直前ガードを本番配置と抽出実行で反証する。
- * @responsibility callback定義だけでなく処置直前の停止が有効であることを確認する。
- * @trace PRL-IT-005
- * @precondition 本番の各try／catch blockをそのまま抽出する。
- * @stimulus 現在境界不成立と、当該ガードだけを無効化した負対照を渡す。
- * @observation 下位処置回数・模擬保存状態・拒否結果。
- * @oracle 原文は処置0、負対照は同じOracleが拒否する。
- * @cleanup N/A: メモリ内だけでProduction Sourceを変更しない。
- * @boundary PRL-IT-005=Related 2 Blocks: 上位受領前ガード→結果読取り。解除はTask保存の原子受領試験で確認する。
- */
-test("耐久受領準備のガード負対照は処置ゼロOracleに拒否される", () => {
-  const source = fs.readFileSync(
-    new URL("../../src/objective/execute.ts", import.meta.url),
-    "utf8",
-  );
-  assert.equal(source.includes("finalizeDockerAcknowledgement("), false);
-  const start = source.indexOf("let acknowledgementResult: unknown;");
-  const end = source.indexOf(
-    "const acknowledged = snapshotPlainRecord(",
-    start,
-  );
-  assert.ok(start >= 0 && end > start);
-  const original = source.slice(start, end);
-  const guard = "if (!readCurrentRecoveryState())";
-  assert.equal(original.split(guard).length, 2);
-  assert.ok(
-    original.indexOf(guard) <
-      original.indexOf("taskRecovery.acknowledgeDocker("),
-  );
-  for (const bypass of [false, true]) {
-    let reads = 0;
-    const text = bypass ? original.replace(guard, "if (false)") : original;
-    const result = runInNewContext(
-      `${stripTypeScriptTypes(text)}; acknowledgementResult`,
-      {
-        Object,
-        readCurrentRecoveryState: () => null,
-        request: { projectId: "project", milestoneId: "milestone" },
-        recoveryState: { generation: 3 },
-        item: { taskId: "task", recoveryId: "exact" },
-        settledTask: { attemptId: "attempt", operationId: "operation" },
-        taskRecovery: {
-          acknowledgeDocker: () => {
-            reads++;
-            return { status: "completed" };
-          },
-        },
-      },
-    );
-    if (bypass) assert.throws(() => assert.equal(reads, 0));
-    else {
-      assert.equal(reads, 0);
-      assert.equal(result, null);
-    }
-  }
-});
-
-/**
- * transient終了接続を真正な技術Ownerと一回の保存へ限定する。
+ * 回復終了接続を真正な技術Ownerと一回の保存へ限定する。
  * @responsibility 不正Owner・再試行・Root／Host不明からの操作除去を拒否する。
  * @trace ERB-IT-014
  * @precondition 本番終了接続本文と既存私有Map・保存Ownerの固定模擬を使う。
@@ -2965,9 +2776,9 @@ test("耐久受領準備のガード負対照は処置ゼロOracleに拒否さ�
  * @cleanup N/A: 外部資源を生成しない。
  * @boundary ERB-IT-014=Related 2 Blocks: 技術回収Owner→終了保存Owner。
  */
-test("現在transient終了: genuine Owner・一回性・借用失効", () => {
+test("現在回復終了: genuine Owner・一回性・借用失効", () => {
   const start = source.indexOf(
-    "export function completeRuntimeOwnedDockerTaskTransientRecovery(",
+    "export function completeRuntimeOwnedDockerTaskRecovery(",
   );
   const end = source.indexOf(
     "export async function recoverRuntimeOwnedDockerTaskResources(",
@@ -3041,7 +2852,7 @@ test("現在transient終了: genuine Owner・一回性・借用失効", () => {
     let calls = 0,
       borrowed: (() => boolean) | null = null;
     const complete = runInNewContext(
-      `${body}; completeRuntimeOwnedDockerTaskTransientRecovery`,
+      `${body}; completeRuntimeOwnedDockerTaskRecovery`,
       {
         Object,
         dockerRecoveryPreparations: new WeakMap([[key, record]]),
@@ -3280,107 +3091,4 @@ test("初回Intent前と正式未発行の回収はDI・Host借用を発行し�
       assert.equal(f.borrows, 0);
       assert.equal(f.f.calls.length, calls);
     });
-});
-/**
- * 現在回収の配送借用を同じOwnerの同期処理へ限定する。
- * @responsibility 偽キー・未解放・Host再出現と保存不明の再発行を反証する。
- * @trace ERB-IT-014
- * @precondition 本番Wrapper本文と模擬配送Writerを使う。
- * @stimulus 正常、Host present、Lock不明、保存失敗、例外、未解放を渡す。
- * @observation 呼出し回数、借用終了、sticky拒否とEffect搬送。
- * @oracle 一回の同期借用だけを認め、不明後の同Owner再発行は0。
- * @cleanup N/A: 外部資源を作成しない。
- * @boundary ERB-IT-014=Direct Boundary: 私有回収Owner→配送Writer。
- */
-test("現在回収配送: 同Owner・失敗停止・借用失効", () => {
-  const begin = source.indexOf(
-    "export function registerRuntimeOwnedDockerTaskRecoveryDelivery(",
-  );
-  const end = source.indexOf(
-    "export async function recoverRuntimeOwnedDockerTaskResources(",
-    begin,
-  );
-  assert.ok(begin >= 0 && end > begin);
-  const body = stripTypeScriptTypes(
-    source
-      .slice(begin, end)
-      .replaceAll("export function", "function")
-      .replaceAll("export async function", "async function"),
-  );
-  for (const scenario of [
-    "normal",
-    "host_present",
-    "lock_unknown",
-    "failed",
-    "throw",
-    "unreleased",
-  ]) {
-    const capability = Object.freeze({});
-    const record = {
-      kind: "recovery",
-      closed: true,
-      releaseAttempted: true,
-      releaseConfirmed: scenario !== "unreleased",
-      finalizationAttempted: true,
-      persistenceFailed: false,
-      cleanupUnknown: false,
-      hostCleanup: "absent",
-      hostCleanupPublication: null,
-      repository: { revalidate: () => true },
-      recoveryId: "exact",
-      hostToken: "token",
-      hostRoot: "root",
-    };
-    const borrowed: Array<() => boolean> = [];
-    let calls = 0;
-    const register = runInNewContext(
-      `${body}; registerRuntimeOwnedDockerTaskRecoveryDelivery`,
-      {
-        dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        observeHostRecoveryCleanup: () => ({
-          root: scenario === "host_present" ? "present" : "absent",
-          marker: "absent",
-        }),
-        registerOwnedRecoveryResultDelivery(
-          repository: unknown,
-          id: string,
-          owner: () => boolean,
-        ) {
-          calls++;
-          borrowed.push(owner);
-          assert.equal(repository, record.repository);
-          assert.equal(id, "exact");
-          if (scenario === "throw") throw new Error("fixture");
-          const confirmed = owner() && scenario === "normal";
-          return {
-            status: confirmed ? "completed" : "blocked",
-            snapshotConfirmed: confirmed,
-            lockReleased: scenario !== "lock_unknown",
-            filesystemEffectIssued: scenario === "failed",
-            deliveryPending: confirmed,
-          };
-        },
-      },
-    ) as (key: unknown) => { status: string; filesystemEffectIssued: boolean };
-    assert.equal(register({}).status, "blocked");
-    assert.equal(calls, 0);
-    const result = register(capability);
-    assert.equal(
-      result.status,
-      scenario === "normal" ? "completed" : "blocked",
-      scenario,
-    );
-    assert.equal(
-      result.filesystemEffectIssued,
-      scenario === "failed",
-      scenario,
-    );
-    for (const owner of borrowed) assert.equal(owner(), false);
-    if (scenario !== "normal") {
-      const prior = calls;
-      assert.equal(register(capability).status, "blocked");
-      assert.equal(calls, prior);
-    }
-    assert.equal(record.cleanupUnknown, scenario === "lock_unknown");
-  }
 });

@@ -31,7 +31,6 @@ import {
   standaloneAdoptionIsClosed,
 } from "../state/validation.ts";
 
-import { getConsumerCompletionPolicy } from "../task/validation.ts";
 import type { HistoryRow } from "./types.ts";
 
 /**
@@ -165,12 +164,8 @@ export function decodeHistoryRows(bytes: unknown) {
           `${encodeStateValue(row)}\n` !== `${line}\n` ||
           !hasExecutionStateRecordKeys(summary, [
             "schema",
-            ...(summary?.schema === "crdd-coordinator/operation-summary/v4"
-              ? ["consumer", "recoveryCorrelationId"]
-              : []),
-            ...(summary?.schema === "crdd-coordinator/operation-summary/v3" ||
-            (summary?.schema === "crdd-coordinator/operation-summary/v4" &&
-              Object.hasOwn(summary, "dockerRestart"))
+            "recoveryCorrelationId",
+            ...(Object.hasOwn(summary, "dockerRestart")
               ? ["dockerRestart"]
               : []),
             "operationId",
@@ -183,23 +178,12 @@ export function decodeHistoryRows(bytes: unknown) {
             "hostCleanup",
             "lease",
           ]) ||
-          ![
-            "crdd-coordinator/operation-summary/v2",
-            "crdd-coordinator/operation-summary/v3",
-            "crdd-coordinator/operation-summary/v4",
-          ].includes(summary.schema) ||
-          (summary.schema === "crdd-coordinator/operation-summary/v4" &&
-            (getConsumerCompletionPolicy(summary.consumer) === null ||
-              !(
-                summary.recoveryCorrelationId === null ||
-                (typeof summary.recoveryCorrelationId === "string" &&
-                  /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
-                    summary.recoveryCorrelationId,
-                  ))
-              ))) ||
-          ((summary.schema === "crdd-coordinator/operation-summary/v3" ||
-            (summary.schema === "crdd-coordinator/operation-summary/v4" &&
-              Object.hasOwn(summary, "dockerRestart"))) &&
+          summary.schema !== "crdd-execution-model/operation-summary/v5" ||
+          typeof summary.recoveryCorrelationId !== "string" ||
+          !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
+            summary.recoveryCorrelationId,
+          ) ||
+          (Object.hasOwn(summary, "dockerRestart") &&
             (summary.dockerRestart === null ||
               !isDockerRestartCheckpointSettled(summary.dockerRestart))) ||
           typeof summary.operationId !== "string" ||
@@ -304,27 +288,21 @@ export function prepareHistoryRetention(
   }
   for (const row of current.snapshot.historyPending)
     protectedRecoveries.add(`task-history.${row.id}`);
-  for (const delivery of current.snapshot.pendingDeliveries)
-    protectedRecoveries.add(delivery.recoveryId);
+
   for (const recovery of current.snapshot.unresolvedRecoveries)
     protectedRecoveries.add(recovery.recoveryId);
   for (const operation of current.snapshot.operations) {
     if (!operation.history) continue;
-    const activeRetention =
-      operation.kind === "runtime_repair" && operation.retention !== undefined;
+    // Operation除去のWriterが実履歴行を照合するため、現在参照中の行は保持する。
+    protectedRecoveries.add(operation.recoveryId);
     const row = byRecovery.get(operation.recoveryId);
     if (
       (row &&
         (row.lineSha256 !== operation.history.lineSha256 ||
           row.summarySha256 !== operation.summarySha256)) ||
-      (!row &&
-        (!operation.history.confirmed ||
-          activeRetention ||
-          protectedRecoveries.has(operation.recoveryId)))
+      !row
     )
       return null;
-    if (!operation.history.confirmed || activeRetention)
-      protectedRecoveries.add(operation.recoveryId);
   }
   return Buffer.from(
     rows

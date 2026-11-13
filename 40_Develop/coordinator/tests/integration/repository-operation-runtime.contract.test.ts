@@ -16,7 +16,6 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -141,6 +140,8 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
     }
   }
 });
+
+import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 
 /**
  * Windowsの上位bit付き実体IDを操作の作成・再検証・回収へ接続する。

@@ -22,8 +22,6 @@ import type {
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import type { OperationResources } from "../../../execution-model/src/index.ts";
 import {
-  areTaskResourcesSettled,
-  canCloseUnknownAuthentication,
   type OperationRecord,
   readRecoveryState,
   saveRecoveryCheckpoint,
@@ -150,6 +148,7 @@ const owner = {},
     recoveryId,
     before,
     snapshot: initial.snapshot,
+    operationStates: initial.operationStates,
     closed: false,
     persistenceFailed: false,
     cleanupUnknown: false,
@@ -194,7 +193,7 @@ assert.ok(
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =
-  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,areTaskResourcesSettled,canCloseUnknownAuthentication,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,saveUnknownAuthenticationClosureStage}=dependencies;
+  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,saveUnknownAuthenticationClosureStage}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
 return recoverRuntimeOwnedDockerTaskResources;}`)({
     Buffer,
@@ -205,8 +204,6 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
       directory: management,
       assertCurrent: () => live,
     }),
-    areTaskResourcesSettled,
-    canCloseUnknownAuthentication,
     coordinatorReleasedTaskCanObserveHostAbsence: () => false,
     assertCurrentRecoveryOwner: () => {
       events.push("owner");

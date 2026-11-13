@@ -403,7 +403,7 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 
 以下を現在の配置とする。後続の段落は段階移管時の記録であり、各時点の「未移管」を現在の配置へ読み替えない。
 
-明示選択の`inspectAiSelectionChoice`と固定選定の`hashExecutionSelection`は`ai-selection/validation.ts`へ集約する。Domainの既存`AiSelectionChoice`で型を閉じ、現在Catalog・認証・利用可能性・実行Authorityは検査しない。既存の閉形式拒否・Getter／Proxy非実行・Hash byteを維持し、CoordinatorとWorkbenchはDomain Root APIから利用する。この純粋検査の独立成立だけをCore全体の単独成立とは扱わない。
+現在の選定契約は実行モデルのtask/types・task/validation、固定選定のHash生成はCoordinatorのselection/resolveが所有する。EMは保存値の閉形式と担当相関を検査し、Coordinatorは正規化後の同じJSON byte・SHA-256を非Authorityの識別値に用いる。RootへHash補助関数を公開せず、Workbenchは既存の上位選定入口を利用する。下段の旧配置表は段階移管時の記録であり、現在のSource配置は01_Architectureを正本とする。
 
 | 実体 | Ownerと入力境界 |
 |---|---|

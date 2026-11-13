@@ -6,16 +6,12 @@
 
 import {
   createQueue,
-  inspectSingleTaskRecord,
-  leaseIdentity,
   type ProjectQueueEntry,
-  readQueueEntry,
   readProjectExecutionState,
+  readQueueEntry,
   saveProjectExecutionState,
   selectQueueEntry,
   updateQueue,
-  validId,
-  verifyQueueIntake,
 } from "../../../execution-model/src/index.ts";
 import {
   activeLeaseIsObserved,
@@ -31,7 +27,6 @@ import type {
   CoordinatorStatePort,
 } from "../state/persistence.ts";
 import type { StoreResult } from "../state/result.ts";
-import { blocked } from "../state/result.ts";
 
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 
@@ -129,39 +124,6 @@ function chooseCoordinatorQueueOperation(
 }
 
 /**
- * State作成より前に、発行時の受付結合を確認する。
- * @responsibility 拒否する依頼からProject状態を生成しない。
- * @trace ARCH-000004
- * @input Repository Root、binding、依頼の発行時結合。
- * @returns 検証成功または停止。
- * @precondition Rootと呼出し主体は上位で検証済み。
- * @postcondition 状態を書き換えず受付を評価する。
- * @effect 短期排他と読取りのみ。
- * @failure 旧世代、異内容、未初期化は停止。
- * @invariant この確認だけを後続保存の保証にしない。
- * @boundary 本番入口と現在状態。
- * @security 認証または権限を発行しない。
- * @concurrency 保存時も同じ判定を再実行する。
- */
-export function inspectCoordinatorSnapshotIntake(
-  workingDirectory: string,
-  binding: string,
-  intake: Readonly<{
-    epoch: string;
-    queueId: string;
-    requestHash: string;
-    projectId: string;
-    milestoneId: string;
-  }>,
-): StoreResult<true> {
-  return verifyQueueIntake(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    intake,
-  );
-}
-
-/**
  * 統合保存用State／Queueの全操作を構成する。
  * @responsibility 既存Portの世代・選択・実行Owner・回復契約を同じ保存Ownerへ接続する。
  * @trace ARCH-000004
@@ -190,7 +152,7 @@ export function createCoordinatorSnapshotStatePort(
 ): CoordinatorStatePort {
   const storageRepository =
     verifyRuntimePersistenceRepository(workingDirectory);
-  if (!validId(binding) || !validId(intakeEpoch))
+  if (!validIdentity(binding) || !validIdentity(intakeEpoch))
     throw new Error("snapshot_port_binding_invalid");
   return Object.freeze({
     readWorkspaceTaskTarget: (queueId: string) =>
@@ -206,11 +168,17 @@ export function createCoordinatorSnapshotStatePort(
       ),
     readState: (projectId) =>
       readProjectExecutionState(storageRepository, binding, projectId),
-    enqueueOperation: (input) =>
-      createQueue(storageRepository, binding, {
+    enqueueOperation: (input) => {
+      const result = createQueue(storageRepository, binding, {
         kind: "scheduled",
         input: [intakeEpoch, input],
-      }),
+      });
+      return intake &&
+        result.status === "blocked" &&
+        result.reason === "orchestrator_queue_identity_conflict"
+        ? { ...result, reason: "orchestrator_intake_epoch_retired" }
+        : result;
+    },
     readQueue: (queueId) => readQueueEntry(storageRepository, binding, queueId),
     selectNextOperation: () =>
       selectQueueEntry(
@@ -277,7 +245,7 @@ export function createCoordinatorSnapshotStatePort(
           expectedGeneration,
           ownerGeneration,
           {
-            resourcesAbsent: (repositoryRoot: string, projectId: string) => {
+            resourcesAbsent: (repositoryRoot: string, identity: string) => {
               const paths = resolveNamedPaths(repositoryRoot);
               if (!paths)
                 throw new Error("orchestrator_repository_root_invalid");
@@ -285,12 +253,6 @@ export function createCoordinatorSnapshotStatePort(
                 repositoryRoot,
                 "domain-model",
                 paths.domainModel,
-              );
-              const identity = leaseIdentity(
-                binding,
-                projectId,
-                queueId,
-                "project-operation",
               );
               if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
                 return false;
@@ -302,6 +264,8 @@ export function createCoordinatorSnapshotStatePort(
       }),
   });
 }
+
+import { validIdentity } from "../state/validation.ts";
 
 /**
  * 計画を生成せず単発Taskを同じ受付世代へ保存する。
@@ -354,8 +318,6 @@ export function updateCoordinatorSingleTask(
   lease: CoordinatorLease,
   raw: unknown,
 ): StoreResult<ProjectQueueEntry> {
-  const record = inspectSingleTaskRecord(raw);
-  if (!record) return blocked("orchestrator_single_task_record_invalid");
   let active: ReturnType<typeof borrowCoordinatorActiveLease>;
   return updateQueue(
     verifyRuntimePersistenceRepository(workingDirectory),
@@ -365,7 +327,7 @@ export function updateCoordinatorSingleTask(
       input: [
         queueId,
         expectedGeneration,
-        record,
+        raw,
         {
           borrowActiveLease: () => {
             active = borrowCoordinatorActiveLease(lease);

@@ -12,14 +12,12 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { compileFunction, runInNewContext } from "node:vm";
-import { inspectSingleTaskRecord } from "../../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../src/input/snapshot.ts";
 import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
-import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 /**
  * Adviceの完成結果を全量再捕捉し、末尾不正は拒否する。
@@ -39,10 +37,9 @@ test("単発Advice結果は旧量上限を超えて末尾まで捕捉する", ()
   );
   const capture = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "snapshotSingleTaskOutcome"))});`,
-    ["snapshotPlainArray", "snapshotPlainRecord", "inspectSingleTaskRecord"],
-  )(snapshotPlainArray, snapshotPlainRecord, inspectSingleTaskRecord) as (
+    ["snapshotPlainArray", "snapshotPlainRecord"],
+  )(snapshotPlainArray, snapshotPlainRecord) as (
     raw: unknown,
-    selection: unknown,
   ) => { advice: { facts: { text: string; references: string[] }[] } } | null;
   const references = Array.from(
     { length: 101 },
@@ -66,25 +63,22 @@ test("単発Advice結果は旧量上限を超えて末尾まで捕捉する", ()
       nextOptions: [],
     },
   };
-  const result = capture(raw, executionSelection("advice"));
+  const result = capture(raw);
   assert.ok(result);
   assert.equal(result.advice.facts.length, 101);
   assert.equal(result.advice.facts[100]?.text, facts[100]?.text);
   assert.equal(result.advice.facts[100]?.references[100], references[100]);
   assert.equal(
-    capture(
-      {
-        ...raw,
-        advice: {
-          ...raw.advice,
-          facts: [
-            ...facts.slice(0, 100),
-            { text: "valid", references: ["bad\nref"] },
-          ],
-        },
+    capture({
+      ...raw,
+      advice: {
+        ...raw.advice,
+        facts: [
+          ...facts.slice(0, 100),
+          { text: "valid", references: ["bad\nref"] },
+        ],
       },
-      executionSelection("advice"),
-    ),
+    }),
     null,
   );
 });

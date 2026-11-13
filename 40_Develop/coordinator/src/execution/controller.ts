@@ -10,11 +10,8 @@ import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
 import {
-  areTaskResourcesSettled,
   type ExecutionOperationRecord,
-  hashExecutionSelection,
   inspectExecutionSelection,
-  inspectTaskExecutionSelections,
   parseHostRecoveryToken,
 } from "../../../execution-model/src/index.ts";
 import type {
@@ -34,7 +31,6 @@ import {
 import type {
   CoordinatorSingleTaskAttemptInput,
   CoordinatorSingleTaskResult,
-  CoordinatorTaskResultDelivery,
 } from "../task/types.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
@@ -106,7 +102,6 @@ import {
   finalizeRuntimeOwnedDockerRecovery,
   inspectRuntimeOwnedDockerTaskAdmission,
   prepareRuntimeOwnedDockerHostCleanup,
-  readRuntimeOwnedDockerProjectResult,
   recordRuntimeOwnedDockerHostCleanupReceipt,
   registerRuntimeOwnedReviewFindings,
 } from "./recovery.ts";
@@ -445,7 +440,12 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
         return blocked;
     }
     if (
-      !areTaskResourcesSettled(operation) ||
+      !current.value?.operationStates.some(
+        (state) =>
+          state.kind === "docker_task" &&
+          state.operation === operation &&
+          state.resourcesSettled,
+      ) ||
       !verifyRuntimeOwnedProviderHomeMountCompletion(
         mountCompletion,
         managementCapability,
@@ -1366,6 +1366,19 @@ export type RuntimeLifecycleState =
  */
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 
+/**
+ * Task受付で独立捕捉した要求だけを内部Stageへ渡す。
+ * @responsibility 受付の成功型を再利用し、選定組をunknownへ戻さない。
+ * @trace ARCH-000004
+ * @shape 既存受付のaccepted返却値から推論する。
+ * @boundary Task受付と内部Stage。
+ * @security 型指定で外部入力の検査を代替しない。
+ */
+type AcceptedTaskRequest = Extract<
+  NonNullable<ReturnType<typeof snapshotCoordinatorTaskRequest>>,
+  { status: "accepted" }
+>["request"];
+
 const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
 
 /**
@@ -1600,7 +1613,6 @@ type TaskRuntimeDependencies = Readonly<{
     result: CompletionResult<"attempt">,
   ) => object | null;
   finalizeDockerRecovery?: (capability: object) => RuntimeRecord;
-  readDockerProjectResult?: typeof readRuntimeOwnedDockerProjectResult;
   prepareDockerHostCleanup?: (capability: object) => string | null;
   recordDockerHostCleanupReceipt?: (
     capability: object,
@@ -2502,9 +2514,9 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
  *
  * @responsibility selection Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、taskAttempt: 0 | 1
+ * @input request: AcceptedTaskRequest、operationId: string、role: "executor" | "independent_reviewer"、taskAttempt: 0 | 1
  * @returns selectionRequestの計算結果を返す。
- * @precondition 「request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、taskAttempt: 0 | 1」がselectionRequestの入力契約を満たす。
+ * @precondition 「request: AcceptedTaskRequest、operationId: string、role: "executor" | "independent_reviewer"、taskAttempt: 0 | 1」がselectionRequestの入力契約を満たす。
  * @postcondition selectionRequestの責務を完了した結果だけを返す。
  * @effect N/A: selectionRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: selectionRequestは独自の失敗分岐を所有しない。
@@ -2514,16 +2526,16 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
  * @concurrency N/A: selectionRequestは共有非同期状態を持たない同期処理である。
  */
 function selectionRequest(
-  request: RuntimeRecord,
+  request: AcceptedTaskRequest,
   operationId: string,
   role: "executor" | "independent_reviewer",
   taskAttempt: 0 | 1,
 ) {
-  const pair = inspectTaskExecutionSelections(request.taskExecutionSelections);
+  const pair = request.taskExecutionSelections;
   return Object.freeze({
     operationId,
     taskAttempt,
-    executionSelection: role === "executor" ? pair?.executor : pair?.reviewer,
+    executionSelection: role === "executor" ? pair.executor : pair.reviewer,
   });
 }
 
@@ -2634,7 +2646,7 @@ function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
     right.executorProvider === b.provider &&
     left.operationId === right.operationId &&
     left.taskAttempt === right.taskAttempt &&
-    hashExecutionSelection(a) === hashExecutionSelection(b)
+    JSON.stringify(a) === JSON.stringify(b)
   );
 }
 
@@ -2843,9 +2855,9 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
  *
  * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null
+ * @input state: RuntimeState、operation: Operation、request: AcceptedTaskRequest、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageBodyの計算結果を返す。
- * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
+ * @precondition 「state: RuntimeState、operation: Operation、request: AcceptedTaskRequest、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
  * @postcondition executeStageBodyの責務を完了した結果だけを返す。
  * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -2857,7 +2869,7 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
 async function executeStageBody(
   state: TaskRuntimeState,
   operation: Operation,
-  request: RuntimeRecord,
+  request: AcceptedTaskRequest,
   repositoryBindingCapability: object,
   externalSendPolicyCapability: object,
   role: TaskRole,
@@ -4081,7 +4093,6 @@ const productionDependencies = Object.freeze<TaskRuntimeDependencies>({
   verifyCandidate: verifyExecutionChangeSnapshot,
   registerReviewFindings: registerRuntimeOwnedReviewFindings,
   finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
-  readDockerProjectResult: readRuntimeOwnedDockerProjectResult,
   prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
   recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
   abandonDockerRecovery: (capability, management) =>
@@ -4542,13 +4553,6 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
         credentialAbsenceVerified: false,
       });
     },
-    captureResultDelivery: (controlCapability: unknown) => {
-      if (!controlCapability || typeof controlCapability !== "object")
-        return null;
-      const control = state.controls.get(controlCapability);
-      if (control?.consumer !== "orchestrator") return null;
-      return captureProjectTaskResultDelivery(state, control);
-    },
     cancel: (controlCapability: unknown) => {
       if (!controlCapability || typeof controlCapability !== "object") {
         return Promise.resolve(INVALID_CONTROL_CANCELLATION_RESULT);
@@ -4562,100 +4566,7 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
   });
 }
 
-/**
- * 元Taskの終端結果だけを耐久保存Ownerへ渡す。
- * @responsibility 捕捉したControlと元Docker終了Ownerの対応を毎回照合する。
- * @trace ARCH-000004
- * @input state: 元Runtime、control: 実行中に捕捉した耐久ConsumerのControl。
- * @returns freshな固定結果集合を読み取る同期閉包。
- * @precondition 捕捉はcontrols削除前に行い、利用はHost清掃と全handoff終了後に限る。
- * @postcondition 結果集合は全件確認後にだけ返し、開始・取消権限を追加しない。
- * @effect 既存Ownerで固定結果を読取り、受領保存・配送解除は発行しない。
- * @failure 終端前、相関不一致、部分読取り、排他未解放を拒否する。
- * @invariant IDからOwnerを再生成せず、元capabilityと回復IDの一意な対を保持する。
- * @boundary 同ProcessのTaskとCoordinator耐久受領。
- * @security 閉包を公開Requestや永続Stateへ格納しない。
- * @concurrency Control削除後も捕捉済み参照だけを使い、各利用時に現在条件を再確認する。
- */
-function captureProjectTaskResultDelivery(
-  state: TaskRuntimeState,
-  control: ControlRecord,
-) {
-  const ready = () =>
-    control.consumer === "orchestrator" &&
-    control.hostCleanupCompleted &&
-    control.ownedOperation === null &&
-    (control.lifecycleState === "STATE-RESULT-PUBLISHED" ||
-      control.lifecycleState === "STATE-BLOCKED-CLEAN") &&
-    control.dockerFinalizations.length === control.dockerHandoffs.length &&
-    control.dockerFinalizations.every(
-      (item, index, results) =>
-        results.findIndex((other) => other.recoveryId === item.recoveryId) ===
-          index &&
-        results.findIndex((other) => other.capability === item.capability) ===
-          index &&
-        control.dockerHandoffs.filter(
-          (handoff) =>
-            handoff.capability === item.capability &&
-            handoff.recoveryId === item.recoveryId &&
-            handoff.state === "finalized",
-        ).length === 1,
-    );
-  return Object.freeze({
-    readResults: () => {
-      if (!ready())
-        return Object.freeze({ status: "blocked" as const, results: null });
-      if (control.dockerFinalizations.length === 0)
-        return Object.freeze({
-          status: "not_required" as const,
-          results: null,
-        });
-      if (!state.dependencies.readDockerProjectResult)
-        return Object.freeze({ status: "blocked" as const, results: null });
-      const results = [];
-      for (const item of control.dockerFinalizations) {
-        const observed = state.dependencies.readDockerProjectResult(
-          item.capability,
-        );
-        if (
-          observed.status !== "completed" ||
-          !observed.lockReleased ||
-          observed.value?.consumer !== "orchestrator" ||
-          observed.value.recoveryId !== item.recoveryId
-        )
-          return Object.freeze({ status: "blocked" as const, results: null });
-        results.push(observed.value);
-      }
-      return Object.freeze({
-        status: "completed" as const,
-        results: Object.freeze(results),
-      });
-    },
-  });
-}
-
 const taskProductionRuntime = createRuntime(productionDependencies);
-
-/**
- * 実行中の元Taskから耐久結果配送の参照を捕捉する。
- * @responsibility orchestratorの真正Controlだけを固定結果配送へ接続する。
- * @trace ARCH-000004
- * @input controlCapability: 起動結果で受け取った元Control。
- * @returns 同Processの結果配送閉包、またはnull。
- * @precondition Task完了によるControl削除前に呼ぶ。
- * @postcondition 完了後の再捕捉とCLI・Workbenchへの提供を拒否する。
- * @effect N/A: 捕捉は既存参照だけを保持し、保存や外部処理を行わない。
- * @failure 偽Control、完了済みControl、別Consumerはnull。
- * @invariant 新しい台帳・Lock・回復Identityを作らない。
- * @boundary Taskの実行寿命と上位耐久保存の寿命。
- * @security 開始・取消・通常回復のAuthorityを返さない。
- * @concurrency 捕捉後も終端条件を各利用時に再確認する。
- */
-export function captureRuntimeOwnedCoordinatorTaskResultDelivery(
-  controlCapability: unknown,
-) {
-  return taskProductionRuntime.captureResultDelivery(controlCapability);
-}
 
 /**
  * Runtime 所有 Coordinator Taskを開始する。
@@ -5153,31 +5064,13 @@ export const COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
 ]);
 
 /**
- * 単一Task実行と結果配送の捕捉に必要な依存契約を定義する。
- *
- * @responsibility Coordinatorへの実行依存とCoordinatorの結果配送捕捉を結合する。
- * @trace ARCH-000004
- * @shape CoordinatorTaskDependenciesに任意のcaptureResultDelivery関数を加える。
- * @invariant 配送捕捉の欠落やnullを耐久受領の成功へ読み替えない。
- * @boundary CoordinatorのTask実行とCoordinatorの結果受領の間。
- * @security controlCapabilityは配送捕捉へ渡し、公開結果へ直接露出しない。
- * @compatibility Coordinatorの依存契約を維持し、配送捕捉を追加の結合点として扱う。
- */
-export type CoordinatorSingleTaskDependencies = CoordinatorTaskDependencies &
-  Readonly<{
-    captureResultDelivery?: (
-      controlCapability: unknown,
-    ) => CoordinatorTaskResultDelivery | null;
-  }>;
-
-/**
  * IF-SINGLE-TASK adapter: run exactly one task attempt on the existing v0.18
  *
  * @responsibility Coordinator Single Task Attemptの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: CoordinatorSingleTaskDependencies、input: CoordinatorSingleTaskAttemptInput
+ * @input dependencies: CoordinatorTaskDependencies、input: CoordinatorSingleTaskAttemptInput
  * @returns Promise<CoordinatorSingleTaskResult>を返す。
- * @precondition 「dependencies: CoordinatorSingleTaskDependencies、input: CoordinatorSingleTaskAttemptInput」がrunCoordinatorSingleTaskAttemptの入力契約を満たす。
+ * @precondition 「dependencies: CoordinatorTaskDependencies、input: CoordinatorSingleTaskAttemptInput」がrunCoordinatorSingleTaskAttemptの入力契約を満たす。
  * @postcondition runCoordinatorSingleTaskAttemptの責務を完了した結果だけを返す。
  * @effect 共通Task処理へ検証済み入力を渡し、許可された実行・取消を委譲する。
  * @failure runCoordinatorSingleTaskAttemptは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -5187,7 +5080,7 @@ export type CoordinatorSingleTaskDependencies = CoordinatorTaskDependencies &
  * @concurrency runCoordinatorSingleTaskAttemptは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runCoordinatorSingleTaskAttempt(
-  dependencies: CoordinatorSingleTaskDependencies,
+  dependencies: CoordinatorTaskDependencies,
   input: CoordinatorSingleTaskAttemptInput,
 ): Promise<CoordinatorSingleTaskResult> {
   const ids =
@@ -5207,9 +5100,7 @@ export async function runCoordinatorSingleTaskAttempt(
     /^[0-9a-f]{40,64}$/u.test(input.repositoryRevision) &&
     input.cancellationSignal instanceof AbortSignal &&
     (input.observeStarted === undefined ||
-      typeof input.observeStarted === "function") &&
-    (input.bindResultReader === undefined ||
-      typeof input.bindResultReader === "function");
+      typeof input.observeStarted === "function");
   if (!isValidInput)
     return Object.freeze({
       contract: COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -5230,51 +5121,20 @@ export async function runCoordinatorSingleTaskAttempt(
   const attemptId = input.attemptId;
   const authorityBindingId = input.authorityBindingId;
   const repositoryRevision = input.repositoryRevision;
-  const completed = await runCoordinatorTaskAttempt(
-    {
-      ...dependencies,
-      startTask: (...args) => {
-        const started = dependencies.startTask(...args);
-        if (input.bindResultReader) {
-          let delivery: CoordinatorTaskResultDelivery | null = null;
-          try {
-            const descriptor =
-              started && typeof started === "object" && !types.isProxy(started)
-                ? Object.getOwnPropertyDescriptor(started, "controlCapability")
-                : undefined;
-            if (descriptor && "value" in descriptor)
-              delivery =
-                dependencies.captureResultDelivery?.(descriptor.value) ?? null;
-          } catch {
-            // 捕捉失敗は元TaskのEffectなしを意味しない。通常完了観測を維持する。
-          }
-          try {
-            // 捕捉はこの同期呼出し内。非同期の後着を待って配送成立へ昇格しない。
-            void Promise.resolve(input.bindResultReader(delivery)).catch(
-              () => {},
-            );
-          } catch {
-            // 上位通知失敗でも開始済みTaskの完了・取消・清掃を待つ。
-          }
+  const completed = await runCoordinatorTaskAttempt(dependencies, {
+    ...input,
+    ...(input.executionTree !== undefined
+      ? {
+          workspaceTarget: {
+            workspaceId: input.workspaceId ?? null,
+            ownerRepositoryRoot: input.ownerRepositoryRoot ?? "",
+            executionTree: input.executionTree,
+            baseCommit: input.workspaceBaseCommit ?? null,
+            head: input.workspaceHead ?? null,
+          },
         }
-        return started;
-      },
-    },
-    {
-      ...input,
-      ...(input.executionTree !== undefined
-        ? {
-            workspaceTarget: {
-              workspaceId: input.workspaceId ?? null,
-              ownerRepositoryRoot: input.ownerRepositoryRoot ?? "",
-              executionTree: input.executionTree,
-              baseCommit: input.workspaceBaseCommit ?? null,
-              head: input.workspaceHead ?? null,
-            },
-          }
-        : {}),
-    },
-  );
+      : {}),
+  });
   return Object.freeze({
     ...completed,
     contract: COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -5314,6 +5174,6 @@ export function describeCoordinatorSingleTaskAdapterContract() {
   });
 }
 
-import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
-
-import { inspectWorkspaceResult } from "../../../execution-model/src/index.ts";
+import { hashExecutionSelection } from "../selection/resolve.ts";
+import type { WorkspaceResult } from "../workspace/record.ts";
+import { inspectWorkspaceResult } from "../workspace/record.ts";

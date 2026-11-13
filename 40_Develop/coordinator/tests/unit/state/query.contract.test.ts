@@ -14,8 +14,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import type { ProjectExecutionState } from "../../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 
@@ -24,6 +24,84 @@ import {
   queryCoordinatorState,
 } from "../../../src/state/query.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
+
+/**
+ * 既存State照会の受付世代だけでPortを構成する。
+ * @responsibility 内部Reader廃止後も同じ世代と未初期化・解放不明の分類を維持する。
+ * @trace PRL-UT-006
+ * @precondition Source本文と有限なReader返却値だけを使う。
+ * @stimulus 正常値、真正不存在、読取り失敗、解放不明を与える。
+ * @observation 固定intake view、一回の照会、元epochと構成停止理由。
+ * @oracle 不明を補完せず、正常時だけ同じepochでPortを作る。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary Co構成とEMの既存State照会。
+ */
+test("現在Port構成はStateのintake viewだけを一度取得する", () => {
+  const source = stripTypeScriptTypes(
+    sourceDeclaration(
+      fs.readFileSync(
+        new URL("../../../src/state/transaction.ts", import.meta.url),
+        "utf8",
+      ),
+      "createCurrentCoordinatorPersistencePorts",
+    ),
+    { mode: "strip" },
+  );
+  const root = {};
+  let calls = 0;
+  let reply: unknown = {
+    status: "completed",
+    reason: "ready",
+    value: { intakeEpoch: "epoch-a" },
+  };
+  const port = {};
+  const create = new Function(
+    "readState",
+    "verifyRuntimePersistenceRepository",
+    "createCoordinatorSnapshotPersistencePorts",
+    `${source}; return createCurrentCoordinatorPersistencePorts;`,
+  )(
+    (actual: unknown, binding: string, scope: string) => {
+      calls++;
+      assert.equal(actual, root);
+      assert.equal(binding, "binding-a");
+      assert.equal(scope, "intake");
+      return reply;
+    },
+    () => root,
+    (directory: string, binding: string, epoch: string) => {
+      assert.equal(directory, "fixture-root");
+      assert.equal(binding, "binding-a");
+      assert.equal(epoch, "epoch-a");
+      return port;
+    },
+  );
+  assert.equal(create("fixture-root", "binding-a"), port);
+  for (const [value, expected] of [
+    [
+      { status: "completed", reason: "absent", value: null },
+      "orchestrator_snapshot_not_initialized",
+    ],
+    [
+      { status: "blocked", reason: "read_unknown", value: null },
+      "orchestrator_snapshot_not_initialized",
+    ],
+    [
+      {
+        status: "blocked",
+        reason: "orchestrator_snapshot_lock_release_unconfirmed",
+        value: null,
+      },
+      "orchestrator_snapshot_lock_release_unconfirmed",
+    ],
+  ] as const) {
+    reply = value;
+    assert.throws(() => create("fixture-root", "binding-a"), {
+      message: expected,
+    });
+  }
+  assert.equal(calls, 4);
+});
 
 /**
  * 公開状態照会の本番本文が同じ保存版から表示を作ることを確認する。
@@ -81,7 +159,7 @@ test("公開状態照会は同版のProjectと受付世代を使い採用確認�
               mode === "absent" ? [] : [{ ...state, generation: reads }],
             queueEntries: [],
             intakeEpoch: `epoch-${reads}`,
-            schemaRevision: 6,
+            schemaRevision: 7,
           },
         };
       },

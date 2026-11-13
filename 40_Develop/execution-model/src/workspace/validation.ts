@@ -5,7 +5,6 @@
  */
 
 import { createHash } from "node:crypto";
-import { types } from "node:util";
 import type { Snapshot } from "../state/types.ts";
 import {
   encodeStateValue,
@@ -16,7 +15,6 @@ import type {
   ResultRecord,
   WorkspaceCandidateRequest,
   WorkspaceRecord,
-  WorkspaceResult,
 } from "./types.ts";
 
 /**
@@ -102,8 +100,7 @@ export function prepareWorkspaceRecordUpdate(
             ].includes(task.state) ||
             task.recoveryUnresolved ||
             task.recoveryObligations.some(
-              (obligation) =>
-                !["settled", "acknowledged"].includes(obligation.phase),
+              (obligation) => obligation.phase !== "settled",
             ),
         ),
       );
@@ -277,157 +274,6 @@ export function prepareIntegrationRecordCreation(
     next: old ? null : { ...current, results: [...current.results, value] },
     value: { written: true as const },
   });
-}
-
-/**
- * Read one own data property exactly once. Accessor properties, prototype
- *
- * @responsibility task-attempt-runtimeの入力からown Data Propertyを導く規則と結果境界を所有する。
- * @trace ARCH-000004
- * @input container: object、key: string
- * @returns unknownを返す。
- * @precondition 「container: object、key: string」がownDataPropertyの入力契約を満たす。
- * @postcondition ownDataPropertyの責務を完了した結果だけを返す。
- * @effect N/A: ownDataPropertyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ownDataPropertyは独自の失敗分岐を所有しない。
- * @invariant ownDataPropertyは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security ownDataPropertyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ownDataPropertyは共有非同期状態を持たない同期処理である。
- */
-function ownDataProperty(container: object, key: string): unknown {
-  const descriptor = Object.getOwnPropertyDescriptor(container, key);
-  if (
-    !descriptor ||
-    !Object.hasOwn(descriptor, "value") ||
-    descriptor.get !== undefined ||
-    descriptor.set !== undefined
-  )
-    return undefined;
-  return descriptor.value;
-}
-
-/**
- * Plain Containerかを判定する。
- *
- * @responsibility Plain Containerの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is objectを返す。
- * @precondition 「value: unknown」がisPlainContainerの入力契約を満たす。
- * @postcondition isPlainContainerの責務を完了した結果だけを返す。
- * @effect N/A: isPlainContainerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure isPlainContainerは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant isPlainContainerは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security isPlainContainerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isPlainContainerは共有非同期状態を持たない同期処理である。
- */
-function isPlainContainer(value: unknown): value is object {
-  try {
-    if (
-      !value ||
-      typeof value !== "object" ||
-      Array.isArray(value) ||
-      types.isProxy(value)
-    )
-      return false;
-    const prototype = Object.getPrototypeOf(value);
-    return prototype === Object.prototype || prototype === null;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Workspace観測の閉じた値をsnapshotする。
- * @responsibility 欠測・null・空配列と方式別の変更相関を維持する。
- * @trace ARCH-000004
- * @input 未検証の観測値。
- * @returns 凍結metadata又はnull。
- * @precondition N/A: unknownを受ける。
- * @postcondition 元値の変更を搬送しない。
- * @effect N/A: 値検査のみ。
- * @failure 不正・不整合・getterはnull。
- * @invariant Pathは相対値であり内容・Host所在を含まない。
- * @boundary Coordinator結果から認可済み上位。
- * @security Authorityを新設しない。
- * @concurrency 純粋同期処理。
- */
-export function inspectWorkspaceResult(raw: unknown): WorkspaceResult | null {
-  try {
-    if (!isPlainContainer(raw)) return null;
-    const keys = [
-      "workspaceId",
-      "changedPaths",
-      "canonicalRepositoryChanged",
-      "changeAttribution",
-      "workspaceDeletionIssued",
-    ];
-    if (
-      Reflect.ownKeys(raw).length !== keys.length ||
-      keys.some(
-        (key) =>
-          !Object.hasOwn(
-            Object.getOwnPropertyDescriptor(raw, key) ?? {},
-            "value",
-          ),
-      )
-    )
-      return null;
-    const id = ownDataProperty(raw, "workspaceId");
-    const paths = ownDataProperty(raw, "changedPaths");
-    const changed = ownDataProperty(raw, "canonicalRepositoryChanged");
-    if (
-      (id !== null &&
-        (typeof id !== "string" ||
-          !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(id))) ||
-      ownDataProperty(raw, "changeAttribution") !== "unattributed" ||
-      ownDataProperty(raw, "workspaceDeletionIssued") !== false ||
-      (changed !== null && typeof changed !== "boolean")
-    )
-      return null;
-    let snapshot: readonly string[] | null = null;
-    if (paths !== null) {
-      if (
-        !Array.isArray(paths) ||
-        types.isProxy(paths) ||
-        Reflect.ownKeys(paths).length !== paths.length + 1
-      )
-        return null;
-      const values: string[] = [];
-      for (let index = 0; index < paths.length; index++) {
-        const value = ownDataProperty(paths, String(index));
-        if (
-          typeof value !== "string" ||
-          value.length === 0 ||
-          /[\\:\0\r\n]/u.test(value) ||
-          value
-            .split("/")
-            .some((part) => part === "" || part === "." || part === "..")
-        )
-          return null;
-        values.push(value);
-      }
-      if (new Set(values).size !== values.length) return null;
-      snapshot = Object.freeze(values);
-    }
-    if (
-      id === null
-        ? changed !== (snapshot === null ? null : snapshot.length > 0)
-        : changed !== false
-    )
-      return null;
-    return Object.freeze({
-      workspaceId: id,
-      changedPaths: snapshot,
-      canonicalRepositoryChanged: changed,
-      changeAttribution: "unattributed",
-      workspaceDeletionIssued: false,
-    });
-  } catch {
-    return null;
-  }
 }
 
 /**

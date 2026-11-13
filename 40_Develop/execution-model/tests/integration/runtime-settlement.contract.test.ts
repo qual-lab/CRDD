@@ -9,10 +9,6 @@
  * @boundary 保存Ownerのみ。実Host・Docker・Providerの終了証明はCoordinator試験が担う。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -25,11 +21,13 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import {
   prepareOperationCompletion,
   publishOwnedHistory,
+  readOperationStateStage,
   readOwnedSettlementSnapshot,
   readRecoveryState,
   writeOwnedHistoryCheckpoint,
   writeOwnedSettlement,
 } from "../../src/attempt/crud.ts";
+import { createDockerRestartRequestId } from "../../src/attempt/validation.ts";
 import * as domain from "../../src/index.ts";
 import {
   applyResourceEvent,
@@ -37,6 +35,8 @@ import {
 } from "../../src/index.ts";
 import { writeOwnedStateSnapshot } from "../../src/state/crud.ts";
 import {
+  decodeStateSnapshot,
+  encodeStateValue,
   operationSummaryBytes,
   prepareStateCompletionSnapshot,
 } from "../../src/state/validation.ts";
@@ -44,7 +44,6 @@ import * as stateKernelLocks from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
 import * as areaRequirement from "../../src/storage/store.ts";
 import * as areaInitialization from "../../src/storage/store.ts";
-import { readOperationStateStage } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
@@ -103,6 +102,12 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
           Object,
           settlements: new WeakMap(),
           observeExecutionRecoveryRepository: () => ({}),
+          readStateSnapshot: () => ({
+            status: "completed",
+            reason: "fixture_current_ready",
+            lockReleased: true,
+            value: { snapshot: { managedExecutions: [] } },
+          }),
           readRecoveryState: (
             _root: unknown,
             request: { kind: string; recoveryId?: unknown } = {
@@ -157,10 +162,10 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
           confirmations++;
           return (
             owner() &&
-            !(scenario === "reader_owner_expired" && confirmations === 2)
+            !(scenario === "reader_owner_expired" && confirmations === 3)
           );
         });
-        if (scenario === "reader_owner_expired") assert.equal(confirmations, 2);
+        if (scenario === "reader_owner_expired") assert.equal(confirmations, 3);
         assert.equal(writes, 0, scenario);
         return saved;
       }
@@ -199,7 +204,7 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
  * @cleanup 全Module mock復元後に今回の試験Rootだけを清掃する。
  * @boundary 実保存と合成の有限Host観測。実行Authorityは発行しない。
  */
-test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証拠を同じOwnerへ結合する", {
+test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一回証拠を同じOwnerへ結合する", {
   skip: process.platform !== "win32",
 }, async (t) => {
   const directory = createRepositoryTestDirectory("runtime-settlement-");
@@ -505,9 +510,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   fs.writeFileSync(stateFileForGuard, checkpointBytes);
   const deliveryBypass = writeOwnedStateSnapshot(
     management,
-    Buffer.from(
-      `${encodeStateValue({ ...current, pendingDeliveries: [{ operationNonce: identity.operationNonce, recoveryId: operation.recoveryId, resultId: "e".repeat(64), consumer: "orchestrator" }] })}\n`,
-    ),
+    Buffer.from(`${encodeStateValue({ ...current, pendingDeliveries: [] })}\n`),
   );
   assert.equal(deliveryBypass.status, "blocked");
   assert.equal(deliveryBypass.snapshotConfirmed, false);
@@ -601,7 +604,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   initialContextFixture.operations.find(
     (item: { kind?: unknown }) => item.kind === "docker_task",
   ).recoveryId = initialDriverRecoveryId;
-  initialContextFixture.pendingDeliveries = [];
   initialContextFixture.unresolvedRecoveries = [];
   fs.writeFileSync(
     path.join(area.directory, "state.json"),
@@ -638,7 +640,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     fixture.operations.find(
       (item: { kind?: unknown }) => item.kind === "docker_task",
     ).recoveryId = recoveryId;
-    fixture.pendingDeliveries = [];
     fixture.unresolvedRecoveries = [];
     fs.writeFileSync(
       path.join(area.directory, "state.json"),
@@ -871,7 +872,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     createHash("sha256").update(terminalBytes).digest("hex"),
   );
   const missingTargetBytes = Buffer.from(
-    `${encodeStateValue({ ...terminal, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+    `${encodeStateValue({ ...terminal, operations: [], unresolvedRecoveries: [] })}\n`,
   );
   const stateFile = path.join(area.directory, "state.json");
   fs.writeFileSync(stateFile, missingTargetBytes);
@@ -1021,7 +1022,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   // 保存の正例用に未要求五資源の終端fixtureを置く。実Provider完了を主張しない。
   const historyFixture = {
     ...terminal,
-    pendingDeliveries: [],
     operations: terminal.operations.map((value: typeof operation) => ({
       ...value,
       resources: frame,
@@ -1037,22 +1037,19 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   };
   terminalBook = frame;
   fs.writeFileSync(stateFile, `${encodeStateValue(historyFixture)}\n`);
-  const beforeResultRegistration = fs.readFileSync(stateFile);
-  for (const [hostResult, completion, consumers] of [
-    [{ ...cleanupOutcome }, simulatedCompletion, ["orchestrator"]],
-    [cleanupOutcome, { ...simulatedCompletion }, ["orchestrator"]],
-    [cleanupOutcome, simulatedCompletion, []],
-    [cleanupOutcome, simulatedCompletion, ["workbench", "workbench"]],
+  const beforeHistoryCheckpoint = fs.readFileSync(stateFile);
+  for (const [hostResult, completion] of [
+    [{ ...cleanupOutcome }, simulatedCompletion],
+    [cleanupOutcome, { ...simulatedCompletion }],
   ] as const) {
-    const refused = historyRuntime.registerOwnedSettlementResultDeliveries(
+    const refused = historyRuntime.writeOwnedHistoryCheckpoint(
       historySettlement,
       hostResult,
       completion,
-      consumers,
     );
     assert.equal(refused.status, "blocked");
     assert.equal(refused.filesystemEffectIssued, false);
-    assert.deepEqual(fs.readFileSync(stateFile), beforeResultRegistration);
+    assert.deepEqual(fs.readFileSync(stateFile), beforeHistoryCheckpoint);
   }
   const fixed = historyRuntime.writeOwnedHistoryCheckpoint(
     historySettlement,
@@ -1060,210 +1057,27 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     simulatedCompletion,
   );
   assert.equal(fixed.status, "completed", fixed.reason);
-  const resultBeforeRegistration = historyRuntime.readOperationResult(
+  assert.equal(fixed.snapshotConfirmed, true);
+  assert.equal(fixed.lockReleased, true);
+  const fixedCheckpointBytes = fs.readFileSync(stateFile);
+  const earlyCompletion = historyRuntime.completeOwnedSettlement(
     historySettlement,
-    "orchestrator",
+    cleanupOutcome,
+    simulatedCompletion,
   );
-  assert.equal(resultBeforeRegistration.status, "blocked");
-  assert.equal(resultBeforeRegistration.value, null);
-  const fixedBeforeRegistration = fs.readFileSync(stateFile);
-  for (const consumers of [
-    [],
-    ["orchestrator", "workbench"],
-    ["workbench", "workbench"],
-    ["unknown"],
-    { consumers: ["workbench"], resultId: "c".repeat(64) },
-  ]) {
-    const rejected = historyRuntime.registerOwnedSettlementResultDeliveries(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-      consumers,
-    );
-    assert.equal(rejected.status, "blocked");
-    assert.equal(rejected.filesystemEffectIssued, false);
-    assert.deepEqual(fs.readFileSync(stateFile), fixedBeforeRegistration);
-  }
-  const resultRegistered =
-    historyRuntime.registerOwnedSettlementResultDeliveries(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-      ["orchestrator"],
-    );
-  assert.equal(resultRegistered.status, "completed", resultRegistered.reason);
-  assert.equal(resultRegistered.snapshotConfirmed, true);
-  assert.equal(resultRegistered.lockReleased, true);
-  const registeredResultBytes = fs.readFileSync(stateFile);
-  const registeredResultIdentity = fs.lstatSync(stateFile, { bigint: true });
-  const registeredResult = JSON.parse(registeredResultBytes.toString("utf8"));
-  const observedResult = historyRuntime.readOperationResult(
-    historySettlement,
-    "orchestrator",
+  assert.equal(
+    earlyCompletion.status,
+    "blocked",
+    "履歴未確認のOperationは除去しない",
   );
-  assert.equal(observedResult.status, "completed", observedResult.reason);
-  assert.equal(observedResult.lockReleased, true);
-  assert.deepEqual(observedResult.value, {
-    repositoryBinding: repository.repositoryBinding,
-    operationId: identity.recoveryCorrelationId,
-    recoveryId: operation.recoveryId,
-    resultId: registeredResult.operations.find(
-      (item: { kind?: unknown }) => item.kind === "docker_task",
-    ).summarySha256,
-    consumer: "orchestrator",
-  });
-  const recoveryResultRoot = getRepository(root);
-  assert.equal(recoveryResultRoot.status, "completed");
-  const recoveryReadHistoryFile = path.join(area.directory, "history.jsonl");
-  const historyBeforeRecoveryRead = fs.existsSync(recoveryReadHistoryFile)
-    ? fs.readFileSync(recoveryReadHistoryFile)
-    : null;
-  const freshResult = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        "-e",
-        `(async () => {
-          const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-          const { readOwnedRecoveryResult } = await import(${JSON.stringify(new URL("../../src/attempt/crud.ts", import.meta.url).href)});
-          const root = getRepository(process.argv[1]);
-          process.stdout.write(JSON.stringify(readOwnedRecoveryResult(root.capability, process.argv[2])));
-        })().catch(() => { process.exitCode = 1; });`,
-        root,
-        operation.recoveryId,
-      ],
-      { windowsHide: true, encoding: "utf8", timeout: 30_000 },
-    ),
-  );
-  assert.deepEqual(freshResult, observedResult);
-  assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
-  assert.deepEqual(
-    fs.existsSync(recoveryReadHistoryFile)
-      ? fs.readFileSync(recoveryReadHistoryFile)
-      : null,
-    historyBeforeRecoveryRead,
-  );
-  for (const [rootCapability, recoveryId] of [
-    [{}, operation.recoveryId],
-    [{ ...recoveryResultRoot.capability }, operation.recoveryId],
-    [verifiedOtherRoot.capability, operation.recoveryId],
-    [recoveryResultRoot.capability, "not-the-recorded-recovery"],
-    [recoveryResultRoot.capability, null],
-  ]) {
-    const rejectedRead = historyRuntime.readOwnedRecoveryResult(
-      rootCapability,
-      recoveryId,
-    );
-    assert.equal(rejectedRead.status, "blocked");
-    assert.equal(rejectedRead.value, null);
-    assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
-  }
-  for (const invalid of [
-    { ...registeredResult, pendingDeliveries: [] },
-    {
-      ...registeredResult,
-      pendingDeliveries: registeredResult.pendingDeliveries.map(
-        (item: Record<string, unknown>) => ({
-          ...item,
-          resultId: "e".repeat(64),
-        }),
-      ),
-    },
-    {
-      ...registeredResult,
-      pendingDeliveries: registeredResult.pendingDeliveries.map(
-        (item: Record<string, unknown>) => ({ ...item, consumer: "workbench" }),
-      ),
-    },
-    {
-      ...registeredResult,
-      operations: registeredResult.operations.map(
-        (item: Record<string, unknown>) => ({
-          ...item,
-          phase: "executing",
-        }),
-      ),
-    },
-    {
-      ...registeredResult,
-      operations: registeredResult.operations.map(
-        (item: Record<string, unknown>) => ({
-          ...item,
-          resources: {
-            ...(item.resources as OperationResources),
-            snapshot: {
-              ...(item.resources as OperationResources).snapshot,
-              resources: (
-                item.resources as OperationResources
-              ).snapshot.resources.map((resource, index) =>
-                index === 0 ? { ...resource, request: "unknown" } : resource,
-              ),
-            },
-          },
-        }),
-      ),
-    },
-  ]) {
-    const invalidBytes = Buffer.from(`${encodeStateValue(invalid)}\n`);
-    try {
-      fs.writeFileSync(stateFile, invalidBytes);
-      const rejectedRead = historyRuntime.readOwnedRecoveryResult(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-      );
-      assert.equal(rejectedRead.status, "blocked");
-      assert.equal(rejectedRead.value, null);
-      assert.deepEqual(fs.readFileSync(stateFile), invalidBytes);
-      assert.deepEqual(
-        fs.existsSync(recoveryReadHistoryFile)
-          ? fs.readFileSync(recoveryReadHistoryFile)
-          : null,
-        historyBeforeRecoveryRead,
-      );
-    } finally {
-      fs.writeFileSync(stateFile, registeredResultBytes);
-    }
-  }
-  const pendingRecoveryReadFile = path.join(
-    area.directory,
-    "state.pending.json",
-  );
-  try {
-    fs.writeFileSync(pendingRecoveryReadFile, registeredResultBytes);
-    const pendingResult = historyRuntime.readOwnedRecoveryResult(
-      recoveryResultRoot.capability,
-      operation.recoveryId,
-    );
-    assert.equal(pendingResult.status, "blocked");
-    assert.equal(pendingResult.value, null);
-    assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
-    assert.deepEqual(
-      fs.readFileSync(pendingRecoveryReadFile),
-      registeredResultBytes,
-    );
-  } finally {
-    fs.unlinkSync(pendingRecoveryReadFile);
-  }
+  assert.deepEqual(fs.readFileSync(stateFile), fixedCheckpointBytes);
   const unverifiedAcceptance = prepareStateReferencesSnapshot(
-    registeredResultBytes,
+    fixedCheckpointBytes,
     operation.recoveryId,
-    {
-      recovery:
-        registeredResult.unresolvedRecoveries.find(
-          (item: { recoveryId: string }) =>
-            item.recoveryId === operation.recoveryId,
-        ) ?? null,
-      deliveries: registeredResult.pendingDeliveries.map(
-        (item: Record<string, unknown>) => ({
-          ...item,
-          acceptanceSha256: "f".repeat(64),
-        }),
-      ),
-    },
+    { recovery: null, deliveries: [] },
     repository.repositoryBinding,
   );
-  assert.equal(unverifiedAcceptance, null);
+  assert.equal(unverifiedAcceptance, null, "廃止した配送入力を受理しない");
   const refusedAcceptance = historyRuntime.writeOwnedSettlement(
     historySettlement,
     unverifiedAcceptance,
@@ -1271,67 +1085,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   );
   assert.equal(refusedAcceptance.status, "blocked");
   assert.equal(refusedAcceptance.snapshotConfirmed, false);
-  assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
-  for (const [context, consumer] of [
-    [{}, "orchestrator"],
-    [{ ...historySettlement }, "orchestrator"],
-    [historySettlement, "coordinator_cli"],
-    [historySettlement, "unknown"],
-  ]) {
-    const unavailable = historyRuntime.readOperationResult(context, consumer);
-    assert.equal(unavailable.status, "blocked");
-    assert.equal(unavailable.value, null);
-    assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
-  }
-  assert.deepEqual(
-    registeredResult.pendingDeliveries.map(
-      (item: {
-        consumer: string;
-        resultId: string;
-        acceptanceSha256?: never;
-      }) => [item.consumer, item.resultId, item.acceptanceSha256],
-    ),
-    [
-      [
-        "orchestrator",
-        registeredResult.operations.find(
-          (item: { kind?: unknown }) => item.kind === "docker_task",
-        ).summarySha256,
-        undefined,
-      ],
-    ],
-  );
-  const registrationReplay =
-    historyRuntime.registerOwnedSettlementResultDeliveries(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-      ["orchestrator"],
-    );
-  assert.equal(
-    registrationReplay.status,
-    "completed",
-    registrationReplay.reason,
-  );
-  assert.equal(registrationReplay.filesystemEffectIssued, true);
-  assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
-  const replayedResultIdentity = fs.lstatSync(stateFile, { bigint: true });
-  assert.equal(replayedResultIdentity.dev, registeredResultIdentity.dev);
-  assert.equal(replayedResultIdentity.ino, registeredResultIdentity.ino);
-  assert.equal(
-    replayedResultIdentity.birthtimeNs,
-    registeredResultIdentity.birthtimeNs,
-  );
-  const changedConsumers =
-    historyRuntime.registerOwnedSettlementResultDeliveries(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-      ["coordinator_cli"],
-    );
-  assert.equal(changedConsumers.status, "blocked");
-  assert.equal(changedConsumers.filesystemEffectIssued, false);
-  assert.deepEqual(fs.readFileSync(stateFile), registeredResultBytes);
+  assert.deepEqual(fs.readFileSync(stateFile), fixedCheckpointBytes);
   const fixedState = JSON.parse(fs.readFileSync(stateFile, "utf8"));
   assert.equal(
     fixedState.operations.find(
@@ -1431,10 +1185,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     ).history.occurredAt,
     fixedTimestamp,
   );
-  assert.deepEqual(
-    confirmedState.pendingDeliveries,
-    registeredResult.pendingDeliveries,
-  );
+  assert.equal(Object.hasOwn(confirmedState, "pendingDeliveries"), false);
   const repeated = historyRuntime.publishOwnedHistory(
     historySettlement,
     cleanupOutcome,
@@ -1457,7 +1208,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   identifiedFixture.operations.find(
     (item: { kind?: unknown }) => item.kind === "docker_task",
   ).history = null;
-  identifiedFixture.pendingDeliveries = [];
   const identifiedTask = identifiedFixture.operations.find(
     (item: { kind: string }) => item.kind === "docker_task",
   );
@@ -1491,7 +1241,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   const identifiedFixed = prepareStateHistorySnapshot(
     Buffer.from(`${encodeStateValue(identifiedFixture)}\n`),
     operation.recoveryId,
-    "2026-10-08T00:00:00.000Z",
+    fixedTimestamp,
     false,
     repository.repositoryBinding,
   );
@@ -1499,7 +1249,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   const identifiedReady = prepareStateHistorySnapshot(
     identifiedFixed,
     operation.recoveryId,
-    "2026-10-08T00:00:00.000Z",
+    fixedTimestamp,
     true,
     repository.repositoryBinding,
   );
@@ -1514,8 +1264,8 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       simulatedCompletion,
     );
     assert.equal(firstDriver.status, "completed", firstDriver.reason);
-    assert.equal(firstDriver.deliveryPending, true);
-    assert.ok(firstDriver.result);
+    assert.equal(Object.hasOwn(firstDriver, "deliveryPending"), false);
+    assert.equal(Object.hasOwn(firstDriver, "result"), false);
     const identifiedDelivered = fs.readFileSync(stateFile);
     const repeatedDriver = historyRuntime.completeOperation(
       historySettlementAgain,
@@ -1523,7 +1273,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       simulatedCompletion,
     );
     assert.equal(repeatedDriver.status, "completed", repeatedDriver.reason);
-    assert.equal(repeatedDriver.deliveryPending, true);
+    assert.equal(Object.hasOwn(repeatedDriver, "deliveryPending"), false);
     assert.deepEqual(fs.readFileSync(stateFile), identifiedDelivered);
     for (const mismatch of ["different_id", "unknown_observation"]) {
       observedProviderId =
@@ -1546,7 +1296,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     observedProviderObservation = "absent";
     terminalBook = frame;
   }
-  // 未固定終端から履歴と耐久配送へ一度で接続し、返却前にACKを読まない。
+  // 未固定終端から履歴保存と単独Operation除去へ一度で接続する。
   const initialDriverFixture = JSON.parse(
     acceptedProjectBytes.toString("utf8"),
   );
@@ -1566,7 +1316,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   initialDriverFixture.operations.find(
     (item: { kind?: unknown }) => item.kind === "docker_task",
   ).history = null;
-  initialDriverFixture.pendingDeliveries = [];
   const initialDriverBytes = Buffer.from(
     `${encodeStateValue(initialDriverFixture)}\n`,
   );
@@ -1604,22 +1353,20 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   );
   assert.equal(initialDriver.status, "completed", initialDriver.reason);
   assert.equal(initialDriver.inputAccepted, true);
-  assert.equal(initialDriver.deliveryPending, true);
-  assert.ok(initialDriver.result);
+  assert.equal(Object.hasOwn(initialDriver, "deliveryPending"), false);
+  assert.equal(Object.hasOwn(initialDriver, "result"), false);
   const initialDeliveredBytes = fs.readFileSync(stateFile);
   const initialHistoryBytes = fs.readFileSync(historyFile);
   const initialDelivered = JSON.parse(initialDeliveredBytes.toString("utf8"));
   assert.equal(
-    initialDelivered.operations.find(
-      (item: { kind?: unknown }) => item.kind === "docker_task",
-    ).history.confirmed,
-    true,
-  );
-  assert.equal(initialDelivered.pendingDeliveries.length, 1);
-  assert.equal(
-    "acceptanceSha256" in initialDelivered.pendingDeliveries[0],
+    initialDelivered.operations.some(
+      (item: { recoveryId?: unknown }) =>
+        item.recoveryId === initialDriverRecoveryId,
+    ),
     false,
   );
+  assert.match(initialHistoryBytes.toString("utf8"), /operation-summary\/v5/);
+  assert.equal(Object.hasOwn(initialDelivered, "pendingDeliveries"), false);
   const repeatedInitialDriver = historyRuntime.completeOperation(
     initialDriverSettlement,
     cleanupOutcome,
@@ -1630,7 +1377,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     "completed",
     repeatedInitialDriver.reason,
   );
-  assert.equal(repeatedInitialDriver.deliveryPending, true);
+  assert.equal(Object.hasOwn(repeatedInitialDriver, "deliveryPending"), false);
   assert.deepEqual(fs.readFileSync(stateFile), initialDeliveredBytes);
   assert.deepEqual(fs.readFileSync(historyFile), initialHistoryBytes);
   fs.writeFileSync(historyFile, firstHistory);
@@ -1652,7 +1399,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     fixture.operations.find(
       (item: { kind?: unknown }) => item.kind === "docker_task",
     ).history = null;
-    fixture.pendingDeliveries = [];
     fixture.unresolvedRecoveries = [];
     fs.writeFileSync(stateFile, `${encodeStateValue(fixture)}\n`);
     fs.unlinkSync(historyFile);
@@ -1662,11 +1408,14 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       simulatedCompletion,
     );
     assert.equal(transientDriver.status, "completed", transientDriver.reason);
-    assert.equal(transientDriver.deliveryPending, false);
-    assert.equal(transientDriver.result, null);
+    assert.equal(Object.hasOwn(transientDriver, "deliveryPending"), false);
+    assert.equal(Object.hasOwn(transientDriver, "result"), false);
     const transientDriverState = JSON.parse(fs.readFileSync(stateFile, "utf8"));
     assert.equal(transientDriverState.operations.length, 0);
-    assert.equal(transientDriverState.pendingDeliveries.length, 0);
+    assert.equal(
+      Object.hasOwn(transientDriverState, "pendingDeliveries"),
+      false,
+    );
     assert.equal(
       fs.readFileSync(historyFile, "utf8").trim().split("\n").length,
       1,
@@ -1742,8 +1491,8 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       simulatedCompletion,
     );
     assert.equal(driverReplay.status, "completed", driverReplay.reason);
-    assert.equal(driverReplay.deliveryPending, false);
-    assert.equal(driverReplay.result, null);
+    assert.equal(Object.hasOwn(driverReplay, "deliveryPending"), false);
+    assert.equal(Object.hasOwn(driverReplay, "result"), false);
     assert.deepEqual(fs.readFileSync(stateFile), transientRemoval);
     for (const unconfirmedContext of [transient.freshContext, {}]) {
       const refusedDriver = historyRuntime.completeOperation(
@@ -1900,7 +1649,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       (item) => item.kind === "docker_task",
     );
     assert.ok(operation?.kind === "docker_task");
-    const requestId = domain.createDockerRestartRequestId(
+    const requestId = createDockerRestartRequestId(
       binding,
       operation.identitySha256,
       operation.recoveryId,
@@ -2056,13 +1805,9 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
 
 import {
   prepareAuthenticationUnknownClosureSnapshot,
-  prepareStateReferencesSnapshot,
-} from "../../src/state/validation.ts";
-
-import { prepareStateHistorySnapshot } from "../../src/state/validation.ts";
-
-import {
-  prepareStateResourceSnapshot,
+  prepareStateHistorySnapshot,
   prepareStateLifecycleSnapshot,
+  prepareStateOperationSnapshot,
+  prepareStateReferencesSnapshot,
+  prepareStateResourceSnapshot,
 } from "../../src/state/validation.ts";
-import { prepareStateOperationSnapshot } from "../../src/state/validation.ts";

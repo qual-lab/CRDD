@@ -27,7 +27,6 @@ import {
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../../../src/execution/process-safety-state.ts";
 
-import { hashExecutionSelection } from "../../../../execution-model/src/index.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import {
@@ -170,6 +169,8 @@ test("助言は引渡し済みDocker参照を初回失敗まで保持し正式�
     assert.equal(classifyProviderAdviceHostFailure({ ...result }), null);
   }
 });
+
+import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 
 /**
  * fixture用の試験入力または観測処理を提供する。

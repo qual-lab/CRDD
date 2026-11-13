@@ -41,7 +41,6 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
   t.after(directory.cleanup);
   const before = fs.readdirSync(directory.path);
   const names = [
-    "readSnapshotIntakeEpoch",
     "initializeExecutionStore",
     "saveIntegrationRecord",
     "saveWorkspaceRecord",
@@ -49,7 +48,6 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "acquireLease",
     "releaseLease",
     "releaseLease",
-    "verifyQueueIntake",
     "readProjectExecutionState",
     "createQueue",
     "readQueueEntry",

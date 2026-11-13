@@ -15,13 +15,11 @@ import {
 } from "../../../configuration-model/src/index.ts";
 import {
   type ExecutionSelection,
-  hashExecutionSelection,
   initializeExecutionStore,
   inspectExecutionSelection,
-  inspectSingleTaskRecord,
   inspectTaskExecutionSelections,
   isPrincipalId,
-  observeTransientTaskCompletion,
+  readOperationCompletion,
   type ProjectQueueEntry,
   readTaskIntakeState,
   type SingleTaskRecord,
@@ -746,7 +744,8 @@ export function createCoordinatorTaskRequests(
             return false;
           }
           queue = result.value;
-          phase = next;
+          if (!result.value.singleTask) return false;
+          phase = result.value.singleTask;
           return true;
         };
         try {
@@ -815,27 +814,38 @@ export function createCoordinatorTaskRequests(
                 !authorized() ||
                 controller.signal.aborted ||
                 phase.adviceOperation ||
+                phase.mode !== "read_only_advice" ||
                 phase.phase !== "starting"
               )
                 throw Error("task_operation_save_unconfirmed");
-              const candidate = inspectSingleTaskRecord({
-                ...phase,
-                adviceOperation: operation,
-              });
-              if (!candidate?.adviceOperation)
+              const captured = snapshotPlainRecord(
+                operation,
+                new Set(["operationId", "hostRecoveryId"]),
+              );
+              if (
+                !captured ||
+                typeof captured.operationId !== "string" ||
+                !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
+                  captured.operationId,
+                ) ||
+                typeof captured.hostRecoveryId !== "string" ||
+                !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}$/u.test(
+                  captured.hostRecoveryId,
+                )
+              )
                 throw Error("task_operation_save_unconfirmed");
-              createdOperation = candidate.adviceOperation;
-              if (!save(candidate))
+              createdOperation = Object.freeze({
+                operationId: captured.operationId,
+                hostRecoveryId: captured.hostRecoveryId,
+              });
+              if (!save({ ...phase, adviceOperation: createdOperation }))
                 throw Error("task_operation_save_unconfirmed");
             },
           );
-          const outcome = snapshotSingleTaskOutcome(
-            rawOutcome,
-            record.executionSelection,
-          );
+          const outcome = snapshotSingleTaskOutcome(rawOutcome);
           if (!outcome) throw new Error("orchestrator_task_result_invalid");
           outcomeForFailure = outcome;
-          const next = inspectSingleTaskRecord({
+          const next: SingleTaskRecord = {
             ...phase,
             ...(createdOperation ? { adviceOperation: createdOperation } : {}),
             phase: "settled",
@@ -843,13 +853,12 @@ export function createCoordinatorTaskRequests(
             reason: outcome.reason,
             cleanupConfirmed: outcome.cleanupConfirmed,
             recoveryIds: outcome.recoveryIds,
-          });
+          };
           const workspaceResult =
             outcome.workspaceResult === null
               ? null
               : inspectWorkspaceResult(outcome.workspaceResult);
           if (
-            !next ||
             outcome.mode !== command.mode ||
             (command.mode === "read_only_advice" &&
               (outcome.workspaceResult !== null ||
@@ -1083,10 +1092,7 @@ function view(
  * @security 本文を永続化しない。
  * @concurrency 同期Snapshotだけ。
  */
-function snapshotSingleTaskOutcome(
-  raw: unknown,
-  executionSelection: ExecutionSelection,
-): SingleTaskOutcome | null {
+function snapshotSingleTaskOutcome(raw: unknown): SingleTaskOutcome | null {
   const value = snapshotPlainRecord(
     raw,
     new Set([
@@ -1100,20 +1106,36 @@ function snapshotSingleTaskOutcome(
     ]),
   );
   if (!value) return null;
-  const record = inspectSingleTaskRecord({
-    principalId: "validation",
-    mode: value.mode,
-    executionSelection,
-    taskId: "validation",
-    attemptId: "validation",
-    operationId: "validation",
-    phase: "settled",
-    status: value.status,
-    reason: value.reason,
-    cleanupConfirmed: value.cleanupConfirmed,
-    recoveryIds: value.recoveryIds,
-  });
-  if (!record || record.status === "pending") return null;
+  if (
+    (value.mode !== "read_only_advice" && value.mode !== "workspace_edit") ||
+    (value.status !== "completed" &&
+      value.status !== "blocked" &&
+      value.status !== "cancelled" &&
+      value.status !== "unknown") ||
+    typeof value.cleanupConfirmed !== "boolean" ||
+    !(
+      value.reason === null ||
+      (typeof value.reason === "string" &&
+        /^[a-z][a-z0-9_]{0,255}$/u.test(value.reason))
+    )
+  )
+    return null;
+  const recoveries = snapshotPlainArray<string>(
+    value.recoveryIds,
+    Number.MAX_SAFE_INTEGER,
+  );
+  if (
+    recoveries.status !== "ok" ||
+    recoveries.value.some(
+      (id) =>
+        typeof id !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}$/u.test(id),
+    ) ||
+    new Set(recoveries.value).size !== recoveries.value.length ||
+    ((value.status === "completed" || value.status === "cancelled") &&
+      (!value.cleanupConfirmed || recoveries.value.length > 0))
+  )
+    return null;
   const workspaceResult =
     value.workspaceResult === null
       ? null
@@ -1173,11 +1195,11 @@ function snapshotSingleTaskOutcome(
     advice = Object.freeze(result) as NonNullable<SingleTaskOutcome["advice"]>;
   }
   return Object.freeze({
-    mode: record.mode,
-    status: record.status,
-    reason: record.reason,
-    cleanupConfirmed: record.cleanupConfirmed,
-    recoveryIds: record.recoveryIds,
+    mode: value.mode,
+    status: value.status,
+    reason: value.reason,
+    cleanupConfirmed: value.cleanupConfirmed,
+    recoveryIds: Object.freeze([...recoveries.value]),
     advice,
     workspaceResult,
   });
@@ -1249,11 +1271,10 @@ export function openTaskSession(context: TaskSessionContext) {
       for (const recoveryId of unresolved) {
         if (
           recoveryId.startsWith("docker-task.") &&
-          observeTransientTaskCompletion(
+          readOperationCompletion(
             rootCapability,
             recoveryId,
             record.operationId,
-            consumer,
           ).completionConfirmed
         )
           unresolved.delete(recoveryId);
@@ -1590,5 +1611,7 @@ export async function runTask(
   return Object.freeze(result);
 }
 
-import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
-import { inspectWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../workspace/record.ts";
+import { inspectWorkspaceResult } from "../workspace/record.ts";
+
+import { hashExecutionSelection } from "../selection/resolve.ts";

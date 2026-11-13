@@ -113,39 +113,12 @@ test("Host AdapterはProcess Recovery Identityと再利用禁止通知をOrchest
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task Recovery AdapterはRepository情報を閉じて意味IdentityだけをOrchestratorへ公開する", async () => {
-  const calls: unknown[] = [];
-  const port = createCoordinatorTaskRecoveryAdapter(
-    "C:\\verified-repository",
-    "binding-1",
-    {
-      acknowledgeTaskRecovery: (input) => {
-        calls.push(input);
-        return { status: "completed" };
-      },
-      observeRecoveryTransition: () => {
-        throw new Error("diagnostic_unavailable");
-      },
+  const port = createCoordinatorTaskRecoveryAdapter({
+    observeRecoveryTransition: () => {
+      throw new Error("diagnostic_unavailable");
     },
-  );
-  const identity = Object.freeze({
-    projectId: "project-1",
-    milestoneId: "milestone-1",
-    stateGeneration: 2,
-    taskId: "task-1",
-    attemptId: "attempt-1",
-    operationId: "operation-1",
-    kind: "docker" as const,
-    recoveryId: "recovery-1",
   });
-
-  assert.deepEqual(port.acknowledgeDocker(identity), { status: "completed" });
-  assert.deepEqual(calls, [
-    {
-      workingDirectory: "C:\\verified-repository",
-      repositoryBindingId: "binding-1",
-      ...identity,
-    },
-  ]);
+  assert.equal(Object.hasOwn(port, "acknowledgeDocker"), false);
   await assert.doesNotReject(async () => {
     await port.observeTransition({
       phase: "required",
@@ -190,7 +163,7 @@ test("任意の回復診断は未完了でも回復を止めず、後着拒否�
       recoveryId: "exact-recovery",
       cleanupConfirmed: false,
     });
-    const port = createCoordinatorTaskRecoveryAdapter("synthetic", "binding", {
+    const port = createCoordinatorTaskRecoveryAdapter({
       recoverTaskRecovery: () => {
         recoveries++;
         return outcome;
