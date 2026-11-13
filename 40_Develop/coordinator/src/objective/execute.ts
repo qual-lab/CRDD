@@ -8,22 +8,20 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import {
-  type CoordinatorState,
-  inspectTaskExecutionSelections,
-  isPrincipalId,
-  type ProjectTaskRecoveryObligation,
-  readCoordinatorTaskIntakeState,
-  snapshotRuntimeStateArray,
-  snapshotRuntimeStateRecord,
-  type TaskExecutionSelections,
-} from "../../../execution-model/src/index.ts";
 import { readRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
   completeGroup,
   createGroup,
   type StoreOptions,
 } from "../../../execution-intelligence/src/index.ts";
+import {
+  inspectTaskExecutionSelections,
+  isPrincipalId,
+  type ProjectExecutionState,
+  type ProjectTaskRecoveryObligation,
+  readTaskIntakeState,
+  type TaskExecutionSelections,
+} from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
@@ -45,6 +43,7 @@ import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
 import { createCoordinatorState } from "../state/create.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
@@ -120,9 +119,9 @@ function objectiveSelectionsMatch(
  *
  * @responsibility recovery Application Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input projectId: string、queueId: string、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort
+ * @input projectId: string、queueId: string、state: ProjectExecutionState、clockIdentity: CoordinatorClockIdentityPort
  * @returns recoveryApplicationIdの計算結果を返す。
- * @precondition 「projectId: string、queueId: string、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort」がrecoveryApplicationIdの入力契約を満たす。
+ * @precondition 「projectId: string、queueId: string、state: ProjectExecutionState、clockIdentity: CoordinatorClockIdentityPort」がrecoveryApplicationIdの入力契約を満たす。
  * @postcondition recoveryApplicationIdの責務を完了した結果だけを返す。
  * @effect N/A: recoveryApplicationIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: recoveryApplicationIdは独自の失敗分岐を所有しない。
@@ -134,7 +133,7 @@ function objectiveSelectionsMatch(
 function recoveryApplicationId(
   projectId: string,
   queueId: string,
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   clockIdentity: CoordinatorClockIdentityPort,
 ) {
   const recoveries = state.tasks
@@ -175,7 +174,7 @@ function exactRecoveryCompleted(
   recoveryId: string,
 ) {
   if (kind === "docker") {
-    const record = snapshotRuntimeStateRecord(
+    const record = snapshotPlainRecord(
       value,
       new Set([
         "contract",
@@ -1092,11 +1091,11 @@ export async function executeCoordinatorObjective(
         } catch {
           acknowledgementResult = null;
         }
-        const acknowledged = snapshotRuntimeStateRecord(
+        const acknowledged = snapshotPlainRecord(
           acknowledgementResult,
           new Set(["status", "reason", "acknowledgement"]),
         );
-        const evidence = snapshotRuntimeStateRecord(
+        const evidence = snapshotPlainRecord(
           acknowledged?.acknowledgement,
           new Set([
             "repositoryBinding",
@@ -1537,9 +1536,9 @@ export function describeCoordinatorObjectiveIntakeContract() {
  *
  * @responsibility Coordinator Task Execution Setの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input raw: unknown、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort
+ * @input raw: unknown、state: ProjectExecutionState、clockIdentity: CoordinatorClockIdentityPort
  * @returns readonly CoordinatorTaskExecution[] | nullを返す。
- * @precondition 「raw: unknown、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort」がcreateCoordinatorTaskExecutionSetの入力契約を満たす。
+ * @precondition 「raw: unknown、state: ProjectExecutionState、clockIdentity: CoordinatorClockIdentityPort」がcreateCoordinatorTaskExecutionSetの入力契約を満たす。
  * @postcondition createCoordinatorTaskExecutionSetの責務を完了した結果だけを返す。
  * @effect N/A: createCoordinatorTaskExecutionSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure createCoordinatorTaskExecutionSetは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1550,11 +1549,11 @@ export function describeCoordinatorObjectiveIntakeContract() {
  */
 export function createCoordinatorTaskExecutionSet(
   raw: unknown,
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   clockIdentity: CoordinatorClockIdentityPort,
 ): readonly CoordinatorTaskExecution[] | null {
   const activeTasks = state.tasks.filter((task) => task.state !== "superseded");
-  const rawExecutions = snapshotRuntimeStateArray(raw, activeTasks.length);
+  const rawExecutions = snapshotPlainArray(raw, activeTasks.length);
   if (
     rawExecutions.status !== "ok" ||
     rawExecutions.value.length !== activeTasks.length
@@ -1562,7 +1561,7 @@ export function createCoordinatorTaskExecutionSet(
     return null;
   const executions: CoordinatorTaskExecution[] = [];
   for (const rawExecution of rawExecutions.value) {
-    const execution = snapshotRuntimeStateRecord(
+    const execution = snapshotPlainRecord(
       rawExecution,
       new Set(["taskId", "taskRequest", "repositoryRoot"] as const),
     );
@@ -2047,7 +2046,7 @@ export async function executeCoordinatorPublicObjective(
       "orchestrator_tasks_already_integration_pending",
     ].includes(execution.reason)
   ) {
-    const snapshot = readCoordinatorTaskIntakeState(
+    const snapshot = readTaskIntakeState(
       verifyRuntimePersistenceRepository(repositoryRoot),
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
     );
@@ -2108,7 +2107,7 @@ export async function executeCoordinatorPublicObjective(
  * @concurrency N/A: inspectBindingは共有非同期状態を持たない同期処理である。
  */
 function inspectBinding(raw: unknown, revision: string) {
-  const value = snapshotRuntimeStateRecord(
+  const value = snapshotPlainRecord(
     raw,
     new Set([
       "status",
@@ -2289,10 +2288,11 @@ export async function runCoordinatorObjective(
   return result;
 }
 
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/projection.ts";
+import { inspectCoordinatorWorkspaceResults } from "../workspace/record.ts";
 import {
   COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
-  inspectCoordinatorWorkspaceResults,
-} from "../../../execution-model/src/index.ts";
+} from "./plan.ts";
+
+import type { CoordinatorObjectiveRequest } from "./types.ts";

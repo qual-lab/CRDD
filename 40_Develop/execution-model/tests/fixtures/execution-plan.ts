@@ -7,7 +7,7 @@
  * @scope 試験専用データ。
  * @boundary 保存・外部実行なし。
  */
-import type { CoordinatorObjectivePlan } from "../../src/index.ts";
+import type { ObjectivePlan } from "../../src/index.ts";
 
 /**
  * 一つの合成依頼へ明示Planを付ける。
@@ -26,7 +26,7 @@ export function withCallerPlan<
     allowedPaths: readonly string[];
     readPaths: readonly string[];
   },
->(input: T, supplied?: CoordinatorObjectivePlan) {
+>(input: T, supplied?: ObjectivePlan) {
   const plan = supplied ?? {
     milestoneAcceptanceCriteria: input.acceptanceCriteria,
     objectives: [

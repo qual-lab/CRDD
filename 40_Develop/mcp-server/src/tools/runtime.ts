@@ -13,23 +13,23 @@ import {
   createTask,
   deleteObjective,
   deleteTask,
-  initializeRuntimeState,
+  type ExecutionModelAccess,
+  initializeExecutionState,
   queryObjectives,
   queryPlan,
   queryTasks,
   savePlan,
   updateObjective,
   updateTask,
-  type RuntimeAccess,
 } from "../../../execution-model/src/index.ts";
 import { snapshotPlainRecord } from "../request/snapshot.ts";
 import {
   callKeys,
   inspectMcpEnvelope,
   inspectProtocolRequest,
+  type McpResponse,
   protocolComplete,
   protocolError,
-  type McpResponse,
 } from "../request/validation.ts";
 
 export const MCP_RUNTIME_READ_TOOL = "crdd.get_runtime_definition" as const;
@@ -40,7 +40,7 @@ export const MCP_RUNTIME_MANAGE_TOOL =
  * 当該RepositoryのCore操作を現在認可へ結ぶ。
  * @responsibility Host構成からだけRootと主体を渡す。
  * @trace ARCH-000013
- * @shape Repository IDと要求SignalからRuntimeAccess又はnull。
+ * @shape Repository IDと要求SignalからExecutionModelAccess又はnull。
  * @invariant 要求間cache、JSONからのContext復元、暗黙実行なし。
  * @boundary Transport構成と内容認可Owner。
  * @security 拒否時は対象の存在を開示しない。
@@ -49,7 +49,7 @@ export const MCP_RUNTIME_MANAGE_TOOL =
 export type RuntimeContentAccessResolver = (
   repositoryId: string,
   signal: AbortSignal,
-) => RuntimeAccess | null;
+) => ExecutionModelAccess | null;
 
 const READ_FIELDS = {
   plan: [],
@@ -246,9 +246,9 @@ export async function handleMcpRuntimeRequest(
     let result: unknown;
     switch (operation) {
       case "initialize":
-        result = initializeRuntimeState(
+        result = initializeExecutionState(
           access,
-          input as Parameters<typeof initializeRuntimeState>[1],
+          input as Parameters<typeof initializeExecutionState>[1],
         );
         break;
       case "plan.save":

@@ -7,10 +7,12 @@
 
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { runInThisContext } from "node:vm";
 import type {
   IsolationCallbacks,
@@ -18,19 +20,18 @@ import type {
   ResourceTarget,
 } from "../../../docker-isolation/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
-import type { CoordinatorResourceBook } from "../../../execution-model/src/index.ts";
+import type { OperationResources } from "../../../execution-model/src/index.ts";
 import {
-  type CoordinatorStateOperation,
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorTaskResourcesAreSettled,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  readRuntimeOwnedCoordinatorRecoverySnapshot,
-  writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
-  writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
+  areTaskResourcesSettled,
+  canCloseUnknownAuthentication,
+  type OperationRecord,
+  readRecoveryState,
+  saveRecoveryCheckpoint,
+  saveUnknownAuthenticationClosureStage,
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);
 assert.ok(root && operationId && recoveryId && scenario);
@@ -81,11 +82,16 @@ const stateFile = path.join(
   "state.json",
 );
 const before: Buffer = fs.readFileSync(stateFile);
-const initial = decodeRuntimeDomainSnapshot(
-  before,
-  repository.repositoryBinding,
+const initialRead = readRecoveryState(verified.capability);
+assert.equal(initialRead.status, "completed", initialRead.reason);
+assert.equal(initialRead.lockReleased, true);
+assert.ok(initialRead.value);
+assert.deepEqual(Buffer.from(initialRead.value.sourceText, "utf8"), before);
+assert.equal(
+  initialRead.value.payloadSha256,
+  createHash("sha256").update(before).digest("hex"),
 );
-assert.ok(initial);
+const initial = initialRead.value;
 const operation = initial.snapshot.operations.find(
   (op) => op.kind === "docker_task" && op.recoveryId === recoveryId,
 );
@@ -143,6 +149,7 @@ const owner = {},
     repository,
     recoveryId,
     before,
+    snapshot: initial.snapshot,
     closed: false,
     persistenceFailed: false,
     cleanupUnknown: false,
@@ -176,37 +183,36 @@ const mutant = body.replace(
   '{ event: "identified", key, snapshot: { resources: snapshot.resources.map(r => r.key === key ? {...r, identity: {...r.identity, dockerId: "e".repeat(64)}} : r) }, cleanup: book.cleanup }',
 );
 assert.notEqual(body, mutant);
-const read = () =>
-  readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+const read = () => readRecoveryState(verified.capability);
 const currentSnapshot = read();
 assert.equal(currentSnapshot.status, "completed", currentSnapshot.reason);
+assert.equal(currentSnapshot.lockReleased, true);
 assert.ok(currentSnapshot.value);
+assert.equal(currentSnapshot.value.payloadSha256, initial.payloadSha256);
 assert.ok(
-  Buffer.from(
-    `${encodeRuntimeStateValue(currentSnapshot.value.snapshot)}\n`,
-  ).equals(before),
+  Buffer.from(currentSnapshot.value.sourceText, "utf8").equals(before),
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =
-  runInThisContext(`(dependencies)=>{const {Buffer,encodeRuntimeStateValue,decodeRuntimeDomainSnapshot,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure}=dependencies;
+  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,areTaskResourcesSettled,canCloseUnknownAuthentication,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,saveUnknownAuthenticationClosureStage}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
 return recoverRuntimeOwnedDockerTaskResources;}`)({
     Buffer,
-    encodeRuntimeStateValue,
-    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
+    snapshotJsonValue,
+    isDeepStrictEqual,
     dockerRecoveryPreparations: new WeakMap([[owner, record]]),
     borrowHostRecoveryManagementDirectory: () => ({
       directory: management,
       assertCurrent: () => live,
     }),
-    coordinatorTaskResourcesAreSettled,
-    coordinatorAuthenticationUnknownCanClose,
+    areTaskResourcesSettled,
+    canCloseUnknownAuthentication,
     coordinatorReleasedTaskCanObserveHostAbsence: () => false,
     assertCurrentRecoveryOwner: () => {
       events.push("owner");
       return live;
     },
-    readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
+    readRecoveryState: () => {
       events.push("read");
       const value = read();
       return scenario === "readback_mismatch" && closureWrites && value.value
@@ -222,16 +228,14 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
           }
         : value;
     },
-    writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-      ...args: Parameters<typeof writeRuntimeOwnedCoordinatorRecoveryCheckpoint>
+    saveRecoveryCheckpoint: (
+      ...args: Parameters<typeof saveRecoveryCheckpoint>
     ) => {
       events.push(`write:${args[3]}`);
-      return writeRuntimeOwnedCoordinatorRecoveryCheckpoint(...args);
+      return saveRecoveryCheckpoint(...args);
     },
-    writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (
-      ...args: Parameters<
-        typeof writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure
-      >
+    saveUnknownAuthenticationClosureStage: (
+      ...args: Parameters<typeof saveUnknownAuthenticationClosureStage>
     ) => {
       closureWrites++;
       events.push("write:closure");
@@ -242,9 +246,7 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
           snapshotConfirmed: false,
           lockReleased: true,
         };
-      const result = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-        ...args,
-      );
+      const result = saveUnknownAuthenticationClosureStage(...args);
       return scenario === "release_unknown"
         ? { ...result, lockReleased: false }
         : result;
@@ -255,18 +257,15 @@ f.calls.push = (...items: string[][]): number => {
   for (const argv of items)
     if (argv.includes("rm")) {
       oracleHits++;
-      const value: CoordinatorStateOperation | undefined =
+      const value: OperationRecord | undefined =
         read().value?.snapshot.operations.find(
           (op) => op.kind === "docker_task" && op.recoveryId === recoveryId,
         );
       assert.ok(value?.kind === "docker_task" && value.resources);
       const saved: ResourceSnapshot["resources"][number] | undefined =
         value.resources.snapshot.resources.find((r) => r.key === auth.key);
-      const checkpoint:
-        | CoordinatorResourceBook["checkpoints"][number]
-        | undefined = value.resources.checkpoints.find(
-        (c) => c.key === auth.key,
-      );
+      const checkpoint: OperationResources["checkpoints"][number] | undefined =
+        value.resources.checkpoints.find((c) => c.key === auth.key);
       if (saved?.identity.dockerId !== actualId) mismatches++;
       assert.equal(
         saved?.identity.dockerId,
@@ -491,11 +490,8 @@ try {
       resource.identity.ownershipLabel,
       previous.identity.ownershipLabel,
     );
-    const checkpoint:
-      | CoordinatorResourceBook["checkpoints"][number]
-      | undefined = persisted.resources.checkpoints.find(
-      (c) => c.key === resource.key,
-    );
+    const checkpoint: OperationResources["checkpoints"][number] | undefined =
+      persisted.resources.checkpoints.find((c) => c.key === resource.key);
     assert.ok(checkpoint);
     if (scenario === "known_id" || scenario === "known_id_mutant") {
       assert.equal(

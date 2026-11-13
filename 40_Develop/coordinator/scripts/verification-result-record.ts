@@ -8,20 +8,20 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
-import {
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-  TESTS_RELATIVE_PATH,
-} from "../src/configuration/runtime-data.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../execution-model/src/index.ts";
-import { snapshotPlainArray } from "../src/input/snapshot.ts";
+import { ExecutionStorageBlockedError } from "../../execution-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
+import {
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+  TESTS_RELATIVE_PATH,
+} from "../src/configuration/runtime-data.ts";
 import { isSupportedNodeRuntime } from "../src/execution/diagnostics.ts";
 import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
+import { snapshotPlainArray } from "../src/input/snapshot.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
@@ -506,8 +506,11 @@ export async function runRecordedVerification<T, E>(
     const verifiedRuntimeRoot = getRepository(root);
     if (verifiedRuntimeRoot.status !== "completed")
       throw new Error("verification_record_runtime_path_invalid");
-    const verificationArea = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tests"),
+    const verificationArea = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataArea(
+        verifiedRuntimeRoot.capability,
+        "tests",
+      ),
       "verification_record_runtime_path_invalid",
     );
     const revision = readRepositorySnapshot(getRepository(root).capability);
@@ -542,7 +545,7 @@ export async function runRecordedVerification<T, E>(
       executionOutcome: "not_started" as const,
       recordingOutcome: "start_failed" as const,
       exitCode: 2,
-      ...(error instanceof RepositoryRuntimeDataAreaBlockedError
+      ...(error instanceof ExecutionStorageBlockedError
         ? {
             reason: error.reason,
             effectIssued: error.effectIssued,

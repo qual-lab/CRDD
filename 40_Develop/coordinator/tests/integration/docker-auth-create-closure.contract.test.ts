@@ -9,34 +9,34 @@
  * @scope 統括本文の単独故障・変異、標準bridgeの構成・段階比較、値相関・実入口拒否と清掃前実体。
  * @boundary 合成統括は実codec／Owner／Native／Docker／再起動を証明しない。実Filesystem処置は自己生成試験Rootだけ。
  */
-import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
-} from "../../../execution-model/src/index.ts";
+
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
-import { stripTypeScriptTypes } from "node:module";
-import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
 import { fileURLToPath } from "node:url";
-
+import { runInNewContext } from "node:vm";
+import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
+import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
+import type {
+  ExecutionOperationRecord,
+  ExecutionStateSnapshot,
+} from "../../../execution-model/src/index.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import { simulateAuthCreateClosure } from "../fixtures/docker-auth-create-closure-simulation.ts";
 import {
   captureAuthCreateCleanupTree,
   projectAuthCreateDefaultBridge,
   selectAuthCreateTarget,
   verifyAuthCreateProducer,
 } from "../fixtures/docker-auth-create-closure-verifier.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { simulateAuthCreateClosure } from "../fixtures/docker-auth-create-closure-simulation.ts";
 
 /**
  * 手動試験器の起動診断搬送を確認する。
@@ -994,10 +994,10 @@ function producerFacts() {
         ),
       };
     })(),
-  } as unknown as CoordinatorStateTaskOperation;
+  } as unknown as ExecutionOperationRecord;
   const snapshot = {
     operations: [operation],
-  } as unknown as CoordinatorStateSnapshot;
+  } as unknown as ExecutionStateSnapshot;
   const packet = {
     pid: 91,
     recoveryId: operation.recoveryId,
@@ -1561,7 +1561,7 @@ test("認証create親は終端・packet・現在保存の不一致を拒否す�
   assert.ok(base.operation.resources);
   for (const field of ["submission", "id", "receipt", "observation"] as const) {
     const book = base.operation.resources;
-    const changed: CoordinatorStateTaskOperation = {
+    const changed: ExecutionOperationRecord = {
       ...base.operation,
       resources: {
         ...book,
@@ -1632,7 +1632,7 @@ test("認証create親は現在対象の一意性と未開始を要求する", ()
           {
             ...operation,
             execution: { ...operation.execution, ...execution },
-          } as CoordinatorStateTaskOperation,
+          } as ExecutionOperationRecord,
         ],
       }),
     );
@@ -1722,8 +1722,8 @@ test("認証create手動親は承認引数なしでRoot作成前に拒否する"
  * @boundary 実Filesystemだけ。原子的差替え防止・実Docker・全統括は未検証。
  */
 test("Host Windows: 認証create親の清掃前manifestは未知物・junction・同本文別実体を拒否する", () => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),

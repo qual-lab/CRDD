@@ -7,6 +7,123 @@
 import { types } from "node:util";
 
 /**
+ * 入力JSON値をdata descriptorだけから独立コピーする。
+ * @responsibility 保存codecに依存せず、既存入力の型・深度・未知実行Property拒否を維持する。
+ * @trace ARCH-000014
+ * @input value: 未信頼値、depth: 内部再帰位置。
+ * @returns 入力と参照を共有しないJSON値。
+ * @effect N/A: 入力観測と局所コピーだけ。
+ * @failure Proxy、accessor、symbol、不正数、深度超過は例外。
+ * @boundary Coordinatorの入力捕捉。保存SchemaやHashを生成しない。
+ * @security getterやtoJSONを実行しない。
+ */
+export function snapshotJsonValue(value: unknown, depth = 0): unknown {
+  if (depth > 32 || types.isProxy(value)) throw new Error("input_json_invalid");
+  if (value === null || typeof value === "boolean" || typeof value === "string")
+    return value;
+  if (typeof value === "number" && Number.isSafeInteger(value))
+    return Object.is(value, -0) ? 0 : value;
+  if (!value || typeof value !== "object")
+    throw new Error("input_json_invalid");
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Reflect.ownKeys(descriptors);
+  if (
+    keys.some((key) => typeof key !== "string") ||
+    Object.values(descriptors).some(
+      (descriptor) => !Object.hasOwn(descriptor, "value"),
+    )
+  )
+    throw new Error("input_json_invalid");
+  if (Array.isArray(value)) {
+    const length = descriptors.length?.value;
+    if (!Number.isSafeInteger(length) || keys.length !== length + 1)
+      throw new Error("input_json_invalid");
+    return Array.from({ length }, (_, index) => {
+      const item = descriptors[String(index)];
+      if (!item) throw new Error("input_json_invalid");
+      return snapshotJsonValue(item.value, depth + 1);
+    });
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null)
+    throw new Error("input_json_invalid");
+  return Object.fromEntries(
+    Object.keys(descriptors)
+      .sort()
+      .map((key) => [
+        key,
+        snapshotJsonValue(descriptors[key]?.value, depth + 1),
+      ]),
+  );
+}
+
+/**
+ * HostのFilesystemを参照せずRepository相対Pathを正規化する。
+ *
+ * @responsibility Repository Relative Pathの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns string | nullを返す。
+ * @precondition 「value: unknown」がnormalizeRepositoryRelativePathの入力契約を満たす。
+ * @postcondition normalizeRepositoryRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeRepositoryRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeRepositoryRelativePathは独自の失敗分岐を所有しない。
+ * @invariant normalizeRepositoryRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeRepositoryRelativePathはProcess内の同一Subsystemで完結する。
+ * @security N/A: normalizeRepositoryRelativePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: normalizeRepositoryRelativePathは共有非同期状態を持たない同期処理である。
+ */
+export function normalizeRepositoryRelativePath(value: unknown): string | null {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    /[\u0000-\u001f\u007f]/u.test(value)
+  )
+    return null;
+  const normalized = value.replaceAll("\\", "/");
+  if (
+    normalized.startsWith("/") ||
+    /^[A-Za-z]:($|\/)/u.test(normalized) ||
+    normalized
+      .split("/")
+      .some((segment) => segment === "" || segment === "." || segment === "..")
+  )
+    return null;
+  return normalized;
+}
+
+/**
+ * repository Path Withinを決定する。
+ *
+ * @responsibility repository Path Withinの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string、roots: readonly string[]
+ * @returns repositoryPathWithinの計算結果を返す。
+ * @precondition 「candidate: string、roots: readonly string[]」がrepositoryPathWithinの入力契約を満たす。
+ * @postcondition repositoryPathWithinの責務を完了した結果だけを返す。
+ * @effect N/A: repositoryPathWithinは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: repositoryPathWithinは独自の失敗分岐を所有しない。
+ * @invariant repositoryPathWithinは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: repositoryPathWithinはProcess内の同一Subsystemで完結する。
+ * @security N/A: repositoryPathWithinはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: repositoryPathWithinは共有非同期状態を持たない同期処理である。
+ */
+export function repositoryPathWithin(
+  candidate: string,
+  roots: readonly string[],
+) {
+  const normalizedCandidate = normalizeRepositoryRelativePath(candidate);
+  if (normalizedCandidate === null) return false;
+  const candidateKey = normalizedCandidate.toUpperCase();
+  return roots.some((rootValue) => {
+    const root = normalizeRepositoryRelativePath(rootValue);
+    if (root === null) return false;
+    const rootKey = root.toUpperCase();
+    return candidateKey === rootKey || candidateKey.startsWith(`${rootKey}/`);
+  });
+}
+
+/**
  * plain-data-snapshotで使用するData Descriptorの値契約を定義する。
  *
  * @responsibility Data DescriptorのProperty、Identity、状態制約を型境界として所有する。

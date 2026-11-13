@@ -6,22 +6,26 @@
  * @boundary CLI／Workbench／MCP等と内部実行Owner。
  * @security Provider Homeの所在・認証情報を公開要求や結果へ含めない。
  */
-import { runProviderAuthenticationRequest } from "./execution/authority.ts";
-import { readExecutionCancellation } from "./execution/authority.ts";
+
+import {
+  type Repository,
+  resolveVerifiedRepositoryRoot,
+} from "../../version-control/src/index.ts";
+import type { AuthenticationRequest } from "./execution/authority.ts";
+import {
+  readExecutionCancellation,
+  runProviderAuthenticationRequest,
+} from "./execution/authority.ts";
 import { runDoctor } from "./execution/diagnostics.ts";
 import {
   inspectRuntimeOwnedDockerTaskAdmission,
-  resumeRuntimeOwnedExecution,
-  restartRuntimeOwnedDockerForRecovery,
-  repairRuntimeOwnedDockerRuntime,
   projectRuntimeRepairObservation,
+  repairRuntimeOwnedDockerRuntime,
+  restartRuntimeOwnedDockerForRecovery,
+  resumeRuntimeOwnedExecution,
 } from "./execution/recovery.ts";
-import {
-  resolveVerifiedRepositoryRoot,
-  type Repository,
-} from "../../version-control/src/index.ts";
 import { snapshotPlainRecord } from "./input/snapshot.ts";
-import type { AuthenticationRequest } from "./execution/authority.ts";
+
 export type { AuthenticationRequest } from "./execution/authority.ts";
 
 /**
@@ -69,26 +73,25 @@ export function authenticateProvider(
 }
 
 export type { ExecutionSelection } from "../../execution-model/src/index.ts";
-export type { SingleTaskCommand } from "./task/requests.ts";
-
+export { acceptResult } from "./decision/acceptance.ts";
+export { submitDecision } from "./decision/lifecycle.ts";
+export { runObjective } from "./objective/composition.ts";
+export type { ProjectInitializationRequest } from "./state/initialize.ts";
+export { initializeProject } from "./state/initialize.ts";
+export { queryActivity } from "./state/observation.ts";
+export { queryState } from "./state/query.ts";
+export type {
+  SingleTaskCommand,
+  TaskRunResult,
+  TaskSession,
+  TaskSessionContext,
+} from "./task/requests.ts";
 export {
+  inspectSingleTaskCommand,
   openTaskSession,
   runTask,
-  inspectSingleTaskCommand,
 } from "./task/requests.ts";
-export type {
-  TaskSessionContext,
-  TaskSession,
-  TaskRunResult,
-} from "./task/requests.ts";
-export { initializeProject } from "./state/initialize.ts";
-export type { ProjectInitializationRequest } from "./state/initialize.ts";
-export { runObjective } from "./objective/composition.ts";
-export { submitDecision } from "./decision/lifecycle.ts";
-export { acceptResult } from "./decision/acceptance.ts";
-export { queryState } from "./state/query.ts";
 export { executeWorkspace } from "./workspace/commands.ts";
-export { queryActivity } from "./state/observation.ts";
 
 /**
  * 信頼したHost入口が渡す実行対象。
@@ -365,39 +368,47 @@ export async function retainRepair(
   );
 }
 
-export { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "./execution/authority.ts";
-
-export { inspectCoordinatorDecisionRequest } from "../../execution-model/src/index.ts";
-export { inspectCoordinatorObjectiveRequest } from "../../execution-model/src/index.ts";
-export { inspectCoordinatorWorkspaceResults } from "../../execution-model/src/index.ts";
-export { inspectCoordinatorStateQuery } from "../../execution-model/src/index.ts";
-export { inspectCoordinatorStateQueryResult } from "../../execution-model/src/index.ts";
-export { isCoordinatorObjectiveProjectionCorrelationValid } from "../../execution-model/src/index.ts";
-export { isCoordinatorProjectionSemanticallyValid } from "../../execution-model/src/index.ts";
-export { COORDINATOR_HUMAN_DECISION_CONTRACT } from "../../execution-model/src/index.ts";
-export { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../execution-model/src/index.ts";
-export { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../execution-model/src/index.ts";
-export type { CoordinatorProjection } from "../../execution-model/src/index.ts";
-export type { CoordinatorWorkspaceResult } from "../../execution-model/src/index.ts";
-export type { WorkspaceCommand } from "../../execution-model/src/index.ts";
-export type { WorkspaceView } from "./workspace/commands.ts";
-export { inspectWorkspaceCommand } from "../../execution-model/src/index.ts";
-export { parseRuntimeActivityObservation } from "../../execution-model/src/index.ts";
-export { inspectRuntimeActivityObservation } from "../../execution-model/src/index.ts";
-export type { ActivityRepository } from "../../execution-model/src/index.ts";
-export type { ActivitySource } from "../../execution-model/src/index.ts";
-export type { RuntimeActivityEvent } from "../../execution-model/src/index.ts";
-export type { RuntimeActivityObservation } from "../../execution-model/src/index.ts";
-export type { RuntimeActivityRequest } from "../../execution-model/src/index.ts";
+export type { WorkspaceResult } from "../../execution-model/src/index.ts";
 export { readRepositoryNetworkHosts } from "./decision/external-send-policy.ts";
-export type { CoordinatorObjectiveRequest } from "../../execution-model/src/index.ts";
-export type { CoordinatorDecisionRequest } from "../../execution-model/src/index.ts";
-export type { CoordinatorStateQuery } from "../../execution-model/src/index.ts";
-export type { CoordinatorStateQueryResult } from "../../execution-model/src/index.ts";
+export type { CoordinatorDecisionRequest } from "./decision/request.ts";
 export {
-  isSupportedNodeRuntime,
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  inspectCoordinatorDecisionRequest,
+} from "./decision/request.ts";
+export { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "./execution/authority.ts";
+export {
   getCapabilities,
+  isSupportedNodeRuntime,
 } from "./execution/diagnostics.ts";
+export {
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  inspectCoordinatorObjectiveRequest,
+} from "./objective/plan.ts";
+export type { CoordinatorObjectiveRequest } from "./objective/types.ts";
+export {
+  inspectRuntimeActivityObservation,
+  parseRuntimeActivityObservation,
+} from "./state/observation.ts";
+export {
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+} from "./state/projection.ts";
+export type {
+  ActivityRepository,
+  ActivitySource,
+  CoordinatorProjection,
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+} from "./state/types.ts";
+export type { WorkspaceCommand, WorkspaceView } from "./workspace/commands.ts";
+export { inspectWorkspaceCommand } from "./workspace/commands.ts";
+export { inspectCoordinatorWorkspaceResults } from "./workspace/record.ts";
 
 /**
  * 正式認証操作の完了・不明・回収を識別する結果。

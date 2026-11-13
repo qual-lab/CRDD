@@ -17,11 +17,11 @@ import path from "node:path";
 import test, { mock } from "node:test";
 import * as snapshotStorage from "../../../execution-model/src/index.ts";
 import {
-  initializeCoordinatorSnapshot,
+  initializeExecutionStore,
   inspectSingleTaskRecord,
   type ProjectQueueEntry,
-  readCoordinatorExecutionState,
-  readCoordinatorTaskIntakeState,
+  readState,
+  readTaskIntakeState,
   type SingleTaskRecord,
 } from "../../../execution-model/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
@@ -76,7 +76,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   fs.mkdirSync(path.join(root, ".git", "info"));
   fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeCoordinatorSnapshot(
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(root),
     binding,
   );
@@ -223,9 +223,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     const released = lease.release();
     assert.equal(released.status, "completed", JSON.stringify(released));
     // 物理解放後・Queue解放保存前の中断を残し、次の入口で再入場する。
-    const interrupted = readCoordinatorExecutionState(
+    const interrupted = readState(
       verifyRuntimePersistenceRepository(root),
       binding,
+      "execution",
     );
     assert.equal(interrupted.status, "completed");
     if (interrupted.status === "completed")
@@ -254,9 +255,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       .status,
     "completed",
   );
-  const read = readCoordinatorExecutionState(
+  const read = readState(
     verifyRuntimePersistenceRepository(root),
     binding,
+    "execution",
   );
   assert.equal(read.status, "completed");
   if (read.status !== "completed" || !read.value)
@@ -433,9 +435,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(withheld.reason, "orchestrator_task_not_available");
   assert.deepEqual(withheld.facts, []);
   assert.equal(withheld.taskId, null);
-  const after = readCoordinatorExecutionState(
+  const after = readState(
     verifyRuntimePersistenceRepository(root),
     binding,
+    "execution",
   );
   assert.equal(after.status, "completed");
   if (after.status !== "completed" || !after.value)
@@ -768,10 +771,8 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.equal(executions, 0);
   await owner.close();
   assert.equal(
-    initializeCoordinatorSnapshot(
-      verifyRuntimePersistenceRepository(root),
-      binding,
-    ).status,
+    initializeExecutionStore(verifyRuntimePersistenceRepository(root), binding)
+      .status,
     "completed",
   );
   for (const operation of ["cancel", "close"] as const) {
@@ -780,7 +781,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     assert.equal(accepted.status, "accepted");
     assert.ok(accepted.requestId);
     assert.equal(executions, 0);
-    const initial = readCoordinatorTaskIntakeState(
+    const initial = readTaskIntakeState(
       verifyRuntimePersistenceRepository(root),
       binding,
     );
@@ -805,7 +806,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     }
     await owner.close();
     assert.equal((await owner.start(command)).status, "blocked");
-    const final = readCoordinatorTaskIntakeState(
+    const final = readTaskIntakeState(
       verifyRuntimePersistenceRepository(root),
       binding,
     );
@@ -838,7 +839,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     requestId: string;
   };
   assert.equal(lost.status, "accepted");
-  const saved = readCoordinatorTaskIntakeState(
+  const saved = readTaskIntakeState(
     verifyRuntimePersistenceRepository(root),
     binding,
   );
@@ -864,7 +865,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.deepEqual(recovered.secondaryFailures, []);
   assert.equal(executions, 0);
   await owner.close();
-  const end = readCoordinatorTaskIntakeState(
+  const end = readTaskIntakeState(
     verifyRuntimePersistenceRepository(root),
     binding,
   );
@@ -920,7 +921,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
     let releases = 0;
     const failures = {
       ...snapshotStorage,
-      readCoordinatorTaskIntakeState: () => ({
+      readTaskIntakeState: () => ({
         status: "completed",
         value: {
           intakeEpoch: "epoch",
@@ -978,8 +979,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       {
         namedExports: {
           ...snapshotStorage,
-          readCoordinatorTaskIntakeState:
-            failures.readCoordinatorTaskIntakeState,
+          readTaskIntakeState: failures.readTaskIntakeState,
         },
       },
     );

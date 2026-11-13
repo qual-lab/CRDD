@@ -1195,14 +1195,6 @@
       ]
     },
     {
-      "symbolId": "workbench-server.source.scripts.file-snapshot",
-      "kind": "file",
-      "path": "scripts/file-snapshot.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "workbench-server.source.scripts.runtime-data",
       "kind": "file",
       "path": "scripts/runtime-data.ts",

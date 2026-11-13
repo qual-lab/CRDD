@@ -17,8 +17,8 @@ import {
 } from "../../../version-control/src/index.ts";
 import {
   checkRepositoryRuntimeDataProtectionDirectory,
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 
 /**
@@ -35,8 +35,8 @@ import {
 function fixture(t: test.TestContext) {
   const current = getRepositoryFromWorkingDirectory(import.meta.dirname);
   assert.equal(current.status, "completed");
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(current.capability, "tests"),
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataArea(current.capability, "tests"),
     "protection_test_area_invalid",
   );
   const root = fs.mkdtempSync(path.join(area.directory, "co-protection-"));

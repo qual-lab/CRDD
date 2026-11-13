@@ -4,12 +4,10 @@
  * @trace ARCH-000008
  */
 
-import type { CoordinatorState } from "../state/types.ts";
-import { encodeRuntimeStateValue, isPrincipalId } from "../state/validation.ts";
+import type { ProjectExecutionState } from "../state/types.ts";
+import { encodeStateValue, isPrincipalId } from "../state/validation.ts";
 import type {
   Blocker,
-  CoordinatorDecisionRequest,
-  CoordinatorDecisionResult,
   Decision,
   DecisionAnswer,
   DecisionApplication,
@@ -21,7 +19,7 @@ import type {
 
 /** 判断対象の現在の表示状態を取得する。不存在は推測して補完しない。 */
 function decisionTargetState(
-  project: CoordinatorState,
+  project: ProjectExecutionState,
   request: DecisionRequest,
 ) {
   if (request.target.kind === "milestone")
@@ -44,7 +42,7 @@ function decisionTargetState(
 function blockerAffectsDecision(
   blocker: Blocker,
   record: Decision,
-  project: CoordinatorState,
+  project: ProjectExecutionState,
 ): boolean {
   if (
     blocker.target.projectId !== record.target.projectId ||
@@ -94,8 +92,7 @@ export function prepareDecisionCreation<T extends DecisionSnapshot>(
             value)(existing)
         : existing;
     const { status: _status, result: _result, ...original } = source;
-    return encodeRuntimeStateValue(original) ===
-      encodeRuntimeStateValue(request)
+    return encodeStateValue(original) === encodeStateValue(request)
       ? completed("decision_already_requested", { next: null, value: existing })
       : storeBlocked("decision_identity_conflict");
   }
@@ -197,7 +194,7 @@ export function prepareDecisionCreation<T extends DecisionSnapshot>(
 
 /** 用途に応じた判断を現在状態へ適用し、実際の前後状態を返す。 */
 function applyDecisionToProject(
-  project: CoordinatorState,
+  project: ProjectExecutionState,
   record: Decision,
   answer: DecisionAnswer,
 ) {
@@ -325,7 +322,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
 ) {
   let reply: DecisionAnswer;
   try {
-    reply = JSON.parse(encodeRuntimeStateValue(answer)) as DecisionAnswer;
+    reply = JSON.parse(encodeStateValue(answer)) as DecisionAnswer;
   } catch {
     return storeBlocked("decision_answer_invalid");
   }
@@ -335,8 +332,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
   if (!record || projectDecisionHistory(record) === null)
     return storeBlocked("decision_not_observed");
   if (record.status === "applied" || record.status === "answered")
-    return encodeRuntimeStateValue(record.result.answer) ===
-      encodeRuntimeStateValue(reply)
+    return encodeStateValue(record.result.answer) === encodeStateValue(reply)
       ? completed("decision_answer_already_recorded", {
           next: null,
           value: record,
@@ -422,8 +418,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
       if (
         !other ||
         other.kind !== record.kind ||
-        encodeRuntimeStateValue(other.target) !==
-          encodeRuntimeStateValue(record.target) ||
+        encodeStateValue(other.target) !== encodeStateValue(record.target) ||
         (other.kind === "continuation" &&
           (record.kind !== "continuation" ||
             other.queueId !== record.queueId)) ||
@@ -431,7 +426,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
         other.result.answer.selectedOption !== reply.selectedOption ||
         other.result.answer.answeredAt > observedAt ||
         !otherApplied ||
-        encodeRuntimeStateValue({
+        encodeStateValue({
           ...otherApplied,
           project: {
             ...otherApplied.project,
@@ -440,7 +435,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
                 ? applied.project.decisionApplicationId
                 : otherApplied.project.decisionApplicationId,
           },
-        }) !== encodeRuntimeStateValue(applied)
+        }) !== encodeStateValue(applied)
       ) {
         approvalPending = true;
         break;
@@ -581,8 +576,7 @@ export function validateDecisionSnapshotTransition(
     const changes = next.decisions.filter(
       (record) =>
         !current.decisions.some(
-          (old) =>
-            encodeRuntimeStateValue(old) === encodeRuntimeStateValue(record),
+          (old) => encodeStateValue(old) === encodeStateValue(record),
         ),
     );
     if (
@@ -596,10 +590,10 @@ export function validateDecisionSnapshotTransition(
       return false;
     if (changes.length === 0)
       return (
-        encodeRuntimeStateValue(
+        encodeStateValue(
           current.blockers.filter((item) => item.kind === "human_decision"),
         ) ===
-        encodeRuntimeStateValue(
+        encodeStateValue(
           next.blockers.filter((item) => item.kind === "human_decision"),
         )
       );
@@ -655,8 +649,8 @@ export function validateDecisionSnapshotTransition(
         ["decisions", "blockers", "projects", "queueEntries"] as const
       ).every(
         (key) =>
-          encodeRuntimeStateValue(candidate.value.next?.[key]) ===
-          encodeRuntimeStateValue(next[key]),
+          encodeStateValue(candidate.value.next?.[key]) ===
+          encodeStateValue(next[key]),
       );
     });
   } catch {
@@ -966,12 +960,12 @@ export function validateDecisionRetirement(
   if (next.decisions.some((record) => blockerIds.has(record.blockerId)))
     return false;
   return (
-    encodeRuntimeStateValue(next.decisions) ===
-      encodeRuntimeStateValue(
+    encodeStateValue(next.decisions) ===
+      encodeStateValue(
         current.decisions.filter((record) => !ids.has(record.decisionId)),
       ) &&
-    encodeRuntimeStateValue(next.blockers) ===
-      encodeRuntimeStateValue(
+    encodeStateValue(next.blockers) ===
+      encodeStateValue(
         current.blockers.filter(
           (blocker) => !blockerIds.has(blocker.blockerId),
         ),
@@ -1028,7 +1022,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 /** 通常データだけを捕捉し、呼出し後の入力変更を候補から切り離す。 */
 function capture<T>(value: T): T | null {
   try {
-    return JSON.parse(encodeRuntimeStateValue(value)) as T;
+    return JSON.parse(encodeStateValue(value)) as T;
   } catch {
     return null;
   }
@@ -1279,9 +1273,7 @@ function captureOpenDecision(current: Decision): Decision | null {
     if (!answered) return null;
     rebuilt = answered.decision;
   }
-  return encodeRuntimeStateValue(rebuilt) === encodeRuntimeStateValue(value)
-    ? rebuilt
-    : null;
+  return encodeStateValue(rebuilt) === encodeStateValue(value) ? rebuilt : null;
 }
 
 /**
@@ -1408,8 +1400,7 @@ export function projectDecisionHistory(
     if (!closed) return null;
     rebuilt = closed;
   }
-  if (encodeRuntimeStateValue(rebuilt) !== encodeRuntimeStateValue(value))
-    return null;
+  if (encodeStateValue(rebuilt) !== encodeStateValue(value)) return null;
   const common = {
     decisionId: request.decisionId,
     blockerId: request.blockerId,
@@ -1453,6 +1444,28 @@ export function projectDecisionHistory(
       reason: value.closeReason,
     });
   return events;
+}
+
+/**
+ * 判断モデルを既存の再構成検査で捕捉する。
+ * @responsibility 公開表示のOwnerへ保存codecや履歴投影の内部手順を渡さない。
+ * @trace ARCH-000008
+ * @input value: 未検証の判断値。
+ * @returns 独立した正規モデル、又はnull。
+ * @effect N/A: 値の捕捉と検査のみ。
+ * @failure 不正形、未知field、状態・回答・適用の不整合はnull。
+ * @boundary モデル値と外部の結果検査。
+ * @security 保存値を認証・認可へ昇格しない。
+ */
+export function inspectDecision(value: unknown): Decision | null {
+  try {
+    const captured = JSON.parse(encodeStateValue(value));
+    return projectDecisionHistory(captured) === null
+      ? null
+      : Object.freeze(captured);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -1642,8 +1655,8 @@ export function validateDecisionCollections(
           !record ||
           !first ||
           condition.reason !== first.question ||
-          encodeRuntimeStateValue(first.target) !==
-            encodeRuntimeStateValue(condition.target) ||
+          encodeStateValue(first.target) !==
+            encodeStateValue(condition.target) ||
           record.blockerId !== condition.blockerId ||
           !sameDecisionSubject(record.target, condition.target) ||
           (condition.status === "resolved") !==
@@ -1713,209 +1726,4 @@ export function sameDecisionSubject(
     left.kind === right.kind &&
     left.id === right.id
   );
-}
-
-export const COORDINATOR_HUMAN_DECISION_CONTRACT =
-  "crdd-coordinator/orchestrator-human-decision/v2" as const;
-
-const DECISION_REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-
-/** 判断本文の非空・制御文字条件だけを確認する。 */
-function validDecisionRequestText(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.trim().length > 0 &&
-    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
-  );
-}
-
-/** getterやProxyを評価せず既存codecで入力をコピーし、失敗時は値を返さない。 */
-function captureDecisionRequestRecord(
-  value: unknown,
-): Record<string, unknown> | null {
-  try {
-    const result = JSON.parse(encodeRuntimeStateValue(value));
-    return result && typeof result === "object" && !Array.isArray(result)
-      ? result
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/** fieldの欠測と余分なfieldを同じ閉集合で拒否する。 */
-function keys(value: object, names: readonly string[]): boolean {
-  return Object.keys(value).sort().join() === [...names].sort().join();
-}
-
-/**
- * 認証主体を含まない判断操作だけを閉形式で取得する。
- * @responsibility 旧Bearer・再発行fieldを黙って無視せず拒否する。
- * @trace ARCH-000004、ARCH-000008
- * @input value: 未信頼JSON値。
- * @returns 正規化した操作又はnull。
- * @precondition 認証・認可は信頼入口で別途確認する。
- * @postcondition getter等を評価せず、未知fieldを捨てない。
- * @effect N/A: 値検査のみ。
- * @failure 不正形・未知操作・対象不足はnull。
- * @invariant 入力をAuthorityへ変換しない。
- * @boundary Transportと判断値。
- * @security 主体・秘密値を推測又は補完しない。
- * @concurrency 同期の局所計算のみ。
- */
-export function inspectCoordinatorDecisionRequest(
-  value: unknown,
-): CoordinatorDecisionRequest | null {
-  const v = captureDecisionRequestRecord(value);
-  const common = [
-    "operation",
-    "decisionId",
-    "projectId",
-    "milestoneId",
-    "generation",
-    "repositoryRevision",
-  ];
-  if (
-    !v ||
-    ![v.decisionId, v.projectId, v.milestoneId].every(
-      (x) => typeof x === "string" && DECISION_REQUEST_ID.test(x),
-    ) ||
-    !Number.isSafeInteger(v.generation) ||
-    Number(v.generation) < 1 ||
-    typeof v.repositoryRevision !== "string" ||
-    !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(v.repositoryRevision)
-  )
-    return null;
-  if (v.operation === "request") {
-    if (
-      !keys(v, [
-        ...common,
-        "blockerId",
-        "queueId",
-        "question",
-        "allowedOptions",
-      ]) ||
-      typeof v.blockerId !== "string" ||
-      !DECISION_REQUEST_ID.test(v.blockerId) ||
-      typeof v.queueId !== "string" ||
-      !DECISION_REQUEST_ID.test(v.queueId) ||
-      !validDecisionRequestText(v.question) ||
-      !Array.isArray(v.allowedOptions) ||
-      v.allowedOptions.length < 1 ||
-      v.allowedOptions.length > 2 ||
-      new Set(v.allowedOptions).size !== v.allowedOptions.length ||
-      !v.allowedOptions.every((x) => x === "resume" || x === "cancel")
-    )
-      return null;
-  } else if (v.operation === "answer") {
-    if (
-      !keys(v, [
-        ...common,
-        "selectedOption",
-        ...(Object.hasOwn(v, "comment") ? ["comment"] : []),
-      ]) ||
-      (v.selectedOption !== "resume" && v.selectedOption !== "cancel") ||
-      (Object.hasOwn(v, "comment") &&
-        (typeof v.comment !== "string" ||
-          /[\r\n\u0000-\u001f\u007f]/u.test(v.comment)))
-    )
-      return null;
-  } else if (v.operation === "apply") {
-    if (!keys(v, common)) return null;
-  } else if (v.operation === "close") {
-    if (
-      !keys(v, [...common, "status", "reason"]) ||
-      v.status !== "invalidated" ||
-      !validDecisionRequestText(v.reason)
-    )
-      return null;
-  } else return null;
-  if (Array.isArray(v.allowedOptions)) Object.freeze(v.allowedOptions);
-  return Object.freeze(v) as CoordinatorDecisionRequest;
-}
-
-/**
- * 公開判断結果の状態・履歴・回復要否を相関検査する。
- * @responsibility 部分確定を成功へ丸めず、旧秘密値を公開結果へ通さない。
- * @trace ARCH-000004、ARCH-000008
- * @input value: Coordinatorから搬送された未信頼値。
- * @returns 検査済み結果又はnull。
- * @precondition 返却値を認証・認可として使用しない。
- * @postcondition 未知fieldと矛盾した確定表示を拒否する。
- * @effect N/A: 値検査のみ。
- * @failure 不正形・判断と履歴の矛盾はnull。
- * @invariant 適用・履歴確定・実行再開を同一視しない。
- * @boundary Process結果と利用側表示。
- * @security 秘密値・Host Pathを追加しない。
- * @concurrency 同期の局所計算のみ。
- */
-export function inspectCoordinatorDecisionResult(
-  value: unknown,
-): CoordinatorDecisionResult | null {
-  const v = captureDecisionRequestRecord(value);
-  if (
-    !v ||
-    !keys(v, [
-      "contract",
-      "status",
-      "reason",
-      "decisionId",
-      "recoveryId",
-      "decision",
-      "history",
-      "cleanupConfirmed",
-      "manualRecoveryRequired",
-      "effectState",
-    ]) ||
-    v.contract !== COORDINATOR_HUMAN_DECISION_CONTRACT ||
-    (v.status !== "completed" && v.status !== "blocked") ||
-    !validDecisionRequestText(v.reason) ||
-    typeof v.cleanupConfirmed !== "boolean" ||
-    typeof v.manualRecoveryRequired !== "boolean" ||
-    !["settled", "no_effect", "unknown"].includes(String(v.effectState)) ||
-    (v.decisionId !== null &&
-      (typeof v.decisionId !== "string" ||
-        !DECISION_REQUEST_ID.test(v.decisionId))) ||
-    (v.recoveryId !== null &&
-      (!validDecisionRequestText(v.recoveryId) ||
-        Buffer.byteLength(v.recoveryId, "utf8") > 512))
-  )
-    return null;
-  if (v.decision === null) {
-    if (v.history !== null || v.status !== "blocked") return null;
-    if (
-      v.effectState !== "unknown" &&
-      v.manualRecoveryRequired !== !v.cleanupConfirmed
-    )
-      return null;
-    if (
-      v.effectState === "unknown" &&
-      (v.cleanupConfirmed !== false || v.manualRecoveryRequired !== true)
-    )
-      return null;
-  } else {
-    const decision = v.decision as Decision;
-    if (
-      projectDecisionHistory(decision) === null ||
-      decision.decisionId !== v.decisionId ||
-      v.effectState !== "settled"
-    )
-      return null;
-    const h = v.history as { status?: unknown; reason?: unknown } | null;
-    if (
-      !h ||
-      (h.status === "confirmed"
-        ? !keys(h, ["status"])
-        : h.status !== "unconfirmed" ||
-          !keys(h, ["status", "reason"]) ||
-          !validDecisionRequestText(h.reason))
-    )
-      return null;
-    if (
-      v.cleanupConfirmed !== (h.status === "confirmed") ||
-      v.manualRecoveryRequired !== (h.status === "unconfirmed")
-    )
-      return null;
-  }
-  return v as CoordinatorDecisionResult;
 }

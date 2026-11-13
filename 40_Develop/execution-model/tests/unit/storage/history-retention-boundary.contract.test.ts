@@ -8,12 +8,12 @@
  * @boundary モデルの値検査と上位Consumerの設定現在性。物理保存・実資源の成立ではない。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import test from "node:test";
 import { types } from "node:util";
 import { compileFunction } from "node:vm";
-import test from "node:test";
 import { readHistoryRetentionDays } from "../../../src/storage/lock.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
@@ -47,8 +47,8 @@ test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両�
     "utf8",
   );
   for (const name of [
-    "advanceCoordinatorCurrentHistory",
-    "registerRuntimeOwnedCoordinatorRecoveryResultDelivery",
+    "advanceCurrentHistory",
+    "registerOwnedRecoveryResultDelivery",
   ]) {
     const settlements = new WeakMap<object, { used: boolean }>();
     let currentDays = 30;
@@ -76,12 +76,7 @@ test("履歴と配送の一回Ownerは保持日数と元Ownerの現在性を両�
     };
     const operation = compileFunction(
       `${sourceDeclaration(source, name)}; return ${name};`,
-      [
-        "Buffer",
-        "settlements",
-        "readCoordinatorStateSnapshot",
-        "writeCoordinatorStateSnapshot",
-      ],
+      ["Buffer", "settlements", "readStateSnapshot", "writeStateSnapshot"],
     )(
       Buffer,
       settlements,
@@ -328,13 +323,13 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
       [
         "data",
         "synchronous",
-        "observeRuntimeStorageRepository",
-        "observeRuntimeRecoveryRepository",
+        "observeExecutionStorageRepository",
+        "observeExecutionRecoveryRepository",
       ]
         .map((name) => sourceDeclaration(source, name))
         .join("\n"),
     ) +
-      "\nreturn {observeRuntimeStorageRepository,observeRuntimeRecoveryRepository};",
+      "\nreturn {observeExecutionStorageRepository,observeExecutionRecoveryRepository};",
     [
       "types",
       "createHash",
@@ -343,11 +338,11 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
       "readRepositoryRevision",
     ],
   )(types, createHash, () => "C:/synthetic-unused", observed, observed) as {
-    observeRuntimeStorageRepository: (value: object) => {
+    observeExecutionStorageRepository: (value: object) => {
       revalidate: (days?: number) => boolean;
       historyRetentionDays: number | null;
     };
-    observeRuntimeRecoveryRepository: (value: object) => {
+    observeExecutionRecoveryRepository: (value: object) => {
       revalidate: (days?: number) => boolean;
       historyRetentionDays: number | null;
     };
@@ -362,11 +357,11 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
       return days === currentDays;
     },
   };
-  const normal = factories.observeRuntimeStorageRepository({});
+  const normal = factories.observeExecutionStorageRepository({});
   assert.equal(normal.revalidate(), true);
   assert.equal(policyChecks, 0);
   assert.equal(readHistoryRetentionDays(normal), null);
-  const bound = factories.observeRuntimeRecoveryRepository(input);
+  const bound = factories.observeExecutionRecoveryRepository(input);
   assert.equal(bound.revalidate(), true);
   assert.equal(policyChecks, 0);
   assert.equal(readHistoryRetentionDays(bound), 30);

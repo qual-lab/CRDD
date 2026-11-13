@@ -1,24 +1,21 @@
 /**
- * 新Identityと元Host相関を実Domain codecで構成する試験入力。
+ * 新Identityと元Host相関を固定値として持つ有限の試験入力。
  * @responsibility 旧保存値の補完をせず自己生成した新形式だけを返す。
  * @trace ARCH-000008
  * @level UT
  * @boundary 純粋値だけ。実保存・Docker・AIを扱わない。
  */
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import {
-  decodeRuntimeDomainSnapshot,
-  prepareCoordinatorStateOperationSnapshot,
-} from "../../src/index.ts";
-import type { CoordinatorResourceBook } from "../../src/index.ts";
+import type { OperationResources } from "../../src/index.ts";
 
 /** 新形式の有限入力。旧資源行の変換や実体不存在の推測は行わない。 */
 export function createResourceBookFixture(
   ownershipLabel: string,
   state: "planned" | "absent" | "unknown" = "planned",
   keys: readonly string[] = ["container", "network"],
-): CoordinatorResourceBook {
+): OperationResources {
   return {
     snapshot: {
       resources: keys.map((key, index) => ({
@@ -128,15 +125,67 @@ export function createResourceOperationFixture() {
     },
     hostPaths: { root: "host-root", marker: "host-marker" },
   };
-  const bytes = prepareCoordinatorStateOperationSnapshot(
-    null,
-    `${JSON.stringify(identity)}\n`,
-    binding,
+  // 一つの既知入力だけを宣言する。任意Identityから保存候補を作るHelperではない。
+  const identityJson = `${JSON.stringify(identity)}\n`;
+  const identitySha256 =
+    "cb2c43f922c0797cf926c2336a25dfa3dfcc2ed41bbede7ea53512757e75f922";
+  assert.equal(
+    createHash("sha256").update(identityJson).digest("hex"),
+    identitySha256,
   );
-  assert.ok(bytes);
-  const read = decodeRuntimeDomainSnapshot(bytes, binding);
-  assert.ok(read);
-  const operation = read.snapshot.operations[0];
+  // 固定fixtureは宣言順を保存JSONの正規順へ揃える。汎用codecを借用しない。
+  const snapshot: import("../../src/index.ts").ExecutionStateSnapshot = {
+    blockers: [],
+    decisions: [],
+    historyPending: [],
+    intakeBindings: [],
+    intakeEpoch: null,
+    leaseEvidence: [],
+    leaseIntents: [],
+    managedExecutions: [],
+    operations: [
+      {
+        dockerRestart: null,
+        execution: {
+          externalSend: "not_issued",
+          ownerEffect: "active",
+          providerStart: "not_started",
+          sharedWrite: "not_issued",
+          workspaceReusable: false,
+        },
+        history: null,
+        host: {
+          cleanup: "not_requested",
+          currentToken: token,
+          pendingTransitionJson: null,
+        },
+        identityJson: identityJson,
+        identitySha256: identitySha256,
+        kind: "docker_task",
+        lease: "held",
+        outcome: null,
+        phase: "executing",
+        primaryFailure: null,
+        recoveryId: `docker-task.${"c".repeat(64)}.${"b".repeat(64)}.${identitySha256}`,
+        resources: null,
+        summarySha256: null,
+      },
+    ],
+    pendingDeliveries: [],
+    previous: null,
+    projects: [],
+    queueEntries: [],
+    repositoryBinding: binding,
+    repositoryBindingId: null,
+    resultReceipts: [],
+    results: [],
+    revision: 1,
+    schema: "crdd-domain/runtime-state/v3",
+    unresolvedRecoveries: [],
+    workspaces: [],
+  };
+  const bytes = Buffer.from(JSON.stringify(snapshot) + "\n");
+  const operation = snapshot.operations[0];
   assert.ok(operation?.kind === "docker_task");
   assert.equal(operation.resources, null);
   return {
@@ -144,6 +193,7 @@ export function createResourceOperationFixture() {
     binding,
     ownershipLabel,
     recoveryId: operation.recoveryId,
+    operation,
     identity,
   };
 }

@@ -4,7 +4,7 @@
  * @trace ARCH-000004、ARCH-000008
  */
 
-import { readCoordinatorSnapshotIntakeEpoch } from "../../../execution-model/src/index.ts";
+import { readSnapshotIntakeEpoch } from "../../../execution-model/src/index.ts";
 import {
   acquireCoordinatorSnapshotLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
@@ -37,7 +37,7 @@ export function createCurrentCoordinatorPersistencePorts(
   workingDirectory: string,
   binding: string,
 ): CoordinatorPersistencePorts {
-  const observed = readCoordinatorSnapshotIntakeEpoch(
+  const observed = readSnapshotIntakeEpoch(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
   );

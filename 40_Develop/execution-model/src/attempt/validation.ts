@@ -6,32 +6,32 @@
 
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-import type { CoordinatorStateSnapshot } from "../state/types.ts";
+import type { ExecutionStateSnapshot } from "../state/types.ts";
 import {
-  coordinatorHistoryLineBytes,
-  coordinatorOperationSummaryBytes,
-  encodeRuntimeStateValue,
-  hasRuntimeStateRecordKeys,
+  encodeStateValue,
+  hasExecutionStateRecordKeys,
+  historyLineBytes,
   isSha256Hex,
-  snapshotRuntimeStateRecord,
+  operationSummaryBytes,
+  snapshotStateRecord,
 } from "../state/validation.ts";
 import {
-  coordinatorConsumerCompletionPolicy,
+  getConsumerCompletionPolicy,
   inspectExecutionSelection,
 } from "../task/validation.ts";
 import type {
-  CoordinatorRepairRetentionReceipt,
-  CoordinatorResourceBook,
-  CoordinatorStateOperation,
-  CoordinatorStateRepairOperation,
-  CoordinatorStateTaskOperation,
   DirectoryIdentity,
   DirectoryObservation,
-  DockerRestartCheckpoint,
-  DockerRuntimeRepairCheckpoint,
-  DockerRuntimeRepairDisposalCheckpoint,
-  DockerRuntimeRepairRetentionTargets,
+  ExecutionOperationRecord,
+  OperationRecord,
+  OperationResources,
   RepairAction,
+  RepairCheckpoint,
+  RepairDisposalCheckpoint,
+  RepairOperationRecord,
+  RepairRetentionReceipt,
+  RepairRetentionTargets,
+  RestartCheckpoint,
 } from "./types.ts";
 
 /**
@@ -42,19 +42,19 @@ import type {
  * @returns 検査済み次値、又はnull。nullは更新拒否であり不存在ではない。
  * @effect N/A: 値変換だけ。
  */
-export function applyCoordinatorResourceEvent(
-  previous: CoordinatorResourceBook | null,
+export function applyResourceEvent(
+  previous: OperationResources | null,
   value: unknown,
-): CoordinatorResourceBook | null {
+): OperationResources | null {
   try {
-    const event = JSON.parse(encodeRuntimeStateValue(value));
+    const event = JSON.parse(encodeStateValue(value));
     if (
-      !validateCoordinatorResourceBook(previous) ||
+      !validateResourceBook(previous) ||
       typeof event.key !== "string" ||
       !["submission", "receipt", "identified", "not_issued"].includes(
         event.event,
       ) ||
-      !hasRuntimeStateRecordKeys(
+      !hasExecutionStateRecordKeys(
         event,
         event.event === "not_issued"
           ? ["event", "key"]
@@ -84,7 +84,7 @@ export function applyCoordinatorResourceEvent(
       (item: { key: string }) => item.key === event.key,
     );
     if (!prior || !resource) return null;
-    let checkpoint: CoordinatorResourceBook["checkpoints"][number];
+    let checkpoint: OperationResources["checkpoints"][number];
     if (event.event === "submission") {
       if (prior.submission !== "none" || resource.identity.dockerId !== null)
         return null;
@@ -121,8 +121,8 @@ export function applyCoordinatorResourceEvent(
         item.key === event.key ? checkpoint : item,
       ),
     };
-    return validateCoordinatorResourceBook(book) &&
-      validateCoordinatorResourceBookTransition(previous, book)
+    return validateResourceBook(book) &&
+      validateResourceBookTransition(previous, book)
       ? book
       : null;
   } catch {
@@ -139,19 +139,19 @@ export function applyCoordinatorResourceEvent(
  * @effect N/A: 値と相関Hashの構築だけ。
  * @invariant IDの差替えを拒否するが現在構成の更新は許可する。
  */
-export function applyCoordinatorResourceCleanup(
-  previous: CoordinatorResourceBook,
+export function applyResourceCleanup(
+  previous: OperationResources,
   snapshotValue: unknown,
   observationsValue: unknown,
   evidence: Readonly<{ recoveryId: string; previousPayloadSha256: string }>,
-): CoordinatorResourceBook | null {
+): OperationResources | null {
   try {
     const snapshot = JSON.parse(
-      encodeRuntimeStateValue(snapshotValue),
-    ) as CoordinatorResourceBook["snapshot"];
-    const observations = JSON.parse(encodeRuntimeStateValue(observationsValue));
+      encodeStateValue(snapshotValue),
+    ) as OperationResources["snapshot"];
+    const observations = JSON.parse(encodeStateValue(observationsValue));
     if (
-      !validateCoordinatorResourceBook(previous) ||
+      !validateResourceBook(previous) ||
       !snapshot ||
       !Array.isArray(snapshot.resources) ||
       !Array.isArray(observations) ||
@@ -168,7 +168,7 @@ export function applyCoordinatorResourceCleanup(
         (item) => item.key === checkpoint.key,
       );
       if (
-        !hasRuntimeStateRecordKeys(observed, ["key", "observation"]) ||
+        !hasExecutionStateRecordKeys(observed, ["key", "observation"]) ||
         !resource ||
         !["not_requested", "absent", "unknown"].includes(observed.observation)
       )
@@ -203,7 +203,7 @@ export function applyCoordinatorResourceCleanup(
               ? checkpoint.absenceEvidenceSha256
               : createHash("sha256")
                   .update(
-                    encodeRuntimeStateValue({
+                    encodeStateValue({
                       ...evidence,
                       observation: observed,
                     }),
@@ -213,8 +213,8 @@ export function applyCoordinatorResourceCleanup(
       };
     });
     const book = { ...previous, snapshot, checkpoints };
-    return validateCoordinatorResourceBook(book) &&
-      validateCoordinatorResourceBookTransition(previous, book)
+    return validateResourceBook(book) &&
+      validateResourceBookTransition(previous, book)
       ? book
       : null;
   } catch {
@@ -237,9 +237,9 @@ export function applyCoordinatorResourceCleanup(
  * @security Path、秘密、Task Authorityを取り込まない。
  * @concurrency N/A: 共有可変状態なし。
  */
-export function decodeDockerRuntimeRepairCheckpoint(
+export function decodeEnvironmentRepairCheckpoint(
   value: unknown,
-): DockerRuntimeRepairCheckpoint | null {
+): RepairCheckpoint | null {
   const record = capture(value, [
     "actions",
     "directories",
@@ -250,11 +250,8 @@ export function decodeDockerRuntimeRepairCheckpoint(
     "cleanupFailure",
   ]);
   if (!record) return null;
-  const actionValues = capture(record.actions, RUNTIME_REPAIR_ACTIONS);
-  const directoryValues = capture(
-    record.directories,
-    RUNTIME_REPAIR_DIRECTORIES,
-  );
+  const actionValues = capture(record.actions, REPAIR_ACTIONS);
+  const directoryValues = capture(record.directories, REPAIR_DIRECTORIES);
   if (
     !actionValues ||
     !directoryValues ||
@@ -287,10 +284,10 @@ export function decodeDockerRuntimeRepairCheckpoint(
   )
     return null;
   const capturedActions = {} as Record<
-    (typeof RUNTIME_REPAIR_ACTIONS)[number],
+    (typeof REPAIR_ACTIONS)[number],
     RepairAction
   >;
-  for (const [index, key] of RUNTIME_REPAIR_ACTIONS.entries()) {
+  for (const [index, key] of REPAIR_ACTIONS.entries()) {
     const action = capture(actionValues[key], ["intent", "request", "result"]);
     if (
       !action ||
@@ -318,7 +315,7 @@ export function decodeDockerRuntimeRepairCheckpoint(
     // 明示不要の記録は新Effectを発行しない。意図保存・発行は前処置の確定後だけ。
     if (
       action.intent === "saved" &&
-      !RUNTIME_REPAIR_ACTIONS.slice(0, index).every((previous) =>
+      !REPAIR_ACTIONS.slice(0, index).every((previous) =>
         settled(capturedActions[previous]),
       )
     )
@@ -326,10 +323,10 @@ export function decodeDockerRuntimeRepairCheckpoint(
     capturedActions[key] = Object.freeze(action) as RepairAction;
   }
   const capturedDirectories = {} as Record<
-    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
-    DockerRuntimeRepairCheckpoint["directories"]["primary"]
+    (typeof REPAIR_DIRECTORIES)[number],
+    RepairCheckpoint["directories"]["primary"]
   >;
-  for (const key of RUNTIME_REPAIR_DIRECTORIES) {
+  for (const key of REPAIR_DIRECTORIES) {
     const pair = capture(directoryValues[key], [
       "expected",
       "source",
@@ -363,10 +360,10 @@ export function decodeDockerRuntimeRepairCheckpoint(
     )
       return null;
   }
-  const retained = RUNTIME_REPAIR_DIRECTORIES.some(
+  const retained = REPAIR_DIRECTORIES.some(
     (key) => capturedDirectories[key].retained.state === "present",
   );
-  const absent = RUNTIME_REPAIR_DIRECTORIES.every(
+  const absent = REPAIR_DIRECTORIES.every(
     (key) => capturedDirectories[key].retained.state === "absent",
   );
   if (record.stale !== (retained ? "retained" : absent ? "absent" : "unknown"))
@@ -379,7 +376,7 @@ export function decodeDockerRuntimeRepairCheckpoint(
     hostSafety: record.hostSafety,
     cleanup: record.cleanup,
     cleanupFailure: record.cleanupFailure,
-  }) as DockerRuntimeRepairCheckpoint;
+  }) as RepairCheckpoint;
 }
 
 /**
@@ -397,19 +394,19 @@ export function decodeDockerRuntimeRepairCheckpoint(
  * @security 任意Path・実行処理・旧形式を受け付けない。
  * @concurrency N/A: 同期の値捕捉だけ。
  */
-export function decodeDockerRuntimeRepairDisposalCheckpoint(
+export function decodeEnvironmentRepairDisposalCheckpoint(
   value: unknown,
-): DockerRuntimeRepairDisposalCheckpoint | null {
+): RepairDisposalCheckpoint | null {
   const record = capture(value, ["directories"]);
   const values = record
-    ? capture(record.directories, RUNTIME_REPAIR_DIRECTORIES)
+    ? capture(record.directories, REPAIR_DIRECTORIES)
     : null;
   if (!values) return null;
   const result = {} as Record<
-    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
-    DockerRuntimeRepairDisposalCheckpoint["directories"]["primary"]
+    (typeof REPAIR_DIRECTORIES)[number],
+    RepairDisposalCheckpoint["directories"]["primary"]
   >;
-  for (const purpose of RUNTIME_REPAIR_DIRECTORIES) {
+  for (const purpose of REPAIR_DIRECTORIES) {
     const item = capture(values[purpose], ["intent", "request", "absence"]);
     if (
       !item ||
@@ -446,11 +443,11 @@ export function decodeDockerRuntimeRepairDisposalCheckpoint(
  * @security 保存値だけで実対象の現在不存在を証明しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
-  const checkpoint = decodeDockerRuntimeRepairDisposalCheckpoint(value);
+export function isRepairDisposalSettled(value: unknown): boolean {
+  const checkpoint = decodeEnvironmentRepairDisposalCheckpoint(value);
   return (
     checkpoint !== null &&
-    RUNTIME_REPAIR_DIRECTORIES.every(
+    REPAIR_DIRECTORIES.every(
       (purpose) =>
         checkpoint.directories[purpose].intent === "saved" &&
         checkpoint.directories[purpose].absence === "confirmed_absent",
@@ -473,17 +470,15 @@ export function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
  * @security 任意操作や外部資源へ接続しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function dockerRuntimeRepairCheckpointIsSettled(
-  value: unknown,
-): boolean {
-  const checkpoint = decodeDockerRuntimeRepairCheckpoint(value);
+export function isRepairCheckpointSettled(value: unknown): boolean {
+  const checkpoint = decodeEnvironmentRepairCheckpoint(value);
   return (
     checkpoint !== null &&
-    RUNTIME_REPAIR_ACTIONS.every((key) => settled(checkpoint.actions[key]))
+    REPAIR_ACTIONS.every((key) => settled(checkpoint.actions[key]))
   );
 }
 
-export const RUNTIME_REPAIR_ACTIONS = Object.freeze([
+export const REPAIR_ACTIONS = Object.freeze([
   "stop_runtime",
   "stop_backend",
   "retain_runtime",
@@ -494,7 +489,7 @@ export const RUNTIME_REPAIR_ACTIONS = Object.freeze([
   "restart_runtime",
 ] as const);
 
-export const RUNTIME_REPAIR_DIRECTORIES = Object.freeze([
+export const REPAIR_DIRECTORIES = Object.freeze([
   "primary",
   "failed",
   "auxiliary",
@@ -633,20 +628,20 @@ export function observation(value: unknown): DirectoryObservation | null {
  * @security Path・Owner・Scopeを受け付けない。
  * @concurrency N/A: 入力を変更しない。
  */
-export function decodeDockerRuntimeRepairRetentionTargets(
+export function decodeEnvironmentRepairRetentionTargets(
   value: unknown,
-): DockerRuntimeRepairRetentionTargets | null {
-  const record = capture(value, RUNTIME_REPAIR_DIRECTORIES);
+): RepairRetentionTargets | null {
+  const record = capture(value, REPAIR_DIRECTORIES);
   if (!record) return null;
   const targets: Record<
-    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
+    (typeof REPAIR_DIRECTORIES)[number],
     DirectoryIdentity | null
   > = {
     primary: null,
     failed: null,
     auxiliary: null,
   };
-  for (const purpose of RUNTIME_REPAIR_DIRECTORIES) {
+  for (const purpose of REPAIR_DIRECTORIES) {
     const target = record[purpose] === null ? null : identity(record[purpose]);
     if (record[purpose] !== null && target === null) return null;
     targets[purpose] = target;
@@ -664,18 +659,18 @@ export function decodeDockerRuntimeRepairRetentionTargets(
  * @postcondition pending／unknownや過去の回収失敗を新取得で解消しない。
  * @effect N/A: 同期の値生成だけ。
  * @failure 不正値、cleanup未確認または失敗記録ありはnull。
- * @invariant RUNTIME_REPAIR_ACTIONS・Directory実体・Engine・保持・安全性・失敗を変更しない。
+ * @invariant REPAIR_ACTIONS・Directory実体・Engine・保持・安全性・失敗を変更しない。
  * @boundary fresh準備の技術候補と保存Owner。
  * @security 候補は取得・保存・実処置Authorityではない。
  * @concurrency N/A: 共有状態なし。
  */
-export function prepareDockerRuntimeRepairSessionCheckpoint(
+export function prepareEnvironmentRepairSessionCheckpoint(
   value: unknown,
-): DockerRuntimeRepairCheckpoint | null {
-  const before = decodeDockerRuntimeRepairCheckpoint(value);
+): RepairCheckpoint | null {
+  const before = decodeEnvironmentRepairCheckpoint(value);
   if (before?.cleanup !== "confirmed" || before.cleanupFailure !== null)
     return null;
-  return decodeDockerRuntimeRepairCheckpoint({ ...before, cleanup: "pending" });
+  return decodeEnvironmentRepairCheckpoint({ ...before, cleanup: "pending" });
 }
 
 /**
@@ -693,12 +688,12 @@ export function prepareDockerRuntimeRepairSessionCheckpoint(
  * @security Path・Identity・Authorityを生成しない。
  * @concurrency 呼出しごとに別の凍結値を返す。
  */
-export function createDockerRuntimeRepairDisposalCheckpoint(): DockerRuntimeRepairDisposalCheckpoint {
+export function createEnvironmentRepairDisposalCheckpoint(): RepairDisposalCheckpoint {
   const result = {} as Record<
-    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
-    DockerRuntimeRepairDisposalCheckpoint["directories"]["primary"]
+    (typeof REPAIR_DIRECTORIES)[number],
+    RepairDisposalCheckpoint["directories"]["primary"]
   >;
-  for (const purpose of RUNTIME_REPAIR_DIRECTORIES)
+  for (const purpose of REPAIR_DIRECTORIES)
     result[purpose] = Object.freeze({
       intent: "not_saved",
       request: "not_issued",
@@ -722,22 +717,20 @@ export function createDockerRuntimeRepairDisposalCheckpoint(): DockerRuntimeRepa
  * @security trueは削除許可ではない。同値候補のWriterはno-op／Effect 0とする。
  * @concurrency N/A: 元版CAS・排他・実観測は外側で確認する。
  */
-export function validateDockerRuntimeRepairDisposalTransition(
+export function validateEnvironmentRepairDisposalTransition(
   beforeValue: unknown,
   afterValue: unknown,
   purpose: unknown,
 ): boolean {
-  const before = decodeDockerRuntimeRepairDisposalCheckpoint(beforeValue);
-  const after = decodeDockerRuntimeRepairDisposalCheckpoint(afterValue);
+  const before = decodeEnvironmentRepairDisposalCheckpoint(beforeValue);
+  const after = decodeEnvironmentRepairDisposalCheckpoint(afterValue);
   if (
     !before ||
     !after ||
-    !RUNTIME_REPAIR_DIRECTORIES.includes(
-      purpose as (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
-    )
+    !REPAIR_DIRECTORIES.includes(purpose as (typeof REPAIR_DIRECTORIES)[number])
   )
     return false;
-  for (const key of RUNTIME_REPAIR_DIRECTORIES) {
+  for (const key of REPAIR_DIRECTORIES) {
     const a = before.directories[key];
     const b = after.directories[key];
     if (JSON.stringify(a) === JSON.stringify(b)) continue;
@@ -772,12 +765,12 @@ export function validateDockerRuntimeRepairDisposalTransition(
  * @security trueは実補助子の取得や現在許可を証明しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function validateDockerRuntimeRepairSessionCheckpoint(
+export function validateEnvironmentRepairSessionCheckpoint(
   beforeValue: unknown,
   afterValue: unknown,
 ): boolean {
-  const expected = prepareDockerRuntimeRepairSessionCheckpoint(beforeValue);
-  const after = decodeDockerRuntimeRepairCheckpoint(afterValue);
+  const expected = prepareEnvironmentRepairSessionCheckpoint(beforeValue);
+  const after = decodeEnvironmentRepairCheckpoint(afterValue);
   return (
     expected !== null &&
     after !== null &&
@@ -800,14 +793,14 @@ export function validateDockerRuntimeRepairSessionCheckpoint(
  * @security trueは実処置や現在許可を保証しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function validateDockerRuntimeRepairCheckpointTransition(
+export function validateEnvironmentRepairCheckpointTransition(
   beforeValue: unknown,
   afterValue: unknown,
 ): boolean {
-  const before = decodeDockerRuntimeRepairCheckpoint(beforeValue);
-  const after = decodeDockerRuntimeRepairCheckpoint(afterValue);
+  const before = decodeEnvironmentRepairCheckpoint(beforeValue);
+  const after = decodeEnvironmentRepairCheckpoint(afterValue);
   if (!before || !after) return false;
-  for (const key of RUNTIME_REPAIR_ACTIONS) {
+  for (const key of REPAIR_ACTIONS) {
     const a = before.actions[key];
     const b = after.actions[key];
     if (JSON.stringify(a) === JSON.stringify(b)) continue;
@@ -825,7 +818,7 @@ export function validateDockerRuntimeRepairCheckpointTransition(
     )
       return false;
   }
-  for (const key of RUNTIME_REPAIR_DIRECTORIES) {
+  for (const key of REPAIR_DIRECTORIES) {
     const a = before.directories[key];
     const b = after.directories[key];
     if (
@@ -862,20 +855,22 @@ export function validateDockerRuntimeRepairCheckpointTransition(
  * @effect N/A: JSON値の純粋検査だけ。
  * @failure 旧配列形式、欠測・重複key、秘密値を含み得る未正規化fieldは拒否する。
  */
-export function validateCoordinatorResourceBook(
+export function validateResourceBook(
   value: unknown,
-): value is CoordinatorResourceBook | null {
+): value is OperationResources | null {
   if (value === null) return true;
-  if (!hasRuntimeStateRecordKeys(value, ["snapshot", "checkpoints", "cleanup"]))
-    return false;
-  const book = value as CoordinatorResourceBook;
   if (
-    !hasRuntimeStateRecordKeys(book.snapshot, ["resources"]) ||
+    !hasExecutionStateRecordKeys(value, ["snapshot", "checkpoints", "cleanup"])
+  )
+    return false;
+  const book = value as OperationResources;
+  if (
+    !hasExecutionStateRecordKeys(book.snapshot, ["resources"]) ||
     !Array.isArray(book.snapshot.resources) ||
     !Array.isArray(book.checkpoints) ||
     book.snapshot.resources.length === 0 ||
     book.snapshot.resources.length !== book.checkpoints.length ||
-    !hasRuntimeStateRecordKeys(book.cleanup, [
+    !hasExecutionStateRecordKeys(book.cleanup, [
       "cleanupOrder",
       "setupTimeoutMs",
       "unreceiptedAbsence",
@@ -892,7 +887,7 @@ export function validateCoordinatorResourceBook(
   const resourceNames = new Set<string>();
   for (const resource of book.snapshot.resources) {
     if (
-      !hasRuntimeStateRecordKeys(resource, [
+      !hasExecutionStateRecordKeys(resource, [
         "key",
         "identity",
         "request",
@@ -901,7 +896,7 @@ export function validateCoordinatorResourceBook(
       typeof resource.key !== "string" ||
       resource.key.length === 0 ||
       keys.has(resource.key) ||
-      !hasRuntimeStateRecordKeys(resource.identity, [
+      !hasExecutionStateRecordKeys(resource.identity, [
         "kind",
         "dockerId",
         "name",
@@ -918,7 +913,7 @@ export function validateCoordinatorResourceBook(
       (resource.request === "issued" && resource.identity.dockerId === null) ||
       (resource.request === "not_issued" &&
         resource.identity.dockerId !== null) ||
-      !hasRuntimeStateRecordKeys(resource.configuration, [
+      !hasExecutionStateRecordKeys(resource.configuration, [
         "image",
         "command",
         "environmentNames",
@@ -952,7 +947,11 @@ export function validateCoordinatorResourceBook(
         (!Array.isArray(c.mounts) ||
           c.mounts.some(
             (v: unknown) =>
-              !hasRuntimeStateRecordKeys(v, ["source", "target", "readOnly"]) ||
+              !hasExecutionStateRecordKeys(v, [
+                "source",
+                "target",
+                "readOnly",
+              ]) ||
               typeof (v as { source: unknown }).source !== "string" ||
               typeof (v as { target: unknown }).target !== "string" ||
               typeof (v as { readOnly: unknown }).readOnly !== "boolean",
@@ -963,7 +962,7 @@ export function validateCoordinatorResourceBook(
   const checkpointKeys = new Set<string>();
   for (const checkpoint of book.checkpoints) {
     if (
-      !hasRuntimeStateRecordKeys(checkpoint, [
+      !hasExecutionStateRecordKeys(checkpoint, [
         "key",
         "submission",
         "receiptSource",
@@ -1017,11 +1016,11 @@ export function validateCoordinatorResourceBook(
  * @trace ARCH-000008
  * @effect N/A: 値の比較だけ。構成差を回収拒否へ転化しない。
  */
-export function validateCoordinatorResourceBookTransition(
-  before: CoordinatorResourceBook | null,
-  after: CoordinatorResourceBook | null,
+export function validateResourceBookTransition(
+  before: OperationResources | null,
+  after: OperationResources | null,
 ): boolean {
-  if (!validateCoordinatorResourceBook(after)) return false;
+  if (!validateResourceBook(after)) return false;
   if (before === null)
     return (
       after === null ||
@@ -1037,8 +1036,7 @@ export function validateCoordinatorResourceBookTransition(
     );
   if (
     after === null ||
-    encodeRuntimeStateValue(before.cleanup) !==
-      encodeRuntimeStateValue(after.cleanup) ||
+    encodeStateValue(before.cleanup) !== encodeStateValue(after.cleanup) ||
     before.snapshot.resources.length !== after.snapshot.resources.length
   )
     return false;
@@ -1084,8 +1082,8 @@ export function validateCoordinatorResourceBookTransition(
  * @security 候補生成を削除許可や実資源不存在の観測にしない。
  * @concurrency 元版・履歴・現在Ownerの再照合は物理Writerが所有する。
  */
-export function coordinatorRepairCanComplete(
-  operation: CoordinatorStateRepairOperation,
+export function repairCanComplete(
+  operation: RepairOperationRecord,
   snapshot: Readonly<{
     unresolvedRecoveries: readonly Readonly<{ recoveryId: string }>[];
     pendingDeliveries: readonly Readonly<{ recoveryId: string }>[];
@@ -1101,14 +1099,14 @@ export function coordinatorRepairCanComplete(
     operation.checkpoint.hostSafety !== "safe" ||
     operation.checkpoint.cleanup !== "confirmed" ||
     operation.checkpoint.cleanupFailure !== null ||
-    !dockerRuntimeRepairCheckpointIsSettled(operation.checkpoint) ||
+    !isRepairCheckpointSettled(operation.checkpoint) ||
     !(
       (operation.disposition === "not_applicable" &&
         operation.checkpoint.stale === "absent") ||
       (operation.disposition === "discard" &&
         operation.checkpoint.stale === "retained" &&
         operation.disposal !== null &&
-        dockerRuntimeRepairDisposalIsSettled(operation.disposal.checkpoint)) ||
+        isRepairDisposalSettled(operation.disposal.checkpoint)) ||
       (operation.disposition === "retained_by_human_decision" &&
         operation.checkpoint.stale === "retained" &&
         operation.retention !== undefined)
@@ -1152,9 +1150,9 @@ export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
  * @security 保存内容を処置Authorityへ昇格しない。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function validCoordinatorExecutionState(
+export function validExecutionState(
   snapshot: Pick<
-    CoordinatorStateSnapshot,
+    ExecutionStateSnapshot,
     "operations" | "unresolvedRecoveries" | "pendingDeliveries"
   >,
   repositoryBinding: string,
@@ -1165,17 +1163,15 @@ export function validCoordinatorExecutionState(
     !Array.isArray(snapshot.pendingDeliveries)
   )
     return false;
-  const operations = new Map<string, CoordinatorStateOperation>();
+  const operations = new Map<string, OperationRecord>();
   let unresolvedRestarts = 0;
   let unresolvedRepairs = 0;
   let previousNonce = "";
   for (const operation of snapshot.operations) {
     if (operation.kind === "runtime_repair") {
-      if (
-        !validCoordinatorRepairOperation(operation, repositoryBinding as string)
-      )
+      if (!validRepairOperation(operation, repositoryBinding as string))
         return false;
-      const nonce = coordinatorOperationNonce(operation);
+      const nonce = operationNonce(operation);
       if (nonce <= previousNonce) return false;
       previousNonce = nonce;
       operations.set(nonce, operation);
@@ -1185,7 +1181,7 @@ export function validCoordinatorExecutionState(
     }
     if (operation.kind !== "docker_task") return false;
     if (
-      !hasRuntimeStateRecordKeys(operation, [
+      !hasExecutionStateRecordKeys(operation, [
         "kind",
         "dockerRestart",
         "identityJson",
@@ -1214,7 +1210,7 @@ export function validCoordinatorExecutionState(
     const identity = JSON.parse(operation.identityJson);
     if (
       `${JSON.stringify(identity)}\n` !== operation.identityJson ||
-      !validateCoordinatorOperationIdentity(
+      !validateOperationIdentity(
         identity,
         recovery.operationNonce,
         repositoryBinding,
@@ -1256,15 +1252,15 @@ export function validCoordinatorExecutionState(
     )
       return false;
     if (
-      !validateCoordinatorResourceBook(operation.resources) ||
+      !validateResourceBook(operation.resources) ||
       operation.resources?.snapshot.resources.some(
-        (resource: CoordinatorResourceBook["snapshot"]["resources"][number]) =>
+        (resource: OperationResources["snapshot"]["resources"][number]) =>
           resource.identity.ownershipLabel !== identity.ownershipLabel,
       )
     )
       return false;
     if (
-      !hasRuntimeStateRecordKeys(operation.host, [
+      !hasExecutionStateRecordKeys(operation.host, [
         "currentToken",
         "pendingTransitionJson",
         "cleanup",
@@ -1288,7 +1284,7 @@ export function validCoordinatorExecutionState(
       if (
         `${JSON.stringify(transition)}\n` !==
           operation.host.pendingTransitionJson ||
-        !hasRuntimeStateRecordKeys(transition, [
+        !hasExecutionStateRecordKeys(transition, [
           "currentToken",
           "expectedToken",
           "rootName",
@@ -1319,7 +1315,7 @@ export function validCoordinatorExecutionState(
     }
     const execution = operation.execution;
     if (
-      !hasRuntimeStateRecordKeys(execution, [
+      !hasExecutionStateRecordKeys(execution, [
         "providerStart",
         "externalSend",
         "sharedWrite",
@@ -1336,8 +1332,8 @@ export function validCoordinatorExecutionState(
     )
       return false;
     if (
-      !validCoordinatorPrimaryFailure(operation.primaryFailure) ||
-      !validCoordinatorOutcome(operation.outcome)
+      !validPrimaryFailure(operation.primaryFailure) ||
+      !validOutcome(operation.outcome)
     )
       return false;
     if ((operation.summarySha256 === null) !== (operation.history === null))
@@ -1346,7 +1342,7 @@ export function validCoordinatorExecutionState(
       const history = operation.history;
       if (
         !operation.outcome ||
-        !hasRuntimeStateRecordKeys(history, [
+        !hasExecutionStateRecordKeys(history, [
           "occurredAt",
           "lineSha256",
           "confirmed",
@@ -1358,10 +1354,10 @@ export function validCoordinatorExecutionState(
         !isSha256Hex(history.lineSha256) ||
         typeof history.confirmed !== "boolean" ||
         createHash("sha256")
-          .update(coordinatorOperationSummaryBytes(operation))
+          .update(operationSummaryBytes(operation))
           .digest("hex") !== operation.summarySha256 ||
         createHash("sha256")
-          .update(coordinatorHistoryLineBytes(operation, history.occurredAt))
+          .update(historyLineBytes(operation, history.occurredAt))
           .digest("hex") !== history.lineSha256
       )
         return false;
@@ -1371,7 +1367,7 @@ export function validCoordinatorExecutionState(
   for (const recovery of snapshot.unresolvedRecoveries) {
     const referencedOperation = operations.get(recovery.operationNonce);
     if (
-      !hasRuntimeStateRecordKeys(recovery, [
+      !hasExecutionStateRecordKeys(recovery, [
         "operationNonce",
         "recoveryId",
         "reason",
@@ -1407,7 +1403,7 @@ export function validCoordinatorExecutionState(
   for (const delivery of snapshot.pendingDeliveries) {
     const deliveryOperation = operations.get(delivery.operationNonce);
     if (
-      !hasRuntimeStateRecordKeys(delivery, [
+      !hasExecutionStateRecordKeys(delivery, [
         "operationNonce",
         "recoveryId",
         "resultId",
@@ -1447,12 +1443,12 @@ export function validCoordinatorExecutionState(
  * @security 生Path、Provider、Homeを修復Identityへ入れない。
  * @concurrency N/A: 同期の値検査。
  */
-export function validCoordinatorRepairOperation(
-  operation: CoordinatorStateRepairOperation,
+export function validRepairOperation(
+  operation: RepairOperationRecord,
   repositoryBinding: string,
 ): boolean {
   if (
-    !hasRuntimeStateRecordKeys(operation, [
+    !hasExecutionStateRecordKeys(operation, [
       "kind",
       "identityJson",
       "identitySha256",
@@ -1474,7 +1470,7 @@ export function validCoordinatorRepairOperation(
   try {
     const identity = JSON.parse(operation.identityJson);
     if (
-      !hasRuntimeStateRecordKeys(identity, [
+      !hasExecutionStateRecordKeys(identity, [
         "schema",
         "kind",
         "operationNonce",
@@ -1516,21 +1512,18 @@ export function validCoordinatorRepairOperation(
     const checkpoint =
       operation.checkpoint === null
         ? null
-        : decodeDockerRuntimeRepairCheckpoint(operation.checkpoint);
+        : decodeEnvironmentRepairCheckpoint(operation.checkpoint);
     if (operation.checkpoint !== null && !checkpoint) return false;
     if (
       Object.hasOwn(operation, "retention") &&
-      (!validCoordinatorRepairRetentionReceipt(operation.retention) ||
+      (!validRepairRetentionReceipt(operation.retention) ||
         operation.disposition !== "retained_by_human_decision" ||
         operation.phase !== "settling" ||
         operation.disposal !== null ||
         operation.outcome?.status !== "recovered" ||
         operation.primaryFailure !== null ||
         !checkpoint ||
-        !coordinatorRepairRetentionMatchesCheckpoint(
-          operation.retention,
-          checkpoint,
-        ))
+        !repairRetentionMatchesCheckpoint(operation.retention, checkpoint))
     )
       return false;
     if (
@@ -1543,12 +1536,12 @@ export function validCoordinatorRepairOperation(
     if (operation.disposal !== null) {
       const disposal = operation.disposal;
       if (
-        !hasRuntimeStateRecordKeys(disposal, ["decidedAt", "checkpoint"]) ||
+        !hasExecutionStateRecordKeys(disposal, ["decidedAt", "checkpoint"]) ||
         typeof disposal.decidedAt !== "string" ||
         !Number.isFinite(Date.parse(disposal.decidedAt)) ||
         new Date(disposal.decidedAt).toISOString() !== disposal.decidedAt ||
-        !decodeDockerRuntimeRepairDisposalCheckpoint(disposal.checkpoint) ||
-        (!dockerRuntimeRepairDisposalIsSettled(disposal.checkpoint) &&
+        !decodeEnvironmentRepairDisposalCheckpoint(disposal.checkpoint) ||
+        (!isRepairDisposalSettled(disposal.checkpoint) &&
           (operation.summarySha256 !== null || operation.history !== null)) ||
         operation.phase !== "settling" ||
         operation.outcome?.status !== "recovered" ||
@@ -1560,7 +1553,7 @@ export function validCoordinatorRepairOperation(
     const failure = operation.primaryFailure;
     if (
       failure !== null &&
-      (!hasRuntimeStateRecordKeys(failure, ["stage", "reason"]) ||
+      (!hasExecutionStateRecordKeys(failure, ["stage", "reason"]) ||
         !["preparation", "checkpoint", "repair", "delivery"].includes(
           failure.stage,
         ) ||
@@ -1571,7 +1564,7 @@ export function validCoordinatorRepairOperation(
     const outcome = operation.outcome;
     if (outcome !== null) {
       if (
-        !hasRuntimeStateRecordKeys(outcome, [
+        !hasExecutionStateRecordKeys(outcome, [
           "status",
           "reason",
           "cleanupConfirmed",
@@ -1603,7 +1596,7 @@ export function validCoordinatorRepairOperation(
           checkpoint.cleanup !== "confirmed" ||
           checkpoint.cleanupFailure !== null ||
           failure !== null ||
-          !dockerRuntimeRepairCheckpointIsSettled(checkpoint))
+          !isRepairCheckpointSettled(checkpoint))
       )
         return false;
     }
@@ -1627,8 +1620,8 @@ export function validCoordinatorRepairOperation(
     if (operation.history === null) return true;
     const history = operation.history;
     return (
-      coordinatorRepairCanSummarize(operation) &&
-      hasRuntimeStateRecordKeys(history, [
+      repairCanSummarize(operation) &&
+      hasExecutionStateRecordKeys(history, [
         "occurredAt",
         "lineSha256",
         "confirmed",
@@ -1641,12 +1634,10 @@ export function validCoordinatorRepairOperation(
       typeof history.confirmed === "boolean" &&
       isSha256Hex(history.lineSha256) &&
       createHash("sha256")
-        .update(coordinatorRepairSummaryBytes(operation))
+        .update(repairSummaryBytes(operation))
         .digest("hex") === operation.summarySha256 &&
       createHash("sha256")
-        .update(
-          coordinatorRepairHistoryLineBytes(operation, history.occurredAt),
-        )
+        .update(repairHistoryLineBytes(operation, history.occurredAt))
         .digest("hex") === history.lineSha256
     );
   } catch {
@@ -1669,9 +1660,7 @@ export function validCoordinatorRepairOperation(
  * @security 任意PathやHomeを参照しない。
  * @concurrency N/A: 同期値読取り。
  */
-export function coordinatorOperationNonce(
-  operation: CoordinatorStateOperation,
-): string {
+export function operationNonce(operation: OperationRecord): string {
   return JSON.parse(operation.identityJson).operationNonce;
 }
 
@@ -1719,7 +1708,7 @@ export function parseDockerTaskRecoveryId(token: unknown) {
  * @security 保存Pathは処置許可を付与しない。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function validateCoordinatorOperationIdentity(
+export function validateOperationIdentity(
   value: unknown,
   nonce: string,
   repositoryBinding: string,
@@ -1752,7 +1741,7 @@ export function validateCoordinatorOperationIdentity(
   ];
   const hasCorrelation = Object.hasOwn(identity ?? {}, "recoveryCorrelationId");
   if (
-    !hasRuntimeStateRecordKeys(
+    !hasExecutionStateRecordKeys(
       value,
       hasCorrelation ? [...keys, "recoveryCorrelationId"] : keys,
     )
@@ -1767,7 +1756,7 @@ export function validateCoordinatorOperationIdentity(
   }
   return (
     identity.schema === OPERATION_IDENTITY_SCHEMA &&
-    coordinatorConsumerCompletionPolicy(identity.consumer) !== null &&
+    getConsumerCompletionPolicy(identity.consumer) !== null &&
     identity.operationNonce === nonce &&
     identity.repositoryBinding === repositoryBinding &&
     isSha256Hex(identity.repositoryBinding) &&
@@ -1794,7 +1783,7 @@ export function validateCoordinatorOperationIdentity(
       (identity.workspaceProtected === true &&
         identity.operationMode === "isolated_task" &&
         identity.workspaceMountMode !== null &&
-        hasRuntimeStateRecordKeys(identity.workspaceProtection, [
+        hasExecutionStateRecordKeys(identity.workspaceProtection, [
           "gitSourcePath",
           "internalSourcePath",
         ]) &&
@@ -1811,7 +1800,7 @@ export function validateCoordinatorOperationIdentity(
           identity.recoveryCorrelationId,
         ))) &&
     validateHostSnapshot(identity.initialHostRecovery, token) &&
-    hasRuntimeStateRecordKeys(identity.hostPaths, ["root", "marker"]) &&
+    hasExecutionStateRecordKeys(identity.hostPaths, ["root", "marker"]) &&
     typeof (identity.hostPaths as Record<string, unknown>).root === "string" &&
     typeof (identity.hostPaths as Record<string, unknown>).marker === "string"
   );
@@ -1834,8 +1823,8 @@ export function validateCoordinatorOperationIdentity(
  */
 export function decodeDockerRestartCheckpoint(
   value: unknown,
-): DockerRestartCheckpoint | null {
-  const record = snapshotRuntimeStateRecord(
+): RestartCheckpoint | null {
+  const record = snapshotStateRecord(
     value,
     new Set(["requestId", "scopeSha256", "request", "cleanup", "result"]),
   );
@@ -1854,7 +1843,7 @@ export function decodeDockerRestartCheckpoint(
   const result =
     record.result === null
       ? null
-      : snapshotRuntimeStateRecord(
+      : snapshotStateRecord(
           record.result,
           new Set(["status", "reason", "request", "effectOutcomeUnknown"]),
         );
@@ -1892,7 +1881,7 @@ export function decodeDockerRestartCheckpoint(
     request: record.request,
     cleanup: record.cleanup,
     result: result ? Object.freeze({ ...result }) : null,
-  }) as DockerRestartCheckpoint;
+  }) as RestartCheckpoint;
 }
 
 /**
@@ -2104,7 +2093,7 @@ export function validateHostRecoveryTransitionLineage(
  * @security 自由な例外本文やPathを許可しない。
  * @concurrency N/A: 同期処理だけ。
  */
-export function validCoordinatorPrimaryFailure(value: unknown): boolean {
+export function validPrimaryFailure(value: unknown): boolean {
   if (value === null) return true;
   // 既存診断にない観測値を0で補わず、追加された場合だけ閉じて検査する。
   const hasObservation =
@@ -2120,7 +2109,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
     typeof value === "object" &&
     Object.hasOwn(value, "turnCountDiagnostic");
   if (
-    !hasRuntimeStateRecordKeys(value, [
+    !hasExecutionStateRecordKeys(value, [
       "purpose",
       "stage",
       "reason",
@@ -2135,7 +2124,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
   )
     return false;
   const failure = value as NonNullable<
-    CoordinatorStateTaskOperation["primaryFailure"]
+    ExecutionOperationRecord["primaryFailure"]
   >;
   return (
     (failure.purpose === null || commandPurposes.includes(failure.purpose)) &&
@@ -2180,7 +2169,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
         failure.reason === "workbench_ai_claude_turn_count_invalid" &&
         failure.responseObserved &&
         failure.commandObservation?.exitCode === 0 &&
-        hasRuntimeStateRecordKeys(failure.turnCountDiagnostic, [
+        hasExecutionStateRecordKeys(failure.turnCountDiagnostic, [
           "valueType",
           "numberText",
         ]) &&
@@ -2208,7 +2197,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
     (!hasObservation ||
       failure.commandObservation === null ||
       (failure.responseObserved &&
-        hasRuntimeStateRecordKeys(failure.commandObservation, [
+        hasExecutionStateRecordKeys(failure.commandObservation, [
           "exitCode",
           "stdoutBytes",
           "stderrBytes",
@@ -2238,15 +2227,17 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
  * @security 固定理由以外の本文を許可しない。
  * @concurrency N/A: 同期処理だけ。
  */
-export function validCoordinatorOutcome(value: unknown): boolean {
+export function validOutcome(value: unknown): boolean {
   if (value === null) return true;
   if (
-    !hasRuntimeStateRecordKeys(value, ["status", "reason", "cleanupConfirmed"])
+    !hasExecutionStateRecordKeys(value, [
+      "status",
+      "reason",
+      "cleanupConfirmed",
+    ])
   )
     return false;
-  const outcome = value as NonNullable<
-    CoordinatorStateTaskOperation["outcome"]
-  >;
+  const outcome = value as NonNullable<ExecutionOperationRecord["outcome"]>;
   return (
     typeof outcome.cleanupConfirmed === "boolean" &&
     finalReasons.has(outcome.reason) &&
@@ -2277,8 +2268,8 @@ export function validCoordinatorOutcome(value: unknown): boolean {
  * @security 専用Writerを迂回する保存は別の物理Guardで拒否する。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function coordinatorTaskResourcesAreSettled(
-  operation: CoordinatorStateTaskOperation,
+export function areTaskResourcesSettled(
+  operation: ExecutionOperationRecord,
 ): boolean {
   const book = operation.resources;
   if (!book)
@@ -2300,13 +2291,13 @@ export function coordinatorTaskResourcesAreSettled(
           operation.history === null &&
           isDockerRestartCheckpointSettled(operation.dockerRestart)))
     );
-  if (book.checkpoints.every(coordinatorResourceIsSettled)) return true;
-  const hash = coordinatorAuthenticationClosureEvidence(operation);
+  if (book.checkpoints.every(resourceIsSettled)) return true;
+  const hash = authenticationClosureEvidence(operation);
   return (
     hash !== null &&
     book.checkpoints.every(
       (resource) =>
-        coordinatorResourceIsSettled(resource) ||
+        resourceIsSettled(resource) ||
         (resource.key === "create_subscription_auth_probe" &&
           resource.observation === "absent" &&
           resource.absenceEvidenceSha256 === hash &&
@@ -2331,14 +2322,14 @@ export function coordinatorTaskResourcesAreSettled(
  * @security Path・余剰fieldを受理しない。
  * @concurrency N/A: 入力を変更しない。
  */
-export function validCoordinatorRepairRetentionReceipt(
+export function validRepairRetentionReceipt(
   value: unknown,
-): value is CoordinatorRepairRetentionReceipt {
+): value is RepairRetentionReceipt {
   if (
-    !hasRuntimeStateRecordKeys(value, ["decidedAt", "reviewAfter", "targets"])
+    !hasExecutionStateRecordKeys(value, ["decidedAt", "reviewAfter", "targets"])
   )
     return false;
-  const receipt = value as CoordinatorRepairRetentionReceipt;
+  const receipt = value as RepairRetentionReceipt;
   if (
     typeof receipt.decidedAt !== "string" ||
     typeof receipt.reviewAfter !== "string"
@@ -2346,7 +2337,7 @@ export function validCoordinatorRepairRetentionReceipt(
     return false;
   const time = Date.parse(receipt.decidedAt);
   const review = Date.parse(receipt.reviewAfter);
-  const targets = decodeDockerRuntimeRepairRetentionTargets(receipt.targets);
+  const targets = decodeEnvironmentRepairRetentionTargets(receipt.targets);
   return (
     Number.isFinite(time) &&
     Number.isFinite(review) &&
@@ -2373,9 +2364,9 @@ export function validCoordinatorRepairRetentionReceipt(
  * @security 一致を実保存・削除許可にしない。
  * @concurrency N/A: 同期比較。
  */
-export function coordinatorRepairRetentionMatchesCheckpoint(
-  receipt: CoordinatorRepairRetentionReceipt,
-  checkpoint: DockerRuntimeRepairCheckpoint,
+export function repairRetentionMatchesCheckpoint(
+  receipt: RepairRetentionReceipt,
+  checkpoint: RepairCheckpoint,
 ): boolean {
   return (["primary", "failed", "auxiliary"] as const).every((purpose) => {
     const pair = checkpoint.directories[purpose];
@@ -2394,10 +2385,9 @@ export function coordinatorRepairRetentionMatchesCheckpoint(
           action.result === "confirmed" &&
           pair.expected !== null &&
           target !== null &&
-          encodeRuntimeStateValue(pair.expected) ===
-            encodeRuntimeStateValue(pair.retained.identity) &&
-          encodeRuntimeStateValue(target) ===
-            encodeRuntimeStateValue(pair.expected)
+          encodeStateValue(pair.expected) ===
+            encodeStateValue(pair.retained.identity) &&
+          encodeStateValue(target) === encodeStateValue(pair.expected)
       : pair.retained.state === "absent" &&
           action.request === "not_issued" &&
           action.result === "not_required" &&
@@ -2431,9 +2421,7 @@ export const repairReasons = new Set([
  * @security 技術処置を許可しない。
  * @concurrency N/A: 同期処理。
  */
-export function coordinatorRepairCanSummarize(
-  operation: CoordinatorStateRepairOperation,
-): boolean {
+export function repairCanSummarize(operation: RepairOperationRecord): boolean {
   if (
     operation.phase === "settling" &&
     operation.disposition !== "pending_human_decision" &&
@@ -2442,8 +2430,8 @@ export function coordinatorRepairCanSummarize(
     (operation.outcome?.status === "blocked" ||
       operation.outcome?.status === "cancelled")
   )
-    return validCoordinatorRepairSummary(
-      JSON.parse(coordinatorRepairSummaryBytes(operation).toString("utf8")),
+    return validRepairSummary(
+      JSON.parse(repairSummaryBytes(operation).toString("utf8")),
     );
   return (
     operation.phase === "settling" &&
@@ -2453,12 +2441,12 @@ export function coordinatorRepairCanSummarize(
     operation.disposition !== "pending_human_decision" &&
     (operation.disposition !== "discard" ||
       (operation.disposal !== null &&
-        dockerRuntimeRepairDisposalIsSettled(operation.disposal.checkpoint))) &&
+        isRepairDisposalSettled(operation.disposal.checkpoint))) &&
     operation.checkpoint?.engine === "ready" &&
     operation.checkpoint.hostSafety === "safe" &&
     operation.checkpoint.cleanup === "confirmed" &&
     operation.checkpoint.cleanupFailure === null &&
-    dockerRuntimeRepairCheckpointIsSettled(operation.checkpoint)
+    isRepairCheckpointSettled(operation.checkpoint)
   );
 }
 
@@ -2477,14 +2465,12 @@ export function coordinatorRepairCanSummarize(
  * @security 生Path・秘密・生出力を含めない。
  * @concurrency N/A: 同期構築。
  */
-export function coordinatorRepairSummaryBytes(
-  operation: CoordinatorStateRepairOperation,
-): Buffer {
+export function repairSummaryBytes(operation: RepairOperationRecord): Buffer {
   const identity = JSON.parse(operation.identityJson);
   const checkpoint = operation.checkpoint;
   if (!checkpoint) throw new Error("repair_checkpoint_missing");
   return Buffer.from(
-    `${encodeRuntimeStateValue({
+    `${encodeStateValue({
       schema: "crdd-coordinator/repair-summary/v1",
       operationId: identity.operationId,
       operationNonce: identity.operationNonce,
@@ -2526,17 +2512,15 @@ export function coordinatorRepairSummaryBytes(
  * @security 行はAuthorityではない。
  * @concurrency N/A: 保存を行わない。
  */
-export function coordinatorRepairHistoryLineBytes(
-  operation: CoordinatorStateRepairOperation,
+export function repairHistoryLineBytes(
+  operation: RepairOperationRecord,
   occurredAt: string,
 ): Buffer {
   return Buffer.from(
-    `${encodeRuntimeStateValue({
+    `${encodeStateValue({
       schema: "crdd-coordinator/history-row/v2",
       occurredAt,
-      summary: JSON.parse(
-        coordinatorRepairSummaryBytes(operation).toString("utf8"),
-      ),
+      summary: JSON.parse(repairSummaryBytes(operation).toString("utf8")),
     })}\n`,
   );
 }
@@ -2570,7 +2554,7 @@ export const OPERATION_IDENTITY_SCHEMA =
  */
 export function validateHostSnapshot(value: unknown, initialToken: string) {
   if (
-    !hasRuntimeStateRecordKeys(value, [
+    !hasExecutionStateRecordKeys(value, [
       "token",
       "recordHash",
       "directoryIdentity",
@@ -2586,7 +2570,7 @@ export function validateHostSnapshot(value: unknown, initialToken: string) {
   const rootIdentity = hostRecord?.rootIdentity;
   const childIdentities = hostRecord?.childIdentities;
   const identityValid = (identity: unknown, isChild: boolean) =>
-    hasRuntimeStateRecordKeys(
+    hasExecutionStateRecordKeys(
       identity,
       isChild
         ? ["pathName", "dev", "ino", "birthtimeNs"]
@@ -2609,7 +2593,7 @@ export function validateHostSnapshot(value: unknown, initialToken: string) {
     /^\d+:\d+:\d+$/u.test(snapshot.directoryIdentity) &&
     typeof snapshot.markerIdentity === "string" &&
     /^\d+:\d+:\d+$/u.test(snapshot.markerIdentity) &&
-    hasRuntimeStateRecordKeys(record, [
+    hasExecutionStateRecordKeys(record, [
       "schema",
       "state",
       "rootName",
@@ -2769,8 +2753,8 @@ export const finalReasons = new Set<string>([
  * @security 記録の終了条件は処置Authorityや実不存在の証明ではない。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function coordinatorResourceIsSettled(
-  resource: CoordinatorResourceBook["checkpoints"][number],
+export function resourceIsSettled(
+  resource: OperationResources["checkpoints"][number],
 ): boolean {
   return (
     resource.submission === "none" ||
@@ -2794,10 +2778,10 @@ export function coordinatorResourceIsSettled(
  * @security Hashは観測の真正性やAuthorityを発行しない。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function coordinatorAuthenticationClosureEvidence(
-  operation: CoordinatorStateTaskOperation,
+export function authenticationClosureEvidence(
+  operation: ExecutionOperationRecord,
 ): string | null {
-  if (!coordinatorAuthenticationUnknownCanClose(operation)) return null;
+  if (!canCloseUnknownAuthentication(operation)) return null;
   const identity = JSON.parse(operation.identityJson);
   const resource = operation.resources?.snapshot.resources.find(
     (item) => item.key === "create_subscription_auth_probe",
@@ -2806,7 +2790,7 @@ export function coordinatorAuthenticationClosureEvidence(
     return null;
   return createHash("sha256")
     .update(
-      encodeRuntimeStateValue({
+      encodeStateValue({
         domain: "crdd-coordinator/authentication-unknown-absence/v1",
         identitySha256: operation.identitySha256,
         recoveryId: operation.recoveryId,
@@ -2839,7 +2823,7 @@ export function coordinatorAuthenticationClosureEvidence(
  * @security Path・Owner・Scope・Task情報の混入を拒否する。
  * @concurrency N/A: 同期処理。
  */
-export function validCoordinatorRepairSummary(value: unknown): boolean {
+export function validRepairSummary(value: unknown): boolean {
   const hasRetention =
     value !== null &&
     typeof value === "object" &&
@@ -2849,7 +2833,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     typeof value === "object" &&
     (value as { disposition?: unknown }).disposition === "discard";
   if (
-    !hasRuntimeStateRecordKeys(value, [
+    !hasExecutionStateRecordKeys(value, [
       "schema",
       "operationId",
       "operationNonce",
@@ -2892,7 +2876,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
   };
   if (
     discard &&
-    (!hasRuntimeStateRecordKeys(summary.disposal, [
+    (!hasExecutionStateRecordKeys(summary.disposal, [
       "decidedAt",
       "checkpoint",
     ]) ||
@@ -2900,16 +2884,14 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
       !Number.isFinite(Date.parse(summary.disposal.decidedAt)) ||
       new Date(summary.disposal.decidedAt).toISOString() !==
         summary.disposal.decidedAt ||
-      !decodeDockerRuntimeRepairDisposalCheckpoint(
-        summary.disposal.checkpoint,
-      ) ||
-      !dockerRuntimeRepairDisposalIsSettled(summary.disposal.checkpoint))
+      !decodeEnvironmentRepairDisposalCheckpoint(summary.disposal.checkpoint) ||
+      !isRepairDisposalSettled(summary.disposal.checkpoint))
   )
     return false;
   const technical = summary.technical;
   if (
     hasRetention &&
-    (!validCoordinatorRepairRetentionReceipt(summary.retention) ||
+    (!validRepairRetentionReceipt(summary.retention) ||
       summary.disposition !== "retained_by_human_decision" ||
       summary.outcome?.status !== "recovered" ||
       summary.primaryFailure !== null)
@@ -2926,7 +2908,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     "restart_runtime",
   ];
   if (
-    hasRuntimeStateRecordKeys(summary.outcome, [
+    hasExecutionStateRecordKeys(summary.outcome, [
       "status",
       "reason",
       "cleanupConfirmed",
@@ -2952,13 +2934,13 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
       (summary.outcome.status === "cancelled") ===
         (summary.outcome.reason === "runtime_repair_cancelled") &&
       (failure === null ||
-        (hasRuntimeStateRecordKeys(failure, ["stage", "reason"]) &&
+        (hasExecutionStateRecordKeys(failure, ["stage", "reason"]) &&
           ["preparation", "checkpoint", "repair", "delivery"].includes(
             failure.stage as string,
           ) &&
           failure.reason === summary.outcome.reason)) &&
       (summary.outcome.status !== "cancelled" || failure === null) &&
-      hasRuntimeStateRecordKeys(technical, [
+      hasExecutionStateRecordKeys(technical, [
         "actions",
         "engine",
         "stale",
@@ -2986,12 +2968,16 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
         summary.disposition === "retained_by_human_decision") ||
         (["absent", "unknown"].includes(technical.stale as string) &&
           summary.disposition === "not_applicable")) &&
-      hasRuntimeStateRecordKeys(technical.actions, names) &&
+      hasExecutionStateRecordKeys(technical.actions, names) &&
       names.every((name, index) => {
         const action = technical.actions[name];
         if (
           !action ||
-          !hasRuntimeStateRecordKeys(action, ["intent", "request", "result"]) ||
+          !hasExecutionStateRecordKeys(action, [
+            "intent",
+            "request",
+            "result",
+          ]) ||
           !["not_saved", "saved"].includes(action.intent as string) ||
           !["not_issued", "issued", "unknown"].includes(
             action.request as string,
@@ -3045,7 +3031,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     summary.recoveryId ===
       `docker-runtime-repair.${summary.operationNonce}.${summary.identitySha256}` &&
     summary.primaryFailure === null &&
-    hasRuntimeStateRecordKeys(summary.outcome, [
+    hasExecutionStateRecordKeys(summary.outcome, [
       "status",
       "reason",
       "cleanupConfirmed",
@@ -3053,7 +3039,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     summary.outcome.status === "recovered" &&
     summary.outcome.reason === "runtime_repair_recovered" &&
     summary.outcome.cleanupConfirmed === true &&
-    hasRuntimeStateRecordKeys(technical, [
+    hasExecutionStateRecordKeys(technical, [
       "actions",
       "engine",
       "stale",
@@ -3071,12 +3057,12 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
         ["retained_by_human_decision", "discard"].includes(
           summary.disposition as string,
         ))) &&
-    hasRuntimeStateRecordKeys(technical.actions, names) &&
+    hasExecutionStateRecordKeys(technical.actions, names) &&
     names.every((name) => {
       const action = technical.actions[name];
       return (
         action !== undefined &&
-        hasRuntimeStateRecordKeys(action, ["intent", "request", "result"]) &&
+        hasExecutionStateRecordKeys(action, ["intent", "request", "result"]) &&
         ((action.result === "confirmed" &&
           action.intent === "saved" &&
           action.request === "issued") ||
@@ -3087,7 +3073,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     }) &&
     (!hasRetention ||
       (["primary", "failed", "auxiliary"] as const).every((purpose) => {
-        const receipt = summary.retention as CoordinatorRepairRetentionReceipt;
+        const receipt = summary.retention as RepairRetentionReceipt;
         const action =
           technical.actions[
             purpose === "primary"
@@ -3126,8 +3112,8 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
  * @security 保存値から物理処置Authorityを生成しない。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function coordinatorAuthenticationUnknownCanClose(
-  operation: CoordinatorStateTaskOperation,
+export function canCloseUnknownAuthentication(
+  operation: ExecutionOperationRecord,
 ): boolean {
   try {
     const book = operation.resources;
@@ -3147,7 +3133,7 @@ export function coordinatorAuthenticationUnknownCanClose(
       auth.receiptSource === null &&
       auth.observation !== "present" &&
       book.checkpoints.every(
-        (item) => item === auth || coordinatorResourceIsSettled(item),
+        (item) => item === auth || resourceIsSettled(item),
       ) &&
       operation.execution.providerStart === "not_started" &&
       operation.execution.externalSend === "not_issued" &&
@@ -3186,21 +3172,21 @@ export function coordinatorAuthenticationUnknownCanClose(
  * @security この判定だけで実行・削除Authorityを生成しない。
  * @concurrency Writerのfresh元版検査を外へ移動しない。
  */
-export function validateCoordinatorOperationTransitions(
-  current: Readonly<{ snapshot: CoordinatorStateSnapshot }> | null,
-  next: Readonly<{ snapshot: CoordinatorStateSnapshot }>,
+export function validateOperationTransitions(
+  current: Readonly<{ snapshot: ExecutionStateSnapshot }> | null,
+  next: Readonly<{ snapshot: ExecutionStateSnapshot }>,
   repairSessionId: string | null,
 ): boolean {
   try {
     const priorOperations = new Map(
       (current?.snapshot.operations ?? []).map((operation) => [
-        coordinatorOperationNonce(operation),
+        operationNonce(operation),
         operation,
       ]),
     );
     const phases = ["executing", "settling", "awaiting_delivery"];
     for (const operation of next.snapshot.operations) {
-      const nonce = coordinatorOperationNonce(operation);
+      const nonce = operationNonce(operation);
       const prior = priorOperations.get(nonce);
       if (operation.kind === "runtime_repair") {
         if (prior === undefined) {
@@ -3225,17 +3211,17 @@ export function validateCoordinatorOperationTransitions(
             return false;
           // 回収進捗は専用の完全再導出だけ。通常保存で判断・技術値を更新しない。
           if (
-            encodeRuntimeStateValue(operation.retention ?? null) !==
-              encodeRuntimeStateValue(prior.retention ?? null) ||
-            encodeRuntimeStateValue(operation.disposal) !==
-              encodeRuntimeStateValue(prior.disposal) ||
+            encodeStateValue(operation.retention ?? null) !==
+              encodeStateValue(prior.retention ?? null) ||
+            encodeStateValue(operation.disposal) !==
+              encodeStateValue(prior.disposal) ||
             (prior.disposal !== null &&
-              encodeRuntimeStateValue({
+              encodeStateValue({
                 ...operation,
                 summarySha256: null,
                 history: null,
               }) !==
-                encodeRuntimeStateValue({
+                encodeStateValue({
                   ...prior,
                   summarySha256: null,
                   history: null,
@@ -3262,11 +3248,11 @@ export function validateCoordinatorOperationTransitions(
           if (
             prior.checkpoint !== null
               ? !(operation.recoveryId === repairSessionId
-                  ? validateDockerRuntimeRepairSessionCheckpoint(
+                  ? validateEnvironmentRepairSessionCheckpoint(
                       prior.checkpoint,
                       operation.checkpoint,
                     )
-                  : validateDockerRuntimeRepairCheckpointTransition(
+                  : validateEnvironmentRepairCheckpointTransition(
                       prior.checkpoint,
                       operation.checkpoint,
                     ))
@@ -3287,17 +3273,17 @@ export function validateCoordinatorOperationTransitions(
             return false;
           if (
             prior.primaryFailure !== null &&
-            encodeRuntimeStateValue(prior.primaryFailure) !==
-              encodeRuntimeStateValue(operation.primaryFailure)
+            encodeStateValue(prior.primaryFailure) !==
+              encodeStateValue(operation.primaryFailure)
           )
             return false;
           if (
             prior.outcome !== null &&
             (operation.outcome === null ||
-              encodeRuntimeStateValue(operation.primaryFailure) !==
-                encodeRuntimeStateValue(prior.primaryFailure) ||
-              encodeRuntimeStateValue(operation.checkpoint?.actions ?? null) !==
-                encodeRuntimeStateValue(prior.checkpoint?.actions ?? null) ||
+              encodeStateValue(operation.primaryFailure) !==
+                encodeStateValue(prior.primaryFailure) ||
+              encodeStateValue(operation.checkpoint?.actions ?? null) !==
+                encodeStateValue(prior.checkpoint?.actions ?? null) ||
               operation.outcome.status !== prior.outcome.status ||
               operation.outcome.reason !== prior.outcome.reason ||
               (prior.outcome.cleanupConfirmed &&
@@ -3330,12 +3316,12 @@ export function validateCoordinatorOperationTransitions(
             return false;
           if (
             (prior.history !== null || operation.history !== null) &&
-            encodeRuntimeStateValue({
+            encodeStateValue({
               ...prior,
               summarySha256: null,
               history: null,
             }) !==
-              encodeRuntimeStateValue({
+              encodeStateValue({
                 ...operation,
                 summarySha256: null,
                 history: null,
@@ -3360,7 +3346,7 @@ export function validateCoordinatorOperationTransitions(
             )
               return false;
             const before = current?.snapshot.operations.find(
-              (item): item is CoordinatorStateTaskOperation =>
+              (item): item is ExecutionOperationRecord =>
                 item.kind === "docker_task" &&
                 item.recoveryId === other.recoveryId,
             );
@@ -3378,8 +3364,7 @@ export function validateCoordinatorOperationTransitions(
                 identity.initialHostRecoveryId &&
               previousIdentity.initialHostRecovery.directoryIdentity ===
                 identity.initialHostRecovery.directoryIdentity &&
-              encodeRuntimeStateValue(before) ===
-                encodeRuntimeStateValue(other);
+              encodeStateValue(before) === encodeStateValue(other);
             // 同じ更新内の終端偽装や、二つの新規開始を受理しない。
             return (
               [before, other].some((value) => {
@@ -3409,7 +3394,7 @@ export function validateCoordinatorOperationTransitions(
                     (value.execution.providerStart === "unknown" ||
                       value.execution.externalSend === "unknown" ||
                       value.execution.sharedWrite === "unknown")) ||
-                  !coordinatorTaskResourcesAreSettled(value)
+                  !areTaskResourcesSettled(value)
                 );
               }) ||
               [current?.snapshot, next.snapshot].some((snapshot) =>
@@ -3464,8 +3449,8 @@ export function validateCoordinatorOperationTransitions(
       if (
         prior.dockerRestart === null &&
         operation.dockerRestart !== null &&
-        encodeRuntimeStateValue(operation.resources) !==
-          encodeRuntimeStateValue(prior.resources)
+        encodeStateValue(operation.resources) !==
+          encodeStateValue(prior.resources)
       )
         return false;
       if (
@@ -3479,17 +3464,12 @@ export function validateCoordinatorOperationTransitions(
         )
       )
         return false;
-      if (
-        !validateCoordinatorResourceBookTransition(
-          prior.resources,
-          operation.resources,
-        )
-      )
+      if (!validateResourceBookTransition(prior.resources, operation.resources))
         return false;
       if (
         prior.primaryFailure !== null &&
-        encodeRuntimeStateValue(operation.primaryFailure) !==
-          encodeRuntimeStateValue(prior.primaryFailure)
+        encodeStateValue(operation.primaryFailure) !==
+          encodeStateValue(prior.primaryFailure)
       )
         return false;
       if (

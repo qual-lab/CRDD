@@ -12,6 +12,10 @@ import fs from "node:fs";
 import { devNull } from "node:os";
 import path from "node:path";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
+import {
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "../../configuration-model/src/index.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 import {
   executeWorkspace,
@@ -28,18 +32,8 @@ import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.t
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
   createLocalPrincipalId,
-  decodeCoordinatorHistoryRows,
-  readRuntimeOwnedCoordinatorRecoverySnapshot,
+  readRecoveryState,
 } from "../../execution-model/src/index.ts";
-import {
-  observeRepositoryRuntimeDataArea,
-  resolveRepositoryRuntimeDataPaths,
-} from "./runtime-data.ts";
-import {
-  readRepositoryAiSelection,
-  saveRepositoryAiSelection,
-} from "../../configuration-model/src/index.ts";
-import { readStableFileSnapshot } from "./file-snapshot.ts";
 import {
   getRepository,
   readGitUser,
@@ -49,6 +43,10 @@ import {
   assessVerificationDockerInventory,
   observeVerificationDockerInventory,
 } from "./ai-verification-http.ts";
+import {
+  observeRepositoryRuntimeDataArea,
+  resolveRepositoryRuntimeDataPaths,
+} from "./runtime-data.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
 import {
   captureWorkspaceTaskDiagnostic,
@@ -392,9 +390,7 @@ async function verify(
       clearTimeout(deadlineTimer);
       deadlineTimer = null;
       step = "verify_state";
-      const saved = readRuntimeOwnedCoordinatorRecoverySnapshot(
-        verified.capability,
-      );
+      const saved = readRecoveryState(verified.capability);
       assert.equal(saved.status, "completed", "task_state_unavailable");
       assert.equal(saved.lockReleased, true, "task_state_lock_unreleased");
       if (saved.status !== "completed" || !saved.value)
@@ -664,13 +660,14 @@ async function verify(
         const currentRoot = getRepository(root);
         if (currentRoot.status === "completed") {
           {
-            const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
-              currentRoot.capability,
-            );
+            const read = readRecoveryState(currentRoot.capability, {
+              kind: "history",
+            });
             if (
               read.status === "completed" &&
               read.lockReleased &&
-              read.value
+              read.value &&
+              read.historyRows !== null
             ) {
               correlationId =
                 read.value.snapshot.queueEntries.find(
@@ -693,25 +690,14 @@ async function verify(
                   recoveryId: operation.recoveryId,
                 });
               }
-              const historyFile = path.join(paths.domainModel, "history.jsonl");
-              if (fs.existsSync(historyFile)) {
-                const metadata = fs.lstatSync(historyFile);
-                assert.equal(metadata.isSymbolicLink(), false);
-                assert.equal(metadata.nlink, 1);
-                const history = readStableFileSnapshot(historyFile);
-                const rows = decodeCoordinatorHistoryRows(history.bytes);
-                assert.ok(rows, "diagnostic_history_invalid");
-                for (const row of rows) {
-                  const summary = JSON.parse(row.line).summary;
-                  if (
-                    summary.schema === "crdd-coordinator/operation-summary/v4"
-                  )
-                    historyIdentities.push({
-                      operationId: summary.operationId,
-                      recoveryCorrelationId: summary.recoveryCorrelationId,
-                      recoveryId: row.recoveryId,
-                    });
-                }
+              for (const row of read.historyRows) {
+                const summary = JSON.parse(row.line).summary;
+                if (summary.schema === "crdd-coordinator/operation-summary/v4")
+                  historyIdentities.push({
+                    operationId: summary.operationId,
+                    recoveryCorrelationId: summary.recoveryCorrelationId,
+                    recoveryId: row.recoveryId,
+                  });
               }
             }
           }
@@ -804,9 +790,7 @@ function assessFixtureRemoval(
     checkBoundary();
     const readClosed = (historyCount: number, includeTask = false) => {
       {
-        const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
-          verifiedRoot.capability,
-        );
+        const read = readRecoveryState(verifiedRoot.capability);
         assert.equal(read.status, "completed");
         assert.equal(read.lockReleased, true);
         if (read.status !== "completed" || !read.value)

@@ -8,27 +8,23 @@
  * @boundary メモリの局所fixtureだけ。実Lock・保存・全体codec・回復完了の根拠ではない。
  */
 
+import type { Snapshot } from "../../../src/state/types.ts";
+import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { leaseIdentity, type ProjectQueueEntry } from "../../../src/index.ts";
+import type { LeaseEvidenceEnvelope } from "../../../src/state/types.ts";
 import {
-  type CoordinatorSnapshot,
-  encodeRuntimeStateValue,
-  hashRuntimeStateValueText,
-  type LeaseEvidenceEnvelope,
-  leaseIdentity,
-  type ProjectQueueEntry,
-} from "../../../src/index.ts";
-import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  prepareCoordinatorLeaseAcquisitionConfirmation,
-  prepareCoordinatorLeaseAcquisitionReservation,
-  prepareCoordinatorLeaseRecoveryReservation,
-  prepareCoordinatorLeaseRecoverySettlement,
-  prepareCoordinatorLeaseReleaseIntent,
-  prepareCoordinatorLeaseReleaseSettlement,
-  prepareCoordinatorReleasedLeaseReconciliation,
-  projectCoordinatorLeaseAcquisitionOwner,
-  projectCoordinatorLeaseOwnerLossState,
+  PROJECT_SNAPSHOT_SCHEMA,
+  prepareLeaseAcquisitionConfirmation,
+  prepareLeaseAcquisitionReservation,
+  prepareLeaseRecoveryReservation,
+  prepareLeaseRecoverySettlement,
+  prepareLeaseReleaseIntent,
+  prepareLeaseReleaseSettlement,
+  prepareReleasedLeaseReconciliation,
+  projectLeaseAcquisitionOwner,
+  projectLeaseOwnerLossState,
 } from "../../../src/state/validation.ts";
 
 /**
@@ -59,8 +55,8 @@ function fixture() {
     resultReference: null,
     workspaceId: null,
   };
-  const current: CoordinatorSnapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  const current: Snapshot = {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
@@ -77,7 +73,7 @@ function fixture() {
     decisions: [],
     blockers: [],
   };
-  const intent: CoordinatorSnapshot["leaseIntents"][number] = {
+  const intent: Snapshot["leaseIntents"][number] = {
     projectId: "project-a",
     queueId: "queue-a",
     kind: "project-operation",
@@ -153,7 +149,7 @@ function observations() {
 function acquiredFixture() {
   const f = fixture();
   const reserved = { ...f.current, leaseIntents: [f.intent] };
-  const result = prepareCoordinatorLeaseAcquisitionConfirmation(
+  const result = prepareLeaseAcquisitionConfirmation(
     reserved,
     "binding-a",
     "project-a",
@@ -196,9 +192,7 @@ function assertEvidence(
     projectId: "project-a",
     createdGeneration: 1,
     updatedGeneration: generation,
-    contentHash: hashRuntimeStateValueText(
-      encodeRuntimeStateValue(evidence.content),
-    ),
+    contentHash: hashStateText(encodeStateValue(evidence.content)),
     content: {
       kind: "project-operation",
       queueId: "queue-a",
@@ -225,16 +219,16 @@ function assertEvidence(
 test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する", () => {
   const { current, intent } = fixture();
   assert.equal(
-    projectCoordinatorLeaseAcquisitionOwner(current, "binding-a").reason,
+    projectLeaseAcquisitionOwner(current, "binding-a").reason,
     "orchestrator_lease_acquisition_absent",
   );
   const state = { ...current, leaseIntents: [intent] };
-  const before = encodeRuntimeStateValue(state);
-  const result = projectCoordinatorLeaseAcquisitionOwner(state, "binding-a");
+  const before = encodeStateValue(state);
+  const result = projectLeaseAcquisitionOwner(state, "binding-a");
   assert.equal(result.status, "completed");
   if (result.status === "completed")
     assert.equal(result.value.value.acquisition?.recoveryId, "recovery-a");
-  const mismatch = projectCoordinatorLeaseAcquisitionOwner(
+  const mismatch = projectLeaseAcquisitionOwner(
     {
       ...state,
       leaseIntents: [intent, { ...intent, ownerGeneration: "other" }],
@@ -250,13 +244,11 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
     "recovery-a",
   );
   assert.equal(
-    projectCoordinatorLeaseAcquisitionOwner(
-      { ...state, queueEntries: [] },
-      "binding-a",
-    ).status,
+    projectLeaseAcquisitionOwner({ ...state, queueEntries: [] }, "binding-a")
+      .status,
     "blocked",
   );
-  assert.equal(encodeRuntimeStateValue(state), before);
+  assert.equal(encodeStateValue(state), before);
 });
 /**
  * 取得予約の不存在→Root→markを元の順序で確認する。
@@ -272,8 +264,8 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
 
 test("取得予約は前提拒否・資源不明・Root例外でmarkを発行しない", () => {
   const f = fixture();
-  const run = (state: CoordinatorSnapshot, ops = observations().ops) =>
-    prepareCoordinatorLeaseAcquisitionReservation(
+  const run = (state: Snapshot, ops = observations().ops) =>
+    prepareLeaseAcquisitionReservation(
       state,
       "binding-a",
       "project-a",
@@ -397,8 +389,8 @@ test("取得予約は前提拒否・資源不明・Root例外でmarkを発行し
 test("取得確定は元intent一致後だけLockを観測し取得証拠を同じHashで生成する", () => {
   const f = acquiredFixture();
   const o = observations();
-  const run = (state: CoordinatorSnapshot, ops = o.ops) =>
-    prepareCoordinatorLeaseAcquisitionConfirmation(
+  const run = (state: Snapshot, ops = o.ops) =>
+    prepareLeaseAcquisitionConfirmation(
       state,
       "binding-a",
       "project-a",
@@ -456,19 +448,14 @@ test("取得確定は元intent一致後だけLockを観測し取得証拠を同�
 test("解放候補は別実体を拒否し同intent除去とreleased証拠を一体にする", () => {
   const f = acquiredFixture();
   assert.equal(
-    prepareCoordinatorLeaseReleaseIntent(f.acquired, f.intent, "c".repeat(64))
-      .status,
+    prepareLeaseReleaseIntent(f.acquired, f.intent, "c".repeat(64)).status,
     "blocked",
   );
-  const pending = prepareCoordinatorLeaseReleaseIntent(
-    f.acquired,
-    f.intent,
-    f.physical,
-  );
+  const pending = prepareLeaseReleaseIntent(f.acquired, f.intent, f.physical);
   assert.equal(pending.status, "completed");
   if (pending.status !== "completed") throw Error("fixture");
   assert.equal(
-    prepareCoordinatorLeaseReleaseSettlement(
+    prepareLeaseReleaseSettlement(
       f.acquired,
       "binding-a",
       f.intent,
@@ -477,7 +464,7 @@ test("解放候補は別実体を拒否し同intent除去とreleased証拠を一
     ).status,
     "blocked",
   );
-  const result = prepareCoordinatorLeaseReleaseSettlement(
+  const result = prepareLeaseReleaseSettlement(
     pending.value.next,
     "binding-a",
     f.intent,
@@ -509,7 +496,7 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
   const f = fixture(),
     o = observations();
   assert.equal(
-    projectCoordinatorLeaseOwnerLossState(
+    projectLeaseOwnerLossState(
       { ...f.current, queueEntries: [] },
       "project-a",
       "queue-a",
@@ -519,7 +506,7 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
     "blocked",
   );
   assert.deepEqual(o.calls, []);
-  const result = projectCoordinatorLeaseOwnerLossState(
+  const result = projectLeaseOwnerLossState(
     { ...f.current, leaseIntents: [f.intent] },
     "project-a",
     "queue-a",
@@ -550,13 +537,9 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
 
 test("released照合は元Queue・証拠の後に資源不存在を確認し回復待ちを保持する", () => {
   const f = acquiredFixture();
-  const pending = prepareCoordinatorLeaseReleaseIntent(
-    f.acquired,
-    f.intent,
-    f.physical,
-  );
+  const pending = prepareLeaseReleaseIntent(f.acquired, f.intent, f.physical);
   if (pending.status !== "completed") throw Error("fixture");
-  const result = prepareCoordinatorLeaseReleaseSettlement(
+  const result = prepareLeaseReleaseSettlement(
     pending.value.next,
     "binding-a",
     f.intent,
@@ -571,8 +554,8 @@ test("released照合は元Queue・証拠の後に資源不存在を確認し回�
   };
   const current = { ...result.value.next, queueEntries: [queue] };
   const o = observations();
-  const run = (state: CoordinatorSnapshot, old = queue, ops = o.ops) =>
-    prepareCoordinatorReleasedLeaseReconciliation(
+  const run = (state: Snapshot, old = queue, ops = o.ops) =>
+    prepareReleasedLeaseReconciliation(
       state,
       "project-a",
       "queue-a",
@@ -622,8 +605,8 @@ test("回復intent予約はRootと元集合を照合し同じpendingだけ再入
     phase: "recovery_pending" as const,
     physicalIdentity: null,
   };
-  const run = (state: CoordinatorSnapshot, ops = o.ops, own = [f.intent]) =>
-    prepareCoordinatorLeaseRecoveryReservation(
+  const run = (state: Snapshot, ops = o.ops, own = [f.intent]) =>
+    prepareLeaseRecoveryReservation(
       state,
       "project-a",
       "queue-a",
@@ -659,7 +642,7 @@ test("回復intent予約はRootと元集合を照合し同じpendingだけ再入
   assert.equal(repeated.status, "completed");
   if (repeated.status === "completed") assert.equal(repeated.value.next, null);
   const wrong = { ...pending, physicalIdentity: "c".repeat(64) };
-  const mismatched = prepareCoordinatorLeaseRecoveryReservation(
+  const mismatched = prepareLeaseRecoveryReservation(
     { ...current, leaseIntents: [f.intent, wrong] },
     "project-a",
     "queue-a",
@@ -705,8 +688,8 @@ test("回復確定はunknown取得を成功へ変えず終了証拠と対象Queu
       leaseIntents: [...own, pending],
       leaseEvidence: hadAcquired ? f.acquired.leaseEvidence : [],
     };
-    const run = (state: CoordinatorSnapshot, ops = observations().ops) =>
-      prepareCoordinatorLeaseRecoverySettlement(
+    const run = (state: Snapshot, ops = observations().ops) =>
+      prepareLeaseRecoverySettlement(
         state,
         "binding-a",
         "project-a",
@@ -764,3 +747,86 @@ test("回復確定はunknown取得を成功へ変えず終了証拠と対象Queu
     );
   }
 });
+
+/**
+ * 公開Lease／Queue入口は呼出元のtupleを実行せず固定する。
+ * @responsibility 入力のGetter・Proxy・Iteratorを排他内へ持ち込まない。
+ * @trace PRL-UT-006
+ * @precondition 不正Rootと外部Effectを持たない入力だけを使用する。
+ * @stimulus Proxy、accessor、独自iterator、疎配列、余剰symbolを各有限kindへ渡す。
+ * @observation trap回数、拒否理由と発行事実を確認する。
+ * @oracle すべて入力拒否、trap0、保存Effectなし。
+ * @cleanup N/A: Process内の同期値のみ。
+ * @boundary 公開要求から既存保存Ownerへの入力捕捉。
+ */
+test("LeaseとQueueは未捕捉tupleの実行Propertyを評価しない", async () => {
+  const model = await import("../../../src/index.ts");
+  const cases = [
+    ["acquireLease", "intent"],
+    ["acquireLease", "observed"],
+    ["releaseLease", "intent"],
+    ["releaseLease", "observed"],
+    ["recoverLease", "reconcile"],
+    ["recoverLease", "intent"],
+    ["recoverLease", "observed"],
+    ["readLease", "acquisition"],
+    ["readLease", "owner_loss"],
+    ["createQueue", "scheduled"],
+    ["createQueue", "single"],
+    ["updateQueue", "operation"],
+    ["updateQueue", "single"],
+    ["updateQueue", "close_unstarted"],
+    ["updateQueue", "recovery"],
+    ["updateQueue", "lease_released"],
+  ] as const;
+  for (const [name, kind] of cases) {
+    let traps = 0;
+    const proxy = new Proxy([], {
+      get() {
+        traps++;
+        throw new Error("get");
+      },
+      getPrototypeOf() {
+        traps++;
+        throw new Error("prototype");
+      },
+      ownKeys() {
+        traps++;
+        throw new Error("keys");
+      },
+    });
+    const accessor: unknown[] = [];
+    Object.defineProperty(accessor, "0", {
+      enumerable: true,
+      get() {
+        traps++;
+        throw new Error("getter");
+      },
+    });
+    const iterator: unknown[] = [undefined];
+    Object.defineProperty(iterator, Symbol.iterator, {
+      value() {
+        traps++;
+        throw new Error("iterator");
+      },
+    });
+    const symbol: unknown[] = [undefined];
+    Object.defineProperty(symbol, Symbol("extra"), { value: true });
+    for (const input of [proxy, accessor, iterator, symbol, new Array(1)]) {
+      const result = Reflect.apply(model[name], undefined, [
+        {},
+        "binding",
+        { kind, input },
+      ]);
+      assert.equal(result.status, "blocked", name + ":" + kind);
+      assert.equal(
+        result.reason,
+        "orchestrator_snapshot_input_invalid",
+        name + ":" + kind,
+      );
+      assert.equal(traps, 0, name + ":" + kind);
+    }
+  }
+});
+
+import { hashStateText } from "../../../src/state/validation.ts";

@@ -224,7 +224,7 @@ export function createRepositoryWorkbenchActivityReader(
           events: Object.freeze([]),
           eventContinuation: null,
         });
-      const { queryActivity: queryActivity } = await import(
+      const { queryActivity } = await import(
         "../../../../coordinator/src/index.ts"
       );
       const observation = await queryActivity({
@@ -245,4 +245,4 @@ export function createRepositoryWorkbenchActivityReader(
   });
 }
 
-import type { RuntimeActivityObservation } from "../../../../execution-model/src/index.ts";
+import type { RuntimeActivityObservation } from "../../../../coordinator/src/index.ts";

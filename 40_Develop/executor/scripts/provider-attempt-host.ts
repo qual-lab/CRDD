@@ -5,30 +5,31 @@
  * @trace ERB-IT-004
  * @boundary 明示承認された試験専用。実行判断と過去保持物の操作は行わない。
  */
-import { PURPOSES, isAttemptFailureReason } from "../src/lifecycle/attempt.ts";
+
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
-import { initializeIsolation } from "../../docker-isolation/src/index.ts";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { initializeIsolation } from "../../docker-isolation/src/index.ts";
 import {
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
-  type CoordinatorResourceBook,
+  applyResourceCleanup,
+  applyResourceEvent,
+  type OperationResources,
 } from "../../execution-model/src/index.ts";
-import { observeRepositoryRuntimeDataArea } from "./runtime-data.ts";
 import { getRepository } from "../../version-control/src/index.ts";
-import { readReport, writeReport } from "./report.ts";
-import { observeProviderHome } from "./provider-home.ts";
 import {
-  createExecutor,
-  type ExecutorRequest,
-  type ExecutorCallbacks,
-  type CompletionResult,
-  type AttemptTerminalObservation,
   type AttemptDiagnosticNotice,
+  type AttemptTerminalObservation,
+  type CompletionResult,
+  createExecutor,
+  type ExecutorCallbacks,
+  type ExecutorRequest,
 } from "../src/index.ts";
+import { isAttemptFailureReason, PURPOSES } from "../src/lifecycle/attempt.ts";
+import { observeProviderHome } from "./provider-home.ts";
+import { readReport, writeReport } from "./report.ts";
+import { observeRepositoryRuntimeDataArea } from "./runtime-data.ts";
 
 /** 元要求と同じRootに必要な通知を保存し、公開ExecutorのCompletionをjoinする。 @trace ERB-IT-004 */
 export function createStandaloneProviderAttemptHost(
@@ -89,7 +90,7 @@ export function createStandaloneProviderAttemptHost(
     homeChecked = false;
   let operationCleanupConfirmed = true,
     homeFailure: string | null = null;
-  let resources: CoordinatorResourceBook | null = null;
+  let resources: OperationResources | null = null;
   let lastPayloadSha256 = requestHash;
   let terminal: AttemptTerminalObservation | null = null;
   let originalResult: CompletionResult<"attempt"> | null = null;
@@ -167,7 +168,7 @@ export function createStandaloneProviderAttemptHost(
           throw Error(homeFailure);
         }
       }
-      const next = applyCoordinatorResourceEvent(resources, {
+      const next = applyResourceEvent(resources, {
         ...frame,
         event: "submission",
         key: purpose,
@@ -178,7 +179,7 @@ export function createStandaloneProviderAttemptHost(
     },
     onCommandNotIssued: (purpose) => {
       if (!purpose.startsWith("create_")) return;
-      const next = applyCoordinatorResourceEvent(resources, {
+      const next = applyResourceEvent(resources, {
         event: "not_issued",
         key: purpose,
       });
@@ -187,7 +188,7 @@ export function createStandaloneProviderAttemptHost(
       resources = next;
     },
     onResourceCreated: (purpose, _id, frame) => {
-      const next = applyCoordinatorResourceEvent(resources, {
+      const next = applyResourceEvent(resources, {
         ...frame,
         event: "receipt",
         key: purpose,
@@ -197,7 +198,7 @@ export function createStandaloneProviderAttemptHost(
       resources = next;
     },
     onResourceIdentified: (key, frame) => {
-      const next = applyCoordinatorResourceEvent(resources, {
+      const next = applyResourceEvent(resources, {
         ...frame,
         event: "identified",
         key,
@@ -223,7 +224,7 @@ export function createStandaloneProviderAttemptHost(
         !observation.resources
       )
         return;
-      const next = applyCoordinatorResourceCleanup(
+      const next = applyResourceCleanup(
         resources,
         observation.resourceSnapshot,
         observation.resources,

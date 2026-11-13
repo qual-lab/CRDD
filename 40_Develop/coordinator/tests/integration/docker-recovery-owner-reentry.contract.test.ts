@@ -10,11 +10,13 @@
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import { createServer } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
@@ -23,47 +25,49 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext, runInThisContext } from "node:vm";
 import type * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import * as isolation from "../../../docker-isolation/src/index.ts";
+import type * as isolation from "../../../docker-isolation/src/index.ts";
 import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
+  ExecutionOperationRecord,
+  ExecutionStateSnapshot,
 } from "../../../execution-model/src/index.ts";
 import * as stateModel from "../../../execution-model/src/index.ts";
-import * as historyValues from "../../../execution-model/src/index.ts";
 import * as stateRuntime from "../../../execution-model/src/index.ts";
 import {
-  coordinatorTaskResourcesAreSettled,
-  createDockerRestartRequestId,
-  encodeRuntimeStateValue,
+  areTaskResourcesSettled,
   isDockerRestartCheckpointSettled,
-  writeRuntimeOwnedCoordinatorRepairSnapshot,
+  saveRepairState,
 } from "../../../execution-model/src/index.ts";
-import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
+import * as executorLibrary from "../../../executor/src/index.ts";
+import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   requestInChild,
   type VerificationHttpTiming,
 } from "../../../workbench-server/scripts/ai-verification-http.ts";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import * as homes from "../../src/execution/authority.ts";
-import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
+import {
+  providerHomesDirectoryCandidate,
+  runtimeStateDirectoryCandidate,
+} from "../../src/execution/authority.ts";
 import * as development from "../../src/execution/diagnostics.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
 import * as repository from "../../src/execution/operation.ts";
 import {
-  readRuntimeOwnedCoordinatorStateSnapshot,
-  saveRuntimeOwnedCoordinatorOperationStart,
+  readOperationStateStage,
+  saveOperationStart,
 } from "../../src/execution/persistence.ts";
 import * as controller from "../../src/execution/provider-executor.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import type { RecoveryPlan } from "../../src/execution/types.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
+import { expectedHostCheckpoint } from "../fixtures/task-result-fixture.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
 
 /**
  * 実初期SnapshotでHost清掃の段階別故障反応を評価する。
@@ -78,7 +82,7 @@ import { executionSelection } from "../fixtures/ai-selection.ts";
  * @boundary 本番Host清掃Ownerと下位Reader／Writer／Host観測の論理接続。
  */
 function verifyCurrentHostCleanupFailureBoundaries(
-  snapshot: CoordinatorStateSnapshot,
+  snapshot: ExecutionStateSnapshot,
   recoveryId: string,
 ): void {
   const source = fs.readFileSync(
@@ -119,35 +123,50 @@ function verifyCurrentHostCleanupFailureBoundaries(
     cleanupBody.slice(beforeEffectEnd);
   const mutantBody = [...bodies.slice(0, -1), mutantCleanup].join("\n");
   assert.notEqual(mutantBody, body);
-  const initialBytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
-  const verified = stateModel.decodeRuntimeDomainSnapshot(
-    initialBytes,
-    snapshot.repositoryBinding,
-  );
+  const initialBytes = Buffer.from(`${canonicalJson(snapshot)}\n`);
+  const verified = {
+    snapshot: JSON.parse(
+      Buffer.from(
+        initialBytes ?? assert.fail("missing_fixture_bytes"),
+      ).toString("utf8"),
+    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+    payloadSha256: createHash("sha256")
+      .update(initialBytes ?? assert.fail("missing_fixture_bytes"))
+      .digest("hex"),
+    sourceText: Buffer.from(
+      initialBytes ?? assert.fail("missing_fixture_bytes"),
+    ).toString("utf8"),
+  };
   assert.ok(verified);
   const found = verified.snapshot.operations.find(
-    (item): item is CoordinatorStateTaskOperation =>
+    (item): item is ExecutionOperationRecord =>
       item.kind === "docker_task" && item.recoveryId === recoveryId,
   );
   assert.ok(found);
-  const target: CoordinatorStateTaskOperation = found;
+  const target: ExecutionOperationRecord = found;
   const identity = JSON.parse(target.identityJson);
-  const retiredCandidate = stateModel.prepareCoordinatorStateLifecycleSnapshot(
-    initialBytes,
-    recoveryId,
-    {
-      phase: "settling",
-      lease: target.lease,
-      execution: { ...target.execution, ownerEffect: "disabled" },
-      primaryFailure: target.primaryFailure,
-      outcome: target.outcome,
-      summarySha256: target.summarySha256,
-    },
-    snapshot.repositoryBinding,
+  const retiredCandidate = Buffer.from(
+    `${canonicalJson({
+      ...verified.snapshot,
+      revision: verified.snapshot.revision + 1,
+      previous: {
+        revision: verified.snapshot.revision,
+        payloadSha256: verified.payloadSha256,
+      },
+      operations: verified.snapshot.operations.map((item) =>
+        item.recoveryId === recoveryId
+          ? {
+              ...item,
+              phase: "settling",
+              execution: { ...target.execution, ownerEffect: "disabled" },
+            }
+          : item,
+      ),
+    })}\n`,
   );
-  assert.ok(retiredCandidate);
+  // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
   const retired: Buffer = retiredCandidate;
-  const pendingCandidate = stateModel.prepareCoordinatorStateHostSnapshot(
+  const pendingCandidate = expectedHostCheckpoint(
     retired,
     recoveryId,
     { ...target.host, cleanup: "pending" },
@@ -224,6 +243,13 @@ function verifyCurrentHostCleanupFailureBoundaries(
       rootCapability,
       recoveryId,
       before: Buffer.from(currentBytes),
+      snapshot:
+        (JSON.parse(
+          Buffer.from(
+            currentBytes ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot) ??
+        assert.fail("fixture_snapshot_invalid"),
       hostToken: target.host.currentToken,
       hostRoot: identity.hostPaths.root,
       hostNonce: identity.initialHostRecoveryId.split(".")[2],
@@ -236,12 +262,12 @@ function verifyCurrentHostCleanupFailureBoundaries(
     };
     const preparations = new WeakMap([[capability, record]]);
     /**
-     * 現在本文の代役から実codec結果を返す。
+     * 有限fixtureの既知本文とHashをReader応答代役へ投影する。
      * @responsibility 故障段階だけを一回変え、保存済み本文を暗黙に戻さない。
      * @trace PRL-IT-013
      * @precondition currentBytesは実modelの有効候補である。
      * @stimulus pending読戻し、削除直前、confirmed読戻しで指定故障を与える。
-     * @observation decode結果・lockReleasedと到達数。
+     * @observation 本文投影・Hash・lockReleasedと到達数。
      * @oracle 実Readerの成功や実排他成立を代役の返却から主張しない。
      * @cleanup N/A: メモリ観測だけ。
      * @boundary Reader返却契約の論理故障。
@@ -268,7 +294,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
           reached++;
         }
         if (mode === "version_before_effect") {
-          const candidate = stateModel.prepareCoordinatorStateHostSnapshot(
+          const candidate = expectedHostCheckpoint(
             currentBytes,
             recoveryId,
             { ...target.host, cleanup: "pending" },
@@ -288,11 +314,19 @@ function verifyCurrentHostCleanupFailureBoundaries(
         reached++;
         bytes = stage === "pending" ? retired : pending;
       }
-      const value = stateModel.decodeRuntimeDomainSnapshot(
-        bytes,
-        snapshot.repositoryBinding,
-      );
-      assert.ok(value);
+      const decoded = {
+        snapshot: JSON.parse(
+          Buffer.from(bytes ?? assert.fail("missing_fixture_bytes")).toString(
+            "utf8",
+          ),
+        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      };
+      assert.ok(decoded);
+      const value = {
+        ...decoded,
+        payloadSha256: createHash("sha256").update(bytes).digest("hex"),
+        sourceText: bytes.toString("utf8"),
+      };
       let lockReleased = true;
       if (stage && mode === `${stage}_readback_lock`) {
         reached++;
@@ -303,21 +337,25 @@ function verifyCurrentHostCleanupFailureBoundaries(
         return {
           status: "completed",
           lockReleased,
+          unsubmittedHostRecoveryIds: [recoveryId],
           value: { ...value, payloadSha256: "0".repeat(64) },
         };
       }
-      return { status: "completed", lockReleased, value };
+      return {
+        status: "completed",
+        lockReleased,
+        value,
+        // この有限fixtureは初期操作の退役・清掃進捗だけを与える。モデルの反証はEM側で行う。
+        unsubmittedHostRecoveryIds: [recoveryId],
+      };
     }
     const dependencies = {
-      coordinatorTaskResourcesAreSettled: coordinatorTaskResourcesAreSettled,
+      areTaskResourcesSettled: areTaskResourcesSettled,
       isDockerRestartCheckpointSettled,
       dockerRecoveryPreparations: preparations,
-      encodeRuntimeStateValue: encodeRuntimeStateValue,
-      decodeRuntimeDomainSnapshot: stateModel.decodeRuntimeDomainSnapshot,
-      prepareCoordinatorStateOperationSnapshot:
-        stateModel.prepareCoordinatorStateOperationSnapshot,
-      prepareCoordinatorStateHostSnapshot:
-        stateModel.prepareCoordinatorStateHostSnapshot,
+      snapshotJsonValue,
+      isDeepStrictEqual,
+      canonicalJson: canonicalJson,
       verifyHostOperationRecoveryGeneration: (
         owner: object,
         root: string,
@@ -340,60 +378,177 @@ function verifyCurrentHostCleanupFailureBoundaries(
         root: physicalRoot,
         marker: physicalMarker,
       }),
-      readRuntimeOwnedCoordinatorRecoverySnapshot: readSnapshot,
-      readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot: readSnapshot,
-      writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-        repositoryOwner: object,
-        id: string,
-        before: Buffer,
-        kind: string,
-        value: unknown,
-        assertOwner: () => boolean,
+      readRecoveryState: (
+        _root: unknown,
+        request: { kind: string; recoveryId?: unknown } = { kind: "current" },
       ) => {
-        pendingRequests++;
-        assert.equal(repositoryOwner, record.repository);
-        assert.equal(id, recoveryId);
-        assert.equal(kind, "host");
-        assert.deepEqual(before, currentBytes);
-        assert.equal(assertOwner(), true);
-        if (mode === "pending_throw") {
-          reached++;
-          throw new Error("injected_pending_writer");
+        switch (request.kind) {
+          case "host_cleanup":
+            return readSnapshot();
+          default:
+            return readSnapshot();
         }
-        if (mode === "pending_refused") {
-          reached++;
-          return {
-            status: "blocked",
-            snapshotConfirmed: false,
-            lockReleased: true,
-          };
+      },
+      saveRecoveryCheckpoint: (
+        repository: unknown,
+        recoveryId: string,
+        before: Buffer,
+        request: Parameters<
+          typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+        >[3],
+      ) => {
+        switch (request.kind) {
+          case "host_cleanup":
+            return Reflect.apply(
+              (
+                repositoryOwner: object,
+                id: string,
+                before: Buffer,
+                assertOwner: () => boolean,
+              ) => {
+                finalRequests++;
+                assert.equal(repositoryOwner, record.repository);
+                assert.equal(id, recoveryId);
+                assert.deepEqual(before, currentBytes);
+                assert.equal(assertOwner(), true);
+                if (mode === "confirmed_throw") {
+                  reached++;
+                  throw new Error("injected_final_writer");
+                }
+                if (mode === "confirmed_refused") {
+                  reached++;
+                  return {
+                    status: "blocked",
+                    snapshotConfirmed: false,
+                    lockReleased: true,
+                  };
+                }
+                const candidate = expectedHostCheckpoint(
+                  currentBytes,
+                  recoveryId,
+                  { ...target.host, cleanup: "confirmed" },
+                  snapshot.repositoryBinding,
+                );
+                assert.ok(candidate);
+                currentBytes = candidate;
+                finalCommits++;
+                const saved = {
+                  snapshot: JSON.parse(
+                    Buffer.from(
+                      currentBytes ?? assert.fail("missing_fixture_bytes"),
+                    ).toString("utf8"),
+                  ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+                  payloadSha256: createHash("sha256")
+                    .update(
+                      currentBytes ?? assert.fail("missing_fixture_bytes"),
+                    )
+                    .digest("hex"),
+                  sourceText: Buffer.from(
+                    currentBytes ?? assert.fail("missing_fixture_bytes"),
+                  ).toString("utf8"),
+                };
+                assert.ok(saved);
+                if (
+                  mode === "confirmed_unconfirmed" ||
+                  mode === "confirmed_release_unknown"
+                )
+                  reached++;
+                return {
+                  status: "completed",
+                  snapshotConfirmed: mode !== "confirmed_unconfirmed",
+                  lockReleased: mode !== "confirmed_release_unknown",
+                  revision: saved.snapshot.revision,
+                  payloadSha256: saved.payloadSha256,
+                };
+              },
+              undefined,
+              [
+                repository,
+                recoveryId,
+                before,
+                request.assertAbsentOwner,
+                request.publication,
+              ],
+            );
+          default:
+            if (!("value" in request))
+              throw new Error("unexpected recovery kind");
+            return Reflect.apply(
+              (
+                repositoryOwner: object,
+                id: string,
+                before: Buffer,
+                kind: string,
+                value: unknown,
+                assertOwner: () => boolean,
+              ) => {
+                pendingRequests++;
+                assert.equal(repositoryOwner, record.repository);
+                assert.equal(id, recoveryId);
+                assert.equal(kind, "host");
+                assert.deepEqual(before, currentBytes);
+                assert.equal(assertOwner(), true);
+                if (mode === "pending_throw") {
+                  reached++;
+                  throw new Error("injected_pending_writer");
+                }
+                if (mode === "pending_refused") {
+                  reached++;
+                  return {
+                    status: "blocked",
+                    snapshotConfirmed: false,
+                    lockReleased: true,
+                  };
+                }
+                const candidate = expectedHostCheckpoint(
+                  currentBytes,
+                  recoveryId,
+                  value,
+                  snapshot.repositoryBinding,
+                );
+                assert.ok(candidate);
+                currentBytes = candidate;
+                pendingCommits++;
+                const saved = {
+                  snapshot: JSON.parse(
+                    Buffer.from(
+                      currentBytes ?? assert.fail("missing_fixture_bytes"),
+                    ).toString("utf8"),
+                  ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+                  payloadSha256: createHash("sha256")
+                    .update(
+                      currentBytes ?? assert.fail("missing_fixture_bytes"),
+                    )
+                    .digest("hex"),
+                  sourceText: Buffer.from(
+                    currentBytes ?? assert.fail("missing_fixture_bytes"),
+                  ).toString("utf8"),
+                };
+                assert.ok(saved);
+                if (
+                  mode === "pending_unconfirmed" ||
+                  mode === "pending_release_unknown"
+                )
+                  reached++;
+                return {
+                  status: "completed",
+                  snapshotConfirmed: mode !== "pending_unconfirmed",
+                  lockReleased: mode !== "pending_release_unknown",
+                  revision: saved.snapshot.revision,
+                  payloadSha256: saved.payloadSha256,
+                };
+              },
+              undefined,
+              [
+                repository,
+                recoveryId,
+                before,
+                request.kind,
+                request.value,
+                request.assertOwner,
+              ],
+            );
         }
-        const candidate = stateModel.prepareCoordinatorStateHostSnapshot(
-          currentBytes,
-          recoveryId,
-          value,
-          snapshot.repositoryBinding,
-        );
-        assert.ok(candidate);
-        currentBytes = candidate;
-        pendingCommits++;
-        const saved = stateModel.decodeRuntimeDomainSnapshot(
-          currentBytes,
-          snapshot.repositoryBinding,
-        );
-        assert.ok(saved);
-        if (
-          mode === "pending_unconfirmed" ||
-          mode === "pending_release_unknown"
-        )
-          reached++;
-        return {
-          status: "completed",
-          snapshotConfirmed: mode !== "pending_unconfirmed",
-          lockReleased: mode !== "pending_release_unknown",
-          revision: saved.snapshot.revision,
-          payloadSha256: saved.payloadSha256,
-        };
       },
       recoverOwnedOperationDirectories: (
         token: string,
@@ -428,56 +583,6 @@ function verifyCurrentHostCleanupFailureBoundaries(
         }
         return { status: "recovered" };
       },
-      writeRuntimeOwnedCoordinatorRecoveredHostCleanup: (
-        repositoryOwner: object,
-        id: string,
-        before: Buffer,
-        assertOwner: () => boolean,
-      ) => {
-        finalRequests++;
-        assert.equal(repositoryOwner, record.repository);
-        assert.equal(id, recoveryId);
-        assert.deepEqual(before, currentBytes);
-        assert.equal(assertOwner(), true);
-        if (mode === "confirmed_throw") {
-          reached++;
-          throw new Error("injected_final_writer");
-        }
-        if (mode === "confirmed_refused") {
-          reached++;
-          return {
-            status: "blocked",
-            snapshotConfirmed: false,
-            lockReleased: true,
-          };
-        }
-        const candidate = stateModel.prepareCoordinatorStateHostSnapshot(
-          currentBytes,
-          recoveryId,
-          { ...target.host, cleanup: "confirmed" },
-          snapshot.repositoryBinding,
-        );
-        assert.ok(candidate);
-        currentBytes = candidate;
-        finalCommits++;
-        const saved = stateModel.decodeRuntimeDomainSnapshot(
-          currentBytes,
-          snapshot.repositoryBinding,
-        );
-        assert.ok(saved);
-        if (
-          mode === "confirmed_unconfirmed" ||
-          mode === "confirmed_release_unknown"
-        )
-          reached++;
-        return {
-          status: "completed",
-          snapshotConfirmed: mode !== "confirmed_unconfirmed",
-          lockReleased: mode !== "confirmed_release_unknown",
-          revision: saved.snapshot.revision,
-          payloadSha256: saved.payloadSha256,
-        };
-      },
     };
     const runtime = runInThisContext(`(function(dependencies) {
       const { ${Object.keys(dependencies).join(",")} } = dependencies;
@@ -490,10 +595,18 @@ function verifyCurrentHostCleanupFailureBoundaries(
     assert.equal(finalRequests, 0);
     reads = 0;
     const result = runtime.cleanup(capability);
-    const value = stateModel.decodeRuntimeDomainSnapshot(
-      currentBytes,
-      snapshot.repositoryBinding,
+    assert.deepEqual(
+      Buffer.from(`${canonicalJson(record.snapshot)}\n`),
+      record.before,
+      mode,
     );
+    const value = {
+      snapshot: JSON.parse(
+        Buffer.from(
+          currentBytes ?? assert.fail("missing_fixture_bytes"),
+        ).toString("utf8"),
+      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+    };
     assert.ok(value);
     assert.deepEqual(
       value.snapshot.operations.filter(
@@ -514,7 +627,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
       true,
     );
     const operation = value.snapshot.operations.find(
-      (item): item is CoordinatorStateTaskOperation =>
+      (item): item is ExecutionOperationRecord =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     assert.ok(operation);
@@ -573,14 +686,32 @@ function verifyCurrentHostCleanupFailureBoundaries(
    * @boundary 論理保存候補。物理Writerの耐久性は主張しない。
    */
   function assertSnapshotBytes(actual: Buffer, expected: Buffer, mode: string) {
-    const actualValue = stateModel.decodeRuntimeDomainSnapshot(
-      actual,
-      snapshot.repositoryBinding,
-    );
-    const expectedValue = stateModel.decodeRuntimeDomainSnapshot(
-      expected,
-      snapshot.repositoryBinding,
-    );
+    const actualValue = {
+      snapshot: JSON.parse(
+        Buffer.from(actual ?? assert.fail("missing_fixture_bytes")).toString(
+          "utf8",
+        ),
+      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      payloadSha256: createHash("sha256")
+        .update(actual ?? assert.fail("missing_fixture_bytes"))
+        .digest("hex"),
+      sourceText: Buffer.from(
+        actual ?? assert.fail("missing_fixture_bytes"),
+      ).toString("utf8"),
+    };
+    const expectedValue = {
+      snapshot: JSON.parse(
+        Buffer.from(expected ?? assert.fail("missing_fixture_bytes")).toString(
+          "utf8",
+        ),
+      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      payloadSha256: createHash("sha256")
+        .update(expected ?? assert.fail("missing_fixture_bytes"))
+        .digest("hex"),
+      sourceText: Buffer.from(
+        expected ?? assert.fail("missing_fixture_bytes"),
+      ).toString("utf8"),
+    };
     assert.ok(actualValue, mode);
     assert.ok(expectedValue, mode);
     assert.deepEqual(actual, expected, mode);
@@ -597,13 +728,13 @@ function verifyCurrentHostCleanupFailureBoundaries(
     );
     assert.equal(actualValue.payloadSha256, expectedValue.payloadSha256, mode);
   }
-  const confirmed = stateModel.prepareCoordinatorStateHostSnapshot(
+  const confirmed = expectedHostCheckpoint(
     pending,
     recoveryId,
     { ...target.host, cleanup: "confirmed" },
     snapshot.repositoryBinding,
   );
-  const extraPending = stateModel.prepareCoordinatorStateHostSnapshot(
+  const extraPending = expectedHostCheckpoint(
     pending,
     recoveryId,
     { ...target.host, cleanup: "pending" },
@@ -700,14 +831,9 @@ function verifyCurrentHostCleanupFailureBoundaries(
   assert.ok(changedHashSnapshot.previous);
   changedHashSnapshot.previous.payloadSha256 = "0".repeat(64);
   const changedHashBytes = Buffer.from(
-    `${encodeRuntimeStateValue(changedHashSnapshot)}\n`,
+    `${canonicalJson(changedHashSnapshot)}\n`,
   );
-  assert.ok(
-    stateModel.decodeRuntimeDomainSnapshot(
-      changedHashBytes,
-      snapshot.repositoryBinding,
-    ),
-  );
+  // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
   assert.throws(() =>
     assertSnapshotBytes(changedHashBytes, pending, "changed_previous_hash"),
   );
@@ -1303,8 +1429,8 @@ for (const producerMode of [
    * @boundary Process喪失とfresh回復。Home観測だけを模擬し実Dockerは使わない。
    */
   test(`Host Windows: Owner終了境界${producerMode}から別Processの本番回復へ結合する`, async () => {
-    const area = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    const area = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         import.meta.dirname,
         "tests",
       ),
@@ -1430,403 +1556,37 @@ for (const producerMode of [
       assert.equal(identity.operationNonce, emitted.recoveryId.split(".")[2]);
       if (producerMode === "state_saved") {
         verifyCurrentHostCleanupFailureBoundaries(before, emitted.recoveryId);
-        const source = fs.readFileSync(
-          new URL("../../src/execution/recovery.ts", import.meta.url),
-          "utf8",
-        );
-        const start = source.indexOf("function isUnsubmittedInitialTaskHost(");
-        const end = source.indexOf("\n/**", start);
-        assert.ok(start > 0 && end > start);
-        const body = stripTypeScriptTypes(source.slice(start, end));
-        const evaluate = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isUnsubmittedInitialTaskHost; })`,
-        )(
-          stateModel.prepareCoordinatorStateOperationSnapshot,
-          stateModel.decodeRuntimeDomainSnapshot,
-          encodeRuntimeStateValue,
-          isDockerRestartCheckpointSettled,
-        );
-        const comparisonStart = body.lastIndexOf("return (");
-        assert.ok(comparisonStart > 0);
-        assert.equal(
-          body.split("encodeRuntimeStateValue(operation)").length - 1,
-          1,
-        );
-        const comparisonOmitted = `${body.slice(0, comparisonStart)}return true;\n}`;
-        assert.notEqual(comparisonOmitted, body);
-        const evaluateMutant = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isUnsubmittedInitialTaskHost; })`,
-        )(
-          stateModel.prepareCoordinatorStateOperationSnapshot,
-          stateModel.decodeRuntimeDomainSnapshot,
-          encodeRuntimeStateValue,
-          isDockerRestartCheckpointSettled,
-        );
-        let legalRejections = 0;
-        /**
-         * codec合法な非初期操作を同じ拒否Oracleへ渡す。
-         * @responsibility codec拒否と初期切断の限定判定を区別し、全文比較省略を検出する。
-         * @trace PRL-IT-013
-         * @trace ERB-IT-003
-         * @precondition 実試験Identityを保持し、一軸だけ変更した操作を受け取る。
-         * @stimulus 同じSnapshotへ戻してdecodeし、元判定とメモリ変異へ同じ引数を渡す。
-         * @observation decode成功、元判定false、比較省略変異trueと到達数。
-         * @oracle 合法負例は元判定だけが拒否し、同じfalse Oracleが変異を検出する。
-         * @cleanup N/A: メモリ内だけで実Sourceと保存本文を変更しない。
-         * @boundary 保存値の合法性と意味上の初期切断判定。物理Host観測の代用ではない。
-         */
-        function assertLegalRejected(changed: typeof target): void {
-          const candidate = structuredClone(before);
-          candidate.operations = candidate.operations.map(
-            (item: typeof target) =>
-              item.recoveryId === changed.recoveryId ? changed : item,
-          );
-          const decoded = stateModel.decodeRuntimeDomainSnapshot(
-            Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
-            before.repositoryBinding,
-          );
-          assert.ok(decoded, "negative_must_be_codec_legal");
-          const args = [
-            changed,
-            decoded.snapshot,
-            changed.host.currentToken,
-            "host_only",
-          ];
-          assert.equal(evaluate(...args), false);
-          assert.throws(() => assert.equal(evaluateMutant(...args), false));
-          legalRejections++;
-        }
-        const retired = structuredClone(target);
-        retired.phase = "settling";
-        retired.execution.ownerEffect = "disabled";
-        for (const cleanup of ["not_requested", "pending"]) {
-          retired.host.cleanup = cleanup;
-          assert.equal(
-            evaluate(retired, before, retired.host.currentToken, "host_only"),
-            true,
-          );
-        }
-        const settledRestart = {
-          requestId: createDockerRestartRequestId(
-            before.repositoryBinding,
-            retired.identitySha256,
-            retired.recoveryId,
-            "b".repeat(64),
+        const helper = sourceDeclaration(
+          fs.readFileSync(
+            new URL("../../src/execution/recovery.ts", import.meta.url),
+            "utf8",
           ),
-          scopeSha256: "b".repeat(64),
-          request: "unknown",
-          cleanup: "confirmed",
-          result: {
-            status: "blocked",
-            reason: "docker_restart_stop_unconfirmed",
-            request: "not_issued",
-            effectOutcomeUnknown: false,
-          },
-        };
-        const restartGuard =
-          "!isDockerRestartCheckpointSettled(operation.dockerRestart)";
-        assert.equal(body.split(restartGuard).length - 1, 1);
-        const guardMutant = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isUnsubmittedInitialTaskHost; })`,
-        )(
-          stateModel.prepareCoordinatorStateOperationSnapshot,
-          stateModel.decodeRuntimeDomainSnapshot,
-          encodeRuntimeStateValue,
-          isDockerRestartCheckpointSettled,
+          "isUnsubmittedInitialTaskHost",
         );
-        const restartOperation = {
-          ...retired,
-          dockerRestart: settledRestart,
-        };
-        /**
-         * 実操作へ相関した候補の合法性を確認して評価引数へ戻す。
-         * @responsibility codec拒否と初期Taskの意味上の拒否を分離する。
-         * @trace PRL-IT-013
-         * @precondition 同じIdentityを保持した候補操作を受け取る。
-         * @stimulus 元Snapshotへ差し戻して実codecで復号する。
-         * @observation 復号成功と対象操作の存在。
-         * @oracle 不合法な候補をguardの負例として数えない。
-         * @cleanup N/A: メモリだけを使用する。
-         * @boundary 現在状態codecと純粋な初期Task判定。
-         */
-        function restartEvaluationArgs(changed: unknown): unknown[] {
-          const candidate = structuredClone(before);
-          candidate.operations = candidate.operations.map(
-            (item: typeof target) =>
-              item.recoveryId === retired.recoveryId ? changed : item,
-          );
-          const decoded = stateModel.decodeRuntimeDomainSnapshot(
-            Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
-            before.repositoryBinding,
-          );
-          assert.ok(decoded, "restart_candidate_must_be_codec_legal");
-          const operation = decoded.snapshot.operations.find(
-            (item) => item.recoveryId === retired.recoveryId,
-          );
-          assert.ok(operation);
-          return [
-            operation,
-            decoded.snapshot,
-            retired.host.currentToken,
-            "host_only",
-          ];
-        }
-        const restartArgs = restartEvaluationArgs(restartOperation);
-        assert.equal(evaluate(...restartArgs), true);
-        const changedLeaseArgs = restartEvaluationArgs({
-          ...restartOperation,
-          lease: "released",
-        });
-        assert.equal(evaluate(...changedLeaseArgs), false);
-        assert.throws(() =>
-          assert.equal(evaluateMutant(...changedLeaseArgs), false),
+        const evaluate = runInThisContext(
+          "(function(){ " +
+            stripTypeScriptTypes(helper) +
+            "; return isUnsubmittedInitialTaskHost; })",
+        )();
+        assert.equal(
+          evaluate(target, true, target.host.currentToken, "host_only"),
+          true,
         );
-        for (const checkpoint of [
-          { ...settledRestart, cleanup: "unknown" },
-          { ...settledRestart, result: null },
-          {
-            ...settledRestart,
-            result: { ...settledRestart.result, effectOutcomeUnknown: true },
-          },
-          {
-            ...settledRestart,
-            result: { ...settledRestart.result, request: "unknown" },
-          },
-        ]) {
-          const args = restartEvaluationArgs({
-            ...restartOperation,
-            dockerRestart: checkpoint,
-          });
-          assert.equal(evaluate(...args), false);
-          assert.throws(() => assert.equal(guardMutant(...args), false));
-        }
-        for (const field of [
-          "phase",
-          "lease",
-          "dockerRestart",
-          "primaryFailure",
-          "outcome",
-          "summarySha256",
-          "history",
-        ]) {
-          const changed = structuredClone(retired);
-          changed[field] =
-            field === "phase"
-              ? "awaiting_delivery"
-              : field === "lease"
-                ? "released"
-                : { changed: true };
-          assert.equal(
-            evaluate(changed, before, changed.host.currentToken, "host_only"),
-            false,
-            field,
-          );
-        }
-        for (const field of Object.keys(retired.execution)) {
-          const changed = structuredClone(retired);
-          changed.execution[field] =
-            field === "workspaceReusable"
-              ? true
-              : field === "ownerEffect"
-                ? "active"
-                : "unknown";
-          if (field === "workspaceReusable") {
-            // codec自体が常にfalseを要求する項目で、合法負例には数えない。
-            const invalid = structuredClone(before);
-            invalid.operations = invalid.operations.map(
-              (item: typeof target) =>
-                item.recoveryId === changed.recoveryId ? changed : item,
-            );
-            assert.equal(
-              stateModel.decodeRuntimeDomainSnapshot(
-                Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
-                before.repositoryBinding,
-              ),
-              null,
-            );
-            assert.equal(
-              evaluate(changed, before, changed.host.currentToken, "host_only"),
-              false,
-            );
-          } else assertLegalRejected(changed);
-        }
-        for (let index = 0; index < 5; index++) {
-          const frame = createResourceBookFixture(
-            identity.ownershipLabel,
-            "planned",
-            [
-              "create_egress_network",
-              "create_internal_network",
-              "create_provider",
-              "create_proxy",
-              "create_subscription_auth_probe",
-            ],
-          );
-          const resource = frame.snapshot.resources[index];
-          assert.ok(resource);
-          for (const variant of [
-            "intent",
-            "not_issued",
-            "receipt",
-            "unknown",
-            "absent",
-          ]) {
-            let book = stateModel.applyCoordinatorResourceEvent(null, {
-              event: "submission",
-              key: resource.key,
-              snapshot: frame.snapshot,
-              cleanup: frame.cleanup,
-            });
-            assert.ok(book);
-            if (variant === "not_issued")
-              book = stateModel.applyCoordinatorResourceEvent(book, {
-                event: "not_issued",
-                key: resource.key,
-              });
-            if (variant === "receipt" || variant === "absent") {
-              const snapshot = {
-                resources: frame.snapshot.resources.map((r) =>
-                  r.key === resource.key
-                    ? {
-                        ...r,
-                        request: "issued" as const,
-                        identity: { ...r.identity, dockerId: "f".repeat(64) },
-                      }
-                    : r,
-                ),
-              };
-              book = stateModel.applyCoordinatorResourceEvent(book, {
-                event: "receipt",
-                key: resource.key,
-                snapshot,
-                cleanup: frame.cleanup,
-              });
-              assert.ok(book);
-              if (variant === "absent")
-                book = stateModel.applyCoordinatorResourceCleanup(
-                  book,
-                  snapshot,
-                  snapshot.resources.map((r) => ({
-                    key: r.key,
-                    observation:
-                      r.key === resource.key ? "absent" : "not_requested",
-                  })),
-                  {
-                    recoveryId: retired.recoveryId,
-                    previousPayloadSha256: "a".repeat(64),
-                  },
-                );
-            }
-            if (variant === "unknown") {
-              assert.ok(book);
-              book = stateModel.applyCoordinatorResourceCleanup(
-                book,
-                book.snapshot,
-                book.snapshot.resources.map((r) => ({
-                  key: r.key,
-                  observation:
-                    r.key === resource.key ? "unknown" : "not_requested",
-                })),
-                {
-                  recoveryId: retired.recoveryId,
-                  previousPayloadSha256: "a".repeat(64),
-                },
-              );
-            }
-            assert.ok(book);
-            const changed = structuredClone(retired);
-            changed.resources = book;
-            assertLegalRejected(changed);
-          }
-          const valid = createResourceBookFixture(
-            identity.ownershipLabel,
-            "absent",
-            frame.snapshot.resources.map((r) => r.key),
-          );
-          for (const field of [
-            "dockerId",
-            "receiptSource",
-            "observation",
-            "absenceEvidenceSha256",
-          ]) {
-            const changed = structuredClone(retired);
-            changed.resources = structuredClone(valid);
-            if (field === "dockerId")
-              changed.resources.snapshot.resources[index].identity.dockerId =
-                "changed";
-            else changed.resources.checkpoints[index][field] = "changed";
-            assert.equal(
-              evaluate(changed, before, changed.host.currentToken, "host_only"),
-              false,
-              index + ":" + field,
-            );
-          }
-        }
-        const initialHost = loadHostRecoveryRecordByToken(
-          retired.host.currentToken,
-          identity.hostPaths.root,
+        assert.equal(
+          evaluate(target, false, target.host.currentToken, "host_only"),
+          false,
         );
-        const successor = structuredClone(retired);
-        successor.host.currentToken = `host.${initialHost.parsed.rootName}.${initialHost.parsed.nonce}.${createHash(
-          "sha256",
-        )
-          .update(
-            `${JSON.stringify({ ...initialHost.record, state: "docker_submission_started" })}\n`,
-          )
-          .digest("hex")}`;
-        assertLegalRejected(successor);
-        assert.equal(legalRejections, 30);
-        for (const state of [
+        for (const hostState of [
           "initializing",
           "docker_submission_started",
           "docker_absent_confirmed",
           "unknown",
         ])
           assert.equal(
-            evaluate(retired, before, retired.host.currentToken, state),
+            evaluate(target, true, target.host.currentToken, hostState),
             false,
           );
-        assert.equal(
-          evaluate(retired, before, "different", "host_only"),
-          false,
-        );
-        for (const field of [
-          "currentToken",
-          "pendingTransitionJson",
-          "cleanup",
-        ]) {
-          const changed = structuredClone(retired);
-          changed.host[field] = "changed";
-          assert.equal(
-            evaluate(changed, before, changed.host.currentToken, "host_only"),
-            false,
-            field,
-          );
-        }
-        for (const collection of [
-          "unresolvedRecoveries",
-          "pendingDeliveries",
-        ]) {
-          for (const key of ["recoveryId", "operationNonce"]) {
-            const changed = structuredClone(before);
-            changed[collection].push({
-              [key]:
-                key === "recoveryId"
-                  ? retired.recoveryId
-                  : identity.operationNonce,
-            });
-            assert.equal(
-              evaluate(
-                retired,
-                changed,
-                retired.host.currentToken,
-                "host_only",
-              ),
-              false,
-              `${collection}:${key}`,
-            );
-          }
-        }
+        assert.equal(evaluate(target, true, "different", "host_only"), false);
       }
       assert.equal(fs.lstatSync(identity.hostPaths.root).isDirectory(), true);
       assert.equal(fs.lstatSync(identity.hostPaths.marker).isFile(), true);
@@ -1905,25 +1665,37 @@ for (const producerMode of [
       };
       const otherHostBefore = captureOtherHost();
       if (producerMode === "state_saved") {
-        const retired = stateModel.prepareCoordinatorStateLifecycleSnapshot(
-          Buffer.from(`${encodeRuntimeStateValue(before)}\n`),
-          emitted.recoveryId,
-          {
-            phase: "settling",
-            lease: target.lease,
-            execution: { ...target.execution, ownerEffect: "disabled" },
-            primaryFailure: target.primaryFailure,
-            outcome: target.outcome,
-            summarySha256: target.summarySha256,
-          },
-          before.repositoryBinding,
+        const retired = Buffer.from(
+          `${canonicalJson({
+            ...before,
+            revision: before.revision + 1,
+            previous: {
+              revision: before.revision,
+              payloadSha256: createHash("sha256")
+                .update(canonicalJson(before) + "\n")
+                .digest("hex"),
+            },
+            operations: before.operations.map(
+              (item: stateModel.OperationRecord) =>
+                item.recoveryId === emitted.recoveryId
+                  ? {
+                      ...item,
+                      phase: "settling",
+                      execution: {
+                        ...target.execution,
+                        ownerEffect: "disabled",
+                      },
+                    }
+                  : item,
+            ),
+          })}\n`,
         );
-        assert.ok(retired);
+        // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
         // 初回Intent前のexactな初期記録には資源Writerを発行しない。
         assert.equal(target.resources, null);
         const resourcesConfirmed = retired;
         const retriedResourcesConfirmed = retired;
-        const expectedPending = stateModel.prepareCoordinatorStateHostSnapshot(
+        const expectedPending = expectedHostCheckpoint(
           retriedResourcesConfirmed,
           emitted.recoveryId,
           { ...target.host, cleanup: "pending" },
@@ -2255,8 +2027,8 @@ for (const fault of [
    * @boundary 実Owner／Writer／KernelとDocker代役。Container回収や実restartは検証しない。
    */
   test(`Host Windows: 認証create通常例外${fault}でOwner解放と現在記録を保持する`, () => {
-    const area = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    const area = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         import.meta.dirname,
         "tests",
       ),
@@ -2395,7 +2167,7 @@ for (const fault of [
  * @precondition Windowsと自己生成Repositoryを使い、修復Native・技術観測、Home観測とDocker証明だけを模擬する。
  * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。2回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に逆順で結果を登録する。
  * @observation 実state本文、Home排他競合、Host marker、履歴、短命物と非対象操作を確認する。
- * @oracle 修復中のTask追加候補はnull。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
+ * @oracle 修復中のTask開始Writerは未保存・保存未確認・耐久Effectなし・Lock解放・元本文不変で拒否する。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
  * @cleanup 真正Ownerを放棄・解放し、確認済み自己生成HostとRepositoryだけを清掃する。
  * @boundary 実Owner／Kernel／Host／Writerと、模擬Docker cleanup・mount・terminal証明。
  */
@@ -2414,19 +2186,26 @@ for (const { repeatCount, retained } of [
    * @precondition Windowsと自己生成Repositoryを使い、修復Native・技術観測、Home観測とDocker証明だけを模擬する。
    * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。複数回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に全結果受領→全最終確定を行う。3回形はServer受信済みのHTTP照会を重ねる。
    * @observation 実state本文、Home排他競合、Host marker、履歴、短命物と非対象操作を確認する。
-   * @oracle 修復中のTask追加候補はnull。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
+   * @oracle 修復中のTask開始Writerは未保存・保存未確認・耐久Effectなし・Lock解放・元本文不変で拒否する。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
    * @cleanup 真正Ownerを放棄・解放し、確認済み自己生成HostとRepositoryだけを清掃する。
    * @boundary 実Owner／Kernel／Host／Writerと、模擬Docker cleanup・mount・terminal証明。
    */
   test(`Host Windows: 正常Owner${repeatCount}回${retained ? "・保持あり" : ""}から実Home解放・Host清掃・結果保存まで結合する`, async (t) => {
-    const area = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    const area = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         import.meta.dirname,
         "tests",
       ),
       "normal_owner_test",
     );
     const root = fs.mkdtempSync(path.join(area.directory, "normal-owner-"));
+    // 共有Home・Runtimeの排他も、このCaseで生成したRootの中だけを使う。
+    const previousLocalAppData = process.env.LOCALAPPDATA;
+    process.env.LOCALAPPDATA = root;
+    t.after(() => {
+      if (previousLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+      else process.env.LOCALAPPDATA = previousLocalAppData;
+    });
     let owned: ReturnType<
       typeof hostRuntime.createOwnedOperationDirectories
     > | null = null;
@@ -2439,9 +2218,13 @@ for (const { repeatCount, retained } of [
       null;
     const substitutions: Array<{ restore(): void }> = [];
     let hostCleaned = false;
+    let fixtureHomeLease: Lock | null = null;
     let failure: unknown = null;
     let repairClosed = repeatCount !== 1;
     let repairHistory: Buffer | null = null;
+    let repairHistoryRows: NonNullable<
+      ReturnType<typeof stateModel.readRecoveryState>["historyRows"]
+    > | null = null;
     let repairActiveState: Buffer | null = null;
     let repairCompletedState: Buffer | null = null;
     let httpServer: ReturnType<typeof createServer> | null = null;
@@ -2497,17 +2280,31 @@ for (const { repeatCount, retained } of [
      * @trace ERB-IT-014
      * @precondition 修復直後の元行を捕捉済み。2回形には修復行がない。
      * @stimulus 同じhistory本文と、追加済みTask行の期待数を渡す。
-     * @observation raw byte、decoderの行集合とexact回復IDを確認する。
+     * @observation 実Fileと引数のbyte一致、公開Readerの行集合とexact回復IDを確認する。
      * @oracle 元行のbyte・時刻・両Hashは不変かつ一件。Task追加前は全byte一致。
-     * @cleanup N/A: 値比較だけでFilesystemを変更しない。
+     * @cleanup N/A: 公開Readerによる短期Lockは同Readerが解放し、保存本文を変更しない。
      * @boundary 実履歴本文と元修復行の相関。実修復技術の証明ではない。
      */
     function assertRepairHistory(bytes: Buffer, taskRows = 0): void {
       if (!repairHistory) return;
-      const original =
-        historyValues.decodeCoordinatorHistoryRows(repairHistory);
-      const rows = historyValues.decodeCoordinatorHistoryRows(bytes);
-      assert.ok(original?.length === 1 && original[0] && rows);
+      const original = repairHistoryRows;
+      assert.ok(original?.length === 1 && original[0]);
+      const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+      const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
+      assert.deepEqual(bytes, fs.readFileSync(historyFile));
+      const before = fs.readFileSync(stateFile);
+      const repository = getRepository(root);
+      assert.equal(repository.status, "completed");
+      assert.ok(repository.capability);
+      const observed = stateModel.readRecoveryState(repository.capability, {
+        kind: "history",
+      });
+      assert.equal(observed.status, "completed", observed.reason);
+      assert.equal(observed.lockReleased, true);
+      assert.ok(observed.value && observed.historyRows);
+      assert.deepEqual(fs.readFileSync(stateFile), before);
+      assert.deepEqual(fs.readFileSync(historyFile), bytes);
+      const rows = observed.historyRows;
       assert.equal(rows.length, 1 + taskRows);
       assert.deepEqual(bytes.subarray(0, repairHistory.length), repairHistory);
       assert.deepEqual(
@@ -2517,6 +2314,17 @@ for (const { repeatCount, retained } of [
       if (taskRows === 0) assert.deepEqual(bytes, repairHistory);
     }
     try {
+      for (const directory of [
+        providerHomesDirectoryCandidate(),
+        runtimeStateDirectoryCandidate(),
+      ]) {
+        assert.ok(directory);
+        const relative = path.relative(root, directory);
+        assert.ok(
+          relative && !relative.startsWith("..") && !path.isAbsolute(relative),
+        );
+        fs.mkdirSync(directory, { recursive: true });
+      }
       execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
       execFileSync(
         "git",
@@ -2537,8 +2345,8 @@ for (const { repeatCount, retained } of [
         ],
         { windowsHide: true },
       );
-      const hosts = requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
+      const hosts = requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "tests"),
         "normal_owner_hosts",
       );
       if (repeatCount === 1) {
@@ -2579,42 +2387,39 @@ for (const { repeatCount, retained } of [
               {
                 namedExports: {
                   ...stateRuntime,
-                  writeRuntimeOwnedCoordinatorRepairSnapshot: (
-                    ...args: Parameters<
-                      typeof writeRuntimeOwnedCoordinatorRepairSnapshot
-                    >
+                  saveRepairState: (
+                    ...args: Parameters<typeof saveRepairState>
                   ) => {
                     if (args[2].change.kind === "disposal_decision") {
                       disposalDecisionRefusals++;
                       assert.equal(disposalDecisionRefusals, 1);
-                      return writeRuntimeOwnedCoordinatorRepairSnapshot(
-                        null,
-                        args[1],
-                        args[2],
-                        args[3],
-                      );
+                      return saveRepairState(null, args[1], args[2], args[3]);
                     }
-                    return writeRuntimeOwnedCoordinatorRepairSnapshot(...args);
+                    return saveRepairState(...args);
                   },
                 },
               },
             )
           : null;
         const technical = mock.module(
-          new URL("../../../docker-isolation/src/index.ts", import.meta.url)
-            .href,
+          new URL("../../../executor/src/index.ts", import.meta.url).href,
           {
             namedExports: {
-              ...isolation,
-              cleanupRepairDirectory: async () => {
+              ...executorLibrary,
+              cleanupResources: async () => {
                 disposalCalls++;
                 throw new Error("unexpected_fixture_disposal");
               },
-              observeRepairDirectories: (
-                input: Parameters<
-                  typeof directoryOperations.observeRepairDirectories
-                >[0],
+              inspectResources: (
+                target: Readonly<{
+                  kind: "docker_runtime_directory";
+                  input: Parameters<
+                    typeof directoryOperations.observeRepairDirectories
+                  >[0];
+                }>,
               ) => {
+                assert.equal(target.kind, "docker_runtime_directory");
+                const input = target.input;
                 retentionReads++;
                 assert.equal(retained, true);
                 assert.equal(input.canObserve(), true);
@@ -2638,12 +2443,12 @@ for (const { repeatCount, retained } of [
                   auxiliary: null,
                 };
               },
-              runRepairSession: (
-                input: Parameters<
-                  typeof directoryOperations.runRepairSession
-                >[0],
-              ) =>
-                runRepairSessionWithDependencies(input, {
+              restartDockerEnvironment: (
+                request: isolation.DockerEnvironmentRequest,
+              ) => {
+                if (request.mode !== "repair")
+                  throw new Error("unexpected_fixture_restart");
+                return runRepairSessionWithDependencies(request.input, {
                   acquire: async () => {
                     acquisitions++;
                     return {
@@ -2772,7 +2577,8 @@ for (const { repeatCount, retained } of [
                       },
                     },
                   }),
-                }),
+                });
+              },
             },
           },
         );
@@ -2846,10 +2652,40 @@ for (const { repeatCount, retained } of [
           repairHistory = fs.readFileSync(
             path.join(path.dirname(repairStatePath), "history.jsonl"),
           );
-          const rows =
-            historyValues.decodeCoordinatorHistoryRows(repairHistory);
-          assert.equal(rows?.length, 1);
-          assert.equal(rows?.[0]?.recoveryId, result.recoveryId);
+          const observed = stateModel.readRecoveryState(verified.capability, {
+            kind: "history",
+          });
+          assert.equal(observed.status, "completed", observed.reason);
+          assert.equal(observed.lockReleased, true);
+          assert.ok(observed.value && observed.historyRows);
+          repairHistoryRows = observed.historyRows;
+          assert.equal(repairHistoryRows.length, 1);
+          const row = repairHistoryRows[0];
+          assert.ok(row);
+          const savedRow = JSON.parse(repairHistory.toString("utf8"));
+          assert.equal(row.recoveryId, result.recoveryId);
+          assert.equal(row.line, repairHistory.toString("utf8"));
+          assert.equal(row.occurredAt, savedRow.occurredAt);
+          assert.equal(
+            row.lineSha256,
+            createHash("sha256").update(repairHistory).digest("hex"),
+          );
+          assert.equal(
+            row.summarySha256,
+            createHash("sha256")
+              .update(`${canonicalJson(savedRow.summary)}\n`)
+              .digest("hex"),
+          );
+          assert.deepEqual(
+            fs.readFileSync(repairStatePath),
+            repairCompletedState,
+          );
+          assert.deepEqual(
+            fs.readFileSync(
+              path.join(path.dirname(repairStatePath), "history.jsonl"),
+            ),
+            repairHistory,
+          );
           assert.equal(
             JSON.parse(repairHistory.toString("utf8")).summary.schema,
             "crdd-coordinator/repair-summary/v1",
@@ -2891,13 +2727,12 @@ for (const { repeatCount, retained } of [
             }
           }
           const changed = JSON.parse(repairHistory.toString("utf8"));
+          // 引数だけの改変・重複は実File不一致として拒否する。構文検査はEM試験が所有する。
           changed.occurredAt = new Date(
             Date.parse(changed.occurredAt) + 1,
           ).toISOString();
           assert.throws(() =>
-            assertRepairHistory(
-              Buffer.from(`${encodeRuntimeStateValue(changed)}\n`),
-            ),
+            assertRepairHistory(Buffer.from(`${canonicalJson(changed)}\n`)),
           );
           const duplicated = Buffer.concat([repairHistory, repairHistory]);
           assert.throws(() => assertRepairHistory(duplicated));
@@ -2950,18 +2785,13 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v3", revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${canonicalJson({ schema: "crdd-domain/runtime-state/v3", revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount >= 2) {
         // 再入場Caseの初期値を自己生成領域へ配置する。初期化Writerの保証はDomainが検証する。
-        assert.ok(
-          stateModel.decodeRuntimeDomainSnapshot(
-            initial,
-            binding.repositoryBinding,
-          ),
-        );
-        const stateArea = requireReadyRepositoryRuntimeDataArea(
-          ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+        // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
+        const stateArea = requireReadyRepositoryExecutionDataArea(
+          ensureRepositoryExecutionDataAreaFromWorkingDirectory(
             root,
             "domain-model",
           ),
@@ -2987,16 +2817,18 @@ for (const { repeatCount, retained } of [
       }
       const hash = randomBytes(32).toString("hex"),
         suffix = randomBytes(8).toString("hex");
+      const resolvedSelection = executionSelection("executor", {
+        provider: "codex",
+        model: "gpt-5.5",
+        effort: "low",
+      });
       const plan = Object.freeze({
         provider: "codex" as const,
         consumer: "workbench" as const,
         operationId: binding.operationId,
         grantRef: "PHMGRANT-FIXTURE",
-        executionSelection: executionSelection("executor", {
-          provider: "codex",
-          model: "gpt-5.5",
-          effort: "low",
-        }),
+        executionSelection: resolvedSelection,
+        selectionHash: stateModel.hashExecutionSelection(resolvedSelection),
         taskAttempt: 0 as const,
         providerHomeIdentityHash: hash,
         stableLogicalHomeBindingHash: hash,
@@ -3025,18 +2857,42 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(otherIdentity);
       if (repairActiveState) {
-        assert.equal(
-          stateModel.prepareCoordinatorStateOperationSnapshot(
-            repairActiveState,
-            otherIdentity,
-            binding.repositoryBinding,
-          ),
-          null,
+        assert.ok(repairCompletedState);
+        const currentFile = path.join(
+          root,
+          ".crdd",
+          "domain-model",
+          "state.json",
         );
+        assert.deepEqual(fs.readFileSync(currentFile), repairCompletedState);
+        fs.writeFileSync(currentFile, repairActiveState);
+        const refused = saveOperationStart(
+          otherManagement,
+          otherIdentity,
+          () => null,
+        );
+        assert.equal(refused.status, "blocked");
+        assert.equal(refused.startSaved, false);
+        assert.equal(refused.snapshotConfirmed, false);
+        assert.equal(refused.filesystemEffectIssued, false);
+        assert.equal(refused.lockReleased, true);
+        assert.deepEqual(fs.readFileSync(currentFile), repairActiveState);
+        assert.equal(
+          fs.existsSync(
+            path.join(path.dirname(currentFile), "state.pending.json"),
+          ),
+          false,
+        );
+        assert.equal(
+          fs.existsSync(path.join(path.dirname(currentFile), "state.lock")),
+          false,
+        );
+        fs.writeFileSync(currentFile, repairCompletedState);
       }
-      const otherStarted = saveRuntimeOwnedCoordinatorOperationStart(
+      const otherStarted = saveOperationStart(
         otherManagement,
         otherIdentity,
+        () => null,
       );
       assert.equal(otherStarted.status, "completed");
       assert.ok(otherStarted.recoveryId);
@@ -3047,11 +2903,22 @@ for (const { repeatCount, retained } of [
           ),
         );
       if (repairCompletedState) {
-        const prior = stateModel.decodeRuntimeDomainSnapshot(
-          repairCompletedState,
-          binding.repositoryBinding,
-        );
-        const next = readRuntimeOwnedCoordinatorStateSnapshot(management).value;
+        const prior = {
+          snapshot: JSON.parse(
+            Buffer.from(
+              repairCompletedState ?? assert.fail("missing_fixture_bytes"),
+            ).toString("utf8"),
+          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          payloadSha256: createHash("sha256")
+            .update(
+              repairCompletedState ?? assert.fail("missing_fixture_bytes"),
+            )
+            .digest("hex"),
+          sourceText: Buffer.from(
+            repairCompletedState ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        };
+        const next = readOperationStateStage(management).value;
         assert.ok(prior && next);
         assert.equal(next.snapshot.revision, prior.snapshot.revision + 1);
         assert.deepEqual(next.snapshot.previous, {
@@ -3059,7 +2926,7 @@ for (const { repeatCount, retained } of [
           payloadSha256: prior.payloadSha256,
         });
       }
-      const otherBefore = readRuntimeOwnedCoordinatorStateSnapshot(
+      const otherBefore = readOperationStateStage(
         management,
       ).value?.snapshot.operations.find(
         (item) => item.recoveryId === otherStarted.recoveryId,
@@ -3076,8 +2943,7 @@ for (const { repeatCount, retained } of [
         object,
         {
           recoveryId: string;
-          cleanup: object;
-          mount: object;
+          mount: Readonly<{ status: "completed" }>;
           activeMount: object;
           completionPlan: object;
           dockerResult: Readonly<{
@@ -3159,23 +3025,6 @@ for (const { repeatCount, retained } of [
           },
         ),
       );
-      const cleanupExports = {
-        ...effects,
-        verifyRuntimeOwnedDockerCleanupOutcome: (
-          value: unknown,
-          input: unknown,
-          cap: unknown,
-          owner: unknown,
-        ) => {
-          const proof = cap && typeof cap === "object" ? proofs.get(cap) : null;
-          return proof &&
-            value === proof.cleanup &&
-            input === proof.completionPlan &&
-            owner === management
-            ? resources
-            : null;
-        },
-      };
       substitutions.push(
         mock.module(
           new URL("../../src/execution/provider-executor.ts", import.meta.url)
@@ -3193,58 +3042,75 @@ for (const { repeatCount, retained } of [
           import.meta.url,
         ).href
       );
+      let lastResourceSave: ReturnType<
+        typeof stateRuntime.saveOperationCheckpoint
+      > | null = null;
       substitutions.push(
         mock.module(
           new URL("../../../execution-model/src/index.ts", import.meta.url)
             .href,
-          { namedExports: { ...actualStore } },
+          {
+            namedExports: {
+              ...actualStore,
+              saveOperationCheckpoint: (
+                owner: unknown,
+                recoveryId: unknown,
+                request: { kind: string; value: unknown },
+              ) => {
+                if (request.kind === "resource")
+                  return ((
+                    ...args: [
+                      owner: unknown,
+                      recoveryId: unknown,
+                      value: unknown,
+                    ]
+                  ) => {
+                    lastResourceSave = actualStore.saveOperationCheckpoint(
+                      args[0],
+                      args[1],
+                      { kind: "resource", value: args[2] },
+                    );
+                    return lastResourceSave;
+                  })(owner, recoveryId, request.value);
+                return actualStore.saveOperationCheckpoint(
+                  owner,
+                  recoveryId,
+                  request as Parameters<
+                    typeof actualStore.saveOperationCheckpoint
+                  >[2],
+                );
+              },
+            },
+          },
         ),
       );
-      const hostSource = fs.readFileSync(
-        new URL("../../src/execution/controller.ts", import.meta.url),
-        "utf8",
-      );
-      const hostBody = [
-        "beginRuntimeOwnedCoordinatorHostSubmission",
-        "transitionRuntimeOwnedCoordinatorHostSubmission",
-        "completeRuntimeOwnedCoordinatorHostSubmission",
-      ]
-        .map((name) => sourceDeclaration(hostSource, name))
-        .join("\n");
-      const cleanupKey = "__crddNormalOwnerCleanupVerification";
-      (globalThis as Record<string, unknown>)[cleanupKey] =
-        cleanupExports.verifyRuntimeOwnedDockerCleanupOutcome;
-      const hostImports = [
-        'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
-        `const verifyRuntimeOwnedDockerCleanupOutcome = globalThis[${JSON.stringify(cleanupKey)}];`,
-        `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
-        `import { parseHostRecoveryToken } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
-        `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
-        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/execution/persistence.ts", import.meta.url).href}";`,
-      ].join("\n");
+      // Module全体を再評価して現在の依存閉包へ接続する。宣言本文と手書きimportを組み立てない。
       const actualHostSubmission = await import(
-        `data:text/javascript;base64,${Buffer.from(`// fixture: ${repeatCount}:${retained}\n${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
-      ).finally(() => {
-        delete (globalThis as Record<string, unknown>)[cleanupKey];
-      });
-      substitutions.push(
-        mock.module(
-          new URL("../../src/execution/controller.ts", import.meta.url).href,
-          { namedExports: { ...cleanupExports, ...actualHostSubmission } },
-        ),
-      );
-      // 元の静的importで評価済みの終端Moduleを再利用せず、同じ代役観測と実Writerへ接続する。
-      const actualSettlement = await import(
         new URL(
-          `../../src/execution/settlement.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          "../../src/execution/controller.ts?normal-owner-host-" +
+            repeatCount +
+            "-" +
+            retained,
           import.meta.url,
         ).href
       );
       substitutions.push(
         mock.module(
-          new URL("../../src/execution/settlement.ts", import.meta.url).href,
-          { namedExports: { ...actualSettlement } },
+          new URL("../../src/execution/controller.ts", import.meta.url).href,
+          { namedExports: { ...effects, ...actualHostSubmission } },
+        ),
+      );
+      // 開始と終端準備を接続する保存Ownerを同じ代役観測と実Writerで再評価する。
+      const actualPersistence = await import(
+        new URL(
+          `../../src/execution/persistence.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          import.meta.url,
+        ).href
+      );
+      substitutions.push(
+        mock.module(
+          new URL("../../src/execution/persistence.ts", import.meta.url).href,
+          { namedExports: { ...actualPersistence } },
         ),
       );
       ownerRuntime = await import(
@@ -3286,14 +3152,8 @@ for (const { repeatCount, retained } of [
         const activeMount = Object.freeze({});
         const proof: NonNullable<ReturnType<typeof proofs.get>> = {
           recoveryId,
-          mount: Object.freeze({}),
+          mount: Object.freeze({ status: "completed" as const }),
           activeMount,
-          cleanup: Object.freeze({
-            confirmed: true,
-            processTreeTerminated: true,
-            containersAbsent: true,
-            networksAbsent: true,
-          }),
           completionPlan: Object.freeze({
             ...plan,
             activeMountCapability: activeMount,
@@ -3321,11 +3181,22 @@ for (const { repeatCount, retained } of [
         assert.equal(actualIdentity.stableLogicalHomeBindingHash, hash);
         assert.ok(!nonces.has(actualIdentity.operationNonce));
         nonces.add(actualIdentity.operationNonce);
-        assert.equal(
-          locks.acquireProviderHomeLock(hash, providerHomesDirectoryCandidate())
-            .status,
-          "blocked",
+        // このCaseはExecutor技術処理を代役にする。Home排他の所有もそこで明示する。
+        const executorHome = locks.acquireProviderHomeLock(
+          hash,
+          providerHomesDirectoryCandidate(),
         );
+        assert.equal(executorHome.status, "acquired");
+        if (executorHome.status !== "acquired")
+          throw new Error("fixture_home_lock_unavailable");
+        fixtureHomeLease = executorHome.lock;
+        const competingHome = locks.acquireProviderHomeLock(
+          hash,
+          providerHomesDirectoryCandidate(),
+        );
+        if (competingHome.status === "acquired")
+          assert.equal(competingHome.lock.release(), true);
+        assert.equal(competingHome.status, "blocked");
         const startedHost =
           hostRuntime.borrowOwnedHostRecoverySnapshot(management);
         assert.equal(
@@ -3351,6 +3222,15 @@ for (const { repeatCount, retained } of [
             resourceFrame,
           ),
           true,
+          JSON.stringify({
+            save: lastResourceSave,
+            resourceValid:
+              stateModel.applyResourceEvent(null, {
+                ...resourceFrame,
+                event: "submission",
+                key: "create_subscription_auth_probe",
+              }) !== null,
+          }),
         );
         for (const resource of resourceSnapshot.resources)
           assert.equal(
@@ -3358,7 +3238,7 @@ for (const { repeatCount, retained } of [
               capability,
               resource.key,
             ),
-            true,
+            resource.key === "create_subscription_auth_probe",
           );
         const beforeComplete = fs.readFileSync(statePath);
         assert.equal(
@@ -3380,7 +3260,6 @@ for (const { repeatCount, retained } of [
             management,
             {
               plan: proof.completionPlan,
-              cleanupOutcome: proof.cleanup,
               mountCompletion: proof.mount,
             },
           ).status,
@@ -3401,8 +3280,7 @@ for (const { repeatCount, retained } of [
               capability,
               management,
               {
-                plan: proof.completionPlan,
-                cleanupOutcome: previousProof.cleanup,
+                plan: previousProof.completionPlan,
                 mountCompletion: proof.mount,
               },
             ).status,
@@ -3410,16 +3288,26 @@ for (const { repeatCount, retained } of [
           );
         }
         assert.deepEqual(fs.readFileSync(statePath), beforeComplete);
-        const completed = ownerRuntime.completeRuntimeOwnedDockerRecovery(
-          capability,
-          management,
-          {
-            plan: proof.completionPlan,
-            cleanupOutcome: proof.cleanup,
-            mountCompletion: proof.mount,
-          },
+        assert.ok(fixtureHomeLease);
+        const homeLeaseReleased = fixtureHomeLease.release();
+        assert.equal(homeLeaseReleased, true);
+        fixtureHomeLease = null;
+        const completed = ownerRuntime.recordRuntimeOwnedAttemptCleanup({
+          plan: proof.completionPlan as RecoveryPlan,
+          recoveryCapability: capability,
+          managementCapability: management,
+          recoveryId,
+          resourceSnapshot,
+          observations: resources,
+          mountCompletion: proof.mount,
+          mountLeaseReleased: true,
+          homeLeaseReleased,
+        });
+        assert.equal(
+          completed.recoveryCompleted,
+          true,
+          JSON.stringify(completed),
         );
-        assert.equal(completed.status, "completed", JSON.stringify(completed));
         assert.equal(
           ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
             capability,
@@ -3779,14 +3667,6 @@ for (const { repeatCount, retained } of [
           historyBytes.subarray(0, repairHistory.length),
           repairHistory,
         );
-        const row =
-          historyValues.decodeCoordinatorHistoryRows(repairHistory)?.[0];
-        const rows = historyValues.decodeCoordinatorHistoryRows(historyBytes);
-        assert.ok(row && rows);
-        assert.deepEqual(
-          rows.filter((value) => value.recoveryId === row.recoveryId),
-          [row],
-        );
       }
       const allHistory = historyBytes
         .toString("utf8")
@@ -3840,6 +3720,13 @@ for (const { repeatCount, retained } of [
       let cleanupConfirmed = true;
       try {
         for (const cleanupStep of [
+          async () => {
+            if (fixtureHomeLease) {
+              const lease = fixtureHomeLease;
+              fixtureHomeLease = null;
+              assert.equal(lease.release(), true);
+            }
+          },
           async () => {
             let released = true;
             if (ownerRuntime)
@@ -4221,7 +4108,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       {
         namedExports: {
           ...stateModel,
-          readRuntimeOwnedCoordinatorSettlementResult: (
+          readOperationResult: (
             receivedContext: unknown,
             consumer: unknown,
           ) => {
@@ -4233,47 +4120,27 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               value: projectResult,
             };
           },
-          captureRuntimeOwnedCoordinatorSettlementInputs: (
+          completeOperation: (
             _context: unknown,
             host: unknown,
             docker: unknown,
           ) => {
-            if (fixedInputs)
-              return fixedInputs[0] === host && fixedInputs[1] === docker;
-            if (host !== cleanup || docker !== completion) return false;
+            const inputAccepted = fixedInputs
+              ? fixedInputs[0] === host && fixedInputs[1] === docker
+              : host === cleanup && docker === completion;
+            if (!inputAccepted)
+              return { status: "blocked", inputAccepted: false };
             fixedInputs = [host, docker];
-            return true;
-          },
-          settleRuntimeOwnedCoordinatorResult: (
-            _context: unknown,
-            host: unknown,
-            docker: unknown,
-          ) => {
             driverCalls++;
             assert.equal(host, cleanup);
             assert.equal(docker, completion);
             return {
+              inputAccepted: true,
               status: driverFails ? "blocked" : "completed",
               filesystemEffectIssued: true,
               deliveryPending: isProjectDelivery,
             };
           },
-          prepareCoordinatorStateOperationSnapshot: (
-            _before: unknown,
-            identityJson: string,
-          ) =>
-            Buffer.from(
-              JSON.stringify({
-                operations: [
-                  { kind: "docker_task", recoveryId: "exact-id", identityJson },
-                ],
-              }),
-            ),
-          decodeRuntimeDomainSnapshot: (bytes: Buffer) => ({
-            snapshot: JSON.parse(bytes.toString("utf8")),
-          }),
-          prepareCoordinatorStateHostSnapshot: () =>
-            Buffer.from("pending-candidate"),
         },
       },
     ),
@@ -4291,25 +4158,88 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
                 : value,
             ]),
           ),
-          readRuntimeOwnedCoordinatorStateSnapshot: () => ({
-            status: "completed",
-            lockReleased: true,
-            value: {
-              snapshot: { operations, revision: checkpointRevision },
-              payloadSha256: checkpointReadMatches ? hash : "b".repeat(64),
+          readOperationStateStage: (
+            _owner: unknown,
+            request?: {
+              kind: string;
+              recoveryId?: unknown;
+              identityJson?: unknown;
             },
-          }),
-          checkpointRuntimeOwnedCoordinatorCleanup: () => ({
-            status: "completed",
-            snapshotConfirmed: checkpointSaved,
-            lockReleased: checkpointReleased,
-            revision: checkpointRevision,
-            payloadSha256: hash,
-          }),
-          saveRuntimeOwnedCoordinatorOperationStart: (
-            _management: unknown,
-            identityJson: string,
+          ) =>
+            request?.kind === "operation_start"
+              ? {
+                  kind: "operation_start",
+                  status: "completed",
+                  lockReleased: true,
+                  value: null,
+                  operationIdentity: {
+                    recoveryId: "exact-id",
+                    operationId: JSON.parse(request.identityJson as string)
+                      .operationId,
+                    identitySha256: createHash("sha256")
+                      .update(request.identityJson as string)
+                      .digest("hex"),
+                  },
+                }
+              : {
+                  status: "completed",
+                  lockReleased: true,
+                  value: {
+                    snapshot: { operations, revision: checkpointRevision },
+                    payloadSha256: checkpointReadMatches
+                      ? hash
+                      : "b".repeat(64),
+                  },
+                  hostCleanupPreparation:
+                    request?.kind === "host_cleanup" &&
+                    operations[0]?.lease === "released" &&
+                    (operations[0].host as { cleanup: unknown }).cleanup ===
+                      "not_requested"
+                      ? {
+                          recoveryId: "exact-id",
+                          hostToken: "host-token",
+                          before: Buffer.from(
+                            `${canonicalJson({ operations, revision: checkpointRevision })}\n`,
+                          ),
+                        }
+                      : null,
+                },
+          saveOperationCheckpoint: (
+            owner: unknown,
+            recoveryId: unknown,
+            request: { kind: string; value: unknown },
           ) => {
+            if (request.kind === "cleanup")
+              return (() => ({
+                status: "completed",
+                snapshotConfirmed: checkpointSaved,
+                lockReleased: checkpointReleased,
+                revision: checkpointRevision,
+                payloadSha256: hash,
+              }))();
+            if (request.kind === "lifecycle")
+              return ((
+                _owner: unknown,
+                _recoveryId: unknown,
+                value: unknown,
+              ) => {
+                lifecycleCalls++;
+                savedLifecycle = value;
+                return lifecycleFails
+                  ? {
+                      status: "blocked",
+                      snapshotConfirmed: false,
+                      lockReleased: true,
+                    }
+                  : {
+                      status: "completed",
+                      snapshotConfirmed: lifecycleConfirmed,
+                      lockReleased: lifecycleLockReleased,
+                    };
+              })(owner, recoveryId, request.value);
+            throw new Error("unexpected_checkpoint_kind");
+          },
+          saveOperationStart: (_management: unknown, identityJson: string) => {
             operations = [
               {
                 kind: "docker_task",
@@ -4335,33 +4265,20 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               },
             ];
             return {
-              status: startSaveFails ? "blocked" : "completed",
-              reason: startSaveFails ? "start_save_failed" : "saved",
+              status: startSaveFails || contextFails ? "blocked" : "completed",
+              reason: startSaveFails
+                ? "start_save_failed"
+                : contextFails
+                  ? "docker_recovery_settlement_binding_invalid"
+                  : "saved",
+              startSaved: !startSaveFails,
+              completionContext: contextFails ? null : context,
               snapshotConfirmed: !startSaveFails,
               lockReleased: true,
               recoveryId: "exact-id",
             };
           },
-          checkpointRuntimeOwnedCoordinatorLifecycle: (
-            _owner: unknown,
-            _recoveryId: unknown,
-            value: unknown,
-          ) => {
-            lifecycleCalls++;
-            savedLifecycle = value;
-            return lifecycleFails
-              ? {
-                  status: "blocked",
-                  snapshotConfirmed: false,
-                  lockReleased: true,
-                }
-              : {
-                  status: "completed",
-                  snapshotConfirmed: lifecycleConfirmed,
-                  lockReleased: lifecycleLockReleased,
-                };
-          },
-          saveRuntimeOwnedCoordinatorHostCleanupPreparation: (
+          saveHostCleanupPreparation: (
             _management: unknown,
             recoveryId: unknown,
             before: unknown,
@@ -4388,15 +4305,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               lockReleased: true,
             };
           },
-        },
-      },
-    ),
-    mock.module(
-      new URL("../../src/execution/settlement.ts", import.meta.url).href,
-      {
-        namedExports: {
-          prepareRuntimeOwnedCoordinatorSettlement: () =>
-            contextFails ? null : context,
         },
       },
     ),

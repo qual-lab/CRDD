@@ -8,30 +8,30 @@
  * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
-import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
-import {
-  parseHostRecoveryToken,
-  hashExecutionSelection,
-} from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
-import assert from "node:assert/strict";
-import {
-  executionSelection,
-  preparationSelection,
-} from "../fixtures/ai-selection.ts";
 
-import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
-
+import type { DockerIsolationRuntimePlan } from "../../../docker-isolation/tests/support/execution.ts";
+import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
+import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import {
-  activateOwnedHostOperationGenerationLock,
+  hashExecutionSelection,
+  parseHostRecoveryToken,
+} from "../../../execution-model/src/index.ts";
+import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
+import {
+  bindIsolationRuntime,
+  describeIsolationContract,
+} from "../../../executor/scripts/executor-test.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import {
   acquireHostOperationRecoveryGenerationByIdentity,
+  activateOwnedHostOperationGenerationLock,
   borrowOwnedDockerExecutionPaths,
   borrowOwnedHostRecoverySnapshot,
   cleanupOwnedOperationDirectoriesAsync,
@@ -40,18 +40,15 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   releaseHostOperationRecoveryGeneration,
-  verifyOwnedOperationManagementMountBinding,
   verifyOwnedOperationCleanupOutcome,
+  verifyOwnedOperationManagementMountBinding,
 } from "../../src/execution/operation.ts";
-
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
-
-import type { DockerIsolationRuntimePlan } from "../../../docker-isolation/tests/support/execution.ts";
-import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import {
-  bindIsolationRuntime,
-  describeIsolationContract,
-} from "../../../executor/scripts/executor-test.ts";
+  executionSelection,
+  preparationSelection,
+} from "../fixtures/ai-selection.ts";
+import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -545,8 +542,8 @@ test("固定planの所属と借用所在を技術Runtimeへ投影する", async 
  */
 test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬送を分離する", async () => {
   assert.equal(process.platform, "win32");
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -729,8 +726,8 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
         import.meta.url,
       ).href
     )) as typeof import("../../src/execution/operation.ts");
-    const area = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    const area = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         import.meta.dirname,
         "tests",
       ),

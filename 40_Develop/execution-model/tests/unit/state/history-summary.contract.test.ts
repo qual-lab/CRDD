@@ -8,18 +8,19 @@
  * @boundary メモリ内だけ。Filesystem・実行Owner・外部AIを使用しない。
  */
 
+import {
+  decodeStateSnapshot,
+  encodeStateValue,
+} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+
 import {
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  prepareCoordinatorStateOperationSnapshot,
-} from "../../../src/index.ts";
-import {
-  hashRuntimeStateContent,
-  prepareCoordinatorStateHistorySummary,
+  hashExecutionStateContent,
+  prepareStateHistorySummary,
 } from "../../../src/state/validation.ts";
+import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";
 
 const binding = "a".repeat(64);
 
@@ -98,13 +99,9 @@ function summaryFixture(
   };
   const identityJson = `${JSON.stringify(identity)}\n`;
 
-  const bytes = prepareCoordinatorStateOperationSnapshot(
-    null,
-    identityJson,
-    binding,
-  );
+  const bytes = prepareStateOperationSnapshot(null, identityJson, binding);
   assert.ok(bytes);
-  const decoded = decodeRuntimeDomainSnapshot(bytes, binding);
+  const decoded = decodeStateSnapshot(bytes, binding);
   assert.ok(decoded);
   const initial = decoded.snapshot.operations.find(
     (item) => item.kind === "docker_task",
@@ -141,9 +138,7 @@ function summaryFixture(
       },
     ],
   };
-  const historyBytes = Buffer.from(
-    `${encodeRuntimeStateValue(historyState)}\n`,
-  );
+  const historyBytes = Buffer.from(`${encodeStateValue(historyState)}\n`);
   return {
     nonce,
     identity,
@@ -176,11 +171,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     historyState,
     historyBytes,
   } = summaryFixture();
-  const history = prepareCoordinatorStateHistorySummary(
-    historyBytes,
-    recoveryId,
-    binding,
-  );
+  const history = prepareStateHistorySummary(historyBytes, recoveryId, binding);
   assert.ok(history);
   const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"unknown","identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryId":"${recoveryId}","schema":"crdd-coordinator/operation-summary/v2"}\n`;
   assert.equal(history.summaryBytes.toString("utf8"), goldenTaskSummary);
@@ -198,27 +189,23 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
   assert.equal("identityJson" in summary, false);
   assert.equal(
     history.sourcePayloadSha256,
-    hashRuntimeStateContent(historyState),
+    hashExecutionStateContent(historyState),
   );
   assert.equal(
     history.summarySha256,
     createHash("sha256").update(history.summaryBytes).digest("hex"),
   );
   assert.equal(
-    prepareCoordinatorStateHistorySummary(historyBytes, recoveryId, "wrong"),
+    prepareStateHistorySummary(historyBytes, recoveryId, "wrong"),
     null,
   );
   assert.equal(
-    prepareCoordinatorStateHistorySummary(
-      historyBytes,
-      `${recoveryId}x`,
-      binding,
-    ),
+    prepareStateHistorySummary(historyBytes, `${recoveryId}x`, binding),
     null,
   );
   assert.equal(
-    prepareCoordinatorStateHistorySummary(
-      Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`),
+    prepareStateHistorySummary(
+      Buffer.from(`${encodeStateValue(snapshot)}\n`),
       recoveryId,
       binding,
     ),
@@ -235,18 +222,18 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     },
   ])
     assert.equal(
-      prepareCoordinatorStateHistorySummary(
+      prepareStateHistorySummary(
         Buffer.from(
-          `${encodeRuntimeStateValue({ ...historyState, operations: [changed] })}\n`,
+          `${encodeStateValue({ ...historyState, operations: [changed] })}\n`,
         ),
         recoveryId,
         binding,
       ),
       null,
     );
-  const fixedSummary = prepareCoordinatorStateHistorySummary(
+  const fixedSummary = prepareStateHistorySummary(
     Buffer.from(
-      `${encodeRuntimeStateValue({ ...historyState, operations: [{ ...historyState.operations.find((item) => item.kind === "docker_task"), summarySha256: history.summarySha256 }] })}\n`,
+      `${encodeStateValue({ ...historyState, operations: [{ ...historyState.operations.find((item) => item.kind === "docker_task"), summarySha256: history.summarySha256 }] })}\n`,
     ),
     recoveryId,
     binding,
@@ -262,9 +249,9 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     responseObserved: true,
     receiptRecorded: false,
   };
-  const failedSummary = prepareCoordinatorStateHistorySummary(
+  const failedSummary = prepareStateHistorySummary(
     Buffer.from(
-      `${encodeRuntimeStateValue({
+      `${encodeStateValue({
         ...historyState,
         operations: [
           {
@@ -288,7 +275,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
 
   for (const consumer of ["coordinator_cli", "workbench"] as const) {
     const fixture = summaryFixture(consumer);
-    const summary = prepareCoordinatorStateHistorySummary(
+    const summary = prepareStateHistorySummary(
       fixture.historyBytes,
       fixture.recoveryId,
       binding,

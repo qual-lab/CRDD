@@ -8,16 +8,16 @@
  * @boundary 実AI・認証・Worker終了の成立ではない。
  */
 import assert from "node:assert/strict";
-import { spawnSync, fork } from "node:child_process";
+import { fork, spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { randomBytes, createHash } from "node:crypto";
-import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { compileFunction } from "node:vm";
+import type { OperationResources } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import type { CoordinatorResourceBook } from "../../../execution-model/src/index.ts";
 
 /**
  * 検証結果ReaderはTool開始件数を量で欠測化しない。
@@ -90,7 +90,7 @@ function createResourceRecords(
     observation: string;
   }[],
   ownershipLabel: string,
-): { kind: string; resources: CoordinatorResourceBook }[] {
+): { kind: string; resources: OperationResources }[] {
   let snapshot = {
     resources: resources.map((r) => ({
       key: r.purpose,
@@ -119,10 +119,10 @@ function createResourceRecords(
     unreceiptedAbsence: "retain",
     verifyLabelAbsence: true,
   };
-  let book: CoordinatorResourceBook | null = null;
-  const records: { kind: string; resources: CoordinatorResourceBook }[] = [];
+  let book: OperationResources | null = null;
+  const records: { kind: string; resources: OperationResources }[] = [];
   for (const resource of resources) {
-    book = domain.applyCoordinatorResourceEvent(book, {
+    book = domain.applyResourceEvent(book, {
       event: "submission",
       key: resource.purpose,
       snapshot,
@@ -144,7 +144,7 @@ function createResourceRecords(
           : r,
       ),
     };
-    book = domain.applyCoordinatorResourceEvent(book, {
+    book = domain.applyResourceEvent(book, {
       event: "receipt",
       key: resource.purpose,
       snapshot,
@@ -157,7 +157,7 @@ function createResourceRecords(
     });
   }
   assert.ok(book);
-  book = domain.applyCoordinatorResourceCleanup(
+  book = domain.applyResourceCleanup(
     book,
     snapshot,
     resources.map((r) => ({ key: r.purpose, observation: r.observation })),
@@ -329,8 +329,8 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
       for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{effects++;throw Error('external_process_forbidden');};
       syncBuiltinESMExports();
       mock.module(${JSON.stringify(domainEntry)},{namedExports:{...domain,
-        ensureRepositoryRuntimeDataArea:()=>{ensures++;return failure;},
-        observeRepositoryRuntimeDataArea:()=>({status:'not_observed',reason:'repository_runtime_data_area_absent',effectIssued:false}),
+        ensureRepositoryExecutionDataArea:()=>{ensures++;return failure;},
+        observeRepositoryExecutionDataArea:()=>({status:'not_observed',reason:'repository_runtime_data_area_absent',effectIssued:false}),
       }});
       if(!absent)process.argv=[process.execPath,fileURLToPath(${JSON.stringify(entry)}),'--run','codex','fixture-12345678'];
       const api=await import(${JSON.stringify(entry)});

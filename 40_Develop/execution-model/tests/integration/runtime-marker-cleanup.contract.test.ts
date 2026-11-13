@@ -9,6 +9,10 @@
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
  */
 
+import {
+  decodeStateSnapshot,
+  encodeStateValue,
+} from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -17,22 +21,19 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import type { Lock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
+
+import { EXECUTION_STATE_SCHEMA } from "../../src/state/validation.ts";
 import {
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-} from "../../src/index.ts";
-import { COORDINATOR_STATE_SCHEMA } from "../../src/state/validation.ts";
-import {
-  acquireCoordinatorStorageOwner,
-  acquireRuntimeStateLock,
-  observeRuntimeRecoveryRepository,
+  acquireExecutionStateLock,
+  acquireStorageOwner,
+  observeExecutionRecoveryRepository,
   storageLockFailure,
 } from "../../src/storage/lock.ts";
 import {
-  cleanupRuntimeOwnedCoordinatorStateMarker,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  readCoordinatorStorageSnapshotOwned,
-  requireReadyRepositoryRuntimeDataArea,
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  readStorageSnapshotOwned,
+  removeStatePublicationMarker,
+  requireReadyRepositoryExecutionDataArea,
   sameStableFileIdentity,
 } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
@@ -54,10 +55,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
-  const body = sourceDeclaration(
-    source,
-    "cleanupRuntimeOwnedCoordinatorStateMarker",
-  );
+  const body = sourceDeclaration(source, "removeStatePublicationMarker");
   for (const scenario of [
     "normal",
     "no_marker",
@@ -99,7 +97,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     const binding = "a".repeat(64),
       capability = Object.freeze({});
     const stateBytes = Buffer.from(
-      `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     const files = new Map<string, Buffer>([
       [
@@ -174,7 +172,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
       };
     };
     const result = runInNewContext(
-      `${body}; cleanupRuntimeOwnedCoordinatorStateMarker(capability)`,
+      `${body}; removeStatePublicationMarker(capability)`,
       {
         capability,
         Buffer,
@@ -183,10 +181,10 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
         JSON,
         path,
         sameStableFileIdentity,
-        decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
-        decodeCoordinatorHistoryRows: (bytes: Buffer) =>
+        decodeStateSnapshot: decodeStateSnapshot,
+        decodeHistoryRows: (bytes: Buffer) =>
           bytes.toString() === "history" ? [] : null,
-        observeRuntimeRecoveryRepository: (input: unknown) => {
+        observeExecutionRecoveryRepository: (input: unknown) => {
           assert.equal(input, capability);
           return scenario === "root_invalid"
             ? null
@@ -200,7 +198,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
               };
         },
         storageLockFailure,
-        acquireRuntimeStateLock: (input: string) => {
+        acquireExecutionStateLock: (input: string) => {
           assert.equal(input, binding);
           if (scenario === "lock_throw") throw new Error("fixture");
           if (
@@ -232,7 +230,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
           assert.equal(input, root);
           return { status: "completed", capability };
         },
-        observeRepositoryRuntimeDataArea: () => {
+        observeRepositoryExecutionDataArea: () => {
           areaCalls++;
           if (scenario === "area_absent") return { status: "not_observed" };
           if (
@@ -413,46 +411,42 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
-    const repository = observeRuntimeRecoveryRepository(verified.capability);
+    const repository = observeExecutionRecoveryRepository(verified.capability);
     assert.ok(repository);
-    const storage = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
+    const storage = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+        root,
+        "domain-model",
+      ),
       "marker_storage",
     );
     const state = path.join(storage.directory, "state.json"),
       marker = path.join(storage.directory, "state.lock"),
       pending = path.join(storage.directory, "state.pending.json");
     const bytes = Buffer.from(
-      `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     const markerBytes = Buffer.from(
       `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
     );
     fs.writeFileSync(state, bytes, { flag: "wx" });
     const before = fs.lstatSync(state, { bigint: true });
-    const absent = cleanupRuntimeOwnedCoordinatorStateMarker(
-      verified.capability,
-    );
+    const absent = removeStatePublicationMarker(verified.capability);
     assert.equal(absent.status, "completed");
     assert.equal(absent.filesystemEffectIssued, false);
     fs.writeFileSync(marker, markerBytes, { flag: "wx" });
-    const cleaned = cleanupRuntimeOwnedCoordinatorStateMarker(
-      verified.capability,
-    );
+    const cleaned = removeStatePublicationMarker(verified.capability);
     assert.equal(cleaned.status, "completed");
     assert.equal(cleaned.markerRemoved, true);
     assert.equal(cleaned.storageConfirmed, true);
     assert.equal(cleaned.lockReleased, true);
     assert.throws(() => fs.lstatSync(marker), { code: "ENOENT" });
-    const fresh = cleanupRuntimeOwnedCoordinatorStateMarker(
-      verified.capability,
-    );
+    const fresh = removeStatePublicationMarker(verified.capability);
     assert.equal(fresh.status, "completed");
     assert.equal(fresh.filesystemEffectIssued, false);
     fs.writeFileSync(marker, "foreign", { flag: "wx" });
     assert.equal(
-      cleanupRuntimeOwnedCoordinatorStateMarker(verified.capability)
-        .filesystemEffectIssued,
+      removeStatePublicationMarker(verified.capability).filesystemEffectIssued,
       false,
     );
     assert.equal(fs.readFileSync(marker, "utf8"), "foreign");
@@ -460,13 +454,13 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     fs.writeFileSync(marker, markerBytes, { flag: "wx" });
     fs.writeFileSync(pending, "pending", { flag: "wx" });
     assert.equal(
-      cleanupRuntimeOwnedCoordinatorStateMarker(verified.capability).status,
+      removeStatePublicationMarker(verified.capability).status,
       "blocked",
     );
     assert.equal(fs.readFileSync(pending, "utf8"), "pending");
     assert.deepEqual(fs.readFileSync(marker), markerBytes);
     fs.unlinkSync(pending);
-    const heldAcquisition = acquireRuntimeStateLock(
+    const heldAcquisition = acquireExecutionStateLock(
       repository.repositoryBinding,
       repository.repositoryRoot,
     );
@@ -474,7 +468,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     held = heldAcquisition.lock;
     assert.ok(held);
     assert.equal(held.assertLive(), true);
-    const busy = cleanupRuntimeOwnedCoordinatorStateMarker(verified.capability);
+    const busy = removeStatePublicationMarker(verified.capability);
     assert.equal(busy.status, "blocked");
     assert.equal(busy.filesystemEffectIssued, false);
     assert.deepEqual(fs.readFileSync(marker), markerBytes);
@@ -482,9 +476,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     held = null;
     const alias = path.join(root, "marker-hardlink");
     fs.linkSync(marker, alias);
-    const hardlink = cleanupRuntimeOwnedCoordinatorStateMarker(
-      verified.capability,
-    );
+    const hardlink = removeStatePublicationMarker(verified.capability);
     assert.equal(hardlink.status, "blocked");
     assert.equal(hardlink.filesystemEffectIssued, false);
     assert.deepEqual(fs.readFileSync(alias), markerBytes);
@@ -498,9 +490,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       }
       return result;
     };
-    const afterThrow = cleanupRuntimeOwnedCoordinatorStateMarker(
-      verified.capability,
-    );
+    const afterThrow = removeStatePublicationMarker(verified.capability);
     fs.unlinkSync = unlink;
     assert.equal(attempts, 1);
     assert.equal(afterThrow.status, "blocked");
@@ -509,7 +499,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     assert.equal(afterThrow.storageConfirmed, false);
     assert.equal(afterThrow.lockReleased, true);
     assert.equal(
-      cleanupRuntimeOwnedCoordinatorStateMarker(verified.capability).status,
+      removeStatePublicationMarker(verified.capability).status,
       "completed",
     );
     assert.deepEqual(fs.readFileSync(state), bytes);
@@ -518,23 +508,23 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       true,
     );
     assert.deepEqual(fs.readdirSync(storage.directory), ["state.json"]);
-    const ownerAcquisition = acquireCoordinatorStorageOwner(root);
+    const ownerAcquisition = acquireStorageOwner(root);
     assert.ok(ownerAcquisition.status === "completed");
     const owner = ownerAcquisition.value;
     try {
       assert.equal(owner.assertLive(), true);
       for (let read = 0; read < 2; read++) {
-        const observed = readCoordinatorStorageSnapshotOwned(owner);
+        const observed = readStorageSnapshotOwned(owner);
         assert.equal(observed.status, "completed");
         assert.equal(observed.lockReleased, false);
         assert.ok("ownerHeld" in observed && observed.ownerHeld);
         assert.equal(
           observed.value?.payloadSha256,
-          decodeRuntimeDomainSnapshot(bytes, repository.repositoryBinding)
+          decodeStateSnapshot(bytes, repository.repositoryBinding)
             ?.payloadSha256,
         );
       }
-      assert.equal(acquireCoordinatorStorageOwner(root).status, "blocked");
+      assert.equal(acquireStorageOwner(root).status, "blocked");
       let invoked = false;
       const fake = new Proxy(
         {},
@@ -545,11 +535,8 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
           },
         },
       );
-      assert.equal(readCoordinatorStorageSnapshotOwned(fake).status, "blocked");
-      assert.equal(
-        readCoordinatorStorageSnapshotOwned({ ...owner }).status,
-        "blocked",
-      );
+      assert.equal(readStorageSnapshotOwned(fake).status, "blocked");
+      assert.equal(readStorageSnapshotOwned({ ...owner }).status, "blocked");
       assert.equal(invoked, false);
       assert.equal(owner.assertLive(), true);
     } finally {
@@ -557,8 +544,8 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     }
     assert.equal(owner.assertLive(), false);
     assert.equal(owner.release(), false);
-    assert.equal(readCoordinatorStorageSnapshotOwned(owner).status, "blocked");
-    const nextOwnerAcquisition = acquireCoordinatorStorageOwner(root);
+    assert.equal(readStorageSnapshotOwned(owner).status, "blocked");
+    const nextOwnerAcquisition = acquireStorageOwner(root);
     assert.ok(nextOwnerAcquisition.status === "completed");
     const nextOwner = nextOwnerAcquisition.value;
     assert.equal(nextOwner.release(), true);

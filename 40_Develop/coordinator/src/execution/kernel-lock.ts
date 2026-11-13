@@ -43,7 +43,7 @@ export function acquireProviderHomeLock(
 }
 
 /** 同じRuntime状態と回復処理を、Ownerが確定した既存RuntimeState内で排他する。 */
-export function acquireRuntimeStateLock(directory: unknown): LockResult {
+export function acquireExecutionStateLock(directory: unknown): LockResult {
   if (typeof directory !== "string")
     return Object.freeze({
       status: "blocked",

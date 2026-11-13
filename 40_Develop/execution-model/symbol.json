@@ -73,7 +73,9 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "domain-model.attempt.lease"
+        "domain-model.attempt.lease",
+        "coordinator.state-storage.coordinator-state-runtime",
+        "execution-model.source.src.task.crud"
       ]
     },
     {
@@ -242,7 +244,8 @@
         "ERB-UT-036"
       ],
       "verifies": [
-        "domain-model.attempt.repair-validation"
+        "domain-model.attempt.repair-validation",
+        "domain-model.attempt.settlement"
       ]
     },
     {
@@ -746,7 +749,9 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.state-storage.coordinator-state-model"
+        "coordinator.state-storage.coordinator-state-model",
+        "domain-model.attempt.repair-validation",
+        "domain-model.state.history"
       ]
     },
     {

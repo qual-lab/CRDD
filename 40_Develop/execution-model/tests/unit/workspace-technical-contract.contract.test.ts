@@ -12,17 +12,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  inspectCoordinatorWorkspaceResults,
-  inspectWorkspaceCommand,
-  snapshotCoordinatorWorkspaceResult,
+  inspectWorkspaceResult,
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
   type WorkspaceCandidateRequest,
 } from "../../src/index.ts";
+
 import {
   isWorkspaceCommitId,
   validCandidateRecord,
-  validCoordinatorWorkspace,
+  validWorkspace,
 } from "../../src/workspace/validation.ts";
 
 /**
@@ -85,54 +84,6 @@ const REQUEST: WorkspaceCandidateRequest = {
 };
 
 /**
- * Task別Workspace観測の旧1024件上限を超える集合を検査する。
- * @responsibility 観測量では拒否せず対象相関・一意性・不明状態を維持する。
- * @trace CPR-UT-009
- * @precondition 一つのWorkspaceに属する1025件の合成観測を用意する。
- * @stimulus 正常集合、重複Operation、別対象と欠測を渡す。
- * @observation 返却件数と不正集合のnull。
- * @oracle 旧上限超過だけは受理し、不正観測を空集合や正常へ補完しない。
- * @cleanup N/A: 値検査だけ。
- * @boundary 公開結果の純粋検査。Gitや削除を発行しない。
- */
-test("Task別Workspace観測は旧1024件を超えても対象相関を検査する", () => {
-  const values = Array.from({ length: 1025 }, (_, index) => ({
-    taskId: `task-${index}`,
-    attemptId: `attempt-${index}`,
-    operationId: `operation-${index}`,
-    result: {
-      workspaceId: WORKSPACE_ID,
-      changedPaths: [],
-      canonicalRepositoryChanged: false,
-      changeAttribution: "unattributed",
-      workspaceDeletionIssued: false,
-    },
-  }));
-  assert.equal(
-    inspectCoordinatorWorkspaceResults(values, WORKSPACE_ID)?.length,
-    1025,
-  );
-  assert.equal(
-    inspectCoordinatorWorkspaceResults([...values, values[0]], WORKSPACE_ID),
-    null,
-  );
-  assert.equal(
-    inspectCoordinatorWorkspaceResults(
-      values,
-      "00000000-0000-0000-0000-000000000002",
-    ),
-    null,
-  );
-  assert.equal(
-    inspectCoordinatorWorkspaceResults(
-      values.map(({ result, ...entry }) => entry),
-      WORKSPACE_ID,
-    ),
-    null,
-  );
-});
-
-/**
  * 移管前の正常・境界・不正・欠測を技術正本で確認する。
  * @responsibility 要求・Commit形式・選択Path・表示名・関連CHGの受理境界を固定する。
  * @trace RFD-UT-030
@@ -162,24 +113,6 @@ test("技術入力の閉形式と境界条件を維持する", () => {
     ],
   };
   assert.equal(validWorkspaceCandidateRequest(many), true);
-  const frozen = inspectWorkspaceCommand({
-    operation: "freeze",
-    projectId: "project-1",
-    queueId: "queue-1",
-    workspaceId: WORKSPACE_ID,
-    expectedGeneration: 1,
-    operationId: WORKSPACE_ID,
-    baseCommit: COMMIT,
-    expectedHead: COMMIT,
-    candidateName: null,
-    relatedChangeIds: many.relatedChangeIds,
-    selection: many.selection,
-  });
-  assert.equal(frozen?.operation, "freeze");
-  if (frozen?.operation === "freeze") {
-    assert.equal(frozen.selection.length, 1001);
-    assert.equal(frozen.relatedChangeIds.length, 101);
-  }
   assert.equal(
     validWorkspaceCandidateRequest({
       ...many,
@@ -313,26 +246,26 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
     changeAttribution: "unattributed",
     workspaceDeletionIssued: false,
   };
-  const snapshot = snapshotCoordinatorWorkspaceResult(observation);
+  const snapshot = inspectWorkspaceResult(observation);
   assert.equal(snapshot?.changedPaths?.length, 1001);
   assert.equal(snapshot?.changedPaths?.[1000], longPath);
   assert.equal(Object.isFrozen(snapshot?.changedPaths), true);
   assert.equal(
-    snapshotCoordinatorWorkspaceResult({
+    inspectWorkspaceResult({
       ...observation,
       changedPaths: ["../outside"],
     }),
     null,
   );
   assert.equal(
-    snapshotCoordinatorWorkspaceResult({
+    inspectWorkspaceResult({
       ...observation,
       changedPaths: ["same", "same"],
     }),
     null,
   );
   assert.equal(
-    validCoordinatorWorkspace({
+    validWorkspace({
       ...workspace,
       candidate: { ...candidate, lastResult: { ...result, changedPaths } },
     }),
@@ -345,7 +278,7 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
     "candidate_fixed_existing",
   ]) {
     assert.equal(
-      validCoordinatorWorkspace({
+      validWorkspace({
         ...workspace,
         candidate: {
           ...candidate,
@@ -373,7 +306,7 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
   ]) {
     for (const mergeCommit of [null, "c".repeat(40)]) {
       assert.equal(
-        validCoordinatorWorkspace({
+        validWorkspace({
           ...workspace,
           candidate: {
             ...merged,
@@ -400,7 +333,7 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
       lastResult: { ...result, status: "blocked", reason },
     };
     assert.equal(
-      validCoordinatorWorkspace({ ...workspace, candidate: failed }),
+      validWorkspace({ ...workspace, candidate: failed }),
       true,
       reason,
     );
@@ -412,7 +345,7 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
     "commit_diff_input_invalid",
   ]) {
     assert.equal(
-      validCoordinatorWorkspace({
+      validWorkspace({
         ...workspace,
         candidate: {
           ...candidate,
@@ -430,7 +363,7 @@ test("VC技術理由の保存は新成功と一次・回収失敗を区別する
     "commit_push_failed",
   ]) {
     assert.equal(
-      validCoordinatorWorkspace({
+      validWorkspace({
         ...workspace,
         candidate: {
           ...candidate,

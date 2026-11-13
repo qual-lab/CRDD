@@ -8,14 +8,15 @@
  * @boundary Process内の純粋判定。実保存・資源回収の証明ではない。
  */
 
+import type { Snapshot } from "../../../src/state/types.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CoordinatorSnapshot } from "../../../src/index.ts";
+
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  coordinatorSnapshotIntakeMatches,
+  PROJECT_SNAPSHOT_SCHEMA,
+  snapshotIntakeMatches,
 } from "../../../src/state/validation.ts";
-import { classifyRuntimeSnapshotReentry } from "../../../src/storage/store.ts";
+import { classifyExecutionSnapshotReentry } from "../../../src/storage/store.ts";
 
 /**
  * 受付世代と同じ依頼の再入場を局所判定する。
@@ -29,8 +30,8 @@ import { classifyRuntimeSnapshotReentry } from "../../../src/storage/store.ts";
  * @boundary 全体codec・実受付・現在Ownerの検証は別試験が所有する。
  */
 test("受付照合は新規の現世代と既存Queueの元世代を混同しない", () => {
-  const current: CoordinatorSnapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  const current: Snapshot = {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
@@ -55,15 +56,15 @@ test("受付照合は新規の現世代と既存Queueの元世代を混同しな
     milestoneId: "milestone-a",
   };
   const before = JSON.stringify(current);
-  assert.equal(coordinatorSnapshotIntakeMatches(current, intake), true);
+  assert.equal(snapshotIntakeMatches(current, intake), true);
   assert.equal(
-    coordinatorSnapshotIntakeMatches(current, {
+    snapshotIntakeMatches(current, {
       ...intake,
       epoch: "old-epoch",
     }),
     false,
   );
-  const queued: CoordinatorSnapshot = {
+  const queued: Snapshot = {
     ...current,
     intakeEpoch: "epoch-b",
     intakeBindings: [{ queueId: intake.queueId, epoch: intake.epoch }],
@@ -85,7 +86,7 @@ test("受付照合は新規の現世代と既存Queueの元世代を混同しな
       },
     ],
   };
-  assert.equal(coordinatorSnapshotIntakeMatches(queued, intake), true);
+  assert.equal(snapshotIntakeMatches(queued, intake), true);
   for (const changed of [
     { ...intake, epoch: "epoch-b" },
     { ...intake, requestHash: "c".repeat(64) },
@@ -94,9 +95,9 @@ test("受付照合は新規の現世代と既存Queueの元世代を混同しな
     { ...intake, queueId: "" },
     { ...intake, requestHash: "invalid" },
   ])
-    assert.equal(coordinatorSnapshotIntakeMatches(queued, changed), false);
+    assert.equal(snapshotIntakeMatches(queued, changed), false);
   assert.equal(
-    coordinatorSnapshotIntakeMatches({ ...queued, intakeBindings: [] }, intake),
+    snapshotIntakeMatches({ ...queued, intakeBindings: [] }, intake),
     false,
   );
   assert.equal(JSON.stringify(current), before);
@@ -129,7 +130,7 @@ test("Runtime Snapshotは元版・次版のexact内容と結合を照合する",
     payloadSha256: previousHash,
   };
   assert.equal(
-    classifyRuntimeSnapshotReentry(
+    classifyExecutionSnapshotReentry(
       current,
       pending,
       "repository-a",
@@ -138,7 +139,7 @@ test("Runtime Snapshotは元版・次版のexact内容と結合を照合する",
     "publish_pending",
   );
   assert.equal(
-    classifyRuntimeSnapshotReentry(
+    classifyExecutionSnapshotReentry(
       { ...current, revision: 2, payloadSha256: nextHash },
       pending,
       "repository-a",
@@ -158,7 +159,7 @@ test("Runtime Snapshotは元版・次版のexact内容と結合を照合する",
     { status: "absent" as const },
   ]) {
     assert.equal(
-      classifyRuntimeSnapshotReentry(
+      classifyExecutionSnapshotReentry(
         observation,
         pending,
         "repository-a",
@@ -168,7 +169,12 @@ test("Runtime Snapshotは元版・次版のexact内容と結合を照合する",
     );
   }
   assert.equal(
-    classifyRuntimeSnapshotReentry(current, pending, "repository-a", "unknown"),
+    classifyExecutionSnapshotReentry(
+      current,
+      pending,
+      "repository-a",
+      "unknown",
+    ),
     "blocked",
   );
 });
@@ -193,7 +199,7 @@ test("Coordinator Snapshotの初回条件は不存在と観測不能を区別す
   };
   for (const rootState of ["new", "existing", "unknown"] as const) {
     assert.equal(
-      classifyRuntimeSnapshotReentry(
+      classifyExecutionSnapshotReentry(
         { status: "absent" },
         pending,
         "repository-a",
@@ -202,7 +208,7 @@ test("Coordinator Snapshotの初回条件は不存在と観測不能を区別す
       rootState === "new" ? "publish_pending" : "blocked",
     );
     assert.equal(
-      classifyRuntimeSnapshotReentry(
+      classifyExecutionSnapshotReentry(
         { status: "unknown" },
         pending,
         "repository-a",
@@ -212,7 +218,7 @@ test("Coordinator Snapshotの初回条件は不存在と観測不能を区別す
     );
   }
   assert.equal(
-    classifyRuntimeSnapshotReentry(
+    classifyExecutionSnapshotReentry(
       { status: "present", ...pending },
       pending,
       "repository-a",
@@ -269,7 +275,7 @@ test("Coordinator Snapshotは不正な改訂相関とHashを拒否する", () =>
   ]) {
     const before = JSON.stringify(candidate);
     assert.equal(
-      classifyRuntimeSnapshotReentry(
+      classifyExecutionSnapshotReentry(
         current,
         candidate,
         "repository-a",
@@ -280,7 +286,7 @@ test("Coordinator Snapshotは不正な改訂相関とHashを拒否する", () =>
     assert.equal(JSON.stringify(candidate), before);
   }
   assert.equal(
-    classifyRuntimeSnapshotReentry(current, pending, "", "existing"),
+    classifyExecutionSnapshotReentry(current, pending, "", "existing"),
     "blocked",
   );
 });

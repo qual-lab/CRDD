@@ -19,7 +19,7 @@ import {
 } from "../../../version-control/src/index.ts";
 
 /** Rootを再検証し、保存OwnerとしてRepository内の固定Lock所在を準備する。 */
-export function acquireRuntimeStateLock(
+export function acquireExecutionStateLock(
   repositoryRootHash: unknown,
   repositoryRoot: string,
 ): LockResult {
@@ -78,7 +78,7 @@ export function acquireRuntimeStateLock(
  * @security このOwnerはProvider実行・Docker処置のAuthorityを持たない。
  * @compatibility CurrentStateのReader・Writerと同じwx Scopeを使う。
  */
-export type CoordinatorStorageOwner = Readonly<{
+export type StorageOwner = Readonly<{
   repositoryRoot: string;
   repositoryBinding: string;
   repositoryRootHash: string;
@@ -90,7 +90,7 @@ const storageOwners = new WeakMap<
   object,
   Readonly<{
     repository: Pick<
-      NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
+      NonNullable<ReturnType<typeof observeExecutionRecoveryRepository>>,
       "repositoryRoot" | "repositoryBinding" | "revalidate"
     >;
     lock: Lock;
@@ -112,7 +112,7 @@ const storageOwners = new WeakMap<
  * @security 入力のPropertyやcallbackを評価しない。
  * @concurrency 取得・消費・解放の順序は変更しない。
  */
-export function readCoordinatorStorageOwnerBinding(owner: object) {
+export function readStorageOwnerBinding(owner: object) {
   return storageOwners.get(owner);
 }
 
@@ -131,21 +131,21 @@ export function readCoordinatorStorageOwnerBinding(owner: object) {
  * @security 任意HashやCaller supplied handleを受け付けない。
  * @concurrency このOwnerの内部借用ではLockを再取得しない。
  */
-export function acquireCoordinatorStorageOwner(
+export function acquireStorageOwner(
   workingDirectory: string | Repository | HistoryRepositoryInput,
-): StoreResult<CoordinatorStorageOwner> {
+): StoreResult<StorageOwner> {
   const verified =
     typeof workingDirectory === "string"
       ? getRepositoryFromWorkingDirectory(workingDirectory)
       : null;
   const repository =
     typeof workingDirectory !== "string"
-      ? observeRuntimeStorageRepository(workingDirectory)
+      ? observeExecutionStorageRepository(workingDirectory)
       : verified?.status === "completed"
-        ? observeRuntimeStorageRepository(verified.capability)
+        ? observeExecutionStorageRepository(verified.capability)
         : null;
   return repository
-    ? acquireCoordinatorStorageOwnerForRepository(repository)
+    ? acquireStorageOwnerForRepository(repository)
     : blocked("coordinator_state_owner_invalid");
 }
 
@@ -164,20 +164,20 @@ export function acquireCoordinatorStorageOwner(
  * @security このOwnerだけでは候補の書込みを許可しない。
  * @concurrency 取得したOwnerの解放は呼出し側が所有する。
  */
-export function acquireCoordinatorStorageOwnerForRepository(
+export function acquireStorageOwnerForRepository(
   repository: Pick<
-    NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
+    NonNullable<ReturnType<typeof observeExecutionRecoveryRepository>>,
     "repositoryRoot" | "repositoryBinding" | "revalidate"
   >,
-): StoreResult<CoordinatorStorageOwner> {
+): StoreResult<StorageOwner> {
   if (!repository) return blocked("coordinator_state_owner_invalid");
-  const acquisition = acquireRuntimeStateLock(
+  const acquisition = acquireExecutionStateLock(
     repository.repositoryBinding,
     repository.repositoryRoot,
   );
   if (acquisition.status !== "acquired") return storageLockFailure(acquisition);
   const lock = acquisition.lock;
-  const owner: CoordinatorStorageOwner = Object.freeze({
+  const owner: StorageOwner = Object.freeze({
     repositoryRoot: repository.repositoryRoot,
     repositoryBinding: repository.repositoryBinding,
     repositoryRootHash: repository.repositoryBinding,
@@ -220,7 +220,7 @@ export function acquireCoordinatorStorageOwnerForRepository(
  * @security 任意ObjectのGetterやcallbackを実行しない。
  * @concurrency 同じ保持中Kernelを再取得しない。
  */
-export function borrowCoordinatorStorageOwner(
+export function borrowStorageOwner(
   owner: unknown,
   repository: Readonly<{ repositoryRoot: string; repositoryBinding: string }>,
 ) {
@@ -254,14 +254,10 @@ export function borrowCoordinatorStorageOwner(
  * @security Owner自体は業務認可ではない。
  * @concurrency 同じ取得済み排他だけを確認する。
  */
-export function isLiveCoordinatorStorageOwner(
-  owner: unknown,
-): owner is CoordinatorStorageOwner {
+export function isLiveStorageOwner(owner: unknown): owner is StorageOwner {
   const binding =
     owner && typeof owner === "object" ? storageOwners.get(owner) : null;
-  return (
-    !!binding && !!borrowCoordinatorStorageOwner(owner, binding.repository)
-  );
+  return !!binding && !!borrowStorageOwner(owner, binding.repository);
 }
 
 /**
@@ -280,10 +276,10 @@ export function isLiveCoordinatorStorageOwner(
  * @security 呼出し元から任意のRoot Hashを受け取らない。
  * @concurrency 同Rootのcase差と配下起動を同じ排他へ結合する。
  */
-export function acquireCoordinatorSnapshotPilotLock(
+export function acquireSnapshotPilotLock(
   workingDirectory: string | Repository | HistoryRepositoryInput,
-): StoreResult<CoordinatorSnapshotOwner> {
-  const result = acquireCoordinatorStorageOwner(workingDirectory);
+): StoreResult<SnapshotOwner> {
+  const result = acquireStorageOwner(workingDirectory);
   return result.status === "completed"
     ? completed("orchestrator_snapshot_lock_acquired", result.value)
     : result.reason === "coordinator_state_lock_unavailable"
@@ -301,7 +297,7 @@ export function acquireCoordinatorSnapshotPilotLock(
  * @security JSONから構築せず検証済み取得結果だけを用いる。
  * @compatibility 既存の短期排他取得結果と同じ値契約。
  */
-export type CoordinatorSnapshotOwner = CoordinatorStorageOwner;
+export type SnapshotOwner = StorageOwner;
 
 /**
  * 借用する保存Ownerの実発行と生存を確認する。
@@ -318,10 +314,8 @@ export type CoordinatorSnapshotOwner = CoordinatorStorageOwner;
  * @security Root以外の書込み許可を与えない。
  * @concurrency 取得・解放は呼出し側が所有する。
  */
-export function isLiveCoordinatorSnapshotOwner(
-  owner: unknown,
-): owner is CoordinatorSnapshotOwner {
-  return isLiveCoordinatorStorageOwner(owner);
+export function isLiveSnapshotOwner(owner: unknown): owner is SnapshotOwner {
+  return isLiveStorageOwner(owner);
 }
 
 /** 取得失敗を公開可能な固定理由と非Authority参照へ投影し、PathやRecordを返さない。 */
@@ -379,7 +373,7 @@ export function readHistoryRetentionDays(
  * @security 観測callbackを登録・永続化せず、生WriterやKernelを渡さない。
  * @compatibility 元の操作Mapと六値の通知相関を維持する。
  */
-export type RuntimeExecutionStorageAccess = Readonly<{
+export type OperationStorageAccess = Readonly<{
   identity: object;
   observeRepository: () => Readonly<{
     purpose: "execution";
@@ -399,7 +393,7 @@ export type RuntimeExecutionStorageAccess = Readonly<{
  * @security この値自体から実行・回復Authorityを発行しない。
  * @compatibility 元の終端処理と一回使用証拠を別に要求する。
  */
-export type RuntimeSettlementStorageAccess = Readonly<{
+export type SettlementStorageAccess = Readonly<{
   purpose: "settlement";
   root: Repository;
   operationId: string;
@@ -486,7 +480,7 @@ function synchronous(callback: unknown, ...args: unknown[]): unknown {
  * @security Root Capabilityを返却DTO・JSONへ複製しない。
  * @concurrency 再検証は元のI/O境界で呼ぶ。
  */
-export function observeRuntimeStorageRepository(
+export function observeExecutionStorageRepository(
   input: Repository | HistoryRepositoryInput,
   historyInput: unknown = input,
 ) {
@@ -552,7 +546,7 @@ export function observeRuntimeStorageRepository(
  * @security 生Path・任意bindingをCallerから受けない。
  * @concurrency 借用を呼出し間でcacheしない。
  */
-export function observeRuntimeExecutionRepository(access: unknown) {
+export function observeOperationRepository(access: unknown) {
   const context = synchronous(data(access, "observeRepository"));
   const root = data(context, "root") as Repository;
   const operationId = data(context, "operationId");
@@ -564,7 +558,7 @@ export function observeRuntimeExecutionRepository(access: unknown) {
     typeof revalidate !== "function"
   )
     return null;
-  const repository = observeRuntimeStorageRepository(root, context);
+  const repository = observeExecutionStorageRepository(root, context);
   return repository
     ? Object.freeze({
         ...repository,
@@ -593,7 +587,7 @@ export function observeRuntimeExecutionRepository(access: unknown) {
  * @security 元Capabilityを保存JSONへ含めない。
  * @concurrency 元keyの取得・消費順を変更しない。
  */
-export function runtimeStorageOperationIdentity(access: unknown) {
+export function executionStorageOperationIdentity(access: unknown) {
   const value = data(access, "identity");
   return value && typeof value === "object" && !types.isProxy(value)
     ? value
@@ -615,7 +609,7 @@ export function runtimeStorageOperationIdentity(access: unknown) {
  * @security 元の未知を不存在へ補完しない。
  * @concurrency Readerの元の前後観測点で再検証する。
  */
-export function observeRuntimeRecoveryRepository(input: unknown) {
+export function observeExecutionRecoveryRepository(input: unknown) {
   const root = (
     data(input, "historyRetentionDays") !== undefined
       ? data(input, "root")
@@ -687,7 +681,7 @@ export function observeRuntimeRecoveryRepository(input: unknown) {
  * @security Path・binding・生Kernelを入力にしない。
  * @concurrency 元のI/O前後の照合位置を維持する。
  */
-export function observeRuntimeSettlementRepository(access: unknown) {
+export function observeExecutionSettlementRepository(access: unknown) {
   const root = data(access, "root") as Repository;
   const operationId = data(access, "operationId");
   const revalidate = data(access, "revalidate");
@@ -698,7 +692,7 @@ export function observeRuntimeSettlementRepository(access: unknown) {
     typeof revalidate !== "function"
   )
     return null;
-  const repository = observeRuntimeStorageRepository(root, access);
+  const repository = observeExecutionStorageRepository(root, access);
   return repository
     ? Object.freeze({
         ...repository,
@@ -722,7 +716,7 @@ export function observeRuntimeSettlementRepository(access: unknown) {
  * @security 実行又は回復Authorityを含めない。
  * @compatibility 元のWriterが検査するfieldを維持する。
  */
-export type RuntimeTerminalStorageObservation = Readonly<{
+export type ExecutionTerminalStorageObservation = Readonly<{
   resourceSnapshot:
     | import("../../../docker-isolation/src/index.ts").ResourceSnapshot
     | null;
@@ -748,9 +742,9 @@ export type RuntimeTerminalStorageObservation = Readonly<{
  * @security 観測を登録・永続化しない。
  * @concurrency 新しい待機・Map・排他を作らない。
  */
-export function observeRuntimeSettlementStorageAccess(access: unknown) {
+export function observeExecutionSettlementStorageAccess(access: unknown) {
   const context = synchronous(data(access, "observeSettlementRepository"));
-  return observeRuntimeSettlementRepository(context);
+  return observeExecutionSettlementRepository(context);
 }
 
 /**
@@ -768,7 +762,7 @@ export function observeRuntimeSettlementStorageAccess(access: unknown) {
  * @security 観測を登録・永続化しない。
  * @concurrency 新しい待機・Map・排他を作らない。
  */
-export function captureRuntimeCleanupVerification(access: unknown) {
+export function captureExecutionCleanupVerification(access: unknown) {
   const verify = synchronous(data(access, "captureCleanupVerification"));
   if (typeof verify !== "function" || types.isProxy(verify)) return null;
   return (outcome: unknown) => {
@@ -792,7 +786,7 @@ export function captureRuntimeCleanupVerification(access: unknown) {
  * @security 観測を登録・永続化しない。
  * @concurrency 新しい待機・Map・排他を作らない。
  */
-export function observeRuntimeTerminalForStorage(
+export function observeExecutionTerminalForStorage(
   result: unknown,
   access: unknown,
   operationId: unknown,
@@ -813,7 +807,7 @@ export function observeRuntimeTerminalForStorage(
     )
   )
     return null;
-  return value as RuntimeTerminalStorageObservation;
+  return value as ExecutionTerminalStorageObservation;
 }
 
 /**
@@ -831,10 +825,10 @@ export function observeRuntimeTerminalForStorage(
  * @security 生Pathや任意HashからContextを発行しない。
  * @concurrency この呼出し限り。callbackを登録しない。
  */
-export function observeRuntimeContentRepository(
+export function observeExecutionContentRepository(
   access: unknown,
   operation: Parameters<
-    import("../state/types.ts").RuntimeAccess["revalidate"]
+    import("../state/types.ts").ExecutionModelAccess["revalidate"]
   >[0],
   target: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
@@ -847,7 +841,7 @@ export function observeRuntimeContentRepository(
     synchronous(revalidate, operation, target) !== true
   )
     return null;
-  const repository = observeRuntimeStorageRepository(root, access);
+  const repository = observeExecutionStorageRepository(root, access);
   return repository
     ? Object.freeze({
         ...repository,
@@ -870,13 +864,13 @@ export function observeRuntimeContentRepository(
  *
  * @responsibility Coordinator Port 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape CoordinatorPortResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorPortResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorPortResultの宣言は外部境界を開かない。
- * @security N/A: CoordinatorPortResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorPortResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape PortResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PortResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PortResultの宣言は外部境界を開かない。
+ * @security N/A: PortResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PortResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorPortResult<T> = Readonly<
+export type PortResult<T> = Readonly<
   | { status: "completed"; reason: string; value: T }
   | {
       status: "blocked";
@@ -898,7 +892,7 @@ export type CoordinatorPortResult<T> = Readonly<
  * @security StoreResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility StoreResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type StoreResult<T> = CoordinatorPortResult<T>;
+export type StoreResult<T> = PortResult<T>;
 
 /**
  * completedを決定する。

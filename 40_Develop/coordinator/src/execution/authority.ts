@@ -5,44 +5,46 @@
  * @trace ARCH-000008
  */
 
-import type { LockResult } from "../../../lock/src/index.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { types } from "node:util";
-import { getIsolationSettings } from "./configuration.ts";
+import { isDeepStrictEqual, types } from "node:util";
 import {
   getAuthenticationDefinition,
   resolveModelSelection,
 } from "../../../ai-adapter/src/index.ts";
-import {
-  type ExecutionSelection,
-  type CoordinatorResourceBook,
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
-  validateCoordinatorResourceBook,
-  encodeRuntimeStateValue,
-  hashExecutionSelection,
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
-} from "../../../execution-model/src/index.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import type {
   IsolationCallbacks,
   IsolationExecution,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  type ResourceTarget,
+  applyResourceCleanup,
+  applyResourceEvent,
+  type ExecutionSelection,
+  hashExecutionSelection,
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+  type OperationResources,
+  validateResourceBook,
+} from "../../../execution-model/src/index.ts";
+import {
+  type AuthenticationOptions,
   cleanupResources,
   createExecutor,
   type Executor,
   type ExecutorCallbacks,
   type ExecutorRequest,
   type RecordProjection,
-  type AuthenticationOptions,
+  type ResourceTarget,
 } from "../../../executor/src/index.ts";
+import type { LockResult } from "../../../lock/src/index.ts";
+import {
+  snapshotJsonValue,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../input/snapshot.ts";
+import { getIsolationSettings } from "./configuration.ts";
 import { inspectRuntimeOwnedDevelopmentOperationContext } from "./diagnostics.ts";
 import { acquireProviderHomeLock } from "./kernel-lock.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
@@ -56,6 +58,7 @@ import {
   PROVIDER_ISOLATION_CONTRACT_REVISION,
   validateProviderIsolationProfile,
 } from "./preparation.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 
 export const AUTHORITY_FILE_BUNDLE_CONTRACT =
   "crdd-coordinator/authority-file-bundle";
@@ -7458,7 +7461,7 @@ type Dependencies = Readonly<{
   ) => boolean;
   readResources: (
     record: AuthenticationRecoveryRecord,
-  ) => Readonly<{ resources: CoordinatorResourceBook | null }> | null;
+  ) => Readonly<{ resources: OperationResources | null }> | null;
 }>;
 
 /** 同じHome Lock下で自作した管理Directoryの短命実体。保存・権限ではない。 */
@@ -7571,7 +7574,7 @@ export type AuthenticationRecoveryRecord = Readonly<{
   recoveryId: string;
   stableLogicalHomeBindingHash: string;
   suffix: string;
-  resources: CoordinatorResourceBook | null;
+  resources: OperationResources | null;
   ownershipLabel: string;
   state: "active" | "settled";
   commandState: "idle" | "in_flight";
@@ -7685,7 +7688,7 @@ function sameRecoveryRecord(
     record.ownershipLabel === expected.ownershipLabel &&
     (record.state === "active" || record.state === "settled") &&
     isCommandStateValid &&
-    validateCoordinatorResourceBook(record.resources) &&
+    validateResourceBook(record.resources) &&
     (record.resources === null ||
       record.resources.snapshot.resources.every(
         (resource) =>
@@ -7845,10 +7848,13 @@ export function setProviderAuthenticationRecoveryCommandState(
       (state === "idle" && current.commandState !== "in_flight")
     )
       return false;
-    let resources = current.resources as CoordinatorResourceBook | null;
+    let resources = current.resources as OperationResources | null;
     if (state === "in_flight" && purpose?.startsWith("create_")) {
-      const material = JSON.parse(encodeRuntimeStateValue(resourcesValue));
-      resources = applyCoordinatorResourceEvent(resources, {
+      const material = snapshotJsonValue(resourcesValue) as Record<
+        string,
+        unknown
+      >;
+      resources = applyResourceEvent(resources, {
         ...material,
         event: "submission",
         key,
@@ -7875,8 +7881,10 @@ export function setProviderAuthenticationRecoveryCommandState(
       updated.state === "active" &&
       updated.commandState === state &&
       updated.commandPurpose === purpose &&
-      encodeRuntimeStateValue(updated.resources) ===
-        encodeRuntimeStateValue(resources)
+      isDeepStrictEqual(
+        snapshotJsonValue(updated.resources),
+        snapshotJsonValue(resources),
+      )
     );
   } catch {
     return false;
@@ -7906,13 +7914,13 @@ export function recordProviderAuthenticationResource(
   try {
     const raw = fs.readFileSync(record.recordPath, "utf8");
     const current = JSON.parse(raw) as AuthenticationRecoveryRecord;
-    const event = JSON.parse(encodeRuntimeStateValue(eventValue));
+    const event = snapshotJsonValue(eventValue) as Record<string, unknown>;
     if (!sameRecoveryRecord(current, record) || current.state !== "active")
       return false;
-    let resources: CoordinatorResourceBook | null;
+    let resources: OperationResources | null;
     if (event.event === "cleanup") {
       if (!current.resources) return false;
-      resources = applyCoordinatorResourceCleanup(
+      resources = applyResourceCleanup(
         current.resources,
         event.snapshot,
         event.observations,
@@ -7928,7 +7936,7 @@ export function recordProviderAuthenticationResource(
           (event.event === "identified" ? "remove_" : "create_") + event.key
       )
         return false;
-      resources = applyCoordinatorResourceEvent(current.resources, event);
+      resources = applyResourceEvent(current.resources, event);
     }
     if (!resources) return false;
     const next = {
@@ -8218,8 +8226,8 @@ async function cleanAuthenticationResources(
   if (book === null)
     return { confirmed: true, processCompletionConfirmed: true };
   let material: Readonly<{
-    snapshot: CoordinatorResourceBook["snapshot"];
-    cleanup: CoordinatorResourceBook["cleanup"];
+    snapshot: OperationResources["snapshot"];
+    cleanup: OperationResources["cleanup"];
   }> = {
     snapshot: {
       resources: book.snapshot.resources.map((resource) => ({

@@ -8,14 +8,15 @@
  * @scope development、provider、measurement
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
-import test from "node:test";
 import fs from "node:fs";
-import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
+import test from "node:test";
 import { compileFunction } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 /**
  * 計測設定ReaderのFile量拒否だけを撤去したことを検証する。
@@ -73,8 +74,8 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
       "path",
       "resolveVerifiedRepositoryRootFromWorkingDirectory",
       "getRepository",
-      "ensureRepositoryRuntimeDataArea",
-      "requireReadyRepositoryRuntimeDataArea",
+      "ensureRepositoryExecutionDataArea",
+      "requireReadyRepositoryExecutionDataArea",
       "runDevelopmentProviderMeasurement",
       "AbortController",
     ],
@@ -102,11 +103,12 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
   await assert.rejects(main(), /measurement_request_invalid/u);
   assert.equal(calls, 1);
 });
+
+import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,
 } from "../../scripts/measure-development-providers.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
 type Dependencies = Parameters<
@@ -126,7 +128,7 @@ type Dependencies = Parameters<
  * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Development Measurement入口はRuntime Data停止理由を保持する", () => {
-  const error = new RepositoryRuntimeDataAreaBlockedError({
+  const error = new ExecutionStorageBlockedError({
     status: "blocked",
     reason: "repository_runtime_data_ignore_registration_blocked",
     effectIssued: true,

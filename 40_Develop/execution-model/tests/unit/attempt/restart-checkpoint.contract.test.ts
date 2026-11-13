@@ -7,19 +7,19 @@
  * @scope 再起動現在値の純粋なHash・復号・遷移。
  * @boundary N/A: メモリ内だけ。実処置・Writer・排他を実行しない。
  */
-import {
-  createDockerRestartRequestId,
-  decodeDockerRestartCheckpoint,
-  isDockerRestartCheckpointSettled,
-} from "../../../src/index.ts";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../support/source-declaration.ts";
 import { validateDockerRestartCheckpointTransition } from "../../../src/attempt/validation.ts";
+import {
+  createDockerRestartRequestId,
+  isDockerRestartCheckpointSettled,
+} from "../../../src/index.ts";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 
 const repositoryBinding = "a".repeat(64);
 const identitySha256 = "b".repeat(64);
@@ -440,3 +440,5 @@ test("再起動終了判定はEffect不明条件の省略を検出する", () =>
   assert.equal(mutant(value), true);
   assert.throws(() => assert.equal(mutant(value), false));
 });
+
+import { decodeDockerRestartCheckpoint } from "../../../src/attempt/validation.ts";

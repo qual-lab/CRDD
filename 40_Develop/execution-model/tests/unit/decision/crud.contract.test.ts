@@ -9,6 +9,8 @@
  * @boundary 値操作だけ。実保存・現在認可・人間判断の真正性は別試験が所有する。
  */
 
+import type { Snapshot } from "../../../src/state/types.ts";
+import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type {
@@ -18,7 +20,7 @@ import type {
   DecisionRequest,
 } from "../../../src/decision/types.ts";
 import {
-  inspectCoordinatorDecisionRequest,
+  inspectDecision,
   inspectDecisionHistoryEvent,
   prepareDecisionAnswer,
   prepareDecisionApplication,
@@ -35,20 +37,52 @@ import {
   validateDecisionRetirement,
   validateDecisionSnapshotTransition,
 } from "../../../src/decision/validation.ts";
+
+/**
+ * 判断モデルの検査を上位要求の検査から分離する。
+ * @responsibility 保存用の符号化・履歴投影を上位に要求せず同じモデル条件を検査する。
+ * @trace PRL-UT-015
+ * @precondition 通常の要求候補が生成した判断を使う。
+ * @stimulus 正常値、不正状態、getter・Proxyを渡す。
+ * @observation 不変Snapshot又はnullとgetter呼出し零。
+ * @oracle 値の受理を認可や保存済みとは扱わない。
+ * @cleanup 外部資源なし。
+ * @boundary 純粋モデル検査だけ。
+ */
+test("判断モデルの検査は上位要求に依存せず不正値を拒否する", () => {
+  const created = prepareDecisionRequest(newDecisionFixture().request);
+  assert.ok(created);
+  const inspected = inspectDecision(created.decision);
+  assert.deepEqual(inspected, created.decision);
+  assert.ok(Object.isFrozen(inspected));
+  assert.equal(
+    inspectDecision({ ...created.decision, status: "unknown-state" }),
+    null,
+  );
+  let reads = 0;
+  const getter = Object.defineProperty({}, "decisionId", {
+    enumerable: true,
+    get() {
+      reads++;
+      throw new Error("must not read");
+    },
+  });
+  assert.equal(inspectDecision(getter), null);
+  assert.equal(inspectDecision(new Proxy({}, {})), null);
+  assert.equal(reads, 0);
+});
+
+import { decodeHistoryRows } from "../../../src/history/validation.ts";
+
 import {
-  type CoordinatorSnapshot,
-  decodeCoordinatorHistoryRows,
-  encodeRuntimeStateValue,
-} from "../../../src/index.ts";
-import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  coordinatorQueueIsClosed,
+  PROJECT_SNAPSHOT_SCHEMA,
+  queueIsClosed,
 } from "../../../src/state/validation.ts";
 
 /** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {
-  const current: CoordinatorSnapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  const current: Snapshot = {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
@@ -164,30 +198,6 @@ test("判断本文と根拠集合は容量だけで拒否せず履歴へ保持�
     ),
     null,
   );
-  const base = {
-    decisionId: request.decisionId,
-    projectId: request.target.projectId,
-    milestoneId: request.target.milestoneId,
-    generation: request.target.generation,
-    repositoryRevision: request.target.repositoryRevision,
-  };
-  assert.ok(
-    inspectCoordinatorDecisionRequest({
-      ...base,
-      operation: "answer",
-      selectedOption: "resume",
-      comment: "c".repeat(1025),
-    }),
-  );
-  assert.equal(
-    inspectCoordinatorDecisionRequest({
-      ...base,
-      operation: "answer",
-      selectedOption: "unknown",
-      comment: "c".repeat(1025),
-    }),
-    null,
-  );
 });
 
 /**
@@ -244,7 +254,7 @@ test("同じBlockerへ拒否・保留後に再提案し承認適用後だけ全�
           ],
           tasks: [],
         },
-      ] as unknown as CoordinatorSnapshot["projects"],
+      ] as unknown as Snapshot["projects"],
     };
     for (const reversed of [false, true]) {
       const firstProposal: DecisionRequest = reversed
@@ -253,14 +263,12 @@ test("同じBlockerへ拒否・保留後に再提案し承認適用後だけ全�
       const secondProposal: DecisionRequest = reversed
         ? proposal
         : { ...proposal, decisionId: "evidence-b", blockerId: "evidence-b" };
-      const first: ReturnType<
-        typeof prepareDecisionCreation<CoordinatorSnapshot>
-      > = prepareDecisionCreation(source, firstProposal);
+      const first: ReturnType<typeof prepareDecisionCreation<Snapshot>> =
+        prepareDecisionCreation(source, firstProposal);
       if (first.status !== "completed" || !first.value.next)
         throw Error("fixture");
-      const second: ReturnType<
-        typeof prepareDecisionCreation<CoordinatorSnapshot>
-      > = prepareDecisionCreation(first.value.next, secondProposal);
+      const second: ReturnType<typeof prepareDecisionCreation<Snapshot>> =
+        prepareDecisionCreation(first.value.next, secondProposal);
       if (second.status !== "completed" || !second.value.next)
         throw Error("fixture");
       const answerFor = (id: string): DecisionAnswer => ({
@@ -268,24 +276,22 @@ test("同じBlockerへ拒否・保留後に再提案し承認適用後だけ全�
         selectedOption: "accept",
         evidenceIds: [id === proposal.decisionId ? "evidence-a" : "evidence-b"],
       });
-      const early: ReturnType<
-        typeof prepareDecisionSubmission<CoordinatorSnapshot>
-      > = prepareDecisionSubmission(
-        second.value.next,
-        firstProposal.decisionId,
-        answerFor(firstProposal.decisionId),
-        answer.answeredAt,
-      );
+      const early: ReturnType<typeof prepareDecisionSubmission<Snapshot>> =
+        prepareDecisionSubmission(
+          second.value.next,
+          firstProposal.decisionId,
+          answerFor(firstProposal.decisionId),
+          answer.answeredAt,
+        );
       if (early.status !== "completed" || !early.value.next)
         throw Error("fixture");
-      const last: ReturnType<
-        typeof prepareDecisionSubmission<CoordinatorSnapshot>
-      > = prepareDecisionSubmission(
-        early.value.next,
-        secondProposal.decisionId,
-        answerFor(secondProposal.decisionId),
-        answer.answeredAt,
-      );
+      const last: ReturnType<typeof prepareDecisionSubmission<Snapshot>> =
+        prepareDecisionSubmission(
+          early.value.next,
+          secondProposal.decisionId,
+          answerFor(secondProposal.decisionId),
+          answer.answeredAt,
+        );
       if (last.status !== "completed" || !last.value.next)
         throw Error("fixture");
       assert.ok(
@@ -413,7 +419,7 @@ test("同じBlockerへ拒否・保留後に再提案し承認適用後だけ全�
     if (first.status !== "completed" || !first.value.next)
       throw Error("fixture");
     assert.equal(first.value.next.blockers[0]?.status, "active");
-    const old = encodeRuntimeStateValue(first.value.value);
+    const old = encodeStateValue(first.value.value);
     // return後の再統合は用途Ownerの別遷移。ここでは再統合済みの現在値だけを合成する。
     const ready = {
       ...first.value.next,
@@ -510,7 +516,7 @@ test("同じBlockerへ拒否・保留後に再提案し承認適用後だけ全�
       }).status,
       "blocked",
     );
-    assert.equal(encodeRuntimeStateValue(done.decisions[0]), old);
+    assert.equal(encodeStateValue(done.decisions[0]), old);
     assert.equal(
       validateDecisionCollections(done.decisions, done.blockers, ["project-a"]),
       true,
@@ -576,7 +582,7 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
         objectives: [],
         tasks: [],
       },
-    ] as unknown as CoordinatorSnapshot["projects"],
+    ] as unknown as Snapshot["projects"],
     queueEntries: [
       {
         queueId: "queue-a",
@@ -589,7 +595,7 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
         resumeCondition: null,
         resultReference: null,
       },
-    ] as unknown as CoordinatorSnapshot["queueEntries"],
+    ] as unknown as Snapshot["queueEntries"],
   };
   const created = prepareDecisionCreation(source, request);
   if (created.status !== "completed" || !created.value.next)
@@ -863,10 +869,10 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
   const owner = {
     schema: current.schema,
     leaseResourcesAbsent: () => true,
-  } as unknown as Parameters<typeof coordinatorQueueIsClosed>[2];
-  assert.equal(coordinatorQueueIsClosed(done, "queue-a", owner), true);
+  } as unknown as Parameters<typeof queueIsClosed>[2];
+  assert.equal(queueIsClosed(done, "queue-a", owner), true);
   assert.equal(
-    coordinatorQueueIsClosed(
+    queueIsClosed(
       {
         ...done,
         blockers: done.blockers.map((b) => ({
@@ -880,7 +886,7 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
     false,
   );
   assert.equal(
-    coordinatorQueueIsClosed(done, "queue-a", {
+    queueIsClosed(done, "queue-a", {
       ...owner,
       leaseResourcesAbsent: () => false,
     }),
@@ -909,7 +915,7 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
       ] as unknown as typeof p.tasks,
     })),
   };
-  assert.equal(coordinatorQueueIsClosed(unresolved, "queue-a", owner), false);
+  assert.equal(queueIsClosed(unresolved, "queue-a", owner), false);
   assert.equal(
     validateDecisionRetirement(done, {
       ...done,
@@ -954,7 +960,7 @@ test("回答は要求時の回答先に限定し履歴にも同じ主体を保�
   const { request, answer } = newDecisionFixture();
   const prepared = prepareDecisionRequest(request);
   assert.ok(prepared);
-  const before = encodeRuntimeStateValue(prepared);
+  const before = encodeStateValue(prepared);
   assert.equal(
     prepareDecisionAnswer(
       prepared.decision,
@@ -992,7 +998,7 @@ test("回答は要求時の回答先に限定し履歴にも同じ主体を保�
         null,
       );
   }
-  assert.equal(encodeRuntimeStateValue(prepared), before);
+  assert.equal(encodeStateValue(prepared), before);
 });
 
 /**
@@ -1026,7 +1032,7 @@ test("即時の要求と回答も中間Stateなしで全区画を一候補へま
         tasks: [],
         decisionApplicationId: null,
       },
-    ] as unknown as import("../../../src/state/types.ts").CoordinatorState[],
+    ] as unknown as import("../../../src/state/types.ts").ProjectExecutionState[],
   };
   const acceptance: DecisionRequest = {
     decisionId: request.decisionId,
@@ -1041,7 +1047,7 @@ test("即時の要求と回答も中間Stateなしで全区画を一候補へま
       { value: "return", label: "差戻し" },
     ],
   };
-  const before = encodeRuntimeStateValue(source);
+  const before = encodeStateValue(source);
   const accepted = prepareDecisionRecording(
     source,
     acceptance,
@@ -1133,7 +1139,7 @@ test("即時の要求と回答も中間Stateなしで全区画を一候補へま
       ["original-evidence"],
     );
   }
-  assert.equal(encodeRuntimeStateValue(source), before);
+  assert.equal(encodeStateValue(source), before);
 });
 
 test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と再適用を拒否する", () => {
@@ -1149,7 +1155,7 @@ test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と�
     objectives: [],
     tasks: [],
     decisionApplicationId: null,
-  } as unknown as import("../../../src/state/types.ts").CoordinatorState;
+  } as unknown as import("../../../src/state/types.ts").ProjectExecutionState;
   const source = {
     ...current,
     projects: [project],
@@ -1481,7 +1487,7 @@ test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と�
   assert.equal(accepted.status, "completed");
   if (accepted.status !== "completed" || !accepted.value.next)
     throw Error("acceptance_fixture_failed");
-  const acceptanceBefore = encodeRuntimeStateValue(accepted.value.next);
+  const acceptanceBefore = encodeStateValue(accepted.value.next);
   for (const selectedOption of ["accept", "return"] as const) {
     for (const evidenceIds of [null, "not-an-array", undefined]) {
       const invalid = {
@@ -1498,10 +1504,7 @@ test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と�
         ).reason,
         "decision_answer_invalid",
       );
-      assert.equal(
-        encodeRuntimeStateValue(accepted.value.next),
-        acceptanceBefore,
-      );
+      assert.equal(encodeStateValue(accepted.value.next), acceptanceBefore);
     }
   }
 });
@@ -1531,7 +1534,7 @@ test("判断履歴は元の質問・回答者・理由・状態変化を安定ID
   const lines = events
     .map(
       (event) =>
-        `${encodeRuntimeStateValue({
+        `${encodeStateValue({
           schema: "crdd-coordinator/history-row/v2",
           occurredAt: event.occurredAt,
           summary: {
@@ -1541,12 +1544,9 @@ test("判断履歴は元の質問・回答者・理由・状態変化を安定ID
         })}\n`,
     )
     .join("");
-  assert.equal(decodeCoordinatorHistoryRows(Buffer.from(lines))?.length, 3);
-  assert.equal(decodeCoordinatorHistoryRows(Buffer.from(lines + lines)), null);
-  assert.equal(
-    decodeCoordinatorHistoryRows(Buffer.from(`${lines}{partial`)),
-    null,
-  );
+  assert.equal(decodeHistoryRows(Buffer.from(lines))?.length, 3);
+  assert.equal(decodeHistoryRows(Buffer.from(lines + lines)), null);
+  assert.equal(decodeHistoryRows(Buffer.from(`${lines}{partial`)), null);
   assert.equal(
     inspectDecisionHistoryEvent({ ...events[0], unknown: true }),
     null,

@@ -4,14 +4,18 @@
  * @packageDocumentation
  * @responsibility orchestrator:unit:state-queryが所有する検証責務を実行する。
  * @trace PPR-UT-006
+ * @trace PRL-UT-006
  * @level UT
  * @scope project、runtime、state、query、public
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import type { CoordinatorState } from "../../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
+import type { ProjectExecutionState } from "../../../../execution-model/src/index.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 
@@ -20,6 +24,111 @@ import {
   queryCoordinatorState,
 } from "../../../src/state/query.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
+
+/**
+ * 公開状態照会の本番本文が同じ保存版から表示を作ることを確認する。
+ * @responsibility 再読取り削減と採用確認前後のfresh観測を区別する。
+ * @trace PPR-UT-006
+ * @precondition 正規の状態値と有限のRepository・保存観測を使う。
+ * @stimulus 同改訂・採用済み別改訂・対象不存在・読取り不明を与える。
+ * @observation 読取り数・採用確認数・同版の世代と受付世代。
+ * @oracle 通常は一回、採用確認を挟む場合は二回取得し、追加Portを構築しない。
+ * @cleanup N/A: Sourceの読取りと有限のメモリ代役だけ。
+ * @boundary Co照会本文と固定下位結果。実Git・Lockの成立は主張しない。
+ */
+test("公開状態照会は同版のProjectと受付世代を使い採用確認後だけ再取得する", () => {
+  const source = stripTypeScriptTypes(
+    sourceDeclaration(
+      fs.readFileSync(
+        new URL("../../../src/state/query.ts", import.meta.url),
+        "utf8",
+      ),
+      "executeCoordinatorPublicStateQuery",
+    ),
+    { mode: "strip" },
+  );
+  for (const mode of ["current", "adopted", "absent", "unknown"] as const) {
+    const state = runtimeState();
+    const capability = {};
+    let reads = 0;
+    let adoptionChecks = 0;
+    let displayedEpoch: string | null = null;
+    const dependencies = {
+      inspectCoordinatorStateQuery: () => request,
+      isPrincipalId: () => true,
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => "fixture-root",
+      getRepository: () => ({ capability }),
+      readRepositorySnapshot: () => ({
+        revisionIdentity: mode === "adopted" ? "b".repeat(40) : revision,
+      }),
+      verifyRuntimePersistenceRepository: () => capability,
+      deriveCoordinatorRepositoryBindingId: () => "binding-a",
+      readState: (root: unknown, binding: string, scope: string) => {
+        assert.strictEqual(root, capability);
+        assert.equal(binding, "binding-a");
+        assert.equal(scope, "execution");
+        reads++;
+        if (mode === "unknown")
+          return {
+            status: "blocked",
+            value: null,
+            manualRecoveryRequired: true,
+          };
+        return {
+          status: "completed",
+          value: {
+            projects:
+              mode === "absent" ? [] : [{ ...state, generation: reads }],
+            queueEntries: [],
+            intakeEpoch: `epoch-${reads}`,
+            schemaRevision: 6,
+          },
+        };
+      },
+      workspacePlanReadyForAcceptance: () => {
+        adoptionChecks++;
+        assert.equal(reads, 1);
+        return true;
+      },
+      createCurrentCoordinatorPersistencePorts: () =>
+        assert.fail("unexpected_state_reread"),
+      queryCoordinatorState: (
+        reader: Pick<CoordinatorStatePort, "readState">,
+        query: typeof request,
+        epoch: string,
+      ) => {
+        displayedEpoch = epoch;
+        return queryCoordinatorState(reader, query, epoch);
+      },
+      COORDINATOR_PUBLIC_RUNTIME_CONTRACT: "public-fixture",
+      COORDINATOR_STATE_QUERY_CONTRACT: "query-fixture",
+    };
+    const evaluate = new Function(
+      ...Object.keys(dependencies),
+      `${source}; return executeCoordinatorPublicStateQuery;`,
+    )(...Object.values(dependencies));
+    const result = evaluate(request, "fixture-root", {
+      principalId: "local:fixture",
+    });
+    assert.equal(reads, mode === "adopted" ? 2 : 1, mode);
+    assert.equal(adoptionChecks, mode === "adopted" ? 1 : 0, mode);
+    if (mode === "unknown") {
+      assert.equal(result.status, "blocked");
+      assert.equal(result.observationState, "unknown");
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(displayedEpoch, null);
+    } else {
+      assert.equal(result.status, "completed");
+      assert.equal(
+        result.observationState,
+        mode === "absent" ? "absent" : "observed",
+      );
+      assert.equal(displayedEpoch, `epoch-${reads}`);
+      assert.equal(result.intakeEpoch, displayedEpoch);
+      if (mode !== "absent") assert.equal(result.projection.generation, reads);
+    }
+  }
+});
 
 const revision = "a".repeat(40);
 const request = Object.freeze({
@@ -66,7 +175,7 @@ test("公開状態照会はHost Storeを認証の代替にせず未認証入力�
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
-function runtimeState(): CoordinatorState {
+function runtimeState(): ProjectExecutionState {
   const created = createCoordinatorState({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: request.projectId,
@@ -242,7 +351,80 @@ test("観測不能と既存Recovery義務をEffect発行と混同しない", () 
   assert.equal(result.effectState, "no_effect");
 });
 
+import { parseRuntimeActivityObservation } from "../../../src/state/observation.ts";
 import {
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-} from "../../../../execution-model/src/index.ts";
+} from "../../../src/state/projection.ts";
+
+/**
+ * 取得済み活動観測を量だけで欠測へ変えない。
+ * @trace PRL-UT-006
+ * @precondition 10001出所と単発記録、51履歴eventの合成値を使う。
+ * @stimulus 完全集合と重複・不明参照・閉Schema違反を渡す。
+ * @observation 保持された件数と不正時のnull。
+ * @oracle 観測済み内容の量とSchema・Identity相関を区別する。
+ * @cleanup N/A: 純粋値だけ。
+ */
+test("活動結果は10001出所・単発記録と51eventを保持する", () => {
+  const sources = Array.from({ length: 10001 }, (_, index) => ({
+    repositoryId: `repo-${index.toString().padStart(5, "0")}`,
+    revision: "a".repeat(40),
+  }));
+  const singleTasks = sources.map((source, index) => ({
+    repositoryId: source.repositoryId,
+    requestId: `request-${index}`,
+    mode: "workspace_edit",
+    phase: "settled",
+    status: "unknown",
+    cleanupConfirmed: false,
+    recoveryRequired: true,
+  }));
+  const events = Array.from({ length: 51 }, (_, index) => ({
+    repositoryId: sources[0]?.repositoryId,
+    eventId: `execution-${(50 - index).toString(16).padStart(64, "0")}`,
+    occurredAt: "2026-11-12T00:00:00.000Z",
+    objectiveId: "objective-a",
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    status: "unknown",
+    reason: "unknown",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+  }));
+  const raw = {
+    projectId: "project-a",
+    state: "absent",
+    reason: "runtime_activity_state_absent",
+    projection: null,
+    currentSourceRepositoryId: null,
+    sources,
+    eventState: "observed",
+    eventReason: "runtime_activity_events_observed",
+    events,
+    eventContinuation: null,
+    singleTasks,
+  };
+  const observed = parseRuntimeActivityObservation(raw);
+  assert.equal(observed?.sources.length, 10001);
+  assert.equal(observed?.singleTasks?.length, 10001);
+  assert.equal(observed?.events.length, 51);
+  assert.equal(
+    parseRuntimeActivityObservation({
+      ...raw,
+      sources: [...sources, sources[0]],
+    }),
+    null,
+  );
+  assert.equal(
+    parseRuntimeActivityObservation({ ...raw, events: [...events, events[0]] }),
+    null,
+  );
+  assert.equal(
+    parseRuntimeActivityObservation({
+      ...raw,
+      singleTasks: [{ ...singleTasks[0], repositoryId: "missing" }],
+    }),
+    null,
+  );
+});

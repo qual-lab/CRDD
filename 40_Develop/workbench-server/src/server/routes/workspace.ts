@@ -11,8 +11,8 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout } from "node:timers/promises";
-import { resolveRepositoryAccess } from "../../../../access-management/src/index.ts";
 import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
+import { resolveRepositoryAccess } from "../../../../access-management/src/index.ts";
 import { readRepositoryManifest } from "../../../../configuration-model/src/index.ts";
 import {
   getRepository,
@@ -178,4 +178,4 @@ export async function handleWorkspaceAction({
   }
 }
 
-import { inspectWorkspaceCommand } from "../../../../execution-model/src/index.ts";
+import { inspectWorkspaceCommand } from "../../../../coordinator/src/index.ts";

@@ -11,18 +11,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  createDockerRuntimeRepairDisposalCheckpoint,
-  decodeDockerRuntimeRepairCheckpoint,
-  decodeDockerRuntimeRepairDisposalCheckpoint,
-  decodeDockerRuntimeRepairRetentionTargets,
-  prepareDockerRuntimeRepairSessionCheckpoint,
-  validateDockerRuntimeRepairCheckpointTransition,
-  validateDockerRuntimeRepairDisposalTransition,
-  validateDockerRuntimeRepairSessionCheckpoint,
+  createEnvironmentRepairDisposalCheckpoint,
+  decodeEnvironmentRepairCheckpoint,
+  decodeEnvironmentRepairDisposalCheckpoint,
+  decodeEnvironmentRepairRetentionTargets,
+  prepareEnvironmentRepairSessionCheckpoint,
+  validateEnvironmentRepairCheckpointTransition,
+  validateEnvironmentRepairDisposalTransition,
+  validateEnvironmentRepairSessionCheckpoint,
 } from "../../../src/attempt/validation.ts";
 import {
-  dockerRuntimeRepairCheckpointIsSettled,
-  dockerRuntimeRepairDisposalIsSettled,
+  isRepairCheckpointSettled,
+  isRepairDisposalSettled,
 } from "../../../src/index.ts";
 
 /**
@@ -39,7 +39,7 @@ import {
 test("保持対象codecは閉じた三用途を独立コピーする", () => {
   const identity = { dev: "1", ino: "2", birthtimeNs: "3" };
   const input = { primary: identity, failed: null, auxiliary: null };
-  const result = decodeDockerRuntimeRepairRetentionTargets(input);
+  const result = decodeEnvironmentRepairRetentionTargets(input);
   assert.deepEqual(result, input);
   assert.ok(result?.primary);
   assert.notStrictEqual(result, input);
@@ -74,7 +74,7 @@ test("保持対象codecは閉じた三用途を独立コピーする", () => {
     accessor,
     proxy,
   ])
-    assert.equal(decodeDockerRuntimeRepairRetentionTargets(invalid), null);
+    assert.equal(decodeEnvironmentRepairRetentionTargets(invalid), null);
   assert.equal(hits, 0);
   identity.ino = "9";
   assert.equal(result.primary.ino, "2");
@@ -134,10 +134,10 @@ function initialDisposal() {
  * @boundary 物理保存・削除・Authorityは対象外。
  */
 test("回収checkpoint: 初期化は削除意図を保存せず独立凍結値を返す", () => {
-  const a = createDockerRuntimeRepairDisposalCheckpoint();
-  const b = createDockerRuntimeRepairDisposalCheckpoint();
+  const a = createEnvironmentRepairDisposalCheckpoint();
+  const b = createEnvironmentRepairDisposalCheckpoint();
   assert.deepEqual(a, initialDisposal());
-  assert.deepEqual(a, decodeDockerRuntimeRepairDisposalCheckpoint(a));
+  assert.deepEqual(a, decodeEnvironmentRepairDisposalCheckpoint(a));
   assert.notEqual(a, b);
   assert.notEqual(a.directories, b.directories);
   assert.ok(Object.isFrozen(a));
@@ -189,7 +189,7 @@ test("回収checkpoint: 合法10形と300遷移は元修復を変更せず閉じ
           const value = initialDisposal();
           value.directories[purpose] = { intent, request, absence };
           assert.equal(
-            decodeDockerRuntimeRepairDisposalCheckpoint(value) !== null,
+            decodeEnvironmentRepairDisposalCheckpoint(value) !== null,
             intent === "saved" ||
               (request === "not_issued" && absence === "unobserved"),
           );
@@ -202,7 +202,7 @@ test("回収checkpoint: 合法10形と300遷移は元修復を変更せず閉じ
         after.directories[purpose] = { ...afterTuple };
         const original = structuredClone(before);
         assert.equal(
-          validateDockerRuntimeRepairDisposalTransition(before, after, purpose),
+          validateEnvironmentRepairDisposalTransition(before, after, purpose),
           allowed[a]?.includes(b),
           `${purpose}:${a}>${b}`,
         );
@@ -215,7 +215,7 @@ test("回収checkpoint: 合法10形と300遷移は元修復を変更せず閉じ
           absence: "unobserved",
         };
         assert.equal(
-          validateDockerRuntimeRepairDisposalTransition(before, after, purpose),
+          validateEnvironmentRepairDisposalTransition(before, after, purpose),
           false,
         );
       }
@@ -230,7 +230,7 @@ test("回収checkpoint: 合法10形と300遷移は元修復を変更せず閉じ
     Symbol("purpose"),
   ])
     assert.equal(
-      validateDockerRuntimeRepairDisposalTransition(
+      validateEnvironmentRepairDisposalTransition(
         initialDisposal(),
         initialDisposal(),
         purpose,
@@ -252,7 +252,7 @@ test("回収checkpoint: 合法10形と300遷移は元修復を変更せず閉じ
  */
 test("回収checkpoint: 閉集合と独立コピーを固定しhostile入力を実行しない", () => {
   const input = initialDisposal();
-  const result = decodeDockerRuntimeRepairDisposalCheckpoint(input);
+  const result = decodeEnvironmentRepairDisposalCheckpoint(input);
   assert.ok(
     result && Object.isFrozen(result) && Object.isFrozen(result.directories),
   );
@@ -326,22 +326,14 @@ test("回収checkpoint: 閉集合と独立コピーを固定しhostile入力を�
     },
     { directories: { ...initial.directories, primary: undefined } },
   ]) {
-    assert.equal(decodeDockerRuntimeRepairDisposalCheckpoint(invalid), null);
-    assert.equal(dockerRuntimeRepairDisposalIsSettled(invalid), false);
+    assert.equal(decodeEnvironmentRepairDisposalCheckpoint(invalid), null);
+    assert.equal(isRepairDisposalSettled(invalid), false);
     assert.equal(
-      validateDockerRuntimeRepairDisposalTransition(
-        initial,
-        invalid,
-        "primary",
-      ),
+      validateEnvironmentRepairDisposalTransition(initial, invalid, "primary"),
       false,
     );
     assert.equal(
-      validateDockerRuntimeRepairDisposalTransition(
-        invalid,
-        initial,
-        "primary",
-      ),
+      validateEnvironmentRepairDisposalTransition(invalid, initial, "primary"),
       false,
     );
   }
@@ -368,22 +360,22 @@ test("回収checkpoint: 不明要求を残して三用途の不存在だけを�
       absence: "confirmed_absent",
     };
   const before = structuredClone(value);
-  assert.equal(dockerRuntimeRepairDisposalIsSettled(value), true);
+  assert.equal(isRepairDisposalSettled(value), true);
   assert.deepEqual(value, before);
   for (const purpose of directoryNames) {
     for (const absence of ["unknown", "unobserved"]) {
       const missing = structuredClone(value);
       missing.directories[purpose].absence = absence;
-      assert.ok(decodeDockerRuntimeRepairDisposalCheckpoint(missing));
-      assert.equal(dockerRuntimeRepairDisposalIsSettled(missing), false);
+      assert.ok(decodeEnvironmentRepairDisposalCheckpoint(missing));
+      assert.equal(isRepairDisposalSettled(missing), false);
       assert.equal(
-        validateDockerRuntimeRepairDisposalTransition(value, missing, purpose),
+        validateEnvironmentRepairDisposalTransition(value, missing, purpose),
         false,
       );
     }
   }
-  assert.equal(decodeDockerRuntimeRepairCheckpoint(value), null);
-  assert.equal(decodeDockerRuntimeRepairDisposalCheckpoint(initial()), null);
+  assert.equal(decodeEnvironmentRepairCheckpoint(value), null);
+  assert.equal(decodeEnvironmentRepairDisposalCheckpoint(initial()), null);
 });
 
 /**
@@ -404,30 +396,30 @@ test("修復checkpoint: 観測回収不明は成功や別理由へ畳まない",
     cleanup: "unknown",
     cleanupFailure: "observation_cleanup_unknown",
   };
-  assert.ok(decodeDockerRuntimeRepairCheckpoint(failed));
+  assert.ok(decodeEnvironmentRepairCheckpoint(failed));
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(before, failed),
+    validateEnvironmentRepairCheckpointTransition(before, failed),
     true,
   );
   assert.equal(
-    decodeDockerRuntimeRepairCheckpoint({ ...failed, cleanup: "confirmed" }),
+    decodeEnvironmentRepairCheckpoint({ ...failed, cleanup: "confirmed" }),
     null,
   );
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(failed, {
+    validateEnvironmentRepairCheckpointTransition(failed, {
       ...failed,
       cleanupFailure: null,
     }),
     false,
   );
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(failed, {
+    validateEnvironmentRepairCheckpointTransition(failed, {
       ...failed,
       cleanupFailure: "operation_cleanup_unknown",
     }),
     false,
   );
-  assert.equal(prepareDockerRuntimeRepairSessionCheckpoint(failed), null);
+  assert.equal(prepareEnvironmentRepairSessionCheckpoint(failed), null);
 });
 
 /**
@@ -443,42 +435,33 @@ test("修復checkpoint: 観測回収不明は成功や別理由へ畳まない",
  */
 test("修復checkpoint: cleanなfresh Session準備だけを別遷移にする", () => {
   const before = { ...initial(), cleanup: "confirmed" };
-  const after = prepareDockerRuntimeRepairSessionCheckpoint(before);
+  const after = prepareEnvironmentRepairSessionCheckpoint(before);
   assert.ok(after);
   assert.equal(after.cleanup, "pending");
   assert.deepEqual(
     { ...after, cleanup: "confirmed" },
-    decodeDockerRuntimeRepairCheckpoint(before),
+    decodeEnvironmentRepairCheckpoint(before),
   );
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(before, after),
+    validateEnvironmentRepairCheckpointTransition(before, after),
     false,
   );
-  assert.equal(
-    validateDockerRuntimeRepairSessionCheckpoint(before, after),
-    true,
-  );
-  assert.equal(
-    validateDockerRuntimeRepairSessionCheckpoint(after, after),
-    false,
-  );
+  assert.equal(validateEnvironmentRepairSessionCheckpoint(before, after), true);
+  assert.equal(validateEnvironmentRepairSessionCheckpoint(after, after), false);
   assert.ok(Object.isFrozen(after));
   for (const cleanup of ["not_requested", "pending", "unknown"]) {
     assert.equal(
-      prepareDockerRuntimeRepairSessionCheckpoint({ ...before, cleanup }),
+      prepareEnvironmentRepairSessionCheckpoint({ ...before, cleanup }),
       null,
     );
     assert.equal(
-      validateDockerRuntimeRepairSessionCheckpoint(
-        { ...before, cleanup },
-        after,
-      ),
+      validateEnvironmentRepairSessionCheckpoint({ ...before, cleanup }, after),
       false,
     );
   }
   for (const cleanupFailure of ["operation_cleanup_unknown"]) {
     assert.equal(
-      prepareDockerRuntimeRepairSessionCheckpoint({
+      prepareEnvironmentRepairSessionCheckpoint({
         ...before,
         cleanupFailure,
       }),
@@ -503,7 +486,7 @@ test("修復checkpoint: cleanなfresh Session準備だけを別遷移にする",
     { ...after, extra: true },
   ])
     assert.equal(
-      validateDockerRuntimeRepairSessionCheckpoint(before, changed),
+      validateEnvironmentRepairSessionCheckpoint(before, changed),
       false,
     );
 });
@@ -568,7 +551,7 @@ function initial() {
  */
 test("修復checkpoint: 八処置の保存意図・発行・確認を分ける", () => {
   let current = initial();
-  const first = decodeDockerRuntimeRepairCheckpoint(current);
+  const first = decodeEnvironmentRepairCheckpoint(current);
   assert.ok(first);
   assert.ok(Object.isFrozen(first.actions.stop_runtime));
   current.actions.stop_runtime.intent = "saved";
@@ -578,14 +561,14 @@ test("修復checkpoint: 八処置の保存意図・発行・確認を分ける",
     let next = structuredClone(current);
     next.actions[key].intent = "saved";
     assert.ok(
-      validateDockerRuntimeRepairCheckpointTransition(current, next),
+      validateEnvironmentRepairCheckpointTransition(current, next),
       `${key}: intent`,
     );
     current = next;
     next = structuredClone(current);
     next.actions[key].request = "issued";
     assert.ok(
-      validateDockerRuntimeRepairCheckpointTransition(current, next),
+      validateEnvironmentRepairCheckpointTransition(current, next),
       `${key}: issued`,
     );
     current = next;
@@ -608,20 +591,20 @@ test("修復checkpoint: 八処置の保存意図・発行・確認を分ける",
       next.stale = "retained";
     }
     assert.ok(
-      decodeDockerRuntimeRepairCheckpoint(next),
+      decodeEnvironmentRepairCheckpoint(next),
       `${key}: complete shape`,
     );
     assert.ok(
-      validateDockerRuntimeRepairCheckpointTransition(current, next),
+      validateEnvironmentRepairCheckpointTransition(current, next),
       `${key}: confirmed`,
     );
     current = next;
   }
-  const snapshot = decodeDockerRuntimeRepairCheckpoint(current);
+  const snapshot = decodeEnvironmentRepairCheckpoint(current);
   assert.ok(snapshot);
   assert.equal(snapshot.actions.restart_runtime.result, "confirmed");
   assert.equal(snapshot.stale, "retained");
-  assert.equal(dockerRuntimeRepairCheckpointIsSettled(snapshot), true);
+  assert.equal(isRepairCheckpointSettled(snapshot), true);
 });
 
 /**
@@ -636,22 +619,18 @@ test("修復checkpoint: 八処置の保存意図・発行・確認を分ける",
  * @boundary N/A: 実清掃の証明ではない。
  */
 test("修復checkpoint: 八処置の終端と清掃の単調matrix", () => {
-  assert.ok(decodeDockerRuntimeRepairCheckpoint(initial()));
-  assert.equal(dockerRuntimeRepairCheckpointIsSettled(initial()), false);
-  assert.equal(dockerRuntimeRepairCheckpointIsSettled({}), false);
+  assert.ok(decodeEnvironmentRepairCheckpoint(initial()));
+  assert.equal(isRepairCheckpointSettled(initial()), false);
+  assert.equal(isRepairCheckpointSettled({}), false);
   const complete = initial();
   for (const name of actionNames)
     complete.actions[name].result = "not_required";
-  assert.equal(dockerRuntimeRepairCheckpointIsSettled(complete), true);
+  assert.equal(isRepairCheckpointSettled(complete), true);
   for (const name of actionNames) {
     const incomplete = structuredClone(complete);
     incomplete.actions[name].result = "unobserved";
-    assert.ok(decodeDockerRuntimeRepairCheckpoint(incomplete));
-    assert.equal(
-      dockerRuntimeRepairCheckpointIsSettled(incomplete),
-      false,
-      name,
-    );
+    assert.ok(decodeEnvironmentRepairCheckpoint(incomplete));
+    assert.equal(isRepairCheckpointSettled(incomplete), false, name);
   }
   const allowed = {
     not_requested: ["not_requested", "pending", "unknown", "confirmed"],
@@ -664,7 +643,7 @@ test("修復checkpoint: 八処置の終端と清掃の単調matrix", () => {
       const a = { ...initial(), cleanup: before };
       const b = { ...initial(), cleanup: after };
       assert.equal(
-        validateDockerRuntimeRepairCheckpointTransition(a, b),
+        validateEnvironmentRepairCheckpointTransition(a, b),
         allowed[before].includes(after),
         `${before}>${after}`,
       );
@@ -676,7 +655,7 @@ test("修復checkpoint: 八処置の終端と清掃の単調matrix", () => {
       cleanupFailure: "operation_cleanup_unknown",
     };
     assert.equal(
-      decodeDockerRuntimeRepairCheckpoint(value) !== null,
+      decodeEnvironmentRepairCheckpoint(value) !== null,
       cleanup === "unknown" || cleanup === "confirmed",
     );
   }
@@ -698,7 +677,7 @@ test("修復checkpoint: 構造・順序・hostile値を拒否する", () => {
     const missing = initial();
     Reflect.deleteProperty(missing.actions, key);
     assert.equal(
-      decodeDockerRuntimeRepairCheckpoint(missing),
+      decodeEnvironmentRepairCheckpoint(missing),
       null,
       `${key}: missing`,
     );
@@ -711,7 +690,7 @@ test("修復checkpoint: 構造・順序・hostile値を拒否する", () => {
       const value = initial();
       value.actions[key] = wrong;
       assert.equal(
-        decodeDockerRuntimeRepairCheckpoint(value),
+        decodeEnvironmentRepairCheckpoint(value),
         null,
         `${key}: relation`,
       );
@@ -721,20 +700,20 @@ test("修復checkpoint: 構造・順序・hostile値を拒否する", () => {
     const skipped = initial();
     skipped.actions[key].intent = "saved";
     assert.equal(
-      decodeDockerRuntimeRepairCheckpoint(skipped),
+      decodeEnvironmentRepairCheckpoint(skipped),
       null,
       `${key}: order`,
     );
   }
   assert.equal(
-    decodeDockerRuntimeRepairCheckpoint({
+    decodeEnvironmentRepairCheckpoint({
       ...initial(),
       disposition: "approved",
     }),
     null,
   );
   assert.equal(
-    decodeDockerRuntimeRepairCheckpoint({
+    decodeEnvironmentRepairCheckpoint({
       ...initial(),
       actions: { ...initial().actions, extra: {} },
     }),
@@ -756,8 +735,8 @@ test("修復checkpoint: 構造・順序・hostile値を拒否する", () => {
       throw new Error();
     },
   });
-  assert.equal(decodeDockerRuntimeRepairCheckpoint(proxy), null);
-  assert.equal(decodeDockerRuntimeRepairCheckpoint(getter), null);
+  assert.equal(decodeEnvironmentRepairCheckpoint(proxy), null);
+  assert.equal(decodeEnvironmentRepairCheckpoint(getter), null);
   const nested = initial();
   Object.defineProperty(nested.actions, "stop_runtime", {
     get() {
@@ -765,10 +744,10 @@ test("修復checkpoint: 構造・順序・hostile値を拒否する", () => {
       throw new Error();
     },
   });
-  assert.equal(decodeDockerRuntimeRepairCheckpoint(nested), null);
+  assert.equal(decodeEnvironmentRepairCheckpoint(nested), null);
   assert.equal(calls, 0);
   assert.equal(
-    decodeDockerRuntimeRepairCheckpoint(Object.create(initial())),
+    decodeEnvironmentRepairCheckpoint(Object.create(initial())),
     null,
   );
 });
@@ -792,21 +771,21 @@ test("修復checkpoint: unknown再発行と既知結果の巻戻しを拒否す�
     request: "issued",
     result: "unobserved",
   };
-  assert.ok(decodeDockerRuntimeRepairCheckpoint(issued));
+  assert.ok(decodeEnvironmentRepairCheckpoint(issued));
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(before, issued),
+    validateEnvironmentRepairCheckpointTransition(before, issued),
     false,
   );
   for (const result of ["confirmed", "unknown"]) {
     const known = structuredClone(issued);
     known.actions.stop_runtime.result = result;
-    assert.ok(decodeDockerRuntimeRepairCheckpoint(known));
+    assert.ok(decodeEnvironmentRepairCheckpoint(known));
     assert.equal(
-      validateDockerRuntimeRepairCheckpointTransition(known, issued),
+      validateEnvironmentRepairCheckpointTransition(known, issued),
       false,
     );
     assert.equal(
-      validateDockerRuntimeRepairCheckpointTransition(known, before),
+      validateEnvironmentRepairCheckpointTransition(known, before),
       false,
     );
   }
@@ -816,18 +795,16 @@ test("修復checkpoint: unknown再発行と既知結果の巻戻しを拒否す�
     request: "unknown",
     result: "unknown",
   };
-  assert.ok(decodeDockerRuntimeRepairCheckpoint(unknown));
+  assert.ok(decodeEnvironmentRepairCheckpoint(unknown));
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(unknown, issued),
+    validateEnvironmentRepairCheckpointTransition(unknown, issued),
     false,
   );
   const unnecessary = initial();
   unnecessary.actions.stop_runtime.result = "not_required";
-  assert.ok(
-    validateDockerRuntimeRepairCheckpointTransition(before, unnecessary),
-  );
+  assert.ok(validateEnvironmentRepairCheckpointTransition(before, unnecessary));
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(unnecessary, issued),
+    validateEnvironmentRepairCheckpointTransition(unnecessary, issued),
     false,
   );
   const failed = initial();
@@ -835,10 +812,10 @@ test("修復checkpoint: unknown再発行と既知結果の巻戻しを拒否す�
   failed.cleanupFailure = "operation_cleanup_unknown";
   const recovered = structuredClone(failed);
   recovered.cleanup = "confirmed";
-  assert.ok(validateDockerRuntimeRepairCheckpointTransition(failed, recovered));
+  assert.ok(validateEnvironmentRepairCheckpointTransition(failed, recovered));
   recovered.cleanupFailure = null;
   assert.equal(
-    validateDockerRuntimeRepairCheckpointTransition(failed, recovered),
+    validateEnvironmentRepairCheckpointTransition(failed, recovered),
     false,
   );
 });
@@ -859,31 +836,96 @@ test("修復checkpoint: 三用途の実体固定と保持を検査する", () =>
     const before = initial();
     before.directories[key].expected = id;
     before.directories[key].source = { state: "present", identity: id };
-    assert.ok(decodeDockerRuntimeRepairCheckpoint(before));
+    assert.ok(decodeEnvironmentRepairCheckpoint(before));
     const swapped = structuredClone(before);
     const other = { ...id, ino: "4" };
     swapped.directories[key].expected = other;
     swapped.directories[key].source.identity = other;
-    assert.ok(decodeDockerRuntimeRepairCheckpoint(swapped));
+    assert.ok(decodeEnvironmentRepairCheckpoint(swapped));
     assert.equal(
-      validateDockerRuntimeRepairCheckpointTransition(before, swapped),
+      validateEnvironmentRepairCheckpointTransition(before, swapped),
       false,
     );
     const retained = structuredClone(before);
     retained.directories[key].source = { state: "absent", identity: null };
     retained.directories[key].retained = { state: "present", identity: id };
     retained.stale = "retained";
-    assert.ok(
-      validateDockerRuntimeRepairCheckpointTransition(before, retained),
-    );
+    assert.ok(validateEnvironmentRepairCheckpointTransition(before, retained));
     assert.equal(
-      validateDockerRuntimeRepairCheckpointTransition(retained, before),
+      validateEnvironmentRepairCheckpointTransition(retained, before),
       false,
     );
     retained.stale = "unknown";
-    assert.equal(decodeDockerRuntimeRepairCheckpoint(retained), null);
+    assert.equal(decodeEnvironmentRepairCheckpoint(retained), null);
     const malformed = structuredClone(before);
     malformed.directories[key].source.state = "unknown";
-    assert.equal(decodeDockerRuntimeRepairCheckpoint(malformed), null);
+    assert.equal(decodeEnvironmentRepairCheckpoint(malformed), null);
+  }
+});
+
+/**
+ * 統合回復保存の用途と必須証拠を閉じた入力で区別する。
+ * @responsibility 不正要求でOwner確認や保存Effectを発行しない。
+ * @trace ERB-UT-036
+ * @precondition 不正Repositoryとメモリ入力だけを使用する。
+ * @stimulus Getter・Proxy・未知kind・用途違いの証拠を渡す。
+ * @observation trap、Owner呼出し、拒否と保存確認を取得する。
+ * @oracle すべて拒否、trap0、Owner0、保存未確定。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary 回復保存の公開Request捕捉。
+ */
+test("回復保存は用途別の必須証拠を混同せず実行Propertyを評価しない", async () => {
+  const { saveRecoveryCheckpoint } = await import("../../../src/index.ts");
+  let traps = 0,
+    owners = 0;
+  const owner = () => {
+    owners++;
+    return true;
+  };
+  const getter = {
+    kind: "terminal",
+    get assertOwner() {
+      traps++;
+      return owner;
+    },
+  };
+  const proxy = new Proxy(
+    { kind: "terminal", assertOwner: owner },
+    {
+      get() {
+        traps++;
+        throw Error("get");
+      },
+      getPrototypeOf() {
+        traps++;
+        throw Error("prototype");
+      },
+      ownKeys() {
+        traps++;
+        throw Error("keys");
+      },
+    },
+  );
+  const invalid = [
+    getter,
+    proxy,
+    { kind: "unknown", value: null, assertOwner: owner },
+    { kind: "terminal", value: null, assertOwner: owner },
+    { kind: "resource", assertOwner: owner },
+    { kind: "restart", assertOwner: owner },
+    { kind: "host_cleanup", assertOwner: owner, publication: null },
+    { kind: "host_cleanup", assertAbsentOwner: owner },
+  ];
+  for (const request of invalid) {
+    const result = Reflect.apply(saveRecoveryCheckpoint, undefined, [
+      null,
+      "exact",
+      Buffer.alloc(0),
+      request,
+    ]);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.snapshotConfirmed, false);
+    assert.equal(traps, 0);
+    assert.equal(owners, 0);
   }
 });

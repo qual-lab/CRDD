@@ -14,12 +14,12 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
-import * as versionControl from "../../../version-control/src/index.ts";
 import * as sharedLock from "../../../lock/src/index.ts";
+import * as versionControl from "../../../version-control/src/index.ts";
 import * as attemptValidation from "../../src/attempt/validation.ts";
 import * as decisionValidation from "../../src/decision/validation.ts";
-import * as domain from "../../src/index.ts";
 import * as historyValidation from "../../src/history/validation.ts";
+import * as domain from "../../src/index.ts";
 import * as objectiveValidation from "../../src/objective/validation.ts";
 import * as stateValidation from "../../src/state/validation.ts";
 import * as taskValidation from "../../src/task/validation.ts";
@@ -77,10 +77,7 @@ export function createRuntimeStorageSourceFixture(
           .replace(/^export\s+/gmu, ""),
       )
       .join("\n"),
-  ).replace(
-    /^class RepositoryRuntimeDataAreaBlockedError[\s\S]*?^\}\r?\n/gmu,
-    "",
-  );
+  ).replace(/^class ExecutionStorageBlockedError[\s\S]*?^\}\r?\n/gmu, "");
   const dependencies = {
     createHash,
     randomUUID,

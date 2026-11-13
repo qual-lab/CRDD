@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
+import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
@@ -58,12 +58,12 @@ export function runObjective(
         authenticationContext,
       ),
     ).catch((error: unknown) => {
-      if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      if (error instanceof ExecutionStorageBlockedError)
         return coordinatorDataBoundaryBlocked(error);
       throw error;
     });
   } catch (error) {
-    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+    if (error instanceof ExecutionStorageBlockedError)
       return Promise.resolve(coordinatorDataBoundaryBlocked(error));
     throw error;
   }

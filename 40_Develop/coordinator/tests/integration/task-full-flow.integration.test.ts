@@ -12,7 +12,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { initializeCoordinatorSnapshot } from "../../../execution-model/src/index.ts";
+import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
@@ -132,7 +132,7 @@ function acceptIntegratedResult(
  */
 function fixture(t: test.TestContext) {
   const { root, revision } = createRepository(t);
-  const initialized = initializeCoordinatorSnapshot(
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(root),
     deriveCoordinatorRepositoryBindingId(root),
   );
@@ -321,7 +321,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
  */
 test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続する", async (t) => {
   const { root, revision } = createRepository(t);
-  const initialized = initializeCoordinatorSnapshot(
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(root),
     deriveCoordinatorRepositoryBindingId(root),
   );

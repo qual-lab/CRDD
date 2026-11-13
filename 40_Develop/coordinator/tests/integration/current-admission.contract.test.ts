@@ -9,6 +9,7 @@
  * @boundary PRL-IT-013=Task入場→現在Reader→Repository。
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -17,12 +18,12 @@ import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import * as domain from "../../../execution-model/src/index.ts";
-import * as areas from "../../src/configuration/runtime-data.ts";
-import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
+
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import * as areas from "../../src/configuration/runtime-data.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
 
@@ -39,8 +40,8 @@ import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
  * @boundary 正式Root APIとHost Inspector。保存内部の故障はDomainが所有する。
  */
 test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送する", async () => {
-  const area = areas.requireReadyRepositoryRuntimeDataArea(
-    areas.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = areas.requireReadyRepositoryExecutionDataArea(
+    areas.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -87,14 +88,14 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     assert.deepEqual(inspect(root), available);
     assert.equal(fs.existsSync(current), false);
     assert.equal(
-      domain.readRuntimeOwnedCoordinatorAdmissionSnapshot({}).status,
+      domain.readRecoveryState({}, { kind: "admission" }).status,
       "blocked",
     );
     assert.equal(inspect(path.join(root, "missing")).status, "blocked");
     fs.mkdirSync(current, { recursive: true });
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
-      `${encodeRuntimeStateValue({
+      `${canonicalJson({
         schema: "crdd-domain/runtime-state/v3",
         revision: 1,
         previous: null,
@@ -120,9 +121,11 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     );
 
     fs.writeFileSync(file, bytes);
-    assert.ok(
-      domain.decodeRuntimeDomainSnapshot(bytes, binding.repositoryBinding),
-    );
+    const read = domain.readRecoveryState(verified.capability);
+    assert.equal(read.status, "completed", read.reason);
+    assert.equal(read.lockReleased, true);
+    assert.ok(read.value);
+    assert.deepEqual(Buffer.from(read.value.sourceText, "utf8"), bytes);
     assert.deepEqual(inspect(root), available);
     fs.writeFileSync(file, "invalid");
     assert.equal(inspect(root).status, "blocked");
@@ -187,12 +190,24 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
       `${inspector}\ninspectRuntimeOwnedDockerTaskAdmission("fixture");`,
       {
         getRepository: () => ({ status: "completed", capability: {} }),
-        readRuntimeOwnedCoordinatorAdmissionSnapshot: () => ({
-          status: "blocked",
-          reason,
-          lockReleased: true,
-          value: null,
-        }),
+        readRecoveryState: (
+          _root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
+          request: NonNullable<
+            Parameters<typeof domain.readRecoveryState>[1]
+          > = { kind: "current" },
+        ) => {
+          switch (request.kind) {
+            case "admission":
+              return (() => ({
+                status: "blocked",
+                reason,
+                lockReleased: true,
+                value: null,
+              }))();
+            default:
+              throw new Error("unexpected recovery read: " + request.kind);
+          }
+        },
       },
     );
     if (mutated) assert.throws(() => assertRefused(result));
@@ -208,7 +223,7 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
     const unknown = fault === "unknown",
       cleanup = fault !== "cleanup_failed",
       released = fault !== "owner_release";
-    const error = new domain.RepositoryRuntimeDataAreaBlockedError({
+    const error = new domain.ExecutionStorageBlockedError({
       status: "blocked",
       reason: "repository_runtime_data_ignore_registration_blocked",
       effectIssued: unknown || !cleanup,
@@ -415,7 +430,7 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
     ),
     [
       "src/execution/recovery.ts",
-      "src/storage/runtime-store.ts",
+      "src/state/crud.ts",
       "src/execution/result.ts",
     ],
   );
@@ -504,11 +519,23 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
     {
       namedExports: {
         ...domain,
-        readRuntimeOwnedCoordinatorAdmissionSnapshot: (
+        readRecoveryState: (
           root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
+          request: NonNullable<
+            Parameters<typeof domain.readRecoveryState>[1]
+          > = { kind: "current" },
         ) => {
-          roots.push(resolveVerifiedRepositoryRoot(root));
-          return observed;
+          switch (request.kind) {
+            case "admission":
+              return ((
+                root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
+              ) => {
+                roots.push(resolveVerifiedRepositoryRoot(root));
+                return observed;
+              })(root);
+            default:
+              return domain.readRecoveryState(root, request);
+          }
         },
       },
     },

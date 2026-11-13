@@ -9,27 +9,25 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
 
-import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import { createRecoveryFixture } from "../support/recovery.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
-import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
+import { runInNewContext, runInThisContext } from "node:vm";
 import {
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorTaskResourcesAreSettled,
+  areTaskResourcesSettled,
+  canCloseUnknownAuthentication,
   createDockerRestartRequestId,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
   isDockerRestartCheckpointSettled,
+  parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
-  prepareCoordinatorStateOperationSnapshot,
   validateHostRecoveryTransitionLineage,
 } from "../../../execution-model/src/index.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   prepareRuntimeOwnedDockerRestart,
@@ -37,7 +35,8 @@ import {
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/execution/recovery.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../src/execution/validation.ts";
-import { executionSelection } from "../fixtures/ai-selection.ts";
+import { createRecoveryFixture } from "../support/recovery.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
 
 /**
  * restart preparation rejects arbitrary capability and invalid task before publicationを検証する。
@@ -100,209 +99,32 @@ const recoveryBody = stripTypeScriptTypes(
     .replaceAll("export async function", "async function"),
 );
 /**
- * 初期Hostの再導出を実modelへ接続し、依存欠測による偽の拒否を検出する。
- * @responsibility 正常な初期切断の肯定を、例外を捕捉する上位の拒否と区別する。
+ * 同じ版のモデル事実があっても実Host相関の差を拒否する。
+ * @responsibility モデル再導出はEMの反証へ移し、Coは実観測だけ照合する。
  * @trace ERB-IT-014
- * @precondition 正規Identityを実prepareとdecoderで生成し、実private判定本文を使う。
- * @stimulus 未要求・確定未発行再起動、未確定値、他欄差、同ID参照と依存欠測を与える。
- * @observation 真偽、実依存の到達数、欠測時のReferenceError。
- * @oracle 正常だけtrue、欠測は同じ肯定Oracleを満たさない。
- * @cleanup N/A: メモリだけでDocker・Filesystem処置を行わない。
- * @boundary ERB-IT-014=Related 2 Blocks: 現在回収本文→実model再導出。
+ * @precondition EM Readerの肯定事実を有限値として渡す。
+ * @stimulus モデル事実欠測、Host状態差、exact token差。
+ * @observation 本番判定の真偽。
+ * @oracle 三条件の共同成立だけtrue。
+ * @cleanup N/A: メモリだけ。
+ * @boundary Coordinatorの実Host観測との接続。
  */
-test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と混同しない", () => {
-  const binding = "c".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const hostToken = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
-  const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
-    operationNonce: "b".repeat(64),
-    provider: "claude",
-    consumer: "orchestrator",
-    operationId: "OP-123456",
-    recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
-    executionSelection: executionSelection("executor", {
-      provider: "claude",
-      model: "opus",
-      effort: "low",
-    }),
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: hostToken,
-    initialHostRecovery: {
-      token: hostToken,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  };
-  const bytes = prepareCoordinatorStateOperationSnapshot(
-    null,
-    `${JSON.stringify(identity)}\n`,
-    binding,
+test("初期Hostの観測はモデル事実とexact tokenを共同確認する", () => {
+  const invoke = runInNewContext(
+    recoveryBody + "\nisUnsubmittedInitialTaskHost",
+    {},
   );
-  assert.ok(bytes);
-  const decoded = decodeRuntimeDomainSnapshot(bytes, binding);
-  assert.ok(decoded);
-  const initial = decoded.snapshot.operations[0];
-  assert.ok(initial?.kind === "docker_task");
-  const operation = {
-    ...initial,
-    phase: "settling" as const,
-    execution: { ...initial.execution, ownerEffect: "disabled" as const },
-  };
-  const scopeSha256 = "e".repeat(64);
-  const requestId = createDockerRestartRequestId(
-    binding,
-    initial.identitySha256,
-    initial.recoveryId,
-    scopeSha256,
-  );
-  assert.ok(requestId);
-  const settled = {
-    requestId,
-    scopeSha256,
-    request: "unknown",
-    cleanup: "confirmed",
-    result: {
-      status: "blocked",
-      reason: "docker_restart_cancelled",
-      request: "not_issued",
-      effectOutcomeUnknown: false,
-    },
-  };
-  for (const omitted of [
-    null,
-    "isDockerRestartCheckpointSettled",
-    "prepareCoordinatorStateOperationSnapshot",
-    "decodeRuntimeDomainSnapshot",
-  ] as const) {
-    const calls = { restart: 0, prepare: 0, decode: 0 };
-    const context = {
-      encodeRuntimeStateValue: (value: unknown) =>
-        encodeRuntimeStateValue(JSON.parse(JSON.stringify(value))),
-      isDockerRestartCheckpointSettled: (value: unknown) => {
-        calls.restart++;
-        return isDockerRestartCheckpointSettled(
-          JSON.parse(JSON.stringify(value)),
-        );
-      },
-      prepareCoordinatorStateOperationSnapshot: (
-        ...args: Parameters<typeof prepareCoordinatorStateOperationSnapshot>
-      ) => {
-        calls.prepare++;
-        return prepareCoordinatorStateOperationSnapshot(...args);
-      },
-      decodeRuntimeDomainSnapshot: (
-        ...args: Parameters<typeof decodeRuntimeDomainSnapshot>
-      ) => {
-        calls.decode++;
-        return decodeRuntimeDomainSnapshot(...args);
-      },
-    };
-    if (omitted) Reflect.deleteProperty(context, omitted);
-    const invoke = runInNewContext(
-      `${recoveryBody}\nisUnsubmittedInitialTaskHost`,
-      context,
-    );
-    for (const dockerRestart of [null, settled]) {
-      const candidate = { ...operation, dockerRestart };
-      const snapshot = { ...decoded.snapshot, operations: [candidate] };
-      /**
-       * 準備の正常保存対照へ有限の成功値を渡す。
-       * @responsibility 準備の正常保存対照へ有限の成功値を渡す。
-       * @trace ERB-IT-014
-       * @precondition 固定Ownerと準備観測fixture。
-       * @stimulus 正常準備値を返して後続到達を記録する。
-       * @observation 取得・保存・処置の順序と回数。
-       * @oracle 拒否変異に対する正例が本番本文を通る。
-       * @cleanup 模擬Lockは既存finallyで解放確認する。
-       * @boundary 準備本文VM。実Dockerを操作しない。
-       */
-      const positive = () =>
-        assert.equal(invoke(candidate, snapshot, hostToken, "host_only"), true);
-      if (omitted) assert.throws(positive, { name: "ReferenceError" });
-      else positive();
-    }
-    if (omitted) continue;
-    assert.deepEqual(calls, { restart: 2, prepare: 2, decode: 2 });
-    for (const dockerRestart of [
-      { ...settled, result: null },
-      { ...settled, cleanup: "unknown" },
-      { ...settled, result: { ...settled.result, effectOutcomeUnknown: true } },
-      { ...settled, result: { ...settled.result, request: "unknown" } },
-    ])
-      assert.equal(
-        invoke(
-          { ...operation, dockerRestart },
-          decoded.snapshot,
-          hostToken,
-          "host_only",
-        ),
-        false,
-      );
-    assert.equal(
-      invoke(
-        { ...operation, lease: "released" },
-        decoded.snapshot,
-        hostToken,
-        "host_only",
-      ),
-      false,
-    );
-    for (const key of ["unresolvedRecoveries", "pendingDeliveries"]) {
-      assert.equal(
-        invoke(
-          operation,
-          {
-            ...decoded.snapshot,
-            [key]: [{ recoveryId: operation.recoveryId }],
-          },
-          hostToken,
-          "host_only",
-        ),
-        false,
-      );
-    }
-    assert.equal(
-      invoke(operation, decoded.snapshot, `${hostToken}x`, "host_only"),
-      false,
-    );
-    assert.equal(
-      invoke(
-        operation,
-        decoded.snapshot,
-        hostToken,
-        "docker_submission_started",
-      ),
-      false,
-    );
-  }
+  const operation = { host: { currentToken: "exact" } };
+  assert.equal(invoke(operation, true, "exact", "host_only"), true);
+  assert.equal(invoke(operation, false, "exact", "host_only"), false);
+  for (const state of [
+    "initializing",
+    "docker_submission_started",
+    "docker_absent_confirmed",
+    "unknown",
+  ])
+    assert.equal(invoke(operation, true, "exact", state), false);
+  assert.equal(invoke(operation, true, "other", "host_only"), false);
 });
 /**
  * 現準備の同じ本番本文を観測可能な境界へ結合する。
@@ -475,29 +297,26 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     token,
     parseDockerTaskRecoveryId,
     parseHostRecoveryToken,
-    // VM内の自己生成plain値は、実codecへ渡す前に同RealmのJSON値へ揃える。
-    encodeRuntimeStateValue: (value: unknown) =>
-      encodeRuntimeStateValue(JSON.parse(JSON.stringify(value))),
+    // 有限のモデル代役だけを正規codecへ接続する。入力捕捉は本番helperを直接使用する。
+    snapshotJsonValue,
+    isDeepStrictEqual,
+    canonicalJson: (value: unknown) =>
+      canonicalJson(JSON.parse(JSON.stringify(value))),
     createDockerRestartRequestId,
     isDockerRestartCheckpointSettled: (value: unknown) =>
       isDockerRestartCheckpointSettled(JSON.parse(JSON.stringify(value))),
-    coordinatorTaskResourcesAreSettled: (
-      value: Parameters<typeof coordinatorTaskResourcesAreSettled>[0],
-    ) => coordinatorTaskResourcesAreSettled(JSON.parse(JSON.stringify(value))),
+    areTaskResourcesSettled: (
+      value: Parameters<typeof areTaskResourcesSettled>[0],
+    ) => areTaskResourcesSettled(JSON.parse(JSON.stringify(value))),
     coordinatorReleasedTaskCanObserveHostAbsence: (
       value: Parameters<typeof coordinatorReleasedTaskCanObserveHostAbsence>[0],
     ) =>
       coordinatorReleasedTaskCanObserveHostAbsence(
         JSON.parse(JSON.stringify(value)),
       ),
-    coordinatorAuthenticationUnknownCanClose: (
-      value: Parameters<typeof coordinatorAuthenticationUnknownCanClose>[0],
-    ) =>
-      coordinatorAuthenticationUnknownCanClose(
-        JSON.parse(JSON.stringify(value)),
-      ),
-    prepareCoordinatorStateOperationSnapshot,
-    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
+    canCloseUnknownAuthentication: (
+      value: Parameters<typeof canCloseUnknownAuthentication>[0],
+    ) => canCloseUnknownAuthentication(JSON.parse(JSON.stringify(value))),
     canonical: (value: unknown) => `${JSON.stringify(value)}\n`,
     validateHostRecoveryTransitionLineage: (value: unknown, required: string) =>
       validateHostRecoveryTransitionLineage(
@@ -576,34 +395,154 @@ function fixture(mode: "restart" | "recovery" = "restart") {
       cleanupMarker = "absent";
       return { status: "recovered" };
     },
-    prepareCoordinatorStateHostSnapshot: (
-      before: Buffer,
-      recoveryId: string,
-      value: unknown,
-    ) => {
-      const prior = JSON.parse(before.toString());
-      return Buffer.from(
-        `${encodeRuntimeStateValue({ ...prior, revision: prior.revision + 1, operations: prior.operations.map((item: { recoveryId: string }) => (item.recoveryId === recoveryId ? { ...item, host: JSON.parse(JSON.stringify(value)) } : item)) })}\n`,
-      );
-    },
-    writeRuntimeOwnedCoordinatorRecoveredHostCleanup: (
-      _repo: unknown,
+    saveRecoveryCheckpoint: (
+      repository: unknown,
       recoveryId: string,
       before: Buffer,
-      live: () => boolean,
-    ) => {
-      const operation = snapshot.operations.find(
-        (item) => item.recoveryId === recoveryId,
-      );
-      assert.ok(operation);
-      return context.writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
-        _repo,
-        recoveryId,
-        before,
-        "host",
-        { ...operation.host, cleanup: "confirmed" },
-        live,
-      );
+      request: Parameters<
+        typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+      >[3],
+    ): object => {
+      switch (request.kind) {
+        case "host_cleanup":
+          return Reflect.apply(
+            (
+              _repo: unknown,
+              recoveryId: string,
+              before: Buffer,
+              live: () => boolean,
+            ) => {
+              const operation = snapshot.operations.find(
+                (item) => item.recoveryId === recoveryId,
+              );
+              assert.ok(operation);
+              return context.saveRecoveryCheckpoint(_repo, recoveryId, before, {
+                kind: "host",
+                value: { ...operation.host, cleanup: "confirmed" },
+                assertOwner: live,
+              });
+            },
+            undefined,
+            [
+              repository,
+              recoveryId,
+              before,
+              request.assertAbsentOwner,
+              request.publication,
+            ],
+          );
+        case "restart":
+          return Reflect.apply(
+            (
+              _repo: unknown,
+              recoveryId: string,
+              before: Buffer,
+              checkpoint: unknown,
+              live: () => boolean,
+            ) => {
+              writes++;
+              assert.ok(live());
+              assert.equal(before.toString(), `${canonicalJson(snapshot)}\n`);
+              if (writerFault || writerFaultAt === writes)
+                return {
+                  status: "blocked",
+                  snapshotConfirmed: false,
+                  lockReleased: false,
+                };
+              snapshot = {
+                ...snapshot,
+                revision: snapshot.revision + 1,
+                operations: snapshot.operations.map((op) =>
+                  op.recoveryId === recoveryId
+                    ? {
+                        ...op,
+                        dockerRestart: JSON.parse(
+                          JSON.stringify(checkpoint),
+                        ) as null,
+                      }
+                    : op,
+                ),
+              };
+              return {
+                status: "completed",
+                snapshotConfirmed: true,
+                lockReleased: true,
+                revision: snapshot.revision,
+                payloadSha256: createHash("sha256")
+                  .update(`${canonicalJson(snapshot)}\n`)
+                  .digest("hex"),
+              };
+            },
+            undefined,
+            [
+              repository,
+              recoveryId,
+              before,
+              request.value,
+              request.assertOwner,
+            ],
+          );
+        default:
+          if (!("value" in request))
+            throw new Error("unexpected recovery kind");
+          return Reflect.apply(
+            (
+              _repo: unknown,
+              recoveryId: string,
+              before: Buffer,
+              _kind: string,
+              _value: unknown,
+              live: () => boolean,
+            ) => {
+              writes++;
+              const value = JSON.parse(JSON.stringify(_value));
+              events.push(
+                _kind === "resource"
+                  ? `save:resource:${value.purpose}:${value.request}`
+                  : `save:${_kind}`,
+              );
+              assert.ok(live());
+              assert.equal(before.toString(), `${canonicalJson(snapshot)}\n`);
+              if (writerFault || writerFaultAt === writes)
+                return {
+                  status: "blocked",
+                  snapshotConfirmed: false,
+                  lockReleased: false,
+                };
+              snapshot = {
+                ...snapshot,
+                revision: snapshot.revision + 1,
+                operations: snapshot.operations.map((op) => {
+                  if (op.recoveryId !== recoveryId) return op;
+                  if (_kind === "host") return { ...op, host: value };
+                  assert.ok(
+                    _kind !== "resource" && _kind !== "cleanup",
+                    "資源保存は実Domain候補を使う専用fixtureが所有する",
+                  );
+                  return op;
+                }),
+              };
+              return {
+                status: "completed",
+                snapshotConfirmed: true,
+                lockReleased: true,
+                revision: snapshot.revision,
+                payloadSha256: createHash("sha256")
+                  .update(`${canonicalJson(snapshot)}\n`)
+                  .digest("hex"),
+              };
+            },
+            undefined,
+            [
+              repository,
+              recoveryId,
+              before,
+              request.kind,
+              request.value,
+              request.assertOwner,
+            ],
+          );
+      }
     },
     acquireHostOperationRecoveryGeneration: (
       hostToken: string,
@@ -663,18 +602,20 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     },
     borrowRuntimeOwnedCoordinatorRecoveryRepository: (candidate: unknown) =>
       candidate === root && rootValid ? repository : null,
-    readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
+    readRecoveryState: () => {
       reads++;
       if ((changeAtRead && reads >= 2) || reads === changeAtReadNumber)
         snapshot = { ...snapshot, revision: snapshot.revision + 1 };
       return {
         status: rootValid ? "completed" : "blocked",
         lockReleased: true,
+        unsubmittedHostRecoveryIds: [],
         value: rootValid
           ? {
               snapshot,
+              sourceText: `${canonicalJson(snapshot)}\n`,
               payloadSha256: createHash("sha256")
-                .update(`${encodeRuntimeStateValue(snapshot)}\n`)
+                .update(`${canonicalJson(snapshot)}\n`)
                 .digest("hex"),
             }
           : null,
@@ -691,93 +632,10 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     acquireProviderHomeLock: (home: string) => {
       return acquire(`home:${home}`);
     },
-    acquireRuntimeStateLock: (_directory: string) => {
+    acquireExecutionStateLock: (_directory: string) => {
       return acquire(`state:${repository.repositoryBinding}`);
     },
-    writeRuntimeOwnedCoordinatorRestartCheckpoint: (
-      _repo: unknown,
-      recoveryId: string,
-      before: Buffer,
-      checkpoint: unknown,
-      live: () => boolean,
-    ) => {
-      writes++;
-      assert.ok(live());
-      assert.equal(before.toString(), `${encodeRuntimeStateValue(snapshot)}\n`);
-      if (writerFault || writerFaultAt === writes)
-        return {
-          status: "blocked",
-          snapshotConfirmed: false,
-          lockReleased: false,
-        };
-      snapshot = {
-        ...snapshot,
-        revision: snapshot.revision + 1,
-        operations: snapshot.operations.map((op) =>
-          op.recoveryId === recoveryId
-            ? {
-                ...op,
-                dockerRestart: JSON.parse(JSON.stringify(checkpoint)) as null,
-              }
-            : op,
-        ),
-      };
-      return {
-        status: "completed",
-        snapshotConfirmed: true,
-        lockReleased: true,
-        revision: snapshot.revision,
-        payloadSha256: createHash("sha256")
-          .update(`${encodeRuntimeStateValue(snapshot)}\n`)
-          .digest("hex"),
-      };
-    },
-    writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-      _repo: unknown,
-      recoveryId: string,
-      before: Buffer,
-      _kind: string,
-      _value: unknown,
-      live: () => boolean,
-    ) => {
-      writes++;
-      const value = JSON.parse(JSON.stringify(_value));
-      events.push(
-        _kind === "resource"
-          ? `save:resource:${value.purpose}:${value.request}`
-          : `save:${_kind}`,
-      );
-      assert.ok(live());
-      assert.equal(before.toString(), `${encodeRuntimeStateValue(snapshot)}\n`);
-      if (writerFault || writerFaultAt === writes)
-        return {
-          status: "blocked",
-          snapshotConfirmed: false,
-          lockReleased: false,
-        };
-      snapshot = {
-        ...snapshot,
-        revision: snapshot.revision + 1,
-        operations: snapshot.operations.map((op) => {
-          if (op.recoveryId !== recoveryId) return op;
-          if (_kind === "host") return { ...op, host: value };
-          assert.ok(
-            _kind !== "resource" && _kind !== "cleanup",
-            "資源保存は実Domain候補を使う専用fixtureが所有する",
-          );
-          return op;
-        }),
-      };
-      return {
-        status: "completed",
-        snapshotConfirmed: true,
-        lockReleased: true,
-        revision: snapshot.revision,
-        payloadSha256: createHash("sha256")
-          .update(`${encodeRuntimeStateValue(snapshot)}\n`)
-          .digest("hex"),
-      };
-    },
+
     borrowHostRecoveryManagementDirectory: () => ({
       directory: "synthetic-management",
       assertCurrent: () => ownerLive,
@@ -787,13 +645,14 @@ function fixture(mode: "restart" | "recovery" = "restart") {
       throw new Error("legacy signing gate forbidden");
     },
   };
-  const api = runInNewContext(
-    (mode === "restart" ? body : recoveryBody) +
+  const api = runInThisContext(
+    `(dependencies) => { const { ${Object.keys(context).join(",")} } = dependencies;\n` +
+      (mode === "restart" ? body : recoveryBody) +
       (mode === "restart"
-        ? "\n({prepare:prepareRuntimeOwnedDockerRestart,verify:verifyRuntimeOwnedDockerRestartPreparation,persist:persistRuntimeOwnedDockerRestartCheckpoint,release:releaseRuntimeOwnedDockerRestartPreparation,finalize:finalizeRuntimeOwnedDockerRestartPreparation})"
-        : "\n({prepare:prepareRuntimeOwnedDockerTaskRecovery,persist:persistRuntimeOwnedDockerTaskRecoveryCheckpoint,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation,recover:recoverRuntimeOwnedDockerTaskResources,expectations:projectResourceTarget,confirmHost:confirmRuntimeOwnedDockerTaskHostAbsence,cleanupHost:cleanupRuntimeOwnedDockerTaskHost})"),
-    context,
-  );
+        ? "\nreturn ({prepare:prepareRuntimeOwnedDockerRestart,verify:verifyRuntimeOwnedDockerRestartPreparation,persist:persistRuntimeOwnedDockerRestartCheckpoint,release:releaseRuntimeOwnedDockerRestartPreparation,finalize:finalizeRuntimeOwnedDockerRestartPreparation})"
+        : "\nreturn ({prepare:prepareRuntimeOwnedDockerTaskRecovery,persist:persistRuntimeOwnedDockerTaskRecoveryCheckpoint,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation,recover:recoverRuntimeOwnedDockerTaskResources,expectations:projectResourceTarget,confirmHost:confirmRuntimeOwnedDockerTaskHostAbsence,cleanupHost:cleanupRuntimeOwnedDockerTaskHost})") +
+      "\n}",
+  )(context);
   return {
     api,
     root,
@@ -1195,7 +1054,7 @@ test("現在Host不存在遷移は意図保存とexact token確定を一操作�
     const tokens = f.installHostTransition("old");
     const operation = f.snapshot.operations[0];
     assert.ok(operation);
-    const before = encodeRuntimeStateValue(f.snapshot);
+    const before = canonicalJson(f.snapshot);
     const prepared = f.api.prepare(f.token, f.root);
     assert.equal(prepared.status, "prepared");
     assert.equal(
@@ -1208,7 +1067,7 @@ test("現在Host不存在遷移は意図保存とexact token確定を一操作�
       "generic Writer must not bypass Host observation",
     );
     assert.equal(f.writes, 0);
-    assert.equal(encodeRuntimeStateValue(f.snapshot), before);
+    assert.equal(canonicalJson(f.snapshot), before);
     assert.equal(f.api.confirmHost(prepared.capability), false);
     assert.equal(f.hostTransitions, 0);
     assert.equal(f.api.release(prepared.capability), true);

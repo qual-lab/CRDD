@@ -11,14 +11,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { runInNewContext, compileFunction } from "node:vm";
+import { compileFunction, runInNewContext } from "node:vm";
+import { inspectSingleTaskRecord } from "../../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
-import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
 import {
-  inspectSingleTaskRecord,
-  snapshotRuntimeStateArray,
-  snapshotRuntimeStateRecord,
-} from "../../../../execution-model/src/index.ts";
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../src/input/snapshot.ts";
+import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 /**
@@ -39,16 +39,8 @@ test("単発Advice結果は旧量上限を超えて末尾まで捕捉する", ()
   );
   const capture = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "snapshotSingleTaskOutcome"))});`,
-    [
-      "snapshotRuntimeStateArray",
-      "snapshotRuntimeStateRecord",
-      "inspectSingleTaskRecord",
-    ],
-  )(
-    snapshotRuntimeStateArray,
-    snapshotRuntimeStateRecord,
-    inspectSingleTaskRecord,
-  ) as (
+    ["snapshotPlainArray", "snapshotPlainRecord", "inspectSingleTaskRecord"],
+  )(snapshotPlainArray, snapshotPlainRecord, inspectSingleTaskRecord) as (
     raw: unknown,
     selection: unknown,
   ) => { advice: { facts: { text: string; references: string[] }[] } } | null;

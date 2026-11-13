@@ -6,32 +6,36 @@
 
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
-  readRuntimeContent,
-  saveRuntimeDefinition,
-  withCoordinatorSnapshotOperation,
+  readExecutionContent,
+  saveExecutionDefinition,
+  withSnapshotOperation,
 } from "../state/crud.ts";
 import type {
-  CoordinatorRootObservedInput,
-  CoordinatorSnapshot,
-  RuntimeAccess,
+  ExecutionModelAccess,
+  Snapshot,
   StateVersion,
 } from "../state/types.ts";
-import { projectCoordinatorQueueProjectState } from "../state/validation.ts";
+import { snapshotStateRecord } from "../state/validation.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
-import { readCoordinatorSnapshot } from "../storage/store.ts";
-import type { ProjectQueueEntry, ProjectTaskDefinition } from "./types.ts";
+import { readSnapshot } from "../storage/store.ts";
+import type {
+  ProjectQueueEntry,
+  ProjectTaskDefinition,
+  QueueCreateRequest,
+  QueueUpdateRequest,
+} from "./types.ts";
 import {
-  inspectCoordinatorQueueIntake,
-  prepareCoordinatorQueueEntryCreation,
-  prepareCoordinatorQueueLeaseReleaseSettlement,
-  prepareCoordinatorQueueOperationUpdate,
-  prepareCoordinatorQueueRecoverySettlement,
-  prepareCoordinatorQueueSelection,
-  prepareCoordinatorSingleTaskQueueCreation,
-  prepareCoordinatorSingleTaskQueueUpdate,
-  prepareCoordinatorUnstartedTaskQueueClosure,
-  projectCoordinatorQueueEntry,
+  inspectQueueIntake,
+  prepareQueueEntryCreation,
+  prepareQueueLeaseReleaseSettlement,
+  prepareQueueOperationUpdate,
+  prepareQueueRecoverySettlement,
+  prepareQueueSelection,
+  prepareSingleTaskQueueCreation,
+  prepareSingleTaskQueueUpdate,
+  prepareUnstartedTaskQueueClosure,
+  projectQueueEntry,
 } from "./validation.ts";
 
 /**
@@ -49,93 +53,23 @@ import {
  * @security 保存成功を実行Authorityや資源回収と扱わない。
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
-export function verifyCoordinatorQueueIntake(
+export function verifyQueueIntake(
   workingDirectory: Repository,
   binding: string,
-  ...input: Parameters<typeof inspectCoordinatorQueueIntake> extends [
+  ...input: Parameters<typeof inspectQueueIntake> extends [
     unknown,
     ...infer Rest,
   ]
     ? Rest
     : never
 ) {
-  return withCoordinatorSnapshotOperation<
+  return withSnapshotOperation<
     Extract<
-      ReturnType<typeof inspectCoordinatorQueueIntake>,
+      ReturnType<typeof inspectQueueIntake>,
       { status: "completed" }
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
-    inspectCoordinatorQueueIntake(current, ...input),
-  );
-}
-
-/**
- * 同じSnapshotのProject状態を照会する。
- * @responsibility 対象Projectの投影を返し、他Projectと技術区画を変更しない。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Project ID。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function readCoordinatorQueueProject(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<typeof projectCoordinatorQueueProjectState> extends [
-    unknown,
-    ...infer Rest,
-  ]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof projectCoordinatorQueueProjectState>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    projectCoordinatorQueueProjectState(current, ...input),
-  );
-}
-
-/**
- * 発行時の受付世代にQueueを追加する。
- * @responsibility 同ID再入場は内容Hashと元世代を照合し、異内容を新規受付にしない。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。受付世代とQueue受付。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function createCoordinatorQueueEntry(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<typeof prepareCoordinatorQueueEntryCreation> extends [
-    unknown,
-    ...infer Rest,
-  ]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorQueueEntryCreation>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    prepareCoordinatorQueueEntryCreation(current, ...input),
+    inspectQueueIntake(current, ...input),
   );
 }
 
@@ -154,250 +88,23 @@ export function createCoordinatorQueueEntry(
  * @security 保存成功を実行Authorityや資源回収と扱わない。
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
-export function readCoordinatorQueueEntry(
+export function readQueueEntry(
   workingDirectory: Repository,
   binding: string,
-  ...input: Parameters<typeof projectCoordinatorQueueEntry> extends [
+  ...input: Parameters<typeof projectQueueEntry> extends [
     unknown,
     ...infer Rest,
   ]
     ? Rest
     : never
 ) {
-  return withCoordinatorSnapshotOperation<
+  return withSnapshotOperation<
     Extract<
-      ReturnType<typeof projectCoordinatorQueueEntry>,
+      ReturnType<typeof projectQueueEntry>,
       { status: "completed" }
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
-    projectCoordinatorQueueEntry(current, ...input),
-  );
-}
-
-/**
- * 同じ回復参照の終了をQueueへ反映する。
- * @responsibility 元Queue世代とexact回復参照が一致する場合だけ回復待ちを整理する。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Queue ID、期待世代と回復ID。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function settleCoordinatorQueueRecovery(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<
-    typeof prepareCoordinatorQueueRecoverySettlement
-  > extends [unknown, ...infer Rest]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorQueueRecoverySettlement>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    prepareCoordinatorQueueRecoverySettlement(current, ...input),
-  );
-}
-
-/**
- * 単発Taskの未開始受付をQueueへ保存する。
- * @responsibility 受付世代・単発Taskの初期段階・同ID再入場を照合する。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。受付世代と単発Queue。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function createCoordinatorSingleTaskQueue(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<
-    typeof prepareCoordinatorSingleTaskQueueCreation
-  > extends [unknown, ...infer Rest]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorSingleTaskQueueCreation>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    prepareCoordinatorSingleTaskQueueCreation(current, ...input),
-  );
-}
-
-/**
- * 取得を始めていない単発Task受付を終了する。
- * @responsibility 取得意図・Owner・期待世代を照合し、実行や回収成功を合成しない。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Queue ID、期待世代、固定理由と用途固定時計。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function closeCoordinatorUnstartedTaskQueue(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<
-    typeof prepareCoordinatorUnstartedTaskQueueClosure
-  > extends [unknown, ...infer Rest]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorUnstartedTaskQueueClosure>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    prepareCoordinatorUnstartedTaskQueueClosure(current, ...input),
-  );
-}
-
-/**
- * Lease解放済みのQueueを確定する。
- * @responsibility fresh QueueのOwner世代を照合した位置でだけ同じRootの資源不存在を確認する。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Queue ID、期待世代、Owner世代と資源不存在観測。
- * @returns 元の候補結果を保存・解放確認後に返す。
- * @precondition 操作認可は呼出し側が現在確認している。
- * @postcondition 未知・元参照・候補外区画を保つ。
- * @effect 既存の読取りと必要な候補保存だけ。
- * @failure 競合・観測不能・例外・解放不明は元の停止へ返す。
- * @invariant 生Owner・任意Snapshot callbackを公開しない。
- * @boundary 固定操作と唯一の短期保存Owner。
- * @security 観測関数を保存又は登録しない。
- * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
- */
-export function settleCoordinatorQueueLeaseRelease(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: CoordinatorRootObservedInput<
-    Parameters<typeof prepareCoordinatorQueueLeaseReleaseSettlement>
-  >
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorQueueLeaseReleaseSettlement>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current, owner) =>
-    prepareCoordinatorQueueLeaseReleaseSettlement(
-      current,
-      input[0],
-      input[1],
-      input[2],
-      {
-        resourcesAbsent: (projectId) =>
-          input[3].resourcesAbsent(owner.repositoryRoot, projectId),
-      },
-    ),
-  );
-}
-
-/**
- * 実Leaseを観測してQueueの開始・進行・終了を保存する。
- * @responsibility 元のgetter短絡順と同じLeaseの六field・生存観測を保つ。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Queue ID、期待世代、次値の固定accessorと実Leaseの有限観測。
- * @returns 元の候補結果を保存・解放確認後に返す。
- * @precondition 操作認可は呼出し側が現在確認している。
- * @postcondition 未知・元参照・候補外区画を保つ。
- * @effect 既存の読取りと必要な候補保存だけ。
- * @failure 競合・観測不能・例外・解放不明は元の停止へ返す。
- * @invariant 生Owner・任意Snapshot callbackを公開しない。
- * @boundary 固定操作と唯一の短期保存Owner。
- * @security 観測関数を保存又は登録しない。
- * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
- */
-export function updateCoordinatorQueueEntry(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<typeof prepareCoordinatorQueueOperationUpdate> extends [
-    unknown,
-    string,
-    string,
-    ...infer Rest,
-  ]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorQueueOperationUpdate>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current, owner) =>
-    prepareCoordinatorQueueOperationUpdate(
-      current,
-      owner.repositoryRoot,
-      binding,
-      ...input,
-    ),
-  );
-}
-
-/**
- * 同じ実Leaseで単発Taskの進行と結果を保存する。
- * @responsibility 元ID・期待世代と同じLeaseを照合し、成功末尾の時計二回だけを使う。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Queue ID、期待世代、単発Task記録と実Leaseの有限観測。
- * @returns 元の候補結果を保存・解放確認後に返す。
- * @precondition 操作認可は呼出し側が現在確認している。
- * @postcondition 未知・元参照・候補外区画を保つ。
- * @effect 既存の読取りと必要な候補保存だけ。
- * @failure 競合・観測不能・例外・解放不明は元の停止へ返す。
- * @invariant 生Owner・任意Snapshot callbackを公開しない。
- * @boundary 固定操作と唯一の短期保存Owner。
- * @security 観測関数を保存又は登録しない。
- * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
- */
-export function updateCoordinatorSingleTaskQueue(
-  workingDirectory: Repository,
-  binding: string,
-  ...input: Parameters<typeof prepareCoordinatorSingleTaskQueueUpdate> extends [
-    unknown,
-    string,
-    string,
-    ...infer Rest,
-  ]
-    ? Rest
-    : never
-) {
-  return withCoordinatorSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareCoordinatorSingleTaskQueueUpdate>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current, owner) =>
-    prepareCoordinatorSingleTaskQueueUpdate(
-      current,
-      owner.repositoryRoot,
-      binding,
-      ...input,
-    ),
+    projectQueueEntry(current, ...input),
   );
 }
 
@@ -416,20 +123,20 @@ export function updateCoordinatorSingleTaskQueue(
  * @security 観測関数を保存又は登録しない。
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
-export function selectCoordinatorQueueEntry(
+export function selectQueueEntry(
   workingDirectory: Repository,
   binding: string,
   select: (
     entries: readonly ProjectQueueEntry[],
-  ) => Parameters<typeof prepareCoordinatorQueueSelection>[1],
+  ) => Parameters<typeof prepareQueueSelection>[1],
 ) {
-  return withCoordinatorSnapshotOperation<
+  return withSnapshotOperation<
     Extract<
-      ReturnType<typeof prepareCoordinatorQueueSelection>,
+      ReturnType<typeof prepareQueueSelection>,
       { status: "completed" }
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
-    prepareCoordinatorQueueSelection(current, select(current.queueEntries)),
+    prepareQueueSelection(current, select(current.queueEntries)),
   );
 }
 
@@ -448,16 +155,16 @@ export function selectCoordinatorQueueEntry(
  * @security 任意投影callbackを受けず、技術区画を一括返却しない。
  * @concurrency 元の短期排他を一回取得・解放する。
  */
-export function readCoordinatorTaskIntakeState(
+export function readTaskIntakeState(
   workingDirectory: Repository,
   binding: string,
 ): StoreResult<Pick<
-  CoordinatorSnapshot,
+  Snapshot,
   "queueEntries" | "leaseIntents" | "intakeEpoch"
 > | null> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked("orchestrator_repository_root_invalid");
-  const result = readCoordinatorSnapshot(workingDirectory, binding);
+  const result = readSnapshot(workingDirectory, binding);
   if (result.status !== "completed") return result;
   return completed(
     result.reason,
@@ -487,14 +194,14 @@ export function readCoordinatorTaskIntakeState(
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function createTask(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
       definition: ProjectTaskDefinition;
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "task.create", request);
+  return saveExecutionDefinition(access, "task.create", request);
 }
 
 /**
@@ -513,7 +220,7 @@ export function createTask(
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function updateTask(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
       taskId: string;
@@ -522,7 +229,7 @@ export function updateTask(
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "task.update", request);
+  return saveExecutionDefinition(access, "task.update", request);
 }
 
 /**
@@ -541,7 +248,7 @@ export function updateTask(
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function deleteTask(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
       taskId: string;
@@ -549,7 +256,7 @@ export function deleteTask(
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "task.delete", request);
+  return saveExecutionDefinition(access, "task.delete", request);
 }
 
 /**
@@ -568,10 +275,10 @@ export function deleteTask(
  * @concurrency 返却前に再認可する。
  */
 export function queryTasks(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  return readRuntimeContent(access, "tasks", request);
+  return readExecutionContent(access, "tasks", request);
 }
 
 /**
@@ -590,8 +297,264 @@ export function queryTasks(
  * @concurrency 返却前に再認可する。
  */
 export function queryQueue(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  return readRuntimeContent(access, "queue", request);
+  return readExecutionContent(access, "queue", request);
 }
+
+/**
+ * Queueの固定処置を同じ保存Ownerで確定する。
+ * @responsibility Intent・観測・元版の各必須条件を種別ごとに保持する。
+ * @trace ARCH-000008
+ * @input 検証済みRepository、結合と種別固定の必須入力。
+ * @returns 元の保存・拒否・不明結果。
+ * @precondition 物理処置と認可は上位Ownerが所有する。
+ * @postcondition 他区画とexact Identityを保持する。
+ * @effect 元の短期排他・読取り・保存だけ。
+ * @failure 不正種別・競合・観測不能は拒否する。
+ * @invariant Callbackの短絡順とLock内のRoot結合を変更しない。
+ * @boundary モデル保存と上位の物理処置。
+ * @security 任意Snapshot更新を受けない。
+ * @concurrency 元のwithSnapshotOperation保持区間を維持する。
+ */
+export function updateQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueUpdateRequest, { kind: "operation" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareQueueOperationUpdate>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function updateQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueUpdateRequest, { kind: "single" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareSingleTaskQueueUpdate>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function updateQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueUpdateRequest, { kind: "close_unstarted" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareUnstartedTaskQueueClosure>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function updateQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueUpdateRequest, { kind: "recovery" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareQueueRecoverySettlement>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function updateQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueUpdateRequest, { kind: "lease_released" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareQueueLeaseReleaseSettlement>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function updateQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: QueueUpdateRequest,
+) {
+  const captured = snapshotStateRecord(
+    request,
+    new Set(["kind", "input"]),
+  ) as QueueUpdateRequest | null;
+  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  switch (captured.kind) {
+    case "operation": {
+      const tuple = snapshotStateArray(captured.input, 4);
+      if (tuple.status !== "ok" || tuple.value.length < 4)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareQueueOperationUpdate>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current, owner) =>
+        prepareQueueOperationUpdate(
+          current,
+          owner.repositoryRoot,
+          binding,
+          ...input,
+        ),
+      );
+    }
+    case "single": {
+      const tuple = snapshotStateArray(captured.input, 4);
+      if (tuple.status !== "ok" || tuple.value.length < 4)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareSingleTaskQueueUpdate>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current, owner) =>
+        prepareSingleTaskQueueUpdate(
+          current,
+          owner.repositoryRoot,
+          binding,
+          ...input,
+        ),
+      );
+    }
+    case "close_unstarted": {
+      const tuple = snapshotStateArray(captured.input, 4);
+      if (tuple.status !== "ok" || tuple.value.length < 4)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareUnstartedTaskQueueClosure>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current) =>
+        prepareUnstartedTaskQueueClosure(current, ...input),
+      );
+    }
+    case "recovery": {
+      const tuple = snapshotStateArray(captured.input, 3);
+      if (tuple.status !== "ok" || tuple.value.length < 3)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareQueueRecoverySettlement>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current) =>
+        prepareQueueRecoverySettlement(current, ...input),
+      );
+    }
+    case "lease_released": {
+      const tuple = snapshotStateArray(captured.input, 4);
+      if (tuple.status !== "ok" || tuple.value.length < 4)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareQueueLeaseReleaseSettlement>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current, owner) =>
+        prepareQueueLeaseReleaseSettlement(
+          current,
+          input[0],
+          input[1],
+          input[2],
+          {
+            resourcesAbsent: (projectId) =>
+              input[3].resourcesAbsent(owner.repositoryRoot, projectId),
+          },
+        ),
+      );
+    }
+  }
+  return blocked("orchestrator_snapshot_input_invalid");
+}
+
+/**
+ * Queueの固定処置を同じ保存Ownerで確定する。
+ * @responsibility Intent・観測・元版の各必須条件を種別ごとに保持する。
+ * @trace ARCH-000008
+ * @input 検証済みRepository、結合と種別固定の必須入力。
+ * @returns 元の保存・拒否・不明結果。
+ * @precondition 物理処置と認可は上位Ownerが所有する。
+ * @postcondition 他区画とexact Identityを保持する。
+ * @effect 元の短期排他・読取り・保存だけ。
+ * @failure 不正種別・競合・観測不能は拒否する。
+ * @invariant Callbackの短絡順とLock内のRoot結合を変更しない。
+ * @boundary モデル保存と上位の物理処置。
+ * @security 任意Snapshot更新を受けない。
+ * @concurrency 元のwithSnapshotOperation保持区間を維持する。
+ */
+export function createQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueCreateRequest, { kind: "scheduled" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareQueueEntryCreation>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function createQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: Extract<QueueCreateRequest, { kind: "single" }>,
+): StoreResult<
+  Extract<
+    ReturnType<typeof prepareSingleTaskQueueCreation>,
+    { status: "completed" }
+  >["value"]["value"]
+>;
+export function createQueue(
+  workingDirectory: Repository,
+  binding: string,
+  request: QueueCreateRequest,
+) {
+  const captured = snapshotStateRecord(
+    request,
+    new Set(["kind", "input"]),
+  ) as QueueCreateRequest | null;
+  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  switch (captured.kind) {
+    case "scheduled": {
+      const tuple = snapshotStateArray(captured.input, 2);
+      if (tuple.status !== "ok" || tuple.value.length < 2)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareQueueEntryCreation>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current) =>
+        prepareQueueEntryCreation(current, ...input),
+      );
+    }
+    case "single": {
+      const tuple = snapshotStateArray(captured.input, 2);
+      if (tuple.status !== "ok" || tuple.value.length < 2)
+        return blocked("orchestrator_snapshot_input_invalid");
+      const input = tuple.value as unknown as typeof captured.input;
+
+      return withSnapshotOperation<
+        Extract<
+          ReturnType<typeof prepareSingleTaskQueueCreation>,
+          { status: "completed" }
+        >["value"]["value"]
+      >(workingDirectory, binding, (current) =>
+        prepareSingleTaskQueueCreation(current, ...input),
+      );
+    }
+  }
+  return blocked("orchestrator_snapshot_input_invalid");
+}
+
+import { snapshotStateArray } from "../state/validation.ts";

@@ -8,48 +8,346 @@
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
 
+import {
+  decodeStateSnapshot,
+  encodeStateValue,
+} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext, runInThisContext } from "node:vm";
-import { prepareCoordinatorHistoryRetention } from "../../../src/history/validation.ts";
+import { prepareHistoryRetention } from "../../../src/history/validation.ts";
+import { prepareStateHostSnapshot } from "../../../src/state/validation.ts";
+
+/**
+ * 開始保存と終端準備を一つの完成操作として検証する。
+ * @responsibility 保存済みの開始記録を準備失敗で未実施へ戻さない。
+ * @trace PRL-UT-006
+ * @precondition 同じ操作・Repositoryの合成読取りと保存結果を使う。
+ * @stimulus 準備成功・拒否・例外、保存不明とReader解放不明を与える。
+ * @observation 開始保存flag、Context、exact回復参照、Effectと呼出し順序。
+ * @oracle 保存と排他確認後だけ準備し、失敗でも元参照と発行事実を保持する。
+ * @cleanup 外部資源なし。
+ * @boundary 完成操作の制御。実Filesystemは限定結合試験が確認する。
+ */
+test("開始保存後の終端準備失敗は元記録とEffectを保持する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/attempt/crud.ts", import.meta.url),
+    "utf8",
+  );
+  for (const scenario of [
+    "ready",
+    "refused",
+    "throw",
+    "write_unknown",
+    "read_unlock_unknown",
+    "prepare_unlock_unknown",
+  ]) {
+    const access = {},
+      context = {};
+    const identityJson = JSON.stringify({
+      operationId: "operation-a",
+      consumer: "orchestrator",
+    });
+    const operation = {
+      kind: "docker_task",
+      recoveryId: "exact-reference",
+      identityJson,
+    };
+    const calls: string[] = [];
+    const execute = runInThisContext(`(dependencies) => {
+      const { observeOperationRepository, prepareStateOperationSnapshot,
+        decodeStateSnapshot, readStateSnapshot, encodeStateValue,
+        writeStateSnapshot, writeOwnedStateSnapshot, prepareOperationCompletion } = dependencies;
+      ${sourceDeclaration(source, "saveOperationStart")}
+      return saveOperationStart;
+    }`)({
+      observeOperationRepository: () => ({
+        operationId: "operation-a",
+        repositoryBinding: "binding",
+      }),
+      prepareStateOperationSnapshot: () => Buffer.from("candidate"),
+      decodeStateSnapshot: () => ({ snapshot: { operations: [operation] } }),
+      readStateSnapshot: () => ({
+        status: "completed",
+        reason: "read",
+        lockReleased: scenario !== "read_unlock_unknown",
+        value: { snapshot: { operations: [] } },
+      }),
+      encodeStateValue: () => "{}",
+      writeStateSnapshot: () => ({
+        status: "blocked",
+        reason: "coordinator_state_input_invalid",
+        snapshotConfirmed: false,
+        filesystemEffectIssued: false,
+        lockReleased: true,
+      }),
+      writeOwnedStateSnapshot: (received: unknown) => {
+        assert.equal(received, access);
+        calls.push("save");
+        return {
+          status: scenario === "write_unknown" ? "blocked" : "completed",
+          reason: "write",
+          snapshotConfirmed: scenario !== "write_unknown",
+          filesystemEffectIssued: true,
+          lockReleased: true,
+        };
+      },
+      prepareOperationCompletion: (
+        received: unknown,
+        reference: unknown,
+        consumer: unknown,
+      ) => {
+        calls.push("prepare");
+        assert.equal(received, access);
+        assert.equal(reference, operation.recoveryId);
+        assert.equal(consumer, "orchestrator");
+        if (scenario === "throw") throw new Error("prepare failure");
+        return {
+          context: scenario === "ready" ? context : null,
+          reason:
+            scenario === "prepare_unlock_unknown"
+              ? "coordinator_state_lock_release_unconfirmed"
+              : null,
+          lockReleased: scenario !== "prepare_unlock_unknown",
+        };
+      },
+    });
+    const result = execute(access, identityJson);
+    assert.equal(result.recoveryId, operation.recoveryId);
+    assert.equal(result.status, scenario === "ready" ? "completed" : "blocked");
+    assert.equal(
+      result.completionContext,
+      scenario === "ready" ? context : null,
+    );
+    assert.equal(
+      result.startSaved,
+      ["ready", "refused", "throw", "prepare_unlock_unknown"].includes(
+        scenario,
+      ),
+    );
+    assert.equal(
+      result.lockReleased,
+      !["read_unlock_unknown", "prepare_unlock_unknown", "throw"].includes(
+        scenario,
+      ),
+    );
+    if (scenario === "prepare_unlock_unknown")
+      assert.equal(result.reason, "coordinator_state_lock_release_unconfirmed");
+    assert.equal(
+      result.filesystemEffectIssued,
+      scenario !== "read_unlock_unknown",
+    );
+    assert.deepEqual(
+      calls,
+      scenario === "read_unlock_unknown"
+        ? []
+        : scenario === "write_unknown"
+          ? ["save"]
+          : ["save", "prepare"],
+    );
+  }
+});
+
+/**
+ * @responsibility 準備Readerの拒否理由と解放不明を内部結果へ保持する。
+ * @trace PRL-UT-006
+ * @precondition 同じ保存操作と正常Identityの有限観測を使用する。
+ * @stimulus 準備成功、Reader拒否、解放不明を与える。
+ * @observation Context、reason、lockReleased。
+ * @oracle Context欠測へ丸めても未解放を解放済みへ変えない。
+ * @cleanup Process内のMapだけ。
+ * @boundary 内部準備Readerの結果搬送。
+ */
+test("終端準備はReaderの拒否理由とLock解放不明を保持する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/attempt/crud.ts", import.meta.url),
+    "utf8",
+  );
+  for (const scenario of ["ready", "rejected", "unlock_unknown"]) {
+    const execute = runInThisContext(`(dependencies) => {
+      const liveSettlements = new WeakMap();
+      const { getConsumerCompletionPolicy, observeExecutionSettlementStorageAccess,
+        captureExecutionCleanupVerification, readOperationStateStage } = dependencies;
+      ${sourceDeclaration(source, "prepareOperationCompletion")}
+      return prepareOperationCompletion;
+    }`)({
+      getConsumerCompletionPolicy: () => "durable",
+      observeExecutionSettlementStorageAccess: () => ({
+        operationId: "operation",
+      }),
+      captureExecutionCleanupVerification: () => () => "confirmed",
+      readOperationStateStage: () => ({
+        status: scenario === "ready" ? "completed" : "blocked",
+        reason:
+          scenario === "unlock_unknown"
+            ? "coordinator_state_lock_release_unconfirmed"
+            : "coordinator_state_read_unconfirmed",
+        lockReleased: scenario !== "unlock_unknown",
+        value:
+          scenario === "ready"
+            ? {
+                snapshot: {
+                  operations: [
+                    {
+                      kind: "docker_task",
+                      recoveryId: "exact",
+                      identityJson: JSON.stringify({
+                        operationId: "operation",
+                        consumer: "orchestrator",
+                      }),
+                    },
+                  ],
+                },
+              }
+            : null,
+      }),
+    });
+    const result = execute({}, "exact", "orchestrator");
+    assert.equal(Boolean(result.context), scenario === "ready");
+    assert.equal(result.lockReleased, scenario !== "unlock_unknown");
+    assert.equal(
+      result.reason,
+      scenario === "ready"
+        ? null
+        : scenario === "unlock_unknown"
+          ? "coordinator_state_lock_release_unconfirmed"
+          : "coordinator_state_read_unconfirmed",
+    );
+  }
+});
+
+/**
+ * 受理済み終了入力を例外後も同じ参照へ結合する。
+ * @responsibility 入力受理と保存成立を分離し、上位の再入場材料を失わせない。
+ * @trace PRL-UT-006
+ * @precondition 本番の終了宣言と有限の同期観測だけを使用する。
+ * @stimulus 受理後のReader・Snapshot取得・符号化に例外を注入する。
+ * @observation 受理flag、回復参照、保存未確定、Writer到達数、別参照拒否。
+ * @oracle 同じ入力は保持し、例外を保存成功又は清掃成功へ補完しない。
+ * @cleanup 外部資源なし。
+ * @boundary 終了結果搬送のみ。実I/Oの発行事実は既存Writer試験が確認する。
+ */
+test("終了入力の受理後例外でも元参照と未確定を返す", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/attempt/crud.ts", import.meta.url),
+    "utf8",
+  );
+  for (const fault of ["reader", "snapshot", "encoding"]) {
+    const context = {},
+      cleanup = {},
+      completion = {};
+    const settlement: {
+      repository: { operationId: string; repositoryBinding: string };
+      managementCapability: object;
+      recoveryId: string;
+      verifyCleanup: () => string;
+      originalInputs?: { cleanupOutcome: unknown; dockerCompletion: unknown };
+    } = {
+      repository: { operationId: "operation", repositoryBinding: "binding" },
+      managementCapability: {},
+      recoveryId: "exact-recovery",
+      verifyCleanup: () => "confirmed",
+    };
+    let writes = 0;
+    let snapshotReads = 0;
+    const terminal = {
+      get resourceSnapshot() {
+        snapshotReads++;
+        throw new Error("snapshot read failure");
+      },
+    };
+    const execute = runInThisContext(`(dependencies) => {
+      const { readLiveSettlement, observeExecutionTerminalForStorage,
+        readOwnedSettlementSnapshot, writeStateSnapshot, encodeStateValue,
+        writeOwnedSettlement, prepareStateCleanupSnapshot } = dependencies;
+      ${sourceDeclaration(source, "captureOperationCompletionInputs")}
+      ${sourceDeclaration(source, "completeOperation")}
+      return completeOperation;
+    }`)({
+      readLiveSettlement: (received: unknown) =>
+        received === context ? settlement : null,
+      observeExecutionTerminalForStorage: () => terminal,
+      readOwnedSettlementSnapshot: () => {
+        if (fault === "reader") throw new Error("reader failure");
+        return {
+          status: "completed",
+          value: {
+            snapshot: {
+              operations: [
+                {
+                  kind: "docker_task",
+                  recoveryId: settlement.recoveryId,
+                  summarySha256: null,
+                },
+              ],
+            },
+          },
+        };
+      },
+      writeStateSnapshot: () => ({
+        status: "blocked",
+        reason: "coordinator_state_input_invalid",
+        filesystemEffectIssued: false,
+        snapshotConfirmed: false,
+        lockReleased: false,
+      }),
+      encodeStateValue: () => {
+        if (fault === "encoding") throw new Error("encoding failure");
+        return "{}";
+      },
+      writeOwnedSettlement: () => {
+        writes++;
+        throw new Error("unexpected writer");
+      },
+      prepareStateCleanupSnapshot: () => {
+        throw new Error("unexpected preparation");
+      },
+    });
+    const first = execute(context, cleanup, completion);
+    assert.equal(first.inputAccepted, true);
+    assert.equal(first.status, "blocked");
+    assert.equal(first.snapshotConfirmed, false);
+    assert.equal(first.recoveryId, settlement.recoveryId);
+    assert.equal(writes, 0);
+    assert.equal(execute(context, cleanup, completion).inputAccepted, true);
+    assert.equal(
+      execute(context, { ...cleanup }, completion).inputAccepted,
+      false,
+    );
+    assert.equal(
+      execute(context, cleanup, { ...completion }).inputAccepted,
+      false,
+    );
+    assert.equal(writes, 0);
+    assert.equal(snapshotReads, fault === "snapshot" ? 2 : 0);
+  }
+});
+
 import {
-  applyCoordinatorResourceEvent,
-  type CoordinatorResourceBook,
-  type CoordinatorState,
-  type CoordinatorStateTaskOperation,
-  type CoordinatorUnifiedSnapshot,
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorTaskResourcesAreSettled,
+  applyResourceEvent,
+  areTaskResourcesSettled,
+  canCloseUnknownAuthentication,
   createDockerRestartRequestId,
-  decodeCoordinatorHistoryRows,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  prepareCoordinatorAuthenticationUnknownClosureSnapshot,
-  prepareCoordinatorStateCleanupSnapshot,
-  prepareCoordinatorStateHistoryLine,
-  prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateHostSnapshot,
-  prepareCoordinatorStateLifecycleSnapshot,
-  prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorStateReferencesSnapshot,
-  prepareCoordinatorStateResourceSnapshot,
-  prepareCoordinatorStateRestartSnapshot,
-  prepareCoordinatorStateResultDeliverySnapshot,
-  validateCoordinatorStateTransition,
+  type ExecutionOperationRecord,
+  type OperationResources,
+  type ProjectExecutionState,
 } from "../../../src/index.ts";
+import { decodeHistoryRows } from "../../../src/history/validation.ts";
+import type { UnifiedSnapshot } from "../../../src/state/types.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
-  classifyCoordinatorResourcePublication,
-  hashRuntimeStateContent,
-  prepareCoordinatorRecoveredHistoryPublication,
-  prepareCoordinatorStateCompletionSnapshot,
-  projectCoordinatorTaskSettlement,
-  validateCoordinatorUnifiedTransition,
+  classifyResourcePublication,
+  EXECUTION_STATE_SCHEMA,
+  hashExecutionStateContent,
+  prepareRecoveredHistoryPublication,
+  prepareStateCompletionSnapshot,
+  projectTaskSettlement,
+  validateStateTransition,
+  validateUnifiedTransition,
 } from "../../../src/state/validation.ts";
-import { prepareCoordinatorUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
+import { prepareUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
@@ -78,26 +376,26 @@ for (const scenario of [
 ] as const) {
   test(`終了記録の改訂と安全条件: ${scenario}`, () => {
     const fixture = createResourceOperationFixture();
-    const initial = decodeRuntimeDomainSnapshot(fixture.bytes, fixture.binding);
+    const initial = decodeStateSnapshot(fixture.bytes, fixture.binding);
     assert.ok(initial);
     const frame = createResourceBookFixture(fixture.ownershipLabel);
-    let book: CoordinatorResourceBook | null = null;
+    let book: OperationResources | null = null;
     if (scenario === "with_resources") {
-      book = applyCoordinatorResourceEvent(null, {
+      book = applyResourceEvent(null, {
         event: "submission",
         key: "container",
         snapshot: frame.snapshot,
         cleanup: frame.cleanup,
       });
       assert.ok(book);
-      book = applyCoordinatorResourceEvent(book, {
+      book = applyResourceEvent(book, {
         event: "not_issued",
         key: "container",
       });
       assert.ok(book);
     }
     const beforeBytes = Buffer.from(
-      `${encodeRuntimeStateValue({
+      `${encodeStateValue({
         ...initial.snapshot,
         operations: initial.snapshot.operations.map((operation) =>
           operation.kind !== "docker_task"
@@ -118,7 +416,7 @@ for (const scenario of [
         ),
       })}\n`,
     );
-    const before = decodeRuntimeDomainSnapshot(beforeBytes, fixture.binding);
+    const before = decodeStateSnapshot(beforeBytes, fixture.binding);
     assert.ok(before);
     const context = {},
       cleanup = {},
@@ -150,12 +448,12 @@ for (const scenario of [
       "utf8",
     );
     const execute = runInThisContext(`(dependencies) => {
-      const { readLiveSettlement, captureRuntimeOwnedCoordinatorSettlementInputs,
-        observeRuntimeTerminalForStorage, readRuntimeOwnedCoordinatorSettlementSnapshot,
-        writeCoordinatorStateSnapshot, prepareCoordinatorStateCleanupSnapshot,
-        decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, writeRuntimeOwnedCoordinatorSettlement } = dependencies;
-      ${sourceDeclaration(source, "settleRuntimeOwnedCoordinatorResult")}
-      return settleRuntimeOwnedCoordinatorResult;
+      const { readLiveSettlement, captureOperationCompletionInputs,
+        observeExecutionTerminalForStorage, readOwnedSettlementSnapshot,
+        writeStateSnapshot, prepareStateCleanupSnapshot,
+        decodeStateSnapshot, encodeStateValue, writeOwnedSettlement } = dependencies;
+      ${sourceDeclaration(source, "completeOperation")}
+      return completeOperation;
     }`)({
       readLiveSettlement: (value: unknown) => {
         assert.equal(value, context);
@@ -168,7 +466,7 @@ for (const scenario of [
           verifyCleanup: () => true,
         };
       },
-      captureRuntimeOwnedCoordinatorSettlementInputs: (
+      captureOperationCompletionInputs: (
         _context: unknown,
         receivedCleanup: unknown,
         receivedResult: unknown,
@@ -177,20 +475,20 @@ for (const scenario of [
         assert.equal(receivedResult, completion);
         return true;
       },
-      observeRuntimeTerminalForStorage: () => terminal,
-      readRuntimeOwnedCoordinatorSettlementSnapshot: () => ({
+      observeExecutionTerminalForStorage: () => terminal,
+      readOwnedSettlementSnapshot: () => ({
         status: "completed",
         value: before,
       }),
-      writeCoordinatorStateSnapshot: () => ({
+      writeStateSnapshot: () => ({
         status: "blocked",
         reason: "fixture_input_rejected",
         filesystemEffectIssued: false,
       }),
-      prepareCoordinatorStateCleanupSnapshot,
-      decodeRuntimeDomainSnapshot,
-      encodeRuntimeStateValue,
-      writeRuntimeOwnedCoordinatorSettlement: (
+      prepareStateCleanupSnapshot,
+      decodeStateSnapshot,
+      encodeStateValue,
+      writeOwnedSettlement: (
         _context: unknown,
         bytes: Buffer,
         receivedCleanup: unknown,
@@ -214,6 +512,7 @@ for (const scenario of [
       scenario === "without_resources" || scenario === "with_resources";
     assert.equal(captured.writes, safe ? 1 : 0);
     assert.equal(result.status, "blocked");
+    assert.equal(result.inputAccepted, true);
     assert.equal(result.recoveryId, fixture.recoveryId);
     assert.equal(
       result.reason,
@@ -222,10 +521,7 @@ for (const scenario of [
     if (!safe) return;
     assert.equal(result.lockReleased, false);
     assert.ok(captured.bytes);
-    const candidate = decodeRuntimeDomainSnapshot(
-      captured.bytes,
-      fixture.binding,
-    );
+    const candidate = decodeStateSnapshot(captured.bytes, fixture.binding);
     assert.ok(candidate);
     assert.equal(candidate.snapshot.revision, before.snapshot.revision + 1);
     assert.deepEqual(candidate.snapshot.previous, {
@@ -233,11 +529,7 @@ for (const scenario of [
       payloadSha256: createHash("sha256").update(beforeBytes).digest("hex"),
     });
     assert.equal(
-      validateCoordinatorStateTransition(
-        beforeBytes,
-        captured.bytes,
-        fixture.binding,
-      ),
+      validateStateTransition(beforeBytes, captured.bytes, fixture.binding),
       true,
     );
     for (const invalid of [
@@ -251,16 +543,16 @@ for (const scenario of [
       },
     ])
       assert.equal(
-        validateCoordinatorStateTransition(
+        validateStateTransition(
           beforeBytes,
-          Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+          Buffer.from(`${encodeStateValue(invalid)}\n`),
           fixture.binding,
         ),
         false,
       );
     assert.ok(
       fixture.bytes.equals(
-        Buffer.from(`${encodeRuntimeStateValue(initial.snapshot)}\n`),
+        Buffer.from(`${encodeStateValue(initial.snapshot)}\n`),
       ),
     );
   });
@@ -288,7 +580,7 @@ const RESOURCE_KEYS = [
  * @cleanup N/A: 局所値のみ。
  * @boundary 純粋codec試験。実保存・実行を開始しない。
  */
-function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
+function emptyUnifiedSnapshot(): UnifiedSnapshot {
   return {
     schema: "crdd-domain/runtime-state/v3",
     revision: 1,
@@ -316,7 +608,7 @@ function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
 
 const empty = {
   ...emptyUnifiedSnapshot(),
-  schema: COORDINATOR_STATE_SCHEMA,
+  schema: EXECUTION_STATE_SCHEMA,
   revision: 1,
   previous: null,
   repositoryBinding: binding,
@@ -400,11 +692,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   };
   const identityJson = `${JSON.stringify(identity)}\n`;
   assert.ok(
-    prepareCoordinatorStateOperationSnapshot(null, identityJson, binding),
+    prepareStateOperationSnapshot(null, identityJson, binding),
     "正常な初期Host証明を現行model自身が受理する",
   );
-  const technical = decodeRuntimeDomainSnapshot(
-    prepareCoordinatorStateOperationSnapshot(null, identityJson, binding),
+  const technical = decodeStateSnapshot(
+    prepareStateOperationSnapshot(null, identityJson, binding),
     binding,
   );
   assert.ok(technical);
@@ -413,8 +705,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     schema: "crdd-domain/runtime-state/v3",
     managedExecutions: [],
   };
-  const domainRead = decodeRuntimeDomainSnapshot(
-    Buffer.from(`${encodeRuntimeStateValue(domainTechnical)}\n`),
+  const domainRead = decodeStateSnapshot(
+    Buffer.from(`${encodeStateValue(domainTechnical)}\n`),
     binding,
   );
   assert.ok(domainRead);
@@ -442,7 +734,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ])
     assert.equal(
-      prepareCoordinatorStateOperationSnapshot(
+      prepareStateOperationSnapshot(
         null,
         `${JSON.stringify(invalidIdentity)}\n`,
         binding,
@@ -466,7 +758,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ]) {
     assert.equal(
-      prepareCoordinatorStateOperationSnapshot(
+      prepareStateOperationSnapshot(
         null,
         `${JSON.stringify({ ...identity, initialHostRecovery })}\n`,
         binding,
@@ -505,14 +797,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "planned",
     RESOURCE_KEYS,
   );
-  const providerIntent = applyCoordinatorResourceEvent(null, {
+  const providerIntent = applyResourceEvent(null, {
     event: "submission",
     key: "create_provider",
     snapshot: resourceFrame.snapshot,
     cleanup: resourceFrame.cleanup,
   });
   assert.ok(providerIntent);
-  const providerBook = applyCoordinatorResourceEvent(providerIntent, {
+  const providerBook = applyResourceEvent(providerIntent, {
     event: "receipt",
     key: "create_provider",
     cleanup: resourceFrame.cleanup,
@@ -611,33 +903,28 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     ],
   };
-  const limitedBytes = Buffer.from(
-    `${encodeRuntimeStateValue(limitedState)}\n`,
-  );
-  const limitedDecoded = decodeRuntimeDomainSnapshot(limitedBytes, binding);
+  const limitedBytes = Buffer.from(`${encodeStateValue(limitedState)}\n`);
+  const limitedDecoded = decodeStateSnapshot(limitedBytes, binding);
   const limitedOperation = limitedDecoded?.snapshot.operations[0];
   assert.ok(limitedOperation?.kind === "docker_task");
-  assert.equal(
-    coordinatorAuthenticationUnknownCanClose(limitedOperation),
-    true,
-  );
-  assert.equal(coordinatorTaskResourcesAreSettled(limitedOperation), false);
+  assert.equal(canCloseUnknownAuthentication(limitedOperation), true);
+  assert.equal(areTaskResourcesSettled(limitedOperation), false);
   const observations = [
     { round: 1, name: "absent", name_label: "absent" },
     { round: 2, name: "absent", name_label: "absent" },
   ];
-  const limitedClosed = prepareCoordinatorAuthenticationUnknownClosureSnapshot(
+  const limitedClosed = prepareAuthenticationUnknownClosureSnapshot(
     limitedBytes,
     recoveryId,
     observations,
     binding,
   );
   assert.ok(limitedClosed);
-  const closedDecoded = decodeRuntimeDomainSnapshot(limitedClosed, binding);
+  const closedDecoded = decodeStateSnapshot(limitedClosed, binding);
   assert.ok(closedDecoded);
   const closedOperation = closedDecoded?.snapshot.operations[0];
   assert.ok(closedOperation?.kind === "docker_task");
-  assert.equal(coordinatorTaskResourcesAreSettled(closedOperation), true);
+  assert.equal(areTaskResourcesSettled(closedOperation), true);
   assert.deepEqual(
     { ...closedOperation, resources: limitedOperation.resources },
     limitedOperation,
@@ -657,7 +944,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     authClosed.absenceEvidenceSha256,
     createHash("sha256")
       .update(
-        encodeRuntimeStateValue({
+        encodeStateValue({
           domain: "crdd-coordinator/authentication-unknown-absence/v1",
           identitySha256,
           recoveryId,
@@ -672,7 +959,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       .digest("hex"),
   );
   assert.ok(
-    prepareCoordinatorAuthenticationUnknownClosureSnapshot(
+    prepareAuthenticationUnknownClosureSnapshot(
       limitedClosed,
       recoveryId,
       observations,
@@ -680,15 +967,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     )?.equals(limitedClosed),
   );
   assert.equal(
-    prepareCoordinatorStateResourceSnapshot(
-      limitedBytes,
-      recoveryId,
-      authClosed,
-      binding,
-    ),
+    prepareStateResourceSnapshot(limitedBytes, recoveryId, authClosed, binding),
     null,
   );
-  const observedUnknownAbsence = prepareCoordinatorStateCleanupSnapshot(
+  const observedUnknownAbsence = prepareStateCleanupSnapshot(
     limitedBytes,
     recoveryId,
     {
@@ -702,14 +984,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     binding,
   );
   assert.ok(observedUnknownAbsence);
-  const unknownAbsenceState = decodeRuntimeDomainSnapshot(
+  const unknownAbsenceState = decodeStateSnapshot(
     observedUnknownAbsence,
     binding,
   );
   const unknownAbsenceTask = unknownAbsenceState?.snapshot.operations[0];
   assert.ok(unknownAbsenceTask?.kind === "docker_task");
   assert.equal(
-    coordinatorTaskResourcesAreSettled(unknownAbsenceTask),
+    areTaskResourcesSettled(unknownAbsenceTask),
     false,
     "観測の保存だけでは専用の終了確定を代替できない",
   );
@@ -721,7 +1003,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     [observations[0], { ...observations[1], name_label: "present" }],
   ])
     assert.equal(
-      prepareCoordinatorAuthenticationUnknownClosureSnapshot(
+      prepareAuthenticationUnknownClosureSnapshot(
         limitedBytes,
         recoveryId,
         invalid,
@@ -735,21 +1017,21 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "sharedWrite",
     "ownerEffect",
   ] as const) {
-    const changed: CoordinatorStateTaskOperation = {
+    const changed: ExecutionOperationRecord = {
       ...closedOperation,
       execution: { ...closedOperation.execution, [field]: "unknown" as const },
     };
-    assert.equal(coordinatorAuthenticationUnknownCanClose(changed), false);
-    assert.equal(coordinatorTaskResourcesAreSettled(changed), false);
+    assert.equal(canCloseUnknownAuthentication(changed), false);
+    assert.equal(areTaskResourcesSettled(changed), false);
   }
   for (const request of ["not_issued", "unknown", "issued"] as const) {
     assert.ok(closedOperation.dockerRestart);
-    const changed: CoordinatorStateTaskOperation = {
+    const changed: ExecutionOperationRecord = {
       ...closedOperation,
       dockerRestart: { ...closedOperation.dockerRestart, request },
     };
-    assert.equal(coordinatorAuthenticationUnknownCanClose(changed), false);
-    assert.equal(coordinatorTaskResourcesAreSettled(changed), false);
+    assert.equal(canCloseUnknownAuthentication(changed), false);
+    assert.equal(areTaskResourcesSettled(changed), false);
   }
   const badEvidence = {
     ...closedOperation,
@@ -762,7 +1044,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
     },
   };
-  assert.equal(coordinatorTaskResourcesAreSettled(badEvidence), false);
+  assert.equal(areTaskResourcesSettled(badEvidence), false);
   // 実Writer外側の値差分guardだけを分離する。Kernel/FSの成立はHost試験が所有する。
   const storeSource = fs.readFileSync(
     new URL("../../../src/state/crud.ts", import.meta.url),
@@ -781,7 +1063,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "  if (\n    !currentAuthenticationClosure &&",
   );
   const guardEnd = storeSource.indexOf(
-    "  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);",
+    "  const acquisition = acquireStorageOwnerForRepository(repository);",
     guardStart,
   );
   assert.ok(
@@ -808,12 +1090,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       payloadSha256: closedDecoded.payloadSha256,
     },
   };
-  const alternate = Buffer.from(`${encodeRuntimeStateValue(alternateState)}\n`);
-  assert.ok(decodeRuntimeDomainSnapshot(alternate, binding));
+  const alternate = Buffer.from(`${encodeStateValue(alternateState)}\n`);
+  assert.ok(decodeStateSnapshot(alternate, binding));
   const badAuthBytes = Buffer.from(
-    `${encodeRuntimeStateValue({ ...closedDecoded.snapshot, operations: [badEvidence] })}\n`,
+    `${encodeStateValue({ ...closedDecoded.snapshot, operations: [badEvidence] })}\n`,
   );
-  assert.ok(decodeRuntimeDomainSnapshot(badAuthBytes, binding));
+  assert.ok(decodeStateSnapshot(badAuthBytes, binding));
   const pairKinds = [
     "currentHistory",
     "currentDelivery",
@@ -836,7 +1118,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           : scenario === "auth_changed"
             ? badAuthBytes
             : limitedClosed;
-      const decodedTarget = decodeRuntimeDomainSnapshot(targetBytes, binding);
+      const decodedTarget = decodeStateSnapshot(targetBytes, binding);
       assert.ok(decodedTarget);
       const pair = {
         before:
@@ -889,9 +1171,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           bytes: targetBytes,
           repository: { repositoryBinding: binding },
           attempt: {},
-          encodeRuntimeStateValue,
-          decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
-          readCoordinatorStateSnapshot: () => {
+          encodeStateValue,
+          decodeStateSnapshot: decodeStateSnapshot,
+          readStateSnapshot: () => {
             reads++;
             return {
               status: "completed",
@@ -944,9 +1226,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       bytes: limitedClosed,
       repository: { repositoryBinding: binding },
       attempt: {},
-      encodeRuntimeStateValue,
-      decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
-      readCoordinatorStateSnapshot: () => {
+      encodeStateValue,
+      decodeStateSnapshot: decodeStateSnapshot,
+      readStateSnapshot: () => {
         readerOnlyReads++;
         return { status: "blocked", value: null, lockReleased: true };
       },
@@ -956,7 +1238,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(readerOnlyRequests, 0);
   assert.equal(readerOnlyReads, 1);
   // 保存前の限定条件と保存後の相関を、同じ正常入力から一軸ずつ崩す。
-  const closureSources: readonly CoordinatorStateTaskOperation[] = [
+  const closureSources: readonly ExecutionOperationRecord[] = [
     limitedOperation,
     closedOperation,
   ];
@@ -964,7 +1246,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(source.resources && source.dockerRestart?.result);
     const book = source.resources;
     const restart = source.dockerRestart;
-    const mutations: CoordinatorStateTaskOperation[] = [
+    const mutations: ExecutionOperationRecord[] = [
       { ...source, phase: "executing" },
       ...(
         ["providerStart", "externalSend", "sharedWrite", "ownerEffect"] as const
@@ -1048,24 +1330,23 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ];
     for (const changed of mutations) {
       assert.equal(
-        coordinatorAuthenticationUnknownCanClose(changed),
+        canCloseUnknownAuthentication(changed),
         false,
         JSON.stringify(changed),
       );
       const changedBytes = Buffer.from(
-        encodeRuntimeStateValue({ ...limitedState, operations: [changed] }) +
-          "\n",
+        encodeStateValue({ ...limitedState, operations: [changed] }) + "\n",
       );
-      if (decodeRuntimeDomainSnapshot(changedBytes, binding))
+      if (decodeStateSnapshot(changedBytes, binding))
         assert.equal(
-          coordinatorTaskResourcesAreSettled(changed),
+          areTaskResourcesSettled(changed),
           false,
           JSON.stringify(changed),
         );
       assert.equal(
-        prepareCoordinatorAuthenticationUnknownClosureSnapshot(
+        prepareAuthenticationUnknownClosureSnapshot(
           Buffer.from(
-            `${encodeRuntimeStateValue({
+            `${encodeStateValue({
               ...limitedState,
               operations: [changed],
             })}\n`,
@@ -1080,7 +1361,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   }
   for (const mode of ["hash", "name", "label", "id"] as const) {
     const book = closedOperation.resources;
-    const changed: CoordinatorStateTaskOperation = {
+    const changed: ExecutionOperationRecord = {
       ...closedOperation,
       resources: {
         ...book,
@@ -1112,9 +1393,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     };
     if (mode === "label" || mode === "id")
       assert.equal(
-        decodeRuntimeDomainSnapshot(
+        decodeStateSnapshot(
           Buffer.from(
-            `${encodeRuntimeStateValue({
+            `${encodeStateValue({
               ...limitedState,
               operations: [changed],
             })}\n`,
@@ -1123,12 +1404,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ),
         null,
       );
-    else assert.equal(coordinatorTaskResourcesAreSettled(changed), false);
+    else assert.equal(areTaskResourcesSettled(changed), false);
   }
   assert.ok(
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       Buffer.from(
-        `${encodeRuntimeStateValue({ ...limitedState, operations: [badEvidence] })}\n`,
+        `${encodeStateValue({ ...limitedState, operations: [badEvidence] })}\n`,
       ),
       binding,
     ),
@@ -1155,7 +1436,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(consumerRestartId);
     assert.ok(limitedOperation.dockerRestart);
-    const consumerOperation: CoordinatorStateTaskOperation = {
+    const consumerOperation: ExecutionOperationRecord = {
       ...limitedOperation,
       identityJson: consumerJson,
       identitySha256: consumerHash,
@@ -1166,20 +1447,19 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     };
     const consumerBefore = Buffer.from(
-      `${encodeRuntimeStateValue({ ...empty, operations: [consumerOperation] })}\n`,
+      `${encodeStateValue({ ...empty, operations: [consumerOperation] })}\n`,
     );
-    const consumerClosed =
-      prepareCoordinatorAuthenticationUnknownClosureSnapshot(
-        consumerBefore,
-        consumerRecoveryId,
-        observations,
-        binding,
-      );
+    const consumerClosed = prepareAuthenticationUnknownClosureSnapshot(
+      consumerBefore,
+      consumerRecoveryId,
+      observations,
+      binding,
+    );
     assert.ok(consumerClosed, consumer);
-    const resourceClosed = decodeRuntimeDomainSnapshot(consumerClosed, binding)
+    const resourceClosed = decodeStateSnapshot(consumerClosed, binding)
       ?.snapshot.operations[0];
     assert.ok(resourceClosed?.kind === "docker_task");
-    const terminalTask: CoordinatorStateTaskOperation = {
+    const terminalTask: ExecutionOperationRecord = {
       ...resourceClosed,
       host: {
         ...resourceClosed.host,
@@ -1194,11 +1474,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     };
     const terminalBytes = Buffer.from(
-      `${encodeRuntimeStateValue({ ...empty, operations: [terminalTask] })}\n`,
+      `${encodeStateValue({ ...empty, operations: [terminalTask] })}\n`,
     );
-    assert.ok(decodeRuntimeDomainSnapshot(terminalBytes, binding), consumer);
+    assert.ok(decodeStateSnapshot(terminalBytes, binding), consumer);
     const time = "2026-10-16T00:00:00.000Z";
-    const historyPending = prepareCoordinatorStateHistorySnapshot(
+    const historyPending = prepareStateHistorySnapshot(
       terminalBytes,
       consumerRecoveryId,
       time,
@@ -1206,7 +1486,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       binding,
     );
     assert.ok(historyPending, consumer);
-    const historyConfirmed = prepareCoordinatorStateHistorySnapshot(
+    const historyConfirmed = prepareStateHistorySnapshot(
       historyPending,
       consumerRecoveryId,
       time,
@@ -1214,7 +1494,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       binding,
     );
     assert.ok(historyConfirmed, consumer);
-    const delivered = prepareCoordinatorStateResultDeliverySnapshot(
+    const delivered = prepareStateResultDeliverySnapshot(
       historyConfirmed,
       consumerRecoveryId,
       consumer === "orchestrator" ? ["orchestrator"] : [],
@@ -1224,40 +1504,32 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const accepted = delivered;
     if (consumer === "orchestrator") {
       assert.equal(
-        prepareCoordinatorStateCompletionSnapshot(
-          delivered,
-          consumerRecoveryId,
-          binding,
-        ),
+        prepareStateCompletionSnapshot(delivered, consumerRecoveryId, binding),
         null,
       );
       continue;
     }
-    const completed = prepareCoordinatorStateCompletionSnapshot(
+    const completed = prepareStateCompletionSnapshot(
       accepted,
       consumerRecoveryId,
       binding,
     );
     assert.ok(completed, consumer);
-    const completedState = decodeRuntimeDomainSnapshot(completed, binding);
+    const completedState = decodeStateSnapshot(completed, binding);
     assert.ok(completedState);
     assert.deepEqual(completedState.snapshot.operations, []);
     assert.deepEqual(completedState.snapshot.unresolvedRecoveries, []);
     assert.deepEqual(completedState.snapshot.pendingDeliveries, []);
     const nextIdentityJson = `${JSON.stringify({ ...consumerIdentity, operationNonce: "d".repeat(64), operationId: "OP-654321" })}\n`;
     assert.ok(
-      prepareCoordinatorStateOperationSnapshot(
-        accepted,
-        nextIdentityJson,
-        binding,
-      ),
+      prepareStateOperationSnapshot(accepted, nextIdentityJson, binding),
       `${consumer}: settled predecessor permits next admission`,
     );
-    const acceptedState = decodeRuntimeDomainSnapshot(accepted, binding);
+    const acceptedState = decodeStateSnapshot(accepted, binding);
     assert.ok(acceptedState);
     const acceptedTask = acceptedState.snapshot.operations[0];
     assert.ok(acceptedTask?.kind === "docker_task");
-    const badTask: CoordinatorStateTaskOperation = {
+    const badTask: ExecutionOperationRecord = {
       ...acceptedTask,
       resources: acceptedTask.resources && {
         ...acceptedTask.resources,
@@ -1269,14 +1541,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     };
     const rejected = Buffer.from(
-      `${encodeRuntimeStateValue({ ...acceptedState.snapshot, operations: [badTask] })}\n`,
+      `${encodeStateValue({ ...acceptedState.snapshot, operations: [badTask] })}\n`,
     );
     assert.ok(
-      decodeRuntimeDomainSnapshot(rejected, binding),
+      decodeStateSnapshot(rejected, binding),
       `${consumer}: forged evidence is codec legal`,
     );
     assert.equal(
-      prepareCoordinatorStateHistorySnapshot(
+      prepareStateHistorySnapshot(
         rejected,
         consumerRecoveryId,
         time,
@@ -1287,7 +1559,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       consumer,
     );
     assert.equal(
-      prepareCoordinatorStateResultDeliverySnapshot(
+      prepareStateResultDeliverySnapshot(
         rejected,
         consumerRecoveryId,
         [],
@@ -1297,20 +1569,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       consumer,
     );
     assert.equal(
-      prepareCoordinatorStateCompletionSnapshot(
-        rejected,
-        consumerRecoveryId,
-        binding,
-      ),
+      prepareStateCompletionSnapshot(rejected, consumerRecoveryId, binding),
       null,
       consumer,
     );
     assert.equal(
-      prepareCoordinatorStateOperationSnapshot(
-        rejected,
-        nextIdentityJson,
-        binding,
-      ),
+      prepareStateOperationSnapshot(rejected, nextIdentityJson, binding),
       null,
       consumer,
     );
@@ -1328,9 +1592,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     ],
   };
-  const historyBytes = Buffer.from(
-    `${encodeRuntimeStateValue(historyState)}\n`,
-  );
+  const historyBytes = Buffer.from(`${encodeStateValue(historyState)}\n`);
   const readyHistoryState = {
     ...historyState,
     operations: [
@@ -1353,11 +1615,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ],
   };
   const readyHistoryBytes = Buffer.from(
-    `${encodeRuntimeStateValue(readyHistoryState)}\n`,
+    `${encodeStateValue(readyHistoryState)}\n`,
   );
   const occurredAt = "2026-10-08T00:00:00.000Z";
   assert.equal(
-    prepareCoordinatorStateHistorySnapshot(
+    prepareStateHistorySnapshot(
       historyBytes,
       recoveryId,
       occurredAt,
@@ -1367,7 +1629,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     null,
   );
   assert.equal(
-    prepareCoordinatorStateHistorySnapshot(
+    prepareStateHistorySnapshot(
       readyHistoryBytes,
       recoveryId,
       occurredAt,
@@ -1376,7 +1638,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
     null,
   );
-  const pendingHistoryBytes = prepareCoordinatorStateHistorySnapshot(
+  const pendingHistoryBytes = prepareStateHistorySnapshot(
     readyHistoryBytes,
     recoveryId,
     occurredAt,
@@ -1384,10 +1646,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     binding,
   );
   assert.ok(pendingHistoryBytes);
-  const pendingHistory = decodeRuntimeDomainSnapshot(
-    pendingHistoryBytes,
-    binding,
-  );
+  const pendingHistory = decodeStateSnapshot(pendingHistoryBytes, binding);
   assert.ok(pendingHistory);
   const pendingOperation = pendingHistory.snapshot.operations.find(
     (item) => item.kind === "docker_task",
@@ -1395,7 +1654,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(pendingOperation?.history);
   assert.equal(pendingOperation.history.occurredAt, occurredAt);
   assert.equal(pendingOperation.history.confirmed, false);
-  const confirmedHistoryBytes = prepareCoordinatorStateHistorySnapshot(
+  const confirmedHistoryBytes = prepareStateHistorySnapshot(
     pendingHistoryBytes,
     recoveryId,
     occurredAt,
@@ -1403,19 +1662,16 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     binding,
   );
   assert.ok(confirmedHistoryBytes);
-  const confirmedHistory = decodeRuntimeDomainSnapshot(
-    confirmedHistoryBytes,
-    binding,
-  );
+  const confirmedHistory = decodeStateSnapshot(confirmedHistoryBytes, binding);
   assert.ok(confirmedHistory);
   // 結果IDは履歴確認・改訂から独立し、再登録で既存受理を巻き戻さない。
-  const registeredPending = prepareCoordinatorStateResultDeliverySnapshot(
+  const registeredPending = prepareStateResultDeliverySnapshot(
     pendingHistoryBytes,
     recoveryId,
     ["orchestrator"],
     binding,
   );
-  const registeredConfirmed = prepareCoordinatorStateResultDeliverySnapshot(
+  const registeredConfirmed = prepareStateResultDeliverySnapshot(
     confirmedHistoryBytes,
     recoveryId,
     ["orchestrator"],
@@ -1459,9 +1715,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     transientState.pendingDeliveries = [];
     transientState.unresolvedRecoveries = [];
     const transientUnfixed = Buffer.from(
-      `${encodeRuntimeStateValue(transientState)}\n`,
+      `${encodeStateValue(transientState)}\n`,
     );
-    const transientFixed = prepareCoordinatorStateHistorySnapshot(
+    const transientFixed = prepareStateHistorySnapshot(
       transientUnfixed,
       transientRecoveryId,
       occurredAt,
@@ -1470,7 +1726,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(transientFixed);
     assert.deepEqual(
-      prepareCoordinatorStateResultDeliverySnapshot(
+      prepareStateResultDeliverySnapshot(
         transientFixed,
         transientRecoveryId,
         [],
@@ -1479,7 +1735,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       transientFixed,
     );
     assert.equal(
-      prepareCoordinatorStateResultDeliverySnapshot(
+      prepareStateResultDeliverySnapshot(
         transientFixed,
         transientRecoveryId,
         ["orchestrator"],
@@ -1487,7 +1743,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
       null,
     );
-    const transientCompletionReady = prepareCoordinatorStateHistorySnapshot(
+    const transientCompletionReady = prepareStateHistorySnapshot(
       transientFixed,
       transientRecoveryId,
       occurredAt,
@@ -1513,7 +1769,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         (item: { kind?: unknown }) => item.kind === "docker_task",
       );
       const matrixIdentity = JSON.parse(matrixOperation.identityJson);
-      const originalBook: CoordinatorResourceBook = matrixOperation.resources;
+      const originalBook: OperationResources = matrixOperation.resources;
       const known = request === "identified";
       const unrequested =
         request === "not_requested" || request === "not_issued";
@@ -1555,13 +1811,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             : c,
         ),
       };
-      const matrixBytes = Buffer.from(
-        `${encodeRuntimeStateValue(matrixState)}\n`,
-      );
-      assert.ok(decodeRuntimeDomainSnapshot(matrixBytes, binding));
+      const matrixBytes = Buffer.from(`${encodeStateValue(matrixState)}\n`);
+      assert.ok(decodeStateSnapshot(matrixBytes, binding));
       const label = `${consumer}: ${request}/${observation}`;
       assert.equal(
-        prepareCoordinatorStateHistorySnapshot(
+        prepareStateHistorySnapshot(
           matrixBytes,
           transientRecoveryId,
           occurredAt,
@@ -1572,7 +1826,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         `${label}: history`,
       );
       assert.equal(
-        prepareCoordinatorStateResultDeliverySnapshot(
+        prepareStateResultDeliverySnapshot(
           matrixBytes,
           transientRecoveryId,
           [],
@@ -1582,7 +1836,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         `${label}: delivery`,
       );
       assert.equal(
-        prepareCoordinatorStateCompletionSnapshot(
+        prepareStateCompletionSnapshot(
           matrixBytes,
           transientRecoveryId,
           binding,
@@ -1591,7 +1845,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         `${label}: removal`,
       );
       assert.equal(
-        prepareCoordinatorStateOperationSnapshot(
+        prepareStateOperationSnapshot(
           matrixBytes,
           `${JSON.stringify({
             ...matrixIdentity,
@@ -1604,23 +1858,23 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         `${label}: next attempt`,
       );
       if (request !== "identified" && observation === "absent") {
-        const decoded = decodeRuntimeDomainSnapshot(matrixBytes, binding);
+        const decoded = decodeStateSnapshot(matrixBytes, binding);
         const task = decoded?.snapshot.operations[0];
         assert.ok(task?.kind === "docker_task");
         assert.equal(
-          coordinatorTaskResourcesAreSettled(task),
+          areTaskResourcesSettled(task),
           false,
           "ID未確認の観測を終端根拠にしない",
         );
       }
     }
-    const transientCompleted = prepareCoordinatorStateCompletionSnapshot(
+    const transientCompleted = prepareStateCompletionSnapshot(
       transientCompletionReady,
       transientRecoveryId,
       binding,
     );
     assert.ok(transientCompleted);
-    const transientCompletedSnapshot = decodeRuntimeDomainSnapshot(
+    const transientCompletedSnapshot = decodeStateSnapshot(
       transientCompleted,
       binding,
     );
@@ -1631,7 +1885,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       0,
     );
     assert.equal(
-      prepareCoordinatorStateCompletionSnapshot(
+      prepareStateCompletionSnapshot(
         transientFixed,
         transientRecoveryId,
         binding,
@@ -1644,9 +1898,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         (item: { kind?: unknown }) => item.kind === "docker_task",
       ).execution[effect] = "unknown";
       const unknownBytes = Buffer.from(
-        `${encodeRuntimeStateValue(unknownBeforeFixed)}\n`,
+        `${encodeStateValue(unknownBeforeFixed)}\n`,
       );
-      const unknownFixed = prepareCoordinatorStateHistorySnapshot(
+      const unknownFixed = prepareStateHistorySnapshot(
         unknownBytes,
         transientRecoveryId,
         occurredAt,
@@ -1654,7 +1908,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         binding,
       );
       assert.ok(unknownFixed);
-      const unknownConfirmed = prepareCoordinatorStateHistorySnapshot(
+      const unknownConfirmed = prepareStateHistorySnapshot(
         unknownFixed,
         transientRecoveryId,
         occurredAt,
@@ -1662,7 +1916,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         binding,
       );
       assert.ok(unknownConfirmed);
-      const unknownLine = prepareCoordinatorStateHistoryLine(
+      const unknownLine = prepareStateHistoryLine(
         unknownConfirmed,
         transientRecoveryId,
         binding,
@@ -1682,9 +1936,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           (item: { kind?: unknown }) => item.kind === "docker_task",
         ).primaryFailure,
       );
-      assert.ok(decodeCoordinatorHistoryRows(unknownLine));
+      assert.ok(decodeHistoryRows(unknownLine));
       assert.ok(
-        prepareCoordinatorStateCompletionSnapshot(
+        prepareStateCompletionSnapshot(
           unknownConfirmed,
           transientRecoveryId,
           binding,
@@ -1692,9 +1946,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       );
       const oldRow = { ...recorded, schema: "crdd-coordinator/history-row/v1" };
       assert.equal(
-        decodeCoordinatorHistoryRows(
-          Buffer.from(`${encodeRuntimeStateValue(oldRow)}\n`),
-        ),
+        decodeHistoryRows(Buffer.from(`${encodeStateValue(oldRow)}\n`)),
         null,
       );
       const unknownEffect = JSON.parse(
@@ -1704,8 +1956,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         (item: { kind?: unknown }) => item.kind === "docker_task",
       ).execution[effect] = "unknown";
       assert.equal(
-        prepareCoordinatorStateCompletionSnapshot(
-          Buffer.from(`${encodeRuntimeStateValue(unknownEffect)}\n`),
+        prepareStateCompletionSnapshot(
+          Buffer.from(`${encodeStateValue(unknownEffect)}\n`),
           transientRecoveryId,
           binding,
         ),
@@ -1718,7 +1970,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         {
           operationNonce: nonce,
           recoveryId: transientRecoveryId,
-          resultId: decodeRuntimeDomainSnapshot(
+          resultId: decodeStateSnapshot(
             transientFixed,
             binding,
           )?.snapshot.operations.find((item) => item.kind === "docker_task")
@@ -1729,18 +1981,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     assert.equal(
-      decodeRuntimeDomainSnapshot(
-        Buffer.from(`${encodeRuntimeStateValue(injectedPending)}\n`),
+      decodeStateSnapshot(
+        Buffer.from(`${encodeStateValue(injectedPending)}\n`),
         binding,
       ),
       null,
     );
   }
-  const pendingResult = decodeRuntimeDomainSnapshot(registeredPending, binding);
-  const confirmedResult = decodeRuntimeDomainSnapshot(
-    registeredConfirmed,
-    binding,
-  );
+  const pendingResult = decodeStateSnapshot(registeredPending, binding);
+  const confirmedResult = decodeStateSnapshot(registeredConfirmed, binding);
   assert.ok(pendingResult);
   assert.ok(confirmedResult);
   assert.deepEqual(
@@ -1753,7 +2002,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       (item) => item.kind === "docker_task",
     )?.summarySha256,
   );
-  const forgedAcceptedResultBytes = prepareCoordinatorStateReferencesSnapshot(
+  const forgedAcceptedResultBytes = prepareStateReferencesSnapshot(
     registeredConfirmed,
     recoveryId,
     {
@@ -1774,7 +2023,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   const acceptedResultBytes = registeredConfirmed;
   assert.deepEqual(
-    prepareCoordinatorStateResultDeliverySnapshot(
+    prepareStateResultDeliverySnapshot(
       acceptedResultBytes,
       recoveryId,
       ["orchestrator"],
@@ -1790,7 +2039,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ["coordinator_cli"],
   ])
     assert.equal(
-      prepareCoordinatorStateResultDeliverySnapshot(
+      prepareStateResultDeliverySnapshot(
         acceptedResultBytes,
         recoveryId,
         invalidConsumers,
@@ -1799,7 +2048,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
   assert.equal(
-    prepareCoordinatorStateResultDeliverySnapshot(
+    prepareStateResultDeliverySnapshot(
       readyHistoryBytes,
       recoveryId,
       ["orchestrator"],
@@ -1818,15 +2067,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     externalSend: "not_issued",
     sharedWrite: "not_issued",
   };
-  const knownFixed = prepareCoordinatorStateHistorySnapshot(
-    Buffer.from(`${encodeRuntimeStateValue(knownBeforeFixed)}\n`),
+  const knownFixed = prepareStateHistorySnapshot(
+    Buffer.from(`${encodeStateValue(knownBeforeFixed)}\n`),
     recoveryId,
     occurredAt,
     false,
     binding,
   );
   assert.ok(knownFixed);
-  const knownConfirmed = prepareCoordinatorStateHistorySnapshot(
+  const knownConfirmed = prepareStateHistorySnapshot(
     knownFixed,
     recoveryId,
     occurredAt,
@@ -1834,7 +2083,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     binding,
   );
   assert.ok(knownConfirmed);
-  const knownHistory = decodeRuntimeDomainSnapshot(knownConfirmed, binding);
+  const knownHistory = decodeStateSnapshot(knownConfirmed, binding);
   assert.ok(knownHistory);
   const acceptedCompletionState = {
     ...knownHistory.snapshot,
@@ -1872,7 +2121,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     })),
   };
   const acceptedCompletionBytes = Buffer.from(
-    `${encodeRuntimeStateValue(acceptedCompletionState)}\n`,
+    `${encodeStateValue(acceptedCompletionState)}\n`,
   );
   const sameHomeNextIdentity = `${JSON.stringify({
     ...identity,
@@ -1900,9 +2149,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     };
     const normalBefore = Buffer.from(
-      `${encodeRuntimeStateValue({ ...empty, operations: [normalOld] })}\n`,
+      `${encodeStateValue({ ...empty, operations: [normalOld] })}\n`,
     );
-    assert.ok(decodeRuntimeDomainSnapshot(normalBefore, binding));
+    assert.ok(decodeStateSnapshot(normalBefore, binding));
     const nextIdentity = {
       ...identity,
       operationNonce: "0".repeat(64),
@@ -1912,7 +2161,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     };
     const nextIdentityJson = `${JSON.stringify(nextIdentity)}\n`;
-    const started = prepareCoordinatorStateOperationSnapshot(
+    const started = prepareStateOperationSnapshot(
       normalBefore,
       nextIdentityJson,
       binding,
@@ -1940,9 +2189,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           (old.execution as Record<string, unknown>)[field] = "unknown";
       }
       const before = Buffer.from(
-        `${encodeRuntimeStateValue({ ...empty, operations: [old] })}\n`,
+        `${encodeStateValue({ ...empty, operations: [old] })}\n`,
       );
-      const next = prepareCoordinatorStateOperationSnapshot(
+      const next = prepareStateOperationSnapshot(
         before,
         nextIdentityJson,
         binding,
@@ -1956,7 +2205,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       );
       const foreign = `${JSON.stringify({ ...nextIdentity, operationId: "OP-654321" })}\n`;
       assert.equal(
-        prepareCoordinatorStateOperationSnapshot(before, foreign, binding),
+        prepareStateOperationSnapshot(before, foreign, binding),
         null,
       );
     }
@@ -2024,18 +2273,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       })),
     ]) {
       const before = Buffer.from(
-        `${encodeRuntimeStateValue({ ...empty, operations: [invalidOld] })}\n`,
+        `${encodeStateValue({ ...empty, operations: [invalidOld] })}\n`,
       );
       assert.ok(
-        decodeRuntimeDomainSnapshot(before, binding),
+        decodeStateSnapshot(before, binding),
         JSON.stringify(invalidOld),
       );
       assert.equal(
-        prepareCoordinatorStateOperationSnapshot(
-          before,
-          nextIdentityJson,
-          binding,
-        ),
+        prepareStateOperationSnapshot(before, nextIdentityJson, binding),
         null,
       );
       const fabricated = {
@@ -2046,9 +2291,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         },
       };
       assert.equal(
-        validateCoordinatorStateTransition(
+        validateStateTransition(
           before,
-          Buffer.from(`${encodeRuntimeStateValue(fabricated)}\n`),
+          Buffer.from(`${encodeStateValue(fabricated)}\n`),
           binding,
         ),
         false,
@@ -2075,7 +2320,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     ]) {
       assert.equal(
-        prepareCoordinatorStateOperationSnapshot(
+        prepareStateOperationSnapshot(
           normalBefore,
           `${JSON.stringify(changedIdentity)}\n`,
           binding,
@@ -2096,15 +2341,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     const obligationBytes = Buffer.from(
-      `${encodeRuntimeStateValue(withObligation)}\n`,
+      `${encodeStateValue(withObligation)}\n`,
     );
-    assert.ok(decodeRuntimeDomainSnapshot(obligationBytes, binding));
+    assert.ok(decodeStateSnapshot(obligationBytes, binding));
     assert.equal(
-      prepareCoordinatorStateOperationSnapshot(
-        obligationBytes,
-        nextIdentityJson,
-        binding,
-      ),
+      prepareStateOperationSnapshot(obligationBytes, nextIdentityJson, binding),
       null,
     );
     const badCandidate = structuredClone(startedValue);
@@ -2112,15 +2353,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       (item: { recoveryId: string }) => item.recoveryId === recoveryId,
     ).execution.providerStart = "started";
     assert.ok(
-      decodeRuntimeDomainSnapshot(
-        Buffer.from(`${encodeRuntimeStateValue(badCandidate)}\n`),
+      decodeStateSnapshot(
+        Buffer.from(`${encodeStateValue(badCandidate)}\n`),
         binding,
       ),
     );
     assert.equal(
-      validateCoordinatorStateTransition(
+      validateStateTransition(
         normalBefore,
-        Buffer.from(`${encodeRuntimeStateValue(badCandidate)}\n`),
+        Buffer.from(`${encodeStateValue(badCandidate)}\n`),
         binding,
       ),
       false,
@@ -2138,7 +2379,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       identity: { ...nextIdentity, operationId: "OP-654321" },
       before: normalOld,
       other: normalOld,
-      encodeRuntimeStateValue,
+      encodeStateValue,
     };
     assert.equal(
       runInNewContext(
@@ -2167,9 +2408,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     pendingDeliveries: acceptedCompletionState.pendingDeliveries,
   };
   const deliveryOnlyBytes = Buffer.from(
-    `${encodeRuntimeStateValue(deliveryOnlyState)}\n`,
+    `${encodeStateValue(deliveryOnlyState)}\n`,
   );
-  const sameHomeStarted = prepareCoordinatorStateOperationSnapshot(
+  const sameHomeStarted = prepareStateOperationSnapshot(
     deliveryOnlyBytes,
     sameHomeNextIdentity,
     binding,
@@ -2184,16 +2425,16 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "result_delivery",
   ];
   assert.equal(
-    validateCoordinatorStateTransition(
+    validateStateTransition(
       deliveryOnlyBytes,
-      Buffer.from(`${encodeRuntimeStateValue(sameHomeStartedState)}\n`),
+      Buffer.from(`${encodeStateValue(sameHomeStartedState)}\n`),
       binding,
     ),
     false,
     "新操作追加と同時に旧操作へ資源義務を戻す候補を拒否する",
   );
   assert.equal(
-    prepareCoordinatorStateOperationSnapshot(
+    prepareStateOperationSnapshot(
       acceptedCompletionBytes,
       sameHomeNextIdentity,
       binding,
@@ -2213,9 +2454,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     })),
   ]) {
     assert.equal(
-      prepareCoordinatorStateCompletionSnapshot(
+      prepareStateCompletionSnapshot(
         Buffer.from(
-          `${encodeRuntimeStateValue({ ...acceptedCompletionState, pendingDeliveries: invalidDeliveries })}\n`,
+          `${encodeStateValue({ ...acceptedCompletionState, pendingDeliveries: invalidDeliveries })}\n`,
         ),
         recoveryId,
         binding,
@@ -2224,7 +2465,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
   }
   assert.equal(
-    prepareCoordinatorStateCompletionSnapshot(
+    prepareStateCompletionSnapshot(
       acceptedCompletionBytes,
       recoveryId,
       binding,
@@ -2233,23 +2474,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "Taskを伴わない技術保存だけでは耐久配送を完了しない",
   );
   assert.equal(
-    prepareCoordinatorStateCompletionSnapshot(
-      pendingHistoryBytes,
-      recoveryId,
-      binding,
-    ),
+    prepareStateCompletionSnapshot(pendingHistoryBytes, recoveryId, binding),
     null,
   );
   assert.equal(
-    prepareCoordinatorStateCompletionSnapshot(
-      acceptedCompletionBytes,
-      "other",
-      binding,
-    ),
+    prepareStateCompletionSnapshot(acceptedCompletionBytes, "other", binding),
     null,
   );
   assert.equal(
-    prepareCoordinatorStateCompletionSnapshot(
+    prepareStateCompletionSnapshot(
       acceptedCompletionBytes,
       recoveryId,
       "wrong",
@@ -2293,30 +2526,26 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ]) {
     const input = Buffer.from(
-      `${encodeRuntimeStateValue({ ...acceptedCompletionState, operations: acceptedCompletionState.operations.map((value) => ({ ...value, ...change })) })}\n`,
+      `${encodeStateValue({ ...acceptedCompletionState, operations: acceptedCompletionState.operations.map((value) => ({ ...value, ...change })) })}\n`,
     );
     assert.equal(
-      prepareCoordinatorStateCompletionSnapshot(input, recoveryId, binding),
+      prepareStateCompletionSnapshot(input, recoveryId, binding),
       null,
     );
   }
   const unaccepted = Buffer.from(
-    `${encodeRuntimeStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: null })) })}\n`,
+    `${encodeStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: null })) })}\n`,
   );
   assert.equal(
-    prepareCoordinatorStateCompletionSnapshot(unaccepted, recoveryId, binding),
+    prepareStateCompletionSnapshot(unaccepted, recoveryId, binding),
     null,
   );
   for (const consumer of ["orchestrator"]) {
     const missingAcceptance = Buffer.from(
-      `${encodeRuntimeStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: value.consumer === consumer ? null : "forbidden" })) })}\n`,
+      `${encodeStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: value.consumer === consumer ? null : "forbidden" })) })}\n`,
     );
     assert.equal(
-      prepareCoordinatorStateCompletionSnapshot(
-        missingAcceptance,
-        recoveryId,
-        binding,
-      ),
+      prepareStateCompletionSnapshot(missingAcceptance, recoveryId, binding),
       null,
     );
   }
@@ -2338,14 +2567,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     )?.history?.confirmed,
     true,
   );
-  const historyLine = prepareCoordinatorStateHistoryLine(
+  const historyLine = prepareStateHistoryLine(
     pendingHistoryBytes,
     recoveryId,
     binding,
   );
   assert.ok(historyLine);
   assert.deepEqual(
-    projectCoordinatorTaskSettlement(
+    projectTaskSettlement(
       {
         kind: "operations",
         recoveryIds: [recoveryId],
@@ -2356,7 +2585,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { cleanupConfirmed: true, recoveryUnresolved: false },
   );
   assert.deepEqual(
-    projectCoordinatorTaskSettlement(
+    projectTaskSettlement(
       {
         kind: "operations",
         recoveryIds: [recoveryId],
@@ -2367,8 +2596,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { cleanupConfirmed: false, recoveryUnresolved: true },
   );
   const terminalOperation = confirmedHistory.snapshot.operations.find(
-    (item): item is CoordinatorStateTaskOperation =>
-      item.kind === "docker_task",
+    (item): item is ExecutionOperationRecord => item.kind === "docker_task",
   );
   assert.ok(terminalOperation);
   assert.ok(terminalOperation.outcome);
@@ -2450,7 +2678,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             supersededBy: null,
           },
         ],
-      } as CoordinatorState,
+      } as ProjectExecutionState,
     } as const;
     assert.equal(projectFixture.status, "completed");
     if (projectFixture.status !== "completed")
@@ -2507,10 +2735,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
      */
     const encodeUnified = (value: unknown) =>
       Buffer.from(
-        `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(value))}\n`,
+        `${encodeStateValue(createManagedRuntimeSnapshotFixture(value))}\n`,
       );
     const unifiedBefore = encodeUnified(unifiedTerminal);
-    assert.ok(decodeRuntimeDomainSnapshot(unifiedBefore, binding));
+    assert.ok(decodeStateSnapshot(unifiedBefore, binding));
     for (const taskUnresolved of [false, true]) {
       const unresolved = {
         ...unifiedTerminal,
@@ -2540,24 +2768,24 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ],
       };
       const before = encodeUnified(unresolved);
-      const view = decodeRuntimeDomainSnapshot(before, binding)?.projects[0];
+      const view = decodeStateSnapshot(before, binding)?.projects[0];
       assert.ok(view);
       assert.equal(view.tasks[0]?.recoveryUnresolved, taskUnresolved);
-      const candidate = prepareCoordinatorUnifiedTaskSnapshot(
+      const candidate = prepareUnifiedTaskSnapshot(
         before,
         { ...view, generation: view.generation + 1 },
         view.generation,
         binding,
       );
       assert.ok(candidate);
-      const saved = decodeRuntimeDomainSnapshot(candidate, binding)?.snapshot;
+      const saved = decodeStateSnapshot(candidate, binding)?.snapshot;
       assert.ok(saved);
       assert.deepEqual(saved.managedExecutions[0]?.tasks[0]?.settlement, {
         kind: "operations",
         recoveryIds: [recoveryId],
         resultUnresolved: taskUnresolved,
       });
-      const changedFact = prepareCoordinatorUnifiedTaskSnapshot(
+      const changedFact = prepareUnifiedTaskSnapshot(
         before,
         {
           ...view,
@@ -2581,8 +2809,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       );
       assert.ok(changedFact);
       assert.deepEqual(
-        decodeRuntimeDomainSnapshot(changedFact, binding)?.snapshot
-          .managedExecutions[0]?.tasks[0]?.settlement,
+        decodeStateSnapshot(changedFact, binding)?.snapshot.managedExecutions[0]
+          ?.tasks[0]?.settlement,
         {
           kind: "operations",
           recoveryIds: [recoveryId],
@@ -2616,7 +2844,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ],
       ])
         assert.equal(
-          prepareCoordinatorUnifiedTaskSnapshot(
+          prepareUnifiedTaskSnapshot(
             before,
             { ...view, generation: view.generation + 1 },
             view.generation,
@@ -2625,7 +2853,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           ),
           null,
         );
-      const resolved = decodeRuntimeDomainSnapshot(
+      const resolved = decodeStateSnapshot(
         encodeUnified({ ...saved, unresolvedRecoveries: [] }),
         binding,
       );
@@ -2671,7 +2899,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           },
         ],
       };
-      const registered = prepareCoordinatorStateOperationSnapshot(
+      const registered = prepareStateOperationSnapshot(
         encodeUnified(recoveryRoot),
         `${JSON.stringify(secondIdentity)}\n`,
         binding,
@@ -2700,7 +2928,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       });
       let multi: Buffer = encodeUnified(physical);
       for (const confirmed of [false, true]) {
-        const checkpoint = prepareCoordinatorStateHistorySnapshot(
+        const checkpoint = prepareStateHistorySnapshot(
           multi,
           second.recoveryId,
           occurredAt,
@@ -2710,7 +2938,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         assert.ok(checkpoint);
         multi = checkpoint;
       }
-      const delivered = prepareCoordinatorStateResultDeliverySnapshot(
+      const delivered = prepareStateResultDeliverySnapshot(
         multi,
         second.recoveryId,
         ["orchestrator"],
@@ -2719,7 +2947,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       assert.ok(delivered);
       multi = delivered;
       for (const id of [recoveryId, second.recoveryId]) {
-        const decoded = decodeRuntimeDomainSnapshot(multi, binding);
+        const decoded = decodeStateSnapshot(multi, binding);
         const view = decoded?.projects[0];
         assert.ok(decoded && view);
         const operation = decoded.snapshot.operations.find(
@@ -2748,7 +2976,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             ),
           })),
         };
-        const next = prepareCoordinatorUnifiedTaskSnapshot(
+        const next = prepareUnifiedTaskSnapshot(
           multi,
           proposed,
           view.generation,
@@ -2782,11 +3010,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           const invalid = structuredClone(saved);
           mutate(invalid);
           assert.equal(
-            validateCoordinatorUnifiedTransition(
-              multi,
-              encodeUnified(invalid),
-              binding,
-            ),
+            validateUnifiedTransition(multi, encodeUnified(invalid), binding),
             false,
           );
         }
@@ -2798,11 +3022,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             recoveryUnresolved: false,
           };
           assert.equal(
-            validateCoordinatorUnifiedTransition(
-              multi,
-              encodeUnified(premature),
-              binding,
-            ),
+            validateUnifiedTransition(multi, encodeUnified(premature), binding),
             false,
             "未受領のOperationが残る間は技術参照なし終端へ移れない",
           );
@@ -2815,18 +3035,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             invalid.managedExecutions[0].tasks[0].settlement.recoveryIds =
               references;
             assert.equal(
-              validateCoordinatorUnifiedTransition(
-                multi,
-                encodeUnified(invalid),
-                binding,
-              ),
+              validateUnifiedTransition(multi, encodeUnified(invalid), binding),
               false,
             );
           }
         }
         multi = next;
       }
-      const receipts = decodeRuntimeDomainSnapshot(multi, binding)?.snapshot
+      const receipts = decodeStateSnapshot(multi, binding)?.snapshot
         .resultReceipts;
       assert.equal(
         receipts?.find((item) => item.recoveryId === recoveryId)
@@ -2862,15 +3078,13 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         },
       ],
     };
-    assert.ok(
-      decodeRuntimeDomainSnapshot(encodeUnified(acceptedUnified), binding),
-    );
-    const acceptedState = decodeRuntimeDomainSnapshot(
+    assert.ok(decodeStateSnapshot(encodeUnified(acceptedUnified), binding));
+    const acceptedState = decodeStateSnapshot(
       encodeUnified(acceptedUnified),
       binding,
     )?.projects[0];
     assert.ok(acceptedState);
-    const taskPublication = prepareCoordinatorUnifiedTaskSnapshot(
+    const taskPublication = prepareUnifiedTaskSnapshot(
       unifiedBefore,
       acceptedState,
       1,
@@ -2878,7 +3092,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(taskPublication);
     assert.ok(taskPublication.equals(encodeUnified(acceptedUnified)));
-    const requiredLine = prepareCoordinatorStateHistoryLine(
+    const requiredLine = prepareStateHistoryLine(
       unifiedBefore,
       recoveryId,
       binding,
@@ -2886,7 +3100,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(requiredLine);
     const afterRetentionPeriod = "2027-01-01T00:00:00.000Z";
     assert.deepEqual(
-      prepareCoordinatorHistoryRetention(
+      prepareHistoryRetention(
         unifiedBefore,
         requiredLine,
         afterRetentionPeriod,
@@ -2897,7 +3111,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       "確認済みでも未受領の結果に必要な履歴を期限整理しない",
     );
     assert.equal(
-      prepareCoordinatorHistoryRetention(
+      prepareHistoryRetention(
         unifiedBefore,
         Buffer.alloc(0),
         afterRetentionPeriod,
@@ -2907,7 +3121,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
     assert.deepEqual(
-      prepareCoordinatorHistoryRetention(
+      prepareHistoryRetention(
         taskPublication,
         requiredLine,
         afterRetentionPeriod,
@@ -2917,12 +3131,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       Buffer.alloc(0),
       "受領・操作除去後は通常の期限整理へ戻す",
     );
-    const acceptedDecoded = decodeRuntimeDomainSnapshot(
-      taskPublication,
-      binding,
-    );
+    const acceptedDecoded = decodeStateSnapshot(taskPublication, binding);
     assert.ok(acceptedDecoded);
-    const receiptRetained = prepareCoordinatorUnifiedTaskSnapshot(
+    const receiptRetained = prepareUnifiedTaskSnapshot(
       taskPublication,
       { ...acceptedState, generation: 3 },
       2,
@@ -2930,12 +3141,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(receiptRetained);
     assert.deepEqual(
-      decodeRuntimeDomainSnapshot(receiptRetained, binding)?.snapshot
-        .resultReceipts,
+      decodeStateSnapshot(receiptRetained, binding)?.snapshot.resultReceipts,
       acceptedDecoded.snapshot.resultReceipts,
     );
     assert.equal(
-      validateCoordinatorUnifiedTransition(
+      validateUnifiedTransition(
         unifiedBefore,
         encodeUnified(acceptedUnified),
         binding,
@@ -2958,7 +3168,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     const unboundBytes = encodeUnified(unbound);
-    assert.ok(decodeRuntimeDomainSnapshot(unboundBytes, binding));
+    assert.ok(decodeStateSnapshot(unboundBytes, binding));
     const wrongLogicalReceipt = {
       ...acceptedUnified,
       previous: {
@@ -2980,11 +3190,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         },
       ],
     };
-    assert.ok(
-      decodeRuntimeDomainSnapshot(encodeUnified(wrongLogicalReceipt), binding),
-    );
+    assert.ok(decodeStateSnapshot(encodeUnified(wrongLogicalReceipt), binding));
     assert.equal(
-      validateCoordinatorUnifiedTransition(
+      validateUnifiedTransition(
         unboundBytes,
         encodeUnified(wrongLogicalReceipt),
         binding,
@@ -3001,7 +3209,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       { ...acceptedUnified, resultReceipts: [] },
     ])
       assert.equal(
-        validateCoordinatorUnifiedTransition(
+        validateUnifiedTransition(
           unifiedBefore,
           encodeUnified(invalid),
           binding,
@@ -3009,13 +3217,13 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         false,
       );
     const secondIdentityJson = `${JSON.stringify({ ...identity, operationNonce: "f".repeat(64), operationId: "OP-234567" })}\n`;
-    const secondBytes = prepareCoordinatorStateOperationSnapshot(
+    const secondBytes = prepareStateOperationSnapshot(
       null,
       secondIdentityJson,
       binding,
     );
     assert.ok(secondBytes);
-    const second = decodeRuntimeDomainSnapshot(secondBytes, binding)?.snapshot
+    const second = decodeStateSnapshot(secondBytes, binding)?.snapshot
       .operations[0];
     assert.ok(second);
     const withSecond = {
@@ -3042,12 +3250,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     assert.equal(
-      decodeRuntimeDomainSnapshot(encodeUnified(withSecond), binding)
-        ?.projects[0]?.tasks[0]?.recoveryObligations[0]?.phase,
+      decodeStateSnapshot(encodeUnified(withSecond), binding)?.projects[0]
+        ?.tasks[0]?.recoveryObligations[0]?.phase,
       "required",
     );
     assert.equal(
-      decodeRuntimeDomainSnapshot(
+      decodeStateSnapshot(
         encodeUnified({
           ...withSecond,
           projects: [
@@ -3072,7 +3280,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     for (const phase of ["settled", "acknowledged", "required"])
       assert.equal(
-        decodeRuntimeDomainSnapshot(
+        decodeStateSnapshot(
           encodeUnified({
             ...withSecond,
             projects: [
@@ -3128,9 +3336,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         RESOURCE_KEYS,
       ),
     },
-  ] satisfies readonly Partial<CoordinatorStateTaskOperation>[]) {
+  ] satisfies readonly Partial<ExecutionOperationRecord>[]) {
     assert.deepEqual(
-      projectCoordinatorTaskSettlement(operationFact, {
+      projectTaskSettlement(operationFact, {
         ...confirmedHistory.snapshot,
         operations: [{ ...terminalOperation, ...change }],
       }),
@@ -3140,7 +3348,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   }
   for (const id of [recoveryId, "unrelated-recovery"] as const) {
     assert.deepEqual(
-      projectCoordinatorTaskSettlement(operationFact, {
+      projectTaskSettlement(operationFact, {
         ...confirmedHistory.snapshot,
         unresolvedRecoveries: [
           {
@@ -3160,7 +3368,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     createHash("sha256").update(historyLine).digest("hex"),
     createHash("sha256").update(goldenTaskLine).digest("hex"),
   );
-  const rows = decodeCoordinatorHistoryRows(historyLine);
+  const rows = decodeHistoryRows(historyLine);
   assert.ok(rows);
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.recoveryId, recoveryId);
@@ -3187,19 +3395,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   restartHistoryRow.summary.schema = "crdd-coordinator/operation-summary/v3";
   restartHistoryRow.summary.dockerRestart = restartHistoryCheckpoint;
   const restartHistoryLine = Buffer.from(
-    `${encodeRuntimeStateValue(restartHistoryRow)}\n`,
+    `${encodeStateValue(restartHistoryRow)}\n`,
   );
-  const restartHistoryRows = decodeCoordinatorHistoryRows(restartHistoryLine);
+  const restartHistoryRows = decodeHistoryRows(restartHistoryLine);
   assert.ok(restartHistoryRows);
   const v4Restart = structuredClone(restartHistoryRow);
   v4Restart.summary.schema = "crdd-coordinator/operation-summary/v4";
   v4Restart.summary.consumer = "workbench";
   v4Restart.summary.recoveryCorrelationId = "operation-a";
-  assert.ok(
-    decodeCoordinatorHistoryRows(
-      Buffer.from(`${encodeRuntimeStateValue(v4Restart)}\n`),
-    ),
-  );
+  assert.ok(decodeHistoryRows(Buffer.from(`${encodeStateValue(v4Restart)}\n`)));
   for (const checkpoint of [
     null,
     { ...restartHistoryCheckpoint, cleanup: "unknown" },
@@ -3208,15 +3412,13 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const invalid = structuredClone(v4Restart);
     invalid.summary.dockerRestart = checkpoint;
     assert.equal(
-      decodeCoordinatorHistoryRows(
-        Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
-      ),
+      decodeHistoryRows(Buffer.from(`${encodeStateValue(invalid)}\n`)),
       null,
     );
   }
   assert.notEqual(restartHistoryRows[0]?.summarySha256, rows[0]?.summarySha256);
   assert.equal(
-    prepareCoordinatorRecoveredHistoryPublication(
+    prepareRecoveredHistoryPublication(
       pendingHistoryBytes,
       recoveryId,
       restartHistoryLine,
@@ -3247,9 +3449,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const row = structuredClone(restartHistoryRow);
     row.summary.dockerRestart = checkpoint;
     assert.equal(
-      decodeCoordinatorHistoryRows(
-        Buffer.from(`${encodeRuntimeStateValue(row)}\n`),
-      ),
+      decodeHistoryRows(Buffer.from(`${encodeStateValue(row)}\n`)),
       null,
     );
   }
@@ -3260,9 +3460,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       row.summary.schema = "crdd-coordinator/operation-summary/v2";
     else row.summary.extra = true;
     assert.equal(
-      decodeCoordinatorHistoryRows(
-        Buffer.from(`${encodeRuntimeStateValue(row)}\n`),
-      ),
+      decodeHistoryRows(Buffer.from(`${encodeStateValue(row)}\n`)),
       null,
     );
   }
@@ -3272,7 +3470,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     [historyLine, null, false],
     [historyLine, historyLine, false],
   ] as const) {
-    const publication = prepareCoordinatorRecoveredHistoryPublication(
+    const publication = prepareRecoveredHistoryPublication(
       pendingHistoryBytes,
       recoveryId,
       canonical,
@@ -3285,7 +3483,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.deepEqual(publication.snapshotBytes, confirmedHistoryBytes);
     assert.equal(publication.historyChanged, changed);
     assert.deepEqual(
-      prepareCoordinatorRecoveredHistoryPublication(
+      prepareRecoveredHistoryPublication(
         pendingHistoryBytes,
         recoveryId,
         canonical,
@@ -3344,7 +3542,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       );
       const descriptors: PropertyDescriptorMap =
         Object.getOwnPropertyDescriptors(hostile);
-      const result = prepareCoordinatorRecoveredHistoryPublication(
+      const result = prepareRecoveredHistoryPublication(
         pendingHistoryBytes,
         recoveryId,
         role === "canonical" ? hostile : Buffer.alloc(0),
@@ -3366,7 +3564,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   });
   assert.equal(
-    prepareCoordinatorRecoveredHistoryPublication(
+    prepareRecoveredHistoryPublication(
       pendingHistoryBytes,
       recoveryId,
       Buffer.alloc(0),
@@ -3393,7 +3591,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     [Buffer.alloc(0), Buffer.alloc(16 * 1024 * 1024 + 1)],
   ])
     assert.equal(
-      prepareCoordinatorRecoveredHistoryPublication(
+      prepareRecoveredHistoryPublication(
         pendingHistoryBytes,
         recoveryId,
         canonical,
@@ -3415,9 +3613,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       operationId: "OP-999999",
     },
   };
-  const priorLine = Buffer.from(`${encodeRuntimeStateValue(priorRow)}\n`);
-  assert.ok(decodeCoordinatorHistoryRows(priorLine));
-  const retainedPublication = prepareCoordinatorRecoveredHistoryPublication(
+  const priorLine = Buffer.from(`${encodeStateValue(priorRow)}\n`);
+  assert.ok(decodeHistoryRows(priorLine));
+  const retainedPublication = prepareRecoveredHistoryPublication(
     pendingHistoryBytes,
     recoveryId,
     priorLine,
@@ -3428,7 +3626,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(retainedPublication);
   assert.deepEqual(retainedPublication.historyBytes, historyLine);
   assert.equal(
-    prepareCoordinatorRecoveredHistoryPublication(
+    prepareRecoveredHistoryPublication(
       pendingHistoryBytes,
       recoveryId,
       priorLine,
@@ -3482,7 +3680,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       pendingHistoryBytes,
       recoveryId,
       Buffer.from(
-        `${encodeRuntimeStateValue({ ...currentRow, occurredAt: new Date(Date.parse(occurredAt) + 1).toISOString() })}\n`,
+        `${encodeStateValue({ ...currentRow, occurredAt: new Date(Date.parse(occurredAt) + 1).toISOString() })}\n`,
       ),
       null,
       30,
@@ -3490,7 +3688,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ],
   ])
     assert.equal(
-      prepareCoordinatorRecoveredHistoryPublication(
+      prepareRecoveredHistoryPublication(
         bytes,
         id,
         canonical,
@@ -3500,7 +3698,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
       null,
     );
-  assert.deepEqual(decodeCoordinatorHistoryRows(Buffer.alloc(0)), []);
+  assert.deepEqual(decodeHistoryRows(Buffer.alloc(0)), []);
   /**
    * 固定Repository結合で履歴保持候補を評価する。
    * @responsibility 期間と未確認相関の反例を同じモデル入口へ渡す。
@@ -3521,7 +3719,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     history: Buffer,
     now: unknown,
     days: unknown,
-  ) => prepareCoordinatorHistoryRetention(bytes, history, now, days, binding);
+  ) => prepareHistoryRetention(bytes, history, now, days, binding);
   const exactCutoff = new Date(
     Date.parse(occurredAt) + 30 * 86400000,
   ).toISOString();
@@ -3564,30 +3762,28 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     Buffer.concat([historyLine, historyLine]),
     Buffer.from(historyLine.toString("utf8").replace(/\n$/u, "\r\n")),
     Buffer.from(` ${historyLine.toString("utf8")}`),
-    Buffer.from(`${encodeRuntimeStateValue({ ...row, extra: true })}\n`),
+    Buffer.from(`${encodeStateValue({ ...row, extra: true })}\n`),
+    Buffer.from(`${encodeStateValue({ ...row, occurredAt: "invalid" })}\n`),
     Buffer.from(
-      `${encodeRuntimeStateValue({ ...row, occurredAt: "invalid" })}\n`,
+      `${encodeStateValue({ ...row, summary: { ...row.summary, operationNonce: "0".repeat(64) } })}\n`,
     ),
     Buffer.from(
-      `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, operationNonce: "0".repeat(64) } })}\n`,
+      `${encodeStateValue({ ...row, summary: { ...row.summary, outcome: { ...row.summary.outcome, cleanupConfirmed: false } } })}\n`,
     ),
     Buffer.from(
-      `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, outcome: { ...row.summary.outcome, cleanupConfirmed: false } } })}\n`,
-    ),
-    Buffer.from(
-      `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, primaryFailure: { stage: "unknown" } } })}\n`,
+      `${encodeStateValue({ ...row, summary: { ...row.summary, primaryFailure: { stage: "unknown" } } })}\n`,
     ),
   ]) {
-    assert.equal(decodeCoordinatorHistoryRows(malformed), null);
+    assert.equal(decodeHistoryRows(malformed), null);
     assert.equal(
       retain(confirmedHistoryBytes, malformed, afterCutoff, 30),
       null,
     );
   }
   const differentLine = Buffer.from(
-    `${encodeRuntimeStateValue({ ...row, occurredAt: afterCutoff })}\n`,
+    `${encodeStateValue({ ...row, occurredAt: afterCutoff })}\n`,
   );
-  assert.ok(decodeCoordinatorHistoryRows(differentLine));
+  assert.ok(decodeHistoryRows(differentLine));
   assert.equal(
     retain(pendingHistoryBytes, differentLine, afterCutoff, 30),
     null,
@@ -3601,11 +3797,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     pendingOperation.history.lineSha256,
   );
   assert.deepEqual(
-    prepareCoordinatorStateHistoryLine(
-      confirmedHistoryBytes,
-      recoveryId,
-      binding,
-    ),
+    prepareStateHistoryLine(confirmedHistoryBytes, recoveryId, binding),
     historyLine,
   );
   for (const [bytes, id, root] of [
@@ -3613,7 +3805,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     [pendingHistoryBytes, "other-recovery", binding],
     [pendingHistoryBytes, recoveryId, "wrong-root"],
   ]) {
-    assert.equal(prepareCoordinatorStateHistoryLine(bytes, id, root), null);
+    assert.equal(prepareStateHistoryLine(bytes, id, root), null);
   }
   for (const [date, confirmed] of [
     ["2026-10-09T00:00:00.000Z", true],
@@ -3622,7 +3814,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ["invalid", true],
   ] as const)
     assert.equal(
-      prepareCoordinatorStateHistorySnapshot(
+      prepareStateHistorySnapshot(
         confirmedHistoryBytes,
         recoveryId,
         date,
@@ -3648,9 +3840,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ])
     assert.equal(
-      decodeRuntimeDomainSnapshot(
+      decodeStateSnapshot(
         Buffer.from(
-          `${encodeRuntimeStateValue({ ...pendingHistory.snapshot, operations: [changed] })}\n`,
+          `${encodeStateValue({ ...pendingHistory.snapshot, operations: [changed] })}\n`,
         ),
         binding,
       ),
@@ -3658,13 +3850,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
   assert.deepEqual(
     historyBytes,
-    Buffer.from(`${encodeRuntimeStateValue(historyState)}\n`),
+    Buffer.from(`${encodeStateValue(historyState)}\n`),
   );
-  const prepared = prepareCoordinatorStateOperationSnapshot(
-    null,
-    identityJson,
-    binding,
-  );
+  const prepared = prepareStateOperationSnapshot(null, identityJson, binding);
   assert.ok(prepared);
   const restartScope = "e".repeat(64);
   const restartRequest = {
@@ -3679,16 +3867,16 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     cleanup: "not_required",
     result: null,
   };
-  const restartInitial = prepareCoordinatorStateRestartSnapshot(
+  const restartInitial = prepareStateRestartSnapshot(
     prepared,
     recoveryId,
     restartRequest,
     binding,
   );
   assert.ok(restartInitial);
-  const restartSnapshot = decodeRuntimeDomainSnapshot(restartInitial, binding);
+  const restartSnapshot = decodeStateSnapshot(restartInitial, binding);
   assert.ok(restartSnapshot);
-  const beforeRestart = decodeRuntimeDomainSnapshot(prepared, binding);
+  const beforeRestart = decodeStateSnapshot(prepared, binding);
   assert.ok(beforeRestart);
   assert.deepEqual(
     restartSnapshot.snapshot.operations.find(
@@ -3711,7 +3899,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       cleanup: resourceFrame.cleanup,
       key,
     };
-    const intent = prepareCoordinatorStateResourceSnapshot(
+    const intent = prepareStateResourceSnapshot(
       prepared,
       recoveryId,
       { ...frame, event: "submission" },
@@ -3719,7 +3907,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(intent);
     assert.equal(
-      prepareCoordinatorStateResourceSnapshot(
+      prepareStateResourceSnapshot(
         restartInitial,
         recoveryId,
         { ...frame, event: "submission" },
@@ -3727,7 +3915,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
       null,
     );
-    const initialized = prepareCoordinatorStateRestartSnapshot(
+    const initialized = prepareStateRestartSnapshot(
       intent,
       recoveryId,
       restartRequest,
@@ -3748,14 +3936,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ),
       },
     };
-    const identified = prepareCoordinatorStateResourceSnapshot(
+    const identified = prepareStateResourceSnapshot(
       initialized,
       recoveryId,
       { ...receiptFrame, event: "identified" },
       binding,
     );
     assert.ok(identified);
-    const identifiedState = decodeRuntimeDomainSnapshot(identified, binding);
+    const identifiedState = decodeStateSnapshot(identified, binding);
     const task = identifiedState?.snapshot.operations[0];
     assert.ok(task?.kind === "docker_task" && task.resources);
     const observations = task.resources.checkpoints.map((c) => ({
@@ -3763,17 +3951,17 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       observation: c.key === key ? "absent" : "not_requested",
     }));
     assert.ok(
-      prepareCoordinatorStateCleanupSnapshot(
+      prepareStateCleanupSnapshot(
         identified,
         recoveryId,
         { snapshot: task.resources.snapshot, observations },
         binding,
       ),
     );
-    const progressed = decodeRuntimeDomainSnapshot(intent, binding);
+    const progressed = decodeStateSnapshot(intent, binding);
     assert.ok(progressed);
     const simultaneous = Buffer.from(
-      `${encodeRuntimeStateValue({
+      `${encodeStateValue({
         ...progressed.snapshot,
         operations: progressed.snapshot.operations.map((op) => ({
           ...op,
@@ -3782,7 +3970,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       })}\n`,
     );
     assert.equal(
-      validateCoordinatorStateTransition(prepared, simultaneous, binding),
+      validateStateTransition(prepared, simultaneous, binding),
       false,
       "再起動と新Intentを同時確定しない",
     );
@@ -3794,15 +3982,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { ...restartRequest, extra: true },
   ])
     assert.equal(
-      prepareCoordinatorStateRestartSnapshot(
-        prepared,
-        recoveryId,
-        value,
-        binding,
-      ),
+      prepareStateRestartSnapshot(prepared, recoveryId, value, binding),
       null,
     );
-  const restartPending = prepareCoordinatorStateRestartSnapshot(
+  const restartPending = prepareStateRestartSnapshot(
     restartInitial,
     recoveryId,
     { ...restartRequest, request: "unknown", cleanup: "pending" },
@@ -3810,7 +3993,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   assert.ok(restartPending);
   assert.equal(
-    prepareCoordinatorStateRestartSnapshot(
+    prepareStateRestartSnapshot(
       restartPending,
       recoveryId,
       restartRequest,
@@ -3819,12 +4002,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     null,
   );
   assert.equal(
-    prepareCoordinatorStateRestartSnapshot(
-      restartInitial,
-      recoveryId,
-      null,
-      binding,
-    ),
+    prepareStateRestartSnapshot(restartInitial, recoveryId, null, binding),
     null,
   );
   for (const invalidIdentity of [
@@ -3841,7 +4019,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { ...identity, resources: { auth: "invalid" } },
   ]) {
     assert.equal(
-      prepareCoordinatorStateOperationSnapshot(
+      prepareStateOperationSnapshot(
         null,
         `${JSON.stringify(invalidIdentity)}\n`,
         binding,
@@ -3849,20 +4027,17 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
   }
-  const preparedState = decodeRuntimeDomainSnapshot(prepared, binding);
+  const preparedState = decodeStateSnapshot(prepared, binding);
   assert.ok(preparedState);
   for (const consumer of ["coordinator_cli", "orchestrator", "workbench"]) {
     const consumerIdentity = `${JSON.stringify({ ...identity, consumer })}\n`;
-    const consumerSnapshot = prepareCoordinatorStateOperationSnapshot(
+    const consumerSnapshot = prepareStateOperationSnapshot(
       null,
       consumerIdentity,
       binding,
     );
     assert.ok(consumerSnapshot);
-    const consumerState = decodeRuntimeDomainSnapshot(
-      consumerSnapshot,
-      binding,
-    );
+    const consumerState = decodeStateSnapshot(consumerSnapshot, binding);
     assert.ok(consumerState);
     const consumerOperation = consumerState.snapshot.operations.find(
       (item) => item.kind === "docker_task",
@@ -3877,9 +4052,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         payloadSha256: preparedState.payloadSha256,
       };
       assert.equal(
-        validateCoordinatorStateTransition(
+        validateStateTransition(
           prepared,
-          Buffer.from(`${encodeRuntimeStateValue(replacement)}\n`),
+          Buffer.from(`${encodeStateValue(replacement)}\n`),
           binding,
         ),
         false,
@@ -3898,7 +4073,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ...initialOperation.host,
     pendingTransitionJson: `${JSON.stringify(transition)}\n`,
   };
-  const hostIntentBytes = prepareCoordinatorStateHostSnapshot(
+  const hostIntentBytes = prepareStateHostSnapshot(
     prepared,
     recoveryId,
     hostIntent,
@@ -3910,7 +4085,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     currentToken: expectedToken,
     pendingTransitionJson: null,
   };
-  const hostReceiptBytes = prepareCoordinatorStateHostSnapshot(
+  const hostReceiptBytes = prepareStateHostSnapshot(
     hostIntentBytes,
     recoveryId,
     hostReceipt,
@@ -3918,19 +4093,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   assert.ok(hostReceiptBytes);
   assert.equal(
-    decodeRuntimeDomainSnapshot(
-      hostReceiptBytes,
-      binding,
-    )?.snapshot.operations.find((item) => item.kind === "docker_task")?.host
-      .currentToken,
+    decodeStateSnapshot(hostReceiptBytes, binding)?.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    )?.host.currentToken,
     expectedToken,
   );
   assert.deepEqual(
-    decodeRuntimeDomainSnapshot(
-      hostReceiptBytes,
-      binding,
-    )?.snapshot.operations.find((item) => item.kind === "docker_task")
-      ?.resources,
+    decodeStateSnapshot(hostReceiptBytes, binding)?.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    )?.resources,
     initialOperation.resources,
   );
   for (const [before, update] of [
@@ -3942,12 +4113,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       prepared,
       {
         ...hostIntent,
-        pendingTransitionJson: `${encodeRuntimeStateValue(transition)}\n`,
+        pendingTransitionJson: `${encodeStateValue(transition)}\n`,
       },
     ],
   ]) {
     assert.equal(
-      prepareCoordinatorStateHostSnapshot(before, recoveryId, update, binding),
+      prepareStateHostSnapshot(before, recoveryId, update, binding),
       null,
     );
   }
@@ -3957,7 +4128,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     cleanup: resourceFrame.cleanup,
     key: "create_provider",
   };
-  const intent = prepareCoordinatorStateResourceSnapshot(
+  const intent = prepareStateResourceSnapshot(
     prepared,
     recoveryId,
     { ...frame, event: "submission" },
@@ -3979,7 +4150,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
     },
   };
-  const receiptCandidate = prepareCoordinatorStateResourceSnapshot(
+  const receiptCandidate = prepareStateResourceSnapshot(
     intent,
     recoveryId,
     directReceipt,
@@ -3987,16 +4158,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   assert.ok(receiptCandidate);
   assert.equal(
-    classifyCoordinatorResourcePublication(
-      intent,
-      receiptCandidate,
-      recoveryId,
-      binding,
-    ),
+    classifyResourcePublication(intent, receiptCandidate, recoveryId, binding),
     "publish_pending",
   );
   assert.equal(
-    classifyCoordinatorResourcePublication(
+    classifyResourcePublication(
       receiptCandidate,
       receiptCandidate,
       recoveryId,
@@ -4018,21 +4184,21 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ],
   ])
     assert.equal(
-      classifyCoordinatorResourcePublication(before, candidate, id, repository),
+      classifyResourcePublication(before, candidate, id, repository),
       null,
     );
   const alteredPublication = JSON.parse(receiptCandidate.toString());
   alteredPublication.operations[0].execution.externalSend = "unknown";
   assert.equal(
-    classifyCoordinatorResourcePublication(
+    classifyResourcePublication(
       intent,
-      Buffer.from(`${encodeRuntimeStateValue(alteredPublication)}\n`),
+      Buffer.from(`${encodeStateValue(alteredPublication)}\n`),
       recoveryId,
       binding,
     ),
     null,
   );
-  const notIssued = prepareCoordinatorStateResourceSnapshot(
+  const notIssued = prepareStateResourceSnapshot(
     intent,
     recoveryId,
     { event: "not_issued", key: frame.key },
@@ -4040,7 +4206,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   assert.ok(notIssued);
   assert.equal(
-    prepareCoordinatorStateResourceSnapshot(
+    prepareStateResourceSnapshot(
       receiptCandidate,
       recoveryId,
       { event: "not_issued", key: frame.key },
@@ -4065,7 +4231,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { event: "unknown", key: frame.key },
   ])
     assert.equal(
-      prepareCoordinatorStateResourceSnapshot(
+      prepareStateResourceSnapshot(
         receiptCandidate,
         recoveryId,
         invalid,
@@ -4074,19 +4240,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
   assert.equal(
-    prepareCoordinatorStateResourceSnapshot(
-      prepared,
-      recoveryId,
-      directReceipt,
-      binding,
-    ),
+    prepareStateResourceSnapshot(prepared, recoveryId, directReceipt, binding),
     null,
     "Receipt前にIntent必須",
   );
-  const identifiedState = decodeRuntimeDomainSnapshot(
-    receiptCandidate,
-    binding,
-  );
+  const identifiedState = decodeStateSnapshot(receiptCandidate, binding);
   const identifiedOperation = identifiedState?.snapshot.operations[0];
   assert.ok(
     identifiedOperation?.kind === "docker_task" &&
@@ -4099,14 +4257,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       observation: c.key === frame.key ? "absent" : "not_requested",
     })),
   };
-  const cleanupBytes = prepareCoordinatorStateCleanupSnapshot(
+  const cleanupBytes = prepareStateCleanupSnapshot(
     receiptCandidate,
     recoveryId,
     cleanupPayload,
     binding,
   );
   assert.ok(cleanupBytes);
-  const cleanupState = decodeRuntimeDomainSnapshot(cleanupBytes, binding);
+  const cleanupState = decodeStateSnapshot(cleanupBytes, binding);
   const cleanupTask = cleanupState?.snapshot.operations[0];
   assert.ok(cleanupTask?.kind === "docker_task" && cleanupTask.resources);
   assert.equal(
@@ -4166,7 +4324,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ])
     assert.equal(
-      prepareCoordinatorStateCleanupSnapshot(
+      prepareStateCleanupSnapshot(
         receiptCandidate,
         recoveryId,
         invalid,
@@ -4183,7 +4341,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   });
   assert.equal(
-    prepareCoordinatorStateResourceSnapshot(
+    prepareStateResourceSnapshot(
       prepared,
       recoveryId,
       hostileResource,
@@ -4199,7 +4357,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   });
   assert.equal(
-    prepareCoordinatorStateCleanupSnapshot(
+    prepareStateCleanupSnapshot(
       receiptCandidate,
       recoveryId,
       hostileCleanup,
@@ -4215,7 +4373,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     stableLogicalHomeBindingHash: "e".repeat(64),
   })}\n`;
   assert.equal(
-    prepareCoordinatorStateOperationSnapshot(
+    prepareStateOperationSnapshot(
       prepared,
       `${JSON.stringify({ ...identity, operationNonce: "0".repeat(64), operationId: "OP-654321" })}\n`,
       binding,
@@ -4223,23 +4381,23 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     null,
     "未終了の同Home操作を追加しない",
   );
-  const twoOperations = prepareCoordinatorStateOperationSnapshot(
+  const twoOperations = prepareStateOperationSnapshot(
     prepared,
     secondIdentityJson,
     binding,
   );
   assert.ok(twoOperations);
-  const twoState = decodeRuntimeDomainSnapshot(twoOperations, binding);
+  const twoState = decodeStateSnapshot(twoOperations, binding);
   assert.ok(twoState);
   assert.equal(twoState.snapshot.operations.length, 2);
-  const twoRestart = prepareCoordinatorStateRestartSnapshot(
+  const twoRestart = prepareStateRestartSnapshot(
     twoOperations,
     recoveryId,
     restartRequest,
     binding,
   );
   assert.ok(twoRestart);
-  const updatedRestarts = decodeRuntimeDomainSnapshot(twoRestart, binding);
+  const updatedRestarts = decodeStateSnapshot(twoRestart, binding);
   assert.ok(updatedRestarts);
   assert.deepEqual(
     updatedRestarts.snapshot.operations,
@@ -4266,7 +4424,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
   };
   assert.equal(
-    prepareCoordinatorStateRestartSnapshot(
+    prepareStateRestartSnapshot(
       twoRestart,
       otherOperation.recoveryId,
       otherRestart,
@@ -4275,7 +4433,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     null,
     "同じSnapshot内の未解決要求を二件にしない",
   );
-  const firstRestartPending = prepareCoordinatorStateRestartSnapshot(
+  const firstRestartPending = prepareStateRestartSnapshot(
     twoRestart,
     recoveryId,
     { ...restartRequest, request: "unknown", cleanup: "pending" },
@@ -4286,7 +4444,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const requestBeforeResult =
       checkpointRequest === "unknown"
         ? firstRestartPending
-        : prepareCoordinatorStateRestartSnapshot(
+        : prepareStateRestartSnapshot(
             firstRestartPending,
             recoveryId,
             { ...restartRequest, request: "issued", cleanup: "pending" },
@@ -4295,7 +4453,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(requestBeforeResult);
     for (const finalRequest of ["not_issued", "unknown", "issued", "confirmed"])
       for (const effectOutcomeUnknown of [false, true]) {
-        const settled = prepareCoordinatorStateRestartSnapshot(
+        const settled = prepareStateRestartSnapshot(
           requestBeforeResult,
           recoveryId,
           {
@@ -4317,7 +4475,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         }
         assert.ok(settled);
         assert.equal(
-          prepareCoordinatorStateRestartSnapshot(
+          prepareStateRestartSnapshot(
             settled,
             otherOperation.recoveryId,
             otherRestart,
@@ -4342,39 +4500,32 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     payloadSha256: preparedState.payloadSha256,
   });
   assert.equal(
-    prepareCoordinatorStateOperationSnapshot(
-      prepared,
-      secondIdentityJson,
-      "f".repeat(64),
-    ),
+    prepareStateOperationSnapshot(prepared, secondIdentityJson, "f".repeat(64)),
     null,
   );
   assert.equal(initialOperation.resources, null);
   assert.equal(
-    prepareCoordinatorStateOperationSnapshot(prepared, identityJson, binding),
+    prepareStateOperationSnapshot(prepared, identityJson, binding),
     null,
   );
-  const fromEmpty = prepareCoordinatorStateOperationSnapshot(
-    Buffer.from(`${encodeRuntimeStateValue(empty)}\n`),
+  const fromEmpty = prepareStateOperationSnapshot(
+    Buffer.from(`${encodeStateValue(empty)}\n`),
     identityJson,
     binding,
   );
   assert.ok(fromEmpty);
-  assert.deepEqual(
-    decodeRuntimeDomainSnapshot(fromEmpty, binding)?.snapshot.previous,
-    { revision: 1, payloadSha256: hashRuntimeStateContent(empty) },
-  );
+  assert.deepEqual(decodeStateSnapshot(fromEmpty, binding)?.snapshot.previous, {
+    revision: 1,
+    payloadSha256: hashExecutionStateContent(empty),
+  });
   for (const invalid of [
     "invalid",
     JSON.stringify(identity),
     `${JSON.stringify({ ...identity, operationNonce: "invalid" })}\n`,
   ])
-    assert.equal(
-      prepareCoordinatorStateOperationSnapshot(null, invalid, binding),
-      null,
-    );
+    assert.equal(prepareStateOperationSnapshot(null, invalid, binding), null);
   assert.equal(
-    prepareCoordinatorStateOperationSnapshot(
+    prepareStateOperationSnapshot(
       Buffer.from("invalid"),
       identityJson,
       binding,
@@ -4418,15 +4569,15 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     assert.equal(
-      decodeRuntimeDomainSnapshot(
-        Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+      decodeStateSnapshot(
+        Buffer.from(`${encodeStateValue(invalid)}\n`),
         binding,
       ),
       null,
     );
   }
-  const accepted = decodeRuntimeDomainSnapshot(
-    Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`),
+  const accepted = decodeStateSnapshot(
+    Buffer.from(`${encodeStateValue(snapshot)}\n`),
     binding,
   );
   assert.ok(accepted);
@@ -4449,7 +4600,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
     {
       ...operation,
-      identityJson: `${encodeRuntimeStateValue(identity)}\n`,
+      identityJson: `${encodeStateValue(identity)}\n`,
     },
     {
       ...operation,
@@ -4466,14 +4617,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ...operation,
       host: {
         ...operation.host,
-        pendingTransitionJson: `${encodeRuntimeStateValue(transition)}\n`,
+        pendingTransitionJson: `${encodeStateValue(transition)}\n`,
       },
     },
   ])
     assert.equal(
-      decodeRuntimeDomainSnapshot(
+      decodeStateSnapshot(
         Buffer.from(
-          `${encodeRuntimeStateValue({
+          `${encodeStateValue({
             ...snapshot,
             operations: [replacement],
           })}\n`,
@@ -4494,25 +4645,22 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ],
   };
   assert.equal(
-    decodeRuntimeDomainSnapshot(
-      Buffer.from(`${encodeRuntimeStateValue(orphan)}\n`),
-      binding,
-    ),
+    decodeStateSnapshot(Buffer.from(`${encodeStateValue(orphan)}\n`), binding),
     null,
   );
-  const currentBytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
+  const currentBytes = Buffer.from(`${encodeStateValue(snapshot)}\n`);
   const next = {
     ...snapshot,
     revision: 2,
     previous: {
       revision: 1,
-      payloadSha256: hashRuntimeStateContent(snapshot),
+      payloadSha256: hashExecutionStateContent(snapshot),
     },
   };
   assert.equal(
-    validateCoordinatorStateTransition(
+    validateStateTransition(
       currentBytes,
-      Buffer.from(`${encodeRuntimeStateValue(next)}\n`),
+      Buffer.from(`${encodeStateValue(next)}\n`),
       binding,
     ),
     true,
@@ -4575,9 +4723,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ])
     assert.equal(
-      validateCoordinatorStateTransition(
+      validateStateTransition(
         currentBytes,
-        Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+        Buffer.from(`${encodeStateValue(invalid)}\n`),
         binding,
       ),
       false,
@@ -4622,7 +4770,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     ],
   };
-  const stoppedBytes = Buffer.from(`${encodeRuntimeStateValue(stopped)}\n`);
+  const stoppedBytes = Buffer.from(`${encodeStateValue(stopped)}\n`);
   const lifecycle = {
     phase: operation.phase,
     lease: operation.lease,
@@ -4632,14 +4780,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ?.outcome,
     summarySha256: null,
   };
-  const lifecycleBytes = prepareCoordinatorStateLifecycleSnapshot(
+  const lifecycleBytes = prepareStateLifecycleSnapshot(
     currentBytes,
     recoveryId,
     lifecycle,
     binding,
   );
   assert.ok(lifecycleBytes);
-  const lifecycleState = decodeRuntimeDomainSnapshot(lifecycleBytes, binding);
+  const lifecycleState = decodeStateSnapshot(lifecycleBytes, binding);
   assert.ok(lifecycleState);
   assert.deepEqual(
     lifecycleState.snapshot.operations.find(
@@ -4663,7 +4811,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     recovery: stopped.unresolvedRecoveries[0],
     deliveries: stopped.pendingDeliveries,
   };
-  const referencesBytes = prepareCoordinatorStateReferencesSnapshot(
+  const referencesBytes = prepareStateReferencesSnapshot(
     lifecycleBytes,
     recoveryId,
     references,
@@ -4674,14 +4822,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ...references,
     deliveries: stopped.pendingDeliveries,
   };
-  const acceptedBytes = prepareCoordinatorStateReferencesSnapshot(
+  const acceptedBytes = prepareStateReferencesSnapshot(
     referencesBytes,
     recoveryId,
     acceptedReferences,
     binding,
   );
   assert.ok(acceptedBytes);
-  const acceptedState = decodeRuntimeDomainSnapshot(acceptedBytes, binding);
+  const acceptedState = decodeStateSnapshot(acceptedBytes, binding);
   assert.deepEqual(
     acceptedState?.snapshot.operations,
     lifecycleState.snapshot.operations,
@@ -4722,7 +4870,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { ...acceptedReferences, extra: true },
   ]) {
     assert.equal(
-      prepareCoordinatorStateReferencesSnapshot(
+      prepareStateReferencesSnapshot(
         acceptedBytes,
         recoveryId,
         invalid,
@@ -4754,7 +4902,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { phase: lifecycle.phase },
   ]) {
     assert.equal(
-      prepareCoordinatorStateLifecycleSnapshot(
+      prepareStateLifecycleSnapshot(
         lifecycleBytes,
         recoveryId,
         invalid,
@@ -4768,14 +4916,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     revision: 2,
     previous: {
       revision: 1,
-      payloadSha256: hashRuntimeStateContent(stopped),
+      payloadSha256: hashExecutionStateContent(stopped),
     },
   };
   assert.equal(
-    validateCoordinatorStateTransition(
+    validateStateTransition(
       stoppedBytes,
       Buffer.from(
-        `${encodeRuntimeStateValue({ ...stoppedNext, operations: [{ ...stopped.operations.find((item) => item.kind === "docker_task"), outcome: { ...stopped.operations.find((item) => item.kind === "docker_task")?.outcome, cleanupConfirmed: true } }] })}\n`,
+        `${encodeStateValue({ ...stoppedNext, operations: [{ ...stopped.operations.find((item) => item.kind === "docker_task"), outcome: { ...stopped.operations.find((item) => item.kind === "docker_task")?.outcome, cleanupConfirmed: true } }] })}\n`,
       ),
       binding,
     ),
@@ -4845,11 +4993,442 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
   ])
     assert.equal(
-      validateCoordinatorStateTransition(
+      validateStateTransition(
         stoppedBytes,
-        Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+        Buffer.from(`${encodeStateValue(invalid)}\n`),
         binding,
       ),
       false,
     );
 });
+
+import {
+  prepareAuthenticationUnknownClosureSnapshot,
+  prepareStateCleanupSnapshot,
+  prepareStateHistoryLine,
+  prepareStateHistorySnapshot,
+  prepareStateLifecycleSnapshot,
+  prepareStateReferencesSnapshot,
+  prepareStateResourceSnapshot,
+  prepareStateRestartSnapshot,
+  prepareStateResultDeliverySnapshot,
+} from "../../../src/state/validation.ts";
+
+/**
+ * 初期Hostの保存モデル条件を実Host観測と分けて反証する。
+ * @responsibility 全文一致・未解決参照・再起動終了の各条件と依存到達を維持する。
+ * @trace PRL-UT-006
+ * @precondition 有限の正規Operation fixtureを用いる。
+ * @stimulus codec合法な一軸差分と、本文比較・再起動guardのメモリ変異。
+ * @observation 正常の肯定、合法負例30件、各変異の拒否Oracle違反。
+ * @oracle 許された退役・清掃差分と終了済み再起動以外はfalse。
+ * @cleanup N/A: 値とSource読取りのみ。
+ * @boundary EM内部の純粋モデル。Host・Docker・実保存を扱わない。
+ */
+test("初期Hostモデルは全文差分・参照・未終了再起動を拒否する", () => {
+  const f = createResourceOperationFixture();
+  const before = JSON.parse(f.bytes.toString("utf8"));
+  const target = before.operations[0];
+  const identity = f.identity;
+  const stateModel = {
+    prepareStateOperationSnapshot,
+    decodeStateSnapshot,
+    applyResourceEvent,
+    applyResourceCleanup,
+  };
+  const source = fs.readFileSync(
+    new URL("../../../src/state/validation.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("function isInitialOperationHost(");
+  const boundary = source.indexOf("\n/**", start);
+  const end = boundary < 0 ? source.length : boundary;
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(source.slice(start, end));
+  const evaluate = runInThisContext(
+    `(function(prepareStateOperationSnapshot, decodeStateSnapshot, encodeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isInitialOperationHost; })`,
+  )(
+    prepareStateOperationSnapshot,
+    stateModel.decodeStateSnapshot,
+    encodeStateValue,
+    isDockerRestartCheckpointSettled,
+  );
+  const comparisonStart = body.lastIndexOf("return (");
+  assert.ok(comparisonStart > 0);
+  assert.equal(body.split("encodeStateValue(operation)").length - 1, 1);
+  const comparisonOmitted = `${body.slice(0, comparisonStart)}return true;\n}`;
+  assert.notEqual(comparisonOmitted, body);
+  const evaluateMutant = runInThisContext(
+    `(function(prepareStateOperationSnapshot, decodeStateSnapshot, encodeStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isInitialOperationHost; })`,
+  )(
+    prepareStateOperationSnapshot,
+    stateModel.decodeStateSnapshot,
+    encodeStateValue,
+    isDockerRestartCheckpointSettled,
+  );
+  let legalRejections = 0;
+  /**
+   * codec合法な非初期操作を同じ拒否Oracleへ渡す。
+   * @responsibility codec拒否と初期切断の限定判定を区別し、全文比較省略を検出する。
+   * @trace PRL-UT-006
+   * @trace PRL-UT-006
+   * @precondition 実試験Identityを保持し、一軸だけ変更した操作を受け取る。
+   * @stimulus 同じSnapshotへ戻してdecodeし、元判定とメモリ変異へ同じ引数を渡す。
+   * @observation decode成功、元判定false、比較省略変異trueと到達数。
+   * @oracle 合法負例は元判定だけが拒否し、同じfalse Oracleが変異を検出する。
+   * @cleanup N/A: メモリ内だけで実Sourceと保存本文を変更しない。
+   * @boundary 保存値の合法性と意味上の初期切断判定。物理Host観測の代用ではない。
+   */
+  function assertLegalRejected(changed: typeof target): void {
+    const candidate = structuredClone(before);
+    candidate.operations = candidate.operations.map((item: typeof target) =>
+      item.recoveryId === changed.recoveryId ? changed : item,
+    );
+    const decoded = stateModel.decodeStateSnapshot(
+      Buffer.from(`${encodeStateValue(candidate)}\n`),
+      before.repositoryBinding,
+    );
+    assert.ok(decoded, "negative_must_be_codec_legal");
+    const args = [
+      changed,
+      decoded.snapshot,
+      changed.host.currentToken,
+      "host_only",
+    ];
+    assert.equal(evaluate(...args), false);
+    assert.throws(() => assert.equal(evaluateMutant(...args), false));
+    legalRejections++;
+  }
+  const retired = structuredClone(target);
+  retired.phase = "settling";
+  retired.execution.ownerEffect = "disabled";
+  for (const cleanup of ["not_requested", "pending"]) {
+    retired.host.cleanup = cleanup;
+    assert.equal(
+      evaluate(retired, before, retired.host.currentToken, "host_only"),
+      true,
+    );
+  }
+  const settledRestart = {
+    requestId: createDockerRestartRequestId(
+      before.repositoryBinding,
+      retired.identitySha256,
+      retired.recoveryId,
+      "b".repeat(64),
+    ),
+    scopeSha256: "b".repeat(64),
+    request: "unknown",
+    cleanup: "confirmed",
+    result: {
+      status: "blocked",
+      reason: "docker_restart_stop_unconfirmed",
+      request: "not_issued",
+      effectOutcomeUnknown: false,
+    },
+  };
+  const restartGuard =
+    "!isDockerRestartCheckpointSettled(operation.dockerRestart)";
+  assert.equal(body.split(restartGuard).length - 1, 1);
+  const guardMutant = runInThisContext(
+    `(function(prepareStateOperationSnapshot, decodeStateSnapshot, encodeStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isInitialOperationHost; })`,
+  )(
+    prepareStateOperationSnapshot,
+    stateModel.decodeStateSnapshot,
+    encodeStateValue,
+    isDockerRestartCheckpointSettled,
+  );
+  const restartOperation = {
+    ...retired,
+    dockerRestart: settledRestart,
+  };
+  /**
+   * 実操作へ相関した候補の合法性を確認して評価引数へ戻す。
+   * @responsibility codec拒否と初期Taskの意味上の拒否を分離する。
+   * @trace PRL-UT-006
+   * @precondition 同じIdentityを保持した候補操作を受け取る。
+   * @stimulus 元Snapshotへ差し戻して実codecで復号する。
+   * @observation 復号成功と対象操作の存在。
+   * @oracle 不合法な候補をguardの負例として数えない。
+   * @cleanup N/A: メモリだけを使用する。
+   * @boundary 現在状態codecと純粋な初期Task判定。
+   */
+  function restartEvaluationArgs(changed: unknown): unknown[] {
+    const candidate = structuredClone(before);
+    candidate.operations = candidate.operations.map((item: typeof target) =>
+      item.recoveryId === retired.recoveryId ? changed : item,
+    );
+    const decoded = stateModel.decodeStateSnapshot(
+      Buffer.from(`${encodeStateValue(candidate)}\n`),
+      before.repositoryBinding,
+    );
+    assert.ok(decoded, "restart_candidate_must_be_codec_legal");
+    const operation = decoded.snapshot.operations.find(
+      (item) => item.recoveryId === retired.recoveryId,
+    );
+    assert.ok(operation);
+    return [
+      operation,
+      decoded.snapshot,
+      retired.host.currentToken,
+      "host_only",
+    ];
+  }
+  const restartArgs = restartEvaluationArgs(restartOperation);
+  assert.equal(evaluate(...restartArgs), true);
+  const changedLeaseArgs = restartEvaluationArgs({
+    ...restartOperation,
+    lease: "released",
+  });
+  assert.equal(evaluate(...changedLeaseArgs), false);
+  assert.throws(() => assert.equal(evaluateMutant(...changedLeaseArgs), false));
+  for (const checkpoint of [
+    { ...settledRestart, cleanup: "unknown" },
+    { ...settledRestart, result: null },
+    {
+      ...settledRestart,
+      result: { ...settledRestart.result, effectOutcomeUnknown: true },
+    },
+    {
+      ...settledRestart,
+      result: { ...settledRestart.result, request: "unknown" },
+    },
+  ]) {
+    const args = restartEvaluationArgs({
+      ...restartOperation,
+      dockerRestart: checkpoint,
+    });
+    assert.equal(evaluate(...args), false);
+    assert.throws(() => assert.equal(guardMutant(...args), false));
+  }
+  for (const field of [
+    "phase",
+    "lease",
+    "dockerRestart",
+    "primaryFailure",
+    "outcome",
+    "summarySha256",
+    "history",
+  ]) {
+    const changed = structuredClone(retired);
+    changed[field] =
+      field === "phase"
+        ? "awaiting_delivery"
+        : field === "lease"
+          ? "released"
+          : { changed: true };
+    assert.equal(
+      evaluate(changed, before, changed.host.currentToken, "host_only"),
+      false,
+      field,
+    );
+  }
+  for (const field of Object.keys(retired.execution)) {
+    const changed = structuredClone(retired);
+    changed.execution[field] =
+      field === "workspaceReusable"
+        ? true
+        : field === "ownerEffect"
+          ? "active"
+          : "unknown";
+    if (field === "workspaceReusable") {
+      // codec自体が常にfalseを要求する項目で、合法負例には数えない。
+      const invalid = structuredClone(before);
+      invalid.operations = invalid.operations.map((item: typeof target) =>
+        item.recoveryId === changed.recoveryId ? changed : item,
+      );
+      assert.equal(
+        stateModel.decodeStateSnapshot(
+          Buffer.from(`${encodeStateValue(invalid)}\n`),
+          before.repositoryBinding,
+        ),
+        null,
+      );
+      assert.equal(
+        evaluate(changed, before, changed.host.currentToken, "host_only"),
+        false,
+      );
+    } else assertLegalRejected(changed);
+  }
+  for (let index = 0; index < 5; index++) {
+    const frame = createResourceBookFixture(
+      identity.ownershipLabel,
+      "planned",
+      [
+        "create_egress_network",
+        "create_internal_network",
+        "create_provider",
+        "create_proxy",
+        "create_subscription_auth_probe",
+      ],
+    );
+    const resource = frame.snapshot.resources[index];
+    assert.ok(resource);
+    for (const variant of [
+      "intent",
+      "not_issued",
+      "receipt",
+      "unknown",
+      "absent",
+    ]) {
+      let book = stateModel.applyResourceEvent(null, {
+        event: "submission",
+        key: resource.key,
+        snapshot: frame.snapshot,
+        cleanup: frame.cleanup,
+      });
+      assert.ok(book);
+      if (variant === "not_issued")
+        book = stateModel.applyResourceEvent(book, {
+          event: "not_issued",
+          key: resource.key,
+        });
+      if (variant === "receipt" || variant === "absent") {
+        const snapshot = {
+          resources: frame.snapshot.resources.map((r) =>
+            r.key === resource.key
+              ? {
+                  ...r,
+                  request: "issued" as const,
+                  identity: { ...r.identity, dockerId: "f".repeat(64) },
+                }
+              : r,
+          ),
+        };
+        book = stateModel.applyResourceEvent(book, {
+          event: "receipt",
+          key: resource.key,
+          snapshot,
+          cleanup: frame.cleanup,
+        });
+        assert.ok(book);
+        if (variant === "absent")
+          book = stateModel.applyResourceCleanup(
+            book,
+            snapshot,
+            snapshot.resources.map((r) => ({
+              key: r.key,
+              observation: r.key === resource.key ? "absent" : "not_requested",
+            })),
+            {
+              recoveryId: retired.recoveryId,
+              previousPayloadSha256: "a".repeat(64),
+            },
+          );
+      }
+      if (variant === "unknown") {
+        assert.ok(book);
+        book = stateModel.applyResourceCleanup(
+          book,
+          book.snapshot,
+          book.snapshot.resources.map((r) => ({
+            key: r.key,
+            observation: r.key === resource.key ? "unknown" : "not_requested",
+          })),
+          {
+            recoveryId: retired.recoveryId,
+            previousPayloadSha256: "a".repeat(64),
+          },
+        );
+      }
+      assert.ok(book);
+      const changed = structuredClone(retired);
+      changed.resources = book;
+      assertLegalRejected(changed);
+    }
+    const valid = createResourceBookFixture(
+      identity.ownershipLabel,
+      "absent",
+      frame.snapshot.resources.map((r) => r.key),
+    );
+    for (const field of [
+      "dockerId",
+      "receiptSource",
+      "observation",
+      "absenceEvidenceSha256",
+    ]) {
+      const changed = structuredClone(retired);
+      changed.resources = structuredClone(valid);
+      if (field === "dockerId")
+        changed.resources.snapshot.resources[index].identity.dockerId =
+          "changed";
+      else changed.resources.checkpoints[index][field] = "changed";
+      assert.equal(
+        evaluate(changed, before, changed.host.currentToken, "host_only"),
+        false,
+        index + ":" + field,
+      );
+    }
+  }
+  const initialHost = {
+    parsed: {
+      rootName: identity.initialHostRecovery.record.rootName,
+      nonce: identity.initialHostRecoveryId.split(".")[2],
+    },
+    record: identity.initialHostRecovery.record,
+  };
+  const successor = structuredClone(retired);
+  successor.host.currentToken = `host.${initialHost.parsed.rootName}.${initialHost.parsed.nonce}.${createHash(
+    "sha256",
+  )
+    .update(
+      `${JSON.stringify({ ...initialHost.record, state: "docker_submission_started" })}\n`,
+    )
+    .digest("hex")}`;
+  assertLegalRejected(successor);
+  assert.equal(legalRejections, 30);
+  for (const field of ["currentToken", "pendingTransitionJson", "cleanup"]) {
+    const changed = structuredClone(retired);
+    changed.host[field] = "changed";
+    assert.equal(
+      evaluate(changed, before, changed.host.currentToken, "host_only"),
+      false,
+      field,
+    );
+  }
+  for (const collection of ["unresolvedRecoveries", "pendingDeliveries"]) {
+    for (const key of ["recoveryId", "operationNonce"]) {
+      const changed = structuredClone(before);
+      changed[collection].push({
+        [key]:
+          key === "recoveryId" ? retired.recoveryId : identity.operationNonce,
+      });
+      assert.equal(
+        evaluate(retired, changed, retired.host.currentToken, "host_only"),
+        false,
+        `${collection}:${key}`,
+      );
+    }
+  }
+
+  const dependencies = {
+    prepareStateOperationSnapshot,
+    decodeStateSnapshot,
+    encodeStateValue,
+    isDockerRestartCheckpointSettled,
+  };
+  for (const omitted of Object.keys(dependencies)) {
+    const keys = Object.keys(dependencies);
+    const invoke = runInThisContext(
+      "(function(" +
+        keys.join(",") +
+        ") { " +
+        body +
+        "; return isInitialOperationHost; })",
+    )(
+      ...Object.entries(dependencies).map(([key, value]) =>
+        key === omitted ? undefined : value,
+      ),
+    );
+    assert.throws(
+      () => invoke(retired, before),
+      { name: "TypeError" },
+      omitted,
+    );
+  }
+});
+
+import {
+  applyResourceCleanup,
+  isDockerRestartCheckpointSettled,
+} from "../../../src/index.ts";
+import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";

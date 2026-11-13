@@ -4,6 +4,7 @@
  * @scope 保存読取り代役と本番相関判定。Git変更・Providerなし。
  * @responsibility Hash形式、対象、欠測と過去失敗の区別。
  * @trace CPR-UT-009
+ * @trace RFD-UT-030
  * @level UT
  * @boundary 保存読取りだけを代役にし、本番判定本文を実行する。Git／Providerなし。
  */
@@ -79,7 +80,7 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
   let snapshot: unknown;
   const verifiedRoot = Object.freeze({});
   const ready = new Function(
-    "readCoordinatorWorkspaceState",
+    "readState",
     "verifyRuntimePersistenceRepository",
     "validWorkspaceCandidateRequest",
     `${code}; return workspacePlanReadyForAcceptance;`,
@@ -185,5 +186,101 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
   assert.equal(
     ready("root", "binding", "project", "milestone", base, head),
     false,
+  );
+});
+
+/**
+ * @trace RFD-UT-030
+ * @responsibility 要求量では拒否せず、固定候補操作の閉形式を検査する。
+ * @precondition 純粋なコマンド入力だけを使用する。
+ * @stimulus 1001選択と101関連変更を渡す。
+ * @observation 凍結操作と全件数。
+ * @oracle 内容を切り詰めず同じ要求を返す。
+ * @cleanup 外部資源なし。
+ * @boundary Coordinator入力検査。Git操作なし。
+ */
+test("固定候補操作は旧件数を超える入力を保持する", () => {
+  const WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
+  const COMMIT = "a".repeat(40);
+  const many = {
+    relatedChangeIds: Array.from(
+      { length: 101 },
+      (_, i) => "CHG-" + String(i).padStart(6, "0"),
+    ),
+    selection: Array.from({ length: 1001 }, (_, i) => ({
+      path: "src/" + i + ".txt",
+      blobId: COMMIT,
+      mode: "100644",
+    })),
+  };
+  const frozen = inspectWorkspaceCommand({
+    operation: "freeze",
+    projectId: "project-1",
+    queueId: "queue-1",
+    workspaceId: WORKSPACE_ID,
+    expectedGeneration: 1,
+    operationId: WORKSPACE_ID,
+    baseCommit: COMMIT,
+    expectedHead: COMMIT,
+    candidateName: null,
+    relatedChangeIds: many.relatedChangeIds,
+    selection: many.selection,
+  });
+  assert.equal(frozen?.operation, "freeze");
+  if (frozen?.operation === "freeze") {
+    assert.equal(frozen.selection.length, 1001);
+    assert.equal(frozen.relatedChangeIds.length, 101);
+  }
+});
+
+import { inspectWorkspaceCommand } from "../../../src/workspace/commands.ts";
+import { inspectCoordinatorWorkspaceResults } from "../../../src/workspace/record.ts";
+
+/**
+ * Task別Workspace観測の旧1024件上限を超える集合を検査する。
+ * @responsibility 観測量では拒否せず対象相関・一意性・不明状態を維持する。
+ * @trace CPR-UT-009
+ * @precondition 一つのWorkspaceに属する1025件の合成観測を用意する。
+ * @stimulus 正常集合、重複Operation、別対象と欠測を渡す。
+ * @observation 返却件数と不正集合のnull。
+ * @oracle 旧上限超過だけは受理し、不正観測を空集合や正常へ補完しない。
+ * @cleanup N/A: 値検査だけ。
+ * @boundary 公開結果の純粋検査。Gitや削除を発行しない。
+ */
+test("Task別Workspace観測は旧1024件を超えても対象相関を検査する", () => {
+  const WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
+  const values = Array.from({ length: 1025 }, (_, index) => ({
+    taskId: `task-${index}`,
+    attemptId: `attempt-${index}`,
+    operationId: `operation-${index}`,
+    result: {
+      workspaceId: WORKSPACE_ID,
+      changedPaths: [],
+      canonicalRepositoryChanged: false,
+      changeAttribution: "unattributed",
+      workspaceDeletionIssued: false,
+    },
+  }));
+  assert.equal(
+    inspectCoordinatorWorkspaceResults(values, WORKSPACE_ID)?.length,
+    1025,
+  );
+  assert.equal(
+    inspectCoordinatorWorkspaceResults([...values, values[0]], WORKSPACE_ID),
+    null,
+  );
+  assert.equal(
+    inspectCoordinatorWorkspaceResults(
+      values,
+      "00000000-0000-0000-0000-000000000002",
+    ),
+    null,
+  );
+  assert.equal(
+    inspectCoordinatorWorkspaceResults(
+      values.map(({ result, ...entry }) => entry),
+      WORKSPACE_ID,
+    ),
+    null,
   );
 });

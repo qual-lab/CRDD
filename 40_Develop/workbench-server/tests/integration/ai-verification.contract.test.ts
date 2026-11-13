@@ -22,6 +22,154 @@ import { runInNewContext } from "node:vm";
 import { createLocalPrincipalId } from "../../../execution-model/src/index.ts";
 
 /**
+ * 診断の現在状態・全履歴取得を一つのEM Reader結果へ結合する。
+ * @responsibility 履歴の欠測や読取り拒否を診断上の成功へ補完しない。
+ * @trace ERB-IT-021
+ * @precondition 正式scriptの診断本文と、検査済みReader値の有限代役を使う。
+ * @stimulus 全件・空履歴、Root／Reader拒否、解放不明、欠測と解析例外を与える。
+ * @observation Query種別・対象cap、現在相関と無関係行を含む履歴参照。
+ * @oracle 正常だけ全件を搬送し、不成立では相関と一覧を残さない。
+ * @cleanup 外部資源なし。
+ * @boundary 利用側の搬送。履歴モデルの全行検査はEMの実Reader試験が確認する。
+ */
+test("Workspace診断は同じ全履歴Readerの共同成立だけを採用する", () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    "utf8",
+  );
+  const marker = source.indexOf("const currentRoot = getRepository(root);");
+  const begin = source.lastIndexOf("try {", marker);
+  const end = source.indexOf("const task = evidence.task", marker);
+  assert.ok(marker >= 0 && begin >= 0 && end > marker);
+  const body = stripTypeScriptTypes(source.slice(begin, end));
+  assert.doesNotMatch(
+    body,
+    /\b(?:decodeHistoryRows|readStableFileSnapshot)\b|\bfs\./u,
+  );
+  for (const mode of [
+    "normal",
+    "empty",
+    "root",
+    "reader",
+    "unlock",
+    "value",
+    "history",
+    "throw",
+    "malformed",
+  ]) {
+    const cap = {},
+      root = "fixture-root";
+    let calls = 0;
+    const run = runInNewContext(`(dependencies) => {
+      const { getRepository, readRecoveryState, root, acceptedRequestId } = dependencies;
+      let correlationId = null;
+      const identities = [], historyIdentities = [];
+      ${body}
+      return { correlationId, identities, historyIdentities };
+    }`) as (dependencies: Record<string, unknown>) => {
+      correlationId: string | null;
+      identities: unknown[];
+      historyIdentities: { recoveryId: string }[];
+    };
+    const result = run({
+      root,
+      acceptedRequestId: "request-a",
+      getRepository: (input: unknown) => {
+        assert.equal(input, root);
+        return {
+          status: mode === "root" ? "blocked" : "completed",
+          capability: cap,
+        };
+      },
+      readRecoveryState: (input: unknown, request: unknown) => {
+        calls++;
+        assert.equal(input, cap);
+        assert.equal(
+          JSON.stringify(request),
+          JSON.stringify({ kind: "history" }),
+        );
+        if (mode === "throw") throw new Error("unavailable");
+        return {
+          status: mode === "reader" ? "blocked" : "completed",
+          lockReleased: mode !== "unlock",
+          value:
+            mode === "value"
+              ? null
+              : {
+                  snapshot: {
+                    queueEntries: [
+                      {
+                        queueId: "request-a",
+                        singleTask: { operationId: "correlation-a" },
+                      },
+                    ],
+                    operations: [
+                      {
+                        kind: "docker_task",
+                        recoveryId: "current-a",
+                        identityJson: JSON.stringify({
+                          provider: "codex",
+                          taskAttempt: 0,
+                          operationId: "operation-a",
+                          recoveryCorrelationId: "correlation-a",
+                          executionSelection: { role: "executor" },
+                        }),
+                      },
+                    ],
+                  },
+                },
+          historyRows:
+            mode === "history"
+              ? null
+              : mode === "empty"
+                ? []
+                : [
+                    {
+                      recoveryId: "past-a",
+                      line:
+                        mode === "malformed"
+                          ? "{"
+                          : JSON.stringify({
+                              summary: {
+                                schema: "crdd-coordinator/operation-summary/v4",
+                                operationId: "old-a",
+                                recoveryCorrelationId: "correlation-a",
+                              },
+                            }),
+                    },
+                    {
+                      recoveryId: "unrelated",
+                      line: JSON.stringify({
+                        summary: {
+                          schema: "crdd-coordinator/operation-summary/v4",
+                          operationId: "old-b",
+                          recoveryCorrelationId: "other-task",
+                        },
+                      }),
+                    },
+                    {
+                      recoveryId: "task-history",
+                      line: JSON.stringify({
+                        summary: { schema: "crdd-coordinator/task-summary/v1" },
+                      }),
+                    },
+                  ],
+        };
+      },
+    });
+    const expected = mode === "normal" || mode === "empty";
+    assert.equal(calls, mode === "root" ? 0 : 1, mode);
+    assert.equal(result.correlationId, expected ? "correlation-a" : null, mode);
+    assert.equal(result.identities.length, expected ? 1 : 0, mode);
+    assert.deepEqual(
+      Array.from(result.historyIdentities, (row) => row.recoveryId),
+      mode === "normal" ? ["past-a", "unrelated"] : [],
+      mode,
+    );
+  }
+});
+
+/**
  * UIを起動せず公開Package API・実Git・Domain保存の事前確認を結合する。
  * @trace ERB-IT-021
  * @precondition Repository-local tests親と固定Node。Docker観測は合成、AI開始は禁止。
@@ -90,6 +238,7 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
 });
 
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
 import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
@@ -99,10 +248,9 @@ import {
   selectionConfig,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import {
-  initializeCoordinatorSnapshot,
-  readRuntimeOwnedCoordinatorRecoverySnapshot,
+  initializeExecutionStore,
+  readRecoveryState,
 } from "../../../execution-model/src/index.ts";
-import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
   getRepository,
   readRepositoryRevision,
@@ -458,7 +606,7 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
         status: "ready",
         policies: { codex: { policyHash: "a".repeat(64) } },
       }),
-      readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
+      readRecoveryState: () => {
         if (scenario === "state-blocked") return { status: "blocked" };
         const singleTask = {
           principalId:
@@ -893,10 +1041,10 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
         process: processState,
         getRepository: () => ({ status: "completed", capability: {} }),
         resolveVerifiedRepositoryRoot: () => processState.cwd(),
-        resolveRepositoryRuntimeDataPaths: () => ({
+        resolveRepositoryExecutionDataPaths: () => ({
           tests: path.join(processState.cwd(), ".crdd", "tests"),
         }),
-        observeRepositoryRuntimeDataArea: () => ({
+        observeRepositoryExecutionDataArea: () => ({
           status: scenario === "linked-parent" ? "blocked" : "ready",
         }),
         observeVerificationDockerInventory: () => ({
@@ -1317,7 +1465,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readRuntimeOwnedCoordinatorRecoverySnapshot=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.filter(q=>q.queueId!=='request-abc');snapshot.intakeBindings=snapshot.intakeBindings.filter(q=>q.queueId!=='request-abc');snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readRecoveryState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.filter(q=>q.queueId!=='request-abc');snapshot.intakeBindings=snapshot.intakeBindings.filter(q=>q.queueId!=='request-abc');snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -1337,7 +1485,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
           releases++;
         },
         getRepository: () => ({ status: "completed", capability: {} }),
-        resolveRepositoryRuntimeDataPaths: () => ({
+        resolveRepositoryExecutionDataPaths: () => ({
           temporary: path.join(
             parentPath,
             isIsolated ? "isolated" : "direct",
@@ -2652,7 +2800,7 @@ for (const transport of ["tool-child-process"] as const) {
     );
     const binding = deriveCoordinatorRepositoryBindingId(root);
     assert.equal(
-      initializeCoordinatorSnapshot(verified.capability, binding).status,
+      initializeExecutionStore(verified.capability, binding).status,
       "completed",
     );
     owner = createCoordinatorTaskRequests({
@@ -2858,9 +3006,7 @@ for (const transport of ["tool-child-process"] as const) {
     assert.equal(requests, 3);
     assert.equal(calls, 3);
     assert.equal(joined, 3);
-    const state = readRuntimeOwnedCoordinatorRecoverySnapshot(
-      verified.capability,
-    );
+    const state = readRecoveryState(verified.capability);
     assert.equal(state.status, "completed");
     if (state.status !== "completed" || !state.value)
       throw Error("snapshot_required");
@@ -2869,9 +3015,7 @@ for (const transport of ["tool-child-process"] as const) {
     const retired = maintainCoordinatorSnapshot(root, binding);
     assert.equal(retired.status, "completed", retired.reason);
     assert.equal(retired.value, 3);
-    const afterRetirement = readRuntimeOwnedCoordinatorRecoverySnapshot(
-      verified.capability,
-    );
+    const afterRetirement = readRecoveryState(verified.capability);
     assert.equal(afterRetirement.status, "completed");
     assert.ok(afterRetirement.value);
     for (const key of [

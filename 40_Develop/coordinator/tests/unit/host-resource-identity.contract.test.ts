@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { areTaskResourcesSettled } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { coordinatorTaskResourcesAreSettled } from "../../../execution-model/src/index.ts";
 
 /**
  * 元相関と資源集合の各一軸だけを変更する。
@@ -99,7 +99,7 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
   const complete = runInNewContext(
     `${sourceDeclaration(source, "completeRuntimeOwnedCoordinatorHostSubmission")};completeRuntimeOwnedCoordinatorHostSubmission`,
     {
-      readRuntimeOwnedCoordinatorStateSnapshot: () => ({
+      readOperationStateStage: () => ({
         status: "completed",
         lockReleased: true,
         value: { snapshot: { operations: [operation] } },
@@ -114,7 +114,7 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
           record: { state: "docker_submission_started" },
         },
       }),
-      coordinatorTaskResourcesAreSettled,
+      areTaskResourcesSettled,
       verifyRuntimeOwnedProviderHomeMountCompletion: (
         value: unknown,
         management: unknown,

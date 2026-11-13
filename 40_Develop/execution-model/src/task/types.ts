@@ -5,6 +5,7 @@
  */
 
 import type { ModelSelection } from "../../../ai-adapter/src/index.ts";
+import type { RootObservedInput } from "../state/types.ts";
 
 /**
  * stateで使用するProject Task Definitionの値契約を定義する。
@@ -23,23 +24,6 @@ export type ProjectTaskDefinition = Readonly<{
   dependencies: readonly string[];
   allowedPaths: readonly string[];
   conflictKeys: readonly string[];
-}>;
-
-/**
- * 呼出し元が各Taskへ明示する非永続の実行内容。
- * @responsibility Task固有の指示・検証条件・読取り範囲を定義から分離する。
- * @trace ARCH-000004
- * @shape Task IDと三つの入力値。
- * @invariant Taskの不足を全体指示や別Taskで補完しない。
- * @boundary 呼出し元と実行受付。
- * @security 本文は通常の耐久状態へ保存しない。実行認可を含めない。
- * @compatibility 分解済み計画の新入力形式専用。
- */
-export type CallerTaskInput = Readonly<{
-  taskId: string;
-  objective: string;
-  acceptanceCriteria: readonly string[];
-  readPaths: readonly string[];
 }>;
 
 /** 確定済み実行入力。設定モデルを参照せず、当時の選定と相関値を保持する。 */
@@ -227,13 +211,13 @@ export type ProjectDockerRecoveryAcknowledgement = ProjectResultAcceptance;
  *
  * @responsibility Coordinator Queue Enqueue 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape CoordinatorQueueEnqueueInputが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorQueueEnqueueInputで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorQueueEnqueueInputの宣言は外部境界を開かない。
- * @security N/A: CoordinatorQueueEnqueueInputはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorQueueEnqueueInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape QueueEnqueueInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant QueueEnqueueInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: QueueEnqueueInputの宣言は外部境界を開かない。
+ * @security N/A: QueueEnqueueInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility QueueEnqueueInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorQueueEnqueueInput = Omit<
+export type QueueEnqueueInput = Omit<
   ProjectQueueEntry,
   | "state"
   | "generation"
@@ -321,3 +305,67 @@ export type ProjectQueueState =
   | "recovery_required"
   | "completed"
   | "cancelled";
+
+/** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */
+export type QueueUpdateRequest = Readonly<
+  | {
+      kind: "operation";
+      input: Parameters<
+        typeof import("./validation.ts").prepareQueueOperationUpdate
+      > extends [unknown, string, string, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "single";
+      input: Parameters<
+        typeof import("./validation.ts").prepareSingleTaskQueueUpdate
+      > extends [unknown, string, string, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "close_unstarted";
+      input: Parameters<
+        typeof import("./validation.ts").prepareUnstartedTaskQueueClosure
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "recovery";
+      input: Parameters<
+        typeof import("./validation.ts").prepareQueueRecoverySettlement
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "lease_released";
+      input: RootObservedInput<
+        Parameters<
+          typeof import("./validation.ts").prepareQueueLeaseReleaseSettlement
+        >
+      >;
+    }
+>;
+
+/** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */
+export type QueueCreateRequest = Readonly<
+  | {
+      kind: "scheduled";
+      input: Parameters<
+        typeof import("./validation.ts").prepareQueueEntryCreation
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "single";
+      input: Parameters<
+        typeof import("./validation.ts").prepareSingleTaskQueueCreation
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+>;

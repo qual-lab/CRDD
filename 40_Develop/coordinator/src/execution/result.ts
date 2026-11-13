@@ -5,15 +5,16 @@
  * @trace ARCH-000008
  */
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
+import {
+  dockerProcessControllerPublicCompletionReasons,
+  parseDockerTaskRecoveryId,
+} from "../../../execution-model/src/index.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
-
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import type {
-  TaskCompletionRecord,
   RuntimeLifecycleState,
+  TaskCompletionRecord,
 } from "./controller.ts";
-import { snapshotPlainRecord, snapshotPlainArray } from "../input/snapshot.ts";
-import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import type { CoordinatorTaskRecoveryObligation } from "./recovery.ts";
 import {
   resolveRecoveryReference,
@@ -627,7 +628,7 @@ export type CoordinatorTaskAttemptResult = Readonly<{
   recoveryIds: readonly string[];
   recoveryObligations?: readonly CoordinatorTaskRecoveryObligation[];
   executorProvider?: "codex" | "claude";
-  workspaceResult?: CoordinatorWorkspaceResult;
+  workspaceResult?: WorkspaceResult;
 }>;
 
 /**
@@ -654,4 +655,4 @@ export function formatHostRecoveryToken(
   return `host.${rootName}.${nonce}.${recordHash}`;
 }
 
-import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../../../execution-model/src/index.ts";

@@ -45,8 +45,8 @@ const CONSUMER_SURFACE_PATTERN =
   /^(?:40_Develop\/[^/]+\/(?:src|scripts|bin)\/|template\/tools\/)/u;
 const SOURCE_EXTENSIONS = new Set([".ts", ".mjs", ".cjs"]);
 const rawResolverSymbols = [
-  "resolveRepositoryRuntimeDataPathsFromValidatedRoot",
-  "resolveRepositoryRuntimeDataPathsForInternalUse",
+  "resolveRepositoryExecutionDataPathsFromValidatedRoot",
+  "resolveRepositoryExecutionDataPathsForInternalUse",
 ];
 const PROTECTED_SIGNING_SYMBOL =
   "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning";
@@ -120,18 +120,18 @@ const retiredTopLevelAreas = [
 const privateStorageExports = [
   ...rawResolverSymbols,
   PROTECTED_SIGNING_SYMBOL,
-  "resolveRepositoryRuntimeDataPaths",
-  "resolveRepositoryRuntimeDataPathsFromWorkingDirectory",
-  "observeRepositoryRuntimeDataArea",
-  "requireReadyRepositoryRuntimeDataArea",
-  "ensureRepositoryRuntimeDataArea",
-  "ensureRepositoryRuntimeDataAreaFromWorkingDirectory",
-  "createCoordinatorRuntimeDataArea",
+  "resolveRepositoryExecutionDataPaths",
+  "resolveRepositoryExecutionDataPathsFromWorkingDirectory",
+  "observeRepositoryExecutionDataArea",
+  "requireReadyRepositoryExecutionDataArea",
+  "ensureRepositoryExecutionDataArea",
+  "ensureRepositoryExecutionDataAreaFromWorkingDirectory",
+  "createExecutionDataArea",
   "checkRepositoryRuntimeDataProtectionDirectory",
   "resolveCrosRuntimeRoots",
   "CrosRootInput",
-  "RepositoryRuntimeArea",
-  "RepositoryRuntimeDataAreaObservation",
+  "RepositoryExecutionArea",
+  "RepositoryExecutionDataAreaObservation",
   "RepositoryRootCapability",
   "readStableFileSnapshot",
   "StableFileIdentity",
@@ -250,19 +250,19 @@ function violations(sources: SourceSet): string[] {
       findings.push(`root-literal:${item}`);
     if (
       !hasRawRootOwnership &&
-      /resolveRepositoryRuntimeDataPaths/u.test(source) &&
+      /resolveRepositoryExecutionDataPaths/u.test(source) &&
       /\.\s*root\b/u.test(source)
     )
       findings.push(`raw-root-value:${item}`);
 
     const pathSets = [
       ...source.matchAll(
-        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?resolveRepositoryRuntimeDataPaths(?:ForInternalUse)?\s*\(/gu,
+        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?resolveRepositoryExecutionDataPaths(?:ForInternalUse)?\s*\(/gu,
       ),
     ].flatMap((match) => (match[1] ? [match[1]] : []));
     const areas = [
       ...source.matchAll(
-        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?ensureRepositoryRuntimeDataArea\s*\(/gu,
+        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?ensureRepositoryExecutionDataArea\s*\(/gu,
       ),
     ].flatMap((match) => (match[1] ? [match[1]] : []));
     const properties =
@@ -340,7 +340,7 @@ function violations(sources: SourceSet): string[] {
       ([item, source]) =>
         !RUNTIME_STORAGE_OWNERS.has(item) &&
         !runtimePublicEntries.includes(item) &&
-        /ensureRepositoryRuntimeDataArea(?:FromWorkingDirectory)?/u.test(
+        /ensureRepositoryExecutionDataArea(?:FromWorkingDirectory)?/u.test(
           source,
         ),
     )
@@ -352,13 +352,13 @@ function violations(sources: SourceSet): string[] {
     const source = sources.get(item) ?? "";
     const doesPreserveBlockedResult =
       item === EXECUTION_INTELLIGENCE_CONSUMER
-        ? source.includes("requireReadyRepositoryRuntimeDataArea") &&
-          source.includes("observeRepositoryRuntimeDataArea") &&
-          source.includes("RepositoryRuntimeDataAreaBlockedError") &&
+        ? source.includes("requireReadyRepositoryExecutionDataArea") &&
+          source.includes("observeRepositoryExecutionDataArea") &&
+          source.includes("ExecutionStorageBlockedError") &&
           source.includes("cause.recoveryReference") &&
           source.includes("reportExecutionRecordingUnavailable") &&
           blockedMeaningFields.every((field) => source.includes(field))
-        : source.includes("requireReadyRepositoryRuntimeDataArea") ||
+        : source.includes("requireReadyRepositoryExecutionDataArea") ||
           blockedMeaningFields.every((field) => source.includes(field));
     if (!doesPreserveBlockedResult)
       findings.push(`runtime-area-blocked-result:${item}`);
@@ -371,7 +371,7 @@ function violations(sources: SourceSet): string[] {
   if (
     !boundarySources.every(
       (source) =>
-        source.includes("RepositoryRuntimeDataAreaBlockedError") &&
+        source.includes("ExecutionStorageBlockedError") &&
         source.includes("coordinatorDataBoundaryBlocked"),
     ) ||
     !coordinatorStoreFactoryNames.every((symbol) =>
@@ -468,7 +468,7 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
     [
       'import path from "node:path";',
       'const direct = path.join(repositoryRoot, ".crdd", "future");',
-      "const paths = resolveRepositoryRuntimeDataPaths(capability);",
+      "const paths = resolveRepositoryExecutionDataPaths(capability);",
       "const parent = path.dirname(paths.config);",
     ].join("\n"),
   );
@@ -482,7 +482,7 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
   sources.set(
     "40_Develop/future-tool/src/consumer.ts",
     [
-      "const paths = resolveRepositoryRuntimeDataPaths(capability);",
+      "const paths = resolveRepositoryExecutionDataPaths(capability);",
       "const parent = path.dirname(paths.domainModel);",
     ].join("\n"),
   );
@@ -540,7 +540,7 @@ test("3Rootの内部保存公開と予定外の保護署名Consumerを拒否す�
   assert.ok(publicEntry);
   sources.set(
     publicEntry,
-    'export { resolveRepositoryRuntimeDataPathsForInternalUse } from "./private.ts";\n',
+    'export { resolveRepositoryExecutionDataPathsForInternalUse } from "./private.ts";\n',
   );
   const findings = violations(sources);
   assert.ok(findings.includes("internal-resolver-exported"));

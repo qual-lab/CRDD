@@ -4,12 +4,11 @@
  * @trace ARCH-000008
  */
 
-import type { CoordinatorSnapshot } from "../state/types.ts";
-import type { COORDINATOR_HUMAN_DECISION_CONTRACT } from "./validation.ts";
+import type { Snapshot } from "../state/types.ts";
 
 /** 同一保存内で判断の意味を検査する区画。保存RootやAuthorityは含めない。 */
 export type DecisionSnapshot = Pick<
-  CoordinatorSnapshot,
+  Snapshot,
   | "decisions"
   | "blockers"
   | "projects"
@@ -17,53 +16,6 @@ export type DecisionSnapshot = Pick<
   | "leaseIntents"
   | "results"
 >;
-
-/** 認証済み入口が同じ対象へ搬送する判断操作。Bearerや自由入力の主体を含まない。 */
-export type CoordinatorDecisionRequest = Readonly<{
-  operation: "request" | "answer" | "apply" | "close";
-  decisionId: string;
-  projectId: string;
-  milestoneId: string;
-  generation: number;
-  repositoryRevision: string;
-}> &
-  (
-    | Readonly<{
-        operation: "request";
-        blockerId: string;
-        queueId: string;
-        question: string;
-        allowedOptions: readonly ("resume" | "cancel")[];
-      }>
-    | Readonly<{
-        operation: "answer";
-        selectedOption: "resume" | "cancel";
-        comment?: string;
-      }>
-    | Readonly<{ operation: "apply" }>
-    | Readonly<{
-        operation: "close";
-        status: "invalidated";
-        reason: string;
-      }>
-  );
-
-/** 状態と履歴の確定を区別する非秘密な公開結果。 */
-export type CoordinatorDecisionResult = Readonly<{
-  contract: typeof COORDINATOR_HUMAN_DECISION_CONTRACT;
-  status: "completed" | "blocked";
-  reason: string;
-  decisionId: string | null;
-  recoveryId: string | null;
-  decision: Decision | null;
-  history:
-    | Readonly<{ status: "confirmed" }>
-    | Readonly<{ status: "unconfirmed"; reason: string }>
-    | null;
-  cleanupConfirmed: boolean;
-  manualRecoveryRequired: boolean;
-  effectState: "settled" | "no_effect" | "unknown";
-}>;
 
 /**
  * 判断の所属先と、回答が対象とする業務世代を定義する。
@@ -248,7 +200,7 @@ export type DecisionHistoryEvent = Readonly<{
  * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
  * @compatibility 利用側は宣言済みの二つの対象区分だけへ依存する。
  */
-export type CoordinatorAcceptanceTarget = "objective" | "milestone";
+export type AcceptanceTarget = "objective" | "milestone";
 
 /**
  * Coordinatorの明示的な受入判断を定義する。
@@ -261,7 +213,7 @@ export type CoordinatorAcceptanceTarget = "objective" | "milestone";
  * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
  * @compatibility 利用側は宣言済みの三つの判断値だけへ依存する。
  */
-export type CoordinatorAcceptanceDecision = "accept" | "return" | "wait";
+export type AcceptanceDecision = "accept" | "return" | "wait";
 
 /**
  * Coordinator受入判断の状態遷移入力を定義する。
@@ -274,10 +226,10 @@ export type CoordinatorAcceptanceDecision = "accept" | "return" | "wait";
  * @security N/A: Authority検証はApplication境界が所有し、本型は秘密値を保持しない。
  * @compatibility 利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorAcceptanceDecisionInput = Readonly<{
-  target: CoordinatorAcceptanceTarget;
+export type AcceptanceDecisionInput = Readonly<{
+  target: AcceptanceTarget;
   targetId: string;
-  decision: CoordinatorAcceptanceDecision;
+  decision: AcceptanceDecision;
   criterionEvidenceIds: readonly string[];
 }>;
 

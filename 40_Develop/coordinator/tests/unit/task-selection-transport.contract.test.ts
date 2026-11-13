@@ -9,13 +9,12 @@
  * @boundary N/A: Provider、公開CLIと永続Runtimeを起動しない。
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
-import { selectionConfig } from "../fixtures/ai-selection.ts";
-import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
-import { buildObjectiveTaskRequest } from "../../src/objective/execute.ts";
-
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
+import { buildObjectiveTaskRequest } from "../../src/objective/execute.ts";
+import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
+import { selectionConfig } from "../fixtures/ai-selection.ts";
 
 const objective = Object.freeze(
   withCallerPlan({
@@ -89,4 +88,4 @@ test("Objectiveの固定選定は全四組合せでTask契約へexactに搬送�
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";

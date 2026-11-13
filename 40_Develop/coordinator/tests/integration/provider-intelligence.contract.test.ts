@@ -8,30 +8,31 @@
  * @boundary 実AI・Dockerは実行せず、各fixtureの自己生成Rootだけを終了hookで回収する。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import vm from "node:vm";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { test, type TestContext } from "node:test";
-import {
-  getRepository,
-  type Repository,
-} from "../../../version-control/src/index.ts";
+import path from "node:path";
+import { type TestContext, test } from "node:test";
+import vm from "node:vm";
 import {
   getExecution,
   listExecutions,
 } from "../../../execution-intelligence/src/index.ts";
 import { fixture } from "../../../execution-intelligence/tests/fixtures/store.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/configuration/runtime-data.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
+import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
+import {
+  getRepository,
+  type Repository,
+} from "../../../version-control/src/index.ts";
+import { requireReadyRepositoryExecutionDataArea } from "../../src/configuration/runtime-data.ts";
 import {
   beginProviderExecutionRecording,
   captureProviderExecutionCompletion,
   finishProviderExecutionRecording,
   getExecutionIntelligenceStore,
 } from "../../src/execution/intelligence.ts";
+
 /** 新品Git Repositoryを既存fixtureへ結合し、Root検証後だけ返す。回収はfixture hookが所有する。
  * @trace ERP-IT-008
  */
@@ -120,7 +121,7 @@ for (const kind of ["execution", "group"] as const) {
           status: "ready",
           config: { historyRetentionDays: 30 },
         }),
-        ensureRepositoryRuntimeDataArea: () => ({
+        ensureRepositoryExecutionDataArea: () => ({
           status: "blocked",
           reason: "repository_runtime_data_ignore_registration_blocked",
           effectIssued: true,
@@ -129,8 +130,8 @@ for (const kind of ["execution", "group"] as const) {
           retryAllowed: true,
           recoveryReference: "fixture-original-recovery",
         }),
-        requireReadyRepositoryRuntimeDataArea,
-        RepositoryRuntimeDataAreaBlockedError,
+        requireReadyRepositoryExecutionDataArea,
+        ExecutionStorageBlockedError,
         createExecution: () => {
           writes++;
           throw Error("unreachable");

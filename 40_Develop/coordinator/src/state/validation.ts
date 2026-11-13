@@ -5,10 +5,10 @@
  * @boundary Coordinatorの状態値と意味Owner。
  * @security 保存・外部実行・Authorityの発行は行わない。
  */
-import { COORDINATOR_STATE_CONTRACT } from "../../../execution-model/src/index.ts";
-import { normalizeRepositoryRelativePath } from "../../../execution-model/src/index.ts";
 
 import { createHash } from "node:crypto";
+import { PROJECT_STATE_CONTRACT } from "../../../execution-model/src/index.ts";
+import { normalizeRepositoryRelativePath } from "../input/snapshot.ts";
 
 export const COORDINATOR_MAXIMUM_CONCURRENCY = 5;
 
@@ -139,7 +139,7 @@ export function uniqueStrings(
  */
 export function describeCoordinatorStateContract() {
   return Object.freeze({
-    contract: COORDINATOR_STATE_CONTRACT,
+    contract: PROJECT_STATE_CONTRACT,
     maximumConcurrency: COORDINATOR_MAXIMUM_CONCURRENCY,
     capacityStates: Object.freeze([
       "starting",

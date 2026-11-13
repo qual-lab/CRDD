@@ -9,30 +9,25 @@
  * @scope project、runtime、state
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
-import type { CoordinatorState } from "../../../../execution-model/src/index.ts";
+
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import type {
+  ProjectExecutionState,
+  ProjectTaskDefinition,
+} from "../../../../execution-model/src/index.ts";
+
+import { createCoordinatorState } from "../../../src/state/create.ts";
 import {
   inspectCoordinatorProjection,
   isCoordinatorProjectionSemanticallyValid,
-} from "../../../../execution-model/src/index.ts";
-import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
+  projectCoordinatorState,
+} from "../../../src/state/projection.ts";
+import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
 import {
   acknowledgeProjectDockerRecoveryObligation,
   recordProjectTaskResultAcceptances,
 } from "../../../src/task/acceptance.ts";
-import { hasProjectTaskResultAcceptanceConflict } from "../../../../execution-model/src/index.ts";
-import {
-  markProjectTaskRecoveryObligationRecovering,
-  recordProjectTaskOwnerLossRecoveries,
-  retrySettledProjectTaskRecoveries,
-  settleProjectTaskRecoveryObligation,
-} from "../../../src/task/recovery.ts";
-import { createCoordinatorState } from "../../../src/state/create.ts";
-import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
-
-import type { ProjectTaskDefinition } from "../../../../execution-model/src/index.ts";
 import {
   applyCoordinatorPartialReplan,
   observeProjectTaskStarted,
@@ -40,8 +35,14 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../../src/task/lifecycle.ts";
-import { projectCoordinatorState } from "../../../src/state/projection.ts";
+import {
+  markProjectTaskRecoveryObligationRecovering,
+  recordProjectTaskOwnerLossRecoveries,
+  retrySettledProjectTaskRecoveries,
+  settleProjectTaskRecoveryObligation,
+} from "../../../src/task/recovery.ts";
 import { selectSchedulableProjectTasks } from "../../../src/task/scheduling.ts";
+import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
 
@@ -189,7 +190,7 @@ it("状態作成は旧Objective・Task・本文・Path集合上限を復活さ�
 });
 
 function start(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   taskId: string,
   attemptId = `attempt-${taskId}`,
 ) {
@@ -222,272 +223,6 @@ function start(
   assert.ok(observed.state);
   return observed.state;
 }
-
-/**
- * 通常終端の全結果受領を回復義務へ変換せず固定する。
- * @responsibility 正常・失敗・取消と0／1／2／129件受領の世代・対象相関を検証する。
- * @trace PRL-UT-006
- * @precondition 純粋モデルの開始済みTaskを使用する。
- * @stimulus 終端候補へ受領集合を記録し、欠落・重複・別Attemptと再入場を与える。
- * @observation Task状態、受領集合、世代、元状態の保持を確認する。
- * @oracle 通常結果を回復待ちへ変更せず、本文変更を拒否し初回世代を維持する。
- * @cleanup N/A: 実資源とFilesystemを作成しない。
- * @boundary PRL-UT-006=Direct Boundary: Test→Taskモデル。耐久保存と実Dockerは対象外。
- */
-it("通常結果の受領集合はTask終端と初回受領世代を維持する", () => {
-  for (const outcome of ["completed", "failed", "cancelled"] as const) {
-    const running = start(stateFor([task("task-a")]), "task-a");
-    const settlement = settleProjectTask(running, running.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome,
-      cleanupConfirmed: true,
-      recoveryObligations: [],
-      recoveryUnresolved: false,
-    });
-    assert.ok(settlement.state);
-    const state = settlement.state;
-    const acceptance = Object.freeze({
-      repositoryBindingId: "repository-a",
-      projectId: state.projectId,
-      milestoneId: state.milestoneId,
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      recoveryId: "recovery-a",
-      settlementGeneration: state.generation,
-      repositoryBinding: "a".repeat(64),
-      resultId: "b".repeat(64),
-      consumer: "orchestrator",
-    });
-    assert.equal(
-      recordProjectTaskResultAcceptances(
-        state,
-        running.generation,
-        "task-a",
-        [],
-      ).state,
-      state,
-    );
-    for (const count of [1, 2, 129]) {
-      const groups =
-        count === 1
-          ? [acceptance]
-          : Array.from({ length: count }, (_, index) => ({
-              ...acceptance,
-              recoveryId: `recovery-${index}`,
-              resultId: (index + 1).toString(16).padStart(64, "0"),
-            }));
-      const recorded = recordProjectTaskResultAcceptances(
-        state,
-        running.generation,
-        "task-a",
-        groups,
-      );
-      assert.equal(recorded.status, "completed");
-      assert.ok(recorded.state);
-      assert.equal(recorded.state.tasks[0]?.state, outcome);
-      assert.deepEqual(recorded.state.tasks[0]?.recoveryObligations, []);
-      assert.equal(recorded.state.tasks[0]?.resultAcceptances.length, count);
-      if (count === 129) {
-        assert.equal(
-          recordProjectTaskResultAcceptances(
-            state,
-            running.generation,
-            "task-a",
-            groups.map((entry, index) =>
-              index === 128
-                ? { ...entry, settlementGeneration: state.generation + 1 }
-                : entry,
-            ),
-          ).status,
-          "blocked",
-        );
-        assert.equal(
-          recordProjectTaskResultAcceptances(
-            state,
-            running.generation,
-            "task-a",
-            [...groups, groups[128]],
-          ).status,
-          "blocked",
-        );
-        const uncleanState = {
-          ...state,
-          tasks: state.tasks.map((entry) => ({
-            ...entry,
-            cleanupConfirmed: false,
-          })),
-        };
-        assert.equal(
-          recordProjectTaskResultAcceptances(
-            uncleanState,
-            running.generation,
-            "task-a",
-            groups,
-          ).status,
-          "blocked",
-        );
-      }
-      assert.equal(
-        hasProjectTaskResultAcceptanceConflict(state, recorded.state),
-        false,
-      );
-      assert.equal(
-        hasProjectTaskResultAcceptanceConflict(undefined, recorded.state),
-        true,
-      );
-      const advanced = {
-        ...recorded.state,
-        generation: recorded.state.generation + 3,
-      };
-      const replay = recordProjectTaskResultAcceptances(
-        advanced,
-        advanced.generation - 1,
-        "task-a",
-        [...groups].reverse(),
-      );
-      assert.equal(replay.status, "completed");
-      assert.equal(replay.state, advanced);
-      assert.equal(
-        hasProjectTaskResultAcceptanceConflict(recorded.state, advanced),
-        false,
-      );
-      const changedReceipt = {
-        ...advanced,
-        tasks: advanced.tasks.map((entry) => ({
-          ...entry,
-          resultAcceptances: entry.resultAcceptances.map((receipt) => ({
-            ...receipt,
-            resultId: "d".repeat(64),
-          })),
-        })),
-      };
-      assert.equal(
-        hasProjectTaskResultAcceptanceConflict(recorded.state, changedReceipt),
-        true,
-      );
-      const wrongGeneration = {
-        ...recorded.state,
-        generation: recorded.state.generation + 1,
-      };
-      assert.equal(
-        hasProjectTaskResultAcceptanceConflict(state, wrongGeneration),
-        true,
-      );
-      assert.equal(
-        replay.state.tasks[0]?.resultAcceptances[0]?.settlementGeneration,
-        acceptance.settlementGeneration,
-      );
-      assert.equal(
-        recordProjectTaskResultAcceptances(
-          advanced,
-          advanced.generation - 1,
-          "task-a",
-          groups.map((entry) => ({ ...entry, resultId: "d".repeat(64) })),
-        ).status,
-        "blocked",
-      );
-      assert.equal(
-        recordProjectTaskResultAcceptances(
-          advanced,
-          advanced.generation - 1,
-          "task-a",
-          [],
-        ).status,
-        "blocked",
-      );
-    }
-    for (const key of [
-      "projectId",
-      "milestoneId",
-      "taskId",
-      "attemptId",
-      "operationId",
-    ] as const)
-      assert.equal(
-        recordProjectTaskResultAcceptances(
-          state,
-          running.generation,
-          "task-a",
-          [{ ...acceptance, [key]: "foreign" }],
-        ).status,
-        "blocked",
-        key,
-      );
-    for (const generation of [state.generation - 1, state.generation + 1])
-      assert.equal(
-        recordProjectTaskResultAcceptances(
-          state,
-          running.generation,
-          "task-a",
-          [{ ...acceptance, settlementGeneration: generation }],
-        ).status,
-        "blocked",
-      );
-    assert.equal(
-      recordProjectTaskResultAcceptances(state, running.generation, "task-a", [
-        acceptance,
-        acceptance,
-      ]).status,
-      "blocked",
-    );
-    assert.equal(
-      recordProjectTaskResultAcceptances(state, running.generation, "task-a", [
-        acceptance,
-        {
-          ...acceptance,
-          recoveryId: "recovery-b",
-          repositoryBindingId: "other-repository",
-        },
-      ]).status,
-      "blocked",
-    );
-    assert.equal(
-      recordProjectTaskResultAcceptances(
-        running,
-        running.generation - 1,
-        "task-a",
-        [acceptance],
-      ).status,
-      "blocked",
-    );
-    const unclean = {
-      ...state,
-      tasks: state.tasks.map((entry) => ({
-        ...entry,
-        cleanupConfirmed: false,
-      })),
-    };
-    assert.equal(
-      recordProjectTaskResultAcceptances(
-        unclean,
-        unclean.generation - 1,
-        "task-a",
-        [acceptance],
-      ).status,
-      "blocked",
-    );
-    const unresolved = {
-      ...state,
-      tasks: state.tasks.map((entry) => ({
-        ...entry,
-        recoveryUnresolved: true,
-      })),
-    };
-    assert.equal(
-      recordProjectTaskResultAcceptances(
-        unresolved,
-        unresolved.generation - 1,
-        "task-a",
-        [acceptance],
-      ).status,
-      "blocked",
-    );
-  }
-});
 
 describe("Orchestrator state contract", () => {
   /**
@@ -1436,4 +1171,238 @@ describe("Orchestrator state contract", () => {
         "task_completion_then_objective_integration_then_milestone_integration",
     });
   });
+});
+
+/**
+ * 通常終端の全結果受領を回復義務へ変換せず固定する。
+ * @responsibility 正常・失敗・取消と0／1／2／129件受領の世代・対象相関を検証する。
+ * @trace PRL-UT-006
+ * @precondition 純粋モデルの開始済みTaskを使用する。
+ * @stimulus 終端候補へ受領集合を記録し、欠落・重複・別Attemptと再入場を与える。
+ * @observation Task状態、受領集合、世代、元状態の保持を確認する。
+ * @oracle 通常結果を回復待ちへ変更せず、本文変更を拒否し初回世代を維持する。
+ * @cleanup N/A: 実資源とFilesystemを作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Test→Taskモデル。耐久保存と実Dockerは対象外。
+ */
+it("通常結果の受領集合はTask終端と初回受領世代を維持する", () => {
+  for (const outcome of ["completed", "failed", "cancelled"] as const) {
+    const running = start(stateFor([task("task-a")]), "task-a");
+    const settlement = settleProjectTask(running, running.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome,
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.ok(settlement.state);
+    const state = settlement.state;
+    const acceptance = Object.freeze({
+      repositoryBindingId: "repository-a",
+      projectId: state.projectId,
+      milestoneId: state.milestoneId,
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      recoveryId: "recovery-a",
+      settlementGeneration: state.generation,
+      repositoryBinding: "a".repeat(64),
+      resultId: "b".repeat(64),
+      consumer: "orchestrator",
+    });
+    assert.equal(
+      recordProjectTaskResultAcceptances(
+        state,
+        running.generation,
+        "task-a",
+        [],
+      ).state,
+      state,
+    );
+    for (const count of [1, 2, 129]) {
+      const groups =
+        count === 1
+          ? [acceptance]
+          : Array.from({ length: count }, (_, index) => ({
+              ...acceptance,
+              recoveryId: `recovery-${index}`,
+              resultId: (index + 1).toString(16).padStart(64, "0"),
+            }));
+      const recorded = recordProjectTaskResultAcceptances(
+        state,
+        running.generation,
+        "task-a",
+        groups,
+      );
+      assert.equal(recorded.status, "completed");
+      assert.ok(recorded.state);
+      assert.equal(recorded.state.tasks[0]?.state, outcome);
+      assert.deepEqual(recorded.state.tasks[0]?.recoveryObligations, []);
+      assert.equal(recorded.state.tasks[0]?.resultAcceptances.length, count);
+      if (count === 129) {
+        assert.equal(
+          recordProjectTaskResultAcceptances(
+            state,
+            running.generation,
+            "task-a",
+            groups.map((entry, index) =>
+              index === 128
+                ? { ...entry, settlementGeneration: state.generation + 1 }
+                : entry,
+            ),
+          ).status,
+          "blocked",
+        );
+        assert.equal(
+          recordProjectTaskResultAcceptances(
+            state,
+            running.generation,
+            "task-a",
+            [...groups, groups[128]],
+          ).status,
+          "blocked",
+        );
+        const uncleanState = {
+          ...state,
+          tasks: state.tasks.map((entry) => ({
+            ...entry,
+            cleanupConfirmed: false,
+          })),
+        };
+        assert.equal(
+          recordProjectTaskResultAcceptances(
+            uncleanState,
+            running.generation,
+            "task-a",
+            groups,
+          ).status,
+          "blocked",
+        );
+      }
+
+      const advanced = {
+        ...recorded.state,
+        generation: recorded.state.generation + 3,
+      };
+      const replay = recordProjectTaskResultAcceptances(
+        advanced,
+        advanced.generation - 1,
+        "task-a",
+        [...groups].reverse(),
+      );
+      assert.equal(replay.status, "completed");
+      assert.equal(replay.state, advanced);
+
+      assert.equal(
+        replay.state.tasks[0]?.resultAcceptances[0]?.settlementGeneration,
+        acceptance.settlementGeneration,
+      );
+      assert.equal(
+        recordProjectTaskResultAcceptances(
+          advanced,
+          advanced.generation - 1,
+          "task-a",
+          groups.map((entry) => ({ ...entry, resultId: "d".repeat(64) })),
+        ).status,
+        "blocked",
+      );
+      assert.equal(
+        recordProjectTaskResultAcceptances(
+          advanced,
+          advanced.generation - 1,
+          "task-a",
+          [],
+        ).status,
+        "blocked",
+      );
+    }
+    for (const key of [
+      "projectId",
+      "milestoneId",
+      "taskId",
+      "attemptId",
+      "operationId",
+    ] as const)
+      assert.equal(
+        recordProjectTaskResultAcceptances(
+          state,
+          running.generation,
+          "task-a",
+          [{ ...acceptance, [key]: "foreign" }],
+        ).status,
+        "blocked",
+        key,
+      );
+    for (const generation of [state.generation - 1, state.generation + 1])
+      assert.equal(
+        recordProjectTaskResultAcceptances(
+          state,
+          running.generation,
+          "task-a",
+          [{ ...acceptance, settlementGeneration: generation }],
+        ).status,
+        "blocked",
+      );
+    assert.equal(
+      recordProjectTaskResultAcceptances(state, running.generation, "task-a", [
+        acceptance,
+        acceptance,
+      ]).status,
+      "blocked",
+    );
+    assert.equal(
+      recordProjectTaskResultAcceptances(state, running.generation, "task-a", [
+        acceptance,
+        {
+          ...acceptance,
+          recoveryId: "recovery-b",
+          repositoryBindingId: "other-repository",
+        },
+      ]).status,
+      "blocked",
+    );
+    assert.equal(
+      recordProjectTaskResultAcceptances(
+        running,
+        running.generation - 1,
+        "task-a",
+        [acceptance],
+      ).status,
+      "blocked",
+    );
+    const unclean = {
+      ...state,
+      tasks: state.tasks.map((entry) => ({
+        ...entry,
+        cleanupConfirmed: false,
+      })),
+    };
+    assert.equal(
+      recordProjectTaskResultAcceptances(
+        unclean,
+        unclean.generation - 1,
+        "task-a",
+        [acceptance],
+      ).status,
+      "blocked",
+    );
+    const unresolved = {
+      ...state,
+      tasks: state.tasks.map((entry) => ({
+        ...entry,
+        recoveryUnresolved: true,
+      })),
+    };
+    assert.equal(
+      recordProjectTaskResultAcceptances(
+        unresolved,
+        unresolved.generation - 1,
+        "task-a",
+        [acceptance],
+      ).status,
+      "blocked",
+    );
+  }
 });

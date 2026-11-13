@@ -16,86 +16,14 @@ import {
   decodeProjectResultAcceptance,
   hashExecutionSelection,
 } from "../../../src/index.ts";
-import { parseRuntimeActivityObservation } from "../../../src/history/validation.ts";
-import type { CoordinatorState } from "../../../src/state/types.ts";
 
-/**
- * 取得済み活動観測を量だけで欠測へ変えない。
- * @trace PRL-UT-006
- * @precondition 10001出所と単発記録、51履歴eventの合成値を使う。
- * @stimulus 完全集合と重複・不明参照・閉Schema違反を渡す。
- * @observation 保持された件数と不正時のnull。
- * @oracle 観測済み内容の量とSchema・Identity相関を区別する。
- * @cleanup N/A: 純粋値だけ。
- */
-it("活動結果は10001出所・単発記録と51eventを保持する", () => {
-  const sources = Array.from({ length: 10001 }, (_, index) => ({
-    repositoryId: `repo-${index.toString().padStart(5, "0")}`,
-    revision: "a".repeat(40),
-  }));
-  const singleTasks = sources.map((source, index) => ({
-    repositoryId: source.repositoryId,
-    requestId: `request-${index}`,
-    mode: "workspace_edit",
-    phase: "settled",
-    status: "unknown",
-    cleanupConfirmed: false,
-    recoveryRequired: true,
-  }));
-  const events = Array.from({ length: 51 }, (_, index) => ({
-    repositoryId: sources[0]?.repositoryId,
-    eventId: `execution-${(50 - index).toString(16).padStart(64, "0")}`,
-    occurredAt: "2026-11-12T00:00:00.000Z",
-    objectiveId: "objective-a",
-    taskId: "task-a",
-    attemptId: "attempt-a",
-    status: "unknown",
-    reason: "unknown",
-    cleanupConfirmed: false,
-    manualRecoveryRequired: true,
-  }));
-  const raw = {
-    projectId: "project-a",
-    state: "absent",
-    reason: "runtime_activity_state_absent",
-    projection: null,
-    currentSourceRepositoryId: null,
-    sources,
-    eventState: "observed",
-    eventReason: "runtime_activity_events_observed",
-    events,
-    eventContinuation: null,
-    singleTasks,
-  };
-  const observed = parseRuntimeActivityObservation(raw);
-  assert.equal(observed?.sources.length, 10001);
-  assert.equal(observed?.singleTasks?.length, 10001);
-  assert.equal(observed?.events.length, 51);
-  assert.equal(
-    parseRuntimeActivityObservation({
-      ...raw,
-      sources: [...sources, sources[0]],
-    }),
-    null,
-  );
-  assert.equal(
-    parseRuntimeActivityObservation({ ...raw, events: [...events, events[0]] }),
-    null,
-  );
-  assert.equal(
-    parseRuntimeActivityObservation({
-      ...raw,
-      singleTasks: [{ ...singleTasks[0], repositoryId: "missing" }],
-    }),
-    null,
-  );
-});
+import type { ProjectExecutionState } from "../../../src/state/types.ts";
 
 import {
   inspectSingleTaskRecord,
   recoveryObligations,
   resultAcceptances,
-  validCoordinatorState,
+  validState,
 } from "../../../src/task/validation.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
@@ -204,8 +132,8 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   const executable = [
     "isPlainRecord",
     "isDataDescriptor",
-    "snapshotRuntimeStateRecord",
-    "snapshotRuntimeStateArray",
+    "snapshotStateRecord",
+    "snapshotStateArray",
   ]
     .map((name) => sourceDeclaration(helperSource, name))
     .join("\n");
@@ -218,9 +146,9 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
       Object.defineProperty(Object.prototype, "value", { value: "inherited", configurable: true });
       const keys = new Set(["resultId"]);
       JSON.stringify({
-        accessorRejected: snapshotRuntimeStateRecord(accessor, keys) === null,
-        getterRejected: snapshotRuntimeStateRecord(getterInput, keys) === null,
-        dataAccepted: snapshotRuntimeStateRecord({ resultId: "valid" }, keys)?.resultId === "valid",
+        accessorRejected: snapshotStateRecord(accessor, keys) === null,
+        getterRejected: snapshotStateRecord(getterInput, keys) === null,
+        dataAccepted: snapshotStateRecord({ resultId: "valid" }, keys)?.resultId === "valid",
         getterCalls,
       });
     } finally {
@@ -278,7 +206,7 @@ it("実行状態と回復記録は旧蓄積上限を超えても相関を検査�
     workType: null,
     source: "role_default",
   };
-  const state: CoordinatorState = {
+  const state: ProjectExecutionState = {
     contract: "crdd-coordinator/project-state/v2",
     taskExecutionSelections: {
       executor: selection,
@@ -323,14 +251,14 @@ it("実行状態と回復記録は旧蓄積上限を超えても相関を検査�
       retryCount: 0,
       supersededBy: null,
     })),
-  } as CoordinatorState;
-  assert.equal(validCoordinatorState(state), true);
+  } as ProjectExecutionState;
+  assert.equal(validState(state), true);
   const longCriteria = Array.from(
     { length: 129 },
     (_, index) => `${index}:${"説明".repeat(2049)}`,
   );
   assert.equal(
-    validCoordinatorState({
+    validState({
       ...state,
       milestone: {
         ...state.milestone,
@@ -341,7 +269,7 @@ it("実行状態と回復記録は旧蓄積上限を超えても相関を検査�
     true,
   );
   assert.equal(
-    validCoordinatorState({
+    validState({
       ...state,
       milestone: { ...state.milestone, acceptanceCriteria: [""] },
     }),
@@ -349,12 +277,9 @@ it("実行状態と回復記録は旧蓄積上限を超えても相関を検査�
   );
   const task = state.tasks[0];
   assert.ok(task);
+  assert.equal(validState({ ...state, tasks: [...state.tasks, task] }), false);
   assert.equal(
-    validCoordinatorState({ ...state, tasks: [...state.tasks, task] }),
-    false,
-  );
-  assert.equal(
-    validCoordinatorState({
+    validState({
       ...state,
       tasks: [
         { ...task, definition: { ...task.definition, objectiveId: "missing" } },
@@ -385,7 +310,7 @@ it("実行状態と回復記録は旧蓄積上限を超えても相関を検査�
     attemptId: "attempt-a",
     operationId: "operation-a",
     cleanupConfirmed: true,
-  } as CoordinatorState["tasks"][number];
+  } as ProjectExecutionState["tasks"][number];
   const receipts = Array.from({ length: 129 }, (_, index) => ({
     repositoryBindingId: "binding-a",
     projectId: scope.projectId,
@@ -475,4 +400,146 @@ it("固定選定のHashは移管前のbyteと一致する", () => {
     hashExecutionSelection(selection),
   );
   assert.equal(hashExecutionSelection({ ...selection, authority: true }), null);
+});
+
+import { hasProjectTaskResultAcceptanceConflict } from "../../../src/task/validation.ts";
+
+/**
+ * 結果受領の追加・再送・差替えと確定世代をモデルOwnerで検証する。
+ * @responsibility Coordinatorの状態操作試験から保存不変条件の検証を分離する。
+ * @trace PRL-UT-006
+ * @precondition 型を満たす固定Projectと終了Taskを使用する。
+ * @stimulus 1件・2件・129件の受領、元状態欠測、世代前進、結果差替えを渡す。
+ * @observation 競合判定を比較する。
+ * @oracle 初回同世代と同内容再送だけを許可する。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary モデル内部の保存不変条件。
+ */
+it("結果受領の追加と再送は元Task・結果全項目・初回世代を保持する", () => {
+  const selection = {
+    provider: "codex",
+    modelIdentifier: "gpt-5.5",
+    identifierKind: "exact",
+    purpose: "task",
+    reasoningEffort: "medium",
+    catalogIdentity: "a".repeat(64),
+    configIdentity: "b".repeat(64),
+    role: "executor",
+    workType: null,
+    source: "role_default",
+  } as const;
+  let previous: ProjectExecutionState = {
+    contract: "crdd-coordinator/project-state/v2",
+    taskExecutionSelections: {
+      executor: selection,
+      reviewer: { ...selection, role: "independent_reviewer" },
+    },
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    generation: 7,
+    ownerGeneration: "owner-a",
+    decisionApplicationId: null,
+    maximumConcurrency: 1,
+    milestone: {
+      id: "milestone-a",
+      acceptanceCriteria: ["done"],
+      state: "planned",
+      criterionEvidenceIds: [],
+    },
+    objectives: [
+      {
+        definition: { id: "objective-a", acceptanceCriteria: ["done"] },
+        state: "planned",
+        criterionEvidenceIds: [],
+      },
+    ],
+    tasks: [
+      {
+        definition: {
+          id: "task-a",
+          objectiveId: "objective-a",
+          dependencies: [],
+          allowedPaths: ["src"],
+          conflictKeys: [],
+        },
+        state: "completed",
+        attemptId: "attempt-a",
+        operationId: "operation-a",
+        authorityBindingId: "authority-a",
+        startPhase: "settled",
+        cleanupConfirmed: true,
+        recoveryObligations: [],
+        resultAcceptances: [],
+        recoveryUnresolved: false,
+        candidateId: null,
+        retryCount: 0,
+        supersededBy: null,
+      },
+    ],
+  };
+  for (const outcome of ["completed", "failed", "cancelled"] as const) {
+    previous = {
+      ...previous,
+      tasks: previous.tasks.map((t) => ({ ...t, state: outcome })),
+    };
+    assert.equal(validState(previous), true);
+    for (const count of [1, 2, 129]) {
+      const receipts = Array.from({ length: count }, (_, i) => ({
+        repositoryBindingId: "repository-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        taskId: "task-a",
+        attemptId: "attempt-a",
+        operationId: "operation-a",
+        recoveryId: "recovery-" + i,
+        settlementGeneration: 7,
+        repositoryBinding: "a".repeat(64),
+        resultId: (i + 1).toString(16).padStart(64, "0"),
+        consumer: "orchestrator" as const,
+      }));
+      const recorded: ProjectExecutionState = {
+        ...previous,
+        tasks: previous.tasks.map((t) => ({
+          ...t,
+          resultAcceptances: receipts,
+        })),
+      };
+      assert.equal(validState(recorded), true);
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(previous, recorded),
+        false,
+      );
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(undefined, recorded),
+        true,
+      );
+      const advanced = { ...recorded, generation: 10 };
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(recorded, advanced),
+        false,
+      );
+      const changed = {
+        ...advanced,
+        tasks: advanced.tasks.map((t) => ({
+          ...t,
+          resultAcceptances: t.resultAcceptances.map((r) => ({
+            ...r,
+            resultId: "d".repeat(64),
+          })),
+        })),
+      };
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(recorded, changed),
+        true,
+      );
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(previous, {
+          ...recorded,
+          generation: 8,
+        }),
+        true,
+      );
+    }
+  }
 });

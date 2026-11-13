@@ -6,11 +6,11 @@
  */
 
 import {
-  type CoordinatorState,
+  ExecutionStorageBlockedError,
   isPrincipalId,
-  RepositoryRuntimeDataAreaBlockedError,
-  readCoordinatorCurrentState,
-  readCoordinatorExecutionState,
+  type ProjectExecutionState,
+  readState,
+  readProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
@@ -23,7 +23,6 @@ import type { CoordinatorStatePort } from "./persistence.ts";
 import { projectCoordinatorState } from "./projection.ts";
 
 import { coordinatorDataBoundaryBlocked, type StoreResult } from "./result.ts";
-import { createCurrentCoordinatorPersistencePorts } from "./transaction.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 
@@ -172,9 +171,10 @@ export function executeCoordinatorPublicStateQuery(
   );
   const adoptedPlan =
     identity && identity.revisionIdentity !== request.repositoryRevision
-      ? readCoordinatorExecutionState(
+      ? readState(
           verifyRuntimePersistenceRepository(repositoryRoot),
           deriveCoordinatorRepositoryBindingId(repositoryRoot),
+          "execution",
         ).value?.projects.find(
           (plan) =>
             plan.projectId === request.projectId &&
@@ -208,9 +208,10 @@ export function executeCoordinatorPublicStateQuery(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const snapshot = readCoordinatorExecutionState(
+  const snapshot = readState(
     verifyRuntimePersistenceRepository(repositoryRoot),
     deriveCoordinatorRepositoryBindingId(repositoryRoot),
+    "execution",
   );
   if (
     snapshot.status !== "completed" ||
@@ -232,13 +233,21 @@ export function executeCoordinatorPublicStateQuery(
         snapshot.status === "blocked" && snapshot.manualRecoveryRequired,
       effectState: "no_effect" as const,
     });
+  const current = snapshot.value;
   return queryCoordinatorState(
-    createCurrentCoordinatorPersistencePorts(
-      repositoryRoot,
-      deriveCoordinatorRepositoryBindingId(repositoryRoot),
-    ).state,
+    {
+      readState: (projectId) =>
+        Object.freeze({
+          status: "completed",
+          reason: "orchestrator_state_observed",
+          value:
+            current.projects.find(
+              (project) => project.projectId === projectId,
+            ) ?? null,
+        }),
+    },
     request,
-    snapshot.value.intakeEpoch,
+    current.intakeEpoch,
   );
 }
 
@@ -270,7 +279,7 @@ export function queryState(
       authenticationContext,
     );
   } catch (error) {
-    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+    if (error instanceof ExecutionStorageBlockedError)
       return coordinatorDataBoundaryBlocked(error);
     throw error;
   }
@@ -295,20 +304,20 @@ export function readCurrentCoordinatorState(
   workingDirectory: string,
   binding: string,
   projectId: string,
-): StoreResult<CoordinatorState | null> {
-  return readCoordinatorCurrentState(
+): StoreResult<ProjectExecutionState | null> {
+  return readProjectExecutionState(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
     projectId,
   );
 }
 
-import type {
-  CoordinatorStateQuery,
-  CoordinatorStateQueryResult,
-} from "../../../execution-model/src/index.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   COORDINATOR_STATE_QUERY_CONTRACT,
   inspectCoordinatorStateQuery,
-} from "../../../execution-model/src/index.ts";
+} from "./projection.ts";
+import type {
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+} from "./types.ts";

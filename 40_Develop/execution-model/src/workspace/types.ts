@@ -8,63 +8,7 @@ import type {
   CommitSelection,
   CommitTemporary,
 } from "../../../version-control/src/index.ts";
-import type { COORDINATOR_INTEGRATION_CONTRACT } from "./validation.ts";
-
-/**
- * 公開入力の閉じた操作集合。
- * @responsibility 読取り・固定・採用・終了を別要求にする。
- * @trace ARCH-000004
- * @shape Project／Queue／Workspace IDと確認済み操作値。
- * @invariant Root・Binding・認可関数を含めない。
- * @boundary JSON入力。
- * @security 参照解放の自己申告を受けない。
- * @compatibility 新Workspace専用、旧Bundleの採用契約とは別。
- */
-export type WorkspaceCommand =
-  | Readonly<{
-      operation: "list";
-      projectId: string;
-      cursor: string | null;
-      limit: number;
-    }>
-  | (Readonly<{ projectId: string; queueId: string; workspaceId: string }> &
-      (
-        | { operation: "get" }
-        | { operation: "inspect"; path: string }
-        | { operation: "candidate-diff"; path: string }
-        | (Readonly<{ expectedGeneration: number }> &
-            (
-              | { operation: "create"; baseCommit: string; name: string | null }
-              | { operation: "select" }
-              | { operation: "rename"; name: string | null }
-              | { operation: "hold"; until: string | null }
-              | {
-                  operation: "discard";
-                  expectedHead: string;
-                  discardChanges: boolean;
-                }
-              | {
-                  operation: "freeze";
-                  operationId: string;
-                  baseCommit: string;
-                  expectedHead: string;
-                  selection: readonly CommitSelection[];
-                  candidateName: string | null;
-                  relatedChangeIds: readonly string[];
-                }
-              | {
-                  operation: "adopt";
-                  candidateCommit: string;
-                  targetBranch: string;
-                  expectedTargetHead: string;
-                }
-              | {
-                  operation: "close-candidate";
-                  expectedCommit: string | null;
-                  disposition: "adopted" | "rejected";
-                }
-            ))
-      ));
+import type { EXECUTION_INTEGRATION_CONTRACT } from "./validation.ts";
 
 /**
  * Isolated Workspaceの現在値を表す。
@@ -76,10 +20,10 @@ export type WorkspaceCommand =
  * @security この記録だけで実行・削除を許可しない。
  * @compatibility 新Snapshot専用。旧形式の補完なし。
  */
-export type CoordinatorWorkspace = Readonly<{
+export type WorkspaceRecord = Readonly<{
   workspaceId: string;
   name: string | null;
-  candidate: CoordinatorWorkspaceCandidate | null;
+  candidate: WorkspaceCandidateRecord | null;
   generation: number;
   baseCommit: string;
   head: string;
@@ -106,8 +50,8 @@ export type CoordinatorWorkspace = Readonly<{
  * @security 保護DecisionやAuthorityを追加しない。
  * @compatibility valueは既存PortのJSON値をそのまま保持する。
  */
-export type CoordinatorResultRecord = Readonly<{
-  contract: typeof COORDINATOR_INTEGRATION_CONTRACT;
+export type ResultRecord = Readonly<{
+  contract: typeof EXECUTION_INTEGRATION_CONTRACT;
   kind: "integration" | "adoption";
   repositoryBindingId: string;
   projectId: string;
@@ -128,7 +72,7 @@ export type CoordinatorResultRecord = Readonly<{
  * @security 現在認可への再結合なしでEffectを許可しない。
  * @compatibility 新形式のみ、旧記録を補完しない。
  */
-export type CoordinatorWorkspaceCandidate = Readonly<{
+export type WorkspaceCandidateRecord = Readonly<{
   request: WorkspaceCandidateRequest;
   phase: "freezing" | "fixed" | "merging" | "merged" | "removing";
   candidateCommit: string | null;
@@ -150,7 +94,7 @@ export type CoordinatorWorkspaceCandidate = Readonly<{
  * @security 相対Pathだけを認可済み利用側へ渡す。
  * @compatibility 非借用の旧結果では省略する。
  */
-export type CoordinatorWorkspaceResult = Readonly<{
+export type WorkspaceResult = Readonly<{
   workspaceId: string | null;
   changedPaths: readonly string[] | null;
   canonicalRepositoryChanged: boolean | null;

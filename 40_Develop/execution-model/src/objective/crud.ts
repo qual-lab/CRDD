@@ -4,12 +4,12 @@
  * @trace ARCH-000008
  */
 
-import { readRuntimeContent, saveRuntimeDefinition } from "../state/crud.ts";
-import type { RuntimeAccess, StateVersion } from "../state/types.ts";
-import type {
-  CoordinatorObjectivePlan,
-  ProjectObjectiveDefinition,
-} from "./types.ts";
+import {
+  readExecutionContent,
+  saveExecutionDefinition,
+} from "../state/crud.ts";
+import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
+import type { ObjectivePlan, ProjectObjectiveDefinition } from "./types.ts";
 
 /**
  * 完全な計画定義を保存する。
@@ -27,15 +27,15 @@ import type {
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function savePlan(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
-      definition: CoordinatorObjectivePlan;
+      definition: ObjectivePlan;
       expectedDefinitionHash: string | null;
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "plan.save", request);
+  return saveExecutionDefinition(access, "plan.save", request);
 }
 
 /**
@@ -54,14 +54,14 @@ export function savePlan(
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function createObjective(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
       definition: ProjectObjectiveDefinition;
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "objective.create", request);
+  return saveExecutionDefinition(access, "objective.create", request);
 }
 
 /**
@@ -80,7 +80,7 @@ export function createObjective(
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function updateObjective(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
       objectiveId: string;
@@ -89,7 +89,7 @@ export function updateObjective(
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "objective.update", request);
+  return saveExecutionDefinition(access, "objective.update", request);
 }
 
 /**
@@ -108,7 +108,7 @@ export function updateObjective(
  * @concurrency 同じ短期排他を一回使用する。
  */
 export function deleteObjective(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<
     { projectId: string; milestoneId: string; expected: StateVersion } & {
       objectiveId: string;
@@ -116,7 +116,7 @@ export function deleteObjective(
     }
   >,
 ) {
-  return saveRuntimeDefinition(access, "objective.delete", request);
+  return saveExecutionDefinition(access, "objective.delete", request);
 }
 
 /**
@@ -135,10 +135,10 @@ export function deleteObjective(
  * @concurrency 返却前に再認可する。
  */
 export function queryPlan(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  return readRuntimeContent(access, "plan", request);
+  return readExecutionContent(access, "plan", request);
 }
 
 /**
@@ -157,8 +157,8 @@ export function queryPlan(
  * @concurrency 返却前に再認可する。
  */
 export function queryObjectives(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  return readRuntimeContent(access, "objectives", request);
+  return readExecutionContent(access, "objectives", request);
 }

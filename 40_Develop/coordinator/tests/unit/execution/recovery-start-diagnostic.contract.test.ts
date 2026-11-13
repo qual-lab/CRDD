@@ -12,17 +12,17 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { inspectRecoveryStartFailureDiagnostic } from "../../../src/execution/validation.ts";
 import {
-  snapshotReadyRecovery,
+  inspectRecoveryStartFailureDiagnostic,
   snapshotBlockedRecoveryWithExactId,
+  snapshotReadyRecovery,
 } from "../../../src/execution/validation.ts";
 
 const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 
 /**
  * 任意診断の失敗・遅延が回復開始を待たせず、元の返却と保存・要求を変えないことを確認する。
- * @responsibility 本番関数本文の8停止点とreadyを同じ代役条件で比較する。
+ * @responsibility 本番の開始・Identity組立て本文の各停止点とreadyを同じ代役条件で比較する。
  * @trace PRL-UT-006
  * @precondition 本番本文をメモリ内で実行し、Host・保存は同期代役に限定する。
  * @stimulus 未登録、正常、同期例外、即時拒否、後着拒否、未完了の診断先を渡す。
@@ -40,9 +40,22 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
   const end = source.indexOf("\n/**", start);
   assert.ok(start > 0 && end > start);
   const body = stripTypeScriptTypes(source.slice(start, end));
+  const identityStart = source.indexOf(
+    "export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(",
+  );
+  const identityEnd = source.indexOf("\n/**", identityStart);
+  assert.ok(identityStart > 0 && identityEnd > identityStart);
+  const identityBody = stripTypeScriptTypes(
+    source
+      .slice(identityStart, identityEnd)
+      .replace("export function", "function"),
+  );
   for (const stage of [
     "plan_validation",
     "operation_context",
+    "identity_preflight",
+    "identity_kind",
+    "identity_missing",
     "provider_home",
     "operation_binding",
     "state_conflict",
@@ -58,7 +71,9 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
       let rejectLate: ((error: Error) => void) | undefined;
       let releases = 0,
         writes = 0,
-        submissions = 0;
+        submissions = 0,
+        homeObservations = 0,
+        homeConsumes = 0;
       const plan = {
         provider: "codex",
         operationId: "op",
@@ -67,76 +82,109 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
         stableLogicalHomeBindingHash: "a".repeat(64),
       };
       const home = { ...plan };
-      const invoke = runInNewContext(`${body}; beginProductionRecovery`, {
-        Object,
-        Error,
-        Buffer,
-        JSON,
-        validProductionPlan: () => stage !== "plan_validation",
-        inspectRuntimeOwnedDevelopmentOperationContext: () => ({
-          checkNewWork: () => stage !== "operation_context",
-        }),
-        inspectRuntimeOwnedWindowsProviderHomeCandidate: () => ({
-          status: stage === "provider_home" ? "blocked" : "candidate",
-          observationCapability: {},
-        }),
-        consumeRuntimeOwnedProviderHomeObservationCapability: () => home,
-        acquireProviderHomeLock: () => {
-          throw Error("upper_must_not_acquire_executor_home");
-        },
-        verifyOwnedOperationManagementCapability: () => ({
-          operationId: stage === "operation_binding" ? "other" : "op",
-        }),
-        readRuntimeOwnedCoordinatorStateSnapshot: () => ({
-          value: {
-            snapshot: {
-              operations:
-                stage === "state_conflict"
-                  ? [
-                      {
-                        kind: "docker_task",
-                        identityJson: JSON.stringify(plan),
-                        lease: "held",
-                      },
-                    ]
-                  : [],
-            },
+      const invoke = runInNewContext(
+        `${identityBody}\n${body}; beginProductionRecovery`,
+        {
+          Object,
+          Error,
+          Buffer,
+          JSON,
+          validProductionPlan: () => stage !== "plan_validation",
+          inspectRuntimeOwnedDevelopmentOperationContext: () => ({
+            checkNewWork: () => stage !== "operation_context",
+          }),
+          inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
+            homeObservations++;
+            return {
+              status: stage === "provider_home" ? "blocked" : "candidate",
+              observationCapability: {},
+            };
           },
-        }),
-        randomBytes: () => Buffer.alloc(32, 1),
-        prepareRuntimeOwnedRepositoryDockerOperationIdentity: () => "identity",
-        borrowRuntimeOwnedCoordinatorStateRepository: () => ({
-          repositoryBinding: "binding",
-        }),
-        prepareCoordinatorStateOperationSnapshot: () => Buffer.from("state"),
-        decodeRuntimeDomainSnapshot: () => ({
-          snapshot: { operations: [{ recoveryId: id }] },
-        }),
-        durableRecords: new WeakMap(),
-        releasedLogicalHomeLeases: new WeakSet(),
-        saveRuntimeOwnedCoordinatorOperationStart: () => {
-          writes++;
-          return {
-            status: stage === "operation_start_save" ? "blocked" : "completed",
-            snapshotConfirmed: true,
-            lockReleased: true,
-            recoveryId: id,
-            reason: "coordinator_state_storage_unconfirmed",
-          };
+          consumeRuntimeOwnedProviderHomeObservationCapability: () => {
+            homeConsumes++;
+            return home;
+          },
+          acquireProviderHomeLock: () => {
+            throw Error("upper_must_not_acquire_executor_home");
+          },
+          verifyOwnedOperationManagementCapability: () => ({
+            operationId: stage === "operation_binding" ? "other" : "op",
+          }),
+          readOperationStateStage: (
+            _owner: unknown,
+            request?: { kind: string },
+          ) =>
+            request?.kind === "operation_start"
+              ? {
+                  kind: stage === "identity_kind" ? "state" : "operation_start",
+                  status:
+                    stage === "identity_preflight" ? "blocked" : "completed",
+                  lockReleased: true,
+                  operationIdentity:
+                    stage === "identity_missing"
+                      ? null
+                      : {
+                          recoveryId: id,
+                          identitySha256: "c".repeat(64),
+                          operationId: "op",
+                        },
+                  value: null,
+                }
+              : {
+                  value: {
+                    snapshot: {
+                      operations:
+                        stage === "state_conflict"
+                          ? [
+                              {
+                                kind: "docker_task",
+                                identityJson: JSON.stringify(plan),
+                                lease: "held",
+                              },
+                            ]
+                          : [],
+                    },
+                  },
+                },
+          randomBytes: () => Buffer.alloc(32, 1),
+          HEX64: /^[a-f0-9]{64}$/,
+          getConsumerCompletionPolicy: () => "transient",
+          borrowOwnedHostRecoverySnapshot: () => ({
+            snapshot: { token: "host-token" },
+            hostPaths: { root: "host-root", marker: "host-marker" },
+          }),
+          borrowRuntimeOwnedCoordinatorStateRepository: () => ({
+            repositoryBinding: "binding",
+            operationId: "op",
+            revalidate: () => true,
+          }),
+          durableRecords: new WeakMap(),
+          releasedLogicalHomeLeases: new WeakSet(),
+          saveOperationStart: () => {
+            writes++;
+            return {
+              status:
+                stage === "operation_start_save" ? "blocked" : "completed",
+              snapshotConfirmed: true,
+              lockReleased: true,
+              startSaved: stage !== "operation_start_save",
+              completionContext: stage === "settlement_binding" ? null : {},
+              recoveryId: id,
+              reason: "coordinator_state_storage_unconfirmed",
+            };
+          },
+          beginRuntimeOwnedCoordinatorHostSubmission: () => {
+            submissions++;
+            return {
+              status: stage === "host_submission" ? "blocked" : "completed",
+              hostTransitionConfirmed: stage !== "host_submission",
+              reason: "host_recovery_submission_unconfirmed",
+            };
+          },
+          safeRecoveryReason: () =>
+            "docker_recovery_initialization_failed_closed",
         },
-        prepareRuntimeOwnedCoordinatorSettlement: () =>
-          stage === "settlement_binding" ? null : {},
-        beginRuntimeOwnedCoordinatorHostSubmission: () => {
-          submissions++;
-          return {
-            status: stage === "host_submission" ? "blocked" : "completed",
-            hostTransitionConfirmed: stage !== "host_submission",
-            reason: "host_recovery_submission_unconfirmed",
-          };
-        },
-        safeRecoveryReason: () =>
-          "docker_recovery_initialization_failed_closed",
-      });
+      );
       let result: unknown;
       try {
         result = invoke(
@@ -167,6 +215,12 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
         "[object Promise]",
         "開始結果は同期返却のまま",
       );
+      if (stage.startsWith("identity_")) {
+        assert.equal(homeObservations, 0);
+        assert.equal(homeConsumes, 0);
+        assert.equal(writes, 0);
+        assert.equal(submissions, 0);
+      }
       const beforeLate = JSON.stringify({
         result,
         releases,
@@ -205,7 +259,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
       assert.equal(result.observed.length, stage === "ready" ? 0 : 1, stage);
       if (stage !== "ready")
         assert.deepEqual(result.observed[0], {
-          stage,
+          stage: stage.startsWith("identity_") ? "plan_validation" : stage,
           recoveryId: [
             "operation_start_save",
             "settlement_binding",

@@ -4,16 +4,17 @@
  * @trace ARCH-000004
  * @boundary VCの検証済みRepositoryだけを受け、モデルの保存Protocolは実装しない。
  */
+
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 import {
   getRepositoryFromWorkingDirectory,
-  resolveVerifiedRepositoryRoot,
-  registerRepositoryLocalIgnore,
   type Repository,
+  registerRepositoryLocalIgnore,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
 
 export const TESTS_RELATIVE_PATH = ".crdd/tests" as const;
 
@@ -46,13 +47,13 @@ export const AREA_PATH_KEYS = Object.freeze({
  *
  * @responsibility Repository Runtime AreaのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
- * @shape RepositoryRuntimeAreaが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RepositoryRuntimeAreaで宣言した値と責務の対応を維持する。
- * @boundary N/A: RepositoryRuntimeAreaの宣言は外部境界を開かない。
- * @security N/A: RepositoryRuntimeAreaはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RepositoryRuntimeAreaの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape RepositoryExecutionAreaが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryExecutionAreaで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryExecutionAreaの宣言は外部境界を開かない。
+ * @security N/A: RepositoryExecutionAreaはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryExecutionAreaの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type RepositoryRuntimeArea = (typeof REPOSITORY_AREAS)[number];
+export type RepositoryExecutionArea = (typeof REPOSITORY_AREAS)[number];
 
 /**
  * 既存Runtime領域の読取り専用観測結果を定義する。
@@ -64,7 +65,7 @@ export type RepositoryRuntimeArea = (typeof REPOSITORY_AREAS)[number];
  * @security boundaryIdentityは置換検知用の非Authority参照である。
  * @compatibility areaの作成入口とは独立した読取り専用APIである。
  */
-export type RepositoryRuntimeDataAreaObservation =
+export type RepositoryExecutionDataAreaObservation =
   | Readonly<{
       status: "ready";
       repositoryRoot: string;
@@ -92,17 +93,17 @@ export type RepositoryRuntimeDataAreaObservation =
  * @responsibility Repository Runtime Data Paths From Validated Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input repositoryRoot: string
- * @returns resolveRepositoryRuntimeDataPathsFromValidatedRootの計算結果を返す。
- * @precondition 「repositoryRoot: string」がresolveRepositoryRuntimeDataPathsFromValidatedRootの入力契約を満たす。
- * @postcondition resolveRepositoryRuntimeDataPathsFromValidatedRootの責務を完了した結果だけを返す。
- * @effect N/A: resolveRepositoryRuntimeDataPathsFromValidatedRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveRepositoryRuntimeDataPathsFromValidatedRootは独自の失敗分岐を所有しない。
- * @invariant resolveRepositoryRuntimeDataPathsFromValidatedRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveRepositoryRuntimeDataPathsFromValidatedRootはProcess内の同一Subsystemで完結する。
- * @security N/A: resolveRepositoryRuntimeDataPathsFromValidatedRootはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: resolveRepositoryRuntimeDataPathsFromValidatedRootは共有非同期状態を持たない同期処理である。
+ * @returns resolveRepositoryExecutionDataPathsFromValidatedRootの計算結果を返す。
+ * @precondition 「repositoryRoot: string」がresolveRepositoryExecutionDataPathsFromValidatedRootの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsFromValidatedRootの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsFromValidatedRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsFromValidatedRootは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsFromValidatedRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsFromValidatedRootはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveRepositoryExecutionDataPathsFromValidatedRootはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsFromValidatedRootは共有非同期状態を持たない同期処理である。
  */
-function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
+function resolveRepositoryExecutionDataPathsFromValidatedRoot(
   repositoryRoot: string,
 ) {
   if (
@@ -135,21 +136,21 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
  * @responsibility Repository Runtime Data Pathsの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input capability: Repository
- * @returns resolveRepositoryRuntimeDataPathsの計算結果を返す。
- * @precondition 「capability: Repository」がresolveRepositoryRuntimeDataPathsの入力契約を満たす。
- * @postcondition resolveRepositoryRuntimeDataPathsの責務を完了した結果だけを返す。
- * @effect N/A: resolveRepositoryRuntimeDataPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveRepositoryRuntimeDataPathsは独自の失敗分岐を所有しない。
- * @invariant resolveRepositoryRuntimeDataPathsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveRepositoryRuntimeDataPathsはProcess内の同一Subsystemで完結する。
- * @security resolveRepositoryRuntimeDataPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: resolveRepositoryRuntimeDataPathsは共有非同期状態を持たない同期処理である。
+ * @returns resolveRepositoryExecutionDataPathsの計算結果を返す。
+ * @precondition 「capability: Repository」がresolveRepositoryExecutionDataPathsの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsはProcess内の同一Subsystemで完結する。
+ * @security resolveRepositoryExecutionDataPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsは共有非同期状態を持たない同期処理である。
  */
-export function resolveRepositoryRuntimeDataPaths(capability: Repository) {
+export function resolveRepositoryExecutionDataPaths(capability: Repository) {
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   if (repositoryRoot === null) return null;
   const resolved =
-    resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+    resolveRepositoryExecutionDataPathsFromValidatedRoot(repositoryRoot);
   if (!resolved) return null;
   const { root: internalRoot, ...publicPaths } = resolved;
   if (path.dirname(internalRoot) !== resolved.repositoryRoot) return null;
@@ -162,23 +163,23 @@ export function resolveRepositoryRuntimeDataPaths(capability: Repository) {
  * @responsibility Repository Runtime Data Paths For Internal Useの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input capability: Repository
- * @returns resolveRepositoryRuntimeDataPathsForInternalUseの計算結果を返す。
- * @precondition 「capability: Repository」がresolveRepositoryRuntimeDataPathsForInternalUseの入力契約を満たす。
- * @postcondition resolveRepositoryRuntimeDataPathsForInternalUseの責務を完了した結果だけを返す。
- * @effect N/A: resolveRepositoryRuntimeDataPathsForInternalUseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveRepositoryRuntimeDataPathsForInternalUseは独自の失敗分岐を所有しない。
- * @invariant resolveRepositoryRuntimeDataPathsForInternalUseは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveRepositoryRuntimeDataPathsForInternalUseはProcess内の同一Subsystemで完結する。
- * @security resolveRepositoryRuntimeDataPathsForInternalUseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: resolveRepositoryRuntimeDataPathsForInternalUseは共有非同期状態を持たない同期処理である。
+ * @returns resolveRepositoryExecutionDataPathsForInternalUseの計算結果を返す。
+ * @precondition 「capability: Repository」がresolveRepositoryExecutionDataPathsForInternalUseの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsForInternalUseの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsForInternalUseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsForInternalUseは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsForInternalUseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsForInternalUseはProcess内の同一Subsystemで完結する。
+ * @security resolveRepositoryExecutionDataPathsForInternalUseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsForInternalUseは共有非同期状態を持たない同期処理である。
  */
-export function resolveRepositoryRuntimeDataPathsForInternalUse(
+export function resolveRepositoryExecutionDataPathsForInternalUse(
   capability: Repository,
 ) {
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   return repositoryRoot === null
     ? null
-    : resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
+    : resolveRepositoryExecutionDataPathsFromValidatedRoot(repositoryRoot);
 }
 
 /**
@@ -196,12 +197,12 @@ export function resolveRepositoryRuntimeDataPathsForInternalUse(
  * @security raw Root、秘密値、回復Authorityを公開しない。
  * @concurrency 開始・終了の不透明Identity比較で境界置換を検出できる。将来の状態を保証しない。
  */
-export function observeRepositoryRuntimeDataArea(
+export function observeRepositoryExecutionDataArea(
   capability: Repository,
-  area: RepositoryRuntimeArea,
-): RepositoryRuntimeDataAreaObservation {
+  area: RepositoryExecutionArea,
+): RepositoryExecutionDataAreaObservation {
   try {
-    const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
+    const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
     if (!paths || !REPOSITORY_AREAS.includes(area))
       return Object.freeze({
         status: "blocked",
@@ -269,22 +270,22 @@ export function observeRepositoryRuntimeDataArea(
  * @responsibility Repository Runtime Data Paths From Working Directoryの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input workingDirectory: unknown
- * @returns resolveRepositoryRuntimeDataPathsFromWorkingDirectoryの計算結果を返す。
- * @precondition 「workingDirectory: unknown」がresolveRepositoryRuntimeDataPathsFromWorkingDirectoryの入力契約を満たす。
- * @postcondition resolveRepositoryRuntimeDataPathsFromWorkingDirectoryの責務を完了した結果だけを返す。
- * @effect N/A: resolveRepositoryRuntimeDataPathsFromWorkingDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveRepositoryRuntimeDataPathsFromWorkingDirectoryは独自の失敗分岐を所有しない。
- * @invariant resolveRepositoryRuntimeDataPathsFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveRepositoryRuntimeDataPathsFromWorkingDirectoryはProcess内の同一Subsystemで完結する。
- * @security N/A: resolveRepositoryRuntimeDataPathsFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: resolveRepositoryRuntimeDataPathsFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
+ * @returns resolveRepositoryExecutionDataPathsFromWorkingDirectoryの計算結果を返す。
+ * @precondition 「workingDirectory: unknown」がresolveRepositoryExecutionDataPathsFromWorkingDirectoryの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsFromWorkingDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsFromWorkingDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsFromWorkingDirectoryは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsFromWorkingDirectoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveRepositoryExecutionDataPathsFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
  */
-export function resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
+export function resolveRepositoryExecutionDataPathsFromWorkingDirectory(
   workingDirectory: unknown,
 ) {
   const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
-    ? resolveRepositoryRuntimeDataPaths(verified.capability)
+    ? resolveRepositoryExecutionDataPaths(verified.capability)
     : null;
 }
 
@@ -309,7 +310,7 @@ export function checkRepositoryRuntimeDataProtectionDirectory(
 ): "ready" | "absent" | "blocked" {
   try {
     if (operation !== "observe" && operation !== "prepare") return "blocked";
-    const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
+    const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
     if (!paths) return "blocked";
     let metadata: fs.Stats;
     try {
@@ -368,11 +369,11 @@ function ensureCanonicalDirectory(target: string): void {
  * @effect 除外登録後に既存のRepository内領域を作成する。
  * @failure 除外のEffect不明・回収不明はblockedのまま返し、領域を作らない。
  */
-export function ensureRepositoryRuntimeDataArea(
+export function ensureRepositoryExecutionDataArea(
   capability: Repository,
-  area: RepositoryRuntimeArea,
+  area: RepositoryExecutionArea,
 ) {
-  const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
+  const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
   if (!paths || !REPOSITORY_AREAS.includes(area)) return null;
   const ignore = registerRepositoryLocalIgnore(capability, ".crdd/");
   if (ignore.status !== "registered")
@@ -402,24 +403,24 @@ export function ensureRepositoryRuntimeDataArea(
  *
  * @responsibility Repository Runtime Data Area From Working Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000011
- * @input workingDirectory: unknown、area: RepositoryRuntimeArea
- * @returns ensureRepositoryRuntimeDataAreaFromWorkingDirectoryの計算結果を返す。
- * @precondition 「workingDirectory: unknown、area: RepositoryRuntimeArea」がensureRepositoryRuntimeDataAreaFromWorkingDirectoryの入力契約を満たす。
- * @postcondition ensureRepositoryRuntimeDataAreaFromWorkingDirectoryの責務を完了した結果だけを返す。
- * @effect N/A: ensureRepositoryRuntimeDataAreaFromWorkingDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ensureRepositoryRuntimeDataAreaFromWorkingDirectoryは独自の失敗分岐を所有しない。
- * @invariant ensureRepositoryRuntimeDataAreaFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ensureRepositoryRuntimeDataAreaFromWorkingDirectoryはProcess内の同一Subsystemで完結する。
- * @security N/A: ensureRepositoryRuntimeDataAreaFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: ensureRepositoryRuntimeDataAreaFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
+ * @input workingDirectory: unknown、area: RepositoryExecutionArea
+ * @returns ensureRepositoryExecutionDataAreaFromWorkingDirectoryの計算結果を返す。
+ * @precondition 「workingDirectory: unknown、area: RepositoryExecutionArea」がensureRepositoryExecutionDataAreaFromWorkingDirectoryの入力契約を満たす。
+ * @postcondition ensureRepositoryExecutionDataAreaFromWorkingDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryは独自の失敗分岐を所有しない。
+ * @invariant ensureRepositoryExecutionDataAreaFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
  */
-export function ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+export function ensureRepositoryExecutionDataAreaFromWorkingDirectory(
   workingDirectory: unknown,
-  area: RepositoryRuntimeArea,
+  area: RepositoryExecutionArea,
 ) {
   const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
-    ? ensureRepositoryRuntimeDataArea(verified.capability, area)
+    ? ensureRepositoryExecutionDataArea(verified.capability, area)
     : null;
 }
 
@@ -428,23 +429,23 @@ export function ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
  *
  * @responsibility require Ready Repository Runtime Data Areaの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
- * @input result: ReturnType<typeof ensureRepositoryRuntimeDataArea>、invalidReason: string
- * @returns requireReadyRepositoryRuntimeDataAreaの計算結果を返す。
- * @precondition 「result: ReturnType<typeof ensureRepositoryRuntimeDataArea>、invalidReason: string」がrequireReadyRepositoryRuntimeDataAreaの入力契約を満たす。
- * @postcondition requireReadyRepositoryRuntimeDataAreaの責務を完了した結果だけを返す。
- * @effect N/A: requireReadyRepositoryRuntimeDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure requireReadyRepositoryRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant requireReadyRepositoryRuntimeDataAreaは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: requireReadyRepositoryRuntimeDataAreaはProcess内の同一Subsystemで完結する。
- * @security N/A: requireReadyRepositoryRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: requireReadyRepositoryRuntimeDataAreaは共有非同期状態を持たない同期処理である。
+ * @input result: ReturnType<typeof ensureRepositoryExecutionDataArea>、invalidReason: string
+ * @returns requireReadyRepositoryExecutionDataAreaの計算結果を返す。
+ * @precondition 「result: ReturnType<typeof ensureRepositoryExecutionDataArea>、invalidReason: string」がrequireReadyRepositoryExecutionDataAreaの入力契約を満たす。
+ * @postcondition requireReadyRepositoryExecutionDataAreaの責務を完了した結果だけを返す。
+ * @effect N/A: requireReadyRepositoryExecutionDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requireReadyRepositoryExecutionDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requireReadyRepositoryExecutionDataAreaは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requireReadyRepositoryExecutionDataAreaはProcess内の同一Subsystemで完結する。
+ * @security N/A: requireReadyRepositoryExecutionDataAreaはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: requireReadyRepositoryExecutionDataAreaは共有非同期状態を持たない同期処理である。
  */
-export function requireReadyRepositoryRuntimeDataArea(
-  result: ReturnType<typeof ensureRepositoryRuntimeDataArea>,
+export function requireReadyRepositoryExecutionDataArea(
+  result: ReturnType<typeof ensureRepositoryExecutionDataArea>,
   invalidReason: string,
 ) {
   if (result?.status === "ready") return result;
   if (result?.status === "blocked")
-    throw new RepositoryRuntimeDataAreaBlockedError(result);
+    throw new ExecutionStorageBlockedError(result);
   throw new Error(invalidReason);
 }

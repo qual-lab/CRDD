@@ -4,15 +4,17 @@
  * @trace ERB-IT-002
  * @boundary Coordinatorや他モデルの設定・保存を呼び出さない検証Owner内部。
  */
+
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { ExecutionStorageBlockedError } from "../../execution-model/src/index.ts";
 import {
+  type Repository,
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
-  type Repository,
 } from "../../version-control/src/index.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../execution-model/src/index.ts";
+
 const REPOSITORY_AREAS = Object.freeze(["tests"] as const);
 const AREA_PATH_KEYS = Object.freeze({ tests: "tests" } as const);
 function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
@@ -272,6 +274,6 @@ export function requireReadyRepositoryRuntimeDataArea(
 ) {
   if (result?.status === "ready") return result;
   if (result?.status === "blocked")
-    throw new RepositoryRuntimeDataAreaBlockedError(result);
+    throw new ExecutionStorageBlockedError(result);
   throw new Error(invalidReason);
 }

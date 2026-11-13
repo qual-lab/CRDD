@@ -3,11 +3,16 @@
  * @responsibility 操作相関とfresh借用、未発行通知の既存照合を搬送し保存状態を所有しない。
  * @trace ARCH-000004、ARCH-000008
  */
-import * as runtimeStore from "../../../execution-model/src/index.ts";
+
 import { readCoordinatorConfig } from "../../../configuration-model/src/index.ts";
+import * as runtimeStore from "../../../execution-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import { getRepositoryFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { borrowRuntimeOwnedCoordinatorStateRepository } from "./operation.ts";
+import {
+  borrowRuntimeOwnedCoordinatorSettlementRepository,
+  borrowRuntimeOwnedCoordinatorStateRepository,
+  captureOwnedOperationCleanupVerification,
+} from "./operation.ts";
 
 /** 履歴を扱う呼出しだけ、確定日数と既存の同期現在性検査を結合する。 */
 export function historyRepositoryInput<T>(root: T) {
@@ -69,7 +74,7 @@ export function verifyRuntimePersistenceRepository(workingDirectory: string) {
 }
 
 /**
- * saveRuntimeOwnedCoordinatorOperationStartへ元操作の観測を接続する。
+ * saveOperationStartへ元操作の観測を接続する。
  * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
  * @trace ARCH-000008
  * @input managementCapability: 既存操作、args: 用途固定の保存入力。
@@ -83,15 +88,77 @@ export function verifyRuntimePersistenceRepository(workingDirectory: string) {
  * @security 生Writer、短期Owner、任意取引callbackを返さない。
  * @concurrency 観測はDomainが元の照合位置で呼ぶ。
  */
-export function saveRuntimeOwnedCoordinatorOperationStart(
+export function saveOperationStart(
   managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.saveRuntimeOwnedCoordinatorOperationStart
-  > extends [unknown, ...infer Args]
+  identityJson: unknown,
+  observeTerminal: (
+    result: unknown,
+    operationId: unknown,
+    recoveryId: unknown,
+  ) => unknown,
+) {
+  return runtimeStore.saveOperationStart(
+    {
+      identity: managementCapability as object,
+      observeRepository: () => {
+        const observed =
+          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+        return observed
+          ? {
+              purpose: "execution" as const,
+              root: observed.root,
+              operationId: observed.operationId,
+              revalidate: observed.revalidate,
+            }
+          : null;
+      },
+      observeSettlementRepository: () => {
+        const observed =
+          borrowRuntimeOwnedCoordinatorSettlementRepository(
+            managementCapability,
+          );
+        return observed
+          ? withHistoryRetention({
+              purpose: observed.purpose,
+              root: observed.root,
+              operationId: observed.operationId,
+              revalidate: observed.revalidate,
+            })
+          : null;
+      },
+      captureCleanupVerification: () =>
+        captureOwnedOperationCleanupVerification(managementCapability),
+      observeTerminal,
+    },
+    identityJson,
+  );
+}
+
+/**
+ * readOperationStateStageへ元操作の観測を接続する。
+ * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
+ * @trace ARCH-000008
+ * @input managementCapability: 既存操作、args: 用途固定の保存入力。
+ * @returns Domainの保存結果。
+ * @precondition 元の操作Ownerが現在の実行を管理する。
+ * @postcondition 保存結果から実行又は回復Authorityを生成しない。
+ * @effect 既存の用途固定保存処理だけ。
+ * @failure 元Owner又は保存検査の拒否を維持する。
+ * @invariant Mapのkeyは元Capabilityそのもの。
+ * @boundary Coordinatorの実行観測とDomain保存。
+ * @security 生Writer、短期Owner、任意取引callbackを返さない。
+ * @concurrency 観測はDomainが元の照合位置で呼ぶ。
+ */
+export function readOperationStateStage(
+  managementCapability: unknown,
+  ...args: Parameters<typeof runtimeStore.readOperationStateStage> extends [
+    unknown,
+    ...infer Args,
+  ]
     ? Args
     : never
 ) {
-  return runtimeStore.saveRuntimeOwnedCoordinatorOperationStart(
+  return runtimeStore.readOperationStateStage(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -112,7 +179,7 @@ export function saveRuntimeOwnedCoordinatorOperationStart(
 }
 
 /**
- * readRuntimeOwnedCoordinatorStateSnapshotへ元操作の観測を接続する。
+ * readOperationResourcesStageへ元操作の観測を接続する。
  * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
  * @trace ARCH-000008
  * @input managementCapability: 既存操作、args: 用途固定の保存入力。
@@ -126,15 +193,16 @@ export function saveRuntimeOwnedCoordinatorOperationStart(
  * @security 生Writer、短期Owner、任意取引callbackを返さない。
  * @concurrency 観測はDomainが元の照合位置で呼ぶ。
  */
-export function readRuntimeOwnedCoordinatorStateSnapshot(
+export function readOperationResourcesStage(
   managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.readRuntimeOwnedCoordinatorStateSnapshot
-  > extends [unknown, ...infer Args]
+  ...args: Parameters<typeof runtimeStore.readOperationResourcesStage> extends [
+    unknown,
+    ...infer Args,
+  ]
     ? Args
     : never
 ) {
-  return runtimeStore.readRuntimeOwnedCoordinatorStateSnapshot(
+  return runtimeStore.readOperationResourcesStage(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -155,7 +223,7 @@ export function readRuntimeOwnedCoordinatorStateSnapshot(
 }
 
 /**
- * readRuntimeOwnedCoordinatorResourceBookへ元操作の観測を接続する。
+ * saveResourceNotIssuedStageへ元操作の観測を接続する。
  * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
  * @trace ARCH-000008
  * @input managementCapability: 既存操作、args: 用途固定の保存入力。
@@ -169,15 +237,16 @@ export function readRuntimeOwnedCoordinatorStateSnapshot(
  * @security 生Writer、短期Owner、任意取引callbackを返さない。
  * @concurrency 観測はDomainが元の照合位置で呼ぶ。
  */
-export function readRuntimeOwnedCoordinatorResourceBook(
+export function saveResourceNotIssuedStage(
   managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.readRuntimeOwnedCoordinatorResourceBook
-  > extends [unknown, ...infer Args]
+  ...args: Parameters<typeof runtimeStore.saveResourceNotIssuedStage> extends [
+    unknown,
+    ...infer Args,
+  ]
     ? Args
     : never
 ) {
-  return runtimeStore.readRuntimeOwnedCoordinatorResourceBook(
+  return runtimeStore.saveResourceNotIssuedStage(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -198,7 +267,7 @@ export function readRuntimeOwnedCoordinatorResourceBook(
 }
 
 /**
- * checkpointRuntimeOwnedCoordinatorResourceNotIssuedへ元操作の観測を接続する。
+ * saveHostCleanupPreparationへ元操作の観測を接続する。
  * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
  * @trace ARCH-000008
  * @input managementCapability: 既存操作、args: 用途固定の保存入力。
@@ -212,15 +281,16 @@ export function readRuntimeOwnedCoordinatorResourceBook(
  * @security 生Writer、短期Owner、任意取引callbackを返さない。
  * @concurrency 観測はDomainが元の照合位置で呼ぶ。
  */
-export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+export function saveHostCleanupPreparation(
   managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorResourceNotIssued
-  > extends [unknown, ...infer Args]
+  ...args: Parameters<typeof runtimeStore.saveHostCleanupPreparation> extends [
+    unknown,
+    ...infer Args,
+  ]
     ? Args
     : never
 ) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+  return runtimeStore.saveHostCleanupPreparation(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -238,10 +308,8 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
     },
     ...args,
   );
-}
-
-/**
- * saveRuntimeOwnedCoordinatorHostCleanupPreparationへ元操作の観測を接続する。
+} /**
+ * saveOperationCheckpointへ元操作の観測を接続する。
  * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
  * @trace ARCH-000008
  * @input managementCapability: 既存操作、args: 用途固定の保存入力。
@@ -255,273 +323,16 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
  * @security 生Writer、短期Owner、任意取引callbackを返さない。
  * @concurrency 観測はDomainが元の照合位置で呼ぶ。
  */
-export function saveRuntimeOwnedCoordinatorHostCleanupPreparation(
+export function saveOperationCheckpoint(
   managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.saveRuntimeOwnedCoordinatorHostCleanupPreparation
-  > extends [unknown, ...infer Args]
+  ...args: Parameters<typeof runtimeStore.saveOperationCheckpoint> extends [
+    unknown,
+    ...infer Args,
+  ]
     ? Args
     : never
 ) {
-  return runtimeStore.saveRuntimeOwnedCoordinatorHostCleanupPreparation(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
-  );
-}
-
-/**
- * checkpointRuntimeOwnedCoordinatorRestartへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function checkpointRuntimeOwnedCoordinatorRestart(
-  managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorRestart
-  > extends [unknown, ...infer Args]
-    ? Args
-    : never
-) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorRestart(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
-  );
-}
-
-/**
- * checkpointRuntimeOwnedCoordinatorResourceへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function checkpointRuntimeOwnedCoordinatorResource(
-  managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorResource
-  > extends [unknown, ...infer Args]
-    ? Args
-    : never
-) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorResource(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
-  );
-}
-
-/**
- * checkpointRuntimeOwnedCoordinatorCleanupへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function checkpointRuntimeOwnedCoordinatorCleanup(
-  managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorCleanup
-  > extends [unknown, ...infer Args]
-    ? Args
-    : never
-) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorCleanup(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
-  );
-}
-
-/**
- * checkpointRuntimeOwnedCoordinatorHostへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function checkpointRuntimeOwnedCoordinatorHost(
-  managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorHost
-  > extends [unknown, ...infer Args]
-    ? Args
-    : never
-) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorHost(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
-  );
-}
-
-/**
- * checkpointRuntimeOwnedCoordinatorLifecycleへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function checkpointRuntimeOwnedCoordinatorLifecycle(
-  managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorLifecycle
-  > extends [unknown, ...infer Args]
-    ? Args
-    : never
-) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorLifecycle(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
-  );
-}
-
-/**
- * checkpointRuntimeOwnedCoordinatorReferencesへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function checkpointRuntimeOwnedCoordinatorReferences(
-  managementCapability: unknown,
-  ...args: Parameters<
-    typeof runtimeStore.checkpointRuntimeOwnedCoordinatorReferences
-  > extends [unknown, ...infer Args]
-    ? Args
-    : never
-) {
-  return runtimeStore.checkpointRuntimeOwnedCoordinatorReferences(
+  return runtimeStore.saveOperationCheckpoint(
     {
       identity: managementCapability as object,
       observeRepository: () => {

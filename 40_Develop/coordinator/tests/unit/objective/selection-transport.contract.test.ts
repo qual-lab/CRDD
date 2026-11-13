@@ -9,8 +9,8 @@
  * @boundary N/A: Provider、公開CLIと永続Runtimeを起動しない。
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
+import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import { buildObjectiveTaskRequest } from "../../../src/objective/execute.ts";
 import { resolveTaskExecutionSelections } from "../../../src/selection/resolve.ts";
@@ -87,4 +87,4 @@ test("Objective選定は全四組合せでTask契約へexactに搬送する", ()
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../../../execution-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../src/objective/plan.ts";

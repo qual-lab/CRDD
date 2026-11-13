@@ -8,16 +8,16 @@
  */
 
 import {
-  snapshotPlainRecord,
   snapshotOpenPlainRecord,
+  snapshotPlainRecord,
 } from "../request/snapshot.ts";
 import {
   callKeys,
   inspectMcpEnvelope,
   inspectProtocolRequest,
+  type McpResponse,
   protocolComplete,
   protocolError,
-  type McpResponse,
 } from "../request/validation.ts";
 
 export const MCP_EXECUTION_STATUS_TOOL = "crdd.get_execution_status" as const;
@@ -180,4 +180,4 @@ export async function handleMcpExecutionStatusRequest(
 import {
   parseRuntimeActivityObservation,
   type RuntimeActivityObservation,
-} from "../../../execution-model/src/index.ts";
+} from "../../../coordinator/src/index.ts";

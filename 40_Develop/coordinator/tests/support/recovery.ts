@@ -1,31 +1,31 @@
 /**
- * 実回収Owner本文・実Domain候補・共通DIを有限外部境界で結合する。
+ * 実回収Owner本文・公開Resource値操作・共通DIを有限外部境界で結合する。
  * @responsibility 旧5資源Projection／Receipt Adapterを使わず保存前削除を反証する。
  * @trace ERB-IT-014
  * @level IT
- * @scope メモリ内保存と既存有限CLI代役。実Docker・AI・保持物を操作しない。
+ * @scope メモリWriter応答代役と既存有限CLI代役。実Writer・CASの試験とは区別し、実Docker・AI・保持物を操作しない。
  */
+import { canonicalJson } from "./contract-assertions.ts";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { runInThisContext } from "node:vm";
+import { isDeepStrictEqual } from "node:util";
 import type { TestContext } from "node:test";
+import { runInThisContext } from "node:vm";
+import type {
+  IsolationCallbacks,
+  ResourceTarget,
+} from "../../../docker-isolation/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
+import {
+  applyResourceEvent,
+  areTaskResourcesSettled,
+  canCloseUnknownAuthentication,
+  type OperationResources,
+  type ExecutionStateSnapshot,
+} from "../../../execution-model/src/index.ts";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import {
-  applyCoordinatorResourceEvent,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  prepareCoordinatorStateResourceSnapshot,
-  prepareCoordinatorStateCleanupSnapshot,
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
-  type CoordinatorResourceBook,
-} from "../../../execution-model/src/index.ts";
-import type {
-  ResourceTarget,
-  IsolationCallbacks,
-} from "../../../docker-isolation/src/index.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 export async function createRecoveryFixture(
@@ -45,9 +45,9 @@ export async function createRecoveryFixture(
     unreceiptedAbsence: f.request.unreceiptedAbsence,
     verifyLabelAbsence: f.request.verifyLabelAbsence,
   };
-  let book: CoordinatorResourceBook | null = null;
+  let book: OperationResources | null = null;
   for (const item of prepared.resources.resources) {
-    book = applyCoordinatorResourceEvent(book, {
+    book = applyResourceEvent(book, {
       event: "submission",
       key: item.key,
       snapshot: book?.snapshot ?? prepared.resources,
@@ -64,7 +64,7 @@ export async function createRecoveryFixture(
           r.key === item.key ? receipt : r,
         ),
       };
-      book = applyCoordinatorResourceEvent(book, {
+      book = applyResourceEvent(book, {
         event: "receipt",
         key: item.key,
         snapshot,
@@ -77,13 +77,12 @@ export async function createRecoveryFixture(
     assert.ok(item.identity.dockerId);
     f.ids.add(item.identity.dockerId);
   }
-  const initial = decodeRuntimeDomainSnapshot(base.bytes, base.binding);
-  assert.ok(initial);
-  const task = initial.snapshot.operations[0];
+  const initial = JSON.parse(base.bytes.toString("utf8"));
+  const task = base.operation;
   assert.ok(task?.kind === "docker_task");
   let bytes: Buffer = Buffer.from(
-    `${encodeRuntimeStateValue({
-      ...initial.snapshot,
+    `${canonicalJson({
+      ...initial,
       operations: [
         {
           ...task,
@@ -95,9 +94,11 @@ export async function createRecoveryFixture(
     })}\n`,
   );
   const read = () => {
-    const value = decodeRuntimeDomainSnapshot(bytes, base.binding);
-    assert.ok(value);
-    return value;
+    return {
+      snapshot: JSON.parse(bytes.toString("utf8")) as ExecutionStateSnapshot,
+      payloadSha256: createHash("sha256").update(bytes).digest("hex"),
+      sourceText: bytes.toString("utf8"),
+    };
   };
   const capability = {},
     root = {},
@@ -123,6 +124,7 @@ export async function createRecoveryFixture(
     repository,
     recoveryId: base.recoveryId,
     before: bytes,
+    snapshot: read().snapshot,
     hostToken: "host-token",
     hostGeneration: "host-generation",
   };
@@ -136,71 +138,141 @@ export async function createRecoveryFixture(
     "recoverRuntimeOwnedDockerTaskResources",
   ];
   const api =
-    runInThisContext(`(deps)=>{const {Buffer,encodeRuntimeStateValue,decodeRuntimeDomainSnapshot,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
+    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,areTaskResourcesSettled,canCloseUnknownAuthentication,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
  ${names.map((n) => sourceDeclaration(source, n)).join("\n")}
  return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
       {
         Buffer,
-        encodeRuntimeStateValue,
-        decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
+        snapshotJsonValue,
+        isDeepStrictEqual,
+        canonicalJson,
         dockerRecoveryPreparations: new Map([[capability, record]]),
         assertCurrentRecoveryOwner: (owner: unknown) =>
           owner === capability && live,
-        readRuntimeOwnedCoordinatorRecoverySnapshot: () => ({
+        readRecoveryState: () => ({
           status: "completed",
           lockReleased: readerReleased,
           value:
             staleReadback && writeCount
-              ? decodeRuntimeDomainSnapshot(previous, base.binding)
+              ? {
+                  snapshot: JSON.parse(previous.toString("utf8")),
+                  payloadSha256: createHash("sha256")
+                    .update(previous)
+                    .digest("hex"),
+                  sourceText: previous.toString("utf8"),
+                }
               : read(),
         }),
-        writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-          _repository: unknown,
-          id: string,
+        saveRecoveryCheckpoint: (
+          repository: unknown,
+          recoveryId: string,
           before: Buffer,
-          kind: string,
-          value: unknown,
-          owner: () => boolean,
+          request: Parameters<
+            typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+          >[3],
         ) => {
-          events.push(`save:${kind}`);
-          if (!owner() || writeRejected || !before.equals(bytes))
-            return {
-              status: "blocked",
-              snapshotConfirmed: false,
-              lockReleased: true,
-            };
-          const candidate =
-            kind === "resource"
-              ? prepareCoordinatorStateResourceSnapshot(
-                  bytes,
-                  id,
-                  value,
-                  base.binding,
-                )
-              : prepareCoordinatorStateCleanupSnapshot(
-                  bytes,
-                  id,
-                  value,
-                  base.binding,
-                );
-          if (!candidate)
-            return {
-              status: "blocked",
-              snapshotConfirmed: false,
-              lockReleased: true,
-            };
-          previous = bytes;
-          bytes = candidate;
-          writeCount++;
-          if (loseAfterWrite) live = false;
-          const next = read();
-          return {
-            status: "completed",
-            snapshotConfirmed: true,
-            lockReleased: true,
-            revision: next.snapshot.revision,
-            payloadSha256: next.payloadSha256,
-          };
+          switch (request.kind) {
+            default:
+              if (!("value" in request))
+                throw new Error("unexpected recovery kind");
+              return Reflect.apply(
+                (
+                  _repository: unknown,
+                  id: string,
+                  before: Buffer,
+                  kind: string,
+                  value: unknown,
+                  owner: () => boolean,
+                ) => {
+                  events.push(`save:${kind}`);
+                  if (!owner() || writeRejected || !before.equals(bytes))
+                    return {
+                      status: "blocked",
+                      snapshotConfirmed: false,
+                      lockReleased: true,
+                    };
+                  const current = read(),
+                    operation = current.snapshot.operations.find(
+                      (item) =>
+                        item.kind === "docker_task" && item.recoveryId === id,
+                    );
+                  assert.ok(operation?.kind === "docker_task");
+                  assert.equal(operation.phase, "settling");
+                  assert.equal(operation.outcome, null);
+                  let resources: OperationResources | null;
+                  if (kind === "resource")
+                    resources = applyResourceEvent(operation.resources, value);
+                  else {
+                    assert.equal(kind, "cleanup");
+                    const payload = JSON.parse(canonicalJson(value));
+                    assert.deepEqual(Object.keys(payload).sort(), [
+                      "observations",
+                      "snapshot",
+                    ]);
+                    assert.ok(operation.resources);
+                    resources = applyResourceCleanup(
+                      operation.resources,
+                      payload.snapshot,
+                      payload.observations,
+                      {
+                        recoveryId: id,
+                        previousPayloadSha256: current.payloadSha256,
+                      },
+                    );
+                  }
+                  const candidate =
+                    resources &&
+                    validateResourceBookTransition(
+                      operation.resources,
+                      resources,
+                    )
+                      ? Buffer.from(
+                          `${canonicalJson({
+                            ...current.snapshot,
+                            revision: current.snapshot.revision + 1,
+                            previous: {
+                              revision: current.snapshot.revision,
+                              payloadSha256: current.payloadSha256,
+                            },
+                            operations: current.snapshot.operations.map(
+                              (item) =>
+                                item.recoveryId === id
+                                  ? { ...item, resources }
+                                  : item,
+                            ),
+                          })}\n`,
+                        )
+                      : null;
+                  if (!candidate)
+                    return {
+                      status: "blocked",
+                      snapshotConfirmed: false,
+                      lockReleased: true,
+                    };
+                  previous = bytes;
+                  bytes = candidate;
+                  writeCount++;
+                  if (loseAfterWrite) live = false;
+                  const next = read();
+                  return {
+                    status: "completed",
+                    snapshotConfirmed: true,
+                    lockReleased: true,
+                    revision: next.snapshot.revision,
+                    payloadSha256: next.payloadSha256,
+                  };
+                },
+                undefined,
+                [
+                  repository,
+                  recoveryId,
+                  before,
+                  request.kind,
+                  request.value,
+                  request.assertOwner,
+                ],
+              );
+          }
         },
         borrowHostRecoveryManagementDirectory: () => {
           borrowCount++;
@@ -209,8 +281,8 @@ export async function createRecoveryFixture(
             assertCurrent: () => borrowLive,
           };
         },
-        coordinatorTaskResourcesAreSettled,
-        coordinatorAuthenticationUnknownCanClose,
+        areTaskResourcesSettled,
+        canCloseUnknownAuthentication,
         coordinatorReleasedTaskCanObserveHostAbsence: () => false,
       },
     ) as {
@@ -261,12 +333,12 @@ export async function createRecoveryFixture(
     set borrowLive(value: boolean) {
       borrowLive = value;
     },
-    setBook(value: CoordinatorResourceBook | null) {
+    setBook(value: OperationResources | null) {
       const current = read();
       const op = current.snapshot.operations[0];
       assert.ok(op?.kind === "docker_task");
       bytes = Buffer.from(
-        `${encodeRuntimeStateValue({
+        `${canonicalJson({
           ...current.snapshot,
           operations: [
             {
@@ -284,6 +356,7 @@ export async function createRecoveryFixture(
         })}\n`,
       );
       record.before = bytes;
+      record.snapshot = read().snapshot;
     },
     run: (signal?: AbortSignal) =>
       api.run(
@@ -297,3 +370,9 @@ export async function createRecoveryFixture(
       ),
   };
 }
+
+import {
+  applyResourceCleanup,
+  validateResourceBookTransition,
+} from "../../../execution-model/src/index.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";

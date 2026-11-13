@@ -5,10 +5,10 @@
  * @boundary 試験専用。Docker処置・保存・Authorityを発行しない。
  */
 
-import type { CoordinatorStateTaskOperation } from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
 
 export function readRecoveryResourceSnapshots(
-  operation: CoordinatorStateTaskOperation,
+  operation: ExecutionOperationRecord,
 ) {
   if (!operation.resources) throw Error("resource_snapshot_missing");
   return operation.resources.snapshot.resources;

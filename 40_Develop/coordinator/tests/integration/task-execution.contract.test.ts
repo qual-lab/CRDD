@@ -9,6 +9,7 @@
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -18,10 +19,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
-import {
-  encodeRuntimeStateValue,
-  initializeCoordinatorSnapshot,
-} from "../../../execution-model/src/index.ts";
+import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
@@ -233,7 +231,7 @@ for (const mode of [
               }));
             fs.writeFileSync(
               history,
-              rows.map((row) => `${encodeRuntimeStateValue(row)}\n`).join(""),
+              rows.map((row) => `${canonicalJson(row)}\n`).join(""),
             );
           }
           if (mode === "history_unconfirmed") {
@@ -241,7 +239,7 @@ for (const mode of [
             const state = JSON.parse(fs.readFileSync(file, "utf8"));
             for (const operation of state.operations)
               operation.history.confirmed = false;
-            fs.writeFileSync(file, `${encodeRuntimeStateValue(state)}\n`);
+            fs.writeFileSync(file, `${canonicalJson(state)}\n`);
           }
           return mode === "cancelled"
             ? { ...result, status: "cancelled", reason: "fixture_cancelled" }
@@ -274,7 +272,7 @@ for (const mode of [
         if (fault === "state") {
           const value = JSON.parse(before.toString());
           value.revision += 1;
-          fs.writeFileSync(file, `${encodeRuntimeStateValue(value)}\n`);
+          fs.writeFileSync(file, `${canonicalJson(value)}\n`);
         }
         const fixedState = fs.readFileSync(file);
         const fixedPending = fs.readFileSync(pending);
@@ -532,9 +530,32 @@ function fixture(
   const tests = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
   fs.mkdirSync(tests, { recursive: true });
   const root = fs.mkdtempSync(path.join(tests, "project-execution-"));
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const initialized = initializeCoordinatorSnapshot(
+
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  // 公開回復・Directとも実在する固定HEADを持つRepositoryで検証する。
+  execFileSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgSign=false",
+      "-c",
+      "core.hooksPath=NUL",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { windowsHide: true },
+  );
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
   );
@@ -758,29 +779,7 @@ test("interactive Queue wins a fresh binding-wide selection before a scheduled c
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("PR-N-01 uses the existing Single Task adapter without widening its authority", async (t) => {
-  const { root, input } = fixture(t, [task("task-a")], 1);
-  // Directの借用対象も、実在する固定HEADを持つRepositoryで検証する。
-  execFileSync(
-    "git",
-    [
-      "-C",
-      root,
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgSign=false",
-      "-c",
-      "core.hooksPath=NUL",
-      "commit",
-      "--allow-empty",
-      "--quiet",
-      "-m",
-      "fixture",
-    ],
-    { windowsHide: true },
-  );
+  const { input } = fixture(t, [task("task-a")], 1);
   let starts = 0;
   const outcome = await runCoordinatorOperation(
     {

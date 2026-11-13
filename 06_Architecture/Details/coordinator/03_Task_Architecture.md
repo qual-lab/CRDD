@@ -59,7 +59,7 @@ Task／Objectiveと単発Executionの保存は[単一保存Lifecycle](04_Task_De
 
 本書はTask／Objective・判断・状態管理の設計正本を維持する。実装Packageは旧単発実行と統合した`40_Develop/coordinator`、公開名は`@qual-lab/crdd-coordinator`であり、独立したOrchestrator Packageは撤去した。以下のC前の記述と基準件数は履歴上の範囲を示す。現行のSource Pathは統合後の実体へ接続し、実装の単一性・公開入口・保存・利用側の回帰を完了するまで、C全体の成立を主張しない。
 
-Task側の論理69 Sourceと旧単発実行側の81 Sourceを、同じTree内の別責務として維持する。下記の純粋・業務・保存等の表はTask側の分類である。全150 Sourceの分類試験は、別途Execution71、Runtime CLI4、同意Decision4、技術Storage2も明示列挙し、未分類・重複を拒否する。型専用の`CoordinatorWorkspaceResult`参照だけをExecutionの値契約へ許可し、Executionの実行時閉包を純粋集合へ昇格しない。
+Task側の論理69 Sourceと旧単発実行側の81 Sourceを、同じTree内の別責務として維持する。下記の純粋・業務・保存等の表はTask側の分類である。全150 Sourceの分類試験は、別途Execution71、Runtime CLI4、同意Decision4、技術Storage2も明示列挙し、未分類・重複を拒否する。型専用の`WorkspaceResult`参照だけをExecutionの値契約へ許可し、Executionの実行時閉包を純粋集合へ昇格しない。
 
 <a id="consolidated-source-target"></a>
 
@@ -174,7 +174,7 @@ Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向�
 
 非公開実装の検証はCoordinator所有試験へ置く。Objectiveの選定搬送は、Producerの入力変換とConsumerの要求検査へ分け、同じ設定由来のExecutor／Reviewer組を照合する。Home利用許可はoperation・provider・Home実体／保護へ限定し、完全選定を保持するModel Grant／Packetとは分離する。モデル側との相関はoperationとproviderで行い、[Home許可の契約](01_Architecture.md#74-provider-homeマウント許可)に従う。公開APIの追加、試験専用の製品中継、純粋な搬送だけによる下位実行成立の主張は行わない。
 
-Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`CoordinatorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
+Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`WorkspaceRecord`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: coordinator
@@ -440,7 +440,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 業務操作（9） | `state/retirement.ts`; `state/observation.ts`; `decision/lifecycle.ts`; `decision/acceptance.ts`; `objective/execute.ts`; `objective/replan.ts`; `state/query.ts`; `task/dispatch.ts`; `workspace/record.ts` | 受付・進行・読取り・受理・退役を調停し、保存と技術実行へ委譲する。 |
 | 接続・組立て（8） | `state/transaction.ts`; `task/queue.ts`; `objective/composition.ts`; `task/requests.ts`; `workspace/commands.ts`; `workspace/operations.ts`; `selection/resolve.ts`; `state/initialize.ts` | 専門Ownerを既存の保存トランザクションと公開操作へ接続する。 |
 | 共通保存への接続 | `execution/persistence.ts`; コーディネーターの終了保存接続とDomainの`storage/runtime-store.ts` | SnapshotのReader／Writer・短期Owner・一回保存証拠・履歴実体はDomain。Coordinatorは元Host／実行Ownerの現在観測だけを搬送する。判断は同じDomain Writerへ統合し、独立したHost Store・Hash連鎖・継続Bearerは持たない。 |
-| 単発実行・技術接続（15） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/settlement.ts`; `execution/validation.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。保存型はDomainの`attempt/types.ts`を利用する。 |
+| 単発実行・技術接続（15） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/persistence.ts`; `execution/validation.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。保存型はEMの`attempt/types.ts`を利用する。終端Contextの準備は開始保存へ統合し、旧settlement.tsの中継は残さない。 |
 | CLI（7） | `cli/command.ts`; `cli/options.ts`; `cli/request.ts`; `cli/authentication.ts`; `cli/doctor.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
 | 区画間の状態整合 | Domain Model `state/transition.ts`・`task/crud.ts` | 復号済み区画の相関・受付・結果受領・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
 | 外部送信判断（1） | `decision/external-send-policy.ts` | Repository送信Policyと追加Hostの開始時捕捉を所有する。専用同意と送信Grantは廃止する。 |
@@ -448,7 +448,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 設定・固定選定の共有型と閉形式検査はDomainの`ai-selection/types.ts`・`validation.ts`が所有する。Coordinatorの`selection/validation.ts`は実行時の内容Hash照合を所有する。復元は当時の十項目の閉形式を検査するだけで、現在Catalogによる新規選定・認証・実行許可と区別する。`selection/resolve.ts`は現在Catalogとの技術照合を所有し、状態復元から呼ばない。新Schema・一般CRUD・Writer全面移管は別の実装段階であり、codecの依存分離だけで成立したとは表示しない。
 
-現行Source全数を重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
+現行Source全数を重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`WorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 
 `objective/types.ts`は具体依存の署名を共有するため、`execution/controller.ts`の`startRuntimeOwnedCoordinatorTask / cancelRuntimeOwnedCoordinatorTask / captureRuntimeOwnedCoordinatorTaskResultDelivery`、`task/dispatch.ts`の`recordCoordinatorExecutionEvent`だけを型専用で参照できる。各辺は一つの名前を持つ型専用辺として検査し、値import・別Symbol・別Pathは拒否する。これらの実行値を型Moduleで生成・取得しない。
 

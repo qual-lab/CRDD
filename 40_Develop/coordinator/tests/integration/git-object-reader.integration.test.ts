@@ -14,8 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  inspectGitCommitTree,
   copyGitCommitTree,
+  inspectGitCommitTree,
   readGitCommitFile,
 } from "../../../version-control/src/git/objects.ts";
 import {
@@ -25,20 +25,20 @@ import {
 import { resolveRepositoryGitLayout } from "../../../version-control/src/repository/layout.ts";
 import { getRepository } from "../../../version-control/src/repository/location.ts";
 import {
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import {
+  bindRuntimeOwnedRepositoryOperation,
+  borrowRuntimeOwnedRepositorySource,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-  bindRuntimeOwnedRepositoryOperation,
-  borrowRuntimeOwnedRepositorySource,
 } from "../../src/execution/operation.ts";
 import { containsRecognizedSecretMaterial } from "../../src/input/secret-validation.ts";
-import {
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
 import {
   createGitPackedObjectFixture,
   mutateGitPackedObjectFixture,
@@ -244,8 +244,8 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
   const owner = getRepository(repositoryRoot);
   assert.equal(owner.status, "completed");
   if (owner.status !== "completed") return;
-  const tests = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(owner.capability, "tests"),
+  const tests = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataArea(owner.capability, "tests"),
     "projection_test_root_invalid",
   );
   const parent = fs.mkdtempSync(path.join(tests.directory, "object-current-"));

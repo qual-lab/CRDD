@@ -7,10 +7,7 @@
 import type { TurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { StateVersion } from "../state/types.ts";
-import type {
-  RUNTIME_REPAIR_ACTIONS,
-  RUNTIME_REPAIR_DIRECTORIES,
-} from "./validation.ts";
+import type { REPAIR_ACTIONS, REPAIR_DIRECTORIES } from "./validation.ts";
 
 /**
  * 修復Machineが所有し保存Ownerへ渡す技術状態。
@@ -22,13 +19,11 @@ import type {
  * @security 復号成功は実資源観測・排他・実行許可ではない。
  * @compatibility 旧Journal・署名chain・OS別phaseを受理しない。
  */
-export type DockerRuntimeRepairCheckpoint = Readonly<{
-  actions: Readonly<
-    Record<(typeof RUNTIME_REPAIR_ACTIONS)[number], RepairAction>
-  >;
+export type RepairCheckpoint = Readonly<{
+  actions: Readonly<Record<(typeof REPAIR_ACTIONS)[number], RepairAction>>;
   directories: Readonly<
     Record<
-      (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
+      (typeof REPAIR_DIRECTORIES)[number],
       Readonly<{
         expected: DirectoryIdentity | null;
         source: DirectoryObservation;
@@ -56,10 +51,10 @@ export type DockerRuntimeRepairCheckpoint = Readonly<{
  * @security 実体、Scope、Path、Authority、保持判断を複製しない。
  * @compatibility 元の8処置checkpointとは別の最新値契約。
  */
-export type DockerRuntimeRepairDisposalCheckpoint = Readonly<{
+export type RepairDisposalCheckpoint = Readonly<{
   directories: Readonly<
     Record<
-      (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
+      (typeof REPAIR_DIRECTORIES)[number],
       Readonly<{
         intent: "not_saved" | "saved";
         request: "not_issued" | "issued" | "unknown";
@@ -126,12 +121,22 @@ export type DirectoryObservation = Readonly<{
  * @security 明示保持限定の非秘密metadata。
  * @compatibility 現行checkpointと固定nonceの三用途だけ。
  */
-export type DockerRuntimeRepairRetentionTargets = Readonly<
-  Record<(typeof RUNTIME_REPAIR_DIRECTORIES)[number], DirectoryIdentity | null>
+export type RepairRetentionTargets = Readonly<
+  Record<(typeof REPAIR_DIRECTORIES)[number], DirectoryIdentity | null>
 >;
 
 /** 同じ操作の技術Snapshotと記録状態。資源Identityをcheckpointへ複製しない。 */
-export type CoordinatorResourceBook = Readonly<{
+/** 固定の操作記録だけを更新する。値は各モデルの既存検査で受理する。 */
+export type OperationCheckpointRequest = Readonly<
+  | { kind: "resource"; value: unknown }
+  | { kind: "cleanup"; value: unknown }
+  | { kind: "host"; value: unknown }
+  | { kind: "lifecycle"; value: unknown }
+  | { kind: "references"; value: unknown }
+  | { kind: "restart"; value: unknown }
+>;
+
+export type OperationResources = Readonly<{
   snapshot: ResourceSnapshot;
   checkpoints: readonly Readonly<{
     key: string;
@@ -153,14 +158,14 @@ export type CoordinatorResourceBook = Readonly<{
  * @responsibility 永続状態の意味だけを定義し実体観測や操作許可を発行しない。
  * @trace ARCH-000008
  */
-export type CoordinatorStateTaskOperation = Readonly<{
+export type ExecutionOperationRecord = Readonly<{
   kind: "docker_task";
-  dockerRestart: DockerRestartCheckpoint | null;
+  dockerRestart: RestartCheckpoint | null;
   identityJson: string;
   identitySha256: string;
   recoveryId: string;
   phase: "executing" | "settling" | "awaiting_delivery";
-  resources: CoordinatorResourceBook | null;
+  resources: OperationResources | null;
   host: Readonly<{
     currentToken: string;
     pendingTransitionJson: string | null;
@@ -213,7 +218,7 @@ export type CoordinatorStateTaskOperation = Readonly<{
  * @security 保存値は実処置や人間承認を発行しない。
  * @compatibility 最新v2だけ。旧記録はフロントAIが移行する。
  */
-export type CoordinatorStateRepairOperation = Readonly<{
+export type RepairOperationRecord = Readonly<{
   kind: "runtime_repair";
   identityJson: string;
   identitySha256: string;
@@ -224,17 +229,17 @@ export type CoordinatorStateRepairOperation = Readonly<{
     | "awaiting_disposition"
     | "awaiting_delivery";
   // Nativeだけでなく同じSession内の観測資源cleanupもDI契約のまま保持する。
-  checkpoint: DockerRuntimeRepairCheckpoint | null;
+  checkpoint: RepairCheckpoint | null;
   disposition:
     | "not_applicable"
     | "pending_human_decision"
     | "retained_by_human_decision"
     | "discard";
-  retention?: CoordinatorRepairRetentionReceipt;
+  retention?: RepairRetentionReceipt;
   // 回収判断と進捗だけ。要約・履歴は操作直下へ一度だけ確定する。
   disposal: Readonly<{
     decidedAt: string;
-    checkpoint: DockerRuntimeRepairDisposalCheckpoint;
+    checkpoint: RepairDisposalCheckpoint;
   }> | null;
   primaryFailure: Readonly<{
     stage: "preparation" | "checkpoint" | "repair" | "delivery";
@@ -263,9 +268,7 @@ export type CoordinatorStateRepairOperation = Readonly<{
  * @security 一方のIdentityを他方のAuthorityへ変換しない。
  * @compatibility 判別不能な旧形状を受理しない。
  */
-export type CoordinatorStateOperation =
-  | CoordinatorStateTaskOperation
-  | CoordinatorStateRepairOperation;
+export type OperationRecord = ExecutionOperationRecord | RepairOperationRecord;
 
 /**
  * 一操作に一度だけ結合する再起動要求の現在値。
@@ -277,7 +280,7 @@ export type CoordinatorStateOperation =
  * @security Hashと保存状態は操作Authorityを発行しない。
  * @compatibility 最新構造だけ。旧phaseと署名chainは受理しない。
  */
-export type DockerRestartCheckpoint = Readonly<{
+export type RestartCheckpoint = Readonly<{
   requestId: string;
   scopeSha256: string;
   request: "not_issued" | "unknown" | "issued" | "confirmed";
@@ -300,10 +303,10 @@ export type DockerRestartCheckpoint = Readonly<{
  * @security 生Path・Owner・Scope・秘密値を持たない。
  * @compatibility 新handoff形だけの条件付きfield。旧履歴へ補完しない。
  */
-export type CoordinatorRepairRetentionReceipt = Readonly<{
+export type RepairRetentionReceipt = Readonly<{
   decidedAt: string;
   reviewAfter: string;
-  targets: DockerRuntimeRepairRetentionTargets;
+  targets: RepairRetentionTargets;
 }>;
 
 /**
@@ -337,31 +340,74 @@ export type RepairWritePurpose =
  * @trace ARCH-000008
  * @invariant expected=nullは真正不存在からの新規作成に限り、既存改訂の自動再読込み・再試行を許可しない。
  */
-export type RepairWriteRequest = Readonly<{
+export type RepairSaveRequest = Readonly<{
   expected: StateVersion | null;
   change:
     | Readonly<{ kind: "create"; identityJson: string }>
     | Readonly<{
         kind: "checkpoint";
         update: Pick<
-          CoordinatorStateRepairOperation,
+          RepairOperationRecord,
           "phase" | "checkpoint" | "disposition" | "primaryFailure" | "outcome"
         >;
       }>
     | Readonly<{
         kind: "session_begin";
-        checkpoint: DockerRuntimeRepairCheckpoint;
+        checkpoint: RepairCheckpoint;
       }>
     | Readonly<{
         kind: "retention_handoff";
-        receipt: CoordinatorRepairRetentionReceipt;
+        receipt: RepairRetentionReceipt;
       }>
     | Readonly<{ kind: "disposal_decision"; decidedAt: string }>
     | Readonly<{
         kind: "disposal_progress";
         purpose: "primary" | "failed" | "auxiliary";
-        checkpoint: DockerRuntimeRepairDisposalCheckpoint;
+        checkpoint: RepairDisposalCheckpoint;
       }>;
 }>;
 
 export type { TurnCountDiagnostic };
+
+/**
+ * 回復Readerの有限な取得範囲。各範囲の元参照と保存途中判定を維持する。
+ * @responsibility 読取りを保存Authorityへ昇格させず、通常・履歴・終了・配送を区別する。
+ * @trace ARCH-000008
+ * @boundary 現在Repositoryの回復記録。
+ */
+export type RecoveryReadRequest =
+  | Readonly<{ kind: "current" | "admission" | "history" }>
+  | Readonly<{
+      kind:
+        | "resource_publication"
+        | "host_cleanup"
+        | "initial_host"
+        | "execution_history"
+        | "repair_history"
+        | "execution_completion"
+        | "repair_completion"
+        | "delivery";
+      recoveryId: unknown;
+    }>;
+
+/**
+ * 回復Ownerが要求する用途固定の保存。
+ * @responsibility 途中更新、再起動、終端、Host両不存在の異なる証拠を必須入力で分ける。
+ * @trace ARCH-000008
+ * @shape 元の同期Owner確認と、Host清掃出版のexact pairを保持する。
+ * @boundary Repository-localの単一Writer。物理処置を発行しない。
+ */
+export type RecoveryCheckpointRequest =
+  | Readonly<{
+      kind: "resource" | "cleanup" | "host" | "lifecycle" | "restart";
+      value: unknown;
+      assertOwner: () => boolean;
+    }>
+  | Readonly<{ kind: "terminal"; assertOwner: () => boolean }>
+  | Readonly<{
+      kind: "host_cleanup";
+      assertAbsentOwner: () => boolean;
+      publication: ReturnType<
+        typeof import("./crud.ts").readRecoveryState
+      >["hostCleanupPublication"];
+    }>;

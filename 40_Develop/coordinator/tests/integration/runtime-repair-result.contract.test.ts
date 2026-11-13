@@ -1,46 +1,162 @@
 /**
  * 修復の保存結果と技術結果の相関を実Sourceで反証する。
  * @packageDocumentation
- * @responsibility 実DI Runtime／Machineと純粋保存モデルをつなぎ、OS I/Oは別Host試験と区別する。
+ * @responsibility 実DI制御と公開保存操作をつなぎ、技術処置だけを有限代役へ置換する。
  * @trace ERB-IT-014
  * @trace ERB-IT-002
  * @level IT
- * @scope メモリ境界。保存故障・終了・回収Caller。実Docker・Native・Provider・Filesystem書込み0。
+ * @scope 自己生成Repositoryの実保存・Lock、初回実Git観測後の固定Revision代役、有限DI故障。実Docker・Providerなし。
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import test from "node:test";
+import { isDeepStrictEqual } from "node:util";
+import test, { after, mock, type TestContext } from "node:test";
 import { runInThisContext } from "node:vm";
 import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as technicalValidation from "../../../docker-isolation/src/docker-desktop/validation.ts";
-import type { CoordinatorStateRepairOperation } from "../../../execution-model/src/index.ts";
-import * as model from "../../../execution-model/src/index.ts";
-import * as historyValues from "../../../execution-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
+import type {
+  RepairOperationRecord,
+  RepairSaveRequest,
+} from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
+import * as versionControl from "../../../version-control/src/index.ts";
 import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
-import * as stateValues from "../../src/state/validation.ts";
+
+let fixedRevision: {
+  root: Repository;
+  path: string;
+  revision: unknown;
+  hits: number;
+} | null = null;
+let delegatedRevisionReads = 0;
+const revisionMock = mock.module(
+  new URL("../../../version-control/src/index.ts", import.meta.url).href,
+  {
+    namedExports: {
+      ...versionControl,
+      readRepositoryRevision(...args: unknown[]) {
+        const projection = fixedRevision;
+        if (
+          projection &&
+          args[1] === undefined &&
+          args[0] &&
+          versionControl.resolveVerifiedRepositoryRoot(
+            args[0] as Repository,
+          ) === projection.path
+        ) {
+          projection.hits++;
+          return projection.revision;
+        }
+        delegatedRevisionReads++;
+        return Reflect.apply(
+          versionControl.readRepositoryRevision,
+          undefined,
+          args,
+        );
+      },
+    },
+  },
+);
+after(() => {
+  fixedRevision = null;
+  revisionMock.restore();
+});
+const model = await import("../../../execution-model/src/index.ts");
+const stateValues = await import("../../src/state/validation.ts");
+const bindings = await import("../../src/execution/operation.ts");
+const { createRepository } = await import("../fixtures/decision-state.ts");
+const { renderDockerRecoveryDoctorReport } = await import(
+  "../../src/cli/recovery-report.ts"
+);
+const { getRepository } = versionControl;
+const projectedVersionControl = await import(
+  "../../../version-control/src/index.ts"
+);
 
 /**
- * 実呼出しSourceを固定したメモリ保存境界へ組み立てる。
- * @responsibility 保存分類の反証を実Windows I/Oの再試行から分離する。
+ * 実呼出しSourceを自己生成Rootの公開保存操作へ接続する。
+ * @responsibility 保存前拒否と保存後応答不明を分離し、公開Reader／Writerを通す。
  * @trace ERB-IT-014
- * @precondition Sourceは読取りのみ、実DIと保存modelを差替えない。
- * @stimulus 保存・Native終了・取消の局所故障を指定する。
+ * @precondition Sourceは読取りのみ。Git HEADの変更検出は別の実Git試験が担当する。
+ * @stimulus 保存・技術終了・取消の局所故障を指定する。
  * @observation 確認済み本文、全保存候補、実Machine結果。
- * @oracle 実modelの遷移条件と元版全文一致を毎保存で確認する。
- * @cleanup N/A: メモリだけ。
- * @boundary 物理Writerの肯定証明は別Host試験。
+ * @oracle 公開modelが元版・改訂・保存順序を検査し、故障注入の前後Effectを区別する。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
+ * @boundary 実Filesystem保存と有限DI代役。解放失敗は応答の代役で、実Lock故障の証明ではない。
  */
-function fixture(transform: (source: string) => string = (source) => source) {
+function fixture(
+  t: TestContext,
+  transform: (source: string) => string = (source) => source,
+) {
   type Input = Parameters<typeof runRepairSessionWithDependencies>[0];
-  const root = Object.freeze({});
-  const binding = "a".repeat(64);
+  const created = createRepository(t);
+  const verified = getRepository(created.root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed")
+    throw new Error("fixture_repository_invalid");
+  const root = verified.capability;
+  const revision = versionControl.readRepositoryRevision(root);
+  assert.ok(revision);
+  const projection = { root, path: created.root, revision, hits: 0 };
+  fixedRevision = projection;
+  const delegatedBefore = delegatedRevisionReads;
+  const selected = projectedVersionControl.readRepositoryRevision(root, {
+    revision: "HEAD",
+  });
+  assert.ok(selected);
+  assert.equal(selected.revisionIdentity, revision.revisionIdentity);
+  assert.ok(delegatedRevisionReads > delegatedBefore);
+  t.after(() => {
+    try {
+      assert.ok(
+        projection.hits > 0,
+        "public model must reach the VC projection",
+      );
+    } finally {
+      if (fixedRevision === projection) fixedRevision = null;
+    }
+  });
+
+  const repository =
+    bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(root);
+  assert.ok(repository);
+  const hitsBefore = projection.hits;
+  const initial = model.readRecoveryState(root);
+  assert.ok(
+    projection.hits > hitsBefore,
+    "public model must use the bounded revision projection",
+  );
+  assert.equal(
+    initial.value,
+    null,
+    "uninitialized model must not acquire a saved state",
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(created.root, ".crdd", "domain-model", "state.json"),
+    ),
+    false,
+  );
+  const stateFile = path.join(
+    created.root,
+    ".crdd",
+    "domain-model",
+    "state.json",
+  );
+  const historyFile = path.join(
+    created.root,
+    ".crdd",
+    "domain-model",
+    "history.jsonl",
+  );
+  const binding = repository.repositoryBinding;
   const controller = new AbortController();
   const state = {
     alive: true,
@@ -51,7 +167,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       | "cancel"
       | "effect_unknown",
     close: "clean" as "clean" | "cancel" | "unknown" | "cancel_unknown",
-    fault: "none" as "none" | "cleanup" | "outcome",
+    fault: "none" as "none" | "cleanup" | "outcome" | "retention",
     faultKind: "reject" as "reject" | "confirmation" | "release" | "throw",
     faultHits: 0,
     bytes: null as Buffer | null,
@@ -124,7 +240,51 @@ function fixture(transform: (source: string) => string = (source) => source) {
       | "owner"
       | "after_effect",
   };
+  Object.defineProperties(state, {
+    bytes: {
+      get() {
+        try {
+          return fs.readFileSync(stateFile);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+          throw error;
+        }
+      },
+      set(value: Buffer | null) {
+        if (value === null) throw new Error("fixture_cannot_reset_current");
+        fs.writeFileSync(stateFile, value);
+      },
+    },
+    historyBytes: {
+      get() {
+        try {
+          return fs.readFileSync(historyFile);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT")
+            return Buffer.alloc(0);
+          throw error;
+        }
+      },
+      set(value: Buffer) {
+        // このfixtureの空履歴は「未作成」を表す。製品が拒否する0byte実体は作らない。
+        if (value.length === 0) {
+          try {
+            const metadata = fs.lstatSync(historyFile);
+            assert.equal(metadata.isFile(), true);
+            assert.equal(metadata.isSymbolicLink(), false);
+            assert.equal(metadata.nlink, 1);
+            fs.unlinkSync(historyFile);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          }
+          return;
+        }
+        fs.writeFileSync(historyFile, value);
+      },
+    },
+  });
   const saved: Buffer[] = [];
+  const historySaved: Buffer[] = [];
   let late: Input["onCheckpoint"] | null = null;
   /**
    * 専用Readerの値分類を実モデルから構成する。
@@ -134,104 +294,30 @@ function fixture(transform: (source: string) => string = (source) => source) {
    * @stimulus exact参照、読取り故障とOwner失効。
    * @observation 候補・段階・排他確認。
    * @oracle 壊れた履歴を技術状態へ補完しない。
-   * @cleanup N/A: メモリだけ。
-   * @boundary 実モデルと模擬I/O。
+   * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
+   * @boundary 公開Readerと実保存物。Reader応答故障のみ代役。
    */
   const readHistory = (_root: unknown, id: unknown) => {
     state.historyReads++;
-    const refused = {
-      status: "blocked",
-      lockReleased: true,
-      value: null,
-      currentHistoryPublication: null,
-      repairHistoryState: null,
-    };
     if (state.historyReads === state.historyReadFaultAt) {
       if (state.historyReadFault === "throw")
         throw new Error("history_read_fault");
       if (state.historyReadFault === "owner") state.alive = false;
-      return { ...refused, lockReleased: state.historyReadFault !== "release" };
+      return {
+        ...model.readRecoveryState(null, {
+          kind: "repair_history",
+          recoveryId: id,
+        }),
+        lockReleased: state.historyReadFault !== "release",
+      };
     }
-    const value = model.decodeRuntimeDomainSnapshot(state.bytes, binding);
-    const operation = value?.snapshot.operations.find(
-      (item) => item.kind === "runtime_repair" && item.recoveryId === id,
-    );
-    if (operation?.kind !== "runtime_repair") return refused;
-    const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
-    if (
-      (_root as { root?: unknown })?.root !== root ||
-      (_root as { historyRetentionDays?: unknown })?.historyRetentionDays !==
-        30 ||
-      typeof id !== "string" ||
-      !value ||
-      !operation ||
-      !rows
-    )
-      return refused;
-    const before = Buffer.from(`${encodeRuntimeStateValue(value.snapshot)}\n`);
-    if (
-      operation.phase === "awaiting_disposition" ||
-      !model.prepareCoordinatorRepairHistorySummary(before, id, binding)
-    ) {
-      return ((operation.phase === "repairing" && operation.outcome === null) ||
-        (operation.outcome?.status === "recovered" &&
-          operation.primaryFailure === null &&
-          ((operation.phase === "awaiting_disposition" &&
-            operation.disposition === "pending_human_decision" &&
-            operation.disposal === null) ||
-            (operation.phase === "settling" &&
-              operation.disposition === "discard" &&
-              operation.disposal !== null)))) &&
-        operation.summarySha256 === null &&
-        operation.history === null &&
-        !rows.some((row) => row.recoveryId === id)
-        ? {
-            ...refused,
-            status: "completed",
-            value,
-            repairHistoryState: "technical_state",
-          }
-        : refused;
-    }
-    const stage =
-      operation.history === null
-        ? "checkpoint"
-        : operation.history.confirmed
-          ? "confirmed"
-          : "publish";
-    const candidate =
-      stage === "checkpoint"
-        ? model.prepareCoordinatorRepairHistorySnapshot(
-            before,
-            id,
-            operation.kind === "runtime_repair"
-              ? (operation.retention?.decidedAt ?? state.historyAt)
-              : state.historyAt,
-            false,
-            binding,
-          )
-        : stage === "publish"
-          ? model.prepareCoordinatorRepairHistoryPublication(
-              before,
-              id,
-              state.historyBytes,
-              null,
-              30,
-              binding,
-            )?.snapshotBytes
-          : before;
-    if (!candidate) return refused;
+    const observed = model.readRecoveryState(_root, {
+      kind: "repair_history",
+      recoveryId: id,
+    });
     return {
-      status: "completed",
-      lockReleased: state.readerReleased,
-      value,
-      repairHistoryState: "publication",
-      currentHistoryPublication: {
-        before,
-        candidate,
-        stage,
-        needsWrite: stage !== "confirmed",
-      },
+      ...observed,
+      lockReleased: observed.lockReleased && state.readerReleased,
     };
   };
   /**
@@ -242,50 +328,16 @@ function fixture(transform: (source: string) => string = (source) => source) {
    * @stimulus 各段の拒否・発行後失敗・解放不明・例外。
    * @observation 次Snapshot、履歴行、保存件数。
    * @oracle 時刻と両Hashを実モデルから導出する。
-   * @cleanup N/A: メモリだけ。
+   * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
    * @boundary 実モデルと模擬Writer。
    */
   const advanceHistory = (
-    repository: { operationId: string },
+    input: Parameters<typeof model.advanceOwnedRepairHistory>[0],
     id: string,
     owner: () => boolean,
   ) => {
     state.historyWrites++;
     assert.equal(owner(), true);
-    const value = model.decodeRuntimeDomainSnapshot(state.bytes, binding);
-    const operation = value?.snapshot.operations.find(
-      (item) => item.kind === "runtime_repair" && item.recoveryId === id,
-    );
-    assert.ok(value && operation);
-    assert.equal(
-      JSON.parse(operation.identityJson).operationId,
-      repository.operationId,
-    );
-    const before = Buffer.from(`${encodeRuntimeStateValue(value.snapshot)}\n`);
-    const publication =
-      operation.history === null
-        ? null
-        : model.prepareCoordinatorRepairHistoryPublication(
-            before,
-            id,
-            state.historyBytes,
-            null,
-            30,
-            binding,
-          );
-    const candidate =
-      operation.history === null
-        ? model.prepareCoordinatorRepairHistorySnapshot(
-            before,
-            id,
-            operation.kind === "runtime_repair"
-              ? (operation.retention?.decidedAt ?? state.historyAt)
-              : state.historyAt,
-            false,
-            binding,
-          )
-        : publication?.snapshotBytes;
-    assert.ok(candidate);
     const fault = state.historyWrites === state.historyFaultAt;
     if (fault && state.historyFault === "throw")
       throw new Error("history_write_fault");
@@ -294,18 +346,30 @@ function fixture(transform: (source: string) => string = (source) => source) {
       !fault ||
       state.historyFault === "release" ||
       state.historyFault === "after_effect";
-    if (effect) {
-      state.bytes = Buffer.from(candidate);
-      if (publication)
-        state.historyBytes = Buffer.from(publication.historyBytes);
+    if (!effect)
+      return {
+        status: "blocked",
+        snapshotConfirmed: false,
+        lockReleased: true,
+        filesystemEffectIssued: false,
+        historyConfirmed: false,
+      };
+    const saved = model.advanceOwnedRepairHistory(input, id, owner);
+    if (saved.filesystemEffectIssued) {
+      const bytes = state.bytes;
+      assert.ok(bytes);
+      historySaved.push(Buffer.from(bytes));
     }
-    return {
-      status: fault ? "blocked" : "completed",
-      snapshotConfirmed: !fault || state.historyFault === "release",
-      lockReleased: !fault || state.historyFault !== "release",
-      filesystemEffectIssued: effect,
-      historyConfirmed: !fault && publication !== null,
-    };
+    return fault
+      ? {
+          ...saved,
+          status: "blocked",
+          snapshotConfirmed:
+            state.historyFault === "release" && saved.snapshotConfirmed,
+          lockReleased: state.historyFault !== "release" && saved.lockReleased,
+          historyConfirmed: false,
+        }
+      : saved;
   };
   const source = sourceDeclaration(
     fs.readFileSync(
@@ -319,78 +383,53 @@ function fixture(transform: (source: string) => string = (source) => source) {
    * 終了候補と除去済み観測を実モデルで模擬する。
    * @responsibility 空操作集合だけから完了を推定しない。
    * @trace ERB-IT-014
-   * @precondition 同じメモリRootとexact履歴。
+   * @precondition 同じ自己生成Rootとexact履歴。
    * @stimulus Reader故障、対象あり／除去済み。
    * @observation 実候補と正規履歴行。
    * @oracle 対象履歴欠測はblocked。
-   * @cleanup N/A: メモリのみ。
-   * @boundary 実モデルと模擬I/O。
+   * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
+   * @boundary 公開Readerと実保存物。Reader応答故障のみ代役。
    */
   const readCompletion = (_root: unknown, id: string) => {
     state.completionReads++;
-    const refused = {
-      status: "blocked",
-      lockReleased: true,
-      value: null,
-      currentCompletionPublication: null,
-      repairCompletionAbsent: false,
-      repairRetentionReviewAfter: null as string | null,
-    };
     if (state.completionReads === state.completionReadFaultAt) {
       if (state.completionReadFault === "throw")
         throw new Error("completion_reader");
       if (state.completionReadFault === "owner") state.alive = false;
       return {
-        ...refused,
+        ...model.readRecoveryState(null, {
+          kind: "repair_completion",
+          recoveryId: id,
+        }),
         lockReleased: state.completionReadFault !== "release",
       };
     }
-    const value = model.decodeRuntimeDomainSnapshot(state.bytes, binding);
-    const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
-    const row = rows?.find((item) => item.recoveryId === id);
-    if (_root !== root || !value || !row) return refused;
-    const operation = value.snapshot.operations.find(
-      (item) => item.recoveryId === id,
-    );
-    const deadline = "reviewAfter" in row ? (row.reviewAfter as string) : null;
-    const returnedDeadline =
-      deadline !== null &&
-      state.completionDeadlineFault === (operation ? "before" : "fresh")
-        ? new Date(Date.parse(deadline) + 1).toISOString()
-        : deadline;
-    if (!operation)
-      return {
-        ...refused,
-        status: "completed",
-        value,
-        repairCompletionAbsent: true,
-        repairRetentionReviewAfter: returnedDeadline,
-      };
-    const candidate = model.prepareCoordinatorStateRepairCompletionSnapshot(
-      state.bytes,
-      id,
-      binding,
-    );
-    return candidate
-      ? {
-          ...refused,
-          status: "completed",
-          value,
-          currentCompletionPublication: { before: state.bytes, candidate },
-          repairRetentionReviewAfter: returnedDeadline,
-        }
-      : refused;
+    const observed = model.readRecoveryState(_root, {
+      kind: "repair_completion",
+      recoveryId: id,
+    });
+    const deadline = observed.repairRetentionReviewAfter;
+    return {
+      ...observed,
+      repairRetentionReviewAfter:
+        deadline !== null &&
+        state.completionDeadlineFault ===
+          (observed.repairCompletionAbsent ? "fresh" : "before")
+          ? new Date(Date.parse(deadline) + 1).toISOString()
+          : deadline,
+    };
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,getRepository,runRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeRepairDirectories,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,cleanupRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,isRepairCheckpointSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readRecoveryState,advanceOwnedRepairHistory,completeRepair,resumeRepairPublication,removeStatePublicationMarker,saveRepairState,cleanupRepairDirectory,isRepairDisposalSettled}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
+    isDeepStrictEqual,
+    snapshotJsonValue,
     randomBytes,
     randomUUID,
     ...model,
-    decodeRuntimeDomainSnapshot: model.decodeRuntimeDomainSnapshot,
     ...stateValues,
-    encodeRuntimeStateValue,
+    canonicalJson,
     Date: class extends Date {
       constructor(value?: string | number) {
         super(value ?? state.historyAt);
@@ -415,7 +454,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
         auxiliary: input.checkpoint.directories.auxiliary.retained.identity,
       };
     },
-    dockerRuntimeRepairDisposalIsSettled,
+    isRepairDisposalSettled,
     cleanupRepairDirectory: async (input: RepairDisposalInput) => {
       state.disposalCalls.push(input.purpose);
       if (input.canIssueEffect() !== true)
@@ -431,47 +470,70 @@ function fixture(transform: (source: string) => string = (source) => source) {
             : "confirmed_absent",
       };
     },
-    readRuntimeOwnedCoordinatorRepairHistorySnapshot: readHistory,
-    advanceRuntimeOwnedCoordinatorRepairHistory: advanceHistory,
-    readRuntimeOwnedCoordinatorRepairCompletionSnapshot: readCompletion,
-    completeRuntimeOwnedCoordinatorRepair: (
-      _root: unknown,
-      id: string,
-      owner: () => boolean,
+    readRecoveryState: (
+      root: unknown,
+      request: { kind: string; recoveryId?: unknown } = { kind: "current" },
     ) => {
+      switch (request.kind) {
+        case "repair_history":
+          if (typeof request.recoveryId !== "string")
+            throw new Error("invalid recovery ID");
+          return readHistory(root, request.recoveryId);
+        case "repair_completion":
+          if (typeof request.recoveryId !== "string")
+            throw new Error("invalid recovery ID");
+          return readCompletion(root, request.recoveryId);
+        default:
+          return (() => {
+            state.readers++;
+            const observed = model.readRecoveryState(root);
+            return {
+              ...observed,
+              lockReleased: observed.lockReleased && state.readerReleased,
+            };
+          })();
+      }
+    },
+    advanceOwnedRepairHistory: advanceHistory,
+    completeRepair: (_root: unknown, id: string, owner: () => boolean) => {
       state.completionWrites++;
       assert.equal(owner(), true);
-      const observed = readCompletion(_root, id);
-      const candidate = observed.currentCompletionPublication?.candidate;
-      assert.ok(candidate);
       state.completionBefore = Buffer.from(state.bytes as Buffer);
       const fault = state.completionFault;
       if (fault === "throw") throw new Error("completion_writer");
       if (fault === "owner") state.alive = false;
       const effect =
         fault === "none" || fault === "release" || fault === "after_effect";
-      if (effect) state.bytes = candidate;
-      return {
-        status: fault === "none" ? "completed" : "blocked",
-        snapshotConfirmed: fault === "none" || fault === "release",
-        lockReleased: fault !== "release",
-        filesystemEffectIssued: effect,
-      };
+      if (!effect)
+        return {
+          status: "blocked",
+          snapshotConfirmed: false,
+          lockReleased: true,
+          filesystemEffectIssued: false,
+        };
+      const result = model.completeRepair(_root, id, owner);
+      return fault === "none"
+        ? result
+        : {
+            ...result,
+            status: "blocked",
+            snapshotConfirmed: fault === "release" && result.snapshotConfirmed,
+            lockReleased: fault !== "release" && result.lockReleased,
+          };
     },
-    dockerRuntimeRepairCheckpointIsSettled,
+    isRepairCheckpointSettled,
     borrowRuntimeOwnedCoordinatorRecoveryRepository: (value: unknown) =>
       value === root
         ? {
-            repositoryRoot: "synthetic-root",
-            repositoryBinding: binding,
-            revalidate: () => state.alive,
+            ...repository,
+            revalidate: () => state.alive && repository.revalidate(),
           }
         : null,
     getRepository: () => ({ status: "completed", capability: root }),
-    observeRepositoryRuntimeDataArea: () => ({
+    observeRepositoryExecutionDataArea: () => ({
       status: state.bytes ? "ready" : "not_observed",
     }),
-    resumeRuntimeOwnedCoordinatorRepairPublication: () => {
+    resumeRepairPublication: () => {
       state.publications++;
       if (state.publicationFault === "throw")
         throw new Error("publication_fault");
@@ -490,7 +552,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
         filesystemEffectIssued: state.publicationFault !== "none",
       };
     },
-    cleanupRuntimeOwnedCoordinatorStateMarker: () => {
+    removeStatePublicationMarker: (targetRoot: unknown) => {
       state.markers++;
       const fault =
         state.markerFaultAt === 0 || state.markers === state.markerFaultAt
@@ -498,32 +560,36 @@ function fixture(transform: (source: string) => string = (source) => source) {
           : "none";
       if (fault === "throw") throw new Error("marker_fault");
       if (fault === "owner") state.alive = false;
+      if (fault === "none")
+        return model.removeStatePublicationMarker(targetRoot);
       return {
         status: fault === "status" ? "blocked" : "completed",
         storageConfirmed: fault !== "storage",
         markerAbsentConfirmed: fault !== "absence",
         lockReleased: fault !== "release",
-        filesystemEffectIssued: fault !== "none",
-        markerRemoved: fault !== "none",
+        filesystemEffectIssued: true,
+        markerRemoved: true,
       };
     },
-    readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
-      state.readers++;
-      return {
-        status: "completed",
-        lockReleased: state.readerReleased,
-        value: model.decodeRuntimeDomainSnapshot(state.bytes, binding),
-      };
-    },
-    writeRuntimeOwnedCoordinatorRepairSnapshot: (
+    saveRepairState: (
       _root: unknown,
       id: string,
-      request: model.RepairWriteRequest,
+      request: RepairSaveRequest,
       owner: () => unknown,
     ) => {
       state.calls++;
-      const before = state.bytes;
-      const current = model.decodeRuntimeDomainSnapshot(before, binding);
+      const observed = model.readRecoveryState(root);
+      assert.equal(observed.lockReleased, true);
+      const current = observed.value;
+      if (current) {
+        assert.equal(observed.status, "completed");
+        assert.ok(state.bytes);
+        assert.equal(current.sourceText, state.bytes.toString("utf8"));
+      } else {
+        assert.equal(state.bytes, null);
+        assert.equal(observed.status, initial.status);
+        assert.equal(observed.reason, initial.reason);
+      }
       assert.deepEqual(
         request.expected,
         current
@@ -534,126 +600,15 @@ function fixture(transform: (source: string) => string = (source) => source) {
           : null,
       );
       const change = request.change;
-      if (change.kind === "disposal_decision" && state.pauseBeforeDisposal)
-        return {
-          status: "blocked",
-          snapshotConfirmed: false,
-          lockReleased: true,
-          value: null,
-        };
-      let candidate: Buffer | null;
-      let purpose: string;
-      switch (change.kind) {
-        case "create":
-          purpose = "checkpoint";
-          candidate = model.prepareCoordinatorStateRepairSnapshot(
-            before,
-            change.identityJson,
-            binding,
-          );
-          break;
-        case "checkpoint":
-          purpose = "checkpoint";
-          candidate = model.prepareCoordinatorStateRepairCheckpointSnapshot(
-            before,
-            id,
-            change.update,
-            binding,
-          );
-          break;
-        case "session_begin": {
-          purpose = "session_begin";
-          candidate = model.prepareCoordinatorStateRepairSessionSnapshot(
-            before,
-            id,
-            binding,
-          );
-          const sessionOperation = model
-            .decodeRuntimeDomainSnapshot(candidate, binding)
-            ?.snapshot.operations.find((item) => item.recoveryId === id);
-          assert.ok(sessionOperation?.kind === "runtime_repair");
-          assert.deepEqual(sessionOperation.checkpoint, change.checkpoint);
-          break;
-        }
-        case "retention_handoff":
-          purpose = "retention_handoff";
-          candidate =
-            model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-              before,
-              id,
-              change.receipt,
-              binding,
-            );
-          break;
-        case "disposal_decision":
-          purpose = "disposal_decision";
-          candidate =
-            model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
-              before,
-              id,
-              change.decidedAt,
-              binding,
-            );
-          break;
-        case "disposal_progress":
-          purpose = `disposal_${change.purpose}`;
-          candidate =
-            model.prepareCoordinatorStateRepairDisposalProgressSnapshot(
-              before,
-              id,
-              change.purpose,
-              change.checkpoint,
-              binding,
-            );
-          break;
-      }
-      assert.ok(candidate);
-      const decoded = model.decodeRuntimeDomainSnapshot(candidate, binding);
-      assert.ok(decoded);
-      assert.equal(owner(), true);
-      assert.ok(
-        purpose === "session_begin"
-          ? model.validateCoordinatorStateRepairSessionTransition(
-              before,
-              candidate,
-              id,
-              binding,
-            )
-          : purpose === "retention_handoff"
-            ? model.validateCoordinatorStateRepairRetentionHandoffTransition(
-                before,
-                candidate,
-                id,
-                binding,
-              )
-            : purpose.startsWith("disposal_")
-              ? model.validateCoordinatorStateRepairDisposalTransition(
-                  before,
-                  candidate,
-                  id,
-                  purpose === "disposal_decision"
-                    ? "decision"
-                    : purpose.slice("disposal_".length),
-                  binding,
-                )
-              : model.validateCoordinatorStateTransition(
-                  before,
-                  candidate,
-                  binding,
-                ),
-      );
-      const target = decoded.snapshot.operations.find(
-        (value) => value.recoveryId === id,
-      );
-      assert.equal(target?.kind, "runtime_repair");
-      if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
       if (
-        purpose === "disposal_primary" &&
-        state.disposalProgressRefused &&
-        target.disposal?.checkpoint.directories.primary.absence ===
-          "confirmed_absent"
+        (change.kind === "disposal_decision" && state.pauseBeforeDisposal) ||
+        (change.kind === "disposal_progress" &&
+          change.purpose === "primary" &&
+          state.disposalProgressRefused &&
+          change.checkpoint.directories.primary.absence === "confirmed_absent")
       ) {
-        state.disposalProgressRefused = false;
+        if (change.kind === "disposal_progress")
+          state.disposalProgressRefused = false;
         return {
           status: "blocked",
           snapshotConfirmed: false,
@@ -662,12 +617,14 @@ function fixture(transform: (source: string) => string = (source) => source) {
         };
       }
       const match =
-        state.fault === "cleanup"
-          ? target.checkpoint?.cleanup === "confirmed" &&
-            target.outcome === null
-          : state.fault === "outcome"
-            ? target.outcome !== null
-            : false;
+        (state.fault === "retention" && change.kind === "retention_handoff") ||
+        (change.kind === "checkpoint" &&
+          (state.fault === "cleanup"
+            ? change.update.checkpoint?.cleanup === "confirmed" &&
+              change.update.outcome === null
+            : state.fault === "outcome"
+              ? change.update.outcome !== null
+              : false));
       if (match && state.faultHits === 0) {
         state.faultHits++;
         state.faultsAt = state.calls;
@@ -680,34 +637,31 @@ function fixture(transform: (source: string) => string = (source) => source) {
           value: null,
         };
       }
-      state.bytes = Buffer.from(candidate);
-      saved.push(Buffer.from(candidate));
+      const result = model.saveRepairState(_root, id, request, owner);
+      if (
+        result.status !== "completed" ||
+        !result.snapshotConfirmed ||
+        !result.lockReleased
+      )
+        return result;
+      const bytes = state.bytes;
+      assert.ok(bytes);
+      saved.push(Buffer.from(bytes));
       if (state.cancelAfterWrite) controller.abort();
       if (state.lossAt === "prepared" && state.calls === 2) {
         state.alive = false;
         state.losses++;
         state.writesAtLoss = state.calls;
-        state.bytesAtLoss = Buffer.from(state.bytes);
+        state.bytesAtLoss = Buffer.from(bytes);
       }
-      return {
-        status: "completed",
-        snapshotConfirmed: true,
-        lockReleased: true,
-        value: {
-          version: {
-            revision: decoded.snapshot.revision,
-            payloadSha256: decoded.payloadSha256,
-          },
-          operation: target,
-        },
-      };
+      return result;
     },
     runRepairSession: (input: Input) => {
       state.entries++;
       late = input.onCheckpoint;
       /**
-       * Native Session終了時の通知・取消・回収結果を注入する。
-       * @responsibility Native Session終了時の通知・取消・回収結果を注入する。
+       * 技術Session終了時の通知・取消・回収結果を注入する。
+       * @responsibility 技術Session終了時の通知・取消・回収結果を注入する。
        * @trace ERB-IT-014
        * @precondition 固定modeと同じSession/controller。
        * @stimulus joinedを増やし選択modeの失敗通知とcleanup/protocolを返す。
@@ -849,6 +803,11 @@ function fixture(transform: (source: string) => string = (source) => source) {
     },
   }) as typeof repairRuntimeOwnedDockerRuntime;
   return {
+    binding,
+    root,
+    repository,
+    historySaved,
+
     state,
     saved,
     controller,
@@ -856,7 +815,18 @@ function fixture(transform: (source: string) => string = (source) => source) {
       run(root, controller.signal, id, purpose),
     late: () => late,
     snapshot: () =>
-      model.decodeRuntimeDomainSnapshot(state.bytes, binding)?.snapshot,
+      (() => {
+        const observed = model.readRecoveryState(root);
+        assert.equal(observed.status, "completed");
+        assert.ok(observed.value);
+        assert.equal(
+          observed.value.sourceText,
+          Buffer.from(
+            state.bytes ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        );
+        return observed.value;
+      })()?.snapshot,
   };
 }
 
@@ -869,13 +839,12 @@ function fixture(transform: (source: string) => string = (source) => source) {
  * @stimulus 三用途成功、primary不明、処置後保存拒否からの再入場。
  * @observation 全DI用途列、元checkpoint／outcome、保存された要求履歴と不存在。
  * @oracle 不明で後続0、再入場はunknownを保全、全用途後だけ履歴と終了を確定する。
- * @cleanup N/A: 実Filesystem・Native・Docker要求0。
- * @boundary ERB-IT-014／ERB-IT-002=Direct Boundary: Caller→専用model／模擬Writer／模擬DI。
+ * @cleanup 自己生成Rootを終了hookで回収する。実Docker要求0。
+ * @boundary ERB-IT-014／ERB-IT-002=Direct Boundary: Caller→公開model／実Writer／有限DI代役。
  */
-test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで保持する", async () => {
-  const binding = "a".repeat(64);
+test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで保持する", async (t) => {
   for (const failure of ["none", "unknown", "save"] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     f.state.pauseBeforeDisposal = false;
     if (failure === "unknown") f.state.disposalBlockedPurpose = "primary";
@@ -885,8 +854,13 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     assert.equal(first.status, failure === "none" ? "observed" : "blocked");
     const original =
       f.snapshot()?.operations[0] ??
-      model.decodeRuntimeDomainSnapshot(f.state.completionBefore, binding)
-        ?.snapshot.operations[0];
+      {
+        snapshot: JSON.parse(
+          Buffer.from(
+            f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      }?.snapshot.operations[0];
     assert.ok(original?.kind === "runtime_repair" && original.disposal);
     assert.equal(original.disposition, "discard");
     assert.equal(original.phase, "settling");
@@ -908,10 +882,13 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     const again = await f.run(first.recoveryId);
     assert.equal(again.status, "observed");
     assert.equal(f.state.entries, entries);
-    const final = model.decodeRuntimeDomainSnapshot(
-      f.state.completionBefore,
-      binding,
-    )?.snapshot.operations[0];
+    const final = {
+      snapshot: JSON.parse(
+        Buffer.from(
+          f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
+        ).toString("utf8"),
+      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+    }?.snapshot.operations[0];
     assert.ok(final?.kind === "runtime_repair" && final.disposal);
     assert.deepEqual(
       {
@@ -922,10 +899,7 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
       },
       before,
     );
-    assert.equal(
-      dockerRuntimeRepairDisposalIsSettled(final.disposal.checkpoint),
-      true,
-    );
+    assert.equal(isRepairDisposalSettled(final.disposal.checkpoint), true);
     assert.equal(
       final.disposal.checkpoint.directories.primary.request,
       failure === "save" ? "unknown" : "issued",
@@ -939,9 +913,11 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     assert.equal(f.state.historyWrites, 2);
     assert.equal(f.state.completionWrites, 1);
     assert.equal(f.snapshot()?.operations.length, 0);
-    const rows = historyValues.decodeCoordinatorHistoryRows(
-      f.state.historyBytes,
-    );
+    const history = model.readRecoveryState(f.root, { kind: "history" });
+    assert.equal(history.status, "completed", history.reason);
+    assert.equal(history.lockReleased, true);
+    const rows = history.historyRows;
+    assert.ok(rows);
     assert.equal(rows?.length, 1);
     assert.equal(
       JSON.parse(rows?.[0]?.line ?? "null").summary.disposal.checkpoint
@@ -955,16 +931,16 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
  * 修復・保持・exact再入場を履歴確認へ接続する。
  * @responsibility 二段保存と各段後fresh確認を技術処置から分離する。
  * @trace ERB-IT-014
- * @precondition 実compositionと実モデル、I/Oはメモリ代替。
+ * @precondition 実compositionと公開保存操作、DIの技術Effectのみ代役。
  * @stimulus 新規成功、明示保持、確認済み再入場、取消済みmetadata確定。
  * @observation 履歴Writer件数、結果相関、技術入口増分。
  * @oracle 最大二段、確認済み再入場のWriter0、同exact・技術再取得0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 本番compositionの処理順。
  */
-test("修復履歴接続: 成功・保持・取消後のexact確定を分ける", async () => {
+test("修復履歴接続: 成功・保持・取消後のexact確定を分ける", async (t) => {
   for (const retained of [false, true]) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = retained ? "retained" : "ready";
     const repaired = await f.run();
     assert.ok(repaired.recoveryId);
@@ -988,7 +964,7 @@ test("修復履歴接続: 成功・保持・取消後のexact確定を分ける"
     assert.equal(f.state.entries, entries);
     assert.equal(f.state.calls, calls);
   }
-  const f = fixture();
+  const f = fixture(t);
   const original = await f.run();
   assert.ok(original.recoveryId);
   f.state.bytes = Buffer.from(f.saved.at(-1) ?? []);
@@ -1013,13 +989,13 @@ test("修復履歴接続: 成功・保持・取消後のexact確定を分ける"
  * @stimulus 取消・境界故障・作成不明、二段保存の各故障、Abort済み再入場。
  * @observation 同ID履歴、操作本文、Native取得・completion件数。
  * @oracle 失敗理由不変、失敗操作保持、再実行0、再入場後の重複出版0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary compositionの履歴接続。実物保存はHost試験。
  */
-test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しない", async () => {
+test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しない", async (t) => {
   for (const mode of ["cancel", "effect_unknown"] as const)
     for (const close of ["clean", "unknown"] as const) {
-      const f = fixture();
+      const f = fixture(t);
       f.state.mode = mode;
       f.state.close = close;
       const first = await f.run();
@@ -1034,9 +1010,11 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       );
       assert.equal(first.completionConfirmed, false);
       assert.equal(f.state.completionWrites, 0);
-      const rows = historyValues.decodeCoordinatorHistoryRows(
-        f.state.historyBytes,
-      );
+      const history = model.readRecoveryState(f.root, { kind: "history" });
+      assert.equal(history.status, "completed", history.reason);
+      assert.equal(history.lockReleased, true);
+      const rows = history.historyRows;
+      assert.ok(rows);
       assert.equal(rows?.length, 1);
       const counts = {
         entries: f.state.entries,
@@ -1076,7 +1054,7 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       "owner",
       "after_effect",
     ] as const) {
-      const f = fixture();
+      const f = fixture(t);
       f.state.mode = "effect_unknown";
       f.state.close = "unknown";
       f.state.historyFaultAt = stage;
@@ -1101,7 +1079,7 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       assert.equal(resumed.completionConfirmed, false);
       assert.equal(f.state.entries, entries);
     }
-  const retained = fixture();
+  const retained = fixture(t);
   retained.state.mode = "retained";
   retained.state.close = "unknown";
   const pending = await retained.run();
@@ -1121,12 +1099,12 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
  * @stimulus 正規履歴投影と既知trueを上書きする変異。
  * @observation first／freshのNative確認、集約checkpoint、履歴と取得回数。
  * @oracle firstはNative true・集約unknown、freshはNative false・本文不変・再取得0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 個別生涯結果と履歴の有限投影。
  */
-test("修復失敗履歴: 既知Native回収と集約不明を別に保持する", async () => {
+test("修復失敗履歴: 既知Native回収と集約不明を別に保持する", async (t) => {
   for (const mutant of [false, true]) {
-    const f = fixture((source) => {
+    const f = fixture(t, (source) => {
       if (!mutant) return source;
       const changed = source.replace(
         /operationCleanupConfirmed =\s*operationCleanupConfirmed \|\|\s*(operation\.checkpoint\?\.cleanup === "confirmed");/u,
@@ -1188,18 +1166,18 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
  * @stimulus 通常終了、取消済み同ID再入場、保持済み。
  * @observation 現在操作、終了確認、技術入口と保存回数。
  * @oracle 対象除去とexact履歴、再入場DI0、保持物除去0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 本番compositionと模擬保存I/O。
  */
-test("修復終了接続: 終了保存と除去後再確認を技術再実行から分ける", async () => {
-  const cancelled = fixture();
+test("修復終了接続: 終了保存と除去後再確認を技術再実行から分ける", async (t) => {
+  const cancelled = fixture(t);
   cancelled.controller.abort();
   const refused = await cancelled.run();
   assert.equal(refused.status, "blocked");
   assert.equal(cancelled.state.entries, 0);
   assert.equal(cancelled.state.calls, 0);
   assert.equal(cancelled.state.effects, 0);
-  const f = fixture();
+  const f = fixture(t);
   const result = await f.run();
   assert.ok(result.recoveryId);
   assert.equal(result.completionConfirmed, true);
@@ -1207,10 +1185,10 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
   assert.equal(result.outcomeConfirmed, true);
   assert.equal(result.completionEffectIssued, true);
   assert.equal(f.snapshot()?.operations.length, 0);
-  assert.equal(
-    historyValues.decodeCoordinatorHistoryRows(f.state.historyBytes)?.length,
-    1,
-  );
+  const history = model.readRecoveryState(f.root, { kind: "history" });
+  assert.equal(history.status, "completed", history.reason);
+  assert.equal(history.lockReleased, true);
+  assert.equal(history.historyRows?.length, 1);
   const counts = {
     entries: f.state.entries,
     calls: f.state.calls,
@@ -1235,7 +1213,7 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
     },
     counts,
   );
-  const retained = fixture();
+  const retained = fixture(t);
   retained.state.mode = "retained";
   const first = await retained.run();
   assert.ok(first.recoveryId);
@@ -1253,10 +1231,10 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
  * @stimulus 拒否・解放不明・例外・Owner喪失・発行後失敗。
  * @observation 各確認値とEffect、再入場のDI／履歴Writer増分。
  * @oracle 先行事実true、completion false、技術再取得0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 本番compositionの終了保存。
  */
-test("修復終了接続: Writer不明でも先行事実を保持しmetadataだけ再開する", async () => {
+test("修復終了接続: Writer不明でも先行事実を保持しmetadataだけ再開する", async (t) => {
   for (const fault of [
     "reject",
     "release",
@@ -1264,7 +1242,7 @@ test("修復終了接続: Writer不明でも先行事実を保持しmetadataだ�
     "owner",
     "after_effect",
   ] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.completionFault = fault;
     const result = await f.run();
     assert.ok(result.recoveryId);
@@ -1307,21 +1285,23 @@ test("修復終了接続: Writer不明でも先行事実を保持しmetadataだ�
  * @stimulus 初回／除去後Readerと清掃の各共同field欠落。
  * @observation 終了確認、先行事実、後段保存／DI件数。
  * @oracle completion false、先行結果保持、失敗後fallback0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary Reader／Writer／markerの個別lifecycle。
  */
-test("修復終了接続: Readerと清掃の不明はsticky停止する", async () => {
-  for (const stage of [1, 3])
+test("修復終了接続: Readerと清掃の不明はsticky停止する", async (t) => {
+  for (const stage of ["before", "after"] as const)
     for (const fault of ["reject", "release", "throw", "owner"] as const) {
-      const f = fixture();
-      f.state.completionReadFaultAt = stage;
+      const f = fixture(t);
+      // 公開Writer内部のReaderをCaller側の注入回数へ数えない。
+      f.state.completionReadFaultAt = stage === "before" ? 1 : 2;
       f.state.completionReadFault = fault;
       const result = await f.run();
       assert.equal(result.status, "blocked");
       assert.equal(result.completionConfirmed, false);
       assert.equal(result.historyConfirmed, true);
       assert.equal(result.outcomeConfirmed, true);
-      assert.equal(f.state.completionWrites, stage === 1 ? 0 : 1);
+      assert.equal(f.state.completionReads, f.state.completionReadFaultAt);
+      assert.equal(f.state.completionWrites, stage === "before" ? 0 : 1);
       assert.equal(f.state.entries, 1);
       assert.equal(f.state.historyWrites, 2);
       assert.equal(
@@ -1337,7 +1317,7 @@ test("修復終了接続: Readerと清掃の不明はsticky停止する", async 
     "throw",
     "owner",
   ] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.markerFault = fault;
     f.state.markerFaultAt = 1;
     const result = await f.run();
@@ -1359,10 +1339,10 @@ test("修復終了接続: Readerと清掃の不明はsticky停止する", async 
  * @stimulus 履歴一段目／二段目の拒否・例外・解放不明・Owner失効・発行後失敗。
  * @observation 確定済みoutcome、保持判断、exact参照と履歴Effect。
  * @oracle 失敗後の次段0、outcome巻戻し0、Native再実行0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary compositionの結果搬送。
  */
-test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わない", async () => {
+test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わない", async (t) => {
   for (const retained of [false, true])
     for (const stage of [1, 2])
       for (const fault of [
@@ -1372,7 +1352,7 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
         "owner",
         "after_effect",
       ] as const) {
-        const f = fixture();
+        const f = fixture(t);
         f.state.mode = retained ? "retained" : "ready";
         let id: string | null = null;
         if (retained) id = (await f.run()).recoveryId;
@@ -1410,13 +1390,13 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
  * @stimulus 初回・一段後・二段後Readerの拒否・解放不明・例外・Owner失効。
  * @observation 実モデルの保存事実と履歴確認の分離。
  * @oracle 先行outcomeと既知Effect保持、後段0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary fresh観測と呼出し生存。
  */
-test("修復履歴接続: 各段後のfresh確認不明で停止する", async () => {
+test("修復履歴接続: 各段後のfresh確認不明で停止する", async (t) => {
   for (const stage of [1, 2, 3])
     for (const fault of ["reject", "release", "throw", "owner"] as const) {
-      const f = fixture();
+      const f = fixture(t);
       f.state.historyReadFaultAt = stage;
       f.state.historyReadFault = fault;
       const result = await f.run();
@@ -1438,10 +1418,10 @@ test("修復履歴接続: 各段後のfresh確認不明で停止する", async (
  * @stimulus 履歴未開始・一段後・確認済みと一段目／二段目の故障。
  * @observation 保持・outcome・履歴確認と技術入口増分。
  * @oracle 保持事実true、履歴失敗後も事実保持、重複判断の発行0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary metadata再入場と結果搬送。
  */
-test("修復履歴接続: 保持済みの再入場でも保持確認を返す", async () => {
+test("修復履歴接続: 保持済みの再入場でも保持確認を返す", async (t) => {
   for (const stage of [
     "unstarted",
     "checkpoint",
@@ -1449,27 +1429,47 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
     "fail_first",
     "fail_second",
   ] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     const repaired = await f.run();
     assert.ok(repaired.recoveryId);
-    await f.run(repaired.recoveryId, "retain");
+    const retained = await f.run(repaired.recoveryId, "retain");
+    assert.equal(retained.retentionConfirmed, true, JSON.stringify(retained));
     const raw = f.saved.at(-1);
     assert.ok(raw);
     if (stage !== "confirmed") {
       f.state.bytes = Buffer.from(raw);
       f.state.historyBytes = Buffer.alloc(0);
       if (stage === "checkpoint") {
-        const candidate = model.prepareCoordinatorRepairHistorySnapshot(
-          raw,
+        const target = f
+          .snapshot()
+          ?.operations.find((item) => item.recoveryId === repaired.recoveryId);
+        assert.ok(target);
+        const owner = {
+          ...f.repository,
+          historyRetentionDays: 30,
+          operationId: JSON.parse(target.identityJson).operationId,
+        };
+        const saved = model.advanceOwnedRepairHistory(
+          owner,
           repaired.recoveryId,
-          f.state.historyAt,
-          false,
-          "a".repeat(64),
+          () => true,
         );
-        assert.ok(candidate);
-        f.state.bytes = candidate;
+        assert.equal(saved.status, "completed");
+        assert.equal(saved.snapshotConfirmed, true);
+        assert.equal(saved.lockReleased, true);
       }
+    }
+    if (stage !== "confirmed") {
+      const read = model.readRecoveryState(
+        {
+          root: f.repository.root,
+          historyRetentionDays: 30,
+          revalidate: () => true,
+        },
+        { kind: "repair_history", recoveryId: repaired.recoveryId },
+      );
+      assert.equal(read.status, "completed", `${stage}: ${read.reason}`);
     }
     const writes = f.state.historyWrites,
       calls = f.state.calls,
@@ -1482,6 +1482,7 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
     assert.equal(
       result.status,
       stage.startsWith("fail_") ? "blocked" : "observed",
+      `${stage}: ${JSON.stringify(result)}`,
     );
     assert.equal(result.outcomeConfirmed, stage !== "confirmed");
     assert.equal(result.retentionConfirmed, true);
@@ -1507,12 +1508,12 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
  * @stimulus 前置Reader拒否と解放不明。
  * @observation lock観測、publisher件数、後続Writer／DI。
  * @oracle 解放不明は全後段0、救済no_pendingはDI0。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 前置観測とmetadataだけの再入場。
  */
-test("修復履歴接続: 前置Reader拒否を技術再開に使わない", async () => {
+test("修復履歴接続: 前置Reader拒否を技術再開に使わない", async (t) => {
   for (const fault of ["reject", "release"] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "incomplete";
     const first = await f.run();
     assert.ok(first.recoveryId);
@@ -1543,12 +1544,12 @@ test("修復履歴接続: 前置Reader拒否を技術再開に使わない", asy
  * @stimulus exact保持、保存後の取消、同じ判断の再入力。
  * @observation 保持保存一回と履歴二段、対象外全文・技術入口件数不変。
  * @oracle receipt保存・一行履歴・除去を分け、再入場で日時と観測を再生成しない。
- * @cleanup N/A: 模擬I/Oとメモリだけ。
+ * @cleanup N/A: 模擬I/Oと自己生成Rootは既存終了hookで回収する。
  * @boundary 実compositionと実モデル。物理Writerは別Host試験。
  */
-test("修復保持接続: 明示判断の保存だけを行い技術再操作しない", async () => {
+test("修復保持接続: 明示判断の保存だけを行い技術再操作しない", async (t) => {
   for (const cancelAfterWrite of [false, true]) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     const repaired = await f.run();
     assert.equal(repaired.outcomeConfirmed, true);
@@ -1576,50 +1577,43 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
     assert.equal(f.state.effects, counts.effects);
     assert.equal(f.controller.signal.aborted, cancelAfterWrite);
     assert.ok(target.checkpoint);
-    const retained =
-      model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-        Buffer.from(`${encodeRuntimeStateValue(before)}\n`),
-        target.recoveryId,
-        {
-          decidedAt: f.state.historyAt,
-          reviewAfter: "2026-10-23T00:00:00.000Z",
-          targets: {
-            primary: target.checkpoint.directories.primary.retained.identity,
-            failed: target.checkpoint.directories.failed.retained.identity,
-            auxiliary:
-              target.checkpoint.directories.auxiliary.retained.identity,
-          },
-        },
-        "a".repeat(64),
-      );
-    assert.ok(retained);
-    const history = model.prepareCoordinatorRepairHistorySnapshot(
-      retained,
-      target.recoveryId,
-      f.state.historyAt,
-      false,
-      "a".repeat(64),
+    const final = f.snapshot();
+    assert.ok(final);
+    assert.ok(f.state.completionBefore);
+    assert.deepEqual(final, {
+      ...before,
+      revision: before.revision + 4,
+      previous: {
+        revision: before.revision + 3,
+        payloadSha256: createHash("sha256")
+          .update(f.state.completionBefore)
+          .digest("hex"),
+      },
+      operations: before.operations.filter(
+        (item) => item.recoveryId !== target.recoveryId,
+      ),
+    });
+    const savedRetention = {
+      snapshot: JSON.parse(
+        Buffer.from(
+          f.saved.at(-1) ?? assert.fail("missing_fixture_bytes"),
+        ).toString("utf8"),
+      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+    }?.snapshot.operations.find(
+      (item) => item.recoveryId === target.recoveryId,
     );
-    assert.ok(history);
-    const published = model.prepareCoordinatorRepairHistoryPublication(
-      history,
-      target.recoveryId,
-      Buffer.alloc(0),
-      null,
-      30,
-      "a".repeat(64),
-    );
-    assert.ok(published);
-    const completed = model.prepareCoordinatorStateRepairCompletionSnapshot(
-      published.snapshotBytes,
-      target.recoveryId,
-      "a".repeat(64),
-    );
-    assert.ok(completed);
-    assert.deepEqual(
-      f.snapshot(),
-      model.decodeRuntimeDomainSnapshot(completed, "a".repeat(64))?.snapshot,
-    );
+    assert.equal(savedRetention?.kind, "runtime_repair");
+    if (savedRetention?.kind !== "runtime_repair")
+      throw new Error("retention_missing");
+    assert.deepEqual(savedRetention.retention, {
+      decidedAt: f.state.historyAt,
+      reviewAfter: "2026-10-23T00:00:00.000Z",
+      targets: {
+        primary: target.checkpoint.directories.primary.retained.identity,
+        failed: target.checkpoint.directories.failed.retained.identity,
+        auxiliary: target.checkpoint.directories.auxiliary.retained.identity,
+      },
+    });
     assert.equal(result.completionConfirmed, true);
     assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
     assert.equal(result.historyConfirmed, true);
@@ -1653,12 +1647,12 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
  * @stimulus 保持観測失敗、終了前後の期限差、旧receipt欠測。
  * @observation 保存済み期限、処置・日時生成件数、同ID再入場。
  * @oracle 観測失敗／旧保持は書込み0、期限差後も元receiptだけで再開する。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 模擬Ownerの失効と実composition。
  */
-test("修復保持接続: 期限差と旧保持を成功へ補完しない", async () => {
+test("修復保持接続: 期限差と旧保持を成功へ補完しない", async (t) => {
   for (const fault of ["observation", "before", "fresh", "legacy"] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     const repaired = await f.run();
     assert.ok(repaired.recoveryId);
@@ -1666,10 +1660,21 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
       const value = f.snapshot();
       assert.ok(value);
       f.state.bytes = Buffer.from(
-        `${encodeRuntimeStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
+        `${canonicalJson({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
       );
       assert.ok(
-        model.decodeRuntimeDomainSnapshot(f.state.bytes, "a".repeat(64)),
+        (() => {
+          const observed = model.readRecoveryState(f.root);
+          assert.equal(observed.status, "completed");
+          assert.ok(observed.value);
+          assert.equal(
+            observed.value.sourceText,
+            Buffer.from(
+              f.state.bytes ?? assert.fail("missing_fixture_bytes"),
+            ).toString("utf8"),
+          );
+          return observed.value;
+        })(),
       );
     }
     const before = Buffer.from(f.state.bytes as Buffer),
@@ -1701,7 +1706,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
     }
   }
   for (const fault of ["marker", "fresh"] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     const repaired = await f.run();
     assert.ok(repaired.recoveryId);
@@ -1748,17 +1753,17 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
  * @stimulus 四種類の判断前拒否。
  * @observation 保存要求、技術取得、元本文。
  * @oracle 全処置0で元本文不変。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 模擬I/Oと実composition。
  */
-test("修復保持接続: 判断前の拒否では保存も技術取得も行わない", async () => {
+test("修復保持接続: 判断前の拒否では保存も技術取得も行わない", async (t) => {
   for (const fault of [
     "cancel",
     "missing_id",
     "different_id",
     "owner",
   ] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     await f.run();
     const target = f.snapshot()?.operations[0];
@@ -1791,17 +1796,17 @@ test("修復保持接続: 判断前の拒否では保存も技術取得も行わ
  * @stimulus completed／no_pendingと出版・Reader・Ownerの部分不成立。
  * @observation 保持確認、WriterとDI増分0、本文不変。
  * @oracle 当該呼出しの出版確認なしでは保持完了を返さない。
- * @cleanup N/A: 模擬I/Oとメモリだけ。
+ * @cleanup N/A: 模擬I/Oと自己生成Rootは既存終了hookで回収する。
  * @boundary 実compositionと模擬publisherの結果搬送。
  */
-test("修復保持接続: fresh出版確認だけを追加保存なしで返す", async () => {
+test("修復保持接続: fresh出版確認だけを追加保存なしで返す", async (t) => {
   for (const fault of [
     "none",
     "no_pending",
     "reader",
     "different_id",
   ] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     const repaired = await f.run();
     assert.ok(repaired.recoveryId);
@@ -1852,12 +1857,12 @@ test("修復保持接続: fresh出版確認だけを追加保存なしで返す"
  * @stimulus 既存Writerの四故障。
  * @observation 保存一回、停止、技術入口増分0、元本文不変。
  * @oracle 不明の自動再保存・技術再実行・終了整理なし。
- * @cleanup N/A: メモリだけ。
+ * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 物理故障の完全性はHost検証に残す。
  */
-test("修復保持接続: 保存未確認を保持完了にしない", async () => {
+test("修復保持接続: 保存未確認を保持完了にしない", async (t) => {
   for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
-    const f = fixture();
+    const f = fixture(t);
     f.state.mode = "retained";
     await f.run();
     const target = f.snapshot()?.operations[0];
@@ -1865,7 +1870,7 @@ test("修復保持接続: 保存未確認を保持完了にしない", async () 
     const before = Buffer.from(f.state.bytes ?? []);
     const writes = f.state.calls,
       entries = f.state.entries;
-    f.state.fault = "outcome";
+    f.state.fault = "retention";
     f.state.faultKind = kind;
     const result = await f.run(target.recoveryId, "retain");
     assert.equal(result.status, "blocked", kind);
@@ -1887,7 +1892,7 @@ test("修復保持接続: 保存未確認を保持完了にしない", async () 
  * @cleanup 同Session join一回、返却後通知の保存0。
  * @boundary 模擬技術境界であり実Docker成功は主張しない。
  */
-test("修復結果: 技術完了・first-wins・二版保存を混同しない", async () => {
+test("修復結果: 技術完了・first-wins・二版保存を混同しない", async (t) => {
   for (const mode of [
     "ready",
     "incomplete",
@@ -1900,7 +1905,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
       : mode === "effect_unknown"
         ? (["clean", "unknown"] as const)
         : (["clean"] as const)) {
-      const f = fixture();
+      const f = fixture(t);
       f.state.mode = mode;
       f.state.close = close;
       const result = await f.run();
@@ -1920,10 +1925,13 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
       assert.equal(f.state.joined, 1);
       const target =
         f.snapshot()?.operations[0] ??
-        model.decodeRuntimeDomainSnapshot(
-          f.state.completionBefore,
-          "a".repeat(64),
-        )?.snapshot.operations[0];
+        {
+          snapshot: JSON.parse(
+            Buffer.from(
+              f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
+            ).toString("utf8"),
+          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        }?.snapshot.operations[0];
       assert.equal(target?.kind, "runtime_repair");
       if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
       assertRepairResultFields(result, target, mode, close);
@@ -1959,10 +1967,13 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
         mode === "effect_unknown" ? "runtime_repair_effect_unknown" : null,
       );
       if (expected !== null) {
-        const previous = model.decodeRuntimeDomainSnapshot(
-          f.saved.at(-2),
-          "a".repeat(64),
-        )?.snapshot.operations[0];
+        const previous = {
+          snapshot: JSON.parse(
+            Buffer.from(
+              f.saved.at(-2) ?? assert.fail("missing_fixture_bytes"),
+            ).toString("utf8"),
+          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        }?.snapshot.operations[0];
         assert.equal(previous?.kind, "runtime_repair");
         if (previous?.kind !== "runtime_repair")
           throw new Error("wrong_previous");
@@ -1997,7 +2008,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
  */
 function assertRepairResultFields(
   result: Awaited<ReturnType<typeof repairRuntimeOwnedDockerRuntime>>,
-  target: CoordinatorStateRepairOperation,
+  target: RepairOperationRecord,
   mode: ReturnType<typeof fixture>["state"]["mode"],
   close: ReturnType<typeof fixture>["state"]["close"],
 ) {
@@ -2060,9 +2071,9 @@ function assertRepairResultFields(
  * @cleanup 本番Source変更0。
  * @boundary 返却・保存共同field。
  */
-test("修復結果: 回収確認と理由の誤返却を共同Oracleで検出する", async () => {
+test("修復結果: 回収確認と理由の誤返却を共同Oracleで検出する", async (t) => {
   for (const field of ["native", "reason"] as const) {
-    const f = fixture((source) => {
+    const f = fixture(t, (source) => {
       const mutated =
         field === "native"
           ? source.replaceAll(
@@ -2101,7 +2112,7 @@ test("修復結果: 回収確認と理由の誤返却を共同Oracleで検出す
  * @cleanup 返却後callbackも保存0、本番Source不変更。
  * @boundary 模擬Owner検証であり実Git失効の証明ではない。
  */
-test("修復結果: 現在Owner失効後は既発行事実を推測保存しない", async () => {
+test("修復結果: 現在Owner失効後は既発行事実を推測保存しない", async (t) => {
   for (const point of ["prepared", "effect"] as const) {
     /**
      * Owner喪失後の保存とEffectを同じOracleで拒否する。
@@ -2115,7 +2126,7 @@ test("修復結果: 現在Owner失効後は既発行事実を推測保存しな�
      * @boundary 実回復本文の局所故障注入。実Dockerなし。
      */
     const verify = async (mutant: boolean) => {
-      const f = fixture((source) => {
+      const f = fixture(t, (source) => {
         if (!mutant) return source;
         const guard = "repository?.revalidate() === true";
         assert.equal(source.split(guard).length, 2);
@@ -2166,7 +2177,7 @@ test("修復結果: 現在Owner失効後は既発行事実を推測保存しな�
  * @cleanup メモリだけ、Source変更0。
  * @boundary 保存結果のConsumer側契約。
  */
-test("修復結果: 最終二保存の片側不成立を成功へ補完しない", async () => {
+test("修復結果: 最終二保存の片側不成立を成功へ補完しない", async (t) => {
   for (const stage of ["cleanup", "outcome"] as const) {
     for (const kind of [
       "reject",
@@ -2174,7 +2185,7 @@ test("修復結果: 最終二保存の片側不成立を成功へ補完しない
       "release",
       "throw",
     ] as const) {
-      const f = fixture();
+      const f = fixture(t);
       f.state.fault = stage;
       f.state.faultKind = kind;
       const result = await f.run();
@@ -2214,14 +2225,15 @@ test("修復結果: 最終二保存の片側不成立を成功へ補完しない
  * @stimulus 不可逆なEffect不明とoutcome保存拒否。
  * @observation primaryとcleanupが耐久済み、outcomeだけnullの本文。
  * @oracle 注入一回、exact回復参照、最終checkpoint確認済み。
- * @cleanup メモリだけ。
+ * @cleanup 自己生成Rootは既存終了hookで回収する。
  * @boundary 記録確定と技術再実行の分離。
  */
 async function interruptedRepairOutcome(
+  t: TestContext,
   close: "clean" | "unknown" = "clean",
   transform?: (source: string) => string,
 ) {
-  const f = fixture(transform);
+  const f = fixture(t, transform);
   f.state.mode = "effect_unknown";
   f.state.close = close;
   f.state.fault = "outcome";
@@ -2247,15 +2259,23 @@ async function interruptedRepairOutcome(
  * @cleanup 終端再入場も新要求0。
  * @boundary 保存済み事実だけを使う限定記録確定。
  */
-test("修復記録: 一次失敗が耐久済みなら技術処置なしにblockedへ確定する", async () => {
+test("修復記録: 一次失敗が耐久済みなら技術処置なしにblockedへ確定する", async (t) => {
   for (const close of ["clean", "unknown"] as const) {
-    const { f, id } = await interruptedRepairOutcome(close);
+    const { f, id } = await interruptedRepairOutcome(t, close);
     f.controller.abort();
     const before = f.snapshot();
-    const decoded = model.decodeRuntimeDomainSnapshot(
-      f.state.bytes,
-      "a".repeat(64),
-    );
+    const decoded = (() => {
+      const observed = model.readRecoveryState(f.root);
+      assert.equal(observed.status, "completed");
+      assert.ok(observed.value);
+      assert.equal(
+        observed.value.sourceText,
+        Buffer.from(
+          f.state.bytes ?? assert.fail("missing_fixture_bytes"),
+        ).toString("utf8"),
+      );
+      return observed.value;
+    })();
     assert.ok(before && decoded);
     const old = before.operations[0];
     assert.equal(old?.kind, "runtime_repair");
@@ -2301,22 +2321,13 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
     assert.equal(after.revision, before.revision + 3);
     const outcomeBytes = f.saved.at(-1);
     assert.ok(outcomeBytes);
-    const historyPending = model.prepareCoordinatorRepairHistorySnapshot(
-      outcomeBytes,
-      id,
-      f.state.historyAt,
-      false,
-      "a".repeat(64),
-    );
-    assert.ok(historyPending);
-    const priorHistory = model.decodeRuntimeDomainSnapshot(
-      historyPending,
-      "a".repeat(64),
-    );
-    assert.ok(priorHistory);
+    const priorHistoryBytes = f.historySaved.at(-2);
+    assert.ok(priorHistoryBytes);
     assert.deepEqual(after.previous, {
-      revision: priorHistory.snapshot.revision,
-      payloadSha256: priorHistory.payloadSha256,
+      revision: JSON.parse(priorHistoryBytes.toString()).revision,
+      payloadSha256: createHash("sha256")
+        .update(priorHistoryBytes)
+        .digest("hex"),
     });
     assert.deepEqual(after.unresolvedRecoveries, before.unresolvedRecoveries);
     assert.deepEqual(after.pendingDeliveries, before.pendingDeliveries);
@@ -2343,8 +2354,8 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
  * @cleanup 本番Source変更0。
  * @boundary 取消と記録だけの確定。
  */
-test("修復記録: 取消guardの早過ぎる適用を検出する", async () => {
-  const { f, id } = await interruptedRepairOutcome("clean", (source) => {
+test("修復記録: 取消guardの早過ぎる適用を検出する", async (t) => {
+  const { f, id } = await interruptedRepairOutcome(t, "clean", (source) => {
     const changed = source.replace(
       "if (!repository || !currentOwner())",
       "if (!repository || !currentOwner() || signal.aborted)",
@@ -2368,7 +2379,7 @@ test("修復記録: 取消guardの早過ぎる適用を検出する", async () =
  * @cleanup メモリだけ、実Git失効は主張しない。
  * @boundary 値適合と記録確定条件を区別する。
  */
-test("修復記録: 対象外の失敗や未回収状態を確定しない", async () => {
+test("修復記録: 対象外の失敗や未回収状態を確定しない", async (t) => {
   for (const mode of [
     "primary_null",
     "primary_other",
@@ -2379,7 +2390,7 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
     "reader",
     "owner",
   ] as const) {
-    const { f, id } = await interruptedRepairOutcome();
+    const { f, id } = await interruptedRepairOutcome(t);
     const snapshot = f.snapshot();
     assert.ok(snapshot);
     const prior = snapshot.operations[0];
@@ -2408,10 +2419,21 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
                 }
               : prior;
     f.state.bytes = Buffer.from(
-      `${encodeRuntimeStateValue({ ...snapshot, operations: [changed] })}\n`,
+      `${canonicalJson({ ...snapshot, operations: [changed] })}\n`,
     );
     assert.ok(
-      model.decodeRuntimeDomainSnapshot(f.state.bytes, "a".repeat(64)),
+      (() => {
+        const observed = model.readRecoveryState(f.root);
+        assert.equal(observed.status, "completed");
+        assert.ok(observed.value);
+        assert.equal(
+          observed.value.sourceText,
+          Buffer.from(
+            f.state.bytes ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        );
+        return observed.value;
+      })(),
       mode,
     );
     if (mode === "reader") f.state.readerReleased = false;
@@ -2452,9 +2474,9 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
  * @cleanup 本番Source不変更。
  * @boundary 記録だけの確定と保存結果。
  */
-test("修復記録: 保存不成立では元失敗を保持して停止する", async () => {
+test("修復記録: 保存不成立では元失敗を保持して停止する", async (t) => {
   for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
-    const { f, id } = await interruptedRepairOutcome();
+    const { f, id } = await interruptedRepairOutcome(t);
     f.state.fault = "outcome";
     f.state.faultKind = kind;
     const before = Buffer.from(f.state.bytes as Buffer);
@@ -2485,7 +2507,7 @@ test("修復記録: 保存不成立では元失敗を保持して停止する", 
  * @cleanup 実markerのFilesystem意味は既存清掃試験へ分離する。
  * @boundary 修復Ownerと既存保存marker清掃の接続。
  */
-test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない", async () => {
+test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない", async (t) => {
   for (const kind of [
     "status",
     "storage",
@@ -2494,7 +2516,7 @@ test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない
     "throw",
     "owner",
   ] as const) {
-    const { f, id } = await interruptedRepairOutcome();
+    const { f, id } = await interruptedRepairOutcome(t);
     f.controller.abort();
     f.state.markerFault = kind;
     const before = Buffer.from(f.state.bytes as Buffer);
@@ -2536,7 +2558,7 @@ test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない
  * @cleanup 実出版の意味は実Host試験へ分離する。
  * @boundary 出版結果と修復Ownerの接続。
  */
-test("修復出版: 部分成立の後は新処置へ進まない", async () => {
+test("修復出版: 部分成立の後は新処置へ進まない", async (t) => {
   for (const kind of [
     "status",
     "snapshot",
@@ -2544,7 +2566,7 @@ test("修復出版: 部分成立の後は新処置へ進まない", async () => 
     "throw",
     "owner",
   ] as const) {
-    const { f, id } = await interruptedRepairOutcome();
+    const { f, id } = await interruptedRepairOutcome(t);
     f.controller.abort();
     f.state.publicationFault = kind;
     const bytes = Buffer.from(f.state.bytes as Buffer);
@@ -2574,15 +2596,17 @@ test("修復出版: 部分成立の後は新処置へ進まない", async () => 
  * @trace ERB-IT-014
  * @boundary 値検査だけ。実資源の不存在を推定しない。
  */
-function dockerRuntimeRepairCheckpointIsSettled(value: unknown): boolean {
-  const result = model.dockerRuntimeRepairCheckpointIsSettled(value);
+function isRepairCheckpointSettled(value: unknown): boolean {
+  const result = model.isRepairCheckpointSettled(value);
   assert.equal(result, technicalValidation.isRepairCheckpointSettled(value));
   return result;
 }
 
 /** 廃棄判定も同じ保存fixtureで両Ownerの同値性を確認する。 */
-function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
-  const result = model.dockerRuntimeRepairDisposalIsSettled(value);
+function isRepairDisposalSettled(value: unknown): boolean {
+  const result = model.isRepairDisposalSettled(value);
   assert.equal(result, technicalValidation.isRepairDisposalSettled(value));
   return result;
 }
+
+import path from "node:path";

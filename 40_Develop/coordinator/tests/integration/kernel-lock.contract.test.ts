@@ -12,12 +12,12 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  acquireRuntimeStateLock,
-  acquireProviderHomeLock,
-  acquireHostOperationLock,
-} from "../../src/execution/kernel-lock.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
+import {
+  acquireExecutionStateLock,
+  acquireHostOperationLock,
+  acquireProviderHomeLock,
+} from "../../src/execution/kernel-lock.ts";
 
 function fixture(t: TestContext) {
   const parent = fileURLToPath(
@@ -69,14 +69,14 @@ test("HomeはRepository横断で同一対象を排他し、Executorと同じRequ
 
 test("共有RuntimeStateはRepository・Homeキーが違っても同じ所在で排他する", (t) => {
   const directory = fixture(t);
-  const firstAcquisition = acquireRuntimeStateLock(directory);
+  const firstAcquisition = acquireExecutionStateLock(directory);
   assert.ok(firstAcquisition.status === "acquired");
   const first = firstAcquisition.lock;
   assert.ok(first);
-  assert.equal(acquireRuntimeStateLock(directory).status, "blocked");
+  assert.equal(acquireExecutionStateLock(directory).status, "blocked");
   assert.equal(first.assertLive(), true);
   assert.equal(first.release(), true);
-  const nextAcquisition = acquireRuntimeStateLock(directory);
+  const nextAcquisition = acquireExecutionStateLock(directory);
   assert.ok(nextAcquisition.status === "acquired");
   const next = nextAcquisition.lock;
   assert.ok(next);

@@ -14,26 +14,25 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import {
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import {
-  initializeCoordinatorSnapshot,
-  saveCoordinatorManagedProject,
-} from "../../../execution-model/src/index.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
-  storeFixtureExecution,
-  activityId,
-} from "../fixtures/execution-intelligence.ts";
+  initializeExecutionStore,
+  saveProjectExecutionState,
+} from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-
 import { queryActivity } from "../../src/index.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import {
+  activityId,
+  storeFixtureExecution,
+} from "../fixtures/execution-intelligence.ts";
 
 const projectId = "project-a";
 
@@ -53,8 +52,8 @@ function repository(t: test.TestContext, repositoryId: string, commit = true) {
   const checked = getRepository(base);
   assert.equal(checked.status, "completed");
   if (checked.status !== "completed") throw new Error("fixture_root_invalid");
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(checked.capability, "tests"),
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataArea(checked.capability, "tests"),
     "fixture_area_invalid",
   );
   const root = fs.mkdtempSync(path.join(area.directory, "runtime-activity-"));
@@ -120,10 +119,8 @@ function state(root: string, revision: string) {
   // 旧Composition式で保存し、新Reader側だけ新helperを使う片方向互換。
   const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
   assert.equal(
-    initializeCoordinatorSnapshot(
-      verifyRuntimePersistenceRepository(root),
-      binding,
-    ).status,
+    initializeExecutionStore(verifyRuntimePersistenceRepository(root), binding)
+      .status,
     "completed",
   );
   const created = createCoordinatorState({
@@ -147,7 +144,7 @@ function state(root: string, revision: string) {
   });
   assert.ok(created.state);
   assert.equal(
-    saveCoordinatorManagedProject(
+    saveProjectExecutionState(
       verifyRuntimePersistenceRepository(root),
       binding,
       created.state,
@@ -788,5 +785,5 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   assert.ok(parseRuntimeActivityObservation(all));
 });
 
-import type { ActivityRepository } from "../../../execution-model/src/index.ts";
-import { parseRuntimeActivityObservation } from "../../../execution-model/src/index.ts";
+import { parseRuntimeActivityObservation } from "../../src/state/observation.ts";
+import type { ActivityRepository } from "../../src/state/types.ts";

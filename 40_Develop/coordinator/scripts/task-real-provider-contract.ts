@@ -9,20 +9,19 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { snapshotPlainRecord } from "../src/input/snapshot.ts";
-import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
-import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
-
-import {
-  inspectTaskStageDiagnostic,
-  inspectRecoveryStartFailureDiagnostic,
-} from "./task-diagnostic.ts";
 import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-attempt-host.ts";
-import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
+import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
 import {
-  readRepositorySnapshot,
   getRepository,
+  readRepositorySnapshot,
 } from "../../version-control/src/index.ts";
+import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
+import { snapshotPlainRecord } from "../src/input/snapshot.ts";
+import {
+  inspectRecoveryStartFailureDiagnostic,
+  inspectTaskStageDiagnostic,
+} from "./task-diagnostic.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 
 /**
  * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。
@@ -2046,4 +2045,4 @@ export function buildCoordinatorRealProviderReport(
   });
 }
 
-import { inspectCoordinatorStateQueryResult } from "../../execution-model/src/index.ts";
+import { inspectCoordinatorStateQueryResult } from "../src/state/projection.ts";

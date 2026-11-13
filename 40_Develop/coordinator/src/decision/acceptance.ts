@@ -6,11 +6,9 @@
  */
 
 import {
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   type DecisionRequest,
-  encodeRuntimeStateValue,
+  ExecutionStorageBlockedError,
   isPrincipalId,
-  RepositoryRuntimeDataAreaBlockedError,
   readDecision,
   recordDecision,
 } from "../../../execution-model/src/index.ts";
@@ -19,10 +17,12 @@ import {
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
+import { snapshotJsonValue } from "../input/snapshot.ts";
 import {
-  verifyRuntimePersistenceRepository,
   historyRepositoryInput,
+  verifyRuntimePersistenceRepository,
 } from "../execution/persistence.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/projection.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
@@ -99,7 +99,7 @@ export function executeCoordinatorPublicAcceptanceDecision(
       });
     // 未信頼要求の副作用付きgetterをRoot照会・保存より前に拒否する。
     try {
-      rawRequest = JSON.parse(encodeRuntimeStateValue(rawRequest));
+      rawRequest = snapshotJsonValue(rawRequest);
     } catch {
       return blocked("orchestrator_acceptance_decision_request_invalid");
     }
@@ -239,7 +239,7 @@ export function executeCoordinatorPublicAcceptanceDecision(
       manualRecoveryRequired: history.status !== "confirmed",
     });
   } catch (error) {
-    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+    if (error instanceof ExecutionStorageBlockedError)
       return coordinatorDataBoundaryBlocked(error);
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,

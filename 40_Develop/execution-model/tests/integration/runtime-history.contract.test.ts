@@ -10,6 +10,7 @@
  * @boundary PRL-IT-012=Direct Boundary: 履歴Adapter→Repository Filesystem。
  */
 
+import { encodeStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -17,24 +18,20 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { getRepository } from "../../../version-control/src/index.ts";
+import { retireStateRecords, transferHistory } from "../../src/index.ts";
 import {
-  encodeRuntimeStateValue,
-  maintainCoordinatorSnapshotRecords,
-  transferCoordinatorSnapshotHistoryRecords,
-} from "../../src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/store.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../src/storage/store.ts";
-import {
-  inspectCoordinatorHistorySettlement,
-  updateCoordinatorHistoryOwned,
-  updateCoordinatorHistoryPilot,
-} from "../../src/storage/store.ts";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
-import {
-  initializeCoordinatorSnapshot,
-  writeCoordinatorSnapshot,
+  initializeExecutionStore,
+  writeSnapshot,
 } from "../../src/state/crud.ts";
-import { readCoordinatorSnapshot } from "../../src/storage/store.ts";
+import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  inspectHistorySettlement,
+  readSnapshot,
+  requireReadyRepositoryExecutionDataArea,
+  updateHistoryOwned,
+  updateHistoryPilot,
+} from "../../src/storage/store.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");
@@ -52,13 +49,13 @@ const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");
  */
 test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件を維持する", (t) => {
   const f = fixture(t);
-  const current = readCoordinatorSnapshot(f.root, "binding-a");
+  const current = readSnapshot(f.root, "binding-a");
   assert.ok(current.value);
   const records = [JSON.parse(row("first")), JSON.parse(row("second"))];
-  const saved = writeCoordinatorSnapshot(
+  const saved = writeSnapshot(
     f.root,
     "binding-a",
-    encodeRuntimeStateValue({
+    encodeStateValue({
       ...current.value,
       snapshotRevision: current.value.snapshotRevision + 1,
       historyPending: records,
@@ -81,11 +78,8 @@ test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件�
   );
   try {
     assert.equal(
-      maintainCoordinatorSnapshotRecords(
-        historyInput(f.root),
-        "binding-a",
-        referenceTime,
-      ).status,
+      retireStateRecords(historyInput(f.root), "binding-a", referenceTime)
+        .status,
       "blocked",
     );
     assert.equal(hits, 1);
@@ -93,7 +87,7 @@ test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件�
     mock.mock.restore();
   }
   assert.equal(fs.existsSync(f.pending), true);
-  const resumed = maintainCoordinatorSnapshotRecords(
+  const resumed = retireStateRecords(
     historyInput(f.root),
     "binding-a",
     referenceTime,
@@ -107,7 +101,7 @@ test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件�
     .map((line) => JSON.parse(line).summary.record.id);
   assert.deepEqual(history, ["first", "second"]);
   assert.deepEqual(
-    readCoordinatorSnapshot(f.root, "binding-a").value?.historyPending,
+    readSnapshot(f.root, "binding-a").value?.historyPending,
     records,
   );
 });
@@ -138,7 +132,7 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
   };
   fs.writeFileSync(file, JSON.stringify(policy));
   assert.equal(
-    updateCoordinatorHistoryPilot(
+    updateHistoryPilot(
       historyInput(f.root),
       row("eight", referenceTime - 8 * DAY),
       referenceTime,
@@ -146,14 +140,14 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
     "completed",
   );
   assert.equal(
-    updateCoordinatorHistoryPilot(
+    updateHistoryPilot(
       historyInput(f.root),
       row("seven", referenceTime - 7 * DAY),
       referenceTime,
     ).status,
     "completed",
   );
-  let acquired = acquireCoordinatorSnapshotPilotLock(historyInput(f.root));
+  let acquired = acquireSnapshotPilotLock(historyInput(f.root));
   if (acquired.status !== "completed") throw new Error("owner");
   try {
     fs.writeFileSync(
@@ -164,10 +158,10 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
       }),
     );
     assert.equal(acquired.value.release(), true);
-    acquired = acquireCoordinatorSnapshotPilotLock(historyInput(f.root));
+    acquired = acquireSnapshotPilotLock(historyInput(f.root));
     if (acquired.status !== "completed") throw new Error("updated_owner");
     assert.equal(
-      inspectCoordinatorHistorySettlement(
+      inspectHistorySettlement(
         acquired.value,
         JSON.parse(row("eight", referenceTime - 8 * DAY)),
         referenceTime,
@@ -175,7 +169,7 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
       null,
     );
     assert.equal(
-      inspectCoordinatorHistorySettlement(
+      inspectHistorySettlement(
         acquired.value,
         JSON.parse(row("seven", referenceTime - 7 * DAY)),
         referenceTime,
@@ -183,7 +177,7 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
       "recorded",
     );
     assert.equal(
-      updateCoordinatorHistoryOwned(
+      updateHistoryOwned(
         acquired.value,
         row("thirty-one", referenceTime - 31 * DAY),
         referenceTime,
@@ -191,7 +185,7 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
       "completed",
     );
     assert.equal(
-      inspectCoordinatorHistorySettlement(
+      inspectHistorySettlement(
         acquired.value,
         JSON.parse(row("thirty-one", referenceTime - 31 * DAY)),
         referenceTime,
@@ -201,16 +195,12 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
     fs.writeFileSync(file, "{}");
     const bytes = fs.readFileSync(f.current, "utf8");
     assert.equal(
-      updateCoordinatorHistoryOwned(
-        acquired.value,
-        row("invalid"),
-        referenceTime,
-      ).status,
+      updateHistoryOwned(acquired.value, row("invalid"), referenceTime).status,
       "blocked",
     );
     assert.equal(fs.readFileSync(f.current, "utf8"), bytes);
     assert.equal(
-      inspectCoordinatorHistorySettlement(
+      inspectHistorySettlement(
         acquired.value,
         JSON.parse(row("seven", referenceTime - 7 * DAY)),
         referenceTime,
@@ -227,7 +217,7 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
       `${JSON.stringify(header)}\n${lines.slice(1).join("\n")}\n`,
     );
     assert.equal(
-      updateCoordinatorHistoryOwned(acquired.value, null, referenceTime).status,
+      updateHistoryOwned(acquired.value, null, referenceTime).status,
       "blocked",
     );
   } finally {
@@ -250,24 +240,22 @@ test("Host Windows: 保持期間は設定可能で保存時の期限根拠を維
 test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) => {
   for (const failure of ["none", "history", "snapshot"] as const) {
     const f = fixture(t);
-    const acquired = acquireCoordinatorSnapshotPilotLock(historyInput(f.root));
+    const acquired = acquireSnapshotPilotLock(historyInput(f.root));
     assert.equal(acquired.status, "completed");
     if (acquired.status !== "completed")
       throw new Error("owner_fixture_failed");
     const owner = acquired.value;
     assert.equal(
-      updateCoordinatorHistoryOwned({ ...owner }, row("forged"), referenceTime)
-        .status,
+      updateHistoryOwned({ ...owner }, row("forged"), referenceTime).status,
       "blocked",
     );
     assert.equal(owner.release(), true);
     assert.equal(
-      updateCoordinatorHistoryOwned(owner, row("released"), referenceTime)
-        .status,
+      updateHistoryOwned(owner, row("released"), referenceTime).status,
       "blocked",
     );
     assert.equal(fs.existsSync(f.directory), true);
-    const initial = readCoordinatorSnapshot(f.root, "binding-a");
+    const initial = readSnapshot(f.root, "binding-a");
     assert.ok(initial.value);
     const rows = [
       JSON.parse(row("one")),
@@ -293,7 +281,7 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
       blockers: [],
     };
     assert.equal(
-      writeCoordinatorSnapshot(
+      writeSnapshot(
         f.root,
         "binding-a",
         JSON.stringify(payload),
@@ -304,7 +292,7 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
     const statePath = path.join(f.directory, "state.json");
     const before = fs.readFileSync(statePath, "utf8");
     assert.equal(
-      writeCoordinatorSnapshot(
+      writeSnapshot(
         f.root,
         "binding-a",
         JSON.stringify({
@@ -333,11 +321,9 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
         return Reflect.apply(rename, fs, args);
       },
     );
-    let transferred: ReturnType<
-      typeof transferCoordinatorSnapshotHistoryRecords
-    >;
+    let transferred: ReturnType<typeof transferHistory>;
     try {
-      transferred = transferCoordinatorSnapshotHistoryRecords(
+      transferred = transferHistory(
         historyInput(f.root),
         "binding-a",
         referenceTime,
@@ -354,7 +340,7 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
           true,
         );
         assert.equal(
-          writeCoordinatorSnapshot(
+          writeSnapshot(
             historyInput(f.root),
             "binding-a",
             JSON.stringify({
@@ -367,7 +353,7 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
           "completed",
         );
       }
-      transferred = transferCoordinatorSnapshotHistoryRecords(
+      transferred = transferHistory(
         historyInput(f.root),
         "binding-a",
         referenceTime,
@@ -381,34 +367,26 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
     if (failure === "none")
       assert.deepEqual(transferred.value, { recorded: 3, expired: 0 });
     assert.equal(
-      readCoordinatorSnapshot(f.root, "binding-a").value?.historyPending.length,
+      readSnapshot(f.root, "binding-a").value?.historyPending.length,
       0,
     );
     assert.equal(
       fs.readFileSync(f.current, "utf8").trimEnd().split("\n").length,
       3,
     );
-    const check = acquireCoordinatorSnapshotPilotLock(historyInput(f.root));
+    const check = acquireSnapshotPilotLock(historyInput(f.root));
     if (check.status !== "completed") throw new Error("owner_fixture_failed");
     try {
       assert.equal(
-        inspectCoordinatorHistorySettlement(
-          check.value,
-          rows[0],
-          referenceTime,
-        ),
+        inspectHistorySettlement(check.value, rows[0], referenceTime),
         "recorded",
       );
       assert.equal(
-        inspectCoordinatorHistorySettlement(
-          check.value,
-          rows[2],
-          referenceTime,
-        ),
+        inspectHistorySettlement(check.value, rows[2], referenceTime),
         "recorded",
       );
       assert.equal(
-        inspectCoordinatorHistorySettlement(
+        inspectHistorySettlement(
           check.value,
           { ...rows[0], outcome: "failed", primaryFailure: "execution" },
           referenceTime,
@@ -439,8 +417,8 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
  * @boundary PRL-IT-012=Direct Boundary: fixture→Filesystem。
  */
 function fixture(t: test.TestContext) {
-  const temporary = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const temporary = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       fileURLToPath(new URL("../../../../", import.meta.url)),
       "tmp",
     ),
@@ -454,10 +432,7 @@ function fixture(t: test.TestContext) {
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
-  const initialized = initializeCoordinatorSnapshot(
-    verifiedRoot(root),
-    "binding-a",
-  );
+  const initialized = initializeExecutionStore(verifiedRoot(root), "binding-a");
   assert.equal(initialized.status, "completed", initialized.reason);
   const directory = path.join(root, ".crdd", "domain-model");
   return {
@@ -505,8 +480,7 @@ function row(id: string, occurredAt = referenceTime) {
 test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (t) => {
   const f = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
     "completed",
   );
   const rows = [
@@ -517,7 +491,7 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
   const body = rows
     .map((record) => {
       const value = JSON.parse(record);
-      return `${encodeRuntimeStateValue({
+      return `${encodeStateValue({
         schema: "crdd-coordinator/history-row/v2",
         occurredAt: value.occurredAt,
         summary: { schema: "crdd-coordinator/task-summary/v1", record: value },
@@ -527,8 +501,7 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
   assert.ok(Buffer.byteLength(body) > 16 * 1024 * 1024);
   fs.writeFileSync(f.current, body);
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
     "completed",
   );
   const savedRows = fs
@@ -567,25 +540,17 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
 test("Host Windows: 履歴再搬送は重複せず内容衝突を拒否する", (t) => {
   const f = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("one"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("one"), referenceTime).status,
     "completed",
   );
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("one"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("one"), referenceTime).status,
     "completed",
   );
   const before = fs.readFileSync(f.current, "utf8");
   assert.equal(before.trimEnd().split("\n").length, 1);
   assert.equal(
-    updateCoordinatorHistoryPilot(
+    updateHistoryPilot(
       historyInput(f.root),
       row("one", referenceTime - 1),
       referenceTime,
@@ -610,20 +575,12 @@ test("Host Windows: 履歴再搬送は重複せず内容衝突を拒否する", 
 test("Host Windows: 履歴pendingは変更前または候補一致で再入場する", (t) => {
   const f = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("one"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("one"), referenceTime).status,
     "completed",
   );
   const base = fs.readFileSync(f.current);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("two"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("two"), referenceTime).status,
     "completed",
   );
   const candidate = fs.readFileSync(f.current);
@@ -631,11 +588,8 @@ test("Host Windows: 履歴pendingは変更前または候補一致で再入場�
     fs.writeFileSync(f.current, current);
     fs.writeFileSync(f.pending, candidate);
     assert.equal(
-      updateCoordinatorHistoryPilot(
-        historyInput(f.root),
-        row("two"),
-        referenceTime,
-      ).status,
+      updateHistoryPilot(historyInput(f.root), row("two"), referenceTime)
+        .status,
       "completed",
     );
     assert.equal(
@@ -661,35 +615,23 @@ test("Host Windows: 履歴pendingは変更前または候補一致で再入場�
 test("Host Windows: 履歴pendingの不整合は両方を保持する", (t) => {
   const f = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("one"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("one"), referenceTime).status,
     "completed",
   );
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("two"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("two"), referenceTime).status,
     "completed",
   );
   const candidate = fs.readFileSync(f.current);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("three"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("three"), referenceTime)
+      .status,
     "completed",
   );
   const before = fs.readFileSync(f.current);
   fs.writeFileSync(f.pending, candidate);
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
     "blocked",
   );
   assert.deepEqual(fs.readFileSync(f.current), before);
@@ -711,11 +653,7 @@ test("Host Windows: 履歴pendingの不整合は両方を保持する", (t) => {
 test("Host Windows: 期限外の破損・部分行・時計逆行を削除へ畳まない", (t) => {
   const f = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("one"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("one"), referenceTime).status,
     "completed",
   );
   const valid = fs.readFileSync(f.current, "utf8");
@@ -725,8 +663,7 @@ test("Host Windows: 期限外の破損・部分行・時計逆行を削除へ畳
   ]) {
     fs.writeFileSync(f.current, broken);
     assert.equal(
-      updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-        .status,
+      updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
       "blocked",
     );
     assert.equal(fs.readFileSync(f.current, "utf8"), broken);
@@ -734,7 +671,7 @@ test("Host Windows: 期限外の破損・部分行・時計逆行を削除へ畳
   }
   fs.writeFileSync(f.current, valid);
   assert.equal(
-    updateCoordinatorHistoryPilot(
+    updateHistoryPilot(
       historyInput(f.root),
       row("future", referenceTime + 1),
       referenceTime,
@@ -742,15 +679,13 @@ test("Host Windows: 期限外の破損・部分行・時計逆行を削除へ畳
     "blocked",
   );
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime - 1)
-      .status,
+    updateHistoryPilot(historyInput(f.root), null, referenceTime - 1).status,
     "blocked",
   );
   assert.equal(fs.readFileSync(f.current, "utf8"), valid);
   fs.writeFileSync(f.pending, "{");
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
     "blocked",
   );
   assert.equal(fs.readFileSync(f.pending, "utf8"), "{");
@@ -772,13 +707,11 @@ test("Host Windows: 履歴保存先は取得済み排他のRootから変更で�
   const a = fixture(t);
   const b = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(a.root), row("a"), referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(a.root), row("a"), referenceTime).status,
     "completed",
   );
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(b.root), row("b"), referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(b.root), row("b"), referenceTime).status,
     "completed",
   );
   const beforeA = fs.readFileSync(a.current);
@@ -803,8 +736,7 @@ test("Host Windows: 履歴保存先は取得済み排他のRootから変更で�
   );
   try {
     assert.equal(
-      updateCoordinatorHistoryPilot(historyContext, row("new"), referenceTime)
-        .status,
+      updateHistoryPilot(historyContext, row("new"), referenceTime).status,
       "blocked",
     );
     assert.equal(hasChanged, true);
@@ -833,11 +765,8 @@ test("Host Windows: fsyncとrename失敗後も履歴候補から再入場でき�
   for (const method of ["fsyncSync", "renameSync"] as const) {
     const f = fixture(t);
     assert.equal(
-      updateCoordinatorHistoryPilot(
-        historyInput(f.root),
-        row("one"),
-        referenceTime,
-      ).status,
+      updateHistoryPilot(historyInput(f.root), row("one"), referenceTime)
+        .status,
       "completed",
     );
     const before = fs.readFileSync(f.current);
@@ -884,11 +813,8 @@ test("Host Windows: fsyncとrename失敗後も履歴候補から再入場でき�
     );
     try {
       assert.equal(
-        updateCoordinatorHistoryPilot(
-          historyInput(f.root),
-          row("two"),
-          referenceTime,
-        ).status,
+        updateHistoryPilot(historyInput(f.root), row("two"), referenceTime)
+          .status,
         "blocked",
       );
       assert.equal(hits, 1);
@@ -901,11 +827,8 @@ test("Host Windows: fsyncとrename失敗後も履歴候補から再入場でき�
     assert.deepEqual(fs.readFileSync(f.current), before);
     assert.equal(fs.existsSync(f.pending), true);
     assert.equal(
-      updateCoordinatorHistoryPilot(
-        historyInput(f.root),
-        row("two"),
-        referenceTime,
-      ).status,
+      updateHistoryPilot(historyInput(f.root), row("two"), referenceTime)
+        .status,
       "completed",
     );
     assert.equal(
@@ -931,19 +854,14 @@ test("Host Windows: fsyncとrename失敗後も履歴候補から再入場でき�
 test("Host Windows: 履歴のaliasと観測不能を不存在へ畳まない", (t) => {
   const f = fixture(t);
   assert.equal(
-    updateCoordinatorHistoryPilot(
-      historyInput(f.root),
-      row("one"),
-      referenceTime,
-    ).status,
+    updateHistoryPilot(historyInput(f.root), row("one"), referenceTime).status,
     "completed",
   );
   const before = fs.readFileSync(f.current);
   const alias = path.join(f.directory, "alias.jsonl");
   fs.linkSync(f.current, alias);
   assert.equal(
-    updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-      .status,
+    updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
     "blocked",
   );
   assert.deepEqual(fs.readFileSync(f.current), before);
@@ -960,8 +878,7 @@ test("Host Windows: 履歴のaliasと観測不能を不存在へ畳まない", (
   );
   try {
     assert.equal(
-      updateCoordinatorHistoryPilot(historyInput(f.root), null, referenceTime)
-        .status,
+      updateHistoryPilot(historyInput(f.root), null, referenceTime).status,
       "blocked",
     );
   } finally {

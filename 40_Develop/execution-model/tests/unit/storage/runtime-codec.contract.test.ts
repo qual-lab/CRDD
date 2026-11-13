@@ -8,33 +8,112 @@
  * @boundary 実保存・Host・AI・Dockerは使用しない。
  */
 
+import {
+  decodeStateSnapshot,
+  encodeStateValue,
+} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { validateCoordinatorOperationIdentity } from "../../../src/attempt/validation.ts";
 import {
-  type CoordinatorState,
-  type CoordinatorUnifiedSnapshot,
-  coordinatorConsumerCompletionPolicy,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  hashRuntimeProjectDefinition,
-  prepareCoordinatorStateOperationSnapshot,
-  type RuntimeProjectDefinition,
+  validateOperationIdentity,
+  validPrimaryFailure,
+} from "../../../src/attempt/validation.ts";
+import { decodeHistoryRows } from "../../../src/history/validation.ts";
+import {
+  getConsumerCompletionPolicy,
+  type ProjectExecutionState,
 } from "../../../src/index.ts";
+import type {
+  ProjectDefinition,
+  UnifiedSnapshot,
+} from "../../../src/state/types.ts";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  COORDINATOR_STATE_SCHEMA,
-  hashRuntimeStateContent,
-  projectCoordinatorTaskSettlement,
-  validateCoordinatorUnifiedTransition,
-  validCoordinatorSnapshot,
+  EXECUTION_STATE_SCHEMA,
+  hashExecutionProjectDefinition,
+  hashExecutionStateContent,
+  PROJECT_SNAPSHOT_SCHEMA,
+  projectTaskSettlement,
+  validateUnifiedTransition,
+  validSnapshot,
 } from "../../../src/state/validation.ts";
-import { prepareCoordinatorUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
+import { prepareUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
+import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";
 
 const binding = "a".repeat(64);
+
+/**
+ * 再入場試験へ注入する旧行と別操作行の形式をモデルOwnerで検査する。
+ * @responsibility 履歴の形式成立と現在操作への対応成立を区別する。
+ * @trace PRL-UT-006
+ * @precondition 非秘密の有限履歴値だけを構築する。
+ * @stimulus 旧Schema、現行Schema、整合した別IDと不整合な別nonceを渡す。
+ * @observation 内部decoderの行・IDと拒否結果。
+ * @oracle 旧行と整合した別操作行は有効、不整合な回復IDは拒否する。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary 形式検査であり実保存・同じ操作の終了許可の証明ではない。
+ */
+test("履歴の旧行と別操作行は形式成立と操作対応を分ける", () => {
+  const nonce = "f".repeat(64);
+  const identitySha256 = "e".repeat(64);
+  const legacy = {
+    schema: "crdd-coordinator/operation-summary/v2",
+    operationId: "OP-999999",
+    operationNonce: nonce,
+    recoveryId: `docker-task.${binding}.${nonce}.${identitySha256}`,
+    identitySha256,
+    primaryFailure: null,
+    execution: {
+      providerStart: "not_started",
+      externalSend: "not_issued",
+      sharedWrite: "not_issued",
+      ownerEffect: "disabled",
+      workspaceReusable: false,
+    },
+    outcome: {
+      status: "cancelled",
+      reason: "provider_operation_cancelled",
+      cleanupConfirmed: true,
+    },
+    hostCleanup: "confirmed",
+    lease: "released",
+  };
+  const current = {
+    ...legacy,
+    schema: "crdd-coordinator/operation-summary/v4",
+    consumer: "workbench",
+    recoveryCorrelationId: "upper-current-host",
+  };
+  const otherNonce = "d".repeat(64);
+  const other = {
+    ...current,
+    operationId: "OP-888888",
+    operationNonce: otherNonce,
+    recoveryId: `docker-task.${binding}.${otherNonce}.${identitySha256}`,
+  };
+  for (const summary of [legacy, current, other]) {
+    const line = `${encodeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-09-01T00:00:00.000Z", summary })}\n`;
+    const rows = decodeHistoryRows(Buffer.from(line));
+    assert.equal(rows?.length, 1);
+    assert.equal(rows?.[0]?.recoveryId, summary.recoveryId);
+    assert.equal(rows?.[0]?.line, line);
+  }
+  assert.notEqual(other.recoveryId, current.recoveryId);
+  assert.equal(
+    decodeHistoryRows(
+      Buffer.from(
+        `${encodeStateValue({
+          schema: "crdd-coordinator/history-row/v2",
+          occurredAt: "2026-09-01T00:00:00.000Z",
+          summary: { ...current, operationNonce: otherNonce },
+        })}\n`,
+      ),
+    ),
+    null,
+  );
+});
 
 /**
  * 保存された保護Pathを独自総長で再拒否しない。
@@ -56,7 +135,7 @@ test("保護Pathの長さだけで正規Identityを拒否しない", () => {
     },
   };
   assert.equal(
-    validateCoordinatorOperationIdentity(
+    validateOperationIdentity(
       identity,
       identity.operationNonce,
       fixture.binding,
@@ -64,7 +143,7 @@ test("保護Pathの長さだけで正規Identityを拒否しない", () => {
     true,
   );
   assert.equal(
-    validateCoordinatorOperationIdentity(
+    validateOperationIdentity(
       {
         ...identity,
         workspaceProtection: {
@@ -78,7 +157,7 @@ test("保護Pathの長さだけで正規Identityを拒否しない", () => {
     false,
   );
   assert.equal(
-    validateCoordinatorOperationIdentity(
+    validateOperationIdentity(
       {
         ...identity,
         workspaceProtection: {
@@ -105,7 +184,7 @@ test("保護Pathの長さだけで正規Identityを拒否しない", () => {
  */
 test("内部技術記録は旧64件を超えても正規相関を維持する", () => {
   const fixture = createResourceOperationFixture();
-  const initial = decodeRuntimeDomainSnapshot(fixture.bytes, fixture.binding);
+  const initial = decodeStateSnapshot(fixture.bytes, fixture.binding);
   assert.ok(initial);
   const operations = Array.from({ length: 129 }, (_, index) => {
     const identity = {
@@ -114,21 +193,21 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
       operationId: `OP-${String(index + 1).padStart(6, "0")}`,
       recoveryCorrelationId: `task-operation-${index}`,
     };
-    const bytes = prepareCoordinatorStateOperationSnapshot(
+    const bytes = prepareStateOperationSnapshot(
       null,
       `${JSON.stringify(identity)}\n`,
       fixture.binding,
     );
     assert.ok(bytes);
-    const observed = decodeRuntimeDomainSnapshot(bytes, fixture.binding);
+    const observed = decodeStateSnapshot(bytes, fixture.binding);
     assert.ok(observed);
     const operation = observed.snapshot.operations[0];
     assert.ok(operation);
     return operation;
   });
   const state = { ...initial.snapshot, operations };
-  const observed = decodeRuntimeDomainSnapshot(
-    Buffer.from(`${encodeRuntimeStateValue(state)}\n`),
+  const observed = decodeStateSnapshot(
+    Buffer.from(`${encodeStateValue(state)}\n`),
     fixture.binding,
   );
   assert.ok(observed);
@@ -138,19 +217,19 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
     recoveryIds: operations.map((operation) => operation.recoveryId),
     resultUnresolved: true,
   };
-  assert.deepEqual(projectCoordinatorTaskSettlement(fact, state), {
+  assert.deepEqual(projectTaskSettlement(fact, state), {
     cleanupConfirmed: false,
     recoveryUnresolved: true,
   });
   assert.equal(
-    projectCoordinatorTaskSettlement(
+    projectTaskSettlement(
       { ...fact, recoveryIds: [...fact.recoveryIds, "missing"] },
       state,
     ),
     null,
   );
   assert.equal(
-    projectCoordinatorTaskSettlement(
+    projectTaskSettlement(
       { ...fact, recoveryIds: [...fact.recoveryIds, fact.recoveryIds[0]] },
       state,
     ),
@@ -162,10 +241,8 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
       : operation,
   );
   assert.equal(
-    decodeRuntimeDomainSnapshot(
-      Buffer.from(
-        `${encodeRuntimeStateValue({ ...state, operations: tampered })}\n`,
-      ),
+    decodeStateSnapshot(
+      Buffer.from(`${encodeStateValue({ ...state, operations: tampered })}\n`),
       fixture.binding,
     ),
     null,
@@ -214,7 +291,7 @@ const taskExecutionSelections = () => ({
  * @cleanup N/A: 局所値のみ。
  * @boundary 純粋codec試験。実保存・実行を開始しない。
  */
-function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
+function emptyUnifiedSnapshot(): UnifiedSnapshot {
   return {
     schema: "crdd-domain/runtime-state/v3",
     revision: 1,
@@ -241,7 +318,7 @@ function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
 }
 const empty = {
   ...emptyUnifiedSnapshot(),
-  schema: COORDINATOR_STATE_SCHEMA,
+  schema: EXECUTION_STATE_SCHEMA,
   revision: 1,
   previous: null,
   repositoryBinding: binding,
@@ -268,7 +345,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     intakeEpoch: "epoch-a",
     managedExecutions: [],
   };
-  const core: RuntimeProjectDefinition = {
+  const core: ProjectDefinition = {
     contract: "crdd-domain/project-state/v1",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -285,14 +362,14 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     tasks: [],
   };
   const encode = (value: unknown) =>
-    Buffer.from(`${encodeRuntimeStateValue(value)}\n`);
+    Buffer.from(`${encodeStateValue(value)}\n`);
   const coreOnly = { ...empty, projects: [core] };
-  const read = decodeRuntimeDomainSnapshot(encode(coreOnly), binding);
+  const read = decodeStateSnapshot(encode(coreOnly), binding);
   assert.ok(read);
   assert.deepEqual(read.snapshot, coreOnly);
   assert.deepEqual(read.projects, []);
   assert.equal(
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       encode({
         ...emptyUnifiedSnapshot(),
         schema: "crdd-coordinator/current-state/v5",
@@ -310,11 +387,10 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   ]) {
     if (invalid.managedExecutions === undefined) {
       const { managedExecutions: _missing, ...missing } = invalid;
-      assert.equal(decodeRuntimeDomainSnapshot(encode(missing), binding), null);
-    } else
-      assert.equal(decodeRuntimeDomainSnapshot(encode(invalid), binding), null);
+      assert.equal(decodeStateSnapshot(encode(missing), binding), null);
+    } else assert.equal(decodeStateSnapshot(encode(invalid), binding), null);
   }
-  const definition: RuntimeProjectDefinition = {
+  const definition: ProjectDefinition = {
     ...core,
     objectives: [
       {
@@ -336,7 +412,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   const managed = {
     projectId: core.projectId,
     milestoneId: core.milestoneId,
-    definitionHash: hashRuntimeProjectDefinition(definition),
+    definitionHash: hashExecutionProjectDefinition(definition),
     taskExecutionSelections: taskExecutionSelections(),
     ownerGeneration: "owner-a",
     maximumConcurrency: 1,
@@ -374,14 +450,14 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     ],
   };
   assert.equal(
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       encode({
         ...complete,
         projects: [unassigned],
         managedExecutions: [
           {
             ...managed,
-            definitionHash: hashRuntimeProjectDefinition(unassigned),
+            definitionHash: hashExecutionProjectDefinition(unassigned),
           },
         ],
       }),
@@ -389,7 +465,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     ),
     null,
   );
-  const projected = decodeRuntimeDomainSnapshot(encode(complete), binding);
+  const projected = decodeStateSnapshot(encode(complete), binding);
   assert.ok(projected);
   assert.deepEqual(projected.snapshot, complete);
   assert.deepEqual(
@@ -405,7 +481,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   };
   const twoManaged = {
     ...managed,
-    definitionHash: hashRuntimeProjectDefinition(twoDefinitions),
+    definitionHash: hashExecutionProjectDefinition(twoDefinitions),
     tasks: [firstManaged, { ...firstManaged, taskId: "task-b" }],
   };
   const ordered = {
@@ -413,9 +489,9 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     projects: [twoDefinitions],
     managedExecutions: [twoManaged],
   };
-  assert.ok(decodeRuntimeDomainSnapshot(encode(ordered), binding));
+  assert.ok(decodeStateSnapshot(encode(ordered), binding));
   assert.equal(
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       encode({
         ...ordered,
         managedExecutions: [
@@ -439,7 +515,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     },
   ])
     assert.equal(
-      decodeRuntimeDomainSnapshot(
+      decodeStateSnapshot(
         encode({ ...complete, managedExecutions: [changed] }),
         binding,
       ),
@@ -460,19 +536,13 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
  */
 test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否する", () => {
   const snapshot = emptyUnifiedSnapshot();
-  const bytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
-  assert.deepEqual(
-    decodeRuntimeDomainSnapshot(bytes, binding)?.snapshot,
-    snapshot,
-  );
+  const bytes = Buffer.from(`${encodeStateValue(snapshot)}\n`);
+  assert.deepEqual(decodeStateSnapshot(bytes, binding)?.snapshot, snapshot);
   assert.equal(
-    decodeRuntimeDomainSnapshot(bytes, binding)?.payloadSha256,
+    decodeStateSnapshot(bytes, binding)?.payloadSha256,
     createHash("sha256").update(bytes).digest("hex"),
   );
-  assert.deepEqual(
-    decodeRuntimeDomainSnapshot(bytes, binding)?.snapshot,
-    snapshot,
-  );
+  assert.deepEqual(decodeStateSnapshot(bytes, binding)?.snapshot, snapshot);
   for (const invalid of [
     { ...snapshot, schema: "crdd-coordinator/current-state/v4" },
     { ...snapshot, schema: "crdd-coordinator/current-state/v3" },
@@ -488,13 +558,13 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
     { ...snapshot, payload: snapshot },
   ])
     assert.equal(
-      decodeRuntimeDomainSnapshot(
-        Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+      decodeStateSnapshot(
+        Buffer.from(`${encodeStateValue(invalid)}\n`),
         binding,
       ),
       null,
     );
-  assert.equal(decodeRuntimeDomainSnapshot(bytes, "b".repeat(64)), null);
+  assert.equal(decodeStateSnapshot(bytes, "b".repeat(64)), null);
   const next = {
     ...snapshot,
     revision: 2,
@@ -515,25 +585,15 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
    * @boundary 純粋遷移検査。実保存・実行なし。
    */
   const encode = (value: unknown) =>
-    Buffer.from(`${encodeRuntimeStateValue(value)}\n`);
+    Buffer.from(`${encodeStateValue(value)}\n`);
+  assert.equal(validateUnifiedTransition(null, bytes, binding), true);
+  assert.equal(validateUnifiedTransition(bytes, encode(next), binding), true);
   assert.equal(
-    validateCoordinatorUnifiedTransition(null, bytes, binding),
-    true,
-  );
-  assert.equal(
-    validateCoordinatorUnifiedTransition(bytes, encode(next), binding),
-    true,
-  );
-  assert.equal(
-    validateCoordinatorUnifiedTransition(
-      bytes,
-      encode({ ...next, revision: 3 }),
-      binding,
-    ),
+    validateUnifiedTransition(bytes, encode({ ...next, revision: 3 }), binding),
     false,
   );
   assert.equal(
-    validateCoordinatorUnifiedTransition(
+    validateUnifiedTransition(
       bytes,
       encode({
         ...next,
@@ -558,24 +618,18 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
  */
 test("Task終端投影: 空の技術集合と明示未発行を区別する", () => {
   const snapshot = { operations: [], unresolvedRecoveries: [] };
-  assert.deepEqual(
-    projectCoordinatorTaskSettlement({ kind: "pending" }, snapshot),
-    {
-      cleanupConfirmed: false,
-      recoveryUnresolved: false,
-    },
-  );
-  assert.deepEqual(
-    projectCoordinatorTaskSettlement({ kind: "unissued" }, snapshot),
-    {
-      cleanupConfirmed: true,
-      recoveryUnresolved: false,
-    },
-  );
+  assert.deepEqual(projectTaskSettlement({ kind: "pending" }, snapshot), {
+    cleanupConfirmed: false,
+    recoveryUnresolved: false,
+  });
+  assert.deepEqual(projectTaskSettlement({ kind: "unissued" }, snapshot), {
+    cleanupConfirmed: true,
+    recoveryUnresolved: false,
+  });
   for (const cleanupConfirmed of [false, true]) {
     for (const recoveryUnresolved of [false, true]) {
       assert.deepEqual(
-        projectCoordinatorTaskSettlement(
+        projectTaskSettlement(
           {
             kind: "executor_result",
             cleanupConfirmed,
@@ -617,7 +671,7 @@ test("Task終端投影: 空の技術集合と明示未発行を区別する", ()
     { kind: "operations", recoveryIds: [1], resultUnresolved: false },
     { kind: "operations", recoveryIds: ["missing"], resultUnresolved: "false" },
   ])
-    assert.equal(projectCoordinatorTaskSettlement(invalid, snapshot), null);
+    assert.equal(projectTaskSettlement(invalid, snapshot), null);
   assert.equal(reads, 0);
 });
 
@@ -633,12 +687,9 @@ test("Task終端投影: 空の技術集合と明示未発行を区別する", ()
  * @boundary 保存wrapperの候補lifecycle。実保存・実Consumer ACKを証明しない。
  */
 test("結果受領方式: 固定利用側と任意降格の拒否", () => {
-  assert.equal(
-    coordinatorConsumerCompletionPolicy("coordinator_cli"),
-    "transient",
-  );
-  assert.equal(coordinatorConsumerCompletionPolicy("workbench"), "transient");
-  assert.equal(coordinatorConsumerCompletionPolicy("orchestrator"), "durable");
+  assert.equal(getConsumerCompletionPolicy("coordinator_cli"), "transient");
+  assert.equal(getConsumerCompletionPolicy("workbench"), "transient");
+  assert.equal(getConsumerCompletionPolicy("orchestrator"), "durable");
   let evaluations = 0;
   const hostile = Object.defineProperty({}, "consumer", {
     get() {
@@ -669,7 +720,7 @@ test("結果受領方式: 固定利用側と任意降格の拒否", () => {
     hostile,
     proxy,
   ])
-    assert.equal(coordinatorConsumerCompletionPolicy(invalid), null);
+    assert.equal(getConsumerCompletionPolicy(invalid), null);
   assert.equal(evaluations, 0);
 });
 
@@ -685,10 +736,10 @@ test("結果受領方式: 固定利用側と任意降格の拒否", () => {
  * @boundary PRL-UT-006=Direct Boundary: 保存byte列と純粋codec。
  */
 test("Snapshot: 正規本文、改訂、結合と空集合", () => {
-  const text = `${encodeRuntimeStateValue(empty)}\n`;
-  const result = decodeRuntimeDomainSnapshot(Buffer.from(text), binding);
+  const text = `${encodeStateValue(empty)}\n`;
+  const result = decodeStateSnapshot(Buffer.from(text), binding);
   assert.ok(result);
-  assert.equal(result.payloadSha256, hashRuntimeStateContent(empty));
+  assert.equal(result.payloadSha256, hashExecutionStateContent(empty));
   assert.ok(Object.isFrozen(result.snapshot.operations));
   for (const invalid of [
     { ...empty, repositoryBinding: "b".repeat(64) },
@@ -698,28 +749,25 @@ test("Snapshot: 正規本文、改訂、結合と空集合", () => {
     { ...empty, pendingDeliveries: [{ operationNonce: binding }] },
   ])
     assert.equal(
-      decodeRuntimeDomainSnapshot(
-        Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
+      decodeStateSnapshot(
+        Buffer.from(`${encodeStateValue(invalid)}\n`),
         binding,
       ),
       null,
     );
   assert.equal(
-    decodeRuntimeDomainSnapshot(
-      Buffer.from(`${JSON.stringify(empty)}\n`),
-      binding,
-    ),
+    decodeStateSnapshot(Buffer.from(`${JSON.stringify(empty)}\n`), binding),
     null,
   );
   assert.equal(
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       Buffer.from(text.replace('"revision":1', '"revision":1,"revision":1')),
       binding,
     ),
     null,
   );
-  assert.equal(decodeRuntimeDomainSnapshot(Buffer.from([0xff]), binding), null);
-  assert.equal(decodeRuntimeDomainSnapshot(Buffer.from(text), "wrong"), null);
+  assert.equal(decodeStateSnapshot(Buffer.from([0xff]), binding), null);
+  assert.equal(decodeStateSnapshot(Buffer.from(text), "wrong"), null);
 });
 
 /**
@@ -741,7 +789,7 @@ test("Snapshot: hostile値と配列順", () => {
       return 1;
     },
   });
-  assert.throws(() => encodeRuntimeStateValue(hostile));
+  assert.throws(() => encodeStateValue(hostile));
   const proxy = new Proxy(
     {},
     {
@@ -751,54 +799,47 @@ test("Snapshot: hostile値と配列順", () => {
       },
     },
   );
-  assert.throws(() => encodeRuntimeStateValue(proxy));
+  assert.throws(() => encodeStateValue(proxy));
   assert.equal(isInvoked, false);
-  const bytes = Buffer.from(`${encodeRuntimeStateValue(empty)}\n`);
+  const bytes = Buffer.from(`${encodeStateValue(empty)}\n`);
   const proxyBytes = new Proxy(bytes, {
     get() {
       isInvoked = true;
       throw new Error("trap");
     },
   });
-  assert.equal(decodeRuntimeDomainSnapshot(proxyBytes, binding), null);
+  assert.equal(decodeStateSnapshot(proxyBytes, binding), null);
   Object.defineProperty(bytes, "length", {
     get() {
       isInvoked = true;
       throw new Error("getter");
     },
   });
-  assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
+  assert.ok(decodeStateSnapshot(bytes, binding));
   assert.equal(isInvoked, false);
   assert.equal(
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       Buffer.concat([
         Buffer.from([0xef, 0xbb, 0xbf]),
-        Buffer.from(`${encodeRuntimeStateValue(empty)}\n`),
+        Buffer.from(`${encodeStateValue(empty)}\n`),
       ]),
       binding,
     ),
     null,
   );
+  assert.equal(encodeStateValue({ z: [2, 1], a: 0 }), '{"a":0,"z":[2,1]}');
   assert.equal(
-    encodeRuntimeStateValue({ z: [2, 1], a: 0 }),
-    '{"a":0,"z":[2,1]}',
-  );
-  assert.equal(
-    encodeRuntimeStateValue(
-      Object.assign(Object.create(null), { z: [2, 1], a: 0 }),
-    ),
+    encodeStateValue(Object.assign(Object.create(null), { z: [2, 1], a: 0 })),
     '{"a":0,"z":[2,1]}',
   );
   assert.throws(() =>
-    encodeRuntimeStateValue(
-      Object.assign(Object.create({ inherited: 1 }), { a: 0 }),
-    ),
+    encodeStateValue(Object.assign(Object.create({ inherited: 1 }), { a: 0 })),
   );
-  assert.throws(() => encodeRuntimeStateValue(new Array(2)));
-  assert.throws(() => encodeRuntimeStateValue(Number.NaN));
+  assert.throws(() => encodeStateValue(new Array(2)));
+  assert.throws(() => encodeStateValue(Number.NaN));
   const cycle: Record<string, unknown> = {};
   cycle.self = cycle;
-  assert.throws(() => encodeRuntimeStateValue(cycle));
+  assert.throws(() => encodeStateValue(cycle));
 });
 
 /**
@@ -894,12 +935,12 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
           supersededBy: null,
         },
       ],
-    } as CoordinatorState,
+    } as ProjectExecutionState,
   } as const;
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("state_fixture_invalid");
   const snapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: binding,
     repositoryBindingId: "binding-a",
@@ -933,7 +974,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     blockers: [],
   };
   const before = JSON.stringify(snapshot);
-  assert.equal(validCoordinatorSnapshot(snapshot, "binding-a", binding), true);
+  assert.equal(validSnapshot(snapshot, "binding-a", binding), true);
   for (const invalid of [
     {
       ...snapshot,
@@ -953,10 +994,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     },
     { ...snapshot, unknown: [] },
   ])
-    assert.equal(
-      validCoordinatorSnapshot(invalid, "binding-a", binding),
-      false,
-    );
+    assert.equal(validSnapshot(invalid, "binding-a", binding), false);
   assert.equal(JSON.stringify(snapshot), before);
   const storedProjects = snapshot.projects.map((project) => ({
     ...project,
@@ -996,9 +1034,9 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
    * @boundary 保存モデルの純粋試験。物理保存・実行なし。
    */
   const decodeUnified = (value: unknown) =>
-    decodeRuntimeDomainSnapshot(
+    decodeStateSnapshot(
       Buffer.from(
-        `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(value))}\n`,
+        `${encodeStateValue(createManagedRuntimeSnapshotFixture(value))}\n`,
       ),
       binding,
     );
@@ -1015,9 +1053,9 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   assert.equal(decodeUnified(explicitInvalidManaged), null);
   const stateUpdate = { ...created.state, generation: 2 };
   const unifiedBytes = Buffer.from(
-    `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(unified))}\n`,
+    `${encodeStateValue(createManagedRuntimeSnapshotFixture(unified))}\n`,
   );
-  const stateCandidate = prepareCoordinatorUnifiedTaskSnapshot(
+  const stateCandidate = prepareUnifiedTaskSnapshot(
     unifiedBytes,
     stateUpdate,
     1,
@@ -1030,22 +1068,22 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   const coreBefore = { ...managedDefinition, projectId: "core-before" };
   const coreAfter = { ...managedDefinition, projectId: "core-after" };
   const mixedBytes = Buffer.from(
-    `${encodeRuntimeStateValue({
+    `${encodeStateValue({
       ...canonical,
       projects: [coreBefore, managedDefinition, coreAfter],
     })}\n`,
   );
-  const mixed = decodeRuntimeDomainSnapshot(mixedBytes, binding);
+  const mixed = decodeStateSnapshot(mixedBytes, binding);
   assert.ok(mixed, "Coreのみの定義と管理実行が同じ正本へ共存する");
   assert.equal(mixed.projects.length, 1, "Coreに偽の管理実行を投影しない");
-  const mixedCandidate = prepareCoordinatorUnifiedTaskSnapshot(
+  const mixedCandidate = prepareUnifiedTaskSnapshot(
     mixedBytes,
     stateUpdate,
     1,
     binding,
   );
   assert.ok(mixedCandidate);
-  const mixedUpdated = decodeRuntimeDomainSnapshot(mixedCandidate, binding);
+  const mixedUpdated = decodeStateSnapshot(mixedCandidate, binding);
   assert.ok(mixedUpdated);
   assert.deepEqual(
     mixedUpdated.snapshot.projects.map((project) => project.projectId),
@@ -1071,7 +1109,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     },
   };
   assert.equal(
-    prepareCoordinatorUnifiedTaskSnapshot(unifiedBytes, changed, 1, binding),
+    prepareUnifiedTaskSnapshot(unifiedBytes, changed, 1, binding),
     null,
   );
   assert.equal(
@@ -1087,26 +1125,15 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     }),
     null,
   );
-  assert.deepEqual(
-    decodeRuntimeDomainSnapshot(stateCandidate, binding)?.projects,
-    [stateUpdate],
-  );
+  assert.deepEqual(decodeStateSnapshot(stateCandidate, binding)?.projects, [
+    stateUpdate,
+  ]);
   assert.equal(
-    prepareCoordinatorUnifiedTaskSnapshot(
-      unifiedBytes,
-      stateUpdate,
-      0,
-      binding,
-    ),
+    prepareUnifiedTaskSnapshot(unifiedBytes, stateUpdate, 0, binding),
     null,
   );
   assert.equal(
-    prepareCoordinatorUnifiedTaskSnapshot(
-      unifiedBytes,
-      stateUpdate,
-      2,
-      binding,
-    ),
+    prepareUnifiedTaskSnapshot(unifiedBytes, stateUpdate, 2, binding),
     null,
   );
   const storedTask = storedProjects[0]?.tasks[0];
@@ -1149,7 +1176,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   const withReceipt = { ...unified, resultReceipts: [oldReceipt] };
   assert.ok(decodeUnified(withReceipt));
   const receiptBytes = Buffer.from(
-    `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(withReceipt))}\n`,
+    `${encodeStateValue(createManagedRuntimeSnapshotFixture(withReceipt))}\n`,
   );
   const retry = {
     ...withReceipt,
@@ -1183,10 +1210,10 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   };
   assert.ok(decodeUnified(retry));
   assert.equal(
-    validateCoordinatorUnifiedTransition(
+    validateUnifiedTransition(
       receiptBytes,
       Buffer.from(
-        `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(retry))}\n`,
+        `${encodeStateValue(createManagedRuntimeSnapshotFixture(retry))}\n`,
       ),
       binding,
     ),
@@ -1215,14 +1242,200 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     [{ ...oldReceipt, resultId: "e".repeat(64) }],
   ]) {
     assert.equal(
-      validateCoordinatorUnifiedTransition(
+      validateUnifiedTransition(
         receiptBytes,
-        Buffer.from(
-          `${encodeRuntimeStateValue({ ...retry, resultReceipts })}\n`,
-        ),
+        Buffer.from(`${encodeStateValue({ ...retry, resultReceipts })}\n`),
         binding,
       ),
       false,
     );
   }
+});
+
+/**
+ * 一次診断の追加観測を保存契約の実本文で反証する。
+ * @trace PRL-UT-006
+ * @precondition 合成値と実Validatorだけを使用する。
+ * @stimulus 新旧正常形、欠測・過剰field・不正数値・応答相関違反。
+ * @observation 実Validatorの真偽。
+ * @oracle 旧形と正常形のみ受理し、不正値をゼロへ丸めない。
+ * @cleanup N/A: 外部Effectなし。
+ * @responsibility 一次失敗のCommand観測を閉じた数値と応答有無へ相関する。
+ * @boundary EMの実モデル検査。ProcessやDocker要求はない。
+ */
+test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
+  const validate = validPrimaryFailure;
+  const base = {
+    purpose: "start_provider_attached",
+    stage: "execution_classification",
+    reason: "provider_process_exit_nonzero",
+    exceptionCode: null,
+    commandHandleObtained: true,
+    responseObserved: true,
+    receiptRecorded: false,
+  };
+  const observation = { exitCode: 1, stdoutBytes: 12, stderrBytes: 7 };
+  const authentication = {
+    ...base,
+    purpose: "start_subscription_auth_probe_attached",
+    commandObservation: observation,
+  };
+  const nonce = "a".repeat(64);
+  const identity = "b".repeat(64);
+  const turnFailure = {
+    ...base,
+    stage: "provider_result_normalization",
+    reason: "workbench_ai_claude_turn_count_invalid",
+    commandObservation: { exitCode: 0, stdoutBytes: 20, stderrBytes: 0 },
+  };
+  const turnDiagnostics = [
+    ...["missing", "null", "boolean", "string", "array", "object"].map(
+      (valueType) => ({ valueType, numberText: null }),
+    ),
+    ...["0", "3", "1.5", null].map((numberText) => ({
+      valueType: "number",
+      numberText,
+    })),
+  ];
+  const primaryFailures = [
+    ...["confirmed", "unconfirmed", "unknown"].map((authenticationStatus) => ({
+      ...authentication,
+      reason: "docker_setup_start_subscription_auth_probe_attached_failed",
+      authenticationStatus,
+    })),
+    ...turnDiagnostics.map((turnCountDiagnostic) => ({
+      ...turnFailure,
+      turnCountDiagnostic,
+    })),
+  ];
+  for (const primaryFailure of primaryFailures) {
+    const summary = {
+      schema: "crdd-coordinator/operation-summary/v4",
+      consumer: "workbench",
+      recoveryCorrelationId: "request-synthetic",
+      operationId: "OP-123456",
+      operationNonce: nonce,
+      identitySha256: identity,
+      recoveryId: `docker-task.${"c".repeat(64)}.${nonce}.${identity}`,
+      primaryFailure,
+      execution: {
+        providerStart: "not_started",
+        externalSend: "not_issued",
+        sharedWrite: "not_issued",
+        ownerEffect: "disabled",
+        workspaceReusable: false,
+      },
+      outcome: {
+        status: "blocked",
+        reason: "docker_setup_start_subscription_auth_probe_attached_failed",
+        cleanupConfirmed: true,
+      },
+      hostCleanup: "confirmed",
+      lease: "released",
+    };
+    const line = `${encodeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-10-25T00:00:00.000Z", summary })}\n`;
+    const decoded = decodeHistoryRows(Buffer.from(line));
+    assert.ok(decoded);
+    assert.deepEqual(
+      JSON.parse(decoded[0]?.line ?? "null").summary.primaryFailure,
+      primaryFailure,
+    );
+  }
+  for (const turnCountDiagnostic of turnDiagnostics)
+    assert.equal(validate({ ...turnFailure, turnCountDiagnostic }), true);
+  for (const value of [
+    {
+      ...turnFailure,
+      turnCountDiagnostic: { valueType: "secret", numberText: null },
+    },
+    ...[1, 2, "1", "2", "03", " 3", "Infinity", Infinity, NaN, "secret"].map(
+      (numberText) => ({
+        ...turnFailure,
+        turnCountDiagnostic: { valueType: "number", numberText },
+      }),
+    ),
+    {
+      ...turnFailure,
+      turnCountDiagnostic: { valueType: "string", numberText: 3 },
+    },
+    {
+      ...turnFailure,
+      turnCountDiagnostic: {
+        valueType: "missing",
+        numberText: null,
+        raw: "secret",
+      },
+    },
+    ...[
+      { purpose: "create_provider" },
+      { stage: "execution_classification" },
+      { reason: "provider_process_exit_nonzero" },
+      { responseObserved: false },
+      { commandObservation: null },
+    ].map((change) => ({
+      ...turnFailure,
+      ...change,
+      turnCountDiagnostic: { valueType: "number", numberText: 3 },
+    })),
+  ])
+    assert.equal(validate(value), false);
+  for (const authenticationStatus of ["confirmed", "unconfirmed", "unknown"])
+    assert.equal(
+      validate(
+        JSON.parse(JSON.stringify({ ...authentication, authenticationStatus })),
+      ),
+      true,
+    );
+  for (const value of [
+    { ...authentication, authenticationStatus: "invalid" },
+    { ...authentication, authenticationStatus: undefined },
+    {
+      ...authentication,
+      authenticationStatus: "confirmed",
+      responseObserved: false,
+    },
+    {
+      ...authentication,
+      authenticationStatus: "confirmed",
+      commandObservation: null,
+    },
+    {
+      ...authentication,
+      authenticationStatus: "confirmed",
+      commandObservation: { ...observation, exitCode: null },
+    },
+    {
+      ...base,
+      commandObservation: observation,
+      authenticationStatus: "confirmed",
+    },
+  ])
+    assert.equal(validate(value), false);
+  for (const value of [
+    base,
+    { ...base, commandObservation: null },
+    { ...base, commandObservation: observation },
+    { ...base, commandObservation: { ...observation, exitCode: null } },
+  ])
+    assert.equal(validate(value), true);
+  for (const value of [
+    undefined,
+    {},
+    { ...observation, extra: 1 },
+    { stdoutBytes: 12, stderrBytes: 7 },
+    ...[-1, 0.5, Infinity, NaN, "1"].flatMap((n) => [
+      { ...observation, stdoutBytes: n },
+      { ...observation, stderrBytes: n },
+      { ...observation, exitCode: n },
+    ]),
+  ])
+    assert.equal(validate({ ...base, commandObservation: value }), false);
+  assert.equal(
+    validate({
+      ...base,
+      responseObserved: false,
+      commandObservation: observation,
+    }),
+    false,
+  );
 });

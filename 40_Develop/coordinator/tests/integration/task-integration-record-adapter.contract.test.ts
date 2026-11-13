@@ -9,6 +9,7 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -16,16 +17,15 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  type CoordinatorWorkspace,
-  encodeRuntimeStateValue,
-  initializeCoordinatorSnapshot,
-  readCoordinatorWorkspaceState,
-  saveCoordinatorWorkspaceRecord,
-  selectCoordinatorQueueEntry,
+  initializeExecutionStore,
+  readState,
+  saveWorkspaceRecord,
+  selectQueueEntry,
+  type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
@@ -54,7 +54,7 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
     ? fs.readFileSync(historyFile)
     : null;
   let clockCalls = 0;
-  const rejected = selectCoordinatorQueueEntry(
+  const rejected = selectQueueEntry(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
     () => {
@@ -74,9 +74,10 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
   if (historyBefore === null) assert.equal(fs.existsSync(historyFile), false);
   else assert.deepEqual(fs.readFileSync(historyFile), historyBefore);
   assert.equal(
-    readCoordinatorWorkspaceState(
+    readState(
       verifyRuntimePersistenceRepository(root),
       "binding-a",
+      "workspace",
     ).status,
     "completed",
   );
@@ -89,9 +90,10 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
     }).status,
     "completed",
   );
-  const after = readCoordinatorWorkspaceState(
+  const after = readState(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
+    "workspace",
   );
   assert.equal(after.status, "completed");
   assert.equal(
@@ -124,7 +126,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
   if (lease.status !== "completed") throw Error("fixture_lease_invalid");
   try {
     const id = "22222222-2222-2222-2222-222222222222";
-    const workspace: CoordinatorWorkspace = {
+    const workspace: WorkspaceRecord = {
       workspaceId: id,
       name: null,
       candidate: null,
@@ -151,7 +153,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
     };
 
     const repository = verifyRuntimePersistenceRepository(root);
-    const saved = saveCoordinatorWorkspaceRecord(
+    const saved = saveWorkspaceRecord(
       repository,
       "binding-a",
       "project-a",
@@ -175,7 +177,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
       ? fs.readFileSync(historyFile)
       : null;
     let clockCalls = 0;
-    const rejected = saveCoordinatorWorkspaceRecord(
+    const rejected = saveWorkspaceRecord(
       repository,
       "binding-a",
       "project-a",
@@ -204,7 +206,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
     if (historyBefore === null) assert.equal(fs.existsSync(historyFile), false);
     else assert.deepEqual(fs.readFileSync(historyFile), historyBefore);
     assert.equal(
-      readCoordinatorWorkspaceState(repository, "binding-a").status,
+      readState(repository, "binding-a", "workspace").status,
       "completed",
     );
     assert.deepEqual(fs.readFileSync(stateFile), before);
@@ -216,7 +218,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
       }).status,
       "completed",
     );
-    const after = readCoordinatorWorkspaceState(repository, "binding-a");
+    const after = readState(repository, "binding-a", "workspace");
     assert.equal(after.status, "completed");
     assert.equal(
       after.value?.snapshotRevision,
@@ -243,8 +245,8 @@ function fixture(t: test.TestContext) {
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../..",
   );
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(repository, "tmp"),
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(repository, "tmp"),
     "fixture_repository_root_invalid",
   );
   const parent = fs.realpathSync.native(area.directory);
@@ -280,7 +282,7 @@ function fixture(t: test.TestContext) {
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("fixture_state_invalid");
   assert.equal(
-    initializeCoordinatorSnapshot(
+    initializeExecutionStore(
       verifyRuntimePersistenceRepository(root),
       "binding-a",
     ).status,
@@ -350,9 +352,10 @@ test("integration records are immutable and an identical retry is idempotent", (
   const before = fs.readFileSync(file);
   assert.equal(records.write(record).status, "completed");
   assert.deepEqual(fs.readFileSync(file), before);
-  const observed = readCoordinatorWorkspaceState(
+  const observed = readState(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
+    "workspace",
   );
   assert.equal(observed.status, "completed");
   assert.equal(observed.value?.results.length, 1);
@@ -385,9 +388,10 @@ test("canonical candidate identity is preserved by the integration record", (t) 
     value: { status: "candidate", changedPaths: ["result.txt"] },
   });
   assert.equal(result.status, "completed");
-  const observed = readCoordinatorWorkspaceState(
+  const observed = readState(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
+    "workspace",
   );
   assert.equal(observed.status, "completed");
   assert.equal(observed.value?.results.length, 1);
@@ -424,9 +428,10 @@ test("an identity collision is blocked without replacing the first record", (t) 
   assert.equal(collision.status, "blocked");
   assert.equal(collision.reason, "orchestrator_result_identity_conflict");
   assert.deepEqual(fs.readFileSync(target), original);
-  const observed = readCoordinatorWorkspaceState(
+  const observed = readState(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
+    "workspace",
   );
   assert.equal(observed.status, "completed");
   assert.equal(observed.value?.results.length, 1);
@@ -492,11 +497,12 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
   ]) {
     const saved = JSON.parse(original);
     Object.assign(saved.results[0], change);
-    fs.writeFileSync(file, `${encodeRuntimeStateValue(saved)}\n`);
+    fs.writeFileSync(file, `${canonicalJson(saved)}\n`);
     const before = fs.readFileSync(file);
-    const observed = readCoordinatorWorkspaceState(
+    const observed = readState(
       verifyRuntimePersistenceRepository(root),
       "binding-a",
+      "workspace",
     );
     assert.equal(observed.status, "blocked", JSON.stringify(change));
     assert.equal(observed.reason, "coordinator_state_read_unconfirmed");

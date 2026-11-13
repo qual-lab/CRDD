@@ -7,13 +7,10 @@
 import {
   answerDecision,
   applyDecision,
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  type CoordinatorDecisionResult,
   closeDecision,
   type DecisionRequest,
-  inspectCoordinatorDecisionRequest,
+  ExecutionStorageBlockedError,
   isPrincipalId,
-  RepositoryRuntimeDataAreaBlockedError,
   readDecision,
   requestDecision,
 } from "../../../execution-model/src/index.ts";
@@ -23,11 +20,16 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import {
-  verifyRuntimePersistenceRepository,
   historyRepositoryInput,
+  verifyRuntimePersistenceRepository,
 } from "../execution/persistence.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import {
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  type CoordinatorDecisionResult,
+  inspectCoordinatorDecisionRequest,
+} from "./request.ts";
 
 /** 非秘密な停止結果だけを返し、状態保存不明を未実施へ丸めない。 */
 function blocked(
@@ -209,7 +211,7 @@ export function executeCoordinatorPublicDecision(
       effectState: "settled",
     };
   } catch (error) {
-    if (error instanceof RepositoryRuntimeDataAreaBlockedError) {
+    if (error instanceof ExecutionStorageBlockedError) {
       const failure = coordinatorDataBoundaryBlocked(error);
       return {
         ...blocked(failure.reason, input.decisionId),

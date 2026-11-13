@@ -18,7 +18,7 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
-  initializeRuntimeState,
+  initializeExecutionState,
   queryPlan,
   savePlan,
 } from "../../../../execution-model/src/index.ts";
@@ -348,7 +348,7 @@ test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ�
     path.join(f.directory, "access-management.json"),
   );
   const started = performance.now();
-  const initial = initializeRuntimeState(access, {
+  const initial = initializeExecutionState(access, {
     ...target,
     expectedAbsence: true,
   });

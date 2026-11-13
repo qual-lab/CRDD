@@ -8,20 +8,14 @@
  * @boundary 実Host処置・Filesystem・Docker・AIは使用しない。
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import {
-  type CoordinatorStateTaskOperation,
-  decodeRuntimeDomainSnapshot,
-  decodeDockerRestartCheckpoint,
-  prepareCoordinatorStateOperationSnapshot,
-} from "../../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "../../../../execution-model/src/index.ts";
+import { createResourceOperationFixture } from "../../../../execution-model/tests/support/resource-operation.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../../src/execution/validation.ts";
-import { executionSelection } from "../../fixtures/ai-selection.ts";
 
-const binding = "a".repeat(64);
 /**
  * 元の解放済み操作と拒否例を同じHost条件へ渡す。
  * @trace PRL-UT-006
@@ -33,74 +27,9 @@ const binding = "a".repeat(64);
  * @boundary Host条件の判定。実回収成立は示さない。
  */
 test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を保つ", () => {
-  const nonce = "b".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token =
-    "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-    hostHash;
-  const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
-    operationNonce: nonce,
-    provider: "claude",
-    consumer: "orchestrator",
-    operationId: "OP-123456",
-    recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
-    executionSelection: executionSelection("executor", {
-      provider: "claude",
-      model: "opus",
-      effort: "low",
-    }),
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  };
-  const identityJson = `${JSON.stringify(identity)}\n`;
-
-  const prepared = prepareCoordinatorStateOperationSnapshot(
-    null,
-    identityJson,
-    binding,
-  );
-  assert.ok(prepared);
-  const preparedState = decodeRuntimeDomainSnapshot(prepared, binding);
-  assert.ok(preparedState);
-  const initialOperation = preparedState.snapshot.operations.find(
-    (item): item is CoordinatorStateTaskOperation =>
-      item.kind === "docker_task",
-  );
-  assert.ok(initialOperation);
-  const releasedOperation: CoordinatorStateTaskOperation = {
+  const { operation: initialOperation, identity } =
+    createResourceOperationFixture();
+  const releasedOperation: ExecutionOperationRecord = {
     ...initialOperation,
     lease: "released",
     execution: {
@@ -158,7 +87,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     coordinatorReleasedTaskCanObserveHostAbsence({
       ...releasedOperation,
       execution: { ...releasedOperation.execution, workspaceReusable: true },
-    } as unknown as CoordinatorStateTaskOperation),
+    } as unknown as ExecutionOperationRecord),
     false,
   );
   for (const effectOutcomeUnknown of [false, true]) {
@@ -174,7 +103,6 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
         effectOutcomeUnknown,
       },
     };
-    assert.ok(decodeDockerRestartCheckpoint(dockerRestart));
     assert.equal(
       coordinatorReleasedTaskCanObserveHostAbsence({
         ...releasedOperation,
@@ -249,7 +177,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     "function completeProductionRecovery(",
   );
   const checkpointStart = lifecycleSource.indexOf(
-    "const saved = checkpointRuntimeOwnedCoordinatorLifecycle(",
+    "const saved = saveOperationCheckpoint(",
     completeStart,
   );
   const checkpointEnd = lifecycleSource.indexOf("\n  if (", checkpointStart);
@@ -269,11 +197,19 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
       ...normalOld,
       execution: { ...normalOld.execution, ownerEffect: "active" },
     },
-    checkpointRuntimeOwnedCoordinatorLifecycle: (
-      _owner: unknown,
-      _id: unknown,
-      value: unknown,
-    ) => value,
+    saveOperationCheckpoint: (
+      owner: unknown,
+      recoveryId: unknown,
+      request: { kind: string; value: unknown },
+    ) => {
+      if (request.kind === "lifecycle")
+        return ((_owner: unknown, _id: unknown, value: unknown) => value)(
+          owner,
+          recoveryId,
+          request.value,
+        );
+      throw new Error("unexpected_checkpoint_kind");
+    },
   };
   const checkpointValue = runInNewContext(
     `(() => { ${checkpoint}; return saved; })()`,

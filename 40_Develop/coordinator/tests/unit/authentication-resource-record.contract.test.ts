@@ -10,16 +10,17 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
-  applyCoordinatorResourceCleanup,
-  applyCoordinatorResourceEvent,
-  validateCoordinatorResourceBook,
-  encodeRuntimeStateValue,
-  type CoordinatorResourceBook,
+  applyResourceCleanup,
+  applyResourceEvent,
+  type OperationResources,
+  validateResourceBook,
 } from "../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { snapshotJsonValue } from "../../src/input/snapshot.ts";
 
 /**
  * 認証記録の実宣言へ保存代役だけを接続する。
@@ -54,6 +55,7 @@ function fixture() {
   let saved = JSON.stringify(expected),
     writes = 0,
     failRead = false;
+  let resourceCalls = 0;
   let tamper: null | ((value: Record<string, unknown>) => unknown) = null;
   const names = [
     "sameRecoveryRecord",
@@ -68,18 +70,22 @@ function fixture() {
       Object,
       JSON,
       createHash,
-      validateCoordinatorResourceBook,
-      encodeRuntimeStateValue: (value: unknown) =>
-        encodeRuntimeStateValue(JSON.parse(JSON.stringify(value))),
-      applyCoordinatorResourceEvent: (
-        before: CoordinatorResourceBook | null,
+      validateResourceBook,
+      snapshotJsonValue,
+      isDeepStrictEqual,
+      applyResourceEvent: (
+        before: OperationResources | null,
         event: unknown,
-      ) =>
-        applyCoordinatorResourceEvent(
-          before,
-          JSON.parse(JSON.stringify(event)),
-        ),
-      applyCoordinatorResourceCleanup,
+      ) => {
+        resourceCalls++;
+        return applyResourceEvent(before, JSON.parse(JSON.stringify(event)));
+      },
+      applyResourceCleanup: (
+        ...args: Parameters<typeof applyResourceCleanup>
+      ) => {
+        resourceCalls++;
+        return applyResourceCleanup(...args);
+      },
       fs: {
         readFileSync: () => {
           if (failRead) throw Error("unavailable");
@@ -107,7 +113,7 @@ function fixture() {
     record(record: unknown, event: unknown): boolean;
     read(
       record: unknown,
-    ): Readonly<{ resources: CoordinatorResourceBook | null }> | null;
+    ): Readonly<{ resources: OperationResources | null }> | null;
   };
   const material = {
     snapshot: {
@@ -145,6 +151,7 @@ function fixture() {
     record: { ...expected, recordPath: "finite-record" },
     state: () => JSON.parse(saved),
     writes: () => writes,
+    resourceCalls: () => resourceCalls,
     tamper(value: typeof tamper) {
       tamper = value;
     },
@@ -153,6 +160,63 @@ function fixture() {
     },
   };
 }
+
+/**
+ * 未信頼通知の捕捉拒否を資源更新と保存より前に確認する。
+ * @responsibility 共通入力捕捉の拒否を認証の既存false結果へ接続する。
+ * @trace ERB-UT-016
+ * @precondition 有限記録と本番認証処理を使う。
+ * @stimulus Getter・Proxy・toJSON・symbolと循環入力をIntent／Receiptへ渡す。
+ * @observation Writer・資源値操作・未知実行の到達数と元記録。
+ * @oracle 全てfalse・到達0・元記録不変となる。
+ * @cleanup 外部資源なし。
+ * @boundary 論理的な記録接続。実認証やDocker成立は示さない。
+ */
+test("認証の不正入力は資源値操作と保存の前に拒否する", () => {
+  let traps = 0;
+  const getter = Object.defineProperty({}, "snapshot", {
+    get() {
+      traps++;
+      return {};
+    },
+  });
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys() {
+        traps++;
+        return [];
+      },
+    },
+  );
+  const toJSON = {
+    toJSON() {
+      traps++;
+      return {};
+    },
+  };
+  const cycle: unknown[] = [];
+  cycle.push(cycle);
+  for (const input of [
+    getter,
+    proxy,
+    toJSON,
+    { [Symbol("field")]: 1 },
+    cycle,
+  ]) {
+    const f = fixture(),
+      before = f.state();
+    assert.equal(
+      f.api.set(f.record, "in_flight", "create_probe", input, "probe"),
+      false,
+    );
+    assert.equal(f.api.record(f.record, input), false);
+    assert.equal(f.writes(), 0);
+    assert.equal(f.resourceCalls(), 0);
+    assert.deepEqual(f.state(), before);
+  }
+  assert.equal(traps, 0);
+});
 
 /**
  * 認証は初回Intentと元Snapshotの保存読戻しが一致した時だけ通知を完了する。

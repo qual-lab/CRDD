@@ -8,22 +8,22 @@
  * @boundary 実Git・保存・認可・資源不存在を証明しない。
  */
 
+import type { Snapshot } from "../../../src/state/types.ts";
+import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  type CoordinatorSnapshot,
-  type CoordinatorState,
-  type CoordinatorWorkspace,
-  encodeRuntimeStateValue,
+import type {
+  ProjectExecutionState,
+  WorkspaceRecord,
 } from "../../../src/index.ts";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  projectCoordinatorCurrentState,
+  PROJECT_SNAPSHOT_SCHEMA,
+  projectCurrentState,
 } from "../../../src/state/validation.ts";
 import {
-  prepareCoordinatorIntegrationRecordCreation,
-  prepareCoordinatorWorkspaceRecordUpdate,
-  validCoordinatorWorkspace,
+  prepareIntegrationRecordCreation,
+  prepareWorkspaceRecordUpdate,
+  validWorkspace,
 } from "../../../src/workspace/validation.ts";
 
 /**
@@ -40,7 +40,7 @@ import {
 
 function fixture() {
   const id = "11111111-1111-1111-1111-111111111111";
-  const workspace: CoordinatorWorkspace = {
+  const workspace: WorkspaceRecord = {
     workspaceId: id,
     name: null,
     candidate: null,
@@ -65,9 +65,9 @@ function fixture() {
     },
     primaryFailure: null,
   };
-  assert.equal(validCoordinatorWorkspace(workspace), true);
-  const current: CoordinatorSnapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  assert.equal(validWorkspace(workspace), true);
+  const current: Snapshot = {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
@@ -126,7 +126,7 @@ function fixture() {
 
 test("結果候補は元の本文HashとIdentityを保つ", () => {
   const { current } = fixture();
-  const before = encodeRuntimeStateValue(current);
+  const before = encodeStateValue(current);
   const binding = {
     repositoryBindingId: "binding-a",
     projectId: "project-a",
@@ -138,22 +138,14 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
     identity: "candidate-a",
     value: { result: "synthetic" },
   };
-  const created = prepareCoordinatorIntegrationRecordCreation(
-    current,
-    binding,
-    record,
-  );
+  const created = prepareIntegrationRecordCreation(current, binding, record);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
   assert.equal(created.value.next.results.length, 1);
   assert.strictEqual(created.value.next.workspaces, current.workspaces);
   assert.deepEqual(
-    prepareCoordinatorIntegrationRecordCreation(
-      created.value.next,
-      binding,
-      record,
-    ),
+    prepareIntegrationRecordCreation(created.value.next, binding, record),
     {
       status: "completed",
       reason: "orchestrator_result_durable",
@@ -161,14 +153,14 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
     },
   );
   assert.equal(
-    prepareCoordinatorIntegrationRecordCreation(created.value.next, binding, {
+    prepareIntegrationRecordCreation(created.value.next, binding, {
       ...record,
       value: { result: "other" },
     }).reason,
     "orchestrator_result_identity_conflict",
   );
   assert.equal(
-    prepareCoordinatorIntegrationRecordCreation(
+    prepareIntegrationRecordCreation(
       current,
       { ...binding, projectId: "project-b" },
       record,
@@ -176,7 +168,7 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
     "orchestrator_result_binding_invalid",
   );
   assert.equal(
-    prepareCoordinatorIntegrationRecordCreation(current, binding, {
+    prepareIntegrationRecordCreation(current, binding, {
       ...record,
       identity: "../escape",
     }).reason,
@@ -184,7 +176,7 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
   );
   assert.equal(Object.isFrozen(created), true);
   assert.equal(Object.isFrozen(created.value), false);
-  assert.equal(encodeRuntimeStateValue(current), before);
+  assert.equal(encodeStateValue(current), before);
 });
 /**
  * Workspace拒否と非削除では時計を呼ばず、削除成立時だけ二回観測する。
@@ -200,7 +192,7 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
 
 test("Workspace候補は非使用・元世代・有限時計を維持する", () => {
   const { current, workspace, id } = fixture();
-  const before = encodeRuntimeStateValue(current);
+  const before = encodeStateValue(current);
   let calls = 0;
   const times = [
     Date.parse("2026-10-27T00:00:00.000Z"),
@@ -217,11 +209,11 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
   };
   const invoke = (
     snapshot = current,
-    next: CoordinatorWorkspace | null = null,
+    next: WorkspaceRecord | null = null,
     generation = 1,
     pid = 7,
   ) =>
-    prepareCoordinatorWorkspaceRecordUpdate(
+    prepareWorkspaceRecordUpdate(
       snapshot,
       "project-a",
       "queue-a",
@@ -233,13 +225,7 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
     );
   const queue = current.queueEntries[0];
   assert.ok(queue);
-  const cases: [
-    CoordinatorSnapshot,
-    CoordinatorWorkspace | null,
-    number,
-    number,
-    string,
-  ][] = [
+  const cases: [Snapshot, WorkspaceRecord | null, number, number, string][] = [
     [current, null, 1, 8, "lease_mismatch"],
     [{ ...current, queueEntries: [] }, null, 1, 7, "lease_mismatch"],
     [current, null, 0, 7, "generation_conflict"],
@@ -300,7 +286,7 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
                 recoveryObligations: [],
               },
             ],
-          } as unknown as CoordinatorState,
+          } as unknown as ProjectExecutionState,
         ],
       },
       null,
@@ -342,11 +328,11 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
     },
   ]);
   assert.strictEqual(removed.value.next.results, current.results);
-  assert.equal(encodeRuntimeStateValue(current), before);
+  assert.equal(encodeStateValue(current), before);
   let throwCalls = 0;
   assert.throws(
     () =>
-      prepareCoordinatorWorkspaceRecordUpdate(
+      prepareWorkspaceRecordUpdate(
         current,
         "project-a",
         "queue-a",
@@ -365,7 +351,7 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
     /clock/u,
   );
   assert.equal(throwCalls, 1);
-  assert.equal(encodeRuntimeStateValue(current), before);
+  assert.equal(encodeStateValue(current), before);
 });
 /**
  * 現在Project投影の存在・不存在・SchemaとIDの共同拒否を確認する。
@@ -382,8 +368,8 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
 test("現在Project投影は入力を書き換えず欠測を補完しない", () => {
   const { current } = fixture();
   // この局所投影が読むprojectIdのみを構築する。全体Project検証のfixtureではない。
-  const project = { projectId: "project-a" } as CoordinatorState;
-  const found = projectCoordinatorCurrentState(
+  const project = { projectId: "project-a" } as ProjectExecutionState;
+  const found = projectCurrentState(
     { ...current, projects: [project] },
     "project-a",
   );
@@ -392,20 +378,18 @@ test("現在Project投影は入力を書き換えず欠測を補完しない", (
     assert.strictEqual(found.value.value, project);
     assert.equal(found.value.next, null);
   }
-  assert.deepEqual(projectCoordinatorCurrentState(current, "project-a"), {
+  assert.deepEqual(projectCurrentState(current, "project-a"), {
     status: "completed",
     reason: "orchestrator_state_observed",
     value: { next: null, value: null },
   });
   assert.equal(
-    projectCoordinatorCurrentState(current, "../escape").reason,
-    "orchestrator_snapshot_schema_invalid",
+    projectCurrentState(current, "../escape").reason,
+    "orchestrator_state_identity_invalid",
   );
   assert.equal(
-    projectCoordinatorCurrentState(
-      { ...current, schema: "invalid" as never },
-      "project-a",
-    ).reason,
+    projectCurrentState({ ...current, schema: "invalid" as never }, "project-a")
+      .reason,
     "orchestrator_snapshot_schema_invalid",
   );
 });

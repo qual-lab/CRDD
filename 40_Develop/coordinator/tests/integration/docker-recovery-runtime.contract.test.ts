@@ -9,9 +9,9 @@
  * @boundary PRL-IT-013=Related 2 Blocks: 現在開始Owner→操作確認・状態保存依存。物理回収・fresh再入場は別Suite。
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
@@ -86,7 +86,7 @@ test("資源Identityの非文字列は変換・環境観測・保存前に拒否
         sourceDeclaration(source, "beginProductionRecovery"),
     ) + "\nbeginProductionRecovery",
     {
-      coordinatorConsumerCompletionPolicy: () => ({}),
+      getConsumerCompletionPolicy: () => ({}),
       inspectExecutionSelection: () => ({ provider: "claude" }),
       HEX64: /^[a-f0-9]{64}$/u,
       randomBytes: () => Buffer.alloc(32, 1),

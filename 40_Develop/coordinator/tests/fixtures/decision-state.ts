@@ -11,12 +11,12 @@ import path from "node:path";
 import type test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  type CoordinatorState,
-  initializeCoordinatorSnapshot,
+  initializeExecutionStore,
+  type ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
@@ -42,8 +42,8 @@ import { taskExecutionSelections } from "./ai-selection.ts";
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 export function createRepository(t: test.TestContext) {
-  const temporary = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const temporary = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       fileURLToPath(new URL("../../../../", import.meta.url)),
       "tmp",
     ),
@@ -128,7 +128,7 @@ export function persistAcceptancePendingState(
   });
   assert.ok(state.state);
   assert.equal(
-    initializeCoordinatorSnapshot(
+    initializeExecutionStore(
       verifyRuntimePersistenceRepository(root),
       repositoryBindingId,
     ).status,
@@ -139,7 +139,7 @@ export function persistAcceptancePendingState(
     repositoryBindingId,
   );
   const port = ports.state;
-  let current: CoordinatorState = state.state;
+  let current: ProjectExecutionState = state.state;
   assert.equal(port.writeState(current, 0).status, "completed");
   const transitions = [
     () =>

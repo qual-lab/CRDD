@@ -7,16 +7,18 @@
  * @scope 模擬CLI・Process・Directory。実Docker・AI・保持物は使用しない。
  * @boundary ERB-IT-004=Direct Boundary: 本番Executor・DIから有限CLI／Process／Directoryへの接続。
  */
-import { captureIsolationRequest } from "../../src/execution/preparation.ts";
+
 import assert from "node:assert/strict";
-import { createIsolationFixture } from "../support/isolation.ts";
 import test from "node:test";
-import type { IsolationRequest } from "../../src/execution/types.ts";
 import {
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
-  type CoordinatorResourceBook,
+  applyResourceCleanup,
+  applyResourceEvent,
+  type OperationResources,
 } from "../../../execution-model/src/index.ts";
+import { captureIsolationRequest } from "../../src/execution/preparation.ts";
+import type { IsolationRequest } from "../../src/execution/types.ts";
+import { createIsolationFixture } from "../support/isolation.ts";
+
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
   userHomeDirectory: "C:\\Users\\test",
@@ -55,7 +57,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
         unreceiptedAbsence: f.request.unreceiptedAbsence,
         verifyLabelAbsence: f.request.verifyLabelAbsence,
       };
-      let book: CoordinatorResourceBook | null = null;
+      let book: OperationResources | null = null;
       let receipts = 0,
         mutated = false;
       f.observationFilter = (argv, result) => {
@@ -78,7 +80,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
       const execution = f.api.executeIsolation(prepared, {
         onSubmitting: (step) => {
           if (step.action !== "create") return;
-          book = applyCoordinatorResourceEvent(book, {
+          book = applyResourceEvent(book, {
             event: "submission",
             key: step.resource,
             snapshot: prepared.resources,
@@ -100,7 +102,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
           if (mode === "receipt_throw") throw Error("synthetic_save_failure");
           if (mode === "receipt_reject")
             return Promise.reject(Error("synthetic_save_failure"));
-          book = applyCoordinatorResourceEvent(book, {
+          book = applyResourceEvent(book, {
             event: "receipt",
             key: "container",
             snapshot,
@@ -116,7 +118,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
         onResourceIdentified: (key, snapshot) => {
           // 不正create応答から推測せず、既存の再発見通知でだけIDを記録する。
           assert.equal(mode, "invalid_id");
-          book = applyCoordinatorResourceEvent(book, {
+          book = applyResourceEvent(book, {
             event: "identified",
             key,
             snapshot,
@@ -140,7 +142,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
       assert.equal(f.ids.size, 0);
       if (!["invalid_id", "receipt_throw", "receipt_reject"].includes(mode)) {
         assert.ok(book);
-        const closed = applyCoordinatorResourceCleanup(
+        const closed = applyResourceCleanup(
           book,
           result.resources,
           result.cleanup.observations,
@@ -283,7 +285,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
         selected = provider;
         released = 0;
         const callOffset = f.calls.length;
-        let book: CoordinatorResourceBook | null = null;
+        let book: OperationResources | null = null;
         let mutated = false,
           closed = false;
         let diagnostic:
@@ -385,7 +387,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
                 mode === "configuration_failure" &&
                 purpose.startsWith("create_")
               ) {
-                book = applyCoordinatorResourceEvent(book, {
+                book = applyResourceEvent(book, {
                   ...resources,
                   event: "submission",
                   key: purpose,
@@ -404,7 +406,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
             },
             onResourceCreated: (purpose, _id, resources) => {
               if (mode !== "configuration_failure") return;
-              book = applyCoordinatorResourceEvent(book, {
+              book = applyResourceEvent(book, {
                 ...resources,
                 event: "receipt",
                 key: purpose,
@@ -414,7 +416,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
             onCleanupCompleted: (observation) => {
               if (mode !== "configuration_failure") return;
               assert.ok(book);
-              const final = applyCoordinatorResourceCleanup(
+              const final = applyResourceCleanup(
                 book,
                 observation.resourceSnapshot,
                 observation.resources,

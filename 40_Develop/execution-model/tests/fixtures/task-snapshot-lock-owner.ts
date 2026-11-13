@@ -8,9 +8,9 @@
  * @scope orchestrator、snapshot、lock
  * @boundary PRL-IT-005=Direct Boundary: 独立Process→Windows Named Pipe。
  */
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
+import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
 
-const result = acquireCoordinatorSnapshotPilotLock(process.argv[2] ?? "");
+const result = acquireSnapshotPilotLock(process.argv[2] ?? "");
 if (result.status !== "completed") {
   process.stdout.write(result.reason);
   process.exit(21);

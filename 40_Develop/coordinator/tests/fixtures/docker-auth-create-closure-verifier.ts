@@ -20,14 +20,14 @@ import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
-import { setTimeout, setImmediate } from "node:timers/promises";
+import { setImmediate, setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import * as dockerEnvironmentOperations from "../../../docker-isolation/src/docker-cli/environment.ts";
 import * as dockerTrustOperations from "../../../docker-isolation/src/docker-cli/trust.ts";
 import * as dockerRestartOperations from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
+  ExecutionOperationRecord,
+  ExecutionStateSnapshot,
 } from "../../../execution-model/src/index.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
@@ -120,7 +120,7 @@ export function captureAuthCreateCleanupTree(root: string) {
  * @boundary 実Readerの検証済みSnapshotと試験相関。
  */
 export function assertRecordedAuthReceipt(
-  operation: CoordinatorStateTaskOperation,
+  operation: ExecutionOperationRecord,
   dockerId: string,
 ) {
   assert.ok(operation.resources);
@@ -143,9 +143,9 @@ export function assertRecordedAuthReceipt(
 }
 
 /** 元Snapshotと発行前記録が相関する一つの操作だけを選ぶ。 @trace ERB-IT-014 */
-export function selectAuthCreateTarget(snapshot: CoordinatorStateSnapshot) {
+export function selectAuthCreateTarget(snapshot: ExecutionStateSnapshot) {
   const candidates = snapshot.operations.filter(
-    (value): value is CoordinatorStateTaskOperation =>
+    (value): value is ExecutionOperationRecord =>
       value.kind === "docker_task" &&
       (value.resources?.checkpoints.some(
         (resource) =>
@@ -185,7 +185,7 @@ export function selectAuthCreateTarget(snapshot: CoordinatorStateSnapshot) {
  */
 export function verifyAuthCreateProducer(
   child: SpawnSyncReturns<string>,
-  operation: CoordinatorStateTaskOperation,
+  operation: ExecutionOperationRecord,
   stateBytes: Buffer,
 ) {
   assert.equal(child.error, undefined);
@@ -381,8 +381,8 @@ async function executeApprovedAuthCreateClosure() {
     distribution,
   );
   const areas = await import("../../src/configuration/runtime-data.ts");
-  const area = areas.requireReadyRepositoryRuntimeDataArea(
-    areas.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = areas.requireReadyRepositoryExecutionDataArea(
+    areas.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       distribution,
       "tests",
     ),
@@ -654,8 +654,7 @@ async function executeApprovedAuthCreateClosure() {
       },
     );
     await setImmediate();
-    const saved =
-      store.readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
+    const saved = store.readRecoveryState(rootCapability);
     assert.equal(saved.status, "completed");
     assert.equal(saved.lockReleased, true);
     assert.ok(saved.value);
@@ -689,8 +688,7 @@ async function executeApprovedAuthCreateClosure() {
      * @boundary 親観測と現在保存。
      */
     function currentTarget() {
-      const current =
-        store.readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
+      const current = store.readRecoveryState(rootCapability);
       assert.equal(current.status, "completed");
       assert.equal(current.lockReleased, true);
       assert.ok(current.value);
@@ -701,7 +699,7 @@ async function executeApprovedAuthCreateClosure() {
         otherOperations,
       );
       const item = current.value.snapshot.operations.find(
-        (item): item is CoordinatorStateTaskOperation =>
+        (item): item is ExecutionOperationRecord =>
           item.kind === "docker_task" && item.recoveryId === recoveryId,
       );
       assert.ok(item);
@@ -899,17 +897,16 @@ async function executeApprovedAuthCreateClosure() {
         {
           namedExports: {
             ...store,
-            writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (
+            saveUnknownAuthenticationClosureStage: (
               ...args: Parameters<
-                typeof store.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure
+                typeof store.saveUnknownAuthenticationClosureStage
               >
             ) => {
               assert.equal(args[1], recoveryId);
               assert.equal(absenceRounds, 2);
-              const result =
-                store.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-                  ...args,
-                );
+              const result = store.saveUnknownAuthenticationClosureStage(
+                ...args,
+              );
               assert.equal(result.status, "completed");
               assert.equal(result.snapshotConfirmed, true);
               assert.equal(result.lockReleased, true);
@@ -1139,8 +1136,7 @@ async function executeApprovedAuthCreateClosure() {
         );
     }
     assert.deepEqual(baseline(), before);
-    const final =
-      store.readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
+    const final = store.readRecoveryState(rootCapability);
     assert.equal(final.status, "completed");
     assert.equal(final.lockReleased, true);
     assert.ok(final.value);

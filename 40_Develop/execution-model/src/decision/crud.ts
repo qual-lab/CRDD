@@ -6,17 +6,17 @@
 
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
-  readRuntimeContent,
-  withCoordinatorSnapshotOperation,
-  writeCoordinatorSnapshotOwned,
+  readExecutionContent,
+  withSnapshotOperation,
+  writeSnapshotOwned,
 } from "../state/crud.ts";
-import type { RuntimeAccess } from "../state/types.ts";
-import { encodeRuntimeStateValue, validId } from "../state/validation.ts";
+import type { ExecutionModelAccess } from "../state/types.ts";
+import { encodeStateValue, validId } from "../state/validation.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import {
   readDecisionHistoryOwned,
-  updateCoordinatorHistoryOwned,
+  updateHistoryOwned,
 } from "../storage/store.ts";
 import type {
   Decision,
@@ -196,7 +196,7 @@ export function readDecision(
   decisionId: string,
 ): StoreResult<Decision | null> {
   if (!validId(decisionId)) return blocked("decision_identity_invalid");
-  return withCoordinatorSnapshotOperation<Decision | null>(
+  return withSnapshotOperation<Decision | null>(
     repository,
     binding,
     (current) =>
@@ -253,11 +253,11 @@ function saveDecision(
 ): StoreResult<DecisionSaveValue> {
   // ID照会・履歴の再入場より前に捕捉する。getterやProxyに処置の順序を渡さない。
   try {
-    input = JSON.parse(encodeRuntimeStateValue(input)) as typeof input;
+    input = JSON.parse(encodeStateValue(input)) as typeof input;
   } catch {
     return blocked("decision_input_invalid");
   }
-  return withCoordinatorSnapshotOperation<DecisionSaveValue>(
+  return withSnapshotOperation<DecisionSaveValue>(
     repository,
     binding,
     (current, owner) => {
@@ -272,8 +272,7 @@ function saveDecision(
         );
         if (
           !existing ||
-          encodeRuntimeStateValue(existing) !==
-            encodeRuntimeStateValue(input.expected)
+          encodeStateValue(existing) !== encodeStateValue(input.expected)
         )
           return blocked("decision_target_changed_before_save");
       }
@@ -284,8 +283,7 @@ function saveDecision(
         if (
           existing?.status !== "applied" ||
           input.expectedApplied.status !== "applied" ||
-          encodeRuntimeStateValue(existing) !==
-            encodeRuntimeStateValue(input.expectedApplied)
+          encodeStateValue(existing) !== encodeStateValue(input.expectedApplied)
         )
           return blocked("decision_replay_state_changed");
         const replay = prepareDecisionRecording(
@@ -301,7 +299,7 @@ function saveDecision(
         )
           return blocked("decision_replay_state_changed");
       }
-      const resumed = updateCoordinatorHistoryOwned(
+      const resumed = updateHistoryOwned(
         owner,
         null,
         Date.now(),
@@ -366,10 +364,10 @@ function saveDecision(
                   );
       if (candidate.status !== "completed") return candidate;
       if (candidate.value.next !== null) {
-        const saved = writeCoordinatorSnapshotOwned(
+        const saved = writeSnapshotOwned(
           owner,
           binding,
-          encodeRuntimeStateValue({
+          encodeStateValue({
             ...candidate.value.next,
             snapshotRevision: current.snapshotRevision + 1,
           }),
@@ -377,12 +375,7 @@ function saveDecision(
         );
         if (saved.status !== "completed") return saved;
       }
-      const history = updateCoordinatorHistoryOwned(
-        owner,
-        null,
-        Date.now(),
-        "decision",
-      );
+      const history = updateHistoryOwned(owner, null, Date.now(), "decision");
       return completed(
         history.status === "completed"
           ? candidate.reason
@@ -419,8 +412,8 @@ function saveDecision(
  * @concurrency 返却前に再認可する。
  */
 export function queryDecisions(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  return readRuntimeContent(access, "decisions", request);
+  return readExecutionContent(access, "decisions", request);
 }

@@ -9,7 +9,7 @@ Operationの保存Identityは既存のSnapshot候補生成で検査し、五資�
 
 詳細設計領域: execution-model（Runtime Domain）
 
-状態: Candidate（共通Reader／Writer・短期排他と一般定義CRUDをSource接続済み。試験所有権の移管・全体検証・実データ移行は未完了）
+状態: Candidate（共通Reader／Writer・短期排他と一般定義CRUDをSource接続済み。限定回帰・全体検証・実データ移行は未完了）
 
 維持責任者: Qual-Lab
 
@@ -37,7 +37,7 @@ Core起動・CRUDはCoordinatorが読込み不能な構成でも成立させる�
 
 ### 技術要求前の資源終端（2026-11-09）
 
-`coordinatorTaskResourcesAreSettled()`は、技術資源の要求が未発行または既に終端したという値の判定を所有する。新形式の`resources=null`でも、`settling`・Lease保持・Owner無効・Provider未開始・送信／共有書込み未発行、outcome／一次失敗／summary／historyなし、未解決の再起動なしをすべて満たす初期切断は、資源回収不要として扱う。nullだけを根拠に欠測・旧形式・不明を受理しない。
+`areTaskResourcesSettled()`は、技術資源の要求が未発行または既に終端したという値の判定を所有する。新形式の`resources=null`でも、`settling`・Lease保持・Owner無効・Provider未開始・送信／共有書込み未発行、outcome／一次失敗／summary／historyなし、未解決の再起動なしをすべて満たす初期切断は、資源回収不要として扱う。nullだけを根拠に欠測・旧形式・不明を受理しない。
 
 この判定はHost実体不存在、Home解放、全体Cleanup成功またはTask成功を示さない。Host遷移・清掃・再入場の現在Owner／CAS／実体確認はCoordinatorと既存Writerが維持し、最終WriterがHost回収と排他解放を確認してからoutcomeを確定する。履歴・配送・操作除去・品質表示は既存のHost confirmed、Lease released、outcome.cleanupConfirmed等を独立して要求する。保存Schema・公開APIは変更しない。
 
@@ -60,7 +60,7 @@ CRDD文書とCoordinator状態の自動同期、文書からの自動WBS生成�
 
 | 現行要素 | Sourceで確認した用途 | CRDD文書側との関係 |
 |---|---|---|
-| `CoordinatorObjectivePlan` | milestoneAcceptanceCriteria、Objective定義集合、Task定義・依存集合という実行依頼の値 | Roadmap／WBS本文や文書上の版・正式判断を保持するモデルではない |
+| `ObjectivePlan` | milestoneAcceptanceCriteria、Objective定義集合、Task定義・依存集合という実行依頼の値 | Roadmap／WBS本文や文書上の版・正式判断を保持するモデルではない |
 | `ProjectObjectiveRecord` | 同じObjectiveに属するTaskの状態を集約し、全完了後integration_pending、明示判断でaccepted／returnedへ進む | 実行内のTask群の受入単位。文書の目標達成を自動確定しない |
 | `ProjectMilestoneRecord` | 同じ実行計画の上位集約。全Objective受入後integrating、明示受入・判断待ち・回復・取消を保持 | 実行依頼全体の区切り。文書Milestoneと同名でも同一正本ではない |
 | `state/create.ts` | CallerのProject／Milestone識別と渡された定義集合からRuntime状態を初期化 | IDの一致だけで文書との対応・現在性・認可を証明しない |
@@ -97,16 +97,16 @@ type DefinitionTarget = Readonly<{ projectId: string; milestoneId: string }>;
 type RuntimeContentOperation =
   | "definition.read" | "definition.write" | "decision.read" | "decision.record"
   | "queue.read" | "queue.enqueue" | "runtime.read";
-type RuntimeAccess = Readonly<{
+type ExecutionModelAccess = Readonly<{
   root: VerifiedRepositoryRoot;
   principalId: string;
   revalidate: (operation: RuntimeContentOperation, target: DefinitionTarget) => boolean;
 }>;
-type RuntimeReadResult<T> =
+type ExecutionModelReadResult<T> =
   | { status: "available"; value: T; version: StateVersion }
   | { status: "absent"; value: null; version: StateVersion | null }
   | { status: "blocked" | "unknown"; value: null; reason: string };
-type RuntimeWriteResult<T> =
+type ExecutionModelSaveResult<T> =
   | { status: "saved"; value: T; version: StateVersion }
   | { status: "conflict"; value: null; reason: "state_changed" | "definition_changed" }
   | { status: "blocked"; value: null; reason: string }
@@ -133,9 +133,9 @@ Contextは認証済み主体・同じRootへ結合する。入口と、短期排
 
 | API | 入力（Contextに続くrequest） | 成功値／拒否・競合 |
 |---|---|---|
-| `initializeRuntimeState` | `Target & {expectedAbsence:true}` | 空の共通状態と初回版。現在のstate／pending、未解決参照、旧領域の存在・移行不明があれば拒否。既存初期化の一回出版を再利用し、固定AI選定・Provider認証を要求しない |
+| `initializeExecutionState` | `Target & {expectedAbsence:true}` | 空の共通状態と初回版。現在のstate／pending、未解決参照、旧領域の存在・移行不明があれば拒否。既存初期化の一回出版を再利用し、固定AI選定・Provider認証を要求しない |
 | `savePlan` | `Target & { expected:Expected; definition:PlanDefinition; expectedDefinitionHash:DefinitionHash|null }` | 実行依頼の定義集合とHash。初回nullは対象の明示不存在だけ。DAG不正・参照中・改訂差を拒否。CRDD文書を更新しない |
-| `queryPlan` | `Target` | `RuntimeReadResult<PlanView>`。同じ実行依頼定義からの投影で、文書のRoadmap／WBSを読んだ結果ではない |
+| `queryPlan` | `Target` | `ExecutionModelReadResult<PlanView>`。同じ実行依頼定義からの投影で、文書のRoadmap／WBSを読んだ結果ではない |
 | `createObjective` | `Target & {expected:Expected; definition:ObjectiveDefinition}` | 定義とHash。重複ID・参照不正を拒否 |
 | `updateObjective` | `Target & {expected:Expected; objectiveId:string; expectedDefinitionHash:DefinitionHash; definition:ObjectiveDefinition}` | 同じIDの編集可能な完全定義。参照中・ID差・基準差を拒否 |
 | `deleteObjective` | `Target & {expected:Expected; objectiveId:string; expectedDefinitionHash:DefinitionHash}` | 削除したID。依存Task・判断・Attempt等の参照があれば拒否。Cascadeなし |
@@ -150,10 +150,10 @@ Contextは認証済み主体・同じRootへ結合する。入口と、短期排
 | `queryWorkspaces` | `Target` | 論理WorkspaceとCandidate／統合参照。Git実行なし |
 | `enqueueOperation` | `Target & {expected:Expected; requestId:string; definitionHash:DefinitionHash; workspaceId:string|null}` | 同IDの受付記録。既存の受付世代・Hash照合を維持。異なる内容のID再利用を拒否、実行開始なし |
 | `queryQueue` | `Target` | 受付状態と観測。Claim／Dispatchなし |
-| `queryRuntimeState` | `Target` | Coreの定義・判断とAutomationの許可された投影。次Taskの選択・実行なし |
+| `queryExecutionState` | `Target` | Coreの定義・判断とAutomationの許可された投影。次Taskの選択・実行なし |
 | `queryExecutionStatus` | `Target & {limit:number; cursor?:string}` | 現行の上限・Cursor・observed／absent／unknownを維持した実行状況。EIの実績分析とは別 |
-| `decodeRuntimeDomainSnapshot` | 正規UTF-8 byte列とRepository結合 | 新Schemaの正本・管理実行のメモリ投影・本文Hash、又はnull。旧Schemaを受理しない純粋codec。物理保存や認可成立を示さない |
-| `hashRuntimeProjectDefinition` | 検査済みCore Project | 対象IDと計画定義の正規値へ結合するHash。状態・Owner・処置許可は含まない |
+| `decodeStateSnapshot`（内部契約） | 正規UTF-8 byte列とRepository結合 | 新Schemaの正本・管理実行のメモリ投影・本文Hash、又はnull。旧Schemaを受理しない純粋codec。物理保存や認可成立を示さない |
+| `hashExecutionProjectDefinition` | 検査済みCore Project | 対象IDと計画定義の正規値へ結合するHash。状態・Owner・処置許可は含まない |
 | `readRepositoryAiSelection` | 検証済みRootと信頼したHostの非秘密Catalog値 | 現行available／missing／blockedとidentityを維持。Catalogを要求本文から取得しない |
 | `saveRepositoryAiSelection` | 既存config・expected identity・認可・信頼したCatalog値の結合 | 現行saved／conflict／blocked／unknownと元参照を維持。state.jsonとの二File同時更新を新設しない |
 
@@ -389,7 +389,7 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 
 Core定義のMCP公開は二Toolに限定する。`crdd.get_runtime_definition`は`plan/objectives/tasks`の用途別照会、`crdd.manage_runtime_definition`は明示初期化・Plan保存・Objective／Taskの作成／更新／削除を受ける。どちらも`repositoryId`と閉じた`command`を必須とする。初期化は既存の不存在条件、それ以外の変更は全体CASを要求し、既存定義の更新・削除では対象定義Hashも照合する。Plan新規保存時の対象定義Hashは既存契約どおりnullであり、作成操作へ架空の旧Hashを要求しない。自動再取得・再適用・実行開始を行わない。判断の承認・Queue投入・Managed Executionの更新は含めない。Domainの結果を`structuredContent`へ搬送し、保存不明とexact回復参照を失敗メッセージへ潰さない。
 
-共有接続はAMの`resolveRuntimeContentAccess`が通常本人・development許可・Repository登録・公開範囲・同じ管理改訂・Manifest・Rootへ結合する。Domainの`RuntimeAccess.revalidate`は処置前と返却前にも同じ条件を検査する。操作Context・Tokenは要求内だけに置き、Store・cache・公開応答へ含めない。これは現在認可の接続であり、新しい権限発行ではない。
+共有接続はAMの`resolveRuntimeContentAccess`が通常本人・development許可・Repository登録・公開範囲・同じ管理改訂・Manifest・Rootへ結合する。Domainの`ExecutionModelAccess.revalidate`は処置前と返却前にも同じ条件を検査する。操作Context・Tokenは要求内だけに置き、Store・cache・公開応答へ含めない。これは現在認可の接続であり、新しい権限発行ではない。
 
 保存先`.crdd/domain-model/{state.json,state.lock,state.pending.json,history.jsonl,history.pending.jsonl}`は2026-10-28に人間が採用した。製品コードは新配置だけへ接続し、旧形式・旧配置の実データ移行はフロントAI手順とする。全Path集合の公開は撤去し、各保存Ownerが自分の固定所在を内部で束縛する。保存Pathは変更せず、旧aliasは残さない。保持設定`.crdd/config/coordinator.json`は今回変更しない。[配置・初期化境界](03_Repository_Storage.md#共通状態保存の配置切替--2026-10-28)と[移行・切戻し手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ接続する。
 
@@ -415,9 +415,9 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 | 実Leaseと資源不存在の観測 | Coordinator `execution/lease.ts`。Domain候補の観測位置・短絡順を維持し、Rootへ生Path観測helperを公開しない |
 | 判断State | Domainの既存State Writerへ統合。Coordinatorは認証済み回答先・対象・操作を搬送する。Host専用Store・独立Hash連鎖・Bearerは使用しない |
 
-一般CRUDのHost入力`RuntimeAccess`は現在認可を持ち、真正Rootだけで権限を代用しない。技術保存の真正Rootも実行Authorityではなく、既存Host限定の利用側から渡す。長命Portは構築時の同じ参照を保持し、各保存入口がfreshに再検証する。値と同じ構造のObject、別のRootやcaller指定Pathへの付替えを認めない。
+一般CRUDのHost入力`ExecutionModelAccess`は現在認可を持ち、真正Rootだけで権限を代用しない。技術保存の真正Rootも実行Authorityではなく、既存Host限定の利用側から渡す。長命Portは構築時の同じ参照を保持し、各保存入口がfreshに再検証する。値と同じ構造のObject、別のRootやcaller指定Pathへの付替えを認めない。
 
-一般定義変更は同じ版・元Hash・対象定義Hashを比較し、参照中・管理実行中の同じProjectは拒否する。別Projectの管理実行、Queue、Operation、unknown、exact回復参照、受領、履歴は変更しない。一般CRUDのための固定選定・実行Owner・完了Evidenceを捏造しない。公開結果は`RuntimeWriteResult<T>`／`RuntimeReadResult<T>`で正常・競合・拒否・不明を分離する。
+一般定義変更は同じ版・元Hash・対象定義Hashを比較し、参照中・管理実行中の同じProjectは拒否する。別Projectの管理実行、Queue、Operation、unknown、exact回復参照、受領、履歴は変更しない。一般CRUDのための固定選定・実行Owner・完了Evidenceを捏造しない。公開結果は`ExecutionModelSaveResult<T>`／`ExecutionModelReadResult<T>`で正常・競合・拒否・不明を分離する。
 
 初期化以外の固定保存入口を経由して初期化を補完しない。初期化は既存Host構築点又は明示的な内容認可付きCore入口だけで行う。生Snapshot Writer、任意取引callback、短期Owner、Kernel取得、自由Pathの試験AdapterはPackage Rootへ公開しない。
 
@@ -429,13 +429,13 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 続くSource更新で、Domainの計画検査へID相関・依存循環拒否と`CallerTaskInput`の一対一固定を追加し、Coordinatorの受付Hash二箇所・Task別入力搬送・MCPの閉Schemaを接続した。Objective受付結果は`crdd-coordinator/orchestrator-objective-intake/v2`、MCP Adapter説明はv4。保存SchemaやMCP Protocol版は変更しない。
 
-設定の`ai-selection/types.ts`・`ai-selection/validation.ts`・`storage/ai-selection.ts`はDomainが所有する。技術Catalogの値は信頼したHostがAI Adapterから得て検査・読取り・保存へ明示注入し、HTTP／MCPの要求から受け取らない。Storeの固定1MiB上限を撤去し、固定Path・CAS・短期排他・出版読戻し・一時物参照を保つ。通信設定の16KiBによる拒否も撤去する。Domainの一般JSON解析は`plain-data/json.ts`が所有する。AI AdapterはProvider境界内の独立parserを内部利用し、Domainへ依存しない。Workbenchの設定入口はDomainへ直接接続する。Coordinatorの実行Snapshot WriterとPlan／Task／Decisionの一般CRUDは引き続き未完了であり、Core全体の単独稼働を完成としない。
+AI選定・通信・保持の設定はConfiguration Modelの各モデルと共通保存処理が所有し、EMへ直接依存しない。EMは実行時に確定した選定とその相関を自身の値契約として保持する。信頼した上位がAI AdapterとConfiguration Modelの解決結果を明示搬送し、HTTP／MCPの要求から技術Catalogや任意の保存値を受け取らない。旧固定容量上限や廃止済み`plain-data`共通層を再導入しない。Workbenchの設定入口はConfiguration Model、実行定義・状態・判断のCRUDはEMへ接続する。Source接続と、Core全体の単独稼働・全体回帰・実データ移行の成立は区別する。
 
-共通保存の`storage/state.ts`は、固定五ファイルの読取りと三つの確定前ファイルの排他的作成を所有する。`readRuntimeStateFile`と`createRuntimeStatePendingFile`は同じ取引の実体Map・既存Owner照合を受け、現在境界の確認、nlink、実体、wx、発行前記録、fsync、close、読戻しの既存順序を保持する。ファイル名は実行時にも閉集合検査する。任意Snapshot・認可・状態遷移・CASを受け持つAPIではなく、Context消費、技術状態判断と取引全体の確定は今回まだCoordinatorに残る。新しい保存先・Lock・Registryは追加しない。
+共通の固定File I/Oは`storage/store.ts`が所有する。読取りと確定前Fileの作成は同じ取引の実体Map・既存Owner照合を受け、現在境界、nlink、実体、wx、発行前記録、fsync、close、読戻しの既存順序を保持する。ファイル名は実行時にも閉集合検査する。StateのCAS、Context消費、出版・回復と一回確定は`state/crud.ts`へ置き、Coordinatorには実行判断・実資源観測を残す。新しい保存先・Lock・Registryは追加しない。
 
-`flushRuntimeStateFile`も同じ保存Ownerが提供し、状態pending・履歴pending・履歴正本の三対象だけを受ける。履歴正本は期待実体をopen前に固定し、fstat後にOwnerを照合する。他の二対象はopen前にOwnerを照合し、open後に期待実体を取得する。履歴の二対象だけfsync直前に既存Effect記録を呼び、状態pendingでは作成時の発行記録を利用する。open成功後は例外時もcloseを試み、既存の対象別故障分類を保持する。出版条件、rename、CAS、一回使用証拠、後続読戻しはこの低水準操作へ移さない。
+`flushExecutionStateFile`も同じ保存Ownerが提供し、状態pending・履歴pending・履歴正本の三対象だけを受ける。履歴正本は期待実体をopen前に固定し、fstat後にOwnerを照合する。他の二対象はopen前にOwnerを照合し、open後に期待実体を取得する。履歴の二対象だけfsync直前に既存Effect記録を呼び、状態pendingでは作成時の発行記録を利用する。open成功後は例外時もcloseを試み、既存の対象別故障分類を保持する。出版条件、rename、CAS、一回使用証拠、後続読戻しはこの低水準操作へ移さない。
 
-保存途中版の局所再入場規則は、同じDomain保存Ownerの`classifyRuntimeSnapshotReentry`が所有する。元版Hash・次版Hash・Repository結合と初回領域の明示不存在を照合し、出版候補・pending回収候補・拒否だけを返す。観測不能を不存在に変換せず、この分類を状態全体の妥当性、処置Authority、実処置または回収完了の証明には使わない。Coordinator Writerは旧分類関数を保持せずDomain Root APIを同じ呼出し位置で利用する。
+保存途中版の局所再入場規則は、同じDomain保存Ownerの`classifyExecutionSnapshotReentry`が所有する。元版Hash・次版Hash・Repository結合と初回領域の明示不存在を照合し、出版候補・pending回収候補・拒否だけを返す。観測不能を不存在に変換せず、この分類を状態全体の妥当性、処置Authority、実処置または回収完了の証明には使わない。Coordinator Writerは旧分類関数を保持せずDomain Root APIを同じ呼出し位置で利用する。
 
 判断記録・回答先・質問・回答・適用／閉鎖とBlockerはDomainの`decision/types.ts`、純粋値と履歴の検査は`decision/operations.ts`、対象状態と一体の候補は`decision/crud.ts`が所有する。Coordinatorは認証Context・現在認可と操作を搬送し、単一State Writerへ接続する。旧Envelope・判断回復専用記録・Host Store・継続Bearerの互換Readerは設けない。Package全体の3モデル分離・一般CRUD完成は別段階として区別する。
 
@@ -448,9 +448,9 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 完全codecの依存閉包では、状態・Task・Workspace・固定選定・修復checkpointの保存型と純粋検査をDomainへ移した。`state/codec.ts`は正規JSON byte表現・UTF-8・既存容量上限・Hash、`state/validation.ts`は単一Snapshot全体の閉形式と参照相関を所有する。技術値の復号は`attempt/validation.ts`・`repair-validation.ts`で行い、実資源観測・現在Ownerの真正証拠・技術遷移の許可は上位の既存Ownerに残す。DomainからCoordinator・AI Adapter・Docker Isolationをimportしない。公開値は実利用に限定し、固定検査集合は利用側から変更できない。
 
-完全codecの初回移管時点では既存v5 Schemaを保持していた。続くSource切替で§5.0.1の新Schemaを既存Reader／Writerへ接続したが、一般CRUD、Domainへの物理Writer全面移管、既存実データ移行、Core単独成立は未完了である。値codecの成功と、物理保存・現在認可・資源不存在・実データ移行は別の成立条件とする。
+完全codecの初回移管時点では既存v5 Schemaを保持していた。続くSource切替で§5.0.1の新Schemaと一般CRUD・EMのReader／Writerを接続した。既存実データ移行とCore全体の単独成立の検証は未完了である。値codecの成功と、物理保存・現在認可・資源不存在・実データ移行は別の成立条件とする。
 
-後続の値境界では、`inspectRuntimePlanDefinition`をCoreの作成途中、`inspectExecutionPlanDefinition`を完全定義、既存`inspectExecutionPlan`を外側Path範囲込みの実行受付へ分離した。`RuntimeProjectDefinition / RuntimeManagedExecution / RuntimeDomainSnapshot`と新形式専用codecを実装し、Rootから新codecと定義Hashを明示公開した。続いて旧codecを撤去し、既存の物理Reader／Writer・Task保存・技術checkpoint・履歴・利用側を新codecへ接続した。管理Taskの更新はCoreだけの兄弟定義と順序を保持し、技術checkpointはCore定義全体を保持する。管理DTOはメモリ投影だけであり、保存正本やCore-onlyへの架空Selection／Ownerではない。一般CRUD・物理Writer全面移管・実データ移行の完了とは区別する。
+後続の値境界では、`inspectExecutionPlanDefinition`をCoreの作成途中、`inspectExecutionPlanDefinition`を完全定義、既存`inspectExecutionPlan`を外側Path範囲込みの実行受付へ分離した。`ProjectDefinition / ManagedExecution / DecodedStateSnapshot`と新形式専用codecを実装し、Rootから新codecと定義Hashを明示公開した。続いて旧codecを撤去し、既存の物理Reader／Writer・Task保存・技術checkpoint・履歴・利用側を新codecへ接続した。管理Taskの更新はCoreだけの兄弟定義と順序を保持し、技術checkpointはCore定義全体を保持する。管理DTOはメモリ投影だけであり、保存正本やCore-onlyへの架空Selection／Ownerではない。一般CRUD・物理Writer全面移管・実データ移行の完了とは区別する。
 
 | 移管した純粋処理 | 現在のOwner | 本番との接続範囲 |
 |---|---|---|
@@ -458,7 +458,7 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 | 受入判断の作成・最新読取り・確定、判断回復の作成・読取り・比較更新 | `decision/crud.ts` | 六つの用途固定の候補／投影を既存StoreのLock内fresh読取り後に呼ぶ。耐久保存・現在認可・人間判断の真正性は含まない |
 | Snapshotの操作・修復・履歴・完了候補と元版比較 | `state/crud.ts` | `prepareCoordinatorState*`等の純粋候補と`validateCoordinatorState*`／出版分類を既存Writerへ提供する。相互参照する候補と比較を同居させ、物理保存・実資源観測・Ownerを含めない |
 | 単一保存の改訂・受領不変性・Operation除去相関、閉鎖・退役条件 | `state/transition.ts` | 既存Writerの共通遷移検査と、同じ保存Ownerに束縛したLease不存在・履歴の同期観測による条件検査。内側の受領遷移検査は非公開 |
-| 終了履歴の全行codec・期間保持候補 | `state/history.ts` | Domain Rootの`decodeCoordinatorHistoryRows`／`prepareCoordinatorHistoryRetention`。物理File・実排他・現在Ownerの確認は含まず、既存Writerが処置時点で再照合する |
+| 終了履歴の全行codec・期間保持候補 | `history/validation.ts` | 全行codecと期間保持候補の正本。純粋検査に物理File・実排他・現在Ownerの確認を含めず、既存Reader／Writerが処置時点で再照合する。本番利用側・外部試験の全履歴取得は`readRecoveryState(kind: "history")`、保存途中は用途固定Readerへ接続済み。`decodeHistoryRows`はRootから撤去し、EM内の値検査と試験だけが使用する |
 | 修復終了の値条件 | `attempt/validation.ts` | 既存の技術状態検査・Writerから利用する。実資源の観測や処置許可ではない |
 | 操作と再起動checkpointの値遷移 | `attempt/validation.ts` | 元の三値・Identity・許可辺を保持する。再起動checkpointとdecoderを同じOwnerへ閉じ、新しいmodule循環を作らない |
 | 修復・Session・disposal checkpointの値遷移 | `attempt/repair-validation.ts` | Docker IsolationのMachineとCoordinatorのWriterがDomain Rootを利用する。実Driver・技術処置・処置順の実行は所有しない |
@@ -466,31 +466,31 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 上表の移管では関数本文を維持し、履歴行のDecoderだけは同じDomain codecへの旧委譲を直結した。旧Coordinatorの定義・互換re-exportは撤去し、利用側と子Process試験本文もDomain Rootへ接続した。五Context・初期化・一回履歴出版を伴う物理Writerはまだ移管していない。
 
-短期保存時の区画遷移・閉鎖・退役条件もDomain `state/transition.ts`へ実体移管する。Writerが使用する`assertCoordinatorSnapshotTransition`と観測型、Coordinatorの退役処理が使用する四つの既存条件関数をRootから明示公開する。有限の二観測の生成とI/O・現在Owner照合は既存Writer側に残し、同じ短期Owner・元の検査位置で呼ぶ。値又は観測callbackだけを保存Authorityにせず、汎用validator登録・新Map・旧配置の互換Fileは追加しない。これは物理Writer全面移管の前提であり、その完了ではない。
+短期保存時の区画遷移・閉鎖・退役条件もDomain `state/transition.ts`へ実体移管する。Writerが使用する`assertSnapshotTransition`と観測型、Coordinatorの退役処理が使用する四つの既存条件関数をRootから明示公開する。有限の二観測の生成とI/O・現在Owner照合は既存Writer側に残し、同じ短期Owner・元の検査位置で呼ぶ。値又は観測callbackだけを保存Authorityにせず、汎用validator登録・新Map・旧配置の互換Fileは追加しない。これは物理Writer全面移管の前提であり、その完了ではない。
 
 受付世代と同内容再入場の照合は同じ`state/transition.ts`、Task結果受領の競合検査は`task/crud.ts`へ集約する。Queueの事前照合とWriterの排他内fresh照合は同じ二関数を利用し、保存側からCoordinatorの状態判断を逆参照しない。四項目の`ProjectTaskResultFact`はDomain `task/types.ts`が所有し、既存State PortとWriterで共用する。型の共通化で実行時のexact四key検査や元Owner照合を省略しない。Taskの受領・回復状態を更新する残りの実行操作はCoordinatorに保つ。
 
-Workspaceの統合結果候補と現在記録更新は`workspace/crud.ts`の`prepareCoordinatorIntegrationRecordCreation`／`prepareCoordinatorWorkspaceRecordUpdate`、Project現在値の固定投影は`state/crud.ts`の`projectCoordinatorCurrentState`が所有する。三値だけをRootから公開し、Store factory、任意Snapshot取引、保存Ownerを公開しない。Coordinatorの既存wrapperが同じ短期Owner内のfresh Snapshotへ適用し、保存CAS・解放・失敗搬送を維持する。
+Workspaceの統合結果候補と現在記録更新は`workspace/crud.ts`の`prepareIntegrationRecordCreation`／`prepareWorkspaceRecordUpdate`、Project現在値の固定投影は`state/crud.ts`の`projectCurrentState`が所有する。三値だけをRootから公開し、Store factory、任意Snapshot取引、保存Ownerを公開しない。Coordinatorの既存wrapperが同じ短期Owner内のfresh Snapshotへ適用し、保存CAS・解放・失敗搬送を維持する。
 
 Workspace更新のProcess IDはCoordinatorがそのcallback内で取得して値渡しする。破棄履歴の時刻観測は無名の有限同期`now:()=>number`だけを渡し、Domainは成功する削除候補の末尾で表示時刻・履歴検査用現在時刻の順に二回呼ぶ。拒否・非削除・統合結果・Project投影では呼ばない。Domain自身がambient現在時刻や実Processを観測する方式、汎用時計Frameworkは追加しない。候補は実Owner・実資源不存在・保存成功の証明ではない。Queue所属・Lease値・元世代・対象・値形式・使用中・他Queue・保留・処置確認の判定順と固定理由を維持する。
 
-計画TaskのQueue受付照合・追加候補・一件投影は`task/queue.ts`の`inspectCoordinatorQueueIntake`／`prepareCoordinatorQueueEntryCreation`／`projectCoordinatorQueueEntry`が所有する。State Port固有のProject照会は`state/crud.ts`の`projectCoordinatorQueueProjectState`を使う。既存の現在状態照会とは、Schema検査範囲・不正IDの固定理由が異なるため機械的に統合しない。既存`CoordinatorQueueEnqueueInput`の宣言は`task/types.ts`へ実体移管し、計画Queueに必要なMilestoneを必須のまま保つ。任意Taskの自動生成や汎用Queue Registryは追加しない。
+計画TaskのQueue受付照合・追加候補・一件投影は`task/validation.ts`が所有し、利用側は`task/crud.ts`の`createQueue`／`updateQueue`／`readQueueEntry`を使う。Project取得はState側の`readProjectExecutionState`へ統合し、旧`readQueueProject`と重複するProject投影は撤去した。Schema不正とID不正を区別し、有効Schemaの不正IDは既存の`orchestrator_state_identity_invalid`へ揃える。複数モデルの同版取得はState側の`readState`が固定範囲で行う。`QueueEnqueueInput`は`task/types.ts`に置き、計画Queueに必要なMilestoneを必須のまま保つ。任意Taskの自動生成や汎用Queue Registryは追加しない。
 
 interactive優先・active Owner中の待機化・scheduled再開を決める実行選択と、owner-loss／exact回復による再開判定はCoordinatorが所有する。これらが純粋な値処理でも、Domainの局所CRUDへ移さない。Domain候補は既存の同内容相関・発行時受付世代・Project存在・Workspace所属／ready／保留検査を維持し、Coordinatorは元の短期Owner内で呼び、保存・解放・失敗を同じ位置で確定する。
 
-Task／Queueの追加七用途は`task/queue.ts`の単発受付・単発更新・未開始終了、一般Queue更新、選択差分適用、exact回復後のQueue更新、Lease解放後のQueue確定である。実行順序の選択・回復処置の発火・実Leaseの借用／生存・資源不存在の観測はCoordinatorが所有する。Domainは同じ短期Ownerのfresh値、用途固定の同期観測だけから候補を導く。過去unknown、元ID・世代、対象外区画を保ち、候補を実保存・回復成功・新しい実行許可と扱わない。
+Task／Queueの七用途は`task/validation.ts`の単発受付・単発更新・未開始終了、一般Queue更新、選択差分適用、exact回復後のQueue更新、Lease解放後のQueue確定である。実行順序の選択・回復処置の発火・実Leaseの借用／生存・資源不存在の観測はCoordinatorが所有する。Domainは同じ短期Ownerのfresh値、用途固定の同期観測だけから候補を導く。過去unknown、元ID・世代、対象外区画を保ち、候補を実保存・回復成功・新しい実行許可と扱わない。
 
 一般Queue更新の入力投影は、元のfieldを先行読取りせず、用途固定のaccessorで元の短絡順・読取り回数を保つ。欠測Queue・世代差は入力fieldを読まず、再開条件・結果参照・遷移の先行拒否はLeaseに触れない。Domainから実Lease自体を受け渡さず、Coordinatorの同じ局所実体から六fieldの投影と厳密booleanの生存観測だけを返す。単発更新は借用が前提検査より先にある元順序を維持する。clean終端・未開始終了の時刻は成功候補末尾だけ二回、その他は零回である。
 
 選択方針はCoordinatorが所有し、Domainへは選択ID・元世代・固定理由とqueued／waiting_foregroundの限定差分を渡す。対象の世代差・重複・別対象更新・選択との不整合は`orchestrator_queue_selection_invalid`で停止する。正常な既存方針の差分は適用し、空の選択は無変更とする。対象欠測や比較情報不足を空Queueへ補完しない。新しいScheduling、汎用callback取引、Lock又はRegistryを追加しない。
 
-Lease記録の九用途はDomain `attempt/lease.ts`の固定候補・投影が所有する。Schema・元intent集合／Queue全文・世代を照合し、取得予約は資源不存在→Root観測→保存要求記録、取得確定は元intent一致後の物理Identity観測、回復予約／確定は元位置のRoot再観測を維持する。Root投影はRepository Rootと既存の実体Hash二fieldだけで、Promise・thenable・accessor・Proxyを正規観測へ畳まない。実行PIDはCoordinatorが値として渡し、DomainはProcess生死を判断しない。取得・解放・回復の証拠生成は同Fileの非公開関数に閉じ、同じSchema・全文・Hash・世代と外側freezeだけを維持する。旧Storageの汎用Envelope生成と製品未使用の旧Directory証拠読取りは撤去するが、現行Snapshotの証拠型とvalidatorは保持する。
+Lease記録の九用途はDomain `state/validation.ts`の固定候補・投影が所有し、公開操作は`state/crud.ts`の取得・解放・回復・読取りへ集約する。Schema・元intent集合／Queue全文・世代を照合し、取得予約は資源不存在→Root観測→保存要求記録、取得確定は元intent一致後の物理Identity観測、回復予約／確定は元位置のRoot再観測を維持する。Root投影はRepository Rootと既存の実体Hash二fieldだけで、Promise・thenable・accessor・Proxyを正規観測へ畳まない。実行PIDはCoordinatorが値として渡し、DomainはProcess生死を判断しない。取得・解放・回復の証拠生成は同Fileの非公開関数に閉じ、同じSchema・全文・Hash・世代と外側freezeだけを維持する。旧Storageの汎用Envelope生成と製品未使用の旧Directory証拠読取りは撤去するが、現行Snapshotの証拠型とvalidatorは保持する。
 
-履歴三用途はDomain `state/history.ts`の`prepareCoordinatorHistoryPending`／`prepareCoordinatorTerminalRecordRetirement`／`prepareCoordinatorHistoryTransfer`が所有する。物理履歴出版はCoordinatorが元の同じ短期Ownerで実行し、失敗時は候補を呼ばない。退役の出版はpending零でも一回、搬送の出版はpendingあり時だけ一回。各対象の閉鎖観測・各行の履歴再読を元位置で繰り返し、全対象へ観測を使い回さない。履歴はrecorded／expiredだけを確認済みとし、その他の同期契約違反も未確認として停止する。Queueを退役する場合だけ既存の受付世代を一回生成し、採用結果のみ・退役零では生成しない。物理出版済みでも状態保存が失敗すれば元pendingから再入場できる二段性を維持する。
+履歴三用途の候補はDomain `history/validation.ts`、完成操作は`history/crud.ts`、物理保存は`storage/store.ts`が所有する。Coordinatorは操作の発行・許可を担当し、履歴の物理I/Oを再実装しない。退役の出版はpending零でも一回、搬送の出版はpendingあり時だけ一回。各対象の閉鎖観測・各行の履歴再読を元位置で繰り返し、全対象へ観測を使い回さない。履歴はrecorded／expiredだけを確認済みとし、その他の同期契約違反も未確認として停止する。Queueを退役する場合だけ既存の受付世代を一回生成し、採用結果のみ・退役零では生成しない。物理出版済みでも状態保存が失敗すれば元pendingから再入場できる二段性を維持する。
 
-これにより三十二用途の状態候補はDomainへ接続するが、短期保存Owner・Reader／Writer・履歴I/O・五Context・一回出版証拠はまだCoordinatorに残る。用途固定の候補成功を、汎用取引撤去・物理閉包全面移管・一般CRUD・Core単独成立へ換算しない。
+短期保存Owner・Reader／Writer・履歴I/O・一回出版証拠はEMの保存処理が所有し、Coordinatorには実行許可・実資源観測と操作順序を残す。開始の保存と終了Contextの準備は`saveOperationStart`、入力受理と終了保存は`completeOperation`の結果をそれぞれ観測する。候補成功や一部の限定試験を、Core全体の単独成立又は全体回帰成功へ換算しない。
 
-正規byte表現の生成と内容Hashは、保存候補の同一性・CASを検査する利用側向けに`encodeRuntimeStateValue`・`hashRuntimeStateContent`として公開する。生byteの内部復号、文法の正規表現実体、未利用の局所validatorはRoot公開しない。Hash一致を真正性・操作許可・出版成功へ読み替えない。
+保存codecのencodeStateValueとdecodeStateSnapshotは、外部利用を撤去してRootから内部化した。Coordinator本番の値比較4箇所は、既存snapshotJsonValueで両辺を捕捉した後のNode.js標準比較へ接続し、保存用encoderへの依存を撤去した。不正値拒否・キー順・prototype・配列順・負のゼロの従来意味を維持する。Coordinatorで検査済みSnapshotを保存本文へ再生成していた16箇所は、既存Readerが同じ検査済み読取りから返すsourceTextへ接続した。元本文のbytes・末尾LF・Hash・改訂の比較は維持し、JSON.stringifyへの置換はしない。入力捕捉の6呼出しはCoordinatorの既存snapshotJsonValueへ接続し、保存codecのroundtripから分離した。decodeStateSnapshotの本番Coordinator参照は撤去し、検査済みSnapshotを元本文と同じ版で既存回復記録に保持する。通常Checkpoint・認証不明終了・Host清掃確定の各保存後は、Writerとfresh Readerの改訂・Hash・Lock解放を確認した後だけ両方を更新する。失敗時は片方だけを進めず、追加I/O・Authority・管理機構を作らない。外部試験の実保存観測は公開Readerへ接続し、元本文のsourceText・Hash・改訂を照合する。未出版候補や過去版は既知fixture本文の事実投影であり、Schema検査成功とは主張しない。単なるJSON.stringifyへの置換や深いimportへ逃がさない。汎用SHA-256のhashStateTextはRootから外し、Lease実体Identityを扱うCoordinatorはNode.js標準を直接使う。文字列・UTF-8・二重Hashの順序は不変更とする。履歴要約・Host更新・開始Identity検査・初期Hostのモデル判定は既存Reader／Writerへ内包した。初回候補HelperはRootから撤去し、実Rootのfixtureは公開開始Writerへ接続した。共有される有限fixtureは固定入力の宣言に限定し、内部候補の間接実行を行わない。現行境界と残件は[公開境界](01_Architecture.md#2-公開入口と確定入力)へ接続する。Hash一致を真正性・操作許可・出版成功へ読み替えない。
 
 本節は既存QA項目の追加シナリオであり、新Local Item・新しい総数を発行しない。値検査・設定保存・入口搬送の限定試験は実施したが、表が要求するCore CRUDと単一保存の全体シナリオは未完了。既存Passや文書レビューを新実装全体の成功根拠にしない。
 

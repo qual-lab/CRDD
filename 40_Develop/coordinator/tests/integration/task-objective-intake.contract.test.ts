@@ -10,23 +10,21 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
-import { writeReport } from "../../../executor/scripts/report.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  encodeRuntimeStateValue,
-  initializeCoordinatorSnapshot,
-} from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
+import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { writeReport } from "../../../executor/scripts/report.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import {
   consumeDockerRecoveryReceiptAfterProjectSettlement,
@@ -180,26 +178,46 @@ function dockerAcknowledgement(
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function root(t: test.TestContext) {
-  const parent = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const parent = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       path.resolve(import.meta.dirname, "../../../.."),
       "tests",
     ),
     "intake_fixture",
   ).directory;
   const value = fs.mkdtempSync(path.join(parent, "crdd-project-intake-"));
-  execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
-  const initialized = initializeCoordinatorSnapshot(
-    verifyRuntimePersistenceRepository(value),
-    "binding-a",
-  );
-  assert.equal(initialized.status, "completed");
-  fixtureIntakeEpoch = initialized.value as string;
   t.after(() => {
     assert.equal(path.dirname(fs.realpathSync.native(value)), parent);
     fs.rmSync(value, { recursive: true, force: true });
     assert.throws(() => fs.lstatSync(value), { code: "ENOENT" });
   });
+
+  execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
+  execFileSync(
+    "git",
+    [
+      "-C",
+      value,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { windowsHide: true },
+  );
+  const initialized = initializeExecutionStore(
+    verifyRuntimePersistenceRepository(value),
+    "binding-a",
+  );
+  assert.equal(initialized.status, "completed");
+  fixtureIntakeEpoch = initialized.value as string;
   return value;
 }
 /**
@@ -885,11 +903,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       const envelope = JSON.parse(fs.readFileSync(record, "utf8"));
       if (scenario === "missing-queue") envelope.queueEntries = [];
       else envelope.queueEntries[0].projectId = "project-unbound";
-      fs.writeFileSync(
-        record,
-        `${encodeRuntimeStateValue(envelope)}\n`,
-        "utf8",
-      );
+      fs.writeFileSync(record, `${canonicalJson(envelope)}\n`, "utf8");
     }
     const before = runtimeSnapshot(workingDirectory);
     let effects = 0;
@@ -2463,4 +2477,4 @@ for (const interruption of [
   });
 }
 
-import { inspectCoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";

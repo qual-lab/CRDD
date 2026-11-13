@@ -5,21 +5,21 @@
  * @trace ARCH-000009
  * @boundary 自己生成するRepository-local Worktree。Providerの実行・回収は所有しない。
  */
-import { randomUUID, createHash } from "node:crypto";
-import { readFileSync, lstatSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { resolveRepositoryRuntimeDataPaths } from "../src/configuration/runtime-data.ts";
 import {
-  getRepository,
   createWorktree,
-  removeWorktree,
+  getRepository,
   readFile,
+  removeWorktree,
 } from "../../version-control/src/index.ts";
-import {
-  workspaceWorktreeTarget,
-  workspaceWorktreeResult,
-} from "../src/workspace/git.ts";
+import { resolveRepositoryExecutionDataPaths } from "../src/configuration/runtime-data.ts";
 import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
+import {
+  workspaceWorktreeResult,
+  workspaceWorktreeTarget,
+} from "../src/workspace/git.ts";
 
 /** 一回の検証Toolが所有する作成結果。新しい永続台帳ではない。 */
 export type VerificationWorkspacePreparation = Readonly<{
@@ -47,7 +47,7 @@ export function prepareVerificationWorkspace(
   const verified = getRepository(root);
   if (verified.status !== "completed")
     throw new Error("verification_workspace_root_invalid");
-  const paths = resolveRepositoryRuntimeDataPaths(verified.capability);
+  const paths = resolveRepositoryExecutionDataPaths(verified.capability);
   if (!paths) throw new Error("verification_workspace_root_invalid");
   const target = Object.freeze({
     workspaceId,

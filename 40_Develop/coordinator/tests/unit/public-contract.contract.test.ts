@@ -9,8 +9,8 @@
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -413,11 +413,13 @@ test("Objectiveの明示選択は不正形式・Accessor・Proxyを実行せず�
 });
 
 import {
-  inspectCoordinatorDecisionRequest,
   COORDINATOR_HUMAN_DECISION_CONTRACT,
-} from "../../../execution-model/src/index.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../execution-model/src/index.ts";
+  inspectCoordinatorDecisionRequest,
+} from "../../src/decision/request.ts";
+
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";
+
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/state/projection.ts";
 
 /**
  * Objective要求は未知field・accessor・ProxyをEffect前に拒否するを検証する。

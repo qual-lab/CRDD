@@ -17,8 +17,9 @@ import {
   inspectCoordinatorWorkspaceResults,
   isCoordinatorObjectiveProjectionCorrelationValid,
   isCoordinatorProjectionSemanticallyValid,
-  isPrincipalId,
-} from "../../../execution-model/src/index.ts";
+} from "../../../coordinator/src/index.ts";
+import { isPrincipalId } from "../../../execution-model/src/index.ts";
+
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

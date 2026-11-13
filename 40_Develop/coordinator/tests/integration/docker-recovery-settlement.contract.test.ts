@@ -9,12 +9,12 @@
  * @boundary ERB-IT-003=Coordinator現在状態Reader→技術結果Reader。
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { snapshotPlainRecord } from "../../src/input/snapshot.ts";
-import { execFileSync } from "node:child_process";
-import test from "node:test";
 
 /**
  * 最新形式だけを下位へ接続し、固定境界・保存・排他の不足を拒否する。
@@ -121,10 +121,7 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
   };
   const results = {
     namedExports: {
-      readRuntimeOwnedCoordinatorRecoveryResult: (
-        root: unknown,
-        id: unknown,
-      ) => {
+      readOwnedRecoveryResult: (root: unknown, id: unknown) => {
         assert.equal(root, capability);
         assert.equal(id, settlement.recoveryId);
         lowerReads += 1;

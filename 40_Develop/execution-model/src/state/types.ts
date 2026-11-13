@@ -5,16 +5,14 @@
  */
 
 import type { Repository } from "../../../version-control/src/index.ts";
-import type { CoordinatorStateOperation } from "../attempt/types.ts";
+import type { OperationRecord } from "../attempt/types.ts";
 import type { Blocker, Decision } from "../decision/types.ts";
 import type { HistoryRow } from "../history/types.ts";
 import type {
-  CoordinatorObjectivePlan,
+  ObjectivePlan,
   ProjectMilestoneRecord,
-  ProjectMilestoneState,
   ProjectObjectiveDefinition,
   ProjectObjectiveRecord,
-  ProjectObjectiveState,
 } from "../objective/types.ts";
 import type {
   ProjectQueueEntry,
@@ -22,19 +20,14 @@ import type {
   ProjectTaskDefinition,
   ProjectTaskRecord,
   ProjectTaskRecoveryObligation,
-  ProjectTaskState,
   TaskExecutionSelections,
 } from "../task/types.ts";
+import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
 import type {
-  CoordinatorResultRecord,
-  CoordinatorWorkspace,
-} from "../workspace/types.ts";
-import type {
-  COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  COORDINATOR_STATE_CONTRACT,
-  COORDINATOR_STATE_QUERY_CONTRACT,
-  COORDINATOR_STATE_SCHEMA,
+  EXECUTION_STATE_SCHEMA,
+  PROJECT_SNAPSHOT_SCHEMA,
+  PROJECT_STATE_CONTRACT,
+  STORAGE_CONTRACT,
 } from "./validation.ts";
 
 /**
@@ -75,90 +68,6 @@ export type PlainArraySnapshot<T> =
     }>;
 
 /**
- * project-state-queryで使用するCoordinator 状態 Queryの値契約を定義する。
- *
- * @responsibility Coordinator 状態 QueryのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorStateQueryが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorStateQueryで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorStateQueryの宣言は外部境界を開かない。
- * @security N/A: CoordinatorStateQueryはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorStateQueryの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorStateQuery = Readonly<{
-  requestId: string;
-  projectId: string;
-  repositoryRevision: string;
-}>;
-
-/**
- * project-state-queryで使用するCoordinator 状態 Query 結果の値契約を定義する。
- *
- * @responsibility Coordinator 状態 Query 結果のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorStateQueryResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorStateQueryResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorStateQueryResultの宣言は外部境界を開かない。
- * @security N/A: CoordinatorStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorStateQueryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorStateQueryResult = Readonly<{
-  intakeEpoch: string | null;
-  contract: typeof COORDINATOR_STATE_QUERY_CONTRACT;
-  status: "completed" | "blocked";
-  reason: string;
-  requestId: string;
-  projectId: string;
-  repositoryRevision: string;
-  observationState: "observed" | "absent" | "unknown";
-  projection: CoordinatorProjection | null;
-  cleanupConfirmed: true;
-  manualRecoveryRequired: boolean;
-  effectState: "no_effect";
-}>;
-
-/**
- * stateで使用するCoordinator Projectionの値契約を定義する。
- *
- * @responsibility Coordinator ProjectionのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorProjectionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorProjectionで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorProjectionの宣言は外部境界を開かない。
- * @security N/A: CoordinatorProjectionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorProjectionの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorProjection = Readonly<{
-  projectId: string;
-  milestoneId: string;
-  generation: number;
-  milestoneState: ProjectMilestoneState;
-  objectiveCounts: Readonly<Record<ProjectObjectiveState, number>>;
-  taskCounts: Readonly<Record<ProjectTaskState, number>>;
-  objectiveTaskSummaries: readonly Readonly<{
-    objectiveId: string;
-    objectiveState: ProjectObjectiveState;
-    taskCounts: Readonly<Record<ProjectTaskState, number>>;
-  }>[];
-  workProgress: "not_started" | "in_progress" | "tasks_complete";
-  qualityState:
-    | "not_evaluated"
-    | "integration_pending"
-    | "accepted"
-    | "blocked";
-  humanDecisionRequired: boolean;
-  recoveryRequired: boolean;
-  nextAction:
-    | "schedule_task"
-    | "wait_for_task"
-    | "verify_objective_integration"
-    | "verify_milestone_integration"
-    | "human_decision"
-    | "recover"
-    | "complete";
-}>;
-
-/**
  * 同じ短期保存Ownerで利用する現在観測の契約。
  * @responsibility 保存と状態判断の間で固定値と同期観測だけを受け渡す。
  * @trace ARCH-000004
@@ -168,7 +77,7 @@ export type CoordinatorProjection = Readonly<{
  * @security この型や観測値から実行・保存Authorityを発行しない。
  * @compatibility 保存形式・公開Root APIは変更しない。
  */
-export type CoordinatorSnapshotObservations = Readonly<{
+export type SnapshotObservations = Readonly<{
   schema: string;
   processId: number;
   leaseResourcesAbsent: (identity: string) => boolean;
@@ -186,12 +95,12 @@ export type CoordinatorSnapshotObservations = Readonly<{
  * @security Schema成立を実資源観測や保存成功へ昇格しない。
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
-export type CoordinatorUnifiedSnapshot = Omit<
-  CoordinatorExecutionStateSnapshot,
+export type UnifiedSnapshot = Omit<
+  ExecutionOverview,
   "schema" | "pendingDeliveries"
 > &
   Omit<
-    CoordinatorSnapshot,
+    Snapshot,
     | "schema"
     | "schemaRevision"
     | "repositoryRootHash"
@@ -204,10 +113,10 @@ export type CoordinatorUnifiedSnapshot = Omit<
     schema: "crdd-domain/runtime-state/v3";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
-    projects: readonly RuntimeProjectDefinition[];
-    managedExecutions: readonly RuntimeManagedExecution[];
+    projects: readonly ProjectDefinition[];
+    managedExecutions: readonly ManagedExecution[];
     resultReceipts: readonly ProjectResultAcceptance[];
-    pendingDeliveries: CoordinatorExecutionStateSnapshot["pendingDeliveries"];
+    pendingDeliveries: ExecutionOverview["pendingDeliveries"];
   }>;
 
 /**
@@ -215,14 +124,14 @@ export type CoordinatorUnifiedSnapshot = Omit<
  *
  * @responsibility Coordinator 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape CoordinatorStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorStateの宣言は外部境界を開かない。
- * @security N/A: CoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape ProjectExecutionStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectExecutionStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectExecutionStateの宣言は外部境界を開かない。
+ * @security N/A: ProjectExecutionStateはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectExecutionStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorState = Readonly<{
-  contract: typeof COORDINATOR_STATE_CONTRACT;
+export type ProjectExecutionState = Readonly<{
+  contract: typeof PROJECT_STATE_CONTRACT;
   taskExecutionSelections: TaskExecutionSelections;
   projectId: string;
   milestoneId: string;
@@ -246,12 +155,12 @@ export type CoordinatorState = Readonly<{
  * @security JSONは実資源観測やAuthorityの代わりではない。
  * @compatibility 最新schemaのみ。移行はフロントAIが所有する。
  */
-export type CoordinatorExecutionStateSnapshot = Readonly<{
-  schema: typeof COORDINATOR_STATE_SCHEMA;
+export type ExecutionOverview = Readonly<{
+  schema: typeof EXECUTION_STATE_SCHEMA;
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
-  operations: readonly CoordinatorStateOperation[];
+  operations: readonly OperationRecord[];
   unresolvedRecoveries: readonly Readonly<{
     operationNonce: string;
     recoveryId: string;
@@ -281,7 +190,7 @@ export type CoordinatorExecutionStateSnapshot = Readonly<{
  * @security 値から実行Authorityを復元しない。
  * @compatibility 本番切替前の純粋モデルであり、旧保存Readerではない。
  */
-export type CoordinatorStoredTask = Omit<
+export type StoredTask = Omit<
   ProjectTaskRecord,
   | "cleanupConfirmed"
   | "recoveryUnresolved"
@@ -289,7 +198,7 @@ export type CoordinatorStoredTask = Omit<
   | "recoveryObligations"
 > &
   Readonly<{
-    settlement: CoordinatorTaskSettlementFact;
+    settlement: TaskSettlementFact;
     resultAcceptanceIds: readonly string[];
     recoveryObligations: readonly (
       | Readonly<{ kind: "docker"; recoveryId: string }>
@@ -314,14 +223,14 @@ export type CoordinatorStoredTask = Omit<
  * @security Hashや状態名をAuthorityへ昇格しない。
  * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
  */
-export type CoordinatorSnapshot = Readonly<{
-  workspaces: readonly CoordinatorWorkspace[];
+export type Snapshot = Readonly<{
+  workspaces: readonly WorkspaceRecord[];
   repositoryRootHash: string;
   repositoryBindingId: string;
   snapshotRevision: number;
   intakeEpoch: string;
   intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
-  projects: readonly CoordinatorState[];
+  projects: readonly ProjectExecutionState[];
   queueEntries: readonly ProjectQueueEntry[];
   leaseEvidence: readonly LeaseEvidenceEnvelope[];
   leaseIntents: readonly Readonly<{
@@ -339,18 +248,18 @@ export type CoordinatorSnapshot = Readonly<{
       | "recovery_pending";
     physicalIdentity?: string | null;
   }>[];
-  results: readonly CoordinatorResultRecord[];
+  results: readonly ResultRecord[];
   historyPending: readonly HistoryRow[];
 }> &
   Readonly<{
-    schema: typeof COORDINATOR_PROJECT_SNAPSHOT_SCHEMA;
+    schema: typeof PROJECT_SNAPSHOT_SCHEMA;
     schemaRevision: 6;
     decisions: readonly Decision[];
     blockers: readonly Blocker[];
   }>;
 
 /** Repository共有状態を構成する各保存領域のSnapshot。 */
-export type CoordinatorStateSnapshot = RuntimeDomainSnapshot;
+export type ExecutionStateSnapshot = DecodedStateSnapshot;
 
 /**
  * Taskが所有する終端観測と技術Operation参照を区別する。
@@ -362,7 +271,7 @@ export type CoordinatorStateSnapshot = RuntimeDomainSnapshot;
  * @security 値を実行・削除・回復のAuthorityにしない。
  * @compatibility 既存公開Taskの真偽値は投影結果として維持する。
  */
-export type CoordinatorTaskSettlementFact =
+export type TaskSettlementFact =
   | Readonly<{ kind: "pending" }>
   | Readonly<{ kind: "unissued" }>
   | Readonly<{
@@ -377,9 +286,9 @@ export type CoordinatorTaskSettlementFact =
     }>;
 
 /**
- * durable-foundationで使用するLease Evidence RuntimeStateEnvelopeの値契約を定義する。
+ * durable-foundationで使用するLease Evidence ExecutionStateEnvelopeの値契約を定義する。
  *
- * @responsibility Lease Evidence RuntimeStateEnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Lease Evidence ExecutionStateEnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseEvidenceEnvelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseEvidenceEnvelopeで宣言した値と責務の対応を維持する。
@@ -387,22 +296,22 @@ export type CoordinatorTaskSettlementFact =
  * @security LeaseEvidenceEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility LeaseEvidenceEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type LeaseEvidenceEnvelope = RuntimeStateEnvelope &
+export type LeaseEvidenceEnvelope = ExecutionStateEnvelope &
   Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
 
 /**
- * durable-foundationで使用するRuntimeStateEnvelopeの値契約を定義する。
+ * durable-foundationで使用するExecutionStateEnvelopeの値契約を定義する。
  *
- * @responsibility RuntimeStateEnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility ExecutionStateEnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape RuntimeStateEnvelopeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RuntimeStateEnvelopeで宣言した値と責務の対応を維持する。
- * @boundary N/A: RuntimeStateEnvelopeの宣言は外部境界を開かない。
- * @security RuntimeStateEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RuntimeStateEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape ExecutionStateEnvelopeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionStateEnvelopeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionStateEnvelopeの宣言は外部境界を開かない。
+ * @security ExecutionStateEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ExecutionStateEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type RuntimeStateEnvelope = Readonly<{
-  schema: typeof COORDINATOR_DURABLE_FOUNDATION_CONTRACT;
+export type ExecutionStateEnvelope = Readonly<{
+  schema: typeof STORAGE_CONTRACT;
   schemaRevision: 1;
   recordKind: "project-state" | "queue-entry" | "lease-evidence";
   repositoryBindingId: string;
@@ -447,20 +356,19 @@ export type LeaseEvidenceContent = Readonly<{
  * @security LeaseKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility LeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type LeaseKind = CoordinatorLeaseKind;
 
 /**
  * lease-portで使用するCoordinator Lease Kindの値契約を定義する。
  *
  * @responsibility Coordinator Lease KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape CoordinatorLeaseKindが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorLeaseKindで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorLeaseKindの宣言は外部境界を開かない。
- * @security N/A: CoordinatorLeaseKindはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorLeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape LeaseKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LeaseKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LeaseKindの宣言は外部境界を開かない。
+ * @security N/A: LeaseKindはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorLeaseKind = "project-operation" | "canonical-adoption";
+export type LeaseKind = "project-operation" | "canonical-adoption";
 
 /**
  * plain-data-snapshotで使用するArray Snapshotの値契約を定義する。
@@ -487,8 +395,8 @@ export type ArraySnapshot<T> =
  * @security 定義保存は実行・受入・文書更新の許可ではない。
  * @compatibility 新形式だけ。旧Fileの変換はフロントAIが所有する。
  */
-export type RuntimeProjectDefinition = Omit<
-  CoordinatorState,
+export type ProjectDefinition = Omit<
+  ProjectExecutionState,
   | "contract"
   | "taskExecutionSelections"
   | "ownerGeneration"
@@ -511,8 +419,8 @@ export type RuntimeProjectDefinition = Omit<
  * @security 記録値を現在の実行資格として使用しない。
  * @compatibility 欠測を未実行へ補完しない。
  */
-export type RuntimeManagedExecution = Pick<
-  CoordinatorState,
+export type ManagedExecution = Pick<
+  ProjectExecutionState,
   | "projectId"
   | "milestoneId"
   | "taskExecutionSelections"
@@ -521,7 +429,7 @@ export type RuntimeManagedExecution = Pick<
 > &
   Readonly<{
     definitionHash: string;
-    tasks: readonly (Omit<CoordinatorStoredTask, "definition"> &
+    tasks: readonly (Omit<StoredTask, "definition"> &
       Readonly<{ taskId: string }>)[];
   }>;
 
@@ -536,7 +444,7 @@ export type RuntimeManagedExecution = Pick<
  * @security codec成立から認可・出版・資源不存在を推定しない。
  * @compatibility crdd-domain/runtime-state/v3のみを表す。
  */
-export type RuntimeDomainSnapshot = CoordinatorUnifiedSnapshot;
+export type DecodedStateSnapshot = UnifiedSnapshot;
 
 /**
  * 管理実行の保存行へCore定義を結合した、codec内部だけの導出値。
@@ -548,8 +456,11 @@ export type RuntimeDomainSnapshot = CoordinatorUnifiedSnapshot;
  * @security 値は現在の実行資格ではない。
  * @compatibility 旧Schemaの入力や互換読取りを提供しない。
  */
-export type RuntimeStoredManagedProject = Omit<CoordinatorState, "tasks"> &
-  Readonly<{ tasks: readonly CoordinatorStoredTask[] }>;
+export type ExecutionStoredManagedProject = Omit<
+  ProjectExecutionState,
+  "tasks"
+> &
+  Readonly<{ tasks: readonly StoredTask[] }>;
 
 /**
  * 共通状態の物理改訂と元本文Hashを表す。
@@ -576,7 +487,7 @@ export type StateVersion = Readonly<{
  * @security Root確認を操作認可の代用品にしない。
  * @compatibility 新Role・Grant・Authority発行を追加しない。
  */
-export type RuntimeAccess = Readonly<{
+export type ExecutionModelAccess = Readonly<{
   root: Repository;
   principalId: string;
   revalidate: (
@@ -602,7 +513,7 @@ export type RuntimeAccess = Readonly<{
  * @security 生Error・Path・秘密値を返さない。
  * @compatibility 保存確認は通常保存・読戻し・排他解放まで。
  */
-export type RuntimeWriteResult<T> =
+export type ExecutionModelSaveResult<T> =
   | Readonly<{ status: "saved"; value: T; version: StateVersion }>
   | Readonly<{
       status: "conflict";
@@ -645,7 +556,7 @@ export type RuntimeWriteResult<T> =
  * @security 現在の認可を返却前に再確認する。
  * @compatibility 新しいCache・ページングは追加しない。
  */
-export type RuntimeReadResult<T> =
+export type ExecutionModelReadResult<T> =
   | Readonly<{ status: "available"; value: T; version: StateVersion }>
   | Readonly<{ status: "absent"; value: null; version: StateVersion | null }>
   | Readonly<{
@@ -672,26 +583,26 @@ export type RuntimeReadResult<T> =
  * @security Rootは観測対象であり実行Authorityではない。
  * @compatibility 元の引数と観測回数を維持する。
  */
-export type CoordinatorRootObservedInput<T extends readonly unknown[]> =
-  T extends [unknown, ...infer Rest]
-    ? Rest extends [...infer Prefix, infer Observations]
-      ? [
-          ...Prefix,
-          {
-            [K in keyof Observations]: K extends
-              | "resourcesAbsent"
-              | "observeRoot"
-              ? Observations[K] extends (...args: infer A) => infer R
-                ? (repositoryRoot: string, ...args: A) => R
-                : never
-              : Observations[K];
-          },
-        ]
-      : never
-    : never;
+export type RootObservedInput<T extends readonly unknown[]> = T extends [
+  unknown,
+  ...infer Rest,
+]
+  ? Rest extends [...infer Prefix, infer Observations]
+    ? [
+        ...Prefix,
+        {
+          [K in keyof Observations]: K extends "resourcesAbsent" | "observeRoot"
+            ? Observations[K] extends (...args: infer A) => infer R
+              ? (repositoryRoot: string, ...args: A) => R
+              : never
+            : Observations[K];
+        },
+      ]
+    : never
+  : never;
 
 /** 保存候補の全照合後、同じ短期Owner内で一度だけ呼ぶCoordinatorの同期回収操作。 */
-export type CoordinatorLeaseRecoveryInput = [
+export type LeaseRecoveryInput = [
   binding: string,
   projectId: string,
   queueId: string,
@@ -701,9 +612,9 @@ export type CoordinatorLeaseRecoveryInput = [
     rootIdentity: string;
     queue: ProjectQueueEntry | null;
   }>,
-  ownIntents: CoordinatorSnapshot["leaseIntents"],
-  pending: CoordinatorSnapshot["leaseIntents"][number],
-  first: CoordinatorSnapshot["leaseIntents"][number],
+  ownIntents: Snapshot["leaseIntents"],
+  pending: Snapshot["leaseIntents"][number],
+  first: Snapshot["leaseIntents"][number],
   recoveryId: string,
   operations: Readonly<{
     observeRoot: (repositoryRoot: string) => Readonly<{
@@ -725,9 +636,9 @@ export type CoordinatorLeaseRecoveryInput = [
  * @security 型を操作認可にしない。
  * @compatibility 固定された既存属性だけを返す。
  */
-export type RuntimeDefinitionValues = {
+export type ExecutionDefinitionValues = {
   "plan.save": Readonly<{
-    definition: CoordinatorObjectivePlan;
+    definition: ObjectivePlan;
     definitionHash: string;
   }>;
   "objective.create": Readonly<{
@@ -760,22 +671,101 @@ export type RuntimeDefinitionValues = {
  * @security Host Pathや実行Authorityを返さない。
  * @compatibility 新しい保存正本を作らない。
  */
-export type RuntimeContentViews = {
-  plan: RuntimeDefinitionValues["plan.save"];
-  objectives: readonly RuntimeDefinitionValues["objective.create"][];
+export type ExecutionContentViews = {
+  plan: ExecutionDefinitionValues["plan.save"];
+  objectives: readonly ExecutionDefinitionValues["objective.create"][];
   tasks: readonly Readonly<
-    RuntimeDefinitionValues["task.create"] & {
-      execution: RuntimeManagedExecution["tasks"][number] | null;
+    ExecutionDefinitionValues["task.create"] & {
+      execution: ManagedExecution["tasks"][number] | null;
     }
   >[];
   decisions: Readonly<{
-    decisions: CoordinatorSnapshot["decisions"];
-    blockers: CoordinatorSnapshot["blockers"];
+    decisions: Snapshot["decisions"];
+    blockers: Snapshot["blockers"];
   }>;
-  workspaces: CoordinatorSnapshot["workspaces"];
-  queue: CoordinatorSnapshot["queueEntries"];
+  workspaces: Snapshot["workspaces"];
+  queue: Snapshot["queueEntries"];
   runtime: Readonly<{
-    project: RuntimeProjectDefinition;
-    execution: RuntimeManagedExecution | null;
+    project: ProjectDefinition;
+    execution: ManagedExecution | null;
   }>;
 };
+
+/** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */
+export type LeaseReadRequest = Readonly<
+  | {
+      kind: "acquisition";
+      input: Parameters<
+        typeof import("./validation.ts").projectLeaseAcquisitionOwner
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "owner_loss";
+      input: RootObservedInput<
+        Parameters<typeof import("./validation.ts").projectLeaseOwnerLossState>
+      >;
+    }
+>;
+
+/** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */
+export type LeaseRecoveryRequest = Readonly<
+  | {
+      kind: "reconcile";
+      input: RootObservedInput<
+        Parameters<
+          typeof import("./validation.ts").prepareReleasedLeaseReconciliation
+        >
+      >;
+    }
+  | {
+      kind: "intent";
+      input: RootObservedInput<
+        Parameters<
+          typeof import("./validation.ts").prepareLeaseRecoveryReservation
+        >
+      >;
+    }
+  | { kind: "observed"; input: LeaseRecoveryInput }
+>;
+
+/** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */
+export type LeaseReleaseRequest = Readonly<
+  | {
+      kind: "intent";
+      input: Parameters<
+        typeof import("./validation.ts").prepareLeaseReleaseIntent
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+  | {
+      kind: "observed";
+      input: Parameters<
+        typeof import("./validation.ts").prepareLeaseReleaseSettlement
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+>;
+
+/** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */
+export type LeaseAcquisitionRequest = Readonly<
+  | {
+      kind: "intent";
+      input: RootObservedInput<
+        Parameters<
+          typeof import("./validation.ts").prepareLeaseAcquisitionReservation
+        >
+      >;
+    }
+  | {
+      kind: "observed";
+      input: Parameters<
+        typeof import("./validation.ts").prepareLeaseAcquisitionConfirmation
+      > extends [unknown, ...infer Rest]
+        ? Rest
+        : never;
+    }
+>;

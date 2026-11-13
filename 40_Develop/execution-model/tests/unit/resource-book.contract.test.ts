@@ -7,25 +7,21 @@
  * @packageDocumentation
  * @scope 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
  */
+import { decodeStateSnapshot } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createResourceOperationFixture } from "../support/resource-operation.ts";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
+import type { OperationResources } from "../../src/attempt/types.ts";
 import {
-  applyCoordinatorResourceCleanup,
-  applyCoordinatorResourceEvent,
+  applyResourceCleanup,
+  applyResourceEvent,
+  areTaskResourcesSettled,
+  validateOperationIdentity,
+  validateResourceBook,
+  validateResourceBookTransition,
 } from "../../src/attempt/validation.ts";
-import type { CoordinatorResourceBook } from "../../src/attempt/types.ts";
-import {
-  coordinatorTaskResourcesAreSettled,
-  validateCoordinatorResourceBook,
-  validateCoordinatorResourceBookTransition,
-  validateCoordinatorOperationIdentity,
-} from "../../src/attempt/validation.ts";
-import {
-  decodeRuntimeDomainSnapshot,
-  prepareCoordinatorStateResourceSnapshot,
-} from "../../src/index.ts";
+
+import { createResourceOperationFixture } from "../support/resource-operation.ts";
 
 const ID = "a".repeat(64);
 const EVIDENCE = {
@@ -42,7 +38,7 @@ const CLEANUP = {
 /** 未発行の技術終端と、Host・Lease・結果の確定を混同しない。 */
 test("要求前の切断は資源終端だけを満たし、単独条件の欠測・不明を拒否する", () => {
   const fixture = createResourceOperationFixture();
-  const decoded = decodeRuntimeDomainSnapshot(fixture.bytes, fixture.binding);
+  const decoded = decodeStateSnapshot(fixture.bytes, fixture.binding);
   assert.ok(decoded);
   const original = decoded.snapshot.operations[0];
   assert.ok(original?.kind === "docker_task");
@@ -51,7 +47,7 @@ test("要求前の切断は資源終端だけを満たし、単独条件の欠�
     phase: "settling" as const,
     execution: { ...original.execution, ownerEffect: "disabled" as const },
   };
-  assert.equal(coordinatorTaskResourcesAreSettled(stopped), true);
+  assert.equal(areTaskResourcesSettled(stopped), true);
   assert.equal(stopped.host.cleanup, "not_requested");
   assert.equal(stopped.lease, "held");
   assert.equal(stopped.outcome, null);
@@ -78,11 +74,7 @@ test("要求前の切断は資源終端だけを満たし、単独条件の欠�
     ),
   ] as const) {
     const value = { ...stopped, ...change } as unknown as typeof stopped;
-    assert.equal(
-      coordinatorTaskResourcesAreSettled(value),
-      false,
-      String(label),
-    );
+    assert.equal(areTaskResourcesSettled(value), false, String(label));
   }
 });
 
@@ -134,8 +126,8 @@ function snapshot(
  * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
  * @boundary 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
  */
-function initial(): CoordinatorResourceBook {
-  const book = applyCoordinatorResourceEvent(null, {
+function initial(): OperationResources {
+  const book = applyResourceEvent(null, {
     event: "submission",
     key: "first",
     snapshot: snapshot(),
@@ -160,11 +152,7 @@ function initial(): CoordinatorResourceBook {
 test("Operation Identityはv3だけを受理し旧資源名・Imageコピーを保存しない", () => {
   const { identity, binding } = createResourceOperationFixture();
   assert.equal(
-    validateCoordinatorOperationIdentity(
-      identity,
-      identity.operationNonce,
-      binding,
-    ),
+    validateOperationIdentity(identity, identity.operationNonce, binding),
     true,
   );
   for (const invalid of [
@@ -173,11 +161,7 @@ test("Operation Identityはv3だけを受理し旧資源名・Imageコピーを�
     { ...identity, images: {} },
   ])
     assert.equal(
-      validateCoordinatorOperationIdentity(
-        invalid,
-        identity.operationNonce,
-        binding,
-      ),
+      validateOperationIdentity(invalid, identity.operationNonce, binding),
       false,
     );
 });
@@ -209,7 +193,7 @@ test("保存codecは初回Snapshot＋Intentを同じ改訂へ結合し別Operati
         },
       })),
     };
-    const next = prepareCoordinatorStateResourceSnapshot(
+    const next = prepareStateResourceSnapshot(
       f.bytes,
       f.recoveryId,
       {
@@ -225,7 +209,7 @@ test("保存codecは初回Snapshot＋Intentを同じ改訂へ結合し別Operati
       continue;
     }
     assert.ok(next);
-    const read = decodeRuntimeDomainSnapshot(next, f.binding);
+    const read = decodeStateSnapshot(next, f.binding);
     assert.ok(read);
     assert.equal(read.snapshot.revision, 2);
     const operation = read.snapshot.operations[0];
@@ -236,7 +220,7 @@ test("保存codecは初回Snapshot＋Intentを同じ改訂へ結合し別Operati
       "intent_saved",
     );
     assert.equal(
-      prepareCoordinatorStateResourceSnapshot(
+      prepareStateResourceSnapshot(
         f.bytes,
         "other-operation",
         {
@@ -270,10 +254,10 @@ test("初期Snapshotと最初のIntentは一つの記録として成立しIdenti
     ["intent_saved", "none"],
   );
   assert.equal(Object.hasOwn(book.checkpoints[0] ?? {}, "dockerId"), false);
-  assert.equal(validateCoordinatorResourceBook(null), true);
-  assert.equal(validateCoordinatorResourceBook([]), false);
+  assert.equal(validateResourceBook(null), true);
+  assert.equal(validateResourceBook([]), false);
   assert.equal(
-    applyCoordinatorResourceEvent(null, {
+    applyResourceEvent(null, {
       event: "receipt",
       key: "first",
       snapshot: snapshot(ID, "issued"),
@@ -282,6 +266,8 @@ test("初期Snapshotと最初のIntentは一つの記録として成立しIdenti
     null,
   );
 });
+
+import { prepareStateResourceSnapshot } from "../../src/state/validation.ts";
 
 /**
  * Receipt又は発見通知だけが実IDを確定しCleanupでは補完しない。
@@ -301,16 +287,11 @@ test("Receipt又は発見通知だけが実IDを確定しCleanupでは補完し�
     { key: "second", observation: "not_requested" },
   ];
   assert.equal(
-    applyCoordinatorResourceCleanup(
-      before,
-      snapshot(ID, "issued"),
-      observed,
-      EVIDENCE,
-    ),
+    applyResourceCleanup(before, snapshot(ID, "issued"), observed, EVIDENCE),
     null,
   );
   for (const event of ["receipt", "identified"]) {
-    const recorded = applyCoordinatorResourceEvent(before, {
+    const recorded = applyResourceEvent(before, {
       event,
       key: "first",
       snapshot: snapshot(ID, "issued"),
@@ -321,7 +302,7 @@ test("Receipt又は発見通知だけが実IDを確定しCleanupでは補完し�
       recorded.checkpoints[0]?.receiptSource,
       event === "receipt" ? "docker_create_result" : "runtime_reconciliation",
     );
-    const closed = applyCoordinatorResourceCleanup(
+    const closed = applyResourceCleanup(
       recorded,
       recorded.snapshot,
       observed,
@@ -332,19 +313,17 @@ test("Receipt又は発見通知だけが実IDを確定しCleanupでは補完し�
     const evidence = closed.checkpoints[0]?.absenceEvidenceSha256;
     assert.ok(evidence);
     assert.match(evidence, /^[a-f0-9]{64}$/u);
-    const repeated = applyCoordinatorResourceCleanup(
-      closed,
-      closed.snapshot,
-      observed,
-      { ...EVIDENCE, previousPayloadSha256: "c".repeat(64) },
-    );
+    const repeated = applyResourceCleanup(closed, closed.snapshot, observed, {
+      ...EVIDENCE,
+      previousPayloadSha256: "c".repeat(64),
+    });
     assert.deepEqual(
       repeated,
       closed,
       "同じ不存在の再導出で最初の証拠を変更しない",
     );
     assert.equal(
-      applyCoordinatorResourceCleanup(
+      applyResourceCleanup(
         recorded,
         snapshot("c".repeat(64), "issued"),
         observed,
@@ -353,7 +332,7 @@ test("Receipt又は発見通知だけが実IDを確定しCleanupでは補完し�
       null,
     );
     assert.equal(
-      applyCoordinatorResourceCleanup(recorded, snapshot(), observed, EVIDENCE),
+      applyResourceCleanup(recorded, snapshot(), observed, EVIDENCE),
       null,
     );
   }
@@ -373,22 +352,22 @@ test("Receipt又は発見通知だけが実IDを確定しCleanupでは補完し�
 test("未発行は元Snapshotが未発行の場合だけ記録でき、ID欠測から推測しない", () => {
   const before = initial();
   assert.ok(
-    applyCoordinatorResourceEvent(before, {
+    applyResourceEvent(before, {
       event: "not_issued",
       key: "first",
     }),
   );
   const unknown = { ...before, snapshot: snapshot(null, "unknown") };
-  assert.equal(validateCoordinatorResourceBook(unknown), true);
+  assert.equal(validateResourceBook(unknown), true);
   assert.equal(
-    applyCoordinatorResourceEvent(unknown, {
+    applyResourceEvent(unknown, {
       event: "not_issued",
       key: "first",
     }),
     null,
   );
   assert.equal(
-    applyCoordinatorResourceCleanup(
+    applyResourceCleanup(
       before,
       snapshot(),
       [
@@ -424,10 +403,7 @@ test("構成観測の更新は許可するが実ID・名前・所有Label・回�
       })),
     },
   };
-  assert.equal(
-    validateCoordinatorResourceBookTransition(before, changed),
-    true,
-  );
+  assert.equal(validateResourceBookTransition(before, changed), true);
   for (const field of ["name", "ownershipLabel"] as const) {
     const invalid = {
       ...before,
@@ -438,19 +414,16 @@ test("構成観測の更新は許可するが実ID・名前・所有Label・回�
         })),
       },
     };
-    assert.equal(
-      validateCoordinatorResourceBookTransition(before, invalid),
-      false,
-    );
+    assert.equal(validateResourceBookTransition(before, invalid), false);
   }
   assert.equal(
-    validateCoordinatorResourceBookTransition(before, {
+    validateResourceBookTransition(before, {
       ...before,
       cleanup: { ...before.cleanup, setupTimeoutMs: 2000 },
     }),
     false,
   );
-  assert.equal(validateCoordinatorResourceBookTransition(before, null), false);
+  assert.equal(validateResourceBookTransition(before, null), false);
 });
 
 /**
@@ -467,14 +440,14 @@ test("構成観測の更新は許可するが実ID・名前・所有Label・回�
 test("欠測・重複key・未正規化Command・環境値を保存しない", () => {
   const book = initial();
   assert.equal(
-    validateCoordinatorResourceBook({
+    validateResourceBook({
       ...book,
       checkpoints: [book.checkpoints[0], book.checkpoints[0]],
     }),
     false,
   );
   assert.equal(
-    validateCoordinatorResourceBook({
+    validateResourceBook({
       ...book,
       cleanup: { ...book.cleanup, cleanupOrder: ["first", "first"] },
     }),
@@ -493,10 +466,10 @@ test("欠測・重複key・未正規化Command・環境値を保存しない", (
         })),
       },
     };
-    assert.equal(validateCoordinatorResourceBook(invalid), false);
+    assert.equal(validateResourceBook(invalid), false);
   }
   assert.equal(
-    applyCoordinatorResourceCleanup(
+    applyResourceCleanup(
       book,
       book.snapshot,
       [

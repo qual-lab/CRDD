@@ -7,23 +7,24 @@
  * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  * @packageDocumentation
  */
-import type { LockResult } from "../../../lock/src/index.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import * as di from "../../../docker-isolation/src/index.ts";
+import {
+  applyResourceCleanup,
+  applyResourceEvent,
+  type OperationResources,
+} from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { PURPOSES } from "../../src/lifecycle/attempt.ts";
-import * as boundary from "../../src/lifecycle/attempt.ts";
+import type { LockResult } from "../../../lock/src/index.ts";
 import { isPrimaryFailureDiagnostic } from "../../scripts/provider-attempt-host.ts";
 import type { AttemptDiagnosticNotice, CancelResult } from "../../src/index.ts";
+import * as boundary from "../../src/lifecycle/attempt.ts";
+import { PURPOSES } from "../../src/lifecycle/attempt.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
-import {
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
-  type CoordinatorResourceBook,
-} from "../../../execution-model/src/index.ts";
 
 /**
  * DIの停止理由・観測段階を上位理由と分離して保持する。
@@ -153,12 +154,12 @@ test("必須通知は元Snapshotと回収方針を同じ実行から搬送する
  */
 test("通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できる", async () => {
   const f = fixture();
-  let book: CoordinatorResourceBook | null = null;
+  let book: OperationResources | null = null;
   let closed = false;
   await f.run({
     onCommandSubmitting: (purpose, resources) => {
       if (!purpose.startsWith("create_")) return;
-      book = applyCoordinatorResourceEvent(
+      book = applyResourceEvent(
         book,
         JSON.parse(
           JSON.stringify({ ...resources, event: "submission", key: purpose }),
@@ -167,7 +168,7 @@ test("通常Attemptの必須通知は同じBookへIntent・Receipt・最終観�
       assert.ok(book, "後続Effect前に同じ資源のIntentが成立する");
     },
     onResourceCreated: (purpose, _id, resources) => {
-      book = applyCoordinatorResourceEvent(
+      book = applyResourceEvent(
         book,
         JSON.parse(
           JSON.stringify({ ...resources, event: "receipt", key: purpose }),
@@ -177,7 +178,7 @@ test("通常Attemptの必須通知は同じBookへIntent・Receipt・最終観�
     },
     onResourcesClosed: (observation) => {
       assert.ok(book);
-      book = applyCoordinatorResourceCleanup(
+      book = applyResourceCleanup(
         book,
         JSON.parse(JSON.stringify(observation.resourceSnapshot)),
         JSON.parse(JSON.stringify(observation.resources)),

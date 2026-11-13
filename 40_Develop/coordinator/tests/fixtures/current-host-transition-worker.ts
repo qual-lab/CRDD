@@ -31,6 +31,26 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const authenticationUnknownRestart = process.argv[3] === 'restart_auth_cli_entry';
       const restartEntry = process.argv[3] === 'restart_cli_entry' || authenticationUnknownRestart;
       let restartCalls = 0, restartExpectedBytes = null, restartExpectedCheckpoint = null;
+      /**
+       * 再起動通知ごとの期待保存本文を固定差分で表す。
+       * @responsibility 実Writerの検査を再実装せず、対象外全文・改訂・元HashのOracleを独立に保つ。
+       * @trace ERB-IT-014
+       * @precondition 元bytesは同じ自己生成Rootの確認済み状態で、checkpointは各試験段階の明示値。
+       * @stimulus 初期・要求意図・受付・終端・解放後の期待checkpointを渡す。
+       * @observation 対象のdockerRestart欄だけが変わる期待本文。
+       * @oracle 公開Writerが保存した全本文と比較し余分な変更を検出する。
+       * @cleanup N/A: 期待値の構築だけ。実保存は本番Writerが担当する。
+       * @boundary 試験Oracle。遷移可否や保存Authorityは発行しない。
+       */
+      function restartCheckpointExpectation(checkpoint) {
+        const before=JSON.parse(restartExpectedBytes);
+        assert.equal(before.operations.filter(item=>item.recoveryId===id).length,1);
+        return Buffer.from(canonicalJson({
+          ...before,revision:before.revision+1,
+          previous:{revision:before.revision,payloadSha256:createHash('sha256').update(restartExpectedBytes).digest('hex')},
+          operations:before.operations.map(item=>item.recoveryId===id?{...item,dockerRestart:checkpoint}:item),
+        })+'\\n');
+      }
       if(restartEntry) {
         const restartUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/docker-desktop/restart.ts", import.meta.url).href)};
         const restartOperations = await import(restartUrl);
@@ -55,35 +75,62 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const initial = {requestId:input.requestId,scopeSha256,request:'not_issued',cleanup:'not_required',result:null};
           assert.equal(input.onRequesting(), undefined);
           for(const checkpoint of [initial,{...initial,request:'unknown',cleanup:'pending'}]) {
-            restartExpectedBytes = model.prepareCoordinatorStateRestartSnapshot(restartExpectedBytes,target.recoveryId,checkpoint,snapshot.repositoryBinding);
+            restartExpectedBytes = restartCheckpointExpectation(checkpoint);
             assert.ok(restartExpectedBytes);
           }
           assert.deepEqual(fs.readFileSync(statePath), restartExpectedBytes);
           assert.equal(input.verifyBoundary(), true);
           input.onEvent({event:'request_accepted',requestId:input.requestId,request:'issued'});
-          restartExpectedBytes = model.prepareCoordinatorStateRestartSnapshot(restartExpectedBytes,target.recoveryId,{...initial,request:'issued',cleanup:'pending'},snapshot.repositoryBinding);
+          restartExpectedBytes = restartCheckpointExpectation({...initial,request:'issued',cleanup:'pending'});
           assert.ok(restartExpectedBytes); assert.deepEqual(fs.readFileSync(statePath), restartExpectedBytes);
           assert.equal(input.verifyBoundary(), true);
           const observation = {requestId:input.requestId,status:'completed',reason:'docker_restart_settled',request:'confirmed',primaryFailure:null,stopFailure:null,startFailure:null,cleanupFailure:null,cleanupConfirmed:true,restartCompleted:true,effectOutcomeUnknown:false,startupElapsedMs:1};
           input.onEvent({event:'settled',observation});
           restartExpectedCheckpoint = {...initial,request:'confirmed',cleanup:'pending'};
-          restartExpectedBytes = model.prepareCoordinatorStateRestartSnapshot(restartExpectedBytes,target.recoveryId,restartExpectedCheckpoint,snapshot.repositoryBinding);
+          restartExpectedBytes = restartCheckpointExpectation(restartExpectedCheckpoint);
           assert.ok(restartExpectedBytes); assert.deepEqual(fs.readFileSync(statePath), restartExpectedBytes);
           assert.equal(input.verifyBoundary(), true);
           return {...observation,delivery:'confirmed'};
         }}});
       }
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+      const { canonicalJson } = await import(${JSON.stringify(new URL("../support/contract-assertions.ts", import.meta.url).href)});
       const store = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
-      const model = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
       const runtimeDomain = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
-      const historyValues = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
-      const stateValues = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
       const historyInputs = await import(${JSON.stringify(new URL("../../src/execution/persistence.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const id = process.argv[2], verified = vc.getRepository(process.cwd());
+      /**
+       * 公開Readerと実履歴のexact相関を観測する。
+       * @responsibility 私有の履歴候補生成をOracleへ借用しない。
+       * @trace ERB-IT-014
+       * @precondition 同じ自己生成Rootで履歴保存とOwner解放を確認済み。
+       * @stimulus 固定execution_historyを読み、実行全行Hashを比較する。
+       * @observation confirmed、exact単一行、lineSha256、元State不変。
+       * @oracle 欠測・別ID・未確認・Reader中の変更は拒否する。
+       * @cleanup 読取りのみ。親fixtureの終了hookがRootを回収する。
+       * @boundary 完成Readerと今回Rootの実保存物。
+       */
+      function readConfirmedHistoryFixture() {
+        const statePath=path.join(process.cwd(),'.crdd','domain-model','state.json');
+        const before=fs.readFileSync(statePath);
+        const observed=store.readRecoveryState(historyInputs.historyRepositoryInput(verified.capability),{kind:'execution_history',recoveryId:id});
+        assert.equal(observed.status,'completed');assert.equal(observed.lockReleased,true);
+        assert.equal(observed.currentHistoryPublication?.stage,'confirmed');assert.ok(observed.value);
+        assert.equal(observed.value.payloadSha256,createHash('sha256').update(before).digest('hex'));
+        const target=observed.value.snapshot.operations.find(item=>item.recoveryId===id);
+        assert.ok(target?.kind==='docker_task'&&target.history?.confirmed);
+        const bytes=fs.readFileSync(path.join(path.dirname(statePath),'history.jsonl'));
+        const confirmed=observed.currentHistoryPublication.historyFile;assert.ok(confirmed);
+        assert.deepEqual(confirmed.bytes,bytes);
+        const lines=bytes.toString('utf8').split('\\n');assert.equal(lines.length,2);assert.equal(lines[1],'');
+        assert.equal(JSON.parse(lines[0]).summary.recoveryId,id);
+        assert.equal(createHash('sha256').update(bytes).digest('hex'),target.history.lineSha256);
+        assert.deepEqual(fs.readFileSync(statePath),before);
+        return bytes;
+      }
       const reentry=['recover_cleanup','recover_history','recover_delivery'].includes(process.argv[3]);
       const expectedResources = JSON.parse(process.argv[reentry?5:4]);
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
@@ -138,9 +185,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(completed.cleanupConfirmed,true); assert.equal(completed.restartCompleted,true); assert.equal(completed.taskRecoveryCompleted,false); assert.equal(completed.recoveryId,id);
         assert.equal(restartCalls,1); assert.ok(restartExpectedCheckpoint);
         const finalCheckpoint = {...restartExpectedCheckpoint,cleanup:'confirmed',result:{status:'completed',reason:'docker_restart_settled',request:'confirmed',effectOutcomeUnknown:false}};
-        restartExpectedBytes = model.prepareCoordinatorStateRestartSnapshot(restartExpectedBytes,id,finalCheckpoint,snapshot.repositoryBinding);
+        restartExpectedBytes = restartCheckpointExpectation(finalCheckpoint);
         assert.ok(restartExpectedBytes); assert.deepEqual(fs.readFileSync(statePath),restartExpectedBytes);
-        const saved = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+        const saved = store.readRecoveryState(verified.capability);
         assert.equal(saved.status,'completed'); assert.equal(saved.lockReleased,true);
         assert.deepEqual(saved.value.snapshot.operations.find(item => item.recoveryId === id),{...target,dockerRestart:finalCheckpoint});
         assert.deepEqual(saved.value.snapshot.operations.filter(item => item.recoveryId !== id),snapshot.operations.filter(item => item.recoveryId !== id));
@@ -160,7 +207,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
             const hostLock = kernel.acquireHostOperationLock(exactRoot,hostIdentity.nonce); assert.equal(hostLock.status,'acquired'); acquired.push(hostLock.lock);
             const homeLock = kernel.acquireProviderHomeLock(item.recoveryId.split('.')[1], authority.providerHomesDirectoryCandidate()); assert.equal(homeLock.status, 'acquired'); acquired.push(homeLock.lock);
           }
-          const stateLock = kernel.acquireRuntimeStateLock(authority.runtimeStateDirectoryCandidate()); assert.equal(stateLock.status, 'acquired'); acquired.push(stateLock.lock);
+          const stateLock = kernel.acquireExecutionStateLock(authority.runtimeStateDirectoryCandidate()); assert.equal(stateLock.status, 'acquired'); acquired.push(stateLock.lock);
           assert.ok(acquired.every(lock => lock.assertLive()));
         } finally { for(const lock of acquired.reverse()) assert.equal(lock.release(),true); }
         for(const file of ['state.pending.json','state.lock','history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(path.dirname(statePath),file)),{code:'ENOENT'});
@@ -170,7 +217,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const {fileURLToPath} = await import('node:url');
         const cli = fileURLToPath(${JSON.stringify(new URL("../../bin/coordinator.ts", import.meta.url).href)});
         const handoffFailure = process.argv[3] === 'handoff_failure';
-        const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+        const before = store.readRecoveryState(verified.capability);
         assert.equal(before.status, 'completed');
         const target = before.value.snapshot.operations.find(item => item.recoveryId === id);
         assert.ok(target && target.kind === 'docker_task');
@@ -326,7 +373,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const authenticationSource = authenticationUnknownRestart ? cliSources.currentAuthenticationRecoveryCliSource : cliSources.currentRecoveryCliSource;
           const cliChildTimeout = restartEntry || ['cli_entry_cli','cli_entry_workbench','cli_entry_orchestrator'].includes(process.argv[3]) ? 120000 : 60000;
           const child = await launchHostFixture(['--experimental-test-module-mocks','-',resolvedId],authenticationSource,cliChildTimeout);
-          assert.equal(child.error, undefined); assert.equal(child.signal, null); assert.equal(child.status, 0, child.stdout+child.stderr);
+          assert.equal(child.error, undefined, child.stdout+child.stderr); assert.equal(child.signal, null, child.stdout+child.stderr); assert.equal(child.status, 0, child.stdout+child.stderr);
           assert.ok(Number.isInteger(child.pid) && child.pid > 0); assert.notEqual(child.pid, process.pid);
           report = JSON.parse(child.stdout);
         }
@@ -362,11 +409,10 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(failureReached, 1); assert.equal(handoffWrites, 0);
           for(const file of [identity.hostPaths.root, identity.hostPaths.marker]) assert.throws(() => fs.lstatSync(file), {code: 'ENOENT'});
           for(const file of ['state.pending.json', 'state.lock', 'history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(process.cwd(), '.crdd', "domain-model", file)), {code: 'ENOENT'});
-          const saved = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
-          assert.equal(saved.status, 'completed');
+          const saved = store.readRecoveryState(verified.capability,{kind:'history'});
+          assert.equal(saved.status, 'completed');assert.equal(saved.lockReleased,true);assert.ok(saved.value&&saved.historyRows);
           assert.deepEqual(saved.value.snapshot.operations, before.value.snapshot.operations.filter(item => item.recoveryId !== id));
-          const history = historyValues.decodeCoordinatorHistoryRows(fs.readFileSync(path.join(process.cwd(), '.crdd', "domain-model", 'history.jsonl')));
-          assert.ok(history);
+          const history = saved.historyRows;
           const row = history.find(item => item.recoveryId === id); assert.ok(row);
           const summary = JSON.parse(row.line).summary;
           assert.deepEqual(summary.primaryFailure, target.primaryFailure);
@@ -381,8 +427,8 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const recoveringDelivery = process.argv[3] === 'recover_delivery';
         const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const hasTemporary = ['state.lock', 'state.pending.json', 'history.pending.jsonl'].some(name => fs.existsSync(path.join(path.dirname(statePath), name)));
-        assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, hasTemporary ? 'blocked' : 'completed');
-        const observed = recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id);
+        assert.equal(store.readRecoveryState(verified.capability).status, hasTemporary ? 'blocked' : 'completed');
+        const observed = recoveringDelivery ? store.readRecoveryState(verified.capability,{kind:"delivery",recoveryId:id}) : store.readRecoveryState(historyInputs.historyRepositoryInput(verified.capability),{kind:"execution_history",recoveryId:id});
         assert.equal(observed.status, 'completed'); assert.ok(recoveringDelivery ? observed.currentDeliveryPublication : observed.currentHistoryPublication);
         const fixedState = fs.readFileSync(statePath);
         if(process.argv[4] === 'history_confirm_pending') {
@@ -393,12 +439,13 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const row = JSON.parse(published.toString()), nonce = 'e'.repeat(64);
           row.summary.operationNonce = nonce; row.summary.operationId = 'OP-888888';
           row.summary.recoveryId = 'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+row.summary.identitySha256;
-          const otherLine = Buffer.from(stateValues.encodeRuntimeStateValue(row)+'\\n');
-          assert.ok(historyValues.decodeCoordinatorHistoryRows(otherLine));
+          const otherLine = Buffer.from(canonicalJson(row)+'\\n');
+          // 検査済み元行の識別子だけを変更する。形式の正負はEM、exact再入場の拒否はここで検査する。
+          assert.notEqual(row.summary.recoveryId,id);
           for(const replacement of [null, otherLine]) {
             try {
               if(replacement === null) fs.unlinkSync(historyPath); else fs.writeFileSync(historyPath, replacement);
-              assert.equal(store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id).status, 'blocked');
+              assert.equal(store.readRecoveryState(historyInputs.historyRepositoryInput(verified.capability),{kind:"execution_history",recoveryId:id}).status, 'blocked');
               assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
               assert.deepEqual(fs.readFileSync(statePath), fixedState);
               assert.deepEqual(fs.readFileSync(pendingPath), pendingBytes); assert.deepEqual(fs.readFileSync(markerPath), markerBytes);
@@ -412,19 +459,19 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const original = fs.readFileSync(file);
           try {
             fs.writeFileSync(file, 'invalid publication');
-            assert.equal((recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id)).status, 'blocked');
+            assert.equal((recoveringDelivery ? store.readRecoveryState(verified.capability,{kind:"delivery",recoveryId:id}) : store.readRecoveryState(historyInputs.historyRepositoryInput(verified.capability),{kind:"execution_history",recoveryId:id})).status, 'blocked');
             assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
             assert.deepEqual(fs.readFileSync(statePath), fixedState);
           } finally { fs.writeFileSync(file, original); }
         }
         const unexpected = path.join(path.dirname(statePath), 'unexpected');
-        try { fs.writeFileSync(unexpected, 'fixture'); assert.equal((recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id)).status, 'blocked'); }
+        try { fs.writeFileSync(unexpected, 'fixture'); assert.equal((recoveringDelivery ? store.readRecoveryState(verified.capability,{kind:"delivery",recoveryId:id}) : store.readRecoveryState(historyInputs.historyRepositoryInput(verified.capability),{kind:"execution_history",recoveryId:id})).status, 'blocked'); }
         finally { fs.unlinkSync(unexpected); }
         if(fs.existsSync(path.join(path.dirname(statePath), 'history.pending.jsonl'))) {
           const configRoot = path.join(process.cwd(), '.crdd', 'config'), configPath = path.join(configRoot, 'coordinator.json');
           assert.equal(fs.existsSync(configPath), false); fs.mkdirSync(configRoot, { recursive: true });
           try { fs.writeFileSync(configPath, JSON.stringify({ schemaRevision: 1, historyRetentionDays: 60 }));
-            assert.equal(store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(historyInputs.historyRepositoryInput(verified.capability), id).status, 'blocked');
+            assert.equal(store.readRecoveryState(historyInputs.historyRepositoryInput(verified.capability),{kind:"execution_history",recoveryId:id}).status, 'blocked');
             assert.deepEqual(fs.readFileSync(statePath), fixedState);
           } finally { fs.unlinkSync(configPath); }
         }
@@ -438,9 +485,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const delivered = recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(prepared.capability);
           assert.equal(delivered.status, 'completed', delivered.reason); assert.equal(delivered.deliveryPending, true);
           assert.equal(recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(prepared.capability).filesystemEffectIssued, false);
-          assert.equal(store.readRuntimeOwnedCoordinatorRecoveryResult(verified.capability, id).status, 'completed');
+          assert.equal(store.readOwnedRecoveryResult(verified.capability, id).status, 'completed');
         }
-        const after = fs.readFileSync(statePath), line = runtimeDomain.prepareCoordinatorStateHistoryLine(after, id, observed.value.snapshot.repositoryBinding);
+        const after = fs.readFileSync(statePath), line = readConfirmedHistoryFixture();
         assert.ok(line); assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), line);
         assert.equal(recovery.completeRuntimeOwnedDockerTaskRecoveryHistory(prepared.capability).filesystemEffectIssued, false);
         assert.deepEqual(fs.readFileSync(statePath), after);
@@ -451,20 +498,20 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const pendingPath = path.join(path.dirname(statePath), 'state.pending.json');
         const lockPath = path.join(path.dirname(statePath), 'state.lock');
-        assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, 'blocked');
-        const observed = store.readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot(verified.capability, id);
+        assert.equal(store.readRecoveryState(verified.capability).status, 'blocked');
+        const observed = store.readRecoveryState(verified.capability,{kind:"host_cleanup",recoveryId:id});
         assert.equal(observed.status, 'completed'); assert.equal(observed.lockReleased, true);
         assert.ok(observed.hostCleanupPublication); assert.equal(observed.hostCleanupPublication.mode, process.argv[4]);
         const expected = Buffer.from(observed.hostCleanupPublication.candidate);
         const stateBefore = fs.readFileSync(statePath), lockBefore = fs.readFileSync(lockPath);
         const pendingBefore = fs.existsSync(pendingPath) ? fs.readFileSync(pendingPath) : null;
         fs.writeFileSync(pendingPath, process.argv[4] === 'C' ? expected : Buffer.from('invalid pending'));
-        assert.equal(store.readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot(verified.capability, id).status, 'blocked');
+        assert.equal(store.readRecoveryState(verified.capability,{kind:"host_cleanup",recoveryId:id}).status, 'blocked');
         assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
         assert.deepEqual(fs.readFileSync(statePath), stateBefore);
         if(pendingBefore) fs.writeFileSync(pendingPath, pendingBefore); else fs.unlinkSync(pendingPath);
         fs.writeFileSync(lockPath, 'invalid lock');
-        assert.equal(store.readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot(verified.capability, id).status, 'blocked');
+        assert.equal(store.readRecoveryState(verified.capability,{kind:"host_cleanup",recoveryId:id}).status, 'blocked');
         fs.writeFileSync(lockPath, lockBefore);
         const prepared = recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability);
         assert.equal(prepared.status, 'prepared');
@@ -479,7 +526,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(refusedExecution.status,'blocked');assert.equal(refusedExecution.reason,'docker_task_recovery_owner_unconfirmed');
           assert.equal(rejectedEffects,0);
           assert.equal(recovery.cleanupRuntimeOwnedDockerTaskHost(prepared.capability), true);
-          const after = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+          const after = store.readRecoveryState(verified.capability);
           assert.equal(after.status, 'completed'); assert.equal(after.lockReleased, true);
           assert.deepEqual(fs.readFileSync(statePath), expected);
           assert.throws(() => fs.lstatSync(pendingPath), { code: 'ENOENT' });
@@ -499,7 +546,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       }
       if(process.argv[3] === 'driver' || process.argv[3].startsWith('completion_')) {
         absenceProfile=await ${savedAbsenceProcessProfileSource};
-        const initial = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+        const initial = store.readRecoveryState(verified.capability);
         assert.equal(initial.status, 'completed'); assert.equal(initial.lockReleased, true); assert.ok(initial.value);
         const targets = initial.value.snapshot.operations.filter(item => item.recoveryId === id);
         assert.equal(targets.length, 1);
@@ -571,13 +618,13 @@ export const currentHostTransitionWorkerSource = `(async () => {
           if(process.argv[3] === 'completion_pending') {
             assert.equal(injected, true); assert.equal(completed.status, 'blocked'); assert.equal(completed.operationRemovalConfirmed, false);
             assert.equal(recovery.completeRuntimeOwnedDockerTaskTransientRecovery(result.preparation).filesystemEffectIssued, false);
-            assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, 'blocked');
-            assert.equal(store.readRuntimeOwnedCoordinatorCurrentCompletionSnapshot(verified.capability, id).status, 'completed');
+            assert.equal(store.readRecoveryState(verified.capability).status, 'blocked');
+            assert.equal(store.readRecoveryState(verified.capability,{kind:"execution_completion",recoveryId:id}).status, 'completed');
             const pendingPath = path.join(path.dirname(statePath), 'state.pending.json'), pendingBytes = fs.readFileSync(pendingPath), fixedCurrent = fs.readFileSync(statePath);
             try {
               for(const invalid of [fixedCurrent, Buffer.from('foreign pending')]) {
                 fs.writeFileSync(pendingPath, invalid);
-                assert.equal(store.readRuntimeOwnedCoordinatorCurrentCompletionSnapshot(verified.capability, id).status, 'blocked');
+                assert.equal(store.readRecoveryState(verified.capability,{kind:"execution_completion",recoveryId:id}).status, 'blocked');
                 assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
                 assert.deepEqual(fs.readFileSync(statePath), fixedCurrent); assert.deepEqual(fs.readFileSync(pendingPath), invalid);
               }
@@ -587,13 +634,13 @@ export const currentHostTransitionWorkerSource = `(async () => {
             completed = recovery.completeRuntimeOwnedDockerTaskTransientRecovery(freshRecovery.preparation);
           } else if(process.argv[3] === 'completion_marker') {
             assert.equal(injected, true); assert.equal(completed.status, 'blocked'); assert.equal(completed.operationRemovalConfirmed, false);
-            assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, 'blocked');
-            const cleanup = store.cleanupRuntimeOwnedCoordinatorStateMarker(verified.capability);
+            assert.equal(store.readRecoveryState(verified.capability).status, 'blocked');
+            const cleanup = store.removeStatePublicationMarker(verified.capability);
             assert.equal(cleanup.status, 'completed'); assert.equal(cleanup.markerRemoved, true);
             completed = null;
           }
           if(completed) { assert.equal(completed.status, 'completed', completed.reason); assert.equal(completed.operationRemovalConfirmed, true); assert.equal(completed.taskRecoveryCompleted, true); assert.equal(completed.lockReleased, true); }
-          const current = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+          const current = store.readRecoveryState(verified.capability);
           assert.equal(current.status, 'completed'); assert.equal(current.value.snapshot.operations.some(item => item.recoveryId === id), false);
           assert.deepEqual(fs.readFileSync(historyPath), historyBefore);
           assert.equal(recovery.completeRuntimeOwnedDockerTaskTransientRecovery(result.preparation).filesystemEffectIssued, false);
@@ -601,7 +648,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }
         process.stdout.write('current_host_storage_verified'); return;
       }
-      const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+      const before = store.readRecoveryState(verified.capability);
       assert.equal(before.status, 'completed'); assert.equal(before.lockReleased, true); assert.ok(before.value);
       const targets = before.value.snapshot.operations.filter(item => item.recoveryId === id);
       assert.equal(targets.length, 1);
@@ -612,9 +659,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const expectedToken = 'host.'+loaded.parsed.rootName+'.'+loaded.parsed.nonce+'.'+createHash('sha256').update(expectedBytes).digest('hex');
       const intent = { currentToken: operation.host.currentToken, expectedToken, rootName: loaded.parsed.rootName, nonce: loaded.parsed.nonce, currentState: 'docker_submission_started', nextState: 'docker_absent_confirmed', recordBefore: loaded.record };
       const middle = { ...before.value.snapshot, revision: before.value.snapshot.revision+1, previous: { revision: before.value.snapshot.revision, payloadSha256: before.value.payloadSha256 }, operations: before.value.snapshot.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, pendingTransitionJson: JSON.stringify(intent)+'\\n' } } : item) };
-      const middleBytes = Buffer.from(stateValues.encodeRuntimeStateValue(middle)+'\\n');
+      const middleBytes = Buffer.from(canonicalJson(middle)+'\\n');
       const final = { ...middle, revision: middle.revision+1, previous: { revision: middle.revision, payloadSha256: createHash('sha256').update(middleBytes).digest('hex') }, operations: middle.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, currentToken: expectedToken, pendingTransitionJson: null } } : item) };
-      const finalBytes = Buffer.from(stateValues.encodeRuntimeStateValue(final)+'\\n');
+      const finalBytes = Buffer.from(canonicalJson(final)+'\\n');
       const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
       const versions = [], rename = fs.renameSync, open = fs.openSync;
       const publicationFault = process.argv[3] === 'null_outcome' || process.argv[3].startsWith('history_') || process.argv[3].startsWith('delivery_') || process.argv[3] === 'workbench_transient' ? 'none' : process.argv[3];
@@ -634,7 +681,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(recovery.confirmRuntimeOwnedDockerTaskHostAbsence(capability), true);
         assert.equal(versions.length, 2); assert.deepEqual(versions[0], middleBytes); assert.deepEqual(versions[1], finalBytes);
         assert.deepEqual(fs.readFileSync(statePath), finalBytes);
-        const after = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+        const after = store.readRecoveryState(verified.capability);
         assert.equal(after.status, 'completed'); assert.equal(after.lockReleased, true);
         assert.deepEqual(after.value.snapshot, final);
         assert.equal(after.value.payloadSha256, createHash('sha256').update(finalBytes).digest('hex'));
@@ -654,9 +701,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(recovery.releaseRuntimeOwnedDockerTaskRecoveryPreparation(capability), true); capability = null;
         assert.equal(versions.length, 2);
         const cleanupIntent = { ...final, revision: final.revision+1, previous: { revision: final.revision, payloadSha256: createHash('sha256').update(finalBytes).digest('hex') }, operations: final.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, cleanup: 'pending' } } : item) };
-        const cleanupIntentBytes = Buffer.from(stateValues.encodeRuntimeStateValue(cleanupIntent)+'\\n');
+        const cleanupIntentBytes = Buffer.from(canonicalJson(cleanupIntent)+'\\n');
         const cleanupFinal = { ...cleanupIntent, revision: cleanupIntent.revision+1, previous: { revision: cleanupIntent.revision, payloadSha256: createHash('sha256').update(cleanupIntentBytes).digest('hex') }, operations: cleanupIntent.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, cleanup: 'confirmed' } } : item) };
-        const cleanupFinalBytes = Buffer.from(stateValues.encodeRuntimeStateValue(cleanupFinal)+'\\n');
+        const cleanupFinalBytes = Buffer.from(canonicalJson(cleanupFinal)+'\\n');
         const cleanup = recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability);
         assert.equal(cleanup.status, 'prepared'); capability = cleanup.capability;
         injectCleanupFault = true;
@@ -664,7 +711,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(publicationFault !== 'none') {
           assert.equal(faultInjected, true);
           assert.deepEqual(fs.readFileSync(statePath), publicationFault === 'C' ? cleanupFinalBytes : cleanupIntentBytes);
-          assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, 'blocked');
+          assert.equal(store.readRecoveryState(verified.capability).status, 'blocked');
           const heldVersions = versions.length;
           assert.equal(recovery.cleanupRuntimeOwnedDockerTaskHost(capability), false); assert.equal(versions.length, heldVersions);
           assert.equal(recovery.releaseRuntimeOwnedDockerTaskRecoveryPreparation(capability), true); capability = null;
@@ -708,19 +755,29 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(terminal.status, 'completed'); assert.equal(terminal.snapshotConfirmed, true); assert.equal(terminal.lockReleased, true);
         assert.equal(versions.length, 5);
         const terminalExpected = { ...cleanupFinal, revision: cleanupFinal.revision + 1, previous: { revision: cleanupFinal.revision, payloadSha256: createHash('sha256').update(cleanupFinalBytes).digest('hex') }, operations: cleanupFinal.operations.map(item => item.recoveryId !== id ? item : { ...item, phase: 'settling', lease: 'released', outcome: item.outcome === null ? { status: 'blocked', reason: 'docker_process_controller_execution_failed_closed', cleanupConfirmed: true } : { ...item.outcome, cleanupConfirmed: true } }) };
-        assert.deepEqual(fs.readFileSync(statePath), Buffer.from(stateValues.encodeRuntimeStateValue(terminalExpected)+'\\n'));
+        assert.deepEqual(fs.readFileSync(statePath), Buffer.from(canonicalJson(terminalExpected)+'\\n'));
         assert.equal(recovery.finalizeRuntimeOwnedDockerTaskRecoveryPreparation(capability).snapshotConfirmed, false);
         assert.equal(versions.length, 5);
         const historyFault = process.argv[3].startsWith('history_') ? process.argv[3] : null;
         if(historyFault) {
-          const fixed = model.prepareCoordinatorStateHistorySnapshot(Buffer.from(stateValues.encodeRuntimeStateValue(terminalExpected)+'\\n'), id, new Date().toISOString(), false, terminalExpected.repositoryBinding);
-          const line = runtimeDomain.prepareCoordinatorStateHistoryLine(fixed, id, terminalExpected.repositoryBinding);
-          const row = JSON.parse(line.toString()), nonce = 'f'.repeat(64);
-          row.occurredAt = new Date(Date.now()-45*86400000).toISOString(); row.summary.operationNonce = nonce;
-          row.summary.recoveryId = 'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+row.summary.identitySha256;
-          row.summary.operationId = 'OP-999999';
-          const oldLine = Buffer.from(stateValues.encodeRuntimeStateValue(row)+'\\n'); assert.ok(historyValues.decodeCoordinatorHistoryRows(oldLine));
+          const nonce='f'.repeat(64),identitySha256='e'.repeat(64);
+          assert.notEqual(id.split('.')[2],nonce);
+          const terminalTarget=terminalExpected.operations.find(item=>item.recoveryId===id);assert.ok(terminalTarget);assert.notEqual(terminalTarget.identitySha256,identitySha256);
+          const row={schema:'crdd-coordinator/history-row/v2',occurredAt:new Date(Date.now()-45*86400000).toISOString(),summary:{
+            schema:'crdd-coordinator/operation-summary/v2',operationId:'OP-999999',operationNonce:nonce,
+            recoveryId:'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+identitySha256,identitySha256,primaryFailure:null,
+            execution:{providerStart:'not_started',externalSend:'not_issued',sharedWrite:'not_issued',ownerEffect:'disabled',workspaceReusable:false},
+            outcome:{status:'cancelled',reason:'provider_operation_cancelled',cleanupConfirmed:true},hostCleanup:'confirmed',lease:'released',
+          }};
+          const oldLine = Buffer.from(canonicalJson(row)+'\\n');
           fs.writeFileSync(path.join(path.dirname(statePath), 'history.jsonl'), oldLine);
+          const beforeHistoryRead=fs.readFileSync(statePath);
+          const saved=store.readRecoveryState(verified.capability,{kind:'history'});
+          assert.equal(saved.status,'completed');assert.equal(saved.lockReleased,true);assert.ok(saved.value&&saved.historyRows);
+          assert.equal(saved.historyRows.length,1);assert.equal(saved.historyRows[0].recoveryId,row.summary.recoveryId);
+          assert.equal(saved.historyRows[0].line,oldLine.toString('utf8'));
+          assert.deepEqual(fs.readFileSync(statePath),beforeHistoryRead);
+          assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath),'history.jsonl')),oldLine);
         }
         const historyRename = fs.renameSync; let historyInjected = false;
         fs.renameSync = (from, to) => {
@@ -749,18 +806,22 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(history.status, 'completed', history.reason); assert.equal(history.historyConfirmed, true); assert.equal(history.lockReleased, true);
           assert.equal(versions.length, 7);
         }
-        const historyState = model.decodeRuntimeDomainSnapshot(fs.readFileSync(statePath), terminalExpected.repositoryBinding);
-        assert.ok(historyState);
+        const historyBytes=fs.readFileSync(statePath),historyRead=store.readRecoveryState(verified.capability);
+        assert.equal(historyRead.status,'completed',historyRead.reason);assert.equal(historyRead.lockReleased,true);assert.ok(historyRead.value);
+        assert.deepEqual(Buffer.from(historyRead.value.sourceText,'utf8'),historyBytes);
+        assert.equal(historyRead.value.payloadSha256,createHash('sha256').update(historyBytes).digest('hex'));
+        assert.deepEqual(fs.readFileSync(statePath),historyBytes);
+        const historyState=historyRead.value;
         const historyOperation = historyState.snapshot.operations.find(item => item.recoveryId === id);
         assert.ok(historyOperation.history.confirmed);
-        const historyLine = runtimeDomain.prepareCoordinatorStateHistoryLine(fs.readFileSync(statePath), id, terminalExpected.repositoryBinding);
+        const historyLine = readConfirmedHistoryFixture();
         assert.ok(historyLine); assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), historyLine);
         const historyBefore = fs.readFileSync(statePath);
         if(!historyFault) { assert.equal(recovery.completeRuntimeOwnedDockerTaskRecoveryHistory(capability).historyConfirmed, true); assert.equal(versions.length, 7); }
         assert.deepEqual(fs.readFileSync(statePath), historyBefore);
         assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), historyLine);
         if(!historyFault) {
-          assert.equal(store.readRuntimeOwnedCoordinatorRecoveryResult(verified.capability, id).status, 'blocked');
+          assert.equal(store.readOwnedRecoveryResult(verified.capability, id).status, 'blocked');
           const deliveryFault = process.argv[3].startsWith('delivery_') ? process.argv[3] : null;
           const deliveryRename = fs.renameSync, deliveryUnlink = fs.unlinkSync; let deliveryInjected = false;
           fs.renameSync = (from, to) => {
@@ -790,12 +851,16 @@ export const currentHostTransitionWorkerSource = `(async () => {
             assert.equal(delivery.filesystemEffectIssued, deliveryFault !== null);
             assert.equal(recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(capability).filesystemEffectIssued, false);
           }
-          const delivered = model.decodeRuntimeDomainSnapshot(fs.readFileSync(statePath), terminalExpected.repositoryBinding);
-          assert.ok(delivered);
+          const deliveredBytes=fs.readFileSync(statePath),deliveredRead=store.readRecoveryState(verified.capability);
+          assert.equal(deliveredRead.status,'completed',deliveredRead.reason);assert.equal(deliveredRead.lockReleased,true);assert.ok(deliveredRead.value);
+          assert.deepEqual(Buffer.from(deliveredRead.value.sourceText,'utf8'),deliveredBytes);
+          assert.equal(deliveredRead.value.payloadSha256,createHash('sha256').update(deliveredBytes).digest('hex'));
+          assert.deepEqual(fs.readFileSync(statePath),deliveredBytes);
+          const delivered=deliveredRead.value;
           assert.equal(delivered.snapshot.pendingDeliveries.filter(item => item.recoveryId === id).length, deliveryFault ? 1 : 0);
           assert.deepEqual(delivered.snapshot.operations, historyState.snapshot.operations);
           assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), historyLine);
-          assert.equal(store.readRuntimeOwnedCoordinatorRecoveryResult(verified.capability, id).status, deliveryFault ? 'completed' : 'blocked');
+          assert.equal(store.readOwnedRecoveryResult(verified.capability, id).status, deliveryFault ? 'completed' : 'blocked');
           if(deliveryFault === null) assert.deepEqual(fs.readFileSync(statePath), historyBefore);
           if(deliveryFault === 'delivery_none') {
             const pendingPath = path.join(path.dirname(statePath), 'state.pending.json'), markerPath = path.join(path.dirname(statePath), 'state.lock');
@@ -803,7 +868,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
             const marker = Buffer.from(JSON.stringify({ schema: 'crdd-coordinator/state-lock/v1', repositoryBinding: terminalExpected.repositoryBinding })+'\\n');
             try {
               fs.writeFileSync(pendingPath, fixed); fs.writeFileSync(markerPath, marker);
-              assert.equal(store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id).status, 'blocked');
+              assert.equal(store.readRecoveryState(verified.capability,{kind:"delivery",recoveryId:id}).status, 'blocked');
               assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
               const rejected = recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(capability);
               assert.equal(rejected.status, 'blocked'); assert.equal(rejected.filesystemEffectIssued, false);
@@ -838,7 +903,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const refused = recovery.completeRuntimeOwnedDockerTaskTransientRecovery(capability);
         assert.equal(refused.status, 'blocked'); assert.equal(refused.filesystemEffectIssued, false);
         assert.deepEqual(fs.readFileSync(statePath), before);
-        const observed = store.readRuntimeOwnedCoordinatorCurrentCompletionSnapshot(verified.capability, id);
+        const observed = store.readRecoveryState(verified.capability,{kind:"execution_completion",recoveryId:id});
         assert.equal(observed.status, 'blocked');
       }
       process.stdout.write('current_host_storage_verified');

@@ -7,6 +7,7 @@
  * @scope 自己生成Repositoryの新Schemaだけ。
  * @boundary Domain公開API→実Filesystem・既存短期OS排他。
  */
+import { decodeStateSnapshot } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,18 +16,17 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createObjective,
   createTask,
-  decodeRuntimeDomainSnapshot,
   deleteObjective,
   deleteTask,
-  initializeRuntimeState,
+  type ExecutionModelAccess,
+  initializeExecutionState,
   queryPlan,
   queryTasks,
-  type RuntimeAccess,
   savePlan,
   updateTask,
 } from "../../src/index.ts";
+import { acquireExecutionStateLock } from "../../src/storage/lock.ts";
 import { readStableFileSnapshot } from "../../src/storage/store.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
@@ -88,7 +88,7 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
         const verified = getRepository(root);
         assert.equal(verified.status, "completed");
         if (verified.status !== "completed") return;
-        const access: RuntimeAccess = {
+        const access: ExecutionModelAccess = {
           root: verified.capability,
           principalId: "synthetic",
           revalidate: () => true,
@@ -141,9 +141,9 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
                 return originalOpen(...args);
               }) as typeof fs.openSync)
             : undefined;
-        let result: ReturnType<typeof initializeRuntimeState>;
+        let result: ReturnType<typeof initializeExecutionState>;
         try {
-          result = initializeRuntimeState(access, request);
+          result = initializeExecutionState(access, request);
         } finally {
           mock?.mock.restore();
           openMock?.mock.restore();
@@ -160,9 +160,9 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           const markerValue = JSON.parse(marker.toString("utf8"));
           assert.equal(markerValue.schema, "crdd-coordinator/state-lock/v1");
           assert.ok(
-            decodeRuntimeDomainSnapshot(pending, markerValue.repositoryBinding),
+            decodeStateSnapshot(pending, markerValue.repositoryBinding),
           );
-          const repeated = initializeRuntimeState(access, request);
+          const repeated = initializeExecutionState(access, request);
           assert.notEqual(repeated.status, "saved");
           assert.deepEqual(fs.readFileSync(markerFile), marker);
           assert.deepEqual(fs.readFileSync(pendingFile), pending);
@@ -196,7 +196,7 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
             "blocked",
           );
           assert.equal(
-            initializeRuntimeState(access, request).status,
+            initializeExecutionState(access, request).status,
             "blocked",
           );
           assert.deepEqual(
@@ -242,7 +242,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   if (verified.status !== "completed") throw Error("invalid_fixture");
   let allowed = true;
   let checks = 0;
-  const access: RuntimeAccess = {
+  const access: ExecutionModelAccess = {
     root: verified.capability,
     principalId: "principal-a",
     revalidate: () => {
@@ -251,14 +251,15 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
     },
   };
   const target = { projectId: "project-a", milestoneId: "milestone-a" };
-  const initialized = initializeRuntimeState(access, {
+  const initialized = initializeExecutionState(access, {
     ...target,
     expectedAbsence: true,
   });
   assert.equal(initialized.status, "saved", JSON.stringify(initialized));
   if (initialized.status !== "saved") return;
   assert.equal(
-    initializeRuntimeState(access, { ...target, expectedAbsence: true }).status,
+    initializeExecutionState(access, { ...target, expectedAbsence: true })
+      .status,
     "blocked",
   );
   const plan = {
@@ -428,13 +429,13 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
       assert.equal(verified.status, "completed");
       if (verified.status !== "completed") return;
       let allowed = true;
-      const access: RuntimeAccess = {
+      const access: ExecutionModelAccess = {
         root: verified.capability,
         principalId: "principal-a",
         revalidate: () => allowed,
       };
       const target = { projectId: "project-a", milestoneId: "milestone-a" };
-      const initial = initializeRuntimeState(access, {
+      const initial = initializeExecutionState(access, {
         ...target,
         expectedAbsence: true,
       });
@@ -498,10 +499,10 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
           }
           return readStableFileSnapshot(...args);
         },
-        acquireRuntimeStateLock: (
-          ...args: Parameters<typeof acquireRuntimeStateLock>
+        acquireExecutionStateLock: (
+          ...args: Parameters<typeof acquireExecutionStateLock>
         ) => {
-          const lock = acquireRuntimeStateLock(...args);
+          const lock = acquireExecutionStateLock(...args);
           if (lock.status !== "acquired" || mode !== "release") return lock;
           return {
             ...lock,
@@ -591,7 +592,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
       const verified = getRepository(root);
       assert.equal(verified.status, "completed");
       if (verified.status !== "completed") return;
-      const access: RuntimeAccess = {
+      const access: ExecutionModelAccess = {
         root: verified.capability,
         principalId: "test-principal",
         revalidate: () => true,
@@ -614,7 +615,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
         milestoneId: "milestone-a",
         expectedAbsence: true,
       } as const;
-      const result = fixture.initializeRuntimeState(access, request);
+      const result = fixture.initializeExecutionState(access, request);
       assert.equal(injected, 1, JSON.stringify(result));
       assert.equal(result.status, "unknown", JSON.stringify(result));
       assert.equal(fs.existsSync(file), after);
@@ -624,6 +625,9 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
         ),
         !after,
       );
-      assert.notEqual(initializeRuntimeState(access, request).status, "saved");
+      assert.notEqual(
+        initializeExecutionState(access, request).status,
+        "saved",
+      );
     });
 });

@@ -3,14 +3,15 @@
  * @responsibility 移管元と同じ状態値・相関を扱い、保存・実行Effectを発行しない。
  * @trace ARCH-000004、ARCH-000008
  */
-import {
-  type CoordinatorStateTaskOperation,
-  isDockerRestartCheckpointSettled,
-  coordinatorTaskResourcesAreSettled,
-} from "../../../execution-model/src/index.ts";
+
 import { types } from "node:util";
-import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
-import type { RecoveryStartFailureDiagnostic, Recovery } from "./types.ts";
+import {
+  areTaskResourcesSettled,
+  type ExecutionOperationRecord,
+  isDockerRestartCheckpointSettled,
+  parseDockerTaskRecoveryId,
+} from "../../../execution-model/src/index.ts";
+import type { Recovery, RecoveryStartFailureDiagnostic } from "./types.ts";
 
 /**
  * 回復開始診断の許容段階を検証Ownerで固定する。
@@ -73,7 +74,7 @@ const RECOVERY_START_REASON_CLASS = new Map<string, string>([
  * @concurrency N/A: 実体・排他の前後照合は回収Ownerが担当する。
  */
 export function coordinatorReleasedTaskCanObserveHostAbsence(
-  operation: CoordinatorStateTaskOperation,
+  operation: ExecutionOperationRecord,
 ): boolean {
   return (
     operation.lease === "released" &&
@@ -90,7 +91,7 @@ export function coordinatorReleasedTaskCanObserveHostAbsence(
       (resource) =>
         resource.receiptSource !== null && resource.observation === "absent",
     ) &&
-    coordinatorTaskResourcesAreSettled(operation)
+    areTaskResourcesSettled(operation)
   );
 }
 

@@ -10,26 +10,27 @@ import { setImmediate } from "node:timers/promises";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import type { AiSelectionChoice } from "../../../configuration-model/src/index.ts";
 import {
-  isPrincipalId,
+  inspectAiSelectionChoice,
+  readRepositoryAiSelection,
+} from "../../../configuration-model/src/index.ts";
+import {
   type ExecutionSelection,
-  initializeCoordinatorSnapshot,
+  hashExecutionSelection,
+  initializeExecutionStore,
   inspectExecutionSelection,
   inspectSingleTaskRecord,
   inspectTaskExecutionSelections,
-  normalizeRepositoryRelativePath,
-  observeRuntimeOwnedTransientTaskCompletion,
+  isPrincipalId,
+  observeTransientTaskCompletion,
   type ProjectQueueEntry,
-  readCoordinatorTaskIntakeState,
+  readTaskIntakeState,
   type SingleTaskRecord,
-  snapshotRuntimeStateArray,
-  snapshotRuntimeStateRecord,
   type TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
-import { readRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
+  type Repository,
   readRepositoryRevision,
   resolveVerifiedRepositoryRoot,
-  type Repository,
 } from "../../../version-control/src/index.ts";
 import {
   recoverProviderAdviceHostOperation,
@@ -51,13 +52,15 @@ import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
-
+import {
+  normalizeRepositoryRelativePath,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../input/snapshot.ts";
 import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../selection/resolve.ts";
-import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
-import { inspectAiSelectionChoice } from "../../../configuration-model/src/index.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
@@ -110,7 +113,7 @@ export type SingleTaskOutcome = Readonly<{
       readonly Readonly<{ text: string; references: readonly string[] }>[]
     >
   > | null;
-  workspaceResult: CoordinatorWorkspaceResult | null;
+  workspaceResult: WorkspaceResult | null;
 }>;
 
 /**
@@ -163,10 +166,10 @@ export function inspectSingleTaskCommand(
     "workspaceId",
   ];
   const r =
-    snapshotRuntimeStateRecord(raw, new Set([...keys, "choice"])) ??
-    snapshotRuntimeStateRecord(raw, new Set(keys));
-  const refs = snapshotRuntimeStateArray<string>(r?.contextReferences, 1);
-  const paths = snapshotRuntimeStateArray<string>(
+    snapshotPlainRecord(raw, new Set([...keys, "choice"])) ??
+    snapshotPlainRecord(raw, new Set(keys));
+  const refs = snapshotPlainArray<string>(r?.contextReferences, 1);
+  const paths = snapshotPlainArray<string>(
     r?.allowedPaths,
     Number.MAX_SAFE_INTEGER,
   );
@@ -277,7 +280,7 @@ export function createCoordinatorTaskRequests(
   const ports = (epoch: string) =>
     createCoordinatorSnapshotStatePort(deps.root, deps.binding, epoch);
   const recoverRecord = async (requestId: string) => {
-    const current = readCoordinatorTaskIntakeState(
+    const current = readTaskIntakeState(
       verifyRuntimePersistenceRepository(deps.root),
       deps.binding,
     );
@@ -535,7 +538,7 @@ export function createCoordinatorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_session_capacity",
         };
-      let current = readCoordinatorTaskIntakeState(
+      let current = readTaskIntakeState(
         verifyRuntimePersistenceRepository(deps.root),
         deps.binding,
       );
@@ -579,7 +582,7 @@ export function createCoordinatorTaskRequests(
               reason: "orchestrator_task_previous_cleanup_unconfirmed",
             };
         }
-        current = readCoordinatorTaskIntakeState(
+        current = readTaskIntakeState(
           verifyRuntimePersistenceRepository(deps.root),
           deps.binding,
         );
@@ -844,7 +847,7 @@ export function createCoordinatorTaskRequests(
           const workspaceResult =
             outcome.workspaceResult === null
               ? null
-              : snapshotCoordinatorWorkspaceResult(outcome.workspaceResult);
+              : inspectWorkspaceResult(outcome.workspaceResult);
           if (
             !next ||
             outcome.mode !== command.mode ||
@@ -928,7 +931,7 @@ export function createCoordinatorTaskRequests(
         );
       const item = requests.get(requestId);
       if (item) return item.snapshot;
-      const current = readCoordinatorTaskIntakeState(
+      const current = readTaskIntakeState(
         verifyRuntimePersistenceRepository(deps.root),
         deps.binding,
       );
@@ -1061,7 +1064,7 @@ function view(
       references: readonly string[];
     }>[],
     candidate: null,
-    workspaceResult: null as CoordinatorWorkspaceResult | null,
+    workspaceResult: null as WorkspaceResult | null,
   };
 }
 
@@ -1084,7 +1087,7 @@ function snapshotSingleTaskOutcome(
   raw: unknown,
   executionSelection: ExecutionSelection,
 ): SingleTaskOutcome | null {
-  const value = snapshotRuntimeStateRecord(
+  const value = snapshotPlainRecord(
     raw,
     new Set([
       "mode",
@@ -1114,11 +1117,11 @@ function snapshotSingleTaskOutcome(
   const workspaceResult =
     value.workspaceResult === null
       ? null
-      : snapshotCoordinatorWorkspaceResult(value.workspaceResult);
+      : inspectWorkspaceResult(value.workspaceResult);
   if (value.workspaceResult !== null && workspaceResult === null) return null;
   let advice: SingleTaskOutcome["advice"] = null;
   if (value.advice !== null) {
-    const groups = snapshotRuntimeStateRecord(
+    const groups = snapshotPlainRecord(
       value.advice,
       new Set([
         "facts",
@@ -1138,20 +1141,17 @@ function snapshotSingleTaskOutcome(
       "additionalInferences",
       "nextOptions",
     ]) {
-      const items = snapshotRuntimeStateArray(
+      const items = snapshotPlainArray(
         groups[key as keyof typeof groups],
         Number.MAX_SAFE_INTEGER,
       );
       if (items.status !== "ok") return null;
       const rows = [];
       for (const item of items.value) {
-        const row = snapshotRuntimeStateRecord(
-          item,
-          new Set(["text", "references"]),
-        );
+        const row = snapshotPlainRecord(item, new Set(["text", "references"]));
         if (!row || typeof row.text !== "string" || row.text.length === 0)
           return null;
-        const refs = snapshotRuntimeStateArray<string>(
+        const refs = snapshotPlainArray<string>(
           row.references,
           Number.MAX_SAFE_INTEGER,
         );
@@ -1205,7 +1205,7 @@ export function openTaskSession(context: TaskSessionContext) {
   const consumer = context.consumer ?? "workbench";
   const root = resolveVerifiedRepositoryRoot(rootCapability);
   if (root === null) throw new Error("orchestrator_task_root_invalid");
-  const initialized = initializeCoordinatorSnapshot(
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(root),
     deriveCoordinatorRepositoryBindingId(root),
   );
@@ -1249,7 +1249,7 @@ export function openTaskSession(context: TaskSessionContext) {
       for (const recoveryId of unresolved) {
         if (
           recoveryId.startsWith("docker-task.") &&
-          observeRuntimeOwnedTransientTaskCompletion(
+          observeTransientTaskCompletion(
             rootCapability,
             recoveryId,
             record.operationId,
@@ -1590,5 +1590,5 @@ export async function runTask(
   return Object.freeze(result);
 }
 
-import { snapshotCoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
-import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
+import { inspectWorkspaceResult } from "../../../execution-model/src/index.ts";

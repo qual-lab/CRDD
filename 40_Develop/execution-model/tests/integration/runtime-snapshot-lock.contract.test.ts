@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
+import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 /**
@@ -69,7 +69,7 @@ test("Host Windows: Snapshot排他は配下・case差を統一しCrash後の残�
     });
     assert.equal(String(ready), "ready");
     for (const contender of [root, nested, root.toUpperCase()]) {
-      const result = acquireCoordinatorSnapshotPilotLock(contender);
+      const result = acquireSnapshotPilotLock(contender);
       try {
         assert.equal(result.status, "blocked");
         assert.equal(result.reason, "orchestrator_snapshot_lock_unavailable");
@@ -79,7 +79,7 @@ test("Host Windows: Snapshot排他は配下・case差を統一しCrash後の残�
         }
       }
     }
-    const independent = acquireCoordinatorSnapshotPilotLock(otherRoot);
+    const independent = acquireSnapshotPilotLock(otherRoot);
     assert.equal(independent.status, "completed");
     if (independent.status === "completed") {
       try {
@@ -98,7 +98,7 @@ test("Host Windows: Snapshot排他は配下・case差を統一しCrash後の残�
       await closed;
     }
   }
-  assert.equal(acquireCoordinatorSnapshotPilotLock(root).status, "blocked");
+  assert.equal(acquireSnapshotPilotLock(root).status, "blocked");
   const lockDirectory = path.join(root, ".crdd");
   const names = fs
     .readdirSync(lockDirectory)
@@ -119,11 +119,11 @@ test("Host Windows: Snapshot排他は配下・case差を統一しCrash後の残�
   assert.equal(current.ino, stat.ino);
   assert.deepEqual(fs.readFileSync(file), bytes);
   fs.unlinkSync(file);
-  const next = acquireCoordinatorSnapshotPilotLock(root);
+  const next = acquireSnapshotPilotLock(root);
   assert.equal(next.status, "completed");
   if (next.status === "completed") assert.equal(next.value.release(), true);
   assert.equal(
-    acquireCoordinatorSnapshotPilotLock(path.join(root, "missing")).status,
+    acquireSnapshotPilotLock(path.join(root, "missing")).status,
     "blocked",
   );
 });

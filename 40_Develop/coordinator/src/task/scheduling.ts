@@ -4,8 +4,8 @@
  * @trace ARCH-000004
  */
 import type {
+  ProjectExecutionState,
   ProjectTaskRecord,
-  CoordinatorState,
 } from "../../../execution-model/src/index.ts";
 
 /**
@@ -120,9 +120,9 @@ function conflicts(left: ProjectTaskRecord, right: ProjectTaskRecord) {
  *
  * @responsibility Schedulable Project Tasksの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState
+ * @input state: ProjectExecutionState
  * @returns readonly string[]を返す。
- * @precondition 「state: CoordinatorState」がselectSchedulableProjectTasksの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState」がselectSchedulableProjectTasksの入力契約を満たす。
  * @postcondition selectSchedulableProjectTasksの責務を完了した結果だけを返す。
  * @effect N/A: selectSchedulableProjectTasksは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: selectSchedulableProjectTasksは独自の失敗分岐を所有しない。
@@ -132,7 +132,7 @@ function conflicts(left: ProjectTaskRecord, right: ProjectTaskRecord) {
  * @concurrency N/A: selectSchedulableProjectTasksは共有非同期状態を持たない同期処理である。
  */
 export function selectSchedulableProjectTasks(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
 ): readonly string[] {
   const available = Math.max(
     0,

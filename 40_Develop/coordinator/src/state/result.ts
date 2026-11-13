@@ -5,20 +5,20 @@
  * @trace ARCH-000004
  */
 
-import type { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
+import type { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 
 /**
  * port-resultで使用するCoordinator Port 結果の値契約を定義する。
  *
  * @responsibility Coordinator Port 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape CoordinatorPortResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorPortResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorPortResultの宣言は外部境界を開かない。
- * @security N/A: CoordinatorPortResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorPortResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape PortResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PortResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PortResultの宣言は外部境界を開かない。
+ * @security N/A: PortResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PortResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorPortResult<T> = Readonly<
+export type PortResult<T> = Readonly<
   | { status: "completed"; reason: string; value: T }
   | {
       status: "blocked";
@@ -36,9 +36,9 @@ export type CoordinatorPortResult<T> = Readonly<
  *
  * @responsibility Runtime Data Boundary Blockedの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
- * @input error: RepositoryRuntimeDataAreaBlockedError
+ * @input error: ExecutionStorageBlockedError
  * @returns coordinatorDataBoundaryBlockedの計算結果を返す。
- * @precondition 「error: RepositoryRuntimeDataAreaBlockedError」がcoordinatorDataBoundaryBlockedの入力契約を満たす。
+ * @precondition 「error: ExecutionStorageBlockedError」がcoordinatorDataBoundaryBlockedの入力契約を満たす。
  * @postcondition coordinatorDataBoundaryBlockedの責務を完了した結果だけを返す。
  * @effect N/A: coordinatorDataBoundaryBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: coordinatorDataBoundaryBlockedは独自の失敗分岐を所有しない。
@@ -48,7 +48,7 @@ export type CoordinatorPortResult<T> = Readonly<
  * @concurrency N/A: coordinatorDataBoundaryBlockedは共有非同期状態を持たない同期処理である。
  */
 export function coordinatorDataBoundaryBlocked(
-  error: RepositoryRuntimeDataAreaBlockedError,
+  error: ExecutionStorageBlockedError,
 ) {
   const ownerReleased =
     error.cause !== "coordinator_snapshot_lock_release_unconfirmed";
@@ -84,7 +84,7 @@ export function coordinatorDataBoundaryBlocked(
  * @security StoreResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility StoreResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type StoreResult<T> = CoordinatorPortResult<T>;
+export type StoreResult<T> = PortResult<T>;
 
 /**
  * completedを決定する。
@@ -136,4 +136,4 @@ export function blocked<T>(
   });
 }
 
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../execution-model/src/index.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "./projection.ts";

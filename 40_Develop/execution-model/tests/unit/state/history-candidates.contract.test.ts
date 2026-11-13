@@ -8,23 +8,21 @@
  * @boundary メモリだけ。publisher・実Owner・Fileを操作しない。
  */
 
+import type { Snapshot } from "../../../src/state/types.ts";
+import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { HistoryRow } from "../../../src/history/types.ts";
 import {
-  prepareCoordinatorHistoryPending,
-  prepareCoordinatorHistoryTransfer,
-  prepareCoordinatorTerminalRecordRetirement,
+  prepareHistoryPending,
+  prepareHistoryTransfer,
+  prepareTerminalRecordRetirement,
 } from "../../../src/history/validation.ts";
-import {
-  type CoordinatorResultRecord,
-  type CoordinatorSnapshot,
-  encodeRuntimeStateValue,
-  type HistoryRow,
-  type LeaseEvidenceEnvelope,
-  type ProjectQueueEntry,
-} from "../../../src/index.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
-import { COORDINATOR_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
+import type { ProjectQueueEntry } from "../../../src/index.ts";
+import type { LeaseEvidenceEnvelope } from "../../../src/state/types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import type { ResultRecord } from "../../../src/workspace/types.ts";
+import { EXECUTION_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
 
 /**
  * 一般Queue終了条件を検査する局所fixtureを作る。
@@ -63,9 +61,9 @@ function fixture() {
       tasks: [],
       objectives: [],
     },
-  ] as unknown as CoordinatorSnapshot["projects"];
-  const current: CoordinatorSnapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  ] as unknown as Snapshot["projects"];
+  const current: Snapshot = {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
@@ -111,7 +109,7 @@ function observations() {
       obligations: () => {
         calls.push("obligations");
         return {
-          schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+          schema: PROJECT_SNAPSHOT_SCHEMA,
           processId: 7,
           leaseResourcesAbsent: () => {
             calls.push("lease");
@@ -150,27 +148,24 @@ function observations() {
 test("pending生成は時刻・Schemaを先に検査し既存対象の観測を省く", () => {
   const { current, row } = fixture(),
     o = observations(),
-    before = encodeRuntimeStateValue(current);
+    before = encodeStateValue(current);
+  assert.equal(prepareHistoryPending(current, -1, o.ops).status, "blocked");
   assert.equal(
-    prepareCoordinatorHistoryPending(current, -1, o.ops).status,
-    "blocked",
-  );
-  assert.equal(
-    prepareCoordinatorHistoryPending(
-      { ...current, schema: "wrong" } as unknown as CoordinatorSnapshot,
+    prepareHistoryPending(
+      { ...current, schema: "wrong" } as unknown as Snapshot,
       1000,
       o.ops,
     ).status,
     "blocked",
   );
   assert.deepEqual(o.calls, []);
-  const result = prepareCoordinatorHistoryPending(current, 1000, o.ops);
+  const result = prepareHistoryPending(current, 1000, o.ops);
   assert.equal(result.status, "completed");
   assert.deepEqual(o.calls, ["obligations", "lease", "lease"]);
   if (result.status === "completed")
     assert.deepEqual(result.value.next, { ...current, historyPending: [row] });
   const existing = observations();
-  const repeated = prepareCoordinatorHistoryPending(
+  const repeated = prepareHistoryPending(
     { ...current, historyPending: [row] },
     1000,
     existing.ops,
@@ -178,7 +173,7 @@ test("pending生成は時刻・Schemaを先に検査し既存対象の観測を�
   assert.equal(repeated.status, "completed");
   assert.deepEqual(existing.calls, []);
   if (repeated.status === "completed") assert.equal(repeated.value.next, null);
-  assert.equal(encodeRuntimeStateValue(current), before);
+  assert.equal(encodeStateValue(current), before);
 });
 /**
  * Queue退役でのみ世代を作り、対象外区画を全文保持する。
@@ -209,7 +204,7 @@ test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepo
     ],
     historyPending: [f.row],
   };
-  const result = prepareCoordinatorTerminalRecordRetirement(current, o.ops);
+  const result = prepareTerminalRecordRetirement(current, o.ops);
   assert.equal(result.status, "completed");
   assert.deepEqual(o.calls, [
     "obligations",
@@ -242,10 +237,10 @@ test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepo
 test("退役は観測不能・非同期の履歴を拒否しepochを発行しない", () => {
   const f = fixture(),
     current = { ...f.current, historyPending: [f.row] },
-    before = encodeRuntimeStateValue(current);
+    before = encodeStateValue(current);
   for (const value of [null, Promise.resolve("recorded"), true]) {
     const o = observations();
-    const result = prepareCoordinatorTerminalRecordRetirement(current, {
+    const result = prepareTerminalRecordRetirement(current, {
       ...o.ops,
       historySettlement: () => {
         o.calls.push("history");
@@ -258,7 +253,7 @@ test("退役は観測不能・非同期の履歴を拒否しepochを発行しな
   const o = observations();
   assert.throws(
     () =>
-      prepareCoordinatorTerminalRecordRetirement(current, {
+      prepareTerminalRecordRetirement(current, {
         ...o.ops,
         historySettlement: () => {
           throw Error("observation");
@@ -267,7 +262,7 @@ test("退役は観測不能・非同期の履歴を拒否しepochを発行しな
     /observation/,
   );
   assert.equal(o.calls.includes("epoch"), false);
-  assert.equal(encodeRuntimeStateValue(current), before);
+  assert.equal(encodeStateValue(current), before);
 });
 /**
  * pending搬送は全行確認又は最初の未確認で短絡する。
@@ -286,7 +281,7 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
     other = { ...f.row, id: "queue-b" },
     current = { ...f.current, historyPending: [f.row, other] };
   const calls: string[] = [];
-  const bad = prepareCoordinatorHistoryTransfer(current, {
+  const bad = prepareHistoryTransfer(current, {
     historySettlement: (row) => {
       calls.push(row.id);
       return null;
@@ -294,7 +289,7 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
   });
   assert.equal(bad.status, "blocked");
   assert.deepEqual(calls, ["queue-a"]);
-  const result = prepareCoordinatorHistoryTransfer(current, {
+  const result = prepareHistoryTransfer(current, {
     historySettlement: (row) => (row.id === "queue-a" ? "recorded" : "expired"),
   });
   assert.equal(result.status, "completed");
@@ -302,7 +297,7 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
     assert.deepEqual(result.value.value, { recorded: 1, expired: 1 });
     assert.deepEqual(result.value.next, { ...current, historyPending: [] });
   }
-  const empty = prepareCoordinatorHistoryTransfer(f.current, {
+  const empty = prepareHistoryTransfer(f.current, {
     historySettlement: () => {
       throw Error("must_not_run");
     },
@@ -325,8 +320,8 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
 test("adoption-only退役と退役零件はepochを生成しない", () => {
   const f = fixture(),
     id = "adoption-a";
-  const record: CoordinatorResultRecord = {
-    contract: COORDINATOR_INTEGRATION_CONTRACT,
+  const record: ResultRecord = {
+    contract: EXECUTION_INTEGRATION_CONTRACT,
     kind: "adoption",
     repositoryBindingId: "binding-a",
     projectId: "project-adoption",
@@ -369,7 +364,7 @@ test("adoption-only退役と退役零件はepochを生成しない", () => {
     historyPending: [{ ...f.row, id }],
   };
   const o = observations(),
-    result = prepareCoordinatorTerminalRecordRetirement(current, o.ops);
+    result = prepareTerminalRecordRetirement(current, o.ops);
   assert.equal(result.status, "completed");
   assert.equal(o.calls.includes("epoch"), false);
   if (result.status === "completed") {
@@ -378,7 +373,7 @@ test("adoption-only退役と退役零件はepochを生成しない", () => {
     assert.deepEqual(result.value.next?.queueEntries, current.queueEntries);
   }
   const zero = observations(),
-    none = prepareCoordinatorTerminalRecordRetirement(f.current, zero.ops);
+    none = prepareTerminalRecordRetirement(f.current, zero.ops);
   assert.equal(none.status, "completed");
   if (none.status === "completed") assert.equal(none.value.next, null);
   assert.deepEqual(zero.calls, []);

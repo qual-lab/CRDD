@@ -6,34 +6,27 @@
  */
 
 import { createHash } from "node:crypto";
-import type { PreparationInput } from "./types.ts";
-import {
-  startRuntimeOwnedDockerProcessController,
-  abandonRuntimeOwnedExecutorAttempt,
-  cancelRuntimeOwnedDockerProcessController,
-} from "./provider-executor.ts";
 import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
 import {
-  finishProviderExecutionRecording,
-  reportExecutionRecordingUnavailable,
-  type ProviderExecutionRecording,
-} from "./intelligence.ts";
-import {
-  type CoordinatorStateTaskOperation,
-  coordinatorTaskResourcesAreSettled,
+  areTaskResourcesSettled,
+  type ExecutionOperationRecord,
+  hashExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   parseHostRecoveryToken,
 } from "../../../execution-model/src/index.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
+import type {
+  CompletionResult,
+  ProcessStartedNotice,
+} from "../../../executor/src/index.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
-  checkpointRuntimeOwnedCoordinatorHost,
-  readRuntimeOwnedCoordinatorStateSnapshot,
+  readOperationStateStage,
+  saveOperationCheckpoint,
 } from "../execution/persistence.ts";
-import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
@@ -59,16 +52,18 @@ import {
   writeDevelopmentMeasurementProgress,
 } from "./diagnostics.ts";
 import {
+  finishProviderExecutionRecording,
+  type ProviderExecutionRecording,
+  reportExecutionRecordingUnavailable,
+} from "./intelligence.ts";
+import {
   observeCoordinatorTaskCompletion,
   type ProviderBoundaryDiagnosticNotice,
 } from "./observation.ts";
-import type {
-  ProcessStartedNotice,
-  CompletionResult,
-} from "../../../executor/src/index.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
+  assertOwnedHostOperationLock,
   type BorrowedExecutionTarget,
   beginOwnedDockerSubmissionRecovery,
   bindRuntimeOwnedExecutionSnapshot,
@@ -78,7 +73,6 @@ import {
   captureExecutionChangeSnapshot,
   cleanupOwnedOperationDirectoriesAsync,
   completeOwnedDockerSubmissionRecovery,
-  assertOwnedHostOperationLock,
   createProductionOperationRoot,
   createRuntimeOwnedCoordinatorOperation,
   inspectBorrowedExecutionTarget,
@@ -100,6 +94,11 @@ import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "./process-safety-state.ts";
+import {
+  abandonRuntimeOwnedExecutorAttempt,
+  cancelRuntimeOwnedDockerProcessController,
+  startRuntimeOwnedDockerProcessController,
+} from "./provider-executor.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   type CoordinatorTaskRecoveryObligation,
@@ -126,6 +125,7 @@ import {
   projectCurrentDockerAdmission,
   projectDevelopmentTaskResultAfterOuterCleanup,
 } from "./result.ts";
+import type { PreparationInput } from "./types.ts";
 import { resolveRecoveryReference } from "./validation.ts";
 
 const LIFECYCLE_NOTICE_TIMEOUT_MS = 5_000;
@@ -200,8 +200,7 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
   const nextState = isCompletingSubmission
     ? "host_only"
     : "docker_submission_started";
-  const current =
-    readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
+  const current = readOperationStateStage(managementCapability);
   const repository =
     borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
   const blocked = {
@@ -223,7 +222,7 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
       reason: current.status === "blocked" ? current.reason : blocked.reason,
     });
   const operation = current.value.snapshot.operations.find(
-    (item): item is CoordinatorStateTaskOperation =>
+    (item): item is ExecutionOperationRecord =>
       item.kind === "docker_task" && item.recoveryId === recoveryId,
   );
   if (
@@ -264,12 +263,15 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
         recordBefore: host.snapshot.record,
       };
       transition = intent;
-      const intentSaved = checkpointRuntimeOwnedCoordinatorHost(
+      const intentSaved = saveOperationCheckpoint(
         managementCapability,
         recoveryId,
         {
-          ...operation.host,
-          pendingTransitionJson: `${JSON.stringify(intent)}\n`,
+          kind: "host",
+          value: {
+            ...operation.host,
+            pendingTransitionJson: `${JSON.stringify(intent)}\n`,
+          },
         },
       );
       if (intentSaved.status !== "completed")
@@ -306,13 +308,16 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
       after.snapshot.record.state !== nextState
     )
       throw new Error("coordinator_host_submission_unconfirmed");
-    const confirmed = checkpointRuntimeOwnedCoordinatorHost(
+    const confirmed = saveOperationCheckpoint(
       managementCapability,
       recoveryId,
       {
-        currentToken: transition.expectedToken,
-        pendingTransitionJson: null,
-        cleanup: operation.host.cleanup,
+        kind: "host",
+        value: {
+          currentToken: transition.expectedToken,
+          pendingTransitionJson: null,
+          cleanup: operation.host.cleanup,
+        },
       },
     );
     return Object.freeze({
@@ -355,8 +360,7 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
     Readonly<{ consumer: "coordinator_cli" | "orchestrator" | "workbench" }>,
   mountCompletion: unknown,
 ) {
-  const current =
-    readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
+  const current = readOperationStateStage(managementCapability);
   const blocked = Object.freeze({
     status: "blocked" as const,
     reason: "coordinator_host_completion_invalid",
@@ -369,7 +373,7 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
   });
   try {
     const operation = current.value?.snapshot.operations.find(
-      (item): item is CoordinatorStateTaskOperation =>
+      (item): item is ExecutionOperationRecord =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     const repository =
@@ -441,7 +445,7 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
         return blocked;
     }
     if (
-      !coordinatorTaskResourcesAreSettled(operation) ||
+      !areTaskResourcesSettled(operation) ||
       !verifyRuntimeOwnedProviderHomeMountCompletion(
         mountCompletion,
         managementCapability,
@@ -541,7 +545,7 @@ function result(
     recoveryIds: readonly string[];
     recoveryObligations?: readonly CoordinatorTaskRecoveryObligation[];
     executorProvider?: "codex" | "claude";
-    workspaceResult?: CoordinatorWorkspaceResult;
+    workspaceResult?: WorkspaceResult;
   }>,
 ): CoordinatorTaskAttemptResult {
   return Object.freeze({
@@ -806,7 +810,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
   recoveryIds: readonly string[];
   recoveryObligations: readonly CoordinatorTaskRecoveryObligation[];
   executorProvider?: "codex" | "claude";
-  workspaceResult?: CoordinatorWorkspaceResult;
+  workspaceResult?: WorkspaceResult;
 }> | null {
   try {
     if (!isPlainContainer(value)) return null;
@@ -841,9 +845,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
     const executorProvider = ownDataProperty(value, "executorProvider");
     const hasWorkspaceResult = Object.hasOwn(value, "workspaceResult");
     const workspaceResult = hasWorkspaceResult
-      ? snapshotCoordinatorWorkspaceResult(
-          ownDataProperty(value, "workspaceResult"),
-        )
+      ? inspectWorkspaceResult(ownDataProperty(value, "workspaceResult"))
       : undefined;
     if (
       hasWorkspaceResult &&
@@ -5312,6 +5314,6 @@ export function describeCoordinatorSingleTaskAdapterContract() {
   });
 }
 
-import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../../../execution-model/src/index.ts";
 
-import { snapshotCoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import { inspectWorkspaceResult } from "../../../execution-model/src/index.ts";

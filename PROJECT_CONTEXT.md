@@ -10,7 +10,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-実行モデルの追加責務整理は今回範囲を限定完了した。固定Rootは267項目（186値・81型）で、未使用93値・内部File名／退役Temporaryの5型を外しRepairWriteRequestを追加した。修復の次Snapshot構築をEMの完成操作へ回収し、Coordinatorは期待改訂と六つの論理更新だけを渡す。未接続の旧署名Temporary Operationと専用試験は代替なし退役、Record取得は既存一実装へ統合した。共有I/O・通常回復・CAS／Lockは維持し、過去保持物は操作しない。外部Coordinator試験が依存する24 helperはRoot限定Guardを緩めず残すため、公開最小化完了とはしない。現在の契約・残件は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)、変更範囲は[追加整理候補](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#実行モデル内部責務の追加整理候補--2026-11-12)を参照。固定候補のSource・試験・台帳・文書の独立レビューは必須残指摘0、関係八型設定と限定回帰は成功した。Ownerの58件も期限変更・再実行なく正常終了し、各fixtureの終了hookに例外報告はなかった。各集合の重複は合算せず、全体回帰・実AI／Dockerは未実施である。
+実行モデルのRoot公開は134項目（96値・38型）。モデル別CRUDを維持し、複数モデルの同版取得はStateの`readState`へ集約した。旧2複合ReaderとTask側の重複Project Readerは撤去し、Coordinatorの通常状態表示は同じ取得結果からProjectと受付世代を使う。排他取得後・保存後・Workspace採用確認前後のfresh確認は削らず、4つの一般照会は維持する。現在の契約は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)、対象と限定検証は[分離・公開整理計画](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照。限定28件・複合取得2親・Queue1親・Workspace2親と型4設定、独立レビューを確認した。全公開物の最小性や全体回帰完了は主張しない。既報のChecker指摘・先行保全物・試験時間変動は別残件。全体回帰・実AI・Docker・過去保持物は操作していない。
 
 先行の区切りでは実行モデルの内部Sourceを53から24ファイルへ整理し、利用側・試験・台帳・文書の追従、限定検証と独立再レビューを完了した。7モデルの操作・検査・型と共通保存／排他を分け、旧Pathの互換層は追加していない。機密検査の7値はCoordinatorへ移管し、その時点のRootは364項目（279値・85型）。保持設定の現在性確認で見つけた期待日数の搬送漏れ2箇所も是正した。初回32 Suiteの失敗と是正影響subsetの成功を分けて記録し、最終32 Suite一括再走や全体QA成功とは主張しない。独立レビューの文書指摘1件は是正・再確認済み、残指摘0。[現在の実行契約](06_Architecture/Details/execution-model/01_Architecture.md)、[限定結果と限界](99_Roadmap/Changes/CHG-000082/Evidence/261112_model-package-split-verification.md)を参照。全体回帰・実AI／Docker・過去保持物は操作していない。
 

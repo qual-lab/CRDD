@@ -4,21 +4,19 @@
  * @responsibility CoordinatorReplanDecisionを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import {
-  snapshotRuntimeStateArray,
-  snapshotRuntimeStateRecord,
-} from "../../../execution-model/src/index.ts";
+
+import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
+import type { CoordinatorStatePort } from "../state/persistence.ts";
 import {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
 } from "../task/lifecycle.ts";
 import type {
+  CoordinatorReplanClassifier,
   CoordinatorReplanDecision,
   CoordinatorReplanInput,
-  CoordinatorReplanClassifier,
 } from "./types.ts";
-import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
-import type { CoordinatorStatePort } from "../state/persistence.ts";
 
 export const COORDINATOR_REPLANNING_CONTRACT =
   "crdd-coordinator/orchestrator-replanning/v1" as const;
@@ -83,10 +81,7 @@ function validText(value: unknown): value is string {
  * @concurrency N/A: inspectStringsは共有非同期状態を持たない同期処理である。
  */
 function inspectStrings(value: unknown, isEmptyAllowed: boolean) {
-  const snapshot = snapshotRuntimeStateArray<string>(
-    value,
-    Number.MAX_SAFE_INTEGER,
-  );
+  const snapshot = snapshotPlainArray<string>(value, Number.MAX_SAFE_INTEGER);
   if (
     snapshot.status !== "ok" ||
     (!isEmptyAllowed && snapshot.value.length === 0) ||
@@ -114,7 +109,7 @@ function inspectStrings(value: unknown, isEmptyAllowed: boolean) {
  * @concurrency N/A: inspectTaskDefinitionは共有非同期状態を持たない同期処理である。
  */
 function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
-  const task = snapshotRuntimeStateRecord(
+  const task = snapshotPlainRecord(
     value,
     new Set([
       "allowedPaths",
@@ -156,7 +151,7 @@ function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
  * @concurrency N/A: inspectDecisionは共有非同期状態を持たない同期処理である。
  */
 function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
-  const maintain = snapshotRuntimeStateRecord(
+  const maintain = snapshotPlainRecord(
     raw,
     new Set(["disposition", "reason"] as const),
   );
@@ -165,7 +160,7 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
       disposition: "maintain_plan",
       reason: maintain.reason,
     });
-  const human = snapshotRuntimeStateRecord(
+  const human = snapshotPlainRecord(
     raw,
     new Set(["disposition", "objectiveId", "reason"] as const),
   );
@@ -179,7 +174,7 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
       objectiveId: human.objectiveId,
       reason: human.reason,
     });
-  const partial = snapshotRuntimeStateRecord(
+  const partial = snapshotPlainRecord(
     raw,
     new Set(["disposition", "failedTaskId", "replacements"] as const),
   );
@@ -188,7 +183,7 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
     !validId(partial.failedTaskId)
   )
     return null;
-  const replacements = snapshotRuntimeStateArray(
+  const replacements = snapshotPlainArray(
     partial.replacements,
     Number.MAX_SAFE_INTEGER,
   );

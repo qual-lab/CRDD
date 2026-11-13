@@ -5,22 +5,21 @@
  */
 
 import type {
+  ProjectExecutionState,
+  ProjectMilestoneState,
+  ProjectTaskDefinition,
   ProjectTaskRecord,
-  ProjectTaskState,
-  ProjectTaskRecoveryObligation,
   ProjectTaskRecoveryKind,
-  CoordinatorState,
+  ProjectTaskRecoveryObligation,
+  ProjectTaskState,
 } from "../../../execution-model/src/index.ts";
-import { uniqueStrings } from "../state/validation.ts";
-
-import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
+import { projectState } from "../state/projection.ts";
 import type { StateResult } from "../state/types.ts";
 import {
-  validIdentity,
   isCoordinatorRecoveryIdentity,
+  uniqueStrings,
+  validIdentity,
 } from "../state/validation.ts";
-import { projectState } from "../state/projection.ts";
-import type { ProjectMilestoneState } from "../../../execution-model/src/index.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
 
 /**
@@ -53,9 +52,9 @@ function validCandidateIdentity(value: unknown) {
  *
  * @responsibility reserve Project Task Startの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskId: string、attemptId: string、authorityBindingId: string
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskId: string、attemptId: string、authorityBindingId: string
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、attemptId: string、authorityBindingId: string」がreserveProjectTaskStartの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskId: string、attemptId: string、authorityBindingId: string」がreserveProjectTaskStartの入力契約を満たす。
  * @postcondition reserveProjectTaskStartの責務を完了した結果だけを返す。
  * @effect N/A: reserveProjectTaskStartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: reserveProjectTaskStartは独自の失敗分岐を所有しない。
@@ -65,7 +64,7 @@ function validCandidateIdentity(value: unknown) {
  * @concurrency N/A: reserveProjectTaskStartは共有非同期状態を持たない同期処理である。
  */
 export function reserveProjectTaskStart(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   attemptId: string,
@@ -137,9 +136,9 @@ export function reserveProjectTaskStart(
  *
  * @responsibility Project Task Handoffの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string」がprepareProjectTaskHandoffの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string」がprepareProjectTaskHandoffの入力契約を満たす。
  * @postcondition prepareProjectTaskHandoffの責務を完了した結果だけを返す。
  * @effect N/A: prepareProjectTaskHandoffは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: prepareProjectTaskHandoffは独自の失敗分岐を所有しない。
@@ -149,7 +148,7 @@ export function reserveProjectTaskStart(
  * @concurrency N/A: prepareProjectTaskHandoffは共有非同期状態を持たない同期処理である。
  */
 export function prepareProjectTaskHandoff(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   attemptId: string,
@@ -193,9 +192,9 @@ export function prepareProjectTaskHandoff(
  *
  * @responsibility Project Task Startedの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string」がobserveProjectTaskStartedの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string」がobserveProjectTaskStartedの入力契約を満たす。
  * @postcondition observeProjectTaskStartedの責務を完了した結果だけを返す。
  * @effect N/A: observeProjectTaskStartedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: observeProjectTaskStartedは独自の失敗分岐を所有しない。
@@ -205,7 +204,7 @@ export function prepareProjectTaskHandoff(
  * @concurrency N/A: observeProjectTaskStartedは共有非同期状態を持たない同期処理である。
  */
 export function observeProjectTaskStarted(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   attemptId: string,
@@ -248,9 +247,9 @@ export function observeProjectTaskStarted(
  *
  * @responsibility Project Taskの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "completed" | "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; candidateId?: string | null; }>
+ * @input state: ProjectExecutionState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "completed" | "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; candidateId?: string | null; }>
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "completed" | "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; candidateId?: string | null; }>」がsettleProjectTaskの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "completed" | "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; candidateId?: string | null; }>」がsettleProjectTaskの入力契約を満たす。
  * @postcondition settleProjectTaskの責務を完了した結果だけを返す。
  * @effect N/A: settleProjectTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: settleProjectTaskは独自の失敗分岐を所有しない。
@@ -260,7 +259,7 @@ export function observeProjectTaskStarted(
  * @concurrency N/A: settleProjectTaskは共有非同期状態を持たない同期処理である。
  */
 export function settleProjectTask(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   input: Readonly<{
     taskId: string;
@@ -408,9 +407,9 @@ export function settleProjectTask(
  *
  * @responsibility Project Task Before Effectの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; }>
+ * @input state: ProjectExecutionState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; }>
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; }>」がsettleProjectTaskBeforeEffectの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; }>」がsettleProjectTaskBeforeEffectの入力契約を満たす。
  * @postcondition settleProjectTaskBeforeEffectの責務を完了した結果だけを返す。
  * @effect N/A: settleProjectTaskBeforeEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: settleProjectTaskBeforeEffectは独自の失敗分岐を所有しない。
@@ -420,7 +419,7 @@ export function settleProjectTask(
  * @concurrency N/A: settleProjectTaskBeforeEffectは共有非同期状態を持たない同期処理である。
  */
 export function settleProjectTaskBeforeEffect(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   input: Readonly<{
     taskId: string;
@@ -521,9 +520,9 @@ export function settleProjectTaskBeforeEffect(
  *
  * @responsibility Coordinator Partial Replanの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>
+ * @input state: ProjectExecutionState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>」がapplyCoordinatorPartialReplanの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>」がapplyCoordinatorPartialReplanの入力契約を満たす。
  * @postcondition applyCoordinatorPartialReplanの責務を完了した結果だけを返す。
  * @effect N/A: applyCoordinatorPartialReplanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: applyCoordinatorPartialReplanは独自の失敗分岐を所有しない。
@@ -533,7 +532,7 @@ export function settleProjectTaskBeforeEffect(
  * @concurrency N/A: applyCoordinatorPartialReplanは共有非同期状態を持たない同期処理である。
  */
 export function applyCoordinatorPartialReplan(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   input: Readonly<{
     failedTaskId: string;
@@ -670,9 +669,9 @@ export function applyCoordinatorPartialReplan(
  *
  * @responsibility stateの入力からretry Coordinator Taskを導く規則と結果境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskId: string、maximumReplans: number
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskId: string、maximumReplans: number
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、maximumReplans: number」がretryCoordinatorTaskの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskId: string、maximumReplans: number」がretryCoordinatorTaskの入力契約を満たす。
  * @postcondition retryCoordinatorTaskの責務を完了した結果だけを返す。
  * @effect N/A: retryCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: retryCoordinatorTaskは独自の失敗分岐を所有しない。
@@ -682,7 +681,7 @@ export function applyCoordinatorPartialReplan(
  * @concurrency N/A: retryCoordinatorTaskは共有非同期状態を持たない同期処理である。
  */
 export function retryCoordinatorTask(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   maximumReplans: number,
@@ -831,9 +830,9 @@ export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
  *
  * @responsibility replace Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord
+ * @input state: ProjectExecutionState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord
  * @returns replaceTaskの計算結果を返す。
- * @precondition 「state: CoordinatorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord」がreplaceTaskの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord」がreplaceTaskの入力契約を満たす。
  * @postcondition replaceTaskの責務を完了した結果だけを返す。
  * @effect N/A: replaceTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: replaceTaskは独自の失敗分岐を所有しない。
@@ -843,7 +842,7 @@ export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
  * @concurrency N/A: replaceTaskは共有非同期状態を持たない同期処理である。
  */
 export function replaceTask(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   taskId: string,
   update: (task: ProjectTaskRecord) => ProjectTaskRecord,
 ) {

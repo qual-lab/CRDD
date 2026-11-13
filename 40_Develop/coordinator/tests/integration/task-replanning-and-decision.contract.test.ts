@@ -9,18 +9,16 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import type {} from "../../../execution-model/src/index.ts";
 import {
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  hashRuntimeProjectDefinition,
-  initializeCoordinatorSnapshot,
+  readRecoveryState,
+  initializeExecutionStore,
 } from "../../../execution-model/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
@@ -140,7 +138,7 @@ function fixture(t: test.TestContext) {
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   assert.equal(
-    initializeCoordinatorSnapshot(
+    initializeExecutionStore(
       verifyRuntimePersistenceRepository(root),
       "binding-a",
     ).status,
@@ -249,28 +247,53 @@ async function failTask(root: string) {
 }
 
 /**
- * bounded partial replan supersedes the failed task and returns the queue to readyを検証する。
- *
- * @responsibility bounded partial replan supersedes the failed task and returns the queue to readyの合否判定を所有する。
+ * 部分再計画の旧Task退役・非対象定義保全と公開Readerの不整合拒否を検証する。
+ * @responsibility 再計画結果の定義・管理参照と、自己生成Fileの読取り境界を確認する。
  * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus bounded partial replan supersedes the failed task and returns the queue to readyの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 自己生成RepositoryのHEADと、確認済みの失敗Taskを用意する。
+ * @stimulus 兄弟定義を含む再計画、不正な定義HashとTask順序を実Fileへ配置する。
+ * @observation 公開Readerの本文・解放・拒否、Task退役、定義Hashと古世代Writer拒否。
+ * @oracle 正常Stateだけ読め、不正本文は変更されず、復元後の正常State上で古世代保存を拒否する。
+ * @cleanup 不正値はfinallyで今回の確認済み本文へ戻し、既存hookで自己生成Rootを回収する。
+ * @boundary PRL-IT-005=再計画→公開Reader／Writerと実Filesystem。実AI・Dockerは使わない。
  */
 test("bounded partial replan supersedes the failed task and returns the queue to ready", async (t) => {
   const { root, input } = fixture(t);
+  // 回復Readerは固定Revisionを確認するため、この自己生成RootだけにHEADを用意する。
+  execFileSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "core.hooksPath=NUL",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { windowsHide: true },
+  );
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
   const stateFile = path.join(root, ".crdd/domain-model/state.json");
   const beforeBytes = fs.readFileSync(stateFile);
-  const beforeValue = JSON.parse(beforeBytes.toString("utf8"));
-  const before = decodeRuntimeDomainSnapshot(
+  const capability = verifyRuntimePersistenceRepository(root);
+  const beforeRead = readRecoveryState(capability);
+  assert.equal(beforeRead.status, "completed", beforeRead.reason);
+  assert.equal(beforeRead.lockReleased, true);
+  assert.ok(beforeRead.value);
+  assert.deepEqual(
+    Buffer.from(beforeRead.value.sourceText, "utf8"),
     beforeBytes,
-    beforeValue.repositoryBinding,
   );
-  assert.ok(before);
+  const before = beforeRead.value;
   const definition = before.snapshot.projects[0];
   assert.ok(definition);
   const siblings = [
@@ -278,16 +301,18 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     { ...definition, projectId: "core-after" },
   ];
   const mixedBytes = Buffer.from(
-    `${encodeRuntimeStateValue({
+    `${canonicalJson({
       ...before.snapshot,
       projects: [siblings[0], definition, siblings[1]],
     })}\n`,
   );
-  assert.ok(
-    decodeRuntimeDomainSnapshot(mixedBytes, before.snapshot.repositoryBinding),
-  );
   // この試験で生成した正本だけに、管理実行を持たない兄弟定義を配置する。
   fs.writeFileSync(stateFile, mixedBytes);
+  const mixedRead = readRecoveryState(capability);
+  assert.equal(mixedRead.status, "completed", mixedRead.reason);
+  assert.equal(mixedRead.lockReleased, true);
+  assert.ok(mixedRead.value);
+  assert.deepEqual(Buffer.from(mixedRead.value.sourceText, "utf8"), mixedBytes);
   const result = resolveCoordinatorReplan(input, () => ({
     disposition: "partial_replan",
     failedTaskId: "task-a",
@@ -314,11 +339,15 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   );
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
   const publishedBytes = fs.readFileSync(stateFile);
-  const published = decodeRuntimeDomainSnapshot(
+  const publishedRead = readRecoveryState(capability);
+  assert.equal(publishedRead.status, "completed", publishedRead.reason);
+  assert.equal(publishedRead.lockReleased, true);
+  assert.ok(publishedRead.value);
+  assert.deepEqual(
+    Buffer.from(publishedRead.value.sourceText, "utf8"),
     publishedBytes,
-    before.snapshot.repositoryBinding,
   );
-  assert.ok(published);
+  const published = publishedRead.value;
   assert.deepEqual(
     published.snapshot.projects.map((project) => project.projectId),
     ["core-before", "project-a", "core-after"],
@@ -330,7 +359,22 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.ok(replanned && execution);
   assert.equal(
     execution.definitionHash,
-    hashRuntimeProjectDefinition(replanned),
+    createHash("sha256")
+      .update(
+        canonicalJson({
+          projectId: replanned.projectId,
+          milestoneId: replanned.milestoneId,
+          definition: {
+            milestoneAcceptanceCriteria: replanned.milestone.acceptanceCriteria,
+            objectives: replanned.objectives.map(
+              (objective) => objective.definition,
+            ),
+            tasks: replanned.tasks,
+          },
+        }),
+      )
+      .update("\n", "utf8")
+      .digest("hex"),
   );
   assert.deepEqual(
     execution.tasks.map((task) => task.taskId),
@@ -353,16 +397,29 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   for (const invalid of [
     { ...execution, definitionHash: "0".repeat(64) },
     { ...execution, tasks: [...execution.tasks].reverse() },
-  ])
-    assert.equal(
-      decodeRuntimeDomainSnapshot(
-        Buffer.from(
-          `${encodeRuntimeStateValue({ ...published.snapshot, managedExecutions: [invalid] })}\n`,
-        ),
-        before.snapshot.repositoryBinding,
-      ),
-      null,
+  ]) {
+    const invalidBytes = Buffer.from(
+      `${canonicalJson({ ...published.snapshot, managedExecutions: [invalid] })}\n`,
     );
+    try {
+      fs.writeFileSync(stateFile, invalidBytes);
+      const refused = readRecoveryState(capability);
+      assert.equal(refused.status, "blocked");
+      assert.equal(refused.lockReleased, true);
+      assert.equal(refused.value, null);
+      assert.deepEqual(fs.readFileSync(stateFile), invalidBytes);
+    } finally {
+      fs.writeFileSync(stateFile, publishedBytes);
+    }
+    const restored = readRecoveryState(capability);
+    assert.equal(restored.status, "completed", restored.reason);
+    assert.equal(restored.lockReleased, true);
+    assert.ok(restored.value);
+    assert.deepEqual(
+      Buffer.from(restored.value.sourceText, "utf8"),
+      publishedBytes,
+    );
+  }
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");
   assert.equal(

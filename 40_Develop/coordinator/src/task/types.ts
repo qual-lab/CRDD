@@ -5,15 +5,14 @@
  */
 
 import type { ProjectTaskRecoveryKind } from "../../../execution-model/src/index.ts";
-
-import type {
-  COORDINATOR_EXECUTION_CONTRACT,
-  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-} from "./dispatch.ts";
 import type {
   CoordinatorClockIdentityPort,
   CoordinatorPersistencePorts,
 } from "../state/persistence.ts";
+import type {
+  COORDINATOR_EXECUTION_CONTRACT,
+  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
+} from "./dispatch.ts";
 
 /**
  * Task開始の必要処置を一度だけ完了して戻る通知契約。
@@ -243,7 +242,7 @@ export type CoordinatorSingleTaskResult = Readonly<{
   recoveryIds: readonly string[];
   recoveryObligations?: readonly CoordinatorSingleTaskRecoveryObligation[];
   executorProvider?: "codex" | "claude";
-  workspaceResult?: CoordinatorWorkspaceResult;
+  workspaceResult?: WorkspaceResult;
 }>;
 
 /**
@@ -433,4 +432,4 @@ export type CoordinatorProcessSafetyPort = Readonly<{
   poisonAfterCleanupUnknown: () => void;
 }>;
 
-import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../../../execution-model/src/index.ts";

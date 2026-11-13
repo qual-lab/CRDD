@@ -5,10 +5,10 @@
  */
 
 import {
-  type CoordinatorState,
-  type ProjectDockerRecoveryAcknowledgement,
-  type ProjectResultAcceptance,
   decodeProjectResultAcceptance,
+  type ProjectDockerRecoveryAcknowledgement,
+  type ProjectExecutionState,
+  type ProjectResultAcceptance,
 } from "../../../execution-model/src/index.ts";
 import { projectState } from "../state/projection.ts";
 import type { StateResult } from "../state/types.ts";
@@ -34,7 +34,7 @@ import { replaceTask } from "./lifecycle.ts";
  * @concurrency 次世代候補へ全件を固定し、終端とACKで保存世代を二度進めない。
  */
 export function recordProjectTaskResultAcceptances(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   acceptances: readonly unknown[],
@@ -144,9 +144,9 @@ export function recordProjectTaskResultAcceptances(
  *
  * @responsibility Project Docker 回復 Obligationの確認入力、状態遷移、重複処理境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement
+ * @input state: ProjectExecutionState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement」がacknowledgeProjectDockerRecoveryObligationの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement」がacknowledgeProjectDockerRecoveryObligationの入力契約を満たす。
  * @postcondition 受領本文は同時に保存する次の業務世代を参照し、保存前の世代と混同しない。
  * @effect N/A: acknowledgeProjectDockerRecoveryObligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 受領本文、世代、Project／Milestone／Task／Attempt／Operation、Repository Binding又はsettled済みDocker回復参照が一致しない場合は、元状態を保持してblockedを返す。
@@ -156,7 +156,7 @@ export function recordProjectTaskResultAcceptances(
  * @concurrency N/A: acknowledgeProjectDockerRecoveryObligationは共有非同期状態を持たない同期処理である。
  */
 export function acknowledgeProjectDockerRecoveryObligation(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   acknowledgement: ProjectDockerRecoveryAcknowledgement,
 ): StateResult {

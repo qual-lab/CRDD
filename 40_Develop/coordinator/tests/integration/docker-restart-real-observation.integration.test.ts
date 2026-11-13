@@ -8,7 +8,7 @@
  * @scope docker、restart、real-observation
  * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
-import { runtimeStateDirectoryCandidate } from "../../src/execution/authority.ts";
+
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
@@ -16,11 +16,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import { acquireDesktopOperations } from "../../../docker-isolation/src/docker-desktop/command.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
-import { acquireRuntimeStateLock } from "../../src/execution/kernel-lock.ts";
+import { runtimeStateDirectoryCandidate } from "../../src/execution/authority.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { acquireExecutionStateLock } from "../../src/execution/kernel-lock.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
@@ -106,7 +107,7 @@ for (const hasRuntimeLock of [false, true]) {
     const session = acquired.operations;
     assert.ok(session);
     const lockAcquisition = hasRuntimeLock
-      ? acquireRuntimeStateLock(runtimeStateDirectoryCandidate())
+      ? acquireExecutionStateLock(runtimeStateDirectoryCandidate())
       : null;
     assert.ok(!lockAcquisition || lockAcquisition.status === "acquired");
     const lock =

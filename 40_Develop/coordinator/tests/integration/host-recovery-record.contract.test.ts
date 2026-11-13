@@ -8,55 +8,56 @@
  * @scope 自己生成Repository-local試験領域、初期化子Process、Host／Probe tokenとmarker。Probe記録試験はDockerを使用しない。
  * @boundary ERB-IT-003／PRL-IT-013=Direct Boundary: 明示親のHost初期化・Process消失・記録Reader→実Process／Filesystem。
  */
-import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
+
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
+import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
 import {
-  requireReadyRepositoryRuntimeDataArea,
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import {
-  writeDockerProbeRecoveryRecord,
-  loadDockerProbeRecoveryRecord,
-  parseDockerProbeRecoveryToken,
-  classifyDockerProbeRecoveryChildren,
-  requireDockerProbeRecoveryMounts,
-  formatDockerIsolationRecoveryToken,
-  isDockerIsolationRecoveryIdCandidate,
-} from "../../src/state/probe-record.ts";
-import { formatHostRecoveryToken } from "../../src/execution/result.ts";
+  abandonOwnedHostOperationGenerationLock,
+  acquireHostOperationRecoveryGeneration,
+  activateOwnedHostOperationGenerationLock,
+  beginOwnedDockerSubmissionRecovery,
+  borrowHostRecoveryManagementDirectory,
+  classifyOwnedOperationDirectoryCreationFailure,
+  cleanupOwnedOperationDirectories,
+  cleanupOwnedOperationDirectoriesAsync,
+  confirmOwnedDockerAbsenceForRecovery,
+  createOwnedMountCapability,
+  createOwnedOperationContextCapability,
+  createOwnedOperationDirectories,
+  createOwnedOperationManagementCapability,
+  getOwnedHostRecoveryId,
+  getOwnedHostRecoveryIdByManagementCapability,
+  recoverOwnedOperationDirectories,
+  releaseHostOperationRecoveryGeneration,
+  transitionHostRecoveryState,
+  verifyOwnedOperationManagementCapability,
+} from "../../src/execution/operation.ts";
 import {
   loadHostRecoveryRecordByToken,
   observeHostRecoveryCleanup,
 } from "../../src/execution/recovery.ts";
+import { formatHostRecoveryToken } from "../../src/execution/result.ts";
 import {
-  createOwnedOperationDirectories,
-  classifyOwnedOperationDirectoryCreationFailure,
-  createOwnedOperationContextCapability,
-  createOwnedMountCapability,
-  createOwnedOperationManagementCapability,
-  abandonOwnedHostOperationGenerationLock,
-  activateOwnedHostOperationGenerationLock,
-  recoverOwnedOperationDirectories,
-  cleanupOwnedOperationDirectories,
-  cleanupOwnedOperationDirectoriesAsync,
-  acquireHostOperationRecoveryGeneration,
-  releaseHostOperationRecoveryGeneration,
-  borrowHostRecoveryManagementDirectory,
-  beginOwnedDockerSubmissionRecovery,
-  verifyOwnedOperationManagementCapability,
-  confirmOwnedDockerAbsenceForRecovery,
-  transitionHostRecoveryState,
-  getOwnedHostRecoveryId,
-  getOwnedHostRecoveryIdByManagementCapability,
-} from "../../src/execution/operation.ts";
+  classifyDockerProbeRecoveryChildren,
+  formatDockerIsolationRecoveryToken,
+  isDockerIsolationRecoveryIdCandidate,
+  loadDockerProbeRecoveryRecord,
+  parseDockerProbeRecoveryToken,
+  requireDockerProbeRecoveryMounts,
+  writeDockerProbeRecoveryRecord,
+} from "../../src/state/probe-record.ts";
 
 /**
  * 移管したHost遷移の三分岐とmarker確定・adopt順を実本文で確認する。
@@ -347,8 +348,8 @@ test("Host Windows: 移管したProbe Host遷移は実markerと元Capabilityを�
  * @boundary Repository Root resolverと実Filesystem。
  */
 function hostInitializationTestDirectory(): string {
-  return requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  return requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -1359,8 +1360,8 @@ test("Host Windows: outer rollbackは現在のinitial markerを再検証でき�
  * @boundary ERB-IT-003=Direct Boundary: 明示RootのReader→実Filesystem。
  */
 test("Host Windows: Host記録は明示Rootの親へ固定しRoot不存在と読取不能を分ける", () => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -1503,8 +1504,8 @@ test("Host Windows: Host記録は明示Rootの親へ固定しRoot不存在と読
  * @boundary ERB-IT-003=Direct Boundary: creator→実世代排他／記録→実Filesystem清掃。
  */
 test("Host Windows: 非既定親のHostは元Owner終了後だけ同Rootで回復する", async () => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -1568,8 +1569,8 @@ test("Host Windows: 非既定親のHostは元Owner終了後だけ同Rootで回�
  * @boundary ERB-IT-003=Direct Boundary: 回復世代→実marker／管理Directory。
  */
 test("Host Windows: 管理領域の借用は同じstarted世代と実体を要求する", async () => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -1655,8 +1656,8 @@ test("Host Windows: 管理領域の借用は同じstarted世代と実体を要�
  * @boundary ERB-IT-003=Direct Boundary: Host遷移→実marker／世代排他／Filesystem清掃。実Docker回復は対象外。
  */
 test("Host Windows: absent遷移の再入場は事前計算したexact tokenへ固定する", async () => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),

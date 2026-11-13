@@ -12,7 +12,6 @@ import {
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
 } from "../../../execution-model/src/index.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../configuration/runtime-data.ts";
 import {
   type CommitTemporary,
   createCommit,
@@ -27,6 +26,7 @@ import {
   type WorktreeResult,
   type WorktreeTarget,
 } from "../../../version-control/src/index.ts";
+import { resolveRepositoryExecutionDataPaths } from "../configuration/runtime-data.ts";
 
 /** 検証したWorkspace UUIDから上位所有の配置とBranchを導く。Git操作は行わない。 */
 export function workspaceWorktreeTarget(workspaceId: string): WorktreeTarget {
@@ -44,7 +44,7 @@ function workspaceDirectory(root: string, workspaceId: string): string {
   const repository = getRepository(root);
   const paths =
     repository.status === "completed"
-      ? resolveRepositoryRuntimeDataPaths(repository.capability)
+      ? resolveRepositoryExecutionDataPaths(repository.capability)
       : null;
   if (paths === null) throw Error("workspace_directory_boundary_invalid");
   return path.join(paths.workspaces, workspaceId);

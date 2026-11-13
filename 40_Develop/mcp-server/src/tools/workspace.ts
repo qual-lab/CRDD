@@ -228,7 +228,7 @@ export async function handleMcpWorkspaceRequest(
   try {
     const access = resolve(args.repositoryId);
     if (!access) throw new Error("workspace_access_unavailable");
-    const { executeWorkspace: executeWorkspace } = await import(
+    const { executeWorkspace } = await import(
       "../../../coordinator/src/index.ts"
     );
     if (signal.aborted)
@@ -252,4 +252,4 @@ export async function handleMcpWorkspaceRequest(
   }
 }
 
-import { inspectWorkspaceCommand } from "../../../execution-model/src/index.ts";
+import { inspectWorkspaceCommand } from "../../../coordinator/src/index.ts";

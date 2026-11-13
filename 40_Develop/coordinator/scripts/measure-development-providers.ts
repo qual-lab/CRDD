@@ -8,19 +8,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../execution-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
+import { ExecutionStorageBlockedError } from "../../execution-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
-import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/execution/controller.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+} from "../src/configuration/runtime-data.ts";
+import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/execution/controller.ts";
+import {
+  assertSupportedCoordinatorNodeRuntime,
   cancelRuntimeOwnedDevelopmentMeasurementSession,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
+  observeRuntimeOwnedDevelopmentSource,
   readRuntimeOwnedDevelopmentMeasurementTasks,
   requestRuntimeOwnedDevelopmentMeasurementSession,
 } from "../src/execution/diagnostics.ts";
@@ -239,7 +241,7 @@ export function createIsolatedDevelopmentProviderMeasurementCandidate(
  */
 export function projectDevelopmentMeasurementEntryFailure(error: unknown) {
   return Object.freeze(
-    error instanceof RepositoryRuntimeDataAreaBlockedError
+    error instanceof ExecutionStorageBlockedError
       ? {
           status: "blocked" as const,
           reason: error.reason,
@@ -310,8 +312,8 @@ async function main() {
   const verifiedRuntimeRoot = getRepository(root);
   if (verifiedRuntimeRoot.status !== "completed")
     throw new Error("measurement_runtime_data_path_invalid");
-  const testsArea = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tests"),
+  const testsArea = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataArea(verifiedRuntimeRoot.capability, "tests"),
     "measurement_runtime_data_path_invalid",
   );
   const directory = path.join(testsArea.directory, "development-measurement");

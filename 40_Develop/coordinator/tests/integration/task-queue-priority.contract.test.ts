@@ -18,13 +18,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import {
-  initializeCoordinatorSnapshot,
-  readCoordinatorExecutionState,
+  initializeExecutionStore,
+  readState,
 } from "../../../execution-model/src/index.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
@@ -48,9 +48,10 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   const { root, ports } = fixture(t);
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
-  const previous = readCoordinatorExecutionState(
+  const previous = readState(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
+    "execution",
   );
   assert.equal(previous.status, "completed");
   if (previous.status !== "completed" || !previous.value)
@@ -81,9 +82,10 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw Error("fixture");
   const after = fs.readFileSync(file);
-  const snapshot = readCoordinatorExecutionState(
+  const snapshot = readState(
     verifyRuntimePersistenceRepository(root),
     "binding-a",
+    "execution",
   );
   assert.equal(snapshot.status, "completed");
   if (snapshot.status !== "completed" || !snapshot.value)
@@ -229,8 +231,8 @@ function fixture(
   projectIds = ["project-a"],
 ) {
   const repository = path.resolve(import.meta.dirname, "../../../..");
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(repository, "tmp"),
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(repository, "tmp"),
     "fixture_area_invalid",
   );
   const parent = fs.realpathSync.native(area.directory);
@@ -253,10 +255,8 @@ function fixture(
     assert.equal(fs.existsSync(root), false);
   });
   assert.equal(
-    initializeCoordinatorSnapshot(
-      verifyRuntimePersistenceRepository(root),
-      binding,
-    ).status,
+    initializeExecutionStore(verifyRuntimePersistenceRepository(root), binding)
+      .status,
     "completed",
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, binding);

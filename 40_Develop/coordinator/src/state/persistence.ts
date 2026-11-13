@@ -6,14 +6,14 @@
  */
 
 import type {
-  CoordinatorQueueEnqueueInput,
+  LeaseKind,
+  ProjectExecutionState,
   ProjectQueueEntry,
-  ProjectTaskResultFact,
   ProjectQueueState,
-  CoordinatorState,
-  CoordinatorLeaseKind,
+  ProjectTaskResultFact,
+  QueueEnqueueInput,
 } from "../../../execution-model/src/index.ts";
-import type { CoordinatorPortResult } from "./result.ts";
+import type { PortResult } from "./result.ts";
 
 /**
  * state-portで使用するCoordinator Queue Updateの値契約を定義する。
@@ -45,7 +45,7 @@ export type CoordinatorQueueUpdate = Readonly<{
  * @compatibility CoordinatorStatePortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorStatePort = Readonly<{
-  readWorkspaceTaskTarget?: (queueId: string) => CoordinatorPortResult<
+  readWorkspaceTaskTarget?: (queueId: string) => PortResult<
     Readonly<{
       workspaceId: string | null;
       ownerRepositoryRoot: string;
@@ -55,33 +55,29 @@ export type CoordinatorStatePort = Readonly<{
     }>
   >;
   writeState: (
-    state: CoordinatorState,
+    state: ProjectExecutionState,
     expectedGeneration: number,
     resultFacts?: readonly ProjectTaskResultFact[],
-  ) => CoordinatorPortResult<CoordinatorState>;
-  readState: (
-    projectId: string,
-  ) => CoordinatorPortResult<CoordinatorState | null>;
-  enqueueOperation: (
-    input: CoordinatorQueueEnqueueInput,
-  ) => CoordinatorPortResult<ProjectQueueEntry>;
-  readQueue: (queueId: string) => CoordinatorPortResult<ProjectQueueEntry>;
-  selectNextOperation: () => CoordinatorPortResult<ProjectQueueEntry | null>;
+  ) => PortResult<ProjectExecutionState>;
+  readState: (projectId: string) => PortResult<ProjectExecutionState | null>;
+  enqueueOperation: (input: QueueEnqueueInput) => PortResult<ProjectQueueEntry>;
+  readQueue: (queueId: string) => PortResult<ProjectQueueEntry>;
+  selectNextOperation: () => PortResult<ProjectQueueEntry | null>;
   updateQueue: (
     queueId: string,
     expectedGeneration: number,
     next: CoordinatorQueueUpdate,
-  ) => CoordinatorPortResult<ProjectQueueEntry>;
+  ) => PortResult<ProjectQueueEntry>;
   settleQueueRecovery: (
     queueId: string,
     expectedGeneration: number,
     recoveryId: string,
-  ) => CoordinatorPortResult<ProjectQueueEntry>;
+  ) => PortResult<ProjectQueueEntry>;
   settleQueueLeaseRelease: (
     queueId: string,
     expectedGeneration: number,
     ownerGeneration: string,
-  ) => CoordinatorPortResult<ProjectQueueEntry>;
+  ) => PortResult<ProjectQueueEntry>;
 }>;
 
 /**
@@ -145,9 +141,9 @@ export type CoordinatorClockIdentityPort = Readonly<{
  * @compatibility CoordinatorLeaseの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorLease = Readonly<{
-  kind: CoordinatorLeaseKind;
+  kind: LeaseKind;
   ownerGeneration: string;
-  release: () => CoordinatorPortResult<Readonly<{ released: true }>>;
+  release: () => PortResult<Readonly<{ released: true }>>;
 }>;
 
 /**
@@ -203,18 +199,18 @@ export type CoordinatorLeasePort = Readonly<{
   acquire: (
     projectId: string,
     queueId: string,
-    kind: CoordinatorLeaseKind,
-  ) => CoordinatorPortResult<CoordinatorLease>;
-  inspectAcquisitionOwner: () => CoordinatorPortResult<
+    kind: LeaseKind,
+  ) => PortResult<CoordinatorLease>;
+  inspectAcquisitionOwner: () => PortResult<
     Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
   >;
   reconcileOperationOwnerLoss: (
     projectId: string,
     queueId: string,
     observeOwner: CoordinatorLeaseOwnerObservation,
-  ) => CoordinatorPortResult<ProjectQueueEntry>;
+  ) => PortResult<ProjectQueueEntry>;
   reconcileAdoptionOwnerLoss: (
     projectId: string,
     observeOwner: CoordinatorLeaseOwnerObservation,
-  ) => CoordinatorPortResult<Readonly<{ recoveryId: string | null }>>;
+  ) => PortResult<Readonly<{ recoveryId: string | null }>>;
 }>;

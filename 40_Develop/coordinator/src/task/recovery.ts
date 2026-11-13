@@ -5,15 +5,15 @@
  */
 
 import type {
+  ProjectExecutionState,
   ProjectTaskRecoveryKind,
-  CoordinatorState,
 } from "../../../execution-model/src/index.ts";
+import { projectState } from "../state/projection.ts";
 import type { StateResult } from "../state/types.ts";
 import {
   isCoordinatorRecoveryIdentity,
   validIdentity,
 } from "../state/validation.ts";
-import { projectState } from "../state/projection.ts";
 import { replaceTask } from "./lifecycle.ts";
 
 /**
@@ -21,9 +21,9 @@ import { replaceTask } from "./lifecycle.ts";
  *
  * @responsibility 対象Task・世代・kind・回復参照を照合し、requiredからrecoveringへの純粋遷移を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がmarkProjectTaskRecoveryObligationRecoveringの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がmarkProjectTaskRecoveryObligationRecoveringの入力契約を満たす。
  * @postcondition markProjectTaskRecoveryObligationRecoveringの責務を完了した結果だけを返す。
  * @effect N/A: markProjectTaskRecoveryObligationRecoveringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 世代、Task状態、未解決状態、対象kind／recoveryId又はrequired phaseが一致しない場合は、元状態を保持してblockedを返す。
@@ -33,7 +33,7 @@ import { replaceTask } from "./lifecycle.ts";
  * @concurrency N/A: markProjectTaskRecoveryObligationRecoveringは共有非同期状態を持たない同期処理である。
  */
 export function markProjectTaskRecoveryObligationRecovering(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   kind: ProjectTaskRecoveryKind,
@@ -86,9 +86,9 @@ export function markProjectTaskRecoveryObligationRecovering(
  *
  * @responsibility Project Task 回復 Obligationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がsettleProjectTaskRecoveryObligationの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がsettleProjectTaskRecoveryObligationの入力契約を満たす。
  * @postcondition settleProjectTaskRecoveryObligationの責務を完了した結果だけを返す。
  * @effect N/A: settleProjectTaskRecoveryObligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 世代、Task状態、未解決状態、対象kind／recoveryId又はrecovering phaseが一致しない場合は、元状態を保持してblockedを返す。
@@ -98,7 +98,7 @@ export function markProjectTaskRecoveryObligationRecovering(
  * @concurrency N/A: settleProjectTaskRecoveryObligationは共有非同期状態を持たない同期処理である。
  */
 export function settleProjectTaskRecoveryObligation(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskId: string,
   kind: ProjectTaskRecoveryKind,
@@ -151,9 +151,9 @@ export function settleProjectTaskRecoveryObligation(
  *
  * @responsibility Task集合と各義務の終端を照合し、履歴を保持したままreadyへ戻す純粋遷移を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、taskIds: readonly string[]
+ * @input state: ProjectExecutionState、expectedGeneration: number、taskIds: readonly string[]
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、taskIds: readonly string[]」がretrySettledProjectTaskRecoveriesの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、taskIds: readonly string[]」がretrySettledProjectTaskRecoveriesの入力契約を満たす。
  * @postcondition retrySettledProjectTaskRecoveriesの責務を完了した結果だけを返す。
  * @effect N/A: retrySettledProjectTaskRecoveriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 世代、Task集合、Identity、義務の終端phase又は再試行可能状態が一致しない場合は、元状態を保持してblockedを返す。
@@ -163,7 +163,7 @@ export function settleProjectTaskRecoveryObligation(
  * @concurrency N/A: retrySettledProjectTaskRecoveriesは共有非同期状態を持たない同期処理である。
  */
 export function retrySettledProjectTaskRecoveries(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   taskIds: readonly string[],
 ): StateResult {
@@ -251,9 +251,9 @@ export function retrySettledProjectTaskRecoveries(
  *
  * @responsibility 開始前の不存在と開始済みの回復義務を区別し、元Taskの相関を保持する純粋遷移を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]
+ * @input state: ProjectExecutionState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]
  * @returns StateResultを返す。
- * @precondition 「state: CoordinatorState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]」がrecordProjectTaskOwnerLossRecoveriesの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]」がrecordProjectTaskOwnerLossRecoveriesの入力契約を満たす。
  * @postcondition recordProjectTaskOwnerLossRecoveriesの責務を完了した結果だけを返す。
  * @effect N/A: recordProjectTaskOwnerLossRecoveriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 世代、活動中Task集合、Operationとの件数・Identity・status・recoveryId相関が一致しない場合は、元状態を保持してblockedを返す。
@@ -263,7 +263,7 @@ export function retrySettledProjectTaskRecoveries(
  * @concurrency N/A: recordProjectTaskOwnerLossRecoveriesは共有非同期状態を持たない同期処理である。
  */
 export function recordProjectTaskOwnerLossRecoveries(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   bindings: readonly Readonly<{
     operationId: string;

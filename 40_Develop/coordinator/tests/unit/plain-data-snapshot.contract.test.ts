@@ -10,12 +10,236 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { isDeepStrictEqual } from "node:util";
+import { runInNewContext } from "node:vm";
 
 import {
+  snapshotJsonValue,
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../src/input/snapshot.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
+
+/**
+ * 入力捕捉後の値比較を保存用JSONの生成から独立させる。
+ * @responsibility キー順・prototype・負のゼロの同値と配列順・欠測の差を維持する。
+ * @trace PPR-UT-006
+ * @precondition 既存のown-data捕捉が不正値を拒否する。
+ * @stimulus 挿入順・非列挙field・共有参照・配列形式と単独不正を渡す。
+ * @observation 捕捉後のNode.js標準比較と未知コード実行数。
+ * @oracle 同じJSON値だけ同値となり、不正値は比較前に拒否する。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary 値比較のみ。保存・Hash・実資源の同一性は証明しない。
+ */
+test("捕捉済みJSON値は保存用文字列なしで同じ条件で比較できる", () => {
+  const hidden = Object.create(null);
+  Object.defineProperty(hidden, "v", { value: -0, enumerable: false });
+  const shared = { v: 1 };
+  for (const [a, b] of [
+    [hidden, { v: 0 }],
+    [
+      { z: 1, a: [true, null] },
+      { a: [true, null], z: 1 },
+    ],
+    [
+      { a: shared, b: shared },
+      { b: { v: 1 }, a: { v: 1 } },
+    ],
+    [new (class extends Array<number> {})(1, 2), [1, 2]],
+    [runInNewContext("[1,2]"), [1, 2]],
+  ])
+    assert.equal(
+      isDeepStrictEqual(snapshotJsonValue(a), snapshotJsonValue(b)),
+      true,
+    );
+  for (const [a, b] of [
+    [
+      [1, 2],
+      [2, 1],
+    ],
+    [{ v: 1 }, { v: "1" }],
+    [{}, { v: null }],
+    [{ v: 1 }, { v: 1, extra: true }],
+  ])
+    assert.equal(
+      isDeepStrictEqual(snapshotJsonValue(a), snapshotJsonValue(b)),
+      false,
+    );
+  let traps = 0;
+  const getter = Object.defineProperty({}, "v", {
+    get() {
+      traps++;
+      return 1;
+    },
+  });
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys() {
+        traps++;
+        return [];
+      },
+    },
+  );
+  const cyclic: { v?: unknown } = {};
+  cyclic.v = cyclic;
+  let deep: unknown = null;
+  for (let i = 0; i < 34; i++) deep = { v: deep };
+  const extraArray = [1];
+  Object.defineProperty(extraArray, "extra", { value: true });
+  for (const invalid of [
+    getter,
+    proxy,
+    cyclic,
+    deep,
+    { [Symbol("v")]: 1 },
+    {
+      toJSON() {
+        traps++;
+        return {};
+      },
+    },
+    new Array(1),
+    extraArray,
+    Number.MAX_SAFE_INTEGER + 1,
+  ]) {
+    assert.throws(() =>
+      isDeepStrictEqual(snapshotJsonValue(invalid), snapshotJsonValue({})),
+    );
+    assert.throws(() =>
+      isDeepStrictEqual(snapshotJsonValue({}), snapshotJsonValue(invalid)),
+    );
+  }
+  assert.equal(traps, 0);
+});
+
+/**
+ * 入力捕捉の値意味を保存用codecから独立して固定する。
+ * @responsibility 機密や保存Hashを扱わず、own-dataの独立コピーと未知実行の拒否を確認する。
+ * @trace PPR-UT-006
+ * @precondition 純粋なJSON値と明示的な不正値だけを作る。
+ * @stimulus 特殊key・descriptor・参照共有・realm・深度・数値・未知実行を渡す。
+ * @observation 捕捉値、参照同一性、例外とGetter／Proxy／toJSON到達数。
+ * @oracle 値を保持し参照を切り離し、不正入力を未知コード実行なしで拒否する。
+ * @cleanup 外部資源なし。
+ * @boundary 同一Process内の入力検査。保存成功や認可を示さない。
+ */
+test("JSON入力捕捉はown-dataの値と独立性を保持し未知実行を拒否する", () => {
+  const shared = { value: "before" };
+  const raw = Object.create(null);
+  Object.defineProperties(raw, {
+    hidden: { value: "kept", enumerable: false },
+    constructor: { value: "ordinary", enumerable: true },
+    "10": { value: "ten", enumerable: true },
+    "2": { value: "two", enumerable: true },
+    z: { value: shared, enumerable: true },
+    a: { value: shared, enumerable: true },
+  });
+  Object.defineProperty(raw, "__proto__", {
+    value: "own-data",
+    enumerable: true,
+  });
+  const copied = snapshotJsonValue(raw) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(copied), [
+    "2",
+    "10",
+    "__proto__",
+    "a",
+    "constructor",
+    "hidden",
+    "z",
+  ]);
+  assert.equal(Object.getPrototypeOf(copied), Object.prototype);
+  assert.equal(Object.hasOwn(copied, "__proto__"), true);
+  assert.equal(
+    Object.getOwnPropertyDescriptor(copied, "__proto__")?.value,
+    "own-data",
+  );
+  assert.equal(copied.constructor, "ordinary");
+  assert.equal(copied.hidden, "kept");
+  assert.notEqual(copied.a, copied.z);
+  assert.notEqual(copied.a, shared);
+  shared.value = "after";
+  assert.deepEqual(copied.a, { value: "before" });
+  assert.equal(Object.is(snapshotJsonValue(-0), -0), false);
+  assert.equal(
+    snapshotJsonValue(Number.MAX_SAFE_INTEGER),
+    Number.MAX_SAFE_INTEGER,
+  );
+  assert.equal(
+    snapshotJsonValue(Number.MIN_SAFE_INTEGER),
+    Number.MIN_SAFE_INTEGER,
+  );
+  class Items extends Array<number> {}
+  assert.deepEqual(snapshotJsonValue(new Items(1, 2)), [1, 2]);
+  assert.deepEqual(snapshotJsonValue(runInNewContext("[1, [2, 3]]")), [
+    1,
+    [2, 3],
+  ]);
+  let nested: unknown = "leaf";
+  for (let depth = 0; depth < 32; depth++) nested = [nested];
+  assert.deepEqual(snapshotJsonValue(nested), nested);
+  assert.throws(() => snapshotJsonValue([nested]));
+  const cycle: unknown[] = [];
+  cycle.push(cycle);
+  let traps = 0;
+  const accessor = Object.defineProperty({}, "x", {
+    get() {
+      traps++;
+      return "secret";
+    },
+  });
+  const toJSON = {
+    toJSON() {
+      traps++;
+      return {};
+    },
+  };
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys() {
+        traps++;
+        return [];
+      },
+      getPrototypeOf() {
+        traps++;
+        return null;
+      },
+    },
+  );
+  const array = [1];
+  Object.defineProperty(array, "extra", { value: 2 });
+  const symbolKey = { [Symbol("unsupported")]: 1 };
+  const sparse: unknown[] = [];
+  sparse.length = 2;
+  sparse[1] = 1;
+  for (const value of [
+    undefined,
+    NaN,
+    Infinity,
+    -Infinity,
+    0.5,
+    Number.MAX_SAFE_INTEGER + 1,
+    1n,
+    Symbol("value"),
+    () => {},
+    new Date(),
+    new Map(),
+    new Set(),
+    new Uint8Array(1),
+    accessor,
+    toJSON,
+    proxy,
+    array,
+    symbolKey,
+    sparse,
+    cycle,
+  ]) {
+    assert.throws(() => snapshotJsonValue(value));
+  }
+  assert.equal(traps, 0);
+});
 
 /**
  * record snapshotはdata descriptorだけを一度固定するを検証する。

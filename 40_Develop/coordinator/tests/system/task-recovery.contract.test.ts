@@ -14,12 +14,12 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { initializeCoordinatorSnapshot } from "../../../execution-model/src/index.ts";
+import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
@@ -90,21 +90,41 @@ function runCoordinatorObjective(
  * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function root(t: test.TestContext) {
-  const parent = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const parent = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       path.resolve(import.meta.dirname, "../../../.."),
       "tests",
     ),
     "recovery_fixture",
   ).directory;
   const value = fs.mkdtempSync(path.join(parent, "crdd-runtime-recovery-"));
-  execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
   t.after(() => {
     assert.equal(path.dirname(fs.realpathSync.native(value)), parent);
     fs.rmSync(value, { recursive: true, force: true });
     assert.throws(() => fs.lstatSync(value), { code: "ENOENT" });
   });
-  const initialized = initializeCoordinatorSnapshot(
+
+  execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
+  execFileSync(
+    "git",
+    [
+      "-C",
+      value,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { windowsHide: true },
+  );
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(value),
     "binding-a",
   );

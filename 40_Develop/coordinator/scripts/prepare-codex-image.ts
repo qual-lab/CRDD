@@ -8,12 +8,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../src/configuration/runtime-data.ts";
-import { getRepository } from "../../version-control/src/index.ts";
 import buildInputs from "../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
+import { getRepository } from "../../version-control/src/index.ts";
+import {
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+} from "../src/configuration/runtime-data.ts";
 
 /**
  * 明示した公式CLI・Host・bwrapから有限のImage入力を作成する。
@@ -130,8 +132,8 @@ export function prepareCodexImage(
       inputs.push({ name, bytes });
     }
   }
-  const temporary = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(verified.capability, "tmp"),
+  const temporary = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataArea(verified.capability, "tmp"),
     "codex_advice_image_root_invalid",
   );
   const context = fs.mkdtempSync(

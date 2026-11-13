@@ -5,20 +5,22 @@
  * @trace ERB-IT-014
  * @trace PRL-IT-005
  * @level IT
- * @scope 本番回収・Coordinator待機本文、実Domain候補、有限CLI・Process・Directory代役。
+ * @scope 本番回収・Coordinator待機本文、公開Resource値操作、Writer応答と有限CLI・Process・Directory代役。実Writer／CASの検証は別の保存結合試験。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { isDeepStrictEqual, types } from "node:util";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, runInThisContext } from "node:vm";
+import { applyResourceEvent } from "../../../execution-model/src/index.ts";
 import {
-  snapshotRuntimeStateRecord,
-  applyCoordinatorResourceEvent,
-} from "../../../execution-model/src/index.ts";
+  snapshotJsonValue,
+  snapshotPlainRecord,
+} from "../../src/input/snapshot.ts";
 import { createRecoveryFixture } from "../support/recovery.ts";
 
 const source = fs.readFileSync(
@@ -27,6 +29,112 @@ const source = fs.readFileSync(
 );
 const start = source.indexOf("function projectResourceTarget(");
 assert.ok(start >= 0);
+
+/**
+ * 実行中の作成Intent／Receiptが入力捕捉を通ってからWriterへ届くことを確認する。
+ * @responsibility 保存用codecを入力コピーに使わず、不正入力時のWriter到達を拒否する。
+ * @trace ERB-IT-014
+ * @precondition 本番通知本文と有限の現在Owner・Writer応答を使う。
+ * @stimulus 正規通知、Getter・Proxy・toJSON・循環を作成前と応答後へ渡す。
+ * @observation Writer回数、元入力との参照分離、固定event／keyと未知実行数。
+ * @oracle 正規入力だけ一度到達し、不正入力はWriter0・未知実行0となる。
+ * @cleanup 外部資源なし。
+ * @boundary 通知搬送の論理試験。WriterやDockerの成立は示さない。
+ */
+test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到達しない", () => {
+  const names = [
+    "markRuntimeOwnedDockerResourceSubmission",
+    "recordRuntimeOwnedDockerResourceReceipt",
+  ];
+  const body = names
+    .map((name) => {
+      const begin = source.indexOf(`export function ${name}(`);
+      const end = source.indexOf("\n/**", begin);
+      assert.ok(begin >= 0 && end > begin);
+      return stripTypeScriptTypes(
+        source.slice(begin, end).replace("export function", "function"),
+      );
+    })
+    .join("\n");
+  for (const name of names) {
+    let calls = 0,
+      traps = 0;
+    const capability = {},
+      management = {};
+    const received: Record<string, unknown>[] = [];
+    const api = runInNewContext(`${body}; ({ ${names.join(",")} })`, {
+      snapshotJsonValue,
+      isDeepStrictEqual,
+      CREATE_PURPOSES: new Set(["create_provider"]),
+      durableRecord: (input: unknown) =>
+        input === capability
+          ? { managementCapability: management, recoveryId: "exact" }
+          : null,
+      saveOperationCheckpoint: (
+        owner: unknown,
+        recoveryId: unknown,
+        request: { kind: string; value: Record<string, unknown> },
+      ) => {
+        assert.equal(owner, management);
+        assert.equal(recoveryId, "exact");
+        assert.equal(request.kind, "resource");
+        received.push(request.value);
+        calls++;
+        return {
+          status: "completed",
+          snapshotConfirmed: true,
+          lockReleased: true,
+        };
+      },
+    }) as Record<string, (...args: unknown[]) => boolean>;
+    const invoke = api[name];
+    assert.ok(invoke);
+    const nested = { resources: [] };
+    assert.equal(
+      invoke(capability, "create_provider", {
+        snapshot: nested,
+        event: "foreign",
+        key: "foreign",
+      }),
+      true,
+    );
+    assert.equal(calls, 1);
+    assert.equal(
+      received[0]?.event,
+      name === names[0] ? "submission" : "receipt",
+    );
+    assert.equal(received[0]?.key, "create_provider");
+    assert.deepEqual(received[0]?.snapshot, nested);
+    assert.notEqual(received[0]?.snapshot, nested);
+    const getter = Object.defineProperty({}, "snapshot", {
+      get() {
+        traps++;
+        return {};
+      },
+    });
+    const proxy = new Proxy(
+      {},
+      {
+        ownKeys() {
+          traps++;
+          return [];
+        },
+      },
+    );
+    const toJSON = {
+      toJSON() {
+        traps++;
+        return {};
+      },
+    };
+    const cycle: unknown[] = [];
+    cycle.push(cycle);
+    for (const input of [getter, proxy, toJSON, cycle])
+      assert.equal(invoke(capability, "create_provider", input), false);
+    assert.equal(calls, 1);
+    assert.equal(traps, 0);
+  }
+});
 
 /**
  * 退役処理と既存checkpoint本文を結合し、保存候補と読戻し境界を反証する。
@@ -184,7 +292,9 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
           revalidate: () => true,
         }),
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        encodeRuntimeStateValue: JSON.stringify,
+        snapshotJsonValue,
+        isDeepStrictEqual,
+        canonicalJson: JSON.stringify,
         verifyHostOperationRecoveryGeneration() {
           if (scenario === "marker") throw new Error("marker");
         },
@@ -193,7 +303,56 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
           root: "absent",
           marker: "absent",
         }),
-        readRuntimeOwnedCoordinatorRecoverySnapshot(receivedRoot: unknown) {
+        readRecoveryState(
+          receivedRoot: unknown,
+          request: { kind: string; recoveryId?: unknown } = { kind: "current" },
+        ) {
+          const receivedId = request.recoveryId;
+          if (request.kind === "execution_completion") {
+            assert.equal(record.completionPending, true);
+            assert.equal(receivedRoot, root);
+            assert.equal(receivedId, record.recoveryId);
+            completionReads++;
+            if (scenario === "completion_throw")
+              throw new Error("completion read");
+            const snapshot = structuredClone(saved);
+            if (scenario === "completion_changed") snapshot.revision++;
+            return {
+              status:
+                scenario === "completion_blocked" ? "blocked" : "completed",
+              lockReleased: scenario !== "completion_unlock",
+              value:
+                scenario === "completion_null"
+                  ? null
+                  : {
+                      snapshot,
+                      sourceText: `${JSON.stringify(snapshot)}\n`,
+                      payloadSha256: "saved",
+                    },
+            };
+          }
+          if (request.kind === "execution_history") {
+            assert.equal((receivedRoot as { root: unknown }).root, root);
+            assert.equal(receivedId, record.recoveryId);
+            historyReads++;
+            if (scenario === "history_throw")
+              throw new Error("history read failed");
+            const snapshot = structuredClone(saved);
+            if (scenario === "history_changed") snapshot.revision++;
+            if (scenario === "history_owner_lost") ownerLive = false;
+            return {
+              status: scenario === "history_blocked" ? "blocked" : "completed",
+              lockReleased: scenario !== "history_unlock",
+              value:
+                scenario === "history_null"
+                  ? null
+                  : {
+                      snapshot,
+                      sourceText: `${JSON.stringify(snapshot)}\n`,
+                      payloadSha256: "saved",
+                    },
+            };
+          }
           assert.equal(record.completionPending, false);
           assert.equal(receivedRoot, root);
           reads++;
@@ -219,92 +378,87 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
             lockReleased: scenario !== "read_unlock",
             value: {
               snapshot,
+              sourceText: `${JSON.stringify(snapshot)}\n`,
               payloadSha256:
                 reads > 1 && scenario === "readback_hash" ? "changed" : "saved",
             },
           };
         },
-        readRuntimeOwnedCoordinatorCurrentCompletionSnapshot(
-          receivedRoot: unknown,
-          receivedId: string,
-        ) {
-          assert.equal(record.completionPending, true);
-          assert.equal(receivedRoot, root);
-          assert.equal(receivedId, record.recoveryId);
-          completionReads++;
-          if (scenario === "completion_throw")
-            throw new Error("completion read");
-          const snapshot = structuredClone(saved);
-          if (scenario === "completion_changed") snapshot.revision++;
-          return {
-            status: scenario === "completion_blocked" ? "blocked" : "completed",
-            lockReleased: scenario !== "completion_unlock",
-            value:
-              scenario === "completion_null"
-                ? null
-                : { snapshot, payloadSha256: "saved" },
-          };
-        },
-        readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-          receivedRoot: unknown,
-          receivedId: string,
-        ) {
-          assert.equal((receivedRoot as { root: unknown }).root, root);
-          assert.equal(receivedId, record.recoveryId);
-          historyReads++;
-          if (scenario === "history_throw")
-            throw new Error("history read failed");
-          const snapshot = structuredClone(saved);
-          if (scenario === "history_changed") snapshot.revision++;
-          if (scenario === "history_owner_lost") ownerLive = false;
-          return {
-            status: scenario === "history_blocked" ? "blocked" : "completed",
-            lockReleased: scenario !== "history_unlock",
-            value:
-              scenario === "history_null"
-                ? null
-                : { snapshot, payloadSha256: "saved" },
-          };
-        },
-        writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
+
+        saveRecoveryCheckpoint: (
           repository: unknown,
           recoveryId: string,
-          prior: Buffer,
-          kind: string,
-          candidate: Record<string, unknown>,
-          owner: () => boolean,
-        ) {
-          writes++;
-          assert.equal(repository, record.repository);
-          assert.equal(recoveryId, "exact");
-          assert.equal(kind, "lifecycle");
-          assert.ok(prior.equals(before));
-          assert.equal(owner(), true);
-          const expected = {
-            phase: "settling",
-            lease: operation.lease,
-            execution: { ...operation.execution, ownerEffect: "disabled" },
-            primaryFailure: operation.primaryFailure,
-            outcome: null,
-            summarySha256: null,
-          };
-          assert.deepEqual(JSON.parse(JSON.stringify(candidate)), expected);
-          if (scenario === "writer_throw") throw new Error("writer");
-          saved = {
-            ...saved,
-            revision: 8,
-            operations: [
-              { ...operation, ...JSON.parse(JSON.stringify(candidate)) },
-              original.operations[1],
-            ],
-          } as typeof saved;
-          return {
-            status: scenario === "writer_false" ? "blocked" : "completed",
-            snapshotConfirmed: true,
-            lockReleased: scenario !== "writer_unlock",
-            revision: 8,
-            payloadSha256: "saved",
-          };
+          before: Buffer,
+          request: Parameters<
+            typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+          >[3],
+        ) => {
+          switch (request.kind) {
+            default:
+              if (!("value" in request))
+                throw new Error("unexpected recovery kind");
+              return Reflect.apply(
+                (
+                  repository: unknown,
+                  recoveryId: string,
+                  prior: Buffer,
+                  kind: string,
+                  candidate: Record<string, unknown>,
+                  owner: () => boolean,
+                ) => {
+                  writes++;
+                  assert.equal(repository, record.repository);
+                  assert.equal(recoveryId, "exact");
+                  assert.equal(kind, "lifecycle");
+                  assert.ok(prior.equals(before));
+                  assert.equal(owner(), true);
+                  const expected = {
+                    phase: "settling",
+                    lease: operation.lease,
+                    execution: {
+                      ...operation.execution,
+                      ownerEffect: "disabled",
+                    },
+                    primaryFailure: operation.primaryFailure,
+                    outcome: null,
+                    summarySha256: null,
+                  };
+                  assert.deepEqual(
+                    JSON.parse(JSON.stringify(candidate)),
+                    expected,
+                  );
+                  if (scenario === "writer_throw") throw new Error("writer");
+                  saved = {
+                    ...saved,
+                    revision: 8,
+                    operations: [
+                      {
+                        ...operation,
+                        ...JSON.parse(JSON.stringify(candidate)),
+                      },
+                      original.operations[1],
+                    ],
+                  } as typeof saved;
+                  return {
+                    status:
+                      scenario === "writer_false" ? "blocked" : "completed",
+                    snapshotConfirmed: true,
+                    lockReleased: scenario !== "writer_unlock",
+                    revision: 8,
+                    payloadSha256: "saved",
+                  };
+                },
+                undefined,
+                [
+                  repository,
+                  recoveryId,
+                  before,
+                  request.kind,
+                  request.value,
+                  request.assertOwner,
+                ],
+              );
+          }
         },
       },
     ) as (key: unknown) => boolean;
@@ -527,6 +681,7 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
       hostCleanupPublication: scenario === "host_publication" ? {} : null,
       repository: { revalidate: () => scenario !== "root_changed" },
       recoveryId: "exact-recovery",
+      snapshot: { operations: [] },
       hostToken: "fixed-token",
       hostRoot: "fixed-root",
       before: Buffer.from("fixed-before"),
@@ -538,6 +693,9 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
     const finalize = runInNewContext(
       `${finalizerBody}; finalizeRuntimeOwnedDockerTaskRecoveryPreparation`,
       {
+        withHistoryRetention() {
+          assert.fail("履歴なし終了で保持設定を読まない");
+        },
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
         observeHostRecoveryCleanup(token: string, root: string) {
           assert.equal(token, record.hostToken);
@@ -564,34 +722,53 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
                   : "absent",
           };
         },
-        writeRuntimeOwnedCoordinatorRecoveryTerminal(
+        saveRecoveryCheckpoint: (
           repository: unknown,
           recoveryId: string,
           before: Buffer,
-          assertOwner: () => boolean,
-        ) {
-          writes++;
-          assert.equal(repository, record.repository);
-          assert.equal(recoveryId, record.recoveryId);
-          assert.equal(before, record.before);
-          assert.equal(record.finalizationAttempted, true);
-          borrowed = assertOwner;
-          if (scenario === "write_throw") throw new Error("synthetic");
-          if (!assertOwner() || !assertOwner())
-            return {
-              status: "blocked",
-              snapshotConfirmed: false,
-              lockReleased: true,
-            };
-          physicalWrites++;
-          return {
-            status:
-              scenario === "write_failed" || !assertOwner()
-                ? "blocked"
-                : "completed",
-            snapshotConfirmed: scenario !== "write_failed" && assertOwner(),
-            lockReleased: true,
-          };
+          request: Parameters<
+            typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+          >[3],
+        ) => {
+          switch (request.kind) {
+            case "terminal":
+              return Reflect.apply(
+                (
+                  repository: unknown,
+                  recoveryId: string,
+                  before: Buffer,
+                  assertOwner: () => boolean,
+                ) => {
+                  writes++;
+                  assert.equal(repository, record.repository);
+                  assert.equal(recoveryId, record.recoveryId);
+                  assert.equal(before, record.before);
+                  assert.equal(record.finalizationAttempted, true);
+                  borrowed = assertOwner;
+                  if (scenario === "write_throw") throw new Error("synthetic");
+                  if (!assertOwner() || !assertOwner())
+                    return {
+                      status: "blocked",
+                      snapshotConfirmed: false,
+                      lockReleased: true,
+                    };
+                  physicalWrites++;
+                  return {
+                    status:
+                      scenario === "write_failed" || !assertOwner()
+                        ? "blocked"
+                        : "completed",
+                    snapshotConfirmed:
+                      scenario !== "write_failed" && assertOwner(),
+                    lockReleased: true,
+                  };
+                },
+                undefined,
+                [repository, recoveryId, before, request.assertOwner],
+              );
+            default:
+              throw new Error("unexpected checkpoint " + request.kind);
+          }
         },
       },
     ) as (value: unknown) => { status: string; snapshotConfirmed: boolean };
@@ -627,6 +804,149 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
     assert.equal(finalize(capability).snapshotConfirmed, false);
     assert.equal(writes, attempted ? 1 : 0);
     assert.equal(record.before.toString(), "fixed-before");
+  }
+});
+
+/**
+ * 未確認履歴からの終端再入場だけ保持設定を搬送する。
+ * @responsibility 設定欠測・途中変更の拒否と非履歴終了の読取り0を反証する。
+ * @trace ERB-IT-014
+ * @precondition 本番finalizerと設定接続本文、有限の保存・設定観測を使う。
+ * @stimulus exact未確認履歴、確認済み、他操作、履歴なしと設定不正・変更を渡す。
+ * @observation 設定読取り回数、Writer入力と再検証結果、元版本文。
+ * @oracle exact未確認履歴だけ現在設定を搬送し、不正・変更なら成功にしない。
+ * @cleanup N/A: 実File・Processを作成しない。
+ * @boundary 設定搬送の論理確認。実pending再入場はHost結合試験が所有する。
+ */
+test("現在回収終端: 未確認履歴だけ保持設定を搬送する", () => {
+  const begin = source.indexOf(
+    "export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(",
+  );
+  const finalizer = stripTypeScriptTypes(
+    source.slice(begin, start).replaceAll("export function", "function"),
+  );
+  const persistence = fs.readFileSync(
+    new URL("../../src/execution/persistence.ts", import.meta.url),
+    "utf8",
+  );
+  const connection = stripTypeScriptTypes(
+    persistence
+      .slice(
+        persistence.indexOf("export function historyRepositoryInput"),
+        persistence.indexOf(
+          "export function verifyRuntimePersistenceRepository",
+        ),
+      )
+      .replaceAll("export function", "function"),
+  );
+  for (const scenario of [
+    "pending",
+    "invalid",
+    "changed",
+    "confirmed",
+    "other",
+    "none",
+  ]) {
+    const capability = {},
+      root = {};
+    const before = Buffer.from("fixed-before");
+    const record = {
+      kind: "recovery",
+      closed: true,
+      releaseAttempted: true,
+      releaseConfirmed: true,
+      finalizationAttempted: false,
+      persistenceFailed: false,
+      cleanupUnknown: false,
+      hostCleanup: "absent",
+      hostCleanupPublication: null,
+      recoveryId: "exact-recovery",
+      rootCapability: root,
+      repository: { revalidate: () => true },
+      before,
+      snapshot: {
+        operations: [
+          {
+            kind: "docker_task",
+            recoveryId:
+              scenario === "other" ? "other-recovery" : "exact-recovery",
+            history:
+              scenario === "none"
+                ? null
+                : { confirmed: scenario === "confirmed" },
+          },
+        ],
+      },
+    };
+    let reads = 0,
+      writes = 0;
+    const pending = ["pending", "invalid", "changed"].includes(scenario);
+    const finalize = runInNewContext(
+      `${connection}; ${finalizer}; finalizeRuntimeOwnedDockerTaskRecoveryPreparation`,
+      {
+        Buffer,
+        dockerRecoveryPreparations: new WeakMap([[capability, record]]),
+        readCoordinatorConfig(received: unknown) {
+          assert.equal(received, root);
+          reads++;
+          return scenario === "invalid"
+            ? { status: "blocked" }
+            : {
+                status: "ready",
+                config: {
+                  historyRetentionDays:
+                    scenario === "changed" && reads > 1 ? 31 : 30,
+                },
+              };
+        },
+        observeHostRecoveryCleanup: () => ({
+          root: "absent",
+          marker: "absent",
+        }),
+        saveRecoveryCheckpoint(
+          repository: {
+            historyRetentionDays?: number | null;
+            revalidate(expected?: number): boolean;
+          },
+          id: string,
+          original: Buffer,
+          request: { kind: string; assertOwner(): boolean },
+        ) {
+          writes++;
+          assert.equal(id, record.recoveryId);
+          assert.equal(original, before);
+          assert.equal(request.kind, "terminal");
+          assert.equal(request.assertOwner(), true);
+          let confirmed = true;
+          if (pending) {
+            assert.equal(
+              repository.historyRetentionDays,
+              scenario === "invalid" ? null : 30,
+            );
+            confirmed =
+              repository.historyRetentionDays === 30 &&
+              repository.revalidate(30);
+          } else {
+            assert.equal(repository, record.repository);
+            assert.equal(reads, 0);
+          }
+          return {
+            status: confirmed ? "completed" : "blocked",
+            snapshotConfirmed: confirmed,
+            lockReleased: true,
+          };
+        },
+      },
+    );
+    assert.equal(
+      finalize(capability).snapshotConfirmed,
+      !["invalid", "changed"].includes(scenario),
+      scenario,
+    );
+    assert.equal(writes, 1);
+    assert.equal(reads, pending ? (scenario === "invalid" ? 1 : 2) : 0);
+    assert.equal(record.before, before);
+    assert.equal(before.toString(), "fixed-before");
   }
 });
 
@@ -697,17 +1017,20 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
             marker: "absent",
           };
         },
-        advanceRuntimeOwnedCoordinatorRecoveryHistory(
+        advanceOwnedRecoveryHistory(
           repository: unknown,
           recoveryId: string,
           owner: () => boolean,
         ) {
           calls++;
           borrowed.push(owner);
-          assert.deepEqual(repository, {
-            ...record.repository,
-            historyRetentionDays: 30,
-          });
+          assert.deepEqual(
+            { ...(repository as object) },
+            {
+              ...record.repository,
+              historyRetentionDays: 30,
+            },
+          );
           assert.equal(recoveryId, "exact");
           if (scenario === "second_throw" && calls === 2)
             throw new Error("synthetic");
@@ -737,7 +1060,11 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
     assert.equal(calls, 0);
     const result = complete(capability);
     const completed = scenario === "normal" || scenario === "already_confirmed";
-    assert.equal(result.historyConfirmed, completed, scenario);
+    assert.equal(
+      result.historyConfirmed,
+      completed,
+      `${scenario}: ${JSON.stringify(result)}`,
+    );
     assert.equal(result.status, completed ? "completed" : "blocked", scenario);
     assert.equal(
       calls,
@@ -764,6 +1091,212 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
       assert.equal(calls, beforeCalls);
     }
     assert.equal(record.cleanupUnknown, scenario === "lock_unknown");
+  }
+});
+
+/**
+ * 認証不明終了の保存と保持版の更新を同じ観測へ結合する。
+ * @responsibility 保存または読戻し未確認で旧資源証拠を進めない。
+ * @trace ERB-IT-014
+ * @precondition 本番回収本文と有限の保存・技術通知代役を使う。
+ * @stimulus 保存拒否、古い読戻し、版・Hash差、解放不明と正常を与える。
+ * @observation 元本文・保持Snapshot・停止状態と回収結果。
+ * @oracle 全確認後だけ同じ新Snapshotと本文を採用し、未確認時は両方を保持する。
+ * @cleanup 外部資源なし。
+ * @boundary 論理接続の反証であり、実Docker・認証・Filesystem成立は示さない。
+ */
+test("認証不明終了後の保持版は保存とfresh読戻しの共同確認後だけ更新する", async () => {
+  const begin = source.indexOf(
+    "export async function recoverRuntimeOwnedDockerTaskResources(",
+  );
+  const end = source.indexOf("\n/**", begin);
+  assert.ok(begin >= 0 && end > begin);
+  const body = stripTypeScriptTypes(
+    source.slice(begin, end).replace("export async function", "async function"),
+  );
+  for (const fault of [
+    "none",
+    "save",
+    "read",
+    "stale",
+    "revision",
+    "hash",
+    "unlock",
+  ]) {
+    const key = {},
+      root = {};
+    let snapshot = {
+      revision: 1,
+      operations: [
+        {
+          kind: "docker_task",
+          recoveryId: "exact",
+          resources: {
+            checkpoints: [
+              { submission: "intent_saved", observation: "unobserved" },
+            ],
+          },
+        },
+      ],
+    };
+    const beforeSnapshot = snapshot;
+    const record = {
+      kind: "recovery",
+      rootCapability: root,
+      recoveryId: "exact",
+      hostToken: "host",
+      hostGeneration: {},
+      hostCleanupPublication: null,
+      repository: {},
+      before: Buffer.from(`${JSON.stringify(snapshot)}\n`),
+      snapshot,
+      closed: false,
+      persistenceFailed: false,
+      cleanupUnknown: false,
+    };
+    const before = Buffer.from(record.before);
+    let saves = 0;
+    const run = runInNewContext(
+      `${body}; recoverRuntimeOwnedDockerTaskResources`,
+      {
+        Buffer,
+        Object,
+        Error,
+        dockerRecoveryPreparations: new WeakMap([[key, record]]),
+        assertCurrentRecoveryOwner: (received: unknown) => received === key,
+        snapshotJsonValue,
+        isDeepStrictEqual,
+        canonicalJson: JSON.stringify,
+        readRecoveryState: (received: unknown) => {
+          assert.equal(received, root);
+          return {
+            status: saves && fault === "read" ? "blocked" : "completed",
+            lockReleased: !(saves && fault === "unlock"),
+            value: {
+              sourceText: `${JSON.stringify(saves && fault === "stale" ? beforeSnapshot : saves && fault === "revision" ? { ...snapshot, revision: 3 } : snapshot)}\n`,
+              snapshot:
+                saves && fault === "stale"
+                  ? beforeSnapshot
+                  : saves && fault === "revision"
+                    ? { ...snapshot, revision: 3 }
+                    : snapshot,
+              payloadSha256: saves && fault === "hash" ? "wrong" : "saved-hash",
+            },
+          };
+        },
+        borrowHostRecoveryManagementDirectory: () => ({
+          directory: "fixture",
+          assertCurrent: () => true,
+        }),
+        areTaskResourcesSettled: () => false,
+        canCloseUnknownAuthentication: () => true,
+        projectResourceTarget: () => ({
+          resources: { resources: [{ key: "create_subscription_auth_probe" }] },
+        }),
+        saveUnknownAuthenticationClosureStage: (
+          _repository: unknown,
+          id: string,
+          bytes: Buffer,
+          rounds: unknown,
+          assertOwner: () => boolean,
+        ) => {
+          assert.equal(id, "exact");
+          assert.deepEqual(bytes, before);
+          assert.equal(assertOwner(), true);
+          assert.equal(
+            JSON.stringify(rounds),
+            JSON.stringify([
+              { round: 1, name: "absent", name_label: "absent" },
+              { round: 2, name: "absent", name_label: "absent" },
+            ]),
+          );
+          saves++;
+          if (fault === "save")
+            return {
+              status: "blocked",
+              snapshotConfirmed: false,
+              lockReleased: true,
+            };
+          const previousOperation = snapshot.operations[0];
+          assert.ok(previousOperation);
+          snapshot = {
+            ...snapshot,
+            revision: 2,
+            operations: [
+              {
+                ...previousOperation,
+                resources: {
+                  checkpoints: [
+                    { submission: "intent_saved", observation: "absent" },
+                  ],
+                },
+              },
+            ],
+          };
+          return {
+            status: "completed",
+            snapshotConfirmed: true,
+            lockReleased: true,
+            revision: 2,
+            payloadSha256: "saved-hash",
+          };
+        },
+      },
+    ) as (
+      owner: unknown,
+      cleanup: unknown,
+      inspect: unknown,
+    ) => Promise<{ status: string }>;
+    const result = await run(
+      key,
+      (
+        _target: unknown,
+        callbacks: {
+          onResourcesClosed: (snapshot: unknown, observations: unknown) => void;
+        },
+      ) => ({
+        cancel: async () => false,
+        completion: Promise.resolve().then(() => {
+          callbacks.onResourcesClosed({}, []);
+          return {
+            cleanup: { configCleanupConfirmed: true, confirmed: false },
+            processTerminationConfirmed: true,
+            failure: { reason: "docker_task_recovery_resource_unconfirmed" },
+          };
+        }),
+      }),
+      () => ({
+        status: "completed",
+        configCleanupConfirmed: true,
+        resources: [
+          {
+            key: "create_subscription_auth_probe",
+            absenceObservations: ["absent", "absent"],
+          },
+        ],
+      }),
+    );
+    assert.equal(saves, 1, fault);
+    assert.equal(
+      result.status,
+      fault === "none" ? "completed" : "blocked",
+      fault,
+    );
+    if (fault === "none") {
+      assert.equal(record.snapshot, snapshot);
+      assert.equal(
+        record.snapshot.operations[0]?.resources.checkpoints[0]?.observation,
+        "absent",
+      );
+      assert.deepEqual(
+        record.before,
+        Buffer.from(`${JSON.stringify(snapshot)}\n`),
+      );
+    } else {
+      assert.equal(record.snapshot, beforeSnapshot, fault);
+      assert.deepEqual(record.before, before, fault);
+      assert.equal(record.persistenceFailed, true, fault);
+    }
   }
 });
 
@@ -849,14 +1382,20 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
     const environment = {
       Buffer,
       dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-      encodeRuntimeStateValue: encode,
-      coordinatorTaskResourcesAreSettled: () => true,
+      snapshotJsonValue,
+      isDeepStrictEqual,
+      canonicalJson: encode,
+      areTaskResourcesSettled: () => true,
       assertCurrentRecoveryOwner: () =>
         !(scenario === "owner_lost_after_pending" && stages.length > 0),
-      readRuntimeOwnedCoordinatorRecoverySnapshot: () => ({
+      readRecoveryState: () => ({
         status: "completed",
         lockReleased: true,
-        value: { snapshot, payloadSha256: `hash-${snapshot.revision}` },
+        value: {
+          snapshot,
+          sourceText: `${encode(snapshot)}\n`,
+          payloadSha256: `hash-${snapshot.revision}`,
+        },
       }),
       persistRuntimeOwnedDockerTaskRecoveryCheckpoint: (
         _key: unknown,
@@ -876,39 +1415,58 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
         record.before = bytes();
         return true;
       },
-      prepareCoordinatorStateHostSnapshot: (
-        _before: unknown,
-        _id: unknown,
-        value: (typeof snapshot.operations)[0]["host"],
-      ) =>
-        Buffer.from(
-          `${encode({ revision: snapshot.revision + 1, operations: [{ ...snapshot.operations[0], host: value }] })}\n`,
-        ),
-      writeRuntimeOwnedCoordinatorRecoveredHostCleanup: (
-        _repository: unknown,
-        _id: unknown,
-        _before: unknown,
-        owner: () => boolean,
+      saveRecoveryCheckpoint: (
+        repository: unknown,
+        recoveryId: string,
+        before: Buffer,
+        request: Parameters<
+          typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+        >[3],
       ) => {
-        assert.equal(owner(), true);
-        assert.equal(snapshot.operations[0].host.cleanup, "pending");
-        stages.push("confirmed");
-        snapshot = {
-          revision: snapshot.revision + 1,
-          operations: [
-            {
-              ...snapshot.operations[0],
-              host: { ...snapshot.operations[0].host, cleanup: "confirmed" },
-            },
-          ],
-        };
-        return {
-          status: "completed",
-          snapshotConfirmed: true,
-          lockReleased: true,
-          revision: snapshot.revision,
-          payloadSha256: `hash-${snapshot.revision}`,
-        };
+        switch (request.kind) {
+          case "host_cleanup":
+            return Reflect.apply(
+              (
+                _repository: unknown,
+                _id: unknown,
+                _before: unknown,
+                owner: () => boolean,
+              ) => {
+                assert.equal(owner(), true);
+                assert.equal(snapshot.operations[0].host.cleanup, "pending");
+                stages.push("confirmed");
+                snapshot = {
+                  revision: snapshot.revision + 1,
+                  operations: [
+                    {
+                      ...snapshot.operations[0],
+                      host: {
+                        ...snapshot.operations[0].host,
+                        cleanup: "confirmed",
+                      },
+                    },
+                  ],
+                };
+                return {
+                  status: "completed",
+                  snapshotConfirmed: true,
+                  lockReleased: true,
+                  revision: snapshot.revision,
+                  payloadSha256: `hash-${snapshot.revision}`,
+                };
+              },
+              undefined,
+              [
+                repository,
+                recoveryId,
+                before,
+                request.assertAbsentOwner,
+                request.publication,
+              ],
+            );
+          default:
+            throw new Error("unexpected checkpoint " + request.kind);
+        }
       },
       recoverOwnedOperationDirectories: () => {
         physical++;
@@ -965,6 +1523,13 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
     "already_pending",
     "owner",
     "writer_failed",
+    "readback_failed",
+    "readback_stale",
+    "readback_unlock",
+    "readback_sha",
+    "readback_version",
+    "getter",
+    "proxy",
   ]) {
     const host = {
       currentToken: "token",
@@ -984,63 +1549,136 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
       hostToken: "token",
       repository: { repositoryBinding: "binding" },
       before: Buffer.from(JSON.stringify(snapshot)),
+      snapshot: structuredClone(snapshot),
       persistenceFailed: false,
       cleanupUnknown: false,
     };
+    const before = Buffer.from(record.before);
+    const beforeSnapshot = record.snapshot;
     let writes = 0;
-    const persist = runInNewContext(
-      `${body}; persistRuntimeOwnedDockerTaskRecoveryCheckpoint`,
-      {
-        Buffer,
-        dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        encodeRuntimeStateValue: JSON.stringify,
-        assertCurrentRecoveryOwner: () => scenario !== "owner",
-        decodeRuntimeDomainSnapshot: () => ({ snapshot }),
-        coordinatorReleasedTaskCanObserveHostAbsence: () =>
-          scenario !== "unsettled",
-        writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-          _repository: unknown,
-          _id: unknown,
-          _before: unknown,
-          _kind: unknown,
-          value: typeof host,
-          owner: () => boolean,
-        ) => {
-          assert.equal(owner(), true);
-          writes++;
-          snapshot.revision++;
-          const operation = snapshot.operations[0];
-          assert.ok(operation);
-          operation.host = value;
-          return {
-            status: scenario === "writer_failed" ? "blocked" : "completed",
-            snapshotConfirmed: true,
-            lockReleased: true,
-            revision: snapshot.revision,
-            payloadSha256: "hash",
-          };
-        },
-        readRuntimeOwnedCoordinatorRecoverySnapshot: () => ({
-          status: "completed",
-          lockReleased: true,
-          value: { snapshot, payloadSha256: "hash" },
-        }),
+    const persist = runInThisContext(
+      `(environment) => { const { Buffer, dockerRecoveryPreparations, snapshotJsonValue, isDeepStrictEqual, canonicalJson, assertCurrentRecoveryOwner, coordinatorReleasedTaskCanObserveHostAbsence, saveRecoveryCheckpoint, readRecoveryState } = environment; ${body}; return persistRuntimeOwnedDockerTaskRecoveryCheckpoint; }`,
+    )({
+      Buffer,
+      dockerRecoveryPreparations: new WeakMap([[capability, record]]),
+      snapshotJsonValue,
+      isDeepStrictEqual,
+      canonicalJson: (value: unknown) =>
+        canonicalJson(JSON.parse(JSON.stringify(value))),
+      assertCurrentRecoveryOwner: () => scenario !== "owner",
+      coordinatorReleasedTaskCanObserveHostAbsence: () =>
+        scenario !== "unsettled",
+      saveRecoveryCheckpoint: (
+        repository: unknown,
+        recoveryId: string,
+        before: Buffer,
+        request: Parameters<
+          typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+        >[3],
+      ) => {
+        switch (request.kind) {
+          default:
+            if (!("value" in request))
+              throw new Error("unexpected recovery kind");
+            return Reflect.apply(
+              (
+                _repository: unknown,
+                _id: unknown,
+                _before: unknown,
+                _kind: unknown,
+                value: typeof host,
+                owner: () => boolean,
+              ) => {
+                assert.equal(owner(), true);
+                writes++;
+                snapshot.revision++;
+                const operation = snapshot.operations[0];
+                assert.ok(operation);
+                operation.host = value;
+                return {
+                  status:
+                    scenario === "writer_failed" ? "blocked" : "completed",
+                  snapshotConfirmed: true,
+                  lockReleased: true,
+                  revision: snapshot.revision,
+                  payloadSha256: "hash",
+                };
+              },
+              undefined,
+              [
+                repository,
+                recoveryId,
+                before,
+                request.kind,
+                request.value,
+                request.assertOwner,
+              ],
+            );
+        }
       },
-    );
+      readRecoveryState: () => ({
+        status: scenario === "readback_failed" ? "blocked" : "completed",
+        lockReleased: scenario !== "readback_unlock",
+        value: {
+          sourceText: `${canonicalJson(scenario === "readback_stale" ? beforeSnapshot : scenario === "readback_version" ? { ...snapshot, revision: snapshot.revision + 1 } : snapshot)}\n`,
+          snapshot:
+            scenario === "readback_stale"
+              ? beforeSnapshot
+              : scenario === "readback_version"
+                ? { ...snapshot, revision: snapshot.revision + 1 }
+                : snapshot,
+          payloadSha256:
+            scenario === "readback_sha" ? "different-hash" : "hash",
+        },
+      }),
+    });
     const value = {
       ...host,
       cleanup: "pending",
       ...(scenario === "token" ? { currentToken: "other" } : {}),
       ...(scenario === "extra" ? { other: true } : {}),
     };
+    let traps = 0;
+    if (scenario === "getter")
+      Object.defineProperty(value, "unexpected", {
+        get() {
+          traps++;
+          return "forbidden";
+        },
+      });
+    const input =
+      scenario === "proxy"
+        ? new Proxy(value, {
+            ownKeys() {
+              traps++;
+              return [];
+            },
+          })
+        : value;
     assert.equal(
-      persist(capability, scenario === "resource" ? "resource" : "host", value),
+      persist(capability, scenario === "resource" ? "resource" : "host", input),
       scenario === "normal",
       scenario,
     );
+    assert.equal(traps, 0, scenario);
+    if (scenario === "normal") {
+      assert.equal(record.snapshot, snapshot);
+      assert.deepEqual(
+        record.before,
+        Buffer.from(`${canonicalJson(snapshot)}\n`),
+      );
+      assert.equal(record.snapshot.operations[0]?.host.cleanup, "pending");
+    } else {
+      assert.equal(record.snapshot, beforeSnapshot, scenario);
+      assert.deepEqual(record.before, before, scenario);
+    }
     assert.equal(
       writes,
-      scenario === "normal" || scenario === "writer_failed" ? 1 : 0,
+      scenario === "normal" ||
+        scenario === "writer_failed" ||
+        scenario.startsWith("readback_")
+        ? 1
+        : 0,
       scenario,
     );
   }
@@ -1118,6 +1756,17 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         : "present",
       hostCleanupPublication: scenario === "host_publication" ? {} : null,
       before: Buffer.from("current"),
+      snapshot: {
+        operations: [
+          {
+            kind: "docker_task",
+            recoveryId: "exact",
+            host: {
+              cleanup: scenario === "already_absent" ? "confirmed" : "pending",
+            },
+          },
+        ],
+      },
       repository: { repositoryBinding: "binding" },
       recoveryId: "exact",
       persistenceFailed: false,
@@ -1215,20 +1864,6 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
           assert.equal(key, capability);
           return scenario !== "absence_failed";
         },
-        decodeRuntimeDomainSnapshot: () => ({
-          snapshot: {
-            operations: [
-              {
-                kind: "docker_task",
-                recoveryId: "exact",
-                host: {
-                  cleanup:
-                    scenario === "already_absent" ? "confirmed" : "pending",
-                },
-              },
-            ],
-          },
-        }),
         cleanupRuntimeOwnedDockerTaskHost(key: unknown) {
           events.push("host");
           assert.equal(key, capability);
@@ -1858,7 +2493,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         Set,
         JSON,
         types,
-        readRuntimeOwnedCoordinatorRecoverySnapshot(received: unknown) {
+        readRecoveryState(received: unknown) {
           reads++;
           if (scenario === "throw") throw new Error("secret");
           return {
@@ -1934,6 +2569,9 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
     "unknown_consumer",
     "wrong_delivery",
     "missing_owner",
+    "wrong_id",
+    "wrong_kind",
+    "decoy",
     "dockerCleanupConfirmed",
     "hostCleanupConfirmed",
     "locksReleased",
@@ -1987,7 +2625,26 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
       kind: "recovery",
       before: Buffer.from("before"),
       repository: { repositoryBinding: "binding" },
+      snapshot: {
+        operations: [
+          {
+            kind: "docker_task",
+            recoveryId: "exact",
+            identityJson: JSON.stringify({ consumer }),
+          },
+        ],
+      },
     };
+    const targetOperation = owner.snapshot.operations[0];
+    assert.ok(targetOperation);
+    if (scenario === "wrong_id") targetOperation.recoveryId = "other";
+    if (scenario === "wrong_kind") targetOperation.kind = "runtime_repair";
+    if (scenario === "decoy")
+      owner.snapshot.operations.unshift({
+        kind: "docker_task",
+        recoveryId: "other",
+        identityJson: JSON.stringify({ consumer: "orchestrator" }),
+      });
     const run = runInNewContext(
       `${body}; recoverRuntimeOwnedDockerTaskForCurrentConsumer`,
       {
@@ -1998,18 +2655,7 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
         dockerRecoveryPreparations: new WeakMap(
           scenario === "missing_owner" ? [] : [[key, owner]],
         ),
-        decodeRuntimeDomainSnapshot: () => ({
-          snapshot: {
-            operations: [
-              {
-                kind: "docker_task",
-                recoveryId: "exact",
-                identityJson: JSON.stringify({ consumer }),
-              },
-            ],
-          },
-        }),
-        coordinatorConsumerCompletionPolicy: (value: string) =>
+        getConsumerCompletionPolicy: (value: string) =>
           value === "orchestrator"
             ? "durable"
             : ["coordinator_cli", "workbench"].includes(value)
@@ -2031,7 +2677,7 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
       },
     ) as () => Promise<Record<string, unknown>>;
     const result = await run();
-    const normal = ["cli", "workbench"].includes(scenario);
+    const normal = ["cli", "workbench", "decoy"].includes(scenario);
     assert.equal(
       result.status,
       normal
@@ -2108,7 +2754,7 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
   const end = source.indexOf("\n/**", start);
   const check = runInNewContext(
     `${stripTypeScriptTypes(source.slice(start, end))}; exactRecoveryCompleted`,
-    { snapshotRuntimeStateRecord, Set, Array },
+    { snapshotPlainRecord, Set, Array },
   ) as (value: unknown, kind: string, id: string) => boolean;
   const base = {
     contract: "crdd-coordinator/current-task-recovery",
@@ -2269,7 +2915,7 @@ test("耐久受領準備のガード負対照は処置ゼロOracleに拒否さ�
   assert.equal(source.includes("finalizeDockerAcknowledgement("), false);
   const start = source.indexOf("let acknowledgementResult: unknown;");
   const end = source.indexOf(
-    "const acknowledged = snapshotRuntimeStateRecord(",
+    "const acknowledged = snapshotPlainRecord(",
     start,
   );
   assert.ok(start >= 0 && end > start);
@@ -2408,7 +3054,7 @@ test("現在transient終了: genuine Owner・一回性・借用失効", () => {
                 : "absent",
           marker: "absent",
         }),
-        completeRuntimeOwnedCoordinatorCurrentRecovery(
+        completeRecovery(
           receivedRoot: unknown,
           id: string,
           owner: () => boolean,
@@ -2621,7 +3267,7 @@ test("初回Intent前と正式未発行の回収はDI・Host借用を発行し�
       else {
         const op = f.state.snapshot.operations[0];
         assert.ok(op?.kind === "docker_task" && op.resources);
-        const next = applyCoordinatorResourceEvent(op.resources, {
+        const next = applyResourceEvent(op.resources, {
           event: "not_issued",
           key: op.resources.checkpoints[0]?.key,
         });
@@ -2695,7 +3341,7 @@ test("現在回収配送: 同Owner・失敗停止・借用失効", () => {
           root: scenario === "host_present" ? "present" : "absent",
           marker: "absent",
         }),
-        registerRuntimeOwnedCoordinatorRecoveryResultDelivery(
+        registerOwnedRecoveryResultDelivery(
           repository: unknown,
           id: string,
           owner: () => boolean,

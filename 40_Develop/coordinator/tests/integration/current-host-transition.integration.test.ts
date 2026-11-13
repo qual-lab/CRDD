@@ -9,6 +9,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Driver→Host／現在状態Writer。
  */
 
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import childProcess, { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -20,19 +21,18 @@ import test from "node:test";
 import { runInNewContext, Script } from "node:vm";
 import { startOwnedWindowsProcess } from "../../../docker-isolation/src/process/start.ts";
 import {
-  type CoordinatorStateTaskOperation,
-  coordinatorAuthenticationUnknownCanClose,
+  canCloseUnknownAuthentication,
   createDockerRestartRequestId,
-  encodeRuntimeStateValue,
+  type ExecutionOperationRecord,
 } from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
 } from "../../../execution-model/tests/support/resource-operation.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -48,11 +48,9 @@ import {
 } from "../../src/execution/operation.ts";
 
 import {
-  checkpointRuntimeOwnedCoordinatorCleanup,
-  checkpointRuntimeOwnedCoordinatorLifecycle,
-  checkpointRuntimeOwnedCoordinatorResource,
-  readRuntimeOwnedCoordinatorStateSnapshot,
-  saveRuntimeOwnedCoordinatorOperationStart,
+  readOperationStateStage,
+  saveOperationCheckpoint,
+  saveOperationStart,
 } from "../../src/execution/persistence.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
@@ -122,7 +120,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
     scopeSha256,
   );
   assert.ok(requestId);
-  const eligible: CoordinatorStateTaskOperation = {
+  const eligible: ExecutionOperationRecord = {
     ...original,
     phase: "settling",
     resources: book,
@@ -146,7 +144,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       },
     },
   };
-  assert.equal(coordinatorAuthenticationUnknownCanClose(eligible), true);
+  assert.equal(canCloseUnknownAuthentication(eligible), true);
   for (const scenario of [
     "eligible",
     "receipt",
@@ -165,7 +163,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
     "owner_at_write",
     "owner_after_readback",
   ]) {
-    const operation: CoordinatorStateTaskOperation =
+    const operation: ExecutionOperationRecord =
       scenario === "receipt"
         ? {
             ...eligible,
@@ -225,10 +223,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       "missing_book",
       "generic_refused",
     ].includes(scenario);
-    assert.equal(
-      coordinatorAuthenticationUnknownCanClose(operation),
-      !generalPath,
-    );
+    assert.equal(canCloseUnknownAuthentication(operation), !generalPath);
     const counts = { generic: 0, inspect: 0, writer: 0, read: 0 };
     let currentCalls = 0;
     const capability = {},
@@ -256,7 +251,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       signal: undefined,
       authenticationClosureConfirmed: false,
       inspectionConfigConfirmed: true,
-      coordinatorAuthenticationUnknownCanClose,
+      canCloseUnknownAuthentication,
       current: () => {
         currentCalls++;
         if (record.persistenceFailed || record.cleanupUnknown)
@@ -328,7 +323,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       assertCurrentRecoveryOwner: () =>
         scenario !== "owner_at_write" &&
         !(scenario === "owner_after_readback" && counts.read > 0),
-      writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (
+      saveUnknownAuthenticationClosureStage: (
         repository: unknown,
         id: string,
         bytes: Buffer,
@@ -352,7 +347,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           payloadSha256: "saved",
         };
       },
-      readRuntimeOwnedCoordinatorRecoverySnapshot: (owner: unknown) => {
+      readRecoveryState: (owner: unknown) => {
         counts.read++;
         assert.equal(owner, rootCapability);
         return {
@@ -360,11 +355,12 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           lockReleased: true,
           value: {
             snapshot: { revision: 2 },
+            sourceText: '{"revision":2}\n',
             payloadSha256: scenario === "readback_failed" ? "changed" : "saved",
           },
         };
       },
-      encodeRuntimeStateValue: JSON.stringify,
+      canonicalJson: JSON.stringify,
     };
     const callback = runInNewContext(`(${callbackSource})`, context);
     const fails = [
@@ -1765,8 +1761,8 @@ for (const publicationFault of [
    * @boundary ERB-IT-014=Related 2 Blocks: 別Process現在回収→実Host／状態Writer。実Docker・競合CAS・pending旧／予定再入場は対象外。
    */
   test(`Host Windows: 現在Host遷移と清掃の実保存・出版再入場 ${publicationFault}`, async (t) => {
-    const area = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    const area = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         import.meta.dirname,
         "tests",
       ),
@@ -1793,8 +1789,8 @@ for (const publicationFault of [
       cleanupConfirmed = false;
     try {
       prepareHostFixtureRepository(root);
-      const hosts = requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
+      const hosts = requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "tests"),
         "host_fixture",
       );
       otherOwned = createOwnedOperationDirectories(hosts.directory);
@@ -1832,11 +1828,11 @@ for (const publicationFault of [
         target.identity.consumer = "workbench";
       targetManagement = target.management;
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: "crdd-domain/runtime-state/v3", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${canonicalJson({ schema: "crdd-domain/runtime-state/v3", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
-      const snapshotArea = requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      const snapshotArea = requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataAreaFromWorkingDirectory(
           root,
           "domain-model",
         ),
@@ -1847,20 +1843,20 @@ for (const publicationFault of [
         initial,
         { flag: "wx" },
       );
-      const seeded = readRuntimeOwnedCoordinatorStateSnapshot(
-        target.management,
-      );
+      const seeded = readOperationStateStage(target.management);
       assert.equal(seeded.status, "completed", seeded.reason);
       assert.equal(
-        saveRuntimeOwnedCoordinatorOperationStart(
+        saveOperationStart(
           other.management,
           `${JSON.stringify(other.identity)}\n`,
+          () => null,
         ).status,
         "completed",
       );
-      const started = saveRuntimeOwnedCoordinatorOperationStart(
+      const started = saveOperationStart(
         target.management,
         `${JSON.stringify(target.identity)}\n`,
+        () => null,
       );
       assert.equal(started.status, "completed");
       assert.ok(started.recoveryId);
@@ -1875,9 +1871,7 @@ for (const publicationFault of [
       assert.equal(submission.status, "completed");
       assert.equal(submission.hostTransitionConfirmed, true);
       targetStarted = true;
-      const current = readRuntimeOwnedCoordinatorStateSnapshot(
-        target.management,
-      );
+      const current = readOperationStateStage(target.management);
       const operation = current.value?.snapshot.operations.find(
         (item) => item.recoveryId === started.recoveryId,
       );
@@ -1930,25 +1924,29 @@ for (const publicationFault of [
         for (const event of events) {
           const previous = fs.readFileSync(statePath);
           const previousSnapshot = JSON.parse(previous.toString());
-          const saved = checkpointRuntimeOwnedCoordinatorResource(
+          const saved = saveOperationCheckpoint(
             target.management,
             started.recoveryId,
             {
-              ...resource,
-              event,
-              snapshot: {
-                resources: resource.snapshot.resources.map((r) =>
-                  r.key === resource.key
-                    ? {
-                        ...r,
-                        request: event === "receipt" ? "issued" : "unknown",
-                        identity: {
-                          ...r.identity,
-                          dockerId: event === "receipt" ? "c".repeat(64) : null,
-                        },
-                      }
-                    : r,
-                ),
+              kind: "resource",
+              value: {
+                ...resource,
+                event,
+                snapshot: {
+                  resources: resource.snapshot.resources.map((r) =>
+                    r.key === resource.key
+                      ? {
+                          ...r,
+                          request: event === "receipt" ? "issued" : "unknown",
+                          identity: {
+                            ...r.identity,
+                            dockerId:
+                              event === "receipt" ? "c".repeat(64) : null,
+                          },
+                        }
+                      : r,
+                  ),
+                },
               },
             },
           );
@@ -2008,27 +2006,25 @@ for (const publicationFault of [
             lockReleased: boolean;
           } =
             event === "cleanup"
-              ? checkpointRuntimeOwnedCoordinatorCleanup(
-                  target.management,
-                  started.recoveryId,
-                  {
+              ? saveOperationCheckpoint(target.management, started.recoveryId, {
+                  kind: "cleanup",
+                  value: {
                     snapshot,
                     observations: snapshot.resources.map((r) => ({
                       key: r.key,
                       observation: r.key === key ? "absent" : "not_requested",
                     })),
                   },
-                )
-              : checkpointRuntimeOwnedCoordinatorResource(
-                  target.management,
-                  started.recoveryId,
-                  {
+                })
+              : saveOperationCheckpoint(target.management, started.recoveryId, {
+                  kind: "resource",
+                  value: {
                     event,
                     key,
                     snapshot,
                     cleanup: planned.cleanup,
                   },
-                );
+                });
           assert.equal(saved.status, "completed", event);
           assert.equal(saved.snapshotConfirmed, true);
           assert.equal(saved.lockReleased, true);
@@ -2073,7 +2069,7 @@ for (const publicationFault of [
                   r.key === key && event === "cleanup"
                     ? createHash("sha256")
                         .update(
-                          encodeRuntimeStateValue({
+                          canonicalJson({
                             recoveryId: started.recoveryId,
                             previousPayloadSha256: createHash("sha256")
                               .update(previous)
@@ -2088,40 +2084,41 @@ for (const publicationFault of [
           );
         }
       }
-      const disabled = checkpointRuntimeOwnedCoordinatorLifecycle(
+      const disabled = saveOperationCheckpoint(
         target.management,
         started.recoveryId,
         {
-          phase: "settling",
-          lease: operation.lease,
-          execution: { ...operation.execution, ownerEffect: "disabled" },
-          primaryFailure:
-            publicationFault === "null_outcome"
-              ? null
-              : {
-                  purpose: "create_subscription_auth_probe",
-                  stage: "command_wait",
-                  reason: "provider_result_invalid",
-                  exceptionCode: null,
-                  commandHandleObtained: true,
-                  responseObserved: false,
-                  receiptRecorded: false,
-                },
-          outcome:
-            publicationFault === "null_outcome"
-              ? null
-              : {
-                  status: "blocked",
-                  reason: "provider_result_invalid",
-                  cleanupConfirmed: false,
-                },
-          summarySha256: null,
+          kind: "lifecycle",
+          value: {
+            phase: "settling",
+            lease: operation.lease,
+            execution: { ...operation.execution, ownerEffect: "disabled" },
+            primaryFailure:
+              publicationFault === "null_outcome"
+                ? null
+                : {
+                    purpose: "create_subscription_auth_probe",
+                    stage: "command_wait",
+                    reason: "provider_result_invalid",
+                    exceptionCode: null,
+                    commandHandleObtained: true,
+                    responseObserved: false,
+                    receiptRecorded: false,
+                  },
+            outcome:
+              publicationFault === "null_outcome"
+                ? null
+                : {
+                    status: "blocked",
+                    reason: "provider_result_invalid",
+                    cleanupConfirmed: false,
+                  },
+            summarySha256: null,
+          },
         },
       );
       assert.equal(disabled.status, "completed");
-      const before = readRuntimeOwnedCoordinatorStateSnapshot(
-        target.management,
-      );
+      const before = readOperationStateStage(target.management);
       assert.equal(before.status, "completed");
       assert.ok(before.value);
       const beforeOperation = before.value.snapshot.operations.find(

@@ -6,8 +6,8 @@
  * @boundary Coordinator内のObjective型境界。
  */
 import type {
-  CoordinatorObjectivePlan,
-  CoordinatorState,
+  ObjectivePlan,
+  ProjectExecutionState,
   ProjectTaskDefinition,
 } from "../../../execution-model/src/index.ts";
 import type {
@@ -47,14 +47,14 @@ export type CoordinatorObjectiveExecutionDependencies = Readonly<{
   authenticatedPrincipalId: string;
   repositoryBindingId: string;
   repositoryRoot: object | string;
-  plan: CoordinatorObjectivePlan;
+  plan: ObjectivePlan;
   persistence: CoordinatorPersistencePorts;
   clockIdentity: CoordinatorClockIdentityPort;
   processSafety: CoordinatorProcessSafetyPort;
   taskRecovery: CoordinatorTaskRecoveryPort;
   createTaskExecutions: (
     request: CoordinatorObjectiveRequest,
-    state: CoordinatorState,
+    state: ProjectExecutionState,
   ) => unknown;
   observeLeaseOwner: (
     owner: Readonly<{
@@ -134,7 +134,7 @@ export type CoordinatorObjectiveIntakeDependencies = Readonly<{
   createTaskExecutions: (
     request: CoordinatorObjectiveRequest,
     bindingCapability: object,
-    state: CoordinatorState,
+    state: ProjectExecutionState,
   ) => unknown;
   observeLeaseOwner: (
     owner: Readonly<{
@@ -210,4 +210,55 @@ export type CoordinatorReplanClassifier = (
   }>,
 ) => unknown;
 
-import type { CoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";
+/**
+ * 呼出し元が各Taskへ明示する非永続の実行内容。
+ * @responsibility Task固有の指示・検証条件・読取り範囲を定義から分離する。
+ * @trace ARCH-000004
+ * @shape Task IDと三つの入力値。
+ * @invariant Taskの不足を全体指示や別Taskで補完しない。
+ * @boundary 呼出し元と実行受付。
+ * @security 本文は通常の耐久状態へ保存しない。実行認可を含めない。
+ * @compatibility 分解済み計画の新入力形式専用。
+ */
+export type CallerTaskInput = Readonly<{
+  taskId: string;
+  objective: string;
+  acceptanceCriteria: readonly string[];
+  readPaths: readonly string[];
+}>;
+
+/**
+ * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
+ *
+ * @responsibility Coordinator Objective RequestのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorObjectiveRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorObjectiveRequestの宣言は外部境界を開かない。
+ * @security 明示選択は編集担当の希望であり、実行Authorityまたは利用可能性を付与しない。
+ * @compatibility 新形式だけを受け、旧Profile ID／Provider自動選択入力を拒否する。
+ */
+export type CoordinatorObjectiveRequest = Readonly<{
+  intakeEpoch: string;
+  requestId: string;
+  projectId: string;
+  milestoneId: string;
+  repositoryRevision: string;
+  objective: string;
+  plan: ObjectivePlan;
+  taskInputs: readonly CallerTaskInput[];
+  acceptanceCriteria: readonly string[];
+  allowedPaths: readonly string[];
+  readPaths: readonly string[];
+  maximumConcurrency: number;
+  maximumReplans: number;
+  originLane: "interactive" | "scheduled";
+  adoptResult: boolean;
+  workType?: string;
+  choice?: Readonly<{
+    provider: "codex" | "claude";
+    model: string;
+    effort: "low" | "medium" | "high" | "xhigh" | "max";
+  }>;
+  workspaceId?: string;
+}>;

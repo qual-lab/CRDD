@@ -16,11 +16,11 @@ import vm from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import * as domain from "../../src/index.ts";
 import {
-  observeRuntimeExecutionRepository,
-  observeRuntimeRecoveryRepository,
-  observeRuntimeSettlementRepository,
-  observeRuntimeStorageRepository,
-  runtimeStorageOperationIdentity,
+  executionStorageOperationIdentity,
+  observeExecutionRecoveryRepository,
+  observeExecutionSettlementRepository,
+  observeExecutionStorageRepository,
+  observeOperationRepository,
 } from "../../src/storage/lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
@@ -41,37 +41,35 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
   t.after(directory.cleanup);
   const before = fs.readdirSync(directory.path);
   const names = [
-    "readCoordinatorSnapshotIntakeEpoch",
-    "initializeCoordinatorSnapshot",
-    "saveCoordinatorIntegrationRecord",
-    "saveCoordinatorWorkspaceRecord",
-    "readCoordinatorLeaseAcquisitionOwner",
-    "confirmCoordinatorLeaseAcquisition",
-    "saveCoordinatorLeaseReleaseIntent",
-    "settleCoordinatorLeaseRelease",
-    "verifyCoordinatorQueueIntake",
-    "readCoordinatorQueueProject",
-    "createCoordinatorQueueEntry",
-    "readCoordinatorQueueEntry",
-    "settleCoordinatorQueueRecovery",
-    "createCoordinatorSingleTaskQueue",
-    "closeCoordinatorUnstartedTaskQueue",
-    "readCoordinatorCurrentState",
-    "reserveCoordinatorLeaseAcquisition",
-    "readCoordinatorLeaseOwnerLoss",
-    "reconcileCoordinatorReleasedLease",
-    "reserveCoordinatorLeaseRecovery",
-    "settleCoordinatorLeaseRecovery",
-    "settleCoordinatorQueueLeaseRelease",
-    "updateCoordinatorQueueEntry",
-    "updateCoordinatorSingleTaskQueue",
-    "selectCoordinatorQueueEntry",
-    "maintainCoordinatorSnapshotRecords",
-    "transferCoordinatorSnapshotHistoryRecords",
-    "readCoordinatorWorkspaceState",
-    "readCoordinatorTaskIntakeState",
-    "readCoordinatorExecutionState",
-    "saveCoordinatorManagedProject",
+    "readSnapshotIntakeEpoch",
+    "initializeExecutionStore",
+    "saveIntegrationRecord",
+    "saveWorkspaceRecord",
+    "readLease",
+    "acquireLease",
+    "releaseLease",
+    "releaseLease",
+    "verifyQueueIntake",
+    "readProjectExecutionState",
+    "createQueue",
+    "readQueueEntry",
+    "updateQueue",
+    "createQueue",
+    "updateQueue",
+    "acquireLease",
+    "readLease",
+    "recoverLease",
+    "recoverLease",
+    "recoverLease",
+    "updateQueue",
+    "updateQueue",
+    "updateQueue",
+    "selectQueueEntry",
+    "retireStateRecords",
+    "transferHistory",
+    "readState",
+    "readTaskIntakeState",
+    "saveProjectExecutionState",
   ] as const;
   for (const name of names)
     for (const root of [
@@ -88,15 +86,15 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
       assert.deepEqual(fs.readdirSync(directory.path), before, name);
     }
   for (const name of [
-    "writeCoordinatorSnapshot",
-    "writeCoordinatorSnapshotOwned",
-    "writeCoordinatorStateSnapshot",
-    "withCoordinatorSnapshotOperation",
-    "acquireCoordinatorSnapshotPilotLock",
-    "resolveCoordinatorNamedPaths",
-    "assertCoordinatorArea",
-    "assertCoordinatorAreaUnchanged",
-    "coordinatorSnapshotLeaseResourcesAbsent",
+    "writeSnapshot",
+    "writeSnapshotOwned",
+    "writeStateSnapshot",
+    "withSnapshotOperation",
+    "acquireSnapshotPilotLock",
+    "resolveNamedPaths",
+    "assertArea",
+    "assertAreaUnchanged",
+    "snapshotLeaseResourcesAbsent",
   ])
     assert.equal(name in domain, false, name);
 });
@@ -129,8 +127,8 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const capability = verified.capability;
-  const storage = observeRuntimeStorageRepository(capability);
-  const recovery = observeRuntimeRecoveryRepository(capability);
+  const storage = observeExecutionStorageRepository(capability);
+  const recovery = observeExecutionRecoveryRepository(capability);
   assert.ok(storage);
   assert.ok(recovery);
   let live = true;
@@ -145,8 +143,8 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
         revalidate: () => live && recovery.revalidate(),
       }),
   });
-  const execution = observeRuntimeExecutionRepository(access);
-  const settlement = observeRuntimeSettlementRepository({
+  const execution = observeOperationRepository(access);
+  const settlement = observeExecutionSettlementRepository({
     root: capability,
     purpose: "settlement",
     operationId: "operation-a",
@@ -154,14 +152,14 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
   });
   assert.ok(execution);
   assert.ok(settlement);
-  assert.equal(runtimeStorageOperationIdentity(access), identity);
+  assert.equal(executionStorageOperationIdentity(access), identity);
   for (const observed of [storage, recovery, execution, settlement]) {
     assert.equal(observed.repositoryBinding, storage.repositoryBinding);
     assert.equal(observed.revalidate(), true);
   }
   for (const purpose of ["storage", "recovery", "settlement"]) {
     assert.equal(
-      observeRuntimeExecutionRepository({
+      observeOperationRepository({
         ...access,
         observeRepository: () => ({
           root: capability,
@@ -174,13 +172,13 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
     );
   }
   assert.equal(
-    observeRuntimeStorageRepository({
+    observeExecutionStorageRepository({
       contract: "crdd-version-control/repository-location/v1",
     }),
     null,
   );
   assert.equal(
-    observeRuntimeExecutionRepository({
+    observeOperationRepository({
       ...access,
       observeRepository: () => ({
         root: {},
@@ -198,7 +196,7 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
   assert.equal(settlement.revalidate(), true);
   live = false;
   assert.equal(execution.revalidate(), false);
-  const executionWithLiveHost = observeRuntimeExecutionRepository({
+  const executionWithLiveHost = observeOperationRepository({
     ...access,
     observeRepository: () => ({
       root: capability,
@@ -207,7 +205,7 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
       revalidate: () => true,
     }),
   });
-  const settlementWithLiveHost = observeRuntimeSettlementRepository({
+  const settlementWithLiveHost = observeExecutionSettlementRepository({
     root: capability,
     purpose: "settlement",
     operationId: "operation-a",
@@ -239,13 +237,13 @@ test("継承したthenはgetterを評価せずRoot照合前に拒否する", () 
   );
   const context = vm.createContext({ types });
   vm.runInContext(
-    ["data", "synchronous", "observeRuntimeExecutionRepository"]
+    ["data", "synchronous", "observeOperationRepository"]
       .map((name) => sourceDeclaration(source, name))
       .join("\n") +
       `\nlet getterCalls = 0, rootCalls = 0;
-    function observeRuntimeStorageRepository() { rootCalls++; return {}; }
+    function observeExecutionStorageRepository() { rootCalls++; return {}; }
     Object.defineProperty(Object.prototype, "then", { configurable: true, get() { getterCalls++; throw Error("then_accessed"); } });
-    const observed = observeRuntimeExecutionRepository({ observeRepository: () => ({ purpose: "execution", root: {}, operationId: "op", revalidate: () => true }) });
+    const observed = observeOperationRepository({ observeRepository: () => ({ purpose: "execution", root: {}, operationId: "op", revalidate: () => true }) });
     globalThis.result = { observed, getterCalls, rootCalls };`,
     context,
   );
@@ -283,8 +281,8 @@ test("不正Contextと非同期観測を拒否し内部Host読取りだけを受
       },
     },
   );
-  assert.equal(observeRuntimeExecutionRepository(getter), null);
-  assert.equal(observeRuntimeExecutionRepository(proxy), null);
+  assert.equal(observeOperationRepository(getter), null);
+  assert.equal(observeOperationRepository(proxy), null);
   // biome-ignore lint/suspicious/noThenProperty: then getterを評価しない拒否境界の反例。
   const thenable = Object.defineProperty({}, "then", {
     get() {
@@ -293,7 +291,7 @@ test("不正Contextと非同期観測を拒否し内部Host読取りだけを受
     },
   });
   assert.equal(
-    observeRuntimeExecutionRepository({ observeRepository: () => thenable }),
+    observeOperationRepository({ observeRepository: () => thenable }),
     null,
   );
   assert.equal(effects, 0);
@@ -313,7 +311,7 @@ test("不正Contextと非同期観測を拒否し内部Host読取りだけを受
       () => false,
     ]) {
       assert.equal(
-        observeRuntimeExecutionRepository({ observeRepository: callback }),
+        observeOperationRepository({ observeRepository: callback }),
         null,
       );
     }

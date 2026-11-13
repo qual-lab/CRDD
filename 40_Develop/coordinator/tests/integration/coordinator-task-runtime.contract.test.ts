@@ -14,60 +14,61 @@
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../execution-model/src/index.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
-import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import type { CompletionResult } from "../../../executor/src/index.ts";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types } from "node:util";
+import {
+  dockerProcessControllerPublicCompletionReasons,
+  hashExecutionSelection,
+  initializeExecutionStore,
+  readRecoveryState,
+  saveOperationStart,
+} from "../../../execution-model/src/index.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
+import type { CompletionResult } from "../../../executor/src/index.ts";
+import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
+import {
+  createIsolatedCoordinatorTaskRuntimeCandidate,
+  describeCoordinatorTaskRuntimeContract,
+  startRuntimeOwnedCoordinatorTask,
+} from "../../src/execution/controller.ts";
 import { createDevelopmentExecutionTiming } from "../../src/execution/diagnostics.ts";
-
 import {
   cleanupOwnedOperationDirectories,
+  createIsolatedCoordinatorTaskOperationCreationCandidate,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
+  inspectRepositoryObjectFormatCandidate,
   verifyOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/execution/process-safety-state.ts";
-import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
-import {
-  selectionConfig,
-  executionSelection,
-} from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
-import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
-import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
+  coordinatorTaskPublicReasons,
   projectDevelopmentTaskResultAfterOuterCleanup,
 } from "../../src/execution/result.ts";
-import { createIsolatedCoordinatorTaskOperationCreationCandidate } from "../../src/execution/operation.ts";
+import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
 import {
-  createIsolatedCoordinatorTaskRuntimeCandidate,
-  describeCoordinatorTaskRuntimeContract,
-  startRuntimeOwnedCoordinatorTask,
-} from "../../src/execution/controller.ts";
+  executionSelection,
+  selectionConfig,
+} from "../fixtures/ai-selection.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
   getRuntimeTraceCase,
   type RuntimeTraceCase,
 } from "../support/runtime-trace-case.ts";
-import {
-  prepareCoordinatorStateOperationSnapshot,
-  decodeRuntimeDomainSnapshot,
-} from "../../../execution-model/src/index.ts";
 
 type TraceSnapshot = Readonly<{
   state: string;
@@ -1703,11 +1704,11 @@ function fixture(
 }
 
 /**
- * 本番Task制御から本番保存値検査へ、実行済みunknownを持つ四段階を結合する。
+ * 本番Task制御から公開開始Writerへ、実行済みunknownを持つ四段階を結合する。
  * @trace ERB-IT-006、PRL-UT-006
- * @boundary Providerと物理Writerは代役。実AI・Docker・保持記録は使用しない。
+ * @boundary 自己生成Git Repositoryと実Writerを使用する。Providerと技術終了証明は有限代役で、実AI・Docker・保持記録は使用しない。
  */
-test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不整合なら次Effectを拒否する", async () => {
+test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不整合なら次Effectを拒否する", async (t) => {
   for (const fault of [
     "none",
     "lease",
@@ -1718,7 +1719,39 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
     "correlation",
     "host",
   ]) {
-    const binding = "a".repeat(64);
+    const root = createTaskRuntimeTestDirectory(t, `continuation-${fault}-`);
+    execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+    execFileSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "--quiet",
+        "-m",
+        "fixture",
+      ],
+      { windowsHide: true },
+    );
+    const verified = getRepository(root);
+    assert.equal(verified.status, "completed");
+    assert.ok(verified.capability);
+    assert.equal(
+      initializeExecutionStore(verified.capability, "binding-a").status,
+      "completed",
+    );
+    const initial = readRecoveryState(verified.capability);
+    assert.equal(initial.status, "completed", initial.reason);
+    assert.ok(initial.value && initial.lockReleased);
+    const binding = initial.value.snapshot.repositoryBinding;
+    const file = path.join(root, ".crdd", "domain-model", "state.json");
     const hostRecord = {
       schema: "crdd-coordinator-host-recovery/v1",
       state: "host_only",
@@ -1738,7 +1771,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
       .update(`${JSON.stringify(hostRecord)}\n`)
       .digest("hex");
     const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
-    let bytes: Buffer | null = null;
+    let bytes: Buffer = fs.readFileSync(file);
     const stages: string[] = [];
     const harness = fixture({
       borrowedWorkspace: true,
@@ -1793,7 +1826,19 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           },
         };
         const before = bytes
-          ? decodeRuntimeDomainSnapshot(bytes, binding)
+          ? {
+              snapshot: JSON.parse(
+                Buffer.from(
+                  bytes ?? assert.fail("missing_fixture_bytes"),
+                ).toString("utf8"),
+              ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+              payloadSha256: createHash("sha256")
+                .update(bytes ?? assert.fail("missing_fixture_bytes"))
+                .digest("hex"),
+              sourceText: Buffer.from(
+                bytes ?? assert.fail("missing_fixture_bytes"),
+              ).toString("utf8"),
+            }
           : null;
         if (index === 3 && fault !== "none" && bytes) {
           const mutated = JSON.parse(bytes.toString("utf8"));
@@ -1814,19 +1859,67 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
               reason: "provider_result_invalid",
               obligations: ["docker_resources"],
             });
-          bytes = Buffer.from(`${encodeRuntimeStateValue(mutated)}\n`);
-          assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
+          bytes = Buffer.from(`${canonicalJson(mutated)}\n`);
+          // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
         }
-        const next = prepareCoordinatorStateOperationSnapshot(
-          bytes,
+        fs.writeFileSync(file, bytes);
+        const started = saveOperationStart(
+          {
+            identity: Object.freeze({}),
+            observeRepository: () => ({
+              purpose: "execution",
+              root: verified.capability,
+              operationId: identity.operationId,
+              revalidate: () => true,
+            }),
+            observeSettlementRepository: () => ({
+              purpose: "settlement",
+              root: verified.capability,
+              operationId: identity.operationId,
+              revalidate: () => true,
+            }),
+            // ここでは技術清掃の成功証明を提供しない。
+            captureCleanupVerification: () => () => null,
+          },
           `${JSON.stringify(identity)}\n`,
-          binding,
         );
-        if (!next) return false;
+        if (started.status !== "completed") {
+          assert.equal(started.startSaved, false, fault);
+          assert.equal(started.snapshotConfirmed, false, fault);
+          assert.equal(started.filesystemEffectIssued, false, fault);
+          assert.equal(started.lockReleased, true, fault);
+          assert.deepEqual(fs.readFileSync(file), bytes, fault);
+          assert.deepEqual(
+            fs.readdirSync(path.dirname(file)),
+            ["state.json"],
+            fault,
+          );
+          return false;
+        }
+        assert.equal(
+          started.startSaved &&
+            started.snapshotConfirmed &&
+            started.lockReleased,
+          true,
+        );
+        const next = fs.readFileSync(file);
         const snapshot = structuredClone(
-          decodeRuntimeDomainSnapshot(next, binding)?.snapshot,
+          JSON.parse(
+            Buffer.from(next ?? assert.fail("missing_fixture_bytes")).toString(
+              "utf8",
+            ),
+          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
         );
         assert.ok(snapshot);
+        const observed = readRecoveryState(verified.capability);
+        assert.equal(observed.status, "completed");
+        assert.equal(observed.lockReleased, true);
+        assert.deepEqual(observed.value?.snapshot, snapshot);
+        assert.equal(snapshot.revision, (before?.snapshot.revision ?? 0) + 1);
+        assert.deepEqual(snapshot.previous, {
+          revision: before?.snapshot.revision,
+          payloadSha256: createHash("sha256").update(bytes).digest("hex"),
+        });
         if (before)
           for (const old of before.snapshot.operations)
             assert.deepEqual(
@@ -1841,6 +1934,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
             identity.operationNonce,
         );
         assert.ok(operation?.kind === "docker_task");
+        assert.equal(operation.recoveryId, started.recoveryId);
         // 実行要求後の三値と、真正性を別試験で扱う資源終端の値Fixture。
         const execution = {
           providerStart: "unknown",
@@ -1867,9 +1961,9 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           resources,
         };
         bytes = Buffer.from(
-          `${encodeRuntimeStateValue({ ...snapshot, operations: snapshot.operations.map((item) => (item.recoveryId === operation.recoveryId ? settled : item)) })}\n`,
+          `${canonicalJson({ ...snapshot, operations: snapshot.operations.map((item) => (item.recoveryId === operation.recoveryId ? settled : item)) })}\n`,
         );
-        assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
+        // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
         return true;
       },
     });
@@ -1915,8 +2009,13 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
       String(bytes).includes("SYNTHETIC_REVIEW_FINDING_PRIVATE"),
       false,
     );
-    for (const operation of decodeRuntimeDomainSnapshot(bytes, binding)
-      ?.snapshot.operations ?? []) {
+    for (const operation of (
+      JSON.parse(
+        Buffer.from(bytes ?? assert.fail("missing_fixture_bytes")).toString(
+          "utf8",
+        ),
+      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+    ).operations ?? []) {
       if (operation.kind !== "docker_task") continue;
       assert.equal(operation.execution.providerStart, "unknown");
       assert.equal(operation.execution.externalSend, "unknown");

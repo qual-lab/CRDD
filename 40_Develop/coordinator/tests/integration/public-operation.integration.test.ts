@@ -19,21 +19,22 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
+import {
+  ExecutionStorageBlockedError,
+  initializeExecutionStore,
+} from "../../../execution-model/src/index.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
-  initializeCoordinatorSnapshot,
   inspectCoordinatorDecisionResult,
-  RepositoryRuntimeDataAreaBlockedError,
-} from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-
-import { getRepository } from "../../../version-control/src/index.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+} from "../../src/decision/request.ts";
 import {
   COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
   createCoordinatorExecutionIntelligenceDiagnosticReporter,
@@ -61,7 +62,7 @@ import {
  * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影する", async (t) => {
-  const error = new RepositoryRuntimeDataAreaBlockedError({
+  const error = new ExecutionStorageBlockedError({
     status: "blocked",
     reason: "repository_runtime_data_ignore_registration_blocked",
     effectIssued: true,
@@ -135,7 +136,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
     [true, false, true],
     [false, false, true],
   ] as const) {
-    currentError = new RepositoryRuntimeDataAreaBlockedError({
+    currentError = new ExecutionStorageBlockedError({
       status: "blocked",
       reason: "repository_runtime_data_ignore_registration_blocked",
       effectIssued: issued,
@@ -190,8 +191,8 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
 test("開発用構成はTask終了後に明示品質受入を要求し再入場で再送しない", async (t) => {
   const root = fs.mkdtempSync(
     path.join(
-      requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataAreaFromWorkingDirectory(
           path.resolve(import.meta.dirname, "../../../.."),
           "tests",
         ),
@@ -236,7 +237,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     ).status,
     "saved",
   );
-  const initialized = initializeCoordinatorSnapshot(
+  const initialized = initializeExecutionStore(
     verifyRuntimePersistenceRepository(root),
     `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
   );

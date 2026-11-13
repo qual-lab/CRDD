@@ -9,20 +9,16 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { inspectExecutionPlan } from "../../../src/index.ts";
 import {
-  inspectCoordinatorObjectiveRequest,
-  inspectCoordinatorProjection,
-  inspectExecutionPlan,
-  normalizeRepositoryRelativePath,
-} from "../../../src/index.ts";
-import {
-  inspectExecutionPlanDefinition,
-  inspectRuntimePlanDefinition,
-  inspectRuntimeProjectDefinition,
+  inspectCompletePlanDefinition,
+  inspectExecutionProjectDefinition,
+  inspectPlanDefinition,
 } from "../../../src/objective/validation.ts";
 import {
+  normalizeRepositoryRelativePath,
   repositoryPathWithin,
-  snapshotRuntimeStateRecord,
+  snapshotStateRecord,
 } from "../../../src/state/validation.ts";
 
 /**
@@ -109,10 +105,7 @@ test("Record Snapshotは旧二実装の受理集合と無実行境界を維持�
   ];
   for (const [value, exact, empty] of cases) {
     for (const [keys, kind] of keySets) {
-      const actual = Reflect.apply(snapshotRuntimeStateRecord, null, [
-        value,
-        keys,
-      ]);
+      const actual = Reflect.apply(snapshotStateRecord, null, [value, keys]);
       const expected =
         kind === "exact" ? exact : kind === "empty" ? empty : null;
       assert.deepEqual(
@@ -159,155 +152,6 @@ function plan() {
 }
 
 /**
- * 旧容量を超える計画を入力・保存定義・公開投影へ接続する。
- * @responsibility 件数と本文量による拒否だけを撤去し、相関と形式の拒否を維持する。
- * @trace PPR-UT-006
- * @precondition 129 Objectiveと1025 Taskの一意な合成計画を用意する。
- * @stimulus 長い本文・129 Path・受入条件と対応する公開投影を検査する。
- * @observation 返却配列長、全文、相関不正と安全整数境界の拒否。
- * @oracle 旧上限超過は受理し、欠測・重複・参照不正・制御文字・範囲逸脱は拒否する。
- * @cleanup N/A: メモリ内の値のみ。
- * @boundary Domainの公開純粋入力・投影。
- */
-test("計画と公開投影は旧件数と本文容量を超えても相関を検査する", () => {
-  const paths = Array.from({ length: 129 }, (_, index) => `src/path-${index}`);
-  const longPath = `src/${"part/".repeat(110)}file.ts`;
-  paths.push(longPath);
-  const criteria = Array.from(
-    { length: 129 },
-    (_, index) => `${index}:${"確認".repeat(2049)}`,
-  );
-  const largePlan = {
-    milestoneAcceptanceCriteria: criteria,
-    objectives: Array.from({ length: 129 }, (_, index) => ({
-      id: `objective-${index}`,
-      acceptanceCriteria: criteria,
-    })),
-    tasks: Array.from({ length: 1025 }, (_, index) => ({
-      id: `task-${index}`,
-      objectiveId: `objective-${index % 129}`,
-      dependencies: [],
-      allowedPaths: index === 0 ? paths : ["src/path-0"],
-      conflictKeys: [],
-    })),
-  };
-  const validated = inspectExecutionPlan(largePlan, { allowedPaths: paths });
-  assert.equal(validated?.objectives.length, 129);
-  assert.equal(validated?.tasks.length, 1025);
-  assert.equal(normalizeRepositoryRelativePath(longPath), longPath);
-  const request = {
-    intakeEpoch: "epoch-a",
-    requestId: "request-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    repositoryRevision: "a".repeat(40),
-    objective: "説明".repeat(16385),
-    plan: largePlan,
-    taskInputs: largePlan.tasks.map((task) => ({
-      taskId: task.id,
-      objective: "作業".repeat(16385),
-      acceptanceCriteria: ["完了条件"],
-      readPaths: ["src/path-0"],
-    })),
-    acceptanceCriteria: criteria,
-    allowedPaths: paths,
-    readPaths: paths,
-    maximumConcurrency: 5,
-    maximumReplans: 32,
-    originLane: "interactive",
-    adoptResult: false,
-  };
-  const accepted = inspectCoordinatorObjectiveRequest(request);
-  assert.equal(accepted?.objective, request.objective);
-  assert.equal(accepted?.taskInputs.length, 1025);
-  assert.equal(
-    accepted?.taskInputs[1024]?.objective,
-    request.taskInputs[1024]?.objective,
-  );
-  for (const invalid of [
-    { ...request, objective: "" },
-    { ...request, objective: "invalid\0text" },
-    { ...request, allowedPaths: [...paths, paths[0]] },
-    { ...request, readPaths: ["../outside"] },
-    { ...request, taskInputs: request.taskInputs.slice(1) },
-    { ...request, maximumConcurrency: 6 },
-    { ...request, maximumReplans: 33 },
-  ])
-    assert.equal(inspectCoordinatorObjectiveRequest(invalid), null);
-  const objectiveCounts = {
-    planned: 129,
-    executing: 0,
-    integration_pending: 0,
-    accepted: 0,
-    returned: 0,
-    blocked: 0,
-    cancelled: 0,
-  };
-  const taskCounts = {
-    planned: 0,
-    waiting_dependency: 0,
-    ready: 1025,
-    starting: 0,
-    running: 0,
-    cleanup_pending: 0,
-    completed: 0,
-    failed: 0,
-    cancelled: 0,
-    recovery_required: 0,
-    superseded: 0,
-  };
-  const projection = {
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    generation: 1,
-    milestoneState: "planned",
-    objectiveCounts,
-    taskCounts,
-    objectiveTaskSummaries: largePlan.objectives.map((objective) => ({
-      objectiveId: objective.id,
-      objectiveState: "planned",
-      taskCounts: {
-        ...taskCounts,
-        ready: largePlan.tasks.filter(
-          (task) => task.objectiveId === objective.id,
-        ).length,
-      },
-    })),
-    workProgress: "not_started",
-    qualityState: "not_evaluated",
-    humanDecisionRequired: false,
-    recoveryRequired: false,
-    nextAction: "schedule_task",
-  };
-  assert.equal(
-    inspectCoordinatorProjection(projection)?.taskCounts.ready,
-    1025,
-  );
-  for (const ready of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1])
-    assert.equal(
-      inspectCoordinatorProjection({
-        ...projection,
-        taskCounts: { ...taskCounts, ready },
-      }),
-      null,
-    );
-  assert.equal(
-    inspectCoordinatorProjection({
-      ...projection,
-      taskCounts: { ...taskCounts, ready: Number.MAX_SAFE_INTEGER, running: 1 },
-    }),
-    null,
-  );
-  assert.equal(
-    inspectCoordinatorProjection({
-      ...projection,
-      objectiveTaskSummaries: projection.objectiveTaskSummaries.slice(1),
-    }),
-    null,
-  );
-});
-
-/**
  * 一般CRUDの中間定義と実行受付を混同しない。
  * @trace PPR-UT-006
  * @precondition 実行設定や外部資源を持たない値だけを使う。
@@ -332,14 +176,14 @@ test("Coreの作成途中の計画は実行開始可能な計画ではない", (
     },
   ];
   for (const draft of drafts) {
-    const core = inspectRuntimePlanDefinition(draft);
+    const core = inspectPlanDefinition(draft);
     assert.ok(core);
     assert.ok(Object.isFrozen(core));
-    assert.equal(inspectExecutionPlanDefinition(draft), null);
+    assert.equal(inspectCompletePlanDefinition(draft), null);
     assert.equal(inspectExecutionPlan(draft, { allowedPaths: ["src"] }), null);
   }
-  assert.ok(inspectRuntimePlanDefinition(complete));
-  assert.ok(inspectExecutionPlanDefinition(complete));
+  assert.ok(inspectPlanDefinition(complete));
+  assert.ok(inspectCompletePlanDefinition(complete));
   assert.ok(inspectExecutionPlan(complete, { allowedPaths: ["src"] }));
 });
 
@@ -371,8 +215,8 @@ test("Coreと実行受付は不正参照・重複・循環を共に拒否する"
     { ...complete, tasks: Array.from({ length: 1025 }, () => task) },
   ];
   for (const value of invalid) {
-    assert.equal(inspectRuntimePlanDefinition(value), null);
-    assert.equal(inspectExecutionPlanDefinition(value), null);
+    assert.equal(inspectPlanDefinition(value), null);
+    assert.equal(inspectCompletePlanDefinition(value), null);
     assert.equal(inspectExecutionPlan(value, { allowedPaths: ["src"] }), null);
   }
 });
@@ -405,7 +249,7 @@ test("Core Projectの新形式は実行資格なしで固定し未知値を拒�
     objectives: [],
     tasks: [],
   };
-  const result = inspectRuntimeProjectDefinition(input);
+  const result = inspectExecutionProjectDefinition(input);
   assert.ok(result);
   assert.ok(Object.isFrozen(result.milestone));
   assert.equal(Object.hasOwn(result, "ownerGeneration"), false);
@@ -420,10 +264,10 @@ test("Core Projectの新形式は実行資格なしで固定し未知値を拒�
     { ...input, milestone: { ...input.milestone, id: "other" } },
     { ...input, contract: "crdd-coordinator/project-state/v2" },
   ])
-    assert.equal(inspectRuntimeProjectDefinition(invalid), null);
+    assert.equal(inspectExecutionProjectDefinition(invalid), null);
   let effects = 0;
   assert.equal(
-    inspectRuntimeProjectDefinition({
+    inspectExecutionProjectDefinition({
       ...input,
       milestone: {
         ...input.milestone,
@@ -444,9 +288,9 @@ test("Core Projectの新形式は実行資格なしで固定し未知値を拒�
       return [];
     },
   });
-  assert.equal(inspectRuntimeProjectDefinition(accessor), null);
+  assert.equal(inspectExecutionProjectDefinition(accessor), null);
   assert.equal(
-    inspectRuntimeProjectDefinition(
+    inspectExecutionProjectDefinition(
       new Proxy(input, {
         ownKeys() {
           effects++;
@@ -517,7 +361,7 @@ test("Domainの計画検査はAccessor・Proxy・未知field・範囲外を拒�
     },
   });
   assert.equal(inspectExecutionPlan(proxy, { allowedPaths: ["src"] }), null);
-  assert.equal(inspectRuntimePlanDefinition(proxy), null);
+  assert.equal(inspectPlanDefinition(proxy), null);
   const accessor = Object.defineProperty(plan(), "tasks", {
     enumerable: true,
     get() {
@@ -525,8 +369,8 @@ test("Domainの計画検査はAccessor・Proxy・未知field・範囲外を拒�
       return [];
     },
   });
-  assert.equal(inspectRuntimePlanDefinition(accessor), null);
-  assert.equal(inspectRuntimePlanDefinition({ ...plan(), extra: true }), null);
+  assert.equal(inspectPlanDefinition(accessor), null);
+  assert.equal(inspectPlanDefinition({ ...plan(), extra: true }), null);
   assert.equal(
     inspectExecutionPlan({ ...plan(), extra: true }, { allowedPaths: ["src"] }),
     null,

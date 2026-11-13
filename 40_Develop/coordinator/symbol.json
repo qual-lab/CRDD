@@ -142,7 +142,7 @@
     {
       "symbolId": "coordinator.source.src.execution.settlement",
       "kind": "file",
-      "path": "src/execution/settlement.ts",
+      "path": "src/execution/persistence.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -369,6 +369,7 @@
       "verifies": [
         "coordinator.diagnostics.runtime-repair",
         "coordinator.state-storage.coordinator-state-model",
+        "coordinator.source.src.security.orchestrator.history",
         "docker-isolation.desktop.repair-runtime"
       ]
     },
@@ -2391,8 +2392,9 @@
         "PRL-IT-005"
       ],
       "verifies": [
+        "coordinator.execution.persistence",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
-        "coordinator.state-storage.coordinator-state-runtime",
+        "domain-model.src.attempt.crud",
         "docker-isolation.cleanup.recovery-executor",
         "docker-isolation.cleanup.resource-recovery",
         "docker-isolation.cleanup.resource-configuration",
@@ -2414,7 +2416,6 @@
       "verifies": [
         "docker-isolation.desktop.restart-runtime",
         "docker-isolation.desktop.restart-machine",
-        "coordinator.state-storage.restart-checkpoint",
         "coordinator.diagnostics.runtime-restart"
       ]
     },
@@ -3130,10 +3131,12 @@
       "kind": "test-suite",
       "path": "tests/unit/workspace/acceptance-record.contract.test.ts",
       "qaIds": [
-        "QA-000005"
+        "QA-000005",
+        "QA-000007"
       ],
       "localTestIds": [
-        "CPR-UT-009"
+        "CPR-UT-009",
+        "RFD-UT-030"
       ],
       "verifies": [
         "orchestrator.workspace.operations"
@@ -3618,7 +3621,8 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PRL-UT-007",
+        "PRL-UT-015"
       ],
       "verifies": [
         "orchestrator.human-decision-application",
@@ -3699,10 +3703,12 @@
       "kind": "test-suite",
       "path": "tests/unit/state/query.contract.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000004",
+        "QA-000003"
       ],
       "localTestIds": [
-        "PPR-UT-006"
+        "PPR-UT-006",
+        "PRL-UT-006"
       ],
       "verifies": [
         "orchestrator.source.src.ports.state.port",

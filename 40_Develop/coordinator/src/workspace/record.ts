@@ -3,7 +3,85 @@
  * @responsibility 上位の保存要求に必要な値契約を所有し、保存やGit操作を発行しない。
  * @trace ARCH-000005
  */
-import type { CoordinatorPortResult } from "../state/result.ts";
+
+import {
+  inspectWorkspaceResult,
+  type WorkspaceResult,
+} from "../../../execution-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
+import type { PortResult } from "../state/result.ts";
+import { validIdentity } from "../state/validation.ts";
+/**
+ * Taskに結合したWorkspace観測を公開用の閉じた値へ写す。
+ * @responsibility 試行相関・対象一致・欠測と観測不能を維持する。
+ * @trace ARCH-000004
+ * @input raw: 観測配列、expectedWorkspaceId: 要求対象（省略時も配列内の対象一致を検査）。
+ * @returns 凍結した観測配列。不正又は重複はnull。
+ * @precondition N/A: 外部由来のunknownを受ける。
+ * @postcondition 元値の後続変更を公開結果へ搬送しない。
+ * @effect N/A: 値検査と複製だけ。
+ * @failure getter・Proxy・別対象・不明を空配列へ変換しない。
+ * @invariant 変更観測は採用・Commit・Mergeの完了ではない。
+ * @boundary Coordinator結果とWorkbench／MCPの公開投影。
+ * @security 本文・絶対Path・Authorityを追加しない。
+ * @concurrency 同期処理で共有状態を持たない。
+ */
+export function inspectCoordinatorWorkspaceResults(
+  raw: unknown,
+  expectedWorkspaceId?: string | null,
+):
+  | readonly Readonly<{
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+      result: WorkspaceResult;
+    }>[]
+  | null {
+  const array = snapshotPlainArray(raw, Number.MAX_SAFE_INTEGER);
+  if (array.status !== "ok" || array.value.length === 0) return null;
+  const entries: Readonly<{
+    taskId: string;
+    attemptId: string;
+    operationId: string;
+    result: WorkspaceResult;
+  }>[] = [];
+  const attempts = new Set<string>();
+  const operations = new Set<string>();
+  let workspaceId = expectedWorkspaceId;
+  for (const value of array.value) {
+    const entry = snapshotPlainRecord(
+      value,
+      new Set(["taskId", "attemptId", "operationId", "result"] as const),
+    );
+    if (
+      !entry ||
+      !validIdentity(entry.taskId) ||
+      !validIdentity(entry.attemptId) ||
+      !validIdentity(entry.operationId) ||
+      attempts.has(entry.attemptId) ||
+      operations.has(entry.operationId)
+    )
+      return null;
+    const result = inspectWorkspaceResult(entry.result);
+    if (
+      !result ||
+      (workspaceId !== undefined && result.workspaceId !== workspaceId)
+    )
+      return null;
+    workspaceId = result.workspaceId;
+    attempts.add(entry.attemptId);
+    operations.add(entry.operationId);
+    entries.push(
+      Object.freeze({
+        taskId: entry.taskId,
+        attemptId: entry.attemptId,
+        operationId: entry.operationId,
+        result,
+      }),
+    );
+  }
+  return Object.freeze(entries);
+}
 
 /**
  * 上位の結果保存に必要なRepository／Project／Milestone／Queue結合を定義する。
@@ -55,5 +133,5 @@ export type CoordinatorIntegrationRecord = Readonly<{
 export type CoordinatorIntegrationRecordPort = Readonly<{
   write: (
     record: CoordinatorIntegrationRecord,
-  ) => CoordinatorPortResult<Readonly<{ written: true }>>;
+  ) => PortResult<Readonly<{ written: true }>>;
 }>;

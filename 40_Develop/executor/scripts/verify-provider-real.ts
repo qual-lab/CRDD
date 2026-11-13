@@ -10,7 +10,6 @@
 import { fork, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
-import { readReport, writeReport, removeReport } from "./report.ts";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +19,7 @@ import type {
   TaskFixtureReceipt,
   TrialMode,
 } from "../tests/support/task-trial.ts";
+import { readReport, removeReport, writeReport } from "./report.ts";
 
 type TrialResult = Readonly<{
   mode: TrialMode;
@@ -71,9 +71,9 @@ const { describeIsolationConfiguration } = await import(
 );
 
 const {
-  validateCoordinatorResourceBook,
-  validateCoordinatorResourceBookTransition,
-  RepositoryRuntimeDataAreaBlockedError,
+  validateResourceBook,
+  validateResourceBookTransition,
+  ExecutionStorageBlockedError,
 } = await import("../../execution-model/src/index.ts");
 const {
   ensureRepositoryRuntimeDataArea,
@@ -795,7 +795,7 @@ export function cleanupStandaloneTrialRoot(
     let operationId: string | null = null;
     let ownershipLabel: string | null = null;
     let priorResources:
-      | import("../../execution-model/src/index.ts").CoordinatorResourceBook
+      | import("../../execution-model/src/index.ts").OperationResources
       | null = null;
     const kinds: string[] = [];
     for (const [i, name] of files.entries()) {
@@ -871,12 +871,9 @@ export function cleanupStandaloneTrialRoot(
         ].includes(v.kind)
       ) {
         if (
-          !validateCoordinatorResourceBook(v.resources) ||
+          !validateResourceBook(v.resources) ||
           !v.resources ||
-          !validateCoordinatorResourceBookTransition(
-            priorResources,
-            v.resources,
-          )
+          !validateResourceBookTransition(priorResources, v.resources)
         )
           return false;
         const book = v.resources;
@@ -1576,7 +1573,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === script) {
       process.stdout.write(
         `${JSON.stringify({
           status: "blocked",
-          ...(error instanceof RepositoryRuntimeDataAreaBlockedError
+          ...(error instanceof ExecutionStorageBlockedError
             ? {
                 reason: error.reason,
                 recoveryReference: error.recoveryReference,

@@ -8,24 +8,24 @@
  * @boundary 実Lease・Scheduling方針・実回復・保存の成功は主張しない。
  */
 
+import type { Snapshot } from "../../../src/state/types.ts";
+import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  type CoordinatorSnapshot,
-  encodeRuntimeStateValue,
   inspectSingleTaskRecord,
   type ProjectQueueEntry,
   type SingleTaskRecord,
 } from "../../../src/index.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
 import {
-  prepareCoordinatorQueueLeaseReleaseSettlement,
-  prepareCoordinatorQueueOperationUpdate,
-  prepareCoordinatorQueueRecoverySettlement,
-  prepareCoordinatorQueueSelection,
-  prepareCoordinatorSingleTaskQueueCreation,
-  prepareCoordinatorSingleTaskQueueUpdate,
-  prepareCoordinatorUnstartedTaskQueueClosure,
+  prepareQueueLeaseReleaseSettlement,
+  prepareQueueOperationUpdate,
+  prepareQueueRecoverySettlement,
+  prepareQueueSelection,
+  prepareSingleTaskQueueCreation,
+  prepareSingleTaskQueueUpdate,
+  prepareUnstartedTaskQueueClosure,
   validQueueEntry,
 } from "../../../src/task/validation.ts";
 
@@ -84,8 +84,8 @@ function fixture() {
     singleTask: record,
   };
   assert.equal(validQueueEntry(entry), true);
-  const current: CoordinatorSnapshot = {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  const current: Snapshot = {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
@@ -168,44 +168,36 @@ function observations() {
 test("単発受付候補は反復・旧epoch・元Identityを区別する", () => {
   const { current, entry } = fixture();
   const empty = { ...current, queueEntries: [] };
-  const before = encodeRuntimeStateValue(empty);
-  const created = prepareCoordinatorSingleTaskQueueCreation(
-    empty,
-    "epoch-a",
-    entry,
-  );
+  const before = encodeStateValue(empty);
+  const created = prepareSingleTaskQueueCreation(empty, "epoch-a", entry);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
   assert.strictEqual(created.value.value, entry);
   assert.strictEqual(created.value.next.projects, empty.projects);
   assert.equal(
-    prepareCoordinatorSingleTaskQueueCreation(
-      created.value.next,
-      "epoch-a",
-      entry,
-    ).reason,
+    prepareSingleTaskQueueCreation(created.value.next, "epoch-a", entry).reason,
     "orchestrator_single_task_reused",
   );
   assert.equal(
-    prepareCoordinatorSingleTaskQueueCreation(created.value.next, "epoch-a", {
+    prepareSingleTaskQueueCreation(created.value.next, "epoch-a", {
       ...entry,
       requestHash: "d".repeat(64),
     }).reason,
     "orchestrator_queue_identity_conflict",
   );
   assert.equal(
-    prepareCoordinatorSingleTaskQueueCreation(empty, "retired", entry).reason,
+    prepareSingleTaskQueueCreation(empty, "retired", entry).reason,
     "orchestrator_intake_epoch_retired",
   );
   assert.equal(
-    prepareCoordinatorSingleTaskQueueCreation(empty, "epoch-a", {
+    prepareSingleTaskQueueCreation(empty, "epoch-a", {
       ...entry,
       milestoneId: "milestone-a",
     }).reason,
     "orchestrator_single_task_input_invalid",
   );
-  assert.equal(encodeRuntimeStateValue(empty), before);
+  assert.equal(encodeStateValue(empty), before);
 });
 /**
  * 単発更新の借用・相関・生存の元順序を確認する。
@@ -222,7 +214,7 @@ test("単発受付候補は反復・旧epoch・元Identityを区別する", () =
 test("単発更新は同じ実体の借用後だけ生存を一回観測する", () => {
   const { current, record } = fixture();
   const starting = { ...record, phase: "starting" as const };
-  const before = encodeRuntimeStateValue(current);
+  const before = encodeStateValue(current);
   for (const [key, value] of Object.entries({
     kind: "canonical-adoption",
     repositoryRoot: "other",
@@ -232,7 +224,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
   })) {
     const o = observations();
     const active = { ...o.active, [key]: value };
-    const result = prepareCoordinatorSingleTaskQueueUpdate(
+    const result = prepareSingleTaskQueueUpdate(
       current,
       "repository-a",
       "binding-a",
@@ -261,7 +253,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
   ]) {
     const o = observations();
     assert.equal(
-      prepareCoordinatorSingleTaskQueueUpdate(
+      prepareSingleTaskQueueUpdate(
         snapshot,
         "repository-a",
         "binding-a",
@@ -276,7 +268,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
   }
   const absent = observations();
   assert.equal(
-    prepareCoordinatorSingleTaskQueueUpdate(
+    prepareSingleTaskQueueUpdate(
       current,
       "repository-a",
       "binding-a",
@@ -298,7 +290,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
   const thenable = { then() {} };
   for (const value of [false, Promise.resolve(true), thenable]) {
     const o = observations();
-    const result = prepareCoordinatorSingleTaskQueueUpdate(
+    const result = prepareSingleTaskQueueUpdate(
       current,
       "repository-a",
       "binding-a",
@@ -317,7 +309,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
     assert.deepEqual(o.calls, ["borrow", "live"]);
   }
   const o = observations();
-  const started = prepareCoordinatorSingleTaskQueueUpdate(
+  const started = prepareSingleTaskQueueUpdate(
     current,
     "repository-a",
     "binding-a",
@@ -328,7 +320,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
   );
   assert.equal(started.status, "completed");
   assert.deepEqual(o.calls, ["borrow", "live"]);
-  assert.equal(encodeRuntimeStateValue(current), before);
+  assert.equal(encodeStateValue(current), before);
   const wrongOwner = {
     ...current,
     queueEntries: [
@@ -340,7 +332,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
   };
   const owned = observations();
   assert.equal(
-    prepareCoordinatorSingleTaskQueueUpdate(
+    prepareSingleTaskQueueUpdate(
       wrongOwner,
       "repository-a",
       "binding-a",
@@ -387,7 +379,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
     cleanupConfirmed: true,
   };
   const o = observations();
-  const saved = prepareCoordinatorSingleTaskQueueUpdate(
+  const saved = prepareSingleTaskQueueUpdate(
     running,
     "repository-a",
     "binding-a",
@@ -404,7 +396,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
   assert.equal(saved.value.value.generation, 3);
   const duplicate = observations();
   assert.equal(
-    prepareCoordinatorSingleTaskQueueUpdate(
+    prepareSingleTaskQueueUpdate(
       saved.value.next,
       "repository-a",
       "binding-a",
@@ -417,7 +409,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
   );
   assert.deepEqual(duplicate.calls, ["borrow", "live"]);
   const dirty = observations();
-  const unresolved = prepareCoordinatorSingleTaskQueueUpdate(
+  const unresolved = prepareSingleTaskQueueUpdate(
     running,
     "repository-a",
     "binding-a",
@@ -436,7 +428,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
   }
   const conflict = observations();
   assert.equal(
-    prepareCoordinatorSingleTaskQueueUpdate(
+    prepareSingleTaskQueueUpdate(
       running,
       "repository-a",
       "binding-a",
@@ -451,7 +443,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
   const thrown = observations();
   assert.throws(
     () =>
-      prepareCoordinatorSingleTaskQueueUpdate(
+      prepareSingleTaskQueueUpdate(
         running,
         "repository-a",
         "binding-a",
@@ -504,7 +496,7 @@ test("未開始終了の拒否は時計零回、成立時だけ二回", () => {
   ]) {
     const o = observations();
     assert.equal(
-      prepareCoordinatorUnstartedTaskQueueClosure(
+      prepareUnstartedTaskQueueClosure(
         snapshot,
         "queue-a",
         1,
@@ -516,7 +508,7 @@ test("未開始終了の拒否は時計零回、成立時だけ二回", () => {
     assert.deepEqual(o.calls, []);
   }
   const o = observations();
-  const closed = prepareCoordinatorUnstartedTaskQueueClosure(
+  const closed = prepareUnstartedTaskQueueClosure(
     current,
     "queue-a",
     1,
@@ -556,7 +548,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
   const stale = observations();
   const denied = observations();
   assert.equal(
-    prepareCoordinatorQueueOperationUpdate(
+    prepareQueueOperationUpdate(
       {
         ...state,
         blockers: [
@@ -588,7 +580,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
   );
   assert.deepEqual(denied.calls, []);
   assert.equal(
-    prepareCoordinatorQueueOperationUpdate(
+    prepareQueueOperationUpdate(
       state,
       "repository-a",
       "binding-a",
@@ -609,7 +601,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
   ] as const) {
     const o = observations();
     assert.equal(
-      prepareCoordinatorQueueOperationUpdate(
+      prepareQueueOperationUpdate(
         state,
         "repository-a",
         "binding-a",
@@ -629,7 +621,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
     assert.deepEqual(o.calls, ["borrow"]);
   }
   const o = observations();
-  const updated = prepareCoordinatorQueueOperationUpdate(
+  const updated = prepareQueueOperationUpdate(
     state,
     "repository-a",
     "binding-a",
@@ -646,7 +638,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
   }
   const bad = observations();
   assert.equal(
-    prepareCoordinatorQueueOperationUpdate(
+    prepareQueueOperationUpdate(
       state,
       "repository-a",
       "binding-a",
@@ -666,7 +658,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
   assert.deepEqual(bad.calls, ["borrow", "live"]);
   const cancelled = observations();
   assert.equal(
-    prepareCoordinatorQueueOperationUpdate(
+    prepareQueueOperationUpdate(
       state,
       "repository-a",
       "binding-a",
@@ -700,7 +692,7 @@ test("exact回復後Queue候補は別ID・世代・Owner・状態を拒否する
     resultReference: "recovery-a",
   };
   const state = { ...current, queueEntries: [entry] };
-  const result = prepareCoordinatorQueueRecoverySettlement(
+  const result = prepareQueueRecoverySettlement(
     state,
     "queue-a",
     1,
@@ -713,13 +705,11 @@ test("exact回復後Queue候補は別ID・世代・Owner・状態を拒否する
     assert.equal(result.value.value.resultReference, "recovery-a");
   }
   assert.equal(
-    prepareCoordinatorQueueRecoverySettlement(state, "queue-a", 2, "recovery-a")
-      .status,
+    prepareQueueRecoverySettlement(state, "queue-a", 2, "recovery-a").status,
     "blocked",
   );
   assert.equal(
-    prepareCoordinatorQueueRecoverySettlement(state, "queue-a", 1, "recovery-b")
-      .status,
+    prepareQueueRecoverySettlement(state, "queue-a", 1, "recovery-b").status,
     "blocked",
   );
   for (const changes of [
@@ -728,7 +718,7 @@ test("exact回復後Queue候補は別ID・世代・Owner・状態を拒否する
     { resumeCondition: "owner_loss" },
   ])
     assert.equal(
-      prepareCoordinatorQueueRecoverySettlement(
+      prepareQueueRecoverySettlement(
         { ...state, queueEntries: [{ ...entry, ...changes }] },
         "queue-a",
         1,
@@ -775,8 +765,8 @@ test("Queue選択適用は旧世代・誤ID・重複・対象外更新を拒否�
       },
     ],
   };
-  const before = encodeRuntimeStateValue(state);
-  const result = prepareCoordinatorQueueSelection(state, decision);
+  const before = encodeStateValue(state);
+  const result = prepareQueueSelection(state, decision);
   assert.equal(result.status, "completed");
   if (result.status === "completed") {
     assert.strictEqual(result.value.value, regular);
@@ -794,12 +784,11 @@ test("Queue選択適用は旧世代・誤ID・重複・対象外更新を拒否�
     { updates: [{ ...update, queueId: "queue-a" }] },
   ])
     assert.equal(
-      prepareCoordinatorQueueSelection(state, { ...decision, ...change })
-        .reason,
+      prepareQueueSelection(state, { ...decision, ...change }).reason,
       "orchestrator_queue_selection_invalid",
     );
   assert.equal(
-    prepareCoordinatorQueueSelection(state, {
+    prepareQueueSelection(state, {
       ...decision,
       reason: "orchestrator_queue_empty",
       selectedQueueId: null,
@@ -807,7 +796,7 @@ test("Queue選択適用は旧世代・誤ID・重複・対象外更新を拒否�
     }).status,
     "blocked",
   );
-  assert.equal(encodeRuntimeStateValue(state), before);
+  assert.equal(encodeStateValue(state), before);
 });
 /**
  * 解放確定は元世代を確認してから資源観測し、同じ解放証拠だけに結合する。
@@ -837,7 +826,7 @@ test("Queue解放確定は資源不明・intent残存・元証拠差を成功に
       ownerGeneration: "owner-a",
       disposition: "released",
     },
-  } as unknown as CoordinatorSnapshot["leaseEvidence"][number];
+  } as unknown as Snapshot["leaseEvidence"][number];
   const state = {
     ...current,
     queueEntries: [entry],
@@ -851,17 +840,12 @@ test("Queue解放確定は資源不明・intent残存・元証拠差を成功に
     },
   };
   assert.equal(
-    prepareCoordinatorQueueLeaseReleaseSettlement(
-      state,
-      "queue-a",
-      2,
-      "owner-a",
-      ops,
-    ).status,
+    prepareQueueLeaseReleaseSettlement(state, "queue-a", 2, "owner-a", ops)
+      .status,
     "blocked",
   );
   assert.equal(calls, 0);
-  const result = prepareCoordinatorQueueLeaseReleaseSettlement(
+  const result = prepareQueueLeaseReleaseSettlement(
     state,
     "queue-a",
     1,
@@ -876,19 +860,13 @@ test("Queue解放確定は資源不明・intent残存・元証拠差を成功に
   }
   for (const value of [false, Promise.resolve(true)])
     assert.equal(
-      prepareCoordinatorQueueLeaseReleaseSettlement(
-        state,
-        "queue-a",
-        1,
-        "owner-a",
-        {
-          resourcesAbsent: () => value as boolean,
-        },
-      ).status,
+      prepareQueueLeaseReleaseSettlement(state, "queue-a", 1, "owner-a", {
+        resourcesAbsent: () => value as boolean,
+      }).status,
       "blocked",
     );
   assert.equal(
-    prepareCoordinatorQueueLeaseReleaseSettlement(
+    prepareQueueLeaseReleaseSettlement(
       { ...state, leaseEvidence: [] },
       "queue-a",
       1,
@@ -898,7 +876,7 @@ test("Queue解放確定は資源不明・intent残存・元証拠差を成功に
     "orchestrator_queue_release_evidence_mismatch",
   );
   assert.equal(
-    prepareCoordinatorQueueLeaseReleaseSettlement(
+    prepareQueueLeaseReleaseSettlement(
       {
         ...state,
         leaseIntents: [

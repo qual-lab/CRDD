@@ -16,15 +16,15 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
 import { hashExecutionSelection } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import {
   bindOwnedOperationExecutionSelection,
   bindRuntimeOwnedRepositoryOperation,
@@ -156,8 +156,8 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
 test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立する", {
   skip: process.platform !== "win32",
 }, (t) => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -371,8 +371,8 @@ test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立�
  * @boundary PRL-IT-012=Direct Boundary: Repository Operation Owner→Coordinator保存先。
  */
 test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合する", (t) => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -464,8 +464,8 @@ function temporaryRepository(t: TestContext, parent = os.tmpdir()) {
  * @boundary 操作OwnerとVersion Controlの実観測。保存・Docker・AIは呼ばない。
  */
 test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない", (t) => {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),

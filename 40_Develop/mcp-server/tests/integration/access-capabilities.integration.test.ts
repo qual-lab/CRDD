@@ -37,25 +37,25 @@ import {
   createInitialCredential,
   initializeAccessManagementState,
 } from "../../../access-management/src/initialization/execution.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { executeWorkspace } from "../../../coordinator/src/index.ts";
 import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import {
+  activityId,
+  storeFixtureExecution,
+} from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import {
   createMeetingOperations,
   createTopicOperations,
 } from "../../../document-model/src/index.ts";
-import {
-  initializeCoordinatorSnapshot,
-  saveCoordinatorManagedProject,
-} from "../../../execution-model/src/index.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
-  storeFixtureExecution,
-  activityId,
-} from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
+  initializeExecutionStore,
+  saveProjectExecutionState,
+} from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
@@ -65,9 +65,9 @@ import {
   MCP_EXECUTION_STATUS_TOOL,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_TOPIC_MEETING_TOOLS,
-  MCP_RUNTIME_READ_TOOL,
   MCP_RUNTIME_MANAGE_TOOL,
+  MCP_RUNTIME_READ_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
   type McpResponse,
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
@@ -911,7 +911,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     if (repository.status !== "completed")
       throw Error("fixture_repository_invalid");
     assert.equal(
-      initializeCoordinatorSnapshot(repository.capability, binding).status,
+      initializeExecutionStore(repository.capability, binding).status,
       "completed",
     );
     const saved = createCoordinatorState({
@@ -937,12 +937,8 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     });
     assert.ok(saved.state);
     assert.equal(
-      saveCoordinatorManagedProject(
-        repository.capability,
-        binding,
-        saved.state,
-        0,
-      ).status,
+      saveProjectExecutionState(repository.capability, binding, saved.state, 0)
+        .status,
       "completed",
     );
     const history = {

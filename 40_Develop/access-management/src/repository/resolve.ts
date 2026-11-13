@@ -6,8 +6,7 @@
  */
 
 import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
-import type { RuntimeAccess } from "../../../execution-model/src/index.ts";
-import type { FilesystemStoreRoot } from "../initialization/root.ts";
+import type { ExecutionModelAccess } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -16,6 +15,7 @@ import { resolveCredentialAuthentication } from "../credential/authentication.ts
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";
 import { selectConnectionAuthentication } from "../initialization/connection.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import { locked } from "../storage/lock.ts";
 import { hash, readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
@@ -33,7 +33,7 @@ import type {
  * @trace ARCH-000013
  * @trace ARCH-000008
  * @input root、token、repositoryId、signal: 信頼したHostの要求内接続。
- * @returns DomainのRuntimeAccess、又は非開示拒否のnull。
+ * @returns DomainのExecutionModelAccess、又は非開示拒否のnull。
  * @precondition 呼出元がProtocol入力を検査し、同じ要求のSignalを渡す。
  * @postcondition 定義編集と読取りだけを既存development権限へ対応付ける。
  * @effect 既存の認証・Repository読取りと短期Lock。新状態・資格・Lockなし。
@@ -48,7 +48,7 @@ export function resolveRuntimeContentAccess(
   token: string,
   repositoryId: string,
   signal: AbortSignal,
-): RuntimeAccess | null {
+): ExecutionModelAccess | null {
   const unavailable = {
     status: "unavailable" as const,
     reason: "runtime_content_access_unavailable",
@@ -186,7 +186,7 @@ export function resolveRuntimeContentAccess(
           return false;
         }
       },
-    } satisfies RuntimeAccess);
+    } satisfies ExecutionModelAccess);
   } catch {
     return null;
   }

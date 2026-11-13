@@ -20,6 +20,72 @@ import {
 } from "../fixtures/decision-state.ts";
 
 /**
+ * 公開受入の入力捕捉をRoot照会前に反証する。
+ * @responsibility 未信頼要求の未知実行を認証済み主体からも許可しない。
+ * @trace PRL-IT-008
+ * @precondition 正規Principalだけを与え、Repositoryは作らない。
+ * @stimulus Getter・Proxy・toJSON・循環要求を渡す。
+ * @observation 入力拒否理由・記録未生成・Filesystem／未知実行到達数。
+ * @oracle Root未確認の理由ではなく入力不正として停止し、Effectを発行しない。
+ * @cleanup 外部資源なし。
+ * @boundary 公開入口の入力検査。保存成立を示さない。
+ */
+test("公開受入の不正要求はRootの取得前に入力拒否する", (t) => {
+  const read = t.mock.method(fs, "readFileSync", () => {
+    throw new Error("unexpected_file_read");
+  });
+  const write = t.mock.method(fs, "writeFileSync", () => {
+    throw new Error("unexpected_file_write");
+  });
+  const realpath = t.mock.method(fs.realpathSync, "native", () => {
+    throw new Error("unexpected_root_lookup");
+  });
+  let traps = 0;
+  const getter = Object.defineProperty({}, "target", {
+    get() {
+      traps++;
+      return "objective";
+    },
+  });
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys() {
+        traps++;
+        return [];
+      },
+    },
+  );
+  const toJSON = {
+    toJSON() {
+      traps++;
+      return {};
+    },
+  };
+  const cycle: unknown[] = [];
+  cycle.push(cycle);
+  for (const input of [getter, proxy, toJSON, cycle]) {
+    const result = executeCoordinatorPublicAcceptanceDecision(
+      input,
+      path.resolve(import.meta.dirname, "uncreated-input-boundary"),
+      { principalId: "operator-a" },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "orchestrator_acceptance_decision_request_invalid",
+    );
+    assert.ok("recordId" in result);
+    assert.equal(result.recordId, null);
+    assert.equal(result.cleanupConfirmed, true);
+  }
+  assert.equal(traps, 0);
+  assert.equal(read.mock.callCount(), 0);
+  assert.equal(write.mock.callCount(), 0);
+  assert.equal(realpath.mock.callCount(), 0);
+});
+
+/**
  * 現在の対象への明示回答だけが一度適用されることを確認する。
  * @trace PRL-IT-008
  * @precondition 自己生成RepositoryにTask完了状態を保存済み。

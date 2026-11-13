@@ -15,12 +15,12 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  describeCoordinatorSingleTaskAdapterContract,
   COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
   type CoordinatorSingleTaskDependencies,
+  describeCoordinatorSingleTaskAdapterContract,
   runCoordinatorSingleTaskAttempt,
+  startRuntimeOwnedCoordinatorTask,
 } from "../../src/execution/controller.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
 import { validSingleTaskResult } from "../../src/task/dispatch.ts";
 
@@ -43,7 +43,7 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
     changeAttribution: "unattributed",
     workspaceDeletionIssued: false,
   };
-  assert.deepEqual(snapshotCoordinatorWorkspaceResult(base), base);
+  assert.deepEqual(inspectWorkspaceResult(base), base);
   for (const raw of [
     { ...base, canonicalRepositoryChanged: false },
     { ...base, changedPaths: null },
@@ -57,7 +57,7 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
       get: () => assert.fail("getter"),
     }),
   ])
-    assert.equal(snapshotCoordinatorWorkspaceResult(raw), null);
+    assert.equal(inspectWorkspaceResult(raw), null);
   for (const changedPaths of [null, [], ["src/file.ts"]]) {
     const value = {
       ...base,
@@ -65,9 +65,10 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
       canonicalRepositoryChanged:
         changedPaths === null ? null : changedPaths.length > 0,
     };
-    assert.deepEqual(snapshotCoordinatorWorkspaceResult(value), value);
+    assert.deepEqual(inspectWorkspaceResult(value), value);
   }
 });
+
 import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
@@ -1718,4 +1719,4 @@ test("Provider Accessorを実行せず欠測互換から除外する", async () 
   assert.equal(result.manualRecoveryRequired, true);
 });
 
-import { snapshotCoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import { inspectWorkspaceResult } from "../../../execution-model/src/index.ts";

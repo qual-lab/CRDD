@@ -10,21 +10,21 @@
  * @scope coordinator、task、process
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container / ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer / ERB-IT-003=Direct Boundary: Host清掃Owner→実Filesystem。
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../src/configuration/runtime-data.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/controller.ts";
 import {
-  cleanupOwnedOperationDirectoriesAsync,
   captureOwnedOperationCleanupVerification,
+  cleanupOwnedOperationDirectoriesAsync,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -33,6 +33,7 @@ import {
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { createTaskControllerCancellationFixture } from "../fixtures/task-controller-cancellation-fixture.ts";
 
 // This is an isolated Task orchestration test, not a signed CLI, Docker,
@@ -102,8 +103,8 @@ function createProcessHarness(
   scenario: Scenario,
   controllerCleanupConfirmed?: boolean,
 ) {
-  const tests = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const tests = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),
@@ -486,8 +487,8 @@ function createProcessHarness(
  * @boundary ERB-IT-003=Direct Boundary: Host清掃Owner→真正結果と実Filesystem。
  */
 test("Host清掃結果はOwner失効後も元操作だけへ結合する", async (t) => {
-  const tests = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+  const tests = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
       "tests",
     ),

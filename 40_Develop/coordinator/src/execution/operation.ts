@@ -5,43 +5,42 @@
  * @trace ARCH-000008
  */
 
-import {
-  parseHostRecoveryToken,
-  inspectExecutionSelection,
-  hashExecutionSelection,
-  type ExecutionSelection,
-} from "../../../execution-model/src/index.ts";
-import { containsRecognizedSecretMaterial } from "../input/secret-validation.ts";
-
-import {
-  getRepository,
-  readRepositorySnapshot,
-  readRepositoryRevision,
-  readRepositoryFormat,
-  type Repository,
-  resolveVerifiedRepositoryRoot,
-  readRepositoryStorageIdentity,
-} from "../../../version-control/src/index.ts";
-import {
-  type ExecutionFileEntry,
-  readExecutionInventory,
-  isExecutionRelativePath,
-  readExecutionFile,
-} from "./files.ts";
 import { createHash, randomUUID } from "node:crypto";
-import path from "node:path";
-import type { Operation } from "./controller.ts";
-import { types } from "node:util";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
+import { types } from "node:util";
+import {
+  type ExecutionSelection,
+  hashExecutionSelection,
+  inspectExecutionSelection,
+  parseHostRecoveryToken,
+} from "../../../execution-model/src/index.ts";
+import type { Lock } from "../../../lock/src/index.ts";
+import {
+  getRepository,
+  type Repository,
+  readRepositoryFormat,
+  readRepositoryRevision,
+  readRepositorySnapshot,
+  readRepositoryStorageIdentity,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import { checkRepositoryRuntimeDataProtectionDirectory } from "../configuration/runtime-data.ts";
+import { containsRecognizedSecretMaterial } from "../input/secret-validation.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
+import type { Operation } from "./controller.ts";
+import {
+  type ExecutionFileEntry,
+  isExecutionRelativePath,
+  readExecutionFile,
+  readExecutionInventory,
+} from "./files.ts";
+import { acquireHostOperationLock } from "./kernel-lock.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { loadHostRecoveryRecordByToken } from "./recovery.ts";
 import { formatHostRecoveryToken } from "./result.ts";
-import { acquireHostOperationLock } from "./kernel-lock.ts";
-import type { Lock } from "../../../lock/src/index.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 
-import { snapshotPlainRecord } from "../input/snapshot.ts";
-import { checkRepositoryRuntimeDataProtectionDirectory } from "../configuration/runtime-data.ts";
 /**
  * Coordinatorが管理する操作領域の全Pathを定義する。
  * @responsibility 作業・Home・記録と管理領域の所在を上位Ownerに閉じる。
@@ -80,7 +79,7 @@ export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 8;
 export function projectBorrowedExecutionResult(
   capability: object | undefined,
   target: BorrowedExecutionTarget,
-): CoordinatorWorkspaceResult {
+): WorkspaceResult {
   const changedPaths = capability
     ? observeBorrowedExecutionChanges(capability)
     : null;
@@ -6916,4 +6915,4 @@ export function describeRepositoryOperationRuntimeContract() {
   });
 }
 
-import type { CoordinatorWorkspaceResult } from "../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../../../execution-model/src/index.ts";

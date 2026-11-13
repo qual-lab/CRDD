@@ -5,29 +5,32 @@
  * @level UT
  * @scope メモリ内記録と既存有限CLI代役。実Docker・AI・既存保持物を操作しない。
  */
-import { createHash } from "node:crypto";
+
 import assert from "node:assert/strict";
-import path from "node:path";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
+import type { TestContext } from "node:test";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getAuthenticationDefinition } from "../../../ai-adapter/src/index.ts";
-import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
-import { plannedResourceSnapshot } from "../../../docker-isolation/src/execution/preparation.ts";
-import type { TestContext } from "node:test";
-import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
-import { captureIsolationRequest } from "../../../docker-isolation/src/execution/preparation.ts";
-import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
 import {
-  applyCoordinatorResourceEvent,
-  applyCoordinatorResourceCleanup,
+  captureIsolationRequest,
+  plannedResourceSnapshot,
+} from "../../../docker-isolation/src/execution/preparation.ts";
+import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
+import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
+import {
+  applyResourceCleanup,
+  applyResourceEvent,
 } from "../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type { RecordProjection } from "../../../executor/src/index.ts";
 import {
+  type AuthenticationRecoveryRecord,
   authenticateProvider,
   prepareProviderAuthentication,
-  type AuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
@@ -220,7 +223,7 @@ export async function createAuthenticationFixture(
           return false;
         let resources = current.resources;
         if (state === "in_flight" && purpose?.startsWith("create_")) {
-          resources = applyCoordinatorResourceEvent(resources, {
+          resources = applyResourceEvent(resources, {
             ...(material as object),
             event: "submission",
             key,
@@ -245,7 +248,7 @@ export async function createAuthenticationFixture(
         if (!current || !live) return false;
         const resources =
           event.event === "cleanup" && current.resources
-            ? applyCoordinatorResourceCleanup(
+            ? applyResourceCleanup(
                 current.resources,
                 event.snapshot,
                 event.observations,
@@ -256,7 +259,7 @@ export async function createAuthenticationFixture(
                     .digest("hex"),
                 },
               )
-            : applyCoordinatorResourceEvent(current.resources, event);
+            : applyResourceEvent(current.resources, event);
         if (!resources) return false;
         current = {
           ...current,

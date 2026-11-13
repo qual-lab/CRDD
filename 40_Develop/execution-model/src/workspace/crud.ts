@@ -5,17 +5,12 @@
  */
 
 import type { Repository } from "../../../version-control/src/index.ts";
+import { readExecutionContent, withSnapshotOperation } from "../state/crud.ts";
+import type { ExecutionModelAccess } from "../state/types.ts";
+
 import {
-  readRuntimeContent,
-  withCoordinatorSnapshotOperation,
-} from "../state/crud.ts";
-import type { CoordinatorSnapshot, RuntimeAccess } from "../state/types.ts";
-import type { StoreResult } from "../storage/lock.ts";
-import { blocked, completed } from "../storage/lock.ts";
-import { readCoordinatorSnapshot } from "../storage/store.ts";
-import {
-  prepareCoordinatorIntegrationRecordCreation,
-  prepareCoordinatorWorkspaceRecordUpdate,
+  prepareIntegrationRecordCreation,
+  prepareWorkspaceRecordUpdate,
 } from "./validation.ts";
 
 /**
@@ -33,22 +28,23 @@ import {
  * @security 保存成功を実行Authorityや資源回収と扱わない。
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
-export function saveCoordinatorIntegrationRecord(
+export function saveIntegrationRecord(
   workingDirectory: Repository,
   binding: string,
-  ...input: Parameters<
-    typeof prepareCoordinatorIntegrationRecordCreation
-  > extends [unknown, ...infer Rest]
+  ...input: Parameters<typeof prepareIntegrationRecordCreation> extends [
+    unknown,
+    ...infer Rest,
+  ]
     ? Rest
     : never
 ) {
-  return withCoordinatorSnapshotOperation<
+  return withSnapshotOperation<
     Extract<
-      ReturnType<typeof prepareCoordinatorIntegrationRecordCreation>,
+      ReturnType<typeof prepareIntegrationRecordCreation>,
       { status: "completed" }
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
-    prepareCoordinatorIntegrationRecordCreation(current, ...input),
+    prepareIntegrationRecordCreation(current, ...input),
   );
 }
 
@@ -67,63 +63,23 @@ export function saveCoordinatorIntegrationRecord(
  * @security 保存成功を実行Authorityや資源回収と扱わない。
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
-export function saveCoordinatorWorkspaceRecord(
+export function saveWorkspaceRecord(
   workingDirectory: Repository,
   binding: string,
-  ...input: Parameters<typeof prepareCoordinatorWorkspaceRecordUpdate> extends [
+  ...input: Parameters<typeof prepareWorkspaceRecordUpdate> extends [
     unknown,
     ...infer Rest,
   ]
     ? Rest
     : never
 ) {
-  return withCoordinatorSnapshotOperation<
+  return withSnapshotOperation<
     Extract<
-      ReturnType<typeof prepareCoordinatorWorkspaceRecordUpdate>,
+      ReturnType<typeof prepareWorkspaceRecordUpdate>,
       { status: "completed" }
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
-    prepareCoordinatorWorkspaceRecordUpdate(current, ...input),
-  );
-}
-
-/**
- * Workspace操作に必要な保存区画だけを読む。
- * @responsibility 全Snapshotや保存Ownerを外へ渡さず用途固定の観測を返す。
- * @trace ARCH-000008
- * @input workingDirectory、binding: 現在Repositoryと期待結合。
- * @returns 選択区画、明示不存在又は元の停止結果。
- * @precondition Hostが同じRepositoryの操作認可を確認する。
- * @postcondition I/O・改訂・解放確認の既存条件を保つ。
- * @effect 単一Readerと短期排他の読取りだけ。
- * @failure 不正Root・不一致・観測不能・解放不明を元の理由で拒否する。
- * @invariant 状態変更・実行・回復Authorityを生成しない。
- * @boundary Domain保存と用途別Consumer。
- * @security 任意投影callbackを受けず、技術区画を一括返却しない。
- * @concurrency 元の短期排他を一回取得・解放する。
- */
-export function readCoordinatorWorkspaceState(
-  workingDirectory: Repository,
-  binding: string,
-): StoreResult<Pick<
-  CoordinatorSnapshot,
-  "projects" | "queueEntries" | "results" | "workspaces" | "snapshotRevision"
-> | null> {
-  if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked("orchestrator_repository_root_invalid");
-  const result = readCoordinatorSnapshot(workingDirectory, binding);
-  if (result.status !== "completed") return result;
-  return completed(
-    result.reason,
-    result.value === null
-      ? null
-      : {
-          projects: result.value.projects,
-          queueEntries: result.value.queueEntries,
-          results: result.value.results,
-          workspaces: result.value.workspaces,
-          snapshotRevision: result.value.snapshotRevision,
-        },
+    prepareWorkspaceRecordUpdate(current, ...input),
   );
 }
 
@@ -143,8 +99,8 @@ export function readCoordinatorWorkspaceState(
  * @concurrency 返却前に再認可する。
  */
 export function queryWorkspaces(
-  access: RuntimeAccess,
+  access: ExecutionModelAccess,
   request: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  return readRuntimeContent(access, "workspaces", request);
+  return readExecutionContent(access, "workspaces", request);
 }

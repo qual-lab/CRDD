@@ -4,40 +4,33 @@
  * @trace ARCH-000004、ARCH-000008
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import {
-  confirmCoordinatorLeaseAcquisition,
-  hashRuntimeStateValueText,
-  hasRuntimeStateKeys,
+  acquireLease,
   type LeaseKind,
   leaseAcquisitionRecoveryId,
   leaseIdentity,
   type ProjectQueueEntry,
-  isRuntimeStateObject,
-  readCoordinatorLeaseAcquisitionOwner,
-  readCoordinatorLeaseOwnerLoss,
-  reconcileCoordinatorReleasedLease,
-  reserveCoordinatorLeaseAcquisition,
-  reserveCoordinatorLeaseRecovery,
-  saveCoordinatorLeaseReleaseIntent,
-  settleCoordinatorLeaseRecovery,
-  settleCoordinatorLeaseRelease,
+  readLease,
+  recoverLease,
+  releaseLease,
   validId,
 } from "../../../execution-model/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  observeRepositoryRuntimeDataArea,
-  type RepositoryRuntimeDataAreaObservation,
-  requireReadyRepositoryRuntimeDataArea,
-  resolveRepositoryRuntimeDataPaths,
-} from "../configuration/runtime-data.ts";
+import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
+import {
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  observeRepositoryExecutionDataArea,
+  type RepositoryExecutionDataAreaObservation,
+  requireReadyRepositoryExecutionDataArea,
+  resolveRepositoryExecutionDataPaths,
+} from "../configuration/runtime-data.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
 import type {
   CoordinatorLease,
   CoordinatorLeaseAcquisitionResolution,
@@ -117,9 +110,9 @@ export function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
     if (!activeLease.physicalLock.assertLive()) return false;
     if (activeLease.snapshotPhysicalIdentity !== undefined) {
-      const paths = resolveCoordinatorNamedPaths(activeLease.repositoryRoot);
+      const paths = resolveNamedPaths(activeLease.repositoryRoot);
       if (!paths) return false;
-      const boundary = assertCoordinatorArea(
+      const boundary = assertArea(
         activeLease.repositoryRoot,
         "tmp",
         paths.temporary,
@@ -133,11 +126,7 @@ export function activeLeaseIsObserved(activeLease: ActiveLease) {
         if (fs.realpathSync.native(directory) !== directory) return false;
       }
       const physicalIdentity = observePhysicalLeaseFile(activeLease.lock);
-      assertCoordinatorAreaUnchanged(
-        activeLease.repositoryRoot,
-        "tmp",
-        boundary,
-      );
+      assertAreaUnchanged(activeLease.repositoryRoot, "tmp", boundary);
       return physicalIdentity === activeLease.snapshotPhysicalIdentity;
     }
     return !fs.existsSync(activeLease.recoveryMarker);
@@ -167,10 +156,10 @@ export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
 ): StoreResult<
   Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
 > {
-  return readCoordinatorLeaseAcquisitionOwner(
+  return readLease(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    binding,
+    { kind: "acquisition", input: [binding] },
   );
 }
 
@@ -220,30 +209,42 @@ export function acquireCoordinatorSnapshotLease(
     physicalIdentity: null,
   };
   let intentSaveRequested = false;
-  const reserved = reserveCoordinatorLeaseAcquisition(
+  const reserved = acquireLease(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    binding,
-    projectId,
-    queueId,
-    kind,
-    identity,
-    intent,
     {
-      resourcesAbsent: (repositoryRoot: string) =>
-        coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity),
-      observeRoot: (repositoryRoot: string) => {
-        const metadata = fs.lstatSync(repositoryRoot);
-        return {
-          repositoryRoot: repositoryRoot,
-          rootIdentity: hashRuntimeStateValueText(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ),
-        };
-      },
-      markIntentSaveRequested: () => {
-        intentSaveRequested = true;
-      },
+      kind: "intent",
+      input: [
+        binding,
+        projectId,
+        queueId,
+        kind,
+        identity,
+        intent,
+        {
+          resourcesAbsent: (repositoryRoot: string) =>
+            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+          markIntentSaveRequested: () => {
+            intentSaveRequested = true;
+          },
+        },
+      ],
     },
   );
   if (reserved.status !== "completed")
@@ -251,7 +252,7 @@ export function acquireCoordinatorSnapshotLease(
       ? blocked(reserved.reason, true, recoveryId)
       : reserved;
   const { repositoryRoot, rootIdentity } = reserved.value;
-  const leasePaths = resolveCoordinatorNamedPaths(repositoryRoot);
+  const leasePaths = resolveNamedPaths(repositoryRoot);
   if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
     return blocked(
       "orchestrator_lease_acquisition_recovery_required",
@@ -266,7 +267,7 @@ export function acquireCoordinatorSnapshotLease(
   let physicalIdentity: string;
   let physicalLock: Lock | null = null;
   try {
-    const resolved = resolveCoordinatorNamedPaths(workingDirectory);
+    const resolved = resolveNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(repositoryRoot);
     if (
       !resolved ||
@@ -274,23 +275,26 @@ export function acquireCoordinatorSnapshotLease(
       !rootMetadata.isDirectory() ||
       rootMetadata.isSymbolicLink() ||
       fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
-      hashRuntimeStateValueText(
-        JSON.stringify([
-          rootMetadata.dev,
-          rootMetadata.ino,
-          rootMetadata.birthtimeMs,
-        ]),
-      ) !== rootIdentity
+      createHash("sha256")
+        .update(
+          JSON.stringify([
+            rootMetadata.dev,
+            rootMetadata.ino,
+            rootMetadata.birthtimeMs,
+          ]),
+          "utf8",
+        )
+        .digest("hex") !== rootIdentity
     )
       throw new Error("lease_root_changed");
-    const temporary = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+    const temporary = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         repositoryRoot,
         "tmp",
       ),
       "orchestrator_repository_root_invalid",
     ).directory;
-    const boundary = assertCoordinatorArea(repositoryRoot, "tmp", temporary);
+    const boundary = assertArea(repositoryRoot, "tmp", temporary);
     const locks = ensureDirectory(temporary, "orchestrator-leases");
     assertDirectory(locks);
     const acquiredLock = acquireLock({
@@ -309,7 +313,7 @@ export function acquireCoordinatorSnapshotLease(
     physicalLock = acquiredLock.lock;
     assertDirectory(locks);
     physicalIdentity = observePhysicalLeaseFile(lock);
-    assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertAreaUnchanged(repositoryRoot, "tmp", boundary);
   } catch {
     physicalLock?.release(true);
     return blocked(
@@ -318,27 +322,32 @@ export function acquireCoordinatorSnapshotLease(
       recoveryId,
     );
   }
-  let acquired: ReturnType<typeof confirmCoordinatorLeaseAcquisition>;
+  let acquired: ReturnType<typeof acquireLease>;
   try {
-    acquired = confirmCoordinatorLeaseAcquisition(
+    acquired = acquireLease(
       verifyRuntimePersistenceRepository(workingDirectory),
       binding,
-      binding,
-      projectId,
-      queueId,
-      kind,
-      ownerGeneration,
-      intent,
-      physicalIdentity,
-      recoveryId,
-      process.pid,
       {
-        physicalIdentityMatches: () => {
-          return (
-            physicalLock?.assertLive() === true &&
-            observePhysicalLeaseFile(lock) === physicalIdentity
-          );
-        },
+        kind: "observed",
+        input: [
+          binding,
+          projectId,
+          queueId,
+          kind,
+          ownerGeneration,
+          intent,
+          physicalIdentity,
+          recoveryId,
+          process.pid,
+          {
+            physicalIdentityMatches: () => {
+              return (
+                physicalLock?.assertLive() === true &&
+                observePhysicalLeaseFile(lock) === physicalIdentity
+              );
+            },
+          },
+        ],
       },
     );
   } catch {
@@ -383,34 +392,33 @@ export function acquireCoordinatorSnapshotLease(
         const active = activeLeases.get(lease);
         if (!active || !activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
-        const pending = saveCoordinatorLeaseReleaseIntent(
+        const pending = releaseLease(
           verifyRuntimePersistenceRepository(workingDirectory),
           binding,
-          intent,
-          physicalIdentity,
+          { kind: "intent", input: [intent, physicalIdentity] },
         );
         if (pending.status !== "completed")
           throw new Error("lease_release_intent_unknown");
         if (!activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
-        const boundary = assertCoordinatorArea(
+        const boundary = assertArea(
           repositoryRoot,
           "tmp",
           leasePaths.temporary,
         );
         if (!physicalLock.release())
           throw new Error("lease_release_unconfirmed");
-        assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
-        if (!coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity))
+        assertAreaUnchanged(repositoryRoot, "tmp", boundary);
+        if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
           throw new Error("lease_release_unconfirmed");
         activeLeases.delete(lease);
-        const settled = settleCoordinatorLeaseRelease(
+        const settled = releaseLease(
           verifyRuntimePersistenceRepository(workingDirectory),
           binding,
-          binding,
-          intent,
-          physicalIdentity,
-          process.pid,
+          {
+            kind: "observed",
+            input: [binding, intent, physicalIdentity, process.pid],
+          },
         );
         if (settled.status !== "completed")
           throw new Error("lease_release_settlement_unknown");
@@ -481,28 +489,40 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     kind,
   );
   const identity = leaseIdentity(binding, projectId, queueId, kind);
-  const inspected = readCoordinatorLeaseOwnerLoss(
+  const inspected = readLease(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    projectId,
-    queueId,
-    kind,
     {
-      observeRoot: (repositoryRoot: string) => {
-        const metadata = fs.lstatSync(repositoryRoot);
-        return {
-          repositoryRoot: repositoryRoot,
-          rootIdentity: hashRuntimeStateValueText(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ),
-        };
-      },
+      kind: "owner_loss",
+      input: [
+        projectId,
+        queueId,
+        kind,
+        {
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+        },
+      ],
     },
   );
   if (inspected.status !== "completed")
     return blocked(inspected.reason, true, recoveryId);
   const initial = inspected.value;
-  const leasePaths = resolveCoordinatorNamedPaths(initial.repositoryRoot);
+  const leasePaths = resolveNamedPaths(initial.repositoryRoot);
   if (!leasePaths || leasePaths.repositoryRoot !== initial.repositoryRoot)
     return blocked(
       "orchestrator_lease_recovery_observation_unknown",
@@ -534,26 +554,28 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
             })
           : blocked(settled.reason, true, recoveryId);
       }
-      return reconcileCoordinatorReleasedLease(
+      return recoverLease(
         verifyRuntimePersistenceRepository(workingDirectory),
         binding,
-        projectId,
-        queueId,
-        kind,
-        initial.queue,
-        recoveryId,
         {
-          resourcesAbsent: (repositoryRoot: string) =>
-            coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity),
+          kind: "reconcile",
+          input: [
+            projectId,
+            queueId,
+            kind,
+            initial.queue,
+            recoveryId,
+            {
+              resourcesAbsent: (repositoryRoot: string) =>
+                snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+            },
+          ],
         },
       );
     }
     try {
       if (
-        !coordinatorSnapshotLeaseResourcesAbsent(
-          initial.repositoryRoot,
-          identity,
-        ) ||
+        !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity) ||
         initial.queue?.ownerGeneration
       )
         return blocked(
@@ -605,24 +627,24 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       recoveryId,
     );
   }
+  const observedOwner = snapshotPlainRecord(
+    observation,
+    new Set(["status", "ownerProcessId", "ownerGeneration"]),
+  );
   if (
-    !isRuntimeStateObject(observation) ||
-    !hasRuntimeStateKeys(observation, [
-      "status",
-      "ownerProcessId",
-      "ownerGeneration",
-    ]) ||
-    observation.ownerProcessId !== first.ownerProcessId ||
-    observation.ownerGeneration !== first.ownerGeneration
+    !observedOwner ||
+    Object.getPrototypeOf(observation) !== Object.prototype ||
+    observedOwner.ownerProcessId !== first.ownerProcessId ||
+    observedOwner.ownerGeneration !== first.ownerGeneration
   )
     return blocked(
       "orchestrator_lease_owner_observation_unknown",
       true,
       recoveryId,
     );
-  if (observation.status === "alive")
+  if (observedOwner.status === "alive")
     return blocked("orchestrator_lease_owner_still_active");
-  if (observation.status !== "absent")
+  if (observedOwner.status !== "absent")
     return blocked(
       "orchestrator_lease_owner_observation_unknown",
       true,
@@ -633,26 +655,21 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       ?.physicalIdentity ?? null;
   if (physicalIdentity === null) {
     try {
-      if (
-        !coordinatorSnapshotLeaseResourcesAbsent(
-          initial.repositoryRoot,
-          identity,
-        )
-      ) {
+      if (!snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)) {
         if (first.phase !== "acquisition_reserved" || ownIntents.length !== 1)
           return blocked(
             "orchestrator_lease_physical_identity_unconfirmed",
             true,
             recoveryId,
           );
-        const boundary = assertCoordinatorArea(
+        const boundary = assertArea(
           initial.repositoryRoot,
           "tmp",
           leasePaths.temporary,
         );
         assertDirectory(path.dirname(lock));
         physicalIdentity = observePhysicalLeaseFile(lock);
-        assertCoordinatorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
+        assertAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
       }
     } catch {
       return blocked(
@@ -667,124 +684,142 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     phase: "recovery_pending" as const,
     physicalIdentity,
   };
-  const reserved = reserveCoordinatorLeaseRecovery(
+  const reserved = recoverLease(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    projectId,
-    queueId,
-    kind,
-    initial,
-    ownIntents,
-    pending,
-    recoveryId,
     {
-      observeRoot: (repositoryRoot: string) => {
-        const metadata = fs.lstatSync(repositoryRoot);
-        return {
-          repositoryRoot: repositoryRoot,
-          rootIdentity: hashRuntimeStateValueText(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ),
-        };
-      },
+      kind: "intent",
+      input: [
+        projectId,
+        queueId,
+        kind,
+        initial,
+        ownIntents,
+        pending,
+        recoveryId,
+        {
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+        },
+      ],
     },
   );
   if (reserved.status !== "completed")
     return blocked(reserved.reason, true, recoveryId);
   let recoveryFailureReason: string | null = null;
-  const settled = settleCoordinatorLeaseRecovery(
+  const settled = recoverLease(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    binding,
-    projectId,
-    queueId,
-    kind,
-    initial,
-    ownIntents,
-    pending,
-    first,
-    recoveryId,
     {
-      observeRoot: (repositoryRoot: string) => {
-        const metadata = fs.lstatSync(repositoryRoot);
-        return {
-          repositoryRoot: repositoryRoot,
-          rootIdentity: hashRuntimeStateValueText(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ),
-        };
-      },
-      recoverResources: () => {
-        try {
-          const resolved = resolveCoordinatorNamedPaths(workingDirectory);
-          const rootMetadata = fs.lstatSync(initial.repositoryRoot);
-          if (
-            !resolved ||
-            resolved.repositoryRoot !== initial.repositoryRoot ||
-            !rootMetadata.isDirectory() ||
-            rootMetadata.isSymbolicLink() ||
-            fs.realpathSync.native(initial.repositoryRoot) !==
-              initial.repositoryRoot ||
-            hashRuntimeStateValueText(
-              JSON.stringify([
-                rootMetadata.dev,
-                rootMetadata.ino,
-                rootMetadata.birthtimeMs,
-              ]),
-            ) !== initial.rootIdentity
-          )
-            throw new Error("lease_root_changed");
-          // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
-          if (
-            !coordinatorSnapshotLeaseResourcesAbsent(
-              initial.repositoryRoot,
-              identity,
-            )
-          ) {
-            const boundary = assertCoordinatorArea(
-              initial.repositoryRoot,
-              "tmp",
-              leasePaths.temporary,
-            );
-            assertDirectory(path.dirname(lock));
-            const observedIdentity = observePhysicalLeaseFile(lock);
-            if (
-              physicalIdentity === null ||
-              observedIdentity !== physicalIdentity
-            )
-              throw new Error(
-                "orchestrator_lease_physical_identity_unconfirmed",
-              );
-            if (observePhysicalLeaseFile(lock) !== observedIdentity)
-              throw new Error(
-                "orchestrator_lease_physical_identity_unconfirmed",
-              );
-            fs.unlinkSync(lock);
-            assertCoordinatorAreaUnchanged(
-              initial.repositoryRoot,
-              "tmp",
-              boundary,
-            );
-          }
-          if (
-            !coordinatorSnapshotLeaseResourcesAbsent(
-              initial.repositoryRoot,
-              identity,
-            )
-          )
-            throw new Error("lease_release_unconfirmed");
-          return true;
-        } catch (error) {
-          recoveryFailureReason =
-            error instanceof Error &&
-            error.message === "orchestrator_lease_physical_identity_unconfirmed"
-              ? error.message
-              : "orchestrator_lease_recovery_observation_unknown";
-          return false;
-        }
-      },
-      resourcesAbsent: (repositoryRoot: string) =>
-        coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity),
+      kind: "observed",
+      input: [
+        binding,
+        projectId,
+        queueId,
+        kind,
+        initial,
+        ownIntents,
+        pending,
+        first,
+        recoveryId,
+        {
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+          recoverResources: () => {
+            try {
+              const resolved = resolveNamedPaths(workingDirectory);
+              const rootMetadata = fs.lstatSync(initial.repositoryRoot);
+              if (
+                !resolved ||
+                resolved.repositoryRoot !== initial.repositoryRoot ||
+                !rootMetadata.isDirectory() ||
+                rootMetadata.isSymbolicLink() ||
+                fs.realpathSync.native(initial.repositoryRoot) !==
+                  initial.repositoryRoot ||
+                createHash("sha256")
+                  .update(
+                    JSON.stringify([
+                      rootMetadata.dev,
+                      rootMetadata.ino,
+                      rootMetadata.birthtimeMs,
+                    ]),
+                    "utf8",
+                  )
+                  .digest("hex") !== initial.rootIdentity
+              )
+                throw new Error("lease_root_changed");
+              // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
+              if (
+                !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
+              ) {
+                const boundary = assertArea(
+                  initial.repositoryRoot,
+                  "tmp",
+                  leasePaths.temporary,
+                );
+                assertDirectory(path.dirname(lock));
+                const observedIdentity = observePhysicalLeaseFile(lock);
+                if (
+                  physicalIdentity === null ||
+                  observedIdentity !== physicalIdentity
+                )
+                  throw new Error(
+                    "orchestrator_lease_physical_identity_unconfirmed",
+                  );
+                if (observePhysicalLeaseFile(lock) !== observedIdentity)
+                  throw new Error(
+                    "orchestrator_lease_physical_identity_unconfirmed",
+                  );
+                fs.unlinkSync(lock);
+                assertAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
+              }
+              if (
+                !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
+              )
+                throw new Error("lease_release_unconfirmed");
+              return true;
+            } catch (error) {
+              recoveryFailureReason =
+                error instanceof Error &&
+                error.message ===
+                  "orchestrator_lease_physical_identity_unconfirmed"
+                  ? error.message
+                  : "orchestrator_lease_recovery_observation_unknown";
+              return false;
+            }
+          },
+          resourcesAbsent: (repositoryRoot: string) =>
+            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+        },
+      ],
     },
   );
   return settled.status === "completed"
@@ -868,14 +903,19 @@ function observePhysicalLeaseFile(file: string): string {
       BigInt(content.length) !== before.size
     )
       throw new Error("lease_file_changed");
-    return hashRuntimeStateValueText(
-      JSON.stringify([
-        before.dev.toString(),
-        before.ino.toString(),
-        before.birthtimeNs.toString(),
-        hashRuntimeStateValueText(content.toString("hex")),
-      ]),
-    );
+    return createHash("sha256")
+      .update(
+        JSON.stringify([
+          before.dev.toString(),
+          before.ino.toString(),
+          before.birthtimeNs.toString(),
+          createHash("sha256")
+            .update(content.toString("hex"), "utf8")
+            .digest("hex"),
+        ]),
+        "utf8",
+      )
+      .digest("hex");
   } finally {
     fs.closeSync(descriptor);
   }
@@ -936,10 +976,10 @@ function ensureDirectory(parent: string, name: string) {
  * @concurrency 観測した現在境界だけを返す。
  */
 
-export function resolveCoordinatorNamedPaths(workingDirectory: string) {
+export function resolveNamedPaths(workingDirectory: string) {
   const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
-    ? resolveRepositoryRuntimeDataPaths(verified.capability)
+    ? resolveRepositoryExecutionDataPaths(verified.capability)
     : null;
 }
 
@@ -958,14 +998,11 @@ export function resolveCoordinatorNamedPaths(workingDirectory: string) {
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-function observeCoordinatorArea(
-  repositoryRoot: string,
-  area: "domain-model" | "tmp",
-) {
+function observeArea(repositoryRoot: string, area: "domain-model" | "tmp") {
   const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("orchestrator_repository_root_invalid");
-  const observation = observeRepositoryRuntimeDataArea(
+  const observation = observeRepositoryExecutionDataArea(
     verified.capability,
     area,
   );
@@ -993,12 +1030,12 @@ function observeCoordinatorArea(
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-export function assertCoordinatorArea(
+export function assertArea(
   repositoryRoot: string,
   area: "domain-model" | "tmp",
   directory: string,
 ) {
-  const observation = observeCoordinatorArea(repositoryRoot, area);
+  const observation = observeArea(repositoryRoot, area);
   if (observation.status !== "ready" || observation.directory !== directory)
     throw new Error("orchestrator_storage_boundary_invalid");
   return observation;
@@ -1019,12 +1056,15 @@ export function assertCoordinatorArea(
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-export function assertCoordinatorAreaUnchanged(
+export function assertAreaUnchanged(
   repositoryRoot: string,
   area: "domain-model" | "tmp",
-  initial: Exclude<RepositoryRuntimeDataAreaObservation, { status: "blocked" }>,
+  initial: Exclude<
+    RepositoryExecutionDataAreaObservation,
+    { status: "blocked" }
+  >,
 ) {
-  const current = observeCoordinatorArea(repositoryRoot, area);
+  const current = observeArea(repositoryRoot, area);
   if (
     initial.status !== current.status ||
     (initial.status === "ready" &&
@@ -1172,19 +1212,19 @@ function leaseAcquisitionFootprintAbsent(
  * @security Root外の実体へ辿らない。
  * @concurrency Rootと最後の既知親を不存在判定前に再確認する。
  */
-export function coordinatorSnapshotLeaseResourcesAbsent(
+export function snapshotLeaseResourcesAbsent(
   repositoryRoot: string,
   identity: string,
 ): boolean {
   assertDirectory(repositoryRoot);
-  const boundary = observeCoordinatorArea(repositoryRoot, "tmp");
+  const boundary = observeArea(repositoryRoot, "tmp");
   if (boundary.status === "not_observed") {
-    assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertAreaUnchanged(repositoryRoot, "tmp", boundary);
     return true;
   }
   const parent = path.join(boundary.directory, "orchestrator-leases");
   if (pathConfirmedAbsent(parent)) {
-    assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertAreaUnchanged(repositoryRoot, "tmp", boundary);
     return true;
   }
   assertDirectory(parent);
@@ -1193,6 +1233,6 @@ export function coordinatorSnapshotLeaseResourcesAbsent(
   ]);
   assertDirectory(repositoryRoot);
   assertDirectory(parent);
-  assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
+  assertAreaUnchanged(repositoryRoot, "tmp", boundary);
   return isAbsent;
 }

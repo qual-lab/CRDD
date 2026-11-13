@@ -831,7 +831,7 @@ export async function simulateAuthCreateClosure(
       };
     if (loads.length === 2)
       return {
-        ensureRepositoryRuntimeDataAreaFromWorkingDirectory: (
+        ensureRepositoryExecutionDataAreaFromWorkingDirectory: (
           location: string,
           kind: string,
         ) => {
@@ -840,7 +840,7 @@ export async function simulateAuthCreateClosure(
           assert.equal(kind, "tests");
           return runtimeArea;
         },
-        requireReadyRepositoryRuntimeDataArea: (
+        requireReadyRepositoryExecutionDataArea: (
           value: unknown,
           purpose: string,
         ) => {
@@ -1031,7 +1031,7 @@ export async function simulateAuthCreateClosure(
     }
     if (loads.length === 4)
       return {
-        writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: () => {
+        saveUnknownAuthenticationClosureStage: () => {
           events.push("closure_save");
           if (fault === "closure_save_failed") {
             hits++;
@@ -1063,7 +1063,7 @@ export async function simulateAuthCreateClosure(
             lockReleased: true,
           };
         },
-        readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
+        readRecoveryState: () => {
           readerCalls++;
           if (
             ["rm_reader_unknown", "rm_reader_release"].includes(fault) &&
@@ -1166,7 +1166,7 @@ export async function simulateAuthCreateClosure(
             }
             const writer = mocks.get(
               moduleUrl("../../../execution-model/src/index.ts"),
-            )?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
+            )?.saveUnknownAuthenticationClosureStage as (
               ...args: unknown[]
             ) => {
               status: string;

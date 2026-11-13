@@ -7,9 +7,9 @@
  * @scope 固定Hashだけ。
  * @boundary 今回試験のProcessと既存OS排他。
  */
-import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
+import { acquireExecutionStateLock } from "../../src/storage/lock.ts";
 
-const lock = acquireRuntimeStateLock(process.argv[2], process.argv[3] ?? "");
+const lock = acquireExecutionStateLock(process.argv[2], process.argv[3] ?? "");
 if (lock.status !== "acquired") process.exit(2);
 process.stdout.write("READY\n");
 setInterval(() => {}, 1000);

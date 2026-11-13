@@ -11,30 +11,21 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
   type RepositoryWorktreeResult,
-  type CoordinatorWorkspace,
-  readCoordinatorWorkspaceState,
-  type WorkspaceCandidateResult,
+  readState,
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
+  type WorkspaceCandidateResult,
+  type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
 
 import {
   type CommitSelection,
   createWorktree,
-  removeWorktree,
-  readRepositoryStorageIdentity,
-  getWorktree,
   getRepository,
+  getWorktree,
+  readRepositoryStorageIdentity,
+  removeWorktree,
 } from "../../../version-control/src/index.ts";
-
-import {
-  mergeWorkspaceCandidate,
-  freezeWorkspaceCandidate,
-  removeWorkspaceCandidate,
-  workspaceWorktreeTarget,
-  workspaceWorktreeResult,
-  assertWorkspaceDirectoryAvailable,
-} from "./git.ts";
 import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
@@ -42,6 +33,14 @@ import {
   createCoordinatorSnapshotIntegrationRecordPort,
   writeCoordinatorWorkspaceRecord,
 } from "./commands.ts";
+import {
+  assertWorkspaceDirectoryAvailable,
+  freezeWorkspaceCandidate,
+  mergeWorkspaceCandidate,
+  removeWorkspaceCandidate,
+  workspaceWorktreeResult,
+  workspaceWorktreeTarget,
+} from "./git.ts";
 
 /**
  * 計画の品質受入に必要な既存Git採用記録を再観測する。
@@ -62,9 +61,10 @@ export function workspacePlanReadyForAcceptance(
   planRevision: string,
   currentHead: string,
 ): boolean {
-  const read = readCoordinatorWorkspaceState(
+  const read = readState(
     verifyRuntimePersistenceRepository(root),
     binding,
+    "workspace",
   );
   if (read.status !== "completed" || !read.value) return false;
   const plan = read.value.projects.find(
@@ -196,7 +196,7 @@ export function manageCoordinatorWorkspace(
     status: "blocked" as "completed" | "blocked",
     reason: "orchestrator_workspace_input_invalid",
     workspaceId: request.workspaceId,
-    workspace: null as CoordinatorWorkspace | null,
+    workspace: null as WorkspaceRecord | null,
     gitResult: null as RepositoryWorktreeResult | null,
     candidateResult: null as WorkspaceCandidateResult | null,
     leaseReleased: null as boolean | null,
@@ -224,9 +224,10 @@ export function manageCoordinatorWorkspace(
     layout.repositoryForm === "linked"
   )
     return result;
-  const initial = readCoordinatorWorkspaceState(
+  const initial = readState(
     verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
     request.repositoryBindingId,
+    "workspace",
   );
   if (initial.status !== "completed" || !initial.value)
     return {
@@ -251,9 +252,10 @@ export function manageCoordinatorWorkspace(
       recoveryId: lease.recoveryId,
     };
   try {
-    const observed = readCoordinatorWorkspaceState(
+    const observed = readState(
       verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
       request.repositoryBindingId,
+      "workspace",
     );
     if (observed.status !== "completed" || !observed.value) {
       result.manualRecoveryRequired =
@@ -273,7 +275,7 @@ export function manageCoordinatorWorkspace(
       throw new Error("orchestrator_workspace_generation_conflict");
     if (request.authorize && !request.authorize())
       throw new Error("orchestrator_candidate_not_authorized");
-    const save = (next: CoordinatorWorkspace | null) => {
+    const save = (next: WorkspaceRecord | null) => {
       const saved = writeCoordinatorWorkspaceRecord(
         request.ownerRepositoryRoot,
         request.repositoryBindingId,
@@ -323,7 +325,7 @@ export function manageCoordinatorWorkspace(
      * @concurrency 新しい排他を追加しない。
      */
     const recordDisposition = (
-      candidate: NonNullable<CoordinatorWorkspace["candidate"]>,
+      candidate: NonNullable<WorkspaceRecord["candidate"]>,
     ) => {
       const queue = operationQueue;
       if (!queue || candidate.disposition === null)
@@ -366,7 +368,7 @@ export function manageCoordinatorWorkspace(
      * @concurrency 既存操作Lease下。
      */
     const recordCandidateClosure = (
-      candidate: NonNullable<CoordinatorWorkspace["candidate"]>,
+      candidate: NonNullable<WorkspaceRecord["candidate"]>,
     ) => {
       if (!operationQueue)
         throw new Error("orchestrator_candidate_disposition_invalid");
@@ -850,9 +852,10 @@ export function resolveCoordinatorWorkspaceTaskTarget(
     manualRecoveryRequired: false,
     recoveryId: null,
   });
-  const snapshot = readCoordinatorWorkspaceState(
+  const snapshot = readState(
     verifyRuntimePersistenceRepository(ownerRepositoryRoot),
     binding,
+    "workspace",
   );
   if (snapshot.status !== "completed" || !snapshot.value)
     return failed(snapshot.reason);

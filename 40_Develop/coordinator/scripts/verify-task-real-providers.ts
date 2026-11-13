@@ -12,15 +12,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../document-model/src/index.ts";
 import { readRepositoryAiSelection } from "../../configuration-model/src/index.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../src/configuration/runtime-data.ts";
+import { createFilesystemRepositoryObservationPort } from "../../document-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
+import { resolveRepositoryExecutionDataPaths } from "../src/configuration/runtime-data.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import {
@@ -473,7 +473,7 @@ async function main() {
   const verifiedRuntimeRoot = getRepository(repositoryRoot);
   const runtimePaths =
     verifiedRuntimeRoot.status === "completed"
-      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      ? resolveRepositoryExecutionDataPaths(verifiedRuntimeRoot.capability)
       : null;
   if (!runtimePaths) throw new Error("orchestrator_verification_path_invalid");
   const verificationRoot = runtimePaths.tests;
@@ -831,7 +831,7 @@ try {
     const verifiedRuntimeRoot = getRepository(repositoryRoot);
     const runtimePaths =
       verifiedRuntimeRoot.status === "completed"
-        ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+        ? resolveRepositoryExecutionDataPaths(verifiedRuntimeRoot.capability)
         : null;
     if (!runtimePaths)
       throw new Error("orchestrator_verification_path_invalid");

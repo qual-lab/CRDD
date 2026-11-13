@@ -7,8 +7,9 @@
  * @scope メモリ内の明示合成値。
  * @boundary 不正fieldを補正せず、新codec自身へ拒否させる。
  */
-import { hashRuntimeProjectDefinition } from "../../src/state/validation.ts";
-import type { RuntimeProjectDefinition } from "../../src/state/types.ts";
+
+import type { ProjectDefinition } from "../../src/state/types.ts";
+import { hashExecutionProjectDefinition } from "../../src/state/validation.ts";
 
 /**
  * 結合して組み立てた試験Projectを正本の二区画へ配置する。
@@ -51,8 +52,8 @@ export function createManagedRuntimeSnapshotFixture(input: unknown) {
     managedExecutions.push({
       projectId: project.projectId,
       milestoneId: project.milestoneId,
-      definitionHash: hashRuntimeProjectDefinition(
-        definition as unknown as RuntimeProjectDefinition,
+      definitionHash: hashExecutionProjectDefinition(
+        definition as unknown as ProjectDefinition,
       ),
       ...(Object.hasOwn(project, "taskExecutionSelections")
         ? { taskExecutionSelections }

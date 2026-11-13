@@ -11,11 +11,11 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getRepository } from "../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
 } from "./runtime-data.ts";
-import { getRepository } from "../../version-control/src/index.ts";
 
 /**
  * 同じ有限検証をCLIとITから実行する。

@@ -9,8 +9,8 @@
 
 import assert from "node:assert/strict";
 import {
-  initializeCoordinatorSnapshot,
-  saveCoordinatorManagedProject,
+  initializeExecutionStore,
+  saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
@@ -36,7 +36,7 @@ export function prepareWorkspaceSurface(
 ) {
   const binding = deriveCoordinatorRepositoryBindingId(root);
   const repository = verifyRuntimePersistenceRepository(root);
-  const initialized = initializeCoordinatorSnapshot(repository, binding);
+  const initialized = initializeExecutionStore(repository, binding);
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
@@ -61,7 +61,7 @@ export function prepareWorkspaceSurface(
   });
   assert.ok(created.state);
   assert.equal(
-    saveCoordinatorManagedProject(repository, binding, created.state, 0).status,
+    saveProjectExecutionState(repository, binding, created.state, 0).status,
     "completed",
   );
   const ports = createCoordinatorSnapshotPersistencePorts(

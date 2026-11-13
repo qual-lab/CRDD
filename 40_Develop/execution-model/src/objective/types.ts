@@ -4,56 +4,20 @@
  * @trace ARCH-000008
  */
 
-import type { CallerTaskInput, ProjectTaskDefinition } from "../task/types.ts";
-
-/**
- * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
- *
- * @responsibility Coordinator Objective RequestのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorObjectiveRequestで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorObjectiveRequestの宣言は外部境界を開かない。
- * @security 明示選択は編集担当の希望であり、実行Authorityまたは利用可能性を付与しない。
- * @compatibility 新形式だけを受け、旧Profile ID／Provider自動選択入力を拒否する。
- */
-export type CoordinatorObjectiveRequest = Readonly<{
-  intakeEpoch: string;
-  requestId: string;
-  projectId: string;
-  milestoneId: string;
-  repositoryRevision: string;
-  objective: string;
-  plan: CoordinatorObjectivePlan;
-  taskInputs: readonly CallerTaskInput[];
-  acceptanceCriteria: readonly string[];
-  allowedPaths: readonly string[];
-  readPaths: readonly string[];
-  maximumConcurrency: number;
-  maximumReplans: number;
-  originLane: "interactive" | "scheduled";
-  adoptResult: boolean;
-  workType?: string;
-  choice?: Readonly<{
-    provider: "codex" | "claude";
-    model: string;
-    effort: "low" | "medium" | "high" | "xhigh" | "max";
-  }>;
-  workspaceId?: string;
-}>;
+import type { ProjectTaskDefinition } from "../task/types.ts";
 
 /**
  * Objective計画の共有型契約を定義する。
  *
  * @responsibility 受入条件、Objective集合とTask集合の型構造を共有する。
  * @trace ARCH-000004
- * @shape CoordinatorObjectivePlanが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorObjectivePlanで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorObjectivePlanの宣言は外部境界を開かない。
- * @security N/A: CoordinatorObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorObjectivePlanの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape ObjectivePlanが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ObjectivePlanで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ObjectivePlanの宣言は外部境界を開かない。
+ * @security N/A: ObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ObjectivePlanの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type CoordinatorObjectivePlan = Readonly<{
+export type ObjectivePlan = Readonly<{
   milestoneAcceptanceCriteria: readonly string[];
   objectives: readonly ProjectObjectiveDefinition[];
   tasks: readonly ProjectTaskDefinition[];

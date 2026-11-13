@@ -3,29 +3,30 @@
  * @responsibility Taskの実行順序と保存・結果受領・配送終了を所有する。
  * @trace ARCH-000004
  */
-import {
-  type ProjectTaskRecoveryKind,
-  type ProjectResultAcceptance,
-  type CoordinatorState,
-  decodeProjectResultAcceptance,
-  snapshotCoordinatorWorkspaceResult,
-} from "../../../execution-model/src/index.ts";
+
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
-import type { CoordinatorProcessSafetyPort } from "./types.ts";
+import { types } from "node:util";
+import {
+  decodeProjectResultAcceptance,
+  inspectWorkspaceResult,
+  type ProjectExecutionState,
+  type ProjectResultAcceptance,
+  type ProjectTaskRecoveryKind,
+} from "../../../execution-model/src/index.ts";
 import {
   createRuntimeProcessRecoveryIdentity,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../execution/process-safety-state.ts";
+import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
 
 import {
-  validIdentity,
   isCoordinatorRecoveryIdentity,
+  validIdentity,
 } from "../state/validation.ts";
-import { types } from "node:util";
+import { recordProjectTaskResultAcceptances } from "./acceptance.ts";
 
 import {
   observeProjectTaskStarted,
@@ -34,20 +35,20 @@ import {
   settleProjectTask,
   settleProjectTaskBeforeEffect,
 } from "./lifecycle.ts";
-import { recordProjectTaskResultAcceptances } from "./acceptance.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
 import type {
-  CoordinatorExecutionDependencies,
-  CoordinatorExecutionResult,
-  ExecutionInput,
-  CoordinatorTaskExecution,
-  CoordinatorSingleTaskResult,
-  CoordinatorTaskResultDelivery,
-  CoordinatorExecutionHostAdapterOptions,
-  CoordinatorTaskRecoveryHostDependencies,
   CoordinatorDockerRecoveryIdentity,
+  CoordinatorExecutionDependencies,
+  CoordinatorExecutionHostAdapterOptions,
+  CoordinatorExecutionResult,
+  CoordinatorProcessSafetyPort,
   CoordinatorRecoveryTransition,
+  CoordinatorSingleTaskResult,
+  CoordinatorTaskExecution,
+  CoordinatorTaskRecoveryHostDependencies,
   CoordinatorTaskRecoveryPort,
+  CoordinatorTaskResultDelivery,
+  ExecutionInput,
 } from "./types.ts";
 
 export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT =
@@ -135,7 +136,7 @@ export function validSingleTaskResult(
     const record = value as Record<string, unknown>;
     if (
       Object.hasOwn(record, "workspaceResult") &&
-      snapshotCoordinatorWorkspaceResult(record.workspaceResult) === null
+      inspectWorkspaceResult(record.workspaceResult) === null
     )
       return false;
     if (
@@ -351,9 +352,9 @@ function result(
  *
  * @responsibility executionの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
- * @input input: ExecutionInput、reason: string、options: Readonly<{ state?: CoordinatorState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
+ * @input input: ExecutionInput、reason: string、options: Readonly<{ state?: ProjectExecutionState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
  * @returns blockedの計算結果を返す。
- * @precondition 「input: ExecutionInput、reason: string、options: Readonly<{ state?: CoordinatorState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がblockedの入力契約を満たす。
+ * @precondition 「input: ExecutionInput、reason: string、options: Readonly<{ state?: ProjectExecutionState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がblockedの入力契約を満たす。
  * @postcondition blockedの責務を完了した結果だけを返す。
  * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
@@ -366,7 +367,7 @@ function blocked(
   input: ExecutionInput,
   reason: string,
   options: Readonly<{
-    state?: CoordinatorState | null;
+    state?: ProjectExecutionState | null;
     completedTaskIds?: readonly string[];
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
@@ -398,9 +399,9 @@ function blocked(
  *
  * @responsibility task Execution Mapの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: CoordinatorState、executions: readonly CoordinatorTaskExecution[]
+ * @input state: ProjectExecutionState、executions: readonly CoordinatorTaskExecution[]
  * @returns taskExecutionMapの計算結果を返す。
- * @precondition 「state: CoordinatorState、executions: readonly CoordinatorTaskExecution[]」がtaskExecutionMapの入力契約を満たす。
+ * @precondition 「state: ProjectExecutionState、executions: readonly CoordinatorTaskExecution[]」がtaskExecutionMapの入力契約を満たす。
  * @postcondition taskExecutionMapの責務を完了した結果だけを返す。
  * @effect N/A: taskExecutionMapは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: taskExecutionMapは独自の失敗分岐を所有しない。
@@ -410,7 +411,7 @@ function blocked(
  * @concurrency N/A: taskExecutionMapは共有非同期状態を持たない同期処理である。
  */
 function taskExecutionMap(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   executions: readonly CoordinatorTaskExecution[],
 ) {
   if (
@@ -442,9 +443,9 @@ function taskExecutionMap(
  *
  * @responsibility persisted 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: CoordinatorExecutionDependencies、state: CoordinatorState、expectedGeneration: number
+ * @input dependencies: CoordinatorExecutionDependencies、state: ProjectExecutionState、expectedGeneration: number
  * @returns persistedStateの計算結果を返す。
- * @precondition 「dependencies: CoordinatorExecutionDependencies、state: CoordinatorState、expectedGeneration: number」がpersistedStateの入力契約を満たす。
+ * @precondition 「dependencies: CoordinatorExecutionDependencies、state: ProjectExecutionState、expectedGeneration: number」がpersistedStateの入力契約を満たす。
  * @postcondition persistedStateの責務を完了した結果だけを返す。
  * @effect N/A: persistedStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: persistedStateは独自の失敗分岐を所有しない。
@@ -455,7 +456,7 @@ function taskExecutionMap(
  */
 function persistedState(
   dependencies: CoordinatorExecutionDependencies,
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   expectedGeneration: number,
   resultFacts?: Parameters<
     CoordinatorExecutionDependencies["persistence"]["state"]["writeState"]
@@ -632,7 +633,7 @@ export async function runCoordinatorOperation(
   const finalizeOwnedFailure = (
     reason: string,
     options: Readonly<{
-      state: CoordinatorState;
+      state: ProjectExecutionState;
       completedTaskIds?: readonly string[];
       processRestartRequired?: boolean;
     }>,
@@ -1041,7 +1042,7 @@ export async function runCoordinatorOperation(
           validatedOutcome.workspaceResult.workspaceId ===
             (queue.workspaceId ?? null));
       if (validatedOutcome && isExact && validatedOutcome.workspaceResult) {
-        const observation = snapshotCoordinatorWorkspaceResult(
+        const observation = inspectWorkspaceResult(
           validatedOutcome.workspaceResult,
         );
         if (

@@ -5,12 +5,12 @@
  */
 
 import {
-  maintainCoordinatorSnapshotRecords,
-  transferCoordinatorSnapshotHistoryRecords,
+  retireStateRecords,
+  transferHistory,
 } from "../../../execution-model/src/index.ts";
 import {
-  verifyRuntimePersistenceRepository,
   historyRepositoryInput,
+  verifyRuntimePersistenceRepository,
 } from "../execution/persistence.ts";
 import type { StoreResult } from "./result.ts";
 
@@ -35,7 +35,7 @@ export function maintainCoordinatorSnapshot(
   binding: string,
   now = Date.now(),
 ): StoreResult<number> {
-  return maintainCoordinatorSnapshotRecords(
+  return retireStateRecords(
     historyRepositoryInput(
       verifyRuntimePersistenceRepository(workingDirectory),
     ),
@@ -65,7 +65,7 @@ export function transferCoordinatorSnapshotHistory(
   binding: string,
   now = Date.now(),
 ): StoreResult<Readonly<{ recorded: number; expired: number }>> {
-  return transferCoordinatorSnapshotHistoryRecords(
+  return transferHistory(
     historyRepositoryInput(
       verifyRuntimePersistenceRepository(workingDirectory),
     ),

@@ -7,47 +7,47 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import type {
-  CoordinatorSnapshot,
-  CoordinatorState,
-  CoordinatorStoredTask,
-  CoordinatorTaskSettlementFact,
-  CoordinatorUnifiedSnapshot,
-  RuntimeManagedExecution,
-  RuntimeStoredManagedProject,
+  ExecutionStoredManagedProject,
+  ManagedExecution,
+  ProjectExecutionState,
+  Snapshot,
+  StoredTask,
+  TaskSettlementFact,
+  UnifiedSnapshot,
 } from "../state/types.ts";
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  coordinatorSnapshotIntakeMatches,
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
+  decodeStateSnapshot,
+  encodeStateValue,
   HASH,
-  hashRuntimeProjectDefinition,
-  hasRuntimeStateKeys,
-  hasRuntimeStateRecordKeys,
+  hasExecutionStateRecordKeys,
+  hashExecutionProjectDefinition,
+  hasStateKeys,
   historyRow,
   isPrincipalId,
-  isRuntimeStateObject,
+  isStateObject,
   nullableCandidateId,
   nullableId,
   nullableRecoveryId,
   nullableResultReference,
+  PROJECT_SNAPSHOT_SCHEMA,
   REVISION,
   singleTaskQueueIsConsistent,
-  snapshotRuntimeStateArray,
-  snapshotRuntimeStateRecord,
+  snapshotIntakeMatches,
+  snapshotStateArray,
+  snapshotStateRecord,
   stringArray,
-  validateCoordinatorUnifiedTransition,
-  validCoordinatorSnapshot,
+  validateUnifiedTransition,
   validId,
   validResultReference,
+  validSnapshot,
 } from "../state/validation.ts";
 import type {
-  CoordinatorQueueEnqueueInput,
   ExecutionSelection,
   ProjectQueueEntry,
   ProjectQueueState,
   ProjectResultAcceptance,
   ProjectTaskRecoveryObligation,
+  QueueEnqueueInput,
   SingleTaskRecord,
   TaskExecutionSelections,
 } from "./types.ts";
@@ -67,7 +67,7 @@ import type {
  * @security 候補生成は実受領・実回収・保存Authorityではない。
  * @concurrency 元本文と実排他は同じWriter Owner内で再照合する。
  */
-export function prepareCoordinatorUnifiedTaskSnapshot(
+export function prepareUnifiedTaskSnapshot(
   currentBytes: unknown,
   stateValue: unknown,
   expectedGeneration: unknown,
@@ -75,16 +75,13 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
   resultFacts: unknown = [],
 ): Buffer | null {
   try {
-    const current = decodeRuntimeDomainSnapshot(
-      currentBytes,
-      repositoryBinding,
-    );
-    const state: unknown = JSON.parse(encodeRuntimeStateValue(stateValue));
-    const facts: unknown = JSON.parse(encodeRuntimeStateValue(resultFacts));
+    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+    const state: unknown = JSON.parse(encodeStateValue(stateValue));
+    const facts: unknown = JSON.parse(encodeStateValue(resultFacts));
     if (
       !current ||
       current.snapshot.repositoryBindingId === null ||
-      !validCoordinatorState(state) ||
+      !validState(state) ||
       !Number.isSafeInteger(expectedGeneration) ||
       Number(expectedGeneration) < 0 ||
       state.generation !== Number(expectedGeneration) + 1 ||
@@ -92,7 +89,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
         ?.generation ?? 0) !== expectedGeneration ||
       !Array.isArray(facts) ||
       !facts.every((f) =>
-        hasRuntimeStateRecordKeys(f, [
+        hasExecutionStateRecordKeys(f, [
           "taskId",
           "attemptId",
           "operationId",
@@ -106,7 +103,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
           p.projectId === state.projectId ? state : p,
         )
       : [...current.projects, state];
-    const sections = normalizeCoordinatorTaskProjects(
+    const sections = normalizeTaskProjects(
       current,
       states,
       facts.map((f) => ({ ...f, projectId: state.projectId })),
@@ -121,17 +118,13 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
         payloadSha256: current.payloadSha256,
       },
     };
-    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-    const decoded = decodeRuntimeDomainSnapshot(bytes, repositoryBinding);
+    const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
+    const decoded = decodeStateSnapshot(bytes, repositoryBinding);
     return decoded &&
-      validateCoordinatorUnifiedTransition(
-        currentBytes,
-        bytes,
-        repositoryBinding,
-      ) &&
-      encodeRuntimeStateValue(
+      validateUnifiedTransition(currentBytes, bytes, repositoryBinding) &&
+      encodeStateValue(
         decoded.projects.find((p) => p.projectId === state.projectId),
-      ) === encodeRuntimeStateValue(state)
+      ) === encodeStateValue(state)
       ? bytes
       : null;
   } catch {
@@ -154,17 +147,17 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
  * @security 候補を保存・受領・cleanupのAuthorityにしない。
  * @concurrency 元版のfresh確認はWriterが行う。
  */
-export function normalizeCoordinatorTaskProjects(
-  current: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>>,
-  states: readonly CoordinatorState[],
+export function normalizeTaskProjects(
+  current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  states: readonly ProjectExecutionState[],
   facts: unknown,
 ) {
   if (
-    !states.every(validCoordinatorState) ||
+    !states.every(validState) ||
     !Array.isArray(facts) ||
     !facts.every(
       (f, i) =>
-        hasRuntimeStateRecordKeys(f, [
+        hasExecutionStateRecordKeys(f, [
           "projectId",
           "taskId",
           "attemptId",
@@ -205,10 +198,7 @@ export function normalizeCoordinatorTaskProjects(
         const receipt = decodeProjectResultAcceptance(value);
         if (!receipt) return null;
         const previous = receipts.get(receipt.recoveryId);
-        if (
-          previous &&
-          encodeRuntimeStateValue(previous) !== encodeRuntimeStateValue(value)
-        )
+        if (previous && encodeStateValue(previous) !== encodeStateValue(value))
           return null;
         if (!previous) {
           receipts.set(receipt.recoveryId, value);
@@ -219,9 +209,9 @@ export function normalizeCoordinatorTaskProjects(
   const operations = current.snapshot.operations.filter(
     (o) => !newlyAccepted.has(o.recoveryId),
   );
-  const projects: RuntimeStoredManagedProject[] = [];
+  const projects: ExecutionStoredManagedProject[] = [];
   for (const state of states) {
-    const tasks: CoordinatorStoredTask[] = [];
+    const tasks: StoredTask[] = [];
     for (const task of state.tasks) {
       const previous = current.snapshot.managedExecutions
         .find((p) => p.projectId === state.projectId)
@@ -254,7 +244,7 @@ export function normalizeCoordinatorTaskProjects(
           );
         })
         .map((o) => o.recoveryId);
-      const settlement: CoordinatorTaskSettlementFact = matching.length
+      const settlement: TaskSettlementFact = matching.length
         ? { kind: "operations", recoveryIds: matching, resultUnresolved }
         : task.startPhase === "none" &&
             !task.cleanupConfirmed &&
@@ -272,7 +262,7 @@ export function normalizeCoordinatorTaskProjects(
         recoveryObligations: _obligations,
         ...record
       } = task;
-      const recoveryObligations: CoordinatorStoredTask["recoveryObligations"][number][] =
+      const recoveryObligations: StoredTask["recoveryObligations"][number][] =
         [];
       for (const o of task.recoveryObligations) {
         if (o.kind === "docker")
@@ -312,26 +302,24 @@ export function normalizeCoordinatorTaskProjects(
       tasks: tasks.map((task) => task.definition),
     }),
   );
-  const managedExecutions: RuntimeManagedExecution[] = projects.map(
-    (project) => {
-      const definition = definitions.find(
-        (item) => item.projectId === project.projectId,
-      );
-      if (!definition) throw new Error("definition");
-      return {
-        projectId: project.projectId,
-        milestoneId: project.milestoneId,
-        definitionHash: hashRuntimeProjectDefinition(definition),
-        taskExecutionSelections: project.taskExecutionSelections,
-        ownerGeneration: project.ownerGeneration,
-        maximumConcurrency: project.maximumConcurrency,
-        tasks: project.tasks.map(({ definition: taskDefinition, ...task }) => ({
-          ...task,
-          taskId: taskDefinition.id,
-        })),
-      };
-    },
-  );
+  const managedExecutions: ManagedExecution[] = projects.map((project) => {
+    const definition = definitions.find(
+      (item) => item.projectId === project.projectId,
+    );
+    if (!definition) throw new Error("definition");
+    return {
+      projectId: project.projectId,
+      milestoneId: project.milestoneId,
+      definitionHash: hashExecutionProjectDefinition(definition),
+      taskExecutionSelections: project.taskExecutionSelections,
+      ownerGeneration: project.ownerGeneration,
+      maximumConcurrency: project.maximumConcurrency,
+      tasks: project.tasks.map(({ definition: taskDefinition, ...task }) => ({
+        ...task,
+        taskId: taskDefinition.id,
+      })),
+    };
+  });
   const retainedDefinitions = current.snapshot.projects.map(
     (project) =>
       definitions.find((item) => item.projectId === project.projectId) ??
@@ -378,14 +366,14 @@ export function normalizeCoordinatorTaskProjects(
  * @security Viewは保存・実行Authorityではない。
  * @concurrency N/A: 元版と保存CASは呼出し側が照合する。
  */
-export function projectCoordinatorTaskSnapshot(
-  decoded: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>>,
+export function projectTaskSnapshot(
+  decoded: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
   repositoryRootHash: string,
-): CoordinatorSnapshot | null {
+): Snapshot | null {
   const s = decoded.snapshot;
   if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
   return {
-    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+    schema: PROJECT_SNAPSHOT_SCHEMA,
     schemaRevision: 6,
     repositoryRootHash,
     repositoryBindingId: s.repositoryBindingId,
@@ -419,7 +407,7 @@ export function projectCoordinatorTaskSnapshot(
  * @security 候補自体は書込み資格ではない。
  * @concurrency 保存Ownerが現在本文とCASを再照合する。
  */
-export function prepareCoordinatorUnifiedTaskSections(
+export function prepareUnifiedTaskSections(
   currentBytes: unknown,
   viewValue: unknown,
   repositoryBinding: unknown,
@@ -427,28 +415,17 @@ export function prepareCoordinatorUnifiedTaskSections(
   factsValue: unknown = [],
 ): Buffer | null {
   try {
-    const current = decodeRuntimeDomainSnapshot(
-      currentBytes,
-      repositoryBinding,
-    );
-    const view: unknown = JSON.parse(encodeRuntimeStateValue(viewValue));
-    const facts: unknown = JSON.parse(encodeRuntimeStateValue(factsValue));
+    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+    const view: unknown = JSON.parse(encodeStateValue(viewValue));
+    const facts: unknown = JSON.parse(encodeStateValue(factsValue));
     if (
       !current ||
-      !isRuntimeStateObject(view) ||
-      !validCoordinatorSnapshot(
-        view,
-        String(view.repositoryBindingId),
-        rootHash,
-      ) ||
+      !isStateObject(view) ||
+      !validSnapshot(view, String(view.repositoryBindingId), rootHash) ||
       view.snapshotRevision !== current.snapshot.revision + 1
     )
       return null;
-    const sections = normalizeCoordinatorTaskProjects(
-      current,
-      view.projects,
-      facts,
-    );
+    const sections = normalizeTaskProjects(current, view.projects, facts);
     if (!sections) return null;
     const {
       schema: _schema,
@@ -468,17 +445,12 @@ export function prepareCoordinatorUnifiedTaskSections(
         payloadSha256: current.payloadSha256,
       },
     };
-    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-    const decoded = decodeRuntimeDomainSnapshot(bytes, repositoryBinding);
+    const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
+    const decoded = decodeStateSnapshot(bytes, repositoryBinding);
     return decoded &&
-      validateCoordinatorUnifiedTransition(
-        currentBytes,
-        bytes,
-        repositoryBinding,
-      ) &&
-      encodeRuntimeStateValue(
-        projectCoordinatorTaskSnapshot(decoded, rootHash),
-      ) === encodeRuntimeStateValue(view)
+      validateUnifiedTransition(currentBytes, bytes, repositoryBinding) &&
+      encodeStateValue(projectTaskSnapshot(decoded, rootHash)) ===
+        encodeStateValue(view)
       ? bytes
       : null;
   } catch {
@@ -501,10 +473,10 @@ export function prepareCoordinatorUnifiedTaskSections(
  * @security 値の成立は実資源・受領Authorityを証明しない。
  * @concurrency N/A: 保存排他は呼出し側が所有する。
  */
-export function associateCoordinatorTaskOperations(
-  snapshot: CoordinatorUnifiedSnapshot,
-  operations: CoordinatorUnifiedSnapshot["operations"],
-): CoordinatorUnifiedSnapshot["managedExecutions"] {
+export function associateTaskOperations(
+  snapshot: UnifiedSnapshot,
+  operations: UnifiedSnapshot["operations"],
+): UnifiedSnapshot["managedExecutions"] {
   return snapshot.managedExecutions.map((project) => ({
     ...project,
     tasks: project.tasks.map((task) => {
@@ -553,8 +525,8 @@ export function associateCoordinatorTaskOperations(
  * @concurrency Writerは同じ短期Lock内のfresh元版に対して呼ぶ。
  */
 export function hasProjectTaskResultAcceptanceConflict(
-  previous: CoordinatorState | undefined,
-  state: CoordinatorState,
+  previous: ProjectExecutionState | undefined,
+  state: ProjectExecutionState,
 ): boolean {
   return state.tasks.some((task) => {
     if (!previous) return task.resultAcceptances.length !== 0;
@@ -621,8 +593,8 @@ export function hasProjectTaskResultAcceptanceConflict(
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
 
-export function prepareCoordinatorQueueLeaseReleaseSettlement(
-  current: CoordinatorSnapshot,
+export function prepareQueueLeaseReleaseSettlement(
+  current: Snapshot,
   queueId: string,
   expectedGeneration: number,
   ownerGeneration: string,
@@ -630,7 +602,7 @@ export function prepareCoordinatorQueueLeaseReleaseSettlement(
     resourcesAbsent: (projectId: string) => boolean;
   }>,
 ) {
-  if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA)
+  if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
     return blocked("orchestrator_snapshot_schema_invalid");
   const previous = current.queueEntries.find(
     (item) => item.queueId === queueId,
@@ -713,8 +685,8 @@ export function prepareCoordinatorQueueLeaseReleaseSettlement(
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
 
-export function prepareCoordinatorQueueSelection(
-  current: CoordinatorSnapshot,
+export function prepareQueueSelection(
+  current: Snapshot,
   decision: Readonly<{
     reason:
       | "orchestrator_active_operation_retained"
@@ -909,8 +881,8 @@ const QUEUE_TRANSITIONS = Object.freeze({
  * @security 保存Owner・実Lease・任意Snapshot callbackを受けず、必要な有限観測だけを消費する。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function prepareCoordinatorQueueOperationUpdate(
-  current: CoordinatorSnapshot,
+export function prepareQueueOperationUpdate(
+  current: Snapshot,
   repositoryRoot: string,
   binding: string,
   queueId: string,
@@ -1059,8 +1031,8 @@ export function prepareCoordinatorQueueOperationUpdate(
  * @security 保存Owner・実Lease・任意Snapshot callbackを受けず、必要な有限観測だけを消費する。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function prepareCoordinatorQueueRecoverySettlement(
-  current: CoordinatorSnapshot,
+export function prepareQueueRecoverySettlement(
+  current: Snapshot,
   queueId: string,
   expectedGeneration: number,
   recoveryId: string,
@@ -1118,8 +1090,8 @@ export function prepareCoordinatorQueueRecoverySettlement(
  * @security 保存Owner・実Lease・任意Snapshot callbackを受けず、用途固定の同期観測だけを消費する。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function prepareCoordinatorSingleTaskQueueCreation(
-  current: CoordinatorSnapshot,
+export function prepareSingleTaskQueueCreation(
+  current: Snapshot,
   intakeEpoch: string,
   input: ProjectQueueEntry,
 ) {
@@ -1163,8 +1135,8 @@ export function prepareCoordinatorSingleTaskQueueCreation(
       keys.every((key) => existing[key] === input[key]) &&
       identityKeys.every(
         (key) =>
-          encodeRuntimeStateValue(existing.singleTask?.[key]) ===
-          encodeRuntimeStateValue(input.singleTask?.[key]),
+          encodeStateValue(existing.singleTask?.[key]) ===
+          encodeStateValue(input.singleTask?.[key]),
       )
       ? completed("orchestrator_single_task_reused", {
           next: null,
@@ -1217,8 +1189,8 @@ export function prepareCoordinatorSingleTaskQueueCreation(
  * @security 保存Owner・実Lease・任意Snapshot callbackを受けず、用途固定の同期観測だけを消費する。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function prepareCoordinatorSingleTaskQueueUpdate(
-  current: CoordinatorSnapshot,
+export function prepareSingleTaskQueueUpdate(
+  current: Snapshot,
   repositoryRoot: string,
   binding: string,
   queueId: string,
@@ -1267,8 +1239,8 @@ export function prepareCoordinatorSingleTaskQueueUpdate(
   if (
     identityKeys.some(
       (key) =>
-        encodeRuntimeStateValue(previous.singleTask?.[key]) !==
-        encodeRuntimeStateValue(record[key]),
+        encodeStateValue(previous.singleTask?.[key]) !==
+        encodeStateValue(record[key]),
     )
   )
     return blocked("orchestrator_single_task_identity_conflict");
@@ -1282,10 +1254,7 @@ export function prepareCoordinatorSingleTaskQueueUpdate(
       )
     )
       return blocked("orchestrator_single_task_terminal_identity_conflict");
-    if (
-      encodeRuntimeStateValue(previous.singleTask) ===
-      encodeRuntimeStateValue(record)
-    )
+    if (encodeStateValue(previous.singleTask) === encodeStateValue(record))
       return completed("orchestrator_single_task_already_saved", {
         next: null,
         value: previous,
@@ -1368,8 +1337,8 @@ export function prepareCoordinatorSingleTaskQueueUpdate(
  * @security 保存Owner・実Lease・任意Snapshot callbackを受けず、用途固定の同期観測だけを消費する。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function prepareCoordinatorUnstartedTaskQueueClosure(
-  current: CoordinatorSnapshot,
+export function prepareUnstartedTaskQueueClosure(
+  current: Snapshot,
   queueId: string,
   expectedGeneration: number,
   reason: string,
@@ -1488,11 +1457,11 @@ function blocked(
  * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function inspectCoordinatorQueueIntake(
-  current: CoordinatorSnapshot,
-  intake: Parameters<typeof coordinatorSnapshotIntakeMatches>[1],
+export function inspectQueueIntake(
+  current: Snapshot,
+  intake: Parameters<typeof snapshotIntakeMatches>[1],
 ) {
-  return coordinatorSnapshotIntakeMatches(current, intake)
+  return snapshotIntakeMatches(current, intake)
     ? completed("orchestrator_intake_verified", {
         next: null,
         value: true as const,
@@ -1515,10 +1484,10 @@ export function inspectCoordinatorQueueIntake(
  * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function prepareCoordinatorQueueEntryCreation(
-  current: CoordinatorSnapshot,
+export function prepareQueueEntryCreation(
+  current: Snapshot,
   intakeEpoch: string,
-  input: CoordinatorQueueEnqueueInput,
+  input: QueueEnqueueInput,
 ) {
   const existing = current.queueEntries.find(
     (item) => item.queueId === input.queueId,
@@ -1597,10 +1566,7 @@ export function prepareCoordinatorQueueEntryCreation(
  * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
  * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
  */
-export function projectCoordinatorQueueEntry(
-  current: CoordinatorSnapshot,
-  queueId: string,
-) {
+export function projectQueueEntry(current: Snapshot, queueId: string) {
   if (!validId(queueId)) return blocked("orchestrator_queue_input_invalid");
   const value = current.queueEntries.find((item) => item.queueId === queueId);
   return value
@@ -1626,7 +1592,7 @@ export function projectCoordinatorQueueEntry(
 export function decodeProjectResultAcceptance(
   value: unknown,
 ): ProjectResultAcceptance | null {
-  const acceptance = snapshotRuntimeStateRecord(
+  const acceptance = snapshotStateRecord(
     value,
     new Set([
       "repositoryBindingId",
@@ -1675,22 +1641,20 @@ export function decodeProjectResultAcceptance(
  * @responsibility Coordinator 状態の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
- * @returns value is CoordinatorStateを返す。
- * @precondition 「value: unknown」がvalidCoordinatorStateの入力契約を満たす。
- * @postcondition validCoordinatorStateの責務を完了した結果だけを返す。
- * @effect N/A: validCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validCoordinatorStateは独自の失敗分岐を所有しない。
- * @invariant validCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validCoordinatorStateはProcess内の同一Subsystemで完結する。
- * @security validCoordinatorStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validCoordinatorStateは共有非同期状態を持たない同期処理である。
+ * @returns value is ProjectExecutionStateを返す。
+ * @precondition 「value: unknown」がvalidStateの入力契約を満たす。
+ * @postcondition validStateの責務を完了した結果だけを返す。
+ * @effect N/A: validStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validStateは独自の失敗分岐を所有しない。
+ * @invariant validStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validStateはProcess内の同一Subsystemで完結する。
+ * @security validStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validStateは共有非同期状態を持たない同期処理である。
  */
-export function validCoordinatorState(
-  value: unknown,
-): value is CoordinatorState {
+export function validState(value: unknown): value is ProjectExecutionState {
   if (
-    !isRuntimeStateObject(value) ||
-    !hasRuntimeStateKeys(value, [
+    !isStateObject(value) ||
+    !hasStateKeys(value, [
       "contract",
       "taskExecutionSelections",
       "projectId",
@@ -1717,8 +1681,8 @@ export function validCoordinatorState(
     !Number.isSafeInteger(value.maximumConcurrency) ||
     Number(value.maximumConcurrency) < 1 ||
     Number(value.maximumConcurrency) > 5 ||
-    !isRuntimeStateObject(value.milestone) ||
-    !hasRuntimeStateKeys(value.milestone, [
+    !isStateObject(value.milestone) ||
+    !hasStateKeys(value.milestone, [
       "id",
       "acceptanceCriteria",
       "state",
@@ -1747,17 +1711,14 @@ export function validCoordinatorState(
   const objectiveIds = new Set<string>();
   for (const objective of value.objectives) {
     if (
-      !isRuntimeStateObject(objective) ||
-      !hasRuntimeStateKeys(objective, [
+      !isStateObject(objective) ||
+      !hasStateKeys(objective, [
         "definition",
         "state",
         "criterionEvidenceIds",
       ]) ||
-      !isRuntimeStateObject(objective.definition) ||
-      !hasRuntimeStateKeys(objective.definition, [
-        "id",
-        "acceptanceCriteria",
-      ]) ||
+      !isStateObject(objective.definition) ||
+      !hasStateKeys(objective.definition, ["id", "acceptanceCriteria"]) ||
       !validId(objective.definition.id) ||
       objectiveIds.has(objective.definition.id) ||
       !stringArray(objective.definition.acceptanceCriteria) ||
@@ -1779,19 +1740,19 @@ export function validCoordinatorState(
   const taskIds = new Set<string>();
   const dependencies: Array<readonly string[]> = [];
   for (const task of value.tasks) {
-    const definition = isRuntimeStateObject(task) ? task.definition : null;
-    const taskDependencies = isRuntimeStateObject(definition)
+    const definition = isStateObject(task) ? task.definition : null;
+    const taskDependencies = isStateObject(definition)
       ? definition.dependencies
       : null;
-    const allowedPaths = isRuntimeStateObject(definition)
+    const allowedPaths = isStateObject(definition)
       ? definition.allowedPaths
       : null;
-    const conflictKeys = isRuntimeStateObject(definition)
+    const conflictKeys = isStateObject(definition)
       ? definition.conflictKeys
       : null;
     if (
-      !isRuntimeStateObject(task) ||
-      !hasRuntimeStateKeys(task, [
+      !isStateObject(task) ||
+      !hasStateKeys(task, [
         "definition",
         "state",
         "attemptId",
@@ -1806,8 +1767,8 @@ export function validCoordinatorState(
         "retryCount",
         "supersededBy",
       ]) ||
-      !isRuntimeStateObject(task.definition) ||
-      !hasRuntimeStateKeys(task.definition, [
+      !isStateObject(task.definition) ||
+      !hasStateKeys(task.definition, [
         "id",
         "objectiveId",
         "dependencies",
@@ -1866,10 +1827,10 @@ export function validCoordinatorState(
         projectId: String(value.projectId),
         milestoneId: String(value.milestoneId),
         generation: Number(value.generation),
-        task: task as unknown as CoordinatorState["tasks"][number],
+        task: task as unknown as ProjectExecutionState["tasks"][number],
       }) ||
       !validTaskLifecycleTuple(
-        task as unknown as CoordinatorState["tasks"][number],
+        task as unknown as ProjectExecutionState["tasks"][number],
       ) ||
       !nullableCandidateId(task.candidateId) ||
       !Number.isSafeInteger(task.retryCount) ||
@@ -1901,8 +1862,8 @@ export function validCoordinatorState(
  */
 export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
   return (
-    isRuntimeStateObject(value) &&
-    hasRuntimeStateKeys(value, [
+    isStateObject(value) &&
+    hasStateKeys(value, [
       "queueId",
       "projectId",
       "milestoneId",
@@ -1964,7 +1925,7 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
  * @security Objectの変換・getter・Proxyを評価しない。
  * @concurrency N/A: 共有状態を変更しない。
  */
-export function coordinatorConsumerCompletionPolicy(
+export function getConsumerCompletionPolicy(
   consumer: unknown,
 ): "transient" | "durable" | null {
   if (consumer === "orchestrator") return "durable";
@@ -2021,8 +1982,8 @@ export function recoveryObligations(
       acknowledgement.taskId === scope.taskId &&
       acknowledgement.settlementGeneration <= scope.generation;
     if (
-      !isRuntimeStateObject(entry) ||
-      !hasRuntimeStateKeys(
+      !isStateObject(entry) ||
+      !hasStateKeys(
         entry,
         entry.phase === "acknowledged"
           ? ["kind", "recoveryId", "phase", "acknowledgement"]
@@ -2074,7 +2035,7 @@ export function resultAcceptances(
     projectId: string;
     milestoneId: string;
     generation: number;
-    task: CoordinatorState["tasks"][number];
+    task: ProjectExecutionState["tasks"][number];
   }>,
 ): boolean {
   if (!Array.isArray(value)) return false;
@@ -2140,9 +2101,9 @@ export function resultAcceptances(
  *
  * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
- * @input task: CoordinatorState["tasks"][number]
+ * @input task: ProjectExecutionState["tasks"][number]
  * @returns validTaskLifecycleTupleの計算結果を返す。
- * @precondition 「task: CoordinatorState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
+ * @precondition 「task: ProjectExecutionState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
  * @postcondition validTaskLifecycleTupleの責務を完了した結果だけを返す。
  * @effect N/A: validTaskLifecycleTupleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: validTaskLifecycleTupleは独自の失敗分岐を所有しない。
@@ -2152,7 +2113,7 @@ export function resultAcceptances(
  * @concurrency N/A: validTaskLifecycleTupleは共有非同期状態を持たない同期処理である。
  */
 export function validTaskLifecycleTuple(
-  task: CoordinatorState["tasks"][number],
+  task: ProjectExecutionState["tasks"][number],
 ) {
   const isAttempt = task.attemptId !== null;
   const isOperation = task.operationId !== null;
@@ -2202,8 +2163,8 @@ export function validTaskLifecycleTuple(
  */
 export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
   const value =
-    snapshotRuntimeStateRecord(raw, KEYS) ??
-    snapshotRuntimeStateRecord(raw, new Set([...KEYS, "adviceOperation"]));
+    snapshotStateRecord(raw, KEYS) ??
+    snapshotStateRecord(raw, new Set([...KEYS, "adviceOperation"]));
   if (
     !value ||
     Object.keys(value).length !==
@@ -2211,7 +2172,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
   )
     return null;
   const adviceOperation = Object.hasOwn(value, "adviceOperation")
-    ? snapshotRuntimeStateRecord(
+    ? snapshotStateRecord(
         value.adviceOperation,
         new Set(["operationId", "hostRecoveryId"]),
       )
@@ -2253,7 +2214,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
     )
   )
     return null;
-  const recoveries = snapshotRuntimeStateArray(
+  const recoveries = snapshotStateArray(
     value.recoveryIds,
     Number.MAX_SAFE_INTEGER,
   );

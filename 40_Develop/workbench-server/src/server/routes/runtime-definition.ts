@@ -9,6 +9,7 @@
  * @security Rootと主体はHost構成だけから得る。Tokenを本人証明と扱わない。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
 import { resolveRuntimeContentAccess } from "../../../../access-management/src/index.ts";
 import {
   createLocalPrincipalId,
@@ -16,24 +17,23 @@ import {
   createTask,
   deleteObjective,
   deleteTask,
-  initializeRuntimeState,
+  type ExecutionModelAccess,
+  initializeExecutionState,
   queryObjectives,
   queryPlan,
   queryTasks,
-  type RuntimeAccess,
   savePlan,
   updateObjective,
   updateTask,
 } from "../../../../execution-model/src/index.ts";
-import type { FilesystemStoreRoot } from "../../../../access-management/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
-import { snapshotPlainRecord } from "../request/snapshot.ts";
 import {
   type Repository,
   readGitUser,
   resolveVerifiedRepositoryRoot,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
+import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
+import { snapshotPlainRecord } from "../request/snapshot.ts";
 import { readActionForm, setResponseHeaders } from "../security.ts";
 
 // HTTP受信上限は内部State容量と分離し、従来の受信量を維持する。
@@ -163,7 +163,7 @@ export async function handleRuntimeDefinition({
     )
       throw new Error("runtime_input_invalid");
     if (requestSignal.aborted) throw new Error("runtime_access_unavailable");
-    let access: RuntimeAccess | null = null;
+    let access: ExecutionModelAccess | null = null;
     if (localAccessRoot) {
       if (repositoryId && credentialAdministration)
         access = resolveRuntimeContentAccess(
@@ -198,9 +198,9 @@ export async function handleRuntimeDefinition({
     let result: unknown;
     switch (operation) {
       case "initialize":
-        result = initializeRuntimeState(
+        result = initializeExecutionState(
           access,
-          input as Parameters<typeof initializeRuntimeState>[1],
+          input as Parameters<typeof initializeExecutionState>[1],
         );
         break;
       case "plan.save":

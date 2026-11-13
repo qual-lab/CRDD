@@ -5,30 +5,25 @@
  */
 
 import {
-  closeCoordinatorUnstartedTaskQueue,
-  createCoordinatorQueueEntry,
-  createCoordinatorSingleTaskQueue,
+  createQueue,
   inspectSingleTaskRecord,
   leaseIdentity,
   type ProjectQueueEntry,
-  readCoordinatorQueueEntry,
-  readCoordinatorQueueProject,
-  saveCoordinatorManagedProject,
-  selectCoordinatorQueueEntry,
-  settleCoordinatorQueueLeaseRelease,
-  settleCoordinatorQueueRecovery,
-  updateCoordinatorQueueEntry,
-  updateCoordinatorSingleTaskQueue,
+  readQueueEntry,
+  readProjectExecutionState,
+  saveProjectExecutionState,
+  selectQueueEntry,
+  updateQueue,
   validId,
-  verifyCoordinatorQueueIntake,
+  verifyQueueIntake,
 } from "../../../execution-model/src/index.ts";
 import {
   activeLeaseIsObserved,
-  assertCoordinatorArea,
-  assertCoordinatorAreaUnchanged,
+  assertArea,
+  assertAreaUnchanged,
   borrowCoordinatorActiveLease,
-  coordinatorSnapshotLeaseResourcesAbsent,
-  resolveCoordinatorNamedPaths,
+  resolveNamedPaths,
+  snapshotLeaseResourcesAbsent,
 } from "../execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type {
@@ -159,7 +154,7 @@ export function inspectCoordinatorSnapshotIntake(
     milestoneId: string;
   }>,
 ): StoreResult<true> {
-  return verifyCoordinatorQueueIntake(
+  return verifyQueueIntake(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
     intake,
@@ -201,7 +196,7 @@ export function createCoordinatorSnapshotStatePort(
     readWorkspaceTaskTarget: (queueId: string) =>
       resolveCoordinatorWorkspaceTaskTarget(workingDirectory, binding, queueId),
     writeState: (state, expectedGeneration, resultFacts) =>
-      saveCoordinatorManagedProject(
+      saveProjectExecutionState(
         storageRepository,
         binding,
         state,
@@ -210,110 +205,101 @@ export function createCoordinatorSnapshotStatePort(
         resultFacts,
       ),
     readState: (projectId) =>
-      readCoordinatorQueueProject(storageRepository, binding, projectId),
+      readProjectExecutionState(storageRepository, binding, projectId),
     enqueueOperation: (input) =>
-      createCoordinatorQueueEntry(
-        storageRepository,
-        binding,
-        intakeEpoch,
-        input,
-      ),
-    readQueue: (queueId) =>
-      readCoordinatorQueueEntry(storageRepository, binding, queueId),
+      createQueue(storageRepository, binding, {
+        kind: "scheduled",
+        input: [intakeEpoch, input],
+      }),
+    readQueue: (queueId) => readQueueEntry(storageRepository, binding, queueId),
     selectNextOperation: () =>
-      selectCoordinatorQueueEntry(
+      selectQueueEntry(
         storageRepository,
         binding,
         chooseCoordinatorQueueOperation,
       ),
     updateQueue: (queueId, expectedGeneration, next) => {
       let active: ReturnType<typeof borrowCoordinatorActiveLease>;
-      return updateCoordinatorQueueEntry(
-        storageRepository,
-        binding,
-        queueId,
-        expectedGeneration,
-        {
-          get state() {
-            return next.state;
+      return updateQueue(storageRepository, binding, {
+        kind: "operation",
+        input: [
+          queueId,
+          expectedGeneration,
+          {
+            get state() {
+              return next.state;
+            },
+            get resumeCondition() {
+              return next.resumeCondition;
+            },
+            get resultReference() {
+              return next.resultReference;
+            },
+            get leasePresent() {
+              return Boolean(next.lease);
+            },
+            get leaseIsNull() {
+              return next.lease === null;
+            },
           },
-          get resumeCondition() {
-            return next.resumeCondition;
+          {
+            borrowActiveLease: () => {
+              active = borrowCoordinatorActiveLease(
+                next.lease as CoordinatorLease,
+              );
+              return active
+                ? {
+                    kind: active.kind,
+                    repositoryRoot: active.repositoryRoot,
+                    repositoryBindingId: active.repositoryBindingId,
+                    projectId: active.projectId,
+                    queueId: active.queueId,
+                    ownerGeneration: active.ownerGeneration,
+                  }
+                : undefined;
+            },
+            isActiveLeaseObserved: () =>
+              active !== undefined && activeLeaseIsObserved(active),
           },
-          get resultReference() {
-            return next.resultReference;
-          },
-          get leasePresent() {
-            return Boolean(next.lease);
-          },
-          get leaseIsNull() {
-            return next.lease === null;
-          },
-        },
-        {
-          borrowActiveLease: () => {
-            active = borrowCoordinatorActiveLease(
-              next.lease as CoordinatorLease,
-            );
-            return active
-              ? {
-                  kind: active.kind,
-                  repositoryRoot: active.repositoryRoot,
-                  repositoryBindingId: active.repositoryBindingId,
-                  projectId: active.projectId,
-                  queueId: active.queueId,
-                  ownerGeneration: active.ownerGeneration,
-                }
-              : undefined;
-          },
-          isActiveLeaseObserved: () =>
-            active !== undefined && activeLeaseIsObserved(active),
-        },
-      );
+        ],
+      });
     },
     settleQueueRecovery: (queueId, expectedGeneration, recoveryId) =>
-      settleCoordinatorQueueRecovery(
-        storageRepository,
-        binding,
-        queueId,
-        expectedGeneration,
-        recoveryId,
-      ),
+      updateQueue(storageRepository, binding, {
+        kind: "recovery",
+        input: [queueId, expectedGeneration, recoveryId],
+      }),
     settleQueueLeaseRelease: (queueId, expectedGeneration, ownerGeneration) =>
-      settleCoordinatorQueueLeaseRelease(
-        storageRepository,
-        binding,
-        queueId,
-        expectedGeneration,
-        ownerGeneration,
-        {
-          resourcesAbsent: (repositoryRoot: string, projectId: string) => {
-            const paths = resolveCoordinatorNamedPaths(repositoryRoot);
-            if (!paths) throw new Error("orchestrator_repository_root_invalid");
-            const boundary = assertCoordinatorArea(
-              repositoryRoot,
-              "domain-model",
-              paths.domainModel,
-            );
-            const identity = leaseIdentity(
-              binding,
-              projectId,
-              queueId,
-              "project-operation",
-            );
-            if (
-              !coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity)
-            )
-              return false;
-            assertCoordinatorAreaUnchanged(
-              repositoryRoot,
-              "domain-model",
-              boundary,
-            );
-            return true;
+      updateQueue(storageRepository, binding, {
+        kind: "lease_released",
+        input: [
+          queueId,
+          expectedGeneration,
+          ownerGeneration,
+          {
+            resourcesAbsent: (repositoryRoot: string, projectId: string) => {
+              const paths = resolveNamedPaths(repositoryRoot);
+              if (!paths)
+                throw new Error("orchestrator_repository_root_invalid");
+              const boundary = assertArea(
+                repositoryRoot,
+                "domain-model",
+                paths.domainModel,
+              );
+              const identity = leaseIdentity(
+                binding,
+                projectId,
+                queueId,
+                "project-operation",
+              );
+              if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
+                return false;
+              assertAreaUnchanged(repositoryRoot, "domain-model", boundary);
+              return true;
+            },
           },
-        },
-      ),
+        ],
+      }),
   });
 }
 
@@ -338,11 +324,10 @@ export function enqueueCoordinatorSingleTask(
   intakeEpoch: string,
   input: ProjectQueueEntry,
 ): StoreResult<ProjectQueueEntry> {
-  return createCoordinatorSingleTaskQueue(
+  return createQueue(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    intakeEpoch,
-    input,
+    { kind: "single", input: [intakeEpoch, input] },
   );
 }
 
@@ -372,29 +357,34 @@ export function updateCoordinatorSingleTask(
   const record = inspectSingleTaskRecord(raw);
   if (!record) return blocked("orchestrator_single_task_record_invalid");
   let active: ReturnType<typeof borrowCoordinatorActiveLease>;
-  return updateCoordinatorSingleTaskQueue(
+  return updateQueue(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    queueId,
-    expectedGeneration,
-    record,
     {
-      borrowActiveLease: () => {
-        active = borrowCoordinatorActiveLease(lease);
-        return active
-          ? {
-              kind: active.kind,
-              repositoryRoot: active.repositoryRoot,
-              repositoryBindingId: active.repositoryBindingId,
-              projectId: active.projectId,
-              queueId: active.queueId,
-              ownerGeneration: active.ownerGeneration,
-            }
-          : undefined;
-      },
-      isActiveLeaseObserved: () =>
-        active !== undefined && activeLeaseIsObserved(active),
-      now: () => Date.now(),
+      kind: "single",
+      input: [
+        queueId,
+        expectedGeneration,
+        record,
+        {
+          borrowActiveLease: () => {
+            active = borrowCoordinatorActiveLease(lease);
+            return active
+              ? {
+                  kind: active.kind,
+                  repositoryRoot: active.repositoryRoot,
+                  repositoryBindingId: active.repositoryBindingId,
+                  projectId: active.projectId,
+                  queueId: active.queueId,
+                  ownerGeneration: active.ownerGeneration,
+                }
+              : undefined;
+          },
+          isActiveLeaseObserved: () =>
+            active !== undefined && activeLeaseIsObserved(active),
+          now: () => Date.now(),
+        },
+      ],
     },
   );
 }
@@ -421,12 +411,12 @@ export function closeUnstartedCoordinatorSingleTask(
   expectedGeneration: number,
   reason: string,
 ): StoreResult<ProjectQueueEntry> {
-  return closeCoordinatorUnstartedTaskQueue(
+  return updateQueue(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    queueId,
-    expectedGeneration,
-    reason,
-    { now: () => Date.now() },
+    {
+      kind: "close_unstarted",
+      input: [queueId, expectedGeneration, reason, { now: () => Date.now() }],
+    },
   );
 }

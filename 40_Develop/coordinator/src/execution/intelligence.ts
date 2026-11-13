@@ -5,22 +5,23 @@
  * @trace ARCH-000018
  * @boundary EI保存・診断を必須Recovery通知の失敗へ昇格せず、AIの実行許可・回復判断を持たない。
  */
-import {
-  ensureRepositoryRuntimeDataArea,
-  observeRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../configuration/runtime-data.ts";
+
 import { readExecutionIntelligenceConfig } from "../../../configuration-model/src/index.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../execution-model/src/index.ts";
+import {
+  completeExecution,
+  createExecution,
+  type ExecutionCompleteInput,
+  type Observation,
+  type StoreOptions,
+  type WriteResult,
+} from "../../../execution-intelligence/src/index.ts";
+import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
-  createExecution,
-  completeExecution,
-  type StoreOptions,
-  type ExecutionCompleteInput,
-  type WriteResult,
-  type Observation,
-} from "../../../execution-intelligence/src/index.ts";
+  ensureRepositoryExecutionDataArea,
+  observeRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+} from "../configuration/runtime-data.ts";
 import { writeCoordinatorExecutionIntelligenceDiagnostic } from "./diagnostics.ts";
 
 /** 読取りでは保存領域を初期化しない。設定・Root拒否を欠測と区別する。 */
@@ -32,11 +33,11 @@ export function getExecutionIntelligenceStore(
   if (config.status !== "ready")
     throw Error("execution_intelligence_configuration_unavailable");
   const area = prepare
-    ? requireReadyRepositoryRuntimeDataArea(
-        ensureRepositoryRuntimeDataArea(repository, "execution-intelligence"),
+    ? requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataArea(repository, "execution-intelligence"),
         "execution_intelligence_directory_unavailable",
       )
-    : observeRepositoryRuntimeDataArea(repository, "execution-intelligence");
+    : observeRepositoryExecutionDataArea(repository, "execution-intelligence");
   if (!area) throw Error("execution_intelligence_directory_unavailable");
   if (area.status === "not_observed") return null;
   if (area.status !== "ready") throw Error(area.reason);
@@ -95,7 +96,7 @@ export function reportExecutionRecordingUnavailable(
   recordId: string,
   cause?: unknown,
 ): void {
-  if (cause instanceof RepositoryRuntimeDataAreaBlockedError) {
+  if (cause instanceof ExecutionStorageBlockedError) {
     const observation = {
       status: "blocked" as const,
       reason: cause.reason,

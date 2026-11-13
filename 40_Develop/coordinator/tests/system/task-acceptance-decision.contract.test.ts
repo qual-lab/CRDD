@@ -15,8 +15,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import type {
-  CoordinatorAcceptanceDecision,
-  CoordinatorState,
+  AcceptanceDecision,
+  ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
@@ -40,9 +40,9 @@ import {
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
 function decisionRequest(
-  state: CoordinatorState,
+  state: ProjectExecutionState,
   target: "objective" | "milestone",
-  decision: CoordinatorAcceptanceDecision,
+  decision: AcceptanceDecision,
   suffix: string,
 ) {
   return Object.freeze({

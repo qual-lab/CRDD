@@ -445,8 +445,8 @@ test("Taskと助言の実準備本体は共通公式入力と用途別レシピ�
         fileURLToPath,
         Buffer,
         getRepository: () => ({ status: "completed", capability: {} }),
-        ensureRepositoryRuntimeDataArea: () => ({}),
-        requireReadyRepositoryRuntimeDataArea: () => ({
+        ensureRepositoryExecutionDataArea: () => ({}),
+        requireReadyRepositoryExecutionDataArea: () => ({
           directory: path.dirname(output),
         }),
         createHash: () => ({

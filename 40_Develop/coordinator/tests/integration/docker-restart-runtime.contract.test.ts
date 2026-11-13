@@ -11,20 +11,15 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { restartDesktopForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import {
-  createDockerRestartRequestId,
-  decodeDockerRestartCheckpoint,
-  decodeRuntimeDomainSnapshot,
-  prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorStateRestartSnapshot,
-} from "../../../execution-model/src/index.ts";
+import { createDockerRestartRequestId } from "../../../execution-model/src/index.ts";
+import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
 
@@ -120,7 +115,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     assert.match(
       callerSource,
-      /import\s*\{[^}]*\btype DockerRestartCheckpoint\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/execution-model\/src\/index\.ts["']/u,
+      /import\s*\{[^}]*\btype RestartCheckpoint\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/execution-model\/src\/index\.ts["']/u,
     );
     assert.doesNotMatch(
       callerSource,
@@ -211,79 +206,7 @@ async function compose(fault: string = "normal") {
     ready = true;
   let released = false;
   let statusReads = 0;
-  const binding = "a".repeat(64);
-  const nonce = "b".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token =
-    "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-    hostHash;
-  const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
-    operationNonce: nonce,
-    provider: "claude",
-    consumer: "orchestrator",
-    operationId: "OP-123456",
-    recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
-    executionSelection: {
-      provider: "claude",
-      modelIdentifier: "opus",
-      identifierKind: "alias",
-      reasoningEffort: "low",
-      purpose: "task",
-      catalogIdentity: "1".repeat(64),
-      configIdentity: "2".repeat(64),
-      role: "executor",
-      workType: null,
-      source: "explicit",
-    },
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  };
-  const identityJson = `${JSON.stringify(identity)}\n`;
-
-  let currentBytes = prepareCoordinatorStateOperationSnapshot(
-    null,
-    identityJson,
-    binding,
-  );
-  assert.ok(currentBytes);
-  const initialSnapshot = decodeRuntimeDomainSnapshot(currentBytes, binding);
-  assert.ok(initialSnapshot);
-  const operation = initialSnapshot.snapshot.operations.find(
-    (item) => item.kind === "docker_task",
-  );
+  const { binding, operation } = createResourceOperationFixture();
   assert.ok(operation);
   const recoveryId = operation.recoveryId;
   const scopeSha256 = "b".repeat(64);
@@ -294,46 +217,6 @@ async function compose(fault: string = "normal") {
     scopeSha256,
   );
   assert.ok(requestId);
-  const assertCheckpointCandidate = (next: unknown) => {
-    const before = decodeRuntimeDomainSnapshot(currentBytes, binding);
-    assert.ok(before);
-    const candidate = prepareCoordinatorStateRestartSnapshot(
-      currentBytes,
-      recoveryId,
-      next,
-      binding,
-    );
-    assert.ok(candidate);
-    const after = decodeRuntimeDomainSnapshot(candidate, binding);
-    assert.ok(after);
-    assert.equal(after.snapshot.revision, before.snapshot.revision + 1);
-    assert.deepEqual(after.snapshot.previous, {
-      revision: before.snapshot.revision,
-      payloadSha256: before.payloadSha256,
-    });
-    assert.deepEqual(
-      after.snapshot.operations,
-      before.snapshot.operations.map((item) =>
-        item.kind === "docker_task" && item.recoveryId === recoveryId
-          ? { ...item, dockerRestart: next }
-          : item,
-      ),
-    );
-    const {
-      revision: _beforeRevision,
-      previous: _beforePrevious,
-      operations: _beforeOperations,
-      ...beforeSections
-    } = before.snapshot;
-    const {
-      revision: _afterRevision,
-      previous: _afterPrevious,
-      operations: _afterOperations,
-      ...afterSections
-    } = after.snapshot;
-    assert.deepEqual(afterSections, beforeSections);
-    currentBytes = candidate;
-  };
   const desktop = {
     verify: () => true,
     command: async (action: "status" | "stop" | "start") => {
@@ -438,6 +321,28 @@ async function compose(fault: string = "normal") {
       assert.equal(owner, capability);
       saves++;
       calls.push(`save:${saves}`);
+      const next = JSON.parse(JSON.stringify(value));
+      assert.ok(saves >= 1 && saves <= 4);
+      const request =
+        saves === 1
+          ? "not_issued"
+          : saves === 2
+            ? "unknown"
+            : saves === 3
+              ? fault === "stop_unknown"
+                ? "unknown"
+                : "issued"
+              : ["cancel_after_stop", "start_guard"].includes(fault)
+                ? "issued"
+                : "confirmed";
+      assert.deepEqual(next, {
+        requestId,
+        scopeSha256,
+        request,
+        cleanup: saves === 1 ? "not_required" : "pending",
+        result: null,
+      });
+
       if (
         (fault === "initial_save" && saves === 1) ||
         (fault === "intent_save" && saves === 2) ||
@@ -447,9 +352,7 @@ async function compose(fault: string = "normal") {
         permitted = false;
         return false;
       }
-      const next = JSON.parse(JSON.stringify(value));
-      if (!released) assert.notEqual(next.result?.status, "completed");
-      assertCheckpointCandidate(next);
+      assert.equal(released, false);
       checkpoint = next;
       return true;
     },
@@ -497,18 +400,49 @@ async function compose(fault: string = "normal") {
           },
         }),
       );
-      assert.ok(decodeDockerRestartCheckpoint(next));
       assert.equal(next.result.request, result.request);
       assert.equal(
         next.result.effectOutcomeUnknown,
         result.effectOutcomeUnknown,
       );
-      for (const missing of ["request", "effectOutcomeUnknown"]) {
-        const legacy = JSON.parse(JSON.stringify(next));
-        delete legacy.result[missing];
-        assert.equal(decodeDockerRestartCheckpoint(legacy), null);
-      }
-      assertCheckpointCandidate(next);
+      const expectedRequest =
+        fault === "stop_unknown"
+          ? "unknown"
+          : ["cancel_after_stop", "start_guard"].includes(fault)
+            ? "issued"
+            : "confirmed";
+      const confirmedCleanup = ![
+        "cleanup_unknown",
+        "lock_false",
+        "lock_throw",
+      ].includes(fault);
+      const expectedReason = !confirmedCleanup
+        ? "docker_restart_cleanup_unconfirmed"
+        : fault === "stop_unknown"
+          ? "docker_restart_stop_unconfirmed"
+          : fault === "cancel_after_stop"
+            ? "docker_restart_cancelled"
+            : fault === "start_guard"
+              ? "docker_restart_start_unconfirmed"
+              : "docker_restart_settled";
+      assert.deepEqual(next, {
+        requestId,
+        scopeSha256,
+        request: expectedRequest,
+        cleanup: confirmedCleanup ? "confirmed" : "unknown",
+        result: {
+          status:
+            expectedReason === "docker_restart_settled"
+              ? "completed"
+              : "blocked",
+          reason: expectedReason,
+          request: expectedRequest,
+          effectOutcomeUnknown: ["stop_unknown", "cancel_after_stop"].includes(
+            fault,
+          ),
+        },
+      });
+
       checkpoint = next;
       calls.push("final_save");
       return {
@@ -531,6 +465,18 @@ async function compose(fault: string = "normal") {
     context,
   );
   const result = await run(recoveryId, controller.signal, root);
+  assert.equal(
+    saves,
+    fault === "already_requested"
+      ? 0
+      : fault === "initial_save"
+        ? 1
+        : fault === "intent_save"
+          ? 2
+          : ["accepted_save", "stop_unknown"].includes(fault)
+            ? 3
+            : 4,
+  );
   const after = [...calls];
   controller.abort();
   await Promise.resolve();

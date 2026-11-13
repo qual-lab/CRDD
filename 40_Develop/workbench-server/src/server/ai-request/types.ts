@@ -9,8 +9,8 @@
  * @security Promptや結果をRepository、URL、logへ保存せず、秘密値を入力契約へ含めない。
  */
 import type {
-  SingleTaskCommand,
   ExecutionSelection,
+  SingleTaskCommand,
 } from "../../../../coordinator/src/index.ts";
 
 /** Workbenchが受け付けるAI依頼の用途区分。 */
@@ -60,7 +60,7 @@ export type WorkbenchAiRequestSnapshot = Readonly<{
   additionalInferences: readonly WorkbenchAiResultItem[];
   nextOptions: readonly WorkbenchAiResultItem[];
   candidate: null;
-  workspaceResult?: CoordinatorWorkspaceResult | null;
+  workspaceResult?: WorkspaceResult | null;
   taskId?: string | null;
   attemptId?: string | null;
   operationId?: string | null;
@@ -81,4 +81,4 @@ export type WorkbenchAiRequests = Readonly<{
   close?: () => Promise<void>;
 }>;
 
-import type { CoordinatorWorkspaceResult } from "../../../../execution-model/src/index.ts";
+import type { WorkspaceResult } from "../../../../execution-model/src/index.ts";

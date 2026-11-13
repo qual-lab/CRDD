@@ -12,22 +12,22 @@
  */
 
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   type ChildProcess,
   type ChildProcessWithoutNullStreams,
   spawn,
   spawnSync,
 } from "node:child_process";
-import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
-import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { inspectTaskStageDiagnostic } from "../../scripts/task-diagnostic.ts";
 
 import {
@@ -824,7 +824,7 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../../execution-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。
@@ -914,7 +914,7 @@ test("実Provider Toolは起動未発行を回復不明として記録しない"
         snapshotIdentity: "b",
       }),
       getRepository: () => ({ status: "completed", capability: {} }),
-      resolveRepositoryRuntimeDataPaths: () => ({
+      resolveRepositoryExecutionDataPaths: () => ({
         tests: "target/.crdd/tests",
       }),
     }) as Promise<void>;

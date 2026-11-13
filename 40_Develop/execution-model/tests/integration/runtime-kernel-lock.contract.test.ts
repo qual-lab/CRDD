@@ -12,8 +12,10 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { acquireCoordinatorStorageOwnerForRepository } from "../../src/storage/lock.ts";
-import { acquireRuntimeStateLock } from "../../src/storage/lock.ts";
+import {
+  acquireExecutionStateLock,
+  acquireStorageOwnerForRepository,
+} from "../../src/storage/lock.ts";
 
 function fixture(t: TestContext) {
   const parent = fileURLToPath(
@@ -33,18 +35,21 @@ function fixture(t: TestContext) {
 test("同じCurrentStateだけが競合し、通常解放後は新世代で取得する", (t) => {
   const { root, hash } = fixture(t);
   for (const value of [null, {}, "", "A".repeat(64), "a".repeat(63)]) {
-    assert.equal(acquireRuntimeStateLock(value, root).status, "blocked");
+    assert.equal(acquireExecutionStateLock(value, root).status, "blocked");
   }
-  const first = acquireRuntimeStateLock(hash, root);
+  const first = acquireExecutionStateLock(hash, root);
   assert.ok(first.status === "acquired");
-  assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
-  const other = acquireRuntimeStateLock(randomBytes(32).toString("hex"), root);
+  assert.equal(acquireExecutionStateLock(hash, root).status, "blocked");
+  const other = acquireExecutionStateLock(
+    randomBytes(32).toString("hex"),
+    root,
+  );
   assert.ok(other.status === "acquired");
   assert.equal(other.lock.release(), true);
   assert.equal(first.lock.assertLive(), true);
   assert.equal(first.lock.release(), true);
   assert.equal(first.lock.release(), false);
-  const next = acquireRuntimeStateLock(hash, root);
+  const next = acquireExecutionStateLock(hash, root);
   assert.ok(next.status === "acquired");
   assert.notEqual(
     next.lock.reference.generation,
@@ -87,7 +92,7 @@ test("CurrentState Owner強制終了後も残存で拒否し、停止下のexact
     }),
   ]);
   assert.equal(ready[0].toString(), "READY\n");
-  assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+  assert.equal(acquireExecutionStateLock(hash, root).status, "blocked");
   const target = path.join(root, ".crdd", `current-state.${hash}.lock`);
   const bytes = fs.readFileSync(target);
   const stat = fs.lstatSync(target, { bigint: true });
@@ -96,14 +101,14 @@ test("CurrentState Owner強制終了後も残存で拒否し、停止下のexact
   assert.equal(record.identity, `current-state:${hash}`);
   assert.equal(child.kill(), true);
   await closed;
-  assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+  assert.equal(acquireExecutionStateLock(hash, root).status, "blocked");
   const current = fs.lstatSync(target, { bigint: true });
   assert.equal(current.dev, stat.dev);
   assert.equal(current.ino, stat.ino);
   assert.deepEqual(fs.readFileSync(target), bytes);
   // 唯一の子はjoin済み。この試験の全利用者停止下で元世代だけを回収する。
   fs.unlinkSync(target);
-  const next = acquireRuntimeStateLock(hash, root);
+  const next = acquireExecutionStateLock(hash, root);
   assert.ok(next.status === "acquired");
   assert.notEqual(next.lock.reference.generation, record.generation);
   assert.equal(next.lock.release(), true);
@@ -142,7 +147,7 @@ test("CurrentStateの初期化失敗は取得参照・手動回復とdescriptor�
         st.mock.method(fs, "closeSync", () => {
           throw Error("finite_close");
         });
-      const outcome = acquireCoordinatorStorageOwnerForRepository({
+      const outcome = acquireStorageOwnerForRepository({
         repositoryRoot: root,
         repositoryBinding: hash,
         revalidate: () => true,
@@ -164,7 +169,7 @@ test("CurrentStateの初期化失敗は取得参照・手動回復とdescriptor�
       st.mock.restoreAll();
       const file = path.join(root, ".crdd", `current-state.${hash}.lock`);
       assert.equal(fs.existsSync(file), true);
-      assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+      assert.equal(acquireExecutionStateLock(hash, root).status, "blocked");
       assert.notEqual(descriptor, null);
       const fd = descriptor;
       assert.ok(typeof fd === "number");

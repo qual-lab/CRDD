@@ -1258,7 +1258,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
     const begin = source.indexOf(
       "for (const operation of read.value.snapshot.operations) {",
     );
-    const end = source.indexOf("const historyFile =", begin);
+    const end = source.indexOf("for (const row of read.historyRows)", begin);
     assert.ok(begin > 0 && end > begin);
     const identities = runInNewContext(
       `const identities=[];${stripTypeScriptTypes(source.slice(begin, end))};identities`,
@@ -1306,7 +1306,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
       new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
       "utf8",
     );
-    const begin = source.indexOf("const historyFile =");
+    const begin = source.indexOf("for (const row of read.historyRows)");
     const end = source.indexOf(
       "\n            }\n          }\n        }\n      } catch",
       begin,
@@ -1315,29 +1315,20 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
     const result = runInNewContext(
       `const historyIdentities=[];${stripTypeScriptTypes(source.slice(begin, end))};historyIdentities`,
       {
-        root: "synthetic",
-        paths: { domainModel: "synthetic/.crdd/domain-model" },
-        path: { join: (...parts: string[]) => parts.join("/") },
-        fs: {
-          existsSync: () => true,
-          lstatSync: () => ({ isSymbolicLink: () => false, nlink: 1 }),
+        read: {
+          historyRows: [
+            {
+              recoveryId,
+              line: JSON.stringify({
+                summary: {
+                  schema: "crdd-coordinator/operation-summary/v4",
+                  operationId: identity.operationId,
+                  recoveryCorrelationId: correlation,
+                },
+              }),
+            },
+          ],
         },
-        assert,
-        readStableFileSnapshot: () => ({
-          bytes: Buffer.from("synthetic"),
-        }),
-        decodeCoordinatorHistoryRows: () => [
-          {
-            recoveryId,
-            line: JSON.stringify({
-              summary: {
-                schema: "crdd-coordinator/operation-summary/v4",
-                operationId: identity.operationId,
-                recoveryCorrelationId: correlation,
-              },
-            }),
-          },
-        ],
       },
     );
     assert.equal(result.length, 1);
