@@ -30,6 +30,8 @@ EM SourceはAD／DI型を直接参照しない。`ExecutionSelection`の技術�
 
 他Packageの試験も同じ依存方向に従う。EMの内部検査はEM自身、DIの内部検査はDI自身、両者の接続はCoordinatorが所有する。外部ConsumerはEM Rootの公開契約を使い、試験目的の深いimportや互換Facadeを設けない。
 
+保持設定も同じ境界で分ける。上位の設定取得・日数搬送・履歴枝の再観測はCoordinatorの試験、日数null／不正値の早期拒否と保存時のOwner確認はEMの試験が所有し、EMからCoordinator Sourceを読まない。
+
 ## 2. Logical BlockとSourceの所有
 
 | Source | 責務 | 境界 |

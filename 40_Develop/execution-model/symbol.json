@@ -1085,8 +1085,7 @@
       ],
       "verifies": [
         "domain-model.storage.runtime-repository",
-        "execution-model.source.tests.support.source-declaration",
-        "coordinator.execution.persistence"
+        "execution-model.source.tests.support.source-declaration"
       ]
     },
     {

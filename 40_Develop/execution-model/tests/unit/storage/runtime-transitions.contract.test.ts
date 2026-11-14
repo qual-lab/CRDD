@@ -39,6 +39,14 @@ test("開始保存後の終端準備失敗は元記録とEffectを保持する",
     new URL("../../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
+  // 未束縛コードだけを一回準備し、依存値と内部Mapは各条件で生成する。
+  const createExecution = runInThisContext(`(dependencies) => {
+      const { observeOperationRepository, prepareStateOperationSnapshot,
+        decodeStateSnapshot, readStateSnapshot, encodeStateValue,
+        writeStateSnapshot, writeOwnedStateSnapshot, prepareOperationCompletion } = dependencies;
+      ${sourceDeclaration(source, "saveOperationStart")}
+      return saveOperationStart;
+    }`);
   for (const scenario of [
     "ready",
     "refused",
@@ -59,13 +67,7 @@ test("開始保存後の終端準備失敗は元記録とEffectを保持する",
       identityJson,
     };
     const calls: string[] = [];
-    const execute = runInThisContext(`(dependencies) => {
-      const { observeOperationRepository, prepareStateOperationSnapshot,
-        decodeStateSnapshot, readStateSnapshot, encodeStateValue,
-        writeStateSnapshot, writeOwnedStateSnapshot, prepareOperationCompletion } = dependencies;
-      ${sourceDeclaration(source, "saveOperationStart")}
-      return saveOperationStart;
-    }`)({
+    const execute = createExecution({
       observeOperationRepository: () => ({
         operationId: "operation-a",
         repositoryBinding: "binding",
@@ -168,14 +170,16 @@ test("終端準備はReaderの拒否理由とLock解放不明を保持する", (
     new URL("../../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
-  for (const scenario of ["ready", "rejected", "unlock_unknown"]) {
-    const execute = runInThisContext(`(dependencies) => {
+  // 未束縛コードだけを一回準備し、依存値と内部Mapは各条件で生成する。
+  const createExecution = runInThisContext(`(dependencies) => {
       const liveSettlements = new WeakMap();
       const { getConsumerCompletionPolicy, observeExecutionSettlementStorageAccess,
         captureExecutionCleanupVerification, readOperationStateStage } = dependencies;
       ${sourceDeclaration(source, "prepareOperationCompletion")}
       return prepareOperationCompletion;
-    }`)({
+    }`);
+  for (const scenario of ["ready", "rejected", "unlock_unknown"]) {
+    const execute = createExecution({
       getConsumerCompletionPolicy: () => "durable",
       observeExecutionSettlementStorageAccess: () => ({
         operationId: "operation",
@@ -237,6 +241,15 @@ test("終了入力の受理後例外でも元参照と未確定を返す", () =>
     new URL("../../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
+  // 未束縛コードだけを一回準備し、依存値と内部Mapは各条件で生成する。
+  const createExecution = runInThisContext(`(dependencies) => {
+      const { readLiveSettlement, observeExecutionTerminalForStorage,
+        readOwnedSettlementSnapshot, writeStateSnapshot, encodeStateValue,
+        writeOwnedSettlement, prepareStateCleanupSnapshot } = dependencies;
+      ${sourceDeclaration(source, "captureOperationCompletionInputs")}
+      ${sourceDeclaration(source, "completeOperation")}
+      return completeOperation;
+    }`);
   for (const fault of ["reader", "snapshot", "encoding"]) {
     const context = {},
       cleanup = {},
@@ -261,14 +274,7 @@ test("終了入力の受理後例外でも元参照と未確定を返す", () =>
         throw new Error("snapshot read failure");
       },
     };
-    const execute = runInThisContext(`(dependencies) => {
-      const { readLiveSettlement, observeExecutionTerminalForStorage,
-        readOwnedSettlementSnapshot, writeStateSnapshot, encodeStateValue,
-        writeOwnedSettlement, prepareStateCleanupSnapshot } = dependencies;
-      ${sourceDeclaration(source, "captureOperationCompletionInputs")}
-      ${sourceDeclaration(source, "completeOperation")}
-      return completeOperation;
-    }`)({
+    const execute = createExecution({
       readLiveSettlement: (received: unknown) =>
         received === context ? settlement : null,
       observeExecutionTerminalForStorage: () => terminal,
@@ -370,6 +376,19 @@ import { sourceDeclaration } from "../../support/source-declaration.ts";
  * @cleanup N/A: メモリとSource読取りだけ。Filesystem・Lock・Dockerは変更しない。
  * @boundary 候補生成のUT。物理保存と実CASは既存保存ITが確認する。
  */
+const completionSource = fs.readFileSync(
+  new URL("../../../src/attempt/crud.ts", import.meta.url),
+  "utf8",
+);
+// 同じ未束縛コードを六条件で使い、評価結果と入力は共有しない。
+const createCompletionExecution = runInThisContext(`(dependencies) => {
+      const { readLiveSettlement, captureOperationCompletionInputs,
+        observeExecutionTerminalForStorage, readOwnedSettlementSnapshot,
+        writeStateSnapshot, prepareStateCleanupSnapshot,
+        decodeStateSnapshot, encodeStateValue, writeOwnedSettlement } = dependencies;
+      ${sourceDeclaration(completionSource, "completeOperation")}
+      return completeOperation;
+    }`);
 for (const scenario of [
   "without_resources",
   "with_resources",
@@ -447,18 +466,7 @@ for (const scenario of [
       writes: 0,
       bytes: null,
     };
-    const source = fs.readFileSync(
-      new URL("../../../src/attempt/crud.ts", import.meta.url),
-      "utf8",
-    );
-    const execute = runInThisContext(`(dependencies) => {
-      const { readLiveSettlement, captureOperationCompletionInputs,
-        observeExecutionTerminalForStorage, readOwnedSettlementSnapshot,
-        writeStateSnapshot, prepareStateCleanupSnapshot,
-        decodeStateSnapshot, encodeStateValue, writeOwnedSettlement } = dependencies;
-      ${sourceDeclaration(source, "completeOperation")}
-      return completeOperation;
-    }`)({
+    const execute = createCompletionExecution({
       readLiveSettlement: (value: unknown) => {
         assert.equal(value, context);
         return {
@@ -4776,9 +4784,10 @@ test("初期Hostモデルは全文差分・参照・未終了再起動を拒否�
   const end = boundary < 0 ? source.length : boundary;
   assert.ok(start > 0 && end > start);
   const body = stripTypeScriptTypes(source.slice(start, end));
-  const evaluate = runInThisContext(
+  const createInitialHost = runInThisContext(
     `(function(prepareStateOperationSnapshot, decodeStateSnapshot, encodeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isInitialOperationHost; })`,
-  )(
+  );
+  const evaluate = createInitialHost(
     prepareStateOperationSnapshot,
     stateModel.decodeStateSnapshot,
     encodeStateValue,
@@ -5138,14 +5147,7 @@ test("初期Hostモデルは全文差分・参照・未終了再起動を拒否�
     isDockerRestartCheckpointSettled,
   };
   for (const omitted of Object.keys(dependencies)) {
-    const keys = Object.keys(dependencies);
-    const invoke = runInThisContext(
-      "(function(" +
-        keys.join(",") +
-        ") { " +
-        body +
-        "; return isInitialOperationHost; })",
-    )(
+    const invoke = createInitialHost(
       ...Object.entries(dependencies).map(([key, value]) =>
         key === omitted ? undefined : value,
       ),

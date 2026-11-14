@@ -2576,6 +2576,34 @@ EM／DI／Coの型検査、変更TSの整形・警告検査は成功（Coの既�
 
 追加承認後の台帳是正（2026-11-15）：上記のWorkbench登録不整合を解消した。着手前に元試験のHost Windows宣言と共有本体、現CheckerがWindows用Profileとrestricted_processの両登録を要求する規則を照合した。一意な登録追従として該当entryのexecutionProfilesへrestricted_processを1行追加し、試験本体・Checker・製品API・安全判定は不変更。台帳418項目の整合検査はvalid・testExecution=not_started・effectIssued=false、実行Profileのexact照合とHost Windows検出の限定2試験も成功した。台帳の読取り検査は全体回帰ではなく、WorkbenchのHost統合試験自体は再実行していない。差分・既存レビュー指摘・現役リンクと禁止範囲を再確認してから、今回までの11ファイルをCommit／Pushする。追加差分の独立QA確認は必須残指摘0。Commit前のdiff空白検査も成功し、製品Source差分0と対象11ファイルを再確認した。
 
+### 局所保存試験の不変コード準備 — 着手前整合確認
+
+基準c2373d950で成立済みの公開93項目・保存形式と、開始／終端／履歴保存の既存反証を維持する。対象は既存runtime-transitionsとhistory-retention-boundaryの2試験Fileだけ。開始保存・終端準備・受理後例外・六条件の終端候補・初回Hostの依存欠測・十四条件の履歴完成保存について、同じSource宣言と未束縛factoryの組立てを条件ループ外へ移す。依存値の注入、関数生成、WeakMap、Owner、入力参照、counter、故障条件は各Caseで生成し、変異Sourceは別コードとして毎回の検証を維持する。新File・汎用Cache・Fixture Manager・製品APIは追加しない。
+
+これは試験内部の不変準備の局所改善であり、受付条件・認可・保存順・正式QA結果は変更しない。上記六箇所を編集単位として元のscenario集合・assert・依存値の位置を照合する。親が現行の値／保存境界と計画を照合し、不足する仕様判断はない。変更TSの静的検査、当該試験親に限定した回帰、試験独立性の独立技術・QAレビューを行う。規範・準拠・Release判断や実資源を変更しないため全体監査・実境界E2Eは行わず、全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### 局所保存試験の不変コード準備 — 実装と限定結果
+
+上記六箇所の未束縛factoryをループ外へ移し、依存値を渡して関数を作る位置は各条件内に維持した。終端準備のWeakMapはfactory呼出し内で毎回生成し、終了候補の六条件も入力・Owner・保存counterを共有しない。初期Hostの依存欠測は通常のfactoryだけを再利用し、本文比較省略／再起動guardの変異は従来どおり別コードで評価する。新File・Cache・Wrapperは追加せず、製品Source・Root93項目・保存契約・既存scenario／assertは不変更。実行条件を展開した同一コードのコンパイル箇所は37回相当から6回相当へ減る構造だが、製品性能や全試験時間の改善値としては扱わない。
+
+変更TS2Fileの型検査・整形・warning検査が成功。対象六箇所の限定11試験（開始・準備・受理後例外の3親、終端六条件、初期Host1親、履歴十四条件1親）も成功した。試験登録ID・検証義務・条件集合は同じため、新Suiteや正式結果を追加しない。独立技術・QAレビューはともに必須残指摘0。assert呼出し列は変更前と同じ441件／51件であり、具体的な引数・入力母集団・変異と可変閉包の独立は差分レビューで確認した。単なる件数一致だけを検証不変の根拠にはしない。diff空白検査と製品Source差分0も確認した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+別途発見した残件：history-retention-boundaryのconsumer関数はCoordinatorのexecution/persistence.tsの二宣言を読み取って局所評価している。これは準備共有とは別の試験Owner問題であり、対象試験を削らず上位Ownerへ移す必要がある。今回この既存経路をCache化・改変せず、EM全体の試験依存解消済みとは表示しない。次のOwner整理で当該consumerを使う既存試験と引渡し先を照合する。
+
+### 保持設定の上位搬送試験のOwner移管 — 着手前整合確認
+
+人間の追加承認により、EMのhistory-retention-boundaryに残るconsumer補助と3試験をCoordinatorへ移す。元の通常非再観測、同値default／file、初期不正、途中変更・不正化・例外、Owner呼出し回数の観点を維持する。EM内部readHistoryRetentionDaysの外部importは作らず、Coが生成する日数とrevalidateへの期待日数搬送を新Ownerで直接確認し、日数null／不正値の早期拒否とcallback未呼出しはEMの既存「保持値の意味検査」に残す。新たな検査実装・Wrapper・製品APIは追加しない。
+
+移管先はCoordinatorの専用UT一Fileとし、自己Sourceの宣言だけを一回準備、設定Reader・Owner・counterは各試験で独立させる。Policy／HistoryInputの局所型も同時移管し、EM試験のCo Source参照とSymbolの上位verifiesを撤去する。既存PRL-UT-006／QA-000003を維持して新所在のSuiteを台帳へ登録し、EM側の残る固有検査と対応付ける。親は現Owner・入力由来・Root限定境界と計画を照合済み。変更分類は試験Owner是正、保存形式・Scope・決定権限・実Effectは不変更であり、規範／準拠監査や実境界試験は追加しない。型・静的確認、移管3親と残るEMの直接関係親だけの限定回帰、独立技術／QAレビューを実施し、全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### 保持設定の上位搬送試験のOwner移管 — 実装と限定結果
+
+Coordinatorのtests/unit/storage/history-retention.contract.test.tsへconsumer補助・局所型・既存3親を移した。自己のpersistence宣言を一回compileし、Readerと可変状態は親ごとに生成する。Coは生成日数とrevalidate(30)の結果・読取り回数・通常呼出し・元Owner回数・元例外を直接確認する。旧readHistoryRetentionDays経由のnull拒否とcallback未呼出しはEM既存の不正日数母集団（nullを含む）へ残す。初期不正のCo試験では元の「通常再検証だけでは設定を読まない」を維持し、明示した履歴再検証がfalseとなることと元Ownerの追加一回を確認する。検査関数の複製や下位内部importは追加していない。
+
+EMは該当補助・局所型・3親とCo Source参照を撤去し、残る4親とEM自身の保持値・Writer制御を維持する。Symbolの上位verifiesを新Ownerへ移し、QA-000003／PRL-UT-006は維持して試験台帳にCoordinator Suite一件を追加した。台帳全419 Suiteの整合検査はvalid・testExecution=not_started・effectIssued=falseであり、全419試験を起動した意味ではない。移管Co3親／残るEM4親とEMの公開・直接依存境界2項目の限定計9試験、両Packageの型検査、変更試験の整形・warning検査が成功した。独立技術・QAレビューはともに必須残指摘0。変更JSON構文・diff空白検査、対象EM FileのCo Source参照0も確認した。EM試験全体に残るCo Path文字列はstorage-consumer-closureの読取り専用配置監査であり、Co宣言の実行や上位処理への依存とは区別する。製品Source・Root93項目・保存形式は不変更。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+Commit前再確認：準備共有とOwner移管を合わせた対象10ファイルを再照合し、製品Source差分0・新Co試験の登録・旧観点の分担・EMの上位宣言実行依存撤去を確認した。両Packageの型・変更3試験Fileの整形／warning、台帳419項目の整合と限定19試験（EM16／Co3）が再成功した。先行11件と移管9件の重複する履歴親は合算していない。独立最終QA確認は必須残指摘0。この確認済み候補を既存FeatureへCommit／Pushし、全体回帰・実AI・Docker・過去保持物の操作は行わない。
+
 <details>
 <summary>基準48ea92d65のArchitecture本文（移管経緯を含む履歴）</summary>
 

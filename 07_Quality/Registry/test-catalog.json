@@ -11057,6 +11057,27 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:unit:storage:history-retention",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/storage/history-retention.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "history-retention",
+        "consumer-owner",
+        "configuration-revalidation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "normal_access_does_not_reread_configuration",
+        "history_revalidation_preserves_owner_and_failures",
+        "mutable_inputs_are_case_local"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:integration:provider-verification-boundary",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/provider-verification-boundary.contract.test.ts",

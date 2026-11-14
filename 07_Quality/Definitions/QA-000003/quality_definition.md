@@ -521,6 +521,10 @@ Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorの
 
 固定選定の実行接続では、完全選定十項目の各一項目差、操作・役割・試行番号・Packet Hash差、別stageのGrant、更新時の意味差、旧Profile／Route入力の拒否を反証する。既存のTTL・一回消費・失効・Home排他・取消・回収Oracleは維持する。Operation Identity v2／現在StateとProject Snapshot v5は旧形式を補完せず拒否し、保存・読戻し後だけDocker Effectへ進む。Owner喪失の再入場では現在設定／Catalogの読取りと本文再実行を0件とする。合成試験の成功は実AI・実認証・実Docker、人間操作又は公開利用側の全面切替を証明しない。
 
+## 保持設定の試験Owner — 2026-11-15
+
+既存PRL-UT-006の保持設定3試験は、Coordinatorのstorage/history-retentionへ移す。初回値・通常呼出しの設定再観測0・同値default／file・初期不正・途中変更／不正化／例外・元Owner呼出し回数を、自己のpersistence宣言から生成した入力とrevalidateで確認する。EM内部Helperを外部から呼んだり、その規則をコピーしたりしない。EM側のhistory-retention-boundaryはnull／不正日数の早期拒否・callback未呼出し・元Owner拒否と履歴保存／一回Contextを継続して確認する。旧3親の検証観点を両Ownerへ対応付け、正式項目ID・検証義務は変更しない。試験Suiteの新所在だけを台帳へ追加し、移管を全体回帰や実保存の成功へ読み替えない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

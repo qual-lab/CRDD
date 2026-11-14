@@ -4243,6 +4243,21 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.unit.storage.history-retention",
+      "kind": "test-suite",
+      "path": "tests/unit/storage/history-retention.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.execution.persistence",
+        "execution-model.source.tests.support.source-declaration"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.fixture.normal-owner-lifecycle",
       "kind": "file",
       "path": "tests/fixtures/docker-owned-process-test-support.ts",
