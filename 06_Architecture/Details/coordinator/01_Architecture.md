@@ -12,6 +12,12 @@ workspace-lifecycle ITが使う実Git・保存観測・二Task準備は、既存
 
 公開MCP入口を起動しMCP結果Parserを使うtask-real-provider検証Tool・報告処理・47試験・専用Node fixtureは、[MCP](../mcp-server/01_Architecture.md)が所有する。Coordinatorは業務実行と回復処理だけを提供し、上位Transportを自身のscripts／testsから読み込まない。固定markerの既存所在・報告契約・回復順序はこのOwner整理では変更しない。旧入口の互換転送を追加しない。
 
+## 受付済み設定・計画の内部再利用 — 2026-11-14
+
+二役選定では設定を一回捕捉・検査し、同じ凍結configとIdentityを私有の選定本体へ渡す。単独選定は既存の設定受付を維持する。役割別要求の閉形式、分類・明示choice、ADの技術適合は各役割で検査し、片側失敗を別選択で補完しない。Module外の依存返却値・搬送値・保存復元の検査は省略しない。
+
+私有のObjective受付実行は、依存処理が同じ受付で検査・独立凍結した`request.plan`とexact参照一致の計画を返した場合だけ再利用する。同値でも別Objectは未信頼値として従来の計画／範囲検査を通す。主体・Binding・受付世代・取消・Effect前通知・保存／終了後整理は変更せず、新しい保存やAuthorityを追加しない。Decisionの完全記録搬送とHost認証回復記録の独立した検査は維持する。
+
 ## DI通知とモデル記録の接続試験 — 2026-11-14
 
 `tests/integration/isolation-resource-record.contract.test.ts`は、DIの作成ReceiptをEM資源Bookへ記録する接続と、両Providerの実Executor→実DI→有限CLIへの接続を所有する。DI単独の技術試験とは分け、元の二試験・全assert・取消／通知拒否／構成差の反例を維持する。DIの有限fixtureと入力捕捉の内部参照はこの技術接続試験に限定し、製品Consumerへの深い依存許可や新公開IFへ拡張しない。保存耐久性・実Docker・実AIの成立は主張しない。

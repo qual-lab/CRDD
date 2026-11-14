@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+EM公開補助三系統の調査を受け、独立した未信頼入力・搬送・Host認証記録の検査は維持し、同じ受付内の重複だけを整理した。資源更新は次Bookの検査を遷移へ一意化、Co二役選定は同じ検査済み設定を共有、私有Objective実行は受付済みPlanとexact参照一致の場合だけ再利用する。公開93項目・保存形式・Effect順は不変。限定57試験・EM／Co型検査・独立レビューの必須残指摘0を確認した。コミット前にも限定55試験・型／整形／警告・独立最終確認が成功し、受付IT2親は実装不変の既存結果を使用する。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「受付済み値の重複検査整理」を参照する。
+
 EMのState局所計算を既存の各Ownerへ移管した。Hash／Lease値はState operations、採用拒否はWorkspace、計画定義HashはObjective、資源差分はAttempt、履歴byteのHashと固定行検査はHistoryが所有する。同版候補・改訂相関はStateに残し、公開93項目・保存形式・既存保証は維持した。限定73試験・追加6試験と代表実保存32報告項目、EM／Coordinator型検査が成功し、独立レビューの説明コメント1点を是正した。新File／Facadeは追加せず、全体回帰・実AI・Docker・過去保持物は対象外。[実施範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「State局所計算のOwner整理」を参照する。
 
 EM保存試験の準備共有を完了した。固定10Sourceの読取り・型除去と、通常経路の同署名未束縛factoryだけを共有し、Map・Owner・状態・故障注入・保存領域は各Caseで独立させる。変異は毎回評価し共有しない。限定50報告項目と型・整形／警告検査、独立レビューの必須残指摘0を確認した。途中で見つけた終了Reader試験の旧Source参照は現Ownerへ是正し、検証内容を維持する。製品Source・公開93項目・保存契約は不変で、全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「保存試験Sourceの不変準備共有」を参照する。

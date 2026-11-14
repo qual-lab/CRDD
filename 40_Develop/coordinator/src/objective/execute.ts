@@ -2091,7 +2091,11 @@ async function executeAcceptedCoordinatorObjective(
   } catch {
     rawPlan = null;
   }
-  const plan = inspectCoordinatorObjectivePlan(rawPlan, request);
+  // 同じ受付が捕捉・凍結した計画だけを再利用する。別参照の依存返却値は未信頼。
+  const plan =
+    rawPlan === request.plan
+      ? request.plan
+      : inspectCoordinatorObjectivePlan(rawPlan, request);
   if (!plan)
     return blocked(request, "orchestrator_plan_invalid_or_out_of_scope");
 

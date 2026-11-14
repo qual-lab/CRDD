@@ -1858,7 +1858,8 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "resource_checkpoint_correlation_preserved"
+        "resource_checkpoint_correlation_preserved",
+        "next_resource_book_validated_once_with_transition"
       ],
       "mandatoryByDefault": true
     },
@@ -4014,6 +4015,7 @@
       "humanInput": false,
       "postconditions": [
         "selection_priority_deterministic",
+        "task_pair_configuration_validated_once",
         "unknown_configuration_rejected",
         "stored_selection_restored_without_current_catalog",
         "invalid_stored_selection_rejected",
@@ -10210,6 +10212,7 @@
       "humanInput": false,
       "postconditions": [
         "frozen_selection_pair_preserved",
+        "accepted_plan_reused_only_by_exact_reference",
         "no_reselection_or_authority_issued"
       ],
       "mandatoryByDefault": true

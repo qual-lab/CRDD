@@ -3897,6 +3897,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.orchestrator.objective.intake",
+        "orchestrator.objective-application",
         "orchestrator.source.src.public.contract.objective.request",
         "coordinator.selection.types",
         "domain-model.ai-selection.validation",

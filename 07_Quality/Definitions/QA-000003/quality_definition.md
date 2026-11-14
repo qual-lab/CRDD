@@ -1,5 +1,9 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 受付済み計画のexact参照再利用
+
+PRL-UT-014は私有受付実行の製品宣言を使い、同じ受付で捕捉した計画だけを再利用することを確認する。同値別Objectは再検査し、範囲外・getter・Proxy・null・依存例外を内部実行へ渡さない。PRL-IT-005は既存の範囲外計画と未知field／accessor／Proxyの二試験に限定し、自己生成RepositoryでProject保存・Task Effectがないことと終了清掃を確認する。実保存の全正常経路・実AI・Docker・全体回帰の成功へ一般化しない。
+
 ## 実ObjectiveからMCP結果への搬送試験Owner — 2026-11-14
 
 PRL-IT-012の実Objective受付からWorkspace観測のMCP投影までの一試験は、MCPのruntime-activity-adapter ITへ移す。元のCo受付・実Git／保存・有限Provider・開始通知・全assertとQueue／HEAD確認を維持し、共通準備はCoの既存workspace-surface fixtureを利用する。Coの業務試験では同じfixtureを引き続き使い、下位からMCP Parserを読まない。今回生成したRootの清掃・不存在確認を必須とし、既存保持物は対象にしない。正式項目の成功状態や実AI／Dockerの評価は変更しない。

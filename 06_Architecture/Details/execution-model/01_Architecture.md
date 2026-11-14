@@ -48,6 +48,8 @@ Leaseの取得Identity・回復IDは、`acquireLease`の既存Intent保存がRep
 
 ### 公開から外した内部契約と保持理由
 
+資源イベント／回収更新で構築する次Bookは、`validateResourceBookTransition`の先頭で形を一回検査し、そのまま元Bookとの相関・遷移を検査する。更新側の同じ次値に対する先行検査は重ねない。元Bookの検査、未知値の拒否、ID／Label・Receipt・不存在証拠の保持は変更しない。CoのHost認証回復記録にも独立した受付があるため、この内部重複整理だけでBook操作のRoot公開を撤去しない。
+
 資源記録の二更新とBook／遷移検査は`attempt/operations.ts`、明示メールからの主体構築と形式検査は`state/operations.ts`が実体を持つ。状態列挙・契約識別子・完了理由は対応モデルの`types.ts`を正本とする。旧所在地の再exportや中継Wrapperは作らず、宣言Ownerの移管自体を公開削減とは数えない。これらの値操作は保存・Root探索・外部Effectを呼ばない。
 
 再起動ID生成とHost遷移相関検査はRootから撤去した。前者は`readState`の`scope: "recovery"`・`restart_preparation`範囲で、対象操作と`scopeSha256`を一回の既存読取りへ結合して返す。通常Readerの確認完了と準備値の成立は別で、`restartPreparation`が非nullであり、Coの同版・排他・現在性確認も成立した場合だけ使用する。Coは既存の排他取得後の再読取りをこの範囲へ置換し、追加読取り・先行保存を行わない。後者は同版の`operationStates.hostTransition`へ投影する。新規意図は既存Writerの検査と保存後Readerを経てから実Host遷移へ使い、保存済み意図の再入場も同じ返却値を使う。実Host token・marker・recordBefore・旧世代の照合はCoに残す。

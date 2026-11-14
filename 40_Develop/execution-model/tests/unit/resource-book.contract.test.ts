@@ -10,6 +10,16 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { compileFunction } from "node:vm";
+import { createHash } from "node:crypto";
+import { sourceDeclaration } from "../support/source-declaration.ts";
+import {
+  encodeStateValue,
+  hasExecutionStateRecordKeys,
+  isSha256Hex,
+} from "../../src/state/operations.ts";
 import {
   applyResourceCleanup,
   applyResourceEvent,
@@ -36,6 +46,83 @@ const CLEANUP = {
   unreceiptedAbsence: "observe",
   verifyLabelAbsence: true,
 } as const;
+
+/**
+ * 資源更新の次値検査を遷移検査へ一体化する。
+ * @responsibility previousと次値を各一回検査し、不正候補を引き続き拒否する。
+ * @trace ERB-UT-023
+ * @precondition 実検査と製品の更新・遷移宣言を使う。
+ * @stimulus Intent・回収観測、不正次値、不正previousを与える。
+ * @observation 検査回数と更新／拒否結果。
+ * @oracle 正常更新はpreviousと次値の二検査。不正形状はnullで保存しない。
+ * @cleanup メモリ内だけ。Docker・Filesystem Effectなし。
+ * @boundary 未信頼資源通知と保存値の更新。
+ */
+test("資源更新は次Bookの検査を遷移と一体で一回だけ行う", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/attempt/operations.ts", import.meta.url),
+    "utf8",
+  );
+  const body = [
+    "applyResourceEvent",
+    "applyResourceCleanup",
+    "validateResourceBookTransition",
+  ]
+    .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
+    .join("\n");
+  let validations = 0;
+  const update = compileFunction(
+    `${body}\nreturn { applyResourceEvent, applyResourceCleanup };`,
+    [
+      "validateResourceBook",
+      "encodeStateValue",
+      "hasExecutionStateRecordKeys",
+      "isSha256Hex",
+      "createHash",
+    ],
+  )(
+    (value: unknown) => {
+      validations += 1;
+      return validateResourceBook(value);
+    },
+    encodeStateValue,
+    hasExecutionStateRecordKeys,
+    isSha256Hex,
+    createHash,
+  ) as {
+    applyResourceEvent: typeof applyResourceEvent;
+    applyResourceCleanup: typeof applyResourceCleanup;
+  };
+  const event = {
+    event: "submission",
+    key: "first",
+    snapshot: snapshot(),
+    cleanup: CLEANUP,
+  };
+  const book = update.applyResourceEvent(null, event);
+  assert.deepEqual(book, initial());
+  assert.ok(book);
+  assert.equal(validations, 2);
+  validations = 0;
+  const observed = [
+    { key: "first", observation: "absent" },
+    { key: "second", observation: "not_requested" },
+  ];
+  assert.deepEqual(
+    update.applyResourceCleanup(book, snapshot(), observed, EVIDENCE),
+    applyResourceCleanup(book, snapshot(), observed, EVIDENCE),
+  );
+  assert.equal(validations, 2);
+  assert.equal(
+    update.applyResourceEvent(null, { ...event, cleanup: {} }),
+    null,
+  );
+  assert.equal(
+    update.applyResourceEvent({} as OperationResources, event),
+    null,
+  );
+  assert.equal(validateResourceBookTransition(null, { invalid: true }), false);
+});
 
 /** 未発行の技術終端と、Host・Lease・結果の確定を混同しない。 */
 test("要求前の切断は資源終端だけを満たし、単独条件の欠測・不明を拒否する", () => {

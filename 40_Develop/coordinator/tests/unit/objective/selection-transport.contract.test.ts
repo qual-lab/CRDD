@@ -10,6 +10,12 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
+import { isPrincipalId } from "../../../../execution-model/src/index.ts";
+import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
 import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import { buildObjectiveTaskRequest } from "../../../src/objective/execute.ts";
@@ -89,3 +95,131 @@ test("Objective選定は全四組合せでTask契約へexactに搬送する", ()
 });
 
 import { inspectCoordinatorObjectiveRequest } from "../../../src/objective/plan.ts";
+
+/**
+ * 同じ受付が捕捉した計画と、別参照の依存返却値を区別する。
+ * @responsibility exact参照だけを再利用し、別値の検査・例外時停止を維持する。
+ * @trace PRL-UT-014
+ * @precondition 公開受付の実検査で独立・凍結した要求を使用する。
+ * @stimulus exact計画、同値別Object、範囲外、getter、Proxy、null、例外を返す。
+ * @observation 計画検査回数、内部実行への搬送値と停止理由。
+ * @oracle exactだけ再検査0。別参照は検査1。不正値は実行0、hook0。
+ * @cleanup 値のみ。保存・Process・外部実行を発行しない。
+ * @boundary 受付済み要求と未信頼の計画依存。
+ */
+test("受付計画はexact参照だけ再利用し別参照と不正返却を検査する", async () => {
+  const request = inspectCoordinatorObjectiveRequest(objective);
+  assert.ok(request);
+  const source = fs.readFileSync(
+    new URL("../../../src/objective/execute.ts", import.meta.url),
+    "utf8",
+  );
+  let inspections = 0;
+  let executions = 0;
+  let delivered: unknown;
+  const run = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "executeAcceptedCoordinatorObjective"))});`,
+    [
+      "isPrincipalId",
+      "blocked",
+      "inspectBinding",
+      "inspectCoordinatorObjectivePlan",
+      "createCoordinatorExecutionHostPorts",
+      "createCoordinatorSnapshotPersistencePorts",
+      "createCoordinatorTaskRecoveryAdapter",
+      "executeCoordinatorObjective",
+    ],
+  )(
+    isPrincipalId,
+    (_request: unknown, reason: string) => ({ status: "blocked", reason }),
+    () => ({
+      repositoryBindingId: "binding",
+      repositoryRoot: {},
+      workingDirectory: {},
+      bindingCapability: {},
+    }),
+    (raw: unknown, accepted: typeof request) => {
+      inspections += 1;
+      return inspectCoordinatorObjectivePlan(raw, accepted);
+    },
+    () => ({
+      clockIdentity: {
+        createStableId: () => "queue",
+        createContentHash: () => "hash",
+      },
+    }),
+    () => ({}),
+    () => ({}),
+    async (dependencies: { plan: unknown }) => {
+      executions += 1;
+      delivered = dependencies.plan;
+      return { status: "blocked", reason: "finite_execution_reached" };
+    },
+  ) as (
+    dependencies: {
+      authenticatedPrincipalId: string;
+      verifyProjectBinding: () => object;
+      planObjective: () => unknown;
+    },
+    accepted: typeof request,
+    signal: AbortSignal,
+  ) => Promise<{ reason: string }>;
+  let hooks = 0;
+  const copy = JSON.parse(JSON.stringify(request.plan));
+  const outside = {
+    ...copy,
+    tasks: copy.tasks.map((task: object) => ({
+      ...task,
+      allowedPaths: ["outside.txt"],
+    })),
+  };
+  const accessor = {
+    ...copy,
+    get tasks() {
+      hooks += 1;
+      return copy.tasks;
+    },
+  };
+  const proxy = new Proxy(copy, {
+    ownKeys() {
+      hooks += 1;
+      return [];
+    },
+  });
+  for (const [value, valid] of [
+    [request.plan, true],
+    [copy, true],
+    [outside, false],
+    [accessor, false],
+    [proxy, false],
+    [null, false],
+    [new Error("planner_failed"), false],
+  ] as const) {
+    inspections = 0;
+    executions = 0;
+    delivered = null;
+    const result = await run(
+      {
+        authenticatedPrincipalId: "principal-a",
+        verifyProjectBinding: () => ({}),
+        planObjective: () => {
+          if (value instanceof Error) throw value;
+          return value;
+        },
+      },
+      request,
+      new AbortController().signal,
+    );
+    assert.equal(inspections, value === request.plan ? 0 : 1);
+    assert.equal(executions, valid ? 1 : 0);
+    assert.equal(
+      result.reason,
+      valid
+        ? "finite_execution_reached"
+        : "orchestrator_plan_invalid_or_out_of_scope",
+    );
+    if (valid) assert.deepEqual(delivered, request.plan);
+    if (value === request.plan) assert.equal(delivered, request.plan);
+  }
+  assert.equal(hooks, 0);
+});

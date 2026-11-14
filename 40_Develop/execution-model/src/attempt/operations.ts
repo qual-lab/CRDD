@@ -101,10 +101,7 @@ export function applyResourceEvent(
         item.key === event.key ? checkpoint : item,
       ),
     };
-    return validateResourceBook(book) &&
-      validateResourceBookTransition(previous, book)
-      ? book
-      : null;
+    return validateResourceBookTransition(previous, book) ? book : null;
   } catch {
     return null;
   }
@@ -193,10 +190,7 @@ export function applyResourceCleanup(
       };
     });
     const book = { ...previous, snapshot, checkpoints };
-    return validateResourceBook(book) &&
-      validateResourceBookTransition(previous, book)
-      ? book
-      : null;
+    return validateResourceBookTransition(previous, book) ? book : null;
   } catch {
     return null;
   }
@@ -382,11 +376,12 @@ export function validateResourceBook(
  * @responsibility 初回Intentの原子確定と既知事実の巻戻し拒否を所有する。
  * @trace ARCH-000008
  * @effect N/A: 値の比較だけ。構成差を回収拒否へ転化しない。
+ * @postcondition 次値の形と遷移を一体で検査し、更新側で同じ次値を再検査しない。
  */
 export function validateResourceBookTransition(
   before: OperationResources | null,
-  after: OperationResources | null,
-): boolean {
+  after: unknown,
+): after is OperationResources | null {
   if (!validateResourceBook(after)) return false;
   if (before === null)
     return (

@@ -1228,6 +1228,10 @@ ERB-UT-036の既存Task／Repair混在試験は、不変fixtureを共有し、�
 
 既存Checkpoint三親、Reader故障、Core CRUD／CAS、初期化途中、終端保存の一回証拠、修復履歴のfresh出版を限定回帰へ接続する。Source組立て回数の試験は実保存・CAS・清掃成立の証明ではなく、後者は自己生成領域を使う既存の代表結合試験で確認する。旧終了試験のSource参照は実Ownerのattempt/crudへ追従し、Reader五故障の判定内容は維持する。全体回帰・実AI・Docker・過去保持物は操作しない。
 
+## 資源更新の次値検査の一意化
+
+ERB-UT-023の既存資源Book試験に、製品のイベント更新・回収更新・遷移宣言と実Book検査を使う計数試験を追加する。previousと次Bookを各一回検査し、不正previous・次値の拒否、Intent／Receipt・ID／Label・回収契約の相関を維持する。ERB-UT-036の終端／未知・例外と公開境界も限定回帰へ含める。計数結果は実資源不存在や保存成立を証明せず、保存処理・Root93項目・Host認証記録Ownerは不変とする。
+
 ## State局所計算のOwner移管
 
 既存RCM-IT-005の新品Nodeロードで、State検査・CRUD・Storageの解決を拒否し、State値のHash／Lease、Objective定義Hash、Workspace採用拒否、Attempt資源差分と既存の局所検査を確認する。実行時依存とtype-only参照を区別し、Workspace→State検査の逆参照やHistory→Attempt検査を追加しない。

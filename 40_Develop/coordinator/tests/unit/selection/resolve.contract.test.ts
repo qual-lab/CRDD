@@ -16,12 +16,86 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { compileFunction } from "node:vm";
+import { resolveModelSelection } from "../../../../ai-adapter/src/index.ts";
+import { snapshotPlainRecord } from "../../../src/input/snapshot.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
   validateAiSelectionConfig,
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
+
+/**
+ * 二役選定は検査済み設定を共有し、役割要求と技術適合は省略しない。
+ * @responsibility 設定一回と各役割の検査を、製品の選定本体で観測する。
+ * @trace RCM-UT-001
+ * @precondition 既存の正常設定と実際の設定・AD検査を使う。
+ * @stimulus 二役要求、未知field、不正設定と元設定の途中変更を与える。
+ * @observation 設定・技術検査回数、凍結結果と拒否理由。
+ * @oracle 設定一回・技術四回、元値変更の影響なし。不正要求は設定検査前に拒否。
+ * @cleanup メモリ内だけ。外部実行・保存なし。
+ * @boundary 未信頼設定受付と内部二役選定。
+ */
+test("二役選定は設定検査を一回にし役割別の技術検査を維持する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/selection/resolve.ts", import.meta.url),
+    "utf8",
+  );
+  const body = [
+    "inspectChoice",
+    "resolveCheckedExecutionSelection",
+    "resolveTaskExecutionSelections",
+  ]
+    .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
+    .join("\n");
+  let settings = 0;
+  let technical = 0;
+  const original = config();
+  const pair = compileFunction(
+    `${body}\nreturn resolveTaskExecutionSelections;`,
+    [
+      "validateAiSelectionConfig",
+      "snapshotPlainRecord",
+      "resolveModelSelection",
+      "ROLES",
+    ],
+  )(
+    (value: unknown) => {
+      settings += 1;
+      const checked = validateAiSelectionConfig(value);
+      original.roleDefaults.independent_reviewer.model =
+        "mutated-after-capture";
+      return checked;
+    },
+    snapshotPlainRecord,
+    (input: Parameters<typeof resolveModelSelection>[0]) => {
+      technical += 1;
+      return resolveModelSelection(input);
+    },
+    [
+      "coordinator",
+      "executor",
+      "independent_reviewer",
+      "result_integration",
+      "advice",
+    ],
+  ) as typeof resolveTaskExecutionSelections;
+  const expected = resolveTaskExecutionSelections(config(), {
+    workType: "coding",
+  });
+  assert.deepEqual(pair(original, { workType: "coding" }), expected);
+  assert.equal(settings, 1);
+  assert.equal(technical, 4);
+  assert.equal(
+    pair(config(), { workType: "coding", unknown: true }).status,
+    "blocked",
+  );
+  assert.equal(settings, 1);
+  assert.equal(technical, 4);
+  assert.equal(pair(null, { workType: null }).status, "blocked");
+  assert.equal(settings, 2);
+  assert.equal(technical, 4);
+});
 
 /**
  * 初回の捕捉値を基準にし、再発行側だけを未信頼入力として検査する。

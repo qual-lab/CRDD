@@ -118,6 +118,28 @@ export function resolveExecutionSelection(
       value: null,
       reason: checked.reason,
     });
+  return resolveCheckedExecutionSelection(checked, candidateRequest);
+}
+
+/**
+ * 受付で検査した同じ凍結設定から、一役割の選定を構築する。
+ * @responsibility 設定の再検査を行わず、役割要求とADの技術適合を検査する。
+ * @trace ARCH-000004
+ * @input checked: 設定受付の正常結果、candidateRequest: 未信頼の役割要求。
+ * @returns 不変の選定又は既存の固定拒否理由。
+ * @precondition 同Moduleの受付が設定を捕捉・検査している。
+ * @postcondition 二役割で同じ設定Identityを使い、元設定の変更を参照しない。
+ * @effect N/A: 同期の値選定だけ。
+ * @failure 未知要求・不正役割・非対応選択は拒否する。
+ * @invariant 検査済み設定を実行許可として扱わない。
+ * @boundary 外部設定受付と内部選定本体。
+ * @security 保存・認証・外部送信を開始しない。
+ * @concurrency 共有可変状態を持たない。
+ */
+function resolveCheckedExecutionSelection(
+  checked: Extract<AiSelectionConfigResult, { status: "valid" }>,
+  candidateRequest: unknown,
+): ExecutionSelectionResult {
   const request =
     snapshotPlainRecord(
       candidateRequest,
@@ -231,13 +253,13 @@ export function resolveTaskExecutionSelections(
       value: null,
       reason: checked.reason,
     });
-  const executor = resolveExecutionSelection(checked.value.config, {
+  const executor = resolveCheckedExecutionSelection(checked, {
     role: "executor",
     workType: request.workType,
     ...(Object.hasOwn(request, "choice") ? { choice: request.choice } : {}),
   });
   if (executor.status !== "resolved") return executor;
-  const reviewer = resolveExecutionSelection(checked.value.config, {
+  const reviewer = resolveCheckedExecutionSelection(checked, {
     role: "independent_reviewer",
     workType: request.workType,
   });
