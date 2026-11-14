@@ -6,7 +6,11 @@
 
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-import { applyResourceCleanup, applyResourceEvent } from "../attempt/crud.ts";
+import {
+  applyResourceCleanup,
+  applyResourceEvent,
+  validateResourceBookTransition,
+} from "../attempt/operations.ts";
 import type {
   ExecutionOperationRecord,
   OperationResources,
@@ -24,26 +28,33 @@ import {
   prepareEnvironmentRepairSessionCheckpoint,
   repairCanComplete,
   repairCanSummarize,
-  repairHistoryLineBytes,
   repairRetentionMatchesCheckpoint,
-  repairSummaryBytes,
   validateEnvironmentRepairDisposalTransition,
   validateOperationTransitions,
-  validateResourceBookTransition,
   validExecutionState,
   validRepairOperation,
   validRepairRetentionReceipt,
 } from "../attempt/validation.ts";
 import {
+  projectDecisionHistory,
   validateDecisionCollections,
   validateDecisionRetirement,
   validateDecisionSnapshotTransition,
 } from "../decision/validation.ts";
-import type { HistoryRow } from "../history/types.ts";
 import {
-  decodeHistoryRows,
-  prepareHistoryRetention,
-} from "../history/validation.ts";
+  copyHistoryBytes,
+  historyLineBytes,
+  operationSummaryBytes,
+  prepareHistoryPublication,
+  repairHistoryLineBytes,
+  repairSummaryBytes,
+  retainHistoryRows,
+} from "../history/operations.ts";
+import type {
+  HistoryRetentionReferences,
+  HistoryRow,
+} from "../history/types.ts";
+import { decodeHistoryRows } from "../history/validation.ts";
 import {
   inspectCompletePlanDefinition,
   inspectExecutionProjectDefinition,
@@ -61,11 +72,9 @@ import {
 } from "../task/validation.ts";
 import type { ResultRecord } from "../workspace/types.ts";
 import { validResultRecord, validWorkspace } from "../workspace/validation.ts";
-import { createLocalPrincipalId } from "./crud.ts";
 import type {
   ArraySnapshot,
   DataDescriptor,
-  DecodedStateSnapshot,
   ExecutionStateSnapshot,
   ExecutionStoredManagedProject,
   LeaseEvidenceContent,
@@ -79,6 +88,39 @@ import type {
   StoredTask,
 } from "./types.ts";
 import { LOCAL_EMAIL_PREFIX } from "./types.ts";
+import {
+  encodeStateValue,
+  hasExecutionStateRecordKeys,
+  isDataDescriptor,
+  isSha256Hex,
+} from "./value.ts";
+
+/**
+ * 明示メールからローカル主体IDを構築する。
+ * @responsibility 同じ入力検査とprefixを使い、本人認証・正規化・OS探索を行わない。
+ * @trace ARCH-000008
+ * @input email: 入口が明示したローカル利用者のメール。
+ * @returns 同じメールを保持する主体ID、又は入力不正のnull。
+ * @precondition 主体を決める入口がメールを明示する。
+ * @postcondition メール本文をHash化・正規化・補完しない。
+ * @effect N/A: 同期の値構築だけ。
+ * @failure 型・形式不正はnull。別主体へfallbackしない。
+ * @invariant 保存やOSから主体を勝手に解決しない。
+ * @boundary ローカル主体の値契約。AM認証の証明ではない。
+ * @security IDの構築を認証・認可の証明にしない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+export function createLocalPrincipalId(email: unknown): string | null {
+  if (
+    typeof email !== "string" ||
+    email.length > 254 ||
+    !/^[^\s@<>\\\u0000-\u001f\u007f]+@[^\s@<>\\\u0000-\u001f\u007f]+$/u.test(
+      email,
+    )
+  )
+    return null;
+  return `${LOCAL_EMAIL_PREFIX}${email}`;
+}
 
 /**
  * Lease取得Ownerの記録参照を投影する。
@@ -1024,63 +1066,6 @@ export function repositoryPathWithin(
     const rootKey = root.toUpperCase();
     return candidateKey === rootKey || candidateKey.startsWith(`${rootKey}/`);
   });
-}
-
-/**
- * 宣言したJSON値を再帰的なkey順序で一意に符号化する。
- * @responsibility 不正型・accessor・Proxy・過剰深度を拒否し、配列順は保持する。
- * @trace ARCH-000008
- * @input value: 保存候補のplain JSON値、depth: 内部再帰深度。
- * @returns sorted-key JSON本文。
- * @precondition N/A: 不正値も受け取り拒否する。
- * @postcondition 同じ値のobject key順に依存しない本文を返す。
- * @effect N/A: メモリ内の値だけを扱う。
- * @failure 不正型、循環・過剰深度、accessorとProxyでは例外。
- * @invariant 配列の意味順序は並べ替えない。
- * @boundary 呼出し側の値と保存byte列。
- * @security getterやProxy trapを評価しない。
- * @concurrency N/A: 同期の値変換で共有状態を更新しない。
- */
-export function encodeStateValue(value: unknown, depth = 0): string {
-  if (depth > 32 || types.isProxy(value))
-    throw new Error("coordinator_state_value_invalid");
-  if (value === null || typeof value === "boolean" || typeof value === "string")
-    return JSON.stringify(value);
-  if (typeof value === "number" && Number.isSafeInteger(value))
-    return JSON.stringify(value);
-  if (!value || typeof value !== "object")
-    throw new Error("coordinator_state_value_invalid");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const keys = Reflect.ownKeys(descriptors);
-  if (
-    keys.some((key) => typeof key !== "string") ||
-    Object.values(descriptors).some((d) => !Object.hasOwn(d, "value"))
-  )
-    throw new Error("coordinator_state_value_invalid");
-  if (Array.isArray(value)) {
-    if (
-      keys.length !== value.length + 1 ||
-      !Object.hasOwn(descriptors, "length")
-    )
-      throw new Error("coordinator_state_value_invalid");
-    const items: string[] = [];
-    for (let index = 0; index < value.length; index += 1) {
-      const descriptor = descriptors[String(index)];
-      if (!descriptor) throw new Error("coordinator_state_value_invalid");
-      items.push(encodeStateValue(descriptor.value, depth + 1));
-    }
-    return `[${items.join(",")}]`;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null)
-    throw new Error("coordinator_state_value_invalid");
-  return `{${Object.keys(descriptors)
-    .sort()
-    .map(
-      (key) =>
-        `${JSON.stringify(key)}:${encodeStateValue(descriptors[key]?.value, depth + 1)}`,
-    )
-    .join(",")}}`;
 }
 
 /**
@@ -2640,44 +2625,6 @@ export function prepareRepairHistoryLine(
 }
 
 /**
- * 履歴Bufferのown methodやaccessorを評価せず内容を捕捉する。
- * @responsibility 偽equals・偽length・Proxyを保存候補比較へ使わない。
- * @trace ARCH-000008
- * @input input: 履歴canonicalまたはpendingのBuffer候補。
- * @returns 上限内の独立したBuffer、拒否時null。
- * @precondition 呼出し元が不存在を空Bufferへ明示変換する。
- * @postcondition 元Bufferやdescriptorを変更しない。
- * @effect N/A: メモリ内複製。
- * @failure Proxy・非Buffer・長さ不正・上限超過はnull。
- * @invariant 呼出し側のequals結果を信頼しない。
- * @boundary 未信頼byte入力と純粋な履歴再導出。
- * @security 外部入力のgetter・thenableを実行しない。
- * @concurrency N/A: 同期捕捉。
- */
-function copyRepairHistoryBytes(input: unknown): Buffer | null {
-  try {
-    if (types.isProxy(input) || !Buffer.isBuffer(input)) return null;
-    const intrinsic = Object.getPrototypeOf(Uint8Array.prototype);
-    const length = Object.getOwnPropertyDescriptor(
-      intrinsic,
-      "byteLength",
-    )?.get?.call(input);
-    if (!Number.isSafeInteger(length) || length < 0) return null;
-    const buffer = Object.getOwnPropertyDescriptor(
-      intrinsic,
-      "buffer",
-    )?.get?.call(input);
-    const offset = Object.getOwnPropertyDescriptor(
-      intrinsic,
-      "byteOffset",
-    )?.get?.call(input);
-    return Buffer.from(new Uint8Array(buffer, offset, length));
-  } catch {
-    return null;
-  }
-}
-
-/**
  * 修復の未確認行と保存途中全文から専用出版候補を再導出する。
  * @responsibility 固定時刻・内容と期間整理を同じ元版へ結合する。
  * @trace ARCH-000008
@@ -2700,9 +2647,8 @@ export function prepareRepairHistoryPublication(
   retentionDays: unknown,
   repositoryBinding: unknown,
 ) {
-  const canonical = copyRepairHistoryBytes(historyBytes);
-  const pending =
-    pendingBytes === null ? null : copyRepairHistoryBytes(pendingBytes);
+  const canonical = copyHistoryBytes(historyBytes);
+  const pending = pendingBytes === null ? null : copyHistoryBytes(pendingBytes);
   if (!canonical || (pendingBytes !== null && !pending)) return null;
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
@@ -2725,24 +2671,25 @@ export function prepareRepairHistoryPublication(
   );
   const rows = decodeHistoryRows(canonical);
   if (!line || !snapshotBytes || !rows) return null;
-  const existing = rows.find((row) => row.recoveryId === recoveryId);
-  if (existing && !Buffer.from(existing.line).equals(line)) return null;
-  const candidateHistory = prepareHistoryRetention(
-    currentBytes,
-    existing ? canonical : Buffer.concat([canonical, line]),
-    operation.history.occurredAt,
+  const lineRows = decodeHistoryRows(line);
+  const references = projectHistoryRetentionReferences(current.snapshot);
+  if (lineRows?.length !== 1 || !lineRows[0] || !references) return null;
+  const publication = prepareHistoryPublication({
+    canonical,
+    pending,
+    rows,
+    line: lineRows[0],
+    recoveryId: operation.recoveryId,
+    references,
+    occurredAt: operation.history.occurredAt,
     retentionDays,
-    repositoryBinding,
-  );
-  if (
-    !candidateHistory ||
-    (pending !== null && !pending.equals(candidateHistory))
-  )
-    return null;
+  });
+  if (!publication) return null;
+  const candidateHistory = publication.historyBytes;
   return Object.freeze({
     snapshotBytes,
     historyBytes: candidateHistory,
-    historyChanged: !canonical.equals(candidateHistory),
+    historyChanged: publication.historyChanged,
   });
 }
 
@@ -2770,30 +2717,10 @@ export function prepareRecoveredHistoryPublication(
   repositoryBinding: unknown,
 ) {
   try {
-    const copied: Buffer[] = [];
-    const intrinsic = Object.getPrototypeOf(Uint8Array.prototype);
-    for (const input of pendingBytes === null
-      ? [historyBytes]
-      : [historyBytes, pendingBytes]) {
-      if (types.isProxy(input) || !Buffer.isBuffer(input)) return null;
-      const length = Object.getOwnPropertyDescriptor(
-        intrinsic,
-        "byteLength",
-      )?.get?.call(input);
-      if (!Number.isSafeInteger(length) || length < 0) return null;
-      const buffer = Object.getOwnPropertyDescriptor(
-        intrinsic,
-        "buffer",
-      )?.get?.call(input);
-      const offset = Object.getOwnPropertyDescriptor(
-        intrinsic,
-        "byteOffset",
-      )?.get?.call(input);
-      copied.push(Buffer.from(new Uint8Array(buffer, offset, length)));
-    }
-    const canonical = copied[0];
-    const pending = pendingBytes === null ? null : copied[1];
-    if (canonical === undefined || pending === undefined) return null;
+    const canonical = copyHistoryBytes(historyBytes);
+    const pending =
+      pendingBytes === null ? null : copyHistoryBytes(pendingBytes);
+    if (!canonical || (pendingBytes !== null && !pending)) return null;
     const current = decodeStateSnapshot(currentBytes, repositoryBinding);
     const operation = current?.snapshot.operations.find(
       (item): item is ExecutionOperationRecord =>
@@ -2815,24 +2742,25 @@ export function prepareRecoveredHistoryPublication(
     );
     const rows = decodeHistoryRows(canonical);
     if (!line || !snapshotBytes || !rows) return null;
-    const existing = rows.find((row) => row.recoveryId === recoveryId);
-    if (existing && !Buffer.from(existing.line).equals(line)) return null;
-    const candidateHistory = prepareHistoryRetention(
-      currentBytes,
-      existing ? canonical : Buffer.concat([canonical, line]),
-      operation.history.occurredAt,
+    const lineRows = decodeHistoryRows(line);
+    const references = projectHistoryRetentionReferences(current.snapshot);
+    if (lineRows?.length !== 1 || !lineRows[0] || !references) return null;
+    const publication = prepareHistoryPublication({
+      canonical,
+      pending,
+      rows,
+      line: lineRows[0],
+      recoveryId: operation.recoveryId,
+      references,
+      occurredAt: operation.history.occurredAt,
       retentionDays,
-      repositoryBinding,
-    );
-    if (
-      !candidateHistory ||
-      (pending !== null && !pending.equals(candidateHistory))
-    )
-      return null;
+    });
+    if (!publication) return null;
+    const candidateHistory = publication.historyBytes;
     return Object.freeze({
       snapshotBytes: Buffer.from(snapshotBytes),
       historyBytes: Buffer.from(candidateHistory),
-      historyChanged: !canonical.equals(candidateHistory),
+      historyChanged: publication.historyChanged,
     });
   } catch {
     return null;
@@ -4396,7 +4324,7 @@ export function decodeStateSnapshot(
   input: unknown,
   repositoryBinding: unknown,
 ): Readonly<{
-  snapshot: DecodedStateSnapshot;
+  snapshot: ExecutionStateSnapshot;
   projects: readonly ProjectExecutionState[];
   payloadSha256: string;
 }> | null {
@@ -4429,7 +4357,7 @@ export function decodeStateSnapshot(
       ])
     )
       return null;
-    const snapshot = value as DecodedStateSnapshot;
+    const snapshot = value as ExecutionStateSnapshot;
     if (
       snapshot.schema !== "crdd-execution-model/state/v4" ||
       snapshot.repositoryBinding !== repositoryBinding ||
@@ -4557,56 +4485,6 @@ export function decodeStateSnapshot(
   } catch {
     return null;
   }
-}
-
-/**
- * この保存モデルが受け取るSHA-256文字列を検査する。
- * @responsibility 一般Helperを公開せず、保存値の固定文法だけを検査する。
- * @trace ARCH-000008
- * @input value: 未信頼値。
- * @returns 小文字64桁hexの場合だけtrue。
- * @precondition 任意の値を受け取り、ObjectのPropertyを読まない。
- * @postcondition trueの場合だけ元の値を文字列として扱える。
- * @effect N/A: 共有状態や外部資源を変更しない。
- * @failure 不正文法・非文字列はfalse。強制変換や例外を使わない。
- * @invariant 大小文字・空白・桁数を補正しない。
- * @boundary N/A: 同一モデル内の値検査だけ。
- * @security Hash文法の一致から回復資格や真正性を推定しない。
- * @concurrency N/A: 同期局所処理で共有状態を持たない。
- */
-export function isSha256Hex(value: unknown): value is string {
-  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
-}
-
-/**
- * 記録 Keysが完全一致するか判定する。
- *
- * @responsibility 記録 Keysの比較対象、完全一致条件、判定結果境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown、keys: readonly string[]
- * @returns hasExecutionStateRecordKeysの計算結果を返す。
- * @precondition 「value: unknown、keys: readonly string[]」がhasExecutionStateRecordKeysの入力契約を満たす。
- * @postcondition hasExecutionStateRecordKeysの責務を完了した結果だけを返す。
- * @effect N/A: hasExecutionStateRecordKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: hasExecutionStateRecordKeysは独自の失敗分岐を所有しない。
- * @invariant hasExecutionStateRecordKeysは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: hasExecutionStateRecordKeysはProcess内の同一Subsystemで完結する。
- * @security hasExecutionStateRecordKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: hasExecutionStateRecordKeysは共有非同期状態を持たない同期処理である。
- */
-export function hasExecutionStateRecordKeys(
-  value: unknown,
-  keys: readonly string[],
-) {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.getPrototypeOf(value) === Object.prototype &&
-    Object.keys(value as Record<string, unknown>)
-      .sort()
-      .join("\0") === [...keys].sort().join("\0")
-  );
 }
 
 /**
@@ -5014,101 +4892,6 @@ function validExecutionTaskReferences(
  */
 
 export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v4";
-/** 終了要約を利用側別の形式へ分岐せず符号化する。旧形式へのfallbackは行わない。 */
-export function operationSummaryBytes(
-  operation: ExecutionOperationRecord,
-): Buffer {
-  const identity = JSON.parse(operation.identityJson);
-  return Buffer.from(
-    encodeStateValue({
-      schema: "crdd-execution-model/operation-summary/v5",
-      recoveryCorrelationId:
-        identity.recoveryCorrelationId ?? identity.operationId,
-      ...(operation.dockerRestart === null
-        ? {}
-        : { dockerRestart: operation.dockerRestart }),
-      operationId: identity.operationId,
-      operationNonce: identity.operationNonce,
-      recoveryId: operation.recoveryId,
-      identitySha256: operation.identitySha256,
-      primaryFailure: operation.primaryFailure,
-      execution: operation.execution,
-      outcome: operation.outcome,
-      hostCleanup: operation.host.cleanup,
-      lease: operation.lease,
-    }) + "\n",
-  );
-}
-
-/**
- * 固定した要約時刻を含む履歴行を符号化する。
- * @responsibility 確認状態を除外したexact行Identityを所有する。
- * @trace ARCH-000008
- * @input operation: 検証済み操作、occurredAt: 最初の正規UTC時刻。
- * @returns 履歴行の正規本文。
- * @precondition 時刻と操作内容を呼出し元で確認する。
- * @postcondition confirmedを行Hashへ含めない。
- * @effect N/A: メモリ内の符号化。
- * @failure 不正内容は例外。
- * @invariant 再入場の現在時刻で行を再生成しない。
- * @boundary 操作の終了要約と時刻込み履歴行。
- * @security 生出力やPathを追加しない。
- * @concurrency N/A: 保存を行わない。
- */
-export function historyLineBytes(
-  operation: ExecutionOperationRecord,
-  occurredAt: string,
-): Buffer {
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
-      occurredAt,
-      summary: JSON.parse(operationSummaryBytes(operation).toString("utf8")),
-    })}\n`,
-  );
-}
-
-/**
- * Plain 記録を所有Snapshotへ変換する。
- *
- * @responsibility Plain 記録の取得範囲、plain-data制約、拒否境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown、expectedKeys: ReadonlySet<K>
- * @returns Readonly<Record<K, unknown>> | nullを返す。
- * @precondition 「value: unknown、expectedKeys: ReadonlySet<K>」がsnapshotStateRecordの入力契約を満たす。
- * @postcondition snapshotStateRecordの責務を完了した結果だけを返す。
- * @effect N/A: snapshotStateRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure snapshotStateRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant snapshotStateRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotStateRecordはProcess内の同一Subsystemで完結する。
- * @security N/A: snapshotStateRecordはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: snapshotStateRecordは共有非同期状態を持たない同期処理である。
- */
-export function snapshotStateRecord<const K extends string>(
-  value: unknown,
-  expectedKeys: ReadonlySet<K>,
-): Readonly<Record<K, unknown>> | null {
-  try {
-    if (!isPlainRecord(value)) return null;
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    const keys = Reflect.ownKeys(descriptors);
-    if (
-      keys.length !== expectedKeys.size ||
-      keys.some((key) => typeof key !== "string" || !expectedKeys.has(key as K))
-    )
-      return null;
-    const snapshot = Object.create(null) as Record<K, unknown>;
-    for (const key of expectedKeys) {
-      const descriptor = descriptors[key];
-      if (!isDataDescriptor(descriptor)) return null;
-      snapshot[key] = descriptor.value;
-    }
-    return Object.freeze(snapshot);
-  } catch {
-    return null;
-  }
-}
-
 /**
  * ObjectをPlain Dataとして検証する。
  *
@@ -5344,67 +5127,6 @@ export function historyRow(value: unknown, now: number): HistoryRow {
 
 export const PROJECT_SNAPSHOT_SCHEMA =
   "crdd-execution-model/project-snapshot/v7";
-
-/**
- * Plain 記録かを判定する。
- *
- * @responsibility Plain 記録の判定条件とtrue／false境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is objectを返す。
- * @precondition 「value: unknown」がisPlainRecordの入力契約を満たす。
- * @postcondition isPlainRecordの責務を完了した結果だけを返す。
- * @effect N/A: isPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure isPlainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant isPlainRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isPlainRecordはProcess内の同一Subsystemで完結する。
- * @security N/A: isPlainRecordはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isPlainRecordは共有非同期状態を持たない同期処理である。
- */
-export function isPlainRecord(value: unknown): value is object {
-  try {
-    if (
-      value === null ||
-      typeof value !== "object" ||
-      Array.isArray(value) ||
-      types.isProxy(value)
-    )
-      return false;
-    const prototype = Object.getPrototypeOf(value);
-    return prototype === Object.prototype || prototype === null;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Data Descriptorかを判定する。
- *
- * @responsibility Data Descriptorの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000004
- * @input descriptor: PropertyDescriptor | undefined、shouldBeEnumerable
- * @returns descriptor is PropertyDescriptor & { value: unknown }を返す。
- * @precondition 「descriptor: PropertyDescriptor | undefined、shouldBeEnumerable」がisDataDescriptorの入力契約を満たす。
- * @postcondition isDataDescriptorの責務を完了した結果だけを返す。
- * @effect N/A: isDataDescriptorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isDataDescriptorは独自の失敗分岐を所有しない。
- * @invariant isDataDescriptorは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isDataDescriptorはProcess内の同一Subsystemで完結する。
- * @security N/A: isDataDescriptorはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isDataDescriptorは共有非同期状態を持たない同期処理である。
- */
-export function isDataDescriptor(
-  descriptor: PropertyDescriptor | undefined,
-  shouldBeEnumerable = true,
-): descriptor is PropertyDescriptor & { value: unknown } {
-  return Boolean(
-    descriptor !== undefined &&
-      Object.hasOwn(descriptor, "value") &&
-      descriptor.get === undefined &&
-      descriptor.set === undefined &&
-      (!shouldBeEnumerable || descriptor.enumerable === true),
-  );
-}
 
 export const REVISION = /^[0-9a-f]{40,64}$/u;
 
@@ -5741,7 +5463,7 @@ export function validResultReference(value: unknown): value is string {
  * @concurrency N/A: 同期の局所処理。
  */
 function projectExecutionSnapshotSections(
-  snapshot: DecodedStateSnapshot,
+  snapshot: ExecutionStateSnapshot,
   managedProjects: readonly ExecutionStoredManagedProject[],
   payloadSha256: string,
   definitionProjects: readonly Readonly<{ projectId: string }>[],
@@ -6111,4 +5833,77 @@ export function isInitialOperationHost(
       execution: { ...initial.execution, ownerEffect: "disabled" },
     })
   );
+}
+
+/**
+ * 検査済みStateの保持参照と必須行の相関を一つの元版から投影する。
+ * @responsibility 判断・未搬送・未解決・現在操作の参照をHistoryへ渡す。
+ * @trace ARCH-000008
+ * @input snapshot: 全体Codec検査済みの同じ現在State。
+ * @returns 保持参照と必須Hash、又は判断投影不正のnull。
+ * @precondition 呼出側がStateを同じ結合で復号する。
+ * @postcondition 行の存在や保存確定は推定しない。
+ * @effect N/A: メモリ内投影だけ。
+ * @failure 判断イベントの相関不正はnull。
+ * @invariant historyを持つ全操作はconfirmedによらず必須行に含める。
+ * @boundary Stateの参照整合とHistoryの選別。
+ * @security 保存・退役Authorityを生成しない。
+ * @concurrency 外部読取りや時点の追加取得をしない。
+ */
+function projectHistoryRetentionReferences(
+  snapshot: ExecutionStateSnapshot,
+): HistoryRetentionReferences | null {
+  const protectedRecoveries = new Set<string>();
+  const requiredRows: HistoryRetentionReferences["requiredRows"][number][] = [];
+  for (const decision of snapshot.decisions) {
+    const events = projectDecisionHistory(decision);
+    if (!events) return null;
+    for (const event of events)
+      protectedRecoveries.add(`decision-history.${event.eventId}`);
+  }
+  for (const row of snapshot.historyPending)
+    protectedRecoveries.add(`task-history.${row.id}`);
+  for (const recovery of snapshot.unresolvedRecoveries)
+    protectedRecoveries.add(recovery.recoveryId);
+  for (const operation of snapshot.operations) {
+    if (!operation.history) continue;
+    protectedRecoveries.add(operation.recoveryId);
+    requiredRows.push({
+      recoveryId: operation.recoveryId,
+      lineSha256: operation.history.lineSha256,
+      summarySha256: operation.summarySha256,
+    });
+  }
+  return { protectedRecoveries, requiredRows };
+}
+
+/**
+ * 検査済み終了履歴から保持期間内・保持期限前・未終了参照の行を残す候補を作る。
+ * @responsibility 期間整理と保存確認の順序を現在状態へ結合する。
+ * @trace ARCH-000008
+ * @input currentBytes: 現在Snapshot、historyBytes: 履歴本文、now: 固定UTC時刻、retentionDays: 設定日数、repositoryBinding: 現在結合。
+ * @returns 元の行順と本文を維持した候補、またはnull。
+ * @precondition 更新排他内の元File実体・版・設定を物理Writerが再照合する。
+ * @postcondition 未確認行は期限外でも保持し、確認済みの欠落行を再追加しない。
+ * @effect N/A: メモリ内の候補生成だけ。
+ * @failure 全行検査失敗、設定不正、未確認行欠落または相関不一致はnull。
+ * @invariant 件数・容量を理由に削除せず、状態の操作・搬送を変更しない。
+ * @boundary 現在状態と通常履歴の保持期間。
+ * @security 候補生成は実保存・読戻し・操作除去のAuthorityを発行しない。
+ * @concurrency 判定時刻・設定と元本文への結合を保存側が保持する。
+ */
+export function prepareHistoryRetention(
+  currentBytes: unknown,
+  historyBytes: unknown,
+  now: unknown,
+  retentionDays: unknown,
+  repositoryBinding: unknown,
+): Buffer | null {
+  const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+  const rows = decodeHistoryRows(historyBytes);
+  if (!current || !rows) return null;
+  const references = projectHistoryRetentionReferences(current.snapshot);
+  return references
+    ? retainHistoryRows(rows, references, now, retentionDays)
+    : null;
 }

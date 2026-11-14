@@ -10,7 +10,6 @@
  * @boundary PRL-IT-012=Direct Boundary: 履歴Adapter→Repository Filesystem。
  */
 
-import { encodeStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -23,6 +22,7 @@ import {
   initializeExecutionStore,
   writeSnapshot,
 } from "../../src/state/crud.ts";
+import { encodeStateValue } from "../../src/state/value.ts";
 import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,

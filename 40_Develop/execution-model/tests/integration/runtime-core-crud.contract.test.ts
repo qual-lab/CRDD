@@ -7,7 +7,7 @@
  * @scope 自己生成Repositoryの新Schemaだけ。
  * @boundary Domain公開API→実Filesystem・既存短期OS排他。
  */
-import { decodeStateSnapshot } from "../../src/state/validation.ts";
+
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,10 +21,12 @@ import {
   type ExecutionModelAccess,
   initializeExecutionState,
   queryPlan,
+  queryQueue,
   queryTasks,
   savePlan,
   updateTask,
 } from "../../src/index.ts";
+import { decodeStateSnapshot } from "../../src/state/validation.ts";
 import { acquireExecutionStateLock } from "../../src/storage/lock.ts";
 import { readStableFileSnapshot } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
@@ -73,7 +75,7 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
         );
         fs.writeFileSync(
           path.join(root, ".git", "refs", "heads", "main"),
-          "1".repeat(40) + "\n",
+          `${"1".repeat(40)}\n`,
         );
         fs.mkdirSync(path.join(root, ".crdd"));
         const legacy = path.join(root, ".crdd", "coordinator");
@@ -127,17 +129,20 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
             return observed;
           }) as typeof fs.lstatSync);
         const originalOpen = fs.openSync;
+        let pendingOpens = 0;
         const openMock =
-          kind === "appears_before_publish"
+          ["appears_before_publish","parent_changed"].includes(kind)
             ? t.mock.method(fs, "openSync", ((
                 ...args: Parameters<typeof fs.openSync>
               ) => {
                 if (
                   String(args[0]) ===
                     path.join(current, "state.pending.json") &&
-                  !fs.existsSync(legacy)
-                )
-                  fs.mkdirSync(legacy);
+                  args[1] === "wx"
+                ) {
+                  pendingOpens++;
+                  if(kind==="appears_before_publish"&&!fs.existsSync(legacy))fs.mkdirSync(legacy);
+                }
                 return originalOpen(...args);
               }) as typeof fs.openSync)
             : undefined;
@@ -155,27 +160,28 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           assert.equal(fs.existsSync(legacy), true);
           const markerFile = path.join(current, "state.lock");
           const pendingFile = path.join(current, "state.pending.json");
-          const marker = fs.readFileSync(markerFile);
           const pending = fs.readFileSync(pendingFile);
-          const markerValue = JSON.parse(marker.toString("utf8"));
-          assert.equal(markerValue.schema, "crdd-coordinator/state-lock/v1");
+          const pendingValue = JSON.parse(pending.toString("utf8"));
           assert.ok(
-            decodeStateSnapshot(pending, markerValue.repositoryBinding),
+            decodeStateSnapshot(pending, pendingValue.repositoryBinding),
           );
           const repeated = initializeExecutionState(access, request);
           assert.notEqual(repeated.status, "saved");
-          assert.deepEqual(fs.readFileSync(markerFile), marker);
+          assert.equal(fs.existsSync(markerFile), false);
           assert.deepEqual(fs.readFileSync(pendingFile), pending);
           assert.equal(fs.existsSync(path.join(current, "state.json")), false);
         } else if (kind !== "absent") {
+          if(kind==="parent_changed"){
+            assert.equal(pendingOpens,0);
+            for(const name of ["state.json","state.pending.json","state.lock"])assert.equal(fs.existsSync(path.join(current,name)),false);
+          }
           assert.equal(
             result.status,
-            kind === "parent_changed" ? "unknown" : "blocked",
+            "blocked",
             JSON.stringify(result),
           );
           if (kind === "parent_changed") {
-            assert.equal(result.reason, "lock_release_unconfirmed");
-            assert.equal(result.publication, "not_published");
+            assert.equal(result.reason, "state_unavailable");
           }
           assert.equal(fs.existsSync(current), false);
           if (kind === "file")
@@ -235,7 +241,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   fs.writeFileSync(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
   fs.writeFileSync(
     path.join(root, ".git", "refs", "heads", "main"),
-    "1".repeat(40) + "\n",
+    `${"1".repeat(40)}\n`,
   );
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
@@ -283,6 +289,9 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   });
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   if (saved.status !== "saved") return;
+  const queue = queryQueue(access, target);
+  assert.equal(queue.status, "available", JSON.stringify(queue));
+  if (queue.status === "available") assert.deepEqual(queue.value, []);
   assert.equal(
     savePlan(access, {
       ...target,
@@ -359,14 +368,10 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
   assert.equal(state.schema, "crdd-execution-model/state/v4");
-  for (const key of [
-    "managedExecutions",
-    "operations",
-    "unresolvedRecoveries",
-    "pendingDeliveries",
-    "resultReceipts",
-  ])
+  for (const key of ["managedExecutions", "operations", "unresolvedRecoveries"])
     assert.deepEqual(state[key], []);
+  for (const key of ["pendingDeliveries", "resultReceipts"])
+    assert.equal(Object.hasOwn(state, key), false);
   assert.equal(checks > 10, true);
   allowed = false;
   assert.deepEqual(queryPlan(access, target), {
@@ -423,7 +428,7 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
       );
       fs.writeFileSync(
         path.join(root, ".git", "refs", "heads", "main"),
-        "1".repeat(40) + "\n",
+        `${"1".repeat(40)}\n`,
       );
       const verified = getRepository(root);
       assert.equal(verified.status, "completed");
@@ -587,7 +592,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
       );
       fs.writeFileSync(
         path.join(root, ".git", "refs", "heads", "main"),
-        "1".repeat(40) + "\n",
+        `${"1".repeat(40)}\n`,
       );
       const verified = getRepository(root);
       assert.equal(verified.status, "completed");

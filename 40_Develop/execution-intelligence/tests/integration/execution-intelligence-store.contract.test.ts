@@ -162,7 +162,7 @@ for (const contents of [
   });
 }
 for (const residual of [
-  "history.lock",
+  "execution-intelligence.history.lock",
   "history.pending.jsonl",
   "unknown.json",
 ]) {
@@ -248,7 +248,7 @@ for (const fault of [
       };
     if (fault === "release")
       fs.rmSync = (file, options) => {
-        if (String(file).endsWith("history.lock")) {
+        if (String(file).endsWith("execution-intelligence.history.lock")) {
           faultObserved = true;
           throw Error("injected_release");
         }
@@ -463,13 +463,17 @@ test("WriterのCrash残存は自動回収せず再入場を拒否する", async 
       ready ? resolve() : reject(Error("fixture_child_not_ready"));
     });
   });
-  const before = fs.readFileSync(path.join(s.directory, "history.lock"));
+  const before = fs.readFileSync(
+    path.join(s.directory, "execution-intelligence.history.lock"),
+  );
   assert.equal(
     createExecution(s, { executionId: "after-crash", startedAt }).status,
     "blocked",
   );
   assert.deepEqual(
-    fs.readFileSync(path.join(s.directory, "history.lock")),
+    fs.readFileSync(
+      path.join(s.directory, "execution-intelligence.history.lock"),
+    ),
     before,
   );
 });

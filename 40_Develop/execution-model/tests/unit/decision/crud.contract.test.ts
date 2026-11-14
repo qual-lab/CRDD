@@ -9,8 +9,6 @@
  * @boundary 値操作だけ。実保存・現在認可・人間判断の真正性は別試験が所有する。
  */
 
-import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type {
@@ -37,6 +35,8 @@ import {
   validateDecisionRetirement,
   validateDecisionSnapshotTransition,
 } from "../../../src/decision/validation.ts";
+import type { Snapshot } from "../../../src/state/types.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 
 /**
  * 判断モデルの検査を上位要求の検査から分離する。

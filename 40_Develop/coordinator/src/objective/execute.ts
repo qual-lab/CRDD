@@ -18,7 +18,7 @@ import {
   isPrincipalId,
   type ProjectExecutionState,
   type ProjectTaskRecoveryObligation,
-  readTaskIntakeState,
+  readState,
   type TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
 import {
@@ -1909,9 +1909,10 @@ export async function executeCoordinatorPublicObjective(
       "orchestrator_tasks_already_integration_pending",
     ].includes(execution.reason)
   ) {
-    const snapshot = readTaskIntakeState(
+    const snapshot = readState(
       verifyRuntimePersistenceRepository(repositoryRoot),
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
+      "queue",
     );
     const queue =
       snapshot.status === "completed"

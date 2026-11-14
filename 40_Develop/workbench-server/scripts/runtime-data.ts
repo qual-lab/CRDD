@@ -89,6 +89,7 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     workspaces: path.join(root, "workspaces"),
     tests: path.join(root, "tests"),
     temporary: path.join(root, "tmp"),
+    locks: path.join(root, "lock"),
   });
 }
 

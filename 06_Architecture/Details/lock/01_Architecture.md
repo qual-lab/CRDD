@@ -71,12 +71,12 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 | 保護対象 | 所在・IdentityのOwner | wxの所在 |
 |---|---|---|
 | Domain汎用Store／AM | 各Store Owner | 検証済みStoreの固定Lock。現行値の確認から保存・読戻しと終了処置まで |
-| CurrentState Reader／Writer／Recovery | Domain Model | Repository直下`.crdd/current-state.<binding>.lock`。Readerの一貫観測、Writerの元版検査から保存・読戻しまでの短期区間 |
-| Provider Home | Native観測により上位が確定した所在・安定Home Binding | 既存ProviderHomes親Directoryの`provider-home.<binding>.lock`。Repository横断で共通。Home使用前から技術終了条件の確認まで、不明なら解放成功にしない |
-| 共有Runtime状態／Decision | Coordinator | 既存RuntimeState内の`docker-state.lock`。既存の状態遷移の読取りから確定・終了確認まで。Repository・Home別名には分割しない |
-| Host操作世代 | Coordinator | 対象Rootの親Directoryの`host-operation.<generation-binding>.lock`。子Root清掃後まで保持 |
-| EI履歴Writer | Execution Intelligence | 既存履歴Directoryの`history.lock`。pending検査から保存・pending終了処置まで保持 |
-| Topic／Meeting | Domain Model | 既存種別Rootの`.TOPIC-xxxxxx.lock`／`.MTG-xxxxxx.lock`。改訂確認から保存／削除・読戻しまで保持 |
+| CurrentState Reader／Writer／Recovery | Domain Model | Repository内`.crdd/lock/execution-model.state.lock`。Readerの一貫観測、Writerの元版検査から保存・読戻しまでの短期区間 |
+| Provider Home | Executorが所有する共有Homeの所在・安定Home Binding | 既存ProviderHomes親Directoryの`executor.provider-home.<binding>.lock`。Repository横断で共通。Home使用前から技術終了条件の確認まで、不明なら解放成功にしない |
+| 共有Runtime状態／Decision | Coordinator | 既存RuntimeState内の`coordinator.docker-state.lock`。既存の状態遷移の読取りから確定・終了確認まで。Repository・Home別名には分割しない |
+| Host操作世代 | Coordinator | 対象Rootの親Directoryの`coordinator.host-operation.<generation-binding>.lock`。子Root清掃後まで保持 |
+| EI履歴Writer | Execution Intelligence | 既存履歴Directoryの`execution-intelligence.history.lock`。pending検査から保存・pending終了処置まで保持 |
+| Topic／Meeting | Document Model | `.crdd/lock/document-model.<topic|meeting>.<id>.lock`。改訂確認から保存／削除・読戻しまで保持 |
 
 EI、Topic／MeetingとCoordinator長期Leaseも同じ`acquireLock`を利用する。別のFile排他方式・PID判定だけの自動奪取を持たない。各OwnerにはScope、保持区間、保存・世代・一次失敗と終了不明の合成を残す。固定名は既存の有効ID域を維持するため大文字・先頭dot・途中の連続dotを許す。単一ASCII basenameの255文字上限、`.lock`終端、先頭の二連dot・区切り文字拒否と固定親境界を維持する。
 
@@ -91,6 +91,27 @@ EI、Topic／MeetingとCoordinator長期Leaseも同じ`acquireLock`を利用す�
 | `src/index.ts` | 上記1関数と4型の公開 |
 | `src/types.ts` | 入力、取得参照、保持handle、取得結果 |
 | `src/operations.ts` | wx取得、元世代の保持確認、一回解放 |
+
+## Lockの名前と所在
+
+Repository内は`.crdd/lock/<責務パッケージ名>.<保護対象>.lock`へ配置する。対象が複数なら安定識別子を保護対象名の一部に含める。同じ資源の全Consumerは責務Ownerが定めた同一名を使い、取得Owner・Generationは本文で区別する。
+
+| 責務Owner・保護対象 | 名前・所在 |
+|---|---|
+| EMの保存状態 | `.crdd/lock/execution-model.state.lock` |
+| 構成モデルのAI選定 | `.crdd/lock/configuration-model.ai-selection.lock` |
+| 文書モデルのTopic／Meeting | `.crdd/lock/document-model.<topic|meeting>.<id>.lock` |
+| Coordinatorの長期Lease | `.crdd/lock/coordinator.lease.<identity>.lock` |
+| EI履歴・AM状態 | Repository非依存の明示Store内で`execution-intelligence.history.lock`・`access-management.state.lock` |
+| 共有Home | 現在の共有Home親内で`executor.provider-home.<binding>.lock`。Coordinatorも同名を使用 |
+| 共有Docker状態・Host世代 | 現在の共有所在で`coordinator.docker-state.lock`・`coordinator.host-operation.<binding>.lock` |
+| Desktop | 現在の共有設定基点で`docker-isolation.desktop.lock` |
+
+共通LockはDirectoryの探索・作成を追加せず、各Ownerが正規の親Directoryを準備する。明示StoreやRepository横断資源のRootをRepositoryから推測しない。旧名と新名の並走は相互排他しないため、保護対象ごとに全利用者を停止して一括切替する。
+
+切替前には、移行元の各Ownerが使用したexact所在・Identityで旧名Lockと未解決義務を照合する。旧Ownerの手順による処置が完了した保護対象だけ、新名を有効化する。不明・未解決の残存があれば切替を停止する。代表的な旧所在はEMの`.crdd/current-state.<hash>.lock`、構成モデルの`.crdd/config/ai-selection.lock`、Coordinatorの`.crdd/tmp/orchestrator-leases/<identity>.lock`である。新コードがこれら旧所在のLock本体を自動検出して拒否する保証はなく、旧Crash残存に対するFail Closedを新名の取得だけから推定しない。
+
+過去残存物の移動・削除、自動移行、旧新の二重取得は追加しない。保存途中の`domain-model/state.lock` markerは別の保存簡素化で撤去した。この旧保存markerの残存は未知Fileとして保全停止し、共通Lockへ変換しない。Source接続・試験成功・Commit／Pushは、実利用者の停止・旧残存の処置・切替完了を意味しない。
 
 ## 状態と順序
 

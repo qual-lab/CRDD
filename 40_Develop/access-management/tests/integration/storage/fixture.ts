@@ -50,7 +50,7 @@ export function removeKnownStoppedTestLock(
     "../../../../../.crdd/tests",
   );
   assert.equal(path.dirname(directory), parent);
-  const target = path.join(directory, "access-management.lock");
+  const target = path.join(directory, "access-management.state.lock");
   try {
     fs.lstatSync(target);
   } catch (error) {

@@ -77,9 +77,11 @@ function directory(store: StoreOptions): fs.BigIntStats {
       .readdirSync(store.directory)
       .some(
         (name) =>
-          !["history.jsonl", "history.pending.jsonl", "history.lock"].includes(
-            name,
-          ),
+          ![
+            "history.jsonl",
+            "history.pending.jsonl",
+            "execution-intelligence.history.lock",
+          ].includes(name),
       )
   )
     throw Error("store_unknown_residual");
@@ -193,14 +195,18 @@ export function readRecords(input: StoreOptions): ReadResult<Records> {
     const store = snapshot(input),
       original = directory(store);
     if (
-      exists(path.join(store.directory, "history.lock")) ||
+      exists(
+        path.join(store.directory, "execution-intelligence.history.lock"),
+      ) ||
       exists(path.join(store.directory, "history.pending.jsonl"))
     )
       throw Error("store_publication_pending");
     const records = readHistory(store);
     sameDirectory(store, original);
     if (
-      exists(path.join(store.directory, "history.lock")) ||
+      exists(
+        path.join(store.directory, "execution-intelligence.history.lock"),
+      ) ||
       exists(path.join(store.directory, "history.pending.jsonl"))
     )
       throw Error("store_publication_pending");
@@ -272,7 +278,9 @@ export function writeRecord(
           cleanupConfirmed: lock.cleanupConfirmed,
           manualRecoveryRequired: !lock.cleanupConfirmed,
           recoveryReference: lock.cleanupConfirmed ? null : id,
-          residualArtifactIds: lock.cleanupConfirmed ? [] : ["history.lock"],
+          residualArtifactIds: lock.cleanupConfirmed
+            ? []
+            : ["execution-intelligence.history.lock"],
         };
       if (exists(path.join(store.directory, "history.pending.jsonl")))
         throw Error("store_publication_pending");
@@ -395,7 +403,7 @@ export function writeRecord(
         recoveryReference: id,
         residualArtifactIds: [
           ...(pendingOwned ? ["history.pending.jsonl"] : []),
-          ...(!released ? ["history.lock"] : []),
+          ...(!released ? ["execution-intelligence.history.lock"] : []),
         ],
       };
   }

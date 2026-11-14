@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { acquireLock } from "../../../lock/src/index.ts";
 import type { StateStoreResult } from "./types.ts";
 
-const LOCK = "access-management.lock";
+const LOCK = "access-management.state.lock";
 
 /**
  * 共通wx Lockの取得結果を保存Ownerへ閉じる。

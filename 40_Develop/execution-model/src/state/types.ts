@@ -30,7 +30,6 @@ import type {
 } from "../task/types.ts";
 import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
 import type {
-  EXECUTION_STATE_SCHEMA,
   PROJECT_SNAPSHOT_SCHEMA,
   STORAGE_CONTRACT,
 } from "./validation.ts";
@@ -100,29 +99,55 @@ export type SnapshotObservations = Readonly<{
  * @security Schema成立を実資源観測や保存成功へ昇格しない。
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
-export type UnifiedSnapshot = Omit<ExecutionOverview, "schema"> &
-  Omit<
-    Snapshot,
-    | "schema"
-    | "schemaRevision"
-    | "repositoryRootHash"
-    | "snapshotRevision"
-    | "repositoryBindingId"
-    | "intakeEpoch"
-    | "projects"
-  > &
-  Readonly<{
-    schema: "crdd-execution-model/state/v4";
-    repositoryBindingId: string | null;
-    intakeEpoch: string | null;
-    projects: readonly ProjectDefinition[];
-    managedExecutions: readonly ManagedExecution[];
-  }>;
+export type ExecutionStateSnapshot = Readonly<{
+  schema: "crdd-execution-model/state/v4";
+  revision: number;
+  previous: Readonly<{ revision: number; payloadSha256: string }> | null;
+  repositoryBinding: string;
+  repositoryBindingId: string | null;
+  intakeEpoch: string | null;
+  projects: readonly ProjectDefinition[];
+  managedExecutions: readonly ManagedExecution[];
+  operations: readonly OperationRecord[];
+  unresolvedRecoveries: readonly Readonly<{
+    operationNonce: string;
+    recoveryId: string;
+    reason: string;
+    obligations: readonly (
+      | "docker_resources"
+      | "host_cleanup"
+      | "lease_release"
+    )[];
+  }>[];
+  workspaces: readonly WorkspaceRecord[];
+  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
+  queueEntries: readonly ProjectQueueEntry[];
+  leaseEvidence: readonly LeaseEvidenceEnvelope[];
+  leaseIntents: readonly Readonly<{
+    projectId: string;
+    queueId: string;
+    kind: LeaseKind;
+    ownerGeneration: string;
+    ownerProcessId: number;
+    recoveryId: string;
+    phase:
+      | "acquisition_pending"
+      | "acquisition_reserved"
+      | "lock_owned"
+      | "release_pending"
+      | "recovery_pending";
+    physicalIdentity?: string | null;
+  }>[];
+  results: readonly ResultRecord[];
+  historyPending: readonly HistoryRow[];
+  decisions: readonly Decision[];
+  blockers: readonly Blocker[];
+}>;
 
 /**
- * stateで使用するCoordinator 状態の値契約を定義する。
+ * Project定義と管理実行を結合した投影の値契約を定義する。
  *
- * @responsibility Coordinator 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Projectの実行状態、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectExecutionStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectExecutionStateで宣言した値と責務の対応を維持する。
@@ -146,32 +171,24 @@ export type ProjectExecutionState = Readonly<{
 }>;
 
 /**
- * Repository一つの未終了集合を保持する。
+ * 保存正本からRepository一つの未終了集合を投影する。
  * @responsibility 単調改訂、元内容Hash、操作参照と未受理結果を型として分離する。
  * @trace ARCH-000008
  * @shape 固定schema、改訂相関、Repository結合と三つの現在集合。
  * @invariant 履歴や候補本体を現在集合へ蓄積しない。
  * @boundary 保存Ownerと状態利用側。
  * @security JSONは実資源観測やAuthorityの代わりではない。
- * @compatibility 最新schemaのみ。移行はフロントAIが所有する。
+ * @compatibility 保存正本と同じschemaであり、独立File・別Writerを定義しない。
  */
-export type ExecutionOverview = Readonly<{
-  schema: typeof EXECUTION_STATE_SCHEMA;
-  revision: number;
-  previous: Readonly<{ revision: number; payloadSha256: string }> | null;
-  repositoryBinding: string;
-  operations: readonly OperationRecord[];
-  unresolvedRecoveries: readonly Readonly<{
-    operationNonce: string;
-    recoveryId: string;
-    reason: string;
-    obligations: readonly (
-      | "docker_resources"
-      | "host_cleanup"
-      | "lease_release"
-    )[];
-  }>[];
-}>;
+export type ExecutionOverview = Pick<
+  ExecutionStateSnapshot,
+  | "schema"
+  | "revision"
+  | "previous"
+  | "repositoryBinding"
+  | "operations"
+  | "unresolvedRecoveries"
+>;
 
 /**
  * 単一保存内のTaskを、技術状態の複製を持たない値として定義する。
@@ -193,52 +210,36 @@ export type StoredTask = Omit<
   }>;
 
 /**
- * 一体保存する現在状態の閉じた値契約を定義する。
- * @responsibility 既存値と受付世代、途中Lease、履歴未確定搬送を保持する。
+ * 保存正本からProject・Queue・Workspaceを同版で導出する内部投影を定義する。
+ * @responsibility 同じStateの値と受付世代、途中Lease、履歴未確定搬送を組み合わせる。
  * @trace ARCH-000004
  * @shape 保存情報、受付結合、Project、Queue、Lease、結果、未搬送終了要約。
- * @invariant 保護DecisionとOS handleを保存しない。保存と受付の世代を分離する。
- * @boundary Repository-localの現在状態。
+ * @invariant 投影を別Fileや旧Schemaの互換Readerとして扱わず、OS handleを含めない。
+ * @boundary 単一保存正本とモデル別のメモリ内操作。
  * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
+ * @compatibility project-snapshot/v7は投影の識別であり、物理保存はstate/v4のまま。
  */
-export type Snapshot = Readonly<{
-  workspaces: readonly WorkspaceRecord[];
-  repositoryRootHash: string;
-  repositoryBindingId: string;
-  snapshotRevision: number;
-  intakeEpoch: string;
-  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
-  projects: readonly ProjectExecutionState[];
-  queueEntries: readonly ProjectQueueEntry[];
-  leaseEvidence: readonly LeaseEvidenceEnvelope[];
-  leaseIntents: readonly Readonly<{
-    projectId: string;
-    queueId: string;
-    kind: LeaseKind;
-    ownerGeneration: string;
-    ownerProcessId: number;
-    recoveryId: string;
-    phase:
-      | "acquisition_pending"
-      | "acquisition_reserved"
-      | "lock_owned"
-      | "release_pending"
-      | "recovery_pending";
-    physicalIdentity?: string | null;
-  }>[];
-  results: readonly ResultRecord[];
-  historyPending: readonly HistoryRow[];
-}> &
+export type Snapshot = Pick<
+  ExecutionStateSnapshot,
+  | "workspaces"
+  | "intakeBindings"
+  | "queueEntries"
+  | "leaseEvidence"
+  | "leaseIntents"
+  | "results"
+  | "historyPending"
+  | "decisions"
+  | "blockers"
+> &
   Readonly<{
     schema: typeof PROJECT_SNAPSHOT_SCHEMA;
     schemaRevision: 7;
-    decisions: readonly Decision[];
-    blockers: readonly Blocker[];
+    repositoryRootHash: string;
+    repositoryBindingId: string;
+    snapshotRevision: number;
+    intakeEpoch: string;
+    projects: readonly ProjectExecutionState[];
   }>;
-
-/** Repository共有状態を構成する各保存領域のSnapshot。 */
-export type ExecutionStateSnapshot = DecodedStateSnapshot;
 
 /**
  * Taskが所有する終端観測と技術Operation参照を区別する。
@@ -411,19 +412,6 @@ export type ManagedExecution = Pick<
     tasks: readonly (Omit<StoredTask, "definition"> &
       Readonly<{ taskId: string }>)[];
   }>;
-
-/**
- * Core定義と管理実行を同じ改訂で保存する新しい閉集合。
- * @responsibility 単一CAS・技術unknown・元参照と、定義一箇所の正本を維持する。
- * @trace ARCH-000004
- * @trace ARCH-000008
- * @shape 既存共通区画とprojects／managedExecutionsの参照分離。
- * @invariant 新しいState File・Registry・二重Writerを持たない。
- * @boundary 新Schemaの値モデル。保存先有効化は別の条件。
- * @security codec成立から認可・出版・資源不存在を推定しない。
- * @compatibility crdd-execution-model/state/v4のみを表す。
- */
-export type DecodedStateSnapshot = UnifiedSnapshot;
 
 /**
  * 管理実行の保存行へCore定義を結合した、codec内部だけの導出値。
@@ -644,7 +632,7 @@ export type ExecutionDefinitionValues = {
  * 固定Query用途に対応する成功値を定義する。
  * @responsibility 生Snapshotではなく用途別の値型を公開関数へ対応付ける。
  * @trace ARCH-000008
- * @shape 定義、判断、受付、論理Workspaceと対象の実行投影。
+ * @shape 計画・Objective・Task・Queueの通常Query値。
  * @invariant 任意field投影を公開しない。
  * @boundary 一般Queryの型付き返却値。
  * @security Host Pathや実行Authorityを返さない。
@@ -658,16 +646,7 @@ export type ExecutionContentViews = {
       execution: ManagedExecution["tasks"][number] | null;
     }
   >[];
-  decisions: Readonly<{
-    decisions: Snapshot["decisions"];
-    blockers: Snapshot["blockers"];
-  }>;
-  workspaces: Snapshot["workspaces"];
   queue: Snapshot["queueEntries"];
-  runtime: Readonly<{
-    project: ProjectDefinition;
-    execution: ManagedExecution | null;
-  }>;
 };
 
 /** 固定のモデル処置と元の必須入力を対応付ける。物理処置は上位Ownerが行う。 */

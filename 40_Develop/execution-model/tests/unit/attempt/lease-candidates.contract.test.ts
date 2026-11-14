@@ -16,7 +16,6 @@ import type {
   Snapshot,
 } from "../../../src/state/types.ts";
 import {
-  encodeStateValue,
   leaseIdentity,
   PROJECT_SNAPSHOT_SCHEMA,
   prepareLeaseAcquisitionConfirmation,
@@ -29,6 +28,7 @@ import {
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
 } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 
 /**
  * 九用途の局所元版を作る。

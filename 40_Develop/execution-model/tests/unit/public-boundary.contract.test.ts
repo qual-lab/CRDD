@@ -19,6 +19,54 @@ import {
   REPAIR_DIRECTORIES,
 } from "../../src/attempt/validation.ts";
 import * as domainLibrary from "../../src/index.ts";
+import { readExecutionContent } from "../../src/state/crud.ts";
+
+/**
+ * 廃止した特殊投影を残る通常読取りへ暗黙配送しない。
+ * @responsibility 旧入口と未知kindを認可・Repository観測より前に拒否する。
+ * @trace RCM-UT-014
+ * @precondition 旧三種・未知・欠測kindと、実行すると失敗するaccess。
+ * @stimulus 内部内容Readerを実行時の未信頼値で呼ぶ。
+ * @observation access参照回数と拒否結果、Rootの旧名不存在。
+ * @oracle 全不正kindで参照0、input_invalid。旧Root公開はない。
+ * @cleanup メモリ値のみ。
+ * @boundary 公開集合と内部Readerの閉集合。
+ */
+test("通常読取りは旧特殊投影と未知kindを認可前に拒否する", () => {
+  let references = 0;
+  const access = new Proxy(
+    {},
+    {
+      get() {
+        references++;
+        throw Error("unexpected access");
+      },
+    },
+  );
+  for (const kind of [
+    "decisions",
+    "runtime",
+    "workspaces",
+    "unknown",
+    undefined,
+  ]) {
+    assert.deepEqual(
+      Reflect.apply(readExecutionContent, undefined, [
+        access,
+        kind,
+        { projectId: "project-a", milestoneId: "milestone-a" },
+      ]),
+      { status: "blocked", value: null, reason: "input_invalid" },
+    );
+  }
+  assert.equal(references, 0);
+  for (const name of [
+    "queryDecisions",
+    "queryExecutionState",
+    "queryWorkspaces",
+  ])
+    assert.equal(Object.hasOwn(domainLibrary, name), false);
+});
 
 /**
  * Sourceのimport・再export・型参照から他モデルへの接続を抽出する。
@@ -323,7 +371,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "PROJECT_STATE_CONTRACT",
     "TASK_STATES",
     "acquireLease",
-    "advanceOwnedRecoveryHistory",
     "answerDecision",
     "applyDecision",
     "applyResourceCleanup",
@@ -331,7 +378,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "closeDecision",
     "completeOperation",
     "completeRecovery",
-    "completeStatePublication",
     "createLocalPrincipalId",
     "createObjective",
     "createQueue",
@@ -348,26 +394,20 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "isPrincipalId",
     "parseDockerTaskRecoveryId",
     "parseHostRecoveryToken",
-    "queryDecisions",
-    "queryExecutionState",
     "queryObjectives",
     "queryPlan",
     "queryQueue",
     "queryTasks",
-    "queryWorkspaces",
     "readDecision",
     "readLease",
-    "readOperationCompletion",
     "readProjectExecutionState",
     "readQueueEntry",
     "readState",
-    "readTaskIntakeState",
     "recordDecision",
     "recoverLease",
     "releaseLease",
     "requestDecision",
-    "resumeRepairPublication",
-    "resumeResourcePublication",
+    "resumeRepairRecordSave",
     "retireStateRecords",
     "saveIntegrationRecord",
     "saveOperationCheckpoint",
@@ -375,7 +415,8 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "savePlan",
     "saveProjectExecutionState",
     "saveRecoveryCheckpoint",
-    "saveRepairState",
+    "saveRecoveryHistory",
+    "saveRepairRecord",
     "saveWorkspaceRecord",
     "selectQueueEntry",
     "transferHistory",
@@ -425,7 +466,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "WorkspaceCandidateResult",
     "WorkspaceRecord",
     "acquireLease",
-    "advanceOwnedRecoveryHistory",
     "answerDecision",
     "applyDecision",
     "applyResourceCleanup",
@@ -433,7 +473,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "closeDecision",
     "completeOperation",
     "completeRecovery",
-    "completeStatePublication",
     "createLocalPrincipalId",
     "createObjective",
     "createQueue",
@@ -450,26 +489,20 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "isPrincipalId",
     "parseDockerTaskRecoveryId",
     "parseHostRecoveryToken",
-    "queryDecisions",
-    "queryExecutionState",
     "queryObjectives",
     "queryPlan",
     "queryQueue",
     "queryTasks",
-    "queryWorkspaces",
     "readDecision",
     "readLease",
-    "readOperationCompletion",
     "readProjectExecutionState",
     "readQueueEntry",
     "readState",
-    "readTaskIntakeState",
     "recordDecision",
     "recoverLease",
     "releaseLease",
     "requestDecision",
-    "resumeRepairPublication",
-    "resumeResourcePublication",
+    "resumeRepairRecordSave",
     "retireStateRecords",
     "saveIntegrationRecord",
     "saveOperationCheckpoint",
@@ -477,7 +510,8 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "savePlan",
     "saveProjectExecutionState",
     "saveRecoveryCheckpoint",
-    "saveRepairState",
+    "saveRecoveryHistory",
+    "saveRepairRecord",
     "saveWorkspaceRecord",
     "selectQueueEntry",
     "transferHistory",
@@ -706,7 +740,7 @@ test("統合完了・履歴入口は未知用途からOwnerや保存を起動し
     owner,
     "unknown" as never,
   );
-  const history = domainLibrary.advanceOwnedRecoveryHistory(
+  const history = domainLibrary.saveRecoveryHistory(
     null as never,
     "unknown",
     owner,

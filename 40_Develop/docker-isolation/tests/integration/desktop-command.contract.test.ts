@@ -58,7 +58,7 @@ function fixture(fault = "") {
       identity: string;
     }) {
       assert.equal(request.directory, "C:\\configured-local");
-      assert.equal(request.name, ".crdd-docker-desktop.lock");
+      assert.equal(request.name, "docker-isolation.desktop.lock");
       assert.equal(request.identity, "docker-desktop:shared");
       if (fault === "lock" || fault === "lock-cleanup")
         return {

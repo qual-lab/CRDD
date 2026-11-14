@@ -14,12 +14,12 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext, runInThisContext } from "node:vm";
-import { prepareHistoryRetention } from "../../../src/history/validation.ts";
 import {
   decodeStateSnapshot,
-  encodeStateValue,
+  prepareHistoryRetention,
   prepareStateHostSnapshot,
 } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 import { validState } from "../../../src/task/validation.ts";
 
 /**
@@ -340,7 +340,7 @@ import {
   type OperationResources,
   type ProjectExecutionState,
 } from "../../../src/index.ts";
-import type { UnifiedSnapshot } from "../../../src/state/types.ts";
+import type { ExecutionStateSnapshot } from "../../../src/state/types.ts";
 import {
   classifyResourcePublication,
   EXECUTION_STATE_SCHEMA,
@@ -584,7 +584,7 @@ const RESOURCE_KEYS = [
  * @cleanup N/A: 局所値のみ。
  * @boundary 純粋codec試験。実保存・実行を開始しない。
  */
-function emptyUnifiedSnapshot(): UnifiedSnapshot {
+function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
   return {
     schema: "crdd-execution-model/state/v4",
     revision: 1,
@@ -609,7 +609,7 @@ function emptyUnifiedSnapshot(): UnifiedSnapshot {
 }
 
 const empty = {
-  ...emptyUnifiedSnapshot(),
+  ...emptyExecutionStateSnapshot(),
   schema: EXECUTION_STATE_SCHEMA,
   revision: 1,
   previous: null,
@@ -1066,7 +1066,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(areTaskResourcesSettled(badEvidence), false);
   // 実Writer外側の値差分guardだけを分離する。Kernel/FSの成立はHost試験が所有する。
   const storeSource = fs.readFileSync(
-    new URL("../../../src/state/crud.ts", import.meta.url),
+    new URL("../../../src/storage/publication.ts", import.meta.url),
     "utf8",
   );
   const helperSource = fs.readFileSync(
@@ -2516,7 +2516,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     };
     const { managedExecutions: _emptyManaged, ...emptyDefinitionFixture } =
-      emptyUnifiedSnapshot();
+      emptyExecutionStateSnapshot();
     const unifiedTerminal = {
       ...emptyDefinitionFixture,
       repositoryBindingId: "binding-a",

@@ -2121,4 +2121,286 @@ Coの正常Owner四形のうちWorkbench HTTPを伴う三回形を、Workbench�
 
 正常factoryと変異factoryの構築をcompileRepair一実装へ集約した。追加三子が直接反証するのは、変異Sourceが通常cacheへ漏れないこと。新しいcase依存閉包の構築はSource読取りと元49ケースの独立した期待結果でも確認する。既存の実Root・本番Source変異二条件は一意化前候補で118,989ms成功し、従来fixture経路の非固定Root観測を維持したことを確認した。一意化後はfactory三子と49ケースを同じ実行で再確認し、先行結果を未変更範囲と区別する。
 
-対象二Sourceの整形／警告確認、Co本番・試験型検査、台帳／Symbol／正式QAの接続一件、基準assert式の構文木照合と差分空白確認が成功した。技術とOwner／QAの二担当による独立レビュー・局所是正後再確認は必須残指摘なし。試験実行は親、独立担当は読取り確認である。全体回帰・実AI・Docker・過去保持物は操作していない。30f607171は作業前に既存FeatureへPush済み。本試験再編の変更はまだCommit／Pushしていない。
+対象二Sourceの整形／警告確認、Co本番・試験型検査、台帳／Symbol／正式QAの接続一件、基準assert式の構文木照合と差分空白確認が成功した。技術とOwner／QAの二担当による独立レビュー・局所是正後再確認は必須残指摘なし。試験実行は親、独立担当は読取り確認である。全体回帰・実AI・Docker・過去保持物は操作していない。30f607171は作業前に既存FeatureへPush済み。本試験再編はbfd01b54aとしてCommit／Push済み。
+
+### 14.55 資源の純粋な値操作と保存依存の分離
+
+基準bfd01b54a。追加提案の第一段階として、Logical Block・公開100項目・保存Schema・単一Writer／CAS・Lock・判定条件を変更せず、値検査から保存モジュールへ戻る依存を撤去する。実装詳細の責務是正であり、技術と品質／Ownerの二担当による着手前確認・完成後独立レビュー、限定回帰、文書・登録の伝播確認を行う。工程契約・決定権限・準拠基準を変えないため全体の準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物は対象外。現在、人間による追加判断は必要ない。
+
+| 編集の識別子 | 対応する問題と適用先 | 保持する条件と確認 |
+|---|---|---|
+| E1 | `attempt/crud.ts`の資源イベント・清掃更新2関数と`attempt/validation.ts`のBook／遷移検査2関数を`attempt/operations.ts`へ実体移管 | Intent・Receipt・元実ID・正式未発行・不存在証拠の同じ規則を保持。旧所在地の再exportなし |
+| E2 | `state/validation.ts`の6値処理を`state/value.ts`へ実体移管し全参照元を直接接続 | encoder、完全key検査、SHA-256文法、plain記録取得・descriptor検査の本文を変更しない。保存・全体候補への逆参照なし |
+| E3 | `createLocalPrincipalId`を`state/crud.ts`から同じ主体検査Ownerの`state/validation.ts`へ実体移管 | prefix・メール検査・Root公開名・結果を保持し、validation→crudを撤去 |
+| E4 | Root・内部試験・Source抽出・Symbol・Architectureの所在と依存契約を追従 | 公開集合、保存本文／Hash、資源Bookの正負例、新品Processでの独立ロードを確認 |
+
+E1／E2／E3の宣言元移管後にE4の全参照を追従する。新しい汎用Package・Facade・互換Wrapperは作らない。Book検査を旧validationへ残す小さい案はState候補へ依存が戻るため不採用。二担当の着手前確認で、6値処理の依存がNode.js組込みと相互参照だけで閉じること、4資源処理が同じ遷移規則を一意に維持できることを確認した。
+
+初回Intent、既知Receipt、正式未発行、不存在観測、ID差替え拒否と入力不正を対応付け、値処理の拒否・例外・符号化順・凍結を変更しない。これは実資源の存在／不存在を観測する変更ではない。残る純粋Validation間の循環、Historyの意味処理・完成操作、State Snapshot型の明示化は後続段階であり、本段階だけを全循環解消又は添付案全体の完了とは表示しない。
+
+移管した11関数は基準の本文と空白以外の一致を確認した。新Ownerのimportへ通常参照・Source注入fixture・Symbolを追従し、旧所在地の再exportはない。公開集合・資源Book・codec・Lease・再起動・履歴候補の限定54項目が同じ最終Sourceで成功した。新品Nodeで保存／候補Moduleを拒否した資源更新も含む。実保存の不存在／同版／破損、作成失敗／置換／解放不明、重複資源の拒否は別の代表3項目、State相関の一項目と台帳／Symbol／QA接続の一項目も成功した。EMとCo本番／試験の型検査、対象整形・警告確認、差分空白検査は成功。
+
+初回の追加集合では終了要約試験一件が旧v2本文・consumer別のfieldを期待して失敗した。基準も現候補も要約生成本文は同じv5であり、旧期待値を現行の共通Schema・回復相関IDへ追従した。全文・Hash・一次失敗・不明状態・誤相関拒否のassertを維持し、consumerを要約へ再導入しない。追従後に54項目を一括で再確認し、初回失敗を成功件数へ合算しない。製品判定の緩和、実AI・Docker・全体回帰・過去保持物の操作はない。独立レビューへ渡す候補をここで固定する。
+
+固定候補の技術／品質・Owner二担当による独立レビューは必須残指摘なしで完了した。技術担当は資源操作の実行時依存閉包、VM注入、基準のv5要約と旧試験期待の不整合を確認し、品質担当はSymbol・台帳・QA・設計と未完了範囲の表示を確認した。両担当とも読取りレビューで、試験の実行根拠は親担当の記録である。第一段階は限定範囲で完了し、添付案全体の完了や全体回帰成功ではない。本EM差分は未Commit／未Pushであり、直前の試験再編bfd01b54aのPushとは区別する。
+
+### 14.56 Historyの値生成・保持・出版条件とState整合の分離
+
+§14.55の未Commit差分を保持した上で、Historyの意味規則を集約する。分類は公開契約・保存形式・判定・単一CASを変えない内部責務是正。変更可能範囲はEMのHistory／State／Attempt／Storage接続、内部試験と注入fixture、設計・QA・登録・現在投影。Repository内の新品試験物だけを使用する。全体回帰・実AI・Docker・過去保持物操作、Root公開追加、互換再export、汎用Frameworkは行わない。二担当の着手前整合確認で下表の責務を確認し、限定回帰と固定候補の技術／品質独立レビューを行う。工程契約・準拠基準を変えないため全体準拠監査は追加しない。追加の人間判断は不要。
+
+| 編集の識別子 | 適用する責務 | 保持条件・反証 |
+|---|---|---|
+| H1 | State・Attempt・Storageの六つの要約／行符号化を`history/operations.ts`へ実体移管 | Schema・field・LF・Hash対象・例外を保持し、旧再exportを作らない |
+| H2 | `prepareHistoryRetention`はStateの全体復号・現在参照投影としてStateへ移管。選別本体はHistoryの`retainHistoryRows`へ | 現在Operationの必須行・行Hash・要約Hashを選別前に全件照合。confirmedによらず欠測拒否。判断・未搬送・未解決参照、reviewAfter前、期間境界を保持 |
+| H3 | 二出版候補の履歴部分をHistoryの`prepareHistoryPublication`へ集約し、Stateは同版のSnapshot候補と結合 | 同ID同本文の再追記なし、異本文／重複／部分行／pending全文差の拒否。State候補失敗時に履歴だけ成功返却しない |
+| H4 | 既存intrinsic Buffer捕捉を`copyHistoryBytes`へ実体移管しTask側の同一重複を撤去 | Proxy・own equals／getterを信用せず独立コピー。TaskのcatchとRepairのnull拒否境界を維持 |
+| H5 | 全Consumer・Source抽出／注入・Symbol・台帳・QA・設計の追従 | History operationsはNode・state/value・typeだけに依存。新品Nodeの独立ロード、公開100項目、実保存・再入場の代表で確認 |
+
+H1の実体移管、H2の型と純粋選別、H3／H4の同版結合、H5の全参照追従の順に適用する。Historyへ全体復号ごと移す案はStateへの依存が戻るため不採用。Stateは単なる転送ではなく全体復号・参照導出・改訂とprevious生成・統合遷移検査を維持する。保存資格、Reader／Writer回数、Lock保持、pending作成・確定・読戻し順序は変更しない。履歴確定前の記録退役は引き続き拒否する。
+
+六つの符号化とBuffer捕捉は、宣言の公開修飾・名前・空白以外の関数本体が移管前と一致した。History operationsの実行時依存はNode組込みとstate/valueだけで、全体Codec／CRUD／Storage／履歴Decoderに戻らない。内部の行と保持参照型はHistory側に置くがRootへ追加しない。全体CodecはState、新規固定一行とcanonical全行のDecoderはHistory validationに維持し、検査済み行だけを純粋出版へ渡す。append時の対象必須行を欠測へ誤分類しない。
+
+新しいHST-UT-001の5反証と新品NodeのHistory独立ロードを追加し、既存の公開／資源／codec／Lease／再起動／修復／履歴候補と合計80項目が同じ最終Sourceで成功した。State相関の既存一項目も成功。実保存は通常終端一項目、判断保存一項目、pending一致再入場／不整合保全の二項目で確認した。修復履歴の保存代表は初回28子成功後、末尾の変異試験が基準にも存在しない旧fallback条件を探して停止した。製品の迂回は復活させず、不正なTask再読を注入する変異へ追従して、通常Lock取得一回・変異二回とWriter発行なしを維持し、29項目が成功した。最終整形候補の同代表も29項目すべてが成功し、69,763msで終了した。初回失敗・先行成功と最終再確認は別の記録とし、件数を重複合算しない。
+
+正式局所項目・Symbol・台帳接続は、新規QA行の機械読取り形式を是正後に成功した。EM・Co本番／試験型検査、対象整形・警告・差分空白確認も成功。これらの局所結果を全体回帰へ合算せず、実AI・Docker・過去保持物は操作していない。固定候補の独立レビューへ進み、実保存の再確認結果と全担当の結果を統合してから完了を判断する。
+
+
+固定候補の技術とOwner／品質の独立レビューは、両担当とも必須残指摘なしで完了した。必須行／両Hashの選別前全件照合、confirmed非依存、正規UTF-8・exact本文・重複拒否、intrinsic独立コピー、例外境界、物理Writerがimport追従だけであることを確認した。Source抽出の旧fallback変異は、現行Sourceへ誤ったTask再読を導入して検出する反証として妥当と確認した。独立担当は読取り確認、試験は親の実行記録である。新品実保存試験物は既存のexact cleanup hookが回収して終了した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+Historyの生成・保持・出版条件の本段階は限定範囲で完了する。残るState完成操作の意味Owner配置、Snapshot型の明示化と純粋検査間の他の循環は未完了として維持する。第一段階と本段階のEM差分は未Commit／未Pushである。
+
+### 14.57 Checkpointの意味OwnerとSnapshotの保存正本
+
+§14.55–14.56の未Commit差分を保持して続行する。分類は公開契約・保存形式・保存資格を変更しない内部責務是正。Owner正本はEM設計、利用側はRoot公開と内部候補・保存試験。着手前に二担当でMapの更新点と型の展開結果を照合した。限定回帰・技術／品質の独立レビューと文書／登録追従を行う。工程契約・準拠基準を変更しないため全体準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物操作は行わず、書込みはRepository内の対象Source・文書と新品試験物に限定する。追加の人間判断は不要。
+
+| 編集の識別子 | 適用先と対応する問題 | 保持条件・確認 |
+|---|---|---|
+| S1 | `saveOperationCheckpoint`をStateからAttemptのCRUDへ実体移管 | Map非依存で既存Reader・候補生成・Owned Writerを再利用。本文・公開名・六種の受付・保存順と不明保持を維持。旧再export／転送Wrapperなし |
+| S2 | 公開済み`ExecutionStateSnapshot`を19field明示の唯一の保存正本にする | `UnifiedSnapshot`と`DecodedStateSnapshot`は同一aliasなので撤去し全内部参照を更新。Schema・nullable・readonly・optionalを維持 |
+| S3 | `ExecutionOverview`と`Snapshot`を保存正本からの投影として定義 | 前者は6共通field、後者は9共通field＋投影固有7field。正本のProjectDefinitionと投影のProjectExecutionState、nullableと非nullを混同しない |
+| S4 | Source抽出／注入・公開境界・型適合・台帳・QA・設計の追従 | 旧展開形との双方向代入、readonly／nullable／optional負例、正規codecと六種Checkpointの正常／拒否を限定確認 |
+
+S1の実体移管とS2／S3の型定義後にS4の全参照を追従する。単一CAS・物理Writerは分割しない。旧Snapshot投影のSchemaは保存互換Readerではなく、同じ現在Stateからのメモリ投影である。
+
+#### 三Mapと四つの保存調停操作を一体で残す根拠
+
+| Stateに残すもの | Writer自身が更新する事実 | 単純に移した場合の問題 |
+|---|---|---|
+| `settlements` | 四種の短命証拠を元版・用途へ結合し、`commitStateSnapshotOwned`冒頭で一回消費 | 読取りだけでは一回性を再現できず、可変recordや汎用get/setを公開すると資格境界が弱まる |
+| `initializations` | 領域準備後登録、初版rename直前の発行記録、成功／解放不明時の失効 | 物理出版と寿命が一体で、用途側へ移すとState Writerから逆参照が必要 |
+| `historyAttempts` | 保存確認かつLock解放後だけ初回登録し、pending／発行済みを更新 | History行ではなく物理試行証拠であり、履歴という名前だけで移すのは不適切 |
+
+`completeRecovery`、`saveRepairState`、`resumeRepairPublication`、`advanceOwnedRecoveryHistory`はこれらの証拠の生成・消費・失効と結合している。現位置から移すためだけのFacade、証拠Registry、用途CRUDからWriterへ戻る実行時循環は作らない。本段階ではStateの全体整合・物理保存調停として一体で維持する。将来全面移管する場合は、既存Storageへ単一Writerと私有出版証拠を一体移管する設計、初版・pending・Owner喪失・解放不明・一回消費の実保存根拠を先に閉じる必要がある。未実施の全面移管を完成とは表示しない。
+
+Checkpointの関数本体は移管前と空白以外の一致を確認した。公開100項目（65値・35型）は同じ集合で、Source抽出／注入fixtureは新Ownerの実体を使用する。Snapshotの五名称は保存正本・二投影の三型に整理し、旧二aliasのSource／試験参照は0。独立した基準展開形との六方向代入と三key集合一致、readonly／nullable／Schema／Project形の期待型エラー、省略可能なLease実体とnullを確認した。型負例の関数は実行しない。
+
+整形・警告確認、EMとCo本番／試験の型検査後、公開／資源／codec／Lease／履歴／修復と追加4項目を合わせた限定84項目が成功した。State資源・Host相関の代表一項目、実保存Readerの不存在／同版／破損と作成失敗／置換／解放不明の代表二項目、台帳／Symbol／正式QA接続一項目も成功した。Checkpointの候補・Writer代役は実CAS成功の証明ではなく、保存意味不変は本文一致・既存の候補／物理Reader試験と区別して確認する。関係ない全体試験を追加せず、実AI・Docker・過去保持物は操作していない。固定候補を独立レビューへ渡す。
+
+技術とOwner／品質の独立レビューは両担当とも必須残指摘なしで完了した。Checkpointの実体一意性とSource注入、19fieldと二投影の型同値、旧alias参照0、型試験に強制castの偽装がないこと、Root集合と三Map不変を確認した。独立担当は読取りのみで、実行結果は親担当の証跡に基づく。本段階のCheckpoint移管・型整理は限定範囲で完了し、四完成操作の全面移管・他の純粋検査循環の解消は未実施として区別する。EMの一連差分は引き続き未Commit／未Push。
+
+### 14.58 四保存操作の移管単位の具体化（実装前）
+
+対象は§14.57で残した四操作。現在Sourceと私有状態の更新点を確認した設計案であり、製品Sourceの移管・挙動検証は未実施。公開名・Request／Result・保存形式・単一CASを変更しない。Mapを分散したり可変bindingを公開する案、空の転送Wrapperを追加する案は採用しない。
+
+| 既存操作 | 意味側の責務 | 物理保存側の責務 |
+|---|---|---|
+| `completeRecovery` | exact対象の選択、Taskとの参照整合・終了条件、除去又は記録保持の結果解釈 | 私有終了Context、一回消費、同版候補確定、失効 |
+| `saveRepairRecord` | 期待版と固定更新の受付、修復候補生成、同値更新・終了判定の返却 | 初版準備、Context登録、既存Writer、初期化Effect合成と失効 |
+| `resumeRepairRecordSave` | 対象が同じ修復記録であることの値検査 | 固定File・marker・pendingの観測と再確定が実体の大半。完成操作自体をStorageへ置けば転送Wrapperを避けられる |
+| `advanceOwnedRecoveryHistory` | 対象と履歴段階の選択、確認済み結果の解釈 | 私有履歴Context、固定File／設定の結合、一回出版・読戻しと失効 |
+
+配置案は、Attemptに終了／修復更新、Historyに履歴段階操作、Stateに全体候補・参照・改訂整合、既存Storageの`publication.ts`に単一Writerと三私有Mapを一体で置く。初期化・prepare／commit／write・Lock解放後の証拠確定・`readHistoryResumeCandidate`も同じ物理所有者へ接続する。新Store・Registry・Managerは作らず、Root公開は増減させない。
+
+用途側はMapを直接操作しない。既存四種proofの閉集合について、内部の一回の完成処理がContext生成→既存初期化が必要な場合だけ準備→既存Writer→Effect合成→finally失効を所有する。これは現状各操作で繰り返す実処理の集約であり、可変recordを渡す汎用get/setではない。既存Readerの結果を使用し、移管の都合で再読取りを追加しない。
+
+四操作以外の必須同伴は次の三接続。`saveAuthenticationClosure`も同じsettlementsへ登録するため、proof発行から破棄までを同じ物理完成処理へ接続する。`writeStorageTaskSnapshotOwned`と`saveExecutionDefinition`は取得済みStorageOwnerでcommitを直接呼ぶため、同じOwnerを借用する閉じた内部出版処理へ組立てを移し、Lockの再取得・解放は追加しない。raw prepared、Map、Lock又は任意callbackを新たに公開しない。
+
+実装の成立条件は、各proofの真正性・一回消費・発行事実・失効が同じ箇所に残ること、通常取得と借用Ownerの解放責務を混同しないこと、初版／pending／元版差／Owner失効／読戻し・解放不明と非対象保全の既存反証が維持されること。着手時はこれらをSource移管箇所と限定試験へ対応付け、固定候補の独立レビューを行う。設計整理を移管完了や新候補の試験成功へ読み替えない。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+### 14.59 修復記録の保存と保存再開の命名統一
+
+人間が確定した二名称へ一対一で改名する。`saveRepairState`を`saveRepairRecord`、`resumeRepairPublication`を`resumeRepairRecordSave`とし、旧名の互換export・Wrapper・import aliasは作らない。四操作の配置変更と他二操作の命名は本段階へ混ぜない。§14.58のStorage移管は実装前のまま維持する。
+
+変更分類は公開関数名の変更と全利用側の同時追従。着手前にRoot・宣言元・通常呼出し・試験代役・Source抽出／VM注入・固定公開集合・現在設計の全参照を照合した。名前以外の引数・結果・処理・Schema・IPC・保存Path・一回消費・Lock／CASは変更しない。過去の変更記録とEvidenceは当時の名称を保全し、この節の対応へ接続する。Root集合は二名称を置換するだけで100項目を維持する。
+
+編集はN1=二宣言とRoot／通常Consumer、N2=試験の呼出し・Source選択・VM依存名・公開集合、N3=現在Architectureと本記録の順で全数対応する。既存Symbolと台帳はFile／Local Item単位であり、今回PathやIDは変わらない。限定確認は関係型検査・公開集合・EM修復Writer局所反証、Coordinatorの保存／再入場接続と試験登録の照合とする。固定候補の技術／品質の独立レビューを実施する。工程契約・準拠基準・保存方式は変えないため全体準拠監査・全体回帰は追加しない。実AI・Docker・過去保持物は操作しない。追加の人間判断は不要。
+
+
+二名称を宣言元・Root・Coordinator・Source抽出・VM依存・代役・公開集合・現在設計の10 Fileへ適用した。改名直後に旧名への逆置換と空白除外Hashで名前以外の変更がないことを確認した。旧名の現行Source参照と互換exportは0、Rootは二名称置換後も100項目。過去記録は当時の名称を保持する。
+
+限定公開／独立ロード13項目、修復Writerの局所2項目、Coordinatorの実pending再開4項目、factory／fresh出版接続5項目、登録接続1項目が成功した。最後の接続試験は4条件ごとの新品Repository準備を含む既存試験で261,471ms、実pending再開は90,266msで終了し、今回試験物を既存hookで回収した。これを全体回帰や製品処理の性能結果とは扱わない。
+
+局所試験の初回には撤去済みpendingDeliveriesを参照する既存試験不整合が露出した。製品と保存形式は変更せず、九scenarioを維持して二つの旧配送caseを現行未解決参照の追加・並べ替えの拒否へ更新した。元guardと各guard除去変異の後続0／1、元本文保全のOracleは維持し、是正後二項目が成功した。初回失敗は成功件数へ合算しない。
+
+対象整形・警告、EMとCo本番／試験の型検査、差分空白確認も成功。技術とOwner／品質の固定候補独立レビューは必須残指摘なし。独立担当は読取りで、実行根拠は親担当の記録に基づく。全体回帰・実AI・Docker・過去保持物は操作していない。§14.58の四操作移管は設計のままで、新たなWriter・Map移管を本改名へ混ぜていない。一連のEM差分は未Commit／未Push。
+## 14.60 4保存操作のOwner移管（着手前整合確認）
+
+変更分類は保存契約を維持する内部責務整理。基準は現在の作業版と14.58・14.59で確定した4操作とする。Attemptへ終了・修復候補の意味、Historyへ履歴段階の意味を移し、Storageへ単一Writer・初期化・再入場・既存3私有Mapを一体化する。認証終了、取得済みOwnerによるTask・定義保存も同じWriterへ接続し、排他の再取得・二重解放を追加しない。
+
+独立した読取り専用の着手前確認で閉包を照合した。PublicationからState CRUDへの実行時逆依存を作らず、証拠消費はcommit冒頭、初期化証拠更新はrename直前、履歴試行登録は保存と解放確認後という順序を保つ。未知の内部用途は証拠登録・Effect前に拒否する。保存Schema、Root公開数、判定、期限と診断を変更しない。
+
+限定回帰は保存・再入場・認証終了・Task・定義・履歴の変更意味から選び、固定候補で技術／試験の独立レビューを実施する。文書・台帳は配置と接続を同期する。規範・リリース変更ではないため準拠監査は実施しない。全体回帰、実AI、Docker、過去保持物の操作は対象外。現在、人間による追加判断は必要ない。
+
+### 実装と限定検証の結果
+
+| 所有者 | 今回の完成操作／実体 |
+|---|---|
+| Attempt CRUD | completeRecovery、saveRepairRecordの対象選定・候補・結果投影 |
+| History CRUD | advanceOwnedRecoveryHistoryの段階選定・結果 |
+| Storage publication | resumeRepairRecordSave、単一prepare／commit／write、初期化、3私有Map、再入場候補 |
+| 内部の一回保存接続 | publishRecoveryStateが四証拠用途の生成・必要な初期化・保存・失効を一体化。publishStateOwnedがTask／定義の取得済みOwnerを借用し、排他を再取得・解放しない |
+
+旧所在地の宣言・転送Wrapper・再exportを撤去し、Rootは100項目（65値・35型）のまま。Writerから用途CRUDへの実行時参照はない。初期化、prepareStateWrite、commitStateSnapshotOwned、writeStateSnapshot、readHistoryResumeCandidateの5本文は移管前と空白正規化後に完全一致した。旧Mapは3個のままStorageへ移り、意味側で生成していたContextの反復を内部の一回保存処理へ置き換えた。新Manager・Store・Registry・永続形式はない。
+
+| 限定確認 | 是正後の結果 |
+|---|---|
+| 値・候補・Schema・型投影 | 68項目成功 |
+| 公開・独立ロード・Checkpoint | 16項目成功 |
+| 新保存接続UT／既存scope反証 | 2項目／4項目成功 |
+| 修復の実保存・履歴段階／no-op | 29項目／1項目成功 |
+| 通常終了一回証拠／履歴pending再入場 | 1項目／2項目成功 |
+| Task pending故障／一般CRUDと保存故障 | 8項目／7項目成功 |
+| 初期化証拠・pending再入場 | 1項目成功（Hardlinkを含む限定通常権限実行） |
+| Coordinator未出版pendingの実再開 | 4項目成功、92,617ms |
+| Source境界／登録・QA接続 | 1項目／1項目成功 |
+| 静的確認 | 対象整形・警告、EM・Coordinator本番／試験型検査成功 |
+
+初回の限定試験では、旧Context登録文字列への注入、fresh子の旧readState引数、撤去済みpendingDeliveries／resultReceiptsの期待が失敗した。製品判定を変えず、注入を現Storageの同一Mapへ接続し、子に明示scopeを渡し、旧fieldは不存在を確認する形へ追従した。初期化再試験は環境のHardlink権限制限（EPERM）で停止したため、当該1試験だけ通常Windows権限で再実行して成功した。初回失敗を成功へ合算しない。全試験は自己生成物の既存cleanupを使用し、失敗時の既知Rootについても不存在を確認した。
+
+固定候補の独立技術レビューは必須指摘0。独立QA／Ownerレビューの2系統（旧物理Owner説明、移管先への境界試験接続漏れ）は、両担当に統合是正方針を再提示してから修正した。既存State側assertを保持してStorage側も確認し、該当試験・登録照合後の独立再レビューは必須残指摘0。レビュー担当は読取りのみで、実行証跡は親担当の限定実測である。全体回帰・実AI・Docker・過去保持物は操作していない。未Commit／未Pushであり、統合・Release判断ではない。
+## 14.61 照会系を通常CRUDへ限定する整理
+
+ユーザーは「通常CRUDだけ」の対象を照会系と確定した。queryQueueはモデル一覧として維持し、Decision＋Blocker、Project＋管理実行、Queue参照限定Workspaceを返す三つの特殊照会は廃止する。Rootだけを隠すのではなく、宣言・専用投影・型Mappingを撤去し、同じ特殊処理を別名Wrapperへ移さない。通常CRUDと既存の本番同版取得、認可、保存形式・Lock／CASは変更しない。
+
+基準は14.60完了後の作業版。本番利用は三入口とも0で、外部利用はCoordinatorの2試験Fileに限定される。既存の単件Decision取得・通常Plan読取りと、試験自身が観測している自己生成保存物へ検証を追従する。Decision／Blockerの保存内容・対象相関のassertは維持し、通常Queryの失効認可・未実施も検証する。削除した特殊投影の公開成立は完成条件から除くが、下位の読取り・保存保証を緩めない。
+
+変更分類は公開APIの限定退役と責務整理。台帳とArchitecture・公開契約試験を同期し、選択したモデル・保存・Coordinator結合だけを回帰する。固定候補の独立レビューを実施し、準拠・Release監査は規範／Release変更でないため実施しない。全体回帰・実AI・Docker・過去保持物は対象外。業務操作の追加棚卸しは読取りのみとし、Lease・回復・終了保存の撤去をこの許可から推定しない。
+
+### 今回の実施結果
+
+三特殊QueryのRoot・宣言・専用投影・型Mappingを撤去し、公開は97項目（62値・35型）となった。通常Query四用途の現在認可・取得／解放・同版versionを維持する。旧用途・未知／欠測kindは認可前に拒否する。本番Consumerは0で、Coordinatorの2試験Fileは既存readDecision・queryPlanと自己生成State確認へ追従した。保存形式・業務操作・本番readStateの同版取得は変更していない。
+
+限定検証は公開・独立ロード14項目、EM Core／判断実保存2項目、Coordinator継続／明示無効化／一般CRUD保全3項目、登録照合1項目が成功した。対象整形・警告、EMとCoordinator本番／試験の型検査も成功。初回の追加Queue正例はPlan作成前に置いたため正しいabsent結果で失敗し、Plan保存後へ試験位置だけ是正して成功した。初回失敗は成功件数へ合算しない。今回の自己生成試験物は既存終了hookで回収する。
+
+独立技術レビューは製品必須指摘0。軽微な型コメントの旧投影説明と、QA／Ownerレビューの現況97・先行100・退役前Queryの説明不整合を統合し、両担当の方針整合後に一括是正した。境界14項目・登録1項目の再確認と独立読み取り再レビュー後、必須残指摘0。Source／Suite／台帳の既存Stable IDを維持し、試験を削除して公開数だけを減らしていない。全体回帰・実AI・Docker・過去保持物の操作なし。未Commit／未Pushで、統合判断とは別である。
+
+### 業務操作・残る用途固定観測の追加棚卸し（調査のみ）
+
+| 対象 | 確認した実態 | 次に検討する整理 |
+|---|---|---|
+| completeStatePublication | State CRUDにあるが、内容は保存markerの三観測・除去・不存在確認。Coが保存終了／再入場で明示呼出し | Storage内部の保存・再入場完了へ統合可能か確認。配置変更だけで終えず、呼出し順と不明結果を維持できる場合だけ単独公開を撤去 |
+| advanceOwnedRecoveryHistory | Historyのcheckpoint／publish／confirmedという段階をCoが繰返し駆動 | 回復記録の完成操作へ段階制御を閉じられるか確認。現在Owner・保持設定・段階別Effect／解放不明を失わせない |
+| resumeResourcePublication | 上位がStorageRepositoryとbefore／candidate本文を渡し、EMがfresh本文と再比較する | Repair側と同様、確定対象からEM内で保存再入場材料を読む契約へ整理可能か確認。単純な統一Requestや任意Snapshot受付は作らない |
+| readTaskIntakeState／readOperationCompletion | 前者はQueue・Lease Intent・受付世代の用途固定複合取得、後者は履歴相関を含む終了確認 | 通常モデル取得と用途判断を分離できるか確認。同版取得を逐次読取りへ分割せず、記録不存在を終了確認へ読み替えない |
+
+一方、completeOperationとcompleteRecoveryは、元Processの真正終了観測と保存物からの明示再入場で証拠の種類が異なる。初期化二入口も信頼Rootと一般内容認可の境界が異なる。Leaseの各操作は永続Intentと上位の実Lockを結び、selectQueueEntryはCoから渡された選択差分だけを同版CASへ載せている。これらを名前や件数だけで重複・責務違反とは判断しない。追加表は削除許可や同等保証成立の主張ではなく、次の具体設計と限定検証の対象候補である。
+## 14.62 用途固定観測の既存Readerへの統合
+
+変更分類は公開入口統合と利用側追従。14.61完了後の作業版を基準に、readTaskIntakeStateとreadOperationCompletionの独立宣言を廃止し、既存readStateへ接続する。前者はQueue集合・Lease Intent・受付世代を通常readSnapshotの同版一回から返すqueue範囲、後者は回復IDと上位相関IDを結合したcompletion観測とする。既存intake範囲の出版確認付きReaderとは統合せず、両者の条件差を維持する。新規Reader・Map・永続状態・型の再定義・外部Helper複製は追加しない。
+
+着手前に親担当と独立した読取り担当が、利用側・型・試験・保存の意味を照合した。完了観測は単なる操作不存在と区別し、保存結果のstatus・排他解放・履歴相関の共同成立だけを返す。旧入口からの転送Wrapperを残さず、Coの実呼出し・Source注入・試験を既存入口へ接続する。型・限定実保存・不正入力と同版取得・相関改変の反証、独立レビュー、台帳と設計追従を実施する。規範・Release変更でないため準拠監査は実施しない。
+
+保存三操作は、phase／modeへの単なる付替えで隠さない。現在のOwner区間、履歴確定前後の判断、marker限定回収の独立性、上位が保持するbefore／candidateのexact結合を自動処置へ変えてはならない。特に資源再保存は改訂番号だけでは元candidateとの一致を代替できないため、既存証拠を保持する完成操作の設計を別に閉じる。今回この意味を変更せず、全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+### 先行二照会の結果
+
+readTaskIntakeState／readOperationCompletionの独立宣言・Root・旧Wrapperを撤去し、利用側・Source代役・公開期待集合を追従した。Rootは95項目（60値・35型）。受付集合はqueue範囲で元の通常readSnapshot一回を維持し、既存intake範囲の出版確認モードと混同しない。終了観測は既存の回復Readerで元のcompletedOperation引数と完全key／値検査を使い、相関・読取り成功・解放の共同成立をoperationCompletionConfirmedへ投影する。Readerの元診断・保存値・回復情報は消さない。
+
+限定検証は境界／Repository受付14項目、局所Reader2項目、実終端保存1項目、Co単発受付3項目、台帳接続1項目の計21項目が成功。Co受付3項目は219,595msで正常終了し、追加した停止検討時点ですでに完了していたため取消・中断扱いにはしない。受付前後停止1項目の単独再実行も成功したが21項目へ重複加算しない。各自己生成Rootの終了hookが実行され、試験の成功には既存の不存在assertを含む。
+
+初回の局所試験では、旧Source fixtureがsnapshotStateRecordを注入していなかったため失敗した。実保存の追加正例も、別IdentityのfirstHistoryへ戻した後に照会して不成立となった。製品を緩めず、局所依存を現行Sourceへ追従し、実Driverが確定した同じ履歴直後へ検証位置を移して正相関true・別相関／履歴欠測／重複falseとState不変を確認した。初回失敗を成功へ合算しない。
+
+EMとCo本番／試験の型検査、対象整形・警告、旧宣言・Consumer残存走査が成功した。Co大規模保存親Suiteは全件実行せず、変更呼出しは型検査、終了観測の実保存根拠は今回の限定EM試験で確認した。SourceとQA／Ownerの独立レビューは必須指摘0、文書の現在95・先行97・同版読取り条件を追従した独立読み取り再確認も必須残指摘0。全体回帰・実AI・Docker・過去保持物の操作なし。未Commit／未Push。
+
+### 保存三操作の未完範囲
+
+completeStatePublication、advanceOwnedRecoveryHistory、resumeResourcePublicationは今回変更していない。marker回収はpending保存やOperation除去と異なる時点で呼ばれ、履歴確定もHost／Lease条件と保持判断の間にある。自動で連続処置することは既存の判断順を変える。phase／modeへ移すだけでは内部段階の公開が残り、今回の目的を満たさない。資源再保存でも上位が保持する元before／candidateとのexact結合を、現行改訂番号だけへ弱めることはできない。保存の完成単位と結果契約を先に確定し、Owner／時点／診断を保持する利用側再編が残る。5入口の全面統合済みとは表示しない。
+## 14.63 資源Checkpointの保存再入場を完成保存入口へ統合
+
+基準は14.62完了後の作業版。resumeResourcePublicationの独立公開と宣言を廃止し、既存saveRecoveryCheckpointの資源出版再入場へ本体を統合する。上位はEM Readerが返したbefore／candidateの一組をそのまま要求へ渡し、各本文を再構築しない。元pairとのexact比較を改訂番号・名前・新Hashへ弱めない。Requestとpairは完全key捕捉し、rawBeforeはnullだけを受ける。
+
+旧処理の用途分類、fresh Reader、元pair全文比較、Owner再確認、同じWriterへの接続をcase本体へ移し、旧宣言・転送Wrapperは残さない。正常入力のOwner確認位置と回数、File差替え・不明結果の保持を維持する。保存形式、Rootの他操作、DI／Executor／ADは変更しない。着手前に親担当と独立確認者で案を照合し、局所Source反証と限定実保存、型・台帳・文書、固定候補の独立レビューを実施する。全体回帰・実AI・Docker・過去保持物は対象外。
+
+### 資源再保存の実施結果
+
+旧resumeResourcePublicationの独立宣言・Root公開・呼出しを撤去し、同じ保存受付caseへ実体統合した。Rootは94項目（59値・35型）。上位はEM Readerの二本文の一組をそのまま渡し、候補再構築・新Hash・改訂番号による代替・新Mapを導入していない。通常Buffer入力から新用途を除外し、専用null入力、完全key捕捉、用途混在のOwner前拒否を型と実行時で一致させた。
+
+限定検証は局所2項目、公開／Repository受付14項目、Co現在状態とpending再入場の実保存2項目、台帳照合1項目の計19項目が成功した。Coの親試験は165,357msで終了し、元Owner三位置の拒否／例外、読取り前後のFile差替え、元byteとmarker保全、保存後fresh本文比較を新入口で確認した。親内の他の保存観点も同じ新Request捕捉を通るため、全Package回帰ではなく当該一親の範囲に限定した。自己生成Rootは既存hookで回収し、実AI・Docker・過去保持物は操作していない。
+
+EMとCo本番／試験の型検査、対象整形・警告、旧名の全TS走査と空白差分確認も成功。固定候補の独立技術レビューは必須0。QA／Ownerレビューで指摘された回復取得一覧のcompletion欠測と先行段階説明の不整合を、両担当へ統合方針再提示後に一括是正した。Root／登録の限定再確認と読み取り再レビューで必須残指摘0。過去の検証結果を現在の全面成立へ流用せず、marker後処理と履歴段階制御は未統合として次節の設計案と区別する。未Commit／未Push。
+
+## 14.64 保存marker後処理を保存の完成単位へ統合
+
+状態: 設計案のみ。未実装・未検証。現在の公開契約を変更したものではない。
+
+基準は14.63実装後の作業版。completeStatePublicationをRootから撤去し、Storage私有の処置へ移す。保存再開はpendingの有無・保存結果とmarker処置を共同で完了し、修復の終了保存も同じ後処理を内部で実施する。mode／phaseだけを付け替えた単独marker入口は作らない。
+
+着手前に独立確認者がSourceと案を照合した。id未指定の保存再開はpendingを出版せず、整合したcurrentがありpending・未知Fileがない場合だけ既存のmarker確認へ進む。no_pending＋marker成功をsnapshotConfirmedへ読み替えず、元保存結果とmarkerCleanupを別に返す。元WriterとmarkerのEffect／理由は個別に保持し、総Effectも返す。処置前と返却前に現在Ownerを確認する。
+
+修復終了の既存Readerがcompleted・排他解放・repairCompletionAbsentを明示した場合は保存を捏造せずmarker後処理だけを完了する。その他は元の保存成功とOwner確認後だけ処置する。Coの最終fresh Readerと保持期限・exact対象の確認は残す。早期marker処置は整合済み保存物の短命File除去に限定し、本文・履歴・技術資源を変更しない。既存の実体照合と部分成功／不明の診断を維持し、限定実保存・独立レビューで確認する。全体回帰・実AI・Docker・過去保持物は対象外。
+
+### 共通Lockの配置・命名統一（着手計画）
+
+変更分類は共有Filesystem契約の非自明な内部整理。Repository内の共通Lockを .crdd/lock/<責務パッケージ名>.<保護対象>.lock に揃える。Scope識別子が必要な資源は保護対象名の後へ付ける。Repository非依存の明示Store、Repository横断Home、Host世代、Desktopは現在の共有所在を維持し、名前だけ同じ規則へ揃える。同じ資源の複数Consumerは同一名を使用する。
+
+保持する保証はwx一回取得、元Owner・Generation・File Identityの照合、一回解放、残存時Fail Closed、既存の長期Lease回復条件。新しいRegistry、移行Reader、二重取得、自動Recoveryは追加しない。state.lock markerの撤去は別段階とし、この配置変更へ混ぜない。旧名と新名は相互排他しないため、有効化は対象資源の全利用者停止下で一括切替する。過去保持物は移動・削除しない。
+
+着手前確認ではProvider HomeのExecutor/Coordinator/Script共有、長期LeaseのEM不存在観測とCoordinator回復、EI/AMのRepository非依存性を照合した。発火例は同じ対象の二重取得、非発火例は異なる対象、境界例は共有Homeの別Repository利用、情報不足例はLock親のLink・置換・観測不能とし、後者では取得しない。DI変更はDesktop固定Lock名の統一に限る。
+
+確認は変更したOwnerの型・限定契約試験と独立技術/影響レビュー、直接文書整合を行う。全体回帰、実AI、Docker、過去保持物の操作、リリース/準拠監査は行わない。後二者は今回採用・リリース判定を扱わないため非該当。実装前基準は現在の共通Lock契約試験、各Ownerの取得/解放/回復試験と本変更前のSourceであり、別の保存形式は作らない。
+
+### 共通Lock配置・命名統一の実装と限定確認
+
+Repository内はEM state、構成モデルAI選定、文書モデルTopic/Meeting、Coordinator長期Leaseを.crdd/lockへ接続した。責務Ownerと保護対象をbasenameで表し、Identity本文・Owner・Generation・取得/解放方式は維持。Repository非依存EI/AM Storeと共有Home/Host/Desktopは既存の明示所在を維持してbasenameを統一した。Provider HomeはExecutor/Coordinator/Scriptと在庫判定が同名を使用する。
+
+長期Leaseの取得/解放/回復/不存在確認、EM側の不存在確認を一括変更した。他対象Lockは通常Lease単体の不存在に影響させず、Workbench試験Root全体削除Gateでは共有folder全項目0を要求する。孤立したCoordinator ensureDirectoryと専用Headerを撤去した。state.lock markerは別段階の未対応。旧残存の自動変換・移動・削除と旧新二重取得は追加していない。
+
+独立技術レビューの機能/安全必須指摘0。独立品質/利用側レビューでは、故障注入の旧親条件、共有folder不存在の旧期待、fixture全体削除Gateの絞込み、設計表の旧所在を是正し、再レビュー必須残指摘0。Workbench VMの既存旧Helper名と旧ACK既定fieldは現在Sourceへ追従し、旧field負例は維持した。
+
+限定確認はEM実Lock6、Snapshot実Process1、EM公開/Repository14、共通Lock15、Co共有Scope4、DI Desktop設定4+模擬Command10、EI Store22、構成モデル11、文書モデル19、Executor Home2、AM Lock8、MCP保存故障5、Workbench準備/削除Gate2、長期Lease7、台帳関係1の計131項目が成功。リンク/ハードリンク作成とlocalhost接続が環境権限で拒否されたケースは、今回生成Root/localhost用途だけを通常権限で再実行して成功。検査は緩めていない。Co故障注入の追加2項目も成功し、今回の限定確認は計133項目となった。初回の新版Owner喪失試験では、旧tmp親まで削除する試験清掃が新配置の.crddへ当たってENOTEMPTYとなったため、試験所有のlock Directoryだけを削除するよう1行是正した。同一試験の再実行は成功し、製品の停止・回復条件は変更していない。
+
+型検査はEM/構成/文書/EI/AM/DI/Executor/Coordinator製品・試験/Workbench/MCPで成功。限定Biomeと差分空白確認も成功（Template化の情報提案は未適用）。全体回帰、実AI、Docker、過去保持物操作は実施せず、実利用者の停止/切替やリリース完了とは扱わない。Commit/Push未実施。
+
+### 保存marker撤去の着手前整合確認
+
+共通Lock配置統一後の現在Sourceを基準に、marker専用のstate.lockとcompleteStatePublicationを撤去する。変更分類はFilesystem保存/再入場契約の非自明な簡素化。現在値・pending・履歴のSchema/元版/回復ID/本文/実体/Root/Owner/排他解放を維持する。初回出版はpending一件、資源再保存は元pair全文、Host清掃は既存終端条件と候補一致、履歴は同一行/保持/保存順、終了は履歴相関とOperation不存在を正本とする。保存後のfresh観測は前回呼出し成功の推定に使わない。
+
+代表例は正常置換、pending書込み失敗、置換後の結果未搬送、履歴出版後のState未保存。境界例は同版pending・別候補・初期State不在。未知/旧state.lock/観測不能は保全停止とする。marker作成/差戻し/清掃Effectは偽装して残さず、実pending/置換のEffectを返す。旧markerの互換Readerや自動清掃は作らない。専用清掃入口/診断項目を廃止し、Co修復completionのfresh照会は維持、通常再入場の読取りは既存history種別へ統合する。
+
+着手前独立確認は実装/利用側を読み取り専用で照合し、追加判断不要。marker削除そのものの旧試験義務は退役し、current/pending/historyの不正拒否・保全・fresh観測・借用Owner/解放保証を既存QAへ対応付ける。限定契約/実Filesystem試験、型、文書/台帳照合と独立技術/品質レビューを行う。全体回帰/実AI/Docker/過去保持物操作/リリース/準拠監査は対象外。既存の未Commit変更と保持物は保全する。
+
+### 保存marker撤去の実装と限定確認
+
+保存専用のdomain-model/state.lock、作成・差戻し・清掃処理、completeStatePublicationとCoordinatorの専用診断fieldを撤去した。共通Lockの排他、current/pending/historyの同一性・元版・対象・履歴・Owner確認は維持する。初期保存はpending一件を用い、実際のEffectだけを結果へ反映する。旧marker残存は未知Fileとして停止し、互換読取りや自動清掃をしない。§14.64の未実装案はこの方針で置き換える。Root公開は93項目（58値・35型）。
+
+Coordinatorの完了後fresh照会は維持し、通常修復入口は既存の履歴付きReaderへ接続した。rename後・pendingなしのcurrentをfresh Readerが読めても、前回Writerの成功・結果搬送・耐久確定を推定しない。実Process境界試験で、completeRecoveryの一般Reader拒否が既存execution_completion Readerへの到達を妨げていたことを検出した。Lock解放とOwner確認後、coordinator_state_reentry_requiredだけを既存用途限定Readerへ渡す最小是正を行い、関連Task・未知File・旧marker・別候補・history.pending・他失敗理由の拒否は維持した。
+
+限定確認は公開境界、保存Reader/Writer、pending故障7種、初期保存、実体置換、借用Owner、修復結果・修復Owner、完了保存の別Process再入場、台帳接続を対象として成功した。既存marker清掃試験はcurrent/pending/historyの拒否・保全とOwner確認へ置き換え、故障注入が実際に発火したことも確認した。最後の再確認はpending故障と限定配送9項目、公開境界10項目、実修復履歴保存29項目が成功。後者の初回1失敗は、既存.crddへのmkdir/EEXIST確認を禁止していた試験Hookだけをexact二Pathへ追従し、State変更禁止・counter・本文/実体確認を維持して是正した。EMとCoordinator製品・試験の型検査、対象8Sourceの整形、差分空白確認は成功。Lintはerror/warningなし（既存blockとTemplate化の情報提案のみ）。独立技術レビューと品質/利用側再レビューの必須残指摘は0。文書内のHost markerは保存markerとは別と明示し、Hostの保証は変更していない。全体回帰や実境界E2EのPassとは表示しない。
+
+途中のcompletion_pending試験失敗で今回生成したC:/project/CRDD/.crdd/tests/current-host-transition-3424-xbkowPだけが残存した。同ケースの是正後再実行は成功した。今回Rootの親・実体・リンク不存在を確認して同Rootだけを回収し、終了後不存在を確認済み。過去保持物は操作していない。全体回帰・実AI・Docker・実利用者の切替・Commit/Pushは未実施。
+
+### 履歴完成保存の着手前整合確認
+
+現在の作業版を基準に、一段ずつ進めるadvanceOwnedRecoveryHistoryをsaveRecoveryHistoryへ置き換える。変更分類は保存調停の責務整理であり、履歴固定・保存・最終fresh確認の既存最大二保存をEM History内で完結させる。Coordinatorは対象・Host・保持・終了判断と前後の業務事実確認を所有し、checkpoint/publish/confirmedの順序を駆動しない。Root公開数は増やさず、旧入口・互換Wrapper・新State/Map/Managerは追加しない。
+
+代表例は初回の二段保存、一段保存後からの再入場、確定済みno-op。反証は各保存前後の故障、最終Reader不明、段階不変、別Identity、Owner失効、Lock解放不明、保持設定変更とする。各段のfresh Reader、元対象Identity、単一Writerの一回Contextと保持設定再検証を維持する。既知Effectは累積し、Writer内throwで発行有無を観測できない場合だけ不明とする。中間段階の実保存試験は失敗注入で作り、旧一段公開を試験のために存続させない。
+
+保存Schema・既存Path・履歴保持判断・Operation退役条件・Host/Docker処置は変更しない。既存の履歴実保存/回復試験と公開契約を新入口へ対応付け、限定回帰・型・利用側/文書照合と独立レビューを実施する。正本・利用側をまたぐため読み取り専用の技術整合確認と試験影響棚卸しを用いる。全体回帰・実AI・Docker・過去保持物操作、リリース/準拠監査は対象外であり、今回の内部責務整理からリリース可否は判断しない。
+
+### 履歴完成保存の実装と限定確認
+
+History CRUDのsaveRecoveryHistoryが、既存Reader/単一Writerによる最大二保存と最終fresh確認を所有する。段階進行と同じOperation Identityを確認し、失敗後の同呼出し再試行はしない。旧一段入口とCoordinatorの二箇所の段階ループは撤去した。Coordinatorは初回の技術結果・保持期限・終端事実を保持し、完成保存の成否と成功後のfresh観測だけを業務判断へ使う。追加Result投影・Root型・Wrapper・Mapは増やさず、Root93項目（58値・35型）を維持する。
+
+累積Effectは既知trueを失わず、Writer呼出し中の例外だけ未確認nullとする。Reader/Writer呼出し前はLock解放未確認とし、応答の確認値だけへ更新する。独立技術レビューで外側のDocker履歴接続にも同じ例外時過大表示が見つかり、cleanupUnknown・失敗sticky・同Owner再発行0まで一括是正した。品質レビューのcheckpoint準備追従漏れは、保存済みhistoryを観測したOwner失効による中間停止へ直し、blocked・未confirmed・fresh publish段階を確認した。両独立再レビューは必須残指摘0。
+
+限定確認はEM公開/依存境界10項目、保持/完成保存の有限契約7項目、EM実履歴保存・故障・再入場29項目、Co履歴接続2項目、段階後fresh故障12項目、実Owner五切断点6項目、通常Task現在値/pending再入場2項目、保持済み再入場1親試験（5条件）、保存失敗1親試験（20条件）が成功した。故障注入は公開呼出し回数から保存数を推測せず、実Lock取得・保存置換・解放境界で行う。内部試験補助への新たな外部Importは公開境界試験が拒否したため撤去し、既存公開APIと実Filesystem故障へ接続した。EM/Co製品・試験の型、対象整形、差分空白確認も成功。Lintはerror/warningなしで情報提案だけを残す。
+
+保存失敗20条件の親試験は1657秒、保持済み再入場5条件は620秒を要した。両者には既存のケース別Git Root準備の反復が残る。製品の保存再試行とは区別し、Co試験Ownerによる不変準備共有・可変状態独立の改善候補とする。次の当該試験整理時に再評価し、今回の検証内容や期限は減らしていない。
+
+途中の試験準備失敗に対応する今回生成Root C:/project/CRDD/.crdd/tmp/crdd-acceptance-st-Zn3lwkは、固定親・非link実体、合成README/Git利用者・Remote不在、保存物不在・空Lock領域を確認して回収し、終了後不存在を確認した。過去保持物は操作していない。全体回帰・実AI・Docker・リリース判定・Commit/Pushは未実施。
+
+### コミット前の全変更最終照合
+
+基準bfd01b54aからの全変更について、旧入口・旧保存markerの処理、利用側・scriptsのLock所在、Owner移管、公開93項目、試験台帳と設計を読み取りで再照合した。独立技術レビューはコード上の追加必須指摘0、品質/利用側レビューも追加必須指摘0。旧Lockからの切替条件だけは、[Lock設計](../../../06_Architecture/Details/lock/01_Architecture.md)を正本として具体化した。全利用者停止に加え、旧名Lockと未解決義務を旧Ownerの手順で照合・処置確認できた保護対象だけ有効化し、不明なら切替しない。新コードの旧Lock自動検出、旧新並走時の相互排他や旧Crash残存への自動Fail Closed継承は主張しない。保持物の処置と実利用切替は実施していない。
+
+追加の限定再確認は公開/依存境界・保持/履歴完成保存17項目、Checkpoint/履歴純粋操作/保存投影/一回出版11項目が成功。EMとCoordinator製品/試験の型検査、差分空白確認、台帳418参照先の実在確認も成功した。直前までの実保存・Process境界・故障試験の成功結果は上記記録を使用し、長時間試験を機械的に反復せず、全体回帰・実AI・Dockerは起動していない。本節までの確認済み変更を同じ作業ブランチのCommit/Push対象とし、リリース/統合判断や実利用切替の完了とは区別する。

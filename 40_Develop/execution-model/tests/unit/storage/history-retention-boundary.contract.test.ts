@@ -31,91 +31,265 @@ type HistoryInput = {
 };
 
 /**
- * 履歴の一回保存Ownerが保持日数を元の上位確認へ渡す。
- * @responsibility 同じMapとused条件を維持したまま任意の日数引数を搬送する。
+ * 完成履歴保存が段階・対象・Owner・累積Effectを内部で確認する。
+ * @responsibility 一段公開を使わず、実Sourceの有限Reader/Writer列を反証する。
  * @trace PRL-UT-006
- * @precondition 履歴の完成操作宣言と合成Reader／Writerだけを使用する。
- * @stimulus Writer到達後にusedを確定し、同日数・途中変更・Owner失効を照合する。
- * @observation 元revalidateの引数、各判定と終了後のMap退役。
- * @oracle 同じ30日はtrue、31日へ変更又はOwner失効はfalse。used前も拒否する。
- * @cleanup N/A: 値と局所VMのみ。
- * @boundary 実Filesystem・書込み・実Lockは使用しない。
+ * @precondition 現行History宣言と非秘密の合成値だけを用いる。
+ * @stimulus 初回/再入場/no-op、段階差・別Identity、各保存/最終観測の故障。
+ * @observation Reader/Writer回数、段階、履歴確認、累積EffectとLock。
+ * @oracle 失敗後の再試行0、確認前成功0、前段Effectの喪失0。
+ * @cleanup N/A: 有限の局所VMだけ。
+ * @boundary 実保存・実Lockの成立は実Filesystem試験へ分離する。
  */
-test("履歴の一回Ownerは保持日数と元Ownerの現在性を両方確認する", () => {
+test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉じる", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/state/crud.ts", import.meta.url),
+    new URL("../../../src/history/crud.ts", import.meta.url),
     "utf8",
   );
-  for (const name of ["advanceOwnedRecoveryHistory"]) {
-    const settlements = new WeakMap<object, { used: boolean }>();
-    let currentDays = 30;
-    let ownerLive = true;
-    let writerCalls = 0;
-    let key: object | null = null;
-    const received: (number | undefined)[] = [];
-    const repository = {
-      historyRetentionDays: 30,
-      revalidate(expected?: number) {
-        received.push(expected);
-        return expected === undefined || expected === currentDays;
-      },
-    };
-    const publication = {
-      needsWrite: true,
-      operationKind: "runtime_repair",
-      before: Buffer.from("before"),
-      candidate: Buffer.from("candidate"),
-      stage: "publish",
-      historyFile: null,
-      pendingHistoryFile: null,
-      retentionDays: 30,
-    };
+  for (const mode of [
+    "normal",
+    "resume",
+    "confirmed",
+    "first_failure",
+    "second_failure",
+    "first_throw",
+    "second_throw",
+    "reader_failure",
+    "reader_release",
+    "reader_throw",
+    "changed_identity",
+    "unchanged_stage",
+    "owner_lost",
+    "wrong_kind",
+  ] as const) {
+    let reads = 0,
+      writes = 0,
+      ownerLive = true;
+    let stage: "checkpoint" | "publish" | "confirmed" =
+      mode === "resume"
+        ? "publish"
+        : mode === "confirmed"
+          ? "confirmed"
+          : "checkpoint";
     const operation = compileFunction(
-      `${sourceDeclaration(source, name)}; return ${name};`,
-      ["Buffer", "settlements", "readStateSnapshot", "writeStateSnapshot"],
+      stripTypeScriptTypes(sourceDeclaration(source, "saveRecoveryHistory")) +
+        "; return saveRecoveryHistory;",
+      [
+        "Buffer",
+        "readStateSnapshot",
+        "writeStateSnapshot",
+        "publishRecoveryState",
+      ],
     )(
       Buffer,
-      settlements,
-      () => ({
-        status: "completed",
-        lockReleased: true,
-        value: {},
-        currentHistoryPublication: publication,
-      }),
-      (
-        _before: unknown,
-        bound: { revalidate: (days?: number) => boolean } | null,
-        _candidate: unknown,
-        admission: { currentHistory?: object },
-      ) => {
-        const result = {
-          status: "blocked",
-          lockReleased: true,
-          snapshotConfirmed: false,
+      () => {
+        reads++;
+        if (mode === "reader_throw" && reads === 3)
+          throw new Error("read_unknown");
+        const failed =
+          ["reader_failure", "reader_release"].includes(mode) && reads === 3;
+        const actual =
+          mode === "unchanged_stage" && reads === 2 ? "checkpoint" : stage;
+        return {
+          status: failed ? "blocked" : "completed",
+          reason: "observed",
+          lockReleased: !(mode === "reader_release" && reads === 3),
+          value: {
+            snapshot: {
+              revision: reads,
+              operations: [
+                {
+                  kind: "runtime_repair",
+                  recoveryId: "id",
+                  identityJson:
+                    mode === "changed_identity" && reads === 2
+                      ? "other"
+                      : "identity",
+                  history: { confirmed: actual === "confirmed" },
+                },
+              ],
+            },
+            payloadSha256: "hash",
+          },
+          currentHistoryPublication: {
+            operationKind: "runtime_repair",
+            stage: actual,
+            needsWrite: actual !== "confirmed",
+            before: Buffer.from("before"),
+            candidate: Buffer.from("candidate"),
+            historyFile: null,
+            pendingHistoryFile: null,
+            retentionDays: 30,
+          },
         };
-        if (!bound) return result;
-        writerCalls++;
-        key = admission.currentHistory ?? null;
-        assert.ok(key);
-        const binding = settlements.get(key);
-        assert.ok(binding);
-        assert.equal(bound.revalidate(30), false, `${name}: used前`);
-        binding.used = true;
-        assert.equal(bound.revalidate(30), true, `${name}: 同日数`);
-        currentDays = 31;
-        assert.equal(bound.revalidate(30), false, `${name}: 設定変更`);
-        currentDays = 30;
-        ownerLive = false;
-        assert.equal(bound.revalidate(30), false, `${name}: Owner失効`);
-        return result;
+      },
+      () => ({
+        status: "blocked",
+        reason: "refused",
+        snapshotConfirmed: false,
+        lockReleased: true,
+        filesystemEffectIssued: false,
+      }),
+      (input: {
+        stage: string;
+        assertOwner: () => boolean;
+        retentionDays: number;
+      }) => {
+        writes++;
+        assert.equal(input.assertOwner(), true);
+        assert.equal(input.retentionDays, 30);
+        if (
+          (mode === "first_throw" && writes === 1) ||
+          (mode === "second_throw" && writes === 2)
+        )
+          throw new Error("write_unknown");
+        if (
+          (mode === "first_failure" && writes === 1) ||
+          (mode === "second_failure" && writes === 2)
+        )
+          return {
+            status: "blocked",
+            snapshotConfirmed: false,
+            lockReleased: true,
+            filesystemEffectIssued: false,
+          };
+        stage = input.stage === "checkpoint" ? "publish" : "confirmed";
+        if (mode === "owner_lost") ownerLive = false;
+        return {
+          status: "completed",
+          snapshotConfirmed: true,
+          lockReleased: true,
+          filesystemEffectIssued: true,
+        };
       },
     );
-    operation(repository, "recovery", () => ownerLive, "runtime_repair");
-    assert.equal(writerCalls, 1, name);
-    assert.deepEqual(received, [30, 30], name);
-    assert.ok(key);
-    assert.equal(settlements.has(key), false, name);
+    const result = operation(
+      {},
+      "id",
+      () => ownerLive,
+      mode === "wrong_kind" ? "unknown" : "runtime_repair",
+    );
+    const success = ["normal", "resume", "confirmed"].includes(mode);
+    assert.equal(result.status, success ? "completed" : "blocked", mode);
+    assert.equal(result.historyConfirmed, success, mode);
+    assert.equal(
+      writes,
+      mode === "wrong_kind" || mode === "confirmed"
+        ? 0
+        : mode === "resume" ||
+            [
+              "first_failure",
+              "first_throw",
+              "changed_identity",
+              "unchanged_stage",
+              "owner_lost",
+            ].includes(mode)
+          ? 1
+          : 2,
+      mode,
+    );
+    assert.equal(
+      result.filesystemEffectIssued,
+      mode === "first_throw"
+        ? null
+        : !["confirmed", "first_failure", "wrong_kind"].includes(mode),
+      mode,
+    );
+    assert.equal(
+      result.lockReleased,
+      ![
+        "reader_release",
+        "reader_throw",
+        "first_throw",
+        "second_throw",
+      ].includes(mode),
+      mode,
+    );
+    if (success) assert.equal(reads, writes + 1, mode);
   }
+});
+
+/**
+ * 私有出版Contextの保持設定・一回消費・失効を現行Writer接続で確認する。
+ * @responsibility Mapを上位へ公開せず、保持日数と元Ownerの現在性を結合する。
+ * @trace PRL-UT-006
+ * @precondition 現行publication宣言と有限Writerだけ。
+ * @stimulus used前後、保持設定変更、Owner失効を与える。
+ * @observation revalidate引数、Context削除、遅延callback拒否。
+ * @oracle 同日数と現在Ownerが揃う一回だけ許可する。
+ * @cleanup N/A: 局所Mapのみ。
+ * @boundary 物理保存の成立は示さない。
+ */
+test("履歴出版の一回Contextは保持日数と元Ownerの現在性を結合する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/storage/publication.ts", import.meta.url),
+    "utf8",
+  );
+  const settlements = new WeakMap<object, { used: boolean }>(),
+    initializations = new WeakMap();
+  let currentDays = 30,
+    ownerLive = true,
+    calls = 0,
+    key: object | null = null;
+  let late: ((days?: number) => boolean) | null = null;
+  const received: (number | undefined)[] = [];
+  const publish = compileFunction(
+    stripTypeScriptTypes(sourceDeclaration(source, "publishRecoveryState")) +
+      "; return publishRecoveryState;",
+    ["Object", "settlements", "initializations", "writeStateSnapshot"],
+  )(
+    Object,
+    settlements,
+    initializations,
+    (
+      _before: unknown,
+      bound: { revalidate: (days?: number) => boolean } | null,
+      _candidate: unknown,
+      admission: { currentHistory: object } | null,
+    ) => {
+      if (!bound) return { status: "blocked", filesystemEffectIssued: false };
+      calls++;
+      key = admission?.currentHistory ?? null;
+      assert.ok(key);
+      const binding = settlements.get(key);
+      assert.ok(binding);
+      late = bound.revalidate;
+      assert.equal(bound.revalidate(30), false);
+      binding.used = true;
+      assert.equal(bound.revalidate(30), true);
+      currentDays = 31;
+      assert.equal(bound.revalidate(30), false);
+      currentDays = 30;
+      ownerLive = false;
+      assert.equal(bound.revalidate(30), false);
+      return { status: "blocked", filesystemEffectIssued: false };
+    },
+  );
+  publish({
+    kind: "current_history",
+    operationKind: "runtime_repair",
+    repository: {
+      revalidate: (days?: number) => {
+        received.push(days);
+        return days === currentDays;
+      },
+    },
+    recoveryId: "id",
+    before: Buffer.from("before"),
+    candidate: Buffer.from("candidate"),
+    stage: "publish",
+    historyFile: null,
+    pendingHistoryFile: null,
+    retentionDays: 30,
+    assertOwner: () => ownerLive,
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(received, [30, 30]);
+  assert.ok(key);
+  assert.equal(settlements.has(key), false);
+  ownerLive = true;
+  assert.ok(late);
+  assert.equal((late as (days: number) => boolean)(30), false);
 });
 
 /**

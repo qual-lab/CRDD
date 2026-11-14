@@ -10,7 +10,26 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-実行モデルのRoot公開は現在100項目（65値・35型）。九つの重複入口を既存の読取り・Checkpoint・完了・履歴操作へ統合し、技術Ownerと通常表示の取得範囲は区別した。Executor／DI／ADの上位依存とCoordinatorのWorkbench／MCP結合試験は、利用側Ownerへ移管して全assert・終了／清掃条件を維持する。AMのEM型結合を撤去し、VCの横断Consumer検査はChecker試験Ownerへ分離した。保存形式・Lock／CAS・認可・期限は変更しない。対象・限定検証と独立レビューの進行状態は[分離・公開整理計画](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.33–14.54、責務は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)を参照する。全公開物の絶対最小性・全保存経路・全体回帰成功までは主張しない。全体回帰・実AI・Docker・過去保持物は操作していない。
+共通Lockの名前を責務Package・保護対象で統一し、Repository内EM/構成/文書/長期Leaseは`.crdd/lock/`へ接続した。Repository非依存StoreとRepository横断資源は明示所在を維持する。実利用の切替は全利用者停止下で、旧名Lock・未解決義務の処置を旧Owner手順で確認できた対象だけに限る。新コードによる旧Lock本体の自動検出や旧新並走の相互排他は保証しない（[切替条件の正本](06_Architecture/Details/lock/01_Architecture.md)参照）。EM保存専用markerと単独清掃入口を撤去し、履歴保存もsaveRecoveryHistory一回へ完成操作化してCoordinatorの段階ループを撤去した。Rootは93項目（58値・35型）を維持。限定回帰・型検査・独立再レビューを完了し、必須残指摘0。全体回帰・実AI・Docker・過去保持物の処置と実利用切替は対象外。[実装と確認](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)末尾を参照する。
+
+
+先行段階では資源Checkpoint再保存を既存保存受付へ実体統合し、旧単独公開を撤去した（当時Root94項目）。上位はEM Readerの比較pairをそのまま渡し、元pair全文・Owner・fresh Reader／Writerの確認を維持する。限定19項目・型検査と独立再レビューを完了し、必須残指摘0。§14.64のmarker完成単位案は未実装のまま、後続のmarker自体の撤去方針で置き換えた。[範囲と検証](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.63以降を参照する。
+
+先行段階では受付集合・終了観測の独立2入口を既存readStateへ実体統合し、Root95項目（60値・35型）となった。Queue／Lease Intent／受付世代の同版通常Readerと、終了履歴の回復ID・相関ID・解放確認を維持する。限定21項目・型検査と独立レビュー／文書再確認を完了し、必須残指摘0。保存三操作はmode付替えだけを採用せず未変更で残す。全体回帰・実AI・Docker・過去保持物は対象外で、EM差分は未Commit。[今回範囲](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.62を参照する。
+
+照会系の通常CRUD整理として、本番未接続の三特殊Queryと専用投影を撤去した。通常Queue一覧・既存本番の同版取得・保存形式と認可を維持し、この先行段階ではRoot97項目（62値・35型）となった。限定回帰20項目・型検査と独立再レビューが完了し、必須残指摘0。業務操作と残る用途固定観測は同じ計画へ追加棚卸しのみを記録し、今回の許可からLease・回復・終了保存の撤去は推定しない。EM差分は未Commit。[範囲と検証](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.61を参照する。
+
+4保存操作の意味OwnerをAttempt／Historyへ移し、単一物理Writerと3私有Map・初期化・pending再入場をStorageへ一体化した。認証終了と取得済みOwnerによるTask／定義保存も追従し、旧所在地の転送入口はない。公開100項目・保存形式・Lock／CASは維持する。限定回帰・型検査と独立レビューが完了し、必須残指摘はない。初回の旧試験参照不整合は利用側だけを追従し、Hardlink権限制限は限定1試験を通常権限で再確認した。一連のEM差分は未Commit。全体回帰・実AI・Docker・過去保持物は対象外。[今回の範囲と検証](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.60を参照する。
+
+修復記録の公開名を`saveRepairRecord`／`resumeRepairRecordSave`へ統一した。宣言・Root・利用側・試験・現在設計を一括追従し、旧名の互換入口はない。公開100項目・保存形式・処理は維持し、選択した公開／Writer／実pending再開／Coordinator接続・型検査と独立レビューが完了、必須残指摘なし。この改名段階の後、上段の四操作移管へ進んだ。EM差分は未Commit。[改名範囲と限定結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.59を参照する。
+
+EMのCheckpoint保存をAttemptへ実体移管し、Snapshotの同一alias二つを撤去して、公開済み`ExecutionStateSnapshot`を19field明示の保存正本、他二型を投影へ整理した。公開100項目・保存JSON・単一CASは不変。限定84項目、型適合と負例、代表保存Readerが成功し、独立レビューの必須残指摘なし。この先行段階では三私有Mapと四完成操作を単純移管対象から除外し、後続でWriterとの一体移管へ進んだ。全面移管や全循環解消の完了とは扱わない。EM差分は未Commit。[範囲・残置理由と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.57を参照する。
+
+EMのHistory段階は、六符号化、必須行照合・保持・出版規則とBuffer捕捉を`history/operations.ts`へ集約し、限定回帰・独立レビューを完了した。Stateは全体復号・保持参照投影・同版の候補結合を維持し、物理保存は既存Writer／CASのまま。公開100項目・保存形式は変更しない。限定80項目と通常／判断／pendingの代表保存、最終修復保存29項目が成功し、独立レビューの必須残指摘なし。EM差分は未Commit。[現在範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.56を参照する。
+
+修復49ケースの試験再編は`bfd01b54a`でCommit／Push済み。続くEM責務整理の第一段階は、資源の純粋な4操作を`attempt/operations.ts`、共有6値処理を`state/value.ts`へ移し、値検査から保存CRUDへ戻る2経路を撤去した。公開100項目・保存形式・単一CASを維持し、限定回帰・独立レビューの必須残指摘なし。EM差分は未Commit。Historyの生成・保持・出版規則は§14.56へ進み、完成操作の意味Owner・Snapshot型と、残る純粋検査間の相互依存は未完了として維持する。[限定結果と現在の範囲](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.55を参照する。
+
+先行する九入口統合の時点では、実行モデルのRoot公開は100項目（65値・35型）だった。九つの重複入口を既存の読取り・Checkpoint・完了・履歴操作へ統合し、技術Ownerと通常表示の取得範囲は区別した。Executor／DI／ADの上位依存とCoordinatorのWorkbench／MCP結合試験は、利用側Ownerへ移管して全assert・終了／清掃条件を維持する。AMのEM型結合を撤去し、VCの横断Consumer検査はChecker試験Ownerへ分離した。保存形式・Lock／CAS・認可・期限は変更しない。対象・限定検証と独立レビューの進行状態は[分離・公開整理計画](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.33–14.54、責務は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)を参照する。全公開物の絶対最小性・全保存経路・全体回帰成功までは主張しない。全体回帰・実AI・Docker・過去保持物は操作していない。
 
 後続の修復49故障ケースは、不変の技術前提と未束縛Source factoryを一回準備し、可変状態を分離した個別試験へ整理した。元の初回故障経路と93静的assert式、実Reader／Writer・Lock・CASを維持し、49ケース＋factory試験の53項目が約90秒で成功した。旧構成約53分とは別の証跡で、製品速度改善や全体回帰成功は主張しない。詳細・保証範囲は同計画§14.54を参照する。
 
@@ -38,7 +57,7 @@ Task実行準備・Workbench Owner Artifact・AD Task／Advice結果の任意容
 
 保存前モデルに残っていたObjective／Task・回復記録・候補選択等の件数、自由本文・Path容量制限も追加指示で撤去し、Co作成／再計画・Domain保存値／投影・MCP結果・VC Commitまで追従した。旧二上限定数の公開と現行Reader試験・台帳の旧bounded名も整理済み。限定回帰・型5設定・独立レビューと独立71件成功を確認した。その後の再確認で発見した回復／受領情報の後段128／256件拒否と、検証Reader／集約の切詰めも追加是正した。正常129受領の実保存・129番目不正時の未受領129保持、257回復ID全量、型3設定・独立104件成功まで確認した。受信量、同時実行／再計画制御、ID／状態形式、別設定モデルやページ取得の制約は維持し、全ガード撤去済みとはしない。実AI・Docker・過去保持物・全体回帰は未実施。[今回の範囲・検証の区別](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。
 
-判断・阻害条件・履歴を同じState Writerへ統合し、旧Host Store・Bearer・二段階Port・判断期限を撤去した。Blockerと提案・回答の1:N、再提案、中止と解消の区別、履歴確認後の問題単位退役を実装した。追加確認で見つけた進行制御と読取りも是正し、関連承認が揃うまで元回答を未適用で保持する。同じ効果・根拠の承認だけを共同適用し、正式回復の完了記録を新規実行と区別する。queryDecisionsはBlockerと提案を同じ改訂から返す。局所88件・公開境界13件・保存IT1件・公開判断IT4件・通常進行と品質受入4件、型4設定が成功し、Source／利用側・文書の独立再確認は必須残指摘0。今回の三点の修正は完了した。[追加是正の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-progress-and-read)を参照する。
+判断・阻害条件・履歴を同じState Writerへ統合し、旧Host Store・Bearer・二段階Port・判断期限を撤去した。Blockerと提案・回答の1:N、再提案、中止と解消の区別、履歴確認後の問題単位退役を実装した。追加確認で見つけた進行制御と読取りも是正し、関連承認が揃うまで元回答を未適用で保持する。同じ効果・根拠の承認だけを共同適用し、正式回復の完了記録を新規実行と区別する。当該段階のqueryDecisionsはBlockerと提案を同じ改訂から返していたが、後続の照会整理で特殊入口として退役した。局所88件・公開境界13件・保存IT1件・公開判断IT4件・通常進行と品質受入4件、型4設定が成功し、Source／利用側・文書の独立再確認は必須残指摘0。今回の三点の修正は完了した。[追加是正の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-progress-and-read)を参照する。
 
 変更適用による別Blockerの副次解決・新問題の出現などの自動再評価は、人間の指示で今回の対象から分離し、担当・影響・再検討条件付きのv0.22残件とした。旧記録の自動移行・探索・削除は行わない。横断文書Checkerの先行未合格は残り、横断品質全体の完成ではない。全体回帰・実AI・Docker・過去保持物は操作しない。3モデル分離は上段の現行作業へ進んでいる。[再評価の残件](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-progress-and-read)と[先行の一体実装](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#blocker-proposal-cardinality)を参照する。
 

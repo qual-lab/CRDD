@@ -8,8 +8,6 @@
  * @boundary メモリの局所入力。全体codec・実Ownerの証明ではない。
  */
 
-import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type {
@@ -17,11 +15,13 @@ import type {
   QueueEnqueueInput,
   WorkspaceRecord,
 } from "../../../src/index.ts";
+import type { Snapshot } from "../../../src/state/types.ts";
 import {
-  snapshotIntakeMatches,
   PROJECT_SNAPSHOT_SCHEMA,
   projectCurrentState,
+  snapshotIntakeMatches,
 } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 import {
   prepareQueueEntryCreation,
   projectQueueEntry,

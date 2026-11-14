@@ -301,7 +301,14 @@ test("公開CRUDは生成した種別だけを操作する", () => {
       assert.throws(() => lstatSync(path.dirname(file)), { code: "ENOENT" });
       assert.throws(
         () =>
-          lstatSync(path.join(path.dirname(path.dirname(file)), `.${id}.lock`)),
+          lstatSync(
+            path.join(
+              root,
+              ".crdd",
+              "lock",
+              "document-model." + kind + "." + id + ".lock",
+            ),
+          ),
         { code: "ENOENT" },
       );
     }

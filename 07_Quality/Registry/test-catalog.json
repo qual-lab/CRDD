@@ -4134,7 +4134,9 @@
         "technical_packages_not_loaded",
         "public_completion_reasons_preserved",
         "provider_effect_zero",
-        "own_root_loaded_without_isolation"
+        "own_root_loaded_without_isolation",
+        "resource_values_loaded_without_state_persistence",
+        "history_values_loaded_without_state_persistence"
       ],
       "mandatoryByDefault": true
     },
@@ -8813,9 +8815,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "domain-model:integration:runtime-marker-cleanup",
+      "id": "domain-model:integration:runtime-publication-reentry",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-marker-cleanup.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/runtime-publication-reentry.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -11147,6 +11149,91 @@
         "server_closed",
         "exact_test_root_removed",
         "test_mocks_restored"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-model:unit:history-operations",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/history/operations.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "history-publication",
+        "retention",
+        "exact-identity"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "required_history_rows_verified",
+        "history_retention_boundaries_preserved",
+        "pending_exact_match_required",
+        "input_buffer_methods_not_trusted"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-model:unit:attempt-checkpoint",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/attempt/checkpoint.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "checkpoint",
+        "owner-boundary",
+        "source-contract"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "checkpoint_dispatch_preserved",
+        "invalid_checkpoint_effect_zero",
+        "writer_unknown_not_success"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-model:unit:snapshot-types",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/state/snapshot-types.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "state-schema",
+        "projection",
+        "type-contract"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "canonical_snapshot_shape_preserved",
+        "projection_contracts_preserved",
+        "readonly_nullable_optional_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-model:unit:storage-publication",
+      "owner": "execution-model",
+      "path": "40_Develop/execution-model/tests/unit/storage/publication.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "state-publication",
+        "one-shot-evidence",
+        "owner-lifetime"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "proof_invalidated_on_all_exits",
+        "initialization_effect_preserved",
+        "unknown_purpose_effect_zero"
       ],
       "mandatoryByDefault": true
     }

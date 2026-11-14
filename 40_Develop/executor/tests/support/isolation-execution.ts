@@ -300,7 +300,7 @@ function acquireHomeLease(
     };
   const result = acquireLock({
     directory: path.dirname(homeSourcePath),
-    name: `provider-home.${bindingHash}.lock`,
+    name: `executor.provider-home.${bindingHash}.lock`,
     identity: `provider-home:${bindingHash}`,
   });
   return result;

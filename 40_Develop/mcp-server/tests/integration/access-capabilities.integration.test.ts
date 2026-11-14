@@ -569,7 +569,7 @@ test("非鍵管理MCPは保存後の失敗分類と既知出版を保持する",
           }
           if (
             stage === "release" &&
-            file === path.join(parent, "access-management.lock") &&
+            file === path.join(parent, "access-management.state.lock") &&
             (
               JSON.parse(
                 fs.readFileSync(f.current, "utf8"),

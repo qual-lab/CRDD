@@ -913,6 +913,24 @@ test("回復保存は用途別の必須証拠を混同せず実行Propertyを評
     { kind: "restart", assertOwner: owner },
     { kind: "host_cleanup", assertOwner: owner, publication: null },
     { kind: "host_cleanup", assertAbsentOwner: owner },
+    { kind: "resource_publication", assertOwner: owner },
+    { kind: "resource_publication", publication: null, assertOwner: owner },
+    {
+      kind: "terminal",
+      publication: { before: Buffer.alloc(0), candidate: Buffer.alloc(0) },
+      assertOwner: owner,
+    },
+    {
+      kind: "resource_publication",
+      publication: {
+        get before() {
+          traps++;
+          return Buffer.alloc(0);
+        },
+        candidate: Buffer.alloc(0),
+      },
+      assertOwner: owner,
+    },
   ];
   for (const request of invalid) {
     const result = Reflect.apply(saveRecoveryCheckpoint, undefined, [

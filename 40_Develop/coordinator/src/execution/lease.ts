@@ -111,8 +111,8 @@ export function activeLeaseIsObserved(activeLease: ActiveLease) {
       if (!paths) return false;
       const boundary = assertArea(
         activeLease.repositoryRoot,
-        "tmp",
-        paths.temporary,
+        "lock",
+        paths.locks,
       );
       for (const directory of [
         activeLease.repositoryRoot,
@@ -123,7 +123,7 @@ export function activeLeaseIsObserved(activeLease: ActiveLease) {
         if (fs.realpathSync.native(directory) !== directory) return false;
       }
       const physicalIdentity = observePhysicalLeaseFile(activeLease.lock);
-      assertAreaUnchanged(activeLease.repositoryRoot, "tmp", boundary);
+      assertAreaUnchanged(activeLease.repositoryRoot, "lock", boundary);
       return physicalIdentity === activeLease.snapshotPhysicalIdentity;
     }
     return !fs.existsSync(activeLease.recoveryMarker);
@@ -241,9 +241,8 @@ export function acquireCoordinatorSnapshotLease(
       recoveryId,
     );
   const lock = path.join(
-    leasePaths.temporary,
-    "orchestrator-leases",
-    `${identity}.lock`,
+    leasePaths.locks,
+    "coordinator.lease." + identity + ".lock",
   );
   let physicalIdentity: string;
   let physicalLock: Lock | null = null;
@@ -271,12 +270,12 @@ export function acquireCoordinatorSnapshotLease(
     const temporary = requireReadyRepositoryExecutionDataArea(
       ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         repositoryRoot,
-        "tmp",
+        "lock",
       ),
       "orchestrator_repository_root_invalid",
     ).directory;
-    const boundary = assertArea(repositoryRoot, "tmp", temporary);
-    const locks = ensureDirectory(temporary, "orchestrator-leases");
+    const boundary = assertArea(repositoryRoot, "lock", temporary);
+    const locks = temporary;
     assertDirectory(locks);
     const acquiredLock = acquireLock({
       directory: locks,
@@ -294,7 +293,7 @@ export function acquireCoordinatorSnapshotLease(
     physicalLock = acquiredLock.lock;
     assertDirectory(locks);
     physicalIdentity = observePhysicalLeaseFile(lock);
-    assertAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertAreaUnchanged(repositoryRoot, "lock", boundary);
   } catch {
     physicalLock?.release(true);
     return blocked(
@@ -382,14 +381,10 @@ export function acquireCoordinatorSnapshotLease(
           throw new Error("lease_release_intent_unknown");
         if (!activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
-        const boundary = assertArea(
-          repositoryRoot,
-          "tmp",
-          leasePaths.temporary,
-        );
+        const boundary = assertArea(repositoryRoot, "lock", leasePaths.locks);
         if (!physicalLock.release())
           throw new Error("lease_release_unconfirmed");
-        assertAreaUnchanged(repositoryRoot, "tmp", boundary);
+        assertAreaUnchanged(repositoryRoot, "lock", boundary);
         if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
           throw new Error("lease_release_unconfirmed");
         activeLeases.delete(lease);
@@ -505,9 +500,8 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       recoveryId,
     );
   const lock = path.join(
-    leasePaths.temporary,
-    "orchestrator-leases",
-    `${identity}.lock`,
+    leasePaths.locks,
+    "coordinator.lease." + identity + ".lock",
   );
   const first = initial.intents[0];
   if (!first) {
@@ -639,12 +633,12 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
           );
         const boundary = assertArea(
           initial.repositoryRoot,
-          "tmp",
-          leasePaths.temporary,
+          "lock",
+          leasePaths.locks,
         );
         assertDirectory(path.dirname(lock));
         physicalIdentity = observePhysicalLeaseFile(lock);
-        assertAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
+        assertAreaUnchanged(initial.repositoryRoot, "lock", boundary);
       }
     } catch {
       return blocked(
@@ -757,8 +751,8 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
               ) {
                 const boundary = assertArea(
                   initial.repositoryRoot,
-                  "tmp",
-                  leasePaths.temporary,
+                  "lock",
+                  leasePaths.locks,
                 );
                 assertDirectory(path.dirname(lock));
                 const observedIdentity = observePhysicalLeaseFile(lock);
@@ -774,7 +768,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
                     "orchestrator_lease_physical_identity_unconfirmed",
                   );
                 fs.unlinkSync(lock);
-                assertAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
+                assertAreaUnchanged(initial.repositoryRoot, "lock", boundary);
               }
               if (
                 !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
@@ -900,45 +894,6 @@ function observePhysicalLeaseFile(file: string): string {
 }
 
 /**
- * Directoryが成立する状態を確保する。
- *
- * @responsibility Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
- * @trace ARCH-000004
- * @input parent: string、name: string
- * @returns ensureDirectoryの計算結果を返す。
- * @precondition 「parent: string、name: string」がensureDirectoryの入力契約を満たす。
- * @postcondition ensureDirectoryの責務を完了した結果だけを返す。
- * @effect ensureDirectoryはFilesystemの読取りまたは書込みを実行する。
- * @failure ensureDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant ensureDirectoryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security ensureDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ensureDirectoryは共有非同期状態を持たない同期処理である。
- */
-function ensureDirectory(parent: string, name: string) {
-  if (!/^[A-Za-z0-9._-]{1,128}$/u.test(name) || name === "." || name === "..")
-    throw new Error("orchestrator_storage_identity_invalid");
-  const target = path.join(parent, name);
-  try {
-    fs.mkdirSync(target, { mode: 0o700 });
-  } catch (error) {
-    if (
-      !(
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "EEXIST"
-      )
-    )
-      throw error;
-  }
-  assertDirectory(target);
-  if (path.dirname(target) !== parent)
-    throw new Error("orchestrator_storage_boundary_invalid");
-  return target;
-}
-
-/**
  * 検証済みRootから名前付きPathだけを投影する。
  * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
  * @trace ARCH-000004
@@ -976,7 +931,10 @@ export function resolveNamedPaths(workingDirectory: string) {
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-function observeArea(repositoryRoot: string, area: "domain-model" | "tmp") {
+function observeArea(
+  repositoryRoot: string,
+  area: "domain-model" | "tmp" | "lock",
+) {
   const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("orchestrator_repository_root_invalid");
@@ -1010,7 +968,7 @@ function observeArea(repositoryRoot: string, area: "domain-model" | "tmp") {
  */
 export function assertArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp",
+  area: "domain-model" | "tmp" | "lock",
   directory: string,
 ) {
   const observation = observeArea(repositoryRoot, area);
@@ -1036,7 +994,7 @@ export function assertArea(
  */
 export function assertAreaUnchanged(
   repositoryRoot: string,
-  area: "domain-model" | "tmp",
+  area: "domain-model" | "tmp" | "lock",
   initial: Exclude<
     RepositoryExecutionDataAreaObservation,
     { status: "blocked" }
@@ -1186,7 +1144,7 @@ function leaseAcquisitionFootprintAbsent(
  * @effect Repository内の正規親と対象のmetadataを読む。
  * @failure alias、不正形状、読取り拒否は例外として呼出し側へ返す。
  * @invariant 親の不存在と観測不能を同一視しない。
- * @boundary Repository Rootからtmp内の短命な実排他へ。
+ * @boundary Repository Rootから.crdd/lock内の短命な実排他へ。
  * @security Root外の実体へ辿らない。
  * @concurrency Rootと最後の既知親を不存在判定前に再確認する。
  */
@@ -1195,22 +1153,22 @@ export function snapshotLeaseResourcesAbsent(
   identity: string,
 ): boolean {
   assertDirectory(repositoryRoot);
-  const boundary = observeArea(repositoryRoot, "tmp");
+  const boundary = observeArea(repositoryRoot, "lock");
   if (boundary.status === "not_observed") {
-    assertAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertAreaUnchanged(repositoryRoot, "lock", boundary);
     return true;
   }
-  const parent = path.join(boundary.directory, "orchestrator-leases");
+  const parent = boundary.directory;
   if (pathConfirmedAbsent(parent)) {
-    assertAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertAreaUnchanged(repositoryRoot, "lock", boundary);
     return true;
   }
   assertDirectory(parent);
   const isAbsent = leaseAcquisitionFootprintAbsent(parent, identity, [
-    path.join(parent, `${identity}.lock`),
+    path.join(parent, "coordinator.lease." + identity + ".lock"),
   ]);
   assertDirectory(repositoryRoot);
   assertDirectory(parent);
-  assertAreaUnchanged(repositoryRoot, "tmp", boundary);
+  assertAreaUnchanged(repositoryRoot, "lock", boundary);
   return isAbsent;
 }

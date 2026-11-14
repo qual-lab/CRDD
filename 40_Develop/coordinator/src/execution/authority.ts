@@ -6065,14 +6065,16 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
         .update(path.win32.join(parent, kind).toLocaleLowerCase("en-US"))
         .digest("hex");
     const knownLocks = new Set(
-      ["codex", "claude"].map((kind) => `provider-home.${binding(kind)}.lock`),
+      ["codex", "claude"].map(
+        (kind) => `executor.provider-home.${binding(kind)}.lock`,
+      ),
     );
     if (
       fs
         .readdirSync(parent)
         .some(
           (name) =>
-            name.toLowerCase().startsWith("provider-home.") &&
+            name.toLowerCase().startsWith("executor.provider-home.") &&
             !knownLocks.has(name.toLowerCase()),
         )
     )

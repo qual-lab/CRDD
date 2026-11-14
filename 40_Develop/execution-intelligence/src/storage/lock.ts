@@ -8,7 +8,7 @@ import { acquireLock } from "../../../lock/src/index.ts";
 export function acquireHistoryLock(directory: string) {
   return acquireLock({
     directory,
-    name: "history.lock",
+    name: "execution-intelligence.history.lock",
     identity: "execution-intelligence:history",
   });
 }

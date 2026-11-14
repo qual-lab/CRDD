@@ -47,20 +47,23 @@ import {
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
-  encodeStateValue,
   hashExecutionStateContent,
-  isSha256Hex,
   leaseAcquisitionRecoveryId,
   leaseIdentity,
   prepareStateHostSnapshot,
-  snapshotStateRecord,
   validateUnifiedTransition,
 } from "../../src/state/validation.ts";
+import {
+  encodeStateValue,
+  isSha256Hex,
+  snapshotStateRecord,
+} from "../../src/state/value.ts";
 import {
   acquireExecutionStateLock,
   acquireSnapshotPilotLock,
   observeExecutionStorageRepository,
 } from "../../src/storage/lock.ts";
+import * as privatePublication from "../../src/storage/publication.ts";
 import * as areaRequirement from "../../src/storage/store.ts";
 import * as areaInitialization from "../../src/storage/store.ts";
 import * as areaObservation from "../../src/storage/store.ts";
@@ -80,6 +83,259 @@ import { createRepositoryTestDirectory } from "../support/repository-test-direct
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
+
+/**
+ * 資源再保存の元pairとOwner確認を完成保存入口へ接続する。
+ * @responsibility 統合で元候補比較や保存前停止を省略しない。
+ * @trace ERB-IT-014
+ * @precondition 実Sourceの受付と有限のReader／Writer。
+ * @stimulus Owner三位置の拒否・例外、元pair差、分類拒否を与える。
+ * @observation Reader引数、Owner回数、Writer要求とEffect回数、元byte。
+ * @oracle 正例だけ同候補を保存し、不一致と失効はEffect0。
+ * @cleanup VM内の有限依存だけを破棄する。
+ * @boundary 保存接続の局所反証。実保存成立は別試験。
+ */
+test("資源再保存は元pairの一致とOwner三位置を同じ受付で保持する", () => {
+  const body = stripTypeScriptTypes(
+    sourceDeclaration(
+      fs.readFileSync(
+        new URL("../../src/attempt/crud.ts", import.meta.url),
+        "utf8",
+      ),
+      "saveRecoveryCheckpoint",
+    ),
+  ).replaceAll("export function", "function");
+  const before = Buffer.from("before"),
+    candidate = Buffer.from("candidate");
+  for (const mode of [
+    "valid",
+    "owner1",
+    "owner2",
+    "owner3",
+    "throw1",
+    "throw2",
+    "throw3",
+    "before_changed",
+    "candidate_changed",
+    "classification",
+    "reader_unknown",
+  ] as const) {
+    let owners = 0,
+      reads = 0,
+      writes = 0,
+      effects = 0;
+    const repository = {
+      repositoryBinding: "binding",
+      operationId: "operation",
+      revalidate: (days?: number) => {
+        assert.equal(days, 7);
+        return true;
+      },
+    };
+    const execute = runInNewContext(`${body}; saveRecoveryCheckpoint`, {
+      Buffer,
+      snapshotStateRecord,
+      classifyResourcePublication: (...args: unknown[]) => {
+        assert.deepEqual(args, [before, candidate, "exact", "binding"]);
+        return mode !== "classification";
+      },
+      readStateSnapshot: (...args: unknown[]) => {
+        reads++;
+        assert.deepEqual(args, [
+          repository,
+          null,
+          null,
+          null,
+          null,
+          "docker_task",
+          "docker_task",
+          false,
+          "exact",
+        ]);
+        return {
+          status: mode === "reader_unknown" ? "blocked" : "completed",
+          lockReleased: mode !== "reader_unknown",
+          resourcePublication: {
+            before: mode === "before_changed" ? Buffer.from("other") : before,
+            candidate:
+              mode === "candidate_changed" ? Buffer.from("other") : candidate,
+          },
+        };
+      },
+      writeStateSnapshot: (
+        _owner: unknown,
+        target: { revalidate: (days: number) => boolean } | null,
+        bytes: unknown,
+      ) => {
+        if (target) {
+          writes++;
+          assert.strictEqual(bytes, candidate);
+          if (target.revalidate(7)) {
+            effects++;
+            return {
+              status: "completed",
+              snapshotConfirmed: true,
+              lockReleased: true,
+              filesystemEffectIssued: true,
+            };
+          }
+        }
+        return {
+          status: "blocked",
+          snapshotConfirmed: false,
+          lockReleased: true,
+          filesystemEffectIssued: false,
+        };
+      },
+    });
+    const result = execute(repository, "exact", null, {
+      kind: "resource_publication",
+      publication: { before, candidate },
+      assertOwner: () => {
+        owners++;
+        if (mode === `throw${owners}`) throw Error("synthetic");
+        return mode !== `owner${owners}`;
+      },
+    });
+    assert.equal(effects, mode === "valid" ? 1 : 0, mode);
+    assert.equal(result.snapshotConfirmed, mode === "valid", mode);
+    assert.equal(
+      reads,
+      ["owner1", "throw1", "classification"].includes(mode) ? 0 : 1,
+      mode,
+    );
+    assert.equal(
+      writes,
+      ["valid", "owner3", "throw3"].includes(mode) ? 1 : 0,
+      mode,
+    );
+    assert.equal(
+      owners,
+      mode === "valid" || mode.endsWith("3") ? 3 : mode.endsWith("2") ? 2 : 1,
+      mode,
+    );
+    assert.equal(before.toString(), "before");
+    assert.equal(candidate.toString(), "candidate");
+  }
+});
+
+/**
+ * 終了観測の公開単独入口を同じ回復Readerへ結合する。
+ * @responsibility 相関IDと読取り・排他結果の共同成立を保つ。
+ * @trace PRL-IT-005
+ * @precondition 実Sourceの受付本文と有限Reader結果。
+ * @stimulus 相関入力不正、観測失敗、解放不明、相関不成立を与える。
+ * @observation 元引数、Root観測回数、最終field、元診断の同一性。
+ * @oracle 正例だけ終了確認true。不正入力はRoot観測0、他の診断は保持する。
+ * @cleanup メモリ内の依存を破棄する。
+ * @boundary Readerの局所接続。実履歴の検査は実保存試験で確認する。
+ */
+test("終了観測は同じReaderで相関と排他終了を共同確認する", () => {
+  const body = stripTypeScriptTypes(
+    sourceDeclaration(
+      fs.readFileSync(
+        new URL("../../src/state/crud.ts", import.meta.url),
+        "utf8",
+      ),
+      "readRecoveryState",
+    ),
+  ).replace("export function", "function");
+  const repository = {};
+  let roots = 0,
+    reads = 0;
+  let reply = {
+    status: "completed",
+    reason: "same",
+    lockReleased: true,
+    operationCompletionConfirmed: true,
+    value: { diagnostic: "preserved" },
+  };
+  const execute = new Function(
+    "snapshotStateRecord",
+    "readStateSnapshot",
+    "observeExecutionRecoveryRepository",
+    "parseDockerTaskRecoveryId",
+    `${body}; return readRecoveryState;`,
+  )(
+    snapshotStateRecord,
+    (actual: unknown, ...args: unknown[]) => {
+      if (actual === null)
+        return {
+          status: "blocked",
+          reason: "invalid",
+          lockReleased: true,
+          operationCompletionConfirmed: false,
+          value: null,
+        };
+      assert.strictEqual(actual, repository);
+      reads++;
+      assert.deepEqual(args, [
+        null,
+        null,
+        null,
+        null,
+        "docker_task",
+        "docker_task",
+        false,
+        null,
+        { recoveryId: "exact", correlationId: "operation-a" },
+      ]);
+      return reply;
+    },
+    () => {
+      roots++;
+      return repository;
+    },
+    (id: unknown) => id === "exact",
+  );
+  const request = {
+    kind: "completion",
+    recoveryId: "exact",
+    correlationId: "operation-a",
+  };
+  for (const [status, released, confirmed] of [
+    ["completed", true, true],
+    ["completed", false, true],
+    ["completed", true, false],
+    ["blocked", true, false],
+  ] as const) {
+    reply = {
+      ...reply,
+      status,
+      lockReleased: released,
+      operationCompletionConfirmed: confirmed,
+    };
+    const result = execute({}, request);
+    assert.equal(
+      result.operationCompletionConfirmed,
+      status === "completed" && released && confirmed,
+    );
+    assert.equal(result.reason, reply.reason);
+    assert.strictEqual(result.value, reply.value);
+  }
+  assert.equal(roots, 4);
+  assert.equal(reads, 4);
+  let getters = 0;
+  for (const invalid of [
+    { ...request, recoveryId: "other" },
+    { ...request, correlationId: "" },
+    { ...request, extra: true },
+    { kind: "completion", recoveryId: "exact" },
+    { kind: "current", recoveryId: "exact", correlationId: "operation-a" },
+    {
+      kind: "completion",
+      recoveryId: "exact",
+      get correlationId() {
+        getters++;
+        return "operation-a";
+      },
+    },
+  ])
+    assert.equal(execute({}, invalid).operationCompletionConfirmed, false);
+  assert.equal(roots, 4);
+  assert.equal(reads, 4);
+  assert.equal(getters, 0);
+});
 
 /**
  * State複合取得の固定範囲と単一読取りを確認する。
@@ -126,6 +382,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     "readSnapshot",
     "blocked",
     "completed",
+    "snapshotStateRecord",
     `${source}; return readState;`,
   )(
     (actualRoot: unknown, binding: string, mode?: unknown) => {
@@ -141,8 +398,10 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
       reason,
       value,
     }),
+    snapshotStateRecord,
   );
   for (const [scope, keys] of [
+    ["queue", ["queueEntries", "leaseIntents", "intakeEpoch"]],
     ["intake", ["intakeEpoch"]],
     [
       "execution",
@@ -240,11 +499,8 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   assert.deepEqual(execution.value.queueEntries, workspace.value.queueEntries);
   assert.equal(workspace.value.snapshotRevision, 1);
   const file = path.join(root, ".crdd", "domain-model", "state.json");
-  const marker = path.join(root, ".crdd", "domain-model", "state.lock");
-  fs.writeFileSync(
-    marker,
-    `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: "binding-a" })}\n`,
-  );
+  const marker = path.join(root, ".crdd", "domain-model", "state.pending.json");
+  fs.writeFileSync(marker, fs.readFileSync(file));
   try {
     assert.deepEqual(
       domain.readState(verified.capability, "binding-a", "intake").value,
@@ -604,6 +860,14 @@ test("保存観測はControllerに依存せず有限Repository観測へ接続す
   );
   assert.doesNotMatch(runtime, /from\s+["'][^"']*controller\.ts["']/);
   assert.match(runtime, /from\s+["'][^"']*storage\/lock\.ts["']/);
+  const publication = stripTypeScriptTypes(
+    fs.readFileSync(
+      new URL("../../src/storage/publication.ts", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.doesNotMatch(publication, /from\s+["'][^"']*controller\.ts["']/);
+  assert.match(publication, /from\s+["']\.\/lock\.ts["']/);
 });
 
 const storeSource = fs.readFileSync(
@@ -1520,7 +1784,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "blocked",
   );
   assert.equal(
-    privateStateCrud.prepareOwnedStateInitialization(management, firstBytes)
+    privatePublication.prepareOwnedStateInitialization(management, firstBytes)
       .status,
     "prepared",
   );
@@ -1529,16 +1793,16 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "state_root",
   );
   assert.equal(
-    privateStateCrud.prepareOwnedStateInitialization(management, firstBytes)
+    privatePublication.prepareOwnedStateInitialization(management, firstBytes)
       .status,
     "blocked",
   );
   assert.equal(
-    privateStateCrud.writeOwnedStateSnapshot({}, firstBytes)
+    privatePublication.writeOwnedStateSnapshot({}, firstBytes)
       .filesystemEffectIssued,
     false,
   );
-  const result = privateStateCrud.writeOwnedStateSnapshot(
+  const result = privatePublication.writeOwnedStateSnapshot(
     management,
     firstBytes,
   );
@@ -1576,7 +1840,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
      const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
      const domain = await import(${JSON.stringify(new URL("../../src/index.ts", import.meta.url).href)});
      const root = getRepository(process.argv[1]);
-     const result = domain.readState(root.capability);
+     const result = domain.readState(root.capability, { scope: "recovery" });
      process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
      })().catch(error => { console.error(error); process.exitCode = 1; });`,
         root,
@@ -1671,12 +1935,12 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "blocked",
   );
   assert.equal(
-    privateStateCrud.writeOwnedStateSnapshot(management, firstBytes)
+    privatePublication.writeOwnedStateSnapshot(management, firstBytes)
       .filesystemEffectIssued,
     false,
   );
   assert.equal(
-    privateStateCrud.prepareOwnedStateInitialization(management, firstBytes)
+    privatePublication.prepareOwnedStateInitialization(management, firstBytes)
       .status,
     "blocked",
   );
@@ -1697,8 +1961,11 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   let isReplaced = false;
   fs.fsyncSync = (fd) => {
     originalFsync(fd);
-    // wx取得自身のfsyncではなく、保存marker作成後の出版区間に注入する。
-    if (!isReplaced && fs.existsSync(path.join(area.directory, "state.lock"))) {
+    // wx取得自身のfsyncではなく、pending作成後の出版区間に注入する。
+    if (
+      !isReplaced &&
+      fs.existsSync(path.join(area.directory, "state.pending.json"))
+    ) {
       isReplaced = true;
       const state = path.join(area.directory, "state.json");
       fs.renameSync(state, path.join(root, "replaced-state"));
@@ -1706,7 +1973,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     }
   };
   try {
-    const replacement = privateStateCrud.writeOwnedStateSnapshot(
+    const replacement = privatePublication.writeOwnedStateSnapshot(
       management,
       secondBytes,
     );
@@ -1719,7 +1986,6 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   } finally {
     fs.fsyncSync = originalFsync;
   }
-  fs.unlinkSync(path.join(area.directory, "state.lock"));
   assert.deepEqual(
     fs.readFileSync(path.join(area.directory, "state.pending.json")),
     secondBytes,
@@ -1731,7 +1997,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     { flag: "wx" },
   );
   assert.equal(
-    privateStateCrud.writeOwnedStateSnapshot(management, secondBytes).status,
+    privatePublication.writeOwnedStateSnapshot(management, secondBytes).status,
     "completed",
   );
   assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
@@ -1746,7 +2012,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     { flag: "wx" },
   );
   assert.equal(
-    privateStateCrud.writeOwnedStateSnapshot(management, secondBytes).status,
+    privatePublication.writeOwnedStateSnapshot(management, secondBytes).status,
     "completed",
   );
   fs.writeFileSync(path.join(area.directory, "state.pending.json"), "invalid", {
@@ -1760,7 +2026,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     domain.readState(verifiedRoot.capability, { scope: "recovery" }).reason,
     "coordinator_state_reentry_required",
   );
-  const rejected = privateStateCrud.writeOwnedStateSnapshot(
+  const rejected = privatePublication.writeOwnedStateSnapshot(
     management,
     secondBytes,
   );
@@ -1782,7 +2048,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "blocked",
   );
   assert.equal(
-    privateStateCrud.writeOwnedStateSnapshot(management, secondBytes)
+    privatePublication.writeOwnedStateSnapshot(management, secondBytes)
       .filesystemEffectIssued,
     false,
   );
@@ -2701,20 +2967,17 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     domain.readDecision(repository, "binding-a", "decision-inline").status,
     "completed",
   );
-  const decisionRead = domain.queryDecisions(
-    { root: repository, principalId: "operator-a", revalidate: () => true },
-    { projectId: state.projectId, milestoneId: state.milestoneId },
+  const decisionRead = domain.readDecision(
+    repository,
+    "binding-a",
+    "decision-inline",
   );
-  assert.equal(decisionRead.status, "available", JSON.stringify(decisionRead));
-  if (decisionRead.status === "available") {
-    assert.deepEqual(
-      decisionRead.value.decisions.map((item) => item.decisionId),
-      ["decision-inline"],
-    );
-    assert.equal(decisionRead.value.blockers[0]?.blockerId, "blocker-inline");
-    assert.equal(decisionRead.value.blockers[0]?.status, "active");
-  }
-  const deniedRead = domain.queryDecisions(
+  assert.equal(decisionRead.status, "completed", JSON.stringify(decisionRead));
+  if (decisionRead.status === "completed")
+    assert.equal(decisionRead.value?.decisionId, "decision-inline");
+  assert.equal(inlineAfter.value.blockers[0]?.blockerId, "blocker-inline");
+  assert.equal(inlineAfter.value.blockers[0]?.status, "active");
+  const deniedRead = domain.queryQueue(
     { root: repository, principalId: "operator-b", revalidate: () => false },
     { projectId: state.projectId, milestoneId: state.milestoneId },
   );
@@ -2722,17 +2985,17 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
 });
 
 /**
- * Task保存のpending作成前失敗と部分作成・観測不能を区別する。
- * @responsibility 今回作ったmarkerだけの回収と元本文保全を確認する。
- * @trace PRL-IT-005
- * @precondition 自己生成Repositoryに初期化済みの現行Snapshot。
- * @stimulus pendingのopen失敗、部分作成、観測不能、marker置換、既存marker、履歴pendingの後発出現を注入する。
- * @observation 保存結果、元本文、pendingとmarkerの実在、通常Readerと同候補再保存。
- * @oracle 新規markerかつpending不存在だけ回収し、他の残存は保持して停止する。
- * @cleanup 注入を復元し、自己生成fixtureだけを終了hookで回収する。
- * @boundary 実Filesystemと本番Writer。Docker・外部AI・既存保持物は使わない。
+ * pendingの作成/観測/置換故障を現在値と区別する。
+ * @responsibility marker差戻しに依存せず未確定物を保全する。
+ * @trace ERB-IT-014
+ * @precondition 自己生成Rootを既存Writerで初期化する。
+ * @stimulus open/部分作成/観測不能/同名置換/既存pending/履歴割込み/現在値観測不能。
+ * @observation 注入発火、現在値全文、pending/履歴残存、Reader結果。
+ * @oracle 未実施と未確定を区別し、対象外や別実体を回収しない。
+ * @cleanup 既存fixture cleanupだけを使用する。
+ * @boundary 実Filesystemと本番Writer。AI/Dockerなし。
  */
-test("Task保存のpending作成前失敗は自分のmarkerだけ回収する", async (t) => {
+test("Task保存のpending故障は現在値と未確定物を保全する", async (t) => {
   for (const mode of [
     "open",
     "partial",
@@ -2740,100 +3003,97 @@ test("Task保存のpending作成前失敗は自分のmarkerだけ回収する", 
     "replaced",
     "existing",
     "history_late",
-    "history_unobservable",
-  ] as const) {
+    "current_unobservable",
+  ] as const)
     await t.test(mode, (t) => {
       const { root, state } = fixture(t);
       assert.equal(
         initializeExecutionStore(root, "binding-a").status,
         "completed",
       );
-      const directory = path.join(root, ".crdd", "domain-model");
-      const current = path.join(directory, "state.json");
-      const pending = path.join(directory, "state.pending.json");
-      const marker = path.join(directory, "state.lock");
-      const historyPending = path.join(directory, "history.pending.jsonl");
+      const directory = path.join(root, ".crdd", "domain-model"),
+        current = path.join(directory, "state.json"),
+        pending = path.join(directory, "state.pending.json"),
+        history = path.join(directory, "history.pending.jsonl");
       const before = fs.readFileSync(current);
-      const markerBytes = `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: JSON.parse(before.toString()).repositoryBinding })}\n`;
-      if (mode === "existing") fs.writeFileSync(marker, markerBytes);
-      const open = fs.openSync;
-      const lstat = fs.lstatSync;
-      const unlink = fs.unlinkSync;
-      let injected = false;
-      let historyReads = 0;
-      let markerUnlinks = 0;
-      const unlinkMock = t.mock.method(
-        fs,
-        "unlinkSync",
-        (target: fs.PathLike) => {
-          if (String(target) === marker) markerUnlinks += 1;
-          return unlink(target);
-        },
-      );
-      const openMock = t.mock.method(fs, "openSync", ((
+      if (mode === "existing") fs.writeFileSync(pending, "foreign");
+      const open = fs.openSync,
+        lstat = fs.lstatSync,
+        sync = fs.fsyncSync;
+      let injected = false,
+        replaced = false,
+        observationFaults = 0;
+      const opening = t.mock.method(fs, "openSync", ((
         ...args: Parameters<typeof open>
       ) => {
         if (String(args[0]) === pending && args[1] === "wx") {
           injected = true;
           if (mode === "partial") fs.writeFileSync(pending, "{");
-          if (mode === "replaced") {
-            fs.renameSync(marker, path.join(directory, "prior-marker"));
-            fs.writeFileSync(marker, markerBytes);
-          }
-          throw Object.assign(new Error("synthetic pending open failure"), {
-            code: "EACCES",
-          });
+          if (mode === "history_late")
+            fs.writeFileSync(history, "foreign-history");
+          if (["open", "partial", "history_late"].includes(mode))
+            throw Object.assign(new Error("pending_open"), { code: "EACCES" });
         }
         return Reflect.apply(open, fs, args);
       }) as typeof open);
-      const lstatMock = t.mock.method(fs, "lstatSync", ((
+      const observing = t.mock.method(fs, "lstatSync", ((
         ...args: Parameters<typeof lstat>
       ) => {
-        if (mode === "unobservable" && injected && String(args[0]) === pending)
-          throw Object.assign(
-            new Error("synthetic pending observation failure"),
-            { code: "EACCES" },
-          );
-        if (injected && String(args[0]) === historyPending) {
-          historyReads += 1;
-          if (mode === "history_unobservable")
-            throw Object.assign(
-              new Error("synthetic history observation failure"),
-              { code: "EACCES" },
-            );
-          if (mode === "history_late" && historyReads === 2)
-            fs.writeFileSync(historyPending, "{synthetic-history-pending\n");
+        if (
+          injected &&
+          ((mode === "unobservable" && String(args[0]) === pending) ||
+            (mode === "current_unobservable" && String(args[0]) === current))
+        ) {
+          observationFaults++;
+          throw Object.assign(new Error("read_unknown"), { code: "EACCES" });
         }
         return Reflect.apply(lstat, fs, args);
       }) as typeof lstat);
+      const syncing = t.mock.method(fs, "fsyncSync", (fd: number) => {
+        sync(fd);
+        if (mode === "replaced" && injected && !replaced) {
+          replaced = true;
+          fs.renameSync(pending, path.join(root, "original-pending"));
+          fs.writeFileSync(pending, "foreign");
+        }
+      });
       let saved: ReturnType<typeof writeSnapshotState>;
       try {
         saved = writeSnapshotState(root, "binding-a", JSON.stringify(state), 0);
       } finally {
-        openMock.mock.restore();
-        lstatMock.mock.restore();
-        unlinkMock.mock.restore();
+        opening.mock.restore();
+        observing.mock.restore();
+        syncing.mock.restore();
       }
-      assert.equal(injected, true);
+      assert.equal(injected, mode !== "existing");
+      assert.equal(replaced, mode === "replaced");
+      assert.equal(
+        observationFaults,
+        ["unobservable", "current_unobservable"].includes(mode) ? 1 : 0,
+      );
       assert.equal(saved.status, "blocked");
       assert.deepEqual(fs.readFileSync(current), before);
-      assert.equal(fs.existsSync(marker), mode !== "open");
-      assert.equal(fs.existsSync(pending), mode === "partial");
-      assert.equal(markerUnlinks, mode === "open" ? 1 : 0);
-      assert.equal(fs.existsSync(historyPending), mode === "history_late");
-      if (mode === "open") {
-        assert.equal(readSnapshot(root, "binding-a").status, "completed");
+      assert.equal(fs.existsSync(path.join(directory, "state.lock")), false);
+      assert.equal(
+        fs.existsSync(pending),
+        !["open", "history_late"].includes(mode),
+      );
+      assert.equal(fs.existsSync(history), mode === "history_late");
+      assert.equal(
+        readSnapshot(root, "binding-a").status,
+        mode === "open" ? "completed" : "blocked",
+      );
+      if (mode === "partial")
+        assert.equal(fs.readFileSync(pending, "utf8"), "{");
+      if (mode === "replaced" || mode === "existing")
+        assert.equal(fs.readFileSync(pending, "utf8"), "foreign");
+      if (mode === "open")
         assert.equal(
           writeSnapshotState(root, "binding-a", JSON.stringify(state), 0)
             .status,
           "completed",
         );
-      } else {
-        assert.equal(readSnapshot(root, "binding-a").status, "blocked");
-        assert.equal(fs.readFileSync(marker, "utf8"), markerBytes);
-      }
     });
-  }
 });
 
 /**
@@ -4043,7 +4303,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
  * @responsibility codecの拒否に依存せず各guardを除去した負対照を確認する。
  * @trace ERB-IT-014
  * @precondition 実Sourceの一意区間、メモリSnapshotと受理codec代役。
- * @stimulus Task・別修復・未解決参照・配送の変更と除去を加える。
+ * @stimulus Task・別修復・未解決参照の変更と除去、参照追加・並べ替えを加える。
  * @observation 下位Writer要求counter、guard後継続counter、元本文不変。
  * @oracle 元guardは0、当該guard無効化時だけ1へ進む。
  * @cleanup N/A: VM内だけで実Writer・Kernel・Filesystemは使わない。
@@ -4051,11 +4311,11 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
  */
 test("修復Writerの二重scope guardは他操作と参照の変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/state/crud.ts", import.meta.url),
+    new URL("../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
-  const start = text.indexOf("export function saveRepairState(");
-  const end = text.indexOf("\n/**", start);
+  const start = text.indexOf("export function saveRepairRecord(");
+  const end = text.length;
   assert.ok(start > 0 && end > start);
   const validationSource = fs.readFileSync(
     new URL("../../src/state/validation.ts", import.meta.url),
@@ -4083,14 +4343,20 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
   );
   assert.ok(guardStart > 0 && guardEnd > guardStart);
   const wrapperMutant = wrapper.slice(0, guardStart) + wrapper.slice(guardEnd);
-  const writer = text.indexOf("function commitStateSnapshotOwned(");
-  const boundaryStart = text.indexOf("    if (currentRepair) {", writer);
-  const boundaryEnd = text.indexOf(
+  const writerText = fs.readFileSync(
+    new URL("../../src/storage/publication.ts", import.meta.url),
+    "utf8",
+  );
+  const writer = writerText.indexOf("function commitStateSnapshotOwned(");
+  const boundaryStart = writerText.indexOf("    if (currentRepair) {", writer);
+  const boundaryEnd = writerText.indexOf(
     "    let completionConfirmed",
     boundaryStart,
   );
   assert.ok(boundaryStart > writer && boundaryEnd > boundaryStart);
-  const boundary = stripTypeScriptTypes(text.slice(boundaryStart, boundaryEnd));
+  const boundary = stripTypeScriptTypes(
+    writerText.slice(boundaryStart, boundaryEnd),
+  );
   const boundaryMutant = boundary.replace(
     'throw new Error("repair_writer_scope_invalid");',
     "void 0;",
@@ -4116,7 +4382,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
       { kind: "docker_task", recoveryId: "task", value: 0 },
       { kind: "runtime_repair", recoveryId: "other", value: 0 },
     ],
-    unresolvedRecoveries: [{ value: 0 }],
+    unresolvedRecoveries: [{ value: 0 }, { value: 1 }],
   };
   const original = JSON.stringify(before);
   for (const scenario of [
@@ -4127,8 +4393,8 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
     "repair_removed",
     "recovery_changed",
     "recovery_removed",
-    "delivery_changed",
-    "delivery_removed",
+    "recovery_added",
+    "recovery_reordered",
   ]) {
     const after = JSON.parse(original);
     after.operations[0].checkpoint = 1;
@@ -4139,19 +4405,24 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
     if (scenario === "recovery_changed")
       after.unresolvedRecoveries[0].value = 1;
     if (scenario === "recovery_removed") after.unresolvedRecoveries = [];
-    if (scenario === "delivery_changed") after.pendingDeliveries[0].value = 1;
-    if (scenario === "delivery_removed") after.pendingDeliveries = [];
+    if (scenario === "recovery_added")
+      after.unresolvedRecoveries.push({ value: 2 });
+    if (scenario === "recovery_reordered") after.unresolvedRecoveries.reverse();
     const beforeBytes = Buffer.from(original),
       bytes = Buffer.from(JSON.stringify(after));
     for (const mutated of [false, true]) {
       let requests = 0;
       const evaluateWrapper = runInNewContext(
-        `${dispatch}\n${mutated ? wrapperMutant : wrapper}; saveRepairState`,
+        `${dispatch}\n${mutated ? wrapperMutant : wrapper}; saveRepairRecord`,
         {
           Buffer,
           snapshotStateRecord,
           isSha256Hex,
           types: types,
+          publishRecoveryState: () => {
+            requests++;
+            return { status: "blocked", filesystemEffectIssued: false };
+          },
           settlements: new WeakMap(),
           initializations: new WeakMap(),
           observeExecutionRecoveryRepository: () => repository,
@@ -4249,21 +4520,30 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
     "utf8",
   );
   const start = text.indexOf("export function saveAuthenticationClosure(");
-  const end = text.indexOf("\nconst settlements =", start);
+  const end = text.indexOf("\n/**", start);
   assert.ok(start > 0 && end > start);
   const wrapper = stripTypeScriptTypes(text.slice(start, end)).replace(
     "export function",
     "function",
   );
   const guardStart = wrapper.indexOf("    if (\n      beforeTasks");
-  const guardEnd = wrapper.indexOf("    const binding =", guardStart);
+  const guardEnd = wrapper.indexOf(
+    "    return publishRecoveryState(",
+    guardStart,
+  );
   assert.ok(guardStart > 0 && guardEnd > guardStart);
   const wrapperMutant = wrapper.slice(0, guardStart) + wrapper.slice(guardEnd);
-  const innerStart = text.indexOf("    if (currentAuthenticationClosure) {");
-  const innerEnd = text.indexOf("    } else if (", innerStart);
+  const writerText = fs.readFileSync(
+    new URL("../../src/storage/publication.ts", import.meta.url),
+    "utf8",
+  );
+  const innerStart = writerText.indexOf(
+    "    if (currentAuthenticationClosure) {",
+  );
+  const innerEnd = writerText.indexOf("    } else if (", innerStart);
   assert.ok(innerStart > 0 && innerEnd > innerStart);
   const inner = stripTypeScriptTypes(
-    `${text.slice(innerStart, innerEnd)}\n    }`,
+    `${writerText.slice(innerStart, innerEnd)}\n    }`,
   );
   const innerGuardStart = inner.indexOf("      if (");
   const innerGuardEnd = inner.indexOf(
@@ -4325,6 +4605,10 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
         {
           Buffer,
           types: types,
+          publishRecoveryState: () => {
+            requests++;
+            return { status: "blocked", filesystemEffectIssued: false };
+          },
           settlements: new WeakMap(),
           encodeStateValue: JSON.stringify,
           decodeStateSnapshot: (value: Buffer) => ({
@@ -4421,13 +4705,18 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
     ownedDirectory.cleanup();
   });
   const text = fs.readFileSync(
-    new URL("../../src/state/crud.ts", import.meta.url),
+    new URL("../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
-  const start = text.indexOf("export function saveRepairState(");
+  const publicationSource = fs.readFileSync(
+    new URL("../../src/storage/publication.ts", import.meta.url),
+    "utf8",
+  );
   const body = stripTypeScriptTypes(
-    text.slice(start, text.indexOf("\n/**", start)),
-  ).replace("export function", "function");
+    sourceDeclaration(publicationSource, "publishRecoveryState") +
+      "\n" +
+      sourceDeclaration(text, "saveRepairRecord"),
+  ).replaceAll("export function", "function");
   const validationSource = fs.readFileSync(
     new URL("../../src/state/validation.ts", import.meta.url),
     "utf8",
@@ -4479,7 +4768,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
      */
     const evaluate = (source: string, create: boolean) => {
       const wrapper = runInNewContext(
-        `${dispatch}\n${source}; saveRepairState`,
+        `${dispatch}\n${source}; saveRepairRecord`,
         {
           Buffer,
           Object,
@@ -4577,7 +4866,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
  */
 test("Task Writerの修復保全guardは新規・変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/state/crud.ts", import.meta.url),
+    new URL("../../src/storage/publication.ts", import.meta.url),
     "utf8",
   );
   const functionStart = text.indexOf("function commitStateSnapshotOwned(");
@@ -4597,7 +4886,10 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
     "        const next = candidate.snapshot.operations.find(",
     settlementStart,
   );
-  const publication = text.indexOf('create("state.lock", marker)', normalEnd);
+  const publication = text.indexOf(
+    'create("state.pending.json", bytes)',
+    normalEnd,
+  );
   assert.ok(
     functionStart >= 0 &&
       normalStart > functionStart &&
@@ -5310,4 +5602,176 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
     }).status,
     "blocked",
   );
+});
+
+/**
+ * 終了保存の再入場は通常拒否を用途限定Readerへ渡すだけにする。
+ * @trace ERB-IT-014
+ * @precondition 本番受付本文と有限Reader/Writerを使用する。
+ * @stimulus 通常/関連Task/終了pending、別理由拒否、未解放、Owner失効、用途限定拒否。
+ * @observation Reader配送、Owner確認、保持結果、保存回数。
+ * @oracle 再入場理由だけ次Readerへ進み、用途限定拒否後は保存0。関連Task保持は従来どおり。
+ * @cleanup N/A: VM内の局所値のみ。
+ * @boundary 受付の配送反証。保存物の検査は実Reader/Filesystem試験で確認する。
+ */
+test("終了再入場は再入場理由だけを既存の用途限定Readerへ接続する", () => {
+  const text = fs.readFileSync(
+    new URL("../../src/attempt/crud.ts", import.meta.url),
+    "utf8",
+  );
+  const body = stripTypeScriptTypes(
+    sourceDeclaration(text, "completeRecovery"),
+  );
+  for (const mode of [
+    "normal",
+    "related",
+    "pending",
+    "other_failure",
+    "lock_unknown",
+    "owner_lost",
+    "missing_value",
+    "legacy_marker",
+    "unknown_file",
+    "foreign_pending",
+    "history_pending",
+    "related_pending",
+  ]) {
+    const id = "recovery",
+      line = Buffer.from("history"),
+      before = Buffer.from("before"),
+      candidate = Buffer.from("candidate");
+    const target = {
+      kind: "docker_task",
+      recoveryId: id,
+      identityJson: JSON.stringify({ operationId: "operation-a" }),
+      history: { confirmed: true },
+    };
+    const snapshot = {
+      managedExecutions:
+        mode === "related"
+          ? [
+              {
+                tasks: [
+                  { settlement: { kind: "operations", recoveryIds: [id] } },
+                ],
+              },
+            ]
+          : [],
+      operations: [target],
+      unresolvedRecoveries: [],
+      revision: 1,
+    };
+    let ordinary = 0,
+      scoped = 0,
+      writes = 0,
+      owners = 0;
+    const blocked = {
+      status: "blocked",
+      reason: "scoped_rejected",
+      lockReleased: true,
+      value: null,
+      currentCompletionPublication: null,
+    };
+    const normal = ["normal", "related", "missing_value"].includes(mode);
+    const result = runInNewContext(
+      body + "; completeRecovery(root,id,assertOwner,'docker_task')",
+      {
+        Buffer,
+        root: {},
+        id,
+        assertOwner: () => {
+          owners++;
+          return mode !== "owner_lost" || owners !== 2;
+        },
+        writeStateSnapshot: () => ({
+          status: "blocked",
+          reason: "refused",
+          lockReleased: true,
+          snapshotConfirmed: false,
+          filesystemEffectIssued: false,
+        }),
+        observeExecutionRecoveryRepository: () => ({
+          repositoryRoot: "root",
+          repositoryBinding: "binding",
+        }),
+        readStateSnapshot: (...args: unknown[]) => {
+          ordinary++;
+          assert.equal(args[13], true);
+          return {
+            status: normal ? "completed" : "blocked",
+            reason:
+              mode === "other_failure"
+                ? "io_unknown"
+                : normal
+                  ? "observed"
+                  : "coordinator_state_reentry_required",
+            lockReleased: mode !== "lock_unknown",
+            value:
+              normal && mode !== "missing_value"
+                ? { snapshot, payloadSha256: "hash" }
+                : null,
+            historyRows: [{ recoveryId: id, line: line.toString() }],
+          };
+        },
+        readRecoveryState: (
+          _root: unknown,
+          request: { kind: string; recoveryId: string },
+        ) => {
+          scoped++;
+          assert.equal(request.kind, "execution_completion");
+          assert.equal(request.recoveryId, id);
+          return mode === "normal" || mode === "pending"
+            ? {
+                status: "completed",
+                lockReleased: true,
+                value: { snapshot },
+                currentCompletionPublication: {
+                  before,
+                  candidate,
+                  historyFile: null,
+                },
+              }
+            : blocked;
+        },
+        projectTaskSettlement: () => ({ cleanupConfirmed: true }),
+        prepareStateHistoryLine: () => line,
+        encodeStateValue: () => JSON.stringify(snapshot),
+        publishRecoveryState: (input: {
+          kind: string;
+          before: Buffer;
+          candidate: Buffer;
+          operationKind: string;
+        }) => {
+          writes++;
+          assert.equal(input.kind, "current_completion");
+          assert.equal(input.operationKind, "docker_task");
+          assert.deepEqual(input.before, before);
+          assert.deepEqual(input.candidate, candidate);
+          return {
+            status: "completed",
+            snapshotConfirmed: true,
+            lockReleased: true,
+            filesystemEffectIssued: true,
+          };
+        },
+      },
+    );
+    assert.equal(ordinary, 1, mode);
+    const accepted = mode === "normal" || mode === "pending";
+    assert.equal(writes, accepted ? 1 : 0, mode);
+    assert.equal(
+      result.status,
+      accepted || mode === "related" ? "completed" : "blocked",
+      mode,
+    );
+    assert.equal(result.operationRetained === true, mode === "related", mode);
+    const early = [
+      "related",
+      "other_failure",
+      "lock_unknown",
+      "owner_lost",
+      "missing_value",
+    ].includes(mode);
+    assert.equal(scoped, early ? 0 : 1, mode);
+  }
 });

@@ -339,13 +339,13 @@ Probe回復記録の既存Host記録Ownerへの集約は`ERB-IT-003`で確認す
 
 保持引渡しの終了候補は`ERB-UT-036`で、receipt付き第三形だけの除去、未確認履歴と旧receipt欠測の拒否、期限前／同時／後で同じ終了資格を確認する。専用Readerは`ERB-IT-014`で実履歴出版から対象除去前後の同一期限、破損期限・欠測receipt・現在履歴との対象差・履歴欠測の拒否を確認する。blockedおよび通常二形へ期限を補完せず、Path・用途別実体を出力へ追加しない。Caller・CLIの引渡し成功は別の接続条件として維持する。
 
-保持引渡しの専用Writerは`ERB-IT-014`で、通常保存、用途偽装、codec合法なcheckpoint一軸差、rename前切断の同一候補再開、確定後marker清掃を確認する。本文・receipt・改訂・previous Hash・戻り値status・排他解放を共同照合し、既保存receiptの同値再保存を拒否する。期限保護は`ERB-UT-036`で、通常1日設定と7日期限の直前／同時／直後、未終了操作の確認済み／未確認行、欠測拒否、操作除去後の通常整理復帰を確認する。期限から物理削除・completionの成立を推定しない。
+保持引渡しの専用Writerは`ERB-IT-014`で、通常保存、用途偽装、codec合法なcheckpoint一軸差、rename前切断の同一候補再開、確定後のfresh読取りを確認する。本文・receipt・改訂・previous Hash・戻り値status・排他解放を共同照合し、既保存receiptの同値再保存を拒否する。期限保護は`ERB-UT-036`で、通常1日設定と7日期限の直前／同時／直後、未終了操作の確認済み／未確認行、欠測拒否、操作除去後の通常整理復帰を確認する。期限から物理削除・completionの成立を推定しない。
 
 `ERB-UT-039`は単一entry観測のprivateな同期終端順序を検査する。openのFILE_NOT_FOUND／PATH_NOT_FOUNDだけをA応答へ分類し、access denied／sharing violation／その他を2・出力0とする。取得成功ではquery成否によらず同handleをclose一回、queryとcloseがともに成功した後だけP応答を出す。write即時失敗・部分write後失敗・flush失敗は3を維持し、部分／完全frameが存在しても成功へ変更しない。固定イベント列・全文／部分bytes・一回のhandle搬送を独立期待で検査する。実Win32の故障、OS全handle不存在、DI処置許可・物理回収の証明とは分ける。
 
 単一entry観測は`ERB-IT-001`／`ERB-IT-002`へ接続する。Nodeでは実観測本文の固定Artifact・argv・環境・期限・出力上限・正常終了・完全frame・凍結値を確認し、正常file／Directory／AF_UNIX／未知tagのraw値と明示不存在を区別する。未知tagのraw観測成功は削除許可ではない。短縮・余剰・別magic・未知状態・不存在payload汚染・属性tag矛盾・zero実体／linkCount・Process異常・Artifact前後差はnullを要求する。Native CLIは既存file／Directoryと不存在・不正Pathの実観測を確認する。AF_UNIXのNode lstat失敗をNative実体へ補完せず、本Native入口の実測でtag・実体を確認する。同期失敗分岐の注入は`ERB-UT-039`が所有する。bootstrap固定配布Artifactから公開APIへ接続したHost試験では、通常file／Directory、同実体・linkCount2のhardlink、tag0xA0000003で別実体のjunction、不存在と内容保全を確認する。制限内とHost実行を分離し、清掃前の所有Root／親実体再確認と自己生成物不存在を要求する。この限定接続から、正式Manifest全体、DI Driverや物理回収の成立を推定しない。
 
-専用Writerの検証は、通常／Session用途からの回収候補偽装と、外側だけ／Kernel内だけのguard省略を区別する。三用途の一用途更新、保存前rename拒否と出版後marker除去拒否からの同ID再入場、分類用途・候補bytes・改訂・元結果保全を確認する。同値進捗では既存Readerを使い、物理Writer／Context未生成・変更API 0を確認する。Readerの部分成立、raw由来Hashと本文の差、Owner失効・例外・Promise、pending／marker／未知entryを成功へ補完しない。実体差替え・Kernel解放不明の実境界は、Readerの既存検証と今回の接続検証のどちらが所有するかを分け、VMだけから実Kernel終了を主張しない。
+専用Writerの検証は、通常／Session用途からの回収候補偽装と、外側だけ／Kernel内だけのguard省略を区別する。三用途の一用途更新、保存前rename拒否と出版後の最終読戻し拒否からの同ID再入場、分類用途・候補bytes・改訂・元結果保全を確認する。同値進捗では既存Readerを使い、物理Writer／Context未生成・変更API 0を確認する。Readerの部分成立、raw由来Hashと本文の差、Owner失効・例外・Promise、pending／marker／未知entryを成功へ補完しない。実体差替え・Kernel解放不明の実境界は、Readerの既存検証と今回の接続検証のどちらが所有するかを分け、VMだけから実Kernel終了を主張しない。
 
 現在状態への純粋な接続も`ERB-UT-036`で検査する。未出版の判断待ちだけからdiscard判断とDI初期値を生成し、明示保持・既出版・不正時刻・別ID・非正規本文を拒否する。以後は一用途進捗のみ許可し、通常遷移からの判断／進捗偽装、元結果／技術checkpoint／判断時刻の変更を拒否する。同値進捗は未出版時だけ元版bytes・改訂・元版Hashを維持する。回収途中の要約・履歴確定を拒否し、全三用途の不存在確認後だけdiscard要約へ判断時刻・checkpointを投影する。要約確定後の進捗変更は同値も拒否し、履歴確認前のcompletionと明示保持のcompletionを拒否する。非discardの要約bytesは維持する。旧形式の回収途中かつ既出版の状態を拒否し、自動移行しない。これは純粋値の根拠であり、専用Writer・保存途中再入場・物理回収の根拠とは分ける。
 
@@ -405,7 +405,7 @@ Host清掃Ownerの故障反応は、実初期Snapshot・実modelと、本番のO
 
 初期Taskの清掃二切断は既存`ERB-IT-003 / PRL-IT-013`で、pending保存の三確認後と、物理Host回収後・confirmed Writer本体呼出前を実子Process強制終了に接続する。各子の終端後に親が元Root／markerの実体または両不存在、同exact ID、Home排他再取得、finally非実行、Writer到達数、非対象本文／Host実体保全を観測する。既存resource-cleanup同値保存による改訂更新を含め、実model候補の全文・改訂・元版Hashを要求し、状態名や固定版数だけで代替しない。pending保存前の要求拒否では実Writer本体とHost処置0、清掃済みからのfresh confirmed保存拒否では実Writer本体0・Host再処置0・元版と両不存在維持を確認する。公開operationRetained=nullから保持を推定せず、親がexact対象の現在本文残存を観測する。最後の正常fresh子だけが履歴一回・対象除去を確定する。同呼出し内の清掃後保存故障、Owner・Root失効、読戻し・排他解放不明と清掃故障は上記の論理反証で別に確認し、実Processの部分拒否から推定しない。
 
-修復の現在状態終了は既存`ERB-IT-014`で、同じ本番呼出しの結果保存→履歴確認→退避物なしの対象だけ除去→marker清掃→fresh不存在までを確認する。保存前後・marker削除後の実切断から同IDで再入場し、技術再取得0、対象外操作・回復参照・配送と履歴の全文保全を観測する。履歴行が欠測している場合は再追加せず、終了確認をfalseにして現在操作を保持する。履歴・outcomeの先行確認を、後続の保存・清掃・解放不明で取り消さない。除去済み再確認では技術checkpoint／Native詳細を履歴から復元しない。値候補・物理保存・本番composition・CLI・実Dockerを別の確認範囲として扱う。
+修復の現在状態終了は既存`ERB-IT-014`で、同じ本番呼出しの結果保存→履歴確認→退避物なしの対象だけ除去→履歴を含むfresh不存在までを確認する。pending作成・rename直後・最終Readerの実切断から同IDで再入場し、技術再取得0、対象外操作・回復参照・配送と履歴の全文保全を観測する。履歴行が欠測している場合は再追加せず、終了確認をfalseにして現在操作を保持する。履歴・outcomeの先行確認を、後続の保存・清掃・解放不明で取り消さない。除去済み再確認では技術checkpoint／Native詳細を履歴から復元しない。値候補・物理保存・本番composition・CLI・実Dockerを別の確認範囲として扱う。
 
 公開CLIの既存`PRL-ST-001`関連試験では、実parserとdoctor分岐が現行の修復／保持／再起動／Task回復と通常doctorをそれぞれのcompositionへ渡すことを確認する。旧close／adopt／after-repairと署名Root引数は、旧仕様で合法だった完全形と順序違いもUsage拒否し、Root・Writer・Process処置0を確認する。分類を無効化する変異を同じ呼出し列Oracleが拒否する。新規取消の下位signal搬送とEffect前停止、取消済みexact metadata再確認の成功を分け、解除失敗で一次理由を上書きしない。公開結果は終了済み・保持済み・保持判断待ち・停止の共同fieldとexitCode、getter／Proxy拒否・内部値非公開を確認する。この限定配線試験を実Dockerの修復・全体E2E成立へ昇格しない。
 
@@ -449,7 +449,7 @@ Scope準備も`ERB-IT-014`で確認する。固定domain／実UTF-8 byte長／fi
 
 組立ての取消入力にはProxy trap 0を含める。準備／各Writerの観測済み解放不明と例外を分離し、保存確認済みの履歴・配送事実を後続失敗で消さないことを全返却fieldとexact呼出し列で照合する。実Host再入場ではstate／history／pending／lockに加えて、初回前にexact操作へ結合したHost root／markerへの書込み・再作成・削除も0とする。同本文の再保存とsynthetic marker再作成・削除の正対照で観測器の検出を確認し、実再入場前に正対照を清掃して観測列を消去する。
 
-保存markerだけの限定清掃も既存`ERB-IT-014`で確認する。通常出版直後と終了操作除去後、marker不存在、初回current不存在、不正current／foreign・改変marker、link／hardlink、pending／未知File、同bytes別実体、取得false／throw、実unlink後throw、解放false／throwを分ける。marker不存在は書込み0、処置対象はexact Repo markerだけ、state／history・非対象操作保全を観測する。処置・保全・排他の確認からTask完了・受領・Docker資源回収を推定しない。32形の固定primitive反証と実Repository／Kernelを含む2試験が成功し、両独立最終再確認の残指摘0をもって保存marker限定清掃だけを局所Passと評価する。この局所結果はTask／ACK／Docker／AuthorityやLocal Item全体の成立証明ではない。
+保存marker専用清掃の旧義務は入口とmarker自体の撤去に伴い退役した。ERB-IT-014/PRL-IT-011ではcurrent/pending/historyの不正・不一致・未知File・旧marker・link/hardlink・観測不能を拒否して本文を保全すること、fresh読取り、同Owner借用・再取得拒否・解放済みOwner拒否を確認する。marker unlink専用の例外は現役のpending作成・rename後・最終読取りの停止点へ移す。fresh観測は前回Writer成功・Task完了・実資源回収を意味しない。新しい限定結果は変更トレースへ記録し、旧marker清掃の局所Passを流用しない。
 
 現在回収の履歴値契約は、固定時刻の維持、初回候補・exact pending・canonical行ありの再導出、同ID異内容・重複・余分行・欠落・不正本文の拒否、保持設定変更によるpending全文差の拒否を既存`PRL-UT-006`と関連`ERB-IT-014`へ接続する。純粋関数の成功は候補の一致だけを表し、実出版・保存読戻し・fresh Process再入場の証明ではない。`ERB-IT-014`では、この候補をRoot／File実体・元版・現在Ownerへ結合するReader／Writerと、保存途中各段の故障注入を別に確認する。
 
@@ -461,7 +461,7 @@ Scope準備も`ERB-IT-014`で確認する。固定domain／実UTF-8 byte長／fi
 
 `ERB-IT-014`の通常回収終端では、同じOwnerの全排他を逆順に解放し、false・例外・過去不明では終端Writerを発行しないことを確認する。五資源の既知終了、Host両不存在・清掃confirmed、遷移解消、旧Effect無効と元版一致が揃った場合だけ、既存結果のstatus／reasonを保持し清掃確認を更新する。結果欠測は既存の`blocked / docker_process_controller_execution_failed_closed`へ固定し、一次失敗はnullを含め保持する。成功・取消への変換、一次診断の合成、同Owner再保存、未解放での保存、unknown資源の終端化を反証する。実Host／Kernel／状態Writerで全文・改訂・他操作保全と短命材料不存在を観測し、模擬本文試験は前提拒否と一回性の確認として区別する。終了保存後のsettlingを履歴・配送完成とみなさず、Orchestratorの耐久ACKとCLI／Workbenchの用途別返却は別に確認する。
 
-fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ接続する。実現在状態と既存排他で、稼働Host／Homeの拒否、元Owner失効後のexact取得、対象だけの保存・全他操作保全、コピー・別種Owner・二度目使用拒否、解放後の同参照再取得を確認する。部分取得・marker差・保持失効・元本文競合・保存解放不明は実準備本文の故障注入で全逆順解放と追加Writer停止を反証する。排他取得が不明な場合は回収確認trueへ畳まない。途中OwnerでHost清掃確認、Lease解放や新しい完了結果を保存できないことを拒否例とする。これらはmarker存続中の接続だけであり、DI実回収、marker削除後の真正終端、fresh回復全体とE2Eを成立済みとしない。
+fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ接続する。実現在状態と既存排他で、稼働Host／Homeの拒否、元Owner失効後のexact取得、対象だけの保存・全他操作保全、コピー・別種Owner・二度目使用拒否、解放後の同参照再取得を確認する。部分取得・Host marker差・保持失効・元本文競合・保存解放不明は実準備本文の故障注入で全逆順解放と追加Writer停止を反証する。排他取得が不明な場合は回収確認trueへ畳まない。途中OwnerでHost清掃確認、Lease解放や新しい完了結果を保存できないことを拒否例とする。これらはHost marker存続中の接続だけであり、DI実回収、Host marker削除後の真正終端、fresh回復全体とE2Eを成立済みとしない。
 
 `ERB-IT-003`では、元Ownerまたは現在Repositoryの単一操作が保持するexact RootをHost／Probe Readerへ渡すことを確認する。tokenだけのOS tmp探索は行わない。実CLI・現在Schemaの二操作・実Reader／既存Kernel排他で、単一Host／Probeの搬送、0件・複数・旧token・別Repository・非Probeの処置0を反証する。処置境界はspyとし、実Docker清掃と区別する。読取り欠測・解放不明・例外は実private本文の局所故障注入でnull拒否を確認し、その成功を実Kernel終了の根拠にしない。Host記録専用試験は、Root削除後の同親marker読取り、Hash／Root名差・link拒否、実Owner保持中の回復拒否とOwner終了後のHost領域不存在を別に確認する。Local Item全体のPassへ昇格せず、fresh Recovery Writerと実Docker回収は未確認として残す。
 
@@ -798,7 +798,7 @@ Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護
 
 旧`windows::terminal::tests::terminal_generation_node_interoperation`とNode／Supervisor専用fixtureの相互運用は、wx移行後の完成条件ではない。旧方式と新方式は相互排他しないため、実利用の切替は全利用者停止下に限定する。現在のHost世代排他はCoordinatorのwx実Process試験で確認し、Native Mutexとの相互運用を成立済みと表示しない。過去の検証結果は当時の方式の履歴として保持する。
 
-wx切替後は、競合・初期化残存・descriptor終了不明の利用側搬送、marker清掃での元理由保持、同Scopeの再取得拒否を確認する。取得失敗を正常解放や業務開始へ変えず、元取得を含む全関係Process停止下の明示回復だけを許す。全利用側回帰は確認継続中であり、3 Source化・局所試験の成功を、旧Process停止、過去保持物の非使用、全Scopeの停止下回復、公開RecoveryまたはLocal Item全体のPassへ昇格しない。現状は[変更トレース§14](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#14-残るos排他のwx切替と3-source化--2026-11-07検証継続中)へ記録する。
+wx切替後は、競合・初期化残存・descriptor終了不明の利用側搬送、保存・fresh読取り失敗での元理由保持、同Scopeの再取得拒否を確認する。取得失敗を正常解放や業務開始へ変えず、元取得を含む全関係Process停止下の明示回復だけを許す。全利用側回帰は確認継続中であり、3 Source化・局所試験の成功を、旧Process停止、過去保持物の非使用、全Scopeの停止下回復、公開RecoveryまたはLocal Item全体のPassへ昇格しない。現状は[変更トレース§14](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#14-残るos排他のwx切替と3-source化--2026-11-07検証継続中)へ記録する。
 
 残るFile排他の共通化は[変更トレース§15](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)へ接続する。一時Operationは取得前の業務処置0、清掃終了までの保持、staging清掃成功とLock解放不明の合成、初期化残存の元参照を既存RDL-IT-004で反証する。旧Lock専用hardlink工程の試験を残す代わりに共通Lockの故障・Crash残存とOwner結合を確認する。PAの固定説明値を照合する試験の撤去を、実環境構築・Native保護・終了確認の証明へ読み替えない。正式品質項目数と全体評価は変更しない。
 
@@ -889,7 +889,7 @@ phaseとdispositionの反証を分離し、codec合法な「phaseだけsettling�
 
 取消済みsignalでも、保存Ownerが有効な上記の記録限定確定は許可する。cleanup二状態の取消済み肯定、Owner失効併発と対象外でのWriter／DI入口0、および共通入口へ取消拒否を戻す変異を同じ結果確認Oracleで拒否する。通常の技術Sessionへ進む前には取消を拒否し、新しい技術処置を発行しない。
 
-修復Ownerから既存出版marker清掃への接続も`ERB-IT-014`で確認する。status・本文確認・marker不存在・排他解放の各単独不成立、例外、清掃直後のOwner失効では通常Reader・DI・Writerへ進まない。除去後不明は既知の除去事実を診断へ保持し、fresh再入場でのみ再観測する。実Writerのoutcome出版後にmarker unlinkを一回拒否した状態から、取消済み同IDでmarkerだけを除去し、出版済み本文全文不変・再保存0・技術再取得0・不存在を確認する。marker既不存在では清掃書込み0、pending・不正marker・未知File・実体差の拒否は既存清掃試験へ接続する。未出版pendingの確定や修復全体の完成へ拡張しない。
+修復Ownerから既存履歴付きReaderへの接続をERB-IT-014で確認する。status・本文・排他解放の不成立、例外、直後Owner失効では技術要求や保存へ進まない。未確認を成功へ変えず、元の本文・回復参照・先行の技術結果を保持する。最終current読戻しを一回拒否した実Writerから、fresh再入場だけで既存の履歴/本文を再確認し、技術再取得0・余分な再保存0を検証する。旧marker unlink専用の結果fieldや故障設定は残さない。
 
 未出版修復の保存確定は`ERB-UT-036`／`ERB-IT-014`へ接続する。純粋分類は初回単一空Repair、既存currentへの初期Identity追加、通常checkpoint、新Session候補、既出版同値を区別し、canonical全文を元モデルから再導出する。初回のcheckpoint／結果／参照混入、別ID・Identity・元版Hash差、飛び版、非対象変更、非canonical、同版異内容は拒否する。物理保存は正規marker、固定File集合、Root／Revision／現在Owner、領域と各Fileの実体・全文を読取り排他とWriter排他の両方で確認し、読取りからWriterまでの同bytes別実体も拒否する。通常初期化の新品条件を維持し、初回専用出版だけ物理historyなし・pendingとmarkerの二Fileへ限定する。実WriterのIdentity／checkpoint／outcome保存切断、既出版同値、旧Writerの後着要求、各段の保存／解放不明、取消、出版後のH／Scope不一致を反証する。出版後は通常Readerを通し、旧cleanup pending／unknownや未確定処置からNative実行許可を作らない。未実施の観点は実施済みと表示しない。
 
@@ -928,7 +928,7 @@ phaseとdispositionの反証を分離し、codec合法な「phaseだけsettling�
 | Orchestratorの現在回復接続 | 同じ必須signalでDocker回復をawaitし、exact IDと固定awaiting_deliveryの共同条件を要求する。旧recovered＋IDなしやtransient結果をDockerへ流用しない。待機中の取消・Queue／状態世代／対象義務差でsettled保存・ACK0。同じ回復参照を保持する。 |
 | 現在Repositoryの回復相関解決 | recoveryCorrelationIdだけを要求集合へ全数対応し、内部Operation IDへfallbackしない。明示不存在と読取／排他不明・重複・別consumer・pendingを区別する。不明からabsenceを返さない。 |
 | CLI listener解放不明・表示失敗 | 一次理由と技術事実を保持し、CLI清掃結果を別に返す。終了整理済み操作の復元・再実行0。公開診断へ内部キー・Root・候補・本文・未知fieldを出さない。 |
-| transient終了のexact pending／foreign pending／除去後marker | exact候補だけfresh技術Ownerで出版し、元本文やforeign pendingは拒否・保全する。対象除去後は保存marker清掃だけで、元Task成功・受領を推定しない。 |
+| transient終了のexact pending／foreign pending／置換後読取り不明 | exact候補だけfresh技術Ownerで出版し、元本文やforeign pendingは拒否・保全する。対象除去後はfresh current/履歴を照合し、元呼出し成功を推定しない。 |
 | Candidate公開不明、資源終端不明 | transientを理由に保全や回復義務を解除しない。現在不明を同じ相関で保持する。 |
 | 耐久配送待ちで履歴期限到達 | 通常履歴保持とpending配送を分け、未受領結果を期限だけで消さない。既確認の資源を復元しない。 |
 
@@ -1145,4 +1145,61 @@ Native親の認証unknown反例はsnapshot-recovery-owner.tsへ移し、実Write
 
 ERB-IT-014のruntime-repair-resultは、真正な不変Repository／Root／Revision／保存Identityと未束縛Source factoryを一回準備し、49故障組合せを個別名で直列に実行する。元の初回経路・故障点と93静的assert式を保ち、State／History・Owner／Abort・故障設定・counterを各ケースで新規構築する。実EM Reader／Writer・共通Lock・CAS・保存前後の順序確認を維持する。Root等の固定投影は既知のexact要求と真正capabilityに限定し、未知要求と明示Revisionは実処理へ委譲する。Git変更検出は別の実Root試験を担当とする。
 
-各ケースで実Lock／pendingの不存在、有限Sessionの未joinなし、Owner失効と自己生成保存領域の回収を確認する。出版markerを物理Lockと混同せず、注入した不明・失敗を清掃で成功へ変換しない。全49名・基準assert式との対応、個別選択が1件だけを実行すること、case間の状態混入なしを限定回帰と独立レビューで確認する。旧53分の結果と新構成の結果を区別し、全体回帰・実AI／Dockerの成立へ拡張しない。
+各ケースで実Lock／pendingの不存在、有限Sessionの未joinなし、Owner失効と自己生成保存領域の回収を確認する。旧出版markerは作成せず、注入した不明・失敗を清掃で成功へ変換しない。全49名・基準assert式との対応、個別選択が1件だけを実行すること、case間の状態混入なしを限定回帰と独立レビューで確認する。旧53分の結果と新構成の結果を区別し、全体回帰・実AI／Dockerの成立へ拡張しない。
+
+
+## 資源値操作の保存非依存 — 2026-11-14
+
+既存ERB-UT-023は資源Bookの初回Intent、Receipt／再発見、正式未発行、清掃観測、既知ID・名前・所有Label差替え拒否とbefore比較を同じ規則で確認する。PRL-UT-006の保存codec試験は正規本文・Hash、閉形式、Getter／Proxy拒否と配列順を維持する。移管した関数本文・公開集合が基準と同じであることも照合する。
+
+RCM-IT-005の独立Moduleロードに、純粋な資源操作の依存閉包を追加する。新品NodeのModule解決でState候補・Attempt／State CRUD・Storageを拒否し、同じ資源のIntent適用と清掃不明・証拠未確定を確認する。子のerrorなし・signalなし・終了0を個別に確認し、一時Fileや実資源を作らない。保存耐久性の根拠にはせず、単一CAS・実保存の代表試験を別に実施する。全体回帰・実AI・Docker・過去保持物は対象外。
+
+## 履歴値生成と保持・出版条件のOwner — 2026-11-14
+
+| 局所項目 | 導出元・検証義務 | 開始・刺激と観測 | Oracle・終了後条件 |
+|---|---|---|---|
+| `HST-UT-001` | ARCH-000004／ARCH-000008の履歴参照保護・exact出版・不明保持（UT） | 正規化済み合成行に、期限境界、必須行欠測、行／要約Hash差、同ID異本文、pending差とhostile Bufferを与える | 元行順と本文を維持し、必須相関は選別前に全件照合。不正条件を空成功へ畳まず、同じ行の再追記なし。Proxy拒否・own equals非評価・独立コピー。保存・実資源はなくメモリだけで終了 |
+
+RCM-IT-005の新品NodeロードではState検査・CRUD・Storage・履歴Decoderを拒否し、六つの要約／行生成と保持・出版候補が独立して動作することを確認する。子のerror・signal・終了値とmarkerを個別に観測し、一時Fileを作らない。ERB-UT-036／PRL-UT-006の既存候補試験では、未確認／確認済みの現在Operationに対する必須行欠測・両Hash差、初回confirmed拒否、固定時刻と単調確認、履歴確認前の退役拒否を維持する。
+
+実保存・pending再入場・Reader故障の代表はERB-IT-014の既存試験へ接続する。正常な純粋候補を物理保存・耐久確定・実AI／Dockerの成立とみなさない。新しいSystem／UAT／性能・長時間試験は本内部責務変更では実行せず、全体回帰も保留する。証拠と独立レビュー結果はCHG-000082の分離計画§14.56へ記録する。
+
+
+## Checkpoint完成操作のOwner移管 — 2026-11-14
+
+既存ERB-UT-023へ、実SourceのsaveOperationCheckpointを有限Reader／候補生成／Owned Writerへ接続する局所反証を追加する。六種が元入力・元操作・同じ候補を一回だけ正しいWriterへ渡し、Writerの不明結果をそのまま返すことを確認する。Reader不明・Owner失効・別操作／回復ID・候補拒否・参照候補復号拒否・未知用途・余分field・getterでは後続保存0とする。入力検査や元のReader順序を変更しない。
+
+これは保存依存を有限代役にしたUnit確認で、物理保存成功・CAS競合解決の実証ではない。既存の資源Book／State遷移と実保存Readerの代表試験を併走し、既存三私有Mapと四保存調停操作の意味・一回消費・失効を変更しない。全体回帰・実AI・Docker・過去保持物は対象外。
+
+
+## 修復記録APIの命名と現行scope反証 — 2026-11-14
+
+公開名はsaveRepairRecord／resumeRepairRecordSaveへ同時変更し、登録済みのERB-IT-014で利用側・Source抽出・VM依存と現行宣言を一致させる。保存形式・処理・一回消費・Lock／CASは変更しない。Symbol／台帳のFileとLocal Itemは同じものを維持する。
+
+修復Writerの二重scope反証は、対象外Task／別修復／未解決回復の変更・除去、および未解決回復の追加・並べ替えを与える。元guardでは後続0、各guardを除く変異でだけ後続1となり、元本文が不変であることを確認する。撤去済みpendingDeliveriesを復活させず、旧試験の参照ミスを保存Schemaの変更で救済しない。全体回帰・実AI・Docker・過去保持物は対象外。
+## 4保存操作の意味Ownerと物理Writerの分離 — 2026-11-14
+
+| Local Item | 検証義務 |
+|---|---|
+| `ERB-UT-024` | 四証拠用途の一回接続と全終了での失効、初期化部分Effectの保持、不明用途・混在入力のEffect前拒否を有限依存で確認する。 |
+
+ERB-IT-014の二重scope・認証相関・初期化Effect・Task保全反証は、新OwnerのSource本文へ追従する。実保存では初版とpending再入場、履歴段階、元Owner失効、同bytes実体差、終了保存の一回証拠、Task／定義の取得済みOwnerを検証する。履歴の段階制御はEMのsaveRecoveryHistoryへ閉じ、公開操作一回で最大二保存と最終fresh確認を完了する。中間基準は公開操作の途中停止で作り、各保存前後・最終Reader・Owner/保持設定/実体差・解放不明で次段0と累積Effect保全を確認する。Coordinatorは初回に確認した技術結果・保持事実を失敗後も保持し、段階ループや旧一段入口を残さない。有限Writer代役の成功を物理CAS・回収・解放成立へ一般化しない。全体回帰・実AI・Docker・過去保持物は対象外。
+
+
+## 特殊照会の退役と通常Queryの保証 — 2026-11-14
+
+RCM-UT-014はRootから三特殊Queryがなく、通常読取りの旧decisions／runtime／workspaces・未知kind／欠測が認可観測0で拒否されることを確認する。PRL-IT-012のCore CRUDではPlan作成後の通常Queue一覧と現在認可を確認する。PRL-IT-005／014の判断保存・継続試験は、単件Decisionと自己生成StateのBlocker内容・対象相関を維持する。認可済みQueryとreadDecisionを同じAuthority契約とは扱わず、失効認可は残る通常Queryで別に確認する。一般CRUDと管理実行の保全はqueryPlanの同版versionへ接続する。保存形式・安全判定・実処置は変更しない。
+
+
+## 既存Readerへの受付・終了観測接続 — 2026-11-14
+
+PRL-IT-005はqueueを含む四範囲で元のfield参照・一回Reader・intakeだけの出版確認モードを確認する。completionの局所Source確認では元のcompletedOperation引数、完全key捕捉、不正値／getterのRoot観測0、解放不明／読取り拒否／相関不成立の終了確認falseと元診断保全を反証する。ERB-IT-014の実終端保存では、実Driverが確定した同じ履歴直後に公開Readerで相関一致を確認し、別相関・履歴欠測／重複を拒否してState本文不変を確認する。別相関の合成履歴を正例の証拠にはしない。
+
+PRL-IT-013の受付実保存・取消／Owner喪失・受付前後停止は統合ReaderとSource代役へ追従する。既存のCo大規模保存Suiteでは公開呼出しと現行v5要約／未知consumer field拒否を追従し、親全件の未実施を限定実保存の成功で補わない。全体回帰・実AI・Docker・過去保持物は対象外。
+
+
+## 資源Checkpoint再保存の統合 — 2026-11-14
+
+ERB-IT-014の局所Source反証で、元before／candidate・exact回復参照・Repository結合、fresh Readerの引数、Owner三位置の拒否／例外、分類拒否、Reader不明、片方の本文差によるEffect0を確認する。ERB-UT-036は共通Request捕捉に新種別を追加しても他種別へpublicationを混在させられないこと、nested getterを実行しないことを確認する。
+
+Coの現在状態／pending再入場の実保存Suiteは、新しい完成保存入口へ実Root・旧比較pair・同Owner callbackを接続し、元byte・marker保全、Owner拒否位置、保存後fresh照合を確認する。公開名削減だけを根拠に元pair照合の撤去や異常時の自動再試行を認めない。

@@ -1444,7 +1444,7 @@ if (mode !== "recovery") {
       const mutationNames = [
         "saveOperationCheckpoint",
         "completeRecovery",
-        "advanceOwnedRecoveryHistory",
+        "saveRecoveryHistory",
         "saveRecoveryCheckpoint",
         "saveOperationStart",
         "completeOperation",

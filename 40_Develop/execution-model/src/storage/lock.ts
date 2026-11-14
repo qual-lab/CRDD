@@ -58,9 +58,22 @@ export function acquireExecutionStateLock(
       )
         return refused;
     }
+    const parent = fs.lstatSync(directory);
+    if (
+      !parent.isDirectory() ||
+      parent.isSymbolicLink() ||
+      fs.realpathSync.native(directory) !== directory
+    )
+      return refused;
+    const locks = path.join(directory, "lock");
+    try {
+      fs.mkdirSync(locks, { mode: 0o700 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") return refused;
+    }
     const result = acquireLock({
-      directory,
-      name: `current-state.${repositoryRootHash}.lock`,
+      directory: locks,
+      name: "execution-model.state.lock",
       identity: `current-state:${repositoryRootHash}`,
     });
     return result;

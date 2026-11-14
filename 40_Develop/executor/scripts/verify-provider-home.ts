@@ -45,7 +45,7 @@ export function homeLockRequest(
   if (!/^[0-9a-f]{64}$/u.test(hash)) throw new Error("home_hash_invalid");
   return Object.freeze({
     directory: path.dirname(homeSourcePath),
-    name: `provider-home.${hash}.lock`,
+    name: `executor.provider-home.${hash}.lock`,
     identity: `provider-home:${hash}`,
   });
 }

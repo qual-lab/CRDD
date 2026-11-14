@@ -20,11 +20,8 @@ import {
   parseDockerTaskRecoveryId,
   validateDockerRestartCheckpointTransition,
 } from "../../../src/attempt/validation.ts";
-import {
-  decodeStateSnapshot,
-  isSha256Hex,
-  snapshotStateRecord,
-} from "../../../src/state/validation.ts";
+import { decodeStateSnapshot } from "../../../src/state/validation.ts";
+import { isSha256Hex, snapshotStateRecord } from "../../../src/state/value.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 

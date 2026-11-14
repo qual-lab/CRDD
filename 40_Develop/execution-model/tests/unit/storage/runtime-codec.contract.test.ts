@@ -8,10 +8,6 @@
  * @boundary 実保存・Host・AI・Dockerは使用しない。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -22,22 +18,24 @@ import {
 import { decodeHistoryRows } from "../../../src/history/validation.ts";
 import type { ProjectExecutionState } from "../../../src/index.ts";
 import type {
+  ExecutionStateSnapshot,
   ProjectDefinition,
-  UnifiedSnapshot,
 } from "../../../src/state/types.ts";
 import {
+  decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
   hashExecutionProjectDefinition,
   hashExecutionStateContent,
   PROJECT_SNAPSHOT_SCHEMA,
+  prepareStateOperationSnapshot,
   projectTaskSettlement,
   validateUnifiedTransition,
   validSnapshot,
 } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 import { prepareUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
-import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";
 
 const binding = "a".repeat(64);
 
@@ -287,7 +285,7 @@ const taskExecutionSelections = () => ({
  * @cleanup N/A: 局所値のみ。
  * @boundary 純粋codec試験。実保存・実行を開始しない。
  */
-function emptyUnifiedSnapshot(): UnifiedSnapshot {
+function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
   return {
     schema: "crdd-execution-model/state/v4",
     revision: 1,
@@ -311,7 +309,7 @@ function emptyUnifiedSnapshot(): UnifiedSnapshot {
   };
 }
 const empty = {
-  ...emptyUnifiedSnapshot(),
+  ...emptyExecutionStateSnapshot(),
   schema: EXECUTION_STATE_SCHEMA,
   revision: 1,
   previous: null,
@@ -332,7 +330,7 @@ const empty = {
  */
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
-    ...emptyUnifiedSnapshot(),
+    ...emptyExecutionStateSnapshot(),
     schema: "crdd-execution-model/state/v4",
     repositoryBindingId: "binding-a",
     intakeEpoch: "epoch-a",
@@ -364,7 +362,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   assert.equal(
     decodeStateSnapshot(
       encode({
-        ...emptyUnifiedSnapshot(),
+        ...emptyExecutionStateSnapshot(),
         schema: "crdd-coordinator/current-state/v5",
       }),
       binding,
@@ -527,7 +525,7 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
  * @boundary PRL-UT-006=Direct Boundary: 単一保存の純粋codec。
  */
 test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否する", () => {
-  const snapshot = emptyUnifiedSnapshot();
+  const snapshot = emptyExecutionStateSnapshot();
   const bytes = Buffer.from(`${encodeStateValue(snapshot)}\n`);
   assert.deepEqual(decodeStateSnapshot(bytes, binding)?.snapshot, snapshot);
   assert.equal(
@@ -953,7 +951,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     }),
   }));
   const { managedExecutions: _emptyManaged, ...emptyDefinitionFixture } =
-    emptyUnifiedSnapshot();
+    emptyExecutionStateSnapshot();
   const unified = {
     ...emptyDefinitionFixture,
     repositoryBindingId: snapshot.repositoryBindingId,

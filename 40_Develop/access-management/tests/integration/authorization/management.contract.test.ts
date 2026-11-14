@@ -94,7 +94,7 @@ test("通常接続認証は現在資格と完了状態だけを返す", (t) => {
   fs.rmSync(pending);
   const remove = fs.rmSync;
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };
@@ -183,7 +183,7 @@ test("資格認証は失効・破損・排他不明を本人情報なしで拒�
   fs.rmSync(pending);
   const remove = fs.rmSync;
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };
@@ -256,7 +256,7 @@ test("本人読取りは拒否・材料不明・解放不明でDTOを返さな�
     "completed",
   );
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };

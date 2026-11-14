@@ -148,7 +148,10 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
       separate.stableLogicalHomeBindingHash,
       current.stableLogicalHomeBindingHash,
     );
-    const priorLock = path.join(parent, `provider-home.${"a".repeat(64)}.lock`);
+    const priorLock = path.join(
+      parent,
+      `executor.provider-home.${"a".repeat(64)}.lock`,
+    );
     writeFileSync(priorLock, "unresolved-fixture");
     assert.equal(
       inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").reason,

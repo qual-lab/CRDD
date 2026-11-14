@@ -6,19 +6,17 @@
 
 import { types } from "node:util";
 import type {
+  ExecutionStateSnapshot,
   ExecutionStoredManagedProject,
   ManagedExecution,
   ProjectExecutionState,
   Snapshot,
   StoredTask,
   TaskSettlementFact,
-  UnifiedSnapshot,
 } from "../state/types.ts";
 import {
   decodeStateSnapshot,
-  encodeStateValue,
   HASH,
-  hasExecutionStateRecordKeys,
   hashExecutionProjectDefinition,
   hasStateKeys,
   historyRow,
@@ -28,19 +26,23 @@ import {
   nullableId,
   nullableRecoveryId,
   nullableResultReference,
-  projectTaskSettlement,
   PROJECT_SNAPSHOT_SCHEMA,
+  projectTaskSettlement,
   REVISION,
   singleTaskQueueIsConsistent,
   snapshotIntakeMatches,
   snapshotStateArray,
-  snapshotStateRecord,
   stringArray,
   validateUnifiedTransition,
   validId,
   validResultReference,
   validSnapshot,
 } from "../state/validation.ts";
+import {
+  encodeStateValue,
+  hasExecutionStateRecordKeys,
+  snapshotStateRecord,
+} from "../state/value.ts";
 import type {
   ExecutionSelection,
   ProjectQueueEntry,
@@ -486,9 +488,9 @@ export function prepareUnifiedTaskSections(
  * @concurrency N/A: 保存排他は呼出し側が所有する。
  */
 export function associateTaskOperations(
-  snapshot: UnifiedSnapshot,
-  operations: UnifiedSnapshot["operations"],
-): UnifiedSnapshot["managedExecutions"] {
+  snapshot: ExecutionStateSnapshot,
+  operations: ExecutionStateSnapshot["operations"],
+): ExecutionStateSnapshot["managedExecutions"] {
   return snapshot.managedExecutions.map((project) => ({
     ...project,
     tasks: project.tasks.map((task) => {

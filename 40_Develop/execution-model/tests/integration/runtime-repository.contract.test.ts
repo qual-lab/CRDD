@@ -66,7 +66,6 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "retireStateRecords",
     "transferHistory",
     "readState",
-    "readTaskIntakeState",
     "saveProjectExecutionState",
   ] as const;
   for (const name of names)

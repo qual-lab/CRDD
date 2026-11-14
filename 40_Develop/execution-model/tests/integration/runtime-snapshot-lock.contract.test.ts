@@ -99,10 +99,10 @@ test("Host Windows: Snapshot排他は配下・case差を統一しCrash後の残�
     }
   }
   assert.equal(acquireSnapshotPilotLock(root).status, "blocked");
-  const lockDirectory = path.join(root, ".crdd");
+  const lockDirectory = path.join(root, ".crdd", "lock");
   const names = fs
     .readdirSync(lockDirectory)
-    .filter((name) => /^current-state\.[a-f0-9]{64}\.lock$/u.test(name));
+    .filter((name) => /^execution-model\.state\.lock$/u.test(name));
   assert.equal(names.length, 1);
   const name = names[0];
   assert.ok(name);

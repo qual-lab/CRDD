@@ -13,13 +13,13 @@ import test from "node:test";
 import {
   applyResourceCleanup,
   applyResourceEvent,
-} from "../../src/attempt/crud.ts";
+  validateResourceBook,
+  validateResourceBookTransition,
+} from "../../src/attempt/operations.ts";
 import type { OperationResources } from "../../src/attempt/types.ts";
 import {
   areTaskResourcesSettled,
   validateOperationIdentity,
-  validateResourceBook,
-  validateResourceBookTransition,
 } from "../../src/attempt/validation.ts";
 import { decodeStateSnapshot } from "../../src/state/validation.ts";
 

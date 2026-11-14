@@ -18,8 +18,8 @@ import {
 import {
   normalizeRepositoryRelativePath,
   repositoryPathWithin,
-  snapshotStateRecord,
 } from "../../../src/state/validation.ts";
+import { snapshotStateRecord } from "../../../src/state/value.ts";
 
 /**
  * 共通Record取得の一正本化で受理集合と無実行境界を変えない。

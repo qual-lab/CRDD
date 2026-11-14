@@ -361,7 +361,7 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 5. 既存出版手順で候補を書き、既存の確定前記録・atomic replace・読戻しとHash／実体同一性を確認する。
 6. 排他解放を確認した後、確定版と結果を返す。発行後の不確実性はunknownと元参照へ結合する。
 
-保存中に外部AI、Docker、Git、長い待機、通知を行わない。認可確認は有限のローカル既存状態確認に限り、ネットワーク認証待機を短期Lockに持ち込まない。Lockの取得／解放／Owner喪失の意味は既存Kernel実装を再利用し、marker削除をOS Lock解放にしない。
+保存中に外部AI、Docker、Git、長い待機、通知を行わない。認可確認は有限のローカル既存状態確認に限り、ネットワーク認証待機を短期Lockに持ち込まない。Lockの取得／解放／Owner喪失の意味は既存Kernel実装を再利用し、保存物の確定・再入場と共通Lock解放を別の事実として確認する。
 
 保存Fileの独自16MiB上限は撤去し、正規UTF-8・固定Schema・未知区画拒否、単一Root、前後実体確認、元Hash、履歴の順序を維持する。容量による拒否を別のReaderへ移し替えず、新Storeや自動移行も追加しない。
 
@@ -391,7 +391,7 @@ Core定義のMCP公開は二Toolに限定する。`crdd.get_runtime_definition`�
 
 共有接続はAMの`resolveRuntimeContentAccess`が通常本人・development許可・Repository登録・公開範囲・同じ管理改訂・Manifest・Rootへ結合する。Domainの`ExecutionModelAccess.revalidate`は処置前と返却前にも同じ条件を検査する。操作Context・Tokenは要求内だけに置き、Store・cache・公開応答へ含めない。これは現在認可の接続であり、新しい権限発行ではない。
 
-保存先`.crdd/domain-model/{state.json,state.lock,state.pending.json,history.jsonl,history.pending.jsonl}`は2026-10-28に人間が採用した。製品コードは新配置だけへ接続し、旧形式・旧配置の実データ移行はフロントAI手順とする。全Path集合の公開は撤去し、各保存Ownerが自分の固定所在を内部で束縛する。保存Pathは変更せず、旧aliasは残さない。保持設定`.crdd/config/coordinator.json`は今回変更しない。[配置・初期化境界](03_Repository_Storage.md#共通状態保存の配置切替--2026-10-28)と[移行・切戻し手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ接続する。
+保存先`.crdd/domain-model/{state.json,state.pending.json,history.jsonl,history.pending.jsonl}`を使用する。保存基点の採用は維持し、旧state.lock markerだけを撤去した。製品コードは新配置だけへ接続し、旧形式・旧配置の実データ移行はフロントAI手順とする。全Path集合の公開は撤去し、各保存Ownerが自分の固定所在を内部で束縛する。保存Pathは変更せず、旧aliasは残さない。保持設定`.crdd/config/coordinator.json`は今回変更しない。[配置・初期化境界](03_Repository_Storage.md#共通状態保存の配置切替--2026-10-28)と[移行・切戻し手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ接続する。
 
 移行前に旧新Rootの対応、実Owner非稼働、未解決義務・受付・受領・履歴／pendingの整合、コピー後読戻し、旧新同時更新禁止、有効化と切戻し可能条件を確定する。新側不存在を新品許可にしない。初期化APIも未知の旧領域を自動清掃しない。設定`.crdd/config/ai-selection.json`は既存位置を維持する。
 

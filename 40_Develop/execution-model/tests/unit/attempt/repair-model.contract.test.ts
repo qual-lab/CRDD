@@ -8,10 +8,6 @@
  * @boundary N/A: メモリ値だけ。Writer・実修復は対象外。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -19,12 +15,14 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInThisContext } from "node:vm";
 import { repairCanComplete } from "../../../src/attempt/validation.ts";
-import { prepareHistoryRetention } from "../../../src/history/validation.ts";
 import type { RepairOperationRecord } from "../../../src/index.ts";
 import {
+  decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
+  prepareHistoryRetention,
   validateUnifiedTransition,
 } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 
 type RepairDisposalCheckpoint = NonNullable<
   RepairOperationRecord["disposal"]
@@ -3115,6 +3113,7 @@ import {
   prepareRepairHistorySnapshot,
   prepareStateHistoryLine,
   prepareStateHistorySnapshot,
+  prepareStateOperationSnapshot,
   prepareStateRepairCheckpointSnapshot,
   prepareStateRepairCompletionSnapshot,
   prepareStateRepairRetentionHandoffSnapshot,
@@ -3122,7 +3121,6 @@ import {
   prepareStateRepairSnapshot,
   prepareStateResourceSnapshot,
 } from "../../../src/state/validation.ts";
-import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";
 
 /**
  * 全八処置と周辺観測の共同成立を回復結果へ要求する。
@@ -3834,7 +3832,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     ].includes(name)
       ? stripTypeScriptTypes(
           fs.readFileSync(
-            new URL("../../../src/attempt/validation.ts", import.meta.url),
+            new URL("../../../src/history/operations.ts", import.meta.url),
             "utf8",
           ),
         )

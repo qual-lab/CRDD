@@ -472,7 +472,12 @@ test("保存・公開・回収の故障を成功や不存在へ畳まない", (t
               name.startsWith(f.directory) &&
               name.endsWith(".tmp")) ||
             (mode === "lock" &&
-              name === path.join(f.directory, "ai-selection.lock"))
+              name ===
+                path.join(
+                  path.dirname(f.directory),
+                  "lock",
+                  "configuration-model.ai-selection.lock",
+                ))
           ) {
             faults++;
             throw Error("private-failure");
@@ -546,7 +551,12 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
         apply(target, receiver, args) {
           const fd = Reflect.apply(target, receiver, args);
           if (
-            String(args[0]) === path.join(f.directory, "ai-selection.lock") &&
+            String(args[0]) ===
+              path.join(
+                path.dirname(f.directory),
+                "lock",
+                "configuration-model.ai-selection.lock",
+              ) &&
             args[1] === "wx"
           )
             lockFd = fd;
@@ -603,7 +613,12 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
         apply(target, receiver, args) {
           if (
             lockFailure === "remove" &&
-            String(args[0]) === path.join(f.directory, "ai-selection.lock")
+            String(args[0]) ===
+              path.join(
+                path.dirname(f.directory),
+                "lock",
+                "configuration-model.ai-selection.lock",
+              )
           )
             throw Error("fixture-lock-remove");
           return Reflect.apply(target, receiver, args);

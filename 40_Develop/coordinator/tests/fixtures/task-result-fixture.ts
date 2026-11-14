@@ -339,18 +339,16 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     operationId: identity.operationId,
     historyRetentionDays: 30,
   };
-  for (let stage = 0; stage < 2; stage++) {
-    const recorded = advanceOwnedRecoveryHistory(
-      repository,
-      recoveryId,
-      () => true,
-      "docker_task",
-    );
-    assert.equal(recorded.status, "completed", recorded.reason);
-    assert.equal(recorded.snapshotConfirmed, true);
-    assert.equal(recorded.lockReleased, true);
-    assert.equal(recorded.historyConfirmed, stage === 1);
-  }
+  const recorded = saveRecoveryHistory(
+    repository,
+    recoveryId,
+    () => true,
+    "docker_task",
+  );
+  assert.equal(recorded.status, "completed", recorded.reason);
+  assert.equal(recorded.snapshotConfirmed, true);
+  assert.equal(recorded.lockReleased, true);
+  assert.equal(recorded.historyConfirmed, true);
   const saved = readState(verified.capability, { scope: "recovery" });
   assert.equal(saved.status, "completed", saved.reason);
   assert.ok(saved.value);
@@ -384,6 +382,6 @@ export function settleSyntheticOperations(
   );
 }
 
-import { advanceOwnedRecoveryHistory } from "../../../execution-model/src/index.ts";
+import { saveRecoveryHistory } from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";

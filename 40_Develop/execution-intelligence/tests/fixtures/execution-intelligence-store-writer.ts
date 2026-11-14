@@ -14,7 +14,7 @@ if (!directory) throw Error("fixture_directory_required");
 if (process.argv[3] === "hold") {
   const lock = acquireLock({
     directory,
-    name: "history.lock",
+    name: "execution-intelligence.history.lock",
     identity: "execution-intelligence:history",
   });
   if (lock.status !== "acquired") throw Error("fixture_lock_failed");

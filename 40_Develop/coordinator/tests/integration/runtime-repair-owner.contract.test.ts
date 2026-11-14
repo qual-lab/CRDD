@@ -93,8 +93,8 @@ const storeModule = {
       lastRepairCompletionBefore = fs.readFileSync(stateFile);
       return stateStore.completeRecovery(...args);
     },
-    saveRepairState: (
-      ...args: Parameters<typeof stateStore.saveRepairState>
+    saveRepairRecord: (
+      ...args: Parameters<typeof stateStore.saveRepairRecord>
     ) => {
       writeCalls++;
       const change = args[2].change;
@@ -106,7 +106,7 @@ const storeModule = {
           change.checkpoint.directories.primary.absence === "confirmed_absent")
       ) {
         if (change.kind === "disposal_progress") refuseDisposalProgress = false;
-        return stateStore.saveRepairState(null, args[1], args[2], args[3]);
+        return stateStore.saveRepairRecord(null, args[1], args[2], args[3]);
       }
       const matches =
         faultStage === "identity"
@@ -125,7 +125,7 @@ const storeModule = {
         faultHits++;
         faultedAt = writeCalls;
         if (faultKind === "throw") throw new Error("synthetic_writer_failure");
-        const rejected = stateStore.saveRepairState(
+        const rejected = stateStore.saveRepairRecord(
           null,
           args[1],
           args[2],
@@ -139,7 +139,7 @@ const storeModule = {
           lockReleased: faultKind !== "release",
         };
       }
-      const saved = stateStore.saveRepairState(...args);
+      const saved = stateStore.saveRepairRecord(...args);
       lastWriteResult = saved;
       const target = saved.value?.operation;
       if (
@@ -380,11 +380,10 @@ function createRepairOwnerFixture() {
     "canonicalJson",
     "observeRepairDirectories",
     "readState",
-    "advanceOwnedRecoveryHistory",
+    "saveRecoveryHistory",
     "completeRecovery",
-    "resumeRepairPublication",
-    "completeStatePublication",
-    "saveRepairState",
+    "resumeRepairRecordSave",
+    "saveRepairRecord",
     "cleanupRepairDirectory",
   ] as const;
   const realOperations = {
@@ -716,18 +715,22 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
     ...withHistoryRetention(borrowed, f.capability),
     operationId: JSON.parse(operation.identityJson).operationId,
   };
-  const checkpointSaved = stateStore.advanceOwnedRecoveryHistory(
+  const checkpointSaved = stateStore.saveRecoveryHistory(
     repository,
     id,
-    () => true,
+    () =>
+      !JSON.parse(fs.readFileSync(stateFile, "utf8")).operations.some(
+        (item: { recoveryId: string; history: unknown }) =>
+          item.recoveryId === id && item.history !== null,
+      ),
     "runtime_repair",
   );
-  assert.equal(checkpointSaved.status, "completed", checkpointSaved.reason);
-  assert.equal(checkpointSaved.snapshotConfirmed, true);
+  assert.equal(checkpointSaved.status, "blocked", checkpointSaved.reason);
+  assert.equal(checkpointSaved.snapshotConfirmed, false);
   assert.equal(checkpointSaved.lockReleased, true);
   assert.equal(checkpointSaved.historyConfirmed, false);
   const checkpointBytes = fs.readFileSync(stateFile);
-  const historySaved = stateStore.advanceOwnedRecoveryHistory(
+  const historySaved = stateStore.saveRecoveryHistory(
     repository,
     id,
     () => true,
@@ -753,9 +756,6 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
     publishedRead.historyRows[0]?.line,
     historyBytes.toString("utf8"),
   );
-  const markerBytes = Buffer.from(
-    `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: borrowed.repositoryBinding })}\n`,
-  );
   const acquired = acquireCount,
     entries = runtimeEntries,
     observed = observeCount;
@@ -763,7 +763,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
     "checkpoint_pending",
     "history_pending",
     "history_renamed",
-    "confirmed_marker",
+    "confirmed_no_pending",
     "confirmed_missing",
   ] as const)
     await t.test(cut, async () => {
@@ -780,7 +780,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
         stateFile,
         cut === "checkpoint_pending"
           ? original
-          : cut === "confirmed_marker" || cut === "confirmed_missing"
+          : cut === "confirmed_no_pending" || cut === "confirmed_missing"
             ? currentBytes
             : checkpointBytes,
       );
@@ -794,10 +794,9 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
           path.join(directory, "history.pending.jsonl"),
           historyBytes,
         );
-      if (cut === "history_renamed" || cut === "confirmed_marker")
+      if (cut === "history_renamed" || cut === "confirmed_no_pending")
         fs.writeFileSync(historyFile, historyBytes);
-      if (cut !== "history_renamed" && cut !== "confirmed_missing")
-        fs.writeFileSync(path.join(directory, "state.lock"), markerBytes);
+
       const cancelled = new AbortController();
       cancelled.abort();
       const result = await repairRuntimeOwnedDockerRuntime(
@@ -855,7 +854,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
  * @responsibility 同値通知を無書込みで確認し、保存切断を技術再発行へ変えない。
  * @trace ERB-IT-014
  * @precondition 実DI Machineと模擬技術観測が生成した保持判断待ち。
- * @stimulus 保持引渡しの通常保存、用途偽装、rename前／marker除去前切断、同値拒否。
+ * @stimulus 保持引渡しの通常保存、用途偽装、rename前／rename直後切断、同値拒否。
  * @observation 元版・改訂・receipt全文と実state／pending／marker。
  * @oracle 専用用途だけが確定し、切断後も日時・対象を再生成しない。
  * @cleanup 自己生成Rootだけを既存fixtureで清掃し不存在確認。
@@ -932,7 +931,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       "disposal_failed",
       "disposal_auxiliary",
     ] as const) {
-      const refused = stateStore.saveRepairState(
+      const refused = stateStore.saveRepairRecord(
         f.capability,
         id,
         {
@@ -991,7 +990,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         })}\n`,
       );
       // 合法な差分と遷移拒否はERB-UT-036（repair-modelのlegal_source_change_before_oracle）。ここは公開Writerのcheckpoint拒否とEffect 0を検証する。
-      const refused = stateStore.saveRepairState(
+      const refused = stateStore.saveRepairRecord(
         f.capability,
         id,
         {
@@ -1011,8 +1010,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       assert.equal(fs.existsSync(pending), false);
       assert.equal(fs.existsSync(marker), false);
     }
-    const rename = fs.renameSync,
-      unlink = fs.unlinkSync;
+    const rename = fs.renameSync;
     let cut = 0;
     const renameHook = mock.method(
       fs,
@@ -1022,18 +1020,16 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
           cut++;
           throw new Error("synthetic_handoff_before_rename");
         }
-        return rename(from, to);
+        const value = rename(from, to);
+        if (stage === "after_rename" && to === stateFile && cut === 0) {
+          cut++;
+          throw new Error("synthetic_handoff_after_rename");
+        }
+        return value;
       },
     );
-    const unlinkHook = mock.method(fs, "unlinkSync", (file: fs.PathLike) => {
-      if (stage === "after_rename" && file === marker && cut === 0) {
-        cut++;
-        throw new Error("synthetic_handoff_after_rename");
-      }
-      return unlink(file);
-    });
     try {
-      const saved = stateStore.saveRepairState(
+      const saved = stateStore.saveRepairRecord(
         f.capability,
         id,
         {
@@ -1050,14 +1046,13 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       assert.equal(saved.filesystemEffectIssued, true);
       assert.equal(saved.lockReleased, true);
     } finally {
-      unlinkHook.mock.restore();
       renameHook.mock.restore();
     }
     assert.equal(cut, stage === "normal" ? 0 : 1);
     if (stage === "before_rename") {
       assert.ok(fs.readFileSync(stateFile).equals(before));
       assert.ok(fs.readFileSync(pending).equals(candidate));
-      const resumed = stateStore.resumeRepairPublication(
+      const resumed = stateStore.resumeRepairRecordSave(
         historyRepositoryInput(f.capability),
         id,
         () => true,
@@ -1068,12 +1063,14 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     } else if (stage === "after_rename") {
       assert.ok(fs.readFileSync(stateFile).equals(candidate));
       assert.equal(fs.existsSync(pending), false);
-      assert.equal(fs.existsSync(marker), true);
-      const cleaned = stateStore.completeStatePublication(f.capability);
-      assert.equal(cleaned.storageConfirmed, true);
+      assert.equal(fs.existsSync(marker), false);
+      const cleaned = stateStore.readState(f.capability, {
+        scope: "recovery",
+        input: { kind: "history" },
+      });
+      assert.ok(cleaned.value);
       assert.equal(cleaned.status, "completed");
       assert.equal(cleaned.lockReleased, true);
-      assert.equal(cleaned.markerAbsentConfirmed, true);
     }
     assert.ok(fs.readFileSync(stateFile).equals(candidate));
     assert.equal(fs.existsSync(pending), false);
@@ -1094,7 +1091,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       disposition: "retained_by_human_decision",
       retention: receipt,
     });
-    const same = stateStore.saveRepairState(
+    const same = stateStore.saveRepairRecord(
       f.capability,
       id,
       {
@@ -1112,30 +1109,26 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     if (stage === "normal") {
       const acquired = acquireCount,
         entries = runtimeEntries;
-      for (let step = 0; step < 2; step++) {
-        const read = stateStore.readState(
-          historyRepositoryInput(f.capability),
-          {
-            scope: "recovery",
-            input: { kind: "repair_history", recoveryId: id },
-          },
-        );
-        assert.equal(read.status, "completed");
-        assert.equal(read.lockReleased, true);
-        const saved = stateStore.advanceOwnedRecoveryHistory(
-          {
-            ...repository,
-            ...withHistoryRetention(repository, f.capability),
-            operationId: JSON.parse(operation.identityJson).operationId,
-          },
-          id,
-          () => true,
-          "runtime_repair",
-        );
-        assert.equal(saved.status, "completed");
-        assert.equal(saved.snapshotConfirmed, true);
-        assert.equal(saved.lockReleased, true);
-      }
+      const read = stateStore.readState(historyRepositoryInput(f.capability), {
+        scope: "recovery",
+        input: { kind: "repair_history", recoveryId: id },
+      });
+      assert.equal(read.status, "completed");
+      assert.equal(read.lockReleased, true);
+      const historySaved = stateStore.saveRecoveryHistory(
+        {
+          ...repository,
+          ...withHistoryRetention(repository, f.capability),
+          operationId: JSON.parse(operation.identityJson).operationId,
+        },
+        id,
+        () => true,
+        "runtime_repair",
+      );
+      assert.equal(historySaved.status, "completed");
+      assert.equal(historySaved.snapshotConfirmed, true);
+      assert.equal(historySaved.lockReleased, true);
+      assert.equal(historySaved.historyConfirmed, true);
       const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
       const history = fs.readFileSync(historyFile);
       const historyRead = domain.readState(f.capability, {
@@ -1370,7 +1363,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
     "normal",
     "pending",
     "wrong_pending",
-    "no_marker",
+    "legacy_marker",
     "missing_history",
     "other_history",
     "owner_lost",
@@ -1383,13 +1376,13 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       if (
         mode === "pending" ||
         mode === "wrong_pending" ||
-        mode === "no_marker"
+        mode === "legacy_marker"
       ) {
         fs.writeFileSync(
           pendingFile,
           mode === "wrong_pending" ? original : candidate,
         );
-        if (mode !== "no_marker") fs.writeFileSync(markerFile, marker);
+        if (mode === "legacy_marker") fs.writeFileSync(markerFile, marker);
       }
       if (mode === "missing_history")
         fs.writeFileSync(historyFile, Buffer.alloc(0));
@@ -1476,7 +1469,6 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
     if (fs.existsSync(file)) fs.unlinkSync(file);
   fs.writeFileSync(stateFile, candidate);
   fs.writeFileSync(historyFile, history);
-  fs.writeFileSync(markerFile, marker);
   const afterRename = stateStore;
   const absent = afterRename.readState(f.capability, {
     scope: "recovery",
@@ -1489,9 +1481,12 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.equal(absent.repairCompletionAbsent, true);
   assert.equal(absent.repairRetentionReviewAfter, null);
   assert.equal(absent.currentCompletionPublication, null);
-  const cleaned = stateStore.completeStatePublication(f.capability);
+  const cleaned = stateStore.readState(f.capability, {
+    scope: "recovery",
+    input: { kind: "history" },
+  });
   assert.equal(cleaned.status, "completed");
-  assert.equal(cleaned.markerAbsentConfirmed, true);
+  assert.ok(cleaned.value);
   assert.equal(
     afterRename.readState(f.capability, {
       scope: "recovery",
@@ -1517,7 +1512,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   for (const cut of [
     "rename_before",
     "rename_after",
-    "marker_after",
+    "readback_after",
   ] as const) {
     await t.test(cut, async () => {
       for (const file of [pendingFile, markerFile])
@@ -1525,7 +1520,8 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       fs.writeFileSync(stateFile, original);
       fs.writeFileSync(historyFile, history);
       const rename = fs.renameSync;
-      const unlink = fs.unlinkSync;
+      const lstat = fs.lstatSync;
+      let published = false;
       let hits = 0;
       const renameHook = mock.method(
         fs,
@@ -1538,6 +1534,8 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
             throw new Error("completion_rename_before");
           }
           const value = Reflect.apply(rename, fs, args);
+          if (args[1] === stateFile && cut === "readback_after")
+            published = true;
           if (matches) {
             hits++;
             throw new Error("completion_rename_after");
@@ -1545,18 +1543,15 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
           return value;
         },
       );
-      const unlinkHook = mock.method(
-        fs,
-        "unlinkSync",
-        (...args: Parameters<typeof fs.unlinkSync>) => {
-          const value = Reflect.apply(unlink, fs, args);
-          if (args[0] === markerFile && cut === "marker_after" && hits === 0) {
-            hits++;
-            throw new Error("completion_marker_after");
-          }
-          return value;
-        },
-      );
+      const lstatHook = mock.method(fs, "lstatSync", ((
+        ...args: Parameters<typeof lstat>
+      ) => {
+        if (published && String(args[0]) === stateFile && hits === 0) {
+          hits++;
+          throw new Error("completion_readback_after");
+        }
+        return Reflect.apply(lstat, fs, args);
+      }) as typeof lstat);
       let failed: Awaited<ReturnType<typeof repairRuntimeOwnedDockerRuntime>>;
       try {
         failed = await repairRuntimeOwnedDockerRuntime(
@@ -1566,7 +1561,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
         );
       } finally {
         renameHook.mock.restore();
-        unlinkHook.mock.restore();
+        lstatHook.mock.restore();
       }
       assert.equal(hits, 1);
       assert.equal(failed.status, "blocked");
@@ -2096,17 +2091,17 @@ test("Host Windows: 保存済み一次失敗はNative再取得なしに記録だ
 });
 
 /**
- * 実出版後に残ったmarkerを同じ修復入口で回収する。
+ * 実出版後の最終読取り不明を同じ修復入口で再観測する。
  * @responsibility 出版済み履歴のcurrent本文を保全し、技術再取得もしない。
  * @trace ERB-IT-014
  * @precondition 実Root・Kernel・Writer、自己生成Repositoryだけ。
- * @stimulus 履歴確認出版後のexact marker unlinkを一回拒否し、Abort済みで再入場。
- * @observation 実current本文、marker存在／不存在、WriterとDI回数、清掃診断。
- * @oracle markerだけ除去、current全文不変、再保存・技術要求0。
- * @cleanup unlink差替えを必ず復元し、自作Rootの不存在を確認。
- * @boundary 上位修復入口と既存marker清掃・通常Reader。
+ * @stimulus 履歴確認出版後のcurrent metadata読取りを一回拒否し、Abort済みで再入場。
+ * @observation 実current/履歴本文、pending不存在、WriterとDI回数、読取り結果。
+ * @oracle fresh観測だけ行い、current/履歴全文不変、再保存・技術要求0。
+ * @cleanup metadata差替えを必ず復元し、自作Rootの不存在を確認。
+ * @boundary 上位修復入口と既存履歴付きReader。
  */
-test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", async (t) => {
+test("Host Windows: 修復結果出版後の読戻し失敗をfresh再入場で確認する", async (t) => {
   const f = prepareRepairOwnerFixture(t);
   observeMode = "effect_unknown";
   faultStage = "outcome";
@@ -2118,20 +2113,23 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
   assert.equal(first.outcomeConfirmed, false);
   faultStage = "none";
   const marker = path.join(path.dirname(stateFile), "state.lock");
-  const unlink = fs.unlinkSync;
+  const lstat = fs.lstatSync;
   let hits = 0;
-  const hook = mock.method(fs, "unlinkSync", (file: fs.PathLike) => {
+  const hook = mock.method(fs, "lstatSync", ((
+    file: fs.PathLike,
+    ...args: unknown[]
+  ) => {
     if (
-      file === marker &&
+      String(file) === stateFile &&
       hits === 0 &&
       JSON.parse(fs.readFileSync(stateFile, "utf8")).operations[0]?.history
         ?.confirmed === true
     ) {
       hits++;
-      throw new Error("synthetic_marker_unlink_failure");
+      throw new Error("synthetic_current_readback_failure");
     }
-    return unlink(file);
-  });
+    return Reflect.apply(lstat, fs, [file, ...args]);
+  }) as typeof fs.lstatSync);
   const cancelled = new AbortController();
   cancelled.abort();
   try {
@@ -2145,7 +2143,7 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
     hook.mock.restore();
   }
   assert.equal(hits, 1);
-  assert.equal(fs.lstatSync(marker).isFile(), true);
+  assert.equal(fs.existsSync(marker), false);
   const published = fs.readFileSync(stateFile);
   assert.equal(
     JSON.parse(published.toString("utf8")).operations[0].outcome.status,
@@ -2435,7 +2433,7 @@ test("Host Windows: 修復の未出版pendingをexact本文だけ確定する", 
       assert.ok(fs.readFileSync(stateFile).equals(finalExpected));
       assert.throws(() => fs.lstatSync(pending), { code: "ENOENT" });
       assert.throws(() => fs.lstatSync(marker), { code: "ENOENT" });
-      const late = stateStore.saveRepairState(
+      const late = stateStore.saveRepairRecord(
         f.capability,
         first.recoveryId,
         {
@@ -2454,11 +2452,7 @@ test("Host Windows: 修復の未出版pendingをexact本文だけ確定する", 
       // 既出版と同じ本文を持つ重複短命材料の有限形を、同じ正規bytesから構成する。
       const saved = JSON.parse(fs.readFileSync(stateFile, "utf8"));
       fs.writeFileSync(pending, fs.readFileSync(stateFile), { flag: "wx" });
-      fs.writeFileSync(
-        marker,
-        `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: saved.repositoryBinding })}\n`,
-        { flag: "wx" },
-      );
+
       const same = await repairRuntimeOwnedDockerRuntime(
         f.capability,
         cancelled.signal,
@@ -2507,16 +2501,10 @@ test("Host Windows: 修復出版は排他間の同bytes実体差を拒否する"
   );
   assert.ok(first.recoveryId);
   const bytes = fs.readFileSync(stateFile);
-  const snapshot = JSON.parse(bytes.toString("utf8"));
   const directory = path.dirname(stateFile);
   const pending = path.join(directory, "state.pending.json");
-  const marker = path.join(directory, "state.lock");
   fs.writeFileSync(pending, bytes, { flag: "wx" });
-  fs.writeFileSync(
-    marker,
-    `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: snapshot.repositoryBinding })}\n`,
-    { flag: "wx" },
-  );
+
   const readdir = fs.readdirSync;
   let enumerations = 0,
     swaps = 0;
@@ -2533,9 +2521,9 @@ test("Host Windows: 修復出版は排他間の同bytes実体差を拒否する"
     if (args[0] === directory) enumerations++;
     return result;
   }) as typeof fs.readdirSync);
-  let result: ReturnType<typeof stateStore.resumeRepairPublication>;
+  let result: ReturnType<typeof stateStore.resumeRepairRecordSave>;
   try {
-    result = stateStore.resumeRepairPublication(
+    result = stateStore.resumeRepairRecordSave(
       historyRepositoryInput(f.capability),
       first.recoveryId,
       () => {
@@ -2594,7 +2582,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
       );
       assert.ok(first.recoveryId);
       const saved = JSON.parse(fs.readFileSync(stateFile, "utf8"));
-      const binding = saved.repositoryBinding as string;
+      const _binding = saved.repositoryBinding as string;
       let before = fs.readFileSync(stateFile);
       let candidate: Buffer | null;
       let id = first.recoveryId;
@@ -2621,7 +2609,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         const identity = `${JSON.stringify({ ...originalIdentity, operationNonce: originalIdentity.operationNonce === "f".repeat(64) ? "e".repeat(64) : "f".repeat(64), operationId: "OP-999999" })}\n`;
         const identityValue = JSON.parse(identity);
         id = `docker-runtime-repair.${identityValue.operationNonce}.${createHash("sha256").update(identity).digest("hex")}`;
-        const created = stateStore.saveRepairState(
+        const created = stateStore.saveRepairRecord(
           f.capability,
           id,
           {
@@ -2654,7 +2642,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         assert.equal(original.checkpoint.cleanup, "confirmed");
         assert.equal(original.checkpoint.cleanupFailure, null);
         const checkpoint = { ...original.checkpoint, cleanup: "pending" };
-        const begun = stateStore.saveRepairState(
+        const begun = stateStore.saveRepairRecord(
           f.capability,
           id,
           {
@@ -2741,11 +2729,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         marker = path.join(directory, "state.lock"),
         history = path.join(directory, "history.jsonl");
       fs.writeFileSync(pending, candidate, { flag: "wx" });
-      fs.writeFileSync(
-        marker,
-        `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: binding })}\n`,
-        { flag: "wx" },
-      );
+
       const historyBytes = Buffer.from(
         `${canonicalJson({
           schema: "crdd-coordinator/history-row/v2",
@@ -2959,7 +2943,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     }).status,
     "blocked",
   );
-  const taskResult = stateStore.advanceOwnedRecoveryHistory(
+  const taskResult = stateStore.saveRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
@@ -2978,13 +2962,17 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     observed.currentHistoryPublication?.operationKind,
     "runtime_repair",
   );
-  const fixed = first.advanceOwnedRecoveryHistory(
+  const fixed = first.saveRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
-    () => true,
+    () =>
+      !JSON.parse(fs.readFileSync(stateFile, "utf8")).operations.some(
+        (item: { recoveryId: string; history: unknown }) =>
+          item.recoveryId === id && item.history !== null,
+      ),
     "runtime_repair",
   );
-  assert.equal(fixed.status, "completed");
+  assert.equal(fixed.status, "blocked");
   assert.equal(fixed.historyConfirmed, false);
   assert.equal(fixed.lockReleased, true);
   const checkpointBytes = fs.readFileSync(stateFile);
@@ -3004,7 +2992,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     }).currentHistoryPublication?.stage,
     "publish",
   );
-  const published = second.advanceOwnedRecoveryHistory(
+  const published = second.saveRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
@@ -3118,7 +3106,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   fs.writeFileSync(stateFile, currentBytes);
   fs.writeFileSync(historyFile, historyBytes);
   const third = stateStore;
-  const confirmed = third.advanceOwnedRecoveryHistory(
+  const confirmed = third.saveRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
@@ -3130,14 +3118,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
   assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
   const directory = path.dirname(stateFile);
-  const markerBytes = Buffer.from(
-    `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
-  );
   for (const cut of [
     "checkpoint_pending",
     "history_pending",
     "history_renamed",
-    "confirmed_marker",
+    "confirmed_no_pending",
     "confirmed_missing",
   ] as const) {
     await t.test(cut, async () => {
@@ -3154,7 +3139,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         stateFile,
         cut === "checkpoint_pending"
           ? original
-          : cut === "confirmed_marker" || cut === "confirmed_missing"
+          : cut === "confirmed_no_pending" || cut === "confirmed_missing"
             ? currentBytes
             : checkpointBytes,
       );
@@ -3168,10 +3153,9 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
           path.join(directory, "history.pending.jsonl"),
           historyBytes,
         );
-      if (cut === "history_renamed" || cut === "confirmed_marker")
+      if (cut === "history_renamed" || cut === "confirmed_no_pending")
         fs.writeFileSync(historyFile, historyBytes);
-      if (cut !== "history_renamed" && cut !== "confirmed_missing")
-        fs.writeFileSync(path.join(directory, "state.lock"), markerBytes);
+
       const fresh = stateStore;
       const before = fs.readFileSync(stateFile);
       const observation = fresh.readState(

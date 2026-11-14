@@ -8,13 +8,12 @@ import { createHash } from "node:crypto";
 import type { ProjectDefinition } from "../state/types.ts";
 import {
   decodeStateSnapshot,
-  encodeStateValue,
   hashExecutionProjectDefinition,
   repositoryPathWithin,
   snapshotPlainArray,
-  snapshotStateRecord,
   validId,
 } from "../state/validation.ts";
+import { encodeStateValue, snapshotStateRecord } from "../state/value.ts";
 import type { ProjectTaskDefinition } from "../task/types.ts";
 
 import type {

@@ -469,9 +469,9 @@ OS判定は`objective/execute.ts`が`process.platform`を直接使用し、PID�
 
 ### 修復専用保存Ownerの接続契約（CLI候補・全体未完了）
 
-修復Ownerは既存領域がreadyで現在Ownerが有効な場合、通常Readerの前に既存の出版marker清掃を一回だけ呼ぶ。status completed・storageConfirmed・markerAbsentConfirmed・lockReleasedとOwner再確認が共同成立してから通常Readerで本文を再取得する。清掃結果は非秘密の診断事実として返し、保存本文・修復成功・実資源不存在の代替根拠にしない。pending・不正marker・未知Fileの処置前拒否では除去0、除去後の観測や解放不明では既発生事実を保持して停止する。取消はmetadata清掃を妨げないが技術Session開始前の拒否は維持する。これは出版済みcurrentのmarkerだけの処置であり、未出版pendingの確定は後述の専用Reader／publisherで別に判断する。
+修復Ownerは領域readyと現在Ownerを確認し、既存の履歴付きReaderでcurrentとhistoryを再取得する。status・本文・履歴健全性・Lock解放とOwner再確認が揃う前に技術Sessionや保存へ進まない。pendingは用途限定Readerで元版・候補・対象を照合する。旧保存markerは作らず、その残存は未知Fileとして停止する。取消後も必要な事実記録は維持するが、新たな技術Sessionの開始許可とは分ける。
 
-`execution/recovery.ts`は検証済みRootと現在Revisionを固定し、DIの固定Session入口からH／Scopeを受けた同じ呼出し内でIdentity保存→初checkpoint保存→Machineを接続する。現在許可は呼出し生存・Root／Revision・未取消で確認し、準備保存済みをNative準備前の許可条件には含めない。処置先行防止はDIの`onPrepared`同期void通知の完了順序で所有する。保存Ownerは取消から独立し、保存不明またはfinally後の再利用を拒否する。freshのSession候補とDI準備値は既存の正規JSON符号化で比較し、Property順を実体差と扱わない。二版の結果保存・出版済みmarker清掃・未出版metadata確定・明示保持判断・履歴・退避物がない現在操作の終了整理は本番修復呼出しへ接続して局所検証済み。CLI切替は次の候補契約まで実装しているが、旧経路の全撤去と実修復を含む全体完成とは扱わない。
+`execution/recovery.ts`は検証済みRootと現在Revisionを固定し、DIの固定Session入口からH／Scopeを受けた同じ呼出し内でIdentity保存→初checkpoint保存→Machineを接続する。現在許可は呼出し生存・Root／Revision・未取消で確認し、準備保存済みをNative準備前の許可条件には含めない。処置先行防止はDIの`onPrepared`同期void通知の完了順序で所有する。保存Ownerは取消から独立し、保存不明またはfinally後の再利用を拒否する。freshのSession候補とDI準備値は既存の正規JSON符号化で比較し、Property順を実体差と扱わない。二版の結果保存・履歴付きfresh観測・未出版pending確定・明示保持判断・履歴・退避物がない現在操作の終了整理は本番修復呼出しへ接続して局所検証済み。CLI切替は次の候補契約まで実装しているが、旧経路の全撤去と実修復を含む全体完成とは扱わない。
 
 CLIの通常明示修復は既存`--repair-docker-desktop-runtime`を維持して新compositionへ接続し、新exact IDは既存`--recover-isolation`でTask／Host／Probeより先に分類する。現在Rootを検証し、取消をsignalへ結合、finallyでlistenerを解除してから固定診断を表示する。解除不明は一次理由を上書きせず別fieldとexit2へ投影し、表示失敗から処置を再発行しない。旧close／adopt／after-repairと署名Root引数は撤去し、処置前の未知引数拒否とする。現行repair／retain／restart／recoverを維持し、旧Desktop記録3 Source・旧Inventory／回復APIは撤去済みである。実保持物・次Task・実Docker／再ログオン／E2Eの未完了は別に保持する。
 
@@ -532,11 +532,11 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 | 個別回収と集約回収 | 同呼出しで確認したNative回収成功を、別の観測資源を含むcheckpoint cleanup unknownで巻き戻さない。fresh再入場では集約unknownからNative成功を復元しない。 |
 | 保持判断後の再入場 | 保存済みの保持判断を新しい人間判断として扱わず、履歴だけを再開する。技術Sessionと通常の保持保存を再発行しない。 |
 
-本番修復compositionは、保持物がない履歴確認済み修復だけを終了保存へ接続する。exact再入場の前置Readerが終了候補または除去済み状態を確認した場合、その呼出しは終了保存・marker清掃・fresh除去確認だけに閉じる。各境界の保存・解放・現在Ownerを共同確認し、不明後はsticky停止して履歴／技術処置へ戻らない。前置Readerのblockedかつ解放済みだけでは技術処置を許可せず、既存の履歴Reader／厳密metadata出版による別の証明を要求する。終了確認・Effect・排他を個別に返し、履歴・outcomeの先行確認を保存失敗で失わない。除去済みのfresh再確認では、exact ID・履歴確認・終了確認・marker／排他と固定回復理由だけを返し、技術checkpoint・Native回収・outcome詳細を履歴から復元しない。実Hostの新切断点と既存履歴五切断点の再回帰は局所成功しており、CLIの配線試験と実Docker修復・全体E2Eは別の成立範囲とする。
+本番修復compositionは、保持物がない履歴確認済み修復だけを終了保存へ接続する。exact再入場の前置Readerが終了候補または除去済み状態を確認した場合、その呼出しは終了保存・相関付きfresh除去確認だけに閉じる。各境界の保存・解放・現在Ownerを共同確認し、不明後はsticky停止して履歴／技術処置へ戻らない。前置Readerのblockedかつ解放済みだけでは技術処置を許可せず、既存の履歴Reader／厳密metadata出版による別の証明を要求する。終了確認・Effect・排他を個別に返し、履歴・outcomeの先行確認を保存失敗で失わない。除去済みのfresh再確認では、exact ID・履歴確認・終了確認・排他解放と固定回復理由だけを返し、技術checkpoint・Native回収・outcome詳細を履歴から復元しない。実Hostの新切断点と既存履歴五切断点の再回帰は局所成功しており、CLIの配線試験と実Docker修復・全体E2Eは別の成立範囲とする。
 
 退避物がない修復の終了候補は、履歴確認済みのsettling／recovered、一次失敗なし、九処置終端、Engine ready、Host safe、cleanup confirmed、stale absent、disposition not_applicable、CLI consumerと同IDの回復参照・配送不存在を要求する。対象操作一件と版相関だけを変更し、他操作・参照・配送を全文維持する。通常更新の暗黙除去拒否とTask completionは変更しない。純粋候補・物理保存・本番呼出しへの接続を局所試験と限定レビューで確認した。保持済み退避物の処遇は別の人間判断を待ち、この候補からフォルダ削除を許可しない。
 
-物理終了接続は既存`current_completion` ContextとWriterを種別固定で共用する。Task wrapperと既定種別は変更せず、修復専用wrapperからだけ修復候補・修復履歴行をReaderと排他内Writerで再導出する。修復では除去前にもexact履歴行の存在と全文一致を必須にする。Taskの期間整理後の履歴欠測許容は変更しない。状態rename前のexact pendingは同候補として再開でき、rename後の対象除去済み状態は、同ID／nonceの操作・回復参照・配送がなく、同exact修復のcanonical履歴行がstale absent／not_applicableで、短命pendingがない場合だけ読取り専用の`repairCompletionAbsent`を返す。markerは既存清掃で処置しfreshに再確認する。履歴欠測または不明を除去済み根拠にせず、新しいtombstone・Store・Lockを作らない。本番修復呼出しへ接続し、CLIの配線・公開結果を限定検証した。実Docker修復の成功はこれらから推定しない。
+物理終了接続は既存`current_completion` ContextとWriterを種別固定で共用する。Task wrapperと既定種別は変更せず、修復専用wrapperからだけ修復候補・修復履歴行をReaderと排他内Writerで再導出する。修復では除去前にもexact履歴行の存在と全文一致を必須にする。Taskの期間整理後の履歴欠測許容は変更しない。状態rename前のexact pendingは同候補として再開でき、rename後の対象除去済み状態は、同ID／nonceの操作・回復参照・配送がなく、同exact修復のcanonical履歴行がstale absent／not_applicableで、短命pendingがない場合だけ読取り専用の`repairCompletionAbsent`を返す。保存後は相関付きfresh Readerと排他解放を再確認する。履歴欠測または不明を除去済み根拠にせず、新しいtombstone・Store・Lockを作らない。本番修復呼出しへ接続し、CLIの配線・公開結果を限定検証した。実Docker修復の成功はこれらから推定しない。
 
 同じ修復のfresh準備は、phase=`repairing`、outcome／primaryFailureがnull、既存cleanupがconfirmedかつcleanupFailureがnullの場合だけ、下位のSession開始候補を専用Writer用途で保存できる。同じRoot／Revision／主体／Scope・exact回復ID・元版を照合し、cleanup以外の変更を拒否する。通常checkpoint用Writerはこの巻戻しを受理しない。未確定の一次失敗を消す経路や、終端済み操作を再起動する経路にしない。
 
@@ -1666,19 +1666,19 @@ Host清掃は既存の`host.cleanup`を使い、`not_requested → pending`の�
 
 現在回収の履歴出版は、保存済み`history.occurredAt`と行Hash、canonical履歴、pending履歴全文および現在の保持設定から候補を再導出する。Process内の旧`historyAttempts`を復元しない。同じ回復IDの行がcanonicalへ既に存在する場合は全文一致を確認して再追加せず、異内容・重複・pending全文差は停止する。出版途中の再入場では固定時刻を現在時刻へ更新せず、保持設定の差で候補を再導出できない場合もpendingを削除・再作成しない。現在時刻による次の期間整理は後続の通常履歴出版が所有する。
 
-既存の`settlements`内の短命Contextと同じ物理Writerへ、現在履歴の専用modeを接続する。旧liveの清掃結果・Controller結果・management・historyAttempts、既存ACK modeと混在させない。stage、時刻と候補はCaller入力ではなく、exact現在操作と物理材料から導出する。Readerが観測した履歴全文・File実体・設定もContextへ固定し、Writer内の再導出と各I/O前後のOwner／Root／Host両不存在・設定確認へ結合する。Contextは一段ごとに破棄し、終了済み同Ownerの最大二段で履歴confirmedまで進める。途中失敗後は同Ownerを停止し、fresh Ownerだけが同じexact参照から再入場する。新Map、Lock、Schemaと旧実行Authorityは作らない。
+既存の`settlements`内の短命Contextと同じ物理Writerへ、現在履歴の専用modeを接続する。旧liveの清掃結果・Controller結果・management・historyAttempts、既存ACK modeと混在させない。stage、時刻と候補はCaller入力ではなく、exact現在操作と物理材料から導出する。Readerが観測した履歴全文・File実体・設定もContextへ固定し、Writer内の再導出と各I/O前後のOwner／Root／Host両不存在・設定確認へ結合する。Contextは一段ごとに破棄する。EMのsaveRecoveryHistoryが既存Reader/Writerで最大二保存と最終fresh確認を所有し、Coordinatorは前後の対象・保持・終端事実とHost両不存在を確認する。途中失敗後は同Ownerを停止し、fresh Ownerだけが同じexact参照から再入場する。新Map、Lock、Schemaと旧実行Authorityは作らない。
 
-通常Readerの保存途中拒否を維持し、履歴専用Readerは次の有限形だけを受理する。Host清掃の出版途中ReaderはLease解放済み・清掃確認済み結果・履歴ありを受理せず、markerだけの状態を別段階の清掃完了へ誤分類しない。
+通常Readerの保存途中拒否を維持し、履歴専用Readerは次の有限形だけを受理する。Host清掃の出版途中ReaderはLease解放済み・清掃確認済み結果・履歴ありを受理せず、pendingなしの出版済み状態から別段階の清掃完了を推定しない。
 
 | 現在状態と短命材料 | 履歴専用経路の処置 |
 |---|---|
 | 終了結果確定、履歴なし | 時刻を一度固定してcheckpoint候補を作る |
-| exact checkpointのstate.pending＋state.lock | pending内の固定時刻で同じ候補を再導出して出版する |
+| exact checkpointのstate.pending | pending内の固定時刻で同じ候補を再導出して出版する |
 | 履歴未確認、短命材料なし | 固定行と保持設定から履歴出版を開始する |
-| 履歴未確認、exact history.pending、state.pendingなし | 全文再導出後に履歴を出版する。Writer順序上、state.lockの不存在を許す |
+| 履歴未確認、exact history.pending、state.pendingなし | 全文再導出後に履歴を出版する。履歴出版→State保存の順序を維持する |
 | canonicalにexact行、履歴未確認 | 行を再追加せずconfirmedを保存する |
-| canonicalにexact行、exact confirmed state.pending＋state.lock | 同じconfirmed候補を出版する |
-| 履歴confirmed、state.lockのみ | 同じcurrentを確認しmarkerだけ回収する |
+| canonicalにexact行、exact confirmed state.pending | 同じconfirmed候補を出版する |
+| 履歴confirmed、pendingなし | 同じcurrentと履歴をfresh確認し、再保存しない |
 | 履歴confirmed、短命材料なし | Writer 0。保存済みの確認状態を保持する |
 
 交差候補、別行、未知File、観測不能、同時のstate.pendingとhistory.pendingは停止する。共通履歴Driverは操作除去を行わない。後段はTask関連有無と現在の終端条件を確認し、回復CLIから回答の表示成功を主張しない。現在のSourceは物理出版・fresh再入場の検証候補で、通常CLI・配送・Package全体完成を意味しない。
@@ -1693,22 +1693,18 @@ Host清掃は既存の`host.cleanup`を使い、`not_requested → pending`の�
 |---|---|
 | 技術終端・履歴確認済み、Task関連あり | 同じTask／Attempt／Operationを照合しTask保存と全関連Operation除去を一つのSnapshot CASで確定する |
 | 技術終端・履歴確認済み、単独操作 | 同じ元版・候補・Root／Host不存在を既存終了Writerで再確認して除去する |
-| exact終了pending＋marker | fresh Ownerで同じ候補だけを確認・確定する |
-| 対象除去済み、markerのみ | 保存marker限定清掃のみ。Task成功や過去の結果受領を再構成しない |
+| exact終了pending | fresh Ownerで同じ候補だけを確認・確定する |
+| 対象除去済み、pendingなし | currentと対象履歴をfresh照合する。元呼出し成功やTask結果受領を再構成しない |
 | 未確認履歴、別候補、未知File、観測不能 | 元bytes・exact参照を保持して停止する |
 
 Task関連確認の通常Readerと、元Operation Ownerを要求する対象Readerを混同しない。Root単位の回復結合でTask参照を読んだ後も、exact ID・実履歴・未解決参照と実Writerの対象再結合を維持する。保存・読戻し・排他解放が揃う前に操作除去やTask回復完了を返さない。
 
 通常CLIは既存の取消binding・現在Repository確認・回復呼出し・finallyでのunbind・非秘密診断表示を所有する。Task関連の技術回収済み結果はcompleted／docker_task_recovery_terminal_confirmed、operationRetained:true、operationRemovalConfirmed:false、taskRecoveryCompleted:falseを返す。単独整理まで確認した結果はrecoveredを返す。表示失敗は確認済みcleanupを巻き戻さず、Providerを再実行しない。
-#### 保存markerだけが残った場合の限定清掃
+#### 保存途中と出版済み状態の再観測
 
-`state.json`の出版後に`state.lock`だけが残った場合は、Taskの結果返却や受領を推定せず、Repositoryの保存markerだけを回収できる。初回current出版前の残存、不正current、pending併存はこの処置の対象外とする。通常Readerの拒否条件、既存のTask／Consumer Writerの根拠を緩めて代用しない。
+保存markerと専用清掃は撤去した。pendingが残れば元版・候補・対象操作・履歴・Owner・実体の照合に従って再入場する。rename済み・pendingなしの正常currentはfresh読取りできるが、旧Writer成功、Task結果搬送、耐久確定を推定しない。旧domain-model/state.lockは未知Fileとして停止し、自動清掃・互換読取りをしない。
 
-入力は明示検証済みRepository Rootだけとし、保存Ownerの非公開処置として既存Kernel排他を使用する。新しいState、Schema、Map、receiptまたはLockを追加しない。現在Root／保存領域の実体、現在SchemaとRepository結合、exact本文のRepo結合marker、通常File・非link・単一linkを確認し、state／historyの全bytesと実体、pending不存在、既知File集合を処置直前まで再照合する。historyの明示不存在と読取不能は区別する。marker不存在は書込み0の処置不要とし、保存領域不明を不存在へ畳まない。
-
-unlinkは確認したexact markerへ一回だけ行い、処置後はmarker／pending不存在、未知File追加なし、state／historyの実体・本文不変とKernel解放を確認する。unlink後例外、後観測不明、解放不明は成功にせず、既知の削除事実は保持する。自動unlink再試行は行わない。返却はmarker処置・保存内容保全・排他解放の確認だけであり、Task完了、Consumer受領、Docker資源不存在や実行Authorityを表さない。既存排他に従わない外部Processとの競合を原子的に防ぐ保証は置かない。
-
-保存marker単独清掃に限る実装・実Repository／Kernel境界の候補を確認した。既存Readerの停止条件は解除せず、用途別終了整理と通常CLIへのSource接続候補は実装し、独立指摘是正・再確認中である。Task完了・受領・Docker回収の成立には拡張しない。
+修復再入場は既存の履歴付きReader、終了後は相関付きReaderでOperation不存在と同じ履歴・保持条件を確認する。保存Effect・保存確認・Lock解放を別々に保持し、marker削除の旧Effectを補完しない。
 
 #### 再起動要求の現在状態と下位の短命状態
 
@@ -1816,12 +1812,12 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 ### 現在状態と履歴を分ける縮小設計
 
-共通保存の物理OwnerはDomain Modelであり、現在の配置は、検証したRepository Root直下の`.crdd/domain-model/`にある`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`、`history.pending.jsonl`である。配置の共通責務は[Runtime Data](../execution-model/03_Repository_Storage.md#compact-owner-layout)、単一保存の契約は[Task詳細設計](04_Task_Detailed_Design.md#compact-runtime-storage)を正本とする。旧形式は移行元であり並行運用しない。Source接続と、固定全回帰・実境界の成立確認は区別する。
+共通保存の物理OwnerはDomain Modelであり、現在の配置は、検証したRepository Root直下の`.crdd/domain-model/`にある`state.json`、`state.pending.json`、`history.jsonl`、`history.pending.jsonl`である。配置の共通責務は[Runtime Data](../execution-model/03_Repository_Storage.md#compact-owner-layout)、単一保存の契約は[Task詳細設計](04_Task_Detailed_Design.md#compact-runtime-storage)を正本とする。旧形式は移行元であり並行運用しない。Source接続と、固定全回帰・実境界の成立確認は区別する。
 
 | 情報 | 所有・終了条件 |
 |---|---|
 | `state.json` | Operation・回復義務とTask等の現在状態。 | Task終端と関連Operation除去を同じ更新で確定する。過去の診断全文やEvidenceを追加し続けない。 |
-| `state.lock / state.pending.json` | Coordinator側の単一Writerによる短期更新。実効排他、期待改訂版、保存確定、read-backと中断時の同一Identity再入場を確認する。複数Writer用の新Lock Frameworkは作らない。 |
+| `state.pending.json`と共通保存Lock | EMの単一Writerによる更新候補と短期排他を分ける。期待改訂版、元本文、保存確定と中断時の同一Identity再入場を確認する。 |
 | `history.jsonl` | 時刻と相関Identityを含む有限な終了・診断要約。最初の失敗とcleanup／後続失敗を別々に残す。回復AuthorityやEvidenceの代わりにしない。 |
 
 通常の回復は内部で処置し、自動処置できず人間操作が必要な場合だけ「再認証」「Docker再起動」等の具体的な介入を要求する。未解決回復を自動期限切れにせず、大量の未解決蓄積はRuntime不具合として扱う。通常履歴の保持は、他のRuntime所有者と同じ期間基準を用い、下表のTool別設定へ固定する。状態から履歴への確定搬送と主要利用側のSourceは接続済みである。ただし全Producer・真正資源・Host・全利用側の実境界一体実証は未完了であり、診断通知一般を耐久搬送済みへ拡張しない。
@@ -2062,7 +2058,7 @@ Snapshot排他は既存のWindows名前付きPipe primitiveを用い、検証済
 
 本番Writerは既存`writeRuntimeOwnedCoordinatorStateSnapshot`と`prepareRuntimeOwnedCoordinatorStateInitialization`の意味を保持して接続する。`snapshotConfirmed`、`lockReleased`、`filesystemEffectIssued`を分けて受理し、保存確認だけで解放成功やEffect未発行を推定しない。通常操作用の借用入口とfresh Process回収用の現在Root検証はCoordinator内部に閉じる。後者は明示選択した検証済みRoot、保存済みRepository結合、exact操作／回復参照、現在所有権・資源を照合し、旧ProcessのCapabilityを復元しない。初回中断もpendingのexact bytesと領域Identityを確認できる場合に限って同じ初期化を確定し、空Directoryや履歴から初回Authorityを作らない。これらの本番接続とfresh Process試験は段階5〜7の実装・検証対象である。
 
-資源作成Receiptの保存中断は、同じTaskのexact回復参照に限定して通常doctorから再入場する。通常Readerのpending拒否は維持する。専用Readerはcurrent／pendingの正規全bytes・Repository結合・前版Hash・同じ操作Identityを照合し、`intent_saved → identified`かつ`docker_create_result`の一資源だけを既存Snapshot生成から完全再導出する。他操作、Owner、Authority、結果、履歴、配送が変わる候補は拒否する。既にcurrentとpendingが同本文なら値は再適用せず短命物だけを回収する。fresh回収Ownerが既存Host世代・Home・Runtime排他を取得して元OwnerのEffect不能を確認した後、同じpairを既存Writerへ渡し、保存・読戻し・pending／marker除去と解放を別々に確認する。候補の読取りやID保存を資源の現在存在・清掃完了にしない。別回復IDのpendingを代わりに出版せず、create要求・Task・Providerを再発行しない。この接続の局所・実境界成立は変更計画で追跡し、Source追加だけを全体完成としない。
+資源作成Receiptの保存中断は、同じTaskのexact回復参照に限定して通常doctorから再入場する。通常Readerのpending拒否は維持する。専用Readerはcurrent／pendingの正規全bytes・Repository結合・前版Hash・同じ操作Identityを照合し、`intent_saved → identified`かつ`docker_create_result`の一資源だけを既存Snapshot生成から完全再導出する。他操作、Owner、Authority、結果、履歴、配送が変わる候補は拒否する。既にcurrentとpendingが同本文なら値は再適用せず短命物だけを回収する。fresh回収Ownerが既存Host世代・Home・Runtime排他を取得して元OwnerのEffect不能を確認した後、同じpairを既存Writerへ渡し、保存・読戻し・pending除去と解放を別々に確認する。候補の読取りやID保存を資源の現在存在・清掃完了にしない。別回復IDのpendingを代わりに出版せず、create要求・Task・Providerを再発行しない。この接続の局所・実境界成立は変更計画で追跡し、Source追加だけを全体完成としない。
 
 既に解放済みのTaskは、旧OwnerのEffect不能、Workspace再利用不可、五資源すべてのID確定・現在不存在、Host遷移なし、未解決再起動なしが記録上成立する場合だけ、Host清掃が`not_requested`でも既存のRoot／marker不存在観測へ進める。同じRoot・token結合を確認し、fresh回収Ownerが既存排他を保持した状態でRootとmarkerの両方の明示不存在を再確認する。片側不存在・観測不能・再出現は拒否する。不存在を確認した場合は既存host checkpointの`pending`を保存・読戻しし、その後に既存の清掃確定Writerを使う。このpendingは現在の確認処理の進行を表し、過去の物理削除要求を発行済みへ変更しない。別操作の回収成功だけで対象の終了を推定せず、新しい削除、再起動、共有状態または回復Frameworkを追加しない。
 
@@ -2551,7 +2547,7 @@ Provider別のSchema・環境検査・内容Parser・エラー変換をCoordinat
 
 既存runtime-repair-result ITの五親49故障組合せを、元の系列名・段階・故障値を持つ49個別試験へ分ける。不変の新品Git Repository、真正Root／Revision／保存Identityと未束縛Source factoryは一回準備する。既知のexact Root解決要求は初回の真正結果へ接続し、capability入力の観測投影は同一参照だけとする。未知Path・未知capability・明示Revision要求は元の実装へ委譲する。この49件でGit改変検出を繰り返し実証したとは扱わず、従来経路の実Root試験を残す。
 
-State・History、Owner、Abort、故障設定、counter、Source依存は各ケースで新規構築する。初回処理を再入場へ置換せず、全故障点とassertを維持する。終了hookはOwnerを失効し、有限Sessionの未joinと物理Lock／pending残存を確認した後だけ、本試験が所有するモデル保存Directoryを清掃する。出版markerのstate.lockは物理Lockと区別し、意図した故障結果の一部として扱う。清掃不明なら次ケースへの再利用と最終Root削除を拒否する。
+State・History、Owner、Abort、故障設定、counter、Source依存は各ケースで新規構築する。初回処理を再入場へ置換せず、全故障点とassertを維持する。終了hookはOwnerを失効し、有限Sessionの未joinと物理Lock／pending残存を確認した後だけ、本試験が所有するモデル保存Directoryを清掃する。旧出版markerは作成しない。pendingと共通Lockの残存は別々に確認する。清掃不明なら次ケースへの再利用と最終Root削除を拒否する。
 
 実Reader／Writer・共通wx・CAS・保存順序は製品実装をそのまま使う。試験のために公開APIや汎用Fixture Managerを追加しない。ケース名の正規表現で1件だけを直接実行でき、全49件の数と基準assert式集合を照合する。過去の53分は旧構成の証跡として残し、現在の所要時間と区別する。結果は[変更計画§14.54](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#1454-修復49ケースの不変準備とケース独立の整理)へ記録する。
 

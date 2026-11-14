@@ -26,20 +26,21 @@ import {
   writeOwnedSettlement,
 } from "../../src/attempt/crud.ts";
 import { createDockerRestartRequestId } from "../../src/attempt/validation.ts";
+import { operationSummaryBytes } from "../../src/history/operations.ts";
 import * as domain from "../../src/index.ts";
 import {
   applyResourceEvent,
   type OperationResources,
 } from "../../src/index.ts";
-import { readState, writeOwnedStateSnapshot } from "../../src/state/crud.ts";
+import { readState } from "../../src/state/crud.ts";
 import {
   decodeStateSnapshot,
-  encodeStateValue,
-  operationSummaryBytes,
   prepareStateCompletionSnapshot,
 } from "../../src/state/validation.ts";
+import { encodeStateValue } from "../../src/state/value.ts";
 import * as stateKernelLocks from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
+import { writeOwnedStateSnapshot } from "../../src/storage/publication.ts";
 import * as areaRequirement from "../../src/storage/store.ts";
 import * as areaInitialization from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
@@ -1414,6 +1415,46 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
       fs.readFileSync(historyFile, "utf8").trim().split("\n").length,
       1,
     );
+    // 完了した実保存と履歴を、統合した公開Readerから同じ相関で確認する。
+    const completionRead = (
+      correlationId: string,
+    ): ReturnType<typeof readState> =>
+      readState(verifiedRoot.capability, {
+        scope: "recovery",
+        input: {
+          kind: "completion",
+          recoveryId: transient.recoveryId,
+          correlationId,
+        },
+      });
+    const completedObservation = completionRead("task-operation-a");
+    assert.equal(completedObservation.operationCompletionConfirmed, true);
+    assert.equal(completedObservation.lockReleased, true);
+    assert.equal(
+      completionRead("different-operation").operationCompletionConfirmed,
+      false,
+    );
+    const completionHistory = fs.readFileSync(historyFile);
+    const completedState = fs.readFileSync(stateFile);
+    for (const mutation of ["missing", "duplicate"] as const) {
+      try {
+        if (mutation === "missing") fs.unlinkSync(historyFile);
+        else
+          fs.writeFileSync(
+            historyFile,
+            Buffer.concat([completionHistory, completionHistory]),
+          );
+        assert.equal(
+          completionRead("task-operation-a").operationCompletionConfirmed,
+          false,
+          mutation,
+        );
+        assert.deepEqual(fs.readFileSync(stateFile), completedState);
+      } finally {
+        fs.writeFileSync(historyFile, completionHistory);
+      }
+    }
+
     fs.writeFileSync(historyFile, firstHistory);
     const transientFixed = prepareStateHistorySnapshot(
       Buffer.from(`${encodeStateValue(fixture)}\n`),

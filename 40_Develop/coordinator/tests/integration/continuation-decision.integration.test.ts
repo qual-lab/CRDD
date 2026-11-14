@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { queryDecisions } from "../../../execution-model/src/index.ts";
+import { type ExecutionStateSnapshot, readDecision } from "../../../execution-model/src/index.ts";
 import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { readCurrentCoordinatorState } from "../../src/state/query.ts";
@@ -113,19 +113,21 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
         ).generation,
         state.generation,
       );
-      const read = queryDecisions(
-        {
-          root: verifyRuntimePersistenceRepository(root),
-          principalId: auth.principalId,
-          revalidate: () => true,
-        },
-        { projectId, milestoneId: state.milestoneId },
+      const read = readDecision(
+        verifyRuntimePersistenceRepository(root),
+        binding,
+        request.decisionId,
       );
-      assert.equal(read.status, "available");
-      if (read.status === "available") {
-        assert.equal(read.value.blockers.length, 2);
-        assert.ok(read.value.blockers.every((b) => b.status === "active"));
-      }
+      assert.equal(read.status, "completed");
+      if (read.status === "completed")
+        assert.deepEqual(read.value, first.decision);
+      const blockers = (snapshot as ExecutionStateSnapshot).blockers.filter(
+        (b) =>
+          b.target.projectId === projectId &&
+          b.target.milestoneId === state.milestoneId,
+      );
+      assert.equal(blockers.length, 2);
+      assert.ok(blockers.every((b) => b.status === "active"));
       finalAnswer = { ...answer, decisionId: "second-approval" };
     }
     const rename = fs.renameSync;
@@ -326,28 +328,19 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   assert.equal(after.blockers[1].status, "cancelled");
   assert.equal(after.blockers[1].cancelledByDecisionId, nextRequest.decisionId);
   assert.equal(after.decisions[2].status, "pending");
-  const read = queryDecisions(
-    {
-      root: verifyRuntimePersistenceRepository(root),
-      principalId: auth.principalId,
-      revalidate: () => true,
-    },
-    { projectId: common.projectId, milestoneId: common.milestoneId },
+  const read = readDecision(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+    "other-problem-proposal",
   );
-  assert.equal(read.status, "available");
-  if (read.status === "available") {
-    assert.equal(
-      read.value.decisions.find(
-        (d) => d.decisionId === "other-problem-proposal",
-      )?.status,
-      "pending",
-    );
-    assert.equal(
-      read.value.blockers.find((b) => b.blockerId === "blocker-other-problem")
-        ?.status,
-      "cancelled",
-    );
-  }
+  assert.equal(read.status, "completed");
+  if (read.status === "completed") assert.equal(read.value?.status, "pending");
+  assert.equal(
+    (after as ExecutionStateSnapshot).blockers.find(
+      (b) => b.blockerId === "blocker-other-problem",
+    )?.status,
+    "cancelled",
+  );
   assert.equal(after.queueEntries[0].state, "cancelled");
   const history = fs.readFileSync(
     path.join(root, ".crdd", "domain-model", "history.jsonl"),

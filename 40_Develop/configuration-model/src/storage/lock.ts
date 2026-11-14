@@ -53,10 +53,15 @@ export function withConfigurationLock<T>(
   operation: () => T,
 ): ConfigurationLockResult<T> {
   const lockRelativePath = "ai-selection.lock";
-  const lockFile = resolveConfigurationFile(capability, lockRelativePath);
+  const legacyLockFile = resolveConfigurationFile(capability, lockRelativePath);
+  const directory = path.join(path.dirname(capability.root), "lock");
+  const lockFile = path.join(
+    directory,
+    "configuration-model.ai-selection.lock",
+  );
   // 旧清掃義務は読取り拒否だけに使い、自動変換・自動回収しない。
   try {
-    fs.lstatSync(`${lockFile}.recovery-obligation`);
+    fs.lstatSync(legacyLockFile + ".recovery-obligation");
     return Object.freeze({
       acquired: false,
       reason: "filesystem_store_lock_observation_unknown",
@@ -79,6 +84,26 @@ export function withConfigurationLock<T>(
     .update("\0")
     .update(lockRelativePath)
     .digest("hex");
+  try {
+    const parent = fs.lstatSync(path.dirname(directory));
+    if (
+      !parent.isDirectory() ||
+      parent.isSymbolicLink() ||
+      fs.realpathSync.native(path.dirname(directory)) !==
+        path.dirname(directory)
+    )
+      throw new Error("lock_parent_invalid");
+    try {
+      fs.mkdirSync(directory, { mode: 0o700 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+  } catch {
+    return Object.freeze({
+      acquired: false,
+      reason: "filesystem_store_lock_observation_unknown",
+    });
+  }
   const acquired = acquireLock({
     directory: path.dirname(lockFile),
     name: path.basename(lockFile),

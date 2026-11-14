@@ -309,9 +309,15 @@ export function createTopicMeetingRepository(
     const target = location(kind, id);
     if (!observeDirectoryChain(target.rootDirectory, true))
       throw new Error("project_operation_record_directory_invalid");
-    const lockPath = path.join(target.rootDirectory, `.${id}.lock`);
+    const directory = path.join(root, ".crdd", "lock");
+    if (!observeDirectoryChain(directory, true))
+      throw new Error("project_operation_record_directory_invalid");
+    const lockPath = path.join(
+      directory,
+      "document-model." + kind + "." + id + ".lock",
+    );
     const acquired = acquireLock({
-      directory: target.rootDirectory,
+      directory,
       name: path.basename(lockPath),
       identity: `project-record:${kind}:${id}`,
     });

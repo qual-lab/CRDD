@@ -1230,7 +1230,7 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
   assert.equal(isInjected, true);
   assert.equal(outcome.status, "blocked");
   assert.equal(outcome.manualRecoveryRequired, true);
-  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const locks = path.join(root, ".crdd", "lock");
   assert.deepEqual(
     fs
       .readdirSync(locks)

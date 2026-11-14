@@ -527,7 +527,7 @@ test("初回HTTP保存故障は非開示で停止し次要求で出版事実を�
           String(target).endsWith("access-management.pending.json")) ||
         (failure === "lock" &&
           published &&
-          String(target).endsWith("access-management.lock"))
+          String(target).endsWith("access-management.state.lock"))
       )
         throw new Error("fixture cleanup");
       return remove(target, options);
@@ -550,7 +550,7 @@ test("初回HTTP保存故障は非開示で停止し次要求で出版事実を�
     }
     try {
       const before = fs.readFileSync(f.current);
-      const lockPath = path.join(f.directory, "access-management.lock");
+      const lockPath = path.join(f.directory, "access-management.state.lock");
       const retainedLock =
         failure === "lock" ? fs.readFileSync(lockPath) : null;
       const next = await fetch(url, {
@@ -568,7 +568,7 @@ test("初回HTTP保存故障は非開示で停止し次要求で出版事実を�
         assert.deepEqual(fs.readFileSync(lockPath), retainedLock);
         assert.deepEqual(fs.readdirSync(f.directory).sort(), [
           "access-management.json",
-          "access-management.lock",
+          "access-management.state.lock",
         ]);
       } else if (failure === "rename") {
         assert.ok(result.error);

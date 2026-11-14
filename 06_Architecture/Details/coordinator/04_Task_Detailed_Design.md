@@ -223,7 +223,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 | ファイル | 所有する内容・終了条件 |
 |---|---|
 | `state.json` | 現在のProject状態、Queue、進行中Attempt、採否待ち候補への参照、未確定の結果保存・採用後処理、判断待ち、未解決回復、履歴への未確定搬送。既存操作・参照・回復の処置と終了要約の保存を確認した項目は除く。 |
-| `state.lock` | 保存中断を示す固定marker。実効排他はRepository Identityへ結合した既存OS Kernel Lockが所有する。ファイル存在、PID、時刻だけを排他成立・Owner死亡の根拠にしない。 |
+| `.crdd/lock/execution-model.state.lock` | EM保存Ownerが所有する共通wx排他。取得者・世代・File Identityを確認する。保存途中はpendingを照合し、別のmarkerは作らない。 |
 | `state.pending.json` | 同じ排他Ownerが確定前に作る短命な保存候補。確定後に除き、中断残存は同じIdentityの再入場で処置する。 |
 | `history.jsonl` | 時刻、終了Identity、結論、最初の失敗と後続の回収結果の要約。現在状態、Authority、採否待ち・未解決処置の正本にはしない。 |
 
@@ -261,7 +261,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 切替時の旧記録整理はフロントAIの移行手順が所有する。旧Coordinator／Orchestrator／Docker処理を停止し、実資源、未採用候補、結果・判断の未完了参照を確認してから、検証済み用途別Rootの旧記録・一時物を回収する。認証、署名鍵、送信同意、保護された有効判断、候補本体と正式Evidenceを世代記録の清掃へ混ぜない。使用中・参照中・由来不明は一括削除せず、未処置を具体的に返す。Runtimeへ汎用移行・旧履歴再生の仕組みを追加しない。
 
-保存統合と長期実行排他は責務を分ける。短期保存排他は固定`state.lock`とRepositoryへ結合したOS排他を使用する。長期Leaseの短命な実体は`.crdd/tmp/orchestrator-leases/`へ置き、取得意図を保存してから実体を作り、実体Identityと取得証拠を保存する。解放時も意図保存、物理解放の確認、終了証拠とQueueの確定を順序付ける。短期保存排他を保持したままProvider完了を待たない。旧`orchestrator/work/locks/`へ本番処理を戻さない。
+保存統合と長期実行排他は責務を分ける。短期保存排他はRepositoryへ結合した共通wx排他を使用する。長期Leaseの短命な実体は`.crdd/lock/coordinator.lease.<identity>.lock`として置き、取得意図を保存してから実体を作り、実体Identityと取得証拠を保存する。解放時も意図保存、物理解放の確認、終了証拠とQueueの確定を順序付ける。短期保存排他を保持したままProvider完了を待たない。旧`orchestrator/work/locks/`へ本番処理を戻さない。
 
 `history.jsonl`はHeader行を持たず、各行に閉じた種別・UTC時刻・終了要約を持つ。Task、技術実行、修復の要約を区別し、自由記述の診断本文や秘密値は保存しない。全行を検証し、ちょうど30日前の行は残す。現在Operation・未解決義務・未搬送履歴が必要とする行は期限外でも保護し、その行の欠落を確認済みとして扱わない。参照終了後だけ通常の期限整理へ戻す。時計逆行・未来時刻・途中行を期限切れとして削除しない。
 
@@ -329,7 +329,7 @@ Lease解放後にQueueの所有解除だけが中断した場合、再入場は�
 
 両欄はRepository内の非秘密の処理記録であり、保護された判断AuthorityやCapabilityを複製しない。履歴へ移す場合も、保護記録の参照、Project適用、Queue、回復と後処理が解消する前に除去しない。退役受付世代によって過去判断の作成や再適用が復活しないことを確認する。
 
-新版Leaseの物理排他は`.crdd/tmp/orchestrator-leases/`の短命なDirectoryとして保持し、現在状態の正本は`state.json`のintentと証拠へ統合する。取得意図を確定して短期保存排他を解放した後に物理排他を取り、同Ownerの取得記録を再照合して取得証拠を確定する。解放も意図確定、物理解放、不存在確認、終了証拠確定の順とし、短期保存排他を実行中や外部待機へ持ち越さない。Directoryの実体Identityは取得後に照合し、別の実体へ置換された場合は処置しない。物理取得後・証拠保存前の不明な窓は成功へ丸めず、exactな未解決取得として保持する。JSON上のintent除去は終了証拠と現在の物理不存在を照合した専用終了処置に限り、一般保存で未解決義務を消さない。
+新版Leaseの物理排他は`.crdd/lock/coordinator.lease.<identity>.lock`の通常Fileとして保持し、現在状態の正本は`state.json`のintentと証拠へ統合する。取得意図を確定して短期保存排他を解放した後に物理排他を取り、同Ownerの取得記録を再照合して取得証拠を確定する。解放も意図確定、物理解放、不存在確認、終了証拠確定の順とし、短期保存排他を実行中や外部待機へ持ち越さない。Directoryの実体Identityは取得後に照合し、別の実体へ置換された場合は処置しない。物理取得後・証拠保存前の不明な窓は成功へ丸めず、exactな未解決取得として保持する。JSON上のintent除去は終了証拠と現在の物理不存在を照合した専用終了処置に限り、一般保存で未解決義務を消さない。
 
 v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON配列順でHash化した`physicalIdentity`とする。取得前のintentではnull、取得後・解放意図では照合済みHashを持つ。これはOSが返した属性に基づく置換検知であり、AuthorityやWindows電源断保証ではない。opaque Leaseの利用時は親Directoryも正規実体として再確認する。未終了の取得証拠には同Ownerの`lock_owned`意図を要求する。終了証拠なしにintentを除いた保存候補を受理せず、終了証拠がある場合も同じ物理排他の不存在を保存確定前・pending再入場時に確認する。
 

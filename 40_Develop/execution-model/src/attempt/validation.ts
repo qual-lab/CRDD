@@ -6,16 +6,24 @@
 
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import {
+  historyLineBytes,
+  operationSummaryBytes,
+  repairHistoryLineBytes,
+  repairSummaryBytes,
+} from "../history/operations.ts";
 import type { ExecutionStateSnapshot } from "../state/types.ts";
 import {
   encodeStateValue,
   hasExecutionStateRecordKeys,
-  historyLineBytes,
   isSha256Hex,
-  operationSummaryBytes,
   snapshotStateRecord,
-} from "../state/validation.ts";
+} from "../state/value.ts";
 import { inspectExecutionSelection } from "../task/validation.ts";
+import {
+  validateResourceBook,
+  validateResourceBookTransition,
+} from "./operations.ts";
 import type {
   DirectoryIdentity,
   DirectoryObservation,
@@ -656,238 +664,6 @@ export function validateEnvironmentRepairCheckpointTransition(
   };
   if (!cleanupTransitions[before.cleanup].includes(after.cleanup)) return false;
   if (before.stale === "retained" && after.stale !== "retained") return false;
-  return true;
-}
-
-/**
- * 保存された資源集合の形と相関を確認する。実在や削除許可は判定しない。
- * @responsibility Identityの重複を作らず、非秘密Snapshotとkey別checkpointを結合する。
- * @trace ARCH-000008
- * @effect N/A: JSON値の純粋検査だけ。
- * @failure 旧配列形式、欠測・重複key、秘密値を含み得る未正規化fieldは拒否する。
- */
-export function validateResourceBook(
-  value: unknown,
-  comparison?: Readonly<{ before: unknown }>,
-): value is OperationResources | null {
-  if (comparison !== undefined) {
-    const captured = snapshotStateRecord(comparison, new Set(["before"]));
-    return (
-      captured !== null &&
-      Object.hasOwn(captured, "before") &&
-      validateResourceBook(captured.before) &&
-      validateResourceBookTransition(
-        captured.before,
-        value as OperationResources | null,
-      )
-    );
-  }
-  if (value === null) return true;
-  if (
-    !hasExecutionStateRecordKeys(value, ["snapshot", "checkpoints", "cleanup"])
-  )
-    return false;
-  const book = value as OperationResources;
-  if (
-    !hasExecutionStateRecordKeys(book.snapshot, ["resources"]) ||
-    !Array.isArray(book.snapshot.resources) ||
-    !Array.isArray(book.checkpoints) ||
-    book.snapshot.resources.length === 0 ||
-    book.snapshot.resources.length !== book.checkpoints.length ||
-    !hasExecutionStateRecordKeys(book.cleanup, [
-      "cleanupOrder",
-      "setupTimeoutMs",
-      "unreceiptedAbsence",
-      "verifyLabelAbsence",
-    ]) ||
-    !Array.isArray(book.cleanup.cleanupOrder) ||
-    !Number.isSafeInteger(book.cleanup.setupTimeoutMs) ||
-    book.cleanup.setupTimeoutMs <= 0 ||
-    !["retain", "observe"].includes(book.cleanup.unreceiptedAbsence) ||
-    typeof book.cleanup.verifyLabelAbsence !== "boolean"
-  )
-    return false;
-  const keys = new Set<string>();
-  const resourceNames = new Set<string>();
-  for (const resource of book.snapshot.resources) {
-    if (
-      !hasExecutionStateRecordKeys(resource, [
-        "key",
-        "identity",
-        "request",
-        "configuration",
-      ]) ||
-      typeof resource.key !== "string" ||
-      resource.key.length === 0 ||
-      keys.has(resource.key) ||
-      !hasExecutionStateRecordKeys(resource.identity, [
-        "kind",
-        "dockerId",
-        "name",
-        "ownershipLabel",
-      ]) ||
-      !["container", "network"].includes(resource.identity.kind) ||
-      (resource.identity.dockerId !== null &&
-        !isSha256Hex(resource.identity.dockerId)) ||
-      typeof resource.identity.name !== "string" ||
-      !resource.identity.name ||
-      typeof resource.identity.ownershipLabel !== "string" ||
-      !resource.identity.ownershipLabel ||
-      !["not_issued", "issued", "unknown"].includes(resource.request) ||
-      (resource.request === "issued" && resource.identity.dockerId === null) ||
-      (resource.request === "not_issued" &&
-        resource.identity.dockerId !== null) ||
-      !hasExecutionStateRecordKeys(resource.configuration, [
-        "image",
-        "command",
-        "environmentNames",
-        "mounts",
-        "networks",
-        "internal",
-      ])
-    )
-      return false;
-    const resourceName = `${resource.identity.kind}\0${resource.identity.name}`;
-    if (resourceNames.has(resourceName)) return false;
-    resourceNames.add(resourceName);
-    keys.add(resource.key);
-    const c = resource.configuration;
-    if (
-      (c.image !== null && typeof c.image !== "string") ||
-      (c.command !== null &&
-        (!Array.isArray(c.command) ||
-          c.command.some((v: unknown) => v !== "<redacted>"))) ||
-      (c.environmentNames !== null &&
-        (!Array.isArray(c.environmentNames) ||
-          c.environmentNames.some(
-            (v: unknown) =>
-              typeof v !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(v),
-          ))) ||
-      (c.networks !== null &&
-        (!Array.isArray(c.networks) ||
-          c.networks.some((v: unknown) => typeof v !== "string"))) ||
-      (c.internal !== null && typeof c.internal !== "boolean") ||
-      (c.mounts !== null &&
-        (!Array.isArray(c.mounts) ||
-          c.mounts.some(
-            (v: unknown) =>
-              !hasExecutionStateRecordKeys(v, [
-                "source",
-                "target",
-                "readOnly",
-              ]) ||
-              typeof (v as { source: unknown }).source !== "string" ||
-              typeof (v as { target: unknown }).target !== "string" ||
-              typeof (v as { readOnly: unknown }).readOnly !== "boolean",
-          )))
-    )
-      return false;
-  }
-  const checkpointKeys = new Set<string>();
-  for (const checkpoint of book.checkpoints) {
-    if (
-      !hasExecutionStateRecordKeys(checkpoint, [
-        "key",
-        "submission",
-        "receiptSource",
-        "observation",
-        "absenceEvidenceSha256",
-      ]) ||
-      !keys.has(checkpoint.key) ||
-      checkpointKeys.has(checkpoint.key) ||
-      !["none", "intent_saved", "not_issued"].includes(checkpoint.submission) ||
-      (checkpoint.receiptSource !== null &&
-        !["docker_create_result", "runtime_reconciliation"].includes(
-          checkpoint.receiptSource,
-        )) ||
-      !["unobserved", "present", "absent", "unknown"].includes(
-        checkpoint.observation,
-      ) ||
-      (checkpoint.absenceEvidenceSha256 !== null &&
-        !isSha256Hex(checkpoint.absenceEvidenceSha256))
-    )
-      return false;
-    checkpointKeys.add(checkpoint.key);
-    const resource = book.snapshot.resources.find(
-      (r) => r.key === checkpoint.key,
-    );
-    if (
-      !resource ||
-      (checkpoint.receiptSource !== null &&
-        resource.identity.dockerId === null) ||
-      (resource.identity.dockerId !== null &&
-        checkpoint.receiptSource === null) ||
-      (checkpoint.submission !== "intent_saved" &&
-        (resource.request !== "not_issued" ||
-          resource.identity.dockerId !== null ||
-          checkpoint.observation !== "unobserved" ||
-          checkpoint.absenceEvidenceSha256 !== null)) ||
-      (checkpoint.observation === "absent") !==
-        (checkpoint.absenceEvidenceSha256 !== null)
-    )
-      return false;
-  }
-  return (
-    book.cleanup.cleanupOrder.length === keys.size &&
-    new Set(book.cleanup.cleanupOrder).size === keys.size &&
-    book.cleanup.cleanupOrder.every((key) => keys.has(key))
-  );
-}
-
-/**
- * 元資源の識別情報と既知IDを保持したまま観測を更新する。
- * @responsibility 初回Intentの原子確定と既知事実の巻戻し拒否を所有する。
- * @trace ARCH-000008
- * @effect N/A: 値の比較だけ。構成差を回収拒否へ転化しない。
- */
-export function validateResourceBookTransition(
-  before: OperationResources | null,
-  after: OperationResources | null,
-): boolean {
-  if (!validateResourceBook(after)) return false;
-  if (before === null)
-    return (
-      after === null ||
-      (after.checkpoints.filter((c) => c.submission === "intent_saved")
-        .length === 1 &&
-        after.checkpoints.every(
-          (c) =>
-            c.submission !== "not_issued" &&
-            c.receiptSource === null &&
-            c.observation === "unobserved",
-        ) &&
-        after.snapshot.resources.every((r) => r.identity.dockerId === null))
-    );
-  if (
-    after === null ||
-    encodeStateValue(before.cleanup) !== encodeStateValue(after.cleanup) ||
-    before.snapshot.resources.length !== after.snapshot.resources.length
-  )
-    return false;
-  for (const resource of after.snapshot.resources) {
-    const previous = before.snapshot.resources.find(
-      (r) => r.key === resource.key,
-    );
-    const checkpoint = after.checkpoints.find((c) => c.key === resource.key);
-    const prior = before.checkpoints.find((c) => c.key === resource.key);
-    if (
-      !previous ||
-      !checkpoint ||
-      !prior ||
-      resource.identity.kind !== previous.identity.kind ||
-      resource.identity.name !== previous.identity.name ||
-      resource.identity.ownershipLabel !== previous.identity.ownershipLabel ||
-      (previous.identity.dockerId !== null &&
-        resource.identity.dockerId !== previous.identity.dockerId) ||
-      (prior.receiptSource !== null &&
-        checkpoint.receiptSource !== prior.receiptSource) ||
-      (prior.submission !== checkpoint.submission &&
-        !["none:intent_saved", "intent_saved:not_issued"].includes(
-          `${prior.submission}:${checkpoint.submission}`,
-        ))
-    )
-      return false;
-  }
   return true;
 }
 
@@ -2217,81 +1993,6 @@ export function repairCanSummarize(operation: RepairOperationRecord): boolean {
     operation.checkpoint.cleanup === "confirmed" &&
     operation.checkpoint.cleanupFailure === null &&
     isRepairCheckpointSettled(operation.checkpoint)
-  );
-}
-
-/**
- * 修復checkpointから公開可能な終了要約だけを符号化する。
- * @responsibility 通常はDirectory実体を投影せず、明示保持receiptだけ非Authority Node実体を含める。Owner・Scope・Task fieldは投影しない。
- * @trace ARCH-000008
- * @input operation: 検証済みの終端修復。
- * @returns LF付きcanonical要約bytes。
- * @precondition 外側で共同終端を確認する。
- * @postcondition discardの判断時刻・進捗、handoffの固定期限・三用途実体を保持し、出版時刻・確認flag・Snapshot改訂を含めない。
- * @effect N/A: 値の符号化のみ。
- * @failure 不正な内部Identityは例外。
- * @invariant 要約から実行Authorityや保持物の実体を復元しない。
- * @boundary 保存済み技術値と履歴投影。
- * @security 生Path・秘密・生出力を含めない。
- * @concurrency N/A: 同期構築。
- */
-export function repairSummaryBytes(operation: RepairOperationRecord): Buffer {
-  const identity = JSON.parse(operation.identityJson);
-  const checkpoint = operation.checkpoint;
-  if (!checkpoint) throw new Error("repair_checkpoint_missing");
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-coordinator/repair-summary/v1",
-      operationId: identity.operationId,
-      operationNonce: identity.operationNonce,
-      recoveryId: operation.recoveryId,
-      identitySha256: operation.identitySha256,
-      primaryFailure: operation.primaryFailure,
-      outcome: operation.outcome,
-      disposition: operation.disposition,
-      ...(operation.retention !== undefined
-        ? { retention: operation.retention }
-        : {}),
-      ...(operation.disposition === "discard"
-        ? { disposal: operation.disposal }
-        : {}),
-      technical: {
-        actions: checkpoint.actions,
-        engine: checkpoint.engine,
-        stale: checkpoint.stale,
-        hostSafety: checkpoint.hostSafety,
-        cleanup: checkpoint.cleanup,
-        cleanupFailure: checkpoint.cleanupFailure,
-      },
-    })}\n`,
-  );
-}
-
-/**
- * 修復の固定時刻を履歴行へ結合する。
- * @responsibility 要約Hashと時刻込み行Hashを区別する。
- * @trace ARCH-000008
- * @input operation: 終端修復、occurredAt: 最初の正規UTC時刻。
- * @returns LF付きcanonical履歴行。
- * @precondition 値と時刻は呼出し元で確認済み。
- * @postcondition confirmedを行へ含めない。
- * @effect N/A: メモリ内構築。
- * @failure 内部値の符号化不正は例外。
- * @invariant 再試行時刻で行を変えない。
- * @boundary 現在状態と履歴行。
- * @security 行はAuthorityではない。
- * @concurrency N/A: 保存を行わない。
- */
-export function repairHistoryLineBytes(
-  operation: RepairOperationRecord,
-  occurredAt: string,
-): Buffer {
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
-      occurredAt,
-      summary: JSON.parse(repairSummaryBytes(operation).toString("utf8")),
-    })}\n`,
   );
 }
 

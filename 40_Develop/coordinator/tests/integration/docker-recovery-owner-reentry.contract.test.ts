@@ -1282,7 +1282,7 @@ function recoverStoppedFixtureLocks(root: string, pid: number, value: unknown) {
     const name = path.basename(file);
     assert.equal(
       record.identity,
-      name === "docker-state.lock"
+      name === "coordinator.docker-state.lock"
         ? "docker-state:shared"
         : name.slice(0, -5).replace(".", ":"),
     );
@@ -1369,7 +1369,7 @@ test("停止下Lock回収は元通知・Scope・実体が不一致なら削除�
       path: path.join(
         ".crdd",
         "tests",
-        `host-operation.${"a".repeat(64)}.lock`,
+        `coordinator.host-operation.${"a".repeat(64)}.lock`,
       ),
       identity: ["1", "2", "3"],
       bytes: bytes.toString("base64"),

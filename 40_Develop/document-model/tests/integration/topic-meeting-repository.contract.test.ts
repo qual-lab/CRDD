@@ -483,7 +483,15 @@ test("CHG親とmkdir競合後のlinkを拒否する", (t) => {
       "unchanged",
     );
     assert.throws(
-      () => fs.lstatSync(path.join(root, "22_Topics", ".TOPIC-000042.lock")),
+      () =>
+        fs.lstatSync(
+          path.join(
+            root,
+            ".crdd",
+            "lock",
+            "document-model.topic.TOPIC-000042.lock",
+          ),
+        ),
       { code: "ENOENT" },
     );
   } finally {
@@ -701,8 +709,9 @@ test("部分書込みの失敗は所有tmpだけを回収し正本を保持す�
           } else assert.equal(repository.get(kind, id), null);
           const lock = path.join(
             root,
-            kind === "topic" ? "22_Topics" : "23_Meetings",
-            `.${id}.lock`,
+            ".crdd",
+            "lock",
+            "document-model." + kind + "." + id + ".lock",
           );
           assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
         } finally {
@@ -851,7 +860,12 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
     const initial = kind === "topic" ? topic(1) : meeting(1);
     const next = kind === "topic" ? topic(2, "waiting") : meeting(2);
     const file = path.join(root, category, id, `${kind}.md`);
-    const lock = path.join(root, category, `.${id}.lock`);
+    const lock = path.join(
+      root,
+      ".crdd",
+      "lock",
+      "document-model." + kind + "." + id + ".lock",
+    );
     const input = path.join(scope, "input.md");
     const ready = path.join(scope, "ready");
     const release = path.join(scope, "release");
@@ -1109,7 +1123,15 @@ test("TopicとMeetingの登録・編集・削除・一覧・取得を同じ契�
       assert.equal(repository.list(kind).records.length, 0);
       assert.throws(() => fs.lstatSync(path.dirname(file)), { code: "ENOENT" });
       assert.throws(
-        () => fs.lstatSync(path.join(root, category, `.${id}.lock`)),
+        () =>
+          fs.lstatSync(
+            path.join(
+              root,
+              ".crdd",
+              "lock",
+              "document-model." + kind + "." + id + ".lock",
+            ),
+          ),
         { code: "ENOENT" },
       );
     }
@@ -1222,7 +1244,12 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
     try {
       const repository = createTopicMeetingRepository(root);
       assert.equal(repository.create("topic", topic(1)).status, "completed");
-      const lockPath = path.join(root, "22_Topics", ".TOPIC-000042.lock");
+      const lockPath = path.join(
+        root,
+        ".crdd",
+        "lock",
+        "document-model.topic.TOPIC-000042.lock",
+      );
       fs.writeFileSync(lockPath, "owned_conflict", { flag: "wx" });
       assert.equal(
         repository.update("topic", "TOPIC-000042", 1, topic(2)).reason,
@@ -1340,7 +1367,14 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         temporaryFails ? 1 : 0,
       );
       assert.equal(
-        fs.existsSync(path.join(root, "22_Topics", ".TOPIC-000042.lock")),
+        fs.existsSync(
+          path.join(
+            root,
+            ".crdd",
+            "lock",
+            "document-model.topic.TOPIC-000042.lock",
+          ),
+        ),
         lockFails,
       );
     } finally {
@@ -1407,7 +1441,12 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
             kind === "topic" ? "22_Topics" : "23_Meetings",
           );
           const file = path.join(directory, id, `${kind}.md`);
-          const lock = path.join(directory, `.${id}.lock`);
+          const lock = path.join(
+            root,
+            ".crdd",
+            "lock",
+            "document-model." + kind + "." + id + ".lock",
+          );
           const fixture = kind === "topic" ? topic : meeting;
           if (operation === "update")
             assert.equal(

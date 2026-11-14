@@ -45,7 +45,7 @@ test("Home技術排他は共通wx Requestと元Leaseを使用する", () => {
       calls++;
       assert.deepEqual(JSON.parse(JSON.stringify(request)), {
         directory: path.dirname(home),
-        name: `provider-home.${"a".repeat(64)}.lock`,
+        name: `executor.provider-home.${"a".repeat(64)}.lock`,
         identity: `provider-home:${"a".repeat(64)}`,
       });
       return { status: "acquired", lock: lease };

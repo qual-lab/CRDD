@@ -46,14 +46,16 @@ export function observeProviderHome(provider: string, home: string) {
         .update(path.win32.join(parent, kind).toLowerCase())
         .digest("hex");
     const known = new Set(
-      ["codex", "claude"].map((kind) => `provider-home.${binding(kind)}.lock`),
+      ["codex", "claude"].map(
+        (kind) => `executor.provider-home.${binding(kind)}.lock`,
+      ),
     );
     if (
       fs
         .readdirSync(parent)
         .some(
           (name) =>
-            name.toLowerCase().startsWith("provider-home.") &&
+            name.toLowerCase().startsWith("executor.provider-home.") &&
             !known.has(name.toLowerCase()),
         )
     )

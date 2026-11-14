@@ -1083,7 +1083,7 @@ function assessFixtureRemoval(
         git(root, ["rev-parse", `${evidence.candidateCommit}^{tree}`]),
       );
     }
-    const leases = path.join(paths.temporary, "orchestrator-leases");
+    const leases = paths.locks;
     try {
       const entry = fs.lstatSync(leases);
       assert.equal(entry.isSymbolicLink(), false);

@@ -130,7 +130,7 @@ test("提示の先行記録と確認は別改訂・exact Bindingで一回だけ�
     false,
   );
   assert.equal(
-    fs.existsSync(path.join(f.directory, "access-management.lock")),
+    fs.existsSync(path.join(f.directory, "access-management.state.lock")),
     false,
   );
 });
@@ -372,7 +372,7 @@ test("提示前保存の故障は出力Bindingを返さず再表示も許可し�
         throw new Error("injected pending cleanup");
       if (
         failure === "lock" &&
-        String(target).endsWith("access-management.lock")
+        String(target).endsWith("access-management.state.lock")
       )
         throw new Error("injected lock release");
       return remove(target, options);
@@ -405,7 +405,7 @@ test("提示前保存の故障は出力Bindingを返さず再表示も許可し�
       f.directory,
       "access-management.replace.json",
     );
-    const lockPath = path.join(f.directory, "access-management.lock");
+    const lockPath = path.join(f.directory, "access-management.state.lock");
     const before = fs.readFileSync(currentPath);
     const pendingBefore = fs.existsSync(pendingPath)
       ? fs.readFileSync(pendingPath)
@@ -643,7 +643,8 @@ test("通常鍵発行の保存・読戻し・清掃故障はSecretを返さな�
           String(target) ===
             path.join(f.directory, "access-management.pending.json")) ||
         (mode === "lock" &&
-          String(target) === path.join(f.directory, "access-management.lock"))
+          String(target) ===
+            path.join(f.directory, "access-management.state.lock"))
       )
         throw new Error("injected_cleanup");
       return remove(target, options);
@@ -1003,7 +1004,10 @@ test("資格管理Readerは材料処置と解放不明で一覧を返さない",
     const remove = fs.rmSync;
     if (mode === "lock")
       fs.rmSync = (target, options) => {
-        if (String(target) === path.join(f.directory, "access-management.lock"))
+        if (
+          String(target) ===
+          path.join(f.directory, "access-management.state.lock")
+        )
           throw new Error("injected_lock_cleanup");
         return remove(target, options);
       };

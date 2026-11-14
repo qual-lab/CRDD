@@ -30,7 +30,7 @@ Desktop再起動・修復は、PAの専用Native Helperを使用せず、既存�
 
 Directoryは既存の固定対象、Link拒否、元実体・退避先実体の前後照合、元Path再出現の拒否を維持する。部分処置・不明・終了未確認は既存checkpointへ保持する。修復記録からNative所有Hash・Helper実行物Hash・重複Scope Hashを除き、Identity v2はnonce・Operation ID・Repository binding・consumerと既存の内容完全性Hashで相関する。nonce由来の固定退避名は維持する。旧Identity v1や旧9処置を自動読替え・移行せず保全する。
 
-Desktop排他は共通wx処理を用い、設定済み`desktop.userDataDirectory`直下の`.crdd-docker-desktop.lock`、Identity `docker-desktop:shared`とする。上位のstate排他→Desktop排他の順で取得する。CLI終了不明ではLock Fileを保全し、取得descriptorだけを閉じる。これはcleanup成功ではない。Crash残存は自動回復せず、全利用Process停止下で対象を確認する既存の手順へ戻す。
+Desktop排他は共通wx処理を用い、設定済み`desktop.userDataDirectory`直下の`docker-isolation.desktop.lock`、Identity `docker-desktop:shared`とする。上位のstate排他→Desktop排他の順で取得する。CLI終了不明ではLock Fileを保全し、取得descriptorだけを閉じる。これはcleanup成功ではない。Crash残存は自動回復せず、全利用Process停止下で対象を確認する既存の手順へ戻す。
 
 運用条件: 同じDesktopを扱う全Consumerは同じ基点を使用し、未完了修復・未処置の退避物がある間は起動設定の基点を変更しない。別基点への変更検出用の記録・Hash・Registryは追加しない。旧Native方式とwx方式を並走させない。実Dockerの停止・起動・退避と対象CLI版での検証は別Gateであり、有限代役の試験成功から実境界の成立を主張しない。
 
@@ -479,7 +479,7 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 技術checkpointの値契約と局所遷移はDIの`docker-desktop/types.ts`／`validation.ts`が所有し、Domain Modelは保存境界で同じ意味を独立に検査する。DIからDomain Modelへ依存しない。固定8処置を意図保存・発行・結果に分け、三用途の期待実体とsource／retainedの状態を保持する。前処置不明で後続意図を受理せず、一次失敗・cleanup・最初のcleanup失敗を混同しない。値検査の成功だけから実Writer・OS処置・修復成功を主張しない。
 
-Desktop技術排他は共通wxの`.crdd-docker-desktop.lock`へ統合した。同じDesktopを扱う全Consumerが同じ設定基点を使用する運用前提で、取得した同じLockを最後の処置・結果候補まで保持する。元CLI終了不明ではFileを保全してdescriptorだけを閉じる。手動Docker／WSL操作や非協調Process、異なる基点の旧方式との並走を排除する保証ではない。新しいLock Framework・自動回復・監視は設けない。
+Desktop技術排他は共通wxの`docker-isolation.desktop.lock`へ統合した。同じDesktopを扱う全Consumerが同じ設定基点を使用する運用前提で、取得した同じLockを最後の処置・結果候補まで保持する。元CLI終了不明ではFileを保全してdescriptorだけを閉じる。手動Docker／WSL操作や非協調Process、異なる基点の旧方式との並走を排除する保証ではない。新しいLock Framework・自動回復・監視は設けない。
 
 公式停止・状態・起動受付はDI内部`docker-desktop/command.ts`、固定Backend停止は`backend.ts`、Directory退避は`directory.ts`が所有する。判断・Intent／結果保存は上位に維持する。個別Host操作・内部差替え入口をRootへ公開せず、WSL停止だけの公開APIも新設しない。
 

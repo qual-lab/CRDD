@@ -3,13 +3,15 @@
 > 2026-11-12の3モデル分離に伴う移管詳細。現在の公開入口、保持設定のInput／再検証scope、Helper局所化、AM Root、各保存Ownerは[実行モデル](01_Architecture.md)・[構成モデル](../configuration-model/01_Architecture.md)を正本とする。以下に残る過去時点のSource接続・公開候補・検証結果はその時点の比較基準であり、新3モデルの実装・回帰成立を示さない。Schema・Path・Lock・CAS・回復相関と既存処理順序は維持する。
 
 
+共通排他の現在の名前と所在は[Lock設計](../lock/01_Architecture.md#lockの名前と所在)を正本とする。EMの物理排他は`.crdd/lock/execution-model.state.lock`、長期Leaseは同じ共通Directory内の対象別Fileへ接続する。以下に残る旧Kernel・旧配置の説明から現在の排他所在を導出しない。`domain-model/state.lock`は別の保存markerであり、今回の保存簡素化で撤去した。
+
 ## 共通状態保存の配置切替 — 2026-10-28
 
 [Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。人間承認により共通保存先を`.crdd/domain-model/`へ統一する。製品は新配置だけを読み書きし、実データの移行・切戻しは[フロントAI手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ分離する。今回のSource切替は実データ移行済みを意味しない。
 
 保存配置は固定`.crdd/domain-model`のままとし、全Runtime Path集合・Area enumの公開は撤去する。旧`coordinator`のaliasは持たない。空初期化では旧固定Pathのmetadataだけを検査し、ENOENTだけを許可する。旧領域の存在・観測不能・親置換は新規作成を拒否する。内容、旧codec、Fallback、移動・清掃は製品へ追加しない。移行済みの新しい正本が存在する場合、その読取りを旧領域探索へ結合しない。
 
-`state.lock`は保存途中の耐久markerであり、短期Kernel排他の生きたhandleではない。Kernel名・Repository Root由来のHashは維持して旧新版の排他を分断しない。保持設定は現行の`.crdd/config/coordinator.json`から上位が取得し、消費する履歴処理のInputと既存再検証へ結合する。通常Query／非履歴分岐へ設定要件を広げない。設定名の変更や保持値の黙示初期化は今回行わない。templateには共通状態領域の`.gitkeep`を置かず、真正不存在からの明示初期化だけで生成する。
+旧`domain-model/state.lock`は廃止した。排他配置は共通Lock設計へ従い、pendingの元版と現在値・履歴を照合して再入場する。旧markerの自動清掃や互換読取りはしない。保持設定は上位が構成モデルから取得し、履歴処理のInputと既存再検証へ結合する。通常Queryへ設定要件を広げない。
 
 [Workspace配置契約](../coordinator/05_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
 
@@ -130,7 +132,6 @@ Related:
    │
    ├─ domain-model/                        [D/W] 共通定義・Task進行・技術実行の現在状態
    │  ├─ state.json                           単一改訂の現在状態
-   │  ├─ state.lock                           保存中だけのmarker
    │  ├─ state.pending.json                   保存中の候補
    │  ├─ history.jsonl                        種別を持つ終了要約
    │  ├─ history.pending.jsonl                履歴保存中の候補
@@ -196,7 +197,6 @@ Related:
 .crdd/
 ├ domain-model/
 │  ├ state.json
-│  ├ state.lock
 │  ├ state.pending.json
 │  ├ history.jsonl
 │  └ history.pending.jsonl

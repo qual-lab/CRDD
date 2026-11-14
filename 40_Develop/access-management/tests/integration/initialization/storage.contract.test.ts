@@ -194,7 +194,7 @@ test("Host初回Readerは材料・状態・Lock不明をfreshへ丸めない", (
   fs.writeFileSync(current, valid);
   const remove = fs.rmSync;
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("fixture unlock");
     return remove(target, options);
   };
@@ -561,7 +561,7 @@ test("初回資格のLock解放不明は短命鍵を外へ返さない", (t) => 
   const remove = fs.rmSync;
   let failed: ReturnType<typeof createInitialCredential>;
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };
@@ -1147,7 +1147,7 @@ test("資格管理一覧は初回と観測解放不明で情報を返さない",
       };
     if (mode === "release")
       fs.rmSync = (file, options) => {
-        if (String(file).endsWith("access-management.lock"))
+        if (String(file).endsWith("access-management.state.lock"))
           throw new Error("synthetic_release_failure");
         return remove(file, options);
       };
@@ -1612,7 +1612,7 @@ test("初回User競合は一生成だけ採用し出版後Lock不明を保持す
   const remove = fs.rmSync;
   let failed: ReturnType<typeof createInitialAdministrator>;
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };
@@ -1960,7 +1960,7 @@ test("初回競合は一件だけ採用し解放不明を保持する", async (t
     removeKnownStoppedTestLock(f.directory, process.pid);
   });
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };

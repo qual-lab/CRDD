@@ -6,11 +6,8 @@
 
 import { createHash } from "node:crypto";
 import type { Snapshot } from "../state/types.ts";
-import {
-  encodeStateValue,
-  hashStateText,
-  historyRow,
-} from "../state/validation.ts";
+import { hashStateText, historyRow } from "../state/validation.ts";
+import { encodeStateValue } from "../state/value.ts";
 import type {
   ResultRecord,
   WorkspaceCandidateRequest,

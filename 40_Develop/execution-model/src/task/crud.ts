@@ -10,15 +10,11 @@ import {
   saveExecutionDefinition,
   withSnapshotOperation,
 } from "../state/crud.ts";
-import type {
-  ExecutionModelAccess,
-  Snapshot,
-  StateVersion,
-} from "../state/types.ts";
-import { leaseIdentity, snapshotStateRecord } from "../state/validation.ts";
+import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
+import { leaseIdentity } from "../state/validation.ts";
+import { snapshotStateRecord } from "../state/value.ts";
 import type { StoreResult } from "../storage/lock.ts";
-import { blocked, completed } from "../storage/lock.ts";
-import { readSnapshot } from "../storage/store.ts";
+import { blocked } from "../storage/lock.ts";
 import type {
   ProjectQueueEntry,
   ProjectTaskDefinition,
@@ -101,44 +97,6 @@ export function selectQueueEntry(
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
     prepareQueueSelection(current, select(current.queueEntries)),
-  );
-}
-
-/**
- * 単発Task受付に必要な保存区画だけを読む。
- * @responsibility 全Snapshotや保存Ownerを外へ渡さず用途固定の観測を返す。
- * @trace ARCH-000008
- * @input workingDirectory、binding: 現在Repositoryと期待結合。
- * @returns 選択区画、明示不存在又は元の停止結果。
- * @precondition Hostが同じRepositoryの操作認可を確認する。
- * @postcondition I/O・改訂・解放確認の既存条件を保つ。
- * @effect 単一Readerと短期排他の読取りだけ。
- * @failure 不正Root・不一致・観測不能・解放不明を元の理由で拒否する。
- * @invariant 状態変更・実行・回復Authorityを生成しない。
- * @boundary Domain保存と用途別Consumer。
- * @security 任意投影callbackを受けず、技術区画を一括返却しない。
- * @concurrency 元の短期排他を一回取得・解放する。
- */
-export function readTaskIntakeState(
-  workingDirectory: Repository,
-  binding: string,
-): StoreResult<Pick<
-  Snapshot,
-  "queueEntries" | "leaseIntents" | "intakeEpoch"
-> | null> {
-  if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked("orchestrator_repository_root_invalid");
-  const result = readSnapshot(workingDirectory, binding);
-  if (result.status !== "completed") return result;
-  return completed(
-    result.reason,
-    result.value === null
-      ? null
-      : {
-          queueEntries: result.value.queueEntries,
-          leaseIntents: result.value.leaseIntents,
-          intakeEpoch: result.value.intakeEpoch,
-        },
   );
 }
 

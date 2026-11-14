@@ -21,7 +21,7 @@ import type {} from "../../../execution-model/src/index.ts";
 import {
   initializeExecutionStore,
   type ProjectExecutionState,
-  queryExecutionState,
+  queryPlan,
   readLease,
   readState,
   recoverLease,
@@ -261,9 +261,9 @@ for (const fault of ["unobservable", "alias"] as const) {
     assert.ok(beforeSnapshot?.schemaRevision === 7);
     const recoveryId = beforeSnapshot.leaseIntents[0]?.recoveryId;
     assert.ok(recoveryId);
-    const temporary = path.join(root, ".crdd", "tmp");
+    const temporary = path.join(root, ".crdd", "lock");
     const moved = path.join(root, "prior-temporary-area");
-    const locks = path.join(temporary, "orchestrator-leases");
+    const locks = temporary;
     const names = fs.readdirSync(locks);
     assert.equal(names.length, 1);
     const lockName = names[0];
@@ -843,8 +843,10 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       assert.equal(absent.status, "completed");
       assert.equal(fs.readFileSync(current, "utf8"), bytes);
       assert.equal(
-        fs.existsSync(path.join(root, ".crdd", "tmp", "orchestrator-leases")),
-        false,
+        fs
+          .readdirSync(path.join(root, ".crdd", "lock"))
+          .filter((name) => name.startsWith("coordinator.lease.")).length,
+        0,
       );
       continue;
     }
@@ -886,7 +888,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       fs.unlinkSync(
         path.join(root, ".crdd", "domain-model", "state.pending.json"),
       );
-      fs.unlinkSync(path.join(root, ".crdd", "domain-model", "state.lock"));
+      assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model", "state.lock")), false);
     } else assert.equal(acquired.status, "completed");
     const statePort = ports.state;
     if (mode === "bound" && acquired.status === "completed") {
@@ -900,14 +902,13 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         "completed",
       );
     }
-    const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    const locks = path.join(root, ".crdd", "lock");
     const lock = path.join(locks, fs.readdirSync(locks)[0] as string);
     if (mode === "nonempty") fs.appendFileSync(lock, "fixture");
     if (mode === "unbound_absent" || mode === "unbound_no_parent")
       fs.unlinkSync(lock);
     if (mode === "unbound_no_parent") {
       fs.rmdirSync(locks);
-      fs.rmdirSync(path.dirname(locks));
     }
     const before = taskView(root, fs.readFileSync(current, "utf8"));
     assert.ok(before.leaseIntents[0]);
@@ -937,10 +938,8 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       (...args: Parameters<typeof originalRelease>) => {
         if (
           isReleaseUnknown &&
-          path.dirname(String(args[0])) === path.join(root, ".crdd") &&
-          /^current-state\.[0-9a-f]{64}\.lock$/u.test(
-            path.basename(String(args[0])),
-          )
+          path.dirname(String(args[0])) === path.join(root, ".crdd", "lock") &&
+          /^execution-model\.state\.lock$/u.test(path.basename(String(args[0])))
         )
           throw Error("injected_initial_snapshot_release_unknown");
         return Reflect.apply(originalRelease, fs, args);
@@ -1161,8 +1160,9 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
         "rmSync",
         (...args: Parameters<typeof original>) => {
           if (
-            path.dirname(String(args[0])) === path.join(root, ".crdd") &&
-            /^current-state\.[0-9a-f]{64}\.lock$/u.test(
+            path.dirname(String(args[0])) ===
+              path.join(root, ".crdd", "lock") &&
+            /^execution-model\.state\.lock$/u.test(
               path.basename(String(args[0])),
             ) &&
             JSON.parse(fs.readFileSync(current, "utf8")).leaseIntents.length ===
@@ -1188,8 +1188,10 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
             .recoveryId,
         );
         assert.equal(
-          fs.existsSync(path.join(root, ".crdd", "tmp", "orchestrator-leases")),
-          false,
+          fs
+            .readdirSync(path.join(root, ".crdd", "lock"))
+            .filter((name) => name.startsWith("coordinator.lease.")).length,
+          0,
         );
       } finally {
         mock.mock.restore();
@@ -1293,18 +1295,16 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
       if (failure === "intent_record") {
         assert.equal(saved.leaseIntents.length, 0);
         assert.equal(
-          fs.existsSync(path.join(root, ".crdd", "tmp", "orchestrator-leases")),
-          false,
+          fs
+            .readdirSync(path.join(root, ".crdd", "lock"))
+            .filter((name) => name.startsWith("coordinator.lease.")).length,
+          0,
         );
         continue;
       }
       assert.equal(saved.leaseIntents[0].phase, "acquisition_reserved");
       assert.equal(saved.leaseEvidence.length, 0);
-      assert.equal(
-        fs.readdirSync(path.join(root, ".crdd", "tmp", "orchestrator-leases"))
-          .length,
-        1,
-      );
+      assert.equal(fs.readdirSync(path.join(root, ".crdd", "lock")).length, 1);
       assert.equal(readFixtureSnapshot(root, "binding-a").status, "blocked");
     } else {
       const acquired = acquireCoordinatorSnapshotLease(
@@ -1322,7 +1322,7 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
         fs,
         "rmSync",
         (...args: Parameters<typeof original>) => {
-          if (String(args[0]).includes("orchestrator-leases"))
+          if (String(args[0]).includes("coordinator.lease."))
             throw new Error("injected_release_failure");
           return Reflect.apply(original, fs, args);
         },
@@ -1589,10 +1589,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
   assert.equal(invalidQueue.manualRecoveryRequired, true);
   assert.match(invalidQueue.recoveryId ?? "", /^lease-acquisition-/);
   assert.deepEqual(fs.readFileSync(file), settledBytes);
-  assert.deepEqual(
-    fs.readdirSync(path.join(root, ".crdd", "tmp", "orchestrator-leases")),
-    [],
-  );
+  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "lock")), []);
   assert.deepEqual(
     fs.readdirSync(path.join(root, ".crdd", "domain-model")).sort(),
     ["state.json"],
@@ -2307,7 +2304,7 @@ test("一般CRUDは既存の管理実行・待機受付・技術区画を保全�
     revalidate: () => true,
   };
   const target = { projectId: "project-b", milestoneId: "milestone-b" };
-  const observed = queryExecutionState(access, target);
+  const observed = queryPlan(access, target);
   assert.ok(
     observed.status === "available" || observed.status === "absent",
     JSON.stringify(observed),
@@ -3114,7 +3111,7 @@ test("PR-D-A-01 Lease終了保存失敗は回復参照を保全して再取得�
         row.content.ownerGeneration === acquired.value.ownerGeneration,
     ),
   );
-  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const locks = path.join(root, ".crdd", "lock");
   assert.deepEqual(fs.readdirSync(locks), []);
   const currentBytes = fs.readFileSync(current);
   const pendingBytes = fs.readFileSync(pending);
@@ -3227,7 +3224,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
   const current = path.join(root, ".crdd", "domain-model", "state.json");
   const acquiredSnapshot = JSON.parse(fs.readFileSync(current, "utf8"));
   const recoveryId = acquiredSnapshot.leaseIntents[0].recoveryId;
-  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const locks = path.join(root, ".crdd", "lock");
   assert.equal(fs.readdirSync(locks).length, 1);
   const blockedAcquire = ports.lease.acquire(
     "project-a",
@@ -3325,10 +3322,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
   assert.equal(after.status, "completed");
   assert.equal(after.value?.leaseIntents.length, 0);
   assert.equal(after.value?.queueEntries[0]?.state, "queued");
-  assert.deepEqual(
-    fs.readdirSync(path.join(root, ".crdd", "tmp", "orchestrator-leases")),
-    [],
-  );
+  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "lock")), []);
   const reacquired = ports.lease.acquire(
     "project-a",
     "canonical",
@@ -3509,7 +3503,7 @@ test("PR-A-04 取得実体の読戻し失敗は現行取得意図の回復参照
     (...args: Parameters<typeof original>) => {
       if (
         !isInjected &&
-        String(args[0]).includes("orchestrator-leases") &&
+        String(args[0]).includes("coordinator.lease.") &&
         String(args[0]).endsWith(".lock")
       ) {
         isInjected = true;
@@ -3540,7 +3534,7 @@ test("PR-A-04 取得実体の読戻し失敗は現行取得意図の回復参照
   assert.equal(before.value?.leaseIntents[0]?.phase, "acquisition_reserved");
   assert.equal(before.value?.leaseIntents[0]?.recoveryId, failed.recoveryId);
   assert.match(failed.recoveryId ?? "", /^lease-acquisition-[0-9a-f]{40}$/u);
-  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const locks = path.join(root, ".crdd", "lock");
   assert.equal(fs.readdirSync(locks).length, 1);
   const recovered = ports.lease.reconcileAdoptionOwnerLoss(
     "project-a",
@@ -3584,7 +3578,7 @@ test("PR-A-04 実排他の清掃失敗は現行解放意図と回復参照を保
   );
   assert.equal(acquired.status, "completed");
   if (acquired.status !== "completed") throw new Error("lease_fixture_failed");
-  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const locks = path.join(root, ".crdd", "lock");
   const names = fs.readdirSync(locks);
   assert.equal(names.length, 1);
   const lockName = names[0];
@@ -3665,7 +3659,7 @@ const lease = acquireCoordinatorSnapshotLease(${JSON.stringify(root)}, "binding-
 if (lease.status !== "completed") process.exit(20);
 const original = fs.rmSync;
 fs.rmSync = (...args) => {
-  if (String(args[0]).includes("orchestrator-leases")) throw new Error("injected_lease_release_failure");
+  if (String(args[0]).includes("coordinator.lease.")) throw new Error("injected_lease_release_failure");
   return Reflect.apply(original, fs, args);
 };
 const release = lease.value.release();
@@ -3690,10 +3684,7 @@ if (release.status !== "blocked" || !release.manualRecoveryRequired) process.exi
   const after = readFixtureSnapshot(root, "binding-a");
   assert.equal(after.value?.leaseIntents.length, 0);
   assert.equal(after.value?.queueEntries[0]?.state, "queued");
-  assert.deepEqual(
-    fs.readdirSync(path.join(root, ".crdd", "tmp", "orchestrator-leases")),
-    [],
-  );
+  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "lock")), []);
   const reacquired = ports.lease.acquire(
     "project-a",
     "queue-a",
@@ -3739,7 +3730,7 @@ test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (
     record.leaseIntents.push(release);
     fs.writeFileSync(location, `${canonicalJson(record)}\n`, "utf8");
     const before = fs.readFileSync(location);
-    const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    const locks = path.join(root, ".crdd", "lock");
     const names = fs.readdirSync(locks);
     let observations = 0;
     const result = ports.lease.reconcileAdoptionOwnerLoss(
@@ -3786,7 +3777,7 @@ test("PR-D-A-01 現行取得前の破損・未確定保存・既存排他を保�
     );
     assert.equal(initial.status, "completed");
     if (initial.status !== "completed") throw new Error("lease_fixture_failed");
-    const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    const locks = path.join(root, ".crdd", "lock");
     const lockName = fs.readdirSync(locks)[0];
     if (lockName === undefined) throw new Error("lease_resource_missing");
     assert.equal(initial.value.release().status, "completed");
@@ -4215,7 +4206,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
   record.leaseEvidence.push({ ...acquired, content: {} });
   fs.writeFileSync(location, `${canonicalJson(record)}\n`, "utf8");
   const before = fs.readFileSync(location);
-  const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+  const locks = path.join(root, ".crdd", "lock");
   const names = fs.readdirSync(locks);
   const result = ports.lease.reconcileOperationOwnerLoss(
     "project-a",
@@ -4695,7 +4686,7 @@ test("長期Leaseの解放前拒否はdescriptorを閉じ同じ回復参照を�
       "openSync",
       (...args: Parameters<typeof open>) => {
         const fd = Reflect.apply(open, fs, args);
-        if (String(args[0]).includes("orchestrator-leases") && args[1] === "wx")
+        if (String(args[0]).includes("coordinator.lease.") && args[1] === "wx")
           descriptor = fd;
         return fd;
       },
@@ -4772,7 +4763,7 @@ test("長期Lease File観測はopened実体を先に検査し固定上限で読�
       (...args: Parameters<typeof open>) => {
         const fd = Reflect.apply(open, fs, args);
         if (
-          String(args[0]).includes("orchestrator-leases") &&
+          String(args[0]).includes("coordinator.lease.") &&
           args[1] === "r" &&
           new Error().stack?.includes("observePhysicalLeaseFile")
         ) {
@@ -4795,7 +4786,7 @@ test("長期Lease File観測はopened実体を先に検査し固定上限で読�
         requested += Number(args[3]);
         if (!injected && mode === "grow-at-read") {
           injected = true;
-          const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+          const locks = path.join(root, ".crdd", "lock");
           const lockName = fs.readdirSync(locks)[0];
           assert.ok(lockName);
           fs.appendFileSync(path.join(locks, lockName), "x".repeat(4096));
@@ -4816,7 +4807,7 @@ test("長期Lease File観測はopened実体を先に検査し固定上限で読�
     assert.ok(requested <= 2049, mode);
     if (mode === "grow-at-open") assert.equal(requested, 0);
     assert.throws(() => fs.fstatSync(descriptor), { code: "EBADF" });
-    const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    const locks = path.join(root, ".crdd", "lock");
     assert.equal(fs.readdirSync(locks).length, 1);
   }
 });

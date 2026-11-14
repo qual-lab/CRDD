@@ -8,18 +8,18 @@
  * @boundary 実Git・保存・認可・資源不存在を証明しない。
  */
 
-import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type {
   ProjectExecutionState,
   WorkspaceRecord,
 } from "../../../src/index.ts";
+import type { Snapshot } from "../../../src/state/types.ts";
 import {
   PROJECT_SNAPSHOT_SCHEMA,
   projectCurrentState,
 } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 import {
   prepareIntegrationRecordCreation,
   prepareWorkspaceRecordUpdate,

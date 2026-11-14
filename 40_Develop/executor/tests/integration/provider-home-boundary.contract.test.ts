@@ -99,7 +99,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
       const acquired=![...preRejected,'unavailable','acquire_unknown','acquire_throw'].includes(mode);
       assert.equal(releases,acquired?1:0,mode);
       assert.equal(acquisitions,preRejected.includes(mode)?0:1,mode);
-      if(pipe)assert.deepEqual(pipe,{directory:path.dirname(path.win32.join(process.env.LOCALAPPDATA,'Qual-Lab','CRDD','ProviderHomes',provider)), name:'provider-home.'+'d'.repeat(64)+'.lock', identity:'provider-home:'+'d'.repeat(64)});
+      if(pipe)assert.deepEqual(pipe,{directory:path.dirname(path.win32.join(process.env.LOCALAPPDATA,'Qual-Lab','CRDD','ProviderHomes',provider)), name:'executor.provider-home.'+'d'.repeat(64)+'.lock', identity:'provider-home:'+'d'.repeat(64)});
       const unknown=['first_throw','second_throw','acquire_unknown','acquire_throw','release_unknown','release_throw','filesystem_effect'].includes(mode);
       assert.equal(result.resourceCleanupConfirmed,!unknown,mode);
       const retained=unknown||mode==='save_throw';
@@ -150,7 +150,7 @@ test("Home排他RequestはHome親Directoryと元Bindingだけを使用する", (
   ]) {
     assert.deepEqual(homeLockRequest(hash, home), {
       directory: path.dirname(home),
-      name: `provider-home.${hash}.lock`,
+      name: `executor.provider-home.${hash}.lock`,
       identity: `provider-home:${hash}`,
     });
   }

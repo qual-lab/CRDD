@@ -193,7 +193,7 @@ test("読取りや清掃やLock解放の不明を無効ユーザーとして返�
   const remove = fs.rmSync;
   try {
     fs.rmSync = (target, options) => {
-      if (String(target).endsWith("access-management.lock"))
+      if (String(target).endsWith("access-management.state.lock"))
         throw new Error("private detail");
       return remove(target, options);
     };

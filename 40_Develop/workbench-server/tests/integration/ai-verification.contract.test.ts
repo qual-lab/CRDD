@@ -1041,10 +1041,10 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
         process: processState,
         getRepository: () => ({ status: "completed", capability: {} }),
         resolveVerifiedRepositoryRoot: () => processState.cwd(),
-        resolveRepositoryExecutionDataPaths: () => ({
+        resolveRepositoryRuntimeDataPaths: () => ({
           tests: path.join(processState.cwd(), ".crdd", "tests"),
         }),
-        observeRepositoryExecutionDataArea: () => ({
+        observeRepositoryRuntimeDataArea: () => ({
           status: scenario === "linked-parent" ? "blocked" : "ready",
         }),
         observeVerificationDockerInventory: () => ({
@@ -1260,7 +1260,9 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "isolated-ai-post-result-loss",
   ]) {
     const snapshot: Record<string, unknown> = Object.fromEntries(
-      emptyKeys.map((k) => [k, []]),
+      emptyKeys
+        .filter((k) => !["pendingDeliveries", "resultReceipts"].includes(k))
+        .map((k) => [k, []]),
     );
     const queueEntries = ["queue-a", "queue-b"].map((queueId) => ({
       queueId,
@@ -1484,12 +1486,12 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
           releases++;
         },
         getRepository: () => ({ status: "completed", capability: {} }),
-        resolveRepositoryExecutionDataPaths: () => ({
-          temporary: path.join(
+        resolveRepositoryRuntimeDataPaths: () => ({
+          locks: path.join(
             parentPath,
             isIsolated ? "isolated" : "direct",
             ".crdd",
-            "tmp",
+            "lock",
           ),
         }),
         git: (_root: string, args: string[]) =>
@@ -1521,7 +1523,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
           lstatSync: (p: string) => {
             if (
               scenario === "isolated-lease-parent-unknown" &&
-              p.endsWith("orchestrator-leases")
+              p.endsWith("lock")
             )
               throw Object.assign(new Error("unobservable"), {
                 code: "EACCES",
@@ -1531,12 +1533,12 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
                 scenario === "reparse" ||
                 (scenario === "nested-reparse" && p.endsWith("child")),
               isDirectory: () =>
-                p.endsWith("orchestrator-leases") ||
+                p.endsWith("lock") ||
                 (scenario === "nested-reparse" && !p.endsWith("child")),
             };
           },
           readdirSync: (p: string) =>
-            p.endsWith("orchestrator-leases")
+            p.endsWith("lock")
               ? scenario === "isolated-lease-parent-not-empty"
                 ? ["unexpected"]
                 : []

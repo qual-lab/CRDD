@@ -639,7 +639,7 @@ test("許可集合の不明は空成功や部分成功へ変換しない", (t) =
     fs.rmSync = remove;
   });
   fs.rmSync = (target) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected private detail");
     return remove(target);
   };
@@ -661,7 +661,7 @@ test("許可集合の不明は空成功や部分成功へ変換しない", (t) =
     "completed",
   );
   assert.equal(
-    fs.existsSync(path.join(f.directory, "access-management.lock")),
+    fs.existsSync(path.join(f.directory, "access-management.state.lock")),
     false,
   );
 });
@@ -814,7 +814,7 @@ test("内容実体不成立と解放不明は能力非返却", (t) => {
     fs.rmSync = remove;
   });
   fs.rmSync = (target) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected secret/path must not escape");
     return remove(target);
   };
@@ -827,7 +827,7 @@ test("内容実体不成立と解放不明は能力非返却", (t) => {
   removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(request().status, "completed");
   assert.equal(
-    fs.existsSync(path.join(f.directory, "access-management.lock")),
+    fs.existsSync(path.join(f.directory, "access-management.state.lock")),
     false,
   );
 });
@@ -931,7 +931,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
   const originalRm = fs.rmSync;
   for (const suffix of [
     "access-management.pending.json",
-    "access-management.lock",
+    "access-management.state.lock",
   ]) {
     fs.writeFileSync(currentPath, bytes(f.state));
     fs.rmSync = (target, options) => {
@@ -969,7 +969,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
     } finally {
       fs.rmSync = originalRm;
     }
-    if (suffix === "access-management.lock") {
+    if (suffix === "access-management.state.lock") {
       assert.equal(readAccessManagementState(f.root).status, "unavailable");
       removeKnownStoppedTestLock(f.directory, process.pid);
     }
@@ -1330,11 +1330,11 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
     assert.equal(child.error, undefined);
     assert.equal(child.status, 23, child.stderr);
     const retained = fs.readFileSync(
-      path.join(f.directory, "access-management.lock"),
+      path.join(f.directory, "access-management.state.lock"),
     );
     assert.equal(readAccessManagementState(f.root).status, "unavailable");
     assert.deepEqual(
-      fs.readFileSync(path.join(f.directory, "access-management.lock")),
+      fs.readFileSync(path.join(f.directory, "access-management.state.lock")),
       retained,
     );
     assert.ok(child.pid);
@@ -1365,7 +1365,7 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
     fs.rmSync = remove;
   });
   fs.rmSync = (target) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target);
   };

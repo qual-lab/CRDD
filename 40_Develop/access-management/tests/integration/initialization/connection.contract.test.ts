@@ -374,7 +374,7 @@ test("初回確認の故障後は未出版を保持し出版済みだけ再観�
           (failure === "pending" &&
             String(target).endsWith("access-management.pending.json")) ||
           (failure === "lock" &&
-            String(target).endsWith("access-management.lock"))
+            String(target).endsWith("access-management.state.lock"))
         )
           throw new Error("injected cleanup");
         return remove(target, options);

@@ -15,10 +15,9 @@ import type {
   IsolationExecution,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  advanceOwnedRecoveryHistory,
+  saveRecoveryHistory,
   completeOperation,
   completeRecovery,
-  completeStatePublication,
   type ExecutionOperationRecord,
   type ExecutionSelection,
   type ExecutionStateSnapshot,
@@ -31,11 +30,10 @@ import {
   type RepairSaveRequest,
   type RestartCheckpoint,
   readState,
-  resumeRepairPublication,
-  resumeResourcePublication,
+  resumeRepairRecordSave,
   type StateVersion,
   saveRecoveryCheckpoint,
-  saveRepairState,
+  saveRepairRecord,
 } from "../../../execution-model/src/index.ts";
 import type {
   CompletionResult,
@@ -1697,27 +1695,30 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       throw new Error(reason);
     }
     if (initial.resourcePublication) {
-      const resumed = resumeResourcePublication(
+      const resumed = saveRecoveryCheckpoint(
         { ...repository, operationId: identity.operationId },
         parsed.token,
-        initial.resourcePublication.before,
-        initial.resourcePublication.candidate,
-        () => {
-          if (
-            !repository.revalidate() ||
-            locks.some((lock) => lock.assertLive() !== true)
-          )
-            return false;
-          verifyHostOperationRecoveryGeneration(
-            generation,
-            identity.hostPaths.root,
-            host.nonce,
-          );
-          loadHostRecoveryRecordByToken(
-            observedHostToken,
-            identity.hostPaths.root,
-          );
-          return true;
+        null,
+        {
+          kind: "resource_publication",
+          publication: initial.resourcePublication,
+          assertOwner: () => {
+            if (
+              !repository.revalidate() ||
+              locks.some((lock) => lock.assertLive() !== true)
+            )
+              return false;
+            verifyHostOperationRecoveryGeneration(
+              generation,
+              identity.hostPaths.root,
+              host.nonce,
+            );
+            loadHostRecoveryRecordByToken(
+              observedHostToken,
+              identity.hostPaths.root,
+            );
+            return true;
+          },
         },
       );
       cleanupConfirmed &&= resumed.lockReleased;
@@ -2147,8 +2148,8 @@ export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
 }
 
 /**
- * 終了保存後の同じ回収Ownerで、履歴確認までを有界に進める。
- * @responsibility 各保存段階でfresh Readerを使い、途中失敗後の同Owner再発行を止める。
+ * 終了保存後の同じ回収Ownerで、履歴の完成保存を依頼する。
+ * @responsibility 完成保存の成否と現在Hostの不存在を結合し、失敗後の同Owner再発行を止める。
  * @trace ARCH-000008
  * @input capability: 全排他解放と終了保存試行を終えた私有準備キー。
  * @returns 保存・排他終了と履歴確認を区別した結果。
@@ -2159,7 +2160,7 @@ export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
  * @invariant 旧Controller結果・実行Authorityを合成しない。
  * @boundary 解放済みOwnerと既存履歴Writer。
  * @security 各Writer境界で同じRootとHost両不存在を再確認する。
- * @concurrency 一段ずつContextを破棄し、最大二段の保存で終了する。
+ * @concurrency 保存段階はEMが所有し、呼出し後は借用Ownerを失効させる。
  */
 export function completeRuntimeOwnedDockerTaskRecoveryHistory(
   capability: unknown,
@@ -2186,51 +2187,60 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
     record.hostCleanupPublication !== null
   )
     return refused;
-  let active = true,
-    filesystemEffectIssued = false;
+  let active = true;
+  let filesystemEffectIssued: boolean | null = false;
+  let writing = false;
+  let lockReleased = true;
   try {
-    for (let stage = 0; stage < 2; stage++) {
-      const saved = advanceOwnedRecoveryHistory(
-        {
-          ...record.repository,
-          ...withHistoryRetention(record.repository, record.rootCapability),
-        },
-        record.recoveryId,
-        () => {
-          if (
-            !active ||
-            dockerRecoveryPreparations.get(capability) !== record ||
-            record.persistenceFailed ||
-            record.cleanupUnknown ||
-            !record.repository.revalidate()
-          )
-            return false;
-          const observed = observeHostRecoveryCleanup(
-            record.hostToken,
-            record.hostRoot,
-          );
-          return observed.root === "absent" && observed.marker === "absent";
-        },
-        "docker_task",
-      );
-      filesystemEffectIssued ||= saved.filesystemEffectIssued;
-      if (
-        saved.status !== "completed" ||
-        !saved.snapshotConfirmed ||
-        !saved.lockReleased
-      ) {
-        record.persistenceFailed = true;
-        record.cleanupUnknown ||= !saved.lockReleased;
-        return Object.freeze({ ...saved, filesystemEffectIssued });
-      }
-      if (saved.historyConfirmed)
-        return Object.freeze({ ...saved, filesystemEffectIssued });
+    writing = true;
+    lockReleased = false;
+    const saved = saveRecoveryHistory(
+      {
+        ...record.repository,
+        ...withHistoryRetention(record.repository, record.rootCapability),
+      },
+      record.recoveryId,
+      () => {
+        if (
+          !active ||
+          dockerRecoveryPreparations.get(capability) !== record ||
+          record.persistenceFailed ||
+          record.cleanupUnknown ||
+          !record.repository.revalidate()
+        )
+          return false;
+        const observed = observeHostRecoveryCleanup(
+          record.hostToken,
+          record.hostRoot,
+        );
+        return observed.root === "absent" && observed.marker === "absent";
+      },
+      "docker_task",
+    );
+    writing = false;
+    lockReleased = saved.lockReleased;
+    filesystemEffectIssued = saved.filesystemEffectIssued;
+    if (
+      saved.status !== "completed" ||
+      !saved.snapshotConfirmed ||
+      !saved.lockReleased ||
+      !saved.historyConfirmed
+    ) {
+      record.persistenceFailed = true;
+      record.cleanupUnknown ||= !saved.lockReleased;
+      return Object.freeze({
+        ...saved,
+        status: "blocked" as const,
+        filesystemEffectIssued,
+      });
     }
-    record.persistenceFailed = true;
-    return Object.freeze({ ...refused, filesystemEffectIssued });
+    return Object.freeze({ ...saved, filesystemEffectIssued });
   } catch {
+    if (writing && filesystemEffectIssued !== true)
+      filesystemEffectIssued = null;
     record.persistenceFailed = true;
-    return Object.freeze({ ...refused, filesystemEffectIssued });
+    record.cleanupUnknown ||= !lockReleased;
+    return Object.freeze({ ...refused, filesystemEffectIssued, lockReleased });
   } finally {
     active = false;
   }
@@ -5642,10 +5652,7 @@ export async function repairRuntimeOwnedDockerRuntime(
   let completionConfirmed = false;
   let completionEffectIssued: boolean | null = false;
   let completionLockReleased: boolean | null = null;
-  let stateMarkerCleanup: ReturnType<typeof completeStatePublication> | null =
-    null;
-  let statePublication: ReturnType<typeof resumeRepairPublication> | null =
-    null;
+  let statePublication: ReturnType<typeof resumeRepairRecordSave> | null = null;
   const repository =
     borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
   /**
@@ -5684,7 +5691,6 @@ export async function repairRuntimeOwnedDockerRuntime(
       completionEffectIssued,
       completionLockReleased,
       operationCleanupConfirmed,
-      stateMarkerCleanup,
       statePublication,
     });
   /**
@@ -5730,7 +5736,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       return false;
     }
     try {
-      const result = saveRepairState(
+      const result = saveRepairRecord(
         rootCapability,
         recoveryId,
         { expected: version, change },
@@ -5962,131 +5968,134 @@ export async function repairRuntimeOwnedDockerRuntime(
     return target?.disposal !== null && disposalSettled;
   };
   /**
-   * 確定済み技術結果の履歴だけを同じ保存Ownerで二段以内に確定する。
-   * @responsibility 各保存後のfresh読取りを要求し、技術処置と履歴確認を分離する。
+   * 確定済み技術結果の履歴保存を一回依頼し、前後の業務事実を確認する。
+   * @responsibility EMが検査済みの事実を保持し、技術処置と履歴確認を分離する。
    * @trace ARCH-000008
    * @input initial: 同呼出しで取得した専用Reader結果、または未取得。
    * @returns 正常な確認済み履歴と保存後条件が揃う場合だけtrue。
    * @precondition exact操作と現在Root／Revisionの保存Ownerが生存する。
    * @postcondition 失敗後の保存・技術再取得を停止し、既保存結果を消さない。
-   * @effect 既存履歴Writerの最大二段と各段後のfresh読取り。
-   * @failure 別対象、Owner失効、段階不変、保存・読取り・排他不明はsticky停止。
+   * @effect 既存の完成履歴保存と前後のfresh読取り。
+   * @failure 別対象、Owner失効、保存・読取り・排他不明はsticky停止。
    * @invariant 保存済みoperationIdをNative資格へ変換しない。
    * @boundary 修復compositionとRepository-local履歴保存。
    * @security Task配送・任意Path・任意候補へfallbackしない。
    * @concurrency 既存Kernel排他を使い、待機後も同じ現在Ownerを照合する。
    */
   const settleHistory = (initial?: ReturnType<typeof readState>) => {
-    let nextStage: "publish" | "confirmed" | null = null;
     let writing = false;
+    const accept = (read: ReturnType<typeof readState>) => {
+      historyLockReleased = read.lockReleased;
+      const publication = read.currentHistoryPublication;
+      const operation = read.value?.snapshot.operations.find(
+        (item): item is RepairOperationRecord =>
+          item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      );
+      if (
+        read.status !== "completed" ||
+        !read.lockReleased ||
+        read.repairHistoryState !== "publication" ||
+        !publication ||
+        !read.value ||
+        !operation ||
+        !currentOwner()
+      )
+        return false;
+      if (
+        target &&
+        (target.identityJson !== operation.identityJson ||
+          target.identitySha256 !== operation.identitySha256)
+      )
+        return false;
+      // 同じ版の履歴Readerが要約・終端条件を確認済み。値検査を再実行しない。
+      version = {
+        revision: read.value.snapshot.revision,
+        payloadSha256: read.value.payloadSha256,
+      };
+      target = operation;
+      disposalSettled =
+        read.value.operationStates.find(
+          (state): state is RepairOperationState =>
+            state.kind === "runtime_repair" && state.operation === operation,
+        )?.disposalSettled === true;
+      retentionConfirmed =
+        operation.disposition === "retained_by_human_decision" &&
+        operation.retention !== undefined;
+      const recordedDeadline = operation.retention?.reviewAfter ?? null;
+      if (
+        retentionReviewAfter !== null &&
+        retentionReviewAfter !== recordedDeadline
+      )
+        return false;
+      retentionReviewAfter = recordedDeadline;
+      outcomeConfirmed = true;
+      finalCheckpointConfirmed = operation.checkpoint !== null;
+      operationCleanupConfirmed =
+        operationCleanupConfirmed ||
+        operation.checkpoint?.cleanup === "confirmed";
+
+      historyConfirmed = operation.history?.confirmed === true;
+      return true;
+    };
+    const observe = () => {
+      historyLockReleased = null;
+      return readState(historyRepositoryInput(rootCapability), {
+        scope: "recovery",
+        input: { kind: "repair_history", recoveryId },
+      });
+    };
     try {
-      for (let step = 0; step <= 2; step++) {
-        if (!repository || !recoveryId || !currentOwner()) break;
-        const read =
-          step === 0 && initial
-            ? initial
-            : readState(historyRepositoryInput(rootCapability), {
-                scope: "recovery",
-                input: {
-                  kind: "repair_history",
-                  recoveryId: recoveryId,
-                },
-              });
-        historyLockReleased = read.lockReleased;
-        const publication = read.currentHistoryPublication;
-        const operation = read.value?.snapshot.operations.find(
-          (item): item is RepairOperationRecord =>
-            item.kind === "runtime_repair" && item.recoveryId === recoveryId,
-        );
-        if (
-          read.status !== "completed" ||
-          !read.lockReleased ||
-          read.repairHistoryState !== "publication" ||
-          !publication ||
-          !read.value ||
-          !operation ||
-          !currentOwner() ||
-          (nextStage !== null && publication.stage !== nextStage)
-        )
-          break;
-        if (
-          target &&
-          (target.identityJson !== operation.identityJson ||
-            target.identitySha256 !== operation.identitySha256)
-        )
-          break;
-        // 同じ版の履歴Readerが要約・終端条件を確認済み。値検査を再実行しない。
-        version = {
-          revision: read.value.snapshot.revision,
-          payloadSha256: read.value.payloadSha256,
-        };
-        target = operation;
-        disposalSettled =
-          read.value.operationStates.find(
-            (state): state is RepairOperationState =>
-              state.kind === "runtime_repair" && state.operation === operation,
-          )?.disposalSettled === true;
-        retentionConfirmed =
-          operation.disposition === "retained_by_human_decision" &&
-          operation.retention !== undefined;
-        const recordedDeadline = operation.retention?.reviewAfter ?? null;
-        if (
-          retentionReviewAfter !== null &&
-          retentionReviewAfter !== recordedDeadline
-        )
-          break;
-        retentionReviewAfter = recordedDeadline;
-        outcomeConfirmed = true;
-        finalCheckpointConfirmed = operation.checkpoint !== null;
-        operationCleanupConfirmed =
-          operationCleanupConfirmed ||
-          operation.checkpoint?.cleanup === "confirmed";
-        if (!publication.needsWrite) {
-          historyConfirmed = operation.history?.confirmed === true;
-          if (historyConfirmed) return true;
-          break;
-        }
-        if (step === 2) break;
-        writing = true;
-        const saved = advanceOwnedRecoveryHistory(
-          {
-            ...repository,
-            ...withHistoryRetention(repository, rootCapability),
-            operationId: JSON.parse(operation.identityJson).operationId,
-          },
-          recoveryId,
-          currentOwner,
-          "runtime_repair",
-        );
-        writing = false;
-        historyLockReleased = saved.lockReleased;
-        if (saved.filesystemEffectIssued) historyEffectIssued = true;
-        if (
-          saved.status !== "completed" ||
-          !saved.snapshotConfirmed ||
-          !saved.lockReleased ||
-          !currentOwner()
-        )
-          break;
-        nextStage =
-          publication.stage === "checkpoint" ? "publish" : "confirmed";
-      }
+      if (!repository || !recoveryId || !currentOwner())
+        throw new Error("history_owner");
+      if (!accept(initial ?? observe())) throw new Error("history_read");
+      if (historyConfirmed) return true;
+      if (!target) throw new Error("history_target");
+      writing = true;
+      const saved = saveRecoveryHistory(
+        {
+          ...repository,
+          ...withHistoryRetention(repository, rootCapability),
+          operationId: JSON.parse(target.identityJson).operationId,
+        },
+        recoveryId,
+        currentOwner,
+        "runtime_repair",
+      );
+      writing = false;
+      historyLockReleased = saved.lockReleased;
+      if (saved.filesystemEffectIssued === true) historyEffectIssued = true;
+      else if (
+        saved.filesystemEffectIssued === null &&
+        historyEffectIssued !== true
+      )
+        historyEffectIssued = null;
+      if (
+        saved.status !== "completed" ||
+        !saved.snapshotConfirmed ||
+        !saved.lockReleased ||
+        !saved.historyConfirmed ||
+        !currentOwner()
+      )
+        throw new Error("history_save");
+      if (!accept(observe()) || !historyConfirmed)
+        throw new Error("history_confirm");
+      return true;
     } catch {
       if (writing && historyEffectIssued !== true) historyEffectIssued = null;
-      historyLockReleased = null;
+      if (writing) historyLockReleased = null;
     }
     storageFailed = true;
     return false;
   };
   /**
    * 履歴確認済みで既存completion契約を満たす修復を現在状態から終了整理する。
-   * @responsibility 除去保存・marker清掃・fresh不存在の共同成立を確認する。
+   * @responsibility 除去保存・履歴照合・fresh不存在の共同成立を確認する。
    * @trace ARCH-000008
    * @input initial: exact終了前置Readerの任意の確認済み結果。
    * @returns 全終了条件を確認できた場合だけtrue。
    * @precondition 現在保存Ownerが有効で、検証済みreceipt付き保持を含む既存completion契約を満たす。
    * @postcondition 失敗後に技術処置や履歴保存へ戻らない。
-   * @effect 既存completion Writerとmarker限定清掃。
+   * @effect 既存completion Writerとfresh読取り。
    * @failure Reader・Writer・清掃・解放・Owner不明はsticky停止。
    * @invariant 履歴からNative回収やcheckpoint詳細を復元しない。
    * @boundary 修復compositionと既存現在状態の終了保存。
@@ -6166,16 +6175,6 @@ export async function repairRuntimeOwnedDockerRuntime(
         )
           throw new Error("completion_save");
       }
-      stateMarkerCleanup = null;
-      stateMarkerCleanup = completeStatePublication(rootCapability);
-      if (
-        stateMarkerCleanup.status !== "completed" ||
-        !stateMarkerCleanup.storageConfirmed ||
-        !stateMarkerCleanup.markerAbsentConfirmed ||
-        !stateMarkerCleanup.lockReleased ||
-        !currentOwner()
-      )
-        throw new Error("completion_marker");
       completionLockReleased = null;
       const fresh = readState(rootCapability, {
         scope: "recovery",
@@ -6261,7 +6260,7 @@ export async function repairRuntimeOwnedDockerRuntime(
             if (!history.lockReleased || !currentOwner()) return stopped();
             if (history.status !== "completed") {
               // 技術fallbackではなく、既存の有限metadata出版だけを一度試す。
-              statePublication = resumeRepairPublication(
+              statePublication = resumeRepairRecordSave(
                 historyRepositoryInput(rootCapability),
                 requestedRecoveryId,
                 currentOwner,
@@ -6326,7 +6325,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           }
         }
         if (statePublication === null)
-          statePublication = resumeRepairPublication(
+          statePublication = resumeRepairRecordSave(
             historyRepositoryInput(rootCapability),
             requestedRecoveryId,
             currentOwner,
@@ -6341,16 +6340,10 @@ export async function repairRuntimeOwnedDockerRuntime(
         )
           return stopped();
       }
-      stateMarkerCleanup = completeStatePublication(rootCapability);
-      if (
-        stateMarkerCleanup.status !== "completed" ||
-        !stateMarkerCleanup.storageConfirmed ||
-        !stateMarkerCleanup.markerAbsentConfirmed ||
-        !stateMarkerCleanup.lockReleased ||
-        !currentOwner()
-      )
-        return stopped();
-      const read = readState(rootCapability, { scope: "recovery" });
+      const read = readState(rootCapability, {
+        scope: "recovery",
+        input: { kind: "history" },
+      });
       if (
         read.status !== "completed" ||
         !read.lockReleased ||
@@ -6532,7 +6525,6 @@ export async function repairRuntimeOwnedDockerRuntime(
             completionConfirmed,
             completionEffectIssued,
             completionLockReleased,
-            stateMarkerCleanup,
             statePublication,
             technicalStatus: null,
           });
@@ -6728,7 +6720,6 @@ export async function repairRuntimeOwnedDockerRuntime(
       completionEffectIssued,
       completionLockReleased,
       operationCleanupConfirmed,
-      stateMarkerCleanup,
       statePublication,
       technicalStatus: result.machine?.status ?? null,
     });

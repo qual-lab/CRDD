@@ -8,8 +8,6 @@
  * @boundary メモリだけ。publisher・実Owner・Fileを操作しない。
  */
 
-import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HistoryRow } from "../../../src/history/types.ts";
@@ -19,8 +17,12 @@ import {
   prepareTerminalRecordRetirement,
 } from "../../../src/history/validation.ts";
 import type { ProjectQueueEntry } from "../../../src/index.ts";
-import type { LeaseEvidenceEnvelope } from "../../../src/state/types.ts";
+import type {
+  LeaseEvidenceEnvelope,
+  Snapshot,
+} from "../../../src/state/types.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 import type { ResultRecord } from "../../../src/workspace/types.ts";
 import { EXECUTION_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
 

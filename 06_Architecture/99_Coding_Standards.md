@@ -429,6 +429,8 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 
 `40_Develop`は実装、試験、packageおよび実行設定だけを所有し、配下に`README.md`を置いてはならない（MUST NOT）。実装の構造と公開面はArchitecture、反復可能な導入・開発・実行手順はWorkflow、検証義務と結果はQualityが所有する。packageの機械入口は`package.json`と公開`index`等で表し、説明を実装Directoryへ複製しない。
 
+共通File Lockの名前は`<責務パッケージ名>.<保護対象>.lock`とし、Repository内は`.crdd/lock/`に配置する。対象が複数なら安定識別子を保護対象名に含める。同じ共有資源のConsumerは責務Ownerが定めた同一名を使用し、呼出しPackageごとに分断しない。Repository非依存StoreとRepository横断資源は明示された共有所在を維持する。取得者・取得世代はLock本文で扱う。
+
 ## 4. TypeScript識別子
 
 ### 操作を表す動詞の意味

@@ -75,7 +75,7 @@ Workbench通常管理の結果投影は、AMの`authorization/management.ts（�
 
 発行と結果記録が確定しHost提示または同鍵の限定接続確認だけ不明なら、作成済みadministratorへの既存`exchangeCredentialsFromHost`指定交換を別明示操作として選ぶ。初期化再実行・Secret取得APIを作らず、元試行と別交換を分離する。提示不明と提示確定後の接続未確認を混同しない。初回状態readにVerifier・salt・Secret・任意Pathを含めず、MCP／Remote Workbenchへ公開しない。
 
-`readHostInitializationState`の局所実装は、同じ`access-management.lock`下で最新current／pending／replaceを観測し、完全v2と既知出版材料のexact処置・Lock終了後にだけ非Authorityの段階を返す。`fresh`はAM三入力の確認済み不存在だけで、旧入力不存在やHost初期化許可ではない。`in_progress`は保存済みattemptId／revisionと段階を持ち、User・資格IDは生成済み段階だけに含める。資格段階では歴史的初資格と最新確認対象を分け、presentationと交換有無を返すがtokenを返さず再表示を許可しない。completedは`existing`だけ、破損・partial・初回base材料・孤立replace・読取り／清掃／Lock終了不明は固定`unknown`だけとする。型と純粋投影は`initialization/state.ts`、物理処置は既存`storage/store.ts`が所有する。
+`readHostInitializationState`の局所実装は、同じ`access-management.state.lock`下で最新current／pending／replaceを観測し、完全v2と既知出版材料のexact処置・Lock終了後にだけ非Authorityの段階を返す。`fresh`はAM三入力の確認済み不存在だけで、旧入力不存在やHost初期化許可ではない。`in_progress`は保存済みattemptId／revisionと段階を持ち、User・資格IDは生成済み段階だけに含める。資格段階では歴史的初資格と最新確認対象を分け、presentationと交換有無を返すがtokenを返さず再表示を許可しない。completedは`existing`だけ、破損・partial・初回base材料・孤立replace・読取り／清掃／Lock終了不明は固定`unknown`だけとする。型と純粋投影は`initialization/state.ts`、物理処置は既存`storage/store.ts`が所有する。
 
 Host compositionは後続の実装で既存OS管理state Rootを準備・再検証し、旧`credential-registry/`と`credential-access-recovery/`の確認済み不存在を別に照合する。無関係なCROS所有物を未初期化判定へ混ぜない。旧Writer停止・旧入力清掃はフロントAIの切替／移行契約で確認し、旧Writerが稼働し得る未確認状態では初期化へ進まない。最新Sourceへ旧形式Parser、旧Writer用共通Lock、共有Process Registryや自動移行を追加しない。Root準備・旧入力観測・TTY提示・Host本番入口は本Readerの成立範囲ではない。
 
@@ -286,7 +286,7 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 | `readStableBoundedFileSnapshot` | 上限付き読取りと実体同一性の確認を所有する | 書込み・置換・pending清掃の保証には使用しない |
 | 旧Credential File Adapter | 改訂Fileへの排他的hard linkとbyte読戻しを行う | 改訂積算と単一現在File置換は別方式。旧試験の成功を新方式の競合・故障保証へ流用しない |
 
-固定Path候補は、解決済みstate Root直下の`access-management.json`、`access-management.pending.json`、`access-management.lock`とする。保存だけのために子Directoryを追加しない。Lock部品が必要時に作る回収義務Fileは同部品が所有し、鍵交換記録と区別する。全Writerが同じ検証済みRootとLock Identityを使用する。Rootの初期準備、非秘密設定と秘密Verifierを含む状態の保護、旧保存先からの移行は別途接続する。
+固定Path候補は、解決済みstate Root直下の`access-management.json`、`access-management.pending.json`、`access-management.state.lock`とする。保存だけのために子Directoryを追加しない。Lock部品が必要時に作る回収義務Fileは同部品が所有し、鍵交換記録と区別する。全Writerが同じ検証済みRootとLock Identityを使用する。Rootの初期準備、非秘密設定と秘密Verifierを含む状態の保護、旧保存先からの移行は別途接続する。
 
 Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fileを`wx`作成→write→file fsync→close→`renameSync`で既存currentを置換→byte読戻しを100回実測し、全回の一致とpending不存在を確認した。試験はRepository-local `.crdd/tests/`内の自己生成領域だけを使用し、作業領域を回収した。§4.1の単独確認時点では、並行Reader、Process喪失、他Windows版／Filesystem、Linux、Directory entryの耐久性、電源断保証は未確認だった。競合・Process終了・並行読取りの追加局所結果は§4.2に示す。本番接続、他環境、電源断等は引き続き未確認であり、この数値をStore完成やatomicity全体の証明にしない。
 
@@ -322,7 +322,7 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 |---|---|---|
 | `access-management.json` | AM保存Ownerの現在Snapshot。管理改訂と、その改訂を出版した非秘密の受付操作相関を一体で保持する候補 | 現在正本。未解決初回・交換の論理事実を含む。履歴Snapshotを積算しない |
 | `access-management.pending.json` | 同じOwnerが準備した基準改訂・基準byteのSHA-256・次改訂・次byteのSHA-256・同じ受付操作相関・次Snapshotの正確なUTF-8内容 | 一件の短命出版材料。Verifierを含み得るのでcurrentと同じ秘密保護を要求する。生Secretなし。年齢だけで削除しない |
-| `access-management.lock` | 既存保存部品の同一Root・Lock Identity | 既存Ownerの取得・解放・exact回収を利用。部品所有の回収義務を鍵交換記録へ混ぜない |
+| `access-management.state.lock` | 既存保存部品の同一Root・Lock Identity | 既存Ownerの取得・解放・exact回収を利用。部品所有の回収義務を鍵交換記録へ混ぜない |
 
 pendingの閉じたSchema、byte表現、上限と保護は実装前に固定する。SHA-256は読み取った正確なUTF-8 byteの照合値で、改訂、受付操作相関、完全Schema検査の代替でもAuthorityでもない。次改訂は基準改訂＋1とし、同じ改訂を別内容で再利用しない。次Snapshotに含む出版操作相関とpendingの相関が一致しなければ停止する。公開結果・ログ・正式EvidenceへSnapshot本文、Verifier、salt、内部Pathを搬送しない。
 
@@ -396,7 +396,7 @@ currentとpendingは共にVerifierを含む保護対象である。公開DTO、�
 1. 既存Resolverが導出したHost state Rootだけを候補にし、任意Pathを入力しない。Root不在と観測不能、既存の旧管理データと未初期化を分ける。
 2. 明示Host初回設定だけが不足するDirectoryの準備を行う。既存Rootの自動権限修復や削除は行わない。作成済み／保護未確認の事実を保持し、準備後故障をEffect 0と表示しない。
 3. 準備後に実体・非link・Root一致を再検証し、既存`createFilesystemStoreRoot`へ渡す。Windows固有のACL検査を開始条件にしない。文字列の解決やDirectory作成だけでCapability成立としない。
-4. 全Reader／Writerが同じ`access-management.lock`と既存`withFilesystemStoreLock`を使う。同期区間内で旧管理入力、current、pending、初回進行を照合し、双方未初期化確定と明示開始の場合だけ元試行相関を最初に保存・読戻しする。
+4. 全Reader／Writerが同じ`access-management.state.lock`と既存`withFilesystemStoreLock`を使う。同期区間内で旧管理入力、current、pending、初回進行を照合し、双方未初期化確定と明示開始の場合だけ元試行相関を最初に保存・読戻しする。
 5. 相関の読戻し後だけUUID作成・同userIdへの鍵発行へ進む。各段階の記録確定前後の故障を分離する。current不在＋pending存在は§4.3に従い新初期化へ畳まず、再出版・追加UUID・追加鍵を自動実行しない。
 
 最初のcurrentは既存値を置換しない出版が必要で、§4.7でwx排他作成を局所接続した。hard-link部品を新設しない。Root準備時の残存結果、提示／初回限定接続確認／通常接続の後続初回段階は未接続である。
@@ -501,7 +501,7 @@ v2の型・Parser、初回資格Writer、AMとMCPの試験fixtureは局所実装
 | `access-management.json` | 完全な現在状態本体。固定byte上限なし。改訂Fileを積算しない |
 | `access-management.pending.json` | 基準改訂・基準Hash・次改訂・次Hash・元操作ID・処置種別・次Snapshot objectの閉じた包絡。固定byte上限なし。出版の読戻しと材料清掃まで保持 |
 | `access-management.replace.json` | pendingが所有する一件の短命出版byte。固定byte上限なし。排他的作成→write→file flush→close→byte照合→currentへの置換。追加Store・履歴・Authorityではない |
-| `access-management.lock` | 全Reader／Writerが共有する既存排他。回収義務は既存部品が所有し、鍵Recoveryと混ぜない |
+| `access-management.state.lock` | 全Reader／Writerが共有する既存排他。回収義務は既存部品が所有し、鍵Recoveryと混ぜない |
 
 serializerはObject keyをASCII辞書順、配列順を維持、空白なしJSON＋末尾LF一個のUTF-8とする。nextHashはこの正確byteから算出する。baseHashは実際に読んだcurrentの正確byteから算出する。pending包絡を状態本体へ上書きして照合材料を失う方式は採用しない。
 

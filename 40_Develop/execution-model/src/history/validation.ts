@@ -13,23 +13,21 @@ import {
   validPrimaryFailure,
   validRepairSummary,
 } from "../attempt/validation.ts";
-import {
-  inspectDecisionHistoryEvent,
-  projectDecisionHistory,
-} from "../decision/validation.ts";
+import { inspectDecisionHistoryEvent } from "../decision/validation.ts";
 import type { Snapshot, SnapshotObservations } from "../state/types.ts";
 import {
   adoptionWasRejected,
-  decodeStateSnapshot,
-  encodeStateValue,
-  hasExecutionStateRecordKeys,
   historyRow,
-  isSha256Hex,
   PROJECT_SNAPSHOT_SCHEMA,
   queueIsClosed,
   rejectedAdoptionEvidenceCanRetire,
   standaloneAdoptionIsClosed,
 } from "../state/validation.ts";
+import {
+  encodeStateValue,
+  hasExecutionStateRecordKeys,
+  isSha256Hex,
+} from "../state/value.ts";
 
 import type { HistoryRow } from "./types.ts";
 
@@ -238,86 +236,6 @@ export function decodeHistoryRows(bytes: unknown) {
   } catch {
     return null;
   }
-}
-
-/**
- * 検査済み終了履歴から保持期間内・保持期限前・未終了参照の行を残す候補を作る。
- * @responsibility 期間整理と保存確認の順序を現在状態へ結合する。
- * @trace ARCH-000008
- * @input currentBytes: 現在Snapshot、historyBytes: 履歴本文、now: 固定UTC時刻、retentionDays: 設定日数、repositoryBinding: 現在結合。
- * @returns 元の行順と本文を維持した候補、またはnull。
- * @precondition 更新排他内の元File実体・版・設定を物理Writerが再照合する。
- * @postcondition 未確認行は期限外でも保持し、確認済みの欠落行を再追加しない。
- * @effect N/A: メモリ内の候補生成だけ。
- * @failure 全行検査失敗、設定不正、未確認行欠落または相関不一致はnull。
- * @invariant 件数・容量を理由に削除せず、状態の操作・搬送を変更しない。
- * @boundary 現在状態と通常履歴の保持期間。
- * @security 候補生成は実保存・読戻し・操作除去のAuthorityを発行しない。
- * @concurrency 判定時刻・設定と元本文への結合を保存側が保持する。
- */
-export function prepareHistoryRetention(
-  currentBytes: unknown,
-  historyBytes: unknown,
-  now: unknown,
-  retentionDays: unknown,
-  repositoryBinding: unknown,
-): Buffer | null {
-  const current = decodeStateSnapshot(currentBytes, repositoryBinding);
-  const rows = decodeHistoryRows(historyBytes);
-  if (
-    !current ||
-    !rows ||
-    typeof now !== "string" ||
-    !Number.isFinite(Date.parse(now)) ||
-    new Date(Date.parse(now)).toISOString() !== now ||
-    typeof retentionDays !== "number" ||
-    !Number.isSafeInteger(retentionDays) ||
-    retentionDays < 1 ||
-    retentionDays > 104249991
-  )
-    return null;
-  const cutoff = Date.parse(now) - retentionDays * 86400000;
-  if (!Number.isSafeInteger(cutoff)) return null;
-  const byRecovery = new Map(rows.map((row) => [row.recoveryId, row]));
-  const protectedRecoveries = new Set<string>();
-  for (const decision of current.snapshot.decisions) {
-    const events = projectDecisionHistory(decision);
-    if (!events) return null;
-    for (const event of events)
-      protectedRecoveries.add(`decision-history.${event.eventId}`);
-  }
-  for (const row of current.snapshot.historyPending)
-    protectedRecoveries.add(`task-history.${row.id}`);
-
-  for (const recovery of current.snapshot.unresolvedRecoveries)
-    protectedRecoveries.add(recovery.recoveryId);
-  for (const operation of current.snapshot.operations) {
-    if (!operation.history) continue;
-    // Operation除去のWriterが実履歴行を照合するため、現在参照中の行は保持する。
-    protectedRecoveries.add(operation.recoveryId);
-    const row = byRecovery.get(operation.recoveryId);
-    if (
-      (row &&
-        (row.lineSha256 !== operation.history.lineSha256 ||
-          row.summarySha256 !== operation.summarySha256)) ||
-      !row
-    )
-      return null;
-  }
-  return Buffer.from(
-    rows
-      .filter(
-        (row) =>
-          protectedRecoveries.has(row.recoveryId) ||
-          ("reviewAfter" in row &&
-            typeof row.reviewAfter === "string" &&
-            Date.parse(now) < Date.parse(row.reviewAfter)) ||
-          Date.parse(row.occurredAt) >= cutoff,
-      )
-      .map((row) => row.line)
-      .join(""),
-    "utf8",
-  );
 }
 
 /**

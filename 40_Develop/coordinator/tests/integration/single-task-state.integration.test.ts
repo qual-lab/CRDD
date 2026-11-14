@@ -20,7 +20,6 @@ import {
   initializeExecutionStore,
   type ProjectQueueEntry,
   readState,
-  readTaskIntakeState,
   type SingleTaskRecord,
 } from "../../../execution-model/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
@@ -713,9 +712,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     assert.equal(accepted.status, "accepted");
     assert.ok(accepted.requestId);
     assert.equal(executions, 0);
-    const initial = readTaskIntakeState(
+    const initial = readState(
       verifyRuntimePersistenceRepository(root),
       binding,
+      "queue",
     );
     assert.equal(initial.status, "completed");
     if (initial.status !== "completed" || !initial.value)
@@ -738,9 +738,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     }
     await owner.close();
     assert.equal((await owner.start(command)).status, "blocked");
-    const final = readTaskIntakeState(
+    const final = readState(
       verifyRuntimePersistenceRepository(root),
       binding,
+      "queue",
     );
     assert.equal(final.status, "completed");
     if (final.status !== "completed" || !final.value)
@@ -771,9 +772,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     requestId: string;
   };
   assert.equal(lost.status, "accepted");
-  const saved = readTaskIntakeState(
+  const saved = readState(
     verifyRuntimePersistenceRepository(root),
     binding,
+    "queue",
   );
   assert.equal(saved.status, "completed");
   if (saved.status !== "completed" || !saved.value)
@@ -797,9 +799,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.deepEqual(recovered.secondaryFailures, []);
   assert.equal(executions, 0);
   await owner.close();
-  const end = readTaskIntakeState(
+  const end = readState(
     verifyRuntimePersistenceRepository(root),
     binding,
+    "queue",
   );
   assert.equal(end.status, "completed");
   if (end.status !== "completed" || !end.value)
@@ -852,7 +855,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
     let releases = 0;
     const failures = {
       ...snapshotStorage,
-      readTaskIntakeState: () => ({
+      readState: () => ({
         status: "completed",
         value: {
           intakeEpoch: "epoch",
@@ -910,7 +913,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       {
         namedExports: {
           ...snapshotStorage,
-          readTaskIntakeState: failures.readTaskIntakeState,
+          readState: failures.readState,
         },
       },
     );

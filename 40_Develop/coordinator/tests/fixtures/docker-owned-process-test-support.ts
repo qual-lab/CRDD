@@ -25,7 +25,7 @@ import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/s
 import { startOwnedAttachTerminationFixture } from "../../../docker-isolation/tests/support/probe-process.ts";
 import * as stateModel from "../../../execution-model/src/index.ts";
 import * as stateRuntime from "../../../execution-model/src/index.ts";
-import { saveRepairState } from "../../../execution-model/src/index.ts";
+import { saveRepairRecord } from "../../../execution-model/src/index.ts";
 import * as executorLibrary from "../../../executor/src/index.ts";
 import type { Lock } from "../../../lock/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
@@ -293,15 +293,15 @@ export async function verifyNormalOwnerLifecycle(
             {
               namedExports: {
                 ...stateRuntime,
-                saveRepairState: (
-                  ...args: Parameters<typeof saveRepairState>
+                saveRepairRecord: (
+                  ...args: Parameters<typeof saveRepairRecord>
                 ) => {
                   if (args[2].change.kind === "disposal_decision") {
                     disposalDecisionRefusals++;
                     assert.equal(disposalDecisionRefusals, 1);
-                    return saveRepairState(null, args[1], args[2], args[3]);
+                    return saveRepairRecord(null, args[1], args[2], args[3]);
                   }
-                  return saveRepairState(...args);
+                  return saveRepairRecord(...args);
                 },
               },
             },

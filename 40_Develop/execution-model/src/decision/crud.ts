@@ -5,13 +5,9 @@
  */
 
 import type { Repository } from "../../../version-control/src/index.ts";
-import {
-  readExecutionContent,
-  withSnapshotOperation,
-  writeSnapshotOwned,
-} from "../state/crud.ts";
-import type { ExecutionModelAccess } from "../state/types.ts";
-import { encodeStateValue, validId } from "../state/validation.ts";
+import { withSnapshotOperation, writeSnapshotOwned } from "../state/crud.ts";
+import { validId } from "../state/validation.ts";
+import { encodeStateValue } from "../state/value.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import {
@@ -394,26 +390,4 @@ function saveDecision(
     },
     "history",
   );
-}
-
-/**
- * 新しい判断集合を現在の内容権限で照会する。
- * @responsibility 同じ観測から提案・回答とBlockerの有限投影を共同で返す。
- * @trace ARCH-000008
- * @input access、request: Host認可と対象ID。
- * @returns 値・不存在・拒否・観測不能。
- * @precondition 既存内容権限を使用する。
- * @postcondition 値を実行又は回復Authorityにしない。
- * @effect 共通Readerの有限照会だけ。
- * @failure 現在認可・保存・排他の不明を隠さない。
- * @invariant AI・Git・Docker・自動受付を起動しない。
- * @boundary 一般QueryとDomain保存。
- * @security Snapshot全体・Host Pathを返さない。
- * @concurrency 返却前に再認可する。
- */
-export function queryDecisions(
-  access: ExecutionModelAccess,
-  request: Readonly<{ projectId: string; milestoneId: string }>,
-) {
-  return readExecutionContent(access, "decisions", request);
 }

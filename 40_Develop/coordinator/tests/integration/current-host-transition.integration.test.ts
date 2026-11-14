@@ -1734,7 +1734,7 @@ for (const publicationFault of [
   "completion_cli",
   "completion_workbench",
   "completion_pending",
-  "completion_marker",
+  "completion_readback",
   "cli_entry_cli",
   "cli_entry_workbench",
   "cli_entry_orchestrator",

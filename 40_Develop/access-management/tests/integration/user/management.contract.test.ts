@@ -488,7 +488,7 @@ test("管理readは清掃・解放・観測不明で一覧を返さない", (t) 
     },
   );
   fs.rmSync = (target, options) => {
-    if (String(target).endsWith("access-management.lock"))
+    if (String(target).endsWith("access-management.state.lock"))
       throw new Error("injected");
     return remove(target, options);
   };

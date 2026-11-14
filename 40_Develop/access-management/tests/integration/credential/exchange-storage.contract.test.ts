@@ -855,7 +855,9 @@ test("鍵交換保存は主Failureと解放不明を分離する", (t) => {
       return rename(from, to);
     };
     fs.rmSync = (file, options) => {
-      if (String(file) === path.join(f.directory, "access-management.lock"))
+      if (
+        String(file) === path.join(f.directory, "access-management.state.lock")
+      )
         throw new Error("injected_release");
       return remove(file, options);
     };
@@ -1240,7 +1242,7 @@ test("鍵交換保存は実Process喪失後も三段階のbaseとnextを分け�
       assert.equal(generated, 0);
       assert.deepEqual(fs.readFileSync(current), before);
       assert.equal(
-        fs.existsSync(path.join(f.directory, "access-management.lock")),
+        fs.existsSync(path.join(f.directory, "access-management.state.lock")),
         false,
       );
       if (timing === "before") {
@@ -1910,7 +1912,8 @@ test("鍵交換終了は出版故障と後続解放不明を分離する", (t) =
           String(file) ===
             path.join(f.directory, "access-management.pending.json")) ||
         ((mode === "release" || mode === "publish_release") &&
-          String(file) === path.join(f.directory, "access-management.lock"))
+          String(file) ===
+            path.join(f.directory, "access-management.state.lock"))
       ) {
         hit = true;
         throw new Error("injected_remove");
@@ -2384,7 +2387,9 @@ test("Host交換compositionは指定と全員を一度提示して記録を閉�
           assert.equal(current.revision, 5);
           assert.equal(current.credentials.at(-1)?.presentation, "unconfirmed");
           assert.equal(
-            fs.existsSync(path.join(f.directory, "access-management.lock")),
+            fs.existsSync(
+              path.join(f.directory, "access-management.state.lock"),
+            ),
             false,
           );
           key = chunk.toString("utf8").split("\n")[1];
@@ -2673,7 +2678,7 @@ test("Host交換compositionは再観測の解放不明で清掃を保証しな�
   let releases = 0;
   fs.rmSync = (file, options) => {
     if (
-      String(file) === path.join(f.directory, "access-management.lock") &&
+      String(file) === path.join(f.directory, "access-management.state.lock") &&
       ++releases === 2
     )
       throw new Error("injected_reader_release");
@@ -3156,7 +3161,7 @@ test("交換状態Readerは観測清掃解放不明とcredential baseを保持�
         if (
           String(file) ===
           (mode === "lock"
-            ? path.join(f.directory, "access-management.lock")
+            ? path.join(f.directory, "access-management.state.lock")
             : pending)
         )
           throw new Error("injected_cleanup");

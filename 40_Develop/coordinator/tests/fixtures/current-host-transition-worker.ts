@@ -449,7 +449,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const historyPath = path.join(path.dirname(statePath), 'history.jsonl');
           const published = fs.readFileSync(historyPath);
           const pendingPath = path.join(path.dirname(statePath), 'state.pending.json'), markerPath = path.join(path.dirname(statePath), 'state.lock');
-          const pendingBytes = fs.readFileSync(pendingPath), markerBytes = fs.readFileSync(markerPath);
+          const pendingBytes = fs.readFileSync(pendingPath);
           const row = JSON.parse(published.toString()), nonce = 'e'.repeat(64);
           row.summary.operationNonce = nonce; row.summary.operationId = 'OP-888888';
           row.summary.recoveryId = 'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+row.summary.identitySha256;
@@ -462,7 +462,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
               assert.equal(store.readState(historyInputs.historyRepositoryInput(verified.capability),{scope:'recovery',input:{kind:"execution_history",recoveryId:id}}).status, 'blocked');
               assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
               assert.deepEqual(fs.readFileSync(statePath), fixedState);
-              assert.deepEqual(fs.readFileSync(pendingPath), pendingBytes); assert.deepEqual(fs.readFileSync(markerPath), markerBytes);
+              assert.deepEqual(fs.readFileSync(pendingPath), pendingBytes); assert.equal(fs.existsSync(markerPath), false);
               if(replacement === null) assert.equal(fs.existsSync(historyPath), false); else assert.deepEqual(fs.readFileSync(historyPath), replacement);
             } finally { fs.writeFileSync(historyPath, published); }
           }
@@ -506,12 +506,12 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const pendingPath = path.join(path.dirname(statePath), 'state.pending.json');
         const lockPath = path.join(path.dirname(statePath), 'state.lock');
-        assert.equal(store.readState(verified.capability,{scope:'recovery'}).status, 'blocked');
+        assert.equal(store.readState(verified.capability,{scope:'recovery'}).status, fs.existsSync(pendingPath) ? 'blocked' : 'completed');
         const observed = store.readState(verified.capability,{scope:'recovery',input:{kind:"host_cleanup",recoveryId:id}});
         assert.equal(observed.status, 'completed'); assert.equal(observed.lockReleased, true);
         assert.ok(observed.hostCleanupPublication); assert.equal(observed.hostCleanupPublication.mode, process.argv[4]);
         const expected = Buffer.from(observed.hostCleanupPublication.candidate);
-        const stateBefore = fs.readFileSync(statePath), lockBefore = fs.readFileSync(lockPath);
+        const stateBefore = fs.readFileSync(statePath);
         const pendingBefore = fs.existsSync(pendingPath) ? fs.readFileSync(pendingPath) : null;
         fs.writeFileSync(pendingPath, process.argv[4] === 'C' ? expected : Buffer.from('invalid pending'));
         assert.equal(store.readState(verified.capability,{scope:'recovery',input:{kind:"host_cleanup",recoveryId:id}}).status, 'blocked');
@@ -520,7 +520,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(pendingBefore) fs.writeFileSync(pendingPath, pendingBefore); else fs.unlinkSync(pendingPath);
         fs.writeFileSync(lockPath, 'invalid lock');
         assert.equal(store.readState(verified.capability,{scope:'recovery',input:{kind:"host_cleanup",recoveryId:id}}).status, 'blocked');
-        fs.writeFileSync(lockPath, lockBefore);
+        fs.unlinkSync(lockPath);
         const prepared = recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability);
         assert.equal(prepared.status, 'prepared');
         try {
@@ -616,13 +616,13 @@ export const currentHostTransitionWorkerSource = `(async () => {
         for(const name of ['state.lock', 'state.pending.json', 'history.pending.jsonl']) assert.equal(fs.existsSync(path.join(path.dirname(statePath), name)), false);
         if(process.argv[3].startsWith('completion_')) {
           assert.equal(recovery.completeRuntimeOwnedDockerTaskRecovery({}).filesystemEffectIssued, false);
-          const rename = fs.renameSync, remove = fs.unlinkSync;
-          let injected = false, completed;
+          const rename = fs.renameSync, lstat = fs.lstatSync;
+          let injected = false, published = false, completed;
           try {
-            fs.renameSync = (from, to) => { if(process.argv[3] === 'completion_pending' && to === statePath && !injected) { injected = true; throw new Error('fixture completion before rename'); } return rename(from, to); };
-            fs.unlinkSync = file => { if(process.argv[3] === 'completion_marker' && file === path.join(path.dirname(statePath), 'state.lock') && !injected) { injected = true; throw new Error('fixture completion marker'); } return remove(file); };
+            fs.renameSync = (from, to) => { if(process.argv[3] === 'completion_pending' && to === statePath && !injected) { injected = true; throw new Error('fixture completion before rename'); } const value=rename(from,to); if(process.argv[3]==='completion_readback'&&to===statePath)published=true; return value; };
+            fs.lstatSync = (file,...args) => { if(process.argv[3] === 'completion_readback' && published && file === statePath && !injected) { injected = true; throw new Error('fixture completion readback'); } return Reflect.apply(lstat,fs,[file,...args]); };
             completed = recovery.completeRuntimeOwnedDockerTaskRecovery(result.preparation);
-          } finally { fs.renameSync = rename; fs.unlinkSync = remove; }
+          } finally { fs.renameSync = rename; fs.lstatSync = lstat; }
           if(process.argv[3] === 'completion_pending') {
             assert.equal(injected, true); assert.equal(completed.status, 'blocked'); assert.equal(completed.operationRemovalConfirmed, false);
             assert.equal(recovery.completeRuntimeOwnedDockerTaskRecovery(result.preparation).filesystemEffectIssued, false);
@@ -640,11 +640,10 @@ export const currentHostTransitionWorkerSource = `(async () => {
             const freshRecovery = await recovery.recoverRuntimeOwnedDockerTaskFromCurrentRepository(id, verified.capability);
             assert.equal(freshRecovery.status, 'completed', freshRecovery.reason);
             completed = recovery.completeRuntimeOwnedDockerTaskRecovery(freshRecovery.preparation);
-          } else if(process.argv[3] === 'completion_marker') {
+          } else if(process.argv[3] === 'completion_readback') {
             assert.equal(injected, true); assert.equal(completed.status, 'blocked'); assert.equal(completed.operationRemovalConfirmed, false);
-            assert.equal(store.readState(verified.capability,{scope:'recovery'}).status, 'blocked');
-            const cleanup = store.completeStatePublication(verified.capability);
-            assert.equal(cleanup.status, 'completed'); assert.equal(cleanup.markerRemoved, true);
+            assert.equal(store.readState(verified.capability,{scope:'recovery'}).status, 'completed');
+            assert.equal(fs.existsSync(path.join(path.dirname(statePath),'state.lock')),false);
             completed = null;
           }
           if(completed) { assert.equal(completed.status, 'completed', completed.reason); assert.equal(completed.operationRemovalConfirmed, true); assert.equal(completed.taskRecoveryCompleted, true); assert.equal(completed.lockReleased, true); }

@@ -5,15 +5,20 @@
  * @trace ARCH-000008
  * @boundary 他モデルへの直接依存を持たないPackage境界。
  */
+
+export {
+  completeOperation,
+  completeRecovery,
+  saveOperationCheckpoint,
+  saveOperationStart,
+  saveRecoveryCheckpoint,
+  saveRepairRecord,
+} from "./attempt/crud.ts";
 export {
   applyResourceCleanup,
   applyResourceEvent,
-  completeOperation,
-  readOperationCompletion,
-  resumeResourcePublication,
-  saveOperationStart,
-  saveRecoveryCheckpoint,
-} from "./attempt/crud.ts";
+  validateResourceBook,
+} from "./attempt/operations.ts";
 export type {
   ExecutionOperationRecord,
   OperationRecord,
@@ -27,13 +32,11 @@ export { dockerProcessControllerPublicCompletionReasons } from "./attempt/types.
 export {
   parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
-  validateResourceBook,
 } from "./attempt/validation.ts";
 export {
   answerDecision,
   applyDecision,
   closeDecision,
-  queryDecisions,
   readDecision,
   recordDecision,
   requestDecision,
@@ -46,6 +49,7 @@ export type {
 } from "./decision/types.ts";
 export { inspectDecision } from "./decision/validation.ts";
 export {
+  saveRecoveryHistory,
   retireStateRecords,
   transferHistory,
 } from "./history/crud.ts";
@@ -66,22 +70,14 @@ export { OBJECTIVE_STATES } from "./objective/types.ts";
 export { inspectExecutionPlan } from "./objective/validation.ts";
 export {
   acquireLease,
-  advanceOwnedRecoveryHistory,
-  completeRecovery,
-  completeStatePublication,
-  createLocalPrincipalId,
   initializeExecutionState,
   initializeExecutionStore,
-  queryExecutionState,
   readLease,
   readProjectExecutionState,
   readState,
   recoverLease,
   releaseLease,
-  resumeRepairPublication,
-  saveOperationCheckpoint,
   saveProjectExecutionState,
-  saveRepairState,
 } from "./state/crud.ts";
 export type {
   ExecutionModelAccess,
@@ -91,7 +87,11 @@ export type {
   StateVersion,
 } from "./state/types.ts";
 export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
-export { isPrincipalId } from "./state/validation.ts";
+export {
+  createLocalPrincipalId,
+  isPrincipalId,
+} from "./state/validation.ts";
+export { resumeRepairRecordSave } from "./storage/publication.ts";
 export { ExecutionStorageBlockedError } from "./storage/store.ts";
 export {
   createQueue,
@@ -100,7 +100,6 @@ export {
   queryQueue,
   queryTasks,
   readQueueEntry,
-  readTaskIntakeState,
   selectQueueEntry,
   updateQueue,
   updateTask,
@@ -125,7 +124,6 @@ export {
   inspectTaskExecutionSelections,
 } from "./task/validation.ts";
 export {
-  queryWorkspaces,
   saveIntegrationRecord,
   saveWorkspaceRecord,
 } from "./workspace/crud.ts";

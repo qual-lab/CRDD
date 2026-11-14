@@ -40,7 +40,7 @@ if (mode === "pause-before-publish") {
   ) => {
     const result = originalOpenSync(target, flags, mode);
     if (
-      String(target).includes("orchestrator-leases") &&
+      String(target).includes("coordinator.lease.") &&
       String(target).endsWith(".lock") &&
       flags === "wx"
     ) {

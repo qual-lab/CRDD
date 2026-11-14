@@ -27,18 +27,16 @@ import {
   inspectDecisionHistoryEvent,
   projectDecisionHistory,
 } from "../decision/validation.ts";
+import { decisionHistoryLine, taskHistoryLine } from "../history/operations.ts";
 import type { HistoryRow } from "../history/types.ts";
-import {
-  decodeHistoryRows,
-  prepareHistoryRetention,
-} from "../history/validation.ts";
+import { decodeHistoryRows } from "../history/validation.ts";
 import type { Snapshot } from "../state/types.ts";
 import {
   classifyResourcePublication,
   decodeStateSnapshot,
-  encodeStateValue,
   historyRow,
   isInitialOperationHost,
+  prepareHistoryRetention,
   prepareRecoveredHistoryPublication,
   prepareRepairHistoryLine,
   prepareRepairHistoryPublication,
@@ -52,6 +50,7 @@ import {
   STORAGE_CONTRACT,
   validId,
 } from "../state/validation.ts";
+import { encodeStateValue } from "../state/value.ts";
 import { projectTaskSnapshot } from "../task/validation.ts";
 import type {
   HistoryRepositoryInput,
@@ -101,11 +100,16 @@ export function requireReadyRepositoryExecutionDataArea(
 }
 
 /** 保存先はPackage名でなく既存永続所在の契約。 */
-export const REPOSITORY_AREAS = Object.freeze(["domain-model", "tmp"] as const);
+export const REPOSITORY_AREAS = Object.freeze([
+  "domain-model",
+  "tmp",
+  "lock",
+] as const);
 
 export const AREA_PATH_KEYS = Object.freeze({
   "domain-model": "domainModel",
   tmp: "temporary",
+  lock: "locks",
 } as const);
 
 /**
@@ -138,6 +142,7 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
     root,
     domainModel: path.join(root, "domain-model"),
     temporary: path.join(root, "tmp"),
+    locks: path.join(root, "lock"),
     allowedTopLevelAreas: REPOSITORY_AREAS,
   });
 }
@@ -301,7 +306,7 @@ export function resolveRepositoryExecutionDataPathsFromWorkingDirectory(
     : null;
 }
 
-export type RepositoryExecutionArea = "domain-model" | "tmp";
+export type RepositoryExecutionArea = "domain-model" | "tmp" | "lock";
 
 export type RepositoryExecutionDataAreaObservation =
   | Readonly<{
@@ -756,42 +761,6 @@ function readHistoryFile(file: string): Buffer | null {
   } finally {
     fs.closeSync(fd);
   }
-}
-
-/**
- * Task要約を共通履歴の閉じた行へ変換する。
- * @responsibility 技術操作の回復参照とTask要約IDの名前空間を分離する。
- * @trace ARCH-000004
- * @input row: 検査済み要約。
- * @returns 正規UTF-8の一行。
- * @precondition historyRow検査を完了している。
- * @postcondition 自由文や秘密値を追加しない。
- * @effect N/A: 同期変換。
- * @failure 値の符号化失敗は例外。
- * @invariant 同じIDと本文は同じbyteとなる。
- * @boundary Task要約と共通履歴。
- * @security 要約をAuthorityへ昇格しない。
- * @concurrency N/A: 純粋処理。
- */
-function taskHistoryLine(row: HistoryRow): Buffer {
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
-      occurredAt: row.occurredAt,
-      summary: { schema: "crdd-coordinator/task-summary/v1", record: row },
-    })}\n`,
-  );
-}
-
-/** 同じ判断イベントを出版と退役確認で同じ正規行へ変換する。 */
-function decisionHistoryLine(event: DecisionHistoryEvent): Buffer {
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
-      occurredAt: event.occurredAt,
-      summary: { schema: "crdd-coordinator/decision-event/v1", record: event },
-    })}\n`,
-  );
 }
 
 /**
@@ -1275,7 +1244,7 @@ export function resolveNamedPaths(workingDirectory: string) {
  */
 export function observeArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp",
+  area: "domain-model" | "tmp" | "lock",
 ) {
   const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
@@ -1310,7 +1279,7 @@ export function observeArea(
  */
 export function assertArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp",
+  area: "domain-model" | "tmp" | "lock",
   directory: string,
 ) {
   const observation = observeArea(repositoryRoot, area);
@@ -1336,7 +1305,7 @@ export function assertArea(
  */
 export function assertAreaUnchanged(
   repositoryRoot: string,
-  area: "domain-model" | "tmp",
+  area: "domain-model" | "tmp" | "lock",
   initial: Exclude<
     RepositoryExecutionDataAreaObservation,
     { status: "blocked" }
@@ -1834,19 +1803,13 @@ export function readStateSnapshot(
               "state.json",
               "history.jsonl",
               "state.pending.json",
-              "state.lock",
               "history.pending.jsonl",
             ]
           : taskPublicationRead ||
               resourcePublicationRecoveryId !== null ||
               hostCleanupRecoveryId !== null ||
               currentCompletionRecoveryId !== null
-            ? [
-                "state.json",
-                "history.jsonl",
-                "state.pending.json",
-                "state.lock",
-              ]
+            ? ["state.json", "history.jsonl", "state.pending.json"]
             : ["state.json", "history.jsonl"];
     if (names.some((name) => !allowedNames.includes(name))) {
       reason = "coordinator_state_reentry_required";
@@ -1920,31 +1883,9 @@ export function readStateSnapshot(
       operationCompletionConfirmed = true;
     }
     let pending: ReturnType<typeof readStableFileSnapshot> | null = null;
-    let marker: ReturnType<typeof readStableFileSnapshot> | null = null;
-    const markerFile = path.join(initial.directory, "state.lock");
-    if (
-      (resourcePublicationRecoveryId !== null ||
-        hostCleanupRecoveryId !== null ||
-        currentHistoryRecoveryId !== null ||
-        currentCompletionRecoveryId !== null) &&
-      names.includes("state.lock")
-    ) {
-      const metadata = fs.lstatSync(markerFile);
-      if (
-        !metadata.isFile() ||
-        metadata.isSymbolicLink() ||
-        metadata.nlink !== 1
-      )
-        throw new Error("marker_file");
-      marker = readStableFileSnapshot(markerFile);
-      const expected = Buffer.from(
-        `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
-      );
-      if (!marker.bytes.equals(expected)) throw new Error("marker_binding");
-    }
     const pendingFile = path.join(initial.directory, "state.pending.json");
     if (resourcePublicationRecoveryId !== null) {
-      if (!marker || !names.includes("state.pending.json"))
+      if (!names.includes("state.pending.json"))
         throw new Error("resource_publication_pair_required");
       const metadata = fs.lstatSync(pendingFile);
       if (
@@ -1969,7 +1910,6 @@ export function readStateSnapshot(
       });
     }
     if (hostCleanupRecoveryId !== null) {
-      if (!marker) throw new Error("host_cleanup_reentry_marker_required");
       const operation = decoded.snapshot.operations.find(
         (item): item is ExecutionOperationRecord =>
           item.kind === "docker_task" &&
@@ -2218,7 +2158,7 @@ export function readStateSnapshot(
             operation.history.lineSha256 ||
           recoveryHistoryPending ||
           !candidate ||
-          (pending && (!marker || !pending.bytes.equals(candidate)))
+          (pending && !pending.bytes.equals(candidate))
         )
           throw new Error("current_completion_target_invalid");
         if (currentCompletionKind === "runtime_repair")
@@ -2239,7 +2179,7 @@ export function readStateSnapshot(
                 },
         });
       } else if (operation.history === null) {
-        if (recoveryHistoryPending || (pending && !marker))
+        if (recoveryHistoryPending)
           throw new Error("history_checkpoint_pending_invalid");
         const priorRows = decodeHistoryRows(
           recoveryHistory?.bytes ?? Buffer.alloc(0),
@@ -2295,9 +2235,7 @@ export function readStateSnapshot(
         stage = "publish";
         if (
           pending &&
-          (!marker ||
-            recoveryHistoryPending ||
-            publication?.historyChanged !== false)
+          (recoveryHistoryPending || publication?.historyChanged !== false)
         )
           throw new Error("history_state_pending_order_invalid");
       } else {
@@ -2345,7 +2283,7 @@ export function readStateSnapshot(
           before,
           candidate: Buffer.from(candidate),
           stage,
-          needsWrite: stage !== "confirmed" || marker !== null,
+          needsWrite: stage !== "confirmed",
           historyFile:
             recoveryHistory === null
               ? null
@@ -2430,14 +2368,6 @@ export function readStateSnapshot(
           fs.lstatSync(completedHistoryFile, { bigint: true }),
         ) ||
           fs.lstatSync(completedHistoryFile, { bigint: true }).nlink !== 1n)) ||
-      (marker !== null &&
-        (!sameStableFileIdentity(
-          marker.identity,
-          fs.lstatSync(markerFile, { bigint: true }),
-        ) ||
-          fs.lstatSync(markerFile, { bigint: true }).nlink !== 1n)) ||
-      names.includes("state.lock") !==
-        fs.readdirSync(initial.directory).includes("state.lock") ||
       (pending !== null &&
         (!sameStableFileIdentity(
           pending.identity,
@@ -2627,14 +2557,12 @@ export function classifyExecutionSnapshotReentry(
 export type StateFileName =
   | "state.json"
   | "state.pending.json"
-  | "state.lock"
   | "history.jsonl"
   | "history.pending.jsonl";
 
 /** 確定前の排他的作成を許す閉集合。 */
 export type StatePendingFileName =
   | "state.pending.json"
-  | "state.lock"
   | "history.pending.jsonl";
 
 /**
@@ -2662,7 +2590,6 @@ export function readExecutionStateFile(
     ![
       "state.json",
       "state.pending.json",
-      "state.lock",
       "history.jsonl",
       "history.pending.jsonl",
     ].includes(name)
@@ -2714,11 +2641,7 @@ export function createExecutionStatePendingFile(
   assertBoundary: () => void,
   markEffect: () => void,
 ): void {
-  if (
-    !["state.pending.json", "state.lock", "history.pending.jsonl"].includes(
-      name,
-    )
-  )
+  if (!["state.pending.json", "history.pending.jsonl"].includes(name))
     throw new Error("state_pending_file_name_invalid");
   assertBoundary();
   markEffect();

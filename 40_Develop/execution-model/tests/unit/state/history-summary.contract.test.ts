@@ -8,19 +8,16 @@
  * @boundary メモリ内だけ。Filesystem・実行Owner・外部AIを使用しない。
  */
 
-import {
-  decodeStateSnapshot,
-  encodeStateValue,
-} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-
 import {
+  decodeStateSnapshot,
   hashExecutionStateContent,
   prepareStateHistorySummary,
+  prepareStateOperationSnapshot,
 } from "../../../src/state/validation.ts";
-import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";
+import { encodeStateValue } from "../../../src/state/value.ts";
 
 const binding = "a".repeat(64);
 
@@ -173,7 +170,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
   } = summaryFixture();
   const history = prepareStateHistorySummary(historyBytes, recoveryId, binding);
   assert.ok(history);
-  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"unknown","identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryId":"${recoveryId}","schema":"crdd-coordinator/operation-summary/v2"}\n`;
+  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"unknown","identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryCorrelationId":"task-operation-a","recoveryId":"${recoveryId}","schema":"crdd-execution-model/operation-summary/v5"}\n`;
   assert.equal(history.summaryBytes.toString("utf8"), goldenTaskSummary);
   assert.equal(
     history.summarySha256,
@@ -282,7 +279,8 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     );
     assert.ok(summary);
     const value = JSON.parse(summary.summaryBytes.toString("utf8"));
-    assert.equal(value.consumer, consumer);
+    assert.equal(Object.hasOwn(value, "consumer"), false);
+    assert.equal(value.schema, "crdd-execution-model/operation-summary/v5");
     assert.equal(
       value.recoveryCorrelationId,
       fixture.identity.recoveryCorrelationId,

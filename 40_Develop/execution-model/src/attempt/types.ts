@@ -498,6 +498,11 @@ export type TurnCountDiagnostic = Readonly<{
  * @boundary 現在Repositoryの回復記録。
  */
 export type RecoveryReadRequest =
+  | Readonly<{
+      kind: "completion";
+      recoveryId: unknown;
+      correlationId: unknown;
+    }>
   | Readonly<{ kind: "current" | "admission" | "history" }>
   | Readonly<{
       kind: "restart_preparation";
@@ -524,6 +529,15 @@ export type RecoveryReadRequest =
  * @boundary Repository-localの単一Writer。物理処置を発行しない。
  */
 export type RecoveryCheckpointRequest =
+  | Readonly<{
+      kind: "resource_publication";
+      publication: NonNullable<
+        ReturnType<
+          typeof import("../state/crud.ts").readRecoveryState
+        >["resourcePublication"]
+      >;
+      assertOwner: () => boolean;
+    }>
   | Readonly<{
       kind: "resource" | "cleanup" | "host" | "lifecycle" | "restart";
       value: unknown;

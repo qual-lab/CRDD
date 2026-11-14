@@ -28,7 +28,7 @@ function acquireScope(
     });
   const result = acquireLock({
     directory,
-    name: `${scope}.${binding}.lock`,
+    name: `executor.${scope}.${binding}.lock`,
     identity: `${scope}:${binding}`,
   });
   return result;
@@ -55,7 +55,7 @@ export function acquireExecutionStateLock(directory: unknown): LockResult {
   // RuntimeStateはRepositoryやHomeをまたいで共有される。同じ所在は同じLockで保護する。
   const result = acquireLock({
     directory,
-    name: "docker-state.lock",
+    name: "coordinator.docker-state.lock",
     identity: "docker-state:shared",
   });
   return result;
@@ -106,7 +106,7 @@ export function acquireHostOperationLock(
   return binding
     ? acquireLock({
         directory: path.dirname(root),
-        name: `host-operation.${binding}.lock`,
+        name: `coordinator.host-operation.${binding}.lock`,
         identity: `host-operation:${binding}`,
       })
     : refused;

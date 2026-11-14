@@ -44,8 +44,8 @@ export function parseDesktopStatus(
 
 /**
  * 既存の設定基点に一つのDesktop排他を取得する。基点を作成・探索しない。
- * @effect 固定.crdd-docker-desktop.lockのみ。残存は自動削除しない。
- * @invariant 上位のdocker-state.lockとは別Scopeで、取得順はstate→Desktop。
+ * @effect 固定docker-isolation.desktop.lockのみ。残存は自動削除しない。
+ * @invariant 上位のcoordinator.docker-state.lockとは別Scopeで、取得順はstate→Desktop。
  */
 export function acquireDesktopOperations(
   settings: IsolationSettings,
@@ -62,7 +62,7 @@ export function acquireDesktopOperations(
   }
   const acquisition = acquireLock({
     directory: settings.desktop.userDataDirectory,
-    name: ".crdd-docker-desktop.lock",
+    name: "docker-isolation.desktop.lock",
     identity: "docker-desktop:shared",
   });
   if (acquisition.status !== "acquired")

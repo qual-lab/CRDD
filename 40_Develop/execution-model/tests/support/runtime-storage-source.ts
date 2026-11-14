@@ -16,13 +16,16 @@ import { types } from "node:util";
 import { runInThisContext } from "node:vm";
 import * as sharedLock from "../../../lock/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
+import * as attemptOperations from "../../src/attempt/operations.ts";
 import * as attemptValidation from "../../src/attempt/validation.ts";
 import * as decisionValidation from "../../src/decision/validation.ts";
+import * as historyOperations from "../../src/history/operations.ts";
 import * as historyValidation from "../../src/history/validation.ts";
 import * as domain from "../../src/index.ts";
 import * as objectiveValidation from "../../src/objective/validation.ts";
 import * as stateValues from "../../src/state/types.ts";
 import * as stateValidation from "../../src/state/validation.ts";
+import * as stateValue from "../../src/state/value.ts";
 import * as taskValidation from "../../src/task/validation.ts";
 import * as workspaceValidation from "../../src/workspace/validation.ts";
 /**
@@ -39,7 +42,8 @@ import * as workspaceValidation from "../../src/workspace/validation.ts";
 export function createRuntimeStorageSourceFixture(
   transform: (source: string) => string = (source) => source,
   overrides: Readonly<Record<string, unknown>> = {},
-): typeof import("../../src/state/crud.ts") &
+): typeof import("../../src/storage/publication.ts") &
+  typeof import("../../src/state/crud.ts") &
   typeof import("../../src/attempt/crud.ts") &
   typeof import("../../src/decision/crud.ts") &
   typeof import("../../src/history/crud.ts") &
@@ -52,6 +56,7 @@ export function createRuntimeStorageSourceFixture(
     "../../src/storage/store.ts",
     "../../src/storage/lock.ts",
     "../../src/state/crud.ts",
+    "../../src/storage/publication.ts",
     "../../src/attempt/crud.ts",
     "../../src/decision/crud.ts",
     "../../src/history/crud.ts",
@@ -89,12 +94,15 @@ export function createRuntimeStorageSourceFixture(
     ...versionControl,
     ...sharedLock,
     ...attemptValidation,
+    ...attemptOperations,
     ...decisionValidation,
     ...historyValidation,
+    ...historyOperations,
     ...objectiveValidation,
     ...taskValidation,
     ...workspaceValidation,
     ...stateValidation,
+    ...stateValue,
     ...stateValues,
     ...overrides,
   };

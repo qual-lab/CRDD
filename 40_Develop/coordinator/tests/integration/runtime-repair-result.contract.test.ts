@@ -142,7 +142,7 @@ const repairSource = sourceDeclaration(
  */
 function compileRepair(source: string) {
   return runInThisContext(
-    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readState,advanceOwnedRecoveryHistory,completeRecovery,resumeRepairPublication,completeStatePublication,saveRepairState,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${source}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readState,saveRecoveryHistory,completeRecovery,resumeRepairRecordSave,saveRepairRecord,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${source}; return repairRuntimeOwnedDockerRuntime;})`,
   );
 }
 const repairFactory = compileRepair(repairSource);
@@ -368,8 +368,8 @@ function fixture(
     acquired: 0,
     readerReleased: true,
     readers: 0,
-    markers: 0,
-    markerFaultAt: 0,
+    intakeReads: 0,
+    intakeReadFaultAt: 0,
     publications: 0,
     publicationCompleted: false,
     publicationFault: "none" as
@@ -379,7 +379,7 @@ function fixture(
       | "release"
       | "throw"
       | "owner",
-    markerFault: "none" as
+    intakeReadFault: "none" as
       | "none"
       | "status"
       | "storage"
@@ -478,25 +478,9 @@ function fixture(
    * @observation 候補・段階・排他確認。
    * @oracle 壊れた履歴を技術状態へ補完しない。
    * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
-   * @boundary 公開Readerと実保存物。Reader応答故障のみ代役。
+   * @boundary 公開Readerと実保存物。完成保存内のReader故障は専用Hookで注入する。
    */
   const readHistory = (_root: unknown, id: unknown) => {
-    state.historyReads++;
-    if (state.historyReads === state.historyReadFaultAt) {
-      if (state.historyReadFault === "throw")
-        throw new Error("history_read_fault");
-      if (state.historyReadFault === "owner") state.alive = false;
-      return {
-        ...model.readState(null, {
-          scope: "recovery",
-          input: {
-            kind: "repair_history",
-            recoveryId: id,
-          },
-        }),
-        lockReleased: state.historyReadFault !== "release",
-      };
-    }
     const observed = model.readState(_root, {
       scope: "recovery",
       input: {
@@ -510,7 +494,7 @@ function fixture(
     };
   };
   /**
-   * 実モデルの一段保存を模擬し、履歴保存と技術結果を分離する。
+   * 実モデルの完成保存へ実Writer境界の故障だけを注入する。
    * @responsibility checkpoint／出版候補と故障時の既発生事実を保持する。
    * @trace ERB-IT-014
    * @precondition 現在Ownerとexact操作IDが一致する。
@@ -520,53 +504,112 @@ function fixture(
    * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
    * @boundary 実モデルと模擬Writer。
    */
-  const advanceHistory = (
-    input: Parameters<typeof model.advanceOwnedRecoveryHistory>[0],
+  const saveHistory = (
+    input: Parameters<typeof model.saveRecoveryHistory>[0],
     id: string,
     owner: () => boolean,
     kind: "runtime_repair",
   ) => {
     assert.equal(kind, "runtime_repair");
-    state.historyWrites++;
-    assert.equal(owner(), true);
-    const fault = state.historyWrites === state.historyFaultAt;
-    if (fault && state.historyFault === "throw")
-      throw new Error("history_write_fault");
-    if (fault && state.historyFault === "owner") state.alive = false;
-    const effect =
-      !fault ||
-      state.historyFault === "release" ||
-      state.historyFault === "after_effect";
-    if (!effect)
-      return {
-        status: "blocked",
-        snapshotConfirmed: false,
-        lockReleased: true,
-        filesystemEffectIssued: false,
-        historyConfirmed: false,
-      };
-    const saved = model.advanceOwnedRecoveryHistory(
-      input,
-      id,
-      owner,
-      "runtime_repair",
+    const lockPath = path.join(
+      created.root,
+      ".crdd",
+      "lock",
+      "execution-model.state.lock",
     );
-    if (saved.filesystemEffectIssued) {
-      const bytes = state.bytes;
-      assert.ok(bytes);
-      historySaved.push(Buffer.from(bytes));
-    }
-    return fault
-      ? {
-          ...saved,
-          status: "blocked",
-          snapshotConfirmed:
-            state.historyFault === "release" && saved.snapshotConfirmed,
-          lockReleased: state.historyFault !== "release" && saved.lockReleased,
-          historyConfirmed: false,
+    const pending = path.join(path.dirname(stateFile), "state.pending.json");
+    const open = fs.openSync,
+      remove = fs.rmSync,
+      rename = fs.renameSync,
+      lstat = fs.lstatSync;
+    let boundaries = 0,
+      writer = false,
+      selectedRead = false,
+      selectedWrite = false,
+      renamed = false;
+    const hooks = [
+      t.mock.method(
+        fs,
+        "openSync",
+        (target: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
+          if (String(target) === lockPath && flags === "wx") {
+            boundaries++;
+            writer = boundaries % 2 === 0;
+            renamed = false;
+            selectedRead = false;
+            selectedWrite = false;
+            if (writer) {
+              state.historyWrites++;
+              selectedWrite = state.historyWrites === state.historyFaultAt;
+              if (selectedWrite && state.historyFault === "owner")
+                state.alive = false;
+              if (
+                selectedWrite &&
+                ["reject", "throw"].includes(state.historyFault)
+              )
+                throw Object.assign(new Error("history_lock_acquire_fault"), {
+                  code: "EACCES",
+                });
+            } else {
+              state.historyReads++;
+              selectedRead = state.historyReads === state.historyReadFaultAt;
+              if (selectedRead && state.historyReadFault === "owner")
+                state.alive = false;
+              if (
+                selectedRead &&
+                ["reject", "throw"].includes(state.historyReadFault)
+              )
+                throw Object.assign(new Error("history_read_acquire_fault"), {
+                  code: "EACCES",
+                });
+            }
+          }
+          return open(target, flags, mode);
+        },
+      ),
+      t.mock.method(fs, "renameSync", (from: fs.PathLike, to: fs.PathLike) => {
+        rename(from, to);
+        if (writer && String(from) === pending && String(to) === stateFile) {
+          renamed = true;
+          historySaved.push(fs.readFileSync(stateFile));
         }
-      : saved;
+      }),
+      t.mock.method(fs, "lstatSync", ((
+        ...args: Parameters<typeof fs.lstatSync>
+      ) => {
+        if (
+          writer &&
+          selectedWrite &&
+          state.historyFault === "after_effect" &&
+          renamed &&
+          String(args[0]) === stateFile
+        )
+          throw Object.assign(new Error("history_readback_fault"), {
+            code: "EACCES",
+          });
+        return Reflect.apply(lstat, fs, args);
+      }) as typeof fs.lstatSync),
+      t.mock.method(
+        fs,
+        "rmSync",
+        (target: fs.PathLike, options?: fs.RmOptions) => {
+          remove(target, options);
+          if (
+            String(target) === lockPath &&
+            ((writer && selectedWrite && state.historyFault === "release") ||
+              (!writer && selectedRead && state.historyReadFault === "release"))
+          )
+            throw new Error("history_lock_release_unknown");
+        },
+      ),
+    ];
+    try {
+      return model.saveRecoveryHistory(input, id, owner, kind);
+    } finally {
+      for (const hook of hooks.reverse()) hook.mock.restore();
+    }
   };
+
   const body = transform(repairSource);
   /**
    * 終了候補と除去済み観測を実モデルで模擬する。
@@ -675,6 +718,30 @@ function fixture(
         recoveryId: undefined,
       };
       switch (request.kind) {
+        case "history": {
+          state.intakeReads++;
+          state.readers++;
+          const fault =
+            state.intakeReadFaultAt === 0 ||
+            state.intakeReads === state.intakeReadFaultAt
+              ? state.intakeReadFault
+              : "none";
+          if (fault === "throw") throw new Error("intake_reader_fault");
+          if (fault === "owner") state.alive = false;
+          const observed = model.readState(root, {
+            scope: "recovery",
+            input: { kind: "history" },
+          });
+          return {
+            ...observed,
+            status: fault === "status" ? "blocked" : observed.status,
+            value:
+              fault === "storage" || fault === "absence"
+                ? null
+                : observed.value,
+            lockReleased: fault !== "release" && observed.lockReleased,
+          };
+        }
         case "repair_history":
           if (typeof request.recoveryId !== "string")
             throw new Error("invalid recovery ID");
@@ -694,7 +761,7 @@ function fixture(
           })();
       }
     },
-    advanceOwnedRecoveryHistory: advanceHistory,
+    saveRecoveryHistory: saveHistory,
     completeRecovery: (
       _root: unknown,
       id: string,
@@ -738,7 +805,7 @@ function fixture(
     observeRepositoryExecutionDataArea: () => ({
       status: state.bytes ? "ready" : "not_observed",
     }),
-    resumeRepairPublication: () => {
+    resumeRepairRecordSave: () => {
       state.publications++;
       if (state.publicationFault === "throw")
         throw new Error("publication_fault");
@@ -757,25 +824,7 @@ function fixture(
         filesystemEffectIssued: state.publicationFault !== "none",
       };
     },
-    completeStatePublication: (targetRoot: unknown) => {
-      state.markers++;
-      const fault =
-        state.markerFaultAt === 0 || state.markers === state.markerFaultAt
-          ? state.markerFault
-          : "none";
-      if (fault === "throw") throw new Error("marker_fault");
-      if (fault === "owner") state.alive = false;
-      if (fault === "none") return model.completeStatePublication(targetRoot);
-      return {
-        status: fault === "status" ? "blocked" : "completed",
-        storageConfirmed: fault !== "storage",
-        markerAbsentConfirmed: fault !== "absence",
-        lockReleased: fault !== "release",
-        filesystemEffectIssued: true,
-        markerRemoved: true,
-      };
-    },
-    saveRepairState: (
+    saveRepairRecord: (
       _root: unknown,
       id: string,
       request: RepairSaveRequest,
@@ -841,7 +890,7 @@ function fixture(
           value: null,
         };
       }
-      const result = model.saveRepairState(_root, id, request, owner);
+      const result = model.saveRepairRecord(_root, id, request, owner);
       if (
         result.status !== "completed" ||
         !result.snapshotConfirmed ||
@@ -1029,7 +1078,7 @@ function fixture(
       assert.equal(fs.realpathSync.native(created.root), created.root);
       const area = path.join(created.root, ".crdd", "domain-model");
       for (const file of [
-        path.join(created.root, ".crdd", "current-state." + binding + ".lock"),
+        path.join(created.root, ".crdd", "lock", "execution-model.state.lock"),
         path.join(area, "state.pending.json"),
         path.join(area, "history.pending.jsonl"),
       ])
@@ -1049,6 +1098,7 @@ function fixture(
     binding,
     root,
     repository,
+    stateFile,
     historySaved,
 
     state,
@@ -1086,7 +1136,7 @@ function fixture(
  */
 test("修復試験factoryはcase依存と変異Sourceを共有しない", async (t) => {
   for (const variant of ["a", "b"])
-    await t.test("変異 " + variant, async (t) => {
+    await t.test(`変異 ${variant}`, async (t) => {
       const f = fixture(
         t,
         (source) =>
@@ -1098,7 +1148,7 @@ test("修復試験factoryはcase依存と変異Sourceを共有しない", async 
       );
       const result = await f.run();
       assert.equal(result.status, "blocked");
-      assert.equal(result.reason, "fixture_variant_" + variant);
+      assert.equal(result.reason, `fixture_variant_${variant}`);
       assert.equal(f.state.entries, 0);
     });
   await t.test("通常Source", async (t) => {
@@ -1612,15 +1662,15 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
     );
 }
 /**
- * 終了Readerとmarker清掃の失敗を段階ごとに停止する。
+ * 終了Readerと保存確認の失敗を段階ごとに停止する。
  * @responsibility 解放不明と例外を既知の成功へ補完しない。
  * @trace ERB-IT-014
  * @precondition 同呼出しで履歴確認後の終了処理。
- * @stimulus 初回／除去後Readerと清掃の各共同field欠落。
+ * @stimulus 初回／除去後Readerと保存の各共同field欠落。
  * @observation 終了確認、先行事実、後段保存／DI件数。
  * @oracle completion false、先行結果保持、失敗後fallback0。
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
- * @boundary Reader／Writer／markerの個別lifecycle。
+ * @boundary Reader／Writer／Lockの個別lifecycle。
  */
 {
   for (const stage of ["before", "after"] as const)
@@ -1649,30 +1699,29 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
         },
       );
   for (const fault of [
-    "status",
-    "storage",
-    "absence",
+    "none",
+    "reject",
     "release",
     "throw",
     "owner",
+    "after_effect",
   ] as const)
-    test(
-      "修復終了接続: Readerと清掃の不明はsticky停止する — " +
-        `終了Marker fault=${fault}`,
-      async (t) => {
-        const f = fixture(t, undefined, sharedRepairBase());
-        f.state.markerFault = fault;
-        f.state.markerFaultAt = 1;
-        const result = await f.run();
-        assert.equal(result.status, "blocked", fault);
-        assert.equal(result.completionConfirmed, false, fault);
-        assert.equal(result.historyConfirmed, true, fault);
-        assert.equal(result.outcomeConfirmed, true, fault);
-        assert.equal(f.state.completionWrites, 1);
-        assert.equal(f.state.entries, 1);
-        assert.equal(f.state.historyWrites, 2);
-      },
-    );
+    test(`修復終了接続: markerなしで終端保存の事実を保持する — ${fault}`, async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.completionFault = fault;
+      const result = await f.run();
+      assert.equal(result.historyConfirmed, true, fault);
+      assert.equal(result.outcomeConfirmed, true, fault);
+      assert.equal(result.completionConfirmed, fault === "none", fault);
+      assert.equal(f.state.completionWrites, 1, fault);
+      assert.equal(f.state.entries, 1, fault);
+      assert.equal(f.state.historyWrites, 2, fault);
+      assert.equal(Object.hasOwn(result, "stateMarkerCleanup"), false);
+      assert.equal(
+        fs.existsSync(path.join(path.dirname(f.stateFile), "state.lock")),
+        false,
+      );
+    });
 }
 /**
  * 履歴各段の失敗後に保存済み結果と既知Effectを保持する。
@@ -1716,11 +1765,7 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
         assert.equal(f.state.entries, 1);
         assert.equal(
           result.historyEffectIssued,
-          stage === 2 || fault === "release" || fault === "after_effect"
-            ? true
-            : fault === "throw"
-              ? null
-              : false,
+          stage === 2 || fault === "release" || fault === "after_effect",
         );
       }
 });
@@ -1800,15 +1845,21 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
           historyRetentionDays: 30,
           operationId: JSON.parse(target.identityJson).operationId,
         };
-        const saved = model.advanceOwnedRecoveryHistory(
+        const saved = model.saveRecoveryHistory(
           owner,
           repaired.recoveryId,
-          () => true,
+          () =>
+            !JSON.parse(fs.readFileSync(f.stateFile, "utf8")).operations.some(
+              (item: { recoveryId: string; history: unknown }) =>
+                item.recoveryId === repaired.recoveryId &&
+                item.history !== null,
+            ),
           "runtime_repair",
         );
-        assert.equal(saved.status, "completed");
-        assert.equal(saved.snapshotConfirmed, true);
+        assert.equal(saved.status, "blocked");
+        assert.equal(saved.snapshotConfirmed, false);
         assert.equal(saved.lockReleased, true);
+        assert.equal(saved.historyConfirmed, false);
       }
     }
     if (stage !== "confirmed") {
@@ -1824,6 +1875,15 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
         },
       );
       assert.equal(read.status, "completed", `${stage}: ${read.reason}`);
+      if (stage === "checkpoint") {
+        assert.equal(read.currentHistoryPublication?.stage, "publish");
+        assert.equal(
+          read.value?.snapshot.operations.find(
+            (item) => item.recoveryId === repaired.recoveryId,
+          )?.history?.confirmed,
+          false,
+        );
+      }
     }
     const writes = f.state.historyWrites,
       calls = f.state.calls,
@@ -2062,14 +2122,14 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
       assert.equal(f.state.dateReads, dates);
     }
   }
-  for (const fault of ["marker", "fresh"] as const) {
+  for (const fault of ["history_intake", "fresh"] as const) {
     const f = fixture(t);
     f.state.mode = "retained";
     const repaired = await f.run();
     assert.ok(repaired.recoveryId);
     const completed = await f.run(repaired.recoveryId, "retain");
     assert.equal(completed.completionConfirmed, true);
-    if (fault === "marker") f.state.markerFault = "absence";
+    if (fault === "history_intake") f.state.intakeReadFault = "absence";
     else {
       f.state.completionReadFaultAt = f.state.completionReads + 2;
       f.state.completionReadFault = "reject";
@@ -2129,7 +2189,7 @@ test("修復保持接続: 判断前の拒否では保存も技術取得も行わ
     const writes = f.state.calls,
       entries = f.state.entries;
     if (fault === "cancel") f.controller.abort();
-    if (fault === "owner") f.state.markerFault = "owner";
+    if (fault === "owner") f.state.intakeReadFault = "owner";
     const result = await f.run(
       fault === "missing_id"
         ? null
@@ -2857,17 +2917,17 @@ test("修復記録: 保存不成立では元失敗を保持して停止する", 
 });
 
 /**
- * marker清掃の共同条件を通常Readerより先に要求する。
- * @responsibility 清掃の部分成功を修復・保存成功へ変換しない。
+ * 履歴付きReaderの共同条件を技術処置より先に要求する。
+ * @responsibility Readerの欠測・解放不明を修復・保存成功へ変換しない。
  * @trace ERB-IT-014
  * @precondition 正規Producerがprimaryとcleanupを保存した切断点。
  * @stimulus 各確認fieldの単独不成立、例外、清掃直後Owner失効。
  * @observation 清掃一回、Reader／DI／Writer増分0、元本文と除去事実。
  * @oracle 失敗後の再試行0、正常再入場だけfresh Readerと記録保存へ進む。
- * @cleanup 実markerのFilesystem意味は既存清掃試験へ分離する。
- * @boundary 修復Ownerと既存保存marker清掃の接続。
+ * @cleanup 実保存物のFilesystem意味は保存再入場試験へ分離する。
+ * @boundary 修復Ownerと既存履歴付きReaderの接続。
  */
-test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない", async (t) => {
+test("修復再入場: 履歴付きReader確認前は技術処置へ進まない", async (t) => {
   for (const kind of [
     "status",
     "storage",
@@ -2878,32 +2938,28 @@ test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない
   ] as const) {
     const { f, id } = await interruptedRepairOutcome(t);
     f.controller.abort();
-    f.state.markerFault = kind;
+    f.state.intakeReadFault = kind;
     const before = Buffer.from(f.state.bytes as Buffer);
     const counts = {
-      markers: f.state.markers,
+      intakeReads: f.state.intakeReads,
       readers: f.state.readers,
       entries: f.state.entries,
       calls: f.state.calls,
     };
     const rejected = await f.run(id);
     assert.equal(rejected.status, "blocked", kind);
-    assert.equal(f.state.markers, counts.markers + 1, kind);
-    assert.equal(f.state.readers, counts.readers, kind);
+    assert.equal(f.state.intakeReads, counts.intakeReads + 1, kind);
+    assert.equal(f.state.readers, counts.readers + 1, kind);
     assert.equal(f.state.entries, counts.entries, kind);
     assert.equal(f.state.calls, counts.calls, kind);
     assert.ok(f.state.bytes?.equals(before), kind);
-    if (kind !== "throw") {
-      assert.equal(rejected.stateMarkerCleanup?.filesystemEffectIssued, true);
-      assert.equal(rejected.stateMarkerCleanup?.markerRemoved, true);
-    }
-    f.state.markerFault = "none";
+    f.state.intakeReadFault = "none";
     f.state.alive = true;
     const resumed = await f.run(id);
     assert.equal(resumed.outcomeConfirmed, true, kind);
-    assert.equal(f.state.readers, counts.readers + 1, kind);
+    assert.equal(f.state.readers, counts.readers + 2, kind);
     assert.equal(f.state.entries, counts.entries, kind);
-    assert.equal(resumed.stateMarkerCleanup?.filesystemEffectIssued, false);
+    assert.equal(Object.hasOwn(resumed, "stateMarkerCleanup"), false);
   }
 });
 
@@ -2913,7 +2969,7 @@ test("修復保存marker: 清掃確認前はReaderと技術処置へ進まない
  * @trace ERB-IT-014
  * @precondition 正規Producerの保存済み失敗、現在Owner。
  * @stimulus 出版status・確認・排他解放の不成立、例外、直後Owner失効。
- * @observation 出版一回、marker／Reader／DI／Writer増分0、元版全文。
+ * @observation 出版一回、後続の受付Reader／DI／Writer増分0、元版全文。
  * @oracle 既発生Effect診断を保持し、後段はfresh確認後だけ進む。
  * @cleanup 実出版の意味は実Host試験へ分離する。
  * @boundary 出版結果と修復Ownerの接続。
@@ -2932,7 +2988,7 @@ test("修復出版: 部分成立の後は新処置へ進まない", async (t) =>
     const bytes = Buffer.from(f.state.bytes as Buffer);
     const counts = {
       publications: f.state.publications,
-      markers: f.state.markers,
+      intakeReads: f.state.intakeReads,
       readers: f.state.readers,
       entries: f.state.entries,
       calls: f.state.calls,
@@ -2940,7 +2996,7 @@ test("修復出版: 部分成立の後は新処置へ進まない", async (t) =>
     const result = await f.run(id);
     assert.equal(result.status, "blocked");
     assert.equal(f.state.publications, counts.publications + 1);
-    assert.equal(f.state.markers, counts.markers);
+    assert.equal(f.state.intakeReads, counts.intakeReads);
     assert.equal(f.state.readers, counts.readers);
     assert.equal(f.state.entries, counts.entries);
     assert.equal(f.state.calls, counts.calls);

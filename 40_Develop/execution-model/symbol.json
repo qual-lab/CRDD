@@ -50,7 +50,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "domain-model.state.history"
+        "domain-model.state.history",
+        "execution-model.source.src.history.operations"
       ]
     },
     {
@@ -466,7 +467,10 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "execution-model.public-api"
+        "execution-model.public-api",
+        "execution-model.source.src.attempt.operations",
+        "execution-model.source.src.state.value",
+        "execution-model.source.src.history.operations"
       ]
     },
     {
@@ -521,7 +525,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-runtime",
       "kind": "file",
-      "path": "src/state/crud.ts",
+      "path": "src/storage/publication.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -666,7 +670,9 @@
       ],
       "verifies": [
         "coordinator.source.src.security.orchestrator.history",
-        "coordinator.source.src.security.orchestrator.durable.foundation"
+        "coordinator.source.src.security.orchestrator.durable.foundation",
+        "execution-model.source.src.history.operations",
+        "execution-model.source.src.history.types"
       ]
     },
     {
@@ -706,9 +712,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.current-state-marker-cleanup",
+      "symbolId": "coordinator.test.integration.current-state-publication-reentry",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-marker-cleanup.contract.test.ts",
+      "path": "tests/integration/runtime-publication-reentry.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000006"
@@ -769,7 +775,9 @@
       "verifies": [
         "coordinator.state-storage.coordinator-state-model",
         "domain-model.attempt.repair-validation",
-        "domain-model.state.history"
+        "domain-model.state.history",
+        "execution-model.source.src.state.value",
+        "execution-model.source.src.history.operations"
       ]
     },
     {
@@ -785,7 +793,9 @@
       ],
       "verifies": [
         "domain-model.attempt.settlement",
-        "coordinator.state-storage.coordinator-state-runtime"
+        "coordinator.state-storage.coordinator-state-runtime",
+        "execution-model.source.src.history.operations",
+        "execution-model.source.src.history.types"
       ]
     },
     {
@@ -802,7 +812,9 @@
         "coordinator.state-storage.coordinator-state-runtime",
         "domain-model.attempt.repair-validation",
         "docker-isolation.desktop.repair-machine",
-        "docker-isolation.desktop.technical-validation"
+        "docker-isolation.desktop.technical-validation",
+        "execution-model.source.src.history.operations",
+        "execution-model.source.src.history.types"
       ]
     },
     {
@@ -831,7 +843,9 @@
         "ERB-UT-036"
       ],
       "verifies": [
-        "coordinator.state-storage.coordinator-state-model"
+        "coordinator.state-storage.coordinator-state-model",
+        "execution-model.source.src.history.operations",
+        "execution-model.source.src.history.types"
       ]
     },
     {
@@ -941,7 +955,9 @@
       ],
       "verifies": [
         "domain-model.src.attempt.crud",
-        "coordinator.state-storage.restart-checkpoint"
+        "coordinator.state-storage.restart-checkpoint",
+        "execution-model.source.src.attempt.operations",
+        "execution-model.source.src.state.value"
       ]
     },
     {
@@ -1094,6 +1110,91 @@
       "path": "src/workspace/crud.ts",
       "archIds": [
         "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.attempt.operations",
+      "kind": "file",
+      "path": "src/attempt/operations.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.state.value",
+      "kind": "file",
+      "path": "src/state/value.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.history.operations",
+      "kind": "file",
+      "path": "src/history/operations.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "execution-model.test.unit.history-operations",
+      "kind": "test-suite",
+      "path": "tests/unit/history/operations.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "HST-UT-001"
+      ],
+      "verifies": [
+        "execution-model.source.src.history.operations",
+        "domain-model.state.history",
+        "execution-model.source.src.history.types"
+      ]
+    },
+    {
+      "symbolId": "execution-model.test.unit.attempt-checkpoint",
+      "kind": "test-suite",
+      "path": "tests/unit/attempt/checkpoint.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "domain-model.src.attempt.crud"
+      ]
+    },
+    {
+      "symbolId": "execution-model.test.unit.snapshot-types",
+      "kind": "test-suite",
+      "path": "tests/unit/state/snapshot-types.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "domain-model.state.types",
+        "domain-model.state.codec"
+      ]
+    },
+    {
+      "symbolId": "execution-model.test.unit.storage-publication",
+      "kind": "test-suite",
+      "path": "tests/unit/storage/publication.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-024"
+      ],
+      "verifies": [
+        "coordinator.state-storage.coordinator-state-runtime"
       ]
     }
   ]

@@ -959,17 +959,17 @@ test("現在回収終端: 未確認履歴だけ保持設定を搬送する", () 
 });
 
 /**
- * 解放済みOwnerの履歴接続を二段以内へ限定する。
+ * 解放済みOwnerの履歴接続を完成保存一回へ限定する。
  * @responsibility 中間保存失敗後の再発行と返却後のOwner借用を反証する。
  * @trace ERB-IT-014
- * @precondition 本番Wrapper本文と模擬履歴Driverだけを使用する。
- * @stimulus 初期・既確認、各段失敗／例外、排他不明、Host再出現と未収束を渡す。
+ * @precondition 本番接続本文と模擬の完成履歴保存だけを使用する。
+ * @stimulus 初期・既確認、部分保存失敗／例外、排他不明、Host再出現と未収束を渡す。
  * @observation 呼出し回数、Effect累積、sticky拒否と借用失効。
- * @oracle 最大二段、失敗後同Owner再発行0、全体Task・配送完成を主張しない。
+ * @oracle 完成保存一回、失敗後同Owner再発行0。内部段階の保証はEM試験が所有する。
  * @cleanup N/A: 外部資源を作らない。
  * @boundary ERB-IT-014=Direct Boundary: 私有回収Map→履歴Driver。
  */
-test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => {
+test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", () => {
   const historyStart = source.indexOf(
     "export function completeRuntimeOwnedDockerTaskRecoveryHistory(",
   );
@@ -983,9 +983,9 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
   for (const scenario of [
     "normal",
     "already_confirmed",
-    "first_failed",
-    "second_failed",
-    "second_throw",
+    "save_failed",
+    "partial_failed",
+    "save_throw",
     "lock_unknown",
     "host_present",
     "unsettled",
@@ -1025,7 +1025,7 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
             marker: "absent",
           };
         },
-        advanceOwnedRecoveryHistory(
+        saveRecoveryHistory(
           repository: unknown,
           recoveryId: string,
           owner: () => boolean,
@@ -1042,29 +1042,28 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
             },
           );
           assert.equal(recoveryId, "exact");
-          if (scenario === "second_throw" && calls === 2)
-            throw new Error("synthetic");
+          if (scenario === "save_throw") throw new Error("synthetic");
           const failed =
             !owner() ||
-            scenario === "first_failed" ||
+            scenario === "save_failed" ||
             scenario === "lock_unknown" ||
-            (scenario === "second_failed" && calls === 2);
+            scenario === "partial_failed";
           return {
             status: failed ? "blocked" : "completed",
             snapshotConfirmed: !failed,
             lockReleased: scenario !== "lock_unknown",
-            historyConfirmed:
-              !failed &&
-              scenario !== "unsettled" &&
-              (scenario === "already_confirmed" || calls === 2),
-            filesystemEffectIssued: !failed && scenario !== "already_confirmed",
+            historyConfirmed: !failed && scenario !== "unsettled",
+            filesystemEffectIssued:
+              scenario === "partial_failed" ||
+              (!failed && scenario !== "already_confirmed"),
           };
         },
       },
     ) as (capability: unknown) => {
       status: string;
       historyConfirmed: boolean;
-      filesystemEffectIssued: boolean;
+      filesystemEffectIssued: boolean | null;
+      lockReleased: boolean;
     };
     assert.equal(complete({}).status, "blocked");
     assert.equal(calls, 0);
@@ -1077,21 +1076,16 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
     );
     assert.equal(result.status, completed ? "completed" : "blocked", scenario);
     assert.equal(
-      calls,
-      scenario === "unreleased"
-        ? 0
-        : ["normal", "second_failed", "second_throw", "unsettled"].includes(
-              scenario,
-            )
-          ? 2
-          : 1,
+      result.lockReleased,
+      !["lock_unknown", "save_throw"].includes(scenario),
       scenario,
     );
+    assert.equal(calls, scenario === "unreleased" ? 0 : 1, scenario);
     assert.equal(
       result.filesystemEffectIssued,
-      ["normal", "second_failed", "second_throw", "unsettled"].includes(
-        scenario,
-      ),
+      scenario === "save_throw"
+        ? null
+        : ["normal", "partial_failed", "unsettled"].includes(scenario),
       scenario,
     );
     for (const owner of borrowed) assert.equal(owner(), false);
@@ -1100,7 +1094,10 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
       assert.equal(complete(capability).status, "blocked");
       assert.equal(calls, beforeCalls);
     }
-    assert.equal(record.cleanupUnknown, scenario === "lock_unknown");
+    assert.equal(
+      record.cleanupUnknown,
+      ["lock_unknown", "save_throw"].includes(scenario),
+    );
   }
 });
 

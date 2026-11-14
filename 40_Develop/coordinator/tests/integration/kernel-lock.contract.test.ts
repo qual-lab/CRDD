@@ -45,7 +45,7 @@ test("HomeはRepository横断で同一対象を排他し、Executorと同じRequ
   assert.equal(
     acquireLock({
       directory,
-      name: `provider-home.${hash}.lock`,
+      name: `executor.provider-home.${hash}.lock`,
       identity: `provider-home:${hash}`,
     }).status,
     "blocked",

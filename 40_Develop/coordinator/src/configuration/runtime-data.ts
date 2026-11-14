@@ -28,6 +28,7 @@ export const REPOSITORY_AREAS = Object.freeze([
   "communication",
   "tests",
   "tmp",
+  "lock",
 ] as const);
 
 export const AREA_PATH_KEYS = Object.freeze({
@@ -40,6 +41,7 @@ export const AREA_PATH_KEYS = Object.freeze({
   communication: "communication",
   tests: "tests",
   tmp: "temporary",
+  lock: "locks",
 } as const);
 
 /**
@@ -126,6 +128,7 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
     communication: path.join(root, "communication"),
     tests: path.join(root, "tests"),
     temporary: path.join(root, "tmp"),
+    locks: path.join(root, "lock"),
     allowedTopLevelAreas: REPOSITORY_AREAS,
   });
 }

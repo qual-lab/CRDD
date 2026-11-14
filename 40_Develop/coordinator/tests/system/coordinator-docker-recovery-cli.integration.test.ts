@@ -500,7 +500,6 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
       completionConfirmed: false,
       operationCleanupConfirmed: false,
       statePublication: { private: "PRIVATE_FIXTURE_DETAIL" },
-      stateMarkerCleanup: { private: "PRIVATE_FIXTURE_DETAIL" },
       checkpoints: ["PRIVATE_FIXTURE_DETAIL"],
     },
     null,

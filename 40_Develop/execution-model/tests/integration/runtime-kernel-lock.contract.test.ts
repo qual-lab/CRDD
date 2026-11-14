@@ -44,8 +44,15 @@ test("同じCurrentStateだけが競合し、通常解放後は新世代で取�
     randomBytes(32).toString("hex"),
     root,
   );
-  assert.ok(other.status === "acquired");
-  assert.equal(other.lock.release(), true);
+  assert.equal(other.status, "blocked");
+  // 同じ保存先は、異なる結合値を渡しても別Lockへ分断しない。
+  const independent = fixture(t);
+  const independentLock = acquireExecutionStateLock(
+    independent.hash,
+    independent.root,
+  );
+  assert.ok(independentLock.status === "acquired");
+  assert.equal(independentLock.lock.release(), true);
   assert.equal(first.lock.assertLive(), true);
   assert.equal(first.lock.release(), true);
   assert.equal(first.lock.release(), false);
@@ -93,7 +100,7 @@ test("CurrentState Owner強制終了後も残存で拒否し、停止下のexact
   ]);
   assert.equal(ready[0].toString(), "READY\n");
   assert.equal(acquireExecutionStateLock(hash, root).status, "blocked");
-  const target = path.join(root, ".crdd", `current-state.${hash}.lock`);
+  const target = path.join(root, ".crdd", "lock", "execution-model.state.lock");
   const bytes = fs.readFileSync(target);
   const stat = fs.lstatSync(target, { bigint: true });
   const record = JSON.parse(bytes.toString());
@@ -167,7 +174,12 @@ test("CurrentStateの初期化失敗は取得参照・手動回復とdescriptor�
       );
       assert.equal(JSON.stringify(outcome).includes(root), false);
       st.mock.restoreAll();
-      const file = path.join(root, ".crdd", `current-state.${hash}.lock`);
+      const file = path.join(
+        root,
+        ".crdd",
+        "lock",
+        "execution-model.state.lock",
+      );
       assert.equal(fs.existsSync(file), true);
       assert.equal(acquireExecutionStateLock(hash, root).status, "blocked");
       assert.notEqual(descriptor, null);

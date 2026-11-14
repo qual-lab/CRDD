@@ -19,9 +19,8 @@ import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   isPrincipalId,
-  readOperationCompletion,
   type ProjectQueueEntry,
-  readTaskIntakeState,
+  readState,
   type SingleTaskRecord,
   type TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
@@ -278,9 +277,10 @@ export function createCoordinatorTaskRequests(
   const ports = (epoch: string) =>
     createCoordinatorSnapshotStatePort(deps.root, deps.binding, epoch);
   const recoverRecord = async (requestId: string) => {
-    const current = readTaskIntakeState(
+    const current = readState(
       verifyRuntimePersistenceRepository(deps.root),
       deps.binding,
+      "queue",
     );
     const queue =
       current.status === "completed"
@@ -536,9 +536,10 @@ export function createCoordinatorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_session_capacity",
         };
-      let current = readTaskIntakeState(
+      let current = readState(
         verifyRuntimePersistenceRepository(deps.root),
         deps.binding,
+        "queue",
       );
       if (
         current.status === "completed" &&
@@ -580,9 +581,10 @@ export function createCoordinatorTaskRequests(
               reason: "orchestrator_task_previous_cleanup_unconfirmed",
             };
         }
-        current = readTaskIntakeState(
+        current = readState(
           verifyRuntimePersistenceRepository(deps.root),
           deps.binding,
+          "queue",
         );
       }
       const selection = deps.resolveSelection(command);
@@ -940,9 +942,10 @@ export function createCoordinatorTaskRequests(
         );
       const item = requests.get(requestId);
       if (item) return item.snapshot;
-      const current = readTaskIntakeState(
+      const current = readState(
         verifyRuntimePersistenceRepository(deps.root),
         deps.binding,
+        "queue",
       );
       const record =
         current.status === "completed"
@@ -1271,11 +1274,14 @@ export function openTaskSession(context: TaskSessionContext) {
       for (const recoveryId of unresolved) {
         if (
           recoveryId.startsWith("docker-task.") &&
-          readOperationCompletion(
-            rootCapability,
-            recoveryId,
-            record.operationId,
-          ).completionConfirmed
+          readState(rootCapability, {
+            scope: "recovery",
+            input: {
+              kind: "completion",
+              recoveryId: recoveryId,
+              correlationId: record.operationId,
+            },
+          }).operationCompletionConfirmed
         )
           unresolved.delete(recoveryId);
       }
@@ -1611,7 +1617,6 @@ export async function runTask(
   return Object.freeze(result);
 }
 
+import { hashExecutionSelection } from "../selection/resolve.ts";
 import type { WorkspaceResult } from "../workspace/record.ts";
 import { inspectWorkspaceResult } from "../workspace/record.ts";
-
-import { hashExecutionSelection } from "../selection/resolve.ts";
