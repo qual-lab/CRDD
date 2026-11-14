@@ -9,7 +9,6 @@
  * @boundary 旧Owner Processの終了後の現在回復。専用モードの同期CLI終了は子孫tree／daemon queue終端の証明ではない。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -29,6 +28,7 @@ import type {
   OperationRecord,
 } from "../../../execution-model/src/index.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import { executionSelection } from "./ai-selection.ts";
 import { expectedHostCheckpoint } from "./task-result-fixture.ts";
 
@@ -1443,7 +1443,6 @@ if (mode !== "recovery") {
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
         "saveOperationCheckpoint",
-        "saveResourceNotIssuedStage",
         "completeRecovery",
         "advanceOwnedRecoveryHistory",
         "saveRecoveryCheckpoint",
@@ -1730,7 +1729,8 @@ if (mode !== "recovery") {
                 : "0".repeat(64);
             const bytes = Buffer.from(`${canonicalJson(changed)}\n`);
             fs.writeFileSync(statePath, bytes);
-            const observed = model.readRecoveryState(verified.capability);
+            const observed: ReturnType<typeof model.readState> =
+              model.readState(verified.capability, { scope: "recovery" });
             assert.equal(observed.status, "blocked");
             assert.equal(observed.value, null);
             assert.deepEqual(fs.readFileSync(statePath), bytes);

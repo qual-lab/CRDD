@@ -8,15 +8,7 @@
  * @scope 固定src配下のliteral import／exportと必要なRoot API。
  * @boundary unknown gateの前提配置。完全なTypeScript解析や敵対Sourceの安全証明ではない。
  */
-import type {
-  DockerEnvironmentRequest,
-  DockerEnvironmentResult,
-  ResourceTarget,
-  ResourceInspection,
-  ResourceCleanupResult,
-  IsolationExecution,
-} from "../../src/index.ts";
-import { restartDockerEnvironment, cleanupIsolation } from "../../src/index.ts";
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -24,12 +16,16 @@ import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-import type { DockerIsolationRuntimeOptions } from "../../../executor/src/lifecycle/types.ts";
-import type { DockerCommandSession } from "../../../executor/scripts/executor-test.ts";
-import { classifyDockerCommandExecution } from "../../src/execution/result.ts";
+import type {
+  DockerEnvironmentRequest,
+  DockerEnvironmentResult,
+  IsolationExecution,
+  ResourceCleanupResult,
+  ResourceInspection,
+  ResourceTarget,
+} from "../../src/index.ts";
+import { cleanupIsolation, restartDockerEnvironment } from "../../src/index.ts";
 
-import type { DockerCommandExecutionClassification } from "../../src/execution/result.ts";
-import { createDockerIsolationRuntime } from "../support/execution.ts";
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
   userHomeDirectory: "C:\\Users\\test",
@@ -38,123 +34,44 @@ const ISOLATION_SETTINGS = Object.freeze({
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
 
 /**
- * 型だけの公開追加と元の入力拒否・分類を照合する。
- * @responsibility 構成の必須／任意と、未観測結果のkey不在を保持する。
- * @trace ERB-IT-004
- * @precondition 外部操作は開始しない。
- * @stimulus 正常構成、欠測、余剰、Proxyと期限超過を渡す。
- * @observation 型負例、既存例外と分類のexact key。
- * @oracle 型の明示化はRuntime公開・拒否規則を変更しない。
- * @cleanup N/A: Factory構成と純粋判定のみ。
- */
-test("隔離の明示契約は必須構成と未観測分類を保持する", async () => {
-  const options: DockerIsolationRuntimeOptions = {
-    settings: ISOLATION_SETTINGS,
-    paths: { tmp: "synthetic", management: "synthetic" },
-  };
-  // @ts-expect-error 所在借用は必須。
-  const missing: DockerIsolationRuntimeOptions = {};
-  const extra: DockerIsolationRuntimeOptions = {
-    ...options,
-    // @ts-expect-error 生Process実装を本番構成へ注入しない。
-    startProcess: () => null,
-  };
-  const runtime = createDockerIsolationRuntime(options);
-  assert.deepEqual(
-    Object.keys(runtime).sort(),
-    [
-      "acquireHomeLease",
-      "startCommand",
-      "startExecution",
-      "cleanupOwnedResources",
-      "verifyCleanupOutcome",
-    ].sort(),
-  );
-  assert.throws(() => createDockerIsolationRuntime(missing), /input_invalid/);
-  assert.throws(() => createDockerIsolationRuntime(extra), /input_invalid/);
-  assert.throws(
-    () => createDockerIsolationRuntime(new Proxy(options, {})),
-    /input_invalid/,
-  );
-  const deadline: DockerCommandExecutionClassification =
-    classifyDockerCommandExecution(null);
-  assert.deepEqual(deadline, { category: "deadline_exceeded" });
-  assert.deepEqual(
-    classifyDockerCommandExecution({
-      status: 0,
-      signal: null,
-      stdout: "x",
-      stderr: "",
-      outputExceeded: false,
-    }),
-    { category: "completed", stdoutBytes: 1, stderrBytes: 0 },
-  );
-  const session: DockerCommandSession = {
-    cancel: async () => ({
-      cancellationRequested: true,
-      processTerminationObserved: false,
-    }),
-    completion: new Promise(() => {}),
-  };
-  // @ts-expect-error 試験表示は通常Sessionの契約に含めない。
-  const candidateFlag = session.productionAuthority;
-  assert.equal(Object.hasOwn(session, "productionAuthority"), false);
-  const namespace = await import("../../src/index.ts");
-  for (const name of [
-    "DockerIsolationRuntimeOptions",
-    "DockerIsolationRuntime",
-    "DockerCommandSession",
-    "DockerCommandSessionResult",
-    "DockerCommandExecutionClassification",
-    "DockerProcessExitStatusClass",
-  ])
-    assert.equal(Object.hasOwn(namespace, name), false, name);
-  void candidateFlag;
-});
-
-/**
- * 相手Packageを解決できない新品ProcessでDIとDomainの独立開始を確認する。
- * @responsibility 型だけでなく間接実行時依存と永続APIの再流入を反証する。
+ * 上位Packageを解決できない新品ProcessでDIの独立ロードを確認する。
+ * @responsibility 間接実行時依存と永続APIの再流入を反証する。
  * @trace ERB-IT-014
- * @precondition 子ProcessではModule読込みと純粋な回復ID解析だけを行う。
- * @stimulus DIではDomain／Coordinatorを、DomainではDIを解決拒否する。
+ * @precondition 子ProcessはModule読込みと公開境界確認だけを行う。
+ * @stimulus 上位モデル・Executor・Coordinator・Workbench・MCPを解決拒否する。
  * @observation 終了値と固定marker。
- * @oracle 両公開Rootが開始でき、DIに記録保存APIがない。
+ * @oracle DI公開Rootが開始でき、記録保存APIと業務Parserを公開しない。
  * @cleanup 子Processの正常close。生成物なし。
- * @boundary 実Docker・Native処置・保存・実AIは実行しない。
+ * @boundary 実Docker・保存・実AIは実行しない。
  */
-test("DIとDomainは相互の実行時依存なしで公開Rootを開始する", () => {
-  for (const owner of ["docker-isolation", "execution-model"]) {
-    const target = path.resolve(sourceRoot, "../../", owner, "src/index.ts");
-    const blocked =
-      owner === "docker-isolation"
-        ? [
-            "domain-model",
-            "document-model",
-            "execution-model",
-            "configuration-model",
-            "coordinator",
-          ]
-        : ["docker-isolation"];
-    const code = `import { registerHooks } from 'node:module';
-      const blocked=${JSON.stringify(blocked)};
-      registerHooks({resolve(s,c,next){const r=next(s,c);if(blocked.some(name=>r.url.includes('/'+name+'/')))throw Error('owner_forbidden');return r;}});
-      const api=await import(${JSON.stringify(pathToFileURL(target).href)});
-      if(${JSON.stringify(owner)}==='docker-isolation'){
-        if('writeDockerProbeRecoveryRecord' in api || 'loadDockerProbeRecoveryRecord' in api)throw Error('persistence_exposed');
-        if(Object.hasOwn(api,'parseDockerTaskRecoveryId'))throw Error('business_parser_exposed');
-      }
-      console.log('OWNER_INDEPENDENT');`;
-    const result = spawnSync(
-      process.execPath,
-      ["--input-type=module", "-e", code],
-      { encoding: "utf8", timeout: 15000, windowsHide: true },
-    );
-    assert.equal(result.error, undefined);
-    assert.equal(result.signal, null);
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "OWNER_INDEPENDENT");
-  }
+test("DIは上位Packageなしで公開Rootを開始する", () => {
+  const target = path.join(sourceRoot, "index.ts");
+  const blocked = [
+    "domain-model",
+    "document-model",
+    "execution-model",
+    "configuration-model",
+    "coordinator",
+    "executor",
+    "workbench-server",
+    "mcp-server",
+  ];
+  const code = `import {registerHooks} from "node:module";
+ const blocked=${JSON.stringify(blocked)};
+ registerHooks({resolve(s,c,next){const r=next(s,c);if(blocked.some(name=>r.url.includes("/"+name+"/")))throw Error("owner_forbidden");return r;}});
+ const api=await import(${JSON.stringify(pathToFileURL(target).href)});
+ if("writeDockerProbeRecoveryRecord" in api || "loadDockerProbeRecoveryRecord" in api)throw Error("persistence_exposed");
+ if(Object.hasOwn(api,"parseDockerTaskRecoveryId"))throw Error("business_parser_exposed");
+ console.log("OWNER_INDEPENDENT");`;
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", code],
+    { encoding: "utf8", timeout: 15000, windowsHide: true },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "OWNER_INDEPENDENT");
 });
 
 /**
@@ -165,20 +82,11 @@ test("DIとDomainは相互の実行時依存なしで公開Rootを開始する",
  * @precondition fileは固定Sourceまたはメモリ内負例の所在である。
  * @stimulus literalのimport／再exportとdynamic importを読み取る。
  * @observation 不許可の依存先または非literal dynamicでassertionが失敗する。
- * @oracle Node builtin、同src内、PAの宣言済みRootだけを許可する。
+ * @oracle Node builtin、同src内、共通Lockの宣言済みRootだけを許可する。
  * @cleanup N/A: 読取りと文字列処理だけ。
  * @boundary 通常Source配置の回帰であり任意TypeScript構文の完全検査ではない。
  */
 function assertDependencyBoundary(file: string, text: string) {
-  // 既存Command結合が使う一つの技術記述型だけを許可し、値依存は許可しない。
-  text = text.replace(
-    /\bimport type\s*\{\s*ProviderAdvicePlan\s*\}\s*from\s*["']([^"']+)["'];/gu,
-    (statement, specifier: string) =>
-      path.resolve(path.dirname(file), specifier) ===
-      path.resolve(sourceRoot, "../../ai-adapter/src/index.ts")
-        ? ""
-        : statement,
-  );
   for (const match of text.matchAll(/\bimport\s*\(([^)]*)\)/gu)) {
     assert.match(
       match[1]?.trim() ?? "",
@@ -254,12 +162,20 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
     'import fs from "node:fs";',
     'import type { Value } from "./execution/plan.ts";',
     'export { Value } from "../../lock/src/index.ts";',
-    'import type { ProviderAdvicePlan } from "../../ai-adapter/src/index.ts";',
     'const selected = import("./execution/plan.ts");',
     'const marker = Buffer.from("CRDDDR06");',
   ])
     assert.doesNotThrow(() => assertDependencyBoundary(file, text));
+  assert.throws(
+    () =>
+      assertDependencyBoundary(
+        file,
+        'import type { ProviderAdvicePlan } from "../../ai-adapter/src/index.ts";',
+      ),
+    /dependency_outside_owner/u,
+  );
   for (const owner of [
+    "executor",
     "coordinator",
     "domain-model",
     "document-model",

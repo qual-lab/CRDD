@@ -231,7 +231,8 @@
       "verifies": [
         "coordinator.state-storage.restart-checkpoint",
         "docker-isolation.cleanup.recovery-identity",
-        "domain-model.src.attempt.crud"
+        "domain-model.src.attempt.crud",
+        "coordinator.state-storage.coordinator-state-runtime"
       ]
     },
     {
@@ -447,6 +448,22 @@
       "localTestIds": [
         "RCM-UT-014",
         "RCM-UT-016"
+      ],
+      "verifies": [
+        "execution-model.public-api"
+      ]
+    },
+    {
+      "symbolId": "execution-model.test.integration.package-boundary",
+      "kind": "test-suite",
+      "path": "tests/integration/package-boundary.integration.test.ts",
+      "qaIds": [
+        "QA-000001",
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "RCM-IT-005",
+        "ERB-IT-014"
       ],
       "verifies": [
         "execution-model.public-api"

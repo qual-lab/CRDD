@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
-import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 const driverText = fs.readFileSync(
   new URL("../../src/docker-desktop/dispose.ts", import.meta.url),

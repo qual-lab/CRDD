@@ -1,7 +1,7 @@
 /**
- * verify-orchestrator-real-providersに属する責務をまとめる。
+ * 公開MCP入口で承認済みの実AI検証を明示実行する。
  *
- * @responsibility stableDirectoryを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 送信条件・起動・取消・回復の確認結果を一つの報告へ結合する。
  * @trace ARCH-000004
  */
 
@@ -13,6 +13,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import { readRepositoryAiSelection } from "../../configuration-model/src/index.ts";
+import { resolveRepositoryExecutionDataPaths } from "../../coordinator/src/configuration/runtime-data.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
+import { resolveTaskExecutionSelections } from "../../coordinator/src/selection/resolve.ts";
 import { createFilesystemRepositoryObservationPort } from "../../document-model/src/index.ts";
 import {
   getRepository,
@@ -20,9 +23,6 @@ import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
-import { resolveRepositoryExecutionDataPaths } from "../src/configuration/runtime-data.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
-import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import {
   buildCoordinatorRealProviderReport,
   captureCanonicalRepositorySnapshot,

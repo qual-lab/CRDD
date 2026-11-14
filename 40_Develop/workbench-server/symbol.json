@@ -356,7 +356,8 @@
         "RCM-IT-005",
         "RFD-IT-013",
         "RFD-IT-021",
-        "RFD-IT-024"
+        "RFD-IT-024",
+        "RFD-IT-019"
       ],
       "verifies": [
         "workbench.server",
@@ -383,7 +384,9 @@
         "workbench.http.repository-view",
         "workbench.http.shared-view",
         "workbench.presentation.view-validation",
-        "workbench.presentation.view-url"
+        "workbench.presentation.view-url",
+        "access-management.repository-access",
+        "document-model.public-api"
       ]
     },
     {
@@ -790,14 +793,17 @@
       "kind": "test-suite",
       "path": "tests/integration/ai-shared-task.integration.test.ts",
       "qaIds": [
-        "QA-000005"
+        "QA-000005",
+        "QA-000003"
       ],
       "localTestIds": [
         "CPR-IT-010",
-        "CPR-IT-012"
+        "CPR-IT-012",
+        "PRL-IT-012"
       ],
       "verifies": [
-        "workbench.server"
+        "workbench.server",
+        "coordinator.public-api"
       ]
     },
     {
@@ -1067,14 +1073,18 @@
       "kind": "test-suite",
       "path": "tests/integration/runtime-definition.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000007"
       ],
       "localTestIds": [
-        "PRL-IT-012"
+        "PRL-IT-012",
+        "RFD-IT-013"
       ],
       "verifies": [
         "workbench.runtime-definition",
-        "workbench.http.workspace"
+        "workbench.http.workspace",
+        "access-management.repository-access",
+        "execution-model.public-api"
       ]
     },
     {
@@ -1201,6 +1211,50 @@
       "archIds": [
         "ARCH-000012",
         "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.task-summary-observation",
+      "kind": "file",
+      "path": "scripts/task-summary-observation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.integration.task-summary-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/task-summary-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "executor.verification.task-summary-observation"
+      ]
+    },
+    {
+      "symbolId": "workbench-server.test.integration.recovery-http-owner",
+      "kind": "test-suite",
+      "path": "tests/integration/recovery-http-owner.integration.test.ts",
+      "qaIds": [
+        "QA-000003",
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003",
+        "ERB-IT-014",
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "coordinator.test.fixture.normal-owner-lifecycle",
+        "workbench-server.scripts.ai-verification-http",
+        "coordinator.execution.provider-observation",
+        "coordinator.source.src.security.docker.recovery.runtime.internal",
+        "coordinator.state-storage.coordinator-state-runtime",
+        "coordinator.diagnostics.runtime-repair"
       ]
     }
   ]

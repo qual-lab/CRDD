@@ -18,11 +18,6 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import { prepareProviderEnvironment } from "../../../ai-adapter/src/provider/validation.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
-import {
-  dockerIsolationCommandsMatch,
-  planDockerIsolationCommands,
-} from "../../../docker-isolation/tests/support/execution-plan.ts";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
 import {
   prepareAttempt,
@@ -30,6 +25,11 @@ import {
   resolveProviderExecution,
 } from "../../scripts/executor-test.ts";
 import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
+import {
+  dockerIsolationCommandsMatch,
+  planDockerIsolationCommands,
+} from "../support/isolation-plan.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * 旧DI結合処理の正負条件をExecutorの本番構築で確認する。

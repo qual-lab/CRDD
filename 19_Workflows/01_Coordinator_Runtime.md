@@ -411,7 +411,7 @@ Coordinator固有の署名・配布Tree固定AST／body SHA検査と専用試験
 `verify-task-real-providers.ts`は自身を含むCheckoutの公開MCP入口を使い、別の署名配布Root引数は受け取らない。送信範囲・認証・実行許可と検証対象Repositoryの準備を確認した後、そのRepositoryを作業Directoryとして次を実行する。
 
 ```shell
-node <selected-verified-checkout-root>/40_Develop/coordinator/scripts/verify-task-real-providers.ts
+node <selected-verified-checkout-root>/40_Develop/mcp-server/scripts/verify-task-real-providers.ts
 ```
 
 対応範囲はWindowsでの固定実Provider試験であり、このコマンド自体が外部送信の許可を与えるものではない。結果改訂13では対象Repositoryの改訂を`executionIdentity`、実行Sourceの観測を`runtimeSource`に分ける。Source／入口の欠測は最初のMCP起動前に拒否し、終了時不一致は既知の回収事実を変更せず検証不成立とする。入口Hashは既存Readerが返したUTF8文字列のHashである。旧署名結果を新版のE2E根拠として扱わない。

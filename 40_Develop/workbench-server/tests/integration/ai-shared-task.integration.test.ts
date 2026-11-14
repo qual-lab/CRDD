@@ -4,12 +4,12 @@
  * @responsibility AMの現在認可を有限Task Ownerの開始・観測・取消へ接続する。
  * @trace CPR-IT-010
  * @trace CPR-IT-012
+ * @trace PRL-IT-012
  * @level IT
- * @scope 自己生成AM、二Repository、二主体。Dockerと外部AIは使わない。
+ * @scope 自己生成AM、二Repository、二主体と活動ReaderのSource接続。Dockerと外部AIは使わない。
  * @boundary Workbench HTTPとAMの実保存。
  */
 import assert from "node:assert/strict";
-import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -22,14 +22,34 @@ import {
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
 } from "../../../access-management/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
+import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import type { WorkbenchAiRequestSnapshot } from "../../src/server/ai-request/types.ts";
 import { startWorkbench } from "../../src/index.ts";
+import type { WorkbenchAiRequestSnapshot } from "../../src/server/ai-request/types.ts";
 import { readAuthorizedPortfolio } from "../../src/server/project/access-reader.ts";
 import { readWorkbenchProjectSurface } from "../../src/server/project/surface.ts";
+
+/**
+ * 活動ReaderがCoordinatorの公開Rootへ直接接続することを確認する。
+ * @responsibility 呼出し先のOwner迂回を検出する。
+ * @trace PRL-IT-012
+ * @precondition Repository内の現行Sourceが読取り可能である。
+ * @stimulus 活動ReaderのSourceを読み取る。
+ * @observation CoordinatorのModule specifierを取得する。
+ * @oracle 統合Rootへの接続を維持する。
+ * @cleanup N/A: Sourceの読取りのみ。
+ * @boundary Workbench活動Reader→Coordinator公開入口のSource配線。
+ */
+test("Workbenchの活動Readerは業務Ownerへ直接接続する", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/server/activity/observe.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /coordinator\/src\/index\.ts/);
+});
 
 /**
  * 二主体・二Repositoryの開始と取消を混在させない。

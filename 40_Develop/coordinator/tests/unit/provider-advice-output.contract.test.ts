@@ -1,20 +1,39 @@
+import assert from "node:assert/strict";
+import test from "node:test";
 import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/provider/result.ts";
 /**
  * Workbench助言のProvider出力抽出契約を検証する。
  *
  * @packageDocumentation
- * @responsibility Codex JSONLとClaude Envelopeから助言JSONだけを抽出し、未知通知・失敗・曖昧出力を拒否する。
+ * @responsibility Provider出力抽出と、発行する理由列をEM保存語彙へ結合し、未知通知・失敗・曖昧出力を拒否する。
  * @trace ERB-UT-023
  * @level UT
  * @scope coordinator、contract、node_process
  * @boundary Provider固有Transportと共通助言Normalizerの局所境界。
  */
 import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
-import assert from "node:assert/strict";
-import test from "node:test";
-
+// 実Producerの列そのものとのexact比較に限定した試験参照。製品向けの深い依存ではない。
+import { ATTEMPT_COMPLETION_REASONS } from "../../../executor/src/lifecycle/attempt.ts";
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
-import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/provider/result.ts";
+
+/**
+ * 発行する技術理由と保存受理する理由の列をexact照合する。
+ * @responsibility 元Executor試験から移管した順序・全要素の一致を上位で確認する。
+ * @trace ERB-UT-023
+ * @precondition 実Producerの固定列とEMの公開保存語彙。
+ * @stimulus 両列を無変換で比較する。
+ * @observation exactな順序・値と件数の一致。
+ * @oracle 片側追加・欠落・重複・順序差を許容しない。
+ * @cleanup 局所値のみ。保存・実行・回復処置なし。
+ * @boundary Executor発行語彙とEM保存受理語彙の接続。
+ */
+test("Executor技術理由の実列はEM保存受理集合と順序ごと一致する", () => {
+  assert.deepEqual(
+    ATTEMPT_COMPLETION_REASONS,
+    dockerProcessControllerPublicCompletionReasons,
+  );
+});
 
 const ADVICE = Object.freeze({
   status: "completed",

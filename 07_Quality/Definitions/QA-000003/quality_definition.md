@@ -1,5 +1,13 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 実ObjectiveからMCP結果への搬送試験Owner — 2026-11-14
+
+PRL-IT-012の実Objective受付からWorkspace観測のMCP投影までの一試験は、MCPのruntime-activity-adapter ITへ移す。元のCo受付・実Git／保存・有限Provider・開始通知・全assertとQueue／HEAD確認を維持し、共通準備はCoの既存workspace-surface fixtureを利用する。Coの業務試験では同じfixtureを引き続き使い、下位からMCP Parserを読まない。今回生成したRootの清掃・不存在確認を必須とし、既存保持物は対象にしない。正式項目の成功状態や実AI／Dockerの評価は変更しない。
+
+## 公開入口のSource配線検査Owner — 2026-11-14
+
+PRL-IT-012の公開Root自己迂回拒否はCoordinatorのpublic-owner-boundary、利用側からの直接接続はWorkbenchのai-shared-task ITとMCPのruntime-activity-adapter ITが所有する。元のRoot三assert・利用側各一assertと変異負例を維持し、Source配線だけの成功から実行時認可・Transport疎通・Reader終了を推定しない。新しい正式項目や全体Passは追加しない。
+
 ## 未接続Temporary Operationの退役 — 2026-11-12
 
 旧署名準備の未接続Temporary Operationを実装・専用試験ごと退役するため、下段の過去の容量対照に含まれるpurpose513文字／allowedContent65件は現在の自動試験対象ではなくなる。他の現役State・Task・候補保存の検証義務は変更しない。正式IDと旧一時操作の検証sliceの扱いは[QA-000008](../QA-000008/quality_definition.md#未接続temporary-operationの退役--2026-11-12)を正本とし、退役を正式項目全体の成功・免除へ読み替えない。

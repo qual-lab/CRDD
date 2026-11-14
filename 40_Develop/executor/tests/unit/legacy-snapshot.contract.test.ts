@@ -9,10 +9,10 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { DockerCommandSessionResult } from "../../../docker-isolation/tests/support/session.ts";
 import {
   bindLegacyTestIsolation,
   type IsolationRuntime,
-  type DockerCommandSessionResult,
 } from "../../scripts/executor-test.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 

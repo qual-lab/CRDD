@@ -307,11 +307,17 @@ function stateStoreSource(
     resume: store.resumeRepairPublication,
     write: store.saveRepairState,
     readHistory: (root: unknown, recoveryId: unknown) =>
-      store.readRecoveryState(root, { kind: "repair_history", recoveryId }),
-    advanceHistory: store.advanceOwnedRepairHistory,
+      store.readState(root, {
+        scope: "recovery",
+        input: { kind: "repair_history", recoveryId },
+      }),
+    advanceOwnedRecoveryHistory: store.advanceOwnedRecoveryHistory,
     readCompletion: (root: unknown, recoveryId: unknown) =>
-      store.readRecoveryState(root, { kind: "repair_completion", recoveryId }),
-    complete: store.completeRepair,
+      store.readState(root, {
+        scope: "recovery",
+        input: { kind: "repair_completion", recoveryId },
+      }),
+    completeRecovery: store.completeRecovery,
   };
 }
 const executionSelection = (_role?: unknown, _input?: unknown) => ({
@@ -1155,9 +1161,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     fs.writeFileSync(stateFile, original);
   });
   assert.equal(
-    stateStore.readRecoveryState(f.capability, {
-      kind: "execution_history",
-      recoveryId: id,
+    stateStore.readState(f.capability, {
+      scope: "recovery",
+      input: {
+        kind: "execution_history",
+        recoveryId: id,
+      },
     }).status,
     "blocked",
   );
@@ -1165,6 +1174,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     repository,
     id,
     () => true,
+    "docker_task",
   );
   assert.equal(taskResult.status, "blocked");
   assert.ok(fs.readFileSync(stateFile).equals(original));
@@ -1176,7 +1186,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     observed.currentHistoryPublication?.operationKind,
     "runtime_repair",
   );
-  const fixed = first.advanceHistory(repository, id, () => true);
+  const fixed = first.advanceOwnedRecoveryHistory(
+    repository,
+    id,
+    () => true,
+    "runtime_repair",
+  );
   assert.equal(fixed.status, "completed");
   assert.equal(fixed.historyConfirmed, false);
   assert.equal(fixed.lockReleased, true);
@@ -1194,7 +1209,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     second.readHistory(historyInput, id).currentHistoryPublication?.stage,
     "publish",
   );
-  const published = second.advanceHistory(repository, id, () => true);
+  const published = second.advanceOwnedRecoveryHistory(
+    repository,
+    id,
+    () => true,
+    "runtime_repair",
+  );
   assert.equal(published.status, "completed");
   assert.equal(published.historyConfirmed, true);
   assert.equal(published.lockReleased, true);
@@ -1249,7 +1269,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       ),
     );
     // Reader側の欠落を仮定しても、排他内Writerが独立に拒否する。
-    const writerRefused = readerRelaxed.complete(f.capability, id, () => true);
+    const writerRefused = readerRelaxed.completeRecovery(
+      f.capability,
+      id,
+      () => true,
+      "runtime_repair",
+    );
     assert.equal(writerRefused.status, "blocked");
     assert.equal(writerRefused.filesystemEffectIssued, false);
     assert.ok(fs.readFileSync(stateFile).equals(original));
@@ -1259,7 +1284,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         .replace(readerNeedle, "false")
         .replace(writerNeedle, "false");
     });
-    const bypass = writerRelaxed.complete(f.capability, id, () => true);
+    const bypass = writerRelaxed.completeRecovery(
+      f.capability,
+      id,
+      () => true,
+      "runtime_repair",
+    );
     assert.throws(() => assert.equal(bypass.status, "blocked"));
     assert.ok(fs.readFileSync(stateFile).equals(candidate));
   });
@@ -1316,7 +1346,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   fs.writeFileSync(stateFile, currentBytes);
   fs.writeFileSync(historyFile, historyBytes);
   const third = stateStoreSource((source) => source);
-  const confirmed = third.advanceHistory(repository, id, () => true);
+  const confirmed = third.advanceOwnedRecoveryHistory(
+    repository,
+    id,
+    () => true,
+    "runtime_repair",
+  );
   assert.equal(confirmed.status, "completed");
   assert.equal(confirmed.filesystemEffectIssued, false);
   assert.equal(confirmed.historyConfirmed, true);
@@ -1325,17 +1360,18 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   const directory = path.dirname(stateFile);
   fs.writeFileSync(stateFile, checkpointBytes);
   fs.writeFileSync(historyFile, historyBytes);
-  const ownerRefused = stateStoreSource((source) => source).advanceHistory(
-    repository,
-    id,
-    () => false,
-  );
+  const ownerRefused = stateStoreSource(
+    (source) => source,
+  ).advanceOwnedRecoveryHistory(repository, id, () => false, "runtime_repair");
   assert.equal(ownerRefused.status, "blocked");
   assert.equal(ownerRefused.filesystemEffectIssued, false);
-  const wrongOperation = stateStoreSource((source) => source).advanceHistory(
+  const wrongOperation = stateStoreSource(
+    (source) => source,
+  ).advanceOwnedRecoveryHistory(
     { ...repository, operationId: "OP-999999" },
     id,
     () => true,
+    "runtime_repair",
   );
   assert.equal(wrongOperation.status, "blocked");
   assert.equal(wrongOperation.filesystemEffectIssued, false);
@@ -1468,7 +1504,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         },
       });
       try {
-        const failed = worker.advanceHistory(repository, id, () => ownerLive);
+        const failed = worker.advanceOwnedRecoveryHistory(
+          repository,
+          id,
+          () => ownerLive,
+          "runtime_repair",
+        );
         assert.equal(hit, 1, "fault_must_be_reached_once");
         assert.equal(failed.status, "blocked");
         assert.equal(failed.historyConfirmed, false);
@@ -1527,7 +1568,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
             expectedConfirmed = rebuiltConfirmed;
           }
           const fresh = stateStoreSource((source) => source);
-          const resumed = fresh.advanceHistory(repository, id, () => true);
+          const resumed = fresh.advanceOwnedRecoveryHistory(
+            repository,
+            id,
+            () => true,
+            "runtime_repair",
+          );
           assert.equal(resumed.status, "completed");
           assert.equal(resumed.lockReleased, true);
           assert.equal(resumed.historyConfirmed, fault !== "checkpoint_before");
@@ -1613,7 +1659,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           return value.replace('=== "runtime_repair"', '=== "docker_task"');
         });
       });
-      const rejected = changed.advanceHistory(repository, id, () => true);
+      const rejected = changed.advanceOwnedRecoveryHistory(
+        repository,
+        id,
+        () => true,
+        "runtime_repair",
+      );
       assert.equal(
         rejected.status,
         "blocked",
@@ -1753,10 +1804,13 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     if (fs.existsSync(historyFile)) fs.unlinkSync(historyFile);
     fs.writeFileSync(stateFile, mixedBytes);
     for (const stage of ["checkpoint", "publish"] as const) {
-      const saved = stateStoreSource((source) => source).advanceHistory(
+      const saved = stateStoreSource(
+        (source) => source,
+      ).advanceOwnedRecoveryHistory(
         repository,
         id,
         () => true,
+        "runtime_repair",
       );
       assert.equal(saved.status, "completed");
       assert.equal(saved.historyConfirmed, stage === "publish");
@@ -1779,7 +1833,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   });
   fs.writeFileSync(stateFile, currentBytes);
   fs.writeFileSync(historyFile, Buffer.concat([historyBytes, historyBytes]));
-  const blocked = third.advanceHistory(repository, id, () => true);
+  const blocked = third.advanceOwnedRecoveryHistory(
+    repository,
+    id,
+    () => true,
+    "runtime_repair",
+  );
   assert.equal(blocked.status, "blocked");
   assert.equal(blocked.filesystemEffectIssued, false);
   assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
@@ -1802,7 +1861,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         },
       },
     );
-    const refused = fallbackProbe.advanceHistory(repository, id, () => true);
+    const refused = fallbackProbe.advanceOwnedRecoveryHistory(
+      repository,
+      id,
+      () => true,
+      "runtime_repair",
+    );
     assert.equal(refused.status, "blocked");
     assert.equal(refused.filesystemEffectIssued, false);
     assert.equal(
@@ -2252,7 +2316,9 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   assert.equal(saved.snapshotConfirmed, true);
   assert.equal(saved.lockReleased, true);
   assert.equal(saved.value?.checkpointSettled, false);
-  const observedOperation = domain.readRecoveryState(verified.capability);
+  const observedOperation = domain.readState(verified.capability, {
+    scope: "recovery",
+  });
   assert.ok(observedOperation.value);
   const observedState = observedOperation.value.operationStates[0];
   assert.equal(observedState?.kind, "runtime_repair");

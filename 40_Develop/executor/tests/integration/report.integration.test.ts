@@ -15,13 +15,13 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import {
   getReportCommitName,
   readReport,
   removeReport,
   writeReport,
 } from "../../scripts/report.ts";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 /**
  * 試験Rootの作成・清掃が現在Repositoryへ閉じることを確認する。
@@ -96,10 +96,7 @@ test("recovery test directories ignore ambient roots and preserve siblings", () 
  * @boundary 実helper本文→注入Filesystem。実Docker・Processは発行しない。
  */
 test("recovery test directory rejects uncertain roots before creation or deletion", () => {
-  const sourceDirectory = path.resolve(
-    import.meta.dirname,
-    "../../../execution-model/tests/support",
-  );
+  const sourceDirectory = path.resolve(import.meta.dirname, "../support");
   const repositoryRoot = path.resolve(sourceDirectory, "../../../..");
   const source = fs.readFileSync(
     path.join(sourceDirectory, "repository-test-directory.ts"),

@@ -46,7 +46,7 @@ test("履歴の一回Ownerは保持日数と元Ownerの現在性を両方確認�
     new URL("../../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
-  for (const name of ["advanceCurrentHistory"]) {
+  for (const name of ["advanceOwnedRecoveryHistory"]) {
     const settlements = new WeakMap<object, { used: boolean }>();
     let currentDays = 30;
     let ownerLive = true;

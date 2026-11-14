@@ -17,11 +17,6 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import {
-  initializeExecutionState,
-  queryPlan,
-  savePlan,
-} from "../../../../execution-model/src/index.ts";
 import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,
@@ -310,84 +305,6 @@ test("Core定義Contextは失効とManifest差替えで拒否する", async (t) 
       );
     });
   }
-});
-
-/**
- * 現在内容認可からDomainの実保存までを結合する。
- * @responsibility 認可Contextの模擬成功と本番Writer接続を区別する。
- * @trace RFD-IT-013
- * @precondition 自己生成の管理StoreとGit構造だけを使う。
- * @stimulus 明示初期化・Plan保存・再読取りを同じ要求Contextで行う。
- * @observation 保存結果、再読取り、各操作の有限計測。
- * @oracle 開発権限だけで同じDomain Writerへ接続し、認可区画を変更しない。
- * @cleanup 既存Fixtureが今回のRootだけを回収する。
- * @boundary AM現在権限→Domain実Writerと既存OS排他。
- */
-test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ接続する", (t) => {
-  const f = contentFixture(t);
-  fs.writeFileSync(
-    path.join(f.target.directory, ".git", "HEAD"),
-    "ref: refs/heads/main\n",
-  );
-  fs.writeFileSync(
-    path.join(f.target.directory, ".git", "refs", "heads", "main"),
-    `${"1".repeat(40)}\n`,
-  );
-  const access = resolveRuntimeContentAccess(
-    f.root,
-    f.tokens.developer,
-    f.target.manifest.repositoryId,
-    new AbortController().signal,
-  );
-  assert.ok(access);
-  const target = {
-    projectId: f.target.manifest.projectId,
-    milestoneId: "milestone.test",
-  };
-  const before = fs.readFileSync(
-    path.join(f.directory, "access-management.json"),
-  );
-  const started = performance.now();
-  const initial = initializeExecutionState(access, {
-    ...target,
-    expectedAbsence: true,
-  });
-  const initializedAt = performance.now();
-  assert.equal(initial.status, "saved", JSON.stringify(initial));
-  if (initial.status !== "saved") return;
-  const saved = savePlan(access, {
-    ...target,
-    expected: initial.version,
-    expectedDefinitionHash: null,
-    definition: {
-      milestoneAcceptanceCriteria: ["確認"],
-      objectives: [{ id: "objective", acceptanceCriteria: ["確認"] }],
-      tasks: [
-        {
-          id: "task",
-          objectiveId: "objective",
-          dependencies: [],
-          allowedPaths: ["src/code.ts"],
-          conflictKeys: [],
-        },
-      ],
-    },
-  });
-  const savedAt = performance.now();
-  assert.equal(saved.status, "saved", JSON.stringify(saved));
-  const read = queryPlan(access, target);
-  assert.equal(read.status, "available", JSON.stringify(read));
-  assert.deepEqual(
-    fs.readFileSync(path.join(f.directory, "access-management.json")),
-    before,
-  );
-  t.diagnostic(
-    JSON.stringify({
-      initializeMs: Math.round(initializedAt - started),
-      saveMs: Math.round(savedAt - initializedAt),
-      readMs: Math.round(performance.now() - savedAt),
-    }),
-  );
 });
 
 /**

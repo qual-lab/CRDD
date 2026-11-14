@@ -21,9 +21,7 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import {
   prepareOperationCompletion,
   publishOwnedHistory,
-  readOperationStateStage,
   readOwnedSettlementSnapshot,
-  readRecoveryState,
   writeOwnedHistoryCheckpoint,
   writeOwnedSettlement,
 } from "../../src/attempt/crud.ts";
@@ -33,7 +31,7 @@ import {
   applyResourceEvent,
   type OperationResources,
 } from "../../src/index.ts";
-import { writeOwnedStateSnapshot } from "../../src/state/crud.ts";
+import { readState, writeOwnedStateSnapshot } from "../../src/state/crud.ts";
 import {
   decodeStateSnapshot,
   encodeStateValue,
@@ -60,29 +58,15 @@ import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-so
  * @boundary Domain保存guardだけ。Host・Kernel・物理I/O成立は別試験。
  */
 test("transient終了WriterはReader五故障を保存成功へ補完しない", () => {
-  const storeSource = fs.readFileSync(
-    new URL("../../src/attempt/crud.ts", import.meta.url),
-    "utf8",
-  );
-  const helperSource = fs.readFileSync(
+  const source = fs.readFileSync(
     new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
-  const storeStart = storeSource.indexOf("export function completeRecovery(");
-  const storeEnd = storeSource.indexOf("\n/**", storeStart);
-  assert.ok(storeStart >= 0 && storeEnd > storeStart);
-  const helperStart = helperSource.indexOf(
-    "export function completeCurrentRecovery(",
-  );
-  const helperEnd = helperSource.indexOf("\n/**", helperStart);
-  assert.ok(helperStart >= 0 && helperEnd > helperStart);
+  const start = source.indexOf("export function completeRecovery(");
+  const end = source.indexOf("\n/**", start);
+  assert.ok(start >= 0 && end > start);
   const storeBody = stripTypeScriptTypes(
-    storeSource
-      .slice(storeStart, storeEnd)
-      .replaceAll("export function", "function") +
-      helperSource
-        .slice(helperStart, helperEnd)
-        .replaceAll("export function", "function"),
+    source.slice(start, end).replaceAll("export function", "function"),
   );
 
   for (const scenario of [
@@ -110,9 +94,7 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
           }),
           readRecoveryState: (
             _root: unknown,
-            request: { kind: string; recoveryId?: unknown } = {
-              kind: "current",
-            },
+            request: { kind: string; recoveryId?: unknown },
           ) => {
             switch (request.kind) {
               case "execution_completion":
@@ -156,15 +138,25 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
               filesystemEffectIssued: false,
             };
           },
-        }) as (root: unknown, id: string, owner: () => boolean) => object;
+        }) as (
+          root: unknown,
+          id: string,
+          owner: () => boolean,
+          kind: "docker_task",
+        ) => object;
         let confirmations = 0;
-        const saved = save(receivedRoot, id, () => {
-          confirmations++;
-          return (
-            owner() &&
-            !(scenario === "reader_owner_expired" && confirmations === 3)
-          );
-        });
+        const saved = save(
+          receivedRoot,
+          id,
+          () => {
+            confirmations++;
+            return (
+              owner() &&
+              !(scenario === "reader_owner_expired" && confirmations === 3)
+            );
+          },
+          "docker_task",
+        );
         if (scenario === "reader_owner_expired") assert.equal(confirmations, 3);
         assert.equal(writes, 0, scenario);
         return saved;
@@ -728,7 +720,9 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   assert.equal(terminalRead.status, "completed");
   assert.equal(terminalRead.lockReleased, true);
   assert.deepEqual(terminalRead.value?.snapshot, beforeTerminal);
-  const cleanedOwnerRecoveryRead = readRecoveryState(verifiedRoot.capability);
+  const cleanedOwnerRecoveryRead = readState(verifiedRoot.capability, {
+    scope: "recovery",
+  });
   assert.equal(cleanedOwnerRecoveryRead.status, "completed");
   assert.deepEqual(cleanedOwnerRecoveryRead.value, terminalRead.value);
   assert.equal(
@@ -738,7 +732,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   const forgedRead = readOwnedSettlementSnapshot({});
   assert.equal(forgedRead.status, "blocked");
   assert.equal(forgedRead.value, null);
-  assert.equal(readOperationStateStage(management).status, "blocked");
+  assert.equal(readState(management, { scope: "operation" }).status, "blocked");
   assert.equal(
     writeOwnedStateSnapshot(management, secondBytes).filesystemEffectIssued,
     false,
@@ -1767,12 +1761,15 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         return lock;
       },
     });
-    const rejected = worker.saveUnknownAuthenticationClosureStage(
+    const rejected = worker.saveRecoveryCheckpoint(
       repository,
       operation.recoveryId,
       before,
-      observations,
-      () => live,
+      {
+        kind: "authentication_unknown_closure",
+        observations: observations,
+        assertOwner: () => live,
+      },
     );
     assert.equal(acquisitions, 1);
     assert.equal(rejected.status, "blocked");
@@ -1781,12 +1778,15 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.equal(rejected.lockReleased, true);
     assert.deepEqual(fs.readFileSync(file), before);
     assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
-    const saved = domain.saveUnknownAuthenticationClosureStage(
+    const saved = domain.saveRecoveryCheckpoint(
       repository,
       operation.recoveryId,
       before,
-      observations,
-      () => true,
+      {
+        kind: "authentication_unknown_closure",
+        observations: observations,
+        assertOwner: () => true,
+      },
     );
     assert.equal(saved.status, "completed", saved.reason);
     assert.equal(saved.lockReleased, true);

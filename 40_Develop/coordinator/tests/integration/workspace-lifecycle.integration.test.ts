@@ -14,36 +14,27 @@
  * @boundary 実Filesystem／Git／既存操作Lease。Provider・Dockerなし。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import childProcess, { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
-import { devNull } from "node:os";
 import path from "node:path";
-import test, { type TestContext } from "node:test";
+import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
-  initializeExecutionStore,
-  readRecoveryState,
+  readState,
   saveProjectExecutionState,
   saveWorkspaceRecord,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { executeWorkspace, type WorkspaceView } from "../../src/index.ts";
-import { executeCoordinatorObjective } from "../../src/objective/execute.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
-import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import {
   createCoordinatorExecutionHostPorts,
   runCoordinatorOperation,
@@ -55,223 +46,15 @@ import {
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
 import {
-  type CoordinatorWorkspaceRequest,
-  manageCoordinatorWorkspace,
   resolveCoordinatorWorkspaceTaskTarget,
   workspacePlanReadyForAcceptance,
 } from "../../src/workspace/operations.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
-
-/**
- * 試験Rootの全区画を正式な回復Readerと純粋投影で観測する。
- * @responsibility 私有Readerを借用せず実保存結果を照合する。
- * @trace PRL-IT-013
- * @precondition 現在Caseの初期化済み合成Repositoryだけを渡す。
- * @stimulus 真正Rootから有限Readerを呼び同じ検証済み値を投影する。
- * @observation 世代・対象Binding・全区画の期待値。
- * @oracle 読取り拒否・Binding差を成功へ補完しない。
- * @cleanup 既存fixtureの終了hookがRootを回収する。
- * @boundary 試験の観測。保存・Lock・Authorityは発行しない。
- */
-function readFixtureSnapshot(root: string, binding: string) {
-  const read = readRecoveryState(verifyRuntimePersistenceRepository(root));
-  if (read.status !== "completed" || !read.value)
-    return { ...read, value: null };
-  assert.ok(
-    read.value.snapshot.repositoryBindingId !== null &&
-      read.value.snapshot.intakeEpoch !== null,
-  );
-  const projected = {
-    schema: "crdd-execution-model/project-snapshot/v7" as const,
-    schemaRevision: 7 as const,
-    repositoryRootHash: read.value.snapshot.repositoryBinding,
-    repositoryBindingId: read.value.snapshot.repositoryBindingId,
-    intakeEpoch: read.value.snapshot.intakeEpoch,
-    snapshotRevision: read.value.snapshot.revision,
-    projects: read.value.projects,
-    intakeBindings: read.value.snapshot.intakeBindings,
-    queueEntries: read.value.snapshot.queueEntries,
-    workspaces: read.value.snapshot.workspaces,
-    leaseEvidence: read.value.snapshot.leaseEvidence,
-    leaseIntents: read.value.snapshot.leaseIntents,
-    results: read.value.snapshot.results,
-    historyPending: read.value.snapshot.historyPending,
-    decisions: read.value.snapshot.decisions,
-    blockers: read.value.snapshot.blockers,
-  };
-  assert.ok(projected);
-  assert.equal(projected.repositoryBindingId, binding);
-  return { ...read, value: projected };
-}
-
-const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
-const empty = process.platform === "win32" ? "NUL" : devNull;
-
-/**
- * 試験所有Repositoryへ固定Git操作を発行する。
- * @responsibility 本体のGitと実資格へ触れない準備。
- * @trace PRL-IT-013
- * @precondition 自己生成Root。
- * @stimulus 固定引数。
- * @observation 正常stdout。
- * @oracle 非0は試験失敗。
- * @cleanup fixtureのafter。
- * @boundary 通信なしの実Git。
- */
-function git(root: string, args: string[]) {
-  return execFileSync(
-    "git",
-    [
-      "-C",
-      root,
-      "-c",
-      `core.hooksPath=${empty}`,
-      "-c",
-      "commit.gpgSign=false",
-      ...args,
-    ],
-    {
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: 10_000,
-      env: {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(([key]) => !/^GIT_/iu.test(key)),
-        ),
-        GIT_CONFIG_GLOBAL: empty,
-        GIT_CONFIG_SYSTEM: empty,
-      },
-    },
-  ).trim();
-}
-
-/**
- * 実StoreにProjectとQueueを受付し、試験単位で回収する。
- * @responsibility 架空の保存Portを使わず本番Writerへ接続する。
- * @trace PRL-IT-013
- * @trace RFD-IT-029
- * @precondition Repository-local tests領域が実Directory。
- * @stimulus 新品Snapshot初期化と二Task計画。
- * @observation 世代・Queue・受付と固定Commit。
- * @oracle 全保存を読戻せる。
- * @cleanup 自己生成Rootだけを削除し不存在確認。
- * @boundary 実Git・Filesystem・既存Native排他。
- */
-function fixture(t: TestContext, independent = false) {
-  assert.equal(fs.realpathSync.native(testsRoot), testsRoot);
-  const root = fs.mkdtempSync(path.join(testsRoot, "orchestrator-workspace-"));
-  t.after(() => {
-    fs.rmSync(root, { recursive: true, force: true });
-    assert.equal(fs.existsSync(root), false);
-  });
-  git(root, ["init", "--initial-branch=main", "--template="]);
-  fs.mkdirSync(path.join(root, ".git", "info"));
-  fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
-  git(root, ["config", "user.name", "Workspace Test"]);
-  git(root, ["config", "user.email", "test@example.invalid"]);
-  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n.env\n");
-  fs.writeFileSync(path.join(root, "source.txt"), "base\n");
-  if (independent)
-    for (const name of ["task-a.txt", "task-b.txt"])
-      fs.writeFileSync(path.join(root, name), "base\n");
-  git(root, ["add", "."]);
-  git(root, ["commit", "-m", "base"]);
-  const base = git(root, ["rev-parse", "HEAD"]);
-  const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
-    binding,
-  );
-  assert.equal(initialized.status, "completed", JSON.stringify(initialized));
-  if (initialized.status !== "completed")
-    throw new Error("fixture_init_failed");
-  const created = createCoordinatorState({
-    taskExecutionSelections: taskExecutionSelections(),
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    repositoryRevision: base,
-    maximumConcurrency: independent ? 3 : 1,
-    milestoneAcceptanceCriteria: ["done"],
-    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
-    tasks: ["task-a", "task-b"].map((id, index) => ({
-      id,
-      objectiveId: "objective-a",
-      dependencies: !independent && index ? ["task-a"] : [],
-      allowedPaths: [independent ? `${id}.txt` : "source.txt"],
-      conflictKeys: independent ? [id] : ["same-file"],
-    })),
-    ownerGeneration: "owner-a",
-  });
-  assert.ok(created.state);
-  assert.equal(
-    saveProjectExecutionState(
-      verifyRuntimePersistenceRepository(root),
-      binding,
-      created.state,
-      0,
-    ).status,
-    "completed",
-  );
-  const ports = createCoordinatorSnapshotPersistencePorts(
-    root,
-    binding,
-    initialized.value,
-  );
-  const queued = ports.state.enqueueOperation({
-    queueId: "queue-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    requestHash: "a".repeat(64),
-    originLane: "interactive",
-    repositoryRevision: base,
-    scopeHash: "b".repeat(64),
-  });
-  assert.equal(queued.status, "completed", JSON.stringify(queued));
-  const workspaceId = randomUUID();
-  const common = {
-    ownerRepositoryRoot: root,
-    repositoryBindingId: binding,
-    projectId: "project-a",
-    queueId: "queue-a",
-    workspaceId,
-  };
-  const operate = (
-    operation: Omit<CoordinatorWorkspaceRequest, keyof typeof common> &
-      Record<string, unknown>,
-  ) =>
-    manageCoordinatorWorkspace({
-      ...common,
-      ...operation,
-    } as CoordinatorWorkspaceRequest);
-  /**
-   * 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
-   * @responsibility 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
-   * @trace PRL-IT-013
-   * @precondition 実Writerで初期化したRootとbinding。
-   * @stimulus readSnapshotを呼びcompleted/valueを検査する。
-   * @observation 世代、Queue、Workspaceと保存結果。
-   * @oracle 読取り拒否やvalue欠測は即時試験失敗とする。
-   * @cleanup 自己生成Rootはfixtureのafterで回収する。
-   * @boundary 既存Snapshot読取りと実Filesystem。別台帳なし。
-   */
-  const snapshot = () => {
-    const read = readFixtureSnapshot(root, binding);
-    assert.equal(read.status, "completed", JSON.stringify(read));
-    if (read.status !== "completed" || !read.value)
-      throw new Error("fixture_read_failed");
-    return read.value;
-  };
-  return {
-    root,
-    binding,
-    base,
-    ports,
-    common,
-    operate,
-    snapshot,
-    tree: path.join(root, ".crdd", "workspaces", workspaceId, "worktree"),
-  };
-}
+import {
+  fixture,
+  git,
+  readFixtureSnapshot,
+} from "../fixtures/workspace-surface.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
  * 独立Taskも同じTreeでは順番に実行し、明示Git採用と品質受入を分離する。
@@ -1944,9 +1727,9 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     state,
   }));
   // 既存の終了Queue二件は今回fixtureの値準備。破棄操作自体は以降の正式入口で検証する。
-  const physical = readRecoveryState(
-    verifyRuntimePersistenceRepository(f.root),
-  );
+  const physical = readState(verifyRuntimePersistenceRepository(f.root), {
+    scope: "recovery",
+  });
   assert.equal(physical.status, "completed");
   assert.ok(physical.value);
   const fixtureBytes = Buffer.from(
@@ -2344,154 +2127,6 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.leaseReleased, false);
   }
-});
-
-/**
- * 実受付・Dispatcherの変更観測をObjectiveとMCPへ引き渡す。
- * @responsibility 中間Envelopeが観測を落とす回帰を検出する。
- * @trace PRL-IT-012
- * @precondition 自己生成Gitと実Writer、Providerのみ有限代役。
- * @stimulus 新規受付からDirectの二Taskを実行する。
- * @observation Task／Attempt／Operation、変更Path、現在Queue、MCP投影。
- * @oracle 変更観測二件を保持し、Git採用・旧Bundle生成は行わない。
- * @cleanup fixtureのafterがRootを回収し不存在を確認する。
- * @boundary 実Git・受付・Writer・Dispatcher・公開結果。
- */
-test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async (t) => {
-  const owner = fixture(t);
-  const root = path.join(owner.root, "objective");
-  fs.mkdirSync(root);
-  git(root, ["init", "--initial-branch=main", "--template="]);
-  fs.mkdirSync(path.join(root, ".git", "info"));
-  fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
-  git(root, ["config", "user.name", "Workspace Test"]);
-  git(root, ["config", "user.email", "test@example.invalid"]);
-  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
-  fs.writeFileSync(path.join(root, "source.txt"), "base\n");
-  git(root, ["add", "."]);
-  git(root, ["commit", "-m", "base"]);
-  const base = git(root, ["rev-parse", "HEAD"]);
-  const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
-    binding,
-  );
-  assert.equal(initialized.status, "completed", JSON.stringify(initialized));
-  if (initialized.status !== "completed")
-    throw new Error("fixture_init_failed");
-  const f = {
-    root,
-    binding,
-    base,
-    ports: createCoordinatorSnapshotPersistencePorts(
-      root,
-      binding,
-      initialized.value,
-    ),
-    snapshot: () => {
-      const read = readFixtureSnapshot(root, binding);
-      if (read.status !== "completed" || !read.value)
-        throw new Error("fixture_read_failed");
-      return read.value;
-    },
-  };
-  const initial = f.snapshot();
-  const state = owner.snapshot().projects[0];
-  assert.ok(state);
-  let calls = 0;
-  const result = await executeCoordinatorObjective(
-    {
-      authenticatedPrincipalId: "principal-a",
-      resolveTaskSelections: () => ({
-        status: "resolved" as const,
-        value: taskExecutionSelections(),
-        reason: null,
-      }),
-      repositoryBindingId: f.binding,
-      repositoryRoot: f.root,
-      plan: {
-        milestoneAcceptanceCriteria: state.milestone.acceptanceCriteria,
-        objectives: state.objectives.map((entry) => entry.definition),
-        tasks: state.tasks.map((entry) => entry.definition),
-      },
-      persistence: f.ports,
-      ...createCoordinatorExecutionHostPorts(),
-      taskRecovery: {
-        resolveCorrelations: () => null,
-        recover: () => {
-          throw new Error("unexpected_recovery");
-        },
-        observeTransition: () => {},
-      },
-      createTaskExecutions: () =>
-        state.tasks.map((entry) => ({
-          taskId: entry.definition.id,
-          taskRequest: { synthetic: true },
-          repositoryRoot: f.root,
-        })),
-      observeLeaseOwner: () => ({ status: "unknown" }),
-      execution: {
-        runSingleTaskAttempt: async (input) => {
-          calls++;
-          assert.equal(input.executionTree, f.root);
-          assert.equal(await input.observeStarted?.(), undefined);
-          fs.writeFileSync(
-            path.join(f.root, "source.txt"),
-            `observed-${calls}\n`,
-          );
-          return {
-            contract: "crdd-coordinator/orchestrator-single-task-adapter",
-            attemptId: input.attemptId,
-            operationId: input.operationId,
-            authorityBindingId: input.authorityBindingId,
-            repositoryRevision: input.repositoryRevision,
-            status: "completed",
-            reason: "synthetic_complete",
-            effectState: "settled",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-            processRestartRequired: false,
-            candidateId: null,
-            recoveryIds: [],
-            workspaceResult: {
-              workspaceId: null,
-              changedPaths: ["source.txt"],
-              canonicalRepositoryChanged: true,
-              changeAttribution: "unattributed",
-              workspaceDeletionIssued: false,
-            },
-          };
-        },
-      },
-    },
-    withCallerPlan({
-      intakeEpoch: initial.intakeEpoch,
-      requestId: "request-observation",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      repositoryRevision: f.base,
-      objective: "synthetic direct edit",
-      acceptanceCriteria: ["done"],
-      allowedPaths: ["source.txt"],
-      readPaths: ["source.txt"],
-      maximumConcurrency: 1,
-      maximumReplans: 0,
-      originLane: "interactive",
-      adoptResult: false,
-    }),
-    new AbortController().signal,
-  );
-  assert.equal(result.status, "completed", JSON.stringify(result));
-  assert.equal(calls, 2);
-  assert.equal(result.workspaceResults?.length, 2);
-  const projected = inspectMcpCoordinatorObjectiveResult(result);
-  assert.ok(projected, JSON.stringify(result));
-  assert.equal(projected.status, "blocked");
-  assert.equal(projected.reason, result.reason);
-  assert.equal(projected.cleanupConfirmed, true);
-  assert.deepEqual(projected.workspaceResults, result.workspaceResults);
-  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
-  assert.equal(f.snapshot().queueEntries[0]?.state, "integration_pending");
 });
 
 import { inspectWorkspaceCommand } from "../../src/workspace/commands.ts";

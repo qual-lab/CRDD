@@ -9,7 +9,6 @@
  * @boundary PRL-IT-013=Task入場→現在Reader→Repository。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -18,7 +17,6 @@ import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import * as domain from "../../../execution-model/src/index.ts";
-
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -26,6 +24,7 @@ import {
 import * as areas from "../../src/configuration/runtime-data.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
  * 本番Host入場から正式Domain Readerへの接続を確認する。
@@ -88,7 +87,8 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     assert.deepEqual(inspect(root), available);
     assert.equal(fs.existsSync(current), false);
     assert.equal(
-      domain.readRecoveryState({}, { kind: "admission" }).status,
+      domain.readState({}, { scope: "recovery", input: { kind: "admission" } })
+        .status,
       "blocked",
     );
     assert.equal(inspect(path.join(root, "missing")).status, "blocked");
@@ -119,7 +119,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     );
 
     fs.writeFileSync(file, bytes);
-    const read = domain.readRecoveryState(verified.capability);
+    const read = domain.readState(verified.capability, { scope: "recovery" });
     assert.equal(read.status, "completed", read.reason);
     assert.equal(read.lockReleased, true);
     assert.ok(read.value);
@@ -188,13 +188,14 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
       `${inspector}\ninspectRuntimeOwnedDockerTaskAdmission("fixture");`,
       {
         getRepository: () => ({ status: "completed", capability: {} }),
-        readRecoveryState: (
+        readState: (
           _root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
-          request: NonNullable<
-            Parameters<typeof domain.readRecoveryState>[1]
-          > = { kind: "current" },
+          request: NonNullable<Parameters<typeof domain.readState>[1]> = {
+            scope: "recovery",
+            input: { kind: "current" },
+          },
         ) => {
-          switch (request.kind) {
+          switch (request.input?.kind) {
             case "admission":
               return (() => ({
                 status: "blocked",
@@ -203,7 +204,9 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
                 value: null,
               }))();
             default:
-              throw new Error("unexpected recovery read: " + request.kind);
+              throw new Error(
+                "unexpected recovery read: " + request.input?.kind,
+              );
           }
         },
       },
@@ -517,13 +520,14 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
     {
       namedExports: {
         ...domain,
-        readRecoveryState: (
+        readState: (
           root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
-          request: NonNullable<
-            Parameters<typeof domain.readRecoveryState>[1]
-          > = { kind: "current" },
+          request: NonNullable<Parameters<typeof domain.readState>[1]> = {
+            scope: "recovery",
+            input: { kind: "current" },
+          },
         ) => {
-          switch (request.kind) {
+          switch (request.input?.kind) {
             case "admission":
               return ((
                 root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
@@ -532,7 +536,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
                 return observed;
               })(root);
             default:
-              return domain.readRecoveryState(root, request);
+              return domain.readState(root, request);
           }
         },
       },

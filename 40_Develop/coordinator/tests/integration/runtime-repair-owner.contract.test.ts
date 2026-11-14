@@ -87,9 +87,11 @@ const disposalCalls: string[] = [];
 const storeModule = {
   namedExports: {
     ...stateStore,
-    completeRepair: (...args: Parameters<typeof stateStore.completeRepair>) => {
+    completeRecovery: (
+      ...args: Parameters<typeof stateStore.completeRecovery>
+    ) => {
       lastRepairCompletionBefore = fs.readFileSync(stateFile);
-      return stateStore.completeRepair(...args);
+      return stateStore.completeRecovery(...args);
     },
     saveRepairState: (
       ...args: Parameters<typeof stateStore.saveRepairState>
@@ -377,9 +379,9 @@ function createRepairOwnerFixture() {
     "borrowRuntimeOwnedCoordinatorRecoveryRepository",
     "canonicalJson",
     "observeRepairDirectories",
-    "readRecoveryState",
-    "advanceOwnedRepairHistory",
-    "completeRepair",
+    "readState",
+    "advanceOwnedRecoveryHistory",
+    "completeRecovery",
     "resumeRepairPublication",
     "completeStatePublication",
     "saveRepairState",
@@ -520,21 +522,24 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   );
   assert.ok(borrowed);
   const original = model
-    .readRecoveryState(f.capability)
+    .readState(f.capability, { scope: "recovery" })
     .value?.snapshot.operations.find(
       (operation) => operation.recoveryId === id,
     );
   assert.ok(original?.kind === "runtime_repair");
-  const historyBefore = stateStore.readRecoveryState(
+  const historyBefore = stateStore.readState(
     historyRepositoryInput(f.capability),
-    { kind: "repair_history", recoveryId: id },
+    { scope: "recovery", input: { kind: "repair_history", recoveryId: id } },
   );
   assert.equal(historyBefore.status, "completed");
   assert.equal(historyBefore.repairHistoryState, "technical_state");
   assert.equal(historyBefore.currentHistoryPublication, null);
-  const completionBefore = stateStore.readRecoveryState(f.capability, {
-    kind: "repair_completion",
-    recoveryId: id,
+  const completionBefore = stateStore.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "repair_completion",
+      recoveryId: id,
+    },
   });
   assert.equal(completionBefore.currentCompletionPublication, null);
   const acquired = acquireCount,
@@ -549,7 +554,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   assert.equal(interrupted.status, "blocked");
   assert.deepEqual(disposalCalls, ["primary"]);
   const saved = model
-    .readRecoveryState(f.capability)
+    .readState(f.capability, { scope: "recovery" })
     .value?.snapshot.operations.find(
       (operation) => operation.recoveryId === id,
     );
@@ -608,8 +613,11 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   );
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const history = fs.readFileSync(historyFile);
-  const historyRead = domain.readRecoveryState(f.capability, {
-    kind: "history",
+  const historyRead = domain.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "history",
+    },
   });
   assert.equal(historyRead.status, "completed", historyRead.reason);
   assert.equal(historyRead.lockReleased, true);
@@ -622,12 +630,16 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
     "unknown",
   );
   assert.equal(
-    model.readRecoveryState(f.capability).value?.snapshot.operations.length,
+    model.readState(f.capability, { scope: "recovery" }).value?.snapshot
+      .operations.length,
     0,
   );
-  const completionAfter = stateStore.readRecoveryState(f.capability, {
-    kind: "repair_completion",
-    recoveryId: id,
+  const completionAfter = stateStore.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "repair_completion",
+      recoveryId: id,
+    },
   });
   assert.equal(completionAfter.currentCompletionPublication, null);
   assert.equal(completionAfter.status, "completed");
@@ -679,7 +691,10 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
   const directory = path.dirname(stateFile),
     historyFile = path.join(directory, "history.jsonl");
   const priorHistory = fs.readFileSync(historyFile);
-  const priorRead = model.readRecoveryState(f.capability, { kind: "history" });
+  const priorRead = model.readState(f.capability, {
+    scope: "recovery",
+    input: { kind: "history" },
+  });
   assert.equal(priorRead.status, "completed", priorRead.reason);
   assert.equal(priorRead.lockReleased, true);
   assert.ok(priorRead.value && priorRead.historyRows);
@@ -701,20 +716,22 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
     ...withHistoryRetention(borrowed, f.capability),
     operationId: JSON.parse(operation.identityJson).operationId,
   };
-  const checkpointSaved = stateStore.advanceOwnedRepairHistory(
+  const checkpointSaved = stateStore.advanceOwnedRecoveryHistory(
     repository,
     id,
     () => true,
+    "runtime_repair",
   );
   assert.equal(checkpointSaved.status, "completed", checkpointSaved.reason);
   assert.equal(checkpointSaved.snapshotConfirmed, true);
   assert.equal(checkpointSaved.lockReleased, true);
   assert.equal(checkpointSaved.historyConfirmed, false);
   const checkpointBytes = fs.readFileSync(stateFile);
-  const historySaved = stateStore.advanceOwnedRepairHistory(
+  const historySaved = stateStore.advanceOwnedRecoveryHistory(
     repository,
     id,
     () => true,
+    "runtime_repair",
   );
   assert.equal(historySaved.status, "completed", historySaved.reason);
   assert.equal(historySaved.snapshotConfirmed, true);
@@ -722,8 +739,11 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
   assert.equal(historySaved.historyConfirmed, true);
   const currentBytes = fs.readFileSync(stateFile),
     historyBytes = fs.readFileSync(historyFile);
-  const publishedRead = model.readRecoveryState(f.capability, {
-    kind: "history",
+  const publishedRead = model.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "history",
+    },
   });
   assert.equal(publishedRead.status, "completed", publishedRead.reason);
   assert.equal(publishedRead.lockReleased, true);
@@ -817,9 +837,12 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
     `${canonicalJson({ ...snapshot.snapshot, operations: [] })}\n`,
   );
   fs.writeFileSync(historyFile, historyBytes);
-  const refused = stateStore.readRecoveryState(f.capability, {
-    kind: "repair_completion",
-    recoveryId: id,
+  const refused = stateStore.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "repair_completion",
+      recoveryId: id,
+    },
   });
   assert.equal(refused.status, "blocked");
   assert.equal(refused.repairCompletionAbsent, false);
@@ -1055,7 +1078,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     assert.ok(fs.readFileSync(stateFile).equals(candidate));
     assert.equal(fs.existsSync(pending), false);
     assert.equal(fs.existsSync(marker), false);
-    const actual = model.readRecoveryState(f.capability).value;
+    const actual = model.readState(f.capability, { scope: "recovery" }).value;
     const next = actual?.snapshot.operations.find(
       (item) => item.recoveryId === id,
     );
@@ -1090,13 +1113,16 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const acquired = acquireCount,
         entries = runtimeEntries;
       for (let step = 0; step < 2; step++) {
-        const read = stateStore.readRecoveryState(
+        const read = stateStore.readState(
           historyRepositoryInput(f.capability),
-          { kind: "repair_history", recoveryId: id },
+          {
+            scope: "recovery",
+            input: { kind: "repair_history", recoveryId: id },
+          },
         );
         assert.equal(read.status, "completed");
         assert.equal(read.lockReleased, true);
-        const saved = stateStore.advanceOwnedRepairHistory(
+        const saved = stateStore.advanceOwnedRecoveryHistory(
           {
             ...repository,
             ...withHistoryRetention(repository, f.capability),
@@ -1104,6 +1130,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
           },
           id,
           () => true,
+          "runtime_repair",
         );
         assert.equal(saved.status, "completed");
         assert.equal(saved.snapshotConfirmed, true);
@@ -1111,8 +1138,11 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       }
       const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
       const history = fs.readFileSync(historyFile);
-      const historyRead = domain.readRecoveryState(f.capability, {
-        kind: "history",
+      const historyRead = domain.readState(f.capability, {
+        scope: "recovery",
+        input: {
+          kind: "history",
+        },
       });
       assert.equal(historyRead.status, "completed", historyRead.reason);
       assert.equal(historyRead.lockReleased, true);
@@ -1120,9 +1150,12 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       assert.equal(historyRead.historyRows.length, 1);
       assert.equal(historyRead.historyRows[0]?.line, history.toString("utf8"));
       const beforeCompletion = fs.readFileSync(stateFile);
-      const ready = stateStore.readRecoveryState(f.capability, {
-        kind: "repair_completion",
-        recoveryId: id,
+      const ready = stateStore.readState(f.capability, {
+        scope: "recovery",
+        input: {
+          kind: "repair_completion",
+          recoveryId: id,
+        },
       });
       assert.equal(ready.status, "completed");
       assert.equal(ready.lockReleased, true);
@@ -1140,22 +1173,33 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
           changed.summary.retention.reviewAfter = "2026-10-24T00:00:00.001Z";
         else changed.summary.retention.targets.primary.ino += "1";
         fs.writeFileSync(historyFile, `${canonicalJson(changed)}\n`);
-        const refused = stateStore.readRecoveryState(f.capability, {
-          kind: "repair_completion",
-          recoveryId: id,
+        const refused = stateStore.readState(f.capability, {
+          scope: "recovery",
+          input: {
+            kind: "repair_completion",
+            recoveryId: id,
+          },
         });
         assert.equal(refused.status, "blocked", fault);
         assert.equal(refused.repairRetentionReviewAfter, null, fault);
         assert.ok(fs.readFileSync(stateFile).equals(beforeCompletion));
       }
       fs.writeFileSync(historyFile, history);
-      const saved = stateStore.completeRepair(f.capability, id, () => true);
+      const saved = stateStore.completeRecovery(
+        f.capability,
+        id,
+        () => true,
+        "runtime_repair",
+      );
       assert.equal(saved.status, "completed");
       assert.equal(saved.snapshotConfirmed, true);
       assert.equal(saved.lockReleased, true);
-      const absent = stateStore.readRecoveryState(f.capability, {
-        kind: "repair_completion",
-        recoveryId: id,
+      const absent = stateStore.readState(f.capability, {
+        scope: "recovery",
+        input: {
+          kind: "repair_completion",
+          recoveryId: id,
+        },
       });
       assert.equal(absent.status, "completed");
       assert.equal(absent.lockReleased, true);
@@ -1167,8 +1211,11 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const legacyHistory = Buffer.from(`${canonicalJson(legacyRow)}\n`);
       try {
         fs.writeFileSync(historyFile, legacyHistory);
-        const legacyRead = domain.readRecoveryState(f.capability, {
-          kind: "history",
+        const legacyRead = domain.readState(f.capability, {
+          scope: "recovery",
+          input: {
+            kind: "history",
+          },
         });
         assert.equal(legacyRead.status, "completed", legacyRead.reason);
         assert.equal(legacyRead.lockReleased, true);
@@ -1178,9 +1225,12 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
           legacyRead.historyRows[0]?.line,
           legacyHistory.toString("utf8"),
         );
-        const refused = stateStore.readRecoveryState(f.capability, {
-          kind: "repair_completion",
-          recoveryId: id,
+        const refused = stateStore.readState(f.capability, {
+          scope: "recovery",
+          input: {
+            kind: "repair_completion",
+            recoveryId: id,
+          },
         });
         assert.equal(refused.status, "blocked");
         assert.equal(refused.repairCompletionAbsent, false);
@@ -1189,15 +1239,19 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         fs.writeFileSync(historyFile, history);
       }
       assert.equal(
-        model.readRecoveryState(f.capability).value?.snapshot.operations.length,
+        model.readState(f.capability, { scope: "recovery" }).value?.snapshot
+          .operations.length,
         0,
       );
       assert.equal(acquireCount, acquired);
       assert.equal(runtimeEntries, entries);
       fs.writeFileSync(historyFile, Buffer.alloc(0));
-      const missing = stateStore.readRecoveryState(f.capability, {
-        kind: "repair_completion",
-        recoveryId: id,
+      const missing = stateStore.readState(f.capability, {
+        scope: "recovery",
+        input: {
+          kind: "repair_completion",
+          recoveryId: id,
+        },
       });
       assert.equal(missing.status, "blocked");
       assert.equal(missing.repairRetentionReviewAfter, null);
@@ -1233,7 +1287,8 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.ok(lastRepairCompletionBefore);
   const original = Buffer.from(lastRepairCompletionBefore);
   assert.equal(
-    model.readRecoveryState(f.capability).value?.snapshot.operations.length,
+    model.readState(f.capability, { scope: "recovery" }).value?.snapshot
+      .operations.length,
     0,
   );
   const duplicate = await repairRuntimeOwnedDockerRuntime(
@@ -1255,9 +1310,9 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   );
   assert.ok(borrowed);
   assert.ok(fs.readFileSync(stateFile).equals(original));
-  const completionRead = stateStore.readRecoveryState(
+  const completionRead = stateStore.readState(
     historyRepositoryInput(f.capability),
-    { kind: "repair_completion", recoveryId: id },
+    { scope: "recovery", input: { kind: "repair_completion", recoveryId: id } },
   );
   assert.equal(completionRead.status, "completed");
   assert.equal(completionRead.lockReleased, true);
@@ -1341,8 +1396,11 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       if (mode === "other_history") fs.writeFileSync(historyFile, otherHistory);
       const worker = stateStore;
       if (mode === "other_history") {
-        const otherRead = domain.readRecoveryState(f.capability, {
-          kind: "history",
+        const otherRead = domain.readState(f.capability, {
+          scope: "recovery",
+          input: {
+            kind: "history",
+          },
         });
         assert.equal(otherRead.status, "completed", otherRead.reason);
         assert.equal(otherRead.lockReleased, true);
@@ -1356,17 +1414,21 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
           otherRead.historyRows[0]?.line,
           otherHistory.toString("utf8"),
         );
-        const rejected = worker.readRecoveryState(f.capability, {
-          kind: "repair_completion",
-          recoveryId: id,
+        const rejected = worker.readState(f.capability, {
+          scope: "recovery",
+          input: {
+            kind: "repair_completion",
+            recoveryId: id,
+          },
         });
         assert.equal(rejected.status, "blocked");
         assert.equal(rejected.currentCompletionPublication, null);
       }
-      const saved = worker.completeRepair(
+      const saved = worker.completeRecovery(
         f.capability,
         id,
         () => mode !== "owner_lost",
+        "runtime_repair",
       );
       const success = mode === "normal" || mode === "pending";
       assert.equal(saved.status, success ? "completed" : "blocked");
@@ -1388,16 +1450,22 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       if (success) {
         assert.equal(saved.lockReleased, true);
         assert.equal(
-          worker.readRecoveryState(f.capability, {
-            kind: "repair_completion",
-            recoveryId: id,
+          worker.readState(f.capability, {
+            scope: "recovery",
+            input: {
+              kind: "repair_completion",
+              recoveryId: id,
+            },
           }).repairCompletionAbsent,
           true,
         );
         assert.equal(
-          stateStore.readRecoveryState(f.capability, {
-            kind: "execution_completion",
-            recoveryId: id,
+          stateStore.readState(f.capability, {
+            scope: "recovery",
+            input: {
+              kind: "execution_completion",
+              recoveryId: id,
+            },
           }).status,
           "blocked",
         );
@@ -1410,9 +1478,12 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   fs.writeFileSync(historyFile, history);
   fs.writeFileSync(markerFile, marker);
   const afterRename = stateStore;
-  const absent = afterRename.readRecoveryState(f.capability, {
-    kind: "repair_completion",
-    recoveryId: id,
+  const absent = afterRename.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "repair_completion",
+      recoveryId: id,
+    },
   });
   assert.equal(absent.status, "completed");
   assert.equal(absent.repairCompletionAbsent, true);
@@ -1422,18 +1493,24 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.equal(cleaned.status, "completed");
   assert.equal(cleaned.markerAbsentConfirmed, true);
   assert.equal(
-    afterRename.readRecoveryState(f.capability, {
-      kind: "repair_completion",
-      recoveryId: id,
+    afterRename.readState(f.capability, {
+      scope: "recovery",
+      input: {
+        kind: "repair_completion",
+        recoveryId: id,
+      },
     }).repairCompletionAbsent,
     true,
   );
   assert.ok(fs.readFileSync(stateFile).equals(candidate));
   fs.writeFileSync(historyFile, Buffer.alloc(0));
   assert.equal(
-    afterRename.readRecoveryState(f.capability, {
-      kind: "repair_completion",
-      recoveryId: id,
+    afterRename.readState(f.capability, {
+      scope: "recovery",
+      input: {
+        kind: "repair_completion",
+        recoveryId: id,
+      },
     }).status,
     "blocked",
   );
@@ -1598,8 +1675,11 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   assert.deepEqual(terminal.operations, []);
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const historyBytes = fs.readFileSync(historyFile);
-  const historyRead = domain.readRecoveryState(verified.capability, {
-    kind: "history",
+  const historyRead = domain.readState(verified.capability, {
+    scope: "recovery",
+    input: {
+      kind: "history",
+    },
   });
   assert.equal(historyRead.status, "completed", historyRead.reason);
   assert.equal(historyRead.lockReleased, true);
@@ -1715,10 +1795,10 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
           } catch (error) {
             assert.equal((error as NodeJS.ErrnoException).code, "ENOENT");
           }
-          const read = domain.readRecoveryState(
-            historyRepositoryInput(f.capability),
-            { kind: "repair_history", recoveryId: first.recoveryId },
-          );
+          const read = domain.readState(historyRepositoryInput(f.capability), {
+            scope: "recovery",
+            input: { kind: "repair_history", recoveryId: first.recoveryId },
+          });
           assert.equal(read.status, "completed", read.reason);
           assert.equal(read.lockReleased, true);
           assert.ok(read.value);
@@ -1841,8 +1921,11 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
       assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
       assert.equal(after.revision, before.revision + 4);
       const history = fs.readFileSync(historyFile);
-      const historyRead = domain.readRecoveryState(f.capability, {
-        kind: "history",
+      const historyRead = domain.readState(f.capability, {
+        scope: "recovery",
+        input: {
+          kind: "history",
+        },
       });
       assert.equal(historyRead.status, "completed", historyRead.reason);
       assert.equal(historyRead.lockReleased, true);
@@ -2707,8 +2790,11 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
       assert.equal(throughMain.statePublication?.status, "completed");
       assert.equal(throughMain.statePublication?.snapshotConfirmed, true);
       assert.equal(throughMain.statePublication?.lockReleased, true);
-      const historyRead = domain.readRecoveryState(f.capability, {
-        kind: "history",
+      const historyRead = domain.readState(f.capability, {
+        scope: "recovery",
+        input: {
+          kind: "history",
+        },
       });
       assert.equal(historyRead.status, "completed", historyRead.reason);
       assert.equal(historyRead.lockReleased, true);
@@ -2831,8 +2917,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     "history.jsonl",
   );
   const initialHistory = fs.readFileSync(initialHistoryFile);
-  const historyRead = domain.readRecoveryState(f.capability, {
-    kind: "history",
+  const historyRead = domain.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "history",
+    },
   });
   assert.equal(historyRead.status, "completed", historyRead.reason);
   assert.equal(historyRead.lockReleased, true);
@@ -2861,9 +2950,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   const acquired = acquireCount,
     entries = runtimeEntries;
   assert.equal(
-    stateStore.readRecoveryState(historyRepositoryInput(f.capability), {
-      kind: "execution_history",
-      recoveryId: id,
+    stateStore.readState(historyRepositoryInput(f.capability), {
+      scope: "recovery",
+      input: {
+        kind: "execution_history",
+        recoveryId: id,
+      },
     }).status,
     "blocked",
   );
@@ -2871,52 +2963,58 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
+    "docker_task",
   );
   assert.equal(taskResult.status, "blocked");
   assert.ok(fs.readFileSync(stateFile).equals(original));
   const first = stateStore;
-  const observed = first.readRecoveryState(
-    historyRepositoryInput(f.capability),
-    { kind: "repair_history", recoveryId: id },
-  );
+  const observed = first.readState(historyRepositoryInput(f.capability), {
+    scope: "recovery",
+    input: { kind: "repair_history", recoveryId: id },
+  });
   assert.equal(observed.status, "completed");
   assert.equal(observed.currentHistoryPublication?.stage, "checkpoint");
   assert.equal(
     observed.currentHistoryPublication?.operationKind,
     "runtime_repair",
   );
-  const fixed = first.advanceOwnedRepairHistory(
+  const fixed = first.advanceOwnedRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
+    "runtime_repair",
   );
   assert.equal(fixed.status, "completed");
   assert.equal(fixed.historyConfirmed, false);
   assert.equal(fixed.lockReleased, true);
   const checkpointBytes = fs.readFileSync(stateFile);
-  const checkpoint = model.readRecoveryState(f.capability).value;
+  const checkpoint = model.readState(f.capability, { scope: "recovery" }).value;
   const fixedOperation = checkpoint?.snapshot.operations.find(
     (item) => item.recoveryId === id,
   );
   assert.ok(fixedOperation?.history && !fixedOperation.history.confirmed);
   const second = stateStore;
   assert.equal(
-    second.readRecoveryState(historyRepositoryInput(f.capability), {
-      kind: "repair_history",
-      recoveryId: id,
+    second.readState(historyRepositoryInput(f.capability), {
+      scope: "recovery",
+      input: {
+        kind: "repair_history",
+        recoveryId: id,
+      },
     }).currentHistoryPublication?.stage,
     "publish",
   );
-  const published = second.advanceOwnedRepairHistory(
+  const published = second.advanceOwnedRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
+    "runtime_repair",
   );
   assert.equal(published.status, "completed");
   assert.equal(published.historyConfirmed, true);
   assert.equal(published.lockReleased, true);
   const currentBytes = fs.readFileSync(stateFile);
-  const current = model.readRecoveryState(f.capability).value;
+  const current = model.readState(f.capability, { scope: "recovery" }).value;
   const finalOperation = current?.snapshot.operations.find(
     (item) => item.recoveryId === id,
   );
@@ -2931,8 +3029,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   );
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const historyBytes = fs.readFileSync(historyFile);
-  const publishedRead = domain.readRecoveryState(f.capability, {
-    kind: "history",
+  const publishedRead = domain.readState(f.capability, {
+    scope: "recovery",
+    input: {
+      kind: "history",
+    },
   });
   assert.equal(publishedRead.status, "completed", publishedRead.reason);
   assert.equal(publishedRead.lockReleased, true);
@@ -2970,8 +3071,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         row.summary.recoveryId = `docker-runtime-repair.${row.summary.operationNonce}.${row.summary.identitySha256}`;
         const bytes = Buffer.from(`${canonicalJson(row)}\n`);
         fs.writeFileSync(historyFile, bytes);
-        const otherRead = domain.readRecoveryState(f.capability, {
-          kind: "history",
+        const otherRead = domain.readState(f.capability, {
+          scope: "recovery",
+          input: {
+            kind: "history",
+          },
         });
         assert.equal(otherRead.status, "completed", otherRead.reason);
         assert.equal(otherRead.lockReleased, true);
@@ -2983,10 +3087,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         );
         assert.equal(otherRead.historyRows[0]?.line, bytes.toString("utf8"));
       }
-      const read = stateStore.readRecoveryState(
-        historyRepositoryInput(f.capability),
-        { kind: "repair_history", recoveryId: id },
-      );
+      const read = stateStore.readState(historyRepositoryInput(f.capability), {
+        scope: "recovery",
+        input: { kind: "repair_history", recoveryId: id },
+      });
       const valid = historyCase === "empty" || historyCase === "other";
       assert.equal(read.status, valid ? "completed" : "blocked");
       assert.equal(read.repairHistoryState, valid ? "technical_state" : null);
@@ -3014,10 +3118,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   fs.writeFileSync(stateFile, currentBytes);
   fs.writeFileSync(historyFile, historyBytes);
   const third = stateStore;
-  const confirmed = third.advanceOwnedRepairHistory(
+  const confirmed = third.advanceOwnedRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
     id,
     () => true,
+    "runtime_repair",
   );
   assert.equal(confirmed.status, "completed");
   assert.equal(confirmed.filesystemEffectIssued, false);
@@ -3069,9 +3174,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         fs.writeFileSync(path.join(directory, "state.lock"), markerBytes);
       const fresh = stateStore;
       const before = fs.readFileSync(stateFile);
-      const observation = fresh.readRecoveryState(
+      const observation = fresh.readState(
         historyRepositoryInput(f.capability),
-        { kind: "repair_history", recoveryId: id },
+        {
+          scope: "recovery",
+          input: { kind: "repair_history", recoveryId: id },
+        },
       );
       assert.equal(observation.status, "completed");
       const settled = await repairRuntimeOwnedDockerRuntime(

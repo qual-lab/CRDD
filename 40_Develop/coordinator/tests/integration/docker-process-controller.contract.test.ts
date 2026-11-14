@@ -18,10 +18,9 @@ import { Writable } from "node:stream";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { planExecution } from "../../../ai-adapter/src/index.ts";
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
-import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
 import { describeDockerCommandSessionContract } from "../../../docker-isolation/tests/support/session.ts";
 import {
   createExecutorTestCandidate,
@@ -29,6 +28,7 @@ import {
   projectAttemptStartResult,
 } from "../../../executor/scripts/executor-test.ts";
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
+import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/controller.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";

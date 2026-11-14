@@ -13,15 +13,10 @@
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import crypto, { createHash } from "node:crypto";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import {
-  createPortfolioProjection,
-  type ProjectContextSource,
-  readRepositoryProjectContext,
-} from "../../../../document-model/src/index.ts";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import {
@@ -545,105 +540,6 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
   } finally {
     crypto.randomUUID = originalUUID;
     fs.rmSync = originalRemove;
-  }
-});
-
-/**
- * 現在許可集合から実本文を一回読み中立Sourceへ搬送する。
- * @responsibility 管理改訂と本文版を分離し、許可外RootをReaderへ渡さない。
- * @trace RFD-IT-019
- * @precondition 公開済み一Repositoryと管理者の空内容範囲。
- * @stimulus 各Roleの現在集合を取得して固定本文を読み集約し、本文欠測も観測する。
- * @observation Reader対象open回数、4項目Source、本文版、Portfolio、固定取得不能結果。
- * @oracle developerだけ対象本文一回、administrator空集合は本文0。本文不明は版なしでnull／missingを作らない。
- * @cleanup Hook復元と既存Fixtureによる自己生成Root不存在確認。
- * @boundary AM実認可→Domain実本文Reader→Source→Portfolio。本番Surfaceの完成は対象外。
- */
-test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
-  const f = contentFixture(t),
-    target = path.join(f.target.directory, "PROJECT_CONTEXT.md");
-  const open = fs.openSync;
-  let opened = 0;
-  t.after(() => {
-    fs.openSync = open;
-  });
-  fs.openSync = (file, flags, mode) => {
-    if (String(file) === target) opened++;
-    return open(file, flags, mode);
-  };
-  try {
-    for (const role of ["developer", "administrator"] as const) {
-      opened = 0;
-      const collection = resolveRepositoryAccessCollection(
-        f.root,
-        f.tokens[role],
-      );
-      assert.equal(collection.status, "completed");
-      if (collection.status !== "completed")
-        throw new Error("collection unavailable");
-      const sources: ProjectContextSource[] = [];
-      for (const repository of collection.repositories) {
-        const read = readRepositoryProjectContext(repository.root, {
-          projectId: repository.manifest.projectId,
-          repositoryId: repository.manifest.repositoryId,
-          repositoryRole: repository.manifest.repositoryRole,
-        });
-        assert.equal(read.status, "completed");
-        if (read.status !== "completed") throw new Error("context unavailable");
-        sources.push(
-          Object.freeze({
-            projectId: repository.manifest.projectId,
-            repositoryId: repository.repositoryId,
-            state: "complete",
-            revision: read.revision,
-            context: read.context,
-          }),
-        );
-      }
-      const portfolio = createPortfolioProjection(sources);
-      assert.equal(opened, role === "developer" ? 1 : 0);
-      if (role === "developer") {
-        assert.deepEqual(Object.keys(sources[0] ?? {}).sort(), [
-          "context",
-          "projectId",
-          "repositoryId",
-          "revision",
-          "state",
-        ]);
-        assert.equal(portfolio.projects[0]?.state, "complete");
-        assert.equal(
-          portfolio.projects[0]?.sources[0]?.revision,
-          `context-text-sha256:${createHash("sha256").update(f.target.context, "utf8").digest("hex")}`,
-        );
-        assert.notEqual(
-          sources[0]?.revision,
-          String(collection.managementRevision),
-        );
-      } else assert.deepEqual(portfolio.projects, []);
-    }
-    fs.rmSync(target);
-    const collection = resolveRepositoryAccessCollection(
-      f.root,
-      f.tokens.developer,
-    );
-    assert.equal(collection.status, "completed");
-    if (collection.status !== "completed")
-      throw new Error("collection unavailable");
-    const repository = collection.repositories[0];
-    assert.ok(repository);
-    const read = readRepositoryProjectContext(repository.root, {
-      projectId: repository.manifest.projectId,
-      repositoryId: repository.manifest.repositoryId,
-      repositoryRole: repository.manifest.repositoryRole,
-    });
-    assert.deepEqual(read, {
-      status: "unavailable",
-      reason: "project_context_observation_unavailable",
-    });
-    assert.equal(Object.hasOwn(read, "revision"), false);
-    assert.equal(Object.hasOwn(read, "context"), false);
-  } finally {
-    fs.openSync = open;
   }
 });
 

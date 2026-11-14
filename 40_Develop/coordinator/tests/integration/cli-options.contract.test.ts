@@ -206,7 +206,7 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
       `${body}\nresolveRuntimeOwnedCurrentRecoveryOperationRoot`,
       {
         path,
-        readRecoveryState: (received: unknown) => {
+        readState: (received: unknown) => {
           assert.equal(received, capability);
           reads += 1;
           if (fault === "throw") throw new Error("reader observation failed");

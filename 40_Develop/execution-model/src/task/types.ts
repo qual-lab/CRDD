@@ -4,8 +4,6 @@
  * @trace ARCH-000008
  */
 
-import type { ModelSelection } from "../../../ai-adapter/src/index.ts";
-
 /** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
 export const TASK_STATES = Object.freeze([
   "planned",
@@ -41,19 +39,23 @@ export type ProjectTaskDefinition = Readonly<{
 }>;
 
 /** 確定済み実行入力。設定モデルを参照せず、当時の選定と相関値を保持する。 */
-export type ExecutionSelection = ModelSelection &
-  Readonly<{
-    catalogIdentity: string;
-    configIdentity: string;
-    role:
-      | "coordinator"
-      | "executor"
-      | "independent_reviewer"
-      | "result_integration"
-      | "advice";
-    workType: string | null;
-    source: "explicit" | "work_type_override" | "role_default";
-  }>;
+export type ExecutionSelection = Readonly<{
+  provider: "codex" | "claude";
+  modelIdentifier: string;
+  identifierKind: "exact" | "alias";
+  reasoningEffort: "low" | "medium" | "high" | "xhigh" | "max";
+  purpose: "advice" | "task";
+  catalogIdentity: string;
+  configIdentity: string;
+  role:
+    | "coordinator"
+    | "executor"
+    | "independent_reviewer"
+    | "result_integration"
+    | "advice";
+  workType: string | null;
+  source: "explicit" | "work_type_override" | "role_default";
+}>;
 
 /** 同一Taskの編集と独立レビューに使う二役割の確定選定。 */
 export type TaskExecutionSelections = Readonly<{

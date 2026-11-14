@@ -4,14 +4,126 @@
  * @responsibility Provider・識別方式・Model・Effortを役割既定値から無変換で搬送する。
  * @trace RCM-IT-005
  * @level IT
- * @scope 技術Catalog、Repository選定とProvider助言計画。実AI・認証・Dockerなし。
- * @boundary RCM-IT-005=Direct Boundary: AI Adapter→Coordinator選定→Provider計画。
+ * @scope 技術Catalog、Repository選定、Provider計画とEM保存型の適合。実AI・認証・Dockerなし。
+ * @boundary RCM-IT-005=Related 2 Blocks: Coordinator選定とAD／DI技術値→EM保存型。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getModelCatalog, planExecution } from "../../src/index.ts";
-import { resolveExecutionSelection } from "../../../coordinator/src/selection/resolve.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
+import {
+  getModelCatalog,
+  type ModelSelection,
+  planExecution,
+  type TurnCountDiagnostic,
+} from "../../../ai-adapter/src/index.ts";
+import {
+  describeIsolationConfiguration,
+  type ResourceSnapshot,
+} from "../../../docker-isolation/src/index.ts";
+import type {
+  ExecutionOperationRecord,
+  ExecutionSelection,
+  OperationResources,
+} from "../../../execution-model/src/index.ts";
+import { resolveExecutionSelection } from "../../src/selection/resolve.ts";
+
+/**
+ * 両Providerの助言計画とDI公開配置を接続する。
+ * @responsibility AD単独の本文検査と技術配置の結合を分離する。
+ * @trace RCM-IT-005
+ * @precondition 公開CatalogとDI固定構成。
+ * @stimulus Codex alternateとClaude primaryで助言計画を構築する。
+ * @observation Model・識別方式・Effort・Tool禁止・Session禁止・stdin限定。
+ * @oracle ADから移管した全Provider計画assertを維持する。
+ * @cleanup 実行・保存・AI・Docker操作なし。
+ * @boundary Coが結合するAD計画とDI配置。
+ */
+test("Provider助言計画はDI公開配置と元の保護条件を維持する", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const request = {
+      provider,
+      purpose: "advice" as const,
+      modelSelection: {
+        provider,
+        modelIdentifier: provider === "codex" ? "gpt-6.1-sol" : "opus",
+        reasoningEffort: "medium" as const,
+        identifierKind:
+          provider === "codex" ? ("exact" as const) : ("alias" as const),
+      },
+    };
+    const capabilities = describeIsolationConfiguration(provider);
+    const locations =
+      capabilities.provider === "codex"
+        ? capabilities.locations.alternate
+        : capabilities.locations.primary;
+    const plan = planExecution(
+      { ...request, allowedReferences: ["synthetic-reference"] },
+      locations,
+    ).plan;
+    assert.ok(plan && "toolsAllowed" in plan);
+    assert.equal(plan.provider, provider);
+    assert.equal(plan.modelIdentifier, request.modelSelection.modelIdentifier);
+    assert.equal(plan.identifierKind, request.modelSelection.identifierKind);
+    assert.equal(plan.reasoningEffort, "medium");
+    assert.equal(plan.toolsAllowed, false);
+    assert.equal(plan.sessionPersistenceAllowed, false);
+    assert.equal(plan.promptTransport, "stdin_only");
+  }
+});
+
+/** 保存契約と技術契約の片側だけの拡大・欠落も型検査で拒否する。実行時検査の代用ではない。 */
+type SameContract<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2
+      ? true
+      : false
+    : false;
+
+/**
+ * 上位が接続する技術値と保存値の構造適合を確認する。
+ * @responsibility 選定・Snapshot・Turn診断の情報量とreadonly性を双方向で照合する。
+ * @trace RCM-IT-005
+ * @precondition 各Ownerが公開する現在の型契約。
+ * @stimulus 同形状の技術値とEM保存型を型演算で比較する。
+ * @observation 三比較がtrueとして型検査できること。
+ * @oracle 項目・値域・optional性・readonly性の不一致はコンパイル失敗。
+ * @cleanup 値の複製・保存・外部実行なし。
+ * @boundary Coが結合するAD／DI技術値とEM保存値。
+ */
+test("技術選定・Snapshot・診断はEM保存契約と双方向で適合する", () => {
+  const compatible: readonly [
+    SameContract<
+      Pick<
+        ExecutionSelection,
+        | "provider"
+        | "modelIdentifier"
+        | "identifierKind"
+        | "reasoningEffort"
+        | "purpose"
+      >,
+      ModelSelection
+    >,
+    SameContract<OperationResources["snapshot"], ResourceSnapshot>,
+    SameContract<
+      NonNullable<
+        NonNullable<
+          ExecutionOperationRecord["primaryFailure"]
+        >["turnCountDiagnostic"]
+      >,
+      TurnCountDiagnostic
+    >,
+  ] = [true, true, true];
+  assert.deepEqual(compatible, [true, true, true]);
+  const incompatible: readonly [
+    SameContract<ModelSelection, Omit<ModelSelection, "reasoningEffort">>,
+    SameContract<ResourceSnapshot, Readonly<{ resources: readonly unknown[] }>>,
+    SameContract<
+      TurnCountDiagnostic,
+      Readonly<{ valueType: string; numberText?: string | null }>
+    >,
+    SameContract<{ value: string }, Readonly<{ value: string }>>,
+  ] = [false, false, false, false];
+  assert.deepEqual(incompatible, [false, false, false, false]);
+});
 
 /**
  * 両Providerの助言選定を同じ技術Identityの計画へ渡す。
@@ -146,7 +258,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   };
   const plan = planExecution(
     request,
-    describeDockerProviderExecutionLocations("codex", "primary"),
+    describeIsolationConfiguration("codex").locations.primary,
   );
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") throw new Error("plan_blocked");
@@ -170,7 +282,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
       ...request,
       input: { ...request.input, taskRole: "reviewer" },
     },
-    describeDockerProviderExecutionLocations("codex", "primary"),
+    describeIsolationConfiguration("codex").locations.primary,
   );
   assert.equal(reviewer.status, "ready");
   if (reviewer.status !== "ready") throw Error("reviewer_plan_blocked");
@@ -189,7 +301,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   );
   assert.equal(reviewer.plan.argv.includes("--approve-for-me"), false);
   const commandPath =
-    describeDockerProviderExecutionLocations("codex", "primary").commandPath ??
+    describeIsolationConfiguration("codex").locations.primary.commandPath ??
     "codex";
   for (const expected of [
     "features.code_mode_only=true",

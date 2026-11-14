@@ -23,9 +23,8 @@ import { createIsolationFixture } from "../../../docker-isolation/tests/support/
 import type { OperationResources } from "../../../execution-model/src/index.ts";
 import {
   type OperationRecord,
-  readRecoveryState,
+  readState,
   saveRecoveryCheckpoint,
-  saveUnknownAuthenticationClosureStage,
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
@@ -80,7 +79,7 @@ const stateFile = path.join(
   "state.json",
 );
 const before: Buffer = fs.readFileSync(stateFile);
-const initialRead = readRecoveryState(verified.capability);
+const initialRead = readState(verified.capability, { scope: "recovery" });
 assert.equal(initialRead.status, "completed", initialRead.reason);
 assert.equal(initialRead.lockReleased, true);
 assert.ok(initialRead.value);
@@ -182,7 +181,7 @@ const mutant = body.replace(
   '{ event: "identified", key, snapshot: { resources: snapshot.resources.map(r => r.key === key ? {...r, identity: {...r.identity, dockerId: "e".repeat(64)}} : r) }, cleanup: book.cleanup }',
 );
 assert.notEqual(body, mutant);
-const read = () => readRecoveryState(verified.capability);
+const read = () => readState(verified.capability, { scope: "recovery" });
 const currentSnapshot = read();
 assert.equal(currentSnapshot.status, "completed", currentSnapshot.reason);
 assert.equal(currentSnapshot.lockReleased, true);
@@ -193,7 +192,7 @@ assert.ok(
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =
-  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,saveUnknownAuthenticationClosureStage}=dependencies;
+  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
 return recoverRuntimeOwnedDockerTaskResources;}`)({
     Buffer,
@@ -209,7 +208,7 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
       events.push("owner");
       return live;
     },
-    readRecoveryState: () => {
+    readState: () => {
       events.push("read");
       const value = read();
       return scenario === "readback_mismatch" && closureWrites && value.value
@@ -228,12 +227,10 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
     saveRecoveryCheckpoint: (
       ...args: Parameters<typeof saveRecoveryCheckpoint>
     ) => {
-      events.push(`write:${args[3]}`);
-      return saveRecoveryCheckpoint(...args);
-    },
-    saveUnknownAuthenticationClosureStage: (
-      ...args: Parameters<typeof saveUnknownAuthenticationClosureStage>
-    ) => {
+      if (args[3].kind !== "authentication_unknown_closure") {
+        events.push(`write:${args[3].kind}`);
+        return saveRecoveryCheckpoint(...args);
+      }
       closureWrites++;
       events.push("write:closure");
       if (scenario === "writer_throw") throw Error("synthetic_closure_failure");
@@ -243,7 +240,7 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
           snapshotConfirmed: false,
           lockReleased: true,
         };
-      const result = saveUnknownAuthenticationClosureStage(...args);
+      const result = saveRecoveryCheckpoint(...args);
       return scenario === "release_unknown"
         ? { ...result, lockReleased: false }
         : result;

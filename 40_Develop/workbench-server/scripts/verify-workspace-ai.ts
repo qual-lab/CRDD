@@ -32,7 +32,7 @@ import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.t
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
   createLocalPrincipalId,
-  readRecoveryState,
+  readState,
 } from "../../execution-model/src/index.ts";
 import {
   getRepository,
@@ -390,7 +390,7 @@ async function verify(
       clearTimeout(deadlineTimer);
       deadlineTimer = null;
       step = "verify_state";
-      const saved = readRecoveryState(verified.capability);
+      const saved = readState(verified.capability, { scope: "recovery" });
       assert.equal(saved.status, "completed", "task_state_unavailable");
       assert.equal(saved.lockReleased, true, "task_state_lock_unreleased");
       if (saved.status !== "completed" || !saved.value)
@@ -660,8 +660,11 @@ async function verify(
         const currentRoot = getRepository(root);
         if (currentRoot.status === "completed") {
           {
-            const read = readRecoveryState(currentRoot.capability, {
-              kind: "history",
+            const read = readState(currentRoot.capability, {
+              scope: "recovery",
+              input: {
+                kind: "history",
+              },
             });
             if (
               read.status === "completed" &&
@@ -790,7 +793,7 @@ function assessFixtureRemoval(
     checkBoundary();
     const readClosed = (historyCount: number, includeTask = false) => {
       {
-        const read = readRecoveryState(verifiedRoot.capability);
+        const read = readState(verifiedRoot.capability, { scope: "recovery" });
         assert.equal(read.status, "completed");
         assert.equal(read.lockReleased, true);
         if (read.status !== "completed" || !read.value)

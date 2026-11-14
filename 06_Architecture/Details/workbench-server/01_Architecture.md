@@ -1,5 +1,23 @@
 # CROS Workbench詳細設計
 
+## AMとモデルの接続試験Owner — 2026-11-14
+
+既存runtime-definition ITはAMの実認可結果をEMの初期化・Plan保存・再読取りへ直接渡し、同じ値の双方向の型適合も確認する。既存management ITはAM許可集合からDM実本文を読み、本文版を中立SourceとPortfolioへ保持する。両試験は元の実AM・モデルWriter／Readerと清掃を維持し、認可結果の変換Wrapperを追加しない。AM単独の権限・失効・Manifest差の拒否試験とは分けて所有する。
+
+## 活動ReaderのSource接続検査 — 2026-11-14
+
+既存のai-shared-task ITは、共有Task Ownerの開始・観測・取消に加えて、Workbench活動ReaderがCoordinator公開Rootへ直接接続するSource検査を所有する。PRL-IT-012の既存義務から移管し、対象Sourceと一致条件を変更しない。この読取りだけの確認は実HTTP・認可・取消・Reader終了の検証と区別する。
+
+<a id="summary-observation-owner"></a>
+
+## 診断表示用の説明文観測の所有 — 2026-11-14
+
+`scripts/task-summary-observation.ts`は合成診断だけのModule観測であり、製品公開APIではない。専用新品Node Processでconsumer import前に元normalizerを包み、同じ引数・同じreturn object／例外を維持する。最初のCodex executorのsummary候補一件だけをメモリで保持し、外側の単一Task終了・段階順序・資源回収結果を照合後、人間承認した端末へ一回表示する。元関数にはTask／Attempt IDがないため、観測seam単独のexact identity証明とはしない。表示前の制御文字・Path・認識済みSecret検査の不成立は非表示へ閉じ、元結果と採否・回収を変更しない。本文はLog／File／APIに保存せず、端末scrollback残存は人間の限定受容を必要とする。復元はmock解除だけでなく専用Process終了まで確認する。計測付きの結果を通常Source無計測E2E成立へ算入しない。
+
+唯一の外部利用側verify-workspace-summaryと同じWorkbenchのscriptsが観測処理を所有する。元の二試験もtests/integrationへ移管し、全assert・故障シナリオ・専用子の終了を維持する。機密検査は入口がCoの既存検査を注入し、観測Helper自体はCoを読み込まない。Executorの有限技術Consumer／fixtureは明示的な下位参照として利用する。旧入口の転送や新しい共通fixture、製品公開は追加しない。
+
+表示前には結果記録成功と試験物の処置結果の相関も確認する。Task・実行資源の回収と試験フォルダの物理削除は区別し、既存Gateが故障証拠を保持する場合も、その保持判断を変更しない。
+
 ## 3モデル分離への接続 — 2026-11-12
 
 Workbenchはdocument-model／execution-model／configuration-modelの公開操作を必要な役割で別々に利用し、画面用の結合は自身が行う。AM RootはAM型を直接搬送する。文書読取りの期待値はManifestから3Identityへ投影し、保持設定を通常Queryの常時ガードにしない。共通JSON／Snapshot／汎用Root Helperを旧DMから取得せず、既存の入力・保存Ownerへ必要分を局所化する。

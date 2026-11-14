@@ -8,6 +8,16 @@
  * @scope Source、新品子Processと自己生成のRepository-local試験領域。Docker・AI・既存保存領域は利用しない。
  * @boundary Executor公開RootとCoordinatorの依存方向。
  */
+import type { DockerCommandExecutionClassification } from "../../../docker-isolation/src/execution/result.ts";
+import { classifyDockerCommandExecution } from "../../../docker-isolation/src/execution/result.ts";
+import type { DockerCommandSession } from "../../../docker-isolation/tests/support/session.ts";
+import { createDockerIsolationRuntime } from "../support/isolation-execution.ts";
+
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -15,32 +25,61 @@ import test from "node:test";
 import { verifyStandaloneProviderAttempt } from "../../scripts/verify-provider-attempt.ts";
 
 /**
- * 利用側の単段接続を同じSource Oracleで照合する。
- * @responsibility 元Sourceと旧Path変異へ同じexact参照条件を適用する。
- * @trace ERB-IT-004
- * @precondition Source本文だけを受け取る。
- * @stimulus provider-executor参照と旧Ownerからの移管操作importを調べる。
- * @observation 正常通過又はAssertionError。
- * @oracle 固定Ownerへのexact一参照を要求し、旧Ownerで代用しない。
- * @cleanup N/A: 同期の文字列検査のみ。
- * @boundary Source配線だけ。実資源や実行Authorityを証明しない。
+ * 技術試験領域の失敗観測はモデル保存例外へ依存しない。
+ * @responsibility 上位Module解決禁止の下で全失敗情報とEffect前停止を確認する。
+ * @trace ERB-IT-002
+ * @precondition 新品NodeでEM／Coordinatorの読込みと書込み／Process起動を拒否する。
+ * @stimulus ready、null、Effect不明のblocked結果を渡す。
+ * @observation readyの同参照、標準Errorのcause、拒否されたEffect回数。
+ * @oracle 元結果の全fieldとexact回復参照を保持し、Effectを発行しない。
+ * @cleanup 子Process終了のみ。Filesystem上の試験物は作らない。
+ * @boundary 技術補助と単独検証入口の読込み。モデル記録／CLI搬送は別の接続検証で確認する。
  */
-function assertProviderExecutorConsumer(source: string, name: string) {
-  assert.equal(
-    [...source.matchAll(/from\s+["']\.\/provider-executor\.ts["']/g)].length,
-    1,
-    name,
+test("試験領域の技術補助はEMなしで全失敗観測を保持する", () => {
+  const child = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+      import assert from 'node:assert/strict';
+      import fs from 'node:fs';
+      import cp from 'node:child_process';
+      import {registerHooks,syncBuiltinESMExports} from 'node:module';
+      registerHooks({resolve(s,c,n){const r=n(s,c);
+        if(['/execution-model/','/coordinator/'].some(part=>r.url.includes(part)))throw Error('upper_owner_forbidden');
+        return r;
+      }});
+      let effects=0;
+      const forbidden=()=>{effects++;throw Error('effect_forbidden');};
+      for(const name of ['writeFileSync','mkdirSync','mkdtempSync','rmSync','unlinkSync'])fs[name]=forbidden;
+      for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=forbidden;
+      syncBuiltinESMExports();
+      const api=await import(${JSON.stringify(new URL("../../scripts/runtime-data.ts", import.meta.url).href)});
+      await import(${JSON.stringify(new URL("../../scripts/verify-provider-attempt.ts", import.meta.url).href)});
+      await import(${JSON.stringify(new URL("../../scripts/verify-provider-home.ts", import.meta.url).href)});
+      const ready=Object.freeze({status:'ready',repositoryRoot:'not-used',directory:'not-used'});
+      assert.equal(api.requireReadyRepositoryRuntimeDataArea(ready,'invalid'),ready);
+      assert.throws(()=>api.requireReadyRepositoryRuntimeDataArea(null,'invalid'),{message:'invalid'});
+      const failure=Object.freeze({status:'blocked',reason:'repository_runtime_data_ignore_registration_blocked',
+        effectIssued:true,effectStateUnknown:true,effectConfirmation:'unknown',cleanupConfirmed:false,
+        retryAllowed:false,recoveryReference:'runtime-data.fixture-exact-reference',repositoryPathReported:false});
+      assert.throws(()=>api.requireReadyRepositoryRuntimeDataArea(failure,'invalid'),error=>{
+        assert.equal(error.constructor,Error);
+        assert.equal(error.message,failure.reason);
+        assert.equal(error.cause,failure);
+        assert.deepEqual(error.cause,failure);
+        return true;
+      });
+      assert.equal(effects,0);
+      `,
+    ],
+    { encoding: "utf8", timeout: 15000, windowsHide: true },
   );
-  for (const match of source.matchAll(
-    /import\s*\{([^}]+)\}\s*from\s*["']\.\/(?:observation|controller)\.ts["']/g,
-  )) {
-    assert.doesNotMatch(
-      match[1] ?? "",
-      /verifyRuntimeOwnedDocker(?:ProviderSubmissionNotice|UnissuedNotice|CleanupOutcome)|borrowRuntimeOwnedDockerTerminalObservations/,
-      name,
-    );
-  }
-}
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 0, child.stderr);
+});
 
 /**
  * 独立ロードと拒否経路の境界を反証する。
@@ -160,7 +199,6 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     assert.equal('describeIsolationContract' in isolation,false);
     assert.equal('isPlanValid' in isolation,false);
     assert.equal('providerBoundaryConfiguration' in isolation,false);
-    blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
       "createExecutor",
       "inspectDockerEnvironment",
@@ -189,7 +227,6 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     for (const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
       assert.equal(name in runtime,false,name);
     // 名前付き領域APIの依存Sourceを先にロードし、以下ではTool自体のimport Effectを検査する。
-    await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
     await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
     await import(${JSON.stringify(new URL("../../scripts/runtime-data.ts", import.meta.url).href)});
     const {default:fs}=await import('node:fs');
@@ -260,157 +297,86 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
 test("Executorの局所候補Oracleは四つの終了条件と元Ownerを維持する", () => {
   verifyStandaloneProviderAttempt();
 });
+
 /**
- * 本番SourceのOwner境界を検査する。
- * @responsibility 逆依存・二重観測Owner・生状態の公開を防ぐ。
+ * 型だけの公開追加と元の入力拒否・分類を照合する。
+ * @responsibility 構成の必須／任意と、未観測結果のkey不在を保持する。
  * @trace ERB-IT-004
- * @precondition Sourceだけを読む。
- * @stimulus Executor閉包とCoordinatorの保存三利用側を照合する。
- * @observation import経路と固定Factoryの生成箇所。
- * @oracle Coordinator逆依存なし、Host側Factory一回、保存利用側からExecutor逆照会なし。
- * @cleanup N/A: Source読取りのみ。
- * @boundary Source依存の契約。動的資源不存在の証明には使わない。
+ * @precondition 外部操作は開始しない。
+ * @stimulus 正常構成、欠測、余剰、Proxyと期限超過を渡す。
+ * @observation 型負例、既存例外と分類のexact key。
+ * @oracle 型の明示化はRuntime公開・拒否規則を変更しない。
+ * @cleanup N/A: Factory構成と純粋判定のみ。
  */
-test("固定Host接続は一つであり保存利用側はExecutorへ逆照会しない", () => {
-  const root = new URL("../../src/", import.meta.url);
-  for (const entry of fs.readdirSync(root, { recursive: true })) {
-    if (!String(entry).endsWith(".ts")) continue;
-    const source = fs.readFileSync(
-      new URL(String(entry).replaceAll("\\", "/"), root),
-      "utf8",
-    );
-    assert.doesNotMatch(
-      source,
-      /(?:from\s*|import\s*\()["'][^"']*(?:coordinator|domain-model|document-model|execution-model|configuration-model)\//,
-    );
-  }
-  const coordinator = new URL(
-    "../../../coordinator/src/execution/",
-    import.meta.url,
-  );
-  const composition = fs.readFileSync(
-    new URL("provider-executor.ts", coordinator),
-    "utf8",
-  );
-  assert.equal([...composition.matchAll(/createExecutor\(/g)].length, 1);
-  const coordinatorSource = new URL(
-    "../../../coordinator/src/",
-    import.meta.url,
-  );
-  for (const file of fs.readdirSync(coordinatorSource, { recursive: true })) {
-    if (typeof file !== "string" || !file.endsWith(".ts")) continue;
-    const source = fs.readFileSync(
-      new URL(file.replaceAll("\\", "/"), coordinatorSource),
-      "utf8",
-    );
-    assert.doesNotMatch(
-      source,
-      /(?:from\s*|import\s*\()["'][^"']*executor\/src\/(?!index\.ts["'])/,
-      file,
-    );
-  }
-  for (const name of ["persistence", "settlement", "recovery", "controller"]) {
-    const source = fs.readFileSync(new URL(`${name}.ts`, coordinator), "utf8");
-    if (name === "controller") assertProviderExecutorConsumer(source, name);
-    else
-      assert.doesNotMatch(source, /from\s+["'][^"']*provider-executor\.ts["']/);
-    assert.doesNotMatch(source, /createProviderObservationOwner/);
-  }
-  for (const old of ["observation", "controller"]) {
-    const source = fs.readFileSync(new URL(`${old}.ts`, coordinator), "utf8");
-    for (const symbol of [
-      "verifyRuntimeOwnedDockerProviderSubmissionNotice",
-      "verifyRuntimeOwnedDockerUnissuedNotice",
-      "borrowRuntimeOwnedDockerTerminalObservations",
-      "verifyRuntimeOwnedDockerCleanupOutcome",
-    ]) {
-      assert.doesNotMatch(
-        source,
-        new RegExp(`export (?:function|const) ${symbol}\\b`),
-      );
-    }
-  }
-});
-/** 実AI用Toolは製品公開入口だけを実行経路とし、管理情報は現存Sourceへ接続する。 @trace ERB-IT-004 */
-test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
-  for (const name of ["verify-provider-real", "provider-attempt-host"]) {
-    const source = fs.readFileSync(
-      new URL("../../scripts/" + name + ".ts", import.meta.url),
-      "utf8",
-    );
-    assert.doesNotMatch(
-      source,
-      /executor-test|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
-    );
-    const fixtureImports = [
-      ...source.matchAll(/["'](\.\.\/tests\/support\/[^"']+)["']/gu),
-    ].map((match) => match[1]);
-    assert.deepEqual(
-      fixtureImports,
-      name === "verify-provider-real"
-        ? ["../tests/support/task-trial.ts", "../tests/support/task-trial.ts"]
-        : [],
-    );
-    assert.doesNotMatch(
-      source.replaceAll("../tests/support/task-trial.ts", "fixed-task-fixture"),
-      /tests\/support/,
-    );
-  }
-  const fixture = fs.readFileSync(
-    new URL("../support/task-trial.ts", import.meta.url),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    fixture,
-    /executor-test|mock\.|registerHooks|createExecutor|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
-  );
+test("隔離の明示契約は必須構成と未観測分類を保持する", async () => {
+  type RuntimeOptions = Parameters<typeof createDockerIsolationRuntime>[0];
+  const options: RuntimeOptions = {
+    settings: ISOLATION_SETTINGS,
+    paths: { tmp: "synthetic", management: "synthetic" },
+  };
+  // @ts-expect-error 所在借用は必須。
+  const missing: RuntimeOptions = {};
+  const extra: RuntimeOptions = {
+    ...options,
+    // @ts-expect-error 生Process実装を本番構成へ注入しない。
+    startProcess: () => null,
+  };
+  const runtime = createDockerIsolationRuntime(options);
+  const normalRelease: Extract<
+    ReturnType<typeof runtime.acquireHomeLease>,
+    { status: "acquired" }
+  >["lock"]["release"] = () => true;
+  assert.equal(normalRelease(), true);
+  // @ts-expect-error Homeの解放契約からLock File保持を指示できない。
+  normalRelease(true);
   assert.deepEqual(
-    [...fixture.matchAll(/from ["']([^"']+)["']/gu)].map((match) => match[1]),
+    Object.keys(runtime).sort(),
     [
-      "node:crypto",
-      "node:fs",
-      "node:path",
-      "../../../ai-adapter/src/index.ts",
-      "../../../docker-isolation/src/index.ts",
-      "../../src/index.ts",
-    ],
+      "acquireHomeLease",
+      "startCommand",
+      "startExecution",
+      "cleanupOwnedResources",
+      "verifyCleanupOutcome",
+    ].sort(),
   );
-  const candidate = fs.readFileSync(
-    new URL("../../scripts/verify-provider-attempt.ts", import.meta.url),
-    "utf8",
+  assert.throws(() => createDockerIsolationRuntime(missing), /input_invalid/);
+  assert.throws(() => createDockerIsolationRuntime(extra), /input_invalid/);
+  assert.throws(
+    () => createDockerIsolationRuntime(new Proxy(options, {})),
+    /input_invalid/,
   );
-  assert.doesNotMatch(
-    candidate,
-    /production_factory|createExecutorLifecycleTestRuntime/,
+  const deadline: DockerCommandExecutionClassification =
+    classifyDockerCommandExecution(null);
+  assert.deepEqual(deadline, { category: "deadline_exceeded" });
+  assert.deepEqual(
+    classifyDockerCommandExecution({
+      status: 0,
+      signal: null,
+      stdout: "x",
+      stderr: "",
+      outputExceeded: false,
+    }),
+    { category: "completed", stdoutBytes: 1, stderrBytes: 0 },
   );
-  const testAdapter = fs.readFileSync(
-    new URL("../../scripts/executor-test.ts", import.meta.url),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    testAdapter,
-    /export function createExecutorLifecycleTestRuntime/,
-  );
-  const host = fs.readFileSync(
-    new URL("../../scripts/provider-attempt-host.ts", import.meta.url),
-    "utf8",
-  );
-  assert.match(host, /createExecutor\(request,/);
-  assert.doesNotMatch(host, /acquireLock/);
-  for (const pkg of ["executor", "docker-isolation"]) {
-    const root = new URL("../../../" + pkg + "/", import.meta.url);
-    const manifest = JSON.parse(
-      fs.readFileSync(new URL("symbol.json", root), "utf8"),
-    ) as { symbols: { symbolId: string; path: string }[] };
-    const ids = new Set<string>();
-    for (const symbol of manifest.symbols) {
-      assert.equal(ids.has(symbol.symbolId), false, symbol.symbolId);
-      ids.add(symbol.symbolId);
-      assert.equal(
-        fs.statSync(new URL(symbol.path, root)).isFile(),
-        true,
-        pkg + ":" + symbol.symbolId,
-      );
-    }
-  }
+  const session: DockerCommandSession = {
+    cancel: async () => ({
+      cancellationRequested: true,
+      processTerminationObserved: false,
+    }),
+    completion: new Promise(() => {}),
+  };
+  // @ts-expect-error 試験表示は通常Sessionの契約に含めない。
+  const candidateFlag = session.productionAuthority;
+  assert.equal(Object.hasOwn(session, "productionAuthority"), false);
+  const namespace = await import("../../../docker-isolation/src/index.ts");
+  for (const name of [
+    "DockerIsolationRuntimeOptions",
+    "DockerIsolationRuntime",
+    "DockerCommandSession",
+    "DockerCommandSessionResult",
+    "DockerCommandExecutionClassification",
+    "DockerProcessExitStatusClass",
+  ])
+    assert.equal(Object.hasOwn(namespace, name), false, name);
+  void candidateFlag;
 });

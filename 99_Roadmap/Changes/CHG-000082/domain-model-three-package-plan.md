@@ -1833,3 +1833,262 @@ Rootの所在だけで必要性を判定せず、全18件を利用側とEffect�
 | Co実行資源・Task設計の追跡検査 | ともにaccepted |
 
 限定回帰は計62件成功。先行段階の結果を現候補全体の回帰成功へ読み替えない。Root109項目・validation由来九件は理由付きで残しており、全検査公開の撤去や最小性の証明を完了とは表示しない。全体回帰と実境界E2E、別途追跡中の残件は未実施・保留のまま維持する。
+
+### 14.33 Package全体の依存方向と試験Ownerの再整理（着手）
+
+基準版はb2bdf0d0c。人間は本番だけでなくscripts・bin・試験・fixture・型・動的importを含めた依存方向の是正と、試験を削減せず適切なOwnerへ移管する方針を採用した。書込みは現在Repositoryだけ。保存形式、CAS、Lock、認可、安全判定、失敗・回復情報を変更せず、実AI・Docker・全体回帰・過去保持物を操作しない。
+
+| 対象群 | 現在の問題 | 予定処置 |
+|---|---|---|
+| AD→Coordinator／DIの試験 | 利用側選定と技術配置の接続試験が下位にある | 接続試験をCoへ移し、AD単独検証はADへ残す。公開DI構成で足りる箇所は非公開参照を撤去 |
+| DI→Executor／EMの試験と補助 | 技術保証と用途別構成・保存Book検査が混在 | DI単独検証、Executor接続、Co保存接続へ責務単位で分離。既存反証を全数対応付ける |
+| Executor→EM／Coordinatorの試験・scripts | 上位保存と送信前検査が技術実行検証へ混入 | EMの値・遷移はEM、実行と保存の接続はCoへ。ExecutorにEM Adapterを残さない |
+| VC／CheckerのEM試験補助借用 | 上位の試験補助なしに単独検証できない | 各Ownerで必要な局所試験準備へ整理。製品モデル規則を複製しない |
+| EM→AD／DIの型と試験 | 永続契約の定義権限と技術契約が結合 | EMが保存形状を所有し、対応はCoで検証。意味のない実行時変換は追加しない |
+| Co→Workbench／MCP、同列Packageの試験 | 利用者入口の試験が下位にある | 各入口Ownerへ移管。上位から下位の非公開fixture利用も独立に評価 |
+| AMのEM向け型・文書解析 | 認可結果とモデル固有の接続が混在する候補 | 登録対象確認を削らずOwnerと適合点を確定してから処置 |
+
+最初の編集単位はADのselection-consumers Suite全体のCo移管とする。試験名・全assert・Trace・Suite識別子を維持し、OwnerとPath、直接依存、設計案内を追従する。新Facade・共通Package・互換Wrapperは追加しない。各単位の限定静的確認・該当試験と独立レビューを行い、全移管完了と部分成立を区別する。CRDD標準の準拠基準・決定権限は変更しないため準拠監査は起動せず、Package責務・試験追跡・依存方向の専門確認を適用する。
+
+EM公開案は107を最終固定せず、不要二入口の撤去に加え、二ReaderのreadState統合、回復完了二入口と回復履歴二入口の統合を推奨する。この六件削減が成立した案は103公開（68値・35型）。さらに三Stage保存を用途別入力のsaveRecoveryCheckpointへ統合できれば100公開（65値・35型）となるが、Authorityと保存順序を照合する前に確定・実装済みと表示しない。保存前検査を省略する統合や汎用Snapshot Writerは採用しない。
+
+第一単位ではselection-consumersの二試験をCoへ移し、全assertと試験名、追跡ID、安定Suite／Symbol IDを維持した。DI内部配置関数の直接参照は既存公開構成のlocations.primaryへ接続し、製品公開を増やしていない。VCは四箇所のSource抽出を同Suite内の局所補助へ閉じ、EMへのimportを撤去した。構文木のexact宣言選択・欠測・重複拒否・型除去を維持し、モデル検査や新しい共通Packageは複製していない。CoとVCの型検査、変更対象の整形・警告確認、移管二試験とVC局所二試験は成功した。着手前読取り確認は最終レビューとは別に記録する。残る移管群とEMの公開削減は未実装であり、現Root109はこの単位では変えない。
+
+第一単位の実装後独立レビューは必須残指摘なし。移動前後の二試験・26 assertと、Import／境界説明／公開構成への置換を除く試験本文の一致を確認した。VC局所補助もexport除去以外の関数本文と四呼出しを維持する。レビューは静的確認であり、親側が実施した限定四件の結果と区別する。
+
+### 14.34 EM保存型の所有権と技術契約適合（着手）
+
+AD／DIの実行時処理は変更せず、EMのExecutionSelection、OperationResources.snapshot、一次失敗のturnCountDiagnosticを同じProperty・値域・readonly性のEM保存契約として定義する。storage/lockのDIインライン型参照も同じ保存契約へ接続する。保存Schema・codec・検査本体・Hash・CAS・I/O順序・Root公開集合は変更しない。構造が同一の値に実行時コピーや変換Wrapperは追加しない。
+
+EM単独の資源Book値試験はEMの保存型を使う。AD選定・診断とDI技術Snapshotへの型適合は、第一単位でCoへ移管した既存Suiteで型の双方向適合を確認する。EM srcの静的／型／動的参照とpackage宣言にAD／DIを戻さない境界試験を追加する。既存のEM修復技術接続試験はこの型単位とは別の移管対象であり、単独試験やPackage全体の独立性を先行して完成とは表示しない。
+
+型Owner単位はEMの限定16件、Coの適合を含む三件と両型検査が成功し、実装後独立レビューの必須残指摘はない。AD／DI解決を拒否する新品NodeでEM Rootを読めることも局所確認した（保存・実行はしない）。Root109と保存検査は不変更。
+
+### 14.35 AD試験の生成子コードと配置連携のOwner移管（着手）
+
+通常import以外にcatalog-loading Suiteの生成子コードがEM Rootを起動していた。この試験は非公開化済みの旧Root理由定数を参照しており、AD配下からEMを操作する逆依存と旧公開前提が混在している。ADなしのEMロードはEMのITへ移し、子のerror／signal／exit／stdout確認と新品Processでの解決拒否を維持する。理由は現公開の全完了理由集合を親の同公開集合とexact比較する。AD拒否理由とEM保存語彙の対応は既存Co試験の10反例・exact理由集合・公開語彙包含の検証を維持する。UTへ子Process試験を追加せず、ITの台帳を登録する。
+
+同Suite先頭の本文・拒否理由・固定Schema検査はADへ残す。末尾の両Provider計画と実DI配置のループはCoの既存selection-consumersへ移し、Codex alternate／Claude primary、全Model／alias／Effort／Tool／Session／stdin条件を維持する。Coでは両Packageの公開APIを利用する。試験の削減や旧非公開Rootの再公開は行わず、Trace・既存Suiteの残る責務・新所在地を接続する。
+
+移管後のAD限定回帰で旧Schema Hash期待値一件が失敗した。Gitのa7618c6d0で承認済みのmaxItems／maxLength撤去前のitemArraySchemaと全体Schemaを読取り再構成し、旧期待Hash e07a0664…と一致することを確認。現SourceのSchemaはd7ff3776…であり、今回製品Schemaの差分はない。試験の固定期待値だけを現在の正本へ追従し、Hash検査や内容拒否を削除して通さない。元のHashは歴史上のEvidenceとして残す。
+
+最終限定セットはEMの公開境界・資源Book・Task値三Suiteで16件、Coの選定・型適合・配置連携で四件、AD Catalogで三件、EM独立ロードIT一件、Coの全10拒否理由とEM公開語彙接続一件の計25件が成功した。型OwnerのEM／Coと移管対象ADの型検査、対象TSの整形・警告確認とJSON読取りも成功した。AD Catalogの今回作成した一時fixtureは既存finallyで回収され、過去保持物は操作しない。
+
+独立レビューではSource・試験移管・登録に必須指摘なし、AD設計が解消済みDI参照を未処置とした記載一件を検出した。各Ownerへの移管済み範囲と残る他Package群を区別して是正した。全体回帰・実AI・実Dockerを実施済みとは表示せず、DI／Executor／Co／AM等の依存移管とEM公開入口統合は継続対象とする。
+
+最終自己確認ではSelectionの比較対象を相手型のkeyofからではなく、保存契約の技術五fieldへ固定した。相手側のfield削除に比較対象まで追従して欠落を隠す反例を防ぐ。Coの型検査と四件を再確認し、文書是正と併せた独立再確認の必須残指摘はない。
+
+### 14.36 DI／Executorの試験基盤借用の撤去（着手）
+
+EMのtests/supportから借用するSource宣言抽出と新品Repository-local試験Root管理は、EMモデル規則ではなく試験準備の技術処理である。DI／Executorそれぞれの既存tests/supportへ局所化し、各Package単独で準備と清掃を行えるようにする。製品API・Facade・新しい共通Packageは追加しない。構文木のexact宣言・型除去・重複拒否、Root実体確認・未知状態での停止・同一実体だけの清掃を変えず、元Suiteの試験名とassertを維持する。
+
+対象はExecutorのcontroller／notifications／binding／attempt-common／provider-real-cliのSource抽出、report.integrationのRoot管理とその本文反証、DIのeffect-cleanupのSource抽出とrepair-directory-disposalのRoot管理。変更キーは各FileのEM補助importと、report.integrationの補助Source所在だけ。型検査・対象の整形と警告確認、局所代役又は今回の新品Rootだけを使う限定試験で確認する。既存の試験補助実装を各Ownerへ局所化することと、EM資源Bookを使う接続試験・検証CLIのOwner移管を区別し、この単位だけで下位Package全体の独立性を主張しない。
+
+四つの局所補助を各Symbol正本へ登録し、八利用Fileの元試験名65件・assert呼出し657個を変更前後で維持した。モデル規則は複製せず、試験基盤の必要なアルゴリズムだけを独立所有する。両Package型検査と対象TSの整形・警告確認は成功。限定範囲はExecutorのcontroller／notifications／bindingで12件、reportの新品Rootと故障模型で二件、attempt-commonで16件、provider-real-cliの純粋Reader一件、DIのHome技術排他一件と退避Root回収三件の計35件が成功した。全65件の実行成功とは主張しない。
+
+DI退避RootのWindows実体試験は初回Junction作成が環境権限のEPERMで停止した。作成済み新品Rootは登録済み終了処理で回収され、exact Pathの不存在を確認した。同じ一件だけを許可された権限境界外で再実行し成功した。試験条件、製品の安全判定、Timeoutを変更せず、実Docker・実AI・過去保持物は操作していない。
+
+実装後の独立レビューは必須残指摘なし。四補助の関数本文同値、八Fileの65試験・657 assert維持、旧EM補助参照0、Symbol／設計追従を読取り再確認した。これは残るモデル接続・検証CLIの移管や、全試験回帰の完成を意味しない。
+
+### 14.37 Executor通知とEM記録・理由語彙の接続試験移管（着手）
+
+Executor単独の理由凍結・一意性・用途Map・全理由受理・未知拒否はExecutorへ残し、EM公開理由列とのexact比較だけをCoの既存provider-advice-output Suiteへ移す。固定値コピー・型Unionだけへの弱い置換・新たな製品公開は行わない。現公開IFでは実列を取得できないため、Coのこの比較試験に限り実Producerの内部定数を読む。試験上のexact列比較を製品Consumerの深い参照許可へ拡張しない。
+
+attempt-commonの16試験中、通知をEM資源Bookへ適用する一試験をCoのunit/execution/resource-recordへ移す。元の有限技術fixture実体はExecutorのtests/fixtures/attempt-executionへ一意に配置し、残る15試験とCo接続試験が同じ実装を利用する。準備・開始・取消と各呼出しの新しい状態、全故障条件を維持し、Book規則はfixtureへ入れない。登録済みの有限Producerを使う試験限定の接続であり、製品API・一般的な試験起動許可・実Docker／耐久保存の成立ではない。元test名・assert・Traceを維持し、移管先／fixtureのSymbolと台帳・設計を追従する。
+
+直接import撤去後の閉包確認で、単独UTがisPrimaryFailureDiagnosticをEM記録Hostから読む間接依存も確認した。純粋診断検査と専用exactKeysの実体をExecutor内scripts/provider-diagnosticへ移し、Hostの旧export／旧importを撤去する。単独UT・実試験CLI・上位の検証scriptはこの純粋実体へ直接接続する。理由・用途・各field相関の検査を複製せず、I/O・モデル記録・Root公開・Wrapperを追加しない。記録Hostと実試験CLI自体の上位移管は引き続き別群とする。
+
+混在した理由試験は、下位の技術単独検証とCoの接続比較という二名称へ分け、元のexact列比較は順序・全要素を含めて維持した。通知接続試験は元のtest名を維持する。移管前の三Suiteと、移管後の四Suite＋単一fixtureのassert呼出しは合計190個で一致する。固定値コピーや試験の削減で依存を除去していない。
+
+Executorの二Suiteで18件、Coの記録接続と理由／Provider出力二Suiteで12件、CLI先行hookと現行Source／Symbolの限定二件、計32件が成功。Executor・Co・Workbenchの型検査と対象の整形／警告確認も成功した。EM／CoのModule解決を拒否した新品Nodeで、局所診断と有限Producerの開始・Completion・回収成功を確認し、直接importを隠しただけの間接依存ではないことを局所反証した。実AI・実Docker・過去保持物・全体回帰は操作しない。
+
+実装後の独立レビューは必須是正指摘なし。fixture本体と純粋診断検査の同値、全190 assertの保持、理由列比較の上位移管、通知接続試験の本文、登録と残件の区別を読取り確認した。レビュー担当は試験を再実行しておらず、32件の実行結果は親側の限定検証として区別する。既存Symbol IDにCoordinator名が残るものも、実体の登録先はExecutorのsrc/lifecycle/attempt.tsであり、名前だけから逆依存と判断したり安定IDを改名したりしない。
+
+### 14.38 次の検証CLI移管群の依存閉包（調査）
+
+記録Hostの移動だけではExecutorのEM依存は閉じない。verify-provider-realはEMのBook検査と保存失敗型を直接読み、provider-attempt-hostはEMへの記録を行う。両者はCo側の検証接続Ownerへまとめて移す対象であり、旧入口を転送Wrapperとして残さない。ただし、単独技術検証のverify-provider-attemptとHome境界検証のverify-provider-homeもruntime-dataを共有するため、この補助を一括でCoへ移すと新たなExecutor→Co依存が生じる。
+
+| 接続 | 現状と次の処置 |
+|---|---|
+| runtime-dataのEM参照 | 保存処理ではなく、Ignore登録失敗をExecutionStorageBlockedErrorへ変換する箇所。技術的な失敗観測を維持し、EM保存用の例外への変換を記録Ownerへ戻す。例外名だけを変えた独自互換型は追加しない |
+| 記録Hostと実試験CLI | 両実体と対応する接続試験、package起動入口、Symbol、台帳、文書を同一単位で上位へ移管する |
+| CLIの先行読込み禁止hook | 現在はCoordinatorの全Moduleを禁止する。移管後は検証script自身と製品Coordinatorの起動禁止を区別し、静的依存変異を拒否する既存反証を保持する |
+| モデル側のConsumer Closure試験 | storage-consumer-closure内に旧scriptのPathがある。実Consumerの新Ownerへ追従し、移動だけで試験対象を欠落させない |
+| VCのConsumer接続試験 | VC配下にもこれら上位scriptを対象とした検査がある。技術単独検査と上位接続を分離する対象であり、上位Pathを新Pathへ置換するだけでVCの依存是正完了としない |
+
+本節は移管前の影響整理であり、このCLI群の移管・EM公開入口統合は未実装。記録形式、失敗理由、Effect情報、回収未確認、保存順序、既存の先行拒否を変更する許可とは扱わない。
+
+### 14.39 試験領域準備のEM例外依存の除去
+
+変更分類はPackage内部の責務分離。着手前にOwner、三Consumer、失敗の搬送先、既存試験の代役を照合し、独立読取り確認で着手可とした。追加のManager・例外型・Wrapperは作らない。標準のError/causeによるProcess内の情報保持と、既存CLIの明示JSON搬送は別の契約として確認する。準拠基準・保存形式・決定権限を変更しないため準拠監査は行わず、依存方向・失敗情報・試験追従の独立レビューを行う。
+
+runtime-dataのrequireReadyはreadyを同参照で返し、nullは従来のinvalidReason、blockedは標準Errorのcauseへ元結果を同参照で保持する。理由、Effect発行／不明、回収、再試行、exact回復参照とeffectConfirmationを捨てない。実試験CLIは直前のensure結果がblockedの場合だけ既存ExecutionStorageBlockedErrorへ渡し、従来のJSON項目を維持する。Ignore登録・Directory確認・作成順序・Link拒否は変更しない。
+
+旧CLI試験のModule代役二名が旧ExecutionData名のままだったため、現実体のRuntimeData名へ追従した。元のEffect0と公開失敗fieldのexact比較を保持する。既存public-boundary Suiteへ、新品NodeでEM／Co解決と書込み／Process起動を拒否し、補助と単独二入口の読込み、ready／null／blockedの扱いを検証する一件を追加した。既存SuiteのSymbol／台帳へ検証対象と終了条件を追加し、Suite・公開APIは増やさない。
+
+限定検証は新しい技術補助一件、既存CLIのEffect前拒否・先行hook二件、Source／Symbol接続一件、Home排他Requestの純粋一件の計五件が成功。Executorの型検査、対象TSの整形と警告検査、JSON二正本の読取りと差分空白検査も成功した。試験内の書込み禁止は列挙したAPIと現在の読込み閉包を対象とし、将来の任意I/Oすべての不存在証明とは扱わない。CM側は旧名の非公開確認だけであり変更非該当。実装後独立レビューは必須是正指摘なしで、レビュー担当は読取りのみ、五件の実行は親側の検証である。全体回帰・実AI・Docker・実Home・過去保持物は操作していない。検証CLI／記録Host本体の上位移管とEM公開入口統合は引き続き未完了。
+
+### 14.40 EM記録を行う検証CLI／Hostの上位移管
+
+着手前に全import、生成子コード、fork先、Repository Root導出、Source走査、起動入口と登録、VC／EM Consumer集合を照合し、独立読取り確認で着手可とした。実装責務と試験Ownerの変更であり、工程規範・保存形式・権限判断は変えない。技術／品質の独立レビューと追跡・文書確認を実施し、全体回帰と準拠監査、実AI／Docker検証は実施しない。
+
+provider-attempt-hostとverify-provider-realの実体、対応する二IT Suite（計九試験・208 assert）をExecutorからCoの同じ深さへ移した。Root導出、記録Intent／Receipt、Completion、取消、Timeoutと回収の順序は維持する。Executor public-boundaryから、Co SourceとTool接続を確認する二試験（17 assert）および専用OracleをCoのprovider-verification-boundaryへ移す。元の安定Suite IDは名前だけで変更せず、OwnerとPathを追従する。新しい接続Suiteは既存QA／Traceへ登録する。
+
+技術補助のprovider-home／report／runtime-data／provider-diagnosticと有限task-trial／Source抽出はExecutorに残し、Coから明示的に利用する。製品Root公開、転送Wrapper、独立Lifecycleは追加しない。Executor側の独立ロード検証に残ったEM事前読込みとモデル拒否解除も撤去し、モデルを読めない条件を維持した。CLI先行hookはCoのsrc／binを拒否し、移管先の検証script自身を許容する。変異試験は製品Module評価零を維持する。
+
+起動入口をCoのverify:providerへ移し、両Symbol・台帳・Co型検査対象・正式QAと設計、VC／EMの現行Path一覧を追従した。VC配下の上位接続試験自体のOwner不整合や、DIの用途混在fixtureの整理は未完了であり、Path追従だけで全Package依存是正完了とは表示しない。
+
+限定回帰の初回14件中12件が成功し、二件で追従漏れを検出した。一件はCLI計画試験の生成子コードに残ったCo全体拒否hookであり、製品src／bin拒否へ追従した。他方はbe14e5babで撤去済みのsettlement.tsへの既存Source参照である。Git履歴と現行persistence／operationの終了観測搬送を照合し、検査対象を元観測Ownerのoperationへ更新した。assertは削除せず、元Factoryの一意性・深い参照拒否・逆照会拒否を維持する。二件とSymbol接続の計三件を再実行し全て成功した。既存十二件と合わせ限定十四件の各条件が成功。Source／Symbol検査は移管先Coも走査対象へ加えた。
+
+Co本番／試験とExecutorの型検査、対象TSの整形・警告検査、JSON読取り、差分空白確認を実施した。新品の合成試験物は各既存試験の回収Oracleで処置し、過去保持物は操作していない。実AI・Docker・実Home・全体回帰は実行していない。EM Rootの公開数は109のままで、本移管をEM公開削減の完了とはしない。
+
+Checkerの安定Suite／Symbol参照を含む意味接続の局所一件も成功し、限定検証は計15件となった。独立レビューでは、二scriptの処理本文、九試験・208 assert、接続二試験、上位読込み拒否、全搬送経路と現在参照、登録／文書に必須是正指摘なし。レビューは読取りのみであり、15件の実行結果は親側の検証として区別する。残るExecutorのtask-summary-observationのCo機密検査接続、DIの上位型／混在試験、Coの上位Consumer試験、VC内の上位接続検査、AM境界とEM公開統合は別途継続する。
+
+### 14.41 Workbench診断表示の観測処理と試験のOwner移管
+
+変更分類は検証処理の責務移管。最初は機密検査接続だけの分割を検討したが、唯一の外部ConsumerとTrialReportの意味がWorkbench専用であることを確認し、処理と二試験を同Ownerへまとめる方針へ修正した。着手前の独立読取り確認で着手可。Executorへモデル・表示の知識を残したまま試験だけを分けたり、新fixture／Facadeを追加したりしない。準拠基準や権限判断は変えず、依存方向・元結果保全・表示／非保存・専用子終了と追跡の独立レビューを実施する。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+task-summary-observationのscriptと二試験をWorkbenchの同じ深さへ実体移管し、唯一の利用側verify-workspace-summaryを同Ownerへの直接importへ接続する。通常／動的／生成子コード内のExecutor ConsumerとattemptPlan参照は明示的な下位Pathへ追従する。元normalizerの引数・返却参照・例外、説明文表示条件・機密検査・非保存・restore、明示承認／対話端末Gate、子の終了と全assertは維持する。元Suite／Symbol IDとTraceを保ち、Owner／Pathと正式QA・設計を追従する。旧詳細はExecutorへ複製せずWorkbenchを正本にして案内だけを残す。これはModule計測付き合成診断であり、通常の無計測E2Eや機密不存在の証明へ拡張しない。
+
+二試験・34 assertを維持し、移管前後のscript本文と試験本文はOwner説明・参照先・整形を除いて一致する。限定二試験と、安定Symbol／Suite IDを読むChecker一件が成功した。WB／Executorの型検査、対象三Sourceの整形・警告確認、JSON三正本の読取りと差分空白確認も成功。試験物は合成値と新品子ProcessだけでFilesystem上の保存物を作らず、各子の終了を確認した。現行Executorのscripts／試験に上位EM／Co／WBの実importは残らず、上位Moduleを拒否する反証文字列は残す。DI等の別Package群とEM公開入口統合は未完了のまま区別する。
+
+実装後独立レビューでは、旧表示詳細のうち結果記録と試験物処置の相関を説明する一段落がExecutorに残った追従漏れを検出した。同文のままWorkbenchの新正本へ移管し、Executorには案内だけを残した。再レビューで保証の削除・重複なし、必須残指摘なしを確認した。レビュー担当は読取りのみであり、三件の限定実行は親側の結果として区別する。
+
+### 14.42 DI技術通知とEM記録の接続試験移管
+
+変更分類は試験Ownerと依存方向の是正。DIのisolation-lifecycleにある20試験のうちEMを利用する二試験を特定し、独立読取り確認でCoへの移管を着手可とした。各test／t.test、全assert・JSDoc・拒否／取消ケースとCompletion待機・代役復元を維持する。技術判定・保存契約・公開API・権限は変えず、技術／品質の独立レビューと追跡／文書確認を行う。準拠基準の変更や全体回帰、実AI／Docker・過去保持物の操作は対象外。
+
+作成Receiptの検査前通知からEM Bookへの記録・回収観測を確認する試験と、両Providerの実Executorから実DIへの共通接続試験を、Coの新isolation-resource-record Suiteへ移す。DIには18試験・143 assertを残し、Coへ二試験・42 assertを移し、元の計20試験・185 assertを保存する。DI Sourceや公開型は変更せず、実DIへ接続する有限fixtureを一意に利用する。captureIsolationRequestはfixtureへ入力を結合するための限定内部参照であり、新公開APIにしない。二つの固定設定文字列は同形の合成入力で、実環境探索や共通設定機構を追加しない。
+
+通常／型／動的参照とmock.moduleのDI参照先を新Ownerからの同じ実Moduleへ接続し、元の二試験名と全子ケースを維持する。DI SuiteからEMと不要となった入力捕捉importを撤去し、ヘッダーを技術単独の責務へ追従した。新Co Suiteと既存有限fixtureをSymbolへ登録し、台帳・正式QA・DI／Co設計を追従する。旧有限Session群のExecutor型依存や、package-boundary内の上位Source検査は別残件として残す。
+
+限定した両Suiteで、20個の親試験と53個の子ケースの計73件が全て成功した。Co本番／試験・DIの型検査と対象Sourceの整形・警告確認も成功。有限Filesystem／CLI／Processを使い、物理保存の耐久性、実AI・Docker・実Homeを検証したとは扱わない。
+
+Checkerの安定Symbol接続一件も成功し、限定検証は計74件。JSON三正本の読取りと差分空白確認も成功した。独立レビューは必須是正指摘なし。二試験の本文同値、親試験20→18＋2、assert185→143＋42、t.test記述8→6＋2と各ループ、同じDI実体への接続、記録・回収順序と登録／文書を読取り確認した。74件の実行は親側の結果で、レビュー担当は再実行していない。
+
+### 14.43 旧有限Sessionの型を実装Ownerへ統合
+
+変更分類は試験契約の宣言Owner是正。Session実装がDIの試験補助にある一方、結果・通知・回収の五型だけをExecutorの試験用scriptから逆参照していた。五宣言を実装と同じDIのsession.tsへ一意に移す方針を独立読取り確認し、着手可とした。製品Source・Root公開・実行ロジック・安全判定・保存形式は変更せず、型適合と要求・取消・回収の有限回帰、追跡／文書と独立レビューを行う。準拠基準の変更、全体回帰、実AI／Docker・過去保持物の操作は対象外。
+
+DockerSessionCleanup、DockerExecutionCallbacks、DockerSessionFailure、DockerCommandSessionResult、DockerCommandSessionの元宣言をDI有限Sessionへ移し、元のSnapshot・観測・分類・終了値とOptional field・通知の同期／非同期条件を維持する。purposeは文字列一般へ広げず、同じ既存九要素のPURPOSES[number]へ結合する。観測・SnapshotはDIの既存正本型、回収観測は既存の局所試験型を使う。空type importを撤去し、Executor-test・DI実行補助・Session試験・公開境界試験・Executor legacy-snapshot試験を宣言元へ直接接続する。旧宣言のコピーや再export、Wrapper、新ファイル・共通Packageは追加しない。
+
+型検査でlegacy-snapshotの旧Import一件を検出し、元の型・assertを変えず新Ownerへ追従した。整形の初回はWindowsのFile mapping競合で停止したが、利用者Processを停止せず、後の同じ対象への整形で成功した。Sessionの処理本文・試験assert・期限は変更しない。今回の切出しは五型の逆依存だけを対象とし、他のOptions／Home Lease／固定構成／Probe評価型の上位依存、package-boundary内の上位検証は後続に残す。
+
+Co型検査でdocker-effect-runtime試験の旧Callback Importも一件検出し、宣言元へ直接接続した。全Import列の再走査で五型の旧宣言元参照が残らないことを確認した。Session有限試験のSymbolは実際のfixture Ownerへ対応付け、製品共通operationsへの検証関係は実共通Lifecycleを通るSuiteへ結合する。Co接続の検証対象にも実際の有限Sessionを追加し、fixture検証だけから製品実行成立を主張しない。
+
+DI SessionとExecutorのlegacy-snapshot・通知・binding・controllerで23件、DI公開境界の構成・未観測契約一件、Co binder／回収結果の二件とCheckerのSymbol接続一件の計27件が成功。DI／Executor／Co本番・試験の型検査、変更七TSの整形と警告確認、JSON読取りと差分空白確認も成功。構文抽出でSessionの説明・実行・有限候補の三関数本文が元の実装と一致することを別途確認した。保存・Host実体・実Process・Dockerの操作は行っていない。
+
+実装後独立レビューは必須是正指摘なし。五宣言のProperty・Optional・null・通知同期性と九purposeの同値、実行／取消／Cleanup本文と期限の不変更、旧宣言／再export不在、確認した全型Consumerの直接接続と登録／文書の区別を読取り確認した。27件の実行結果は親側の検証であり、レビュー担当の再実行とは扱わない。
+
+### 14.44 有限Runtimeの設定・Home Handle・Probe評価型の局所化
+
+変更分類は試験契約の上位型依存撤去。既存の下位設定・Lock・戻り値から表せる三型を特定し、独立読取り確認を行った。Homeの単純なPickではLock.releaseの保持引数まで開放するとの指摘を受け、生存確認だけをPickし、解放は従来の引数なし戻り型へ限定する計画へ修正した。製品Source・Root公開・値処理・安全判定・保存形式は変えず、型の境界・有限回帰・登録／文書と独立レビューで確認する。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+createDockerIsolationRuntimeの引数へ、必要なIsolationSettingsと二所在を必須・readonlyのまま直接宣言する。内部の所在型と既存の構成型負例は同FactoryのParametersへ接続し、上位Optionsのimport／再exportを撤去する。Home取得の戻り値はLockのassertLiveと引数なしreleaseだけに限定し、利用側はその取得関数のReturnTypeを使う。実Lockを取得しない型負例を既存試験へ加え、release(true)が型エラーになることを固定する。
+
+Probe評価の上位型注釈を撤去し、既存のObject.freeze・閉じたas const状態値を返す分類実体から型推論する。非同期ProbeはそのReturnTypeを参照し、状態・理由・欠測fieldを維持する。互換型のコピー・再export・新しい型ファイルは追加しない。固定構成入力DockerIsolationCommandInputは製品側でも利用されるため、この三型と混ぜて移管せず別Owner調査に残す。EMの子読込み検証のOwner分離も別残件。
+
+Probeの純粋分類五件・非同期搬送一件、Home排他要求一件、構成型と未観測分類一件の計八件が成功。DI／Executor／Co本番・試験の型検査、対象四TSの整形・警告確認と差分空白確認も成功した。構文抽出でFactory・Home取得・Probe分類・非同期Probeの四関数は、型を除去した実行本文が元と同一であることを確認した。実Lockや実Homeを取得せず、外部資源・保存物は作成しない。Symbolでは有限Probe・Runtimeの実体を登録し、各関連試験を実際の有限実体へ接続する。
+
+CheckerのSymbol接続一件も成功し、限定検証は計九件。独立レビューでは設定・二所在の必須性とreadonly、Home解放の引数制限、Probeの状態値域・nullable情報、型依存撤去と値処理の不変更、登録／文書の保証範囲を読取り確認し、必須是正指摘なし。九件の実行結果は親側の検証であり、レビュー担当は再実行していない。
+
+### 14.45 固定構成OracleのOwnerと依存閉包の是正
+
+固定構成入力は製品Executorが構築し、DI製品は旧形式を使用しない。Git履歴2cbbfd271／197af14b6と現行有限検証を確認し、旧argv Oracleと有限Runtimeの入力OwnerをExecutorへ揃える計画を独立読取り確認した。構成型のコピーでDIの逆依存を隠さず、実装・利用側・試験Ownerを同じ閉包で移す。製品Source・公開API・安全判定・期限・保存契約は不変更。型・有限の失敗／取消／回収・Source同値、登録／文書と独立レビューを実施する。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+execution-plan／executionの実体をExecutorのtests/support/isolation-plan／isolation-executionへ移し、全通常・型・動的・Source読取りとCo Consumerの参照を追従する。Sessionの九purpose＋readonly argv型はDI Sessionの実装Ownerへ一意に移し、各型Consumerを直接接続する。旧Rootや型の再export、互換Wrapper、新しい共通Packageは追加しない。DIの固定構成型への四参照はなくなり、InputはExecutorの構成と有限Oracleの間で完結する。
+
+plan13試験・Effect cleanup15試験をExecutorへ全体移管し、元Suite／Trace IDを維持する。Runtime混在17試験はDI二試験＋Executor16試験へ分ける。実物Resolverの全11条件とDirectory実体検証はDIへ残し、旧argvへSeccomp所在を渡す二assertをExecutorの独立試験へ移す。実物の所在・bytes・hashの読取りは各caseの入力であり、検査規則を複製しない。残る15試験と専用runtimeFixtureはExecutorへ移管する。旧Factory・型・未観測分類一試験はExecutorの既存public-boundaryへ移す。対象は元46親試験から責務分割後47親試験となり、計331 assertを維持する。
+
+両manifestと台帳は全体移動のOwner／Pathと分割Suiteを追従し、安定IDは改名しない。旧有限Oracleの正本案内はExecutorへ移し、DIには技術境界と比較履歴の所在を残す。DIのEM子読込み検証はこの固定構成閉包とは分け、次単位で扱う。
+
+限定回帰はExecutorの移管三Suiteと既存公開境界で48件、DI実Resolver一件・有限Session十件、Co binder／回収結果二件、Checker一件の計62件が成功した。DIのDirectory実体試験は本文を維持したまま未実行とし、Junctionを追加作成していない。実行済み有限試験の自己生成Rootは既存の終了Oracleで回収され、過去保持物は操作しない。DI／Executor／Co本番・試験の型検査と、変更先・利用側の対象TSの整形・警告確認を実施した。移管に伴うImport順の整形後に再確認し、Sourceの安全判定を変更して通していない。
+
+Executor既存plan／binding四件も成功し、限定検証は計66件。独立レビューでDI設計の旧「型の所有」一段落が現Ownerと矛盾する残存を検出した。固定構成と有限Runtime、DI Session、共通Lockの引数なし投影、Probe推論、製品認証を分けて是正し、試験型のRoot非公開条件は維持した。Source・試験本文の同値と全数対応は読取り確認で必須指摘なし。66件の実行は親側の結果であり、レビュー担当は再実行していない。
+
+是正後の独立再確認で、型Ownerの区別と試験型非公開を確認し、必須残指摘なしとなった。
+
+### 14.46 各Rootの独立ロードを各Ownerへ戻す
+
+DIのpackage-boundaryがDIとEMを起動する二枝を持っていたため、EM枝を既存EMのpackage-boundary ITへ移す。独立読取り確認で着手可とした。各枝の子error／signal／exit／marker四assertを維持し、元の二子の検証を親一件から二件へ分ける。DI専用の保存API／業務Parser非公開確認はDIへ残す。元JSDocにあった回復ID解析は実際には行われていないため、Moduleロードだけの説明へ合わせる。製品Source・API・保存は変更しない。
+
+DIの拒否対象は既存上位モデル・Coに加えExecutor／Workbench／MCPを明示し、Own Rootだけを起動する。実Sourceで参照がないProviderAdvicePlan型を特別に許可する試験Helper分岐も撤去し、元の同じ文字列を拒否負例へ変える。型・再export・動的importの禁止例にもExecutorを加え、検査を弱めない。製品の入力制約や新しい実行時検査を追加した処置ではない。
+
+既存EM SuiteへERB-IT-014とQA-000006、DI Suiteにも元Traceを登録し、台帳終了条件・正式QA・両Owner設計を追従した。新Suite・Wrapper・許可例外・共通Packageは追加しない。DI／EMの限定二Suite八件とChecker一件が成功し、両型検査・対象Sourceの整形と警告確認・差分空白確認も成功。新品Nodeの終了を確認し、試験保存物やDocker／AI Processは作成しない。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+独立レビューは必須是正指摘なし。二枝・各四assert、DI専用の非公開確認、EM側のDI拒否と処理非追加、未使用許可例外の拒否化、登録／文書と保証範囲を読取り確認した。試験実行は親側の結果であり、レビュー担当は再実行していない。14.45と14.46の限定確認は重複するChecker一件を除いて計74件。DIの現在のコード・起動設定に残る上位Path文字列は拒否用の負例であり、上位Rootを起動するConsumerではない。全PackageのOwner移管とEM公開統合は引き続き未完了として追跡する。
+
+### 14.47 公開MCP検証Toolと専用試験のOwner移管
+
+変更分類は検証Tool・試験の依存方向是正。公開MCP入口を起動しMCP結果Parserを使う二scriptと専用Node fixture・47試験を、CoordinatorからMCPへ一括移管する。着手前の独立読取り確認で、この閉じた利用集合の移管を妥当とした。製品Source・Root公開・保存形式・Timeout・報告契約IDと改訂13・固定marker所在・回復順序は変更しない。技術／品質の独立レビュー、登録と文書の伝播確認を行い、準拠基準の監査・全体回帰・実AI／Docker・過去保持物の操作は対象外とする。
+
+相対参照は元と同じModule／Sourceへ結合し、旧Pathの転送やParserの複製は置かない。既存の安定Suite／Symbol IDとQA項目を維持してOwner・Path・verifiesを実接続へ合わせる。Coのstrict対象から旧CLIを除き、MCP型検査は二scriptだけを明示追加する。VC／EMの現在Consumer一覧、設計・Workflow・正式QAとTrace台帳も新所在へ追従する。
+
+最初の限定実行は47件中41成功・6失敗だった。旧HEADにもあるSource契約不整合を切り分けた。現Producerと試験値はv3だがReportはv2だけを受理していたため、Tool側を現v3のみへ追従する。旧v2と未知Scopeを拒否する負例を維持／追加する。また、既に一引数となったReaderを試験代役だけが旧64KiB引数必須としていたため、現行の引数数とexact引数列を検査する。製品判定や容量条件を緩める変更ではない。修正方針も独立読取り確認を経た。
+
+再実行は47件すべて成功、MCP本体・起動入口とCo本番／試験の型検査、対象Sourceの整形・警告確認とCheckerの安定Symbol接続一件も成功。全47試験・289 assertを維持し、旧v2拒否ケースを追加した。固定Node子の終了・取消・遅延通知を確認し、実Provider CLIは起動しない。実AI・Docker・耐久保存や全Package完成の証拠にはしない。Coの他の上位Consumer試験とEM公開統合は別の残件として追跡する。
+
+完成後の独立レビューは、人間向け現行設計対応表の旧所在三箇所を検出した。機械可読Trace台帳と同じMCP所在へPathだけを追従し、分類・状態・保証は変更しない。是正後の読取り再レビューで指摘解消と必須残指摘なしを確認した。限定48件の実行結果は親側のEvidenceで、レビュー担当は再実行していない。
+
+### 14.48 利用側Source接続の確認を各Ownerへ分離
+
+変更分類は既存試験のOwner是正。着手前の独立読取り確認で、Coのpublic-owner-boundaryに混在する上位二Sourceの確認を、既存WBのai-shared-task ITとMCPのruntime-activity-adapter ITへ分ける案を妥当とした。Coの旧参照拒否・自己迂回拒否・変異拒否の三assertは同じSuiteへ残し、利用側各一assertをそのまま移す。計五assertを保持し、対象Sourceと正規表現を変えない。新Suite・Facade・Wrapper・製品Source／公開API変更はない。
+
+既存のPRL-IT-012／QA-000003を移管先へ関連付け、Symbolのverifiesと台帳の終了条件、各Suiteの責務・scope、三Owner設計と正式QAを追従する。整形・import順序だけの既存不整合は対象三Sourceで是正した。Source配線の確認であり、認可・Reader終了・HTTP／MCP疎通の実成立へ拡張しない。新しい正式検証項目は作らない。
+
+限定した三試験すべて成功。Co本番／試験・WB・MCPの型検査とCheckerの安定Symbol接続も成功した。Source読取りとメモリだけの確認で試験保存物・AI／Docker Processは作成しない。全体回帰・実AI・Docker・過去保持物は操作していない。独立レビューは五assert・元の変異負例・各Ownerの登録／文書を確認し、必須残指摘なしだった。Coの実Workspace結果→MCP投影と回復→WB検証HTTPの結合試験は、引き続き別の移管残件である。
+
+周辺のMCP Reader完了／取消二試験も成功。一方、既存Co公開集合試験で、be14e5babで導入済みのinspectCoordinatorDecisionResultが期待一覧から一件欠測していた。現行Root・実装・採用計画を照合し、独立読取り確認を経てexpectedへ一要素だけ追加した。exact集合比較・非公開確認・製品APIは変更しない。是正後のCo公開集合・自己迂回二試験は成功、独立再確認でも指摘なし。重複を除いたこの区切りの限定七試験が成功し、初回の失敗を履歴として保持する。
+
+### 14.49 実ObjectiveのMCP結果投影を利用側へ移管
+
+変更分類は結合試験のOwner是正。Coのworkspace-lifecycle末尾の一試験は、実Objective受付・保存・Workspace観測から本物のMCP結果Parserまでの利用側接続であるため、既存MCP runtime-activity-adapter ITへ全文を移す。着手前の独立読取り確認で妥当とした。実Git／保存を使う共有準備・観測三関数は既存Co workspace-surface fixtureへ一意に移し、両Suiteが利用する。新File・共通Package・Wrapper・製品Source／API・保存／Timeout変更はない。
+
+全assert・有限Provider・開始通知の待機・二Taskの観測、HEAD不変・Queue状態とexact Root清掃／不存在の確認を維持する。元のprepareWorkspaceSurfaceは変更しない。両所在が同階層のため、試験Rootは元と同じRepository-local .crdd/testsである。元ヘッダーのNative排他という古い説明だけを既存共通排他へ合わせる。CoのMCP importを撤去し、試験のために下位Rootを拡張しない。
+
+Symbol・verifies・台帳・scope・両Owner設計・正式QAを追従した。§14.48前の基準は対象三Source計19試験・277assert、§14.48のMCP Source一試験・一assertを含む現候補は計20試験・278assertであり、この移管では増減がない。MCP本体・Co試験の型検査と対象Source整形／警告確認が成功。移管した実Objective一試験と同じfixtureを使うCo Direct搬送一試験は約61秒で双方成功し、各終了hookで今回のRoot回収・不存在を確認した。実AI・Docker・全体回帰・過去保持物は操作していない。Checkerの登録接続確認も成功。独立レビューは移管本文と三helper・既存prepareWorkspaceSurfaceの同値、Root・通知・清掃条件と登録の保持を確認した。記録の親試験数に正規表現の.test呼出しを誤算入した一件を訂正し、試験の増減ではないことを明記した。是正後の読取り再確認で記録の一致と指摘解消を確認し、必須残指摘なし。Co回復→WB検証HTTP結合とEM公開統合は残件として追跡する。
+
+### 14.50 AMのモデル型結合と二つの実接続試験
+
+変更分類は型Ownerと試験Ownerの是正。独立読取り棚卸し・着手前確認を経て、AMのRepositoryContentAccessを既存repository/types.tsに置き、EM ExecutionModelAccessのimportを撤去した。七操作・Target二項目・readonly・Repository型と五許可／二拒否の本体は維持する。Root公開は増やさず、返却値のコピー・認可Wrapperは追加しない。
+
+AMに混在した実EM Writer一試験と実DM本文／Portfolio一試験を、既存Workbench runtime-definition／management ITへ全文移管する。元のAM fixtureを一意に再利用し、全assertと真正Writer／Reader・清掃を保持する。同じ実accessの双方向代入と参照同一性の一assertを追加し、モデルがAM型を知る逆依存を作らない。既存RFD-IT-013／019・QA-000007・Symbol／台帳と両Owner設計を追従する。
+
+AMのDM Parser／Filesystem ObserverとCM Manifestは、登録時のPROJECT_CONTEXT・Manifest三Identity照合と現在の内容認可で必要な実依存である。今回のEM型結合とは区別して維持し、登録保証を失わせる機械的な撤去はしない。変更には登録責務の別設計が必要となるため、これらを未処置のEM逆依存とは扱わない。
+
+移管二試験とAMの現在版／失効／Manifest差／取消／解放不明の三親・11子、計16項目が成功。AM／Workbench型検査と対象Sourceの整形・警告確認も成功。初回の整形書込みはHostのFile mapping制約で一部不能だったが、再確認で対象四Sourceの整形が完了した。製品の認可・公開API・保存形式は不変。全体回帰・実AI・Docker・過去保持物は操作せず、今回のfixture Rootは既存終了hookで回収した。独立レビューと是正後再確認に必須残指摘なし。
+
+### 14.51 VCのConsumer集合をRepository横断回帰Ownerへ分離
+
+独立棚卸しと着手前確認を経て、VC consumer-closureの13親・61assertを、純VC五親とChecker回帰九親へ分ける。旧一試験のVC内部Candidate分類拒否と横断Owner検査を分割するため親数だけ一増となり、assertは61のまま。型契約・公開投影・自己Architecture一致・Git配置／ignoreはVCに残す。import解析・全Package Consumer集合・単一Owner・Checker接続は上位のRepository横断回帰が所有する。Checker製品機能へ移植せず、新公開API・Facadeはない。
+
+publicExportNamesは実際にはVC単独だけが必要だったため、共有fixtureを増やす案を縮小し同Suite内に残した。Checkerには必要な既存二Helperだけを一意に移し、参照なしimportを除いた。移管前と同じRepository Root・Sourceと固定集合を照合する。Symbol／台帳・Checkerの明示型検査対象・各Owner設計と正式QAを追従する。
+
+初回14親中11成功・三失敗を切り分け、VC側に必要なgetRepository importの接続漏れ、先行MCP移管で旧位置のままとなった期待配列の順序、既存のRepository型Consumer二所在の追従漏れを是正した。exact集合検査は維持し、実SourceのReader／型利用を根拠にCo state/typesを追加・EM history/typesを除いた。後者は製品Source変更ではない。再実行は14件すべて成功、VC／Checker型検査・対象整形／警告確認も成功。Source読取りのみで試験物を作らず、実AI・Docker・全体回帰・過去保持物は操作しない。独立レビューと是正後再確認に必須残指摘なし。
+
+
+### 14.52 回復OwnerとWorkbench HTTPの境界を分離
+
+Coの正常Owner四形のうちWorkbench HTTPを伴う三回形を、Workbenchの専用Host Suiteへ移管した。共通の実Owner検証本文は既存Co fixtureへ一意に置き、Coは一回・保持一回・二回を維持する。HTTPの固定RouteとClient・TimingはWorkbenchが所有し、Co fixtureは試験用の要求関数だけを受ける。全assert・保存通知順・十五秒期限・子close・Server close・復元を維持し、今回Rootの不存在assertを追加した。新製品API・Wrapperはない。
+
+着手前の独立確認で、通常Workbench回帰はHost名を除外し専用Host入口で同じ試験を実行する方針を妥当とした。制限下の子HTTPはEACCESとなり、既存の同じHTTP単独試験でも再現した。許可された同じ局所試験では既存HTTPと移管Host三回形が成功した。製品期限・保護Policyは変更しない。EM統合後の再確認と完成後レビューは以下の現候補結果へ接続する。
+
+### 14.53 EMの九入口統合と利用側追従
+
+独立した着手前確認を経て、Rootを109項目から100項目（65値・35型）へ整理する。二Readerは既存readStateへ、三Stage保存はsaveRecoveryCheckpointへ、用途固定の完了・履歴二Wrapperは明示kindへ統合した。未利用の資源専用Readerを撤去し、Book遷移検査はbefore付きの既存受付へ閉じた。内部Readerの一意な実装をstate/crudへ移し、保存形式・Owner・Lock／CAS・一回認証終了・通知順は維持する。
+
+本番・試験のimportに加え、生成子SourceとModule代役も共通入口へ接続する。Coの物理OwnerをEMへ結合する既存persistence関数は存続するが、EMの旧Root名を再公開する互換Facadeは置かない。実装APIの数だけでなく既存Writer・Readerの順序とEffect前拒否を検証する。
+
+初回限定試験ではscopeだけの入力を厳密捕捉が拒否する不整合と、有限回収fixtureの未要求／未発行投影漏れを検出した。前者は許可された二つのProperty集合を明示し、後者は既知fixtureの終端条件を既存モデル契約へ追従した。未知scope・余剰field・Getterの拒否試験も追加し、安全判定を緩めない。現候補の限定回帰と是正後独立レビューを完了し、今回範囲の必須残指摘はない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+
+限定回帰の修復結果六親は、最初の実行では全件不合格となった。原因は利用側の有限Reader代役が旧request.kindを解釈し、現在のscope／input.kindをcurrentへ誤配送していたためである。同型の五代役・引数期待にも追従し、EMの私有Writer試験は撤去済みWrapper抽出を止め、実state/crudの本体と内部Readerへ直接接続した。Task／Repairの完了・履歴代役は第4引数の用途をassertし、誤配送を定数補完で隠さない。元の故障枝・assertは維持し、製品判定は変更しない。関連した短い九試験と独立読取り再確認は成功・必須残指摘なし。六親の再実行は全件成功した。正常／保持／取消の一親は約213秒、故障系五親の内部49ケースは約3,181秒（53分）で終了した。五親の時間は順に約526・126・345・1,169・1,014秒であり、単一保存がこの時間を要したという意味ではない。各自己生成Rootの終了hookに失敗はなく、exact Root回収・不存在確認を通過した。
+
+試験粒度の改善候補も区別して記録する。五親の内部には49故障ケースがあり、各ケースで新品Git Repositoryと実Lock・State／History保存を繰り返す。これは49件の独立した終了結果を表示する構造ではなく、今回の限定選択として重すぎた。故障分岐の全組合せと代表的な実保存境界を分ける改善をCoordinator試験Ownerの候補とする。assertの削除・本番判定の緩和は対策にしない。現在Repositoryでの読取り専用観測ではRoot確認約7ms、Revision取得約14msだったが、試験fixtureと同じ条件の保存・Lock別計測ではないため、遅延の主因をGit又は耐久化へ確定しない。試験時間の詳細計測と粒度見直しは次の回帰計画時に再評価し、現在実行中の試験へ変更を混ぜない。
+
+人間との確認により、次の試験整理は「不変のベース準備を一回行い、その後は確認観点の差分を適用する」を方針とする。可変State・Lock・Owner・未完了処理はケース間で共有せず独立させる。実保存の必要な代表例は結合試験として維持し、各故障ケースは個別名で単独実行・時間計測できる形へ整理する。新しいFixture Managerや汎用復元機構は追加せず、進行中の実行へ変更を混ぜない。
+
+
+最終の限定結果は、EM公開／Book／履歴／遷移の選択34項目、Reader・Host準備・認証終了・全履歴の18項目、再起動私有Reader、実終端Writer、Co現在保存・pending再入場、生成子の通常／認証再入場、Workbench三回OwnerとHTTP、VC／Checker14項目、台帳接続一項目、および追加是正の局所試験が成功した。重複する再確認を全体件数へ合算しない。HTTPは約8.6秒で既存十五秒内、実Host三回は約76秒で終了し、子close・Server close・代役復元・Root不存在を確認した。AMの二移管試験と現在認可の選択集合は§14.50の16項目の成功を維持する。実AI・Docker・全体回帰・過去保持物の操作はない。
+
+変更TS／JSONの対象分割での整形・警告確認、関係Package型検査、Coの実行／Task追跡検査と差分空白確認も成功した。独立レビューはEM技術保証とOwner／登録／文書の二担当で実施し、Host要求の混合field拒否と新API説明・現況数値を是正後に再確認した。試験代役六系統の追加是正も独立確認済み・必須残指摘なし。試験実行の結果と読取りレビューの判断を区別する。この区切りの四項目は限定範囲で完了とし、試験粒度の改善、全体回帰、過去保持物の扱いを別件として残す。Commit／Pushはこの区切りで実行していない。

@@ -1,36 +1,24 @@
 /**
  * 単発実行の技術理由集合と一次故障の固定診断を検査する。
  * @packageDocumentation
- * @responsibility 発行理由と保存受理集合の一致、未知理由と不正な報告値の拒否を確認する。
+ * @responsibility 発行理由の一意性・用途対応、未知理由と不正な報告値の拒否を確認する。
  * @trace ERB-UT-023
  * @level UT
  * @scope 固定理由・合成診断だけ。保存・回復処置は行わない。
- * @boundary Executorの技術理由・検証用診断とDomainの保存受理集合。
+ * @boundary Executorの技術理由・検証用診断。EMとの列一致はCoの接続試験が所有する。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/execution/result.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../../../execution-model/src/index.ts";
-import { isPrimaryFailureDiagnostic } from "../../../scripts/provider-attempt-host.ts";
+import { isPrimaryFailureDiagnostic } from "../../../scripts/provider-diagnostic.ts";
 import {
   ATTEMPT_COMPLETION_REASONS,
+  convertCommandResult,
+  isAttemptFailureReason,
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
 } from "../../../src/lifecycle/attempt.ts";
-import { isAttemptFailureReason } from "../../../src/lifecycle/attempt.ts";
-import { convertCommandResult } from "../../../src/lifecycle/attempt.ts";
 
-/**
- * 発行する技術理由と保存受理する理由の集合をexact照合する。
- * @responsibility 片側追加・欠落・未知値を黙って受理しない。
- * @trace ERB-UT-023
- * @precondition 固定の二集合だけを使用する。
- * @stimulus 全要素と未知・大文字・欠測相当を検査する。
- * @observation 配列の一致と拒否結果。
- * @oracle 同じ順序・一意集合で、未知理由を正規化しない。
- * @cleanup N/A: 局所値だけ。
- * @boundary Executor発行とDomain保存受理。保存処理は呼ばない。
- */
 /**
  * ターン数の不正報告診断をProvider側の現行条件へ照合する。
  * @responsibility 上限2を再導入せず、正常な報告を不正診断として受け付けない。
@@ -77,17 +65,17 @@ test("ターン不正診断は上限比較ではなく報告値の形式条件�
     );
 });
 /**
- * 技術理由と保存受理集合の同値性を純粋値で確認する。
- * @responsibility 技術理由と保存受理集合の同値性を純粋値で確認する。
+ * 技術理由の一意性・用途対応・未知拒否を純粋値で確認する。
+ * @responsibility 発行元の値規則だけを確認し、EMとの対応は上位へ分離する。
  * @trace ERB-UT-023
- * @precondition 固定の発行理由・保存受理理由を取得する。
+ * @precondition 固定の発行理由と用途Mapを取得する。
  * @stimulus 全要素と未知・欠測・余剰の診断を照合する。
  * @observation 集合の一致と理由検査の受理結果。
  * @oracle 片側だけの理由や未知値を黙って受理しない。
  * @cleanup N/A: 保存処理・回復処置を呼ばない。
  * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
  */
-test("技術理由は保存受理集合と一致し未知・欠測・余剰を拒否する", () => {
+test("技術理由は一意な用途Mapに対応し未知・欠測・余剰を拒否する", () => {
   for (const value of [
     ATTEMPT_COMPLETION_REASONS,
     PURPOSES,
@@ -100,10 +88,6 @@ test("技術理由は保存受理集合と一致し未知・欠測・余剰を�
   );
   for (const reason of Object.values(SETUP_COMMAND_FAILURE_REASONS))
     assert.equal(isAttemptFailureReason(reason), true);
-  assert.deepEqual(
-    ATTEMPT_COMPLETION_REASONS,
-    dockerProcessControllerPublicCompletionReasons,
-  );
   assert.equal(
     new Set(ATTEMPT_COMPLETION_REASONS).size,
     ATTEMPT_COMPLETION_REASONS.length,

@@ -13,15 +13,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
-import type { DockerIsolationRuntimePlan } from "../../../docker-isolation/tests/support/execution.ts";
-import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
+import type { DockerExecutionCallbacks } from "../../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
-import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
 import {
   bindIsolationRuntime,
   describeIsolationContract,
 } from "../../../executor/scripts/executor-test.ts";
+import type { DockerIsolationRuntimePlan } from "../../../executor/tests/support/isolation-execution.ts";
+import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,

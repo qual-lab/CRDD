@@ -1,5 +1,5 @@
 /**
- * 合成診断の最初のCodex説明文だけを、元結果を変えず確認する。
+ * Workbench合成診断の最初のCodex説明文だけを、元結果を変えず確認する。
  * @packageDocumentation
  * @responsibility 試験Process限定の観測・本文検査・終了後破棄を所有する。
  * @trace ERB-IT-002

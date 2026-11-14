@@ -7,8 +7,6 @@
  */
 import type { SpawnSyncReturns } from "node:child_process";
 
-import type { IsolationProbeFacts } from "../../../executor/src/lifecycle/types.ts";
-
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const PROBE_MARKER = "crdd-coordinator-isolation-v1";
 
@@ -261,7 +259,7 @@ function isProbeJsonRecord(
 export function classifyDockerProbeExecution(
   execution: DockerExecution,
   elapsedMs: number,
-): IsolationProbeFacts {
+) {
   const code =
     execution.error && typeof execution.error === "object"
       ? Object.getOwnPropertyDescriptor(execution.error, "code")?.value

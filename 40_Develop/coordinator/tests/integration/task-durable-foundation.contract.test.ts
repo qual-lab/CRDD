@@ -10,7 +10,6 @@
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,12 +19,11 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import type {} from "../../../execution-model/src/index.ts";
 import {
-  readRecoveryState,
   initializeExecutionStore,
   type ProjectExecutionState,
   queryExecutionState,
-  readState,
   readLease,
+  readState,
   recoverLease,
   saveIntegrationRecord,
   savePlan,
@@ -48,8 +46,8 @@ import {
 } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
 import { projectState } from "../../src/state/projection.ts";
+import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
 import {
   createCoordinatorSnapshotPersistencePorts,
   createCurrentCoordinatorPersistencePorts,
@@ -62,6 +60,7 @@ import {
 } from "../../src/task/lifecycle.ts";
 import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 // 保存の生Writer反例はDomainの保存試験が所有する。
 
@@ -95,7 +94,7 @@ function seedSnapshot(
   const repository = getRepository(root);
   assert.equal(repository.status, "completed");
   if (repository.status !== "completed") throw Error("fixture_root_invalid");
-  const currentRead = readRecoveryState(repository.capability);
+  const currentRead = readState(repository.capability, { scope: "recovery" });
   assert.equal(currentRead.status, "completed");
   const current = currentRead.value;
   assert.ok(current);
@@ -196,7 +195,7 @@ function taskView(root: string, bytes: string) {
   const repository = getRepository(root);
   assert.equal(repository.status, "completed");
   if (repository.status !== "completed") throw Error("fixture_root_invalid");
-  const observed = readRecoveryState(repository.capability);
+  const observed = readState(repository.capability, { scope: "recovery" });
   assert.equal(observed.status, "completed");
   const decoded = observed.value;
   assert.ok(decoded);

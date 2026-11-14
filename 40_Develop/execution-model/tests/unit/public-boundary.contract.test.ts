@@ -31,8 +31,12 @@ import * as domainLibrary from "../../src/index.ts";
  * @cleanup 外部資源なし。
  * @boundary 3ModelのSource／Package境界。
  */
-function crossModelReferences(source: string, file: string, owner: string) {
-  const models = ["document-model", "execution-model", "configuration-model"];
+function crossModelReferences(
+  source: string,
+  file: string,
+  owner: string,
+  models = ["document-model", "execution-model", "configuration-model"],
+) {
   return [
     ...source.matchAll(
       /(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*|new\s+URL\(\s*)["']([^"']+)["']/gu,
@@ -53,6 +57,72 @@ function crossModelReferences(source: string, file: string, owner: string) {
       );
     });
 }
+
+/**
+ * EM保存契約をAD／DIの技術型へ結合しない。
+ * @responsibility 実装・型・再export・動的参照とPackage宣言を同じ禁止先へ照合する。
+ * @trace RCM-UT-014
+ * @precondition 現行EM SourceとPackage宣言。
+ * @stimulus 値／型import・型再export・インライン型の反証と現行Sourceを検査する。
+ * @observation 禁止先参照と保存Ownerの境界。
+ * @oracle AD／DIへの参照0。VC／Lockと似た別名は許可する。
+ * @cleanup 読取りだけ。実行・保存・資源作成なし。
+ * @boundary EM保存契約と専門技術Package。
+ */
+test("EM保存契約はADとDIの型・実装へ依存しない", () => {
+  const root = path.resolve(import.meta.dirname, "../..");
+  const forbidden = ["ai-adapter", "docker-isolation"];
+  const file = path.join(root, "src/attempt/types.ts");
+  for (const source of [
+    'import type { ModelSelection } from "../../../ai-adapter/src/index.ts";',
+    'export type { ResourceSnapshot } from "@qual-lab/crdd-docker-isolation";',
+    'type Snapshot = import("../../../docker-isolation/src/index.ts").ResourceSnapshot;',
+    'const api = await import("@qual-lab/crdd-ai-adapter");',
+    'const api = require("@qual-lab/crdd-docker-isolation/internal");',
+  ])
+    assert.equal(
+      crossModelReferences(source, file, "execution-model", forbidden).length,
+      1,
+    );
+  for (const source of [
+    'import type { Repository } from "../../../version-control/src/index.ts";',
+    'import { acquireLock } from "../../../lock/src/index.ts";',
+    'import type { Value } from "@qual-lab/crdd-ai-adapter-other";',
+  ])
+    assert.deepEqual(
+      crossModelReferences(source, file, "execution-model", forbidden),
+      [],
+    );
+  for (const target of typescriptFiles(path.join(root, "src"))) {
+    assert.deepEqual(
+      crossModelReferences(
+        fs.readFileSync(target, "utf8"),
+        target,
+        "execution-model",
+        forbidden,
+      ),
+      [],
+      target,
+    );
+  }
+  const metadata = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  for (const field of [
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "optionalDependencies",
+  ]) {
+    for (const dependency of Object.keys(metadata[field] ?? {})) {
+      assert.equal(
+        forbidden.some((name) => dependency === `@qual-lab/crdd-${name}`),
+        false,
+        `${field}:${dependency}`,
+      );
+    }
+  }
+});
 
 /**
  * 3モデル間の実装・型・再export・Package直接依存を拒否する。
@@ -254,7 +324,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "TASK_STATES",
     "acquireLease",
     "advanceOwnedRecoveryHistory",
-    "advanceOwnedRepairHistory",
     "answerDecision",
     "applyDecision",
     "applyResourceCleanup",
@@ -262,7 +331,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "closeDecision",
     "completeOperation",
     "completeRecovery",
-    "completeRepair",
     "completeStatePublication",
     "createLocalPrincipalId",
     "createObjective",
@@ -290,11 +358,8 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "readDecision",
     "readLease",
     "readOperationCompletion",
-    "readOperationResourcesStage",
-    "readOperationStateStage",
     "readProjectExecutionState",
     "readQueueEntry",
-    "readRecoveryState",
     "readState",
     "readTaskIntakeState",
     "recordDecision",
@@ -304,7 +369,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "resumeRepairPublication",
     "resumeResourcePublication",
     "retireStateRecords",
-    "saveHostCleanupPreparation",
     "saveIntegrationRecord",
     "saveOperationCheckpoint",
     "saveOperationStart",
@@ -312,8 +376,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "saveProjectExecutionState",
     "saveRecoveryCheckpoint",
     "saveRepairState",
-    "saveResourceNotIssuedStage",
-    "saveUnknownAuthenticationClosureStage",
     "saveWorkspaceRecord",
     "selectQueueEntry",
     "transferHistory",
@@ -321,7 +383,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "updateQueue",
     "updateTask",
     "validateResourceBook",
-    "validateResourceBookTransition",
   ]);
   assert.deepEqual(exportedNames("../../src/index.ts"), [
     "AcceptanceDecision",
@@ -365,7 +426,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "WorkspaceRecord",
     "acquireLease",
     "advanceOwnedRecoveryHistory",
-    "advanceOwnedRepairHistory",
     "answerDecision",
     "applyDecision",
     "applyResourceCleanup",
@@ -373,7 +433,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "closeDecision",
     "completeOperation",
     "completeRecovery",
-    "completeRepair",
     "completeStatePublication",
     "createLocalPrincipalId",
     "createObjective",
@@ -401,11 +460,8 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "readDecision",
     "readLease",
     "readOperationCompletion",
-    "readOperationResourcesStage",
-    "readOperationStateStage",
     "readProjectExecutionState",
     "readQueueEntry",
-    "readRecoveryState",
     "readState",
     "readTaskIntakeState",
     "recordDecision",
@@ -415,7 +471,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "resumeRepairPublication",
     "resumeResourcePublication",
     "retireStateRecords",
-    "saveHostCleanupPreparation",
     "saveIntegrationRecord",
     "saveOperationCheckpoint",
     "saveOperationStart",
@@ -423,8 +478,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "saveProjectExecutionState",
     "saveRecoveryCheckpoint",
     "saveRepairState",
-    "saveResourceNotIssuedStage",
-    "saveUnknownAuthenticationClosureStage",
     "saveWorkspaceRecord",
     "selectQueueEntry",
     "transferHistory",
@@ -432,7 +485,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "updateQueue",
     "updateTask",
     "validateResourceBook",
-    "validateResourceBookTransition",
   ]);
   const metadata = JSON.parse(
     fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
@@ -629,4 +681,129 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
       }
     }
   assert.deepEqual(violations, []);
+});
+
+/**
+ * 統合した完了・履歴入口は未知用途をOwner照合前に拒否する。
+ * @responsibility 旧固定Wrapperの内部kindを公開入力へ移しても閉集合を維持する。
+ * @trace RCM-UT-014
+ * @precondition 無効なRootと未知用途だけを使用する。
+ * @stimulus 明示した未知用途で二入口を呼ぶ。
+ * @observation 結果、Owner呼出し数とFilesystem Effect。
+ * @oracle blocked・Effectなしで、Owner callbackも実行しない。
+ * @cleanup N/A: 資源を生成しない。
+ * @boundary 公開受付と保存Ownerの前境界。
+ */
+test("統合完了・履歴入口は未知用途からOwnerや保存を起動しない", () => {
+  let owners = 0;
+  const owner = () => {
+    owners++;
+    return true;
+  };
+  const complete = domainLibrary.completeRecovery(
+    null,
+    "unknown",
+    owner,
+    "unknown" as never,
+  );
+  const history = domainLibrary.advanceOwnedRecoveryHistory(
+    null as never,
+    "unknown",
+    owner,
+    "unknown" as never,
+  );
+  assert.equal(complete.status, "blocked");
+  assert.equal(history.status, "blocked");
+  assert.equal(complete.filesystemEffectIssued, false);
+  assert.equal(history.filesystemEffectIssued, false);
+  assert.equal(owners, 0);
+});
+
+/**
+ * 統合ReaderとCheckpointの閉じた入力受付を確認する。
+ * @responsibility 用途の省略・未知値・Getterから読取りやOwnerを開始しない。
+ * @trace RCM-UT-014
+ * @precondition 無効Authorityと外部資源を持たない入力を使う。
+ * @stimulus 未知scope、余剰field、Getterと未知Checkpointを渡す。
+ * @observation 拒否結果、値とFilesystem Effect、Getter・Owner回数。
+ * @oracle 全件blocked・値なし・Effectなし、GetterとOwnerは0回。
+ * @cleanup N/A: 資源を生成しない。
+ * @boundary 公開受付と私有保存Ownerの前境界。
+ */
+test("統合Reader・Checkpointは未知範囲と実行Propertyを受付で拒否する", () => {
+  let effects = 0;
+  const action = () => {
+    effects++;
+    return true;
+  };
+  for (const request of [
+    { scope: "unknown" },
+    { scope: "recovery", extra: true },
+    {
+      get scope() {
+        action();
+        return "recovery";
+      },
+    },
+  ]) {
+    const result = domainLibrary.readState(null, request as never);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.value, null);
+  }
+  const saved = domainLibrary.saveRecoveryCheckpoint(null, "unknown", null, {
+    kind: "unknown",
+    assertOwner: action,
+  } as never);
+  assert.equal(saved.status, "blocked");
+  assert.equal(saved.filesystemEffectIssued, false);
+  assert.equal(effects, 0);
+});
+
+/**
+ * Host清掃準備の要求形を他Checkpointから分離する。
+ * @responsibility 既知kindでも別用途fieldをAuthority観測前に拒否する。
+ * @trace RCM-UT-014
+ * @precondition 無効な元Authorityに観測回数だけを付ける。
+ * @stimulus kindだけの正規形と五つの混合要求を渡す。
+ * @observation Owner観測回数、保存結果とFilesystem Effect。
+ * @oracle 混合要求は全件blocked・Effectなし・観測0。正規形は元Authority観測へ進む。
+ * @cleanup N/A: 資源を生成しない。
+ * @boundary 公開Checkpoint受付と保存Owner観測。
+ */
+test("Host清掃準備は他用途fieldをAuthority観測前に拒否する", () => {
+  let observations = 0;
+  const authority = {
+    identity: {},
+    observeRepository: () => {
+      observations++;
+      return null;
+    },
+  };
+  for (const extra of [
+    { assertOwner: () => true },
+    { value: null, assertOwner: () => true },
+    { observations: [], assertOwner: () => true },
+    { purpose: "foreign" },
+    { value: null },
+  ]) {
+    const saved = domainLibrary.saveRecoveryCheckpoint(
+      authority,
+      "unknown",
+      null,
+      {
+        kind: "host_cleanup_preparation",
+        ...extra,
+      } as never,
+    );
+    assert.equal(saved.status, "blocked");
+    assert.equal(saved.filesystemEffectIssued, false);
+    assert.equal(observations, 0);
+  }
+  assert.equal(
+    domainLibrary.saveRecoveryCheckpoint(authority, "unknown", null, {
+      kind: "host_cleanup_preparation",
+    }).status,
+    "blocked",
+  );
+  assert.equal(observations, 1);
 });

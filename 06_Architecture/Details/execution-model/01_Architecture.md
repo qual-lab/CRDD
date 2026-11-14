@@ -1,21 +1,29 @@
 # 実行モデルの責務と単一保存契約
 
 成果物種別: Architecture詳細設計
-状態: 完成操作への公開再編を接続済み・限定回帰を継続中（要求・表示契約、開始／終了、Checkpoint・Queue・Lease・回復Reader／保存を統合。過去試験物の一部は由来再確定待ち）
+状態: 完成操作への公開再編と今回範囲の限定回帰・独立再レビュー完了（全体回帰未実施。過去試験物の一部は由来再確定待ち）
 担当責任者: Qual-Lab
-最終更新日: 2026-11-13
+最終更新日: 2026-11-14
+
+## 独立ロード検証の所有 — 2026-11-14
+
+EM自身の公開RootがDIなしで開始できることは、EMの既存package-boundary ITが確認する。DI側の相互ロード試験からモデル側の一枝を移し、子のerror・signal・exit・固定markerの四観測を維持する。先行するAD／DIなしの公開理由集合検証とは別の旧反例として保持し、保存・Parser・技術処置は呼ばない。DIは上位を解決できない条件で自身のRootだけを確認する。試験の移管によって公開IFや保存Schemaを変更しない。
 
 <a id="model-boundary"></a>
 ## 1. 責務と依存
 
 実行モデル（execution-model）はObjective／Task／Attempt／Queue／Workspace、Blocker・提案回答、State／History、回復記録と局所遷移・保存を所有する。Scheduling・再試行判断はCoordinator、単一技術実行はExecutor、Provider計画・解析はAI Adapter、Docker実体はDIが所有する。
 
-3モデル間の実装・型・再export・deep import・dynamic import・package直接依存は0とする。実行モデルは設定を探索・再選定せず、構成モデルのReaderや型を受け取らない。必要なVC／Lock／Node.jsと既存AD／DI技術結果型は正本を直接使用する。旧domain-modelの互換Facadeを残さない。
+3モデル間の実装・型・再export・deep import・dynamic import・package直接依存は0とする。実行モデルは設定を探索・再選定せず、構成モデルのReaderや型を受け取らない。必要なVC／Lock／Node.jsを使用し、保存契約はEM自身が定義する。旧domain-modelの互換Facadeを残さない。
+
+`ExecutionSelection`の技術選定五項目、`OperationResources.snapshot`の非秘密資源情報、一次失敗の`turnCountDiagnostic`はEM所有の保存型とする。ADのModel選定型・診断型、DIのResourceSnapshotをEM Sourceから直接import又は型参照しない。元のProperty・閉じた値域・optional性・null許容・readonly性と既存保存検査は維持する。型の所有権変更だけを理由に保存Schemaや実行時コピー・変換Wrapperを追加しない。storageの終端観測も同じ`OperationResources["snapshot"]`を参照する。
+
+技術型と保存型の現在の双方向構造適合はCoordinatorの既存selection-consumers Suiteで型検査し、片側の項目欠落・値域拡大・optional性・readonly性の差を検出する。これは値の認可・技術実行・永続化成功の証拠ではない。EM単独のBook値試験はEMの保存型を使い、AD／DIを必要としない。EM内に残るDI技術処理を含む連携試験のOwner移管は[変更計画§14.33–14.34](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で別途追跡し、この型整理だけでPackage全体の依存解消を完了とは表示しない。
 
 <a id="public-api"></a>
 ## 2. 公開入口と確定入力
 
-`40_Develop/execution-model/src/index.ts`は、本番利用が必要とする完成操作と値契約を明示公開する。内部候補・汎用Helper・検証専用契約は必要性を確認してRootから外し、EM内部の試験は宣言元を参照する。外部Packageの試験は既存のRoot限定Guardを維持する。現在の実装途中の公開は109項目（74値・35型）であり、最終案ではない。基準267項目から要求・表示契約と開始／終了の内部段階、用途別Checkpoint・Lease・Queue・Reader・回収保存の重複入口、外部利用のない内部型と候補生成・分類Helperを撤去した。現在の公開集合は実Rootと固定期待値の契約試験を正本とし、[当初分離時の対応案](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#9-indextsの移管候補)とは区別する。
+`40_Develop/execution-model/src/index.ts`は、本番利用が必要とする完成操作と値契約を明示公開する。内部候補・汎用Helper・検証専用契約は必要性を確認してRootから外し、EM内部の試験は宣言元を参照する。外部Packageの試験は既存のRoot限定Guardを維持する。現在の公開は100項目（65値・35型）。用途別の読取り・保存・完了・履歴入口を既存の完成操作へ統合した。基準267項目から要求・表示契約と開始／終了の内部段階、用途別Checkpoint・Lease・Queue・Reader・回収保存の重複入口、外部利用のない内部型と候補生成・分類Helperを撤去した。現在の公開集合は実Rootと固定期待値の契約試験を正本とし、[当初分離時の対応案](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#9-indextsの移管候補)とは区別する。
 
 ### モデル別CRUDとState複合取得
 
@@ -33,7 +41,7 @@
 
 Coordinatorの通常状態表示は`execution`取得結果からProjectと受付世代を投影し、追加Portの構築と同じ状態の再読取りをしない。Git改訂が異なる場合のWorkspace採用確認を挟む前後のfresh取得、排他取得後・保存後の読戻しは保持する。Workspace操作でも`workspace`範囲を同じ版で取得し、個別モデルを順番に読む方式へ分解しない。
 
-Port単独構成の受付世代取得は`intake`へ統合し、`readSnapshotIntakeEpoch`の実装・Root公開・利用側importを撤去した。他scopeの通常読取り条件は変えない。`readOperationStateStage`は保存内部ではなくAttemptの完成取得として`attempt/crud.ts`に置き、返却内容と読取り順序は維持する。
+Port単独構成の受付世代取得は`intake`へ統合し、`readSnapshotIntakeEpoch`の実装・Root公開・利用側importを撤去した。他scopeの通常読取り条件は変えない。`readState`の二引数形式は`scope: "operation" | "recovery"`と用途別inputを受ける。前者の現在Owner、後者の真正Repositoryという権限境界は元のまま区別する。内部Readerは`state/crud.ts`に一意に置き、返却内容・読取り順序は維持する。
 
 Leaseの取得Identity・回復IDは、`acquireLease`の既存Intent保存がRepository結合・Project・Queue・種別から生成する。呼出側はOwner世代とProcess IDを渡し、保存前通知でexact回復IDを受け取る。保存成功後は同じIntentを物理取得確認へ渡す。Owner喪失照会も同じIdentityと回復IDを返し、Queue解放の不存在観測へ同じIdentityを渡す。Coでの再計算と二つのRoot生成Helperは撤去し、保存形式・物理Path・排他と回復順序は変更しない。
 
@@ -41,11 +49,11 @@ Leaseの取得Identity・回復IDは、`acquireLease`の既存Intent保存がRep
 
 `validation.ts`由来の18公開は一律に非公開化しない。資源記録の二更新は実装本体を`attempt/crud.ts`へ、明示メールからの主体構築は`state/crud.ts`へ移した。状態列挙・契約識別子・完了理由の四定義は対応モデルの`types.ts`が正本を持ち、状態型も同じ不変列挙から定義する。更新処理を呼ぶだけのWrapperや旧所在地の再exportは作らない。State候補検査が使用する資源更新と主体形式検査が使用する構築は純粋な値操作であり、保存・Root探索・外部Effectを呼ばない。宣言Ownerの移管を単独で公開数削減とは数えない。
 
-再起動ID生成とHost遷移相関検査はRootから撤去した。前者は`readRecoveryState`の`restart_preparation`範囲で、対象操作と`scopeSha256`を一回の既存読取りへ結合して返す。通常Readerの確認完了と準備値の成立は別で、`restartPreparation`が非nullであり、Coの同版・排他・現在性確認も成立した場合だけ使用する。Coは既存の排他取得後の再読取りをこの範囲へ置換し、追加読取り・先行保存を行わない。後者は同版の`operationStates.hostTransition`へ投影する。新規意図は既存Writerの検査と保存後Readerを経てから実Host遷移へ使い、保存済み意図の再入場も同じ返却値を使う。実Host token・marker・recordBefore・旧世代の照合はCoに残す。
+再起動ID生成とHost遷移相関検査はRootから撤去した。前者は`readState`の`scope: "recovery"`・`restart_preparation`範囲で、対象操作と`scopeSha256`を一回の既存読取りへ結合して返す。通常Readerの確認完了と準備値の成立は別で、`restartPreparation`が非nullであり、Coの同版・排他・現在性確認も成立した場合だけ使用する。Coは既存の排他取得後の再読取りをこの範囲へ置換し、追加読取り・先行保存を行わない。後者は同版の`operationStates.hostTransition`へ投影する。新規意図は既存Writerの検査と保存後Readerを経てから実Host遷移へ使い、保存済み意図の再入場も同じ返却値を使う。実Host token・marker・recordBefore・旧世代の照合はCoに残す。
 
-残る九公開は、`inspectDecision`、`inspectExecutionPlan`、`inspectExecutionSelection`、`inspectTaskExecutionSelections`、`isPrincipalId`、`parseDockerTaskRecoveryId`、`parseHostRecoveryToken`、`validateResourceBook`、`validateResourceBookTransition`である。未保存モデルと完全Decision搬送、入口主体、Operation保存前／Host-only相関、Repository Operationとは別の認証記録、IPC後の動的QAという独立した受付を持つ。保存を伴うCRUDへ押し込むと時点・Effect順又は検証範囲が変わるため、今回の保証維持範囲では維持する。規則のCo複製、検査目的の先行保存、別名の汎用Facadeで隠さない。これらを撤去する場合は当該受付契約の変更を別途評価する。
+残る八公開は、`inspectDecision`、`inspectExecutionPlan`、`inspectExecutionSelection`、`inspectTaskExecutionSelections`、`isPrincipalId`、`parseDockerTaskRecoveryId`、`parseHostRecoveryToken`、`validateResourceBook`である。未保存モデルと完全Decision搬送、入口主体、Operation保存前／Host-only相関、Repository Operationとは別の認証記録、IPC後の動的QAという独立した受付を持つ。保存を伴うCRUDへ押し込むと時点・Effect順又は検証範囲が変わるため、今回の保証維持範囲では維持する。規則のCo複製、検査目的の先行保存、別名の汎用Facadeで隠さない。これらを撤去する場合は当該受付契約の変更を別途評価する。
 
-外部で型名を参照していない16型と、外部試験だけが参照する`RecoveryCheckpointRequest`はRootから外した。モデルの内部宣言・保存形式・関数引数の型は維持する。試験のRequest型は`Parameters<typeof saveRecoveryCheckpoint>[3]`から取得し、`unknown`化や別のRequest定義は追加しない。Rootの型集合は38項目とし、この型整理段階では実体を持つ98値を維持し、その後の複合取得統合で96値、補助公開・受付照会の統合で91値となった。その後の利用側別ACK撤去と検査Owner整理を含む現候補は74値・35型である。旧ACK試験の追従と最終検証は未完了とし、先行段階の試験結果を現候補の完成根拠へ流用しない。`queryDecisions`／`queryExecutionState`／`queryQueue`／`queryWorkspaces`の4照会は、型名の整理と提供機能の変更を混同せず今回は維持する。
+外部で型名を参照していない16型と、外部試験だけが参照する`RecoveryCheckpointRequest`はRootから外した。モデルの内部宣言・保存形式・関数引数の型は維持する。試験のRequest型は`Parameters<typeof saveRecoveryCheckpoint>[3]`から取得し、`unknown`化や別のRequest定義は追加しない。Rootの型集合は38項目とし、この型整理段階では実体を持つ98値を維持し、その後の複合取得統合で96値、補助公開・受付照会の統合で91値となった。その後の利用側別ACK撤去と検査Owner整理を含む先行候補は74値・35型だった。今回の9入口統合後は65値・35型であり、先行段階の試験結果を現候補の完成根拠へ流用しない。`queryDecisions`／`queryExecutionState`／`queryQueue`／`queryWorkspaces`の4照会は、型名の整理と提供機能の変更を混同せず今回は維持する。
 
 外部試験の保存fixture・故障窓の都合だけで残していた下表11宣言は、利用側を完成操作・現役の公開値契約・独立した期待DTOへ接続してRootから外した。モデル自身の候補・遷移検査は宣言元で維持し、外部の深いimportや互換Facadeへ逃がしていない。Root集合は更新済みだが、今回の限定回帰が完了するまでは候補全体の完成を表示しない。
 
@@ -59,10 +67,10 @@ Leaseの取得Identity・回復IDは、`acquireLease`の既存Intent保存がRep
 
 | 検査の所有と公開境界 | 本番で必要な意味 |
 |---|---|
-| 履歴Reader／Writerの内部検査 | `readRecoveryState(kind: "repair_history")`が要約成立を検査し、Coordinatorは同じ値検査を再実行しない |
-| 操作Reader／Writerの内部検査 | `readOperationStateStage(owner, {kind: "host_cleanup", recoveryId})`が同じ元版のHost清掃準備を検査し、元本文・対象・Host tokenを返す。一回Authorityの消費前に確認し、保存時にも元版を再検査する |
-| 操作Readerの開始前取得 | `readOperationStateStage(owner, {kind: "operation_start", identityJson})`がState読取り・Lock取得・初期化をせず、現在Ownerと初回Identityを検査し、回復ID・Identity Hash・操作IDだけを返す |
-| 回復Readerの初期Host取得 | `readRecoveryState(kind: "initial_host")`と既存host_cleanup範囲が同じ版のexact一操作だけを再導出し、不変のID一覧を返す。通常currentでは再導出しない。Coは成功・元版・解放確認後だけ使い、実host_onlyとtokenを別に確認する |
+| 履歴Reader／Writerの内部検査 | `readState(root, {scope: "recovery", input: {kind: "repair_history", recoveryId}})`が要約成立を検査し、Coordinatorは同じ値検査を再実行しない |
+| 操作Reader／Writerの内部検査 | `readState(owner, {scope: "operation", input: {kind: "host_cleanup", recoveryId}})`が同じ元版のHost清掃準備を検査し、元本文・対象・Host tokenを返す。一回Authorityの消費前に確認し、保存時にも元版を再検査する |
+| 操作Readerの開始前取得 | `readState(owner, {scope: "operation", input: {kind: "operation_start", identityJson}})`がState読取り・Lock取得・初期化をせず、現在Ownerと初回Identityを検査し、回復ID・Identity Hash・操作IDだけを返す |
+| 回復Readerの初期Host取得 | `readState(root, {scope: "recovery", input: {kind: "initial_host", recoveryId}})`と既存host_cleanup範囲が同じ版のexact一操作だけを再導出し、不変のID一覧を返す。通常currentでは再導出しない。Coは成功・元版・解放確認後だけ使い、実host_onlyとtokenを別に確認する |
 | 初回候補生成 | `prepareStateOperationSnapshot`はRootから撤去。実Rootの試験は公開開始Writer、純粋観測の試験は固定入力を使い、内部候補への間接依存も残さない |
 | 回復Ownerの同版保持 | CoordinatorはReaderが検査・凍結したSnapshotを既存回復記録の元本文と同じ版で保持する。再decodeせずHost・consumer判定に使い、保存結果とfresh Readerの改訂・Hash・解放確認後だけ両方を更新する |
 | Coordinatorの入力捕捉 | 公開受入・認証通知・資源作成通知・Host checkpointの入力コピーは既存`input/snapshot.ts`の`snapshotJsonValue`を使う。保存codecのroundtripを使わず、未知実行の拒否と参照分離を維持する。保存本文の正規符号化・Hash・比較は別の既存契約であり、JSON.stringifyへ置換しない |
@@ -98,7 +106,7 @@ Objectiveの実行要求、状態照会・公開投影、判断操作の要求�
 
 Leaseは`acquireLease()`・`releaseLease()`・`recoverLease()`・`readLease()`、Queueは`createQueue()`・`updateQueue()`へ用途固定の処置を集約する。Requestのkindごとに元の必須tuple型を持ち、共通のOptional集合や任意更新Callbackは受けない。入力tupleは既存のown-data配列捕捉で固定し、Getter・Proxy・疎配列・独自iterator・余剰symbolと不正arityを保存前に拒否する。Root観測Callbackは捕捉した値として保持し、実行は従来どおり短期Lock内の現在Rootへ結合する。保存Intentと物理処置後の観測は区別し、物理Lock取得・解放・回復はCoordinatorが所有する。
 
-`readRecoveryState(root, request)`はcurrent／restart_preparation／admission／history／resource_publication／host_cleanup／initial_host／execution_history／repair_history／execution_completion／repair_completionの固定取得範囲を持つ。各範囲の元ID検査・保存途中の照合条件を保持し、通常Readerの拒否を自動的に別範囲へfallbackしない。restart_preparationだけが元回復IDとscopeSha256を必要とし、他範囲への余剰scopeは読取り前に拒否する。live Ownerからの読取りと回復Ownerによるfreshな終端確認を区別し、配送・ACK専用の取得範囲は持たない。
+`readState(root, {scope: "recovery", input: request})`はcurrent／restart_preparation／admission／history／resource_publication／host_cleanup／initial_host／execution_history／repair_history／execution_completion／repair_completionの固定取得範囲を持つ。各範囲の元ID検査・保存途中の照合条件を保持し、通常Readerの拒否を自動的に別範囲へfallbackしない。restart_preparationだけが元回復IDとscopeSha256を必要とし、他範囲への余剰scopeは読取り前に拒否する。live Ownerからの読取りと回復Ownerによるfreshな終端確認を区別し、配送・ACK専用の取得範囲は持たない。
 
 `kind: "history"`はrecoveryIdを持たない閉じた要求で、初期化済みStateと同じ短期Lock内にある履歴を全行検査する。成功・値あり・解放確認・`historyRows !== null`の共同成立後だけ利用し、真正不存在は不変の空配列、不正・観測不能・pending・実体変化・解放不明は値なしの停止とする。取得途中の存在／不存在変化も最終照合し、部分行を返さない。通常currentの追加履歴I/Oは0で、`historyRows:null`は未要求を表す。履歴Queryに保持設定の読取り・変更や操作Authorityを追加しない。Workbench検証scriptはこの完成操作を使い、履歴の直接File読取りとdecoder呼出しを再実装しない。
 
@@ -129,7 +137,7 @@ ExecutionSelection、inspectExecutionSelection、TaskExecutionSelectionsと担�
 
 共通Record取得は既存snapshotStateRecordへ統一し、同じ受理域のsnapshotPlainRecord実装と別名Wrapperは残さない。配列二種の理由分類・引数検査、およびdescriptor検査は条件が異なるため今回変更しない。
 
-旧repository／identity／plain-dataのSource分散と旧PathのWrapperは残さない。機密検査の7値公開は撤去し、AIへの送信境界を所有するCoordinatorのinput/secret-validationへ移した。先行の24 Source整理では他のRoot公開を維持し、その後267項目へ縮減した段階を経て、現行集合は§2の129項目となる。各段階を通して、保存先・Schema・Hash・Lock Identity・CAS・現在性確認・失敗／回復相関は不変更とする。
+旧repository／identity／plain-dataのSource分散と旧PathのWrapperは残さない。機密検査の7値公開は撤去し、AIへの送信境界を所有するCoordinatorのinput/secret-validationへ移した。先行の24 Source整理では他のRoot公開を維持し、その後267項目へ縮減した段階を経て、現行集合は§2の100項目となる。各段階を通して、保存先・Schema・Hash・Lock Identity・CAS・現在性確認・失敗／回復相関は不変更とする。
 
 ## 3. 保持設定と利用側
 
@@ -161,7 +169,7 @@ State／Task／Queue／Decision／回復義務は既存の単一SnapshotとWrite
 
 型・Source移管だけで保存や再入場の成立を主張しない。限定回帰と独立確認は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)へ記録する。全体回帰・実AI・Docker・過去保持物の操作は今回実施しない。
 
-先行267項目段階の固定候補ではSource・試験・台帳・文書の独立レビューを完了し、当該範囲の必須残指摘は0。Ownerの限定回帰は13親・45子の58件を正常終了し、その実行では途中停止・再実行・期限変更は行っていない。各fixtureの終了hookに例外報告はなかった。関係八型設定・台帳関係の限定検査も成功した。これは現在の129項目候補の完成根拠ではない。現在段階の試験・未確認・未回収は変更計画§14.3で区別し、各限定集合の重複を合算せず、全体回帰や公開最小化の完成へ拡大しない。
+先行267項目段階の固定候補ではSource・試験・台帳・文書の独立レビューを完了し、当該範囲の必須残指摘は0。Ownerの限定回帰は13親・45子の58件を正常終了し、その実行では途中停止・再実行・期限変更は行っていない。各fixtureの終了hookに例外報告はなかった。関係八型設定・台帳関係の限定検査も成功した。これは後続の公開整理候補の完成根拠ではない。当時の試験・未確認・未回収は変更計画§14.3で区別し、各限定集合の重複を合算せず、全体回帰や公開最小化の完成へ拡大しない。
 
 ### 補助検査の公開境界
 
@@ -169,8 +177,19 @@ validId・validWorkspaceDisplayName・validWorkspaceCandidateRequestはモデル
 
 verifyQueueIntakeとCoordinatorの委譲入口は撤去する。新StateはsaveProjectExecutionState、既存StateはcreateQueueの同じ短期保存排他内でsnapshotIntakeMatchesを用い、受付世代・Queue・要求Hash・Project・Milestoneの相関を保存前に確認する。古い受付の明示未保存拒否と保存／解放不明は区別し、後者をno_effectへ変換しない。
 
-validateResourceBookはCoordinator所有の認証回復ファイルを読む独立境界、validateResourceBookTransitionは保存済みQAイベント列を検査するexecutor/scripts/verify-provider-real.tsの独立境界で必要なためRoot公開を維持する。後者は動的importの実在Consumerであり、更新操作へ無条件に置換すると履歴の再構築が必要になる。外部の保存代役はapplyResourceEvent／applyResourceCleanupの検査済み結果を使用し、同じ遷移検査を重ねて呼ばない。別記録をEMのState Readerが検査済みと扱わず、公開数だけのために同義Wrapper・履歴の再構築・汎用検査Frameworkを作らない。
+validateResourceBookはCoordinator所有の認証回復ファイルを読む独立境界と、保存済みQAイベント列の検査に必要な受付である。後者はbeforeを明示して同じ内部の遷移正本を利用する。validateResourceBookTransitionの独立Root公開は撤去した。別記録をEMのState Readerが検査済みと扱わず、同義Wrapper・履歴の再構築・汎用検査Frameworkは作らない。外部の保存代役はapplyResourceEvent／applyResourceCleanupの検査済み結果を使用する。
 
 WorkspaceResultとinspectWorkspaceResultはCoordinatorの結果搬送契約であり、EMの保存モデルではないためCoordinatorの既存workspace/record.tsへ移す。EMからの宣言・Root公開は撤去し、相対Path・欠測・変更相関・参照分離・getter／Proxy拒否の試験は新Ownerで維持する。
 
 inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発更新のWriterは未検証入力を捕捉し、Lease観測や更新候補生成の前に記録の閉形式と終端相関を検査する。CoordinatorはWriterが返したsingleTaskを次の現在値として使用する。実行Adapterの用途結果はCoordinator自身が検査し、検査のために仮のPrincipal・Task・Attemptを生成しない。保存後の表示を保存前の成功へ読み替えない。
+
+
+### 読取り・Checkpoint・回復結果の共通入口
+
+- 三引数の表示用readStateは既存の取得範囲を維持する。二引数のoperation／recoveryはそれぞれのOwner・元版・Lock条件で検査し、未知scope・余剰field・Getterを読取り前に拒否する。
+- saveRecoveryCheckpointは既存更新に加え、resource_not_issued・host_cleanup_preparation・authentication_unknown_closureを同じ閉集合で受ける。未発行は元Operationの現在Owner、Host準備は元本文と再読取り、認証終了は元Ownerと二回の不存在観測・一回証拠の検査を維持する。
+- completeRecovery／advanceOwnedRecoveryHistoryはdocker_task／runtime_repairを必須引数で区別する。未知用途はOwner callbackと保存前に拒否する。旧固定用途Wrapperは置かない。
+- validateResourceBookのbefore指定は同じ内部の遷移検査へ接続する。省略時は値検査だけであり、呼出側が必要な比較を省略してよいという変更ではない。
+- 読取り専用のreadOperationResourcesStageは撤去し、既存operation取得結果からexact回復IDの資源を取得する。追加読取り・技術操作は行わない。
+
+保存Schema、Authority、Lock／CAS、認証終了の一回証拠と通知順序は変更しない。通常の利用側も試験・生成子SourceもRootの共通入口を利用し、内部実装への迂回は追加しない。

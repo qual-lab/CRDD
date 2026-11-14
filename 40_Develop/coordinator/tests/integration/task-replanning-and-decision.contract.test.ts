@@ -9,7 +9,6 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -17,8 +16,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  readRecoveryState,
   initializeExecutionStore,
+  readState,
 } from "../../../execution-model/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
@@ -39,6 +38,7 @@ import {
   readProjectOperationQueueState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 const revision = "a".repeat(40);
 
@@ -285,7 +285,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   const stateFile = path.join(root, ".crdd/domain-model/state.json");
   const beforeBytes = fs.readFileSync(stateFile);
   const capability = verifyRuntimePersistenceRepository(root);
-  const beforeRead = readRecoveryState(capability);
+  const beforeRead = readState(capability, { scope: "recovery" });
   assert.equal(beforeRead.status, "completed", beforeRead.reason);
   assert.equal(beforeRead.lockReleased, true);
   assert.ok(beforeRead.value);
@@ -308,7 +308,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   );
   // この試験で生成した正本だけに、管理実行を持たない兄弟定義を配置する。
   fs.writeFileSync(stateFile, mixedBytes);
-  const mixedRead = readRecoveryState(capability);
+  const mixedRead = readState(capability, { scope: "recovery" });
   assert.equal(mixedRead.status, "completed", mixedRead.reason);
   assert.equal(mixedRead.lockReleased, true);
   assert.ok(mixedRead.value);
@@ -339,7 +339,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   );
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
   const publishedBytes = fs.readFileSync(stateFile);
-  const publishedRead = readRecoveryState(capability);
+  const publishedRead = readState(capability, { scope: "recovery" });
   assert.equal(publishedRead.status, "completed", publishedRead.reason);
   assert.equal(publishedRead.lockReleased, true);
   assert.ok(publishedRead.value);
@@ -402,7 +402,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     );
     try {
       fs.writeFileSync(stateFile, invalidBytes);
-      const refused = readRecoveryState(capability);
+      const refused = readState(capability, { scope: "recovery" });
       assert.equal(refused.status, "blocked");
       assert.equal(refused.lockReleased, true);
       assert.equal(refused.value, null);
@@ -410,7 +410,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     } finally {
       fs.writeFileSync(stateFile, publishedBytes);
     }
-    const restored = readRecoveryState(capability);
+    const restored = readState(capability, { scope: "recovery" });
     assert.equal(restored.status, "completed", restored.reason);
     assert.equal(restored.lockReleased, true);
     assert.ok(restored.value);

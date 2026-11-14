@@ -1,5 +1,19 @@
 # MCP Transportアーキテクチャ
 
+## 実Objective結果のWorkspace観測搬送 — 2026-11-14
+
+runtime-activity-adapter ITは、実Coordinator受付・保存・有限Providerから返った二TaskのWorkspace観測を、実MCP結果Parserへ一続きで接続する。合成Projectionへの差替えで代用せず、全観測・Git HEAD不変・Queue状態の確認を維持する。実Git／保存の共通準備とexact Root清掃は下位Coの既存workspace-surface fixtureを一意に使い、MCPへ構築規則を複製しない。この限定試験は実AI・Docker・公開MCP Process E2Eの成立ではない。
+
+## 配布入口のSource接続検査 — 2026-11-14
+
+既存のruntime-activity-adapter ITは、開始済みReaderの終了待機に加えて、配布MCP入口がCoordinator公開Rootへ直接接続するSource検査を所有する。PRL-IT-012の既存義務から移管し、対象Pathと一致条件を変更しない。この読取りだけの確認は実MCP疎通・認可・Reader完了の検証と区別する。
+
+## 公開MCP実行の検証Tool所有 — 2026-11-14
+
+`scripts/verify-task-real-providers.ts`と`task-real-provider-contract.ts`は、公開MCP入口の応答・取消・親終了後の再入場を検証するToolとしてMCPが所有する。対応する47試験と専用の有限Node fixtureも同じPackageへ置く。Coordinatorは下位の業務実行Ownerとして利用し、CoordinatorのscriptからMCPの公開結果Parserを逆参照しない。旧Pathに転送入口は残さない。
+
+Reportの契約ID・改訂13・試験対象Repositoryの固定marker Path・取消／回復順序と期限は維持する。Source観測の受付は現Producerのv3だけに合わせ、旧v2は拒否する。公開にはHashと非秘密の改訂情報だけを返し、内部実体情報・Source本文は返さない。有限試験は起動対象の代役と固定Node子のみを使い、明示許可が必要な実Provider検証CLIを起動しない。実AI・実Dockerの成立は別の検証とする。
+
 ## 3モデル分離への接続 — 2026-11-12
 
 MCPはdocument-model／execution-model／configuration-modelを各操作のOwnerとして個別利用し、Model間のFacadeを設けない。AM RootはAM正本型を参照し、文書の期待値は3Identityへ投影する。JSON重複Key・閉Schema・Getter／Proxy拒否は既存Transport／入力処理へ局所化し、設定不正を非履歴Query／Recovery全体の停止へ広げない。

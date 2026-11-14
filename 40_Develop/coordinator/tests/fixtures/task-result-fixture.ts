@@ -9,7 +9,6 @@
  * @boundary 合成技術Operation→統合保存codecと実Filesystem。
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -17,12 +16,13 @@ import path from "node:path";
 import {
   applyResourceCleanup,
   applyResourceEvent,
-  readRecoveryState,
   type ExecutionStateSnapshot,
   type OperationResources,
+  readState,
   saveOperationStart,
 } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import { executionSelection } from "./ai-selection.ts";
 
 /**
@@ -324,7 +324,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   assert.ok(verified.capability);
-  const placed = readRecoveryState(verified.capability);
+  const placed = readState(verified.capability, { scope: "recovery" });
   assert.equal(placed.status, "completed", placed.reason);
   assert.equal(placed.lockReleased, true);
   assert.ok(placed.value);
@@ -344,13 +344,14 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
       repository,
       recoveryId,
       () => true,
+      "docker_task",
     );
     assert.equal(recorded.status, "completed", recorded.reason);
     assert.equal(recorded.snapshotConfirmed, true);
     assert.equal(recorded.lockReleased, true);
     assert.equal(recorded.historyConfirmed, stage === 1);
   }
-  const saved = readRecoveryState(verified.capability);
+  const saved = readState(verified.capability, { scope: "recovery" });
   assert.equal(saved.status, "completed", saved.reason);
   assert.ok(saved.value);
   const terminal = saved.value.snapshot.operations.find(

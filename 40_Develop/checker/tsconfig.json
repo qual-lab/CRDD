@@ -38,6 +38,7 @@
     "./tests/support/test-discovery.ts",
     "./tests/support/fault-injector.ts",
     "./tests/test-runner.ts",
-    "../../template/tools/crdd-check.ts"
+    "../../template/tools/crdd-check.ts",
+    "./tests/integration/version-control-consumers.integration.test.ts"
   ]
 }

@@ -9,6 +9,32 @@ import type { RepositoryManifest } from "../../../configuration-model/src/index.
 import type { Repository } from "../../../version-control/src/index.ts";
 
 /**
+ * 現在認証済みの内容操作を同じ要求内で再照合する。
+ * @responsibility 認可結果の形をAMが所有し、利用モデルの型へ依存しない。
+ * @trace ARCH-000013
+ * @shape 検証済みRoot、要求主体、操作と対象を受け取る同期再照合。
+ * @invariant 認可結果を保存又は次要求へ再利用しない。
+ * @boundary 信頼した同Processの内容Consumerだけへ渡す。
+ * @security Rootの検証を現在認可の代用品にしない。
+ * @compatibility 七操作の型範囲と既存の許可・拒否条件を維持する。
+ */
+export type RepositoryContentAccess = Readonly<{
+  root: Repository;
+  principalId: string;
+  revalidate: (
+    operation:
+      | "definition.read"
+      | "definition.write"
+      | "decision.read"
+      | "decision.record"
+      | "queue.read"
+      | "queue.enqueue"
+      | "runtime.read",
+    target: Readonly<{ projectId: string; milestoneId: string }>,
+  ) => boolean;
+}>;
+
+/**
  * 今回要求で使用する検証済みRepositoryを相関する。
  * @responsibility 管理改訂・内容範囲・登録Bindingと技術的Rootを一つに閉じる。
  * @trace ARCH-000013

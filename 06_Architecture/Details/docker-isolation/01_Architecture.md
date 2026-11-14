@@ -1,5 +1,17 @@
 # Docker隔離の詳細設計
 
+## 試験基盤のPackage局所化 — 2026-11-14
+
+固定Probeの評価は既存の分類関数の凍結済み戻り値から推論し、利用側はReturnTypeで結合する。Executorの評価型へ逆依存せず、新しい互換型・再export・型専用ファイルを作らない。
+
+旧有限Sessionの結果・取消・通知・回収を表す五型は、その実装を持つ`tests/support/session.ts`が一意に所有する。通知purposeは同じ固定九操作から導出し、観測・分類・終了値とSnapshotはDIの既存型を再利用する。Executorの試験用scriptから型を逆参照せず、上位試験用scriptもこの下位宣言へ直接接続する。製品Rootへ公開せず、型の再export・コピー・汎用型Packageは追加しない。Sessionの要求・期限・取消・回収の実装は変更しない。
+
+Source宣言抽出と新品Repository-local試験Root管理はDIの`tests/support`へ閉じ、EM試験補助の借用を行わない。構文検査・exact宣言選択・欠測／重複拒否・Snapshot解放、Root／Link／実体確認と同じ新品Rootだけの清掃は維持する。製品Source・公開IF・削除判定は変更しない。
+
+EM資源BookへReceipt・回収観測を適用する検証と、両Providerの実ExecutorからDIへの接続検証は、Coordinatorの`tests/integration/isolation-resource-record.contract.test.ts`が所有する。DIの`isolation-lifecycle`はモデル記録を含まない18試験を保持する。有限技術fixtureはDIのtests/support/isolation.tsが所有し、上位接続試験が同じ実装を使う。試験のための製品公開や技術規則のコピーは追加しない。
+
+旧固定構成のOracleとRuntimeはExecutorへ移管済みである。EM自身のRoot読込み検証もEMの既存ITへ戻し、DIは上位Packageを読めない条件で自身のRootだけを確認する。利用のないProviderAdvicePlan型の特別許可は撤去し、同じ入力を拒否する反例へ変えた。経緯と他Packageの残件は[変更計画§14.33–14.46](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。実Dockerや過去保持物の処置を含めず、全Packageの依存解消・全体回帰完了は主張しない。
+
 ## 修復試験のOwner分離 — 2026-11-11
 
 DIの製品Source・公開APIはFixを維持する。Domain公開整理の前提として、修復Machine・Session・廃棄compositionの試験をDI自身の技術codec・型へ接続し、Domain保存codecへの参照を外した。変更理由は試験Ownerの是正であり、技術判定・期限・保存通知・取消・回収の仕様変更ではない。
@@ -157,7 +169,7 @@ Model／CLIのThread数変化や通常のBuild・Testを独自固定値で妨げ
 
 Task／Advice／Probeの用途相関、固定Image選択、RoleとWorkspace権限、認証環境とSeccomp選択はExecutorの既存構築関数が所有する。旧`execution/binding.ts`と`bindProviderCommand`の公開は撤去する。DIは静的Catalogと技術Compilerを所有し、ModelやTaskの判断、Task状態・Operation・Authority・Recoveryを受け取らない。新しい状態・Lock・Registryは持たない。
 
-助言用のCommand wrapperと専用Hashは廃止し、Executorが上位の確定入力から固定Image・通信Policy・非共有条件を結合する。Commandを上位へ往復させず、実行許可・同意判断は上位に残す。Executorは固定済みIsolationRequestを一度構築し、DIの共通Compilerだけが本番argvを生成する。旧九操作のCompiler・Proxy逆投影・argv診断・全Command比較は本番SourceとRootから撤去し、過去の有限Oracleとしてtests/support/execution-plan.tsへ限定する。Image変更・Docker実行・保存形式の変更は行わない。観測・回収は共通Snapshotと技術入口へ接続済みであり、Rootは初期化を含む8関数・16型を提供する。有限試験による接続確認と、実Docker・実AIの未実施範囲は区別する。
+助言用のCommand wrapperと専用Hashは廃止し、Executorが上位の確定入力から固定Image・通信Policy・非共有条件を結合する。Commandを上位へ往復させず、実行許可・同意判断は上位に残す。Executorは固定済みIsolationRequestを一度構築し、DIの共通Compilerだけが本番argvを生成する。旧九操作のCompiler・Proxy逆投影・argv診断・全Command比較は本番SourceとRootから撤去し、過去の有限Oracleとして40_Develop/executor/tests/support/isolation-plan.tsへ限定する。Image変更・Docker実行・保存形式の変更は行わない。観測・回収は共通Snapshotと技術入口へ接続済みであり、Rootは初期化を含む8関数・16型を提供する。有限試験による接続確認と、実Docker・実AIの未実施範囲は区別する。
 
 今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
 
@@ -175,7 +187,7 @@ Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrap
 
 ## B3の構成照合境界 — 2026-10-21
 
-旧dockerIsolationCommandsMatchの再生成・全argv照合はtests/support/execution-plan.tsの有限Oracleだけが所有する。製品の公開検査ではなく、現在の実行はExecutorが固定したRequestをDIの共通準備・Compilerへ一度渡す。元準備・Capability・通知・Receipt・回収の保証はその実接続と有限技術境界で検証し、旧Oracleの成功から推定しない。
+旧dockerIsolationCommandsMatchの再生成・全argv照合は40_Develop/executor/tests/support/isolation-plan.tsの有限Oracleだけが所有する。製品の公開検査ではなく、現在の実行はExecutorが固定したRequestをDIの共通準備・Compilerへ一度渡す。元準備・Capability・通知・Receipt・回収の保証はその実接続と有限技術境界で検証し、旧Oracleの成功から推定しない。
 
 ## Image同一性と取得・Build情報の分離 — 2026-10-21
 
@@ -385,7 +397,7 @@ Candidateへローカル`.env`や資格を自動複製／注入しない。共�
 
 現行Sourceの依存方向は、同Packageのsrc、Node組込みModuleとPlatform AccessのRoot公開入口に限定する。上位Packageへのtype-only参照も逆依存として扱い、PA内部へのdeep importを置かない。通常の配置回帰は`tests/integration/package-boundary.contract.test.ts`が現src全数と反例で確認し、必要な技術入口四件は実Root exportへ接続する。これは署名・実行許可の検査ではない。試験の限定構文や未評価範囲はQA-000006を正本とし、旧署名graphの完全解析を再実装しない。
 
-ProxyとProvider Homeの用途別構成はExecutorがIsolationRequestへ確定し、DIのexecution/preparation.tsとexecution/operations.tsが技術検査とDocker argv生成を所有する。旧九操作の構築・22引数のprivate包装・保存済みProxy包装の逆解析はtests/support/execution-plan.tsの有限Oracleに限定し、製品経路では使用しない。Providerとの意味相関はExecutorが検査し、上位へCommandや専用Hashを往復させない。
+ProxyとProvider Homeの用途別構成はExecutorがIsolationRequestへ確定し、DIのexecution/preparation.tsとexecution/operations.tsが技術検査とDocker argv生成を所有する。旧九操作の構築・22引数のprivate包装・保存済みProxy包装の逆解析は40_Develop/executor/tests/support/isolation-plan.tsの有限Oracleに限定し、製品経路では使用しない。Providerとの意味相関はExecutorが検査し、上位へCommandや専用Hashを往復させない。
 
 五資源名・所有Label・二Image digestの文法と五名の重複は、Executorが計画生成・開始前に検査する。保存IdentityはDomainの既存候補生成で検査し、CoordinatorはJSON変換前の文字列型確認を維持したうえでNative Home観測より前に候補を確定する。DIは一般Requestの技術検査を所有する。旧validatorはtests/supportの有限Oracleだけに残し、本番公開・共用しない。Task・Provider・Home・Authority・Packetの意味相関、既存回復の再入場・Receipt照合・清掃・配送条件は維持し、文法成功を所有権・存在・削除許可へ昇格しない。
 
@@ -726,7 +738,7 @@ Process開始factの通知は同期であり、上位のReporter／Task開始保
 
 試験用Candidateは`productionAuthority:false`を固定し、本番FactoryのCLI／Process／Filesystem primitiveを差替え可能にしない。Candidate表示だけから注入primitiveのEffect 0や本番の清掃真正性を推定しない。上位の元Runtime／元計画／両Ownerの照合は維持する。
 
-旧九Command診断Oracleはtests/support/execution-plan.tsだけに保持する。全descriptor取得前のcommands上限9、create argv上限427はその有限Oracleの条件であり、製品の共通Requestや汎用Docker parserの上限ではない。427は固定包装171（最大64環境変数・全optional構成）と旧payload上限256から導く。包装の分離値が欠けた形や次optionを値にした形は拒否し、image以後のpayloadへ適用しない。descriptor集合の必須keyと各valueはown propertyで確認し、継承値を採用しない。
+旧九Command診断Oracleは40_Develop/executor/tests/support/isolation-plan.tsだけに保持する。全descriptor取得前のcommands上限9、create argv上限427はその有限Oracleの条件であり、製品の共通Requestや汎用Docker parserの上限ではない。427は固定包装171（最大64環境変数・全optional構成）と旧payload上限256から導く。包装の分離値が欠けた形や次optionを値にした形は拒否し、image以後のpayloadへ適用しない。descriptor集合の必須keyと各valueはown propertyで確認し、継承値を採用しない。
 
 同OracleのprojectDockerExecutionBoundaryはexactなcreate_provider一件の包装だけを解析し、payload内の同名flagや同digestを外側の設定へ数えない。製品の構成診断はこの逆解析を使用せず、Executorが固定RequestとDIの技術契約から予定設定だけを投影する。不正shape・欠測を成功へ補完せず、設定値を隔離成立・処置許可の証明にしない。生argvを通知・ログ・永続値へ追加しない。
 
@@ -797,7 +809,7 @@ DIの公開値は共通技術操作6件、固定構成照会1件と明示初期�
 
 ### 型の所有
 
-旧九操作CommandとSessionの型、五用途Receipt、Home Lease、認証結果・通知は実装OwnerであるExecutorへ移す。argv付き旧Commandと旧SessionのHandle・操作代役は試験supportだけに残す。製品側の用途識別子は既存PURPOSESから導出し、Command全体を再定義しない。
+固定構成入力・旧argv Oracle・有限RuntimeはExecutorの試験Ownerが所有する。九purpose＋readonly argvとSessionの五型は実装と同じDIのtests/support/session.tsが所有し、上位の有限試験も宣言元へ直接接続する。Homeの技術Handleは共通Lockの生存確認と引数なしreleaseだけへ投影し、保持引数を開放しない。固定Probeの評価事実はDIの分類実体から推論する。製品の認証結果・用途別通知はExecutorが所有する。argv付き旧Commandと旧SessionのHandle・操作代役は試験supportに限定し、製品側の用途識別子は既存PURPOSESから導出する。
 
 DIは共通Request・Execution・技術Callback、ResourceSnapshot・観測・構成期待値、環境操作とProcessの技術分類型を所有する。外部製品が必要な型だけRootから公開し、試験専用型を含めない。
 

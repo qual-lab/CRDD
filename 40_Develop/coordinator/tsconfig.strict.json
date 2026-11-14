@@ -37,7 +37,6 @@
     "scripts/prepare-codex-image.ts",
     "scripts/verify-dynamic-fake-provider-cancellation.ts",
     "scripts/verify-dynamic-fake-provider-failures.ts",
-    "scripts/verify-task-real-providers.ts",
     "scripts/verify-reviewer-boundary.ts",
     "src/cli/options.ts",
     "src/execution/recovery.ts",
@@ -47,7 +46,9 @@
     "src/execution/operation.ts",
     "src/input/snapshot.ts",
     "src/execution/preparation.ts",
-    "scripts/coverage.ts"
+    "scripts/coverage.ts",
+    "scripts/verify-provider-real.ts",
+    "scripts/provider-attempt-host.ts"
   ],
   "include": [
     "src/**/*.ts"

@@ -10,7 +10,6 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import {
   applyResourceCleanup,
   applyResourceEvent,
@@ -82,7 +81,7 @@ test("要求前の切断は資源終端だけを満たし、単独条件の欠�
 });
 
 /**
- * 初回Intent前のDI正規化Snapshotだけを構成する。
+ * 初回Intent前のEM保存Snapshotだけを構成する。
  * @responsibility 固定Identityの非秘密ResourceSnapshotを構築する
  * @trace ERB-UT-023
  * @precondition 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
@@ -95,7 +94,7 @@ test("要求前の切断は資源終端だけを満たし、単独条件の欠�
 function snapshot(
   id: string | null = null,
   request: "not_issued" | "unknown" | "issued" = "not_issued",
-): ResourceSnapshot {
+): OperationResources["snapshot"] {
   return {
     resources: ["first", "second"].map((key, index) => ({
       key,
@@ -483,4 +482,53 @@ test("欠測・重複key・未正規化Command・環境値を保存しない", (
     ),
     null,
   );
+});
+
+/**
+ * 同じBook受付で、元値指定時だけ遷移も検査する。
+ * @responsibility 独立した公開比較入口なしで既知Identityの差替えを拒否する。
+ * @trace ERB-UT-023
+ * @precondition 正規の資源Bookを使用する。
+ * @stimulus 元値省略・正規元値・欠測・不正比較Object・Getterを渡す。
+ * @observation 受付結果とGetter実行数。
+ * @oracle 形だけの受付と遷移受付を区別し、不正元値から成功を生成しない。
+ * @cleanup N/A: メモリ値のみ。
+ * @boundary 資源記録の純粋な受付。
+ */
+test("Book受付は元値指定で同じ遷移正本を使い比較入力の欠測を拒否する", () => {
+  const before = initial();
+  assert.ok(before.snapshot.resources[0]);
+  const changed = {
+    ...before,
+    snapshot: {
+      resources: before.snapshot.resources.map((resource, index) =>
+        index === 0
+          ? {
+              ...resource,
+              identity: { ...resource.identity, name: "different" },
+            }
+          : resource,
+      ),
+    },
+  };
+  assert.equal(validateResourceBook(changed), true);
+  assert.equal(validateResourceBook(changed, { before }), false);
+  assert.equal(validateResourceBook(before, { before }), true);
+  assert.equal(validateResourceBook(null, { before }), false);
+  assert.equal(validateResourceBook(null, { before: null }), true);
+  assert.equal(validateResourceBook(before, { before: undefined }), false);
+  assert.equal(validateResourceBook(before, {} as { before: unknown }), false);
+  let reads = 0;
+  const getter = Object.defineProperty({}, "before", {
+    enumerable: true,
+    get() {
+      reads++;
+      return before;
+    },
+  });
+  assert.equal(
+    validateResourceBook(before, getter as { before: unknown }),
+    false,
+  );
+  assert.equal(reads, 0);
 });

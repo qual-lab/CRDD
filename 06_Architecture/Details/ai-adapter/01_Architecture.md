@@ -114,6 +114,8 @@ AI Adapter 技術Catalog → CoordinatorのRepository選定
 
 WorkbenchはCoordinatorの設定Reader／CAS Writerを使い、AMが共有管理の認可を担当する。MCPは旧Profile四管理Toolを提供しない。AI AdapterはRepository／Host設定の保存・Role判定・管理通信を行わない。Domain Model・Coordinatorへは、型参照や再exportを含め依存しない。
 
+この依存方向はscripts・bin・試験・fixtureにも適用する。役割設定からProvider計画への接続を検証する`selection-consumers` SuiteはCoordinatorが所有し、同じ試験名・assert・RCM-IT-005と安定Suite IDを維持する。DI配置は公開`describeIsolationConfiguration`から取得する。AI Adapter内のCatalog・結果単独試験は同Packageで維持する。Catalog試験内のDI配置連携もCoへ移し、EMの独立子ProcessロードはEMのITへ移管した。AD拒否理由とEM公開語彙の接続はCoの既存反例試験で維持する。残る他Packageの移管群は[変更計画§14.33–14.35](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で追跡し、この範囲の移管を全依存解消とは扱わない。
+
 Provider・Effort・技術Model選定・Turn診断の宣言は既存`provider/types.ts`が所有する。Repository設定の役割・分類・選定元・内容IdentityはDomain／上位Ownerが保持し、技術値の宣言をDomainの保存型から逆輸入しない。既存の型名・値域と保存形式は変えない。
 
 Provider入力は内部の`provider/input.ts`で通常Object／Arrayを捕捉し、応答JSONは`provider/json.ts`で重複key・不正文法・余剰文字を拒否する。Catalog検査からProvider計画へ循環しない純粋Moduleに閉じ、保存機能や共通ライブラリを新設しない。Domainの保存入力検査とは適用境界を分け、AI Adapterの入力検査からDomainを呼ばない。汎用JSON解析は内部に隠し、上位の一般JSON読取りはDomainの既存APIを使う。

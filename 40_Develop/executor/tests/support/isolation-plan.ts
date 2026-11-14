@@ -7,13 +7,13 @@
  */
 import path from "node:path";
 import { types } from "node:util";
-import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
-import { resolveFixedCodexExecutorSeccompProfile } from "../../src/execution/plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "../../../docker-isolation/src/execution/plan.ts";
 import {
   type DockerNetworkPolicy,
   parseDockerNetworkPolicy,
   prepareDockerNetworkPolicy,
-} from "../../src/network/policy.ts";
+} from "../../../docker-isolation/src/network/policy.ts";
+import type { DockerIsolationCommandInput } from "../../src/lifecycle/types.ts";
 
 /** 旧Command計画の固定Identity文法を保持する有限Oracle。製品の検査には使用しない。 */
 export function dockerIsolationResourceIdentityIsValid(
@@ -666,27 +666,4 @@ export function planDockerIsolationCommands(
   return Object.freeze(result);
 }
 
-/**
- * 閉じたDocker操作purposeと構築済み引数。
- *
- * @responsibility 生成した操作と引数の対応を一つの値として所有する。
- * @trace ARCH-000004
- * @shape 九purposeのうち一つと不変argv配列。
- * @invariant Callerが任意Docker操作を追加する入力ではない。
- * @boundary 計画構築からEffect発行前の照合へ搬送する。
- * @security 実行許可や所有資源の証明をこの値だけから発行しない。
- * @compatibility 既存操作のpurpose文字列を維持する。
- */
-export type DockerIsolationCommand = Readonly<{
-  purpose:
-    | "create_subscription_auth_probe"
-    | "start_subscription_auth_probe_attached"
-    | "create_internal_network"
-    | "create_egress_network"
-    | "create_proxy"
-    | "connect_proxy_egress"
-    | "create_provider"
-    | "start_proxy"
-    | "start_provider_attached";
-  argv: readonly string[];
-}>;
+import type { DockerIsolationCommand } from "../../../docker-isolation/tests/support/session.ts";

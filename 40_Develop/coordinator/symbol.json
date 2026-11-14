@@ -4,6 +4,22 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.test.unit.executor-resource-record",
+      "kind": "test-suite",
+      "path": "tests/unit/execution/resource-record.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.source.attempt.execute",
+        "executor.test.fixture.attempt-execution",
+        "domain-model.src.attempt.crud"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.integration.continuation-decision",
       "kind": "test-suite",
       "path": "tests/integration/continuation-decision.integration.test.ts",
@@ -465,7 +481,8 @@
         "coordinator.execution.provider-observation",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.state-storage.coordinator-state-runtime",
-        "coordinator.diagnostics.runtime-repair"
+        "coordinator.diagnostics.runtime-repair",
+        "coordinator.test.fixture.normal-owner-lifecycle"
       ]
     },
     {
@@ -879,6 +896,7 @@
         "ERB-IT-004"
       ],
       "verifies": [
+        "docker-isolation.test.support.session",
         "coordinator.provider.execution-adapter",
         "coordinator.source.src.security.docker.effect.runtime",
         "coordinator.source.src.security.execution.environment",
@@ -1428,25 +1446,6 @@
       ],
       "verifies": [
         "coordinator.source.scripts.verify.signed.reviewer.boundary"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.system.orchestrator-real-provider-verification-script",
-      "kind": "test-suite",
-      "path": "tests/system/task-real-provider-verification-script.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-ST-001",
-        "PRL-ST-003",
-        "PRL-ST-004"
-      ],
-      "verifies": [
-        "coordinator.source.scripts.orchestrator.real.provider.contract",
-        "orchestrator.objective-application",
-        "orchestrator.public-api",
-        "orchestrator.state-core"
       ]
     },
     {
@@ -2149,6 +2148,8 @@
         "ERB-UT-023"
       ],
       "verifies": [
+        "executor.source.attempt.execute",
+        "execution-model.public-api",
         "coordinator.execution.provider-result-reasons",
         "coordinator.execution.result-reasons",
         "coordinator.source.src.security.workbench.ai.advice.provider.output"
@@ -2790,14 +2791,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.scripts.orchestrator.real.provider.contract",
-      "kind": "module",
-      "path": "scripts/task-real-provider-contract.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.scripts.verify.signed.general.task",
       "kind": "module",
       "path": "scripts/verify-general-task.ts",
@@ -3195,7 +3188,8 @@
         "orchestrator.workspace.record",
         "orchestrator.workspace.operations",
         "orchestrator.workspace.commands",
-        "orchestrator.objective-intake"
+        "orchestrator.objective-intake",
+        "coordinator.test.fixture.workspace-surface"
       ]
     },
     {
@@ -4124,6 +4118,133 @@
       "path": "src/input/secret-validation.ts",
       "archIds": [
         "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "ai-runtime.test.consumers",
+      "kind": "test-suite",
+      "path": "tests/integration/selection-consumers.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-005"
+      ],
+      "verifies": [
+        "ai-runtime.catalog",
+        "ai-runtime.public-api",
+        "ai-adapter.catalog.resolver",
+        "coordinator.selection.resolve",
+        "ai-adapter.provider.execution-plan",
+        "domain-model.task.types",
+        "domain-model.attempt.repair-types"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.provider-real",
+      "kind": "verification-tool",
+      "path": "scripts/verify-provider-real.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "executor.test.integration.provider-real-cli",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-real-cli.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.verification.provider-real"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.attempt-host",
+      "kind": "verification-tool",
+      "path": "scripts/provider-attempt-host.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "executor.test.integration.attempt-host",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-attempt-host.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.verification.attempt-host"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.provider-verification-boundary",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-verification-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.verification.provider-real",
+        "executor.verification.attempt-host",
+        "executor.verification.provider-attempt",
+        "executor.source.attempt.execute"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.isolation-resource-record",
+      "kind": "test-suite",
+      "path": "tests/integration/isolation-resource-record.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.binding",
+        "docker-isolation.test.support.isolation",
+        "executor.source.attempt.execute",
+        "execution-model.public-api"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.fixture.workspace-surface",
+      "kind": "file",
+      "path": "tests/fixtures/workspace-surface.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.fixture.normal-owner-lifecycle",
+      "kind": "file",
+      "path": "tests/fixtures/docker-owned-process-test-support.ts",
+      "archIds": [
+        "ARCH-000004"
       ]
     }
   ]

@@ -321,22 +321,25 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
       assertCurrentRecoveryOwner: () =>
         scenario !== "owner_at_write" &&
         !(scenario === "owner_after_readback" && counts.read > 0),
-      saveUnknownAuthenticationClosureStage: (
+      saveRecoveryCheckpoint: (
         repository: unknown,
         id: string,
         bytes: Buffer,
-        rounds: unknown,
-        verify: () => boolean,
+        request: {
+          kind: "authentication_unknown_closure";
+          observations: unknown;
+          assertOwner: () => boolean;
+        },
       ) => {
         counts.writer++;
         assert.equal(repository, record.repository);
         assert.equal(id, fixture.recoveryId);
         assert.equal(bytes, before);
-        assert.deepEqual(structuredClone(rounds), [
+        assert.deepEqual(structuredClone(request.observations), [
           { round: 1, name: "absent", name_label: "absent" },
           { round: 2, name: "absent", name_label: "absent" },
         ]);
-        const confirmed = verify() && scenario !== "writer_failed";
+        const confirmed = request.assertOwner() && scenario !== "writer_failed";
         return {
           status: confirmed ? "completed" : "blocked",
           snapshotConfirmed: confirmed,
@@ -345,7 +348,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           payloadSha256: "saved",
         };
       },
-      readRecoveryState: (owner: unknown) => {
+      readState: (owner: unknown) => {
         counts.read++;
         assert.equal(owner, rootCapability);
         return {

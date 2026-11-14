@@ -610,6 +610,21 @@
       "archIds": [
         "ARCH-000001"
       ]
+    },
+    {
+      "symbolId": "checker.test.integration.version-control-consumers",
+      "kind": "test-suite",
+      "path": "tests/integration/version-control-consumers.integration.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-004"
+      ],
+      "verifies": [
+        "version-control.public-api",
+        "version-control.source.src.repository.location"
+      ]
     }
   ]
 }

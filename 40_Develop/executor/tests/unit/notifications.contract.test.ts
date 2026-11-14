@@ -8,18 +8,17 @@
  * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 import assert from "node:assert/strict";
-import * as di from "../../../docker-isolation/src/index.ts";
 import { readFileSync } from "node:fs";
 import test, { mock } from "node:test";
 import { runInNewContext } from "node:vm";
-import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import {
-  createExecutorTestRuntime,
-  bindLegacyTestIsolation,
-} from "../../scripts/executor-test.ts";
+import * as di from "../../../docker-isolation/src/index.ts";
 import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
+import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import type { IsolationRuntime } from "../../scripts/executor-test.ts";
+import {
+  bindLegacyTestIsolation,
+  createExecutorTestRuntime,
+} from "../../scripts/executor-test.ts";
 import type {
   AttemptDiagnosticNotice,
   CompletionResult,
@@ -27,6 +26,7 @@ import type {
 } from "../../src/index.ts";
 import { createLifecycleControl } from "../../src/lifecycle/execute.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * 公開FactoryからPlanを往復せず、同じ一試行を実行・取消・回収する。

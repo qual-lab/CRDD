@@ -213,21 +213,21 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const storeUrl = ${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)};
     const store = await import(storeUrl);
     storeMock = mock.module(storeUrl,{namedExports:{...store,
-      saveRecoveryCheckpoint:(...args)=>{
-        const value=store.saveRecoveryCheckpoint(...args);
-        checkpointResults.push({kind:args[3],status:value.status,reason:value.reason??null,confirmed:value.snapshotConfirmed,released:value.lockReleased});
-        return value;
-      },
-      saveUnknownAuthenticationClosureStage: (...args) => {
+      saveRecoveryCheckpoint: (...args) => {
+        if(args[3]?.kind!=="authentication_unknown_closure"){
+          const value=store.saveRecoveryCheckpoint(...args);
+          checkpointResults.push({kind:args[3].kind,status:value.status,reason:value.reason??null,confirmed:value.snapshotConfirmed,released:value.lockReleased});
+          return value;
+        }
         assert.equal(++saves,1); assert.equal(args[1],id); assert.equal(discoveries,0); assert.equal(rounds,2); assert.equal(calls,commands.length);
-        assert.deepEqual(args[3],[{round:1,name:'absent',name_label:'absent'},{round:2,name:'absent',name_label:'absent'}]);
+        assert.deepEqual(args[3].observations,[{round:1,name:'absent',name_label:'absent'},{round:2,name:'absent',name_label:'absent'}]);
         assert.deepEqual(fs.readFileSync(statePath),args[2]);
         const before = JSON.parse(args[2]), operation = before.operations.find(item => item.recoveryId === id);
         assert.deepEqual({...operation,resources:target.resources},target);
-        const result = store.saveUnknownAuthenticationClosureStage(...args);
+        const result = store.saveRecoveryCheckpoint(...args);
         assert.equal(result.status,'completed'); assert.equal(result.snapshotConfirmed,true); assert.equal(result.lockReleased,true);
         const candidate = fs.readFileSync(statePath);
-        const read = store.readRecoveryState(verified.capability);
+        const read = store.readState(verified.capability,{scope:'recovery'});
         assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true);
         assert.deepEqual(read.value.snapshot,JSON.parse(candidate));
         const saved = JSON.parse(candidate), closed = saved.operations.find(item => item.recoveryId === id);
@@ -249,7 +249,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     lifecycleMock = mock.module(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)},{namedExports:{...lifecycle}});
     const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
     const verified = vc.getRepository(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
-    const read = store.readRecoveryState(verified.capability);
+    const read = store.readState(verified.capability,{scope:'recovery'});
     assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true); assert.deepEqual(read.value.snapshot,initial);
     process.argv = [process.execPath,cli,'recovery','resume',id,'--json'];
     await import(cliUrl);

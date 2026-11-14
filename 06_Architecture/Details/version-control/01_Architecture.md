@@ -1,5 +1,9 @@
 # Version Control境界
 
+## Consumer集合の試験Owner — 2026-11-14
+
+VCのconsumer-closure ITは、完成契約型・Git語彙を出さないRoot投影・自己Architectureとの公開集合一致・Git配置とignoreの責務分離・旧内部Candidate分類拒否の五試験を所有する。Repository全体のConsumer集合と単一Owner、Checker接続とimport解析の九試験はCheckerの回帰試験へ移す。VCが上位PackageのSourceを走査する構造を残さず、試験のためのRoot公開を追加しない。公開名抽出の小さなHelperはVC自身だけが利用するため同Suite内に閉じる。
+
 ## Git管理情報と内部表示量の追加整理 — 2026-11-12
 
 Git管理Fileの独自容量制限（制御File 4KiB、設定1MiB、除外設定128KiB、packed-refs 4MiB）を撤去する。安定読取りは実Fileのサイズに対応した読取りを行い、正しい文字コード、Link拒否、実体・読取り前後の一致、サイズの安全整数、完全読取りとHandle解放の検査を維持する。容量指定引数は残さない。

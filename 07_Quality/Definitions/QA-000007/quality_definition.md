@@ -1,5 +1,9 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## モデル接続試験を利用側へ配置 — 2026-11-14
+
+既存RFD-IT-013のCore定義Context→実Writer試験はWorkbenchのruntime-definition IT、RFD-IT-019の許可集合→実本文版→Portfolio試験はWorkbenchのmanagement ITへ移す。全assert・実認可・保存／本文観測・同じfixture清掃を維持し、AM単独の認可検査と上位接続を分離する。内容認可結果のAM所有型とEM受入型は、同じ実値の双方向代入で確認する。新しいQA項目や全体Passは作らない。
+
 ## VC管理Fileと内容操作の内部容量追従 — 2026-11-12
 
 VCのGit管理FileReader二経路、local ignoreの解析・更新・再読取り、Path／Tree Cursor・Merge本文・Git User設定とWorktree探索の旧量制約を、同じ完成操作と利用側へ接続する。実Gitで構成できる大きいconfig／exclude／packed-refs等は新品のRepository-local Fixtureで確認し、OS上で生成できない全Path長・巨大列挙の局所対照は実Git境界の成功と区別する。元File／Root／Link・OID／Ref文法・Lock／Revision・Effect／Cleanupの確認と、Process maxBuffer・Ref長Policy・ページ取得枠は維持する。実AI／Docker・全体回帰・過去保持物は操作しない。

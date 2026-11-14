@@ -17,16 +17,16 @@ import path from "node:path";
 import test from "node:test";
 import { types } from "node:util";
 import vm from "node:vm";
-import { codexAdviceProviderInitRequired } from "../../support/cleanup.ts";
-import type { DockerIsolationCommandInput } from "../../../../executor/src/lifecycle/types.ts";
-import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
+import { codexAdviceProviderInitRequired } from "../../../../docker-isolation/tests/support/cleanup.ts";
+import type { DockerIsolationCommandInput } from "../../../src/lifecycle/types.ts";
 import {
-  dockerIsolationResourceIdentityIsValid,
   dockerIsolationCommandsMatch,
+  dockerIsolationResourceIdentityIsValid,
   planDockerIsolationCommands,
   projectDockerExecutionBoundary,
   projectDockerProxyConfiguration,
-} from "../../support/execution-plan.ts";
+} from "../../support/isolation-plan.ts";
 
 /**
  * 元commandの用途・順序・全argv差を拒否する。
@@ -396,7 +396,7 @@ test("Proxy投影は固定包装だけを読み欠測・重複・暗黙変換を
   };
   verifyNoImageCoercion(projectDockerProxyConfiguration);
   const source = fs.readFileSync(
-    new URL("../../support/execution-plan.ts", import.meta.url),
+    new URL("../../support/isolation-plan.ts", import.meta.url),
     "utf8",
   );
   const parts = [];
@@ -822,7 +822,7 @@ test("Seccompは固定Identityで計画し旧Pathと欠測を拒否する", () =
  */
 test("診断descriptorは隔離VMの継承value・継承必須keyを受理しない", () => {
   const source = fs.readFileSync(
-    new URL("../../support/execution-plan.ts", import.meta.url),
+    new URL("../../support/isolation-plan.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("function snapshotDockerBoundaryArray(");

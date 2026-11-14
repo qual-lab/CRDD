@@ -1,5 +1,5 @@
 /**
- * 合成診断の説明文観測を、Providerなしで検査する。
+ * Workbench合成診断の説明文観測を、Providerなしで検査する。
  * @packageDocumentation
  * @trace ERB-IT-002
  * @level IT
@@ -336,8 +336,10 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
     "../../scripts/task-summary-observation.ts",
     import.meta.url,
   ).href;
-  const consumer = new URL("../../scripts/executor-test.ts", import.meta.url)
-    .href;
+  const consumer = new URL(
+    "../../../executor/scripts/executor-test.ts",
+    import.meta.url,
+  ).href;
   const child = spawnSync(
     process.execPath,
     [
@@ -351,7 +353,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
     const {installTaskSummaryObservation}=await import(${JSON.stringify(helper)});
     let secretChecks=0;
     const observer=installTaskSummaryObservation((relativePath,value)=>{assert.equal(relativePath,'summary.txt');assert.equal(typeof value,'string');secretChecks++;return false;});
-    const {attemptPlan}=await import(${JSON.stringify(new URL("../fixtures/attempt-plan.ts", import.meta.url).href)});
+    const {attemptPlan}=await import(${JSON.stringify(new URL("../../../executor/tests/fixtures/attempt-plan.ts", import.meta.url).href)});
     try { const module=await import(${JSON.stringify(consumer)});
       const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
       for (const provider of ['codex','claude']) {

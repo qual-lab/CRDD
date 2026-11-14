@@ -1030,7 +1030,7 @@ export async function simulateAuthCreateClosure(
     }
     if (loads.length === 4)
       return {
-        saveUnknownAuthenticationClosureStage: () => {
+        saveRecoveryCheckpoint: () => {
           events.push("closure_save");
           if (fault === "closure_save_failed") {
             hits++;
@@ -1062,7 +1062,7 @@ export async function simulateAuthCreateClosure(
             lockReleased: true,
           };
         },
-        readRecoveryState: () => {
+        readState: () => {
           readerCalls++;
           if (
             ["rm_reader_unknown", "rm_reader_release"].includes(fault) &&
@@ -1165,13 +1165,15 @@ export async function simulateAuthCreateClosure(
             }
             const writer = mocks.get(
               moduleUrl("../../../execution-model/src/index.ts"),
-            )?.saveUnknownAuthenticationClosureStage as (
-              ...args: unknown[]
-            ) => {
+            )?.saveRecoveryCheckpoint as (...args: unknown[]) => {
               status: string;
             };
             recovered =
-              writer(undefined, target.recoveryId).status === "completed";
+              writer(undefined, target.recoveryId, undefined, {
+                kind: "authentication_unknown_closure",
+                observations: [],
+                assertOwner: () => true,
+              }).status === "completed";
           } else {
             if (fault === "identified_missing") hits++;
             else

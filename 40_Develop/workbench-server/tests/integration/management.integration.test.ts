@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility 七保存、本人表示、現在認可と非開示を実保存へ接続する。
  * @trace RFD-IT-013
+ * @trace RFD-IT-019
  * @trace RFD-IT-021
  * @trace RFD-IT-024
  * @trace EST-IT-002
@@ -16,9 +17,8 @@
  * @boundary 自己生成AM／登録Repositoryだけ。公開Launcherと実Browserは別評価。
  */
 import assert from "node:assert/strict";
-import { getRepository } from "../../../version-control/src/index.ts";
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import {
   type ClientRequest,
@@ -30,23 +30,31 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { resolveRepositoryAccessCollection } from "../../../access-management/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { contentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
 import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
+import {
+  createPortfolioProjection,
+  type ProjectContextSource,
+  readRepositoryProjectContext,
+} from "../../../document-model/src/index.ts";
+import type { Execution } from "../../../execution-intelligence/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { observeLocalListener } from "../../../visual-preview/src/index.ts";
-import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
-import { authenticateWorkbenchConnection } from "../../src/server/credential/administration.ts";
 import { startWorkbench } from "../../src/index.ts";
-import { inspectManagementResult } from "../../src/shared/management/validation.ts";
+import { authenticateWorkbenchConnection } from "../../src/server/credential/administration.ts";
 import {
   readAccessPortfolio,
   resolveAccessRepository,
 } from "../../src/server/project/access-reader.ts";
 import { resolveAccessTopicMeeting } from "../../src/server/topic-meeting/access-resolver.ts";
 import { validateTopicMeetingActionForm } from "../../src/server/topic-meeting/action.ts";
+import { inspectManagementResult } from "../../src/shared/management/validation.ts";
+import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
 
 /**
  * 自己生成Repositoryへ非秘密の活動履歴を準備する。
@@ -2688,3 +2696,102 @@ for (const mode of ["local", "cros"] as const) {
     }
   });
 }
+
+/**
+ * 現在許可集合から実本文を一回読み中立Sourceへ搬送する。
+ * @responsibility 管理改訂と本文版を分離し、許可外RootをReaderへ渡さない。
+ * @trace RFD-IT-019
+ * @precondition 公開済み一Repositoryと管理者の空内容範囲。
+ * @stimulus 各Roleの現在集合を取得して固定本文を読み集約し、本文欠測も観測する。
+ * @observation Reader対象open回数、4項目Source、本文版、Portfolio、固定取得不能結果。
+ * @oracle developerだけ対象本文一回、administrator空集合は本文0。本文不明は版なしでnull／missingを作らない。
+ * @cleanup Hook復元と既存Fixtureによる自己生成Root不存在確認。
+ * @boundary AM実認可→Domain実本文Reader→Source→Portfolio。本番Surfaceの完成は対象外。
+ */
+test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
+  const f = contentFixture(t),
+    target = path.join(f.target.directory, "PROJECT_CONTEXT.md");
+  const open = fs.openSync;
+  let opened = 0;
+  t.after(() => {
+    fs.openSync = open;
+  });
+  fs.openSync = (file, flags, mode) => {
+    if (String(file) === target) opened++;
+    return open(file, flags, mode);
+  };
+  try {
+    for (const role of ["developer", "administrator"] as const) {
+      opened = 0;
+      const collection = resolveRepositoryAccessCollection(
+        f.root,
+        f.tokens[role],
+      );
+      assert.equal(collection.status, "completed");
+      if (collection.status !== "completed")
+        throw new Error("collection unavailable");
+      const sources: ProjectContextSource[] = [];
+      for (const repository of collection.repositories) {
+        const read = readRepositoryProjectContext(repository.root, {
+          projectId: repository.manifest.projectId,
+          repositoryId: repository.manifest.repositoryId,
+          repositoryRole: repository.manifest.repositoryRole,
+        });
+        assert.equal(read.status, "completed");
+        if (read.status !== "completed") throw new Error("context unavailable");
+        sources.push(
+          Object.freeze({
+            projectId: repository.manifest.projectId,
+            repositoryId: repository.repositoryId,
+            state: "complete",
+            revision: read.revision,
+            context: read.context,
+          }),
+        );
+      }
+      const portfolio = createPortfolioProjection(sources);
+      assert.equal(opened, role === "developer" ? 1 : 0);
+      if (role === "developer") {
+        assert.deepEqual(Object.keys(sources[0] ?? {}).sort(), [
+          "context",
+          "projectId",
+          "repositoryId",
+          "revision",
+          "state",
+        ]);
+        assert.equal(portfolio.projects[0]?.state, "complete");
+        assert.equal(
+          portfolio.projects[0]?.sources[0]?.revision,
+          `context-text-sha256:${createHash("sha256").update(f.target.context, "utf8").digest("hex")}`,
+        );
+        assert.notEqual(
+          sources[0]?.revision,
+          String(collection.managementRevision),
+        );
+      } else assert.deepEqual(portfolio.projects, []);
+    }
+    fs.rmSync(target);
+    const collection = resolveRepositoryAccessCollection(
+      f.root,
+      f.tokens.developer,
+    );
+    assert.equal(collection.status, "completed");
+    if (collection.status !== "completed")
+      throw new Error("collection unavailable");
+    const repository = collection.repositories[0];
+    assert.ok(repository);
+    const read = readRepositoryProjectContext(repository.root, {
+      projectId: repository.manifest.projectId,
+      repositoryId: repository.manifest.repositoryId,
+      repositoryRole: repository.manifest.repositoryRole,
+    });
+    assert.deepEqual(read, {
+      status: "unavailable",
+      reason: "project_context_observation_unavailable",
+    });
+    assert.equal(Object.hasOwn(read, "revision"), false);
+    assert.equal(Object.hasOwn(read, "context"), false);
+  } finally {
+    fs.openSync = open;
+  }
+});

@@ -14,7 +14,6 @@
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -26,12 +25,12 @@ import { types } from "node:util";
 import {
   dockerProcessControllerPublicCompletionReasons,
   initializeExecutionStore,
-  readRecoveryState,
+  readState,
   saveOperationStart,
 } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
 import {
   createIsolatedCoordinatorTaskRuntimeCandidate,
@@ -62,6 +61,7 @@ import {
   executionSelection,
   selectionConfig,
 } from "../fixtures/ai-selection.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,
@@ -382,6 +382,7 @@ test("単一Taskは受領APIを持たずCompletionで終端する", async () => 
 });
 
 import { hashExecutionSelection } from "../../src/selection/resolve.ts";
+
 const executedTaskTraceCases = new Set<string>();
 
 /**
@@ -1786,7 +1787,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
       initializeExecutionStore(verified.capability, "binding-a").status,
       "completed",
     );
-    const initial = readRecoveryState(verified.capability);
+    const initial = readState(verified.capability, { scope: "recovery" });
     assert.equal(initial.status, "completed", initial.reason);
     assert.ok(initial.value && initial.lockReleased);
     const binding = initial.value.snapshot.repositoryBinding;
@@ -1950,7 +1951,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
         );
         assert.ok(snapshot);
-        const observed = readRecoveryState(verified.capability);
+        const observed = readState(verified.capability, { scope: "recovery" });
         assert.equal(observed.status, "completed");
         assert.equal(observed.lockReleased, true);
         assert.deepEqual(observed.value?.snapshot, snapshot);

@@ -6,10 +6,8 @@
 
 import { randomUUID } from "node:crypto";
 import type { Repository } from "../../../version-control/src/index.ts";
-import { parseDockerTaskRecoveryId } from "../attempt/validation.ts";
 import { prepareDecisionRetirement } from "../decision/validation.ts";
 import {
-  advanceCurrentHistory,
   observeSnapshotObligations,
   withSnapshotOperation,
 } from "../state/crud.ts";
@@ -18,16 +16,10 @@ import {
   PROJECT_SNAPSHOT_SCHEMA,
 } from "../state/validation.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
-import {
-  blocked,
-  completed,
-  observeExecutionRecoveryRepository,
-} from "../storage/lock.ts";
-import type { StorageRepository } from "../storage/store.ts";
+import { blocked, completed } from "../storage/lock.ts";
 import {
   inspectDecisionHistorySettlement,
   inspectHistorySettlement,
-  readStateSnapshot,
   updateHistoryOwned,
 } from "../storage/store.ts";
 import type { HistoryRow } from "./types.ts";
@@ -36,62 +28,6 @@ import {
   prepareHistoryTransfer,
   prepareTerminalRecordRetirement,
 } from "./validation.ts";
-
-/**
- * 同じ回収Ownerから、現在終端の履歴を一段だけ保存する。
- * @responsibility stage・時刻・候補を保存材料から導出し、既存Writerへ短命Contextを結合する。
- * @trace ARCH-000008
- * @input repository、recoveryId: 固定対象。assertOwner: 同じ解放済み回収Ownerの同期確認。
- * @returns 保存・読戻し・排他終了と履歴確認状態を分けた結果。
- * @precondition 元OwnerのEffect無効、資源・Host清掃と全外側排他解放が確認済み。
- * @postcondition 一段完了後の再Readerを要求し、旧実行Capabilityを復元しない。
- * @effect 固定state／historyとその短命Fileだけを既存Writerで保存する。
- * @failure Owner失効、元版差、交差候補、履歴・設定差、観測不能は停止する。
- * @invariant 履歴確認をTask成功・配送・受領ACKへ昇格しない。
- * @boundary 現在回収OwnerとRepository-local履歴出版。
- * @security 任意Path・stage・consumer・時刻をCallerから受け取らない。
- * @concurrency 既存短期排他と各I/O前後の同Owner確認を使用する。
- */
-export function advanceOwnedRecoveryHistory(
-  repository: StorageRepository & { operationId: string },
-  recoveryId: string,
-  assertOwner: () => boolean,
-) {
-  return advanceCurrentHistory(
-    repository,
-    recoveryId,
-    assertOwner,
-    "docker_task",
-  );
-}
-
-/**
- * 同じ修復保存Ownerから修復履歴だけを一段確定する。
- * @responsibility 修復種別を固定し、Task配送へ代替しない既存履歴Writerを使う。
- * @trace ARCH-000008
- * @input repository、recoveryId、assertOwner: 現在のexact修復保存Owner。
- * @returns 保存・排他解放・履歴確認を分けた結果。
- * @precondition Rootと改訂版が現在も有効で修復の技術処置が終了している。
- * @postcondition 履歴確認から実行許可や保持物の削除許可を生成しない。
- * @effect Repository内の既存state／historyと短命保存物だけ。
- * @failure 不一致・観測不能・Owner失効時は後続保存しない。
- * @invariant Taskの配送・ACKへfallbackしない。
- * @boundary 修復の保存Ownerと既存Kernel排他。
- * @security JSONだけからOwner資格を復元しない。
- * @concurrency 同じOwnerの各I/O前後確認と既存単一Writerを使う。
- */
-export function advanceOwnedRepairHistory(
-  repository: StorageRepository & { operationId: string },
-  recoveryId: string,
-  assertOwner: () => boolean,
-) {
-  return advanceCurrentHistory(
-    repository,
-    recoveryId,
-    assertOwner,
-    "runtime_repair",
-  );
-}
 
 /**
  * 終了要約の生成、履歴確定、受付世代切替を接続する。

@@ -1,5 +1,11 @@
 # ユーザー・資格・認可の詳細設計
 
+## 内容認可結果の型Ownerとモデル接続試験 — 2026-11-14
+
+要求内の内容認可結果はAM内部のRepositoryContentAccessが所有し、EM型をimportしない。七操作・Targetの二項目・readonly・検証済みRepositoryと既存の五許可／二拒否を維持する。新型はRootへ再exportせず、変換を挟まない構造適合をWorkbenchの実AM→EM保存試験で双方向に確認する。
+
+実Writer初期化・Plan保存と、実本文ReaderからPortfolioへの接続試験はWorkbenchの既存ITが所有する。AM自身は認証・現在版・取消・解放不明の拒否を検証する。登録時のPROJECT_CONTEXTとManifestの三Identity照合は現役の登録条件であり、DM Parser／Filesystem ObserverとCM Manifestへの実依存は維持する。EM型への結合と、この登録保証に必要な依存を混同しない。
+
 ## 3モデル分離への接続 — 2026-11-12
 
 AMの公開集合は30関数・27型（FilesystemStoreRootの正本移管による1型追加）とする。AMのFilesystemStoreRoot・Host Root初期化・CROS所在はAM自身が正本となる。MCP／WorkbenchはAMの型を参照し、旧DMの汎用Root Factory／Lock Helperを経由しない。構成モデルの私有config Rootとは交換しない。認証・認可・Credential・Lock・元失敗情報は不変更で、Project Contextを読むConsumerはManifest全文でなく文書モデルへ3期待Identityを投影する。

@@ -1,5 +1,9 @@
 # QA-000001 リポジトリ検査と契約移行の検証定義
 
+## VC Consumer境界の回帰Owner — 2026-11-14
+
+既存RCM-IT-004は、VC固有の完成契約／公開投影／内部Owner五試験と、Checker試験側のRepository横断Consumer・単一Owner・import解析九試験へ分けて追跡する。旧一試験の内部VC検査と横断検査を分けるため親数は13から14となるが、元61assertは維持する。Checker製品の検査責務は拡張せず、Source回帰の成功を動作・認可・Git実Effectの成立とは扱わない。
+
 ## Checker展開範囲の報告量制限撤去 — 2026-11-12
 
 既存の範囲展開ITで104 Fileと直接の参照元・参照先を列挙し、報告末尾まで全量が一致することを確認する。`expanded_scope_truncated`の型・出力Fixtureは撤去し、常時falseの互換fieldを残さない。fullの`.`表現・実検査範囲・合否・文書ヘッダーの解析窓は不変更。局所Unitとこの限定ITの成功を全体Checker回帰へ読み替えない。今回のFixtureだけをRepository-local領域で回収する。

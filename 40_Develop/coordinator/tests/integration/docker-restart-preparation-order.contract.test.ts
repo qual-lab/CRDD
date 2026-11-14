@@ -586,10 +586,15 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     },
     borrowRuntimeOwnedCoordinatorRecoveryRepository: (candidate: unknown) =>
       candidate === root && rootValid ? repository : null,
-    readRecoveryState: (
+    readState: (
       _root: unknown,
-      request?: { kind: string; recoveryId: string; scopeSha256: string },
+      envelope: {
+        scope: "recovery";
+        input?: { kind: string; recoveryId: string; scopeSha256: string };
+      },
     ) => {
+      assert.equal(envelope.scope, "recovery");
+      const request = envelope.input;
       reads++;
       if ((changeAtRead && reads >= 2) || reads === changeAtReadNumber)
         snapshot = { ...snapshot, revision: snapshot.revision + 1 };

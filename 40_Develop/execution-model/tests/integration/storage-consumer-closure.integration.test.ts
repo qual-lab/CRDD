@@ -59,7 +59,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/src/execution/lease.ts",
   "40_Develop/executor/scripts/verify-provider-attempt.ts",
   "40_Develop/executor/scripts/verify-provider-home.ts",
-  "40_Develop/executor/scripts/verify-provider-real.ts",
+  "40_Develop/coordinator/scripts/verify-provider-real.ts",
 ] as const;
 const PUBLIC_COORDINATOR_BOUNDARIES = [
   "40_Develop/coordinator/src/objective/composition.ts",
@@ -84,7 +84,7 @@ const blockedMeaningFields = [
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
   "40_Develop/execution-model/src/storage/lock.ts",
-  "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
+  "40_Develop/mcp-server/scripts/task-real-provider-contract.ts",
   "40_Develop/execution-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/lock.ts",

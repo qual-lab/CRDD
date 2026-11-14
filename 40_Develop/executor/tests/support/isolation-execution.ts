@@ -6,59 +6,56 @@
  * @trace ARCH-000008
  */
 
-import type { LockResult } from "../../../lock/src/index.ts";
-import type {
-  DockerIsolationRuntimeOptions,
-  HomeLease,
-} from "../../../executor/src/lifecycle/types.ts";
-import type {
-  DockerCommandSession,
-  DockerSessionCleanup,
-} from "../../../executor/scripts/executor-test.ts";
-import { planDockerIsolationCommands } from "./execution-plan.ts";
-
-export type { DockerIsolationRuntimeOptions } from "../../../executor/src/lifecycle/types.ts";
-
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
-import type {
-  DockerResourceCleanupObservation,
-  DockerResourceReceipts,
-} from "./cleanup.ts";
-import { planDockerRecoveryResourceExpectations } from "./cleanup.ts";
-import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
-import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
+import { cleanupDockerResource } from "../../../docker-isolation/src/cleanup/operations.ts";
 import {
   createDockerCliConfig,
   observeDockerDirectoryIdentity,
   verifyDockerCliConfig,
-} from "../../src/docker-cli/config.ts";
-import { createDockerProcessEnvironment } from "../../src/docker-cli/environment.ts";
+} from "../../../docker-isolation/src/docker-cli/config.ts";
+import { createDockerProcessEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import {
   type DockerCliTrustSnapshot,
   describeDockerCliTrustContract,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-} from "../../src/docker-cli/trust.ts";
-import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
+} from "../../../docker-isolation/src/docker-cli/trust.ts";
+import type { IsolationSettings } from "../../../docker-isolation/src/index.ts";
+import { captureDockerProcessEnvironment } from "../../../docker-isolation/src/process/environment.ts";
 import {
   finishOwnedProcess,
   type OwnedCommandHandle,
   startOwnedWindowsProcess,
-} from "../../src/process/start.ts";
-import { cleanupResourceSet } from "./cleanup.ts";
-import type { DockerIsolationCommand } from "./execution-plan.ts";
-import { startDockerCommandSession } from "./session.ts";
+} from "../../../docker-isolation/src/process/start.ts";
+import type {
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+} from "../../../docker-isolation/tests/support/cleanup.ts";
+import {
+  cleanupResourceSet,
+  planDockerRecoveryResourceExpectations,
+} from "../../../docker-isolation/tests/support/cleanup.ts";
+import type {
+  DockerCommandSession,
+  DockerIsolationCommand,
+  DockerSessionCleanup,
+} from "../../../docker-isolation/tests/support/session.ts";
+import { startDockerCommandSession } from "../../../docker-isolation/tests/support/session.ts";
+import type { Lock, LockResult } from "../../../lock/src/index.ts";
+import { acquireLock } from "../../../lock/src/index.ts";
+import type { DockerIsolationCommandInput } from "../../src/lifecycle/types.ts";
+import { planDockerIsolationCommands } from "./isolation-plan.ts";
 
 export {
   describeDockerCommandSessionContract,
   startDockerCommandSessionCandidate,
-} from "./session.ts";
+} from "../../../docker-isolation/tests/support/session.ts";
 
-import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
+import type { DockerExecutionCallbacks } from "../../../docker-isolation/tests/support/session.ts";
+
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
   userHomeDirectory: "C:\\Users\\test",
@@ -90,7 +87,7 @@ export type DockerIsolationRuntime = Readonly<{
   acquireHomeLease: (
     bindingHash: string,
     homeSourcePath: string,
-  ) => LockResult<HomeLease>;
+  ) => ReturnType<typeof acquireHomeLease>;
   startCommand: (
     purpose: DockerIsolationCommand["purpose"],
     plan: DockerIsolationRuntimePlan,
@@ -210,7 +207,10 @@ export function describeDockerIsolationExecutionEnvironment() {
  * @concurrency 元Handleの終端と実資源の清掃を同じRuntimeで所有する。
  */
 export function createDockerIsolationRuntime(
-  dependencies: DockerIsolationRuntimeOptions,
+  dependencies: Readonly<{
+    settings: IsolationSettings;
+    paths: Readonly<{ tmp: string; management: string }>;
+  }>,
 ): DockerIsolationRuntime {
   if (
     !dependencies ||
@@ -280,13 +280,16 @@ export function createDockerIsolationRuntime(
  * @trace ARCH-000008
  * @input 検証済みHome bindingのSHA-256。
  * @returns 保持中の元Lease又はnull。
- * @effect 既存のWindows Named Pipe排他を取得する。
+ * @effect 既存の共通wx排他を取得する。
  * @invariant 名前空間とHash導出を変更しない。
  */
 function acquireHomeLease(
   bindingHash: string,
   homeSourcePath: string,
-): LockResult<HomeLease> {
+): LockResult<
+  Pick<Lock, "assertLive"> &
+    Readonly<{ release: () => ReturnType<Lock["release"]> }>
+> {
   if (typeof bindingHash !== "string" || !/^[a-f0-9]{64}$/u.test(bindingHash))
     return {
       status: "blocked",
@@ -316,7 +319,7 @@ function acquireHomeLease(
  */
 export type DockerIsolationDependencies<Cli extends object> = Readonly<{
   platform: string;
-  paths: DockerIsolationRuntimeOptions["paths"];
+  paths: Parameters<typeof createDockerIsolationRuntime>[0]["paths"];
   directoryIdentity: (directory: string) => string;
   readCli: () => Cli;
   verifyCli: (snapshot: Cli) => void;

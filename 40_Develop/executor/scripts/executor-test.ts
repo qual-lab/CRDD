@@ -6,35 +6,29 @@
  * @boundary scripts/tests専用。実行許可や本番構成ではない。
  */
 
-import type { LockResult } from "../../lock/src/index.ts";
-import type {
-  IsolationCommandResult,
-  IsolationExecutionResult,
-  ResourceSnapshot,
-  IsolationCallbacks,
-} from "../../docker-isolation/src/index.ts";
 import { createHash } from "node:crypto";
-import type { DockerResourceCleanupObservation } from "../../docker-isolation/tests/support/cleanup.ts";
 import path from "node:path";
 import { types } from "node:util";
+import type {
+  IsolationCallbacks,
+  IsolationExecutionResult,
+  ResourceSnapshot,
+} from "../../docker-isolation/src/index.ts";
+import type { DockerResourceCleanupObservation } from "../../docker-isolation/tests/support/cleanup.ts";
 import { parseDockerTaskRecoveryId } from "../../docker-isolation/tests/support/cleanup.ts";
-import {
-  type DockerIsolationRuntime,
-  type DockerIsolationRuntimePlan,
-  describeDockerIsolationExecutionEnvironment,
-} from "../../docker-isolation/tests/support/execution.ts";
-import type { DockerIsolationCommand } from "../../docker-isolation/tests/support/execution-plan.ts";
-import {
-  dockerIsolationCommandsMatch,
-  planDockerIsolationCommands,
-  projectDockerProxyConfiguration,
-} from "../../docker-isolation/tests/support/execution-plan.ts";
-import type { DockerSessionCommandHandle } from "../../docker-isolation/tests/support/session.ts";
+import type {
+  DockerCommandSession,
+  DockerExecutionCallbacks,
+  DockerIsolationCommand,
+  DockerSessionCleanup,
+  DockerSessionCommandHandle,
+} from "../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSessionCandidate } from "../../docker-isolation/tests/support/session.ts";
-import { PURPOSES } from "../src/lifecycle/attempt.ts";
+import type { LockResult } from "../../lock/src/index.ts";
 import {
   abandon,
   cancel,
+  PURPOSES,
   prepareAttempt as prepareProductAttempt,
   readOwnDataProperty,
   resolveIsolationCommandInput as resolveProductConfiguration,
@@ -46,27 +40,36 @@ import type {
   DockerIsolationCommandInput,
   DockerIsolationRuntimeOptions,
   HomeLease,
-  AttemptCommandPurpose,
   ResourcePreparation,
 } from "../src/lifecycle/types.ts";
+import {
+  type DockerIsolationRuntime,
+  type DockerIsolationRuntimePlan,
+  describeDockerIsolationExecutionEnvironment,
+} from "../tests/support/isolation-execution.ts";
+import {
+  dockerIsolationCommandsMatch,
+  planDockerIsolationCommands,
+  projectDockerProxyConfiguration,
+} from "../tests/support/isolation-plan.ts";
 
 export { resolveProviderExecution } from "../src/lifecycle/attempt.ts";
 
-import { createStartResult } from "../src/lifecycle/attempt.ts";
-import type {
-  AttemptReference,
-  AttemptRequest,
-  AttemptPlan as ProductAttemptPlan,
-  RuntimeState,
-  AttemptTerminalObservation as TechnicalObservation,
-} from "../src/lifecycle/types.ts";
 import type {
   CompletionResult,
   ProcessStartedNotice,
   StartResult,
   AttemptDiagnosticNotice as TechnicalDiagnosticNotice,
 } from "../src/index.ts";
-import type { ExecutorCallbacks } from "../src/lifecycle/types.ts";
+import { createStartResult } from "../src/lifecycle/attempt.ts";
+import type {
+  AttemptReference,
+  AttemptRequest,
+  ExecutorCallbacks,
+  AttemptPlan as ProductAttemptPlan,
+  RuntimeState,
+  AttemptTerminalObservation as TechnicalObservation,
+} from "../src/lifecycle/types.ts";
 
 /** 旧有限Session Oracleだけが保持するCommand投影。製品Planへ戻さない。 */
 /** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
@@ -93,89 +96,6 @@ export interface IsolationRuntime {
     management: unknown,
   ): DockerSessionCleanup["resourceObservations"];
 }
-
-/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
-export type DockerSessionCleanup = Readonly<{
-  confirmed: boolean;
-  processTreeTerminated: boolean;
-  containersAbsent: boolean;
-  networksAbsent: boolean;
-  resourceObservations?: readonly DockerResourceCleanupObservation[] | null;
-}>;
-
-/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
-export interface DockerExecutionCallbacks {
-  onCommandSubmitting?(purpose: AttemptCommandPurpose): void | Promise<void>;
-  onCommandNotIssued?(purpose: AttemptCommandPurpose): void | Promise<void>;
-  onExecutionSubmitting?(): void | Promise<void>;
-  onResourceCreated?(
-    purpose: AttemptCommandPurpose,
-    dockerId: string,
-  ): void | Promise<void>;
-  onCommandObserved?(
-    purpose: AttemptCommandPurpose,
-    result: NonNullable<IsolationCommandResult["observation"]> | null,
-    classification: IsolationCommandResult["classification"],
-  ): void;
-  onCommandCompleted?(
-    purpose: AttemptCommandPurpose,
-    result: NonNullable<IsolationCommandResult["observation"]>,
-  ): void;
-  /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
-  onExecutionStarted?(): void;
-  onFailure?(failure: DockerSessionFailure): void;
-}
-
-/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
-export type DockerSessionFailure = Readonly<{
-  purpose: AttemptCommandPurpose | null;
-  stage:
-    | "command_start"
-    | "provider_start_observation"
-    | "command_wait"
-    | "gate";
-  gate: keyof DockerExecutionCallbacks | null;
-  kind:
-    | "rejected"
-    | "invalid_return"
-    | "threw"
-    | "start_unconfirmed"
-    | "invalid_plan"
-    | "command_failed";
-  exceptionCode: string | null;
-  commandHandleObtained: boolean;
-  responseObserved: boolean;
-}>;
-
-/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
-export type DockerCommandSessionResult = Readonly<{
-  resourceSnapshot?: ResourceSnapshot;
-  failure: DockerSessionFailure | null;
-  notificationDeliveryConfirmed: boolean | null;
-  callbackRegistrationReleased: boolean;
-  cancellationRequested: boolean;
-  executionStarted: boolean;
-  executionCompleted: boolean;
-  executionContainerCreated: boolean;
-  executionExit: IsolationCommandResult["exitClass"];
-  cleanup: DockerSessionCleanup;
-  resourceObservations:
-    | readonly DockerResourceCleanupObservation[]
-    | null
-    | undefined;
-  processTreeTerminationConfirmed: boolean;
-}>;
-
-/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
-export type DockerCommandSession = Readonly<{
-  cancel: () => Promise<
-    Readonly<{
-      cancellationRequested: boolean;
-      processTerminationObserved: boolean;
-    }>
-  >;
-  completion: Promise<DockerCommandSessionResult>;
-}>;
 
 export type TestAttemptPlan = ProductAttemptPlan &
   Readonly<{ commands: readonly DockerIsolationCommand[] }>;

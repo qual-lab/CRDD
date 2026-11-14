@@ -11,9 +11,18 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2023",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "files": [
+    "scripts/verify-task-real-providers.ts",
+    "scripts/task-real-provider-contract.ts"
+  ]
 }

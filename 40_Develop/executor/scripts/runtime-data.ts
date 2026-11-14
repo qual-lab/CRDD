@@ -8,7 +8,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ExecutionStorageBlockedError } from "../../execution-model/src/index.ts";
 import {
   type Repository,
   registerRepositoryLocalIgnore,
@@ -262,7 +261,7 @@ export function ensureRepositoryRuntimeDataArea(
  * @precondition 「result: ReturnType<typeof ensureRepositoryRuntimeDataArea>、invalidReason: string」がrequireReadyRepositoryRuntimeDataAreaの入力契約を満たす。
  * @postcondition requireReadyRepositoryRuntimeDataAreaの責務を完了した結果だけを返す。
  * @effect N/A: requireReadyRepositoryRuntimeDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure requireReadyRepositoryRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure blockedは標準Errorのcauseへ元の観測結果を同参照で保持する。nullはinvalidReasonで拒否する。
  * @invariant requireReadyRepositoryRuntimeDataAreaは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: requireReadyRepositoryRuntimeDataAreaはProcess内の同一Subsystemで完結する。
  * @security N/A: requireReadyRepositoryRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
@@ -274,6 +273,6 @@ export function requireReadyRepositoryRuntimeDataArea(
 ) {
   if (result?.status === "ready") return result;
   if (result?.status === "blocked")
-    throw new ExecutionStorageBlockedError(result);
+    throw new Error(result.reason, { cause: result });
   throw new Error(invalidReason);
 }

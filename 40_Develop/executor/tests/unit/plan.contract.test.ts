@@ -19,7 +19,6 @@ import {
   describeDockerProviderExecutionLocations,
 } from "../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
-import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
 import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
 import {
   bindTestIsolationRuntime,
@@ -32,6 +31,7 @@ import {
 } from "../../scripts/executor-test.ts";
 import type { AttemptRequest } from "../../src/lifecycle/types.ts";
 import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
+import { planDockerIsolationCommands } from "../support/isolation-plan.ts";
 
 /**
  * 三用途の必須条件と不正変異を照合する。

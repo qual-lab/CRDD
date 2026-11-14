@@ -16,7 +16,7 @@ if (
   process.exitCode = 64;
 } else {
   const { installTaskSummaryObservation } = await import(
-    "../../executor/scripts/task-summary-observation.ts"
+    "./task-summary-observation.ts"
   );
   const { containsRecognizedSecretMaterial } = await import(
     "../../coordinator/src/input/secret-validation.ts"

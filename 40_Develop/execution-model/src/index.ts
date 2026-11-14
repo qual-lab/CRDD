@@ -9,17 +9,10 @@ export {
   applyResourceCleanup,
   applyResourceEvent,
   completeOperation,
-  completeRecovery,
-  completeRepair,
   readOperationCompletion,
-  readOperationResourcesStage,
-  readOperationStateStage,
-  readRecoveryState,
   resumeResourcePublication,
-  saveHostCleanupPreparation,
   saveOperationStart,
   saveRecoveryCheckpoint,
-  saveResourceNotIssuedStage,
 } from "./attempt/crud.ts";
 export type {
   ExecutionOperationRecord,
@@ -35,7 +28,6 @@ export {
   parseDockerTaskRecoveryId,
   parseHostRecoveryToken,
   validateResourceBook,
-  validateResourceBookTransition,
 } from "./attempt/validation.ts";
 export {
   answerDecision,
@@ -54,8 +46,6 @@ export type {
 } from "./decision/types.ts";
 export { inspectDecision } from "./decision/validation.ts";
 export {
-  advanceOwnedRecoveryHistory,
-  advanceOwnedRepairHistory,
   retireStateRecords,
   transferHistory,
 } from "./history/crud.ts";
@@ -76,6 +66,8 @@ export { OBJECTIVE_STATES } from "./objective/types.ts";
 export { inspectExecutionPlan } from "./objective/validation.ts";
 export {
   acquireLease,
+  advanceOwnedRecoveryHistory,
+  completeRecovery,
   completeStatePublication,
   createLocalPrincipalId,
   initializeExecutionState,
@@ -90,7 +82,6 @@ export {
   saveOperationCheckpoint,
   saveProjectExecutionState,
   saveRepairState,
-  saveUnknownAuthenticationClosureStage,
 } from "./state/crud.ts";
 export type {
   ExecutionModelAccess,

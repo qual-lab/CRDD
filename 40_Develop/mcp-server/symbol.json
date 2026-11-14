@@ -7,15 +7,26 @@
       "symbolId": "mcp.runtime-definition",
       "kind": "file",
       "path": "src/tools/runtime.ts",
-      "archIds": ["ARCH-000008", "ARCH-000012", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.test.integration.runtime-definition",
       "kind": "test-suite",
       "path": "tests/integration/runtime-definition.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-IT-012"],
-      "verifies": ["mcp.runtime-definition", "access-management.repository-access"]
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "mcp.runtime-definition",
+        "access-management.repository-access"
+      ]
     },
     {
       "symbolId": "mcp.workspace.adapter",
@@ -47,14 +58,20 @@
       "kind": "test-suite",
       "path": "tests/integration/runtime-activity-adapter.contract.test.ts",
       "qaIds": [
-        "QA-000009"
+        "QA-000009",
+        "QA-000003"
       ],
       "localTestIds": [
-        "EST-IT-014"
+        "EST-IT-014",
+        "PRL-IT-012"
       ],
       "verifies": [
         "mcp.runtime-activity-adapter",
-        "mcp.source.src.adapters.application.adapter"
+        "mcp.source.src.adapters.application.adapter",
+        "coordinator.public-api",
+        "coordinator.test.fixture.workspace-surface",
+        "orchestrator.objective-intake",
+        "mcp.source.src.adapters.orchestrator.adapter"
       ]
     },
     {
@@ -379,6 +396,55 @@
       "path": "src/transport/configuration-area.ts",
       "archIds": [
         "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.orchestrator.real.provider.contract",
+      "kind": "module",
+      "path": "scripts/task-real-provider-contract.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.orchestrator-real-provider-verification-script",
+      "kind": "test-suite",
+      "path": "tests/system/task-real-provider-verification-script.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-001",
+        "PRL-ST-003",
+        "PRL-ST-004"
+      ],
+      "verifies": [
+        "coordinator.source.scripts.orchestrator.real.provider.contract",
+        "mcp-server.verification.task-real-providers",
+        "mcp.source.src.adapters.orchestrator.adapter",
+        "mcp-server.test.fixture.task-public-process-probe"
+      ]
+    },
+    {
+      "symbolId": "mcp-server.verification.task-real-providers",
+      "kind": "verification-tool",
+      "path": "scripts/verify-task-real-providers.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-001",
+        "PRL-ST-003",
+        "PRL-ST-004"
+      ],
+      "verifies": []
+    },
+    {
+      "symbolId": "mcp-server.test.fixture.task-public-process-probe",
+      "kind": "file",
+      "path": "tests/fixtures/task-public-process-probe.ts",
+      "archIds": [
+        "ARCH-000004"
       ]
     }
   ]

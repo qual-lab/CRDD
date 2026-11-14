@@ -7,7 +7,7 @@
  * @trace PRL-ST-003
  * @trace PRL-ST-004
  * @level ST
- * @scope project、runtime、real、provider、verification、script
+ * @scope 公開MCP検証Toolの合成値・Sourceと専用Node子。実AI・Dockerは使用しない。
  * @boundary PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
 
@@ -27,8 +27,8 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { inspectTaskStageDiagnostic } from "../../../coordinator/scripts/task-diagnostic.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { inspectTaskStageDiagnostic } from "../../scripts/task-diagnostic.ts";
 
 import {
   buildCoordinatorRealProviderReport,
@@ -57,7 +57,10 @@ const verificationScriptSource = fs.readFileSync(
  */
 test("起動設定はDesktop所在を任意搬送し操作中に環境を再取得しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/configuration.ts", import.meta.url),
+    new URL(
+      "../../../coordinator/src/execution/configuration.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -204,7 +207,10 @@ test("親終了未確認では再入場Processを起動しない", async () => {
  */
 test("回復Matrixの固定Node子は必要所在だけを搬送しWindowsの暗黙補完を中立化する", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    new URL(
+      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const begin = source.indexOf(
@@ -329,7 +335,10 @@ test("回復Matrixの固定Node子は必要所在だけを搬送しWindowsの暗
  */
 test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    new URL(
+      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const start = source.indexOf("async function verifyParentLossThenRecover(");
@@ -429,7 +438,10 @@ test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを
  */
 test("回復Matrixの両子はready前失敗でも停止後closeを確認し一次理由を保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    new URL(
+      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const declaration = (name: string) => {
@@ -640,7 +652,10 @@ test("回復Matrixの両子はready前失敗でも停止後closeを確認し一�
  */
 test("回復Matrixのready前拒否は固定Node実子のcloseを待って返る", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    new URL(
+      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const declaration = (name: string) => {
@@ -824,7 +839,7 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../coordinator/src/objective/plan.ts";
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。
@@ -1601,11 +1616,11 @@ const build = (overrides: Record<string, unknown> = {}) =>
 
 /**
  * 固定Source観測の欠測・途中差を起動前拒否へ結合する。
- * @responsibility 実観測関数が固定Root・有界Reader・前後実体と改訂を要求することを確認する。
+ * @responsibility 実観測関数が固定Root・現行Reader・前後実体と改訂を要求することを確認する。
  * @trace PRL-ST-004
  * @precondition 現行実本文をメモリ上の読取り境界へ接続する。
  * @stimulus 入口種別・Link数・読取り状態・実体・Git・Sourceを変更する。
- * @observation 返却値と固定Path／上限を取得する。
+ * @observation 返却値と固定Path／Reader引数列を取得する。
  * @oracle 安定観測だけが成立し、例外と差分はnullである。
  * @cleanup N/A: 実Filesystem・Git・Providerは使用しない。
  * @boundary PRL-ST-004=Direct Boundary: 実Source観測関数→既存Reader。
@@ -1685,12 +1700,9 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
           };
         },
       },
-      createFilesystemRepositoryObservationPort: (
-        capability: string,
-        maximum: number,
-      ) => {
-        assert.equal(capability, "root-capability");
-        assert.equal(maximum, 64 * 1024);
+      createFilesystemRepositoryObservationPort: (...args: unknown[]) => {
+        assert.equal(args.length, 1);
+        assert.deepEqual(Array.from(args), ["root-capability"]);
         return {
           observeFile: (relative: string) => {
             assert.equal(relative, "template/tools/crdd-mcp-server.ts");
@@ -1781,6 +1793,7 @@ test("Orchestrator検証のSource不成立は終了事実を変えず公開値�
   for (const value of [
     null,
     { ...source, scope: "other" },
+    { ...source, scope: "crdd-development-source-snapshot/v2" },
     { ...source, sourceSha256: "bad" },
     { ...source, mcpEntrySourceSha256: "bad" },
     { ...source, crddCommit: "bad" },

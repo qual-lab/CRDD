@@ -1,11 +1,12 @@
 /**
  * Coordinatorを読めないWorkbenchでCore定義を保存する。
  * @packageDocumentation
- * @responsibility 公開Root・HTTP・実Domain Writerと再読取りを一つの合成Repositoryで確認する。
+ * @responsibility 公開Root・HTTPと直接AM認可を実Domain Writer・再読取りへ接続する。
  * @trace PRL-IT-012
+ * @trace RFD-IT-013
  * @level IT
- * @scope Core初期化・定義CRUD・CAS・入力拒否・Server終了。
- * @boundary 子ProcessのWorkbench HTTPからDomain保存。実AI・Dockerは対象外。
+ * @scope Core初期化・定義CRUD・CAS・入力拒否・Server終了、AM認可結果の型適合と同値保持。
+ * @boundary Workbench HTTP又は直接AM認可からDomain保存。実AI・Dockerは対象外。
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -13,6 +14,14 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { resolveRuntimeContentAccess } from "../../../access-management/src/index.ts";
+import { contentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
+import {
+  type ExecutionModelAccess,
+  initializeExecutionState,
+  queryPlan,
+  savePlan,
+} from "../../../execution-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
@@ -405,4 +414,87 @@ test("Workbench binは既定Coreだけを構成しAutomationを明示時だけ�
     /workbench-server \[--cros\] \[--automation\] \[--port <port>\]/u,
   );
   assert.doesNotMatch(help.output, /AUTOMATION_LOADED|CORE_STARTED/u);
+});
+
+/**
+ * 現在内容認可からDomainの実保存までを結合する。
+ * @responsibility 認可Contextの模擬成功と本番Writer接続を区別する。
+ * @trace RFD-IT-013
+ * @precondition 自己生成の管理StoreとGit構造だけを使う。
+ * @stimulus 明示初期化・Plan保存・再読取りを同じ要求Contextで行う。
+ * @observation 保存結果、再読取り、各操作の有限計測。
+ * @oracle 開発権限だけで同じDomain Writerへ接続し、認可区画を変更しない。
+ * @cleanup 既存Fixtureが今回のRootだけを回収する。
+ * @boundary AM現在権限→Domain実Writerと既存OS排他。
+ */
+test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ接続する", (t) => {
+  const f = contentFixture(t);
+  fs.writeFileSync(
+    path.join(f.target.directory, ".git", "HEAD"),
+    "ref: refs/heads/main\n",
+  );
+  fs.writeFileSync(
+    path.join(f.target.directory, ".git", "refs", "heads", "main"),
+    `${"1".repeat(40)}\n`,
+  );
+  const access = resolveRuntimeContentAccess(
+    f.root,
+    f.tokens.developer,
+    f.target.manifest.repositoryId,
+    new AbortController().signal,
+  );
+  assert.ok(access);
+  const modelAccess: ExecutionModelAccess = access;
+  const authorizedAccess: NonNullable<
+    ReturnType<typeof resolveRuntimeContentAccess>
+  > = modelAccess;
+  assert.equal(authorizedAccess, access);
+  const target = {
+    projectId: f.target.manifest.projectId,
+    milestoneId: "milestone.test",
+  };
+  const before = fs.readFileSync(
+    path.join(f.directory, "access-management.json"),
+  );
+  const started = performance.now();
+  const initial = initializeExecutionState(access, {
+    ...target,
+    expectedAbsence: true,
+  });
+  const initializedAt = performance.now();
+  assert.equal(initial.status, "saved", JSON.stringify(initial));
+  if (initial.status !== "saved") return;
+  const saved = savePlan(access, {
+    ...target,
+    expected: initial.version,
+    expectedDefinitionHash: null,
+    definition: {
+      milestoneAcceptanceCriteria: ["確認"],
+      objectives: [{ id: "objective", acceptanceCriteria: ["確認"] }],
+      tasks: [
+        {
+          id: "task",
+          objectiveId: "objective",
+          dependencies: [],
+          allowedPaths: ["src/code.ts"],
+          conflictKeys: [],
+        },
+      ],
+    },
+  });
+  const savedAt = performance.now();
+  assert.equal(saved.status, "saved", JSON.stringify(saved));
+  const read = queryPlan(access, target);
+  assert.equal(read.status, "available", JSON.stringify(read));
+  assert.deepEqual(
+    fs.readFileSync(path.join(f.directory, "access-management.json")),
+    before,
+  );
+  t.diagnostic(
+    JSON.stringify({
+      initializeMs: Math.round(initializedAt - started),
+      saveMs: Math.round(savedAt - initializedAt),
+      readMs: Math.round(performance.now() - savedAt),
+    }),
+  );
 });

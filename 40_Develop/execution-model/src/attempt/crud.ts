@@ -6,9 +6,11 @@
 
 import { createHash } from "node:crypto";
 import {
-  completeCurrentRecovery,
   prepareOwnedStateInitialization,
   readHistoryResumeCandidate,
+  readOperationStateStage,
+  type readRecoveryState,
+  saveAuthenticationClosure,
   writeOwnedStateSnapshot,
   writeStateSnapshot,
 } from "../state/crud.ts";
@@ -38,14 +40,9 @@ import {
 } from "../storage/lock.ts";
 import type { StorageRepository } from "../storage/store.ts";
 import { readStateSnapshot } from "../storage/store.ts";
-import type {
-  ExecutionOperationRecord,
-  OperationResources,
-  RecoveryReadRequest,
-} from "./types.ts";
+import type { ExecutionOperationRecord, OperationResources } from "./types.ts";
 import {
   areTaskResourcesSettled,
-  createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
   parseDockerTaskRecoveryId,
   validateResourceBook,
@@ -238,141 +235,6 @@ export function applyResourceCleanup(
   } catch {
     return null;
   }
-}
-
-/**
- * 保存確定済みの最新Snapshotを現在の操作Ownerへ返す。
- * @responsibility 保存途中・不存在・観測不能を成功へ畳まず、版と本文Hashを取得する。
- * @trace ARCH-000008
- * @input managementCapability: 現在操作Owner。request: 初回Identity又は同じ操作のHost清掃前検査。
- * @returns operation_startは検査済みIdentityの非Authority相関だけ。stateは確認済みSnapshotと必要なHost清掃準備。
- * @precondition Repository操作Ownerが有効である。
- * @postcondition 排他解放と読取り確認の両方が成立した場合だけ値を返す。
- * @effect operation_startはState読取り・Lock取得・保存0。stateだけ固定File読取りと短期排他を行う。
- * @failure Root不一致、保存途中、本文不正、解放不明は停止する。
- * @invariant 初回検査のcompletedを保存・開始許可へ昇格しない。初回検査のlockReleased:trueはLock未取得を表す。
- * @boundary Repository-local現在状態と操作Owner。
- * @security 呼出し元Pathや旧形式から保存先を選ばない。
- * @concurrency Writerと同じ短期排他下で取得し、上位待機へLockを搬送しない。
- */
-export function readOperationStateStage(
-  managementCapability: unknown,
-  request?:
-    | Readonly<{ kind: "host_cleanup"; recoveryId: unknown }>
-    | Readonly<{ kind: "operation_start"; identityJson: unknown }>,
-) {
-  const captured =
-    request === undefined
-      ? null
-      : (snapshotStateRecord(request, new Set(["kind", "recoveryId"])) ??
-        snapshotStateRecord(request, new Set(["kind", "identityJson"])));
-  if (captured?.kind === "operation_start") {
-    let operationIdentity: Readonly<{
-      recoveryId: string;
-      identitySha256: string;
-      operationId: string;
-    }> | null = null;
-    if (Object.hasOwn(captured, "identityJson")) {
-      try {
-        const repository = observeOperationRepository(managementCapability);
-        const bytes = repository
-          ? prepareStateOperationSnapshot(
-              null,
-              captured.identityJson,
-              repository.repositoryBinding,
-            )
-          : null;
-        const operation =
-          bytes && repository
-            ? decodeStateSnapshot(bytes, repository.repositoryBinding)?.snapshot
-                .operations[0]
-            : null;
-        if (
-          operation?.kind === "docker_task" &&
-          repository &&
-          JSON.parse(operation.identityJson).operationId ===
-            repository.operationId &&
-          repository.revalidate() === true
-        )
-          operationIdentity = Object.freeze({
-            recoveryId: operation.recoveryId,
-            identitySha256: operation.identitySha256,
-            operationId: repository.operationId,
-          });
-      } catch {
-        operationIdentity = null;
-      }
-    }
-    return Object.freeze({
-      kind: "operation_start" as const,
-      status: operationIdentity ? ("completed" as const) : ("blocked" as const),
-      reason: operationIdentity
-        ? "coordinator_state_read_confirmed"
-        : "coordinator_state_input_invalid",
-      value: null,
-      lockReleased: true,
-      hostCleanupPreparation: null,
-      operationIdentity,
-    });
-  }
-  if (
-    request !== undefined &&
-    (captured?.kind !== "host_cleanup" ||
-      !Object.hasOwn(captured, "recoveryId"))
-  )
-    return Object.freeze({
-      kind: "state" as const,
-      status: "blocked" as const,
-      reason: "coordinator_state_owner_invalid",
-      lockReleased: true,
-      value: null,
-      operationIdentity: null,
-      hostCleanupPreparation: null,
-    });
-  const repository = observeOperationRepository(managementCapability);
-  const current = readStateSnapshot(repository, null);
-  let hostCleanupPreparation: Readonly<{
-    recoveryId: string;
-    hostToken: string;
-    before: Buffer;
-  }> | null = null;
-  if (
-    captured &&
-    repository &&
-    current.status === "completed" &&
-    current.lockReleased &&
-    current.value
-  ) {
-    const operation = current.value.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === captured.recoveryId,
-    );
-    const before = Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`);
-    if (
-      operation &&
-      operation.host.cleanup === "not_requested" &&
-      operation.lease === "released" &&
-      JSON.parse(operation.identityJson).operationId ===
-        repository.operationId &&
-      prepareStateHostSnapshot(
-        before,
-        operation.recoveryId,
-        { ...operation.host, cleanup: "pending" },
-        repository.repositoryBinding,
-      )
-    )
-      hostCleanupPreparation = Object.freeze({
-        recoveryId: operation.recoveryId,
-        hostToken: operation.host.currentToken,
-        before,
-      });
-  }
-  return Object.freeze({
-    ...current,
-    kind: "state" as const,
-    operationIdentity: null,
-    hostCleanupPreparation,
-  });
 }
 
 const liveSettlements = new WeakMap<
@@ -1231,242 +1093,6 @@ export function saveOperationStart(
 }
 
 /**
- * 新Processの検証済みRootから現在状態を読み取る。
- * @responsibility 管理Ownerを復元せず通常と同じ読取り・排他契約を使用する。
- * @trace ARCH-000008
- * @input rootCapability: 呼出し組立てが固定した検証済みRepository Root。
- * @returns 内部Snapshot、または値なしblocked。
- * @precondition 公開投影と実資源処置は別の既存Ownerが所有する。
- * @postcondition pending・欠落・不正・解放不明を空状態へ変更しない。
- * @effect 固定現在状態の読取りと既存短期排他だけ。
- * @failure Rootまたは保存結合の不一致と観測不能はblocked。
- * @invariant 旧AppDataへfallbackせず、読取りから回復完了を推定しない。
- * @boundary 新ProcessのRepository Rootと現在状態Reader。
- * @security Snapshotをそのまま外部公開せず、書込みAuthorityを生成しない。
- * @concurrency 通常Writerと同じLockを取得・解放する。
- */
-export function readRecoveryState(
-  rootCapability: unknown,
-  request: RecoveryReadRequest = { kind: "current" },
-): ReturnType<typeof readStateSnapshot> &
-  Readonly<{
-    restartPreparation?: Readonly<{
-      operation: ExecutionOperationRecord;
-      requestId: string;
-      scopeSha256: string;
-    }> | null;
-  }> {
-  const captured =
-    snapshotStateRecord(request, new Set(["kind"])) ??
-    snapshotStateRecord(request, new Set(["kind", "recoveryId"])) ??
-    snapshotStateRecord(
-      request,
-      new Set(["kind", "recoveryId", "scopeSha256"]),
-    );
-  if (
-    !captured ||
-    (Object.hasOwn(captured, "scopeSha256") &&
-      captured.kind !== "restart_preparation") ||
-    (captured.kind === "restart_preparation" &&
-      !Object.hasOwn(captured, "scopeSha256")) ||
-    (captured.kind !== "current" &&
-      captured.kind !== "admission" &&
-      captured.kind !== "history" &&
-      !Object.hasOwn(captured, "recoveryId")) ||
-    ((captured.kind === "current" ||
-      captured.kind === "admission" ||
-      captured.kind === "history") &&
-      Object.hasOwn(captured, "recoveryId"))
-  )
-    return readStateSnapshot(null, null);
-  const recoveryId = "recoveryId" in captured ? captured.recoveryId : null;
-  switch (captured.kind) {
-    case "restart_preparation": {
-      if (
-        typeof recoveryId !== "string" ||
-        !parseDockerTaskRecoveryId(recoveryId) ||
-        !isSha256Hex(captured.scopeSha256)
-      )
-        return { ...readStateSnapshot(null, null), restartPreparation: null };
-      const repository = observeExecutionRecoveryRepository(rootCapability);
-      const current = readStateSnapshot(repository, null);
-      const operation = current.value?.snapshot.operations.find(
-        (item): item is ExecutionOperationRecord =>
-          item.kind === "docker_task" && item.recoveryId === recoveryId,
-      );
-      const requestId =
-        repository && operation
-          ? createDockerRestartRequestId(
-              repository.repositoryBinding,
-              operation.identitySha256,
-              operation.recoveryId,
-              captured.scopeSha256,
-            )
-          : null;
-      if (current.status !== "completed")
-        return Object.freeze({ ...current, restartPreparation: null });
-      if (
-        !current.value ||
-        !current.lockReleased ||
-        !operation ||
-        !requestId ||
-        (operation.dockerRestart !== null &&
-          (operation.dockerRestart.requestId !== requestId ||
-            operation.dockerRestart.scopeSha256 !== captured.scopeSha256))
-      )
-        return Object.freeze({ ...current, restartPreparation: null });
-      return Object.freeze({
-        ...current,
-        restartPreparation: Object.freeze({
-          operation,
-          requestId,
-          scopeSha256: captured.scopeSha256,
-        }),
-      });
-    }
-    case "current":
-      return readStateSnapshot(
-        observeExecutionRecoveryRepository(rootCapability),
-        null,
-      );
-    case "history":
-      return readStateSnapshot(
-        observeExecutionRecoveryRepository(rootCapability),
-        null,
-        null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        false,
-        null,
-        null,
-        null,
-        false,
-        null,
-        true,
-      );
-    case "resource_publication": {
-      if (typeof recoveryId !== "string") return readStateSnapshot(null, null);
-
-      return readStateSnapshot(
-        observeExecutionRecoveryRepository(rootCapability),
-        null,
-        null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        false,
-        recoveryId,
-      );
-    }
-    case "host_cleanup": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        typeof recoveryId === "string" ? recoveryId : null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        false,
-        null,
-        null,
-        null,
-        false,
-        typeof recoveryId === "string" ? recoveryId : null,
-      );
-    }
-    case "initial_host": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        false,
-        null,
-        null,
-        null,
-        false,
-        typeof recoveryId === "string" ? recoveryId : null,
-      );
-    }
-    case "execution_history": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        null,
-        typeof recoveryId === "string" ? recoveryId : null,
-      );
-    }
-    case "repair_history": {
-      const validId =
-        typeof recoveryId === "string" &&
-        /^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(recoveryId);
-      return readStateSnapshot(
-        validId ? observeExecutionRecoveryRepository(rootCapability) : null,
-        null,
-        null,
-        validId ? recoveryId : null,
-        null,
-        "runtime_repair",
-      );
-    }
-    case "execution_completion": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        null,
-        null,
-        typeof recoveryId === "string" ? recoveryId : null,
-      );
-    }
-    case "repair_completion": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" &&
-          /^docker-runtime-repair\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(
-            recoveryId,
-          )
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        null,
-        null,
-        typeof recoveryId === "string" ? recoveryId : null,
-        "docker_task",
-        "runtime_repair",
-      );
-    }
-    case "admission": {
-      return readStateSnapshot(
-        observeExecutionRecoveryRepository(rootCapability),
-        null,
-        null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        true,
-      );
-    }
-    default:
-      return readStateSnapshot(null, null);
-  }
-}
-
-/**
  * fresh回収Ownerが同じ資源Receiptの保存だけを既存Writerへ再接続する。
  * @responsibility 元版・完全候補・Ownerを保存直前とKernel内で再確認する。
  * @trace ARCH-000008
@@ -1540,160 +1166,6 @@ export function resumeResourcePublication(
 }
 
 /**
- * 技術回収済みのTask非関連操作を表示非依存で一回終了保存する。
- * @responsibility 既存Completion候補とWriterを真正回収Ownerへ限定して接続する。
- * @trace ARCH-000008
- * @input rootCapability、recoveryId: 同じ現在対象。assertOwner: 内部回収Ownerのfresh確認。
- * @returns 保存・読戻し・排他解放とEffectの個別結果。
- * @precondition 上位が資源・Host・Lease・必要成果物の終端を確認している。
- * @postcondition 他操作、履歴本文、Task関連の終了条件を変更しない。
- * @effect 既存の現在状態Writerによる対象操作の除去だけ。
- * @failure 所有者、元版、候補、履歴、保存不明では同じ参照を保持して停止する。
- * @invariant 表示Receipt、再送、Provider再実行、Task成功を生成しない。
- * @boundary genuine回収Ownerと既存保存Owner。
- * @security 内部Contextは一回だけ使用し、任意consumerや成功booleanは受け取らない。
- * @concurrency 同じKernel排他と元本文の完全一致を保存直前に確認する。
- */
-export function completeRecovery(
-  rootCapability: unknown,
-  recoveryId: unknown,
-  assertOwner: unknown,
-) {
-  return completeCurrentRecovery(
-    rootCapability,
-    recoveryId,
-    assertOwner,
-    "docker_task",
-  );
-}
-
-/**
- * 退避物不存在の修復だけを既存completion保存へ接続する。
- * @responsibility 修復用途を固定しTaskの実行資格を生成しない。
- * @trace ARCH-000008
- * @input rootCapability、recoveryId、assertOwner: 同じ現在修復の結合。
- * @returns 保存・読戻し・解放・Effectの個別結果。
- * @precondition 呼出しOwnerが修復結果と履歴を確認している。
- * @postcondition 非対象操作・履歴・Task関連記録を変更しない。
- * @effect 既存Writerによる現在操作の除去だけ。
- * @failure 現在Owner・共同終端・元版・履歴不明は停止する。
- * @invariant 保持物削除やNative取得を行わない。
- * @boundary 修復compositionと既存保存Owner。
- * @security 任意の候補や種別を受け取らない。
- * @concurrency 既存KernelとCASを使う。
- */
-export function completeRepair(
-  rootCapability: unknown,
-  recoveryId: unknown,
-  assertOwner: unknown,
-) {
-  return completeCurrentRecovery(
-    rootCapability,
-    recoveryId,
-    assertOwner,
-    "runtime_repair",
-  );
-}
-
-/**
- * 同じ操作の資源作成要求を最新現在状態から回収処理へ投影する。
- * @responsibility 未要求と結果不明を区別し、保存済みのexact Docker IDを保持する。
- * @trace ARCH-000008
- * @input managementCapability: 現在操作Owner、recoveryId: 同じ操作の回復参照。
- * @returns 固定五資源の不変な要求情報、または観測不能を表すnull。
- * @precondition 呼出し元は所有Processの停止後に最新情報を取得する。
- * @postcondition 読取りと排他解放を確認した同じ操作の情報だけを返す。
- * @effect 固定state.jsonの読取りと既存の短期排他だけ。
- * @failure Owner、Repository、操作、回復参照、保存形式または排他解放の不一致はnull。
- * @invariant 保存情報から現在の資源不存在や清掃完了を推定しない。
- * @boundary Repository-local現在状態とDocker回収Owner。
- * @security 旧保存物、資源名による検索または空情報へfallbackしない。
- * @concurrency Writerと同じReaderを使い、排他解放後に投影を返す。
- */
-export function readOperationResourcesStage(
-  managementCapability: unknown,
-  recoveryId: unknown,
-) {
-  const repository = observeOperationRepository(managementCapability);
-  const current = readOperationStateStage(managementCapability);
-  if (
-    !repository ||
-    current.status !== "completed" ||
-    !current.value ||
-    !current.lockReleased ||
-    !repository.revalidate()
-  )
-    return null;
-  const operation = current.value.snapshot.operations.find(
-    (item): item is ExecutionOperationRecord =>
-      item.kind === "docker_task" && item.recoveryId === recoveryId,
-  );
-  if (
-    !operation ||
-    JSON.parse(operation.identityJson).operationId !== repository.operationId
-  )
-    return null;
-  return operation.resources;
-}
-
-/**
- * 同じControllerが同期確認した未発行取消を現在状態へ確定する。
- * @responsibility 元予定を消さず、同じOwnerの未発行確定を再要求不可の終端へ保存する。
- * @trace ARCH-000008
- * @input managementCapability: 元操作Owner、recoveryId: exact参照、purpose: 元用途。
- * @returns 同じ資源の保存結果。失敗時は元予定と回復参照を保持する。
- * @precondition 本番Controllerの未発行保存callback中であり要求呼出し前である。
- * @postcondition intent_savedだけをnot_issuedへ変え、他資源・Host・履歴を保持する。
- * @effect 固定state.jsonの読取り・既存排他・次版保存だけ。
- * @failure 別対象、Owner不一致、既発行、結果不明または保存不明は停止する。
- * @invariant Docker ID欠落や過去unknownから未発行を推論しない。
- * @boundary 固定Host保存操作と現在状態Writer。
- * @security 一般Writerや通常資源checkpointへ未発行確定の許可を渡さない。
- * @concurrency 短期保存排他下で同じ回復ID・用途とintent_savedを再照合する。
- */
-export function saveResourceNotIssuedStage(
-  managementCapability: unknown,
-  recoveryId: unknown,
-  purpose: unknown,
-) {
-  const repository = observeOperationRepository(managementCapability);
-  const current = readOperationStateStage(managementCapability);
-  const operation = current.value?.snapshot.operations.find(
-    (value): value is ExecutionOperationRecord =>
-      value.kind === "docker_task" && value.recoveryId === recoveryId,
-  );
-  const resource = operation?.resources?.checkpoints.find(
-    (value) => value.key === purpose,
-  );
-  if (
-    !repository ||
-    current.status !== "completed" ||
-    !current.lockReleased ||
-    !current.value ||
-    !operation ||
-    !resource ||
-    typeof recoveryId !== "string" ||
-    typeof purpose !== "string" ||
-    resource.submission !== "intent_saved" ||
-    JSON.parse(operation.identityJson).operationId !== repository.operationId
-  )
-    return Object.freeze({
-      ...writeStateSnapshot(null, null, null, null),
-      lockReleased: current.lockReleased,
-    });
-  const next = prepareStateResourceSnapshot(
-    Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`),
-    recoveryId,
-    { event: "not_issued", key: purpose },
-    repository.repositoryBinding,
-  );
-  return writeStateSnapshot(managementCapability, repository, next, null, {
-    recoveryId,
-    purpose,
-  });
-}
-
-/**
  * 保存済み単発依頼のexact参照を終了履歴へ再結合する。
  * @responsibility 現在操作除去と新要約の利用元・上位相関を同じ既存Readerで照合する。
  * @trace ARCH-000008
@@ -1745,110 +1217,6 @@ export function readOperationCompletion(
 }
 
 /**
- * 同じ操作のHost清掃予定だけを元版から導出して確定する。
- * @responsibility 任意候補を受け取らず、未要求からpendingへの一差分に保存用途を限定する。
- * @trace ARCH-000008
- * @input managementCapability: 元操作Owner、recoveryId: exact参照、beforeBytes: 清掃許可を消費する前の固定元版。
- * @returns 保存・読戻し・排他解放と発行Effectを区別した既存Writer結果。
- * @precondition Host清掃Authorityの取得・消費は実行Ownerが行う。
- * @postcondition 同じ操作・解放済みLeaseから導いた候補以外は保存しない。
- * @effect 既存Reader／Writerと短期排他だけ。HostやDockerの回収は行わない。
- * @failure 元版・操作・Owner差、第三の現在版、pending競合、解放不明は拒否する。
- * @invariant 応答喪失後の同じ確定版は無書込みで確認し、元版や候補を別のMapへ複写しない。
- * @boundary Host清掃準備と単一Snapshot保存。
- * @security 保存済みJSONから回収Authorityを生成しない。真正Ownerを各I/Oで再照合する。
- * @concurrency 元版CAS・pending再入場・解放確認は既存Writerに保持する。
- */
-export function saveHostCleanupPreparation(
-  managementCapability: unknown,
-  recoveryId: string,
-  beforeBytes: unknown,
-) {
-  const repository = observeOperationRepository(managementCapability);
-  const before = repository
-    ? decodeStateSnapshot(beforeBytes, repository.repositoryBinding)
-    : null;
-  const operation = before?.snapshot.operations.find(
-    (item): item is ExecutionOperationRecord =>
-      item.kind === "docker_task" && item.recoveryId === recoveryId,
-  );
-  const candidate =
-    repository &&
-    before &&
-    operation &&
-    operation.host.cleanup === "not_requested" &&
-    operation.lease === "released" &&
-    JSON.parse(operation.identityJson).operationId === repository.operationId
-      ? prepareStateHostSnapshot(
-          beforeBytes,
-          recoveryId,
-          { ...operation.host, cleanup: "pending" },
-          repository.repositoryBinding,
-        )
-      : null;
-  if (!candidate || !repository || !before)
-    return Object.freeze({
-      status: "blocked",
-      reason: "coordinator_state_input_invalid",
-      revision: null,
-      payloadSha256: null,
-      recoveryIds: Object.freeze([] as string[]),
-      filesystemEffectIssued: false,
-      snapshotConfirmed: false,
-      lockReleased: true,
-    });
-  const current = readStateSnapshot(repository, null);
-  if (!current.lockReleased)
-    return Object.freeze({
-      status: "blocked",
-      reason: current.reason,
-      revision: null,
-      payloadSha256: null,
-      recoveryIds: Object.freeze([recoveryId]),
-      filesystemEffectIssued: false,
-      snapshotConfirmed: false,
-      lockReleased: false,
-    });
-  if (
-    current.status === "completed" &&
-    current.value &&
-    Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`).equals(
-      candidate,
-    )
-  )
-    return Object.freeze({
-      status: "completed",
-      reason: "coordinator_state_snapshot_confirmed",
-      revision: current.value.snapshot.revision,
-      payloadSha256: current.value.payloadSha256,
-      recoveryIds: Object.freeze(
-        current.value.snapshot.operations.map((item) => item.recoveryId),
-      ),
-      filesystemEffectIssued: false,
-      snapshotConfirmed: true,
-      lockReleased: true,
-    });
-  if (
-    current.status === "completed" &&
-    current.value &&
-    !Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`).equals(
-      Buffer.from(`${encodeStateValue(before.snapshot)}\n`),
-    )
-  )
-    return Object.freeze({
-      status: "blocked",
-      reason: "coordinator_state_input_invalid",
-      revision: null,
-      payloadSha256: null,
-      recoveryIds: Object.freeze([recoveryId]),
-      filesystemEffectIssued: false,
-      snapshotConfirmed: false,
-      lockReleased: true,
-    });
-  return writeStateSnapshot(managementCapability, repository, candidate, null);
-}
-
-/**
  * 回収Ownerが指定した途中・再起動・終端・Host清掃の保存を既存Writerへ接続する。
  * @responsibility 種別ごとにexact操作・元本文と保持又は不存在の証拠を共同照合する。
  * @trace ARCH-000008
@@ -1864,20 +1232,236 @@ export function saveHostCleanupPreparation(
  * @concurrency Writer内でも既存排他・元版を再確認する。
  */
 export function saveRecoveryCheckpoint(
+  authority: unknown,
+  recoveryId: unknown,
+  before: null,
+  request: Extract<RecoveryCheckpointRequest, { kind: "resource_not_issued" }>,
+): ReturnType<typeof writeStateSnapshot>;
+export function saveRecoveryCheckpoint(
+  authority: unknown,
+  recoveryId: string,
+  before: unknown,
+  request: Extract<
+    RecoveryCheckpointRequest,
+    { kind: "host_cleanup_preparation" }
+  >,
+): ReturnType<typeof writeStateSnapshot>;
+export function saveRecoveryCheckpoint(
   repository: StorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
+  request: Exclude<
+    RecoveryCheckpointRequest,
+    { kind: "resource_not_issued" | "host_cleanup_preparation" }
+  >,
+): ReturnType<typeof writeStateSnapshot>;
+export function saveRecoveryCheckpoint(
+  ...args:
+    | [
+        authority: unknown,
+        recoveryId: unknown,
+        before: null,
+        request: Extract<
+          RecoveryCheckpointRequest,
+          { kind: "resource_not_issued" }
+        >,
+      ]
+    | [
+        authority: unknown,
+        recoveryId: string,
+        before: unknown,
+        request: Extract<
+          RecoveryCheckpointRequest,
+          { kind: "host_cleanup_preparation" }
+        >,
+      ]
+    | [
+        repository: StorageRepository & { operationId: string },
+        recoveryId: string,
+        before: Buffer,
+        request: Exclude<
+          RecoveryCheckpointRequest,
+          { kind: "resource_not_issued" | "host_cleanup_preparation" }
+        >,
+      ]
+): ReturnType<typeof writeStateSnapshot>;
+export function saveRecoveryCheckpoint(
+  authority: unknown,
+  recoveryReference: unknown,
+  rawBefore: unknown,
   request: RecoveryCheckpointRequest,
-) {
+): ReturnType<typeof writeStateSnapshot> {
   const captured =
     snapshotStateRecord(request, new Set(["kind", "value", "assertOwner"])) ??
     snapshotStateRecord(request, new Set(["kind", "assertOwner"])) ??
     snapshotStateRecord(
       request,
       new Set(["kind", "assertAbsentOwner", "publication"]),
+    ) ??
+    snapshotStateRecord(request, new Set(["kind", "purpose"])) ??
+    snapshotStateRecord(request, new Set(["kind"])) ??
+    snapshotStateRecord(
+      request,
+      new Set(["kind", "observations", "assertOwner"]),
     );
   if (!captured) return writeStateSnapshot(null, null, null, null);
+  const repository = authority as StorageRepository & { operationId: string };
+  const recoveryId = recoveryReference as string;
+  const before = rawBefore as Buffer;
   switch (captured.kind) {
+    case "resource_not_issued": {
+      if (rawBefore !== null || !Object.hasOwn(captured, "purpose"))
+        return writeStateSnapshot(null, null, null, null);
+      const managementCapability = authority,
+        purpose = captured.purpose;
+      const recoveryId = recoveryReference;
+
+      const repository = observeOperationRepository(managementCapability);
+      const current = readOperationStateStage(managementCapability);
+      const operation = current.value?.snapshot.operations.find(
+        (value): value is ExecutionOperationRecord =>
+          value.kind === "docker_task" && value.recoveryId === recoveryId,
+      );
+      const resource = operation?.resources?.checkpoints.find(
+        (value) => value.key === purpose,
+      );
+      if (
+        !repository ||
+        current.status !== "completed" ||
+        !current.lockReleased ||
+        !current.value ||
+        !operation ||
+        !resource ||
+        typeof recoveryId !== "string" ||
+        typeof purpose !== "string" ||
+        resource.submission !== "intent_saved" ||
+        JSON.parse(operation.identityJson).operationId !==
+          repository.operationId
+      )
+        return Object.freeze({
+          ...writeStateSnapshot(null, null, null, null),
+          lockReleased: current.lockReleased,
+        });
+      const next = prepareStateResourceSnapshot(
+        Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`),
+        recoveryId,
+        { event: "not_issued", key: purpose },
+        repository.repositoryBinding,
+      );
+      return writeStateSnapshot(managementCapability, repository, next, null, {
+        recoveryId,
+        purpose,
+      });
+    }
+    case "host_cleanup_preparation": {
+      if (Reflect.ownKeys(captured).length !== 1)
+        return writeStateSnapshot(null, null, null, null);
+      const managementCapability = authority,
+        beforeBytes = rawBefore;
+
+      const repository = observeOperationRepository(managementCapability);
+      const before = repository
+        ? decodeStateSnapshot(beforeBytes, repository.repositoryBinding)
+        : null;
+      const operation = before?.snapshot.operations.find(
+        (item): item is ExecutionOperationRecord =>
+          item.kind === "docker_task" && item.recoveryId === recoveryId,
+      );
+      const candidate =
+        repository &&
+        before &&
+        operation &&
+        operation.host.cleanup === "not_requested" &&
+        operation.lease === "released" &&
+        JSON.parse(operation.identityJson).operationId ===
+          repository.operationId
+          ? prepareStateHostSnapshot(
+              beforeBytes,
+              recoveryId,
+              { ...operation.host, cleanup: "pending" },
+              repository.repositoryBinding,
+            )
+          : null;
+      if (!candidate || !repository || !before)
+        return Object.freeze({
+          status: "blocked",
+          reason: "coordinator_state_input_invalid",
+          revision: null,
+          payloadSha256: null,
+          recoveryIds: Object.freeze([] as string[]),
+          filesystemEffectIssued: false,
+          snapshotConfirmed: false,
+          lockReleased: true,
+        });
+      const current = readStateSnapshot(repository, null);
+      if (!current.lockReleased)
+        return Object.freeze({
+          status: "blocked",
+          reason: current.reason,
+          revision: null,
+          payloadSha256: null,
+          recoveryIds: Object.freeze([recoveryId]),
+          filesystemEffectIssued: false,
+          snapshotConfirmed: false,
+          lockReleased: false,
+        });
+      if (
+        current.status === "completed" &&
+        current.value &&
+        Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`).equals(
+          candidate,
+        )
+      )
+        return Object.freeze({
+          status: "completed",
+          reason: "coordinator_state_snapshot_confirmed",
+          revision: current.value.snapshot.revision,
+          payloadSha256: current.value.payloadSha256,
+          recoveryIds: Object.freeze(
+            current.value.snapshot.operations.map((item) => item.recoveryId),
+          ),
+          filesystemEffectIssued: false,
+          snapshotConfirmed: true,
+          lockReleased: true,
+        });
+      if (
+        current.status === "completed" &&
+        current.value &&
+        !Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`).equals(
+          Buffer.from(`${encodeStateValue(before.snapshot)}\n`),
+        )
+      )
+        return Object.freeze({
+          status: "blocked",
+          reason: "coordinator_state_input_invalid",
+          revision: null,
+          payloadSha256: null,
+          recoveryIds: Object.freeze([recoveryId]),
+          filesystemEffectIssued: false,
+          snapshotConfirmed: false,
+          lockReleased: true,
+        });
+      return writeStateSnapshot(
+        managementCapability,
+        repository,
+        candidate,
+        null,
+      );
+    }
+    case "authentication_unknown_closure": {
+      if (
+        !Object.hasOwn(captured, "observations") ||
+        !Object.hasOwn(captured, "assertOwner")
+      )
+        return writeStateSnapshot(null, null, null, null);
+      return saveAuthenticationClosure(
+        repository,
+        recoveryId,
+        before,
+        captured.observations,
+        captured.assertOwner as () => boolean,
+      );
+    }
     case "resource":
     case "cleanup":
     case "host":

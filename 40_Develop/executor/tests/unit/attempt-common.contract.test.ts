@@ -12,19 +12,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import * as di from "../../../docker-isolation/src/index.ts";
-import {
-  applyResourceCleanup,
-  applyResourceEvent,
-  type OperationResources,
-} from "../../../execution-model/src/index.ts";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import type { LockResult } from "../../../lock/src/index.ts";
-import { isPrimaryFailureDiagnostic } from "../../scripts/provider-attempt-host.ts";
+import type * as di from "../../../docker-isolation/src/index.ts";
+import { isPrimaryFailureDiagnostic } from "../../scripts/provider-diagnostic.ts";
 import type { AttemptDiagnosticNotice, CancelResult } from "../../src/index.ts";
 import * as boundary from "../../src/lifecycle/attempt.ts";
 import { PURPOSES } from "../../src/lifecycle/attempt.ts";
-import { attemptPlan } from "../fixtures/attempt-plan.ts";
+import { createAttemptExecutionFixture } from "../fixtures/attempt-execution.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * DIの停止理由・観測段階を上位理由と分離して保持する。
@@ -45,7 +39,7 @@ test("DIの元失敗を診断に保持し検証Toolへ欠落なく搬送する",
     "docker_isolation_root_readonly_mismatch",
     "docker_isolation_mount_source_unconfirmed",
   ]) {
-    const f = fixture();
+    const f = createAttemptExecutionFixture();
     const failure: NonNullable<di.IsolationExecutionResult["failure"]> =
       Object.freeze({
         stepKey: "create_subscription_auth_probe",
@@ -107,7 +101,7 @@ test("DIの元失敗を診断に保持し検証Toolへ欠落なく搬送する",
  * @boundary Executor通知の搬送。耐久保存の成立は別のDomain結合試験で確認する。
  */
 test("必須通知は元Snapshotと回収方針を同じ実行から搬送する", async () => {
-  const f = fixture();
+  const f = createAttemptExecutionFixture();
   let submissions = 0;
   let receipts = 0;
   await f.run({
@@ -139,63 +133,6 @@ test("必須通知は元Snapshotと回収方針を同じ実行から搬送する
   });
   assert.ok(submissions > 0);
   assert.equal(receipts, 5);
-});
-
-/**
- * 元DI通知をDomainの同じ記録へ順次適用する。
- * @responsibility 発行前Intent・Receipt・最終観測の順序を結合して確認する。
- * @trace ERB-UT-023
- * @boundary 実宣言と純粋Domain。物理耐久性・Docker実体の主張ではない。
- * @precondition 実入力構築とAdapter本文。実Process・Docker・AIは使用しない。
- * @stimulus 通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できるの対照入力・故障条件を与える。
- * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
- * @oracle 通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できるという条件をassertionで判定する。
- * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
- */
-test("通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できる", async () => {
-  const f = fixture();
-  let book: OperationResources | null = null;
-  let closed = false;
-  await f.run({
-    onCommandSubmitting: (purpose, resources) => {
-      if (!purpose.startsWith("create_")) return;
-      book = applyResourceEvent(
-        book,
-        JSON.parse(
-          JSON.stringify({ ...resources, event: "submission", key: purpose }),
-        ),
-      );
-      assert.ok(book, "後続Effect前に同じ資源のIntentが成立する");
-    },
-    onResourceCreated: (purpose, _id, resources) => {
-      book = applyResourceEvent(
-        book,
-        JSON.parse(
-          JSON.stringify({ ...resources, event: "receipt", key: purpose }),
-        ),
-      );
-      assert.ok(book, "元SnapshotのReceiptだけを同じ記録に結合する");
-    },
-    onResourcesClosed: (observation) => {
-      assert.ok(book);
-      book = applyResourceCleanup(
-        book,
-        JSON.parse(JSON.stringify(observation.resourceSnapshot)),
-        JSON.parse(JSON.stringify(observation.resources)),
-        { recoveryId: "exact-recovery", previousPayloadSha256: "a".repeat(64) },
-      );
-      assert.ok(book);
-      assert.ok(
-        book.checkpoints.every(
-          (c) =>
-            c.receiptSource === "docker_create_result" &&
-            c.observation === "absent",
-        ),
-      );
-      closed = true;
-    },
-  });
-  assert.equal(closed, true);
 });
 
 /**
@@ -286,7 +223,7 @@ test("Executor外側の未知例外はDIとして再分類せず生値を公開�
  * @boundary Executorの入力構築。
  */
 test("Request構築は旧payload上限と予約名・Path拒否を維持する", () => {
-  const { plan } = fixture();
+  const { plan } = createAttemptExecutionFixture();
   const execution = boundary.resolveProviderExecution(plan);
   assert.ok(execution);
   const build = (
@@ -344,322 +281,6 @@ test("Request構築は旧payload上限と予約名・Path拒否を維持する",
     );
 });
 
-/** 本番と同じ入力構築を実行し、共通DIだけを有限代役へ置換する。
- * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
- * @trace ERB-UT-023
- * @precondition 当該Caseの有限代役又はRepository内の新品試験領域だけを使用する。
- * @stimulus Case名に示す正常・境界・失敗条件を同じ実装へ与える。
- * @observation 同じ呼出しの返却値・元実ID・要求順序と終了条件を観測する。
- * @oracle Case内の独立期待値と一致し、未確認を成功へ補完しない。
- * @cleanup 登録した代役を復元し、所有するPromiseと新品試験資源の終了を確認する。
- * @boundary ERB-UT-023=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
- */
-function fixture() {
-  const classification = Object.freeze({
-    category: "completed" as const,
-    stdoutBytes: 9,
-    stderrBytes: 0,
-  });
-  const value = attemptPlan();
-  const plan = boundary.prepareAttempt(
-    { randomBytes: (size) => Buffer.alloc(size, 1) },
-    {
-      kind: "attempt",
-      purpose: "probe",
-      selection: value.executionSelection,
-      target: {
-        provider: value.provider,
-        operationId: value.operationId,
-        grantRef: value.grantRef,
-        workspaceSourcePath: "C:/synthetic/work",
-        temporarySourcePath: "C:/synthetic/tmp",
-        providerHomeSourcePath: value.providerHomeSourcePath,
-        providerHomeIdentityHash: value.providerHomeIdentityHash,
-        stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash,
-        activeMountCapability: value.activeMountCapability,
-      },
-    },
-    { tmp: "C:/synthetic/tmp", management: "C:/synthetic/management" },
-  );
-  assert.ok(plan);
-  let request: di.IsolationRequest | null = null;
-  let calls = 0;
-  let failure: di.IsolationExecutionResult["failure"] = null;
-  let snapshot: di.ResourceSnapshot | null = null;
-  let initialSnapshot: di.ResourceSnapshot | null = null;
-  let commandFailure: {
-    key: string;
-    code: "PROCESS_FAILURE" | "ETIMEDOUT";
-  } | null = null;
-  let releases = 0;
-  const events: string[] = [];
-  let prepareRejected = false;
-  let invocationFailed = false;
-  let transform = (
-    value: di.IsolationExecutionResult,
-  ): di.IsolationExecutionResult => value;
-  const context = {
-    ...di,
-    ...boundary,
-    Object,
-    WeakMap,
-    PURPOSES,
-    prepareIsolation: (input: di.IsolationRequest) => {
-      request = input;
-      if (prepareRejected) return null;
-      initialSnapshot = Object.freeze({
-        resources: Object.freeze(
-          input.resources.map((resource) =>
-            Object.freeze({
-              key: resource.key,
-              identity: Object.freeze({
-                kind: resource.kind,
-                name: resource.name,
-                ownershipLabel: resource.ownershipLabel,
-                dockerId: null,
-              }),
-              request: "not_issued" as const,
-              configuration: Object.freeze({
-                image: null,
-                command: null,
-                environmentNames: null,
-                mounts: null,
-                networks: null,
-                internal: null,
-              }),
-            }),
-          ),
-        ),
-      });
-      return { resources: initialSnapshot };
-    },
-    executeIsolation: (
-      _prepared: unknown,
-      callbacks: di.IsolationCallbacks = {},
-    ): di.IsolationExecution => {
-      calls++;
-      if (invocationFailed) throw Error("synthetic_invocation_failure");
-      assert.ok(request);
-      const current = request;
-      snapshot = Object.freeze({
-        resources: Object.freeze(
-          current.resources.map((resource, index) =>
-            Object.freeze({
-              key: resource.key,
-              identity: Object.freeze({
-                kind: resource.kind,
-                dockerId: String(index + 1).repeat(64),
-                name: resource.name,
-                ownershipLabel: resource.ownershipLabel,
-              }),
-              request: "issued" as const,
-              configuration: Object.freeze({
-                image: resource.kind === "container" ? resource.image : null,
-                command: null,
-                environmentNames: null,
-                mounts: null,
-                networks: null,
-                internal:
-                  resource.kind === "network" ? resource.internal : null,
-              }),
-            }),
-          ),
-        ),
-      });
-      const completedResources = snapshot;
-      assert.ok(initialSnapshot);
-      let resources = failure ? snapshot : initialSnapshot;
-      snapshot = resources;
-      const completion = Promise.resolve().then(
-        async (): Promise<di.IsolationExecutionResult> => {
-          if (failure?.notification === "onNotIssued") {
-            const step = current.steps.find(
-              (step) => step.key === failure?.stepKey,
-            );
-            assert.ok(step);
-            callbacks.onNotIssued?.(step);
-          } else if (!failure) {
-            for (const step of current.steps) {
-              await callbacks.onSubmitting?.(step);
-              if (step.action === "create") {
-                resources = Object.freeze({
-                  resources: Object.freeze(
-                    resources.resources.map((resource) => {
-                      if (resource.key !== step.resource) return resource;
-                      const observed = completedResources.resources.find(
-                        (completed) => completed.key === resource.key,
-                      );
-                      assert.ok(observed);
-                      return observed;
-                    }),
-                  ),
-                });
-                snapshot = resources;
-                await callbacks.onCreated?.(step, resources);
-              } else if (step.action === "run") {
-                await callbacks.onStarted?.(step);
-                const response = {
-                  status: 0,
-                  signal: null,
-                  stdout:
-                    step.key === "start_subscription_auth_probe_attached"
-                      ? JSON.stringify({
-                          loggedIn: true,
-                          authMethod: "claude.ai",
-                          apiProvider: "firstParty",
-                          forcedLoginMethod: "claudeai",
-                          subscriptionType: "max",
-                        })
-                      : JSON.stringify({
-                          type: "result",
-                          subtype: "success",
-                          is_error: false,
-                          num_turns: 1,
-                          total_cost_usd: 0,
-                          structured_output: { status: true },
-                        }),
-                  stderr: "",
-                  outputExceeded: false,
-                };
-                const commandResult = {
-                  observation:
-                    commandFailure?.key === step.key ? null : response,
-                  elapsedMs: 1,
-                  errorCode:
-                    commandFailure?.key === step.key
-                      ? commandFailure.code
-                      : null,
-                  classification:
-                    commandFailure?.key === step.key
-                      ? { category: "deadline_exceeded" as const }
-                      : classification,
-                  exitClass: "zero" as const,
-                };
-                try {
-                  await callbacks.onObserved?.(step, commandResult);
-                  if (commandResult.observation !== null)
-                    await callbacks.onCompleted?.(step, {
-                      ...commandResult,
-                      observation: commandResult.observation,
-                    });
-                } catch {
-                  failure = {
-                    stepKey: step.key,
-                    stage: "notification",
-                    reason: "docker_isolation_notification_failed",
-                    notification: "onObserved",
-                    kind: "threw",
-                    commandHandleObtained: true,
-                    responseObserved: commandResult.observation !== null,
-                    exceptionCode: null,
-                  };
-                  break;
-                }
-              }
-            }
-          }
-          return transform({
-            failure,
-            resources,
-            cancellationRequested: false,
-            processTerminationConfirmed: true,
-            notificationDeliveryConfirmed: true,
-            callbackRegistrationReleased: true,
-            cleanup: {
-              confirmed: true,
-              configCleanupConfirmed: true,
-              observations: resources.resources.map((resource) => ({
-                key: resource.key,
-                observation: "absent",
-              })),
-            },
-          });
-        },
-      );
-      return {
-        completion,
-        cancel: async () => ({
-          cancellationRequested: true,
-          processTerminationObserved: true,
-        }),
-      };
-    },
-  };
-  const management = {};
-  const reference = {
-    recoveryId: `docker-task.${plan.stableLogicalHomeBindingHash}.${"b".repeat(64)}.${"c".repeat(64)}`,
-    recoveryCapability: {},
-  };
-  let currentControl: unknown = null;
-  const state = {
-    controls: new WeakMap(),
-    acquireHomeLease: () => ({
-      status: "acquired" as const,
-      lock: {
-        assertLive: () => true,
-        release: () => {
-          releases++;
-          events.push("home");
-          return true;
-        },
-      },
-    }),
-    prepareIsolation: context.prepareIsolation as (
-      request: di.IsolationRequest,
-    ) => di.PreparedIsolation | null,
-    executeIsolation: context.executeIsolation,
-  };
-  return {
-    plan,
-    releases: () => releases,
-    commandFailure: (key: string, code: "PROCESS_FAILURE" | "ETIMEDOUT") => {
-      commandFailure = { key, code };
-    },
-    events,
-    rejectPrepare: () => {
-      prepareRejected = true;
-    },
-    failInvocation: () => {
-      invocationFailed = true;
-    },
-    transform: (value: typeof transform) => {
-      transform = value;
-    },
-    startWithAcquisition: (
-      outcome: LockResult<{ assertLive(): boolean; release(): boolean }>,
-    ) =>
-      boundary.start(
-        { ...state, callbacks: {}, acquireHomeLease: () => outcome },
-        plan,
-        management,
-        reference,
-      ),
-    run: (
-      callbacks: import("../../src/lifecycle/types.ts").AttemptCallbacks = {},
-    ) => {
-      const started = boundary.start(
-        { ...state, callbacks },
-        plan,
-        management,
-        reference,
-      );
-      assert.equal(started.status, "started");
-      if (started.status !== "started") throw Error("test_start_blocked");
-      currentControl = started.controlCapability;
-      return started.completion;
-    },
-    cancel: () => boundary.cancel(state, currentControl, management),
-    request: () => request,
-    snapshot: () => snapshot,
-    initialSnapshot: () => initialSnapshot,
-    calls: () => calls,
-    classification: () => classification,
-    fail: (value: NonNullable<di.IsolationExecutionResult["failure"]>) => {
-      failure = value;
-    },
-  };
-}
-
 /**
  * DI終了不明・回収不明と要求前拒否を区別してHome解放条件を反証する。
  * @responsibility 元DI結果を直接解釈し、未確認から不存在を推測しない。
@@ -698,7 +319,7 @@ test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を�
       resources: { resources: r.resources.resources.slice(1) },
     }),
   ]) {
-    const f = fixture();
+    const f = createAttemptExecutionFixture();
     f.transform(transform);
     const result = await f.run();
     assert.equal(f.calls(), 1);
@@ -707,14 +328,14 @@ test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を�
     assert.equal(result.homeLeaseReleased, false);
     assert.ok(result.recoveryId);
   }
-  const before = fixture();
+  const before = createAttemptExecutionFixture();
   before.rejectPrepare();
   const rejected = await before.run();
   assert.equal(before.calls(), 0);
   assert.equal(before.releases(), 1);
   assert.equal(rejected.status, "blocked");
   assert.equal(rejected.resourceSnapshot, null);
-  const after = fixture();
+  const after = createAttemptExecutionFixture();
   after.failInvocation();
   const unknown = await after.run();
   assert.equal(after.calls(), 1);
@@ -741,7 +362,7 @@ test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を�
  * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("作成通知前の中断でも最終SnapshotのProvider実IDを観測する", async () => {
-  const f = fixture();
+  const f = createAttemptExecutionFixture();
   f.fail({
     stepKey: "create_provider",
     stage: "wait",
@@ -784,7 +405,7 @@ test("作成通知前の中断でも最終SnapshotのProvider実IDを観測す�
  */
 test("資源終了通知とHome解放と最終通知の三段順序を維持する", async () => {
   for (const mode of ["normal", "closed", "completed"]) {
-    const f = fixture();
+    const f = createAttemptExecutionFixture();
     const result = await f.run({
       onResourcesClosed: () => {
         f.events.push("closed");
@@ -828,7 +449,7 @@ test("DIの正規Timeoutと通信失敗を分け後着通知で上書きしな�
       "docker_setup_deadline_exceeded",
     ],
   ] as const) {
-    const f = fixture();
+    const f = createAttemptExecutionFixture();
     f.commandFailure(key, code);
     const diagnostics: AttemptDiagnosticNotice[] = [];
     const result = await f.run({
@@ -876,7 +497,7 @@ test("DIの正規Timeoutと通信失敗を分け後着通知で上書きしな�
  * @boundary ERB-UT-023=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("通常Attemptは五資源・九操作を共通DIへ一回接続し元Snapshotを返す", async () => {
-  const f = fixture();
+  const f = createAttemptExecutionFixture();
   const events: string[] = [];
   const result = await f.run({
     onCommandSubmitting: (key) => {
@@ -921,7 +542,7 @@ test("通常Attemptは五資源・九操作を共通DIへ一回接続し元Snaps
  */
 test("通常Attemptは共通DIの一次失敗と未発行通知名を推測で変更しない", async () => {
   for (const stage of ["start", "wait", "notification"] as const) {
-    const f = fixture();
+    const f = createAttemptExecutionFixture();
     f.fail({
       stepKey: "create_provider",
       stage,
@@ -1105,7 +726,7 @@ test("Executorの準備資源名は実行Identity形式・63文字境界と乱�
  * @boundary Executor開始入力。実資源観測は行わない。
  */
 test("資源Identityの不正はHome取得・DI要求より前に拒否する", () => {
-  const { plan } = fixture();
+  const { plan } = createAttemptExecutionFixture();
   assert.equal(boundary.isAttemptPlanValid(plan), true);
   const nameKeys = [
     "authContainerName",
@@ -1252,7 +873,7 @@ function preparationFunctions(): {
 test("終端診断中の取消は成功内容を公開せず先行失敗と終了後拒否を維持する", async () => {
   for (const earlierFailure of [false, true])
     for (const diagnosticThrows of [false, true]) {
-      const f = fixture();
+      const f = createAttemptExecutionFixture();
       if (earlierFailure)
         f.commandFailure("start_provider_attached", "PROCESS_FAILURE");
       const accepted: Promise<CancelResult>[] = [];
@@ -1293,7 +914,7 @@ test("終端診断中の取消は成功内容を公開せず先行失敗と終�
 /** Home取得の失敗分類を開始拒否へ直接搬送し、DI Effectへ進まない。 @trace ERB-UT-023 */
 test("Home取得の競合・初期化失敗・descriptor不明は同じ回復参照で開始を拒否する", () => {
   for (const mode of ["busy", "write", "close"] as const) {
-    const f = fixture();
+    const f = createAttemptExecutionFixture();
     const result = f.startWithAcquisition({
       status: "blocked",
       reason: mode === "busy" ? "lock_exists" : "lock_initialization_failed",

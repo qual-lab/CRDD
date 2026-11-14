@@ -654,7 +654,7 @@ async function executeApprovedAuthCreateClosure() {
       },
     );
     await setImmediate();
-    const saved = store.readRecoveryState(rootCapability);
+    const saved = store.readState(rootCapability, { scope: "recovery" });
     assert.equal(saved.status, "completed");
     assert.equal(saved.lockReleased, true);
     assert.ok(saved.value);
@@ -688,7 +688,7 @@ async function executeApprovedAuthCreateClosure() {
      * @boundary 親観測と現在保存。
      */
     function currentTarget() {
-      const current = store.readRecoveryState(rootCapability);
+      const current = store.readState(rootCapability, { scope: "recovery" });
       assert.equal(current.status, "completed");
       assert.equal(current.lockReleased, true);
       assert.ok(current.value);
@@ -897,16 +897,14 @@ async function executeApprovedAuthCreateClosure() {
         {
           namedExports: {
             ...store,
-            saveUnknownAuthenticationClosureStage: (
-              ...args: Parameters<
-                typeof store.saveUnknownAuthenticationClosureStage
-              >
+            saveRecoveryCheckpoint: (
+              ...args: Parameters<typeof store.saveRecoveryCheckpoint>
             ) => {
+              if (args[3].kind !== "authentication_unknown_closure")
+                return store.saveRecoveryCheckpoint(...args);
               assert.equal(args[1], recoveryId);
               assert.equal(absenceRounds, 2);
-              const result = store.saveUnknownAuthenticationClosureStage(
-                ...args,
-              );
+              const result = store.saveRecoveryCheckpoint(...args);
               assert.equal(result.status, "completed");
               assert.equal(result.snapshotConfirmed, true);
               assert.equal(result.lockReleased, true);
@@ -1136,7 +1134,7 @@ async function executeApprovedAuthCreateClosure() {
         );
     }
     assert.deepEqual(baseline(), before);
-    const final = store.readRecoveryState(rootCapability);
+    const final = store.readState(rootCapability, { scope: "recovery" });
     assert.equal(final.status, "completed");
     assert.equal(final.lockReleased, true);
     assert.ok(final.value);

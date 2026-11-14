@@ -128,7 +128,7 @@ function fixture(
     bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(root);
   assert.ok(repository);
   const hitsBefore = projection.hits;
-  const initial = model.readRecoveryState(root);
+  const initial = model.readState(root, { scope: "recovery" });
   assert.ok(
     projection.hits > hitsBefore,
     "public model must use the bounded revision projection",
@@ -304,16 +304,22 @@ function fixture(
         throw new Error("history_read_fault");
       if (state.historyReadFault === "owner") state.alive = false;
       return {
-        ...model.readRecoveryState(null, {
-          kind: "repair_history",
-          recoveryId: id,
+        ...model.readState(null, {
+          scope: "recovery",
+          input: {
+            kind: "repair_history",
+            recoveryId: id,
+          },
         }),
         lockReleased: state.historyReadFault !== "release",
       };
     }
-    const observed = model.readRecoveryState(_root, {
-      kind: "repair_history",
-      recoveryId: id,
+    const observed = model.readState(_root, {
+      scope: "recovery",
+      input: {
+        kind: "repair_history",
+        recoveryId: id,
+      },
     });
     return {
       ...observed,
@@ -332,10 +338,12 @@ function fixture(
    * @boundary 実モデルと模擬Writer。
    */
   const advanceHistory = (
-    input: Parameters<typeof model.advanceOwnedRepairHistory>[0],
+    input: Parameters<typeof model.advanceOwnedRecoveryHistory>[0],
     id: string,
     owner: () => boolean,
+    kind: "runtime_repair",
   ) => {
+    assert.equal(kind, "runtime_repair");
     state.historyWrites++;
     assert.equal(owner(), true);
     const fault = state.historyWrites === state.historyFaultAt;
@@ -354,7 +362,12 @@ function fixture(
         filesystemEffectIssued: false,
         historyConfirmed: false,
       };
-    const saved = model.advanceOwnedRepairHistory(input, id, owner);
+    const saved = model.advanceOwnedRecoveryHistory(
+      input,
+      id,
+      owner,
+      "runtime_repair",
+    );
     if (saved.filesystemEffectIssued) {
       const bytes = state.bytes;
       assert.ok(bytes);
@@ -397,16 +410,22 @@ function fixture(
         throw new Error("completion_reader");
       if (state.completionReadFault === "owner") state.alive = false;
       return {
-        ...model.readRecoveryState(null, {
-          kind: "repair_completion",
-          recoveryId: id,
+        ...model.readState(null, {
+          scope: "recovery",
+          input: {
+            kind: "repair_completion",
+            recoveryId: id,
+          },
         }),
         lockReleased: state.completionReadFault !== "release",
       };
     }
-    const observed = model.readRecoveryState(_root, {
-      kind: "repair_completion",
-      recoveryId: id,
+    const observed = model.readState(_root, {
+      scope: "recovery",
+      input: {
+        kind: "repair_completion",
+        recoveryId: id,
+      },
     });
     const deadline = observed.repairRetentionReviewAfter;
     return {
@@ -420,7 +439,7 @@ function fixture(
     };
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readRecoveryState,advanceOwnedRepairHistory,completeRepair,resumeRepairPublication,completeStatePublication,saveRepairState,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readState,advanceOwnedRecoveryHistory,completeRecovery,resumeRepairPublication,completeStatePublication,saveRepairState,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
     isDeepStrictEqual,
@@ -469,10 +488,18 @@ function fixture(
             : "confirmed_absent",
       };
     },
-    readRecoveryState: (
+    readState: (
       root: unknown,
-      request: { kind: string; recoveryId?: unknown } = { kind: "current" },
+      envelope: {
+        scope: "recovery";
+        input?: { kind: string; recoveryId?: unknown };
+      },
     ) => {
+      assert.equal(envelope.scope, "recovery");
+      const request = envelope.input ?? {
+        kind: "current",
+        recoveryId: undefined,
+      };
       switch (request.kind) {
         case "repair_history":
           if (typeof request.recoveryId !== "string")
@@ -485,7 +512,7 @@ function fixture(
         default:
           return (() => {
             state.readers++;
-            const observed = model.readRecoveryState(root);
+            const observed = model.readState(root, { scope: "recovery" });
             return {
               ...observed,
               lockReleased: observed.lockReleased && state.readerReleased,
@@ -493,8 +520,14 @@ function fixture(
           })();
       }
     },
-    advanceOwnedRepairHistory: advanceHistory,
-    completeRepair: (_root: unknown, id: string, owner: () => boolean) => {
+    advanceOwnedRecoveryHistory: advanceHistory,
+    completeRecovery: (
+      _root: unknown,
+      id: string,
+      owner: () => boolean,
+      kind: "runtime_repair",
+    ) => {
+      assert.equal(kind, "runtime_repair");
       state.completionWrites++;
       assert.equal(owner(), true);
       state.completionBefore = Buffer.from(state.bytes as Buffer);
@@ -510,7 +543,7 @@ function fixture(
           lockReleased: true,
           filesystemEffectIssued: false,
         };
-      const result = model.completeRepair(_root, id, owner);
+      const result = model.completeRecovery(_root, id, owner, "runtime_repair");
       return fault === "none"
         ? result
         : {
@@ -575,7 +608,7 @@ function fixture(
       owner: () => unknown,
     ) => {
       state.calls++;
-      const observed = model.readRecoveryState(root);
+      const observed = model.readState(root, { scope: "recovery" });
       assert.equal(observed.lockReleased, true);
       const current = observed.value;
       if (current) {
@@ -826,7 +859,7 @@ function fixture(
     late: () => late,
     snapshot: () =>
       (() => {
-        const observed = model.readRecoveryState(root);
+        const observed = model.readState(root, { scope: "recovery" });
         assert.equal(observed.status, "completed");
         assert.ok(observed.value);
         assert.equal(
@@ -928,7 +961,10 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     assert.equal(f.state.historyWrites, 2);
     assert.equal(f.state.completionWrites, 1);
     assert.equal(f.snapshot()?.operations.length, 0);
-    const history = model.readRecoveryState(f.root, { kind: "history" });
+    const history = model.readState(f.root, {
+      scope: "recovery",
+      input: { kind: "history" },
+    });
     assert.equal(history.status, "completed", history.reason);
     assert.equal(history.lockReleased, true);
     const rows = history.historyRows;
@@ -1025,7 +1061,10 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       );
       assert.equal(first.completionConfirmed, false);
       assert.equal(f.state.completionWrites, 0);
-      const history = model.readRecoveryState(f.root, { kind: "history" });
+      const history = model.readState(f.root, {
+        scope: "recovery",
+        input: { kind: "history" },
+      });
       assert.equal(history.status, "completed", history.reason);
       assert.equal(history.lockReleased, true);
       const rows = history.historyRows;
@@ -1200,7 +1239,10 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
   assert.equal(result.outcomeConfirmed, true);
   assert.equal(result.completionEffectIssued, true);
   assert.equal(f.snapshot()?.operations.length, 0);
-  const history = model.readRecoveryState(f.root, { kind: "history" });
+  const history = model.readState(f.root, {
+    scope: "recovery",
+    input: { kind: "history" },
+  });
   assert.equal(history.status, "completed", history.reason);
   assert.equal(history.lockReleased, true);
   assert.equal(history.historyRows?.length, 1);
@@ -1465,10 +1507,11 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
           historyRetentionDays: 30,
           operationId: JSON.parse(target.identityJson).operationId,
         };
-        const saved = model.advanceOwnedRepairHistory(
+        const saved = model.advanceOwnedRecoveryHistory(
           owner,
           repaired.recoveryId,
           () => true,
+          "runtime_repair",
         );
         assert.equal(saved.status, "completed");
         assert.equal(saved.snapshotConfirmed, true);
@@ -1476,13 +1519,16 @@ test("修復履歴接続: 保持済みの再入場でも保持確認を返す", 
       }
     }
     if (stage !== "confirmed") {
-      const read = model.readRecoveryState(
+      const read = model.readState(
         {
           root: f.repository.root,
           historyRetentionDays: 30,
           revalidate: () => true,
         },
-        { kind: "repair_history", recoveryId: repaired.recoveryId },
+        {
+          scope: "recovery",
+          input: { kind: "repair_history", recoveryId: repaired.recoveryId },
+        },
       );
       assert.equal(read.status, "completed", `${stage}: ${read.reason}`);
     }
@@ -1682,7 +1728,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
       );
       assert.ok(
         (() => {
-          const observed = model.readRecoveryState(f.root);
+          const observed = model.readState(f.root, { scope: "recovery" });
           assert.equal(observed.status, "completed");
           assert.ok(observed.value);
           assert.equal(
@@ -2283,7 +2329,7 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
     f.controller.abort();
     const before = f.snapshot();
     const decoded = (() => {
-      const observed = model.readRecoveryState(f.root);
+      const observed = model.readState(f.root, { scope: "recovery" });
       assert.equal(observed.status, "completed");
       assert.ok(observed.value);
       assert.equal(
@@ -2444,7 +2490,7 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
     );
     assert.ok(
       (() => {
-        const observed = model.readRecoveryState(f.root);
+        const observed = model.readState(f.root, { scope: "recovery" });
         assert.equal(observed.status, "completed");
         assert.ok(observed.value);
         assert.equal(

@@ -16,10 +16,8 @@ import type {
 } from "../../../docker-isolation/src/index.ts";
 import {
   advanceOwnedRecoveryHistory,
-  advanceOwnedRepairHistory,
   completeOperation,
   completeRecovery,
-  completeRepair,
   completeStatePublication,
   type ExecutionOperationRecord,
   type ExecutionSelection,
@@ -32,13 +30,12 @@ import {
   type RepairOperationRecord,
   type RepairSaveRequest,
   type RestartCheckpoint,
-  readRecoveryState,
+  readState,
   resumeRepairPublication,
   resumeResourcePublication,
   type StateVersion,
   saveRecoveryCheckpoint,
   saveRepairState,
-  saveUnknownAuthenticationClosureStage,
 } from "../../../execution-model/src/index.ts";
 import type {
   CompletionResult,
@@ -915,7 +912,7 @@ export function resolveRuntimeOwnedCurrentRecoveryOperationRoot(
         recoveryId,
       );
     if (!match?.[2]) return null;
-    const current = readRecoveryState(repositoryRoot);
+    const current = readState(repositoryRoot, { scope: "recovery" });
     if (
       current.status !== "completed" ||
       !current.lockReleased ||
@@ -968,7 +965,10 @@ export function inspectRuntimeOwnedDockerTaskAdmission(
         reason: "coordinator_current_admission_unconfirmed" as const,
         lockReleased: true,
       });
-    const observed = readRecoveryState(root.capability, { kind: "admission" });
+    const observed = readState(root.capability, {
+      scope: "recovery",
+      input: { kind: "admission" },
+    });
     lockReleased = observed.lockReleased;
     if (
       lockReleased &&
@@ -1257,15 +1257,11 @@ type DockerRestartPreparation = Readonly<{
  * @compatibility 最新Schemaだけを扱う。
  */
 type ExecutionOperationState = Extract<
-  NonNullable<
-    ReturnType<typeof readRecoveryState>["value"]
-  >["operationStates"][number],
+  NonNullable<ReturnType<typeof readState>["value"]>["operationStates"][number],
   { kind: "docker_task" }
 >;
 type RepairOperationState = Extract<
-  NonNullable<
-    ReturnType<typeof readRecoveryState>["value"]
-  >["operationStates"][number],
+  NonNullable<ReturnType<typeof readState>["value"]>["operationStates"][number],
   { kind: "runtime_repair" }
 >;
 
@@ -1283,7 +1279,7 @@ type DockerTaskRecoveryPreparation = {
   /** beforeと同じ版。保存・fresh Readerの相関確認後にだけ一緒に更新する。 */
   snapshot: ExecutionStateSnapshot;
   operationStates: NonNullable<
-    ReturnType<typeof readRecoveryState>["value"]
+    ReturnType<typeof readState>["value"]
   >["operationStates"];
   closed: boolean;
   persistenceFailed: boolean;
@@ -1295,7 +1291,7 @@ type DockerTaskRecoveryPreparation = {
   completionPending: boolean;
   hostCleanup: "present" | "absent" | "unknown";
   hostCleanupPublication: ReturnType<
-    typeof readRecoveryState
+    typeof readState
   >["hostCleanupPublication"];
 };
 
@@ -1447,11 +1443,14 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
     }
     const repository =
       borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
-    let initial = readRecoveryState(rootCapability);
+    let initial = readState(rootCapability, { scope: "recovery" });
     if (initial.status !== "completed" && initial.lockReleased)
-      initial = readRecoveryState(rootCapability, {
-        kind: "resource_publication",
-        recoveryId: parsed.token,
+      initial = readState(rootCapability, {
+        scope: "recovery",
+        input: {
+          kind: "resource_publication",
+          recoveryId: parsed.token,
+        },
       });
     const savedTerminal =
       initial.value?.snapshot.operations.some(
@@ -1462,24 +1461,36 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
           item.outcome?.cleanupConfirmed === true,
       ) === true;
     if (savedTerminal)
-      initial = readRecoveryState(historyRepositoryInput(rootCapability), {
-        kind: "execution_history",
-        recoveryId: parsed.token,
+      initial = readState(historyRepositoryInput(rootCapability), {
+        scope: "recovery",
+        input: {
+          kind: "execution_history",
+          recoveryId: parsed.token,
+        },
       });
     if (initial.status === "blocked" && initial.lockReleased)
-      initial = readRecoveryState(rootCapability, {
-        kind: "host_cleanup",
-        recoveryId: parsed.token,
+      initial = readState(rootCapability, {
+        scope: "recovery",
+        input: {
+          kind: "host_cleanup",
+          recoveryId: parsed.token,
+        },
       });
     if (initial.status !== "completed" && initial.lockReleased)
-      initial = readRecoveryState(historyRepositoryInput(rootCapability), {
-        kind: "execution_history",
-        recoveryId: parsed.token,
+      initial = readState(historyRepositoryInput(rootCapability), {
+        scope: "recovery",
+        input: {
+          kind: "execution_history",
+          recoveryId: parsed.token,
+        },
       });
     if (initial.status !== "completed" && initial.lockReleased)
-      initial = readRecoveryState(rootCapability, {
-        kind: "execution_completion",
-        recoveryId: parsed.token,
+      initial = readState(rootCapability, {
+        scope: "recovery",
+        input: {
+          kind: "execution_completion",
+          recoveryId: parsed.token,
+        },
       });
     cleanupConfirmed = initial.lockReleased;
     if (
@@ -1628,26 +1639,38 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
     acquisitionPending = false;
     const publication = initial.hostCleanupPublication ?? null;
     let current = initial.resourcePublication
-      ? readRecoveryState(rootCapability, {
-          kind: "resource_publication",
-          recoveryId: parsed.token,
+      ? readState(rootCapability, {
+          scope: "recovery",
+          input: {
+            kind: "resource_publication",
+            recoveryId: parsed.token,
+          },
         })
       : publication
-        ? readRecoveryState(rootCapability, {
-            kind: "host_cleanup",
-            recoveryId: parsed.token,
+        ? readState(rootCapability, {
+            scope: "recovery",
+            input: {
+              kind: "host_cleanup",
+              recoveryId: parsed.token,
+            },
           })
         : initial.currentHistoryPublication
-          ? readRecoveryState(historyRepositoryInput(rootCapability), {
-              kind: "execution_history",
-              recoveryId: parsed.token,
+          ? readState(historyRepositoryInput(rootCapability), {
+              scope: "recovery",
+              input: {
+                kind: "execution_history",
+                recoveryId: parsed.token,
+              },
             })
           : initial.currentCompletionPublication
-            ? readRecoveryState(rootCapability, {
-                kind: "execution_completion",
-                recoveryId: parsed.token,
+            ? readState(rootCapability, {
+                scope: "recovery",
+                input: {
+                  kind: "execution_completion",
+                  recoveryId: parsed.token,
+                },
               })
-            : readRecoveryState(rootCapability);
+            : readState(rootCapability, { scope: "recovery" });
     cleanupConfirmed &&= current.lockReleased;
     let before = Buffer.from(initial.value.sourceText, "utf8");
     if (
@@ -1706,7 +1729,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
         reason = "docker_task_recovery_resource_publication_unconfirmed";
         throw new Error(reason);
       }
-      current = readRecoveryState(rootCapability);
+      current = readState(rootCapability, { scope: "recovery" });
       cleanupConfirmed &&= current.lockReleased;
       if (
         current.status !== "completed" ||
@@ -1871,7 +1894,7 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
       !saved.lockReleased
     )
       return false;
-    const current = readRecoveryState(record.rootCapability);
+    const current = readState(record.rootCapability, { scope: "recovery" });
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
       current.status !== "completed" ||
@@ -1926,11 +1949,14 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
     }
     let current =
       record.completionPending === true
-        ? readRecoveryState(record.rootCapability, {
-            kind: "execution_completion",
-            recoveryId: record.recoveryId,
+        ? readState(record.rootCapability, {
+            scope: "recovery",
+            input: {
+              kind: "execution_completion",
+              recoveryId: record.recoveryId,
+            },
           })
-        : readRecoveryState(record.rootCapability);
+        : readState(record.rootCapability, { scope: "recovery" });
     if (
       current.status === "blocked" &&
       current.lockReleased === true &&
@@ -1938,10 +1964,10 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
       record.hostCleanup === "absent" &&
       record.hostCleanupPublication === null
     )
-      current = readRecoveryState(
-        historyRepositoryInput(record.rootCapability),
-        { kind: "execution_history", recoveryId: record.recoveryId },
-      );
+      current = readState(historyRepositoryInput(record.rootCapability), {
+        scope: "recovery",
+        input: { kind: "execution_history", recoveryId: record.recoveryId },
+      });
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
       current.status !== "completed" ||
@@ -2185,6 +2211,7 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
           );
           return observed.root === "absent" && observed.marker === "absent";
         },
+        "docker_task",
       );
       filesystemEffectIssued ||= saved.filesystemEffectIssued;
       if (
@@ -2327,7 +2354,7 @@ export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
         return refused("docker_task_recovery_correlation_input_invalid");
       requested.push(descriptor.value);
     }
-    const observed = readRecoveryState(rootCapability);
+    const observed = readState(rootCapability, { scope: "recovery" });
     lockReleased = observed.lockReleased;
     if (observed.status !== "completed" || !observed.value || !lockReleased)
       return refused("docker_task_recovery_correlation_current_unconfirmed");
@@ -2746,6 +2773,7 @@ export function completeRuntimeOwnedDockerTaskRecovery(capability: unknown) {
         );
         return host.root === "absent" && host.marker === "absent";
       },
+      "docker_task",
     );
     const completed =
       saved.status === "completed" &&
@@ -2848,7 +2876,7 @@ export async function recoverRuntimeOwnedDockerTaskResources(
       record.persistenceFailed = true;
       throw Error("docker_task_recovery_owner_unconfirmed");
     }
-    const read = readRecoveryState(record.rootCapability);
+    const read = readState(record.rootCapability, { scope: "recovery" });
     if (!read.lockReleased) record.cleanupUnknown = true;
     if (
       read.status !== "completed" ||
@@ -2972,14 +3000,17 @@ export async function recoverRuntimeOwnedDockerTaskResources(
           }),
         );
         record.persistenceFailed = true;
-        const saved = saveUnknownAuthenticationClosureStage(
+        const saved = saveRecoveryCheckpoint(
           record.repository,
           record.recoveryId,
           record.before,
-          rounds,
-          () =>
-            !record.cleanupUnknown &&
-            assertCurrentRecoveryOwner(capability, record),
+          {
+            kind: "authentication_unknown_closure",
+            observations: rounds,
+            assertOwner: () =>
+              !record.cleanupUnknown &&
+              assertCurrentRecoveryOwner(capability, record),
+          },
         );
         if (!saved.lockReleased) record.cleanupUnknown = true;
         if (
@@ -2988,7 +3019,7 @@ export async function recoverRuntimeOwnedDockerTaskResources(
           !saved.lockReleased
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
-        const read = readRecoveryState(record.rootCapability);
+        const read = readState(record.rootCapability, { scope: "recovery" });
         if (!read.lockReleased) record.cleanupUnknown = true;
         if (
           read.status !== "completed" ||
@@ -3142,9 +3173,12 @@ export function confirmRuntimeOwnedDockerTaskHostAbsence(
     return false;
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
-    const current = readRecoveryState(record.rootCapability, {
-      kind: "initial_host",
-      recoveryId: record.recoveryId,
+    const current = readState(record.rootCapability, {
+      scope: "recovery",
+      input: {
+        kind: "initial_host",
+        recoveryId: record.recoveryId,
+      },
     });
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
@@ -3226,7 +3260,9 @@ export function confirmRuntimeOwnedDockerTaskHostAbsence(
     if (!assertCurrentRecoveryOwner(capability, record))
       throw new Error("docker_task_recovery_owner_unconfirmed");
     if (record.hostToken === lineage.currentToken) {
-      const beforeEffect = readRecoveryState(record.rootCapability);
+      const beforeEffect = readState(record.rootCapability, {
+        scope: "recovery",
+      });
       if (!beforeEffect.lockReleased) record.cleanupUnknown = true;
       if (
         beforeEffect.status !== "completed" ||
@@ -3297,13 +3333,19 @@ export function cleanupRuntimeOwnedDockerTaskHost(
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
     const current = record.hostCleanupPublication
-      ? readRecoveryState(record.rootCapability, {
-          kind: "host_cleanup",
-          recoveryId: record.recoveryId,
+      ? readState(record.rootCapability, {
+          scope: "recovery",
+          input: {
+            kind: "host_cleanup",
+            recoveryId: record.recoveryId,
+          },
         })
-      : readRecoveryState(record.rootCapability, {
-          kind: "initial_host",
-          recoveryId: record.recoveryId,
+      : readState(record.rootCapability, {
+          scope: "recovery",
+          input: {
+            kind: "initial_host",
+            recoveryId: record.recoveryId,
+          },
         });
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
@@ -3368,7 +3410,9 @@ export function cleanupRuntimeOwnedDockerTaskHost(
         })
       )
         return false;
-      const beforeEffect = readRecoveryState(record.rootCapability);
+      const beforeEffect = readState(record.rootCapability, {
+        scope: "recovery",
+      });
       if (!beforeEffect.lockReleased) record.cleanupUnknown = true;
       if (
         beforeEffect.status !== "completed" ||
@@ -3424,7 +3468,7 @@ export function cleanupRuntimeOwnedDockerTaskHost(
       !saved.lockReleased
     )
       return false;
-    const after = readRecoveryState(record.rootCapability);
+    const after = readState(record.rootCapability, { scope: "recovery" });
     if (!after.lockReleased) record.cleanupUnknown = true;
     const confirmed = after.value?.snapshot.operations.find(
       (item): item is ExecutionOperationRecord =>
@@ -4816,7 +4860,7 @@ export function prepareRuntimeOwnedDockerRestart(
     if (!parsed) throw new Error("docker_restart_id_invalid");
     const repository =
       borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
-    const initial = readRecoveryState(rootCapability);
+    const initial = readState(rootCapability, { scope: "recovery" });
     observationCleanupConfirmed = initial.lockReleased;
     if (
       !repository ||
@@ -4923,10 +4967,13 @@ export function prepareRuntimeOwnedDockerRestart(
       );
     }
     locks.push(state.lock);
-    const current = readRecoveryState(rootCapability, {
-      kind: "restart_preparation",
-      recoveryId: target.recoveryId,
-      scopeSha256,
+    const current = readState(rootCapability, {
+      scope: "recovery",
+      input: {
+        kind: "restart_preparation",
+        recoveryId: target.recoveryId,
+        scopeSha256,
+      },
     });
     observationCleanupConfirmed &&= current.lockReleased;
     const before = Buffer.from(initial.value.sourceText, "utf8");
@@ -5047,7 +5094,7 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
       !record.repository.revalidate()
     )
       return false;
-    const current = readRecoveryState(record.rootCapability);
+    const current = readState(record.rootCapability, { scope: "recovery" });
     if (!current.lockReleased) record.cleanupUnknown = true;
     return (
       current.status === "completed" &&
@@ -5109,7 +5156,7 @@ export function persistRuntimeOwnedDockerRestartCheckpoint(
       !saved.lockReleased
     )
       return false;
-    const observed = readRecoveryState(record.rootCapability);
+    const observed = readState(record.rootCapability, { scope: "recovery" });
     if (!observed.lockReleased) record.cleanupUnknown = true;
     if (
       observed.status !== "completed" ||
@@ -5845,7 +5892,7 @@ export async function repairRuntimeOwnedDockerRuntime(
        */
       const canDispose = () => {
         if (signal.aborted || !currentOwner()) return false;
-        const read = readRecoveryState(rootCapability);
+        const read = readState(rootCapability, { scope: "recovery" });
         if (
           read.status !== "completed" ||
           !read.lockReleased ||
@@ -5929,7 +5976,7 @@ export async function repairRuntimeOwnedDockerRuntime(
    * @security Task配送・任意Path・任意候補へfallbackしない。
    * @concurrency 既存Kernel排他を使い、待機後も同じ現在Ownerを照合する。
    */
-  const settleHistory = (initial?: ReturnType<typeof readRecoveryState>) => {
+  const settleHistory = (initial?: ReturnType<typeof readState>) => {
     let nextStage: "publish" | "confirmed" | null = null;
     let writing = false;
     try {
@@ -5938,9 +5985,12 @@ export async function repairRuntimeOwnedDockerRuntime(
         const read =
           step === 0 && initial
             ? initial
-            : readRecoveryState(historyRepositoryInput(rootCapability), {
-                kind: "repair_history",
-                recoveryId: recoveryId,
+            : readState(historyRepositoryInput(rootCapability), {
+                scope: "recovery",
+                input: {
+                  kind: "repair_history",
+                  recoveryId: recoveryId,
+                },
               });
         historyLockReleased = read.lockReleased;
         const publication = read.currentHistoryPublication;
@@ -5998,7 +6048,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         }
         if (step === 2) break;
         writing = true;
-        const saved = advanceOwnedRepairHistory(
+        const saved = advanceOwnedRecoveryHistory(
           {
             ...repository,
             ...withHistoryRetention(repository, rootCapability),
@@ -6006,6 +6056,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           },
           recoveryId,
           currentOwner,
+          "runtime_repair",
         );
         writing = false;
         historyLockReleased = saved.lockReleased;
@@ -6042,16 +6093,19 @@ export async function repairRuntimeOwnedDockerRuntime(
    * @security 新Store・Lock・任意Path・Docker要求なし。
    * @concurrency 各境界後に同じ現在Ownerを確認する。
    */
-  const settleCompletion = (initial?: ReturnType<typeof readRecoveryState>) => {
+  const settleCompletion = (initial?: ReturnType<typeof readState>) => {
     let writing = false;
     try {
       if (!recoveryId || !currentOwner()) throw new Error("completion_owner");
       completionLockReleased = null;
       const observed =
         initial ??
-        readRecoveryState(rootCapability, {
-          kind: "repair_completion",
-          recoveryId: recoveryId,
+        readState(rootCapability, {
+          scope: "recovery",
+          input: {
+            kind: "repair_completion",
+            recoveryId: recoveryId,
+          },
         });
       completionLockReleased = observed.lockReleased;
       if (
@@ -6095,7 +6149,12 @@ export async function repairRuntimeOwnedDockerRuntime(
         historyConfirmed = true;
         writing = true;
         completionLockReleased = null;
-        const saved = completeRepair(rootCapability, recoveryId, currentOwner);
+        const saved = completeRecovery(
+          rootCapability,
+          recoveryId,
+          currentOwner,
+          "runtime_repair",
+        );
         writing = false;
         completionLockReleased = saved.lockReleased;
         if (saved.filesystemEffectIssued) completionEffectIssued = true;
@@ -6118,9 +6177,12 @@ export async function repairRuntimeOwnedDockerRuntime(
       )
         throw new Error("completion_marker");
       completionLockReleased = null;
-      const fresh = readRecoveryState(rootCapability, {
-        kind: "repair_completion",
-        recoveryId: recoveryId,
+      const fresh = readState(rootCapability, {
+        scope: "recovery",
+        input: {
+          kind: "repair_completion",
+          recoveryId: recoveryId,
+        },
       });
       completionLockReleased = fresh.lockReleased;
       if (
@@ -6160,9 +6222,12 @@ export async function repairRuntimeOwnedDockerRuntime(
       if (!currentOwner()) return stopped();
       if (requestedRecoveryId !== null) {
         {
-          const completion = readRecoveryState(rootCapability, {
-            kind: "repair_completion",
-            recoveryId: requestedRecoveryId,
+          const completion = readState(rootCapability, {
+            scope: "recovery",
+            input: {
+              kind: "repair_completion",
+              recoveryId: requestedRecoveryId,
+            },
           });
           completionLockReleased = completion.lockReleased;
           if (!completion.lockReleased || !currentOwner()) return stopped();
@@ -6185,10 +6250,13 @@ export async function repairRuntimeOwnedDockerRuntime(
             });
           }
           {
-            let history = readRecoveryState(
-              historyRepositoryInput(rootCapability),
-              { kind: "repair_history", recoveryId: requestedRecoveryId },
-            );
+            let history = readState(historyRepositoryInput(rootCapability), {
+              scope: "recovery",
+              input: {
+                kind: "repair_history",
+                recoveryId: requestedRecoveryId,
+              },
+            });
             historyLockReleased = history.lockReleased;
             if (!history.lockReleased || !currentOwner()) return stopped();
             if (history.status !== "completed") {
@@ -6205,10 +6273,13 @@ export async function repairRuntimeOwnedDockerRuntime(
                 !currentOwner()
               )
                 return stopped();
-              history = readRecoveryState(
-                historyRepositoryInput(rootCapability),
-                { kind: "repair_history", recoveryId: requestedRecoveryId },
-              );
+              history = readState(historyRepositoryInput(rootCapability), {
+                scope: "recovery",
+                input: {
+                  kind: "repair_history",
+                  recoveryId: requestedRecoveryId,
+                },
+              });
               historyLockReleased = history.lockReleased;
               if (
                 history.status !== "completed" ||
@@ -6279,7 +6350,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         !currentOwner()
       )
         return stopped();
-      const read = readRecoveryState(rootCapability);
+      const read = readState(rootCapability, { scope: "recovery" });
       if (
         read.status !== "completed" ||
         !read.lockReleased ||

@@ -10,7 +10,7 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
-実行モデルのRoot公開は現在109項目（74値・35型）。利用側別ACKの撤去、同版の操作観測、State出版完了処理と検査系公開の責務整理を反映した。validation由来18公開は七件を実装／値のOwnerへ移し、二件を既存Readerへ統合、独立した入力受付を持つ九件は理由付きで維持した。最終独立レビューで削除済み試験の起動参照を是正し、限定回帰の試験追従漏れも製品判定を変えずに修正。最終の限定56件、EM／Co型検査、変更TS／JSONの整形・警告確認とCo追跡検査が成功し、是正後の独立再確認に必須残指摘はない。先行の各段階の結果と、現候補の限定成功を区別し、全Consumer・全保存経路の全体回帰成功へ拡張しない。対象・検証結果と残件は[分離・公開整理計画](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.21–14.32、責務は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)を参照する。全公開物の最小性や全体回帰完了は主張しない。既報のChecker指摘・先行保全物・試験時間変動は別残件。全体回帰・実AI・Docker・過去保持物は操作していない。
+実行モデルのRoot公開は現在100項目（65値・35型）。九つの重複入口を既存の読取り・Checkpoint・完了・履歴操作へ統合し、技術Ownerと通常表示の取得範囲は区別した。Executor／DI／ADの上位依存とCoordinatorのWorkbench／MCP結合試験は、利用側Ownerへ移管して全assert・終了／清掃条件を維持する。AMのEM型結合を撤去し、VCの横断Consumer検査はChecker試験Ownerへ分離した。保存形式・Lock／CAS・認可・期限は変更しない。対象・限定検証と独立レビューの進行状態は[分離・公開整理計画](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.33–14.53、責務は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)を参照する。全公開物の絶対最小性・全保存経路・全体回帰成功までは主張しない。全体回帰・実AI・Docker・過去保持物は操作していない。
 
 先行の区切りでは実行モデルの内部Sourceを53から24ファイルへ整理し、利用側・試験・台帳・文書の追従、限定検証と独立再レビューを完了した。7モデルの操作・検査・型と共通保存／排他を分け、旧Pathの互換層は追加していない。機密検査の7値はCoordinatorへ移管し、その時点のRootは364項目（279値・85型）。保持設定の現在性確認で見つけた期待日数の搬送漏れ2箇所も是正した。初回32 Suiteの失敗と是正影響subsetの成功を分けて記録し、最終32 Suite一括再走や全体QA成功とは主張しない。独立レビューの文書指摘1件は是正・再確認済み、残指摘0。[現在の実行契約](06_Architecture/Details/execution-model/01_Architecture.md)、[限定結果と限界](99_Roadmap/Changes/CHG-000082/Evidence/261112_model-package-split-verification.md)を参照。全体回帰・実AI／Docker・過去保持物は操作していない。
 

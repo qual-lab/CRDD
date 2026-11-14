@@ -6,7 +6,6 @@
  */
 
 import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
-import type { ExecutionModelAccess } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -25,6 +24,7 @@ import type {
   RepositoryAccess,
   RepositoryAccessCollectionResult,
   RepositoryAccessResult,
+  RepositoryContentAccess,
 } from "./types.ts";
 
 /**
@@ -33,7 +33,7 @@ import type {
  * @trace ARCH-000013
  * @trace ARCH-000008
  * @input root、token、repositoryId、signal: 信頼したHostの要求内接続。
- * @returns DomainのExecutionModelAccess、又は非開示拒否のnull。
+ * @returns 要求内の内容認可結果、又は非開示拒否のnull。
  * @precondition 呼出元がProtocol入力を検査し、同じ要求のSignalを渡す。
  * @postcondition 定義編集と読取りだけを既存development権限へ対応付ける。
  * @effect 既存の認証・Repository読取りと短期Lock。新状態・資格・Lockなし。
@@ -48,7 +48,7 @@ export function resolveRuntimeContentAccess(
   token: string,
   repositoryId: string,
   signal: AbortSignal,
-): ExecutionModelAccess | null {
+): RepositoryContentAccess | null {
   const unavailable = {
     status: "unavailable" as const,
     reason: "runtime_content_access_unavailable",
@@ -186,7 +186,7 @@ export function resolveRuntimeContentAccess(
           return false;
         }
       },
-    } satisfies ExecutionModelAccess);
+    } satisfies RepositoryContentAccess);
   } catch {
     return null;
   }

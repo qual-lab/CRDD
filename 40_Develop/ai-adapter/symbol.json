@@ -232,24 +232,6 @@
       ]
     },
     {
-      "symbolId": "ai-runtime.test.consumers",
-      "kind": "test-suite",
-      "path": "tests/integration/selection-consumers.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-IT-005"
-      ],
-      "verifies": [
-        "ai-runtime.catalog",
-        "ai-runtime.public-api",
-        "ai-adapter.catalog.resolver",
-        "coordinator.selection.resolve",
-        "ai-adapter.provider.execution-plan"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.claude-structured-result",
       "kind": "test-suite",
       "path": "tests/unit/claude/result.contract.test.ts",

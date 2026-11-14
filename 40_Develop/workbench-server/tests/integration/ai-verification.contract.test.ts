@@ -61,7 +61,7 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
       root = "fixture-root";
     let calls = 0;
     const run = runInNewContext(`(dependencies) => {
-      const { getRepository, readRecoveryState, root, acceptedRequestId } = dependencies;
+      const { getRepository, readState, root, acceptedRequestId } = dependencies;
       let correlationId = null;
       const identities = [], historyIdentities = [];
       ${body}
@@ -81,12 +81,12 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
           capability: cap,
         };
       },
-      readRecoveryState: (input: unknown, request: unknown) => {
+      readState: (input: unknown, request: unknown) => {
         calls++;
         assert.equal(input, cap);
         assert.equal(
           JSON.stringify(request),
-          JSON.stringify({ kind: "history" }),
+          JSON.stringify({ scope: "recovery", input: { kind: "history" } }),
         );
         if (mode === "throw") throw new Error("unavailable");
         return {
@@ -249,7 +249,7 @@ import {
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   initializeExecutionStore,
-  readRecoveryState,
+  readState,
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
@@ -606,7 +606,7 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
         status: "ready",
         policies: { codex: { policyHash: "a".repeat(64) } },
       }),
-      readRecoveryState: () => {
+      readState: () => {
         if (scenario === "state-blocked") return { status: "blocked" };
         const singleTask = {
           principalId:
@@ -1464,7 +1464,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readRecoveryState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.filter(q=>q.queueId!=='request-abc');snapshot.intakeBindings=snapshot.intakeBindings.filter(q=>q.queueId!=='request-abc');snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.filter(q=>q.queueId!=='request-abc');snapshot.intakeBindings=snapshot.intakeBindings.filter(q=>q.queueId!=='request-abc');snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -3005,7 +3005,7 @@ for (const transport of ["tool-child-process"] as const) {
     assert.equal(requests, 3);
     assert.equal(calls, 3);
     assert.equal(joined, 3);
-    const state = readRecoveryState(verified.capability);
+    const state = readState(verified.capability, { scope: "recovery" });
     assert.equal(state.status, "completed");
     if (state.status !== "completed" || !state.value)
       throw Error("snapshot_required");
@@ -3014,7 +3014,9 @@ for (const transport of ["tool-child-process"] as const) {
     const retired = maintainCoordinatorSnapshot(root, binding);
     assert.equal(retired.status, "completed", retired.reason);
     assert.equal(retired.value, 3);
-    const afterRetirement = readRecoveryState(verified.capability);
+    const afterRetirement = readState(verified.capability, {
+      scope: "recovery",
+    });
     assert.equal(afterRetirement.status, "completed");
     assert.ok(afterRetirement.value);
     for (const key of [

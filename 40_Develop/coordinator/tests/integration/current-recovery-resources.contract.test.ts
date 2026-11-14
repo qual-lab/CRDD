@@ -303,10 +303,18 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
           root: "absent",
           marker: "absent",
         }),
-        readRecoveryState(
+        readState(
           receivedRoot: unknown,
-          request: { kind: string; recoveryId?: unknown } = { kind: "current" },
+          envelope: {
+            scope: "recovery";
+            input?: { kind: string; recoveryId?: unknown };
+          },
         ) {
+          assert.equal(envelope.scope, "recovery");
+          const request = envelope.input ?? {
+            kind: "current",
+            recoveryId: undefined,
+          };
           const receivedId = request.recoveryId;
           if (request.kind === "execution_completion") {
             assert.equal(record.completionPending, true);
@@ -1021,7 +1029,9 @@ test("現在回収履歴: 有界二段・失敗後停止・Effect保持", () => 
           repository: unknown,
           recoveryId: string,
           owner: () => boolean,
+          kind: "docker_task",
         ) {
+          assert.equal(kind, "docker_task");
           calls++;
           borrowed.push(owner);
           assert.deepEqual(
@@ -1167,7 +1177,7 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
         snapshotJsonValue,
         isDeepStrictEqual,
         canonicalJson: JSON.stringify,
-        readRecoveryState: (received: unknown) => {
+        readState: (received: unknown) => {
           assert.equal(received, root);
           const observedSnapshot =
             saves && fault === "stale"
@@ -1199,18 +1209,21 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
         projectResourceTarget: () => ({
           resources: { resources: [{ key: "create_subscription_auth_probe" }] },
         }),
-        saveUnknownAuthenticationClosureStage: (
+        saveRecoveryCheckpoint: (
           _repository: unknown,
           id: string,
           bytes: Buffer,
-          rounds: unknown,
-          assertOwner: () => boolean,
+          request: {
+            kind: "authentication_unknown_closure";
+            observations: unknown;
+            assertOwner: () => boolean;
+          },
         ) => {
           assert.equal(id, "exact");
           assert.deepEqual(bytes, before);
-          assert.equal(assertOwner(), true);
+          assert.equal(request.assertOwner(), true);
           assert.equal(
-            JSON.stringify(rounds),
+            JSON.stringify(request.observations),
             JSON.stringify([
               { round: 1, name: "absent", name_label: "absent" },
               { round: 2, name: "absent", name_label: "absent" },
@@ -1393,7 +1406,7 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
       canonicalJson: encode,
       assertCurrentRecoveryOwner: () =>
         !(scenario === "owner_lost_after_pending" && stages.length > 0),
-      readRecoveryState: () => ({
+      readState: () => ({
         status: "completed",
         lockReleased: true,
         value: {
@@ -1577,7 +1590,7 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
     Object.assign(record, { operationStates });
     let writes = 0;
     const persist = runInThisContext(
-      `(environment) => { const { Buffer, dockerRecoveryPreparations, snapshotJsonValue, isDeepStrictEqual, canonicalJson, assertCurrentRecoveryOwner, coordinatorReleasedTaskCanObserveHostAbsence, saveRecoveryCheckpoint, readRecoveryState } = environment; ${body}; return persistRuntimeOwnedDockerTaskRecoveryCheckpoint; }`,
+      `(environment) => { const { Buffer, dockerRecoveryPreparations, snapshotJsonValue, isDeepStrictEqual, canonicalJson, assertCurrentRecoveryOwner, coordinatorReleasedTaskCanObserveHostAbsence, saveRecoveryCheckpoint, readState } = environment; ${body}; return persistRuntimeOwnedDockerTaskRecoveryCheckpoint; }`,
     )({
       Buffer,
       dockerRecoveryPreparations: new WeakMap([[capability, record]]),
@@ -1636,7 +1649,7 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
             );
         }
       },
-      readRecoveryState: () => ({
+      readState: () => ({
         status: scenario === "readback_failed" ? "blocked" : "completed",
         lockReleased: scenario !== "readback_unlock",
         value: {
@@ -2418,7 +2431,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         Set,
         JSON,
         types,
-        readRecoveryState(received: unknown) {
+        readState(received: unknown) {
           reads++;
           if (scenario === "throw") throw new Error("secret");
           return {
@@ -2869,7 +2882,9 @@ test("現在回復終了: genuine Owner・一回性・借用失効", () => {
           receivedRoot: unknown,
           id: string,
           owner: () => boolean,
+          kind: "docker_task",
         ) {
+          assert.equal(kind, "docker_task");
           calls++;
           assert.equal(receivedRoot, root);
           assert.equal(id, "exact");

@@ -56,7 +56,7 @@ test("再起動準備Readerは同版操作・Scopeと要求IDを結合する", (
     value: null,
   };
   const invoke = runInNewContext(
-    `(dependencies) => { const {snapshotStateRecord,parseDockerTaskRecoveryId,isSha256Hex,observeExecutionRecoveryRepository,readStateSnapshot,createDockerRestartRequestId} = dependencies; ${sourceDeclaration(fs.readFileSync(new URL("../../../src/attempt/crud.ts", import.meta.url), "utf8"), "readRecoveryState")} return readRecoveryState; }`,
+    `(dependencies) => { const {snapshotStateRecord,parseDockerTaskRecoveryId,isSha256Hex,observeExecutionRecoveryRepository,readStateSnapshot,createDockerRestartRequestId} = dependencies; ${sourceDeclaration(fs.readFileSync(new URL("../../../src/state/crud.ts", import.meta.url), "utf8"), "readRecoveryState")} return readRecoveryState; }`,
   )({
     snapshotStateRecord,
     parseDockerTaskRecoveryId,

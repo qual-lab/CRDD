@@ -9,14 +9,14 @@
  * @boundary 同じ検証Tool内の要求・観測・終了。Task進行のAuthorityを生成しない。
  */
 import type { Writable } from "node:stream";
-import { parseUnambiguousJsonDocument } from "../src/server/request/parse-json.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
-  inspectTaskStageDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
+  inspectTaskStageDiagnostic,
 } from "../../coordinator/scripts/task-diagnostic.ts";
-import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-attempt-host.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
+import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-diagnostic.ts";
+import { parseUnambiguousJsonDocument } from "../src/server/request/parse-json.ts";
 
 type Event = Extract<
   ProviderBoundaryDiagnosticNotice,

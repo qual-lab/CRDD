@@ -1,5 +1,9 @@
 # Checkerの設計
 
+## Repository横断のVC利用境界回帰 — 2026-11-14
+
+tests/integration/version-control-consumers.integration.test.tsは、全Packageと配布入口のVC Consumer集合・単一Owner・Root迂回拒否、Checker自身の公開VC接続を検証する。下位VCから移管した九試験であり、Checker製品にコード内部の命名／実装検査機能を加えたものではない。Source読取りだけでGit操作・保存・AI／Dockerを発行しない。VC単独の五試験とはOwnerを分け、既存のRCM-IT-004と全61assertを維持する。
+
 ## 3モデル分離への接続 — 2026-11-12
 
 文書構造・意味・Reality・Catalogの正本はdocument-model、Manifest等の設定はconfiguration-modelをConsumerとして別々に利用する。各モデルを結ぶFacadeを作らず、モデル間の直接型参照も置かない。Source列挙・symbol・試験CatalogのPathは新Ownerへ追従し、過去EvidenceのPathや実績は書き換えない。

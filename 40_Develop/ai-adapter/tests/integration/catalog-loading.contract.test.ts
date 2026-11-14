@@ -1,10 +1,10 @@
 /**
  * 同梱技術CatalogとProvider応答内容の独立した境界を検証する。
  * @packageDocumentation
- * @responsibility Catalogの起動拒否、Domain非依存、応答の閉形式・固定Schema／Provider計画を検査する。
+ * @responsibility Catalogの起動拒否、Domain非依存、応答の閉形式・固定Schemaを検査する。
  * @trace RCM-IT-005
  * @level IT
- * @scope 技術Catalog、Module loader、応答閉形式、固定Schema／Provider計画とDomain非依存。保存・実AIなし。
+ * @scope 技術Catalog、Module loader、応答閉形式、固定SchemaとDomain非依存。保存・実AIなし。
  * @boundary RCM-IT-005=Direct Boundary: 同梱JSONの初期化とProvider応答の内容正規化・技術計画。
  */
 import assert from "node:assert/strict";
@@ -18,32 +18,32 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
 
 /**
  * 移管した応答内容の拒否理由と固定Schemaを反証する。
- * @responsibility 移管で内容・拒否理由・SchemaとProvider計画を変えない。
+ * @responsibility 移管で内容・拒否理由・Schemaを変えない。実配置との計画連携はCoが検証する。
  * @trace RCM-IT-005
  * @precondition 合成Object・JSONだけを使用する。
  * @stimulus 正常、欠測、余剰、動的値、所見不正、許可外参照を渡す。
- * @observation exact結果、getter呼出し零、Schema bytesとProvider計画。
- * @oracle 全拒否理由と基準版のSchema／Provider計画を維持する。
+ * @observation exact結果、getter呼出し零とSchema bytes。
+ * @oracle 全拒否理由と基準版のSchemaを維持する。
  * @cleanup N/A: 外部資源なし。
- * @boundary AI Adapterの内容正規化と利用側の計画境界。
+ * @boundary AI Adapterの内容正規化と固定Schema。利用側の配置連携はCoordinator試験が所有する。
  */
-test("応答内容は全拒否理由と基準版のSchema・Provider計画を維持する", async () => {
+test("応答内容は全拒否理由と基準版のSchemaを維持する", async () => {
   const api = {
     ...(await import("../../src/provider/plan.ts")),
     ...(await import("../../src/provider/task-result.ts")),
     ...(await import("../../src/provider/advice-result.ts")),
   };
   const { createHash } = await import("node:crypto");
-  const docker = await import("../../../docker-isolation/src/index.ts");
   const edit = {
     status: "completed",
     summary: "Synthetic",
@@ -219,40 +219,11 @@ test("応答内容は全拒否理由と基準版のSchema・Provider計画を維
       .sort(),
   );
   const schema = api.describeAdviceResultSchema();
+  // a7618c6d0の承認済み容量上限撤去後の固定Schema。形状・必須条件はHash全体で保持する。
   assert.equal(
     createHash("sha256").update(JSON.stringify(schema)).digest("hex"),
-    "e07a0664795c7db8387927bf9c63fb565f7ec4e105f897d2ecf972d4dac27ff2",
+    "d7ff3776a632ae48419ad57b9570215a756fdfbd26b26ec90e3e41a7240dcac4",
   );
-  for (const provider of ["codex", "claude"] as const) {
-    const request = {
-      provider,
-      purpose: "advice" as const,
-      modelSelection: {
-        provider,
-        modelIdentifier: provider === "codex" ? "gpt-6.1-sol" : "opus",
-        reasoningEffort: "medium" as const,
-        identifierKind:
-          provider === "codex" ? ("exact" as const) : ("alias" as const),
-      },
-    };
-    const capabilities = docker.describeIsolationConfiguration(provider);
-    const locations =
-      capabilities.provider === "codex"
-        ? capabilities.locations.alternate
-        : capabilities.locations.primary;
-    const plan = api.planExecution(
-      { ...request, allowedReferences: ["synthetic-reference"] },
-      locations,
-    ).plan;
-    assert.ok(plan && "toolsAllowed" in plan);
-    assert.equal(plan.provider, provider);
-    assert.equal(plan.modelIdentifier, request.modelSelection.modelIdentifier);
-    assert.equal(plan.identifierKind, request.modelSelection.identifierKind);
-    assert.equal(plan.reasoningEffort, "medium");
-    assert.equal(plan.toolsAllowed, false);
-    assert.equal(plan.sessionPersistenceAllowed, false);
-    assert.equal(plan.promptTransport, "stdin_only");
-  }
 });
 
 /**
@@ -284,40 +255,6 @@ test("公開RootはDomain Modelを解決できなくても利用できる", () =
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "DOMAIN_FREE");
-});
-
-/**
- * Domainの保存契約がAI Adapterなしで開始できることを確認する。
- * @responsibility 発行理由と保存受理理由の一致を依存逆転なしで固定する。
- * @trace RCM-IT-005
- * @precondition DomainとAI Adapterは別々の新品Nodeで評価する。
- * @stimulus AI Adapterを解決拒否してDomainをimportし、保存理由集合を取得する。
- * @observation 終了値・閉じた文字列配列。
- * @oracle AIなしでDomainを開始でき、理由集合はAI Adapterの発行契約とexact一致する。
- * @cleanup 子の正常終了を確認し、生成物は作らない。
- * @boundary 保存処理・外部AI・Dockerは起動しない。
- */
-test("Domain保存契約はAI Adapterを解決せず同じ拒否理由を保持する", async () => {
-  const entry = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/execution-model/src/index.ts"),
-  ).href;
-  const source = `import { registerHooks } from 'node:module';
-    registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/ai-adapter/'))throw Error('ai_adapter_forbidden');return r;}});
-    const api=await import(${JSON.stringify(entry)});
-    console.log(JSON.stringify(api.PROVIDER_ADVICE_OUTPUT_REASONS));`;
-  const result = spawnSync(
-    process.execPath,
-    ["--input-type=module", "-e", source],
-    { encoding: "utf8", timeout: 15000, windowsHide: true },
-  );
-  assert.equal(result.error, undefined);
-  assert.equal(result.signal, null);
-  assert.equal(result.status, 0, result.stderr);
-  const adapter = await import("../../src/provider/result.ts");
-  assert.deepEqual(
-    JSON.parse(result.stdout),
-    adapter.PROVIDER_ADVICE_OUTPUT_REASONS,
-  );
 });
 
 /**

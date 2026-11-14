@@ -2,30 +2,30 @@
  * 統合Coordinatorの業務操作・単発実行と利用側の公開境界を検証する。
  *
  * @packageDocumentation
- * @responsibility 統合Rootの公開集合、旧入口不存在と直接利用側の接続を確認する。
+ * @responsibility 統合Rootの公開集合、旧入口不存在とCLIの受付を確認する。
  * @trace PRL-IT-012
  * @level IT
- * @scope 統合Coordinator Root、Workbench、MCP・CLI配布入口
+ * @scope 統合Coordinator RootとCLI配布入口
  * @boundary PRL-IT-012=Related 2 Blocks: 利用側→業務公開入口→Coordinator。
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { readExecutionCancellation } from "../../src/execution/authority.ts";
-import * as coordinator from "../../src/index.ts";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../../configuration-model/src/index.ts";
 import {
-  isPrincipalId,
   createLocalPrincipalId,
+  isPrincipalId,
 } from "../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { readExecutionCancellation } from "../../src/execution/authority.ts";
+import * as coordinator from "../../src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -481,6 +481,7 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "getCapabilities",
     "initializeProject",
     "inspectCoordinatorDecisionRequest",
+    "inspectCoordinatorDecisionResult",
     "inspectCoordinatorObjectiveRequest",
     "inspectCoordinatorStateQuery",
     "inspectCoordinatorStateQueryResult",
@@ -541,16 +542,16 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
 /**
  * 直接利用側が統合Coordinatorの公開Rootへ接続することを確認する。
  *
- * @responsibility Root逆依存の再導入とWorkbench／MCPの呼出し先漏れを拒否する。
+ * @responsibility Rootの旧Package参照と自己迂回の再導入を拒否する。
  * @trace PRL-IT-012
  * @precondition Sourceの現在PathがRepository内で固定されている。
- * @stimulus 公開Rootと二利用側のimportを読み取る。
+ * @stimulus 公開Rootのimportを読み取り、自己迂回の変異を加える。
  * @observation Module specifierと業務関数名の参照を取得する。
- * @oracle Rootに旧Package参照・自己迂回がなく、二利用側は統合Rootへ接続する。
+ * @oracle Rootに旧Package参照・自己迂回がなく、変異を拒否する。
  * @cleanup N/A: Repository Sourceの読取りだけである。
  * @boundary PRL-IT-012=Related 2 Blocks: 利用側→業務公開入口→Coordinator。
  */
-test("WorkbenchとMCPは業務Ownerへ直接接続する", () => {
+test("Coordinatorの公開Rootは旧Packageと自己迂回を参照しない", () => {
   const root = fs.readFileSync(
     path.join(repositoryRoot, "40_Develop/coordinator/src/index.ts"),
     "utf8",
@@ -564,16 +565,6 @@ test("WorkbenchとMCPは業務Ownerへ直接接続する", () => {
       selfDetour,
     ),
   );
-  for (const relativePath of [
-    "40_Develop/workbench-server/src/server/activity/observe.ts",
-    "template/tools/crdd-mcp-server.ts",
-  ]) {
-    const source = fs.readFileSync(
-      path.join(repositoryRoot, relativePath),
-      "utf8",
-    );
-    assert.match(source, /coordinator\/src\/index\.ts/);
-  }
 });
 
 /**

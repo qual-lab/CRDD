@@ -1,5 +1,33 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Workspace接続試験の共有準備 — 2026-11-14
+
+workspace-lifecycle ITが使う実Git・保存観測・二Task準備は、既存tests/fixtures/workspace-surface.tsが一意に所有する。Coの業務試験と上位MCPの結果搬送試験が同じ準備処理を利用し、終了hookは今回生成したexact Rootだけを回収して不存在を確認する。元の実Objective→MCP投影試験はMCPへ移し、CoからMCP Parserへの直接importを残さない。製品公開IFや保存規則は変更しない。
+
+## 利用側Source配線の試験Owner — 2026-11-14
+
+公開Root自身の旧Package参照・自己迂回拒否はCoordinatorのpublic-owner-boundaryが検証する。Workbench活動Readerと配布MCP入口がこのRootへ接続するSource検査は、各利用側の既存ITへ分離する。Sourceの接続確認を、実行時認可・Reader完了・実MCP疎通の証明として扱わない。元の三assertと利用側各一assertを維持し、上位のSourceをCoordinator試験から読まない。
+
+## 公開MCP検証Toolの移管 — 2026-11-14
+
+公開MCP入口を起動しMCP結果Parserを使うtask-real-provider検証Tool・報告処理・47試験・専用Node fixtureは、[MCP](../mcp-server/01_Architecture.md)が所有する。Coordinatorは業務実行と回復処理だけを提供し、上位Transportを自身のscripts／testsから読み込まない。固定markerの既存所在・報告契約・回復順序はこのOwner整理では変更しない。旧入口の互換転送を追加しない。
+
+## DI通知とモデル記録の接続試験 — 2026-11-14
+
+`tests/integration/isolation-resource-record.contract.test.ts`は、DIの作成ReceiptをEM資源Bookへ記録する接続と、両Providerの実Executor→実DI→有限CLIへの接続を所有する。DI単独の技術試験とは分け、元の二試験・全assert・取消／通知拒否／構成差の反例を維持する。DIの有限fixtureと入力捕捉の内部参照はこの技術接続試験に限定し、製品Consumerへの深い依存許可や新公開IFへ拡張しない。保存耐久性・実Docker・実AIの成立は主張しない。
+
+## 検証CLI・記録Hostの所有 — 2026-11-14
+
+EM資源Bookを記録するprovider-attempt-hostとverify-provider-realはCoordinatorのscriptsが所有する。対応するHost／CLI ITと、Co製品Source・技術Producerの配線確認もCoordinatorのtests/integrationへ移管する。元の試験名・assert・Trace・安定Suite IDを保持し、実行・取消・保存・清掃の順序は変更しない。旧Executor入口の転送は置かず、明示起動はCoordinatorのnpm run verify:providerを使う。
+
+検証CLI自身は製品Coordinatorを起動せず、先行hookでCoのsrc／binの読込みを拒否する。上位に移った検証script自身は許容し、静的import変異を製品Moduleの評価前に拒否する検査を維持する。Executorの技術補助・有限fixtureへの参照は明示的な下位利用であり、新しい製品公開IFや上位モデル依存を下位へ追加しない。実AI・実Docker試験をこの移管の成功とみなさない。
+
+## 技術ProducerとEM記録の接続試験Owner — 2026-11-14
+
+Executor通知をEM資源Bookへ適用する検証はCoの`tests/unit/execution/resource-record.contract.test.ts`、技術理由列をEM保存語彙へ順序ごと比較する検証は既存`tests/unit/provider-advice-output.contract.test.ts`が所有する。下位へEMの記録・受理条件を逆流させず、元assertとTraceを維持する。技術単独の未知拒否・用途Map・一意性・凍結検証はExecutorに残す。
+
+接続検証は登録済みExecutor有限fixtureを共有し、技術Producerの動作やモデル規則をCoの代役へコピーしない。理由列のexact比較は現公開IFだけでは実列を取得できないため、この試験に限定して内部定数を参照する。製品Consumerへの深い参照許可や、試験のためのRoot公開増設には広げない。有限技術Producerと純粋なBook適用の成功は、実Dockerや耐久保存の成立を意味しない。Host／CLI移管の経緯と残件は[変更計画§14.40](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で追跡する。
+
 ## 実行モデルの完成修復APIへの接続 — 2026-11-12
 
 明示修復の保存は、期待改訂と固定の論理更新を`RepairWriteRequest`でEMへ渡す。Coordinatorは修復の次Snapshotや符号化byteを構築せず、保存・解放と成功valueの共同成立後だけ、確定Versionと対象Operationを保持する。不明・拒否は既存のsticky停止と元回復参照を維持し、自動再基準化・再試行を追加しない。Input／Result・CASとモデルOwnerの正本は[実行モデルの修復契約](../execution-model/01_Architecture.md#repair-write-contract)を参照する。

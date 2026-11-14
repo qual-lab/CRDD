@@ -1,7 +1,7 @@
 /**
- * orchestrator-real-provider-contractに属する責務をまとめる。
+ * 公開MCP経由のTask検証結果と所有Processを観測する。
  *
- * @responsibility JsonRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 公開MCPの応答・段階通知・終了・回復の相関を保持する。
  * @trace ARCH-000004
  */
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
@@ -9,19 +9,19 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-attempt-host.ts";
-import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
+import {
+  inspectRecoveryStartFailureDiagnostic,
+  inspectTaskStageDiagnostic,
+} from "../../coordinator/scripts/task-diagnostic.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "../../coordinator/scripts/verification-safety.ts";
+import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
+import { snapshotPlainRecord } from "../../coordinator/src/input/snapshot.ts";
+import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-diagnostic.ts";
 import {
   getRepository,
   readRepositorySnapshot,
 } from "../../version-control/src/index.ts";
-import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
-import { snapshotPlainRecord } from "../src/input/snapshot.ts";
-import {
-  inspectRecoveryStartFailureDiagnostic,
-  inspectTaskStageDiagnostic,
-} from "./task-diagnostic.ts";
-import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
+import { inspectMcpCoordinatorObjectiveResult } from "../src/index.ts";
 
 /**
  * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。
@@ -1451,7 +1451,7 @@ export function buildCoordinatorRealProviderReport(
   );
   const runtimeSource =
     source &&
-    source.scope === "crdd-development-source-snapshot/v2" &&
+    source.scope === "crdd-development-source-snapshot/v3" &&
     typeof source.sourceSha256 === "string" &&
     /^[a-f0-9]{64}$/u.test(source.sourceSha256) &&
     typeof source.mcpEntrySourceSha256 === "string" &&
@@ -2045,4 +2045,4 @@ export function buildCoordinatorRealProviderReport(
   });
 }
 
-import { inspectCoordinatorStateQueryResult } from "../src/state/projection.ts";
+import { inspectCoordinatorStateQueryResult } from "../../coordinator/src/state/projection.ts";

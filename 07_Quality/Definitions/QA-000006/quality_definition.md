@@ -104,6 +104,8 @@ ResourceSnapshotは非秘密構成だけを返し、Command値・環境値が含
 
 Probeの利用側は、実Executorによる固定Image・payload・三Mount・利用期限・出力上限の構成搬送と、上位のIntent／Receipt二保存・不明時の元参照保持・完了事実投影を別々に検証する。有限DI代役を使う上位試験から、物理Process終了・実Dockerの不存在を推定しない。通常Attempt・認証への同じOwnerの接続が未確認なら、Probeの成功を三用途全体の成功へ拡張しない。
 
+DIの純粋な共通Lifecycle検証は`docker-isolation/tests/integration/isolation-lifecycle.contract.test.ts`が所有し、EM資源BookへのReceipt／回収記録と両ProviderのExecutor接続は`coordinator/tests/integration/isolation-resource-record.contract.test.ts`が所有する。ERB-IT-004と元のケースを維持し、技術保証とモデル記録の対応を別のOwnerで確認する。
+
 ## 検証専用Probe・回収代役・認証取消の反証
 
 DIのprobe-lifecycle契約は固定三所在の後発Object変更を採用せず、Bindingによる元実体差・観測不能をready後と終了後にも拒否する。異常入力、Running不明、SIGTERM失敗、期限超過、遅延通知、attachのjoin不明を分け、一次理由と終端理由、追加start／removeなしを検査する。Coordinatorの上位検証Callerは固定値・同じ実ID・二保存を搬送し、Owner Queryを渡さない。
@@ -111,6 +113,14 @@ DIのprobe-lifecycle契約は固定三所在の後発Object変更を採用せず
 Executorの回収試験AdapterではcleanupObserved欠測時の旧同期操作呼出し0、元回復参照と未確認結果を確認する。全削除代役は非同期CleanupとSignalへ追従し、inspectだけのrecoverObservedを削除代役にしない。認証は本番Factoryの結果搬送と後段分類を通し、両ProviderのDI取消、取消とProcess終了不明、作成Receipt欠測、通知保存失敗を分離する。上位が実際に検出したHome Lock喪失の理由は既存Coordinator試験で維持する。実AI・実Dockerや過去保持物での検証は行わない。
 
 ## 旧有限試験の固定所在・Session Receipt保持契約
+
+独立ロードは各RootのOwnerが確認する。DIのpackage-boundaryは上位モデル・Executor・Coordinator・Workbench・MCPを拒否してDIだけを起動し、旧相互ロードのEM枝はEMの既存package-boundary ITへ移す。各枝の子error・signal・exit・固定markerとERB-IT-014を保持し、Moduleロードだけから保存や実Dockerの成立を推定しない。
+
+固定構成の旧argv OracleとRuntime、および対応するplan／Effect cleanup／fixed-runtime試験はExecutorが所有する。実Seccomp Resolverの全11条件とDirectory実体観測はDIのcommand-runtime試験へ残し、旧argvへの所在搬送二assertはExecutorへ分離する。型・Factoryの混在試験はExecutorの既存公開境界試験へ移し、元assert・Traceを維持する。
+
+有限Runtimeの構成型負例はFactory自身の引数から取得し、settings／二所在の必須性とreadonlyを維持する。Home解放は引数なしで、共通Lockの保持引数を型契約から選べないことも確認する。固定Probeの評価・非同期搬送は分類関数の戻り値へ結合し、状態値・欠測・理由の既存反例を維持する。
+
+有限Sessionの五型は実装と同じ`docker-isolation/tests/support/session.ts`へ置き、DIからExecutorの試験用型を参照しない。上位の有限試験も同じ宣言を直接使い、通知の同期／非同期、観測欠測、任意Cleanup観測、取消と終了の区別を維持する。型の所在変更を製品Sessionの再導入や実Docker保証とは扱わない。
 
 本節のcommand-runtime等は、tests/supportへ移管した旧候補の過去の有限反例を保持する契約であり、現在の製品入口が成立した証明ではない。現行の実Executor→実DI結合、三用途の共通Owner、通常・単独回収の根拠は先頭のDI共通IF検証節へ接続する。
 
@@ -203,7 +213,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | CoordinatorなしのRootロード、必要な公開集合、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map・内部Key・形式タグ定数の非公開 |
 | 上位準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | coordinator/tests/unit/execution/attempt-preparation.contract.test.ts | 上位が両ProviderのMapを所有。回収不明を消費成功にしない |
 | Codex／Claudeの局所候補Oracle、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 候補内の順序・join・一回性・相関と試験領域処置。本番Factory・Home・DI実行の証明には使わない |
-| 製品公開Factory、両Providerの内容・取消と記録 | executor/tests/integration/provider-attempt-host.contract.test.ts、provider-real-cli.contract.test.ts | 公開createExecutor→共通DIの有限CLI接続、必須通知、Home生存・解放、Receipt・回収・元Completion、親IPCを確認 |
+| 製品公開Factory、両Providerの内容・取消と記録 | coordinator/tests/integration/provider-attempt-host.contract.test.ts、provider-real-cli.contract.test.ts | 公開createExecutor→共通DIの有限CLI接続、必須通知、Home生存・解放、Receipt・回収・元Completion、親IPCを確認 |
 | 固定構成の非秘密診断投影 | executor/tests/unit/observation.contract.test.ts | 元操作・Providerの相関を保ち、Command・Home Pathを公開しない |
 | 任意診断の同期例外・Promise拒否、必須通知待機と取消 | executor/tests/unit/notifications.contract.test.ts | 受動通知の故障を実行結果へ伝播させず、必須通知の拒否でも実清掃を一回行い元回復参照を保持する |
 | 開始基本条件と固定Commandの完全照合 | executor/tests/unit/plan.contract.test.ts | 基本検査の成立を完全計画の検証と混同しない |
@@ -213,11 +223,11 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | Home技術Leaseの取得・解放・Owner終了 | coordinator/tests/integration/docker-process-controller.contract.test.ts | 取得後の開始拒否はEffect 0とrelease一回。保存拒否でもrelease一回。清掃不明は明示Owner終了まで保持し、別Owner・進行中・二重解放を拒否する |
 | 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/attempt/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
 | 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/attempt/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
-| 試験HostのReceipt・保存拒否・排他解放・元終端 | executor/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
+| 試験HostのReceipt・保存拒否・排他解放・元終端 | coordinator/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
 | Home事前確認の観測不能・元Lock・既存名導出 | executor/tests/integration/provider-home-boundary.contract.test.ts | 模擬サービス上の有限取得・解放と不明保持。実Homeには触れない |
-| 単段検証CLIの非対話実行、IPC、異常close、取消、親切断、診断、保持・清掃 | executor/tests/integration/provider-real-cli.contract.test.ts | 事前の人間承認を前提とし、非TTY・確認入力禁止の代役でも同じ有限試験が成立。子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
+| 単段検証CLIの非対話実行、IPC、異常close、取消、親切断、診断、保持・清掃 | coordinator/tests/integration/provider-real-cli.contract.test.ts | 事前の人間承認を前提とし、非TTY・確認入力禁止の代役でも同じ有限試験が成立。子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
 | 単段Taskの編集・投影レビュー・開始後取消 | 同上。入力・物理Oracleはexecutor/scripts/task-trial.ts | TaskのModel・役割・三Mount・単一File・内容Hash・Directory Identityを照合。通常／cancelの終端相互取違え、未知生成物・partial・実体変更は保持。両Providerのreviewerを通常APIへ接続。Tool件数は診断に限定し、正規review結果・物理Oracleが成立する反例では件数だけで拒否しない。全Tool禁止証明は追加の完成条件にしない |
-| 診断表示の元結果保全・参照URL・非表示条件・専用Process終了 | executor/tests/integration/task-summary-observation.contract.test.ts | 本文を保存せず、不成立を非表示にする |
+| 診断表示の元結果保全・参照URL・非表示条件・専用Process終了 | workbench-server/tests/integration/task-summary-observation.contract.test.ts | 本文を保存せず、不成立を非表示にする |
 
 全件成功は、この表の非AI境界に対する結果であり、あらゆるOS故障・Docker故障・Provider障害を網羅したとの表明ではない。本番Factory試験は固定Docker Isolation Factoryのみを有限代役へ置き換える。実Engine、実Home排他、認証、実Container回収、Host喪失の実境界は模擬結果から成立としない。既存のCodex／Claude単段実試験とDirect／Isolated実試験はCHGの対象改訂版付き結果を参照し、今回の等価な配置整理で新たに再送しない。
 
@@ -239,7 +249,7 @@ CLI実設定の非AI確認は通信なし・空Home・認証情報なしで行�
 
 Claudeの非0終了分類は既存`ERB-UT-032`と`ERB-IT-002`で確認する。明示的な実行失敗JSONだけを有界に読み、既存三subtype・既知stderrの優先、UTF-8の64KiB／8KiB一致と超過、説明の一〜128件と129件、個別／結合容量、NUL・重複key・深いJSON・未知形・通常回答の拒否を反証する。固定理由以外の本文・秘密値を結果へ出さず、Controllerの一次理由とcleanupを分離したまま搬送する。合成入力の分類成功を過去の実Claude失敗原因の確定、認証有効性、実Provider成功又は再送許可へ換算しない。
 
-B3〜B5の旧Docker構成一致検査は、DIのtests/support/execution-plan.tsと旧plan試験に有限Oracleとして維持する。これは旧用途・順序・全argv差の履歴上の反証であり、現在のRequest接続の証明にはしない。現行のRequest正本化・DI実Compiler接続の義務は本書の薄型化・Request接続の段落に従う。助言のProvider Adapterと結果中継は一つへ統合し、既存の四つの一回実行／取消／cleanup不明／例外Oracleを統合後の受付から確認する。Profile・Catalog・Task／通信Hash・Repository非共有・元Host参照を維持し、編集Taskや追加Reviewerへ変換しない。局所成功を実AI・実Docker・正式全項目Passへ読み替えない。
+B3〜B5の旧Docker構成一致検査は、Executorのtests/support/isolation-plan.tsと旧plan試験に有限Oracleとして維持する。これは旧用途・順序・全argv差の履歴上の反証であり、現在のRequest接続の証明にはしない。現行のRequest正本化・DI実Compiler接続の義務は本書の薄型化・Request接続の段落に従う。助言のProvider Adapterと結果中継は一つへ統合し、既存の四つの一回実行／取消／cleanup不明／例外Oracleを統合後の受付から確認する。Profile・Catalog・Task／通信Hash・Repository非共有・元Host参照を維持し、編集Taskや追加Reviewerへ変換しない。局所成功を実AI・実Docker・正式全項目Passへ読み替えない。
 
 B2の排他は、人間が採用した単一Host・協調wx方式へ切り替える。旧Worker／Supervisorのready往復・喪失通知・子終了専用試験は撤去対象であり、現在の保証として維持しない。`ERB-IT-003`は共通Lockの実Process競合、正常解放、Crash残存、元世代照合、停止下の明示再入場へ接続する。Coordinator側は共有Home／Runtime状態のScope、Host清掃前の保持確認と未確認結果の保全を検証する。項目の正式結果・歴史Evidenceを、Source移管や試験削減だけでPassへ変更しない。
 

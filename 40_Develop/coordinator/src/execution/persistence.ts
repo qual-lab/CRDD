@@ -151,14 +151,11 @@ export function saveOperationStart(
  */
 export function readOperationStateStage(
   managementCapability: unknown,
-  ...args: Parameters<typeof runtimeStore.readOperationStateStage> extends [
-    unknown,
-    ...infer Args,
-  ]
-    ? Args
-    : never
+  request?:
+    | Readonly<{ kind: "host_cleanup"; recoveryId: unknown }>
+    | Readonly<{ kind: "operation_start"; identityJson: unknown }>,
 ) {
-  return runtimeStore.readOperationStateStage(
+  return runtimeStore.readState(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -174,51 +171,7 @@ export function readOperationStateStage(
           : null;
       },
     },
-    ...args,
-  );
-}
-
-/**
- * readOperationResourcesStageへ元操作の観測を接続する。
- * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
- * @trace ARCH-000008
- * @input managementCapability: 既存操作、args: 用途固定の保存入力。
- * @returns Domainの保存結果。
- * @precondition 元の操作Ownerが現在の実行を管理する。
- * @postcondition 保存結果から実行又は回復Authorityを生成しない。
- * @effect 既存の用途固定保存処理だけ。
- * @failure 元Owner又は保存検査の拒否を維持する。
- * @invariant Mapのkeyは元Capabilityそのもの。
- * @boundary Coordinatorの実行観測とDomain保存。
- * @security 生Writer、短期Owner、任意取引callbackを返さない。
- * @concurrency 観測はDomainが元の照合位置で呼ぶ。
- */
-export function readOperationResourcesStage(
-  managementCapability: unknown,
-  ...args: Parameters<typeof runtimeStore.readOperationResourcesStage> extends [
-    unknown,
-    ...infer Args,
-  ]
-    ? Args
-    : never
-) {
-  return runtimeStore.readOperationResourcesStage(
-    {
-      identity: managementCapability as object,
-      observeRepository: () => {
-        const observed =
-          borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-        return observed
-          ? {
-              purpose: "execution" as const,
-              root: observed.root,
-              operationId: observed.operationId,
-              revalidate: observed.revalidate,
-            }
-          : null;
-      },
-    },
-    ...args,
+    { scope: "operation", input: request },
   );
 }
 
@@ -239,14 +192,9 @@ export function readOperationResourcesStage(
  */
 export function saveResourceNotIssuedStage(
   managementCapability: unknown,
-  ...args: Parameters<typeof runtimeStore.saveResourceNotIssuedStage> extends [
-    unknown,
-    ...infer Args,
-  ]
-    ? Args
-    : never
+  ...args: [recoveryId: unknown, purpose: unknown]
 ) {
-  return runtimeStore.saveResourceNotIssuedStage(
+  return runtimeStore.saveRecoveryCheckpoint(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -262,7 +210,9 @@ export function saveResourceNotIssuedStage(
           : null;
       },
     },
-    ...args,
+    args[0],
+    null,
+    { kind: "resource_not_issued", purpose: args[1] },
   );
 }
 
@@ -283,14 +233,9 @@ export function saveResourceNotIssuedStage(
  */
 export function saveHostCleanupPreparation(
   managementCapability: unknown,
-  ...args: Parameters<typeof runtimeStore.saveHostCleanupPreparation> extends [
-    unknown,
-    ...infer Args,
-  ]
-    ? Args
-    : never
+  ...args: [recoveryId: string, beforeBytes: unknown]
 ) {
-  return runtimeStore.saveHostCleanupPreparation(
+  return runtimeStore.saveRecoveryCheckpoint(
     {
       identity: managementCapability as object,
       observeRepository: () => {
@@ -306,7 +251,9 @@ export function saveHostCleanupPreparation(
           : null;
       },
     },
-    ...args,
+    args[0],
+    args[1],
+    { kind: "host_cleanup_preparation" },
   );
 } /**
  * saveOperationCheckpointへ元操作の観測を接続する。

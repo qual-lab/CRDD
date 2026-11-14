@@ -14,12 +14,16 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import type { AttemptDiagnosticNotice } from "../src/index.ts";
+import {
+  readReport,
+  removeReport,
+  writeReport,
+} from "../../executor/scripts/report.ts";
+import type { AttemptDiagnosticNotice } from "../../executor/src/index.ts";
 import type {
   TaskFixtureReceipt,
   TrialMode,
-} from "../tests/support/task-trial.ts";
-import { readReport, removeReport, writeReport } from "./report.ts";
+} from "../../executor/tests/support/task-trial.ts";
 
 type TrialResult = Readonly<{
   mode: TrialMode;
@@ -58,7 +62,7 @@ type TrialResult = Readonly<{
 registerHooks({
   resolve(s, c, n) {
     const r = n(s, c);
-    if (r.url.includes("/coordinator/"))
+    if (/\/coordinator\/(?:src|bin)\//u.test(r.url))
       throw Error("trial_coordinator_forbidden");
     return r;
   },
@@ -70,22 +74,22 @@ const { describeIsolationConfiguration } = await import(
   "../../docker-isolation/src/index.ts"
 );
 
-const {
-  validateResourceBook,
-  validateResourceBookTransition,
-  ExecutionStorageBlockedError,
-} = await import("../../execution-model/src/index.ts");
+const { validateResourceBook, ExecutionStorageBlockedError } = await import(
+  "../../execution-model/src/index.ts"
+);
 const {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
-} = await import("./runtime-data.ts");
+} = await import("../../executor/scripts/runtime-data.ts");
 const { getRepository } = await import("../../version-control/src/index.ts");
 
-const { observeProviderHome } = await import("./provider-home.ts");
+const { observeProviderHome } = await import(
+  "../../executor/scripts/provider-home.ts"
+);
 
 const { isPrimaryFailureDiagnostic } = await import(
-  "./provider-attempt-host.ts"
+  "../../executor/scripts/provider-diagnostic.ts"
 );
 
 // 親子通信の待機上限。旧Session由来の現行値を維持する。
@@ -105,7 +109,7 @@ const {
   createTaskTrialFixture,
   verifyTaskTrialResult,
   cleanupTaskTrialFixture,
-} = await import("../tests/support/task-trial.ts");
+} = await import("../../executor/tests/support/task-trial.ts");
 
 const reference = "synthetic-context";
 
@@ -187,7 +191,7 @@ export function buildStandaloneTrialRequest(
     { status: "candidate" }
   >,
   homePath: string,
-): import("../src/index.ts").ExecutorRequest<"attempt"> {
+): import("../../executor/src/index.ts").ExecutorRequest<"attempt"> {
   if (
     JSON.stringify(spec) !==
     JSON.stringify(describeStandaloneProviderTrial(spec.provider, spec.mode))
@@ -871,9 +875,8 @@ export function cleanupStandaloneTrialRoot(
         ].includes(v.kind)
       ) {
         if (
-          !validateResourceBook(v.resources) ||
-          !v.resources ||
-          !validateResourceBookTransition(priorResources, v.resources)
+          !validateResourceBook(v.resources, { before: priorResources }) ||
+          !v.resources
         )
           return false;
         const book = v.resources;
@@ -1184,8 +1187,15 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
   );
   const verified = getRepository(repository);
   if (verified.status !== "completed") throw Error(verified.reason);
+  const preparation = ensureRepositoryRuntimeDataArea(
+    verified.capability,
+    "tests",
+  );
+  // この記録Ownerが直前に得た結果だけを既存の公開失敗搬送へ接続する。
+  if (preparation?.status === "blocked")
+    throw new ExecutionStorageBlockedError(preparation);
   const parent = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(verified.capability, "tests"),
+    preparation,
     "trial_parent_invalid",
   ).directory;
   const root = path.join(parent, `executor-real-${spec.provider}-${runId}`);

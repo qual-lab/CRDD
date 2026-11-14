@@ -10,11 +10,12 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { DockerResourceReceipts } from "../support/cleanup.ts";
-import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
-
 import type { CommandObservation } from "../../src/execution/result.ts";
-import type { DockerIsolationCommand } from "../support/execution-plan.ts";
+import type { DockerResourceReceipts } from "../support/cleanup.ts";
+import type {
+  DockerExecutionCallbacks,
+  DockerIsolationCommand,
+} from "../support/session.ts";
 import {
   describeDockerCommandSessionContract,
   startDockerCommandSessionCandidate,

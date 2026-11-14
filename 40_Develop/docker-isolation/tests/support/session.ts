@@ -2,20 +2,10 @@
  * 固定九目的のDocker実行と取消・清掃を一回の生涯へ閉じる。
  * @responsibility raw Handle、技術期限と終端を所有し、上位の意味・保存方式を知らない。
  * @trace ARCH-000008
+ * @boundary 有限試験の内部契約。製品公開APIや実行許可ではない。
  */
 
 import { types } from "node:util";
-import type {
-  DockerResourceCleanupObservation,
-  DockerResourceReceipts,
-} from "./cleanup.ts";
-import type {} from "../../../executor/src/lifecycle/types.ts";
-import type {
-  DockerCommandSession,
-  DockerExecutionCallbacks,
-  DockerSessionCleanup,
-  DockerSessionFailure,
-} from "../../../executor/scripts/executor-test.ts";
 import {
   type CommandObservation,
   classifyDockerCommandException,
@@ -23,8 +13,15 @@ import {
   classifyDockerProcessExit,
   type DockerProcessExitStatusClass,
 } from "../../src/execution/result.ts";
+import type {
+  IsolationCommandResult,
+  ResourceSnapshot,
+} from "../../src/index.ts";
 import type { OwnedCommandHandle } from "../../src/process/start.ts";
-import type { DockerIsolationCommand } from "./execution-plan.ts";
+import type {
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+} from "./cleanup.ts";
 
 const PURPOSES = [
   "create_subscription_auth_probe",
@@ -37,6 +34,117 @@ const PURPOSES = [
   "start_proxy",
   "start_provider_attached",
 ] as const;
+/** 固定九操作の有限Session内だけで使う通知識別子。製品公開型ではない。 */
+type SessionCommandPurpose = (typeof PURPOSES)[number];
+
+/**
+ * 閉じたDocker操作purposeと構築済み引数。
+ *
+ * @responsibility 生成した操作と引数の対応を一つの値として所有する。
+ * @trace ARCH-000004
+ * @shape 九purposeのうち一つと不変argv配列。
+ * @invariant Callerが任意Docker操作を追加する入力ではない。
+ * @boundary 計画構築からEffect発行前の照合へ搬送する。
+ * @security 実行許可や所有資源の証明をこの値だけから発行しない。
+ * @compatibility 既存操作のpurpose文字列を維持する。
+ */
+export type DockerIsolationCommand = Readonly<{
+  purpose:
+    | "create_subscription_auth_probe"
+    | "start_subscription_auth_probe_attached"
+    | "create_internal_network"
+    | "create_egress_network"
+    | "create_proxy"
+    | "connect_proxy_egress"
+    | "create_provider"
+    | "start_proxy"
+    | "start_provider_attached";
+  argv: readonly string[];
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerSessionCleanup = Readonly<{
+  confirmed: boolean;
+  processTreeTerminated: boolean;
+  containersAbsent: boolean;
+  networksAbsent: boolean;
+  resourceObservations?: readonly DockerResourceCleanupObservation[] | null;
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export interface DockerExecutionCallbacks {
+  onCommandSubmitting?(purpose: SessionCommandPurpose): void | Promise<void>;
+  onCommandNotIssued?(purpose: SessionCommandPurpose): void | Promise<void>;
+  onExecutionSubmitting?(): void | Promise<void>;
+  onResourceCreated?(
+    purpose: SessionCommandPurpose,
+    dockerId: string,
+  ): void | Promise<void>;
+  onCommandObserved?(
+    purpose: SessionCommandPurpose,
+    result: NonNullable<IsolationCommandResult["observation"]> | null,
+    classification: IsolationCommandResult["classification"],
+  ): void;
+  onCommandCompleted?(
+    purpose: SessionCommandPurpose,
+    result: NonNullable<IsolationCommandResult["observation"]>,
+  ): void;
+  /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
+  onExecutionStarted?(): void;
+  onFailure?(failure: DockerSessionFailure): void;
+}
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerSessionFailure = Readonly<{
+  purpose: SessionCommandPurpose | null;
+  stage:
+    | "command_start"
+    | "provider_start_observation"
+    | "command_wait"
+    | "gate";
+  gate: keyof DockerExecutionCallbacks | null;
+  kind:
+    | "rejected"
+    | "invalid_return"
+    | "threw"
+    | "start_unconfirmed"
+    | "invalid_plan"
+    | "command_failed";
+  exceptionCode: string | null;
+  commandHandleObtained: boolean;
+  responseObserved: boolean;
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerCommandSessionResult = Readonly<{
+  resourceSnapshot?: ResourceSnapshot;
+  failure: DockerSessionFailure | null;
+  notificationDeliveryConfirmed: boolean | null;
+  callbackRegistrationReleased: boolean;
+  cancellationRequested: boolean;
+  executionStarted: boolean;
+  executionCompleted: boolean;
+  executionContainerCreated: boolean;
+  executionExit: IsolationCommandResult["exitClass"];
+  cleanup: DockerSessionCleanup;
+  resourceObservations:
+    | readonly DockerResourceCleanupObservation[]
+    | null
+    | undefined;
+  processTreeTerminationConfirmed: boolean;
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerCommandSession = Readonly<{
+  cancel: () => Promise<
+    Readonly<{
+      cancellationRequested: boolean;
+      processTerminationObserved: boolean;
+    }>
+  >;
+  completion: Promise<DockerCommandSessionResult>;
+}>;
+
 const CREATE_PURPOSES = new Set<string>([
   "create_subscription_auth_probe",
   "create_internal_network",

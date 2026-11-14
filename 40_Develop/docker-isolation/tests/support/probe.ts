@@ -9,7 +9,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
-import type { IsolationProbeFacts } from "../../../executor/src/lifecycle/types.ts";
 import { inspectDockerContainer } from "../../src/cleanup/container.ts";
 import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
 import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
@@ -546,7 +545,7 @@ export async function runDockerProbeAsync(
   signal: AbortSignal,
 ): Promise<
   Readonly<{
-    facts: IsolationProbeFacts;
+    facts: ReturnType<typeof classifyDockerProbeExecution>;
     cancelled: boolean;
     processCompletionConfirmed: boolean;
   }>

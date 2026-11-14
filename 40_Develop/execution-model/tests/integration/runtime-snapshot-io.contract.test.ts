@@ -37,6 +37,7 @@ import {
   readProjectExecutionState,
   saveProjectExecutionState,
 } from "../../src/index.ts";
+import type { readOperationStateStage } from "../../src/state/crud.ts";
 import * as privateStateCrud from "../../src/state/crud.ts";
 import {
   initializeExecutionStore as initializeSnapshot,
@@ -197,11 +198,8 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   for (const scope of ["intake", "execution", "workspace"] as const) {
-    const empty: ReturnType<typeof domain.readState> = domain.readState(
-      verified.capability,
-      "binding-a",
-      scope,
-    );
+    const empty: ReturnType<typeof domain.readState<typeof scope>> =
+      domain.readState(verified.capability, "binding-a", scope);
     assert.equal(empty.status, "completed");
     assert.equal(empty.value, null);
   }
@@ -262,11 +260,8 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   }
   fs.writeFileSync(file, "invalid fixture");
   for (const scope of ["intake", "execution", "workspace"] as const) {
-    const rejected: ReturnType<typeof domain.readState> = domain.readState(
-      verified.capability,
-      "binding-a",
-      scope,
-    );
+    const rejected: ReturnType<typeof domain.readState<typeof scope>> =
+      domain.readState(verified.capability, "binding-a", scope);
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.value, null);
     assert.equal(fs.readFileSync(file, "utf8"), "invalid fixture");
@@ -443,14 +438,14 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
     areaThrows = false;
     const inspect = (directory: string) => {
       const observed = getRepository(directory);
-      return store.readRecoveryState(
+      return store.readState(
         observed.status === "completed" ? observed.capability : null,
-        { kind: "admission" },
+        { scope: "recovery", input: { kind: "admission" } },
       );
     };
     const current = path.join(root, ".crdd", "domain-model");
     assert.equal(
-      store.readRecoveryState(verified.capability).status,
+      store.readState(verified.capability, { scope: "recovery" }).status,
       "blocked",
     );
     const absent = inspect(root);
@@ -1520,7 +1515,10 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     unresolvedRecoveries: [],
   };
   const firstBytes = Buffer.from(`${encodeStateValue(first)}\n`);
-  assert.equal(domain.readOperationStateStage(management).status, "blocked");
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).status,
+    "blocked",
+  );
   assert.equal(
     privateStateCrud.prepareOwnedStateInitialization(management, firstBytes)
       .status,
@@ -1548,7 +1546,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   assert.equal(result.snapshotConfirmed, true);
   assert.equal(result.lockReleased, true);
   assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
-  const readFirst = domain.readOperationStateStage(management);
+  const readFirst = domain.readState(management, { scope: "operation" });
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
   assert.equal(readFirst.value?.snapshot.revision, 1);
@@ -1556,13 +1554,15 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     readFirst.value?.payloadSha256,
     hashExecutionStateContent(first),
   );
-  assert.equal(domain.readOperationStateStage({}).status, "blocked");
-  const recoveryRead = domain.readRecoveryState(verifiedRoot.capability);
+  assert.equal(domain.readState({}, { scope: "operation" }).status, "blocked");
+  const recoveryRead = domain.readState(verifiedRoot.capability, {
+    scope: "recovery",
+  });
   assert.equal(recoveryRead.status, "completed");
   assert.equal(recoveryRead.lockReleased, true);
   assert.deepEqual(recoveryRead.value, readFirst.value);
   for (const invalidRoot of [null, {}, { ...verifiedRoot.capability }, root]) {
-    const rejectedRoot = domain.readRecoveryState(invalidRoot);
+    const rejectedRoot = domain.readState(invalidRoot, { scope: "recovery" });
     assert.equal(rejectedRoot.status, "blocked");
     assert.equal(rejectedRoot.value, null);
   }
@@ -1576,7 +1576,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
      const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
      const domain = await import(${JSON.stringify(new URL("../../src/index.ts", import.meta.url).href)});
      const root = getRepository(process.argv[1]);
-     const result = domain.readRecoveryState(root.capability);
+     const result = domain.readState(root.capability);
      process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
      })().catch(error => { console.error(error); process.exitCode = 1; });`,
         root,
@@ -1618,9 +1618,9 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   fs.writeFileSync(path.join(otherArea, "state.json"), firstBytes, {
     flag: "wx",
   });
-  const foreignSnapshot = domain.readRecoveryState(
-    verifiedOtherRoot.capability,
-  );
+  const foreignSnapshot = domain.readState(verifiedOtherRoot.capability, {
+    scope: "recovery",
+  });
   assert.equal(foreignSnapshot.status, "blocked");
   assert.equal(foreignSnapshot.value, null);
   assert.deepEqual(
@@ -1662,11 +1662,14 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   // 公開後に消えた現在状態を初回の空領域として再作成しない。
   fs.unlinkSync(path.join(area.directory, "state.json"));
   assert.equal(
-    domain.readRecoveryState(verifiedRoot.capability).status,
+    domain.readState(verifiedRoot.capability, { scope: "recovery" }).status,
     "blocked",
   );
   assert.equal(fs.existsSync(path.join(area.directory, "state.json")), false);
-  assert.equal(domain.readOperationStateStage(management).status, "blocked");
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).status,
+    "blocked",
+  );
   assert.equal(
     privateStateCrud.writeOwnedStateSnapshot(management, firstBytes)
       .filesystemEffectIssued,
@@ -1750,11 +1753,11 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     flag: "wx",
   });
   assert.equal(
-    domain.readOperationStateStage(management).reason,
+    domain.readState(management, { scope: "operation" }).reason,
     "coordinator_state_reentry_required",
   );
   assert.equal(
-    domain.readRecoveryState(verifiedRoot.capability).reason,
+    domain.readState(verifiedRoot.capability, { scope: "recovery" }).reason,
     "coordinator_state_reentry_required",
   );
   const rejected = privateStateCrud.writeOwnedStateSnapshot(
@@ -1774,7 +1777,10 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   fs.unlinkSync(path.join(area.directory, "state.pending.json"));
   const hardlink = path.join(root, "state-hardlink");
   fs.linkSync(path.join(area.directory, "state.json"), hardlink);
-  assert.equal(domain.readOperationStateStage(management).status, "blocked");
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).status,
+    "blocked",
+  );
   assert.equal(
     privateStateCrud.writeOwnedStateSnapshot(management, secondBytes)
       .filesystemEffectIssued,
@@ -3743,7 +3749,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
   let identityOwnerLive = true;
   let hostReadBefore = hostPreparationBefore;
   const readHostPreparation = runInThisContext(
-    `(scope) => { const { snapshotStateRecord, observeOperationRepository, readStateSnapshot, encodeStateValue, prepareStateHostSnapshot, prepareStateOperationSnapshot, decodeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/attempt/crud.ts", import.meta.url), "utf8"), "readOperationStateStage")}\nreturn readOperationStateStage; }`,
+    `(scope) => { const { snapshotStateRecord, observeOperationRepository, readStateSnapshot, encodeStateValue, prepareStateHostSnapshot, prepareStateOperationSnapshot, decodeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/state/crud.ts", import.meta.url), "utf8"), "readOperationStateStage")}\nreturn readOperationStateStage; }`,
   )({
     snapshotStateRecord,
     encodeStateValue,
@@ -3764,7 +3770,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
         value: repository ? decodeStateSnapshot(hostReadBefore, binding) : null,
       };
     },
-  }) as typeof domain.readOperationStateStage;
+  }) as typeof readOperationStateStage;
   const ready = readHostPreparation({}, { kind: "host_cleanup", recoveryId });
   assert.equal(ready.status, "completed");
   assert.deepEqual(ready.hostCleanupPreparation?.before, hostPreparationBefore);
@@ -3876,8 +3882,9 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
   let hostPreparationLoseOwnerAfterRead = false;
   const hostPreparationOwner = Object.freeze({});
   const saveHostPreparation = runInThisContext(
-    `(scope) => { const { encodeStateValue, decodeStateSnapshot, prepareStateHostSnapshot, observeOperationRepository, readStateSnapshot, writeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/attempt/crud.ts", import.meta.url), "utf8"), "saveHostCleanupPreparation")}\nreturn saveHostCleanupPreparation; }`,
+    `(scope) => { const { snapshotStateRecord, encodeStateValue, decodeStateSnapshot, prepareStateHostSnapshot, observeOperationRepository, readStateSnapshot, writeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/attempt/crud.ts", import.meta.url), "utf8"), "saveRecoveryCheckpoint")}\nreturn saveRecoveryCheckpoint; }`,
   )({
+    snapshotStateRecord,
     Buffer,
     Object,
     JSON,
@@ -3928,6 +3935,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     owner: unknown,
     id: string,
     before: unknown,
+    request: { kind: "host_cleanup_preparation" },
   ) => {
     status: string;
     snapshotConfirmed: boolean;
@@ -3935,8 +3943,12 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     filesystemEffectIssued?: boolean;
   };
   assert.equal(
-    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
-      .status,
+    saveHostPreparation(
+      hostPreparationOwner,
+      recoveryId,
+      hostPreparationBefore,
+      { kind: "host_cleanup_preparation" },
+    ).status,
     "completed",
   );
   assert.equal(hostPreparationWrites, 1);
@@ -3950,6 +3962,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
       hostPreparationOwner,
       recoveryId,
       hostPreparationBefore,
+      { kind: "host_cleanup_preparation" },
     ),
     {
       status: "completed",
@@ -3969,32 +3982,53 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     [hostPreparationOwner, recoveryId, prepared],
     [hostPreparationOwner, recoveryId, hostPreparationCandidate],
   ] as const)
-    assert.equal(saveHostPreparation(owner, id, before).status, "blocked");
+    assert.equal(
+      saveHostPreparation(owner, id, before, {
+        kind: "host_cleanup_preparation",
+      }).status,
+      "blocked",
+    );
   hostPreparationCurrent = prepared;
   assert.equal(
-    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
-      .status,
+    saveHostPreparation(
+      hostPreparationOwner,
+      recoveryId,
+      hostPreparationBefore,
+      { kind: "host_cleanup_preparation" },
+    ).status,
     "blocked",
   );
   hostPreparationCurrent = hostPreparationBefore;
   hostPreparationLoseOwnerAfterRead = true;
   assert.equal(
-    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
-      .status,
+    saveHostPreparation(
+      hostPreparationOwner,
+      recoveryId,
+      hostPreparationBefore,
+      { kind: "host_cleanup_preparation" },
+    ).status,
     "blocked",
   );
   hostPreparationLoseOwnerAfterRead = false;
   hostPreparationOwnerLive = true;
   hostPreparationReadLockReleased = false;
   assert.equal(
-    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
-      .lockReleased,
+    saveHostPreparation(
+      hostPreparationOwner,
+      recoveryId,
+      hostPreparationBefore,
+      { kind: "host_cleanup_preparation" },
+    ).lockReleased,
     false,
   );
   hostPreparationOwnerLive = false;
   assert.equal(
-    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
-      .status,
+    saveHostPreparation(
+      hostPreparationOwner,
+      recoveryId,
+      hostPreparationBefore,
+      { kind: "host_cleanup_preparation" },
+    ).status,
     "blocked",
   );
   assert.equal(
@@ -4214,9 +4248,7 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
     new URL("../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
-  const start = text.indexOf(
-    "export function saveUnknownAuthenticationClosureStage(",
-  );
+  const start = text.indexOf("export function saveAuthenticationClosure(");
   const end = text.indexOf("\nconst settlements =", start);
   assert.ok(start > 0 && end > start);
   const wrapper = stripTypeScriptTypes(text.slice(start, end)).replace(
@@ -4289,7 +4321,7 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
     for (const mutant of [false, true]) {
       let requests = 0;
       const evaluateWrapper = runInNewContext(
-        `${mutant ? wrapperMutant : wrapper}; saveUnknownAuthenticationClosureStage`,
+        `${mutant ? wrapperMutant : wrapper}; saveAuthenticationClosure`,
         {
           Buffer,
           types: types,
@@ -5028,7 +5060,11 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
   assert.equal(verified.status, "completed");
   assert.ok(verified.capability);
   const cap = verified.capability;
-  assert.equal(domain.readRecoveryState(cap, { kind: "history" }).value, null);
+  assert.equal(
+    domain.readState(cap, { scope: "recovery", input: { kind: "history" } })
+      .value,
+    null,
+  );
   assert.equal(
     domain.initializeExecutionStore(cap, "binding-a").status,
     "completed",
@@ -5062,7 +5098,10 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
     "utf8",
   );
   fs.writeFileSync(stateFile, state);
-  const absent = domain.readRecoveryState(cap, { kind: "history" });
+  const absent = domain.readState(cap, {
+    scope: "recovery",
+    input: { kind: "history" },
+  });
   assert.equal(absent.status, "completed", absent.reason);
   assert.equal(absent.lockReleased, true);
   assert.ok(absent.value);
@@ -5076,7 +5115,7 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
   );
   assert.deepEqual(absent.historyRows, []);
   assert.equal(Object.isFrozen(absent.historyRows), true);
-  assert.equal(domain.readRecoveryState(cap).historyRows, null);
+  assert.equal(domain.readState(cap, { scope: "recovery" }).historyRows, null);
   const lines = ["history-first", "unrelated-history"].map(
     (id) =>
       `${encodeStateValue({
@@ -5098,7 +5137,10 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
   const firstLine = lines[0];
   assert.ok(firstLine);
   fs.writeFileSync(file, valid);
-  const complete = domain.readRecoveryState(cap, { kind: "history" });
+  const complete = domain.readState(cap, {
+    scope: "recovery",
+    input: { kind: "history" },
+  });
   assert.equal(complete.status, "completed", complete.reason);
   assert.equal(complete.lockReleased, true);
   assert.equal(complete.value?.sourceText, absent.value.sourceText);
@@ -5122,7 +5164,10 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
       return Reflect.apply(open, fs, args);
     },
   );
-  assert.equal(domain.readRecoveryState(cap).status, "completed");
+  assert.equal(
+    domain.readState(cap, { scope: "recovery" }).status,
+    "completed",
+  );
   assert.equal(historyOpens, 0);
   observe.mock.restore();
   for (const mode of [
@@ -5227,7 +5272,10 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
           },
         );
       }
-      const read = domain.readRecoveryState(cap, { kind: "history" });
+      const read = domain.readState(cap, {
+        scope: "recovery",
+        input: { kind: "history" },
+      });
       assert.equal(read.status, "blocked", mode);
       assert.equal(read.historyRows, null, mode);
       assert.equal(read.value, null, mode);
@@ -5246,17 +5294,20 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
       status: "acquired",
       lock: { assertLive: () => true, release: () => false },
     }),
-  }).readRecoveryState(cap, { kind: "history" });
+  }).readState(cap, { scope: "recovery", input: { kind: "history" } });
   assert.equal(unknown.status, "blocked");
   assert.equal(unknown.lockReleased, false);
   assert.equal(unknown.historyRows, null);
   assert.equal(unknown.value, null);
   assert.deepEqual(fs.readFileSync(file), valid);
   assert.equal(
-    domain.readRecoveryState(cap, {
-      kind: "history",
-      recoveryId: "foreign",
-    } as never).status,
+    domain.readState(cap, {
+      scope: "recovery",
+      input: {
+        kind: "history",
+        recoveryId: "foreign",
+      } as never,
+    }).status,
     "blocked",
   );
 });

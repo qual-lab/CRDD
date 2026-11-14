@@ -668,7 +668,20 @@ export function validateEnvironmentRepairCheckpointTransition(
  */
 export function validateResourceBook(
   value: unknown,
+  comparison?: Readonly<{ before: unknown }>,
 ): value is OperationResources | null {
+  if (comparison !== undefined) {
+    const captured = snapshotStateRecord(comparison, new Set(["before"]));
+    return (
+      captured !== null &&
+      Object.hasOwn(captured, "before") &&
+      validateResourceBook(captured.before) &&
+      validateResourceBookTransition(
+        captured.before,
+        value as OperationResources | null,
+      )
+    );
+  }
   if (value === null) return true;
   if (
     !hasExecutionStateRecordKeys(value, ["snapshot", "checkpoints", "cleanup"])

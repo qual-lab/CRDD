@@ -3,15 +3,84 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
-    {"symbolId":"executor.verification.report","kind":"file","path":"scripts/report.ts","archIds":["ARCH-000008"]},
-    {"symbolId":"executor.test.unit.report","kind":"test-suite","path":"tests/unit/report.contract.test.ts","qaIds":["QA-000008"],"localTestIds":["RDL-UT-005"],"verifies":["executor.verification.report"]},
-    {"symbolId":"executor.test.integration.report","kind":"test-suite","path":"tests/integration/report.integration.test.ts","qaIds":["QA-000008"],"localTestIds":["RDL-IT-001"],"verifies":["executor.verification.report"]},
+    {
+      "symbolId": "executor.verification.provider-diagnostic",
+      "kind": "file",
+      "path": "scripts/provider-diagnostic.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.fixture.attempt-execution",
+      "kind": "file",
+      "path": "tests/fixtures/attempt-execution.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.support.source-declaration",
+      "kind": "file",
+      "path": "tests/support/source-declaration.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.support.repository-test-directory",
+      "kind": "file",
+      "path": "tests/support/repository-test-directory.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.report",
+      "kind": "file",
+      "path": "scripts/report.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.report",
+      "kind": "test-suite",
+      "path": "tests/unit/report.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "executor.verification.report"
+      ]
+    },
+    {
+      "symbolId": "executor.test.integration.report",
+      "kind": "test-suite",
+      "path": "tests/integration/report.integration.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "executor.verification.report"
+      ]
+    },
     {
       "symbolId": "executor.verification.node-provider-home",
       "kind": "verification-tool",
       "path": "scripts/provider-home.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
       "verifies": []
     },
     {
@@ -173,28 +242,6 @@
       ]
     },
     {
-      "symbolId": "executor.verification.task-summary-observation",
-      "kind": "file",
-      "path": "scripts/task-summary-observation.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "executor.test.integration.task-summary-observation",
-      "kind": "test-suite",
-      "path": "tests/integration/task-summary-observation.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002"
-      ],
-      "verifies": [
-        "executor.verification.task-summary-observation"
-      ]
-    },
-    {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",
       "path": "src/lifecycle/attempt.ts",
@@ -288,62 +335,6 @@
       "verifies": []
     },
     {
-      "symbolId": "executor.verification.provider-real",
-      "kind": "verification-tool",
-      "path": "scripts/verify-provider-real.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": []
-    },
-    {
-      "symbolId": "executor.test.integration.provider-real-cli",
-      "kind": "test-suite",
-      "path": "tests/integration/provider-real-cli.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": [
-        "executor.verification.provider-real"
-      ]
-    },
-    {
-      "symbolId": "executor.verification.attempt-host",
-      "kind": "verification-tool",
-      "path": "scripts/provider-attempt-host.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": []
-    },
-    {
-      "symbolId": "executor.test.integration.attempt-host",
-      "kind": "test-suite",
-      "path": "tests/integration/provider-attempt-host.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": [
-        "executor.verification.attempt-host"
-      ]
-    },
-    {
       "symbolId": "executor.verification.provider-home",
       "kind": "verification-tool",
       "path": "scripts/verify-provider-home.ts",
@@ -399,8 +390,11 @@
       ],
       "verifies": [
         "executor.verification.provider-attempt",
+        "executor.verification.test-area",
         "coordinator.execution.provider-observation",
-        "coordinator.source.src.security.docker.process.controller"
+        "coordinator.source.src.security.docker.process.controller",
+        "docker-isolation.test.support.execution",
+        "docker-isolation.package-api"
       ]
     },
     {
@@ -491,9 +485,42 @@
         "coordinator.source.src.security.docker.process.controller"
       ]
     },
-    {"symbolId":"executor.test.unit.attempt-common","kind":"test-suite","path":"tests/unit/attempt-common.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.source.attempt.execute"]},
-    {"symbolId":"executor.test.unit.attempt.recovery","kind":"test-suite","path":"tests/unit/attempt/recovery.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.resources.execute"]},
-    {"symbolId":"executor.src.lifecycle.authentication","kind":"file","path":"src/lifecycle/authentication.ts","archIds":["ARCH-000008"]},
+    {
+      "symbolId": "executor.test.unit.attempt-common",
+      "kind": "test-suite",
+      "path": "tests/unit/attempt-common.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.source.attempt.execute"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.attempt.recovery",
+      "kind": "test-suite",
+      "path": "tests/unit/attempt/recovery.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.resources.execute"
+      ]
+    },
+    {
+      "symbolId": "executor.src.lifecycle.authentication",
+      "kind": "file",
+      "path": "src/lifecycle/authentication.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
     {
       "symbolId": "executor.test.unit.authentication-common",
       "kind": "test-suite",
@@ -508,11 +535,159 @@
         "executor.src.lifecycle.authentication"
       ]
     },
-    {"symbolId":"executor.test.unit.authentication","kind":"test-suite","path":"tests/unit/authentication.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-016"],"verifies":["executor.src.lifecycle.authentication"]},
-    {"symbolId":"executor.test.unit.binding","kind":"test-suite","path":"tests/unit/binding.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.source.attempt.execute"]},
-    {"symbolId":"executor.test.unit.environment","kind":"test-suite","path":"tests/unit/environment.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.source.index"]},
-    {"symbolId":"executor.test.unit.legacy-snapshot","kind":"test-suite","path":"tests/unit/legacy-snapshot.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.verification.test-entry"]},
-    {"symbolId":"executor.test.unit.resources","kind":"test-suite","path":"tests/unit/resources.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.resources.execute"]},
-    {"symbolId":"executor.test.unit.notifications","kind":"test-suite","path":"tests/unit/notifications.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["executor.lifecycle.execute","executor.source.attempt.execute"]}
+    {
+      "symbolId": "executor.test.unit.authentication",
+      "kind": "test-suite",
+      "path": "tests/unit/authentication.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-016"
+      ],
+      "verifies": [
+        "executor.src.lifecycle.authentication"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.binding",
+      "kind": "test-suite",
+      "path": "tests/unit/binding.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.source.attempt.execute"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.environment",
+      "kind": "test-suite",
+      "path": "tests/unit/environment.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.source.index"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.legacy-snapshot",
+      "kind": "test-suite",
+      "path": "tests/unit/legacy-snapshot.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.verification.test-entry"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.resources",
+      "kind": "test-suite",
+      "path": "tests/unit/resources.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.resources.execute"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.notifications",
+      "kind": "test-suite",
+      "path": "tests/unit/notifications.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.lifecycle.execute",
+        "executor.source.attempt.execute"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.test-area",
+      "kind": "file",
+      "path": "scripts/runtime-data.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.command-plan",
+      "kind": "test-suite",
+      "path": "tests/unit/execution/plan.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "executor.test.support.isolation-plan"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.integration.effect-cleanup",
+      "kind": "test-suite",
+      "path": "tests/integration/effect-cleanup.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.test.support.execution",
+        "docker-isolation.cleanup.resource-configuration"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.support.execution",
+      "kind": "file",
+      "path": "tests/support/isolation-execution.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.support.isolation-plan",
+      "kind": "file",
+      "path": "tests/support/isolation-plan.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.integration.fixed-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/fixed-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.test.support.execution",
+        "executor.test.support.isolation-plan",
+        "docker-isolation.execution.cli-config"
+      ]
+    }
   ]
 }

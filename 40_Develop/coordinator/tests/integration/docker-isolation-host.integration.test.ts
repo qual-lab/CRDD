@@ -42,19 +42,19 @@ import {
   planDockerAuthenticationCommands,
   planDockerAuthenticationResourceRecovery,
 } from "../../../docker-isolation/tests/support/authentication.ts";
+import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
 import {
   createDockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
-} from "../../../docker-isolation/tests/support/execution.ts";
-import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
+} from "../../../executor/tests/support/isolation-execution.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
-import { prepareAuthenticationProjection } from "../support/authentication.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { prepareAuthenticationProjection } from "../support/authentication.ts";
 
 /**
  * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。

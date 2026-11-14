@@ -17,6 +17,7 @@ import {
   readRepositoryStorageIdentity,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import type { OperationResources } from "../attempt/types.ts";
 
 /** Rootを再検証し、保存OwnerとしてRepository内の固定Lock所在を準備する。 */
 export function acquireExecutionStateLock(
@@ -717,9 +718,7 @@ export function observeExecutionSettlementRepository(access: unknown) {
  * @compatibility 元のWriterが検査するfieldを維持する。
  */
 export type ExecutionTerminalStorageObservation = Readonly<{
-  resourceSnapshot:
-    | import("../../../docker-isolation/src/index.ts").ResourceSnapshot
-    | null;
+  resourceSnapshot: OperationResources["snapshot"] | null;
   resources: readonly unknown[];
   primaryFailure: unknown;
   homeLeaseReleased: boolean;

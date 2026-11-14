@@ -107,10 +107,26 @@ export async function createRecoveryFixture(
         return {
           kind: "docker_task" as const,
           operation,
+          // 有限fixtureの初回・正式未発行も、要求済み資源の不存在とは区別して投影する。
           resourcesSettled:
-            operation.resources?.checkpoints.every(
-              (resource) => resource.observation === "absent",
-            ) === true,
+            operation.resources === null
+              ? (operation.outcome?.status === "blocked" &&
+                  operation.outcome.cleanupConfirmed) ||
+                (operation.phase === "settling" &&
+                  operation.lease === "held" &&
+                  operation.outcome === null &&
+                  operation.primaryFailure === null &&
+                  operation.summarySha256 === null &&
+                  operation.history === null &&
+                  operation.execution.providerStart === "not_started" &&
+                  operation.execution.externalSend === "not_issued" &&
+                  operation.execution.sharedWrite === "not_issued" &&
+                  operation.execution.ownerEffect === "disabled")
+              : operation.resources.checkpoints.every(
+                  (resource) =>
+                    resource.submission === "not_issued" ||
+                    resource.observation === "absent",
+                ),
           restartSettled: true,
           authenticationClosureAllowed: false,
         };
@@ -159,7 +175,7 @@ export async function createRecoveryFixture(
     "recoverRuntimeOwnedDockerTaskResources",
   ];
   const api =
-    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRecoveryState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
+    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
  ${names.map((n) => sourceDeclaration(source, n)).join("\n")}
  return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
       {
@@ -170,7 +186,7 @@ export async function createRecoveryFixture(
         dockerRecoveryPreparations: new Map([[capability, record]]),
         assertCurrentRecoveryOwner: (owner: unknown) =>
           owner === capability && live,
-        readRecoveryState: () => ({
+        readState: () => ({
           status: "completed",
           lockReleased: readerReleased,
           value:

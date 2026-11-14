@@ -4,8 +4,6 @@
  * @trace ARCH-000008
  */
 
-import type { TurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { StateVersion } from "../state/types.ts";
 import type { REPAIR_ACTIONS, REPAIR_DIRECTORIES } from "./validation.ts";
 
@@ -206,7 +204,32 @@ export type OperationCheckpointRequest = Readonly<
 >;
 
 export type OperationResources = Readonly<{
-  snapshot: ResourceSnapshot;
+  snapshot: Readonly<{
+    resources: readonly Readonly<{
+      key: string;
+      identity: Readonly<{
+        kind: "container" | "network";
+        dockerId: string | null;
+        name: string;
+        ownershipLabel: string;
+      }>;
+      request: "not_issued" | "issued" | "unknown";
+      configuration: Readonly<{
+        image: string | null;
+        command: readonly string[] | null;
+        environmentNames: readonly string[] | null;
+        mounts:
+          | readonly Readonly<{
+              source: string;
+              target: string;
+              readOnly: boolean;
+            }>[]
+          | null;
+        networks: readonly string[] | null;
+        internal: boolean | null;
+      }>;
+    }>[];
+  }>;
   checkpoints: readonly Readonly<{
     key: string;
     submission: "none" | "intent_saved" | "not_issued";
@@ -455,7 +478,18 @@ export type RepairSaveRequest = Readonly<{
       }>;
 }>;
 
-export type { TurnCountDiagnostic };
+/** 拒否されたTurn metadataの非秘密な保存投影。実行許可やADの解析規則は所有しない。 */
+export type TurnCountDiagnostic = Readonly<{
+  valueType:
+    | "missing"
+    | "null"
+    | "boolean"
+    | "number"
+    | "string"
+    | "array"
+    | "object";
+  numberText: string | null;
+}>;
 
 /**
  * 回復Readerの有限な取得範囲。各範囲の元参照と保存途中判定を維持する。
@@ -500,6 +534,13 @@ export type RecoveryCheckpointRequest =
       kind: "host_cleanup";
       assertAbsentOwner: () => boolean;
       publication: ReturnType<
-        typeof import("./crud.ts").readRecoveryState
+        typeof import("../state/crud.ts").readRecoveryState
       >["hostCleanupPublication"];
+    }>
+  | Readonly<{ kind: "resource_not_issued"; purpose: unknown }>
+  | Readonly<{ kind: "host_cleanup_preparation" }>
+  | Readonly<{
+      kind: "authentication_unknown_closure";
+      observations: unknown;
+      assertOwner: () => boolean;
     }>;

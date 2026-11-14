@@ -11,10 +11,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { createStartResult } from "../../src/lifecycle/attempt.ts";
 import type { StartResult } from "../../src/index.ts";
+import { createStartResult } from "../../src/lifecycle/attempt.ts";
 import { createLifecycleControl } from "../../src/lifecycle/execute.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。

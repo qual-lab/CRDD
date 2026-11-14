@@ -9,21 +9,21 @@
  */
 
 import assert from "node:assert/strict";
-import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import type { DockerResourceReceipts } from "../support/cleanup.ts";
-import { dockerContainerInitObservationMatches } from "../../src/cleanup/init.ts";
-import type { OwnedCommandHandle } from "../../src/process/start.ts";
+import { dockerContainerInitObservationMatches } from "../../../docker-isolation/src/cleanup/init.ts";
+import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
+import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
+import type { DockerIsolationCommand } from "../../../docker-isolation/tests/support/session.ts";
+import type { DockerIsolationCommandInput } from "../../src/lifecycle/types.ts";
 import {
   createDockerIsolationRuntimeCandidate,
   type DockerIsolationRuntimePlan,
-} from "../support/execution.ts";
-import type { DockerIsolationCommand } from "../support/execution-plan.ts";
-import { planDockerIsolationCommands } from "../support/execution-plan.ts";
+} from "../support/isolation-execution.ts";
+import { planDockerIsolationCommands } from "../support/isolation-plan.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 
 /**
  * Home排他の同一所在・Identityと元Handleを反証する。
@@ -32,7 +32,7 @@ import { planDockerIsolationCommands } from "../support/execution-plan.ts";
  */
 test("Home技術排他は共通wx Requestと元Leaseを使用する", () => {
   const source = fs.readFileSync(
-    new URL("../support/execution.ts", import.meta.url),
+    new URL("../support/isolation-execution.ts", import.meta.url),
     "utf8",
   );
   const declaration = sourceDeclaration(source, "acquireHomeLease");
@@ -438,7 +438,7 @@ function loadSanitizedAuthProbeInspectFixture() {
   return JSON.parse(
     fs.readFileSync(
       new URL(
-        "../fixtures/docker-auth-probe-inspect-none.json",
+        "../../../docker-isolation/tests/fixtures/docker-auth-probe-inspect-none.json",
         import.meta.url,
       ),
       "utf8",
