@@ -2622,6 +2622,20 @@ State validationは67関数から55関数へ、製品Sourceは30から29へ変�
 
 Commit前の再確認：対象23ファイルを再照合し、Root差分0、旧Task operationsの実参照・転送入口0、Symbolの現Owner Pathと実在を確認した。EM／Coordinator型・変更TS17ファイルの整形／warning・台帳419項目の整合・diff空白検査が再成功した。Lease／Queue／History候補・公開／独立ロード42項目と、codec／遷移・不変Source準備3項目の計45項目が再成功。実装と試験が固定候補から不変のDecision17項目・代表実保存3親は既存成功を使用し、反復実行や先の65件へ重複加算しない。独立最終QA確認の必須残指摘0。この候補を既存FeatureへCommit／Pushする。全体回帰・実AI・Docker・過去保持物は操作していない。
 
+### Leaseの変更単位分離 — 着手前整合確認
+
+基準8cf60172cから、Leaseの公開四操作・候補九関数・Root観測・専用結果constructor二関数をstate/lease.tsへまとめる。既存withSnapshotOperationだけを通常State CRUDへの接続として使い、CRUDからLeaseへの逆import／再exportは追加しない。新File一つは独立したLeaseの変更単位であり、共通Package・Manager・汎用Lifecycleは作らない。Rootは新しい宣言元から公開し、93項目・overload・型推論・保存Schema・Scope・Lease Identity／世代・回復IDは維持する。
+
+親は現行16関数と共有関数・排他区間・上位参照を照合し、独立した着手前技術確認を統合した。編集単位は16宣言（四操作のoverloadを含む）と直接参照、次にSource組立と台帳／文書で固定する。観測・通知は元位置、短期排他の取得→fresh読取り→候補→保存→解放も既存経路を保持する。Source準備は同じ閉包にLeaseを一回追加し、固定一覧と読取り数を10から11へ追従する。値・Map・Owner・保存領域の共有は追加しない。型／静的検査、Lease九親・公開／独立ロード、Source準備と既存代表実保存の必要subset、独立技術／QAレビューで確認する。規範・保存方式・権限・Release判断は変更しないため全体監査や実境界E2Eは追加しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### Leaseの変更単位分離 — 実装と限定結果
+
+state/lease.tsへ16実装と九つのoverload宣言を移し、通常State CRUDには共通の排他内更新と横断調停を残した。元実装／署名は整形上の空白・末尾commaを除き基準版と一致する。Rootの四操作は新宣言元を直接参照し、旧位置のWrapperや再exportはない。型の宣言参照・Lease候補試験と安定SymbolのPath、既存Core試験の確認先、Architecture／QAを追従した。固定Source組立はLeaseを一回追加した11Fileとし、読取り11回・同署名factory一回・Map／Owner独立・override／変異／失敗後再生成の反証を維持する。初回warningで発見した未使用completed import一件は撤去し、その後の静的確認は成功した。
+
+Lease9・公開／独立ロード16の25項目と、代表実Store CRUD／認可／CAS、Source準備、不正RootのEffect前拒否、保存区画／二世代拒否の4親、計29項目が成功した。代表4親は約36秒で終了し、自己生成のRootは既存の対象限定清掃を使用した。過去保持物には触れていない。EM／Coordinator型検査・変更TSの整形／warning・diff空白検査、台帳419項目の整合が成功した。公開93項目・保存形式・Lock Identity・観測／通知順とCASは不変更。静的Runtime import graphは30File・95辺・循環0で、Lease→State CRUDは既存withSnapshotOperationへの一方向だけ。逆参照はない。独立技術レビューは必須指摘0、QAの現行文書追従2箇所（QA006の固定Source数と詳細05のLease／証拠値Owner）は、両レビューへ統合案を提示して整合確認後に是正した。現役旧文言0・diff空白・台帳419項目の整合を再確認し、技術／QA再レビューの必須残指摘0を確認した。文書だけの是正のため実保存試験は再実行していない。全体回帰・実AI・Dockerは実施していない。
+
+Lease分離のCommit前再確認：新Fileを含む14ファイルを対象に、旧所在地のWrapper・逆参照0、Root93項目、型・overload、Symbol Pathと実在、現役の11Source記述を照合した。EM／Coordinator型・変更TS7ファイルの整形／warning・台帳419項目の整合・diff空白検査が再成功し、Lease9／公開・独立ロード16／Source準備1の限定26項目も再成功した。実装・試験が固定候補から不変の代表実保存3親は既存成功を使用し、再実行・件数重複加算はしない。独立最終QA確認の必須残指摘0。この候補を既存FeatureへCommit／Pushし、全体回帰・実AI・Docker・過去保持物は操作しない。
+
 <details>
 <summary>基準48ea92d65のArchitecture本文（移管経緯を含む履歴）</summary>
 

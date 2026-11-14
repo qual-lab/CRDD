@@ -27,7 +27,7 @@ import {
   prepareReleasedLeaseReconciliation,
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
-} from "../../../src/state/crud.ts";
+} from "../../../src/state/lease.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 

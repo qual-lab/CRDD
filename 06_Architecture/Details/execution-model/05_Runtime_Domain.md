@@ -484,7 +484,7 @@ Task／Queueの七用途は`task/validation.ts`の単発受付・単発更新・
 
 選択方針はCoordinatorが所有し、Domainへは選択ID・元世代・固定理由とqueued／waiting_foregroundの限定差分を渡す。対象の世代差・重複・別対象更新・選択との不整合は`orchestrator_queue_selection_invalid`で停止する。正常な既存方針の差分は適用し、空の選択は無変更とする。対象欠測や比較情報不足を空Queueへ補完しない。新しいScheduling、汎用callback取引、Lock又はRegistryを追加しない。
 
-Lease記録の九用途はDomain `state/validation.ts`の固定候補・投影が所有し、公開操作は`state/crud.ts`の取得・解放・回復・読取りへ集約する。Schema・元intent集合／Queue全文・世代を照合し、取得予約は資源不存在→Root観測→保存要求記録、取得確定は元intent一致後の物理Identity観測、回復予約／確定は元位置のRoot再観測を維持する。Root投影はRepository Rootと既存の実体Hash二fieldだけで、Promise・thenable・accessor・Proxyを正規観測へ畳まない。実行PIDはCoordinatorが値として渡し、DomainはProcess生死を判断しない。取得・解放・回復の証拠生成は同Fileの非公開関数に閉じ、同じSchema・全文・Hash・世代と外側freezeだけを維持する。旧Storageの汎用Envelope生成と製品未使用の旧Directory証拠読取りは撤去するが、現行Snapshotの証拠型とvalidatorは保持する。
+Lease記録の九用途の候補・投影と公開四操作は、EMの`state/lease.ts`へ集約する。通常State保存には既存`withSnapshotOperation`で一方向に接続し、排他保持区間は変更しない。Schema・元intent集合／Queue全文・世代を照合し、取得予約は資源不存在→Root観測→保存要求記録、取得確定は元intent一致後の物理Identity観測、回復予約／確定は元位置のRoot再観測を維持する。Root投影はRepository Rootと既存の実体Hash二fieldだけで、Promise・thenable・accessor・Proxyを正規観測へ畳まない。実行PIDはCoordinatorが値として渡し、DomainはProcess生死を判断しない。取得・解放・回復の証拠値の構築・検査は`state/operations.ts`が所有し、Lease処置は同じ値契約を使う。同じSchema・全文・Hash・世代と外側freezeだけを維持する。旧Storageの汎用Envelope生成と製品未使用の旧Directory証拠読取りは撤去するが、現行Snapshotの証拠型とvalidatorは保持する。
 
 履歴三用途の候補はDomain `history/validation.ts`、完成操作は`history/crud.ts`、物理保存は`storage/store.ts`が所有する。Coordinatorは操作の発行・許可を担当し、履歴の物理I/Oを再実装しない。退役の出版はpending零でも一回、搬送の出版はpendingあり時だけ一回。各対象の閉鎖観測・各行の履歴再読を元位置で繰り返し、全対象へ観測を使い回さない。履歴はrecorded／expiredだけを確認済みとし、その他の同期契約違反も未確認として停止する。Queueを退役する場合だけ既存の受付世代を一回生成し、採用結果のみ・退役零では生成しない。物理出版済みでも状態保存が失敗すれば元pendingから再入場できる二段性を維持する。
 

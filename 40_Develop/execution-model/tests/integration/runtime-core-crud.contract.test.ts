@@ -660,6 +660,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
       "storage/store.ts",
       "storage/lock.ts",
       "state/crud.ts",
+      "state/lease.ts",
       "storage/publication.ts",
       "attempt/crud.ts",
       "decision/crud.ts",
@@ -707,7 +708,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
   const second = createRuntimeStorageSourceFixture(undefined, {
     WeakMap: observeMaps(mapsB),
   });
-  assert.equal(sourceReads, 10);
+  assert.equal(sourceReads, 11);
   assert.equal(compilations, 1, "同署名の未束縛factoryだけを再利用する");
   assert.ok(mapsA.length >= 3);
   assert.equal(mapsA.length, mapsB.length);
@@ -848,7 +849,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
   assert.equal(compilations, beforeFailedFactory + 2);
   assert.equal(
     sourceReads,
-    10,
+    11,
     "変異と故障を挟んでも不変Sourceは再読取りしない",
   );
 });

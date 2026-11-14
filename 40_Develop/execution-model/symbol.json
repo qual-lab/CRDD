@@ -58,7 +58,7 @@
     {
       "symbolId": "domain-model.attempt.lease",
       "kind": "file",
-      "path": "src/state/crud.ts",
+      "path": "src/state/lease.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -661,6 +661,7 @@
         "ERB-IT-014"
       ],
       "verifies": [
+        "domain-model.attempt.lease",
         "domain-model.storage.runtime-repository",
         "coordinator.state-storage.coordinator-state-runtime",
         "domain-model.objective.crud",

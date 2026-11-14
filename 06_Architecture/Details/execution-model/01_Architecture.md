@@ -41,13 +41,14 @@ EM SourceはAD／DI型を直接参照しない。`ExecutionSelection`の技術�
 | 各モデルの `operations.ts` | 保存しない意味計算、正規化、用途候補 | 値検査からCRUD・Storageへ戻らない |
 | 各モデルの `crud.ts` | 完成したモデル操作、認可・現在値と保存接続 | 空Wrapperや第二Writerを作らない |
 | `state/validation.ts` | 全Stateの解析・同版相関・改訂と候補結合 | 局所モデルの意味計算は各Ownerを使う |
+| `state/lease.ts` | Leaseの照会・取得・解放・回復と専用候補・観測 | 共通State保存を再実装せず、既存の排他内更新へ一方向に接続 |
 | `storage/store.ts` | 固定保存所在、File読書き、初期化 | 履歴の意味やモデル遷移を再実装しない |
 | `storage/lock.ts` | 保存排他とOwnerの取得・保持・解放 | 業務上の再入場判断を代行しない |
 | `storage/publication.ts` | 単一Writer、CAS、出版・再入場、短命証拠 | Attempt／History CRUDへ実行時逆依存しない |
 
 SourceはRootの`index.ts`、objective／task／attempt／decision／workspace／state／historyとstorageで構成する。operationsはobjective／attempt／history／stateに置く。Taskの操作調停・単件投影はTask CRUDに集約し、全Stateへの組込四関数はState validationが所有する。旧task/operations.tsや転送入口は残さず、存在しない役割のためにFileを増やさない。
 
-Leaseの九用途・Root観測と、全Stateの更新時に履歴／Leaseの現在観測を要する閉鎖・退役判定はState CRUDが所有する。History CRUDも同じ判定実体を利用する。validationは観測callbackや通知を呼ばず、元版・候補・閉じた入力の値検査へ限定する。候補の成功／拒否封筒は保存結果とは別の局所constructorで元field・freeze・既定値を保ち、Storage結果型へ置換しない。観測と通知の回数・順序・短絡位置は変更しない。
+Leaseの公開四操作・候補九用途・Root観測・専用結果構築はstate/lease.tsが所有する。通常State CRUDへの接続は既存withSnapshotOperationだけとし、RootはLease宣言元から直接公開する。State CRUDからLeaseへの逆参照・旧位置のWrapperは置かない。全Stateの更新時に履歴／Leaseの現在観測を要する閉鎖・退役判定はState CRUDが所有し、History CRUDも同じ判定実体を利用する。validationは観測callbackや通知を呼ばず、元版・候補・閉じた入力の値検査へ限定する。候補の成功／拒否封筒は保存結果とは別の局所constructorで元field・freeze・既定値を保ち、Storage結果型へ置換しない。観測と通知の回数・順序・短絡位置は変更しない。
 
 ### Stateの値契約と各モデルの意味
 
@@ -176,7 +177,7 @@ Lease IntentはRepository・Project・Queue・種別からIdentityと回復IDを
 
 修復の値試験は両Ownerで同じ入力母集団を独立した期待値へ照合し、一方のdecoderを他方のOracleにしない。2,799入力のprofile・field path・変異を固定し、入力の種類・getter／Proxy未評価・不変性を保持する。連携の保存成功はCoが確認し、技術値の受理と保存確定を区別する。
 
-保存Source試験は同じProcessでSourceを編集しない前提で固定10Sourceの読取り・型除去・宣言抽出と同署名の未束縛factoryだけを共有する。Map・Owner・State・故障注入・保存領域は各ケース独立とし、Source変異は毎回compileして通常factoryと混ぜない。
+保存Source試験は同じProcessでSourceを編集しない前提でLeaseを含む固定11Sourceの読取り・型除去・宣言抽出と同署名の未束縛factoryだけを共有する。Map・Owner・State・故障注入・保存領域は各ケース独立とし、Source変異は毎回compileして通常factoryと混ぜない。
 
 Runtime import graphは実行時参照と型のみ参照を分けて確認する。公開集合・各利用側・局所検査の独立ロードと併せて判定し、循環なしだけから設計全体の完成を推定しない。
 

@@ -70,13 +70,15 @@ export { OBJECTIVE_STATES } from "./objective/types.ts";
 export { inspectExecutionPlan } from "./objective/validation.ts";
 export {
   acquireLease,
-  initializeExecutionState,
-  initializeExecutionStore,
   readLease,
-  readProjectExecutionState,
-  readState,
   recoverLease,
   releaseLease,
+} from "./state/lease.ts";
+export {
+  initializeExecutionState,
+  initializeExecutionStore,
+  readProjectExecutionState,
+  readState,
   saveProjectExecutionState,
 } from "./state/crud.ts";
 export type {

@@ -131,7 +131,7 @@ export function createRuntimeStorageSourceFixture(
 }
 
 /**
- * 固定10Sourceの読取りと型除去だけを一度準備する。
+ * 固定11Sourceの読取りと型除去だけを一度準備する。
  * @responsibility 変異前本文・元export一覧・通常本文の宣言名を保持し、実行値を保持しない。
  * @trace ERB-IT-014
  * @precondition 同じ試験Process中に製品Sourceを編集しない。
@@ -147,6 +147,7 @@ function prepareRuntimeStorageSource() {
     "../../src/storage/store.ts",
     "../../src/storage/lock.ts",
     "../../src/state/crud.ts",
+    "../../src/state/lease.ts",
     "../../src/storage/publication.ts",
     "../../src/attempt/crud.ts",
     "../../src/decision/crud.ts",

@@ -527,7 +527,11 @@ Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorの
 
 ## State候補と観測調停の試験Owner — 2026-11-15
 
-既存PRL-UT-006／PRL-UT-007のLease九用途・Queue候補・履歴候補は、State／Task CRUDへ移った実宣言を確認する。Root・資源不存在・借用Lease・生存確認・時計・保存前通知の位置／回数と、元本文・対象外区画・世代・Owner・失敗理由・exact回復参照を維持する。全StateへのTask組込・投影はState validationで確認し、通常値検査からCRUD／Storageへ戻る依存は認めない。Source試験補助は既存10Sourceを一回ずつ展開し、専用候補constructorとStorage結果の名前・型を混同せずMap／Ownerを共有しない。代表実保存ではWriter直前の独立候補照合・fresh元版・CAS・解放と履歴再入場を確認する。旧Task operationsのPath／Symbolと試験参照を追従し、公開集合・保存Schema・正式検証項目は不変更とする。
+既存PRL-UT-006／PRL-UT-007のLease九用途はstate/lease、Queue候補はTask CRUD、履歴候補はHistory CRUDとStateの横断調停の実宣言を確認する。Root・資源不存在・借用Lease・生存確認・時計・保存前通知の位置／回数と、元本文・対象外区画・世代・Owner・失敗理由・exact回復参照を維持する。全StateへのTask組込・投影はState validationで確認し、通常値検査からCRUD／Storageへ戻る依存は認めない。Source試験補助はLeaseを含む固定11Sourceを一回ずつ展開し、専用候補constructorとStorage結果の名前・型を混同せずMap／Ownerを共有しない。代表実保存ではWriter直前の独立候補照合・fresh元版・CAS・解放と履歴再入場を確認する。旧Task operationsのPath／Symbolと試験参照を追従し、公開集合・保存Schema・正式検証項目は不変更とする。
+
+## Lease変更単位の分離 — 2026-11-15
+
+Leaseの既存四操作・九候補はstate/lease.tsの実宣言を検証し、Rootの名前・overload・戻り値とRequest型は維持する。通常State保存への接続は既存withSnapshotOperationだけで、短期排他の保持区間と観測／通知順、元版・CAS・解放確認は変更しない。Source準備の反証は固定11Sourceを一回ずつ読み、Leaseを含むexportと未束縛factoryを毎fixture評価する。従来のMap／Owner非共有、override・変異・失敗後の再生成を維持し、単なる読取り数変更だけを成立根拠にしない。既存Suite・正式QA項目を維持してSymbolのPath／確認対象を追従する。
 
 ## Checklist
 

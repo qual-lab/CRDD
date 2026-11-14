@@ -645,7 +645,7 @@ export type LeaseReadRequest = Readonly<
   | {
       kind: "acquisition";
       input: Parameters<
-        typeof import("./crud.ts").projectLeaseAcquisitionOwner
+        typeof import("./lease.ts").projectLeaseAcquisitionOwner
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -653,7 +653,7 @@ export type LeaseReadRequest = Readonly<
   | {
       kind: "owner_loss";
       input: RootObservedInput<
-        Parameters<typeof import("./crud.ts").projectLeaseOwnerLossState>
+        Parameters<typeof import("./lease.ts").projectLeaseOwnerLossState>
       >;
     }
 >;
@@ -664,14 +664,14 @@ export type LeaseRecoveryRequest = Readonly<
       kind: "reconcile";
       input: RootObservedInput<
         Parameters<
-          typeof import("./crud.ts").prepareReleasedLeaseReconciliation
+          typeof import("./lease.ts").prepareReleasedLeaseReconciliation
         >
       >;
     }
   | {
       kind: "intent";
       input: RootObservedInput<
-        Parameters<typeof import("./crud.ts").prepareLeaseRecoveryReservation>
+        Parameters<typeof import("./lease.ts").prepareLeaseRecoveryReservation>
       >;
     }
   | { kind: "observed"; input: LeaseRecoveryInput }
@@ -682,7 +682,7 @@ export type LeaseReleaseRequest = Readonly<
   | {
       kind: "intent";
       input: Parameters<
-        typeof import("./crud.ts").prepareLeaseReleaseIntent
+        typeof import("./lease.ts").prepareLeaseReleaseIntent
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -690,7 +690,7 @@ export type LeaseReleaseRequest = Readonly<
   | {
       kind: "observed";
       input: Parameters<
-        typeof import("./crud.ts").prepareLeaseReleaseSettlement
+        typeof import("./lease.ts").prepareLeaseReleaseSettlement
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -724,7 +724,7 @@ export type LeaseAcquisitionRequest = Readonly<
   | {
       kind: "observed";
       input: Parameters<
-        typeof import("./crud.ts").prepareLeaseAcquisitionConfirmation
+        typeof import("./lease.ts").prepareLeaseAcquisitionConfirmation
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;

@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+Leaseの変更単位をstate/lease.tsへ分離した。公開四操作・候補九用途・Root観測・専用結果構築をまとめ、通常State CRUDへは既存の排他内更新だけで接続する。Rootは新宣言元から直接公開し、旧Wrapper・逆参照はない。公開93項目・保存形式・排他保持区間・観測順・CASを維持し、型／試験／Symbol／文書を追従した。Source準備はLeaseを含む11Fileを一回評価し、可変Map／Ownerは独立のまま。限定29項目・両型検査と静的確認が成功し、独立レビューの文書2箇所を是正後、技術／QA再確認の必須残指摘0を確認した。全体回帰・実AI・Docker・過去保持物は対象外。[Leaseの変更単位分離](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。
+
 EMのState／Taskに混在した全State候補・観測調停を整理した。Lease・閉鎖／退役の現在観測はState CRUD、Taskの操作調停はTask CRUD、全StateへのTask組込四関数はState validationへ移し、旧task/operationsを撤去。専用候補封筒・callbackの位置順・保存直前の期待本文再照合を維持し、公開93項目・保存形式・CASは不変更。代表実保存4親を含む限定65項目とEM／Co型検査が成功し、試験VMの依存欠測1件は是正済み。文書・Symbolを追従し、独立レビューのSymbol Path指摘2箇所を是正後、技術／QA再確認の必須残指摘0を確認した。全体回帰・実AI・Docker・過去保持物は対象外。[State・Taskの純粋候補と観測調停](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。
 
 EM局所保存試験2ファイルの不変コード準備を六箇所で一回化した。Map・Owner・入力参照・故障counterは各条件で生成し、既存scenario・assert・変異を維持。限定11試験・型・整形／warningと独立技術／QA確認が成功し、必須残指摘0。続いて保持設定の上位搬送を確認する旧3試験と補助をCoordinatorへ移し、対象EM試験のCo Source参照を撤去した。Coは日数搬送・現在性、EMは不正日数の早期拒否・callback未呼出しを所有する。移管・EM固有・公開／依存境界の限定9試験、両型検査、台帳419項目の整合確認が成功し、独立技術／QAレビューの必須残指摘0。製品Source・Root93項目・保存形式は不変更。全体回帰・実AI・Docker・過去保持物は対象外。[局所保存試験の準備とOwner移管](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。
