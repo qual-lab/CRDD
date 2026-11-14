@@ -7,6 +7,7 @@
  * @boundary 試験専用。実行前に会話等で用途限定承認を取得する。端末入力は要求しない。
  */
 
+import { RepositoryDataBlockedError } from "../src/configuration/runtime-data.ts";
 import { fork, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -1193,7 +1194,7 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
   );
   // この記録Ownerが直前に得た結果だけを既存の公開失敗搬送へ接続する。
   if (preparation?.status === "blocked")
-    throw new ExecutionStorageBlockedError(preparation);
+    throw new RepositoryDataBlockedError(preparation);
   const parent = requireReadyRepositoryRuntimeDataArea(
     preparation,
     "trial_parent_invalid",
@@ -1583,7 +1584,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === script) {
       process.stdout.write(
         `${JSON.stringify({
           status: "blocked",
-          ...(error instanceof ExecutionStorageBlockedError
+          ...(error instanceof ExecutionStorageBlockedError ||
+          error instanceof RepositoryDataBlockedError
             ? {
                 reason: error.reason,
                 recoveryReference: error.recoveryReference,

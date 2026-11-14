@@ -27,6 +27,8 @@ import * as stateValues from "../../src/state/types.ts";
 import * as stateValidation from "../../src/state/validation.ts";
 import * as stateOperations from "../../src/state/operations.ts";
 import * as taskValidation from "../../src/task/validation.ts";
+import * as taskOperations from "../../src/task/operations.ts";
+import * as objectiveOperations from "../../src/objective/operations.ts";
 import * as workspaceValidation from "../../src/workspace/validation.ts";
 /**
  * 現行の実Writer・Lock・固定I/Oを一つの同期依存閉包へ接続する。
@@ -100,6 +102,8 @@ export function createRuntimeStorageSourceFixture(
     ...historyOperations,
     ...objectiveValidation,
     ...taskValidation,
+    ...taskOperations,
+    ...objectiveOperations,
     ...workspaceValidation,
     ...stateValidation,
     ...stateOperations,

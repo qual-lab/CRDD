@@ -2553,6 +2553,8 @@ State・History、Owner、Abort、故障設定、counter、Source依存は各ケ
 
 追加の履歴保存故障20条件と保持済み再入場5条件も、同じ不変準備へ接続する。各条件のassert・元の初回/再入場経路は維持し、25個別のトップレベル試験として名前で単件選択できるようにする。可変fixtureと終了hookは条件ごとに独立し、既存49条件と合わせて同じ直列guardを使う。基準版での約28分/約10分は旧準備方式の結果として保持し、共有後の限定測定と区別する。
 
+残る非変異44条件と切断点Producer経由25条件も同じ不変前提へ接続し、69条件を固有名の個別登録にする。切断点の保存本文・変異Source・Ownerは共有しない。正規／変異の二fixtureを同じ親内で比較する3群8条件は専用Rootを維持する。実Git変更検出の別Owner試験を固定投影へ置換しない。共有fixtureの未join・Owner・Lock／pending・保存領域の終了確認と最終Root清掃は全条件で維持する。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
@@ -2570,3 +2572,7 @@ State・History、Owner、Abort、故障設定、counter、Source依存は各ケ
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
+
+### 所在初期化失敗のOwner — 2026-11-14
+
+`configuration/runtime-data.ts`は自身の領域初期化blockedを`RepositoryDataBlockedError`で搬送する。EM保存の`ExecutionStorageBlockedError`を生成せず、EM由来の失敗は同EM型のまま扱う。公開結果・Decision・EI診断と計測／検証scriptsは二型を明示的に捕捉し、元reason、既知Effect／観測不明、清掃確認、再試行可否と回復参照を保持する。Lock解放不明のcauseによる後段停止も維持し、任意Objectを擬似例外として受理しない。新しい共通例外PackageやRoot公開は追加しない。

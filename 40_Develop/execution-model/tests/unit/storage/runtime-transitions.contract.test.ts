@@ -351,7 +351,7 @@ import {
   validateStateTransition,
   validateUnifiedTransition,
 } from "../../../src/state/validation.ts";
-import { prepareUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
+import { prepareUnifiedTaskSnapshot } from "../../../src/task/operations.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,

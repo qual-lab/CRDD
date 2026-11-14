@@ -1141,11 +1141,19 @@ Native親の認証unknown反例はsnapshot-recovery-owner.tsへ移し、実Write
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
 
+## 局所検査・用途候補・初期化失敗Owner — 2026-11-14
+
+RCM-IT-005は新品NodeでState全体検査／CRUD／Storageの解決を禁止し、計画・選定・終了要約の正常受理と不正拒否を確認する。履歴の候補試験はHistory CRUDの局所宣言を抽出して元の観測順・本文・退役条件を検証し、試験のための製品公開は追加しない。Task／Objectiveの候補試験は各operationsへ直接追従する。PRL-IT-012／005の代表実Store試験で通常CRUD・現在認可・CASと履歴再入場・退役条件を確認する。
+
+CoのPRL-IT-013、PRL-IT-005、ERP-IT-008、PPR-UT-006は、Co初期化失敗とEM保存失敗を区別しつつ元Effect・回復参照・解放不明を公開結果とEI診断へ保持する。単発終端の旧試験入力は成功完了と清掃未確認を混在させていたため、既存文法に従うunknown終端へ修正する。製品検査・保存形式・故障条件は緩めない。全体回帰・実AI・Docker・過去保持物は対象外。
+
 ## 主体値と捕捉済み選定の受渡し — 2026-11-14
 
 主体値の配置と捕捉済み選定の再利用について、RCM-IT-005は新品Nodeで全State検査・保存層の解決を拒否し、主体値とDecision検査の独立ロードを確認する。RCM-UT-001は初回捕捉値と再発行値の比較、キー順差、未知field、Provider／Model／操作相関差、元封筒の変更を反証する。PRL-UT-006は内部callbackが同じ捕捉値を渡すことと、認可失効・Root差・取消で実行しないこと、不正Resolver返却がID発行・保存・実行前に拒否されることを確認する。有限代役による受付確認を実保存・実Provider実行の証明にはしない。
 
 ## 修復49ケースの共有前提と独立状態 — 2026-11-14
+
+残る非変異44条件と切断点Producer経由25条件は、同じ不変準備へ接続した69個別登録として検証する。既存488個の静的assert呼出しを保持し、故障配送・本文保全・追加Effectなしの10assertを加える。元条件・初回→再入場、名前の一意性・単件選択・可変状態の独立・既存終了hookを確認する。前置repair_historyの故障は完成保存内部の故障と区別して1回の配送を確認し、除去済み対象の前置／最終freshは現在のrepair_completionに注入する。前置未観測の期限は補完せず、最終fresh失敗では既知期限だけを保持し、Doctor出力も同じ確認範囲とする。Source変異3群8条件の二fixture比較は専用Rootのまま保持し、準備共有へ無条件に押し込まない。
 
 ERB-IT-014のruntime-repair-resultは、真正な不変Repository／Root／Revision／保存Identityと未束縛Source factoryを一回準備し、49故障組合せを個別名で直列に実行する。元の初回経路・故障点と93静的assert式を保ち、State／History・Owner／Abort・故障設定・counterを各ケースで新規構築する。実EM Reader／Writer・共通Lock・CAS・保存前後の順序確認を維持する。Root等の固定投影は既知のexact要求と真正capabilityに限定し、未知要求と明示Revisionは実処理へ委譲する。Git変更検出は別の実Root試験を担当とする。
 

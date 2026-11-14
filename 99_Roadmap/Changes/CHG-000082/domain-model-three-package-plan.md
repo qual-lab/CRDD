@@ -2436,6 +2436,32 @@ Coordinator製品/試験の型検査、対象の整形、差分空白確認は�
 
 次の最小実装候補は、(1) Co内部のSelection再検査を受付済み値の受渡しへ整理、(2) Principal補助を既存state/valueへ移管、(3) 行単位の履歴検査とState全体の退役判断を分離、(4) Task/Objectiveの局所検査と全State候補生成の循環を関数単位で整理、(5) Co自身のDirectory初期化失敗をEM例外生成から分離、の順とする。これは実装済みの宣言ではない。特にCo runtime-dataのEM例外生成は責務是正候補だが、Effect・解放不明・回復参照は失わせない。新しいFacade・共通Package・一括移植は不要。先に内部の再検査と依存を整理し、その結果を見て公開削減を再判定する。
 
+### 局所検査と全State候補の依存分離 — 着手前整合確認
+
+基準fd877bfb9で成立済みの公開93項目、通常CRUD、履歴未確認時の退役拒否、単一Writer／CAS、同Owner観測・Effect／解放不明の搬送を維持する。変更分類は内部責務分離と利用側例外Ownerの是正。History行検査を保存非依存とし、全Stateを使う履歴候補3関数は唯一利用するHistory CRUDへ局所化する。Objective／Taskの全State候補生成は各モデルのoperationsへ分離し、局所validationから全State検査への実行時逆参照を撤去する。小さい値処理だけを既存state/operationsへ置き、Schema定数はtypesへ置く。Root非公開の新しいモデルoperationsは実処理のOwnerであり転送Facadeではない。
+
+Coordinator自身のDirectory初期化失敗は同Ownerの型で搬送し、EM由来の例外は維持する。正常、参照中、CAS差、未確認履歴、Owner失効、部分Effect／解放不明を既存の限定試験で確認する。観測callbackは元の位置・回数で呼び、先読み・memoize・自動再試行を追加しない。Source移管で試験を削らず宣言参照・型Owner・台帳・設計を追従する。着手前の技術／試験影響確認は読み取り専用の2担当結果を統合済み。全体回帰・実AI・Docker・過去保持物・Release／準拠判定は対象外。責務整理の限定確認後、試験準備共有は別の変更単位で進める。
+
+### 修復試験の残る準備共有 — 着手前整合確認
+
+実施結果：69条件の登録名を一意にし、単件指定で1条件だけの実行成功を確認した。初回の限定75項目は72成功・3失敗で、前置Reader故障2条件の配送先が完成保存内部にしかなく、保持済み再入場1条件も廃止済みのgeneric history読取りを想定していた。製品Sourceを変更せず、前置repair_historyの専用一回故障と現在のrepair_completion前置／最終freshへ追従した。前置未観測の期限はfalse／null、fresh失敗では先行確認済み期限を保持し、Doctor出力を一致させた。本文保全・追加保存／技術取得／観測／日時生成0と故障発火1を10assert追加し、静的assert総数は498となった。是正影響の4条件が成功し、両独立再レビューの必須残指摘0。
+
+最終改訂版で、69条件・factoryの3子と親・残存単発と取消guardの計75報告項目が全成功（164736ms）。各条件でjoin／Owner失効／Lock・pending不存在／自己生成保存領域回収を確認し、file終了hookの共有Root回収と不存在確認も成功した。Scope外の保持物は走査・操作していない。EM／Coの型検査、限定整形・警告確認と差分空白確認も成功。これは対象を限定した回帰であり、全体回帰・実AI・Docker・過去保持物の操作は実施しない。Commit／Pushは今回依頼に含まれず未実施。
+
+責務分離の限定確認・独立レビュー完了後、runtime-repair-resultの非変異44条件とinterruptedRepairOutcome経由25条件を既存sharedRepairBaseへ接続する。不変Git Root／Revision／保存Identityだけを共有し、各故障条件のState／History／Owner／Abort／counterは新規にする。各条件をトップレベル個別登録へ揃え、同条件の初回→再入場は分割しない。切断点は毎回実Producerから作り、保存本文を条件間で共有しない。
+
+Source変異の3群8条件は、同じ親内で正規／変異の二fixtureを比較する経路を含むため今回は専用Rootを維持する。正規と変異の差を消す共通Source cacheや、未清掃の同Root再利用は導入しない。実Git変更検出の別Owner試験も固定Revision投影へ置換しない。元のassert式・故障発火・実Reader／Writer／Lock／CAS・join・Owner失効・Lock／pending不存在と自己生成領域回収を保持し、共有対象だけの限定回帰と独立レビューを行う。全体回帰・実AI・Docker・過去保持物は対象外。
+
+### 局所検査と全State候補の依存分離 — 実装と限定確認
+
+後続のCommit／Push依頼に基づき、基準fd877bfb9からの新規2ファイルを含む50Pathを最終照合した。独立技術／品質確認の追加必須指摘0、局所検査・公開境界・履歴候補・Queue候補の限定29項目とEM／Co型検査が再成功した。Root indexの差分なし、旧所在地参照・Co自身のEM例外生成・局所validationから全Stateへの逆参照は残っていない。長時間の75項目は直前の成功証跡を使用し、全体回帰・実AI・Docker・過去保持物を再操作しない。本段階を現在のFeatureのCommit／Push対象とし、統合・Releaseや全体回帰完了とは扱わない。
+
+追加の既存公開結果搬送1項目は、`public-operation.integration.test.ts`の「Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影する」である。先の54項目に含む`current-admission.contract.test.ts`の「現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する」とは別の試験であり、二重集計ではない。追加1項目も成功した。
+
+独立技術／品質レビューは実装の必須指摘0。両者が確認したCo結果投影Headerの旧EM単型説明を、実装済みの二Ownerへ更新した。今回の責務分離は完了し、次の試験準備共有は別の固定候補で確認する。
+
+直前の依存分離段階は、EMの値・候補・公開・独立ロード46試験、Coの初期化例外／公開結果／EI診断／計測入口5試験、既存入場DTO1試験、Core CRUDと履歴退役・再入場の実Store代表2試験が成功した。移管36関数の型除去後本文は、局所成功／拒否関数名と整形の末尾commaを除き基準版と同一。EM／Coの型検査も成功した。既存単発終端試験の成功＋清掃未確認の矛盾入力をunknownへ、既存EI group試験の旧Source切出し名を現在の実受付関数へ追従し、検査／assert条件は維持した。独立レビュー前の記録であり、準備共有の追加44条件等はまだ本段階に含めない。
+
 ### Principal値Ownerと捕捉済みSelection — 着手前整合確認
 
 実施結果：主体ID2関数と固定prefixを保存非依存の`state/operations.ts`へまとめ、旧`value.ts`を撤去した。公開93項目と保存文法は維持。全Source／試験／現在設計の旧Path参照は0で、Symbolの安定IDを変えず現行Pathを更新した。EM・Coordinatorの型検査と、値／公開境界／独立ロード／選定／単発受付の限定38試験が成功した。改名前にも選定更新2試験とローカル主体2試験の成功を確認したが、改名後38件の内訳には合算しない。独立の技術レビューは必須指摘なし、QAレビューの説明見出し配置1点は専用節へ分離して是正した。改名に伴うimport折返し2箇所も整形した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。

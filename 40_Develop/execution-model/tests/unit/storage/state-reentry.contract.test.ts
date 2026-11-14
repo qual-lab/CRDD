@@ -12,10 +12,8 @@ import type { Snapshot } from "../../../src/state/types.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  PROJECT_SNAPSHOT_SCHEMA,
-  snapshotIntakeMatches,
-} from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
+import { snapshotIntakeMatches } from "../../../src/state/validation.ts";
 import { classifyExecutionSnapshotReentry } from "../../../src/storage/store.ts";
 
 /**

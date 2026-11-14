@@ -25,7 +25,10 @@ import {
   getRepository,
   type Repository,
 } from "../../../version-control/src/index.ts";
-import { requireReadyRepositoryExecutionDataArea } from "../../src/configuration/runtime-data.ts";
+import {
+  RepositoryDataBlockedError,
+  requireReadyRepositoryExecutionDataArea,
+} from "../../src/configuration/runtime-data.ts";
 import {
   beginProviderExecutionRecording,
   captureProviderExecutionCompletion,
@@ -132,6 +135,7 @@ for (const kind of ["execution", "group"] as const) {
         }),
         requireReadyRepositoryExecutionDataArea,
         ExecutionStorageBlockedError,
+        RepositoryDataBlockedError,
         createExecution: () => {
           writes++;
           throw Error("unreachable");
@@ -165,7 +169,7 @@ for (const kind of ["execution", "group"] as const) {
       );
       const begin = groupSource.indexOf("  let eiGroup:"),
         end = groupSource.indexOf(
-          "  const execution = await runCoordinatorObjective(",
+          "  const execution = await executeAcceptedCoordinatorObjective(",
           begin,
         );
       assert.ok(begin >= 0 && end > begin);

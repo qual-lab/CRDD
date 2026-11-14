@@ -3,10 +3,7 @@
  * @responsibility 実体照合、出版pending、読戻しと失敗・回復情報を保持する。
  * @trace ARCH-000008
  */
-
 import { createHash } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   getRepository,
@@ -29,12 +26,11 @@ import {
 } from "../decision/validation.ts";
 import { decisionHistoryLine, taskHistoryLine } from "../history/operations.ts";
 import type { HistoryRow } from "../history/types.ts";
-import { decodeHistoryRows } from "../history/validation.ts";
+import { decodeHistoryRows, historyRow } from "../history/validation.ts";
 import type { Snapshot } from "../state/types.ts";
 import {
   classifyResourcePublication,
   decodeStateSnapshot,
-  historyRow,
   isInitialOperationHost,
   prepareHistoryRetention,
   prepareRecoveredHistoryPublication,
@@ -48,10 +44,9 @@ import {
   prepareStateHostSnapshot,
   prepareStateRepairCompletionSnapshot,
   STORAGE_CONTRACT,
-  validId,
 } from "../state/validation.ts";
-import { encodeStateValue } from "../state/operations.ts";
-import { projectTaskSnapshot } from "../task/validation.ts";
+import { validId, encodeStateValue } from "../state/operations.ts";
+import { projectTaskSnapshot } from "../task/operations.ts";
 import type {
   HistoryRepositoryInput,
   SnapshotOwner,
@@ -72,6 +67,9 @@ import {
   readHistoryRetentionDays,
   readStorageOwnerBinding,
 } from "./lock.ts";
+
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * require Ready Repository Runtime Data Areaを決定する。

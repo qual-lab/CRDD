@@ -5,6 +5,7 @@
  * @trace ARCH-000005
  */
 
+import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import {
   ExecutionStorageBlockedError,
   isPrincipalId,
@@ -279,7 +280,10 @@ export function queryState(
       authenticationContext,
     );
   } catch (error) {
-    if (error instanceof ExecutionStorageBlockedError)
+    if (
+      error instanceof ExecutionStorageBlockedError ||
+      error instanceof RepositoryDataBlockedError
+    )
       return coordinatorDataBoundaryBlocked(error);
     throw error;
   }

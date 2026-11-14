@@ -19,7 +19,50 @@ import {
   checkRepositoryRuntimeDataProtectionDirectory,
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
+  RepositoryDataBlockedError,
 } from "../../src/configuration/runtime-data.ts";
+
+/**
+ * 所在初期化の失敗をEM例外へ変換せずCo所有の情報として搬送する。
+ * @responsibility 部分Effectと回復参照の欠落を防ぐ。
+ * @trace PRL-IT-013
+ * @precondition 合成blocked結果だけを使用する。
+ * @stimulus requireReadyに既知Effect・観測不明・回復参照を渡す。
+ * @observation 例外型と失敗fieldの一致。
+ * @oracle 所有型を区別し元の失敗情報を保持する。
+ * @cleanup メモリ内のみ。
+ * @boundary 値の例外搬送。Filesystem操作は行わない。
+ */
+test("所在初期化失敗はCo所有の例外で元のEffectと回復参照を保持する", () => {
+  const failure = {
+    status: "blocked" as const,
+    reason: "repository_runtime_data_ignore_registration_blocked" as const,
+    effectIssued: true,
+    effectStateUnknown: true,
+    effectConfirmation: "unknown" as const,
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.fixture" as const,
+    repositoryPathReported: false as const,
+  };
+  assert.throws(
+    () => requireReadyRepositoryExecutionDataArea(failure, "invalid"),
+    (error: unknown) => {
+      assert.ok(error instanceof RepositoryDataBlockedError);
+      for (const field of [
+        "reason",
+        "effectIssued",
+        "effectStateUnknown",
+        "cleanupConfirmed",
+        "retryAllowed",
+        "recoveryReference",
+        "repositoryPathReported",
+      ] as const)
+        assert.equal(error[field], failure[field]);
+      return true;
+    },
+  );
+});
 
 /**
  * 固定Git構造を持つ新品Rootを用途限定領域へ作る。

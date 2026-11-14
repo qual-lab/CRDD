@@ -5,6 +5,7 @@
  * @trace ARCH-000004
  */
 
+import type { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import type { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 
 /**
@@ -36,9 +37,9 @@ export type PortResult<T> = Readonly<
  *
  * @responsibility Runtime Data Boundary Blockedの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
- * @input error: ExecutionStorageBlockedError
+ * @input error: EM保存失敗またはCoordinator領域初期化失敗。
  * @returns coordinatorDataBoundaryBlockedの計算結果を返す。
- * @precondition 「error: ExecutionStorageBlockedError」がcoordinatorDataBoundaryBlockedの入力契約を満たす。
+ * @precondition 各Ownerが確定した停止情報を、その例外型のまま受け取る。
  * @postcondition coordinatorDataBoundaryBlockedの責務を完了した結果だけを返す。
  * @effect N/A: coordinatorDataBoundaryBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: coordinatorDataBoundaryBlockedは独自の失敗分岐を所有しない。
@@ -48,7 +49,7 @@ export type PortResult<T> = Readonly<
  * @concurrency N/A: coordinatorDataBoundaryBlockedは共有非同期状態を持たない同期処理である。
  */
 export function coordinatorDataBoundaryBlocked(
-  error: ExecutionStorageBlockedError,
+  error: ExecutionStorageBlockedError | RepositoryDataBlockedError,
 ) {
   const ownerReleased =
     error.cause !== "coordinator_snapshot_lock_release_unconfirmed";

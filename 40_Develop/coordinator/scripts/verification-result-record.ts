@@ -4,6 +4,7 @@
  * @responsibility ownValueを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000003
  */
+import { RepositoryDataBlockedError } from "../src/configuration/runtime-data.ts";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -545,7 +546,8 @@ export async function runRecordedVerification<T, E>(
       executionOutcome: "not_started" as const,
       recordingOutcome: "start_failed" as const,
       exitCode: 2,
-      ...(error instanceof ExecutionStorageBlockedError
+      ...(error instanceof ExecutionStorageBlockedError ||
+      error instanceof RepositoryDataBlockedError
         ? {
             reason: error.reason,
             effectIssued: error.effectIssued,

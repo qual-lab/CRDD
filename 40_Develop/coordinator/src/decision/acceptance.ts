@@ -5,6 +5,7 @@
  * @trace ARCH-000004
  */
 
+import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import {
   type DecisionRequest,
   ExecutionStorageBlockedError,
@@ -239,7 +240,10 @@ export function executeCoordinatorPublicAcceptanceDecision(
       manualRecoveryRequired: history.status !== "confirmed",
     });
   } catch (error) {
-    if (error instanceof ExecutionStorageBlockedError)
+    if (
+      error instanceof ExecutionStorageBlockedError ||
+      error instanceof RepositoryDataBlockedError
+    )
       return coordinatorDataBoundaryBlocked(error);
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,

@@ -3,10 +3,10 @@
  * @responsibility I/Oや新しい権限を発行せず、モデル固有の受入条件を判定する。
  * @trace ARCH-000008
  */
-
 import { createHash } from "node:crypto";
 import type { Snapshot } from "../state/types.ts";
-import { hashStateText, historyRow } from "../state/validation.ts";
+import { hashStateText } from "../state/validation.ts";
+import { historyRow } from "../history/validation.ts";
 import { encodeStateValue } from "../state/operations.ts";
 import type {
   ResultRecord,

@@ -393,6 +393,9 @@ function fixture(
     historyWrites: 0,
     historyAt: "2026-10-16T00:00:00.000Z",
     historyReadFaultAt: 0,
+    prefaceReadFault: "none" as "none" | "reject" | "release",
+    prefaceReadFaultHits: 0,
+    completionReadFaultHits: 0,
     historyReadFault: "reject" as "reject" | "release" | "throw" | "owner",
     historyFaultAt: 0,
     historyFault: "reject" as
@@ -481,6 +484,11 @@ function fixture(
    * @boundary 公開Readerと実保存物。完成保存内のReader故障は専用Hookで注入する。
    */
   const readHistory = (_root: unknown, id: unknown) => {
+    const fault = state.prefaceReadFault;
+    if (fault !== "none") {
+      state.prefaceReadFaultHits++;
+      state.prefaceReadFault = "none";
+    }
     const observed = model.readState(_root, {
       scope: "recovery",
       input: {
@@ -489,8 +497,14 @@ function fixture(
       },
     });
     return {
-      ...observed,
-      lockReleased: observed.lockReleased && state.readerReleased,
+      ...(fault === "reject"
+        ? model.readState(null, {
+            scope: "recovery",
+            input: { kind: "repair_history", recoveryId: id },
+          })
+        : observed),
+      lockReleased:
+        observed.lockReleased && state.readerReleased && fault !== "release",
     };
   };
   /**
@@ -625,6 +639,7 @@ function fixture(
   const readCompletion = (_root: unknown, id: string) => {
     state.completionReads++;
     if (state.completionReads === state.completionReadFaultAt) {
+      state.completionReadFaultHits++;
       if (state.completionReadFault === "throw")
         throw new Error("completion_reader");
       if (state.completionReadFault === "owner") state.alive = false;
@@ -1174,98 +1189,102 @@ test("修復試験factoryはcase依存と変異Sourceを共有しない", async 
  * @cleanup 自己生成Rootを終了hookで回収する。実Docker要求0。
  * @boundary ERB-IT-014／ERB-IT-002=Direct Boundary: Caller→公開model／実Writer／有限DI代役。
  */
-test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで保持する", async (t) => {
-  for (const failure of ["none", "unknown", "save"] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    f.state.pauseBeforeDisposal = false;
-    if (failure === "unknown") f.state.disposalBlockedPurpose = "primary";
-    if (failure === "save") f.state.disposalProgressRefused = true;
-    const first = await f.run();
-    assert.ok(first.recoveryId);
-    assert.equal(first.status, failure === "none" ? "observed" : "blocked");
-    const original =
-      f.snapshot()?.operations[0] ??
-      {
+for (const failure of ["none", "unknown", "save"] as const) {
+  test(
+    "修復回収接続: 三用途と保存失敗後の要求不明を同IDで保持する — 準備共有 " +
+      ["failure=" + String(failure)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      f.state.pauseBeforeDisposal = false;
+      if (failure === "unknown") f.state.disposalBlockedPurpose = "primary";
+      if (failure === "save") f.state.disposalProgressRefused = true;
+      const first = await f.run();
+      assert.ok(first.recoveryId);
+      assert.equal(first.status, failure === "none" ? "observed" : "blocked");
+      const original =
+        f.snapshot()?.operations[0] ??
+        {
+          snapshot: JSON.parse(
+            Buffer.from(
+              f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
+            ).toString("utf8"),
+          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        }?.snapshot.operations[0];
+      assert.ok(original?.kind === "runtime_repair" && original.disposal);
+      assert.equal(original.disposition, "discard");
+      assert.equal(original.phase, "settling");
+      assert.equal(first.completionConfirmed, failure === "none");
+      assert.equal(f.state.historyWrites, failure === "none" ? 2 : 0);
+      assert.equal(f.state.completionWrites, failure === "none" ? 1 : 0);
+      assert.deepEqual(
+        f.state.disposalCalls,
+        failure === "none" ? ["primary", "failed", "auxiliary"] : ["primary"],
+      );
+      const before = {
+        checkpoint: original.checkpoint,
+        outcome: original.outcome,
+        primaryFailure: original.primaryFailure,
+        identityJson: original.identityJson,
+      };
+      const entries = f.state.entries;
+      f.state.disposalBlockedPurpose = null;
+      const again = await f.run(first.recoveryId);
+      assert.equal(again.status, "observed");
+      assert.equal(f.state.entries, entries);
+      const final = {
         snapshot: JSON.parse(
           Buffer.from(
             f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
           ).toString("utf8"),
         ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
       }?.snapshot.operations[0];
-    assert.ok(original?.kind === "runtime_repair" && original.disposal);
-    assert.equal(original.disposition, "discard");
-    assert.equal(original.phase, "settling");
-    assert.equal(first.completionConfirmed, failure === "none");
-    assert.equal(f.state.historyWrites, failure === "none" ? 2 : 0);
-    assert.equal(f.state.completionWrites, failure === "none" ? 1 : 0);
-    assert.deepEqual(
-      f.state.disposalCalls,
-      failure === "none" ? ["primary", "failed", "auxiliary"] : ["primary"],
-    );
-    const before = {
-      checkpoint: original.checkpoint,
-      outcome: original.outcome,
-      primaryFailure: original.primaryFailure,
-      identityJson: original.identityJson,
-    };
-    const entries = f.state.entries;
-    f.state.disposalBlockedPurpose = null;
-    const again = await f.run(first.recoveryId);
-    assert.equal(again.status, "observed");
-    assert.equal(f.state.entries, entries);
-    const final = {
-      snapshot: JSON.parse(
-        Buffer.from(
-          f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
-        ).toString("utf8"),
-      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
-    }?.snapshot.operations[0];
-    assert.ok(final?.kind === "runtime_repair" && final.disposal);
-    assert.deepEqual(
-      {
-        checkpoint: final.checkpoint,
-        outcome: final.outcome,
-        primaryFailure: final.primaryFailure,
-        identityJson: final.identityJson,
-      },
-      before,
-    );
-    assert.deepEqual(
-      Object.values(final.disposal.checkpoint.directories).map(
-        (item) => item.absence,
-      ),
-      ["confirmed_absent", "confirmed_absent", "confirmed_absent"],
-    );
-    assert.equal(
-      final.disposal.checkpoint.directories.primary.request,
-      failure === "save" ? "unknown" : "issued",
-    );
-    assert.deepEqual(
-      f.state.disposalCalls,
-      failure === "none"
-        ? ["primary", "failed", "auxiliary"]
-        : ["primary", "primary", "failed", "auxiliary"],
-    );
-    assert.equal(f.state.historyWrites, 2);
-    assert.equal(f.state.completionWrites, 1);
-    assert.equal(f.snapshot()?.operations.length, 0);
-    const history = model.readState(f.root, {
-      scope: "recovery",
-      input: { kind: "history" },
-    });
-    assert.equal(history.status, "completed", history.reason);
-    assert.equal(history.lockReleased, true);
-    const rows = history.historyRows;
-    assert.ok(rows);
-    assert.equal(rows?.length, 1);
-    assert.equal(
-      JSON.parse(rows?.[0]?.line ?? "null").summary.disposal.checkpoint
-        .directories.primary.request,
-      failure === "save" ? "unknown" : "issued",
-    );
-  }
-});
+      assert.ok(final?.kind === "runtime_repair" && final.disposal);
+      assert.deepEqual(
+        {
+          checkpoint: final.checkpoint,
+          outcome: final.outcome,
+          primaryFailure: final.primaryFailure,
+          identityJson: final.identityJson,
+        },
+        before,
+      );
+      assert.deepEqual(
+        Object.values(final.disposal.checkpoint.directories).map(
+          (item) => item.absence,
+        ),
+        ["confirmed_absent", "confirmed_absent", "confirmed_absent"],
+      );
+      assert.equal(
+        final.disposal.checkpoint.directories.primary.request,
+        failure === "save" ? "unknown" : "issued",
+      );
+      assert.deepEqual(
+        f.state.disposalCalls,
+        failure === "none"
+          ? ["primary", "failed", "auxiliary"]
+          : ["primary", "primary", "failed", "auxiliary"],
+      );
+      assert.equal(f.state.historyWrites, 2);
+      assert.equal(f.state.completionWrites, 1);
+      assert.equal(f.snapshot()?.operations.length, 0);
+      const history = model.readState(f.root, {
+        scope: "recovery",
+        input: { kind: "history" },
+      });
+      assert.equal(history.status, "completed", history.reason);
+      assert.equal(history.lockReleased, true);
+      const rows = history.historyRows;
+      assert.ok(rows);
+      assert.equal(rows?.length, 1);
+      assert.equal(
+        JSON.parse(rows?.[0]?.line ?? "null").summary.disposal.checkpoint
+          .directories.primary.request,
+        failure === "save" ? "unknown" : "issued",
+      );
+    },
+  );
+}
 
 /**
  * 修復・保持・exact再入場を履歴確認へ接続する。
@@ -1278,33 +1297,39 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 本番compositionの処理順。
  */
+for (const retained of [false, true]) {
+  test(
+    "修復履歴接続: 成功・保持・取消後のexact確定を分ける — 準備共有 " +
+      ["retained=" + String(retained)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = retained ? "retained" : "ready";
+      const repaired = await f.run();
+      assert.ok(repaired.recoveryId);
+      const result = retained
+        ? await f.run(repaired.recoveryId, "retain")
+        : repaired;
+      assert.equal(result.status, "observed");
+      assert.equal(result.historyConfirmed, true);
+      assert.equal(result.outcomeConfirmed, true);
+      assert.equal(result.historyEffectIssued, true);
+      assert.equal(f.state.historyWrites, 2);
+      const entries = f.state.entries,
+        calls = f.state.calls,
+        writes = f.state.historyWrites;
+      const duplicate = await f.run(repaired.recoveryId);
+      assert.equal(duplicate.status, "observed");
+      assert.equal(duplicate.historyConfirmed, true);
+      assert.equal(duplicate.retentionConfirmed, retained);
+      assert.equal(duplicate.historyEffectIssued, false);
+      assert.equal(f.state.historyWrites, writes);
+      assert.equal(f.state.entries, entries);
+      assert.equal(f.state.calls, calls);
+    },
+  );
+}
 test("修復履歴接続: 成功・保持・取消後のexact確定を分ける", async (t) => {
-  for (const retained of [false, true]) {
-    const f = fixture(t);
-    f.state.mode = retained ? "retained" : "ready";
-    const repaired = await f.run();
-    assert.ok(repaired.recoveryId);
-    const result = retained
-      ? await f.run(repaired.recoveryId, "retain")
-      : repaired;
-    assert.equal(result.status, "observed");
-    assert.equal(result.historyConfirmed, true);
-    assert.equal(result.outcomeConfirmed, true);
-    assert.equal(result.historyEffectIssued, true);
-    assert.equal(f.state.historyWrites, 2);
-    const entries = f.state.entries,
-      calls = f.state.calls,
-      writes = f.state.historyWrites;
-    const duplicate = await f.run(repaired.recoveryId);
-    assert.equal(duplicate.status, "observed");
-    assert.equal(duplicate.historyConfirmed, true);
-    assert.equal(duplicate.retentionConfirmed, retained);
-    assert.equal(duplicate.historyEffectIssued, false);
-    assert.equal(f.state.historyWrites, writes);
-    assert.equal(f.state.entries, entries);
-    assert.equal(f.state.calls, calls);
-  }
-  const f = fixture(t);
+  const f = fixture(t, undefined, sharedRepairBase());
   const original = await f.run();
   assert.ok(original.recoveryId);
   f.state.bytes = Buffer.from(f.saved.at(-1) ?? []);
@@ -1954,30 +1979,38 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 前置観測とmetadataだけの再入場。
  */
-test("修復履歴接続: 前置Reader拒否を技術再開に使わない", async (t) => {
-  for (const fault of ["reject", "release"] as const) {
-    const f = fixture(t);
-    f.state.mode = "incomplete";
-    const first = await f.run();
-    assert.ok(first.recoveryId);
-    f.state.historyReadFaultAt = f.state.historyReads + 1;
-    f.state.historyReadFault = fault;
-    const calls = f.state.calls,
-      entries = f.state.entries,
-      publications = f.state.publications,
-      writes = f.state.historyWrites;
-    const result = await f.run(first.recoveryId);
-    assert.equal(result.status, "blocked");
-    assert.equal(result.historyLockReleased, fault !== "release");
-    assert.equal(
-      f.state.publications - publications,
-      fault === "reject" ? 1 : 0,
-    );
-    assert.equal(f.state.historyWrites, writes);
-    assert.equal(f.state.calls, calls);
-    assert.equal(f.state.entries, entries);
-  }
-});
+for (const fault of ["reject", "release"] as const) {
+  test(
+    "修復履歴接続: 前置Reader拒否を技術再開に使わない — 準備共有 " +
+      ["fault=" + String(fault)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "incomplete";
+      const first = await f.run();
+      assert.ok(first.recoveryId);
+      f.state.prefaceReadFault = fault;
+      const beforeBytes = Buffer.from(f.state.bytes ?? []);
+      const beforeHistory = Buffer.from(f.state.historyBytes);
+      const calls = f.state.calls,
+        entries = f.state.entries,
+        publications = f.state.publications,
+        writes = f.state.historyWrites;
+      const result = await f.run(first.recoveryId);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.historyLockReleased, fault !== "release");
+      assert.equal(
+        f.state.publications - publications,
+        fault === "reject" ? 1 : 0,
+      );
+      assert.equal(f.state.historyWrites, writes);
+      assert.equal(f.state.calls, calls);
+      assert.equal(f.state.entries, entries);
+      assert.equal(f.state.prefaceReadFaultHits, 1);
+      assert.deepEqual(f.state.bytes, beforeBytes);
+      assert.deepEqual(f.state.historyBytes, beforeHistory);
+    },
+  );
+}
 
 /**
  * 明示保持の接続が技術Sessionへ再入場しないことを確認する。
@@ -1990,100 +2023,104 @@ test("修復履歴接続: 前置Reader拒否を技術再開に使わない", asy
  * @cleanup N/A: 模擬I/Oと自己生成Rootは既存終了hookで回収する。
  * @boundary 実compositionと実モデル。物理Writerは別Host試験。
  */
-test("修復保持接続: 明示判断の保存だけを行い技術再操作しない", async (t) => {
-  for (const cancelAfterWrite of [false, true]) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    const repaired = await f.run();
-    assert.equal(repaired.outcomeConfirmed, true);
-    const before = f.snapshot();
-    const target = before?.operations[0];
-    assert.ok(before && target?.kind === "runtime_repair");
-    assert.equal(target.phase, "awaiting_disposition");
-    const counts = {
-      writes: f.state.calls,
-      entries: f.state.entries,
-      acquired: f.state.acquired,
-      effects: f.state.effects,
-    };
-    f.state.cancelAfterWrite = cancelAfterWrite;
-    const result = await f.run(target.recoveryId, "retain");
-    assert.equal(result.status, "observed");
-    assert.equal(
-      "retentionConfirmed" in result && result.retentionConfirmed,
-      true,
-    );
-    assert.equal(result.technicalStatus, null);
-    assert.equal(f.state.calls, counts.writes + 1);
-    assert.equal(f.state.entries, counts.entries);
-    assert.equal(f.state.acquired, counts.acquired);
-    assert.equal(f.state.effects, counts.effects);
-    assert.equal(f.controller.signal.aborted, cancelAfterWrite);
-    assert.ok(target.checkpoint);
-    const final = f.snapshot();
-    assert.ok(final);
-    assert.ok(f.state.completionBefore);
-    assert.deepEqual(final, {
-      ...before,
-      revision: before.revision + 4,
-      previous: {
-        revision: before.revision + 3,
-        payloadSha256: createHash("sha256")
-          .update(f.state.completionBefore)
-          .digest("hex"),
-      },
-      operations: before.operations.filter(
-        (item) => item.recoveryId !== target.recoveryId,
-      ),
-    });
-    const savedRetention = {
-      snapshot: JSON.parse(
-        Buffer.from(
-          f.saved.at(-1) ?? assert.fail("missing_fixture_bytes"),
-        ).toString("utf8"),
-      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
-    }?.snapshot.operations.find(
-      (item) => item.recoveryId === target.recoveryId,
-    );
-    assert.equal(savedRetention?.kind, "runtime_repair");
-    if (savedRetention?.kind !== "runtime_repair")
-      throw new Error("retention_missing");
-    assert.deepEqual(savedRetention.retention, {
-      decidedAt: f.state.historyAt,
-      reviewAfter: "2026-10-23T00:00:00.000Z",
-      targets: {
-        primary: target.checkpoint.directories.primary.retained.identity,
-        failed: target.checkpoint.directories.failed.retained.identity,
-        auxiliary: target.checkpoint.directories.auxiliary.retained.identity,
-      },
-    });
-    assert.equal(result.completionConfirmed, true);
-    assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
-    assert.equal(result.historyConfirmed, true);
-    assert.equal(f.state.historyWrites, 2);
-    assert.deepEqual(
-      f.snapshot()?.unresolvedRecoveries,
-      before.unresolvedRecoveries,
-    );
-    assert.ok(f.snapshot());
-    assert.equal(Object.hasOwn(f.snapshot(), "pendingDeliveries"), false);
-    assert.ok(before);
-    assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
-    const saved = Buffer.from(f.state.bytes ?? []);
-    const reads = f.state.retentionReads,
-      dates = f.state.dateReads;
-    const duplicate = await f.run(target.recoveryId, "retain");
-    assert.equal(duplicate.status, "observed");
-    assert.equal(duplicate.completionConfirmed, true);
-    assert.equal(duplicate.retentionReviewAfter, result.retentionReviewAfter);
-    assert.equal(duplicate.operationCleanupConfirmed, false);
-    assert.equal(duplicate.finalCheckpointConfirmed, false);
-    assert.equal(f.state.retentionReads, reads);
-    assert.equal(f.state.dateReads, dates);
-    assert.equal(f.state.calls, counts.writes + 1);
-    assert.ok(f.state.bytes?.equals(saved));
-  }
-});
+for (const cancelAfterWrite of [false, true]) {
+  test(
+    "修復保持接続: 明示判断の保存だけを行い技術再操作しない — 準備共有 " +
+      ["cancelAfterWrite=" + String(cancelAfterWrite)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      const repaired = await f.run();
+      assert.equal(repaired.outcomeConfirmed, true);
+      const before = f.snapshot();
+      const target = before?.operations[0];
+      assert.ok(before && target?.kind === "runtime_repair");
+      assert.equal(target.phase, "awaiting_disposition");
+      const counts = {
+        writes: f.state.calls,
+        entries: f.state.entries,
+        acquired: f.state.acquired,
+        effects: f.state.effects,
+      };
+      f.state.cancelAfterWrite = cancelAfterWrite;
+      const result = await f.run(target.recoveryId, "retain");
+      assert.equal(result.status, "observed");
+      assert.equal(
+        "retentionConfirmed" in result && result.retentionConfirmed,
+        true,
+      );
+      assert.equal(result.technicalStatus, null);
+      assert.equal(f.state.calls, counts.writes + 1);
+      assert.equal(f.state.entries, counts.entries);
+      assert.equal(f.state.acquired, counts.acquired);
+      assert.equal(f.state.effects, counts.effects);
+      assert.equal(f.controller.signal.aborted, cancelAfterWrite);
+      assert.ok(target.checkpoint);
+      const final = f.snapshot();
+      assert.ok(final);
+      assert.ok(f.state.completionBefore);
+      assert.deepEqual(final, {
+        ...before,
+        revision: before.revision + 4,
+        previous: {
+          revision: before.revision + 3,
+          payloadSha256: createHash("sha256")
+            .update(f.state.completionBefore)
+            .digest("hex"),
+        },
+        operations: before.operations.filter(
+          (item) => item.recoveryId !== target.recoveryId,
+        ),
+      });
+      const savedRetention = {
+        snapshot: JSON.parse(
+          Buffer.from(
+            f.saved.at(-1) ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      }?.snapshot.operations.find(
+        (item) => item.recoveryId === target.recoveryId,
+      );
+      assert.equal(savedRetention?.kind, "runtime_repair");
+      if (savedRetention?.kind !== "runtime_repair")
+        throw new Error("retention_missing");
+      assert.deepEqual(savedRetention.retention, {
+        decidedAt: f.state.historyAt,
+        reviewAfter: "2026-10-23T00:00:00.000Z",
+        targets: {
+          primary: target.checkpoint.directories.primary.retained.identity,
+          failed: target.checkpoint.directories.failed.retained.identity,
+          auxiliary: target.checkpoint.directories.auxiliary.retained.identity,
+        },
+      });
+      assert.equal(result.completionConfirmed, true);
+      assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
+      assert.equal(result.historyConfirmed, true);
+      assert.equal(f.state.historyWrites, 2);
+      assert.deepEqual(
+        f.snapshot()?.unresolvedRecoveries,
+        before.unresolvedRecoveries,
+      );
+      assert.ok(f.snapshot());
+      assert.equal(Object.hasOwn(f.snapshot(), "pendingDeliveries"), false);
+      assert.ok(before);
+      assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
+      const saved = Buffer.from(f.state.bytes ?? []);
+      const reads = f.state.retentionReads,
+        dates = f.state.dateReads;
+      const duplicate = await f.run(target.recoveryId, "retain");
+      assert.equal(duplicate.status, "observed");
+      assert.equal(duplicate.completionConfirmed, true);
+      assert.equal(duplicate.retentionReviewAfter, result.retentionReviewAfter);
+      assert.equal(duplicate.operationCleanupConfirmed, false);
+      assert.equal(duplicate.finalCheckpointConfirmed, false);
+      assert.equal(f.state.retentionReads, reads);
+      assert.equal(f.state.dateReads, dates);
+      assert.equal(f.state.calls, counts.writes + 1);
+      assert.ok(f.state.bytes?.equals(saved));
+    },
+  );
+}
 
 /**
  * 保持観測と保存期限の不一致を成功へ丸めない。
@@ -2096,100 +2133,126 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 模擬Ownerの失効と実composition。
  */
-test("修復保持接続: 期限差と旧保持を成功へ補完しない", async (t) => {
-  for (const fault of ["observation", "before", "fresh", "legacy"] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    const repaired = await f.run();
-    assert.ok(repaired.recoveryId);
-    if (fault === "legacy") {
-      const value = f.snapshot();
-      assert.ok(value);
-      f.state.bytes = Buffer.from(
-        `${canonicalJson({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
-      );
-      assert.ok(
-        (() => {
-          const observed = model.readState(f.root, { scope: "recovery" });
-          assert.equal(observed.status, "completed");
-          assert.ok(observed.value);
-          assert.equal(
-            observed.value.sourceText,
-            Buffer.from(
-              f.state.bytes ?? assert.fail("missing_fixture_bytes"),
-            ).toString("utf8"),
-          );
-          return observed.value;
-        })(),
-      );
-    }
-    const before = Buffer.from(f.state.bytes as Buffer),
-      writes = f.state.calls,
-      dateReads = f.state.dateReads;
-    if (fault === "observation") f.state.retentionObservationFails = true;
-    if (fault === "before" || fault === "fresh")
-      f.state.completionDeadlineFault = fault;
-    const result = await f.run(repaired.recoveryId, "retain");
-    assert.equal(result.status, "blocked", fault);
-    assert.equal(result.completionConfirmed, false, fault);
-    if (fault === "observation" || fault === "legacy") {
-      assert.equal(result.retentionConfirmed, false);
-      assert.equal(result.retentionReviewAfter, null);
-      assert.equal(f.state.calls, writes);
-      assert.equal(f.state.dateReads, dateReads);
-      assert.ok(f.state.bytes?.equals(before));
-    } else {
-      assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
+for (const fault of ["observation", "before", "fresh", "legacy"] as const) {
+  test(
+    "修復保持接続: 期限差と旧保持を成功へ補完しない 観点1 — 準備共有 " +
+      ["fault=" + String(fault)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      const repaired = await f.run();
+      assert.ok(repaired.recoveryId);
+      if (fault === "legacy") {
+        const value = f.snapshot();
+        assert.ok(value);
+        f.state.bytes = Buffer.from(
+          `${canonicalJson({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
+        );
+        assert.ok(
+          (() => {
+            const observed = model.readState(f.root, { scope: "recovery" });
+            assert.equal(observed.status, "completed");
+            assert.ok(observed.value);
+            assert.equal(
+              observed.value.sourceText,
+              Buffer.from(
+                f.state.bytes ?? assert.fail("missing_fixture_bytes"),
+              ).toString("utf8"),
+            );
+            return observed.value;
+          })(),
+        );
+      }
+      const before = Buffer.from(f.state.bytes as Buffer),
+        writes = f.state.calls,
+        dateReads = f.state.dateReads;
+      if (fault === "observation") f.state.retentionObservationFails = true;
+      if (fault === "before" || fault === "fresh")
+        f.state.completionDeadlineFault = fault;
+      const result = await f.run(repaired.recoveryId, "retain");
+      assert.equal(result.status, "blocked", fault);
+      assert.equal(result.completionConfirmed, false, fault);
+      if (fault === "observation" || fault === "legacy") {
+        assert.equal(result.retentionConfirmed, false);
+        assert.equal(result.retentionReviewAfter, null);
+        assert.equal(f.state.calls, writes);
+        assert.equal(f.state.dateReads, dateReads);
+        assert.ok(f.state.bytes?.equals(before));
+      } else {
+        assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
+        const reads = f.state.retentionReads,
+          dates = f.state.dateReads;
+        f.state.completionDeadlineFault = "none";
+        const retried = await f.run(repaired.recoveryId, "retain");
+        assert.equal(retried.status, "observed");
+        assert.equal(retried.completionConfirmed, true);
+        assert.equal(retried.retentionReviewAfter, result.retentionReviewAfter);
+        assert.equal(f.state.retentionReads, reads);
+        assert.equal(f.state.dateReads, dates);
+      }
+    },
+  );
+}
+for (const fault of ["before", "fresh"] as const) {
+  test(
+    "修復保持接続: 期限差と旧保持を成功へ補完しない 観点2 — 準備共有 " +
+      ["fault=" + String(fault)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      const repaired = await f.run();
+      assert.ok(repaired.recoveryId);
+      const completed = await f.run(repaired.recoveryId, "retain");
+      assert.equal(completed.completionConfirmed, true);
+      f.state.completionReadFaultAt =
+        f.state.completionReads + (fault === "before" ? 1 : 2);
+      f.state.completionReadFault = "reject";
+      const before = {
+        bytes: Buffer.from(f.state.bytes ?? []),
+        history: Buffer.from(f.state.historyBytes),
+        calls: f.state.calls,
+        entries: f.state.entries,
+        acquired: f.state.acquired,
+        writes: f.state.historyWrites,
+      };
       const reads = f.state.retentionReads,
         dates = f.state.dateReads;
-      f.state.completionDeadlineFault = "none";
-      const retried = await f.run(repaired.recoveryId, "retain");
-      assert.equal(retried.status, "observed");
-      assert.equal(retried.completionConfirmed, true);
-      assert.equal(retried.retentionReviewAfter, result.retentionReviewAfter);
+      const stopped = await f.run(repaired.recoveryId, "retain");
+      assert.equal(stopped.status, "blocked");
+      assert.equal(stopped.retentionConfirmed, fault === "fresh");
+      assert.equal(
+        stopped.retentionReviewAfter,
+        fault === "fresh" ? completed.retentionReviewAfter : null,
+      );
+      assert.equal(stopped.completionConfirmed, false);
+      assert.equal(stopped.finalCheckpointConfirmed, false);
+      assert.equal(stopped.operationCleanupConfirmed, false);
+      const report = renderDockerRecoveryDoctorReport(
+        {
+          ...stopped,
+          contract: "crdd-coordinator/current-runtime-repair",
+          cliCleanupConfirmed: true,
+          cliCleanupReason: null,
+        },
+        true,
+      );
+      assert.equal(report.exitCode, 2);
+      assert.equal(
+        JSON.parse(report.stdout).retentionReviewAfter,
+        fault === "fresh" ? completed.retentionReviewAfter : null,
+      );
       assert.equal(f.state.retentionReads, reads);
       assert.equal(f.state.dateReads, dates);
-    }
-  }
-  for (const fault of ["history_intake", "fresh"] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    const repaired = await f.run();
-    assert.ok(repaired.recoveryId);
-    const completed = await f.run(repaired.recoveryId, "retain");
-    assert.equal(completed.completionConfirmed, true);
-    if (fault === "history_intake") f.state.intakeReadFault = "absence";
-    else {
-      f.state.completionReadFaultAt = f.state.completionReads + 2;
-      f.state.completionReadFault = "reject";
-    }
-    const reads = f.state.retentionReads,
-      dates = f.state.dateReads;
-    const stopped = await f.run(repaired.recoveryId, "retain");
-    assert.equal(stopped.status, "blocked");
-    assert.equal(stopped.retentionConfirmed, true);
-    assert.equal(stopped.retentionReviewAfter, completed.retentionReviewAfter);
-    assert.equal(stopped.completionConfirmed, false);
-    assert.equal(stopped.finalCheckpointConfirmed, false);
-    assert.equal(stopped.operationCleanupConfirmed, false);
-    const report = renderDockerRecoveryDoctorReport(
-      {
-        ...stopped,
-        contract: "crdd-coordinator/current-runtime-repair",
-        cliCleanupConfirmed: true,
-        cliCleanupReason: null,
-      },
-      true,
-    );
-    assert.equal(report.exitCode, 2);
-    assert.equal(
-      JSON.parse(report.stdout).retentionReviewAfter,
-      completed.retentionReviewAfter,
-    );
-    assert.equal(f.state.retentionReads, reads);
-    assert.equal(f.state.dateReads, dates);
-  }
-});
+      assert.equal(f.state.completionReadFaultHits, 1);
+      assert.deepEqual(f.state.bytes, before.bytes);
+      assert.deepEqual(f.state.historyBytes, before.history);
+      assert.equal(f.state.calls, before.calls);
+      assert.equal(f.state.entries, before.entries);
+      assert.equal(f.state.acquired, before.acquired);
+      assert.equal(f.state.historyWrites, before.writes);
+    },
+  );
+}
 
 /**
  * 保持前の明示拒否を新しい技術処置へ変換しない。
@@ -2202,37 +2265,41 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 模擬I/Oと実composition。
  */
-test("修復保持接続: 判断前の拒否では保存も技術取得も行わない", async (t) => {
-  for (const fault of [
-    "cancel",
-    "missing_id",
-    "different_id",
-    "owner",
-  ] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    await f.run();
-    const target = f.snapshot()?.operations[0];
-    assert.ok(target?.kind === "runtime_repair");
-    const before = Buffer.from(f.state.bytes ?? []);
-    const writes = f.state.calls,
-      entries = f.state.entries;
-    if (fault === "cancel") f.controller.abort();
-    if (fault === "owner") f.state.intakeReadFault = "owner";
-    const result = await f.run(
-      fault === "missing_id"
-        ? null
-        : fault === "different_id"
-          ? `${target.recoveryId}0`
-          : target.recoveryId,
-      "retain",
-    );
-    assert.equal(result.status, "blocked", fault);
-    assert.equal(f.state.calls, writes, fault);
-    assert.equal(f.state.entries, entries, fault);
-    assert.ok(f.state.bytes?.equals(before), fault);
-  }
-});
+for (const fault of [
+  "cancel",
+  "missing_id",
+  "different_id",
+  "owner",
+] as const) {
+  test(
+    "修復保持接続: 判断前の拒否では保存も技術取得も行わない — 準備共有 " +
+      ["fault=" + String(fault)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      await f.run();
+      const target = f.snapshot()?.operations[0];
+      assert.ok(target?.kind === "runtime_repair");
+      const before = Buffer.from(f.state.bytes ?? []);
+      const writes = f.state.calls,
+        entries = f.state.entries;
+      if (fault === "cancel") f.controller.abort();
+      if (fault === "owner") f.state.intakeReadFault = "owner";
+      const result = await f.run(
+        fault === "missing_id"
+          ? null
+          : fault === "different_id"
+            ? `${target.recoveryId}0`
+            : target.recoveryId,
+        "retain",
+      );
+      assert.equal(result.status, "blocked", fault);
+      assert.equal(f.state.calls, writes, fault);
+      assert.equal(f.state.entries, entries, fault);
+      assert.ok(f.state.bytes?.equals(before), fault);
+    },
+  );
+}
 
 /**
  * 同じ呼出しの出版確認と保持済みの値を共同で要求する。
@@ -2245,55 +2312,54 @@ test("修復保持接続: 判断前の拒否では保存も技術取得も行わ
  * @cleanup N/A: 模擬I/Oと自己生成Rootは既存終了hookで回収する。
  * @boundary 実compositionと模擬publisherの結果搬送。
  */
-test("修復保持接続: fresh出版確認だけを追加保存なしで返す", async (t) => {
-  for (const fault of [
-    "none",
-    "no_pending",
-    "reader",
-    "different_id",
-  ] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    const repaired = await f.run();
-    assert.ok(repaired.recoveryId);
-    f.state.historyFaultAt = 1;
-    f.state.historyFault = "reject";
-    const retained = await f.run(repaired.recoveryId, "retain");
-    assert.equal(
-      "retentionConfirmed" in retained && retained.retentionConfirmed,
-      true,
-    );
-    assert.equal(retained.status, "blocked");
-    f.state.historyFaultAt = 0;
-    const before = Buffer.from(f.state.bytes ?? []);
-    const writes = f.state.calls,
-      entries = f.state.entries;
-    f.state.publicationCompleted = fault !== "no_pending";
-    if (fault === "reader") f.state.readerReleased = false;
-    const result = await f.run(
-      fault === "different_id"
-        ? `${repaired.recoveryId}0`
-        : repaired.recoveryId,
-      "retain",
-    );
-    assert.equal(
-      result.status,
-      fault === "none" || fault === "no_pending" ? "observed" : "blocked",
-      fault,
-    );
-    assert.equal(
-      "retentionConfirmed" in result && result.retentionConfirmed === true,
-      fault === "none" || fault === "no_pending",
-      fault,
-    );
-    assert.equal(f.state.calls, writes, fault);
-    assert.equal(f.state.entries, entries, fault);
-    if (fault === "none" || fault === "no_pending") {
-      assert.equal(f.snapshot()?.operations.length, 0);
-      assert.equal(result.completionConfirmed, true);
-    } else assert.ok(f.state.bytes?.equals(before), fault);
-  }
-});
+for (const fault of ["none", "no_pending", "reader", "different_id"] as const) {
+  test(
+    "修復保持接続: fresh出版確認だけを追加保存なしで返す — 準備共有 " +
+      ["fault=" + String(fault)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      const repaired = await f.run();
+      assert.ok(repaired.recoveryId);
+      f.state.historyFaultAt = 1;
+      f.state.historyFault = "reject";
+      const retained = await f.run(repaired.recoveryId, "retain");
+      assert.equal(
+        "retentionConfirmed" in retained && retained.retentionConfirmed,
+        true,
+      );
+      assert.equal(retained.status, "blocked");
+      f.state.historyFaultAt = 0;
+      const before = Buffer.from(f.state.bytes ?? []);
+      const writes = f.state.calls,
+        entries = f.state.entries;
+      f.state.publicationCompleted = fault !== "no_pending";
+      if (fault === "reader") f.state.readerReleased = false;
+      const result = await f.run(
+        fault === "different_id"
+          ? `${repaired.recoveryId}0`
+          : repaired.recoveryId,
+        "retain",
+      );
+      assert.equal(
+        result.status,
+        fault === "none" || fault === "no_pending" ? "observed" : "blocked",
+        fault,
+      );
+      assert.equal(
+        "retentionConfirmed" in result && result.retentionConfirmed === true,
+        fault === "none" || fault === "no_pending",
+        fault,
+      );
+      assert.equal(f.state.calls, writes, fault);
+      assert.equal(f.state.entries, entries, fault);
+      if (fault === "none" || fault === "no_pending") {
+        assert.equal(f.snapshot()?.operations.length, 0);
+        assert.equal(result.completionConfirmed, true);
+      } else assert.ok(f.state.bytes?.equals(before), fault);
+    },
+  );
+}
 
 /**
  * 保持保存の拒否・不明・解放不明・例外を別に確認する。
@@ -2306,26 +2372,30 @@ test("修復保持接続: fresh出版確認だけを追加保存なしで返す"
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 物理故障の完全性はHost検証に残す。
  */
-test("修復保持接続: 保存未確認を保持完了にしない", async (t) => {
-  for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    await f.run();
-    const target = f.snapshot()?.operations[0];
-    assert.ok(target?.kind === "runtime_repair");
-    const before = Buffer.from(f.state.bytes ?? []);
-    const writes = f.state.calls,
-      entries = f.state.entries;
-    f.state.fault = "retention";
-    f.state.faultKind = kind;
-    const result = await f.run(target.recoveryId, "retain");
-    assert.equal(result.status, "blocked", kind);
-    assert.equal(result.retentionConfirmed, false);
-    assert.equal(f.state.calls, writes + 1, kind);
-    assert.equal(f.state.entries, entries, kind);
-    assert.ok(f.state.bytes?.equals(before), kind);
-  }
-});
+for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
+  test(
+    "修復保持接続: 保存未確認を保持完了にしない — 準備共有 " +
+      ["kind=" + String(kind)].join(" "),
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      f.state.mode = "retained";
+      await f.run();
+      const target = f.snapshot()?.operations[0];
+      assert.ok(target?.kind === "runtime_repair");
+      const before = Buffer.from(f.state.bytes ?? []);
+      const writes = f.state.calls,
+        entries = f.state.entries;
+      f.state.fault = "retention";
+      f.state.faultKind = kind;
+      const result = await f.run(target.recoveryId, "retain");
+      assert.equal(result.status, "blocked", kind);
+      assert.equal(result.retentionConfirmed, false);
+      assert.equal(f.state.calls, writes + 1, kind);
+      assert.equal(f.state.entries, entries, kind);
+      assert.ok(f.state.bytes?.equals(before), kind);
+    },
+  );
+}
 
 /**
  * 完了と取消・Native故障・回収失敗を相関判定する。
@@ -2338,108 +2408,113 @@ test("修復保持接続: 保存未確認を保持完了にしない", async (t)
  * @cleanup 同Session join一回、返却後通知の保存0。
  * @boundary 模擬技術境界であり実Docker成功は主張しない。
  */
-test("修復結果: 技術完了・first-wins・二版保存を混同しない", async (t) => {
-  for (const mode of [
-    "ready",
-    "incomplete",
-    "retained",
-    "cancel",
-    "effect_unknown",
-  ] as const) {
-    for (const close of mode === "ready"
-      ? (["clean", "cancel", "unknown", "cancel_unknown"] as const)
-      : mode === "effect_unknown"
-        ? (["clean", "unknown"] as const)
-        : (["clean"] as const)) {
-      const f = fixture(t);
-      f.state.mode = mode;
-      f.state.close = close;
-      const result = await f.run();
-      assert.equal(
-        result.status,
-        mode === "retained" ? "blocked" : "observed",
-        JSON.stringify({
-          mode,
-          close,
-          result,
-          calls: f.state.calls,
-          observed: f.state.observed,
-          snapshot: f.snapshot(),
-        }),
-      );
-      assert.equal(result.finalCheckpointConfirmed, true);
-      assert.equal(f.state.joined, 1);
-      const target =
-        f.snapshot()?.operations[0] ??
-        {
-          snapshot: JSON.parse(
-            Buffer.from(
-              f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
-            ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
-        }?.snapshot.operations[0];
-      assert.equal(target?.kind, "runtime_repair");
-      if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
-      assertRepairResultFields(result, target, mode, close);
-      if (result.completionConfirmed)
-        assert.equal(f.snapshot()?.operations.length, 0);
-      const expected =
-        mode === "incomplete"
-          ? null
-          : mode === "retained" ||
-              (mode === "ready" && ["clean", "cancel"].includes(close))
-            ? "recovered"
-            : mode === "cancel"
-              ? "cancelled"
-              : "blocked";
-      assert.equal(
-        target.outcome?.status ?? null,
-        expected,
-        `${mode}:${close}`,
-      );
-      assert.equal(result.outcomeConfirmed, expected !== null);
-      assert.equal(
-        target.phase,
-        expected === null
-          ? "repairing"
-          : mode === "retained"
-            ? "awaiting_disposition"
-            : "settling",
-      );
-      if (mode === "retained")
-        assert.equal(target.disposition, "pending_human_decision");
-      assert.equal(
-        target.primaryFailure?.reason ?? null,
-        mode === "effect_unknown" ? "runtime_repair_effect_unknown" : null,
-      );
-      if (expected !== null) {
-        const previous = {
-          snapshot: JSON.parse(
-            Buffer.from(
-              f.saved.at(-2) ?? assert.fail("missing_fixture_bytes"),
-            ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
-        }?.snapshot.operations[0];
-        assert.equal(previous?.kind, "runtime_repair");
-        if (previous?.kind !== "runtime_repair")
-          throw new Error("wrong_previous");
-        assert.equal(previous.outcome, null);
-        assert.deepEqual(previous.checkpoint, target.checkpoint);
-        assert.deepEqual(previous.primaryFailure, target.primaryFailure);
-      }
-      const beforeCalls = f.state.calls;
-      const callback = f.late();
-      if (callback && target.checkpoint) {
-        const checkpoint = target.checkpoint;
-        assert.throws(
-          () => callback(checkpoint),
-          /docker_repair_record_unconfirmed/u,
+for (const mode of [
+  "ready",
+  "incomplete",
+  "retained",
+  "cancel",
+  "effect_unknown",
+] as const) {
+  for (const close of mode === "ready"
+    ? (["clean", "cancel", "unknown", "cancel_unknown"] as const)
+    : mode === "effect_unknown"
+      ? (["clean", "unknown"] as const)
+      : (["clean"] as const)) {
+    test(
+      "修復結果: 技術完了・first-wins・二版保存を混同しない — 準備共有 " +
+        ["mode=" + String(mode), "close=" + String(close)].join(" "),
+      async (t) => {
+        const f = fixture(t, undefined, sharedRepairBase());
+        f.state.mode = mode;
+        f.state.close = close;
+        const result = await f.run();
+        assert.equal(
+          result.status,
+          mode === "retained" ? "blocked" : "observed",
+          JSON.stringify({
+            mode,
+            close,
+            result,
+            calls: f.state.calls,
+            observed: f.state.observed,
+            snapshot: f.snapshot(),
+          }),
         );
-      }
-      assert.equal(f.state.calls, beforeCalls);
-    }
+        assert.equal(result.finalCheckpointConfirmed, true);
+        assert.equal(f.state.joined, 1);
+        const target =
+          f.snapshot()?.operations[0] ??
+          {
+            snapshot: JSON.parse(
+              Buffer.from(
+                f.state.completionBefore ??
+                  assert.fail("missing_fixture_bytes"),
+              ).toString("utf8"),
+            ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          }?.snapshot.operations[0];
+        assert.equal(target?.kind, "runtime_repair");
+        if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
+        assertRepairResultFields(result, target, mode, close);
+        if (result.completionConfirmed)
+          assert.equal(f.snapshot()?.operations.length, 0);
+        const expected =
+          mode === "incomplete"
+            ? null
+            : mode === "retained" ||
+                (mode === "ready" && ["clean", "cancel"].includes(close))
+              ? "recovered"
+              : mode === "cancel"
+                ? "cancelled"
+                : "blocked";
+        assert.equal(
+          target.outcome?.status ?? null,
+          expected,
+          `${mode}:${close}`,
+        );
+        assert.equal(result.outcomeConfirmed, expected !== null);
+        assert.equal(
+          target.phase,
+          expected === null
+            ? "repairing"
+            : mode === "retained"
+              ? "awaiting_disposition"
+              : "settling",
+        );
+        if (mode === "retained")
+          assert.equal(target.disposition, "pending_human_decision");
+        assert.equal(
+          target.primaryFailure?.reason ?? null,
+          mode === "effect_unknown" ? "runtime_repair_effect_unknown" : null,
+        );
+        if (expected !== null) {
+          const previous = {
+            snapshot: JSON.parse(
+              Buffer.from(
+                f.saved.at(-2) ?? assert.fail("missing_fixture_bytes"),
+              ).toString("utf8"),
+            ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          }?.snapshot.operations[0];
+          assert.equal(previous?.kind, "runtime_repair");
+          if (previous?.kind !== "runtime_repair")
+            throw new Error("wrong_previous");
+          assert.equal(previous.outcome, null);
+          assert.deepEqual(previous.checkpoint, target.checkpoint);
+          assert.deepEqual(previous.primaryFailure, target.primaryFailure);
+        }
+        const beforeCalls = f.state.calls;
+        const callback = f.late();
+        if (callback && target.checkpoint) {
+          const checkpoint = target.checkpoint;
+          assert.throws(
+            () => callback(checkpoint),
+            /docker_repair_record_unconfirmed/u,
+          );
+        }
+        assert.equal(f.state.calls, beforeCalls);
+      },
+    );
   }
-});
+}
 
 /**
  * 結果を決める共同fieldを独立した期待値へ照合する。
@@ -2623,45 +2698,44 @@ test("修復結果: 現在Owner失効後は既発行事実を推測保存しな�
  * @cleanup メモリだけ、Source変更0。
  * @boundary 保存結果のConsumer側契約。
  */
-test("修復結果: 最終二保存の片側不成立を成功へ補完しない", async (t) => {
-  for (const stage of ["cleanup", "outcome"] as const) {
-    for (const kind of [
-      "reject",
-      "confirmation",
-      "release",
-      "throw",
-    ] as const) {
-      const f = fixture(t);
-      f.state.fault = stage;
-      f.state.faultKind = kind;
-      const result = await f.run();
-      assert.equal(f.state.faultHits, 1);
-      assert.equal(f.state.calls, f.state.faultsAt);
-      assert.equal(result.status, "blocked");
-      assert.equal(result.outcomeConfirmed, false);
-      assert.equal(result.finalCheckpointConfirmed, stage === "outcome");
-      assert.equal(result.operationCleanupConfirmed, true);
-      const target = f.snapshot()?.operations[0];
-      assert.equal(target?.kind, "runtime_repair");
-      if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
-      assert.equal(target.outcome, null);
-      assert.equal(
-        target.checkpoint?.cleanup,
-        stage === "outcome" ? "confirmed" : "pending",
-      );
-      const beforeCalls = f.state.calls;
-      const callback = f.late();
-      if (callback && target.checkpoint) {
-        const checkpoint = target.checkpoint;
-        assert.throws(
-          () => callback(checkpoint),
-          /docker_repair_record_unconfirmed/u,
+for (const stage of ["cleanup", "outcome"] as const) {
+  for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
+    test(
+      "修復結果: 最終二保存の片側不成立を成功へ補完しない — 準備共有 " +
+        ["stage=" + String(stage), "kind=" + String(kind)].join(" "),
+      async (t) => {
+        const f = fixture(t, undefined, sharedRepairBase());
+        f.state.fault = stage;
+        f.state.faultKind = kind;
+        const result = await f.run();
+        assert.equal(f.state.faultHits, 1);
+        assert.equal(f.state.calls, f.state.faultsAt);
+        assert.equal(result.status, "blocked");
+        assert.equal(result.outcomeConfirmed, false);
+        assert.equal(result.finalCheckpointConfirmed, stage === "outcome");
+        assert.equal(result.operationCleanupConfirmed, true);
+        const target = f.snapshot()?.operations[0];
+        assert.equal(target?.kind, "runtime_repair");
+        if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
+        assert.equal(target.outcome, null);
+        assert.equal(
+          target.checkpoint?.cleanup,
+          stage === "outcome" ? "confirmed" : "pending",
         );
-      }
-      assert.equal(f.state.calls, beforeCalls);
-    }
+        const beforeCalls = f.state.calls;
+        const callback = f.late();
+        if (callback && target.checkpoint) {
+          const checkpoint = target.checkpoint;
+          assert.throws(
+            () => callback(checkpoint),
+            /docker_repair_record_unconfirmed/u,
+          );
+        }
+        assert.equal(f.state.calls, beforeCalls);
+      },
+    );
   }
-});
+}
 
 /**
  * 一次失敗保存後・outcome保存前の正規切断点を作る。
@@ -2679,7 +2753,7 @@ async function interruptedRepairOutcome(
   close: "clean" | "unknown" = "clean",
   transform?: (source: string) => string,
 ) {
-  const f = fixture(t, transform);
+  const f = fixture(t, transform, sharedRepairBase());
   f.state.mode = "effect_unknown";
   f.state.close = close;
   f.state.fault = "outcome";
@@ -2705,92 +2779,96 @@ async function interruptedRepairOutcome(
  * @cleanup 終端再入場も新要求0。
  * @boundary 保存済み事実だけを使う限定記録確定。
  */
-test("修復記録: 一次失敗が耐久済みなら技術処置なしにblockedへ確定する", async (t) => {
-  for (const close of ["clean", "unknown"] as const) {
-    const { f, id } = await interruptedRepairOutcome(t, close);
-    f.controller.abort();
-    const before = f.snapshot();
-    const decoded = (() => {
-      const observed = model.readState(f.root, { scope: "recovery" });
-      assert.equal(observed.status, "completed");
-      assert.ok(observed.value);
-      assert.equal(
-        observed.value.sourceText,
-        Buffer.from(
-          f.state.bytes ?? assert.fail("missing_fixture_bytes"),
-        ).toString("utf8"),
+for (const close of ["clean", "unknown"] as const) {
+  test(
+    "修復記録: 一次失敗が耐久済みなら技術処置なしにblockedへ確定する — 準備共有 " +
+      ["close=" + String(close)].join(" "),
+    async (t) => {
+      const { f, id } = await interruptedRepairOutcome(t, close);
+      f.controller.abort();
+      const before = f.snapshot();
+      const decoded = (() => {
+        const observed = model.readState(f.root, { scope: "recovery" });
+        assert.equal(observed.status, "completed");
+        assert.ok(observed.value);
+        assert.equal(
+          observed.value.sourceText,
+          Buffer.from(
+            f.state.bytes ?? assert.fail("missing_fixture_bytes"),
+          ).toString("utf8"),
+        );
+        return observed.value;
+      })();
+      assert.ok(before && decoded);
+      const old = before.operations[0];
+      assert.equal(old?.kind, "runtime_repair");
+      const counts = {
+        entries: f.state.entries,
+        acquired: f.state.acquired,
+        effects: f.state.effects,
+        writes: f.state.calls,
+      };
+      const result = await f.run(id);
+      assert.equal(result.status, "observed");
+      assert.equal(result.reason, "runtime_repair_effect_unknown");
+      assert.equal(result.finalCheckpointConfirmed, true);
+      assert.equal(result.outcomeConfirmed, true);
+      assert.equal(result.operationCleanupConfirmed, close === "clean");
+      assert.equal(f.state.entries, counts.entries);
+      assert.equal(f.state.acquired, counts.acquired);
+      assert.equal(f.state.effects, counts.effects);
+      assert.equal(f.state.calls, counts.writes + 1);
+      const after = f.snapshot();
+      assert.ok(after);
+      const target = after.operations[0];
+      assert.equal(target?.kind, "runtime_repair");
+      if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
+      assert.equal(target.phase, "settling");
+      assert.deepEqual(target.outcome, {
+        status: "blocked",
+        reason: "runtime_repair_effect_unknown",
+        cleanupConfirmed: close === "clean",
+      });
+      assert.deepEqual(
+        {
+          ...target,
+          phase: "repairing",
+          outcome: null,
+          summarySha256: null,
+          history: null,
+        },
+        old,
       );
-      return observed.value;
-    })();
-    assert.ok(before && decoded);
-    const old = before.operations[0];
-    assert.equal(old?.kind, "runtime_repair");
-    const counts = {
-      entries: f.state.entries,
-      acquired: f.state.acquired,
-      effects: f.state.effects,
-      writes: f.state.calls,
-    };
-    const result = await f.run(id);
-    assert.equal(result.status, "observed");
-    assert.equal(result.reason, "runtime_repair_effect_unknown");
-    assert.equal(result.finalCheckpointConfirmed, true);
-    assert.equal(result.outcomeConfirmed, true);
-    assert.equal(result.operationCleanupConfirmed, close === "clean");
-    assert.equal(f.state.entries, counts.entries);
-    assert.equal(f.state.acquired, counts.acquired);
-    assert.equal(f.state.effects, counts.effects);
-    assert.equal(f.state.calls, counts.writes + 1);
-    const after = f.snapshot();
-    assert.ok(after);
-    const target = after.operations[0];
-    assert.equal(target?.kind, "runtime_repair");
-    if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
-    assert.equal(target.phase, "settling");
-    assert.deepEqual(target.outcome, {
-      status: "blocked",
-      reason: "runtime_repair_effect_unknown",
-      cleanupConfirmed: close === "clean",
-    });
-    assert.deepEqual(
-      {
-        ...target,
-        phase: "repairing",
-        outcome: null,
-        summarySha256: null,
-        history: null,
-      },
-      old,
-    );
-    assert.equal(result.historyConfirmed, true);
-    assert.equal(result.completionConfirmed, false);
-    assert.equal(after.revision, before.revision + 3);
-    const outcomeBytes = f.saved.at(-1);
-    assert.ok(outcomeBytes);
-    const priorHistoryBytes = f.historySaved.at(-2);
-    assert.ok(priorHistoryBytes);
-    assert.deepEqual(after.previous, {
-      revision: JSON.parse(priorHistoryBytes.toString()).revision,
-      payloadSha256: createHash("sha256")
-        .update(priorHistoryBytes)
-        .digest("hex"),
-    });
-    assert.deepEqual(after.unresolvedRecoveries, before.unresolvedRecoveries);
-    assert.ok(after);
-    assert.equal(Object.hasOwn(after, "pendingDeliveries"), false);
-    assert.ok(before);
-    assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
-    const terminalBytes = Buffer.from(f.state.bytes as Buffer);
-    const refused = await f.run(id);
-    assert.equal(refused.status, "observed");
-    assert.equal(refused.reason, "runtime_repair_effect_unknown");
-    assert.equal(refused.historyConfirmed, true);
-    assert.equal(refused.completionConfirmed, false);
-    assert.equal(f.state.entries, counts.entries);
-    assert.equal(f.state.calls, counts.writes + 1);
-    assert.ok(f.state.bytes?.equals(terminalBytes));
-  }
-});
+      assert.equal(result.historyConfirmed, true);
+      assert.equal(result.completionConfirmed, false);
+      assert.equal(after.revision, before.revision + 3);
+      const outcomeBytes = f.saved.at(-1);
+      assert.ok(outcomeBytes);
+      const priorHistoryBytes = f.historySaved.at(-2);
+      assert.ok(priorHistoryBytes);
+      assert.deepEqual(after.previous, {
+        revision: JSON.parse(priorHistoryBytes.toString()).revision,
+        payloadSha256: createHash("sha256")
+          .update(priorHistoryBytes)
+          .digest("hex"),
+      });
+      assert.deepEqual(after.unresolvedRecoveries, before.unresolvedRecoveries);
+      assert.ok(after);
+      assert.equal(Object.hasOwn(after, "pendingDeliveries"), false);
+      assert.ok(before);
+      assert.equal(Object.hasOwn(before, "pendingDeliveries"), false);
+      const terminalBytes = Buffer.from(f.state.bytes as Buffer);
+      const refused = await f.run(id);
+      assert.equal(refused.status, "observed");
+      assert.equal(refused.reason, "runtime_repair_effect_unknown");
+      assert.equal(refused.historyConfirmed, true);
+      assert.equal(refused.completionConfirmed, false);
+      assert.equal(f.state.entries, counts.entries);
+      assert.equal(f.state.calls, counts.writes + 1);
+      assert.ok(f.state.bytes?.equals(terminalBytes));
+    },
+  );
+}
 
 /**
  * 取消による記録確定の遮断を負対照で検出する。
@@ -2828,89 +2906,93 @@ test("修復記録: 取消guardの早過ぎる適用を検出する", async (t) 
  * @cleanup メモリだけ、実Git失効は主張しない。
  * @boundary 値適合と記録確定条件を区別する。
  */
-test("修復記録: 対象外の失敗や未回収状態を確定しない", async (t) => {
-  for (const mode of [
-    "primary_null",
-    "primary_other",
-    "checkpoint_null",
-    "pending",
-    "not_requested",
-    "wrong_id",
-    "reader",
-    "owner",
-  ] as const) {
-    const { f, id } = await interruptedRepairOutcome(t);
-    const snapshot = f.snapshot();
-    assert.ok(snapshot);
-    const prior = snapshot.operations[0];
-    if (prior?.kind !== "runtime_repair") throw new Error("wrong_target");
-    const changed =
-      mode === "primary_null"
-        ? { ...prior, primaryFailure: null }
-        : mode === "primary_other"
-          ? {
-              ...prior,
-              primaryFailure: {
-                stage: "checkpoint",
-                reason: "runtime_repair_state_unavailable",
-              },
-            }
-          : mode === "checkpoint_null"
-            ? { ...prior, checkpoint: null }
-            : mode === "pending" || mode === "not_requested"
-              ? {
-                  ...prior,
-                  checkpoint: {
-                    ...prior.checkpoint,
-                    cleanup: mode,
-                    cleanupFailure: null,
-                  },
-                }
-              : prior;
-    f.state.bytes = Buffer.from(
-      `${canonicalJson({ ...snapshot, operations: [changed] })}\n`,
-    );
-    assert.ok(
-      (() => {
-        const observed = model.readState(f.root, { scope: "recovery" });
-        assert.equal(observed.status, "completed");
-        assert.ok(observed.value);
-        assert.equal(
-          observed.value.sourceText,
-          Buffer.from(
-            f.state.bytes ?? assert.fail("missing_fixture_bytes"),
-          ).toString("utf8"),
-        );
-        return observed.value;
-      })(),
-      mode,
-    );
-    if (mode === "reader") f.state.readerReleased = false;
-    if (mode === "owner") f.state.alive = false;
-    const before = Buffer.from(f.state.bytes);
-    const writes = f.state.calls,
-      entries = f.state.entries,
-      acquired = f.state.acquired;
-    const result = await f.run(mode === "wrong_id" ? `${id}0` : id);
-    assert.equal(result.status, "blocked", mode);
-    assert.equal(f.state.calls, writes, mode);
-    assert.equal(
-      f.state.entries,
-      entries + (mode === "primary_null" ? 1 : 0),
-      mode,
-    );
-    assert.equal(f.state.acquired, acquired, mode);
-    assert.ok(f.state.bytes.equals(before), mode);
-    const afterEntries = f.state.entries;
-    f.controller.abort();
-    const cancelled = await f.run(mode === "wrong_id" ? `${id}0` : id);
-    assert.equal(cancelled.status, "blocked", mode);
-    assert.equal(f.state.entries, afterEntries, mode);
-    assert.equal(f.state.acquired, acquired, mode);
-    assert.equal(f.state.calls, writes, mode);
-    assert.ok(f.state.bytes.equals(before), mode);
-  }
-});
+for (const mode of [
+  "primary_null",
+  "primary_other",
+  "checkpoint_null",
+  "pending",
+  "not_requested",
+  "wrong_id",
+  "reader",
+  "owner",
+] as const) {
+  test(
+    "修復記録: 対象外の失敗や未回収状態を確定しない — 準備共有 " +
+      ["mode=" + String(mode)].join(" "),
+    async (t) => {
+      const { f, id } = await interruptedRepairOutcome(t);
+      const snapshot = f.snapshot();
+      assert.ok(snapshot);
+      const prior = snapshot.operations[0];
+      if (prior?.kind !== "runtime_repair") throw new Error("wrong_target");
+      const changed =
+        mode === "primary_null"
+          ? { ...prior, primaryFailure: null }
+          : mode === "primary_other"
+            ? {
+                ...prior,
+                primaryFailure: {
+                  stage: "checkpoint",
+                  reason: "runtime_repair_state_unavailable",
+                },
+              }
+            : mode === "checkpoint_null"
+              ? { ...prior, checkpoint: null }
+              : mode === "pending" || mode === "not_requested"
+                ? {
+                    ...prior,
+                    checkpoint: {
+                      ...prior.checkpoint,
+                      cleanup: mode,
+                      cleanupFailure: null,
+                    },
+                  }
+                : prior;
+      f.state.bytes = Buffer.from(
+        `${canonicalJson({ ...snapshot, operations: [changed] })}\n`,
+      );
+      assert.ok(
+        (() => {
+          const observed = model.readState(f.root, { scope: "recovery" });
+          assert.equal(observed.status, "completed");
+          assert.ok(observed.value);
+          assert.equal(
+            observed.value.sourceText,
+            Buffer.from(
+              f.state.bytes ?? assert.fail("missing_fixture_bytes"),
+            ).toString("utf8"),
+          );
+          return observed.value;
+        })(),
+        mode,
+      );
+      if (mode === "reader") f.state.readerReleased = false;
+      if (mode === "owner") f.state.alive = false;
+      const before = Buffer.from(f.state.bytes);
+      const writes = f.state.calls,
+        entries = f.state.entries,
+        acquired = f.state.acquired;
+      const result = await f.run(mode === "wrong_id" ? `${id}0` : id);
+      assert.equal(result.status, "blocked", mode);
+      assert.equal(f.state.calls, writes, mode);
+      assert.equal(
+        f.state.entries,
+        entries + (mode === "primary_null" ? 1 : 0),
+        mode,
+      );
+      assert.equal(f.state.acquired, acquired, mode);
+      assert.ok(f.state.bytes.equals(before), mode);
+      const afterEntries = f.state.entries;
+      f.controller.abort();
+      const cancelled = await f.run(mode === "wrong_id" ? `${id}0` : id);
+      assert.equal(cancelled.status, "blocked", mode);
+      assert.equal(f.state.entries, afterEntries, mode);
+      assert.equal(f.state.acquired, acquired, mode);
+      assert.equal(f.state.calls, writes, mode);
+      assert.ok(f.state.bytes.equals(before), mode);
+    },
+  );
+}
 
 /**
  * 記録確定の保存不明でも再試行・復元をしない。
@@ -2923,27 +3005,31 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
  * @cleanup 本番Source不変更。
  * @boundary 記録だけの確定と保存結果。
  */
-test("修復記録: 保存不成立では元失敗を保持して停止する", async (t) => {
-  for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
-    const { f, id } = await interruptedRepairOutcome(t);
-    f.state.fault = "outcome";
-    f.state.faultKind = kind;
-    const before = Buffer.from(f.state.bytes as Buffer);
-    const writes = f.state.calls,
-      entries = f.state.entries,
-      acquired = f.state.acquired;
-    const result = await f.run(id);
-    assert.equal(f.state.faultHits, 1);
-    assert.equal(f.state.calls, writes + 1);
-    assert.equal(f.state.entries, entries);
-    assert.equal(f.state.acquired, acquired);
-    assert.equal(result.status, "blocked");
-    assert.equal(result.outcomeConfirmed, false);
-    assert.equal(result.finalCheckpointConfirmed, true);
-    assert.equal(result.recoveryId, id);
-    assert.ok(f.state.bytes?.equals(before));
-  }
-});
+for (const kind of ["reject", "confirmation", "release", "throw"] as const) {
+  test(
+    "修復記録: 保存不成立では元失敗を保持して停止する — 準備共有 " +
+      ["kind=" + String(kind)].join(" "),
+    async (t) => {
+      const { f, id } = await interruptedRepairOutcome(t);
+      f.state.fault = "outcome";
+      f.state.faultKind = kind;
+      const before = Buffer.from(f.state.bytes as Buffer);
+      const writes = f.state.calls,
+        entries = f.state.entries,
+        acquired = f.state.acquired;
+      const result = await f.run(id);
+      assert.equal(f.state.faultHits, 1);
+      assert.equal(f.state.calls, writes + 1);
+      assert.equal(f.state.entries, entries);
+      assert.equal(f.state.acquired, acquired);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.outcomeConfirmed, false);
+      assert.equal(result.finalCheckpointConfirmed, true);
+      assert.equal(result.recoveryId, id);
+      assert.ok(f.state.bytes?.equals(before));
+    },
+  );
+}
 
 /**
  * 履歴付きReaderの共同条件を技術処置より先に要求する。
@@ -2956,41 +3042,45 @@ test("修復記録: 保存不成立では元失敗を保持して停止する", 
  * @cleanup 実保存物のFilesystem意味は保存再入場試験へ分離する。
  * @boundary 修復Ownerと既存履歴付きReaderの接続。
  */
-test("修復再入場: 履歴付きReader確認前は技術処置へ進まない", async (t) => {
-  for (const kind of [
-    "status",
-    "storage",
-    "absence",
-    "release",
-    "throw",
-    "owner",
-  ] as const) {
-    const { f, id } = await interruptedRepairOutcome(t);
-    f.controller.abort();
-    f.state.intakeReadFault = kind;
-    const before = Buffer.from(f.state.bytes as Buffer);
-    const counts = {
-      intakeReads: f.state.intakeReads,
-      readers: f.state.readers,
-      entries: f.state.entries,
-      calls: f.state.calls,
-    };
-    const rejected = await f.run(id);
-    assert.equal(rejected.status, "blocked", kind);
-    assert.equal(f.state.intakeReads, counts.intakeReads + 1, kind);
-    assert.equal(f.state.readers, counts.readers + 1, kind);
-    assert.equal(f.state.entries, counts.entries, kind);
-    assert.equal(f.state.calls, counts.calls, kind);
-    assert.ok(f.state.bytes?.equals(before), kind);
-    f.state.intakeReadFault = "none";
-    f.state.alive = true;
-    const resumed = await f.run(id);
-    assert.equal(resumed.outcomeConfirmed, true, kind);
-    assert.equal(f.state.readers, counts.readers + 2, kind);
-    assert.equal(f.state.entries, counts.entries, kind);
-    assert.equal(Object.hasOwn(resumed, "stateMarkerCleanup"), false);
-  }
-});
+for (const kind of [
+  "status",
+  "storage",
+  "absence",
+  "release",
+  "throw",
+  "owner",
+] as const) {
+  test(
+    "修復再入場: 履歴付きReader確認前は技術処置へ進まない — 準備共有 " +
+      ["kind=" + String(kind)].join(" "),
+    async (t) => {
+      const { f, id } = await interruptedRepairOutcome(t);
+      f.controller.abort();
+      f.state.intakeReadFault = kind;
+      const before = Buffer.from(f.state.bytes as Buffer);
+      const counts = {
+        intakeReads: f.state.intakeReads,
+        readers: f.state.readers,
+        entries: f.state.entries,
+        calls: f.state.calls,
+      };
+      const rejected = await f.run(id);
+      assert.equal(rejected.status, "blocked", kind);
+      assert.equal(f.state.intakeReads, counts.intakeReads + 1, kind);
+      assert.equal(f.state.readers, counts.readers + 1, kind);
+      assert.equal(f.state.entries, counts.entries, kind);
+      assert.equal(f.state.calls, counts.calls, kind);
+      assert.ok(f.state.bytes?.equals(before), kind);
+      f.state.intakeReadFault = "none";
+      f.state.alive = true;
+      const resumed = await f.run(id);
+      assert.equal(resumed.outcomeConfirmed, true, kind);
+      assert.equal(f.state.readers, counts.readers + 2, kind);
+      assert.equal(f.state.entries, counts.entries, kind);
+      assert.equal(Object.hasOwn(resumed, "stateMarkerCleanup"), false);
+    },
+  );
+}
 
 /**
  * 出版の部分成立を通常Readerや技術再開へ搬送しない。
@@ -3003,34 +3093,38 @@ test("修復再入場: 履歴付きReader確認前は技術処置へ進まない
  * @cleanup 実出版の意味は実Host試験へ分離する。
  * @boundary 出版結果と修復Ownerの接続。
  */
-test("修復出版: 部分成立の後は新処置へ進まない", async (t) => {
-  for (const kind of [
-    "status",
-    "snapshot",
-    "release",
-    "throw",
-    "owner",
-  ] as const) {
-    const { f, id } = await interruptedRepairOutcome(t);
-    f.controller.abort();
-    f.state.publicationFault = kind;
-    const bytes = Buffer.from(f.state.bytes as Buffer);
-    const counts = {
-      publications: f.state.publications,
-      intakeReads: f.state.intakeReads,
-      readers: f.state.readers,
-      entries: f.state.entries,
-      calls: f.state.calls,
-    };
-    const result = await f.run(id);
-    assert.equal(result.status, "blocked");
-    assert.equal(f.state.publications, counts.publications + 1);
-    assert.equal(f.state.intakeReads, counts.intakeReads);
-    assert.equal(f.state.readers, counts.readers);
-    assert.equal(f.state.entries, counts.entries);
-    assert.equal(f.state.calls, counts.calls);
-    assert.ok(f.state.bytes?.equals(bytes));
-    if (kind !== "throw")
-      assert.equal(result.statePublication?.filesystemEffectIssued, true);
-  }
-});
+for (const kind of [
+  "status",
+  "snapshot",
+  "release",
+  "throw",
+  "owner",
+] as const) {
+  test(
+    "修復出版: 部分成立の後は新処置へ進まない — 準備共有 " +
+      ["kind=" + String(kind)].join(" "),
+    async (t) => {
+      const { f, id } = await interruptedRepairOutcome(t);
+      f.controller.abort();
+      f.state.publicationFault = kind;
+      const bytes = Buffer.from(f.state.bytes as Buffer);
+      const counts = {
+        publications: f.state.publications,
+        intakeReads: f.state.intakeReads,
+        readers: f.state.readers,
+        entries: f.state.entries,
+        calls: f.state.calls,
+      };
+      const result = await f.run(id);
+      assert.equal(result.status, "blocked");
+      assert.equal(f.state.publications, counts.publications + 1);
+      assert.equal(f.state.intakeReads, counts.intakeReads);
+      assert.equal(f.state.readers, counts.readers);
+      assert.equal(f.state.entries, counts.entries);
+      assert.equal(f.state.calls, counts.calls);
+      assert.ok(f.state.bytes?.equals(bytes));
+      if (kind !== "throw")
+        assert.equal(result.statePublication?.filesystemEffectIssued, true);
+    },
+  );
+}

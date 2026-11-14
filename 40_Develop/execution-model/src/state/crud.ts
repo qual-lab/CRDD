@@ -3,9 +3,7 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-
 import { createHash, randomUUID } from "node:crypto";
-import path from "node:path";
 import { types } from "node:util";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
@@ -23,7 +21,7 @@ import {
 import {
   hashExecutionEntityDefinition,
   prepareExecutionDefinitionChange,
-} from "../objective/validation.ts";
+} from "../objective/operations.ts";
 import type {
   HistoryRepositoryInput,
   SnapshotOwner,
@@ -70,8 +68,8 @@ import type { ProjectTaskResultFact } from "../task/types.ts";
 import {
   prepareUnifiedTaskSections,
   projectTaskSnapshot,
-  validState,
-} from "../task/validation.ts";
+} from "../task/operations.ts";
+import { validState } from "../task/validation.ts";
 import type {
   ExecutionContentViews,
   ExecutionDefinitionValues,
@@ -93,7 +91,6 @@ import {
   hashExecutionProjectDefinition,
   leaseAcquisitionRecoveryId,
   leaseIdentity,
-  PROJECT_SNAPSHOT_SCHEMA,
   prepareAuthenticationUnknownClosureSnapshot,
   prepareLeaseAcquisitionConfirmation,
   prepareLeaseAcquisitionReservation,
@@ -108,15 +105,18 @@ import {
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
   snapshotIntakeMatches,
-  snapshotStateArray,
-  validId,
   validSnapshot,
 } from "./validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "./types.ts";
 import {
+  snapshotStateArray,
+  validId,
   encodeStateValue,
   isSha256Hex,
   snapshotStateRecord,
 } from "./operations.ts";
+
+import path from "node:path";
 
 /**
  * Coordinatorの現在状態・Queue・Leaseを単一Snapshotへ保存する。

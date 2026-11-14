@@ -16,8 +16,8 @@ import type {
   WorkspaceRecord,
 } from "../../../src/index.ts";
 import type { Snapshot } from "../../../src/state/types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import {
-  PROJECT_SNAPSHOT_SCHEMA,
   projectCurrentState,
   snapshotIntakeMatches,
 } from "../../../src/state/validation.ts";
@@ -25,7 +25,7 @@ import { encodeStateValue } from "../../../src/state/operations.ts";
 import {
   prepareQueueEntryCreation,
   projectQueueEntry,
-} from "../../../src/task/validation.ts";
+} from "../../../src/task/operations.ts";
 
 /**
  * 四操作の局所前提値を用意する。

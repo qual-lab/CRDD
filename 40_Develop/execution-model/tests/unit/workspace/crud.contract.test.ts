@@ -15,10 +15,8 @@ import type {
   WorkspaceRecord,
 } from "../../../src/index.ts";
 import type { Snapshot } from "../../../src/state/types.ts";
-import {
-  PROJECT_SNAPSHOT_SCHEMA,
-  projectCurrentState,
-} from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
+import { projectCurrentState } from "../../../src/state/validation.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 import {
   prepareIntegrationRecordCreation,

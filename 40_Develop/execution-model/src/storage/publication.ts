@@ -3,10 +3,7 @@
  * @responsibility 短命証拠の生成・一回消費・失効と物理保存を同じOwnerへ結合する。
  * @trace ARCH-000008
  */
-
 import { createHash } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { types } from "node:util";
 import { getRepository } from "../../../version-control/src/index.ts";
 import type {
@@ -15,7 +12,7 @@ import type {
 } from "../attempt/types.ts";
 import { areTaskResourcesSettled } from "../attempt/validation.ts";
 import { decodeHistoryRows } from "../history/validation.ts";
-import { prepareExecutionDefinitionChange } from "../objective/validation.ts";
+import { prepareExecutionDefinitionChange } from "../objective/operations.ts";
 import type { readRecoveryState } from "../state/crud.ts";
 import type { ExecutionStateSnapshot } from "../state/types.ts";
 import {
@@ -41,7 +38,7 @@ import { encodeStateValue } from "../state/operations.ts";
 import {
   prepareUnifiedTaskSections,
   projectTaskSnapshot,
-} from "../task/validation.ts";
+} from "../task/operations.ts";
 import type {
   ExecutionTerminalStorageObservation,
   StorageOwner,
@@ -70,6 +67,9 @@ import {
   readStateSnapshot,
   sameStableFileIdentity,
 } from "./store.ts";
+
+import fs from "node:fs";
+import path from "node:path";
 
 const settlements = new WeakMap<
   object,

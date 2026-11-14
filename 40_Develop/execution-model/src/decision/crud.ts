@@ -3,11 +3,9 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-
 import type { Repository } from "../../../version-control/src/index.ts";
 import { withSnapshotOperation, writeSnapshotOwned } from "../state/crud.ts";
-import { validId } from "../state/validation.ts";
-import { encodeStateValue } from "../state/operations.ts";
+import { validId, encodeStateValue } from "../state/operations.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import {

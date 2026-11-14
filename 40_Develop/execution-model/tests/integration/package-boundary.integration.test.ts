@@ -14,6 +14,46 @@ import test from "node:test";
 import { dockerProcessControllerPublicCompletionReasons } from "../../src/index.ts";
 
 /**
+ * 局所モデルの検査が全State候補・保存層をロードしないことを確認する。
+ * @responsibility 用途候補分離後の逆依存を新品Processで反証する。
+ * @trace RCM-IT-005
+ * @precondition 新品Nodeと合成の非秘密モデルを使う。
+ * @stimulus State検査・CRUD・Storageの解決を禁止し3局所検査へ正常値と不正値を渡す。
+ * @observation 正常定義・選定・履歴の受理、不正値の拒否と子の終了状態。
+ * @oracle 全Stateへ戻らず各検査を実行でき、欠測を補完しない。
+ * @cleanup 子の終了確認。一時Fileなし。
+ * @boundary 値検査と実Module解決のみ。保存・AI・Dockerは対象外。
+ */
+test("計画・選定・履歴の局所検査は全State候補と保存層を解決しない", () => {
+  const entry = (name: string) =>
+    new URL(`../../src/${name}/validation.ts`, import.meta.url).href;
+  const code = `import assert from "node:assert/strict";
+import {registerHooks} from "node:module";
+registerHooks({resolve(s,c,next){const r=next(s,c);if(["/src/state/validation.ts","/src/state/crud.ts","/src/storage/"].some(p=>r.url.includes(p)))throw Error("aggregate_forbidden");return r;}});
+const objective=await import(${JSON.stringify(entry("objective"))});
+const task=await import(${JSON.stringify(entry("task"))});
+const history=await import(${JSON.stringify(entry("history"))});
+const plan={milestoneAcceptanceCriteria:["done"],objectives:[{id:"objective",acceptanceCriteria:["done"]}],tasks:[{id:"task",objectiveId:"objective",dependencies:[],allowedPaths:["src"],conflictKeys:[]}]};
+assert.ok(objective.inspectExecutionPlan(plan,{allowedPaths:["src"]}));
+assert.equal(objective.inspectExecutionPlan(null,{allowedPaths:["src"]}),null);
+assert.equal(task.inspectExecutionSelection(null),null);
+assert.ok(task.inspectExecutionSelection({provider:"codex",modelIdentifier:"model",identifierKind:"exact",reasoningEffort:"high",purpose:"task",role:"executor",source:"explicit",workType:null,catalogIdentity:"a".repeat(64),configIdentity:"b".repeat(64)}));
+const at="2026-11-14T00:00:00.000Z";
+assert.equal(history.historyRow({id:"task",occurredAt:at,outcome:"completed",primaryFailure:null,cleanup:"confirmed"},Date.parse(at)).id,"task");
+assert.equal(history.decodeHistoryRows(Buffer.from("invalid\\n")),null);
+console.log("LOCAL_VALIDATION");`;
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", code],
+    { encoding: "utf8", timeout: 15000, windowsHide: true },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "LOCAL_VALIDATION");
+});
+
+/**
  * 主体の値とDecision入力検査が全体State検査なしで動くことを確認する。
  * @responsibility 値Ownerの移管を名前だけの変更にしない。
  * @trace RCM-IT-005

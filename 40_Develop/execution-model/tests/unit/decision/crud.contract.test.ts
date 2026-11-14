@@ -74,10 +74,8 @@ test("判断モデルの検査は上位要求に依存せず不正値を拒否�
 
 import { decodeHistoryRows } from "../../../src/history/validation.ts";
 
-import {
-  PROJECT_SNAPSHOT_SCHEMA,
-  queueIsClosed,
-} from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
+import { queueIsClosed } from "../../../src/state/validation.ts";
 
 /** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {

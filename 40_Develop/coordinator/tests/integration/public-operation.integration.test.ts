@@ -29,6 +29,7 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
+  RepositoryDataBlockedError,
 } from "../../src/configuration/runtime-data.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import {
@@ -43,6 +44,40 @@ import {
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
+
+/**
+ * Co所在初期化の失敗をEM失敗と区別して同じ完成結果へ投影する。
+ * @responsibility 型の所有者変更でEffect・解放不明を失わせない。
+ * @trace PRL-IT-005
+ * @precondition 合成例外のみを使用する。
+ * @stimulus 既知Effectと元回復参照、Lock解放不明のcauseを渡す。
+ * @observation 公開結果のreason・Effect・回復参照・再試行可否。
+ * @oracle 元情報を保持し、解放不明時は清掃成功・再試行可能へ変換しない。
+ * @cleanup メモリ内のみ。
+ * @boundary 公開結果への局所接続。実保存は行わない。
+ */
+test("Co所在初期化の例外は公開結果でEffectと回復参照を保持する", () => {
+  const error = new RepositoryDataBlockedError({
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectIssued: true,
+    effectStateUnknown: false,
+    effectConfirmation: "unknown",
+    cleanupConfirmed: true,
+    retryAllowed: true,
+    recoveryReference: "repository-local-ignore.fixture",
+    repositoryPathReported: false,
+  });
+  error.cause = "coordinator_snapshot_lock_release_unconfirmed";
+  const result = coordinatorDataBoundaryBlocked(error);
+  assert.equal(result.reason, error.reason);
+  assert.equal(result.effectIssued, true);
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.retryAllowed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.deepEqual(result.recoveryIds, [error.recoveryReference]);
+});
 
 import {
   executionSelection,

@@ -3,13 +3,7 @@
  * @responsibility 保存Schemaを変更せず、完成操作と検査が共有する型の正本を持つ。
  * @trace ARCH-000008
  */
-
 import type { Repository } from "../../../version-control/src/index.ts";
-
-/** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
-export const PROJECT_STATE_CONTRACT =
-  "crdd-execution-model/project-state/v3" as const;
-
 import type { OperationRecord } from "../attempt/types.ts";
 import type { Blocker, Decision } from "../decision/types.ts";
 import type { HistoryRow } from "../history/types.ts";
@@ -27,10 +21,11 @@ import type {
   TaskExecutionSelections,
 } from "../task/types.ts";
 import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
-import type {
-  PROJECT_SNAPSHOT_SCHEMA,
-  STORAGE_CONTRACT,
-} from "./validation.ts";
+import type { STORAGE_CONTRACT } from "./validation.ts";
+
+/** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
+export const PROJECT_STATE_CONTRACT =
+  "crdd-execution-model/project-state/v3" as const;
 
 /**
  * plain-data-snapshotで使用するData Descriptorの値契約を定義する。
@@ -739,3 +734,6 @@ export type LeaseAcquisitionRequest = Readonly<
         : never;
     }
 >;
+
+export const PROJECT_SNAPSHOT_SCHEMA =
+  "crdd-execution-model/project-snapshot/v7";

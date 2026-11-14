@@ -78,7 +78,7 @@ import {
   prepareQueueRecoverySettlement,
   prepareUnifiedTaskSnapshot,
   projectTaskSnapshot,
-} from "../../src/task/validation.ts";
+} from "../../src/task/operations.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";

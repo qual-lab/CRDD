@@ -3,7 +3,6 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   readExecutionContent,
@@ -12,7 +11,10 @@ import {
 } from "../state/crud.ts";
 import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
 import { leaseIdentity } from "../state/validation.ts";
-import { snapshotStateRecord } from "../state/operations.ts";
+import {
+  snapshotStateRecord,
+  snapshotStateArray,
+} from "../state/operations.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
 import type {
@@ -31,7 +33,7 @@ import {
   prepareSingleTaskQueueUpdate,
   prepareUnstartedTaskQueueClosure,
   projectQueueEntry,
-} from "./validation.ts";
+} from "./operations.ts";
 
 /**
  * 同じSnapshotのQueue一件を照会する。
@@ -486,5 +488,3 @@ export function createQueue(
   }
   return blocked("orchestrator_snapshot_input_invalid");
 }
-
-import { snapshotStateArray } from "../state/validation.ts";

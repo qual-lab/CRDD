@@ -17,7 +17,6 @@ import type {
 } from "../../../src/state/types.ts";
 import {
   leaseIdentity,
-  PROJECT_SNAPSHOT_SCHEMA,
   prepareLeaseAcquisitionConfirmation,
   prepareLeaseAcquisitionReservation,
   prepareLeaseRecoveryReservation,
@@ -28,6 +27,7 @@ import {
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
 } from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 
 /**

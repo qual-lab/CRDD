@@ -4,6 +4,7 @@
  * @responsibility Dependenciesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import { RepositoryDataBlockedError } from "../src/configuration/runtime-data.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -241,7 +242,8 @@ export function createIsolatedDevelopmentProviderMeasurementCandidate(
  */
 export function projectDevelopmentMeasurementEntryFailure(error: unknown) {
   return Object.freeze(
-    error instanceof ExecutionStorageBlockedError
+    error instanceof ExecutionStorageBlockedError ||
+      error instanceof RepositoryDataBlockedError
       ? {
           status: "blocked" as const,
           reason: error.reason,

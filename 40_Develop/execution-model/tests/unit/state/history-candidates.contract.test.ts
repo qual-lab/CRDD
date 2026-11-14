@@ -9,22 +9,79 @@
  */
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
+import * as stateValidation from "../../../src/state/validation.ts";
 import type { HistoryRow } from "../../../src/history/types.ts";
-import {
-  prepareHistoryPending,
-  prepareHistoryTransfer,
-  prepareTerminalRecordRetirement,
-} from "../../../src/history/validation.ts";
 import type { ProjectQueueEntry } from "../../../src/index.ts";
 import type {
   LeaseEvidenceEnvelope,
   Snapshot,
+  SnapshotObservations,
 } from "../../../src/state/types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 import type { ResultRecord } from "../../../src/workspace/types.ts";
 import { EXECUTION_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
+
+type Candidate<T> =
+  | {
+      status: "completed";
+      reason: string;
+      value: { next: Snapshot | null; value: T };
+    }
+  | {
+      status: "blocked";
+      reason: string;
+      value: null;
+      manualRecoveryRequired: boolean;
+      recoveryId: null;
+    };
+type Obligations = { obligations: () => SnapshotObservations };
+type Settlement = {
+  historySettlement: (row: HistoryRow) => "recorded" | "expired" | null;
+};
+
+// 完成CRUDに閉じた候補生成の実宣言を使い、試験のための製品公開を追加しない。
+const candidateSource = fs.readFileSync(
+  new URL("../../../src/history/crud.ts", import.meta.url),
+  "utf8",
+);
+const candidateNames = [
+  "historyCandidateCompleted",
+  "historyCandidateBlocked",
+  "prepareHistoryPending",
+  "prepareTerminalRecordRetirement",
+  "prepareHistoryTransfer",
+];
+const candidateDependencies = { ...stateValidation, PROJECT_SNAPSHOT_SCHEMA };
+const {
+  prepareHistoryPending,
+  prepareTerminalRecordRetirement,
+  prepareHistoryTransfer,
+} = compileFunction(
+  candidateNames
+    .map((name) => sourceDeclaration(candidateSource, name))
+    .join("\n") +
+    "\nreturn {prepareHistoryPending,prepareTerminalRecordRetirement,prepareHistoryTransfer};",
+  Object.keys(candidateDependencies),
+)(...Object.values(candidateDependencies)) as {
+  prepareHistoryPending: (
+    current: Snapshot,
+    now: number,
+    observations: Obligations,
+  ) => Candidate<number>;
+  prepareTerminalRecordRetirement: (
+    current: Snapshot,
+    observations: Obligations & Settlement & { nextEpoch: () => string },
+  ) => Candidate<number>;
+  prepareHistoryTransfer: (
+    current: Snapshot,
+    observations: Settlement,
+  ) => Candidate<{ recorded: number; expired: number }>;
+};
 
 /**
  * 一般Queue終了条件を検査する局所fixtureを作る。

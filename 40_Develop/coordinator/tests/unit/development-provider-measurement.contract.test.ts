@@ -105,6 +105,7 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
 });
 
 import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
+import { RepositoryDataBlockedError } from "../../src/configuration/runtime-data.ts";
 import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,
@@ -128,26 +129,31 @@ type Dependencies = Parameters<
  * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Development Measurement入口はRuntime Data停止理由を保持する", () => {
-  const error = new ExecutionStorageBlockedError({
-    status: "blocked",
-    reason: "repository_runtime_data_ignore_registration_blocked",
-    effectIssued: true,
-    effectStateUnknown: true,
-    effectConfirmation: "unknown",
-    cleanupConfirmed: false,
-    retryAllowed: false,
-    recoveryReference: "repository-local-ignore.test-reference",
-    repositoryPathReported: false,
-  });
-  assert.deepEqual(projectDevelopmentMeasurementEntryFailure(error), {
-    status: "blocked",
-    reason: "repository_runtime_data_ignore_registration_blocked",
-    effectIssued: true,
-    effectStateUnknown: true,
-    cleanupConfirmed: false,
-    retryAllowed: false,
-    recoveryReference: "repository-local-ignore.test-reference",
-  });
+  for (const ErrorType of [
+    ExecutionStorageBlockedError,
+    RepositoryDataBlockedError,
+  ]) {
+    const error = new ErrorType({
+      status: "blocked",
+      reason: "repository_runtime_data_ignore_registration_blocked",
+      effectIssued: true,
+      effectStateUnknown: true,
+      effectConfirmation: "unknown",
+      cleanupConfirmed: false,
+      retryAllowed: false,
+      recoveryReference: "repository-local-ignore.test-reference",
+      repositoryPathReported: false,
+    });
+    assert.deepEqual(projectDevelopmentMeasurementEntryFailure(error), {
+      status: "blocked",
+      reason: "repository_runtime_data_ignore_registration_blocked",
+      effectIssued: true,
+      effectStateUnknown: true,
+      cleanupConfirmed: false,
+      retryAllowed: false,
+      recoveryReference: "repository-local-ignore.test-reference",
+    });
+  }
 });
 /**
  * fixtureのTest準備責務を実行する。

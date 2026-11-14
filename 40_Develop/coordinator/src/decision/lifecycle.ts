@@ -4,6 +4,7 @@
  * @trace ARCH-000004、ARCH-000005
  * @boundary 信頼された入口とRepository-localの単一Writer。
  */
+import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import {
   answerDecision,
   applyDecision,
@@ -211,7 +212,10 @@ export function executeCoordinatorPublicDecision(
       effectState: "settled",
     };
   } catch (error) {
-    if (error instanceof ExecutionStorageBlockedError) {
+    if (
+      error instanceof ExecutionStorageBlockedError ||
+      error instanceof RepositoryDataBlockedError
+    ) {
       const failure = coordinatorDataBoundaryBlocked(error);
       return {
         ...blocked(failure.reason, input.decisionId),

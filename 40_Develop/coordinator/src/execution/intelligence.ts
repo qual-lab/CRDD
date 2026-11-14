@@ -6,6 +6,7 @@
  * @boundary EI保存・診断を必須Recovery通知の失敗へ昇格せず、AIの実行許可・回復判断を持たない。
  */
 
+import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import { readExecutionIntelligenceConfig } from "../../../configuration-model/src/index.ts";
 import {
   completeExecution,
@@ -96,7 +97,10 @@ export function reportExecutionRecordingUnavailable(
   recordId: string,
   cause?: unknown,
 ): void {
-  if (cause instanceof ExecutionStorageBlockedError) {
+  if (
+    cause instanceof ExecutionStorageBlockedError ||
+    cause instanceof RepositoryDataBlockedError
+  ) {
     const observation = {
       status: "blocked" as const,
       reason: cause.reason,

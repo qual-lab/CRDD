@@ -132,7 +132,7 @@ ExecutionSelection、inspectExecutionSelection、TaskExecutionSelectionsと担�
 <a id="consumers"></a>
 ### 内部の責務構成
 
-`index.ts`と、objective／task／attempt／decision／workspace／state／historyの各`crud.ts`・`validation.ts`・`types.ts`、`attempt/operations.ts`・`history/operations.ts`・`state/operations.ts`、`storage/store.ts`・`storage/lock.ts`・`storage/publication.ts`で構成する。各crudは完成操作の意味、validationは局所候補・検査、typesは契約を所有する。
+`index.ts`と、objective／task／attempt／decision／workspace／state／historyの各`crud.ts`・`validation.ts`・`types.ts`、objective／task／attempt／history／stateの`operations.ts`、`storage/store.ts`・`storage/lock.ts`・`storage/publication.ts`で構成する。各crudは完成操作の意味、validationは局所検査、operationsは保存しない値操作・用途候補、typesは契約を所有する。
 
 固定所在、共通File読取り／書込み、一時保存資源のI/Oは`storage/store.ts`、共通の排他取得・保持・解放と保存Ownerは`storage/lock.ts`が所有する。単一StateのCAS・保存／回復と、短命Mapに結合したEffect順序は`storage/publication.ts`が所有し、共通保存primitiveへ接続する。同Fileはrename／unlink等も発行するため、全物理I/Oをstoreへ集約したとは扱わない。短命Mapと一回使用ProtocolはWriterと一体で置く。`state/crud.ts`は同版の意味整合と候補の接続を所有し、重複Writerや中継だけのWrapperを作らない。
 
@@ -229,6 +229,14 @@ TaskとRepairで重複していたBuffer捕捉は同じ実体へ集約する。P
 
 本整理はHistoryの生成・選別・出版規則のOwnerを明確にするもので、残る純粋検査間の全循環解消、Stateの完成操作の意味Owner移管、Snapshot型の最終整理を完了したものではない。
 
+
+### 局所検査から全State候補への逆依存の撤去 — 2026-11-14
+
+Objectiveの定義更新候補と定義Hashは`objective/operations.ts`、Task／Queueの同版候補・投影は`task/operations.ts`が所有する。両operationsは全State検査とモデル局所検査を使用するが、State検査は局所validationだけを参照し、用途候補へ戻らない。小さいID・文字列・Path・配列捕捉は既存`state/operations.ts`の単一実体を利用し、全Stateのdecode・相関・遷移を同ファイルへ移さない。`PROJECT_SNAPSHOT_SCHEMA`は保存型と同じ`state/types.ts`に置く。
+
+Historyの`historyRow`と全行検査は`history/validation.ts`が所有する。全Stateの閉鎖判定・履歴確認・参照保全を必要とするpending生成／記録退役／搬送確定は、唯一の利用元であるHistory CRUDの局所関数とする。状態を使う候補を、Attemptからも利用する履歴行生成operationsへ混ぜない。義務観測・時計・受付世代発行の位置と回数、失敗の短絡順を維持する。
+
+局所validationの新品NodeロードでState検査・CRUD・Storageを解決しないことを確認する。この分離は局所検査同士のすべての参照を禁止するものではなく、全Stateの同版相関はStateが引き続き所有する。公開93項目・Schema・Hash本文・単一Writer／CASは変更しない。
 
 ### Checkpointの完成操作とState保存証拠のOwner — 2026-11-14
 

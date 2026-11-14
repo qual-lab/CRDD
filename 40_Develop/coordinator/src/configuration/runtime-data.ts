@@ -8,7 +8,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
 import {
   getRepositoryFromWorkingDirectory,
   type Repository,
@@ -449,6 +448,38 @@ export function requireReadyRepositoryExecutionDataArea(
 ) {
   if (result?.status === "ready") return result;
   if (result?.status === "blocked")
-    throw new ExecutionStorageBlockedError(result);
+    throw new RepositoryDataBlockedError(result);
   throw new Error(invalidReason);
+}
+
+/**
+ * Coordinator所有の領域初期化失敗を情報を失わず搬送する。
+ * @responsibility EM保存失敗とは区別して既知Effect・回復参照を保持する。
+ * @trace ARCH-000004
+ * @boundary Coordinatorの所在初期化と公開結果・診断への接続。
+ */
+export class RepositoryDataBlockedError extends Error {
+  readonly reason: string;
+  readonly effectIssued: boolean;
+  readonly effectStateUnknown: boolean;
+  readonly cleanupConfirmed: boolean;
+  readonly retryAllowed: boolean;
+  readonly recoveryReference: string | null;
+  readonly repositoryPathReported = false as const;
+
+  constructor(
+    result: Exclude<
+      ReturnType<typeof ensureRepositoryExecutionDataArea>,
+      null | { status: "ready" }
+    >,
+  ) {
+    super(result.reason);
+    this.name = "RepositoryDataBlockedError";
+    this.reason = result.reason;
+    this.effectIssued = result.effectIssued;
+    this.effectStateUnknown = result.effectStateUnknown;
+    this.cleanupConfirmed = result.cleanupConfirmed;
+    this.retryAllowed = result.retryAllowed;
+    this.recoveryReference = result.recoveryReference;
+  }
 }

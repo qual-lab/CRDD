@@ -51,7 +51,8 @@
       ],
       "verifies": [
         "domain-model.state.history",
-        "execution-model.source.src.history.operations"
+        "execution-model.source.src.history.operations",
+        "coordinator.source.src.security.orchestrator.history"
       ]
     },
     {
@@ -99,7 +100,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "domain-model.task.queue"
+        "domain-model.task.queue",
+        "execution-model.source.src.task.operations"
       ]
     },
     {
@@ -114,7 +116,8 @@
       ],
       "verifies": [
         "domain-model.task.queue",
-        "domain-model.state.crud"
+        "domain-model.state.crud",
+        "execution-model.source.src.task.operations"
       ]
     },
     {
@@ -272,7 +275,7 @@
     {
       "symbolId": "domain-model.task.crud",
       "kind": "file",
-      "path": "src/task/validation.ts",
+      "path": "src/task/operations.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -470,7 +473,9 @@
         "execution-model.public-api",
         "execution-model.source.src.attempt.operations",
         "execution-model.source.src.state.value",
-        "execution-model.source.src.history.operations"
+        "execution-model.source.src.history.operations",
+        "execution-model.source.src.task.operations",
+        "execution-model.source.src.objective.operations"
       ]
     },
     {
@@ -608,7 +613,7 @@
     {
       "symbolId": "domain-model.objective.crud",
       "kind": "file",
-      "path": "src/objective/validation.ts",
+      "path": "src/objective/operations.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -654,7 +659,9 @@
         "domain-model.objective.crud",
         "execution-model.source.src.objective.crud",
         "execution-model.source.src.task.crud",
-        "execution-model.source.src.workspace.crud"
+        "execution-model.source.src.workspace.crud",
+        "execution-model.source.src.task.operations",
+        "execution-model.source.src.objective.operations"
       ]
     },
     {
@@ -862,7 +869,8 @@
       ],
       "verifies": [
         "coordinator.state-storage.coordinator-state-model",
-        "orchestrator.task.single-task-record"
+        "orchestrator.task.single-task-record",
+        "execution-model.source.src.task.operations"
       ]
     },
     {
@@ -971,7 +979,7 @@
     {
       "symbolId": "domain-model.src.repository.path",
       "kind": "file",
-      "path": "src/state/validation.ts",
+      "path": "src/state/operations.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -989,7 +997,8 @@
       "verifies": [
         "domain-model.src.objective.validation",
         "domain-model.src.repository.path",
-        "domain-model.state.validation"
+        "domain-model.state.validation",
+        "execution-model.source.src.objective.operations"
       ]
     },
     {
@@ -1195,6 +1204,24 @@
       ],
       "verifies": [
         "coordinator.state-storage.coordinator-state-runtime"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.task.operations",
+      "kind": "file",
+      "path": "src/task/operations.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "execution-model.source.src.objective.operations",
+      "kind": "file",
+      "path": "src/objective/operations.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
       ]
     }
   ]

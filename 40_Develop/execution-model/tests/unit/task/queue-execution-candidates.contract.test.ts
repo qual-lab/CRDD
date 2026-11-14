@@ -15,7 +15,7 @@ import type {
   SingleTaskRecord,
 } from "../../../src/index.ts";
 import type { Snapshot } from "../../../src/state/types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 import {
   prepareQueueLeaseReleaseSettlement,
@@ -25,8 +25,8 @@ import {
   prepareSingleTaskQueueCreation,
   prepareSingleTaskQueueUpdate,
   prepareUnstartedTaskQueueClosure,
-  validQueueEntry,
-} from "../../../src/task/validation.ts";
+} from "../../../src/task/operations.ts";
+import { validQueueEntry } from "../../../src/task/validation.ts";
 
 /**
  * 単発Taskと一般Queue用の局所元版を作成する。
@@ -417,10 +417,15 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
     "binding-a",
     "queue-a",
     2,
-    { ...terminal, cleanupConfirmed: false, recoveryIds: ["recovery-a"] },
+    {
+      ...terminal,
+      status: "unknown",
+      cleanupConfirmed: false,
+      recoveryIds: ["recovery-a"],
+    },
     dirty.ops,
   );
-  assert.equal(unresolved.status, "completed");
+  assert.equal(unresolved.status, "completed", JSON.stringify(unresolved));
   assert.deepEqual(dirty.calls, ["borrow", "live"]);
   if (unresolved.status === "completed") {
     assert.equal(unresolved.value.value.state, "recovery_required");

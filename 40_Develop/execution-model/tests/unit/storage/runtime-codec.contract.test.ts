@@ -26,14 +26,14 @@ import {
   EXECUTION_STATE_SCHEMA,
   hashExecutionProjectDefinition,
   hashExecutionStateContent,
-  PROJECT_SNAPSHOT_SCHEMA,
   prepareStateOperationSnapshot,
   projectTaskSettlement,
   validateUnifiedTransition,
   validSnapshot,
 } from "../../../src/state/validation.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
-import { prepareUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
+import { prepareUnifiedTaskSnapshot } from "../../../src/task/operations.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
 

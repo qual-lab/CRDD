@@ -18,7 +18,7 @@ import {
 import {
   normalizeRepositoryRelativePath,
   repositoryPathWithin,
-} from "../../../src/state/validation.ts";
+} from "../../../src/state/operations.ts";
 import { snapshotStateRecord } from "../../../src/state/operations.ts";
 
 /**
