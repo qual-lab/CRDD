@@ -1,10 +1,10 @@
 /**
  * 履歴の保持・出版条件を保存やState復号なしで反証する。
  * @packageDocumentation
- * @responsibility 行のexact相関・参照保護・期限境界・byte捕捉を検査する。
+ * @responsibility 行のexact相関・追記候補・参照保護・期限境界・byte捕捉を検査する。
  * @trace HST-UT-001
  * @level UT
- * @scope 正規化済みの合成履歴値とメモリ内Buffer。
+ * @scope 合成履歴値・未信頼の追記入力とメモリ内Buffer。
  * @boundary 実保存・子Process・AI・Dockerは使用しない。
  */
 import assert from "node:assert/strict";
@@ -16,13 +16,164 @@ import {
   prepareHistoryPublication,
   retainHistoryRows,
   taskHistoryLine,
+  decisionHistoryLine,
 } from "../../../src/history/operations.ts";
+import {
+  prepareHistoryAppend,
+  decodeHistoryRows,
+} from "../../../src/history/validation.ts";
+import {
+  prepareDecisionRequest,
+  projectDecisionHistory,
+} from "../../../src/decision/validation.ts";
+import type { DecisionRequest } from "../../../src/decision/types.ts";
 import type {
   HistoryEntry,
   HistoryRetentionReferences,
 } from "../../../src/history/types.ts";
 
 const NOW = "2026-11-14T00:00:00.000Z";
+
+/**
+ * Storageから移した追記候補生成の順序・元byte・全体拒否を反証する。
+ * @responsibility TaskとDecisionを一候補へ結合し、衝突を部分成功へ畳まない。
+ * @trace HST-UT-001
+ * @precondition 実際の行・判断検査と非秘密の合成記録を使う。
+ * @stimulus 混在追記、再送、衝突、破損、未来時刻、不正JSONを与える。
+ * @observation byte順序、同参照、null、例外と元値の保全。
+ * @oracle 元行→Task→Decisionの順。同内容は再追記せず、不正候補は全体拒否。
+ * @cleanup メモリ内だけ。保存・Lock・外部Processを使用しない。
+ * @boundary 履歴入力の検査と純粋候補生成。
+ */
+test("履歴追記候補は混在順序・重複・衝突・時刻と例外を維持する", () => {
+  const at = Date.parse(NOW);
+  const empty = Buffer.alloc(0);
+  const record = {
+    id: "new-task",
+    occurredAt: NOW,
+    outcome: "completed" as const,
+    primaryFailure: null,
+    cleanup: "confirmed" as const,
+  };
+  const request: DecisionRequest = {
+    decisionId: "decision-append",
+    blockerId: "blocker-append",
+    respondentPrincipalId: "principal-a",
+    kind: "continuation",
+    queueId: "queue-a",
+    question: "継続しますか？",
+    requestedAt: NOW,
+    options: [
+      { value: "resume", label: "継続" },
+      { value: "cancel", label: "中止" },
+    ],
+    target: {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      kind: "milestone",
+      id: "milestone-a",
+      generation: 1,
+      repositoryRevision: "a".repeat(40),
+    },
+  };
+  const prepared = prepareDecisionRequest(request);
+  assert.ok(prepared);
+  const decision = prepared.decision;
+  const events = projectDecisionHistory(decision);
+  assert.ok(events);
+  const before = Buffer.from(row("old", NOW).line);
+  const original = Buffer.from(before);
+  const result = prepareHistoryAppend(
+    before,
+    JSON.stringify(record),
+    [decision],
+    at,
+  );
+  assert.ok(result);
+  assert.deepEqual(
+    result,
+    Buffer.concat([
+      before,
+      taskHistoryLine(record),
+      ...events.map(decisionHistoryLine),
+    ]),
+  );
+  assert.equal(decodeHistoryRows(result)?.length, 3);
+  assert.deepEqual(before, original);
+  assert.equal(prepareHistoryAppend(before, null, [], at), before);
+  assert.equal(
+    prepareHistoryAppend(
+      result,
+      JSON.stringify([record, record]),
+      [decision, decision],
+      at,
+    ),
+    result,
+  );
+  assert.equal(
+    prepareHistoryAppend(
+      result,
+      JSON.stringify({ ...record, cleanup: "unknown" }),
+      [decision],
+      at,
+    ),
+    null,
+  );
+  const changed = prepareDecisionRequest({ ...request, question: "別の質問" });
+  assert.ok(changed);
+  assert.equal(
+    prepareHistoryAppend(result, null, [changed.decision], at),
+    null,
+  );
+  const future = new Date(at + 1000).toISOString();
+  assert.equal(
+    prepareHistoryAppend(Buffer.from(row("future", future).line), "{", [], at),
+    null,
+  );
+  assert.equal(
+    prepareHistoryAppend(Buffer.from("broken\n"), "{", [], at),
+    null,
+  );
+  assert.throws(() => prepareHistoryAppend(empty, "{", [], at), SyntaxError);
+  assert.throws(
+    () =>
+      prepareHistoryAppend(
+        empty,
+        JSON.stringify({ ...record, occurredAt: future }),
+        [],
+        at,
+      ),
+    /time/u,
+  );
+  assert.throws(
+    () =>
+      prepareHistoryAppend(
+        empty,
+        JSON.stringify({ ...record, unknown: true }),
+        [],
+        at,
+      ),
+    /keys/u,
+  );
+  const futureDecision = prepareDecisionRequest({
+    ...request,
+    requestedAt: future,
+  });
+  assert.ok(futureDecision);
+  assert.equal(
+    prepareHistoryAppend(empty, null, [futureDecision.decision], at),
+    null,
+  );
+  assert.equal(
+    prepareHistoryAppend(
+      empty,
+      null,
+      [{ ...decision, status: "invalid" } as unknown as typeof decision],
+      at,
+    ),
+    null,
+  );
+});
 
 /**
  * 要約のbyteと固定Hashの照合をTask／Repairの条件判定から分離する。

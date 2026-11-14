@@ -226,7 +226,9 @@ inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発�
 
 主体IDの固定prefixは`state/operations.ts`の私有定数とし、Decision／Taskの局所検査は同じ値処理を利用する。公開名・文法・保存形式は変えず、Decision検査のために全State検査をロードしない。Coordinatorでは初回受付で独立・凍結捕捉したSelectionを再利用する。再発行側・Resolver・保存／搬送入力の検査とHashの正規順は維持し、内部受渡しの省略を未信頼入力の無検査へ拡張しない。
 
-共有する値処理は`state/operations.ts`の一つの実体を内部Consumerが直接利用する。保存しない記録値・主体・ID・Pathの構築／捕捉／変換に限定し、全Stateの整合や物理保存を追加しない。Root93項目・保存本文とHash・Intent／Receipt／正式未発行／不存在の条件を維持し、清掃観測の不明を不存在へ変換しない。
+Stateの値処理は`state/operations.ts`の一つの実体を内部Consumerが直接利用する。所有範囲はExecution Stateの保存値契約・主体／Identity・正規化・相関に直接関係する処理だけとし、複数利用元があることだけを追加理由にしない。全Stateの整合や物理保存は追加しない。単独モデルの参照文法はそのモデルに閉じ、Taskの候補・回復・結果参照の同じnullable文法は`task/validation.ts`の私有一実体へ統合する。必須結果参照の検査も同Fileが所有し、Task operationsだけが内部利用する。履歴入力の閉じたObject／UTC時刻検査は`history/validation.ts`の私有処理とする。汎用commonや転送exportを設けない。Root93項目・保存本文とHash・Intent／Receipt／正式未発行／不存在の条件を維持し、清掃観測の不明を不存在へ変換しない。
+
+未信頼Objectをdescriptorで独立捕捉する処理と、JSON復号済み値のkey検査は前提が異なる。名前・戻り値が似ているだけで検査を統合せず、Callerが持つ値の由来・例外契約に従って使い分ける。
 
 新品NodeでState候補・CRUD・Storageの解決を拒否しても資源の値更新が使えることを確認する。型だけの参照をAuthorityにしない。局所値検査と全State候補の逆依存は分離するが、局所検査同士の全参照を禁止するものではない。Historyの意味Owner・完成操作・明示Snapshot型は下記の現行責務に従う。
 
@@ -248,6 +250,10 @@ inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発�
 Task／RepairのBuffer捕捉はHistoryの共通実体を使う。Proxy・非Buffer・intrinsic取得失敗を拒否し、own equals／lengthを使わず独立コピーする。Task入口のcatchとRepair入口の例外伝播、各結果のコピー条件・入力捕捉順序を維持する。Schema・Hash対象・Root93項目・物理保存順・Reader／WriterとLock保持条件は変更しない。値候補成功は保存・退役・実資源回収の成功ではない。
 
 Historyの意味計算はhistory/operations、完成保存はhistory/crud、同版への結合はstate/validation、物理出版はstorage/publicationに一意に配置する。Stateを単なる保存先へ縮めず、全モデルの相関・改訂保証を維持する。
+
+通常履歴と判断履歴の追記受付は`history/validation.ts`の`prepareHistoryAppend`が所有する。現行全行と未来時刻を先に検査し、Task入力、同版Decisionの投影の順で固定行を追加する。同ID同本文は追記せず、異本文は候補全体を拒否し、追加なしは元Bufferを返す。全Stateの復号・File・Owner・保持設定は扱わない。低レベルのHistory operationsへ全行Decoderの逆依存を追加しない。
+
+`storage/store.ts`の`updateHistoryOwned`は、候補受付前のOwner／時刻／modeとresume_decisionの早期終了、候補取得後のState結合・保持・pending照合と物理出版を接続する。候補のnullと例外は元の停止契約へ返す。Storageは単純なI/O Wrapperではなく、モデルの判定を現在Owner・fresh本文・CAS・実終了証拠へ結合するが、行重複やDecisionイベントの意味規則を再実装しない。
 
 `prepareHistorySummary`は既存encoderのbyteを複製・再符号化せずHash化し、既に固定されたHashだけを照合する。要約可能条件はTask／RepairごとにStateから既存Attempt判定へ接続し、導出元State HashはStateが付加する。`operationHistoryLine`はTaskの固定済み行Hashを照合し、初回候補にも使うhistoryLineBytesの意味は変えない。Repairの転送Helperは置かず、既存repairHistoryLineBytesを履歴欠測null・保存済みoccurredAtの条件で使用する。HistoryからAttempt validationへの逆参照は追加しない。
 

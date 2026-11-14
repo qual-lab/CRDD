@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+EMの共通値処理と履歴候補の所有境界を整理した。Task専用参照はTask validationへ局所化して同文法の三nullable処理を統合し、History専用Object／時刻検査も私有化した。履歴追記候補はHistory validationが所有し、StorageにはOwner・同版・保持・pending／fresh・物理出版を残す。公開93項目・保存形式・既存保証は不変。限定65試験と実保存5親・Co継続判断代表1親、両型検査・独立レビューの必須残指摘0を確認した。コミット前にも限定65試験・型／整形／警告・独立最終確認が成功し、実装不変の実保存6親は既存結果を使用する。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「共通値処理と履歴候補の所有境界」を参照する。
+
 EM公開補助三系統の調査を受け、独立した未信頼入力・搬送・Host認証記録の検査は維持し、同じ受付内の重複だけを整理した。資源更新は次Bookの検査を遷移へ一意化、Co二役選定は同じ検査済み設定を共有、私有Objective実行は受付済みPlanとexact参照一致の場合だけ再利用する。公開93項目・保存形式・Effect順は不変。限定57試験・EM／Co型検査・独立レビューの必須残指摘0を確認した。コミット前にも限定55試験・型／整形／警告・独立最終確認が成功し、受付IT2親は実装不変の既存結果を使用する。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「受付済み値の重複検査整理」を参照する。
 
 EMのState局所計算を既存の各Ownerへ移管した。Hash／Lease値はState operations、採用拒否はWorkspace、計画定義HashはObjective、資源差分はAttempt、履歴byteのHashと固定行検査はHistoryが所有する。同版候補・改訂相関はStateに残し、公開93項目・保存形式・既存保証は維持した。限定73試験・追加6試験と代表実保存32報告項目、EM／Coordinator型検査が成功し、独立レビューの説明コメント1点を是正した。新File／Facadeは追加せず、全体回帰・実AI・Docker・過去保持物は対象外。[実施範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「State局所計算のOwner整理」を参照する。

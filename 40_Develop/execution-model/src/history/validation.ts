@@ -11,13 +11,16 @@ import {
   validPrimaryFailure,
   validRepairSummary,
 } from "../attempt/validation.ts";
-import { inspectDecisionHistoryEvent } from "../decision/validation.ts";
+import {
+  inspectDecisionHistoryEvent,
+  projectDecisionHistory,
+} from "../decision/validation.ts";
+import type { Decision } from "../decision/types.ts";
+import { decisionHistoryLine, taskHistoryLine } from "./operations.ts";
 import {
   encodeStateValue,
   hasExecutionStateRecordKeys,
   isSha256Hex,
-  closedObject,
-  timestamp,
   ID,
 } from "../state/operations.ts";
 import type { HistoryRow } from "./types.ts";
@@ -282,4 +285,121 @@ export function historyRow(value: unknown, now: number): HistoryRow {
     primaryFailure: row.primaryFailure,
     cleanup: row.cleanup,
   };
+}
+
+/**
+ * JSONの閉じたProperty集合を確認する。
+ *
+ * @responsibility 未知のPropertyや配列を拒否する。
+ * @trace ARCH-000004
+ * @input 未検証値と許可Key。
+ * @returns 閉じたObject。
+ * @precondition JSONから得た値。
+ * @postcondition Keyの過不足を拒否済み。
+ * @effect N/A: 局所値のみ。
+ * @failure 不正shapeで例外。
+ * @invariant 未知値を既知へ畳まない。
+ * @boundary JSON入力。
+ * @security 許可外情報を保存しない。
+ * @concurrency N/A: 同期判定。
+ */
+function closedObject(
+  value: unknown,
+  keys: readonly string[],
+): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("shape");
+  const record = value as Record<string, unknown>;
+  const actualKeys = Object.keys(record).sort();
+  if (JSON.stringify(actualKeys) !== JSON.stringify([...keys].sort()))
+    throw new Error("keys");
+  return record;
+}
+
+/**
+ * UTC時刻を検証する。
+ *
+ * @responsibility 不正値と未来時刻を拒否する。
+ * @trace ARCH-000004
+ * @input ISO時刻と現在時刻。
+ * @returns 検証済みISO時刻。
+ * @precondition 現在時刻は安全な整数。
+ * @postcondition 正規UTC表現で未来ではない。
+ * @effect N/A: 局所値のみ。
+ * @failure 時刻不正で例外。
+ * @invariant 時計逆行を期限切れへ畳まない。
+ * @boundary 保存時刻。
+ * @security 時刻からAuthorityを発行しない。
+ * @concurrency N/A: 同期判定。
+ */
+function timestamp(value: unknown, now: number): string {
+  if (typeof value !== "string") throw new Error("time");
+  const milliseconds = Date.parse(value);
+  if (
+    !Number.isSafeInteger(milliseconds) ||
+    new Date(milliseconds).toISOString() !== value ||
+    milliseconds > now
+  )
+    throw new Error("time");
+  return value;
+}
+
+/**
+ * 現行履歴とTask入力・判断記録から、追記候補だけを生成する。
+ * @responsibility 全行検査、時刻、重複・衝突とTask→Decisionの行順を所有する。
+ * @trace ARCH-000008
+ * @input before: 安定読取り本文、recordJson: Task終了要約又はnull、decisions: 同版判断、now: 検査済み時刻。
+ * @returns 元byteを保持した候補、又は不正相関のnull。追加なしはbeforeと同じ参照。
+ * @precondition 呼出し元がOwner・保存領域・時刻の文法を検査している。
+ * @postcondition 同ID同本文は追加せず、異本文は全体を拒否する。
+ * @effect N/A: 同期の値検査と候補生成だけ。
+ * @failure JSON・行生成の例外は呼出し元へ伝播し、破損・未来・衝突はnull。
+ * @invariant 保持期間・pending・保存成功・退役を判断しない。
+ * @boundary 未信頼履歴入力と既存保存Writerへ渡す候補。
+ * @security 保存資格や現在認可を値から復元しない。
+ * @concurrency 同版・fresh・File実体の照合はStorageが継続する。
+ */
+export function prepareHistoryAppend(
+  before: Buffer,
+  recordJson: string | null,
+  decisions: readonly Decision[],
+  now: number,
+): Buffer | null {
+  const rows = decodeHistoryRows(before);
+  if (!rows || rows.some((row) => Date.parse(row.occurredAt) > now))
+    return null;
+  const parsed: unknown = recordJson === null ? [] : JSON.parse(recordJson);
+  const incoming = Array.isArray(parsed) ? parsed : [parsed];
+  const known = new Map<string, Buffer>(
+    rows.map((row) => [row.recoveryId, Buffer.from(row.line)]),
+  );
+  const additions: Buffer[] = [];
+  for (const value of incoming) {
+    const record = historyRow(value, now);
+    const line = taskHistoryLine(record);
+    const id = `task-history.${record.id}`;
+    const same = known.get(id);
+    if (same && !line.equals(same)) return null;
+    if (!same) {
+      known.set(id, line);
+      additions.push(line);
+    }
+  }
+  // 未搬送の判断履歴はStateの元記録から再構成する。別のpending集合は持たない。
+  for (const decision of decisions) {
+    const events = projectDecisionHistory(decision);
+    if (!events) return null;
+    for (const event of events) {
+      if (Date.parse(event.occurredAt) > now) return null;
+      const line = decisionHistoryLine(event);
+      const id = `decision-history.${event.eventId}`;
+      const same = known.get(id);
+      if (same && !line.equals(same)) return null;
+      if (!same) {
+        known.set(id, line);
+        additions.push(line);
+      }
+    }
+  }
+  return additions.length ? Buffer.concat([before, ...additions]) : before;
 }

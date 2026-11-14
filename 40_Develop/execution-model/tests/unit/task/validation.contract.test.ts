@@ -9,6 +9,10 @@
  */
 import assert from "node:assert/strict";
 import test, { it } from "node:test";
+import fs from "node:fs";
+import { compileFunction } from "node:vm";
+import { stripTypeScriptTypes } from "node:module";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 
 import type { ProjectExecutionState } from "../../../src/state/types.ts";
 
@@ -16,7 +20,54 @@ import {
   inspectSingleTaskRecord,
   recoveryObligations,
   validState,
+  validResultReference,
 } from "../../../src/task/validation.ts";
+
+/**
+ * 三つのTask参照が同じ元文法で検査されることを確認する。
+ * @responsibility 局所化と統合によるnull・長さ・文字集合の受理域変更を拒否する。
+ * @trace PRL-UT-006
+ * @precondition 製品の私有nullable検査と実参照検査を使う。
+ * @stimulus null、空、境界長、許可文字、空白、区切り、非文字列を与える。
+ * @observation nullableと必須参照の真偽。
+ * @oracle null以外は既存の非空512文字以内の固定文法に一致する。
+ * @cleanup 同期のメモリ値のみ。
+ * @boundary 保存・状態遷移・参照先観測は行わない。
+ */
+test("Taskの候補・回復・結果参照は統合前の同じ文法を維持する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/task/validation.ts", import.meta.url),
+    "utf8",
+  );
+  const nullable = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "nullableTaskReference"))});`,
+    ["validResultReference"],
+  )(validResultReference) as (value: unknown) => boolean;
+  for (const value of [
+    null,
+    "",
+    "a",
+    "A0._-",
+    "a".repeat(512),
+    "a".repeat(513),
+    "_first",
+    "a:b",
+    "a/b",
+    "a b",
+    "a\0b",
+    1,
+    {},
+    [],
+  ]) {
+    const expected =
+      typeof value === "string" &&
+      value.length > 0 &&
+      value.length <= 512 &&
+      /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value);
+    assert.equal(validResultReference(value), expected);
+    assert.equal(nullable(value), value === null || expected);
+  }
+});
 
 /**
  * 実行状態・回復義務・受領・回復IDを任意の蓄積件数で拒否しない。

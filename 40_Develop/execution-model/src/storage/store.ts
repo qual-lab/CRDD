@@ -25,9 +25,13 @@ import {
   inspectDecisionHistoryEvent,
   projectDecisionHistory,
 } from "../decision/validation.ts";
-import { decisionHistoryLine, taskHistoryLine } from "../history/operations.ts";
+import { taskHistoryLine } from "../history/operations.ts";
 import type { HistoryRow } from "../history/types.ts";
-import { decodeHistoryRows, historyRow } from "../history/validation.ts";
+import {
+  decodeHistoryRows,
+  historyRow,
+  prepareHistoryAppend,
+} from "../history/validation.ts";
 import type { Snapshot } from "../state/types.ts";
 import {
   classifyResourcePublication,
@@ -846,45 +850,13 @@ export function updateHistoryOwned(
         throw new Error("history_owner_changed");
     };
     const before = readHistoryFile(currentFile) ?? Buffer.alloc(0);
-    const rows = decodeHistoryRows(before);
-    if (!rows || rows.some((row) => Date.parse(row.occurredAt) > now))
-      return blocked;
-    const parsed: unknown = recordJson === null ? [] : JSON.parse(recordJson);
-    const incoming = Array.isArray(parsed) ? parsed : [parsed];
-    const known = new Map<string, Buffer>(
-      rows.map((row) => [row.recoveryId, Buffer.from(row.line)]),
+    const joined = prepareHistoryAppend(
+      before,
+      recordJson,
+      state.value.snapshot.decisions,
+      now,
     );
-    const additions: Buffer[] = [];
-    for (const value of incoming) {
-      const record = historyRow(value, now);
-      const line = taskHistoryLine(record);
-      const id = `task-history.${record.id}`;
-      const same = known.get(id);
-      if (same && !line.equals(same)) return blocked;
-      if (!same) {
-        known.set(id, line);
-        additions.push(line);
-      }
-    }
-    // 未搬送の判断履歴はStateの元記録から再構成する。別のpending集合は持たない。
-    for (const decision of state.value.snapshot.decisions) {
-      const events = projectDecisionHistory(decision);
-      if (!events) return blocked;
-      for (const event of events) {
-        if (Date.parse(event.occurredAt) > now) return blocked;
-        const line = decisionHistoryLine(event);
-        const id = `decision-history.${event.eventId}`;
-        const same = known.get(id);
-        if (same && !line.equals(same)) return blocked;
-        if (!same) {
-          known.set(id, line);
-          additions.push(line);
-        }
-      }
-    }
-    const joined = additions.length
-      ? Buffer.concat([before, ...additions])
-      : before;
+    if (!joined) return blocked;
     // 判断の出版と期限整理を分離し、再入場の候補を時刻経過だけで変形しない。
     const after =
       mode === "update"

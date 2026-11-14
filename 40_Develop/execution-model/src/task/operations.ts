@@ -22,7 +22,6 @@ import {
 import {
   isStateObject,
   validId,
-  validResultReference,
   encodeStateValue,
   hasExecutionStateRecordKeys,
 } from "../state/operations.ts";
@@ -30,6 +29,7 @@ import { historyRow } from "../history/validation.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../state/types.ts";
 import {
   validState,
+  validResultReference,
   validQueueEntry,
   inspectSingleTaskRecord,
 } from "./validation.ts";

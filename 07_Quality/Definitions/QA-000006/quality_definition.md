@@ -1,5 +1,11 @@
 # QA-000006 外部実行境界の検証定義
 
+## 履歴追記候補と物理保存のOwner分離
+
+HST-UT-001は既存の純粋履歴試験内で、Task／Decision混在順序、元byte保全、追加なしの同参照、同ID同内容の再送、異内容衝突、破損／未来の現行行、未来Task／Decision、不正JSON・未知fieldの例外と不正Decisionの拒否を確認する。形が不正な現行行はrecordJsonの解析より前に拒否し、局所移管で例外順を変えない。新品Nodeの既存RCM-IT-005は局所検査にState候補・保存依存が逆流しないことを確認する。
+
+PRL-IT-012は既存runtime-historyの再搬送／衝突、pending二状態再入場、pending不整合保全、破損・部分行・時計逆行、fsync／rename故障の五親に限定する。今回生成Rootを終了hookで回収し、取得済みOwner・fresh本文・pendingと確定履歴の終了後条件を確認する。Coの継続判断の既存代表一親で、Decisionから実履歴保存・再入場への接続も確認する。値試験やこの限定選択を全体回帰・実AI・Dockerの成立へ拡張しない。
+
 ## Executor検証診断の内部量制約追従 — 2026-11-12
 
 既存単独計測のsummaryは旧2,048byte超でも制御文字・Path・認識済みSecretの検査を維持して一回表示し、本文をLog／Fileへ追加保存しない。実E2E結果の再捕捉はCommand／File変更通知4,097件も非負安全整数として保持するが、Profile固定の呼出し数・開始／終了／取消・Cleanup・元ID相関は緩めない。今回は合成・模擬境界の限定試験であり、実AI・Dockerの再実行は行わない。前段実E2Eの成功を本変更後の実測へ流用しない。

@@ -12,10 +12,7 @@ import {
   HASH,
   hasStateKeys,
   isStateObject,
-  nullableCandidateId,
   nullableId,
-  nullableRecoveryId,
-  nullableResultReference,
   REVISION,
   snapshotStateArray,
   stringArray,
@@ -263,7 +260,7 @@ export function validState(value: unknown): value is ProjectExecutionState {
       !validTaskLifecycleTuple(
         task as unknown as ProjectExecutionState["tasks"][number],
       ) ||
-      !nullableCandidateId(task.candidateId) ||
+      !nullableTaskReference(task.candidateId) ||
       !Number.isSafeInteger(task.retryCount) ||
       Number(task.retryCount) < 0 ||
       !nullableId(task.supersededBy)
@@ -293,7 +290,7 @@ export function recoveryObligations(
       ].includes(String(entry.kind)) ||
       !["required", "recovering", "settled"].includes(String(entry.phase)) ||
       typeof entry.recoveryId !== "string" ||
-      !nullableRecoveryId(entry.recoveryId) ||
+      !nullableTaskReference(entry.recoveryId) ||
       identities.has(entry.recoveryId)
     )
       return false;
@@ -359,7 +356,7 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
     Number(value.generation) >= 1 &&
     nullableId(value.ownerGeneration) &&
     nullableId(value.resumeCondition) &&
-    nullableResultReference(value.resultReference) &&
+    nullableTaskReference(value.resultReference) &&
     (value.workspaceId === null ||
       (typeof value.workspaceId === "string" &&
         /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
@@ -756,5 +753,50 @@ export function singleTaskQueueIsConsistent(
     queue.state ===
       (record.status === "cancelled" ? "cancelled" : "completed") &&
     queue.resumeCondition === null
+  );
+}
+
+/**
+ * Taskの候補・回復・結果参照に共通するnullable文法を検査する。
+ *
+ * @responsibility 同じ512文字以内の参照文法を一意に保ち、参照先の実在や意味を判断しない。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns nullableTaskReferenceの計算結果を返す。
+ * @precondition 「value: unknown」がnullableTaskReferenceの入力契約を満たす。
+ * @postcondition nullableTaskReferenceの責務を完了した結果だけを返す。
+ * @effect N/A: nullableTaskReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nullableTaskReferenceは独自の失敗分岐を所有しない。
+ * @invariant nullableTaskReferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nullableTaskReferenceはProcess内の同一Subsystemで完結する。
+ * @security nullableTaskReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: nullableTaskReferenceは共有非同期状態を持たない同期処理である。
+ */
+function nullableTaskReference(value: unknown) {
+  return value === null || validResultReference(value);
+}
+
+/**
+ * 結果 Referenceが有効か判定する。
+ *
+ * @responsibility 結果 Referenceの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidResultReferenceの入力契約を満たす。
+ * @postcondition validResultReferenceの責務を完了した結果だけを返す。
+ * @effect N/A: validResultReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validResultReferenceは独自の失敗分岐を所有しない。
+ * @invariant validResultReferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validResultReferenceはProcess内の同一Subsystemで完結する。
+ * @security validResultReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validResultReferenceは共有非同期状態を持たない同期処理である。
+ */
+export function validResultReference(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
   );
 }

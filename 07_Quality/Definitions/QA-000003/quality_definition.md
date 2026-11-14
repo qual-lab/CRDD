@@ -1,5 +1,9 @@
 # QA-000003 Project実行と回復の検証定義
 
+## Task参照検査の局所化
+
+PRL-UT-006のTask validation試験で、候補・回復・結果のnullable参照を同じ私有文法へ統合しても、null・非空・512文字境界・固定文字集合を変更しないことを確認する。必須参照はnullを拒否する。既存Task状態・Queue・回復候補・保存codecの全assertと公開集合を維持し、参照文法の受理を実在・回復許可・保存成功と扱わない。
+
 ## 受付済み計画のexact参照再利用
 
 PRL-UT-014は私有受付実行の製品宣言を使い、同じ受付で捕捉した計画だけを再利用することを確認する。同値別Objectは再検査し、範囲外・getter・Proxy・null・依存例外を内部実行へ渡さない。PRL-IT-005は既存の範囲外計画と未知field／accessor／Proxyの二試験に限定し、自己生成RepositoryでProject保存・Task Effectがないことと終了清掃を確認する。実保存の全正常経路・実AI・Docker・全体回帰の成功へ一般化しない。

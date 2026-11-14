@@ -880,7 +880,8 @@
       "verifies": [
         "coordinator.state-storage.coordinator-state-model",
         "orchestrator.task.single-task-record",
-        "execution-model.source.src.task.operations"
+        "execution-model.source.src.task.operations",
+        "domain-model.task.queue"
       ]
     },
     {
@@ -1170,7 +1171,8 @@
       "verifies": [
         "execution-model.source.src.history.operations",
         "domain-model.state.history",
-        "execution-model.source.src.history.types"
+        "execution-model.source.src.history.types",
+        "domain-model.state.activity"
       ]
     },
     {

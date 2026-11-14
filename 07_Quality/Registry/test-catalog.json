@@ -10582,7 +10582,8 @@
       "humanInput": false,
       "postconditions": [
         "result_observed",
-        "unknown_not_absent"
+        "unknown_not_absent",
+        "task_reference_grammar_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -11178,7 +11179,8 @@
         "history_retention_boundaries_preserved",
         "pending_exact_match_required",
         "input_buffer_methods_not_trusted",
-        "summary_bytes_and_fixed_hash_preserved"
+        "summary_bytes_and_fixed_hash_preserved",
+        "history_append_order_collision_and_failure_preserved"
       ],
       "mandatoryByDefault": true
     },

@@ -2526,6 +2526,24 @@ Coの選定・Objective搬送・Task搬送・助言選定／Dispatchの5File24�
 
 後続のコミット・プッシュ依頼に対し、15Pathの実装・試験・QA・台帳・説明とRoot差分0を再照合した。限定55試験（Co24・EM31）、両型検査、変更TSの整形・警告検査が再成功し、独立最終確認の必須指摘は0。実装・試験本文は前回確認済み候補から不変のため、受付IT2親は既存結果を使用し再実行しない。この確認済み候補を既存Featureへコミット・プッシュする。全体回帰・実AI・Docker・過去保持物は対象外。
 
+### 共通値処理と履歴候補の所有境界 — 着手前整合確認
+
+基準c3835fd8aのLogical Block俯瞰で、State内の単独モデル専用六HelperとStorageの履歴追記候補生成を是正対象とした。公開93項目・保存形式・I/O順・失敗／再入場契約は維持する。Task専用四Helperは既存task/validationへ集め、同一文法のnullable三処理は私有nullableTaskReferenceへ統合する。validResultReferenceだけTask operationsから直接使う。History専用closedObject／timestampは既存history/validationの私有関数とする。新File・Facade・共通Package・互換exportは追加しない。
+
+updateHistoryOwnedの現行行decode・未来拒否、Task入力解析／行追加、Decision投影／追加、同ID衝突・重複判定、追記byte組立を既存history/validationのprepareHistoryAppendへ移す。同Fileはモデル別の行検査と入力からの候補生成を所有し、History operationsへDecoderの逆参照を追加しない。追加なしは同じbefore Buffer、行順・元byte・例外は維持する。StorageはOwner・時刻／mode受付、resume_decisionのpending不存在早期終了、State同版結合・保持、pending実体・fresh確認・flush／rename／回収を元の位置と順序に残す。保存境界の再検証を局所重複とみなして撤去しない。
+
+独立した着手前技術確認で依存と失敗順を照合した。六Helperの元受理域・呼出し元、既存／新規行の破損・未来時刻、Task／Decision重複・衝突・混在順序、追加なしの参照、不正JSONの例外、StoreでのEffect前停止と保存故障後の再入場を限定検証する。型・公開集合・新品Nodeロード・既存のTask／History／Decision試験と代表実保存を必要範囲だけ選び、文書・Symbol／QA台帳と独立技術・品質レビューを追従する。全体回帰・実AI・Docker・過去保持物は操作しない。規範・準拠・Release判断は変更せず、準拠監査と実環境E2Eは対象外とする。
+
+#### 共通値処理と履歴候補の所有境界 — 実施と限定確認
+
+State専用六Helperを撤去し、Taskの三nullable参照は私有一関数へ統合、必須参照検査はTask validationへ移管した。HistoryのObject／時刻検査は私有化し、履歴追記候補は既存History validationへ実体移管した。旧Helper名の転送・再export・新File／Facade・Root変更はない。公開93項目・保存形式・時刻／mode／Owner受付・保持・pendingと物理出版の順序を維持する。Task／Historyの旧三本文と、候補生成の委譲部分を除くupdateHistoryOwned本体が基準版と一致することを、空白・末尾カンマを除いて照合した。30Sourceの静的実行時importに循環はない。
+
+既存8FileのTask参照・Queue候補・保存codec・Decision・History・公開集合・新品Node境界の限定65試験が全成功した。追加はTask文法と履歴候補の2親で、元assertionは削除していない。既存runtime-historyは指定した再搬送／衝突・pending正常二状態・pending不整合・破損／時計・fsync／renameの5親だけを実行し、全成功した。Coの既存continuation-decision ITは継続要求から適用・履歴再入場までの代表1親だけを実行して成功した。計71試験は今回の限定集合であり、全体回帰・実AI・Dockerの成立ではない。今回生成したRepositoryは既存終了hookの回収確認まで成功し、過去保持物は操作していない。
+
+EMとCoの型検査、変更TSの整形・警告検査が成功した。初回整形はWindowsの一時的なFile共有エラーで2試験Fileを書けず、該当2Fileだけの再実行で整形と警告検査が成功した。試験失敗はない。Architectureの所有範囲、QA003／006、既存Symbolの検証関係とCatalogの事後条件を更新した。独立技術レビューと独立QA／文書レビューの必須残指摘は0。Stateは共通Helper置場ではなく保存値契約に限定し、Storageはモデル判定と物理保存証拠を結合するという境界を明記した。今回差分は未コミットで、全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+コミット前の再確認では14Pathの対応、旧Helper参照の撤去、公開Root差分0・新File追加0・差分空白問題0を再照合した。限定65試験・EM／Co型検査・変更TSの整形／警告検査が再成功し、独立最終QA確認の必須指摘は0。実装と試験の機能は前回固定候補から不変のため、実保存5親・Co継続判断1親は既存結果を使用して再実行しない。この確認済み候補を既存Featureへコミット・プッシュする。全体回帰・実AI・Docker・過去保持物は対象外。
+
 ### Principal値Ownerと捕捉済みSelection — 着手前整合確認
 
 実施結果：主体ID2関数と固定prefixを保存非依存の`state/operations.ts`へまとめ、旧`value.ts`を撤去した。公開93項目と保存文法は維持。全Source／試験／現在設計の旧Path参照は0で、Symbolの安定IDを変えず現行Pathを更新した。EM・Coordinatorの型検査と、値／公開境界／独立ロード／選定／単発受付の限定38試験が成功した。改名前にも選定更新2試験とローカル主体2試験の成功を確認したが、改名後38件の内訳には合算しない。独立の技術レビューは必須指摘なし、QAレビューの説明見出し配置1点は専用節へ分離して是正した。改名に伴うimport折返し2箇所も整形した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。
