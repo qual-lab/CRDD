@@ -5,6 +5,7 @@
  */
 import type { ProjectDefinition } from "../state/types.ts";
 import {
+  hashExecutionStateContent,
   repositoryPathWithin,
   snapshotPlainArray,
   snapshotStateRecord,
@@ -449,5 +450,34 @@ export function inspectExecutionProjectDefinition(
       ),
     ),
     tasks: definition.tasks,
+  });
+}
+
+/**
+ * 対象IDを含む計画定義だけの内容Hashを導出する。
+ * @responsibility 判断状態・管理実行値を定義同一性から分離する。
+ * @trace ARCH-000004
+ * @input project: 検査済みCore Project。
+ * @returns 対象と正規化定義へ結合したSHA-256。
+ * @precondition 呼出し側がCore定義の値検査を完了している。
+ * @postcondition 判断・Ownerの変化だけでは定義Hashを変更しない。
+ * @effect N/A: 値のHash計算だけ。
+ * @failure 通常データでない値は共通encoderが拒否する。
+ * @invariant 対象IDを除いた本文だけのHashへ置換しない。
+ * @boundary 同じSnapshot内の定義と管理実行参照。
+ * @security Hashを操作許可として使用しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function hashExecutionProjectDefinition(
+  project: ProjectDefinition,
+): string {
+  return hashExecutionStateContent({
+    projectId: project.projectId,
+    milestoneId: project.milestoneId,
+    definition: {
+      milestoneAcceptanceCriteria: project.milestone.acceptanceCriteria,
+      objectives: project.objectives.map((objective) => objective.definition),
+      tasks: project.tasks,
+    },
   });
 }

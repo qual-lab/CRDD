@@ -8,12 +8,12 @@
  * @boundary メモリ内だけ。Filesystem・実行Owner・外部AIを使用しない。
  */
 
+import { hashExecutionStateContent } from "../../../src/state/operations.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   decodeStateSnapshot,
-  hashExecutionStateContent,
   prepareStateHistorySummary,
   prepareStateOperationSnapshot,
 } from "../../../src/state/validation.ts";

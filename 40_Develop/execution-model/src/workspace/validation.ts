@@ -3,11 +3,16 @@
  * @responsibility I/Oや新しい権限を発行せず、モデル固有の受入条件を判定する。
  * @trace ARCH-000008
  */
+import { hashStateText } from "../state/operations.ts";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "../state/types.ts";
-import { hashStateText } from "../state/validation.ts";
+
 import { historyRow } from "../history/validation.ts";
-import { encodeStateValue } from "../state/operations.ts";
+import {
+  encodeStateValue,
+  isStateObject,
+  hasStateKeys,
+} from "../state/operations.ts";
 import type {
   ResultRecord,
   WorkspaceCandidateRequest,
@@ -785,4 +790,39 @@ export function validWorkspaceCandidateRequest(
  */
 export function isWorkspaceCommitId(value: unknown): value is string {
   return typeof value === "string" && COMMIT_ID.test(value);
+}
+
+/**
+ * 採用呼出し前に確定した拒否記録の閉じた値を確認する。
+ * @responsibility 拒否を成功Receiptや未知Effectから区別する。
+ * @trace ARCH-000004
+ * @input 検証済み採用Record。
+ * @returns exact Ownerに結合した既知拒否か。
+ * @precondition 値はJSONとして検証済みである。
+ * @postcondition 固定理由と全fieldが一致した場合だけtrue。
+ * @effect N/A: 局所値だけを検査する。
+ * @failure 不正値はfalse。
+ * @invariant Receipt不存在からEffect 0を推定しない。
+ * @boundary 採用Applicationと保存結果。
+ * @security Callerの追加fieldを採用しない。
+ * @concurrency N/A: 同期純粋処理。
+ */
+export function adoptionWasRejected(record: ResultRecord): boolean {
+  return (
+    record.kind === "adoption" &&
+    isStateObject(record.value) &&
+    hasStateKeys(record.value, [
+      "status",
+      "reason",
+      "ownerGeneration",
+      "effectIssued",
+      "cleanupConfirmed",
+    ]) &&
+    record.value.status === "rejected" &&
+    record.value.reason ===
+      "orchestrator_adoption_revision_or_scope_mismatch" &&
+    record.value.ownerGeneration === record.identity &&
+    record.value.effectIssued === false &&
+    record.value.cleanupConfirmed === true
+  );
 }

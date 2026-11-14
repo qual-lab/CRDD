@@ -1,6 +1,6 @@
 /**
  * 統合実行State・Lease・一回保存相関の値検査と純粋な遷移・投影を所有する。
- * @responsibility I/Oや新しい権限を発行せず、モデル固有の受入条件を判定する。
+ * @responsibility 局所モデルの意味計算を各Ownerへ委譲し、同版の改訂・参照・対象外保全を検査する。
  * @trace ARCH-000008
  */
 import { createHash } from "node:crypto";
@@ -41,6 +41,8 @@ import {
   validateDecisionSnapshotTransition,
 } from "../decision/validation.ts";
 import {
+  prepareHistorySummary,
+  operationHistoryLine,
   copyHistoryBytes,
   historyLineBytes,
   operationSummaryBytes,
@@ -52,6 +54,7 @@ import {
 import type { HistoryRetentionReferences } from "../history/types.ts";
 import { decodeHistoryRows, historyRow } from "../history/validation.ts";
 import {
+  hashExecutionProjectDefinition,
   inspectCompletePlanDefinition,
   inspectExecutionProjectDefinition,
 } from "../objective/validation.ts";
@@ -67,11 +70,14 @@ import {
   validState,
 } from "../task/validation.ts";
 import type { ResultRecord } from "../workspace/types.ts";
-import { validResultRecord, validWorkspace } from "../workspace/validation.ts";
+import {
+  adoptionWasRejected,
+  validResultRecord,
+  validWorkspace,
+} from "../workspace/validation.ts";
 import type {
   ExecutionStateSnapshot,
   ExecutionStoredManagedProject,
-  LeaseEvidenceContent,
   LeaseEvidenceEnvelope,
   LeaseKind,
   ProjectDefinition,
@@ -81,6 +87,11 @@ import type {
   StoredTask,
 } from "./types.ts";
 import {
+  createLeaseEvidence,
+  validLeaseEvidence,
+  hashStateText,
+  leaseIdentity,
+  leaseAcquisitionRecoveryId,
   encodeStateValue,
   hasExecutionStateRecordKeys,
   isSha256Hex,
@@ -90,7 +101,7 @@ import {
   hasStateKeys,
   HASH,
 } from "./operations.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "./types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA, STORAGE_CONTRACT } from "./types.ts";
 
 /**
  * Lease取得Ownerの記録参照を投影する。
@@ -781,43 +792,6 @@ function observeLeaseRoot(
   return value;
 }
 
-/**
- * 既存Lease証拠の閉形式・本文Hash・世代を生成する。
- * @responsibility 旧Envelopeのlease-evidence枝だけを同じ値で生成する。
- * @trace ARCH-000004
- * @input binding、Project ID、更新世代、既存Lease証拠本文。
- * @returns 外側だけfreezeした同じ証拠。
- * @precondition N/A: 本文は既存validatorで検査する。
- * @postcondition 本文参照をclone・deep-freezeしない。
- * @effect N/A: 値操作だけ。
- * @failure 不正本文は元の固定例外。
- * @invariant HashをAuthority・実解放の証明にしない。
- * @boundary このFileの取得・解放・回復終了候補だけ。
- * @security 保存又は実操作を公開しない。
- * @concurrency N/A: 同期の局所値操作。
- */
-function createLeaseEvidence(
-  binding: string,
-  projectId: string,
-  updatedGeneration: number,
-  content: LeaseEvidenceContent,
-): LeaseEvidenceEnvelope {
-  if (!validLeaseEvidence(content))
-    throw new Error("orchestrator_record_content_invalid");
-  const serialized = encodeStateValue(content);
-  return Object.freeze({
-    schema: STORAGE_CONTRACT,
-    schemaRevision: 1 as const,
-    recordKind: "lease-evidence" as const,
-    repositoryBindingId: binding,
-    projectId,
-    createdGeneration: 1,
-    updatedGeneration,
-    contentHash: hashStateText(serialized),
-    content,
-  });
-}
-
 /** 旧Storeの成功封筒だけを局所値として再現する。 */
 function completed<T>(reason: string, value: T) {
   return Object.freeze({ status: "completed" as const, reason, value });
@@ -836,27 +810,6 @@ function blocked(
     manualRecoveryRequired,
     recoveryId,
   });
-}
-
-/**
- * 現在状態と固定情報に使用する内容Hashを導出する。
- * @responsibility 宣言したsorted-key UTF-8本文と一つのLFへ結合する。
- * @trace ARCH-000008
- * @input value: plain JSON値。
- * @returns 内容のSHA-256。
- * @precondition 値が固定encodingで表現可能。
- * @postcondition objectの挿入順に依存しない。
- * @effect N/A: メモリ内のHash計算だけ。
- * @failure 不正値はencoderの例外を返す。
- * @invariant 可変SnapshotのHashと固定操作情報のHashを混同しない。
- * @boundary 保存内容の相関。
- * @security HashをAuthorityとして発行しない。
- * @concurrency N/A: 共有状態なし。
- */
-export function hashExecutionStateContent(value: unknown): string {
-  return createHash("sha256")
-    .update(`${encodeStateValue(value)}\n`, "utf8")
-    .digest("hex");
 }
 
 /**
@@ -2323,7 +2276,9 @@ export function prepareRepairHistoryLine(
     (item): item is RepairOperationRecord =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
   );
-  return repairHistoryLine(operation);
+  return operation?.history
+    ? repairHistoryLineBytes(operation, operation.history.occurredAt)
+    : null;
 }
 
 /**
@@ -2359,7 +2314,7 @@ export function prepareRepairHistoryPublication(
   );
   if (!current || !operation?.history || operation.history.confirmed)
     return null;
-  const line = repairHistoryLine(operation);
+  const line = repairHistoryLineBytes(operation, operation.history.occurredAt);
   const snapshotBytes = repairHistorySnapshot(
     currentBytes,
     current,
@@ -2427,7 +2382,7 @@ export function prepareRecoveredHistoryPublication(
     );
     if (!current || !operation?.history || operation.history.confirmed)
       return null;
-    const line = stateHistoryLine(operation);
+    const line = operationHistoryLine(operation);
     const snapshotBytes = stateHistorySnapshot(
       currentBytes,
       current,
@@ -3657,41 +3612,6 @@ export function queueIsClosed(
 }
 
 /**
- * 採用呼出し前に確定した拒否記録の閉じた値を確認する。
- * @responsibility 拒否を成功Receiptや未知Effectから区別する。
- * @trace ARCH-000004
- * @input 検証済み採用Record。
- * @returns exact Ownerに結合した既知拒否か。
- * @precondition 値はJSONとして検証済みである。
- * @postcondition 固定理由と全fieldが一致した場合だけtrue。
- * @effect N/A: 局所値だけを検査する。
- * @failure 不正値はfalse。
- * @invariant Receipt不存在からEffect 0を推定しない。
- * @boundary 採用Applicationと保存結果。
- * @security Callerの追加fieldを採用しない。
- * @concurrency N/A: 同期純粋処理。
- */
-export function adoptionWasRejected(record: ResultRecord): boolean {
-  return (
-    record.kind === "adoption" &&
-    isStateObject(record.value) &&
-    hasStateKeys(record.value, [
-      "status",
-      "reason",
-      "ownerGeneration",
-      "effectIssued",
-      "cleanupConfirmed",
-    ]) &&
-    record.value.status === "rejected" &&
-    record.value.reason ===
-      "orchestrator_adoption_revision_or_scope_mismatch" &&
-    record.value.ownerGeneration === record.identity &&
-    record.value.effectIssued === false &&
-    record.value.cleanupConfirmed === true
-  );
-}
-
-/**
  * 既知拒否の終了証拠をexact Owner単位で整理できるか確認する。
  * @responsibility 拒否結果、終了証拠、履歴確定と除去候補を結合する。
  * @trace ARCH-000004
@@ -3918,36 +3838,7 @@ export function prepareStateHistoryLine(
     (value): value is ExecutionOperationRecord =>
       value.kind === "docker_task" && value.recoveryId === recoveryId,
   );
-  return stateHistoryLine(operation);
-}
-
-/**
- * 対象IDを含む計画定義だけの内容Hashを導出する。
- * @responsibility 判断状態・管理実行値を定義同一性から分離する。
- * @trace ARCH-000004
- * @input project: 検査済みCore Project。
- * @returns 対象と正規化定義へ結合したSHA-256。
- * @precondition 呼出し側がCore定義の値検査を完了している。
- * @postcondition 判断・Ownerの変化だけでは定義Hashを変更しない。
- * @effect N/A: 値のHash計算だけ。
- * @failure 通常データでない値は共通encoderが拒否する。
- * @invariant 対象IDを除いた本文だけのHashへ置換しない。
- * @boundary 同じSnapshot内の定義と管理実行参照。
- * @security Hashを操作許可として使用しない。
- * @concurrency N/A: 共有状態なし。
- */
-export function hashExecutionProjectDefinition(
-  project: ProjectDefinition,
-): string {
-  return hashExecutionStateContent({
-    projectId: project.projectId,
-    milestoneId: project.milestoneId,
-    definition: {
-      milestoneAcceptanceCriteria: project.milestone.acceptanceCriteria,
-      objectives: project.objectives.map((objective) => objective.definition),
-      tasks: project.tasks,
-    },
-  });
+  return operationHistoryLine(operation);
 }
 
 /**
@@ -4518,128 +4409,6 @@ function validExecutionTaskReferences(
 
 export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v4";
 
-export const STORAGE_CONTRACT =
-  "crdd-coordinator/orchestrator-durable-foundation/v1" as const;
-
-/**
- * Lease Evidenceが有効か判定する。
- *
- * @responsibility Lease Evidenceの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns validLeaseEvidenceの計算結果を返す。
- * @precondition 「value: unknown」がvalidLeaseEvidenceの入力契約を満たす。
- * @postcondition validLeaseEvidenceの責務を完了した結果だけを返す。
- * @effect N/A: validLeaseEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validLeaseEvidenceは独自の失敗分岐を所有しない。
- * @invariant validLeaseEvidenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validLeaseEvidenceはProcess内の同一Subsystemで完結する。
- * @security validLeaseEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validLeaseEvidenceは共有非同期状態を持たない同期処理である。
- */
-export function validLeaseEvidence(value: unknown) {
-  return (
-    isStateObject(value) &&
-    hasStateKeys(value, [
-      "kind",
-      "queueId",
-      "ownerGeneration",
-      "ownerProcessId",
-      "disposition",
-    ]) &&
-    (value.kind === "project-operation" ||
-      value.kind === "canonical-adoption") &&
-    validId(value.queueId) &&
-    validId(value.ownerGeneration) &&
-    Number.isSafeInteger(value.ownerProcessId) &&
-    Number(value.ownerProcessId) > 0 &&
-    (value.disposition === "acquired" ||
-      value.disposition === "released" ||
-      value.disposition === "recovered_after_owner_loss" ||
-      value.disposition === "acquisition_unknown_closed")
-  );
-}
-
-/**
- * durable-foundationのHashを算出する。
- *
- * @responsibility durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: string
- * @returns hashStateTextの計算結果を返す。
- * @precondition 「value: string」がhashStateTextの入力契約を満たす。
- * @postcondition hashStateTextの責務を完了した結果だけを返す。
- * @effect N/A: hashStateTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: hashStateTextは独自の失敗分岐を所有しない。
- * @invariant hashStateTextは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: hashStateTextはProcess内の同一Subsystemで完結する。
- * @security hashStateTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: hashStateTextは共有非同期状態を持たない同期処理である。
- */
-export function hashStateText(value: string) {
-  return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-/**
- * lease Identityを決定する。
- *
- * @responsibility lease Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
- * @returns leaseIdentityの計算結果を返す。
- * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseIdentityの入力契約を満たす。
- * @postcondition leaseIdentityの責務を完了した結果だけを返す。
- * @effect N/A: leaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: leaseIdentityは独自の失敗分岐を所有しない。
- * @invariant leaseIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: leaseIdentityはProcess内の同一Subsystemで完結する。
- * @security leaseIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: leaseIdentityは共有非同期状態を持たない同期処理である。
- */
-export function leaseIdentity(
-  repositoryBindingId: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-) {
-  return kind === "project-operation"
-    ? `${kind}-${repositoryBindingId}`
-    : kind === "canonical-adoption"
-      ? `${kind}-${repositoryBindingId}-${projectId}`
-      : `${kind}-${projectId}-${queueId}`;
-}
-
-/**
- * lease Acquisition 回復 Idを決定する。
- *
- * @responsibility lease Acquisition 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
- * @returns leaseAcquisitionRecoveryIdの計算結果を返す。
- * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseAcquisitionRecoveryIdの入力契約を満たす。
- * @postcondition leaseAcquisitionRecoveryIdの責務を完了した結果だけを返す。
- * @effect N/A: leaseAcquisitionRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: leaseAcquisitionRecoveryIdは独自の失敗分岐を所有しない。
- * @invariant leaseAcquisitionRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: leaseAcquisitionRecoveryIdはProcess内の同一Subsystemで完結する。
- * @security leaseAcquisitionRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: leaseAcquisitionRecoveryIdは共有非同期状態を持たない同期処理である。
- */
-export function leaseAcquisitionRecoveryId(
-  repositoryBindingId: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-) {
-  const identityInput =
-    kind === "project-operation"
-      ? `${repositoryBindingId}\0${kind}`
-      : kind === "canonical-adoption"
-        ? `${repositoryBindingId}\0${projectId}\0${kind}`
-        : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
-  return `lease-acquisition-${hashStateText(identityInput).slice(0, 40)}`;
-}
-
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can
 // exceed the 128-character limit of ordinary project-local identifiers.
@@ -4935,54 +4704,6 @@ export function validateRepairWriteCandidate(
 }
 
 /**
- * 新しい認証unknown不存在の生成・変更を一般保存から識別する。
- * @responsibility 保存済み専用値の同値保全と新しい終了辺を区別する。
- * @trace ARCH-000008
- * @input before、after: 復号済み元Snapshotと保存候補。
- * @returns 専用Contextを要する資源差分があればtrue。
- * @precondition 両Snapshotは現在codecで検査済み。
- * @postcondition 操作除去や同値保全を新しい不存在観測に数えない。
- * @effect N/A: 同期値比較だけ。
- * @failure 元操作・元資源欠落は新しい辺として拒否対象にする。
- * @invariant 複合更新でも資源差分の検査を省略しない。
- * @boundary 一般Writerと専用の一回保存Context。
- * @security 保存値・Hashだけから専用保存を許可しない。
- * @concurrency 保存排他の外側と内側で同じ差分を確認する。
- */
-export function authenticationUnknownAbsenceChanged(
-  before: ExecutionStateSnapshot | null,
-  after: ExecutionStateSnapshot,
-): boolean {
-  return after.operations.some(
-    (operation) =>
-      operation.kind === "docker_task" &&
-      (operation.resources?.checkpoints ?? []).some((resource) => {
-        if (
-          resource.submission !== "intent_saved" ||
-          resource.receiptSource !== null ||
-          resource.observation !== "absent"
-        )
-          return false;
-        const previous = before?.operations.find(
-          (item) =>
-            item.kind === "docker_task" &&
-            item.recoveryId === operation.recoveryId,
-        );
-        const priorResource =
-          previous?.kind === "docker_task"
-            ? previous.resources?.checkpoints.find(
-                (item) => item.key === resource.key,
-              )
-            : null;
-        return (
-          !priorResource ||
-          encodeStateValue(priorResource) !== encodeStateValue(resource)
-        );
-      }),
-  );
-}
-
-/**
  * 保存済み操作が未要求の初期形から許された退役差分だけを持つか判定する。
  * @responsibility 初期再導出・未解決参照・全field一致を実Host観測から分離する。
  * @trace ARCH-000008
@@ -5106,19 +4827,19 @@ export function prepareHistoryRetention(
 }
 
 /**
- * 履歴要約と導出元Hashを結合する。
- * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * 要約可能なTask操作の履歴要約を、導出元StateのHashへ結合する。
+ * @responsibility 非executing・outcome存在を保ち、要約Hash計算はHistoryへ委譲する。
  * @trace ARCH-000008
- * @input 検査済み元版・exact対象と固定履歴入力。
- * @returns 導出値、拒否時null。
- * @precondition 呼出し元が本文とRepository結合を検査済み。
- * @postcondition 元版と対象外操作を変更しない。
- * @effect N/A: メモリ内導出のみ。
- * @failure 不正相関はnull、例外処理は元の入口に従う。
- * @invariant 検査済み値を保存Authorityへ昇格しない。
- * @boundary State統合とHistory意味計算。
- * @security 外部から検査済み値を受け付けない私有処理。
- * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ * @input operation: 同版の検査済みTask操作、sourcePayloadSha256: Decoderが得た元本文Hash。
+ * @returns 履歴要約・両Hash、未終端・固定Hash差はnull。
+ * @precondition 呼出し元がState本文とRepository結合を検査済み。
+ * @postcondition 一次失敗・不明値を変換せず、元Hashをそのまま付加する。
+ * @effect N/A: 保存しない同期の値計算。
+ * @failure 意味計算の例外は既存Task入口のcatchに委ねる。
+ * @invariant sourcePayloadSha256の付加はHistory自身のState検証ではない。
+ * @boundary Taskの要約条件と同版State。
+ * @security 値やHashを保存・操作Authorityへ昇格しない。
+ * @concurrency 同じ同期呼出し内だけで利用し、Writerのfresh照合を維持する。
  */
 function stateHistorySummary(
   operation: ExecutionOperationRecord | undefined,
@@ -5126,117 +4847,54 @@ function stateHistorySummary(
 ) {
   if (!operation || operation.phase === "executing" || !operation.outcome)
     return null;
-  const summaryBytes = operationSummaryBytes(operation);
-  const summarySha256 = createHash("sha256").update(summaryBytes).digest("hex");
-  if (
-    operation.summarySha256 !== null &&
-    operation.summarySha256 !== summarySha256
-  )
-    return null;
-  return Object.freeze({
-    summaryBytes,
-    summarySha256,
-    sourcePayloadSha256,
-  });
+  const summary = prepareHistorySummary(
+    operationSummaryBytes(operation),
+    operation.summarySha256,
+  );
+  return summary ? Object.freeze({ ...summary, sourcePayloadSha256 }) : null;
 }
 
 /**
- * 履歴要約と導出元Hashを結合する。
- * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * 要約可能なRepair操作の履歴要約を、導出元StateのHashへ結合する。
+ * @responsibility AttemptのrepairCanSummarizeを先に適用し、HistoryへAttempt検査の依存を追加しない。
  * @trace ARCH-000008
- * @input 検査済み元版・exact対象と固定履歴入力。
- * @returns 導出値、拒否時null。
- * @precondition 呼出し元が本文とRepository結合を検査済み。
- * @postcondition 元版と対象外操作を変更しない。
- * @effect N/A: メモリ内導出のみ。
- * @failure 不正相関はnull、例外処理は元の入口に従う。
- * @invariant 検査済み値を保存Authorityへ昇格しない。
- * @boundary State統合とHistory意味計算。
- * @security 外部から検査済み値を受け付けない私有処理。
- * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ * @input operation: 同版の検査済みRepair操作、sourcePayloadSha256: 元本文Hash。
+ * @returns 修復要約・両Hash、要約不能・固定Hash差はnull。
+ * @precondition 呼出し元がState本文とRepository結合を検査済み。
+ * @postcondition 保持／廃棄・失敗の既存要約条件を維持する。
+ * @effect N/A: 保存しない同期の値計算。
+ * @failure Attempt／Historyの例外を握り潰さずRepair入口へ伝播する。
+ * @invariant 元StateのHashと履歴要約Hashを同じ根拠と扱わない。
+ * @boundary Repairの要約条件と同版State。
+ * @security 値やHashを保存・操作Authorityへ昇格しない。
+ * @concurrency 同じ同期呼出し内だけで利用し、Writerのfresh照合を維持する。
  */
 function repairHistorySummary(
   operation: RepairOperationRecord | undefined,
   sourcePayloadSha256: string,
 ) {
   if (!operation || !repairCanSummarize(operation)) return null;
-  const summaryBytes = repairSummaryBytes(operation);
-  const summarySha256 = createHash("sha256").update(summaryBytes).digest("hex");
-  if (
-    operation.summarySha256 !== null &&
-    operation.summarySha256 !== summarySha256
-  )
-    return null;
-  return Object.freeze({
-    summaryBytes,
-    summarySha256,
-    sourcePayloadSha256,
-  });
+  const summary = prepareHistorySummary(
+    repairSummaryBytes(operation),
+    operation.summarySha256,
+  );
+  return summary ? Object.freeze({ ...summary, sourcePayloadSha256 }) : null;
 }
 
 /**
- * 固定済みの相関から履歴行を導出する。
- * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * Task履歴を同じ元Snapshotへ結合し、全体遷移を検査する。
+ * @responsibility Host清掃・Lease解放・Owner無効化・資源終端と初回falseを共同確認する。
  * @trace ARCH-000008
- * @input 検査済み元版・exact対象と固定履歴入力。
- * @returns 導出値、拒否時null。
- * @precondition 呼出し元が本文とRepository結合を検査済み。
- * @postcondition 元版と対象外操作を変更しない。
- * @effect N/A: メモリ内導出のみ。
- * @failure 不正相関はnull、例外処理は元の入口に従う。
- * @invariant 検査済み値を保存Authorityへ昇格しない。
- * @boundary State統合とHistory意味計算。
- * @security 外部から検査済み値を受け付けない私有処理。
- * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
- */
-function stateHistoryLine(
-  operation: ExecutionOperationRecord | undefined,
-): Buffer | null {
-  if (!operation?.history) return null;
-  const bytes = historyLineBytes(operation, operation.history.occurredAt);
-  return createHash("sha256").update(bytes).digest("hex") ===
-    operation.history.lineSha256
-    ? bytes
-    : null;
-}
-
-/**
- * 固定済みの相関から履歴行を導出する。
- * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
- * @trace ARCH-000008
- * @input 検査済み元版・exact対象と固定履歴入力。
- * @returns 導出値、拒否時null。
- * @precondition 呼出し元が本文とRepository結合を検査済み。
- * @postcondition 元版と対象外操作を変更しない。
- * @effect N/A: メモリ内導出のみ。
- * @failure 不正相関はnull、例外処理は元の入口に従う。
- * @invariant 検査済み値を保存Authorityへ昇格しない。
- * @boundary State統合とHistory意味計算。
- * @security 外部から検査済み値を受け付けない私有処理。
- * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
- */
-function repairHistoryLine(
-  operation: RepairOperationRecord | undefined,
-): Buffer | null {
-  return operation?.history
-    ? repairHistoryLineBytes(operation, operation.history.occurredAt)
-    : null;
-}
-
-/**
- * 履歴相関を同じTask元版へ反映し最終遷移を検査する。
- * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
- * @trace ARCH-000008
- * @input 検査済み元版・exact対象と固定履歴入力。
- * @returns 導出値、拒否時null。
- * @precondition 呼出し元が本文とRepository結合を検査済み。
- * @postcondition 元版と対象外操作を変更しない。
- * @effect N/A: メモリ内導出のみ。
- * @failure 不正相関はnull、例外処理は元の入口に従う。
- * @invariant 検査済み値を保存Authorityへ昇格しない。
- * @boundary State統合とHistory意味計算。
- * @security 外部から検査済み値を受け付けない私有処理。
- * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ * @input currentBytes/current: 同じ元本文と検査結果、recoveryId/occurredAt/confirmed: 固定対象と履歴値、repositoryBinding: 結合。
+ * @returns 固定条件を満たすSnapshot候補、またはnull。
+ * @precondition 呼出し元の検査済みStateと元本文が同一の同期呼出しに属する。
+ * @postcondition 対象Operationの履歴相関とSnapshotの改訂・previousだけを更新し、対象外操作を保持する。
+ * @effect N/A: 保存しない同期の値計算。
+ * @failure 未終端・不正時刻・初回true・不許可遷移はnull。
+ * @invariant 候補成功を実保存・Process終了・Cleanup成立と扱わない。
+ * @boundary History相関と全State改訂。
+ * @security 値やHashを保存・操作Authorityへ昇格しない。
+ * @concurrency 最終遷移検査には元のcurrentBytesを渡し、Writerのfresh照合を維持する。
  */
 function stateHistorySnapshot(
   currentBytes: unknown,
@@ -5300,19 +4958,19 @@ function stateHistorySnapshot(
 }
 
 /**
- * 履歴相関を同じ修復元版へ反映し最終遷移を検査する。
- * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * Repair履歴の固定時刻と確認状態を同じ元Snapshotへ結合する。
+ * @responsibility 保持判断時刻との一致、初回false、確認巻戻し拒否をTaskとは別に維持する。
  * @trace ARCH-000008
- * @input 検査済み元版・exact対象と固定履歴入力。
- * @returns 導出値、拒否時null。
- * @precondition 呼出し元が本文とRepository結合を検査済み。
- * @postcondition 元版と対象外操作を変更しない。
- * @effect N/A: メモリ内導出のみ。
- * @failure 不正相関はnull、例外処理は元の入口に従う。
- * @invariant 検査済み値を保存Authorityへ昇格しない。
- * @boundary State統合とHistory意味計算。
- * @security 外部から検査済み値を受け付けない私有処理。
- * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ * @input currentBytes/current: 同じ元版、operation: exact Repair、occurredAt/confirmed: 固定履歴値、repositoryBinding: 結合。
+ * @returns 固定条件を満たすSnapshot候補、またはnull。
+ * @precondition 呼出し元の検査済みStateと元本文が同一の同期呼出しに属する。
+ * @postcondition 同じ確認状態なら元版を返し、確認を進める場合だけ改訂を更新する。
+ * @effect N/A: 保存しない同期の値計算。
+ * @failure 時刻差・初回true・確認巻戻し・要約不能はnull、意味計算の例外は伝播する。
+ * @invariant 候補成功を実保存・Process終了・Cleanup成立と扱わない。
+ * @boundary History相関と全State改訂。
+ * @security 値やHashを保存・操作Authorityへ昇格しない。
+ * @concurrency 最終遷移検査には元のcurrentBytesを渡し、Writerのfresh照合を維持する。
  */
 function repairHistorySnapshot(
   currentBytes: unknown,

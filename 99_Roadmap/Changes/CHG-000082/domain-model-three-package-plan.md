@@ -2492,6 +2492,22 @@ Storageは分割せず、初期化・通常出版・再入場と三WeakMapの生
 
 後続のCommit／Push依頼で9Pathを再照合した。準備共有・Checkpoint・終了Readerの限定5親、型・整形・警告・Symbol／QA／試験台帳の接続・差分空白確認が再成功した。製品Source差分0、試験補助／試験本文も直前の固定候補から不変のため、代表保存34報告項目は既存証跡を使用し再実行しない。独立最終確認の必須指摘0。この確認済み候補を既存FeatureのCommit／Push対象とし、全体回帰・実AI・Docker・過去保持物・実利用切替は対象外とする。
 
+### State局所計算のOwner整理 — 着手前整合確認
+
+基準89ee04ae6の公開93項目・保存形式・同版候補・単一Writer／CAS・例外／回復相関を維持し、全78関数の分類（構造支援5・同版整合60・局所計算13）に基づく六項目を一括実施する。StateのHash／Lease値6関数と検査を既存operationsへ、STORAGE_CONTRACTをtypesへ一体移管する。採用拒否判定はWorkspace、計画定義HashはObjective、資源差分検出はAttemptの局所Ownerへ移す。旧再export・別名alias・新File／Facadeは作らない。
+
+履歴は要約byteのHash計算・固定Hash照合と固定行検査を既存History operationsへ集約し、Task／Repairの要約可能条件とsourcePayloadSha256の結合はStateに残す。Repairの転送Helperは既存byte生成へ統合し、欠測null・固定時刻・Taskのcatch／Repairの例外伝播を維持する。Hash対象のLF・ID・正規順、Lease内容参照、資源のexact ID／key、欠測・同値・全対象走査を変えない。実行時のWorkspace逆参照を先に切り、Objective operationsやHistoryから全State／Attempt検査へ戻る循環を作らない。着手前の読取り専用技術確認を反映済み。利用側・Source試験・台帳・説明を同時追従し、局所値／Module独立ロード・公開集合・遷移／混在・代表保存の限定回帰と独立レビューを行う。全体回帰・実AI・Docker・過去保持物は対象外。
+
+#### State局所計算のOwner整理 — 実施と限定確認
+
+六項目の移管と直接利用側の追従を完了した。移管10関数の本文と、移管対象外61関数の本文を基準版と比較し、空白・末尾カンマを除き一致した。Schema識別値も不変。WorkspaceからState全体検査への実行時逆参照とRepair固定行の転送Helperを撤去し、要約可能条件・元State Hashの結合・Writer／fresh照合は維持する。Root index差分0、新File／Facade追加0。Symbol安定IDを維持して検証対象を更新し、Architecture・QA定義・試験台帳を追従した。
+
+限定検証は値・Lease候補・履歴・混在Snapshot・Codec／遷移・公開93項目・新品Nodeの独立ロードを含む8ファイル73試験、Workspace／Checkpointの追加2ファイル6試験が全成功した。代表実保存はCore CRUD／CAS、終了要約、修復履歴、Lease保存区画の4親32報告項目が全成功した（32には修復親と28子を含むため、親数や独立条件数と混同しない）。既存のケース別保存領域と終了清掃を使用した。EMとCoordinatorの型検査、変更TSの整形・警告検査も成功した。
+
+独立技術レビューは必須指摘なし。品質レビューの履歴Snapshot更新に関する説明コメント1点は、履歴相関と改訂・previousを更新する実装に合わせて是正した。実装・検証内容への指摘はない。全体回帰・実AI・Docker・過去保持物は操作していない。この限定範囲の完了を全体品質・実利用切替・Release成立へ拡大しない。
+
+コミット前の再確認では、29Pathの差分・移管先参照・Symbol／試験台帳・説明の一致と、Root index差分0・新File追加0・差分空白問題0を確認した。限定73試験、EM／Coordinator型検査、変更TSの整形・警告検査が再成功し、独立最終QA確認の必須指摘は0。製品・試験本文は直前の検証済み候補から不変のため、追加6試験と代表実保存32報告項目は既存結果を使用し再実行しない。今回の確認済み差分を既存Featureへコミット・プッシュする。全体回帰・実AI・Docker・過去保持物は対象外。
+
 ### Principal値Ownerと捕捉済みSelection — 着手前整合確認
 
 実施結果：主体ID2関数と固定prefixを保存非依存の`state/operations.ts`へまとめ、旧`value.ts`を撤去した。公開93項目と保存文法は維持。全Source／試験／現在設計の旧Path参照は0で、Symbolの安定IDを変えず現行Pathを更新した。EM・Coordinatorの型検査と、値／公開境界／独立ロード／選定／単発受付の限定38試験が成功した。改名前にも選定更新2試験とローカル主体2試験の成功を確認したが、改名後38件の内訳には合算しない。独立の技術レビューは必須指摘なし、QAレビューの説明見出し配置1点は専用節へ分離して是正した。改名に伴うimport折返し2箇所も整形した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。

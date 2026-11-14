@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   copyHistoryBytes,
+  prepareHistorySummary,
   prepareHistoryPublication,
   retainHistoryRows,
   taskHistoryLine,
@@ -22,6 +23,36 @@ import type {
 } from "../../../src/history/types.ts";
 
 const NOW = "2026-11-14T00:00:00.000Z";
+
+/**
+ * 要約のbyteと固定Hashの照合をTask／Repairの条件判定から分離する。
+ * @responsibility LF追加・再符号化・Buffer複製でHash対象を変えない。
+ * @trace HST-UT-001
+ * @precondition 機密を含まない合成byte列だけを使う。
+ * @stimulus 未固定・同Hash・別Hashと、LF有無・不正な実行時入力。
+ * @observation 元Buffer参照・独立計算Hash・固定Hash差のnullと例外。
+ * @oracle 同じbyteだけをHash化し、呼出し元の例外契約を隠さない。
+ * @cleanup メモリ内だけ。
+ * @boundary 保存・要約可能条件・元State検査は対象外。
+ */
+test("要約Hashは元byteと固定Hashだけを照合し入力を変換しない", () => {
+  const bytes = Buffer.from("summary\n");
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  const first = prepareHistorySummary(bytes, null);
+  assert.ok(first && Object.isFrozen(first));
+  assert.equal(first.summaryBytes, bytes);
+  assert.equal(first.summarySha256, hash);
+  assert.deepEqual(prepareHistorySummary(bytes, hash), first);
+  assert.equal(prepareHistorySummary(bytes, "0".repeat(64)), null);
+  assert.notEqual(
+    prepareHistorySummary(Buffer.from("summary"), null)?.summarySha256,
+    hash,
+  );
+  assert.throws(
+    () => Reflect.apply(prepareHistorySummary, null, [null, null]),
+    TypeError,
+  );
+});
 
 /**
  * 独立した一つの終了履歴値を作る。

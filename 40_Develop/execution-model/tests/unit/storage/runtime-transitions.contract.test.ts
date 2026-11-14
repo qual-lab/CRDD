@@ -8,6 +8,7 @@
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
 
+import { hashExecutionStateContent } from "../../../src/state/operations.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -344,7 +345,6 @@ import type { ExecutionStateSnapshot } from "../../../src/state/types.ts";
 import {
   classifyResourcePublication,
   EXECUTION_STATE_SCHEMA,
-  hashExecutionStateContent,
   prepareRecoveredHistoryPublication,
   prepareStateCompletionSnapshot,
   projectTaskSettlement,
@@ -1070,7 +1070,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "utf8",
   );
   const helperSource = fs.readFileSync(
-    new URL("../../../src/state/validation.ts", import.meta.url),
+    new URL("../../../src/attempt/operations.ts", import.meta.url),
     "utf8",
   );
   const helperStart = helperSource.indexOf(

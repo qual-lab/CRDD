@@ -3,6 +3,8 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
+import { hashExecutionProjectDefinition } from "../objective/validation.ts";
+import { leaseAcquisitionRecoveryId, leaseIdentity } from "./operations.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import type { Repository } from "../../../version-control/src/index.ts";
@@ -88,9 +90,6 @@ import {
   assertSnapshotTransition,
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
-  hashExecutionProjectDefinition,
-  leaseAcquisitionRecoveryId,
-  leaseIdentity,
   prepareAuthenticationUnknownClosureSnapshot,
   prepareLeaseAcquisitionConfirmation,
   prepareLeaseAcquisitionReservation,

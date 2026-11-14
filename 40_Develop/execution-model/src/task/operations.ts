@@ -3,6 +3,7 @@
  * @responsibility 局所検査を再実装せず元版・参照・世代の候補を構築する。
  * @trace ARCH-000008
  */
+import { hashExecutionProjectDefinition } from "../objective/validation.ts";
 import type {
   ExecutionStoredManagedProject,
   ManagedExecution,
@@ -13,7 +14,6 @@ import type {
 } from "../state/types.ts";
 import {
   decodeStateSnapshot,
-  hashExecutionProjectDefinition,
   projectTaskSettlement,
   snapshotIntakeMatches,
   validateUnifiedTransition,

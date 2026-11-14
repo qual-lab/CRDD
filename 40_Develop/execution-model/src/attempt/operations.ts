@@ -4,6 +4,7 @@
  * @trace ARCH-000008
  */
 
+import type { ExecutionStateSnapshot } from "../state/types.ts";
 import { createHash } from "node:crypto";
 import {
   encodeStateValue,
@@ -431,4 +432,52 @@ export function validateResourceBookTransition(
       return false;
   }
   return true;
+}
+
+/**
+ * 新しい認証unknown不存在の生成・変更を一般保存から識別する。
+ * @responsibility 保存済み専用値の同値保全と新しい終了辺を区別する。
+ * @trace ARCH-000008
+ * @input before、after: 復号済み元Snapshotと保存候補。
+ * @returns 専用Contextを要する資源差分があればtrue。
+ * @precondition 両Snapshotは現在codecで検査済み。
+ * @postcondition 操作除去や同値保全を新しい不存在観測に数えない。
+ * @effect N/A: 同期値比較だけ。
+ * @failure 元操作・元資源欠落は新しい辺として拒否対象にする。
+ * @invariant 複合更新でも資源差分の検査を省略しない。
+ * @boundary 一般Writerと専用の一回保存Context。
+ * @security 保存値・Hashだけから専用保存を許可しない。
+ * @concurrency 保存排他の外側と内側で同じ差分を確認する。
+ */
+export function authenticationUnknownAbsenceChanged(
+  before: ExecutionStateSnapshot | null,
+  after: ExecutionStateSnapshot,
+): boolean {
+  return after.operations.some(
+    (operation) =>
+      operation.kind === "docker_task" &&
+      (operation.resources?.checkpoints ?? []).some((resource) => {
+        if (
+          resource.submission !== "intent_saved" ||
+          resource.receiptSource !== null ||
+          resource.observation !== "absent"
+        )
+          return false;
+        const previous = before?.operations.find(
+          (item) =>
+            item.kind === "docker_task" &&
+            item.recoveryId === operation.recoveryId,
+        );
+        const priorResource =
+          previous?.kind === "docker_task"
+            ? previous.resources?.checkpoints.find(
+                (item) => item.key === resource.key,
+              )
+            : null;
+        return (
+          !priorResource ||
+          encodeStateValue(priorResource) !== encodeStateValue(resource)
+        );
+      }),
+  );
 }

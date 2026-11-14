@@ -3,6 +3,7 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
+import { adoptionWasRejected } from "../workspace/validation.ts";
 import { randomUUID } from "node:crypto";
 import type { Repository } from "../../../version-control/src/index.ts";
 import { prepareDecisionRetirement } from "../decision/validation.ts";
@@ -28,7 +29,6 @@ import {
 import type { HistoryRow } from "./types.ts";
 import type { Snapshot, SnapshotObservations } from "../state/types.ts";
 import {
-  adoptionWasRejected,
   queueIsClosed,
   rejectedAdoptionEvidenceCanRetire,
   standaloneAdoptionIsClosed,

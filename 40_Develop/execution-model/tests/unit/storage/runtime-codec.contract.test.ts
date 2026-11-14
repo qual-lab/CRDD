@@ -8,6 +8,8 @@
  * @boundary 実保存・Host・AI・Dockerは使用しない。
  */
 
+import { hashExecutionProjectDefinition } from "../../../src/objective/validation.ts";
+import { hashExecutionStateContent } from "../../../src/state/operations.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -24,8 +26,6 @@ import type {
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
-  hashExecutionProjectDefinition,
-  hashExecutionStateContent,
   prepareStateOperationSnapshot,
   projectTaskSettlement,
   validateUnifiedTransition,

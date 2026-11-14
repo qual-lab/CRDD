@@ -12,6 +12,11 @@
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
 
+import {
+  hashExecutionStateContent,
+  leaseAcquisitionRecoveryId,
+  leaseIdentity,
+} from "../../src/state/operations.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -47,9 +52,6 @@ import {
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
-  hashExecutionStateContent,
-  leaseAcquisitionRecoveryId,
-  leaseIdentity,
   prepareStateHostSnapshot,
   validateUnifiedTransition,
 } from "../../src/state/validation.ts";

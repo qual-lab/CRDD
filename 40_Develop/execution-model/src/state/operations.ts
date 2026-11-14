@@ -3,8 +3,13 @@
  * @responsibility モデル候補・保存・Authorityに依存せず同じ値処理を提供する。
  * @trace ARCH-000004、ARCH-000008
  */
+import { createHash } from "node:crypto";
+import { STORAGE_CONTRACT } from "./types.ts";
 import { types } from "node:util";
 import type {
+  LeaseKind,
+  LeaseEvidenceContent,
+  LeaseEvidenceEnvelope,
   ArraySnapshot,
   DataDescriptor,
   PlainArraySnapshot,
@@ -787,4 +792,181 @@ export function validResultReference(value: unknown): value is string {
     value.length <= 512 &&
     /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
   );
+}
+
+/**
+ * 既存Lease証拠の閉形式・本文Hash・世代を生成する。
+ * @responsibility 旧Envelopeのlease-evidence枝だけを同じ値で生成する。
+ * @trace ARCH-000004
+ * @input binding、Project ID、更新世代、既存Lease証拠本文。
+ * @returns 外側だけfreezeした同じ証拠。
+ * @precondition N/A: 本文は既存validatorで検査する。
+ * @postcondition 本文参照をclone・deep-freezeしない。
+ * @effect N/A: 値操作だけ。
+ * @failure 不正本文は元の固定例外。
+ * @invariant HashをAuthority・実解放の証明にしない。
+ * @boundary このFileの取得・解放・回復終了候補だけ。
+ * @security 保存又は実操作を公開しない。
+ * @concurrency N/A: 同期の局所値操作。
+ */
+export function createLeaseEvidence(
+  binding: string,
+  projectId: string,
+  updatedGeneration: number,
+  content: LeaseEvidenceContent,
+): LeaseEvidenceEnvelope {
+  if (!validLeaseEvidence(content))
+    throw new Error("orchestrator_record_content_invalid");
+  const serialized = encodeStateValue(content);
+  return Object.freeze({
+    schema: STORAGE_CONTRACT,
+    schemaRevision: 1 as const,
+    recordKind: "lease-evidence" as const,
+    repositoryBindingId: binding,
+    projectId,
+    createdGeneration: 1,
+    updatedGeneration,
+    contentHash: hashStateText(serialized),
+    content,
+  });
+}
+
+/**
+ * Lease Evidenceが有効か判定する。
+ *
+ * @responsibility Lease Evidenceの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns validLeaseEvidenceの計算結果を返す。
+ * @precondition 「value: unknown」がvalidLeaseEvidenceの入力契約を満たす。
+ * @postcondition validLeaseEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: validLeaseEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validLeaseEvidenceは独自の失敗分岐を所有しない。
+ * @invariant validLeaseEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validLeaseEvidenceはProcess内の同一Subsystemで完結する。
+ * @security validLeaseEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validLeaseEvidenceは共有非同期状態を持たない同期処理である。
+ */
+export function validLeaseEvidence(value: unknown) {
+  return (
+    isStateObject(value) &&
+    hasStateKeys(value, [
+      "kind",
+      "queueId",
+      "ownerGeneration",
+      "ownerProcessId",
+      "disposition",
+    ]) &&
+    (value.kind === "project-operation" ||
+      value.kind === "canonical-adoption") &&
+    validId(value.queueId) &&
+    validId(value.ownerGeneration) &&
+    Number.isSafeInteger(value.ownerProcessId) &&
+    Number(value.ownerProcessId) > 0 &&
+    (value.disposition === "acquired" ||
+      value.disposition === "released" ||
+      value.disposition === "recovered_after_owner_loss" ||
+      value.disposition === "acquisition_unknown_closed")
+  );
+}
+
+/**
+ * 現在状態と固定情報に使用する内容Hashを導出する。
+ * @responsibility 宣言したsorted-key UTF-8本文と一つのLFへ結合する。
+ * @trace ARCH-000008
+ * @input value: plain JSON値。
+ * @returns 内容のSHA-256。
+ * @precondition 値が固定encodingで表現可能。
+ * @postcondition objectの挿入順に依存しない。
+ * @effect N/A: メモリ内のHash計算だけ。
+ * @failure 不正値はencoderの例外を返す。
+ * @invariant 可変SnapshotのHashと固定操作情報のHashを混同しない。
+ * @boundary 保存内容の相関。
+ * @security HashをAuthorityとして発行しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function hashExecutionStateContent(value: unknown): string {
+  return createHash("sha256")
+    .update(`${encodeStateValue(value)}\n`, "utf8")
+    .digest("hex");
+}
+
+/**
+ * durable-foundationのHashを算出する。
+ *
+ * @responsibility durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: string
+ * @returns hashStateTextの計算結果を返す。
+ * @precondition 「value: string」がhashStateTextの入力契約を満たす。
+ * @postcondition hashStateTextの責務を完了した結果だけを返す。
+ * @effect N/A: hashStateTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hashStateTextは独自の失敗分岐を所有しない。
+ * @invariant hashStateTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hashStateTextはProcess内の同一Subsystemで完結する。
+ * @security hashStateTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hashStateTextは共有非同期状態を持たない同期処理である。
+ */
+export function hashStateText(value: string) {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+/**
+ * lease Identityを決定する。
+ *
+ * @responsibility lease Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
+ * @returns leaseIdentityの計算結果を返す。
+ * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseIdentityの入力契約を満たす。
+ * @postcondition leaseIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: leaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseIdentityは独自の失敗分岐を所有しない。
+ * @invariant leaseIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseIdentityはProcess内の同一Subsystemで完結する。
+ * @security leaseIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseIdentityは共有非同期状態を持たない同期処理である。
+ */
+export function leaseIdentity(
+  repositoryBindingId: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+) {
+  return kind === "project-operation"
+    ? `${kind}-${repositoryBindingId}`
+    : kind === "canonical-adoption"
+      ? `${kind}-${repositoryBindingId}-${projectId}`
+      : `${kind}-${projectId}-${queueId}`;
+}
+
+/**
+ * lease Acquisition 回復 Idを決定する。
+ *
+ * @responsibility lease Acquisition 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
+ * @returns leaseAcquisitionRecoveryIdの計算結果を返す。
+ * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseAcquisitionRecoveryIdの入力契約を満たす。
+ * @postcondition leaseAcquisitionRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseAcquisitionRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant leaseAcquisitionRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
+export function leaseAcquisitionRecoveryId(
+  repositoryBindingId: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+) {
+  const identityInput =
+    kind === "project-operation"
+      ? `${repositoryBindingId}\0${kind}`
+      : kind === "canonical-adoption"
+        ? `${repositoryBindingId}\0${projectId}\0${kind}`
+        : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
+  return `lease-acquisition-${hashStateText(identityInput).slice(0, 40)}`;
 }

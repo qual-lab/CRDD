@@ -18,7 +18,7 @@ import { dockerProcessControllerPublicCompletionReasons } from "../../src/index.
  * @responsibility 用途候補分離後の逆依存を新品Processで反証する。
  * @trace RCM-IT-005
  * @precondition 新品Nodeと合成の非秘密モデルを使う。
- * @stimulus State検査・CRUD・Storageの解決を禁止し3局所検査へ正常値と不正値を渡す。
+ * @stimulus State検査・CRUD・Storageの解決を禁止し、局所検査・定義Hash・Lease値・資源差分へ正常値と不正値を渡す。
  * @observation 正常定義・選定・履歴の受理、不正値の拒否と子の終了状態。
  * @oracle 全Stateへ戻らず各検査を実行でき、欠測を補完しない。
  * @cleanup 子の終了確認。一時Fileなし。
@@ -33,6 +33,9 @@ registerHooks({resolve(s,c,next){const r=next(s,c);if(["/src/state/validation.ts
 const objective=await import(${JSON.stringify(entry("objective"))});
 const task=await import(${JSON.stringify(entry("task"))});
 const history=await import(${JSON.stringify(entry("history"))});
+const workspace=await import(${JSON.stringify(entry("workspace"))});
+const stateValues=await import(${JSON.stringify(new URL("../../src/state/operations.ts", import.meta.url).href)});
+const resources=await import(${JSON.stringify(new URL("../../src/attempt/operations.ts", import.meta.url).href)});
 const plan={milestoneAcceptanceCriteria:["done"],objectives:[{id:"objective",acceptanceCriteria:["done"]}],tasks:[{id:"task",objectiveId:"objective",dependencies:[],allowedPaths:["src"],conflictKeys:[]}]};
 assert.ok(objective.inspectExecutionPlan(plan,{allowedPaths:["src"]}));
 assert.equal(objective.inspectExecutionPlan(null,{allowedPaths:["src"]}),null);
@@ -41,6 +44,13 @@ assert.ok(task.inspectExecutionSelection({provider:"codex",modelIdentifier:"mode
 const at="2026-11-14T00:00:00.000Z";
 assert.equal(history.historyRow({id:"task",occurredAt:at,outcome:"completed",primaryFailure:null,cleanup:"confirmed"},Date.parse(at)).id,"task");
 assert.equal(history.decodeHistoryRows(Buffer.from("invalid\\n")),null);
+assert.equal(stateValues.hashStateText("abc"),"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+assert.equal(stateValues.validLeaseEvidence({kind:"project-operation",queueId:"q",ownerGeneration:"g",ownerProcessId:1,disposition:"acquired"}),true);
+assert.equal(stateValues.validLeaseEvidence(null),false);
+assert.equal(stateValues.leaseIdentity("binding","project","queue","project-operation"),"project-operation-binding");
+assert.equal(resources.authenticationUnknownAbsenceChanged(null,{operations:[]}),false);
+assert.equal(workspace.adoptionWasRejected({kind:"adoption",identity:"g",value:{status:"rejected",reason:"orchestrator_adoption_revision_or_scope_mismatch",ownerGeneration:"g",effectIssued:false,cleanupConfirmed:true}}),true);
+assert.equal(objective.hashExecutionProjectDefinition({projectId:"p",milestoneId:"m",milestone:{acceptanceCriteria:["done"]},objectives:[],tasks:[]}),stateValues.hashExecutionStateContent({projectId:"p",milestoneId:"m",definition:{milestoneAcceptanceCriteria:["done"],objectives:[],tasks:[]}}));
 console.log("LOCAL_VALIDATION");`;
   const result = spawnSync(
     process.execPath,

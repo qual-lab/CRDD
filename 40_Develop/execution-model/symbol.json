@@ -77,7 +77,9 @@
       "verifies": [
         "domain-model.attempt.lease",
         "coordinator.state-storage.coordinator-state-runtime",
-        "execution-model.source.src.task.crud"
+        "execution-model.source.src.task.crud",
+        "execution-model.source.src.state.value",
+        "domain-model.state.types"
       ]
     },
     {
@@ -475,7 +477,10 @@
         "execution-model.source.src.state.value",
         "execution-model.source.src.history.operations",
         "execution-model.source.src.task.operations",
-        "execution-model.source.src.objective.operations"
+        "execution-model.source.src.objective.operations",
+        "domain-model.src.objective.validation",
+        "domain-model.workspace.validation",
+        "domain-model.state.types"
       ]
     },
     {
@@ -839,7 +844,9 @@
       ],
       "verifies": [
         "coordinator.state-storage.coordinator-state-model",
-        "domain-model.attempt.settlement"
+        "domain-model.attempt.settlement",
+        "execution-model.source.src.attempt.operations",
+        "execution-model.source.src.state.value"
       ]
     },
     {

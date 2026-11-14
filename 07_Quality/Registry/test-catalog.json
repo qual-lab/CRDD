@@ -4136,7 +4136,8 @@
         "provider_effect_zero",
         "own_root_loaded_without_isolation",
         "resource_values_loaded_without_state_persistence",
-        "history_values_loaded_without_state_persistence"
+        "history_values_loaded_without_state_persistence",
+        "local_model_calculations_loaded_without_whole_state"
       ],
       "mandatoryByDefault": true
     },
@@ -11173,7 +11174,8 @@
         "required_history_rows_verified",
         "history_retention_boundaries_preserved",
         "pending_exact_match_required",
-        "input_buffer_methods_not_trusted"
+        "input_buffer_methods_not_trusted",
+        "summary_bytes_and_fixed_hash_preserved"
       ],
       "mandatoryByDefault": true
     },

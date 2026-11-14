@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+EMのState局所計算を既存の各Ownerへ移管した。Hash／Lease値はState operations、採用拒否はWorkspace、計画定義HashはObjective、資源差分はAttempt、履歴byteのHashと固定行検査はHistoryが所有する。同版候補・改訂相関はStateに残し、公開93項目・保存形式・既存保証は維持した。限定73試験・追加6試験と代表実保存32報告項目、EM／Coordinator型検査が成功し、独立レビューの説明コメント1点を是正した。新File／Facadeは追加せず、全体回帰・実AI・Docker・過去保持物は対象外。[実施範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「State局所計算のOwner整理」を参照する。
+
 EM保存試験の準備共有を完了した。固定10Sourceの読取り・型除去と、通常経路の同署名未束縛factoryだけを共有し、Map・Owner・状態・故障注入・保存領域は各Caseで独立させる。変異は毎回評価し共有しない。限定50報告項目と型・整形／警告検査、独立レビューの必須残指摘0を確認した。途中で見つけた終了Reader試験の旧Source参照は現Ownerへ是正し、検証内容を維持する。製品Source・公開93項目・保存契約は不変で、全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「保存試験Sourceの不変準備共有」を参照する。
 
 EMの同版履歴候補は、同じ同期呼出しで検査済みのStateを共有する形へ整理した。最終遷移検査・Writerのfresh照合・Root93項目・保存形式は維持し、履歴意味計算はHistory、改訂相関はState、物理保存はStorageに固定する。Storageは分割せず三つの短命証拠の寿命と、取得済みOwner／一回Contextの違いを明記した。限定値10項目・代表実保存30報告項目・型検査が成功し、両独立再レビューの必須残指摘は0。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と限定結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「同版履歴候補の導出と保存証拠の寿命」を参照する。

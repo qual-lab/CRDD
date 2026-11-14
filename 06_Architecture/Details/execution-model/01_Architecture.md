@@ -216,8 +216,8 @@ inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発�
 
 | Owner | 所有する処理 | 持たない依存 |
 |---|---|---|
-| `attempt/operations.ts` | 資源イベント・清掃観測の適用、Book構造と単調遷移 | State候補・CRUD・Storage |
-| `state/operations.ts` | plain値の正規符号化、完全key／SHA-256文法、descriptorと記録取得、主体IDの構築・形式検査 | 他モデル・全体候補・保存・Authority |
+| `attempt/operations.ts` | 資源イベント・清掃観測の適用、Book構造と単調遷移、認証未確認資源の不存在辺の差分検出 | State候補・CRUD・Storage |
+| `state/operations.ts` | plain値の正規符号化、記録捕捉・主体ID、Hash・Lease ID／証拠の構築と局所形式検査 | 他モデルの実行時処理・全体候補・保存・Authority |
 | `state/validation.ts` | 複数モデルの同版整合と全State候補 | 資源値処理のためのAttempt CRUD、主体構築のためのState CRUD |
 | `state/crud.ts` | 現在版の意味・取得と用途候補の接続 | 資源更新の別実装、物理Writerとその私有Map |
 | `storage/publication.ts` | 単一Writer／Lock／CAS・初期化・再入場・短命証拠の寿命 | Attempt／History CRUDへの実行時依存 |
@@ -227,6 +227,8 @@ inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発�
 共有する値処理は`state/operations.ts`の一つの実体を内部Consumerが直接利用する。保存しない記録値・主体・ID・Pathの構築／捕捉／変換に限定し、全Stateの整合や物理保存を追加しない。Root93項目・保存本文とHash・Intent／Receipt／正式未発行／不存在の条件を維持し、清掃観測の不明を不存在へ変換しない。
 
 新品NodeでState候補・CRUD・Storageの解決を拒否しても資源の値更新が使えることを確認する。型だけの参照をAuthorityにしない。局所値検査と全State候補の逆依存は分離するが、局所検査同士の全参照を禁止するものではない。Historyの意味Owner・完成操作・明示Snapshot型は下記の現行責務に従う。
+
+`hashStateText`を局所値Ownerへ閉じることで、Workspaceの局所検査から全State検査へ戻る実行時参照を持たない。単一採用結果の`adoptionWasRejected`はWorkspace、計画全体の同一性HashはObjectiveの局所validation、資源の新しい不存在辺の検出はAttemptが所有する。資源差分を検知した後の一般保存拒否と専用証拠の確認はStorageに残す。Lease証拠は内容検査・構築・Hashを同じState operationsへ置き、保存形式識別子`STORAGE_CONTRACT`はstate/typesを正本とする。文字列・LF・ID・参照保持と例外契約は変更しない。
 
 ### 履歴の生成・保持・出版候補とState整合 — 2026-11-14
 
@@ -245,10 +247,12 @@ Task／RepairのBuffer捕捉はHistoryの共通実体を使う。Proxy・非Buff
 
 Historyの意味計算はhistory/operations、完成保存はhistory/crud、同版への結合はstate/validation、物理出版はstorage/publicationに一意に配置する。Stateを単なる保存先へ縮めず、全モデルの相関・改訂保証を維持する。
 
+`prepareHistorySummary`は既存encoderのbyteを複製・再符号化せずHash化し、既に固定されたHashだけを照合する。要約可能条件はTask／RepairごとにStateから既存Attempt判定へ接続し、導出元State HashはStateが付加する。`operationHistoryLine`はTaskの固定済み行Hashを照合し、初回候補にも使うhistoryLineBytesの意味は変えない。Repairの転送Helperは置かず、既存repairHistoryLineBytesを履歴欠測null・保存済みoccurredAtの条件で使用する。HistoryからAttempt validationへの逆参照は追加しない。
+
 
 ### 局所検査から全State候補への逆依存の撤去 — 2026-11-14
 
-Objectiveの定義更新候補と定義Hashは`objective/operations.ts`、Task／Queueの同版候補・投影は`task/operations.ts`が所有する。両operationsは全State検査とモデル局所検査を使用するが、State検査は局所validationだけを参照し、用途候補へ戻らない。小さいID・文字列・Path・配列捕捉は既存`state/operations.ts`の単一実体を利用し、全Stateのdecode・相関・遷移を同ファイルへ移さない。`PROJECT_SNAPSHOT_SCHEMA`は保存型と同じ`state/types.ts`に置く。
+Objectiveの定義更新候補とEntity単位の更新用Hashは`objective/operations.ts`、Project定義全体の同一性Hashは`objective/validation.ts`、Task／Queueの同版候補・投影は`task/operations.ts`が所有する。両operationsは全State検査とモデル局所検査を使用するが、State検査は局所validationだけを参照し、用途候補へ戻らない。小さい値処理は既存`state/operations.ts`の単一実体を利用し、全Stateのdecode・相関・遷移を同ファイルへ移さない。Schema・保存識別子は`state/types.ts`に置く。
 
 Historyの`historyRow`と全行検査は`history/validation.ts`が所有する。全Stateの閉鎖判定・履歴確認・参照保全を必要とするpending生成／記録退役／搬送確定は、唯一の利用元であるHistory CRUDの局所関数とする。状態を使う候補を、Attemptからも利用する履歴行生成operationsへ混ぜない。義務観測・時計・受付世代発行の位置と回数、失敗の短絡順を維持する。
 

@@ -3,6 +3,7 @@
  * @responsibility 実体照合、出版pending、読戻しと失敗・回復情報を保持する。
  * @trace ARCH-000008
  */
+import { STORAGE_CONTRACT } from "../state/types.ts";
 import { createHash } from "node:crypto";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
@@ -43,7 +44,6 @@ import {
   prepareStateHistorySnapshot,
   prepareStateHostSnapshot,
   prepareStateRepairCompletionSnapshot,
-  STORAGE_CONTRACT,
 } from "../state/validation.ts";
 import { validId, encodeStateValue } from "../state/operations.ts";
 import { projectTaskSnapshot } from "../task/operations.ts";

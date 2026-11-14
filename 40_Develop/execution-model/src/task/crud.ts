@@ -3,6 +3,7 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
+import { leaseIdentity } from "../state/operations.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
   readExecutionContent,
@@ -10,7 +11,7 @@ import {
   withSnapshotOperation,
 } from "../state/crud.ts";
 import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
-import { leaseIdentity } from "../state/validation.ts";
+
 import {
   snapshotStateRecord,
   snapshotStateArray,

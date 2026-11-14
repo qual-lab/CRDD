@@ -78,8 +78,6 @@ function historyDerivation(overrides: Readonly<Record<string, unknown>> = {}) {
     "repairHistorySummary",
     "stateHistorySnapshot",
     "repairHistorySnapshot",
-    "stateHistoryLine",
-    "repairHistoryLine",
     "projectHistoryRetentionReferences",
   ];
   const dependencies = Object.fromEntries(
@@ -4015,13 +4013,14 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const original = body("repairHistorySnapshot");
   assert.equal(original.split("...current.snapshot,").length, 2);
   const mutant = runInThisContext(
-    `(function(deps){const {createHash,decodeStateSnapshot,encodeStateValue,repairCanSummarize,validateStateTransition}=deps; ${body("repairSummaryBytes")} ${body("repairHistoryLineBytes")} ${body("repairHistorySummary")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; ${body("prepareRepairHistorySnapshot")}; return prepareRepairHistorySnapshot;})`,
+    `(function(deps){const {createHash,decodeStateSnapshot,encodeStateValue,prepareHistorySummary,repairCanSummarize,validateStateTransition}=deps; ${body("repairSummaryBytes")} ${body("repairHistoryLineBytes")} ${body("repairHistorySummary")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; ${body("prepareRepairHistorySnapshot")}; return prepareRepairHistorySnapshot;})`,
   )({
     createHash,
     decodeStateSnapshot: decodeStateSnapshot,
     encodeStateValue: encodeStateValue,
     repairCanSummarize,
     validateStateTransition,
+    prepareHistorySummary: historyOperations.prepareHistorySummary,
   }) as typeof prepareRepairHistorySnapshot;
   assert.throws(() => preserve(mutant), /repair_history_candidate_required/u);
   const repairConfirmed = prepareRepairHistorySnapshot(

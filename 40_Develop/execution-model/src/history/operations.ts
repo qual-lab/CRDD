@@ -4,6 +4,7 @@
  * @trace ARCH-000004、ARCH-000008
  */
 
+import { createHash } from "node:crypto";
 import { types } from "node:util";
 import type {
   ExecutionOperationRecord,
@@ -352,4 +353,54 @@ export function prepareHistoryPublication(
     historyBytes,
     historyChanged: !input.canonical.equals(historyBytes),
   });
+}
+
+/**
+ * Task操作の固定済み履歴行を生成し、保存された行Hashと照合する。
+ * @responsibility 未固定の候補行生成と固定済み行の検査を混同しない。
+ * @trace ARCH-000008
+ * @input operation: 検査済み操作、または未取得。
+ * @returns 固定済みLF付き行、欠測・Hash差はnull。
+ * @precondition Operationの値検査は呼出し元が完了している。
+ * @postcondition 保存済みoccurredAtだけを使い、confirmedをHashに加えない。
+ * @effect N/A: 保存しない同期の値計算。
+ * @failure 行生成の例外は呼出し元の契約へ伝播する。
+ * @invariant historyLineBytesの初回候補生成契約を変更しない。
+ * @boundary Historyの固定行とOperation相関。
+ * @security 値やHashを保存・操作Authorityへ昇格しない。
+ * @concurrency 元Stateとの版結合はState、実保存はWriterが確認する。
+ */
+export function operationHistoryLine(
+  operation: ExecutionOperationRecord | undefined,
+): Buffer | null {
+  if (!operation?.history) return null;
+  const bytes = historyLineBytes(operation, operation.history.occurredAt);
+  return createHash("sha256").update(bytes).digest("hex") ===
+    operation.history.lineSha256
+    ? bytes
+    : null;
+}
+
+/**
+ * 履歴要約の元byte列をHash化し、既に固定されたHashと照合する。
+ * @responsibility Task／Repairに共通するbyteと固定Hashの相関だけを計算する。
+ * @trace ARCH-000008
+ * @input summaryBytes: 既存encoderの正規byte列、expectedSha: 固定Hashまたは未固定のnull。
+ * @returns 同じ要約Bufferと導出Hash、固定Hash差はnull。
+ * @precondition 要約可能条件と元Operationの検査はAttempt／Stateが行う。
+ * @postcondition 再符号化・LF追加・Buffer複製を行わない。
+ * @effect N/A: 保存しない同期の値計算。
+ * @failure Hash計算の例外はそのまま呼出し元へ返す。
+ * @invariant Task／Repairの終了条件や元Stateを検査したとは主張しない。
+ * @boundary Historyの要約byteと固定相関。
+ * @security 値やHashを保存・操作Authorityへ昇格しない。
+ * @concurrency 共有可変状態を持たず、同版結合と保存確認は呼出し元が行う。
+ */
+export function prepareHistorySummary(
+  summaryBytes: Buffer,
+  expectedSha: string | null,
+) {
+  const summarySha256 = createHash("sha256").update(summaryBytes).digest("hex");
+  if (expectedSha !== null && expectedSha !== summarySha256) return null;
+  return Object.freeze({ summaryBytes, summarySha256 });
 }

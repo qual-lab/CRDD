@@ -3,12 +3,10 @@
  * @responsibility 局所定義検査と単一Writerの間で元版・参照・候補を照合する。
  * @trace ARCH-000008
  */
+import { hashExecutionProjectDefinition } from "./validation.ts";
 import { createHash } from "node:crypto";
 import type { ProjectDefinition } from "../state/types.ts";
-import {
-  decodeStateSnapshot,
-  hashExecutionProjectDefinition,
-} from "../state/validation.ts";
+import { decodeStateSnapshot } from "../state/validation.ts";
 import {
   validId,
   encodeStateValue,

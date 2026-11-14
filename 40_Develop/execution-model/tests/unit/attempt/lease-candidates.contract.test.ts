@@ -8,6 +8,8 @@
  * @boundary メモリの局所fixtureだけ。実Lock・保存・全体codec・回復完了の根拠ではない。
  */
 
+import { leaseIdentity } from "../../../src/state/operations.ts";
+import { hashStateText } from "../../../src/state/operations.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ProjectQueueEntry } from "../../../src/index.ts";
@@ -16,7 +18,6 @@ import type {
   Snapshot,
 } from "../../../src/state/types.ts";
 import {
-  leaseIdentity,
   prepareLeaseAcquisitionConfirmation,
   prepareLeaseAcquisitionReservation,
   prepareLeaseRecoveryReservation,
@@ -833,5 +834,3 @@ test("LeaseとQueueは未捕捉tupleの実行Propertyを評価しない", async 
     }
   }
 });
-
-import { hashStateText } from "../../../src/state/validation.ts";

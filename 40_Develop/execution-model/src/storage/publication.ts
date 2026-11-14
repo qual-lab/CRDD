@@ -3,6 +3,7 @@
  * @responsibility 短命証拠の生成・一回消費・失効と物理保存を同じOwnerへ結合する。
  * @trace ARCH-000008
  */
+import { authenticationUnknownAbsenceChanged } from "../attempt/operations.ts";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { getRepository } from "../../../version-control/src/index.ts";
@@ -16,7 +17,6 @@ import { prepareExecutionDefinitionChange } from "../objective/operations.ts";
 import type { readRecoveryState } from "../state/crud.ts";
 import type { ExecutionStateSnapshot } from "../state/types.ts";
 import {
-  authenticationUnknownAbsenceChanged,
   classifyRepairPublication,
   decodeStateSnapshot,
   prepareAuthenticationUnknownClosureSnapshot,

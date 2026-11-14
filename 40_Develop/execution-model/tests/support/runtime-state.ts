@@ -8,8 +8,8 @@
  * @boundary 不正fieldを補正せず、新codec自身へ拒否させる。
  */
 
+import { hashExecutionProjectDefinition } from "../../src/objective/validation.ts";
 import type { ProjectDefinition } from "../../src/state/types.ts";
-import { hashExecutionProjectDefinition } from "../../src/state/validation.ts";
 
 /**
  * 結合して組み立てた試験Projectを正本の二区画へ配置する。

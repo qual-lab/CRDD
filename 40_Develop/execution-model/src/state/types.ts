@@ -21,7 +21,6 @@ import type {
   TaskExecutionSelections,
 } from "../task/types.ts";
 import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
-import type { STORAGE_CONTRACT } from "./validation.ts";
 
 /** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
 export const PROJECT_STATE_CONTRACT =
@@ -737,3 +736,6 @@ export type LeaseAcquisitionRequest = Readonly<
 
 export const PROJECT_SNAPSHOT_SCHEMA =
   "crdd-execution-model/project-snapshot/v7";
+
+export const STORAGE_CONTRACT =
+  "crdd-coordinator/orchestrator-durable-foundation/v1" as const;
