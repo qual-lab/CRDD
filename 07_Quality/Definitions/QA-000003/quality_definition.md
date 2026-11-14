@@ -525,6 +525,10 @@ Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorの
 
 既存PRL-UT-006の保持設定3試験は、Coordinatorのstorage/history-retentionへ移す。初回値・通常呼出しの設定再観測0・同値default／file・初期不正・途中変更／不正化／例外・元Owner呼出し回数を、自己のpersistence宣言から生成した入力とrevalidateで確認する。EM内部Helperを外部から呼んだり、その規則をコピーしたりしない。EM側のhistory-retention-boundaryはnull／不正日数の早期拒否・callback未呼出し・元Owner拒否と履歴保存／一回Contextを継続して確認する。旧3親の検証観点を両Ownerへ対応付け、正式項目ID・検証義務は変更しない。試験Suiteの新所在だけを台帳へ追加し、移管を全体回帰や実保存の成功へ読み替えない。
 
+## State候補と観測調停の試験Owner — 2026-11-15
+
+既存PRL-UT-006／PRL-UT-007のLease九用途・Queue候補・履歴候補は、State／Task CRUDへ移った実宣言を確認する。Root・資源不存在・借用Lease・生存確認・時計・保存前通知の位置／回数と、元本文・対象外区画・世代・Owner・失敗理由・exact回復参照を維持する。全StateへのTask組込・投影はState validationで確認し、通常値検査からCRUD／Storageへ戻る依存は認めない。Source試験補助は既存10Sourceを一回ずつ展開し、専用候補constructorとStorage結果の名前・型を混同せずMap／Ownerを共有しない。代表実保存ではWriter直前の独立候補照合・fresh元版・CAS・解放と履歴再入場を確認する。旧Task operationsのPath／Symbolと試験参照を追従し、公開集合・保存Schema・正式検証項目は不変更とする。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

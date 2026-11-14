@@ -14,6 +14,11 @@ import test from "node:test";
 import { compileFunction } from "node:vm";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 import * as stateValidation from "../../../src/state/validation.ts";
+import {
+  queueIsClosed,
+  rejectedAdoptionEvidenceCanRetire,
+  standaloneAdoptionIsClosed,
+} from "../../../src/state/crud.ts";
 import type { HistoryRow } from "../../../src/history/types.ts";
 import type { ProjectQueueEntry } from "../../../src/index.ts";
 import type {
@@ -25,6 +30,7 @@ import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 import type { ResultRecord } from "../../../src/workspace/types.ts";
 import { EXECUTION_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
+import { adoptionWasRejected } from "../../../src/workspace/validation.ts";
 
 type Candidate<T> =
   | {
@@ -56,7 +62,14 @@ const candidateNames = [
   "prepareTerminalRecordRetirement",
   "prepareHistoryTransfer",
 ];
-const candidateDependencies = { ...stateValidation, PROJECT_SNAPSHOT_SCHEMA };
+const candidateDependencies = {
+  adoptionWasRejected,
+  ...stateValidation,
+  PROJECT_SNAPSHOT_SCHEMA,
+  queueIsClosed,
+  rejectedAdoptionEvidenceCanRetire,
+  standaloneAdoptionIsClosed,
+};
 const {
   prepareHistoryPending,
   prepareTerminalRecordRetirement,

@@ -76,11 +76,11 @@ import {
   readSnapshot,
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/storage/store.ts";
+import { prepareQueueRecoverySettlement } from "../../src/task/crud.ts";
 import {
-  prepareQueueRecoverySettlement,
   prepareUnifiedTaskSnapshot,
   projectTaskSnapshot,
-} from "../../src/task/operations.ts";
+} from "../../src/state/validation.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";

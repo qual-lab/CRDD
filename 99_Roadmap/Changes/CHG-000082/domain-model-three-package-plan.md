@@ -2604,6 +2604,24 @@ EMは該当補助・局所型・3親とCo Source参照を撤去し、残る4親�
 
 Commit前再確認：準備共有とOwner移管を合わせた対象10ファイルを再照合し、製品Source差分0・新Co試験の登録・旧観点の分担・EMの上位宣言実行依存撤去を確認した。両Packageの型・変更3試験Fileの整形／warning、台帳419項目の整合と限定19試験（EM16／Co3）が再成功した。先行11件と移管9件の重複する履歴親は合算していない。独立最終QA確認は必須残指摘0。この確認済み候補を既存FeatureへCommit／Pushし、全体回帰・実AI・Docker・過去保持物の操作は行わない。
 
+### State・Taskの純粋候補と観測調停 — 着手前整合確認
+
+基準938d704ffで成立済みの公開93項目・保存Schema・候補本文・単一Writer／CASと、観測不能時の拒否・元回復参照を維持する。67関数の分類から、Lease九用途とRoot観測、assertSnapshotTransitionと三つの閉鎖／退役判定を既存state/crudへ実体移管する。純粋なLease三用途も専用処置familyとしてまとめ、validationからCRUDへ戻るimport・旧位置の再exportは残さない。Task operationsの全State組込四関数はstate/validationへ移し、Taskの残る九操作・投影は既存task/crudへ統合、旧operationsを撤去する。結果封筒の二組の局所constructorも元field・freeze・既定値のまま専用名で移し、Storageの広い戻り値型へ置換しない。
+
+編集単位は宣言名と直接参照で固定し、先に実体・型と利用側を一括対応、次に試験Source組立・Symbol／台帳・現行文書を追従する。新File・Facade・Runner・検査専用callbackは追加しない。StorageはStateの候補生成を元と同じ位置で呼び、fresh元本文・期待候補のexact比較・CASを維持する。単にimportを減らすための再検証撤去や観測の先取りをしない。
+
+親の正本・宣言・参照照合と、読み取り専用の技術／QA着手前確認を統合した。Task型のParameters／ReturnTypeは宣言元へ追従し型だけの参照をruntime依存にしない。Lease9親、Queue4＋実行候補8親、History候補5親、局所独立ロード・公開境界、共通Source準備、代表Core保存／履歴保守／保存区画故障に限定して確認する。局所validationのCRUD／Storage解決拒否は緩めない。変更分類は内部責務と依存方向の是正であり、規範・決定権限・保存方式・Release判断を変えないため全監査や全体E2Eは追加しない。限定回帰・独立技術／QAレビューを行い、全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### State・Taskの純粋候補と観測調停 — 実装と限定確認
+
+Lease九用途・Root観測・全Stateの更新時調停と三つの閉鎖／退役判定の計14関数をstate/crudへ移した。候補封筒二関数もcompletedLeaseCandidate／blockedLeaseCandidateへ明示改名して同じOwnerに保持する。Taskの全State組込四関数はstate/validationへ、Task九操作／投影と専用封筒二関数はtask/crudへ移し、task/operations.tsを撤去した。新しい製品File・Facade・Wrapperはない。移管本文31宣言は専用constructor名と整形上の空白／末尾commaを除き基準版と一致する。元のfield・freeze・既定値・例外と観測順の維持は型／回帰／レビューで別に確認し、正規化比較だけを保証根拠にしない。
+
+State validationは67関数から55関数へ、製品Sourceは30から29へ変わった。Runtime importの静的走査では29File・91辺・循環0。Storageの候補期待本文・Task投影の参照先だけをStateへ追従し、呼出し位置・fresh元本文・exact比較・再観測・CAS・物理出版は変更していない。Root93項目・保存形式・正式QA項目は不変更。旧Sourceの現在参照とSymbolを撤去し、既存の安定Symbolは現OwnerのPath／verifiesへ追従した。試験台帳は419項目valid・起動なしであり、全419試験の実行ではない。
+
+初回の限定42項目は41成功・履歴候補のadoption-only一親がVM依存欠測で失敗した。候補の実Sourceが利用するWorkspaceのadoptionWasRejectedを試験用依存へ明示的に束縛し、製品規則やOracleを変更せず同Suite5親が成功した。Lease9・Queue4＋実行8・局所ロード／公開16の元成功は別に保持する。追加で移管した全State組込を使うcodec／遷移2親、Decision17親が成功。代表の実Store通常CRUD／認可／CAS、Source不変準備、履歴通常保守／再入場、保存区画／二世代拒否の4親も成功した（約41秒）。自己生成の試験領域は既存の限定清掃で終了し、過去保持物を操作しない。EM／Coordinator型検査と変更TSの整形・warning・diff空白検査が成功した。是正後の42項目一括再確認も全成功し、codec／遷移2・Decision17・代表実保存4と合わせた限定65項目が成功した。反復実行を件数へ合算しない。独立技術レビューは必須指摘0、QAのSymbol Path追従漏れ2箇所は両者へ統合是正案を提示して整合確認後に修正した。Lease／State CRUDの安定IDを維持してPathだけをstate/crudへ追従し、値遷移はvalidationに残した。Path実在・旧参照0・JSON・台帳419項目の整合と、独立技術／QA再確認で必須残指摘0を確認した。全体回帰・実AI・Dockerは実施していない。
+
+Commit前の再確認：対象23ファイルを再照合し、Root差分0、旧Task operationsの実参照・転送入口0、Symbolの現Owner Pathと実在を確認した。EM／Coordinator型・変更TS17ファイルの整形／warning・台帳419項目の整合・diff空白検査が再成功した。Lease／Queue／History候補・公開／独立ロード42項目と、codec／遷移・不変Source準備3項目の計45項目が再成功。実装と試験が固定候補から不変のDecision17項目・代表実保存3親は既存成功を使用し、反復実行や先の65件へ重複加算しない。独立最終QA確認の必須残指摘0。この候補を既存FeatureへCommit／Pushする。全体回帰・実AI・Docker・過去保持物は操作していない。
+
 <details>
 <summary>基準48ea92d65のArchitecture本文（移管経緯を含む履歴）</summary>
 

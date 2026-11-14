@@ -45,7 +45,9 @@ EM SourceはAD／DI型を直接参照しない。`ExecutionSelection`の技術�
 | `storage/lock.ts` | 保存排他とOwnerの取得・保持・解放 | 業務上の再入場判断を代行しない |
 | `storage/publication.ts` | 単一Writer、CAS、出版・再入場、短命証拠 | Attempt／History CRUDへ実行時逆依存しない |
 
-SourceはRootの`index.ts`、objective／task／attempt／decision／workspace／state／historyとstorageで構成する。operationsはobjective／task／attempt／history／stateにのみ置き、存在しない役割のためにFileを増やさない。
+SourceはRootの`index.ts`、objective／task／attempt／decision／workspace／state／historyとstorageで構成する。operationsはobjective／attempt／history／stateに置く。Taskの操作調停・単件投影はTask CRUDに集約し、全Stateへの組込四関数はState validationが所有する。旧task/operations.tsや転送入口は残さず、存在しない役割のためにFileを増やさない。
+
+Leaseの九用途・Root観測と、全Stateの更新時に履歴／Leaseの現在観測を要する閉鎖・退役判定はState CRUDが所有する。History CRUDも同じ判定実体を利用する。validationは観測callbackや通知を呼ばず、元版・候補・閉じた入力の値検査へ限定する。候補の成功／拒否封筒は保存結果とは別の局所constructorで元field・freeze・既定値を保ち、Storage結果型へ置換しない。観測と通知の回数・順序・短絡位置は変更しない。
 
 ### Stateの値契約と各モデルの意味
 

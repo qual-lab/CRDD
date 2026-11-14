@@ -277,7 +277,7 @@ export type QueueUpdateRequest = Readonly<
   | {
       kind: "operation";
       input: Parameters<
-        typeof import("./operations.ts").prepareQueueOperationUpdate
+        typeof import("./crud.ts").prepareQueueOperationUpdate
       > extends [unknown, string, string, ...infer Rest]
         ? Rest
         : never;
@@ -285,7 +285,7 @@ export type QueueUpdateRequest = Readonly<
   | {
       kind: "single";
       input: Parameters<
-        typeof import("./operations.ts").prepareSingleTaskQueueUpdate
+        typeof import("./crud.ts").prepareSingleTaskQueueUpdate
       > extends [unknown, string, string, ...infer Rest]
         ? Rest
         : never;
@@ -293,7 +293,7 @@ export type QueueUpdateRequest = Readonly<
   | {
       kind: "close_unstarted";
       input: Parameters<
-        typeof import("./operations.ts").prepareUnstartedTaskQueueClosure
+        typeof import("./crud.ts").prepareUnstartedTaskQueueClosure
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -301,7 +301,7 @@ export type QueueUpdateRequest = Readonly<
   | {
       kind: "recovery";
       input: Parameters<
-        typeof import("./operations.ts").prepareQueueRecoverySettlement
+        typeof import("./crud.ts").prepareQueueRecoverySettlement
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -327,7 +327,7 @@ export type QueueCreateRequest = Readonly<
   | {
       kind: "scheduled";
       input: Parameters<
-        typeof import("./operations.ts").prepareQueueEntryCreation
+        typeof import("./crud.ts").prepareQueueEntryCreation
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -335,7 +335,7 @@ export type QueueCreateRequest = Readonly<
   | {
       kind: "single";
       input: Parameters<
-        typeof import("./operations.ts").prepareSingleTaskQueueCreation
+        typeof import("./crud.ts").prepareSingleTaskQueueCreation
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;

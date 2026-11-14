@@ -25,7 +25,7 @@ import {
   prepareSingleTaskQueueCreation,
   prepareSingleTaskQueueUpdate,
   prepareUnstartedTaskQueueClosure,
-} from "../../../src/task/operations.ts";
+} from "../../../src/task/crud.ts";
 import { validQueueEntry } from "../../../src/task/validation.ts";
 
 /**

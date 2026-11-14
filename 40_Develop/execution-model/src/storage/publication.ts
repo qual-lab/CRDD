@@ -3,6 +3,8 @@
  * @responsibility 短命証拠の生成・一回消費・失効と物理保存を同じOwnerへ結合する。
  * @trace ARCH-000008
  */
+import fs from "node:fs";
+import path from "node:path";
 import { authenticationUnknownAbsenceChanged } from "../attempt/operations.ts";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
@@ -33,12 +35,10 @@ import {
   validateRepairWriteCandidate,
   validateStateTransition,
   validateUnifiedTransition,
-} from "../state/validation.ts";
-import { encodeStateValue } from "../state/operations.ts";
-import {
   prepareUnifiedTaskSections,
   projectTaskSnapshot,
-} from "../task/operations.ts";
+} from "../state/validation.ts";
+import { encodeStateValue } from "../state/operations.ts";
 import type {
   ExecutionTerminalStorageObservation,
   StorageOwner,
@@ -67,10 +67,6 @@ import {
   readStateSnapshot,
   sameStableFileIdentity,
 } from "./store.ts";
-
-import fs from "node:fs";
-import path from "node:path";
-
 // 一回の保存呼出しのContextに候補・元版・Ownerを結合する。
 // Writerで一度だけ消費し、publishRecoveryStateのfinallyで失効させる。
 const settlements = new WeakMap<

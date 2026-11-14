@@ -1,5 +1,5 @@
 /**
- * 統合実行State・Lease・一回保存相関の値検査と純粋な遷移・投影を所有する。
+ * 統合実行Stateの解析・候補組込み・遷移検査・同版投影を所有する。
  * @responsibility 局所モデルの意味計算を各Ownerへ委譲し、同版の改訂・参照・対象外保全を検査する。
  * @trace ARCH-000008
  */
@@ -59,35 +59,27 @@ import {
   inspectExecutionProjectDefinition,
 } from "../objective/validation.ts";
 import type {
-  ProjectQueueEntry,
   ProjectTaskRecord,
   ProjectTaskRecoveryObligation,
-  SingleTaskRecord,
 } from "../task/types.ts";
 import {
   associateTaskOperations,
   validQueueEntry,
   validState,
 } from "../task/validation.ts";
-import type { ResultRecord } from "../workspace/types.ts";
-import {
-  adoptionWasRejected,
-  validResultRecord,
-  validWorkspace,
-} from "../workspace/validation.ts";
+import { validResultRecord, validWorkspace } from "../workspace/validation.ts";
 import type {
   ExecutionStateSnapshot,
   ExecutionStoredManagedProject,
   LeaseEvidenceEnvelope,
-  LeaseKind,
   ProjectDefinition,
   ProjectExecutionState,
   Snapshot,
-  SnapshotObservations,
   StoredTask,
+  ManagedExecution,
+  TaskSettlementFact,
 } from "./types.ts";
 import {
-  createLeaseEvidence,
   validLeaseEvidence,
   hashStateText,
   leaseIdentity,
@@ -95,723 +87,12 @@ import {
   encodeStateValue,
   hasExecutionStateRecordKeys,
   isSha256Hex,
-  normalizeRepositoryRelativePath,
   validId,
   isStateObject,
   hasStateKeys,
   HASH,
 } from "./operations.ts";
 import { PROJECT_SNAPSHOT_SCHEMA, STORAGE_CONTRACT } from "./types.ts";
-
-/**
- * Lease取得Ownerの記録参照を投影する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function projectLeaseAcquisitionOwner(
-  current: Snapshot,
-  binding: string,
-) {
-  if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
-    return blocked("orchestrator_snapshot_schema_invalid");
-  const intents = current.leaseIntents.filter(
-    (item) => item.kind === "project-operation",
-  );
-  const first = intents[0];
-  if (!first)
-    return completed("orchestrator_lease_acquisition_absent", {
-      next: null,
-      value: { acquisition: null },
-    });
-  const queue = current.queueEntries.find(
-    (item) => item.queueId === first.queueId,
-  );
-  if (
-    !queue ||
-    queue.projectId !== first.projectId ||
-    (queue.ownerGeneration !== null &&
-      queue.ownerGeneration !== first.ownerGeneration) ||
-    intents.some(
-      (item) =>
-        item.projectId !== first.projectId ||
-        item.queueId !== first.queueId ||
-        item.ownerGeneration !== first.ownerGeneration ||
-        item.ownerProcessId !== first.ownerProcessId ||
-        item.recoveryId !== first.recoveryId,
-    )
-  )
-    return blocked(
-      "orchestrator_lease_acquisition_owner_mismatch",
-      true,
-      first.recoveryId,
-    );
-  return completed("orchestrator_lease_acquisition_owner_observed", {
-    next: null,
-    value: {
-      acquisition: Object.freeze({
-        repositoryBindingId: binding,
-        projectId: first.projectId,
-        queueId: first.queueId,
-        ownerGeneration: first.ownerGeneration,
-        ownerProcessId: first.ownerProcessId,
-        recoveryId: first.recoveryId,
-      }),
-    },
-  });
-}
-
-/**
- * Lease取得予約の保存候補を生成する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareLeaseAcquisitionReservation(
-  current: Snapshot,
-  binding: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-  identity: string,
-  intent: Snapshot["leaseIntents"][number],
-  observations: Readonly<{
-    resourcesAbsent: () => boolean;
-    observeRoot: () => Readonly<{
-      repositoryRoot: string;
-      rootIdentity: string;
-    }>;
-    markIntentSaveRequested: () => void;
-  }>,
-) {
-  if (
-    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-    !validId(projectId) ||
-    (kind === "project-operation"
-      ? !current.queueEntries.some(
-          (item) => item.queueId === queueId && item.projectId === projectId,
-        )
-      : queueId !== "canonical")
-  )
-    return blocked("orchestrator_lease_binding_invalid");
-  if (
-    current.leaseIntents.some(
-      (item) =>
-        leaseIdentity(binding, item.projectId, item.queueId, item.kind) ===
-        identity,
-    )
-  )
-    return blocked("orchestrator_lease_unavailable");
-  if (observations.resourcesAbsent() !== true)
-    return blocked("orchestrator_lease_preexisting_resource");
-  const root = observeLeaseRoot(observations.observeRoot);
-  observations.markIntentSaveRequested();
-  return completed("orchestrator_lease_intent_durable", {
-    next: { ...current, leaseIntents: [...current.leaseIntents, intent] },
-    value: {
-      repositoryRoot: root.repositoryRoot,
-      rootIdentity: root.rootIdentity,
-      identity,
-      recoveryId: intent.recoveryId,
-      intent,
-    },
-  });
-}
-
-/**
- * 観測済み実Lockに対する取得確定候補を生成する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareLeaseAcquisitionConfirmation(
-  current: Snapshot,
-  binding: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-  ownerGeneration: string,
-  intent: Snapshot["leaseIntents"][number],
-  physicalIdentity: string,
-  recoveryId: string,
-  ownerProcessId: number,
-  observations: Readonly<{ physicalIdentityMatches: () => boolean }>,
-) {
-  if (
-    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-    !current.leaseIntents.some(
-      (item) => encodeStateValue(item) === encodeStateValue(intent),
-    )
-  )
-    return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
-  if (observations.physicalIdentityMatches() !== true)
-    return blocked(
-      "orchestrator_lease_physical_identity_changed",
-      true,
-      recoveryId,
-    );
-  const evidence = createLeaseEvidence(binding, projectId, 1, {
-    kind,
-    queueId,
-    ownerGeneration,
-    ownerProcessId,
-    disposition: "acquired",
-  });
-  return completed("orchestrator_lease_acquired", {
-    next: {
-      ...current,
-      leaseIntents: [
-        ...current.leaseIntents,
-        { ...intent, phase: "lock_owned" as const, physicalIdentity },
-      ],
-      leaseEvidence: [...current.leaseEvidence, evidence],
-    },
-    value: true,
-  });
-}
-
-/**
- * 同じ取得意図に対する解放意図候補を生成する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareLeaseReleaseIntent(
-  current: Snapshot,
-  intent: Snapshot["leaseIntents"][number],
-  physicalIdentity: string,
-) {
-  const { ownerGeneration, recoveryId } = intent;
-  if (
-    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-    !current.leaseIntents.some(
-      (item) =>
-        item.ownerGeneration === ownerGeneration &&
-        item.phase === "lock_owned" &&
-        item.physicalIdentity === physicalIdentity,
-    )
-  )
-    return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
-  return completed("orchestrator_lease_release_intent_durable", {
-    next: {
-      ...current,
-      leaseIntents: [
-        ...current.leaseIntents,
-        {
-          ...intent,
-          phase: "release_pending" as const,
-          physicalIdentity,
-        },
-      ],
-    },
-    value: true,
-  });
-}
-
-/**
- * 実解放後の終了記録候補を生成する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareLeaseReleaseSettlement(
-  current: Snapshot,
-  binding: string,
-  intent: Snapshot["leaseIntents"][number],
-  physicalIdentity: string,
-  ownerProcessId: number,
-) {
-  const { ownerGeneration, recoveryId, projectId, queueId, kind } = intent;
-  if (
-    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-    !current.leaseIntents.some(
-      (item) =>
-        item.ownerGeneration === ownerGeneration &&
-        item.phase === "release_pending" &&
-        item.physicalIdentity === physicalIdentity,
-    )
-  )
-    return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
-  const evidence = createLeaseEvidence(binding, projectId, 2, {
-    kind,
-    queueId,
-    ownerGeneration,
-    ownerProcessId,
-    disposition: "released",
-  });
-  return completed("orchestrator_lease_released", {
-    next: {
-      ...current,
-      leaseIntents: current.leaseIntents.filter(
-        (item) =>
-          !(
-            item.ownerGeneration === ownerGeneration &&
-            item.kind === kind &&
-            item.projectId === projectId &&
-            item.queueId === queueId
-          ),
-      ),
-      leaseEvidence: [...current.leaseEvidence, evidence],
-    },
-    value: { released: true as const },
-  });
-}
-
-/**
- * Owner喪失回復の初回記録を投影する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function projectLeaseOwnerLossState(
-  current: Snapshot,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-  observations: Readonly<{
-    observeRoot: () => Readonly<{
-      repositoryRoot: string;
-      rootIdentity: string;
-    }>;
-  }>,
-) {
-  if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
-    return blocked("orchestrator_snapshot_schema_invalid");
-  const queue =
-    kind === "project-operation"
-      ? (current.queueEntries.find((item) => item.queueId === queueId) ?? null)
-      : null;
-  if (
-    !validId(projectId) ||
-    (kind === "project-operation"
-      ? queue?.projectId !== projectId
-      : queueId !== "canonical")
-  )
-    return blocked("orchestrator_lease_binding_invalid");
-  const intents = current.leaseIntents.filter(
-    (item) =>
-      item.projectId === projectId &&
-      item.queueId === queueId &&
-      item.kind === kind,
-  );
-  const root = observeLeaseRoot(observations.observeRoot);
-  return completed("orchestrator_lease_recovery_inspected", {
-    next: null,
-    value: {
-      intents,
-      queue,
-      intakeEpoch: current.intakeEpoch,
-      identity: leaseIdentity(
-        current.repositoryBindingId,
-        projectId,
-        queueId,
-        kind,
-      ),
-      recoveryId: leaseAcquisitionRecoveryId(
-        current.repositoryBindingId,
-        projectId,
-        queueId,
-        kind,
-      ),
-      repositoryRoot: root.repositoryRoot,
-      rootIdentity: root.rootIdentity,
-    },
-  });
-}
-
-/**
- * intent不在の旧Leaseを回復待ち記録へ照合する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareReleasedLeaseReconciliation(
-  current: Snapshot,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-  initialQueue: ProjectQueueEntry | null,
-  recoveryId: string,
-  observations: Readonly<{ resourcesAbsent: () => boolean }>,
-) {
-  const queue = current.queueEntries.find((item) => item.queueId === queueId);
-  const released = current.leaseEvidence.find(
-    (item) =>
-      item.projectId === projectId &&
-      item.content.queueId === queueId &&
-      item.content.kind === kind &&
-      item.content.ownerGeneration === queue?.ownerGeneration &&
-      item.content.disposition === "released",
-  );
-  if (
-    !queue ||
-    queue.generation !== initialQueue?.generation ||
-    queue.ownerGeneration !== initialQueue?.ownerGeneration ||
-    !["leased", "running"].includes(queue.state) ||
-    !released ||
-    current.leaseIntents.some(
-      (item) =>
-        item.projectId === projectId &&
-        item.queueId === queueId &&
-        item.kind === kind,
-    ) ||
-    observations.resourcesAbsent() !== true
-  )
-    return blocked(
-      "orchestrator_lease_recovery_state_mismatch",
-      true,
-      recoveryId,
-    );
-  const next: ProjectQueueEntry = {
-    ...queue,
-    generation: queue.generation + 1,
-    state: "recovery_required",
-    ownerGeneration: null,
-    resumeCondition: "owner_loss",
-    resultReference: recoveryId,
-  };
-  return completed("orchestrator_released_lease_reconciled", {
-    next: {
-      ...current,
-      queueEntries: current.queueEntries.map((item) =>
-        item.queueId === queueId ? next : item,
-      ),
-    },
-    value: { queue: next, recoveryId: null },
-  });
-}
-
-/**
- * 元Queueとintent集合に結合した回復意図候補を生成する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareLeaseRecoveryReservation(
-  current: Snapshot,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-  initial: Readonly<{
-    repositoryRoot: string;
-    rootIdentity: string;
-    queue: ProjectQueueEntry | null;
-  }>,
-  ownIntents: Snapshot["leaseIntents"],
-  pending: Snapshot["leaseIntents"][number],
-  recoveryId: string,
-  observations: Readonly<{
-    observeRoot: () => Readonly<{
-      repositoryRoot: string;
-      rootIdentity: string;
-    }>;
-  }>,
-) {
-  const root = observeLeaseRoot(observations.observeRoot);
-  if (
-    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-    root.repositoryRoot !== initial.repositoryRoot ||
-    root.rootIdentity !== initial.rootIdentity ||
-    encodeStateValue(
-      current.leaseIntents.filter(
-        (item) =>
-          item.projectId === projectId &&
-          item.queueId === queueId &&
-          item.kind === kind,
-      ),
-    ) !== encodeStateValue(ownIntents) ||
-    encodeStateValue(
-      kind === "project-operation"
-        ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-            null)
-        : null,
-    ) !== encodeStateValue(initial.queue)
-  )
-    return blocked(
-      "orchestrator_lease_recovery_state_mismatch",
-      true,
-      recoveryId,
-    );
-  const existing = ownIntents.find((item) => item.phase === "recovery_pending");
-  if (existing && encodeStateValue(existing) !== encodeStateValue(pending))
-    return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
-  return completed("orchestrator_lease_recovery_intent_durable", {
-    next: existing
-      ? null
-      : { ...current, leaseIntents: [...current.leaseIntents, pending] },
-    value: true,
-  });
-}
-
-/**
- * 観測済み回復処置の終了記録候補を生成する。
- * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 同じ短期Ownerのfresh値、対象値、用途固定の同期観測。
- * @returns 元の結果封筒、exact回復参照と保存候補又は読取り投影。
- * @precondition Coordinatorが実行の発火・元Owner・対象Repositoryを確認している。
- * @postcondition 元版と対象外区画、過去unknownを変更しない。
- * @effect 値操作と用途固定の同期観測だけ。実Lock・Process・保存を操作しない。
- * @failure 元の理由・短絡順を維持し、観測不能と明示不存在を分ける。
- * @invariant completedを実資源終了・回復成立・新しい実行許可にしない。
- * @boundary Coordinatorの現在観測とDomainの保存値。
- * @security 生Owner・Stats・Kernel handle・opaque Leaseを受け取らない。
- * @concurrency 同じ短期Owner内でのみ適用し、CAS・解放は既存Writerが担当する。
- */
-export function prepareLeaseRecoverySettlement(
-  current: Snapshot,
-  binding: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-  initial: Readonly<{
-    repositoryRoot: string;
-    rootIdentity: string;
-    queue: ProjectQueueEntry | null;
-  }>,
-  ownIntents: Snapshot["leaseIntents"],
-  pending: Snapshot["leaseIntents"][number],
-  first: Snapshot["leaseIntents"][number],
-  recoveryId: string,
-  observations: Readonly<{
-    observeRoot: () => Readonly<{
-      repositoryRoot: string;
-      rootIdentity: string;
-    }>;
-  }>,
-) {
-  const root = observeLeaseRoot(observations.observeRoot);
-  if (
-    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-    root.repositoryRoot !== initial.repositoryRoot ||
-    root.rootIdentity !== initial.rootIdentity ||
-    encodeStateValue(
-      kind === "project-operation"
-        ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-            null)
-        : null,
-    ) !== encodeStateValue(initial.queue) ||
-    encodeStateValue(
-      current.leaseIntents.filter(
-        (item) =>
-          item.projectId === projectId &&
-          item.queueId === queueId &&
-          item.kind === kind,
-      ),
-    ) !==
-      encodeStateValue(
-        ownIntents.some((item) => item.phase === "recovery_pending")
-          ? ownIntents
-          : [...ownIntents, pending],
-      )
-  )
-    return blocked(
-      "orchestrator_lease_recovery_state_mismatch",
-      true,
-      recoveryId,
-    );
-  const acquired = current.leaseEvidence.find(
-    (item) =>
-      item.projectId === projectId &&
-      item.content.queueId === queueId &&
-      item.content.kind === kind &&
-      item.content.ownerGeneration === first.ownerGeneration &&
-      item.content.disposition === "acquired",
-  );
-  const ended = current.leaseEvidence.find(
-    (item) =>
-      item.projectId === projectId &&
-      item.content.queueId === queueId &&
-      item.content.kind === kind &&
-      item.content.ownerGeneration === first.ownerGeneration &&
-      item.content.disposition !== "acquired",
-  );
-  if (ended)
-    return blocked(
-      "orchestrator_lease_recovery_state_mismatch",
-      true,
-      recoveryId,
-    );
-  const evidence = createLeaseEvidence(binding, projectId, 2, {
-    kind,
-    queueId,
-    ownerGeneration: first.ownerGeneration,
-    ownerProcessId: first.ownerProcessId,
-    disposition: acquired
-      ? "recovered_after_owner_loss"
-      : "acquisition_unknown_closed",
-  });
-  const queue: ProjectQueueEntry | null =
-    initial.queue === null
-      ? null
-      : Object.freeze({
-          ...initial.queue,
-          generation: initial.queue.generation + 1,
-          ...(initial.queue.ownerGeneration === null
-            ? {}
-            : {
-                state: "recovery_required" as const,
-                ownerGeneration: null,
-                resumeCondition: "owner_loss" as const,
-              }),
-          resultReference: recoveryId,
-        });
-  return completed("orchestrator_lease_owner_loss_reconciled", {
-    next: {
-      ...current,
-      leaseIntents: current.leaseIntents.filter(
-        (item) =>
-          !(
-            item.projectId === projectId &&
-            item.queueId === queueId &&
-            item.kind === kind &&
-            item.ownerGeneration === first.ownerGeneration
-          ),
-      ),
-      leaseEvidence: [...current.leaseEvidence, evidence],
-      queueEntries:
-        queue === null
-          ? current.queueEntries
-          : current.queueEntries.map((item) =>
-              item.queueId === queueId ? queue : item,
-            ),
-    },
-    value: { queue, recoveryId },
-  });
-}
-
-/**
- * 用途固定Root観測の同期・閉形式を検査する。
- * @responsibility Promise・thenable・accessor・Proxyを物理不存在や正規Rootへ畳まない。
- * @trace ARCH-000008
- * @input observe: Coordinatorの同期Root投影。
- * @returns 同じ二fieldの観測値。
- * @precondition 元のlstat位置でのみ呼ぶ。
- * @postcondition 無効観測では後続mark・保存候補を発行しない。
- * @effect 同期観測一回。FilesystemはCoordinatorに残す。
- * @failure 無効観測は既存の観測不能例外へ接続する。
- * @invariant 値の形式をRootの現在真正性としない。
- * @boundary このFileの四つのRoot観測箇所だけ。
- * @security getter・then・Proxyを評価しない。
- * @concurrency N/A: 同期処理。
- */
-function observeLeaseRoot(
-  observe: () => Readonly<{ repositoryRoot: string; rootIdentity: string }>,
-) {
-  const value = observe();
-  if (!value || typeof value !== "object" || types.isProxy(value))
-    throw Error("orchestrator_lease_recovery_observation_unknown");
-  const prototype = Object.getPrototypeOf(value);
-  if ((prototype !== Object.prototype && prototype !== null) || "then" in value)
-    throw Error("orchestrator_lease_recovery_observation_unknown");
-  const properties = Object.getOwnPropertyDescriptors(value);
-  if (
-    Reflect.ownKeys(properties).length !== 2 ||
-    !properties.repositoryRoot ||
-    !("value" in properties.repositoryRoot) ||
-    !properties.rootIdentity ||
-    !("value" in properties.rootIdentity) ||
-    typeof properties.repositoryRoot.value !== "string" ||
-    properties.repositoryRoot.value.length === 0 ||
-    typeof properties.rootIdentity.value !== "string" ||
-    !/^[a-f0-9]{64}$/.test(properties.rootIdentity.value)
-  )
-    throw Error("orchestrator_lease_recovery_observation_unknown");
-  return value;
-}
-
-/** 旧Storeの成功封筒だけを局所値として再現する。 */
-function completed<T>(reason: string, value: T) {
-  return Object.freeze({ status: "completed" as const, reason, value });
-}
-
-/** 旧Storeの拒否理由とexact回復参照を保持する。 */
-function blocked(
-  reason: string,
-  manualRecoveryRequired = false,
-  recoveryId: string | null = null,
-) {
-  return Object.freeze({
-    status: "blocked" as const,
-    reason,
-    value: null,
-    manualRecoveryRequired,
-    recoveryId,
-  });
-}
-
 /**
  * 保存Bufferを一意なJSON値として安全に復号する。
  * @responsibility intrinsic Buffer境界、UTF-8、深度と正規encodingを検査する。
@@ -3104,669 +2385,6 @@ function validateSettlementTransition(
 }
 
 /**
- * 保存候補への遷移で未解決記録と受付結合を保全する。
- * @responsibility 通常保存と中断再入場に同じ遷移制約を適用する。
- * @trace ARCH-000004
- * @input current: 現在値または初期不存在、payload: 検証済み候補。
- * @returns N/A: 違反時に例外を返す。
- * @precondition 双方の構造と結合は検証済み。
- * @postcondition 改訂番号、記録世代と未解決区画の維持を確認済み。
- * @effect 同じ短期Ownerで必要なLease・履歴を同期観測する。保存は行わない。
- * @failure 記録の除去、結合変更または世代飛越を拒否する。
- * @invariant pendingで通常保存の保全制約を迂回しない。
- * @boundary 現在値から候補への保存遷移。
- * @security Hash一致を遷移許可と同一視しない。
- * @concurrency N/A: 排他を所有する呼出し側で実行する。
- */
-export function assertSnapshotTransition(
-  current: Snapshot | null,
-  payload: Snapshot,
-  owner: SnapshotObservations,
-): void {
-  if (
-    !current &&
-    (payload.decisions.length !== 0 || payload.blockers.length !== 0)
-  )
-    throw new Error("decision_initial_state_not_empty");
-  if (current && !validateDecisionSnapshotTransition(current, payload)) {
-    if (!validateDecisionRetirement(current, payload))
-      throw new Error("decision_snapshot_transition_invalid");
-    for (const record of current.decisions) {
-      if (
-        !payload.decisions.some(
-          (item) => item.decisionId === record.decisionId,
-        ) &&
-        owner.decisionHistorySettlement(record) !== "recorded"
-      )
-        throw new Error("decision_history_retirement_unconfirmed");
-    }
-  }
-  if (payload.snapshotRevision !== (current?.snapshotRevision ?? 0) + 1)
-    throw new Error("snapshot_revision_conflict");
-  for (const intent of payload.leaseIntents) {
-    if (intent.phase !== "acquisition_reserved") continue;
-    if (
-      current?.leaseIntents.some(
-        (item) => encodeStateValue(item) === encodeStateValue(intent),
-      )
-    )
-      continue;
-    const identity = leaseIdentity(
-      payload.repositoryBindingId,
-      intent.projectId,
-      intent.queueId,
-      intent.kind,
-    );
-    if (
-      intent.physicalIdentity !== null ||
-      intent.ownerProcessId !== owner.processId ||
-      payload.leaseIntents.filter(
-        (item) =>
-          leaseIdentity(
-            payload.repositoryBindingId,
-            item.projectId,
-            item.queueId,
-            item.kind,
-          ) === identity,
-      ).length !== 1 ||
-      current?.leaseIntents.some(
-        (item) =>
-          leaseIdentity(
-            payload.repositoryBindingId,
-            item.projectId,
-            item.queueId,
-            item.kind,
-          ) === identity,
-      ) ||
-      !owner.leaseResourcesAbsent(identity)
-    )
-      throw new Error("snapshot_acquisition_reservation_invalid");
-  }
-  if (current) {
-    if (payload.schema !== current.schema)
-      throw new Error("snapshot_schema_transition_invalid");
-    const retired = new Set(
-      current.queueEntries
-        .filter(
-          (queue) =>
-            !payload.queueEntries.some(
-              (item) => item.queueId === queue.queueId,
-            ),
-        )
-        .map((item) => item.queueId),
-    );
-    const currentEvidenceIds = new Set(
-      [...current.projects, ...payload.projects].flatMap((project) => [
-        ...project.milestone.criterionEvidenceIds,
-        ...project.objectives.flatMap(
-          (objective) => objective.criterionEvidenceIds,
-        ),
-      ]),
-    );
-    for (const queueId of retired) {
-      const row = current.historyPending.find((item) => item.id === queueId);
-      if (
-        !queueIsClosed(current, queueId, owner) ||
-        !row ||
-        owner.historySettlement(row) === null
-      )
-        throw new Error("snapshot_retirement_unconfirmed");
-    }
-    if (retired.size > 0 !== (payload.intakeEpoch !== current.intakeEpoch))
-      throw new Error("snapshot_intake_epoch_transition_invalid");
-    for (const collection of ["results", "leaseEvidence"] as const) {
-      for (const old of current[collection])
-        if (
-          !payload[collection].some(
-            (item) => encodeStateValue(item) === encodeStateValue(old),
-          )
-        )
-          if (
-            collection === "results"
-              ? (!current.queueEntries.some(
-                  (queue) =>
-                    retired.has(queue.queueId) &&
-                    queue.queueId === (old as ResultRecord).queueId &&
-                    queue.projectId === old.projectId &&
-                    queue.milestoneId === (old as ResultRecord).milestoneId,
-                ) &&
-                  !current.historyPending.some(
-                    (row) =>
-                      row.id === (old as ResultRecord).identity &&
-                      standaloneAdoptionIsClosed(current, row.id, owner) &&
-                      owner.historySettlement(row) !== null,
-                  )) ||
-                currentEvidenceIds.has((old as ResultRecord).identity) ||
-                payload.queueEntries.some(
-                  (item) =>
-                    item.resultReference === (old as ResultRecord).identity,
-                )
-              : !current.queueEntries.some(
-                  (queue) =>
-                    (old as LeaseEvidenceEnvelope).content.kind ===
-                      "project-operation" &&
-                    retired.has(queue.queueId) &&
-                    queue.queueId ===
-                      (old as LeaseEvidenceEnvelope).content.queueId &&
-                    queue.projectId === old.projectId,
-                ) &&
-                !rejectedAdoptionEvidenceCanRetire(
-                  current,
-                  payload,
-                  old as LeaseEvidenceEnvelope,
-                  owner,
-                ) &&
-                !(
-                  (old as LeaseEvidenceEnvelope).content.kind ===
-                    "canonical-adoption" &&
-                  !payload.queueEntries.some(
-                    (queue) => queue.projectId === old.projectId,
-                  ) &&
-                  !payload.leaseIntents.some(
-                    (intent) => intent.projectId === old.projectId,
-                  ) &&
-                  !payload.results.some(
-                    (record) =>
-                      record.kind === "adoption" &&
-                      record.projectId === old.projectId,
-                  ) &&
-                  current.historyPending.some(
-                    (row) =>
-                      (current.queueEntries.some(
-                        (queue) =>
-                          retired.has(queue.queueId) &&
-                          queue.projectId === old.projectId,
-                      ) ||
-                        current.results.some(
-                          (record) =>
-                            record.identity === row.id &&
-                            record.projectId === old.projectId &&
-                            !adoptionWasRejected(record) &&
-                            standaloneAdoptionIsClosed(current, row.id, owner),
-                        )) &&
-                      owner.historySettlement(row) !== null,
-                  )
-                )
-          )
-            throw new Error("snapshot_retained_obligation_removed");
-    }
-    for (const old of current.historyPending) {
-      if (
-        !payload.historyPending.some(
-          (item) => encodeStateValue(item) === encodeStateValue(old),
-        ) &&
-        owner.historySettlement(old) === null
-      )
-        throw new Error("snapshot_history_transfer_unconfirmed");
-    }
-    for (const old of current.leaseIntents) {
-      if (
-        payload.leaseIntents.some(
-          (item) => encodeStateValue(item) === encodeStateValue(old),
-        )
-      )
-        continue;
-      const end = payload.leaseEvidence.find(
-        (item) =>
-          item.projectId === old.projectId &&
-          item.content.queueId === old.queueId &&
-          item.content.kind === old.kind &&
-          item.content.ownerGeneration === old.ownerGeneration &&
-          item.content.ownerProcessId === old.ownerProcessId &&
-          item.content.disposition !== "acquired",
-      );
-      const identity = leaseIdentity(
-        payload.repositoryBindingId,
-        old.projectId,
-        old.queueId,
-        old.kind,
-      );
-      if (end && end.content.disposition !== "released") {
-        const recovery = current.leaseIntents.find(
-          (item) =>
-            item.projectId === old.projectId &&
-            item.queueId === old.queueId &&
-            item.kind === old.kind &&
-            item.ownerGeneration === old.ownerGeneration &&
-            item.ownerProcessId === old.ownerProcessId &&
-            item.phase === "recovery_pending",
-        );
-        const owned = current.leaseIntents.find(
-          (item) =>
-            item.projectId === old.projectId &&
-            item.queueId === old.queueId &&
-            item.kind === old.kind &&
-            item.ownerGeneration === old.ownerGeneration &&
-            item.phase === "lock_owned",
-        );
-        if (
-          !recovery ||
-          recovery.recoveryId !== old.recoveryId ||
-          (end.content.disposition === "acquisition_unknown_closed"
-            ? owned !== undefined ||
-              (recovery.physicalIdentity !== null &&
-                !current.leaseIntents.some(
-                  (item) =>
-                    item.projectId === old.projectId &&
-                    item.queueId === old.queueId &&
-                    item.kind === old.kind &&
-                    item.ownerGeneration === old.ownerGeneration &&
-                    item.phase === "acquisition_reserved",
-                ))
-            : !owned || recovery.physicalIdentity !== owned.physicalIdentity)
-        )
-          throw new Error("snapshot_recovery_intent_unconfirmed");
-      }
-      if (
-        current.schema !== owner.schema ||
-        !end ||
-        !owner.leaseResourcesAbsent(identity)
-      )
-        throw new Error("snapshot_unsettled_lease_intent_removed");
-    }
-    for (const old of current.queueEntries) {
-      if (retired.has(old.queueId)) continue;
-      const next = payload.queueEntries.find(
-        (item) => item.queueId === old.queueId,
-      );
-      if (
-        old.singleTask &&
-        (!next?.singleTask ||
-          [
-            "principalId",
-            "mode",
-            "executionSelection",
-            "taskId",
-            "attemptId",
-            "operationId",
-          ].some(
-            (key) =>
-              encodeStateValue(
-                old.singleTask?.[key as keyof SingleTaskRecord],
-              ) !==
-              encodeStateValue(
-                next.singleTask?.[key as keyof SingleTaskRecord],
-              ),
-          ) ||
-          (old.singleTask.adviceOperation !== undefined &&
-            encodeStateValue(old.singleTask.adviceOperation) !==
-              encodeStateValue(next.singleTask.adviceOperation)) ||
-          (old.singleTask.phase === "settled" &&
-            (old.singleTask.status !== next.singleTask.status ||
-              old.singleTask.reason !== next.singleTask.reason ||
-              next.singleTask.phase !== "settled" ||
-              (old.singleTask.cleanupConfirmed &&
-                !next.singleTask.cleanupConfirmed) ||
-              next.singleTask.recoveryIds.some(
-                (id) => !old.singleTask?.recoveryIds.includes(id),
-              ))))
-      )
-        throw new Error("snapshot_single_task_identity_invalid");
-      if (
-        old.singleTask &&
-        next?.singleTask &&
-        encodeStateValue(old.singleTask) !== encodeStateValue(next.singleTask)
-      ) {
-        const unstartedRejection =
-          old.singleTask.phase === "accepted" &&
-          next.singleTask.phase === "settled" &&
-          next.singleTask.status === "blocked" &&
-          next.singleTask.cleanupConfirmed &&
-          next.singleTask.recoveryIds.length === 0 &&
-          old.ownerGeneration === null &&
-          next.ownerGeneration === null &&
-          !current.leaseIntents.some(
-            (intent) => intent.queueId === old.queueId,
-          );
-        const phases: Record<SingleTaskRecord["phase"], readonly string[]> = {
-          accepted: ["starting"],
-          starting: ["starting", "running", "settled"],
-          running: ["settled"],
-          settled: ["settled"],
-        };
-        if (
-          !unstartedRejection &&
-          (!phases[old.singleTask.phase].includes(next.singleTask.phase) ||
-            !current.leaseIntents.some(
-              (intent) =>
-                intent.queueId === old.queueId &&
-                intent.projectId === old.projectId &&
-                intent.kind === "project-operation" &&
-                intent.phase === "lock_owned" &&
-                intent.ownerProcessId === owner.processId &&
-                intent.ownerGeneration === next.ownerGeneration,
-            ))
-        )
-          throw new Error("snapshot_single_task_transition_invalid");
-      }
-      if (
-        !next ||
-        [
-          "projectId",
-          "milestoneId",
-          "requestHash",
-          "originLane",
-          "repositoryRevision",
-          "scopeHash",
-        ].some(
-          (key) =>
-            next[key as keyof ProjectQueueEntry] !==
-            old[key as keyof ProjectQueueEntry],
-        ) ||
-        (encodeStateValue(next) !== encodeStateValue(old) &&
-          next.generation !== old.generation + 1) ||
-        current.intakeBindings.find((item) => item.queueId === old.queueId)
-          ?.epoch !==
-          payload.intakeBindings.find((item) => item.queueId === old.queueId)
-            ?.epoch
-      )
-        throw new Error("snapshot_queue_generation_invalid");
-    }
-    for (const old of current.projects) {
-      const next = payload.projects.find(
-        (item) => item.projectId === old.projectId,
-      );
-      if (
-        next &&
-        next.milestoneId === old.milestoneId &&
-        encodeStateValue(next.taskExecutionSelections) !==
-          encodeStateValue(old.taskExecutionSelections)
-      )
-        throw new Error("snapshot_project_selection_changed");
-      if (
-        next &&
-        next.milestoneId !== old.milestoneId &&
-        current.queueEntries.some(
-          (queue) =>
-            !queue.singleTask &&
-            queue.projectId === old.projectId &&
-            !retired.has(queue.queueId),
-        )
-      )
-        throw new Error("snapshot_project_milestone_still_referenced");
-      if (
-        !next ||
-        (encodeStateValue(next) !== encodeStateValue(old) &&
-          next.generation !== old.generation + 1)
-      )
-        throw new Error("snapshot_project_generation_invalid");
-    }
-  }
-}
-
-/**
- * 一件の仕事について終了後の参照と実資源を照合する。
- * @responsibility 状態名だけで終了記録を削除しない。
- * @trace ARCH-000004
- * @input current、Queue ID、取得済み保存Owner。
- * @returns 現在の仕事が閉じている場合だけtrue。
- * @precondition Snapshotは全体検証済み。
- * @postcondition 判断待ち・未解決回復・Lease残存を拒否済み。
- * @effect 所有するLeaseの不存在を読み取る。
- * @failure 観測不能はfalse。
- * @invariant Candidate本体と保護Authorityを削除しない。
- * @boundary 現在状態と実行排他。
- * @security 終了済みを認証・採用許可にしない。
- * @concurrency 同じ短期Ownerで評価する。
- */
-export function queueIsClosed(
-  current: Snapshot,
-  queueId: string,
-  owner: SnapshotObservations,
-): boolean {
-  try {
-    if (current.schema !== owner.schema) return false;
-    const queue = current.queueEntries.find((item) => item.queueId === queueId);
-    if (
-      !queue ||
-      !["completed", "cancelled"].includes(queue.state) ||
-      queue.ownerGeneration !== null
-    )
-      return false;
-    if (queue.singleTask) {
-      return (
-        queue.singleTask.phase === "settled" &&
-        queue.workspaceId == null &&
-        queue.singleTask.cleanupConfirmed &&
-        queue.singleTask.recoveryIds.length === 0 &&
-        !current.leaseIntents.some((item) => item.queueId === queueId) &&
-        owner.leaseResourcesAbsent(
-          leaseIdentity(
-            current.repositoryBindingId,
-            queue.projectId,
-            queueId,
-            "project-operation",
-          ),
-        )
-      );
-    }
-    const project = current.projects.find(
-      (item) => item.projectId === queue.projectId,
-    );
-    if (
-      !project ||
-      project.milestoneId !== queue.milestoneId ||
-      !["accepted", "cancelled"].includes(project.milestone.state) ||
-      project.tasks.some(
-        (task) =>
-          !["completed", "failed", "cancelled", "superseded"].includes(
-            task.state,
-          ) ||
-          !task.cleanupConfirmed ||
-          task.recoveryUnresolved ||
-          task.recoveryObligations.some((item) => item.phase !== "settled"),
-      )
-    )
-      return false;
-    if (
-      current.leaseIntents.some((item) => item.projectId === queue.projectId) ||
-      current.blockers.some(
-        (item) =>
-          item.target.projectId === queue.projectId &&
-          item.target.milestoneId === queue.milestoneId &&
-          item.status === "active",
-      )
-    )
-      return false;
-    if (project.tasks.some((task) => task.candidateId !== null)) {
-      const receipt = current.results.find(
-        (item) =>
-          item.queueId === queueId &&
-          item.kind === "adoption" &&
-          item.identity === queue.resultReference,
-      );
-      const candidate = current.results.find(
-        (item) => item.queueId === queueId && item.kind === "integration",
-      );
-      if (
-        !receipt ||
-        !candidate ||
-        !isStateObject(receipt.value) ||
-        !isStateObject(candidate.value) ||
-        receipt.value.status !== "completed" ||
-        receipt.value.cleanupConfirmed !== true ||
-        receipt.value.beforeRevision !== candidate.value.baseRevision ||
-        !Array.isArray(receipt.value.changedPaths) ||
-        !Array.isArray(candidate.value.changedPaths) ||
-        encodeStateValue([...receipt.value.changedPaths].sort()) !==
-          encodeStateValue([...candidate.value.changedPaths].sort())
-      )
-        return false;
-    }
-    for (const kind of ["project-operation", "canonical-adoption"] as const)
-      if (
-        !owner.leaseResourcesAbsent(
-          leaseIdentity(
-            current.repositoryBindingId,
-            queue.projectId,
-            kind === "project-operation" ? queueId : "canonical",
-            kind,
-          ),
-        )
-      )
-        return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 既知拒否の終了証拠をexact Owner単位で整理できるか確認する。
- * @responsibility 拒否結果、終了証拠、履歴確定と除去候補を結合する。
- * @trace ARCH-000004
- * @input 現在値、保存候補、終了証拠と取得済みOwner。
- * @returns 全終了条件が成立した場合だけtrue。
- * @precondition 同Rootの短期排他を保持する。
- * @postcondition 別Owner世代の証拠を除去しない。
- * @effect 実Leaseと履歴確定を読む。
- * @failure 観測不能はfalse。
- * @invariant 未知Effectと解放未確認を整理しない。
- * @boundary 採用終了から履歴と現在保存。
- * @security 履歴は再実行Authorityを持たない。
- * @concurrency 同じ保存Owner内で評価する。
- */
-export function rejectedAdoptionEvidenceCanRetire(
-  current: Snapshot,
-  payload: Snapshot,
-  evidence: LeaseEvidenceEnvelope,
-  owner: SnapshotObservations,
-): boolean {
-  if (evidence.content.kind !== "canonical-adoption") return false;
-  const record = current.results.find(
-    (item) =>
-      item.projectId === evidence.projectId &&
-      item.identity === evidence.content.ownerGeneration &&
-      adoptionWasRejected(item),
-  );
-  const row =
-    record &&
-    current.historyPending.find((item) => item.id === record.identity);
-  return Boolean(
-    record &&
-      row &&
-      row.outcome === "failed" &&
-      row.primaryFailure === "execution" &&
-      !payload.results.some((item) => item.identity === record.identity) &&
-      standaloneAdoptionIsClosed(current, record.identity, owner) &&
-      owner.historySettlement(row) !== null,
-  );
-}
-
-/**
- * 通常Queueを持たない採用結果の終了条件を確認する。
- * @responsibility 実適用Receipt、参照と実Leaseの現在観測から整理可能性を決める。
- * @trace ARCH-000004
- * @input 検証済み保存値、Receipt Identity、取得済みOwner。
- * @returns 全条件が成立した場合だけtrue。
- * @precondition Ownerは同じRepositoryへ結合している。
- * @postcondition 使用中・参照中・未確定結果を退役対象にしない。
- * @effect 所有する実Leaseの不存在を読む。
- * @failure 不正Receiptと観測不能はfalse。
- * @invariant Receiptを再適用Authorityへ変換しない。
- * @boundary 独立候補採用と現在保存の境界。
- * @security Candidate本文や秘密値を履歴へ複製しない。
- * @concurrency 同じ短期Owner内で評価する。
- */
-export function standaloneAdoptionIsClosed(
-  current: Snapshot,
-  identity: string,
-  owner: SnapshotObservations,
-): boolean {
-  try {
-    if (current.schema !== owner.schema) return false;
-    const record = current.results.find(
-      (item) => item.identity === identity && item.kind === "adoption",
-    );
-    const isRejected = record !== undefined && adoptionWasRejected(record);
-    if (
-      !record ||
-      !isStateObject(record.value) ||
-      (!isRejected &&
-        (!hasStateKeys(record.value, [
-          "status",
-          "receiptId",
-          "beforeRevision",
-          "afterRevision",
-          "changedPaths",
-          "cleanupConfirmed",
-        ]) ||
-          record.value.status !== "completed" ||
-          record.value.receiptId !== identity ||
-          record.value.cleanupConfirmed !== true ||
-          typeof record.value.beforeRevision !== "string" ||
-          !/^[0-9a-f]{40,64}$/u.test(record.value.beforeRevision) ||
-          typeof record.value.afterRevision !== "string" ||
-          !/^[0-9a-f]{40,64}$/u.test(record.value.afterRevision) ||
-          !Array.isArray(record.value.changedPaths) ||
-          record.value.changedPaths.length === 0 ||
-          record.value.changedPaths.some(
-            (item) =>
-              typeof item !== "string" ||
-              normalizeRepositoryRelativePath(item) === null,
-          ))) ||
-      current.queueEntries.some(
-        (queue) => queue.projectId === record.projectId,
-      ) ||
-      current.leaseIntents.some(
-        (intent) => intent.projectId === record.projectId,
-      ) ||
-      (isRejected &&
-        current.results.some(
-          (other) =>
-            other.projectId === record.projectId &&
-            other.kind === "adoption" &&
-            !adoptionWasRejected(other),
-        )) ||
-      current.blockers.some(
-        (item) =>
-          item.target.projectId === record.projectId &&
-          (record.milestoneId === null ||
-            item.target.milestoneId === record.milestoneId) &&
-          item.status === "active",
-      ) ||
-      current.projects.some(
-        (project) =>
-          project.milestone.criterionEvidenceIds.includes(identity) ||
-          project.objectives.some((objective) =>
-            objective.criterionEvidenceIds.includes(identity),
-          ),
-      )
-    )
-      return false;
-    const evidence = current.leaseEvidence.filter(
-      (item) =>
-        item.projectId === record.projectId &&
-        item.content.kind === "canonical-adoption" &&
-        (!isRejected || item.content.ownerGeneration === identity),
-    );
-    if (
-      !evidence.length ||
-      evidence.some(
-        (item) =>
-          !evidence.some(
-            (end) =>
-              end.content.ownerGeneration === item.content.ownerGeneration &&
-              end.content.ownerProcessId === item.content.ownerProcessId &&
-              end.content.disposition !== "acquired",
-          ),
-      )
-    )
-      return false;
-    return owner.leaseResourcesAbsent(
-      leaseIdentity(
-        current.repositoryBindingId,
-        record.projectId,
-        "canonical",
-        "canonical-adoption",
-      ),
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
  * 発行時の受付結合を現在の保存値へ照合する。
  * @responsibility 新規受付と退役前の同内容再入場を区別する。
  * @trace ARCH-000004
@@ -5026,4 +3644,423 @@ function repairHistorySnapshot(
   return validateStateTransition(currentBytes, candidate, repositoryBinding)
     ? candidate
     : null;
+}
+
+/**
+ * Taskの確定済み業務更新を単一保存の一改訂へ組み込む。
+ * @responsibility 受領本文を一度保持し、同じ更新で配送待ち・終端操作・参照を整理する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input currentBytes: 元本文、stateValue: 業務更新済み公開State、expectedGeneration: 元業務世代、repositoryBinding: 物理結合、resultFacts: 同じAttemptで新たに得たTask結果の不明事実。
+ * @returns 既存区画を保持した次本文、又はnull。
+ * @precondition Task Ownerが受付・Lease・業務遷移を既存境界で検証する。
+ * @postcondition 投影した公開Stateが指定更新と完全一致する場合だけ候補を返す。
+ * @effect N/A: メモリ内の候補生成だけ。保存・回収・Provider要求なし。
+ * @failure 世代競合、受領差替え、不足参照、未確認終端、導出状態不一致はnull。
+ * @invariant Root未初期化を暗黙初期化せず、旧受領と他Projectを保持する。
+ * @boundary Task更新と単一Writerに渡す正規候補。
+ * @security 候補生成は実受領・実回収・保存Authorityではない。
+ * @concurrency 元本文と実排他は同じWriter Owner内で再照合する。
+ */
+export function prepareUnifiedTaskSnapshot(
+  currentBytes: unknown,
+  stateValue: unknown,
+  expectedGeneration: unknown,
+  repositoryBinding: unknown,
+  resultFacts: unknown = [],
+): Buffer | null {
+  try {
+    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+    const state: unknown = JSON.parse(encodeStateValue(stateValue));
+    const facts: unknown = JSON.parse(encodeStateValue(resultFacts));
+    if (
+      !current ||
+      current.snapshot.repositoryBindingId === null ||
+      !validState(state) ||
+      !Number.isSafeInteger(expectedGeneration) ||
+      Number(expectedGeneration) < 0 ||
+      state.generation !== Number(expectedGeneration) + 1 ||
+      (current.snapshot.projects.find((p) => p.projectId === state.projectId)
+        ?.generation ?? 0) !== expectedGeneration ||
+      !Array.isArray(facts) ||
+      !facts.every((f) =>
+        hasExecutionStateRecordKeys(f, [
+          "taskId",
+          "attemptId",
+          "operationId",
+          "recoveryUnresolved",
+        ]),
+      )
+    )
+      return null;
+    const states = current.projects.some((p) => p.projectId === state.projectId)
+      ? current.projects.map((p) =>
+          p.projectId === state.projectId ? state : p,
+        )
+      : [...current.projects, state];
+    const sections = normalizeTaskProjects(
+      current,
+      states,
+      facts.map((f) => ({ ...f, projectId: state.projectId })),
+    );
+    if (!sections) return null;
+    const next = {
+      ...current.snapshot,
+      ...sections,
+      revision: current.snapshot.revision + 1,
+      previous: {
+        revision: current.snapshot.revision,
+        payloadSha256: current.payloadSha256,
+      },
+    };
+    const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
+    const decoded = decodeStateSnapshot(bytes, repositoryBinding);
+    return decoded &&
+      validateUnifiedTransition(currentBytes, bytes, repositoryBinding) &&
+      encodeStateValue(
+        decoded.projects.find((p) => p.projectId === state.projectId),
+      ) === encodeStateValue(state)
+      ? bytes
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 同じ更新内のTask結果・受領と操作参照を正規化する。
+ * @responsibility 元受領の不変性と同じAttemptへの結果結合を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input current: 検査済み元版、states: 更新後Task投影、facts: 同じAttemptの観測。
+ * @returns 単一保存の更新区画、又はnull。
+ * @precondition 元版と新しいTask値は既存の値契約を満たす。
+ * @postcondition 受領本文を一度だけ保持し、他操作の未解決事実を保全する。
+ * @effect N/A: メモリ内の候補生成のみ。
+ * @failure 相関・固定受領差替え・状態不正はnull。
+ * @invariant 結果や回復参照の欠測を成功へ補完しない。
+ * @boundary Task Ownerと共通保存の値境界。
+ * @security 候補を保存・受領・cleanupのAuthorityにしない。
+ * @concurrency 元版のfresh確認はWriterが行う。
+ */
+export function normalizeTaskProjects(
+  current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  states: readonly ProjectExecutionState[],
+  facts: unknown,
+) {
+  if (
+    !states.every(validState) ||
+    !Array.isArray(facts) ||
+    !facts.every(
+      (f, i) =>
+        hasExecutionStateRecordKeys(f, [
+          "projectId",
+          "taskId",
+          "attemptId",
+          "operationId",
+          "recoveryUnresolved",
+        ]) &&
+        typeof f.recoveryUnresolved === "boolean" &&
+        !facts
+          .slice(0, i)
+          .some((p) => p.projectId === f.projectId && p.taskId === f.taskId) &&
+        states.some(
+          (p) =>
+            p.projectId === f.projectId &&
+            p.tasks.some(
+              (t) =>
+                t.definition.id === f.taskId &&
+                t.attemptId !== null &&
+                t.attemptId === f.attemptId &&
+                t.operationId !== null &&
+                t.operationId === f.operationId,
+            ),
+        ),
+    )
+  )
+    return null;
+  const completed = new Set<string>();
+  for (const priorProject of current.snapshot.managedExecutions) {
+    const project = states.find((p) => p.projectId === priorProject.projectId);
+    const priorGeneration = current.projects.find(
+      (p) => p.projectId === priorProject.projectId,
+    )?.generation;
+    if (
+      !project ||
+      priorGeneration === undefined ||
+      project.generation !== priorGeneration + 1
+    )
+      continue;
+    for (const prior of priorProject.tasks) {
+      if (prior.settlement.kind !== "operations") continue;
+      const task = project.tasks.find((t) => t.definition.id === prior.taskId);
+      if (
+        !task ||
+        task.attemptId !== prior.attemptId ||
+        task.operationId !== prior.operationId
+      )
+        return null;
+      if (
+        task.startPhase !== "settled" ||
+        !task.cleanupConfirmed ||
+        task.recoveryUnresolved ||
+        task.recoveryObligations.some((o) => o.phase !== "settled")
+      )
+        continue;
+      // 未解決参照が残るTaskは、同じ状態を保存してもOperation除去へ進めない。
+      if (
+        current.snapshot.unresolvedRecoveries.some(
+          (recovery) =>
+            prior.settlement.kind === "operations" &&
+            prior.settlement.recoveryIds.includes(recovery.recoveryId),
+        )
+      )
+        continue;
+      for (const id of prior.settlement.recoveryIds) {
+        const operation = current.snapshot.operations.find(
+          (o) => o.recoveryId === id,
+        );
+        const identity =
+          operation?.kind === "docker_task"
+            ? JSON.parse(operation.identityJson)
+            : null;
+        const terminal = projectTaskSettlement(
+          { kind: "operations", recoveryIds: [id], resultUnresolved: false },
+          current.snapshot,
+        );
+        if (
+          operation?.kind !== "docker_task" ||
+          !identity ||
+          (identity.recoveryCorrelationId ?? identity.operationId) !==
+            task.operationId ||
+          operation.history?.confirmed !== true ||
+          !terminal?.cleanupConfirmed ||
+          current.snapshot.unresolvedRecoveries.some((r) => r.recoveryId === id)
+        )
+          return null;
+        completed.add(id);
+      }
+    }
+  }
+  const operations = current.snapshot.operations.filter(
+    (o) => !completed.has(o.recoveryId),
+  );
+  const projects: ExecutionStoredManagedProject[] = [];
+  for (const state of states) {
+    const tasks: StoredTask[] = [];
+    for (const task of state.tasks) {
+      const previous = current.snapshot.managedExecutions
+        .find((p) => p.projectId === state.projectId)
+        ?.tasks.find(
+          (t) =>
+            t.taskId === task.definition.id &&
+            t.attemptId === task.attemptId &&
+            t.operationId === task.operationId,
+        )?.settlement;
+      const explicit = facts.find(
+        (f) =>
+          f.projectId === state.projectId && f.taskId === task.definition.id,
+      );
+      const resultUnresolved =
+        explicit?.recoveryUnresolved ??
+        (previous?.kind === "operations"
+          ? previous.resultUnresolved
+          : previous?.kind === "executor_result"
+            ? previous.recoveryUnresolved
+            : false);
+      const matching = operations
+        .filter((o) => {
+          if (o.kind !== "docker_task" || task.operationId === null)
+            return false;
+          const identity = JSON.parse(o.identityJson);
+          return (
+            (identity.recoveryCorrelationId ?? identity.operationId) ===
+            task.operationId
+          );
+        })
+        .map((o) => o.recoveryId);
+      const settlement: TaskSettlementFact = matching.length
+        ? { kind: "operations", recoveryIds: matching, resultUnresolved }
+        : task.startPhase === "none" &&
+            !task.cleanupConfirmed &&
+            !task.recoveryUnresolved
+          ? { kind: "pending" }
+          : {
+              kind: "executor_result",
+              cleanupConfirmed: task.cleanupConfirmed,
+              recoveryUnresolved: resultUnresolved,
+            };
+      const {
+        cleanupConfirmed: _cleanup,
+        recoveryUnresolved: _unresolved,
+        recoveryObligations: _obligations,
+        ...record
+      } = task;
+      const recoveryObligations = task.recoveryObligations;
+      tasks.push({
+        ...record,
+        settlement,
+        recoveryObligations,
+      });
+    }
+    projects.push({ ...state, tasks });
+  }
+  const definitions = projects.map(
+    ({
+      taskExecutionSelections: _selection,
+      ownerGeneration: _owner,
+      maximumConcurrency: _maximum,
+      tasks,
+      contract: _contract,
+      ...core
+    }) => ({
+      ...core,
+      contract: "crdd-domain/project-state/v1" as const,
+      tasks: tasks.map((task) => task.definition),
+    }),
+  );
+  const managedExecutions: ManagedExecution[] = projects.map((project) => {
+    const definition = definitions.find(
+      (item) => item.projectId === project.projectId,
+    );
+    if (!definition) throw new Error("definition");
+    return {
+      projectId: project.projectId,
+      milestoneId: project.milestoneId,
+      definitionHash: hashExecutionProjectDefinition(definition),
+      taskExecutionSelections: project.taskExecutionSelections,
+      ownerGeneration: project.ownerGeneration,
+      maximumConcurrency: project.maximumConcurrency,
+      tasks: project.tasks.map(({ definition: taskDefinition, ...task }) => ({
+        ...task,
+        taskId: taskDefinition.id,
+      })),
+    };
+  });
+  const retainedDefinitions = current.snapshot.projects.map(
+    (project) =>
+      definitions.find((item) => item.projectId === project.projectId) ??
+      project,
+  );
+  return {
+    projects: [
+      ...retainedDefinitions,
+      ...definitions.filter(
+        (project) =>
+          !current.snapshot.projects.some(
+            (item) => item.projectId === project.projectId,
+          ),
+      ),
+    ],
+    managedExecutions,
+    operations,
+    unresolvedRecoveries: current.snapshot.unresolvedRecoveries.filter(
+      (r) => !completed.has(r.recoveryId),
+    ),
+  };
+}
+
+/**
+ * 単一保存からTask利用側のメモリViewだけを投影する。
+ * @responsibility 保存改訂を一つの値として公開し、旧物理Envelopeを生成しない。
+ * @trace ARCH-000004、ARCH-000008
+ * @input decoded: 統一codec結果、repositoryRootHash: 呼出し側が確認したRoot Hash。
+ * @returns 初期化済みTask View、又はnull。
+ * @precondition 物理Rootの実確認は保存Ownerが担当する。
+ * @postcondition 技術区画をTask Viewへ複製しない。
+ * @effect N/A: 同期投影のみ。
+ * @failure 業務初期化前はnull。
+ * @invariant このViewを別Fileへ保存しない。
+ * @boundary 単一保存と業務操作。
+ * @security Viewは保存・実行Authorityではない。
+ * @concurrency N/A: 元版と保存CASは呼出し側が照合する。
+ */
+export function projectTaskSnapshot(
+  decoded: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  repositoryRootHash: string,
+): Snapshot | null {
+  const s = decoded.snapshot;
+  if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
+  return {
+    schema: PROJECT_SNAPSHOT_SCHEMA,
+    schemaRevision: 7,
+    repositoryRootHash,
+    repositoryBindingId: s.repositoryBindingId,
+    intakeEpoch: s.intakeEpoch,
+    snapshotRevision: s.revision,
+    projects: decoded.projects,
+    intakeBindings: s.intakeBindings,
+    queueEntries: s.queueEntries,
+    workspaces: s.workspaces,
+    leaseEvidence: s.leaseEvidence,
+    leaseIntents: s.leaseIntents,
+    results: s.results,
+    historyPending: s.historyPending,
+    decisions: s.decisions,
+    blockers: s.blockers,
+  };
+}
+
+/**
+ * Task・Queue・Workspaceの業務更新を一改訂の保存候補へ接続する。
+ * @responsibility 全業務区画と受領・技術参照を同じ本文で確定可能にする。
+ * @trace ARCH-000004、ARCH-000008
+ * @input currentBytes: 元本文、viewValue: 業務View候補、repositoryBinding: 物理結合、rootHash: 確認済みRoot Hash、facts: 明示結果事実。
+ * @returns 正規保存候補、又はnull。
+ * @precondition 同Owner内で既存業務遷移・Lease・履歴検査を完了する。
+ * @postcondition 技術区画・受領と業務更新の片側だけを保存しない。
+ * @effect N/A: 候補作成のみ。
+ * @failure 元版・結合・参照・投影不一致はnull。
+ * @invariant 旧Snapshotを内包せず単一の改訂と前Hashを使う。
+ * @boundary 業務Viewから単一Writer。
+ * @security 候補自体は書込み資格ではない。
+ * @concurrency 保存Ownerが現在本文とCASを再照合する。
+ */
+export function prepareUnifiedTaskSections(
+  currentBytes: unknown,
+  viewValue: unknown,
+  repositoryBinding: unknown,
+  rootHash: string,
+  factsValue: unknown = [],
+): Buffer | null {
+  try {
+    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+    const view: unknown = JSON.parse(encodeStateValue(viewValue));
+    const facts: unknown = JSON.parse(encodeStateValue(factsValue));
+    if (
+      !current ||
+      !isStateObject(view) ||
+      !validSnapshot(view, String(view.repositoryBindingId), rootHash) ||
+      view.snapshotRevision !== current.snapshot.revision + 1
+    )
+      return null;
+    const sections = normalizeTaskProjects(current, view.projects, facts);
+    if (!sections) return null;
+    const {
+      schema: _schema,
+      schemaRevision: _schemaRevision,
+      snapshotRevision: _revision,
+      repositoryRootHash: _rootHash,
+      projects: _projects,
+      ...taskSections
+    } = view;
+    const next = {
+      ...current.snapshot,
+      ...taskSections,
+      ...sections,
+      revision: current.snapshot.revision + 1,
+      previous: {
+        revision: current.snapshot.revision,
+        payloadSha256: current.payloadSha256,
+      },
+    };
+    const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
+    const decoded = decodeStateSnapshot(bytes, repositoryBinding);
+    return decoded &&
+      validateUnifiedTransition(currentBytes, bytes, repositoryBinding) &&
+      encodeStateValue(projectTaskSnapshot(decoded, rootHash)) ===
+        encodeStateValue(view)
+      ? bytes
+      : null;
+  } catch {
+    return null;
+  }
 }

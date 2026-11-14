@@ -25,7 +25,7 @@ import { encodeStateValue } from "../../../src/state/operations.ts";
 import {
   prepareQueueEntryCreation,
   projectQueueEntry,
-} from "../../../src/task/operations.ts";
+} from "../../../src/task/crud.ts";
 
 /**
  * 四操作の局所前提値を用意する。

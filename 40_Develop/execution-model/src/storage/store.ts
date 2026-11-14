@@ -3,6 +3,8 @@
  * @responsibility 実体照合、出版pending、読戻しと失敗・回復情報を保持する。
  * @trace ARCH-000008
  */
+import fs from "node:fs";
+import path from "node:path";
 import { STORAGE_CONTRACT } from "../state/types.ts";
 import { createHash } from "node:crypto";
 import type { Repository } from "../../../version-control/src/index.ts";
@@ -48,14 +50,16 @@ import {
   prepareStateHistorySnapshot,
   prepareStateHostSnapshot,
   prepareStateRepairCompletionSnapshot,
+  projectTaskSnapshot,
 } from "../state/validation.ts";
 import { validId, encodeStateValue } from "../state/operations.ts";
-import { projectTaskSnapshot } from "../task/operations.ts";
 import type {
   HistoryRepositoryInput,
   SnapshotOwner,
   StorageOwner,
   StoreResult,
+  observeExecutionRecoveryRepository,
+  observeOperationRepository,
 } from "./lock.ts";
 import {
   acquireSnapshotPilotLock,
@@ -66,15 +70,9 @@ import {
   completed,
   isLiveSnapshotOwner,
   isLiveStorageOwner,
-  type observeExecutionRecoveryRepository,
-  type observeOperationRepository,
   readHistoryRetentionDays,
   readStorageOwnerBinding,
 } from "./lock.ts";
-
-import fs from "node:fs";
-import path from "node:path";
-
 /**
  * require Ready Repository Runtime Data Areaを決定する。
  *

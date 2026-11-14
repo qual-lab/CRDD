@@ -21,7 +21,6 @@ import type {
   TaskExecutionSelections,
 } from "../task/types.ts";
 import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
-
 /** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
 export const PROJECT_STATE_CONTRACT =
   "crdd-execution-model/project-state/v3" as const;
@@ -646,7 +645,7 @@ export type LeaseReadRequest = Readonly<
   | {
       kind: "acquisition";
       input: Parameters<
-        typeof import("./validation.ts").projectLeaseAcquisitionOwner
+        typeof import("./crud.ts").projectLeaseAcquisitionOwner
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -654,7 +653,7 @@ export type LeaseReadRequest = Readonly<
   | {
       kind: "owner_loss";
       input: RootObservedInput<
-        Parameters<typeof import("./validation.ts").projectLeaseOwnerLossState>
+        Parameters<typeof import("./crud.ts").projectLeaseOwnerLossState>
       >;
     }
 >;
@@ -665,16 +664,14 @@ export type LeaseRecoveryRequest = Readonly<
       kind: "reconcile";
       input: RootObservedInput<
         Parameters<
-          typeof import("./validation.ts").prepareReleasedLeaseReconciliation
+          typeof import("./crud.ts").prepareReleasedLeaseReconciliation
         >
       >;
     }
   | {
       kind: "intent";
       input: RootObservedInput<
-        Parameters<
-          typeof import("./validation.ts").prepareLeaseRecoveryReservation
-        >
+        Parameters<typeof import("./crud.ts").prepareLeaseRecoveryReservation>
       >;
     }
   | { kind: "observed"; input: LeaseRecoveryInput }
@@ -685,7 +682,7 @@ export type LeaseReleaseRequest = Readonly<
   | {
       kind: "intent";
       input: Parameters<
-        typeof import("./validation.ts").prepareLeaseReleaseIntent
+        typeof import("./crud.ts").prepareLeaseReleaseIntent
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -693,7 +690,7 @@ export type LeaseReleaseRequest = Readonly<
   | {
       kind: "observed";
       input: Parameters<
-        typeof import("./validation.ts").prepareLeaseReleaseSettlement
+        typeof import("./crud.ts").prepareLeaseReleaseSettlement
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;
@@ -727,7 +724,7 @@ export type LeaseAcquisitionRequest = Readonly<
   | {
       kind: "observed";
       input: Parameters<
-        typeof import("./validation.ts").prepareLeaseAcquisitionConfirmation
+        typeof import("./crud.ts").prepareLeaseAcquisitionConfirmation
       > extends [unknown, ...infer Rest]
         ? Rest
         : never;

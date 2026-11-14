@@ -58,7 +58,7 @@
     {
       "symbolId": "domain-model.attempt.lease",
       "kind": "file",
-      "path": "src/state/validation.ts",
+      "path": "src/state/crud.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -103,7 +103,7 @@
       ],
       "verifies": [
         "domain-model.task.queue",
-        "execution-model.source.src.task.operations"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -119,7 +119,7 @@
       "verifies": [
         "domain-model.task.queue",
         "domain-model.state.crud",
-        "execution-model.source.src.task.operations"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -259,7 +259,7 @@
     {
       "symbolId": "domain-model.state.crud",
       "kind": "file",
-      "path": "src/state/validation.ts",
+      "path": "src/state/crud.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -277,7 +277,7 @@
     {
       "symbolId": "domain-model.task.crud",
       "kind": "file",
-      "path": "src/task/operations.ts",
+      "path": "src/task/crud.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -476,7 +476,7 @@
         "execution-model.source.src.attempt.operations",
         "execution-model.source.src.state.value",
         "execution-model.source.src.history.operations",
-        "execution-model.source.src.task.operations",
+        "domain-model.task.queue",
         "execution-model.source.src.objective.operations",
         "domain-model.src.objective.validation",
         "domain-model.workspace.validation",
@@ -667,7 +667,7 @@
         "execution-model.source.src.objective.crud",
         "execution-model.source.src.task.crud",
         "execution-model.source.src.workspace.crud",
-        "execution-model.source.src.task.operations",
+        "domain-model.state.transition",
         "execution-model.source.src.objective.operations",
         "domain-model.test-support.runtime-storage-source"
       ]
@@ -877,7 +877,6 @@
       "verifies": [
         "coordinator.state-storage.coordinator-state-model",
         "orchestrator.task.single-task-record",
-        "execution-model.source.src.task.operations",
         "domain-model.task.queue"
       ]
     },
@@ -1212,15 +1211,6 @@
       ],
       "verifies": [
         "coordinator.state-storage.coordinator-state-runtime"
-      ]
-    },
-    {
-      "symbolId": "execution-model.source.src.task.operations",
-      "kind": "file",
-      "path": "src/task/operations.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000008"
       ]
     },
     {

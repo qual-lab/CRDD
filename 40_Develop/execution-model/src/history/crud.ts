@@ -10,6 +10,9 @@ import { prepareDecisionRetirement } from "../decision/validation.ts";
 import {
   observeSnapshotObligations,
   withSnapshotOperation,
+  queueIsClosed,
+  rejectedAdoptionEvidenceCanRetire,
+  standaloneAdoptionIsClosed,
 } from "../state/crud.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../state/types.ts";
 import { encodeStateValue } from "../state/operations.ts";
@@ -28,12 +31,6 @@ import {
 } from "../storage/store.ts";
 import type { HistoryRow } from "./types.ts";
 import type { Snapshot, SnapshotObservations } from "../state/types.ts";
-import {
-  queueIsClosed,
-  rejectedAdoptionEvidenceCanRetire,
-  standaloneAdoptionIsClosed,
-} from "../state/validation.ts";
-
 /**
  * 終了要約の生成、履歴確定、受付世代切替を接続する。
  * @responsibility 閉じたQueueと専属の終了証拠を現在状態から退役する。
