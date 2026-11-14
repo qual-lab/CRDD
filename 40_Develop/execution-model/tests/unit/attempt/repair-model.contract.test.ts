@@ -14,7 +14,15 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInThisContext } from "node:vm";
-import { repairCanComplete } from "../../../src/attempt/validation.ts";
+import {
+  repairCanComplete,
+  repairCanSummarize,
+} from "../../../src/attempt/validation.ts";
+import * as stateValidation from "../../../src/state/validation.ts";
+import * as historyOperations from "../../../src/history/operations.ts";
+import * as attemptValidation from "../../../src/attempt/validation.ts";
+import { projectDecisionHistory } from "../../../src/decision/validation.ts";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 import type { RepairOperationRecord } from "../../../src/index.ts";
 import {
   decodeStateSnapshot,
@@ -40,6 +48,66 @@ import {
 } from "../../../src/state/validation.ts";
 
 const binding = "a".repeat(64);
+
+/**
+ * 現行の履歴候補入口と私有導出を、回数観測だけ差し替えて接続する。
+ * @responsibility 検査を代役にせず、導出decodeと最終遷移検査を別々に観測する。
+ * @trace ERB-UT-036
+ * @precondition 型除去した実宣言を使う。
+ * @stimulus decode・遷移検査の計数、意味計算の例外または元本文変更。
+ * @observation 元の入口の結果と呼出し回数。
+ * @oracle 同期導出は一回、最終検査は維持する。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary Sourceの有限接続。実保存・Ownerの成立は別試験。
+ */
+function historyDerivation(overrides: Readonly<Record<string, unknown>> = {}) {
+  const source = fs.readFileSync(
+    new URL("../../../src/state/validation.ts", import.meta.url),
+    "utf8",
+  );
+  const names = [
+    "prepareStateHistorySummary",
+    "prepareRepairHistorySummary",
+    "prepareStateHistorySnapshot",
+    "prepareRepairHistorySnapshot",
+    "prepareStateHistoryLine",
+    "prepareRepairHistoryLine",
+    "prepareRecoveredHistoryPublication",
+    "prepareRepairHistoryPublication",
+    "stateHistorySummary",
+    "repairHistorySummary",
+    "stateHistorySnapshot",
+    "repairHistorySnapshot",
+    "stateHistoryLine",
+    "repairHistoryLine",
+    "projectHistoryRetentionReferences",
+  ];
+  const dependencies = Object.fromEntries(
+    Object.entries({
+      ...stateValidation,
+      ...historyOperations,
+      ...attemptValidation,
+      createHash,
+      encodeStateValue,
+      decodeHistoryRows,
+      projectDecisionHistory,
+      ...overrides,
+    }).filter(([name]) => !names.includes(name)),
+  );
+  return runInThisContext(
+    `(function(deps){const {${Object.keys(dependencies).join(",")}}=deps; ${names.map((name) => sourceDeclaration(source, name)).join("\n")}; return {${names.slice(0, 8).join(",")}};})`,
+  )(dependencies) as Pick<
+    typeof stateValidation,
+    | "prepareStateHistorySummary"
+    | "prepareRepairHistorySummary"
+    | "prepareStateHistorySnapshot"
+    | "prepareRepairHistorySnapshot"
+    | "prepareStateHistoryLine"
+    | "prepareRepairHistoryLine"
+    | "prepareRecoveredHistoryPublication"
+    | "prepareRepairHistoryPublication"
+  >;
+}
 const identity = {
   schema: "crdd-coordinator/runtime-repair-identity/v2",
   kind: "runtime_repair",
@@ -3944,15 +4012,15 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     repairCanComplete,
   }) as typeof prepareStateRepairCompletionSnapshot;
   assert.throws(() => preserveCompletion(completionMutant));
-  const original = body("prepareRepairHistorySnapshot");
+  const original = body("repairHistorySnapshot");
   assert.equal(original.split("...current.snapshot,").length, 2);
   const mutant = runInThisContext(
-    `(function(deps){const {createHash,decodeStateSnapshot,encodeStateValue,prepareRepairHistorySummary,validateStateTransition}=deps; ${body("repairSummaryBytes")} ${body("repairHistoryLineBytes")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; return prepareRepairHistorySnapshot;})`,
+    `(function(deps){const {createHash,decodeStateSnapshot,encodeStateValue,repairCanSummarize,validateStateTransition}=deps; ${body("repairSummaryBytes")} ${body("repairHistoryLineBytes")} ${body("repairHistorySummary")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; ${body("prepareRepairHistorySnapshot")}; return prepareRepairHistorySnapshot;})`,
   )({
     createHash,
     decodeStateSnapshot: decodeStateSnapshot,
     encodeStateValue: encodeStateValue,
-    prepareRepairHistorySummary: prepareRepairHistorySummary,
+    repairCanSummarize,
     validateStateTransition,
   }) as typeof prepareRepairHistorySnapshot;
   assert.throws(() => preserve(mutant), /repair_history_candidate_required/u);
@@ -3993,6 +4061,119 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   );
   assert.ok(oldTaskLine && currentRepairLine);
   const historyMix = Buffer.concat([oldTaskLine, currentRepairLine]);
+  // 不変の混在fixtureは共有し、用途と段階だけを変えて導出・最終検査を観測する。
+  for (const item of [
+    {
+      kind: "Task",
+      before: repairConfirmed,
+      pending: taskPending,
+      id: task.recoveryId,
+      at: taskAt,
+      snapshot: "prepareStateHistorySnapshot",
+      publication: "prepareRecoveredHistoryPublication",
+      summary: "prepareStateHistorySummary",
+      summaryBytes: "operationSummaryBytes",
+      lineBytes: "historyLineBytes",
+      history: historyMix,
+    },
+    {
+      kind: "Repair",
+      before: mixed,
+      pending: repairPending,
+      id: ready.operation.recoveryId,
+      at,
+      snapshot: "prepareRepairHistorySnapshot",
+      publication: "prepareRepairHistoryPublication",
+      summary: "prepareRepairHistorySummary",
+      summaryBytes: "repairSummaryBytes",
+      lineBytes: "repairHistoryLineBytes",
+      history: Buffer.alloc(0),
+    },
+  ] as const) {
+    let decodes = 0;
+    let transitions = 0;
+    const observed = historyDerivation({
+      decodeStateSnapshot: (
+        ...args: Parameters<typeof decodeStateSnapshot>
+      ) => {
+        decodes++;
+        return decodeStateSnapshot(...args);
+      },
+      validateStateTransition: (
+        ...args: Parameters<typeof validateStateTransition>
+      ) => {
+        transitions++;
+        return validateStateTransition(...args);
+      },
+    });
+    assert.deepEqual(
+      observed[item.snapshot](item.before, item.id, item.at, false, binding),
+      item.pending,
+      item.kind,
+    );
+    assert.equal(decodes, 1, `${item.kind}: same-source derivation`);
+    assert.equal(transitions, 1, `${item.kind}: final transition`);
+    decodes = 0;
+    transitions = 0;
+    const publish =
+      item.kind === "Task"
+        ? stateValidation.prepareRecoveredHistoryPublication
+        : stateValidation.prepareRepairHistoryPublication;
+    const expected = publish(
+      item.pending,
+      item.id,
+      item.history,
+      null,
+      30,
+      binding,
+    );
+    assert.ok(expected, `${item.kind}: publication fixture`);
+    assert.deepEqual(
+      observed[item.publication](
+        item.pending,
+        item.id,
+        item.history,
+        null,
+        30,
+        binding,
+      ),
+      expected,
+    );
+    assert.equal(decodes, 1, `${item.kind}: publication derivation`);
+    assert.equal(transitions, 1, `${item.kind}: publication transition`);
+    const failure = new Error("history_meaning_failed");
+    const failing = historyDerivation({
+      [item.summaryBytes]: () => {
+        throw failure;
+      },
+    });
+    if (item.kind === "Task")
+      assert.equal(failing[item.summary](item.before, item.id, binding), null);
+    else
+      assert.throws(
+        () => failing[item.summary](item.before, item.id, binding),
+        (error) => error === failure,
+      );
+    const mutable = Buffer.from(item.before);
+    const mutating = historyDerivation({
+      [item.lineBytes]: (
+        operation:
+          | Parameters<typeof historyOperations.historyLineBytes>[0]
+          | Parameters<typeof historyOperations.repairHistoryLineBytes>[0],
+        occurredAt: string,
+      ) => {
+        mutable[0] = 0;
+        return operation.kind === "docker_task"
+          ? historyOperations.historyLineBytes(operation, occurredAt)
+          : historyOperations.repairHistoryLineBytes(operation, occurredAt);
+      },
+    });
+    assert.equal(
+      mutating[item.snapshot](mutable, item.id, item.at, false, binding),
+      null,
+      `${item.kind}: original bytes rechecked`,
+    );
+  }
   assert.equal(decodeHistoryRows(historyMix)?.length, 2);
   assert.ok(
     prepareHistoryRetention(taskPending, historyMix, at, 30, binding)?.equals(

@@ -48,15 +48,15 @@ Leaseの取得Identity・回復IDは、`acquireLease`の既存Intent保存がRep
 
 ### 公開から外した内部契約と保持理由
 
-`validation.ts`由来の18公開は一律に非公開化しない。資源記録の二更新はBook／遷移検査とともに`attempt/operations.ts`、明示メールからの主体構築は主体検査と同じ`state/validation.ts`が実体を持つ。状態列挙・契約識別子・完了理由の四定義は対応モデルの`types.ts`が正本を持ち、状態型も同じ不変列挙から定義する。更新処理を呼ぶだけのWrapperや旧所在地の再exportは作らない。State候補検査が使用する資源更新と主体形式検査が使用する構築は純粋な値操作であり、保存・Root探索・外部Effectを呼ばない。宣言Ownerの移管を単独で公開数削減とは数えない。
+資源記録の二更新とBook／遷移検査は`attempt/operations.ts`、明示メールからの主体構築と形式検査は`state/operations.ts`が実体を持つ。状態列挙・契約識別子・完了理由は対応モデルの`types.ts`を正本とする。旧所在地の再exportや中継Wrapperは作らず、宣言Ownerの移管自体を公開削減とは数えない。これらの値操作は保存・Root探索・外部Effectを呼ばない。
 
 再起動ID生成とHost遷移相関検査はRootから撤去した。前者は`readState`の`scope: "recovery"`・`restart_preparation`範囲で、対象操作と`scopeSha256`を一回の既存読取りへ結合して返す。通常Readerの確認完了と準備値の成立は別で、`restartPreparation`が非nullであり、Coの同版・排他・現在性確認も成立した場合だけ使用する。Coは既存の排他取得後の再読取りをこの範囲へ置換し、追加読取り・先行保存を行わない。後者は同版の`operationStates.hostTransition`へ投影する。新規意図は既存Writerの検査と保存後Readerを経てから実Host遷移へ使い、保存済み意図の再入場も同じ返却値を使う。実Host token・marker・recordBefore・旧世代の照合はCoに残す。
 
 残る八公開は、`inspectDecision`、`inspectExecutionPlan`、`inspectExecutionSelection`、`inspectTaskExecutionSelections`、`isPrincipalId`、`parseDockerTaskRecoveryId`、`parseHostRecoveryToken`、`validateResourceBook`である。未保存モデルと完全Decision搬送、入口主体、Operation保存前／Host-only相関、Repository Operationとは別の認証記録、IPC後の動的QAという独立した受付を持つ。保存を伴うCRUDへ押し込むと時点・Effect順又は検証範囲が変わるため、今回の保証維持範囲では維持する。規則のCo複製、検査目的の先行保存、別名の汎用Facadeで隠さない。これらを撤去する場合は当該受付契約の変更を別途評価する。
 
-外部で型名を参照していない16型と、外部試験だけが参照する`RecoveryCheckpointRequest`はRootから外した。モデルの内部宣言・保存形式・関数引数の型は維持する。試験のRequest型は`Parameters<typeof saveRecoveryCheckpoint>[3]`から取得し、`unknown`化や別のRequest定義は追加しない。Rootの型集合は38項目とし、この型整理段階では実体を持つ98値を維持し、その後の複合取得統合で96値、補助公開・受付照会の統合で91値となった。その後の利用側別ACK撤去と検査Owner整理を含む先行候補は74値・35型だった。今回の9入口統合後は65値・35型であり、先行段階の試験結果を現候補の完成根拠へ流用しない。先行段階で維持した4照会のうち、後続で三特殊Queryを廃止し、通常のqueryQueueだけを残した。これは型の隠蔽ではなく特殊投影の機能退役である。
+現在のRootは93項目（58値・35型）で、外部の完成操作・入力受付・モデル語彙として必要な集合を維持する。過去の件数推移・内部化対象・段階ごとの検証は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)に記録し、現行契約と混在させない。内部型は宣言元に保持し、外部試験のためだけの型公開やunknownへの置換を行わない。
 
-外部試験の保存fixture・故障窓の都合だけで残していた下表11宣言は、利用側を完成操作・現役の公開値契約・独立した期待DTOへ接続してRootから外した。モデル自身の候補・遷移検査は宣言元で維持し、外部の深いimportや互換Facadeへ逃がしていない。Root集合は更新済みだが、今回の限定回帰が完了するまでは候補全体の完成を表示しない。
+外部試験の保存fixture・故障窓だけで必要だった下表11宣言は内部に閉じる。利用側は完成操作・現役の公開値契約・独立した期待DTOを使用し、外部Packageからの深いimportや互換Facadeを作らない。モデル自身の候補・遷移検査は宣言元で維持する。
 
 | 内部化した用途 | 宣言 |
 |---|---|
@@ -163,6 +163,20 @@ State／Task／Queue／Decision／回復義務は既存の単一SnapshotとWrite
 
 局所I/O・EOF・close・Getter／Proxy拒否は各入力／保存Ownerへ必要分を置く。共通Helper全文の複製や第4Packageは作らない。詳細な局所遷移・出版の契約は[API・単一保存](05_Runtime_Domain.md)を参照する。保持設定・Owner配置の新しい境界は本書を正本とする。
 
+### 保存証拠の寿命と物理出版の分類
+
+| 内部処理 | 主な入口・責務 | 終了条件 |
+|---|---|---|
+| 初期化 | prepareOwnedStateInitialization：exact新規領域と初回候補の結合 | 初期化証拠の成功／失敗・解放結果を区別 |
+| 通常出版 | writeOwnedStateSnapshot／writeStateSnapshot：候補を単一Writerへ接続 | 元版・Owner・File・設定のfresh照合、CAS、保存確認とLock解放 |
+| 再入場 | resumeRepairRecordSave：exact修復保存の中断状態を再観測 | 未知の保存物を確定せず、既存の出版相関を照合 |
+| 特殊候補の出版 | publishRecoveryState：用途候補を短命Contextへ結合 | 一回消費とfinallyによるContext失効 |
+| 取得済みOwnerによる出版 | publishStateOwned：Task／定義候補を単一Writerへ接続 | 排他を再取得・解放せず、Owner寿命は呼出し側が管理 |
+
+settlementsは一回の保存呼出しの候補・元版・OwnerをContextへ結合し、消費後はfinallyで破棄する。initializationsはexact初期領域・本文だけの証拠を保持し、準備・解放成功時は後続出版まで保持する。解放失敗、既存の出版終了またはContext失効条件で削除する。historyAttemptsは同じ生存Ownerでの履歴試行とpending候補を保持するため、各呼出しfinallyでは消さない。弱参照のOwner寿命に従い、Process再起動後の正本やfresh照合の代替にはしない。
+
+resumeRepairRecordSaveはLock・保存物・途中結果を扱う完成した保存再入場操作であり、Storageの実体をRootから直接提供する。公開Ownerの見た目のためのAttempt転送Wrapperや、新しいMap／Managerは作らない。短命証拠とWriterを分散させないため、publication.tsは行数だけで分割しない。
+
 <a id="verification"></a>
 ## 5. 検証と未確認
 
@@ -170,7 +184,7 @@ State／Task／Queue／Decision／回復義務は既存の単一SnapshotとWrite
 
 型・Source移管だけで保存や再入場の成立を主張しない。限定回帰と独立確認は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)へ記録する。全体回帰・実AI・Docker・過去保持物の操作は今回実施しない。
 
-先行267項目段階の固定候補ではSource・試験・台帳・文書の独立レビューを完了し、当該範囲の必須残指摘は0。Ownerの限定回帰は13親・45子の58件を正常終了し、その実行では途中停止・再実行・期限変更は行っていない。各fixtureの終了hookに例外報告はなかった。関係八型設定・台帳関係の限定検査も成功した。これは後続の公開整理候補の完成根拠ではない。当時の試験・未確認・未回収は変更計画§14.3で区別し、各限定集合の重複を合算せず、全体回帰や公開最小化の完成へ拡大しない。
+各段階の限定検証、失敗と是正、未確認範囲は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を正本とする。過去の成功件数を現在候補へ合算せず、局所成功から全体回帰や公開最小性の成立を主張しない。
 
 ### 補助検査の公開境界
 
@@ -208,26 +222,26 @@ inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発�
 
 主体IDの固定prefixは`state/operations.ts`の私有定数とし、Decision／Taskの局所検査は同じ値処理を利用する。公開名・文法・保存形式は変えず、Decision検査のために全State検査をロードしない。Coordinatorでは初回受付で独立・凍結捕捉したSelectionを再利用する。再発行側・Resolver・保存／搬送入力の検査とHashの正規順は維持し、内部受渡しの省略を未信頼入力の無検査へ拡張しない。
 
-共有6値処理は実体を一か所に置き、内部Consumerが直接参照する。旧所在地の再export・公開Wrapperは作らない。公開100項目（65値・35型）、保存本文とHash、初回Intent／Receipt／正式未発行・不存在証拠、既知ID等の不変条件は変更しない。清掃観測の不明を不存在へ変換しない。
+共有する値処理は`state/operations.ts`の一つの実体を内部Consumerが直接利用する。保存しない記録値・主体・ID・Pathの構築／捕捉／変換に限定し、全Stateの整合や物理保存を追加しない。Root93項目・保存本文とHash・Intent／Receipt／正式未発行／不存在の条件を維持し、清掃観測の不明を不存在へ変換しない。
 
-新品NodeでState候補・CRUD・Storageの解決を拒否しても資源の値更新が使えることを確認する。型だけのモデル参照を技術的Authorityとして扱わない。これは資源値操作の依存閉包の分離であり、Attempt／History等とStateの残る純粋検査の相互参照まで解消したものではない。History規則・完成操作の意味Owner・Snapshot型の明示化は後続段階で単一保存契約を保って整理する。
+新品NodeでState候補・CRUD・Storageの解決を拒否しても資源の値更新が使えることを確認する。型だけの参照をAuthorityにしない。局所値検査と全State候補の逆依存は分離するが、局所検査同士の全参照を禁止するものではない。Historyの意味Owner・完成操作・明示Snapshot型は下記の現行責務に従う。
 
 ### 履歴の生成・保持・出版候補とState整合 — 2026-11-14
 
 | Owner | 実体を所有する処理 | 所有しないもの |
 |---|---|---|
 | `history/operations.ts` | Operation／Repairの要約と行、Task／判断の行生成、必須行の両Hash照合、元順序の保持・期間選別、同IDのexact比較、pending全文一致、intrinsic Buffer捕捉 | 全State復号、改訂更新、Decoder、保存・Lock・Authority |
-| `history/validation.ts` | 共通履歴の全行decode・重複／部分行／未知Schema拒否、記録退役条件 | 物理保存と実資源の終了確認 |
+| `history/validation.ts` | 共通履歴の全行decode・重複／部分行／未知Schema拒否 | 全Stateの退役判断、物理保存、実資源の終了確認 |
 | `state/validation.ts` | 全体復号、現在操作選択と終端条件、判断・未搬送・未解決・現在操作の保持参照／必須Hash投影、履歴候補と同じ元版のSnapshot候補結合 | 履歴本文の独自符号化、期間選別・pending比較の別実装 |
 | `storage/publication.ts`／`storage/store.ts` | 元版・現在Owner／設定・File実体照合、単一CAS、pending保存・確定・読戻し | 履歴要約／行の別の値生成 |
 
 `prepareHistoryRetention`の内部入口は、保存済み全体Stateから参照を導出するためState側に置く。Historyは、検査済み行と同じStateの保持参照・必須Hashだけを受け、現在Operationが履歴確認済みか否かによらず欠測・行Hash差・要約Hash差を選別前に拒否する。単なる参照保護と必須行の存在照合を混同しない。現在参照・reviewAfter前・保持期間境界の行を、元順序・元本文のまま残す。
 
-二つの出版候補はState側で元Snapshotを復号し、固定行と確認済み次Snapshotを導出する。canonical全行と固定一行を共通Decoderで検査し、History側が既存行とのexact比較、再追記抑止、期間整理、pending全文一致を行う。検査済み行の合成は既存IDの有無で分け、別IDの重複や部分行を未検査で渡さない。Snapshot候補不成立・履歴候補不成立のいずれも全体の候補成功へ畳まない。
+二つの出版候補は、同じ同期呼出しで検査済みの元Snapshotからexact操作・固定行・確認済み次版を導出する。要約・行の意味計算はHistoryへ委譲し、Stateは改訂・元Hash・対象外保全と最終遷移を検査する。canonical全行と固定一行の検査、History側のexact比較・重複拒否・期間整理・pending全文一致は維持する。導出中に同じ元本文を再decodeしないが、最終遷移検査は元本文と候補を独立して検査する。Writerのfresh読取り、異なるLock区間や外部入力境界で検査済み値を使い回さない。どちらかの候補が不成立なら全体候補も不成立とする。
 
-TaskとRepairで重複していたBuffer捕捉は同じ実体へ集約する。Proxy・非Buffer・intrinsic取得失敗を拒否し、入力のown equals／lengthを使わず独立コピーする。外側のTaskのcatch、Repairのnull拒否と結果のコピー条件は維持する。Schema・Hash対象・公開100項目・物理的保存順序・Reader／WriterとLock保持条件は変更しない。Historyの値候補成功を保存・退役・実資源回収の成功としない。
+Task／RepairのBuffer捕捉はHistoryの共通実体を使う。Proxy・非Buffer・intrinsic取得失敗を拒否し、own equals／lengthを使わず独立コピーする。Task入口のcatchとRepair入口の例外伝播、各結果のコピー条件・入力捕捉順序を維持する。Schema・Hash対象・Root93項目・物理保存順・Reader／WriterとLock保持条件は変更しない。値候補成功は保存・退役・実資源回収の成功ではない。
 
-本整理はHistoryの生成・選別・出版規則のOwnerを明確にするもので、残る純粋検査間の全循環解消、Stateの完成操作の意味Owner移管、Snapshot型の最終整理を完了したものではない。
+Historyの意味計算はhistory/operations、完成保存はhistory/crud、同版への結合はstate/validation、物理出版はstorage/publicationに一意に配置する。Stateを単なる保存先へ縮めず、全モデルの相関・改訂保証を維持する。
 
 
 ### 局所検査から全State候補への逆依存の撤去 — 2026-11-14

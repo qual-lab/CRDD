@@ -2223,22 +2223,7 @@ export function prepareStateHistorySummary(
       (item): item is ExecutionOperationRecord =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
-    if (!operation || operation.phase === "executing" || !operation.outcome)
-      return null;
-    const summaryBytes = operationSummaryBytes(operation);
-    const summarySha256 = createHash("sha256")
-      .update(summaryBytes)
-      .digest("hex");
-    if (
-      operation.summarySha256 !== null &&
-      operation.summarySha256 !== summarySha256
-    )
-      return null;
-    return Object.freeze({
-      summaryBytes,
-      summarySha256,
-      sourcePayloadSha256: current.payloadSha256,
-    });
+    return stateHistorySummary(operation, current.payloadSha256);
   } catch {
     return null;
   }
@@ -2269,19 +2254,9 @@ export function prepareRepairHistorySummary(
     (item): item is RepairOperationRecord =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
   );
-  if (!current || !operation || !repairCanSummarize(operation)) return null;
-  const summaryBytes = repairSummaryBytes(operation);
-  const summarySha256 = createHash("sha256").update(summaryBytes).digest("hex");
-  if (
-    operation.summarySha256 !== null &&
-    operation.summarySha256 !== summarySha256
-  )
-    return null;
-  return Object.freeze({
-    summaryBytes,
-    summarySha256,
-    sourcePayloadSha256: current.payloadSha256,
-  });
+  return current
+    ? repairHistorySummary(operation, current.payloadSha256)
+    : null;
 }
 
 /**
@@ -2311,56 +2286,15 @@ export function prepareRepairHistorySnapshot(
     (item): item is RepairOperationRecord =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
   );
-  const summary = prepareRepairHistorySummary(
-    currentBytes,
-    recoveryId,
-    repositoryBinding,
-  );
-  if (
-    !current ||
-    !operation ||
-    !summary ||
-    typeof occurredAt !== "string" ||
-    !Number.isFinite(Date.parse(occurredAt)) ||
-    new Date(occurredAt).toISOString() !== occurredAt ||
-    typeof confirmed !== "boolean" ||
-    (operation.retention !== undefined &&
-      occurredAt !== operation.retention.decidedAt)
-  )
-    return null;
-  if (operation.history) {
-    if (
-      operation.history.occurredAt !== occurredAt ||
-      (operation.history.confirmed && !confirmed)
-    )
-      return null;
-    if (operation.history.confirmed === confirmed)
-      return Buffer.from(`${encodeStateValue(current.snapshot)}\n`);
-  } else if (confirmed) return null;
-  const history = {
-    occurredAt,
-    lineSha256: createHash("sha256")
-      .update(repairHistoryLineBytes(operation, occurredAt))
-      .digest("hex"),
-    confirmed,
-  };
-  const candidate = Buffer.from(
-    `${encodeStateValue({
-      ...current.snapshot,
-      revision: current.snapshot.revision + 1,
-      previous: {
-        revision: current.snapshot.revision,
-        payloadSha256: current.payloadSha256,
-      },
-      operations: current.snapshot.operations.map((item) =>
-        item === operation
-          ? { ...item, summarySha256: summary.summarySha256, history }
-          : item,
-      ),
-    })}\n`,
-  );
-  return validateStateTransition(currentBytes, candidate, repositoryBinding)
-    ? candidate
+  return current
+    ? repairHistorySnapshot(
+        currentBytes,
+        current,
+        operation,
+        occurredAt,
+        confirmed,
+        repositoryBinding,
+      )
     : null;
 }
 
@@ -2389,9 +2323,7 @@ export function prepareRepairHistoryLine(
     (item): item is RepairOperationRecord =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
   );
-  return operation?.history
-    ? repairHistoryLineBytes(operation, operation.history.occurredAt)
-    : null;
+  return repairHistoryLine(operation);
 }
 
 /**
@@ -2427,14 +2359,11 @@ export function prepareRepairHistoryPublication(
   );
   if (!current || !operation?.history || operation.history.confirmed)
     return null;
-  const line = prepareRepairHistoryLine(
+  const line = repairHistoryLine(operation);
+  const snapshotBytes = repairHistorySnapshot(
     currentBytes,
-    recoveryId,
-    repositoryBinding,
-  );
-  const snapshotBytes = prepareRepairHistorySnapshot(
-    currentBytes,
-    recoveryId,
+    current,
+    operation,
     operation.history.occurredAt,
     true,
     repositoryBinding,
@@ -2498,13 +2427,10 @@ export function prepareRecoveredHistoryPublication(
     );
     if (!current || !operation?.history || operation.history.confirmed)
       return null;
-    const line = prepareStateHistoryLine(
+    const line = stateHistoryLine(operation);
+    const snapshotBytes = stateHistorySnapshot(
       currentBytes,
-      recoveryId,
-      repositoryBinding,
-    );
-    const snapshotBytes = prepareStateHistorySnapshot(
-      currentBytes,
+      current,
       recoveryId,
       operation.history.occurredAt,
       true,
@@ -2561,61 +2487,15 @@ export function prepareStateHistorySnapshot(
 ): Buffer | null {
   try {
     const current = decodeStateSnapshot(currentBytes, repositoryBinding);
-    if (
-      !current ||
-      typeof recoveryId !== "string" ||
-      typeof occurredAt !== "string" ||
-      typeof confirmed !== "boolean"
-    )
-      return null;
-    const time = Date.parse(occurredAt);
-    if (!Number.isFinite(time) || new Date(time).toISOString() !== occurredAt)
-      return null;
-    const operation = current.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === recoveryId,
-    );
-    if (
-      !operation ||
-      operation.phase === "executing" ||
-      !operation.outcome?.cleanupConfirmed ||
-      operation.host.cleanup !== "confirmed" ||
-      operation.host.pendingTransitionJson !== null ||
-      operation.lease !== "released" ||
-      operation.execution.ownerEffect !== "disabled" ||
-      !areTaskResourcesSettled(operation)
-    )
-      return null;
-    if (!operation.history && confirmed) return null;
-    const summary = prepareStateHistorySummary(
-      currentBytes,
-      recoveryId,
-      repositoryBinding,
-    );
-    if (!summary) return null;
-    const history = {
-      occurredAt,
-      lineSha256: createHash("sha256")
-        .update(historyLineBytes(operation, occurredAt))
-        .digest("hex"),
-      confirmed,
-    };
-    const next = {
-      ...current.snapshot,
-      revision: current.snapshot.revision + 1,
-      previous: {
-        revision: current.snapshot.revision,
-        payloadSha256: current.payloadSha256,
-      },
-      operations: current.snapshot.operations.map((item) =>
-        item !== operation
-          ? item
-          : { ...item, summarySha256: summary.summarySha256, history },
-      ),
-    };
-    const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
-    return validateStateTransition(currentBytes, bytes, repositoryBinding)
-      ? bytes
+    return current
+      ? stateHistorySnapshot(
+          currentBytes,
+          current,
+          recoveryId,
+          occurredAt,
+          confirmed,
+          repositoryBinding,
+        )
       : null;
   } catch {
     return null;
@@ -4038,12 +3918,7 @@ export function prepareStateHistoryLine(
     (value): value is ExecutionOperationRecord =>
       value.kind === "docker_task" && value.recoveryId === recoveryId,
   );
-  if (!operation?.history) return null;
-  const bytes = historyLineBytes(operation, operation.history.occurredAt);
-  return createHash("sha256").update(bytes).digest("hex") ===
-    operation.history.lineSha256
-    ? bytes
-    : null;
+  return stateHistoryLine(operation);
 }
 
 /**
@@ -5227,5 +5102,270 @@ export function prepareHistoryRetention(
   const references = projectHistoryRetentionReferences(current.snapshot);
   return references
     ? retainHistoryRows(rows, references, now, retentionDays)
+    : null;
+}
+
+/**
+ * 履歴要約と導出元Hashを結合する。
+ * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * @trace ARCH-000008
+ * @input 検査済み元版・exact対象と固定履歴入力。
+ * @returns 導出値、拒否時null。
+ * @precondition 呼出し元が本文とRepository結合を検査済み。
+ * @postcondition 元版と対象外操作を変更しない。
+ * @effect N/A: メモリ内導出のみ。
+ * @failure 不正相関はnull、例外処理は元の入口に従う。
+ * @invariant 検査済み値を保存Authorityへ昇格しない。
+ * @boundary State統合とHistory意味計算。
+ * @security 外部から検査済み値を受け付けない私有処理。
+ * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ */
+function stateHistorySummary(
+  operation: ExecutionOperationRecord | undefined,
+  sourcePayloadSha256: string,
+) {
+  if (!operation || operation.phase === "executing" || !operation.outcome)
+    return null;
+  const summaryBytes = operationSummaryBytes(operation);
+  const summarySha256 = createHash("sha256").update(summaryBytes).digest("hex");
+  if (
+    operation.summarySha256 !== null &&
+    operation.summarySha256 !== summarySha256
+  )
+    return null;
+  return Object.freeze({
+    summaryBytes,
+    summarySha256,
+    sourcePayloadSha256,
+  });
+}
+
+/**
+ * 履歴要約と導出元Hashを結合する。
+ * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * @trace ARCH-000008
+ * @input 検査済み元版・exact対象と固定履歴入力。
+ * @returns 導出値、拒否時null。
+ * @precondition 呼出し元が本文とRepository結合を検査済み。
+ * @postcondition 元版と対象外操作を変更しない。
+ * @effect N/A: メモリ内導出のみ。
+ * @failure 不正相関はnull、例外処理は元の入口に従う。
+ * @invariant 検査済み値を保存Authorityへ昇格しない。
+ * @boundary State統合とHistory意味計算。
+ * @security 外部から検査済み値を受け付けない私有処理。
+ * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ */
+function repairHistorySummary(
+  operation: RepairOperationRecord | undefined,
+  sourcePayloadSha256: string,
+) {
+  if (!operation || !repairCanSummarize(operation)) return null;
+  const summaryBytes = repairSummaryBytes(operation);
+  const summarySha256 = createHash("sha256").update(summaryBytes).digest("hex");
+  if (
+    operation.summarySha256 !== null &&
+    operation.summarySha256 !== summarySha256
+  )
+    return null;
+  return Object.freeze({
+    summaryBytes,
+    summarySha256,
+    sourcePayloadSha256,
+  });
+}
+
+/**
+ * 固定済みの相関から履歴行を導出する。
+ * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * @trace ARCH-000008
+ * @input 検査済み元版・exact対象と固定履歴入力。
+ * @returns 導出値、拒否時null。
+ * @precondition 呼出し元が本文とRepository結合を検査済み。
+ * @postcondition 元版と対象外操作を変更しない。
+ * @effect N/A: メモリ内導出のみ。
+ * @failure 不正相関はnull、例外処理は元の入口に従う。
+ * @invariant 検査済み値を保存Authorityへ昇格しない。
+ * @boundary State統合とHistory意味計算。
+ * @security 外部から検査済み値を受け付けない私有処理。
+ * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ */
+function stateHistoryLine(
+  operation: ExecutionOperationRecord | undefined,
+): Buffer | null {
+  if (!operation?.history) return null;
+  const bytes = historyLineBytes(operation, operation.history.occurredAt);
+  return createHash("sha256").update(bytes).digest("hex") ===
+    operation.history.lineSha256
+    ? bytes
+    : null;
+}
+
+/**
+ * 固定済みの相関から履歴行を導出する。
+ * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * @trace ARCH-000008
+ * @input 検査済み元版・exact対象と固定履歴入力。
+ * @returns 導出値、拒否時null。
+ * @precondition 呼出し元が本文とRepository結合を検査済み。
+ * @postcondition 元版と対象外操作を変更しない。
+ * @effect N/A: メモリ内導出のみ。
+ * @failure 不正相関はnull、例外処理は元の入口に従う。
+ * @invariant 検査済み値を保存Authorityへ昇格しない。
+ * @boundary State統合とHistory意味計算。
+ * @security 外部から検査済み値を受け付けない私有処理。
+ * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ */
+function repairHistoryLine(
+  operation: RepairOperationRecord | undefined,
+): Buffer | null {
+  return operation?.history
+    ? repairHistoryLineBytes(operation, operation.history.occurredAt)
+    : null;
+}
+
+/**
+ * 履歴相関を同じTask元版へ反映し最終遷移を検査する。
+ * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * @trace ARCH-000008
+ * @input 検査済み元版・exact対象と固定履歴入力。
+ * @returns 導出値、拒否時null。
+ * @precondition 呼出し元が本文とRepository結合を検査済み。
+ * @postcondition 元版と対象外操作を変更しない。
+ * @effect N/A: メモリ内導出のみ。
+ * @failure 不正相関はnull、例外処理は元の入口に従う。
+ * @invariant 検査済み値を保存Authorityへ昇格しない。
+ * @boundary State統合とHistory意味計算。
+ * @security 外部から検査済み値を受け付けない私有処理。
+ * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ */
+function stateHistorySnapshot(
+  currentBytes: unknown,
+  current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  recoveryId: unknown,
+  occurredAt: unknown,
+  confirmed: unknown,
+  repositoryBinding: unknown,
+): Buffer | null {
+  if (
+    typeof recoveryId !== "string" ||
+    typeof occurredAt !== "string" ||
+    typeof confirmed !== "boolean"
+  )
+    return null;
+  const time = Date.parse(occurredAt);
+  if (!Number.isFinite(time) || new Date(time).toISOString() !== occurredAt)
+    return null;
+  const operation = current.snapshot.operations.find(
+    (item): item is ExecutionOperationRecord =>
+      item.kind === "docker_task" && item.recoveryId === recoveryId,
+  );
+  if (
+    !operation ||
+    operation.phase === "executing" ||
+    !operation.outcome?.cleanupConfirmed ||
+    operation.host.cleanup !== "confirmed" ||
+    operation.host.pendingTransitionJson !== null ||
+    operation.lease !== "released" ||
+    operation.execution.ownerEffect !== "disabled" ||
+    !areTaskResourcesSettled(operation)
+  )
+    return null;
+  if (!operation.history && confirmed) return null;
+  const summary = stateHistorySummary(operation, current.payloadSha256);
+  if (!summary) return null;
+  const history = {
+    occurredAt,
+    lineSha256: createHash("sha256")
+      .update(historyLineBytes(operation, occurredAt))
+      .digest("hex"),
+    confirmed,
+  };
+  const next = {
+    ...current.snapshot,
+    revision: current.snapshot.revision + 1,
+    previous: {
+      revision: current.snapshot.revision,
+      payloadSha256: current.payloadSha256,
+    },
+    operations: current.snapshot.operations.map((item) =>
+      item !== operation
+        ? item
+        : { ...item, summarySha256: summary.summarySha256, history },
+    ),
+  };
+  const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
+  return validateStateTransition(currentBytes, bytes, repositoryBinding)
+    ? bytes
+    : null;
+}
+
+/**
+ * 履歴相関を同じ修復元版へ反映し最終遷移を検査する。
+ * @responsibility 同じ同期呼出しで検査済みのStateからのみ導出する。
+ * @trace ARCH-000008
+ * @input 検査済み元版・exact対象と固定履歴入力。
+ * @returns 導出値、拒否時null。
+ * @precondition 呼出し元が本文とRepository結合を検査済み。
+ * @postcondition 元版と対象外操作を変更しない。
+ * @effect N/A: メモリ内導出のみ。
+ * @failure 不正相関はnull、例外処理は元の入口に従う。
+ * @invariant 検査済み値を保存Authorityへ昇格しない。
+ * @boundary State統合とHistory意味計算。
+ * @security 外部から検査済み値を受け付けない私有処理。
+ * @concurrency 最終遷移検査とWriterのfresh照合は別途維持する。
+ */
+function repairHistorySnapshot(
+  currentBytes: unknown,
+  current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  operation: RepairOperationRecord | undefined,
+  occurredAt: unknown,
+  confirmed: unknown,
+  repositoryBinding: unknown,
+): Buffer | null {
+  const summary = repairHistorySummary(operation, current.payloadSha256);
+  if (
+    !operation ||
+    !summary ||
+    typeof occurredAt !== "string" ||
+    !Number.isFinite(Date.parse(occurredAt)) ||
+    new Date(occurredAt).toISOString() !== occurredAt ||
+    typeof confirmed !== "boolean" ||
+    (operation.retention !== undefined &&
+      occurredAt !== operation.retention.decidedAt)
+  )
+    return null;
+  if (operation.history) {
+    if (
+      operation.history.occurredAt !== occurredAt ||
+      (operation.history.confirmed && !confirmed)
+    )
+      return null;
+    if (operation.history.confirmed === confirmed)
+      return Buffer.from(`${encodeStateValue(current.snapshot)}\n`);
+  } else if (confirmed) return null;
+  const history = {
+    occurredAt,
+    lineSha256: createHash("sha256")
+      .update(repairHistoryLineBytes(operation, occurredAt))
+      .digest("hex"),
+    confirmed,
+  };
+  const candidate = Buffer.from(
+    `${encodeStateValue({
+      ...current.snapshot,
+      revision: current.snapshot.revision + 1,
+      previous: {
+        revision: current.snapshot.revision,
+        payloadSha256: current.payloadSha256,
+      },
+      operations: current.snapshot.operations.map((item) =>
+        item === operation
+          ? { ...item, summarySha256: summary.summarySha256, history }
+          : item,
+      ),
+    })}\n`,
+  );
+  return validateStateTransition(currentBytes, candidate, repositoryBinding)
+    ? candidate
     : null;
 }

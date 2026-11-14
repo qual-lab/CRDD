@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+EMの同版履歴候補は、同じ同期呼出しで検査済みのStateを共有する形へ整理した。最終遷移検査・Writerのfresh照合・Root93項目・保存形式は維持し、履歴意味計算はHistory、改訂相関はState、物理保存はStorageに固定する。Storageは分割せず三つの短命証拠の寿命と、取得済みOwner／一回Contextの違いを明記した。限定値10項目・代表実保存30報告項目・型検査が成功し、両独立再レビューの必須残指摘は0。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と限定結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「同版履歴候補の導出と保存証拠の寿命」を参照する。
+
 EMの局所検査と全State候補を分離し、History退役候補は完成CRUD、Task／Objective候補は各operationsへ集約した。Co自身の所在初期化失敗はCo所有型へ分離し、EM例外も維持して本番・scriptsのEffect／回復参照搬送を追従した。公開93項目・保存形式・単一Writer／CASは不変。モデル・境界の限定54項目と既存公開結果搬送1項目、型検査・独立再レビューが成功。続く修復準備共有は69条件を個別登録し、初回3失敗の故障配送を試験側だけで是正後、限定75報告項目が全成功した。Source変異3群8条件は専用Rootを維持する。今回生成Rootの終了清掃も確認済み。全体回帰・実AI・Docker・過去保持物は対象外。[範囲・是正・限定結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)末尾の依存分離／準備共有節を参照する。
 
 共通Lockの名前を責務Package・保護対象で統一し、Repository内EM/構成/文書/長期Leaseは`.crdd/lock/`へ接続した。Repository非依存StoreとRepository横断資源は明示所在を維持する。実利用の切替は全利用者停止下で、旧名Lock・未解決義務の処置を旧Owner手順で確認できた対象だけに限る。新コードによる旧Lock本体の自動検出や旧新並走の相互排他は保証しない（[切替条件の正本](06_Architecture/Details/lock/01_Architecture.md)参照）。EM保存専用markerと単独清掃入口を撤去し、履歴保存もsaveRecoveryHistory一回へ完成操作化してCoordinatorの段階ループを撤去した。Rootは93項目（58値・35型）を維持。限定回帰・型検査・独立再レビューを完了し、必須残指摘0。全体回帰・実AI・Docker・過去保持物の処置と実利用切替は対象外。[実装と確認](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)末尾を参照する。

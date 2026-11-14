@@ -71,6 +71,8 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
+// 一回の保存呼出しのContextに候補・元版・Ownerを結合する。
+// Writerで一度だけ消費し、publishRecoveryStateのfinallyで失効させる。
 const settlements = new WeakMap<
   object,
   | {
@@ -136,6 +138,8 @@ const settlements = new WeakMap<
     }
 >();
 
+// exact新規領域と初回本文の証拠。準備・解放成功時は後続出版まで保持する。
+// 解放失敗、既存の出版終了またはContext失効条件で削除し、既存領域へ再発行しない。
 const initializations = new WeakMap<
   object,
   {
@@ -146,6 +150,9 @@ const initializations = new WeakMap<
   }
 >();
 
+// 同じ生存Ownerの履歴試行とpending候補を保持する。呼出し間の再入場に
+// 必要なため毎回finallyでは消さず、Owner参照の寿命に従う。
+// Process再起動後の保存正本や、元本文・File・設定のfresh照合の代替ではない。
 const historyAttempts = new WeakMap<
   object,
   Map<

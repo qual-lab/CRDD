@@ -1215,3 +1215,9 @@ PRL-IT-013の受付実保存・取消／Owner喪失・受付前後停止は統�
 ERB-IT-014の局所Source反証で、元before／candidate・exact回復参照・Repository結合、fresh Readerの引数、Owner三位置の拒否／例外、分類拒否、Reader不明、片方の本文差によるEffect0を確認する。ERB-UT-036は共通Request捕捉に新種別を追加しても他種別へpublicationを混在させられないこと、nested getterを実行しないことを確認する。
 
 Coの現在状態／pending再入場の実保存Suiteは、新しい完成保存入口へ実Root・旧比較pair・同Owner callbackを接続し、元byteと未知残存の保全、Owner拒否位置、保存後fresh照合を確認する。公開名削減だけを根拠に元pair照合の撤去や異常時の自動再試行を認めない。
+
+## 同版履歴候補の導出と最終検査 — 2026-11-14
+
+ERB-UT-036の既存Task／Repair混在試験は、不変fixtureを共有し、各用途の履歴Snapshot・出版候補について導出decode一回と最終遷移検査一回を別々に観測する。正規候補のexact本文、元版Hash、対象外保全と既存の変異反証を維持する。意味計算の例外ではTaskのnullとRepairの例外伝播を区別し、途中で元Bufferを変更した場合は最終遷移検査が拒否する。PRL-UT-006の終了要約と既存codec・履歴保持の限定試験も対象とする。
+
+実保存は既存の終了要約二段確定と修復履歴fresh出版の代表二経路を用いる。値試験の計数をWriter・File・Lockの保証へ一般化せず、公開93項目・保存形式・物理保存条件は不変とする。全体回帰・実AI・Docker・過去保持物は対象外。
