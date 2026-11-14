@@ -3,15 +3,17 @@
  * @packageDocumentation
  * @responsibility Coordinator・AI・Dockerなしで初期化・定義変更・CAS・認可を確認する。
  * @trace PRL-IT-012
+ * @trace ERB-IT-014
  * @level IT
- * @scope 自己生成Repositoryの新Schemaだけ。
- * @boundary Domain公開API→実Filesystem・既存短期OS排他。
+ * @scope 自己生成Repositoryの新Schemaと、保存Source試験補助の独立性。
+ * @boundary Domain公開API→実Filesystem・既存短期OS排他。準備共有はSource／VMだけ。
  */
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import * as vm from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createObjective,
@@ -130,22 +132,23 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           }) as typeof fs.lstatSync);
         const originalOpen = fs.openSync;
         let pendingOpens = 0;
-        const openMock =
-          ["appears_before_publish","parent_changed"].includes(kind)
-            ? t.mock.method(fs, "openSync", ((
-                ...args: Parameters<typeof fs.openSync>
-              ) => {
-                if (
-                  String(args[0]) ===
-                    path.join(current, "state.pending.json") &&
-                  args[1] === "wx"
-                ) {
-                  pendingOpens++;
-                  if(kind==="appears_before_publish"&&!fs.existsSync(legacy))fs.mkdirSync(legacy);
-                }
-                return originalOpen(...args);
-              }) as typeof fs.openSync)
-            : undefined;
+        const openMock = ["appears_before_publish", "parent_changed"].includes(
+          kind,
+        )
+          ? t.mock.method(fs, "openSync", ((
+              ...args: Parameters<typeof fs.openSync>
+            ) => {
+              if (
+                String(args[0]) === path.join(current, "state.pending.json") &&
+                args[1] === "wx"
+              ) {
+                pendingOpens++;
+                if (kind === "appears_before_publish" && !fs.existsSync(legacy))
+                  fs.mkdirSync(legacy);
+              }
+              return originalOpen(...args);
+            }) as typeof fs.openSync)
+          : undefined;
         let result: ReturnType<typeof initializeExecutionState>;
         try {
           result = initializeExecutionState(access, request);
@@ -171,15 +174,16 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           assert.deepEqual(fs.readFileSync(pendingFile), pending);
           assert.equal(fs.existsSync(path.join(current, "state.json")), false);
         } else if (kind !== "absent") {
-          if(kind==="parent_changed"){
-            assert.equal(pendingOpens,0);
-            for(const name of ["state.json","state.pending.json","state.lock"])assert.equal(fs.existsSync(path.join(current,name)),false);
+          if (kind === "parent_changed") {
+            assert.equal(pendingOpens, 0);
+            for (const name of [
+              "state.json",
+              "state.pending.json",
+              "state.lock",
+            ])
+              assert.equal(fs.existsSync(path.join(current, name)), false);
           }
-          assert.equal(
-            result.status,
-            "blocked",
-            JSON.stringify(result),
-          );
+          assert.equal(result.status, "blocked", JSON.stringify(result));
           if (kind === "parent_changed") {
             assert.equal(result.reason, "state_unavailable");
           }
@@ -635,4 +639,216 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
         "saved",
       );
     });
+});
+/**
+ * 共有する未束縛コードと、毎回独立する保存fixtureを反証する。
+ * @responsibility 準備一回をMap・依存値・故障状態の共有へ拡張しない。
+ * @trace ERB-IT-014
+ * @precondition 新しい補助Moduleを一度だけ読込み、実保存を発行しない。
+ * @stimulus 同署名の値差、引数名差、内部関数差、変異交互、例外とgetter。
+ * @observation 固定Source読取り・VM生成回数、実際に生成したWeakMapと返却値。
+ * @oracle 通常コードだけ再利用し、Map・Ownerキーと故障注入は相互に混入しない。
+ * @cleanup mockを終了時に復元する。保存領域・子Processは作成しない。
+ * @boundary 試験補助と実Source評価。実CAS・清掃成立は別の保存試験が所有する。
+ */
+test("保存Source準備: 不変コードだけを共有し各fixtureと変異を独立させる", async (t) => {
+  let compilations = 0;
+  let sourceReads = 0;
+  const originalRead = fs.readFileSync;
+  const files = new Set(
+    [
+      "storage/store.ts",
+      "storage/lock.ts",
+      "state/crud.ts",
+      "storage/publication.ts",
+      "attempt/crud.ts",
+      "decision/crud.ts",
+      "history/crud.ts",
+      "objective/crud.ts",
+      "task/crud.ts",
+      "workspace/crud.ts",
+    ].map((file) => new URL("../../src/" + file, import.meta.url).href),
+  );
+  t.mock.method(
+    fs,
+    "readFileSync",
+    (...args: Parameters<typeof fs.readFileSync>) => {
+      if (args[0] instanceof URL && files.has(args[0].href)) sourceReads++;
+      return originalRead(...args);
+    },
+  );
+  t.mock.module("node:vm", {
+    namedExports: {
+      runInThisContext: (...args: Parameters<typeof vm.runInThisContext>) => {
+        compilations++;
+        return vm.runInThisContext(...args);
+      },
+    },
+  });
+  const moduleUrl = new URL(
+    "../support/runtime-storage-source.ts?preparation-sharing",
+    import.meta.url,
+  ).href;
+  const { createRuntimeStorageSourceFixture } = (await import(
+    moduleUrl
+  )) as typeof import("../support/runtime-storage-source.ts");
+  const mapsA: WeakMap<object, unknown>[] = [];
+  const mapsB: WeakMap<object, unknown>[] = [];
+  const observeMaps = (maps: WeakMap<object, unknown>[]) =>
+    function (this: object) {
+      assert.ok(this, "WeakMapをnewで生成する経路だけを観測する");
+      const map = new WeakMap<object, unknown>();
+      maps.push(map);
+      return map;
+    };
+  const first = createRuntimeStorageSourceFixture(undefined, {
+    WeakMap: observeMaps(mapsA),
+  });
+  const second = createRuntimeStorageSourceFixture(undefined, {
+    WeakMap: observeMaps(mapsB),
+  });
+  assert.equal(sourceReads, 10);
+  assert.equal(compilations, 1, "同署名の未束縛factoryだけを再利用する");
+  assert.ok(mapsA.length >= 3);
+  assert.equal(mapsA.length, mapsB.length);
+  const ownerA = Object.freeze({ owner: "a" });
+  const ownerB = Object.freeze({ owner: "b" });
+  mapsA.forEach((map, index) => {
+    const other = mapsB[index];
+    assert.ok(other);
+    assert.notEqual(map, other);
+    map.set(ownerA, "a");
+    other.set(ownerB, "b");
+    assert.equal(other.has(ownerA), false);
+    assert.equal(map.has(ownerB), false);
+  });
+  assert.notEqual(first.readState, second.readState);
+
+  const outcome = { status: "blocked", reason: "fixture_only" };
+  const a = createRuntimeStorageSourceFixture(undefined, {
+    writeStateSnapshot: () => outcome,
+  });
+  const b = createRuntimeStorageSourceFixture(undefined, {
+    writeStateSnapshot: () => null,
+  });
+  assert.equal(compilations, 2);
+  assert.equal(Reflect.apply(a.writeStateSnapshot, null, []), outcome);
+  assert.equal(Reflect.apply(b.writeStateSnapshot, null, []), null);
+  createRuntimeStorageSourceFixture(undefined, {
+    writeStateSnapshot: () => outcome,
+    extraDependency: 1,
+  });
+  assert.equal(compilations, 3, "未知依存名も署名へ含む");
+  createRuntimeStorageSourceFixture(undefined, {
+    writeStateSnapshot: () => null,
+    extraDependency: 2,
+  });
+  assert.equal(compilations, 3);
+
+  let transforms = 0;
+  const transform = (value: string) => {
+    transforms++;
+    // 変異本文は元の例外class除去前に受け取る。
+    assert.ok(value.includes("class ExecutionStorageBlockedError"));
+    return value + "\nwriteStateSnapshot = () => " + transforms + ";\n";
+  };
+  const mutantA = createRuntimeStorageSourceFixture(transform);
+  const normalA = createRuntimeStorageSourceFixture();
+  const mutantB = createRuntimeStorageSourceFixture(transform);
+  const normalB = createRuntimeStorageSourceFixture();
+  assert.equal(transforms, 2);
+  assert.equal(compilations, 6);
+  assert.equal(Reflect.apply(mutantA.writeStateSnapshot, null, []), 1);
+  assert.equal(Reflect.apply(mutantB.writeStateSnapshot, null, []), 2);
+  assert.notEqual(normalA.writeStateSnapshot, mutantA.writeStateSnapshot);
+  assert.notEqual(normalB.writeStateSnapshot, mutantB.writeStateSnapshot);
+  const expected = new Error("transform_failed");
+  assert.throws(
+    () =>
+      createRuntimeStorageSourceFixture(() => {
+        throw expected;
+      }),
+    (error) => error === expected,
+  );
+  assert.throws(
+    () => createRuntimeStorageSourceFixture((source) => source + "\n("),
+    SyntaxError,
+  );
+  assert.throws(
+    () =>
+      createRuntimeStorageSourceFixture(
+        (source) => source + "\nthrow new Error('evaluation_failed');",
+      ),
+    /evaluation_failed/u,
+  );
+  const before = compilations;
+  createRuntimeStorageSourceFixture();
+  assert.equal(compilations, before, "変異失敗後も通常factoryは使える");
+
+  const order: string[] = [];
+  const getterOverride = Object.defineProperty({}, "writeStateSnapshot", {
+    enumerable: true,
+    get() {
+      order.push("get");
+      return () => outcome;
+    },
+  });
+  const withGetter = createRuntimeStorageSourceFixture(
+    undefined,
+    getterOverride,
+  );
+  assert.deepEqual(
+    order,
+    ["get", "get"],
+    "依存捕捉→内部関数差替えの二回を維持する",
+  );
+  assert.equal(Reflect.apply(withGetter.writeStateSnapshot, null, []), outcome);
+  const getterFailure = new Error("dependency_failed");
+  assert.throws(
+    () =>
+      createRuntimeStorageSourceFixture(
+        undefined,
+        Object.defineProperty({}, "randomUUID", {
+          enumerable: true,
+          get() {
+            throw getterFailure;
+          },
+        }),
+      ),
+    (error) => error === getterFailure,
+  );
+  createRuntimeStorageSourceFixture();
+  const evaluationFailure = new Error("normal_evaluation_failed");
+  const beforeFailedFactory = compilations;
+  assert.throws(
+    () =>
+      createRuntimeStorageSourceFixture(undefined, {
+        WeakMap: function (this: object) {
+          assert.ok(this);
+          throw evaluationFailure;
+        },
+        failedFactorySignature: true,
+      }),
+    (error) => error === evaluationFailure,
+  );
+  assert.equal(compilations, beforeFailedFactory + 1);
+  createRuntimeStorageSourceFixture(undefined, {
+    WeakMap: observeMaps([]),
+    failedFactorySignature: true,
+  });
+  assert.equal(
+    compilations,
+    beforeFailedFactory + 2,
+    "初回評価失敗のfactoryは保持しない",
+  );
+  createRuntimeStorageSourceFixture(undefined, {
+    WeakMap: observeMaps([]),
+    failedFactorySignature: true,
+  });
+  assert.equal(compilations, beforeFailedFactory + 2);
+  assert.equal(
+    sourceReads,
+    10,
+    "変異と故障を挟んでも不変Sourceは再読取りしない",
+  );
 });

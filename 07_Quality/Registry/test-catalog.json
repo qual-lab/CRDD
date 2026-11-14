@@ -10295,7 +10295,10 @@
         "repository_root_exact",
         "unknown_not_absent",
         "rejection_preserves_state",
-        "lock_release_observed"
+        "lock_release_observed",
+        "unbound_source_only_shared",
+        "fixture_maps_and_owners_isolated",
+        "transform_and_override_isolated"
       ],
       "mandatoryByDefault": true
     },

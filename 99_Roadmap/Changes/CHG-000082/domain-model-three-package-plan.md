@@ -2476,6 +2476,22 @@ Storageは分割せず、初期化・通常出版・再入場と三WeakMapの生
 
 後続のCommit／Push依頼で7Pathを再照合した。QAの新節が既存Checkpoint本文を包含しないよう見出し配置のみ是正し、独立最終確認の必須残指摘0。EM型・終了／履歴／codecの限定11項目・整形／警告／差分空白確認が成功した。Rootの差分はなく、製品Sourceが直前の実Store検証から不変のため30項目の証跡を使用して再走しない。全体回帰・実AI・Docker・過去保持物は操作せず、この候補を既存FeatureへのCommit／Push対象とする。
 
+### 保存試験Sourceの不変準備共有 — 着手前整合確認
+
+基準eb1e80f6bで成立した保存試験の判定本文・故障注入・Map同一性・Owner／State／保存領域の独立を維持し、tests/support/runtime-storage-source.tsの10Source読取り・型除去・export抽出と通常経路の未束縛VM factoryだけを共有する。Source変異は各呼出しで実施し、変異後factoryは共有しない。通常factoryは順序付き依存名と内部関数override名の署名ごとに保持し、値・fixture結果・Ownerを保持しない。各評価で製品Map初期化を実行し、現在の依存値を引数で渡す。新しい製品API・Fixture Manager・保存／回復機構は作らない。
+
+変更分類は試験準備の限定改善。読取り専用の着手前技術確認で、global名override、未知依存名、getter順、変異／compile／評価失敗の伝播を既存と同じに保つ案を確認した。通常準備一回、同署名の値差、Map独立、変異交互・失敗後の通常評価を直接反証する。既存Checkpoint／公開境界・代表Core保存／修復履歴の限定回帰と独立レビューを実施し、全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+実装は固定10Sourceの読取り・型除去・export／通常宣言抽出を遅延一回へ変更した。通常factoryの署名は依存名と内部override名の順序付き配列であり、初回評価成功後だけ未束縛コードを登録する。各fixture評価でMapを生成し、依存値・Owner・状態・保存領域を保持しない。Source変異は元の例外Class除去前に毎回適用し、そのfactoryを保持しない。反証試験で読取り10回固定・同署名compile一回・WeakMap実体／Ownerキー非共有、override値差・未知名／global名・内部関数差、変異交互、transform／compile／評価／getter例外とgetter評価順、初回評価失敗後の再生成を確認した。
+
+限定確認は準備共有1、Checkpoint3、公開／依存境界10、現在Reader1、終了Reader五故障の1、代表実保存34の計50報告項目が成功した。代表実保存はCore CRUD／CAS、初期化途中rename前後、終端保存の一回証拠、修復履歴の変異／途中失敗／fresh確認の四親を選択し、子条件を含む34項目が197749msで成功した。自己生成領域は既存の実体限定清掃hookが正常終了しENOENTを確認した。Case間の可変状態共有や、故障／保存手順の削減は行っていない。時間値は対象限定の実行結果であり、製品性能の改善や全体回帰成功ではない。
+
+終了Readerの既存試験1親は、移管前のstate/crudでcompleteRecoveryを検索して開始失敗した。参照Pathだけを実Ownerのattempt/crudへ是正し、五故障・判定・assertを維持して成功した。Coreの既存四親の構文木本文は空白・末尾comma以外同一、新規親は一つだけ。準備共有試験を既存Symbol／Test CatalogへQA006・ERB-IT-014と補助Sourceのverifies・三事後条件として接続し、別の台帳項目は作らない。型・整形・警告検査・JSON登録接続・差分空白確認も成功した。
+
+独立技術レビューと品質レビューは必須指摘なし。製品Source・Root公開93項目・保存形式・Lock／CAS・期限は不変。全体回帰・実AI・Docker・過去保持物は操作していない。今回範囲の準備共有を完了とする。
+
+後続のCommit／Push依頼で9Pathを再照合した。準備共有・Checkpoint・終了Readerの限定5親、型・整形・警告・Symbol／QA／試験台帳の接続・差分空白確認が再成功した。製品Source差分0、試験補助／試験本文も直前の固定候補から不変のため、代表保存34報告項目は既存証跡を使用し再実行しない。独立最終確認の必須指摘0。この確認済み候補を既存FeatureのCommit／Push対象とし、全体回帰・実AI・Docker・過去保持物・実利用切替は対象外とする。
+
 ### Principal値Ownerと捕捉済みSelection — 着手前整合確認
 
 実施結果：主体ID2関数と固定prefixを保存非依存の`state/operations.ts`へまとめ、旧`value.ts`を撤去した。公開93項目と保存文法は維持。全Source／試験／現在設計の旧Path参照は0で、Symbolの安定IDを変えず現行Pathを更新した。EM・Coordinatorの型検査と、値／公開境界／独立ロード／選定／単発受付の限定38試験が成功した。改名前にも選定更新2試験とローカル主体2試験の成功を確認したが、改名後38件の内訳には合算しない。独立の技術レビューは必須指摘なし、QAレビューの説明見出し配置1点は専用節へ分離して是正した。改名に伴うimport折返し2箇所も整形した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。

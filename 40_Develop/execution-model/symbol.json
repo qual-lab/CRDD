@@ -648,10 +648,12 @@
       "kind": "test-suite",
       "path": "tests/integration/runtime-core-crud.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
-        "PRL-IT-012"
+        "PRL-IT-012",
+        "ERB-IT-014"
       ],
       "verifies": [
         "domain-model.storage.runtime-repository",
@@ -661,7 +663,8 @@
         "execution-model.source.src.task.crud",
         "execution-model.source.src.workspace.crud",
         "execution-model.source.src.task.operations",
-        "execution-model.source.src.objective.operations"
+        "execution-model.source.src.objective.operations",
+        "domain-model.test-support.runtime-storage-source"
       ]
     },
     {

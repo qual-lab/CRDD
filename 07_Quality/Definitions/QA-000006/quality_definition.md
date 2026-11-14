@@ -1221,3 +1221,9 @@ Coの現在状態／pending再入場の実保存Suiteは、新しい完成保存
 ERB-UT-036の既存Task／Repair混在試験は、不変fixtureを共有し、各用途の履歴Snapshot・出版候補について導出decode一回と最終遷移検査一回を別々に観測する。正規候補のexact本文、元版Hash、対象外保全と既存の変異反証を維持する。意味計算の例外ではTaskのnullとRepairの例外伝播を区別し、途中で元Bufferを変更した場合は最終遷移検査が拒否する。PRL-UT-006の終了要約と既存codec・履歴保持の限定試験も対象とする。
 
 実保存は既存の終了要約二段確定と修復履歴fresh出版の代表二経路を用いる。値試験の計数をWriter・File・Lockの保証へ一般化せず、公開93項目・保存形式・物理保存条件は不変とする。全体回帰・実AI・Docker・過去保持物は対象外。
+
+## 保存試験Sourceの不変準備共有 — 2026-11-14
+
+既存runtime-core-crudの登録にERB-IT-014を接続し、固定10Source読取り一回・同署名の未束縛factory生成一回、各評価のWeakMap実体とOwnerキーの非共有を観測する。同じ署名でもoverride値は毎回使用し、未知依存名・内部関数override・global名、変異A／通常／変異B／通常、transform・compile・評価・getter失敗と元のgetter評価順を反証する。初回評価に失敗したfactoryは正常準備として保持しない。変異のない試験では不変準備だけを共有し、可変状態の独立を弱めない。
+
+既存Checkpoint三親、Reader故障、Core CRUD／CAS、初期化途中、終端保存の一回証拠、修復履歴のfresh出版を限定回帰へ接続する。Source組立て回数の試験は実保存・CAS・清掃成立の証明ではなく、後者は自己生成領域を使う既存の代表結合試験で確認する。旧終了試験のSource参照は実Ownerのattempt/crudへ追従し、Reader五故障の判定内容は維持する。全体回帰・実AI・Docker・過去保持物は操作しない。

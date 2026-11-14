@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+EM保存試験の準備共有を完了した。固定10Sourceの読取り・型除去と、通常経路の同署名未束縛factoryだけを共有し、Map・Owner・状態・故障注入・保存領域は各Caseで独立させる。変異は毎回評価し共有しない。限定50報告項目と型・整形／警告検査、独立レビューの必須残指摘0を確認した。途中で見つけた終了Reader試験の旧Source参照は現Ownerへ是正し、検証内容を維持する。製品Source・公開93項目・保存契約は不変で、全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「保存試験Sourceの不変準備共有」を参照する。
+
 EMの同版履歴候補は、同じ同期呼出しで検査済みのStateを共有する形へ整理した。最終遷移検査・Writerのfresh照合・Root93項目・保存形式は維持し、履歴意味計算はHistory、改訂相関はState、物理保存はStorageに固定する。Storageは分割せず三つの短命証拠の寿命と、取得済みOwner／一回Contextの違いを明記した。限定値10項目・代表実保存30報告項目・型検査が成功し、両独立再レビューの必須残指摘は0。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と限定結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「同版履歴候補の導出と保存証拠の寿命」を参照する。
 
 EMの局所検査と全State候補を分離し、History退役候補は完成CRUD、Task／Objective候補は各operationsへ集約した。Co自身の所在初期化失敗はCo所有型へ分離し、EM例外も維持して本番・scriptsのEffect／回復参照搬送を追従した。公開93項目・保存形式・単一Writer／CASは不変。モデル・境界の限定54項目と既存公開結果搬送1項目、型検査・独立再レビューが成功。続く修復準備共有は69条件を個別登録し、初回3失敗の故障配送を試験側だけで是正後、限定75報告項目が全成功した。Source変異3群8条件は専用Rootを維持する。今回生成Rootの終了清掃も確認済み。全体回帰・実AI・Docker・過去保持物は対象外。[範囲・是正・限定結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)末尾の依存分離／準備共有節を参照する。

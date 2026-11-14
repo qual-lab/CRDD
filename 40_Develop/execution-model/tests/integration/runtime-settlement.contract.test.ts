@@ -60,7 +60,7 @@ import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-so
  */
 test("transient終了WriterはReader五故障を保存成功へ補完しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/state/crud.ts", import.meta.url),
+    new URL("../../src/attempt/crud.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("export function completeRecovery(");

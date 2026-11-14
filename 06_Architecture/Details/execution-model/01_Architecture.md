@@ -184,6 +184,8 @@ resumeRepairRecordSaveはLock・保存物・途中結果を扱う完成した保
 
 型・Source移管だけで保存や再入場の成立を主張しない。限定回帰と独立確認は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)へ記録する。全体回帰・実AI・Docker・過去保持物の操作は今回実施しない。
 
+保存Source試験補助は、同じ試験ProcessでSourceを編集しないことを前提に、固定10Sourceの読取り・型除去・宣言抽出を一回準備する。通常経路は順序付き依存名と内部関数override名が同じ場合だけ未束縛factoryを再利用し、依存値・fixture結果・Owner・保存領域は保持しない。factory評価と製品Map初期化は各ケースで実行する。Source変異は毎回適用してcompileし、通常factoryへ混入させない。この試験準備共有は製品の保存・Lock・CAS・回復の保証変更ではない。
+
 各段階の限定検証、失敗と是正、未確認範囲は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を正本とする。過去の成功件数を現在候補へ合算せず、局所成功から全体回帰や公開最小性の成立を主張しない。
 
 ### 補助検査の公開境界
