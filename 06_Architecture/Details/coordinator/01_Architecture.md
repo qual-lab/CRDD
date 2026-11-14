@@ -2547,6 +2547,14 @@ Provider別のSchema・環境検査・内容Parser・エラー変換をCoordinat
 
 助言の検査済み内容はExecutorから型付きで受け、JSONへ戻して再解析しない。Effect／取消／Process終了／清掃と保存の相関は従来どおりCoordinatorが判定する。Capability・認証観測・Quota・配布状態・Policyの五軸現在判断は`execution/observation.ts`が所有し、AI Adapterへ上位状態を持ち込まない。保存Schema、Contract ID、CLI／Image／Network、Owner・Lock・期限は変更しない。
 
+## 修復故障試験の不変準備とケース境界 — 2026-11-14
+
+既存runtime-repair-result ITの五親49故障組合せを、元の系列名・段階・故障値を持つ49個別試験へ分ける。不変の新品Git Repository、真正Root／Revision／保存Identityと未束縛Source factoryは一回準備する。既知のexact Root解決要求は初回の真正結果へ接続し、capability入力の観測投影は同一参照だけとする。未知Path・未知capability・明示Revision要求は元の実装へ委譲する。この49件でGit改変検出を繰り返し実証したとは扱わず、従来経路の実Root試験を残す。
+
+State・History、Owner、Abort、故障設定、counter、Source依存は各ケースで新規構築する。初回処理を再入場へ置換せず、全故障点とassertを維持する。終了hookはOwnerを失効し、有限Sessionの未joinと物理Lock／pending残存を確認した後だけ、本試験が所有するモデル保存Directoryを清掃する。出版markerのstate.lockは物理Lockと区別し、意図した故障結果の一部として扱う。清掃不明なら次ケースへの再利用と最終Root削除を拒否する。
+
+実Reader／Writer・共通wx・CAS・保存順序は製品実装をそのまま使う。試験のために公開APIや汎用Fixture Managerを追加しない。ケース名の正規表現で1件だけを直接実行でき、全49件の数と基準assert式集合を照合する。過去の53分は旧構成の証跡として残し、現在の所要時間と区別する。結果は[変更計画§14.54](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#1454-修復49ケースの不変準備とケース独立の整理)へ記録する。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

@@ -1140,3 +1140,9 @@ Native親の認証unknown反例はsnapshot-recovery-owner.tsへ移し、実Write
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
+
+## 修復49ケースの共有前提と独立状態 — 2026-11-14
+
+ERB-IT-014のruntime-repair-resultは、真正な不変Repository／Root／Revision／保存Identityと未束縛Source factoryを一回準備し、49故障組合せを個別名で直列に実行する。元の初回経路・故障点と93静的assert式を保ち、State／History・Owner／Abort・故障設定・counterを各ケースで新規構築する。実EM Reader／Writer・共通Lock・CAS・保存前後の順序確認を維持する。Root等の固定投影は既知のexact要求と真正capabilityに限定し、未知要求と明示Revisionは実処理へ委譲する。Git変更検出は別の実Root試験を担当とする。
+
+各ケースで実Lock／pendingの不存在、有限Sessionの未joinなし、Owner失効と自己生成保存領域の回収を確認する。出版markerを物理Lockと混同せず、注入した不明・失敗を清掃で成功へ変換しない。全49名・基準assert式との対応、個別選択が1件だけを実行すること、case間の状態混入なしを限定回帰と独立レビューで確認する。旧53分の結果と新構成の結果を区別し、全体回帰・実AI／Dockerの成立へ拡張しない。

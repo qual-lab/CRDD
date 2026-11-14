@@ -5,13 +5,14 @@
  * @trace ERB-IT-014
  * @trace ERB-IT-002
  * @level IT
- * @scope 自己生成Repositoryの実保存・Lock、初回実Git観測後の固定Revision代役、有限DI故障。実Docker・Providerなし。
+ * @scope 実EM Reader／Writer・State／History・Lock／CASと有限DI故障。49個別ケースは新品Repositoryの不変Root／Revision／保存IdentityとSource factoryを共有し、他ケースは従来の実Git境界を保つ。実Docker・Providerなし。
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
 
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import test, { after, mock, type TestContext } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { runInThisContext } from "node:vm";
@@ -23,7 +24,10 @@ import type {
   RepairSaveRequest,
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
+import type {
+  Repository,
+  RepositoryRevisionObservation,
+} from "../../../version-control/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
 import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
 import { snapshotJsonValue } from "../../src/input/snapshot.ts";
@@ -34,22 +38,59 @@ let fixedRevision: {
   path: string;
   revision: unknown;
   hits: number;
+  fixedRoot?: boolean;
+  resolution?:
+    | ReturnType<typeof versionControl.getRepositoryFromWorkingDirectory>
+    | undefined;
+  storageIdentity?:
+    | ReturnType<typeof versionControl.readRepositoryStorageIdentity>
+    | undefined;
 } | null = null;
 let delegatedRevisionReads = 0;
+let delegatedRootReads = 0;
+let delegatedRepositoryReads = 0;
 const revisionMock = mock.module(
   new URL("../../../version-control/src/index.ts", import.meta.url).href,
   {
     namedExports: {
       ...versionControl,
+      getRepository(input: unknown) {
+        if (fixedRevision?.fixedRoot && input === fixedRevision.path) {
+          assert.ok(fixedRevision.resolution);
+          return fixedRevision.resolution;
+        }
+        delegatedRepositoryReads++;
+        return versionControl.getRepository(input);
+      },
+      getRepositoryFromWorkingDirectory(input: unknown) {
+        if (fixedRevision?.fixedRoot && input === fixedRevision.path) {
+          assert.ok(fixedRevision.resolution);
+          return fixedRevision.resolution;
+        }
+        delegatedRootReads++;
+        return versionControl.getRepositoryFromWorkingDirectory(input);
+      },
+      resolveVerifiedRepositoryRoot(capability: Repository) {
+        if (fixedRevision?.fixedRoot && capability === fixedRevision.root)
+          return fixedRevision.path;
+        return versionControl.resolveVerifiedRepositoryRoot(capability);
+      },
+      readRepositoryStorageIdentity(capability: Repository) {
+        if (fixedRevision?.fixedRoot && capability === fixedRevision.root)
+          return fixedRevision.storageIdentity;
+        return versionControl.readRepositoryStorageIdentity(capability);
+      },
       readRepositoryRevision(...args: unknown[]) {
         const projection = fixedRevision;
         if (
           projection &&
           args[1] === undefined &&
           args[0] &&
-          versionControl.resolveVerifiedRepositoryRoot(
-            args[0] as Repository,
-          ) === projection.path
+          (projection.fixedRoot
+            ? args[0] === projection.root
+            : versionControl.resolveVerifiedRepositoryRoot(
+                args[0] as Repository,
+              ) === projection.path)
         ) {
           projection.hits++;
           return projection.revision;
@@ -80,6 +121,130 @@ const projectedVersionControl = await import(
   "../../../version-control/src/index.ts"
 );
 
+const repairSource = sourceDeclaration(
+  fs.readFileSync(
+    new URL("../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  ),
+  "repairRuntimeOwnedDockerRuntime",
+);
+
+/**
+ * 未束縛の試験用factoryをSourceごとに構築する。
+ * @responsibility 正常Sourceの一回準備と変異Sourceの独立構築を同じ実装で行う。
+ * @trace ERB-IT-014
+ * @precondition 本番Source又は明示した試験内変異を入力する。
+ * @stimulus 型除去済みのSourceをVMへ渡す。
+ * @observation case依存を後から受け取る関数。
+ * @oracle Owner・Abort・counterをコンパイル時に束縛しない。
+ * @cleanup VMの局所値はProcess終了で破棄する。
+ * @boundary 試験内のSource構築のみ。製品の実行入口ではない。
+ */
+function compileRepair(source: string) {
+  return runInThisContext(
+    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readState,advanceOwnedRecoveryHistory,completeRecovery,resumeRepairPublication,completeStatePublication,saveRepairState,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${source}; return repairRuntimeOwnedDockerRuntime;})`,
+  );
+}
+const repairFactory = compileRepair(repairSource);
+
+let sharedBase: Readonly<{
+  created: ReturnType<typeof createRepository>;
+  resolution: ReturnType<
+    typeof versionControl.getRepositoryFromWorkingDirectory
+  >;
+  root: Repository;
+  revision: RepositoryRevisionObservation;
+  storageIdentity: NonNullable<
+    ReturnType<typeof versionControl.readRepositoryStorageIdentity>
+  >;
+}> | null = null;
+let activeSharedCase: object | null = null;
+let sharedRootCleanup: (() => void) | null = null;
+after(() => {
+  assert.equal(activeSharedCase, null, "unfinished_shared_case");
+  sharedRootCleanup?.();
+});
+
+/**
+ * 不変のGit前提を一度だけ構築する。
+ * @responsibility 同じRoot・Revision・保存Identityを49直列ケースへ渡す。
+ * @trace ERB-IT-014
+ * @precondition 本Suiteだけが新品Rootを所有する。
+ * @stimulus 最初のケースでGit初期化と真正観測を行う。
+ * @observation Root・二Identity・明示HEAD取得と最終Root清掃。
+ * @oracle 保存IdentityとRevisionが一致し、未知Rootは代役へ入らない。
+ * @cleanup file終了hookで現在ケースの清掃完了後だけRootを回収する。
+ * @boundary 不変の技術前提。実Git変更検出は別試験。
+ */
+function sharedRepairBase() {
+  if (sharedBase) return sharedBase;
+  const created = createRepository({
+    after(cleanup) {
+      assert.equal(sharedRootCleanup, null);
+      sharedRootCleanup = cleanup;
+    },
+  });
+  const verified = versionControl.getRepositoryFromWorkingDirectory(
+    created.root,
+  );
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed")
+    throw Error("fixture_repository_invalid");
+  const root = verified.capability,
+    revision = versionControl.readRepositoryRevision(root),
+    storageIdentity = versionControl.readRepositoryStorageIdentity(root);
+  assert.ok(revision && storageIdentity);
+  assert.equal(storageIdentity.repositoryIdentity, revision.repositoryIdentity);
+  assert.equal(
+    storageIdentity.repositoryInstanceIdentity,
+    revision.repositoryInstanceIdentity,
+  );
+  const delegatedBefore = delegatedRevisionReads;
+  const selected = projectedVersionControl.readRepositoryRevision(root, {
+    revision: "HEAD",
+  });
+  assert.ok(selected);
+  assert.equal(selected.revisionIdentity, revision.revisionIdentity);
+  assert.ok(delegatedRevisionReads > delegatedBefore);
+  const projection = {
+    root,
+    path: created.root,
+    revision,
+    storageIdentity,
+    resolution: verified,
+    hits: 0,
+    fixedRoot: true,
+  };
+  const previous = fixedRevision;
+  fixedRevision = projection;
+  try {
+    assert.equal(projectedVersionControl.getRepository(created.root), verified);
+    const repositoryReads = delegatedRepositoryReads;
+    assert.equal(projectedVersionControl.getRepository(null).status, "blocked");
+    assert.equal(delegatedRepositoryReads, repositoryReads + 1);
+    assert.equal(
+      projectedVersionControl.getRepositoryFromWorkingDirectory(created.root),
+      verified,
+    );
+    const before = delegatedRootReads;
+    assert.equal(
+      projectedVersionControl.getRepositoryFromWorkingDirectory(null).status,
+      "blocked",
+    );
+    assert.equal(delegatedRootReads, before + 1);
+  } finally {
+    fixedRevision = previous;
+  }
+  sharedBase = Object.freeze({
+    resolution: verified,
+    created,
+    root,
+    revision,
+    storageIdentity,
+  });
+  return sharedBase;
+}
+
 /**
  * 実呼出しSourceを自己生成Rootの公開保存操作へ接続する。
  * @responsibility 保存前拒否と保存後応答不明を分離し、公開Reader／Writerを通す。
@@ -94,34 +259,52 @@ const projectedVersionControl = await import(
 function fixture(
   t: TestContext,
   transform: (source: string) => string = (source) => source,
+  base?: ReturnType<typeof sharedRepairBase>,
 ) {
   type Input = Parameters<typeof runRepairSessionWithDependencies>[0];
-  const created = createRepository(t);
-  const verified = getRepository(created.root);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed")
-    throw new Error("fixture_repository_invalid");
-  const root = verified.capability;
-  const revision = versionControl.readRepositoryRevision(root);
-  assert.ok(revision);
-  const projection = { root, path: created.root, revision, hits: 0 };
+  const created = base?.created ?? createRepository(t);
+  let root: Repository, revision: unknown;
+  if (base) {
+    assert.equal(activeSharedCase, null, "shared_cases_must_be_sequential");
+    activeSharedCase = Object.freeze({});
+    root = base.root;
+    revision = base.revision;
+    assert.throws(
+      () => fs.lstatSync(path.join(created.root, ".crdd", "domain-model")),
+      { code: "ENOENT" },
+    );
+  } else {
+    const verified = getRepository(created.root);
+    assert.equal(verified.status, "completed");
+    if (verified.status !== "completed")
+      throw new Error("fixture_repository_invalid");
+    root = verified.capability;
+    revision = versionControl.readRepositoryRevision(root);
+    assert.ok(revision);
+    const delegatedBefore = delegatedRevisionReads;
+    const selected = projectedVersionControl.readRepositoryRevision(root, {
+      revision: "HEAD",
+    });
+    assert.ok(selected);
+    assert.equal(
+      selected.revisionIdentity,
+      (revision as RepositoryRevisionObservation).revisionIdentity,
+    );
+    assert.ok(delegatedRevisionReads > delegatedBefore);
+  }
+  const projection = {
+    root,
+    path: created.root,
+    revision,
+    hits: 0,
+    fixedRoot: base !== undefined,
+    storageIdentity: base?.storageIdentity,
+    resolution: base?.resolution,
+  };
   fixedRevision = projection;
-  const delegatedBefore = delegatedRevisionReads;
-  const selected = projectedVersionControl.readRepositoryRevision(root, {
-    revision: "HEAD",
-  });
-  assert.ok(selected);
-  assert.equal(selected.revisionIdentity, revision.revisionIdentity);
-  assert.ok(delegatedRevisionReads > delegatedBefore);
   t.after(() => {
-    try {
-      assert.ok(
-        projection.hits > 0,
-        "public model must reach the VC projection",
-      );
-    } finally {
-      if (fixedRevision === projection) fixedRevision = null;
-    }
+    assert.ok(projection.hits > 0, "public model must reach the VC projection");
+    if (fixedRevision === projection) fixedRevision = null;
   });
 
   const repository =
@@ -384,14 +567,7 @@ function fixture(
         }
       : saved;
   };
-  const source = sourceDeclaration(
-    fs.readFileSync(
-      new URL("../../src/execution/recovery.ts", import.meta.url),
-      "utf8",
-    ),
-    "repairRuntimeOwnedDockerRuntime",
-  );
-  const body = transform(source);
+  const body = transform(repairSource);
   /**
    * 終了候補と除去済み観測を実モデルで模擬する。
    * @responsibility 空操作集合だけから完了を推定しない。
@@ -438,9 +614,7 @@ function fixture(
           : deadline,
     };
   };
-  const run = runInThisContext(
-    `(function(deps){ const {Date,isDeepStrictEqual,snapshotJsonValue,createHash,randomBytes,randomUUID,observeRepositoryExecutionDataArea,getRepository,runRepairSession,borrowRuntimeOwnedCoordinatorRecoveryRepository,canonicalJson,observeRepairDirectories,readState,advanceOwnedRecoveryHistory,completeRecovery,resumeRepairPublication,completeStatePublication,saveRepairState,cleanupRepairDirectory}=deps; const historyRepositoryInput = root => ({root,historyRetentionDays:30,revalidate:()=>true}); const withHistoryRetention = repository => ({...repository,historyRetentionDays:30}); const getIsolationSettings = () => Object.freeze({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
-  )({
+  const run = (body === repairSource ? repairFactory : compileRepair(body))({
     createHash,
     isDeepStrictEqual,
     snapshotJsonValue,
@@ -845,6 +1019,32 @@ function fixture(
       });
     },
   }) as typeof repairRuntimeOwnedDockerRuntime;
+
+  if (base)
+    t.after(() => {
+      state.alive = false;
+      controller.abort();
+      // closeの呼出しを確認するだけ。注入したunknownの成功化ではない。
+      assert.equal(state.joined, state.acquired, "finite_session_not_joined");
+      assert.equal(fs.realpathSync.native(created.root), created.root);
+      const area = path.join(created.root, ".crdd", "domain-model");
+      for (const file of [
+        path.join(created.root, ".crdd", "current-state." + binding + ".lock"),
+        path.join(area, "state.pending.json"),
+        path.join(area, "history.pending.jsonl"),
+      ])
+        assert.throws(() => fs.lstatSync(file), { code: "ENOENT" });
+      try {
+        const info = fs.lstatSync(area);
+        assert.ok(info.isDirectory() && !info.isSymbolicLink());
+        assert.equal(fs.realpathSync.native(area), area);
+        fs.rmSync(area, { recursive: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      assert.throws(() => fs.lstatSync(area), { code: "ENOENT" });
+      activeSharedCase = null;
+    });
   return {
     binding,
     root,
@@ -872,6 +1072,45 @@ function fixture(
       })()?.snapshot,
   };
 }
+
+/**
+ * Source変異とcase依存の非共有を最小の有限入力で反証する。
+ * @responsibility 正常factoryのcacheへ変異Sourceや前case依存を混ぜない。
+ * @trace ERB-IT-014
+ * @precondition 不変baseを使い、実修復操作を発行しない。
+ * @stimulus 二種類のSource変異と通常の開始前取消を別caseへ渡す。
+ * @observation 返却理由、開始数と各caseの終了hook。
+ * @oracle 変異A/Bはそれぞれの値だけを返し、通常caseへ漏れない。
+ * @cleanup 各caseのOwnerと保存領域を既存hookで終了する。
+ * @boundary 未束縛factoryとcase依存。製品結果の成功を示さない。
+ */
+test("修復試験factoryはcase依存と変異Sourceを共有しない", async (t) => {
+  for (const variant of ["a", "b"])
+    await t.test("変異 " + variant, async (t) => {
+      const f = fixture(
+        t,
+        (source) =>
+          source +
+          "\nrepairRuntimeOwnedDockerRuntime = async () => ({status:'blocked', reason:'fixture_variant_" +
+          variant +
+          "'});",
+        sharedRepairBase(),
+      );
+      const result = await f.run();
+      assert.equal(result.status, "blocked");
+      assert.equal(result.reason, "fixture_variant_" + variant);
+      assert.equal(f.state.entries, 0);
+    });
+  await t.test("通常Source", async (t) => {
+    const f = fixture(t, undefined, sharedRepairBase());
+    f.controller.abort();
+    const result = await f.run();
+    assert.equal(result.status, "blocked");
+    assert.notEqual(result.reason, "fixture_variant_a");
+    assert.notEqual(result.reason, "fixture_variant_b");
+    assert.equal(f.state.entries, 0);
+  });
+});
 
 /**
  * 回収意図・部分結果・再入場を実modelの専用遷移へ接続する。
@@ -1043,63 +1282,68 @@ test("修復履歴接続: 成功・保持・取消後のexact確定を分ける"
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary compositionの履歴接続。実物保存はHost試験。
  */
-test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しない", async (t) => {
+{
   for (const mode of ["cancel", "effect_unknown"] as const)
-    for (const close of ["clean", "unknown"] as const) {
-      const f = fixture(t);
-      f.state.mode = mode;
-      f.state.close = close;
-      const first = await f.run();
-      assert.ok(first.recoveryId);
-      const operation = f.snapshot()?.operations[0];
-      assert.ok(operation?.kind === "runtime_repair" && operation.outcome);
-      assert.equal(first.reason, operation.outcome.reason);
-      assert.equal(first.historyConfirmed, true, `${mode}:${close}`);
-      assert.equal(
-        first.operationCleanupConfirmed,
-        operation.checkpoint?.cleanup === "confirmed",
-      );
-      assert.equal(first.completionConfirmed, false);
-      assert.equal(f.state.completionWrites, 0);
-      const history = model.readState(f.root, {
-        scope: "recovery",
-        input: { kind: "history" },
-      });
-      assert.equal(history.status, "completed", history.reason);
-      assert.equal(history.lockReleased, true);
-      const rows = history.historyRows;
-      assert.ok(rows);
-      assert.equal(rows?.length, 1);
-      const counts = {
-        entries: f.state.entries,
-        effects: f.state.effects,
-        acquired: f.state.acquired,
-        history: f.state.historyWrites,
-        writes: f.state.calls,
-      };
-      const original = Buffer.from(f.state.bytes as Buffer);
-      f.controller.abort();
-      const again = await f.run(first.recoveryId);
-      assert.equal(again.status, "observed");
-      assert.equal(again.reason, first.reason);
-      assert.equal(again.historyConfirmed, true);
-      assert.equal(again.completionConfirmed, false);
-      assert.equal(
-        again.operationCleanupConfirmed,
-        first.operationCleanupConfirmed,
-      );
-      assert.ok(f.state.bytes?.equals(original));
-      assert.deepEqual(
-        {
-          entries: f.state.entries,
-          effects: f.state.effects,
-          acquired: f.state.acquired,
-          history: f.state.historyWrites,
-          writes: f.state.calls,
+    for (const close of ["clean", "unknown"] as const)
+      test(
+        "修復失敗履歴接続: 失敗と取消を記録し技術再実行しない — " +
+          `失敗履歴 mode=${mode} close=${close}`,
+        async (t) => {
+          const f = fixture(t, undefined, sharedRepairBase());
+          f.state.mode = mode;
+          f.state.close = close;
+          const first = await f.run();
+          assert.ok(first.recoveryId);
+          const operation = f.snapshot()?.operations[0];
+          assert.ok(operation?.kind === "runtime_repair" && operation.outcome);
+          assert.equal(first.reason, operation.outcome.reason);
+          assert.equal(first.historyConfirmed, true, `${mode}:${close}`);
+          assert.equal(
+            first.operationCleanupConfirmed,
+            operation.checkpoint?.cleanup === "confirmed",
+          );
+          assert.equal(first.completionConfirmed, false);
+          assert.equal(f.state.completionWrites, 0);
+          const history = model.readState(f.root, {
+            scope: "recovery",
+            input: { kind: "history" },
+          });
+          assert.equal(history.status, "completed", history.reason);
+          assert.equal(history.lockReleased, true);
+          const rows = history.historyRows;
+          assert.ok(rows);
+          assert.equal(rows?.length, 1);
+          const counts = {
+            entries: f.state.entries,
+            effects: f.state.effects,
+            acquired: f.state.acquired,
+            history: f.state.historyWrites,
+            writes: f.state.calls,
+          };
+          const original = Buffer.from(f.state.bytes as Buffer);
+          f.controller.abort();
+          const again = await f.run(first.recoveryId);
+          assert.equal(again.status, "observed");
+          assert.equal(again.reason, first.reason);
+          assert.equal(again.historyConfirmed, true);
+          assert.equal(again.completionConfirmed, false);
+          assert.equal(
+            again.operationCleanupConfirmed,
+            first.operationCleanupConfirmed,
+          );
+          assert.ok(f.state.bytes?.equals(original));
+          assert.deepEqual(
+            {
+              entries: f.state.entries,
+              effects: f.state.effects,
+              acquired: f.state.acquired,
+              history: f.state.historyWrites,
+              writes: f.state.calls,
+            },
+            counts,
+          );
         },
-        counts,
       );
-    }
   for (const stage of [1, 2])
     for (const fault of [
       "reject",
@@ -1107,44 +1351,54 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       "throw",
       "owner",
       "after_effect",
-    ] as const) {
-      const f = fixture(t);
-      f.state.mode = "effect_unknown";
-      f.state.close = "unknown";
-      f.state.historyFaultAt = stage;
-      f.state.historyFault = fault;
-      const failed = await f.run();
-      assert.equal(failed.status, "blocked");
-      assert.equal(failed.reason, "runtime_repair_effect_unknown");
-      assert.equal(failed.outcomeConfirmed, true);
-      assert.equal(failed.historyConfirmed, false);
-      assert.equal(failed.operationCleanupConfirmed, false);
-      assert.equal(failed.completionConfirmed, false);
-      assert.equal(f.state.historyWrites, stage);
-      assert.equal(f.state.completionWrites, 0);
-      assert.ok(failed.recoveryId);
-      const entries = f.state.entries;
-      f.state.alive = true;
-      f.state.historyFaultAt = 0;
-      f.controller.abort();
-      const resumed = await f.run(failed.recoveryId);
-      assert.equal(resumed.reason, failed.reason);
-      assert.equal(resumed.historyConfirmed, true);
-      assert.equal(resumed.completionConfirmed, false);
-      assert.equal(f.state.entries, entries);
-    }
-  const retained = fixture(t);
-  retained.state.mode = "retained";
-  retained.state.close = "unknown";
-  const pending = await retained.run();
-  const operation = retained.snapshot()?.operations[0];
-  assert.ok(operation?.kind === "runtime_repair");
-  assert.equal(operation.outcome?.status, "blocked");
-  assert.equal(operation.disposition, "pending_human_decision");
-  assert.equal(pending.historyConfirmed, false);
-  assert.equal(retained.state.historyWrites, 0);
-});
-
+    ] as const)
+      test(
+        "修復失敗履歴接続: 失敗と取消を記録し技術再実行しない — " +
+          `失敗履歴 stage=${stage} fault=${fault}`,
+        async (t) => {
+          const f = fixture(t, undefined, sharedRepairBase());
+          f.state.mode = "effect_unknown";
+          f.state.close = "unknown";
+          f.state.historyFaultAt = stage;
+          f.state.historyFault = fault;
+          const failed = await f.run();
+          assert.equal(failed.status, "blocked");
+          assert.equal(failed.reason, "runtime_repair_effect_unknown");
+          assert.equal(failed.outcomeConfirmed, true);
+          assert.equal(failed.historyConfirmed, false);
+          assert.equal(failed.operationCleanupConfirmed, false);
+          assert.equal(failed.completionConfirmed, false);
+          assert.equal(f.state.historyWrites, stage);
+          assert.equal(f.state.completionWrites, 0);
+          assert.ok(failed.recoveryId);
+          const entries = f.state.entries;
+          f.state.alive = true;
+          f.state.historyFaultAt = 0;
+          f.controller.abort();
+          const resumed = await f.run(failed.recoveryId);
+          assert.equal(resumed.reason, failed.reason);
+          assert.equal(resumed.historyConfirmed, true);
+          assert.equal(resumed.completionConfirmed, false);
+          assert.equal(f.state.entries, entries);
+        },
+      );
+  test(
+    "修復失敗履歴接続: 失敗と取消を記録し技術再実行しない — " +
+      "失敗履歴 retained cleanup=unknown",
+    async (t) => {
+      const retained = fixture(t, undefined, sharedRepairBase());
+      retained.state.mode = "retained";
+      retained.state.close = "unknown";
+      const pending = await retained.run();
+      const operation = retained.snapshot()?.operations[0];
+      assert.ok(operation?.kind === "runtime_repair");
+      assert.equal(operation.outcome?.status, "blocked");
+      assert.equal(operation.disposition, "pending_human_decision");
+      assert.equal(pending.historyConfirmed, false);
+      assert.equal(retained.state.historyWrites, 0);
+    },
+  );
+}
 /**
  * 個別Native回収と観測資源を含む集約回収を混同しない。
  * @responsibility 同呼出しの既知成功を保持し、freshでは詳細を補完しない。
@@ -1223,63 +1477,80 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 本番compositionと模擬保存I/O。
  */
-test("修復終了接続: 終了保存と除去後再確認を技術再実行から分ける", async (t) => {
-  const cancelled = fixture(t);
-  cancelled.controller.abort();
-  const refused = await cancelled.run();
-  assert.equal(refused.status, "blocked");
-  assert.equal(cancelled.state.entries, 0);
-  assert.equal(cancelled.state.calls, 0);
-  assert.equal(cancelled.state.effects, 0);
-  const f = fixture(t);
-  const result = await f.run();
-  assert.ok(result.recoveryId);
-  assert.equal(result.completionConfirmed, true);
-  assert.equal(result.historyConfirmed, true);
-  assert.equal(result.outcomeConfirmed, true);
-  assert.equal(result.completionEffectIssued, true);
-  assert.equal(f.snapshot()?.operations.length, 0);
-  const history = model.readState(f.root, {
-    scope: "recovery",
-    input: { kind: "history" },
-  });
-  assert.equal(history.status, "completed", history.reason);
-  assert.equal(history.lockReleased, true);
-  assert.equal(history.historyRows?.length, 1);
-  const counts = {
-    entries: f.state.entries,
-    calls: f.state.calls,
-    writes: f.state.completionWrites,
-    history: f.state.historyWrites,
-  };
-  f.controller.abort();
-  const duplicate = await f.run(result.recoveryId);
-  assert.equal(duplicate.status, "observed");
-  assert.equal(duplicate.completionConfirmed, true);
-  assert.equal(duplicate.historyConfirmed, true);
-  assert.equal(duplicate.outcomeConfirmed, false);
-  assert.equal(duplicate.operationCleanupConfirmed, false);
-  assert.equal(duplicate.finalCheckpointConfirmed, false);
-  assert.equal(duplicate.completionEffectIssued, false);
-  assert.deepEqual(
-    {
-      entries: f.state.entries,
-      calls: f.state.calls,
-      writes: f.state.completionWrites,
-      history: f.state.historyWrites,
+{
+  test(
+    "修復終了接続: 終了保存と除去後再確認を技術再実行から分ける — " +
+      "終了 保存前取消",
+    async (t) => {
+      const cancelled = fixture(t, undefined, sharedRepairBase());
+      cancelled.controller.abort();
+      const refused = await cancelled.run();
+      assert.equal(refused.status, "blocked");
+      assert.equal(cancelled.state.entries, 0);
+      assert.equal(cancelled.state.calls, 0);
+      assert.equal(cancelled.state.effects, 0);
     },
-    counts,
   );
-  const retained = fixture(t);
-  retained.state.mode = "retained";
-  const first = await retained.run();
-  assert.ok(first.recoveryId);
-  const kept = await retained.run(first.recoveryId, "retain");
-  assert.equal(kept.completionConfirmed, true);
-  assert.equal(retained.state.completionWrites, 1);
-  assert.equal(retained.snapshot()?.operations.length, 0);
-});
-
+  test(
+    "修復終了接続: 終了保存と除去後再確認を技術再実行から分ける — " +
+      "終了 正常・取消済み再入場",
+    async (t) => {
+      const f = fixture(t, undefined, sharedRepairBase());
+      const result = await f.run();
+      assert.ok(result.recoveryId);
+      assert.equal(result.completionConfirmed, true);
+      assert.equal(result.historyConfirmed, true);
+      assert.equal(result.outcomeConfirmed, true);
+      assert.equal(result.completionEffectIssued, true);
+      assert.equal(f.snapshot()?.operations.length, 0);
+      const history = model.readState(f.root, {
+        scope: "recovery",
+        input: { kind: "history" },
+      });
+      assert.equal(history.status, "completed", history.reason);
+      assert.equal(history.lockReleased, true);
+      assert.equal(history.historyRows?.length, 1);
+      const counts = {
+        entries: f.state.entries,
+        calls: f.state.calls,
+        writes: f.state.completionWrites,
+        history: f.state.historyWrites,
+      };
+      f.controller.abort();
+      const duplicate = await f.run(result.recoveryId);
+      assert.equal(duplicate.status, "observed");
+      assert.equal(duplicate.completionConfirmed, true);
+      assert.equal(duplicate.historyConfirmed, true);
+      assert.equal(duplicate.outcomeConfirmed, false);
+      assert.equal(duplicate.operationCleanupConfirmed, false);
+      assert.equal(duplicate.finalCheckpointConfirmed, false);
+      assert.equal(duplicate.completionEffectIssued, false);
+      assert.deepEqual(
+        {
+          entries: f.state.entries,
+          calls: f.state.calls,
+          writes: f.state.completionWrites,
+          history: f.state.historyWrites,
+        },
+        counts,
+      );
+    },
+  );
+  test(
+    "修復終了接続: 終了保存と除去後再確認を技術再実行から分ける — " +
+      "終了 保持済み",
+    async (t) => {
+      const retained = fixture(t, undefined, sharedRepairBase());
+      retained.state.mode = "retained";
+      const first = await retained.run();
+      assert.ok(first.recoveryId);
+      const kept = await retained.run(first.recoveryId, "retain");
+      assert.equal(kept.completionConfirmed, true);
+      assert.equal(retained.state.completionWrites, 1);
+      assert.equal(retained.snapshot()?.operations.length, 0);
+    },
+  );
+}
 /**
  * 終了Writerの失敗後に先行結果を保持し同IDだけで再入場する。
  * @responsibility 保存不明を技術再試行へ読み替えない。
@@ -1291,49 +1562,55 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary 本番compositionの終了保存。
  */
-test("修復終了接続: Writer不明でも先行事実を保持しmetadataだけ再開する", async (t) => {
+{
   for (const fault of [
     "reject",
     "release",
     "throw",
     "owner",
     "after_effect",
-  ] as const) {
-    const f = fixture(t);
-    f.state.completionFault = fault;
-    const result = await f.run();
-    assert.ok(result.recoveryId);
-    assert.equal(result.status, "blocked", fault);
-    assert.equal(result.outcomeConfirmed, true, fault);
-    assert.equal(result.historyConfirmed, true, fault);
-    assert.equal(result.completionConfirmed, false, fault);
-    assert.equal(
-      result.completionEffectIssued,
-      fault === "throw" ? null : ["release", "after_effect"].includes(fault),
-      fault,
-    );
-    const counts = {
-      entries: f.state.entries,
-      calls: f.state.calls,
-      history: f.state.historyWrites,
-    };
-    f.state.alive = true;
-    f.state.completionFault = "none";
-    f.controller.abort();
-    const resumed = await f.run(result.recoveryId);
-    assert.equal(resumed.status, "observed", fault);
-    assert.equal(resumed.completionConfirmed, true, fault);
-    assert.deepEqual(
-      {
-        entries: f.state.entries,
-        calls: f.state.calls,
-        history: f.state.historyWrites,
+  ] as const)
+    test(
+      "修復終了接続: Writer不明でも先行事実を保持しmetadataだけ再開する — " +
+        `終了Writer fault=${fault}`,
+      async (t) => {
+        const f = fixture(t, undefined, sharedRepairBase());
+        f.state.completionFault = fault;
+        const result = await f.run();
+        assert.ok(result.recoveryId);
+        assert.equal(result.status, "blocked", fault);
+        assert.equal(result.outcomeConfirmed, true, fault);
+        assert.equal(result.historyConfirmed, true, fault);
+        assert.equal(result.completionConfirmed, false, fault);
+        assert.equal(
+          result.completionEffectIssued,
+          fault === "throw"
+            ? null
+            : ["release", "after_effect"].includes(fault),
+          fault,
+        );
+        const counts = {
+          entries: f.state.entries,
+          calls: f.state.calls,
+          history: f.state.historyWrites,
+        };
+        f.state.alive = true;
+        f.state.completionFault = "none";
+        f.controller.abort();
+        const resumed = await f.run(result.recoveryId);
+        assert.equal(resumed.status, "observed", fault);
+        assert.equal(resumed.completionConfirmed, true, fault);
+        assert.deepEqual(
+          {
+            entries: f.state.entries,
+            calls: f.state.calls,
+            history: f.state.historyWrites,
+          },
+          counts,
+        );
       },
-      counts,
     );
-  }
-});
-
+}
 /**
  * 終了Readerとmarker清掃の失敗を段階ごとに停止する。
  * @responsibility 解放不明と例外を既知の成功へ補完しない。
@@ -1345,27 +1622,32 @@ test("修復終了接続: Writer不明でも先行事実を保持しmetadataだ�
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary Reader／Writer／markerの個別lifecycle。
  */
-test("修復終了接続: Readerと清掃の不明はsticky停止する", async (t) => {
+{
   for (const stage of ["before", "after"] as const)
-    for (const fault of ["reject", "release", "throw", "owner"] as const) {
-      const f = fixture(t);
-      // 公開Writer内部のReaderをCaller側の注入回数へ数えない。
-      f.state.completionReadFaultAt = stage === "before" ? 1 : 2;
-      f.state.completionReadFault = fault;
-      const result = await f.run();
-      assert.equal(result.status, "blocked");
-      assert.equal(result.completionConfirmed, false);
-      assert.equal(result.historyConfirmed, true);
-      assert.equal(result.outcomeConfirmed, true);
-      assert.equal(f.state.completionReads, f.state.completionReadFaultAt);
-      assert.equal(f.state.completionWrites, stage === "before" ? 0 : 1);
-      assert.equal(f.state.entries, 1);
-      assert.equal(f.state.historyWrites, 2);
-      assert.equal(
-        result.completionLockReleased,
-        fault === "throw" ? null : fault !== "release",
+    for (const fault of ["reject", "release", "throw", "owner"] as const)
+      test(
+        "修復終了接続: Readerと清掃の不明はsticky停止する — " +
+          `終了Reader stage=${stage} fault=${fault}`,
+        async (t) => {
+          const f = fixture(t, undefined, sharedRepairBase());
+          // 公開Writer内部のReaderをCaller側の注入回数へ数えない。
+          f.state.completionReadFaultAt = stage === "before" ? 1 : 2;
+          f.state.completionReadFault = fault;
+          const result = await f.run();
+          assert.equal(result.status, "blocked");
+          assert.equal(result.completionConfirmed, false);
+          assert.equal(result.historyConfirmed, true);
+          assert.equal(result.outcomeConfirmed, true);
+          assert.equal(f.state.completionReads, f.state.completionReadFaultAt);
+          assert.equal(f.state.completionWrites, stage === "before" ? 0 : 1);
+          assert.equal(f.state.entries, 1);
+          assert.equal(f.state.historyWrites, 2);
+          assert.equal(
+            result.completionLockReleased,
+            fault === "throw" ? null : fault !== "release",
+          );
+        },
       );
-    }
   for (const fault of [
     "status",
     "storage",
@@ -1373,21 +1655,25 @@ test("修復終了接続: Readerと清掃の不明はsticky停止する", async 
     "release",
     "throw",
     "owner",
-  ] as const) {
-    const f = fixture(t);
-    f.state.markerFault = fault;
-    f.state.markerFaultAt = 1;
-    const result = await f.run();
-    assert.equal(result.status, "blocked", fault);
-    assert.equal(result.completionConfirmed, false, fault);
-    assert.equal(result.historyConfirmed, true, fault);
-    assert.equal(result.outcomeConfirmed, true, fault);
-    assert.equal(f.state.completionWrites, 1);
-    assert.equal(f.state.entries, 1);
-    assert.equal(f.state.historyWrites, 2);
-  }
-});
-
+  ] as const)
+    test(
+      "修復終了接続: Readerと清掃の不明はsticky停止する — " +
+        `終了Marker fault=${fault}`,
+      async (t) => {
+        const f = fixture(t, undefined, sharedRepairBase());
+        f.state.markerFault = fault;
+        f.state.markerFaultAt = 1;
+        const result = await f.run();
+        assert.equal(result.status, "blocked", fault);
+        assert.equal(result.completionConfirmed, false, fault);
+        assert.equal(result.historyConfirmed, true, fault);
+        assert.equal(result.outcomeConfirmed, true, fault);
+        assert.equal(f.state.completionWrites, 1);
+        assert.equal(f.state.entries, 1);
+        assert.equal(f.state.historyWrites, 2);
+      },
+    );
+}
 /**
  * 履歴各段の失敗後に保存済み結果と既知Effectを保持する。
  * @responsibility 表示結果の失敗と技術失敗を混同しない。
@@ -1450,23 +1736,30 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary fresh観測と呼出し生存。
  */
-test("修復履歴接続: 各段後のfresh確認不明で停止する", async (t) => {
+{
   for (const stage of [1, 2, 3])
-    for (const fault of ["reject", "release", "throw", "owner"] as const) {
-      const f = fixture(t);
-      f.state.historyReadFaultAt = stage;
-      f.state.historyReadFault = fault;
-      const result = await f.run();
-      assert.equal(result.status, "blocked");
-      assert.equal(result.outcomeConfirmed, true);
-      assert.equal(result.historyConfirmed, false);
-      assert.equal(result.historyEffectIssued, stage > 1);
-      assert.equal(f.state.historyWrites, stage - 1);
-      assert.equal(f.state.entries, 1);
-      assert.equal(f.snapshot()?.operations[0]?.outcome?.status, "recovered");
-    }
-});
-
+    for (const fault of ["reject", "release", "throw", "owner"] as const)
+      test(
+        "修復履歴接続: 各段後のfresh確認不明で停止する — " +
+          `履歴fresh stage=${stage} fault=${fault}`,
+        async (t) => {
+          const f = fixture(t, undefined, sharedRepairBase());
+          f.state.historyReadFaultAt = stage;
+          f.state.historyReadFault = fault;
+          const result = await f.run();
+          assert.equal(result.status, "blocked");
+          assert.equal(result.outcomeConfirmed, true);
+          assert.equal(result.historyConfirmed, false);
+          assert.equal(result.historyEffectIssued, stage > 1);
+          assert.equal(f.state.historyWrites, stage - 1);
+          assert.equal(f.state.entries, 1);
+          assert.equal(
+            f.snapshot()?.operations[0]?.outcome?.status,
+            "recovered",
+          );
+        },
+      );
+}
 /**
  * 保持済みのexact再入場で過去の保持確認を落とさない。
  * @responsibility 新しい保持判断と保存済み保持事実の投影を区別する。
@@ -2656,5 +2949,3 @@ test("修復出版: 部分成立の後は新処置へ進まない", async (t) =>
       assert.equal(result.statePublication?.filesystemEffectIssued, true);
   }
 });
-
-import path from "node:path";

@@ -8994,13 +8994,18 @@
         "repair",
         "state"
       ],
-      "environment": "node_process",
+      "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
         "two_stage_result_persisted",
         "first_failure_preserved",
-        "unconfirmed_result_rejected"
+        "unconfirmed_result_rejected",
+        "repair_fault_cases_independently_executable",
+        "shared_immutable_preparation_once",
+        "mutable_case_state_isolated",
+        "actual_state_history_lock_and_cas_preserved",
+        "case_owned_artifacts_absent"
       ],
       "mandatoryByDefault": true
     },

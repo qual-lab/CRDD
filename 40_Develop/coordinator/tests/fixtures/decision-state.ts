@@ -8,7 +8,6 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   initializeExecutionStore,
@@ -41,7 +40,7 @@ import { taskExecutionSelections } from "./ai-selection.ts";
  * @cleanup 呼出し側のTest hookがRootを再帰削除する。
  * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
  */
-export function createRepository(t: test.TestContext) {
+export function createRepository(t: { after(cleanup: () => void): void }) {
   const temporary = requireReadyRepositoryExecutionDataArea(
     ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       fileURLToPath(new URL("../../../../", import.meta.url)),
