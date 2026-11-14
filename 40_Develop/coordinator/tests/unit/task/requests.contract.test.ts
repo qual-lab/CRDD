@@ -14,10 +14,183 @@ import test from "node:test";
 import { compileFunction, runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+} from "../../../../execution-model/src/index.ts";
+import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../src/input/snapshot.ts";
 import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
+
+/**
+ * Resolverの未信頼返却値は内部受渡しの簡素化後も受付で拒否する。
+ * @responsibility 不正選定がID発行・保存・実行へ到達しないことを確認する。
+ * @trace PRL-UT-006
+ * @precondition 実受付宣言とEM検査を有限のメモリStateへ接続する。
+ * @stimulus Resolverが欠測・空・未知fieldを含む選定を返す。
+ * @observation blocked理由とID発行・保存・実行の未呼出し。
+ * @oracle configuration_unavailableで拒否し後続Effectを発行しない。
+ * @cleanup メモリ値だけ。外部資源なし。
+ * @boundary Resolver返却値の受付。実Filesystemは使用しない。
+ */
+test("単発受付は不正Resolver選定をID発行・保存・実行前に拒否する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/task/requests.ts", import.meta.url),
+    "utf8",
+  );
+  let effects = 0;
+  const forbidden = () => {
+    effects += 1;
+    throw new Error("effect_forbidden");
+  };
+  const create = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "createCoordinatorTaskRequests"))});`,
+    [
+      "inspectSingleTaskCommand",
+      "readState",
+      "verifyRuntimePersistenceRepository",
+      "inspectExecutionSelection",
+      "inspectTaskExecutionSelections",
+      "randomUUID",
+      "createCoordinatorSnapshotStatePort",
+    ],
+  )(
+    () => ({ mode: "read_only_advice" }),
+    () => ({
+      status: "completed",
+      value: { queueEntries: [], intakeEpoch: "epoch" },
+    }),
+    (value: unknown) => value,
+    inspectExecutionSelection,
+    inspectTaskExecutionSelections,
+    forbidden,
+    forbidden,
+  ) as (deps: object) => {
+    start: (raw: unknown) => Promise<{ status: string; reason: string }>;
+  };
+  for (const primary of [null, {}, { provider: "codex", unknown: true }]) {
+    const owner = create({
+      authorize: () => true,
+      root: "C:/synthetic",
+      binding: "binding",
+      resolveSelection: () => ({ primary, taskExecutionSelections: null }),
+      observeRevision: () => "a".repeat(40),
+      execute: forbidden,
+    });
+    const result = await owner.start({});
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "orchestrator_task_configuration_unavailable");
+  }
+  assert.equal(effects, 0);
+});
+
+/**
+ * 受付済み選定の受渡しでは再捕捉せず、実行直前の認可とRootは再確認する。
+ * @responsibility 内部重複の撤去と外部境界の保持を分けて検証する。
+ * @trace PRL-UT-006
+ * @precondition 実openTaskSession宣言を有限の保存・実行代替へ接続する。
+ * @stimulus 捕捉済みrecord、失効した認可、変わったRootと取消を渡す。
+ * @observation Adviceへ渡した選定の同一参照と実行回数。
+ * @oracle 正常時は同じ値を渡し、三拒否経路では実行しない。
+ * @cleanup メモリ内値のみ。保存・Process・Dockerなし。
+ * @boundary 受付から用途実行への内部接続。実保存成立の試験ではない。
+ */
+test("単発内部実行は捕捉済み選定を渡し認可・Root・取消を維持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/task/requests.ts", import.meta.url),
+    "utf8",
+  );
+  let authorized = true;
+  let root = "C:/synthetic";
+  let calls = 0;
+  let received: unknown;
+  const names = [
+    "isPrincipalId",
+    "resolveVerifiedRepositoryRoot",
+    "initializeExecutionStore",
+    "verifyRuntimePersistenceRepository",
+    "deriveCoordinatorRepositoryBindingId",
+    "observeLeaseOwner",
+    "createCoordinatorTaskRequests",
+    "runRepositoryAdvice",
+    "inspectExecutionSelection",
+  ];
+  const values = [
+    () => true,
+    () => root,
+    () => ({ status: "completed" }),
+    (value: unknown) => value,
+    () => "binding",
+    () => undefined,
+    (options: unknown) => options,
+    async (_root: unknown, command: { executionSelection: unknown }) => {
+      calls += 1;
+      received = command.executionSelection;
+      return {
+        result: {
+          status: "completed",
+          reason: null,
+          facts: [],
+          sharedAnalysis: [],
+          additionalInferences: [],
+          nextOptions: [],
+        },
+        cleanupConfirmed: true,
+        hostRecoveryId: null,
+        dockerRecoveryId: null,
+      };
+    },
+    () => {
+      throw new Error("duplicate_inspection");
+    },
+  ];
+  const open = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "openTaskSession"))});`,
+    names,
+  )(...values) as (context: object) => {
+    execute: (
+      ...args: unknown[]
+    ) => Promise<{ status: string; reason: string }>;
+  };
+  const owner = open({
+    rootCapability: {},
+    projectId: "project",
+    principalId: "operator",
+    authorize: () => authorized,
+  });
+  const selection = Object.freeze({ accepted: "selection" });
+  const execution = {
+    record: { executionSelection: selection, operationId: "operation" },
+  };
+  const command = { mode: "read_only_advice" };
+  const signal = new AbortController();
+  const invoke = () =>
+    owner.execute(
+      command,
+      execution,
+      signal.signal,
+      () => undefined,
+      () => undefined,
+    );
+  assert.equal((await invoke()).status, "completed");
+  assert.equal(received, selection);
+  authorized = false;
+  assert.equal(
+    (await invoke()).reason,
+    "coordinator_task_selection_or_access_invalid",
+  );
+  authorized = true;
+  root = "C:/changed";
+  assert.equal(
+    (await invoke()).reason,
+    "coordinator_task_selection_or_access_invalid",
+  );
+  root = "C:/synthetic";
+  signal.abort();
+  assert.equal((await invoke()).status, "cancelled");
+  assert.equal(calls, 1);
+});
 
 /**
  * Adviceの完成結果を全量再捕捉し、末尾不正は拒否する。

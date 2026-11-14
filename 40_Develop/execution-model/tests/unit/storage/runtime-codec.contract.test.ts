@@ -32,7 +32,7 @@ import {
   validateUnifiedTransition,
   validSnapshot,
 } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/value.ts";
+import { encodeStateValue } from "../../../src/state/operations.ts";
 import { prepareUnifiedTaskSnapshot } from "../../../src/task/validation.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";

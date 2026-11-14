@@ -36,7 +36,7 @@ import {
   validateDecisionSnapshotTransition,
 } from "../../../src/decision/validation.ts";
 import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/value.ts";
+import { encodeStateValue } from "../../../src/state/operations.ts";
 
 /**
  * 判断モデルの検査を上位要求の検査から分離する。

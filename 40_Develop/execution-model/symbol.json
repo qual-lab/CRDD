@@ -1123,7 +1123,7 @@
     {
       "symbolId": "execution-model.source.src.state.value",
       "kind": "file",
-      "path": "src/state/value.ts",
+      "path": "src/state/operations.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"

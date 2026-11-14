@@ -18,7 +18,7 @@ import {
   hasExecutionStateRecordKeys,
   isSha256Hex,
   snapshotStateRecord,
-} from "../state/value.ts";
+} from "../state/operations.ts";
 import { inspectExecutionSelection } from "../task/validation.ts";
 import {
   validateResourceBook,

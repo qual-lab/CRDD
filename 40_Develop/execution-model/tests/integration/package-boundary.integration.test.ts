@@ -14,6 +14,52 @@ import test from "node:test";
 import { dockerProcessControllerPublicCompletionReasons } from "../../src/index.ts";
 
 /**
+ * 主体の値とDecision入力検査が全体State検査なしで動くことを確認する。
+ * @responsibility 値Ownerの移管を名前だけの変更にしない。
+ * @trace RCM-IT-005
+ * @precondition 新品Nodeと合成主体だけを使用する。
+ * @stimulus State検査・保存層の解決を拒否して主体とDecisionを検査する。
+ * @observation 子のerror・signal・exitと固定完了文字列。
+ * @oracle メールの大小文字を保持し、予約prefix不正と不正Decisionを拒否する。
+ * @cleanup 子の終了を確認する。一時物なし。
+ * @boundary 値検査とModule解決のみ。認証や保存成功の証明ではない。
+ */
+test("主体値とDecision検査は全体State検査と保存層を解決しない", () => {
+  const value = new URL("../../src/state/operations.ts", import.meta.url).href;
+  const decision = new URL("../../src/decision/validation.ts", import.meta.url)
+    .href;
+  const code = `import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
+registerHooks({resolve(s,c,next){const r=next(s,c);
+ if(["/src/state/validation.ts","/src/state/crud.ts","/src/storage/"].some(p=>r.url.includes(p))) throw Error("whole_state_forbidden");
+ return r;
+}});
+const api=await import(${JSON.stringify(value)});
+const decision=await import(${JSON.stringify(decision)});
+assert.equal(api.createLocalPrincipalId("Alice+dev@Example.invalid"),"local.email.Alice+dev@Example.invalid");
+assert.equal(api.isPrincipalId("local.email.Alice+dev@Example.invalid"),true);
+assert.equal(api.isPrincipalId("operator-a"),true);
+assert.equal(api.isPrincipalId("local.email.invalid"),false);
+assert.equal(api.isPrincipalId("a@b"),false);
+assert.equal(api.createLocalPrincipalId(null),null);
+assert.equal(decision.inspectDecision(null),null);
+console.log("PURE_PRINCIPAL");`;
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", code],
+    {
+      encoding: "utf8",
+      timeout: 15000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "PURE_PRINCIPAL");
+});
+
+/**
  * Domainの保存契約が技術Packageなしで開始できることを確認する。
  * @responsibility 旧AD試験の独立ロード検証を保存契約Ownerへ移す。
  * @trace RCM-IT-005

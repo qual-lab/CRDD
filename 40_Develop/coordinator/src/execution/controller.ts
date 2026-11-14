@@ -11,6 +11,7 @@ import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
 import {
   type ExecutionOperationRecord,
+  type ExecutionSelection,
   inspectExecutionSelection,
   parseHostRecoveryToken,
 } from "../../../execution-model/src/index.ts";
@@ -2625,9 +2626,9 @@ function projectProviderPreparationFailure(reason: unknown) {
  *
  * @responsibility Provider Selectionの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000004
- * @input left: RuntimeRecord、right: RuntimeRecord
+ * @input left: 初回封筒、a: 初回に捕捉済みの選定、right: 再発行封筒
  * @returns sameProviderSelectionの計算結果を返す。
- * @precondition 「left: RuntimeRecord、right: RuntimeRecord」がsameProviderSelectionの入力契約を満たす。
+ * @precondition aは初回受付で独立・凍結捕捉済み。再発行側は未信頼の依存返却値。
  * @postcondition sameProviderSelectionの責務を完了した結果だけを返す。
  * @effect N/A: sameProviderSelectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: sameProviderSelectionは独自の失敗分岐を所有しない。
@@ -2636,11 +2637,13 @@ function projectProviderPreparationFailure(reason: unknown) {
  * @security sameProviderSelectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: sameProviderSelectionは共有非同期状態を持たない同期処理である。
  */
-function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
-  const a = inspectExecutionSelection(left.executionSelection);
+function sameProviderSelection(
+  left: RuntimeRecord,
+  a: ExecutionSelection,
+  right: RuntimeRecord,
+) {
   const b = inspectExecutionSelection(right.executionSelection);
   return (
-    a !== null &&
     b !== null &&
     left.executorProvider === a.provider &&
     right.executorProvider === b.provider &&
@@ -3010,7 +3013,9 @@ async function executeStageBody(
       return blocked("coordinator_task_provider_selection_refresh_failed");
     }
     selectionControl = refreshedSelectionControl;
-    if (!sameProviderSelection(selection, refreshedSelection)) {
+    if (
+      !sameProviderSelection(selection, executionSelection, refreshedSelection)
+    ) {
       revokeUnconsumed();
       return blocked("coordinator_task_provider_selection_refresh_mismatch");
     }

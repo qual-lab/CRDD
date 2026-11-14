@@ -10,7 +10,7 @@ import type {
   RepairOperationRecord,
 } from "../attempt/types.ts";
 import type { DecisionHistoryEvent } from "../decision/types.ts";
-import { encodeStateValue } from "../state/value.ts";
+import { encodeStateValue } from "../state/operations.ts";
 import type {
   HistoryEntry,
   HistoryRetentionReferences,

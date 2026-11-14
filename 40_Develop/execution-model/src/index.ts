@@ -90,7 +90,7 @@ export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
 export {
   createLocalPrincipalId,
   isPrincipalId,
-} from "./state/validation.ts";
+} from "./state/operations.ts";
 export { resumeRepairRecordSave } from "./storage/publication.ts";
 export { ExecutionStorageBlockedError } from "./storage/store.ts";
 export {

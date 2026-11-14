@@ -22,7 +22,7 @@ import {
   initializeExecutionStore,
   writeSnapshot,
 } from "../../src/state/crud.ts";
-import { encodeStateValue } from "../../src/state/value.ts";
+import { encodeStateValue } from "../../src/state/operations.ts";
 import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,

@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+修復結果試験の残っていた保存故障20条件・保持済み再入場5条件を、既存の不変Git準備へ接続した。各条件のOwner/State/故障/清掃は独立し、既存49条件と合わせた限定78項目・型・独立レビューが成功。続く局所整理では、主体IDの構築・形式検査と既存値処理を`state/operations.ts`へまとめ、旧`value.ts`とDecision検査から全State検査への実行時依存を撤去した。Coは初回捕捉済みSelectionを再利用し、再発行・Resolver・搬送・Filesystem・未保存入力の検査は維持する。公開93項目・保存形式は不変。局所整理の限定38試験と型検査、独立レビュー・是正確認が完了し、必須残指摘なし。残る履歴退役／全State整合の相互依存とCo初期化例外のOwner整理は今回の完了範囲に含めない。全体回帰・実AI・Docker・過去保持物は対象外。[結果と残る範囲](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)末尾を参照する。
+
 共通Lockの名前を責務Package・保護対象で統一し、Repository内EM/構成/文書/長期Leaseは`.crdd/lock/`へ接続した。Repository非依存StoreとRepository横断資源は明示所在を維持する。実利用の切替は全利用者停止下で、旧名Lock・未解決義務の処置を旧Owner手順で確認できた対象だけに限る。新コードによる旧Lock本体の自動検出や旧新並走の相互排他は保証しない（[切替条件の正本](06_Architecture/Details/lock/01_Architecture.md)参照）。EM保存専用markerと単独清掃入口を撤去し、履歴保存もsaveRecoveryHistory一回へ完成操作化してCoordinatorの段階ループを撤去した。Rootは93項目（58値・35型）を維持。限定回帰・型検査・独立再レビューを完了し、必須残指摘0。全体回帰・実AI・Docker・過去保持物の処置と実利用切替は対象外。[実装と確認](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)末尾を参照する。
 
 
@@ -27,7 +29,7 @@ EMのCheckpoint保存をAttemptへ実体移管し、Snapshotの同一alias二つ
 
 EMのHistory段階は、六符号化、必須行照合・保持・出版規則とBuffer捕捉を`history/operations.ts`へ集約し、限定回帰・独立レビューを完了した。Stateは全体復号・保持参照投影・同版の候補結合を維持し、物理保存は既存Writer／CASのまま。公開100項目・保存形式は変更しない。限定80項目と通常／判断／pendingの代表保存、最終修復保存29項目が成功し、独立レビューの必須残指摘なし。EM差分は未Commit。[現在範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.56を参照する。
 
-修復49ケースの試験再編は`bfd01b54a`でCommit／Push済み。続くEM責務整理の第一段階は、資源の純粋な4操作を`attempt/operations.ts`、共有6値処理を`state/value.ts`へ移し、値検査から保存CRUDへ戻る2経路を撤去した。公開100項目・保存形式・単一CASを維持し、限定回帰・独立レビューの必須残指摘なし。EM差分は未Commit。Historyの生成・保持・出版規則は§14.56へ進み、完成操作の意味Owner・Snapshot型と、残る純粋検査間の相互依存は未完了として維持する。[限定結果と現在の範囲](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.55を参照する。
+修復49ケースの試験再編は`bfd01b54a`でCommit／Push済み。続くEM責務整理の第一段階は、資源の純粋な4操作を`attempt/operations.ts`、共有6値処理を`state/operations.ts`へ移し、値検査から保存CRUDへ戻る2経路を撤去した。公開100項目・保存形式・単一CASを維持し、限定回帰・独立レビューの必須残指摘なし。EM差分は未Commit。Historyの生成・保持・出版規則は§14.56へ進み、完成操作の意味Owner・Snapshot型と、残る純粋検査間の相互依存は未完了として維持する。[限定結果と現在の範囲](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.55を参照する。
 
 先行する九入口統合の時点では、実行モデルのRoot公開は100項目（65値・35型）だった。九つの重複入口を既存の読取り・Checkpoint・完了・履歴操作へ統合し、技術Ownerと通常表示の取得範囲は区別した。Executor／DI／ADの上位依存とCoordinatorのWorkbench／MCP結合試験は、利用側Ownerへ移管して全assert・終了／清掃条件を維持する。AMのEM型結合を撤去し、VCの横断Consumer検査はChecker試験Ownerへ分離した。保存形式・Lock／CAS・認可・期限は変更しない。対象・限定検証と独立レビューの進行状態は[分離・公開整理計画](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)§14.33–14.54、責務は[実行モデル設計](06_Architecture/Details/execution-model/01_Architecture.md)を参照する。全公開物の絶対最小性・全保存経路・全体回帰成功までは主張しない。全体回帰・実AI・Docker・過去保持物は操作していない。
 

@@ -5,7 +5,7 @@
  * @trace ERB-IT-014
  * @trace ERB-IT-002
  * @level IT
- * @scope 実EM Reader／Writer・State／History・Lock／CASと有限DI故障。49個別ケースは新品Repositoryの不変Root／Revision／保存IdentityとSource factoryを共有し、他ケースは従来の実Git境界を保つ。実Docker・Providerなし。
+ * @scope 実EM Reader／Writer・State／History・Lock／CASと有限DI故障。共有対象の直列ケースは新品Repositoryの不変Root／Revision／保存IdentityとSource factoryを共有し、他ケースは従来の実Git境界を保つ。実Docker・Providerなし。
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
 
@@ -167,7 +167,7 @@ after(() => {
 
 /**
  * 不変のGit前提を一度だけ構築する。
- * @responsibility 同じRoot・Revision・保存Identityを49直列ケースへ渡す。
+ * @responsibility 同じRoot・Revision・保存Identityを直列ケースへ渡す。
  * @trace ERB-IT-014
  * @precondition 本Suiteだけが新品Rootを所有する。
  * @stimulus 最初のケースでGit初期化と真正観測を行う。
@@ -1734,7 +1734,7 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary compositionの結果搬送。
  */
-test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わない", async (t) => {
+{
   for (const retained of [false, true])
     for (const stage of [1, 2])
       for (const fault of [
@@ -1743,32 +1743,46 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
         "throw",
         "owner",
         "after_effect",
-      ] as const) {
-        const f = fixture(t);
-        f.state.mode = retained ? "retained" : "ready";
-        let id: string | null = null;
-        if (retained) id = (await f.run()).recoveryId;
-        f.state.historyFaultAt = stage;
-        f.state.historyFault = fault;
-        const result = await f.run(id, retained ? "retain" : "repair");
-        assert.equal(result.status, "blocked", `${retained}:${stage}:${fault}`);
-        assert.equal(result.outcomeConfirmed, true);
-        assert.equal(result.retentionConfirmed, retained);
-        assert.equal(result.historyConfirmed, false);
-        assert.equal(result.operationCleanupConfirmed, true);
-        assert.equal(result.finalCheckpointConfirmed, true);
-        const target = f.snapshot()?.operations[0];
-        assert.ok(target?.kind === "runtime_repair");
-        assert.equal(target.outcome?.status, "recovered");
-        assert.equal(result.recoveryId, target.recoveryId);
-        assert.equal(f.state.historyWrites, stage);
-        assert.equal(f.state.entries, 1);
-        assert.equal(
-          result.historyEffectIssued,
-          stage === 2 || fault === "release" || fault === "after_effect",
+      ] as const)
+        test(
+          "修復履歴接続: 保存失敗でも技術結果と保持判断を失わない — " +
+            "retained=" +
+            retained +
+            " stage=" +
+            stage +
+            " fault=" +
+            fault,
+          async (t) => {
+            const f = fixture(t, undefined, sharedRepairBase());
+            f.state.mode = retained ? "retained" : "ready";
+            let id: string | null = null;
+            if (retained) id = (await f.run()).recoveryId;
+            f.state.historyFaultAt = stage;
+            f.state.historyFault = fault;
+            const result = await f.run(id, retained ? "retain" : "repair");
+            assert.equal(
+              result.status,
+              "blocked",
+              `${retained}:${stage}:${fault}`,
+            );
+            assert.equal(result.outcomeConfirmed, true);
+            assert.equal(result.retentionConfirmed, retained);
+            assert.equal(result.historyConfirmed, false);
+            assert.equal(result.operationCleanupConfirmed, true);
+            assert.equal(result.finalCheckpointConfirmed, true);
+            const target = f.snapshot()?.operations[0];
+            assert.ok(target?.kind === "runtime_repair");
+            assert.equal(target.outcome?.status, "recovered");
+            assert.equal(result.recoveryId, target.recoveryId);
+            assert.equal(f.state.historyWrites, stage);
+            assert.equal(f.state.entries, 1);
+            assert.equal(
+              result.historyEffectIssued,
+              stage === 2 || fault === "release" || fault === "after_effect",
+            );
+          },
         );
-      }
-});
+}
 
 /**
  * 各保存後のfresh確認を欠いた成功を拒否する。
@@ -1816,103 +1830,118 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary metadata再入場と結果搬送。
  */
-test("修復履歴接続: 保持済みの再入場でも保持確認を返す", async (t) => {
+{
   for (const stage of [
     "unstarted",
     "checkpoint",
     "confirmed",
     "fail_first",
     "fail_second",
-  ] as const) {
-    const f = fixture(t);
-    f.state.mode = "retained";
-    const repaired = await f.run();
-    assert.ok(repaired.recoveryId);
-    const retained = await f.run(repaired.recoveryId, "retain");
-    assert.equal(retained.retentionConfirmed, true, JSON.stringify(retained));
-    const raw = f.saved.at(-1);
-    assert.ok(raw);
-    if (stage !== "confirmed") {
-      f.state.bytes = Buffer.from(raw);
-      f.state.historyBytes = Buffer.alloc(0);
-      if (stage === "checkpoint") {
-        const target = f
-          .snapshot()
-          ?.operations.find((item) => item.recoveryId === repaired.recoveryId);
-        assert.ok(target);
-        const owner = {
-          ...f.repository,
-          historyRetentionDays: 30,
-          operationId: JSON.parse(target.identityJson).operationId,
-        };
-        const saved = model.saveRecoveryHistory(
-          owner,
-          repaired.recoveryId,
-          () =>
-            !JSON.parse(fs.readFileSync(f.stateFile, "utf8")).operations.some(
-              (item: { recoveryId: string; history: unknown }) =>
-                item.recoveryId === repaired.recoveryId &&
-                item.history !== null,
-            ),
-          "runtime_repair",
-        );
-        assert.equal(saved.status, "blocked");
-        assert.equal(saved.snapshotConfirmed, false);
-        assert.equal(saved.lockReleased, true);
-        assert.equal(saved.historyConfirmed, false);
-      }
-    }
-    if (stage !== "confirmed") {
-      const read = model.readState(
-        {
-          root: f.repository.root,
-          historyRetentionDays: 30,
-          revalidate: () => true,
-        },
-        {
-          scope: "recovery",
-          input: { kind: "repair_history", recoveryId: repaired.recoveryId },
-        },
-      );
-      assert.equal(read.status, "completed", `${stage}: ${read.reason}`);
-      if (stage === "checkpoint") {
-        assert.equal(read.currentHistoryPublication?.stage, "publish");
+  ] as const)
+    test(
+      "修復履歴接続: 保持済みの再入場でも保持確認を返す — " + stage,
+      async (t) => {
+        const f = fixture(t, undefined, sharedRepairBase());
+        f.state.mode = "retained";
+        const repaired = await f.run();
+        assert.ok(repaired.recoveryId);
+        const retained = await f.run(repaired.recoveryId, "retain");
         assert.equal(
-          read.value?.snapshot.operations.find(
-            (item) => item.recoveryId === repaired.recoveryId,
-          )?.history?.confirmed,
-          false,
+          retained.retentionConfirmed,
+          true,
+          JSON.stringify(retained),
         );
-      }
-    }
-    const writes = f.state.historyWrites,
-      calls = f.state.calls,
-      entries = f.state.entries;
-    if (stage === "fail_first" || stage === "fail_second") {
-      f.state.historyFaultAt = writes + (stage === "fail_first" ? 1 : 2);
-      f.state.historyFault = "reject";
-    }
-    const result = await f.run(repaired.recoveryId);
-    assert.equal(
-      result.status,
-      stage.startsWith("fail_") ? "blocked" : "observed",
-      `${stage}: ${JSON.stringify(result)}`,
+        const raw = f.saved.at(-1);
+        assert.ok(raw);
+        if (stage !== "confirmed") {
+          f.state.bytes = Buffer.from(raw);
+          f.state.historyBytes = Buffer.alloc(0);
+          if (stage === "checkpoint") {
+            const target = f
+              .snapshot()
+              ?.operations.find(
+                (item) => item.recoveryId === repaired.recoveryId,
+              );
+            assert.ok(target);
+            const owner = {
+              ...f.repository,
+              historyRetentionDays: 30,
+              operationId: JSON.parse(target.identityJson).operationId,
+            };
+            const saved = model.saveRecoveryHistory(
+              owner,
+              repaired.recoveryId,
+              () =>
+                !JSON.parse(
+                  fs.readFileSync(f.stateFile, "utf8"),
+                ).operations.some(
+                  (item: { recoveryId: string; history: unknown }) =>
+                    item.recoveryId === repaired.recoveryId &&
+                    item.history !== null,
+                ),
+              "runtime_repair",
+            );
+            assert.equal(saved.status, "blocked");
+            assert.equal(saved.snapshotConfirmed, false);
+            assert.equal(saved.lockReleased, true);
+            assert.equal(saved.historyConfirmed, false);
+          }
+        }
+        if (stage !== "confirmed") {
+          const read = model.readState(
+            {
+              root: f.repository.root,
+              historyRetentionDays: 30,
+              revalidate: () => true,
+            },
+            {
+              scope: "recovery",
+              input: {
+                kind: "repair_history",
+                recoveryId: repaired.recoveryId,
+              },
+            },
+          );
+          assert.equal(read.status, "completed", `${stage}: ${read.reason}`);
+          if (stage === "checkpoint") {
+            assert.equal(read.currentHistoryPublication?.stage, "publish");
+            assert.equal(
+              read.value?.snapshot.operations.find(
+                (item) => item.recoveryId === repaired.recoveryId,
+              )?.history?.confirmed,
+              false,
+            );
+          }
+        }
+        const writes = f.state.historyWrites,
+          calls = f.state.calls,
+          entries = f.state.entries;
+        if (stage === "fail_first" || stage === "fail_second") {
+          f.state.historyFaultAt = writes + (stage === "fail_first" ? 1 : 2);
+          f.state.historyFault = "reject";
+        }
+        const result = await f.run(repaired.recoveryId);
+        assert.equal(
+          result.status,
+          stage.startsWith("fail_") ? "blocked" : "observed",
+          `${stage}: ${JSON.stringify(result)}`,
+        );
+        assert.equal(result.outcomeConfirmed, stage !== "confirmed");
+        assert.equal(result.retentionConfirmed, true);
+        assert.equal(result.historyConfirmed, !stage.startsWith("fail_"));
+        assert.equal(f.state.calls, calls);
+        assert.equal(f.state.entries, entries);
+        assert.equal(
+          f.state.historyWrites - writes,
+          stage === "confirmed"
+            ? 0
+            : stage === "checkpoint" || stage === "fail_first"
+              ? 1
+              : 2,
+        );
+      },
     );
-    assert.equal(result.outcomeConfirmed, stage !== "confirmed");
-    assert.equal(result.retentionConfirmed, true);
-    assert.equal(result.historyConfirmed, !stage.startsWith("fail_"));
-    assert.equal(f.state.calls, calls);
-    assert.equal(f.state.entries, entries);
-    assert.equal(
-      f.state.historyWrites - writes,
-      stage === "confirmed"
-        ? 0
-        : stage === "checkpoint" || stage === "fail_first"
-          ? 1
-          : 2,
-    );
-  }
-});
+}
 
 /**
  * 前置読取りの解放観測と限定metadata救済の結果を保持する。

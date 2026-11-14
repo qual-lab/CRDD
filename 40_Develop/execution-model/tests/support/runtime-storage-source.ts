@@ -25,7 +25,7 @@ import * as domain from "../../src/index.ts";
 import * as objectiveValidation from "../../src/objective/validation.ts";
 import * as stateValues from "../../src/state/types.ts";
 import * as stateValidation from "../../src/state/validation.ts";
-import * as stateValue from "../../src/state/value.ts";
+import * as stateOperations from "../../src/state/operations.ts";
 import * as taskValidation from "../../src/task/validation.ts";
 import * as workspaceValidation from "../../src/workspace/validation.ts";
 /**
@@ -102,7 +102,7 @@ export function createRuntimeStorageSourceFixture(
     ...taskValidation,
     ...workspaceValidation,
     ...stateValidation,
-    ...stateValue,
+    ...stateOperations,
     ...stateValues,
     ...overrides,
   };

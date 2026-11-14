@@ -19,7 +19,7 @@ import {
   prepareHistoryRetention,
   prepareStateHostSnapshot,
 } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/value.ts";
+import { encodeStateValue } from "../../../src/state/operations.ts";
 import { validState } from "../../../src/task/validation.ts";
 
 /**

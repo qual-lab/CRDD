@@ -9,8 +9,6 @@ import type { Repository } from "../../../version-control/src/index.ts";
 /** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
 export const PROJECT_STATE_CONTRACT =
   "crdd-execution-model/project-state/v3" as const;
-/** ローカル主体とAM主体を混同しない固定namespace。Root公開しない。 */
-export const LOCAL_EMAIL_PREFIX = "local.email.";
 
 import type { OperationRecord } from "../attempt/types.ts";
 import type { Blocker, Decision } from "../decision/types.ts";

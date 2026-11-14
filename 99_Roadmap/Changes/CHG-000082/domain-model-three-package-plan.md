@@ -2404,3 +2404,46 @@ History CRUDのsaveRecoveryHistoryが、既存Reader/単一Writerによる最大
 基準bfd01b54aからの全変更について、旧入口・旧保存markerの処理、利用側・scriptsのLock所在、Owner移管、公開93項目、試験台帳と設計を読み取りで再照合した。独立技術レビューはコード上の追加必須指摘0、品質/利用側レビューも追加必須指摘0。旧Lockからの切替条件だけは、[Lock設計](../../../06_Architecture/Details/lock/01_Architecture.md)を正本として具体化した。全利用者停止に加え、旧名Lockと未解決義務を旧Ownerの手順で照合・処置確認できた保護対象だけ有効化し、不明なら切替しない。新コードの旧Lock自動検出、旧新並走時の相互排他や旧Crash残存への自動Fail Closed継承は主張しない。保持物の処置と実利用切替は実施していない。
 
 追加の限定再確認は公開/依存境界・保持/履歴完成保存17項目、Checkpoint/履歴純粋操作/保存投影/一回出版11項目が成功。EMとCoordinator製品/試験の型検査、差分空白確認、台帳418参照先の実在確認も成功した。直前までの実保存・Process境界・故障試験の成功結果は上記記録を使用し、長時間試験を機械的に反復せず、全体回帰・実AI・Dockerは起動していない。本節までの確認済み変更を同じ作業ブランチのCommit/Push対象とし、リリース/統合判断や実利用切替の完了とは区別する。
+
+### 修復試験の追加25条件の準備共有 — 着手前整合確認
+
+基準ad386d473に対し、Coordinatorのruntime-repair-result試験内の保存故障20条件と保持済み再入場5条件を、既存sharedRepairBaseへ接続する。変更分類は試験設計の調整。新品Git Root・Revision・保存IdentityとSource factoryだけを共有する。初回の子試験候補43項目は成功したが、既存49条件の単件選択契約も照合し、最終候補は同じトップレベル個別登録と直列guardへ揃える。State/history・Owner・AbortController・故障Hook・保存/技術counterはfixtureを条件ごとに作り、既存終了hookで保存物と生存参照を閉じてから次条件へ進む。
+
+親担当は既存49条件の成立済み共有方式、fixtureの未初期化確認・排他不存在・join確認・正規Root清掃、今回25条件の全assertを照合した。製品Source・公開IF・保存Schema・検査・期限・故障条件は変更しない。登録済みの同試験/QA項目を維持し、同25条件と既存共有fixtureの限定回帰、型/整形/差分検査と独立レビューを行う。新しい共有helper・Store・Wrapperは作らない。公開補助IFと検査依存はこの後の読み取り棚卸しに限り、未確定の削除を同時実装しない。全体回帰・実AI・Docker・過去保持物操作、リリース/準拠監査は対象外。
+
+### 追加25条件の準備共有 — 実装・限定確認
+
+既存sharedRepairBaseと終了hookをそのまま再利用し、25条件を独立したfixtureで実行する。個別登録は既存49条件と同じトップレベル方式へ揃え、単件指定で1項目だけが実行・成功することを確認した。対象2群の静的assert式はそれぞれ12式・18式で、整形による末尾commaを除いて基準版と全一致する。条件・経路・故障位置・製品実装は変更していない。
+
+初回の子試験候補は43項目成功し、対象20条件は56.2秒、対象5条件は20.0秒だった。最終の個別登録候補は既存49条件＋追加25条件＋factory三子と親の計78項目が全成功し、201,577ms（約3分22秒）で終了した。各条件の有限Session join・Owner失効・Lock/pending不存在、モデル保存領域の回収と最終Root回収は既存hookで確認した。基準版の2親試験1657秒/620秒との比較は、この環境・この限定集合の試験時間だけに限る。
+
+Coordinator製品/試験の型検査、対象の整形、差分空白確認は成功。Lintはerror/warningなし（既存同型block等の情報提案のみ）。独立した試験/品質レビューは必須残指摘0。既存試験ファイル・同じQA項目内の整理であり、台帳の新規項目は増やしていない。全体回帰・実AI・Docker・過去保持物の操作はせず、製品SourceとRoot公開93項目は不変。今回の変更は未Commit。
+
+### 公開補助IF・検査依存の後続棚卸し — 未実装
+
+本番Consumerと入力の由来を照合すると、今回の対象をRootから隠すだけで安全に削減できる公開物は特定できなかった。未信頼入力の検査と、受付済みの同じ値の再検査を区別する。
+
+| 対象 | 現在の利用と扱い |
+|---|---|
+| inspectDecision | Co decision/requestのコマンド応答復元。完全記録の搬送検査として維持。再照会への置換は二重取得、応答縮小は情報削除になる |
+| inspectExecutionPlan | Co objective/planの未保存の依頼/依存処理結果の受付。savePlanへの機械置換は保存時期を変えるため行わない |
+| Selection検査2関数 | 外部受付には維持。Co内部で同じ検査済み・凍結済み値を比較/Hash計算前に再検査する経路は削減候補。各経路の由来確認が必要 |
+| validateResourceBook | Co authorityのsameRecoveryRecordが、Co所有の認証回復Filesystem JSONを検査。独立した入力境界として維持する |
+| Recovery ID/Host Token解析 | Coが構成要素を照合に利用。単なる真偽検査ではない。Host物理命名のOwner整理は別候補であり、検査を消して代替しない |
+| Principal構築/検査 | Workbenchの主体構築とCo/MCP受付が利用。公開名/挙動は維持し、既存state/valueへ実体を移してdecisionから巨大なstate/validationへの逆参照を除く候補 |
+| resumeRepairRecordSave | 中断したexact保存候補の完成操作として維持。通常保存へ自動resumeを加える案は採用しない |
+| ExecutionStorageBlockedError・状態/契約/理由定数 | 部分Effect/回復参照やモデル語彙の正本を利用側が必要とする。一般blockedへの圧縮や語彙の重複定義で隠さない |
+
+次の最小実装候補は、(1) Co内部のSelection再検査を受付済み値の受渡しへ整理、(2) Principal補助を既存state/valueへ移管、(3) 行単位の履歴検査とState全体の退役判断を分離、(4) Task/Objectiveの局所検査と全State候補生成の循環を関数単位で整理、(5) Co自身のDirectory初期化失敗をEM例外生成から分離、の順とする。これは実装済みの宣言ではない。特にCo runtime-dataのEM例外生成は責務是正候補だが、Effect・解放不明・回復参照は失わせない。新しいFacade・共通Package・一括移植は不要。先に内部の再検査と依存を整理し、その結果を見て公開削減を再判定する。
+
+### Principal値Ownerと捕捉済みSelection — 着手前整合確認
+
+実施結果：主体ID2関数と固定prefixを保存非依存の`state/operations.ts`へまとめ、旧`value.ts`を撤去した。公開93項目と保存文法は維持。全Source／試験／現在設計の旧Path参照は0で、Symbolの安定IDを変えず現行Pathを更新した。EM・Coordinatorの型検査と、値／公開境界／独立ロード／選定／単発受付の限定38試験が成功した。改名前にも選定更新2試験とローカル主体2試験の成功を確認したが、改名後38件の内訳には合算しない。独立の技術レビューは必須指摘なし、QAレビューの説明見出し配置1点は専用節へ分離して是正した。改名に伴うimport折返し2箇所も整形した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。
+
+後続の名称判断で、値処理を細分化せず既存`state/value.ts`を`state/operations.ts`へ改名する。CRUDは保存操作、validationは全Stateの成立・相関検査、operationsは保存しない主体ID・記録値の構築・捕捉・変換を担当する。公開名・処理本文・保存形式・依存方向は変えない。全Source／試験の直接参照、Symbol台帳の現行Path、現在設計を追従し、旧Pathの転送Moduleや新しいHelperファイルは追加しない。過去段階を説明する本文の旧Pathは当時の記録として維持する。限定の値・公開境界・Module独立ロードと型検査で確認し、全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+基準ad386d473と直前の試験準備共有差分を保全し、公開名・挙動・93項目を変えずPrincipal構築/検査を既存state/valueへ移す。固定prefixも値Owner内の私有定数へ閉じ、旧位置の転送exportは残さない。decisionとtaskの局所検査は同じ値Ownerを直接使用し、Decisionの単独読込みが全State/保存を解決しないことを新品Nodeで確認する。保存形式・既存メール/主体の文法・認可の意味は変更しない。
+
+Selectionは読み取り専用の呼出し元照合で、controllerのsameProviderSelection左側を初回の検査済み凍結値へ接続することと、openTaskSession内の本番execute callbackが同じ受付記録の選定を再検査する箇所だけを対象に確定した。右側の再発行結果、Resolver/実行依存の返却値、Filesystem/搬送入力、汎用Hash入口は検査を維持する。Hashの正規順をJSON.stringify直呼びで置換しない。新brand・Map・Wrapperは追加しない。
+
+正常同値/別Object/キー順差、不正再発行・Provider/Model差、初回生Recordの途中変更、失効/Effect未発行、外部Resolver不正時の保存/実行0と、同じ捕捉済み値の実行搬送を限定検証する。親のSource照合と独立した着手前技術確認を実施し、追加の人間判断は不要とした。変更分類は値Owner分離と内部受渡しの局所是正。既存QAのModule境界/選定/受付試験へ追従し、型・限定回帰・独立レビューを行う。全体回帰・実AI・Docker・過去保持物操作は対象外。

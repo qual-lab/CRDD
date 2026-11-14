@@ -46,7 +46,7 @@ import {
   encodeStateValue,
   isSha256Hex,
   snapshotStateRecord,
-} from "../state/value.ts";
+} from "../state/operations.ts";
 import {
   captureExecutionCleanupVerification,
   executionStorageOperationIdentity,

@@ -17,7 +17,7 @@ import {
   prepareStateHistorySummary,
   prepareStateOperationSnapshot,
 } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/value.ts";
+import { encodeStateValue } from "../../../src/state/operations.ts";
 
 const binding = "a".repeat(64);
 

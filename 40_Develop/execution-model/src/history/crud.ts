@@ -12,7 +12,7 @@ import {
   withSnapshotOperation,
 } from "../state/crud.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../state/validation.ts";
-import { encodeStateValue } from "../state/value.ts";
+import { encodeStateValue } from "../state/operations.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import {

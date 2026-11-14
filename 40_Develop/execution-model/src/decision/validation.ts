@@ -5,8 +5,7 @@
  */
 
 import type { ProjectExecutionState } from "../state/types.ts";
-import { isPrincipalId } from "../state/validation.ts";
-import { encodeStateValue } from "../state/value.ts";
+import { encodeStateValue, isPrincipalId } from "../state/operations.ts";
 import type {
   Blocker,
   Decision,

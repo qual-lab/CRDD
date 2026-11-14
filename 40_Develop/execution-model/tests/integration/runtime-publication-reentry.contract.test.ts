@@ -20,7 +20,7 @@ import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
 } from "../../src/state/validation.ts";
-import { encodeStateValue } from "../../src/state/value.ts";
+import { encodeStateValue } from "../../src/state/operations.ts";
 import {
   acquireExecutionStateLock,
   acquireStorageOwner,

@@ -12,7 +12,7 @@ import {
 } from "../state/crud.ts";
 import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
 import { leaseIdentity } from "../state/validation.ts";
-import { snapshotStateRecord } from "../state/value.ts";
+import { snapshotStateRecord } from "../state/operations.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
 import type {

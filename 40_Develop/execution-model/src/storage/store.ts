@@ -50,7 +50,7 @@ import {
   STORAGE_CONTRACT,
   validId,
 } from "../state/validation.ts";
-import { encodeStateValue } from "../state/value.ts";
+import { encodeStateValue } from "../state/operations.ts";
 import { projectTaskSnapshot } from "../task/validation.ts";
 import type {
   HistoryRepositoryInput,

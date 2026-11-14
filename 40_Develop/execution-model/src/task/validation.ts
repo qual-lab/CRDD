@@ -20,7 +20,6 @@ import {
   hashExecutionProjectDefinition,
   hasStateKeys,
   historyRow,
-  isPrincipalId,
   isStateObject,
   nullableCandidateId,
   nullableId,
@@ -40,9 +39,10 @@ import {
 } from "../state/validation.ts";
 import {
   encodeStateValue,
+  isPrincipalId,
   hasExecutionStateRecordKeys,
   snapshotStateRecord,
-} from "../state/value.ts";
+} from "../state/operations.ts";
 import type {
   ExecutionSelection,
   ProjectQueueEntry,

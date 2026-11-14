@@ -13,7 +13,7 @@ import {
   snapshotPlainArray,
   validId,
 } from "../state/validation.ts";
-import { encodeStateValue, snapshotStateRecord } from "../state/value.ts";
+import { encodeStateValue, snapshotStateRecord } from "../state/operations.ts";
 import type { ProjectTaskDefinition } from "../task/types.ts";
 
 import type {

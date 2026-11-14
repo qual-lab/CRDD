@@ -28,7 +28,7 @@ import {
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
 } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/value.ts";
+import { encodeStateValue } from "../../../src/state/operations.ts";
 
 /**
  * 九用途の局所元版を作る。

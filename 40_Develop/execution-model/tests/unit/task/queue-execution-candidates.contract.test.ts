@@ -16,7 +16,7 @@ import type {
 } from "../../../src/index.ts";
 import type { Snapshot } from "../../../src/state/types.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/value.ts";
+import { encodeStateValue } from "../../../src/state/operations.ts";
 import {
   prepareQueueLeaseReleaseSettlement,
   prepareQueueOperationUpdate,

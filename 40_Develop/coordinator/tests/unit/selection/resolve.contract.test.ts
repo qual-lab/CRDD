@@ -12,12 +12,83 @@ import {
   inspectTaskExecutionSelections,
 } from "../../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
   validateAiSelectionConfig,
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
+
+/**
+ * 初回の捕捉値を基準にし、再発行側だけを未信頼入力として検査する。
+ * @responsibility 元封筒の変更で比較基準がすり替わらないことを確認する。
+ * @trace RCM-UT-001
+ * @precondition 製品の同一性判定宣言と実Selection検査を使用する。
+ * @stimulus key順、不正field、model、Provider、操作相関と元封筒を変更する。
+ * @observation 一致判定と元捕捉値の不変性。
+ * @oracle 意味が同じ再発行だけを受理し、不正・変更済み選定を拒否する。
+ * @cleanup メモリ内のみ。
+ * @boundary 技術Effectや保存は発行しない。
+ */
+test("Selection再発行は初回捕捉値と比較し元封筒の変更に追従しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/controller.ts", import.meta.url),
+    "utf8",
+  );
+  const same = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "sameProviderSelection"))});`,
+    ["inspectExecutionSelection"],
+  )(inspectExecutionSelection) as (
+    left: object,
+    captured: object,
+    right: object,
+  ) => boolean;
+  const selected = resolveTaskExecutionSelections(config(), {
+    workType: "coding",
+    choice: { provider: "codex", model: "gpt-5.5", effort: "high" },
+  });
+  assert.equal(selected.status, "resolved");
+  assert.ok(selected.value);
+  const raw = { ...selected.value.executor };
+  const captured = inspectExecutionSelection(raw);
+  assert.ok(captured);
+  const left = {
+    executorProvider: captured.provider,
+    operationId: "operation",
+    taskAttempt: 1,
+    executionSelection: raw,
+  };
+  const right = {
+    ...left,
+    executionSelection: Object.fromEntries(Object.entries(raw).reverse()),
+  };
+  assert.equal(same(left, captured, right), true);
+  for (const executionSelection of [
+    null,
+    { ...raw, unknown: true },
+    { ...raw, modelIdentifier: "different" },
+  ])
+    assert.equal(same(left, captured, { ...right, executionSelection }), false);
+  assert.equal(
+    same(left, captured, { ...right, executorProvider: "claude" }),
+    false,
+  );
+  assert.equal(
+    same(left, captured, { ...right, operationId: "another" }),
+    false,
+  );
+  assert.equal(same(left, captured, { ...right, taskAttempt: 2 }), false);
+  raw.modelIdentifier = "mutated";
+  assert.notEqual(captured.modelIdentifier, raw.modelIdentifier);
+  assert.equal(
+    same(left, captured, { ...right, executionSelection: raw }),
+    false,
+  );
+});
 
 /**
  * 編集と独立レビューを同じ受付時設定へ固定する。

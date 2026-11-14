@@ -27,7 +27,7 @@ import {
   encodeStateValue,
   hasExecutionStateRecordKeys,
   isSha256Hex,
-} from "../state/value.ts";
+} from "../state/operations.ts";
 
 import type { HistoryRow } from "./types.ts";
 

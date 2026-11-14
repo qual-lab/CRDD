@@ -37,7 +37,7 @@ import {
   validateStateTransition,
   validateUnifiedTransition,
 } from "../state/validation.ts";
-import { encodeStateValue } from "../state/value.ts";
+import { encodeStateValue } from "../state/operations.ts";
 import {
   prepareUnifiedTaskSections,
   projectTaskSnapshot,

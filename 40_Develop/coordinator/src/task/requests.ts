@@ -1351,6 +1351,8 @@ export function openTaskSession(context: TaskSessionContext) {
       started,
       operationCreated,
     ): Promise<SingleTaskOutcome> => {
+      // このcallbackには同じ受付で捕捉・保存したrecordだけを渡す。
+      // 依存Resolverの返却値はcreateCoordinatorTaskRequestsの受付で検査済み。
       const selection = execution.record.executionSelection;
       const empty = (reason: string): SingleTaskOutcome => ({
         mode: command.mode,
@@ -1363,7 +1365,6 @@ export function openTaskSession(context: TaskSessionContext) {
       });
       if (
         !authorize() ||
-        !inspectExecutionSelection(selection) ||
         resolveVerifiedRepositoryRoot(rootCapability) !== root
       )
         return empty("coordinator_task_selection_or_access_invalid");

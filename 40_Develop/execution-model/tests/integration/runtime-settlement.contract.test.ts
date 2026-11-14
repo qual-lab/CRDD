@@ -37,7 +37,7 @@ import {
   decodeStateSnapshot,
   prepareStateCompletionSnapshot,
 } from "../../src/state/validation.ts";
-import { encodeStateValue } from "../../src/state/value.ts";
+import { encodeStateValue } from "../../src/state/operations.ts";
 import * as stateKernelLocks from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
 import { writeOwnedStateSnapshot } from "../../src/storage/publication.ts";

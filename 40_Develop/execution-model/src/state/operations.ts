@@ -1,10 +1,50 @@
 /**
- * State保存形式に共通するplain値の符号化と構造検査を所有する。
+ * Stateの主体IDと記録値の構築・捕捉・変換を所有する。
  * @responsibility モデル候補・保存・Authorityに依存せず同じ値処理を提供する。
  * @trace ARCH-000004、ARCH-000008
  */
 
 import { types } from "node:util";
+
+/** ローカル主体とAM主体を混同しない固定namespace。 */
+const LOCAL_EMAIL_PREFIX = "local.email.";
+
+/**
+ * 明示メールからローカル主体IDを構築する。
+ * @responsibility 同じ入力検査とprefixを使い、本人認証・正規化・OS探索を行わない。
+ * @trace ARCH-000008
+ * @input email: 入口が明示したローカル利用者のメール。
+ * @returns 同じメールを保持する主体ID、又は入力不正のnull。
+ * @precondition 主体を決める入口がメールを明示する。
+ * @postcondition メール本文をHash化・正規化・補完しない。
+ * @effect N/A: 同期の値構築だけ。
+ * @failure 型・形式不正はnull。別主体へfallbackしない。
+ * @invariant 保存やOSから主体を勝手に解決しない。
+ * @boundary ローカル主体の値契約。AM認証の証明ではない。
+ * @security IDの構築を認証・認可の証明にしない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+export function createLocalPrincipalId(email: unknown): string | null {
+  if (
+    typeof email !== "string" ||
+    email.length > 254 ||
+    !/^[^\s@<>\\\u0000-\u001f\u007f]+@[^\s@<>\\\u0000-\u001f\u007f]+$/u.test(
+      email,
+    )
+  )
+    return null;
+  return `${LOCAL_EMAIL_PREFIX}${email}`;
+}
+
+/** 主体の形式だけを確認する。予約prefixから既存形式へfallbackしない。 */
+export function isPrincipalId(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  if (value.startsWith(LOCAL_EMAIL_PREFIX))
+    return (
+      createLocalPrincipalId(value.slice(LOCAL_EMAIL_PREFIX.length)) === value
+    );
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value);
+}
 
 /**
  * 宣言したJSON値を再帰的なkey順序で一意に符号化する。

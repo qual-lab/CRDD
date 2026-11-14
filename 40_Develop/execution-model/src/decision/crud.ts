@@ -7,7 +7,7 @@
 import type { Repository } from "../../../version-control/src/index.ts";
 import { withSnapshotOperation, writeSnapshotOwned } from "../state/crud.ts";
 import { validId } from "../state/validation.ts";
-import { encodeStateValue } from "../state/value.ts";
+import { encodeStateValue } from "../state/operations.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import {

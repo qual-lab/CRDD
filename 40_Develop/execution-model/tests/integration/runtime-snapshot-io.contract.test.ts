@@ -57,7 +57,7 @@ import {
   encodeStateValue,
   isSha256Hex,
   snapshotStateRecord,
-} from "../../src/state/value.ts";
+} from "../../src/state/operations.ts";
 import {
   acquireExecutionStateLock,
   acquireSnapshotPilotLock,

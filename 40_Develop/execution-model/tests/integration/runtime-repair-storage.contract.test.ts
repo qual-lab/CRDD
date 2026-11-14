@@ -25,7 +25,7 @@ import type * as model from "../../src/index.ts";
 import * as domain from "../../src/index.ts";
 import * as stateStore from "../../src/index.ts";
 import { decodeStateSnapshot } from "../../src/state/validation.ts";
-import { encodeStateValue } from "../../src/state/value.ts";
+import { encodeStateValue } from "../../src/state/operations.ts";
 
 import * as kernel from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";

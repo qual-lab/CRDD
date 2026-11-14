@@ -10,7 +10,7 @@ import {
   hasExecutionStateRecordKeys,
   isSha256Hex,
   snapshotStateRecord,
-} from "../state/value.ts";
+} from "../state/operations.ts";
 import type { OperationResources } from "./types.ts";
 
 /**

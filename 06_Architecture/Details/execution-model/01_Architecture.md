@@ -132,7 +132,7 @@ ExecutionSelection、inspectExecutionSelection、TaskExecutionSelectionsと担�
 <a id="consumers"></a>
 ### 内部の責務構成
 
-`index.ts`と、objective／task／attempt／decision／workspace／state／historyの各`crud.ts`・`validation.ts`・`types.ts`、`attempt/operations.ts`・`history/operations.ts`・`state/value.ts`、`storage/store.ts`・`storage/lock.ts`・`storage/publication.ts`で構成する。各crudは完成操作の意味、validationは局所候補・検査、typesは契約を所有する。
+`index.ts`と、objective／task／attempt／decision／workspace／state／historyの各`crud.ts`・`validation.ts`・`types.ts`、`attempt/operations.ts`・`history/operations.ts`・`state/operations.ts`、`storage/store.ts`・`storage/lock.ts`・`storage/publication.ts`で構成する。各crudは完成操作の意味、validationは局所候補・検査、typesは契約を所有する。
 
 固定所在、共通File読取り／書込み、一時保存資源のI/Oは`storage/store.ts`、共通の排他取得・保持・解放と保存Ownerは`storage/lock.ts`が所有する。単一StateのCAS・保存／回復と、短命Mapに結合したEffect順序は`storage/publication.ts`が所有し、共通保存primitiveへ接続する。同Fileはrename／unlink等も発行するため、全物理I/Oをstoreへ集約したとは扱わない。短命Mapと一回使用ProtocolはWriterと一体で置く。`state/crud.ts`は同版の意味整合と候補の接続を所有し、重複Writerや中継だけのWrapperを作らない。
 
@@ -201,10 +201,12 @@ inspectSingleTaskRecordはQueueの保存・読取り内部に閉じる。単発�
 | Owner | 所有する処理 | 持たない依存 |
 |---|---|---|
 | `attempt/operations.ts` | 資源イベント・清掃観測の適用、Book構造と単調遷移 | State候補・CRUD・Storage |
-| `state/value.ts` | plain値の正規符号化、完全key／SHA-256文法、descriptorと記録取得 | 他モデル・全体候補・保存・Authority |
-| `state/validation.ts` | 複数モデルの同版整合と全State候補、主体値検査 | 資源値処理のためのAttempt CRUD、主体構築のためのState CRUD |
+| `state/operations.ts` | plain値の正規符号化、完全key／SHA-256文法、descriptorと記録取得、主体IDの構築・形式検査 | 他モデル・全体候補・保存・Authority |
+| `state/validation.ts` | 複数モデルの同版整合と全State候補 | 資源値処理のためのAttempt CRUD、主体構築のためのState CRUD |
 | `state/crud.ts` | 現在版の意味・取得と用途候補の接続 | 資源更新の別実装、物理Writerとその私有Map |
 | `storage/publication.ts` | 単一Writer／Lock／CAS・初期化・再入場・短命証拠の寿命 | Attempt／History CRUDへの実行時依存 |
+
+主体IDの固定prefixは`state/operations.ts`の私有定数とし、Decision／Taskの局所検査は同じ値処理を利用する。公開名・文法・保存形式は変えず、Decision検査のために全State検査をロードしない。Coordinatorでは初回受付で独立・凍結捕捉したSelectionを再利用する。再発行側・Resolver・保存／搬送入力の検査とHashの正規順は維持し、内部受渡しの省略を未信頼入力の無検査へ拡張しない。
 
 共有6値処理は実体を一か所に置き、内部Consumerが直接参照する。旧所在地の再export・公開Wrapperは作らない。公開100項目（65値・35型）、保存本文とHash、初回Intent／Receipt／正式未発行・不存在証拠、既知ID等の不変条件は変更しない。清掃観測の不明を不存在へ変換しない。
 

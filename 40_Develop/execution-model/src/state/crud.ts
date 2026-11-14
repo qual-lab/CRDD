@@ -112,7 +112,11 @@ import {
   validId,
   validSnapshot,
 } from "./validation.ts";
-import { encodeStateValue, isSha256Hex, snapshotStateRecord } from "./value.ts";
+import {
+  encodeStateValue,
+  isSha256Hex,
+  snapshotStateRecord,
+} from "./operations.ts";
 
 /**
  * Coordinatorの現在状態・Queue・Leaseを単一Snapshotへ保存する。

@@ -1141,11 +1141,15 @@ Native親の認証unknown反例はsnapshot-recovery-owner.tsへ移し、実Write
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
 
+## 主体値と捕捉済み選定の受渡し — 2026-11-14
+
+主体値の配置と捕捉済み選定の再利用について、RCM-IT-005は新品Nodeで全State検査・保存層の解決を拒否し、主体値とDecision検査の独立ロードを確認する。RCM-UT-001は初回捕捉値と再発行値の比較、キー順差、未知field、Provider／Model／操作相関差、元封筒の変更を反証する。PRL-UT-006は内部callbackが同じ捕捉値を渡すことと、認可失効・Root差・取消で実行しないこと、不正Resolver返却がID発行・保存・実行前に拒否されることを確認する。有限代役による受付確認を実保存・実Provider実行の証明にはしない。
+
 ## 修復49ケースの共有前提と独立状態 — 2026-11-14
 
 ERB-IT-014のruntime-repair-resultは、真正な不変Repository／Root／Revision／保存Identityと未束縛Source factoryを一回準備し、49故障組合せを個別名で直列に実行する。元の初回経路・故障点と93静的assert式を保ち、State／History・Owner／Abort・故障設定・counterを各ケースで新規構築する。実EM Reader／Writer・共通Lock・CAS・保存前後の順序確認を維持する。Root等の固定投影は既知のexact要求と真正capabilityに限定し、未知要求と明示Revisionは実処理へ委譲する。Git変更検出は別の実Root試験を担当とする。
 
-各ケースで実Lock／pendingの不存在、有限Sessionの未joinなし、Owner失効と自己生成保存領域の回収を確認する。旧出版markerは作成せず、注入した不明・失敗を清掃で成功へ変換しない。全49名・基準assert式との対応、個別選択が1件だけを実行すること、case間の状態混入なしを限定回帰と独立レビューで確認する。旧53分の結果と新構成の結果を区別し、全体回帰・実AI／Dockerの成立へ拡張しない。
+各ケースで実Lock／pendingの不存在、有限Sessionの未joinなし、Owner失効と自己生成保存領域の回収を確認する。旧出版markerは作成せず、注入した不明・失敗を清掃で成功へ変換しない。全49名・基準assert式との対応、個別選択が1件だけを実行すること、case間の状態混入なしを限定回帰と独立レビューで確認する。追加の履歴保存故障20条件・保持済み再入場5条件も同じ不変準備と直列guardへ接続し、元の全assert・初回/再入場経路を維持した25個別登録と単件選択を確認する。旧53分、および追加2群の旧約28分/約10分と新構成の結果を区別し、全体回帰・実AI／Dockerの成立へ拡張しない。
 
 
 ## 資源値操作の保存非依存 — 2026-11-14
@@ -1202,4 +1206,4 @@ PRL-IT-013の受付実保存・取消／Owner喪失・受付前後停止は統�
 
 ERB-IT-014の局所Source反証で、元before／candidate・exact回復参照・Repository結合、fresh Readerの引数、Owner三位置の拒否／例外、分類拒否、Reader不明、片方の本文差によるEffect0を確認する。ERB-UT-036は共通Request捕捉に新種別を追加しても他種別へpublicationを混在させられないこと、nested getterを実行しないことを確認する。
 
-Coの現在状態／pending再入場の実保存Suiteは、新しい完成保存入口へ実Root・旧比較pair・同Owner callbackを接続し、元byte・marker保全、Owner拒否位置、保存後fresh照合を確認する。公開名削減だけを根拠に元pair照合の撤去や異常時の自動再試行を認めない。
+Coの現在状態／pending再入場の実保存Suiteは、新しい完成保存入口へ実Root・旧比較pair・同Owner callbackを接続し、元byteと未知残存の保全、Owner拒否位置、保存後fresh照合を確認する。公開名削減だけを根拠に元pair照合の撤去や異常時の自動再試行を認めない。
