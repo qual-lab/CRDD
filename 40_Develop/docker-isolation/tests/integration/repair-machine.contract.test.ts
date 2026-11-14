@@ -1,13 +1,15 @@
 /**
  * 修復Machineの八処置・通知・取消と技術的な切断窓を反証する。
  * @packageDocumentation
- * @responsibility DIの実Machineと技術値契約を確認し、Domain保存受理との比較はDomain側ITに分離する。
+ * @responsibility DIの実Machineと技術値契約を独立期待値で確認し、保存接続はCoordinator側へ分離する。
  * @trace ERB-IT-014
  * @level IT
  * @scope 内部Machineと有限技術代役。実Docker・Provider要求0。
  * @boundary 修復Machine→技術通知・実行代役。保存Schema・実OS操作の成立は主張しない。
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import * as technicalContract from "../../src/docker-desktop/validation.ts";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
@@ -1051,4 +1053,354 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
     await verify(executeRepairSteps);
     await assert.rejects(() => verify(mutant), /fresh_observation_started/u);
   }
+});
+
+/**
+ * 修復値の全field母集団を、他Ownerのdecoderではなく独立した受理表へ照合する。
+ * @responsibility 欠測・余剰・置換・実行Propertyの拒否と合法な置換の出力を区別する。
+ * @trace ERB-IT-014
+ * @precondition 固定4profileは非秘密の期待DTOとして構成し、実装から生成しない。
+ * @stimulus 全Objectパスと全fieldへ元の15置換値・欠測・getter・Proxyを与える。
+ * @observation 受理値・凍結・独立参照とhook未評価。
+ * @oracle profile別literal表の受理時だけ入力と同じDTO、その他はnull。
+ * @cleanup 値のみ。Process・File・Docker・保存を使わない。
+ * @boundary DI技術モデルの値契約。保存や実処置の成立は主張しない。
+ */
+test("修復技術codecは全field母集団を独立期待値で検証する", () => {
+  const actionNames = [
+    "stop_runtime",
+    "stop_backend",
+    "retain_runtime",
+    "start_runtime",
+    "stop_failed_runtime",
+    "retain_failed_runtime",
+    "retain_auxiliary_runtime",
+    "restart_runtime",
+  ] as const;
+  const purposes = ["primary", "failed", "auxiliary"] as const;
+  const checkpoint = (continuation: boolean) => ({
+    actions: Object.fromEntries(
+      actionNames.map((name, index) => [
+        name,
+        continuation && (index === 2 || index === 3)
+          ? { intent: "saved", request: "issued", result: "confirmed" }
+          : {
+              intent: "not_saved",
+              request: "not_issued",
+              result: continuation && index < 4 ? "not_required" : "unobserved",
+            },
+      ]),
+    ),
+    directories: Object.fromEntries(
+      purposes.map((name) => [
+        name,
+        {
+          expected:
+            continuation && name === "primary"
+              ? { dev: "1", ino: "4", birthtimeNs: "3" }
+              : null,
+          source: { state: "absent", identity: null },
+          retained:
+            continuation && name === "primary"
+              ? {
+                  state: "present",
+                  identity: { dev: "1", ino: "4", birthtimeNs: "3" },
+                }
+              : { state: "absent", identity: null },
+        },
+      ]),
+    ),
+    engine: "unavailable",
+    stale: continuation ? "retained" : "absent",
+    hostSafety: "safe",
+    cleanup: "pending",
+    cleanupFailure: null,
+  });
+  const profiles = [
+    {
+      decode: technicalContract.decodeRepairCheckpoint,
+      base: checkpoint(false),
+      kind: "initial",
+    },
+    {
+      decode: technicalContract.decodeRepairCheckpoint,
+      base: checkpoint(true),
+      kind: "continuation",
+    },
+    {
+      decode: technicalContract.decodeRepairDisposalCheckpoint,
+      base: {
+        directories: Object.fromEntries(
+          purposes.map((name) => [
+            name,
+            {
+              intent: "not_saved",
+              request: "not_issued",
+              absence: "unobserved",
+            },
+          ]),
+        ),
+      },
+      kind: "disposal",
+    },
+    {
+      decode: technicalContract.decodeRepairRetentionTargets,
+      base: {
+        primary: { dev: "1", ino: "2", birthtimeNs: "3" },
+        failed: null,
+        auxiliary: null,
+      },
+      kind: "targets",
+    },
+  ] as const;
+  const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+  const frozen = (value: unknown): void => {
+    if (!value || typeof value !== "object") return;
+    assert.equal(Object.isFrozen(value), true);
+    for (const child of Object.values(value)) frozen(child);
+  };
+  const corpus: string[] = [];
+  for (const profile of profiles) {
+    const { decode, base, kind } = profile;
+    const allowed = new Map<string, readonly unknown[]>();
+    const allow = (field: string, ...values: unknown[]) =>
+      allowed.set(field, values);
+    if (kind === "initial" || kind === "continuation") {
+      allow("engine", "unknown", "ready");
+      if (kind === "initial") allow("stale", "absent");
+      allow("hostSafety", "unknown");
+      allow("cleanup", "pending", "confirmed", "unknown");
+      allow("cleanupFailure", null);
+      for (const [index, name] of actionNames.entries()) {
+        if (index === 0 || (kind === "continuation" && index <= 4))
+          allow("actions." + name + ".intent", "saved");
+        if (kind === "continuation" && (index === 2 || index === 3)) {
+          allow("actions." + name + ".request", "issued");
+          // 後処置start_runtimeがsavedの継続profileでは、先行retainの未確定化は不正。
+          allow(
+            "actions." + name + ".result",
+            ...(index === 2 ? ["confirmed"] : ["unknown", "confirmed"]),
+          );
+        }
+      }
+      for (const purpose of purposes) {
+        const prefix = "directories." + purpose;
+        const retained = kind === "continuation" && purpose === "primary";
+        if (!retained) {
+          allow(prefix + ".expected", null);
+          allow(prefix + ".retained.identity", null);
+        }
+        allow(prefix + ".source.identity", null);
+        allow(
+          prefix + ".source.state",
+          ...(retained ? ["absent"] : ["unknown", "absent"]),
+        );
+        allow(
+          prefix + ".retained.state",
+          ...(retained
+            ? ["present"]
+            : kind === "continuation"
+              ? ["unknown", "absent"]
+              : ["absent"]),
+        );
+      }
+    } else if (kind === "disposal") {
+      for (const purpose of purposes)
+        allow("directories." + purpose + ".intent", "saved");
+    } else {
+      for (const purpose of purposes) allow(purpose, null);
+    }
+    const check = (value: unknown, expected: unknown = null) => {
+      const actual = decode(value);
+      assert.deepEqual(actual, expected, kind + ":" + corpus.at(-1));
+      frozen(actual);
+      if (actual && value && typeof value === "object")
+        assert.notEqual(actual, value);
+      return actual;
+    };
+    check(base, base);
+    for (const [index, value] of [
+      null,
+      undefined,
+      false,
+      0,
+      "unknown",
+      [],
+      {},
+      new Proxy(
+        {},
+        {
+          get() {
+            throw Error("proxy_read");
+          },
+        },
+      ),
+    ].entries()) {
+      corpus.push(kind + ":root:" + index);
+      check(value);
+    }
+    const paths: string[][] = [[]];
+    for (let index = 0; index < paths.length; index++) {
+      let object: unknown = base;
+      for (const key of paths[index] ?? [])
+        object = (object as Record<string, unknown>)[key];
+      if (!object || typeof object !== "object") continue;
+      for (const key of Object.keys(object)) {
+        const value = (object as Record<string, unknown>)[key];
+        if (value && typeof value === "object")
+          paths.push([...(paths[index] ?? []), key]);
+      }
+    }
+    for (const at of paths) {
+      const mutate = (change: (record: Record<string, unknown>) => void) => {
+        const value = copy(base);
+        let record: unknown = value;
+        for (const key of at) record = (record as Record<string, unknown>)[key];
+        change(record as Record<string, unknown>);
+        return value;
+      };
+      corpus.push(kind + ":" + at.join(".") + ":extra");
+      check(
+        mutate((record) => {
+          record.unexpected = true;
+        }),
+      );
+      let original: unknown = base;
+      for (const key of at)
+        original = (original as Record<string, unknown>)[key];
+      for (const key of Object.keys(original as object)) {
+        const field = [...at, key].join(".");
+        corpus.push(kind + ":" + field + ":missing");
+        check(
+          mutate((record) => {
+            delete record[key];
+          }),
+        );
+        for (const [index, invalid] of [
+          undefined,
+          null,
+          false,
+          0,
+          "invalid",
+          [],
+          {},
+          "saved",
+          "issued",
+          "unknown",
+          "confirmed",
+          "pending",
+          "ready",
+          "absent",
+          "present",
+        ].entries()) {
+          corpus.push(kind + ":" + field + ":replace:" + index);
+          const value = mutate((record) => {
+            record[key] = invalid;
+          });
+          check(
+            value,
+            allowed.get(field)?.some((v) => Object.is(v, invalid))
+              ? value
+              : null,
+          );
+        }
+        let reads = 0;
+        corpus.push(kind + ":" + field + ":getter");
+        check(
+          mutate((record) => {
+            Object.defineProperty(record, key, {
+              enumerable: true,
+              get() {
+                reads++;
+                throw Error("accessor_read");
+              },
+            });
+          }),
+        );
+        assert.equal(reads, 0);
+        corpus.push(kind + ":" + field + ":proxy");
+        check(
+          mutate((record) => {
+            record[key] = new Proxy(
+              {},
+              {
+                get() {
+                  reads++;
+                  throw Error("proxy_read");
+                },
+              },
+            );
+          }),
+        );
+        assert.equal(reads, 0);
+      }
+    }
+    const mutable = copy(base),
+      observed = check(mutable, base);
+    (mutable as Record<string, unknown>).unexpected = true;
+    assert.deepEqual(observed, base);
+  }
+  assert.equal(
+    createHash("sha256").update(corpus.join("\n")).digest("hex"),
+    "e9026a98858c8e37c2b5ad75758fe1e47ff780bed21b6785acc84269008ab30c",
+  );
+});
+
+/**
+ * 実Machine通知の全fieldと遷移・終端・新Session条件を技術Ownerで検証する。
+ * @responsibility 通常／限定継続の通知列を保存モデルへ依存させない。
+ * @trace ERB-IT-014
+ * @precondition 既存の有限技術fixtureだけを使用する。
+ * @stimulus prefix0とprefix4継続を実Machineへ渡す。
+ * @observation 独立凍結DTO、各通知辺、終端とSession準備、廃棄不正辺。
+ * @oracle 元の全通知を受理し、結果が確認済み又は明示不要の場合だけ処置終端。
+ * @cleanup メモリのみ。実Docker・保存・外部Processなし。
+ * @boundary 技術通知だけ。保存の接続はCoが検証する。
+ */
+test("修復Machine通知は正常・継続で技術値とSession条件を保つ", async () => {
+  for (const prefix of [0, 4]) {
+    const f = createRepairMachineFixture(prefix, prefix === 4);
+    await executeRepairSteps(f.input, f.technical);
+    let before = f.input.checkpoint;
+    assert.ok(f.calls.notifications.length > 0);
+    for (const next of f.calls.notifications) {
+      assert.deepEqual(technicalContract.decodeRepairCheckpoint(next), next);
+      assert.equal(
+        technicalContract.validateRepairCheckpointTransition(before, next),
+        true,
+      );
+      const settled = Object.values(next.actions).every((action) =>
+        ["confirmed", "not_required"].includes(action.result),
+      );
+      assert.equal(technicalContract.isRepairCheckpointSettled(next), settled);
+      assert.equal(
+        technicalContract.prepareRepairSessionCheckpoint(next),
+        null,
+      );
+      assert.equal(
+        technicalContract.validateRepairSessionCheckpoint(before, next),
+        false,
+      );
+      before = next;
+    }
+  }
+  const disposal = technicalContract.createRepairDisposalCheckpoint();
+  for (const purpose of ["primary", "failed", "auxiliary"] as const)
+    for (const request of ["not_issued", "issued", "unknown"] as const) {
+      const next = JSON.parse(JSON.stringify(disposal));
+      Object.assign(next.directories[purpose], {
+        intent: "saved",
+        request,
+        absence: "unknown",
+      });
+      assert.equal(
+        technicalContract.validateRepairDisposalTransition(
+          disposal,
+          next,
+          purpose,
+        ),
+        false,
+      );
+      assert.equal(technicalContract.isRepairDisposalSettled(next), false);
+    }
 });

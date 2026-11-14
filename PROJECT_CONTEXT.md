@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+EMの最終Logicalレビューとして、修復値検査をEM／DIそれぞれの独立DTO・受理表へ分離し、両者の接続と回復ID比較をCoordinatorの公開保存試験へ集約した。2,799入力の観点・八処置遷移・通知／Session条件は維持し、製品Source・Root93項目・保存形式は不変更。限定25試験と3Packageの型検査は成功。Architectureは現行モデルと責務中心へ再構成し、過去の説明をCHGへ分離した。独立レビューのリンク3箇所を是正し、技術・QAの再確認で必須残指摘0。追加承認により既存Workbench試験の実行条件登録漏れも台帳1行だけで是正し、台帳418項目の整合検査と関連2試験が成功した。試験の一括起動ではなく、全体回帰・実AI・Docker・過去保持物は対象外。[今回の範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「最終Logicalレビュー後の試験Owner整理」を参照する。
+
 EMの共通値処理と履歴候補の所有境界を整理した。Task専用参照はTask validationへ局所化して同文法の三nullable処理を統合し、History専用Object／時刻検査も私有化した。履歴追記候補はHistory validationが所有し、StorageにはOwner・同版・保持・pending／fresh・物理出版を残す。公開93項目・保存形式・既存保証は不変。限定65試験と実保存5親・Co継続判断代表1親、両型検査・独立レビューの必須残指摘0を確認した。コミット前にも限定65試験・型／整形／警告・独立最終確認が成功し、実装不変の実保存6親は既存結果を使用する。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「共通値処理と履歴候補の所有境界」を参照する。
 
 EM公開補助三系統の調査を受け、独立した未信頼入力・搬送・Host認証記録の検査は維持し、同じ受付内の重複だけを整理した。資源更新は次Bookの検査を遷移へ一意化、Co二役選定は同じ検査済み設定を共有、私有Objective実行は受付済みPlanとexact参照一致の場合だけ再利用する。公開93項目・保存形式・Effect順は不変。限定57試験・EM／Co型検査・独立レビューの必須残指摘0を確認した。コミット前にも限定55試験・型／整形／警告・独立最終確認が成功し、受付IT2親は実装不変の既存結果を使用する。全体回帰・実AI・Docker・過去保持物は対象外。[範囲と結果](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)の「受付済み値の重複検査整理」を参照する。

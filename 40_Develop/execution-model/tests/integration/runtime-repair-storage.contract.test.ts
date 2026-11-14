@@ -1,11 +1,11 @@
 /**
- * 修復履歴の保存・出版・種別相関とDI技術通知の保存受理をDomain Ownerで反証する。
+ * 修復履歴の保存・出版・種別相関と保存codecをEM自身の期待値で反証する。
  * @packageDocumentation
  * @responsibility 専用Owner、fresh読取り、五有限形、故障窓と非対象保全を所有する。
  * @trace ERB-IT-014
  * @level IT
- * @scope 合成技術値・有限Machine通知と自己生成Repositoryの実保存。実修復Sessionは使用しない。
- * @boundary Domain保存と実Filesystem／共通Lock、DI技術値との独立比較。実Host／Docker処置は対象外。
+ * @scope 独立した保存DTOの全field反証と自己生成Repositoryの実保存。DI実装は使用しない。
+ * @boundary EM保存と実Filesystem／共通Lock。技術Producerとの接続はCoordinatorが所有する。
  */
 
 import assert from "node:assert/strict";
@@ -14,10 +14,6 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { executeRepairSteps } from "../../../docker-isolation/src/docker-desktop/repair.ts";
-import * as technicalContract from "../../../docker-isolation/src/docker-desktop/validation.ts";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
-import { createRepairMachineFixture } from "../../../docker-isolation/tests/support/repair-machine.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import * as storedContract from "../../src/attempt/validation.ts";
 import { decodeHistoryRows } from "../../src/history/validation.ts";
@@ -1875,61 +1871,170 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
 });
 
 /**
- * DI通知契約と上位保存受理契約を相互依存なしに照合する。
- * @responsibility 型一致だけでなく全fieldの閉形式・遷移・通知列・不変値を反証する。
+ * 修復値の全field母集団を、他Ownerのdecoderではなく独立した受理表へ照合する。
+ * @responsibility 欠測・余剰・置換・実行Propertyの拒否と合法な置換の出力を区別する。
  * @trace ERB-IT-014
- * @precondition 合成checkpointと本番Machineの模擬技術境界だけを使う。
- * @stimulus 欠測・余剰・enum差・Proxy・Accessorと正常通知列を同じ入力で比較する。
- * @observation 両decoderの拒否又はexact値、凍結、元入力との分離、遷移判定。
- * @oracle 保存受理と技術通知が同値で、いずれも資源観測の代用にしない。
- * @cleanup N/A: Process・File・Docker・保存を使わない。
- * @boundary 技術DTOと保存Schemaは別Ownerのまま値契約だけを結合する。
+ * @precondition 固定4profileは非秘密の期待DTOとして構成し、実装から生成しない。
+ * @stimulus 全Objectパスと全fieldへ元の15置換値・欠測・getter・Proxyを与える。
+ * @observation 受理値・凍結・独立参照とhook未評価。
+ * @oracle profile別literal表の受理時だけ入力と同じDTO、その他はnull。
+ * @cleanup 値のみ。Process・File・Docker・保存を使わない。
+ * @boundary EM保存モデルの値契約。保存や実処置の成立は主張しない。
  */
-test("技術checkpointと保存受理は異常入力・全field・通知遷移で一致する", async () => {
+test("修復保存codecは全field母集団を独立期待値で検証する", () => {
+  const actionNames = [
+    "stop_runtime",
+    "stop_backend",
+    "retain_runtime",
+    "start_runtime",
+    "stop_failed_runtime",
+    "retain_failed_runtime",
+    "retain_auxiliary_runtime",
+    "restart_runtime",
+  ] as const;
+  const purposes = ["primary", "failed", "auxiliary"] as const;
+  const checkpoint = (continuation: boolean) => ({
+    actions: Object.fromEntries(
+      actionNames.map((name, index) => [
+        name,
+        continuation && (index === 2 || index === 3)
+          ? { intent: "saved", request: "issued", result: "confirmed" }
+          : {
+              intent: "not_saved",
+              request: "not_issued",
+              result: continuation && index < 4 ? "not_required" : "unobserved",
+            },
+      ]),
+    ),
+    directories: Object.fromEntries(
+      purposes.map((name) => [
+        name,
+        {
+          expected:
+            continuation && name === "primary"
+              ? { dev: "1", ino: "4", birthtimeNs: "3" }
+              : null,
+          source: { state: "absent", identity: null },
+          retained:
+            continuation && name === "primary"
+              ? {
+                  state: "present",
+                  identity: { dev: "1", ino: "4", birthtimeNs: "3" },
+                }
+              : { state: "absent", identity: null },
+        },
+      ]),
+    ),
+    engine: "unavailable",
+    stale: continuation ? "retained" : "absent",
+    hostSafety: "safe",
+    cleanup: "pending",
+    cleanupFailure: null,
+  });
+  const profiles = [
+    {
+      decode: storedContract.decodeEnvironmentRepairCheckpoint,
+      base: checkpoint(false),
+      kind: "initial",
+    },
+    {
+      decode: storedContract.decodeEnvironmentRepairCheckpoint,
+      base: checkpoint(true),
+      kind: "continuation",
+    },
+    {
+      decode: storedContract.decodeEnvironmentRepairDisposalCheckpoint,
+      base: {
+        directories: Object.fromEntries(
+          purposes.map((name) => [
+            name,
+            {
+              intent: "not_saved",
+              request: "not_issued",
+              absence: "unobserved",
+            },
+          ]),
+        ),
+      },
+      kind: "disposal",
+    },
+    {
+      decode: storedContract.decodeEnvironmentRepairRetentionTargets,
+      base: {
+        primary: { dev: "1", ino: "2", birthtimeNs: "3" },
+        failed: null,
+        auxiliary: null,
+      },
+      kind: "targets",
+    },
+  ] as const;
   const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
   const frozen = (value: unknown): void => {
     if (!value || typeof value !== "object") return;
     assert.equal(Object.isFrozen(value), true);
     for (const child of Object.values(value)) frozen(child);
   };
-  const pairs = [
-    [
-      technicalContract.decodeRepairCheckpoint,
-      storedContract.decodeEnvironmentRepairCheckpoint,
-      createRepairMachineFixture().input.checkpoint,
-    ],
-    [
-      technicalContract.decodeRepairCheckpoint,
-      storedContract.decodeEnvironmentRepairCheckpoint,
-      createRepairMachineFixture(4, true).input.checkpoint,
-    ],
-    [
-      technicalContract.decodeRepairDisposalCheckpoint,
-      storedContract.decodeEnvironmentRepairDisposalCheckpoint,
-      technicalContract.createRepairDisposalCheckpoint(),
-    ],
-    [
-      technicalContract.decodeRepairRetentionTargets,
-      storedContract.decodeEnvironmentRepairRetentionTargets,
-      {
-        primary: { dev: "1", ino: "2", birthtimeNs: "3" },
-        failed: null,
-        auxiliary: null,
-      },
-    ],
-  ] as const;
-  for (const [technical, stored, base] of pairs) {
-    const check = (value: unknown) => {
-      const a = technical(value),
-        b = stored(value);
-      assert.deepEqual(a, b);
-      frozen(a);
-      frozen(b);
-      if (a && value && typeof value === "object") assert.notEqual(a, value);
-      return a;
+  const corpus: string[] = [];
+  for (const profile of profiles) {
+    const { decode, base, kind } = profile;
+    const allowed = new Map<string, readonly unknown[]>();
+    const allow = (field: string, ...values: unknown[]) =>
+      allowed.set(field, values);
+    if (kind === "initial" || kind === "continuation") {
+      allow("engine", "unknown", "ready");
+      if (kind === "initial") allow("stale", "absent");
+      allow("hostSafety", "unknown");
+      allow("cleanup", "pending", "confirmed", "unknown");
+      allow("cleanupFailure", null);
+      for (const [index, name] of actionNames.entries()) {
+        if (index === 0 || (kind === "continuation" && index <= 4))
+          allow("actions." + name + ".intent", "saved");
+        if (kind === "continuation" && (index === 2 || index === 3)) {
+          allow("actions." + name + ".request", "issued");
+          // 後処置start_runtimeがsavedの継続profileでは、先行retainの未確定化は不正。
+          allow(
+            "actions." + name + ".result",
+            ...(index === 2 ? ["confirmed"] : ["unknown", "confirmed"]),
+          );
+        }
+      }
+      for (const purpose of purposes) {
+        const prefix = "directories." + purpose;
+        const retained = kind === "continuation" && purpose === "primary";
+        if (!retained) {
+          allow(prefix + ".expected", null);
+          allow(prefix + ".retained.identity", null);
+        }
+        allow(prefix + ".source.identity", null);
+        allow(
+          prefix + ".source.state",
+          ...(retained ? ["absent"] : ["unknown", "absent"]),
+        );
+        allow(
+          prefix + ".retained.state",
+          ...(retained
+            ? ["present"]
+            : kind === "continuation"
+              ? ["unknown", "absent"]
+              : ["absent"]),
+        );
+      }
+    } else if (kind === "disposal") {
+      for (const purpose of purposes)
+        allow("directories." + purpose + ".intent", "saved");
+    } else {
+      for (const purpose of purposes) allow(purpose, null);
+    }
+    const check = (value: unknown, expected: unknown = null) => {
+      const actual = decode(value);
+      assert.deepEqual(actual, expected, kind + ":" + corpus.at(-1));
+      frozen(actual);
+      if (actual && value && typeof value === "object")
+        assert.notEqual(actual, value);
+      return actual;
     };
-    assert.ok(check(base));
-    for (const value of [
+    check(base, base);
+    for (const [index, value] of [
       null,
       undefined,
       false,
@@ -1945,18 +2050,20 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
           },
         },
       ),
-    ])
+    ].entries()) {
+      corpus.push(kind + ":root:" + index);
       check(value);
+    }
     const paths: string[][] = [[]];
-    for (let i = 0; i < paths.length; i++) {
+    for (let index = 0; index < paths.length; index++) {
       let object: unknown = base;
-      for (const key of paths[i] ?? [])
+      for (const key of paths[index] ?? [])
         object = (object as Record<string, unknown>)[key];
       if (!object || typeof object !== "object") continue;
       for (const key of Object.keys(object)) {
-        const next = [...(paths[i] ?? []), key];
         const value = (object as Record<string, unknown>)[key];
-        if (value && typeof value === "object") paths.push(next);
+        if (value && typeof value === "object")
+          paths.push([...(paths[index] ?? []), key]);
       }
     }
     for (const at of paths) {
@@ -1967,6 +2074,7 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
         change(record as Record<string, unknown>);
         return value;
       };
+      corpus.push(kind + ":" + at.join(".") + ":extra");
       check(
         mutate((record) => {
           record.unexpected = true;
@@ -1976,12 +2084,14 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
       for (const key of at)
         original = (original as Record<string, unknown>)[key];
       for (const key of Object.keys(original as object)) {
+        const field = [...at, key].join(".");
+        corpus.push(kind + ":" + field + ":missing");
         check(
           mutate((record) => {
             delete record[key];
           }),
         );
-        for (const invalid of [
+        for (const [index, invalid] of [
           undefined,
           null,
           false,
@@ -1997,13 +2107,20 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
           "ready",
           "absent",
           "present",
-        ])
+        ].entries()) {
+          corpus.push(kind + ":" + field + ":replace:" + index);
+          const value = mutate((record) => {
+            record[key] = invalid;
+          });
           check(
-            mutate((record) => {
-              record[key] = invalid;
-            }),
+            value,
+            allowed.get(field)?.some((v) => Object.is(v, invalid))
+              ? value
+              : null,
           );
+        }
         let reads = 0;
+        corpus.push(kind + ":" + field + ":getter");
         check(
           mutate((record) => {
             Object.defineProperty(record, key, {
@@ -2016,6 +2133,7 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
           }),
         );
         assert.equal(reads, 0);
+        corpus.push(kind + ":" + field + ":proxy");
         check(
           mutate((record) => {
             record[key] = new Proxy(
@@ -2033,122 +2151,152 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
       }
     }
     const mutable = copy(base),
-      before = check(mutable);
-    (mutable as unknown as Record<string, unknown>).unexpected = true;
-    assert.deepEqual(before, stored(base));
+      observed = check(mutable, base);
+    (mutable as Record<string, unknown>).unexpected = true;
+    assert.deepEqual(observed, base);
   }
-  for (const prefix of [0, 4]) {
-    const f = createRepairMachineFixture(prefix, prefix === 4);
-    await executeRepairSteps(f.input, f.technical);
-    let before = f.input.checkpoint;
-    for (const next of f.calls.notifications) {
-      assert.deepEqual(
-        technicalContract.decodeRepairCheckpoint(next),
-        storedContract.decodeEnvironmentRepairCheckpoint(next),
-      );
+  assert.equal(
+    createHash("sha256").update(corpus.join("\n")).digest("hex"),
+    "e9026a98858c8e37c2b5ad75758fe1e47ff780bed21b6785acc84269008ab30c",
+  );
+});
+
+/**
+ * 保存モデルの通知辺・終端・新Session準備を独立した状態列で確認する。
+ * @responsibility 各slotの意図→発行→確定と回収巻戻し拒否をDIなしで反証する。
+ * @trace ERB-IT-014
+ * @precondition 前slotは明示不要、後slotは未観測の固定DTOを使う。
+ * @stimulus 八slotの三段階、回収済み状態と三用途の不正な初回進捗。
+ * @observation 復号値、遷移・終端・Session候補の結果。
+ * @oracle 各合法辺はtrue、処置終端は最終slot確定後のみ。新Sessionだけcleanupをpendingへ戻す。
+ * @cleanup メモリ値のみ。DI・保存・外部Processを使用しない。
+ * @boundary EM自身の保存値契約。
+ */
+test("修復保存値の八処置辺・終端・Sessionと廃棄条件を独立検証する", () => {
+  const actions = [
+    "stop_runtime",
+    "stop_backend",
+    "retain_runtime",
+    "start_runtime",
+    "stop_failed_runtime",
+    "retain_failed_runtime",
+    "retain_auxiliary_runtime",
+    "restart_runtime",
+  ] as const;
+  const purposes = ["primary", "failed", "auxiliary"] as const;
+  for (const [index, action] of actions.entries()) {
+    const raw = {
+      actions: Object.fromEntries(
+        actions.map((name, position) => [
+          name,
+          {
+            intent: "not_saved",
+            request: "not_issued",
+            result: position < index ? "not_required" : "unobserved",
+          },
+        ]),
+      ),
+      directories: Object.fromEntries(
+        purposes.map((name) => [
+          name,
+          {
+            expected: null,
+            source: { state: "absent", identity: null },
+            retained: { state: "absent", identity: null },
+          },
+        ]),
+      ),
+      engine: "unavailable",
+      stale: "absent",
+      hostSafety: "safe",
+      cleanup: "pending",
+      cleanupFailure: null,
+    };
+    let previous = storedContract.decodeEnvironmentRepairCheckpoint(raw);
+    assert.ok(previous);
+    assert.deepEqual(previous, raw);
+    for (const state of [
+      { intent: "saved", request: "not_issued", result: "unobserved" },
+      { intent: "saved", request: "issued", result: "unobserved" },
+      { intent: "saved", request: "issued", result: "confirmed" },
+    ]) {
+      const expected = JSON.parse(JSON.stringify(previous));
+      Object.assign(expected.actions[action], state);
+      if (state.result === "confirmed" && action.startsWith("retain_")) {
+        const purpose =
+          action === "retain_runtime"
+            ? "primary"
+            : action === "retain_failed_runtime"
+              ? "failed"
+              : "auxiliary";
+        const identity = { dev: "1", ino: String(index + 1), birthtimeNs: "3" };
+        expected.directories[purpose] = {
+          expected: identity,
+          source: { state: "absent", identity: null },
+          retained: { state: "present", identity },
+        };
+        expected.stale = "retained";
+      }
+      const next = storedContract.decodeEnvironmentRepairCheckpoint(expected);
+      assert.ok(next);
+      assert.deepEqual(next, expected);
       assert.equal(
-        technicalContract.validateRepairCheckpointTransition(before, next),
         storedContract.validateEnvironmentRepairCheckpointTransition(
-          before,
+          previous,
           next,
         ),
+        true,
       );
       assert.equal(
-        technicalContract.isRepairCheckpointSettled(next),
         storedContract.isRepairCheckpointSettled(next),
-      );
-      assert.deepEqual(
-        technicalContract.prepareRepairSessionCheckpoint(next),
-        storedContract.prepareEnvironmentRepairSessionCheckpoint(next),
+        index === 7 && state.result === "confirmed",
       );
       assert.equal(
-        technicalContract.validateRepairSessionCheckpoint(before, next),
-        storedContract.prepareEnvironmentRepairSessionCheckpoint(before) !==
-          null &&
-          JSON.stringify(
-            storedContract.prepareEnvironmentRepairSessionCheckpoint(before),
-          ) ===
-            JSON.stringify(
-              storedContract.decodeEnvironmentRepairCheckpoint(next),
-            ),
+        storedContract.prepareEnvironmentRepairSessionCheckpoint(next),
+        null,
       );
-      before = next;
+      previous = next;
     }
+    const completed = { ...previous, cleanup: "confirmed" };
+    const fresh = { ...completed, cleanup: "pending" };
+    assert.deepEqual(
+      storedContract.prepareEnvironmentRepairSessionCheckpoint(completed),
+      fresh,
+    );
+    assert.equal(
+      storedContract.validateEnvironmentRepairCheckpointTransition(
+        completed,
+        fresh,
+      ),
+      false,
+    );
   }
-  const disposal = technicalContract.createRepairDisposalCheckpoint();
-  for (const purpose of technicalContract.directories) {
+  const disposal = {
+    directories: Object.fromEntries(
+      purposes.map((name) => [
+        name,
+        { intent: "not_saved", request: "not_issued", absence: "unobserved" },
+      ]),
+    ),
+  };
+  for (const purpose of purposes)
     for (const request of ["not_issued", "issued", "unknown"] as const) {
-      const next = copy(disposal);
+      const next = JSON.parse(JSON.stringify(disposal));
       Object.assign(next.directories[purpose], {
         intent: "saved",
         request,
         absence: "unknown",
       });
       assert.equal(
-        technicalContract.validateRepairDisposalTransition(
+        storedContract.validateEnvironmentRepairDisposalTransition(
           disposal,
           next,
           purpose,
         ),
         false,
       );
-      assert.equal(
-        technicalContract.isRepairDisposalSettled(next),
-        storedContract.isRepairDisposalSettled(next),
-      );
+      assert.equal(storedContract.isRepairDisposalSettled(next), false);
     }
-  }
-});
-
-/**
- * Docker Task回復参照の技術文法と保存受理を照合する。
- * @responsibility Probe tokenとの混同や成分の正規化を追加しない。
- * @trace ERB-IT-014
- * @precondition メモリ内の有限な文字列だけを使用する。
- * @stimulus 各成分の長短・大文字・欠測・追加・非文字列。
- * @observation null又は元tokenとexact三成分。
- * @oracle 技術parserと保存parserが同じ入力で一致する。
- * @cleanup N/A: 外部Effectなし。
- * @boundary 解析成功は回復Authorityや資源存在を証明しない。
- */
-test("Docker Task回復IDは技術境界と保存境界で同じ三成分を保持する", () => {
-  const parts = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
-  const token = `docker-task.${parts.join(".")}`;
-  const cases: unknown[] = [
-    token,
-    null,
-    undefined,
-    {},
-    0,
-    ` ${token}`,
-    `${token}\n`,
-    `${token}.extra`,
-    token.replace("docker-task.", "docker."),
-    token.toUpperCase(),
-  ];
-  for (let index = 0; index < 3; index++)
-    for (const value of [
-      "",
-      "A".repeat(64),
-      "a".repeat(63),
-      "a".repeat(65),
-      "z".repeat(64),
-    ]) {
-      const changed = [...parts];
-      changed[index] = value;
-      cases.push(`docker-task.${changed.join(".")}`);
-    }
-  for (const value of cases)
-    assert.deepEqual(
-      parseDockerTaskRecoveryId(value),
-      domain.parseDockerTaskRecoveryId(value),
-    );
-  assert.deepEqual(parseDockerTaskRecoveryId(token), {
-    token,
-    stableLogicalHomeBindingHash: parts[0],
-    operationNonce: parts[1],
-    baseHash: parts[2],
-  });
 });
 
 import {

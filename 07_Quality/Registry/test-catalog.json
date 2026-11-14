@@ -357,7 +357,7 @@
     {
       "id": "runtime-data:repository-storage",
       "owner": "execution-model",
-      "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#4-保存初期化回復",
+      "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#5-保存初期化回復",
       "responsibilities": [
         "execution_state_root_binding"
       ],
@@ -1126,7 +1126,7 @@
     },
     {
       "id": "runtime-data:repository-to-consumers",
-      "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#4-保存初期化回復",
+      "architectureAnchor": "06_Architecture/Details/execution-model/01_Architecture.md#5-保存初期化回復",
       "blockPath": [
         "runtime-data:repository-storage",
         "execution-intelligence:durable-store",
@@ -8965,7 +8965,9 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed"
+        "result_observed",
+        "independent_technical_codec_matrix_2799_inputs",
+        "machine_notifications_and_session_conditions_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -9010,7 +9012,9 @@
         "shared_immutable_preparation_once",
         "mutable_case_state_isolated",
         "actual_state_history_lock_and_cas_preserved",
-        "case_owned_artifacts_absent"
+        "case_owned_artifacts_absent",
+        "technical_notifications_match_confirmed_public_save",
+        "recovery_id_three_components_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -10540,7 +10544,9 @@
       "postconditions": [
         "result_observed",
         "rejection_preserves_state",
-        "lock_release_observed"
+        "lock_release_observed",
+        "independent_storage_codec_matrix_2799_inputs",
+        "eight_action_transition_and_session_conditions_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -11147,6 +11153,7 @@
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
+        "restricted_process",
         "windows_process_control"
       ],
       "externalProviderEffect": false,

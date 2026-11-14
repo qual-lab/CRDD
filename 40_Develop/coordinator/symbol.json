@@ -386,7 +386,9 @@
         "coordinator.diagnostics.runtime-repair",
         "coordinator.state-storage.coordinator-state-model",
         "coordinator.source.src.security.orchestrator.history",
-        "docker-isolation.desktop.repair-runtime"
+        "docker-isolation.desktop.repair-runtime",
+        "docker-isolation.desktop.technical-validation",
+        "domain-model.attempt.repair-validation"
       ]
     },
     {

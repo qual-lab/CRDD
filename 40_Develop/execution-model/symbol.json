@@ -824,10 +824,7 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.state-storage.coordinator-state-runtime",
         "domain-model.attempt.repair-validation",
-        "docker-isolation.desktop.repair-machine",
-        "docker-isolation.desktop.technical-validation",
         "execution-model.source.src.history.operations",
         "execution-model.source.src.history.types"
       ]

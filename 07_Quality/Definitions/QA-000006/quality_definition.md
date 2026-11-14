@@ -38,9 +38,11 @@ Host開始・完了のfixtureは廃止済みのIdentity内資源表を使わず�
 
 有限境界を登録してからDI Rootを読むこと、保存未到達ならcheckpoint全fieldが元値のままであることを確認する。合成Host分類fixtureと実在する現在Hostを混ぜず、共通wxの固定親は新品Rootに限定する。Snapshot未受領の元版ではnullを返し、未開始・未発行・全観測not_requestedとの相関を検査する。未受領を資源不存在の単独根拠にしない。
 
-## DI修復試験と保存受理比較の分離 — 2026-11-11
+## 修復値検査と公開保存接続の試験Owner — 2026-11-14
 
-既存ERB-IT-014の比較2ケースはDomain側runtime-repair-storage ITへ移し、DIのMachine／Session／廃棄compositionは自己の技術codecと型で検証する。全field・異常入力・凍結・入力分離・通知遷移・再Session・廃棄／保持・回復IDの独立比較は維持し、技術実装と保存実装のどちらか一方を期待値生成に兼用しない。有限なDI入力fixtureのみ共用し、実Host・Docker・Providerは使わない。既存Suite数・正式項目数・正式結果は増減せず、各SuiteのSymbolのverifiesを実際のOwnerへ追従する。限定回帰の実測は変更記録に残し、全体QAの成立へ拡張しない。
+既存ERB-IT-014の全field母集団は、EMとDIが各自の独立DTO・受理表で検証する。初期・継続・廃棄・対象の4profileについて、欠測・余剰・15置換値・getter／Proxyの2,799入力を維持する。受理後のexact本文・再帰的凍結・参照分離・入力不変も確認し、片側のdecoderを他方の期待値生成に使わない。EMは八処置の三つの進行辺・終端・Session・廃棄条件を、DIは実Machine通知と正常／継続・Session条件を自己のOwnerで確認する。
+
+CoordinatorはDIの実通知からEM Rootの完成保存・読戻しへ接続し、確認済み保存値と通知値の一致、終端判定、元版・対象外本文・Lock／CAS・解放を確認する。三成分の回復ID比較は同Coordinator Suiteへそのまま移す。EMからDI、DIからEMのSource／試験補助依存は持たせず、深いEM importや試験専用公開も追加しない。既存Suite・正式項目IDは維持し、試験台帳・Symbolの確認対象を実Ownerへ追従する。実Host・Docker・Providerなしの限定結果は変更記録へ残し、全体QAの成立へ拡張しない。
 
 ## 要求前切断とwx再入場の確認 — 2026-11-09
 
@@ -188,7 +190,7 @@ AI AdapterのTaskResult／AdviceResultを内容型の正本とし、ExecutorのC
 
 ## Docker IsolationのDomain非依存化 — 2026-10-30
 
-`ERB-IT-014`で技術checkpointとDomain保存受理を同じ正常・欠測・余剰・全field／enum差・nested Proxy／Accessor・凍結DTO・通知遷移・回復ID入力で照合する。本番Machineの通知列は上位の保存decoder／transitionも通す。DI型の成立を保存成功や資源観測と同義にしない。新品Processで相互Package解決を拒否して両Rootが開始でき、DIが記録Writer／Readerを公開しないことを確認する。
+`ERB-IT-014`の技術checkpoint・保存値は、上記の各Owner独立受理表とCoordinatorの公開保存接続で確認する。本番Machineの通知列をEM内部decoderへ直接通す比較試験は設けない。DI型の成立を保存成功や資源観測と同義にせず、Coが確認済み保存と読戻しを観測する。新品Processで各Packageが上位Packageを解決せず自身のRootを開始でき、DIが記録Writer／Readerを公開しないことを確認する。
 
 `ERB-IT-003`／`PRL-IT-013`のProbe記録の実保存・Hash・token・Root／子実体・部分欠測・置換・故障OracleはCoordinator新Ownerへ追従し、診断の二保存と取消・公開結果の相関を維持する。DI公開API exact集合、coverage母集団、Symbolの一実体配置、検証記録Toolも追従する。実AI・Docker再起動・過去保持物はこの確認で操作せず、通常回帰と実境界の未実施を分ける。
 

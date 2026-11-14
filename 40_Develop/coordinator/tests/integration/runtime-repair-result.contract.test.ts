@@ -1,7 +1,7 @@
 /**
  * 修復の保存結果と技術結果の相関を実Sourceで反証する。
  * @packageDocumentation
- * @responsibility 実DI制御と公開保存操作をつなぎ、技術処置だけを有限代役へ置換する。
+ * @responsibility 実DI通知とEM公開保存・読戻しをつなぎ、回復IDの三成分相関を確認する。技術処置だけを有限代役へ置換する。
  * @trace ERB-IT-014
  * @trace ERB-IT-002
  * @level IT
@@ -19,6 +19,7 @@ import { runInThisContext } from "node:vm";
 import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as technicalValidation from "../../../docker-isolation/src/docker-desktop/validation.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
 import type {
   RepairOperationRecord,
   RepairSaveRequest,
@@ -915,6 +916,11 @@ function fixture(
       const bytes = state.bytes;
       assert.ok(bytes);
       assert.ok(result.value);
+      if (change.kind === "checkpoint" && change.update.checkpoint !== null)
+        assert.deepEqual(
+          result.value.operation.checkpoint,
+          change.update.checkpoint,
+        );
       assert.equal(
         result.value.checkpointSettled,
         technicalValidation.isRepairCheckpointSettled(
@@ -3128,3 +3134,54 @@ for (const kind of [
     },
   );
 }
+
+/**
+ * Docker Task回復参照の技術文法と保存受理を照合する。
+ * @responsibility Probe tokenとの混同や成分の正規化を追加しない。
+ * @trace ERB-IT-014
+ * @precondition メモリ内の有限な文字列だけを使用する。
+ * @stimulus 各成分の長短・大文字・欠測・追加・非文字列。
+ * @observation null又は元tokenとexact三成分。
+ * @oracle 技術parserと保存parserが同じ入力で一致する。
+ * @cleanup N/A: 外部Effectなし。
+ * @boundary 解析成功は回復Authorityや資源存在を証明しない。
+ */
+test("Docker Task回復IDは技術境界と保存境界で同じ三成分を保持する", () => {
+  const parts = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
+  const token = `docker-task.${parts.join(".")}`;
+  const cases: unknown[] = [
+    token,
+    null,
+    undefined,
+    {},
+    0,
+    ` ${token}`,
+    `${token}\n`,
+    `${token}.extra`,
+    token.replace("docker-task.", "docker."),
+    token.toUpperCase(),
+  ];
+  for (let index = 0; index < 3; index++)
+    for (const value of [
+      "",
+      "A".repeat(64),
+      "a".repeat(63),
+      "a".repeat(65),
+      "z".repeat(64),
+    ]) {
+      const changed = [...parts];
+      changed[index] = value;
+      cases.push(`docker-task.${changed.join(".")}`);
+    }
+  for (const value of cases)
+    assert.deepEqual(
+      parseDockerTaskRecoveryId(value),
+      model.parseDockerTaskRecoveryId(value),
+    );
+  assert.deepEqual(parseDockerTaskRecoveryId(token), {
+    token,
+    stableLogicalHomeBindingHash: parts[0],
+    operationNonce: parts[1],
+    baseHash: parts[2],
+  });
+});
