@@ -4,20 +4,20 @@
  * @responsibility Root再検証とManifest・Catalogから成果物関係を構築する。Source内部は解析しない。
  * @trace ARCH-000001
  */
-import { getRepository } from "../../../version-control/src/index.ts";
+
 import {
   createRealitySymbolGraph as createDomainRealitySymbolGraph,
-  type LoadedRealitySymbolManifest,
-  type RealitySymbolGraph,
-  observeRealitySymbolRepository,
   createFilesystemRepositoryObservationPort,
+  type LoadedRealitySymbolManifest,
+  observeRealitySymbolRepository,
+  parseRealityTestCatalog,
+  type RealitySymbolGraph,
   type RepositoryObservationPort,
-  inspectRealityTestCatalog,
 } from "../../../document-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../report/reality.ts";
-import type { CheckerRealityFinding } from "../report/types.ts";
-import type { CheckerFinding } from "../report/types.ts";
+import type { CheckerFinding, CheckerRealityFinding } from "../report/types.ts";
 /**
  * 固定された適用条件の後でRealityの観測と診断を行う。
  *
@@ -225,22 +225,10 @@ export function readRegisteredRealityTestsFromRepository(
         },
       ],
     };
-  let value: unknown;
-  try {
-    value = JSON.parse(observation.source);
-  } catch {
-    return {
-      testsByPath: null,
-      findings: [
-        {
-          code: "reality-symbol-test-catalog-unobservable",
-          path: catalogRelativePath,
-          message: "Test Catalog could not be read as valid JSON.",
-        },
-      ],
-    };
-  }
-  const outcome = inspectRealityTestCatalog(value, catalogRelativePath);
+  const outcome = parseRealityTestCatalog({
+    path: catalogRelativePath,
+    content: observation.source,
+  });
   return {
     testsByPath: outcome.result,
     findings: outcome.issues.map(mapRealityDomainIssueToCheckerFinding),

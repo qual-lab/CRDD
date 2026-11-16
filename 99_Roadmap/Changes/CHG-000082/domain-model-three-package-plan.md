@@ -11,7 +11,71 @@
 ### モデル中心への再整理（UI／SPEC工程モデルの先行実装）
 
 <a id="document-public-inventory"></a>
+#### 完成受付・モデル入力整理の統合確認 — 2026-11-16
+
+単体三受付、Local Item所有照合、UI／SPEC／UXの入力モデル化、Quality三caseとSemantic接続を含む37変更Fileを統合して確認した。変更した12単体・契約試験Sourceの110項目が成功し、変更33 TSのBiomeとdiff確認も成功した。旧三Inspector・旧型は40_Developと配布ひな型に参照がなく、新しいFile・Facade・互換入口は追加していない。限定Checker結合・台帳・依存・関連型検査と今回試験領域回収の実測は各節の結果を保持し、件数を単純合算して別の試験集合の保証としない。
+
+独立した統合読取りレビューで、各範囲の相互干渉、Root220項目（値98・型122）、内部集約の非公開、旧参照の不在、部分値・観測とモデルの分担・既存診断順、同工程比較を残す理由と文書の完了範囲を照合し、新しい必須指摘は0件だった。確認者は試験を再実行していない。今回合意した受付・公開境界整理に既知の実装修正残件はないが、全体回帰・実AI・Dockerの保証は未確認のまま区別する。過去保持物は操作せず、コミット・プッシュも未実施。
+
+#### Quality入力集約とSemantic接続の完結 — 2026-11-16
+
+残るQuality三caseと下流のLocal Item照合を同じ変更単位とする。親担当は現行Source・全参照・Architecture・既存RCM-UT-002とChecker結合を照合し、読取り専用確認者と、出現順・Set初出順・Map後勝ち・段階Set複製・partial・別契約の先勝ち所有者を着手前に確認した。変更分類は既存判定とI/Oを維持する入力契約・意味投影Ownerの整理。文書と直接利用側の伝播確認、限定回帰、独立技術レビューを対象とし、規範・認可・保存形式を変更しないため準拠監査・全体回帰・実AI／Docker試験は追加しない。追加の人間判断は不要。
+
+quality_definition_relationsは定義モデル列・完成工程分析結果・統合モデル、quality_goal_local_relationsは定義列・統合モデル、quality_goalsは完成分析結果を受ける。Checkerの定義関係・条件・義務・段階のMap／Set／出現列集約を撤去した。既存quality/definition.tsのRoot非公開の集約をQuality比較と下流Semanticが使い、SemanticのLocal Item段階入力も定義モデル列へ統一した。新File・Facade・互換入口は追加せず、Root220項目と公開関数名は維持する。
+
+入力モデルを除外せず、旧文書順・各field順・重複出現・後勝ちと段階Setの複製を維持する。所有者の先勝ちMapは重複診断・件数に必要な別契約として残す。モデルは既存の読取り・Parse位置で捕捉し、局所Issue・所有者診断・同工程比較・Semantic比較・件数宣言の再readと診断順を変えない。各比較で独立した集約を行うため、計算と一時割当は増え得る。一度だけの集約・Cache・同一世代Snapshotは主張しない。旧試験の独立Set／出現列の不整合反証はモデルの対応fieldへ移し、既存assertionを維持する。
+
+この節は直前の八操作表で未完了としたQuality入力範囲を閉じるもので、過去断面の記録を上書きしない。親担当の実測ではQuality・公開契約31項目とSemantic・診断27項目、選択したChecker結合・台帳・依存・Graph6項目が成功した。関連六Packageと配布入口の七型設定、変更33 TSのBiomeとdiff確認も成功し、今回試験Rootの回収後不存在を確認した。初回局所試験では試験入力追従時に改行を二重escapeした1件が失敗したため、元の複数行入力へ戻し、期待する診断順を変えず再実行した。
+
+独立読取りレビューでは実装・型・入力順・部分モデル・先勝ちOwner分離・不整合反証・依存方向に必須指摘はなく、旧集合／Mapを直接受付する入力ヘッダー2か所の追従漏れを検出した。該当2行と同じ公開比較・Semanticの説明をモデル受付へ揃え、判定・型・API・読取り位置は変更していない。是正後の独立再照合で入力説明と現行契約の一致を確認し、必須残指摘は0件となった。確認者は試験を再実行していない。全体回帰・実AI・Docker・過去保持物は操作していない。コミット・プッシュは未実施。
+
+#### 残る八照合の公開理由とUX入力のモデル化 — 2026-11-16
+
+基準は069dd1fefに続く単体三受付・UI／SPECの変更候補で、Rootは220項目。変更分類は既存判定を維持する受付契約と利用側責務の整理。親担当は現行Architecture・Source・全参照を照合し、読取り専用確認者とUXの原文一致・期待Identity・partial・欠測・例外・Set順を着手前に確認した。文書と利用側の直接伝播、限定回帰と独立レビューを対象とし、規範・認可・保存形式・Effectを変更しないため、準拠監査・全体回帰・実AI／Docker検証は追加しない。人間の追加判断事項はない。
+
+| 残る公開操作 | 利用先・入力の責務 | 結論 |
+|---|---|---|
+| inspectUxConsistency | Checkerのdiscovery-ux。局所モデル、参照境界の六観測、登録、UX／Journey集合 | 登録数と二関係SetのCaller組立てを撤去。既存台帳・分析列・Experience Mapモデルを受けOwnerが導出。外部観測は維持 |
+| inspectIaConsistency | Checkerのia。分析／定義／台帳／投影モデル、実在ID集合 | 維持。複数文書・Directory集合の対応であり単体Parseでは完結しない |
+| inspectArchitectureConsistency | Checkerのarchitecture。分析／定義／詳細／登録と実在集合・Ready条件 | 維持。局所IssueとReady条件・件数・集合の異なる契約を扱う完成比較 |
+| inspectQualityAnalysis | Checkerのquality。工程別分析列、統合モデル、実在する正本ID集合 | 維持。既にOwner内で関係を集約して比較し、結果を後段照合へ渡す |
+| inspectQualityConsistency | Checkerのquality。状態モデル、定義閉包、Goal行と集約関係 | 公開する複数文書比較の意味は維持。定義集約とGoal行の入力をモデルへ接続する整理は未完了 |
+| inspectReleaseDocuments | Checkerのdocument。CanonicalDocumentの完成Parse結果列 | 維持。版集合・Candidate／Baseline・Stableの文書集合判定であり一文書へ畳めない |
+| inspectReleaseConsistency | Checkerのdocument。Release文書・Changelog・README、版とTag観測 | 維持。複数成果物と外部Git観測の整合であり、局所Parseとは異なる |
+| inspectChangeNavigation | Checkerのwork-lifecycle。ChangeIndexと観測済み変更ID列 | 維持。重複は局所Parseへ任せ、案内と実在集合の一致を追加評価する |
+
+UXは既存types.ts／validation.tsへ変更を閉じ、新しいFile・Facade・互換受付・公開項目は追加しない。台帳の登録数は旧raw文字列一致式で導出し、構造化リンク数へ強化しない。解析へ渡す期待Identityは従来と同じDirectory IDである。分析モデルは旧Set更新位置でpartialも保持し、モデル順とモデル内Set順から関係を導出する。Experience Mapは同じ読取り位置で保持し、欠測nullだけを比較内の空Setへ対応させる。読取り失敗は例外のまま伝播する。既存RCM-UT-002と診断試験を入力追従し、既存検証を削除せず原文一致・期待Identityの反証を追加する。
+
+Qualityの未完了範囲はquality_definition_relations／quality_goal_local_relations／quality_goalsの入力集約。定義モデルからのsource・goal・detail・obligation・level等の集約と、分析結果・統合モデルの受け渡しを同時に整理する必要がある。localItemLevels／BoundaryStagesはSemanticの工程横断比較でも使うため、公開を隠すだけでCallerの重複組立てを残す形にしない。次の同じ変更意図で、集約OwnerとSemantic利用側まで一括して扱う。今回この残件を完了済みとはしない。
+
+親担当による単体・公開契約・診断変換41項目、選択したChecker結合・台帳・依存9項目が成功した。関連六Packageと配布入口の七型設定、変更30 TSのBiome、diff確認も成功した。今回作成した試験Rootは回収後不存在を確認した。独立読取りレビューの必須指摘は0件で、登録数の取得断面と期待Identity、partialの収集位置、Set順、欠測と読取り例外、既存assertionの保持、Quality残件の明示を照合した。確認者は試験を再実行していない。コミット・プッシュ、全体回帰・実AI・Docker・過去保持物操作は実施していない。
+
+#### UI／SPECの同工程照合入力のモデル化 — 2026-11-16
+
+残る十操作のうちUI／SPECを確認し、実体観測はChecker、取得済みモデルの意味投影は各工程Ownerとする。親担当と読取り専用確認者が着手前に、部分モデル・重複出現・観測件数・読取り位置・診断順を照合した。UI DetailはUiIndex、SPEC内の照合はSpecIndex／SpecAnalysis／SpecDefinitionを受け、比較用関係列・台帳集合・件数ラベル対応をOwner側へ移した。新しいFile・Facade・公開操作・互換入力は増やさず、Rootは220項目のままとする。
+
+親担当の実測では単体・公開契約・診断変換の60項目、選択したChecker結合・台帳・依存・Graphの10項目が成功した。関連六Packageと配布入口の七型設定、変更26 TSのBiomeとdiff確認も成功し、今回作成した試験Rootの回収後不存在を確認した。独立した読取り専用レビューでは必須指摘0件。確認者は試験を再実行せず、旧式との対応・部分値・五観測件数・診断順・先行Parse整理との干渉なしを確認した。コミット・プッシュは未実施であり、全体回帰や実境界の完了を主張しない。
+
+Filesystemの実在集合と五件数は既存観測位置・式を維持する。分析件数は二観点の観測集合の合計で、モデル数を使わない。読取り例外・不存在skip・局所Issue配送・照合順は変えず、partialモデルも照合へ渡す。モデルを評価時点まで保持する分、一時メモリに原文等が残るが、新しい保存・Cache・数量制約は導入しない。既存Suite・Local Itemへ入力と反証を追従し、新しい試験File／IDは追加しない。残り八操作を完了済みとは扱わない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### 単体三受付の完結とLocal Item所有照合のモデル入力化 — 2026-11-16
+
+基準は069dd1fefの219公開。検査公開16操作を単体三、同工程集合／外部観測十一、工程横断二に分類した。着手前に親担当と読取り専用確認者が、単体三の適用範囲・モデル・診断・既存利用側を照合した。変更分類は完成受付と入力契約の再構成。保存形式・認可・読取り範囲・数量制約・既存code／文言は変えない。文書・利用側の直接伝播確認と独立技術レビューを対象とし、準拠表明・全体回帰・Release判断は行わない。
+
+| 基準のCapability | 新しい完成受付／Owner | 保持する条件と利用側 |
+|---|---|---|
+| 任意Markdown中の分岐表・是正表 | 既存quality/verification-tables.tsのparseQualityTables、QualityTables | 本文からArtifact・表別件数／Issueとpartialを構築。一般Artifactの別Issueを混ぜず、Checkerの二read・二loop・区分別配送を維持 |
+| 全MarkdownのDiscovery参照規則 | 既存discovery/validation.tsのparseDiscoveryReferences | 本文からArtifactModelと参照出現ごとのIssue。既存のCHG／Evidence除外・Fence除外を維持し、REQ文書だけへ狭めない。Artifact→Discovery依存は作らない |
+| Reality Catalog限定登録 | 既存reality-traceability/catalog.tsのparseRealityTestCatalog、RealityTestCatalog | JSON解析と三field／Path重複検査を一括し、不正JSONと構造不正を別Issue・null結果で返す。Checkerは旧unobservable code／文言へ対応。全Schema検査・走査・新制限は追加しない |
+| Local Item所有照合 | inspectQualityLocalItemOwnershipへ完成QualityDefinitionModelを渡す | 既存source.path／localIdsをOwnerが取り出し、先勝ち・重複出現・空Owner真偽条件・入力Map非変更を維持 |
+
+旧三InspectorとQualityVerificationEvaluationは撤去し、名前だけの互換入口を残さない。Rootは220項目（値98・型122）で、操作数を増やさずReality登録Mapの明示モデル型を追加した。JSON不正の新しい中立Issueはcatalog.json.invalidであり、外部のChecker診断は変えない。現行の公開集合・同工程照合の扱いは別の変更単位で追跡し、残る十操作を無理にbatch化したとは表示しない。11照合のうち今回はLocal Item入力を是正し、残る入力の意味組立ての整理は継続対象とする。
+
+既存試験は入力とassertionを追従し、35単体・契約と八つの限定Checker／台帳試験が成功。Catalog Link拒否の追加限定確認も成功し、今回専用の二試験Rootの終了後不存在を確認した。Quality診断変換の旧試験が、本番で別配送するChecklist Issueまで変換へ渡す不整合を検出したため、本番と同じfilterを入れ本文診断・重複所有の期待値を維持した。関連六Package・配布入口の型検査とBiome／diffも確認する。台帳は同じSource・試験Path・Local Itemを維持し、新しい試験Fileや恒久Checkerを追加しない。実AI・Docker・過去保持物・全体回帰は操作しない。独立レビュー結果は確定後に記録する。
+
 #### 現行設計のOwner・公開入口説明の追従 — 2026-11-16
+
+直前の第一範囲は、関連六Package・配布入口の型検査、変更16 TSのBiome・diff確認が成功した。限定44対象の成功と今回試験Root回収は親担当の実測であり、読取り専用独立レビューはこれを再実行していない。独立レビューの必須指摘は0件で、三受付の対象範囲・区分別診断・JSON不正と構造不正の区別・実モデルのLocal ID利用・残る集合比較の未完了範囲を確認した。コミット・プッシュ、全体回帰・実AI・Docker・過去保持物操作は実施していない。
 
 追加確認で、Semantic設計二文書の旧domain-model配置・公開Owner・Storage責務・正本参照と、Checker設計の撤去済みRoot Helper／旧Discovery比較入口の説明が現行実装と不一致だった。変更分類は実装済み契約への文書直接伝播。親担当がcurrent Source・モデルfield・Rootを照合し、読取り専用確認者と着手前整合を確認した。ArtifactModelにfences fieldはないため、Fenceは完成Parse内部の捕捉・局所診断、checklist／anchors／linkTargetsはモデル値と区別する。
 

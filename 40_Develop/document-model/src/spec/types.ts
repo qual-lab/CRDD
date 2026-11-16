@@ -252,25 +252,29 @@ export type SpecConsistencyRequest =
       iaIds: ReadonlySet<string>;
       analyzedUx: ReadonlySet<string>;
       analyzedIa: ReadonlySet<string>;
-      analysisRelationOccurrences: readonly string[];
+      analyses: readonly SpecAnalysis[];
     }> &
       Readonly<{ kind: "spec_analysis_coverage" }>)
   | (Readonly<{
       specDefinitionsRoot: string;
       specIndexPath: string;
-      definitionRelationOccurrences: readonly string[];
-      definitionUiPairOccurrences: readonly string[];
-      registryIds: ReadonlySet<string>;
+      definitions: readonly SpecDefinition[];
+      index: SpecIndex;
       actualIds: ReadonlySet<string>;
     }> &
       Readonly<{ kind: "spec_definition_coverage" }>)
   | (Readonly<{
       specIndexPath: string;
-      indexCountRows: readonly (readonly string[])[];
-      expectedIndexCounts: ReadonlyMap<string, number>;
-      registryRelations: ReadonlySet<string>;
-      analysisRelations: ReadonlySet<string>;
-      definitionRelations: ReadonlySet<string>;
+      index: SpecIndex;
+      analyses: readonly SpecAnalysis[];
+      definitions: readonly SpecDefinition[];
+      observedCounts: Readonly<{
+        uxDefinitions: number;
+        iaDefinitions: number;
+        analyses: number;
+        definitions: number;
+        uiDefinitions: number;
+      }>;
     }> &
       Readonly<{ kind: "spec_coverage" }>)
   | Readonly<{

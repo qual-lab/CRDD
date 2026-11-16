@@ -74,7 +74,7 @@ export type {
   DiscoveryDefinition,
   DiscoveryIndex,
 } from "./discovery/types.ts";
-export { inspectDiscoveryIdentityLinks } from "./discovery/validation.ts";
+export { parseDiscoveryReferences } from "./discovery/validation.ts";
 export {
   parseIaAnalysis,
   parseIaDefinition,
@@ -155,8 +155,8 @@ export {
   type QualityVerificationResult,
 } from "./quality/readiness.ts";
 export {
-  inspectQualityVerification,
-  type QualityVerificationEvaluation,
+  parseQualityTables,
+  type QualityTables,
 } from "./quality/verification-tables.ts";
 export {
   type FixedQualityCandidate,
@@ -167,7 +167,10 @@ export {
   type QualityCheckStatus,
   reenterQualityReview,
 } from "./quality-change-control/gate.ts";
-export { inspectRealityTestCatalog } from "./reality-traceability/catalog.ts";
+export {
+  parseRealityTestCatalog,
+  type RealityTestCatalog,
+} from "./reality-traceability/catalog.ts";
 export {
   discoverRealitySymbols,
   type RealitySymbolDiscoveryRequest,

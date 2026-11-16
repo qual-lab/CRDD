@@ -6,6 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import type { UxAnalysisModel } from "../../../document-model/src/index.ts";
 import {
   inspectUxConsistency,
   parseDiscoveryAnalysis,
@@ -428,14 +429,13 @@ export function inspectDiscoveryUxRepository(
         "The UX entry must expose IA as its only immediate phase handoff, Quality Analysis / UX as its accompanying analysis, and UI/SPEC as post-IA contract relations without a direct Architecture or Verification target.",
       );
   }
-  const analysisRelationPairs = new Set<string>();
-  const canonicalJourneyPairs = lstatIfPresent(experienceMapPath)?.isFile()
+  const uxAnalyses: UxAnalysisModel[] = [];
+  const experienceMap = lstatIfPresent(experienceMapPath)?.isFile()
     ? parseUxExperienceMap({
         path: relative(experienceMapPath),
         content: read(experienceMapPath),
-      }).result.requirementRelations
-    : new Set<string>();
-  const analysisJourneyPairs = new Set<string>();
+      }).result
+    : null;
   for (const entry of fs.readdirSync(requirementsRoot, {
     withFileTypes: true,
   })) {
@@ -518,16 +518,12 @@ export function inspectDiscoveryUxRepository(
     for (const issue of inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: model,
-      registryLinkCount:
-        uxIndex.split(`Analysis/${entry.name}/ux_analysis.md`).length - 1,
+      index: uxIndexModel,
     })) {
       const finding = mapUxDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    for (const pair of model.result.requirementRelations)
-      analysisRelationPairs.add(pair);
-    for (const pair of model.result.journeyRelations)
-      analysisJourneyPairs.add(pair);
+    uxAnalyses.push(model.result);
   }
   if (
     adoptedRequirements.size !== actualRequirements.size ||
@@ -625,9 +621,8 @@ export function inspectDiscoveryUxRepository(
       uxIndexPath: relative(uxIndexPath),
       experienceMapPath: relative(experienceMapPath),
       index: uxIndexModel,
-      analysisRequirementRelations: analysisRelationPairs,
-      canonicalJourneyRelations: canonicalJourneyPairs,
-      analysisJourneyRelations: analysisJourneyPairs,
+      analyses: uxAnalyses,
+      experienceMap,
     },
   })) {
     const finding = mapUxDomainIssueToFinding(issue);

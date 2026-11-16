@@ -23,6 +23,7 @@ import {
   parseQualityStrategy,
   parseQualityVerificationDesign,
   parseQualityVerificationResult,
+  type QualityDefinitionModel,
 } from "../../../document-model/src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../report/convert.ts";
 import {
@@ -552,14 +553,6 @@ export function inspectQualityRepository(
     integration,
     relative(analysisRoot),
   );
-  const {
-    summarySourceLevels,
-    goalLabelToSlug,
-    analysisSourceRelations,
-    analysisSourceConditions,
-    analysisSourceGoalLevels,
-    analysisObligationKeys,
-  } = inspectQualityAnalysisResult;
   for (const issue of inspectQualityAnalysisResult.issues) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
@@ -642,8 +635,7 @@ export function inspectQualityRepository(
 
   for (const issue of inspectQualityConsistency({
     kind: "quality_goals",
-    rows: inspectQualityAnalysisResult.crossModelRows,
-    goalLabelToSlug,
+    analysis: inspectQualityAnalysisResult,
     analysisPath: relative(analysisPath),
   })) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
@@ -685,11 +677,8 @@ export function inspectQualityRepository(
       analysisPath: relative(analysisPath),
     }),
   };
-  const {
-    analysisDetailGoalRelations,
-    analysisDetailUnitLocalRelations,
-    analysisDetailUnits,
-  } = detailCoverage;
+  const { analysisDetailUnitLocalRelations, analysisDetailUnits } =
+    detailCoverage;
   for (const issue of detailCoverage.issues) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
@@ -723,18 +712,7 @@ export function inspectQualityRepository(
     );
 
   const localItemOwners = new Map<string, string>();
-  const definitionSourceRelations = new Set<string>();
-  const definitionSourceRelationEntries: string[] = [];
-  const definitionSourceConditions = new Map<string, string>();
-  const definitionSourceGoalLevels = new Map<string, Set<string>>();
-  const definitionObligationKeys = new Map<string, string>();
-  const definitionObligationKeyEntries: string[] = [];
-  const definitionDetailGoalRelations = new Set<string>();
-  const definitionDetailGoalRelationEntries: string[] = [];
-  const definitionGoalLocalRelations = new Set<string>();
-  const definitionGoalLocalRelationEntries: string[] = [];
-  const localItemLevels = new Map<string, string>();
-  const localItemBoundaryStages = new Map<string, string>();
+  const qualityDefinitions: QualityDefinitionModel[] = [];
   for (const definitionPath of physicalDefinitionPaths) {
     const definition = read(definitionPath);
     const qualityId = path.basename(path.dirname(definitionPath));
@@ -742,30 +720,7 @@ export function inspectQualityRepository(
       { path: relative(definitionPath), content: definition },
       qualityId,
     );
-    for (const value of model.result.sourceRelations)
-      definitionSourceRelations.add(value);
-    for (const relation of model.result.sourceRelationEntries)
-      definitionSourceRelationEntries.push(relation);
-    for (const [key, value] of model.result.sourceConditions)
-      definitionSourceConditions.set(key, value);
-    for (const [key, value] of model.result.sourceGoalLevels)
-      definitionSourceGoalLevels.set(key, new Set(value));
-    for (const [key, value] of model.result.obligationKeys)
-      definitionObligationKeys.set(key, value);
-    for (const key of model.result.obligationKeyEntries)
-      definitionObligationKeyEntries.push(key);
-    for (const value of model.result.detailGoalRelations)
-      definitionDetailGoalRelations.add(value);
-    for (const relation of model.result.detailGoalRelationEntries)
-      definitionDetailGoalRelationEntries.push(relation);
-    for (const value of model.result.goalLocalRelations)
-      definitionGoalLocalRelations.add(value);
-    for (const relation of model.result.goalLocalRelationEntries)
-      definitionGoalLocalRelationEntries.push(relation);
-    for (const [key, value] of model.result.localItemLevels)
-      localItemLevels.set(key, value);
-    for (const [key, value] of model.result.localItemBoundaryStages)
-      localItemBoundaryStages.set(key, value);
+    qualityDefinitions.push(model.result);
     for (const issue of model.issues.filter(
       (issue) => issue.kind !== "artifact.quality.checklist-invalid",
     )) {
@@ -773,8 +728,7 @@ export function inspectQualityRepository(
       add(finding.severity, finding.code, finding.path, finding.message);
     }
     const ownership = inspectQualityLocalItemOwnership(
-      relative(definitionPath),
-      model.result.localIds,
+      model.result,
       localItemOwners,
     );
     for (const [localId, owner] of ownership.owners)
@@ -788,23 +742,9 @@ export function inspectQualityRepository(
   const inspectQualityDefinitionRelationsResult = inspectQualityConsistency({
     kind: "quality_definition_relations",
     ...{
-      definitionSourceRelationEntries: definitionSourceRelationEntries,
-      definitionSourceRelations: definitionSourceRelations,
-      definitionGoalLocalRelationEntries: definitionGoalLocalRelationEntries,
-      definitionGoalLocalRelations: definitionGoalLocalRelations,
-      definitionDetailGoalRelationEntries: definitionDetailGoalRelationEntries,
-      definitionDetailGoalRelations: definitionDetailGoalRelations,
-      analysisDetailGoalRelations: analysisDetailGoalRelations,
-      analysisSourceRelations: analysisSourceRelations,
-      definitionObligationKeyEntries: definitionObligationKeyEntries,
-      analysisObligationKeys: analysisObligationKeys,
-      definitionObligationKeys: definitionObligationKeys,
-      analysisSourceGoalLevels: analysisSourceGoalLevels,
-      localItemLevels: localItemLevels,
-      summarySourceLevels: summarySourceLevels,
-      definitionSourceGoalLevels: definitionSourceGoalLevels,
-      analysisSourceConditions: analysisSourceConditions,
-      definitionSourceConditions: definitionSourceConditions,
+      definitions: qualityDefinitions,
+      analysis: inspectQualityAnalysisResult,
+      integration,
       definitionsRoot: relative(definitionsRoot),
       analysisPath: relative(analysisPath),
     },
@@ -824,14 +764,11 @@ export function inspectQualityRepository(
         physicalDetailUnits: physicalDetailUnits,
         physicalDetailUnitLevels: physicalDetailUnitLevels,
         physicalDetailUnitBoundaryStages: physicalDetailUnitBoundaryStages,
-        localItemLevels: localItemLevels,
-        localItemBoundaryStages: localItemBoundaryStages,
+        definitions: qualityDefinitions,
         analysisPath: relative(analysisPath),
       },
     }),
   };
-  const { listedGoalLocalRelationEntries, listedGoalLocalRelations } =
-    localItemCoverage;
   for (const issue of localItemCoverage.issues) {
     const finding = mapQualityRelationsIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
@@ -875,9 +812,8 @@ export function inspectQualityRepository(
   const inspectQualityGoalLocalRelationsResult = inspectQualityConsistency({
     kind: "quality_goal_local_relations",
     ...{
-      listedGoalLocalRelationEntries: listedGoalLocalRelationEntries,
-      listedGoalLocalRelations: listedGoalLocalRelations,
-      definitionGoalLocalRelations: definitionGoalLocalRelations,
+      integration,
+      definitions: qualityDefinitions,
       analysisPath: relative(analysisPath),
     },
   });

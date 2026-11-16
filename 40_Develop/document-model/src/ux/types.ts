@@ -262,14 +262,13 @@ export type UxConsistencyRequest =
       kind: "ux_analysis_registration";
       analysis: ParseResult<UxAnalysisModel> &
         Readonly<{ result: UxAnalysisModel }>;
-      registryLinkCount: number;
+      index: UxIndexModel;
     }>
   | Readonly<{
       kind: "ux_relations";
       uxIndexPath: string;
       experienceMapPath: string;
       index: UxIndexModel;
-      analysisRequirementRelations: ReadonlySet<string>;
-      canonicalJourneyRelations: ReadonlySet<string>;
-      analysisJourneyRelations: ReadonlySet<string>;
+      analyses: readonly UxAnalysisModel[];
+      experienceMap: UxExperienceMap | null;
     }>;

@@ -849,7 +849,7 @@ export type QualityLocalItemOwnershipModel = Readonly<{
  * Local ID出現列の所有重複を検査する。
  * @responsibility Local ID出現列の所有重複を検査する。
  * @trace ARCH-000008
- * @input sourcePath: 現在の定義の診断位置。localIds: 項目の独立抽出出現列。existingOwners: 以前の定義までのOwner Map。
+ * @input definition: 完成Parseが捕捉した定義モデル。existingOwners: 以前の定義までのOwner Map。
  * @returns 先勝ちのOwner Map複製と出現ごとの重複Issue。
  * @precondition 本文検査後の元位置で呼び、集合化していない出現列を渡す。
  * @postcondition 入力Mapを変更せず、重複時にOwnerを上書きしない。
@@ -861,10 +861,13 @@ export type QualityLocalItemOwnershipModel = Readonly<{
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function inspectQualityLocalItemOwnership(
-  sourcePath: string,
-  localIds: readonly string[],
+  definition: QualityDefinitionModel,
   existingOwners: ReadonlyMap<string, string>,
 ): QualityLocalItemOwnershipModel {
+  const {
+    source: { path: sourcePath },
+    localIds,
+  } = definition;
   const owners = new Map(existingOwners),
     issues: DocumentIssue[] = [];
   for (const localId of localIds) {
@@ -880,4 +883,76 @@ export function inspectQualityLocalItemOwnership(
     else owners.set(localId, sourcePath);
   }
   return { owners, issues };
+}
+
+/**
+ * 取得済み品質定義の関係・段階情報を出現順で集約する。
+ * @responsibility 文書順、Set初出順、Map後勝ちと段階Setの独立複製を所有する。
+ * @trace ARCH-000008
+ * @input definitions: partialを含む解析済み定義モデル列。
+ * @returns 比較ごとに独立した関係列・Set・Map。
+ * @precondition 入力のParseと実体観測は完了している。
+ * @postcondition 入力とそのSet・Mapを変更しない。
+ * @effect N/A: 同期的な値集約だけを行う。
+ * @failure 値の操作例外を伝播し、欠測を補完しない。
+ * @invariant 局所Issue・Owner・実在を再判定せず、入力を除外しない。
+ * @boundary Quality内部と下流Semanticの共有投影。Rootへ公開しない。
+ * @security 集約成立を実在・品質Pass・認可へ昇格しない。
+ * @concurrency 共有可変状態を保持しない。
+ */
+export function collectQualityDefinitionRelations(
+  definitions: readonly QualityDefinitionModel[],
+) {
+  const definitionSourceRelations = new Set<string>();
+  const definitionSourceRelationEntries: string[] = [];
+  const definitionSourceConditions = new Map<string, string>();
+  const definitionSourceGoalLevels = new Map<string, Set<string>>();
+  const definitionObligationKeys = new Map<string, string>();
+  const definitionObligationKeyEntries: string[] = [];
+  const definitionDetailGoalRelations = new Set<string>();
+  const definitionDetailGoalRelationEntries: string[] = [];
+  const definitionGoalLocalRelations = new Set<string>();
+  const definitionGoalLocalRelationEntries: string[] = [];
+  const localItemLevels = new Map<string, string>();
+  const localItemBoundaryStages = new Map<string, string>();
+  for (const model of definitions) {
+    for (const value of model.sourceRelations)
+      definitionSourceRelations.add(value);
+    for (const relation of model.sourceRelationEntries)
+      definitionSourceRelationEntries.push(relation);
+    for (const [key, value] of model.sourceConditions)
+      definitionSourceConditions.set(key, value);
+    for (const [key, value] of model.sourceGoalLevels)
+      definitionSourceGoalLevels.set(key, new Set(value));
+    for (const [key, value] of model.obligationKeys)
+      definitionObligationKeys.set(key, value);
+    for (const key of model.obligationKeyEntries)
+      definitionObligationKeyEntries.push(key);
+    for (const value of model.detailGoalRelations)
+      definitionDetailGoalRelations.add(value);
+    for (const relation of model.detailGoalRelationEntries)
+      definitionDetailGoalRelationEntries.push(relation);
+    for (const value of model.goalLocalRelations)
+      definitionGoalLocalRelations.add(value);
+    for (const relation of model.goalLocalRelationEntries)
+      definitionGoalLocalRelationEntries.push(relation);
+    for (const [key, value] of model.localItemLevels)
+      localItemLevels.set(key, value);
+    for (const [key, value] of model.localItemBoundaryStages)
+      localItemBoundaryStages.set(key, value);
+  }
+  return {
+    definitionSourceRelations,
+    definitionSourceRelationEntries,
+    definitionSourceConditions,
+    definitionSourceGoalLevels,
+    definitionObligationKeys,
+    definitionObligationKeyEntries,
+    definitionDetailGoalRelations,
+    definitionDetailGoalRelationEntries,
+    definitionGoalLocalRelations,
+    definitionGoalLocalRelationEntries,
+    localItemLevels,
+    localItemBoundaryStages,
+  };
 }

@@ -289,5 +289,5 @@ export type UiConsistencyRequest =
   | Readonly<{
       kind: "ui_detail_coverage";
       detail: ParseResult<UiDetailIndex> & Readonly<{ result: UiDetailIndex }>;
-      actualIds: ReadonlySet<string>;
+      index: UiIndex;
     }>;

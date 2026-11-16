@@ -29,6 +29,7 @@ import {
   parseQualityVerificationDesign,
   parseQualityVerificationResult,
 } from "../../../src/index.ts";
+import { collectQualityDefinitionRelations } from "../../../src/quality/definition.ts";
 import { captureQualityDocument } from "../../../src/quality/readiness.ts";
 import { captureQualityTemplate } from "../../../src/quality/templates.ts";
 
@@ -370,27 +371,73 @@ test("Quality Detail検証単位は行・領域・重複・関係を照合する
  * @boundary RCM-UT-002=N/A: 同一Process内の値検査・変換。
  */
 test("Qualityの関係閉包は集合の一致と段階・境界の不足を別に検出する", () => {
-  const empty = new Set<string>();
-  const values = new Map<string, string>();
-  const levels = new Map<string, ReadonlySet<string>>();
+  const integration = parseQualityIntegration({
+    path: "integration.md",
+    content: "",
+  }).result;
+  const analysis = inspectQualityAnalysis(
+    [],
+    new Set(),
+    integration,
+    "analysis",
+  );
+  const definition = parseQualityDefinition(
+    { path: "definition.md", content: "" },
+    "QA-000001",
+  ).result;
+  const firstLevels = new Set(["UT"]);
+  const secondLevels = new Set(["IT"]);
+  const first = {
+    ...definition,
+    sourceRelations: new Set(["first", "shared"]),
+    sourceRelationEntries: ["first", "shared"],
+    sourceConditions: new Map([["shared", "first"]]),
+    sourceGoalLevels: new Map([["shared", firstLevels]]),
+    localItemLevels: new Map([["item", "UT"]]),
+    localItemBoundaryStages: new Map([["item", "Direct Boundary"]]),
+  };
+  const second = {
+    ...definition,
+    sourceRelations: new Set(["shared", "last"]),
+    sourceRelationEntries: ["shared", "last"],
+    sourceConditions: new Map([["shared", "last"]]),
+    sourceGoalLevels: new Map([["shared", secondLevels]]),
+    localItemLevels: new Map([["item", "IT"]]),
+    localItemBoundaryStages: new Map([["item", "System/E2E"]]),
+  };
+  const aggregate = collectQualityDefinitionRelations([first, second]);
+  assert.deepEqual(
+    [...aggregate.definitionSourceRelations],
+    ["first", "shared", "last"],
+  );
+  assert.deepEqual(aggregate.definitionSourceRelationEntries, [
+    "first",
+    "shared",
+    "shared",
+    "last",
+  ]);
+  assert.equal(aggregate.definitionSourceConditions.get("shared"), "last");
+  assert.deepEqual(
+    [...(aggregate.definitionSourceGoalLevels.get("shared") ?? [])],
+    ["IT"],
+  );
+  assert.notEqual(
+    aggregate.definitionSourceGoalLevels.get("shared"),
+    secondLevels,
+  );
+  assert.equal(aggregate.localItemLevels.get("item"), "IT");
+  assert.equal(aggregate.localItemBoundaryStages.get("item"), "System/E2E");
+  aggregate.definitionSourceGoalLevels.get("shared")?.add("ST");
+  assert.deepEqual([...secondLevels], ["IT"]);
+  assert.deepEqual([...firstLevels], ["UT"]);
+  assert.notEqual(
+    collectQualityDefinitionRelations([first, second]).localItemLevels,
+    aggregate.localItemLevels,
+  );
   const base = {
-    definitionSourceRelationEntries: [],
-    definitionSourceRelations: empty,
-    definitionGoalLocalRelationEntries: [],
-    definitionGoalLocalRelations: empty,
-    definitionDetailGoalRelationEntries: [],
-    definitionDetailGoalRelations: empty,
-    analysisDetailGoalRelations: empty,
-    analysisSourceRelations: empty,
-    definitionObligationKeyEntries: [],
-    analysisObligationKeys: values,
-    definitionObligationKeys: values,
-    analysisSourceGoalLevels: levels,
-    localItemLevels: values,
-    summarySourceLevels: levels,
-    definitionSourceGoalLevels: levels,
-    analysisSourceConditions: values,
-    definitionSourceConditions: values,
+    definitions: [definition],
+    analysis,
+    integration,
     definitionsRoot: "definitions",
     analysisPath: "integration.md",
   };
@@ -404,7 +451,7 @@ test("Qualityの関係閉包は集合の一致と段階・境界の不足を別�
       kind: "quality_definition_relations",
       ...{
         ...base,
-        definitionSourceRelationEntries: ["duplicate"],
+        definitions: [{ ...definition, sourceRelationEntries: ["duplicate"] }],
       },
     })[0]?.reason,
     "definition-source-relation-duplicate",
@@ -417,8 +464,13 @@ test("Qualityの関係閉包は集合の一致と段階・境界の不足を別�
     physicalDetailUnits: new Set(["sample|key"]),
     physicalDetailUnitLevels: new Map([["sample|key", new Set(["IT"])]]),
     physicalDetailUnitBoundaryStages: new Map([["sample|key", "System/E2E"]]),
-    localItemLevels: new Map([["RCM-UT-001", "UT"]]),
-    localItemBoundaryStages: new Map([["RCM-UT-001", "Direct Boundary"]]),
+    definitions: [
+      {
+        ...definition,
+        localItemLevels: new Map([["RCM-UT-001", "UT"]]),
+        localItemBoundaryStages: new Map([["RCM-UT-001", "Direct Boundary"]]),
+      },
+    ],
     analysisPath: "integration.md",
   });
   assert.deepEqual(
@@ -433,7 +485,12 @@ test("Qualityの関係閉包は集合の一致と段階・境界の不足を別�
       kind: "quality_goal_local_relations",
       ...{
         ...local,
-        definitionGoalLocalRelations: new Set(["QA-000001|RCM-UT-001"]),
+        definitions: [
+          {
+            ...definition,
+            goalLocalRelations: new Set(["QA-000001|RCM-UT-001"]),
+          },
+        ],
         analysisPath: "integration.md",
       },
     }).length,
@@ -923,6 +980,7 @@ function observeQualityLocalFixture(
     content: analysis,
   }).result;
   return {
+    integration,
     ...integration.localItemData,
     issues: inspectDocumentRelations({
       kind: "quality_local_item_relations",
@@ -944,11 +1002,19 @@ function observeQualityLocalFixture(
  * @boundary Qualityの解析モデルから内部整合評価への比較。
  */
 test("Quality横断目標は解析モデル経由で診断順を維持する", () => {
+  const emptyAnalysis = inspectQualityAnalysis(
+    [],
+    new Set(),
+    parseQualityIntegration({ path: "integration.md", content: "" }).result,
+    "analysis",
+  );
   assert.deepEqual(
     inspectQualityConsistency({
       kind: "quality_goals",
-      rows: [],
-      goalLabelToSlug: new Map([["Goal", "QA-000001"]]),
+      analysis: {
+        ...emptyAnalysis,
+        goalLabelToSlug: new Map([["Goal", "QA-000001"]]),
+      },
       analysisPath: "integration.md",
     }).map((issue) => issue.reason),
     ["cross-model-goal-coverage-mismatch"],
@@ -962,25 +1028,29 @@ test("Quality横断目標は解析モデル経由で診断順を維持する", (
         content: `## 2. Architecture横断モデルの処置\n${content}\n## 3. 次`,
       }).result,
       "analysis",
-    ).crossModelRows;
+    );
   const labels = new Map([["Goal", "QA-000001"]]);
   assert.equal(
     inspectQualityConsistency({
       kind: "quality_goals",
-      rows: parseRows(
-        "| Goal | Required | Required | Required | Required | N/A: 理由 |",
-      ),
-      goalLabelToSlug: labels,
+      analysis: {
+        ...parseRows(
+          "| Goal | Required | Required | Required | Required | N/A: 理由 |",
+        ),
+        goalLabelToSlug: labels,
+      },
       analysisPath: "integration.md",
     }).length,
     0,
   );
   const invalid = inspectQualityConsistency({
     kind: "quality_goals",
-    rows: parseRows(
-      "| Goal | BAD | Required | Required | Required | Required |\n| Goal | Required | Required | Required | Required | Required |\n| Unknown | x |",
-    ),
-    goalLabelToSlug: labels,
+    analysis: {
+      ...parseRows(
+        "| Goal | BAD | Required | Required | Required | Required |\n| Goal | Required | Required | Required | Required | Required |\n| Unknown | x |",
+      ),
+      goalLabelToSlug: labels,
+    },
     analysisPath: "integration.md",
   });
   assert.deepEqual(

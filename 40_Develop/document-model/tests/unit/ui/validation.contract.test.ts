@@ -150,7 +150,7 @@ test("UI Detailモデルは出典と最後の抽出成立行を保持する", ()
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: model,
-      actualIds: new Set(["UI-000001"]),
+      index: detailIndexFixture(["UI-000001"]),
     }).length,
     1,
   );
@@ -167,7 +167,7 @@ test("UI Detailモデルは出典と最後の抽出成立行を保持する", ()
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: firstIds,
-      actualIds: new Set(["UI-000001"]),
+      index: detailIndexFixture(["UI-000001"]),
     }),
     [],
   );
@@ -711,7 +711,7 @@ test("UI Detailは現在の集合数境界を維持する", () => {
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(source),
-      actualIds: new Set(["UI-000001"]),
+      index: detailIndexFixture(["UI-000001"]),
     }),
     [],
   );
@@ -723,7 +723,7 @@ test("UI Detailは現在の集合数境界を維持する", () => {
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(duplicate),
-      actualIds: new Set(["UI-000001", "UI-000002"]),
+      index: detailIndexFixture(["UI-000001", "UI-000002"]),
     }).length,
     1,
   );
@@ -744,7 +744,7 @@ test("UI Detailは現在の集合数境界を維持する", () => {
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(shared),
-      actualIds: new Set(["UI-000001", "UI-000002"]),
+      index: detailIndexFixture(["UI-000001", "UI-000002"]),
     }),
     [],
   );
@@ -873,7 +873,7 @@ test("UIの完成Parseは内容と局所診断を分離し被覆診断を重複�
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail,
-      actualIds: new Set(["UI-000001"]),
+      index: detailIndexFixture(["UI-000001"]),
     }),
     [],
   );
@@ -881,7 +881,7 @@ test("UIの完成Parseは内容と局所診断を分離し被覆診断を重複�
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail,
-      actualIds: new Set(["UI-000002"]),
+      index: detailIndexFixture(["UI-000002"]),
     }).length,
     1,
   );
@@ -898,8 +898,28 @@ test("UIの完成Parseは内容と局所診断を分離し被覆診断を重複�
     inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: invalid,
-      actualIds: new Set(["UI-000002"]),
+      index: detailIndexFixture(["UI-000002"]),
     }).length,
     1,
   );
 });
+
+/** UI Detail比較の不変の台帳基礎を一度だけ用意する。 @trace RCM-UT-002 */
+const detailIndexBase = parseUiIndex({
+  path: "index.md",
+  content:
+    "| [UI-000001](Definitions/UI-000001/ui_definition.md) | name | UX-000001 | IA-000001 |",
+}).result;
+/** 期待IDだけを差し替えた独立した台帳モデルを作る。 @trace RCM-UT-002 */
+function detailIndexFixture(ids: readonly string[]) {
+  const entry = detailIndexBase.entries[0];
+  assert.ok(entry);
+  return {
+    ...detailIndexBase,
+    source: { ...detailIndexBase.source },
+    entries: ids.map((identity) => ({
+      ...entry,
+      identity,
+    })),
+  };
+}

@@ -28,6 +28,7 @@ import type {
   QualityDefinitionModel,
   QualityDetailAssignment,
 } from "../quality/definition.ts";
+import { collectQualityDefinitionRelations } from "../quality/definition.ts";
 import type {
   SpecDefinition,
   SpecDefinitionCorrespondence,
@@ -511,8 +512,7 @@ export type DocumentRelationsRequest =
       physicalDetailUnits: ReadonlySet<string>;
       physicalDetailUnitLevels: ReadonlyMap<string, ReadonlySet<string>>;
       physicalDetailUnitBoundaryStages: ReadonlyMap<string, string>;
-      localItemLevels: ReadonlyMap<string, string>;
-      localItemBoundaryStages: ReadonlyMap<string, string>;
+      definitions: readonly QualityDefinitionModel[];
       analysisPath: string;
     }> &
       Readonly<{ kind: "quality_local_item_relations" }>)
@@ -1166,7 +1166,7 @@ export function inspectDocumentRelations(
  * Quality統合のLocal Item集合とDetailの必要段階・境界到達を照合する。
  * @responsibility Quality統合のLocal Item集合とDetailの必要段階・境界到達を照合する。
  * @trace ARCH-000008
- * @input request: 解析済み統合モデルと検証項目のOwner・段階・境界、実在詳細単位。
+ * @input request: 統合・定義モデル、検証項目Ownerと観測済み詳細単位・段階・境界。定義の段階情報はQuality内部集約から導出する。
  * @returns 集合・段階・境界到達の不一致Issue列。解析済みの関係出現を変更しない。
  * @precondition 必要な本文と集合は呼出し元が取得している。
  * @postcondition 入力を変更せず、追加のFile読取りを行わない。
@@ -1185,8 +1185,7 @@ function inspectQualityLocalItemRelations(
     physicalDetailUnits: ReadonlySet<string>;
     physicalDetailUnitLevels: ReadonlyMap<string, ReadonlySet<string>>;
     physicalDetailUnitBoundaryStages: ReadonlyMap<string, string>;
-    localItemLevels: ReadonlyMap<string, string>;
-    localItemBoundaryStages: ReadonlyMap<string, string>;
+    definitions: readonly QualityDefinitionModel[];
     analysisPath: string;
   }>,
 ) {
@@ -1197,10 +1196,10 @@ function inspectQualityLocalItemRelations(
     physicalDetailUnits,
     physicalDetailUnitLevels,
     physicalDetailUnitBoundaryStages,
-    localItemLevels,
-    localItemBoundaryStages,
     analysisPath,
   } = request;
+  const { localItemLevels, localItemBoundaryStages } =
+    collectQualityDefinitionRelations(request.definitions);
   const issues: DocumentIssue[] = [];
   const { listedLocalIds } = integration.localItemData;
   if (

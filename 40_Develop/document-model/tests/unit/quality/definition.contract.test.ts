@@ -269,8 +269,13 @@ test("Quality Definitionは適用区分・段階・人間承認を独立に検�
 test("Quality Local ID所有は先勝ちで重複出現を失わない", () => {
   const owners = new Map([["SAMPLE-UT-001", "previous.md"]]);
   const model = inspectQualityLocalItemOwnership(
-    "current.md",
-    ["SAMPLE-UT-001", "NEW-UT-001", "NEW-UT-001", "SAMPLE-UT-001"],
+    {
+      ...parseQualityDefinition(
+        { path: "current.md", content: "" },
+        "QA-000001",
+      ).result,
+      localIds: ["SAMPLE-UT-001", "NEW-UT-001", "NEW-UT-001", "SAMPLE-UT-001"],
+    },
     owners,
   );
   assert.deepEqual([...owners], [["SAMPLE-UT-001", "previous.md"]]);
@@ -290,8 +295,13 @@ test("Quality Local ID所有は先勝ちで重複出現を失わない", () => {
     ],
   );
   const emptyOwner = inspectQualityLocalItemOwnership(
-    "current.md",
-    ["X-UT-001"],
+    {
+      ...parseQualityDefinition(
+        { path: "current.md", content: "" },
+        "QA-000001",
+      ).result,
+      localIds: ["X-UT-001"],
+    },
     new Map([["X-UT-001", ""]]),
   );
   assert.deepEqual(emptyOwner.issues, []);

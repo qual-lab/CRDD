@@ -510,7 +510,7 @@ test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持�
         iaIds: empty,
         analyzedUx: empty,
         analyzedIa: empty,
-        analysisRelationOccurrences: [],
+        analyses: [],
       },
     }),
     [],
@@ -524,7 +524,7 @@ test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持�
       iaIds: new Set(["IA-000001"]),
       analyzedUx: empty,
       analyzedIa: empty,
-      analysisRelationOccurrences: ["a", "a"],
+      analyses: comparisonAnalyses(["a", "a"]),
     },
   });
   assert.deepEqual(
@@ -540,9 +540,8 @@ test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持�
     ...{
       specDefinitionsRoot: "definitions",
       specIndexPath: "spec.md",
-      definitionRelationOccurrences: ["a", "a"],
-      definitionUiPairOccurrences: [],
-      registryIds: new Set(["SPEC-000001"]),
+      definitions: comparisonDefinitions(["a", "a"]),
+      index: comparisonIndex(["SPEC-000001"]),
       actualIds: empty,
     },
   });
@@ -567,17 +566,45 @@ test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持�
  * @boundary RCM-UT-002=N/A: 同期的な集合検査。
  */
 test("SPEC件数と三者閉包は同数の誤差し替えを拒否する", () => {
-  const relations = new Set(["UX-000001|SPEC-000001"]);
+  const relations = ["UX-000001|SPEC-000001"];
   const request = {
     specIndexPath: "spec.md",
-    indexCountRows: [["UX定義", "1", "current"]],
-    expectedIndexCounts: new Map([["UX定義", 1]]),
-    registryRelations: relations,
-    analysisRelations: relations,
-    definitionRelations: relations,
+    index: comparisonIndex(["SPEC-000001"], relations, [
+      ["UX定義", "1", "current"],
+      ["IA定義", "0"],
+      ["SPEC分析", "0"],
+      ["SPEC定義", "0"],
+      ["UI定義", "0"],
+    ]),
+    observedCounts: {
+      uxDefinitions: 1,
+      iaDefinitions: 0,
+      analyses: 0,
+      definitions: 0,
+      uiDefinitions: 0,
+    },
+    analyses: comparisonAnalyses(relations),
+    definitions: comparisonDefinitions(relations),
   };
   assert.deepEqual(
     inspectSpecConsistency({ kind: "spec_coverage", ...request }),
+    [],
+  );
+  // 件数はモデル件数ではなく実体観測値を使い、旧整数解析と後勝ちを維持する。
+  assert.deepEqual(
+    inspectSpecConsistency({
+      kind: "spec_coverage",
+      ...request,
+      index: comparisonIndex(["SPEC-000001"], relations, [
+        ["UX定義", "9"],
+        ["UX定義", "1suffix"],
+        ["IA定義", "0"],
+        ["SPEC分析", "0"],
+        ["SPEC定義", "0"],
+        ["UI定義", "0"],
+        ["対象外", "not-a-number"],
+      ]),
+    }),
     [],
   );
   assert.deepEqual(
@@ -585,8 +612,14 @@ test("SPEC件数と三者閉包は同数の誤差し替えを拒否する", () =
       kind: "spec_coverage",
       ...{
         ...request,
-        indexCountRows: [["UX定義", "0", "current"]],
-        definitionRelations: new Set(["UX-000002|SPEC-000001"]),
+        index: comparisonIndex(["SPEC-000001"], relations, [
+          ["UX定義", "0", "current"],
+          ["IA定義", "0"],
+          ["SPEC分析", "0"],
+          ["SPEC定義", "0"],
+          ["UI定義", "0"],
+        ]),
+        definitions: comparisonDefinitions(["UX-000002|SPEC-000001"]),
       },
     }).map((issue) => issue.kind),
     [
@@ -854,3 +887,100 @@ test("未対応のSPEC整合種別は拒否する", () => {
     /spec_consistency_kind_invalid/u,
   );
 });
+
+/** SPEC比較の不変の文書準備だけを共有する。 @trace RCM-UT-002 */
+const comparisonBase = {
+  analysis: parseSpecAnalysis({ path: "analysis.md", content: "" }, "UX-000001")
+    .result,
+  definition: parseSpecDefinition(
+    { path: "definition.md", content: "" },
+    "SPEC-000001",
+  ).result,
+  index: parseSpecIndex({ path: "spec.md", content: "" }).result,
+};
+/** 関係の出現と重複を持つ新しい分析モデル列を作る。 @trace RCM-UT-002 */
+function comparisonAnalyses(keys: readonly string[]) {
+  return keys.map((key) => {
+    const [expectedIdentity = "", identity = "SPEC-000001"] = key.split("|");
+    return {
+      ...comparisonBase.analysis,
+      expectedIdentity,
+      targets: [
+        {
+          identity,
+          target: "fixture.md",
+          location: { path: "analysis.md", line: 1 },
+        },
+      ],
+    };
+  });
+}
+/** 関係の出現と重複を持つ新しい定義モデル列を作る。 @trace RCM-UT-002 */
+function comparisonDefinitions(
+  keys: readonly string[],
+  pairKeys: readonly string[] = [],
+) {
+  const models = keys.map((key) => {
+    const [identity = "", expectedIdentity = "SPEC-000001"] = key.split("|");
+    return {
+      ...comparisonBase.definition,
+      expectedIdentity,
+      analysisInputs: [
+        {
+          identity,
+          target: "fixture.md",
+          location: { path: "definition.md", line: 1 },
+        },
+      ],
+      pairedInterfaces: [],
+    };
+  });
+  return [
+    ...models,
+    ...pairKeys.map((key) => {
+      const [identity = "", expectedIdentity = "SPEC-000001"] = key.split("|");
+      return {
+        ...comparisonBase.definition,
+        expectedIdentity,
+        analysisInputs: [],
+        pairedInterfaces: [
+          {
+            identity,
+            target: "fixture.md",
+            location: { path: "definition.md", line: 1 },
+          },
+        ],
+      };
+    }),
+  ];
+}
+/** 台帳登録と件数行を独立したモデルへ差し替える。 @trace RCM-UT-002 */
+function comparisonIndex(
+  ids: readonly string[],
+  relations: readonly string[] = [],
+  rows: readonly (readonly string[])[] = [],
+) {
+  return {
+    ...comparisonBase.index,
+    source: { ...comparisonBase.index.source },
+    entries: ids.map((identity) => ({
+      identity,
+      name: "fixture",
+      definitionTarget: "fixture.md",
+      uxIds: relations
+        .filter((key) => (key.split("|")[1] ?? ids[0]) === identity)
+        .map((key) => key.split("|")[0] ?? ""),
+      iaIds: [],
+      uiIds: [],
+      cells: [],
+      location: { path: "spec.md", line: 1 },
+    })),
+    counts: rows.map((cells) => ({
+      inputOrArtifact: cells[0] ?? "",
+      count: cells[1] ?? "",
+      disposition: cells[2] ?? "",
+      cells: [...cells],
+      location: { path: "spec.md", line: 1 },
+    })),
+  };
+}

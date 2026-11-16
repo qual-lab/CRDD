@@ -493,7 +493,8 @@ export function inspectUiConsistency(
         request.definitions,
       );
     case "ui_detail_coverage": {
-      const { detail, actualIds } = request;
+      const { detail, index } = request;
+      const actualIds = new Set(index.entries.map((entry) => entry.identity));
       const model = detail.result;
       const ids = model.entries.map((entry) => entry.identity);
       const invalid = detail.issues.find(

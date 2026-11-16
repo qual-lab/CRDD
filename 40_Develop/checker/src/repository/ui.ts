@@ -314,7 +314,7 @@ export function inspectUiRepository(
         path: relative(uiDetailIndexPath),
         content: read(uiDetailIndexPath),
       }),
-      actualIds: new Set(uiIndexModel.entries.map((entry) => entry.identity)),
+      index: uiIndexModel,
     })) {
       const finding = mapUiDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);

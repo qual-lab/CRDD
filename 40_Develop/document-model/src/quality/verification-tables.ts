@@ -4,7 +4,13 @@
  * @trace ARCH-000008
  */
 
-import type { ArtifactModel, DocumentIssue } from "../artifact/types.ts";
+import { parseArtifact } from "../artifact/parse-markdown.ts";
+import type {
+  ArtifactModel,
+  ArtifactSource,
+  DocumentIssue,
+  ParseResult,
+} from "../artifact/types.ts";
 /**
  * 分岐網羅表の件数・範囲・実測率の算術を検査する。
  * @responsibility 分岐網羅表の件数・範囲・実測率の算術を検査する。
@@ -365,34 +371,46 @@ export function inspectRemediationTable(artifact: ArtifactModel) {
   return { remediationRowsChecked, issues };
 }
 
-/** 取得済み成果物に含まれる検証表と是正表の完成評価結果。 */
-export type QualityVerificationEvaluation = Readonly<{
+/**
+ * 任意Markdown中の品質表を表す内容・件数・区分別診断のモデル。
+ * @responsibility 捕捉済みArtifactと既存の表別結果を保持する。
+ * @trace ARCH-000008
+ * @invariant 件数と診断の区分を保ち、全品質Passを表さない。
+ */
+export type QualityTables = Readonly<{
+  artifact: ArtifactModel;
   numericRowsChecked: number;
   remediationRowsChecked: number;
   branchIssues: readonly DocumentIssue[];
   remediationIssues: readonly DocumentIssue[];
-  issues: readonly DocumentIssue[];
 }>;
 
 /**
- * 全Markdownに適用する既存の二種類の品質表評価を完了する。
- * @responsibility 解析済み表の算術・是正条件と診断区分を返し、本文を再解析しない。
+ * 任意Markdownの品質表を内容モデルと局所診断へ受け付ける。
+ * @responsibility 同じ取得本文から分岐表・是正表の件数と区分別Issueを構築する。
  * @trace ARCH-000008
- * @input artifact: 同じ読取り位置で捕捉済みの成果物モデル。
- * @returns 件数と元の区分別診断。issuesは分岐表→是正表の順。
- * @effect N/A: 取得済みモデルだけを扱う。
- * @failure 観測不能を空表へ補完しない。呼出し元が取得失敗を所有する。
+ * @input source: 呼出し元が既存位置で取得した本文と出典。
+ * @returns 品質表のParseResult。一般Artifactの局所Issueは混ぜない。
+ * @effect N/A: 本文の同期解析のみ。実体を再観測しない。
+ * @failure 解析例外を伝播し、不明を空表へ補完しない。
+ * @invariant 分岐表→是正表の順と既存の件数・短絡条件を維持する。
  */
-export function inspectQualityVerification(
-  artifact: ArtifactModel,
-): QualityVerificationEvaluation {
+export function parseQualityTables(
+  source: ArtifactSource,
+): ParseResult<QualityTables> & Readonly<{ result: QualityTables }> {
+  const artifact = parseArtifact(source).result;
   const branch = inspectBranchCoverageTable(artifact);
   const remediation = inspectRemediationTable(artifact);
+  const issues = [...branch.issues, ...remediation.issues];
   return {
-    numericRowsChecked: branch.numericRowsChecked,
-    remediationRowsChecked: remediation.remediationRowsChecked,
-    branchIssues: branch.issues,
-    remediationIssues: remediation.issues,
-    issues: [...branch.issues, ...remediation.issues],
+    status: issues.length ? "partial" : "complete",
+    result: {
+      artifact,
+      numericRowsChecked: branch.numericRowsChecked,
+      remediationRowsChecked: remediation.remediationRowsChecked,
+      branchIssues: branch.issues,
+      remediationIssues: remediation.issues,
+    },
+    issues,
   };
 }

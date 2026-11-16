@@ -232,9 +232,11 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
       ids: new Set(["UX-000001"]),
       requirementRelations: new Set<string>(),
     },
-    analysisRequirementRelations: new Set<string>(),
-    canonicalJourneyRelations: new Set(["REQ-000001|Start"]),
-    analysisJourneyRelations: new Set(["REQ-000001|Start"]),
+    analyses: [relationAnalysisFixture([], ["REQ-000001|Start"])],
+    experienceMap: {
+      ...parseUxExperienceMap({ path: "journey.md", content: "" }).result,
+      requirementRelations: new Set(["REQ-000001|Start"]),
+    },
   };
   assert.deepEqual(
     inspectUxConsistency({ kind: "ux_relations", ...request }),
@@ -245,8 +247,8 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
     ...{
       ...request,
       index: { ...request.index, ids: new Set<string>() },
-      canonicalJourneyRelations: new Set<string>(),
-      analysisJourneyRelations: new Set<string>(),
+      experienceMap: null,
+      analyses: [],
     },
   });
   assert.deepEqual(
@@ -275,7 +277,9 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
         kind: "ux_relations",
         ...{
           ...request,
-          analysisRequirementRelations: relations,
+          analyses: [
+            relationAnalysisFixture([...relations], ["REQ-000001|Start"]),
+          ],
         },
       })[0]?.kind,
       "artifact.ux.outcome-relation-closure-mismatch",
@@ -286,7 +290,7 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
       kind: "ux_relations",
       ...{
         ...request,
-        analysisJourneyRelations: new Set(["REQ-000002|Start"]),
+        analyses: [relationAnalysisFixture([], ["REQ-000002|Start"])],
       },
     })[0]?.kind,
     "artifact.ux.journey-relation-closure-mismatch",
@@ -780,7 +784,7 @@ function parseAnalysisFixture(
     issues: inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
-      registryLinkCount,
+      index: registrationIndexFixture(identity, registryLinkCount),
     }),
   };
 }
@@ -819,11 +823,31 @@ test("UX登録数の不一致は局所構造診断と重複しない", () => {
     "REQ-000001",
   );
   assert.equal(parsed.status, "complete");
+  // raw本文の一致であり、コメント内の記載をリンクParserで除外しない。
+  assert.deepEqual(
+    inspectUxConsistency({
+      kind: "ux_analysis_registration",
+      analysis: parsed,
+      index: parseUxIndex({
+        path: "ux.md",
+        content: "<!-- Analysis/REQ-000001/ux_analysis.md -->",
+      }).result,
+    }),
+    [],
+  );
+  assert.equal(
+    inspectUxConsistency({
+      kind: "ux_analysis_registration",
+      analysis: parsed,
+      index: registrationIndexFixture("REQ-000002", 1),
+    })[0]?.reason,
+    "analysis-contract-invalid",
+  );
   for (const registryLinkCount of [0, 2]) {
     const issues = inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
-      registryLinkCount,
+      index: registrationIndexFixture("REQ-000001", registryLinkCount),
     });
     assert.deepEqual(
       issues.map((issue) => issue.reason),
@@ -837,7 +861,7 @@ test("UX登録数の不一致は局所構造診断と重複しない", () => {
       inspectUxConsistency({
         kind: "ux_analysis_registration",
         analysis: invalid,
-        registryLinkCount,
+        index: registrationIndexFixture("REQ-000001", registryLinkCount),
       }),
       invalid.issues,
     );
@@ -846,7 +870,7 @@ test("UX登録数の不一致は局所構造診断と重複しない", () => {
     inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
-      registryLinkCount: 1,
+      index: registrationIndexFixture("REQ-000001", 1),
     }),
     [],
   );
@@ -953,3 +977,33 @@ test("未対応のUX整合種別は拒否する", () => {
     /ux_consistency_kind_invalid/u,
   );
 });
+
+/**
+ * 登録照合用の台帳本文を用意する。
+ * @responsibility 旧raw文字列の一致回数をモデルとして渡す。
+ * @trace RCM-UT-002
+ */
+function registrationIndexFixture(identity: string, count: number) {
+  return parseUxIndex({
+    path: "ux.md",
+    content: Array(count)
+      .fill(`Analysis/${identity}/ux_analysis.md`)
+      .join("\n"),
+  }).result;
+}
+/**
+ * 比較観点だけを変えた独立分析モデルを用意する。
+ * @responsibility 元のSet差分試験をモデル入力へ接続する。
+ * @trace RCM-UT-002
+ */
+function relationAnalysisFixture(
+  requirements: readonly string[],
+  journeys: readonly string[],
+) {
+  return {
+    ...parseUxAnalysis({ path: "analysis.md", content: "" }, "REQ-000001")
+      .result,
+    requirementRelations: new Set(requirements),
+    journeyRelations: new Set(journeys),
+  };
+}

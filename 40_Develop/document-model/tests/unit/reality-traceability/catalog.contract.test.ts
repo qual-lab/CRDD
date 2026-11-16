@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectRealityTestCatalog } from "../../../src/index.ts";
+import { parseRealityTestCatalog } from "../../../src/index.ts";
 
 /**
  * 限定検査の受理集合と全走査の拒否順を確認する。
@@ -23,20 +23,33 @@ import { inspectRealityTestCatalog } from "../../../src/index.ts";
  * @boundary PPR-UT-017=N/A: 同期モデル検査。
  */
 test("Reality登録は限定条件を保ち不正時に部分Mapを返さない", () => {
+  const invalidJson = parseRealityTestCatalog({
+    path: "catalog.json",
+    content: "{",
+  });
+  assert.equal(invalidJson.status, "invalid");
+  assert.equal(invalidJson.result, null);
+  assert.deepEqual(
+    invalidJson.issues.map((issue) => issue.kind),
+    ["catalog.json.invalid"],
+  );
   assert.equal(
-    inspectRealityTestCatalog({ tests: [] }, "catalog.json").status,
+    parseRealityTestCatalog({
+      path: "catalog.json",
+      content: JSON.stringify({ tests: [] }),
+    }).status,
     "complete",
   );
-  const accepted = inspectRealityTestCatalog(
-    {
+  const accepted = parseRealityTestCatalog({
+    path: "catalog.json",
+    content: JSON.stringify({
       extra: true,
       tests: [
         { id: "", owner: "", path: "", unknown: true },
         { id: "", owner: "", path: "other" },
       ],
-    },
-    "catalog.json",
-  );
+    }),
+  });
   assert.equal(accepted.status, "complete");
   assert.deepEqual(
     [...(accepted.result ?? new Map())],
@@ -45,17 +58,17 @@ test("Reality登録は限定条件を保ち不正時に部分Mapを返さない"
       ["other", { owner: "", testId: "" }],
     ],
   );
-  const rejected = inspectRealityTestCatalog(
-    {
+  const rejected = parseRealityTestCatalog({
+    path: "catalog.json",
+    content: JSON.stringify({
       tests: [
         null,
         { id: "", owner: "", path: "" },
         { id: "second", owner: "sample", path: "" },
         { owner: "sample" },
       ],
-    },
-    "catalog.json",
-  );
+    }),
+  });
   assert.equal(rejected.result, null);
   assert.deepEqual(
     rejected.issues.map((i) => i.kind),
@@ -67,7 +80,10 @@ test("Reality登録は限定条件を保ち不正時に部分Mapを返さない"
   );
   assert.equal(rejected.issues[1]?.details.testPath, "");
   assert.equal(
-    inspectRealityTestCatalog({}, "catalog.json").issues[0]?.kind,
+    parseRealityTestCatalog({
+      path: "catalog.json",
+      content: JSON.stringify({}),
+    }).issues[0]?.kind,
     "catalog.tests.array-missing",
   );
 });

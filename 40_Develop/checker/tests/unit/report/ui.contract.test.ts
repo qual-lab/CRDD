@@ -166,7 +166,7 @@ test("UI診断は既存四項目を維持し未知分類を拒否する", () => 
     ...inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(source),
-      actualIds: new Set(index.result.entries.map((entry) => entry.identity)),
+      index: index.result,
     }),
     ...inspectUiConsistency({
       kind: "ui_analysis_coverage",

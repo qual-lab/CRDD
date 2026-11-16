@@ -34,6 +34,11 @@ export function mapRealityDomainIssueToCheckerFinding(
   };
   const mappedFindingFields = (() => {
     switch (issue.kind) {
+      case "catalog.json.invalid":
+        return [
+          "reality-symbol-test-catalog-unobservable",
+          "Test Catalog could not be read as valid JSON.",
+        ];
       case "catalog.tests.array-missing":
         return [
           "reality-symbol-test-catalog-invalid",

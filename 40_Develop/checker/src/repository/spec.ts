@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type {
+  SpecAnalysis,
   SpecDefinition,
   SpecDetailIndex,
   UiDefinition,
@@ -286,7 +287,7 @@ export function inspectSpecRepository(
   );
   const analyzedUx = new Set<string>();
   const analyzedIa = new Set<string>();
-  const analysisRelationOccurrences: string[] = [];
+  const specAnalyses: SpecAnalysis[] = [];
 
   if (lstatIfPresent(specAnalysisRoot)?.isDirectory())
     for (const entry of fs.readdirSync(specAnalysisRoot, {
@@ -308,12 +309,7 @@ export function inspectSpecRepository(
         { path: relative(analysisPath), content: source },
         entry.name,
       );
-      if (model.result)
-        analysisRelationOccurrences.push(
-          ...model.result.targets.map(
-            (ref) => `${model.result?.expectedIdentity}|${ref.identity}`,
-          ),
-        );
+      if (model.result) specAnalyses.push(model.result);
       for (const issue of model.issues) {
         const finding = mapSpecDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
@@ -329,34 +325,23 @@ export function inspectSpecRepository(
       iaIds,
       analyzedUx,
       analyzedIa,
-      analysisRelationOccurrences,
+      analyses: specAnalyses,
     },
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const analysisRelations = new Set(analysisRelationOccurrences);
   const registryRead = parseSpecIndex({
     path: relative(specIndexPath),
     content: read(specIndexPath),
   });
   const registry = registryRead.result;
-  const registryIds = new Set(registry.entries.map((entry) => entry.identity));
-  const registryRelations = new Set(
-    registry.entries.flatMap((entry) =>
-      [...entry.uxIds, ...entry.iaIds].map((id) => `${id}|${entry.identity}`),
-    ),
-  );
-  const indexCountRows = registry.counts.map((entry) => entry.cells);
   for (const issue of registryRead.issues) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const actualIds = new Set<string>();
-  const definitionRelations = new Set<string>();
-  const definitionRelationOccurrences: string[] = [];
   const specDefinitions: SpecDefinition[] = [];
-  const definitionUiPairOccurrences: string[] = [];
   if (lstatIfPresent(specDefinitionsRoot)?.isDirectory())
     for (const entry of fs.readdirSync(specDefinitionsRoot, {
       withFileTypes: true,
@@ -377,15 +362,6 @@ export function inspectSpecRepository(
       );
       if (model.result) {
         specDefinitions.push(model.result);
-        for (const ref of model.result.analysisInputs) {
-          const pair = `${ref.identity}|${model.result.expectedIdentity}`;
-          definitionRelationOccurrences.push(pair);
-          definitionRelations.add(pair);
-        }
-        for (const ref of model.result.pairedInterfaces)
-          definitionUiPairOccurrences.push(
-            `${ref.identity}|${model.result.expectedIdentity}`,
-          );
       }
       for (const issue of model.issues) {
         const finding = mapSpecDomainIssueToFinding(issue);
@@ -673,53 +649,50 @@ export function inspectSpecRepository(
     ...{
       specDefinitionsRoot: relative(specDefinitionsRoot),
       specIndexPath: relative(specIndexPath),
-      definitionRelationOccurrences,
-      definitionUiPairOccurrences,
-      registryIds,
+      definitions: specDefinitions,
+      index: registry,
       actualIds,
     },
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const expectedIndexCounts = new Map([
-    ["UX定義", uxIds.size],
-    ["IA定義", iaIds.size],
-    ["SPEC分析", analyzedUx.size + analyzedIa.size],
-    ["SPEC定義", actualIds.size],
-    [
-      "UI定義",
-      lstatIfPresent(path.join(root, "04_UI", "Definitions"))?.isDirectory()
-        ? fs
-            .readdirSync(path.join(root, "04_UI", "Definitions"), {
-              withFileTypes: true,
-            })
-            .filter(
-              (entry) =>
-                entry.isDirectory() &&
-                /^UI-[0-9]{6}$/u.test(entry.name) &&
-                lstatIfPresent(
-                  path.join(
-                    root,
-                    "04_UI",
-                    "Definitions",
-                    entry.name,
-                    "ui_definition.md",
-                  ),
-                )?.isFile(),
-            ).length
-        : 0,
-    ],
-  ]);
+  const observedCounts = {
+    uxDefinitions: uxIds.size,
+    iaDefinitions: iaIds.size,
+    analyses: analyzedUx.size + analyzedIa.size,
+    definitions: actualIds.size,
+    uiDefinitions: lstatIfPresent(
+      path.join(root, "04_UI", "Definitions"),
+    )?.isDirectory()
+      ? fs
+          .readdirSync(path.join(root, "04_UI", "Definitions"), {
+            withFileTypes: true,
+          })
+          .filter(
+            (entry) =>
+              entry.isDirectory() &&
+              /^UI-[0-9]{6}$/u.test(entry.name) &&
+              lstatIfPresent(
+                path.join(
+                  root,
+                  "04_UI",
+                  "Definitions",
+                  entry.name,
+                  "ui_definition.md",
+                ),
+              )?.isFile(),
+          ).length
+      : 0,
+  };
   for (const issue of inspectSpecConsistency({
     kind: "spec_coverage",
     ...{
       specIndexPath: relative(specIndexPath),
-      indexCountRows,
-      expectedIndexCounts,
-      registryRelations,
-      analysisRelations,
-      definitionRelations,
+      index: registry,
+      observedCounts,
+      analyses: specAnalyses,
+      definitions: specDefinitions,
     },
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);

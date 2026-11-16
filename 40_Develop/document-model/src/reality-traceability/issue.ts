@@ -20,6 +20,7 @@ import type { DocumentIssue } from "../artifact/types.ts";
  * @compatibility RealityIssueDetailsの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type RealityIssueDetails = Readonly<{
+  "catalog.json.invalid": Record<string, never>;
   "catalog.tests.array-missing": Record<string, never>;
   "catalog.entry.fields-invalid": Record<string, never>;
   "catalog.path.duplicate": { testPath: string };

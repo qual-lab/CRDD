@@ -20,6 +20,10 @@ import type {
   ParseResult,
 } from "../artifact/types.ts";
 import {
+  collectQualityDefinitionRelations,
+  type QualityDefinitionModel,
+} from "./definition.ts";
+import {
   captureQualityDocument,
   type QualityCenter,
   type QualityParsedDocument,
@@ -891,7 +895,7 @@ function inspectQualityDesignStates(
  * Quality分析と定義の情報源・条件・段階・Detail関係の双方向閉包を照合する。
  * @responsibility Quality分析と定義の情報源・条件・段階・Detail関係の双方向閉包を照合する。
  * @trace ARCH-000008
- * @input request: 分析・定義の関係集合、出現列、条件・段階・Obligation KeyのMap、診断位置。
+ * @input request: 定義モデル列・完成分析結果・統合モデルと診断位置。関係・条件・段階は内部導出する。
  * @returns 重複、情報源・目標・条件・段階・Detail関係の閉包不一致Issue。
  * @precondition 必要な本文と集合は呼出し元が取得している。
  * @postcondition 入力を変更せず、追加のFile読取りを行わない。
@@ -903,49 +907,33 @@ function inspectQualityDesignStates(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 function inspectQualityDefinitionRelations(
-  request: Readonly<{
-    definitionSourceRelationEntries: readonly string[];
-    definitionSourceRelations: ReadonlySet<string>;
-    definitionGoalLocalRelationEntries: readonly string[];
-    definitionGoalLocalRelations: ReadonlySet<string>;
-    definitionDetailGoalRelationEntries: readonly string[];
-    definitionDetailGoalRelations: ReadonlySet<string>;
-    analysisDetailGoalRelations: ReadonlySet<string>;
-    analysisSourceRelations: ReadonlySet<string>;
-    definitionObligationKeyEntries: readonly string[];
-    analysisObligationKeys: ReadonlyMap<string, string>;
-    definitionObligationKeys: ReadonlyMap<string, string>;
-    analysisSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
-    localItemLevels: ReadonlyMap<string, string>;
-    summarySourceLevels: ReadonlyMap<string, ReadonlySet<string>>;
-    definitionSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
-    analysisSourceConditions: ReadonlyMap<string, string>;
-    definitionSourceConditions: ReadonlyMap<string, string>;
-    definitionsRoot: string;
-    analysisPath: string;
-  }>,
+  request: Extract<
+    QualityConsistencyRequest,
+    { kind: "quality_definition_relations" }
+  >,
 ) {
+  const { definitionsRoot, analysisPath } = request;
   const {
-    definitionSourceRelationEntries,
     definitionSourceRelations,
-    definitionGoalLocalRelationEntries,
-    definitionGoalLocalRelations,
-    definitionDetailGoalRelationEntries,
-    definitionDetailGoalRelations,
-    analysisDetailGoalRelations,
-    analysisSourceRelations,
-    definitionObligationKeyEntries,
-    analysisObligationKeys,
-    definitionObligationKeys,
-    analysisSourceGoalLevels,
-    localItemLevels,
-    summarySourceLevels,
-    definitionSourceGoalLevels,
-    analysisSourceConditions,
+    definitionSourceRelationEntries,
     definitionSourceConditions,
-    definitionsRoot,
-    analysisPath,
-  } = request;
+    definitionSourceGoalLevels,
+    definitionObligationKeys,
+    definitionObligationKeyEntries,
+    definitionDetailGoalRelations,
+    definitionDetailGoalRelationEntries,
+    definitionGoalLocalRelations,
+    definitionGoalLocalRelationEntries,
+    localItemLevels,
+  } = collectQualityDefinitionRelations(request.definitions);
+  const {
+    analysisSourceRelations,
+    analysisSourceConditions,
+    analysisSourceGoalLevels,
+    analysisObligationKeys,
+    summarySourceLevels,
+  } = request.analysis;
+  const { analysisDetailGoalRelations } = request.integration.detailUnitData;
   const issues: DocumentIssue[] = [];
   if (definitionSourceRelationEntries.length !== definitionSourceRelations.size)
     issues.push({
@@ -1131,7 +1119,7 @@ function inspectQualityDefinitionRelations(
  * Quality統合と定義の目標別Local Item関係を照合する。
  * @responsibility Quality統合と定義の目標別Local Item関係を照合する。
  * @trace ARCH-000008
- * @input request: 統合・定義の目標とLocal Itemの関係集合、出現列、診断位置。
+ * @input request: 定義モデル列・統合モデルと診断位置。目標とLocal Itemの関係は内部導出する。
  * @returns 目標とLocal Itemの重複・閉包不一致Issue。
  * @precondition 必要な本文と集合は呼出し元が取得している。
  * @postcondition 入力を変更せず、追加のFile読取りを行わない。
@@ -1143,19 +1131,17 @@ function inspectQualityDefinitionRelations(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 function inspectQualityGoalLocalRelations(
-  request: Readonly<{
-    listedGoalLocalRelationEntries: readonly string[];
-    listedGoalLocalRelations: ReadonlySet<string>;
-    definitionGoalLocalRelations: ReadonlySet<string>;
-    analysisPath: string;
-  }>,
+  request: Extract<
+    QualityConsistencyRequest,
+    { kind: "quality_goal_local_relations" }
+  >,
 ) {
-  const {
-    listedGoalLocalRelationEntries,
-    listedGoalLocalRelations,
-    definitionGoalLocalRelations,
-    analysisPath,
-  } = request;
+  const { analysisPath } = request;
+  const { listedGoalLocalRelationEntries, listedGoalLocalRelations } =
+    request.integration.localItemData;
+  const { definitionGoalLocalRelations } = collectQualityDefinitionRelations(
+    request.definitions,
+  );
   const issues: DocumentIssue[] = [];
   if (listedGoalLocalRelationEntries.length !== listedGoalLocalRelations.size)
     issues.push({
@@ -1217,35 +1203,20 @@ export type QualityConsistencyRequest =
       kind: "quality_design_states";
       artifacts: readonly ArtifactModel[];
     }>
-  | (Readonly<{
-      definitionSourceRelationEntries: readonly string[];
-      definitionSourceRelations: ReadonlySet<string>;
-      definitionGoalLocalRelationEntries: readonly string[];
-      definitionGoalLocalRelations: ReadonlySet<string>;
-      definitionDetailGoalRelationEntries: readonly string[];
-      definitionDetailGoalRelations: ReadonlySet<string>;
-      analysisDetailGoalRelations: ReadonlySet<string>;
-      analysisSourceRelations: ReadonlySet<string>;
-      definitionObligationKeyEntries: readonly string[];
-      analysisObligationKeys: ReadonlyMap<string, string>;
-      definitionObligationKeys: ReadonlyMap<string, string>;
-      analysisSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
-      localItemLevels: ReadonlyMap<string, string>;
-      summarySourceLevels: ReadonlyMap<string, ReadonlySet<string>>;
-      definitionSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
-      analysisSourceConditions: ReadonlyMap<string, string>;
-      definitionSourceConditions: ReadonlyMap<string, string>;
+  | Readonly<{
+      kind: "quality_definition_relations";
+      definitions: readonly QualityDefinitionModel[];
+      analysis: ReturnType<typeof inspectQualityAnalysis>;
+      integration: QualityIntegration;
       definitionsRoot: string;
       analysisPath: string;
-    }> &
-      Readonly<{ kind: "quality_definition_relations" }>)
-  | (Readonly<{
-      listedGoalLocalRelationEntries: readonly string[];
-      listedGoalLocalRelations: ReadonlySet<string>;
-      definitionGoalLocalRelations: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "quality_goal_local_relations";
+      definitions: readonly QualityDefinitionModel[];
+      integration: QualityIntegration;
       analysisPath: string;
-    }> &
-      Readonly<{ kind: "quality_goal_local_relations" }>)
+    }>
   | Readonly<{
       kind: "quality_reality_state";
       center: QualityCenter;
@@ -1254,15 +1225,14 @@ export type QualityConsistencyRequest =
     }>
   | Readonly<{
       kind: "quality_goals";
-      rows: readonly (readonly string[])[];
-      goalLabelToSlug: ReadonlyMap<string, string>;
+      analysis: ReturnType<typeof inspectQualityAnalysis>;
       analysisPath: string;
     }>;
 
 /**
- * Quality内部の五条件を取得済みモデルと関係列から比較する。
+ * Quality内部の五条件を取得済みモデルと完成分析結果から比較する。
  * @responsibility 状態・内部閉包の診断を返し、他工程の意味判断や実体取得をしない。
- * @input request: 同じ呼出し位置で取得したQualityモデル・関係列・期待集合。
+ * @input request: 同じ呼出し位置で取得したQualityモデル・完成分析結果と診断位置。
  * @returns 既存の順序・理由の診断列。空結果は全品質Passではない。
  * @effect N/A: 入力の純粋比較だけを行う。
  * @failure 未知kindは拒否し、空成功や別条件へ切り替えない。
@@ -1304,7 +1274,8 @@ export function inspectQualityConsistency(
     }
 
     case "quality_goals": {
-      const { rows: crossModelRows, goalLabelToSlug, analysisPath } = request;
+      const { analysisPath } = request;
+      const { crossModelRows, goalLabelToSlug } = request.analysis;
       const issues: DocumentIssue[] = [];
 
       const crossModelGoals = new Set<string>();

@@ -514,15 +514,7 @@ export function inspectSpecConsistency(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 function inspectSpecAnalysisCoverage(
-  request: Readonly<{
-    specIndexPath: string;
-    specAnalysisRoot: string;
-    uxIds: ReadonlySet<string>;
-    iaIds: ReadonlySet<string>;
-    analyzedUx: ReadonlySet<string>;
-    analyzedIa: ReadonlySet<string>;
-    analysisRelationOccurrences: readonly string[];
-  }>,
+  request: Extract<SpecConsistencyRequest, { kind: "spec_analysis_coverage" }>,
 ): readonly DocumentIssue[] {
   const {
     specIndexPath,
@@ -531,8 +523,11 @@ function inspectSpecAnalysisCoverage(
     iaIds,
     analyzedUx,
     analyzedIa,
-    analysisRelationOccurrences,
+    analyses,
   } = request;
+  const analysisRelationOccurrences = analyses.flatMap((model) =>
+    model.targets.map((ref) => `${model.expectedIdentity}|${ref.identity}`),
+  );
   const issues: DocumentIssue[] = [];
   if (
     uxIds.size !== analyzedUx.size ||
@@ -587,23 +582,24 @@ function inspectSpecAnalysisCoverage(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 function inspectSpecDefinitionCoverage(
-  request: Readonly<{
-    specDefinitionsRoot: string;
-    specIndexPath: string;
-    definitionRelationOccurrences: readonly string[];
-    definitionUiPairOccurrences: readonly string[];
-    registryIds: ReadonlySet<string>;
-    actualIds: ReadonlySet<string>;
-  }>,
+  request: Extract<
+    SpecConsistencyRequest,
+    { kind: "spec_definition_coverage" }
+  >,
 ): readonly DocumentIssue[] {
-  const {
-    specDefinitionsRoot,
-    specIndexPath,
-    definitionRelationOccurrences,
-    definitionUiPairOccurrences,
-    registryIds,
-    actualIds,
-  } = request;
+  const { specDefinitionsRoot, specIndexPath, definitions, index, actualIds } =
+    request;
+  const definitionRelationOccurrences = definitions.flatMap((model) =>
+    model.analysisInputs.map(
+      (ref) => `${ref.identity}|${model.expectedIdentity}`,
+    ),
+  );
+  const definitionUiPairOccurrences = definitions.flatMap((model) =>
+    model.pairedInterfaces.map(
+      (ref) => `${ref.identity}|${model.expectedIdentity}`,
+    ),
+  );
+  const registryIds = new Set(index.entries.map((entry) => entry.identity));
   const issues: DocumentIssue[] = [];
   if (
     hasDuplicate(definitionRelationOccurrences) ||
@@ -648,23 +644,35 @@ function inspectSpecDefinitionCoverage(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 function inspectSpecCoverage(
-  request: Readonly<{
-    specIndexPath: string;
-    indexCountRows: readonly (readonly string[])[];
-    expectedIndexCounts: ReadonlyMap<string, number>;
-    registryRelations: ReadonlySet<string>;
-    analysisRelations: ReadonlySet<string>;
-    definitionRelations: ReadonlySet<string>;
-  }>,
+  request: Extract<SpecConsistencyRequest, { kind: "spec_coverage" }>,
 ): readonly DocumentIssue[] {
-  const {
-    specIndexPath,
-    indexCountRows,
-    expectedIndexCounts,
-    registryRelations,
-    analysisRelations,
-    definitionRelations,
-  } = request;
+  const { specIndexPath, index, analyses, definitions, observedCounts } =
+    request;
+  const indexCountRows = index.counts.map((entry) => entry.cells);
+  const expectedIndexCounts = new Map([
+    ["UX定義", observedCounts.uxDefinitions],
+    ["IA定義", observedCounts.iaDefinitions],
+    ["SPEC分析", observedCounts.analyses],
+    ["SPEC定義", observedCounts.definitions],
+    ["UI定義", observedCounts.uiDefinitions],
+  ]);
+  const registryRelations = new Set(
+    index.entries.flatMap((entry) =>
+      [...entry.uxIds, ...entry.iaIds].map((id) => `${id}|${entry.identity}`),
+    ),
+  );
+  const analysisRelations = new Set(
+    analyses.flatMap((model) =>
+      model.targets.map((ref) => `${model.expectedIdentity}|${ref.identity}`),
+    ),
+  );
+  const definitionRelations = new Set(
+    definitions.flatMap((model) =>
+      model.analysisInputs.map(
+        (ref) => `${ref.identity}|${model.expectedIdentity}`,
+      ),
+    ),
+  );
   const issues: DocumentIssue[] = [];
   const reportedIndexCounts = new Map(
     indexCountRows.map(([name, count]) => [

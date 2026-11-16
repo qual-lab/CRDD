@@ -10,14 +10,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  inspectDiscoveryIdentityLinks,
   inspectDocumentRelations,
-  inspectQualityVerification,
   inspectReleaseConsistency,
   inspectReleaseDocuments,
   parseArtifact,
   parseCanonicalDocument,
   parseChangelog,
+  parseDiscoveryReferences,
+  parseQualityTables,
   parseReadme,
   parseUxIndex,
 } from "../../../src/index.ts";
@@ -94,10 +94,14 @@ test("Headerと安定IDは取得範囲・欠落・全出現と所有を区別す
 test("分岐網羅表は未測定・不正値・範囲・分母超過・丸め差を区別する", () => {
   const content =
     "| 到達分岐数（分子） | 対象分岐数（分母） | 実測率 |\n|---|---|---|\n| N/A | | 未測定 |\n| bad | 2 | 50% |\n| 1 | 0 | 0% |\n| 3 | 2 | 50% |\n| 1 | 3 | 33.33% |\n";
-  const result = inspectQualityVerification(
-    parseArtifact({ path: "coverage.md", content }).result,
-  );
-  assert.equal(result.numericRowsChecked, 3);
+  const result = parseQualityTables({ path: "coverage.md", content });
+  assert.equal(result.result.numericRowsChecked, 3);
+  assert.equal(result.status, "partial");
+  assert.equal(result.result.artifact.source.content, content);
+  assert.deepEqual(result.issues, [
+    ...result.result.branchIssues,
+    ...result.result.remediationIssues,
+  ]);
   assert.deepEqual(
     result.issues.map((issue) => issue.reason),
     [
@@ -126,37 +130,31 @@ test("分岐網羅表は未測定・不正値・範囲・分母超過・丸め�
 test("是正表は一般表を誤認せず、解決・阻害の相関と必要値を検査する", () => {
   const resolved =
     "## 是正\n| 処置進捗 | 阻害状態 | 解消判定 |\n|---|---|---|\n| Applied | None | Resolved |";
-  const result = inspectQualityVerification(
-    parseArtifact({
-      path: "remediation.md",
-      content: resolved,
-    }).result,
-  );
-  assert.equal(result.remediationRowsChecked, 1);
+  const result = parseQualityTables({
+    path: "remediation.md",
+    content: resolved,
+  });
+  assert.equal(result.result.remediationRowsChecked, 1);
   assert.deepEqual(
     result.issues.map((issue) => issue.reason),
     ["premature-remediation-resolution", "inconsistent-remediation-state"],
   );
-  const blocked = inspectQualityVerification(
-    parseArtifact({
-      path: "remediation.md",
-      content: resolved.replace(
-        "Applied | None | Resolved",
-        "Identified | Blocked | Open",
-      ),
-    }).result,
-  );
+  const blocked = parseQualityTables({
+    path: "remediation.md",
+    content: resolved.replace(
+      "Applied | None | Resolved",
+      "Identified | Blocked | Open",
+    ),
+  });
   assert.deepEqual(
     blocked.issues.map((issue) => issue.reason),
     ["incomplete-remediation-blocker"],
   );
-  const ordinary = inspectQualityVerification(
-    parseArtifact({
-      path: "ordinary.md",
-      content: "| 状態 | 説明 |\n|---|---|\n| fixed | x |",
-    }).result,
-  );
-  assert.equal(ordinary.remediationRowsChecked, 0);
+  const ordinary = parseQualityTables({
+    path: "ordinary.md",
+    content: "| 状態 | 説明 |\n|---|---|\n| fixed | x |",
+  });
+  assert.equal(ordinary.result.remediationRowsChecked, 0);
   assert.equal(ordinary.issues.length, 0);
 });
 
@@ -202,9 +200,7 @@ test("Related順序とID所有は可視条件・先頭節・出現位置を維�
     content:
       "[REQ-000001](01_Discovery/Analysis/EXP-000001/exploration.md)\n```md\n[REQ-000002](01_Discovery/Analysis/EXP-000002/exploration.md)\n```",
   });
-  const links = inspectDiscoveryIdentityLinks({
-    document: linkDocument.result.identity,
-  });
+  const links = parseDiscoveryReferences(linkDocument.result.source).issues;
   assert.equal(links.length, 1);
 });
 
@@ -976,9 +972,7 @@ test("Identity内容は一般宣言とUX表宣言・rawリンクを分離する"
   assert.equal(parsed.result.identity.links[0]?.source.location.line, 5);
   assert.equal(parsed.result.identity.manualRevisions[0]?.location.line, 5);
   assert.equal(parsed.result.identity.occurrences.includes("REQ-000002"), true);
-  const issues = inspectDiscoveryIdentityLinks({
-    document: parsed.result.identity,
-  });
+  const issues = parseDiscoveryReferences(parsed.result.source).issues;
   assert.equal(issues.length, 1);
   assert.equal(issues[0]?.details.value0, "REQ-000001");
   assert.equal(parsed.issues[0]?.reason, "stable-id-manual-revision");

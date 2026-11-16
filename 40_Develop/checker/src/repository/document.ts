@@ -8,9 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArtifactSource,
-  inspectDiscoveryIdentityLinks,
   inspectDocumentRelations,
-  inspectQualityVerification,
   inspectReleaseConsistency,
   inspectReleaseDocuments,
   parseArchitectureIndex,
@@ -19,7 +17,9 @@ import {
   parseChangeDocument,
   parseChangelog,
   parseDiscoveryIndex,
+  parseDiscoveryReferences,
   parseIaIndex,
+  parseQualityTables,
   parseQualityVerificationDesign,
   parseReadme,
   parseSpecIndex,
@@ -640,13 +640,10 @@ export function inspectDocumentRepository(
         relativePath.includes("/Evidence/")
       )
         continue;
-      const identity = parseArtifact({
+      const result = parseDiscoveryReferences({
         path: relativePath,
         content: read(file),
-      });
-      const result = inspectDiscoveryIdentityLinks({
-        document: identity.result.identity,
-      });
+      }).issues;
       for (const issue of result) {
         const finding = mapDocumentIdentityIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
@@ -760,12 +757,10 @@ export function inspectDocumentRepository(
 
   let numericRowsChecked = 0;
   for (const file of allMarkdownFiles) {
-    const result = inspectQualityVerification(
-      parseArtifact({
-        path: relative(file),
-        content: read(file),
-      }).result,
-    );
+    const result = parseQualityTables({
+      path: relative(file),
+      content: read(file),
+    }).result;
     numericRowsChecked += result.numericRowsChecked;
     for (const issue of result.branchIssues) {
       const finding = mapDocumentRuleIssueToFinding(issue);
@@ -775,12 +770,10 @@ export function inspectDocumentRepository(
 
   let remediationRowsChecked = 0;
   for (const file of allMarkdownFiles) {
-    const result = inspectQualityVerification(
-      parseArtifact({
-        path: relative(file),
-        content: read(file),
-      }).result,
-    );
+    const result = parseQualityTables({
+      path: relative(file),
+      content: read(file),
+    }).result;
     remediationRowsChecked += result.remediationRowsChecked;
     for (const issue of result.remediationIssues) {
       const finding = mapDocumentRuleIssueToFinding(issue);

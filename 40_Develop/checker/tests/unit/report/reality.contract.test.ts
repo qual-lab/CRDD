@@ -9,8 +9,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseRealityTestCatalog } from "../../../../document-model/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
-import { inspectRealityTestCatalog } from "../../../../document-model/src/index.ts";
+
 /**
  * Reality Domain IssueはChecker境界で明示変換し未知種別を拒否するを検証する。
  *
@@ -24,17 +25,32 @@ import { inspectRealityTestCatalog } from "../../../../document-model/src/index.
  * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Reality Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
-  const rootIssues = inspectRealityTestCatalog({}, "catalog.json").issues;
-  const entryIssues = inspectRealityTestCatalog(
-    {
+  assert.deepEqual(
+    parseRealityTestCatalog({ path: "catalog.json", content: "{" }).issues.map(
+      mapRealityDomainIssueToCheckerFinding,
+    ),
+    [
+      {
+        code: "reality-symbol-test-catalog-unobservable",
+        path: "catalog.json",
+        message: "Test Catalog could not be read as valid JSON.",
+      },
+    ],
+  );
+  const rootIssues = parseRealityTestCatalog({
+    path: "catalog.json",
+    content: JSON.stringify({}),
+  }).issues;
+  const entryIssues = parseRealityTestCatalog({
+    path: "catalog.json",
+    content: JSON.stringify({
       tests: [
         null,
         { id: "", owner: "", path: "" },
         { id: "duplicate", owner: "", path: "" },
       ],
-    },
-    "catalog.json",
-  ).issues;
+    }),
+  }).issues;
   const findings = [...rootIssues, ...entryIssues].map(
     mapRealityDomainIssueToCheckerFinding,
   );

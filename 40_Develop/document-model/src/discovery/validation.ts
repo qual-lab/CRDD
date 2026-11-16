@@ -7,8 +7,13 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
 } from "../artifact/checklist.ts";
-import type { IdentityDocument } from "../artifact/identity.ts";
-import type { DocumentIssue } from "../artifact/types.ts";
+import { parseArtifact } from "../artifact/parse-markdown.ts";
+import type {
+  ArtifactModel,
+  ArtifactSource,
+  DocumentIssue,
+  ParseResult,
+} from "../artifact/types.ts";
 import type {
   DiscoveryAnalysis,
   DiscoveryChecklistRequest,
@@ -252,11 +257,11 @@ export function validateDiscoveryIndex(
 }
 
 /**
- * 文書中のREQ参照とDiscovery分析の所有境界を比較する。
+ * 任意Markdownの内容モデルとDiscovery参照の局所診断を構築する。
  * @responsibility 取得済みモデルから既存順の中立Issueを返す。
  * @trace ARCH-000008
- * @input request: 文書種別を絞らず既存の全Markdown観測から得たIdentityモデル。
- * @returns 既存条件に対応する参照出現ごとのIssue列。
+ * @input source: 文書種別を絞らず既存の全Markdown観測から取得した本文・出典。
+ * @returns ArtifactModelと参照出現ごとのIssue。一般Artifactの局所Issueは混ぜない。
  * @precondition 実体観測は呼出し元が完了している。
  * @postcondition 入力を変更せず、本文やFilesystemを再取得しない。
  * @effect N/A: 同期的な値比較。
@@ -266,11 +271,12 @@ export function validateDiscoveryIndex(
  * @security 実在・認可・全品質の成立を保証しない。
  * @concurrency N/A: 共有可変状態なし。
  */
-export function inspectDiscoveryIdentityLinks(
-  request: Readonly<{ document: IdentityDocument }>,
-): readonly DocumentIssue[] {
-  const file = request.document.source.path;
-  return request.document.links
+export function parseDiscoveryReferences(
+  source: ArtifactSource,
+): ParseResult<ArtifactModel> & Readonly<{ result: ArtifactModel }> {
+  const result = parseArtifact(source).result;
+  const file = result.source.path;
+  const issues = result.identity.links
     .filter(
       (link) =>
         link.identity.startsWith("REQ-") &&
@@ -285,4 +291,5 @@ export function inspectDiscoveryIdentityLinks(
       reason: "discovery-identity-link-owner-mismatch",
       details: { value0: link.identity },
     }));
+  return { status: issues.length ? "partial" : "complete", result, issues };
 }

@@ -31,10 +31,14 @@ import { mapQualityDefinitionIssueToFinding } from "../../../src/report/quality.
 test("Quality Definitionの実Issueは旧表示の順序と位置を維持する", () => {
   const artifact = { path: "definition.md", content: "" };
   const issues = [
-    ...parseQualityDefinition(artifact, "QA-000001").issues,
+    ...parseQualityDefinition(artifact, "QA-000001").issues.filter(
+      (issue) => issue.kind !== "artifact.quality.checklist-invalid",
+    ),
     ...inspectQualityLocalItemOwnership(
-      artifact.path,
-      ["SAMPLE-UT-001"],
+      {
+        ...parseQualityDefinition(artifact, "QA-000001").result,
+        localIds: ["SAMPLE-UT-001"],
+      },
       new Map([["SAMPLE-UT-001", "previous.md"]]),
     ).issues,
   ];

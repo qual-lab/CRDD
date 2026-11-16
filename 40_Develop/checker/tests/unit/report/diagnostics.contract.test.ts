@@ -487,7 +487,7 @@ test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
         iaIds: one,
         analyzedUx: empty,
         analyzedIa: empty,
-        analysisRelationOccurrences: ["a", "a"],
+        analyses: comparisonAnalyses(["a", "a"]),
       },
     }),
     ...inspectSpecConsistency({
@@ -495,9 +495,8 @@ test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
       ...{
         specDefinitionsRoot: "definitions",
         specIndexPath: "spec.md",
-        definitionRelationOccurrences: ["a", "a"],
-        definitionUiPairOccurrences: [],
-        registryIds: one,
+        definitions: comparisonDefinitions(["a", "a"]),
+        index: comparisonIndex(["a"]),
         actualIds: empty,
       },
     }),
@@ -505,11 +504,16 @@ test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
       kind: "spec_coverage",
       ...{
         specIndexPath: "spec.md",
-        indexCountRows: [],
-        expectedIndexCounts: new Map([["UX定義", 1]]),
-        registryRelations: one,
-        analysisRelations: empty,
-        definitionRelations: empty,
+        index: comparisonIndex(["a"], ["a"]),
+        observedCounts: {
+          uxDefinitions: 1,
+          iaDefinitions: 0,
+          analyses: 0,
+          definitions: 0,
+          uiDefinitions: 0,
+        },
+        analyses: [],
+        definitions: [],
       },
     }),
     ...inspectDocumentRelations({
@@ -654,9 +658,8 @@ test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () =
         uxIndexPath: "ux.md",
         experienceMapPath: "journey.md",
         index: parseUxIndex({ path: "ux.md", content: "" }).result,
-        analysisRequirementRelations: new Set(),
-        canonicalJourneyRelations: new Set(),
-        analysisJourneyRelations: new Set(),
+        analyses: [],
+        experienceMap: null,
       },
     }),
   ];
@@ -795,7 +798,7 @@ test("UX分析の実Issueは旧診断を維持する", () => {
     issues: inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
-      registryLinkCount: 0,
+      index: parseUxIndex({ path: "ux.md", content: "" }).result,
     }),
   };
   const messages = [
@@ -1172,5 +1175,102 @@ function observeArchitectureCrossFixture(
     ...document,
     status: issues.length ? "partial" : "complete",
     issues,
+  };
+}
+
+/** SPEC比較の不変の文書準備だけを共有する。 @trace RCM-UT-002 */
+const comparisonBase = {
+  analysis: parseSpecAnalysis({ path: "analysis.md", content: "" }, "UX-000001")
+    .result,
+  definition: parseSpecDefinition(
+    { path: "definition.md", content: "" },
+    "SPEC-000001",
+  ).result,
+  index: parseSpecIndex({ path: "spec.md", content: "" }).result,
+};
+/** 関係の出現と重複を持つ新しい分析モデル列を作る。 @trace RCM-UT-002 */
+function comparisonAnalyses(keys: readonly string[]) {
+  return keys.map((key) => {
+    const [expectedIdentity = "", identity = "SPEC-000001"] = key.split("|");
+    return {
+      ...comparisonBase.analysis,
+      expectedIdentity,
+      targets: [
+        {
+          identity,
+          target: "fixture.md",
+          location: { path: "analysis.md", line: 1 },
+        },
+      ],
+    };
+  });
+}
+/** 関係の出現と重複を持つ新しい定義モデル列を作る。 @trace RCM-UT-002 */
+function comparisonDefinitions(
+  keys: readonly string[],
+  pairKeys: readonly string[] = [],
+) {
+  const models = keys.map((key) => {
+    const [identity = "", expectedIdentity = "SPEC-000001"] = key.split("|");
+    return {
+      ...comparisonBase.definition,
+      expectedIdentity,
+      analysisInputs: [
+        {
+          identity,
+          target: "fixture.md",
+          location: { path: "definition.md", line: 1 },
+        },
+      ],
+      pairedInterfaces: [],
+    };
+  });
+  return [
+    ...models,
+    ...pairKeys.map((key) => {
+      const [identity = "", expectedIdentity = "SPEC-000001"] = key.split("|");
+      return {
+        ...comparisonBase.definition,
+        expectedIdentity,
+        analysisInputs: [],
+        pairedInterfaces: [
+          {
+            identity,
+            target: "fixture.md",
+            location: { path: "definition.md", line: 1 },
+          },
+        ],
+      };
+    }),
+  ];
+}
+/** 台帳登録と件数行を独立したモデルへ差し替える。 @trace RCM-UT-002 */
+function comparisonIndex(
+  ids: readonly string[],
+  relations: readonly string[] = [],
+  rows: readonly (readonly string[])[] = [],
+) {
+  return {
+    ...comparisonBase.index,
+    source: { ...comparisonBase.index.source },
+    entries: ids.map((identity) => ({
+      identity,
+      name: "fixture",
+      definitionTarget: "fixture.md",
+      uxIds: relations
+        .filter((key) => (key.split("|")[1] ?? ids[0]) === identity)
+        .map((key) => key.split("|")[0] ?? ""),
+      iaIds: [],
+      uiIds: [],
+      cells: [],
+      location: { path: "spec.md", line: 1 },
+    })),
+    counts: rows.map((cells) => ({
+      inputOrArtifact: cells[0] ?? "",
+      count: cells[1] ?? "",
+      disposition: cells[2] ?? "",
+      cells: [...cells],
+      location: { path: "spec.md", line: 1 },
+    })),
   };
 }

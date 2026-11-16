@@ -10,7 +10,6 @@ import type {
   UxConsistencyRequest,
   UxDocument,
   UxFormalInputObservation,
-  UxIndexModel,
 } from "./types.ts";
 /**
  * UXが所有する七種類の期待項目を選択する。
@@ -223,8 +222,12 @@ export function inspectUxConsistency(
       return compareUxFormalInput(request.analysis, request.observation);
     case "ux_analysis_registration": {
       const issues = [...request.analysis.issues];
+      const registryLinkCount =
+        request.index.source.content.split(
+          `Analysis/${request.analysis.result.expectedIdentity}/ux_analysis.md`,
+        ).length - 1;
       if (
-        request.registryLinkCount !== 1 &&
+        registryLinkCount !== 1 &&
         !issues.some((i) => i.kind === "artifact.ux.analysis-contract-invalid")
       )
         issues.unshift({
@@ -247,7 +250,7 @@ export function inspectUxConsistency(
  * UXとJourneyの関係集合の閉包を検査する。
  * @responsibility 用途ごとに異なる非空条件と双方向包含を既存順で照合する。
  * @trace ARCH-000008
- * @input request: 二成果物の位置、入口モデルと分析／Journey関係集合。
+ * @input request: 二成果物の位置、入口・分析・Journeyモデル。
  * @returns UX、Journeyの順序付き中立Issue列。
  * @precondition 呼出し元が本文解析と旧Root観測を完了している。
  * @postcondition UXはID非空、Journeyは関係非空を要求し、既存のSet比較を維持する。
@@ -259,21 +262,19 @@ export function inspectUxConsistency(
  * @concurrency N/A: 共有状態を変更しない。
  */
 function compareUxRelations(
-  request: Readonly<{
-    uxIndexPath: string;
-    experienceMapPath: string;
-    index: UxIndexModel;
-    analysisRequirementRelations: ReadonlySet<string>;
-    canonicalJourneyRelations: ReadonlySet<string>;
-    analysisJourneyRelations: ReadonlySet<string>;
-  }>,
+  request: Extract<UxConsistencyRequest, { kind: "ux_relations" }>,
 ): readonly DocumentIssue[] {
   const { uxIndexPath, experienceMapPath } = request;
   const canonicalUxIds = request.index.ids;
   const canonicalRelationPairs = request.index.requirementRelations;
-  const analysisRelationPairs = request.analysisRequirementRelations;
-  const canonicalJourneyPairs = request.canonicalJourneyRelations;
-  const analysisJourneyPairs = request.analysisJourneyRelations;
+  const analysisRelationPairs = new Set(
+    request.analyses.flatMap((model) => [...model.requirementRelations]),
+  );
+  const canonicalJourneyPairs =
+    request.experienceMap?.requirementRelations ?? new Set<string>();
+  const analysisJourneyPairs = new Set(
+    request.analyses.flatMap((model) => [...model.journeyRelations]),
+  );
   const issues: DocumentIssue[] = [];
   if (
     canonicalUxIds.size === 0 ||
