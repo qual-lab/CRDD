@@ -33,7 +33,7 @@ test("Architectureの完成Parseは二つの取得断面とReady比較を分離�
   assert.equal(parsed.result.hasUnresolvedResults, true);
   assert.equal(parsed.issues.length, 1);
   assert.equal(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_readiness",
       documentType: "analysis",
       document: parsed,
@@ -67,7 +67,7 @@ import {
 } from "../../../src/artifact/checklist.ts";
 import { omitMarkdownCommentsAndFencedCode } from "../../../src/artifact/markdown.ts";
 import {
-  inspectDocumentRelations,
+  inspectArchitectureConsistency,
   parseArchitectureAnalysis,
   parseArchitectureCrossModel,
   parseArchitectureDefinition,
@@ -197,7 +197,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
     "SPEC-000001|ARCH-000001",
   ]);
   assert.equal(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_registry_coverage",
       sourcePath: "index.md",
       registry: registry,
@@ -210,7 +210,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
     content: `## Architecture定義台帳\n${row}`,
   }).result.registry;
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_registry_coverage",
       sourcePath: "index.md",
       registry: single,
@@ -219,7 +219,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
     [],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_registry_coverage",
       sourcePath: "index.md",
       registry: single,
@@ -233,7 +233,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
       "## 3. Component責務表\n[A](Definitions/ARCH-000001/architecture_definition.md)",
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_component_coverage",
       model: parseArchitectureCrossModel(
         component,
@@ -244,7 +244,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
     [],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_component_coverage",
       model: parseArchitectureCrossModel(
         {
@@ -269,7 +269,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
     registryRelationEntries: registry.relationEntries,
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_relations",
       ...request,
     }).map((issue) => issue.kind),
@@ -281,7 +281,7 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
   );
   const empty = new Set<string>();
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_relations",
       ...{
         ...request,
@@ -611,7 +611,7 @@ test("Architecture詳細閉包は領域・関係・Covered所有者を順に検�
     isArchitectureReady: true,
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_detail_coverage",
       ...request,
     }).map((issue) => issue.kind),
@@ -622,7 +622,7 @@ test("Architecture詳細閉包は領域・関係・Covered所有者を順に検�
     ],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_detail_coverage",
       ...{
         ...request,
@@ -632,7 +632,7 @@ test("Architecture詳細閉包は領域・関係・Covered所有者を順に検�
     2,
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectArchitectureConsistency({
       kind: "architecture_detail_coverage",
       ...{
         ...request,
@@ -1301,7 +1301,7 @@ function observeArchitectureFixture<
   isReady: boolean,
   documentType: "analysis" | "definition" | "detail",
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_readiness",
     document: parsed as never,
     isReady,
@@ -1315,7 +1315,7 @@ function observeArchitectureMapFixture(
   document: ReturnType<typeof parseArchitectureDetailMap>,
   actualDefinitions: ReadonlySet<string>,
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_detail_map_coverage",
     document,
     actualDefinitions,
@@ -1332,7 +1332,7 @@ function observeArchitectureCrossFixture(
   document: ReturnType<typeof parseArchitectureCrossModel>,
   index: ReturnType<typeof parseArchitectureIndex>["result"],
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_cross_model",
     document,
     index,
@@ -1343,3 +1343,94 @@ function observeArchitectureCrossFixture(
     issues,
   };
 }
+
+/**
+ * 分析件数とDirectory完全集合の違いを検証する。
+ * @responsibility 第一条件を集合一致へ強めず、余分なDirectoryを別条件で拒否する。
+ * @trace RCM-UT-002
+ * @precondition 期待入力と同数の別ID分析を用意する。
+ * @stimulus 実Directoryと件数を独立に変更する。
+ * @observation 診断kindと位置を取得する。
+ * @oracle 件数だけの差とDirectory差を固定順で返し、空集合を受理する。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary RCM-UT-002=N/A: 同期集合検査。
+ */
+test("Architecture分析は件数とDirectory集合の条件を区別する", () => {
+  const request = {
+    sourcePath: "index.md",
+    analysisPath: "Analysis",
+    analyses: [
+      observeArchitectureFixture(
+        parseArchitectureAnalysis(
+          { path: "ui.md", content: "" },
+          "UI",
+          "UI-999999",
+          {
+            checklistSource: architectureChecklistFixture("analysis_ui", null),
+          },
+        ),
+        false,
+        "analysis",
+      ).result,
+      observeArchitectureFixture(
+        parseArchitectureAnalysis(
+          { path: "spec.md", content: "" },
+          "SPEC",
+          "SPEC-999999",
+          {
+            checklistSource: architectureChecklistFixture(
+              "analysis_spec",
+              null,
+            ),
+          },
+        ),
+        false,
+        "analysis",
+      ).result,
+    ],
+    uiIds: new Set(["UI-000001"]),
+    specIds: new Set(["SPEC-000001"]),
+    actualAnalysisIds: new Set(["UI-000001", "SPEC-000001"]),
+  };
+  assert.deepEqual(
+    inspectArchitectureConsistency({ kind: "architecture_inputs", ...request }),
+    [],
+  );
+  assert.deepEqual(
+    inspectArchitectureConsistency({
+      kind: "architecture_inputs",
+      ...request,
+      analyses: request.analyses.filter((model) => model.view === "SPEC"),
+      actualAnalysisIds: new Set(["UI-999999", "SPEC-000001"]),
+    }).map((issue) => [issue.kind, issue.location.path]),
+    [
+      ["artifact.architecture.analysis-coverage-mismatch", "index.md"],
+      [
+        "artifact.architecture.analysis-directory-coverage-mismatch",
+        "Analysis",
+      ],
+    ],
+  );
+  assert.deepEqual(
+    inspectArchitectureConsistency({
+      kind: "architecture_inputs",
+      ...request,
+      analyses: [],
+      uiIds: new Set(),
+      specIds: new Set(),
+      actualAnalysisIds: new Set(),
+    }),
+    [],
+  );
+});
+
+/**
+ * 未対応のArchitecture整合種別を正常へ読み替えない。
+ * @trace RCM-UT-002
+ */
+test("未対応のArchitecture整合種別は拒否する", () => {
+  assert.throws(
+    () => inspectArchitectureConsistency({ kind: "unknown" } as never),
+    /architecture_consistency_kind_invalid/u,
+  );
+});

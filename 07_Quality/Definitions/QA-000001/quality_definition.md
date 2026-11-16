@@ -2,19 +2,33 @@
 
 ## 完成受付と利用側の境界
 
+QualityのOwner移管はRCM-UT-001／002の既存反証を新しい宣言元とinspectQualityConsistencyへ接続する。状態正規化、Reality局所Issue→状態対、分析の後勝ちと被覆、定義の重複・条件・段階・内部閉包、Local IDの入力Map非変更と先勝ち、二種類の品質表の区分別件数・診断順を維持する。Qualityだけの目標表試験一件はSemantic試験からQuality分析試験へ移し、全assertionを保持する。Architectureの五文書・Detail実体・段階／境界との三比較はSemanticの既存反証を維持する。RCM-UT-014で未知kindの拒否、QualityからSemanticへの逆依存なしと旧五caseなし、Root219項目を確認する。既存Checkerの包括的なQuality結合と表検査は、同じ別read・短絡・診断順で新宣言元へ接続する。
+
+Release移管ではRCM-UT-002の既存の版集合・Candidate／Baseline相関・Stable四条件を新しいRelease完成操作へ接続し、未知kindの拒否を確認する。RCM-UT-014は固定公開集合219項目と、ReleaseからSemantic／Parseへの逆依存なし、Semanticに旧Stable四caseなしを確認する。既存CheckerのStable・Candidate・CHANGELOG試験で、限定取得断面、原文条件、Tag未確認null、読取りと診断順を維持する。新しい公開元は既存Symbolと公開Module一覧へ追従する。
+
+ConsumerのBaselineは既存Local Itemで補強する。CPR-IT-012／RFD-IT-013はTopic・Meeting両方で、実一覧受付のcomplete／invalid／cancelled／unavailableとMCPの完成応答／非開示-32602／取消-32800を対応付け、対象解決・read回数を確認する。resolverとlistの例外分類は既存反証を維持する。RFD-IT-021／PPR-IT-019／PRL-IT-012はChecklistだけ不備の実Parser結果がpartial・非nullであることと、AM登録・Workbench内容投影・CLIのProject ID搬送を確認する。AMの登録後に元文書を補正しないこと、CLIの構造欠測・読取り故障はTask代役0・取消登録0であること、受理時は取消解放1を確認する。CLI本文のVMと有限依存による確認を実CLI／Task／AI完了の保証としない。Checkerの別read・部分モデル・診断順とCatalog一回観測は既存反証へ接続し、重複した検証機構を追加しない。
+
 RCM-IT-005の公開元一覧は文書モデルの現行宣言元へ一致させ、撤去済み補助Moduleと重複を許可集合から除く。同じ既存検査を文書モデル単独でも実行し、他Packageの既存不整合でこの確認が未到達にならないことを確認する。全Packageの元の確認も削除しない。
 
-PPR-UT-017の既存Global Symbol Graph試験は、現行の完成Artifact Parse・品質Semantic・Coordinator試験補助への検証辺と、QA-000006の正式なHST-UT-001／ERB-UT-024を照合する。撤去済みNative Symbolを復活させず、現行System試験のScript／Task関係を維持する。PRL-IT-012の未署名CLI試験は現行三モデルを準備対象へ含め、helpの実起動と入力拒否を確認し、実Task／AI／Dockerを開始しない。
+PPR-UT-017の既存Global Symbol Graph試験は、現行の完成Artifact Parse・Quality内部・工程間の比較・Coordinator試験補助への検証辺と、QA-000006の正式なHST-UT-001／ERB-UT-024を照合する。撤去済みNative Symbolを復活させず、現行System試験のScript／Task関係を維持する。PRL-IT-012の未署名CLI試験は現行三モデルを準備対象へ含め、helpの実起動と入力拒否を確認し、実Task／AI／Dockerを開始しない。
 
-RCM-UT-014はRootの固定集合206項目（値90・型116）と、内部Helperの非公開を確認する。RCM-UT-002はparseArtifactのSource・Identity・Related・部分モデル、明示Schemaの順序・適用回数・例外を確認する。品質表の算術・是正条件は捕捉済みArtifactから評価し、既存RCM-IT-011／AUH-IT-003で診断件数・順序・既存取得位置を維持する。Catalog受付は構造早期拒否時の走査0、不正JSON例外、正常受付の一回走査と同じobservedFilesを確認する。Project Contextの局所内容捕捉・固定構造条件・Manifest比較の責務と、null／部分結果を区別する。MCPの既存Topic／Meeting結合試験は、不正入力の解決0、取消前後のread0、対象解決一回、resolver例外と読取り例外の分類を維持する。旧容量境界129文字の検索語は拒否せず、対象解決まで到達することを確認する。
+RCM-UT-014はRootの固定集合219項目（値98・型121）と、内部Helperの非公開を確認する。RCM-UT-002はparseArtifactのSource・Identity・Related・部分モデル、明示Schemaの順序・適用回数・例外を確認する。品質表の算術・是正条件は捕捉済みArtifactから評価し、既存RCM-IT-011／AUH-IT-003で診断件数・順序・既存取得位置を維持する。Catalog受付は構造早期拒否時の走査0、不正JSON例外、正常受付の一回走査と同じobservedFilesを確認する。Project Contextの局所内容捕捉・固定構造条件・Manifest比較の責務と、null／部分結果を区別する。MCPの既存Topic／Meeting結合試験は、不正入力の解決0、取消前後のread0、対象解決一回、resolver例外と読取り例外の分類を維持する。旧容量境界129文字の検索語は拒否せず、対象解決まで到達することを確認する。
 
 ## Architecture・Qualityの完成ParseとSemanticの境界
+
+Change案内とDiscoveryのREQ参照所有はRCM-UT-002の既存反証を工程Ownerへ接続する。対象をREQ文書だけへ狭めず、全Markdownの同じ観測位置を維持する。RCM-UT-014はRoot219項目（値98・型121）、旧二caseなし・新旧公開元を確認する。Semantic出版は既存Storeの故障注入と実CLIの表示／明示保存試験で、Root外・Link拒否・一時物回収・失敗時正本維持を確認する。Topic／Meetingの注入故障試験は内部操作へ接続して同じassertionを維持し、Root版の種別限定・期待Projectは既存ITで別に確認する。Reality限定受付と参照Decodeの既存四試験も維持する。
+
+UX／IAの九比較はRCM-UT-002の既存入力・assertionを各inspectUxConsistency／inspectIaConsistencyへ接続する。UX登録Issueの先頭追加・同kind抑止、正式入力の六観測を補完しないこと、IA定義の局所Issue継承・accepted対応だけのmappingKeys・分析Mapの後勝ちを保持する。RCM-UT-014はRoot219項目（値98・型121）と旧九caseなし・Semantic／Parseへの逆依存なし・未知kind拒否を確認する。Checkerの選択結合で元のread・短絡・診断位置を維持する。
+
+UI／SPECの各四比較はRCM-UT-002の既存試験を各OwnerのinspectUiConsistency／inspectSpecConsistencyへ接続し、入力・assertionを維持する。Detailの局所Issue優先、出現重複・双方向閉包、SPECのUX網羅→重複→IA網羅と定義重複→登録網羅、件数→三者閉包の順を確認する。RCM-UT-014はRoot219項目（値98・型121）、旧八caseなし・工程OwnerからSemantic／Parseへの逆依存なしと未知kind拒否を確認する。Checker診断変換と選択したUI／SPEC結合は元のread・lstat・短絡・診断順で検証する。
+
+Architectureの八比較はRCM-UT-002の既存assertionをinspectArchitectureConsistencyへ接続する。分析の件数とDirectory集合の違いを確認する一件はSemanticからArchitecture試験へ移す。RCM-UT-014は旧八caseなし・ArchitectureからSemanticへの逆依存なし・Root219項目（値98・型121）を確認する。Checkerの診断変換試験と選択したArchitecture結合試験で、Issue継承・重複抑止・Ready時だけの追加・出現重複・双方向閉包と観測順を確認する。
 
 RCM-UT-002でArchitectureの本文初回／Checklist二回目の独立捕捉、取得後変更、局所とReady・被覆の併存時一件診断、Quality九文書の公開Parse、原文・状態・件数・部分関係・Map後勝ちと出典を確認する。既存の工程結合試験で、Ready・未知状態、二回読取り、Coverage欠測時のreturn、ひな型条件、担当・閉包・段階・境界、診断順と相関取得時の局所Issue非配送を確認する。Root契約・Symbol・QA・Catalogの接続を維持し、限定成功を全体回帰・実AI・Docker・Releaseの成立へ拡張しない。
 
 ## UI・SPECの完成Parseと関係評価の境界
 
-Screenは既存AUH-IT-003で、一回読取り、正常・Checklist欠測・不完全行、局所不備と関係不備の併存、局所Issueの一度配送、部分モデル保持、不在・祖先Link除外を確認する。RCM-UT-002でScreen専用code・理由・相対位置・本文非開示・不正details拒否を検証する。RCM-UT-014の固定公開契約は206項目と、内部Helperの非公開を確認し、Helper自体の反証試験は同Package内部Ownerから継続する。
+Screenは既存AUH-IT-003で、一回読取り、正常・Checklist欠測・不完全行、局所不備と関係不備の併存、局所Issueの一度配送、部分モデル保持、不在・祖先Link除外を確認する。RCM-UT-002でScreen専用code・理由・相対位置・本文非開示・不正details拒否を検証する。RCM-UT-014の固定公開契約は219項目と、内部Helperの非公開を確認し、Helper自体の反証試験は同Package内部Ownerから継続する。
 
 RCM-UT-002と既存AUH-IT-003で、通常AREA・CMP・Visual Baseline・BHVの局所Checklist診断を確認する。正常／不備本文、一回読取り、理由codeと相対位置、本文非開示、不在・非対象配置・Linkの除外を検証する。CMP作成義務や自由文の意味判定は追加せず、Screenも既存読取り位置で局所Issueを一度配送し、同じモデルを関係比較へ渡す。
 

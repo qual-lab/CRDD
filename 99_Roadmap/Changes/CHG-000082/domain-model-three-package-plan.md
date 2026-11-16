@@ -10,6 +10,418 @@
 
 ### モデル中心への再整理（UI／SPEC工程モデルの先行実装）
 
+<a id="document-public-inventory"></a>
+#### 現行設計のOwner・公開入口説明の追従 — 2026-11-16
+
+追加確認で、Semantic設計二文書の旧domain-model配置・公開Owner・Storage責務・正本参照と、Checker設計の撤去済みRoot Helper／旧Discovery比較入口の説明が現行実装と不一致だった。変更分類は実装済み契約への文書直接伝播。親担当がcurrent Source・モデルfield・Rootを照合し、読取り専用確認者と着手前整合を確認した。ArtifactModelにfences fieldはないため、Fenceは完成Parse内部の捕捉・局所診断、checklist／anchors／linkTargetsはモデル値と区別する。
+
+是正はSemanticの01／02とCheckerの01の三文書に限定し、semantic・artifact・reality-traceability・repository・storageの現在Owner、完成Parse・モデルを使う接続と、維持する独立raw参照受付を説明した。旧日付見出しは維持し、現行を説明する段落と正本参照だけを更新する。Source・公開IF・試験・保存Schema・過去Evidenceは変更しない。読取り位置・別観測・短絡・適用条件・診断順・原子的保存と失敗時保全は変更しない。文書・リンクと直接伝播の限定確認、独立レビューを対象とし、規範・認可・保存境界を変えないため準拠監査・全体回帰は追加しない。実AI・Docker・過去保持物の操作は行わない。結果は確定後に追記する。
+
+#### 工程移管の完結と公開内部化候補六項目の結論 — 2026-11-16
+
+直前の文書追従は、三文書の原文／モデル捕捉、更新した現Owner実Path、文書モデル正本への直接リンクと明示Anchor、現行Rootの操作名、公開契約表の連続性を一回限りの読取り確認で照合し成功した。撤去済みOwner／旧Root呼出しの断言が対象区画へ残らないこととdiffも確認した。恒久Checkerや新しいScriptは追加していない。読取り専用独立レビューで必須指摘は0件だった。確認者は試験・編集・外部操作を行っていない。
+
+変更分類は既存判定と保存保証を維持するOwner・公開契約整理。着手前に親担当と読取り専用確認者が、Changeの局所重複短絡、Discoveryの全Markdown観測範囲、出版のBundle生成→Store一回、Topic／MeetingのRoot経路と故障注入Ownerを照合した。移管前のCapabilityと既存単体・契約・実Filesystem／Git結合を対応付けた。文書・利用側・直接伝播と独立技術レビューを対象とし、規範・認可・保存形式・Writer／Lock方式は変更しない。準拠表明・Release判断・全体回帰は対象外。
+
+Change案内の比較は既存change/validation.tsのinspectChangeNavigation、DiscoveryのREQ表示参照とEXP分析Pathの不一致は既存discovery/validation.tsのinspectDiscoveryIdentityLinksへ移管する。単一判定のため汎用Unionや新しいRequest公開型は作らず、取得済みモデルと期待集合を受ける。旧二case・型枝を撤去し、Semanticには工程横断十判定だけを残す。Changeの重複時短絡・欠測と空集合の受理、Discoveryの参照出現と全Markdown対象、Checkerの取得・診断位置は維持する。
+
+| 内部化候補 | 今回の処置 | 根拠・保持する契約 |
+|---|---|---|
+| createFilesystemSemanticBundlePublisher | 実装・Root公開を撤去 | Capability捕捉だけの転送Factoryを廃止。publishSemanticCoverageが明示Repositoryを受け既存Storeを一回呼ぶ |
+| SemanticBundlePublisher | 型宣言・Root公開を撤去 | 外部にPublisherを組み立てさせず、Writerと内部故障Hookは維持 |
+| TopicMeetingRepository | Root公開と生成入口の注入Overloadを撤去 | 本番はRootと期待Project。故障試験は既存内部createTopicMeetingOperationsへ接続し全assertionを維持。Root版の種別限定・期待Project検証は実Filesystem ITで別に確認 |
+| inspectRealityTestCatalog | 独立入力受付として維持 | 既存一回観測／JSON解析と分離した三文字列field・Path重複の受付。全Schema版readTestCatalogと別契約。新readWrapperの追加や検査拡大は不要 |
+| parseMarkdownLinkReference | 独立入力受付として維持 | 現在参照・固定履歴のraw参照をtargetとanchorへ分割し各一回Decode。不正でも他方の結果を保持。解析をCheckerへ複製せず、Filesystem／Git解決は上位に残す |
+| MarkdownLinkReference | 上記受付の結果型として維持 | Decode結果と失敗を外部が一組で扱う。関数と型を分離して隠さない |
+
+Rootは219項目（値98・型121）。二つの完成比較を追加し、不要三公開を撤去した。下記210→220等の表・数は当時の調査断面として保持する。今回の候補六項目の評価は閉じたが、数だけで全将来用途に対する公開最小性は主張しない。新File・Facade・互換処理は追加しない。
+
+限定試験: 単体・Root・診断変換37、維持するCatalog／参照受付四、出版・活動CRUD・公開元／台帳等十、既存Checkerの変更案内・通常／固定履歴参照と台帳等七が成功した。台帳等四件の再実行を含む58実行・54対象項目で、全体回帰ではない。二つの今回専用Repository-local試験Rootは終了後の不存在を確認。関連六Packageと配布入口の型検査も成功した。故障注入は内部Ownerの保存前後例外と実Storeの部分書込み／原子的置換前失敗を区別し、実CLIの明示保存・失敗時Snapshot保全も確認した。独立レビューの結果は確定後に記録する。実AI・Docker・過去保持物は操作していない。
+
+#### UX／IAの九比較のOwner移管 — 2026-11-16
+
+直前の最終整理の独立レビューは実装・Consumer・故障試験移管に必須の修正なし。Publisher行撤去後に公開契約表を分断した空行一行を是正し、契約内容・Owner・Source・試験は変更していない。読取り専用再確認でscope1–2に残る必須指摘は0件となった。確認者は試験を実行していない。
+
+変更分類は判断条件を維持する責務・公開元の移管。着手前に親担当と読取り専用確認者が、既存validationの責務、型限定依存、UX登録Issueの先頭追加・同kind抑止、IAの局所Issue継承・accepted対応・後勝ちMapを照合した。正式入力の六観測は既存Callerの取得を維持し、UXは再観測・補完しない。規範・認可・保存形式・I/O・適用条件は変えず、文書・直接伝播確認と独立技術レビューを対象とする。準拠表明・Release判断・全体回帰は対象外。
+
+ux_projection／ux_formal_input／ux_analysis_registration／ux_relationsは既存ux/validation.tsのinspectUxConsistencyへ、ia_analysis_coverage／ia_index_coverage／ia_projection／ia_definition／ia_relationsは既存ia/validation.tsのinspectIaConsistencyへ移管した。入力契約は各types.tsのUxConsistencyRequest／IaConsistencyRequest、Rootは220項目（値97・型123）。Semanticの旧九case・型枝と専用六Helperを撤去し、新File・転送Wrapper・共通基盤は作らない。残るSemanticは12kind（工程移管候補2／Semantic維持10）。前段の公開数・分類表は当時の調査断面として保持する。
+
+基準Capabilityとの対応: UXの投影・登録・正式入力・REQ／Journey閉包は同じ四caseと二Helperへ、IAの分析／登録被覆・投影・定義証拠・Object閉包は同じ五caseと四Helperへ対応付ける。UXの非空条件とJourney関係の非空条件を区別し、IAの受理済み対応だけを関係比較へ渡す。既存Owner試験の入力とassertionは削らず、新旧の診断変換・Root集合・Symbol検証辺を追従する。検証と独立レビューの確定結果は追記で区別する。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### UI／SPECの各四比較のOwner移管 — 2026-11-16
+
+UX／IAの独立レビューでは実装・Consumer・型依存に退行指摘なし。追従二系統として、現行設計の旧projection入口とIdentity受付名、UX補助の旧引数説明を是正した。現行文書内の同じ旧Identity名も残存検索で追従し、SourceではHeaderだけを変更して本文を維持した。UX14試験・当該Biome・diff確認は成功。読取り専用再レビューで残る必須指摘は0件となった。確認者は試験を実行していない。
+
+直前のUX／IA移管の検証結果: 純粋・Root・診断変換56試験、UX／IA結合九試験が成功。台帳追従で検証辺を既存辺と重複させた編集ミスを検出し、重複を除去して診断変換試験の正しい記録へ追加した。公開元・台帳・依存・Global Graph四試験を再実行して成功。今回作成した結合試験Rootの不存在も確認した。関連六Packageと配布入口の型検査、変更42 TSのBiome・diffが成功。九caseと六Helperは空白を除く本文一致を確認し、Checkerはimportと九呼出名以外を変更していない。文書の残存検索で前段Architecture入口を指す旧説明一文も修正した。独立レビュー結果は確定後に記録する。
+
+変更分類は判断条件を維持する責務・公開元の移管。着手前に親担当と読取り専用確認者が、既存UI／SPEC validationの責務、型限定依存、局所Issue優先と既存重複式の同値性を照合した。前段のConsumer・Release・Quality・Architecture変更は保持する。規範・認可・保存形式・I/Oと適用条件は変更せず、文書・利用側・直接伝播と独立技術レビューを対象とする。準拠表明・Release判断・全体回帰は対象外。
+
+ui_analysis_coverage／ui_index_coverage／ui_relations／ui_detail_coverageは既存ui/validation.tsのinspectUiConsistencyへ、spec_analysis_coverage／spec_definition_coverage／spec_coverage／spec_detail_coverageは既存spec/validation.tsのinspectSpecConsistencyへ移管した。入力契約は各types.tsのUiConsistencyRequest／SpecConsistencyRequestから直接公開する。Root216項目（値95・型121）、Semantic残存21kind（工程移管候補11／Semantic維持10）とする。下記210項目・37kindの表と前段212項目・29kindは、それぞれ当時の確認断面であり現行値と区別する。
+
+基準Capabilityと置換の対応: UIのUX→IA網羅、登録集合、三者の出現重複と閉包は同じ局所三Helperへ対応付ける。SPECのUX網羅→重複→IA網羅、定義重複→登録網羅、件数→三者閉包は同じ局所三Helperへ対応付ける。重複式だけは同値の既存hasDuplicateへ統合し、Semanticの専用Helperを撤去する。両Detailは既存局所Issueを先に返す条件と集合境界を維持する。UI–SPECの正式対応・Detail対応・下流担当・EvidenceはSemanticへ残す。Consumerは同じread・lstat・集約・短絡位置で呼出し名だけを変更し、未知kindの拒否以外の新規判定を加えない。新File・転送Wrapper・Registryを作らない。
+
+限定検証はUI／SPEC・Root・Semantic・診断変換69試験と、UI／SPEC結合八件・公開元／台帳／依存／Global Graph四件の計12試験が成功した。結合試験は今回専用Repository-local領域で実行し、終了後の不存在を確認した。試験入力・assertionを削らず、Owner試験とSymbol検証辺・公開元集合を追従する。関連型検査・静的確認と独立レビューの確定結果は追記で区別する。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+#### Architectureの八比較のOwner移管 — 2026-11-16
+
+UI／SPEC移管の独立レビューは実装・Consumer・型依存・既存assertionに退行指摘なし。Detail被覆の現行説明一段落が旧Semantic入口を指す一点を是正し、Ownerと入口だけを各inspectUiConsistency／inspectSpecConsistencyへ揃えた。局所Issue優先・combined診断一件・Checklist追加配送なしと条件は変更しない。文書の残存検索・diff確認が成功し、読取り専用再レビューで残る必須指摘は0件となった。確認者は試験を再実行していない。
+
+直前のUI／SPEC移管の静的確認: 関連六Packageと配布入口の型検査、変更34 TSのBiome、diff確認が成功した。旧八caseと六Helperは空白を除く本文の一致を確認し、SPECの重複Helper名だけを同値の既存処理へ統合した。Checkerの差分はimportと各四呼出名の変更だけで、UI–SPECの横断呼出し・取得・診断の位置は不変。独立レビューの結果は確定後に記録する。
+
+変更分類は既存判断・公開元の責務移管。基準はRelease／Quality移管と下記全件棚卸しの作業候補である。着手前に親担当と読取り専用確認者が、Architecture局所の意味と取得済み集合の比較、type-only依存、Issue引継ぎ、件数とIdentity比較の差を照合した。規範・認可・保存形式・I/O・適用条件は変更せず、文書・直接伝播確認と独立技術レビューを対象とする。準拠表明・Release判断・全体回帰は対象外。
+
+既存architecture/relations.tsへinspectArchitectureConsistencyとArchitectureConsistencyRequestを置き、cross_model、detail_map_coverage、readiness、registry_coverage、component_coverage、relations、detail_coverage、inputsの八kindを移管した。旧Semanticの対応する八case・型枝・局所四Helperと二入力型は撤去し、転送Wrapper・新File・Registryは作らない。Architectureモデルへの逆方向参照はimport typeだけとする。
+
+基準版のCapability対応: 局所Issueの継承・同kind重複抑止はcross_model／detail_map_coverage／readiness、出現列と双方向閉包はregistry／component／relations、領域→関係→Ready時Covered所有者の順はdetail_coverage、view別件数→Directory exact集合はinputsへ同じ実装で対応付けた。Checkerの既存read・lstat・短絡位置を保ち、取得済み値から実在の再観測や全品質Passを主張しない。
+
+Architecture専用の件数／Directory反証試験一件は、assertionを削らずSemanticからArchitecture試験へ移した。Root・旧分岐なし・逆依存なし・未知kind拒否と既存診断変換を追従する。Rootは212項目（値93・型119）、Semantic残存は29kind（工程移管候補19／Semantic維持10）。下記210項目・37kindの表は移管前の全件調査断面として保持し、今回の追加二公開はArchitectureの完成比較とその入力契約である。限定回帰・独立レビューの結果は確定後に追記する。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+#### 残るRelationと公開物の全件棚卸し — 2026-11-16
+
+Architecture移管の独立レビューでは判定・依存・Consumer接続の退行指摘はなく、新規未知kind試験の個別HeaderにLocal Itemの追跡IDが欠ける一点を是正した。@trace RCM-UT-002の記載だけを追加し、Architecture15試験・当該FileのBiome・diff確認が成功した。是正と記録の読取り専用再確認で、残る必須指摘は0件となった。確認者は試験を実行しておらず、実装や試験本文は変更していない。
+
+直前のArchitecture移管の限定検証結果: Architecture・Semantic・Root・診断変換53試験と、Architecture結合六件・公開元／台帳／依存／Global Graph四件の計10試験が成功した。後者は今回専用のRepository-local試験領域で実行し、終了後の不存在を確認した。関連六Packageと配布入口の型検査、変更25 TSのBiomeとdiff確認も成功した。移管前の八caseと四Helper・二型は空白を除く本文の一致を確認し、判定追加・削除はない。独立レビュー結果は後続の確定記録で区別する。
+
+文書追従後の読取り専用独立再レビューは必須是正指摘0件。確認者は試験を再実行していない。今回の完了範囲は棚卸しと方針の対応付けであり、次の実装は工程Owner移管を先行し、公開削減は完成操作への統合単位で進める。
+
+調査結果: 規則Owner案は37kindすべてを対応付け、工程移管候補27／Semantic維持10とした。公開210項目は宣言元・分類・本番直参照・維持理由・統合候補を全数記録した。親担当の一回限りの対応表照合で、Root210名と37caseに重複・欠落がないことを確認し、既存のRoot固定集合・公開元・Global Symbol Graphの限定三試験も成功した。照合用処理をChecker・新規Script・新しい規約へ追加していない。独立技術レビューではSource変更を求める指摘はなく、URI参照受付の公開理由一行を正しい値契約へ追従した。これは調査記録の整合確認であり、27判定の移管成立や公開最小化完了ではない。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+対象はedd4d8bfa後続のRelease／Quality移管済み作業候補。変更分類は責務・公開契約の調査記録であり、この棚卸しでは製品Source・公開IF・保存形式・検査条件を変更しない。親担当は宣言・全Root利用側・既存の採用理由・試験を照合し、読取り専用の専門確認者と独立した完成契約／工程の規則／内部実現手段の区別を照合した。文書・直接伝播と独立技術レビューを対象とし、規範・Authority・実行保証を変えないため準拠監査・全体回帰は追加しない。実AI・Docker・過去保持物は操作しない。
+
+母集団はRoot明示公開210項目（値92・型118）とSemanticの残る37kind。40_Developと配布template/toolsの実装・Script・試験について、Rootへのnamed import／export、namespace参照、深いPathのOwner試験を区別した。表の参照は本番・ScriptのRoot直接参照先であり、型の間接参照、Owner内部の使用、Reflection型試験を本番利用件数へ混ぜない。型の直接importがないことを、公開入力／戻り値のモデルが不要という根拠にはしない。全ての動的到達経路や外部利用者の不存在を証明する棚卸しではない。
+
+##### 残る37判定の規則Owner・利用側
+
+全37kindにChecker本番の呼出しがある。現配置は全てsemantic/relations.tsであり、下表の「移管候補」は移管済みを意味しない。期待集合が上位の観測から渡されることだけでSemanticへ残さず、違反を決める規則が一工程に属するか、複数工程の正式な対応を比較するかで分ける。
+
+| kind | 規則Owner案／処置 | 本番利用側（Checker repository配下） | 規則と保持する境界 |
+|---|---|---|---|
+| `project_context_identity` | Semantic維持 | `project-context.ts` | Contextと別モデルのManifestのIdentity照合。同じ取得のschema・三Identity。局所partialとManifest不一致を混同しない |
+| `artifact_relations` | Semantic維持 | `quality.ts` | 複数成果物のGraph・重複・参照比較。部分Graph・Issue順・入力不変 |
+| `architecture_cross_model` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `architecture_detail_map_coverage` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `quality_local_item_relations` | Semantic維持 | `quality.ts` | Architecture Detail実体とQuality Local Item・段階・境界の対応。取得済みの単位・必要段階・境界を別々に保持 |
+| `quality_detail_coverage` | Semantic維持 | `quality.ts` | Quality統合が宣言したDetail参照とArchitecture実体集合の対応。局所Issue抽出と追加被覆診断の順・部分モデル |
+| `architecture_readiness` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `architecture_registry_coverage` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `architecture_component_coverage` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `architecture_relations` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `architecture_detail_coverage` | architectureへ移管候補 | `architecture.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ui_analysis_coverage` | uiへ移管候補 | `ui.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ui_index_coverage` | uiへ移管候補 | `ui.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ui_relations` | uiへ移管候補 | `ui.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `spec_analysis_coverage` | specへ移管候補 | `spec.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `spec_definition_coverage` | specへ移管候補 | `spec.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `spec_coverage` | specへ移管候補 | `spec.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ui_detail_coverage` | uiへ移管候補 | `ui.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `spec_detail_coverage` | specへ移管候補 | `spec.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ux_projection` | uxへ移管候補 | `discovery-ux.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ux_formal_input` | uxへ移管候補 | `discovery-ux.ts` | UXが受け入れるREQ正式入力と上位の六観測事実の照合。定義有無・同一REQ・Source Analysis混入・危険targetを別々に保持 |
+| `ux_analysis_registration` | uxへ移管候補 | `discovery-ux.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ux_relations` | uxへ移管候補 | `discovery-ux.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ia_analysis_coverage` | iaへ移管候補 | `ia.ts` | UX定義集合ごとにIA分析があるというIAの被覆規則。期待集合=上位のuxIds。部分観測を全実在証明にしない |
+| `ia_index_coverage` | iaへ移管候補 | `ia.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ia_projection` | iaへ移管候補 | `ia.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ia_definition` | iaへ移管候補 | `ia.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `ia_relations` | iaへ移管候補 | `ia.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `change_navigation` | changeへ移管候補 | `work-lifecycle.ts` | 当該工程の規則。上位の観測集合は取得済みの期待値であり、他工程の本文意味を再解釈しない。取得位置・期待集合・局所Issue・短絡・重複/後勝ち・診断順を維持 |
+| `discovery_identity_links` | discoveryへ移管候補 | `document.ts` | REQ表示参照をEXP分析へ結合しないDiscoveryの参照規則。全Markdownの取得済みIdentity/Linkを対象とする。REQ文書だけへ狭めない |
+| `identity_ownership` | Semantic維持 | `document.ts` | 複数文書・複数工程の安定ID所有の一意性。順序・重複ごとの診断と出典を保持 |
+| `ui_spec` | Semantic維持 | `spec.ts` | UI・SPEC両定義と登録表の正式対応。重複→双方向閉包の順 |
+| `ui_spec_details` | Semantic維持 | `spec.ts` | Screen・両Detail台帳・SPEC定義の対応。後勝ち・重複・件数・旧包括診断 |
+| `ui_spec_downstream` | Semantic維持 | `spec.ts` | UI/SPECからArchitecture/Qualityへの担当・下流閉包。Single/Shared/Joint・別観測・Owner差を保持 |
+| `ui_spec_evidence` | Semantic維持 | `spec.ts` | UI/SPECの対応Evidence・改訂と指紋。八観点短絡・理由順・同改訂相関 |
+| `architecture_inputs` | architectureへ移管候補 | `architecture.ts` | UI/SPECごとのArchitecture分析被覆と分析Directory閉包。分析件数→実Directory集合の旧二条件。ID一致の強化や補完はしない |
+| `quality_architecture_models` | Semantic維持 | `quality.ts` | Quality参照とArchitectureが所有する固定五文書の対応。Pathのjoin/resolve基点と同数差替え拒否 |
+
+候補はArchitecture 8、UI 4、SPEC 4、UX 4、IA 5、Change 1、Discoveryの参照規則1の計27。Semantic維持は10。これは次の実装順を決める分類であり、27本の新しい公開関数・Source・Dispatcherを要求するものではない。工程ごとの既存の完成Parse／比較へ統合できるかを先に確認し、別read・短絡・診断順・入力不正と観測不能を保持してから段階移管する。
+
+##### 公開を維持する独立契約と本番接続の区別
+
+Rootから本番・Scriptへの直接参照がない七値は次のとおり。最初の五値は既存の採用済み純粋契約であり、未接続を理由に能力を退役させない。後の二値も値受付とFilesystem観測の境界が異なる。外部本番直参照がないことと、契約未成立／処理未使用を混同しない。
+
+| 値 | 維持理由・現在の範囲 | 既存の確認先 |
+|---|---|---|
+| `applyProjectOperationCandidateDecision` | 候補の明示判断を純粋に評価する採用済み契約。正本Writerへの接続は未実施 | `document-model/tests/integration/candidate-adoption.contract.test.ts` |
+| `projectProjectOperationSources` | 不完全・非開示のSourceを保持する純粋投影の採用済み契約。本番未接続 | `document-model/tests/integration/project-projection.contract.test.ts` |
+| `fixQualityCandidate` | 品質候補の固定を表す採用済み純粋契約。本番Gate/Release許可とは別 | `document-model/tests/system/quality-change-control.contract.test.ts` |
+| `integrateQualityGate` | 固定改訂と必須確認の統合を表す採用済み純粋契約。本番未接続 | `document-model/tests/system/quality-change-control.contract.test.ts` |
+| `reenterQualityReview` | 是正後の再入場を表す採用済み純粋契約。実検証の自動実行はしない | `document-model/tests/system/quality-change-control.contract.test.ts` |
+| `discoverRealitySymbols` | 観測済みSnapshotの純粋な集合受付。本番はobserveRealitySymbolRepository経由 | `document-model/tests/unit/artifact/result.contract.test.ts・public-boundary.contract.test.ts` |
+| `parseRealitySymbolManifest` | 一文書一ParseのManifest独立受付。本番は観測操作内部から使用 | `document-model/tests/unit/public-boundary.contract.test.ts・checker/tests/unit/repository/reality.contract.test.ts` |
+
+##### 完成操作への統合を先に検討する候補
+
+| 優先 | 公開物 | 必要な是正／停止条件 |
+|---|---|---|
+| P1 | `createFilesystemSemanticBundlePublisher` | 完成出版がRepository Capabilityから既存Storeへ接続すればFactoryを内部化できる。Path・原子的置換・失敗分類・故障注入を維持 |
+| P1 | `SemanticBundlePublisher` | 現在は公開出版関数の引数・Factory戻り値。完成出版へ統合するまでは単独で隠さない |
+| P2 | `inspectRealityTestCatalog` | Reality登録読取りの完成操作へ閉じてから内部化を検討。全Schema版readTestCatalogへの置換は禁止 |
+| P3 | `parseMarkdownLinkReference` | 全raw参照の取得元・URI一回Decode・失敗保持・固定履歴解決を対応付けてから内部化可否を判断 |
+| P3 | `MarkdownLinkReference` | 上記の公開入力受付の結果型。関数だけ/型だけを先行撤去しない |
+| P4 | `TopicMeetingRepository` | 公開createTopic/MeetingOperationsの注入Overload用。上位はRoot版を使うが、Owner試験・戻り値参照とOverloadを整理するまでは維持 |
+
+P1が最小の優先実装候補である。Checker CLIはpublishSemanticCoverageのためだけにPublisherを構築しており、完成出版が明示Repository Capabilityから既存Storeへ接続すれば、FactoryとPort型をRootから外せる。これは単純なexport削除ではなく、利用側の組立てを完成操作へ戻す変更として扱う。原子的置換・Path境界・一次失敗・結果不明・対象外保全・故障注入の既存Ownerと試験を維持するまで旧契約を撤去しない。
+
+P2は限定三field／Path重複のReality受付であり、readTestCatalogの全Schema照合・Repository走査へ置換しない。P3は取得済みArtifactだけでなく、現在参照・固定履歴のraw文字列と一回Decode／失敗保持を全件対応付けるまで残す。P4は現在の公開Overloadと操作型から参照されるため、型だけを隠さない。Repository Observation Portとその生成はAM・Checker・Scriptの独立した内容観測に使われるため現状維持とし、AMを既存Context読取りへ統合する場合も、例外・拒否・Root再確認・観測回数の検証を別に必要とする。
+
+##### 公開210項目の分類と根拠
+
+分類は、モデル・型／値契約118、完成操作86、独立入力受付4、内部実現手段2。型宣言の数は118だが、この分類の「モデル・型／値契約118」は117型とtestLevels定数であり、内部実現手段2のうち一つがSemanticBundlePublisher型である。分類の数とTypeScriptの値／型の数を混同しない。
+
+以下は各項目の現行宣言元、直接本番利用、公開理由と処置を全数対応する。候補六項目は「完成操作への統合後に内部化を検討」の意味であり、即時削除済み・Rootが最小化完了という主張ではない。取得済み入力から結果を返す純粋契約の成立と、正本保存・実観測・本番Gateの接続も区別する。
+
+| 公開名 | 分類（値／型） | 現行宣言元（src配下） | 本番Root直接参照・理由 | 処置 |
+|---|---|---|---|---|
+| `federateTopicMeetingRelations` | 完成操作（値） | `activity/federate-relations.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/topic-meeting/access-resolver.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingRelationSource` | モデル・型／値契約（型） | `activity/federate-relations.ts` | 本番Root直参照なし。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `readTopicMeetingList` | 完成操作（値） | `activity/operations.ts` | `mcp-server/src/tools/topic-meeting.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingListReadResult` | モデル・型／値契約（型） | `activity/operations.ts` | 本番Root直参照なし。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `MeetingOutcomeCommandResult` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/topic-meeting/action.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `ProjectOperationRecord` | モデル・型／値契約（型） | `activity/types.ts` | 本番Root直参照なし。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `ProjectOperationRecordKind` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/topic-meeting/action.ts`<br>`workbench-server/src/shared/view/types.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingAccess` | モデル・型／値契約（型） | `activity/types.ts` | `mcp-server/src/request/server.ts`<br>`mcp-server/src/tools/topic-meeting.ts`<br>`workbench-server/src/server/routes/record.ts`<br>`workbench-server/src/server/routes/repository-view.ts`<br>`workbench-server/src/server/topic-meeting/access-resolver.ts`<br>`workbench-server/src/server/topic-meeting/action.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingDocument` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/topic-meeting/action.ts`<br>`workbench-server/src/shared/view/types.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingListQuery` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/presentation/project.ts`<br>`workbench-server/src/server/presentation/record.ts`<br>`workbench-server/src/shared/view/types.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingPage` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/presentation/project.ts`<br>`workbench-server/src/server/presentation/record.ts`<br>`workbench-server/src/shared/view/types.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingRelation` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/topic-meeting/action.ts`<br>`workbench-server/src/shared/view/types.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicMeetingRepository` | モデル・型／値契約（型） | `activity/types.ts` | 本番Root直参照なし。注入Overloadと公開操作の型参照を構成する技術契約 | 統合後内部化候補 P4 |
+| `TopicMeetingWriteResult` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/topic-meeting/action.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `TopicPromotionCommandResult` | モデル・型／値契約（型） | `activity/types.ts` | `workbench-server/src/server/topic-meeting/action.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
+| `ArchitectureDetailMapModel` | モデル・型／値契約（型） | `architecture/details.ts` | 本番Root直参照なし。Architecture文書の内容・出典・部分結果を受け渡すモデル | 維持 |
+| `ArchitectureDetailModel` | モデル・型／値契約（型） | `architecture/details.ts` | 本番Root直参照なし。Architecture文書の内容・出典・部分結果を受け渡すモデル | 維持 |
+| `parseArchitectureDetail` | 完成操作（値） | `architecture/details.ts` | `checker/src/repository/architecture.ts`<br>`checker/src/repository/quality.ts`<br>`checker/src/repository/semantic.ts`<br>`checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseArchitectureDetailMap` | 完成操作（値） | `architecture/details.ts` | `checker/src/repository/architecture.ts`<br>`checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `ArchitectureAnalysis` | モデル・型／値契約（型） | `architecture/validation.ts` | `checker/src/repository/architecture.ts`。Architecture文書の内容・出典・部分結果を受け渡すモデル | 維持 |
+| `ArchitectureCrossModel` | モデル・型／値契約（型） | `architecture/validation.ts` | 本番Root直参照なし。Architecture文書の内容・出典・部分結果を受け渡すモデル | 維持 |
+| `ArchitectureDefinition` | モデル・型／値契約（型） | `architecture/validation.ts` | 本番Root直参照なし。Architecture文書の内容・出典・部分結果を受け渡すモデル | 維持 |
+| `ArchitectureIndex` | モデル・型／値契約（型） | `architecture/validation.ts` | 本番Root直参照なし。Architecture文書の内容・出典・部分結果を受け渡すモデル | 維持 |
+| `parseArchitectureAnalysis` | 完成操作（値） | `architecture/validation.ts` | `checker/src/repository/architecture.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseArchitectureCrossModel` | 完成操作（値） | `architecture/validation.ts` | `checker/src/repository/architecture.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseArchitectureDefinition` | 完成操作（値） | `architecture/validation.ts` | `checker/src/repository/architecture.ts`<br>`checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseArchitectureIndex` | 完成操作（値） | `architecture/validation.ts` | `checker/src/repository/architecture.ts`<br>`checker/src/repository/document.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseMarkdownLinkReference` | 独立入力受付（値） | `artifact/links.ts` | `checker/src/repository/references.ts`。raw参照をtarget／anchorへ分離し、一回URI Decodeした値とDecode失敗を返す独立受付 | 統合後内部化候補 P3 |
+| `parseArtifact` | 完成操作（値） | `artifact/parse-markdown.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/quality.ts`<br>`checker/src/repository/references.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `ArtifactModel` | モデル・型／値契約（型） | `artifact/types.ts` | 本番Root直参照なし。成果物の内容・出典・局所診断の共通モデル | 維持 |
+| `ArtifactSource` | モデル・型／値契約（型） | `artifact/types.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/quality.ts`。読取り済み本文・相対出典の入力契約 | 維持 |
+| `DocumentIssue` | モデル・型／値契約（型） | `artifact/types.ts` | `checker/src/report/convert.ts`<br>`checker/src/report/document.ts`<br>`checker/src/report/quality.ts`<br>`checker/src/report/reality.ts`<br>`checker/src/report/semantic.ts`。Parser・評価が返す中立診断の公開契約 | 維持 |
+| `MarkdownLinkReference` | モデル・型／値契約（型） | `artifact/types.ts` | 本番Root直参照なし。一回Decode後のtarget/anchorとDecode失敗を保持する入力受付モデル | 統合後内部化候補 P3 |
+| `ParseResult` | モデル・型／値契約（型） | `artifact/types.ts` | 本番Root直参照なし。complete/partial/invalidと部分モデルを区別する共通受付結果 | 維持 |
+| `SourceLocation` | モデル・型／値契約（型） | `artifact/types.ts` | 本番Root直参照なし。診断と文書内容を結合する相対出典 | 維持 |
+| `parseChangeDocument` | 完成操作（値） | `change/parse.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/work-lifecycle.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseChangeIndex` | 完成操作（値） | `change/parse.ts` | `checker/src/repository/work-lifecycle.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `ChangeDocument` | モデル・型／値契約（型） | `change/types.ts` | 本番Root直参照なし。Change本文・案内の内容モデル | 維持 |
+| `ChangeIndex` | モデル・型／値契約（型） | `change/types.ts` | 本番Root直参照なし。Change本文・案内の内容モデル | 維持 |
+| `parseDiscoveryAnalysis` | 完成操作（値） | `discovery/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseDiscoveryDefinition` | 完成操作（値） | `discovery/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseDiscoveryIndex` | 完成操作（値） | `discovery/parse.ts` | `checker/src/repository/discovery-ux.ts`<br>`checker/src/repository/document.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `DiscoveryAnalysis` | モデル・型／値契約（型） | `discovery/types.ts` | 本番Root直参照なし。Discoveryの分析・定義・台帳モデル | 維持 |
+| `DiscoveryDefinition` | モデル・型／値契約（型） | `discovery/types.ts` | 本番Root直参照なし。Discoveryの分析・定義・台帳モデル | 維持 |
+| `DiscoveryIndex` | モデル・型／値契約（型） | `discovery/types.ts` | 本番Root直参照なし。Discoveryの分析・定義・台帳モデル | 維持 |
+| `parseIaAnalysis` | 完成操作（値） | `ia/parse.ts` | `checker/src/repository/ia.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseIaDefinition` | 完成操作（値） | `ia/parse.ts` | `checker/src/repository/ia.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseIaIndex` | 完成操作（値） | `ia/parse.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/ia.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseIaObjectRelation` | 完成操作（値） | `ia/parse.ts` | `checker/src/repository/ia.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseIaStateVisibility` | 完成操作（値） | `ia/parse.ts` | `checker/src/repository/ia.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseIaStructureNavigation` | 完成操作（値） | `ia/parse.ts` | `checker/src/repository/ia.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `IaAnalysisModel` | モデル・型／値契約（型） | `ia/types.ts` | `checker/src/repository/ia.ts`。IAの文書ごとの内容・参照・状態モデル | 維持 |
+| `IaDefinitionModel` | モデル・型／値契約（型） | `ia/types.ts` | `checker/src/repository/ia.ts`。IAの文書ごとの内容・参照・状態モデル | 維持 |
+| `IaIndexModel` | モデル・型／値契約（型） | `ia/types.ts` | 本番Root直参照なし。IAの文書ごとの内容・参照・状態モデル | 維持 |
+| `IaObjectRelation` | モデル・型／値契約（型） | `ia/types.ts` | 本番Root直参照なし。IAの文書ごとの内容・参照・状態モデル | 維持 |
+| `IaStateVisibility` | モデル・型／値契約（型） | `ia/types.ts` | 本番Root直参照なし。IAの文書ごとの内容・参照・状態モデル | 維持 |
+| `IaStructureNavigation` | モデル・型／値契約（型） | `ia/types.ts` | 本番Root直参照なし。IAの文書ごとの内容・参照・状態モデル | 維持 |
+| `createMeetingOperations` | 完成操作（値） | `meeting/create-operations.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/start.ts`<br>`workbench-server/src/server/topic-meeting/access-resolver.ts`<br>`template/tools/crdd-mcp-server.ts`。Meetingの記録と状態・完成操作の契約 | 維持 |
+| `parseMeetingMarkdown` | 完成操作（値） | `meeting/markdown.ts` | `mcp-server/src/tools/topic-meeting.ts`<br>`workbench-server/src/server/project/surface.ts`<br>`workbench-server/src/server/routes/record.ts`<br>`workbench-server/src/server/topic-meeting/action.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `MeetingOperations` | モデル・型／値契約（型） | `meeting/types.ts` | 本番Root直参照なし。Meetingの記録と状態・完成操作の契約 | 維持 |
+| `MeetingRecord` | モデル・型／値契約（型） | `meeting/types.ts` | `workbench-server/src/server/project/surface.ts`。Meetingの記録と状態・完成操作の契約 | 維持 |
+| `MeetingState` | モデル・型／値契約（型） | `meeting/types.ts` | 本番Root直参照なし。Meetingの記録と状態・完成操作の契約 | 維持 |
+| `applyProjectOperationCandidateDecision` | 完成操作（値） | `project-context/candidate-decision.ts` | 本番Root直参照なし。候補の明示判断を純粋に評価する採用済み契約。正本Writerへの接続は未実施 | 維持 |
+| `parseRepositoryProjectContextMarkdown` | 完成操作（値） | `project-context/parse-context.ts` | `access-management/src/repository/register.ts`<br>`checker/src/repository/project-context.ts`<br>`coordinator/src/cli/request.ts`<br>`workbench-server/src/server/project/surface.ts`<br>`template/tools/crdd-mcp-server.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseRepositoryQualityProjectionMarkdown` | 完成操作（値） | `project-context/parse-quality.ts` | `workbench-server/src/server/project/surface.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseRepositoryReleaseProjectionMarkdown` | 完成操作（値） | `project-context/parse-release.ts` | `workbench-server/src/server/project/surface.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `createPortfolioProjection` | 完成操作（値） | `project-context/portfolio.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/project/access-reader.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `FederatedProjectProjection` | モデル・型／値契約（型） | `project-context/portfolio.ts` | `workbench-server/src/shared/view/validation.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `FederatedProjectSource` | モデル・型／値契約（型） | `project-context/portfolio.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `PortfolioProjection` | モデル・型／値契約（型） | `project-context/portfolio.ts` | `mcp-server/src/tools/project-context.ts`<br>`workbench-server/src/server/presentation/portfolio.ts`<br>`workbench-server/src/server/presentation/project.ts`<br>`workbench-server/src/server/project/access-reader.ts`<br>`workbench-server/src/server/routes/repository-view.ts`<br>`workbench-server/src/server/routes/shared-view.ts`<br>`workbench-server/src/server/start.ts`<br>`workbench-server/src/shared/view/types.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `ProjectContextSource` | モデル・型／値契約（型） | `project-context/portfolio.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/project/access-reader.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `readRepositoryProjectContext` | 完成操作（値） | `project-context/read-context.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/project/access-reader.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `projectProjectOperationSources` | 完成操作（値） | `project-context/source-projection.ts` | 本番Root直参照なし。不完全・非開示のSourceを保持する純粋投影の採用済み契約。本番未接続 | 維持 |
+| `ProjectOperationCandidate` | モデル・型／値契約（型） | `project-context/types.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `ProjectOperationCandidateDecision` | モデル・型／値契約（型） | `project-context/types.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `ProjectOperationCandidateDecisionResult` | モデル・型／値契約（型） | `project-context/types.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `ProjectOperationProjection` | モデル・型／値契約（型） | `project-context/types.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `ProjectOperationSource` | モデル・型／値契約（型） | `project-context/types.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `RepositoryProjectContext` | モデル・型／値契約（型） | `project-context/types.ts` | `workbench-server/src/server/activity/observe.ts`<br>`workbench-server/src/server/project/surface.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `RepositoryProjectContextReadResult` | モデル・型／値契約（型） | `project-context/types.ts` | 本番Root直参照なし。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `RepositoryQualityProjection` | モデル・型／値契約（型） | `project-context/types.ts` | `workbench-server/src/server/quality/types.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `RepositoryReleaseProjection` | モデル・型／値契約（型） | `project-context/types.ts` | `workbench-server/src/server/project-plan/types.ts`。Contextの内容・Source・投影・候補判断の公開契約 | 維持 |
+| `inspectQualityAnalysis` | 完成操作（値） | `quality/analysis.ts` | `checker/src/repository/quality.ts`。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `inspectQualityConsistency` | 完成操作（値） | `quality/analysis.ts` | `checker/src/repository/quality.ts`。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `parseQualityAnalysis` | 完成操作（値） | `quality/analysis.ts` | `checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseQualityDetailAnalysis` | 完成操作（値） | `quality/analysis.ts` | `checker/src/repository/quality.ts`<br>`checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseQualityIntegration` | 完成操作（値） | `quality/analysis.ts` | `checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `QualityAnalysis` | モデル・型／値契約（型） | `quality/analysis.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityConsistencyRequest` | モデル・型／値契約（型） | `quality/analysis.ts` | 本番Root直参照なし。Quality内部五条件の閉じた受付。取得済み範囲を実在保証へ拡張しない | 維持 |
+| `QualityDetailAnalysis` | モデル・型／値契約（型） | `quality/analysis.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityIntegration` | モデル・型／値契約（型） | `quality/analysis.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `inspectQualityLocalItemOwnership` | 完成操作（値） | `quality/definition.ts` | `checker/src/repository/quality.ts`。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `parseQualityDefinition` | 完成操作（値） | `quality/definition.ts` | `checker/src/repository/quality.ts`<br>`checker/src/repository/semantic.ts`<br>`checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `QualityDefinitionModel` | モデル・型／値契約（型） | `quality/definition.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityLocalItemOwnershipModel` | モデル・型／値契約（型） | `quality/definition.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `parseQualityCenter` | 完成操作（値） | `quality/readiness.ts` | `checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseQualityRealityAudit` | 完成操作（値） | `quality/readiness.ts` | `checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseQualityStrategy` | 完成操作（値） | `quality/readiness.ts` | `checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseQualityVerificationDesign` | 完成操作（値） | `quality/readiness.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseQualityVerificationResult` | 完成操作（値） | `quality/readiness.ts` | `checker/src/repository/quality.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `QualityCenter` | モデル・型／値契約（型） | `quality/readiness.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityRealityAudit` | モデル・型／値契約（型） | `quality/readiness.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityStrategy` | モデル・型／値契約（型） | `quality/readiness.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityVerificationDesign` | モデル・型／値契約（型） | `quality/readiness.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityVerificationResult` | モデル・型／値契約（型） | `quality/readiness.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `inspectQualityVerification` | 完成操作（値） | `quality/verification-tables.ts` | `checker/src/repository/document.ts`。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `QualityVerificationEvaluation` | モデル・型／値契約（型） | `quality/verification-tables.ts` | 本番Root直参照なし。Quality文書・取得済み比較・所有・評価の公開契約 | 維持 |
+| `FixedQualityCandidate` | モデル・型／値契約（型） | `quality-change-control/gate.ts` | 本番Root直参照なし。固定品質候補・必須確認・是正再入場の採用済み純粋契約 | 維持 |
+| `fixQualityCandidate` | 完成操作（値） | `quality-change-control/gate.ts` | 本番Root直参照なし。品質候補の固定を表す採用済み純粋契約。本番Gate/Release許可とは別 | 維持 |
+| `IntegratedQualityGate` | モデル・型／値契約（型） | `quality-change-control/gate.ts` | 本番Root直参照なし。固定品質候補・必須確認・是正再入場の採用済み純粋契約 | 維持 |
+| `integrateQualityGate` | 完成操作（値） | `quality-change-control/gate.ts` | 本番Root直参照なし。固定改訂と必須確認の統合を表す採用済み純粋契約。本番未接続 | 維持 |
+| `QualityCheckResult` | モデル・型／値契約（型） | `quality-change-control/gate.ts` | 本番Root直参照なし。固定品質候補・必須確認・是正再入場の採用済み純粋契約 | 維持 |
+| `QualityCheckStatus` | モデル・型／値契約（型） | `quality-change-control/gate.ts` | 本番Root直参照なし。固定品質候補・必須確認・是正再入場の採用済み純粋契約 | 維持 |
+| `reenterQualityReview` | 完成操作（値） | `quality-change-control/gate.ts` | 本番Root直参照なし。是正後の再入場を表す採用済み純粋契約。実検証の自動実行はしない | 維持 |
+| `inspectRealityTestCatalog` | 独立入力受付（値） | `reality-traceability/catalog.ts` | `checker/src/repository/reality.ts`。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 統合後内部化候補 P2 |
+| `discoverRealitySymbols` | 独立入力受付（値） | `reality-traceability/discover.ts` | 本番Root直参照なし。観測済みSnapshotの純粋な集合受付。本番はobserveRealitySymbolRepository経由 | 維持 |
+| `RealitySymbolDiscoveryRequest` | モデル・型／値契約（型） | `reality-traceability/discover.ts` | 本番Root直参照なし。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `RealitySymbolDiscoveryResult` | モデル・型／値契約（型） | `reality-traceability/discover.ts` | 本番Root直参照なし。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `RealitySymbolDiscoverySource` | モデル・型／値契約（型） | `reality-traceability/discover.ts` | 本番Root直参照なし。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `createRealitySymbolGraph` | 完成操作（値） | `reality-traceability/graph.ts` | `checker/src/repository/reality.ts`。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `RealitySymbolGraph` | モデル・型／値契約（型） | `reality-traceability/graph.ts` | `checker/src/repository/reality.ts`。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `LoadedRealitySymbolManifest` | モデル・型／値契約（型） | `reality-traceability/manifest.ts` | `checker/src/repository/reality.ts`<br>`checker/src/repository/semantic.ts`。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `RealitySymbolManifest` | モデル・型／値契約（型） | `reality-traceability/manifest.ts` | 本番Root直参照なし。Manifest/観測Snapshot/Graphと独立受付の入力・結果 | 維持 |
+| `parseRealitySymbolManifest` | 独立入力受付（値） | `reality-traceability/manifest.ts` | 本番Root直参照なし。一文書一ParseのManifest独立受付。本番は観測操作内部から使用 | 維持 |
+| `parseCanonicalDocument` | 完成操作（値） | `release/parse.ts` | `checker/src/repository/document.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseChangelog` | 完成操作（値） | `release/parse.ts` | `checker/src/repository/document.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseReadme` | 完成操作（値） | `release/parse.ts` | `checker/src/repository/document.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `CanonicalDocument` | モデル・型／値契約（型） | `release/types.ts` | 本番Root直参照なし。Release文書と版・Baseline・Stableの公開モデル | 維持 |
+| `Changelog` | モデル・型／値契約（型） | `release/types.ts` | 本番Root直参照なし。Release文書と版・Baseline・Stableの公開モデル | 維持 |
+| `Readme` | モデル・型／値契約（型） | `release/types.ts` | 本番Root直参照なし。Release文書と版・Baseline・Stableの公開モデル | 維持 |
+| `ReleaseConsistencyRequest` | モデル・型／値契約（型） | `release/types.ts` | 本番Root直参照なし。Releaseの四条件と未確認Tagを区別する閉じた受付 | 維持 |
+| `inspectReleaseConsistency` | 完成操作（値） | `release/validation.ts` | `checker/src/repository/document.ts`。Release文書と版・Baseline・Stableの公開モデル | 維持 |
+| `inspectReleaseDocuments` | 完成操作（値） | `release/validation.ts` | `checker/src/repository/document.ts`。Release文書と版・Baseline・Stableの公開モデル | 維持 |
+| `createFilesystemRepositoryObservationPort` | 完成操作（値） | `repository/create-observer.ts` | `access-management/src/repository/register.ts`<br>`checker/src/repository/reality.ts`<br>`checker/src/repository/semantic.ts`<br>`coordinator/src/execution/advice.ts`<br>`mcp-server/scripts/verify-task-real-providers.ts`。文書の技術観測と観測不能の公開契約 | 維持 |
+| `observeRealitySymbolRepository` | 完成操作（値） | `repository/observe-symbols.ts` | `checker/src/cli/semantic.ts`<br>`checker/src/repository/reality.ts`。文書の技術観測と観測不能の公開契約 | 維持 |
+| `RealitySymbolRepositoryObservation` | モデル・型／値契約（型） | `repository/observe-symbols.ts` | 本番Root直参照なし。文書の技術観測と観測不能の公開契約 | 維持 |
+| `RepositoryObservationPort` | モデル・型／値契約（型） | `repository/types.ts` | `checker/src/repository/reality.ts`。現在の文書観測の入出力・観測不能を区別する技術契約。Checker本番が直接使用 | 維持 |
+| `createSemanticBundle` | 完成操作（値） | `semantic/coverage.ts` | `checker/src/cli/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `createSemanticCoverageGraph` | 完成操作（値） | `semantic/coverage.ts` | `checker/src/repository/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `SemanticCoverageBundle` | モデル・型／値契約（型） | `semantic/coverage.ts` | 本番Root直参照なし。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `SemanticCoverageGraph` | モデル・型／値契約（型） | `semantic/coverage.ts` | `checker/src/repository/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `compileSemanticIr` | 完成操作（値） | `semantic/ir.ts` | `checker/src/repository/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `SemanticIr` | モデル・型／値契約（型） | `semantic/ir.ts` | `checker/src/repository/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `PublishSemanticCoverageRequest` | モデル・型／値契約（型） | `semantic/publish.ts` | 本番Root直参照なし。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `PublishSemanticCoverageResult` | モデル・型／値契約（型） | `semantic/publish.ts` | 本番Root直参照なし。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `publishSemanticCoverage` | 完成操作（値） | `semantic/publish.ts` | `checker/src/cli/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `compileQualitySemanticRelations` | 完成操作（値） | `semantic/relations.ts` | `checker/src/repository/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `DocumentRelationsRequest` | モデル・型／値契約（型） | `semantic/relations.ts` | `checker/src/repository/spec.ts`。残る37比較の閉じた入力。移管で枝を絞り、unknown/巨大なoptional集合へ置換しない | 維持 |
+| `evaluateDefinitionPairEvidence` | 完成操作（値） | `semantic/relations.ts` | `checker/src/repository/spec.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `inspectDocumentRelations` | 完成操作（値） | `semantic/relations.ts` | `checker/src/repository/architecture.ts`<br>`checker/src/repository/discovery-ux.ts`<br>`checker/src/repository/document.ts`<br>`checker/src/repository/ia.ts`<br>`checker/src/repository/project-context.ts`<br>`checker/src/repository/quality.ts`<br>`checker/src/repository/spec.ts`<br>`checker/src/repository/ui.ts`<br>`checker/src/repository/work-lifecycle.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `QualitySemanticRelation` | モデル・型／値契約（型） | `semantic/relations.ts` | `checker/src/repository/semantic.ts`。意味IR・Coverage・工程間比較の入力・結果 | 維持 |
+| `parseSpecAnalysis` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseSpecBehavior` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseSpecDefinition` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseSpecDefinitionCorrespondence` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseSpecDetailCorrespondence` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseSpecDetailIndex` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseSpecIndex` | 完成操作（値） | `spec/parse.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/spec.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `SpecAnalysis` | モデル・型／値契約（型） | `spec/types.ts` | 本番Root直参照なし。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `SpecBehavior` | モデル・型／値契約（型） | `spec/types.ts` | 本番Root直参照なし。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `SpecDefinition` | モデル・型／値契約（型） | `spec/types.ts` | `checker/src/repository/spec.ts`。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `SpecDefinitionCorrespondence` | モデル・型／値契約（型） | `spec/types.ts` | 本番Root直参照なし。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `SpecDetailCorrespondence` | モデル・型／値契約（型） | `spec/types.ts` | 本番Root直参照なし。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `SpecDetailIndex` | モデル・型／値契約（型） | `spec/types.ts` | `checker/src/repository/spec.ts`。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `SpecIndex` | モデル・型／値契約（型） | `spec/types.ts` | 本番Root直参照なし。SPEC文書ごとの内容・出典・対応根拠モデル | 維持 |
+| `createFilesystemSemanticBundlePublisher` | 内部実現手段（値） | `storage/semantic-store.ts` | `checker/src/cli/semantic.ts`。指定された保存先への出版契約 | 統合後内部化候補 P1 |
+| `SemanticBundlePublisher` | 内部実現手段（型） | `storage/semantic-store.ts` | 本番Root直参照なし。完成出版を組み立てるための技術Port。単独隠蔽でなく出版操作の統合候補 | 統合後内部化候補 P1 |
+| `readTestCatalog` | 完成操作（値） | `test-catalog/inspect.ts` | `checker/src/cli/test-catalog.ts`。試験台帳・段階と完成読取りの契約。試験起動の許可ではない | 維持 |
+| `TestCatalog` | モデル・型／値契約（型） | `test-catalog/inspect.ts` | `checker/src/test-catalog/selection.ts`。試験台帳・段階と完成読取りの契約。試験起動の許可ではない | 維持 |
+| `TestCatalogEntry` | モデル・型／値契約（型） | `test-catalog/inspect.ts` | `checker/src/test-catalog/selection.ts`。試験台帳・段階と完成読取りの契約。試験起動の許可ではない | 維持 |
+| `TestCatalogReadResult` | モデル・型／値契約（型） | `test-catalog/inspect.ts` | 本番Root直参照なし。試験台帳・段階と完成読取りの契約。試験起動の許可ではない | 維持 |
+| `TestLevel` | モデル・型／値契約（型） | `test-catalog/inspect.ts` | `checker/src/cli/test-catalog.ts`<br>`checker/src/test-catalog/selection.ts`。試験台帳・段階と完成読取りの契約。試験起動の許可ではない | 維持 |
+| `testLevels` | モデル・型／値契約（値） | `test-catalog/inspect.ts` | `checker/src/cli/test-catalog.ts`。CLIと回帰選定が同じ段階値を使用。実行許可を生成しない | 維持 |
+| `createTopicOperations` | 完成操作（値） | `topic/create-operations.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/start.ts`<br>`workbench-server/src/server/topic-meeting/access-resolver.ts`<br>`template/tools/crdd-mcp-server.ts`。Topicの記録と状態・完成操作の契約 | 維持 |
+| `parseTopicMarkdown` | 完成操作（値） | `topic/markdown.ts` | `mcp-server/src/tools/topic-meeting.ts`<br>`workbench-server/src/server/project/surface.ts`<br>`workbench-server/src/server/routes/record.ts`<br>`workbench-server/src/server/topic-meeting/action.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `TopicOperations` | モデル・型／値契約（型） | `topic/types.ts` | 本番Root直参照なし。Topicの記録と状態・完成操作の契約 | 維持 |
+| `TopicRecord` | モデル・型／値契約（型） | `topic/types.ts` | `workbench-server/src/server/project/surface.ts`。Topicの記録と状態・完成操作の契約 | 維持 |
+| `TopicState` | モデル・型／値契約（型） | `topic/types.ts` | 本番Root直参照なし。Topicの記録と状態・完成操作の契約 | 維持 |
+| `parseUiAnalysis` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiArea` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiComponent` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiDefinition` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/spec.ts`<br>`checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiDetailIndex` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/spec.ts`<br>`checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiHandoff` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiIndex` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/document.ts`<br>`checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiScreen` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/spec.ts`<br>`checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUiVisualBaseline` | 完成操作（値） | `ui/parse.ts` | `checker/src/repository/ui.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `UiAnalysis` | モデル・型／値契約（型） | `ui/types.ts` | `checker/src/repository/ui.ts`。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiArea` | モデル・型／値契約（型） | `ui/types.ts` | 本番Root直参照なし。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiComponent` | モデル・型／値契約（型） | `ui/types.ts` | 本番Root直参照なし。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiDefinition` | モデル・型／値契約（型） | `ui/types.ts` | `checker/src/repository/spec.ts`<br>`checker/src/repository/ui.ts`。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiDetailIndex` | モデル・型／値契約（型） | `ui/types.ts` | 本番Root直参照なし。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiHandoff` | モデル・型／値契約（型） | `ui/types.ts` | 本番Root直参照なし。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiIndex` | モデル・型／値契約（型） | `ui/types.ts` | 本番Root直参照なし。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiScreen` | モデル・型／値契約（型） | `ui/types.ts` | `checker/src/repository/spec.ts`。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `UiVisualBaseline` | モデル・型／値契約（型） | `ui/types.ts` | 本番Root直参照なし。UI文書ごとの内容・出典・関係モデル | 維持 |
+| `parseUxAnalysis` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUxDefinition` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUxExperienceMap` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUxIndex` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`<br>`checker/src/repository/document.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUxPersonas` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUxQualityExpectations` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `parseUxServiceBlueprint` | 完成操作（値） | `ux/parse.ts` | `checker/src/repository/discovery-ux.ts`。当該文書の内容モデルと局所Issueを返す一文書一Parse | 維持 |
+| `UxAnalysisModel` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+| `UxDefinitionModel` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+| `UxExperienceMap` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+| `UxIndexModel` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+| `UxPersonas` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+| `UxQualityExpectations` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+| `UxServiceBlueprint` | モデル・型／値契約（型） | `ux/types.ts` | 本番Root直参照なし。UX文書ごとの内容・出典・正式入力モデル | 維持 |
+
+今回の棚卸しだけで公開数を減らさない。現在、人間による新たな保証変更・リスク受容の判断は必要ない。実装は候補ごとに入力・失敗・取得・保存・取消・利用側と反証を閉じてから行い、未実施の全体回帰や現在の本番未接続を完了へ畳まない。
+
+#### Consumer境界の保証固定とSemantic Owner再評価 — 2026-11-16
+
+Qualityの文書是正後の読取り専用独立再レビューは必須是正指摘0件。親担当の限定57＋6試験、六Packageと配布ひな型の型検査、変更20TSの整形・警告確認、差分確認と、確認者の読取りレビューを区別する。Root210項目・既存の保存形式とConsumer挙動を維持し、次は残るRelationの全件Owner分類と公開物の必要性評価へ進む。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+Qualityの独立技術レビューで必須の実装修正は見つからず、Checker設計の旧quality_design_states呼出し先記載一箇所をQualityの完成入口へ是正した。Release節の完了範囲とQAの比較Owner表現も現行化し、製品Source・試験条件・対象集合・Ready分岐・診断field／順序は追加変更していない。
+
+②Qualityの実装・利用側・試験・台帳・文書を上記Ownerへ追従した。Semanticの旧五case／型／私有本体は残さず、Quality内の完結した目標表試験一件をSemanticからQuality分析試験へ移し、assertionを維持した。純粋判定・Root・Semanticに残す三比較の57試験と、包括的なChecker品質結合・分岐表・台帳の限定六試験が成功した。包括試験一件は既存の反証を同じfixtureへ順次適用してCheckerを繰返し起動するため約74秒を要した。検証内容や製品期限を短縮せず、全体回帰は実行していない。自己生成Rootを回収し、終了後不存在を確認した。
+
+②Qualityの着手前分類は、親担当が実本体・全Consumer・既存反証と照合し、読取り専用確認者と次のOwnerへ合意した。Source新設・Facade・Rule Registryは作らず、既存Sourceへ移す。
+
+| 判定 | 意味Owner・配置 | 理由と保持条件 |
+|---|---|---|
+| inspectQualityVerification | quality/verification-tables.ts | 算術・是正条件。区分別Issueと合成順、全Markdownへの適用を維持 |
+| inspectQualityLocalItemOwnership | quality/definition.ts | Local IDの出現列・先勝ち所有・重複。入力Map非変更 |
+| inspectQualityAnalysis | quality/analysis.ts | 分析の重複・被覆と内部閉包。canonicalIdsは上位が取得済みの期待集合であり、全実在証明ではない |
+| quality_design_states／quality_reality_state | quality/analysis.ts | Quality文書の状態規則。旧正規化と局所Issue→相関Issueの順を維持 |
+| quality_definition_relations／quality_goal_local_relations／quality_goals | quality/analysis.ts | 同じQuality分析・定義・統合の内部閉包・処置。新inspectQualityConsistencyと閉じたQualityConsistencyRequestで直接受付 |
+| quality_architecture_models／quality_detail_coverage／quality_local_item_relations | semantic/relations.tsへ維持 | 別工程のArchitecture集合・Detail実体・段階／境界との対応 |
+| compileQualitySemanticRelations／evaluateDefinitionPairEvidence | Semanticへ維持 | IR・意味関係・工程間Evidence。Quality名だけを理由に移さない |
+
+旧五kind・私有本体と転送はSemanticから撤去する。QualityからSemanticへの依存を追加せず、別read・後勝ち・短絡・非公開の内部エンジンを維持する。新完成操作一つと型一つが加わりRootは210項目となるが、これを削減目標にしない。検証は既存Quality純粋反証とChecker結合、Semanticに残す三比較へ限定し、全体回帰・実AI・Docker・過去保持物は操作しない。
+
+①Consumer境界と②Release移管の固定候補は、それぞれ読取り専用独立再レビューで必須是正指摘0件。六Packageと配布ひな型の型検査、変更12TSの整形・警告確認、差分検査、最終のRoot・公開元・Global Symbol Graph三試験も成功した。確認者は試験を再実行していない。次はQuality固有評価と残るkindのOwner／Consumer分類、その後に公開物全件の必要性評価を行う。これらの未実施を完了へ畳まない。
+
+Releaseの独立レビューで実装の判定退行は見つからず、文書の旧Semantic Owner説明三段落とRequestの値境界を追従した。raw全文／20行／16行の取得断面、別read、Path条件、Tag未確認null、診断順の説明は維持し、実装・Consumerの条件は追加変更していない。
+
+②Releaseの判定は、同じ既存本体をrelease/validation.tsへ移管した。Stable四kindとinspectReleaseDocumentsをSemanticから撤去し、Checker・既存純粋試験はRootの新完成操作へ直接接続する。独立して取得した値をまとめず、呼出し位置・元の原文条件・Issue順は変更していない。Source新設・転送Wrapper・Registryは追加していない。未知kindはrelease_consistency_kind_invalidで拒否する。Rootは208項目（値91・型117）で、公開元一覧・固定集合・既存Symbolの検証辺を追従した。純粋判定・Root27試験、Stable／Candidate／CHANGELOGと台帳の限定23試験が成功し、自己生成試験領域を回収して不存在を確認した。これをQuality移管・全Semantic整理・公開物全件評価の完了とは扱わない。
+
+①は読取り専用独立レビューで必須是正指摘0件。②の最初はReleaseだけを対象とし、既存の版集合操作とStable四判定をrelease/validation.tsへ戻す。狭いReleaseConsistencyRequestは既存types.tsで定義し、inspectReleaseConsistencyを完成操作としてRootへ直接公開する。旧Semanticの四kind・転送経路は撤去する。完成操作一つと型一つが加わりRootは208項目となるが、数を戻すための抽象化はしない。着手前に独立確認者と、値判定の同一性、別read・16行断面・原文条件・Tag null・Issue順、ReleaseからSemantic／Parseへの逆依存なし、未知kindの拒否を照合した。品質関係はこの固定候補の後に別に判断する。
+
+①の限定10試験が成功した。MCPは両種別×四状態の実受付とProtocol全体・解決／read回数を固定し、AM／WBは完全な同じ内容からChecklist一項目だけ未評価にしたpartialを接続した。Co CLIは実本文・実Parserと有限依存を使用し、partialのID搬送・一回受付・取消解放、構造欠測と読取り故障の受付0を確認した。初回MCP試験の期待値に既存resultType／Server情報が欠けていたため試験だけ追従し、製品応答は変更しなかった。既存の例外・別read／診断順・Catalog早期走査0と同一観測集合の試験も成功した。自己生成Rootは既存Helperで回収して不存在を確認した。
+
+基準版edd4d8bfaの完成受付を維持し、Consumer境界の限定検証、Semanticの判定Owner分類、Release／Quality順の移管、公開物の意味分類の順に進める。公開数を目標にせず、一文書一Parseとモデル型、独立した完成操作を維持する。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+最初の変更分類は検証接続の補強で、製品Source・公開API・拒否条件は変更しない。着手前に現行Consumer・Owner設計・既存試験を親担当と読取り専用確認者が照合した。MCPのinvalid／unavailableは内部で区別しつつ、非開示の既存Protocolでは共に-32602とする。cancelledは-32800、resolver例外とlist例外の既存分類は維持する。Project Contextは実ParserのChecklistだけ不備のpartial・非nullモデルをAM／Coordinator CLI／Workbenchへ接続し、Identity不一致・構造欠測・観測不能の拒否を維持する。CLIの有限依存確認を実Task・AIの成立としない。Checkerの別read・診断順とCatalogの同一受付内の観測集合は既存反証を再利用し、キャッシュ・Facade・代替Storeは導入しない。独立技術レビューと文書・直接伝播確認を実施し、規範・準拠基準・Authorityの変更がないため準拠監査と全体回帰は追加しない。現在、人間による追加判断は必要ない。
+
 #### 完成受付への利用側統合
 
 コミット前の読取り専用独立再レビューは必須是正指摘0件。公開元の固定一覧・単独確認と全Package元試験の保持・QA／変更記録の追従を確認した。確認者は試験を再実行しておらず、上記の親担当実測と区別する。統合・Release・全体品質の承認には用いない。

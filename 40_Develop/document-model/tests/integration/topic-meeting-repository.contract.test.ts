@@ -101,9 +101,12 @@ test("期待Projectを両種別の保存・読取り・Relationへ拘束する",
       assert.throws(
         () =>
           Reflect.apply(createOperations, undefined, [repository, projectId]),
-        /project_operation_expected_project_with_injected_repository/u,
+        /project_operation_repository_root_invalid/u,
       );
-      assert.ok(createOperations(repository));
+      assert.throws(
+        () => Reflect.apply(createOperations, undefined, [repository]),
+        /project_operation_repository_root_invalid/u,
+      );
     }
     for (const kind of ["topic", "meeting"] as const) {
       const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";

@@ -150,9 +150,13 @@
         "domain-model.artifact-ia",
         "domain-model.artifact-ui",
         "domain-model.artifact-change",
+        "domain-model.artifact-release",
         "domain-model.artifact-ux",
         "domain-model.artifact-discovery",
-        "domain-model.artifact-spec"
+        "domain-model.artifact-spec",
+        "domain-model.artifact-quality-analysis",
+        "domain-model.artifact-quality-definition",
+        "domain-model.artifact-verification-tables"
       ]
     },
     {
@@ -203,6 +207,7 @@
       ],
       "verifies": [
         "checker.report-quality",
+        "domain-model.artifact-quality-analysis",
         "domain-model.semantic-relations"
       ]
     },
@@ -391,7 +396,9 @@
         "checker.finding-model",
         "checker.artifact-relation-adapter",
         "checker.report-types",
+        "domain-model.artifact-architecture-relations",
         "domain-model.artifact-ux",
+        "domain-model.artifact-ia",
         "domain-model.artifact-discovery",
         "domain-model.artifact-spec"
       ]
@@ -468,7 +475,8 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "checker.artifact-relation-adapter"
+        "checker.artifact-relation-adapter",
+        "domain-model.artifact-ui"
       ]
     },
     {

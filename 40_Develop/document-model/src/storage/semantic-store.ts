@@ -46,23 +46,6 @@ export type SemanticBundlePublishReceipt = Readonly<{
 }>;
 
 /**
- * Semantic Bundleの公開Effectを抽象化するPortを表す。
- *
- * @responsibility ApplicationからFilesystem公開方式を分離する。
- * @trace ARCH-000008
- * @shape SemanticBundlePublisherが表すProperty、識別子およびRelationを型として固定する。
- * @invariant SemanticBundlePublisherで宣言した値と責務の対応を維持する。
- * @boundary N/A: SemanticBundlePublisherの宣言は外部境界を開かない。
- * @security N/A: SemanticBundlePublisherはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility SemanticBundlePublisherの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type SemanticBundlePublisher = Readonly<{
-  publish: (
-    request: SemanticBundlePublishRequest,
-  ) => SemanticBundlePublishReceipt;
-}>;
-
-/**
  * 原子的置換直前を試験で観測するHookを表す。
  *
  * @responsibility Production Flowを変えず置換前競合を再現可能にする。
@@ -174,29 +157,4 @@ export function publishSemanticCoverageBundleWithHooks(
     if (descriptor !== null) fs.closeSync(descriptor);
     if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
   }
-}
-
-/**
- * 検証済みRepositoryへ結合したBundle Publisherを生成する。
- *
- * @responsibility Repository Capabilityを公開PortのClosureへ限定する。
- * @trace ARCH-000008
- * @input capability: Repository
- * @returns SemanticBundlePublisherを返す。
- * @precondition capability: RepositoryがcreateFilesystemSemanticBundlePublisherの入力契約を満たす。
- * @postcondition createFilesystemSemanticBundlePublisherの責務を完了した結果だけを返す。
- * @effect N/A: createFilesystemSemanticBundlePublisherは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createFilesystemSemanticBundlePublisherは独自の失敗分岐を所有しない。
- * @invariant createFilesystemSemanticBundlePublisherは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 検証済みRepository CapabilityとApplication Portの境界。
- * @security N/A: createFilesystemSemanticBundlePublisherはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createFilesystemSemanticBundlePublisherは共有非同期状態を持たない同期処理である。
- */
-export function createFilesystemSemanticBundlePublisher(
-  capability: Repository,
-): SemanticBundlePublisher {
-  return {
-    publish: (request) =>
-      publishSemanticCoverageBundleWithHooks(capability, request),
-  };
 }

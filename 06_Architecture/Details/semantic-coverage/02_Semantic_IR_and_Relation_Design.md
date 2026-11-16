@@ -13,7 +13,7 @@
 
 本領域は既存Subsystemの設計意味を再定義しない。各SubsystemのArchitecture Detailsを入力として、機械利用可能な意味の生成とRelationの成立条件を所有する。
 
-共通Outcome、Reality TraceabilityおよびRepository Observationとの境界は[CRDD Domain Libraryの責務境界](../domain-model/01_Architecture.md)、入力編成とBundle公開は[Semantic Coverage Architecture](01_Architecture.md)を正本とする。本書はSemantic IR、RelationおよびCoverage Graphの詳細契約を具体化する。
+共通Outcome、Reality TraceabilityおよびRepository Observationとの境界は[文書モデルの責務境界](../document-model/01_Architecture.md#model-boundary)、入力編成とBundle公開は[Semantic Coverage Architecture](01_Architecture.md)を正本とする。本書はSemantic IR、RelationおよびCoverage Graphの詳細契約を具体化する。
 
 ## 1. 目的と責務
 

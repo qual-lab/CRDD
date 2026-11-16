@@ -6,28 +6,27 @@
 
 ## 2026-10-19の責務移管
 
-Semantic Coverageは独立Packageではなく、Domain Modelの意味計算とCheckerの実行入口として提供する。以下の旧Package配置・Owner記述は本節で置き換える。意味契約・生成Schema・Semantic Key・既存Snapshotは変更せず、旧Packageや互換barrelは残さない。
+Semantic Coverageは独立Packageではなく、文書モデルの意味計算とCheckerの実行入口として提供する。以下の旧Package配置・Owner記述は本節で置き換える。意味契約・生成Schema・Semantic Key・既存Snapshotは変更せず、旧Packageや互換barrelは残さない。
 
 | 旧配置 | 新しい所有先 | 責務 |
 |---|---|---|
-| compilation/compile-ir.ts | domain-model/src/semantic/ir.ts | 可視表からのIR生成。自由文推測をしない |
-| compilation/compile-quality-relations.ts | domain-model/src/semantic/relations.ts | Quality Local ItemとSemantic Keyの正方向Relation |
-| coverage/graph-and-bundle.ts | domain-model/src/semantic/coverage.ts | 実装・品質・試験のCoverageと直列化用Bundle |
-| bundle/publish.ts | domain-model/src/semantic/publish.ts | Bundle生成と保存要求の結合 |
-| bundle/filesystem-publisher.ts | domain-model/src/storage/semantic-store.ts | 検証済みRoot内の原子的保存・旧Snapshot保全・短命File回収 |
+| compilation/compile-ir.ts | document-model/src/semantic/ir.ts | 可視表からのIR生成。自由文推測をしない |
+| compilation/compile-quality-relations.ts | document-model/src/semantic/relations.ts | Quality Local ItemとSemantic Keyの正方向Relation |
+| coverage/graph-and-bundle.ts | document-model/src/semantic/coverage.ts | 実装・品質・試験のCoverageと直列化用Bundle |
+| bundle/publish.ts | document-model/src/semantic/publish.ts | Bundle生成と保存要求の結合 |
+| bundle/filesystem-publisher.ts | document-model/src/storage/semantic-store.ts | 検証済みRoot内の原子的保存・旧Snapshot保全・短命File回収 |
 | compilation/from-repository.ts | checker/src/repository/semantic.ts、checker/src/report/semantic.ts | repositoryが既存観測・Domain呼出しと結果接続、reportが純粋な診断変換を所有する。意味判定本体を複製しない |
 | scripts/compile-pilot.ts | checker/src/cli/semantic.ts | 公開APIと`checker --semantic`による明示対象の表示／明示保存 |
 
-Domainの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求、検証済みRootに結合した保存入口を持つ。診断コード・表示文はCheckerが所有する。保存の故障注入HookはRoot公開APIに含めず、内部保存試験だけが参照する。新Registry・Lock・Runner・Recoveryは追加しない。
+文書モデルの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求、検証済みRootに結合した保存入口を持つ。診断コード・表示文はCheckerが所有する。保存の故障注入HookはRoot公開APIに含めず、内部保存試験だけが参照する。新Registry・Lock・Runner・Recoveryは追加しない。
 
 | 公開Owner | API | 返却の意味 |
 |---|---|---|
-| domain-model | `compileSemanticIr` | 中立Issue付きの`DocumentResult<SemanticIr>` |
-| domain-model | `compileQualitySemanticRelations` | 中立Issue付きのRelation集合Outcome |
-| domain-model | `createSemanticCoverageGraph` | 前提不成立・関係不整合を保持するGraph Outcome |
-| domain-model | `createSemanticBundle` | 既存SchemaのBundle値。保存や品質Passを表さない |
-| domain-model | `publishSemanticCoverage` | 指定Publisherへ一回の保存要求を渡したReceipt。失敗は既存例外契約を維持 |
-| domain-model | `createFilesystemSemanticBundlePublisher` | 検証済みRootに結合した既存保存操作。構成だけで書き込まない |
+| document-model | `compileSemanticIr` | 中立Issue付きの`DocumentResult<SemanticIr>` |
+| document-model | `compileQualitySemanticRelations` | 中立Issue付きのRelation集合Outcome |
+| document-model | `createSemanticCoverageGraph` | 前提不成立・関係不整合を保持するGraph Outcome |
+| document-model | `createSemanticBundle` | 既存SchemaのBundle値。保存や品質Passを表さない |
+| document-model | `publishSemanticCoverage` | 明示した検証済みRepositoryへ既存Writerで一回保存したReceipt。失敗は既存例外契約を維持 |
 | checker | `runSemanticCoverage` | 診断・表示または明示保存の終了Code。通常`runChecker`は維持 |
 
 Checkerは`--semantic`を選んだ場合だけSemantic入口を起動し、既定の文書検査は従来どおりとする。2026-10-21から、反復可能な`--architecture <subsystem>=<Root相対文書Path>`と`--quality <Root相対文書Path>`で対象を明示する。Architecture未指定は64、Quality省略は入力0件として既存の必須Relation検査を維持する。製品固定の対象・QA集合へのfallbackは設けない。`--root`は対象Repository、`--write`は従来と同じRegistryへの明示保存を表し、Snapshot形式・保存先は変更しない。明示入力対応を全領域の品質成立や意味Coverage全体の完成へ拡張せず、結果の欠落・観測不能・不正と実行失敗を成功へ丸めない。
@@ -49,12 +48,12 @@ Relation状態はSemantic Coverageが担当する責務断面に対する状態�
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
 |---|---|---|---|
 | Component Model | Required | Domain計算、Repository入力、Bundle公開およびCLIを分ける。 | [§3](#3-component) |
-| Interface Model | Required | Domain Library、Version Control、Quality Registryとの境界を固定する。 | [§2](#2-責務境界) |
+| Interface Model | Required | 文書モデル、Version Control、Quality Registryとの境界を固定する。 | [§2](#2-責務境界) |
 | Data Flow | Required | Architecture DetailsからBundleまでの変換を示す。 | [§4](#4-実行の流れ) |
 | State Model | Required | complete、partial、invalid、unobservableを区別する。 | [§5](#5-状態と終了条件) |
 | Sequence | Required | 観測、IR生成、Relation接続、Graph生成、公開を順序化する。 | [§4](#4-実行の流れ) |
 | Failure／Recovery | Required | 入力不足、関係不整合、公開失敗を既存Snapshot保全とともに扱う。 | [§6](#6-失敗と回復) |
-| Deployment | Required | Domain Modelへ意味・保存、Checkerへ起動・診断を配置する。 | [§3](#3-component) |
+| Deployment | Required | 文書モデルへ意味・保存、Checkerへ起動・診断を配置する。 | [§3](#3-component) |
 | Observability | Required | 入力Path、Semantic Key、未解決Relationおよび公開結果を返す。 | [§5](#5-状態と終了条件) |
 | Security Boundary | Required | 検証済みRepository Root外への読取り・公開を拒否する。 | [§2](#2-責務境界) |
 | Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
@@ -108,16 +107,19 @@ Semantic Coverageは、設計上の意味が実装Symbol、Quality Local Itemお
 
 | Owner | 所有する責務 | 所有しない責務 |
 |---|---|---|
-| Domain Model semantic | Semantic IR、Relation、Coverage GraphおよびBundleの純粋計算 | Repository観測、公開Effect、利用者向け診断 |
+| document-model/semantic | Semantic IR、Relation、Coverage Graph・Bundleの純粋計算と保存要求の接続 | Filesystem保存本体、Repository観測、利用者向け診断 |
 | Checker semantic | Repository入力の編成、診断、明示生成・保存要求 | Architecture、実装、Quality、Testの内容採否、意味計算・保存本体の複製 |
-| Domain Model storage | 共通Outcome、Reality Traceability、Repository Observation、Semantic生成物の原子的保存 | Checker固有Finding・CLI |
+| document-model/artifact | 共通の処理結果とArtifactの構造・値契約 | Repository観測、保存、Checker固有Finding・CLI |
+| document-model/reality-traceability | Realityのモデル・登録受付・Graph照合 | Repositoryの認可、Checker固有Finding・CLI |
+| document-model/repository | 検証済みRepositoryへ結合したFilesystem観測 | Semantic Relationの意味判断、保存Effect |
+| document-model/storage | Semantic生成物の原子的保存・失敗時保全・一時物回収 | 共通処理結果の定義、Realityの意味判断、Checker固有Finding・CLI |
 | Checker | 現行ProfileのFindingとSemantic診断・結果表示 | 意味計算・保存本体の再実装 |
-| Version Control／Repository Port | 検証済みRootとFilesystem観測 | Semantic Relationの意味判断 |
+| Version Control | 検証済みRepositoryの識別とGit技術操作 | Semantic Relationの意味判断、文書の局所条件 |
 
 ## 3. Component
 
 ```text
-domain-model/
+document-model/
 ├ src/semantic/          IR・Relation・Coverage・保存要求
 ├ src/storage/semantic-store.ts
 └ tests/                 意味計算・実Filesystem保存

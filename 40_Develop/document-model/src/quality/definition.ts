@@ -829,3 +829,55 @@ function captureQualityDetailAssignment(
     hasDuplicateRelations,
   };
 }
+
+/**
+ * Local ID所有確認後の局所Mapと重複Issueを表す。
+ * @responsibility Local ID所有確認後の局所Mapと重複Issueを表す。
+ * @trace ARCH-000008
+ * @shape owners、issues。
+ * @invariant 入力Ownerは変更せず、先勝ちの所有と出現ごとの重複を維持する。
+ * @boundary N/A: 取得済み本文の値モデル。
+ * @security 認可・品質成立や実行許可を発行しない。
+ * @compatibility 先勝ちの所有と、同じIDの後続出現ごとの重複診断を維持する。
+ */
+export type QualityLocalItemOwnershipModel = Readonly<{
+  owners: ReadonlyMap<string, string>;
+  issues: readonly DocumentIssue[];
+}>;
+
+/**
+ * Local ID出現列の所有重複を検査する。
+ * @responsibility Local ID出現列の所有重複を検査する。
+ * @trace ARCH-000008
+ * @input sourcePath: 現在の定義の診断位置。localIds: 項目の独立抽出出現列。existingOwners: 以前の定義までのOwner Map。
+ * @returns 先勝ちのOwner Map複製と出現ごとの重複Issue。
+ * @precondition 本文検査後の元位置で呼び、集合化していない出現列を渡す。
+ * @postcondition 入力Mapを変更せず、重複時にOwnerを上書きしない。
+ * @effect N/A: 同期的な値処理。
+ * @failure 解析例外を伝播し、不明を正常値に補完しない。
+ * @invariant 同一File内重複も検出し、既存のpreviousOwnerの真偽判定を維持する。
+ * @boundary N/A: Process内のQuality文書意味検査。
+ * @security 認可・実在・実行許可・品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+export function inspectQualityLocalItemOwnership(
+  sourcePath: string,
+  localIds: readonly string[],
+  existingOwners: ReadonlyMap<string, string>,
+): QualityLocalItemOwnershipModel {
+  const owners = new Map(existingOwners),
+    issues: DocumentIssue[] = [];
+  for (const localId of localIds) {
+    const previousOwner = owners.get(localId);
+    if (previousOwner)
+      issues.push({
+        kind: "artifact.quality.local-verification-id-duplicate",
+        targetIdentity: sourcePath,
+        location: { path: sourcePath },
+        reason: "local-verification-id-duplicate",
+        details: { localId, previousOwner },
+      });
+    else owners.set(localId, sourcePath);
+  }
+  return { owners, issues };
+}

@@ -306,7 +306,7 @@ test("公開CRUDは生成した種別だけを操作する", () => {
               root,
               ".crdd",
               "lock",
-              "document-model." + kind + "." + id + ".lock",
+              `document-model.${kind}.${id}.lock`,
             ),
           ),
         { code: "ENOENT" },
@@ -740,8 +740,8 @@ test("Topic／Meetingの更新前・更新後例外を入力不正やEffect 0へ
           throw failure;
         },
       };
-      const topics = createTopicOperations(faultRepository);
-      const meetings = createMeetingOperations(faultRepository);
+      const topics = createTopicMeetingOperations(faultRepository);
+      const meetings = createTopicMeetingOperations(faultRepository);
       const promotion = {
         topicId: "TOPIC-000001",
         expectedRevision: 1,

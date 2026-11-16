@@ -21,7 +21,6 @@ export type {
   TopicMeetingListQuery,
   TopicMeetingPage,
   TopicMeetingRelation,
-  TopicMeetingRepository,
   TopicMeetingWriteResult,
   TopicPromotionCommandResult,
 } from "./activity/types.ts";
@@ -31,6 +30,10 @@ export {
   parseArchitectureDetail,
   parseArchitectureDetailMap,
 } from "./architecture/details.ts";
+export {
+  type ArchitectureConsistencyRequest,
+  inspectArchitectureConsistency,
+} from "./architecture/relations.ts";
 export {
   type ArchitectureAnalysis,
   type ArchitectureCrossModel,
@@ -52,7 +55,6 @@ export type {
   ParseResult,
   SourceLocation,
 } from "./artifact/types.ts";
-
 export {
   parseChangeDocument,
   parseChangeIndex,
@@ -61,6 +63,7 @@ export type {
   ChangeDocument,
   ChangeIndex,
 } from "./change/types.ts";
+export { inspectChangeNavigation } from "./change/validation.ts";
 export {
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
@@ -71,6 +74,7 @@ export type {
   DiscoveryDefinition,
   DiscoveryIndex,
 } from "./discovery/types.ts";
+export { inspectDiscoveryIdentityLinks } from "./discovery/validation.ts";
 export {
   parseIaAnalysis,
   parseIaDefinition,
@@ -81,12 +85,14 @@ export {
 } from "./ia/parse.ts";
 export type {
   IaAnalysisModel,
+  IaConsistencyRequest,
   IaDefinitionModel,
   IaIndexModel,
   IaObjectRelation,
   IaStateVisibility,
   IaStructureNavigation,
 } from "./ia/types.ts";
+export { inspectIaConsistency } from "./ia/validation.ts";
 export { createMeetingOperations } from "./meeting/create-operations.ts";
 export { parseMeetingMarkdown } from "./meeting/markdown.ts";
 export type {
@@ -120,16 +126,21 @@ export type {
   RepositoryReleaseProjection,
 } from "./project-context/types.ts";
 export {
+  inspectQualityAnalysis,
+  inspectQualityConsistency,
   parseQualityAnalysis,
   parseQualityDetailAnalysis,
   parseQualityIntegration,
   type QualityAnalysis,
+  type QualityConsistencyRequest,
   type QualityDetailAnalysis,
   type QualityIntegration,
 } from "./quality/analysis.ts";
 export {
+  inspectQualityLocalItemOwnership,
   parseQualityDefinition,
   type QualityDefinitionModel,
+  type QualityLocalItemOwnershipModel,
 } from "./quality/definition.ts";
 export {
   parseQualityCenter,
@@ -143,6 +154,10 @@ export {
   type QualityVerificationDesign,
   type QualityVerificationResult,
 } from "./quality/readiness.ts";
+export {
+  inspectQualityVerification,
+  type QualityVerificationEvaluation,
+} from "./quality/verification-tables.ts";
 export {
   type FixedQualityCandidate,
   fixQualityCandidate,
@@ -177,7 +192,12 @@ export type {
   CanonicalDocument,
   Changelog,
   Readme,
+  ReleaseConsistencyRequest,
 } from "./release/types.ts";
+export {
+  inspectReleaseConsistency,
+  inspectReleaseDocuments,
+} from "./release/validation.ts";
 export { createFilesystemRepositoryObservationPort } from "./repository/create-observer.ts";
 export {
   observeRealitySymbolRepository,
@@ -204,13 +224,7 @@ export {
   type DocumentRelationsRequest,
   evaluateDefinitionPairEvidence,
   inspectDocumentRelations,
-  inspectQualityAnalysis,
-  inspectQualityLocalItemOwnership,
-  inspectQualityVerification,
-  inspectReleaseDocuments,
-  type QualityLocalItemOwnershipModel,
   type QualitySemanticRelation,
-  type QualityVerificationEvaluation,
 } from "./semantic/relations.ts";
 export {
   parseSpecAnalysis,
@@ -224,16 +238,14 @@ export {
 export type {
   SpecAnalysis,
   SpecBehavior,
+  SpecConsistencyRequest,
   SpecDefinition,
   SpecDefinitionCorrespondence,
   SpecDetailCorrespondence,
   SpecDetailIndex,
   SpecIndex,
 } from "./spec/types.ts";
-export {
-  createFilesystemSemanticBundlePublisher,
-  type SemanticBundlePublisher,
-} from "./storage/semantic-store.ts";
+export { inspectSpecConsistency } from "./spec/validation.ts";
 export {
   readTestCatalog,
   type TestCatalog,
@@ -264,6 +276,7 @@ export type {
   UiAnalysis,
   UiArea,
   UiComponent,
+  UiConsistencyRequest,
   UiDefinition,
   UiDetailIndex,
   UiHandoff,
@@ -271,6 +284,7 @@ export type {
   UiScreen,
   UiVisualBaseline,
 } from "./ui/types.ts";
+export { inspectUiConsistency } from "./ui/validation.ts";
 export {
   parseUxAnalysis,
   parseUxDefinition,
@@ -282,6 +296,7 @@ export {
 } from "./ux/parse.ts";
 export type {
   UxAnalysisModel,
+  UxConsistencyRequest,
   UxDefinitionModel,
   UxExperienceMap,
   UxIndexModel,
@@ -289,3 +304,4 @@ export type {
   UxQualityExpectations,
   UxServiceBlueprint,
 } from "./ux/types.ts";
+export { inspectUxConsistency } from "./ux/validation.ts";

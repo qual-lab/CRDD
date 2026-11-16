@@ -18,6 +18,7 @@ import {
   type DocumentRelationsRequest,
   inspectDocumentRelations,
   inspectQualityAnalysis,
+  inspectQualityConsistency,
   parseQualityAnalysis,
   parseQualityCenter,
   parseQualityDefinition,
@@ -198,7 +199,7 @@ test("Quality状態は正規化・未知・許可された状態対を区別す�
       index === 3 ? 1 : 0,
     );
     for (const [realityIndex, reality] of realityStates.entries()) {
-      const issues = inspectDocumentRelations({
+      const issues = inspectQualityConsistency({
         kind: "quality_reality_state",
         center: center.result,
         reality: parseQualityRealityAudit({
@@ -394,12 +395,12 @@ test("Qualityの関係閉包は集合の一致と段階・境界の不足を別�
     analysisPath: "integration.md",
   };
   assert.equal(
-    inspectDocumentRelations({ kind: "quality_definition_relations", ...base })
+    inspectQualityConsistency({ kind: "quality_definition_relations", ...base })
       .length,
     0,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectQualityConsistency({
       kind: "quality_definition_relations",
       ...{
         ...base,
@@ -428,7 +429,7 @@ test("Qualityの関係閉包は集合の一致と段階・境界の不足を別�
     ],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectQualityConsistency({
       kind: "quality_goal_local_relations",
       ...{
         ...local,
@@ -930,3 +931,64 @@ function observeQualityLocalFixture(
     }),
   };
 }
+
+/**
+ * Quality横断目標の行・重複・処置を解析モデル経由で照合する。
+ * @responsibility 既存の比較順と違反内容を、Quality解析と内部整合比較の接続で確認する。
+ * @trace RCM-UT-002
+ * @precondition 正常行、未知目標、重複、不正処置を用意する。
+ * @stimulus Qualityで解析し、公開比較入口へ渡す。
+ * @observation 診断理由と順序を取得する。
+ * @oracle 既存の処置違反→重複→行不正の順を維持する。
+ * @cleanup N/A: 同期的な局所値のみ。
+ * @boundary Qualityの解析モデルから内部整合評価への比較。
+ */
+test("Quality横断目標は解析モデル経由で診断順を維持する", () => {
+  assert.deepEqual(
+    inspectQualityConsistency({
+      kind: "quality_goals",
+      rows: [],
+      goalLabelToSlug: new Map([["Goal", "QA-000001"]]),
+      analysisPath: "integration.md",
+    }).map((issue) => issue.reason),
+    ["cross-model-goal-coverage-mismatch"],
+  );
+  const parseRows = (content: string) =>
+    inspectQualityAnalysis(
+      [],
+      new Set(),
+      parseQualityIntegration({
+        path: "integration.md",
+        content: `## 2. Architecture横断モデルの処置\n${content}\n## 3. 次`,
+      }).result,
+      "analysis",
+    ).crossModelRows;
+  const labels = new Map([["Goal", "QA-000001"]]);
+  assert.equal(
+    inspectQualityConsistency({
+      kind: "quality_goals",
+      rows: parseRows(
+        "| Goal | Required | Required | Required | Required | N/A: 理由 |",
+      ),
+      goalLabelToSlug: labels,
+      analysisPath: "integration.md",
+    }).length,
+    0,
+  );
+  const invalid = inspectQualityConsistency({
+    kind: "quality_goals",
+    rows: parseRows(
+      "| Goal | BAD | Required | Required | Required | Required |\n| Goal | Required | Required | Required | Required | Required |\n| Unknown | x |",
+    ),
+    goalLabelToSlug: labels,
+    analysisPath: "integration.md",
+  });
+  assert.deepEqual(
+    invalid.map((issue) => issue.reason),
+    [
+      "cross-model-disposition-invalid",
+      "cross-model-goal-duplicate",
+      "cross-model-row-invalid",
+    ],
+  );
+});

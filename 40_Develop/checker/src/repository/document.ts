@@ -8,8 +8,10 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArtifactSource,
+  inspectDiscoveryIdentityLinks,
   inspectDocumentRelations,
   inspectQualityVerification,
+  inspectReleaseConsistency,
   inspectReleaseDocuments,
   parseArchitectureIndex,
   parseArtifact,
@@ -527,7 +529,7 @@ export function inspectDocumentRepository(
     versionResult.stableVersion !== null
   ) {
     const stableVersion = versionResult.stableVersion;
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectReleaseConsistency({
       kind: "stable_canonical_documents",
       documents: canonicalDocuments.map((document) => document.result),
       stableVersion,
@@ -569,7 +571,7 @@ export function inspectDocumentRepository(
       path: relative(readmePath),
       content: readme,
     });
-    const readmeIssues = inspectDocumentRelations({
+    const readmeIssues = inspectReleaseConsistency({
       kind: "stable_readme",
       readme: readmeModel.result,
       stableVersion,
@@ -586,7 +588,7 @@ export function inspectDocumentRepository(
       { path: relative(changelogPath), content: changelog },
       { version: stableVersion },
     );
-    const stableChangelogIssues = inspectDocumentRelations({
+    const stableChangelogIssues = inspectReleaseConsistency({
       kind: "stable_changelog",
       changelog: changelogModel.result,
       stableVersion,
@@ -601,7 +603,7 @@ export function inspectDocumentRepository(
         path: relative(file),
         content: header,
       }).result;
-      const result = inspectDocumentRelations({
+      const result = inspectReleaseConsistency({
         kind: "stable_release_document",
         document,
         stableVersion,
@@ -642,8 +644,7 @@ export function inspectDocumentRepository(
         path: relativePath,
         content: read(file),
       });
-      const result = inspectDocumentRelations({
-        kind: "discovery_identity_links",
+      const result = inspectDiscoveryIdentityLinks({
         document: identity.result.identity,
       });
       for (const issue of result) {

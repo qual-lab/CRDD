@@ -764,7 +764,7 @@
         "RCM-UT-001"
       ],
       "verifies": [
-        "domain-model.semantic-relations"
+        "domain-model.artifact-quality-analysis"
       ]
     },
     {
@@ -899,8 +899,7 @@
       "verifies": [
         "domain-model.artifact-ia",
         "document-model.ia-parse",
-        "document-model.ia-types",
-        "domain-model.semantic-relations"
+        "document-model.ia-types"
       ]
     },
     {
@@ -925,8 +924,7 @@
         "domain-model.artifact-ui",
         "document-model.ui-definition-parse",
         "document-model.ui-definition-types",
-        "domain-model.artifact-markdown",
-        "domain-model.semantic-relations"
+        "domain-model.artifact-markdown"
       ]
     },
     {
@@ -972,8 +970,7 @@
       "verifies": [
         "domain-model.artifact-change",
         "document-model.source.src.change.parse",
-        "document-model.source.src.change.types",
-        "domain-model.semantic-relations"
+        "document-model.source.src.change.types"
       ]
     },
     {
@@ -1005,8 +1002,7 @@
       "verifies": [
         "domain-model.artifact-ux",
         "document-model.ux-parse",
-        "document-model.ux-input-types",
-        "domain-model.semantic-relations"
+        "document-model.ux-input-types"
       ]
     },
     {
@@ -1069,7 +1065,6 @@
       ],
       "verifies": [
         "domain-model.artifact-spec",
-        "domain-model.semantic-relations",
         "document-model.spec-definition-parse",
         "document-model.spec-definition-types",
         "domain-model.artifact-markdown"
@@ -1113,8 +1108,7 @@
         "domain-model.artifact-architecture",
         "domain-model.artifact-architecture-details",
         "domain-model.artifact-architecture-relations",
-        "domain-model.artifact-markdown",
-        "domain-model.semantic-relations"
+        "domain-model.artifact-markdown"
       ]
     },
     {
@@ -1137,8 +1131,7 @@
       ],
       "verifies": [
         "domain-model.artifact-quality-definition",
-        "domain-model.artifact-markdown",
-        "domain-model.semantic-relations"
+        "domain-model.artifact-markdown"
       ]
     },
     {

@@ -15,9 +15,8 @@ import { captureArchitectureDocument } from "../../../src/architecture/validatio
 import {
   type DocumentRelationsRequest,
   evaluateDefinitionPairEvidence,
+  inspectArchitectureConsistency,
   inspectDocumentRelations,
-  inspectQualityAnalysis,
-  parseArchitectureAnalysis,
   parseArchitectureDefinition,
   parseArchitectureDetail,
   parseArchitectureDetailMap,
@@ -275,86 +274,6 @@ test("UIとSPECの対応参照は複数行でも実出現位置を保持する",
 });
 
 /**
- * 分析件数とDirectory完全集合の違いを検証する。
- * @responsibility 第一条件を集合一致へ強めず、余分なDirectoryを別条件で拒否する。
- * @trace RCM-UT-002
- * @precondition 期待入力と同数の別ID分析を用意する。
- * @stimulus 実Directoryと件数を独立に変更する。
- * @observation 診断kindと位置を取得する。
- * @oracle 件数だけの差とDirectory差を固定順で返し、空集合を受理する。
- * @cleanup N/A: 外部資源なし。
- * @boundary RCM-UT-002=N/A: 同期集合検査。
- */
-test("Architecture分析は件数とDirectory集合の条件を区別する", () => {
-  const request = {
-    sourcePath: "index.md",
-    analysisPath: "Analysis",
-    analyses: [
-      observeArchitectureFixture(
-        parseArchitectureAnalysis(
-          { path: "ui.md", content: "" },
-          "UI",
-          "UI-999999",
-          {
-            checklistSource: architectureChecklistFixture("analysis_ui", null),
-          },
-        ),
-        false,
-        "analysis",
-      ).result,
-      observeArchitectureFixture(
-        parseArchitectureAnalysis(
-          { path: "spec.md", content: "" },
-          "SPEC",
-          "SPEC-999999",
-          {
-            checklistSource: architectureChecklistFixture(
-              "analysis_spec",
-              null,
-            ),
-          },
-        ),
-        false,
-        "analysis",
-      ).result,
-    ],
-    uiIds: new Set(["UI-000001"]),
-    specIds: new Set(["SPEC-000001"]),
-    actualAnalysisIds: new Set(["UI-000001", "SPEC-000001"]),
-  };
-  assert.deepEqual(
-    inspectDocumentRelations({ kind: "architecture_inputs", ...request }),
-    [],
-  );
-  assert.deepEqual(
-    inspectDocumentRelations({
-      kind: "architecture_inputs",
-      ...request,
-      analyses: request.analyses.filter((model) => model.view === "SPEC"),
-      actualAnalysisIds: new Set(["UI-999999", "SPEC-000001"]),
-    }).map((issue) => [issue.kind, issue.location.path]),
-    [
-      ["artifact.architecture.analysis-coverage-mismatch", "index.md"],
-      [
-        "artifact.architecture.analysis-directory-coverage-mismatch",
-        "Analysis",
-      ],
-    ],
-  );
-  assert.deepEqual(
-    inspectDocumentRelations({
-      kind: "architecture_inputs",
-      ...request,
-      analyses: [],
-      uiIds: new Set(),
-      specIds: new Set(),
-      actualAnalysisIds: new Set(),
-    }),
-    [],
-  );
-});
-
-/**
  * UIの対応SPEC出現列と三者閉包を確認する。
  * @responsibility 重複を抽出結果に保持し、双方向の関係一致を検査する。
  * @trace RCM-UT-002
@@ -441,67 +360,6 @@ test("未対応の工程関係種別は拒否する", () => {
   assert.throws(
     () => inspectDocumentRelations({ kind: "unknown" } as never),
     /document_relation_kind_invalid/u,
-  );
-});
-
-/**
- * Quality横断目標の行・重複・処置を解析モデル経由で照合する。
- * @responsibility 既存の比較順と違反内容を、Quality解析とSemantic比較の接続で確認する。
- * @trace RCM-UT-002
- * @precondition 正常行、未知目標、重複、不正処置を用意する。
- * @stimulus Qualityで解析し、公開比較入口へ渡す。
- * @observation 診断理由と順序を取得する。
- * @oracle 既存の処置違反→重複→行不正の順を維持する。
- * @cleanup N/A: 同期的な局所値のみ。
- * @boundary Qualityの解析モデルからSemanticへの比較。
- */
-test("Quality横断目標は解析モデル経由で診断順を維持する", () => {
-  assert.deepEqual(
-    inspectDocumentRelations({
-      kind: "quality_goals",
-      rows: [],
-      goalLabelToSlug: new Map([["Goal", "QA-000001"]]),
-      analysisPath: "integration.md",
-    }).map((issue) => issue.reason),
-    ["cross-model-goal-coverage-mismatch"],
-  );
-  const parseRows = (content: string) =>
-    inspectQualityAnalysis(
-      [],
-      new Set(),
-      parseQualityIntegration({
-        path: "integration.md",
-        content: `## 2. Architecture横断モデルの処置\n${content}\n## 3. 次`,
-      }).result,
-      "analysis",
-    ).crossModelRows;
-  const labels = new Map([["Goal", "QA-000001"]]);
-  assert.equal(
-    inspectDocumentRelations({
-      kind: "quality_goals",
-      rows: parseRows(
-        "| Goal | Required | Required | Required | Required | N/A: 理由 |",
-      ),
-      goalLabelToSlug: labels,
-      analysisPath: "integration.md",
-    }).length,
-    0,
-  );
-  const invalid = inspectDocumentRelations({
-    kind: "quality_goals",
-    rows: parseRows(
-      "| Goal | BAD | Required | Required | Required | Required |\n| Goal | Required | Required | Required | Required | Required |\n| Unknown | x |",
-    ),
-    goalLabelToSlug: labels,
-    analysisPath: "integration.md",
-  });
-  assert.deepEqual(
-    invalid.map((issue) => issue.reason),
-    [
-      "cross-model-disposition-invalid",
-      "cross-model-goal-duplicate",
-      "cross-model-row-invalid",
-    ],
   );
 });
 
@@ -971,7 +829,7 @@ function observeArchitectureFixture<
   isReady: boolean,
   documentType: "analysis" | "definition" | "detail",
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_readiness",
     document: parsed as never,
     isReady,

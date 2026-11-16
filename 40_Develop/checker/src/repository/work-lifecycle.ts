@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  inspectDocumentRelations,
+  inspectChangeNavigation,
   parseChangeDocument,
   parseChangeIndex,
 } from "../../../document-model/src/index.ts";
@@ -166,8 +166,7 @@ export function inspectWorkLifecycleRepository(
   });
   for (const issue of [
     ...navigation.issues,
-    ...inspectDocumentRelations({
-      kind: "change_navigation",
+    ...inspectChangeNavigation({
       index: navigation.result,
       observedChangeIds: aggregateIds,
     }),

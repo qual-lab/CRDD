@@ -76,7 +76,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "compileQualitySemanticRelations",
     "compileSemanticIr",
     "createFilesystemRepositoryObservationPort",
-    "createFilesystemSemanticBundlePublisher",
     "createMeetingOperations",
     "createPortfolioProjection",
     "createRealitySymbolGraph",
@@ -87,12 +86,21 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "evaluateDefinitionPairEvidence",
     "federateTopicMeetingRelations",
     "fixQualityCandidate",
+    "inspectArchitectureConsistency",
+    "inspectChangeNavigation",
+    "inspectDiscoveryIdentityLinks",
     "inspectDocumentRelations",
+    "inspectIaConsistency",
     "inspectQualityAnalysis",
+    "inspectQualityConsistency",
     "inspectQualityLocalItemOwnership",
     "inspectQualityVerification",
     "inspectRealityTestCatalog",
+    "inspectReleaseConsistency",
     "inspectReleaseDocuments",
+    "inspectSpecConsistency",
+    "inspectUiConsistency",
+    "inspectUxConsistency",
     "integrateQualityGate",
     "observeRealitySymbolRepository",
     "parseArchitectureAnalysis",
@@ -165,6 +173,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
   ]);
   assert.deepEqual(exportedNames("../../src/index.ts"), [
     "ArchitectureAnalysis",
+    "ArchitectureConsistencyRequest",
     "ArchitectureCrossModel",
     "ArchitectureDefinition",
     "ArchitectureDetailMapModel",
@@ -185,6 +194,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "FederatedProjectSource",
     "FixedQualityCandidate",
     "IaAnalysisModel",
+    "IaConsistencyRequest",
     "IaDefinitionModel",
     "IaIndexModel",
     "IaObjectRelation",
@@ -213,6 +223,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "QualityCenter",
     "QualityCheckResult",
     "QualityCheckStatus",
+    "QualityConsistencyRequest",
     "QualityDefinitionModel",
     "QualityDetailAnalysis",
     "QualityIntegration",
@@ -230,18 +241,19 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "RealitySymbolGraph",
     "RealitySymbolManifest",
     "RealitySymbolRepositoryObservation",
+    "ReleaseConsistencyRequest",
     "RepositoryObservationPort",
     "RepositoryProjectContext",
     "RepositoryProjectContextReadResult",
     "RepositoryQualityProjection",
     "RepositoryReleaseProjection",
-    "SemanticBundlePublisher",
     "SemanticCoverageBundle",
     "SemanticCoverageGraph",
     "SemanticIr",
     "SourceLocation",
     "SpecAnalysis",
     "SpecBehavior",
+    "SpecConsistencyRequest",
     "SpecDefinition",
     "SpecDefinitionCorrespondence",
     "SpecDetailCorrespondence",
@@ -258,7 +270,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "TopicMeetingPage",
     "TopicMeetingRelation",
     "TopicMeetingRelationSource",
-    "TopicMeetingRepository",
     "TopicMeetingWriteResult",
     "TopicOperations",
     "TopicPromotionCommandResult",
@@ -267,6 +278,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "UiAnalysis",
     "UiArea",
     "UiComponent",
+    "UiConsistencyRequest",
     "UiDefinition",
     "UiDetailIndex",
     "UiHandoff",
@@ -274,6 +286,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "UiScreen",
     "UiVisualBaseline",
     "UxAnalysisModel",
+    "UxConsistencyRequest",
     "UxDefinitionModel",
     "UxExperienceMap",
     "UxIndexModel",
@@ -284,7 +297,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "compileQualitySemanticRelations",
     "compileSemanticIr",
     "createFilesystemRepositoryObservationPort",
-    "createFilesystemSemanticBundlePublisher",
     "createMeetingOperations",
     "createPortfolioProjection",
     "createRealitySymbolGraph",
@@ -295,12 +307,21 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "evaluateDefinitionPairEvidence",
     "federateTopicMeetingRelations",
     "fixQualityCandidate",
+    "inspectArchitectureConsistency",
+    "inspectChangeNavigation",
+    "inspectDiscoveryIdentityLinks",
     "inspectDocumentRelations",
+    "inspectIaConsistency",
     "inspectQualityAnalysis",
+    "inspectQualityConsistency",
     "inspectQualityLocalItemOwnership",
     "inspectQualityVerification",
     "inspectRealityTestCatalog",
+    "inspectReleaseConsistency",
     "inspectReleaseDocuments",
+    "inspectSpecConsistency",
+    "inspectUiConsistency",
+    "inspectUxConsistency",
     "integrateQualityGate",
     "observeRealitySymbolRepository",
     "parseArchitectureAnalysis",
@@ -444,7 +465,69 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
   };
   visit(sourceRoot);
   assert.deepEqual(violations, []);
+  const releaseValidation = fs.readFileSync(
+    path.join(sourceRoot, "release/validation.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    releaseValidation,
+    /from\s+["'](?:\.\.\/semantic\/|\.\/parse\.ts)/u,
+  );
+  const semanticRelations = fs.readFileSync(
+    path.join(sourceRoot, "semantic/relations.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    semanticRelations,
+    /case\s+["']stable_(?:canonical_documents|release_document|changelog|readme)["']/u,
+  );
   const artifactRoot = path.join(sourceRoot, "artifact");
+  assert.doesNotMatch(
+    semanticRelations,
+    /case\s+["'](?:change_navigation|discovery_identity_links)["']/u,
+  );
+  assert.doesNotMatch(
+    semanticRelations,
+    /case\s+["'](?:ux_(?:projection|formal_input|analysis_registration|relations)|ia_(?:analysis_coverage|index_coverage|projection|definition|relations))["']/u,
+  );
+  for (const domain of ["ui", "spec", "ux", "ia", "change", "discovery"]) {
+    const validation = fs.readFileSync(
+      path.join(sourceRoot, domain, "validation.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(
+      validation,
+      /from\s+["'](?:\.\.\/semantic\/|\.\/parse\.ts)/u,
+    );
+  }
+  assert.doesNotMatch(
+    semanticRelations,
+    /case\s+["'](?:ui_(?:analysis_coverage|index_coverage|relations|detail_coverage)|spec_(?:analysis_coverage|definition_coverage|coverage|detail_coverage))["']/u,
+  );
+  const architectureRelations = fs.readFileSync(
+    path.join(sourceRoot, "architecture/relations.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(architectureRelations, /from\s+["']\.\.\/semantic\//u);
+  assert.doesNotMatch(
+    semanticRelations,
+    /case\s+["']architecture_(?:cross_model|detail_map_coverage|readiness|registry_coverage|component_coverage|relations|detail_coverage|inputs)["']/u,
+  );
+  for (const sourcePath of [
+    "quality/analysis.ts",
+    "quality/definition.ts",
+    "quality/verification-tables.ts",
+  ]) {
+    const qualitySource = fs.readFileSync(
+      path.join(sourceRoot, sourcePath),
+      "utf8",
+    );
+    assert.doesNotMatch(qualitySource, /from\s+["']\.\.\/semantic\//u);
+  }
+  assert.doesNotMatch(
+    semanticRelations,
+    /case\s+["']quality_(?:design_states|reality_state|definition_relations|goal_local_relations|goals)["']/u,
+  );
   const modelDependencies: string[] = [];
   for (const entry of fs.readdirSync(artifactRoot)) {
     if (!entry.endsWith(".ts")) continue;

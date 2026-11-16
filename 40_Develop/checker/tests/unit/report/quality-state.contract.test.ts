@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   inspectDocumentRelations,
+  inspectQualityConsistency,
   parseArtifact,
 } from "../../../../document-model/src/index.ts";
 import { mapQualityDesignStateIssueToFinding } from "../../../src/report/quality.ts";
@@ -44,7 +45,7 @@ test("品質設計状態検査は両readinessの既存Findingを維持する", (
       ],
     });
     assert.deepEqual(
-      inspectDocumentRelations({
+      inspectQualityConsistency({
         kind: "quality_design_states",
         artifacts: result.artifacts,
       }).map((issue) => mapQualityDesignStateIssueToFinding(issue, readiness)),

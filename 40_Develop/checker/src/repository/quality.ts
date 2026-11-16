@@ -10,6 +10,7 @@ import {
   type ArtifactSource,
   inspectDocumentRelations,
   inspectQualityAnalysis,
+  inspectQualityConsistency,
   inspectQualityLocalItemOwnership,
   parseArchitectureDetail,
   parseArtifact,
@@ -413,7 +414,7 @@ export function inspectQualityRepository(
     path: relative(realityAuditPath),
     content: realityAudit,
   });
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectQualityConsistency({
     kind: "quality_reality_state",
     center: qualityCenterResult.result,
     reality: realityAuditResult,
@@ -463,7 +464,7 @@ export function inspectQualityRepository(
       artifacts,
     }))
       mapArtifactDomainIssueToCheckerFinding(issue);
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectQualityConsistency({
       kind: "quality_design_states",
       artifacts,
     })) {
@@ -639,7 +640,7 @@ export function inspectQualityRepository(
     add(finding.severity, finding.code, finding.path, finding.message);
   }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectQualityConsistency({
     kind: "quality_goals",
     rows: inspectQualityAnalysisResult.crossModelRows,
     goalLabelToSlug,
@@ -784,7 +785,7 @@ export function inspectQualityRepository(
     }
   }
 
-  const inspectQualityDefinitionRelationsResult = inspectDocumentRelations({
+  const inspectQualityDefinitionRelationsResult = inspectQualityConsistency({
     kind: "quality_definition_relations",
     ...{
       definitionSourceRelationEntries: definitionSourceRelationEntries,
@@ -871,7 +872,7 @@ export function inspectQualityRepository(
         "The declared Local Item count must exist in the canonical design-set table and equal the exact Local Item set owned by current Quality Definitions.",
       );
   }
-  const inspectQualityGoalLocalRelationsResult = inspectDocumentRelations({
+  const inspectQualityGoalLocalRelationsResult = inspectQualityConsistency({
     kind: "quality_goal_local_relations",
     ...{
       listedGoalLocalRelationEntries: listedGoalLocalRelationEntries,

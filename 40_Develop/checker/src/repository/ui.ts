@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { UiDefinition } from "../../../document-model/src/index.ts";
 import {
-  inspectDocumentRelations,
+  inspectUiConsistency,
   parseUiAnalysis,
   parseUiArea,
   parseUiComponent,
@@ -308,7 +308,7 @@ export function inspectUiRepository(
       "The official repository must keep the current UI Detail migration projection.",
     );
   } else {
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex({
         path: relative(uiDetailIndexPath),
@@ -349,7 +349,7 @@ export function inspectUiRepository(
       }
     }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectUiConsistency({
     kind: "ui_analysis_coverage",
     sourcePath: uiIndexSource.path,
     uxIds: uxIds,
@@ -385,7 +385,7 @@ export function inspectUiRepository(
       }
     }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectUiConsistency({
     kind: "ui_index_coverage",
     sourcePath: uiIndexSource.path,
     index: uiIndexModel,
@@ -394,7 +394,7 @@ export function inspectUiRepository(
     const finding = mapUiDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectUiConsistency({
     kind: "ui_relations",
     sourcePath: uiIndexSource.path,
     index: uiIndexModel,

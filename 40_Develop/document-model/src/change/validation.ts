@@ -241,3 +241,46 @@ export function validateChangeIndex(
         },
       ];
 }
+
+/**
+ * 変更案内と観測済み変更IDの被覆を比較する。
+ * @responsibility 取得済みモデルから既存順の中立Issueを返す。
+ * @trace ARCH-000008
+ * @input request: 変更案内モデルと既存観測のID列。
+ * @returns 既存条件に対応するIssue列。局所重複は重ねない。
+ * @precondition 実体観測は呼出し元が完了している。
+ * @postcondition 入力を変更せず、本文やFilesystemを再取得しない。
+ * @effect N/A: 同期的な値比較。
+ * @failure 比較例外を伝播し、不明を補完しない。
+ * @invariant 短絡・診断順と既存の対象範囲を維持する。
+ * @boundary 同一Process内の工程意味検査。
+ * @security 実在・認可・全品質の成立を保証しない。
+ * @concurrency N/A: 共有可変状態なし。
+ */
+export function inspectChangeNavigation(
+  request: Readonly<{
+    index: ChangeIndex;
+    observedChangeIds: readonly string[];
+  }>,
+): readonly DocumentIssue[] {
+  const indexedIds = request.index.entries
+    .map((entry) => entry.identity)
+    .sort();
+  const uniqueIndexedIds = new Set(indexedIds);
+  // 単体重複はParseが一件返す。追加すると旧一件診断を二重化する。
+  if (indexedIds.length !== uniqueIndexedIds.size) return [];
+  if (
+    request.observedChangeIds.length === uniqueIndexedIds.size &&
+    request.observedChangeIds.every((id) => uniqueIndexedIds.has(id))
+  )
+    return [];
+  return [
+    {
+      kind: "artifact.change.navigation-population-mismatch",
+      targetIdentity: request.index.source.path,
+      location: { path: request.index.source.path },
+      reason: "navigation-population-mismatch",
+      details: {},
+    },
+  ];
+}

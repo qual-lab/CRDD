@@ -1,6 +1,6 @@
 /**
- * IAの固定Checklist・表・Section・局所診断の構文を所有する。
- * @responsibility 局所文法を文書解析とSemantic比較から分離する。
+ * IAの固定Checklist・局所条件と取得済みモデルの整合を所有する。
+ * @responsibility 局所条件・観測事実・被覆と閉包を評価し、実体取得と工程横断の意味比較は行わない。
  * @trace ARCH-000008
  */
 import {
@@ -8,7 +8,14 @@ import {
   parseMarkdownTableRow,
 } from "../artifact/markdown.ts";
 import type { DocumentIssue } from "../artifact/types.ts";
-import type { IaChecklistRequest, IaDocument } from "./types.ts";
+import type {
+  IaAnalysisModel,
+  IaChecklistRequest,
+  IaConsistencyRequest,
+  IaDefinitionModel,
+  IaDocument,
+  IaIndexModel,
+} from "./types.ts";
 /**
  * IAが所有する六種類のChecklist期待項目を選択する。
  * @responsibility 元の項目と順序・受付間の独立性を維持する。
@@ -298,4 +305,229 @@ export function iaChecklistIssues(
       details: { checklistFailure: failure },
     },
   ];
+}
+
+/**
+ * IA内部の投影・入力・被覆・関係閉包を比較する。
+ * @responsibility 解析済みIssueと取得済み値の比較結果を既存順で返す。
+ * @trace ARCH-000008
+ * @input request: 呼出し元が既存取得位置で確定したモデル・集合・観測事実。
+ * @returns 局所Issueの継承と整合Issue。全品質Passは意味しない。
+ * @precondition 観測と取得範囲は呼出し元が所有する。
+ * @postcondition 入力を変更せず、本文・Filesystemを再取得しない。
+ * @effect N/A: 同期的な値比較。
+ * @failure 未対応種別は拒否し、比較例外を伝播する。
+ * @invariant 局所Issue優先・重複抑止・出現順と既存Map条件を保持する。
+ * @boundary 同一Process内のIA意味検査。
+ * @security 認可・実在・工程完成を発行しない。
+ * @concurrency N/A: 共有可変状態なし。
+ */
+export function inspectIaConsistency(
+  request: IaConsistencyRequest,
+): readonly DocumentIssue[] {
+  switch (request.kind) {
+    case "ia_analysis_coverage":
+      return compareIaAnalysisCoverage(
+        request.expectedIds,
+        request.actualIds,
+        request.sourcePath,
+      );
+    case "ia_index_coverage":
+      return compareIaIndexCoverage(
+        request.index,
+        request.actualIds,
+        request.sourcePath,
+      );
+    case "ia_projection": {
+      const p = request.projection;
+      return p.projectedKeys.length !== p.projectedIds.size ||
+        p.projectedIds.size !== request.actualIds.size ||
+        [...request.actualIds].some((id) => !p.projectedIds.has(id))
+        ? [
+            iaIssue(
+              "cross-projection-coverage-mismatch",
+              p.source.path,
+              p.source.path,
+            ),
+          ]
+        : [];
+    }
+    case "ia_definition": {
+      const d = request.definition;
+      const comparison = compareIaDefinitionEvidence(
+        d.result,
+        request.analyses,
+      );
+      return comparison.invalid &&
+        !d.issues.some(
+          (i) => i.kind === "artifact.ia.definition-contract-invalid",
+        )
+        ? [
+            iaIssue(
+              "definition-contract-invalid",
+              d.result.source.path,
+              d.result.expectedIdentity,
+              { checklistFailure: d.result.checklistContract.failure },
+            ),
+          ]
+        : [...d.issues];
+    }
+    case "ia_relations": {
+      const analyses = new Map(
+        request.analyses.map((a) => [a.expectedIdentity, a]),
+      );
+      const definitions = request.definitions.map((d) => ({
+        ...d,
+        mappingKeys: compareIaDefinitionEvidence(d, analyses).mappingKeys,
+      }));
+      return compareIaRelations(
+        request.index,
+        request.analyses,
+        definitions,
+        request.sourcePath,
+      );
+    }
+    default:
+      throw new TypeError("ia_consistency_kind_invalid");
+  }
+}
+
+/**
+ * 実在確認済みUX集合と分析対象の網羅性を照合する。
+ * @responsibility 取得済みIAモデルの局所不変条件を既存順で照合する。
+ * @trace ARCH-000008
+ * @input expectedUxIds、actualUxIds: 観測済み集合。sourcePath: 入口の相対Path。
+ * @returns 原文・投影内容と、旧不一致条件の中立Issueを分けたOutcome。
+ * @precondition 対象の観測・本文取得は呼出し元が完了している。
+ * @postcondition 重複・不足・余剰を成功へ補完しない。
+ * @effect N/A: 取得済み入力と局所集合だけを扱う。
+ * @failure 例外を伝播し、観測や移行を代行しない。
+ * @invariant 現在のIA契約とIssueの順序を維持する。
+ * @boundary N/A: 同一Process内のモデル比較。
+ * @security 採用・認可・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有状態を持たない。
+ */
+function compareIaAnalysisCoverage(
+  expectedUxIds: ReadonlySet<string>,
+  actualUxIds: ReadonlySet<string>,
+  sourcePath: string,
+): readonly DocumentIssue[] {
+  return expectedUxIds.size !== actualUxIds.size ||
+    [...expectedUxIds].some((id) => !actualUxIds.has(id))
+    ? [iaIssue("analysis-coverage-mismatch", sourcePath, sourcePath)]
+    : [];
+}
+
+/**
+ * IA入口の登録集合と実在する定義集合を照合する。
+ * @responsibility 取得済みIAモデルの局所不変条件を既存順で照合する。
+ * @trace ARCH-000008
+ * @input index: 解析済み入口。actualIaIds: 実在確認済み集合。sourcePath: 入口の相対Path。
+ * @returns 不一致を表す中立Issue列。
+ * @precondition 対象の観測・本文取得は呼出し元が完了している。
+ * @postcondition 重複・不足・余剰を成功へ補完しない。
+ * @effect N/A: 取得済み入力と局所集合だけを扱う。
+ * @failure 例外を伝播し、観測や移行を代行しない。
+ * @invariant 現在のIA契約とIssueの順序を維持する。
+ * @boundary N/A: 同一Process内のモデル比較。
+ * @security 採用・認可・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有状態を持たない。
+ */
+function compareIaIndexCoverage(
+  index: IaIndexModel,
+  actualIaIds: ReadonlySet<string>,
+  sourcePath: string,
+): readonly DocumentIssue[] {
+  return index.isRowInvalid ||
+    index.ids.size !== actualIaIds.size ||
+    [...index.ids].some((id) => !actualIaIds.has(id)) ||
+    [...actualIaIds].some((id) => !index.ids.has(id))
+    ? [iaIssue("definition-index-coverage-mismatch", sourcePath, sourcePath)]
+    : [];
+}
+
+/**
+ * IA入口・分析・定義の関係とObject対応の閉包を照合する。
+ * @responsibility 取得済みIAモデルの局所不変条件を既存順で照合する。
+ * @trace ARCH-000008
+ * @input index、analyses、definitions: 解析済みIAモデル。sourcePath: 入口の相対Path。
+ * @returns 不一致を表す中立Issue列。
+ * @precondition 対象の観測・本文取得は呼出し元が完了している。
+ * @postcondition 重複・不足・余剰を成功へ補完しない。
+ * @effect N/A: 取得済み入力と局所集合だけを扱う。
+ * @failure 例外を伝播し、観測や移行を代行しない。
+ * @invariant 現在のIA契約とIssueの順序を維持する。
+ * @boundary N/A: 同一Process内のモデル比較。
+ * @security 採用・認可・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有状態を持たない。
+ */
+function compareIaRelations(
+  index: IaIndexModel,
+  analyses: readonly IaAnalysisModel[],
+  definitions: readonly IaDefinitionModel[],
+  sourcePath: string,
+): readonly DocumentIssue[] {
+  const registryPairKeys = index.pairs;
+  const registryPairs = new Set(registryPairKeys);
+  const analysisPairKeys = analyses.flatMap((item) => [...item.pairs]);
+  const analysisPairs = new Set(analysisPairKeys);
+  const definitionPairKeys = definitions.flatMap((item) => [...item.pairs]);
+  const definitionPairs = new Set(definitionPairKeys);
+  const analysisMappingKeys = analyses.flatMap((item) => [...item.mappingKeys]);
+  const analysisMappingKeySet = new Set(analysisMappingKeys);
+  const definitionMappingKeys = definitions.flatMap((item) => [
+    ...item.mappingKeys,
+  ]);
+  const definitionMappingKeySet = new Set(definitionMappingKeys);
+  const issues: DocumentIssue[] = [];
+  if (
+    registryPairKeys.length !== registryPairs.size ||
+    analysisPairKeys.length !== analysisPairs.size ||
+    definitionPairKeys.length !== definitionPairs.size ||
+    [...registryPairs].some((pair) => !analysisPairs.has(pair)) ||
+    [...analysisPairs].some((pair) => !registryPairs.has(pair)) ||
+    [...analysisPairs].some((pair) => !definitionPairs.has(pair)) ||
+    [...definitionPairs].some((pair) => !analysisPairs.has(pair))
+  )
+    issues.push(
+      iaIssue("analysis-definition-closure-mismatch", sourcePath, sourcePath),
+    );
+  if (
+    analysisMappingKeys.length !== analysisMappingKeySet.size ||
+    definitionMappingKeys.length !== definitionMappingKeySet.size ||
+    analysisMappingKeySet.size !== definitionMappingKeySet.size ||
+    [...analysisMappingKeySet].some(
+      (key) => !definitionMappingKeySet.has(key),
+    ) ||
+    [...definitionMappingKeySet].some((key) => !analysisMappingKeySet.has(key))
+  )
+    issues.push(
+      iaIssue("object-mapping-closure-mismatch", sourcePath, sourcePath),
+    );
+  return issues;
+}
+
+/**
+ * IA定義が記載した分析Objectと取得済み分析を比較する。
+ * @responsibility 未取得参照とIdentity不一致を区別せず旧拒否条件へ接続し、受理された対応列だけを返す。
+ * @trace ARCH-000008
+ */
+function compareIaDefinitionEvidence(
+  definition: IaDefinitionModel,
+  analyses: ReadonlyMap<string, IaAnalysisModel>,
+) {
+  const accepted = definition.mappingEvidence.filter((e) =>
+    analyses.get(e.analysisId)?.objects.has(e.sourceObject),
+  );
+  const invalid =
+    accepted.length !== definition.mappingEvidence.length ||
+    definition.identityEvidence.some(
+      (e) =>
+        analyses
+          .get(/^UX-[0-9]{6}/u.exec(e.sourceObject)?.[0] ?? "")
+          ?.objectIdentities.get(
+            e.sourceObject.replace(/^UX-[0-9]{6}: /u, ""),
+          ) !== e.identity,
+    );
+  return { invalid, mappingKeys: accepted.map((e) => e.key) };
 }

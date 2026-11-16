@@ -1,6 +1,6 @@
 /**
  * 検証・是正表の意味を検査する。
- * @responsibility 取得済み本文を解析し、中立Issueと観測件数を返す。
+ * @responsibility 解析済み表の算術・是正条件を評価し、区分別Issueと観測件数を返す。
  * @trace ARCH-000008
  */
 
@@ -363,4 +363,36 @@ export function inspectRemediationTable(artifact: ArtifactModel) {
   }
 
   return { remediationRowsChecked, issues };
+}
+
+/** 取得済み成果物に含まれる検証表と是正表の完成評価結果。 */
+export type QualityVerificationEvaluation = Readonly<{
+  numericRowsChecked: number;
+  remediationRowsChecked: number;
+  branchIssues: readonly DocumentIssue[];
+  remediationIssues: readonly DocumentIssue[];
+  issues: readonly DocumentIssue[];
+}>;
+
+/**
+ * 全Markdownに適用する既存の二種類の品質表評価を完了する。
+ * @responsibility 解析済み表の算術・是正条件と診断区分を返し、本文を再解析しない。
+ * @trace ARCH-000008
+ * @input artifact: 同じ読取り位置で捕捉済みの成果物モデル。
+ * @returns 件数と元の区分別診断。issuesは分岐表→是正表の順。
+ * @effect N/A: 取得済みモデルだけを扱う。
+ * @failure 観測不能を空表へ補完しない。呼出し元が取得失敗を所有する。
+ */
+export function inspectQualityVerification(
+  artifact: ArtifactModel,
+): QualityVerificationEvaluation {
+  const branch = inspectBranchCoverageTable(artifact);
+  const remediation = inspectRemediationTable(artifact);
+  return {
+    numericRowsChecked: branch.numericRowsChecked,
+    remediationRowsChecked: remediation.remediationRowsChecked,
+    branchIssues: branch.issues,
+    remediationIssues: remediation.issues,
+    issues: [...branch.issues, ...remediation.issues],
+  };
 }

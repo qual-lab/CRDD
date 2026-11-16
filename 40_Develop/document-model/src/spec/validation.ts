@@ -8,6 +8,7 @@ import type { DocumentIssue } from "../artifact/types.ts";
 import type {
   SpecAnalysis,
   SpecChecklistRequest,
+  SpecConsistencyRequest,
   SpecDefinition,
   SpecDetailIndex,
   SpecDocument,
@@ -433,5 +434,274 @@ export function validateSpecDetailIndex(
       reason: "detail-current-coverage-invalid",
       details: {},
     });
+  return issues;
+}
+
+/**
+ * SPEC内部の被覆・出現・関係閉包を比較する。
+ * @responsibility 解析済みモデルと取得済み集合から既存順の中立Issueを返す。
+ * @trace ARCH-000008
+ * @input request: 呼出し元が元の読取り位置で確定したモデル・集合・出現列。
+ * @returns 既存局所Issueまたは比較条件のIssue列。全品質Passは表さない。
+ * @precondition 読取りと取得範囲は呼出し元が所有する。
+ * @postcondition 入力を変更せず、本文・Filesystemを再取得しない。
+ * @effect N/A: 同期的な値比較。
+ * @failure 未対応種別は拒否し、比較例外は伝播する。
+ * @invariant 出現重複、短絡・診断順、局所Issueの優先を維持する。
+ * @boundary 同一Process内のSPEC意味検査。
+ * @security 認可・実在・工程完成を発行しない。
+ * @concurrency N/A: 共有可変状態なし。
+ */
+export function inspectSpecConsistency(
+  request: SpecConsistencyRequest,
+): readonly DocumentIssue[] {
+  switch (request.kind) {
+    case "spec_analysis_coverage":
+      return inspectSpecAnalysisCoverage(request);
+    case "spec_definition_coverage":
+      return inspectSpecDefinitionCoverage(request);
+    case "spec_coverage":
+      return inspectSpecCoverage(request);
+    case "spec_detail_coverage": {
+      const { detail, actualIds } = request;
+      const model = detail.result;
+      const ids = model.entries.map((entry) => entry.identity);
+      const invalid = detail.issues.find(
+        (issue) =>
+          issue.kind === "artifact.spec.detail-current-coverage-invalid",
+      );
+      const mismatch =
+        ids.length !== actualIds.size ||
+        ids.some((id) => !actualIds.has(id)) ||
+        [...actualIds].some((id) => !ids.includes(id)) ||
+        new Set(
+          model.entries.flatMap((entry) =>
+            entry.behaviorId ? [entry.behaviorId] : [],
+          ),
+        ).size !== actualIds.size;
+      return invalid
+        ? [invalid]
+        : mismatch
+          ? [
+              {
+                kind: "artifact.spec.detail-current-coverage-invalid",
+                targetIdentity: model.source.path,
+                location: { path: model.source.path },
+                reason: "detail-current-coverage-invalid",
+                details: {},
+              },
+            ]
+          : [];
+    }
+    default:
+      throw new TypeError("spec_consistency_kind_invalid");
+  }
+}
+
+/**
+ * SPEC分析の二観点網羅性と関係重複を検査する。
+ * @responsibility SPEC分析の二観点網羅性と関係重複を検査する。
+ * @trace ARCH-000008
+ * @input request: 位置、UX／IA実在ID・分析済みID・関係出現列。
+ * @returns UX網羅性、重複、IA網羅性の順のIssue。
+ * @precondition 呼出し元が現在位置で必要な本文・集合を取得している。
+ * @postcondition 旧条件・重複処置・Issue順を維持し入力を変更しない。
+ * @effect N/A: 観測済み値と局所配列だけを扱う同期処理。
+ * @failure 集合・文字列操作の例外を伝播し不足を補完しない。
+ * @invariant 観測の先読みと新しい非空条件を追加しない。
+ * @boundary N/A: 同一Process内のSPEC関係検査。
+ * @security 実在・認可・品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+function inspectSpecAnalysisCoverage(
+  request: Readonly<{
+    specIndexPath: string;
+    specAnalysisRoot: string;
+    uxIds: ReadonlySet<string>;
+    iaIds: ReadonlySet<string>;
+    analyzedUx: ReadonlySet<string>;
+    analyzedIa: ReadonlySet<string>;
+    analysisRelationOccurrences: readonly string[];
+  }>,
+): readonly DocumentIssue[] {
+  const {
+    specIndexPath,
+    specAnalysisRoot,
+    uxIds,
+    iaIds,
+    analyzedUx,
+    analyzedIa,
+    analysisRelationOccurrences,
+  } = request;
+  const issues: DocumentIssue[] = [];
+  if (
+    uxIds.size !== analyzedUx.size ||
+    [...uxIds].some((id) => !analyzedUx.has(id)) ||
+    [...analyzedUx].some((id) => !uxIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.spec.ux-analysis-coverage-mismatch",
+      targetIdentity: specIndexPath,
+      location: { path: specIndexPath },
+      reason: "spec-ux-analysis-coverage-mismatch",
+      details: {},
+    });
+
+  if (hasDuplicate(analysisRelationOccurrences))
+    issues.push({
+      kind: "artifact.spec.analysis-relation-duplicate",
+      targetIdentity: specAnalysisRoot,
+      location: { path: specAnalysisRoot },
+      reason: "spec-analysis-relation-duplicate",
+      details: {},
+    });
+  if (
+    iaIds.size !== analyzedIa.size ||
+    [...iaIds].some((id) => !analyzedIa.has(id)) ||
+    [...analyzedIa].some((id) => !iaIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.spec.ia-analysis-coverage-mismatch",
+      targetIdentity: specIndexPath,
+      location: { path: specIndexPath },
+      reason: "spec-ia-analysis-coverage-mismatch",
+      details: {},
+    });
+
+  return issues;
+}
+
+/**
+ * SPEC定義の関係重複と登録ID網羅性を検査する。
+ * @responsibility SPEC定義の関係重複と登録ID網羅性を検査する。
+ * @trace ARCH-000008
+ * @input request: 位置、定義関係出現列・登録ID・実在ID。
+ * @returns 重複、登録網羅性の順のIssue。
+ * @precondition 呼出し元が現在位置で必要な本文・集合を取得している。
+ * @postcondition 旧条件・重複処置・Issue順を維持し入力を変更しない。
+ * @effect N/A: 観測済み値と局所配列だけを扱う同期処理。
+ * @failure 集合・文字列操作の例外を伝播し不足を補完しない。
+ * @invariant 観測の先読みと新しい非空条件を追加しない。
+ * @boundary N/A: 同一Process内のSPEC関係検査。
+ * @security 実在・認可・品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+function inspectSpecDefinitionCoverage(
+  request: Readonly<{
+    specDefinitionsRoot: string;
+    specIndexPath: string;
+    definitionRelationOccurrences: readonly string[];
+    definitionUiPairOccurrences: readonly string[];
+    registryIds: ReadonlySet<string>;
+    actualIds: ReadonlySet<string>;
+  }>,
+): readonly DocumentIssue[] {
+  const {
+    specDefinitionsRoot,
+    specIndexPath,
+    definitionRelationOccurrences,
+    definitionUiPairOccurrences,
+    registryIds,
+    actualIds,
+  } = request;
+  const issues: DocumentIssue[] = [];
+  if (
+    hasDuplicate(definitionRelationOccurrences) ||
+    hasDuplicate(definitionUiPairOccurrences)
+  )
+    issues.push({
+      kind: "artifact.spec.definition-relation-duplicate",
+      targetIdentity: specDefinitionsRoot,
+      location: { path: specDefinitionsRoot },
+      reason: "spec-definition-relation-duplicate",
+      details: {},
+    });
+
+  if (
+    registryIds.size !== actualIds.size ||
+    [...registryIds].some((id) => !actualIds.has(id)) ||
+    [...actualIds].some((id) => !registryIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.spec.definition-index-coverage-mismatch",
+      targetIdentity: specIndexPath,
+      location: { path: specIndexPath },
+      reason: "spec-definition-index-coverage-mismatch",
+      details: {},
+    });
+  return issues;
+}
+
+/**
+ * SPEC件数表と三者の入力関係閉包を検査する。
+ * @responsibility SPEC件数表と三者の入力関係閉包を検査する。
+ * @trace ARCH-000008
+ * @input request: 位置、件数行・観測件数と登録／分析／定義関係集合。
+ * @returns 件数、三者閉包の順のIssue。
+ * @precondition 呼出し元が現在位置で必要な本文・集合を取得している。
+ * @postcondition 旧条件・重複処置・Issue順を維持し入力を変更しない。
+ * @effect N/A: 観測済み値と局所配列だけを扱う同期処理。
+ * @failure 集合・文字列操作の例外を伝播し不足を補完しない。
+ * @invariant 観測の先読みと新しい非空条件を追加しない。
+ * @boundary N/A: 同一Process内のSPEC関係検査。
+ * @security 実在・認可・品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+function inspectSpecCoverage(
+  request: Readonly<{
+    specIndexPath: string;
+    indexCountRows: readonly (readonly string[])[];
+    expectedIndexCounts: ReadonlyMap<string, number>;
+    registryRelations: ReadonlySet<string>;
+    analysisRelations: ReadonlySet<string>;
+    definitionRelations: ReadonlySet<string>;
+  }>,
+): readonly DocumentIssue[] {
+  const {
+    specIndexPath,
+    indexCountRows,
+    expectedIndexCounts,
+    registryRelations,
+    analysisRelations,
+    definitionRelations,
+  } = request;
+  const issues: DocumentIssue[] = [];
+  const reportedIndexCounts = new Map(
+    indexCountRows.map(([name, count]) => [
+      name,
+      Number.parseInt(count as string, 10),
+    ]),
+  );
+  if (
+    [...expectedIndexCounts].some(
+      ([name, count]) => reportedIndexCounts.get(name) !== count,
+    )
+  )
+    issues.push({
+      kind: "artifact.spec.root-coverage-count-mismatch",
+      targetIdentity: specIndexPath,
+      location: { path: specIndexPath },
+      reason: "spec-root-coverage-count-mismatch",
+      details: {},
+    });
+  if (
+    [...registryRelations].some(
+      (r) => !analysisRelations.has(r) || !definitionRelations.has(r),
+    ) ||
+    [...analysisRelations].some(
+      (r) => !registryRelations.has(r) || !definitionRelations.has(r),
+    ) ||
+    [...definitionRelations].some(
+      (r) => !registryRelations.has(r) || !analysisRelations.has(r),
+    )
+  )
+    issues.push({
+      kind: "artifact.spec.analysis-definition-closure-mismatch",
+      targetIdentity: specIndexPath,
+      location: { path: specIndexPath },
+      reason: "spec-analysis-definition-closure-mismatch",
+      details: {},
+    });
+
   return issues;
 }

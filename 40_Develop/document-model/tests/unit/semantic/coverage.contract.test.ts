@@ -16,7 +16,7 @@ import {
   compileSemanticIr,
   createSemanticBundle,
   createSemanticCoverageGraph,
-  inspectDocumentRelations,
+  inspectArchitectureConsistency,
   parseArchitectureDetail,
 } from "../../../src/index.ts";
 
@@ -136,7 +136,7 @@ function observeArchitectureFixture<
   isReady: boolean,
   documentType: "analysis" | "definition" | "detail",
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_readiness",
     document: parsed as never,
     isReady,

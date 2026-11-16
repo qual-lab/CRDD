@@ -41,9 +41,12 @@ test("Semantic Coverageは宣言した公開Capabilityだけを公開する", ()
     semanticCoverage.createSemanticCoverageGraph,
     semanticCoverage.createSemanticBundle,
     semanticCoverage.publishSemanticCoverage,
-    semanticCoverage.createFilesystemSemanticBundlePublisher,
   ])
     assert.equal(typeof operation, "function");
+  assert.equal(
+    "createFilesystemSemanticBundlePublisher" in semanticCoverage,
+    false,
+  );
   assert.equal("mapSemanticDomainIssueToDiagnostic" in semanticCoverage, false);
   assert.equal(
     "publishSemanticCoverageBundleWithHooks" in semanticCoverage,

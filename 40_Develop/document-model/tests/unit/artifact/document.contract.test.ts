@@ -10,8 +10,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  inspectDiscoveryIdentityLinks,
   inspectDocumentRelations,
   inspectQualityVerification,
+  inspectReleaseConsistency,
   inspectReleaseDocuments,
   parseArtifact,
   parseCanonicalDocument,
@@ -200,8 +202,7 @@ test("Related順序とID所有は可視条件・先頭節・出現位置を維�
     content:
       "[REQ-000001](01_Discovery/Analysis/EXP-000001/exploration.md)\n```md\n[REQ-000002](01_Discovery/Analysis/EXP-000002/exploration.md)\n```",
   });
-  const links = inspectDocumentRelations({
-    kind: "discovery_identity_links",
+  const links = inspectDiscoveryIdentityLinks({
     document: linkDocument.result.identity,
   });
   assert.equal(links.length, 1);
@@ -345,7 +346,7 @@ test("READMEのStable比較は全文表示と20行の残留断面を維持する
   ] as const) {
     const readme = parseReadme({ path: "README.md", content }).result;
     const before = structuredClone(readme);
-    const issues = inspectDocumentRelations({
+    const issues = inspectReleaseConsistency({
       kind: "stable_readme",
       readme,
       stableVersion: version,
@@ -574,7 +575,7 @@ test("正本文書集合はStable観測候補と状態不整合を区別する",
     ["candidate-status-mismatch", "candidate-status-mismatch"],
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_canonical_documents",
       documents: documents.map((document) => document.result),
       stableVersion: "v0.22.0",
@@ -735,7 +736,7 @@ test("CHANGELOGのStable比較はraw全文と任意の期待版を維持する",
     assert.equal(parsed.issues.length, 2);
     const before = structuredClone(parsed.result);
     assert.equal(
-      inspectDocumentRelations({
+      inspectReleaseConsistency({
         kind: "stable_changelog",
         changelog: parsed.result,
         stableVersion: version,
@@ -825,7 +826,7 @@ test("未閉鎖YAMLの拒否でも別の閉じた宣言をモデルへ保持す�
  */
 test("Stable公開条件は正本文書・README・二言語日付・変更記録の状態を別々に検査する", () => {
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_canonical_documents",
       documents: [{ file: "a.md", version: "v0.22.0", status: "Stable" }].map(
         (document) =>
@@ -839,7 +840,7 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     0,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_canonical_documents",
       documents: [
         { file: "a.md", version: "v0.21.0", status: "Candidate" },
@@ -855,7 +856,7 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     1,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_readme",
       readme: parseReadme({
         path: "README.md",
@@ -866,7 +867,7 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     0,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_readme",
       readme: parseReadme({
         path: "README.md",
@@ -877,7 +878,7 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     2,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_changelog",
       changelog: parseChangelog(
         {
@@ -891,7 +892,7 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     0,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_changelog",
       changelog: parseChangelog(
         {
@@ -905,7 +906,7 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     1,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_release_document",
       document: parseCanonicalDocument({
         path: "99_Roadmap/Changes/CHG-000082/change.md",
@@ -916,8 +917,15 @@ test("Stable公開条件は正本文書・README・二言語日付・変更記�
     })[0]?.reason,
     "stable-release-change-trace-premature-release",
   );
+  assert.throws(
+    () =>
+      inspectReleaseConsistency({ kind: "unknown" } as unknown as Parameters<
+        typeof inspectReleaseConsistency
+      >[0]),
+    /release_consistency_kind_invalid/u,
+  );
   assert.equal(
-    inspectDocumentRelations({
+    inspectReleaseConsistency({
       kind: "stable_release_document",
       document: parseCanonicalDocument({
         path: "README.md",
@@ -968,8 +976,7 @@ test("Identity内容は一般宣言とUX表宣言・rawリンクを分離する"
   assert.equal(parsed.result.identity.links[0]?.source.location.line, 5);
   assert.equal(parsed.result.identity.manualRevisions[0]?.location.line, 5);
   assert.equal(parsed.result.identity.occurrences.includes("REQ-000002"), true);
-  const issues = inspectDocumentRelations({
-    kind: "discovery_identity_links",
+  const issues = inspectDiscoveryIdentityLinks({
     document: parsed.result.identity,
   });
   assert.equal(issues.length, 1);

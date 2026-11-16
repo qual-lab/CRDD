@@ -26,6 +26,7 @@ import test from "node:test";
 import {
   createMeetingOperations,
   createTopicOperations,
+  readTopicMeetingList,
   type TopicMeetingAccess,
 } from "../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
@@ -48,6 +49,104 @@ import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
+});
+
+/**
+ * 一覧の四状態とProtocolの非開示変換を固定する。
+ * @responsibility 内部の入力拒否と対象未取得を区別し、公開では従来の非開示を維持する。
+ * @trace CPR-IT-012
+ * @trace RFD-IT-013
+ * @precondition 実受付と実MCP変換、メモリ内の一覧代役。
+ * @stimulus 両種別の正常・入力不正・取消・対象未取得を渡す。
+ * @observation 内部状態、Protocol全体、対象解決と一覧回数。
+ * @oracle 拒否・取消はread0、対象未取得の詳細は公開せず、正常だけPageを返す。
+ * @cleanup N/A: 保存・Filesystem・Listenerを取得しない。
+ * @boundary 完成受付からMCP結果への直接境界。認可そのものの成立は代役で証明しない。
+ */
+test("一覧の四状態は既存MCPの非開示と取消区分を維持する", async () => {
+  for (const kind of ["topic", "meeting"] as const) {
+    for (const state of [
+      "complete",
+      "invalid",
+      "cancelled",
+      "unavailable",
+    ] as const) {
+      let resolutions = 0;
+      let reads = 0;
+      const page = {
+        status: "available" as const,
+        records: [],
+        nextCursor: null,
+      };
+      const access = {
+        [kind]: {
+          list: () => {
+            reads++;
+            return page;
+          },
+        },
+      } as unknown as TopicMeetingAccess;
+      const resolve = () => {
+        resolutions++;
+        return state === "unavailable" ? null : access;
+      };
+      const controller = new AbortController();
+      if (state === "cancelled") controller.abort();
+      const conditions = state === "invalid" ? { limit: 0 } : {};
+      const intake = readTopicMeetingList(
+        { kind, ...conditions },
+        resolve,
+        controller.signal,
+      );
+      assert.equal(intake.status, state);
+      assert.equal(
+        resolutions,
+        state === "complete" || state === "unavailable" ? 1 : 0,
+      );
+      assert.equal(reads, state === "complete" ? 1 : 0);
+      if (intake.status === "complete") assert.equal(intake.page, page);
+      else assert.equal(intake.page, null);
+      resolutions = 0;
+      reads = 0;
+      const response = await handleMcpTopicMeetingRequest(
+        call(
+          kind === "topic" ? MCP_TOPIC_LIST_TOOL : "crdd.list_meetings",
+          conditions,
+        ),
+        resolve,
+        controller.signal,
+      );
+      if (state === "complete") {
+        assert.ok(response && "result" in response);
+        assert.deepEqual(response.result, {
+          resultType: "complete",
+          content: [{ type: "text", text: "0件を取得しました。" }],
+          structuredContent: page,
+          isError: false,
+          _meta: {
+            "io.modelcontextprotocol/serverInfo": {
+              name: "crdd-mcp",
+              version: "0.20.0-development",
+            },
+          },
+        });
+      } else {
+        assert.deepEqual(response, {
+          jsonrpc: "2.0",
+          id: 1,
+          error:
+            state === "cancelled"
+              ? { code: -32800, message: "Request cancelled" }
+              : { code: -32602, message: "Invalid params" },
+        });
+      }
+      assert.equal(
+        resolutions,
+        state === "complete" || state === "unavailable" ? 1 : 0,
+      );
+      assert.equal(reads, state === "complete" ? 1 : 0);
+    }
+  }
 });
 
 /**

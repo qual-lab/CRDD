@@ -17,6 +17,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { parseRepositoryProjectContextMarkdown } from "../../../../document-model/src/index.ts";
 import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,
@@ -855,6 +856,40 @@ test("内容拒否とpending異常では対象Repository観測0", (t) => {
 test("Repository登録と公開は独立し旧Root不成立でも解除できる", (t) => {
   const f = managementFixture(t),
     target = repositoryFixture(t);
+  const fullContext = fs
+    .readFileSync(
+      new URL("../../../../../PROJECT_CONTEXT.md", import.meta.url),
+      "utf8",
+    )
+    .replace(
+      /^Project ID:.*$/mu,
+      `Project ID: \`${target.manifest.projectId}\``,
+    )
+    .replace(
+      /^Repository ID:.*$/mu,
+      `Repository ID: \`${target.manifest.repositoryId}\``,
+    )
+    .replace(
+      /^Repository Role:.*$/mu,
+      `Repository Role: \`${target.manifest.repositoryRole}\``,
+    );
+  assert.equal(
+    parseRepositoryProjectContextMarkdown(fullContext).status,
+    "complete",
+  );
+  const partialContext = fullContext.replace(/^- \[x\]/mu, "- [ ]");
+  const intake = parseRepositoryProjectContextMarkdown(partialContext);
+  assert.equal(intake.status, "partial");
+  assert.ok(intake.result);
+  assert.ok(
+    intake.issues.every(
+      (issue) => issue.reason === "project-context-projection-contract-invalid",
+    ),
+  );
+  fs.writeFileSync(
+    path.join(target.directory, "PROJECT_CONTEXT.md"),
+    partialContext,
+  );
   const before = structuredClone(f.state);
   /**
    * 登録と公開設定の別操作に固定UUIDを割り当てる。
@@ -878,6 +913,10 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
     target.directory,
   );
   assert.equal(registered.status, "completed");
+  assert.equal(
+    fs.readFileSync(path.join(target.directory, "PROJECT_CONTEXT.md"), "utf8"),
+    partialContext,
+  );
   let current = readAccessManagementState(f.root);
   assert.equal(current.status, "completed");
   if (current.status !== "completed") return;

@@ -8,6 +8,7 @@ import type { DocumentIssue } from "../artifact/types.ts";
 import type {
   UiAnalysis,
   UiChecklistRequest,
+  UiConsistencyRequest,
   UiDefinition,
   UiDetailIndex,
   UiDocument,
@@ -446,6 +447,265 @@ export function validateUiDetailIndex(
       targetIdentity: model.source.path,
       location: { path: model.source.path },
       reason: "detail-current-coverage-invalid",
+      details: {},
+    });
+  return issues;
+}
+
+/**
+ * UI内部の被覆・出現・関係閉包を比較する。
+ * @responsibility 解析済みモデルと取得済み集合から既存順の中立Issueを返す。
+ * @trace ARCH-000008
+ * @input request: 呼出し元が元の読取り位置で確定したモデル・集合・出現列。
+ * @returns 既存局所Issueまたは比較条件のIssue列。全品質Passは表さない。
+ * @precondition 読取りと取得範囲は呼出し元が所有する。
+ * @postcondition 入力を変更せず、本文・Filesystemを再取得しない。
+ * @effect N/A: 同期的な値比較。
+ * @failure 未対応種別は拒否し、比較例外は伝播する。
+ * @invariant 出現重複、短絡・診断順、局所Issueの優先を維持する。
+ * @boundary 同一Process内のUI意味検査。
+ * @security 認可・実在・工程完成を発行しない。
+ * @concurrency N/A: 共有可変状態なし。
+ */
+export function inspectUiConsistency(
+  request: UiConsistencyRequest,
+): readonly DocumentIssue[] {
+  switch (request.kind) {
+    case "ui_analysis_coverage":
+      return inspectUiAnalysisCoverage(
+        request.sourcePath,
+        request.uxIds,
+        request.iaIds,
+        request.analysisUxIds,
+        request.analysisIaIds,
+      );
+    case "ui_index_coverage":
+      return inspectUiIndexCoverage(
+        request.sourcePath,
+        request.index,
+        request.actualUiIds,
+      );
+    case "ui_relations":
+      return inspectUiRelations(
+        request.sourcePath,
+        request.index,
+        request.analyses,
+        request.definitions,
+      );
+    case "ui_detail_coverage": {
+      const { detail, actualIds } = request;
+      const model = detail.result;
+      const ids = model.entries.map((entry) => entry.identity);
+      const invalid = detail.issues.find(
+        (issue) => issue.kind === "artifact.ui.detail-current-coverage-invalid",
+      );
+      const mismatch =
+        ids.length !== actualIds.size ||
+        ids.some((id) => !actualIds.has(id)) ||
+        [...actualIds].some((id) => !ids.includes(id)) ||
+        new Set(
+          model.entries.flatMap((entry) =>
+            entry.screenId ? [entry.screenId] : [],
+          ),
+        ).size !== actualIds.size ||
+        new Set(
+          model.entries.flatMap((entry) =>
+            entry.partId ? [entry.partId] : [],
+          ),
+        ).size !== actualIds.size;
+      return invalid
+        ? [invalid]
+        : mismatch
+          ? [
+              {
+                kind: "artifact.ui.detail-current-coverage-invalid",
+                targetIdentity: model.source.path,
+                location: { path: model.source.path },
+                reason: "detail-current-coverage-invalid",
+                details: {},
+              },
+            ]
+          : [];
+    }
+    default:
+      throw new TypeError("ui_consistency_kind_invalid");
+  }
+}
+
+/**
+ * 実在するUXとIA入力の分析網羅性を照合する。
+ * @responsibility 実在するUXとIA入力の分析網羅性を照合する。既読本文と意味モデルだけを扱う。
+ * @trace ARCH-000008
+ * @input sourcePath: 診断位置。uxIds／iaIds: 正式入力集合。analysisUxIds／analysisIaIds: 観測済み分析ID集合。
+ * @returns UX観点、IA観点の順序で返す網羅性違反Issue列。
+ * @precondition 呼出し元が正式入力と実在分析の集合を観測している。
+ * @postcondition 各集合の過不足だけを照合し、本文やFilesystemを再観測しない。
+ * @effect N/A: 入力と局所値だけを扱う純粋な同期処理。
+ * @failure 解析の例外を伝播し、不足や不一致を成功へ補完しない。
+ * @invariant 現行のSection・表・重複・集合の受理条件を維持する。
+ * @boundary N/A: 同一Process内のUIモデル検査。
+ * @security 認可・実在確認・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有可変状態を持たない。
+ */
+function inspectUiAnalysisCoverage(
+  sourcePath: string,
+  uxIds: ReadonlySet<string>,
+  iaIds: ReadonlySet<string>,
+  analysisUxIds: ReadonlySet<string>,
+  analysisIaIds: ReadonlySet<string>,
+): readonly DocumentIssue[] {
+  const issues: DocumentIssue[] = [];
+  if (
+    uxIds.size !== analysisUxIds.size ||
+    [...uxIds].some((id) => !analysisUxIds.has(id)) ||
+    [...analysisUxIds].some((id) => !uxIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.ui.ux-analysis-coverage-mismatch",
+      targetIdentity: sourcePath,
+      location: { path: sourcePath },
+      reason: "ux-analysis-coverage-mismatch",
+      details: {},
+    });
+  if (
+    iaIds.size !== analysisIaIds.size ||
+    [...iaIds].some((id) => !analysisIaIds.has(id)) ||
+    [...analysisIaIds].some((id) => !iaIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.ui.ia-analysis-coverage-mismatch",
+      targetIdentity: sourcePath,
+      location: { path: sourcePath },
+      reason: "ia-analysis-coverage-mismatch",
+      details: {},
+    });
+
+  return issues;
+}
+
+/**
+ * UI入口と実在する定義IDの集合を照合する。
+ * @responsibility UI入口と実在する定義IDの集合を照合する。既読本文と意味モデルだけを扱う。
+ * @trace ARCH-000008
+ * @input sourcePath: 診断位置。index: 入口モデル。actualUiIds: 観測済み定義ID集合。
+ * @returns 入口と実在定義の集合不一致を表すIssue列。
+ * @precondition 入口解析と定義IDの観測が完了している。
+ * @postcondition 二集合の過不足だけを照合し、本文やFilesystemを再観測しない。
+ * @effect N/A: 入力と局所値だけを扱う純粋な同期処理。
+ * @failure 解析の例外を伝播し、不足や不一致を成功へ補完しない。
+ * @invariant 現行のSection・表・重複・集合の受理条件を維持する。
+ * @boundary N/A: 同一Process内のUIモデル検査。
+ * @security 認可・実在確認・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有可変状態を持たない。
+ */
+function inspectUiIndexCoverage(
+  sourcePath: string,
+  index: UiIndex,
+  actualUiIds: ReadonlySet<string>,
+): readonly DocumentIssue[] {
+  const issues: DocumentIssue[] = [];
+  const registryUiIds = new Set(index.entries.map((entry) => entry.identity));
+  if (
+    registryUiIds.size !== actualUiIds.size ||
+    [...registryUiIds].some((id) => !actualUiIds.has(id)) ||
+    [...actualUiIds].some((id) => !registryUiIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.ui.definition-index-coverage-mismatch",
+      targetIdentity: sourcePath,
+      location: { path: sourcePath },
+      reason: "definition-index-coverage-mismatch",
+      details: {},
+    });
+
+  return issues;
+}
+
+/**
+ * UI入口と両観点の分析および定義の関係閉包を照合する。
+ * @responsibility UI入口と両観点の分析および定義の関係閉包を照合する。既読本文と意味モデルだけを扱う。
+ * @trace ARCH-000008
+ * @input sourcePath: 診断位置。index: 入口モデル。analyses／definitions: 各本文から抽出した関係モデル列。
+ * @returns 重複または関係閉包不一致を表すIssue列。
+ * @precondition 不正本文からも抽出された関係を含め、対象モデルを取得している。
+ * @postcondition 二観点の関係重複と閉包を照合し、入力列を変更しない。
+ * @effect N/A: 入力と局所値だけを扱う純粋な同期処理。
+ * @failure 解析の例外を伝播し、不足や不一致を成功へ補完しない。
+ * @invariant 現行のSection・表・重複・集合の受理条件を維持する。
+ * @boundary N/A: 同一Process内のUIモデル検査。
+ * @security 認可・実在確認・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有可変状態を持たない。
+ */
+function inspectUiRelations(
+  sourcePath: string,
+  index: UiIndex,
+  analyses: readonly UiAnalysis[],
+  definitions: readonly UiDefinition[],
+): readonly DocumentIssue[] {
+  const issues: DocumentIssue[] = [];
+  const registryUxUiKeys = index.entries.flatMap((entry) =>
+    entry.uxIds.map((id) => `${id}|${entry.identity}`),
+  );
+  const registryIaUiKeys = index.entries.flatMap((entry) =>
+    entry.iaIds.map((id) => `${id}|${entry.identity}`),
+  );
+  const registryUxUi = new Set(registryUxUiKeys);
+  const registryIaUi = new Set(registryIaUiKeys);
+  const analysisUxUiKeys = analyses.flatMap((model) =>
+    model.view === "ux"
+      ? model.targets.map((ref) => `${model.expectedIdentity}|${ref.identity}`)
+      : [],
+  );
+  const analysisIaUiKeys = analyses.flatMap((model) =>
+    model.view === "ia"
+      ? model.targets.map((ref) => `${model.expectedIdentity}|${ref.identity}`)
+      : [],
+  );
+  const analysisUxUi = new Set(analysisUxUiKeys);
+  const analysisIaUi = new Set(analysisIaUiKeys);
+  const definitionUxUiKeys = definitions.flatMap((model) =>
+    model.analysisInputs.ux.map(
+      (ref) => `${ref.identity}|${model.expectedIdentity}`,
+    ),
+  );
+  const definitionIaUiKeys = definitions.flatMap((model) =>
+    model.analysisInputs.ia.map(
+      (ref) => `${ref.identity}|${model.expectedIdentity}`,
+    ),
+  );
+  const definitionUxUi = new Set(definitionUxUiKeys);
+  const definitionIaUi = new Set(definitionIaUiKeys);
+  if (
+    registryUxUiKeys.length !== registryUxUi.size ||
+    registryIaUiKeys.length !== registryIaUi.size ||
+    analysisUxUiKeys.length !== analysisUxUi.size ||
+    analysisIaUiKeys.length !== analysisIaUi.size ||
+    definitionUxUiKeys.length !== definitionUxUi.size ||
+    definitionIaUiKeys.length !== definitionIaUi.size ||
+    [...registryUxUi].some(
+      (key) => !analysisUxUi.has(key) || !definitionUxUi.has(key),
+    ) ||
+    [...analysisUxUi].some(
+      (key) => !registryUxUi.has(key) || !definitionUxUi.has(key),
+    ) ||
+    [...definitionUxUi].some(
+      (key) => !registryUxUi.has(key) || !analysisUxUi.has(key),
+    ) ||
+    [...registryIaUi].some(
+      (key) => !analysisIaUi.has(key) || !definitionIaUi.has(key),
+    ) ||
+    [...analysisIaUi].some(
+      (key) => !registryIaUi.has(key) || !definitionIaUi.has(key),
+    ) ||
+    [...definitionIaUi].some(
+      (key) => !registryIaUi.has(key) || !analysisIaUi.has(key),
+    )
+  )
+    issues.push({
+      kind: "artifact.ui.analysis-definition-closure-mismatch",
+      targetIdentity: sourcePath,
+      location: { path: sourcePath },
+      reason: "analysis-definition-closure-mismatch",
       details: {},
     });
   return issues;

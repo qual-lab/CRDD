@@ -18,7 +18,10 @@ import {
 } from "../../../../document-model/src/architecture/validation.ts";
 import type { DocumentIssue } from "../../../../document-model/src/index.ts";
 import {
+  inspectArchitectureConsistency,
   inspectDocumentRelations,
+  inspectSpecConsistency,
+  inspectUxConsistency,
   parseArchitectureAnalysis,
   parseArchitectureCrossModel,
   parseArchitectureDefinition,
@@ -69,7 +72,7 @@ test("Architectureの関係・網羅性は七つの旧診断へ接続する", ()
   const one = new Set(["ARCH-000001"]),
     empty = new Set<string>();
   const issues = [
-    ...inspectDocumentRelations({
+    ...inspectArchitectureConsistency({
       kind: "architecture_inputs",
       sourcePath: "index.md",
       analysisPath: "Analysis",
@@ -78,14 +81,14 @@ test("Architectureの関係・網羅性は七つの旧診断へ接続する", ()
       specIds: empty,
       actualAnalysisIds: empty,
     }),
-    ...inspectDocumentRelations({
+    ...inspectArchitectureConsistency({
       kind: "architecture_registry_coverage",
       sourcePath: "index.md",
       registry: parseArchitectureIndex({ path: "index.md", content: "" }).result
         .registry,
       actualDefinitions: one,
     }),
-    ...inspectDocumentRelations({
+    ...inspectArchitectureConsistency({
       kind: "architecture_component_coverage",
       model: parseArchitectureCrossModel(
         { path: "component.md", content: "" },
@@ -93,7 +96,7 @@ test("Architectureの関係・網羅性は七つの旧診断へ接続する", ()
       ).result,
       actualDefinitions: one,
     }),
-    ...inspectDocumentRelations({
+    ...inspectArchitectureConsistency({
       kind: "architecture_relations",
       ...{
         sourcePath: "index.md",
@@ -176,7 +179,7 @@ test("Architecture詳細設計の実Issueは五分類の旧診断へ届く", () 
       true,
       "detail",
     ).issues,
-    ...inspectDocumentRelations({
+    ...inspectArchitectureConsistency({
       kind: "architecture_detail_coverage",
       ...{
         sourcePath: artifact.path,
@@ -387,7 +390,7 @@ test("SPEC定義対応の実Issueは三分類の旧診断へ届く", () => {
  */
 test("SPEC Detailの実Issueは三分類の旧診断へ届く", () => {
   const issues = [
-    ...inspectDocumentRelations({
+    ...inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: parseSpecDetailIndex({ path: "detail.md", content: "" }),
       actualIds: new Set(["SPEC-000001"]),
@@ -475,7 +478,7 @@ test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
   const empty = new Set<string>();
   const one = new Set(["a"]);
   const issues = [
-    ...inspectDocumentRelations({
+    ...inspectSpecConsistency({
       kind: "spec_analysis_coverage",
       ...{
         specIndexPath: "spec.md",
@@ -487,7 +490,7 @@ test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
         analysisRelationOccurrences: ["a", "a"],
       },
     }),
-    ...inspectDocumentRelations({
+    ...inspectSpecConsistency({
       kind: "spec_definition_coverage",
       ...{
         specDefinitionsRoot: "definitions",
@@ -498,7 +501,7 @@ test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
         actualIds: empty,
       },
     }),
-    ...inspectDocumentRelations({
+    ...inspectSpecConsistency({
       kind: "spec_coverage",
       ...{
         specIndexPath: "spec.md",
@@ -613,7 +616,7 @@ test("SPEC本文の実Issueは六分類の旧診断へ届く", () => {
  */
 test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () => {
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUxConsistency({
       kind: "ux_projection",
       projection: parseUxPersonas({ path: "projection.md", content: "" }).result
         .projection,
@@ -630,7 +633,7 @@ test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () =
     ],
   );
   const issues = [
-    ...inspectDocumentRelations({
+    ...inspectUxConsistency({
       kind: "ux_formal_input",
       analysis: parseUxAnalysis(
         { path: "analysis.md", content: "" },
@@ -645,7 +648,7 @@ test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () =
         hasUnsafeTarget: false,
       },
     }),
-    ...inspectDocumentRelations({
+    ...inspectUxConsistency({
       kind: "ux_relations",
       ...{
         uxIndexPath: "ux.md",
@@ -789,7 +792,7 @@ test("UX分析の実Issueは旧診断を維持する", () => {
   );
   const model = {
     ...parsed,
-    issues: inspectDocumentRelations({
+    issues: inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
       registryLinkCount: 0,
@@ -1129,7 +1132,7 @@ function observeArchitectureFixture<
   isReady: boolean,
   documentType: "analysis" | "definition" | "detail",
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_readiness",
     document: parsed as never,
     isReady,
@@ -1143,7 +1146,7 @@ function observeArchitectureMapFixture(
   document: ReturnType<typeof parseArchitectureDetailMap>,
   actualDefinitions: ReadonlySet<string>,
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_detail_map_coverage",
     document,
     actualDefinitions,
@@ -1160,7 +1163,7 @@ function observeArchitectureCrossFixture(
   document: ReturnType<typeof parseArchitectureCrossModel>,
   index: ReturnType<typeof parseArchitectureIndex>["result"],
 ) {
-  const issues = inspectDocumentRelations({
+  const issues = inspectArchitectureConsistency({
     kind: "architecture_cross_model",
     document,
     index,

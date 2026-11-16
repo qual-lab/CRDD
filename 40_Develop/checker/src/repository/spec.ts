@@ -17,6 +17,7 @@ import {
   type DocumentRelationsRequest,
   evaluateDefinitionPairEvidence,
   inspectDocumentRelations,
+  inspectSpecConsistency,
   parseArchitectureDefinition,
   parseArchitectureDetail,
   parseArchitectureDetailMap,
@@ -319,7 +320,7 @@ export function inspectSpecRepository(
       }
     }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectSpecConsistency({
     kind: "spec_analysis_coverage",
     ...{
       specIndexPath: relative(specIndexPath),
@@ -412,7 +413,7 @@ export function inspectSpecRepository(
       content: read(specDetailIndexPath),
     });
     observedSpecDetailIndex = detail.result;
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: detail,
       actualIds: actualIds,
@@ -667,7 +668,7 @@ export function inspectSpecRepository(
     }
   }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectSpecConsistency({
     kind: "spec_definition_coverage",
     ...{
       specDefinitionsRoot: relative(specDefinitionsRoot),
@@ -710,7 +711,7 @@ export function inspectSpecRepository(
         : 0,
     ],
   ]);
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectSpecConsistency({
     kind: "spec_coverage",
     ...{
       specIndexPath: relative(specIndexPath),

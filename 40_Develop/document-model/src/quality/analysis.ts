@@ -1,6 +1,6 @@
 /**
  * Quality分析・統合の内容と文書内の条件を捕捉する。
- * @responsibility 関係の出現・条件・出典を保持し、外部集合との照合はSemanticへ渡す。
+ * @responsibility 関係の出現・条件・出典とQuality内部の整合を所有し、他工程との関係評価はSemanticへ渡す。
  * @trace ARCH-000008
  */
 
@@ -21,7 +21,9 @@ import type {
 } from "../artifact/types.ts";
 import {
   captureQualityDocument,
+  type QualityCenter,
   type QualityParsedDocument,
+  type QualityRealityAudit,
   qualityChecklistIssues,
 } from "./readiness.ts";
 import { captureQualityTemplate, type QualityTemplate } from "./templates.ts";
@@ -684,4 +686,677 @@ export function parseQualityDetailAnalysis(
   };
   const issues = qualityChecklistIssues(document);
   return { status: issues.length ? "partial" : "complete", result, issues };
+}
+
+/**
+ * 工程別Quality分析の情報源・目標・条件・Local Item関係を解析・照合する。
+ * @responsibility 工程別Quality分析の情報源・目標・条件・Local Item関係を解析・照合する。
+ * @trace ARCH-000008
+ * @input phaseAnalyses: 解析済み工程文書。canonicalIds: 同じ取得範囲の観測済み期待集合（全実在の保証ではない）。integration: 解析済み統合文書。analysisRoot: 診断位置。
+ * @returns 各モデルの関係を出現順・後勝ち規則で合成し、外部被覆・重複・閉包と旧診断順を返す。
+ * @precondition 必要な本文と集合は呼出し元が取得している。
+ * @postcondition 入力を変更せず、追加のFile読取りを行わない。
+ * @effect N/A: 同期的な値処理だけを行う。
+ * @failure 不正な行と集合条件をIssueで返し、取得できた部分関係を保持する。
+ * @invariant 旧本文条件と短絡評価順を維持する。
+ * @boundary N/A: Process内の文書意味検査。
+ * @security 認可、実在、実行許可または品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+export function inspectQualityAnalysis(
+  phaseAnalyses: readonly QualityAnalysis[],
+  canonicalIds: ReadonlySet<string>,
+  integration: QualityIntegration,
+  analysisRoot: string,
+) {
+  const analysisPath = integration.source.path;
+  const data = phaseAnalyses.map((model) => model.relationData);
+  const issues: DocumentIssue[] = [];
+  const mappingRows = data.flatMap((d) => d.mappingRows);
+  const mappedIds = new Set(data.flatMap((d) => [...d.mappedIds]));
+  const summarySourceGoalRelationEntries = data.flatMap(
+    (d) => d.summarySourceGoalRelationEntries,
+  );
+  const summarySourceGoalRelations = new Set(summarySourceGoalRelationEntries);
+  const summarySourceLevels = new Map<string, Set<string>>();
+  const goalLabelToSlug = new Map<string, string>();
+  for (const d of data) {
+    for (const [source, levels] of d.summarySourceLevels) {
+      const merged = summarySourceLevels.get(source) ?? new Set<string>();
+      for (const level of levels) merged.add(level);
+      summarySourceLevels.set(source, merged);
+    }
+    for (const [label, slug] of d.goalLabelToSlug)
+      goalLabelToSlug.set(label, slug);
+  }
+  const analysisSourceRelationEntries = data.flatMap(
+    (d) => d.analysisSourceRelationEntries,
+  );
+  const analysisSourceRelations = new Set(analysisSourceRelationEntries);
+  const analysisSourceGoalRelationEntries = data.flatMap(
+    (d) => d.analysisSourceGoalRelationEntries,
+  );
+  const analysisSourceGoalRelations = new Set(
+    analysisSourceGoalRelationEntries,
+  );
+  const analysisObligationKeyEntries = data.flatMap(
+    (d) => d.analysisObligationKeyEntries,
+  );
+  const analysisSourceConditions = new Map(
+    data.flatMap((d) => [...d.analysisSourceConditions]),
+  );
+  const analysisSourceGoalLevels = new Map(
+    data.flatMap((d) => [...d.analysisSourceGoalLevels]),
+  );
+  const analysisObligationKeys = new Map(
+    data.flatMap((d) => [...d.analysisObligationKeys]),
+  );
+  if (
+    canonicalIds.size !== mappedIds.size ||
+    [...canonicalIds].some((id) => !mappedIds.has(id)) ||
+    [...mappedIds].some((id) => !canonicalIds.has(id))
+  )
+    issues.push({
+      kind: "artifact.quality-analysis.canonical-mapping-coverage-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "canonical-mapping-coverage-mismatch",
+      details: {},
+    });
+
+  if (new Set(mappingRows).size !== mappingRows.length)
+    issues.push({
+      kind: "artifact.quality-analysis.canonical-mapping-duplicate-row",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "canonical-mapping-duplicate-row",
+      details: {},
+    });
+  if (
+    summarySourceGoalRelationEntries.length !== summarySourceGoalRelations.size
+  )
+    issues.push({
+      kind: "artifact.quality-analysis.canonical-source-goal-duplicate",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "canonical-source-goal-duplicate",
+      details: {},
+    });
+
+  if (data.some((d) => !d.hasSourceRelations))
+    issues.push({
+      kind: "artifact.quality-analysis.source-local-relation-section-missing",
+      targetIdentity: analysisRoot,
+      location: { path: analysisRoot },
+      reason: "source-local-relation-section-missing",
+      details: {},
+    });
+  for (const d of data)
+    for (const _line of d.incompleteRelations)
+      issues.push({
+        kind: "artifact.quality-analysis.source-local-relation-incomplete",
+        targetIdentity: analysisPath,
+        location: { path: analysisPath },
+        reason: "source-local-relation-incomplete",
+        details: {},
+      });
+  if (analysisSourceGoalRelations.size === 0)
+    issues.push({
+      kind: "artifact.quality-analysis.source-local-relation-section-missing-empty-relations",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "source-local-relation-section-missing-empty-relations",
+      details: {},
+    });
+  if (
+    analysisSourceGoalRelationEntries.length !==
+      analysisSourceGoalRelations.size ||
+    analysisSourceRelationEntries.length !== analysisSourceRelations.size ||
+    analysisObligationKeyEntries.length !==
+      new Set(analysisObligationKeyEntries).size
+  )
+    issues.push({
+      kind: "artifact.quality-analysis.source-relation-duplicate",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "source-relation-duplicate",
+      details: {},
+    });
+  if (
+    summarySourceGoalRelations.size !== analysisSourceGoalRelations.size ||
+    [...summarySourceGoalRelations].some(
+      (relation) => !analysisSourceGoalRelations.has(relation),
+    ) ||
+    [...analysisSourceGoalRelations].some(
+      (relation) => !summarySourceGoalRelations.has(relation),
+    )
+  )
+    issues.push({
+      kind: "artifact.quality-analysis.source-goal-relation-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "source-goal-relation-closure-mismatch",
+      details: {},
+    });
+
+  const { crossModelRows, crossModelReferences } = integration;
+  return {
+    summarySourceLevels,
+    goalLabelToSlug,
+    analysisSourceRelations,
+    analysisSourceConditions,
+    analysisSourceGoalLevels,
+    analysisObligationKeys,
+    crossModelRows,
+    crossModelReferences,
+    issues,
+  };
+}
+
+/**
+ * 指定された各成果物にCanonical状態を要求する。
+ *
+ * @responsibility 欠落・非Canonicalを一成果物一Issueで返し、入力順を維持する。
+ * @trace ARCH-000008
+ * @input artifacts: 呼出し元が検査対象として選んだ解析済み成果物集合。
+ * @returns 不一致のDocumentIssue列。元statusとnormalizedStatusを分離して返す。
+ * @precondition 対象集合の選択とreadinessの適用判断は呼出し元が所有する。
+ * @postcondition 正規化後がCanonical以外の成果物だけを入力順に返す。
+ * @effect N/A: 入力の読取りと局所的な配列構築だけを行う。
+ * @failure 欠落または非CanonicalをIssueで返し、例外や正常値へ丸めない。
+ * @invariant 入力Artifact・集合・共有状態を変更しない。
+ * @boundary N/A: 解析済みモデル間の純粋計算である。
+ * @security 空のIssue列は与えられた集合の状態条件だけを表し、品質全体の完成を表さない。
+ * @concurrency N/A: 共有可変状態を持たない同期処理である。
+ */
+function inspectQualityDesignStates(
+  artifacts: readonly ArtifactModel[],
+): readonly DocumentIssue[] {
+  const issues: DocumentIssue[] = [];
+  for (const artifact of artifacts) {
+    const normalizedStatus = normalizeQualityDesignState(artifact.status ?? "");
+    if (normalizedStatus !== "Canonical")
+      issues.push({
+        kind: "artifact.quality-design.state-invalid",
+        targetIdentity: artifact.canonicalId ?? artifact.sourceLocation.path,
+        location: artifact.sourceLocation,
+        reason: "canonical_state_required",
+        details: { status: artifact.status, normalizedStatus },
+      });
+  }
+  return issues;
+}
+
+/**
+ * Quality分析と定義の情報源・条件・段階・Detail関係の双方向閉包を照合する。
+ * @responsibility Quality分析と定義の情報源・条件・段階・Detail関係の双方向閉包を照合する。
+ * @trace ARCH-000008
+ * @input request: 分析・定義の関係集合、出現列、条件・段階・Obligation KeyのMap、診断位置。
+ * @returns 重複、情報源・目標・条件・段階・Detail関係の閉包不一致Issue。
+ * @precondition 必要な本文と集合は呼出し元が取得している。
+ * @postcondition 入力を変更せず、追加のFile読取りを行わない。
+ * @effect N/A: 同期的な値処理だけを行う。
+ * @failure 関係条件不一致をIssueで返し、入力を変更しない。
+ * @invariant 旧本文条件と短絡評価順を維持する。
+ * @boundary N/A: Process内の文書意味検査。
+ * @security 認可、実在、実行許可または品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+function inspectQualityDefinitionRelations(
+  request: Readonly<{
+    definitionSourceRelationEntries: readonly string[];
+    definitionSourceRelations: ReadonlySet<string>;
+    definitionGoalLocalRelationEntries: readonly string[];
+    definitionGoalLocalRelations: ReadonlySet<string>;
+    definitionDetailGoalRelationEntries: readonly string[];
+    definitionDetailGoalRelations: ReadonlySet<string>;
+    analysisDetailGoalRelations: ReadonlySet<string>;
+    analysisSourceRelations: ReadonlySet<string>;
+    definitionObligationKeyEntries: readonly string[];
+    analysisObligationKeys: ReadonlyMap<string, string>;
+    definitionObligationKeys: ReadonlyMap<string, string>;
+    analysisSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
+    localItemLevels: ReadonlyMap<string, string>;
+    summarySourceLevels: ReadonlyMap<string, ReadonlySet<string>>;
+    definitionSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
+    analysisSourceConditions: ReadonlyMap<string, string>;
+    definitionSourceConditions: ReadonlyMap<string, string>;
+    definitionsRoot: string;
+    analysisPath: string;
+  }>,
+) {
+  const {
+    definitionSourceRelationEntries,
+    definitionSourceRelations,
+    definitionGoalLocalRelationEntries,
+    definitionGoalLocalRelations,
+    definitionDetailGoalRelationEntries,
+    definitionDetailGoalRelations,
+    analysisDetailGoalRelations,
+    analysisSourceRelations,
+    definitionObligationKeyEntries,
+    analysisObligationKeys,
+    definitionObligationKeys,
+    analysisSourceGoalLevels,
+    localItemLevels,
+    summarySourceLevels,
+    definitionSourceGoalLevels,
+    analysisSourceConditions,
+    definitionSourceConditions,
+    definitionsRoot,
+    analysisPath,
+  } = request;
+  const issues: DocumentIssue[] = [];
+  if (definitionSourceRelationEntries.length !== definitionSourceRelations.size)
+    issues.push({
+      kind: "artifact.quality-relations.definition-source-relation-duplicate",
+      targetIdentity: definitionsRoot,
+      location: { path: definitionsRoot },
+      reason: "definition-source-relation-duplicate",
+      details: {},
+    });
+  if (
+    definitionGoalLocalRelationEntries.length !==
+    definitionGoalLocalRelations.size
+  )
+    issues.push({
+      kind: "artifact.quality-relations.definition-goal-local-relation-duplicate",
+      targetIdentity: definitionsRoot,
+      location: { path: definitionsRoot },
+      reason: "definition-goal-local-relation-duplicate",
+      details: {},
+    });
+  if (
+    definitionDetailGoalRelationEntries.length !==
+    definitionDetailGoalRelations.size
+  )
+    issues.push({
+      kind: "artifact.quality-relations.definition-detail-goal-relation-duplicate",
+      targetIdentity: definitionsRoot,
+      location: { path: definitionsRoot },
+      reason: "definition-detail-goal-relation-duplicate",
+      details: {},
+    });
+  if (
+    analysisDetailGoalRelations.size !== definitionDetailGoalRelations.size ||
+    [...analysisDetailGoalRelations].some(
+      (relation) => !definitionDetailGoalRelations.has(relation),
+    ) ||
+    [...definitionDetailGoalRelations].some(
+      (relation) => !analysisDetailGoalRelations.has(relation),
+    )
+  )
+    issues.push({
+      kind: "artifact.quality-relations.detail-goal-relation-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "detail-goal-relation-closure-mismatch",
+      details: {},
+    });
+
+  if (
+    analysisSourceRelations.size !== definitionSourceRelations.size ||
+    [...analysisSourceRelations].some(
+      (relation) => !definitionSourceRelations.has(relation),
+    ) ||
+    [...definitionSourceRelations].some(
+      (relation) => !analysisSourceRelations.has(relation),
+    )
+  )
+    issues.push({
+      kind: "artifact.quality-relations.source-local-relation-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "source-local-relation-closure-mismatch",
+      details: {},
+    });
+  if (
+    definitionObligationKeyEntries.length !==
+      new Set(definitionObligationKeyEntries).size ||
+    analysisObligationKeys.size !== definitionObligationKeys.size ||
+    [...analysisObligationKeys].some(
+      ([relation, obligationKey]) =>
+        definitionObligationKeys.get(relation) !== obligationKey,
+    ) ||
+    [...definitionObligationKeys].some(
+      ([relation, obligationKey]) =>
+        analysisObligationKeys.get(relation) !== obligationKey,
+    )
+  )
+    issues.push({
+      kind: "artifact.quality-relations.obligation-key-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "obligation-key-closure-mismatch",
+      details: {},
+    });
+  for (const [
+    sourceGoalRelation,
+    requestedLevels,
+  ] of analysisSourceGoalLevels) {
+    const relatedLocalIds = Array.from(analysisSourceRelations)
+      .filter((relation) => relation.startsWith(`${sourceGoalRelation}|`))
+      .map((relation) => relation.slice(sourceGoalRelation.length + 1));
+    const relatedLevels = new Set(
+      relatedLocalIds.flatMap((localId) => {
+        const level = localItemLevels.get(localId);
+        return level ? [level] : [];
+      }),
+    );
+    for (const requestedLevel of requestedLevels)
+      if (!relatedLevels.has(requestedLevel))
+        issues.push({
+          kind: "artifact.quality-relations.source-test-level-coverage-mismatch",
+          targetIdentity: analysisPath,
+          location: { path: analysisPath },
+          reason: "source-test-level-coverage-mismatch",
+          details: {},
+        });
+  }
+  for (const [sourceId, requestedLevels] of summarySourceLevels) {
+    const decomposedLevels = new Set<string>();
+    for (const [sourceGoalRelation, levels] of analysisSourceGoalLevels)
+      if (sourceGoalRelation.startsWith(`${sourceId}|`))
+        for (const level of levels) decomposedLevels.add(level);
+    if (
+      requestedLevels.size !== decomposedLevels.size ||
+      [...requestedLevels].some((level) => !decomposedLevels.has(level))
+    )
+      issues.push({
+        kind: "artifact.quality-relations.source-test-level-decomposition-mismatch",
+        targetIdentity: analysisPath,
+        location: { path: analysisPath },
+        reason: "source-test-level-decomposition-mismatch",
+        details: { value0: String(sourceId) },
+      });
+  }
+  if (
+    analysisSourceGoalLevels.size !== definitionSourceGoalLevels.size ||
+    [...analysisSourceGoalLevels].some(([relation, levels]) => {
+      const definitionLevels = definitionSourceGoalLevels.get(relation);
+      return (
+        !definitionLevels ||
+        levels.size !== definitionLevels.size ||
+        [...levels].some((level) => !definitionLevels.has(level))
+      );
+    })
+  )
+    issues.push({
+      kind: "artifact.quality-relations.definition-source-test-level-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "definition-source-test-level-closure-mismatch",
+      details: {
+        value0: String(
+          JSON.stringify(
+            [...analysisSourceGoalLevels].map(([relation, levels]) => [
+              relation,
+              [...levels],
+            ]),
+          ),
+        ),
+        value1: String(
+          JSON.stringify(
+            [...definitionSourceGoalLevels].map(([relation, levels]) => [
+              relation,
+              [...levels],
+            ]),
+          ),
+        ),
+      },
+    });
+  if (
+    analysisSourceConditions.size !== definitionSourceConditions.size ||
+    [...analysisSourceConditions].some(
+      ([relation, condition]) =>
+        definitionSourceConditions.get(relation) !== condition,
+    ) ||
+    [...definitionSourceConditions].some(
+      ([relation, condition]) =>
+        analysisSourceConditions.get(relation) !== condition,
+    )
+  )
+    issues.push({
+      kind: "artifact.quality-relations.source-condition-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "source-condition-closure-mismatch",
+      details: {},
+    });
+
+  return issues;
+}
+
+/**
+ * Quality統合と定義の目標別Local Item関係を照合する。
+ * @responsibility Quality統合と定義の目標別Local Item関係を照合する。
+ * @trace ARCH-000008
+ * @input request: 統合・定義の目標とLocal Itemの関係集合、出現列、診断位置。
+ * @returns 目標とLocal Itemの重複・閉包不一致Issue。
+ * @precondition 必要な本文と集合は呼出し元が取得している。
+ * @postcondition 入力を変更せず、追加のFile読取りを行わない。
+ * @effect N/A: 同期的な値処理だけを行う。
+ * @failure 不一致をIssueで返す。
+ * @invariant 旧本文条件と短絡評価順を維持する。
+ * @boundary N/A: Process内の文書意味検査。
+ * @security 認可、実在、実行許可または品質全体の成立を保証しない。
+ * @concurrency N/A: 共有可変状態を持たない。
+ */
+function inspectQualityGoalLocalRelations(
+  request: Readonly<{
+    listedGoalLocalRelationEntries: readonly string[];
+    listedGoalLocalRelations: ReadonlySet<string>;
+    definitionGoalLocalRelations: ReadonlySet<string>;
+    analysisPath: string;
+  }>,
+) {
+  const {
+    listedGoalLocalRelationEntries,
+    listedGoalLocalRelations,
+    definitionGoalLocalRelations,
+    analysisPath,
+  } = request;
+  const issues: DocumentIssue[] = [];
+  if (listedGoalLocalRelationEntries.length !== listedGoalLocalRelations.size)
+    issues.push({
+      kind: "artifact.quality-relations.goal-local-relation-duplicate",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "goal-local-relation-duplicate",
+      details: {},
+    });
+  if (
+    listedGoalLocalRelations.size !== definitionGoalLocalRelations.size ||
+    [...listedGoalLocalRelations].some(
+      (relation) => !definitionGoalLocalRelations.has(relation),
+    ) ||
+    [...definitionGoalLocalRelations].some(
+      (relation) => !listedGoalLocalRelations.has(relation),
+    )
+  )
+    issues.push({
+      kind: "artifact.quality-relations.goal-local-relation-closure-mismatch",
+      targetIdentity: analysisPath,
+      location: { path: analysisPath },
+      reason: "goal-local-relation-closure-mismatch",
+      details: {},
+    });
+
+  return issues;
+}
+
+/**
+ * 品質設計の状態文字列から版表記とReleased Baseline句を除く。
+ *
+ * @responsibility 先頭の版、末尾の全角括弧句、trimの既存適用順を維持する。
+ * @trace ARCH-000008
+ * @input state: 判定する状態文字列。
+ * @returns Canonical判定用の状態文字列。
+ * @precondition stateは文字列である。
+ * @postcondition 正規化後の文字列だけを返す。
+ * @effect N/A: 文字列の局所計算だけを行う。
+ * @failure N/A: 独自の失敗分岐を持たない。
+ * @invariant 入力や共有状態を変更しない。
+ * @boundary N/A: 同一Process内の純粋計算である。
+ * @security 正規化は品質の成立や認可を意味しない。
+ * @concurrency N/A: 共有可変状態を持たない同期処理である。
+ */
+function normalizeQualityDesignState(state: string): string {
+  return state
+    .replace(/^v\d+\.\d+\.\d+\s+/u, "")
+    .replace(/（Released Baseline:[^）]+）$/u, "")
+    .trim();
+}
+
+/**
+ * Quality文書同士の状態・目標・定義閉包を比較する入力。
+ * 集合と出現列を区別し、取得済み範囲を全実在・全品質の保証へ拡大しない。
+ */
+export type QualityConsistencyRequest =
+  | Readonly<{
+      kind: "quality_design_states";
+      artifacts: readonly ArtifactModel[];
+    }>
+  | (Readonly<{
+      definitionSourceRelationEntries: readonly string[];
+      definitionSourceRelations: ReadonlySet<string>;
+      definitionGoalLocalRelationEntries: readonly string[];
+      definitionGoalLocalRelations: ReadonlySet<string>;
+      definitionDetailGoalRelationEntries: readonly string[];
+      definitionDetailGoalRelations: ReadonlySet<string>;
+      analysisDetailGoalRelations: ReadonlySet<string>;
+      analysisSourceRelations: ReadonlySet<string>;
+      definitionObligationKeyEntries: readonly string[];
+      analysisObligationKeys: ReadonlyMap<string, string>;
+      definitionObligationKeys: ReadonlyMap<string, string>;
+      analysisSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
+      localItemLevels: ReadonlyMap<string, string>;
+      summarySourceLevels: ReadonlyMap<string, ReadonlySet<string>>;
+      definitionSourceGoalLevels: ReadonlyMap<string, ReadonlySet<string>>;
+      analysisSourceConditions: ReadonlyMap<string, string>;
+      definitionSourceConditions: ReadonlyMap<string, string>;
+      definitionsRoot: string;
+      analysisPath: string;
+    }> &
+      Readonly<{ kind: "quality_definition_relations" }>)
+  | (Readonly<{
+      listedGoalLocalRelationEntries: readonly string[];
+      listedGoalLocalRelations: ReadonlySet<string>;
+      definitionGoalLocalRelations: ReadonlySet<string>;
+      analysisPath: string;
+    }> &
+      Readonly<{ kind: "quality_goal_local_relations" }>)
+  | Readonly<{
+      kind: "quality_reality_state";
+      center: QualityCenter;
+      reality: ParseResult<QualityRealityAudit> &
+        Readonly<{ result: QualityRealityAudit }>;
+    }>
+  | Readonly<{
+      kind: "quality_goals";
+      rows: readonly (readonly string[])[];
+      goalLabelToSlug: ReadonlyMap<string, string>;
+      analysisPath: string;
+    }>;
+
+/**
+ * Quality内部の五条件を取得済みモデルと関係列から比較する。
+ * @responsibility 状態・内部閉包の診断を返し、他工程の意味判断や実体取得をしない。
+ * @input request: 同じ呼出し位置で取得したQualityモデル・関係列・期待集合。
+ * @returns 既存の順序・理由の診断列。空結果は全品質Passではない。
+ * @effect N/A: 入力の純粋比較だけを行う。
+ * @failure 未知kindは拒否し、空成功や別条件へ切り替えない。
+ */
+export function inspectQualityConsistency(
+  request: QualityConsistencyRequest,
+): readonly DocumentIssue[] {
+  switch (request.kind) {
+    case "quality_design_states":
+      return inspectQualityDesignStates(request.artifacts);
+    case "quality_definition_relations":
+      return inspectQualityDefinitionRelations(request);
+    case "quality_goal_local_relations":
+      return inspectQualityGoalLocalRelations(request);
+    case "quality_reality_state": {
+      const { center, reality } = request;
+      const issues = reality.issues.filter(
+        (issue) =>
+          issue.kind ===
+          "artifact.quality-analysis.reality-audit-state-invalid",
+      );
+      const state = reality.result.stateDeclarations[0]?.text ?? "";
+      const allowed =
+        (center.normalizedQualityState ===
+          "Quality Design Under Review — Reality Audit Blocked" &&
+          state === "Blocked — Quality Design Review Pending") ||
+        (center.isQualityDesignReady &&
+          ["Pending — Not Started", "In Progress"].includes(state)) ||
+        (center.isQualityReady && state === "Complete");
+      if (center.isQualityStateKnown && !allowed)
+        issues.push({
+          kind: "artifact.quality-analysis.state-reality-audit-state-mismatch",
+          targetIdentity: center.source.path,
+          location: { path: center.source.path },
+          reason: "state-reality-audit-state-mismatch",
+          details: {},
+        });
+      return issues;
+    }
+
+    case "quality_goals": {
+      const { rows: crossModelRows, goalLabelToSlug, analysisPath } = request;
+      const issues: DocumentIssue[] = [];
+
+      const crossModelGoals = new Set<string>();
+      for (const cells of crossModelRows) {
+        const goalSlug = goalLabelToSlug.get(cells[0] as string);
+        if (!goalSlug || cells.length !== 6) {
+          issues.push({
+            kind: "artifact.quality-analysis.cross-model-row-invalid",
+            targetIdentity: analysisPath,
+            location: { path: analysisPath },
+            reason: "cross-model-row-invalid",
+            details: {},
+          });
+          continue;
+        }
+        if (crossModelGoals.has(goalSlug))
+          issues.push({
+            kind: "artifact.quality-analysis.cross-model-goal-duplicate",
+            targetIdentity: analysisPath,
+            location: { path: analysisPath },
+            reason: "cross-model-goal-duplicate",
+            details: { value0: String(goalSlug) },
+          });
+        crossModelGoals.add(goalSlug);
+        for (const disposition of cells.slice(1))
+          if (disposition !== "Required" && !/^N\/A:\s*\S.+/u.test(disposition))
+            issues.push({
+              kind: "artifact.quality-analysis.cross-model-disposition-invalid",
+              targetIdentity: analysisPath,
+              location: { path: analysisPath },
+              reason: "cross-model-disposition-invalid",
+              details: {},
+            });
+      }
+      const goalSlugs = new Set(goalLabelToSlug.values());
+      if (
+        crossModelGoals.size !== goalSlugs.size ||
+        [...goalSlugs].some((goalSlug) => !crossModelGoals.has(goalSlug)) ||
+        [...crossModelGoals].some((goalSlug) => !goalSlugs.has(goalSlug))
+      )
+        issues.push({
+          kind: "artifact.quality-analysis.cross-model-goal-coverage-mismatch",
+          targetIdentity: analysisPath,
+          location: { path: analysisPath },
+          reason: "cross-model-goal-coverage-mismatch",
+          details: {},
+        });
+
+      return issues;
+    }
+
+    default:
+      throw new TypeError("quality_consistency_kind_invalid");
+  }
 }

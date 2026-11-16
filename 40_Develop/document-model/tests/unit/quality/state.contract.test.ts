@@ -11,7 +11,10 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectDocumentRelations, parseArtifact } from "../../../src/index.ts";
+import {
+  inspectQualityConsistency,
+  parseArtifact,
+} from "../../../src/index.ts";
 
 /**
  * 状態正規化の受理・拒否境界を検証する。
@@ -56,7 +59,7 @@ test("Canonical状態の旧正規化順序と拒否境界を維持する", () =>
       }).result,
       status,
     };
-    const issues = inspectDocumentRelations({
+    const issues = inspectQualityConsistency({
       kind: "quality_design_states",
       artifacts: [artifact],
     });
@@ -119,14 +122,14 @@ test("状態Issueは元値・Identity・行位置・入力順を保つ", () => {
     },
   ];
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectQualityConsistency({
       kind: "quality_design_states",
       artifacts: artifacts,
     }),
     expectedKinds,
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectQualityConsistency({
       kind: "quality_design_states",
       artifacts: artifacts,
     }),
@@ -134,7 +137,14 @@ test("状態Issueは元値・Identity・行位置・入力順を保つ", () => {
   );
   assert.equal(JSON.stringify(artifacts), before);
   assert.deepEqual(
-    inspectDocumentRelations({ kind: "quality_design_states", artifacts: [] }),
+    inspectQualityConsistency({ kind: "quality_design_states", artifacts: [] }),
     [],
+  );
+  assert.throws(
+    () =>
+      inspectQualityConsistency({ kind: "unknown" } as unknown as Parameters<
+        typeof inspectQualityConsistency
+      >[0]),
+    /quality_consistency_kind_invalid/u,
   );
 });

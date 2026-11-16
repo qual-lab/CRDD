@@ -15,7 +15,7 @@ import {
   inspectTemplateChecklist,
 } from "../../../src/artifact/checklist.ts";
 import {
-  inspectDocumentRelations,
+  inspectUiConsistency,
   parseUiArea,
   parseUiComponent,
   parseUiHandoff,
@@ -147,7 +147,7 @@ test("UI Detailモデルは出典と最後の抽出成立行を保持する", ()
   assert.equal(model.result.entries[3]?.reason, null);
   assert.equal(model.result.source.content, content);
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: model,
       actualIds: new Set(["UI-000001"]),
@@ -164,7 +164,7 @@ test("UI Detailモデルは出典と最後の抽出成立行を保持する", ()
     [["UI-000001", { scr: "SCR-000001", prt: "PRT-000001" }]],
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: firstIds,
       actualIds: new Set(["UI-000001"]),
@@ -556,7 +556,7 @@ test("UI入口は不正行と重複関係をまとめない", () => {
     ["IA-000001|UI-000001", "IA-000001|UI-000001"],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_relations",
       sourcePath: source.path,
       index: index.result,
@@ -566,7 +566,7 @@ test("UI入口は不正行と重複関係をまとめない", () => {
     1,
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_index_coverage",
       sourcePath: source.path,
       index: index.result,
@@ -575,13 +575,29 @@ test("UI入口は不正行と重複関係をまとめない", () => {
     [],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_index_coverage",
       sourcePath: source.path,
       index: index.result,
       actualUiIds: new Set(),
     }).length,
     1,
+  );
+});
+
+/**
+ * 未対応のUI整合種別を正常へ読み替えない。
+ * @trace RCM-UT-002
+ * @precondition 契約に存在しないkindを用意する。
+ * @stimulus 完成した整合比較へ渡す。
+ * @observation 例外の拒否理由を読む。
+ * @oracle 未対応kindは固有の理由で拒否する。
+ * @cleanup N/A: 同期的な値検査。
+ */
+test("未対応のUI整合種別は拒否する", () => {
+  assert.throws(
+    () => inspectUiConsistency({ kind: "unknown" } as never),
+    /ui_consistency_kind_invalid/u,
   );
 });
 
@@ -642,7 +658,7 @@ test("UI両観点と定義は不正本文でも関係を保持する", () => {
   );
   assert.equal(model.issues.length, 2);
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_analysis_coverage",
       sourcePath: "ui.md",
       uxIds: new Set(["UX-000001"]),
@@ -692,7 +708,7 @@ test("UI Detailは現在の集合数境界を維持する", () => {
     content: `状態: Canonical\n${createDetailRow("UI-000001", "SCR-000001", "PRT-000001")}`,
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(source),
       actualIds: new Set(["UI-000001"]),
@@ -704,7 +720,7 @@ test("UI Detailは現在の集合数境界を維持する", () => {
     content: `${source.content}\n${createDetailRow("UI-000002", "SCR-000001", "PRT-000001")}`,
   };
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(duplicate),
       actualIds: new Set(["UI-000001", "UI-000002"]),
@@ -725,7 +741,7 @@ test("UI Detailは現在の集合数境界を維持する", () => {
       createDetailRow("UI-000002", "SCR-000002", "PRT-000002"),
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(shared),
       actualIds: new Set(["UI-000001", "UI-000002"]),
@@ -854,7 +870,7 @@ test("UIの完成Parseは内容と局所診断を分離し被覆診断を重複�
   const detail = parseUiDetailIndex(source);
   assert.ok(detail.issues.length);
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail,
       actualIds: new Set(["UI-000001"]),
@@ -862,7 +878,7 @@ test("UIの完成Parseは内容と局所診断を分離し被覆診断を重複�
     [],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail,
       actualIds: new Set(["UI-000002"]),
@@ -879,7 +895,7 @@ test("UIの完成Parseは内容と局所診断を分離し被覆診断を重複�
     ),
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: invalid,
       actualIds: new Set(["UI-000002"]),

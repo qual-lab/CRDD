@@ -12,6 +12,7 @@ import type {
   DocumentSection,
   DocumentTableRow,
   DocumentText,
+  ParseResult,
 } from "../artifact/types.ts";
 
 /**
@@ -254,3 +255,39 @@ export type UiHandoff = UiDocument &
     sections: readonly DocumentSection[];
     declarations: readonly DocumentText[];
   }>;
+
+/**
+ * UI自身の分析・登録・定義・Detailの比較入力を表す。
+ * @responsibility 取得済みモデル・出現列・集合を完成した整合比較へ渡す。
+ * @trace ARCH-000008
+ * @invariant 取得断面と出現重複を保持し、実在を推測しない。
+ * @boundary 同一Processの取得済み値。取得範囲は呼出し元が所有する。
+ * @security 認可・全品質成立を保証しない。
+ */
+export type UiConsistencyRequest =
+  | Readonly<{
+      kind: "ui_analysis_coverage";
+      sourcePath: string;
+      uxIds: ReadonlySet<string>;
+      iaIds: ReadonlySet<string>;
+      analysisUxIds: ReadonlySet<string>;
+      analysisIaIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "ui_index_coverage";
+      sourcePath: string;
+      index: UiIndex;
+      actualUiIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "ui_relations";
+      sourcePath: string;
+      index: UiIndex;
+      analyses: readonly UiAnalysis[];
+      definitions: readonly UiDefinition[];
+    }>
+  | Readonly<{
+      kind: "ui_detail_coverage";
+      detail: ParseResult<UiDetailIndex> & Readonly<{ result: UiDetailIndex }>;
+      actualIds: ReadonlySet<string>;
+    }>;

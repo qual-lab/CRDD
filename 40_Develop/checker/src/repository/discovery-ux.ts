@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  inspectDocumentRelations,
+  inspectUxConsistency,
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
   parseDiscoveryIndex,
@@ -366,7 +366,7 @@ export function inspectDiscoveryUxRepository(
     ],
   ] as const) {
     if (!lstatIfPresent(projectionPath)?.isFile()) continue;
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectUxConsistency({
       kind: "ux_projection",
       projection: parseProjection({
         path: relative(projectionPath),
@@ -488,7 +488,7 @@ export function inspectDiscoveryUxRepository(
         )
       );
     });
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectUxConsistency({
       kind: "ux_formal_input",
       analysis: model.result,
       observation: {
@@ -515,7 +515,7 @@ export function inspectDiscoveryUxRepository(
       const finding = mapUxDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: model,
       registryLinkCount:
@@ -619,7 +619,7 @@ export function inspectDiscoveryUxRepository(
         relative(legacyRoot),
         "The current phase repository pattern must not retain a legacy or empty common root.",
       );
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectUxConsistency({
     kind: "ux_relations",
     ...{
       uxIndexPath: relative(uxIndexPath),

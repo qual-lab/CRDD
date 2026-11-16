@@ -5,9 +5,10 @@
  * @trace ARCH-000008
  */
 
-import type {
-  SemanticBundlePublisher,
-  SemanticBundlePublishReceipt,
+import type { Repository } from "../../../version-control/src/index.ts";
+import {
+  publishSemanticCoverageBundleWithHooks,
+  type SemanticBundlePublishReceipt,
 } from "../storage/semantic-store.ts";
 import {
   createSemanticBundle,
@@ -46,27 +47,27 @@ export type PublishSemanticCoverageRequest = Readonly<{
 export type PublishSemanticCoverageResult = SemanticBundlePublishReceipt;
 
 /**
- * IRとCoverageを直列化して指定Publisherへ公開する。
+ * IRとCoverageを直列化して指定Repositoryへ公開する。
  *
  * @responsibility Domain Bundle生成とFilesystem Effectの呼出し順を所有する。
  * @trace ARCH-000008
- * @input request: PublishSemanticCoverageRequest、publisher: SemanticBundlePublisher
+ * @input request: PublishSemanticCoverageRequest、repository: Repository
  * @returns PublishSemanticCoverageResultを返す。
- * @precondition request: PublishSemanticCoverageRequest、publisher: SemanticBundlePublisherがpublishSemanticCoverageの入力契約を満たす。
+ * @precondition request: PublishSemanticCoverageRequest、repository: RepositoryがpublishSemanticCoverageの入力契約を満たす。
  * @postcondition publishSemanticCoverageの責務を完了した結果だけを返す。
- * @effect Publisherが所有する公開Effectを一回だけ要求する。
- * @failure N/A: publishSemanticCoverageは独自の失敗分岐を所有しない。
+ * @effect 既存Storeの公開Effectを一回だけ要求する。
+ * @failure Bundle生成と既存Writerの例外を伝播し、書込み結果を成功へ補完しない。
  * @invariant publishSemanticCoverageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: publishSemanticCoverageはProcess内の同一Subsystemで完結する。
- * @security N/A: publishSemanticCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @boundary 検証済みRepositoryと既存StoreのFilesystem出版境界。
+ * @security 上位の認可を代行せず、WriterのPath・実体確認を維持する。
  * @concurrency N/A: publishSemanticCoverageは共有非同期状態を持たない同期処理である。
  */
 export function publishSemanticCoverage(
   request: PublishSemanticCoverageRequest,
-  publisher: SemanticBundlePublisher,
+  repository: Repository,
 ): PublishSemanticCoverageResult {
   const bundle = createSemanticBundle(request.semanticIrs, request.coverage);
-  return publisher.publish({
+  return publishSemanticCoverageBundleWithHooks(repository, {
     outputRelativePath: request.outputRelativePath,
     content: `${JSON.stringify(bundle, null, 2)}\n`,
   });

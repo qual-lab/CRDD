@@ -100,7 +100,7 @@ test("Screenの局所診断は種類別codeと失敗理由を保持する", () =
 });
 
 import {
-  inspectDocumentRelations,
+  inspectUiConsistency,
   parseUiAnalysis,
   parseUiDefinition,
   parseUiDetailIndex,
@@ -163,12 +163,12 @@ test("UI診断は既存四項目を維持し未知分類を拒否する", () => 
     ...parseUiAnalysis(source, "UX-000001").issues,
     ...parseUiAnalysis(source, "IA-000001").issues,
     ...parseUiDefinition(source, "UI-000001").issues,
-    ...inspectDocumentRelations({
+    ...inspectUiConsistency({
       kind: "ui_detail_coverage",
       detail: parseUiDetailIndex(source),
       actualIds: new Set(index.result.entries.map((entry) => entry.identity)),
     }),
-    ...inspectDocumentRelations({
+    ...inspectUiConsistency({
       kind: "ui_analysis_coverage",
       sourcePath: source.path,
       uxIds: new Set(["UX-000001"]),
@@ -176,13 +176,13 @@ test("UI診断は既存四項目を維持し未知分類を拒否する", () => 
       analysisUxIds: new Set(),
       analysisIaIds: new Set(),
     }),
-    ...inspectDocumentRelations({
+    ...inspectUiConsistency({
       kind: "ui_index_coverage",
       sourcePath: source.path,
       index: index.result,
       actualUiIds: new Set(),
     }),
-    ...inspectDocumentRelations({
+    ...inspectUiConsistency({
       kind: "ui_relations",
       sourcePath: source.path,
       index: index.result,

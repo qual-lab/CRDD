@@ -11,6 +11,7 @@ import type {
   DocumentSection,
   DocumentTableRow,
   DocumentText,
+  ParseResult,
 } from "../artifact/types.ts";
 import type { UxHandoffModel } from "./handoff.ts";
 
@@ -237,3 +238,38 @@ export type UxQualityExpectations = UxDocument &
     sections: readonly DocumentSection[];
     forbiddenDownstream: boolean;
   }>;
+
+/**
+ * UX自身の取得済みモデルと観測事実を比較する入力。
+ * @responsibility 投影・登録・被覆・閉包を完成した整合比較へ渡す。
+ * @trace ARCH-000008
+ * @invariant 出現・取得断面と局所Issueを維持する。
+ * @boundary 呼出し元が取得した値。実体の再観測は行わない。
+ * @security 認可・実在・全品質の成立を保証しない。
+ */
+export type UxConsistencyRequest =
+  | Readonly<{
+      kind: "ux_projection";
+      projection: UxProjectionModel;
+      canonicalIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "ux_formal_input";
+      analysis: UxAnalysisModel;
+      observation: UxFormalInputObservation;
+    }>
+  | Readonly<{
+      kind: "ux_analysis_registration";
+      analysis: ParseResult<UxAnalysisModel> &
+        Readonly<{ result: UxAnalysisModel }>;
+      registryLinkCount: number;
+    }>
+  | Readonly<{
+      kind: "ux_relations";
+      uxIndexPath: string;
+      experienceMapPath: string;
+      index: UxIndexModel;
+      analysisRequirementRelations: ReadonlySet<string>;
+      canonicalJourneyRelations: ReadonlySet<string>;
+      analysisJourneyRelations: ReadonlySet<string>;
+    }>;

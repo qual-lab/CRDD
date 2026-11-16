@@ -18,6 +18,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { parseRepositoryProjectContextMarkdown } from "../../../document-model/src/index.ts";
 
 import { parseDoctorArguments } from "../../src/cli/options.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
@@ -28,6 +29,109 @@ const coordinatorExecutable = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../bin/coordinator.ts",
 );
+
+/**
+ * CLIが実Context Parserの部分結果を必要な内容として搬送する。
+ * @responsibility Checklist不備を起動拒否へ昇格せず、構造欠測と読取り故障を拒否する。
+ * @trace PRL-IT-012
+ * @precondition 実CLI関数本文・実Parserと、外部Effectを発行しない有限依存。
+ * @stimulus Checklistだけ未評価の本文、構造欠測、読取り故障を渡す。
+ * @observation Project ID搬送、Task受付代役の回数、取消解放と出力。
+ * @oracle partial時だけ一回搬送・解放し、不正と読取り故障はTask受付0。
+ * @cleanup N/A: 読取り済み文字列とVM内のみ。実Listenerは登録しない。
+ * @boundary CLIの受付接続を検証し、実CLI・Task・AI完了の証明とは区別する。
+ */
+test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/cli/request.ts", import.meta.url),
+    "utf8",
+  );
+  const offset = source.indexOf("export async function runSingleTaskCommand(");
+  assert.ok(offset > 0);
+  const body = stripTypeScriptTypes(source.slice(offset)).replace(
+    "export async function",
+    "async function",
+  );
+  const complete = fs.readFileSync(
+    new URL("../../../../PROJECT_CONTEXT.md", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    parseRepositoryProjectContextMarkdown(complete).status,
+    "complete",
+  );
+  const partial = complete.replace(/^- \[x\]/mu, "- [ ]");
+  const actual = parseRepositoryProjectContextMarkdown(partial);
+  assert.equal(actual.status, "partial");
+  assert.ok(actual.result);
+  for (const fault of ["partial", "invalid", "read"] as const) {
+    let tasks = 0,
+      binds = 0,
+      releases = 0;
+    let output = "";
+    const capability = {};
+    const localProcess = {
+      cwd: () => "logical-root",
+      stdout: {
+        write: (value: string) => {
+          output += value;
+        },
+      },
+      exitCode: -1,
+    };
+    const run = runInNewContext(`${body}; runSingleTaskCommand`, {
+      path,
+      process: localProcess,
+      AbortController,
+      UsageError: class extends Error {},
+      isPrincipalId: () => true,
+      inspectSingleTaskCommand: () => ({ mode: "workspace_edit" }),
+      readBoundedTaskRequestFromStdin: () => ({}),
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => "logical-root",
+      getRepository: () => ({ status: "completed", capability }),
+      readStableFileSnapshot: () => {
+        if (fault === "read") throw new Error("fixture_read_failed");
+        return {
+          bytes: Buffer.from(fault === "invalid" ? "# Broken" : partial),
+        };
+      },
+      parseRepositoryProjectContextMarkdown,
+      bindTaskCliCancellationSignals: () => {
+        binds++;
+        return {
+          status: "bound",
+          unbind: () => {
+            releases++;
+            return { status: "released" };
+          },
+        };
+      },
+      runTask: async (context: {
+        projectId: string;
+        rootCapability: unknown;
+        authorize: () => boolean;
+      }) => {
+        tasks++;
+        assert.equal(context.projectId, actual.result?.projectId);
+        assert.equal(context.rootCapability, capability);
+        assert.equal(context.authorize(), true);
+        return { status: "completed", cleanupConfirmed: true };
+      },
+    }) as (args: readonly string[]) => Promise<void>;
+    await run([
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ]);
+    const expected = fault === "partial" ? 1 : 0;
+    assert.deepEqual([tasks, binds, releases], [expected, expected, expected]);
+    const report = JSON.parse(output);
+    assert.equal(report.status, fault === "partial" ? "completed" : "blocked");
+    assert.equal(localProcess.exitCode, fault === "partial" ? 0 : 2);
+  }
+});
 const publicCoordinatorLauncher = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../../template/tools/crdd-coordinator.ts",

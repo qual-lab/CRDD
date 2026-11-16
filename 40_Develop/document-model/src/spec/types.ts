@@ -12,6 +12,7 @@ import type {
   DocumentSection,
   DocumentTableRow,
   DocumentText,
+  ParseResult,
 } from "../artifact/types.ts";
 
 /**
@@ -234,3 +235,47 @@ export type SpecBehavior = SpecDocument &
     sections: readonly DocumentSection[];
     declarations: readonly DocumentText[];
   }>;
+
+/**
+ * SPEC自身の分析・登録・定義・Detailの比較入力を表す。
+ * @responsibility 取得済みモデル・出現列・集合を完成した整合比較へ渡す。
+ * @trace ARCH-000008
+ * @invariant 取得断面と出現重複を保持し、実在を推測しない。
+ * @boundary 同一Processの取得済み値。取得範囲は呼出し元が所有する。
+ * @security 認可・全品質成立を保証しない。
+ */
+export type SpecConsistencyRequest =
+  | (Readonly<{
+      specIndexPath: string;
+      specAnalysisRoot: string;
+      uxIds: ReadonlySet<string>;
+      iaIds: ReadonlySet<string>;
+      analyzedUx: ReadonlySet<string>;
+      analyzedIa: ReadonlySet<string>;
+      analysisRelationOccurrences: readonly string[];
+    }> &
+      Readonly<{ kind: "spec_analysis_coverage" }>)
+  | (Readonly<{
+      specDefinitionsRoot: string;
+      specIndexPath: string;
+      definitionRelationOccurrences: readonly string[];
+      definitionUiPairOccurrences: readonly string[];
+      registryIds: ReadonlySet<string>;
+      actualIds: ReadonlySet<string>;
+    }> &
+      Readonly<{ kind: "spec_definition_coverage" }>)
+  | (Readonly<{
+      specIndexPath: string;
+      indexCountRows: readonly (readonly string[])[];
+      expectedIndexCounts: ReadonlyMap<string, number>;
+      registryRelations: ReadonlySet<string>;
+      analysisRelations: ReadonlySet<string>;
+      definitionRelations: ReadonlySet<string>;
+    }> &
+      Readonly<{ kind: "spec_coverage" }>)
+  | Readonly<{
+      kind: "spec_detail_coverage";
+      detail: ParseResult<SpecDetailIndex> &
+        Readonly<{ result: SpecDetailIndex }>;
+      actualIds: ReadonlySet<string>;
+    }>;

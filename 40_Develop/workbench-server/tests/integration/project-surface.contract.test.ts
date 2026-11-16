@@ -16,6 +16,7 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import {
+  parseRepositoryProjectContextMarkdown,
   parseRepositoryQualityProjectionMarkdown,
   parseRepositoryReleaseProjectionMarkdown,
 } from "../../../document-model/src/index.ts";
@@ -26,8 +27,8 @@ import {
   readWorkbenchProjectSurface,
   type WorkbenchOwnerArtifactCatalog,
 } from "../../src/index.ts";
-import { inspectWorkbenchArtifactModel } from "../../src/shared/view/validation.ts";
 import { readWorkbenchArtifactSelection } from "../../src/server/presentation/project.ts";
+import { inspectWorkbenchArtifactModel } from "../../src/shared/view/validation.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -335,9 +336,21 @@ test("TopicとMeetingの正本を検証済み一覧へ投影する", async () =>
     path.join(testRoot, "workbench-project-surface-"),
   );
   try {
+    const completeContext = await readFile(
+      path.join(repositoryRoot, "PROJECT_CONTEXT.md"),
+      "utf8",
+    );
+    assert.equal(
+      parseRepositoryProjectContextMarkdown(completeContext).status,
+      "complete",
+    );
+    const partialContext = completeContext.replace(/^- \[x\]/mu, "- [ ]");
+    const intake = parseRepositoryProjectContextMarkdown(partialContext);
+    assert.equal(intake.status, "partial");
+    assert.ok(intake.result);
     await writeFile(
       path.join(fixtureRoot, "PROJECT_CONTEXT.md"),
-      await readFile(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
+      partialContext,
       "utf8",
     );
     await mkdir(path.join(fixtureRoot, "22_Topics", "TOPIC-000042"), {
@@ -358,6 +371,11 @@ test("TopicとMeetingの正本を検証済み一覧へ投影する", async () =>
     );
 
     const surface = await readWorkbenchProjectSurface(fixtureRoot);
+    assert.deepEqual(surface.context, intake.result);
+    assert.equal(
+      await readFile(path.join(fixtureRoot, "PROJECT_CONTEXT.md"), "utf8"),
+      partialContext,
+    );
 
     assert.equal(surface.topics.state, "available");
     assert.equal(surface.topics.items[0]?.topicId, "TOPIC-000042");

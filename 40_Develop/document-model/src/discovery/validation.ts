@@ -7,6 +7,7 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
 } from "../artifact/checklist.ts";
+import type { IdentityDocument } from "../artifact/identity.ts";
 import type { DocumentIssue } from "../artifact/types.ts";
 import type {
   DiscoveryAnalysis,
@@ -248,4 +249,40 @@ export function validateDiscoveryIndex(
   result: DiscoveryIndex,
 ): readonly DocumentIssue[] {
   return discoveryChecklistIssues(result, result.source.path);
+}
+
+/**
+ * 文書中のREQ参照とDiscovery分析の所有境界を比較する。
+ * @responsibility 取得済みモデルから既存順の中立Issueを返す。
+ * @trace ARCH-000008
+ * @input request: 文書種別を絞らず既存の全Markdown観測から得たIdentityモデル。
+ * @returns 既存条件に対応する参照出現ごとのIssue列。
+ * @precondition 実体観測は呼出し元が完了している。
+ * @postcondition 入力を変更せず、本文やFilesystemを再取得しない。
+ * @effect N/A: 同期的な値比較。
+ * @failure 比較例外を伝播し、不明を補完しない。
+ * @invariant 短絡・診断順と既存の対象範囲を維持する。
+ * @boundary 同一Process内の工程意味検査。
+ * @security 実在・認可・全品質の成立を保証しない。
+ * @concurrency N/A: 共有可変状態なし。
+ */
+export function inspectDiscoveryIdentityLinks(
+  request: Readonly<{ document: IdentityDocument }>,
+): readonly DocumentIssue[] {
+  const file = request.document.source.path;
+  return request.document.links
+    .filter(
+      (link) =>
+        link.identity.startsWith("REQ-") &&
+        link.target
+          .replaceAll("\\", "/")
+          .includes("01_Discovery/Analysis/EXP-"),
+    )
+    .map((link) => ({
+      kind: "artifact.document-identity.discovery-identity-link-owner-mismatch",
+      targetIdentity: file,
+      location: { path: file },
+      reason: "discovery-identity-link-owner-mismatch",
+      details: { value0: link.identity },
+    }));
 }

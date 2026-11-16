@@ -1,10 +1,17 @@
 /**
- * UXの固定Checklistと局所診断の構文を所有する。
- * @responsibility 固定定義と捕捉済み結果の変換を文書解析から分離する。
+ * UXの固定Checklist・局所条件と取得済みモデルの整合を所有する。
+ * @responsibility 局所条件・観測事実・被覆と閉包を評価し、実体取得と工程横断の意味比較は行わない。
  * @trace ARCH-000008
  */
 import type { DocumentIssue } from "../artifact/types.ts";
-import type { UxChecklistRequest, UxDocument } from "./types.ts";
+import type {
+  UxAnalysisModel,
+  UxChecklistRequest,
+  UxConsistencyRequest,
+  UxDocument,
+  UxFormalInputObservation,
+  UxIndexModel,
+} from "./types.ts";
 /**
  * UXが所有する七種類の期待項目を選択する。
  * @responsibility 旧項目・順序と受付間の独立性を維持する。
@@ -174,4 +181,171 @@ export function uxChecklistIssues(
       details: { checklistFailure: failure },
     },
   ];
+}
+
+/**
+ * UX内部の投影・入力・被覆・関係閉包を比較する。
+ * @responsibility 解析済みIssueと取得済み値の比較結果を既存順で返す。
+ * @trace ARCH-000008
+ * @input request: 呼出し元が既存取得位置で確定したモデル・集合・観測事実。
+ * @returns 局所Issueの継承と整合Issue。全品質Passは意味しない。
+ * @precondition 観測と取得範囲は呼出し元が所有する。
+ * @postcondition 入力を変更せず、本文・Filesystemを再取得しない。
+ * @effect N/A: 同期的な値比較。
+ * @failure 未対応種別は拒否し、比較例外を伝播する。
+ * @invariant 局所Issue優先・重複抑止・出現順と既存Map条件を保持する。
+ * @boundary 同一Process内のUX意味検査。
+ * @security 認可・実在・工程完成を発行しない。
+ * @concurrency N/A: 共有可変状態なし。
+ */
+export function inspectUxConsistency(
+  request: UxConsistencyRequest,
+): readonly DocumentIssue[] {
+  switch (request.kind) {
+    case "ux_projection": {
+      const p = request.projection;
+      return p.selectedSection === null ||
+        p.projectedKeys.length !== p.projectedIds.size ||
+        p.projectedIds.size !== request.canonicalIds.size ||
+        [...request.canonicalIds].some((id) => !p.projectedIds.has(id))
+        ? [
+            {
+              kind: "artifact.ux.cross-projection-incomplete",
+              targetIdentity: p.source.path,
+              location: { path: p.source.path },
+              reason: "cross-projection-incomplete",
+              details: {},
+            },
+          ]
+        : [];
+    }
+    case "ux_formal_input":
+      return compareUxFormalInput(request.analysis, request.observation);
+    case "ux_analysis_registration": {
+      const issues = [...request.analysis.issues];
+      if (
+        request.registryLinkCount !== 1 &&
+        !issues.some((i) => i.kind === "artifact.ux.analysis-contract-invalid")
+      )
+        issues.unshift({
+          kind: "artifact.ux.analysis-contract-invalid",
+          targetIdentity: request.analysis.result.expectedIdentity,
+          location: { path: request.analysis.result.source.path },
+          reason: "analysis-contract-invalid",
+          details: {},
+        });
+      return issues;
+    }
+    case "ux_relations":
+      return compareUxRelations(request);
+    default:
+      throw new TypeError("ux_consistency_kind_invalid");
+  }
+}
+
+/**
+ * UXとJourneyの関係集合の閉包を検査する。
+ * @responsibility 用途ごとに異なる非空条件と双方向包含を既存順で照合する。
+ * @trace ARCH-000008
+ * @input request: 二成果物の位置、入口モデルと分析／Journey関係集合。
+ * @returns UX、Journeyの順序付き中立Issue列。
+ * @precondition 呼出し元が本文解析と旧Root観測を完了している。
+ * @postcondition UXはID非空、Journeyは関係非空を要求し、既存のSet比較を維持する。
+ * @effect N/A: 取得済み集合と局所配列だけを扱う同期検査。
+ * @failure 集合操作の例外を伝播し不足を補完しない。
+ * @invariant 両用途の空条件を一つへ丸めず、Issue順と位置を維持する。
+ * @boundary N/A: 同一Process内の意味集合検査。
+ * @security 集合一致を品質全体の成立・認可へ昇格しない。
+ * @concurrency N/A: 共有状態を変更しない。
+ */
+function compareUxRelations(
+  request: Readonly<{
+    uxIndexPath: string;
+    experienceMapPath: string;
+    index: UxIndexModel;
+    analysisRequirementRelations: ReadonlySet<string>;
+    canonicalJourneyRelations: ReadonlySet<string>;
+    analysisJourneyRelations: ReadonlySet<string>;
+  }>,
+): readonly DocumentIssue[] {
+  const { uxIndexPath, experienceMapPath } = request;
+  const canonicalUxIds = request.index.ids;
+  const canonicalRelationPairs = request.index.requirementRelations;
+  const analysisRelationPairs = request.analysisRequirementRelations;
+  const canonicalJourneyPairs = request.canonicalJourneyRelations;
+  const analysisJourneyPairs = request.analysisJourneyRelations;
+  const issues: DocumentIssue[] = [];
+  if (
+    canonicalUxIds.size === 0 ||
+    [...canonicalRelationPairs].some(
+      (pair) => !analysisRelationPairs.has(pair),
+    ) ||
+    [...analysisRelationPairs].some((pair) => !canonicalRelationPairs.has(pair))
+  )
+    issues.push({
+      kind: "artifact.ux.outcome-relation-closure-mismatch",
+      targetIdentity: uxIndexPath,
+      location: { path: uxIndexPath },
+      reason: "outcome-relation-closure-mismatch",
+      details: {},
+    });
+  if (
+    canonicalJourneyPairs.size === 0 ||
+    [...canonicalJourneyPairs].some(
+      (pair) => !analysisJourneyPairs.has(pair),
+    ) ||
+    [...analysisJourneyPairs].some((pair) => !canonicalJourneyPairs.has(pair))
+  )
+    issues.push({
+      kind: "artifact.ux.journey-relation-closure-mismatch",
+      targetIdentity: experienceMapPath,
+      location: { path: experienceMapPath },
+      reason: "journey-relation-closure-mismatch",
+      details: {},
+    });
+  return issues;
+}
+
+/**
+ * UX分析の正式入力Headerと観測済み事実を照合する。
+ * @responsibility 可視Header・期待リンク・生本文の補完禁止を限定Issueへ変換する。
+ * @trace ARCH-000008
+ * @input model: Parserが捕捉したUX分析モデル。observation: 呼出し元による既存参照観測の六事実。
+ * @returns 正式入力不正の中立Issue、または空列。
+ * @precondition 呼出し元が定義read・参照解決・境界確認を完了している。
+ * @postcondition ParserがFence除去→Comment除去と生本文禁止条件から捕捉した結果を評価し、本文を再解析しない。
+ * @effect N/A: 既読本文と局所値だけを扱う同期検査。
+ * @failure 解析例外を伝播し観測不足を補完しない。
+ * @invariant Path実在や認可を再判定せず、正式入力診断を本文診断と分離する。
+ * @boundary 参照観測の事実と本文意味の境界。
+ * @security Boolean(definition)をtrim等で強化せず、確認不能を安全と扱わない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+function compareUxFormalInput(
+  model: UxAnalysisModel,
+  observation: UxFormalInputObservation,
+): readonly DocumentIssue[] {
+  const source = model.source;
+  const requirementId = model.expectedIdentity;
+  if (
+    !observation.definitionHasContent ||
+    model.formalInput.headers.length !== 1 ||
+    !model.formalInput.expectedLinkMatches ||
+    !observation.matchingDefinitionOnly ||
+    observation.hasSourceAnalysis ||
+    observation.hasInvalidDiscoveryTarget ||
+    observation.hasInvalidEntity ||
+    observation.hasUnsafeTarget ||
+    model.formalInput.forbiddenDeclaration
+  )
+    return [
+      {
+        kind: "artifact.ux.requirement-formal-input-invalid",
+        targetIdentity: requirementId,
+        location: { path: source.path },
+        reason: "requirement-formal-input-invalid",
+        details: {},
+      },
+    ];
+  return [];
 }

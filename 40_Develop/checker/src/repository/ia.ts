@@ -9,7 +9,7 @@ import path from "node:path";
 import {
   type IaAnalysisModel,
   type IaDefinitionModel,
-  inspectDocumentRelations,
+  inspectIaConsistency,
   parseIaAnalysis,
   parseIaDefinition,
   parseIaIndex,
@@ -235,7 +235,7 @@ export function inspectIaRepository(
       }
     }
   }
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectIaConsistency({
     kind: "ia_analysis_coverage",
     expectedIds: uxIds,
     actualIds: actualAnalysisIds,
@@ -263,7 +263,7 @@ export function inspectIaRepository(
         entry.name,
       );
       iaDefinitions.push(definitionModel.result);
-      for (const issue of inspectDocumentRelations({
+      for (const issue of inspectIaConsistency({
         kind: "ia_definition",
         definition: definitionModel,
         analyses: iaAnalyses,
@@ -273,7 +273,7 @@ export function inspectIaRepository(
       }
     }
   }
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectIaConsistency({
     kind: "ia_index_coverage",
     index: iaIndexModel,
     actualIds: actualIaIds,
@@ -284,7 +284,7 @@ export function inspectIaRepository(
   }
   for (const [crossPath] of iaCrossArtifacts.slice(1)) {
     if (!lstatIfPresent(crossPath)?.isFile()) continue;
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectIaConsistency({
       kind: "ia_projection",
       projection: parseIaObjectRelation({
         path: relative(crossPath),
@@ -296,7 +296,7 @@ export function inspectIaRepository(
       add(finding.severity, finding.code, finding.path, finding.message);
     }
   }
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectIaConsistency({
     kind: "ia_relations",
     index: iaIndexModel,
     analyses: [...iaAnalyses.values()],

@@ -15,7 +15,7 @@ import {
   inspectTemplateChecklist,
 } from "../../../src/artifact/checklist.ts";
 import {
-  inspectDocumentRelations,
+  inspectUxConsistency,
   parseUxAnalysis,
   parseUxDefinition,
   parseUxExperienceMap,
@@ -168,7 +168,7 @@ test("UX正式入力は六観測事実と本文条件を維持する", () => {
     hasUnsafeTarget: false,
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUxConsistency({
       kind: "ux_formal_input",
       analysis: parseUxAnalysis({ path: "analysis.md", content }, "REQ-000001")
         .result,
@@ -179,7 +179,7 @@ test("UX正式入力は六観測事実と本文条件を維持する", () => {
   for (const key of Object.keys(
     observation,
   ) as (keyof UxFormalInputObservation)[]) {
-    const issues = inspectDocumentRelations({
+    const issues = inspectUxConsistency({
       kind: "ux_formal_input",
       analysis: parseUxAnalysis({ path: "analysis.md", content }, "REQ-000001")
         .result,
@@ -200,7 +200,7 @@ test("UX正式入力は六観測事実と本文条件を維持する", () => {
     `${content}\n\u0060\u0060\u0060text\n探索元: forbidden\n\u0060\u0060\u0060`,
   ])
     assert.deepEqual(
-      inspectDocumentRelations({
+      inspectUxConsistency({
         kind: "ux_formal_input",
         analysis: parseUxAnalysis(
           { path: "analysis.md", content: body },
@@ -237,10 +237,10 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
     analysisJourneyRelations: new Set(["REQ-000001|Start"]),
   };
   assert.deepEqual(
-    inspectDocumentRelations({ kind: "ux_relations", ...request }),
+    inspectUxConsistency({ kind: "ux_relations", ...request }),
     [],
   );
-  const issues = inspectDocumentRelations({
+  const issues = inspectUxConsistency({
     kind: "ux_relations",
     ...{
       ...request,
@@ -261,7 +261,7 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
     new Set(["REQ-000002|UX-000001"]),
   ]) {
     assert.equal(
-      inspectDocumentRelations({
+      inspectUxConsistency({
         kind: "ux_relations",
         ...{
           ...request,
@@ -271,7 +271,7 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
       "artifact.ux.outcome-relation-closure-mismatch",
     );
     assert.equal(
-      inspectDocumentRelations({
+      inspectUxConsistency({
         kind: "ux_relations",
         ...{
           ...request,
@@ -282,7 +282,7 @@ test("UX閉包は用途ごとの非空条件とIssue順を維持する", () => {
     );
   }
   assert.equal(
-    inspectDocumentRelations({
+    inspectUxConsistency({
       kind: "ux_relations",
       ...{
         ...request,
@@ -777,7 +777,7 @@ function parseAnalysisFixture(
   const parsed = parseUxAnalysis(source, identity);
   return {
     ...parsed,
-    issues: inspectDocumentRelations({
+    issues: inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
       registryLinkCount,
@@ -794,7 +794,7 @@ function compareProjectionFixture(
   canonicalIds: ReadonlySet<string>,
 ) {
   const result = parseUxPersonas(source).result.projection;
-  const issues = inspectDocumentRelations({
+  const issues = inspectUxConsistency({
     kind: "ux_projection",
     projection: result,
     canonicalIds,
@@ -820,7 +820,7 @@ test("UX登録数の不一致は局所構造診断と重複しない", () => {
   );
   assert.equal(parsed.status, "complete");
   for (const registryLinkCount of [0, 2]) {
-    const issues = inspectDocumentRelations({
+    const issues = inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
       registryLinkCount,
@@ -834,7 +834,7 @@ test("UX登録数の不一致は局所構造診断と重複しない", () => {
       "REQ-000001",
     );
     assert.deepEqual(
-      inspectDocumentRelations({
+      inspectUxConsistency({
         kind: "ux_analysis_registration",
         analysis: invalid,
         registryLinkCount,
@@ -843,7 +843,7 @@ test("UX登録数の不一致は局所構造診断と重複しない", () => {
     );
   }
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectUxConsistency({
       kind: "ux_analysis_registration",
       analysis: parsed,
       registryLinkCount: 1,
@@ -937,3 +937,19 @@ function parseDocumentFixture(
         .result;
   }
 }
+
+/**
+ * 未対応のUX整合種別を正常へ読み替えない。
+ * @trace RCM-UT-002
+ * @precondition 未定義のkindを用意する。
+ * @stimulus 完成した整合比較へ渡す。
+ * @observation 拒否理由を確認する。
+ * @oracle 固有の例外で拒否する。
+ * @cleanup N/A: 同期的な値検査。
+ */
+test("未対応のUX整合種別は拒否する", () => {
+  assert.throws(
+    () => inspectUxConsistency({ kind: "unknown" } as never),
+    /ux_consistency_kind_invalid/u,
+  );
+});

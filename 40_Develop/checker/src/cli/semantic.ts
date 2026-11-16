@@ -8,21 +8,20 @@
  */
 import path from "node:path";
 import {
+  createSemanticBundle,
+  observeRealitySymbolRepository,
+  publishSemanticCoverage,
+} from "../../../document-model/src/index.ts";
+import {
   getRepository,
   getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import {
-  observeRealitySymbolRepository,
-  createFilesystemSemanticBundlePublisher,
-  createSemanticBundle,
-  publishSemanticCoverage,
-} from "../../../document-model/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
   createSemanticCoverageGraphResult,
 } from "../repository/semantic.ts";
-import type { CheckerRunRequest, CheckerResult } from "./types.ts";
+import type { CheckerResult, CheckerRunRequest } from "./types.ts";
 
 /**
  * 明示したArchitecture・Quality文書のSemantic検査を実行する。
@@ -153,7 +152,7 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
           semanticIrs,
           coverage: coverage.graph,
         },
-        createFilesystemSemanticBundlePublisher(verifiedRepository.capability),
+        verifiedRepository.capability,
       );
       failureStage = "output";
       request.writeOutput(

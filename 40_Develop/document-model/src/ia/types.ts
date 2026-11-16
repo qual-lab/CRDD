@@ -11,6 +11,7 @@ import type {
   DocumentSection,
   DocumentTableRow,
   DocumentText,
+  ParseResult,
 } from "../artifact/types.ts";
 
 /**
@@ -183,3 +184,43 @@ export type IaStateVisibility = IaDocument &
     projection: IaCrossProjectionModel;
     sections: readonly DocumentSection[];
   }>;
+
+/**
+ * IA自身の取得済みモデルと観測事実を比較する入力。
+ * @responsibility 投影・登録・被覆・閉包を完成した整合比較へ渡す。
+ * @trace ARCH-000008
+ * @invariant 出現・取得断面と局所Issueを維持する。
+ * @boundary 呼出し元が取得した値。実体の再観測は行わない。
+ * @security 認可・実在・全品質の成立を保証しない。
+ */
+export type IaConsistencyRequest =
+  | Readonly<{
+      kind: "ia_analysis_coverage";
+      expectedIds: ReadonlySet<string>;
+      actualIds: ReadonlySet<string>;
+      sourcePath: string;
+    }>
+  | Readonly<{
+      kind: "ia_index_coverage";
+      index: IaIndexModel;
+      actualIds: ReadonlySet<string>;
+      sourcePath: string;
+    }>
+  | Readonly<{
+      kind: "ia_projection";
+      projection: IaCrossProjectionModel;
+      actualIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "ia_definition";
+      definition: ParseResult<IaDefinitionModel> &
+        Readonly<{ result: IaDefinitionModel }>;
+      analyses: ReadonlyMap<string, IaAnalysisModel>;
+    }>
+  | Readonly<{
+      kind: "ia_relations";
+      index: IaIndexModel;
+      analyses: readonly IaAnalysisModel[];
+      definitions: readonly IaDefinitionModel[];
+      sourcePath: string;
+    }>;

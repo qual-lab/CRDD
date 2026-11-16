@@ -15,7 +15,7 @@ import {
 } from "../../../src/artifact/checklist.ts";
 import { iaChecklistItems } from "../../../src/ia/validation.ts";
 import {
-  inspectDocumentRelations,
+  inspectIaConsistency,
   parseIaAnalysis,
   parseIaDefinition,
   parseIaIndex,
@@ -134,7 +134,7 @@ test("IA入口は重複関係を保持し、現在の段階で閉包を判定す
   assert.deepEqual([...index.ids], ["IA-000001"]);
   assert.deepEqual(index.pairs, ["UX-000001|IA-000001", "UX-000001|IA-000001"]);
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_index_coverage",
       index: index,
       actualIds: new Set(["IA-000001"]),
@@ -142,7 +142,7 @@ test("IA入口は重複関係を保持し、現在の段階で閉包を判定す
     }),
     [],
   );
-  const issues = inspectDocumentRelations({
+  const issues = inspectIaConsistency({
     kind: "ia_relations",
     index: index,
     analyses: [
@@ -172,7 +172,7 @@ test("IA入口は重複関係を保持し、現在の段階で閉包を判定す
     ["artifact.ia.analysis-definition-closure-mismatch"],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_index_coverage",
       index: index,
       actualIds: new Set(),
@@ -181,7 +181,7 @@ test("IA入口は重複関係を保持し、現在の段階で閉包を判定す
     1,
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_analysis_coverage",
       expectedIds: new Set(["UX-000001"]),
       actualIds: new Set(),
@@ -255,7 +255,7 @@ test("IA本文不正でもObjectとIdentity／Relationを後続へ保持する",
       "| [IA-000001](Definitions/IA-000001/ia_definition.md) | Project | UX-000001 |",
   }).result;
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_relations",
       index: index,
       analyses: [analysis.result],
@@ -265,7 +265,7 @@ test("IA本文不正でもObjectとIdentity／Relationを後続へ保持する",
     [],
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_relations",
       index: index,
       analyses: [
@@ -299,7 +299,7 @@ test("IA横断投影は専用節・順序・重複の既存条件を保つ", () 
   const link = "[IA-000001](Definitions/IA-000001/ia_definition.md)";
   const ids = new Set(["IA-000001"]);
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_projection",
       projection: parseIaObjectRelation({
         path: "cross.md",
@@ -314,7 +314,7 @@ test("IA横断投影は専用節・順序・重複の既存条件を保つ", () 
     `## 4. IA定義への適用\n${link}\n${link}`,
     `## 4. IA定義への適用\n${link}\n## 4. IA定義への適用\n${link}`,
   ]) {
-    const issues = inspectDocumentRelations({
+    const issues = inspectIaConsistency({
       kind: "ia_projection",
       projection: parseIaObjectRelation({ path: "cross.md", content }).result
         .projection,
@@ -395,7 +395,7 @@ test("IA定義は外部不成立と局所診断を一件へ統合する", () => 
   ).result;
   const good = new Map([["UX-000001", analysis]]);
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_definition",
       definition: parsed,
       analyses: good,
@@ -410,7 +410,7 @@ test("IA定義は外部不成立と局所診断を一件へ統合する", () => 
       ["UX-000001", altered],
     ]),
   ]) {
-    const issues = inspectDocumentRelations({
+    const issues = inspectIaConsistency({
       kind: "ia_definition",
       definition: parsed,
       analyses,
@@ -424,7 +424,7 @@ test("IA定義は外部不成立と局所診断を一件へ統合する", () => 
     );
     assert.equal(local.issues.length, 1);
     assert.deepEqual(
-      inspectDocumentRelations({
+      inspectIaConsistency({
         kind: "ia_definition",
         definition: local,
         analyses,
@@ -433,7 +433,7 @@ test("IA定義は外部不成立と局所診断を一件へ統合する", () => 
     );
   }
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_definition",
       definition: parsed,
       analyses: new Map([
@@ -455,7 +455,7 @@ test("IA定義は外部不成立と局所診断を一件へ統合する", () => 
     mappingKeys: [parsed.result.mappingKeys[0] as string],
   };
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_relations",
       index,
       analyses: [paired],
@@ -465,7 +465,7 @@ test("IA定義は外部不成立と局所診断を一件へ統合する", () => 
     [],
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectIaConsistency({
       kind: "ia_relations",
       index,
       analyses: [{ ...paired, objects: new Set<string>() }],
@@ -508,3 +508,19 @@ function parseDocumentFixture(
         .result;
   }
 }
+
+/**
+ * 未対応のIA整合種別を正常へ読み替えない。
+ * @trace RCM-UT-002
+ * @precondition 未定義のkindを用意する。
+ * @stimulus 完成した整合比較へ渡す。
+ * @observation 拒否理由を確認する。
+ * @oracle 固有の例外で拒否する。
+ * @cleanup N/A: 同期的な値検査。
+ */
+test("未対応のIA整合種別は拒否する", () => {
+  assert.throws(
+    () => inspectIaConsistency({ kind: "unknown" } as never),
+    /ia_consistency_kind_invalid/u,
+  );
+});

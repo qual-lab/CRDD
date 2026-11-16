@@ -15,7 +15,7 @@ import {
   inspectTemplateChecklist,
 } from "../../../src/artifact/checklist.ts";
 import {
-  inspectDocumentRelations,
+  inspectSpecConsistency,
   parseSpecBehavior,
   parseSpecDetailCorrespondence,
 } from "../../../src/index.ts";
@@ -167,7 +167,7 @@ test("SPEC Detailモデルは短い不正行でも抽出済み対応を保持す
     [["SPEC-000001", "BHV-000003"]],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: model,
       actualIds: new Set(["SPEC-000001"]),
@@ -179,7 +179,7 @@ test("SPEC Detailモデルは短い不正行でも抽出済み対応を保持す
     content: "文中 状態: Canonical",
   });
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: empty,
       actualIds: new Set(),
@@ -423,7 +423,7 @@ test("SPEC Detail解析は部分関係と後勝ちMap・出現重複を保持す
     content: `状態: Canonical\n${row}`,
   });
   assert.equal(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: valid,
       actualIds: new Set(["SPEC-000001"]),
@@ -439,7 +439,7 @@ test("SPEC Detail解析は部分関係と後勝ちMap・出現重複を保持す
     [["SPEC-000001", "BHV-000002"]],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: invalid,
       actualIds: new Set(["SPEC-000001"]),
@@ -501,7 +501,7 @@ test("SPEC分析は観点別Issueと不正本文の重複関係を保持する",
 test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持する", () => {
   const empty = new Set<string>();
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_analysis_coverage",
       ...{
         specIndexPath: "spec.md",
@@ -515,7 +515,7 @@ test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持�
     }),
     [],
   );
-  const analysis = inspectDocumentRelations({
+  const analysis = inspectSpecConsistency({
     kind: "spec_analysis_coverage",
     ...{
       specIndexPath: "spec.md",
@@ -535,7 +535,7 @@ test("SPEC網羅性は観測境界ごとのIssue順と空集合条件を維持�
       "artifact.spec.ia-analysis-coverage-mismatch",
     ],
   );
-  const definitionEntries = inspectDocumentRelations({
+  const definitionEntries = inspectSpecConsistency({
     kind: "spec_definition_coverage",
     ...{
       specDefinitionsRoot: "definitions",
@@ -577,11 +577,11 @@ test("SPEC件数と三者閉包は同数の誤差し替えを拒否する", () =
     definitionRelations: relations,
   };
   assert.deepEqual(
-    inspectDocumentRelations({ kind: "spec_coverage", ...request }),
+    inspectSpecConsistency({ kind: "spec_coverage", ...request }),
     [],
   );
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_coverage",
       ...{
         ...request,
@@ -805,7 +805,7 @@ test("SPECの完成ParseはBHV内容を保持し被覆診断を重複させな�
   const detail = parseSpecDetailIndex(detailSource);
   assert.ok(detail.issues.length);
   assert.deepEqual(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail,
       actualIds: new Set(["SPEC-000001"]),
@@ -813,7 +813,7 @@ test("SPECの完成ParseはBHV内容を保持し被覆診断を重複させな�
     [],
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail,
       actualIds: new Set(["SPEC-000002"]),
@@ -830,11 +830,27 @@ test("SPECの完成ParseはBHV内容を保持し被覆診断を重複させな�
     ),
   );
   assert.equal(
-    inspectDocumentRelations({
+    inspectSpecConsistency({
       kind: "spec_detail_coverage",
       detail: invalid,
       actualIds: new Set(["SPEC-000002"]),
     }).length,
     1,
+  );
+});
+
+/**
+ * 未対応のSPEC整合種別を正常へ読み替えない。
+ * @trace RCM-UT-002
+ * @precondition 契約に存在しないkindを用意する。
+ * @stimulus 完成した整合比較へ渡す。
+ * @observation 例外の拒否理由を読む。
+ * @oracle 未対応kindは固有の理由で拒否する。
+ * @cleanup N/A: 同期的な値検査。
+ */
+test("未対応のSPEC整合種別は拒否する", () => {
+  assert.throws(
+    () => inspectSpecConsistency({ kind: "unknown" } as never),
+    /spec_consistency_kind_invalid/u,
   );
 });

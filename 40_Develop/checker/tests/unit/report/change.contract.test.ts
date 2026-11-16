@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  inspectDocumentRelations,
+  inspectChangeNavigation,
   parseChangeDocument,
   parseChangeIndex,
 } from "../../../../document-model/src/index.ts";
@@ -103,8 +103,7 @@ test("Changeのひな型と案内は既存の一件表示へ接続する", () =>
     const index = parseChangeIndex({ path: "02_Changes.md", content });
     const issues = [
       ...index.issues,
-      ...inspectDocumentRelations({
-        kind: "change_navigation",
+      ...inspectChangeNavigation({
         index: index.result,
         observedChangeIds: ["CHG-000099"],
       }),

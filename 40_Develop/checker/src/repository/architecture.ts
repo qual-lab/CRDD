@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArchitectureAnalysis,
-  inspectDocumentRelations,
+  inspectArchitectureConsistency,
   parseArchitectureAnalysis,
   parseArchitectureCrossModel,
   parseArchitectureDefinition,
@@ -265,7 +265,7 @@ export function inspectArchitectureRepository(
       analyses.push(model.result);
       for (const relation of model.result.relations)
         analysisRelations.add(relation);
-      for (const issue of inspectDocumentRelations({
+      for (const issue of inspectArchitectureConsistency({
         kind: "architecture_readiness",
         documentType: "analysis",
         document: model,
@@ -276,7 +276,7 @@ export function inspectArchitectureRepository(
       }
     }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectArchitectureConsistency({
     kind: "architecture_inputs",
     sourcePath: relative(architectureIndexPath),
     analysisPath: relative(analysisRoot),
@@ -312,7 +312,7 @@ export function inspectArchitectureRepository(
       continue;
     }
     const modelSource = read(modelPath);
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectArchitectureConsistency({
       kind: "architecture_cross_model",
       document: parseArchitectureCrossModel(
         { path: relative(modelPath), content: modelSource },
@@ -360,7 +360,7 @@ export function inspectArchitectureRepository(
         definitionRelationEntries.push(relation);
         definitionRelations.add(relation);
       }
-      for (const issue of inspectDocumentRelations({
+      for (const issue of inspectArchitectureConsistency({
         kind: "architecture_readiness",
         documentType: "definition",
         document: model,
@@ -371,7 +371,7 @@ export function inspectArchitectureRepository(
       }
     }
 
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectArchitectureConsistency({
     kind: "architecture_registry_coverage",
     sourcePath: relative(architectureIndexPath),
     registry: registryModel,
@@ -387,7 +387,7 @@ export function inspectArchitectureRepository(
   );
   if (lstatIfPresent(componentModelPath)?.isFile()) {
     const componentSource = read(componentModelPath);
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectArchitectureConsistency({
       kind: "architecture_component_coverage",
       model: parseArchitectureCrossModel(
         {
@@ -434,7 +434,7 @@ export function inspectArchitectureRepository(
       detailMapRelations.add(relation);
     for (const relation of model.result.closureRelations)
       detailMapClosureRelations.add(relation);
-    for (const issue of inspectDocumentRelations({
+    for (const issue of inspectArchitectureConsistency({
       kind: "architecture_detail_map_coverage",
       document: model,
       actualDefinitions,
@@ -478,7 +478,7 @@ export function inspectArchitectureRepository(
         detailDocumentRelations.add(relation);
       for (const identity of model.result.coveredDefinitions)
         detailCoveredDefinitions.add(identity);
-      for (const issue of inspectDocumentRelations({
+      for (const issue of inspectArchitectureConsistency({
         kind: "architecture_readiness",
         documentType: "detail",
         document: model,
@@ -488,7 +488,7 @@ export function inspectArchitectureRepository(
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectArchitectureConsistency({
     kind: "architecture_detail_coverage",
     ...{
       sourcePath: relative(detailMapPath),
@@ -505,7 +505,7 @@ export function inspectArchitectureRepository(
     const finding = mapArchitectureDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  for (const issue of inspectDocumentRelations({
+  for (const issue of inspectArchitectureConsistency({
     kind: "architecture_relations",
     ...{
       sourcePath: relative(architectureIndexPath),

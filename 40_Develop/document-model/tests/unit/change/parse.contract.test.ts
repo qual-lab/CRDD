@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  inspectDocumentRelations,
+  inspectChangeNavigation,
   parseChangeDocument,
   parseChangeIndex,
 } from "../../../src/index.ts";
@@ -118,8 +118,7 @@ test("変更案内は最初の指定区画だけを照合する", () => {
     const parsed = parseChangeIndex({ path: "02_Changes.md", content });
     const issues = [
       ...parsed.issues,
-      ...inspectDocumentRelations({
-        kind: "change_navigation",
+      ...inspectChangeNavigation({
         index: parsed.result,
         observedChangeIds: ids,
       }),
@@ -304,8 +303,7 @@ test("Change案内は全区画を保持し局所重複を横断診断で二重�
   );
   assert.equal(parsed.issues.length, 1);
   assert.deepEqual(
-    inspectDocumentRelations({
-      kind: "change_navigation",
+    inspectChangeNavigation({
       index: parsed.result,
       observedChangeIds: ["CHG-000099"],
     }),

@@ -103,3 +103,27 @@ export type CanonicalDocument = Readonly<{
   candidateVersion: string | null;
   releaseStates: readonly DocumentText[];
 }>;
+
+/**
+ * Releaseモデルと観測済み版・Tagの整合を判定する閉じた入力。
+ * 取得済み断面を全本文へ補完しない。
+ * stableTagCommitのnullは未確認であり、不存在や公開許可を意味しない。
+ */
+export type ReleaseConsistencyRequest =
+  | Readonly<{
+      kind: "stable_canonical_documents";
+      documents: readonly CanonicalDocument[];
+      stableVersion: string;
+    }>
+  | Readonly<{
+      kind: "stable_release_document";
+      document: CanonicalDocument;
+      stableVersion: string;
+      stableTagCommit: string | null;
+    }>
+  | Readonly<{
+      kind: "stable_changelog";
+      changelog: Changelog;
+      stableVersion: string;
+    }>
+  | Readonly<{ kind: "stable_readme"; readme: Readme; stableVersion: string }>;
