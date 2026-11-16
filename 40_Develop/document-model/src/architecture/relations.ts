@@ -19,7 +19,10 @@ import type {
   DocumentText,
   ParseResult,
 } from "../artifact/types.ts";
-import type { ArchitectureDetailModel } from "./details.ts";
+import type {
+  ArchitectureDetailMapModel,
+  ArchitectureDetailModel,
+} from "./details.ts";
 import type {
   ArchitectureAnalysis,
   ArchitectureCrossModel,
@@ -444,7 +447,7 @@ function inspectArchitectureComponentCoverage(
  * 分析・定義・登録表の重複と関係閉包を検査する。
  * @responsibility 分析・定義・登録表の重複と関係閉包を検査する。
  * @trace ARCH-000008
- * @input request: 三者の関係集合、出現列と診断位置。
+ * @input request: 分析・定義・登録表のモデルと診断位置。関係集合と出現列は内部で導出する。
  * @returns 重複、分析定義閉包、登録閉包の順の中立Issue。
  * @precondition 呼出し元が従来位置で対象値と診断位置を取得している。
  * @postcondition 入力を変更せず既存条件の結果を返す。
@@ -458,14 +461,18 @@ function inspectArchitectureComponentCoverage(
 function inspectArchitectureRelations(
   request: ArchitectureRelationsRequest,
 ): DocumentIssue[] {
+  const { sourcePath, analyses, definitions, registry } = request;
+  const analysisRelations = new Set(
+    analyses.flatMap((model) => model.relations),
+  );
+  const definitionRelationEntries = definitions.flatMap(
+    (model) => model.relations,
+  );
+  const definitionRelations = new Set(definitionRelationEntries);
   const {
-    sourcePath,
-    analysisRelations,
-    definitionRelations,
-    definitionRelationEntries,
-    registryRelations,
-    registryRelationEntries,
-  } = request;
+    relations: registryRelations,
+    relationEntries: registryRelationEntries,
+  } = registry;
   const issues: DocumentIssue[] = [];
   if (
     registryRelationEntries.length !== registryRelations.size ||
@@ -515,7 +522,7 @@ function inspectArchitectureRelations(
  * 詳細設計の領域・関係・Covered所有者の閉包を検査する。
  * @responsibility 三つの既存集合不整合を順番に返す。
  * @trace ARCH-000008
- * @input request: 観測済みのMap・領域・本文関係集合、Ready状態と診断位置。
+ * @input request: 詳細Map・本文モデル、実在領域・定義集合、Ready状態と診断位置。
  * @returns 領域網羅性、関係閉包、Covered所有者の順の中立Issue。
  * @precondition 呼出し元が領域列挙後の関係集合・Ready状態・診断位置を確定している。
  * @postcondition 入力を変更せず、三種類の集合不整合だけを返す。
@@ -531,15 +538,21 @@ function inspectArchitectureDetailCoverage(
 ): DocumentIssue[] {
   const {
     sourcePath,
-    registeredDetailAreas,
+    map,
+    details,
     actualDetailAreas,
-    detailMapRelations,
-    detailDocumentRelations,
-    detailMapClosureRelations,
     actualDefinitions,
-    detailCoveredDefinitions,
     isArchitectureReady,
   } = request;
+  const registeredDetailAreas = map?.areas ?? new Set<string>();
+  const detailMapRelations = map?.relations ?? new Set<string>();
+  const detailMapClosureRelations = map?.closureRelations ?? new Set<string>();
+  const detailDocumentRelations = new Set(
+    details.flatMap((model) => [...model.relations]),
+  );
+  const detailCoveredDefinitions = new Set(
+    details.flatMap((model) => [...model.coveredDefinitions]),
+  );
   const issues: DocumentIssue[] = [];
   if (
     registeredDetailAreas.size !== actualDetailAreas.size ||
@@ -601,7 +614,7 @@ function inspectArchitectureDetailCoverage(
  * Architecture分析・定義・登録表の閉包検査入力を表す。
  * @responsibility Architecture分析・定義・登録表の閉包検査入力を表す。
  * @trace ARCH-000008
- * @shape sourcePath、analysisRelations、definitionRelations、definitionRelationEntries、registryRelations、registryRelationEntries。
+ * @shape sourcePath、analyses、definitions、registry。
  * @invariant 集合と出現配列を区別し、重複を失わない。
  * @boundary N/A: 取得済み値モデル。
  * @security 認可・実在・完成を保証しない。
@@ -609,17 +622,15 @@ function inspectArchitectureDetailCoverage(
  */
 type ArchitectureRelationsRequest = Readonly<{
   sourcePath: string;
-  analysisRelations: ReadonlySet<string>;
-  definitionRelations: ReadonlySet<string>;
-  definitionRelationEntries: readonly string[];
-  registryRelations: ReadonlySet<string>;
-  registryRelationEntries: readonly string[];
+  analyses: readonly ArchitectureAnalysis[];
+  definitions: readonly ArchitectureDefinition[];
+  registry: ArchitectureRegistryModel;
 }>;
 /**
  * 詳細Map・実領域・本文から観測した閉包入力を表す。
  * @responsibility 詳細Map・実領域・本文から観測した閉包入力を表す。
  * @trace ARCH-000008
- * @shape sourcePath、registeredDetailAreas、actualDetailAreas、detailMapRelations、detailDocumentRelations、detailMapClosureRelations、actualDefinitions、detailCoveredDefinitions、isArchitectureReady。
+ * @shape sourcePath、map、details、actualDetailAreas、actualDefinitions、isArchitectureReady。
  * @invariant 重複に対する既存の集合化と部分関係を保持する。
  * @boundary N/A: 取得済み値の結果モデル。
  * @security Fileの実在・認可・品質成立を保証しない。
@@ -627,12 +638,9 @@ type ArchitectureRelationsRequest = Readonly<{
  */
 type ArchitectureDetailCoverageRequest = Readonly<{
   sourcePath: string;
-  registeredDetailAreas: ReadonlySet<string>;
+  map: ArchitectureDetailMapModel | null;
+  details: readonly ArchitectureDetailModel[];
   actualDetailAreas: ReadonlySet<string>;
-  detailMapRelations: ReadonlySet<string>;
-  detailDocumentRelations: ReadonlySet<string>;
-  detailMapClosureRelations: ReadonlySet<string>;
   actualDefinitions: ReadonlySet<string>;
-  detailCoveredDefinitions: ReadonlySet<string>;
   isArchitectureReady: boolean;
 }>;

@@ -11,6 +11,155 @@
 ### モデル中心への再整理（UI／SPEC工程モデルの先行実装）
 
 <a id="document-public-inventory"></a>
+#### Checker累積差分の確定前確認 — 2026-11-16
+
+人間の指示に基づき、fa0006c7eからの累積差分を確認した。Quality欠測継続、基本図表示変換、Architectureモデル入力、UX／Discovery、Quality比較と残存四系統の相互作用、公開・利用側・試験・台帳・文書を対象とした。関連11試験Fileの149件、七つの型検査設定、37個の変更TypeScript Sourceの整形・Lintと差分空白検査が成功した。先行の固定候補で成功した限定結合・台帳・依存15件と試験領域の回収確認を区別して保持し、件数を単純に加算して全体網羅とはしない。
+
+累積差分を対象とした独立した読取りレビューに必須残指摘はない。Root227項目、新Sourceと検証辺、別取得・短絡、診断・現在文書と過去断面の区別を再確認した。コミット・プッシュの技術的阻害事項はない。全体回帰・実AI・Docker・過去保持物は操作しない。統合・リリース判断は別とする。
+
+#### Checker残存四系統のOwner接続 — 2026-11-16
+
+人間はQuality参照捕捉、作業Lifecycle、Release、Artifact命名・配置の四系統すべての継続を指示した。基準はfa0006c7eと直前までの整理候補。着手前に親担当と読取り専用確認者が、先頭節・raw正規表現・観測と診断位置、限定Headerと二回read、部分モデル、次版Candidate時の短絡とTag null、公式配布と通常Parseの適用境界を照合した。変更分類はRule・診断・実体観測を維持するOwner整理。技術、文書と直接伝播の独立確認・限定回帰を対象とし、準拠表明、全体回帰・実AI・Docker・過去保持物の操作は対象外とする。現在、人間による追加判断は必要ない。
+
+| 残存候補 | 変更後の意味Owner | Checkerに残す処理 |
+|---|---|---|
+| Quality参照と欠測 | 各完成Parseが先頭Coverageの定義ID／先頭Detailのtargetを捕捉し、Qualityの完成比較が欠測Issueを返す | Path解決、既存順のSet化、別read、物理列挙とlstat |
+| ひな型の宣言と適用条件 | 共通Artifactの宣言構文をUI／Architectureのtemplate Parseへ接続。CommunicationとSPEC Sequenceは固有の完成Parseで本文・主要節・Issueを返す | 公式配布の対象選択、Changeひな型存在のGate、各readと診断配送 |
+| Release | 既存inspectReleaseConsistencyがRoadmap表題・README版・Tag Identity・Evidence案内の出現を比較 | 固定文書集合、GitのTag／HEAD観測、someによる候補探索の短絡、Scope |
+| Artifact／Change配置 | inspectArtifactPlacementが共通の名前文法、inspectChangePlacementがChange固有の宣言・配置を比較 | 対象Path認識とEvidence区分、40行Header取得、Evidenceの二回readとcontinue |
+
+ひな型の工程固有文言を共通Artifactへ集める初期案は、着手前照合で退けた。Communicationには対応Ownerがなかったためcommunication/parse.ts一Fileを設けた。Source数を守るために別工程へ押し込まず、必要な文書モデルだけを追加する。任意Ruleを受け付ける公開Framework、Facade、Registry、互換Wrapper、第二の永続Schemaはない。Rootの追加は二Parse・二モデル型・独立した配置比較二操作で、現行227項目（値103・型124）。既存二Index Parserの通常モードは不変で、templateだけで追加宣言Issueを返す。対象外の既存局所IssueはCheckerの旧診断へ混入させない。
+
+共通ArtifactはCommunication等の語彙を保持せず、工程Ownerが固定した文言条件を内部の局所比較へ渡す。ReleaseのRoadmap表題自体もDMに固定し、Checkerへ期待文言の正本を残さない。名前文法は旧正規表現の境界を維持する。Changeの見出しモデルとIDモデルは別取得のままで、両者を同じ参照に統合しない。診断code・文言・severity・Path、CLI・終了値、Link／Root・Git安全条件、観測例外・Scopeを維持する。
+
+既存単体・表示・結合に反証を追加し、既存試験の検証内容を削除しない。単体はraw／Fence・先頭節・重複・節外参照、部分モデル、通常／template、空と欠測、nullと既知不一致、二取得断面・名前境界、案内出現数を確認する。既存結合はRepository準備を一回に保ち、ひな型四文書とEvidence配置の差分だけを追加する。新Suiteを作らず、公開固定集合、公開Module一覧、Source Symbolと既存verifies、Architecture／QAを更新した。
+
+実行コードを固定した候補で関連単体・公開・表示116件と限定結合・台帳・依存15件、七つの型検査設定が成功した。37個の変更TypeScript Sourceの整形・Lintと差分空白検査も成功した。実装中の結合成功とは区別して同じ15件を固定候補で再実行し、両方の今回試験領域を回収して不存在を確認した。独立レビューではRelease Parseの旧Semantic説明と一行連結TSDocの追従を是正し、Sequenceの説明を主要節捕捉とtemplate時の固定文言検査に限定した。実行コード・API・Rule・assertionを変えずに再レビューし、必須残指摘はない。
+
+棚卸しで追跡した四系統は対応済みとする。未知の全Rule不存在、全体回帰・実AI・Docker・リリース成立は主張しない。全体回帰・実AI・Docker・過去保持物は操作しておらず、現段階の結果は限定検証のEvidenceである。コミット・プッシュはこの作業では実施していない。
+
+#### Qualityの四比較を完成操作へ移管 — 2026-11-16
+
+基準はfa0006c7eと先行のChecker整理候補。変更分類は既存の意味Rule・診断・観測順を保持するOwner整理。着手前に親担当と読取り専用確認者が、閉包と定義被覆の別観測、Coverage欠測時の非対称条件、Architectureからの検証単位、先勝ちOwner Map、件数nullを照合した。技術・文書・直接伝播の独立確認と限定回帰を対象とし、準拠表明・全体回帰・実AI／Docker・過去保持物の操作は追加しない。現在、人間による追加判断は必要ない。
+
+Quality定義の閉包・被覆・Local Item宣言件数を既存inspectQualityConsistencyへ、Architecture詳細の検証単位被覆を既存inspectDocumentRelationsへ移管した。既存要求Unionだけを拡張し、Root221項目（値99・型122）とCheckerの三関数・三型を維持する。新しいFile・Facade・公開型・Wrapperはない。参照本文の捕捉と集合編成は未移管として残し、Quality全体の整理完了とは表示しない。
+
+Checkerの四直接判定は撤去し、旧位置でIssueを取得してreport/quality.tsが旧診断へ変換する。既知リンクの先行lstatと後の物理列挙は統合せず、Coverage欠測でも既知リンク不足は検出する。全期待集合が必要な余分と件数差だけを保留する。Local Item件数は既存先勝ちOwner Mapのサイズであり、宣言欠測を0にしない。読取り・Parse・Path・code・severity・message・診断順は維持する。
+
+既存Quality／Semantic単体へ空・一致・不足・余分・同数差し替え、欠測方向、件数null／0、入力非変更を追加した。表示Suiteは実Producerの四Issueを旧四診断の全fieldと順序へ接続する。既存結合試験の準備を増やさず、四違反の差分を同時に加えて元の診断位置・順序・一件性を確認し、復元して既存検証を続ける。新Suite IDは追加せず、表示Suiteのverifiesを実Ownerへ追従した。
+
+局所54件と限定結合・依存・台帳5件、七つの型検査設定、変更した22個のTypeScript Sourceの整形・Lintが成功した。新しい結合期待値の初回確認では、公開レポートの既存code整列を内部追加順と取り違えた試験不整合を検出した。製品sortは変更せず、内部追加順と公開整列順を別々に固定して再実行した。今回の試験領域は失敗時・最終成功時とも回収と不存在を確認した。独立レビューでは現行Semantic判定数の文書表記一件を是正し、先行移管時10判定と今回追加後11判定を区別して再照合した。再レビューに必須残指摘はない。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+#### UX／Discoveryの三被覆をモデルOwnerへ移管 — 2026-11-16
+
+残る五系統のうちUX／Discoveryを続行する。基準はfa0006c7eと、直前までのChecker整理候補。親担当と読取り専用確認者は、期待集合の由来、実在ID追加とParseの順、診断位置、空集合・余分・同数差し替えを着手前に照合した。変更分類は既存Rule・診断・取得順を維持するOwnerと完成受付の整理。技術・文書・直接伝播の独立確認と限定回帰を対象とし、準拠表明・全体回帰・実AI／Docker・過去保持物の操作は追加しない。
+
+UX自身の分析・定義被覆は既存inspectUxConsistencyの二caseへ移し、採用REQ期待集合は上位から渡す。UXからDiscovery型やSemanticへの依存を追加しない。Discovery自身の採用要求対定義には既存完成入口がなく、Parseへ外部観測を混ぜたり別Ownerの比較を代用したりせず、既存discovery/validation.tsにinspectDiscoveryCoverage(index, actualIds)一関数を追加した。新File・Facade・Registry・汎用Validator・公開型は作らない。Rootは221項目（値99・型122）となり、Checkerの三関数・三型は不変。
+
+Checkerの旧三ifは撤去し、同じ読取りで捕捉したDiscovery／UXモデルと実在集合を元位置で完成比較へ渡す。File確認とID追加、partial、例外伝播、三code・文言・Path、旧件数と期待側包含の意味は維持する。report/convert.tsは新しい中立Issueから旧診断へ変換し、Ruleを再判定しない。
+
+既存Owner単体へ六つの集合条件と入力非変更を追加し、UX分析が別の期待集合を使う反証を維持する。既存の診断Suiteは実Producerから三つの旧診断全fieldを確認する。既存の採用要求結合は準備一回を維持し、Discovery定義被覆とUX定義被覆を差分確認する。新しいFile・Suite IDは追加せず、既存Symbolの宣言元・検証辺はこのSource・Suiteを既に対象にしているため意味のない台帳項目を増やさない。公開固定期待値と現行Architecture／QAを更新し、過去の220項目等の変更記録は当時の断面として保持する。
+
+限定検証はDiscovery／UX／Root／診断変換の52件、選択したChecker結合・依存・台帳の8件が成功した。七つの型検査設定と変更した19個のTypeScript Sourceの整形・Lint確認が成功した。今回の試験領域は回収と不存在を確認した。固定候補の独立した読取り専用レビューでは、三比較の条件、観測位置、partial、診断契約、Root221項目と文書追従に必須指摘はない。全体回帰・実AI・Docker・過去保持物の操作は実施しておらず、Checker全体の整理完了とは扱わない。残る候補はQuality、作業Lifecycle、Release、Artifact命名・配置の四系統。
+
+#### Architecture比較入力のモデル化を先行 — 2026-11-16
+
+残る六系統を既存完成契約へ対応付けた結果、Architectureは新しいRoot入口なしで意味投影をOwnerへ戻せるため先行する。基準はfa0006c7eに続くChecker責務整理の固定候補。親担当と読取り専用確認者が、二比較の低レベル入力、実Consumer、既存の独立Set負例、Map欠測、二回read、実領域追加位置、型だけの依存を着手前に照合した。変更分類は判定を維持する入力契約・Owner整理であり、意味Rule・診断code／文言・Scope・正常時順序を変えない。技術・文書・直接伝播の独立確認と限定回帰を対象とし、準拠表明・全体回帰・実AI／Docker・過去保持物の操作は追加しない。
+
+既存inspectArchitectureConsistencyのarchitecture_relationsを分析・定義モデル列と登録モデル、architecture_detail_coverageをMap・詳細本文列と実在領域／定義・Ready・診断位置へ変更した。Helper内部で従来式から関係Set・出現列・Covered集合を導出し、Checkerの重複組立てを撤去する。新File・Facade・Wrapper・Root項目は追加しない。全体のRoot220項目とCheckerの三関数・三型を維持する。Map nullは旧空集合に対応させるだけで、不存在診断・Ready時のCovered拒否を省略しない。実領域集合は本文File欠測でも従来どおり追加する。
+
+既存RCM-UT-002と診断変換の負例を同じ検証内容でモデルfieldへ追従し、Map nullの空集合とReady拒否を追加した。部分モデル・入力順・出現重複と診断順を保持し、分析件数の条件をID集合の厳密一致へ強化していない。モデルは取得位置で保持し、別の原文／Checklist readを統合しない。一時メモリの保持範囲は増え得るが、永続Cacheや管理機構は追加しない。
+
+親担当の実測ではArchitecture・公開契約・診断変換43項目、選択したArchitecture結合6項目と台帳・依存3項目が成功した。関連六Packageと配布入口の七型設定、変更10 TSのBiomeとdiff確認も成功し、今回試験Rootは回収後不存在を確認した。独立読取りレビューで旧式との対応・null・二回read・実観測・型だけの依存・負例の保持・未完了範囲を照合し、必須指摘は0件だった。確認者は試験を再実行していない。全体回帰・実AI・Docker・過去保持物操作、コミット・プッシュは未実施。
+
+残る五系統は独立候補のまま維持する。採用REQ対UX分析はUX自身の被覆規則なので既存inspectUxConsistencyの候補とし、入力元がDiscoveryだからという理由だけでSemanticへ置かない。Discovery自身の採用要求対定義には現在完成比較入口がないため、必要なRoot追加を隠蔽で回避しない。Quality・Releaseは既存比較の拡張、Work Lifecycle共通条件とArtifact命名／配置は完成モデル・Ownerの確定を先に行う。これらを今回実装済みとは扱わない。
+
+<a id="checker-responsibility-inventory"></a>
+#### Checkerの責務・重複棚卸しと内部表示移管 — 2026-11-16
+
+人間のChecker方針に基づくPhase 1〜4のうち、棚卸し・To-Be責務確定、Checkerだけで成立する最小是正、試験・文書の追従を扱う。DMの追加変更が必要な残存Ruleは独立候補として提示し、未承認の移管を実装しない。直前のQuality欠測継続の8Fileは承認済みの別範囲として保持する。基準はfa0006c7eで、Sourceの32Fileと宣言関数88件を分類した。これは名前付きfunction宣言の目録であり、arrow関数・Callback・全分岐・動的Importを含む全挙動の網羅証明ではない。
+
+親担当は現行Source・Root・bin／配布入口・全静的参照・Architectureを照合し、読取り専用確認者と着手前整合を確認した。変更分類はChecker内部の表示責務移管と調査結果の記録。専門的な意味Rule・DM契約・保存形式・CLI引数／出力／終了値は今回追加変更しない。技術・文書・直接伝播の限定確認と独立レビューを行い、準拠表明・全体回帰・実AI／Docker・過去保持物操作は対象外とする。
+
+| 基準Source（src/配下） | 宣言関数 | 責務分類 | 主なConsumer | DM／専門Ownerとの対応 | Effect／残存候補 |
+|---|---|---|---|---|---|
+| `index.ts` | 宣言関数なし（型／再export） | 三完成操作と三型の公開境界 | 公開契約試験／Package利用契約 | 各CLIの同一実装 | 再exportのみ |
+| `test-catalog/selection.ts` | `inspectResourceIntensiveTestAuthority`、`ownerForPath`、`isDocumentationPath`、`isSharedRuntimePath`、`applicableConsumerBindings`、`selectRegressionStaticOwners`、`selectRegressionTests` | 回帰対象・静的Owner・高負荷条件 | cli/test-catalog／plan／Owner試験 | DM台帳モデル | 同期計画のみ、許可や起動を発行しない |
+| `test-catalog/plan.ts` | `buildRegressionStagePlan`、`aggregateRegressionStageResults`、`normalizeExplicitChangedPaths`、`pathIsAbsolute` | 段階・待ち・集約・変更Path受付 | cli/test-catalog／Owner試験 | DM台帳モデル | 同期計画のみ、起動なし |
+| `cli/types.ts` | 宣言関数なし（型／再export） | 公開受付・終了値の型 | 三CLI／bin／Root | DMを再exportしない | 値宣言のみ |
+| `cli/test-catalog.ts` | `runTestCatalog`、`invalidArguments`、`numericValue` | 台帳CLI・変更Path・回帰計画 | Root／command | DM readTestCatalog、selection／plan | Git／Filesystem読取りと出力、試験起動なし |
+| `cli/semantic.ts` | `runSemanticCoverage` | Semantic CLI受付・明示保存接続 | Root／command | DM Compile／Coverage／Publish | 読取り・出力、明示writeのみ既存保存 |
+| `cli/document.ts` | `runChecker`、`cliError` | 文書CLI受付・Root・終了値 | Root／command | repository/document、report | Repository読取りと出力 |
+| `cli/command.ts` | `runCheckerCommand` | 三操作のMode選択 | bin/checker.ts | 下位CLIの完成操作 | 表示／下位操作のEffectのみ |
+| `repository/work-lifecycle.ts` | `inspectWorkLifecycleRepository` | Change／Release案内の観測 | repository/document | Change完成Parse／Navigation | 列挙・read・lstat、本文条件と案内判断が残存 |
+| `repository/ui.ts` | `inspectUiRepository` | UIとDetail対象の観測・配送 | repository/document | UI完成Parse／Consistency | 列挙・read・lstat |
+| `repository/types.ts` | 宣言関数なし（型／再export） | Repository観測と参照の内部型 | repository各File | 型のみ | 値宣言のみ |
+| `repository/spec.ts` | `inspectSpecRepository` | SPECと下流Traceの観測・配送 | repository/document | SPEC／Semantic完成操作 | 列挙・read・lstat・内容Fingerprint |
+| `repository/semantic.ts` | `observeDocuments`、`compileSemanticIrFromRepository`、`compileQualitySemanticRelationsFromRepository`、`createSemanticCoverageGraphResult` | 専門観測からIR／Graphへの接続 | cli/semantic | DM Compile／Graph、Repository観測Port | 読取り、前提Issue時のGraph省略 |
+| `repository/scope.ts` | `selectDocumentScope` | Scope検査と一段参照拡張 | repository/document | 観測済み参照モデル | Path境界・対象Set編成 |
+| `repository/references.ts` | `createDocumentReferenceReader`、`resolveLocalTarget`、`isCanonicalRepositoryRelativePath`、`loadFixedHistoryMigration`、`historicalContent`、`resolveLinkWithFixedHistory`、`buildDocumentReferenceMap`、`inspectDocumentLinks`、`anchorsFor` | 現在・固定履歴の参照解決 | document／scope／Discovery-UX | DM参照Decode、VC Revision読取り | Git／Filesystem読取り、短命参照Cache |
+| `repository/reality.ts` | `inspectRealityRepository`、`createRealitySymbolGraph`、`discoverRealitySymbolManifests`、`readRegisteredRealityTests`、`readRegisteredRealityTestsFromRepository` | Manifest／Catalog観測とGraph接続 | repository/document／Semantic | DM Reality／Catalog完成操作 | Repository読取り、前提Issue時のGraph省略 |
+| `repository/quality.ts` | `inspectQualityRepository` | Quality観測・前提と比較順 | repository/document | Quality Parse／Analysis／Consistency／Semantic | 列挙・read・lstat、残存意味投影と比較あり |
+| `repository/project-context.ts` | `inspectProjectContextRepository` | Project ContextとManifest観測 | repository/document | 完成Context Parse／Relation | Root・File・JSONの観測 |
+| `repository/observe.ts` | `errorCode`、`lstatIfPresent`、`pathContainsSymbolicLink`、`isWithin`、`samePath`、`decodeGitConfigValue`、`fallbackDeclaredSubmodulePaths`、`observeRepositoryLayout` | Root・Layout・Link・Path観測 | repository各File | VC専門操作 | Filesystem／Git読取り |
+| `repository/ia.ts` | `inspectIaRepository` | IA対象と取得順の編成 | repository/document | IA完成Parse／inspectIaConsistency | 列挙・read・lstat |
+| `repository/document.ts` | `inspectDocumentRepository`、`changeTraceRootFor`、`isEvidenceFile`、`declaredChangeTraceId`、`hasChangeTraceDefinitionSignature`、`gitlinkRootFor`、`checkPhaseDiagramDispositionContracts`、`checkDiscoveryIdentityLinkOwnership` | 全体編成・文書観測・集計 | cli/document | Artifact／Release／Relation完成操作 | read・列挙・診断配列、残存意味判断あり |
+| `repository/discovery-ux.ts` | `inspectDiscoveryUxRepository` | Discovery／UX観測・形式入力解決 | repository/document | 工程Parse／inspectUxConsistency | 列挙・read・lstat、三被覆判断が残存 |
+| `repository/discover.ts` | `observeProjectFiles`、`isInitializedBaselineWithoutGit`、`walk`、`fail`、`inspectDirectory` | Git／Filesystem探索 | repository/document | VC専門操作 | Git／Filesystem読取り |
+| `repository/architecture.ts` | `inspectArchitectureRepository` | Architecture観測・比較入力編成 | repository/document | 完成Parse／inspectArchitectureConsistency | 列挙・read・lstat、関係投影が残存 |
+| `report/types.ts` | 宣言関数なし（型／再export） | 異なる診断／報告shapeの保持 | repository／report／CLI | 型のみ | 値宣言のみ |
+| `report/semantic.ts` | `stringDetail`、`numberDetail`、`mapSemanticDomainIssueToDiagnostic` | Semantic中立Issueの変換 | repository/semantic／CLI | DM Semantic Issue | 純粋変換・不足値拒否 |
+| `report/reality.ts` | `mapRealityDomainIssueToCheckerFinding` | Reality中立Issueの変換 | repository/reality | DM Reality Issue | 純粋変換 |
+| `report/quality.ts` | `mapQualityDesignStateIssueToFinding`、`mapQualityDefinitionIssueToFinding`、`mapQualityAnalysisIssueToFinding`、`mapQualityRelationsIssueToFinding` | Quality固有の診断語彙変換 | repository/quality | DM Quality Issue | 純粋変換・不足値拒否 |
+| `report/output.ts` | `writeDocumentReport` | 通常レポートのJSON／人間表示 | cli/document | DocumentReport | 出力callback |
+| `report/document.ts` | `mapDocumentRuleIssueToFinding`、`mapDocumentIdentityIssueToFinding`、`mapStableReleaseIssueToFinding` | 文書・Identity・版・基本図の表示 | repository/document | DM DocumentIssue | 純粋変換・不足値拒否 |
+| `report/convert.ts` | `mapArchitectureDomainIssueToFinding`、`mapIaDomainIssueToFinding`、`stringDetail`、`mapArtifactDomainIssueToCheckerFinding`、`mapUiDomainIssueToFinding`、`mapChangeDomainIssueToFinding`、`mapUxDomainIssueToFinding`、`mapDiscoveryDomainIssueToFinding`、`mapSpecDomainIssueToFinding` | 工程IssueとArtifactの専用変換 | 各工程repository | DM DocumentIssue | 純粋変換・不足値拒否 |
+| `report/collect.ts` | `createFindingCollector` | 追加順・重複を保持する収集 | repository/document | 意味判定なし | 局所配列更新 |
+
+公開RootはrunChecker／runSemanticCoverage／runTestCatalog、CheckerRunRequest／CheckerResult／CheckerFindingを維持する。実Process入口bin/checker.tsはcli/command.tsから同じ実装を選び、配布入口はbinを読み込む。Rootを直接利用する公開契約試験と、実bin／配布入口の試験を区別する。外部本番Packageに新しいRoot利用を仮定しない。完成した三操作と既存の利用契約を維持するため、参照数だけで公開を削除しない。
+
+基本図の意味判定は既にDMのdiagramContractにあり、今回移すのはkind／missingItemsの拒否とseverity／code／Path／文言の表示処理だけである。既存report/document.tsの専用mapPhaseDiagramIssueToFindingへ旧blockを移し、Repositoryの旧表示組立てを撤去する。missing_phase_diagram_contractは接続確認としてRepositoryへ残す。七対象の選択、fallback、exists確認、read、Parse、配送位置は変えない。表示Pathは明示文脈を使い、空文字列とinvalid_phase_diagram_domain_issueの固定理由を維持する。新File・Facade・Registry・Managerは作らず、MapperはRootへ公開しない。
+
+重複調査では、品質表の二ループは各々fresh readするため、同一本文と推測して統合しない。一般Artifactの参照・Related・Identity受付、Header窓、Checklist再read、Scope／固定履歴も対象範囲と観測時点が異なる。reportの同名stringDetail類は型検査が似ていても例外理由が異なり、汎用化しない。回帰計画とreadTestCatalogはOwnerが異なり、台帳の意味検査をCheckerへ再実装しているものではない。
+
+DM独立変更候補は次のとおり。いずれも現在は未採用・未実装で、今回の内部移管の完了へ混ぜない。
+
+| 候補 | 残存している意味判断／入力組立て | DM側で検討する完成契約 | Checkerへ残すもの |
+|---|---|---|---|
+| UX／Discovery三被覆 | 採用REQ対実在分析、採用REQ対実在定義、UX台帳対実在定義 | モデルと観測集合の被覆比較。別用途の投影比較で代用しない | File／Directory列挙、読取り、実在IDと診断配送位置 |
+| Quality | Coverage／Detail本文からの参照捕捉、定義集合・詳細単位・Local Item件数の比較 | 取得した参照の構造捕捉と、実観測を受ける関係比較 | Path解決・lstat・File存在・欠測継続と観測順 |
+| Work Lifecycle | UI／Architectureひな型のAuthority宣言、Communication／Sequenceの必須断片、Release Evidence案内の出現回数 | 成果物種別の局所Parseと案内モデル対観測結果の比較 | 公式Scope、ひな型・Evidence列挙、対象read |
+| Release | 正本文書タイトル、README版と正本文書集合、Stable TagとHEADの相関条件 | モデルと版／Git観測を受けるRelease完成比較 | Git Revision観測、Candidate探索の短絡、取得断面 |
+| Artifact命名／配置 | ID入りFile名、CHG配置・宣言ID一致、Evidence File名等の正本形式判定 | Artifactの配置・Identity契約。単なる任意Path検証とは分ける | Root／Link境界、対象Scope、物理Fileの列挙と種類確認 |
+| Architecture | 関係Set・出現列をCheckerが組み立てて既存DMへ渡す | 既存比較を工程モデル入力へ寄せる候補。Rule追加ではない | 部分モデル捕捉、実在集合と別時点のread |
+
+これらは単にDMへ関数を移す案ではない。既存のIssue分類・未知／欠測・対象Scope・短絡・観測順をどの完成契約で維持するかを確定し、DMのFix解除が必要なら別途承認を得る。Checkerだけの是正をもって全Rule二重管理ゼロや全体完成とは表示しない。
+
+親担当の追加実測は診断変換・CLI・公開契約23項目、基本図・台帳・依存・Graphの限定6項目が成功した。Checkerと配布入口の二型設定、変更7 TSのBiomeとdiff確認も成功し、今回専用試験Rootの回収後不存在を確認した。既存Suite・Local Itemを維持し、diagnostics Suiteからreport-documentへのverifiesを追加した。初回追加単体試験はProducerのtemplate mode指定漏れで失敗したため、本番と同じ明示modeへ直し、期待値・製品の受理条件を変えず再実行した。
+
+独立読取りレビューで固定例外・kind短絡・明示Path・空文字列・接続確認・七対象の取得と配送位置、試験・台帳・基準88宣言の正確性と限界、DM候補を未実装とする記載を照合し、必須指摘は0件だった。新Mapperにより現在の内部宣言は89件だが、Rootの三関数・三型は不変である。確認者は試験を再実行していない。直前のQuality継続試験とは別の限定集合として記録し、件数を合算して全体回帰の保証へ昇格しない。全体回帰・実AI・Docker・過去保持物操作、コミット・プッシュは実施していない。
+
+#### CheckerのQuality欠測時継続とDMの限定是正 — 2026-11-16
+
+基準fa0006c7eのDMをFixとした後、Checker棚卸しでCoverage欠測時のQuality全体returnを確認した。人間は「欠測エラーを残し、必要情報のない比較だけを保留して独立検査を続行する」挙動を採用し、DMの既存照合にも限定変更を承認した。旧APIを丸ごと省略すると独立した重複等も未評価になるため、独立変更として既存quality/analysis.tsの方向別比較を是正する。新File・Manager・Registry・Wrapper、公開関数・型、CLI field／code／文言は追加しない。保存・認可・期限・数量制約は変更しない。
+
+親担当は現行正本・全利用側と比較の依存を照合し、読取り専用確認者の反証を統合した。Coverage全体の不足は不明でも、既知Coverageの正本外IDや情報源関係・要求段階の不足は確定できるため、比較全体を止めない。変更分類は承認済みの失敗時継続条件・入力欠測の扱い変更。技術・文書・直接伝播の独立確認、限定試験と既存の正常系回帰を実施し、準拠表明・Release判断・全体回帰・実AI／Docker・過去保持物の操作は対象外とする。編集は既存関数と試験・現行文書に限定する。
+
+| 情報の状態／比較 | 処置 |
+|---|---|
+| 一工程以上でCoverage節欠測 | 既存の欠測エラーを一件追加し、定義本文・重複所有・Detail・件数・Local Item検査を継続 |
+| 正本にあるIDが不完全なCoverageに見当たらない | 未評価。全体件数や不足側の不一致を生成しない |
+| 取得済みCoverageに正本外IDがある | 既存の全被覆不一致Issueを一件返す |
+| 既知Coverageの関係・要求段階が情報源関係に足りない | 既存Issueを返す。逆方向の余剰や件数は全節取得時だけ比較 |
+| 未知Goal名 | 欠測時は名解決を保留。ただし列数・処置・既知Goal重複は継続 |
+| 取得済み定義リンクの対象Fileがない | 実在エラーと確定できる集合差を維持 |
+| 実定義が不完全なリンク集合にない | 孤立と推定しない。全節取得後に従来の完全一致を検査 |
+| 読取り例外 | 握り潰さず伝播。未取得を空値や成功にしない |
+
+DMは既存分析結果にhasCoverageSectionsを返し、値は渡されたモデル列の節取得可否だけを表す。部分モデルを捨てず、正常入力の判定順を維持する。CheckerのFile欠測時の既存早期停止は今回対象外とし、読取り済み本文のCoverage欠測だけを継続へ変更する。初期Checklistは既に欠測判定前に実行されており、その取得位置を変更したとは扱わない。既存Suite・Local Itemの検証を保持し、新しい試験File／IDは追加しない。
+
+親担当の実測ではDMのQuality・公開契約・診断変換30項目、既存Quality結合と台帳・依存の選択4項目が成功した。Quality結合は正常基準と従来の検証を維持したまま、欠測＋定義不備＋重複所有、欠測による偽陽性の不在、Coverage復元後の集合不一致を確認する二つの差分を追加した。関連六Packageと配布入口の七型設定、変更4 TSのBiomeとdiff確認も成功した。今回の試験Rootは回収後不存在を確認した。独立読取りレビューで方向別比較・独立検査・正常時順序・例外伝播・試験と文書を照合し、必須指摘は0件だった。確認者は試験を再実行していない。全体回帰・実AI・Docker・過去保持物操作、コミット・プッシュは実施していない。
+
 #### 完成受付・モデル入力整理の統合確認 — 2026-11-16
 
 単体三受付、Local Item所有照合、UI／SPEC／UXの入力モデル化、Quality三caseとSemantic接続を含む37変更Fileを統合して確認した。変更した12単体・契約試験Sourceの110項目が成功し、変更33 TSのBiomeとdiff確認も成功した。旧三Inspector・旧型は40_Developと配布ひな型に参照がなく、新しいFile・Facade・互換入口は追加していない。限定Checker結合・台帳・依存・関連型検査と今回試験領域回収の実測は各節の結果を保持し、件数を単純合算して別の試験集合の保証としない。

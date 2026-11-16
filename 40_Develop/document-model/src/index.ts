@@ -44,7 +44,7 @@ export {
   parseArchitectureDefinition,
   parseArchitectureIndex,
 } from "./architecture/validation.ts";
-
+export { inspectArtifactPlacement } from "./artifact/identity.ts";
 export { parseMarkdownLinkReference } from "./artifact/links.ts";
 export { parseArtifact } from "./artifact/parse-markdown.ts";
 export type {
@@ -63,7 +63,14 @@ export type {
   ChangeDocument,
   ChangeIndex,
 } from "./change/types.ts";
-export { inspectChangeNavigation } from "./change/validation.ts";
+export {
+  inspectChangeNavigation,
+  inspectChangePlacement,
+} from "./change/validation.ts";
+export {
+  type CommunicationDocument,
+  parseCommunication,
+} from "./communication/parse.ts";
 export {
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
@@ -74,7 +81,10 @@ export type {
   DiscoveryDefinition,
   DiscoveryIndex,
 } from "./discovery/types.ts";
-export { parseDiscoveryReferences } from "./discovery/validation.ts";
+export {
+  inspectDiscoveryCoverage,
+  parseDiscoveryReferences,
+} from "./discovery/validation.ts";
 export {
   parseIaAnalysis,
   parseIaDefinition,
@@ -101,7 +111,6 @@ export type {
   MeetingState,
 } from "./meeting/types.ts";
 export { applyProjectOperationCandidateDecision } from "./project-context/candidate-decision.ts";
-
 export { parseRepositoryProjectContextMarkdown } from "./project-context/parse-context.ts";
 export { parseRepositoryQualityProjectionMarkdown } from "./project-context/parse-quality.ts";
 export { parseRepositoryReleaseProjectionMarkdown } from "./project-context/parse-release.ts";
@@ -237,6 +246,7 @@ export {
   parseSpecDetailCorrespondence,
   parseSpecDetailIndex,
   parseSpecIndex,
+  parseSpecSequence,
 } from "./spec/parse.ts";
 export type {
   SpecAnalysis,
@@ -247,6 +257,7 @@ export type {
   SpecDetailCorrespondence,
   SpecDetailIndex,
   SpecIndex,
+  SpecSequence,
 } from "./spec/types.ts";
 export { inspectSpecConsistency } from "./spec/validation.ts";
 export {

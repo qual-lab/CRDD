@@ -362,6 +362,72 @@ export function inspectReleaseConsistency(
   request: ReleaseConsistencyRequest,
 ): readonly DocumentIssue[] {
   switch (request.kind) {
+    case "roadmap_title": {
+      const expectedTitle = "# CRDD Roadmap";
+      const actualTitle = request.document.source.content
+        .replace(/^\uFEFF/u, "")
+        .split(/\r?\n/u)
+        .find((line) => /^#\s+\S/u.test(line));
+      return actualTitle === expectedTitle
+        ? []
+        : [
+            {
+              kind: "artifact.document-identity.canonical-document-title-mismatch",
+              targetIdentity: request.document.source.path,
+              location: { path: request.document.source.path },
+              reason: "canonical-document-title-mismatch",
+              details: {
+                value0: expectedTitle,
+                value1: actualTitle ?? "missing",
+              },
+            },
+          ];
+    }
+    case "readme_version":
+      return request.readme.version &&
+        request.readme.version !== request.expectedVersion
+        ? [
+            {
+              kind: "artifact.document-identity.readme-version-mismatch",
+              targetIdentity: request.readme.source.path,
+              location: { path: request.readme.source.path },
+              reason: "readme-version-mismatch",
+              details: {
+                value0: request.readme.version,
+                value1: request.expectedVersion,
+              },
+            },
+          ]
+        : [];
+    case "release_evidence_navigation":
+      return request.evidencePaths.some(
+        (p) => request.index.source.content.split(p).length - 1 !== 1,
+      )
+        ? [
+            {
+              kind: "artifact.stable-release.release-evidence-navigation-incomplete",
+              targetIdentity: request.index.source.path,
+              location: { path: request.index.source.path },
+              reason: "release-evidence-navigation-incomplete",
+              details: {},
+            },
+          ]
+        : [];
+    case "stable_tag_identity":
+      return !request.hasDifferentCandidateVersion &&
+        request.stableTagCommit !== null &&
+        request.currentHeadCommit !== null &&
+        request.stableTagCommit !== request.currentHeadCommit
+        ? [
+            {
+              kind: "artifact.stable-release.stable-release-tag-identity-mismatch",
+              targetIdentity: request.path,
+              location: { path: request.path },
+              reason: "stable-release-tag-identity-mismatch",
+              details: { value0: request.stableVersion },
+            },
+          ]
+        : [];
     case "stable_canonical_documents": {
       const issues: DocumentIssue[] = [];
       for (const document of request.documents) {

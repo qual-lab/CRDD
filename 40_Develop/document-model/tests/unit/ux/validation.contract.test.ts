@@ -28,6 +28,63 @@ import type { UxFormalInputObservation } from "../../../src/ux/types.ts";
 import { uxChecklistItems } from "../../../src/ux/validation.ts";
 
 /**
+ * UXの分析と定義の被覆をそれぞれの期待集合から確認する。
+ * @responsibility 採用REQとUX台帳IDを混同せず、旧集合条件と非変更を維持する。
+ * @trace RCM-UT-002
+ * @precondition 不足・余分・同数差替え・空の観測集合を用意する。
+ * @stimulus 既存UX比較入口の二つの被覆を呼ぶ。
+ * @observation Issueの理由・位置と元集合を確認する。
+ * @oracle 観測集合を解析成功数で補完せず、一件の不一致または空列を返す。
+ * @cleanup N/A: 同期値比較のみ。
+ * @boundary RCM-UT-002=N/A: 外部I/Oなし。
+ */
+test("UX分析と定義の被覆は期待集合のOwnerと空集合条件を維持する", () => {
+  const base = parseUxIndex({ path: "ux.md", content: "" }).result;
+  for (const [expected, actual, mismatch] of [
+    [[], [], false],
+    [["1"], ["1"], false],
+    [["1"], [], true],
+    [[], ["1"], true],
+    [["1"], ["2"], true],
+    [["1"], ["1", "2"], true],
+  ] as const) {
+    const expectedIds = new Set<string>(expected);
+    const actualIds = new Set<string>(actual);
+    const analysisIssues = inspectUxConsistency({
+      kind: "ux_analysis_coverage",
+      index: { ...base, ids: new Set(["not-the-expected-requirements"]) },
+      expectedRequirementIds: expectedIds,
+      actualRequirementIds: actualIds,
+    });
+    const definitionIssues = inspectUxConsistency({
+      kind: "ux_definition_coverage",
+      index: { ...base, ids: expectedIds },
+      actualIds,
+    });
+    for (const [issues, reason] of [
+      [analysisIssues, "analysis-coverage-mismatch"],
+      [definitionIssues, "definition-coverage-mismatch"],
+    ] as const)
+      assert.deepEqual(
+        issues,
+        mismatch
+          ? [
+              {
+                kind: `artifact.ux.${reason}`,
+                targetIdentity: "ux.md",
+                location: { path: "ux.md" },
+                reason,
+                details: {},
+              },
+            ]
+          : [],
+      );
+    assert.deepEqual([...expectedIds], expected);
+    assert.deepEqual([...actualIds], actual);
+  }
+});
+
+/**
  * UX文書の内容と七種類のChecklist受付を検証する。
  * @responsibility 種別・方式・出典・部分本文と旧構文の失敗理由を保持する。
  * @trace RCM-UT-002

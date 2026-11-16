@@ -47,6 +47,8 @@ export type QualityAnalysis = QualityParsedDocument &
     source: ArtifactSource;
     tableRows: readonly DocumentTableRow[];
     coverage: readonly DocumentText[];
+    /** 先頭Coverage節に出現する定義ID。重複と順序を保持する。 */
+    definitionReferences: readonly string[];
     sourceRelations: readonly DocumentText[];
   }>;
 /**
@@ -69,6 +71,8 @@ export type QualityIntegration = QualityParsedDocument &
     crossModel: readonly DocumentText[];
     crossModelReferences: readonly string[];
     details: readonly DocumentText[];
+    /** 先頭詳細処置節の明示リンク。Path解決と実在確認はCallerが所有する。 */
+    detailReferences: readonly string[];
   }>;
 /**
  * Quality専用のraw節を元の終端条件で捕捉する。
@@ -133,7 +137,16 @@ export function parseQualityAnalysis(
   };
   const { issues: localIssues, ...relationData } =
     captureQualityAnalysisRelations(content);
-  const result: QualityAnalysis = { ...content, relationData };
+  const result: QualityAnalysis = {
+    ...content,
+    relationData,
+    definitionReferences: Array.from(
+      (content.coverage[0]?.text ?? "").matchAll(
+        /\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)/gu,
+      ),
+      (match) => match[1] as string,
+    ),
+  };
   const issues = [
     ...(options.mode === "template" ? [] : localIssues),
     ...qualityChecklistIssues(document),
@@ -212,6 +225,12 @@ export function parseQualityIntegration(
     ...content,
     crossModelRows,
     detailUnitData,
+    detailReferences: Array.from(
+      (content.details[0]?.text ?? "").matchAll(
+        /\]\((\.\.\/06_Architecture\/Details\/[a-z0-9-]+\/01_Architecture\.md)\)/gu,
+      ),
+      (match) => match[1] as string,
+    ),
     localItemData: captureQualityIntegrationItems(content.source.content),
   };
   const issues = [
@@ -697,12 +716,12 @@ export function parseQualityDetailAnalysis(
  * @responsibility 工程別Quality分析の情報源・目標・条件・Local Item関係を解析・照合する。
  * @trace ARCH-000008
  * @input phaseAnalyses: 解析済み工程文書。canonicalIds: 同じ取得範囲の観測済み期待集合（全実在の保証ではない）。integration: 解析済み統合文書。analysisRoot: 診断位置。
- * @returns 各モデルの関係を出現順・後勝ち規則で合成し、外部被覆・重複・閉包と旧診断順を返す。
+ * @returns 各モデルの関係を出現順・後勝ち規則で合成し、節取得可否hasCoverageSectionsと外部被覆・重複・閉包の診断を返す。
  * @precondition 必要な本文と集合は呼出し元が取得している。
  * @postcondition 入力を変更せず、追加のFile読取りを行わない。
  * @effect N/A: 同期的な値処理だけを行う。
  * @failure 不正な行と集合条件をIssueで返し、取得できた部分関係を保持する。
- * @invariant 旧本文条件と短絡評価順を維持する。
+ * @invariant 正常時の本文条件と診断順を維持し、欠測時も取得済み関係の不正を隠さない。
  * @boundary N/A: Process内の文書意味検査。
  * @security 認可、実在、実行許可または品質全体の成立を保証しない。
  * @concurrency N/A: 共有可変状態を持たない。
@@ -714,6 +733,9 @@ export function inspectQualityAnalysis(
   analysisRoot: string,
 ) {
   const analysisPath = integration.source.path;
+  const hasCoverageSections = phaseAnalyses.every((model) =>
+    Boolean(model.coverage[0]?.text),
+  );
   const data = phaseAnalyses.map((model) => model.relationData);
   const issues: DocumentIssue[] = [];
   const mappingRows = data.flatMap((d) => d.mappingRows);
@@ -756,8 +778,9 @@ export function inspectQualityAnalysis(
     data.flatMap((d) => [...d.analysisObligationKeys]),
   );
   if (
-    canonicalIds.size !== mappedIds.size ||
-    [...canonicalIds].some((id) => !mappedIds.has(id)) ||
+    (hasCoverageSections &&
+      (canonicalIds.size !== mappedIds.size ||
+        [...canonicalIds].some((id) => !mappedIds.has(id)))) ||
     [...mappedIds].some((id) => !canonicalIds.has(id))
   )
     issues.push({
@@ -827,13 +850,15 @@ export function inspectQualityAnalysis(
       details: {},
     });
   if (
-    summarySourceGoalRelations.size !== analysisSourceGoalRelations.size ||
+    (hasCoverageSections &&
+      summarySourceGoalRelations.size !== analysisSourceGoalRelations.size) ||
     [...summarySourceGoalRelations].some(
       (relation) => !analysisSourceGoalRelations.has(relation),
     ) ||
-    [...analysisSourceGoalRelations].some(
-      (relation) => !summarySourceGoalRelations.has(relation),
-    )
+    (hasCoverageSections &&
+      [...analysisSourceGoalRelations].some(
+        (relation) => !summarySourceGoalRelations.has(relation),
+      ))
   )
     issues.push({
       kind: "artifact.quality-analysis.source-goal-relation-closure-mismatch",
@@ -845,6 +870,7 @@ export function inspectQualityAnalysis(
 
   const { crossModelRows, crossModelReferences } = integration;
   return {
+    hasCoverageSections,
     summarySourceLevels,
     goalLabelToSlug,
     analysisSourceRelations,
@@ -1047,7 +1073,8 @@ function inspectQualityDefinitionRelations(
       if (sourceGoalRelation.startsWith(`${sourceId}|`))
         for (const level of levels) decomposedLevels.add(level);
     if (
-      requestedLevels.size !== decomposedLevels.size ||
+      (request.analysis.hasCoverageSections &&
+        requestedLevels.size !== decomposedLevels.size) ||
       [...requestedLevels].some((level) => !decomposedLevels.has(level))
     )
       issues.push({
@@ -1200,6 +1227,29 @@ function normalizeQualityDesignState(state: string): string {
  */
 export type QualityConsistencyRequest =
   | Readonly<{
+      kind: "quality_coverage_sections";
+      analyses: readonly QualityAnalysis[];
+      analysisRoot: string;
+    }>
+  | Readonly<{
+      kind: "quality_definition_closure";
+      analysis: ReturnType<typeof inspectQualityAnalysis>;
+      linkedDefinitionPaths: ReadonlySet<string>;
+      analysisPath: string;
+    }>
+  | Readonly<{
+      kind: "quality_definition_coverage";
+      analysis: ReturnType<typeof inspectQualityAnalysis>;
+      linkedDefinitionPaths: ReadonlySet<string>;
+      physicalDefinitionPaths: ReadonlySet<string>;
+      definitionsRoot: string;
+    }>
+  | Readonly<{
+      kind: "quality_local_item_count";
+      document: QualityCenter | QualityRealityAudit;
+      localItemOwners: ReadonlyMap<string, string>;
+    }>
+  | Readonly<{
       kind: "quality_design_states";
       artifacts: readonly ArtifactModel[];
     }>
@@ -1230,7 +1280,7 @@ export type QualityConsistencyRequest =
     }>;
 
 /**
- * Quality内部の五条件を取得済みモデルと完成分析結果から比較する。
+ * Quality内部の状態・閉包・件数を取得済みモデルと完成分析結果から比較する。
  * @responsibility 状態・内部閉包の診断を返し、他工程の意味判断や実体取得をしない。
  * @input request: 同じ呼出し位置で取得したQualityモデル・完成分析結果と診断位置。
  * @returns 既存の順序・理由の診断列。空結果は全品質Passではない。
@@ -1241,6 +1291,67 @@ export function inspectQualityConsistency(
   request: QualityConsistencyRequest,
 ): readonly DocumentIssue[] {
   switch (request.kind) {
+    case "quality_coverage_sections":
+      return request.analyses.every((model) => Boolean(model.coverage[0]?.text))
+        ? []
+        : [
+            {
+              kind: "artifact.quality-analysis.canonical-mapping-section-missing",
+              targetIdentity: request.analysisRoot,
+              location: { path: request.analysisRoot },
+              reason: "canonical-mapping-section-missing",
+              details: {},
+            },
+          ];
+    case "quality_definition_closure":
+      return request.analysis.hasCoverageSections &&
+        request.linkedDefinitionPaths.size === 0
+        ? [
+            {
+              kind: "artifact.quality-analysis.definition-closure-missing",
+              targetIdentity: request.analysisPath,
+              location: { path: request.analysisPath },
+              reason: "definition-closure-missing",
+              details: {},
+            },
+          ]
+        : [];
+    case "quality_definition_coverage": {
+      const {
+        analysis,
+        linkedDefinitionPaths,
+        physicalDefinitionPaths,
+        definitionsRoot,
+      } = request;
+      return (analysis.hasCoverageSections &&
+        (physicalDefinitionPaths.size !== linkedDefinitionPaths.size ||
+          [...physicalDefinitionPaths].some(
+            (p) => !linkedDefinitionPaths.has(p),
+          ))) ||
+        [...linkedDefinitionPaths].some((p) => !physicalDefinitionPaths.has(p))
+        ? [
+            {
+              kind: "artifact.quality-analysis.definition-set-mismatch",
+              targetIdentity: definitionsRoot,
+              location: { path: definitionsRoot },
+              reason: "definition-set-mismatch",
+              details: {},
+            },
+          ]
+        : [];
+    }
+    case "quality_local_item_count":
+      return request.document.localItemCount !== request.localItemOwners.size
+        ? [
+            {
+              kind: "artifact.quality-analysis.local-verification-item-count-mismatch",
+              targetIdentity: request.document.source.path,
+              location: { path: request.document.source.path },
+              reason: "local-verification-item-count-mismatch",
+              details: {},
+            },
+          ]
+        : [];
     case "quality_design_states":
       return inspectQualityDesignStates(request.artifacts);
     case "quality_definition_relations":
@@ -1275,13 +1386,14 @@ export function inspectQualityConsistency(
 
     case "quality_goals": {
       const { analysisPath } = request;
-      const { crossModelRows, goalLabelToSlug } = request.analysis;
+      const { crossModelRows, goalLabelToSlug, hasCoverageSections } =
+        request.analysis;
       const issues: DocumentIssue[] = [];
 
       const crossModelGoals = new Set<string>();
       for (const cells of crossModelRows) {
         const goalSlug = goalLabelToSlug.get(cells[0] as string);
-        if (!goalSlug || cells.length !== 6) {
+        if ((!goalSlug && hasCoverageSections) || cells.length !== 6) {
           issues.push({
             kind: "artifact.quality-analysis.cross-model-row-invalid",
             targetIdentity: analysisPath,
@@ -1291,7 +1403,7 @@ export function inspectQualityConsistency(
           });
           continue;
         }
-        if (crossModelGoals.has(goalSlug))
+        if (goalSlug && crossModelGoals.has(goalSlug))
           issues.push({
             kind: "artifact.quality-analysis.cross-model-goal-duplicate",
             targetIdentity: analysisPath,
@@ -1299,7 +1411,7 @@ export function inspectQualityConsistency(
             reason: "cross-model-goal-duplicate",
             details: { value0: String(goalSlug) },
           });
-        crossModelGoals.add(goalSlug);
+        if (goalSlug) crossModelGoals.add(goalSlug);
         for (const disposition of cells.slice(1))
           if (disposition !== "Required" && !/^N\/A:\s*\S.+/u.test(disposition))
             issues.push({
@@ -1312,9 +1424,10 @@ export function inspectQualityConsistency(
       }
       const goalSlugs = new Set(goalLabelToSlug.values());
       if (
-        crossModelGoals.size !== goalSlugs.size ||
-        [...goalSlugs].some((goalSlug) => !crossModelGoals.has(goalSlug)) ||
-        [...crossModelGoals].some((goalSlug) => !goalSlugs.has(goalSlug))
+        hasCoverageSections &&
+        (crossModelGoals.size !== goalSlugs.size ||
+          [...goalSlugs].some((goalSlug) => !crossModelGoals.has(goalSlug)) ||
+          [...crossModelGoals].some((goalSlug) => !goalSlugs.has(goalSlug)))
       )
         issues.push({
           kind: "artifact.quality-analysis.cross-model-goal-coverage-mismatch",

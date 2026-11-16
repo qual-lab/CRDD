@@ -8,6 +8,7 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
 } from "../artifact/checklist.ts";
+import { inspectTemplateApplicability } from "../artifact/document-header.ts";
 import {
   captureDocumentReferences,
   captureDocumentSections,
@@ -35,7 +36,9 @@ import type {
   SpecDetailIndex,
   SpecDocument,
   SpecIndex,
+  SpecSequence,
 } from "./types.ts";
+
 import {
   specChecklistIssues,
   specChecklistItems,
@@ -44,6 +47,44 @@ import {
   validateSpecDetailIndex,
   validateSpecIndex,
 } from "./validation.ts";
+
+/**
+ * Actor／System Sequenceの内容と局所ひな型契約を解析する。
+ * @responsibility 主要節を捕捉し、明示templateでは段階評価に関する固定文言だけを検査する。
+ * @trace ARCH-000008
+ * @input source: 取得済み本文。options: 明示したひな型モード。
+ * @returns 部分内容と局所Issue。
+ * @effect N/A: 外部I/Oなし。
+ * @failure 解析例外を伝播する。
+ */
+export function parseSpecSequence(
+  source: ArtifactSource,
+  options: Readonly<{ mode?: "template" }> = {},
+): ParseResult<SpecSequence> & { result: SpecSequence } {
+  const captured = { path: source.path, content: source.content };
+  const result = {
+    source: captured,
+    artifact: parseMarkdownArtifact(captured),
+    sections: ["1. Sequence", "2. SPEC定義への適用", "3. 補足分析"].flatMap(
+      (heading) => captureDocumentSections(captured, heading),
+    ),
+  };
+  const issues =
+    options.mode === "template"
+      ? inspectTemplateApplicability(
+          captured,
+          [
+            "要求、受理、Effect、結果観測および終了を全数評価し、統合する段階には理由を記録した",
+          ],
+          [
+            "## 認知意図（該当する場合）",
+            "## 市場・採用探索（該当する場合）",
+            "必要に応じて分けた",
+          ],
+        )
+      : [];
+  return { status: issues.length ? "partial" : "complete", result, issues };
+}
 
 /**
  * SPEC文書の内容とChecklist検査を一つの受付で完了する。

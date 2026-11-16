@@ -111,6 +111,28 @@ export type CanonicalDocument = Readonly<{
  */
 export type ReleaseConsistencyRequest =
   | Readonly<{
+      kind: "roadmap_title";
+      document: CanonicalDocument;
+    }>
+  | Readonly<{
+      kind: "readme_version";
+      readme: Readme;
+      expectedVersion: string;
+    }>
+  | Readonly<{
+      kind: "release_evidence_navigation";
+      index: CanonicalDocument;
+      evidencePaths: readonly string[];
+    }>
+  | Readonly<{
+      kind: "stable_tag_identity";
+      stableVersion: string;
+      hasDifferentCandidateVersion: boolean;
+      stableTagCommit: string | null;
+      currentHeadCommit: string | null;
+      path: string;
+    }>
+  | Readonly<{
       kind: "stable_canonical_documents";
       documents: readonly CanonicalDocument[];
       stableVersion: string;

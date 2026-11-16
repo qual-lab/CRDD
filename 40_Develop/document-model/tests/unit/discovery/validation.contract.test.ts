@@ -16,10 +16,56 @@ import {
 import type { ArtifactSource } from "../../../src/artifact/types.ts";
 import { inspectDiscoveryChecklist } from "../../../src/discovery/validation.ts";
 import {
+  inspectDiscoveryCoverage,
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
   parseDiscoveryIndex,
 } from "../../../src/index.ts";
+
+/**
+ * 採用要求と実在定義の集合差を完成比較へ接続する。
+ * @responsibility 不足・余分・同数差替え・空集合と入力非変更を確認する。
+ * @trace RCM-UT-002
+ * @precondition 取得済み台帳と独立した観測集合を用意する。
+ * @stimulus RootのDiscovery被覆比較を呼ぶ。
+ * @observation Issue全fieldと入力集合を確認する。
+ * @oracle 旧件数差と期待側包含で一件だけ返し、空集合一致は受理する。
+ * @cleanup N/A: 同期値検査のみ。
+ * @boundary RCM-UT-002=N/A: 外部I/Oなし。
+ */
+test("Discovery採用要求の被覆は不足・余分・同数差替えと空集合を区別する", () => {
+  const base = parseDiscoveryIndex({
+    path: "discovery.md",
+    content: "",
+  }).result;
+  for (const [expected, actual, mismatch] of [
+    [[], [], false],
+    [["REQ-000001"], ["REQ-000001"], false],
+    [["REQ-000001"], [], true],
+    [[], ["REQ-000001"], true],
+    [["REQ-000001"], ["REQ-000002"], true],
+    [["REQ-000001"], ["REQ-000001", "REQ-000002"], true],
+  ] as const) {
+    const index = { ...base, adoptedRequirementIds: new Set<string>(expected) };
+    const observed = new Set<string>(actual);
+    assert.deepEqual(
+      inspectDiscoveryCoverage(index, observed),
+      mismatch
+        ? [
+            {
+              kind: "artifact.discovery.definition-coverage-mismatch",
+              targetIdentity: "discovery.md",
+              location: { path: "discovery.md" },
+              reason: "definition-coverage-mismatch",
+              details: {},
+            },
+          ]
+        : [],
+    );
+    assert.deepEqual([...index.adoptedRequirementIds], expected);
+    assert.deepEqual([...observed], actual);
+  }
+});
 
 /**
  * 三文書の完成Parseが通常・ひな型の局所診断と内容を分離する。

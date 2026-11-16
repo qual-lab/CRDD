@@ -5,6 +5,68 @@
  */
 import type { DocumentIssue } from "../../../document-model/src/index.ts";
 import type { DocumentFinding } from "./types.ts";
+
+/**
+ * 共通ひな型Issueを旧表示へ変換する。
+ * @responsibility 意味を再検査せずcode・文言・Pathを保持する。
+ * @trace ARCH-000001
+ * @effect N/A: 値変換のみ。
+ * @failure 未知Issueを拒否する。
+ */
+export function mapTemplateIssueToFinding(
+  issue: DocumentIssue,
+): DocumentFinding {
+  if (issue.kind === "artifact.template.authority-invalid")
+    return {
+      severity: "error",
+      code: "mandatory-authority-evaluation-template-invalid",
+      path: issue.location.path,
+      message:
+        "The official UI and Architecture root templates must require an owner, a default authority, and an evaluated item-specific authority exception.",
+    };
+  if (issue.kind === "artifact.template.applicability-invalid")
+    return {
+      severity: "error",
+      code: "mandatory-applicability-template-invalid",
+      path: issue.location.path,
+      message:
+        "Conditional communication and sequence concerns must keep a visible mandatory applicability evaluation instead of a vague optional instruction.",
+    };
+  throw new Error(`unknown_template_issue:${issue.kind}`);
+}
+
+/**
+ * 工程基本図の中立Issueを従来の文書診断へ変換する。
+ * @responsibility kind・必要値の拒否と表示上の重要度・code・文言を所有する。
+ * @trace ARCH-000001
+ * @input issue: DMの基本図Issue。displayPath: 観測時に選んだ表示Path。
+ * @returns 従来の四field診断。
+ * @precondition 本文と対象の選択・観測はrepositoryが完了している。
+ * @postcondition 入力を変更せず、明示された表示Pathを使う。
+ * @effect N/A: 同期的な表示変換のみ。
+ * @failure 未知kindまたは非文字列のmissingItemsは既存の固定理由で拒否する。
+ * @invariant 空文字列を含む文字列値と、kindを先に確認する順を維持する。
+ * @boundary DMの意味判定とCheckerの表示。
+ * @security 内容の再判定・認可・実体観測をしない。
+ * @concurrency 共有可変状態を保持しない。
+ */
+export function mapPhaseDiagramIssueToFinding(
+  issue: DocumentIssue,
+  displayPath: string,
+): DocumentFinding {
+  if (
+    issue.kind !== "artifact.phase-diagram.contract-invalid" ||
+    typeof issue.details.missingItems !== "string"
+  )
+    throw new Error("invalid_phase_diagram_domain_issue");
+  return {
+    severity: "error",
+    code: "phase_diagram_disposition_contract_invalid",
+    path: displayPath,
+    message: `工程の基本図処置契約が不完全です: ${issue.details.missingItems}`,
+  };
+}
+
 /**
  * 共通文書Issueを既存の公開診断へ変換する。
  * @responsibility 共通文書Issueを既存の公開診断へ変換する。
@@ -254,6 +316,37 @@ export function mapDocumentIdentityIssueToFinding(
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.document-identity.stable-id-in-filename":
+      if (typeof issue.details.value0 !== "string")
+        throw new Error("invalid_document_identity_issue_details");
+      code = "stable-id-in-filename";
+      message = `${issue.details.value0}: use the ID inside the owning artifact, not as a filename.`;
+      break;
+    case "artifact.document-identity.noncanonical-evidence-filename":
+      code = "noncanonical-evidence-filename";
+      message =
+        "Evidence filenames must use YYMMDD[-HHmm]_<type> with a collision suffix only when needed.";
+      break;
+    case "artifact.document-identity.canonical-document-title-mismatch": {
+      if (
+        typeof issue.details.value0 !== "string" ||
+        typeof issue.details.value1 !== "string"
+      )
+        throw new Error("invalid_document_identity_issue_details");
+      code = "canonical-document-title-mismatch";
+      message = `Expected canonical title ${JSON.stringify(issue.details.value0)}; found ${JSON.stringify(issue.details.value1)}.`;
+      break;
+    }
+    case "artifact.document-identity.readme-version-mismatch": {
+      if (
+        typeof issue.details.value0 !== "string" ||
+        typeof issue.details.value1 !== "string"
+      )
+        throw new Error("invalid_document_identity_issue_details");
+      code = "readme-version-mismatch";
+      message = `README=${issue.details.value0}, canonical=${issue.details.value1}`;
+      break;
+    }
     case "artifact.document-identity.duplicate-stable-id-definition": {
       if (typeof issue.details.stableId !== "string")
         throw new Error("invalid_document_identity_issue_details");
@@ -341,6 +434,17 @@ export function mapStableReleaseIssueToFinding(
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.stable-release.release-evidence-navigation-incomplete":
+      code = "release-evidence-navigation-incomplete";
+      message =
+        "Every Release-owned Evidence file must have one exact navigation link.";
+      break;
+    case "artifact.stable-release.stable-release-tag-identity-mismatch":
+      if (typeof issue.details.value0 !== "string")
+        throw new Error("invalid_stable_release_issue_details");
+      code = "stable-release-tag-identity-mismatch";
+      message = `Official ${issue.details.value0} tag must resolve to the checked HEAD commit.`;
+      break;
     case "artifact.stable-release.stable-release-canonical-status-mismatch": {
       if (typeof issue.details.value0 !== "string")
         throw new Error("invalid_stable_release_issue_details");

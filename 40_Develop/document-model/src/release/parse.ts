@@ -1,6 +1,6 @@
 /**
  * READMEとCHANGELOGの完成受付を提供する。
- * @responsibility 本文と出典を捕捉し、Stable版との比較はSemanticへ委ねる。
+ * @responsibility 本文と出典を捕捉し、Stable版との比較はReleaseの完成比較へ委ねる。
  * @trace ARCH-000008
  */
 import {
@@ -340,7 +340,7 @@ export function parseChangelog(
 
 /**
  * 正本文書familyの全文・共通Header・局所不備を受け付ける。
- * @responsibility 取得済み断面からだけ宣言を捕捉し、集合相関はSemanticへ委ねる。
+ * @responsibility 取得済み断面からだけ宣言を捕捉し、集合相関はReleaseの完成比較へ委ねる。
  * @trace ARCH-000008
  * @input source: 取得済み原文と相対Path。Header観測では元の限定断面だけを渡す。
  * @returns 全文・出典付きのCanonicalDocumentと局所Issue。

@@ -8,6 +8,7 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
 } from "../artifact/checklist.ts";
+import { inspectAuthorityTemplate } from "../artifact/document-header.ts";
 import {
   captureDocumentReferences,
   captureDocumentSections,
@@ -398,6 +399,7 @@ export function parseUiAnalysis(
  */
 export function parseUiIndex(
   source: ArtifactSource,
+  options: Readonly<{ mode?: "template" }> = {},
 ): ParseResult<UiIndex> & Readonly<{ result: UiIndex }> {
   const captured = { path: source.path, content: source.content };
   const visible = {
@@ -441,7 +443,10 @@ export function parseUiIndex(
     tableRows,
     entries,
   };
-  const issues = validateUiIndex(model);
+  const issues = [
+    ...validateUiIndex(model),
+    ...(options.mode === "template" ? inspectAuthorityTemplate(captured) : []),
+  ];
   return {
     status: issues.length === 0 ? "complete" : "partial",
     result: model,

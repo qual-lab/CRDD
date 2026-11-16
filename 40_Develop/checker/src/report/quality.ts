@@ -215,6 +215,36 @@ export function mapQualityAnalysisIssueToFinding(
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.quality-analysis.definition-closure-missing": {
+      code = "quality-definition-closure-missing";
+      message =
+        "The Quality mapping must connect its verification obligations to meaningful verification definitions.";
+      break;
+    }
+    case "artifact.quality-analysis.canonical-mapping-section-missing": {
+      code = "quality-canonical-mapping-section-missing";
+      message =
+        "Every phase Quality analysis must expose its canonical sources in the '全件Coverage Index' section instead of satisfying coverage through IDs mentioned elsewhere.";
+      break;
+    }
+    case "artifact.quality-analysis.definition-set-mismatch": {
+      code = "quality-definition-set-mismatch";
+      message =
+        "The verification definitions on disk must exactly match the objective set linked from the canonical Quality mapping; orphan and unknown objectives are not allowed.";
+      break;
+    }
+    case "artifact.quality-analysis.architecture-detail-unit-coverage-mismatch": {
+      code = "quality-architecture-detail-unit-coverage-mismatch";
+      message =
+        "The Quality integration matrix must process the exact verification-unit set handed off by every current Architecture detail area.";
+      break;
+    }
+    case "artifact.quality-analysis.local-verification-item-count-mismatch": {
+      code = "quality-local-verification-item-count-mismatch";
+      message =
+        "The declared Local Item count must exist in the canonical design-set table and equal the exact Local Item set owned by current Quality Definitions.";
+      break;
+    }
     case "artifact.quality-analysis.state-invalid": {
       code = "quality-state-invalid";
       message =

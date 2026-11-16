@@ -4,6 +4,12 @@
   "subsystem": "document-model",
   "symbols": [
     {
+      "symbolId": "document-model.communication-parse",
+      "kind": "file",
+      "path": "src/communication/parse.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
       "symbolId": "document-model.test.unit.document-relations",
       "kind": "test-suite",
       "path": "tests/unit/semantic/relations.contract.test.ts",
@@ -1221,6 +1227,10 @@
       "verifies": [
         "domain-model.artifact-verification-tables",
         "domain-model.artifact-document-header",
+        "document-model.communication-parse",
+        "document-model.ui-definition-parse",
+        "document-model.spec-definition-parse",
+        "domain-model.artifact-architecture",
         "domain-model.artifact-release",
         "domain-model.artifact-identity",
         "domain-model.semantic-relations",

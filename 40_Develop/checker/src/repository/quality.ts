@@ -506,17 +506,14 @@ export function inspectQualityRepository(
     content: analysis,
   });
   const integration = parsedIntegration.result;
-  const mappingSections = phaseAnalyses.map((model) => model.coverage[0]?.text);
-  if (mappingSections.some((section) => !section)) {
-    add(
-      "error",
-      "quality-canonical-mapping-section-missing",
-      relative(analysisRoot),
-      "Every phase Quality analysis must expose its canonical sources in the '全件Coverage Index' section instead of satisfying coverage through IDs mentioned elsewhere.",
-    );
-    return;
+  for (const issue of inspectQualityConsistency({
+    kind: "quality_coverage_sections",
+    analyses: phaseAnalyses,
+    analysisRoot: relative(analysisRoot),
+  })) {
+    const finding = mapQualityAnalysisIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const mappingSection = mappingSections.join("\n");
 
   const canonicalDefinitionSpecs = [
     ["01_Discovery", "REQ", "requirement.md"],
@@ -558,26 +555,21 @@ export function inspectQualityRepository(
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const linkedDefinitionPaths = new Set(
-    Array.from(
-      mappingSection.matchAll(
-        /\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)/gu,
+    phaseAnalyses
+      .flatMap((model) => model.definitionReferences)
+      .map((id) =>
+        path.join(qualityRoot, "Definitions", id, "quality_definition.md"),
       ),
-      (match) =>
-        path.join(
-          qualityRoot,
-          "Definitions",
-          match[1],
-          "quality_definition.md",
-        ),
-    ),
   );
-  if (linkedDefinitionPaths.size === 0)
-    add(
-      "error",
-      "quality-definition-closure-missing",
-      relative(analysisPath),
-      "The Quality mapping must connect its verification obligations to meaningful verification definitions.",
-    );
+  for (const issue of inspectQualityConsistency({
+    kind: "quality_definition_closure",
+    analysis: inspectQualityAnalysisResult,
+    linkedDefinitionPaths,
+    analysisPath: relative(analysisPath),
+  })) {
+    const finding = mapQualityAnalysisIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
   for (const definitionPath of linkedDefinitionPaths) {
     if (!lstatIfPresent(definitionPath)?.isFile())
       add(
@@ -606,21 +598,16 @@ export function inspectQualityRepository(
           )
       : [],
   );
-  if (
-    physicalDefinitionPaths.size !== linkedDefinitionPaths.size ||
-    [...physicalDefinitionPaths].some(
-      (definitionPath) => !linkedDefinitionPaths.has(definitionPath),
-    ) ||
-    [...linkedDefinitionPaths].some(
-      (definitionPath) => !physicalDefinitionPaths.has(definitionPath),
-    )
-  )
-    add(
-      "error",
-      "quality-definition-set-mismatch",
-      relative(definitionsRoot),
-      "The verification definitions on disk must exactly match the objective set linked from the canonical Quality mapping; orphan and unknown objectives are not allowed.",
-    );
+  for (const issue of inspectQualityConsistency({
+    kind: "quality_definition_coverage",
+    analysis: inspectQualityAnalysisResult,
+    linkedDefinitionPaths,
+    physicalDefinitionPaths,
+    definitionsRoot: relative(definitionsRoot),
+  })) {
+    const finding = mapQualityAnalysisIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
 
   for (const issue of inspectDocumentRelations({
     kind: "quality_architecture_models",
@@ -641,7 +628,6 @@ export function inspectQualityRepository(
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const detailSection = integration.details[0]?.text;
   const detailRoot = path.join(root, "06_Architecture", "Details");
   const physicalDetailPaths = new Set(
     lstatIfPresent(detailRoot)?.isDirectory()
@@ -660,11 +646,8 @@ export function inspectQualityRepository(
       : [],
   );
   const linkedDetailPaths = new Set(
-    Array.from(
-      (detailSection ?? "").matchAll(
-        /\]\((\.\.\/06_Architecture\/Details\/[a-z0-9-]+\/01_Architecture\.md)\)/gu,
-      ),
-      (match) => path.resolve(path.dirname(analysisPath), match[1]),
+    integration.detailReferences.map((target) =>
+      path.resolve(path.dirname(analysisPath), target),
     ),
   );
   const detailCoverage = {
@@ -677,8 +660,7 @@ export function inspectQualityRepository(
       analysisPath: relative(analysisPath),
     }),
   };
-  const { analysisDetailUnitLocalRelations, analysisDetailUnits } =
-    detailCoverage;
+  const { analysisDetailUnitLocalRelations } = detailCoverage;
   for (const issue of detailCoverage.issues) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
@@ -699,17 +681,15 @@ export function inspectQualityRepository(
     for (const [key, value] of model.boundaryStages)
       physicalDetailUnitBoundaryStages.set(key, value);
   }
-  if (
-    physicalDetailUnits.size !== analysisDetailUnits.size ||
-    [...physicalDetailUnits].some((unit) => !analysisDetailUnits.has(unit)) ||
-    [...analysisDetailUnits].some((unit) => !physicalDetailUnits.has(unit))
-  )
-    add(
-      "error",
-      "quality-architecture-detail-unit-coverage-mismatch",
-      relative(analysisPath),
-      "The Quality integration matrix must process the exact verification-unit set handed off by every current Architecture detail area.",
-    );
+  for (const issue of inspectDocumentRelations({
+    kind: "quality_detail_unit_coverage",
+    integration,
+    physicalDetailUnits,
+    analysisPath: relative(analysisPath),
+  })) {
+    const finding = mapQualityAnalysisIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
 
   const localItemOwners = new Map<string, string>();
   const qualityDefinitions: QualityDefinitionModel[] = [];
@@ -790,8 +770,8 @@ export function inspectQualityRepository(
     ],
   ] as const;
   for (const [declaringPath, declaringDocument] of declaredLocalItemCounts) {
-    if (
-      (declaringPath === qualityCenterPath
+    const document = (
+      declaringPath === qualityCenterPath
         ? parseQualityCenter({
             path: relative(declaringPath),
             content: declaringDocument,
@@ -800,14 +780,15 @@ export function inspectQualityRepository(
             path: relative(declaringPath),
             content: declaringDocument,
           })
-      ).result.localItemCount !== localItemOwners.size
-    )
-      add(
-        "error",
-        "quality-local-verification-item-count-mismatch",
-        relative(declaringPath),
-        "The declared Local Item count must exist in the canonical design-set table and equal the exact Local Item set owned by current Quality Definitions.",
-      );
+    ).result;
+    for (const issue of inspectQualityConsistency({
+      kind: "quality_local_item_count",
+      document,
+      localItemOwners,
+    })) {
+      const finding = mapQualityAnalysisIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
+    }
   }
   const inspectQualityGoalLocalRelationsResult = inspectQualityConsistency({
     kind: "quality_goal_local_relations",

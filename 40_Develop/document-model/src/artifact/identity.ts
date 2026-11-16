@@ -5,6 +5,7 @@
  */
 
 import { omitMarkdownFencedCode } from "./anchors.ts";
+
 import { captureDocumentTableRows, parseMarkdownFences } from "./markdown.ts";
 import type {
   ArtifactSource,
@@ -13,6 +14,49 @@ import type {
   DocumentText,
   ParseResult,
 } from "./types.ts";
+
+/**
+ * 観測済み成果物名の共通配置規則を照合する。
+ * @responsibility 安定IDを本文に置く規則とEvidence名の文法だけを所有する。
+ * @trace ARCH-000008
+ * @input request: 相対Pathと対象名規則。
+ * @returns 中立Issue。
+ * @effect N/A: Filesystemへアクセスしない。
+ * @security 対象範囲・実体の安全性はCallerが確認する。
+ */
+export function inspectArtifactPlacement(
+  request: Readonly<{ path: string; kind: "filename" | "evidence_name" }>,
+): readonly DocumentIssue[] {
+  const name = request.path.split("/").at(-1) ?? "";
+  const stableId = name.match(/\b(?:REQ|UX|IA|UI|SPEC)-\d{6}\b/gu)?.[0];
+  if (request.kind === "filename")
+    return stableId
+      ? [
+          {
+            kind: "artifact.document-identity.stable-id-in-filename",
+            targetIdentity: request.path,
+            location: { path: request.path },
+            reason: "stable-id-in-filename",
+            details: { value0: stableId },
+          },
+        ]
+      : [];
+  if (request.kind !== "evidence_name")
+    throw new Error("unknown_artifact_placement_kind");
+  return /^\d{6}(?:-\d{4})?_[a-z0-9]+(?:-[a-z0-9]+)*(?:-\d{2})?\.(?:md|json|tap|txt|log)$/u.test(
+    name,
+  )
+    ? []
+    : [
+        {
+          kind: "artifact.document-identity.noncanonical-evidence-filename",
+          targetIdentity: request.path,
+          location: { path: request.path },
+          reason: "noncanonical-evidence-filename",
+          details: {},
+        },
+      ];
+}
 
 /**
  * 原文から観測できたIdentityと宣言を保持する。

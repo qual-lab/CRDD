@@ -60,6 +60,7 @@ function parseArtifactModels(
 import { runChecker as runDocumentChecker } from "../../src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
 import type { DocumentFinding } from "../../src/report/types.ts";
+import { inspectQualityRepository } from "../../src/repository/quality.ts";
 import { inspectSpecRepository } from "../../src/repository/spec.ts";
 import { inspectUiRepository } from "../../src/repository/ui.ts";
 
@@ -3088,6 +3089,28 @@ test("UXを主な関係領域に持たない採用要求もUX分析から省略�
         finding.path === "02_UX/01_User_Experience.md",
     ),
     `${result.stdout}\n${result.stderr}`,
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "discovery-requirement-definition-coverage-mismatch" &&
+        finding.path === "01_Discovery/01_Product_Discovery.md",
+    ),
+    result.stdout,
+  );
+  const uxIndexPath = path.join(root, "02_UX", "01_User_Experience.md");
+  write(
+    uxIndexPath,
+    `${fs.readFileSync(uxIndexPath, "utf8")}\n| [UX-999999](Definitions/UX-999999/ux_definition.md) | REQ-000003 |\n`,
+  );
+  const definitionCoverage = runChecker(root);
+  assert.ok(
+    definitionCoverage.report.findings.some(
+      (finding) =>
+        finding.code === "ux-definition-coverage-mismatch" &&
+        finding.path === "02_UX/01_User_Experience.md",
+    ),
+    definitionCoverage.stdout,
   );
 });
 
@@ -8198,6 +8221,85 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
     `${result.stderr}\n${result.stdout}`,
   );
 
+  // 一つのCoverage欠測が、定義本文や重複所有の独立検査を止めない。
+  const uxQualityPath = path.join(
+    root,
+    "07_Quality",
+    "Analysis",
+    "UX",
+    "quality_analysis.md",
+  );
+  const uxQuality = fs.readFileSync(uxQualityPath, "utf8");
+  const missingCoverage = uxQuality.replace(
+    /^## 2\. 全件Coverage Index\s*$[\s\S]*?(?=^## 3\.)/mu,
+    "",
+  );
+  assert.notEqual(missingCoverage, uxQuality);
+  const duplicateDirectory = path.join(
+    root,
+    "07_Quality",
+    "Definitions",
+    "QA-000002",
+  );
+  const duplicateDefinition = path.join(
+    duplicateDirectory,
+    "quality_definition.md",
+  );
+  try {
+    write(uxQualityPath, missingCoverage);
+    write(
+      definitionPath,
+      definition.replace(
+        /^### 条件区分の適用\s*$[\s\S]*?(?=^## 3\. 検証項目)/mu,
+        "",
+      ),
+    );
+    write(duplicateDefinition, definition.replaceAll("QA-000001", "QA-000002"));
+    result = runChecker(root);
+    assert.equal(result.status, 1);
+    for (const code of [
+      "quality-canonical-mapping-section-missing",
+      "quality-verification-state-applicability-incomplete",
+      "quality-local-verification-id-duplicate",
+    ])
+      assert.ok(
+        result.report.findings.some((finding) => finding.code === code),
+        `${code}\n${result.stdout}`,
+      );
+    for (const code of [
+      "quality-canonical-mapping-coverage-mismatch",
+      "quality-source-goal-relation-closure-mismatch",
+      "quality-definition-set-mismatch",
+      "quality-cross-model-goal-coverage-mismatch",
+    ])
+      assert.equal(
+        result.report.findings.some((finding) => finding.code === code),
+        false,
+        `${code}\n${result.stdout}`,
+      );
+    // Coverageが揃ったときは同じ実体の集合不一致を従来どおり拒否する。
+    write(uxQualityPath, uxQuality);
+    result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "quality-definition-set-mismatch",
+      ),
+      result.stdout,
+    );
+    assert.equal(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "quality-canonical-mapping-section-missing",
+      ),
+      false,
+    );
+  } finally {
+    write(uxQualityPath, uxQuality);
+    write(definitionPath, definition);
+    fs.unlinkSync(duplicateDefinition);
+    fs.rmdirSync(duplicateDirectory);
+  }
+
   write(
     definitionPath,
     definition.replace(
@@ -8575,6 +8677,58 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
     ),
     `${result.stderr}\n${result.stdout}`,
   );
+  // 同じ準備に四比較の差分を重ねても、診断位置・順序・一件性を保持する。
+  writeQualityMapping(
+    mapping
+      .replaceAll(
+        "../../Definitions/QA-000001/quality_definition.md",
+        "not-definition.md",
+      )
+      .replace("| `sample.core` |", "| `sample.other` |"),
+  );
+  result = runChecker(root);
+  const comparisonCodes = new Set([
+    "quality-definition-closure-missing",
+    "quality-definition-set-mismatch",
+    "quality-architecture-detail-unit-coverage-mismatch",
+    "quality-local-verification-item-count-mismatch",
+  ]);
+  const qualityFindings: DocumentFinding[] = [];
+  inspectQualityRepository(root, "official", qualityFindings);
+  assert.deepEqual(
+    qualityFindings
+      .filter((finding) => comparisonCodes.has(finding.code))
+      .map((finding) => finding.code),
+    [
+      "quality-definition-closure-missing",
+      "quality-definition-set-mismatch",
+      "quality-architecture-detail-unit-coverage-mismatch",
+      "quality-local-verification-item-count-mismatch",
+    ],
+  );
+  // 公開レポートは内部追加順ではなく既存のcode順へ整列する。
+  assert.deepEqual(
+    result.report.findings
+      .filter((finding) => comparisonCodes.has(finding.code))
+      .map((finding) => [finding.code, finding.path]),
+    [
+      [
+        "quality-architecture-detail-unit-coverage-mismatch",
+        "07_Quality/04_Quality_Integration.md",
+      ],
+      [
+        "quality-definition-closure-missing",
+        "07_Quality/04_Quality_Integration.md",
+      ],
+      ["quality-definition-set-mismatch", "07_Quality/Definitions"],
+      [
+        "quality-local-verification-item-count-mismatch",
+        "07_Quality/01_Quality_Center.md",
+      ],
+    ],
+    `${result.stderr}\n${result.stdout}`,
+  );
+  writeQualityMapping(mapping);
   write(qualityCenterPath, qualityCenter);
 
   const verificationResultTemplatePath = path.join(
@@ -9876,6 +10030,74 @@ test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する",
       (finding) => finding.code === "change-navigation-population-mismatch",
     ),
     `${result.stderr}\n${result.stdout}`,
+  );
+  // 不変のRepository準備は再利用し、ひな型・配置の差分だけを加える。
+  write(
+    path.join(root, "template/99_Roadmap/Changes/CHG-XXXXXX/change.md"),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/99_Roadmap/Changes/CHG-XXXXXX/change.md",
+      ),
+      "utf8",
+    ),
+  );
+  for (const file of [
+    "04_UI/01_User_Interface.md",
+    "06_Architecture/01_Architecture.md",
+    "80_Communication/01_Communication.md",
+    "05_SPEC/04_Actor_System_Sequence.md",
+  ])
+    write(path.join(root, "template", file), "# Template\n");
+  write(
+    path.join(root, "99_Roadmap/Changes/CHG-000065/Evidence/change.md"),
+    "# Change Trace\n変更ID: CHG-000065\n",
+  );
+  write(
+    path.join(root, "99_Roadmap/Changes/CHG-000065/Evidence/wrong.md"),
+    "# Evidence\n",
+  );
+  const migrated = runChecker(root);
+  assert.deepEqual(
+    migrated.report.findings
+      .filter(
+        (finding) =>
+          finding.code === "mandatory-authority-evaluation-template-invalid" ||
+          finding.code === "mandatory-applicability-template-invalid",
+      )
+      .map((finding) => [finding.code, finding.path]),
+    [
+      [
+        "mandatory-applicability-template-invalid",
+        "template/05_SPEC/04_Actor_System_Sequence.md",
+      ],
+      [
+        "mandatory-applicability-template-invalid",
+        "template/80_Communication/01_Communication.md",
+      ],
+      [
+        "mandatory-authority-evaluation-template-invalid",
+        "template/04_UI/01_User_Interface.md",
+      ],
+      [
+        "mandatory-authority-evaluation-template-invalid",
+        "template/06_Architecture/01_Architecture.md",
+      ],
+    ],
+  );
+  assert.ok(
+    migrated.report.findings.some(
+      (finding) =>
+        finding.code === "change-trace-placement" &&
+        finding.path.endsWith("/Evidence/change.md"),
+    ),
+  );
+  assert.ok(
+    migrated.report.findings.some(
+      (finding) =>
+        finding.code === "noncanonical-evidence-filename" &&
+        finding.path.endsWith("/Evidence/wrong.md"),
+    ),
   );
 });
 

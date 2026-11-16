@@ -201,6 +201,36 @@ export function inspectUxConsistency(
   request: UxConsistencyRequest,
 ): readonly DocumentIssue[] {
   switch (request.kind) {
+    case "ux_analysis_coverage": {
+      const { index, expectedRequirementIds, actualRequirementIds } = request;
+      return expectedRequirementIds.size !== actualRequirementIds.size ||
+        [...expectedRequirementIds].some((id) => !actualRequirementIds.has(id))
+        ? [
+            {
+              kind: "artifact.ux.analysis-coverage-mismatch",
+              targetIdentity: index.source.path,
+              location: { path: index.source.path },
+              reason: "analysis-coverage-mismatch",
+              details: {},
+            },
+          ]
+        : [];
+    }
+    case "ux_definition_coverage": {
+      const { index, actualIds } = request;
+      return index.ids.size !== actualIds.size ||
+        [...index.ids].some((id) => !actualIds.has(id))
+        ? [
+            {
+              kind: "artifact.ux.definition-coverage-mismatch",
+              targetIdentity: index.source.path,
+              location: { path: index.source.path },
+              reason: "definition-coverage-mismatch",
+              details: {},
+            },
+          ]
+        : [];
+    }
     case "ux_projection": {
       const p = request.projection;
       return p.selectedSection === null ||

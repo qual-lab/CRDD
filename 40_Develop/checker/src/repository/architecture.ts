@@ -8,6 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArchitectureAnalysis,
+  type ArchitectureDefinition,
+  type ArchitectureDetailMapModel,
+  type ArchitectureDetailModel,
   inspectArchitectureConsistency,
   parseArchitectureAnalysis,
   parseArchitectureCrossModel,
@@ -215,7 +218,6 @@ export function inspectArchitectureRepository(
   const uiIds = definitionIds("04_UI", "UI", "ui_definition.md");
   const specIds = definitionIds("05_SPEC", "SPEC", "spec_definition.md");
   const analysisRoot = path.join(root, "06_Architecture", "Analysis");
-  const analysisRelations = new Set<string>();
   const analyses: ArchitectureAnalysis[] = [];
   const actualAnalysisIds = new Set<string>();
 
@@ -263,8 +265,6 @@ export function inspectArchitectureRepository(
         { checklistSource },
       );
       analyses.push(model.result);
-      for (const relation of model.result.relations)
-        analysisRelations.add(relation);
       for (const issue of inspectArchitectureConsistency({
         kind: "architecture_readiness",
         documentType: "analysis",
@@ -325,14 +325,9 @@ export function inspectArchitectureRepository(
     }
   }
   const registryModel = crossModelIndex.result.registry;
-  const {
-    relations: registryRelations,
-    relationEntries: registryRelationEntries,
-  } = registryModel;
   const definitionRoot = path.join(root, "06_Architecture", "Definitions");
   const actualDefinitions = new Set<string>();
-  const definitionRelations = new Set<string>();
-  const definitionRelationEntries: string[] = [];
+  const definitions: ArchitectureDefinition[] = [];
   if (lstatIfPresent(definitionRoot)?.isDirectory())
     for (const entry of fs.readdirSync(definitionRoot, {
       withFileTypes: true,
@@ -356,10 +351,7 @@ export function inspectArchitectureRepository(
         entry.name,
         { checklistSource },
       );
-      for (const relation of model.result.relations) {
-        definitionRelationEntries.push(relation);
-        definitionRelations.add(relation);
-      }
+      definitions.push(model.result);
       for (const issue of inspectArchitectureConsistency({
         kind: "architecture_readiness",
         documentType: "definition",
@@ -409,11 +401,8 @@ export function inspectArchitectureRepository(
     "07_Detail_Architecture_Map.md",
   );
   const detailRoot = path.join(root, "06_Architecture", "Details");
-  const detailMapRelations = new Set<string>();
-  const detailMapClosureRelations = new Set<string>();
-  const detailDocumentRelations = new Set<string>();
-  const detailCoveredDefinitions = new Set<string>();
-  const registeredDetailAreas = new Set<string>();
+  let detailMap: ArchitectureDetailMapModel | null = null;
+  const details: ArchitectureDetailModel[] = [];
   const actualDetailAreas = new Set<string>();
   const isArchitectureReady = isArchitectureReadyStatus;
   if (!lstatIfPresent(detailMapPath)?.isFile())
@@ -429,11 +418,7 @@ export function inspectArchitectureRepository(
       path: relative(detailMapPath),
       content: source,
     });
-    for (const area of model.result.areas) registeredDetailAreas.add(area);
-    for (const relation of model.result.relations)
-      detailMapRelations.add(relation);
-    for (const relation of model.result.closureRelations)
-      detailMapClosureRelations.add(relation);
+    detailMap = model.result;
     for (const issue of inspectArchitectureConsistency({
       kind: "architecture_detail_map_coverage",
       document: model,
@@ -474,10 +459,7 @@ export function inspectArchitectureRepository(
         entry.name,
         { checklistSource },
       );
-      for (const relation of model.result.relations)
-        detailDocumentRelations.add(relation);
-      for (const identity of model.result.coveredDefinitions)
-        detailCoveredDefinitions.add(identity);
+      details.push(model.result);
       for (const issue of inspectArchitectureConsistency({
         kind: "architecture_readiness",
         documentType: "detail",
@@ -492,13 +474,10 @@ export function inspectArchitectureRepository(
     kind: "architecture_detail_coverage",
     ...{
       sourcePath: relative(detailMapPath),
-      registeredDetailAreas,
+      map: detailMap,
+      details,
       actualDetailAreas,
-      detailMapRelations,
-      detailDocumentRelations,
-      detailMapClosureRelations,
       actualDefinitions,
-      detailCoveredDefinitions,
       isArchitectureReady,
     },
   })) {
@@ -509,11 +488,9 @@ export function inspectArchitectureRepository(
     kind: "architecture_relations",
     ...{
       sourcePath: relative(architectureIndexPath),
-      analysisRelations,
-      definitionRelations,
-      definitionRelationEntries,
-      registryRelations,
-      registryRelationEntries,
+      analyses,
+      definitions,
+      registry: registryModel,
     },
   })) {
     const finding = mapArchitectureDomainIssueToFinding(issue);

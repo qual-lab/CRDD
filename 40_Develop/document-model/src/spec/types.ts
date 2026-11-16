@@ -16,6 +16,17 @@ import type {
 } from "../artifact/types.ts";
 
 /**
+ * Actor／System Sequenceの取得済み内容。
+ * @responsibility raw本文と出典を保持し実行時系列を推論しない。
+ * @trace ARCH-000008
+ */
+export type SpecSequence = Readonly<{
+  source: ArtifactSource;
+  artifact: ArtifactModel;
+  sections: readonly DocumentSection[];
+}>;
+
+/**
  * SPECの目的・条件・振る舞い・回復・受入条件を表す。
  * @responsibility 同名節の全出現、参照、期待IDと宣言本文を分離して保持する。
  * @trace ARCH-000008

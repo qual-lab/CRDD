@@ -8,6 +8,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArtifactSource,
+  inspectArtifactPlacement,
+  inspectChangePlacement,
   inspectDocumentRelations,
   inspectReleaseConsistency,
   inspectReleaseDocuments,
@@ -31,9 +33,11 @@ import {
   readRepositoryRevision,
 } from "../../../version-control/src/index.ts";
 import { createFindingCollector } from "../report/collect.ts";
+import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
 import {
   mapDocumentIdentityIssueToFinding,
   mapDocumentRuleIssueToFinding,
+  mapPhaseDiagramIssueToFinding,
   mapStableReleaseIssueToFinding,
 } from "../report/document.ts";
 import type { DocumentFinding, DocumentReport } from "../report/types.ts";
@@ -171,52 +175,17 @@ export function inspectDocumentRepository(
   }
 
   /**
-   * declared Change Trace Idを決定する。
-   *
-   * @responsibility declared Change Trace Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+   * Changeの限定Headerを元の40行断面で取得する。
+   * @responsibility 観測回数と例外順を維持する。
    * @trace ARCH-000001
-   * @input file: string
-   * @returns string | nullを返す。
-   * @precondition 「file: string」がdeclaredChangeTraceIdの入力契約を満たす。
-   * @postcondition declaredChangeTraceIdの責務を完了した結果だけを返す。
-   * @effect Fileの先頭40行を同期readしてDomain Header解析へ渡す。
-   * @failure 観測・解析例外を伝播し、後続の処理を実行しない。
-   * @invariant declaredChangeTraceIdは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary Repository Filesystemの同期読取りとDomain本文解析の境界。
-   * @security N/A: declaredChangeTraceIdはAuthority、秘密値または信頼判断を扱わない。
-   * @concurrency N/A: declaredChangeTraceIdは共有非同期状態を持たない同期処理である。
+   * @effect File読取り。
    */
-  function declaredChangeTraceId(file: string): string | null {
+  function readChangeTraceHeader(file: string) {
     const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
     return parseChangeDocument(
       { path: relative(file), content: header },
       { mode: "canonical" },
-    ).result.changeId;
-  }
-
-  /**
-   * Change Trace Definition Signatureが存在するかを判定する。
-   *
-   * @responsibility Change Trace Definition Signatureの存在条件とtrue／false境界を所有する。
-   * @trace ARCH-000001
-   * @input file: string
-   * @returns booleanを返す。
-   * @precondition 「file: string」がhasChangeTraceDefinitionSignatureの入力契約を満たす。
-   * @postcondition hasChangeTraceDefinitionSignatureの責務を完了した結果だけを返す。
-   * @effect 同じFileを元位置で二回readし、見出しとIDを確認する。
-   * @failure 観測・解析例外を伝播し、後続の処理を実行しない。
-   * @invariant hasChangeTraceDefinitionSignatureは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary Repository Filesystemの同期読取りとDomain本文解析の境界。
-   * @security N/A: hasChangeTraceDefinitionSignatureはAuthority、秘密値または信頼判断を扱わない。
-   * @concurrency N/A: hasChangeTraceDefinitionSignatureは共有非同期状態を持たない同期処理である。
-   */
-  function hasChangeTraceDefinitionSignature(file: string): boolean {
-    const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
-    const hasStandardHeading = parseChangeDocument(
-      { path: relative(file), content: header },
-      { mode: "canonical" },
-    ).result.hasStandardHeading;
-    return Boolean(declaredChangeTraceId(file) && hasStandardHeading);
+    ).result;
   }
 
   const { resolveLocalTarget, resolveLinkWithFixedHistory } =
@@ -388,17 +357,8 @@ export function inspectDocumentRepository(
       const contract = capture({ path: relativePath, content: read(file) });
       if (!contract) throw new Error("missing_phase_diagram_contract");
       for (const issue of contract.issues) {
-        if (
-          issue.kind !== "artifact.phase-diagram.contract-invalid" ||
-          typeof issue.details.missingItems !== "string"
-        )
-          throw new Error("invalid_phase_diagram_domain_issue");
-        add(
-          "error",
-          "phase_diagram_disposition_contract_invalid",
-          relativePath,
-          `工程の基本図処置契約が不完全です: ${issue.details.missingItems}`,
-        );
+        const finding = mapPhaseDiagramIssueToFinding(issue, relativePath);
+        add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
   }
@@ -491,10 +451,7 @@ export function inspectDocumentRepository(
     }
   }
   if (repositoryMode === "official") {
-    const canonicalTitleContracts = new Map([
-      ["99_Roadmap/01_Roadmap.md", "# CRDD Roadmap"],
-    ]);
-    for (const [relativePath, expectedTitle] of canonicalTitleContracts) {
+    for (const relativePath of ["99_Roadmap/01_Roadmap.md"]) {
       const file = path.join(root, relativePath);
       if (
         !lstatIfPresent(file)?.isFile() ||
@@ -502,17 +459,15 @@ export function inspectDocumentRepository(
       ) {
         continue;
       }
-      const actualTitle = read(file)
-        .replace(/^\uFEFF/u, "")
-        .split(/\r?\n/u)
-        .find((line) => /^#\s+\S/u.test(line));
-      if (actualTitle !== expectedTitle) {
-        add(
-          "error",
-          "canonical-document-title-mismatch",
-          relativePath,
-          `Expected canonical title ${JSON.stringify(expectedTitle)}; found ${JSON.stringify(actualTitle ?? "missing")}.`,
-        );
+      for (const issue of inspectReleaseConsistency({
+        kind: "roadmap_title",
+        document: parseCanonicalDocument({
+          path: relativePath,
+          content: read(file),
+        }).result,
+      })) {
+        const finding = mapDocumentIdentityIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
   }
@@ -552,18 +507,16 @@ export function inspectDocumentRepository(
       }).result.candidateVersion;
       return candidateVersion !== null && candidateVersion !== stableVersion;
     });
-    if (
-      !hasDifferentCandidateVersion &&
-      stableTagCommit !== null &&
-      currentHeadCommit !== null &&
-      stableTagCommit !== currentHeadCommit
-    ) {
-      add(
-        "error",
-        "stable-release-tag-identity-mismatch",
-        relative(path.join(root, ".git")),
-        `Official ${stableVersion} tag must resolve to the checked HEAD commit.`,
-      );
+    for (const issue of inspectReleaseConsistency({
+      kind: "stable_tag_identity",
+      stableVersion,
+      hasDifferentCandidateVersion,
+      stableTagCommit,
+      currentHeadCommit,
+      path: relative(path.join(root, ".git")),
+    })) {
+      const finding = mapStableReleaseIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
     }
     const readmePath = path.join(root, "README.md");
     const readme = lstatIfPresent(readmePath)?.isFile() ? read(readmePath) : "";
@@ -658,18 +611,18 @@ export function inspectDocumentRepository(
     versions.size === 1 &&
     repositoryMode === "official"
   ) {
-    const readmeVersion = parseReadme({
+    const readmeModel = parseReadme({
       path: relative(readme),
       content: read(readme),
-    }).result.version;
-    const expectedVersion = versions.values().next().value;
-    if (readmeVersion && readmeVersion !== expectedVersion) {
-      add(
-        "error",
-        "readme-version-mismatch",
-        "README.md",
-        `README=${readmeVersion}, canonical=${expectedVersion}`,
-      );
+    }).result;
+    const expectedVersion = versions.values().next().value as string;
+    for (const issue of inspectReleaseConsistency({
+      kind: "readme_version",
+      readme: readmeModel,
+      expectedVersion,
+    })) {
+      const finding = mapDocumentIdentityIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
     }
   }
 
@@ -706,7 +659,6 @@ export function inspectDocumentRepository(
     }
   }
 
-  const stableIdPattern = /\b(?:REQ|UX|IA|UI|SPEC)-\d{6}\b/gu;
   const stableIdOccurrences = new Map();
   const stableIdDefinitions = new Map();
   for (const file of allMarkdownFiles) {
@@ -782,74 +734,63 @@ export function inspectDocumentRepository(
   }
 
   for (const file of allFiles) {
-    const stableId = path.basename(file).match(stableIdPattern)?.[0];
-    if (stableId) {
-      add(
-        "error",
-        "stable-id-in-filename",
-        relative(file),
-        `${stableId}: use the ID inside the owning artifact, not as a filename.`,
-      );
+    for (const issue of inspectArtifactPlacement({
+      kind: "filename",
+      path: relative(file),
+    })) {
+      const finding = mapDocumentIdentityIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
     }
-    if (/^CHG-[^.]+\.md$/u.test(path.basename(file))) {
-      add(
-        "error",
-        "legacy-change-trace-layout",
-        relative(file),
-        "Flat CHG Markdown files are not canonical. Use 99_Roadmap/Changes/<CHG-ID>/change.md.",
-      );
+    for (const issue of inspectChangePlacement({
+      kind: "filename",
+      path: relative(file),
+    })) {
+      const finding = mapChangeDomainIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
     }
     if (path.basename(file) === "change.md") {
       if (isEvidenceFile(file)) {
-        if (hasChangeTraceDefinitionSignature(file)) {
-          add(
-            "error",
-            "change-trace-placement",
-            relative(file),
-            "A file under Evidence contains a Change Trace header. " +
-              "Move the Change Trace definition into its owning Changes tree, " +
-              "or remove the Change Trace header from supporting evidence.",
-          );
+        const heading = readChangeTraceHeader(file);
+        const identity = readChangeTraceHeader(file);
+        for (const issue of inspectChangePlacement({
+          kind: "evidence",
+          heading,
+          identity,
+        })) {
+          const finding = mapChangeDomainIssueToFinding(issue);
+          add(finding.severity, finding.code, finding.path, finding.message);
         }
         continue;
       }
       const aggregateRoot = changeTraceRootFor(file);
       if (!aggregateRoot) {
-        add(
-          "error",
-          "change-trace-placement",
-          relative(file),
-          `The checker cannot recognize this Change Trace path in repository mode ${repositoryMode}. ` +
-            `Recognized inspection paths: ${recognizedChangeTracePatterns.join(", ")}.`,
-        );
+        for (const issue of inspectChangePlacement({
+          kind: "unrecognized",
+          path: relative(file),
+          repositoryMode,
+          patterns: recognizedChangeTracePatterns,
+        })) {
+          const finding = mapChangeDomainIssueToFinding(issue);
+          add(finding.severity, finding.code, finding.path, finding.message);
+        }
         continue;
       }
-      const aggregateId = path
-        .basename(aggregateRoot)
-        .match(/^CHG-(?:[0-9]{6}|XXXXXX)/u)?.[0];
-      const declaredId = declaredChangeTraceId(file);
-      if (!aggregateId || !declaredId || aggregateId !== declaredId) {
-        add(
-          "error",
-          "change-trace-aggregate-identity-mismatch",
-          relative(file),
-          "The aggregate directory ID and the Change ID declared by change.md must match exactly.",
-        );
+      for (const issue of inspectChangePlacement({
+        kind: "aggregate",
+        aggregateName: path.basename(aggregateRoot),
+        document: readChangeTraceHeader(file),
+      })) {
+        const finding = mapChangeDomainIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
     if (isEvidenceFile(file) && isWithin(path.join(root, "99_Roadmap"), file)) {
-      const evidenceName = path.basename(file);
-      if (
-        !/^\d{6}(?:-\d{4})?_[a-z0-9]+(?:-[a-z0-9]+)*(?:-\d{2})?\.(?:md|json|tap|txt|log)$/u.test(
-          evidenceName,
-        )
-      ) {
-        add(
-          "error",
-          "noncanonical-evidence-filename",
-          relative(file),
-          "Evidence filenames must use YYMMDD[-HHmm]_<type> with a collision suffix only when needed.",
-        );
+      for (const issue of inspectArtifactPlacement({
+        kind: "evidence_name",
+        path: relative(file),
+      })) {
+        const finding = mapDocumentIdentityIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
   }

@@ -259,14 +259,19 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
   );
   const request = {
     sourcePath: "index.md",
-    analysisRelations: new Set(["UI-000001|ARCH-000001"]),
-    definitionRelations: new Set(["UI-000002|ARCH-000001"]),
-    definitionRelationEntries: [
-      "UI-000002|ARCH-000001",
-      "UI-000002|ARCH-000001",
+    analyses: [
+      {
+        ...architectureComparisonBase.analysis,
+        relations: ["UI-000001|ARCH-000001"],
+      },
     ],
-    registryRelations: registry.relations,
-    registryRelationEntries: registry.relationEntries,
+    definitions: [
+      {
+        ...architectureComparisonBase.definition,
+        relations: ["UI-000002|ARCH-000001", "UI-000002|ARCH-000001"],
+      },
+    ],
+    registry,
   };
   assert.deepEqual(
     inspectArchitectureConsistency({
@@ -285,11 +290,9 @@ test("Architecture登録表は出現重複と最初の定義Linkを保持する"
       kind: "architecture_relations",
       ...{
         ...request,
-        analysisRelations: empty,
-        definitionRelations: empty,
-        definitionRelationEntries: [],
-        registryRelations: empty,
-        registryRelationEntries: [],
+        analyses: [],
+        definitions: [],
+        registry: { ...registry, relations: empty, relationEntries: [] },
       },
     }),
     [],
@@ -601,15 +604,47 @@ test("Architecture詳細本文は部分関係と用途別Ready条件を維持す
 test("Architecture詳細閉包は領域・関係・Covered所有者を順に検査する", () => {
   const request = {
     sourcePath: "map.md",
-    registeredDetailAreas: new Set(["a"]),
+    map: {
+      ...architectureComparisonBase.map,
+      areas: new Set(["a"]),
+      relations: new Set(["a|ARCH-000001"]),
+      closureRelations: new Set(["b|ARCH-000001"]),
+    },
+    details: [
+      {
+        ...architectureComparisonBase.detail,
+        relations: new Set(["b|ARCH-000001"]),
+        coveredDefinitions: new Set<string>(),
+      },
+    ],
     actualDetailAreas: new Set(["b"]),
-    detailMapRelations: new Set(["a|ARCH-000001"]),
-    detailDocumentRelations: new Set(["b|ARCH-000001"]),
-    detailMapClosureRelations: new Set(["b|ARCH-000001"]),
     actualDefinitions: new Set(["ARCH-000001"]),
-    detailCoveredDefinitions: new Set<string>(),
     isArchitectureReady: true,
   };
+  const withoutMap = {
+    ...request,
+    map: null,
+    details: [],
+    actualDetailAreas: new Set<string>(),
+    actualDefinitions: new Set<string>(),
+    isArchitectureReady: false,
+  };
+  assert.deepEqual(
+    inspectArchitectureConsistency({
+      kind: "architecture_detail_coverage",
+      ...withoutMap,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    inspectArchitectureConsistency({
+      kind: "architecture_detail_coverage",
+      ...withoutMap,
+      actualDefinitions: new Set(["ARCH-000001"]),
+      isArchitectureReady: true,
+    }).map((issue) => issue.reason),
+    ["detail-relation-closure-mismatch", "detail-covered-owner-missing"],
+  );
   assert.deepEqual(
     inspectArchitectureConsistency({
       kind: "architecture_detail_coverage",
@@ -637,9 +672,14 @@ test("Architecture詳細閉包は領域・関係・Covered所有者を順に検�
       ...{
         ...request,
         actualDetailAreas: new Set(["a"]),
-        detailDocumentRelations: request.detailMapRelations,
-        detailMapClosureRelations: request.detailMapRelations,
-        detailCoveredDefinitions: request.actualDefinitions,
+        map: { ...request.map, closureRelations: request.map.relations },
+        details: [
+          {
+            ...architectureComparisonBase.detail,
+            relations: request.map.relations,
+            coveredDefinitions: request.actualDefinitions,
+          },
+        ],
       },
     }),
     [],
@@ -1434,3 +1474,28 @@ test("未対応のArchitecture整合種別は拒否する", () => {
     /architecture_consistency_kind_invalid/u,
   );
 });
+
+/**
+ * 比較入力で変わらない解析済み本文を一度だけ用意する。
+ * @responsibility 差分の関係列・集合は各Caseで独立に上書きする。
+ * @trace RCM-UT-002
+ */
+const architectureComparisonBase = {
+  analysis: parseArchitectureAnalysis(
+    { path: "analysis.md", content: "" },
+    "UI",
+    "UI-000001",
+  ).result,
+  definition: parseArchitectureDefinition(
+    { path: "definition.md", content: "" },
+    "ARCH-000001",
+  ).result,
+  registry: parseArchitectureIndex({ path: "index.md", content: "" }).result
+    .registry,
+  map: parseArchitectureDetailMap({ path: "map.md", content: "" }).result,
+  detail: parseArchitectureDetail(
+    { path: "detail.md", content: "" },
+    "area",
+    {},
+  ).result,
+};

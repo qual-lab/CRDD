@@ -208,6 +208,10 @@
       "verifies": [
         "checker.report-quality",
         "domain-model.artifact-quality-analysis",
+        "domain-model.artifact-release",
+        "domain-model.artifact-identity",
+        "domain-model.artifact-change",
+        "document-model.communication-parse",
         "domain-model.semantic-relations"
       ]
     },
@@ -396,6 +400,10 @@
         "checker.finding-model",
         "checker.artifact-relation-adapter",
         "checker.report-types",
+        "checker.report-document",
+        "checker.report-quality",
+        "domain-model.artifact-quality-analysis",
+        "domain-model.semantic-relations",
         "domain-model.artifact-architecture-relations",
         "domain-model.artifact-ux",
         "domain-model.artifact-ia",

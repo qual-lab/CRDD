@@ -392,6 +392,30 @@ export function mapChangeDomainIssueToFinding(
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.change.legacy-change-trace-layout":
+      code = "legacy-change-trace-layout";
+      message =
+        "Flat CHG Markdown files are not canonical. Use 99_Roadmap/Changes/<CHG-ID>/change.md.";
+      break;
+    case "artifact.change.change-trace-placement-evidence":
+      code = "change-trace-placement";
+      message =
+        "A file under Evidence contains a Change Trace header. Move the Change Trace definition into its owning Changes tree, or remove the Change Trace header from supporting evidence.";
+      break;
+    case "artifact.change.change-trace-placement":
+      if (
+        typeof issue.details.repositoryMode !== "string" ||
+        typeof issue.details.patterns !== "string"
+      )
+        throw new Error("invalid_change_placement_issue_details");
+      code = "change-trace-placement";
+      message = `The checker cannot recognize this Change Trace path in repository mode ${issue.details.repositoryMode}. Recognized inspection paths: ${issue.details.patterns}.`;
+      break;
+    case "artifact.change.change-trace-aggregate-identity-mismatch":
+      code = "change-trace-aggregate-identity-mismatch";
+      message =
+        "The aggregate directory ID and the Change ID declared by change.md must match exactly.";
+      break;
     case "artifact.change.impact-files-section-mismatch":
       code = "change-impact-files-section-mismatch";
       message =
@@ -449,6 +473,16 @@ export function mapUxDomainIssueToFinding(
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.ux.analysis-coverage-mismatch":
+      code = "ux-requirement-analysis-coverage-mismatch";
+      message =
+        "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.";
+      break;
+    case "artifact.ux.definition-coverage-mismatch":
+      code = "ux-definition-coverage-mismatch";
+      message =
+        "Every canonical UX outcome must have exactly one UX definition.";
+      break;
     case "artifact.ux.cross-projection-incomplete":
       code = "ux-cross-cutting-projection-incomplete";
       message =
@@ -539,6 +573,11 @@ export function mapDiscoveryDomainIssueToFinding(
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.discovery.definition-coverage-mismatch":
+      code = "discovery-requirement-definition-coverage-mismatch";
+      message =
+        "Every adopted Discovery requirement must have exactly one canonical requirement definition.";
+      break;
     case "artifact.discovery.analysis-contract-invalid":
       code = "discovery-analysis-contract-invalid";
       message =

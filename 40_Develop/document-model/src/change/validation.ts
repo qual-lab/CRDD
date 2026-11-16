@@ -5,6 +5,81 @@
  */
 import type { DocumentIssue } from "../artifact/types.ts";
 import type { ChangeDocument, ChangeIndex } from "./types.ts";
+
+/**
+ * 変更定義の観測済み配置・別取得Header・集約Identityを照合する。
+ * @responsibility Change専用の配置意味を所有しPath探索は行わない。
+ * @trace ARCH-000008
+ * @input request: Callerが選んだ位置と取得済み内容。
+ * @returns 旧位置で配送する中立Issue。
+ * @effect N/A: 値比較のみ。
+ * @failure 未知kindを拒否する。
+ */
+export function inspectChangePlacement(
+  request:
+    | Readonly<{ kind: "filename"; path: string }>
+    | Readonly<{
+        kind: "evidence";
+        heading: ChangeDocument;
+        identity: ChangeDocument;
+      }>
+    | Readonly<{
+        kind: "unrecognized";
+        path: string;
+        repositoryMode: string;
+        patterns: readonly string[];
+      }>
+    | Readonly<{
+        kind: "aggregate";
+        document: ChangeDocument;
+        aggregateName: string;
+      }>,
+): readonly DocumentIssue[] {
+  let reason: string;
+  let file: string;
+  let details: DocumentIssue["details"] = {};
+  switch (request.kind) {
+    case "filename":
+      if (!/^CHG-[^.]+\.md$/u.test(request.path.split("/").at(-1) ?? ""))
+        return [];
+      reason = "legacy-change-trace-layout";
+      file = request.path;
+      break;
+    case "evidence":
+      if (!(request.identity.changeId && request.heading.hasStandardHeading))
+        return [];
+      reason = "change-trace-placement-evidence";
+      file = request.heading.source.path;
+      break;
+    case "unrecognized":
+      reason = "change-trace-placement";
+      file = request.path;
+      details = {
+        repositoryMode: request.repositoryMode,
+        patterns: request.patterns.join(", "),
+      };
+      break;
+    case "aggregate": {
+      const id = request.aggregateName.match(/^CHG-(?:[0-9]{6}|XXXXXX)/u)?.[0];
+      if (id && request.document.changeId && id === request.document.changeId)
+        return [];
+      reason = "change-trace-aggregate-identity-mismatch";
+      file = request.document.source.path;
+      break;
+    }
+    default:
+      throw new Error("unknown_change_placement_kind");
+  }
+  return [
+    {
+      kind: `artifact.change.${reason}`,
+      targetIdentity: file,
+      location: { path: file },
+      reason,
+      details,
+    },
+  ];
+}
 /**
  * Canonical変更文書の影響区画とPhase条件を検査する。
  * @responsibility Canonical変更文書の影響区画とPhase条件を検査する。

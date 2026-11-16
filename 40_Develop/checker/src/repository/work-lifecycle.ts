@@ -8,10 +8,20 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   inspectChangeNavigation,
+  inspectReleaseConsistency,
+  parseArchitectureIndex,
+  parseCanonicalDocument,
   parseChangeDocument,
   parseChangeIndex,
+  parseCommunication,
+  parseSpecSequence,
+  parseUiIndex,
 } from "../../../document-model/src/index.ts";
 import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
+import {
+  mapStableReleaseIssueToFinding,
+  mapTemplateIssueToFinding,
+} from "../report/document.ts";
 import type { DocumentFinding } from "../report/types.ts";
 import { lstatIfPresent } from "../repository/observe.ts";
 
@@ -102,26 +112,29 @@ export function inspectWorkLifecycleRepository(
         const finding = mapChangeDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
-      for (const templatePath of [
-        path.join(root, "template", "04_UI", "01_User_Interface.md"),
-        path.join(root, "template", "06_Architecture", "01_Architecture.md"),
-      ]) {
+      for (const [templatePath, parse] of [
+        [
+          path.join(root, "template", "04_UI", "01_User_Interface.md"),
+          parseUiIndex,
+        ],
+        [
+          path.join(root, "template", "06_Architecture", "01_Architecture.md"),
+          parseArchitectureIndex,
+        ],
+      ] as const) {
         if (!lstatIfPresent(templatePath)?.isFile()) continue;
-        const template = read(templatePath);
-        if (
-          !/^維持責任者: \S+/mu.test(template) ||
-          !/^基本決定権限: \S+/mu.test(template) ||
-          !/^項目別例外Authority: \S+/mu.test(template) ||
-          /項目の決定権限: 必要に応じて/mu.test(template)
-        )
-          add(
-            "error",
-            "mandatory-authority-evaluation-template-invalid",
-            relative(templatePath),
-            "The official UI and Architecture root templates must require an owner, a default authority, and an evaluated item-specific authority exception.",
-          );
+        const parsed = parse(
+          { path: relative(templatePath), content: read(templatePath) },
+          { mode: "template" },
+        );
+        for (const issue of parsed.issues.filter(
+          (issue) => issue.kind === "artifact.template.authority-invalid",
+        )) {
+          const finding = mapTemplateIssueToFinding(issue);
+          add(finding.severity, finding.code, finding.path, finding.message);
+        }
       }
-      for (const [templatePath, requiredFragments] of [
+      for (const [templatePath, parse] of [
         [
           path.join(
             root,
@@ -129,33 +142,21 @@ export function inspectWorkLifecycleRepository(
             "80_Communication",
             "01_Communication.md",
           ),
-          [
-            "## 認知意図",
-            "## 市場・採用探索",
-            "## 人間対象調査",
-            "適用判定: `<Applicable／N/A: 理由／OPEN: 理由・確認先・再評価契機>`",
-          ],
+          parseCommunication,
         ],
         [
           path.join(root, "template", "05_SPEC", "04_Actor_System_Sequence.md"),
-          [
-            "要求、受理、Effect、結果観測および終了を全数評価し、統合する段階には理由を記録した",
-          ],
+          parseSpecSequence,
         ],
       ] as const) {
         if (!lstatIfPresent(templatePath)?.isFile()) continue;
-        const template = read(templatePath);
-        if (
-          requiredFragments.some((fragment) => !template.includes(fragment)) ||
-          /## (?:認知意図|市場・採用探索)（該当する場合）/u.test(template) ||
-          /必要に応じて分けた/u.test(template)
-        )
-          add(
-            "error",
-            "mandatory-applicability-template-invalid",
-            relative(templatePath),
-            "Conditional communication and sequence concerns must keep a visible mandatory applicability evaluation instead of a vague optional instruction.",
-          );
+        for (const issue of parse(
+          { path: relative(templatePath), content: read(templatePath) },
+          { mode: "template" },
+        ).issues) {
+          const finding = mapTemplateIssueToFinding(issue);
+          add(finding.severity, finding.code, finding.path, finding.message);
+        }
       }
     }
   }
@@ -199,15 +200,15 @@ export function inspectWorkLifecycleRepository(
         );
     }
   }
-  if (
-    evidencePaths.some(
-      (evidencePath) => releaseIndex.split(evidencePath).length - 1 !== 1,
-    )
-  )
-    add(
-      "error",
-      "release-evidence-navigation-incomplete",
-      relative(releaseIndexPath),
-      "Every Release-owned Evidence file must have one exact navigation link.",
-    );
+  for (const issue of inspectReleaseConsistency({
+    kind: "release_evidence_navigation",
+    index: parseCanonicalDocument({
+      path: relative(releaseIndexPath),
+      content: releaseIndex,
+    }).result,
+    evidencePaths,
+  })) {
+    const finding = mapStableReleaseIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
 }

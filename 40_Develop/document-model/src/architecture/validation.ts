@@ -8,6 +8,7 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
 } from "../artifact/checklist.ts";
+import { inspectAuthorityTemplate } from "../artifact/document-header.ts";
 import {
   captureDocumentSections,
   captureDocumentTableRows,
@@ -1062,6 +1063,7 @@ export const architectureCrossModelFiles: readonly string[] = Object.freeze(
  */
 export function parseArchitectureIndex(
   artifact: ArtifactSource,
+  options: Readonly<{ mode?: "template" }> = {},
 ): ParseResult<ArchitectureIndex> & Readonly<{ result: ArchitectureIndex }> {
   const source = { path: artifact.path, content: artifact.content };
   const visible = {
@@ -1114,6 +1116,8 @@ export function parseArchitectureIndex(
       reason: "definition-index-coverage-mismatch",
       details: {},
     });
+  if (options.mode === "template")
+    issues.push(...inspectAuthorityTemplate(source));
   return {
     status: issues.length ? "partial" : "complete",
     result,

@@ -257,6 +257,42 @@ export function validateDiscoveryIndex(
 }
 
 /**
+ * 採用要求と観測済みの要求定義集合の被覆を照合する。
+ * @responsibility 台帳モデルの採用集合と実在ID集合を一つの完成比較として受け付ける。
+ * @trace ARCH-000008
+ * @input index: 取得済みDiscovery台帳。actualIds: Callerが観測した定義ID集合。
+ * @returns 不一致の中立Issue一件、または空列。
+ * @precondition 対象選択・File確認・読取りはCallerが完了している。
+ * @postcondition 入力を変更せず、部分モデルを補完しない。
+ * @effect N/A: 同期的な値比較のみ。
+ * @failure 集合の操作例外を伝播する。
+ * @invariant 旧件数差と期待側の包含違反、空集合の扱いを維持する。
+ * @boundary Discoveryの意味比較。Filesystem・UX・Semanticへ依存しない。
+ * @security 観測済み範囲を全実在・採用許可・品質Passへ昇格しない。
+ * @concurrency 共有可変状態を持たない。
+ */
+export function inspectDiscoveryCoverage(
+  index: DiscoveryIndex,
+  actualIds: ReadonlySet<string>,
+): readonly DocumentIssue[] {
+  const expectedIds = index.adoptedRequirementIds;
+  if (
+    expectedIds.size === actualIds.size &&
+    [...expectedIds].every((id) => actualIds.has(id))
+  )
+    return [];
+  return [
+    {
+      kind: "artifact.discovery.definition-coverage-mismatch",
+      targetIdentity: index.source.path,
+      location: { path: index.source.path },
+      reason: "definition-coverage-mismatch",
+      details: {},
+    },
+  ];
+}
+
+/**
  * 任意Markdownの内容モデルとDiscovery参照の局所診断を構築する。
  * @responsibility 取得済みモデルから既存順の中立Issueを返す。
  * @trace ARCH-000008

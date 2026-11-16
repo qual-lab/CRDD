@@ -1,5 +1,47 @@
 # Checkerの設計
 
+## 現行の責務と公開境界
+
+Checkerは検査対象の選択、Repositoryの実観測、DMの完成操作の編成、診断表示と終了値を所有する。文書の構文・内容・工程関係の意味RuleはDM、Git／Filesystem／認証／保存の技術Ruleはそれぞれの専門Ownerが正本である。以下の残存候補があるため、現時点で全Ruleの一正本化が完了したとは扱わない。
+
+公開値はrunChecker／runSemanticCoverage／runTestCatalogの三関数、公開型はCheckerRunRequest／CheckerResult／CheckerFindingの三型を維持する。Process接続はbin/checker.ts、配布入口はtemplate/tools/crdd-check.ts、内部の三操作選択はcli/command.tsが所有する。Repository観測・Mapper・回帰計画HelperをRootへ追加しない。通常文書診断、Rule付き診断、Semantic／Realityの診断は既存の異なるshapeを保持する。
+
+| Logical Block | 現行Source | 入力・出力とConsumer | 残すEffect／境界 |
+|---|---|---|---|
+| 対象選択 | repository/scope.ts、discover.ts | CLI指定、探索結果、参照から検査対象を決定しdocumentへ返す | Root・Link・Gitlink境界、Scope拡張、除外と未検査の明示 |
+| Repository観測 | repository/observe.ts、references.ts、各工程File | File／Directory／Gitと文書モデルを取得し、完成Parse・比較へ渡す | 列挙・lstat・読取り・固定履歴・観測不能と不存在の区別 |
+| 実行調停 | repository/document.ts、各工程File | 正常・欠測・先行Issueに応じた呼出し順、短絡、集計を所有 | 別readの観測と正常時の診断順を維持。意味Ruleは再実装しない |
+| 中立Issueの表示変換 | report/document.ts、convert.ts、quality.ts、semantic.ts、reality.ts | DMのIssueと必要な表示文脈から既存Findingを生成 | severity・code・message・Path・不足field／未知kindの拒否 |
+| 収集と出力 | report/collect.ts、output.ts、types.ts | 追加順の診断と既存レポートをCLIへ接続 | JSON shape、表示、件数。合格やAuthorityを独自生成しない |
+| CLI受付 | cli/document.ts、semantic.ts、test-catalog.ts、command.ts、types.ts | argv・cwd・出力先から対象操作を呼び終了値を返す | 引数拒否、Root検証、結果配送。Semantic明示writeだけ既存DM保存へ接続 |
+| 回帰計画 | test-catalog/selection.ts、plan.ts | DMのreadTestCatalog結果と変更Pathから試験・静的Owner・段階を選ぶ | 計画は未実行。高負荷の明示条件と不明変更の保守的選択を維持 |
+
+現在の32 Sourceを上記に対応付け、別のScope／Runner／Mapper Frameworkへ作り直さない。既存repositoryの工程別Fileは観測順が異なるため維持し、reportは診断語彙の異なる専用変換を維持する。関数別の基準版目録と実Consumerの分類は[CHG-000082のChecker棚卸し](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#checker-responsibility-inventory)を参照する。目録はCallbackや全分岐の網羅証明ではない。
+
+## 残存Ruleと重複の処置
+
+| 対象 | 現在の判断 | 処置 |
+|---|---|---|
+| 基本図Issueの表示組立て | 意味判定済みIssueのkind／必要値・code・文言をrepositoryで扱っていた | report/document.tsの専用変換へ移管。七対象の選択・接続結果欠測・読取り・Parse・配送位置はrepositoryに維持 |
+| 品質表の二ループ | 各ループでfreshなreadを行うため、別観測でもある | 維持。無条件Cacheやread統合を入れない。取得時点・例外・区分別診断順を変える場合は別の設計判断が必要 |
+| 文書Header・Identity・Related・参照の反復受付 | Parseが似ていても対象範囲や読取り位置が異なる | 同一観測とはみなさず維持。Root／Scope・参照解決・旧Header窓を一般Parserへ混ぜない |
+| reportのstringDetail類 | 型検査は似ているが、例外理由・必要値・診断shapeが異なる | 診断境界ごとに維持。汎用Mapperや新しいHelper Fileを追加しない |
+| UX／Discoveryの三被覆比較 | 期待集合と実観測の関係判断を各モデルOwnerへ移管した | UX二比較はinspectUxConsistency、DiscoveryはinspectDiscoveryCoverage。列挙・read・ID追加・配送位置は維持 |
+| Qualityの参照捕捉・集合／単位／件数 | 定義閉包・被覆・宣言件数はQuality、Architecture検証単位との被覆はSemanticへ移管した | 先頭Coverage節の定義ID、先頭Detail節の参照targetも完成Parseが捕捉する。CheckerはPath解決・実在観測・取得順の集合化を維持 |
+| Work Lifecycleの本文条件・Release案内 | 共通責任者宣言はUI／Architectureの明示template Parse、適用条件はCommunication／SPEC Sequenceの完成Parseへ移管した | 共通Artifactは宣言構文と局所比較だけを提供し、工程の固定文言は各Ownerが所有する。Evidence案内のexact出現はReleaseが比較する |
+| Release／成果物名・配置の意味判定 | 版・Tag・標準Roadmap表題はRelease、安定ID／Evidence名はArtifact、Change固有の配置はChangeへ移管した | Git・Filesystemの観測、Root・Link境界、適用Scope・短絡・読取り断面はCheckerに維持 |
+| Architectureの関係集合編成 | 既存DM比較を分析・定義・登録表・詳細Map／本文のモデル入力へ接続した | Checkerの意味集合組立てを撤去。実在領域・実在定義・Readyと取得順は維持 |
+
+棚卸しで挙げたArchitecture、UX／Discovery、Quality、作業Lifecycle、Release、Artifact命名・配置の候補を各Ownerへ接続した。これをRepository全体の未知Rule不存在や全体回帰成功の根拠にはしない。今回承認されたQuality欠測継続とは条件変更の範囲を分け、現行の診断code・文言・適用Scope、対象の安全な観測、終了値と検証義務を維持する。
+
+Change配置の認識可能PathとEvidence対象の選択はCheckerに残す。定義HeaderとIDは元の40行断面で取得し、Evidenceでは二回readの別モデルをChangeへ渡す。認識不能時とEvidence時のcontinueを維持する。次版Candidateの探索は既存someの短絡で行い、安定版Tagの比較へ適用条件を渡す。全Markdownを先に解析するCacheやモデル列に変えず、途中の読取り失敗と診断位置を維持する。
+
+Qualityの閉包と定義被覆は別の完成比較として元位置で実行する。既知リンクを先にlstatする不存在診断と、その後の物理列挙との集合比較は別観測のままである。Coverage欠測時は既知リンクの不足だけを確定し、全期待集合が必要な余分・件数差の判断を保留する。検証単位は同じArchitecture本文の観測から、Local Item件数は先勝ちOwner Mapから渡し、行数・Parse成功数へ置換しない。Center／Realityの件数Parseも同じ位置で行い、nullを0へ補完しない。
+
+UX分析の期待集合は同じ観測で得たDiscovery採用REQを明示搬送し、UX台帳IDや解析成功数で代用しない。Discovery台帳モデルは従来の再read位置で保持し、採用要求と実在定義の完成比較へ渡す。UX定義の期待集合は同じUX台帳モデルを使う。部分Parse結果を理由に観測済みIDを除外せず、空集合・余分・同数差し替えの旧条件を各Ownerが保持する。
+
+Architectureの二比較は既存のinspectArchitectureConsistencyを維持し、Checkerは同じ位置で取得したモデル列を渡す。詳細Map欠測はnull、本文File欠測でもactualDetailAreasへ追加する既存観測はそのままとする。二回readとchecklistSource、部分モデル、元の比較・診断位置は変えない。定義・詳細モデルを比較位置まで保持する分、一時メモリの保持範囲は増え得るが、永続Cache・新しいStore・再取得は追加しない。
+
 ## 試験台帳モデルと回帰計画の境界
 
 document-modelは試験台帳の構造、実在試験との照合、登録されたOwner・Path・段階・Profile・利用側関係の妥当性を所有する。Checkerの`src/test-catalog/selection.ts`は変更Pathから回帰対象と静的検査Ownerを選定し、高負荷試験の明示条件を検査する。`src/test-catalog/plan.ts`は段階順・人間入力待ち・Windows専用Profile・結果集約・変更Path受付を所有する。
@@ -39,7 +81,9 @@ Checker自身の公開API・受付・配布入口・依存方向・試験Runner�
 
 旧Profileは撤去した。`cli/document.ts`は引数・Root初回確認・表示・終了値を所有し、`repository/document.ts`は探索・Scope・参照・文書状態・工程観測の順序と報告集計を所有する。工程観測はproject-context、work-lifecycle、discovery-ux、ia、ui、spec、architecture、qualityの八Fileへ分ける。工程間をつなぐ共通Reader、Snapshot、Registryは作らず、取得済み値をDomainへ渡す。既存参照解決関数だけをDiscovery／UXへ明示搬送し、Readerを再構築しない。診断は元の追記配列に配送し、途中の例外でも先行診断を破棄しない。
 
-Qualityの有限状態・工程分析・統合・Detail引渡し・関係閉包と書式条件はDomainへ接続する。CenterとRealityは個別にParseし、同じCenterモデルとRealityのParse結果をQualityのinspectQualityConsistency（quality_reality_state）へ渡す。関連flagをCheckerで再構成しない。DomainのIssueは専用の二変換で従来診断へ接続する。Coverage節欠落時は従来どおり統合本文をreadした後でreturnし、以降の定義列挙・Detail取得を実行しない。読取り前の先読みSnapshotは作らず、同Fileの再read、Ready条件付きread、実Path集合とIDの観測は元位置に保持する。
+Qualityの有限状態・工程分析・統合・Detail引渡し・関係閉包と書式条件はDomainへ接続する。CenterとRealityは個別にParseし、同じCenterモデルとRealityのParse結果をQualityのinspectQualityConsistency（quality_reality_state）へ渡す。関連flagをCheckerで再構成しない。DomainのIssueは専用の二変換で従来診断へ接続する。Coverage節欠落時も統合本文をreadした後で欠落エラーを追加し、Quality全体からreturnしない。定義本文・重複所有・Detail・件数・Local Itemの独立検査を続行する。読取り前の先読みSnapshotは作らず、正常入力での同Fileの再read、Ready条件付きread、実Path集合とIDの観測は元位置に保持する。
+
+Coverageが不完全な場合、取得済み参照の不存在は確認するが、参照列にない実定義を孤立した定義とは判定しない。全節が揃った場合だけ空の定義リンク集合と全体件数・孤立側の差を検査する。DMへは部分モデルをそのまま渡し、分析結果のhasCoverageSectionsを成功・全被覆成立と解釈しない。既知Coverageに正本外IDがある等の確定した不一致はDMが引き続き返す。欠測エラーが残るため、この継続を検査成功へ昇格しない。読取り例外は従来どおり伝播する。
 
 Quality定義の取得済みモデル列、統合モデル、工程分析の完成結果を同工程比較へ渡す。定義関係・条件・段階・義務Mapの集約はQuality Ownerへ閉じ、SemanticのLocal Item段階照合にも同じ定義モデル列を渡す。局所Issueと所有者重複は従来の読取り直後の位置で配送し、先勝ち所有者Mapと実体観測はCheckerに維持する。後段の件数宣言用再readは統合しない。
 
@@ -61,7 +105,7 @@ Quality Definitionは従来のphysicalDefinitionPaths順に一回ずつ生本文
 
 Architecture分析／定義／領域は、初回本文と二回目Checklist原文を元位置で別々に取得し、完成Parseへ明示的に渡す。Checklist理由はDomainが同じ捕捉から計算し、Ready・登録・閉包の比較はArchitectureのinspectArchitectureConsistencyへ接続する。Templateのlstat・read・不存在skipは維持し、完成した定義／領域ParseのtemplateContractに対応する既存診断だけを同じ位置へ配送する。parseArchitectureIndexが返す固定文書順に横断文書をlstat・readし、登録節が空なら後続文書を観測しない。可視本文とFence保持の構造本文はDomainが同じ取得から導く。
 
-詳細Mapの取得後に`parseArchitectureDetailMap`へ接続する。Detail DirectoryはFile有無より前に実領域集合へ追加し、File欠落は診断後に継続する。一回目の原文と二回目のChecklist理由を`parseArchitectureDetail`へ渡し、部分関係とCovered定義を従来位置で集約する。領域列挙後の三閉包条件は`inspectArchitectureDetailCoverage`へ接続し、診断位置文字列だけを渡す。
+詳細Mapの取得後に`parseArchitectureDetailMap`へ接続する。Detail DirectoryはFile有無より前に実領域集合へ追加し、File欠落は診断後に継続する。一回目の原文と二回目のChecklist理由を`parseArchitectureDetail`へ渡し、部分モデルを従来の取得位置で保持する。領域列挙後の三閉包条件は`inspectArchitectureConsistency`のarchitecture_detail_coverageへ接続し、Map・本文モデル、実観測の領域／定義集合、Ready状態と診断位置を渡す。
 
 分析・定義・登録・Component・詳細領域の被覆と閉包はinspectArchitectureConsistencyへ渡す。入口の一回の原文から横断登録と定義台帳をモデル化し、局所重複診断も旧被覆位置に配送する。Componentは先の読取り値を流用せず元位置で再readし、完成した横断モデルの参照出現を比較する。担当確認用の後段readも統合しない。専用変換は旧code・文言・診断順を維持し、本文意味をCheckerへ戻さない。
 

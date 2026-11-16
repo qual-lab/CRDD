@@ -6,6 +6,57 @@
 import type { ArtifactSource, DocumentIssue } from "./types.ts";
 
 /**
+ * 共通の責任者・決定権限宣言を検査する。
+ * @responsibility 取得済みひな型の明示宣言だけを照合する。
+ * @trace ARCH-000008
+ * @effect N/A: 値比較のみ。
+ */
+export function inspectAuthorityTemplate(
+  source: ArtifactSource,
+): readonly DocumentIssue[] {
+  return !/^維持責任者: \S+/mu.test(source.content) ||
+    !/^基本決定権限: \S+/mu.test(source.content) ||
+    !/^項目別例外Authority: \S+/mu.test(source.content) ||
+    /項目の決定権限: 必要に応じて/mu.test(source.content)
+    ? [
+        {
+          kind: "artifact.template.authority-invalid",
+          targetIdentity: source.path,
+          location: { path: source.path },
+          reason: "authority-invalid",
+          details: {},
+        },
+      ]
+    : [];
+}
+
+/**
+ * 明示した適用条件と曖昧な任意化を照合する。
+ * @responsibility 工程Ownerが固定した必須文言と共通の任意化禁止を検査する。
+ * @trace ARCH-000008
+ * @effect N/A: 値比較のみ。
+ */
+export function inspectTemplateApplicability(
+  source: ArtifactSource,
+  requiredFragments: readonly string[],
+  rejectedFragments: readonly string[],
+): readonly DocumentIssue[] {
+  return requiredFragments.some(
+    (fragment) => !source.content.includes(fragment),
+  ) || rejectedFragments.some((fragment) => source.content.includes(fragment))
+    ? [
+        {
+          kind: "artifact.template.applicability-invalid",
+          targetIdentity: source.path,
+          location: { path: source.path },
+          reason: "applicability-invalid",
+          details: {},
+        },
+      ]
+    : [];
+}
+
+/**
  * Related見出し直後の標準文書番号順を検査する。
  * @responsibility Related見出し直後の標準文書番号順を検査する。
  * @trace ARCH-000008

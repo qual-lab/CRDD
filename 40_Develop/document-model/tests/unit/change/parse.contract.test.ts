@@ -11,9 +11,79 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   inspectChangeNavigation,
+  inspectChangePlacement,
   parseChangeDocument,
   parseChangeIndex,
 } from "../../../src/index.ts";
+
+/**
+ * Change配置を別取得Headerと照合する。
+ * @responsibility 取得断面を統合せず集約名と宣言の不一致を保持する。
+ * @trace RCM-UT-002
+ * @precondition 独立の部分モデルを使用。
+ * @stimulus ファイル名・Evidence・集約の各完成比較。
+ * @observation Issue種別と件数。
+ * @oracle 旧条件だけを拒否する。
+ * @cleanup N/A: I/Oなし。
+ */
+test("Change配置はHeader別観測と集約Identityを区別する", () => {
+  const base = parseChangeDocument(
+    { path: "change.md", content: "" },
+    { mode: "canonical" },
+  ).result;
+  const heading = { ...base, hasStandardHeading: true, changeId: null };
+  const identity = {
+    ...base,
+    hasStandardHeading: false,
+    changeId: "CHG-000001",
+  };
+  assert.equal(
+    inspectChangePlacement({ kind: "evidence", heading, identity }).length,
+    1,
+  );
+  assert.deepEqual(
+    inspectChangePlacement({
+      kind: "evidence",
+      heading: identity,
+      identity: heading,
+    }),
+    [],
+  );
+  for (const [aggregateName, changeId, invalid] of [
+    ["CHG-000001", "CHG-000001", false],
+    ["CHG-XXXXXX", "CHG-XXXXXX", false],
+    ["CHG-000001", null, true],
+    ["CHG-000001", "CHG-000002", true],
+    ["wrong", "CHG-000001", true],
+  ] as const)
+    assert.equal(
+      inspectChangePlacement({
+        kind: "aggregate",
+        aggregateName,
+        document: { ...base, changeId },
+      }).length,
+      invalid ? 1 : 0,
+    );
+  for (const [path, invalid] of [
+    ["CHG-000001.md", true],
+    ["CHG-custom.md", true],
+    ["CHG-000001.part.md", false],
+    ["change.md", false],
+  ] as const)
+    assert.equal(
+      inspectChangePlacement({ kind: "filename", path }).length,
+      invalid ? 1 : 0,
+    );
+  assert.deepEqual(
+    inspectChangePlacement({
+      kind: "unrecognized",
+      path: "change.md",
+      repositoryMode: "generic",
+      patterns: ["a", "b"],
+    })[0]?.details,
+    { repositoryMode: "generic", patterns: "a, b" },
+  );
+});
 
 /**
  * 影響見出しとBlock不正の異なる短絡を確認する。

@@ -10,17 +10,213 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  inspectArtifactPlacement,
   inspectDocumentRelations,
   inspectReleaseConsistency,
   inspectReleaseDocuments,
+  parseArchitectureIndex,
   parseArtifact,
   parseCanonicalDocument,
   parseChangelog,
+  parseCommunication,
   parseDiscoveryReferences,
   parseQualityTables,
   parseReadme,
+  parseSpecSequence,
+  parseUiIndex,
   parseUxIndex,
 } from "../../../src/index.ts";
+
+/**
+ * ひな型の局所規則を各文書Parseから確認する。
+ * @responsibility 共通宣言と工程固有文言を区別し部分モデルを保持する。
+ * @trace RCM-UT-002
+ * @precondition 合成本文のみ。
+ * @stimulus 通常／templateで解析。
+ * @observation Issueと原文。
+ * @oracle 旧固定条件を過不足なく維持する。
+ * @cleanup N/A: I/Oなし。
+ */
+test("配布ひな型の宣言と適用条件は各文書Parseで局所検査する", () => {
+  const authority =
+    "維持責任者: 人\n基本決定権限: 人\n項目別例外Authority: 評価済み";
+  for (const parse of [parseUiIndex, parseArchitectureIndex]) {
+    for (const [content, invalid] of [
+      [authority, false],
+      [authority.replace("基本決定権限", "旧権限"), true],
+      [`${authority}\n項目の決定権限: 必要に応じて`, true],
+    ] as const) {
+      const source = { path: "template.md", content };
+      assert.equal(
+        parse(source, { mode: "template" }).issues.some(
+          (issue) => issue.kind === "artifact.template.authority-invalid",
+        ),
+        invalid,
+      );
+      assert.equal(
+        parse(source).issues.some(
+          (issue) => issue.kind === "artifact.template.authority-invalid",
+        ),
+        false,
+      );
+    }
+  }
+  const communication =
+    "## 認知意図\n## 市場・採用探索\n## 人間対象調査\n適用判定: `<Applicable／N/A: 理由／OPEN: 理由・確認先・再評価契機>`";
+  const sequence =
+    "要求、受理、Effect、結果観測および終了を全数評価し、統合する段階には理由を記録した";
+  for (const [parse, valid] of [
+    [parseCommunication, communication],
+    [parseSpecSequence, sequence],
+  ] as const) {
+    for (const [content, invalid] of [
+      [valid, false],
+      ["", true],
+      [`${valid}\n必要に応じて分けた`, true],
+      [`${valid}\n## 認知意図（該当する場合）`, true],
+      [`${valid}\n## 市場・採用探索（該当する場合）`, true],
+    ] as const) {
+      const source = { path: "template.md", content };
+      const result = parse(source, { mode: "template" });
+      assert.equal(result.issues.length !== 0, invalid);
+      assert.equal(result.result.source.content, content);
+      assert.notEqual(result.result.source, source);
+      assert.deepEqual(parse(source).issues, []);
+    }
+  }
+});
+
+/**
+ * 共通成果物名とEvidence名を比較する。
+ * @responsibility Path対象選択と名前文法を区別する。
+ * @trace RCM-UT-002
+ * @precondition 相対Pathのみ。
+ * @stimulus 固定二用途へ渡す。
+ * @observation Issueとvalue。
+ * @oracle 旧正規表現の一致境界を保持する。
+ * @cleanup N/A: I/Oなし。
+ */
+test("成果物名は安定ID禁止とEvidence文法の境界を維持する", () => {
+  for (const [path, id] of [
+    ["a/REQ-000001.md", "REQ-000001"],
+    ["REQ-000001_UX-000002.md", null],
+    ["ARCH-000001.md", null],
+    ["a/spec.md", null],
+  ] as const) {
+    const result = inspectArtifactPlacement({ kind: "filename", path });
+    assert.equal(result.length, id === null ? 0 : 1);
+    if (id) assert.equal(result[0]?.details.value0, id);
+  }
+  for (const name of [
+    "261116_run.md",
+    "261116-1230_run-data-01.json",
+    "000000_any.log",
+  ])
+    assert.deepEqual(
+      inspectArtifactPlacement({
+        kind: "evidence_name",
+        path: `Evidence/${name}`,
+      }),
+      [],
+    );
+  for (const name of [
+    "run.md",
+    "20261116_run.md",
+    "261116_Run.md",
+    "261116_run.ts",
+  ])
+    assert.equal(
+      inspectArtifactPlacement({
+        kind: "evidence_name",
+        path: `Evidence/${name}`,
+      }).length,
+      1,
+    );
+});
+
+/**
+ * Releaseの値比較を観測から独立して確認する。
+ * @responsibility null・Candidate適用条件と案内のexact出現を保持する。
+ * @trace RCM-UT-002
+ * @precondition 不変の取得モデルを使用。
+ * @stimulus 版・Tag・案内を比較。
+ * @observation Issue件数と詳細。
+ * @oracle 未確認を不一致とみなさず既知不一致だけを返す。
+ * @cleanup N/A: I/Oなし。
+ */
+test("Release比較は版欠測・Tag未確認・Candidateと案内の出現数を区別する", () => {
+  for (const [content, invalid] of [
+    ["\uFEFF# CRDD Roadmap", false],
+    ["# Old\n# CRDD Roadmap", true],
+    ["", true],
+  ] as const)
+    assert.equal(
+      inspectReleaseConsistency({
+        kind: "roadmap_title",
+        document: parseCanonicalDocument({ path: "roadmap.md", content })
+          .result,
+      }).length,
+      invalid ? 1 : 0,
+    );
+  for (const [content, invalid] of [
+    ["", false],
+    ["Version: v0.22.0", false],
+    ["Version: v0.21.0", true],
+  ] as const)
+    assert.equal(
+      inspectReleaseConsistency({
+        kind: "readme_version",
+        readme: parseReadme({ path: "README.md", content }).result,
+        expectedVersion: "v0.22.0",
+      }).length,
+      invalid ? 1 : 0,
+    );
+  for (const [
+    stableTagCommit,
+    currentHeadCommit,
+    hasDifferentCandidateVersion,
+    invalid,
+  ] of [
+    [null, "b", false, false],
+    ["a", null, false, false],
+    ["a", "a", false, false],
+    ["a", "b", false, true],
+    ["a", "b", true, false],
+  ] as const)
+    assert.equal(
+      inspectReleaseConsistency({
+        kind: "stable_tag_identity",
+        stableVersion: "v0.22.0",
+        stableTagCommit,
+        currentHeadCommit,
+        hasDifferentCandidateVersion,
+        path: ".git",
+      }).length,
+      invalid ? 1 : 0,
+    );
+  for (const [content, invalid] of [
+    ["ref", false],
+    ["", true],
+    ["ref ref", true],
+  ] as const)
+    assert.equal(
+      inspectReleaseConsistency({
+        kind: "release_evidence_navigation",
+        index: parseCanonicalDocument({ path: "releases.md", content }).result,
+        evidencePaths: ["ref"],
+      }).length,
+      invalid ? 1 : 0,
+    );
+  assert.deepEqual(
+    inspectReleaseConsistency({
+      kind: "release_evidence_navigation",
+      index: parseCanonicalDocument({ path: "releases.md", content: "" })
+        .result,
+      evidencePaths: [],
+    }),
+    [],
+  );
+});
 
 /**
  * Headerと安定IDは取得範囲・欠落・全出現と所有を区別する。

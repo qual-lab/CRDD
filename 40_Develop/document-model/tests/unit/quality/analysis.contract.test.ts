@@ -34,6 +34,280 @@ import { captureQualityDocument } from "../../../src/quality/readiness.ts";
 import { captureQualityTemplate } from "../../../src/quality/templates.ts";
 
 /**
+ * Qualityの明示リンクを旧節選択で捕捉する。
+ * @responsibility raw本文・先頭節・出現順を保持する。
+ * @trace RCM-UT-002
+ * @precondition 重複・Fence・節外リンクを含む合成本文。
+ * @stimulus 完成Parseを呼ぶ。
+ * @observation IDとtarget列。
+ * @oracle 正式な先頭節だけを旧regex条件で捕捉する。
+ * @cleanup N/A: I/Oなし。
+ */
+test("Quality参照は先頭節のraw条件と重複出現を保持する", () => {
+  const link = "[QA](../../Definitions/QA-000001/quality_definition.md)";
+  const phase = parseQualityAnalysis({
+    path: "analysis.md",
+    content: `${link}\n## 2. 全件Coverage Index\n${link}\n\`\`\`\n${link}\n\`\`\`\n[bad](../../Definitions/QA-1/quality_definition.md)\n## 3. 次\n[other](../../Definitions/QA-000002/quality_definition.md)\n## 2. 全件Coverage Index\n[other](../../Definitions/QA-000003/quality_definition.md)\n## 終`,
+  }).result;
+  assert.deepEqual(phase.definitionReferences, ["QA-000001", "QA-000001"]);
+  assert.deepEqual(
+    inspectQualityConsistency({
+      kind: "quality_coverage_sections",
+      analyses: [phase],
+      analysisRoot: "Analysis",
+    }),
+    [],
+  );
+  assert.equal(
+    inspectQualityConsistency({
+      kind: "quality_coverage_sections",
+      analyses: [
+        phase,
+        parseQualityAnalysis({ path: "empty", content: "" }).result,
+      ],
+      analysisRoot: "Analysis",
+    })[0]?.kind,
+    "artifact.quality-analysis.canonical-mapping-section-missing",
+  );
+  const target = "../06_Architecture/Details/one-area/01_Architecture.md";
+  const integration = parseQualityIntegration({
+    path: "integration.md",
+    content: `[outside](${target})\n## 3. Architecture詳細設計領域の処置\n[first](${target})\n[again](${target})\n[bad](../06_Architecture/Details/Bad/01_Architecture.md)\n## 次\n[outside](../06_Architecture/Details/two/01_Architecture.md)`,
+  }).result;
+  assert.deepEqual(integration.detailReferences, [target, target]);
+});
+
+/**
+ * 定義の閉包・被覆とLocal Item件数を取得済みモデルから照合する。
+ * @responsibility Coverage欠測時の非対称条件とnull件数を保持する。
+ * @trace RCM-UT-002
+ * @precondition 不変の部分モデルを一回作り、各観点のSet・Mapを独立に用意する。
+ * @stimulus 閉包・被覆・件数の完成比較を呼ぶ。
+ * @observation Issueの全fieldと入力の非変更。
+ * @oracle 欠測時も既知リンクの不足は拒否し、未知の余分だけを保留する。
+ * @cleanup N/A: 外部I/Oなし。
+ * @boundary RCM-UT-002=N/A: 同期的な値比較。
+ */
+test("Quality定義の被覆は欠測の方向を保ち、宣言件数のnullを0にしない", () => {
+  const integration = parseQualityIntegration({
+    path: "integration.md",
+    content: "",
+  }).result;
+  const base = inspectQualityAnalysis([], new Set(), integration, "analysis");
+  const issue = (reason: string, path: string) => [
+    {
+      kind: `artifact.quality-analysis.${reason}`,
+      targetIdentity: path,
+      location: { path },
+      reason,
+      details: {},
+    },
+  ];
+  for (const hasCoverageSections of [true, false]) {
+    const analysis = { ...base, hasCoverageSections };
+    for (const [linked, physical, mismatch] of [
+      [[], [], false],
+      [["a"], ["a"], false],
+      [["a"], [], true],
+      [[], ["a"], hasCoverageSections],
+      [["a"], ["b"], true],
+      [["a"], ["a", "b"], hasCoverageSections],
+    ] as const) {
+      const linkedDefinitionPaths = new Set<string>(linked);
+      const physicalDefinitionPaths = new Set<string>(physical);
+      assert.deepEqual(
+        inspectQualityConsistency({
+          kind: "quality_definition_closure",
+          analysis,
+          linkedDefinitionPaths,
+          analysisPath: "integration.md",
+        }),
+        hasCoverageSections && linked.length === 0
+          ? issue("definition-closure-missing", "integration.md")
+          : [],
+      );
+      assert.deepEqual(
+        inspectQualityConsistency({
+          kind: "quality_definition_coverage",
+          analysis,
+          linkedDefinitionPaths,
+          physicalDefinitionPaths,
+          definitionsRoot: "Definitions",
+        }),
+        mismatch ? issue("definition-set-mismatch", "Definitions") : [],
+      );
+      assert.deepEqual([...linkedDefinitionPaths], linked);
+      assert.deepEqual([...physicalDefinitionPaths], physical);
+    }
+  }
+  const documents = [
+    parseQualityCenter({ path: "center.md", content: "" }).result,
+    parseQualityRealityAudit({ path: "reality.md", content: "" }).result,
+  ];
+  for (const document of documents) {
+    for (const [localItemCount, actualCount, mismatch] of [
+      [null, 0, true],
+      [0, 0, false],
+      [1, 1, false],
+      [2, 1, true],
+      [0, 1, true],
+    ] as const) {
+      const localItemOwners = new Map(
+        Array.from({ length: actualCount }, (_, i) => [
+          `item-${i}`,
+          "QA-000001",
+        ]),
+      );
+      const before = [...localItemOwners];
+      assert.deepEqual(
+        inspectQualityConsistency({
+          kind: "quality_local_item_count",
+          document: { ...document, localItemCount },
+          localItemOwners,
+        }),
+        mismatch
+          ? issue(
+              "local-verification-item-count-mismatch",
+              document.source.path,
+            )
+          : [],
+      );
+      assert.deepEqual([...localItemOwners], before);
+    }
+  }
+});
+
+/**
+ * Coverage欠測と確定できる違反を区別する。
+ * @responsibility 不完全な集合の不足方向だけを保留し、既知の重複・不正・段階不足を保持する。
+ * @trace RCM-UT-002
+ * @precondition Coverage欠測と取得済み関係を持つ部分モデルを用意する。
+ * @stimulus 分析、定義、横断Goalの既存照合を実行する。
+ * @observation 欠測flagと順序付きIssueを確認する。
+ * @oracle 未知の不足を診断せず、正本外の既知ID・重複・不正な処置は診断する。
+ * @cleanup N/A: 同期的な値検査のみ。
+ * @boundary RCM-UT-002=N/A: 外部I/Oなし。
+ */
+test("QualityはCoverage欠測でも確定できる違反の検査を続ける", () => {
+  const relation =
+    "| [REQ-000001](source.md) | `req-000001.qa-000001` | Definition | [Goal](../../Definitions/QA-000001/quality_definition.md) | 条件 | UT | Direct Boundary | `RCM-UT-001` |";
+  const missing = parseQualityAnalysis({
+    path: "missing.md",
+    content: `## 3. 検証目標への統合\n${relation}\n${relation}\n## 次`,
+  }).result;
+  const integration = parseQualityIntegration({
+    path: "integration.md",
+    content: "",
+  }).result;
+  const analysis = inspectQualityAnalysis(
+    [missing],
+    new Set(["REQ-000001"]),
+    integration,
+    "analysis",
+  );
+  assert.equal(analysis.hasCoverageSections, false);
+  assert.deepEqual(
+    analysis.issues.map((issue) => issue.reason),
+    ["source-relation-duplicate"],
+  );
+  const summary =
+    "| [REQ-999999](source.md) | x | x | x | UT | [Goal](../../Definitions/QA-000001/quality_definition.md) |";
+  const known = parseQualityAnalysis({
+    path: "known.md",
+    content: `## 2. 全件Coverage Index\n${summary}\n## 3. 検証目標への統合\n${relation}\n## 次`,
+  }).result;
+  const partial = inspectQualityAnalysis(
+    [known, missing],
+    new Set(["REQ-000001"]),
+    integration,
+    "analysis",
+  );
+  assert.equal(partial.hasCoverageSections, false);
+  assert.ok(
+    partial.issues.some(
+      (issue) => issue.reason === "canonical-mapping-coverage-mismatch",
+    ),
+  );
+  assert.ok(
+    partial.issues.some(
+      (issue) => issue.reason === "source-goal-relation-closure-mismatch",
+    ),
+  );
+
+  const definition = parseQualityDefinition(
+    { path: "definition.md", content: "" },
+    "QA-000001",
+  ).result;
+  const compare = (decomposed: ReadonlySet<string>) =>
+    inspectQualityConsistency({
+      kind: "quality_definition_relations",
+      definitions: [{ ...definition, sourceRelationEntries: ["duplicate"] }],
+      integration,
+      definitionsRoot: "definitions",
+      analysisPath: "integration.md",
+      analysis: {
+        ...analysis,
+        summarySourceLevels: new Map([["REQ-000001", new Set(["UT"])]]),
+        analysisSourceGoalLevels: new Map([
+          ["REQ-000001|QA-000001", new Set(decomposed)],
+        ]),
+      },
+    });
+  assert.equal(
+    compare(new Set(["UT", "IT"])).some(
+      (issue) => issue.reason === "source-test-level-decomposition-mismatch",
+    ),
+    false,
+  );
+  const independent = compare(new Set(["IT"]));
+  assert.equal(independent[0]?.reason, "definition-source-relation-duplicate");
+  assert.ok(
+    independent.some(
+      (issue) => issue.reason === "source-test-level-decomposition-mismatch",
+    ),
+  );
+  const goals = inspectQualityConsistency({
+    kind: "quality_goals",
+    analysisPath: "integration.md",
+    analysis: {
+      ...analysis,
+      goalLabelToSlug: new Map([["Known", "QA-000001"]]),
+      crossModelRows: [
+        ["Known", "Required", "Required", "Required", "Required", "Required"],
+        ["Known", "Required", "Required", "Required", "Required", "Required"],
+        ["Unknown", "BAD", "Required", "Required", "Required", "Required"],
+        ["Short", "x"],
+      ],
+    },
+  });
+  assert.deepEqual(
+    goals.map((issue) => issue.reason),
+    [
+      "cross-model-goal-duplicate",
+      "cross-model-disposition-invalid",
+      "cross-model-row-invalid",
+    ],
+  );
+  const presentButEmpty = parseQualityAnalysis({
+    path: "empty.md",
+    content:
+      "## 2. 全件Coverage Index\n| Source | Goal |\n## 3. 検証目標への統合\n## 次",
+  }).result;
+  const empty = inspectQualityAnalysis(
+    [presentButEmpty],
+    new Set(["REQ-000001"]),
+    integration,
+    "analysis",
+  );
+  assert.equal(empty.hasCoverageSections, true);
+  assert.ok(
+    empty.issues.some(
+      (issue) => issue.reason === "canonical-mapping-coverage-mismatch",
+    ),
+  );
+});
+
+/**
  * 九文書の完成Parseが共通断面と局所Issueを返すことを確認する。
  * @responsibility 内部のChecklist行列だけでなく本番公開入口の接続を反証する。
  * @trace RCM-UT-002

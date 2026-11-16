@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { UxAnalysisModel } from "../../../document-model/src/index.ts";
 import {
+  inspectDiscoveryCoverage,
   inspectUxConsistency,
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
@@ -343,10 +344,11 @@ export function inspectDiscoveryUxRepository(
       relative(templatePath),
       "The official distribution must include the UX requirement-analysis template.",
     );
-  const adoptedRequirements = parseDiscoveryIndex({
+  const discoveryIndex = parseDiscoveryIndex({
     path: relative(discoveryPath),
     content: read(discoveryPath),
-  }).result.adoptedRequirementIds;
+  }).result;
+  const adoptedRequirements = discoveryIndex.adoptedRequirementIds;
   const actualRequirements = new Set<string>();
   const uxIndex = read(uxIndexPath);
   const uxIndexModel = parseUxIndex({
@@ -525,16 +527,15 @@ export function inspectDiscoveryUxRepository(
     }
     uxAnalyses.push(model.result);
   }
-  if (
-    adoptedRequirements.size !== actualRequirements.size ||
-    [...adoptedRequirements].some((id) => !actualRequirements.has(id))
-  )
-    add(
-      "error",
-      "ux-requirement-analysis-coverage-mismatch",
-      relative(uxIndexPath),
-      "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.",
-    );
+  for (const issue of inspectUxConsistency({
+    kind: "ux_analysis_coverage",
+    index: uxIndexModel,
+    expectedRequirementIds: adoptedRequirements,
+    actualRequirementIds: actualRequirements,
+  })) {
+    const finding = mapUxDomainIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
   const discoveryDefinitionIds = new Set<string>();
   if (lstatIfPresent(discoveryDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(discoveryDefinitionsRoot, {
@@ -558,16 +559,13 @@ export function inspectDiscoveryUxRepository(
       }
     }
   }
-  if (
-    adoptedRequirements.size !== discoveryDefinitionIds.size ||
-    [...adoptedRequirements].some((id) => !discoveryDefinitionIds.has(id))
-  )
-    add(
-      "error",
-      "discovery-requirement-definition-coverage-mismatch",
-      relative(discoveryPath),
-      "Every adopted Discovery requirement must have exactly one canonical requirement definition.",
-    );
+  for (const issue of inspectDiscoveryCoverage(
+    discoveryIndex,
+    discoveryDefinitionIds,
+  )) {
+    const finding = mapDiscoveryDomainIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
   const uxDefinitionIds = new Set<string>();
   if (lstatIfPresent(uxDefinitionsRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(uxDefinitionsRoot, {
@@ -591,16 +589,14 @@ export function inspectDiscoveryUxRepository(
       }
     }
   }
-  if (
-    canonicalUxIds.size !== uxDefinitionIds.size ||
-    [...canonicalUxIds].some((id) => !uxDefinitionIds.has(id))
-  )
-    add(
-      "error",
-      "ux-definition-coverage-mismatch",
-      relative(uxIndexPath),
-      "Every canonical UX outcome must have exactly one UX definition.",
-    );
+  for (const issue of inspectUxConsistency({
+    kind: "ux_definition_coverage",
+    index: uxIndexModel,
+    actualIds: uxDefinitionIds,
+  })) {
+    const finding = mapUxDomainIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
   const legacyRoots = [
     path.join(root, "01_Discovery", "Explorations"),
     path.join(root, "02_UX", "Requirements"),

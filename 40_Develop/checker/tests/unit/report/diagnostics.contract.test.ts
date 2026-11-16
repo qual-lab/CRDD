@@ -19,7 +19,13 @@ import {
 import type { DocumentIssue } from "../../../../document-model/src/index.ts";
 import {
   inspectArchitectureConsistency,
+  inspectArtifactPlacement,
+  inspectChangePlacement,
+  inspectDiscoveryCoverage,
   inspectDocumentRelations,
+  inspectQualityAnalysis,
+  inspectQualityConsistency,
+  inspectReleaseConsistency,
   inspectSpecConsistency,
   inspectUxConsistency,
   parseArchitectureAnalysis,
@@ -28,10 +34,16 @@ import {
   parseArchitectureDetail,
   parseArchitectureDetailMap,
   parseArchitectureIndex,
+  parseCanonicalDocument,
+  parseChangeDocument,
+  parseCommunication,
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
   parseDiscoveryIndex,
+  parseQualityCenter,
   parseQualityDetailAnalysis,
+  parseQualityIntegration,
+  parseReadme,
   parseSpecAnalysis,
   parseSpecDefinition,
   parseSpecDefinitionCorrespondence,
@@ -39,6 +51,7 @@ import {
   parseSpecDetailIndex,
   parseSpecIndex,
   parseUiDefinition,
+  parseUiIndex,
   parseUxAnalysis,
   parseUxDefinition,
   parseUxIndex,
@@ -48,14 +61,367 @@ import { createFindingCollector } from "../../../src/report/collect.ts";
 import {
   mapArchitectureDomainIssueToFinding,
   mapArtifactDomainIssueToCheckerFinding,
+  mapChangeDomainIssueToFinding,
   mapDiscoveryDomainIssueToFinding,
   mapSpecDomainIssueToFinding,
   mapUxDomainIssueToFinding,
 } from "../../../src/report/convert.ts";
+import {
+  mapDocumentIdentityIssueToFinding,
+  mapPhaseDiagramIssueToFinding,
+  mapStableReleaseIssueToFinding,
+  mapTemplateIssueToFinding,
+} from "../../../src/report/document.ts";
+
+/**
+ * 移管した版・配置・ひな型Issueを旧表示へ接続する。
+ * @responsibility 実Producerからcode・文言・Path・severityを全field固定する。
+ * @trace RCM-UT-002
+ * @precondition 既知不一致の合成モデル。
+ * @stimulus 各完成操作とMapperを呼ぶ。
+ * @observation 固定四field。
+ * @oracle Rule再検査や文言の変化なし。
+ * @cleanup N/A: I/Oなし。
+ */
+test("Release・配置・ひな型の完成操作は旧診断へ接続する", () => {
+  const cases: readonly [
+    readonly DocumentIssue[],
+    (issue: DocumentIssue) => unknown,
+    string,
+    string,
+    string,
+  ][] = [
+    [
+      inspectReleaseConsistency({
+        kind: "roadmap_title",
+        document: parseCanonicalDocument({ path: "roadmap.md", content: "" })
+          .result,
+      }),
+      mapDocumentIdentityIssueToFinding,
+      "canonical-document-title-mismatch",
+      "roadmap.md",
+      'Expected canonical title "# CRDD Roadmap"; found "missing".',
+    ],
+    [
+      inspectReleaseConsistency({
+        kind: "readme_version",
+        readme: parseReadme({ path: "README.md", content: "Version: v0.21.0" })
+          .result,
+        expectedVersion: "v0.22.0",
+      }),
+      mapDocumentIdentityIssueToFinding,
+      "readme-version-mismatch",
+      "README.md",
+      "README=v0.21.0, canonical=v0.22.0",
+    ],
+    [
+      inspectReleaseConsistency({
+        kind: "stable_tag_identity",
+        stableVersion: "v0.22.0",
+        hasDifferentCandidateVersion: false,
+        stableTagCommit: "a",
+        currentHeadCommit: "b",
+        path: ".git",
+      }),
+      mapStableReleaseIssueToFinding,
+      "stable-release-tag-identity-mismatch",
+      ".git",
+      "Official v0.22.0 tag must resolve to the checked HEAD commit.",
+    ],
+    [
+      inspectReleaseConsistency({
+        kind: "release_evidence_navigation",
+        index: parseCanonicalDocument({ path: "releases.md", content: "" })
+          .result,
+        evidencePaths: ["ref"],
+      }),
+      mapStableReleaseIssueToFinding,
+      "release-evidence-navigation-incomplete",
+      "releases.md",
+      "Every Release-owned Evidence file must have one exact navigation link.",
+    ],
+    [
+      inspectArtifactPlacement({ kind: "filename", path: "REQ-000001.md" }),
+      mapDocumentIdentityIssueToFinding,
+      "stable-id-in-filename",
+      "REQ-000001.md",
+      "REQ-000001: use the ID inside the owning artifact, not as a filename.",
+    ],
+    [
+      inspectArtifactPlacement({ kind: "evidence_name", path: "old.md" }),
+      mapDocumentIdentityIssueToFinding,
+      "noncanonical-evidence-filename",
+      "old.md",
+      "Evidence filenames must use YYMMDD[-HHmm]_<type> with a collision suffix only when needed.",
+    ],
+    [
+      inspectChangePlacement({ kind: "filename", path: "CHG-000001.md" }),
+      mapChangeDomainIssueToFinding,
+      "legacy-change-trace-layout",
+      "CHG-000001.md",
+      "Flat CHG Markdown files are not canonical. Use 99_Roadmap/Changes/<CHG-ID>/change.md.",
+    ],
+    [
+      inspectChangePlacement({
+        kind: "unrecognized",
+        path: "change.md",
+        repositoryMode: "generic",
+        patterns: ["a", "b"],
+      }),
+      mapChangeDomainIssueToFinding,
+      "change-trace-placement",
+      "change.md",
+      "The checker cannot recognize this Change Trace path in repository mode generic. Recognized inspection paths: a, b.",
+    ],
+    [
+      parseCommunication(
+        { path: "communication.md", content: "" },
+        { mode: "template" },
+      ).issues,
+      mapTemplateIssueToFinding,
+      "mandatory-applicability-template-invalid",
+      "communication.md",
+      "Conditional communication and sequence concerns must keep a visible mandatory applicability evaluation instead of a vague optional instruction.",
+    ],
+    [
+      parseUiIndex(
+        { path: "ui.md", content: "" },
+        { mode: "template" },
+      ).issues.filter(
+        (issue) => issue.kind === "artifact.template.authority-invalid",
+      ),
+      mapTemplateIssueToFinding,
+      "mandatory-authority-evaluation-template-invalid",
+      "ui.md",
+      "The official UI and Architecture root templates must require an owner, a default authority, and an evaluated item-specific authority exception.",
+    ],
+    [
+      inspectChangePlacement({
+        kind: "aggregate",
+        aggregateName: "CHG-000001",
+        document: parseChangeDocument(
+          { path: "change.md", content: "" },
+          { mode: "canonical" },
+        ).result,
+      }),
+      mapChangeDomainIssueToFinding,
+      "change-trace-aggregate-identity-mismatch",
+      "change.md",
+      "The aggregate directory ID and the Change ID declared by change.md must match exactly.",
+    ],
+  ];
+  for (const [issues, map, code, path, message] of cases)
+    assert.deepEqual(issues.map(map), [
+      { severity: "error", code, path, message },
+    ]);
+});
+
+import { mapQualityAnalysisIssueToFinding } from "../../../src/report/quality.ts";
+
+/**
+ * Qualityの四比較を旧診断へ接続する。
+ * @responsibility 実Producerの複数違反が表示で欠落・統合されないことを固定する。
+ * @trace RCM-UT-002
+ * @precondition Coverage完備の分析、空リンク、実在余分、欠測件数を用意する。
+ * @stimulus Checkerと同じ四比較順でIssueを変換する。
+ * @observation code・severity・Path・文言と順序。
+ * @oracle 四種類の旧診断を各一件、元順で返す。
+ * @cleanup N/A: 外部I/Oなし。
+ * @boundary RCM-UT-002=N/A: 同期的な値変換。
+ */
+test("Qualityの閉包・集合・単位・件数Issueは旧診断の全fieldと順序を保つ", () => {
+  const integration = parseQualityIntegration({
+    path: "integration.md",
+    content: "",
+  }).result;
+  const analysis = {
+    ...inspectQualityAnalysis([], new Set(), integration, "analysis"),
+    hasCoverageSections: true,
+  };
+  const issues = [
+    ...inspectQualityConsistency({
+      kind: "quality_definition_closure",
+      analysis,
+      linkedDefinitionPaths: new Set(),
+      analysisPath: "integration.md",
+    }),
+    ...inspectQualityConsistency({
+      kind: "quality_definition_coverage",
+      analysis,
+      linkedDefinitionPaths: new Set(),
+      physicalDefinitionPaths: new Set(["orphan.md"]),
+      definitionsRoot: "Definitions",
+    }),
+    ...inspectDocumentRelations({
+      kind: "quality_detail_unit_coverage",
+      integration,
+      physicalDetailUnits: new Set(["unit"]),
+      analysisPath: "integration.md",
+    }),
+    ...inspectQualityConsistency({
+      kind: "quality_local_item_count",
+      document: parseQualityCenter({ path: "center.md", content: "" }).result,
+      localItemOwners: new Map(),
+    }),
+  ];
+  assert.deepEqual(issues.map(mapQualityAnalysisIssueToFinding), [
+    {
+      severity: "error",
+      code: "quality-definition-closure-missing",
+      path: "integration.md",
+      message:
+        "The Quality mapping must connect its verification obligations to meaningful verification definitions.",
+    },
+    {
+      severity: "error",
+      code: "quality-definition-set-mismatch",
+      path: "Definitions",
+      message:
+        "The verification definitions on disk must exactly match the objective set linked from the canonical Quality mapping; orphan and unknown objectives are not allowed.",
+    },
+    {
+      severity: "error",
+      code: "quality-architecture-detail-unit-coverage-mismatch",
+      path: "integration.md",
+      message:
+        "The Quality integration matrix must process the exact verification-unit set handed off by every current Architecture detail area.",
+    },
+    {
+      severity: "error",
+      code: "quality-local-verification-item-count-mismatch",
+      path: "center.md",
+      message:
+        "The declared Local Item count must exist in the canonical design-set table and equal the exact Local Item set owned by current Quality Definitions.",
+    },
+  ]);
+});
+
+/**
+ * 三つの被覆Issueを従来の診断へ一意に変換する。
+ * @responsibility 実DM Producerから旧code・文言・位置・重要度への接続を固定する。
+ * @trace RCM-UT-002
+ * @precondition 空の実在集合と一件の期待集合を用意する。
+ * @stimulus 既存表示変換へ中立Issueを渡す。
+ * @observation 診断の全fieldと順序。
+ * @oracle 三つの旧診断を追加・統合せず保持する。
+ * @cleanup N/A: 同期値比較と変換のみ。
+ * @boundary RCM-UT-002=N/A: 外部I/Oなし。
+ */
+test("UXとDiscoveryの被覆Issueは旧診断三種類へ接続する", () => {
+  const index = {
+    ...parseUxIndex({ path: "ux.md", content: "" }).result,
+    ids: new Set(["UX-000001"]),
+  };
+  const discovery = {
+    ...parseDiscoveryIndex({ path: "discovery.md", content: "" }).result,
+    adoptedRequirementIds: new Set(["REQ-000001"]),
+  };
+  const observed = new Set<string>();
+  const findings = [
+    ...inspectUxConsistency({
+      kind: "ux_analysis_coverage",
+      index,
+      expectedRequirementIds: discovery.adoptedRequirementIds,
+      actualRequirementIds: observed,
+    }).map(mapUxDomainIssueToFinding),
+    ...inspectDiscoveryCoverage(discovery, observed).map(
+      mapDiscoveryDomainIssueToFinding,
+    ),
+    ...inspectUxConsistency({
+      kind: "ux_definition_coverage",
+      index,
+      actualIds: observed,
+    }).map(mapUxDomainIssueToFinding),
+  ];
+  assert.deepEqual(findings, [
+    {
+      severity: "error",
+      code: "ux-requirement-analysis-coverage-mismatch",
+      path: "ux.md",
+      message:
+        "Every adopted Discovery requirement must have exactly one UX requirement-analysis directory, regardless of its primary related domains.",
+    },
+    {
+      severity: "error",
+      code: "discovery-requirement-definition-coverage-mismatch",
+      path: "discovery.md",
+      message:
+        "Every adopted Discovery requirement must have exactly one canonical requirement definition.",
+    },
+    {
+      severity: "error",
+      code: "ux-definition-coverage-mismatch",
+      path: "ux.md",
+      message:
+        "Every canonical UX outcome must have exactly one UX definition.",
+    },
+  ]);
+});
+
 import type {
   CheckerFinding,
   DocumentFinding,
 } from "../../../src/report/types.ts";
+
+/**
+ * 基本図の実Issueを表示境界で変換し、既存の拒否を維持する。
+ * @responsibility 原文判定を再実装せずcode・文言・明示Pathと空文字列の受理を固定する。
+ * @trace RCM-UT-002
+ * @precondition 実ParserのIssueと不正な搬送値を用意する。
+ * @stimulus 専用表示変換へ渡す。
+ * @observation 診断全field・入力非変更・固定例外理由を確認する。
+ * @oracle 実Issueを旧文言へ変換し、未知kind／非文字列を拒否する。
+ * @cleanup N/A: 同期値変換のみ。
+ * @boundary RCM-UT-002=N/A: 外部I/Oなし。
+ */
+test("基本図Issueの表示変換は旧文言・Path・拒否条件を維持する", () => {
+  const displayPath = "template/02_UX/01_User_Experience.md";
+  const contract = parseUxIndex(
+    { path: displayPath, content: "" },
+    { mode: "template" },
+  ).result.diagramContract;
+  assert.ok(contract);
+  const issue = contract.issues[0];
+  assert.ok(issue);
+  const before = JSON.stringify(issue);
+  assert.deepEqual(mapPhaseDiagramIssueToFinding(issue, displayPath), {
+    severity: "error",
+    code: "phase_diagram_disposition_contract_invalid",
+    path: displayPath,
+    message:
+      "工程の基本図処置契約が不完全です: section, `作成`, `既存参照`, `非該当`, `作成不能`, header, 利用の流れ, 重要場面・失敗／回復体験図, サービス提供の流れ",
+  });
+  assert.deepEqual(
+    mapPhaseDiagramIssueToFinding(
+      {
+        ...issue,
+        location: { path: "not-the-display-path.md" },
+        details: { missingItems: "" },
+      },
+      displayPath,
+    ),
+    {
+      severity: "error",
+      code: "phase_diagram_disposition_contract_invalid",
+      path: displayPath,
+      message: "工程の基本図処置契約が不完全です: ",
+    },
+  );
+  for (const invalid of [
+    { ...issue, kind: "unknown" },
+    { ...issue, details: {} },
+    { ...issue, details: { missingItems: 1 } },
+  ])
+    assert.throws(
+      () =>
+        mapPhaseDiagramIssueToFinding(
+          invalid as unknown as DocumentIssue,
+          displayPath,
+        ),
+      { message: "invalid_phase_diagram_domain_issue" },
+    );
+  assert.equal(JSON.stringify(issue), before);
+});
 
 /**
  * Architecture集合検査の七診断を表示へ接続する。
@@ -100,14 +466,23 @@ test("Architectureの関係・網羅性は七つの旧診断へ接続する", ()
       kind: "architecture_relations",
       ...{
         sourcePath: "index.md",
-        analysisRelations: new Set(["UI-000001|ARCH-000001"]),
-        definitionRelations: new Set(["UI-000002|ARCH-000001"]),
-        definitionRelationEntries: [
-          "UI-000002|ARCH-000001",
-          "UI-000002|ARCH-000001",
+        analyses: [
+          {
+            ...architectureComparisonBase.analysis,
+            relations: ["UI-000001|ARCH-000001"],
+          },
         ],
-        registryRelations: empty,
-        registryRelationEntries: [],
+        definitions: [
+          {
+            ...architectureComparisonBase.definition,
+            relations: ["UI-000002|ARCH-000001", "UI-000002|ARCH-000001"],
+          },
+        ],
+        registry: {
+          ...architectureComparisonBase.registry,
+          relations: empty,
+          relationEntries: [],
+        },
       },
     }),
   ];
@@ -183,13 +558,21 @@ test("Architecture詳細設計の実Issueは五分類の旧診断へ届く", () 
       kind: "architecture_detail_coverage",
       ...{
         sourcePath: artifact.path,
-        registeredDetailAreas: new Set(["a"]),
+        map: {
+          ...architectureComparisonBase.map,
+          areas: new Set(["a"]),
+          relations: new Set(["a|ARCH-000001"]),
+          closureRelations: new Set(["b|ARCH-000001"]),
+        },
+        details: [
+          {
+            ...architectureComparisonBase.detail,
+            relations: new Set(["b|ARCH-000001"]),
+            coveredDefinitions: new Set<string>(),
+          },
+        ],
         actualDetailAreas: new Set(["b"]),
-        detailMapRelations: new Set(["a|ARCH-000001"]),
-        detailDocumentRelations: new Set(["b|ARCH-000001"]),
-        detailMapClosureRelations: new Set(["b|ARCH-000001"]),
         actualDefinitions: new Set(["ARCH-000001"]),
-        detailCoveredDefinitions: new Set(),
         isArchitectureReady: true,
       },
     }),
@@ -1274,3 +1657,28 @@ function comparisonIndex(
     })),
   };
 }
+
+/**
+ * 比較入力で変わらない解析済み本文を一度だけ用意する。
+ * @responsibility 差分の関係列・集合は各Caseで独立に上書きする。
+ * @trace RCM-UT-002
+ */
+const architectureComparisonBase = {
+  analysis: parseArchitectureAnalysis(
+    { path: "analysis.md", content: "" },
+    "UI",
+    "UI-000001",
+  ).result,
+  definition: parseArchitectureDefinition(
+    { path: "definition.md", content: "" },
+    "ARCH-000001",
+  ).result,
+  registry: parseArchitectureIndex({ path: "index.md", content: "" }).result
+    .registry,
+  map: parseArchitectureDetailMap({ path: "map.md", content: "" }).result,
+  detail: parseArchitectureDetail(
+    { path: "detail.md", content: "" },
+    "area",
+    {},
+  ).result,
+};

@@ -34,6 +34,60 @@ import {
 } from "../../../src/index.ts";
 
 /**
+ * Architectureからの実在検証単位とQuality統合の被覆を比較する。
+ * @responsibility 工程横断の集合一致をSemanticに固定する。
+ * @trace RCM-UT-002
+ * @precondition 基本モデルだけを共有し、観点ごとの可変集合は独立させる。
+ * @stimulus 空・一致・不足・余分・同数差し替えを渡す。
+ * @observation Issueの全fieldと集合の非変更。
+ * @oracle 旧三条件のいずれかの違反だけを一件返す。
+ * @cleanup N/A: 外部I/Oなし。
+ * @boundary RCM-UT-002=N/A: 同一Processの値比較。
+ */
+test("ArchitectureとQualityの検証単位被覆は空集合と双方向の欠落を区別する", () => {
+  const base = parseQualityIntegration({
+    path: "integration.md",
+    content: "",
+  }).result;
+  for (const [expected, actual, mismatch] of [
+    [[], [], false],
+    [["a"], ["a"], false],
+    [["a"], [], true],
+    [[], ["a"], true],
+    [["a"], ["b"], true],
+    [["a"], ["a", "b"], true],
+  ] as const) {
+    const analysisDetailUnits = new Set<string>(expected);
+    const physicalDetailUnits = new Set<string>(actual);
+    const integration = {
+      ...base,
+      detailUnitData: { ...base.detailUnitData, analysisDetailUnits },
+    };
+    assert.deepEqual(
+      inspectDocumentRelations({
+        kind: "quality_detail_unit_coverage",
+        integration,
+        physicalDetailUnits,
+        analysisPath: "integration.md",
+      }),
+      mismatch
+        ? [
+            {
+              kind: "artifact.quality-analysis.architecture-detail-unit-coverage-mismatch",
+              targetIdentity: "integration.md",
+              location: { path: "integration.md" },
+              reason: "architecture-detail-unit-coverage-mismatch",
+              details: {},
+            },
+          ]
+        : [],
+    );
+    assert.deepEqual([...analysisDetailUnits], expected);
+    assert.deepEqual([...physicalDetailUnits], actual);
+  }
+});
+
+/**
  * 旧Detail対応試験をモデル間比較へ移し、同数差し替えと重複を維持する。
  * @responsibility モデルから期待対応を導出し、Caller製tuple集合を要求しない。
  * @trace RCM-UT-002

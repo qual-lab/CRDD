@@ -249,6 +249,17 @@ export type UxQualityExpectations = UxDocument &
  */
 export type UxConsistencyRequest =
   | Readonly<{
+      kind: "ux_analysis_coverage";
+      index: UxIndexModel;
+      expectedRequirementIds: ReadonlySet<string>;
+      actualRequirementIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "ux_definition_coverage";
+      index: UxIndexModel;
+      actualIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
       kind: "ux_projection";
       projection: UxProjectionModel;
       canonicalIds: ReadonlySet<string>;

@@ -497,6 +497,12 @@ export function evaluateDefinitionPairEvidence(
  */
 export type DocumentRelationsRequest =
   | Readonly<{
+      kind: "quality_detail_unit_coverage";
+      integration: QualityIntegration;
+      physicalDetailUnits: ReadonlySet<string>;
+      analysisPath: string;
+    }>
+  | Readonly<{
       kind: "project_context_identity";
       context: ReturnType<typeof parseRepositoryProjectContextMarkdown>;
       manifest: Record<string, unknown>;
@@ -646,6 +652,25 @@ export function inspectDocumentRelations(
 
     case "quality_local_item_relations":
       return inspectQualityLocalItemRelations(request);
+    case "quality_detail_unit_coverage": {
+      const { integration, physicalDetailUnits, analysisPath } = request;
+      const { analysisDetailUnits } = integration.detailUnitData;
+      return physicalDetailUnits.size !== analysisDetailUnits.size ||
+        [...physicalDetailUnits].some(
+          (unit) => !analysisDetailUnits.has(unit),
+        ) ||
+        [...analysisDetailUnits].some((unit) => !physicalDetailUnits.has(unit))
+        ? [
+            {
+              kind: "artifact.quality-analysis.architecture-detail-unit-coverage-mismatch",
+              targetIdentity: analysisPath,
+              location: { path: analysisPath },
+              reason: "architecture-detail-unit-coverage-mismatch",
+              details: {},
+            },
+          ]
+        : [];
+    }
     case "quality_detail_coverage": {
       const {
         integration,
