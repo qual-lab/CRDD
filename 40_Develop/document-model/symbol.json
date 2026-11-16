@@ -4,17 +4,42 @@
   "subsystem": "document-model",
   "symbols": [
     {
-      "symbolId": "coordinator.test-support.source-declaration",
+      "symbolId": "document-model.test.unit.document-relations",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic/relations.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.semantic-relations",
+        "domain-model.artifact-quality-analysis",
+        "domain-model.artifact-ui",
+        "domain-model.artifact-markdown",
+        "document-model.ui-definition-parse",
+        "document-model.ui-definition-types",
+        "document-model.spec-definition-parse",
+        "document-model.spec-definition-types",
+        "domain-model.artifact-architecture-details",
+        "domain-model.artifact-quality-definition",
+        "domain-model.artifact-architecture",
+        "domain-model.artifact-identity"
+      ]
+    },
+    {
+      "symbolId": "document-model.ux-input-types",
       "kind": "file",
-      "path": "tests/support/source-declaration.ts",
+      "path": "src/ux/types.ts",
       "archIds": [
         "ARCH-000008"
       ]
     },
     {
-      "symbolId": "domain-model.artifact-phase-checklists",
+      "symbolId": "coordinator.test-support.source-declaration",
       "kind": "file",
-      "path": "src/artifact/phase-checklists.ts",
+      "path": "tests/support/source-declaration.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -44,7 +69,7 @@
     {
       "symbolId": "domain-model.test.unit.outcome",
       "kind": "test-suite",
-      "path": "tests/unit/outcome.contract.test.ts",
+      "path": "tests/unit/artifact/result.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -52,7 +77,10 @@
         "RCM-UT-016"
       ],
       "verifies": [
-        "crdd-domain-library.common-outcome-entry"
+        "domain-model.artifact-types",
+        "domain-model.artifact-identity",
+        "document-model.source.src.artifact.validate-schema",
+        "document-model.source.src.reality-traceability.discover"
       ]
     },
     {
@@ -118,14 +146,6 @@
       "archIds": [
         "ARCH-000005",
         "ARCH-000016"
-      ]
-    },
-    {
-      "symbolId": "crdd-domain-library.common-outcome-entry",
-      "kind": "module",
-      "path": "src/outcome.ts",
-      "archIds": [
-        "ARCH-000008"
       ]
     },
     {
@@ -634,7 +654,8 @@
       "verifies": [
         "domain-model.semantic-coverage",
         "domain-model.semantic-ir",
-        "domain-model.semantic-relations"
+        "domain-model.semantic-relations",
+        "domain-model.artifact-architecture-details"
       ]
     },
     {
@@ -652,33 +673,11 @@
       ]
     },
     {
-      "symbolId": "domain-model.test-catalog-plan",
-      "kind": "file",
-      "path": "src/test-catalog/plan.ts",
-      "archIds": [
-        "ARCH-000003"
-      ]
-    },
-    {
       "symbolId": "domain-model.test-catalog",
       "kind": "file",
       "path": "src/test-catalog/inspect.ts",
       "archIds": [
         "ARCH-000003"
-      ]
-    },
-    {
-      "symbolId": "domain-model.test.unit.test-catalog-plan",
-      "kind": "test-suite",
-      "path": "tests/unit/test-catalog/plan.contract.test.ts",
-      "qaIds": [
-        "QA-000002"
-      ],
-      "localTestIds": [
-        "CQS-UT-010"
-      ],
-      "verifies": [
-        "domain-model.test-catalog-plan"
       ]
     },
     {
@@ -751,7 +750,7 @@
     {
       "symbolId": "domain-model.artifact-ux-inputs",
       "kind": "file",
-      "path": "src/artifact/ux-inputs.ts",
+      "path": "src/ux/inputs.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -759,7 +758,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-ux-inputs",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/ux-inputs.contract.test.ts",
+      "path": "tests/unit/ux/inputs.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -771,17 +770,9 @@
       ]
     },
     {
-      "symbolId": "domain-model.artifact-quality-state",
-      "kind": "file",
-      "path": "src/artifact/quality-state.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "domain-model.test.unit.artifact-quality-state",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/quality-state.contract.test.ts",
+      "path": "tests/unit/quality/state.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -789,7 +780,7 @@
         "RCM-UT-001"
       ],
       "verifies": [
-        "domain-model.artifact-quality-state"
+        "domain-model.semantic-relations"
       ]
     },
     {
@@ -812,7 +803,13 @@
       ],
       "verifies": [
         "domain-model.artifact-checklist",
-        "domain-model.artifact-phase-checklists"
+        "domain-model.artifact-ia",
+        "domain-model.artifact-ux",
+        "domain-model.artifact-discovery",
+        "domain-model.artifact-architecture",
+        "domain-model.artifact-quality-readiness",
+        "document-model.ui-definition-parse",
+        "document-model.spec-definition-parse"
       ]
     },
     {
@@ -834,7 +831,14 @@
         "RCM-UT-001"
       ],
       "verifies": [
-        "domain-model.artifact-phase-diagrams"
+        "domain-model.artifact-phase-diagrams",
+        "domain-model.artifact-ia",
+        "domain-model.artifact-ux",
+        "domain-model.artifact-discovery",
+        "domain-model.artifact-architecture",
+        "domain-model.artifact-quality-readiness",
+        "document-model.ui-definition-parse",
+        "document-model.spec-definition-parse"
       ]
     },
     {
@@ -863,7 +867,7 @@
     {
       "symbolId": "domain-model.artifact-ux-handoff",
       "kind": "file",
-      "path": "src/artifact/ux-handoff.ts",
+      "path": "src/ux/handoff.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -871,7 +875,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-ux-handoff",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/ux-handoff.contract.test.ts",
+      "path": "tests/unit/ux/handoff.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -883,9 +887,25 @@
       ]
     },
     {
+      "symbolId": "document-model.ia-parse",
+      "kind": "file",
+      "path": "src/ia/parse.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.ia-types",
+      "kind": "file",
+      "path": "src/ia/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
       "symbolId": "domain-model.artifact-ia",
       "kind": "file",
-      "path": "src/artifact/ia.ts",
+      "path": "src/ia/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -893,7 +913,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-ia",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/ia.contract.test.ts",
+      "path": "tests/unit/ia/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -901,13 +921,16 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-ia"
+        "domain-model.artifact-ia",
+        "document-model.ia-parse",
+        "document-model.ia-types",
+        "domain-model.semantic-relations"
       ]
     },
     {
       "symbolId": "domain-model.artifact-ui",
       "kind": "file",
-      "path": "src/artifact/ui.ts",
+      "path": "src/ui/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -915,7 +938,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-ui",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/ui.contract.test.ts",
+      "path": "tests/unit/ui/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -923,7 +946,11 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-ui"
+        "domain-model.artifact-ui",
+        "document-model.ui-definition-parse",
+        "document-model.ui-definition-types",
+        "domain-model.artifact-markdown",
+        "domain-model.semantic-relations"
       ]
     },
     {
@@ -951,7 +978,7 @@
     {
       "symbolId": "domain-model.artifact-change",
       "kind": "file",
-      "path": "src/artifact/change.ts",
+      "path": "src/change/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -959,7 +986,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-change",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/change.contract.test.ts",
+      "path": "tests/unit/change/parse.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -967,13 +994,24 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-change"
+        "domain-model.artifact-change",
+        "document-model.source.src.change.parse",
+        "document-model.source.src.change.types",
+        "domain-model.semantic-relations"
+      ]
+    },
+    {
+      "symbolId": "document-model.ux-parse",
+      "kind": "file",
+      "path": "src/ux/parse.ts",
+      "archIds": [
+        "ARCH-000008"
       ]
     },
     {
       "symbolId": "domain-model.artifact-ux",
       "kind": "file",
-      "path": "src/artifact/ux.ts",
+      "path": "src/ux/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -981,7 +1019,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-ux",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/ux.contract.test.ts",
+      "path": "tests/unit/ux/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -989,13 +1027,32 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-ux"
+        "domain-model.artifact-ux",
+        "document-model.ux-parse",
+        "document-model.ux-input-types",
+        "domain-model.semantic-relations"
       ]
     },
     {
       "symbolId": "domain-model.artifact-discovery",
       "kind": "file",
-      "path": "src/artifact/discovery.ts",
+      "path": "src/discovery/validation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.discovery-parse",
+      "kind": "file",
+      "path": "src/discovery/parse.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.discovery-types",
+      "kind": "file",
+      "path": "src/discovery/types.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1003,7 +1060,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-discovery",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/discovery.contract.test.ts",
+      "path": "tests/unit/discovery/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -1011,13 +1068,15 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-discovery"
+        "domain-model.artifact-discovery",
+        "domain-model.discovery-parse",
+        "domain-model.discovery-types"
       ]
     },
     {
       "symbolId": "domain-model.artifact-spec",
       "kind": "file",
-      "path": "src/artifact/spec.ts",
+      "path": "src/spec/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1025,7 +1084,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-spec",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/spec.contract.test.ts",
+      "path": "tests/unit/spec/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -1034,30 +1093,16 @@
       ],
       "verifies": [
         "domain-model.artifact-spec",
-        "domain-model.artifact-spec-details",
-        "domain-model.artifact-spec-correspondence"
-      ]
-    },
-    {
-      "symbolId": "domain-model.artifact-spec-details",
-      "kind": "file",
-      "path": "src/artifact/spec-details.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "domain-model.artifact-spec-correspondence",
-      "kind": "file",
-      "path": "src/artifact/spec-correspondence.ts",
-      "archIds": [
-        "ARCH-000008"
+        "domain-model.semantic-relations",
+        "document-model.spec-definition-parse",
+        "document-model.spec-definition-types",
+        "domain-model.artifact-markdown"
       ]
     },
     {
       "symbolId": "domain-model.artifact-architecture",
       "kind": "file",
-      "path": "src/artifact/architecture.ts",
+      "path": "src/architecture/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1065,7 +1110,7 @@
     {
       "symbolId": "domain-model.artifact-architecture-details",
       "kind": "file",
-      "path": "src/artifact/architecture-details.ts",
+      "path": "src/architecture/details.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1073,7 +1118,7 @@
     {
       "symbolId": "domain-model.artifact-architecture-relations",
       "kind": "file",
-      "path": "src/artifact/architecture-relations.ts",
+      "path": "src/architecture/relations.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1081,7 +1126,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-architecture",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/architecture.contract.test.ts",
+      "path": "tests/unit/architecture/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -1091,13 +1136,15 @@
       "verifies": [
         "domain-model.artifact-architecture",
         "domain-model.artifact-architecture-details",
-        "domain-model.artifact-architecture-relations"
+        "domain-model.artifact-architecture-relations",
+        "domain-model.artifact-markdown",
+        "domain-model.semantic-relations"
       ]
     },
     {
       "symbolId": "domain-model.artifact-quality-definition",
       "kind": "file",
-      "path": "src/artifact/quality-definition.ts",
+      "path": "src/quality/definition.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1105,7 +1152,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-quality-definition",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/quality-definition.contract.test.ts",
+      "path": "tests/unit/quality/definition.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -1113,13 +1160,15 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-quality-definition"
+        "domain-model.artifact-quality-definition",
+        "domain-model.artifact-markdown",
+        "domain-model.semantic-relations"
       ]
     },
     {
       "symbolId": "domain-model.artifact-quality-readiness",
       "kind": "file",
-      "path": "src/artifact/quality-readiness.ts",
+      "path": "src/quality/readiness.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1127,15 +1176,7 @@
     {
       "symbolId": "domain-model.artifact-quality-analysis",
       "kind": "file",
-      "path": "src/artifact/quality-analysis.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "domain-model.artifact-quality-relations",
-      "kind": "file",
-      "path": "src/artifact/quality-relations.ts",
+      "path": "src/quality/analysis.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1143,7 +1184,7 @@
     {
       "symbolId": "domain-model.artifact-quality-templates",
       "kind": "file",
-      "path": "src/artifact/quality-templates.ts",
+      "path": "src/quality/templates.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1151,7 +1192,7 @@
     {
       "symbolId": "domain-model.test.unit.artifact-quality-analysis",
       "kind": "test-suite",
-      "path": "tests/unit/artifact/quality-analysis.contract.test.ts",
+      "path": "tests/unit/quality/analysis.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -1161,14 +1202,15 @@
       "verifies": [
         "domain-model.artifact-quality-readiness",
         "domain-model.artifact-quality-analysis",
-        "domain-model.artifact-quality-relations",
-        "domain-model.artifact-quality-templates"
+        "domain-model.semantic-relations",
+        "domain-model.artifact-quality-templates",
+        "domain-model.artifact-markdown"
       ]
     },
     {
       "symbolId": "domain-model.artifact-verification-tables",
       "kind": "file",
-      "path": "src/artifact/verification-tables.ts",
+      "path": "src/quality/verification-tables.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1184,7 +1226,7 @@
     {
       "symbolId": "domain-model.artifact-release",
       "kind": "file",
-      "path": "src/artifact/release.ts",
+      "path": "src/release/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1212,7 +1254,10 @@
         "domain-model.artifact-document-header",
         "domain-model.artifact-release",
         "domain-model.artifact-identity",
-        "domain-model.artifact-change"
+        "domain-model.semantic-relations",
+        "domain-model.artifact-ux",
+        "document-model.source.src.release.parse",
+        "document-model.source.src.release.types"
       ]
     },
     {
@@ -1292,6 +1337,70 @@
       ],
       "verifies": [
         "document-model.public-api"
+      ]
+    },
+    {
+      "symbolId": "document-model.ui-definition-parse",
+      "kind": "file",
+      "path": "src/ui/parse.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.ui-definition-types",
+      "kind": "file",
+      "path": "src/ui/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.spec-definition-parse",
+      "kind": "file",
+      "path": "src/spec/parse.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.spec-definition-types",
+      "kind": "file",
+      "path": "src/spec/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.source.src.change.parse",
+      "kind": "file",
+      "path": "src/change/parse.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.source.src.change.types",
+      "kind": "file",
+      "path": "src/change/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.source.src.release.parse",
+      "kind": "file",
+      "path": "src/release/parse.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "document-model.source.src.release.types",
+      "kind": "file",
+      "path": "src/release/types.ts",
+      "archIds": [
+        "ARCH-000008"
       ]
     }
   ]

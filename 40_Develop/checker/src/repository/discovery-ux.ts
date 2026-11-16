@@ -3,38 +3,30 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
 
-import { samePath, lstatIfPresent } from "../repository/observe.ts";
-
-import type { LocalLinkResolution } from "../repository/types.ts";
 import fs from "node:fs";
-import type { createDocumentReferenceReader } from "./references.ts";
 import path from "node:path";
-
 import {
-  inspectDiscoveryDefinition,
-  inspectDiscoveryAnalysis,
-  parseAdoptedDiscoveryRequirements,
-  inspectUxDefinition,
-  inspectUxAnalysis,
-  inspectUxFormalInput,
-  inspectUxRelations,
+  inspectDocumentRelations,
+  parseDiscoveryAnalysis,
+  parseDiscoveryDefinition,
+  parseDiscoveryIndex,
+  parseUxAnalysis,
+  parseUxDefinition,
+  parseUxExperienceMap,
   parseUxIndex,
-  isUxProjectionIncomplete,
-  parseUxJourneyRelations,
-  isUxHandoffTargetSetExact,
-  isUxRootHandoffValid,
-  createPhaseChecklistItems,
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
-  omitMarkdownCommentsAndFencedCode,
-  parseUxFormalInputTargets,
+  parseUxPersonas,
+  parseUxQualityExpectations,
+  parseUxServiceBlueprint,
 } from "../../../document-model/src/index.ts";
 import {
-  mapUxDomainIssueToFinding,
   mapDiscoveryDomainIssueToFinding,
+  mapUxDomainIssueToFinding,
 } from "../report/convert.ts";
+import type { DocumentFinding } from "../report/types.ts";
+import { lstatIfPresent, samePath } from "../repository/observe.ts";
+import type { LocalLinkResolution } from "../repository/types.ts";
+import type { createDocumentReferenceReader } from "./references.ts";
 
 /**
  * discovery-ux成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -64,18 +56,6 @@ export function inspectDiscoveryUxRepository(
   const relative = (file: string) =>
     path.relative(root, file).replaceAll("\\", "/") || ".";
   const read = (file: string) => fs.readFileSync(file, "utf8");
-  const {
-    discoveryRootChecklistItemTexts,
-    discoveryExplorationChecklistItemTexts,
-    discoveryRequirementChecklistItemTexts,
-    uxIndexChecklistItemTexts,
-    uxPersonasChecklistItemTexts,
-    uxExperienceMapChecklistItemTexts,
-    uxServiceBlueprintChecklistItemTexts,
-    uxQualityExpectationsChecklistItemTexts,
-    uxAnalysisChecklistItemTexts,
-    uxDefinitionChecklistItemTexts,
-  } = createPhaseChecklistItems();
 
   if (repositoryMode !== "official") return;
   const discoveryPath = path.join(
@@ -107,17 +87,14 @@ export function inspectDiscoveryUxRepository(
     );
     return;
   }
-  const discoveryRootChecklistError = inspectEvaluatedChecklist(
-    read(discoveryPath),
-    discoveryRootChecklistItemTexts,
-  );
-  if (discoveryRootChecklistError)
-    add(
-      "error",
-      "discovery-checklist-contract-invalid",
-      relative(discoveryPath),
-      `The canonical Discovery entry must contain one visible, fully evaluated artifact-specific Checklist (${discoveryRootChecklistError}).`,
-    );
+  const discoveryRoot = parseDiscoveryIndex({
+    path: relative(discoveryPath),
+    content: read(discoveryPath),
+  });
+  for (const issue of discoveryRoot.issues) {
+    const finding = mapDiscoveryDomainIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
   if (lstatIfPresent(discoveryAnalysisRoot)?.isDirectory()) {
     for (const entry of fs.readdirSync(discoveryAnalysisRoot, {
       withFileTypes: true,
@@ -130,19 +107,19 @@ export function inspectDiscoveryUxRepository(
       );
       if (!lstatIfPresent(analysisPath)?.isFile()) continue;
       const analysis = read(analysisPath);
-      for (const issue of inspectDiscoveryAnalysis(
+      for (const issue of parseDiscoveryAnalysis(
         { path: relative(analysisPath), content: analysis },
         entry.name,
-      )) {
+      ).issues) {
         const finding = mapDiscoveryDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
   }
-  for (const [discoveryTemplatePath, checklistItems] of [
+  for (const [discoveryTemplatePath, kind] of [
     [
       path.join(root, "template", "01_Discovery", "01_Product_Discovery.md"),
-      discoveryRootChecklistItemTexts,
+      "index",
     ],
     [
       path.join(
@@ -153,7 +130,7 @@ export function inspectDiscoveryUxRepository(
         "EXP-XXXXXX",
         "exploration.md",
       ),
-      discoveryExplorationChecklistItemTexts,
+      "analysis",
     ],
     [
       path.join(
@@ -164,33 +141,35 @@ export function inspectDiscoveryUxRepository(
         "REQ-XXXXXX",
         "requirement.md",
       ),
-      discoveryRequirementChecklistItemTexts,
+      "definition",
     ],
   ] as const) {
     if (!lstatIfPresent(discoveryTemplatePath)?.isFile()) continue;
-    const checklistError = inspectTemplateChecklist(
-      read(discoveryTemplatePath),
-      checklistItems,
-    );
-    if (checklistError)
-      add(
-        "error",
-        "discovery-checklist-template-invalid",
-        relative(discoveryTemplatePath),
-        `Each Discovery template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${checklistError}).`,
-      );
+    const source = {
+      path: relative(discoveryTemplatePath),
+      content: read(discoveryTemplatePath),
+    };
+    const parsed =
+      kind === "index"
+        ? parseDiscoveryIndex(source, { mode: "template" })
+        : kind === "analysis"
+          ? parseDiscoveryAnalysis(source, "EXP-XXXXXX", { mode: "template" })
+          : parseDiscoveryDefinition(source, "REQ-XXXXXX", {
+              mode: "template",
+            });
+    for (const issue of parsed.issues) {
+      const finding = mapDiscoveryDomainIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
+    }
   }
-  for (const [uxArtifactPath, checklistItems] of [
-    [uxIndexPath, uxIndexChecklistItemTexts],
-    [path.join(root, "02_UX", "02_Personas.md"), uxPersonasChecklistItemTexts],
-    [experienceMapPath, uxExperienceMapChecklistItemTexts],
-    [
-      path.join(root, "02_UX", "04_Service_Blueprint.md"),
-      uxServiceBlueprintChecklistItemTexts,
-    ],
+  for (const [uxArtifactPath, kind] of [
+    [uxIndexPath, "index"],
+    [path.join(root, "02_UX", "02_Personas.md"), "personas"],
+    [experienceMapPath, "experience_map"],
+    [path.join(root, "02_UX", "04_Service_Blueprint.md"), "service_blueprint"],
     [
       path.join(root, "02_UX", "05_Quality_Expectations.md"),
-      uxQualityExpectationsChecklistItemTexts,
+      "quality_expectations",
     ],
   ] as const) {
     if (!lstatIfPresent(uxArtifactPath)?.isFile()) {
@@ -202,10 +181,21 @@ export function inspectDiscoveryUxRepository(
       );
       continue;
     }
-    const checklistError = inspectEvaluatedChecklist(
-      read(uxArtifactPath),
-      checklistItems,
-    );
+    const source = {
+      path: relative(uxArtifactPath),
+      content: read(uxArtifactPath),
+    };
+    const parsed =
+      kind === "index"
+        ? parseUxIndex(source, { mode: "evaluated" })
+        : kind === "personas"
+          ? parseUxPersonas(source, { mode: "evaluated" })
+          : kind === "experience_map"
+            ? parseUxExperienceMap(source, { mode: "evaluated" })
+            : kind === "service_blueprint"
+              ? parseUxServiceBlueprint(source, { mode: "evaluated" })
+              : parseUxQualityExpectations(source, { mode: "evaluated" });
+    const checklistError = parsed.result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -214,26 +204,20 @@ export function inspectDiscoveryUxRepository(
         `Each canonical UX projection must contain one visible, fully evaluated artifact-specific Checklist (${checklistError}).`,
       );
   }
-  for (const [uxTemplatePath, checklistItems] of [
-    [
-      path.join(root, "template", "02_UX", "01_User_Experience.md"),
-      uxIndexChecklistItemTexts,
-    ],
-    [
-      path.join(root, "template", "02_UX", "02_Personas.md"),
-      uxPersonasChecklistItemTexts,
-    ],
+  for (const [uxTemplatePath, kind] of [
+    [path.join(root, "template", "02_UX", "01_User_Experience.md"), "index"],
+    [path.join(root, "template", "02_UX", "02_Personas.md"), "personas"],
     [
       path.join(root, "template", "02_UX", "03_Experience_Map.md"),
-      uxExperienceMapChecklistItemTexts,
+      "experience_map",
     ],
     [
       path.join(root, "template", "02_UX", "04_Service_Blueprint.md"),
-      uxServiceBlueprintChecklistItemTexts,
+      "service_blueprint",
     ],
     [
       path.join(root, "template", "02_UX", "05_Quality_Expectations.md"),
-      uxQualityExpectationsChecklistItemTexts,
+      "quality_expectations",
     ],
     [
       path.join(
@@ -244,7 +228,7 @@ export function inspectDiscoveryUxRepository(
         "REQ-XXXXXX",
         "ux_analysis.md",
       ),
-      uxAnalysisChecklistItemTexts,
+      "analysis",
     ],
     [
       path.join(
@@ -255,7 +239,7 @@ export function inspectDiscoveryUxRepository(
         "UX-XXXXXX",
         "ux_definition.md",
       ),
-      uxDefinitionChecklistItemTexts,
+      "definition",
     ],
   ] as const) {
     if (!lstatIfPresent(uxTemplatePath)?.isFile()) {
@@ -267,10 +251,27 @@ export function inspectDiscoveryUxRepository(
       );
       continue;
     }
-    const checklistError = inspectTemplateChecklist(
-      read(uxTemplatePath),
-      checklistItems,
-    );
+    const source = {
+      path: relative(uxTemplatePath),
+      content: read(uxTemplatePath),
+    };
+    const parsed =
+      kind === "index"
+        ? parseUxIndex(source, { mode: "template" })
+        : kind === "personas"
+          ? parseUxPersonas(source, { mode: "template" })
+          : kind === "experience_map"
+            ? parseUxExperienceMap(source, { mode: "template" })
+            : kind === "service_blueprint"
+              ? parseUxServiceBlueprint(source, { mode: "template" })
+              : kind === "quality_expectations"
+                ? parseUxQualityExpectations(source, { mode: "template" })
+                : kind === "analysis"
+                  ? parseUxAnalysis(source, "REQ-XXXXXX", { mode: "template" })
+                  : parseUxDefinition(source, "UX-XXXXXX", {
+                      mode: "template",
+                    });
+    const checklistError = parsed.result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -305,7 +306,19 @@ export function inspectDiscoveryUxRepository(
   ] as const) {
     if (
       lstatIfPresent(uxTemplatePath)?.isFile() &&
-      !isUxHandoffTargetSetExact(read(uxTemplatePath), heading)
+      !(
+        heading === "## 6. 下流への引き渡し"
+          ? parseUxAnalysis(
+              { path: relative(uxTemplatePath), content: read(uxTemplatePath) },
+              "REQ-XXXXXX",
+              { mode: "template" },
+            )
+          : parseUxDefinition(
+              { path: relative(uxTemplatePath), content: read(uxTemplatePath) },
+              "UX-XXXXXX",
+              { mode: "template" },
+            )
+      ).result.handoffContract.valid
     )
       add(
         "error",
@@ -329,48 +342,59 @@ export function inspectDiscoveryUxRepository(
       relative(templatePath),
       "The official distribution must include the UX requirement-analysis template.",
     );
-  const adoptedRequirements = parseAdoptedDiscoveryRequirements(
-    read(discoveryPath),
-  );
+  const adoptedRequirements = parseDiscoveryIndex({
+    path: relative(discoveryPath),
+    content: read(discoveryPath),
+  }).result.adoptedRequirementIds;
   const actualRequirements = new Set<string>();
   const uxIndex = read(uxIndexPath);
-  const uxIndexModel = parseUxIndex(uxIndex);
+  const uxIndexModel = parseUxIndex({
+    path: relative(uxIndexPath),
+    content: uxIndex,
+  }).result;
   const canonicalUxIds = uxIndexModel.ids;
-  for (const [projectionPath, heading] of [
-    [path.join(root, "02_UX", "02_Personas.md"), "## 3. UX成果との対応"],
-    [experienceMapPath, "## 3. UX成果との対応"],
+  for (const [projectionPath, parseProjection] of [
+    [path.join(root, "02_UX", "02_Personas.md"), parseUxPersonas],
+    [experienceMapPath, parseUxExperienceMap],
     [
       path.join(root, "02_UX", "04_Service_Blueprint.md"),
-      "## 3. UX成果への適用",
+      parseUxServiceBlueprint,
     ],
     [
       path.join(root, "02_UX", "05_Quality_Expectations.md"),
-      "## 3. UX成果との対応",
+      parseUxQualityExpectations,
     ],
   ] as const) {
     if (!lstatIfPresent(projectionPath)?.isFile()) continue;
-    if (isUxProjectionIncomplete(read(projectionPath), heading, canonicalUxIds))
-      add(
-        "error",
-        "ux-cross-cutting-projection-incomplete",
-        relative(projectionPath),
-        "Each cross-cutting UX projection must process every canonical UX ID exactly once in its dedicated mapping section.",
-      );
+    for (const issue of inspectDocumentRelations({
+      kind: "ux_projection",
+      projection: parseProjection({
+        path: relative(projectionPath),
+        content: read(projectionPath),
+      }).result.projection,
+      canonicalIds: canonicalUxIds,
+    })) {
+      const finding = mapUxDomainIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
+    }
   }
-  for (const [artifactPath, forbiddenParts] of [
-    [uxIndexPath, ["IA／UI／SPEC／Verification", "UIへは", "SPECへは"]],
-    [
-      path.join(root, "02_UX", "05_Quality_Expectations.md"),
-      ["- Architectureは", "- Verificationは"],
-    ],
-    [
-      path.join(root, "template", "02_UX", "01_User_Experience.md"),
-      ["IA／UI／SPEC／Verification"],
-    ],
+  for (const [artifactPath, artifactKind] of [
+    [uxIndexPath, "index"],
+    [path.join(root, "02_UX", "05_Quality_Expectations.md"), "quality"],
+    [path.join(root, "template", "02_UX", "01_User_Experience.md"), "template"],
   ] as const) {
     if (!lstatIfPresent(artifactPath)?.isFile()) continue;
-    const source = omitMarkdownCommentsAndFencedCode(read(artifactPath));
-    if (forbiddenParts.some((part) => source.includes(part)))
+    const source = {
+      path: relative(artifactPath),
+      content: read(artifactPath),
+    };
+    const model =
+      artifactKind === "quality"
+        ? parseUxQualityExpectations(source).result
+        : parseUxIndex(source, {
+            mode: artifactKind === "template" ? "template" : "evaluated",
+          }).result;
+    if (model.forbiddenDownstream)
       add(
         "error",
         "ux-direct-downstream-handoff-reintroduced",
@@ -387,7 +411,15 @@ export function inspectDiscoveryUxRepository(
   ] as const) {
     if (
       lstatIfPresent(artifactPath)?.isFile() &&
-      !isUxRootHandoffValid(read(artifactPath), heading)
+      !parseUxIndex(
+        { path: relative(artifactPath), content: read(artifactPath) },
+        {
+          mode:
+            heading === "## 6. 現在状態と次工程への引き渡し"
+              ? "template"
+              : "evaluated",
+        },
+      ).result.handoffContract.valid
     )
       add(
         "error",
@@ -398,7 +430,10 @@ export function inspectDiscoveryUxRepository(
   }
   const analysisRelationPairs = new Set<string>();
   const canonicalJourneyPairs = lstatIfPresent(experienceMapPath)?.isFile()
-    ? parseUxJourneyRelations(read(experienceMapPath))
+    ? parseUxExperienceMap({
+        path: relative(experienceMapPath),
+        content: read(experienceMapPath),
+      }).result.requirementRelations
     : new Set<string>();
   const analysisJourneyPairs = new Set<string>();
   for (const entry of fs.readdirSync(requirementsRoot, {
@@ -421,7 +456,12 @@ export function inspectDiscoveryUxRepository(
     const definition = lstatIfPresent(discoveryDefinitionPath)?.isFile()
       ? read(discoveryDefinitionPath)
       : "";
-    const formalInputTargets = parseUxFormalInputTargets(analysis, root);
+    const model = parseUxAnalysis(
+      { path: relative(analysisPath), content: analysis },
+      entry.name,
+      { referenceRoot: root },
+    );
+    const formalInputTargets = model.result.formalInputTargets;
     const analysisTargets = formalInputTargets
       .map(({ target }) => resolveLocalTarget(analysisPath, target))
       .filter(
@@ -448,10 +488,10 @@ export function inspectDiscoveryUxRepository(
         )
       );
     });
-    for (const issue of inspectUxFormalInput(
-      { path: relative(analysisPath), content: analysis },
-      entry.name,
-      {
+    for (const issue of inspectDocumentRelations({
+      kind: "ux_formal_input",
+      analysis: model.result,
+      observation: {
         definitionHasContent: Boolean(definition),
         matchingDefinitionOnly:
           discoveryDefinitionLinks.length === 1 &&
@@ -471,22 +511,23 @@ export function inspectDiscoveryUxRepository(
             resolved.symbolicBoundary,
         ),
       },
-    )) {
+    })) {
       const finding = mapUxDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    const model = inspectUxAnalysis(
-      { path: relative(analysisPath), content: analysis },
-      entry.name,
-      uxIndex.split(`Analysis/${entry.name}/ux_analysis.md`).length - 1,
-    );
-    for (const issue of model.issues) {
+    for (const issue of inspectDocumentRelations({
+      kind: "ux_analysis_registration",
+      analysis: model,
+      registryLinkCount:
+        uxIndex.split(`Analysis/${entry.name}/ux_analysis.md`).length - 1,
+    })) {
       const finding = mapUxDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    for (const pair of model.requirementRelations)
+    for (const pair of model.result.requirementRelations)
       analysisRelationPairs.add(pair);
-    for (const pair of model.journeyRelations) analysisJourneyPairs.add(pair);
+    for (const pair of model.result.journeyRelations)
+      analysisJourneyPairs.add(pair);
   }
   if (
     adoptedRequirements.size !== actualRequirements.size ||
@@ -512,10 +553,10 @@ export function inspectDiscoveryUxRepository(
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       discoveryDefinitionIds.add(entry.name);
       const definition = read(definitionPath);
-      for (const issue of inspectDiscoveryDefinition(
+      for (const issue of parseDiscoveryDefinition(
         { path: relative(definitionPath), content: definition },
         entry.name,
-      )) {
+      ).issues) {
         const finding = mapDiscoveryDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
@@ -545,10 +586,10 @@ export function inspectDiscoveryUxRepository(
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       uxDefinitionIds.add(entry.name);
       const definition = read(definitionPath);
-      for (const issue of inspectUxDefinition(
+      for (const issue of parseUxDefinition(
         { path: relative(definitionPath), content: definition },
         entry.name,
-      )) {
+      ).issues) {
         const finding = mapUxDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
@@ -578,13 +619,16 @@ export function inspectDiscoveryUxRepository(
         relative(legacyRoot),
         "The current phase repository pattern must not retain a legacy or empty common root.",
       );
-  for (const issue of inspectUxRelations({
-    uxIndexPath: relative(uxIndexPath),
-    experienceMapPath: relative(experienceMapPath),
-    index: uxIndexModel,
-    analysisRequirementRelations: analysisRelationPairs,
-    canonicalJourneyRelations: canonicalJourneyPairs,
-    analysisJourneyRelations: analysisJourneyPairs,
+  for (const issue of inspectDocumentRelations({
+    kind: "ux_relations",
+    ...{
+      uxIndexPath: relative(uxIndexPath),
+      experienceMapPath: relative(experienceMapPath),
+      index: uxIndexModel,
+      analysisRequirementRelations: analysisRelationPairs,
+      canonicalJourneyRelations: canonicalJourneyPairs,
+      analysisJourneyRelations: analysisJourneyPairs,
+    },
   })) {
     const finding = mapUxDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);

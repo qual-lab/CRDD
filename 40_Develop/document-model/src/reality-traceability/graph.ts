@@ -4,7 +4,7 @@
  * @responsibility RealitySymbolNodeを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
+import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 import {
   createRealityDomainIssue,
   invalidDomainLocationIssue,
@@ -79,9 +79,9 @@ function appendToIndex(
  *
  * @responsibility Reality Symbol Graphの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
- * @input loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DomainIssue[]
- * @returns DomainOutcome<RealitySymbolGraph>を返す。
- * @precondition 「loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DomainIssue[]」がcreateRealitySymbolGraphの入力契約を満たす。
+ * @input loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DocumentIssue[]
+ * @returns DocumentResult<RealitySymbolGraph>を返す。
+ * @precondition 「loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DocumentIssue[]」がcreateRealitySymbolGraphの入力契約を満たす。
  * @postcondition createRealitySymbolGraphの責務を完了した結果だけを返す。
  * @effect N/A: createRealitySymbolGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createRealitySymbolGraphは独自の失敗分岐を所有しない。
@@ -99,8 +99,8 @@ export function createRealitySymbolGraph(
     string,
     Readonly<{ owner: string; testId: string }>
   > | null,
-  prerequisiteIssues: readonly DomainIssue[],
-): DomainOutcome<RealitySymbolGraph> {
+  prerequisiteIssues: readonly DocumentIssue[],
+): DocumentResult<RealitySymbolGraph> {
   if (
     loadedManifests.some(
       (loadedManifest) => !isSafeDomainLocation(loadedManifest.manifestPath),
@@ -132,7 +132,7 @@ export function createRealitySymbolGraph(
       ],
     };
 
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const symbolsById = new Map<string, RealitySymbolNode>();
   const symbolsByArchId = new Map<string, RealitySymbolNode[]>();
   const symbolsByQaId = new Map<string, RealitySymbolNode[]>();

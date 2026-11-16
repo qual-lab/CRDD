@@ -9,7 +9,6 @@
  * @security 検証済みRepository Root外へPathを解決せず、Symlinkを辿らない。
  */
 import {
-  type Stats,
   closeSync,
   lstatSync,
   mkdirSync,
@@ -18,20 +17,20 @@ import {
   readFileSync,
   renameSync,
   rmdirSync,
+  type Stats,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import type {
-  ProjectOperationRecordKind,
-  ProjectOperationRecord,
-  TopicMeetingWriteResult,
-  TopicMeetingRepository,
-} from "../activity/types.ts";
 import path from "node:path";
 import { acquireLock } from "../../../lock/src/index.ts";
-
-import { parseTopicMarkdown } from "../topic/markdown.ts";
+import type {
+  ProjectOperationRecord,
+  ProjectOperationRecordKind,
+  TopicMeetingRepository,
+  TopicMeetingWriteResult,
+} from "../activity/types.ts";
 import { parseMeetingMarkdown } from "../meeting/markdown.ts";
+import { parseTopicMarkdown } from "../topic/markdown.ts";
 
 const KIND_CONTRACT = Object.freeze({
   topic: Object.freeze({ directory: "22_Topics", prefix: "TOPIC" }),

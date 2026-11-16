@@ -184,3 +184,14 @@ Runtime import graphは実行時参照と型のみ参照を分けて確認する
 正式な検証義務は[QA-000006](../../../07_Quality/Definitions/QA-000006/quality_definition.md)と試験台帳、今回の範囲・失敗是正・限定結果・独立レビューは[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。全体回帰・実AI・実Docker・過去保持物の操作は今回実施しない。
 
 旧構造からの移管経緯・過去時点の公開数・段階別検証は同変更記録へ分離する。保存領域の詳細は[保存配置](03_Repository_Storage.md)、過去の移管設計は[API・単一保存の比較基準](05_Runtime_Domain.md)を参照し、現行のLogical Block・公開境界は本書を正本とする。
+
+<a id="ui-spec-detail-placement"></a>
+## 上流UI／SPEC Detailの局所分担
+
+[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)のARCH-000008について、境界診断に関係するOperation・資源観測・回復の記録と、その同版相関・遷移・保存を担当する。
+
+担当Interaction Relation: `PRT-000005.spec-000009`
+
+観測は上位が技術実行結果からEM所有の保存契約へ投影する。EMは新しいProbe・Docker操作を発行せず、故障原因や利用可能範囲の最終分類、認証・認可、修復の実行判断を所有しない。未観測・Process終了不明・Cleanup未確認を成功や不存在へ変換しない。保存の成立は診断・技術Effect・回復許可の成立ではない。
+
+この分担は旧Domain Modelの記録責務の移管先を明示するもので、CM／DMへの直接依存、新しい診断API、独自の技術資源照合を追加しない。

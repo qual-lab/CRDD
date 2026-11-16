@@ -4,13 +4,13 @@
  * @responsibility 既存のモデル生成と中立Issueの順序を所有し、表示・Rule登録・実行基盤を持たない。
  * @trace ARCH-000008
  */
-import type { DomainIssue } from "../outcome.ts";
-import { buildArtifactGraph, type ArtifactGraph } from "./graph.ts";
+
+import { type ArtifactGraph, buildArtifactGraph } from "./graph.ts";
 import { parseMarkdownArtifact } from "./parse-markdown.ts";
-import type { ArtifactModel, ArtifactSource } from "./types.ts";
+import type { ArtifactModel, ArtifactSource, DocumentIssue } from "./types.ts";
 import {
-  validateArtifactSchema,
   type ArtifactSchema,
+  validateArtifactSchema,
 } from "./validate-schema.ts";
 
 /**
@@ -37,10 +37,10 @@ export function inspectArtifactSources(
 ): Readonly<{
   artifacts: readonly ArtifactModel[];
   graph: ArtifactGraph;
-  issues: readonly DomainIssue[];
+  issues: readonly DocumentIssue[];
 }> {
   const artifacts = input.sources.map(parseMarkdownArtifact);
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   for (const artifact of artifacts)
     for (const schema of input.schemas ?? [])
       if (schema.matches(artifact))

@@ -240,7 +240,11 @@ Storeは非リンク実体・通常File・単一Linkを検査する。32MiB／10
 
 ## 上流UI／SPEC Detailとの関係
 
-PRT-000005.spec-000008、PRT-000017.spec-000022、PRT-000020.spec-000030の安定IDと元の検証義務を維持する。現EIが実装しない評価・時系列意図の義務は部分対応又は未実装であり、全面Coveredや正式QA Passへ昇格しない。
+[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)のARCH-000007、ARCH-000016、ARCH-000018に対する本領域の対応は、「基本設計との関係」のPartial表を正本とする。中央表のCoveredを現EIの実装・正式QA Passへ読み替えない。
+
+担当Interaction Relation: `PRT-000005.spec-000008`、`PRT-000017.spec-000022`、`PRT-000020.spec-000030`
+
+上記の安定IDと元の検証義務を維持する。現EIが実装しない評価・時系列意図の義務は部分対応又は未実装であり、全面Coveredや正式QA Passへ昇格しない。
 
 OPEN: ARCH-000007の評価候補、ARCH-000016の時間的出所、System／UATと全Filesystem Effect 0の正式義務は本候補の限定成功から成立としない。Architecture Readyは主張しない。
 

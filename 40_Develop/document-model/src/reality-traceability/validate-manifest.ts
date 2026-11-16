@@ -6,17 +6,17 @@
  */
 import path from "node:path";
 
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
+import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 import {
   createRealityDomainIssue,
   invalidDomainLocationIssue,
   isSafeDomainLocation,
 } from "./issue.ts";
 import {
-  realitySymbolKinds,
   type RealitySymbol,
   type RealitySymbolKind,
   type RealitySymbolManifest,
+  realitySymbolKinds,
 } from "./manifest.ts";
 
 const SUBSYSTEM_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
@@ -82,9 +82,9 @@ function isSafeRelativePath(value: string): boolean {
  *
  * @responsibility Unique Stringsの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
- * @input owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DomainIssue[]
+ * @input owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DocumentIssue[]
  * @returns readonly string[]を返す。
- * @precondition 「owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DomainIssue[]」がreadUniqueStringsの入力契約を満たす。
+ * @precondition 「owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DocumentIssue[]」がreadUniqueStringsの入力契約を満たす。
  * @postcondition readUniqueStringsの責務を完了した結果だけを返す。
  * @effect N/A: readUniqueStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: readUniqueStringsは独自の失敗分岐を所有しない。
@@ -98,7 +98,7 @@ function readUniqueStrings(
   property: string,
   pattern: RegExp,
   location: string,
-  issues: DomainIssue[],
+  issues: DocumentIssue[],
 ): readonly string[] {
   const value = owner[property];
   if (value === undefined) return [];
@@ -147,7 +147,7 @@ function readUniqueStrings(
  * @responsibility Reality Symbol Manifestの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、manifestPath: string
- * @returns DomainOutcome<RealitySymbolManifest>を返す。
+ * @returns DocumentResult<RealitySymbolManifest>を返す。
  * @precondition 「value: unknown、manifestPath: string」がvalidateRealitySymbolManifestの入力契約を満たす。
  * @postcondition validateRealitySymbolManifestの責務を完了した結果だけを返す。
  * @effect N/A: validateRealitySymbolManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -160,7 +160,7 @@ function readUniqueStrings(
 export function validateRealitySymbolManifest(
   value: unknown,
   manifestPath: string,
-): DomainOutcome<RealitySymbolManifest> {
+): DocumentResult<RealitySymbolManifest> {
   if (!isSafeDomainLocation(manifestPath))
     return {
       status: "invalid",
@@ -182,7 +182,7 @@ export function validateRealitySymbolManifest(
       ],
     };
 
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const allowedRootKeys = new Set([
     "contract",
     "contractRevision",

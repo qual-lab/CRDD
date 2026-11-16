@@ -3,27 +3,29 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
-
-import { lstatIfPresent } from "../repository/observe.ts";
 
 import fs from "node:fs";
 import path from "node:path";
-
+import type { UiDefinition } from "../../../document-model/src/index.ts";
 import {
+  inspectDocumentRelations,
+  parseUiAnalysis,
+  parseUiArea,
+  parseUiComponent,
+  parseUiDefinition,
+  parseUiDetailIndex,
+  parseUiHandoff,
   parseUiIndex,
-  inspectUiDetail,
-  inspectUiAnalysis,
-  inspectUiDefinition,
-  inspectUiAnalysisCoverage,
-  inspectUiIndexCoverage,
-  inspectUiRelations,
-  type UiRelationsModel,
-  createPhaseChecklistItems,
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
+  parseUiScreen,
+  parseUiVisualBaseline,
+  type UiAnalysis,
 } from "../../../document-model/src/index.ts";
 import { mapUiDomainIssueToFinding } from "../report/convert.ts";
+import type { DocumentFinding } from "../report/types.ts";
+import {
+  lstatIfPresent,
+  pathContainsSymbolicLink,
+} from "../repository/observe.ts";
 
 /**
  * ui成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -50,17 +52,6 @@ export function inspectUiRepository(
   const relative = (file: string) =>
     path.relative(root, file).replaceAll("\\", "/") || ".";
   const read = (file: string) => fs.readFileSync(file, "utf8");
-  const {
-    uiAnalysisUxChecklistItemTexts,
-    uiAnalysisIaChecklistItemTexts,
-    uiDefinitionChecklistItemTexts,
-    uiDetailIndexChecklistItemTexts,
-    uiAreaChecklistItemTexts,
-    uiScreenChecklistItemTexts,
-    uiComponentChecklistItemTexts,
-    uiVisualBaselineChecklistItemTexts,
-    uiSpecHandoffChecklistItemTexts,
-  } = createPhaseChecklistItems();
 
   if (repositoryMode !== "official") return;
   const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
@@ -111,7 +102,7 @@ export function inspectUiRepository(
   const uiDetailTemplates = [
     [
       path.join(root, "template", "04_UI", "Details", "01_UI_Detail.md"),
-      uiDetailIndexChecklistItemTexts,
+      "detail_index",
     ],
     [
       path.join(
@@ -123,7 +114,7 @@ export function inspectUiRepository(
         "AREA-NAME",
         "area.md",
       ),
-      uiAreaChecklistItemTexts,
+      "area",
     ],
     [
       path.join(
@@ -136,7 +127,7 @@ export function inspectUiRepository(
         "SCR-XXXXXX",
         "screen.md",
       ),
-      uiScreenChecklistItemTexts,
+      "screen",
     ],
     [
       path.join(
@@ -148,7 +139,7 @@ export function inspectUiRepository(
         "CMP-XXXXXX",
         "component.md",
       ),
-      uiComponentChecklistItemTexts,
+      "component",
     ],
     [
       path.join(
@@ -159,7 +150,7 @@ export function inspectUiRepository(
         "Visual",
         "visual_baseline.md",
       ),
-      uiVisualBaselineChecklistItemTexts,
+      "visual_baseline",
     ],
   ] as const;
   for (const templatePath of uiProjectionTemplates)
@@ -178,7 +169,7 @@ export function inspectUiRepository(
         relative(templatePath),
         "The official UI profile must include separate UX-view and IA-view analysis templates plus the integrated UI definition template.",
       );
-  for (const [templatePath, checklistItems] of uiDetailTemplates) {
+  for (const [templatePath, checklistKind] of uiDetailTemplates) {
     if (!lstatIfPresent(templatePath)?.isFile()) {
       add(
         "error",
@@ -188,7 +179,25 @@ export function inspectUiRepository(
       );
       continue;
     }
-    const error = inspectTemplateChecklist(read(templatePath), checklistItems);
+    const source = {
+      path: relative(templatePath),
+      content: read(templatePath),
+    };
+    const error = (
+      checklistKind === "detail_index"
+        ? parseUiDetailIndex(source, { mode: "template" }).result
+        : checklistKind === "area"
+          ? parseUiArea(source, { mode: "template" }).result
+          : checklistKind === "screen"
+            ? parseUiScreen(source, "SCR-XXXXXX", { mode: "template" }).result
+            : checklistKind === "component"
+              ? parseUiComponent(source, { mode: "template" }).result
+              : checklistKind === "visual_baseline"
+                ? parseUiVisualBaseline(source, { mode: "template" }).result
+                : (() => {
+                    throw Error("unknown_ui_checklist_kind");
+                  })()
+    ).checklistContract.failure;
     if (error)
       add(
         "error",
@@ -197,13 +206,23 @@ export function inspectUiRepository(
         `Every UI Detail template must expose one exact unevaluated checklist (${error}).`,
       );
   }
-  for (const [templatePath, checklistItems] of [
-    [requiredTemplates[0], uiAnalysisUxChecklistItemTexts],
-    [requiredTemplates[1], uiAnalysisIaChecklistItemTexts],
-    [requiredTemplates[2], uiDefinitionChecklistItemTexts],
+  for (const [templatePath, checklistKind] of [
+    [requiredTemplates[0], "analysis_ux"],
+    [requiredTemplates[1], "analysis_ia"],
+    [requiredTemplates[2], "definition"],
   ] as const) {
     if (!lstatIfPresent(templatePath)?.isFile()) continue;
-    const error = inspectTemplateChecklist(read(templatePath), checklistItems);
+    const source = {
+      path: relative(templatePath),
+      content: read(templatePath),
+    };
+    const error = (
+      checklistKind === "analysis_ux"
+        ? parseUiAnalysis(source, "UX-XXXXXX", { mode: "template" })
+        : checklistKind === "analysis_ia"
+          ? parseUiAnalysis(source, "IA-XXXXXX", { mode: "template" })
+          : parseUiDefinition(source, "UI-XXXXXX", { mode: "template" })
+    ).result.checklistContract.failure;
     if (error)
       add(
         "error",
@@ -215,10 +234,10 @@ export function inspectUiRepository(
   const uiHandoffPath = path.join(root, "04_UI", "05_UI_SPEC_Handoff.md");
   const uiHandoffTemplatePath = uiProjectionTemplates[4];
   if (lstatIfPresent(uiHandoffPath)?.isFile()) {
-    const error = inspectEvaluatedChecklist(
-      read(uiHandoffPath),
-      uiSpecHandoffChecklistItemTexts,
-    );
+    const error = parseUiHandoff(
+      { path: relative(uiHandoffPath), content: read(uiHandoffPath) },
+      { mode: "evaluated" },
+    ).result.checklistContract.failure;
     if (error)
       add(
         "error",
@@ -228,10 +247,13 @@ export function inspectUiRepository(
       );
   }
   if (lstatIfPresent(uiHandoffTemplatePath)?.isFile()) {
-    const error = inspectTemplateChecklist(
-      read(uiHandoffTemplatePath),
-      uiSpecHandoffChecklistItemTexts,
-    );
+    const error = parseUiHandoff(
+      {
+        path: relative(uiHandoffTemplatePath),
+        content: read(uiHandoffTemplatePath),
+      },
+      { mode: "template" },
+    ).result.checklistContract.failure;
     if (error)
       add(
         "error",
@@ -266,8 +288,9 @@ export function inspectUiRepository(
     path: relative(uiIndexPath),
     content: read(uiIndexPath),
   };
-  const uiIndexModel = parseUiIndex(uiIndexSource);
-  for (const issue of uiIndexModel.issues) {
+  const uiIndexRead = parseUiIndex(uiIndexSource);
+  const uiIndexModel = uiIndexRead.result;
+  for (const issue of uiIndexRead.issues) {
     const finding = mapUiDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
@@ -285,13 +308,14 @@ export function inspectUiRepository(
       "The official repository must keep the current UI Detail migration projection.",
     );
   } else {
-    for (const issue of inspectUiDetail(
-      {
+    for (const issue of inspectDocumentRelations({
+      kind: "ui_detail_coverage",
+      detail: parseUiDetailIndex({
         path: relative(uiDetailIndexPath),
         content: read(uiDetailIndexPath),
-      },
-      uiIndexModel.ids,
-    )) {
+      }),
+      actualIds: new Set(uiIndexModel.entries.map((entry) => entry.identity)),
+    })) {
       const finding = mapUiDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -299,7 +323,7 @@ export function inspectUiRepository(
 
   const analysisUxIds = new Set<string>();
   const analysisIaIds = new Set<string>();
-  const uiAnalyses: UiRelationsModel[] = [];
+  const uiAnalyses: UiAnalysis[] = [];
   if (lstatIfPresent(uiAnalysisRoot)?.isDirectory())
     for (const entry of fs.readdirSync(uiAnalysisRoot, {
       withFileTypes: true,
@@ -312,11 +336,11 @@ export function inspectUiRepository(
         "ui_analysis.md",
       );
       if (!lstatIfPresent(analysisPath)?.isFile()) continue;
-      const model = inspectUiAnalysis(
+      const model = parseUiAnalysis(
         { path: relative(analysisPath), content: read(analysisPath) },
         entry.name,
       );
-      uiAnalyses.push(model);
+      if (model.result) uiAnalyses.push(model.result);
       if (entry.name.startsWith("UX-")) analysisUxIds.add(entry.name);
       else analysisIaIds.add(entry.name);
       for (const issue of model.issues) {
@@ -325,18 +349,19 @@ export function inspectUiRepository(
       }
     }
 
-  for (const issue of inspectUiAnalysisCoverage(
-    uiIndexSource.path,
-    uxIds,
-    iaIds,
-    analysisUxIds,
-    analysisIaIds,
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "ui_analysis_coverage",
+    sourcePath: uiIndexSource.path,
+    uxIds: uxIds,
+    iaIds: iaIds,
+    analysisUxIds: analysisUxIds,
+    analysisIaIds: analysisIaIds,
+  })) {
     const finding = mapUiDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const actualUiIds = new Set<string>();
-  const uiDefinitions: UiRelationsModel[] = [];
+  const uiDefinitions: UiDefinition[] = [];
   if (lstatIfPresent(uiDefinitionsRoot)?.isDirectory())
     for (const entry of fs.readdirSync(uiDefinitionsRoot, {
       withFileTypes: true,
@@ -349,32 +374,102 @@ export function inspectUiRepository(
       );
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualUiIds.add(entry.name);
-      const model = inspectUiDefinition(
+      const model = parseUiDefinition(
         { path: relative(definitionPath), content: read(definitionPath) },
         entry.name,
       );
-      uiDefinitions.push(model);
+      if (model.result) uiDefinitions.push(model.result);
       for (const issue of model.issues) {
         const finding = mapUiDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
 
-  for (const issue of inspectUiIndexCoverage(
-    uiIndexSource.path,
-    uiIndexModel,
-    actualUiIds,
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "ui_index_coverage",
+    sourcePath: uiIndexSource.path,
+    index: uiIndexModel,
+    actualUiIds: actualUiIds,
+  })) {
     const finding = mapUiDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  for (const issue of inspectUiRelations(
-    uiIndexSource.path,
-    uiIndexModel,
-    uiAnalyses,
-    uiDefinitions,
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "ui_relations",
+    sourcePath: uiIndexSource.path,
+    index: uiIndexModel,
+    analyses: uiAnalyses,
+    definitions: uiDefinitions,
+  })) {
     const finding = mapUiDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
+  }
+
+  // 通常Detailの存在する本文だけを固定配置から読み、作成必須条件は追加しない。
+  const areasRoot = path.join(root, "04_UI", "Details", "Areas");
+  if (
+    lstatIfPresent(areasRoot)?.isDirectory() &&
+    !pathContainsSymbolicLink(root, areasRoot)
+  )
+    for (const entry of fs.readdirSync(areasRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const file = path.join(areasRoot, entry.name, "area.md");
+      if (
+        !lstatIfPresent(file)?.isFile() ||
+        pathContainsSymbolicLink(root, file)
+      )
+        continue;
+      const parsed = parseUiArea(
+        { path: relative(file), content: read(file) },
+        { mode: "evaluated" },
+      );
+      for (const issue of parsed.issues) {
+        const finding = mapUiDomainIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
+      }
+    }
+  const componentsRoot = path.join(root, "04_UI", "Details", "Components");
+  if (
+    lstatIfPresent(componentsRoot)?.isDirectory() &&
+    !pathContainsSymbolicLink(root, componentsRoot)
+  )
+    for (const entry of fs.readdirSync(componentsRoot, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || !/^CMP-[0-9]{6}$/u.test(entry.name)) continue;
+      const file = path.join(componentsRoot, entry.name, "component.md");
+      if (
+        !lstatIfPresent(file)?.isFile() ||
+        pathContainsSymbolicLink(root, file)
+      )
+        continue;
+      const parsed = parseUiComponent(
+        { path: relative(file), content: read(file) },
+        { mode: "evaluated" },
+      );
+      for (const issue of parsed.issues) {
+        const finding = mapUiDomainIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
+      }
+    }
+  const visualPath = path.join(
+    root,
+    "04_UI",
+    "Details",
+    "Visual",
+    "visual_baseline.md",
+  );
+  if (
+    lstatIfPresent(visualPath)?.isFile() &&
+    !pathContainsSymbolicLink(root, visualPath)
+  ) {
+    const parsed = parseUiVisualBaseline(
+      { path: relative(visualPath), content: read(visualPath) },
+      { mode: "evaluated" },
+    );
+    for (const issue of parsed.issues) {
+      const finding = mapUiDomainIssueToFinding(issue);
+      add(finding.severity, finding.code, finding.path, finding.message);
+    }
   }
 }

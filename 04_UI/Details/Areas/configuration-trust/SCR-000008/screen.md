@@ -175,6 +175,7 @@ PRT内の操作は次のように区別する。新しい全体IDや画面を発
 | Product固有Layout・表示案内 | OPEN | UI工程Owner・Qual-Lab | 採用済み入口の具体配置・最終視覚品質は未固定 | Pilotで対象識別・確認負担を評価する時 |
 | CMP昇格 | OPEN | UI工程Owner | 再利用Component未発行 | 複数実画面で反復を確認した時 |
 | 具体API・保存・実画面と本番認可 | OPEN | Architecture／実装・UI工程Owner | 固定分担の設計だけでは本番成立を主張できない | 後続のArchitecture・Source・実境界検証時 |
+| Accessibilityの実表示評価 | OPEN | UI工程Owner・Qual-Lab | §2・§5のFocus／Keyboard／色非依存は設計方針であり、実表示・操作時の成立は未確認 | 対象画面の実表示とKeyboard／Focus評価時 |
 
 ## 8. 検証意図
 
@@ -192,11 +193,14 @@ UI-000008の現在の意味を既存SCR／PRTへ具体化する。新しい権�
 
 ## Checklist
 
-- [x] 既存Screen／Partの目的を維持し、新IDを追加していない
-- [x] Definition、Area、BHVへ逆引きできる
-- [x] 通常管理、独立失効、鍵交換2操作と2入口を区別した
-- [x] 事前表示と条件付き明示確認を分けた
-- [x] 三可視境界、現行Role、内容Accessと管理の分離を保持した
-- [x] 部分結果を3分岐へ分け、元Identity再観測・別明示交換・既存Hostを表示へ接続した
-- [x] Visual Baseline、AccessibilityとCMP非昇格理由を評価した
-- [x] OPENのOwner・影響・戻り条件を示し、具体表示・案内未確定を隠していない
+- [x] ScreenをRoute、URLまたはFigma Frameだけで定義していない
+- [x] 利用者の目的、入口、終了条件を明示した
+- [x] 対象UI DefinitionとAreaへ接続した
+- [x] 意味あるPRTを全件示した
+- [x] Interaction、Feedback、StateおよびVariantを評価した
+- [x] System Behaviorを伴うInteractionをBHVへ接続した
+- [x] Failure、Unknown、PendingおよびRecoveryの表示を評価した
+- [x] Visual BaselineとArea Design Guideの適用を示した
+- OPEN: §2・§5は設計方針で実表示の成立は未確認。担当:UI工程Owner・Qual-Lab。影響:実操作のAccessibilityを確定できない。再評価:§7の実表示とKeyboard／Focus評価時 — Accessibilityを評価した
+- [x] Pattern／CMP昇格を反復根拠から判断した
+- [x] N/Aに理由、OPENにOwner・影響・戻り条件を記録した

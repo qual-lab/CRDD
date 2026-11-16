@@ -7,7 +7,15 @@
  * @effect N/A: 外部I/O・共有状態変更を行わない。
  * @security 返却本文の意味妥当性やPathの安全性を保証しない。
  */
-import type { MarkdownFenceLine, MarkdownFence } from "./types.ts";
+import type {
+  ArtifactSource,
+  DocumentReference,
+  DocumentSection,
+  DocumentTableRow,
+  DocumentText,
+  MarkdownFence,
+  MarkdownFenceLine,
+} from "./types.ts";
 /**
  * HTMLコメントとFence内の本文を構造検査から除外する。
  *
@@ -355,4 +363,137 @@ export function parseMarkdownFences(lines: readonly string[]): {
     entries.push({ index, text: line, outside: false, fenceId: fence.id });
   }
   return { entries, fences };
+}
+
+/**
+ * Markdownの指定第二階層Section本文を抽出する。
+ * @responsibility Markdownの指定第二階層Section本文を抽出する。
+ * @trace ARCH-000008
+ * @input source: 可視本文。heading: 対象見出し。
+ * @returns 既存のSection本文、または空文字列。
+ * @precondition 呼出し元が対象を選択し本文を取得している。
+ * @postcondition 最初に一致したSectionの本文だけを返す。
+ * @effect N/A: 既読本文と局所値だけを扱う同期処理。
+ * @failure 解析例外を伝播し不足を補完しない。
+ * @invariant 最初の一致と次の第二階層見出しで区切る。
+ * @boundary N/A: 同一Process内のMarkdown意味モデル検査。
+ * @security 実在・認可・品質全体の成立を発行しない。
+ * @concurrency N/A: 呼出し間の共有可変状態を持たない。
+ */
+export const readMarkdownSection = (
+  source: string,
+  heading: string,
+): string => {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return (
+    source.match(
+      new RegExp(`^${escaped}\\s*$([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "mu"),
+    )?.[1] ?? ""
+  );
+};
+
+/**
+ * 指定したH2節の全出現を位置付きで捕捉する。
+ * @responsibility 最初／一意という工程側の選択前に、欠測と重複を保持する。
+ * @trace ARCH-000008
+ * @input source: 可視本文とPath。heading: H2の表示名。
+ * @returns 出現順の見出しと本文。欠測は空配列。
+ * @effect N/A: 既読文字列だけを扱う。
+ * @failure 解析例外を伝播する。
+ */
+export function captureDocumentSections(
+  source: ArtifactSource,
+  heading: string,
+): readonly DocumentSection[] {
+  const escaped = heading.replace(/[.*+?^$()|[\]{}\\]/gu, "\\$&");
+  return [
+    ...source.content.matchAll(
+      new RegExp(`^## ${escaped}\\s*$([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "gmu"),
+    ),
+  ].map((match) => {
+    const start = match.index ?? 0;
+    const body = match[1] ?? "";
+    const bodyStart = start + match[0].length - body.length;
+    return {
+      heading: {
+        text: `## ${heading}`,
+        location: {
+          path: source.path,
+          line: source.content.slice(0, start).split("\n").length,
+        },
+      },
+      body: {
+        text: body,
+        location: {
+          path: source.path,
+          line: source.content.slice(0, bodyStart).split("\n").length,
+        },
+      },
+      boundary: source.content.slice(start + match[0].length).startsWith("## ")
+        ? "heading"
+        : "end_of_document",
+      tableRows: body.split("\n").flatMap((line, index) => {
+        const cells = parseMarkdownTableRow(line);
+        return cells === null
+          ? []
+          : [
+              {
+                cells,
+                location: {
+                  path: source.path,
+                  line:
+                    source.content.slice(0, bodyStart).split("\n").length +
+                    index,
+                },
+              },
+            ];
+      }),
+    };
+  });
+}
+/**
+ * 指定構文に一致した参照を本文中の位置付きで捕捉する。
+ * @responsibility 呼出し側の工程構文を使い、順序と重複を消さない。
+ * @trace ARCH-000008
+ * @input body: 節本文。pattern: IDを第1捕捉に持つ全体参照の正規表現。
+ * @returns 正式構文に一致した参照列。未一致の原文は節本文に残る。
+ * @effect N/A: 既読文字列だけを扱う。
+ * @failure 解析例外を伝播する。
+ */
+export function captureDocumentReferences(
+  body: DocumentText | null,
+  pattern: RegExp,
+): readonly DocumentReference[] {
+  if (!body) return [];
+  return [...body.text.matchAll(pattern)].map((match) => ({
+    identity: match[1] ?? "",
+    target: /\]\(([^)]*)\)/u.exec(match[0])?.[1] ?? "",
+    location: {
+      path: body.location.path,
+      line:
+        body.location.line +
+        body.text.slice(0, match.index ?? 0).split("\n").length -
+        1,
+    },
+  }));
+}
+
+/**
+ * 取得済み本文の表行と出典を捕捉する。
+ * @responsibility 既存Cell分割だけを利用し、登録や被覆の適否を判断しない。
+ * @trace ARCH-000008
+ * @input source: 呼出し側が選択した本文とPath。
+ * @returns Header・Separatorを含む出現順の表行。
+ * @effect N/A: 既読文字列だけを扱う。
+ * @failure 解析例外を伝播し、未認識行を捏造しない。
+ */
+export function captureDocumentTableRows(
+  source: ArtifactSource,
+): readonly DocumentTableRow[] {
+  return source.content.split(/\r?\n/u).flatMap((line, index) => {
+    const cells = parseMarkdownTableRow(line);
+    return cells === null
+      ? []
+      : [{ cells, location: { path: source.path, line: index + 1 } }];
+  });
 }

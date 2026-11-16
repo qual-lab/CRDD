@@ -4,8 +4,7 @@
  * @responsibility ArtifactGraphを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { ArtifactModel } from "./types.ts";
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
+import type { ArtifactModel, DocumentIssue, DocumentResult } from "./types.ts";
 
 /**
  * artifact-graphで使用するArtifact Graphの値契約を定義する。
@@ -49,7 +48,7 @@ export type BuildArtifactGraphRequest = Readonly<{
  * @security N/A: ArtifactGraphResultはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility ArtifactGraphResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type ArtifactGraphResult = DomainOutcome<ArtifactGraph>;
+export type ArtifactGraphResult = DocumentResult<ArtifactGraph>;
 
 /**
  * Artifact Graphを構築する。
@@ -70,7 +69,7 @@ export type ArtifactGraphResult = DomainOutcome<ArtifactGraph>;
 export function buildArtifactGraph(
   request: BuildArtifactGraphRequest,
 ): ArtifactGraphResult {
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const artifactsById = new Map<string, ArtifactModel>();
   const incoming = new Map<string, ArtifactModel[]>();
   for (const artifact of request.artifacts) {

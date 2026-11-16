@@ -22,7 +22,7 @@ Domainの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求�
 
 | 公開Owner | API | 返却の意味 |
 |---|---|---|
-| domain-model | `compileSemanticIr` | 中立Issue付きの`DomainOutcome<SemanticIr>` |
+| domain-model | `compileSemanticIr` | 中立Issue付きの`DocumentResult<SemanticIr>` |
 | domain-model | `compileQualitySemanticRelations` | 中立Issue付きのRelation集合Outcome |
 | domain-model | `createSemanticCoverageGraph` | 前提不成立・関係不整合を保持するGraph Outcome |
 | domain-model | `createSemanticBundle` | 既存SchemaのBundle値。保存や品質Passを表さない |

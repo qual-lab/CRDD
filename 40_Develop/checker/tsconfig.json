@@ -21,6 +21,8 @@
     "./bin/checker.ts",
     "./src/index.ts",
     "./src/cli/**/*.ts",
+    "./src/test-catalog/**/*.ts",
+    "./tests/unit/test-catalog/**/*.ts",
     "./src/report/**/*.ts",
     "./src/repository/**/*.ts",
     "./tests/unit/repository/**/*.ts",

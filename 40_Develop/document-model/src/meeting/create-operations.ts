@@ -5,9 +5,9 @@
  * @trace ARCH-000006
  */
 import { createTopicMeetingOperations } from "../activity/operations.ts";
+import type { TopicMeetingRepository } from "../activity/types.ts";
 import { createTopicMeetingRepository } from "../storage/topic-meeting-store.ts";
 import type { MeetingOperations } from "./types.ts";
-import type { TopicMeetingRepository } from "../activity/types.ts";
 
 /**
  * 同じRepositoryに対するMeeting専用の操作集合を生成する。

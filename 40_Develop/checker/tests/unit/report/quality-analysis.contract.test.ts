@@ -1,37 +1,54 @@
 /**
  * Quality状態・分析・関係Issueの公開診断変換を検証する。
  * @packageDocumentation
- * @responsibility 全39kindの既存code・文言と、未知kind・必要値不足の拒否を確認する。
+ * @responsibility 全40kindの既存code・文言と、未知kind・必要値不足の拒否を確認する。
  * @trace RCM-UT-002
  * @level UT
  * @scope report、quality-analysis、quality-relations
  * @boundary RCM-UT-002=N/A: 中立Issueから表示値への同期変換。
  */
+
+import assert from "node:assert/strict";
+import test from "node:test";
 import {
   mapQualityAnalysisIssueToFinding,
   mapQualityRelationsIssueToFinding,
 } from "../../../src/report/quality.ts";
 
-import assert from "node:assert/strict";
-import test from "node:test";
-
 /**
- * Qualityの全39種のIssueを既存診断へ変換し、契約外入力は拒否する。
- * @responsibility 全39kindのcode・文言・位置を維持し、契約外入力を拒否する。
+ * Qualityの全40種のIssueを既存診断へ変換し、契約外入力は拒否する。
+ * @responsibility 全40kindのcode・文言・位置を維持し、契約外入力を拒否する。
  * @trace RCM-UT-002
- * @precondition Qualityの全39kindと契約外入力を用意する。
+ * @precondition Qualityの全40kindと契約外入力を用意する。
  * @stimulus 分析・関係の診断変換を呼ぶ。
  * @observation 既存診断と拒否例外を取得する。
- * @oracle 全39kindのcode・文言・位置を維持し、契約外入力を拒否する。
+ * @oracle 全40kindのcode・文言・位置を維持し、契約外入力を拒否する。
  * @cleanup N/A: 合成値の同期検査で外部資源を作成しない。
  * @boundary RCM-UT-002=N/A: 同一Process内の値検査・変換。
  */
-test("Qualityの全39種のIssueを既存診断へ変換し、契約外入力は拒否する", () => {
+test("Qualityの全40種のIssueを既存診断へ変換し、契約外入力は拒否する", () => {
   const cases: readonly {
     convert: typeof mapQualityAnalysisIssueToFinding;
     issue: Parameters<typeof mapQualityAnalysisIssueToFinding>[0];
     expected: ReturnType<typeof mapQualityAnalysisIssueToFinding>;
   }[] = [
+    {
+      convert: mapQualityAnalysisIssueToFinding,
+      issue: {
+        kind: "artifact.quality-analysis.architecture-cross-model-coverage-mismatch",
+        targetIdentity: "artifact.md",
+        location: { path: "artifact.md" },
+        reason: "architecture-cross-model-coverage-mismatch",
+        details: {},
+      },
+      expected: {
+        severity: "error",
+        code: "quality-architecture-cross-model-coverage-mismatch",
+        path: "artifact.md",
+        message:
+          "The Quality mapping must explicitly process the exact five canonical Architecture cross-model documents.",
+      },
+    },
     {
       convert: mapQualityAnalysisIssueToFinding,
       issue: {

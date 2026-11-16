@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 
-import type { DomainIssue } from "../outcome.ts";
+import type { DocumentIssue } from "../artifact/types.ts";
 
 /**
  * domain-issueで使用するReality Issue Detailsの値契約を定義する。
@@ -132,7 +132,7 @@ export function isSafeDomainLocation(candidate: string): boolean {
  * @responsibility Reality Domain Issueの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input kind: K、location: string、targetIdentity: string、reason: string、details: RealityIssueDetails[K]
- * @returns DomainIssueを返す。
+ * @returns DocumentIssueを返す。
  * @precondition 「kind: K、location: string、targetIdentity: string、reason: string、details: RealityIssueDetails[K]」がcreateRealityDomainIssueの入力契約を満たす。
  * @postcondition createRealityDomainIssueの責務を完了した結果だけを返す。
  * @effect N/A: createRealityDomainIssueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -148,7 +148,7 @@ export function createRealityDomainIssue<K extends RealityIssueKind>(
   targetIdentity: string,
   reason: string,
   details: RealityIssueDetails[K],
-): DomainIssue {
+): DocumentIssue {
   return {
     kind,
     targetIdentity,
@@ -164,7 +164,7 @@ export function createRealityDomainIssue<K extends RealityIssueKind>(
  * @responsibility Domain Location Issueの不正理由、公開Property、結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
- * @returns DomainIssueを返す。
+ * @returns DocumentIssueを返す。
  * @precondition 「N/A: 実行時引数を受け取らない。」がinvalidDomainLocationIssueの入力契約を満たす。
  * @postcondition invalidDomainLocationIssueの責務を完了した結果だけを返す。
  * @effect N/A: invalidDomainLocationIssueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -174,7 +174,7 @@ export function createRealityDomainIssue<K extends RealityIssueKind>(
  * @security N/A: invalidDomainLocationIssueはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: invalidDomainLocationIssueは共有非同期状態を持たない同期処理である。
  */
-export function invalidDomainLocationIssue(): DomainIssue {
+export function invalidDomainLocationIssue(): DocumentIssue {
   return createRealityDomainIssue(
     "input.location.not-repository-relative",
     "",

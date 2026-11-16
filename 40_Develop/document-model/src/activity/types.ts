@@ -4,11 +4,12 @@
  * @responsibility 一覧、改訂付きCRUD、Relation、昇格およびOutcome処置の共有値を定義する。
  * @trace ARCH-000006
  */
-import type { TopicRecord } from "../topic/types.ts";
+
 import type {
-  MeetingRecord,
   MeetingOutcomeDisposition,
+  MeetingRecord,
 } from "../meeting/types.ts";
+import type { TopicRecord } from "../topic/types.ts";
 
 /**
  * 同じ認可済みRepositoryに対する二つの種別固定操作を束ねる型。

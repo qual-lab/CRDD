@@ -4,9 +4,9 @@
  * @responsibility RealitySymbolDiscoverySourceを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
-import { createRealityDomainIssue } from "./issue.ts";
+import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 import { validateRealitySymbolAnnotations } from "./annotations.ts";
+import { createRealityDomainIssue } from "./issue.ts";
 import type { LoadedRealitySymbolManifest } from "./manifest.ts";
 import { validateRealitySymbolManifest } from "./validate-manifest.ts";
 
@@ -42,7 +42,7 @@ export type RealitySymbolDiscoverySource = Readonly<{
  */
 export type RealitySymbolDiscoveryRequest = Readonly<{
   sources: readonly RealitySymbolDiscoverySource[];
-  prerequisiteIssues: readonly DomainIssue[];
+  prerequisiteIssues: readonly DocumentIssue[];
 }>;
 
 /**
@@ -66,7 +66,7 @@ export type RealitySymbolDiscoveryResult = Readonly<{
  * @responsibility Reality Symbolsの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000008
  * @input request: RealitySymbolDiscoveryRequest
- * @returns DomainOutcome<RealitySymbolDiscoveryResult>を返す。
+ * @returns DocumentResult<RealitySymbolDiscoveryResult>を返す。
  * @precondition 「request: RealitySymbolDiscoveryRequest」がdiscoverRealitySymbolsの入力契約を満たす。
  * @postcondition discoverRealitySymbolsの責務を完了した結果だけを返す。
  * @effect N/A: discoverRealitySymbolsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -78,7 +78,7 @@ export type RealitySymbolDiscoveryResult = Readonly<{
  */
 export function discoverRealitySymbols(
   request: RealitySymbolDiscoveryRequest,
-): DomainOutcome<RealitySymbolDiscoveryResult> {
+): DocumentResult<RealitySymbolDiscoveryResult> {
   if (request.prerequisiteIssues.length > 0)
     return {
       status: "unobservable",
@@ -86,7 +86,7 @@ export function discoverRealitySymbols(
       issues: request.prerequisiteIssues,
     };
 
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const manifests: LoadedRealitySymbolManifest[] = [];
   for (const source of [...request.sources].sort((left, right) =>
     left.subsystem.localeCompare(right.subsystem, "en"),

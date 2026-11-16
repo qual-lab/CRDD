@@ -8,14 +8,15 @@
  * @effect N/A: 入力文字列または型宣言だけを扱う。
  * @security 記載されていない状態、RelationまたはAuthorityを補完しない。
  */
-import type { TopicState, TopicPromotion, TopicRecord } from "./types.ts";
+
 import {
+  assertSafeCell,
   readMetadata,
   readSummary,
-  assertSafeCell,
   tableCells,
   tableRange,
 } from "../artifact/activity-table.ts";
+import type { TopicPromotion, TopicRecord, TopicState } from "./types.ts";
 
 /**
  * Topic Markdownを公開Read Modelへ変換する。

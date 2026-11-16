@@ -20,10 +20,12 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
-
-import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
 import { inspectArtifactSources } from "../../../document-model/src/index.ts";
 import { runChecker as runDocumentChecker } from "../../src/index.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
+import type { DocumentFinding } from "../../src/report/types.ts";
+import { inspectSpecRepository } from "../../src/repository/spec.ts";
+import { inspectUiRepository } from "../../src/repository/ui.ts";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
@@ -15934,4 +15936,332 @@ test("branch coverage tables use one parser for GFM headers and rows", () => {
   const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.numeric_rows_checked, 1);
+});
+
+/**
+ * 対応根拠の評価例外後に後続ペアを読み取らないことを実Fileで確認する。
+ * @responsibility Fingerprint観測とfreshな両定義読取りの順序を維持する。
+ * @trace AUH-IT-003
+ * @precondition 正規fixtureの先頭対応行を短Cellにし、次行は別Identityとする。
+ * @stimulus 実SPEC Repository観測を呼び、読取りを記録する。
+ * @observation TypeErrorと最後の両定義読取り、後続Identityの未読取り。
+ * @oracle 元のUI／SPECを読んでから例外となり、後続Fileへ進まない。
+ * @cleanup 観測用関数をfinallyで戻し、自己生成Rootは登録済みhookで回収する。
+ * @boundary 実Filesystem読取り。Provider・Docker・保存処理は呼ばない。
+ */
+test("UI／SPEC根拠の短Cell例外後は後続ペアを読まない", () => {
+  const root = specReconstructionFixtureRoot();
+  const target = path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md");
+  const content = fs.readFileSync(target, "utf8");
+  const row = content
+    .split(/\r?\n/u)
+    .find((line) =>
+      line.startsWith(
+        "| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001]",
+      ),
+    );
+  assert.ok(row);
+  const short = `${row.split(" | ").slice(0, 2).join(" | ")} |`;
+  const next = row
+    .replaceAll("UI-000001", "UI-000002")
+    .replaceAll("SPEC-000001", "SPEC-000002");
+  write(target, `${content.replace(row, short)}\n${next}\n`);
+  const original = fs.readFileSync;
+  const reads: string[] = [];
+  fs.readFileSync = ((...args: Parameters<typeof fs.readFileSync>) => {
+    if (typeof args[0] === "string")
+      reads.push(path.relative(root, args[0]).replaceAll("\\", "/"));
+    return Reflect.apply(original, fs, args);
+  }) as typeof fs.readFileSync;
+  try {
+    assert.throws(() => inspectSpecRepository(root, "official", []), TypeError);
+  } finally {
+    fs.readFileSync = original;
+  }
+  assert.deepEqual(reads.slice(-2), [
+    "04_UI/Definitions/UI-000001/ui_definition.md",
+    "05_SPEC/Definitions/SPEC-000001/spec_definition.md",
+  ]);
+  assert.equal(
+    reads.some(
+      (file) => file.includes("UI-000002") || file.includes("SPEC-000002"),
+    ),
+    false,
+  );
+});
+
+/**
+ * 通常Detail四種類を固定配置から公開Parserへ搬送する。
+ * @responsibility 不変の準備一回から正常／不備の差分を確認し、診断後の継続と読取り回数を保つ。
+ * @trace AUH-IT-003
+ * @precondition 一つのRepository fixtureに四種の評価済み本文を配置する。
+ * @stimulus 実工程Readerを観測した後、四本文だけを不正化して公開Checkerを呼ぶ。
+ * @observation 読取り回数、種類別code、位置、失敗理由と後続診断を読む。
+ * @oracle 正常時は追加診断なし、不備時は四種を一件ずつ配送し本文を表示しない。
+ * @cleanup 自己生成Rootは既存終了hookが回収する。観測関数はfinallyで戻す。
+ * @boundary 実FilesystemとChecker。外部AI・Docker・保存処理なし。
+ */
+test("通常Detail四種類は存在する本文を一回ずつ解析し局所不備を配送する", () => {
+  const root = specReconstructionFixtureRoot();
+  const entries = [
+    [
+      "04_UI/Details/Areas/normal-detail/area.md",
+      "template/04_UI/Details/Areas/AREA-NAME/area.md",
+      "ui-area-checklist-invalid",
+    ],
+    [
+      "04_UI/Details/Components/CMP-000001/component.md",
+      "template/04_UI/Details/Components/CMP-XXXXXX/component.md",
+      "ui-component-checklist-invalid",
+    ],
+    [
+      "04_UI/Details/Visual/visual_baseline.md",
+      "template/04_UI/Details/Visual/visual_baseline.md",
+      "ui-visual-baseline-checklist-invalid",
+    ],
+    [
+      "05_SPEC/Details/BHV-000001/behavior.md",
+      "template/05_SPEC/Details/BHV-XXXXXX/behavior.md",
+      "spec-behavior-checklist-invalid",
+    ],
+  ] as const;
+  for (const [file, template] of entries)
+    write(path.join(root, file), `# 通常本文\n${completedChecklist(template)}`);
+  const codes = new Set<string>(entries.map(([, , code]) => code));
+  const findings: DocumentFinding[] = [];
+  const reads: string[] = [];
+  const original = fs.readFileSync;
+  fs.readFileSync = ((...args: Parameters<typeof fs.readFileSync>) => {
+    if (typeof args[0] === "string")
+      reads.push(path.relative(root, args[0]).replaceAll("\\", "/"));
+    return Reflect.apply(original, fs, args);
+  }) as typeof fs.readFileSync;
+  try {
+    inspectUiRepository(root, "official", findings);
+    inspectSpecRepository(root, "official", findings);
+  } finally {
+    fs.readFileSync = original;
+  }
+  assert.deepEqual(
+    findings.filter((item) => codes.has(item.code)),
+    [],
+  );
+  for (const [file] of entries)
+    assert.equal(reads.filter((read) => read === file).length, 1, file);
+  for (const [file] of entries)
+    write(path.join(root, file), "本文を診断へ複製しない\n| incomplete |");
+  const invalidFindings: DocumentFinding[] = [];
+  inspectUiRepository(root, "official", invalidFindings);
+  inspectSpecRepository(root, "official", invalidFindings);
+  assert.deepEqual(
+    invalidFindings
+      .filter((item) => codes.has(item.code))
+      .map((item) => [item.path, item.code]),
+    entries.map(([file, , code]) => [file, code]),
+  );
+  const result = runChecker(root);
+  const actual = result.report.findings.filter((item) => codes.has(item.code));
+  assert.deepEqual(
+    actual.map((item) => [item.path, item.code]),
+    [entries[3], ...entries.slice(0, 3)].map(([file, , code]) => [file, code]),
+  );
+  assert.ok(
+    actual.every((item) => item.message.includes("missing_or_duplicate")),
+  );
+  assert.ok(
+    actual.every((item) => !item.message.includes("本文を診断へ複製しない")),
+  );
+});
+
+/**
+ * 不在・非対象・深い子配置を新しい文書義務へ変換しない。
+ * @responsibility 固定配置の存在文書だけを読み、通常CMP作成や再帰探索を強制しない。
+ * @trace AUH-IT-003
+ * @precondition 空の対象Directory、非対象名と深い子に不正本文を置く。
+ * @stimulus 実UI／SPEC工程Readerを呼ぶ。
+ * @observation 新しい四種の診断と欠落診断の有無を読む。
+ * @oracle 不在・非対象から新しい通常本文診断を出さない。
+ * @cleanup 自己生成Rootは既存終了hookが回収する。
+ * @boundary 実Filesystemのみ。
+ */
+test("通常Detailの不在と非対象配置は新しい作成義務や再帰探索にならない", () => {
+  const root = specReconstructionFixtureRoot();
+  for (const file of [
+    "04_UI/Details/Areas/normal-detail/area.md",
+    "04_UI/Details/Visual/visual_baseline.md",
+    "05_SPEC/Details/BHV-000001/behavior.md",
+  ])
+    fs.rmSync(path.join(root, file), { force: true });
+  for (const file of [
+    "04_UI/Details/Areas/normal-detail/child/area.md",
+    "04_UI/Details/Components/notes/component.md",
+    "05_SPEC/Details/notes/behavior.md",
+  ])
+    write(path.join(root, file), "不正なChecklist");
+  fs.mkdirSync(path.join(root, "04_UI/Details/Components/CMP-000002"), {
+    recursive: true,
+  });
+  fs.mkdirSync(path.join(root, "05_SPEC/Details/BHV-000002"), {
+    recursive: true,
+  });
+  const findings: DocumentFinding[] = [];
+  inspectUiRepository(root, "official", findings);
+  inspectSpecRepository(root, "official", findings);
+  assert.deepEqual(
+    findings.filter((item) =>
+      /^(ui-(area|component|visual-baseline|screen)|spec-behavior)-/u.test(
+        item.code,
+      ),
+    ),
+    [],
+  );
+});
+
+/**
+ * 通常DetailのDirectory Linkと祖先Linkをたどらない。
+ * @responsibility 自己生成Root内のLink先を用い、新しい読取り経路の境界を反証する。
+ * @trace AUH-IT-003
+ * @precondition UI Detailの祖先とBHV Directoryを自己生成領域内の別実体へのLinkにする。
+ * @stimulus 通常文書Readerを呼び、読取りを観測する。
+ * @observation 新しい通常本文の読取りと診断を読む。
+ * @oracle Link経由の通常四種を読まず、不正本文の診断も出さない。
+ * @cleanup 自己生成RootとLink先は既存終了hookが回収し、観測関数はfinallyで戻す。
+ * @boundary 自己生成Root内のFilesystem Linkだけ。過去保持物・外部実行なし。
+ */
+test("通常DetailのReaderはDirectoryと祖先のLinkをたどらない", () => {
+  const root = specReconstructionFixtureRoot();
+  const details = path.join(root, "04_UI/Details"),
+    saved = path.join(root, "saved-ui-details");
+  write(path.join(details, "Areas/normal-detail/area.md"), "不正な本文");
+  write(
+    path.join(details, "Areas/normal-detail/SCR-000099/screen.md"),
+    "不正な本文",
+  );
+  write(path.join(details, "Components/CMP-000001/component.md"), "不正な本文");
+  write(path.join(details, "Visual/visual_baseline.md"), "不正な本文");
+  fs.renameSync(details, saved);
+  fs.symlinkSync(
+    saved,
+    details,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const behaviorTarget = path.join(root, "saved-behavior");
+  write(path.join(behaviorTarget, "behavior.md"), "不正な本文");
+  fs.symlinkSync(
+    behaviorTarget,
+    path.join(root, "05_SPEC/Details/BHV-000099"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const reads: string[] = [];
+  const original = fs.readFileSync;
+  const findings: DocumentFinding[] = [];
+  fs.readFileSync = ((...args: Parameters<typeof fs.readFileSync>) => {
+    if (typeof args[0] === "string")
+      reads.push(path.relative(root, args[0]).replaceAll("\\", "/"));
+    return Reflect.apply(original, fs, args);
+  }) as typeof fs.readFileSync;
+  try {
+    inspectUiRepository(root, "official", findings);
+    inspectSpecRepository(root, "official", findings);
+  } finally {
+    fs.readFileSync = original;
+  }
+  assert.equal(
+    reads.some((file) =>
+      [
+        "04_UI/Details/Areas/normal-detail/area.md",
+        "04_UI/Details/Areas/normal-detail/SCR-000099/screen.md",
+        "04_UI/Details/Components/CMP-000001/component.md",
+        "04_UI/Details/Visual/visual_baseline.md",
+        "05_SPEC/Details/BHV-000099/behavior.md",
+      ].includes(file),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    findings.filter((item) =>
+      /^(ui-(area|component|visual-baseline|screen)|spec-behavior)-/u.test(
+        item.code,
+      ),
+    ),
+    [],
+  );
+});
+/**
+ * Screenの局所Issueと既存の関係評価を同じ取得結果へ接続する。
+ * @responsibility 一回読取り・部分モデル保持・不在非強制・公開診断を検証する。
+ * @trace AUH-IT-003
+ * @precondition 一つの自己生成Rootと完成したScreen関係を用意する。
+ * @stimulus Checklist・関係の差分と不在を順に与える。
+ * @observation 読取り回数、局所診断と関係診断、公開レポートを読む。
+ * @oracle 局所不備で関係を失わず、両不備は独立に返し、欠測を作成義務にしない。
+ * @cleanup 自己生成Rootは既存終了hookが回収し、read観測はfinallyで戻す。
+ * @boundary 今回生成するRepository-local領域だけ。外部実行なし。
+ */
+test("通常Screenは一回解析の局所Issueと部分関係を保持する", () => {
+  const root = detailRelationClosureFixtureRoot();
+  const relative = "04_UI/Details/Areas/operation/SCR-000001/screen.md";
+  const file = path.join(root, relative);
+  const originalContent = fs.readFileSync(file, "utf8");
+  const checklist = completedChecklist(
+    "template/04_UI/Details/Areas/AREA-NAME/SCR-XXXXXX/screen.md",
+  );
+  write(file, `${originalContent}\n| incomplete |\n\n${checklist}`);
+  const originalRead = fs.readFileSync;
+  let reads = 0;
+  fs.readFileSync = ((...args: Parameters<typeof fs.readFileSync>) => {
+    if (args[0] === file) reads++;
+    return Reflect.apply(originalRead, fs, args);
+  }) as typeof fs.readFileSync;
+  const normal: DocumentFinding[] = [];
+  try {
+    inspectSpecRepository(root, "official", normal);
+  } finally {
+    fs.readFileSync = originalRead;
+  }
+  assert.equal(reads, 1);
+  assert.equal(
+    normal.some((item) => item.code === "ui-screen-checklist-invalid"),
+    false,
+  );
+  const relations = (items: DocumentFinding[]) =>
+    items.filter((item) => item.code.startsWith("ui-spec-detail-"));
+  write(file, `${originalContent}\n| incomplete |\n`);
+  const partial: DocumentFinding[] = [];
+  inspectSpecRepository(root, "official", partial);
+  assert.deepEqual(relations(partial), relations(normal));
+  const local = partial.filter(
+    (item) => item.code === "ui-screen-checklist-invalid",
+  );
+  assert.equal(local.length, 1);
+  assert.equal(local[0]?.path, relative);
+  assert.ok(local[0]?.message.includes("missing_or_duplicate"));
+  write(
+    file,
+    originalContent.replaceAll(
+      "PRT-000001.spec-000001",
+      "PRT-000099.spec-000001",
+    ),
+  );
+  const broken: DocumentFinding[] = [];
+  inspectSpecRepository(root, "official", broken);
+  assert.equal(
+    broken.filter((item) => item.code === "ui-screen-checklist-invalid").length,
+    1,
+  );
+  assert.notDeepEqual(relations(broken), relations(normal));
+  const report = runChecker(root);
+  assert.equal(
+    report.report.findings.filter(
+      (item) => item.code === "ui-screen-checklist-invalid",
+    ).length,
+    1,
+  );
+  fs.unlinkSync(file);
+  const absent: DocumentFinding[] = [];
+  inspectSpecRepository(root, "official", absent);
+  assert.equal(
+    absent.some((item) => item.code.startsWith("ui-screen-")),
+    false,
+  );
 });

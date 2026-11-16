@@ -3,42 +3,45 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
 
-import { lstatIfPresent } from "../repository/observe.ts";
-
-import fs from "node:fs";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
-
-import {
-  inspectSpecAnalysis,
-  inspectSpecAnalysisCoverage,
-  inspectSpecDefinitionCoverage,
-  inspectSpecCoverage,
-  parseUiSpecPairs,
-  parseUiDetailBindings,
-  parseSpecScreenRelations,
-  inspectSpecDetailIndex,
-  inspectSpecDetailCorrespondence,
-  parseSpecDetailDefinitionOwnership,
-  parseSpecDetailAreaOwnership,
-  parseSpecDetailCentralTrace,
-  inspectSpecDetailDownstream,
-  parseSpecCorrespondenceRevision,
-  parseSpecCorrespondencePair,
-  inspectSpecCorrespondencePairEvidence,
-  inspectSpecCorrespondence,
-  type SpecDetailDownstreamRequest,
-  inspectUiSpecRelations,
-  inspectSpecDefinition,
-  parseSpecIndex,
-  createPhaseChecklistItems,
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
-  omitMarkdownCommentsAndFencedCode,
+import type {
+  SpecDefinition,
+  SpecDetailIndex,
+  UiDefinition,
+  UiScreen,
 } from "../../../document-model/src/index.ts";
-import { mapSpecDomainIssueToFinding } from "../report/convert.ts";
+import {
+  type DocumentRelationsRequest,
+  evaluateDefinitionPairEvidence,
+  inspectDocumentRelations,
+  parseArchitectureDefinition,
+  parseArchitectureDetail,
+  parseArchitectureDetailMap,
+  parseQualityDefinition,
+  parseQualityDetailAnalysis,
+  parseSpecAnalysis,
+  parseSpecBehavior,
+  parseSpecDefinition,
+  parseSpecDefinitionCorrespondence,
+  parseSpecDetailCorrespondence,
+  parseSpecDetailIndex,
+  parseSpecIndex,
+  parseUiDefinition,
+  parseUiDetailIndex,
+  parseUiScreen,
+} from "../../../document-model/src/index.ts";
+import {
+  mapSpecDomainIssueToFinding,
+  mapUiDomainIssueToFinding,
+} from "../report/convert.ts";
+import type { DocumentFinding } from "../report/types.ts";
+import {
+  lstatIfPresent,
+  pathContainsSymbolicLink,
+} from "../repository/observe.ts";
 
 /**
  * spec成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -65,15 +68,6 @@ export function inspectSpecRepository(
   const relative = (file: string) =>
     path.relative(root, file).replaceAll("\\", "/") || ".";
   const read = (file: string) => fs.readFileSync(file, "utf8");
-  const {
-    specAnalysisUxChecklistItemTexts,
-    specAnalysisIaChecklistItemTexts,
-    specDefinitionChecklistItemTexts,
-    specDetailIndexChecklistItemTexts,
-    specBehaviorChecklistItemTexts,
-    uiSpecDetailCorrespondenceChecklistItemTexts,
-    uiSpecCorrespondenceChecklistItemTexts,
-  } = createPhaseChecklistItems();
 
   if (repositoryMode !== "official") return;
   const specIndexPath = path.join(
@@ -90,9 +84,12 @@ export function inspectSpecRepository(
     "Details",
     "01_UI_Detail.md",
   );
-  const canonicalUiDetailByUi = lstatIfPresent(uiDetailIndexPath)?.isFile()
-    ? parseUiDetailBindings(read(uiDetailIndexPath))
-    : new Map<string, Readonly<{ scr: string; prt: string }>>();
+  const observedUiDetailIndex = lstatIfPresent(uiDetailIndexPath)?.isFile()
+    ? parseUiDetailIndex({
+        path: relative(uiDetailIndexPath),
+        content: read(uiDetailIndexPath),
+      }).result
+    : null;
   const requiredTemplates = [
     path.join(
       root,
@@ -130,7 +127,7 @@ export function inspectSpecRepository(
   const specDetailTemplates = [
     [
       path.join(root, "template", "05_SPEC", "Details", "01_SPEC_Detail.md"),
-      specDetailIndexChecklistItemTexts,
+      "detail_index",
     ],
     [
       path.join(
@@ -141,7 +138,7 @@ export function inspectSpecRepository(
         "BHV-XXXXXX",
         "behavior.md",
       ),
-      specBehaviorChecklistItemTexts,
+      "behavior",
     ],
     [
       path.join(
@@ -151,7 +148,7 @@ export function inspectSpecRepository(
         "Details",
         "02_UI_SPEC_Detail_Correspondence.md",
       ),
-      uiSpecDetailCorrespondenceChecklistItemTexts,
+      "detail_correspondence",
     ],
   ] as const;
   for (const templatePath of specProjectionTemplates)
@@ -170,7 +167,7 @@ export function inspectSpecRepository(
         relative(templatePath),
         "The official SPEC profile must include separate UX-view and IA-view analyses plus the integrated SPEC definition template.",
       );
-  for (const [templatePath, checklistItems] of specDetailTemplates) {
+  for (const [templatePath, checklistKind] of specDetailTemplates) {
     if (!lstatIfPresent(templatePath)?.isFile()) {
       add(
         "error",
@@ -180,7 +177,21 @@ export function inspectSpecRepository(
       );
       continue;
     }
-    const error = inspectTemplateChecklist(read(templatePath), checklistItems);
+    const source = {
+      path: relative(templatePath),
+      content: read(templatePath),
+    };
+    const error = (
+      checklistKind === "detail_index"
+        ? parseSpecDetailIndex(source, { mode: "template" }).result
+        : checklistKind === "behavior"
+          ? parseSpecBehavior(source, { mode: "template" }).result
+          : checklistKind === "detail_correspondence"
+            ? parseSpecDetailCorrespondence(source, { mode: "template" }).result
+            : (() => {
+                throw Error("unknown_spec_checklist_kind");
+              })()
+    ).checklistContract.failure;
     if (error)
       add(
         "error",
@@ -189,13 +200,23 @@ export function inspectSpecRepository(
         `Every SPEC Detail template must expose one exact unevaluated checklist (${error}).`,
       );
   }
-  for (const [templatePath, checklistItems] of [
-    [requiredTemplates[0], specAnalysisUxChecklistItemTexts],
-    [requiredTemplates[1], specAnalysisIaChecklistItemTexts],
-    [requiredTemplates[2], specDefinitionChecklistItemTexts],
+  for (const [templatePath, checklistKind] of [
+    [requiredTemplates[0], "analysis_ux"],
+    [requiredTemplates[1], "analysis_ia"],
+    [requiredTemplates[2], "definition"],
   ] as const) {
     if (!lstatIfPresent(templatePath)?.isFile()) continue;
-    const error = inspectTemplateChecklist(read(templatePath), checklistItems);
+    const source = {
+      path: relative(templatePath),
+      content: read(templatePath),
+    };
+    const error = (
+      checklistKind === "analysis_ux"
+        ? parseSpecAnalysis(source, "UX-XXXXXX", { mode: "template" })
+        : checklistKind === "analysis_ia"
+          ? parseSpecAnalysis(source, "IA-XXXXXX", { mode: "template" })
+          : parseSpecDefinition(source, "SPEC-XXXXXX", { mode: "template" })
+    ).result.checklistContract.failure;
     if (error)
       add(
         "error",
@@ -211,10 +232,10 @@ export function inspectSpecRepository(
   );
   const correspondenceTemplatePath = specProjectionTemplates[5];
   if (lstatIfPresent(correspondencePath)?.isFile()) {
-    const error = inspectEvaluatedChecklist(
-      read(correspondencePath),
-      uiSpecCorrespondenceChecklistItemTexts,
-    );
+    const error = parseSpecDefinitionCorrespondence(
+      { path: relative(correspondencePath), content: read(correspondencePath) },
+      { mode: "evaluated" },
+    ).result.checklistContract.failure;
     if (error)
       add(
         "error",
@@ -224,10 +245,13 @@ export function inspectSpecRepository(
       );
   }
   if (lstatIfPresent(correspondenceTemplatePath)?.isFile()) {
-    const error = inspectTemplateChecklist(
-      read(correspondenceTemplatePath),
-      uiSpecCorrespondenceChecklistItemTexts,
-    );
+    const error = parseSpecDefinitionCorrespondence(
+      {
+        path: relative(correspondenceTemplatePath),
+        content: read(correspondenceTemplatePath),
+      },
+      { mode: "template" },
+    ).result.checklistContract.failure;
     if (error)
       add(
         "error",
@@ -275,50 +299,62 @@ export function inspectSpecRepository(
         "spec_analysis.md",
       );
       if (!lstatIfPresent(analysisPath)?.isFile()) continue;
-      const source = omitMarkdownCommentsAndFencedCode(read(analysisPath));
+      const source = read(analysisPath);
       const isUx = entry.name.startsWith("UX-");
       if (isUx) analyzedUx.add(entry.name);
       else analyzedIa.add(entry.name);
-      const model = inspectSpecAnalysis(
+      const model = parseSpecAnalysis(
         { path: relative(analysisPath), content: source },
         entry.name,
       );
-      analysisRelationOccurrences.push(...model.relations);
+      if (model.result)
+        analysisRelationOccurrences.push(
+          ...model.result.targets.map(
+            (ref) => `${model.result?.expectedIdentity}|${ref.identity}`,
+          ),
+        );
       for (const issue of model.issues) {
         const finding = mapSpecDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
 
-  for (const issue of inspectSpecAnalysisCoverage({
-    specIndexPath: relative(specIndexPath),
-    specAnalysisRoot: relative(specAnalysisRoot),
-    uxIds,
-    iaIds,
-    analyzedUx,
-    analyzedIa,
-    analysisRelationOccurrences,
+  for (const issue of inspectDocumentRelations({
+    kind: "spec_analysis_coverage",
+    ...{
+      specIndexPath: relative(specIndexPath),
+      specAnalysisRoot: relative(specAnalysisRoot),
+      uxIds,
+      iaIds,
+      analyzedUx,
+      analyzedIa,
+      analysisRelationOccurrences,
+    },
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const analysisRelations = new Set(analysisRelationOccurrences);
-  const registry = parseSpecIndex({
+  const registryRead = parseSpecIndex({
     path: relative(specIndexPath),
     content: read(specIndexPath),
   });
-  const registryIds = registry.ids;
-  const registryRelations = registry.relations;
-  const registryUiPairs = registry.uiPairs;
-  const indexCountRows = registry.countRows;
-  for (const issue of registry.issues) {
+  const registry = registryRead.result;
+  const registryIds = new Set(registry.entries.map((entry) => entry.identity));
+  const registryRelations = new Set(
+    registry.entries.flatMap((entry) =>
+      [...entry.uxIds, ...entry.iaIds].map((id) => `${id}|${entry.identity}`),
+    ),
+  );
+  const indexCountRows = registry.counts.map((entry) => entry.cells);
+  for (const issue of registryRead.issues) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const actualIds = new Set<string>();
   const definitionRelations = new Set<string>();
   const definitionRelationOccurrences: string[] = [];
-  const definitionUiPairs = new Set<string>();
+  const specDefinitions: SpecDefinition[] = [];
   const definitionUiPairOccurrences: string[] = [];
   if (lstatIfPresent(specDefinitionsRoot)?.isDirectory())
     for (const entry of fs.readdirSync(specDefinitionsRoot, {
@@ -333,15 +369,23 @@ export function inspectSpecRepository(
       );
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualIds.add(entry.name);
-      const source = omitMarkdownCommentsAndFencedCode(read(definitionPath));
-      const model = inspectSpecDefinition(
+      const source = read(definitionPath);
+      const model = parseSpecDefinition(
         { path: relative(definitionPath), content: source },
         entry.name,
       );
-      definitionRelationOccurrences.push(...model.relations);
-      for (const pair of model.relations) definitionRelations.add(pair);
-      definitionUiPairOccurrences.push(...model.uiPairs);
-      for (const pair of model.uiPairs) definitionUiPairs.add(pair);
+      if (model.result) {
+        specDefinitions.push(model.result);
+        for (const ref of model.result.analysisInputs) {
+          const pair = `${ref.identity}|${model.result.expectedIdentity}`;
+          definitionRelationOccurrences.push(pair);
+          definitionRelations.add(pair);
+        }
+        for (const ref of model.result.pairedInterfaces)
+          definitionUiPairOccurrences.push(
+            `${ref.identity}|${model.result.expectedIdentity}`,
+          );
+      }
       for (const issue of model.issues) {
         const finding = mapSpecDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
@@ -354,7 +398,7 @@ export function inspectSpecRepository(
     "Details",
     "01_SPEC_Detail.md",
   );
-  let canonicalBhvBySpec = new Map<string, string>();
+  let observedSpecDetailIndex: SpecDetailIndex | null = null;
   if (!lstatIfPresent(specDetailIndexPath)?.isFile()) {
     add(
       "error",
@@ -363,15 +407,16 @@ export function inspectSpecRepository(
       "The official repository must keep the current SPEC Detail migration projection.",
     );
   } else {
-    const detail = inspectSpecDetailIndex(
-      {
-        path: relative(specDetailIndexPath),
-        content: read(specDetailIndexPath),
-      },
-      actualIds,
-    );
-    canonicalBhvBySpec = detail.behaviors;
-    for (const issue of detail.issues) {
+    const detail = parseSpecDetailIndex({
+      path: relative(specDetailIndexPath),
+      content: read(specDetailIndexPath),
+    });
+    observedSpecDetailIndex = detail.result;
+    for (const issue of inspectDocumentRelations({
+      kind: "spec_detail_coverage",
+      detail: detail,
+      actualIds: actualIds,
+    })) {
       const finding = mapSpecDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -383,30 +428,18 @@ export function inspectSpecRepository(
     "Details",
     "02_UI_SPEC_Detail_Correspondence.md",
   );
-  const expectedDetailRelations = new Map<
-    string,
-    Readonly<{ bhv: string; ui: string; spec: string; scr: string }>
-  >();
-  for (const pair of definitionUiPairOccurrences) {
-    const [ui, spec] = pair.split("|");
-    const uiDetail = canonicalUiDetailByUi.get(ui);
-    const bhv = canonicalBhvBySpec.get(spec);
-    if (!uiDetail || !bhv) continue;
-    expectedDetailRelations.set(`${uiDetail.prt}.spec-${spec.slice(-6)}`, {
-      bhv,
-      ui,
-      spec,
-      scr: uiDetail.scr,
-    });
-  }
-  const screenRelationTuples: string[] = [];
+  const screens: UiScreen[] = [];
   const uiDetailAreasRoot = path.join(root, "04_UI", "Details", "Areas");
-  if (lstatIfPresent(uiDetailAreasRoot)?.isDirectory())
+  if (
+    lstatIfPresent(uiDetailAreasRoot)?.isDirectory() &&
+    !pathContainsSymbolicLink(root, uiDetailAreasRoot)
+  )
     for (const areaEntry of fs.readdirSync(uiDetailAreasRoot, {
       withFileTypes: true,
     })) {
       if (!areaEntry.isDirectory()) continue;
       const areaPath = path.join(uiDetailAreasRoot, areaEntry.name);
+      if (pathContainsSymbolicLink(root, areaPath)) continue;
       for (const screenEntry of fs.readdirSync(areaPath, {
         withFileTypes: true,
       })) {
@@ -416,18 +449,22 @@ export function inspectSpecRepository(
         )
           continue;
         const screenPath = path.join(areaPath, screenEntry.name, "screen.md");
-        if (!lstatIfPresent(screenPath)?.isFile()) continue;
-        screenRelationTuples.push(
-          ...parseSpecScreenRelations(read(screenPath), screenEntry.name),
+        if (
+          !lstatIfPresent(screenPath)?.isFile() ||
+          pathContainsSymbolicLink(root, screenPath)
+        )
+          continue;
+        const parsed = parseUiScreen(
+          { path: relative(screenPath), content: read(screenPath) },
+          screenEntry.name,
         );
+        screens.push(parsed.result);
+        for (const issue of parsed.issues) {
+          const finding = mapUiDomainIssueToFinding(issue);
+          add(finding.severity, finding.code, finding.path, finding.message);
+        }
       }
     }
-  const expectedCorrespondenceTuples = new Set(
-    [...expectedDetailRelations].map(
-      ([relationKey, value]) =>
-        `${relationKey}|${value.bhv}|${value.ui}|${value.spec}|${value.scr}`,
-    ),
-  );
   if (!lstatIfPresent(specDetailCorrespondencePath)?.isFile()) {
     add(
       "error",
@@ -436,18 +473,18 @@ export function inspectSpecRepository(
       "The official repository must keep UI/SPEC Detail correspondence separate from Definition correspondence.",
     );
   } else {
-    const detailCorrespondence = omitMarkdownCommentsAndFencedCode(
-      read(specDetailCorrespondencePath),
-    );
-    for (const issue of inspectSpecDetailCorrespondence(
-      {
-        path: relative(specDetailCorrespondencePath),
-        content: detailCorrespondence,
-      },
-      expectedCorrespondenceTuples,
-      screenRelationTuples,
-      new Set(definitionUiPairOccurrences).size,
-    )) {
+    const detailCorrespondence = parseSpecDetailCorrespondence({
+      path: relative(specDetailCorrespondencePath),
+      content: read(specDetailCorrespondencePath),
+    }).result;
+    for (const issue of inspectDocumentRelations({
+      kind: "ui_spec_details",
+      correspondence: detailCorrespondence,
+      screens,
+      uiDetailIndex: observedUiDetailIndex,
+      specDetailIndex: observedSpecDetailIndex,
+      definitions: specDefinitions,
+    })) {
       const finding = mapSpecDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -480,89 +517,67 @@ export function inspectSpecRepository(
       "Issued UI/SPEC Detail identities must have canonical Architecture and Quality downstream traceability.",
     );
   } else {
-    const architectureDetailTrace = omitMarkdownCommentsAndFencedCode(
-      read(architectureDetailTracePath),
-    );
-    const qualityDetailAnalysis = omitMarkdownCommentsAndFencedCode(
-      read(qualityDetailAnalysisPath),
-    );
-    const issuedScreenIds = new Set(
-      [...architectureDetailTrace.matchAll(/SCR-[0-9]{6}/gu)].map(
-        (match) => match[0],
-      ),
-    );
-    const issuedPartIds = new Set(
-      [...architectureDetailTrace.matchAll(/PRT-[0-9]{6}/gu)].map(
-        (match) => match[0],
-      ),
-    );
-    const issuedBehaviorIds = new Set(
-      [...architectureDetailTrace.matchAll(/BHV-[0-9]{6}/gu)].map(
-        (match) => match[0],
-      ),
-    );
-    const qualityScreenIds = new Set(
-      [...qualityDetailAnalysis.matchAll(/SCR-[0-9]{6}/gu)].map(
-        (match) => match[0],
-      ),
-    );
-    const qualityPartIds = new Set(
-      [...qualityDetailAnalysis.matchAll(/PRT-[0-9]{6}/gu)].map(
-        (match) => match[0],
-      ),
-    );
-    const qualityBehaviorIds = new Set(
-      [...qualityDetailAnalysis.matchAll(/BHV-[0-9]{6}/gu)].map(
-        (match) => match[0],
-      ),
-    );
-    const architectureDefinitionsCombined = fs
+    const architectureDetailTrace = parseArchitectureDetailMap({
+      path: relative(architectureDetailTracePath),
+      content: read(architectureDetailTracePath),
+    }).result.trace;
+    const qualityDetailAnalysis = parseQualityDetailAnalysis({
+      path: relative(qualityDetailAnalysisPath),
+      content: read(qualityDetailAnalysisPath),
+    }).result.trace;
+    const architectureDefinitionObservations = fs
       .readdirSync(path.join(root, "06_Architecture", "Definitions"), {
         withFileTypes: true,
       })
       .filter(
         (entry) => entry.isDirectory() && /^ARCH-[0-9]{6}$/u.test(entry.name),
       )
-      .map((entry) =>
-        omitMarkdownCommentsAndFencedCode(
-          read(
-            path.join(
-              root,
-              "06_Architecture",
-              "Definitions",
-              entry.name,
-              "architecture_definition.md",
-            ),
-          ),
-        ),
-      )
-      .join("\n");
-    const qualityDefinitionsCombined = fs
+      .map((entry) => {
+        const file = path.join(
+          root,
+          "06_Architecture",
+          "Definitions",
+          entry.name,
+          "architecture_definition.md",
+        );
+        return parseArchitectureDefinition(
+          { path: relative(file), content: read(file) },
+          entry.name,
+          {},
+        ).result;
+      });
+    const qualityDefinitionObservations = fs
       .readdirSync(path.join(root, "07_Quality", "Definitions"), {
         withFileTypes: true,
       })
       .filter(
         (entry) => entry.isDirectory() && /^QA-[0-9]{6}$/u.test(entry.name),
       )
-      .map((entry) =>
-        omitMarkdownCommentsAndFencedCode(
-          read(
-            path.join(
-              root,
-              "07_Quality",
-              "Definitions",
-              entry.name,
-              "quality_definition.md",
-            ),
-          ),
-        ),
-      )
-      .join("\n");
-    const architectureDefinitions: SpecDetailDownstreamRequest["architectureDefinitions"][number][] =
-      [];
-    const qualityDefinitions: SpecDetailDownstreamRequest["qualityDefinitions"][number][] =
-      [];
-    const areas: SpecDetailDownstreamRequest["areas"][number][] = [];
+      .map((entry) => {
+        const file = path.join(
+          root,
+          "07_Quality",
+          "Definitions",
+          entry.name,
+          "quality_definition.md",
+        );
+        return parseQualityDefinition(
+          { path: relative(file), content: read(file) },
+          entry.name,
+        ).result;
+      });
+    const architectureDefinitions: Extract<
+      DocumentRelationsRequest,
+      { kind: "ui_spec_downstream" }
+    >["architectureDefinitions"][number][] = [];
+    const qualityDefinitions: Extract<
+      DocumentRelationsRequest,
+      { kind: "ui_spec_downstream" }
+    >["qualityDefinitions"][number][] = [];
+    const areas: Extract<
+      DocumentRelationsRequest,
+      { kind: "ui_spec_downstream" }
+    >["areas"][number][] = [];
     const architectureDefinitionsRoot = path.join(
       root,
       "06_Architecture",
@@ -573,19 +588,17 @@ export function inspectSpecRepository(
     })) {
       if (!entry.isDirectory() || !/^ARCH-[0-9]{6}$/u.test(entry.name))
         continue;
-      const source = omitMarkdownCommentsAndFencedCode(
-        read(
-          path.join(
-            architectureDefinitionsRoot,
-            entry.name,
-            "architecture_definition.md",
-          ),
-        ),
+      const definitionPath = path.join(
+        architectureDefinitionsRoot,
+        entry.name,
+        "architecture_definition.md",
       );
-      architectureDefinitions.push({
-        owner: entry.name,
-        ownership: parseSpecDetailDefinitionOwnership(source),
-      });
+      architectureDefinitions.push(
+        parseArchitectureDefinition(
+          { path: relative(definitionPath), content: read(definitionPath) },
+          entry.name,
+        ).result.assignment,
+      );
     }
     const architectureDetailsRoot = path.join(
       root,
@@ -602,35 +615,30 @@ export function inspectSpecRepository(
         "01_Architecture.md",
       );
       if (!lstatIfPresent(detailPath)?.isFile()) continue;
-      const source = omitMarkdownCommentsAndFencedCode(read(detailPath));
-      areas.push({
-        area: entry.name,
-        ownership: parseSpecDetailAreaOwnership(source),
-      });
+      areas.push(
+        parseArchitectureDetail(
+          { path: relative(detailPath), content: read(detailPath) },
+          entry.name,
+        ).result.assignment,
+      );
     }
     const qualityDefinitionsRoot = path.join(root, "07_Quality", "Definitions");
     for (const entry of fs.readdirSync(qualityDefinitionsRoot, {
       withFileTypes: true,
     })) {
       if (!entry.isDirectory() || !/^QA-[0-9]{6}$/u.test(entry.name)) continue;
-      const source = omitMarkdownCommentsAndFencedCode(
-        read(
-          path.join(
-            qualityDefinitionsRoot,
-            entry.name,
-            "quality_definition.md",
-          ),
-        ),
+      const definitionPath = path.join(
+        qualityDefinitionsRoot,
+        entry.name,
+        "quality_definition.md",
       );
-      qualityDefinitions.push({
-        owner: entry.name,
-        ownership: parseSpecDetailDefinitionOwnership(source),
-      });
+      qualityDefinitions.push(
+        parseQualityDefinition(
+          { path: relative(definitionPath), content: read(definitionPath) },
+          entry.name,
+        ).result.assignment,
+      );
     }
-    const central = parseSpecDetailCentralTrace(
-      architectureDetailTrace,
-      qualityDetailAnalysis,
-    );
     const currentUiDefinitionCount = fs
       .readdirSync(path.join(root, "04_UI", "Definitions"), {
         withFileTypes: true,
@@ -638,25 +646,19 @@ export function inspectSpecRepository(
       .filter(
         (entry) => entry.isDirectory() && /^UI-[0-9]{6}$/u.test(entry.name),
       ).length;
-    for (const issue of inspectSpecDetailDownstream({
+    for (const issue of inspectDocumentRelations({
+      kind: "ui_spec_downstream",
+      definitions: specDefinitions,
+      uiDetailIndex: observedUiDetailIndex,
+      specDetailIndex: observedSpecDetailIndex,
       path: relative(architectureDetailTracePath),
-      relations: expectedDetailRelations,
       architectureDefinitions,
       qualityDefinitions,
       areas,
-      central,
-      issued: {
-        screens: issuedScreenIds,
-        parts: issuedPartIds,
-        behaviors: issuedBehaviorIds,
-      },
-      quality: {
-        screens: qualityScreenIds,
-        parts: qualityPartIds,
-        behaviors: qualityBehaviorIds,
-      },
-      architectureDefinitionsCombined,
-      qualityDefinitionsCombined,
+      architectureTrace: architectureDetailTrace,
+      qualityTrace: qualityDetailAnalysis,
+      architectureDefinitionObservations,
+      qualityDefinitionObservations,
       uiDefinitionCount: currentUiDefinitionCount,
       specDefinitionCount: actualIds.size,
     })) {
@@ -665,13 +667,16 @@ export function inspectSpecRepository(
     }
   }
 
-  for (const issue of inspectSpecDefinitionCoverage({
-    specDefinitionsRoot: relative(specDefinitionsRoot),
-    specIndexPath: relative(specIndexPath),
-    definitionRelationOccurrences,
-    definitionUiPairOccurrences,
-    registryIds,
-    actualIds,
+  for (const issue of inspectDocumentRelations({
+    kind: "spec_definition_coverage",
+    ...{
+      specDefinitionsRoot: relative(specDefinitionsRoot),
+      specIndexPath: relative(specIndexPath),
+      definitionRelationOccurrences,
+      definitionUiPairOccurrences,
+      registryIds,
+      actualIds,
+    },
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
@@ -705,19 +710,21 @@ export function inspectSpecRepository(
         : 0,
     ],
   ]);
-  for (const issue of inspectSpecCoverage({
-    specIndexPath: relative(specIndexPath),
-    indexCountRows,
-    expectedIndexCounts,
-    registryRelations,
-    analysisRelations,
-    definitionRelations,
+  for (const issue of inspectDocumentRelations({
+    kind: "spec_coverage",
+    ...{
+      specIndexPath: relative(specIndexPath),
+      indexCountRows,
+      expectedIndexCounts,
+      registryRelations,
+      analysisRelations,
+      definitionRelations,
+    },
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const uiPairs = new Set<string>();
-  const uiPairOccurrences: string[] = [];
+  const uiDefinitions: UiDefinition[] = [];
   const uiDefinitionsRoot = path.join(root, "04_UI", "Definitions");
   if (lstatIfPresent(uiDefinitionsRoot)?.isDirectory())
     for (const entry of fs.readdirSync(uiDefinitionsRoot, {
@@ -726,30 +733,29 @@ export function inspectSpecRepository(
       if (!entry.isDirectory() || !/^UI-[0-9]{6}$/u.test(entry.name)) continue;
       const file = path.join(uiDefinitionsRoot, entry.name, "ui_definition.md");
       if (!lstatIfPresent(file)?.isFile()) continue;
-      const source = omitMarkdownCommentsAndFencedCode(read(file));
-      for (const pair of parseUiSpecPairs(source, entry.name)) {
-        uiPairOccurrences.push(pair);
-        uiPairs.add(pair);
-      }
+      const source = read(file);
+      const parsed = parseUiDefinition(
+        { path: relative(file), content: source },
+        entry.name,
+      );
+      if (parsed.result) uiDefinitions.push(parsed.result);
     }
-  for (const issue of inspectUiSpecRelations({
+  for (const issue of inspectDocumentRelations({
+    kind: "ui_spec",
     uiDefinitionsRoot: relative(uiDefinitionsRoot),
     specIndexPath: relative(specIndexPath),
-    uiPairOccurrences,
-    registryUiPairs,
-    definitionUiPairs,
-    uiPairs,
+    uiDefinitions,
+    specDefinitions,
+    registry,
   })) {
     const finding = mapSpecDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   if (lstatIfPresent(correspondencePath)?.isFile()) {
-    const correspondence = omitMarkdownCommentsAndFencedCode(
-      read(correspondencePath),
-    );
-    const correspondencePairs: string[] = [];
-    const recordedDefinitionFingerprint =
-      parseSpecCorrespondenceRevision(correspondence);
+    const correspondence = parseSpecDefinitionCorrespondence({
+      path: relative(correspondencePath),
+      content: read(correspondencePath),
+    }).result;
     const definitionFingerprintInputs: string[] = [];
     for (const [definitionsRoot, fileName, relativeRoot] of [
       [uiDefinitionsRoot, "ui_definition.md", "04_UI/Definitions"],
@@ -767,41 +773,61 @@ export function inspectSpecRepository(
     const actualDefinitionFingerprint = createHash("sha256")
       .update(definitionFingerprintInputs.join("\n\u0000\n"), "utf8")
       .digest("hex");
-    const correspondenceReasons: string[] = [];
-    let hasInvalidPairEvidence = false;
-    for (const line of correspondence.split(/\r?\n/u)) {
-      const pair = parseSpecCorrespondencePair(line);
-      if (!pair) continue;
-      correspondencePairs.push(`${pair.uiId}|${pair.specId}`);
-      const uiSource = omitMarkdownCommentsAndFencedCode(
-        read(path.join(uiDefinitionsRoot, pair.uiId, "ui_definition.md")),
+    const evaluations: ReturnType<typeof evaluateDefinitionPairEvidence>[] = [];
+    for (const pair of correspondence.pairs) {
+      const uiPath = path.join(
+        uiDefinitionsRoot,
+        pair.uiId,
+        "ui_definition.md",
       );
-      const specSource = omitMarkdownCommentsAndFencedCode(
-        read(path.join(specDefinitionsRoot, pair.specId, "spec_definition.md")),
+      const ui = parseUiDefinition(
+        { path: relative(uiPath), content: read(uiPath) },
+        pair.uiId,
+      ).result;
+      const specPath = path.join(
+        specDefinitionsRoot,
+        pair.specId,
+        "spec_definition.md",
       );
-      const evidence = inspectSpecCorrespondencePairEvidence(
-        pair,
-        correspondence,
-        uiSource,
-        specSource,
-      );
-      correspondenceReasons.push(...evidence.reasons);
-      if (evidence.invalid) hasInvalidPairEvidence = true;
+      const spec = parseSpecDefinition(
+        { path: relative(specPath), content: read(specPath) },
+        pair.specId,
+      ).result;
+      evaluations.push(evaluateDefinitionPairEvidence(pair, ui, spec));
     }
-    for (const issue of inspectSpecCorrespondence({
-      artifact: {
-        path: relative(correspondencePath),
-        content: correspondence,
-      },
-      pairs: correspondencePairs,
-      reasons: correspondenceReasons,
-      expectedPairs: registryUiPairs,
-      hasInvalidPairEvidence,
-      recordedFingerprint: recordedDefinitionFingerprint,
+    for (const issue of inspectDocumentRelations({
+      kind: "ui_spec_evidence",
+      correspondence,
+      evaluations,
+      registry,
       actualFingerprint: actualDefinitionFingerprint,
     })) {
       const finding = mapSpecDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
   }
+
+  // 既存の関係評価後にBHV本文の局所診断を配送し、意味や新しい被覆条件を追加しない。
+  const behaviorRoot = path.join(root, "05_SPEC", "Details");
+  if (
+    lstatIfPresent(behaviorRoot)?.isDirectory() &&
+    !pathContainsSymbolicLink(root, behaviorRoot)
+  )
+    for (const entry of fs.readdirSync(behaviorRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !/^BHV-[0-9]{6}$/u.test(entry.name)) continue;
+      const file = path.join(behaviorRoot, entry.name, "behavior.md");
+      if (
+        !lstatIfPresent(file)?.isFile() ||
+        pathContainsSymbolicLink(root, file)
+      )
+        continue;
+      const parsed = parseSpecBehavior(
+        { path: relative(file), content: read(file) },
+        { mode: "evaluated" },
+      );
+      for (const issue of parsed.issues) {
+        const finding = mapSpecDomainIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
+      }
+    }
 }

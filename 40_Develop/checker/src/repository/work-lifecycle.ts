@@ -3,19 +3,17 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
-
-import { lstatIfPresent } from "../repository/observe.ts";
 
 import fs from "node:fs";
 import path from "node:path";
-
 import {
-  inspectChangeDocument,
-  isChangeTemplateInvalid,
-  isChangeNavigationInvalid,
+  inspectDocumentRelations,
+  parseChangeDocument,
+  parseChangeIndex,
 } from "../../../document-model/src/index.ts";
 import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
+import type { DocumentFinding } from "../report/types.ts";
+import { lstatIfPresent } from "../repository/observe.ts";
 
 /**
  * work-lifecycle成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -78,10 +76,10 @@ export function inspectWorkLifecycleRepository(
   for (const aggregateId of aggregateIds) {
     const changePath = path.join(changesRoot, aggregateId, "change.md");
     const change = read(changePath);
-    for (const issue of inspectChangeDocument(
+    for (const issue of parseChangeDocument(
       { path: relative(changePath), content: change },
-      aggregateId,
-    )) {
+      { mode: "canonical", expectedIdentity: aggregateId },
+    ).issues) {
       const finding = mapChangeDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -97,13 +95,12 @@ export function inspectWorkLifecycleRepository(
     );
     if (lstatIfPresent(changeTemplatePath)?.isFile()) {
       const changeTemplate = read(changeTemplatePath);
-      if (isChangeTemplateInvalid(changeTemplate)) {
-        add(
-          "error",
-          "change-impact-files-template-mismatch",
-          relative(changeTemplatePath),
-          "The official Change template must expose the canonical exhaustive impact-file section and the Phase/Gate/scope-extension/plan-revision evaluation contract.",
-        );
+      for (const issue of parseChangeDocument(
+        { path: relative(changeTemplatePath), content: changeTemplate },
+        { mode: "template" },
+      ).issues) {
+        const finding = mapChangeDomainIssueToFinding(issue);
+        add(finding.severity, finding.code, finding.path, finding.message);
       }
       for (const templatePath of [
         path.join(root, "template", "04_UI", "01_User_Interface.md"),
@@ -163,13 +160,21 @@ export function inspectWorkLifecycleRepository(
     }
   }
   const index = read(changeIndexPath);
-  if (isChangeNavigationInvalid(index, aggregateIds))
-    add(
-      "error",
-      "change-navigation-population-mismatch",
-      relative(changeIndexPath),
-      "The Change navigation must reference every ID-only Change aggregate exactly once and no unknown aggregate.",
-    );
+  const navigation = parseChangeIndex({
+    path: relative(changeIndexPath),
+    content: index,
+  });
+  for (const issue of [
+    ...navigation.issues,
+    ...inspectDocumentRelations({
+      kind: "change_navigation",
+      index: navigation.result,
+      observedChangeIds: aggregateIds,
+    }),
+  ]) {
+    const finding = mapChangeDomainIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
 
   const releaseIndexPath = path.join(root, "99_Roadmap", "03_Releases.md");
   const releasesRoot = path.join(root, "99_Roadmap", "Releases");

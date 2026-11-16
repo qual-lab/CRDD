@@ -4,6 +4,52 @@
   "subsystem": "checker",
   "symbols": [
     {
+      "symbolId": "checker.test-catalog-plan",
+      "kind": "file",
+      "path": "src/test-catalog/plan.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "checker.test.unit.test-catalog-plan",
+      "kind": "test-suite",
+      "path": "tests/unit/test-catalog/plan.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UT-010"
+      ],
+      "verifies": [
+        "checker.test-catalog-plan"
+      ]
+    },
+    {
+      "symbolId": "checker.test-catalog-selection",
+      "kind": "file",
+      "path": "src/test-catalog/selection.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "checker.test.unit.test-catalog-selection",
+      "kind": "test-suite",
+      "path": "tests/unit/test-catalog/selection.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UT-010"
+      ],
+      "verifies": [
+        "checker.test-catalog-selection",
+        "checker.test-catalog-plan",
+        "domain-model.test-catalog"
+      ]
+    },
+    {
       "symbolId": "checker.repository-discovery",
       "kind": "file",
       "path": "src/repository/discover.ts",
@@ -96,6 +142,8 @@
       ],
       "verifies": [
         "checker.artifact-relation-adapter",
+        "checker.repository-ui",
+        "checker.repository-spec",
         "domain-model.artifact-checklist",
         "domain-model.artifact-phase-diagrams",
         "domain-model.artifact-inspection",
@@ -257,7 +305,7 @@
       "verifies": [
         "checker.test-catalog-command",
         "domain-model.test-catalog",
-        "domain-model.test-catalog-plan"
+        "checker.test-catalog-plan"
       ]
     },
     {

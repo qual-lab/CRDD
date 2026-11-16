@@ -8,12 +8,16 @@
  * @scope semantic、ir、coverage
  * @boundary PPR-UT-016=N/A: Process内の値変換。 / PPR-UT-017=N/A: Process内の関係計算。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
+import { captureArchitectureDocument } from "../../../src/architecture/validation.ts";
 import {
   compileSemanticIr,
-  createSemanticCoverageGraph,
   createSemanticBundle,
+  createSemanticCoverageGraph,
+  inspectDocumentRelations,
+  parseArchitectureDetail,
 } from "../../../src/index.ts";
 
 /**
@@ -41,10 +45,19 @@ test("DomainのSemantic APIは同じ可視表から同じIRとBundleを返す", 
       "合成入力。",
     ].join("\n"),
   };
-  const first = compileSemanticIr(document, "sample", new Set(["ARCH-000008"]));
+  const model = observeArchitectureFixture(
+    parseArchitectureDetail(
+      { path: document.path, content: document.source },
+      "sample",
+      { checklistSource: architectureChecklistFixture("detail", null) },
+    ),
+    false,
+    "detail",
+  ).result;
+  const first = compileSemanticIr(model, "sample", new Set(["ARCH-000008"]));
   assert.deepEqual(
     first,
-    compileSemanticIr(document, "sample", new Set(["ARCH-000008"])),
+    compileSemanticIr(model, "sample", new Set(["ARCH-000008"])),
   );
   assert.equal(first.status, "complete");
   assert.ok(first.result);
@@ -69,7 +82,15 @@ test("DomainのSemantic APIは同じ可視表から同じIRとBundleを返す", 
  */
 test("DomainのSemantic APIは前提失敗を中立Issueのまま保持する", () => {
   const ir = compileSemanticIr(
-    { path: "sample.md", source: "# 欠測" },
+    observeArchitectureFixture(
+      parseArchitectureDetail(
+        { path: "sample.md", content: "# 欠測" },
+        "sample",
+        { checklistSource: architectureChecklistFixture("detail", null) },
+      ),
+      false,
+      "detail",
+    ).result,
     "sample",
     new Set(),
   );
@@ -83,3 +104,43 @@ test("DomainのSemantic APIは前提失敗を中立Issueのまま保持する", 
   assert.equal(graph.result, null);
   assert.deepEqual(graph.issues, ir.issues);
 });
+
+/** 本文条件の既存反証へ独立したChecklist断面を与える試験準備。@trace RCM-UT-002 */
+function architectureChecklistFixture(
+  kind: "analysis_ui" | "analysis_spec" | "definition" | "detail",
+  failure: unknown,
+) {
+  const expected = captureArchitectureDocument(
+    { path: "checklist.md", content: "" },
+    { kind, mode: "evaluated" },
+  ).checklistContract.expectedItems;
+  return {
+    path: "checklist.md",
+    content: failure
+      ? ""
+      : `## Checklist\n${expected.map((item) => `- [x] ${item}`).join("\n")}`,
+  };
+}
+/** 局所ParseとReady横断比較を一回ずつ行う試験専用の観測。@trace RCM-UT-002 */
+function observeArchitectureFixture<
+  T extends {
+    result: {
+      hasUnresolvedResults: boolean;
+      source: { path: string };
+      checklistContract: { failure: unknown };
+    };
+    issues: readonly import("../../../src/artifact/types.ts").DocumentIssue[];
+  },
+>(
+  parsed: T,
+  isReady: boolean,
+  documentType: "analysis" | "definition" | "detail",
+) {
+  const issues = inspectDocumentRelations({
+    kind: "architecture_readiness",
+    document: parsed as never,
+    isReady,
+    documentType,
+  });
+  return { ...parsed, status: issues.length ? "partial" : "complete", issues };
+}

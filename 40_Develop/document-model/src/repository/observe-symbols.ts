@@ -4,11 +4,12 @@
  * @responsibility RealityRepositoryObservationIssueを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue } from "../outcome.ts";
+
+import type { Repository } from "../../../version-control/src/index.ts";
+import type { DocumentIssue } from "../artifact/types.ts";
 import { discoverRealitySymbols } from "../reality-traceability/discover.ts";
 import type { LoadedRealitySymbolManifest } from "../reality-traceability/manifest.ts";
 import { validateRealitySymbolManifest } from "../reality-traceability/validate-manifest.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
 import { createFilesystemRepositoryObservationPort } from "./create-observer.ts";
 
 /**
@@ -44,7 +45,7 @@ export type RealitySymbolRepositoryObservation = Readonly<{
   knownArchIds: ReadonlySet<string>;
   knownQaIds: ReadonlySet<string>;
   knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>;
-  domainIssues: readonly DomainIssue[];
+  domainIssues: readonly DocumentIssue[];
   repositoryIssues: readonly RealityRepositoryObservationIssue[];
 }>;
 

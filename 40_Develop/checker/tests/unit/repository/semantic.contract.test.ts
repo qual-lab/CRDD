@@ -391,7 +391,12 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
     built.graph.testSymbolIdsByMeaningKey.get(
       "orchestrator.objective-task-lifecycle",
     ),
-    ["coordinator.test.system.orchestrator-real-provider-verification-script"],
+    undefined,
+  );
+  assert.ok(
+    toolTestIds.has(
+      "coordinator.test.system.orchestrator-real-provider-verification-script",
+    ),
   );
   assert.deepEqual(
     built.graph.testSymbolIdsByMeaningKey.get(

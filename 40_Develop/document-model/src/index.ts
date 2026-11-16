@@ -25,172 +25,36 @@ export type {
   TopicPromotionCommandResult,
 } from "./activity/types.ts";
 export {
-  omitMarkdownFencedCode,
-  parseMarkdownAnchors,
-} from "./artifact/anchors.ts";
-export {
-  type ArchitectureBodyModel,
-  type ArchitectureCrossModelIndex,
-  inspectArchitectureAnalysis,
-  inspectArchitectureCrossModel,
-  inspectArchitectureCrossModelIndex,
-  inspectArchitectureDefinition,
-  inspectArchitectureDetailTemplate,
-} from "./artifact/architecture.ts";
-export {
-  type ArchitectureDetailCoverageRequest,
   type ArchitectureDetailMapModel,
   type ArchitectureDetailModel,
-  inspectArchitectureDetail,
-  inspectArchitectureDetailCoverage,
-  inspectArchitectureDetailMap,
-} from "./artifact/architecture-details.ts";
+  parseArchitectureDetail,
+  parseArchitectureDetailMap,
+} from "./architecture/details.ts";
 export {
-  type ArchitectureAnalysisCoverageRequest,
-  type ArchitectureRegistryModel,
-  type ArchitectureRelationsRequest,
-  inspectArchitectureAnalysisCoverage,
-  inspectArchitectureComponentCoverage,
-  inspectArchitectureRegistryCoverage,
-  inspectArchitectureRelations,
-  parseArchitectureRegistry,
-} from "./artifact/architecture-relations.ts";
-export {
-  inspectChangeDocument,
-  isChangeNavigationInvalid,
-  isChangeTemplateInvalid,
-  parseChangeTraceHeader,
-} from "./artifact/change.ts";
-export {
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
-} from "./artifact/checklist.ts";
-export {
-  inspectDiscoveryAnalysis,
-  inspectDiscoveryDefinition,
-  parseAdoptedDiscoveryRequirements,
-} from "./artifact/discovery.ts";
-export {
-  inspectRelatedOrder,
-  parseCanonicalReleaseHeader,
-} from "./artifact/document-header.ts";
+  type ArchitectureAnalysis,
+  type ArchitectureCrossModel,
+  type ArchitectureDefinition,
+  type ArchitectureIndex,
+  parseArchitectureAnalysis,
+  parseArchitectureCrossModel,
+  parseArchitectureDefinition,
+  parseArchitectureIndex,
+} from "./architecture/validation.ts";
+export { parseMarkdownAnchors } from "./artifact/anchors.ts";
+export { inspectRelatedOrder } from "./artifact/document-header.ts";
 export {
   type ArtifactGraph,
   type ArtifactGraphResult,
   type BuildArtifactGraphRequest,
   buildArtifactGraph,
 } from "./artifact/graph.ts";
-export {
-  type IaAnalysisModel,
-  type IaDefinitionModel,
-  type IaIndexModel,
-  inspectIaAnalysis,
-  inspectIaAnalysisCoverage,
-  inspectIaCrossProjection,
-  inspectIaDefinition,
-  inspectIaIndexCoverage,
-  inspectIaRelations,
-  parseIaIndex,
-} from "./artifact/ia.ts";
-export {
-  inspectDiscoveryIdentityLinks,
-  inspectStableIdentityDefinitions,
-  inspectStableIdentityOwnership,
-  parseStableIdentityOccurrences,
-} from "./artifact/identity.ts";
+export { parseIdentityDocument } from "./artifact/identity.ts";
 export { inspectArtifactSources } from "./artifact/inspect.ts";
 export {
   parseMarkdownLinkReference,
   parseMarkdownLinkTargets,
 } from "./artifact/links.ts";
-export {
-  isMarkdownTableSeparator,
-  omitMarkdownCommentsAndFencedCode,
-  omitMarkdownCommentsOutsideFencedCode,
-  parseMarkdownFences,
-  parseMarkdownTableRow,
-  readCanonicalDocumentHeader,
-} from "./artifact/markdown.ts";
 export { parseMarkdownArtifact } from "./artifact/parse-markdown.ts";
-export { createPhaseChecklistItems } from "./artifact/phase-checklists.ts";
-export {
-  inspectPhaseDiagramTemplates,
-  phaseDiagramTemplatePaths,
-} from "./artifact/phase-diagrams.ts";
-export {
-  inspectQualityAnalysis,
-  inspectQualityCrossModelGoals,
-  inspectQualityDetailUnits,
-  parseQualityCoverageSections,
-} from "./artifact/quality-analysis.ts";
-export {
-  inspectQualityDefinition,
-  inspectQualityLocalItemOwnership,
-  type QualityDefinitionModel,
-  type QualityLocalItemOwnershipModel,
-} from "./artifact/quality-definition.ts";
-export {
-  hasQualityOpenChecklist,
-  inspectQualityCenterState,
-  inspectQualityRealityState,
-} from "./artifact/quality-readiness.ts";
-export {
-  inspectQualityDefinitionRelations,
-  inspectQualityGoalLocalRelations,
-  inspectQualityLocalItemRelations,
-  isQualityLocalItemCountInvalid,
-  parseQualityDetailHandoff,
-} from "./artifact/quality-relations.ts";
-export { inspectQualityDesignStates } from "./artifact/quality-state.ts";
-export {
-  isQualityAnalysisTemplateInvalid,
-  isQualityIntegrationTemplateInvalid,
-  isQualityVerificationResultTemplateInvalid,
-} from "./artifact/quality-templates.ts";
-export {
-  inspectCanonicalDocumentVersions,
-  inspectChangelogRelease,
-  inspectStableCanonicalDocuments,
-  inspectStableChangelog,
-  inspectStableReadme,
-  inspectStableReleaseHeader,
-  parseCandidateVersionHeader,
-  parseReadmeVersion,
-} from "./artifact/release.ts";
-export {
-  inspectSpecAnalysis,
-  inspectSpecAnalysisCoverage,
-  inspectSpecCoverage,
-  inspectSpecDefinition,
-  inspectSpecDefinitionCoverage,
-  inspectUiSpecRelations,
-  parseSpecIndex,
-  parseUiSpecPairs,
-  type SpecAnalysisModel,
-  type SpecDefinitionModel,
-  type SpecIndexModel,
-} from "./artifact/spec.ts";
-export {
-  inspectSpecCorrespondence,
-  inspectSpecCorrespondencePairEvidence,
-  parseSpecCorrespondencePair,
-  parseSpecCorrespondenceRevision,
-  type SpecCorrespondencePair,
-} from "./artifact/spec-correspondence.ts";
-export {
-  inspectSpecDetailCorrespondence,
-  inspectSpecDetailDownstream,
-  inspectSpecDetailIndex,
-  parseSpecDetailAreaOwnership,
-  parseSpecDetailCentralTrace,
-  parseSpecDetailDefinitionOwnership,
-  parseSpecScreenRelations,
-  parseUiDetailBindings,
-  type SpecDetailAreaOwnership,
-  type SpecDetailCentralTrace,
-  type SpecDetailDefinitionOwnership,
-  type SpecDetailDownstreamRequest,
-} from "./artifact/spec-details.ts";
 export type {
   ArtifactModel,
   ArtifactRelation,
@@ -198,68 +62,54 @@ export type {
   ArtifactSource,
   ChecklistFailure,
   ChecklistResult,
-  MarkdownFence,
-  MarkdownFenceLine,
+  DocumentIssue,
+  DocumentLocation,
+  DocumentResult,
+  DocumentStatus,
   MarkdownLinkReference,
+  ParseResult,
   SourceLocation,
-  UxFormalInputTarget,
 } from "./artifact/types.ts";
-export {
-  inspectUiAnalysis,
-  inspectUiAnalysisCoverage,
-  inspectUiDefinition,
-  inspectUiDetail,
-  inspectUiIndexCoverage,
-  inspectUiRelations,
-  parseUiIndex,
-  type UiIndexModel,
-  type UiRelationsModel,
-} from "./artifact/ui.ts";
-export {
-  inspectUxAnalysis,
-  inspectUxDefinition,
-  inspectUxFormalInput,
-  inspectUxRelations,
-  isUxProjectionIncomplete,
-  parseUxIndex,
-  parseUxJourneyRelations,
-  type UxAnalysisModel,
-  type UxFormalInputObservation,
-  type UxIndexModel,
-} from "./artifact/ux.ts";
-export {
-  isUxHandoffTargetSetExact,
-  isUxRootHandoffValid,
-} from "./artifact/ux-handoff.ts";
-export { parseUxFormalInputTargets } from "./artifact/ux-inputs.ts";
 export {
   type ArtifactSchema,
   type ArtifactSchemaValidationResult,
   validateArtifactSchema,
 } from "./artifact/validate-schema.ts";
+export { parseChangeDocument, parseChangeIndex } from "./change/parse.ts";
+export type { ChangeDocument, ChangeIndex } from "./change/types.ts";
 export {
-  inspectBranchCoverageTable,
-  inspectRemediationTable,
-} from "./artifact/verification-tables.ts";
+  parseDiscoveryAnalysis,
+  parseDiscoveryDefinition,
+  parseDiscoveryIndex,
+} from "./discovery/parse.ts";
+export type {
+  DiscoveryAnalysis,
+  DiscoveryDefinition,
+  DiscoveryIndex,
+} from "./discovery/types.ts";
+export {
+  parseIaAnalysis,
+  parseIaDefinition,
+  parseIaIndex,
+  parseIaObjectRelation,
+  parseIaStateVisibility,
+  parseIaStructureNavigation,
+} from "./ia/parse.ts";
+export type {
+  IaAnalysisModel,
+  IaDefinitionModel,
+  IaIndexModel,
+  IaObjectRelation,
+  IaStateVisibility,
+  IaStructureNavigation,
+} from "./ia/types.ts";
 export { createMeetingOperations } from "./meeting/create-operations.ts";
-export {
-  applyMeetingOutcomeTreatment,
-  parseMeetingMarkdown,
-} from "./meeting/markdown.ts";
+export { parseMeetingMarkdown } from "./meeting/markdown.ts";
 export type {
   MeetingOperations,
-  MeetingOutcomeDisposition,
-  MeetingOutcomeTreatment,
   MeetingRecord,
   MeetingState,
 } from "./meeting/types.ts";
-export {
-  type DomainIssue,
-  type DomainLocation,
-  type DomainOutcome,
-  type DomainStatus,
-  validateDomainOutcome,
-} from "./outcome.ts";
 export { applyProjectOperationCandidateDecision } from "./project-context/candidate-decision.ts";
 export {
   isProjectContextManifestIdentityInvalid,
@@ -296,6 +146,34 @@ export type {
   RepositoryReleaseScope,
 } from "./project-context/types.ts";
 export {
+  parseQualityAnalysis,
+  parseQualityDetailAnalysis,
+  parseQualityIntegration,
+  type QualityAnalysis,
+  type QualityDetailAnalysis,
+  type QualityIntegration,
+} from "./quality/analysis.ts";
+export {
+  parseQualityDefinition,
+  type QualityDefinitionModel,
+} from "./quality/definition.ts";
+export {
+  parseQualityCenter,
+  parseQualityRealityAudit,
+  parseQualityStrategy,
+  parseQualityVerificationDesign,
+  parseQualityVerificationResult,
+  type QualityCenter,
+  type QualityRealityAudit,
+  type QualityStrategy,
+  type QualityVerificationDesign,
+  type QualityVerificationResult,
+} from "./quality/readiness.ts";
+export {
+  inspectBranchCoverageTable,
+  inspectRemediationTable,
+} from "./quality/verification-tables.ts";
+export {
   type FixedQualityCandidate,
   fixQualityCandidate,
   type IntegratedQualityGate,
@@ -316,14 +194,20 @@ export {
   type RealitySymbolGraph,
   type RealitySymbolNode,
 } from "./reality-traceability/graph.ts";
-export {
-  type LoadedRealitySymbolManifest,
-  type RealitySymbol,
-  type RealitySymbolKind,
-  type RealitySymbolManifest,
-  realitySymbolKinds,
+export type {
+  LoadedRealitySymbolManifest,
+  RealitySymbol,
+  RealitySymbolKind,
+  RealitySymbolManifest,
 } from "./reality-traceability/manifest.ts";
 export { validateRealitySymbolManifest } from "./reality-traceability/validate-manifest.ts";
+export {
+  parseCanonicalDocument,
+  parseChangelog,
+  parseReadme,
+} from "./release/parse.ts";
+export type { CanonicalDocument, Changelog, Readme } from "./release/types.ts";
+
 export { createFilesystemRepositoryObservationPort } from "./repository/create-observer.ts";
 export {
   observeRealitySymbolRepository,
@@ -349,7 +233,6 @@ export {
   compileSemanticIr,
   type SemanticIr,
   type SemanticIrMeaning,
-  type SemanticSourceDocument,
 } from "./semantic/ir.ts";
 export {
   type PublishSemanticCoverageRequest,
@@ -358,8 +241,33 @@ export {
 } from "./semantic/publish.ts";
 export {
   compileQualitySemanticRelations,
+  type DocumentRelationsRequest,
+  evaluateDefinitionPairEvidence,
+  inspectDocumentRelations,
+  inspectQualityAnalysis,
+  inspectQualityLocalItemOwnership,
+  inspectReleaseDocuments,
+  type QualityLocalItemOwnershipModel,
   type QualitySemanticRelation,
 } from "./semantic/relations.ts";
+export {
+  parseSpecAnalysis,
+  parseSpecBehavior,
+  parseSpecDefinition,
+  parseSpecDefinitionCorrespondence,
+  parseSpecDetailCorrespondence,
+  parseSpecDetailIndex,
+  parseSpecIndex,
+} from "./spec/parse.ts";
+export type {
+  SpecAnalysis,
+  SpecBehavior,
+  SpecDefinition,
+  SpecDefinitionCorrespondence,
+  SpecDetailCorrespondence,
+  SpecDetailIndex,
+  SpecIndex,
+} from "./spec/types.ts";
 export {
   createFilesystemSemanticBundlePublisher,
   type SemanticBundlePublisher,
@@ -368,37 +276,58 @@ export {
 } from "./storage/semantic-store.ts";
 export {
   discoverRepositoryTestFiles,
-  inspectResourceIntensiveTestAuthority,
   inspectTestCatalog,
   loadTestCatalog,
-  type ResourceIntensiveTestAuthority,
-  selectRegressionStaticOwners,
-  selectRegressionTests,
   type TestCatalog,
   type TestCatalogEntry,
   type TestLevel,
   testLevels,
 } from "./test-catalog/inspect.ts";
-export {
-  aggregateRegressionStageResults,
-  buildRegressionStagePlan,
-  normalizeExplicitChangedPaths,
-  type RegressionAggregateResult,
-  type RegressionExecutionStep,
-  type RegressionPlanEntry,
-  type RegressionStage,
-  type RegressionStagePlan,
-  type RegressionStageResult,
-  regressionStageOrder,
-} from "./test-catalog/plan.ts";
 export { createTopicOperations } from "./topic/create-operations.ts";
-export {
-  applyTopicPromotion,
-  parseTopicMarkdown,
-} from "./topic/markdown.ts";
+export { parseTopicMarkdown } from "./topic/markdown.ts";
 export type {
   TopicOperations,
-  TopicPromotion,
   TopicRecord,
   TopicState,
 } from "./topic/types.ts";
+export {
+  parseUiAnalysis,
+  parseUiArea,
+  parseUiComponent,
+  parseUiDefinition,
+  parseUiDetailIndex,
+  parseUiHandoff,
+  parseUiIndex,
+  parseUiScreen,
+  parseUiVisualBaseline,
+} from "./ui/parse.ts";
+export type {
+  UiAnalysis,
+  UiArea,
+  UiComponent,
+  UiDefinition,
+  UiDetailIndex,
+  UiHandoff,
+  UiIndex,
+  UiScreen,
+  UiVisualBaseline,
+} from "./ui/types.ts";
+export {
+  parseUxAnalysis,
+  parseUxDefinition,
+  parseUxExperienceMap,
+  parseUxIndex,
+  parseUxPersonas,
+  parseUxQualityExpectations,
+  parseUxServiceBlueprint,
+} from "./ux/parse.ts";
+export type {
+  UxAnalysisModel,
+  UxDefinitionModel,
+  UxExperienceMap,
+  UxFormalInputObservation,
+  UxIndexModel,
+  UxPersonas,
+  UxQualityExpectations,
+  UxServiceBlueprint,
+} from "./ux/types.ts";

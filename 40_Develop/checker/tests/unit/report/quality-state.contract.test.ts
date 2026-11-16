@@ -9,14 +9,14 @@
  * @scope quality-state、diagnostic、conversion
  * @boundary RCM-UT-001=N/A: Checker Core内の同期処理。 / RCM-UT-002=N/A: Checker Core内の同期処理。
  */
-import { mapQualityDesignStateIssueToFinding } from "../../../src/report/quality.ts";
 
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
   inspectArtifactSources,
-  inspectQualityDesignStates,
+  inspectDocumentRelations,
 } from "../../../../document-model/src/index.ts";
+import { mapQualityDesignStateIssueToFinding } from "../../../src/report/quality.ts";
 
 /**
  * 品質状態Issueを両readinessの既存Findingへ変換することを検証する。
@@ -44,9 +44,10 @@ test("品質設計状態検査は両readinessの既存Findingを維持する", (
       ],
     });
     assert.deepEqual(
-      inspectQualityDesignStates(result.artifacts).map((issue) =>
-        mapQualityDesignStateIssueToFinding(issue, readiness),
-      ),
+      inspectDocumentRelations({
+        kind: "quality_design_states",
+        artifacts: result.artifacts,
+      }).map((issue) => mapQualityDesignStateIssueToFinding(issue, readiness)),
       ["07_Quality/draft.md", "07_Quality/missing.md"].map((path) => ({
         severity: "error",
         code: "quality-design-artifact-state-invalid",

@@ -11,10 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  omitMarkdownFencedCode,
-  parseMarkdownAnchors,
-} from "../../../src/index.ts";
+import { omitMarkdownFencedCode } from "../../../src/artifact/anchors.ts";
+import { parseMarkdownAnchors } from "../../../src/index.ts";
 
 /**
  * Unicode・可視文字・重複と明示Anchorの解析結果を検証する。

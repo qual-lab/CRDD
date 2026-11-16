@@ -5,17 +5,20 @@
  */
 import {
   compileQualitySemanticRelations,
-  type QualitySemanticRelation,
   compileSemanticIr,
-  type SemanticIr,
-  createSemanticCoverageGraph,
-  type SemanticCoverageGraph,
-  type LoadedRealitySymbolManifest,
   createFilesystemRepositoryObservationPort,
+  createSemanticCoverageGraph,
+  type LoadedRealitySymbolManifest,
+  parseArchitectureDetail,
+  parseQualityDefinition,
+  type QualitySemanticRelation,
+  type SemanticCoverageGraph,
+  type SemanticIr,
 } from "../../../document-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
 import { mapSemanticDomainIssueToDiagnostic } from "../report/semantic.ts";
 import type { SemanticCoverageDiagnostic } from "../report/types.ts";
+
 /**
  * Repositoryから観測したSemantic Source文書を表す。
  *
@@ -95,7 +98,11 @@ export function compileSemanticIrFromRepository(
   const [document] = observed.documents;
   if (!document) return { ir: null, findings: observed.findings };
   const outcome = compileSemanticIr(
-    document,
+    parseArchitectureDetail(
+      { path: document.path, content: document.source },
+      subsystem,
+      {},
+    ).result,
     subsystem,
     architectureDefinitionIds,
   );
@@ -130,7 +137,15 @@ export function compileQualitySemanticRelationsFromRepository(
   if (observed.findings.length > 0)
     return { relations: null, findings: observed.findings };
   const outcome = compileQualitySemanticRelations(
-    observed.documents,
+    observed.documents.map(
+      (document) =>
+        parseQualityDefinition(
+          { path: document.path, content: document.source },
+          document.path.match(
+            /(?:^|\/)(QA-[0-9]{6})\/quality_definition\.md$/u,
+          )?.[1] ?? "",
+        ).result,
+    ),
     semanticIrs,
   );
   return {

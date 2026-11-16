@@ -9,9 +9,9 @@
  * @security 宣言されていないContext、RepositoryまたはAuthorityを補完しない。
  */
 import type {
-  RepositoryProjectContextTable,
-  RepositoryProjectContextScene,
   RepositoryProjectContext,
+  RepositoryProjectContextScene,
+  RepositoryProjectContextTable,
 } from "./types.ts";
 
 const SCENE_DEFINITIONS = Object.freeze([

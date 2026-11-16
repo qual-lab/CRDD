@@ -3,34 +3,22 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
-
-import { lstatIfPresent } from "../repository/observe.ts";
 
 import fs from "node:fs";
 import path from "node:path";
-
 import {
-  inspectArchitectureCrossModelIndex,
-  inspectArchitectureCrossModel,
-  inspectArchitectureDetailMap,
-  inspectArchitectureDetail,
-  inspectArchitectureDetailCoverage,
-  inspectArchitectureAnalysisCoverage,
-  parseArchitectureRegistry,
-  inspectArchitectureRegistryCoverage,
-  inspectArchitectureComponentCoverage,
-  inspectArchitectureRelations,
-  inspectArchitectureAnalysis,
-  inspectArchitectureDefinition,
-  inspectArchitectureDetailTemplate,
-  createPhaseChecklistItems,
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
-  omitMarkdownCommentsAndFencedCode,
-  omitMarkdownCommentsOutsideFencedCode,
+  type ArchitectureAnalysis,
+  inspectDocumentRelations,
+  parseArchitectureAnalysis,
+  parseArchitectureCrossModel,
+  parseArchitectureDefinition,
+  parseArchitectureDetail,
+  parseArchitectureDetailMap,
+  parseArchitectureIndex,
 } from "../../../document-model/src/index.ts";
 import { mapArchitectureDomainIssueToFinding } from "../report/convert.ts";
+import type { DocumentFinding } from "../report/types.ts";
+import { lstatIfPresent } from "../repository/observe.ts";
 
 /**
  * architecture成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -57,14 +45,6 @@ export function inspectArchitectureRepository(
   const relative = (file: string) =>
     path.relative(root, file).replaceAll("\\", "/") || ".";
   const read = (file: string) => fs.readFileSync(file, "utf8");
-  const {
-    architectureUiAnalysisChecklistItemTexts,
-    architectureSpecAnalysisChecklistItemTexts,
-    architectureDefinitionChecklistItemTexts,
-    architectureDefinitionTemplateChecklistItemTexts,
-    architectureDetailChecklistItemTexts,
-    architectureDetailTemplateChecklistItemTexts,
-  } = createPhaseChecklistItems();
 
   if (repositoryMode !== "official") return;
   const architectureIndexPath = path.join(
@@ -78,7 +58,7 @@ export function inspectArchitectureRepository(
     architectureIndexRaw,
   );
 
-  for (const [templatePath, expectedItems] of [
+  for (const [templatePath, checklistKind] of [
     [
       path.join(
         root,
@@ -88,7 +68,7 @@ export function inspectArchitectureRepository(
         "UI-XXXXXX",
         "architecture_analysis.md",
       ),
-      architectureUiAnalysisChecklistItemTexts,
+      "analysis_ui",
     ],
     [
       path.join(
@@ -99,7 +79,7 @@ export function inspectArchitectureRepository(
         "SPEC-XXXXXX",
         "architecture_analysis.md",
       ),
-      architectureSpecAnalysisChecklistItemTexts,
+      "analysis_spec",
     ],
     [
       path.join(
@@ -110,7 +90,7 @@ export function inspectArchitectureRepository(
         "ARCH-XXXXXX",
         "architecture_definition.md",
       ),
-      architectureDefinitionTemplateChecklistItemTexts,
+      "definition_template",
     ],
     [
       path.join(
@@ -121,14 +101,37 @@ export function inspectArchitectureRepository(
         "area",
         "01_Architecture.md",
       ),
-      architectureDetailTemplateChecklistItemTexts,
+      "detail_template",
     ],
   ] as const) {
     if (!lstatIfPresent(templatePath)?.isFile()) continue;
-    const checklistError = inspectTemplateChecklist(
-      read(templatePath),
-      expectedItems,
-    );
+    const checklistError = (
+      checklistKind === "analysis_ui"
+        ? parseArchitectureAnalysis(
+            { path: relative(templatePath), content: read(templatePath) },
+            "UI",
+            "UI-XXXXXX",
+            { mode: "template" },
+          )
+        : checklistKind === "analysis_spec"
+          ? parseArchitectureAnalysis(
+              { path: relative(templatePath), content: read(templatePath) },
+              "SPEC",
+              "SPEC-XXXXXX",
+              { mode: "template" },
+            )
+          : checklistKind === "definition_template"
+            ? parseArchitectureDefinition(
+                { path: relative(templatePath), content: read(templatePath) },
+                "ARCH-XXXXXX",
+                { mode: "template" },
+              )
+            : parseArchitectureDetail(
+                { path: relative(templatePath), content: read(templatePath) },
+                "area",
+                { mode: "template" },
+              )
+    ).result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -155,27 +158,37 @@ export function inspectArchitectureRepository(
     "01_Architecture.md",
   );
   if (lstatIfPresent(architectureDefinitionTemplatePath)?.isFile()) {
-    const source = omitMarkdownCommentsAndFencedCode(
-      read(architectureDefinitionTemplatePath),
-    );
-    for (const issue of inspectArchitectureDetailTemplate(
+    const source = read(architectureDefinitionTemplatePath);
+    for (const issue of parseArchitectureDefinition(
       {
         path: relative(architectureDefinitionTemplatePath),
         content: source,
       },
-      "definition",
+      "ARCH-XXXXXX",
+      { mode: "template" },
+    ).issues.filter(
+      (issue) =>
+        ![
+          "artifact.architecture.definition-contract-invalid",
+          "artifact.architecture.detail-contract-invalid",
+        ].includes(issue.kind),
     )) {
       const finding = mapArchitectureDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
   }
   if (lstatIfPresent(architectureDetailTemplatePath)?.isFile()) {
-    const source = omitMarkdownCommentsAndFencedCode(
-      read(architectureDetailTemplatePath),
-    );
-    for (const issue of inspectArchitectureDetailTemplate(
+    const source = read(architectureDetailTemplatePath);
+    for (const issue of parseArchitectureDetail(
       { path: relative(architectureDetailTemplatePath), content: source },
       "area",
+      { mode: "template" },
+    ).issues.filter(
+      (issue) =>
+        ![
+          "artifact.architecture.definition-contract-invalid",
+          "artifact.architecture.detail-contract-invalid",
+        ].includes(issue.kind),
     )) {
       const finding = mapArchitectureDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
@@ -203,8 +216,7 @@ export function inspectArchitectureRepository(
   const specIds = definitionIds("05_SPEC", "SPEC", "spec_definition.md");
   const analysisRoot = path.join(root, "06_Architecture", "Analysis");
   const analysisRelations = new Set<string>();
-  const analyzedUi = new Set<string>();
-  const analyzedSpec = new Set<string>();
+  const analyses: ArchitectureAnalysis[] = [];
   const actualAnalysisIds = new Set<string>();
 
   if (lstatIfPresent(analysisRoot)?.isDirectory())
@@ -239,34 +251,36 @@ export function inspectArchitectureRepository(
         );
         continue;
       }
-      const source = omitMarkdownCommentsAndFencedCode(read(analysisPath));
-      const checklistError = inspectEvaluatedChecklist(
-        read(analysisPath),
-        kind === "UI"
-          ? architectureUiAnalysisChecklistItemTexts
-          : architectureSpecAnalysisChecklistItemTexts,
-      );
-      const model = inspectArchitectureAnalysis(
+      const source = read(analysisPath);
+      const checklistSource = {
+        path: relative(analysisPath),
+        content: read(analysisPath),
+      };
+      const model = parseArchitectureAnalysis(
         { path: relative(analysisPath), content: source },
         kind,
         id,
-        isArchitectureReadyStatus,
-        checklistError,
+        { checklistSource },
       );
-      if (kind === "UI") analyzedUi.add(id);
-      else analyzedSpec.add(id);
-      for (const relation of model.relations) analysisRelations.add(relation);
-      for (const issue of model.issues) {
+      analyses.push(model.result);
+      for (const relation of model.result.relations)
+        analysisRelations.add(relation);
+      for (const issue of inspectDocumentRelations({
+        kind: "architecture_readiness",
+        documentType: "analysis",
+        document: model,
+        isReady: isArchitectureReadyStatus,
+      })) {
         const finding = mapArchitectureDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
 
-  for (const issue of inspectArchitectureAnalysisCoverage({
+  for (const issue of inspectDocumentRelations({
+    kind: "architecture_inputs",
     sourcePath: relative(architectureIndexPath),
     analysisPath: relative(analysisRoot),
-    analyzedUi,
-    analyzedSpec,
+    analyses,
     uiIds,
     specIds,
     actualAnalysisIds,
@@ -274,16 +288,19 @@ export function inspectArchitectureRepository(
     const finding = mapArchitectureDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const index = omitMarkdownCommentsAndFencedCode(read(architectureIndexPath));
-  const crossModelIndex = inspectArchitectureCrossModelIndex({
+  const registrySource = {
     path: relative(architectureIndexPath),
-    content: index,
-  });
-  for (const issue of crossModelIndex.issues) {
+    content: read(architectureIndexPath),
+  };
+  const crossModelIndex = parseArchitectureIndex(registrySource);
+  for (const issue of crossModelIndex.issues.filter(
+    (issue) =>
+      issue.kind !== "artifact.architecture.definition-index-coverage-mismatch",
+  )) {
     const finding = mapArchitectureDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  for (const file of crossModelIndex.files) {
+  for (const file of crossModelIndex.result.files) {
     const modelPath = path.join(root, "06_Architecture", file);
     if (!lstatIfPresent(modelPath)?.isFile()) {
       add(
@@ -294,21 +311,20 @@ export function inspectArchitectureRepository(
       );
       continue;
     }
-    const rawModelSource = omitMarkdownCommentsOutsideFencedCode(
-      read(modelPath),
-    );
-    const modelSource = omitMarkdownCommentsAndFencedCode(rawModelSource);
-    for (const issue of inspectArchitectureCrossModel(
-      { path: relative(modelPath), content: modelSource },
-      file,
-      index,
-      rawModelSource,
-    )) {
+    const modelSource = read(modelPath);
+    for (const issue of inspectDocumentRelations({
+      kind: "architecture_cross_model",
+      document: parseArchitectureCrossModel(
+        { path: relative(modelPath), content: modelSource },
+        file,
+      ),
+      index: crossModelIndex.result,
+    })) {
       const finding = mapArchitectureDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
   }
-  const registryModel = parseArchitectureRegistry(index);
+  const registryModel = crossModelIndex.result.registry;
   const {
     relations: registryRelations,
     relationEntries: registryRelationEntries,
@@ -330,32 +346,37 @@ export function inspectArchitectureRepository(
       );
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualDefinitions.add(entry.name);
-      const source = omitMarkdownCommentsAndFencedCode(read(definitionPath));
-      const checklistError = inspectEvaluatedChecklist(
-        read(definitionPath),
-        architectureDefinitionChecklistItemTexts,
-      );
-      const model = inspectArchitectureDefinition(
+      const source = read(definitionPath);
+      const checklistSource = {
+        path: relative(definitionPath),
+        content: read(definitionPath),
+      };
+      const model = parseArchitectureDefinition(
         { path: relative(definitionPath), content: source },
         entry.name,
-        isArchitectureReadyStatus,
-        checklistError,
+        { checklistSource },
       );
-      for (const relation of model.relations) {
+      for (const relation of model.result.relations) {
         definitionRelationEntries.push(relation);
         definitionRelations.add(relation);
       }
-      for (const issue of model.issues) {
+      for (const issue of inspectDocumentRelations({
+        kind: "architecture_readiness",
+        documentType: "definition",
+        document: model,
+        isReady: isArchitectureReadyStatus,
+      })) {
         const finding = mapArchitectureDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
 
-  for (const issue of inspectArchitectureRegistryCoverage(
-    relative(architectureIndexPath),
-    registryModel,
-    actualDefinitions,
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "architecture_registry_coverage",
+    sourcePath: relative(architectureIndexPath),
+    registry: registryModel,
+    actualDefinitions: actualDefinitions,
+  })) {
     const finding = mapArchitectureDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
@@ -365,13 +386,18 @@ export function inspectArchitectureRepository(
     "02_Component_and_Responsibility_Model.md",
   );
   if (lstatIfPresent(componentModelPath)?.isFile()) {
-    const componentSource = omitMarkdownCommentsAndFencedCode(
-      read(componentModelPath),
-    );
-    for (const issue of inspectArchitectureComponentCoverage(
-      { path: relative(componentModelPath), content: componentSource },
-      actualDefinitions,
-    )) {
+    const componentSource = read(componentModelPath);
+    for (const issue of inspectDocumentRelations({
+      kind: "architecture_component_coverage",
+      model: parseArchitectureCrossModel(
+        {
+          path: relative(componentModelPath),
+          content: componentSource,
+        },
+        "02_Component_and_Responsibility_Model.md",
+      ).result,
+      actualDefinitions: actualDefinitions,
+    })) {
       const finding = mapArchitectureDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -398,16 +424,21 @@ export function inspectArchitectureRepository(
       "Architecture must map every ARCH-ID to one or more detailed design areas before Architecture Ready.",
     );
   else {
-    const source = omitMarkdownCommentsAndFencedCode(read(detailMapPath));
-    const model = inspectArchitectureDetailMap(
-      { path: relative(detailMapPath), content: source },
-      actualDefinitions,
-    );
-    for (const area of model.areas) registeredDetailAreas.add(area);
-    for (const relation of model.relations) detailMapRelations.add(relation);
-    for (const relation of model.closureRelations)
+    const source = read(detailMapPath);
+    const model = parseArchitectureDetailMap({
+      path: relative(detailMapPath),
+      content: source,
+    });
+    for (const area of model.result.areas) registeredDetailAreas.add(area);
+    for (const relation of model.result.relations)
+      detailMapRelations.add(relation);
+    for (const relation of model.result.closureRelations)
       detailMapClosureRelations.add(relation);
-    for (const issue of model.issues) {
+    for (const issue of inspectDocumentRelations({
+      kind: "architecture_detail_map_coverage",
+      document: model,
+      actualDefinitions,
+    })) {
       const finding = mapArchitectureDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -432,48 +463,58 @@ export function inspectArchitectureRepository(
         );
         continue;
       }
-      const source = omitMarkdownCommentsAndFencedCode(read(detailPath));
+      const source = read(detailPath);
       const detailMarkdown = read(detailPath);
-      const checklistError = inspectEvaluatedChecklist(
-        detailMarkdown,
-        architectureDetailChecklistItemTexts,
-      );
-      const model = inspectArchitectureDetail(
+      const checklistSource = {
+        path: relative(detailPath),
+        content: detailMarkdown,
+      };
+      const model = parseArchitectureDetail(
         { path: relative(detailPath), content: source },
         entry.name,
-        isArchitectureReady,
-        checklistError,
+        { checklistSource },
       );
-      for (const relation of model.relations)
+      for (const relation of model.result.relations)
         detailDocumentRelations.add(relation);
-      for (const identity of model.coveredDefinitions)
+      for (const identity of model.result.coveredDefinitions)
         detailCoveredDefinitions.add(identity);
-      for (const issue of model.issues) {
+      for (const issue of inspectDocumentRelations({
+        kind: "architecture_readiness",
+        documentType: "detail",
+        document: model,
+        isReady: isArchitectureReadyStatus,
+      })) {
         const finding = mapArchitectureDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
-  for (const issue of inspectArchitectureDetailCoverage({
-    sourcePath: relative(detailMapPath),
-    registeredDetailAreas,
-    actualDetailAreas,
-    detailMapRelations,
-    detailDocumentRelations,
-    detailMapClosureRelations,
-    actualDefinitions,
-    detailCoveredDefinitions,
-    isArchitectureReady,
+  for (const issue of inspectDocumentRelations({
+    kind: "architecture_detail_coverage",
+    ...{
+      sourcePath: relative(detailMapPath),
+      registeredDetailAreas,
+      actualDetailAreas,
+      detailMapRelations,
+      detailDocumentRelations,
+      detailMapClosureRelations,
+      actualDefinitions,
+      detailCoveredDefinitions,
+      isArchitectureReady,
+    },
   })) {
     const finding = mapArchitectureDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  for (const issue of inspectArchitectureRelations({
-    sourcePath: relative(architectureIndexPath),
-    analysisRelations,
-    definitionRelations,
-    definitionRelationEntries,
-    registryRelations,
-    registryRelationEntries,
+  for (const issue of inspectDocumentRelations({
+    kind: "architecture_relations",
+    ...{
+      sourcePath: relative(architectureIndexPath),
+      analysisRelations,
+      definitionRelations,
+      definitionRelationEntries,
+      registryRelations,
+      registryRelationEntries,
+    },
   })) {
     const finding = mapArchitectureDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);

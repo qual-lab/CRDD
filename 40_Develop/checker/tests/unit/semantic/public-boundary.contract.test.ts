@@ -93,7 +93,10 @@ test("Semantic Coverage CLIはSubsystem公開入口だけを利用する", () =>
  */
 test("Semantic Coverageの中立IssueはSurface固有語彙を含まない", () => {
   const outcome = semanticCoverage.compileSemanticIr(
-    { path: "06_Architecture/Details/sample.md", source: "# Sample\n" },
+    semanticCoverage.parseArchitectureDetail(
+      { path: "06_Architecture/Details/sample.md", content: "# Sample\n" },
+      "sample",
+    ).result,
     "sample",
     new Set(["ARCH-000001"]),
   );

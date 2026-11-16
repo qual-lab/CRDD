@@ -3,48 +3,38 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
+
+import fs from "node:fs";
+import path from "node:path";
 import {
-  mapQualityDesignStateIssueToFinding,
+  type ArtifactSource,
+  inspectArtifactSources,
+  inspectDocumentRelations,
+  inspectQualityAnalysis,
+  inspectQualityLocalItemOwnership,
+  parseArchitectureDetail,
+  parseQualityAnalysis,
+  parseQualityCenter,
+  parseQualityDefinition,
+  parseQualityDetailAnalysis,
+  parseQualityIntegration,
+  parseQualityRealityAudit,
+  parseQualityStrategy,
+  parseQualityVerificationDesign,
+  parseQualityVerificationResult,
+} from "../../../document-model/src/index.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../report/convert.ts";
+import {
   mapQualityAnalysisIssueToFinding,
-  mapQualityRelationsIssueToFinding,
   mapQualityDefinitionIssueToFinding,
+  mapQualityDesignStateIssueToFinding,
+  mapQualityRelationsIssueToFinding,
 } from "../report/quality.ts";
-
 import type { DocumentFinding } from "../report/types.ts";
-
 import {
   lstatIfPresent,
   pathContainsSymbolicLink,
 } from "../repository/observe.ts";
-import fs from "node:fs";
-import path from "node:path";
-
-import {
-  inspectQualityCenterState,
-  inspectQualityRealityState,
-  inspectQualityAnalysis,
-  inspectQualityCrossModelGoals,
-  inspectQualityDetailUnits,
-  inspectQualityDefinitionRelations,
-  inspectQualityLocalItemRelations,
-  inspectQualityGoalLocalRelations,
-  parseQualityDetailHandoff,
-  isQualityVerificationResultTemplateInvalid,
-  isQualityAnalysisTemplateInvalid,
-  isQualityIntegrationTemplateInvalid,
-  hasQualityOpenChecklist,
-  parseQualityCoverageSections,
-  isQualityLocalItemCountInvalid,
-  inspectQualityDefinition,
-  inspectQualityLocalItemOwnership,
-  inspectArtifactSources,
-  inspectQualityDesignStates,
-  createPhaseChecklistItems,
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
-  omitMarkdownCommentsAndFencedCode,
-} from "../../../document-model/src/index.ts";
-import { mapArtifactDomainIssueToCheckerFinding } from "../report/convert.ts";
 
 /**
  * quality成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -71,17 +61,6 @@ export function inspectQualityRepository(
   const relative = (file: string) =>
     path.relative(root, file).replaceAll("\\", "/") || ".";
   const read = (file: string) => fs.readFileSync(file, "utf8");
-  const {
-    qualityCenterChecklistItemTexts,
-    qualityStrategyChecklistItemTexts,
-    qualityVerificationDesignChecklistItemTexts,
-    qualityIntegrationChecklistItemTexts,
-    qualityRealityAuditChecklistItemTexts,
-    qualityVerificationResultChecklistItemTexts,
-    qualityAnalysisTemplateChecklistItemTexts,
-    qualityAnalysisDetailTemplateChecklistItemTexts,
-    qualityDefinitionTemplateChecklistItemTexts,
-  } = createPhaseChecklistItems();
 
   if (repositoryMode !== "official") return;
 
@@ -199,22 +178,27 @@ export function inspectQualityRepository(
   }
 
   const qualityRootChecklistSpecs = [
-    ["01_Quality_Center.md", qualityCenterChecklistItemTexts],
-    ["02_Quality_Strategy.md", qualityStrategyChecklistItemTexts],
-    ["03_Verification_Design.md", qualityVerificationDesignChecklistItemTexts],
-    ["04_Quality_Integration.md", qualityIntegrationChecklistItemTexts],
+    ["01_Quality_Center.md", "center", parseQualityCenter],
+    ["02_Quality_Strategy.md", "strategy", parseQualityStrategy],
+    [
+      "03_Verification_Design.md",
+      "verification_design",
+      parseQualityVerificationDesign,
+    ],
+    ["04_Quality_Integration.md", "integration", parseQualityIntegration],
     [
       "05_Current_Implementation_Reality_Audit.md",
-      qualityRealityAuditChecklistItemTexts,
+      "reality_audit",
+      parseQualityRealityAudit,
     ],
   ] as const;
-  for (const [fileName, expectedItems] of qualityRootChecklistSpecs) {
+  for (const [fileName, , parse] of qualityRootChecklistSpecs) {
     const currentPath = path.join(qualityRoot, fileName);
     if (lstatIfPresent(currentPath)?.isFile()) {
-      const currentError = inspectEvaluatedChecklist(
-        read(currentPath),
-        expectedItems,
-      );
+      const currentError = parse(
+        { path: relative(currentPath), content: read(currentPath) },
+        { mode: "evaluated" },
+      ).result.checklistContract.failure;
       if (currentError)
         add(
           "error",
@@ -225,10 +209,10 @@ export function inspectQualityRepository(
     }
     const templatePath = path.join(templateQualityRoot, fileName);
     if (lstatIfPresent(templatePath)?.isFile()) {
-      const templateError = inspectTemplateChecklist(
-        read(templatePath),
-        expectedItems,
-      );
+      const templateError = parse(
+        { path: relative(templatePath), content: read(templatePath) },
+        { mode: "template" },
+      ).result.checklistContract.failure;
       if (templateError)
         add(
           "error",
@@ -243,12 +227,15 @@ export function inspectQualityRepository(
     templateQualityRoot,
     "99_Verification_Result_Format.md",
   );
-  const verificationResultTemplateError = inspectTemplateChecklist(
-    lstatIfPresent(verificationResultTemplatePath)?.isFile()
-      ? read(verificationResultTemplatePath)
-      : "",
-    qualityVerificationResultChecklistItemTexts,
-  );
+  const verificationResultTemplateError = parseQualityVerificationResult(
+    {
+      path: relative(verificationResultTemplatePath),
+      content: lstatIfPresent(verificationResultTemplatePath)?.isFile()
+        ? read(verificationResultTemplatePath)
+        : "",
+    },
+    { mode: "template" },
+  ).result.checklistContract.failure;
   if (verificationResultTemplateError)
     add(
       "error",
@@ -259,7 +246,15 @@ export function inspectQualityRepository(
 
   if (lstatIfPresent(verificationResultTemplatePath)?.isFile()) {
     const verificationResultTemplate = read(verificationResultTemplatePath);
-    if (isQualityVerificationResultTemplateInvalid(verificationResultTemplate))
+    if (
+      !parseQualityVerificationResult(
+        {
+          path: relative(verificationResultTemplatePath),
+          content: verificationResultTemplate,
+        },
+        { mode: "template" },
+      ).result.templateContract?.valid
+    )
       add(
         "error",
         "quality-verification-result-applicability-contract-invalid",
@@ -274,10 +269,13 @@ export function inspectQualityRepository(
     "PHASE",
     "quality_analysis.md",
   );
-  const qualityAnalysisTemplateError = inspectTemplateChecklist(
-    read(qualityAnalysisTemplatePath),
-    qualityAnalysisDetailTemplateChecklistItemTexts,
-  );
+  const qualityAnalysisTemplateError = parseQualityDetailAnalysis(
+    {
+      path: relative(qualityAnalysisTemplatePath),
+      content: read(qualityAnalysisTemplatePath),
+    },
+    { mode: "template" },
+  ).result.checklistContract.failure;
   if (qualityAnalysisTemplateError)
     add(
       "error",
@@ -286,10 +284,16 @@ export function inspectQualityRepository(
       `The Quality Analysis template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${qualityAnalysisTemplateError}).`,
     );
   if (lstatIfPresent(qualityAnalysisTemplatePath)?.isFile()) {
-    const source = omitMarkdownCommentsAndFencedCode(
-      read(qualityAnalysisTemplatePath),
-    );
-    if (isQualityAnalysisTemplateInvalid(source))
+    const source = read(qualityAnalysisTemplatePath);
+    if (
+      !parseQualityAnalysis(
+        {
+          path: relative(qualityAnalysisTemplatePath),
+          content: source,
+        },
+        { mode: "template" },
+      ).result.templateContract?.valid
+    )
       add(
         "error",
         "quality-source-layer-contract-missing",
@@ -302,10 +306,16 @@ export function inspectQualityRepository(
     "04_Quality_Integration.md",
   );
   if (lstatIfPresent(qualityIntegrationTemplatePath)?.isFile()) {
-    const source = omitMarkdownCommentsAndFencedCode(
-      read(qualityIntegrationTemplatePath),
-    );
-    if (isQualityIntegrationTemplateInvalid(source))
+    const source = read(qualityIntegrationTemplatePath);
+    if (
+      !parseQualityIntegration(
+        {
+          path: relative(qualityIntegrationTemplatePath),
+          content: source,
+        },
+        { mode: "template" },
+      ).result.templateContract?.valid
+    )
       add(
         "error",
         "quality-detail-integration-contract-missing",
@@ -314,10 +324,10 @@ export function inspectQualityRepository(
       );
   }
   for (const phaseAnalysisPath of phaseAnalysisPaths) {
-    const checklistError = inspectEvaluatedChecklist(
-      read(phaseAnalysisPath),
-      qualityAnalysisTemplateChecklistItemTexts,
-    );
+    const checklistError = parseQualityAnalysis(
+      { path: relative(phaseAnalysisPath), content: read(phaseAnalysisPath) },
+      { mode: "evaluated" },
+    ).result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -333,10 +343,14 @@ export function inspectQualityRepository(
     "QA-XXXXXX",
     "quality_definition.md",
   );
-  const qualityDefinitionTemplateError = inspectTemplateChecklist(
-    read(qualityDefinitionTemplatePath),
-    qualityDefinitionTemplateChecklistItemTexts,
-  );
+  const qualityDefinitionTemplateError = parseQualityDefinition(
+    {
+      path: relative(qualityDefinitionTemplatePath),
+      content: read(qualityDefinitionTemplatePath),
+    },
+    "QA-XXXXXX",
+    { mode: "template" },
+  ).result.checklistContract.failure;
   if (qualityDefinitionTemplateError)
     add(
       "error",
@@ -359,10 +373,11 @@ export function inspectQualityRepository(
     )
     .filter((definitionPath) => lstatIfPresent(definitionPath)?.isFile());
   for (const definitionPath of qualityDefinitionPaths) {
-    const checklistError = inspectEvaluatedChecklist(
-      read(definitionPath),
-      qualityDefinitionTemplateChecklistItemTexts,
-    );
+    const checklistError = parseQualityDefinition(
+      { path: relative(definitionPath), content: read(definitionPath) },
+      path.basename(path.dirname(definitionPath)),
+      { mode: "evaluated" },
+    ).result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -376,13 +391,14 @@ export function inspectQualityRepository(
   const qualityCenter = lstatIfPresent(qualityCenterPath)?.isFile()
     ? read(qualityCenterPath)
     : "";
-  const inspectQualityCenterStateResult = inspectQualityCenterState(
-    qualityCenter,
-    relative(qualityCenterPath),
-  );
-  const { isQualityDesignReady, isQualityReady } =
-    inspectQualityCenterStateResult;
-  for (const issue of inspectQualityCenterStateResult.issues) {
+  const qualityCenterResult = parseQualityCenter({
+    path: relative(qualityCenterPath),
+    content: qualityCenter,
+  });
+  const { isQualityDesignReady, isQualityReady } = qualityCenterResult.result;
+  for (const issue of qualityCenterResult.issues.filter(
+    (issue) => issue.kind !== "artifact.quality.checklist-invalid",
+  )) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
@@ -390,35 +406,48 @@ export function inspectQualityRepository(
     qualityRoot,
     "05_Current_Implementation_Reality_Audit.md",
   );
-  const realityAuditState = lstatIfPresent(realityAuditPath)?.isFile()
-    ? (read(realityAuditPath).match(/^状態:\s*(.+?)\s*$/mu)?.[1] ?? "")
+  const realityAudit = lstatIfPresent(realityAuditPath)?.isFile()
+    ? read(realityAuditPath)
     : "";
-  const inspectQualityRealityStateResult = inspectQualityRealityState(
-    realityAuditState,
-    relative(realityAuditPath),
-    relative(qualityCenterPath),
-    inspectQualityCenterStateResult,
-  );
-  for (const issue of inspectQualityRealityStateResult.issues) {
+  const realityAuditResult = parseQualityRealityAudit({
+    path: relative(realityAuditPath),
+    content: realityAudit,
+  });
+  for (const issue of inspectDocumentRelations({
+    kind: "quality_reality_state",
+    center: qualityCenterResult.result,
+    reality: realityAuditResult,
+  })) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   if (isQualityDesignReady || isQualityReady) {
-    const qualityDesignRootFiles = qualityRootChecklistSpecs
-      .map(([fileName]) => fileName)
-      .filter(
-        (fileName) => fileName !== "05_Current_Implementation_Reality_Audit.md",
-      );
-    const qualityDesignPaths = [
-      ...qualityDesignRootFiles.map((fileName) =>
-        path.join(qualityRoot, fileName),
+    const qualityDesignEntries = [
+      ...qualityRootChecklistSpecs
+        .filter(([, kind]) => kind !== "reality_audit")
+        .map(
+          ([fileName, , parse]) =>
+            [path.join(qualityRoot, fileName), parse] as const,
+        ),
+      ...phaseAnalysisPaths.map(
+        (file) => [file, parseQualityAnalysis] as const,
       ),
-      ...phaseAnalysisPaths,
-      ...qualityDefinitionPaths,
+      ...qualityDefinitionPaths.map(
+        (file) =>
+          [
+            file,
+            (source: ArtifactSource) =>
+              parseQualityDefinition(source, path.basename(path.dirname(file))),
+          ] as const,
+      ),
     ];
-    const qualityCurrentPaths = isQualityReady
-      ? [...qualityDesignPaths, realityAuditPath]
-      : qualityDesignPaths;
+    const qualityDesignPaths = qualityDesignEntries.map(([file]) => file);
+    const qualityCurrentEntries = isQualityReady
+      ? [
+          ...qualityDesignEntries,
+          [realityAuditPath, parseQualityRealityAudit] as const,
+        ]
+      : qualityDesignEntries;
     const qualityDesignArtifactPaths = qualityDesignPaths.filter(
       (qualityDesignPath) => qualityDesignPath !== qualityCenterPath,
     );
@@ -432,18 +461,24 @@ export function inspectQualityRepository(
     });
     for (const issue of qualityInspection.issues)
       mapArtifactDomainIssueToCheckerFinding(issue);
-    for (const issue of inspectQualityDesignStates(
-      qualityInspection.artifacts,
-    )) {
+    for (const issue of inspectDocumentRelations({
+      kind: "quality_design_states",
+      artifacts: qualityInspection.artifacts,
+    })) {
       const finding = mapQualityDesignStateIssueToFinding(
         issue,
         isQualityReady ? "Quality Ready" : "Quality Design Ready",
       );
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    for (const qualityCurrentPath of qualityCurrentPaths) {
+    for (const [qualityCurrentPath, parse] of qualityCurrentEntries) {
       if (!lstatIfPresent(qualityCurrentPath)?.isFile()) continue;
-      if (hasQualityOpenChecklist(read(qualityCurrentPath)))
+      if (
+        parse({
+          path: relative(qualityCurrentPath),
+          content: read(qualityCurrentPath),
+        }).result.hasOpenChecklist
+      )
         add(
           "error",
           "quality-ready-with-open-checklist-result",
@@ -453,9 +488,21 @@ export function inspectQualityRepository(
     }
   }
 
-  const phaseAnalyses = phaseAnalysisPaths.map((phasePath) => read(phasePath));
+  const phaseSources = phaseAnalysisPaths.map((phasePath) => read(phasePath));
   const analysis = read(analysisPath);
-  const mappingSections = parseQualityCoverageSections(phaseAnalyses);
+  const phaseAnalyses = phaseSources.map(
+    (content, index) =>
+      parseQualityAnalysis({
+        path: relative(phaseAnalysisPaths[index] as string),
+        content,
+      }).result,
+  );
+  const parsedIntegration = parseQualityIntegration({
+    path: relative(analysisPath),
+    content: analysis,
+  });
+  const integration = parsedIntegration.result;
+  const mappingSections = phaseAnalyses.map((model) => model.coverage[0]?.text);
   if (mappingSections.some((section) => !section)) {
     add(
       "error",
@@ -497,10 +544,9 @@ export function inspectQualityRepository(
   }
 
   const inspectQualityAnalysisResult = inspectQualityAnalysis(
-    mappingSection,
     phaseAnalyses,
     canonicalIds,
-    relative(analysisPath),
+    integration,
     relative(analysisRoot),
   );
   const {
@@ -580,54 +626,27 @@ export function inspectQualityRepository(
       "The verification definitions on disk must exactly match the objective set linked from the canonical Quality mapping; orphan and unknown objectives are not allowed.",
     );
 
-  const crossModelSection = analysis.match(
-    /^## 2\. Architecture横断モデルの処置\s*$([\s\S]*?)(?=^##\s)/mu,
-  )?.[1];
-  const expectedCrossModelPaths = new Set(
-    [
-      "02_Component_and_Responsibility_Model.md",
-      "03_Boundary_and_Interface_Model.md",
-      "04_Runtime_and_Data_Flow_Model.md",
-      "05_Failure_Recovery_and_Resilience_Model.md",
-      "06_Deployment_and_Execution_Model.md",
-    ].map((fileName) => path.join(root, "06_Architecture", fileName)),
-  );
-  const linkedCrossModelPaths = new Set(
-    Array.from(
-      (crossModelSection ?? "").matchAll(
-        /\]\((\.\.\/06_Architecture\/[A-Za-z0-9_]+\.md)\)/gu,
-      ),
-      (match) => path.resolve(path.dirname(analysisPath), match[1]),
-    ),
-  );
-  if (
-    linkedCrossModelPaths.size !== expectedCrossModelPaths.size ||
-    [...expectedCrossModelPaths].some(
-      (modelPath) => !linkedCrossModelPaths.has(modelPath),
-    ) ||
-    [...linkedCrossModelPaths].some(
-      (modelPath) => !expectedCrossModelPaths.has(modelPath),
-    )
-  )
-    add(
-      "error",
-      "quality-architecture-cross-model-coverage-mismatch",
-      relative(analysisPath),
-      "The Quality mapping must explicitly process the exact five canonical Architecture cross-model documents.",
-    );
-
-  const inspectQualityCrossModelGoalsResult = inspectQualityCrossModelGoals(
-    crossModelSection,
-    goalLabelToSlug,
-    relative(analysisPath),
-  );
-  for (const issue of inspectQualityCrossModelGoalsResult.issues) {
+  for (const issue of inspectDocumentRelations({
+    kind: "quality_architecture_models",
+    integration,
+    architectureRoot: path.join(root, "06_Architecture"),
+    integrationDirectory: path.dirname(analysisPath),
+    analysisPath: relative(analysisPath),
+  })) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const detailSection = analysis.match(
-    /^## 3\. Architecture詳細設計領域の処置\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
-  )?.[1];
+
+  for (const issue of inspectDocumentRelations({
+    kind: "quality_goals",
+    rows: inspectQualityAnalysisResult.crossModelRows,
+    goalLabelToSlug,
+    analysisPath: relative(analysisPath),
+  })) {
+    const finding = mapQualityAnalysisIssueToFinding(issue);
+    add(finding.severity, finding.code, finding.path, finding.message);
+  }
+  const detailSection = integration.details[0]?.text;
   const detailRoot = path.join(root, "06_Architecture", "Details");
   const physicalDetailPaths = new Set(
     lstatIfPresent(detailRoot)?.isDirectory()
@@ -653,32 +672,39 @@ export function inspectQualityRepository(
       (match) => path.resolve(path.dirname(analysisPath), match[1]),
     ),
   );
-  const inspectQualityDetailUnitsResult = inspectQualityDetailUnits(
-    detailSection,
-    linkedDetailPaths,
-    physicalDetailPaths,
-    relative(analysisPath),
-  );
+  const detailCoverage = {
+    ...integration.detailUnitData,
+    issues: inspectDocumentRelations({
+      kind: "quality_detail_coverage",
+      integration: parsedIntegration,
+      linkedDetailPaths: linkedDetailPaths,
+      physicalDetailPaths: physicalDetailPaths,
+      analysisPath: relative(analysisPath),
+    }),
+  };
   const {
     analysisDetailGoalRelations,
     analysisDetailUnitLocalRelations,
     analysisDetailUnits,
-  } = inspectQualityDetailUnitsResult;
-  for (const issue of inspectQualityDetailUnitsResult.issues) {
+  } = detailCoverage;
+  for (const issue of detailCoverage.issues) {
     const finding = mapQualityAnalysisIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const physicalDetailUnits = new Set<string>();
-  const physicalDetailUnitLevels = new Map<string, Set<string>>();
+  const physicalDetailUnitLevels = new Map<string, ReadonlySet<string>>();
   const physicalDetailUnitBoundaryStages = new Map<string, string>();
   for (const detailPath of physicalDetailPaths) {
     const detailSlug = path.basename(path.dirname(detailPath));
-    const model = parseQualityDetailHandoff(read(detailPath), detailSlug);
-    for (const value of model.physicalDetailUnits)
-      physicalDetailUnits.add(value);
-    for (const [key, value] of model.physicalDetailUnitLevels)
+    const model = parseArchitectureDetail(
+      { path: relative(detailPath), content: read(detailPath) },
+      detailSlug,
+      {},
+    ).result.qualityHandoff;
+    for (const value of model.units) physicalDetailUnits.add(value);
+    for (const [key, value] of model.levels)
       physicalDetailUnitLevels.set(key, value);
-    for (const [key, value] of model.physicalDetailUnitBoundaryStages)
+    for (const [key, value] of model.boundaryStages)
       physicalDetailUnitBoundaryStages.set(key, value);
   }
   if (
@@ -709,41 +735,43 @@ export function inspectQualityRepository(
   for (const definitionPath of physicalDefinitionPaths) {
     const definition = read(definitionPath);
     const qualityId = path.basename(path.dirname(definitionPath));
-    const model = inspectQualityDefinition(
+    const model = parseQualityDefinition(
       { path: relative(definitionPath), content: definition },
       qualityId,
     );
-    for (const value of model.sourceRelations)
+    for (const value of model.result.sourceRelations)
       definitionSourceRelations.add(value);
-    for (const relation of model.sourceRelationEntries)
+    for (const relation of model.result.sourceRelationEntries)
       definitionSourceRelationEntries.push(relation);
-    for (const [key, value] of model.sourceConditions)
+    for (const [key, value] of model.result.sourceConditions)
       definitionSourceConditions.set(key, value);
-    for (const [key, value] of model.sourceGoalLevels)
+    for (const [key, value] of model.result.sourceGoalLevels)
       definitionSourceGoalLevels.set(key, new Set(value));
-    for (const [key, value] of model.obligationKeys)
+    for (const [key, value] of model.result.obligationKeys)
       definitionObligationKeys.set(key, value);
-    for (const key of model.obligationKeyEntries)
+    for (const key of model.result.obligationKeyEntries)
       definitionObligationKeyEntries.push(key);
-    for (const value of model.detailGoalRelations)
+    for (const value of model.result.detailGoalRelations)
       definitionDetailGoalRelations.add(value);
-    for (const relation of model.detailGoalRelationEntries)
+    for (const relation of model.result.detailGoalRelationEntries)
       definitionDetailGoalRelationEntries.push(relation);
-    for (const value of model.goalLocalRelations)
+    for (const value of model.result.goalLocalRelations)
       definitionGoalLocalRelations.add(value);
-    for (const relation of model.goalLocalRelationEntries)
+    for (const relation of model.result.goalLocalRelationEntries)
       definitionGoalLocalRelationEntries.push(relation);
-    for (const [key, value] of model.localItemLevels)
+    for (const [key, value] of model.result.localItemLevels)
       localItemLevels.set(key, value);
-    for (const [key, value] of model.localItemBoundaryStages)
+    for (const [key, value] of model.result.localItemBoundaryStages)
       localItemBoundaryStages.set(key, value);
-    for (const issue of model.issues) {
+    for (const issue of model.issues.filter(
+      (issue) => issue.kind !== "artifact.quality.checklist-invalid",
+    )) {
       const finding = mapQualityDefinitionIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
     const ownership = inspectQualityLocalItemOwnership(
       relative(definitionPath),
-      model.localIds,
+      model.result.localIds,
       localItemOwners,
     );
     for (const [localId, owner] of ownership.owners)
@@ -754,8 +782,9 @@ export function inspectQualityRepository(
     }
   }
 
-  const inspectQualityDefinitionRelationsResult =
-    inspectQualityDefinitionRelations({
+  const inspectQualityDefinitionRelationsResult = inspectDocumentRelations({
+    kind: "quality_definition_relations",
+    ...{
       definitionSourceRelationEntries: definitionSourceRelationEntries,
       definitionSourceRelations: definitionSourceRelations,
       definitionGoalLocalRelationEntries: definitionGoalLocalRelationEntries,
@@ -775,26 +804,32 @@ export function inspectQualityRepository(
       definitionSourceConditions: definitionSourceConditions,
       definitionsRoot: relative(definitionsRoot),
       analysisPath: relative(analysisPath),
-    });
-  for (const issue of inspectQualityDefinitionRelationsResult.issues) {
+    },
+  });
+  for (const issue of inspectQualityDefinitionRelationsResult) {
     const finding = mapQualityRelationsIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
-  const inspectQualityLocalItemRelationsResult =
-    inspectQualityLocalItemRelations({
-      analysis: analysis,
-      localItemOwners: localItemOwners,
-      analysisDetailUnitLocalRelations: analysisDetailUnitLocalRelations,
-      physicalDetailUnits: physicalDetailUnits,
-      physicalDetailUnitLevels: physicalDetailUnitLevels,
-      physicalDetailUnitBoundaryStages: physicalDetailUnitBoundaryStages,
-      localItemLevels: localItemLevels,
-      localItemBoundaryStages: localItemBoundaryStages,
-      analysisPath: relative(analysisPath),
-    });
+  const localItemCoverage = {
+    ...integration.localItemData,
+    issues: inspectDocumentRelations({
+      kind: "quality_local_item_relations",
+      ...{
+        integration: integration,
+        localItemOwners: localItemOwners,
+        analysisDetailUnitLocalRelations: analysisDetailUnitLocalRelations,
+        physicalDetailUnits: physicalDetailUnits,
+        physicalDetailUnitLevels: physicalDetailUnitLevels,
+        physicalDetailUnitBoundaryStages: physicalDetailUnitBoundaryStages,
+        localItemLevels: localItemLevels,
+        localItemBoundaryStages: localItemBoundaryStages,
+        analysisPath: relative(analysisPath),
+      },
+    }),
+  };
   const { listedGoalLocalRelationEntries, listedGoalLocalRelations } =
-    inspectQualityLocalItemRelationsResult;
-  for (const issue of inspectQualityLocalItemRelationsResult.issues) {
+    localItemCoverage;
+  for (const issue of localItemCoverage.issues) {
     const finding = mapQualityRelationsIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
@@ -815,7 +850,18 @@ export function inspectQualityRepository(
     ],
   ] as const;
   for (const [declaringPath, declaringDocument] of declaredLocalItemCounts) {
-    if (isQualityLocalItemCountInvalid(declaringDocument, localItemOwners.size))
+    if (
+      (declaringPath === qualityCenterPath
+        ? parseQualityCenter({
+            path: relative(declaringPath),
+            content: declaringDocument,
+          })
+        : parseQualityRealityAudit({
+            path: relative(declaringPath),
+            content: declaringDocument,
+          })
+      ).result.localItemCount !== localItemOwners.size
+    )
       add(
         "error",
         "quality-local-verification-item-count-mismatch",
@@ -823,14 +869,16 @@ export function inspectQualityRepository(
         "The declared Local Item count must exist in the canonical design-set table and equal the exact Local Item set owned by current Quality Definitions.",
       );
   }
-  const inspectQualityGoalLocalRelationsResult =
-    inspectQualityGoalLocalRelations({
+  const inspectQualityGoalLocalRelationsResult = inspectDocumentRelations({
+    kind: "quality_goal_local_relations",
+    ...{
       listedGoalLocalRelationEntries: listedGoalLocalRelationEntries,
       listedGoalLocalRelations: listedGoalLocalRelations,
       definitionGoalLocalRelations: definitionGoalLocalRelations,
       analysisPath: relative(analysisPath),
-    });
-  for (const issue of inspectQualityGoalLocalRelationsResult.issues) {
+    },
+  });
+  for (const issue of inspectQualityGoalLocalRelationsResult) {
     const finding = mapQualityRelationsIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }

@@ -8,12 +8,19 @@
  * @scope artifact、phase-diagrams
  * @boundary RCM-UT-001=N/A: 本文とPathの同期検査だけを扱う。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  inspectPhaseDiagramTemplates,
-  phaseDiagramTemplatePaths,
+  type ArtifactSource,
+  parseArchitectureIndex,
+  parseDiscoveryIndex,
+  parseIaIndex,
+  parseSpecIndex,
+  parseUiIndex,
+  parseUxIndex,
 } from "../../../src/index.ts";
+import { captureQualityDocument } from "../../../src/quality/readiness.ts";
 
 const profiles = [
   [
@@ -82,6 +89,77 @@ const profiles = [
   ],
 ] as const;
 
+const diagramCaptures = new Map<
+  string,
+  (
+    source: ArtifactSource,
+  ) => ReturnType<typeof parseDiscoveryIndex>["result"]["diagramContract"]
+>([
+  [
+    "template/01_Discovery/01_Product_Discovery.md",
+    (source) =>
+      parseDiscoveryIndex(source, { mode: "template" }).result.diagramContract,
+  ],
+  [
+    "template/02_UX/01_User_Experience.md",
+    (source) =>
+      parseUxIndex(source, { mode: "template" }).result.diagramContract,
+  ],
+  [
+    "template/03_IA/01_Information_Architecture.md",
+    (source) =>
+      parseIaIndex(source, { mode: "template" }).result.diagramContract,
+  ],
+  [
+    "template/04_UI/01_User_Interface.md",
+    (source) => parseUiIndex(source).result.diagramContract,
+  ],
+  [
+    "template/05_SPEC/01_Behavior_Specification.md",
+    (source) => parseSpecIndex(source).result.diagramContract,
+  ],
+  [
+    "template/06_Architecture/01_Architecture.md",
+    (source) => parseArchitectureIndex(source).result.diagramContract,
+  ],
+  [
+    "template/07_Quality/03_Verification_Design.md",
+    (source) =>
+      captureQualityDocument(source, {
+        kind: "verification_design",
+        mode: "template",
+      }).diagramContract,
+  ],
+]);
+
+/**
+ * 既存七対象の内容受付を試験用の同じ観測集合へ組み立てる。
+ * @responsibility 対象外は選択せず、七OwnerのモデルとIssueを入力順に集める。
+ * @trace RCM-UT-001
+ * @precondition Pathと原文は試験が所有する。
+ * @stimulus 対応する工程入口へ同じ原文を渡す。
+ * @observation 基本図内容とIssueだけを取得する。
+ * @oracle 各試験が旧図名・不足順・境界を固定比較する。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 工程Root内容受付と共通基本図構文。
+ */
+function captureDiagramFixture(sources: readonly ArtifactSource[]) {
+  const contracts = sources.flatMap((source) => {
+    const capture = diagramCaptures.get(source.path);
+    if (!capture) return [];
+    const contract = capture(source);
+    assert.ok(contract);
+    return [contract];
+  });
+  return {
+    result: contracts.map((contract) => contract.result),
+    issues: contracts.flatMap((contract) => contract.issues),
+    status: contracts.some((contract) => contract.issues.length > 0)
+      ? "partial"
+      : "complete",
+  };
+}
+
 /**
  * 外部観測なしの合成ひな型本文を構築する。
  *
@@ -113,39 +191,112 @@ function createTemplate(diagrams: readonly string[]): string {
 /**
  * 七Profileと公開対象集合の不変条件を検証する。
  *
- * @responsibility 各Profileの適合本文、凍結、対象外Pathと空集合を確認する。
+ * @responsibility 各Profileの適合本文、期待列の独立性、対象外Pathと空集合を確認する。
  * @trace RCM-UT-001
  * @precondition 旧七対象と図名を固定する。
  * @stimulus 合成本文を公開検査へ渡す。
  * @observation Issue列と公開Path列を取得する。
- * @oracle 七対象の適合と対象外非発火、配列変更拒否が成立する。
+ * @oracle 七対象の適合と対象外非発火、返却期待列の独立が成立する。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary RCM-UT-001=N/A: 同期計算である。
  */
 test("基本図処置は七Profileを持ち未知Pathへ適用しない", () => {
   assert.deepEqual(
-    phaseDiagramTemplatePaths,
+    [...diagramCaptures.keys()],
     profiles.map(([path]) => path),
   );
-  assert.equal(Object.isFrozen(phaseDiagramTemplatePaths), true);
-  assert.throws(
-    () => (phaseDiagramTemplatePaths as string[]).push("extra"),
-    TypeError,
-  );
+  for (const [path, diagrams] of profiles) {
+    const first = captureDiagramFixture([
+      { path, content: createTemplate(diagrams) },
+    ]).result[0];
+    assert.ok(first);
+    assert.deepEqual(first.expectedDiagrams, diagrams);
+    (first.expectedDiagrams as unknown as string[]).push("only-first");
+    assert.deepEqual(
+      captureDiagramFixture([{ path, content: "" }]).result[0]
+        ?.expectedDiagrams,
+      diagrams,
+    );
+  }
   for (const [path, diagrams] of profiles)
     assert.deepEqual(
-      inspectPhaseDiagramTemplates([
-        { path, content: createTemplate(diagrams) },
-      ]),
+      captureDiagramFixture([{ path, content: createTemplate(diagrams) }])
+        .issues,
       [],
     );
-  assert.deepEqual(inspectPhaseDiagramTemplates([]), []);
+  assert.deepEqual(captureDiagramFixture([]).issues, []);
   assert.deepEqual(
-    inspectPhaseDiagramTemplates([
+    captureDiagramFixture([
       { path: "TEMPLATE/02_UX/01_User_Experience.md", content: "" },
-    ]),
+    ]).issues,
     [],
   );
+});
+
+/**
+ * 内容捕捉と対象外・後勝ち・部分情報の区別を検証する。
+ * @responsibility 評価で選ばれない行も原文と位置付きで保持する。
+ * @trace RCM-UT-001
+ * @precondition 重複名・空名・停止後の行・未知Pathを含む本文。
+ * @stimulus 内容受付を呼び、元入力と返却期待列を変更する。
+ * @observation 原文・全行・後勝ちMap・不足と対象外を取得する。
+ * @oracle 出現と選択が分かれ、他の呼出しと固定定義を変更しない。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 原文から工程基本図の内容モデル。
+ */
+test("基本図モデルは原文・全行・後勝ちと対象外を区別する", () => {
+  const [path, diagrams] = profiles[1];
+  const duplicate = "| 利用の流れ | 対象 | 目的 | 保留 |";
+  const empty = "|  | 空名 |";
+  const content = `前文\n${createTemplate(diagrams)}\n${empty}\n${duplicate}\n停止\n| 停止後 |\n## 次節\n本文`;
+  const source = { path, content };
+  const parsed = captureDiagramFixture([
+    source,
+    { path: "unknown.md", content: "| 不明 | 内容 |" },
+  ]);
+  const model = parsed.result[0];
+  assert.ok(model);
+  source.content = "changed";
+  assert.equal(model.source.content, content);
+  assert.equal(model.expectedDiagrams?.length, 3);
+  assert.equal(model.section?.location.line, 6);
+  assert.equal(model.section?.text.endsWith("本文"), true);
+  assert.equal(model.header?.location.line, 7);
+  assert.equal(model.entries.length, 5);
+  assert.equal(model.entries[0]?.source.location.line, 9);
+  assert.equal(model.entries[3]?.name, "");
+  assert.equal(model.effectiveRows.has(""), false);
+  assert.equal(model.effectiveRows.has("停止後"), false);
+  assert.equal(
+    model.entries.filter((entry) => entry.name === "利用の流れ").length,
+    2,
+  );
+  assert.equal(model.effectiveRows.get("利用の流れ")?.source.text, duplicate);
+  assert.equal(model.effectiveRows.get("利用の流れ")?.source.location.line, 13);
+  assert.deepEqual(model.missingItems, [
+    "利用の流れ:columns",
+    "利用の流れ:disposition=保留",
+  ]);
+  assert.equal(
+    model.tableRows.some((row) => row.cells[0] === "停止後"),
+    true,
+  );
+  assert.equal(parsed.status, "partial");
+  assert.equal(parsed.issues.length, 1);
+  assert.equal(Object.hasOwn(model, "issues"), false);
+  assert.equal(parsed.result.length, 1);
+  assert.equal(
+    captureDiagramFixture([{ path: "unknown.md", content: "" }]).result.length,
+    0,
+  );
+  (model.expectedDiagrams as string[]).push("only-this-result");
+  const next = captureDiagramFixture([{ path, content }]);
+  assert.deepEqual(next.result[0]?.expectedDiagrams, diagrams);
+  const missing = captureDiagramFixture([{ path, content: "" }]);
+  assert.equal(missing.result[0]?.section, null);
+  assert.equal(missing.result[0]?.header, null);
+  assert.equal(missing.status, "partial");
+  assert.equal(missing.result[0]?.source.content, "");
 });
 
 /**
@@ -167,7 +318,7 @@ test("基本図処置Issueは不足順・Source順・元Pathを保持する", ()
     { path: profiles[0][0], content: "" },
   ];
   const before = JSON.stringify(sources);
-  const issues = inspectPhaseDiagramTemplates(sources);
+  const issues = captureDiagramFixture(sources).issues;
   assert.equal(issues.length, 2);
   assert.deepEqual(issues[0], {
     kind: "artifact.phase-diagram.contract-invalid",
@@ -221,7 +372,7 @@ test("基本図処置表は列・処置・後勝ちと行停止を維持する",
     [`\`\`\`md\n${content}\n\`\`\``, null],
   ] as const;
   for (const [text, expected] of cases) {
-    const issues = inspectPhaseDiagramTemplates([{ path, content: text }]);
+    const issues = captureDiagramFixture([{ path, content: text }]).issues;
     assert.equal(issues[0]?.details.missingItems ?? null, expected);
   }
 });
@@ -245,9 +396,9 @@ test("Discovery人間理解の三条件を基本図契約内で維持する", ()
     "| 人間の確認または修正 |",
   ])
     for (const [index, [path, diagrams]] of profiles.entries()) {
-      const issues = inspectPhaseDiagramTemplates([
+      const issues = captureDiagramFixture([
         { path, content: createTemplate(diagrams).replace(token, "") },
-      ]);
+      ]).issues;
       assert.deepEqual(
         issues.map((issue) => issue.details.missingItems),
         index === 0 ? ["human-understanding-confirmation"] : [],

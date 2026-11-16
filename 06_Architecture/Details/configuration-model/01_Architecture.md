@@ -3,7 +3,7 @@
 成果物種別: Architecture詳細設計
 状態: 内部責務整理の実装・限定検証・独立再レビュー済（全体回帰未実施。検証手順逸脱と観測限界はEvidenceへ別記）
 担当責任者: Qual-Lab
-最終更新日: 2026-11-12
+最終更新日: 2026-11-15
 
 <a id="model-boundary"></a>
 ## 1. 責務と依存
@@ -40,6 +40,15 @@ Consumerが設定とADの結果から実行Inputへ必要fieldを投影する。
 AMのHost RootはAM自身の初期化・保存・FilesystemStoreRoot型が正本。CROS既定所在もAM内部で扱う。AM Rootと構成の私有Rootを相互交換しない。AI選定のJSON重複Key拒否・data-property・Proxy／accessor検査はAI選定契約へ局所化する。Manifestと保持設定は従来のJSON.parse条件を維持し、厳密JSON検査へ統一しない。他設定とAMの既存保存I/O・JSON条件はこの整理で変更しない。
 
 汎用Area enum、全Runtime Path配布、汎用ensure／FromWorkingDirectory Wrapper、汎用Lock／Snapshot Helperは公開しない。State保存・一時Operation・保護Mount・Lease／EI領域・検証Rootの準備は当該Ownerが直接行う。
+
+<a id="ui-spec-detail-placement"></a>
+## 上流UI／SPEC Detailの局所分担
+
+[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)のARCH-000009について、Repository Manifestの固定File読取りと宣言値の検査を担当する。
+
+担当Interaction Relation: `PRT-000006.spec-000010`
+
+上位はVCが検証したRepositoryをManifest読取りへ渡し、結果のprojectId／repositoryId／repositoryRoleだけを文書モデルのContext照合へ投影する。構成モデルは文書モデル・実行モデルを参照せず、Contextの解析、実行対象の選定、Git操作、認証・認可を行わない。設定読取りの成立を対象へのAuthorityや全Binding成立へ読み替えない。旧Domain Modelの共通Root機能を汎用Readerとして復活させず、Git差分選択・Commit・Pushも担当しない。
 
 <a id="verification"></a>
 ## 5. 検証と未確認

@@ -4,11 +4,12 @@
  * @responsibility SemanticCoverageGraphを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
+
+import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 import type { LoadedRealitySymbolManifest } from "../reality-traceability/manifest.ts";
 import type { SemanticIr, SemanticIrMeaning } from "./ir.ts";
 import { semanticDomainIssue } from "./ir.ts";
 import type { QualitySemanticRelation } from "./relations.ts";
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
 
 /**
  * Meaningを実装、Quality Local ItemおよびTest Symbolへ接続したGraphを表す。
@@ -203,9 +204,9 @@ function projectSemanticCoverage(
  *
  * @responsibility 未解決、重複、曖昧Relationを検出し完全なGraphだけを返す。
  * @trace ARCH-000008
- * @input semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteIssues: readonly DomainIssue[]
- * @returns DomainOutcome<SemanticCoverageGraph>を返す。
- * @precondition semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteIssues: readonly DomainIssue[]がcreateSemanticCoverageGraphの入力契約を満たす。
+ * @input semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteIssues: readonly DocumentIssue[]
+ * @returns DocumentResult<SemanticCoverageGraph>を返す。
+ * @precondition semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteIssues: readonly DocumentIssue[]がcreateSemanticCoverageGraphの入力契約を満たす。
  * @postcondition createSemanticCoverageGraphの責務を完了した結果だけを返す。
  * @effect N/A: createSemanticCoverageGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 前提IssueまたはRelation不整合を部分Coverageへ畳まない。
@@ -218,12 +219,12 @@ export function createSemanticCoverageGraph(
   semanticIrs: readonly SemanticIr[],
   manifests: readonly LoadedRealitySymbolManifest[],
   qualityRelations: readonly QualitySemanticRelation[],
-  prerequisiteIssues: readonly DomainIssue[],
-): DomainOutcome<SemanticCoverageGraph> {
+  prerequisiteIssues: readonly DocumentIssue[],
+): DocumentResult<SemanticCoverageGraph> {
   if (prerequisiteIssues.length > 0)
     return { status: "invalid", result: null, issues: prerequisiteIssues };
 
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const meaningsByKey = new Map<string, SemanticIrMeaning>();
   const implementationIdsByMeaningKey = new Map<string, string[]>();
   const qualityLocalIdsByMeaningKey = new Map<string, string[]>();

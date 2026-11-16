@@ -56,6 +56,16 @@ export type ArtifactRelation = Readonly<{
 }>;
 
 /**
+ * 表の行を正規化したCell列と元の行位置で保持する。
+ * @responsibility Header・Separator・不正な業務行も構造観測として区別せず保持する。
+ * @trace ARCH-000008
+ */
+export type DocumentTableRow = Readonly<{
+  cells: readonly string[];
+  location: SourceLocation;
+}>;
+
+/**
  * artifact-modelで使用するChecklist 結果の値契約を定義する。
  *
  * @responsibility Checklist 結果のProperty、Identity、状態制約を型境界として所有する。
@@ -130,22 +140,6 @@ export type MarkdownLinkReference = Readonly<{
 }>;
 
 /**
- * UX分析本文から得た正式入力の参照候補。
- *
- * @responsibility 参照文字列とDiscovery形状に関するEntity異常flagを、存在・認可の判断と分離する。
- * @trace ARCH-000008
- * @shape targetは候補参照文字列、invalidEntityは既存のDiscovery形状条件に基づくEntity異常を表す。
- * @invariant targetは観測済みFilesystem Pathではなく、invalidEntity=falseは妥当性全体を保証しない。
- * @boundary N/A: 本文解析の値契約だけを定義する。
- * @security 参照の存在・安全性・Root内外・認可を意味しない。
- * @compatibility 同じDecode後targetの候補は挿入順を保ち、異常flagを論理和で引き継ぐ。
- */
-export type UxFormalInputTarget = Readonly<{
-  target: string;
-  invalidEntity: boolean;
-}>;
-
-/**
  * 可視Checklistの構造検査が返す最初の失敗理由。
  *
  * @responsibility 評価済み成果物とひな型の既存理由値を閉じた集合で表す。
@@ -204,3 +198,73 @@ export type MarkdownFence = {
   closed: boolean;
   contents: MarkdownFenceLine[];
 };
+
+/**
+ * 文書中の明示された文字列と位置を保持する。
+ * @responsibility 欠測、空本文、重複を補完せず出典と結び付ける。
+ * @trace ARCH-000008
+ */
+export type DocumentText = Readonly<{ text: string; location: SourceLocation }>;
+/**
+ * 同名見出しを含む一つの節の出現を保持する。
+ * @responsibility 見出しと本文の位置を区別し、重複する節を個別に表す。
+ * @trace ARCH-000008
+ */
+export type DocumentSection = Readonly<{
+  heading: DocumentText;
+  body: DocumentText;
+  boundary: "heading" | "end_of_document";
+  tableRows: readonly Readonly<{
+    cells: readonly string[];
+    location: SourceLocation;
+  }>[];
+}>;
+/**
+ * 工程の構文契約に一致した参照の出現を保持する。
+ * @responsibility 参照先、識別子、位置を保持し実在や承認を推定しない。
+ * @trace ARCH-000008
+ */
+export type DocumentReference = Readonly<{
+  identity: string;
+  target: string;
+  location: SourceLocation;
+}>;
+
+/** 文書解析・観測の状態語彙。観測不能を文書不正と区別する。 @trace ARCH-000008 */
+export type DocumentStatus =
+  | "complete"
+  | "partial"
+  | "invalid"
+  | "unobservable";
+/** 文書全体または特定行の診断位置。 @trace ARCH-000008 */
+export type DocumentLocation = Readonly<{ path: string; line?: number }>;
+/**
+ * 表示・認可・品質採用から独立した文書の問題情報。
+ * @responsibility 問題種別・対象・出典・理由と構造化情報を保持する。
+ * @trace ARCH-000008
+ */
+export type DocumentIssue = Readonly<{
+  kind: string;
+  targetIdentity: string;
+  location: DocumentLocation;
+  reason: string;
+  details: Readonly<Record<string, string | number | boolean | null>>;
+}>;
+/**
+ * 文書解析と観測の共通結果。取得内容と問題を分離する。
+ * @responsibility 取得できた内容と観測不能を失わず保持する。
+ * @trace ARCH-000008
+ * @invariant completeは非null resultとIssueなし。invalid／unobservableはnull resultとIssueあり。partialはIssueあり。
+ */
+export type DocumentResult<T> = Readonly<{
+  status: DocumentStatus;
+  result: T | null;
+  issues: readonly DocumentIssue[];
+}>;
+/**
+ * 取得済み本文の解析結果。Filesystemの観測不能を含めない。
+ * @responsibility 完成Parseの三状態を型境界に限定する。
+ * @trace ARCH-000008
+ */
+export type ParseResult<T> = DocumentResult<T> &
+  Readonly<{ status: Exclude<DocumentStatus, "unobservable"> }>;

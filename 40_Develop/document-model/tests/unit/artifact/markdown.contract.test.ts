@@ -15,10 +15,10 @@ import {
   isMarkdownTableSeparator,
   omitMarkdownCommentsAndFencedCode,
   omitMarkdownCommentsOutsideFencedCode,
-  parseMarkdownTableRow,
   parseMarkdownFences,
+  parseMarkdownTableRow,
   readCanonicalDocumentHeader,
-} from "../../../src/index.ts";
+} from "../../../src/artifact/markdown.ts";
 
 /**
  * 可視本文二方式のコメント・Fence境界を検証する。

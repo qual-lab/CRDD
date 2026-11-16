@@ -9,54 +9,50 @@
  * @scope report、diagnostics
  * @boundary RCM-UT-001=N/A: 純粋変換と局所配列。 / RCM-UT-002=N/A: Process内の不正値検査。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  captureArchitectureDetailTemplate,
+  captureArchitectureDocument,
+} from "../../../../document-model/src/architecture/validation.ts";
+import type { DocumentIssue } from "../../../../document-model/src/index.ts";
+import {
+  inspectDocumentRelations,
+  parseArchitectureAnalysis,
+  parseArchitectureCrossModel,
+  parseArchitectureDefinition,
+  parseArchitectureDetail,
+  parseArchitectureDetailMap,
+  parseArchitectureIndex,
+  parseDiscoveryAnalysis,
+  parseDiscoveryDefinition,
+  parseDiscoveryIndex,
+  parseQualityDetailAnalysis,
+  parseSpecAnalysis,
+  parseSpecDefinition,
+  parseSpecDefinitionCorrespondence,
+  parseSpecDetailCorrespondence,
+  parseSpecDetailIndex,
+  parseSpecIndex,
+  parseUiDefinition,
+  parseUxAnalysis,
+  parseUxDefinition,
+  parseUxIndex,
+  parseUxPersonas,
+} from "../../../../document-model/src/index.ts";
 import { createFindingCollector } from "../../../src/report/collect.ts";
 import {
+  mapArchitectureDomainIssueToFinding,
   mapArtifactDomainIssueToCheckerFinding,
-  mapUxDomainIssueToFinding,
   mapDiscoveryDomainIssueToFinding,
   mapSpecDomainIssueToFinding,
-  mapArchitectureDomainIssueToFinding,
+  mapUxDomainIssueToFinding,
 } from "../../../src/report/convert.ts";
-import {
-  inspectUxDefinition,
-  inspectUxAnalysis,
-  inspectUxFormalInput,
-  inspectUxRelations,
-  inspectDiscoveryDefinition,
-  inspectDiscoveryAnalysis,
-  inspectSpecAnalysis,
-  inspectSpecDefinition,
-  parseSpecIndex,
-  inspectSpecAnalysisCoverage,
-  inspectSpecDefinitionCoverage,
-  inspectSpecCoverage,
-  inspectUiSpecRelations,
-  inspectSpecDetailIndex,
-  inspectSpecDetailCorrespondence,
-  inspectSpecDetailDownstream,
-  parseSpecDetailCentralTrace,
-  inspectSpecCorrespondence,
-  inspectArchitectureAnalysis,
-  inspectArchitectureDefinition,
-  inspectArchitectureDetailTemplate,
-  inspectArchitectureCrossModelIndex,
-  inspectArchitectureCrossModel,
-  inspectArchitectureDetailMap,
-  inspectArchitectureDetail,
-  inspectArchitectureDetailCoverage,
-  inspectArchitectureAnalysisCoverage,
-  parseArchitectureRegistry,
-  inspectArchitectureRegistryCoverage,
-  inspectArchitectureComponentCoverage,
-  inspectArchitectureRelations,
-} from "../../../../document-model/src/index.ts";
 import type {
   CheckerFinding,
   DocumentFinding,
 } from "../../../src/report/types.ts";
-import type { DomainIssue } from "../../../../document-model/src/index.ts";
 
 /**
  * Architecture集合検査の七診断を表示へ接続する。
@@ -73,34 +69,43 @@ test("Architectureの関係・網羅性は七つの旧診断へ接続する", ()
   const one = new Set(["ARCH-000001"]),
     empty = new Set<string>();
   const issues = [
-    ...inspectArchitectureAnalysisCoverage({
+    ...inspectDocumentRelations({
+      kind: "architecture_inputs",
       sourcePath: "index.md",
       analysisPath: "Analysis",
-      analyzedUi: empty,
-      analyzedSpec: empty,
+      analyses: [],
       uiIds: new Set(["UI-000001"]),
       specIds: empty,
       actualAnalysisIds: empty,
     }),
-    ...inspectArchitectureRegistryCoverage(
-      "index.md",
-      parseArchitectureRegistry(""),
-      one,
-    ),
-    ...inspectArchitectureComponentCoverage(
-      { path: "component.md", content: "" },
-      one,
-    ),
-    ...inspectArchitectureRelations({
+    ...inspectDocumentRelations({
+      kind: "architecture_registry_coverage",
       sourcePath: "index.md",
-      analysisRelations: new Set(["UI-000001|ARCH-000001"]),
-      definitionRelations: new Set(["UI-000002|ARCH-000001"]),
-      definitionRelationEntries: [
-        "UI-000002|ARCH-000001",
-        "UI-000002|ARCH-000001",
-      ],
-      registryRelations: empty,
-      registryRelationEntries: [],
+      registry: parseArchitectureIndex({ path: "index.md", content: "" }).result
+        .registry,
+      actualDefinitions: one,
+    }),
+    ...inspectDocumentRelations({
+      kind: "architecture_component_coverage",
+      model: parseArchitectureCrossModel(
+        { path: "component.md", content: "" },
+        "02_Component_and_Responsibility_Model.md",
+      ).result,
+      actualDefinitions: one,
+    }),
+    ...inspectDocumentRelations({
+      kind: "architecture_relations",
+      ...{
+        sourcePath: "index.md",
+        analysisRelations: new Set(["UI-000001|ARCH-000001"]),
+        definitionRelations: new Set(["UI-000002|ARCH-000001"]),
+        definitionRelationEntries: [
+          "UI-000002|ARCH-000001",
+          "UI-000002|ARCH-000001",
+        ],
+        registryRelations: empty,
+        registryRelationEntries: [],
+      },
     }),
   ];
   const findings = issues.map(mapArchitectureDomainIssueToFinding);
@@ -157,19 +162,33 @@ test("Architectureの関係・網羅性は七つの旧診断へ接続する", ()
 test("Architecture詳細設計の実Issueは五分類の旧診断へ届く", () => {
   const artifact = { path: "detail.md", content: "" };
   const issues = [
-    ...inspectArchitectureDetailMap(artifact, new Set(["ARCH-000001"])).issues,
-    ...inspectArchitectureDetail(artifact, "core", true, "missing_or_duplicate")
-      .issues,
-    ...inspectArchitectureDetailCoverage({
-      sourcePath: artifact.path,
-      registeredDetailAreas: new Set(["a"]),
-      actualDetailAreas: new Set(["b"]),
-      detailMapRelations: new Set(["a|ARCH-000001"]),
-      detailDocumentRelations: new Set(["b|ARCH-000001"]),
-      detailMapClosureRelations: new Set(["b|ARCH-000001"]),
-      actualDefinitions: new Set(["ARCH-000001"]),
-      detailCoveredDefinitions: new Set(),
-      isArchitectureReady: true,
+    ...observeArchitectureMapFixture(
+      parseArchitectureDetailMap(artifact),
+      new Set(["ARCH-000001"]),
+    ).issues,
+    ...observeArchitectureFixture(
+      parseArchitectureDetail(artifact, "core", {
+        checklistSource: architectureChecklistFixture(
+          "detail",
+          "missing_or_duplicate",
+        ),
+      }),
+      true,
+      "detail",
+    ).issues,
+    ...inspectDocumentRelations({
+      kind: "architecture_detail_coverage",
+      ...{
+        sourcePath: artifact.path,
+        registeredDetailAreas: new Set(["a"]),
+        actualDetailAreas: new Set(["b"]),
+        detailMapRelations: new Set(["a|ARCH-000001"]),
+        detailDocumentRelations: new Set(["b|ARCH-000001"]),
+        detailMapClosureRelations: new Set(["b|ARCH-000001"]),
+        actualDefinitions: new Set(["ARCH-000001"]),
+        detailCoveredDefinitions: new Set(),
+        isArchitectureReady: true,
+      },
     }),
   ];
   const findings = issues.map(mapArchitectureDomainIssueToFinding);
@@ -225,24 +244,33 @@ test("Architecture詳細設計の実Issueは五分類の旧診断へ届く", () 
 test("Architecture本文の実Issueは六分類の旧診断へ届く", () => {
   const artifact = { path: "architecture.md", content: "" };
   const issues = [
-    ...inspectArchitectureAnalysis(
-      artifact,
-      "UI",
-      "UI-000001",
+    ...observeArchitectureFixture(
+      parseArchitectureAnalysis(artifact, "UI", "UI-000001", {
+        checklistSource: architectureChecklistFixture(
+          "analysis_ui",
+          "missing_or_duplicate",
+        ),
+      }),
       true,
-      "missing_or_duplicate",
+      "analysis",
     ).issues,
-    ...inspectArchitectureDefinition(artifact, "ARCH-000001", true, null)
-      .issues,
-    ...inspectArchitectureDetailTemplate(artifact, "definition"),
-    ...inspectArchitectureDetailTemplate(artifact, "area"),
-    ...inspectArchitectureCrossModelIndex(artifact).issues,
-    ...inspectArchitectureCrossModel(
-      artifact,
-      "02_Component_and_Responsibility_Model.md",
-      "",
-      "",
-    ),
+    ...observeArchitectureFixture(
+      parseArchitectureDefinition(artifact, "ARCH-000001", {
+        checklistSource: architectureChecklistFixture("definition", null),
+      }),
+      true,
+      "definition",
+    ).issues,
+    ...captureArchitectureDetailTemplate(artifact, "definition").issues,
+    ...captureArchitectureDetailTemplate(artifact, "area").issues,
+    ...parseArchitectureIndex(artifact).issues,
+    ...observeArchitectureCrossFixture(
+      parseArchitectureCrossModel(
+        artifact,
+        "02_Component_and_Responsibility_Model.md",
+      ),
+      parseArchitectureIndex(artifact).result,
+    ).issues,
   ];
   const findings = issues.map(mapArchitectureDomainIssueToFinding);
   assert.deepEqual(
@@ -297,13 +325,18 @@ test("Architecture本文の実Issueは六分類の旧診断へ届く", () => {
  */
 test("SPEC定義対応の実Issueは三分類の旧診断へ届く", () => {
   const actual = "a".repeat(64);
-  const issues = inspectSpecCorrespondence({
-    artifact: { path: "correspondence.md", content: "" },
-    pairs: [],
-    reasons: [],
-    expectedPairs: new Set(["UI-000001|SPEC-000001"]),
-    hasInvalidPairEvidence: false,
-    recordedFingerprint: undefined,
+  const issues = inspectDocumentRelations({
+    kind: "ui_spec_evidence",
+    correspondence: parseSpecDefinitionCorrespondence({
+      path: "correspondence.md",
+      content: "",
+    }).result,
+    evaluations: [],
+    registry: parseSpecIndex({
+      path: "registry.md",
+      content:
+        "| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 意味 | UX-000001 | IA-000001 | UI-000001 |",
+    }).result,
     actualFingerprint: actual,
   });
   assert.deepEqual(issues.map(mapSpecDomainIssueToFinding), [
@@ -354,27 +387,41 @@ test("SPEC定義対応の実Issueは三分類の旧診断へ届く", () => {
  */
 test("SPEC Detailの実Issueは三分類の旧診断へ届く", () => {
   const issues = [
-    ...inspectSpecDetailIndex(
-      { path: "detail.md", content: "" },
-      new Set(["SPEC-000001"]),
-    ).issues,
-    ...inspectSpecDetailCorrespondence(
-      { path: "correspondence.md", content: "" },
-      new Set(),
-      [],
-      0,
-    ),
-    ...inspectSpecDetailDownstream({
+    ...inspectDocumentRelations({
+      kind: "spec_detail_coverage",
+      detail: parseSpecDetailIndex({ path: "detail.md", content: "" }),
+      actualIds: new Set(["SPEC-000001"]),
+    }),
+    ...inspectDocumentRelations({
+      kind: "ui_spec_details",
+      correspondence: parseSpecDetailCorrespondence({
+        path: "correspondence.md",
+        content: "",
+      }).result,
+      uiDetailIndex: null,
+      specDetailIndex: null,
+      screens: [],
+      definitions: [],
+    }),
+    ...inspectDocumentRelations({
+      kind: "ui_spec_downstream",
+      definitions: [],
+      uiDetailIndex: null,
+      specDetailIndex: null,
       path: "downstream.md",
-      relations: new Map(),
       architectureDefinitions: [],
       qualityDefinitions: [],
       areas: [],
-      central: parseSpecDetailCentralTrace("", ""),
-      issued: { screens: new Set(), parts: new Set(), behaviors: new Set() },
-      quality: { screens: new Set(), parts: new Set(), behaviors: new Set() },
-      architectureDefinitionsCombined: "",
-      qualityDefinitionsCombined: "",
+      architectureTrace: parseArchitectureDetailMap({
+        path: "downstream.md",
+        content: "",
+      }).result.trace,
+      qualityTrace: parseQualityDetailAnalysis({
+        path: "quality.md",
+        content: "",
+      }).result.trace,
+      architectureDefinitionObservations: [],
+      qualityDefinitionObservations: [],
       uiDefinitionCount: 1,
       specDefinitionCount: 0,
     }),
@@ -416,41 +463,59 @@ test("SPEC Detailの実Issueは三分類の旧診断へ届く", () => {
  * @boundary RCM-UT-002=N/A: 同期的な値変換。
  */
 test("SPEC集合照合の実Issueは九分類の旧診断へ届く", () => {
+  const ui = parseUiDefinition(
+    {
+      path: "ui.md",
+      content:
+        "## 対応するSPEC\n- pairs_with: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)",
+    },
+    "UI-000001",
+  );
+  assert.ok(ui.result);
   const empty = new Set<string>();
   const one = new Set(["a"]);
   const issues = [
-    ...inspectSpecAnalysisCoverage({
-      specIndexPath: "spec.md",
-      specAnalysisRoot: "analysis",
-      uxIds: one,
-      iaIds: one,
-      analyzedUx: empty,
-      analyzedIa: empty,
-      analysisRelationOccurrences: ["a", "a"],
+    ...inspectDocumentRelations({
+      kind: "spec_analysis_coverage",
+      ...{
+        specIndexPath: "spec.md",
+        specAnalysisRoot: "analysis",
+        uxIds: one,
+        iaIds: one,
+        analyzedUx: empty,
+        analyzedIa: empty,
+        analysisRelationOccurrences: ["a", "a"],
+      },
     }),
-    ...inspectSpecDefinitionCoverage({
-      specDefinitionsRoot: "definitions",
-      specIndexPath: "spec.md",
-      definitionRelationOccurrences: ["a", "a"],
-      definitionUiPairOccurrences: [],
-      registryIds: one,
-      actualIds: empty,
+    ...inspectDocumentRelations({
+      kind: "spec_definition_coverage",
+      ...{
+        specDefinitionsRoot: "definitions",
+        specIndexPath: "spec.md",
+        definitionRelationOccurrences: ["a", "a"],
+        definitionUiPairOccurrences: [],
+        registryIds: one,
+        actualIds: empty,
+      },
     }),
-    ...inspectSpecCoverage({
-      specIndexPath: "spec.md",
-      indexCountRows: [],
-      expectedIndexCounts: new Map([["UX定義", 1]]),
-      registryRelations: one,
-      analysisRelations: empty,
-      definitionRelations: empty,
+    ...inspectDocumentRelations({
+      kind: "spec_coverage",
+      ...{
+        specIndexPath: "spec.md",
+        indexCountRows: [],
+        expectedIndexCounts: new Map([["UX定義", 1]]),
+        registryRelations: one,
+        analysisRelations: empty,
+        definitionRelations: empty,
+      },
     }),
-    ...inspectUiSpecRelations({
+    ...inspectDocumentRelations({
+      kind: "ui_spec",
       uiDefinitionsRoot: "ui",
       specIndexPath: "spec.md",
-      uiPairOccurrences: ["a", "a"],
-      registryUiPairs: one,
-      definitionUiPairs: empty,
-      uiPairs: empty,
+      uiDefinitions: [ui.result],
+      specDefinitions: [],
+      registry: parseSpecIndex({ path: "spec.md", content: "" }).result,
     }),
   ];
   const findings = issues.map(mapSpecDomainIssueToFinding);
@@ -490,11 +555,11 @@ test("SPEC本文の実Issueは六分類の旧診断へ届く", () => {
   const row =
     "| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | name | UX-000001 | IA-000001 | UI-000001 |";
   const issues = [
-    ...inspectSpecAnalysis({ path: "analysis.md", content: "" }, "UX-000001")
+    ...parseSpecAnalysis({ path: "analysis.md", content: "" }, "UX-000001")
       .issues,
-    ...inspectSpecAnalysis({ path: "analysis.md", content: "" }, "IA-000001")
+    ...parseSpecAnalysis({ path: "analysis.md", content: "" }, "IA-000001")
       .issues,
-    ...inspectSpecDefinition(
+    ...parseSpecDefinition(
       { path: "definition.md", content: "" },
       "SPEC-000001",
     ).issues,
@@ -523,7 +588,7 @@ test("SPEC本文の実Issueは六分類の旧診断へ届く", () => {
       "path",
       "message",
     ]);
-  const issue = issues[1] as DomainIssue;
+  const issue = issues[1] as DocumentIssue;
   assert.throws(
     () =>
       mapSpecDomainIssueToFinding({ ...issue, kind: "artifact.spec.unknown" }),
@@ -547,11 +612,31 @@ test("SPEC本文の実Issueは六分類の旧診断へ届く", () => {
  * @boundary RCM-UT-002=N/A: 同期的なDomainと表示の接続。
  */
 test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () => {
-  const issues = [
-    ...inspectUxFormalInput(
-      { path: "analysis.md", content: "" },
-      "REQ-000001",
+  assert.deepEqual(
+    inspectDocumentRelations({
+      kind: "ux_projection",
+      projection: parseUxPersonas({ path: "projection.md", content: "" }).result
+        .projection,
+      canonicalIds: new Set(["UX-000001"]),
+    }).map(mapUxDomainIssueToFinding),
+    [
       {
+        severity: "error",
+        code: "ux-cross-cutting-projection-incomplete",
+        path: "projection.md",
+        message:
+          "Each cross-cutting UX projection must process every canonical UX ID exactly once in its dedicated mapping section.",
+      },
+    ],
+  );
+  const issues = [
+    ...inspectDocumentRelations({
+      kind: "ux_formal_input",
+      analysis: parseUxAnalysis(
+        { path: "analysis.md", content: "" },
+        "REQ-000001",
+      ).result,
+      observation: {
         definitionHasContent: false,
         matchingDefinitionOnly: false,
         hasSourceAnalysis: false,
@@ -559,14 +644,17 @@ test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () =
         hasInvalidEntity: false,
         hasUnsafeTarget: false,
       },
-    ),
-    ...inspectUxRelations({
-      uxIndexPath: "ux.md",
-      experienceMapPath: "journey.md",
-      index: { ids: new Set(), requirementRelations: new Set() },
-      analysisRequirementRelations: new Set(),
-      canonicalJourneyRelations: new Set(),
-      analysisJourneyRelations: new Set(),
+    }),
+    ...inspectDocumentRelations({
+      kind: "ux_relations",
+      ...{
+        uxIndexPath: "ux.md",
+        experienceMapPath: "journey.md",
+        index: parseUxIndex({ path: "ux.md", content: "" }).result,
+        analysisRequirementRelations: new Set(),
+        canonicalJourneyRelations: new Set(),
+        analysisJourneyRelations: new Set(),
+      },
     }),
   ];
   assert.deepEqual(issues.map(mapUxDomainIssueToFinding), [
@@ -606,10 +694,10 @@ test("UX正式入力と関係閉包の実Issueは旧診断を維持する", () =
  * @boundary RCM-UT-002=N/A: 同期的な値変換。
  */
 test("Discovery分析の実Issueは旧診断を維持する", () => {
-  const issues = inspectDiscoveryAnalysis(
+  const issues = parseDiscoveryAnalysis(
     { path: "exploration.md", content: "" },
     "EXP-000001",
-  );
+  ).issues;
   assert.deepEqual(issues.map(mapDiscoveryDomainIssueToFinding), [
     {
       severity: "error",
@@ -629,7 +717,7 @@ test("Discovery分析の実Issueは旧診断を維持する", () => {
   assert.throws(
     () =>
       mapDiscoveryDomainIssueToFinding({
-        ...(issues[1] as DomainIssue),
+        ...(issues[1] as DocumentIssue),
         details: {},
       }),
     /invalid_artifact_domain_issue_detail/u,
@@ -648,10 +736,10 @@ test("Discovery分析の実Issueは旧診断を維持する", () => {
  * @boundary RCM-UT-002=N/A: 同期的なDomainと表示の接続。
  */
 test("Discovery定義の実Issueは旧診断を維持する", () => {
-  const issues = inspectDiscoveryDefinition(
+  const issues = parseDiscoveryDefinition(
     { path: "requirement.md", content: "" },
     "REQ-000001",
-  );
+  ).issues;
   assert.deepEqual(issues.map(mapDiscoveryDomainIssueToFinding), [
     {
       severity: "error",
@@ -668,7 +756,7 @@ test("Discovery定義の実Issueは旧診断を維持する", () => {
         "Each canonical Discovery requirement must contain one visible, fully evaluated artifact-specific Checklist (missing_or_duplicate).",
     },
   ]);
-  const issue = issues[1] as DomainIssue;
+  const issue = issues[1] as DocumentIssue;
   assert.throws(
     () =>
       mapDiscoveryDomainIssueToFinding({
@@ -695,11 +783,18 @@ test("Discovery定義の実Issueは旧診断を維持する", () => {
  * @boundary RCM-UT-002=N/A: 同期的なDomainと表示の接続。
  */
 test("UX分析の実Issueは旧診断を維持する", () => {
-  const model = inspectUxAnalysis(
+  const parsed = parseUxAnalysis(
     { path: "analysis.md", content: "" },
     "REQ-000001",
-    0,
   );
+  const model = {
+    ...parsed,
+    issues: inspectDocumentRelations({
+      kind: "ux_analysis_registration",
+      analysis: parsed,
+      registryLinkCount: 0,
+    }),
+  };
   const messages = [
     [
       "ux-requirement-analysis-contract-invalid",
@@ -738,7 +833,7 @@ test("UX分析の実Issueは旧診断を維持する", () => {
   assert.throws(
     () =>
       mapUxDomainIssueToFinding({
-        ...(model.issues[2] as DomainIssue),
+        ...(model.issues[2] as DocumentIssue),
         details: {},
       }),
     /invalid_artifact_domain_issue_detail/u,
@@ -757,10 +852,10 @@ test("UX分析の実Issueは旧診断を維持する", () => {
  * @boundary RCM-UT-002=N/A: 同期的なDomainと表示の接続。
  */
 test("UX定義の実Issueは旧診断を維持する", () => {
-  const issues = inspectUxDefinition(
+  const issues = parseUxDefinition(
     { path: "ux.md", content: "" },
     "UX-000001",
-  );
+  ).issues;
   const messages = [
     [
       "ux-definition-contract-invalid",
@@ -784,7 +879,7 @@ test("UX定義の実Issueは旧診断を維持する", () => {
       message,
     })),
   );
-  const issue = issues[2] as DomainIssue;
+  const issue = issues[2] as DocumentIssue;
   assert.throws(
     () => mapUxDomainIssueToFinding({ ...issue, kind: "artifact.ux.unknown" }),
     /unknown_ux_domain_issue/u,
@@ -885,7 +980,7 @@ test("Artifact診断の四kindは既存code・Rule・文言を維持する", () 
       "Canonical ID is declared by more than one artifact: REQ-000001.",
     ],
   ]) {
-    const issue: DomainIssue = {
+    const issue: DocumentIssue = {
       kind: kind ?? "",
       targetIdentity: "id",
       location: { path: "item.md", line: 4 },
@@ -937,7 +1032,7 @@ test("Artifact診断は未知kindと不正detailsを拒否する", () => {
       }),
     /unknown_artifact_domain_issue:future/u,
   );
-  const invalidDetails: readonly DomainIssue["details"][] = [
+  const invalidDetails: readonly DocumentIssue["details"][] = [
     {},
     { schemaId: "" },
     { schemaId: 1 },
@@ -954,3 +1049,125 @@ test("Artifact診断は未知kindと不正detailsを拒否する", () => {
       /invalid_artifact_domain_issue_detail/u,
     );
 });
+
+/**
+ * Discovery台帳とひな型の完成Parse診断を既存表示へ接続する。
+ * @responsibility 旧code・文言・位置と失敗理由不足の拒否を維持する。
+ * @trace RCM-UT-002
+ * @precondition 空の台帳とひな型を公開Parserで解析する。
+ * @stimulus 実Issueを表示変換へ渡す。
+ * @observation 四fieldの完全一致と例外を確認する。
+ * @oracle 取得側の旧表示と一致し、新しい構造診断を追加しない。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary RCM-UT-002=N/A: 同期値変換。
+ */
+test("Discovery台帳・ひな型の実Issueは旧Checklist診断を維持する", () => {
+  const source = { path: "discovery.md", content: "" };
+  const index = parseDiscoveryIndex(source);
+  assert.deepEqual(index.issues.map(mapDiscoveryDomainIssueToFinding), [
+    {
+      severity: "error",
+      code: "discovery-checklist-contract-invalid",
+      path: "discovery.md",
+      message:
+        "The canonical Discovery entry must contain one visible, fully evaluated artifact-specific Checklist (missing_or_duplicate).",
+    },
+  ]);
+  for (const parsed of [
+    parseDiscoveryIndex(source, { mode: "template" }),
+    parseDiscoveryAnalysis(source, "EXP-XXXXXX", { mode: "template" }),
+    parseDiscoveryDefinition(source, "REQ-XXXXXX", { mode: "template" }),
+  ]) {
+    assert.deepEqual(parsed.issues.map(mapDiscoveryDomainIssueToFinding), [
+      {
+        severity: "error",
+        code: "discovery-checklist-template-invalid",
+        path: "discovery.md",
+        message:
+          "Each Discovery template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (missing_or_duplicate).",
+      },
+    ]);
+    assert.throws(
+      () =>
+        mapDiscoveryDomainIssueToFinding({
+          ...(parsed.issues[0] as DocumentIssue),
+          details: {},
+        }),
+      /invalid_artifact_domain_issue_detail/u,
+    );
+  }
+});
+
+/** 本文条件の既存反証へ独立したChecklist断面を与える試験準備。@trace RCM-UT-002 */
+function architectureChecklistFixture(
+  kind: "analysis_ui" | "analysis_spec" | "definition" | "detail",
+  failure: unknown,
+) {
+  const expected = captureArchitectureDocument(
+    { path: "checklist.md", content: "" },
+    { kind, mode: "evaluated" },
+  ).checklistContract.expectedItems;
+  return {
+    path: "checklist.md",
+    content: failure
+      ? ""
+      : `## Checklist\n${expected.map((item) => `- [x] ${item}`).join("\n")}`,
+  };
+}
+/** 局所ParseとReady横断比較を一回ずつ行う試験専用の観測。@trace RCM-UT-002 */
+function observeArchitectureFixture<
+  T extends {
+    result: {
+      hasUnresolvedResults: boolean;
+      source: { path: string };
+      checklistContract: { failure: unknown };
+    };
+    issues: readonly import("../../../../document-model/src/artifact/types.ts").DocumentIssue[];
+  },
+>(
+  parsed: T,
+  isReady: boolean,
+  documentType: "analysis" | "definition" | "detail",
+) {
+  const issues = inspectDocumentRelations({
+    kind: "architecture_readiness",
+    document: parsed as never,
+    isReady,
+    documentType,
+  });
+  return { ...parsed, status: issues.length ? "partial" : "complete", issues };
+}
+
+/** 詳細Mapの局所Parseと外部定義被覆を別々に観測する試験準備。@trace RCM-UT-002 */
+function observeArchitectureMapFixture(
+  document: ReturnType<typeof parseArchitectureDetailMap>,
+  actualDefinitions: ReadonlySet<string>,
+) {
+  const issues = inspectDocumentRelations({
+    kind: "architecture_detail_map_coverage",
+    document,
+    actualDefinitions,
+  });
+  return {
+    ...document,
+    status: issues.length ? "partial" : "complete",
+    issues,
+  };
+}
+
+/** 横断本文の局所Parseと登録Index照合を別々に観測する試験準備。@trace RCM-UT-002 */
+function observeArchitectureCrossFixture(
+  document: ReturnType<typeof parseArchitectureCrossModel>,
+  index: ReturnType<typeof parseArchitectureIndex>["result"],
+) {
+  const issues = inspectDocumentRelations({
+    kind: "architecture_cross_model",
+    document,
+    index,
+  });
+  return {
+    ...document,
+    status: issues.length ? "partial" : "complete",
+    issues,
+  };
+}

@@ -3,70 +3,64 @@
  * @responsibility 探索・Scope・参照・文書状態・工程観測・Reality・報告集計を所有する。
  * @trace ARCH-000001
  */
-import {
-  mapDocumentRuleIssueToFinding,
-  mapDocumentIdentityIssueToFinding,
-  mapStableReleaseIssueToFinding,
-} from "../report/document.ts";
 
-import type { DocumentFinding, DocumentReport } from "../report/types.ts";
-
-import {
-  observeRepositoryLayout,
-  lstatIfPresent,
-  pathContainsSymbolicLink,
-  isWithin,
-} from "../repository/observe.ts";
-
-import { observeProjectFiles } from "../repository/discover.ts";
-
-import type { LinkRecord } from "../repository/types.ts";
-import {
-  createDocumentReferenceReader,
-  buildDocumentReferenceMap,
-  inspectDocumentLinks,
-} from "../repository/references.ts";
-import { selectDocumentScope } from "../repository/scope.ts";
-import { inspectProjectContextRepository } from "../repository/project-context.ts";
-import { inspectWorkLifecycleRepository } from "../repository/work-lifecycle.ts";
-import { inspectDiscoveryUxRepository } from "../repository/discovery-ux.ts";
-import { inspectIaRepository } from "../repository/ia.ts";
-import { inspectUiRepository } from "../repository/ui.ts";
-import { inspectSpecRepository } from "../repository/spec.ts";
-import { inspectArchitectureRepository } from "../repository/architecture.ts";
-import { inspectQualityRepository } from "../repository/quality.ts";
 import fs from "node:fs";
 import path from "node:path";
-
+import {
+  type ArtifactSource,
+  inspectBranchCoverageTable,
+  inspectDocumentRelations,
+  inspectRelatedOrder,
+  inspectReleaseDocuments,
+  inspectRemediationTable,
+  parseArchitectureIndex,
+  parseCanonicalDocument,
+  parseChangeDocument,
+  parseChangelog,
+  parseDiscoveryIndex,
+  parseIaIndex,
+  parseIdentityDocument,
+  parseMarkdownLinkTargets,
+  parseQualityVerificationDesign,
+  parseReadme,
+  parseSpecIndex,
+  parseUiIndex,
+  parseUxIndex,
+} from "../../../document-model/src/index.ts";
 import {
   getRepository,
   readRepositoryRevision,
 } from "../../../version-control/src/index.ts";
-import {
-  parseCanonicalReleaseHeader,
-  parseChangeTraceHeader,
-  parseStableIdentityOccurrences,
-  inspectStableIdentityOwnership,
-  inspectBranchCoverageTable,
-  inspectRemediationTable,
-  inspectRelatedOrder,
-  inspectChangelogRelease,
-  parseCandidateVersionHeader,
-  parseReadmeVersion,
-  inspectCanonicalDocumentVersions,
-  inspectDiscoveryIdentityLinks,
-  inspectStableIdentityDefinitions,
-  inspectStableCanonicalDocuments,
-  inspectStableReadme,
-  inspectStableChangelog,
-  inspectStableReleaseHeader,
-  inspectPhaseDiagramTemplates,
-  phaseDiagramTemplatePaths,
-  parseMarkdownLinkTargets,
-} from "../../../document-model/src/index.ts";
-import { inspectRealityRepository } from "../repository/reality.ts";
-
 import { createFindingCollector } from "../report/collect.ts";
+import {
+  mapDocumentIdentityIssueToFinding,
+  mapDocumentRuleIssueToFinding,
+  mapStableReleaseIssueToFinding,
+} from "../report/document.ts";
+import type { DocumentFinding, DocumentReport } from "../report/types.ts";
+import { inspectArchitectureRepository } from "../repository/architecture.ts";
+import { observeProjectFiles } from "../repository/discover.ts";
+import { inspectDiscoveryUxRepository } from "../repository/discovery-ux.ts";
+import { inspectIaRepository } from "../repository/ia.ts";
+import {
+  isWithin,
+  lstatIfPresent,
+  observeRepositoryLayout,
+  pathContainsSymbolicLink,
+} from "../repository/observe.ts";
+import { inspectProjectContextRepository } from "../repository/project-context.ts";
+import { inspectQualityRepository } from "../repository/quality.ts";
+import { inspectRealityRepository } from "../repository/reality.ts";
+import {
+  buildDocumentReferenceMap,
+  createDocumentReferenceReader,
+  inspectDocumentLinks,
+} from "../repository/references.ts";
+import { selectDocumentScope } from "../repository/scope.ts";
+import { inspectSpecRepository } from "../repository/spec.ts";
+import type { LinkRecord } from "../repository/types.ts";
+import { inspectUiRepository } from "../repository/ui.ts";
+import { inspectWorkLifecycleRepository } from "../repository/work-lifecycle.ts";
 
 /**
  * 確認済みRootに対して文書検査を編成し、表示前の報告を返す。
@@ -195,7 +189,10 @@ export function inspectDocumentRepository(
    */
   function declaredChangeTraceId(file: string): string | null {
     const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
-    return parseChangeTraceHeader(header).changeId;
+    return parseChangeDocument(
+      { path: relative(file), content: header },
+      { mode: "canonical" },
+    ).result.changeId;
   }
 
   /**
@@ -216,8 +213,10 @@ export function inspectDocumentRepository(
    */
   function hasChangeTraceDefinitionSignature(file: string): boolean {
     const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
-    const hasStandardHeading =
-      parseChangeTraceHeader(header).hasStandardHeading;
+    const hasStandardHeading = parseChangeDocument(
+      { path: relative(file), content: header },
+      { mode: "canonical" },
+    ).result.hasStandardHeading;
     return Boolean(declaredChangeTraceId(file) && hasStandardHeading);
   }
 
@@ -344,14 +343,52 @@ export function inspectDocumentRepository(
    */
   function checkPhaseDiagramDispositionContracts(): void {
     if (repositoryMode !== "official") return;
-    for (const relativePath of phaseDiagramTemplatePaths) {
+    const templates = [
+      [
+        "template/01_Discovery/01_Product_Discovery.md",
+        (source: ArtifactSource) =>
+          parseDiscoveryIndex(source, { mode: "template" }).result
+            .diagramContract,
+      ],
+      [
+        "template/02_UX/01_User_Experience.md",
+        (source: ArtifactSource) =>
+          parseUxIndex(source, { mode: "template" }).result.diagramContract,
+      ],
+      [
+        "template/03_IA/01_Information_Architecture.md",
+        (source: ArtifactSource) =>
+          parseIaIndex(source, { mode: "template" }).result.diagramContract,
+      ],
+      [
+        "template/04_UI/01_User_Interface.md",
+        (source: ArtifactSource) => parseUiIndex(source).result.diagramContract,
+      ],
+      [
+        "template/05_SPEC/01_Behavior_Specification.md",
+        (source: ArtifactSource) =>
+          parseSpecIndex(source).result.diagramContract,
+      ],
+      [
+        "template/06_Architecture/01_Architecture.md",
+        (source: ArtifactSource) =>
+          parseArchitectureIndex(source).result.diagramContract,
+      ],
+      [
+        "template/07_Quality/03_Verification_Design.md",
+        (source: ArtifactSource) =>
+          parseQualityVerificationDesign(source, { mode: "template" }).result
+            .diagramContract,
+      ],
+    ] as const;
+    for (const [relativePath, capture] of templates) {
       const file =
         allFiles.find((candidate) => relative(candidate) === relativePath) ??
         path.join(root, ...relativePath.split("/"));
       if (!fs.existsSync(file)) continue;
-      for (const issue of inspectPhaseDiagramTemplates([
-        { path: relativePath, content: read(file) },
-      ])) {
+      const contract = capture({ path: relativePath, content: read(file) });
+      if (!contract) throw new Error("missing_phase_diagram_contract");
+      for (const issue of contract.issues) {
         if (
           issue.kind !== "artifact.phase-diagram.contract-invalid" ||
           typeof issue.details.missingItems !== "string"
@@ -431,8 +468,7 @@ export function inspectDocumentRepository(
   } else {
     docsRoot = requestedDocsRoot;
   }
-  const versionedDocuments = [];
-  const canonicalDocumentStates = [];
+  const canonicalDocuments = [];
   if (docsRoot) {
     for (const name of fs.readdirSync(docsRoot)) {
       if (!/^\d{2}_.+\.md$/u.test(name)) continue;
@@ -447,10 +483,9 @@ export function inspectDocumentRepository(
         continue;
       }
       if (!lstatIfPresent(file)?.isFile()) continue;
-      const model = parseCanonicalReleaseHeader(read(file));
-      if (model.version !== null)
-        versionedDocuments.push([file, model.version]);
-      canonicalDocumentStates.push({ file, ...model });
+      canonicalDocuments.push(
+        parseCanonicalDocument({ path: relative(file), content: read(file) }),
+      );
     }
   }
   if (repositoryMode === "official") {
@@ -479,46 +514,24 @@ export function inspectDocumentRepository(
       }
     }
   }
-  const versionResult = inspectCanonicalDocumentVersions(
-    versionedDocuments.map(
-      ([file, version]) => [relative(file), version] as const,
-    ),
-    canonicalDocumentStates.map((document) => ({
-      ...document,
-      file: relative(document.file),
-    })),
-  );
+  const versionResult = inspectReleaseDocuments(canonicalDocuments);
   const { versions, candidateReleasedBaseline } = versionResult;
   for (const issue of versionResult.issues) {
     const finding = mapDocumentIdentityIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
 
-  const stableDocuments = canonicalDocumentStates.filter(
-    ({ status }) => status === "Stable",
-  );
   if (
     repositoryMode === "official" &&
     scopeValues.length === 0 &&
-    canonicalDocumentStates.length > 1 &&
-    stableDocuments.length > 0 &&
-    new Set(stableDocuments.map(({ version }) => version)).size === 1 &&
-    stableDocuments.every(({ version }) => version !== null) &&
-    versions.size === 1
+    versionResult.stableVersion !== null
   ) {
-    const stableVersion = [...versions][0];
-    if (stableVersion === undefined) {
-      throw new Error("stable_release_version_missing");
-    }
-    const inspectStableCanonicalDocumentsResult =
-      inspectStableCanonicalDocuments(
-        canonicalDocumentStates.map((document) => ({
-          ...document,
-          file: relative(document.file),
-        })),
-        stableVersion,
-      );
-    for (const issue of inspectStableCanonicalDocumentsResult.issues) {
+    const stableVersion = versionResult.stableVersion;
+    for (const issue of inspectDocumentRelations({
+      kind: "stable_canonical_documents",
+      documents: canonicalDocuments.map((document) => document.result),
+      stableVersion,
+    })) {
       const finding = mapStableReleaseIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -531,7 +544,10 @@ export function inspectDocumentRepository(
       readRepositoryRevision(repository.capability)?.revisionIdentity ?? null;
     const hasDifferentCandidateVersion = allMarkdownFiles.some((file) => {
       const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
-      const candidateVersion = parseCandidateVersionHeader(header);
+      const candidateVersion = parseCanonicalDocument({
+        path: relative(file),
+        content: header,
+      }).result.candidateVersion;
       return candidateVersion !== null && candidateVersion !== stableVersion;
     });
     if (
@@ -549,11 +565,16 @@ export function inspectDocumentRepository(
     }
     const readmePath = path.join(root, "README.md");
     const readme = lstatIfPresent(readmePath)?.isFile() ? read(readmePath) : "";
-    const inspectStableReadmeResult = inspectStableReadme(
-      { path: relative(readmePath), content: readme },
+    const readmeModel = parseReadme({
+      path: relative(readmePath),
+      content: readme,
+    });
+    const readmeIssues = inspectDocumentRelations({
+      kind: "stable_readme",
+      readme: readmeModel.result,
       stableVersion,
-    );
-    for (const issue of inspectStableReadmeResult.issues) {
+    });
+    for (const issue of readmeIssues) {
       const finding = mapStableReleaseIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -561,23 +582,32 @@ export function inspectDocumentRepository(
     const changelog = lstatIfPresent(changelogPath)?.isFile()
       ? read(changelogPath)
       : "";
-    const inspectStableChangelogResult = inspectStableChangelog(
+    const changelogModel = parseChangelog(
       { path: relative(changelogPath), content: changelog },
-      stableVersion,
+      { version: stableVersion },
     );
-    for (const issue of inspectStableChangelogResult.issues) {
+    const stableChangelogIssues = inspectDocumentRelations({
+      kind: "stable_changelog",
+      changelog: changelogModel.result,
+      stableVersion,
+    });
+    for (const issue of stableChangelogIssues) {
       const finding = mapStableReleaseIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
     for (const file of allMarkdownFiles) {
       const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
-      const result = inspectStableReleaseHeader(
-        header,
-        relative(file),
+      const document = parseCanonicalDocument({
+        path: relative(file),
+        content: header,
+      }).result;
+      const result = inspectDocumentRelations({
+        kind: "stable_release_document",
+        document,
         stableVersion,
         stableTagCommit,
-      );
-      for (const issue of result.issues) {
+      });
+      for (const issue of result) {
         const finding = mapStableReleaseIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
@@ -608,11 +638,15 @@ export function inspectDocumentRepository(
         relativePath.includes("/Evidence/")
       )
         continue;
-      const result = inspectDiscoveryIdentityLinks({
+      const identity = parseIdentityDocument({
         path: relativePath,
         content: read(file),
       });
-      for (const issue of result.issues) {
+      const result = inspectDocumentRelations({
+        kind: "discovery_identity_links",
+        document: identity.result,
+      });
+      for (const issue of result) {
         const finding = mapDocumentIdentityIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
@@ -626,7 +660,10 @@ export function inspectDocumentRepository(
     versions.size === 1 &&
     repositoryMode === "official"
   ) {
-    const readmeVersion = parseReadmeVersion(read(readme));
+    const readmeVersion = parseReadme({
+      path: relative(readme),
+      content: read(readme),
+    }).result.version;
     const expectedVersion = versions.values().next().value;
     if (readmeVersion && readmeVersion !== expectedVersion) {
       add(
@@ -646,9 +683,9 @@ export function inspectDocumentRepository(
     repositoryMode === "official"
   ) {
     const currentVersion = candidateReleasedBaseline ?? [...versions][0];
-    const result = inspectChangelogRelease(
+    const result = parseChangelog(
       { path: "CHANGELOG.md", content: read(changelog) },
-      currentVersion as string,
+      { version: currentVersion as string },
     );
     for (const issue of result.issues) {
       const finding = mapDocumentRuleIssueToFinding(issue);
@@ -674,7 +711,11 @@ export function inspectDocumentRepository(
   const stableIdDefinitions = new Map();
   for (const file of allMarkdownFiles) {
     const text = read(file);
-    for (const id of parseStableIdentityOccurrences(text)) {
+    const identity = parseIdentityDocument({
+      path: relative(file),
+      content: text,
+    });
+    for (const id of identity.result.occurrences) {
       const items = stableIdOccurrences.get(id) ?? [];
       items.push(relative(file));
       stableIdOccurrences.set(id, items);
@@ -685,21 +726,29 @@ export function inspectDocumentRepository(
     ) {
       continue;
     }
-    const model = inspectStableIdentityDefinitions(
-      { path: relative(file), content: text },
-      relative(file) === "02_UX/01_User_Experience.md",
-    );
+    const model = identity;
+    const definitionGroups = [model.result.stableIdDefinitions];
+    if (relative(file) === "02_UX/01_User_Experience.md")
+      definitionGroups.push(
+        parseUxIndex({ path: relative(file), content: text }).result
+          .identityDefinitions,
+      );
     for (const issue of model.issues) {
       const finding = mapDocumentIdentityIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    for (const [id, definitions] of model.stableIdDefinitions) {
-      const items = stableIdDefinitions.get(id) ?? [];
-      for (const definition of definitions) items.push(definition);
-      stableIdDefinitions.set(id, items);
+    for (const group of definitionGroups) {
+      for (const [id, definitions] of group) {
+        const items = stableIdDefinitions.get(id) ?? [];
+        for (const definition of definitions) items.push(definition);
+        stableIdDefinitions.set(id, items);
+      }
     }
   }
-  for (const issue of inspectStableIdentityOwnership(stableIdDefinitions)) {
+  for (const issue of inspectDocumentRelations({
+    kind: "identity_ownership",
+    definitions: stableIdDefinitions,
+  })) {
     const finding = mapDocumentIdentityIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
@@ -1024,7 +1073,7 @@ export function inspectDocumentRepository(
       local_links_checked: checkedLocalLinks,
       anchors_checked: checkedAnchors,
       related_blocks_checked: relatedBlocks,
-      versioned_documents_checked: versionedDocuments.length,
+      versioned_documents_checked: versionResult.versionedDocumentCount,
       stable_ids_observed: stableIdOccurrences.size,
       gitlinks_observed: gitlinkRoots.length,
       explicit_stable_id_definitions: stableIdDefinitions.size,

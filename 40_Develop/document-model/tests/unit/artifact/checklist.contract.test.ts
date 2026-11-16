@@ -8,14 +8,240 @@
  * @scope artifact、checklist
  * @boundary RCM-UT-001=N/A: 本文と期待項目の同期計算だけを扱う。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
+import { captureArchitectureDocument } from "../../../src/architecture/validation.ts";
 import {
-  createPhaseChecklistItems,
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
+} from "../../../src/artifact/checklist.ts";
+import {
   type ChecklistFailure,
+  parseDiscoveryAnalysis,
+  parseDiscoveryDefinition,
+  parseDiscoveryIndex,
+  parseIaAnalysis,
+  parseIaDefinition,
+  parseIaIndex,
+  parseIaObjectRelation,
+  parseIaStateVisibility,
+  parseIaStructureNavigation,
+  parseSpecAnalysis,
+  parseSpecBehavior,
+  parseSpecDefinition,
+  parseSpecDefinitionCorrespondence,
+  parseSpecDetailCorrespondence,
+  parseSpecDetailIndex,
+  parseUiAnalysis,
+  parseUiArea,
+  parseUiComponent,
+  parseUiDefinition,
+  parseUiDetailIndex,
+  parseUiHandoff,
+  parseUiScreen,
+  parseUiVisualBaseline,
+  parseUxAnalysis,
+  parseUxDefinition,
+  parseUxExperienceMap,
+  parseUxIndex,
+  parseUxPersonas,
+  parseUxQualityExpectations,
+  parseUxServiceBlueprint,
 } from "../../../src/index.ts";
+import { captureQualityDocument } from "../../../src/quality/readiness.ts";
+
+/**
+ * 同じ受付の独立性を全工程の47種類で観測する。
+ * @responsibility 七工程Ownerの全47種類を試験の比較対象へ組み立てる。
+ * @trace RCM-UT-001
+ * @precondition 不完全な合成文書を受付へ渡す。
+ * @stimulus 毎回の受付から期待項目を観測する。
+ * @observation 正常化せず各Ownerが返した配列を取得する。
+ * @oracle 後続試験が全数・派生順・呼出し独立性を確認する。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 共通エンジンとQualityの内容受付。
+ */
+function captureChecklistFixture() {
+  const source = {
+    path: "fixture.md",
+    content: "## Checklist\n- [ ] 不完全な試験項目",
+  };
+  return {
+    uiAnalysisUxChecklistItemTexts: parseUiAnalysis(source, "UX-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiAnalysisIaChecklistItemTexts: parseUiAnalysis(source, "IA-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiDefinitionChecklistItemTexts: parseUiDefinition(source, "UI-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiDetailIndexChecklistItemTexts: parseUiDetailIndex(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiAreaChecklistItemTexts: parseUiArea(source, { mode: "template" }).result
+      .checklistContract.expectedItems,
+    uiScreenChecklistItemTexts: parseUiScreen(source, "SCR-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiComponentChecklistItemTexts: parseUiComponent(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiVisualBaselineChecklistItemTexts: parseUiVisualBaseline(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiSpecHandoffChecklistItemTexts: parseUiHandoff(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    specAnalysisUxChecklistItemTexts: parseSpecAnalysis(source, "UX-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    specAnalysisIaChecklistItemTexts: parseSpecAnalysis(source, "IA-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    specDefinitionChecklistItemTexts: parseSpecDefinition(
+      source,
+      "SPEC-XXXXXX",
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    specDetailIndexChecklistItemTexts: parseSpecDetailIndex(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    specBehaviorChecklistItemTexts: parseSpecBehavior(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uiSpecDetailCorrespondenceChecklistItemTexts: parseSpecDetailCorrespondence(
+      source,
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    uiSpecCorrespondenceChecklistItemTexts: parseSpecDefinitionCorrespondence(
+      source,
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    architectureUiAnalysisChecklistItemTexts: captureArchitectureDocument(
+      source,
+      { kind: "analysis_ui", mode: "template" },
+    ).checklistContract.expectedItems,
+    architectureSpecAnalysisChecklistItemTexts: captureArchitectureDocument(
+      source,
+      { kind: "analysis_spec", mode: "template" },
+    ).checklistContract.expectedItems,
+    architectureDefinitionChecklistItemTexts: captureArchitectureDocument(
+      source,
+      { kind: "definition", mode: "template" },
+    ).checklistContract.expectedItems,
+    architectureDefinitionTemplateChecklistItemTexts:
+      captureArchitectureDocument(source, {
+        kind: "definition_template",
+        mode: "template",
+      }).checklistContract.expectedItems,
+    architectureDetailChecklistItemTexts: captureArchitectureDocument(source, {
+      kind: "detail",
+      mode: "template",
+    }).checklistContract.expectedItems,
+    architectureDetailTemplateChecklistItemTexts: captureArchitectureDocument(
+      source,
+      { kind: "detail_template", mode: "template" },
+    ).checklistContract.expectedItems,
+    discoveryRootChecklistItemTexts: parseDiscoveryIndex(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    discoveryExplorationChecklistItemTexts: parseDiscoveryAnalysis(
+      source,
+      "EXP-XXXXXX",
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    discoveryRequirementChecklistItemTexts: parseDiscoveryDefinition(
+      source,
+      "REQ-XXXXXX",
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    uxIndexChecklistItemTexts: parseUxIndex(source, { mode: "template" }).result
+      .checklistContract.expectedItems,
+    uxPersonasChecklistItemTexts: parseUxPersonas(source, { mode: "template" })
+      .result.checklistContract.expectedItems,
+    uxExperienceMapChecklistItemTexts: parseUxExperienceMap(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uxServiceBlueprintChecklistItemTexts: parseUxServiceBlueprint(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uxQualityExpectationsChecklistItemTexts: parseUxQualityExpectations(
+      source,
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    uxAnalysisChecklistItemTexts: parseUxAnalysis(source, "REQ-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    uxDefinitionChecklistItemTexts: parseUxDefinition(source, "UX-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    iaIndexChecklistItemTexts: parseIaIndex(source, { mode: "template" }).result
+      .checklistContract.expectedItems,
+    iaObjectRelationChecklistItemTexts: parseIaObjectRelation(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    iaStructureNavigationChecklistItemTexts: parseIaStructureNavigation(
+      source,
+      { mode: "template" },
+    ).result.checklistContract.expectedItems,
+    iaStateVisibilityChecklistItemTexts: parseIaStateVisibility(source, {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    iaAnalysisChecklistItemTexts: parseIaAnalysis(source, "UX-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    iaDefinitionChecklistItemTexts: parseIaDefinition(source, "IA-XXXXXX", {
+      mode: "template",
+    }).result.checklistContract.expectedItems,
+    qualityCenterChecklistItemTexts: captureQualityDocument(source, {
+      kind: "center",
+      mode: "template",
+    }).checklistContract.expectedItems,
+    qualityStrategyChecklistItemTexts: captureQualityDocument(source, {
+      kind: "strategy",
+      mode: "template",
+    }).checklistContract.expectedItems,
+    qualityVerificationDesignChecklistItemTexts: captureQualityDocument(
+      source,
+      {
+        kind: "verification_design",
+        mode: "template",
+      },
+    ).checklistContract.expectedItems,
+    qualityIntegrationChecklistItemTexts: captureQualityDocument(source, {
+      kind: "integration",
+      mode: "template",
+    }).checklistContract.expectedItems,
+    qualityRealityAuditChecklistItemTexts: captureQualityDocument(source, {
+      kind: "reality_audit",
+      mode: "template",
+    }).checklistContract.expectedItems,
+    qualityVerificationResultChecklistItemTexts: captureQualityDocument(
+      source,
+      {
+        kind: "verification_result",
+        mode: "template",
+      },
+    ).checklistContract.expectedItems,
+    qualityAnalysisTemplateChecklistItemTexts: captureQualityDocument(source, {
+      kind: "analysis",
+      mode: "template",
+    }).checklistContract.expectedItems,
+    qualityAnalysisDetailTemplateChecklistItemTexts: captureQualityDocument(
+      source,
+      { kind: "analysis_detail", mode: "template" },
+    ).checklistContract.expectedItems,
+    qualityDefinitionTemplateChecklistItemTexts: captureQualityDocument(
+      source,
+      {
+        kind: "definition",
+        mode: "template",
+      },
+    ).checklistContract.expectedItems,
+  };
+}
 
 /**
  * 工程別期待項目の所有と呼出し独立性を検証する。
@@ -30,8 +256,8 @@ import {
  * @boundary RCM-UT-001=N/A: 文字列配列の局所計算。
  */
 test("工程Checklistは全47種類と呼出し間の独立性を維持する", () => {
-  const first = createPhaseChecklistItems();
-  const second = createPhaseChecklistItems();
+  const first = captureChecklistFixture();
+  const second = captureChecklistFixture();
   assert.deepEqual(first, second);
   assert.equal(Object.keys(first).length, 47);
   for (const [key, items] of Object.entries(first)) {
@@ -40,7 +266,7 @@ test("工程Checklistは全47種類と呼出し間の独立性を維持する", 
       items.every((item) => typeof item === "string" && item.length > 0),
       key,
     );
-    items.push("only-first");
+    (items as string[]).push("only-first");
     assert.notDeepEqual(items, second[key as keyof typeof second]);
   }
   assert.deepEqual(

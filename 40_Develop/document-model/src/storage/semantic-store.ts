@@ -8,8 +8,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  resolveVerifiedRepositoryRoot,
   type Repository,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
 

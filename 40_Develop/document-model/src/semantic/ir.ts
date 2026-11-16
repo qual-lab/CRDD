@@ -1,28 +1,13 @@
 /**
  * semantic-ir-compilerに属する責務をまとめる。
  *
- * @responsibility SemanticSourceDocumentを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility ArchitectureDetailModelを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
 import crypto from "node:crypto";
+import type { ArchitectureDetailModel } from "../architecture/details.ts";
 
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
-
-/**
- * Semantic IRへ変換するCanonical文書Snapshotを表す。
- *
- * @responsibility 変換入力のPathと同一時点の本文を一つの値として保持する。
- * @trace ARCH-000008
- * @shape SemanticSourceDocumentが表すProperty、識別子およびRelationを型として固定する。
- * @invariant SemanticSourceDocumentで宣言した値と責務の対応を維持する。
- * @boundary N/A: SemanticSourceDocumentの宣言は外部境界を開かない。
- * @security N/A: SemanticSourceDocumentはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility SemanticSourceDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type SemanticSourceDocument = Readonly<{
-  path: string;
-  source: string;
-}>;
+import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 
 /**
  * Architecture Detailsから明示的に抽出した一つの意味要素を表す。
@@ -77,31 +62,6 @@ const expectedHeaders = [
 ] as const;
 
 /**
- * Markdown表の一行を意味抽出前のCell列へ分解する。
- *
- * @responsibility 行境界を維持したまま外側DelimiterとCell余白だけを除く。
- * @trace ARCH-000008
- * @input line: string
- * @returns string[]を返す。
- * @precondition line: stringがparseTableRowの入力契約を満たす。
- * @postcondition parseTableRowの責務を完了した結果だけを返す。
- * @effect N/A: parseTableRowは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: parseTableRowは独自の失敗分岐を所有しない。
- * @invariant parseTableRowは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: parseTableRowはProcess内の同一Subsystemで完結する。
- * @security N/A: parseTableRowはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: parseTableRowは共有非同期状態を持たない同期処理である。
- */
-function parseTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/u, "")
-    .replace(/\|$/u, "")
-    .split("|")
-    .map((cell) => cell.trim());
-}
-
-/**
  * 一つのInline Code値から囲み記号を除去する。
  *
  * @responsibility Inline Code以外を値として受理せず構造不一致を保持する。
@@ -127,9 +87,9 @@ function unwrapCode(value: string): string | null {
  *
  * @responsibility 理由、対象Identity、LocationおよびDetailを同じIssueへ結合する。
  * @trace ARCH-000008
- * @input kind: string、path: string、reason: string、details: DomainIssue["details"]、targetIdentity
- * @returns DomainIssueを返す。
- * @precondition kind: string、path: string、reason: string、details: DomainIssue["details"]、targetIdentityがsemanticDomainIssueの入力契約を満たす。
+ * @input kind: string、path: string、reason: string、details: DocumentIssue["details"]、targetIdentity
+ * @returns DocumentIssueを返す。
+ * @precondition kind: string、path: string、reason: string、details: DocumentIssue["details"]、targetIdentityがsemanticDomainIssueの入力契約を満たす。
  * @postcondition semanticDomainIssueの責務を完了した結果だけを返す。
  * @effect N/A: semanticDomainIssueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: semanticDomainIssueは独自の失敗分岐を所有しない。
@@ -142,9 +102,9 @@ export function semanticDomainIssue(
   kind: string,
   path: string,
   reason: string,
-  details: DomainIssue["details"] = {},
+  details: DocumentIssue["details"] = {},
   targetIdentity = path,
-): DomainIssue {
+): DocumentIssue {
   return {
     kind,
     targetIdentity,
@@ -159,9 +119,9 @@ export function semanticDomainIssue(
  *
  * @responsibility 自由文を推測せず、契約どおりのMeaningだけを完全または不正として返す。
  * @trace ARCH-000008
- * @input sourceDocument: SemanticSourceDocument、subsystem: string、architectureDefinitionIds: ReadonlySet<string>
- * @returns DomainOutcome<SemanticIr>を返す。
- * @precondition sourceDocument: SemanticSourceDocument、subsystem: string、architectureDefinitionIds: ReadonlySet<string>がcompileSemanticIrの入力契約を満たす。
+ * @input sourceDocument: ArchitectureDetailModel、subsystem: string、architectureDefinitionIds: ReadonlySet<string>
+ * @returns DocumentResult<SemanticIr>を返す。
+ * @precondition sourceDocument: ArchitectureDetailModel、subsystem: string、architectureDefinitionIds: ReadonlySet<string>がcompileSemanticIrの入力契約を満たす。
  * @postcondition compileSemanticIrの責務を完了した結果だけを返す。
  * @effect N/A: compileSemanticIrは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 欠落、重複、未解決Architectureまたは不正なN/Aを部分IRへ畳まない。
@@ -171,45 +131,39 @@ export function semanticDomainIssue(
  * @concurrency N/A: compileSemanticIrは共有非同期状態を持たない同期処理である。
  */
 export function compileSemanticIr(
-  sourceDocument: SemanticSourceDocument,
+  sourceDocument: ArchitectureDetailModel,
   subsystem: string,
   architectureDefinitionIds: ReadonlySet<string>,
-): DomainOutcome<SemanticIr> {
-  const lines = sourceDocument.source.split(/\r?\n/u);
-  const headingIndex = lines.findIndex((line) =>
-    /^#{2,3}\s+.*機械生成する意味要素\s*$/u.test(line),
-  );
-  if (headingIndex < 0)
+): DocumentResult<SemanticIr> {
+  const semantic = sourceDocument.semantic;
+  if (!semantic.heading)
     return {
       status: "invalid",
       result: null,
       issues: [
         semanticDomainIssue(
           "ir.source.table-missing",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "source_heading_missing",
           { missingPart: "heading" },
         ),
       ],
     };
 
-  const tableStart = lines.findIndex(
-    (line, index) => index > headingIndex && line.trim().startsWith("|"),
-  );
-  if (tableStart < 0)
+  if (!semantic.header)
     return {
       status: "invalid",
       result: null,
       issues: [
         semanticDomainIssue(
           "ir.source.table-missing",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "source_table_missing",
           { missingPart: "table" },
         ),
       ],
     };
-  const headers = parseTableRow(lines[tableStart] ?? "");
+  const headers = semantic.header.cells;
   if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders))
     return {
       status: "invalid",
@@ -217,13 +171,13 @@ export function compileSemanticIr(
       issues: [
         semanticDomainIssue(
           "ir.source.header-invalid",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "source_header_does_not_match_contract",
         ),
       ],
     };
 
-  const separators = parseTableRow(lines[tableStart + 1] ?? "");
+  const separators = semantic.separator?.cells ?? [""];
   if (
     separators.length !== expectedHeaders.length ||
     separators.some((cell) => !/^:?-{3,}:?$/u.test(cell))
@@ -234,24 +188,23 @@ export function compileSemanticIr(
       issues: [
         semanticDomainIssue(
           "ir.source.separator-invalid",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "source_separator_invalid",
         ),
       ],
     };
 
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const meanings: SemanticIrMeaning[] = [];
   const semanticKeys = new Set<string>();
-  for (let index = tableStart + 2; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
-    if (!line.trim().startsWith("|")) break;
-    const cells = parseTableRow(line);
+  for (const row of semantic.rows) {
+    const index = row.location.line - 1;
+    const cells = row.cells;
     if (cells.length !== expectedHeaders.length) {
       issues.push(
         semanticDomainIssue(
           "ir.source.row-invalid",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "source_row_cell_count_invalid",
           { row: index + 1, cellCount: cells.length },
         ),
@@ -272,7 +225,7 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.key-invalid",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "meaning_key_not_in_subsystem_namespace",
           { row: index + 1, subsystem },
         ),
@@ -281,7 +234,7 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.key-duplicate",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "meaning_key_not_unique",
           { semanticKey },
           semanticKey,
@@ -292,7 +245,7 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.kind-invalid",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "meaning_kind_shape_invalid",
           { row: index + 1 },
         ),
@@ -301,7 +254,7 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.statement-missing",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "meaning_statement_missing",
           { row: index + 1 },
         ),
@@ -310,7 +263,7 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.architecture-id-missing",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "architecture_identity_missing",
           { row: index + 1 },
         ),
@@ -320,7 +273,7 @@ export function compileSemanticIr(
         issues.push(
           semanticDomainIssue(
             "ir.meaning.architecture-id-unresolved",
-            sourceDocument.path,
+            sourceDocument.source.path,
             "architecture_identity_unresolved",
             { archId },
             archId,
@@ -337,7 +290,7 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.verification-invalid",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "verification_value_not_supported",
           { row: index + 1 },
         ),
@@ -349,19 +302,21 @@ export function compileSemanticIr(
       issues.push(
         semanticDomainIssue(
           "ir.meaning.not-applicable-reason-missing",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "not_applicable_reason_missing",
           { row: index + 1 },
         ),
       );
     if (
       !sourceSection ||
-      !lines.some((candidate) => candidate.trim() === sourceSection)
+      !semantic.sourceLines.some(
+        (candidate) => candidate.text.trim() === sourceSection,
+      )
     )
       issues.push(
         semanticDomainIssue(
           "ir.meaning.source-section-unresolved",
-          sourceDocument.path,
+          sourceDocument.source.path,
           "source_section_unresolved",
           { row: index + 1 },
         ),
@@ -390,7 +345,7 @@ export function compileSemanticIr(
     issues.push(
       semanticDomainIssue(
         "ir.source.meanings-empty",
-        sourceDocument.path,
+        sourceDocument.source.path,
         "source_has_no_meaning_rows",
       ),
     );
@@ -403,10 +358,10 @@ export function compileSemanticIr(
       contractRevision: 0,
       stability: "pilot",
       subsystem,
-      sourceDocument: sourceDocument.path,
+      sourceDocument: sourceDocument.source.path,
       sourceSha256: crypto
         .createHash("sha256")
-        .update(sourceDocument.source, "utf8")
+        .update(sourceDocument.source.content, "utf8")
         .digest("hex"),
       meanings: meanings.sort((left, right) =>
         left.semanticKey.localeCompare(right.semanticKey),

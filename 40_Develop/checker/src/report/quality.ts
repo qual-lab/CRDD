@@ -3,8 +3,8 @@
  * @responsibility 既存の診断shape・code・文言・必要値検査を所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../document-model/src/index.ts";
-import type { DocumentFinding, CheckerFinding } from "./types.ts";
+import type { DocumentIssue } from "../../../document-model/src/index.ts";
+import type { CheckerFinding, DocumentFinding } from "./types.ts";
 /**
  * 品質設計状態の中立Issueを既存の表示へ変換する。
  *
@@ -22,7 +22,7 @@ import type { DocumentFinding, CheckerFinding } from "./types.ts";
  * @concurrency N/A: 共有状態を持たない同期処理。
  */
 export function mapQualityDesignStateIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
   readiness: "Quality Design Ready" | "Quality Ready",
 ): CheckerFinding {
   if (issue.kind !== "artifact.quality-design.state-invalid")
@@ -52,7 +52,7 @@ export function mapQualityDesignStateIssueToFinding(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function mapQualityDefinitionIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string, message: string;
   switch (issue.kind) {
@@ -210,7 +210,7 @@ export function mapQualityDefinitionIssueToFinding(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function mapQualityAnalysisIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
@@ -279,6 +279,12 @@ export function mapQualityAnalysisIssueToFinding(
       code = "quality-source-goal-relation-closure-mismatch";
       message =
         "The summary mapping and canonical Source-specific relation table must expose the same duplicate-free Source ID to verification-goal relation set.";
+      break;
+    }
+    case "artifact.quality-analysis.architecture-cross-model-coverage-mismatch": {
+      code = "quality-architecture-cross-model-coverage-mismatch";
+      message =
+        "The Quality mapping must explicitly process the exact five canonical Architecture cross-model documents.";
       break;
     }
     case "artifact.quality-analysis.cross-model-row-invalid": {
@@ -379,7 +385,7 @@ export function mapQualityAnalysisIssueToFinding(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function mapQualityRelationsIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;

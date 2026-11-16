@@ -4,7 +4,7 @@
  * @responsibility DomainのArtifact IssueをCheckerの表示・重要度・位置へ対応付ける。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../document-model/src/index.ts";
+import type { DocumentIssue } from "../../../document-model/src/index.ts";
 import type { CheckerFinding, DocumentFinding } from "./types.ts";
 
 /**
@@ -23,7 +23,7 @@ import type { CheckerFinding, DocumentFinding } from "./types.ts";
  * @concurrency N/A: 共有可変状態を持たない同期変換。
  */
 export function mapArchitectureDomainIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
@@ -148,7 +148,9 @@ export function mapArchitectureDomainIssueToFinding(
  * @security 表示変換は採用や品質全体の成立を発行しない。
  * @concurrency N/A: 同期処理で共有状態を持たない。
  */
-export function mapIaDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
+export function mapIaDomainIssueToFinding(
+  issue: DocumentIssue,
+): DocumentFinding {
   let message: string;
   switch (issue.kind) {
     case "artifact.ia.analysis-contract-invalid":
@@ -198,18 +200,18 @@ export function mapIaDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
  *
  * @responsibility string Detailの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000001
- * @input issue: DomainIssue、name: string
+ * @input issue: DocumentIssue、name: string
  * @returns stringを返す。
- * @precondition 「issue: DomainIssue、name: string」がstringDetailの入力契約を満たす。
+ * @precondition 「issue: DocumentIssue、name: string」がstringDetailの入力契約を満たす。
  * @postcondition stringDetailの責務を完了した結果だけを返す。
  * @effect N/A: stringDetailは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure stringDetailは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant stringDetailは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: DomainIssueのdetailsをProcess内で検査する。
+ * @boundary N/A: DocumentIssueのdetailsをProcess内で検査する。
  * @security N/A: stringDetailはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: stringDetailは共有非同期状態を持たない同期処理である。
  */
-function stringDetail(issue: DomainIssue, name: string): string {
+function stringDetail(issue: DocumentIssue, name: string): string {
   const value = issue.details[name];
   if (typeof value !== "string" || value.length === 0)
     throw new Error(
@@ -223,19 +225,19 @@ function stringDetail(issue: DomainIssue, name: string): string {
  *
  * @responsibility Artifact Domain Issue To Checker Findingの入力集合、対応規則、未対応結果の境界を所有する。
  * @trace ARCH-000001
- * @input issue: DomainIssue
+ * @input issue: DocumentIssue
  * @returns CheckerFindingを返す。
- * @precondition 「issue: DomainIssue」がmapArtifactDomainIssueToCheckerFindingの入力契約を満たす。
+ * @precondition 「issue: DocumentIssue」がmapArtifactDomainIssueToCheckerFindingの入力契約を満たす。
  * @postcondition mapArtifactDomainIssueToCheckerFindingの責務を完了した結果だけを返す。
  * @effect N/A: mapArtifactDomainIssueToCheckerFindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure mapArtifactDomainIssueToCheckerFindingは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant mapArtifactDomainIssueToCheckerFindingは入力から導いた結果以外の共有状態を変更しない。
- * @boundary DomainIssueと既存Rule診断の同期変換境界。
+ * @boundary DocumentIssueと既存Rule診断の同期変換境界。
  * @security N/A: mapArtifactDomainIssueToCheckerFindingはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: mapArtifactDomainIssueToCheckerFindingは共有非同期状態を持たない同期処理である。
  */
 export function mapArtifactDomainIssueToCheckerFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): CheckerFinding {
   let code: string;
   let rule: string;
@@ -288,7 +290,9 @@ export function mapArtifactDomainIssueToCheckerFinding(
  * @security 認可・実在確認・品質全体の成立を発行しない。
  * @concurrency N/A: 呼出し間の共有可変状態を持たない。
  */
-export function mapUiDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
+export function mapUiDomainIssueToFinding(
+  issue: DocumentIssue,
+): DocumentFinding {
   let code: string;
   let message: string;
   switch (issue.kind) {
@@ -296,6 +300,22 @@ export function mapUiDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
       code = "ui-registry-row-invalid";
       message =
         "Each UI registry row must identify at least one UX-view and IA-view input.";
+      break;
+    case "artifact.ui.area-checklist-invalid":
+      code = "ui-area-checklist-invalid";
+      message = `Each existing UI Area document must expose one evaluated artifact-specific checklist (${stringDetail(issue, "checklistFailure")}).`;
+      break;
+    case "artifact.ui.screen-checklist-invalid":
+      code = "ui-screen-checklist-invalid";
+      message = `Each existing UI Screen document must expose one evaluated artifact-specific checklist (${stringDetail(issue, "checklistFailure")}).`;
+      break;
+    case "artifact.ui.component-checklist-invalid":
+      code = "ui-component-checklist-invalid";
+      message = `Each existing UI Component document must expose one evaluated artifact-specific checklist (${stringDetail(issue, "checklistFailure")}).`;
+      break;
+    case "artifact.ui.visual_baseline-checklist-invalid":
+      code = "ui-visual-baseline-checklist-invalid";
+      message = `The existing UI Visual Baseline must expose one evaluated artifact-specific checklist (${stringDetail(issue, "checklistFailure")}).`;
       break;
     case "artifact.ui.detail-current-coverage-invalid":
       code = "ui-detail-current-coverage-invalid";
@@ -367,7 +387,7 @@ export function mapUiDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
  * @concurrency N/A: 呼出し間の共有可変状態を持たない。
  */
 export function mapChangeDomainIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
@@ -392,6 +412,16 @@ export function mapChangeDomainIssueToFinding(
       message =
         "CHG-000080以降の変更トレースは、Phase／Gateの適用判断、PhaseごとのGate、途中拡張、途中見直し、および固定前収束の必須適用判断を固定構造で保持する必要があります。";
       break;
+    case "artifact.change.template-invalid":
+      code = "change-impact-files-template-mismatch";
+      message =
+        "The official Change template must expose the canonical exhaustive impact-file section and the Phase/Gate/scope-extension/plan-revision evaluation contract.";
+      break;
+    case "artifact.change.navigation-population-mismatch":
+      code = "change-navigation-population-mismatch";
+      message =
+        "The Change navigation must reference every ID-only Change aggregate exactly once and no unknown aggregate.";
+      break;
     default:
       throw new Error(`unknown_change_domain_issue:${issue.kind}`);
   }
@@ -413,10 +443,17 @@ export function mapChangeDomainIssueToFinding(
  * @security 認可・採用・品質全体の成立を発行しない。
  * @concurrency N/A: 共有状態を持たない。
  */
-export function mapUxDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
+export function mapUxDomainIssueToFinding(
+  issue: DocumentIssue,
+): DocumentFinding {
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.ux.cross-projection-incomplete":
+      code = "ux-cross-cutting-projection-incomplete";
+      message =
+        "Each cross-cutting UX projection must process every canonical UX ID exactly once in its dedicated mapping section.";
+      break;
     case "artifact.ux.requirement-formal-input-invalid":
       code = "ux-requirement-formal-input-invalid";
       message =
@@ -482,10 +519,10 @@ export function mapUxDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
 }
 
 /**
- * Discovery分析・定義のIssueを既存診断へ変換する。
+ * Discovery台帳・分析・定義・ひな型のIssueを既存診断へ変換する。
  * @responsibility 成果物別の文言・code・位置を保持し未知kindと詳細不足を拒否する。
  * @trace ARCH-000001
- * @input issue: Discovery分析または定義の中立Issue。
+ * @input issue: Discoveryの文書別完成Parseが返した中立Issue。
  * @returns 既存の四field診断。
  * @precondition 本文検査はDomainが実施している。
  * @postcondition Checklist理由を含む旧文言を返す。
@@ -497,7 +534,7 @@ export function mapUxDomainIssueToFinding(issue: DomainIssue): DocumentFinding {
  * @concurrency N/A: 共有状態を持たない。
  */
 export function mapDiscoveryDomainIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
@@ -506,6 +543,14 @@ export function mapDiscoveryDomainIssueToFinding(
       code = "discovery-analysis-contract-invalid";
       message =
         "Each Discovery analysis must declare its phase-owned artifact type and matching exploration ID.";
+      break;
+    case "artifact.discovery.index-checklist-invalid":
+      code = "discovery-checklist-contract-invalid";
+      message = `The canonical Discovery entry must contain one visible, fully evaluated artifact-specific Checklist (${stringDetail(issue, "checklistFailure")}).`;
+      break;
+    case "artifact.discovery.template-checklist-invalid":
+      code = "discovery-checklist-template-invalid";
+      message = `Each Discovery template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${stringDetail(issue, "checklistFailure")}).`;
       break;
     case "artifact.discovery.analysis-checklist-invalid":
       code = "discovery-checklist-contract-invalid";
@@ -541,11 +586,15 @@ export function mapDiscoveryDomainIssueToFinding(
  * @concurrency N/A: 呼出し間の共有可変状態を持たない。
  */
 export function mapSpecDomainIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
   switch (issue.kind) {
+    case "artifact.spec.behavior-checklist-invalid":
+      code = "spec-behavior-checklist-invalid";
+      message = `Each existing Behavior detail must expose one evaluated artifact-specific checklist (${stringDetail(issue, "checklistFailure")}).`;
+      break;
     case "artifact.spec.correspondence-closure-mismatch":
       code = "ui-spec-correspondence-closure-mismatch";
       message =

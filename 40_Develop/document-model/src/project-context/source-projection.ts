@@ -10,9 +10,9 @@
  * @security 制限されたSourceやAuthorityを補完しない。
  */
 import type {
-  ProjectOperationSource,
-  ProjectOperationProjectionItem,
   ProjectOperationProjection,
+  ProjectOperationProjectionItem,
+  ProjectOperationSource,
 } from "./types.ts";
 
 /**

@@ -1,5 +1,11 @@
 # Checkerの設計
 
+## 試験台帳モデルと回帰計画の境界
+
+document-modelは試験台帳の構造、実在試験との照合、登録されたOwner・Path・段階・Profile・利用側関係の妥当性を所有する。Checkerの`src/test-catalog/selection.ts`は変更Pathから回帰対象と静的検査Ownerを選定し、高負荷試験の明示条件を検査する。`src/test-catalog/plan.ts`は段階順・人間入力待ち・Windows専用Profile・結果集約・変更Path受付を所有する。
+
+CLIは両Ownerを直接利用し、文書モデルの公開入口を経由してCheckerの処理を呼び戻さない。通常回帰へのPT／LT混入拒否、未分類変更の保守的な選択、試験段階と独立した静的Owner選択を維持する。計画結果は`testExecution: "not_started"`／`effectIssued: false`であり、試験起動・許可・合格を示さない。台帳構造の10試験は文書モデル、選択・条件の15試験と計画・集約の2試験はCheckerをOwnerとし、既存の検証内容を削らない。
+
 ## Repository横断のVC利用境界回帰 — 2026-11-14
 
 tests/integration/version-control-consumers.integration.test.tsは、全Packageと配布入口のVC Consumer集合・単一Owner・Root迂回拒否、Checker自身の公開VC接続を検証する。下位VCから移管した九試験であり、Checker製品にコード内部の命名／実装検査機能を加えたものではない。Source読取りだけでGit操作・保存・AI／Dockerを発行しない。VC単独の五試験とはOwnerを分け、既存のRCM-IT-004と全61assertを維持する。
@@ -33,15 +39,25 @@ Checker自身の公開API・受付・配布入口・依存方向・試験Runner�
 
 旧Profileは撤去した。`cli/document.ts`は引数・Root初回確認・表示・終了値を所有し、`repository/document.ts`は探索・Scope・参照・文書状態・工程観測の順序と報告集計を所有する。工程観測はproject-context、work-lifecycle、discovery-ux、ia、ui、spec、architecture、qualityの八Fileへ分ける。工程間をつなぐ共通Reader、Snapshot、Registryは作らず、取得済み値をDomainへ渡す。既存参照解決関数だけをDiscovery／UXへ明示搬送し、Readerを再構築しない。診断は元の追記配列に配送し、途中の例外でも先行診断を破棄しない。
 
-Qualityの有限状態・工程分析・統合・Detail引渡し・関係閉包と書式条件はDomainへ接続する。Centerの解析結果を同じままReality状態対の検査へ渡し、関連flagを独立に再構成しない。DomainのIssueは専用の二変換で従来診断へ接続する。Coverage節欠落時は従来どおり統合本文をreadした後でreturnし、以降の定義列挙・Detail取得を実行しない。読取り前の先読みSnapshotは作らず、同Fileの再read、Ready条件付きread、実Path集合とIDの観測は元位置に保持する。
+Qualityの有限状態・工程分析・統合・Detail引渡し・関係閉包と書式条件はDomainへ接続する。CenterとRealityは個別にParseし、同じCenterモデルとRealityのParse結果をSemanticのquality_reality_stateへ渡す。関連flagをCheckerで再構成しない。DomainのIssueは専用の二変換で従来診断へ接続する。Coverage節欠落時は従来どおり統合本文をreadした後でreturnし、以降の定義列挙・Detail取得を実行しない。読取り前の先読みSnapshotは作らず、同Fileの再read、Ready条件付きread、実Path集合とIDの観測は元位置に保持する。
 
-Quality Definitionは従来のphysicalDefinitionPaths順に一回ずつ生本文をreadし、Directoryから解決したQA-IDと診断位置を`inspectQualityDefinition`へ渡す。部分関係・出現列・後勝ちMapを既存の集約先へ追加し、本文Issueを表示する。その後に独立抽出Local ID列と現在のOwner Mapを`inspectQualityLocalItemOwnership`へ渡し、先勝ちの所有と重複Issueを後続へ接続する。新しいFile読取り・先読み・保存・管理基盤は追加しない。`report/quality.ts`の専用変換が二十kindを従来のcode・文言へ接続し、動的文言の必要情報と未知kindを検査する。
+UI・SPECのChecklistは文書別の完成Parseへ接続する。局所診断はParse、文書間の被覆・閉包はinspectDocumentRelationsへ渡す。元のread・lstat・不存在skip・短絡・診断順を維持し、参照用UI読取りの局所IssueをSPECへ追加配送しない。Definition根拠はFingerprint後に各ペアを再readして直ちに評価する。Architectureも完成Parseへ統合し、初回本文と二回目Checklist原文を別々に取得・搬送する。
 
-Architecture分析／定義は従来どおり本文read・可視化後に同Fileを再readし、既存Domain Checklist検査を実行してから`inspectArchitectureAnalysis`／`inspectArchitectureDefinition`へ渡す。分析済みIDとRelationの集約は診断表示前、定義の実在ID追加は二回read前に維持する。Templateのlstat・readと不存在時の省略も維持し、用途別の意味だけを`inspectArchitectureDetailTemplate`へ渡す。横断モデルは`inspectArchitectureCrossModelIndex`が返す固定文書順にlstat・readし、欠落時は旧診断を表示して次へ進む。登録節が空ならモデルFileは観測しない。一回のreadから可視本文とFence保持本文を導き、`inspectArchitectureCrossModel`へ渡す。
+DiscoveryはparseDiscoveryIndex／parseDiscoveryAnalysis／parseDiscoveryDefinitionの完成Parseへ接続する。Root一種・Template三種の既存read位置を維持し、ひな型にはmode: templateを明示する。台帳とひな型の局所Issueもreport/convert.tsが旧code・文言へ変換する。Root確認前のearly return・Template不存在時skip・列挙と読取り位置・診断順を維持する。基本図観測は台帳モデルのdiagramContractだけ、後段の採用REQ取得は別readのresult.adoptedRequirementIdsだけを使い、Checklist Issueを二重配送しない。部分Checklist受付・期待列の外部組立てを撤去し、UXの観測経路は変更しない。
 
-詳細Mapの取得後に`inspectArchitectureDetailMap`へ接続する。Detail DirectoryはFile有無より前に実領域集合へ追加し、File欠落は診断後に継続する。一回目の可視本文と二回目のChecklist理由を`inspectArchitectureDetail`へ渡し、部分関係とCovered定義を従来位置で集約する。領域列挙後の三閉包条件は`inspectArchitectureDetailCoverage`へ接続し、診断位置文字列だけを渡す。
+UXのChecklistは文書別の七Parseへ接続し、実文書五種・Template七種の既存read位置と方式を維持する。部分Checklist受付は使用しない。欠落時のcontinue・後続Handoff等の再read・診断理由と順序を維持し、期待配列を組み立てない。台帳・分析・定義の引渡し表は完成モデルのhandoffContractから取得する。
 
-分析列挙後の網羅性は`inspectArchitectureAnalysisCoverage`、横断モデル取得後の登録本文は`parseArchitectureRegistry`へ接続する。定義列挙後は`inspectArchitectureRegistryCoverage`を呼び、Component表は横断モデルの取得値を流用せず同Fileを元位置で再readして`inspectArchitectureComponentCoverage`へ渡す。Detail処理後の重複・三者閉包は`inspectArchitectureRelations`へ渡す。専用変換が十八kindを旧code・文言へ接続する。本文意味をCheckerへ再実装しない。本文意味と観測編成のSource分離は実装済みであり、固定候補の最終回帰・レビュー・清掃を別に確認する。
+IAは台帳・Object関係・情報構造とNavigation・状態可視性・分析・定義の六Parseへ接続する。Template六種・実文書四種のread位置と明示方式を維持し、checklistContract.failureを既存診断へ接続する。台帳ID解析や横断投影の後続readを統合せず、それらの追加Checklist Issueを配送しない。
+
+Qualityの九文書は文書別の完成Parseへ接続し、Checklistの期待配列や種類のPath推定をCheckerで組み立てない。Root・ひな型・工程分析・定義と、後続の状態・書式・担当確認の別readを維持する。ひな型内容はtemplateContract、相関読取りはassignment／trace等の必要な断面だけを使い、その位置で無関係な局所Issueを追加配送しない。Ready判定の初回Artifact集合と後のChecklist再readは統合しない。
+
+Quality Definitionは従来のphysicalDefinitionPaths順に一回ずつ生本文をreadし、Directoryから解決したQA-IDと診断位置を`parseQualityDefinition`へ渡す。部分関係・出現列・後勝ちMapを既存の集約先へ追加し、本文Issueを表示する。その後に独立抽出Local ID列と現在のOwner Mapを`inspectQualityLocalItemOwnership`へ渡し、先勝ちの所有と重複Issueを後続へ接続する。新しいFile読取り・先読み・保存・管理基盤は追加しない。`report/quality.ts`の専用変換が二十kindを従来のcode・文言へ接続し、動的文言の必要情報と未知kindを検査する。
+
+Architecture分析／定義／領域は、初回本文と二回目Checklist原文を元位置で別々に取得し、完成Parseへ明示的に渡す。Checklist理由はDomainが同じ捕捉から計算し、Readyとの比較はSemanticへ接続する。Templateのlstat・read・不存在skipは維持し、完成した定義／領域ParseのtemplateContractに対応する既存診断だけを同じ位置へ配送する。parseArchitectureIndexが返す固定文書順に横断文書をlstat・readし、登録節が空なら後続文書を観測しない。可視本文とFence保持の構造本文はDomainが同じ取得から導く。
+
+詳細Mapの取得後に`parseArchitectureDetailMap`へ接続する。Detail DirectoryはFile有無より前に実領域集合へ追加し、File欠落は診断後に継続する。一回目の原文と二回目のChecklist理由を`parseArchitectureDetail`へ渡し、部分関係とCovered定義を従来位置で集約する。領域列挙後の三閉包条件は`inspectArchitectureDetailCoverage`へ接続し、診断位置文字列だけを渡す。
+
+分析・定義・登録・Component・詳細領域の被覆と閉包はinspectDocumentRelationsへ渡す。入口の一回の原文から横断登録と定義台帳をモデル化し、局所重複診断も旧被覆位置に配送する。Componentは先の読取り値を流用せず元位置で再readし、完成した横断モデルの参照出現を比較する。担当確認用の後段readも統合しない。専用変換は旧code・文言・診断順を維持し、本文意味をCheckerへ戻さない。
 
 定義対応Evidenceは`artifact/spec-correspondence.ts`の四APIへ接続する。対応本文read後の改訂表解析、全Definition Directory名sort・Fileのlstat・生本文の直接read・相対Path付きNUL区切りSHA-256、続く対応行別UI→SPECのreadという順を維持する。Fingerprint用の生本文と可視根拠検査用本文の二度取りを統合しない。正規行だけの対象解決後に行検査を呼び、実際に訪問した理由を出現順に集約する。最後の閉包・根拠・改訂の中立Issueを`report/convert.ts`で旧診断三分類へ変換する。表・根拠文の解釈をCheckerへ再実装せず、Fingerprint用のFilesystem観測とhash計算だけを維持する。
 
@@ -51,13 +67,13 @@ DetailのUI対応・Screen関係・SPEC表被覆・対応表状態をDomainの`a
 
 SPEC分析・登録表・定義の取得済み本文はDomainの三APIへ渡し、関係出現列／集合を従来の位置で集約し、既存report/convertのSPEC用変換で旧診断へ配送する。分析網羅性、定義網羅性、UI定義件数取得後の件数／三者閉包、UI本文read後の対応関係閉包も、元位置でDomainへ直接接続する。不正本文からも関係を保持し、観点別ID追加と後続Detail／下流Traceの列挙・読取りを先取りしない。工程本文意味と観測編成の分離は実装済み。最終回帰・レビュー・清掃を別に確認する。
 
-UX正式入力はDiscovery定義read・参照候補解析・Path解決・境界確認を維持し、観測済み六事実をDomainの`inspectUxFormalInput`へ渡す。定義参照が一件のときだけ同一Pathを比較し、観測失敗を安全なfalseへ畳まない。正式入力診断は本文診断より先に表示する。最終UX／Journey閉包は旧Root観測後の元位置で`inspectUxRelations`へ渡し、従来の二診断を既存report/convertから表示する。新しい参照観測・状態・回復処理は追加しない。
+UX正式入力は同じ分析readからparseUxAnalysisで捕捉したHeader・候補・禁止宣言を使う。Checkerが従来どおりDiscovery定義read・Path解決・境界確認を行い、六観測と解析モデルをSemanticのux_formal_inputへ渡す。定義参照が一件のときだけ同一Pathを比較し、観測失敗を安全なfalseへ畳まない。正式入力診断は本文診断より先に表示する。最終UX／Journey閉包は元位置でux_relationsへ渡す。新しい観測・状態・回復処理は追加しない。
 
-Discovery要求定義は列挙・実在ID追加・読取り後にDomainの`inspectDiscoveryDefinition`へ渡し、探索分析は元の読取り位置で`inspectDiscoveryAnalysis`へ渡す。`report/convert.ts`のDiscovery用変換は各二Issueを成果物別の旧診断へ変換する。採用要求IDは元位置で入口を再readして`parseAdoptedDiscoveryRequirements`へ渡す。採用要求との網羅性確認は従来位置に残し、入口Checklist・Template条件は今回の移管対象に含めない。
+Discovery要求定義は列挙・実在ID追加・読取り後にparseDiscoveryDefinitionへ渡し、探索分析は元の読取り位置でparseDiscoveryAnalysisへ渡す。各Parseのresultは原文・内容・出典、issuesはraw構造→Checklistの従来順であり、report/convert.tsが成果物別の旧診断へ変換する。採用要求IDは元位置で入口を再readしてparseDiscoveryIndexの内容から取得する。採用要求との網羅性確認は従来位置に残す。
 
-UX分析は正式入力のPath解決・Discovery定義の観測・先行不正診断を行った後、既読本文と期待REQ ID・入口のPath出現数をDomainの`inspectUxAnalysis`へ渡す。分析専用六Issueは既存report/convertで旧診断へ変換し、解析済み関係を現在の集合へ集約する。本文不正でも関係を保持し、外部読取りと後続閉包確認は従来の位置に残す。
+UX分析の局所診断はparseUxAnalysisが返す。台帳のPath出現数との比較はux_analysis_registrationへ渡し、局所構造不備と重複しない六Issueを既存report/convertで旧診断へ変換する。同じ完成モデルの関係を集約し、本文不正でも情報を保持する。IA定義も単体Parseの後にia_definitionで実分析Mapと照合し、最終ia_relationsでは成立した対応列だけを比較する。
 
-UX定義の本文構造・直接Handoff・ChecklistはDomainの`inspectUxDefinition`へ渡し、定義専用の三種類の中立Issueを`report/convert.ts`で旧code・文言へ変換する。定義Directory列挙、ID集合追加、本文読取り、最後の網羅性確認は従来の位置に残す。Discovery本文の移管済みを意味しない。
+UX定義の本文構造・引渡し・ChecklistはparseUxDefinitionで内容と局所診断へ分離し、三種類の中立Issueをreport/convert.tsが旧code・文言へ変換する。Directory列挙、ID集合追加、本文読取り、最後の網羅性確認は従来位置に残す。
 
 変更記録の本文構造・ひな型固有条件・指定案内区画の集合照合はDomainの`artifact/change.ts`へ移管した。CheckerはRoot、CHG列挙・整列・読取り、他工程TemplateとRelease Evidenceの観測を所有し、中立Issueを`report/convert.ts`で既存の四field診断へ変換する。見出し不正時の短絡や番号80以降の適用条件は変更しない。旧形式の移行処理や一般的な工程検査Frameworkは追加しない。
 
@@ -81,7 +97,7 @@ Realityも同じ境界にそろえる。`report/reality.ts`は既存の三field�
 
 通常文書の表示は`report/output.ts`の`writeDocumentReport(report, options, writeOutput)`へ分離した。内部の`DocumentReport`と`DocumentReferenceMap`は既存field・null・観測順を保持する表示用型で、Rootへ公開しない。repository/document.tsがレポートを元のkey順に構築して時刻・件数を集計し、cli/document.tsが終了値を確定する。表示側はObjectを再構築せず、JSON単独は診断配列、JSON＋Summaryは全レポート、人間表示は元の文字列・改行・callback粒度で渡す。参照mapの別表示は人間Summary時だけ。callbackの失敗は同じ例外を伝播し後続発行を止める。cli/document.tsは元requestのメソッド呼出しも維持する。保存先・Filesystem・時計・新しい合否判定を表示側へ持たせない。
 
-利用者承認により、本番Consumerが0件だった`findings/domain-outcome.ts`の汎用変換・専用結果型・旧ITを撤去する。Domainの四状態・相関・必須／禁止fieldはDomain直接UTが確認する。Checkerは本番Producerが返す結果から、用途別の診断・拒否・既存終了値へ接続する。汎用四状態を一律にChecker公開結果へ残す旧契約は退役し、その旧ITを本番接続の根拠へ流用しない。新しい汎用変換や状態管理は追加しない。
+利用者承認により、本番Consumerが0件だった`findings/domain-outcome.ts`の汎用変換・専用結果型・旧ITを撤去する。文書モデルの四状態・部分内容・診断field・入力不変は実Producerの直接UTが確認する。本番Consumerのない結果オブジェクト受付は廃止し、そのAPIだけに存在した禁止field・不正相関の拒否契約を、本番の残存保証として表示しない。Checkerは本番Producerが返す結果から、用途別の診断・拒否・既存終了値へ接続する。汎用四状態を一律にChecker公開結果へ残す旧契約は退役し、その旧ITを本番接続の根拠へ流用しない。新しい汎用変換や状態管理は追加しない。
 
 Domainの成果物集合検査と用途別変換ではSchema invalidのIssueとGraph partialの非null結果を保持する。一方、現Quality本番呼出しはschemasを指定せず、品質状態の診断だけを公開する。文書公開入口の実入力不備・Realityの実Source欠測・Semantic入力欠測は診断と終了1、Semantic Root不正は終了2として検証する。Domain構造として妥当な未知kindはSurfaceの各本番変換が拒否する。公開三操作・JSON・文言・出力順・終了値は不変とし、詳細な検証条件はQA-000001のRCM-IT-011／RCM-UT-016が所有する。
 
@@ -177,7 +193,19 @@ binはPackage名と同じ`bin/checker.ts`一つを維持する。以下は現在
 
 ## 工程ひな型の基本図処置検査のDomain移管 — 2026-10-19
 
-`checkPhaseDiagramDispositionContracts`はofficial適用を判定し、Domainの`phaseDiagramTemplatePaths`の順で既存の探索・fallback・存在確認・本文読取りを行う。存在しないFileは従来どおりskipする。本文条件は`inspectPhaseDiagramTemplates`へ委譲し、返却Issueから既存code・Path・文言のFindingへ変換する。未知kindや不正detailsは正常診断へ丸めず拒否する。
+正本文書群は元の列挙・Link拒否・readからparseCanonicalDocumentへ接続する。Parse局所Issueは直ちに配送せず、inspectReleaseDocumentsが旧順へ統合してから表示する。版件数も同じモデル列から返し、Checkerで手製tuple／状態DTOを作り直さない。Stable候補とofficial／scopeを照合した後にだけ既存Git観測と二つのStable関係評価へ進む。全Markdownの16行観測とsomeの短絡、再read、Tag未確認の扱いは維持する。
+
+CHANGELOGは従来の二つのread位置でparseChangelogへ対象版を明示して渡す。通常観測は局所Issue、Stable観測はモデルをstable_changelogへ渡した閉包Issueだけを表示する。CandidateのReleased Baselineによる対象版選択、official／adopter条件、File不在時の空本文、診断順を維持する。
+
+READMEの通常版比較とStable版比較は、それぞれ元のread位置でparseReadmeへ渡す。通常比較は採用Header版、Stable比較はSemanticのstable_readmeから既存表示へ接続する。File不在時の空本文・official／adopterの適用条件・別読取り・診断順は変更しない。
+
+Changeの観測はwork-lifecycle.tsが元の列挙・read・Template後続検査・案内read順を所有する。Canonical／TemplateはparseChangeDocument、案内はparseChangeIndexへ渡し、文書単体のIssueとSemanticのchange_navigationを元の一か所で既存表示へ変換する。Header観測はdocument.tsが先頭40行を同じ完成Parseへ渡し、IDと標準見出しだけを使う。二回readと短絡の評価順を変えず、Header観測の局所Issueを新たに表示しない。
+
+checkPhaseDiagramDispositionContractsはofficial適用を判定し、従来の七Pathを同順で探索・fallback・存在確認・readする。各Pathの対応する工程Root内容受付へ原文を渡し、diagramContract.issuesだけを既存code・文言で表示する。台帳の追加IssueやChecklist失敗をここへ配送しない。工程側が期待図名と固有条件、Artifact内部が表構文を所有する。旧RootのPath Catalog・横断ひな型Parserは使用しない。対象外Pathを自動で工程へ分類せず、従来の不存在skipを維持する。
+
+IdentityはparseIdentityDocumentからraw出現と一般宣言を取得し、同じ取得のUX台帳モデルにある専用表宣言を後で集約する。00_CRDDのadopter除外を変えず、手動改訂の表示は元の定義観測位置だけで行う。別のDiscoveryリンク観測では解析モデルをSemanticへ渡し、リンク所有Issueだけを表示する。重複所有もSemanticへ宣言Mapを渡し、既存の位置・順序を維持する。
+
+QualityとArchitectureの固定五文書比較は、同じ観測位置でQualityIntegrationをSemanticのquality_architecture_modelsへ渡す。CheckerはNodeのPath基点と相対診断位置を搬送し、追加I/O・新しいSnapshot・固定五文書の二重定義を持たない。新しいDomain Issueは既存の品質診断へ変換し、旧code・文言・表示順を維持する。
 
 七Profileの内容・列・図名・処置語彙は[Domain詳細](../domain-model/01_Architecture.md#工程ひな型の基本図処置契約--2026-10-19)へ集約し、Checkerには同じ表を複製しない。generic／adopterへの適用拡大、図の品質保証、新しいRegistryは追加しない。
 
@@ -187,7 +215,7 @@ Discovery・UX・IA・UI・SPEC・Architecture・Qualityが共有する可視Che
 
 ## 品質設計成果物の状態検査のDomain移管 — 2026-10-19
 
-旧品質状態RuleとRegistryは撤去した。現在は`repository/quality.ts`からDomain Rootの`inspectQualityDesignStates`と`report/quality.ts`の表示変換へ直接接続する。品質設計の対象集合、readiness、Findingのseverity・code・文言・入力順はCheckerが維持する。状態正規化とCanonical判定の意味は[Domain詳細](../domain-model/01_Architecture.md#品質設計成果物の状態検査--2026-10-19)が所有する。
+旧品質状態RuleとRegistryは撤去した。repository/quality.tsはSemanticのinspectDocumentRelations（quality_design_states）とreport/quality.tsの表示変換へ接続する。対象集合とReady分岐、Findingのseverity・code・文言・入力順はCheckerが維持する。状態正規化とCanonical判定は[文書モデルの設計](../document-model/01_Architecture.md#architecture-quality-parse)が所有する。
 
 report/convert.tsで中立Issueを明示変換し、未知kindは例外として拒否する。新しいRegistryや変換専用Fileは追加しない。この規則の移管だけでQuality Readyの全体成立やChecker全体の薄い入口化を主張しない。
 
@@ -201,7 +229,7 @@ report/convert.tsで中立Issueを明示変換し、未知kindは例外として
 
 共通リンク参照の抽出・target／anchor分解は、Domain Rootの`parseMarkdownLinkTargets`／`parseMarkdownLinkReference`へ移管した。Checkerは返却値を既存の`resolveLocalTarget`へ接続し、外部URL分類・Root境界・Link観測・固定Git履歴・Finding変換を維持する。参照文字列の解析成功から、参照の存在や安全性を推定しない。
 
-UX固有の参照候補解析は、本文と現在のRoot文字列を`parseUxFormalInputTargets`へ渡す形へ移管した。Checkerは返却候補を既存のPath解決・Discovery Definition／Analysis識別・正式入力検査へ接続する。Root検証や権限判断をDomainへ移したものではない。参照候補の意味は[UX解析の境界](../domain-model/01_Architecture.md#ux正式入力の参照候補解析--2026-10-19)に従う。
+UXの参照候補は完成分析モデルのformalInputTargetsから取得する。referenceRootは裸のRepository起点候補の組立て用文字列であり、Root検証や権限を意味しない。Markdown→HTML→裸Path→Entity順と重複flag合成を維持し、Checkerは既存のPath解決・Discovery Definition／Analysis識別・正式入力比較へ接続する。内部の候補構文処理をRootへ独立公開しない。
 
 受付・観測・意味・表示のSource分離を実装した。全体回帰の不合格や未実施項目を局所成功からPassへ読み替えない。巨大なProfileをそのままDomainへ移動したり、新しいRule登録基盤を追加したりしない。具体的な本文APIと既存Parserとの差は[Domain詳細](../domain-model/01_Architecture.md#可視本文表先頭headerの移管--2026-10-19)、共通リンクの意味は[リンク解析の境界](../domain-model/01_Architecture.md#共通リンク参照解析の移管--2026-10-19)に従う。
 
@@ -508,6 +536,8 @@ Test Catalogの定義、変更影響からの試験選択、試験段階の実�
 同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
 
 ## 上流UI／SPEC Detailとの関係
+
+通常本文は固定配置の`Areas/<領域>/area.md`、`Components/CMP-<6桁>/component.md`、`Visual/visual_baseline.md`、`05_SPEC/Details/BHV-<6桁>/behavior.md`を存在時だけ読む。完成Parseの既存局所Checklist診断を種類別code・失敗理由・相対位置へ変換する。直接の領域Directoryだけを列挙し、非対象配置やLinkを探索せず、不在を作成義務へ変換しない。既存の工程比較後へ追加し、短Cell例外後の先読みを行わない。ScreenはSPECの既存読取り位置で局所Issueを配送し、同じ部分モデルを関係比較へ渡す。
 
 | Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
 |---|---|---|---|---|

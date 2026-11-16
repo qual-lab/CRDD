@@ -184,6 +184,7 @@ Host明示開始 → Root／Path・双方未初期化を確認
 | 採用済み入口以外の実装配置・物理保存・秘密保護 | OPEN | Architecture工程 | その他の配置・Store・Schemaは未固定 | Architecture Detailで具体化する時 |
 | 実利用条件 | OPEN | SPEC／UX Owner・Qual-Lab | 利用頻度・確認負担は未固定。鍵の期限なしは採用済み | Pilot／回復実測または前提変更時 |
 | 具体API・保存・実画面と本番認可 | OPEN | Architecture／実装・UI工程Owner | 固定分担の設計だけでは本番成立を主張できない | 後続のArchitecture・Source・実境界検証時 |
+| SPECとArchitectureの方式境界の再照合 | OPEN | SPEC／Architecture工程Owner | §3の同Process・保存数・具体API記述と、採用済み入口条件／Architecture未確定部分との境界を未照合。方式先取りの有無は未確定 | 次のSPEC／Architecture対応確認時に採用済み判断と照合する |
 
 ## 補足分析
 
@@ -193,12 +194,15 @@ Host明示開始 → Root／Path・双方未初期化を確認
 
 期限なしの実装条件: 時間経過だけで鍵の失効・交換・再発行を行わず、明示失効と現在認可を別に評価する。観測不能・無効・失効資格を受理しない。具体Schema・保存・本番接続は未成立。
 
+以下の処置済み項目は本文の設計記録との対応確認であり、実装・検証の成功や工程Exitを表さない。
+
 ## Checklist
 
-- [x] Source SPECから導出し、新ID・Authority・Store／Schemaを追加していない
+- [x] 独立したTriggerまたはResultを持つ
+- [x] Source SPECへ接続した
 - [x] TriggerからRecoveryまで全観点を評価した
-- [x] 独立失効と2操作×2入口、情報保持と秘密境界を区別した
-- [x] 正常・境界・失敗・結果不明・回復の反証をQualityへの入力へ接続した
-- [x] 利用者認識が必要な結果を既存SCR／PRTへ接続した
-- [x] Process喪失後を元Identity再観測・別明示交換・既存Hostへ分け、各交換内exactを保持した
-- [x] 未確認事項をOPENとしてOwner・影響・戻り条件とともに残した
+- [x] N/Aに理由、OPENにOwner・影響・戻り条件を記録した
+- [x] Normal、Boundary、Failure、UnknownおよびRecoveryを評価した
+- [x] UI認識が必要な結果をUI Detailへ接続した
+- OPEN: §3の具体方式と採用済み入口条件の境界は未照合。担当:SPEC／Architecture工程Owner。影響:方式先取りなしを確定できない。再評価:§7の対応確認時 — Architecture方式やSource実装を先取りしていない
+- [x] 新しいUX Outcome、IA Object、UI PresentationまたはAuthorityを創作していない

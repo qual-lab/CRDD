@@ -1,5 +1,17 @@
 # QA-000001 リポジトリ検査と契約移行の検証定義
 
+## Architecture・Qualityの完成ParseとSemanticの境界
+
+RCM-UT-002でArchitectureの本文初回／Checklist二回目の独立捕捉、取得後変更、局所とReady・被覆の併存時一件診断、Quality九文書の公開Parse、原文・状態・件数・部分関係・Map後勝ちと出典を確認する。既存の工程結合試験で、Ready・未知状態、二回読取り、Coverage欠測時のreturn、ひな型条件、担当・閉包・段階・境界、診断順と相関取得時の局所Issue非配送を確認する。Root契約・Symbol・QA・Catalogの接続を維持し、限定成功を全体回帰・実AI・Docker・Releaseの成立へ拡張しない。
+
+## UI・SPECの完成Parseと関係評価の境界
+
+Screenは既存AUH-IT-003で、一回読取り、正常・Checklist欠測・不完全行、局所不備と関係不備の併存、局所Issueの一度配送、部分モデル保持、不在・祖先Link除外を確認する。RCM-UT-002でScreen専用code・理由・相対位置・本文非開示・不正details拒否を検証する。RCM-UT-014の固定公開契約は250項目と、内部Helperの非公開を確認し、Helper自体の反証試験は同Package内部Ownerから継続する。
+
+RCM-UT-002と既存AUH-IT-003で、通常AREA・CMP・Visual Baseline・BHVの局所Checklist診断を確認する。正常／不備本文、一回読取り、理由codeと相対位置、本文非開示、不在・非対象配置・Linkの除外を検証する。CMP作成義務や自由文の意味判定は追加せず、Screenも既存読取り位置で局所Issueを一度配送し、同じモデルを関係比較へ渡す。
+
+既存RCM-UT-002でUI九種類・SPEC七種類のChecklist条件、原文・表・出典・部分内容、行不正でも残る対応Map、局所不備と外部被覆不備の併存時一件診断を確認する。既存Checker結合試験は読取り・短絡・診断順、参照用UI局所Issueの非配送、Definition根拠の各ペアfresh readと短Cell例外後の後続未読を確認する。通常四文書の接続は局所Checklistの検証であり、自由文全体の意味判定・全体回帰・実AI・Dockerの成功へ拡張しない。
+
 ## 二役選定の設定受付の共有
 
 RCM-UT-001は設定検査一回・役割別AD適合四回を製品宣言と実検査で観測する。検査直後の元設定変更が結果へ伝播しないこと、不正要求の設定検査前拒否、不正設定の技術選定前拒否を確認する。既存の優先順・五役割・保存選定・Hash・分類と片側失敗の検証を維持する。単独選定・外部依存返却値・Transport／復元の検査を省略せず、実AI・Dockerを使わない。

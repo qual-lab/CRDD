@@ -7,8 +7,9 @@
  * @effect N/A: 外部I/Oや共有状態の変更を行わない。
  * @security 参照の存在・認可・Root内外やURLの安全性を判定しない。
  */
-import type { MarkdownLinkReference } from "./types.ts";
+
 import { omitMarkdownFencedCode } from "./anchors.ts";
+import type { MarkdownLinkReference } from "./types.ts";
 
 /**
  * Markdown本文から参照先文字列を抽出する。

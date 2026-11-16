@@ -4,8 +4,7 @@
  * @responsibility ArtifactSchemaを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
-import type { ArtifactModel } from "./types.ts";
+import type { ArtifactModel, DocumentIssue, DocumentResult } from "./types.ts";
 
 /**
  * schema-validatorで使用するArtifact Schemaの値契約を定義する。
@@ -40,16 +39,16 @@ export type ArtifactSchema = Readonly<{
  * @security N/A: ArtifactSchemaValidationResultはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility ArtifactSchemaValidationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type ArtifactSchemaValidationResult = DomainOutcome<ArtifactModel>;
+export type ArtifactSchemaValidationResult = DocumentResult<ArtifactModel>;
 
 /**
  * schema Issueを決定する。
  *
  * @responsibility schema Issueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
- * @input artifact: ArtifactModel、schemaId: string、kind: string、reason: string、details: DomainIssue["details"]
- * @returns DomainIssueを返す。
- * @precondition 「artifact: ArtifactModel、schemaId: string、kind: string、reason: string、details: DomainIssue["details"]」がschemaIssueの入力契約を満たす。
+ * @input artifact: ArtifactModel、schemaId: string、kind: string、reason: string、details: DocumentIssue["details"]
+ * @returns DocumentIssueを返す。
+ * @precondition 「artifact: ArtifactModel、schemaId: string、kind: string、reason: string、details: DocumentIssue["details"]」がschemaIssueの入力契約を満たす。
  * @postcondition schemaIssueの責務を完了した結果だけを返す。
  * @effect N/A: schemaIssueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: schemaIssueは独自の失敗分岐を所有しない。
@@ -63,8 +62,8 @@ function schemaIssue(
   schemaId: string,
   kind: string,
   reason: string,
-  details: DomainIssue["details"],
-): DomainIssue {
+  details: DocumentIssue["details"],
+): DocumentIssue {
   return {
     kind,
     targetIdentity: artifact.canonicalId ?? artifact.sourceLocation.path,
@@ -94,7 +93,7 @@ export function validateArtifactSchema(
   artifact: ArtifactModel,
   schema: ArtifactSchema,
 ): ArtifactSchemaValidationResult {
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   for (const property of schema.requiredProperties ?? [])
     if (!artifact[property])
       issues.push(

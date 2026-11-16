@@ -3,28 +3,23 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
-
-import { lstatIfPresent } from "../repository/observe.ts";
 
 import fs from "node:fs";
 import path from "node:path";
-
 import {
-  parseIaIndex,
-  inspectIaAnalysis,
-  inspectIaDefinition,
-  inspectIaAnalysisCoverage,
-  inspectIaIndexCoverage,
-  inspectIaCrossProjection,
-  inspectIaRelations,
   type IaAnalysisModel,
   type IaDefinitionModel,
-  createPhaseChecklistItems,
-  inspectEvaluatedChecklist,
-  inspectTemplateChecklist,
+  inspectDocumentRelations,
+  parseIaAnalysis,
+  parseIaDefinition,
+  parseIaIndex,
+  parseIaObjectRelation,
+  parseIaStateVisibility,
+  parseIaStructureNavigation,
 } from "../../../document-model/src/index.ts";
 import { mapIaDomainIssueToFinding } from "../report/convert.ts";
+import type { DocumentFinding } from "../report/types.ts";
+import { lstatIfPresent } from "../repository/observe.ts";
 
 /**
  * ia成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -51,14 +46,6 @@ export function inspectIaRepository(
   const relative = (file: string) =>
     path.relative(root, file).replaceAll("\\", "/") || ".";
   const read = (file: string) => fs.readFileSync(file, "utf8");
-  const {
-    iaIndexChecklistItemTexts,
-    iaObjectRelationChecklistItemTexts,
-    iaStructureNavigationChecklistItemTexts,
-    iaStateVisibilityChecklistItemTexts,
-    iaAnalysisChecklistItemTexts,
-    iaDefinitionChecklistItemTexts,
-  } = createPhaseChecklistItems();
 
   if (repositoryMode !== "official") return;
   const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
@@ -111,20 +98,33 @@ export function inspectIaRepository(
         relative(templatePath),
         "The official IA profile must include root, cross-cutting, analysis, and definition templates.",
       );
-  const templateChecklistContracts: Array<[string, readonly string[]]> = [
-    [requiredTemplates[0], iaIndexChecklistItemTexts],
-    [requiredTemplates[1], iaObjectRelationChecklistItemTexts],
-    [requiredTemplates[2], iaStructureNavigationChecklistItemTexts],
-    [requiredTemplates[3], iaStateVisibilityChecklistItemTexts],
-    [requiredTemplates[4], iaAnalysisChecklistItemTexts],
-    [requiredTemplates[5], iaDefinitionChecklistItemTexts],
-  ];
-  for (const [templatePath, expectedItems] of templateChecklistContracts) {
+  const templateChecklistContracts = [
+    [requiredTemplates[0], "index"],
+    [requiredTemplates[1], "object_relation"],
+    [requiredTemplates[2], "structure_navigation"],
+    [requiredTemplates[3], "state_visibility"],
+    [requiredTemplates[4], "analysis"],
+    [requiredTemplates[5], "definition"],
+  ] as const;
+  for (const [templatePath, kind] of templateChecklistContracts) {
     if (!lstatIfPresent(templatePath)?.isFile()) continue;
-    const checklistError = inspectTemplateChecklist(
-      read(templatePath),
-      expectedItems,
-    );
+    const source = {
+      path: relative(templatePath),
+      content: read(templatePath),
+    };
+    const parsed =
+      kind === "index"
+        ? parseIaIndex(source, { mode: "template" })
+        : kind === "object_relation"
+          ? parseIaObjectRelation(source, { mode: "template" })
+          : kind === "structure_navigation"
+            ? parseIaStructureNavigation(source, { mode: "template" })
+            : kind === "state_visibility"
+              ? parseIaStateVisibility(source, { mode: "template" })
+              : kind === "analysis"
+                ? parseIaAnalysis(source, "UX-XXXXXX", { mode: "template" })
+                : parseIaDefinition(source, "IA-XXXXXX", { mode: "template" });
+    const checklistError = parsed.result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -134,22 +134,22 @@ export function inspectIaRepository(
       );
   }
 
-  const iaCrossArtifacts: Array<[string, readonly string[]]> = [
-    [iaIndexPath, iaIndexChecklistItemTexts],
+  const iaCrossArtifacts = [
+    [iaIndexPath, "index"],
     [
       path.join(root, "03_IA", "02_Object_and_Relation_Model.md"),
-      iaObjectRelationChecklistItemTexts,
+      "object_relation",
     ],
     [
       path.join(root, "03_IA", "03_Information_Structure_and_Navigation.md"),
-      iaStructureNavigationChecklistItemTexts,
+      "structure_navigation",
     ],
     [
       path.join(root, "03_IA", "04_State_Visibility_and_Responsibility.md"),
-      iaStateVisibilityChecklistItemTexts,
+      "state_visibility",
     ],
-  ];
-  for (const [artifactPath, expectedItems] of iaCrossArtifacts) {
+  ] as const;
+  for (const [artifactPath, kind] of iaCrossArtifacts) {
     if (!lstatIfPresent(artifactPath)?.isFile()) {
       add(
         "error",
@@ -159,10 +159,19 @@ export function inspectIaRepository(
       );
       continue;
     }
-    const checklistError = inspectEvaluatedChecklist(
-      read(artifactPath),
-      expectedItems,
-    );
+    const source = {
+      path: relative(artifactPath),
+      content: read(artifactPath),
+    };
+    const parsed =
+      kind === "index"
+        ? parseIaIndex(source, { mode: "evaluated" })
+        : kind === "object_relation"
+          ? parseIaObjectRelation(source, { mode: "evaluated" })
+          : kind === "structure_navigation"
+            ? parseIaStructureNavigation(source, { mode: "evaluated" })
+            : parseIaStateVisibility(source, { mode: "evaluated" });
+    const checklistError = parsed.result.checklistContract.failure;
     if (checklistError)
       add(
         "error",
@@ -200,7 +209,7 @@ export function inspectIaRepository(
   const iaIndexModel = parseIaIndex({
     path: relative(iaIndexPath),
     content: read(iaIndexPath),
-  });
+  }).result;
   const iaAnalyses = new Map<string, IaAnalysisModel>();
   const actualAnalysisIds = new Set<string>();
   if (lstatIfPresent(iaAnalysisRoot)?.isDirectory()) {
@@ -215,22 +224,23 @@ export function inspectIaRepository(
       );
       if (!lstatIfPresent(analysisPath)?.isFile()) continue;
       actualAnalysisIds.add(entry.name);
-      const analysisModel = inspectIaAnalysis(
+      const analysisModel = parseIaAnalysis(
         { path: relative(analysisPath), content: read(analysisPath) },
         entry.name,
       );
-      iaAnalyses.set(entry.name, analysisModel);
+      iaAnalyses.set(entry.name, analysisModel.result);
       for (const issue of analysisModel.issues) {
         const finding = mapIaDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
   }
-  for (const issue of inspectIaAnalysisCoverage(
-    uxIds,
-    actualAnalysisIds,
-    relative(iaIndexPath),
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "ia_analysis_coverage",
+    expectedIds: uxIds,
+    actualIds: actualAnalysisIds,
+    sourcePath: relative(iaIndexPath),
+  })) {
     const finding = mapIaDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
@@ -248,42 +258,51 @@ export function inspectIaRepository(
       );
       if (!lstatIfPresent(definitionPath)?.isFile()) continue;
       actualIaIds.add(entry.name);
-      const definitionModel = inspectIaDefinition(
+      const definitionModel = parseIaDefinition(
         { path: relative(definitionPath), content: read(definitionPath) },
         entry.name,
-        iaAnalyses,
       );
-      iaDefinitions.push(definitionModel);
-      for (const issue of definitionModel.issues) {
+      iaDefinitions.push(definitionModel.result);
+      for (const issue of inspectDocumentRelations({
+        kind: "ia_definition",
+        definition: definitionModel,
+        analyses: iaAnalyses,
+      })) {
         const finding = mapIaDomainIssueToFinding(issue);
         add(finding.severity, finding.code, finding.path, finding.message);
       }
     }
   }
-  for (const issue of inspectIaIndexCoverage(
-    iaIndexModel,
-    actualIaIds,
-    relative(iaIndexPath),
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "ia_index_coverage",
+    index: iaIndexModel,
+    actualIds: actualIaIds,
+    sourcePath: relative(iaIndexPath),
+  })) {
     const finding = mapIaDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   for (const [crossPath] of iaCrossArtifacts.slice(1)) {
     if (!lstatIfPresent(crossPath)?.isFile()) continue;
-    for (const issue of inspectIaCrossProjection(
-      { path: relative(crossPath), content: read(crossPath) },
-      actualIaIds,
-    )) {
+    for (const issue of inspectDocumentRelations({
+      kind: "ia_projection",
+      projection: parseIaObjectRelation({
+        path: relative(crossPath),
+        content: read(crossPath),
+      }).result.projection,
+      actualIds: actualIaIds,
+    })) {
       const finding = mapIaDomainIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
   }
-  for (const issue of inspectIaRelations(
-    iaIndexModel,
-    [...iaAnalyses.values()],
-    iaDefinitions,
-    relative(iaIndexPath),
-  )) {
+  for (const issue of inspectDocumentRelations({
+    kind: "ia_relations",
+    index: iaIndexModel,
+    analyses: [...iaAnalyses.values()],
+    definitions: iaDefinitions,
+    sourcePath: relative(iaIndexPath),
+  })) {
     const finding = mapIaDomainIssueToFinding(issue);
     add(finding.severity, finding.code, finding.path, finding.message);
   }

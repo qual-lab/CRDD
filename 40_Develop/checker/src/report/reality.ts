@@ -3,16 +3,16 @@
  * @responsibility 既知分類・必須詳細の拒否とcode・path・messageを所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../document-model/src/index.ts";
+import type { DocumentIssue } from "../../../document-model/src/index.ts";
 import type { CheckerRealityFinding } from "./types.ts";
 /**
  * Reality Domain Issue To Checker Findingを対応付ける。
  *
  * @responsibility Reality Domain Issue To Checker Findingの入力集合、対応規則、未対応結果の境界を所有する。
  * @trace ARCH-000001
- * @input issue: DomainIssue
+ * @input issue: DocumentIssue
  * @returns CheckerRealityFindingを返す。
- * @precondition 「issue: DomainIssue」がmapRealityDomainIssueToCheckerFindingの入力契約を満たす。
+ * @precondition 「issue: DocumentIssue」がmapRealityDomainIssueToCheckerFindingの入力契約を満たす。
  * @postcondition mapRealityDomainIssueToCheckerFindingの責務を完了した結果だけを返す。
  * @effect N/A: mapRealityDomainIssueToCheckerFindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure mapRealityDomainIssueToCheckerFindingは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -22,7 +22,7 @@ import type { CheckerRealityFinding } from "./types.ts";
  * @concurrency N/A: mapRealityDomainIssueToCheckerFindingは共有非同期状態を持たない同期処理である。
  */
 export function mapRealityDomainIssueToCheckerFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): CheckerRealityFinding {
   const value = (name: string) => {
     const candidate = issue.details[name];

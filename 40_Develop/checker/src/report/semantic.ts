@@ -3,16 +3,17 @@
  * @responsibility 閉じたkind集合、必須Detailの拒否と既存三field診断を所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue } from "../../../document-model/src/index.ts";
+import type { DocumentIssue } from "../../../document-model/src/index.ts";
 import type { SemanticCoverageDiagnostic } from "./types.ts";
+
 /**
  * Domain Issueから必須の文字列Detailを取得する。
  *
  * @responsibility 不正なIssue shapeを診断変換前に拒否する。
  * @trace ARCH-000008
- * @input issue: DomainIssue、name: string
+ * @input issue: DocumentIssue、name: string
  * @returns stringを返す。
- * @precondition issue: DomainIssue、name: stringがstringDetailの入力契約を満たす。
+ * @precondition issue: DocumentIssue、name: stringがstringDetailの入力契約を満たす。
  * @postcondition stringDetailの責務を完了した結果だけを返す。
  * @effect N/A: stringDetailは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 欠落または空文字列を既定値へ畳まない。
@@ -21,7 +22,7 @@ import type { SemanticCoverageDiagnostic } from "./types.ts";
  * @security N/A: stringDetailはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: stringDetailは共有非同期状態を持たない同期処理である。
  */
-function stringDetail(issue: DomainIssue, name: string): string {
+function stringDetail(issue: DocumentIssue, name: string): string {
   const value = issue.details[name];
   if (typeof value !== "string" || value.length === 0)
     throw new Error(
@@ -35,9 +36,9 @@ function stringDetail(issue: DomainIssue, name: string): string {
  *
  * @responsibility 不正なIssue shapeを診断変換前に拒否する。
  * @trace ARCH-000008
- * @input issue: DomainIssue、name: string
+ * @input issue: DocumentIssue、name: string
  * @returns numberを返す。
- * @precondition issue: DomainIssue、name: stringがnumberDetailの入力契約を満たす。
+ * @precondition issue: DocumentIssue、name: stringがnumberDetailの入力契約を満たす。
  * @postcondition numberDetailの責務を完了した結果だけを返す。
  * @effect N/A: numberDetailは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 非数値を変換または既定値へ畳まない。
@@ -46,7 +47,7 @@ function stringDetail(issue: DomainIssue, name: string): string {
  * @security N/A: numberDetailはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: numberDetailは共有非同期状態を持たない同期処理である。
  */
-function numberDetail(issue: DomainIssue, name: string): number {
+function numberDetail(issue: DocumentIssue, name: string): number {
   const value = issue.details[name];
   if (typeof value !== "number")
     throw new Error(
@@ -60,9 +61,9 @@ function numberDetail(issue: DomainIssue, name: string): number {
  *
  * @responsibility Issue kindごとの安定codeと必要Detailを一意に決める。
  * @trace ARCH-000008
- * @input issue: DomainIssue
+ * @input issue: DocumentIssue
  * @returns SemanticCoverageDiagnosticを返す。
- * @precondition issue: DomainIssueがmapSemanticDomainIssueToDiagnosticの入力契約を満たす。
+ * @precondition issue: DocumentIssueがmapSemanticDomainIssueToDiagnosticの入力契約を満たす。
  * @postcondition mapSemanticDomainIssueToDiagnosticの責務を完了した結果だけを返す。
  * @effect N/A: mapSemanticDomainIssueToDiagnosticは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure 未知Issue kindを一般診断へ丸めず拒否する。
@@ -72,7 +73,7 @@ function numberDetail(issue: DomainIssue, name: string): number {
  * @concurrency N/A: mapSemanticDomainIssueToDiagnosticは共有非同期状態を持たない同期処理である。
  */
 export function mapSemanticDomainIssueToDiagnostic(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): SemanticCoverageDiagnostic {
   let code: string;
   let message: string;

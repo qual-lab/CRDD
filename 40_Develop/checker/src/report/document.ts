@@ -3,7 +3,7 @@
  * @responsibility 既存の診断shape・code・文言・必要値検査を所有する。
  * @trace ARCH-000001
  */
-import type { DomainIssue } from "../../../document-model/src/index.ts";
+import type { DocumentIssue } from "../../../document-model/src/index.ts";
 import type { DocumentFinding } from "./types.ts";
 /**
  * 共通文書Issueを既存の公開診断へ変換する。
@@ -21,7 +21,7 @@ import type { DocumentFinding } from "./types.ts";
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function mapDocumentRuleIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
@@ -249,7 +249,7 @@ export function mapDocumentRuleIssueToFinding(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function mapDocumentIdentityIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;
@@ -336,7 +336,7 @@ export function mapDocumentIdentityIssueToFinding(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function mapStableReleaseIssueToFinding(
-  issue: DomainIssue,
+  issue: DocumentIssue,
 ): DocumentFinding {
   let code: string;
   let message: string;

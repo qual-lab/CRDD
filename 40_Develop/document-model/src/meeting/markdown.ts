@@ -8,18 +8,19 @@
  * @effect N/A: 入力文字列または型宣言だけを扱う。
  * @security 記載されていない状態、RelationまたはAuthorityを補完しない。
  */
-import type {
-  MeetingState,
-  MeetingOutcomeTreatment,
-  MeetingRecord,
-} from "./types.ts";
+
 import {
+  assertSafeCell,
   readMetadata,
   readSummary,
-  assertSafeCell,
   tableCells,
   tableRange,
 } from "../artifact/activity-table.ts";
+import type {
+  MeetingOutcomeTreatment,
+  MeetingRecord,
+  MeetingState,
+} from "./types.ts";
 
 /**
  * Meeting Outcome表のpending件数を数える。

@@ -13,19 +13,14 @@
 import assert from "node:assert/strict";
 
 import fs from "node:fs";
-
-import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
-
 import path from "node:path";
-
 import test from "node:test";
-
 import { fileURLToPath } from "node:url";
-
 import {
   type RealitySymbolManifest,
   validateRealitySymbolManifest,
 } from "../../../document-model/src/index.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 
 import {
   assertExactCheckerTestPopulation,
@@ -245,43 +240,38 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./activity/operations.ts",
       "./activity/types.ts",
       "./artifact/anchors.ts",
-      "./artifact/architecture.ts",
-      "./artifact/architecture-details.ts",
-      "./artifact/architecture-relations.ts",
-      "./artifact/change.ts",
-      "./artifact/checklist.ts",
-      "./artifact/discovery.ts",
+      "./architecture/validation.ts",
+      "./architecture/details.ts",
+      "./change/parse.ts",
+      "./change/types.ts",
+      "./discovery/parse.ts",
+      "./discovery/types.ts",
       "./artifact/document-header.ts",
       "./artifact/graph.ts",
-      "./artifact/ia.ts",
+      "./ia/parse.ts",
+      "./ia/types.ts",
       "./artifact/identity.ts",
       "./artifact/inspect.ts",
       "./artifact/links.ts",
       "./artifact/markdown.ts",
       "./artifact/parse-markdown.ts",
-      "./artifact/phase-checklists.ts",
-      "./artifact/phase-diagrams.ts",
-      "./artifact/quality-analysis.ts",
-      "./artifact/quality-definition.ts",
-      "./artifact/quality-readiness.ts",
-      "./artifact/quality-relations.ts",
-      "./artifact/quality-state.ts",
-      "./artifact/quality-templates.ts",
-      "./artifact/release.ts",
-      "./artifact/spec.ts",
-      "./artifact/spec-correspondence.ts",
-      "./artifact/spec-details.ts",
+      "./quality/analysis.ts",
+      "./quality/definition.ts",
+      "./quality/readiness.ts",
+      "./release/parse.ts",
+      "./release/types.ts",
+      "./spec/parse.ts",
+      "./spec/types.ts",
       "./artifact/types.ts",
-      "./artifact/ui.ts",
-      "./artifact/ux.ts",
-      "./artifact/ux-handoff.ts",
-      "./artifact/ux-inputs.ts",
+      "./ui/parse.ts",
+      "./ui/types.ts",
+      "./ux/parse.ts",
+      "./ux/types.ts",
       "./artifact/validate-schema.ts",
-      "./artifact/verification-tables.ts",
+      "./quality/verification-tables.ts",
       "./meeting/create-operations.ts",
       "./meeting/markdown.ts",
       "./meeting/types.ts",
-      "./outcome.ts",
       "./project-context/candidate-decision.ts",
       "./project-context/inspect.ts",
       "./project-context/parse-context.ts",
@@ -306,7 +296,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./semantic/relations.ts",
       "./storage/semantic-store.ts",
       "./test-catalog/inspect.ts",
-      "./test-catalog/plan.ts",
       "./topic/create-operations.ts",
       "./topic/markdown.ts",
       "./topic/types.ts",
@@ -516,7 +505,7 @@ test("Checker文書受付は工程別Repository観測へ接続し旧Profileを�
   assert.match(command, /inspectDocumentRepository\(/u);
   assert.doesNotMatch(
     command,
-    /function check[A-Z]|inspectQualityDefinition|inspectUiDefinition/u,
+    /function check[A-Z]|parseQualityDefinition|parseUiDefinition/u,
   );
   assert.equal(
     fs.existsSync(path.join(checkerRoot, "src/profiles/current.ts")),
@@ -914,7 +903,7 @@ function collectVerifiedSymbolManifests(
       for (const id of symbol.archIds ?? [])
         assert.ok(
           canonicalArchitectureIds.has(id),
-          "Unknown Architecture relation: " + id,
+          `Unknown Architecture relation: ${id}`,
         );
       if (symbol.kind !== "verification-tool") continue;
       assert.equal(

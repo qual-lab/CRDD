@@ -7,16 +7,15 @@
  * @scope report、quality-definition
  * @boundary RCM-UT-002=N/A: 同期モデル検査と値変換。
  */
-import { mapQualityDefinitionIssueToFinding } from "../../../src/report/quality.ts";
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { DocumentIssue } from "../../../../document-model/src/index.ts";
 import {
-  inspectQualityDefinition,
   inspectQualityLocalItemOwnership,
+  parseQualityDefinition,
 } from "../../../../document-model/src/index.ts";
-
-import type { DomainIssue } from "../../../../document-model/src/index.ts";
+import { mapQualityDefinitionIssueToFinding } from "../../../src/report/quality.ts";
 
 /**
  * 実本文と所有重複のIssueを表示まで接続する。
@@ -32,7 +31,7 @@ import type { DomainIssue } from "../../../../document-model/src/index.ts";
 test("Quality Definitionの実Issueは旧表示の順序と位置を維持する", () => {
   const artifact = { path: "definition.md", content: "" };
   const issues = [
-    ...inspectQualityDefinition(artifact, "QA-000001").issues,
+    ...parseQualityDefinition(artifact, "QA-000001").issues,
     ...inspectQualityLocalItemOwnership(
       artifact.path,
       ["SAMPLE-UT-001"],
@@ -76,7 +75,7 @@ test("Quality Definitionの実Issueは旧表示の順序と位置を維持する
  * @boundary RCM-UT-002=N/A: 同期表示変換。
  */
 test("Quality Definitionの表示は動的な診断情報の不足を拒否する", () => {
-  const base: DomainIssue = {
+  const base: DocumentIssue = {
     kind: "artifact.quality.verification-item-id-level-mismatch",
     targetIdentity: "definition.md",
     location: { path: "definition.md" },

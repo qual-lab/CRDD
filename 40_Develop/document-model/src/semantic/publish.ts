@@ -4,15 +4,16 @@
  * @responsibility PublishSemanticCoverageRequestを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
+
+import type {
+  SemanticBundlePublisher,
+  SemanticBundlePublishReceipt,
+} from "../storage/semantic-store.ts";
 import {
   createSemanticBundle,
   type SemanticCoverageGraph,
 } from "./coverage.ts";
 import type { SemanticIr } from "./ir.ts";
-import type {
-  SemanticBundlePublishReceipt,
-  SemanticBundlePublisher,
-} from "../storage/semantic-store.ts";
 
 /**
  * Semantic Coverage Bundleの公開要求を表す。

@@ -3,7 +3,7 @@
  * @responsibility 解析済み値の限定的な登録条件と中立Issueを所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue, DomainOutcome } from "../outcome.ts";
+import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 import { createRealityDomainIssue } from "./issue.ts";
 
 /**
@@ -24,10 +24,10 @@ import { createRealityDomainIssue } from "./issue.ts";
 export function inspectRealityTestCatalog(
   value: unknown,
   sourcePath: string,
-): DomainOutcome<
+): DocumentResult<
   ReadonlyMap<string, Readonly<{ owner: string; testId: string }>>
 > {
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const testsByPath = new Map<
     string,
     Readonly<{ owner: string; testId: string }>

@@ -1559,7 +1559,9 @@
         "checker:integration:test-catalog-plan",
         "checker:system:test-catalog-policy",
         "checker:unit:quality-state",
-        "checker:integration:domain-results"
+        "checker:integration:domain-results",
+        "checker:unit:test-catalog-selection",
+        "checker:unit:report-diagnostics"
       ]
     },
     {
@@ -7763,20 +7765,22 @@
     {
       "id": "domain-model:unit:outcome",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/outcome.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/artifact/result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "domain-outcome",
+        "document-result",
         "result-boundary"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "domain_status_preserved",
-        "invalid_correlation_rejected",
-        "forbidden_fields_rejected"
+        "document_status_preserved",
+        "partial_content_preserved",
+        "parse_state_scope_enforced",
+        "unused_result_validator_not_exported",
+        "input_unchanged"
       ],
       "mandatoryByDefault": true
     },
@@ -9525,9 +9529,27 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "domain-model:unit:test-catalog-plan",
-      "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/test-catalog/plan.contract.test.ts",
+      "id": "checker:unit:test-catalog-plan",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/test-catalog/plan.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "test",
+        "catalog"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_check_result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:test-catalog-selection",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/test-catalog/selection.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9605,7 +9627,7 @@
     {
       "id": "domain-model:unit:artifact-ux-inputs",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/ux-inputs.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/ux/inputs.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9625,7 +9647,7 @@
     {
       "id": "domain-model:unit:artifact-quality-state",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/quality-state.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/quality/state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9801,7 +9823,7 @@
     {
       "id": "domain-model:unit:artifact-ux-handoff",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/ux-handoff.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/ux/handoff.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9820,7 +9842,7 @@
     {
       "id": "domain-model:unit:artifact-ia",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/ia.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/ia/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9860,7 +9882,7 @@
     {
       "id": "domain-model:unit:artifact-ui",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/ui.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/ui/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9957,7 +9979,7 @@
     {
       "id": "domain-model:unit:artifact-change",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/change.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/change/parse.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9997,7 +10019,7 @@
     {
       "id": "domain-model:unit:artifact-ux",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/ux.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/ux/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10017,7 +10039,7 @@
     {
       "id": "domain-model:unit:artifact-discovery",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/discovery.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/discovery/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10037,7 +10059,7 @@
     {
       "id": "domain-model:unit:artifact-spec",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/spec.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/spec/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10055,9 +10077,30 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "document-model:unit:document-relations",
+      "owner": "document-model",
+      "path": "40_Develop/document-model/tests/unit/semantic/relations.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "semantic",
+        "relations",
+        "ui",
+        "architecture"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "domain-model:unit:artifact-architecture",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/architecture.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/architecture/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10077,7 +10120,7 @@
     {
       "id": "domain-model:unit:artifact-quality-definition",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/quality-definition.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/quality/definition.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10116,7 +10159,7 @@
     {
       "id": "domain-model:unit:artifact-quality-analysis",
       "owner": "document-model",
-      "path": "40_Develop/document-model/tests/unit/artifact/quality-analysis.contract.test.ts",
+      "path": "40_Develop/document-model/tests/unit/quality/analysis.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

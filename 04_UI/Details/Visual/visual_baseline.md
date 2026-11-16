@@ -58,18 +58,39 @@ Screen Inventory／Flowの参照: [UI Detail](../01_UI_Detail.md)
 
 ## 8. 未確認事項・戻り条件
 
-| 項目 | 状態 | Owner | 戻り条件 |
-|---|---|---|---|
-| GUI Art Direction | N/A | v0.22 UI工程Owner | GUI ProductとHero Screenを採用した時 |
-| CMP外観 | OPEN | UI工程Owner | 複数実画面で反復を確認した時 |
+| 項目 | 状態 | Owner | 影響 | 戻り条件 |
+|---|---|---|---|---|
+| GUI Art Direction | N/A（旧v0.21の対象範囲に対する記録） | v0.22 UI工程Owner | 旧非該当を現行Productの視覚評価の免除根拠にはしない | GUI ProductとHero Screenを採用した時 |
+| CMP外観 | OPEN | UI工程Owner | 再利用Componentの外観は未固定 | 複数実画面で反復を確認した時 |
+| 現行ひな型の視覚評価 | OPEN | UI工程Owner・Qual-Lab | Rendered View、Font、測定値、Zoom・Adaptive Profileと人間判断の成立は未確認。旧意味基準だけでG1〜G5通過やUI Detail完了を主張できない | 対象ProductのVisual評価を実施するとき、同じHero・表示条件・改訂版で根拠を取得し、人間判断へ戻す |
+
+以下のChecklistは現行ひな型への照合結果である。先頭のCanonicalは旧v0.21の意味・読み順の基準を指し、現行Productの視覚案選定や実表示検証の完了を追加承認しない。`[x]`は本文にある設計原則の確認に限定し、実画面・実測の成立とは区別する。既存の非該当やSecondary Screenの記述を、新しい視覚評価の完了根拠へ読み替えない。
 
 ## Checklist
 
-- [x] Screen Inventory／Flowの後に適用範囲を決めた
-- N/A: v0.21には代表GUIがないため、Hero Screenを選定していない
-- N/A: Product固有Visual Directionはv0.22で人間判断する
-- [x] 状態、根拠、操作、読み順およびAccessibilityの共通基準を固定した
-- [x] 色だけで状態を識別しない
-- [x] Secondary Screenへ展開して成立を確認した
+- OPEN: 現行ProductのHeroは未選定。担当:UI工程Owner・Qual-Lab。影響:比較条件未固定。再評価:対象Productの画面選定時 — Screen Inventory／Flowの後にHeroを選定した
+- OPEN: 同一Hero・表示条件の実表示比較は未確認。担当:UI工程Owner・Qual-Lab。影響:案の採否未確定。再評価:視覚案比較時 — 同じHeroと表示条件で2案以上のRendered Viewを比較した
+- OPEN: Productの複数案は未比較。担当:UI工程Owner・Qual-Lab。影響:UX／IA保持とTrade-off未確認。再評価:視覚案比較時 — 各DirectionのIntent、Trade-offおよび保持するUX／IAを比較した
+- OPEN: 現行Productの方向決定の記録なし。担当:UI工程Owner・Qual-Lab。影響:AI案を採用済みと扱えない。再評価:人間の方向決定時 — AI提案とHuman Direction Decisionを区別した
+- OPEN: 現行Productの採用判断は未確認。担当:UI工程Owner・Qual-Lab。影響:採用根拠と再探索条件未確定。再評価:人間の方向決定時 — 採用理由と再探索条件を示した
+- OPEN: 旧意味基準は現行の全視覚観点の評価ではない。担当:UI工程Owner・Qual-Lab。影響:視覚Baseline未確定。再評価:視覚基準作成時 — Baselineの全観点を評価した
+- OPEN: Fontと未導入時の実表示は未確認。担当:UI工程Owner・Qual-Lab。影響:文字の可読性未確認。再評価:Typography評価時 — 主要Font Family、Fallback順およびFont未導入時の成立を評価した
+- OPEN: Productの書体構成は未確認。担当:UI工程Owner・Qual-Lab。影響:混在理由未確定。再評価:Typography評価時 — 見出し、本文、ID／Codeで異なる書体を使う場合は理由を示した
+- OPEN: Font Binaryの同梱判断は未確認。担当:UI工程Owner・Qual-Lab。影響:配布条件未確定。再評価:Typographyと配布範囲の決定時 — Font Binary同梱をApplicable／N/A／OPENへ処置した
+- OPEN: 各案の原則適合は未評価。担当:UI工程Owner・Qual-Lab。影響:人間の採否へ進める根拠なし。再評価:視覚案比較前 — Direction比較前に各案のVisual Design Principleを評価した
+- OPEN: 実表示の文字寸法は未確認。担当:UI工程Owner・Qual-Lab。影響:可読性未確認。再評価:文字寸法と例外の評価時 — 本文14px、補助情報12pxを原則下限として例外を理由付き処置した
+- OPEN: Productの寸法Tokenは未確認。担当:UI工程Owner・Qual-Lab。影響:寸法体系未確定。再評価:視覚基準作成時 — Type ScaleとSpacingをToken化し、偶発的な値の増殖を避けた
+- OPEN: Contrastの測定値は未確認。担当:UI工程Owner・Qual-Lab。影響:実表示の識別性未確認。再評価:Contrast評価時 — Contrastを測定値または測定可能なTokenで評価した
+- OPEN: 操作Targetの寸法と間隔は未確認。担当:UI工程Owner・Qual-Lab。影響:操作性未確認。再評価:実表示の操作評価時 — Pointer／Touch Targetの寸法と間隔を評価した
+- [x] 色だけに依存せず状態を識別できるようにした
+- OPEN: §5は設計原則であり各表示条件の実測なし。担当:UI工程Owner・Qual-Lab。影響:適応性とFocus未確認。再評価:実表示の条件別検証時 — 長文、大量情報、200%拡大、狭幅およびKeyboard Focusを評価した
+- OPEN: 現行Productの対象Platformと必須Profileの評価未確認。担当:UI工程Owner・Qual-Lab。影響:適用除外を推定できない。再評価:対象Platform決定とProfile評価時 — 汎用Webでは全必須Adaptive Profileを評価し、対象を限定した場合は決定権限者と影響を記録した
+- OPEN: Breakpointと区間代表点は未確認。担当:UI工程Owner・Qual-Lab。影響:境界の成立未確認。再評価:Layout境界検証時 — 全Breakpointの直前／一致／直後と各Layout区間の代表点を評価した
+- OPEN: 実Browser Zoomと狭幅の別観測は未実施。担当:UI工程Owner・Qual-Lab。影響:条件別結果未確認。再評価:Zoom・狭幅検証時 — 実Browser Zoomと狭幅Viewportの結果を同一視していない
+- OPEN: Profileの技術結果と人間判断の対は未確認。担当:UI工程Owner・Qual-Lab。影響:例外受容を推定できない。再評価:Profile評価と人間判断時 — Profileの技術結果と人間の例外受容を分け、FAILをPASSへ書き換えていない
+- OPEN: 現行ProductのVisual Sourceと実表示の対応は未確認。担当:UI工程Owner・Qual-Lab。影響:再現条件未確定。再評価:視覚案作成時 — Visual SourceとRendered Viewを区別した
+- OPEN: §7の意味順序確認は視覚案の展開検証ではない。担当:UI工程Owner・Qual-Lab。影響:視覚的な展開成立未確認。再評価:Secondary Screenの実表示検証時 — Secondary Screenへ展開して成立を確認した
+- OPEN: 旧Canonicalと現行Productの採否は別。担当:UI工程Owner・Qual-Lab。影響:現行Baselineの確定不可。再評価:人間の方向決定とBaseline確定時 — Human Direction Decision前にBaselineをCanonical化していない
+- OPEN: ProductのPattern／CMP確定は未確認。担当:UI工程Owner・Qual-Lab。影響:再利用構成未確定。再評価:Secondary Screen検証と昇格判断時 — Secondary Screen検証前にPattern／CMPを確定していない
 - [x] Screenshotだけを正本にしていない
 - [x] N/Aに理由、OPENにOwner・影響・戻り条件を記録した

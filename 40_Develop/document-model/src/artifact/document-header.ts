@@ -3,34 +3,8 @@
  * @responsibility 取得済み本文を解析し、中立Issueと観測件数を返す。
  * @trace ARCH-000008
  */
-import type { DomainIssue } from "../outcome.ts";
-import type { ArtifactSource } from "./types.ts";
-import { readCanonicalDocumentHeader } from "./markdown.ts";
+import type { ArtifactSource, DocumentIssue } from "./types.ts";
 
-/**
- * 正本文書Headerの版・状態・Released Baselineを解析する。
- * @responsibility 既存のHeader境界と三fieldの限定文法を保持する。
- * @trace ARCH-000008
- * @input content: 取得済み本文。
- * @returns version、status、releasedBaseline。欠落はnull。
- * @precondition contentは文字列である。
- * @postcondition 最初に一致する値だけを返す。
- * @effect N/A: 入力文字列の解析だけを行う。
- * @failure 解析例外を伝播し、欠落を推測しない。
- * @invariant 状態だけtrimし、版とBaselineの文法は変更しない。
- * @boundary N/A: 同期的な値処理。
- * @security 解析は正本の実在・品質・公開許可を保証しない。
- * @concurrency N/A: 共有状態を持たない。
- */
-export function parseCanonicalReleaseHeader(content: string) {
-  const header = readCanonicalDocumentHeader(content);
-  return {
-    version: header.match(/^Version:\s*(v[0-9]\S*)\s*$/m)?.[1] ?? null,
-    status: header.match(/^Status:\s*(\S.*)\s*$/m)?.[1]?.trim() ?? null,
-    releasedBaseline:
-      header.match(/^Released Baseline:\s*(v[0-9]\S*)\s*$/m)?.[1] ?? null,
-  };
-}
 /**
  * Related見出し直後の標準文書番号順を検査する。
  * @responsibility Related見出し直後の標準文書番号順を検査する。
@@ -47,7 +21,7 @@ export function parseCanonicalReleaseHeader(content: string) {
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function inspectRelatedOrder(artifact: ArtifactSource) {
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const sourcePath = artifact.path;
   const hasRelated = true;
   const lines = artifact.content.split(/\r?\n/u);

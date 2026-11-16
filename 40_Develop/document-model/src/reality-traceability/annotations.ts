@@ -4,7 +4,7 @@
  * @responsibility RealitySymbolAnnotationsを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { DomainIssue } from "../outcome.ts";
+import type { DocumentIssue } from "../artifact/types.ts";
 import { createRealityDomainIssue } from "./issue.ts";
 import type { RealitySymbol } from "./manifest.ts";
 
@@ -87,7 +87,7 @@ function equalIdentitySets(
  * @responsibility Reality Symbol Annotationsの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input symbol: RealitySymbol、source: string、manifestPath: string
- * @returns readonly DomainIssue[]を返す。
+ * @returns readonly DocumentIssue[]を返す。
  * @precondition 「symbol: RealitySymbol、source: string、manifestPath: string」がvalidateRealitySymbolAnnotationsの入力契約を満たす。
  * @postcondition validateRealitySymbolAnnotationsの責務を完了した結果だけを返す。
  * @effect N/A: validateRealitySymbolAnnotationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -101,9 +101,9 @@ export function validateRealitySymbolAnnotations(
   symbol: RealitySymbol,
   source: string,
   manifestPath: string,
-): readonly DomainIssue[] {
+): readonly DocumentIssue[] {
   const annotations = extractRealitySymbolAnnotations(source);
-  const issues: DomainIssue[] = [];
+  const issues: DocumentIssue[] = [];
   const isTestSymbol =
     symbol.kind === "test-suite" ||
     symbol.kind === "test-case" ||

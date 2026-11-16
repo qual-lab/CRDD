@@ -9,18 +9,18 @@
  * @security Repository RootやFilesystem Pathを公開結果へ含めない。
  */
 
+import { applyMeetingOutcomeTreatment } from "../meeting/markdown.ts";
 import { applyTopicPromotion } from "../topic/markdown.ts";
 import type {
   MeetingOutcomeCommandResult,
-  TopicPromotionCommandResult,
-  TopicMeetingRelation,
+  ProjectOperationRecord,
+  ProjectOperationRecordKind,
   TopicMeetingListQuery,
   TopicMeetingOperations,
+  TopicMeetingRelation,
   TopicMeetingRepository,
-  ProjectOperationRecordKind,
-  ProjectOperationRecord,
+  TopicPromotionCommandResult,
 } from "./types.ts";
-import { applyMeetingOutcomeTreatment } from "../meeting/markdown.ts";
 
 /**
  * Topic／Meetingの検索・更新Application境界におけるidentityの処理境界を固定する。

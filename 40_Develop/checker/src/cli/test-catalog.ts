@@ -8,24 +8,28 @@
  */
 import path from "node:path";
 import {
-  buildRegressionStagePlan,
-  inspectResourceIntensiveTestAuthority,
   inspectTestCatalog,
   loadTestCatalog,
-  normalizeExplicitChangedPaths,
-  selectRegressionStaticOwners,
-  selectRegressionTests,
-  testLevels,
   type TestCatalog,
   type TestLevel,
+  testLevels,
 } from "../../../document-model/src/index.ts";
 import {
-  readWorkingChanges,
-  resolveVerifiedRepositoryRoot,
   getRepository,
   getRepositoryFromWorkingDirectory,
+  readWorkingChanges,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import type { CheckerRunRequest, CheckerResult } from "./types.ts";
+import {
+  buildRegressionStagePlan,
+  normalizeExplicitChangedPaths,
+} from "../test-catalog/plan.ts";
+import {
+  inspectResourceIntensiveTestAuthority,
+  selectRegressionStaticOwners,
+  selectRegressionTests,
+} from "../test-catalog/selection.ts";
+import type { CheckerResult, CheckerRunRequest } from "./types.ts";
 
 /**
  * 台帳検査または回帰対象・順序・必要条件を表示する。
