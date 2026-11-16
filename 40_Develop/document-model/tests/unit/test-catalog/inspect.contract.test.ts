@@ -8,10 +8,13 @@
  * @scope test、catalog
  * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
+
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { readTestCatalog } from "../../../src/index.ts";
 import {
   inspectTestCatalog,
   loadTestCatalog,
@@ -41,7 +44,7 @@ const catalog = loadedCatalog as TestCatalog;
  * @boundary CQS-UT-010=Direct Boundary: Test Catalog→Path段階検査
  */
 test("改名後のServer配下でも試験段階の不一致を拒否する", () => {
-  assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog), []);
+  assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog).failures, []);
   for (const parent of ["mcp-server", "workbench-server"]) {
     const target = catalog.tests.find((entry) =>
       entry.path.startsWith(`40_Develop/${parent}/tests/integration/`),
@@ -54,7 +57,7 @@ test("改名後のServer配下でも試験段階の不一致を拒否する", ()
       ),
     };
     assert.ok(
-      inspectTestCatalog(repositoryRoot, invalid).includes(
+      inspectTestCatalog(repositoryRoot, invalid).failures.includes(
         `directory_level_mismatch:${target.path}`,
       ),
       parent,
@@ -133,7 +136,7 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
     ),
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, withoutPlatform).includes(
+    inspectTestCatalog(repositoryRoot, withoutPlatform).failures.includes(
       `integration_block_owner_missing:${first.owner}`,
     ),
   );
@@ -145,7 +148,7 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, missingTest).includes(
+    inspectTestCatalog(repositoryRoot, missingTest).failures.includes(
       `integration_block_test_missing:${first.id}:missing:integration:test`,
     ),
   );
@@ -157,7 +160,7 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, missingLifecycle).includes(
+    inspectTestCatalog(repositoryRoot, missingLifecycle).failures.includes(
       `invalid_integration_block_lifecycle:${first.id}`,
     ),
   );
@@ -190,7 +193,7 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, invalidArchitecture).includes(
+    inspectTestCatalog(repositoryRoot, invalidArchitecture).failures.includes(
       `invalid_integration_corridor_architecture:${first.id}`,
     ),
   );
@@ -210,7 +213,7 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, overlongPath).includes(
+    inspectTestCatalog(repositoryRoot, overlongPath).failures.includes(
       `invalid_integration_corridor_path:${first.id}`,
     ),
   );
@@ -225,12 +228,12 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, missingIntegration).includes(
+    inspectTestCatalog(repositoryRoot, missingIntegration).failures.includes(
       `integration_corridor_integration_test_missing:${first.id}`,
     ),
   );
 
-  assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog), []);
+  assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog).failures, []);
 });
 
 /**
@@ -255,7 +258,7 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
     consumerBindings: [{ ...first, testIds: ["missing:test"] }],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, missing).includes(
+    inspectTestCatalog(repositoryRoot, missing).failures.includes(
       "consumer_test_missing:missing:test",
     ),
   );
@@ -270,7 +273,7 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, ownerMismatch).includes(
+    inspectTestCatalog(repositoryRoot, ownerMismatch).failures.includes(
       "consumer_test_owner_mismatch:execution-intelligence:integration:store",
     ),
   );
@@ -289,7 +292,7 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, cycle).includes(
+    inspectTestCatalog(repositoryRoot, cycle).failures.includes(
       "consumer_cycle:coordinator->execution-intelligence",
     ),
   );
@@ -321,9 +324,10 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, invalid as typeof catalog).includes(
-      `invalid_execution_profiles:${first.path}`,
-    ),
+    inspectTestCatalog(
+      repositoryRoot,
+      invalid as typeof catalog,
+    ).failures.includes(`invalid_execution_profiles:${first.path}`),
   );
 });
 
@@ -356,7 +360,7 @@ test("Windows実Process Gateと実行Profileをexactに照合する", () => {
       ),
     };
     assert.ok(
-      inspectTestCatalog(repositoryRoot, invalid).includes(
+      inspectTestCatalog(repositoryRoot, invalid).failures.includes(
         `windows_process_profile_missing:${gatePath}`,
       ),
       gatePath,
@@ -385,7 +389,7 @@ test("Windows実Process Gateと実行Profileをexactに照合する", () => {
     ),
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, invalid).includes(
+    inspectTestCatalog(repositoryRoot, invalid).failures.includes(
       `windows_process_profile_unexpected:${ordinaryEntry.path}`,
     ),
   );
@@ -417,7 +421,7 @@ test("Host Windows接頭辞をWindows実Process Gateとして検出する", () =
     ),
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, invalid).includes(
+    inspectTestCatalog(repositoryRoot, invalid).failures.includes(
       `windows_process_profile_missing:${gateEntry.path}`,
     ),
   );
@@ -449,7 +453,7 @@ test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否す
     delete changed[field];
     const invalid = { ...catalog, tests: [changed, ...catalog.tests.slice(1)] };
     assert.ok(
-      inspectTestCatalog(repositoryRoot, invalid).some((failure) =>
+      inspectTestCatalog(repositoryRoot, invalid).failures.some((failure) =>
         failure.includes(`missing_key:${field}`),
       ),
     );
@@ -470,7 +474,7 @@ test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否す
     ],
     unexpectedRoot: true,
   };
-  const failures = inspectTestCatalog(repositoryRoot, wrongTypes);
+  const failures = inspectTestCatalog(repositoryRoot, wrongTypes).failures;
   for (const expected of [
     "root_unknown_key:unexpectedRoot",
     "entry_0_unknown_key:unexpected",
@@ -509,7 +513,7 @@ test("試験台帳は危険なPathと空・重複配列を拒否する", () => {
       tests: [{ ...first, path: invalidPath }, ...catalog.tests.slice(1)],
     };
     assert.ok(
-      inspectTestCatalog(repositoryRoot, invalid).includes(
+      inspectTestCatalog(repositoryRoot, invalid).failures.includes(
         `invalid_path:${first.id}`,
       ),
     );
@@ -525,7 +529,57 @@ test("試験台帳は危険なPathと空・重複配列を拒否する", () => {
       ...catalog.tests.slice(1),
     ],
   };
-  const failures = inspectTestCatalog(repositoryRoot, invalidArrays);
+  const failures = inspectTestCatalog(repositoryRoot, invalidArrays).failures;
   assert.ok(failures.includes(`invalid_semantic_tags:${first.path}`));
   assert.ok(failures.includes(`invalid_postconditions:${first.path}`));
+});
+
+/**
+ * 完成Catalog受付の早期拒否と一回観測を検証する。
+ * @responsibility 不正台帳で不要な走査をせず、同じ観測集合を返すことを固定する。
+ * @trace CQS-UT-010
+ * @precondition 本番台帳は変更せず、該当readだけを不正JSON内容へ差し替える。
+ * @stimulus 構造不正・JSON不正・正常を完成受付へ渡す。
+ * @observation status・catalog・観測回数と例外。
+ * @oracle 構造不正は走査0、正常はDirectoryごと一回。JSON不正は空台帳にしない。
+ * @cleanup readとDirectory観測をfinallyで復元する。
+ */
+test("完成Catalog受付は早期拒否と同じ観測集合を保持する", () => {
+  const originalRead = fs.readFileSync,
+    originalList = fs.readdirSync;
+  const target = path.join(
+    repositoryRoot,
+    "07_Quality",
+    "Registry",
+    "test-catalog.json",
+  );
+  let content: string | null = "{}";
+  const observed = new Map<string, number>();
+  fs.readFileSync = ((...args: Parameters<typeof fs.readFileSync>) =>
+    args[0] === target && content !== null
+      ? content
+      : Reflect.apply(originalRead, fs, args)) as typeof fs.readFileSync;
+  fs.readdirSync = ((...args: Parameters<typeof fs.readdirSync>) => {
+    const key = String(args[0]);
+    observed.set(key, (observed.get(key) ?? 0) + 1);
+    return Reflect.apply(originalList, fs, args);
+  }) as typeof fs.readdirSync;
+  try {
+    const invalid = readTestCatalog(repositoryRoot);
+    assert.equal(invalid.status, "invalid");
+    assert.equal(invalid.catalog, null);
+    assert.deepEqual(invalid.observedFiles, []);
+    assert.equal(observed.size, 0);
+    content = "{";
+    assert.throws(() => readTestCatalog(repositoryRoot), SyntaxError);
+    assert.equal(observed.size, 0);
+    content = null;
+    const ready = readTestCatalog(repositoryRoot);
+    assert.equal(ready.status, "complete");
+    assert.ok(ready.observedFiles.length > 0);
+    assert.ok([...observed.values()].every((count) => count === 1));
+  } finally {
+    fs.readFileSync = originalRead;
+    fs.readdirSync = originalList;
+  }
 });

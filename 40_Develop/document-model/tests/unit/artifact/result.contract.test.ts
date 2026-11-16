@@ -7,10 +7,12 @@
  * @scope 文書結果、Parse結果、共通型
  * @boundary RCM-UT-016=N/A: 同期値処理だけを扱う。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as documentModel from "../../../src/index.ts";
+import { validateArtifactSchema } from "../../../src/artifact/validate-schema.ts";
 import type { DocumentIssue, ParseResult } from "../../../src/index.ts";
+import * as documentModel from "../../../src/index.ts";
 
 /**
  * 完全・部分の解析結果を実受付から確認する。
@@ -31,10 +33,8 @@ test("文書の完全・部分結果は内容と診断を分離して保持す�
     const source = { path: "requirement.md", content };
     const before = structuredClone(source);
     const outcome: ParseResult<
-      NonNullable<
-        ReturnType<typeof documentModel.parseIdentityDocument>["result"]
-      >
-    > = documentModel.parseIdentityDocument(source);
+      NonNullable<ReturnType<typeof documentModel.parseArtifact>["result"]>
+    > = documentModel.parseArtifact(source);
     assert.equal(outcome.status, status);
     assert.deepEqual(outcome.result?.source, before);
     assert.deepEqual(source, before);
@@ -68,9 +68,9 @@ test("文書の完全・部分結果は内容と診断を分離して保持す�
  */
 test("文書不正と観測不能は結果を補完せず異なる状態で返す", () => {
   const source = { path: "item.md", content: "# Item\n" };
-  const artifact = documentModel.parseMarkdownArtifact(source);
+  const artifact = documentModel.parseArtifact(source).result;
   const before = structuredClone(artifact);
-  const invalid = documentModel.validateArtifactSchema(artifact, {
+  const invalid = validateArtifactSchema(artifact, {
     id: "fixture",
     matches: () => true,
     requiredSections: ["Missing"],

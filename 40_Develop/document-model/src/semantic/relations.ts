@@ -19,6 +19,7 @@ import type {
   ArchitectureIndex,
 } from "../architecture/validation.ts";
 import { architectureCrossModelFiles } from "../architecture/validation.ts";
+import { buildArtifactGraph } from "../artifact/graph.ts";
 import type { IdentityDocument } from "../artifact/identity.ts";
 import type {
   ArtifactModel,
@@ -34,6 +35,7 @@ import type {
   IaIndexModel,
 } from "../ia/types.ts";
 import { iaIssue } from "../ia/validation.ts";
+import type { parseRepositoryProjectContextMarkdown } from "../project-context/parse-context.ts";
 import type {
   QualityAnalysis,
   QualityDetailTrace,
@@ -47,6 +49,10 @@ import type {
   QualityCenter,
   QualityRealityAudit,
 } from "../quality/readiness.ts";
+import {
+  inspectBranchCoverageTable,
+  inspectRemediationTable,
+} from "../quality/verification-tables.ts";
 import type { CanonicalDocument, Changelog, Readme } from "../release/types.ts";
 import type {
   SpecDefinition,
@@ -528,6 +534,15 @@ export function evaluateDefinitionPairEvidence(
  */
 export type DocumentRelationsRequest =
   | Readonly<{
+      kind: "project_context_identity";
+      context: ReturnType<typeof parseRepositoryProjectContextMarkdown>;
+      manifest: Record<string, unknown>;
+    }>
+  | Readonly<{
+      kind: "artifact_relations";
+      artifacts: readonly ArtifactModel[];
+    }>
+  | Readonly<{
       kind: "architecture_cross_model";
       document: ParseResult<ArchitectureCrossModel> &
         Readonly<{ result: ArchitectureCrossModel }>;
@@ -883,6 +898,26 @@ export function inspectDocumentRelations(
   request: DocumentRelationsRequest,
 ): readonly DocumentIssue[] {
   switch (request.kind) {
+    case "project_context_identity": {
+      const identity = request.context.manifestIdentity,
+        manifest = request.manifest;
+      return manifest.schema !== "crdd/repository-manifest/v2" ||
+        identity.projectId !== manifest.projectId ||
+        identity.repositoryId !== manifest.repositoryId ||
+        identity.repositoryRole !== manifest.repositoryRole
+        ? [
+            {
+              kind: "artifact.project-context.manifest-identity-mismatch",
+              targetIdentity: request.context.source.path,
+              location: { path: request.context.source.path },
+              reason: "project-context-manifest-identity-mismatch",
+              details: {},
+            },
+          ]
+        : [];
+    }
+    case "artifact_relations":
+      return buildArtifactGraph({ artifacts: request.artifacts }).issues;
     case "architecture_cross_model": {
       const { document, index } = request;
       const issues = [...document.issues];
@@ -3720,4 +3755,36 @@ export function inspectQualityLocalItemOwnership(
     else owners.set(localId, sourcePath);
   }
   return { owners, issues };
+}
+
+/** 取得済み成果物に含まれる検証表と是正表の完成評価結果。 */
+export type QualityVerificationEvaluation = Readonly<{
+  numericRowsChecked: number;
+  remediationRowsChecked: number;
+  branchIssues: readonly DocumentIssue[];
+  remediationIssues: readonly DocumentIssue[];
+  issues: readonly DocumentIssue[];
+}>;
+
+/**
+ * 全Markdownに適用する既存の二種類の品質表評価を完了する。
+ * @responsibility 解析済み表の算術・是正条件と診断区分を返し、本文を再解析しない。
+ * @trace ARCH-000008
+ * @input artifact: 同じ読取り位置で捕捉済みの成果物モデル。
+ * @returns 件数と元の区分別診断。issuesは分岐表→是正表の順。
+ * @effect N/A: 取得済みモデルだけを扱う。
+ * @failure 観測不能を空表へ補完しない。呼出し元が取得失敗を所有する。
+ */
+export function inspectQualityVerification(
+  artifact: ArtifactModel,
+): QualityVerificationEvaluation {
+  const branch = inspectBranchCoverageTable(artifact);
+  const remediation = inspectRemediationTable(artifact);
+  return {
+    numericRowsChecked: branch.numericRowsChecked,
+    remediationRowsChecked: remediation.remediationRowsChecked,
+    branchIssues: branch.issues,
+    remediationIssues: remediation.issues,
+    issues: [...branch.issues, ...remediation.issues],
+  };
 }

@@ -62,7 +62,17 @@ export function readRepositoryProjectContext(
         status: "unavailable",
         reason: "project_context_observation_unavailable",
       });
-    const context = parseRepositoryProjectContextMarkdown(observed.source);
+    const contextIntake = parseRepositoryProjectContextMarkdown(
+      observed.source,
+    );
+    const context = contextIntake.result;
+    if (context === null)
+      throw new Error(
+        contextIntake.issues.find(
+          (issue) =>
+            issue.kind === "artifact.project-context.projection-model-invalid",
+        )?.reason ?? "project_context_scene_invalid",
+      );
     if (
       context.projectId !== expectedIdentity.projectId ||
       context.repositoryId !== expectedIdentity.repositoryId ||

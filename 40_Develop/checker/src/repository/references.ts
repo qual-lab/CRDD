@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  parseMarkdownAnchors,
+  parseArtifact,
   parseMarkdownLinkReference,
 } from "../../../document-model/src/index.ts";
 import {
@@ -399,7 +399,12 @@ export function createDocumentReferenceReader(
       historicalAnchorExists:
         content === null || historical.anchor === ""
           ? null
-          : parseMarkdownAnchors(content).has(historical.anchor),
+          : parseArtifact({
+              path: path
+                .relative(root, historical.target)
+                .replaceAll("\\", "/"),
+              content,
+            }).result.anchors.has(historical.anchor),
     };
   }
   return { resolveLocalTarget, resolveLinkWithFixedHistory };
@@ -615,7 +620,10 @@ export function inspectDocumentLinks(
    * @concurrency N/A: anchorsForは共有非同期状態を持たない同期処理である。
    */
   function anchorsFor(file: string): Set<string> {
-    return parseMarkdownAnchors(read(file));
+    return new Set(
+      parseArtifact({ path: relative(file), content: read(file) }).result
+        .anchors,
+    );
   }
   const anchorCache = new Map<string, Set<string>>();
   let checkedLocalLinks = 0;

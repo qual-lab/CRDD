@@ -8,11 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArtifactSource,
-  inspectArtifactSources,
   inspectDocumentRelations,
   inspectQualityAnalysis,
   inspectQualityLocalItemOwnership,
   parseArchitectureDetail,
+  parseArtifact,
   parseQualityAnalysis,
   parseQualityCenter,
   parseQualityDefinition,
@@ -451,19 +451,21 @@ export function inspectQualityRepository(
     const qualityDesignArtifactPaths = qualityDesignPaths.filter(
       (qualityDesignPath) => qualityDesignPath !== qualityCenterPath,
     );
-    const qualityInspection = inspectArtifactSources({
-      sources: qualityDesignArtifactPaths
-        .filter((artifactPath) => lstatIfPresent(artifactPath)?.isFile())
-        .map((artifactPath) => ({
-          path: relative(artifactPath),
-          content: read(artifactPath),
-        })),
-    });
-    for (const issue of qualityInspection.issues)
+    const artifacts = qualityDesignArtifactPaths
+      .filter((artifactPath) => lstatIfPresent(artifactPath)?.isFile())
+      .map((artifactPath) => ({
+        path: relative(artifactPath),
+        content: read(artifactPath),
+      }))
+      .map((source) => parseArtifact(source).result);
+    for (const issue of inspectDocumentRelations({
+      kind: "artifact_relations",
+      artifacts,
+    }))
       mapArtifactDomainIssueToCheckerFinding(issue);
     for (const issue of inspectDocumentRelations({
       kind: "quality_design_states",
-      artifacts: qualityInspection.artifacts,
+      artifacts,
     })) {
       const finding = mapQualityDesignStateIssueToFinding(
         issue,

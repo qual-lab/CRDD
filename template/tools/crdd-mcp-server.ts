@@ -7,36 +7,38 @@
  * @trace ARCH-000012
  */
 
-import {
-  closeMcpHttpOnProcessSignal,
-  createMcpServerFactory,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-  runMcpStdio,
-  startMcpStreamableHttp,
-  startMcpAuthenticatedStreamableHttp,
-  readMcpServerConfiguration,
-  createAccessMcpResolver,
-  type McpServerDependencies,
-  type McpCoordinatorDependencies,
-} from "../../40_Develop/mcp-server/src/index.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createTopicOperations } from "../../40_Develop/document-model/src/index.ts";
+import {
+  readExistingHostRoot,
+  readHostInitializationState,
+  resolveHostRootInput,
+} from "../../40_Develop/access-management/src/index.ts";
 import { readRepositoryManifest } from "../../40_Develop/configuration-model/src/index.ts";
+import {
+  createMeetingOperations,
+  createTopicOperations,
+  parseRepositoryProjectContextMarkdown,
+} from "../../40_Develop/document-model/src/index.ts";
+import { createLocalPrincipalId } from "../../40_Develop/execution-model/src/index.ts";
+import {
+  closeMcpHttpOnProcessSignal,
+  createAccessMcpResolver,
+  createMcpServerFactory,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
+  type McpCoordinatorDependencies,
+  type McpServerDependencies,
+  readMcpServerConfiguration,
+  runMcpStdio,
+  startMcpAuthenticatedStreamableHttp,
+  startMcpStreamableHttp,
+} from "../../40_Develop/mcp-server/src/index.ts";
 import {
   getRepository,
   readGitUser,
   resolveVerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../40_Develop/version-control/src/index.ts";
-import { createMeetingOperations } from "../../40_Develop/document-model/src/index.ts";
-import { createLocalPrincipalId } from "../../40_Develop/execution-model/src/index.ts";
-import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/document-model/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
-import {
-  resolveHostRootInput,
-  readExistingHostRoot,
-  readHostInitializationState,
-} from "../../40_Develop/access-management/src/index.ts";
 
 /**
  * MCP入口の利用方法を標準出力へ表示する。
@@ -145,9 +147,17 @@ async function coordinatorDependencies(): Promise<McpCoordinatorDependencies> {
 async function readRepositoryPortfolio(workingDirectory: string) {
   const repositoryRoot =
     resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
-  const context = parseRepositoryProjectContextMarkdown(
+  const contextIntake = parseRepositoryProjectContextMarkdown(
     await readFile(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
   );
+  const context = contextIntake.result;
+  if (context === null)
+    throw new Error(
+      contextIntake.issues.find(
+        (issue) =>
+          issue.kind === "artifact.project-context.projection-model-invalid",
+      )?.reason ?? "project_context_scene_invalid",
+    );
   return Object.freeze({
     projects: Object.freeze([
       Object.freeze({

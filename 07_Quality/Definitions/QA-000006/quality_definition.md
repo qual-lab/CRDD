@@ -594,6 +594,8 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `HST-UT-001` | 境界 | UT | 履歴の保持・出版条件 | ARCH-000004／ARCH-000008の履歴参照保護・exact出版・不明保持 | N/A | 正規化済み合成行、期限境界、必須行欠測、行／要約Hash差、同ID異本文、pending差とhostile Buffer | 純粋な保持・追記・出版候補処理へ入力する | 行順・本文・Hash・拒否結果・Buffer参照 | 元行順と本文を維持し、必須相関は選別前に全件照合。不正条件を空成功へ畳まず、同じ行の再追記なし。Proxy拒否・own equals非評価・独立コピー | 独立期待値と既存履歴試験のassertion | 保存・実資源はなくメモリだけで終了 | Automated |
+| `ERB-UT-024` | 境界 | UT | 保存証拠の一回接続と失効 | Storage内部の四証拠用途・初期化部分Effect | N/A | 有限依存、不明用途・混在入力・保存故障 | 実Sourceから抽出した保存操作をVM内で実行する | 接続回数・全終了での失効・保持したEffect・後続保存件数 | 四証拠用途を一回接続し全終了で失効する。初期化部分Effectを保持し、不明用途・混在入力はEffect前に拒否する | 有限依存によるassertion。物理保存の成立とは区別する | VM内の処理のみ。実AI・Docker・保持物へのEffectなし | Automated |
 | `ERB-UT-039` | 境界 | UT | Native単一entry／同期終端順序 | `ARCH-000008`・Platform Access単一entry観測の取得・照会・解放・応答確定 | N/A | 正常payload、二つの不存在、他open失敗、query／close不明、write／部分write／flush拒否 | private同期処理へ固定closureとメモリwriterを渡す | 全イベント列、同handle搬送、exitと全文／部分出力bytes | open不成立ではquery／close0。成功取得ではquery成否によらずclose一回。close不明では応答0。二つの不存在以外をAへしない。出力失敗は3 | 独立固定行列の順序・値assertion。実Win32と固定配布は別IT | OS Process／Filesystem／Docker Effect 0 | Automated |
 | `ERB-UT-038` | 境界 | UT | 診断Probe／純粋結果分類 | `ARCH-000008`・作成ID、実ID／名前／Labelの三軸応答、固定完了JSONと実行事実 | N/A | 完全ID、不正・欠測、UTF-8 64KiB境界、各軸の残存・非0・error、完了JSON・Signal・stderr容量・時間境界 | 作成・三軸不存在・完了の分類へ固定観測値を渡す | status、ID、固定reason、byte数、経過時間、終了値、入力不変 | 作成・不存在・完了の各成功条件を独立評価し、欠測を成功へ補完しない。隔離結果の肯定をSignal／計測値のlifecycle肯定へ転用しない。移管前と同じ条件を保持 | 独立期待値と三軸省略変異、理由優先順と完了条件の反証。実起動・回収は別IT／ST | Process／Filesystem／Docker Effect 0 | Automated |
 | `ERB-UT-037` | 境界 | UT | 修復Native相関／純粋frame | `ARCH-000008`・同利用者Mutex名と固定H応答 | N/A | 固定32byte Hash、空出力容量、flush拒否 | 同じ捕捉値からMutex名と41byte H応答を生成する | 旧Mutex prefix、Hash全byte、magic／status／payload、書込み結果 | 同じHashを使い、write／flush失敗を成功にしない。相関値を認可やMutex現在所有へ昇格しない | 純粋入力と全byte assertion。実利用者・Native取得は別IT | Process／Filesystem／Docker Effect 0 | Automated |
@@ -1176,9 +1178,7 @@ RCM-IT-005の独立Moduleロードに、純粋な資源操作の依存閉包を�
 
 ## 履歴値生成と保持・出版条件のOwner — 2026-11-14
 
-| 局所項目 | 導出元・検証義務 | 開始・刺激と観測 | Oracle・終了後条件 |
-|---|---|---|---|
-| `HST-UT-001` | ARCH-000004／ARCH-000008の履歴参照保護・exact出版・不明保持（UT） | 正規化済み合成行に、期限境界、必須行欠測、行／要約Hash差、同ID異本文、pending差とhostile Bufferを与える | 元行順と本文を維持し、必須相関は選別前に全件照合。不正条件を空成功へ畳まず、同じ行の再追記なし。Proxy拒否・own equals非評価・独立コピー。保存・実資源はなくメモリだけで終了 |
+HST-UT-001の正式な検証項目は4節に定義する。ここではOwner移管と関連試験の接続だけを補足する。
 
 RCM-IT-005の新品NodeロードではState検査・CRUD・Storage・履歴Decoderを拒否し、六つの要約／行生成と保持・出版候補が独立して動作することを確認する。子のerror・signal・終了値とmarkerを個別に観測し、一時Fileを作らない。ERB-UT-036／PRL-UT-006の既存候補試験では、未確認／確認済みの現在Operationに対する必須行欠測・両Hash差、初回confirmed拒否、固定時刻と単調確認、履歴確認前の退役拒否を維持する。
 
@@ -1199,9 +1199,7 @@ RCM-IT-005の新品NodeロードではState検査・CRUD・Storage・履歴Decod
 修復Writerの二重scope反証は、対象外Task／別修復／未解決回復の変更・除去、および未解決回復の追加・並べ替えを与える。元guardでは後続0、各guardを除く変異でだけ後続1となり、元本文が不変であることを確認する。撤去済みpendingDeliveriesを復活させず、旧試験の参照ミスを保存Schemaの変更で救済しない。全体回帰・実AI・Docker・過去保持物は対象外。
 ## 4保存操作の意味Ownerと物理Writerの分離 — 2026-11-14
 
-| Local Item | 検証義務 |
-|---|---|
-| `ERB-UT-024` | 四証拠用途の一回接続と全終了での失効、初期化部分Effectの保持、不明用途・混在入力のEffect前拒否を有限依存で確認する。 |
+ERB-UT-024の正式な検証項目は4節に定義する。ここでは保存操作と物理Writerの接続だけを補足する。
 
 ERB-IT-014の二重scope・認証相関・初期化Effect・Task保全反証は、新OwnerのSource本文へ追従する。実保存では初版とpending再入場、履歴段階、元Owner失効、同bytes実体差、終了保存の一回証拠、Task／定義の取得済みOwnerを検証する。履歴の段階制御はEMのsaveRecoveryHistoryへ閉じ、公開操作一回で最大二保存と最終fresh確認を完了する。中間基準は公開操作の途中停止で作り、各保存前後・最終Reader・Owner/保持設定/実体差・解放不明で次段0と累積Effect保全を確認する。Coordinatorは初回に確認した技術結果・保持事実を失敗後も保持し、段階ループや旧一段入口を残さない。有限Writer代役の成功を物理CAS・回収・解放成立へ一般化しない。全体回帰・実AI・Docker・過去保持物は対象外。
 

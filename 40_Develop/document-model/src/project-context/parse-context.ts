@@ -9,6 +9,11 @@
  * @security 宣言されていないContext、RepositoryまたはAuthorityを補完しない。
  */
 import type {
+  ArtifactSource,
+  DocumentIssue,
+  ParseResult,
+} from "../artifact/types.ts";
+import type {
   RepositoryProjectContext,
   RepositoryProjectContextScene,
   RepositoryProjectContextTable,
@@ -110,9 +115,7 @@ function parseFirstTable(
  * @security Linkを取得せず、HTMLを実行せず、非開示Contextを推測しない。
  * @concurrency N/A: 一つの不変Snapshotを同期解析する。
  */
-export function parseRepositoryProjectContextMarkdown(
-  markdown: string,
-): RepositoryProjectContext {
+function captureProjectContext(markdown: string): RepositoryProjectContext {
   const lines = markdown.replace(/\r\n?/gu, "\n").split("\n");
   const readIdentity = (label: string): string => {
     const prefix = `${label}:`;
@@ -164,4 +167,136 @@ export function parseRepositoryProjectContextMarkdown(
     repositoryRole: readIdentity("Repository Role"),
     scenes: Object.freeze(scenes),
   });
+}
+
+function projectionContractInvalid(
+  content: string,
+  isTemplate: boolean,
+): boolean {
+  const headings = [
+    "## 1. 今どうなっているか",
+    "## 2. 何が危ない、または止まっているか",
+    "## 3. 今、人間が決めることは何か",
+    "## 4. なぜこの状態・判断になったか",
+    "## 5. 次に何をすべきか",
+    "## Checklist",
+  ];
+  const checklistItems = [
+    "Project ID、Repository IDおよびRepository Roleを評価した。",
+    "三つのIdentityがRepository Manifestと一致している。",
+    "五場面を省略せず、結論を先に示した。",
+    "現在事実と共有分析を区別した。",
+    "正本が存在する内容をOwner Relationへ接続した。",
+    "Project Context固有の安定IDを追加していない。",
+    "項目単位の閲覧権限、観測時刻およびLive運用状態を追加していない。",
+    "確認済みの該当なし、不明およびOPENを空欄へ畳んでいない。",
+    "Owner Artifactとの競合時はProject Contextを現在値として使わない。",
+    "保存済みの次候補と対話時の追加提案を区別できる。",
+    "Gateを閉じる前に再投影要否を評価する。",
+  ];
+
+  const lines = content.split(/\r?\n/u);
+  const identityLabels = ["Project ID", "Repository ID", "Repository Role"];
+  const isIdentityInvalid = identityLabels.some((label) => {
+    const matches = lines.filter((line) => line.startsWith(`${label}: `));
+    return (
+      matches.length !== 1 ||
+      (matches[0] as string).slice(label.length + 2).trim() === ""
+    );
+  });
+  const headingPositions = headings.map((heading) => lines.indexOf(heading));
+  const isHeadingOrderInvalid =
+    headingPositions.some((position) => position < 0) ||
+    headingPositions.some(
+      (position, index) =>
+        index > 0 && position <= (headingPositions[index - 1] as number),
+    ) ||
+    headings.some(
+      (heading) => lines.filter((line) => line === heading).length !== 1,
+    );
+  const isChecklistInvalid = checklistItems.some((item) => {
+    const expected = isTemplate ? `- [ ] ${item}` : `- [x] ${item}`;
+    return !lines.includes(expected);
+  });
+
+  return isIdentityInvalid || isHeadingOrderInvalid || isChecklistInvalid;
+}
+/**
+ * Project Contextを内容モデルと文書単体の診断へ受け付ける。
+ * @responsibility 単体条件と解析失敗を保持し、外部Manifest照合や認可を行わない。
+ * @trace ARCH-000005
+ * @input markdown: 取得済み本文。options: ひな型方式と相対出典。
+ * @returns 解析可能な部分内容と診断。構造不成立時は結果nullと元の理由を返す。
+ * @effect N/A: 取得済み文字列のみ。File・外部サービスへ接続しない。
+ * @failure 契約にない例外は伝播し、既知の文書不正と混同しない。
+ */
+export function parseRepositoryProjectContextMarkdown(
+  markdown: string,
+  options: Readonly<{
+    mode?: "template" | "evaluated";
+    sourcePath?: string;
+  }> = {},
+): ParseResult<RepositoryProjectContext> &
+  Readonly<{
+    source: ArtifactSource;
+    manifestIdentity: Readonly<{
+      projectId: string;
+      repositoryId: string;
+      repositoryRole: string;
+    }>;
+  }> {
+  const source = {
+    path: options.sourcePath ?? "PROJECT_CONTEXT.md",
+    content: markdown,
+  };
+  const identity = (label: string) =>
+    markdown
+      .split(/\r?\n/u)
+      .find((line) => line.startsWith(`${label}: `))
+      ?.match(/`([^`]+)`/u)?.[1] ?? "";
+  const manifestIdentity = {
+    projectId: identity("Project ID"),
+    repositoryId: identity("Repository ID"),
+    repositoryRole: identity("Repository Role"),
+  };
+  const issues: DocumentIssue[] = [];
+  if (projectionContractInvalid(markdown, options.mode === "template"))
+    issues.push({
+      kind: "artifact.project-context.projection-contract-invalid",
+      targetIdentity: source.path,
+      location: { path: source.path },
+      reason: "project-context-projection-contract-invalid",
+      details: {},
+    });
+  let result: RepositoryProjectContext | null = null;
+  try {
+    result = captureProjectContext(markdown);
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      ![
+        "project_context_table_missing",
+        "project_context_table_column_mismatch",
+        "project_context_identity_missing",
+        "project_context_identity_invalid",
+        "project_context_scene_invalid",
+      ].includes(error.message)
+    )
+      throw error;
+    issues.push({
+      kind: "artifact.project-context.projection-model-invalid",
+      targetIdentity: source.path,
+      location: { path: source.path },
+      reason: error.message,
+      details: {},
+    });
+  }
+  return {
+    status:
+      result === null ? "invalid" : issues.length ? "partial" : "complete",
+    result,
+    issues,
+    source,
+    manifestIdentity,
+  };
 }

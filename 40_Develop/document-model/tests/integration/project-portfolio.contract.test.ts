@@ -15,7 +15,7 @@ import {
   parseRepositoryProjectContextMarkdown,
 } from "../../src/index.ts";
 
-const context = parseRepositoryProjectContextMarkdown(
+const contextIntake = parseRepositoryProjectContextMarkdown(
   [
     "# Project Context",
     "Project ID: p-a",
@@ -33,6 +33,14 @@ const context = parseRepositoryProjectContextMarkdown(
     ),
   ].join("\n\n"),
 );
+const context = contextIntake.result;
+if (context === null)
+  throw new Error(
+    contextIntake.issues.find(
+      (issue) =>
+        issue.kind === "artifact.project-context.projection-model-invalid",
+    )?.reason ?? "project_context_scene_invalid",
+  );
 
 /**
  * 複数Projectの完全・欠測・競合を出所別に維持する。

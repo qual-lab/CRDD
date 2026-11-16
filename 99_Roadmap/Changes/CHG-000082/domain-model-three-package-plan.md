@@ -10,6 +10,43 @@
 
 ### モデル中心への再整理（UI／SPEC工程モデルの先行実装）
 
+#### 完成受付への利用側統合
+
+コミット前の読取り専用独立再レビューは必須是正指摘0件。公開元の固定一覧・単独確認と全Package元試験の保持・QA／変更記録の追従を確認した。確認者は試験を再実行しておらず、上記の親担当実測と区別する。統合・Release・全体品質の承認には用いない。
+
+コミット前最終確認（2026-11-16）: 旧入口と削除Sourceの参照走査で、横断公開Module試験の文書モデル用固定一覧に撤去済み九Pathと重複一件が残っていたため除去した。固定集合の比較条件は緩めず、既存の検査関数を使う文書モデル単独の確認を追加し、全Packageの元の確認も維持した。該当確認を含む限定四試験が成功した。Root206項目・台帳Graph・CLI入力拒否・依存の限定七試験、六Packageと配布ひな型の型検査、変更TS全件の整形・警告確認、差分検査も成功した。今回生成した試験領域だけを回収し、不存在を確認した。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+後続是正（2026-11-16）: 下記の既存二試験不整合も対象に追加し、両試験の成功を確認した。QA-000006のHST-UT-001／ERB-UT-024は後段の補足表から正式な4節へ移し、同じ検証義務・Oracle・終了後条件を保持した。旧品質状態Symbolは現在のSemantic実装へ対応付け、撤去済みNative TraceへのSystem試験の辺は除去し、実際に呼ぶScript／Taskの二辺を維持した。Unit試験は現在の試験補助FileとARCH-000004へ接続し、存在しない製品実装の検証と主張しない。Graph試験では正式Local ID、現行Semantic・試験補助への検証辺と旧Symbol不存在を確認する。旧Artifact集合検査の期待値も完成Parseの宣言元へ追従した。
+
+未署名CLIの試験準備は旧domain-modelを除き、現行document-model／execution-model／configuration-modelを同じ粒度で複製する。既存のSource選別、未署名help、負例のexact結果、finallyの対象限定清掃は変更しない。製品Source・公開API・Root／Lock／署名の判定は変更せず、互換処理や新しい仕組みは作らない。変更分類は既存検証接続・台帳配置の是正であり、着手前に実際のimport・宣言元・QA節とSource依存を照合した。独立技術レビューと文書・直接伝播の確認を対象とし、規範・準拠基準・実行保証を変更しないため準拠監査と全体回帰は追加しない。
+
+後続是正の限定結果: 旧失敗二試験、関連するReality・観測条件・履歴・保存証拠25試験、台帳・依存三試験が成功した（再実行の重複を合算しない）。Checker／Coordinatorの型検査、変更二TSの整形・警告検査と差分確認が成功した。自己生成の試験領域は終了後に回収して不存在を確認した。独立技術レビューではSource・試験・Symbol・QAに追加の必須是正指摘はなく、履歴記述の時点を明示した。確認者の読取り確認と親担当の実測を分ける。全体回帰・実AI・Docker・過去保持物は操作していない。
+
+基準版5c7fea5b4に対し、公開補助を隠すだけでなく利用側が完成操作を呼べる構造へ統合する。変更分類は公開契約と利用側受付の実装リファクタリング。Artifact、Project Context、品質評価、Reality、Catalog、Topic／MeetingとChecker・MCP・Workbench・Script・試験を対象とし、採用済み規則・Authority・保存形式を変えない。現行設計・旧Source・既存試験のCapabilityを各統合先へ対応付け、別確認者の読取り専用着手前照合を行った。文書・直接伝播・依存影響と独立技術レビューを実施し、規範・準拠基準・Releaseを変えないため準拠監査・全体回帰は追加しない。実AI・Docker・過去保持物は操作しない。
+
+| 既存Capability | 新Ownerと維持条件 | 利用側・確認先 |
+|---|---|---|
+| Artifactの構造、Identity、Related、Anchor、Link | parseArtifactの内容モデル・局所Issue。低レベル捕捉は内部とし自己再帰しない | Checker文書／参照Reader、Artifact単体・診断変換・参照境界試験 |
+| Schemaのmatches・必須Property／節・許可状態 | parseArtifactの明示schemasオプション。Source順・Schema順・callback回数と例外を維持 | 旧Schema試験は完成Parseへ接続し能力を削除しない |
+| Artifact Graphの重複・参照比較 | 解析済みモデルを受ける既存横断評価へ統合。部分モデルを勝手に破棄しない | Qualityの完成Parseと既存Graph反証 |
+| 品質表の算術・是正条件 | Artifactの表観測を入力とする完成品質評価。全Markdownへの従来適用範囲・件数・Issue順を維持 | Checker既存の各読取り位置と品質表反証 |
+| Project Contextの単体条件と外部Manifest比較 | 単体はParse、外部比較はSemantic。再読取りや空モデルへ補完しない | Checker、Workbench、MCP、CoordinatorのParse結果利用 |
+| Catalog読取り・構造・実在照合 | readTestCatalogで閉じ、同じ観測試験集合を返す。不正構造で従来不要だった走査を始めない | CheckerのCatalog CLIと選択試験。計画・実行判断はCheckerに残す |
+| Reality Manifest受付 | unknownの構造受付とJSON読取りを区別し、既存の失敗理由・Path・Subsystem・重複条件を維持 | Reality観測・独立Schema試験・Checker利用側 |
+| Topic／Meeting一覧の早期拒否 | 完成一覧操作で入力検査→取消確認→対象・認可解決一回→取消確認→read。操作間キャッシュなし | MCPの-32602／-32800区別・resolver回数・例外分類・read前停止の契約試験 |
+
+正常、局所不備、外部比較不備、入力不足・観測不能、取消・例外の代表例を、各既存Ownerの入力境界へ照合してから編集する。固定候補で実差分と再照合し、限定回帰と独立レビューの結果が揃うまで完了としない。目標公開数は保証を削る制約にしない。新しいFile・Facade・Registry・Manager・互換入口は作らない。
+
+Rootは206項目（値90・型116）へ整理した。Schema・Graph・Identity・Anchor・Link・品質表二検査・Catalog読取り／走査／検査・一覧入力検査の部分入口をRootから撤去し、必要な内部エンジンは既存Ownerへ維持した。Artifact集合検査、Project Contextの独立boolean検査、Reality Manifestの独立Validatorの三Sourceを削除した。
+
+Factoryの認可解決を遅延化すると汎用転送Wrapperが増えるため、その案は採用せず、既存activity/operations.tsのreadTopicMeetingListへ一覧受付だけを閉じた。MCPはこの完成結果をProtocolへ変換する。QualityVerificationResultは既存の文書モデル名なので衝突させず、完成評価結果はQualityVerificationEvaluationとした。宣言元とRootを同じ名称にし、asによる再命名は設けない。
+
+回帰で検索語129文字を不正とする旧試験が露出した。容量上限を製品へ戻さず、長い検索語が対象解決まで進む反証へ追従した。Global Symbol Graph試験の5診断は基準版Sourceのメモリ内読込みでも同じ結果を再現した。内訳はEMの既存Local Item二件、旧品質状態Symbol一件、旧Coordinator Native Trace参照二件。今回のManifest統合による新規診断ではなく、対象外の既存不整合として保持する。Coordinator通常Task CLI試験も既存unsigned-runtime-fixtureの複製対象にexecution-modelがないため起動前に失敗した。既存試験の不成立を成功に数えない。
+
+限定検証は完成受付・公開契約・Catalog・MCP等82件、工程の内部Owner試験19件、利用側結合21件、CHANGELOG九件、固定履歴参照二件、台帳・依存五件が成功した。これらの集合には再実行の重複があるため合算しない。Project Context／Portfolio／Realityの既存結合九件も成功した。六Packageと配布ひな型の型検査、変更45TSの整形・警告検査、差分空白検査は成功した。直接起動したMCP三試験はOS一時PathがLockの許可範囲外で拒否されたため、製品の制約を変えず、合意したRepository内の自己生成RootをTEMPへ渡して同じ五試験を再実行し成功した。リンク試験は権限不足で一度停止し、許可された自己生成範囲だけで再実行して成功した。今回生成した領域は既存Helper／finallyで回収し、終了後不存在を確認した。
+
+独立技術レビューの指摘二件を是正した。Related専用filterがCHANGELOGへ誤適用されていた箇所だけを全Issue配送へ戻し、元の取得位置・選択版・診断順を維持した。歴史参照の捕捉Pathは単一backslashを相対slashへ正規化する。上記のCHANGELOG九件と固定履歴二件で再確認した。文書・利用側・台帳の直接伝播を含む固定候補の独立再レビューは必須是正指摘0件。確認者は試験を再実行しておらず、親担当の実測とは区別する。初回候補の確認時点では既存不整合二試験は未解消だったが、上記の後続是正で両試験成功を確認した。これを全体回帰、実文書品質PassやReleaseへ拡大して主張しない。全体回帰・実AI・Docker・過去保持物は操作していない。
+
 #### 通常本文三件のChecklist項目追従
 
 Visual Baseline・BHV-000012・SCR-000008の独自Checklistを、現行ひな型の項目列と結果記法へ対応付けた。本文の採用済み契約・Header状態・Authority・実装方式は変更しない。処置済みは既存本文の記録へ対応する範囲に限り、未確認事項を新しい合格・非該当へ読み替えない。UI／SPEC正本・ひな型・Parserと直接利用側を照合し、着手前の読取り専用確認を受けた。文書・直接伝播と既存評価の保持を独立レビューで確認し、規範・準拠基準を変更しないため準拠監査・全体回帰は追加しない。

@@ -11,10 +11,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  inspectDocumentRelations,
-  parseMarkdownArtifact,
-} from "../../../src/index.ts";
+import { inspectDocumentRelations, parseArtifact } from "../../../src/index.ts";
 
 /**
  * 状態正規化の受理・拒否境界を検証する。
@@ -53,10 +50,10 @@ test("Canonical状態の旧正規化順序と拒否境界を維持する", () =>
   ];
   for (const [status, normalizedStatus] of cases) {
     const artifact = {
-      ...parseMarkdownArtifact({
+      ...parseArtifact({
         path: "07_Quality/item.md",
         content: "# Item",
-      }),
+      }).result,
       status,
     };
     const issues = inspectDocumentRelations({
@@ -86,10 +83,10 @@ test("Canonical状態の旧正規化順序と拒否境界を維持する", () =>
  * @boundary RCM-UT-001=N/A: Process内の純粋計算である。
  */
 test("状態Issueは元値・Identity・行位置・入力順を保つ", () => {
-  const base = parseMarkdownArtifact({
+  const base = parseArtifact({
     path: "07_Quality/item.md",
     content: "# Item",
-  });
+  }).result;
   const artifacts = [
     { ...base, status: "Canonical" },
     {

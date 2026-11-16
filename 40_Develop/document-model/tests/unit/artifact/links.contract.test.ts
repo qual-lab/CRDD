@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  parseArtifact,
   parseMarkdownLinkReference,
-  parseMarkdownLinkTargets,
 } from "../../../src/index.ts";
 
 /**
@@ -53,16 +53,26 @@ test("参照先は三走査順と重複Labelの後勝ちを維持する", () => 
     "new.md",
     "shortcut.md",
   ];
-  assert.deepEqual(parseMarkdownLinkTargets(input), expectedLinks);
-  assert.deepEqual(parseMarkdownLinkTargets(input), expectedLinks);
   assert.deepEqual(
-    parseMarkdownLinkTargets(
-      "[label][ Mixed   Case ]\n[mixed case]: target.md",
-    ),
+    parseArtifact({ path: "fixture.md", content: input }).result.linkTargets,
+    expectedLinks,
+  );
+  assert.deepEqual(
+    parseArtifact({ path: "fixture.md", content: input }).result.linkTargets,
+    expectedLinks,
+  );
+  assert.deepEqual(
+    parseArtifact({
+      path: "fixture.md",
+      content: "[label][ Mixed   Case ]\n[mixed case]: target.md",
+    }).result.linkTargets,
     ["target.md", "target.md"],
   );
   assert.deepEqual(
-    parseMarkdownLinkTargets("[unknown]\n![image](image.md)"),
+    parseArtifact({
+      path: "fixture.md",
+      content: "[unknown]\n![image](image.md)",
+    }).result.linkTargets,
     [],
   );
 });

@@ -8,9 +8,7 @@
  */
 import path from "node:path";
 import {
-  inspectTestCatalog,
-  loadTestCatalog,
-  type TestCatalog,
+  readTestCatalog,
   type TestLevel,
   testLevels,
 } from "../../../document-model/src/index.ts";
@@ -118,18 +116,16 @@ export function runTestCatalog(request: CheckerRunRequest): CheckerResult {
   }
   let stage = "observation";
   try {
-    const input = loadTestCatalog(
-      path.join(root, "07_Quality", "Registry", "test-catalog.json"),
-    );
-    const failures = inspectTestCatalog(root, input);
-    if (failures.length > 0) {
+    const intake = readTestCatalog(root);
+    const failures = intake.failures;
+    if (intake.status === "invalid") {
       stage = "output";
       request.writeOutput(
         `${JSON.stringify({ status: "invalid", failures, effectIssued: false }, null, 2)}\n`,
       );
       return { exitCode: 1 };
     }
-    const catalog = input as TestCatalog;
+    const catalog = intake.catalog;
     const hasSelection =
       flags.has("--all") || values.has("--changed") || values.has("--base");
     if (!hasSelection) {

@@ -15,20 +15,20 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import type { LoadedRealitySymbolManifest } from "../../../../document-model/src/index.ts";
-import { discoverRealitySymbols } from "../../../../document-model/src/index.ts";
 import {
-  readRegisteredRealityTests,
-  readRegisteredRealityTestsFromRepository,
-} from "../../../src/repository/reality.ts";
+  discoverRealitySymbols,
+  parseRealitySymbolManifest,
+} from "../../../../document-model/src/index.ts";
+import { getRepository } from "../../../../version-control/src/index.ts";
+import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
   inspectRealityRepository,
+  readRegisteredRealityTests,
+  readRegisteredRealityTestsFromRepository,
 } from "../../../src/repository/reality.ts";
-import { getRepository } from "../../../../version-control/src/index.ts";
 
-import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../document-model/src/index.ts";
-import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
 /**
  * Reality Symbol Manifestの契約を検証する。
  *
@@ -40,17 +40,17 @@ import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reali
  * @observation manifestとfindingsを取得する。
  * @oracle Domainの検査結果を変更せずに返す。
  * @cleanup N/A: 局所値だけを使う。
- * @precondition 「value: unknown、manifestPath: string」がvalidateRealitySymbolManifestの入力契約を満たす。
- * @postcondition validateRealitySymbolManifestの責務を完了した結果だけを返す。
- * @effect N/A: validateRealitySymbolManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validateRealitySymbolManifestは独自の失敗分岐を所有しない。
- * @invariant validateRealitySymbolManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @precondition 「value: unknown、manifestPath: string」がparseRealitySymbolManifestの入力契約を満たす。
+ * @postcondition parseRealitySymbolManifestの責務を完了した結果だけを返す。
+ * @effect N/A: parseRealitySymbolManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseRealitySymbolManifestは独自の失敗分岐を所有しない。
+ * @invariant parseRealitySymbolManifestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary PPR-UT-017=N/A: 試験用の同期結果変換。
- * @security N/A: validateRealitySymbolManifestはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: validateRealitySymbolManifestは共有非同期状態を持たない同期処理である。
+ * @security N/A: parseRealitySymbolManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseRealitySymbolManifestは共有非同期状態を持たない同期処理である。
  */
-function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
-  const outcome = validateDomainRealitySymbolManifest(value, manifestPath);
+function parseManifestForTest(value: unknown, manifestPath: string) {
+  const outcome = parseRealitySymbolManifest(value, manifestPath);
   return {
     manifest: outcome.result,
     findings: outcome.issues.map(mapRealityDomainIssueToCheckerFinding),
@@ -170,10 +170,31 @@ test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () =
   );
   assert.ok(
     built.graph.testsByImplementationId
-      .get("domain-model.artifact-inspection")
+      .get("document-model.source.src.artifact.parse-markdown")
       ?.some(
         ({ symbol }) =>
           symbol.symbolId === "checker.test.integration.crdd-check",
+      ),
+  );
+  for (const localId of ["HST-UT-001", "ERB-UT-024"])
+    assert.ok(discovery.knownLocalTestIdsByQaId.get("QA-000006")?.has(localId));
+  assert.equal(
+    built.graph.symbolsById.has("coordinator.native-runtime-trace"),
+    false,
+  );
+  assert.ok(
+    built.graph.testsByImplementationId
+      .get("domain-model.semantic-relations")
+      ?.some(
+        ({ symbol }) => symbol.symbolId === "checker.test.unit.quality-state",
+      ),
+  );
+  assert.ok(
+    built.graph.testsByImplementationId
+      .get("coordinator.test.support.runtime-trace-case")
+      ?.some(
+        ({ symbol }) =>
+          symbol.symbolId === "coordinator.test.unit.runtime-trace-case",
       ),
   );
 });
@@ -191,7 +212,7 @@ test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () =
  * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Symbol Manifestは未知Property・危険Path・Test relation欠落を拒否する", () => {
-  const validation = validateRealitySymbolManifest(
+  const validation = parseManifestForTest(
     {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,
@@ -260,7 +281,7 @@ test("検証Toolは所有PathとQuality関係を要求し実装へ誤分類し�
     [{ kind: "test-suite", path: "tests/case.test.ts" }, false],
   ] as const) {
     assert.equal(
-      validateRealitySymbolManifest(
+      parseManifestForTest(
         {
           contract: "crdd/reality-symbol-manifest",
           contractRevision: 1,
@@ -277,7 +298,7 @@ test("検証Toolは所有PathとQuality関係を要求し実装へ誤分類し�
     const missing = { ...tool };
     Reflect.deleteProperty(missing, key);
     assert.equal(
-      validateRealitySymbolManifest(
+      parseManifestForTest(
         {
           contract: "crdd/reality-symbol-manifest",
           contractRevision: 1,
@@ -328,7 +349,7 @@ test("検証Toolは所有PathとQuality関係を要求し実装へ誤分類し�
  */
 test("検証Toolへの検証辺は実装Coverageを生成しない", () => {
   for (const target of ["sample.tool", "sample.missing", "sample.test"]) {
-    const validated = validateRealitySymbolManifest(
+    const validated = parseManifestForTest(
       {
         contract: "crdd/reality-symbol-manifest",
         contractRevision: 1,
@@ -468,7 +489,7 @@ test("環境試験は明示と空実装関係を要求し通常試験を免除�
     [{ kind: "module", archIds: ["ARCH-000001"] }, false],
     [{ path: "../outside.ts" }, false],
   ] as const) {
-    const result = validateRealitySymbolManifest(
+    const result = parseManifestForTest(
       {
         contract: "crdd/reality-symbol-manifest",
         contractRevision: 1,
@@ -483,7 +504,7 @@ test("環境試験は明示と空実装関係を要求し通常試験を免除�
   const missingRelation = { ...symbol };
   Reflect.deleteProperty(missingRelation, "verifies");
   assert.equal(
-    validateRealitySymbolManifest(
+    parseManifestForTest(
       {
         contract: "crdd/reality-symbol-manifest",
         contractRevision: 1,
@@ -509,7 +530,7 @@ test("環境試験は明示と空実装関係を要求し通常試験を免除�
  * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Implementation SymbolへQualityとverifiesの責務を混在させない", () => {
-  const validation = validateRealitySymbolManifest(
+  const validation = parseManifestForTest(
     {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,

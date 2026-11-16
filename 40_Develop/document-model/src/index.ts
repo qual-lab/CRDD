@@ -8,16 +8,17 @@ export {
   federateTopicMeetingRelations,
   type TopicMeetingRelationSource,
 } from "./activity/federate-relations.ts";
-export { validateTopicMeetingListInput } from "./activity/operations.ts";
+export {
+  readTopicMeetingList,
+  type TopicMeetingListReadResult,
+} from "./activity/operations.ts";
 export type {
   MeetingOutcomeCommandResult,
-  MeetingOutcomeTarget,
   ProjectOperationRecord,
   ProjectOperationRecordKind,
   TopicMeetingAccess,
   TopicMeetingDocument,
   TopicMeetingListQuery,
-  TopicMeetingListResult,
   TopicMeetingPage,
   TopicMeetingRelation,
   TopicMeetingRepository,
@@ -40,43 +41,26 @@ export {
   parseArchitectureDefinition,
   parseArchitectureIndex,
 } from "./architecture/validation.ts";
-export { parseMarkdownAnchors } from "./artifact/anchors.ts";
-export { inspectRelatedOrder } from "./artifact/document-header.ts";
-export {
-  type ArtifactGraph,
-  type ArtifactGraphResult,
-  type BuildArtifactGraphRequest,
-  buildArtifactGraph,
-} from "./artifact/graph.ts";
-export { parseIdentityDocument } from "./artifact/identity.ts";
-export { inspectArtifactSources } from "./artifact/inspect.ts";
-export {
-  parseMarkdownLinkReference,
-  parseMarkdownLinkTargets,
-} from "./artifact/links.ts";
-export { parseMarkdownArtifact } from "./artifact/parse-markdown.ts";
+
+export { parseMarkdownLinkReference } from "./artifact/links.ts";
+export { parseArtifact } from "./artifact/parse-markdown.ts";
 export type {
   ArtifactModel,
-  ArtifactRelation,
-  ArtifactSection,
   ArtifactSource,
-  ChecklistFailure,
-  ChecklistResult,
   DocumentIssue,
-  DocumentLocation,
-  DocumentResult,
-  DocumentStatus,
   MarkdownLinkReference,
   ParseResult,
   SourceLocation,
 } from "./artifact/types.ts";
+
 export {
-  type ArtifactSchema,
-  type ArtifactSchemaValidationResult,
-  validateArtifactSchema,
-} from "./artifact/validate-schema.ts";
-export { parseChangeDocument, parseChangeIndex } from "./change/parse.ts";
-export type { ChangeDocument, ChangeIndex } from "./change/types.ts";
+  parseChangeDocument,
+  parseChangeIndex,
+} from "./change/parse.ts";
+export type {
+  ChangeDocument,
+  ChangeIndex,
+} from "./change/types.ts";
 export {
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
@@ -111,10 +95,7 @@ export type {
   MeetingState,
 } from "./meeting/types.ts";
 export { applyProjectOperationCandidateDecision } from "./project-context/candidate-decision.ts";
-export {
-  isProjectContextManifestIdentityInvalid,
-  isProjectContextProjectionInvalid,
-} from "./project-context/inspect.ts";
+
 export { parseRepositoryProjectContextMarkdown } from "./project-context/parse-context.ts";
 export { parseRepositoryQualityProjectionMarkdown } from "./project-context/parse-quality.ts";
 export { parseRepositoryReleaseProjectionMarkdown } from "./project-context/parse-release.ts";
@@ -132,18 +113,11 @@ export type {
   ProjectOperationCandidateDecision,
   ProjectOperationCandidateDecisionResult,
   ProjectOperationProjection,
-  ProjectOperationProjectionItem,
   ProjectOperationSource,
-  ProjectOperationSourceState,
   RepositoryProjectContext,
   RepositoryProjectContextReadResult,
-  RepositoryProjectContextScene,
-  RepositoryProjectContextSceneKey,
-  RepositoryProjectContextTable,
   RepositoryQualityProjection,
-  RepositoryReleaseDependency,
   RepositoryReleaseProjection,
-  RepositoryReleaseScope,
 } from "./project-context/types.ts";
 export {
   parseQualityAnalysis,
@@ -170,10 +144,6 @@ export {
   type QualityVerificationResult,
 } from "./quality/readiness.ts";
 export {
-  inspectBranchCoverageTable,
-  inspectRemediationTable,
-} from "./quality/verification-tables.ts";
-export {
   type FixedQualityCandidate,
   fixQualityCandidate,
   type IntegratedQualityGate,
@@ -192,47 +162,37 @@ export {
 export {
   createRealitySymbolGraph,
   type RealitySymbolGraph,
-  type RealitySymbolNode,
 } from "./reality-traceability/graph.ts";
 export type {
   LoadedRealitySymbolManifest,
-  RealitySymbol,
-  RealitySymbolKind,
   RealitySymbolManifest,
 } from "./reality-traceability/manifest.ts";
-export { validateRealitySymbolManifest } from "./reality-traceability/validate-manifest.ts";
+export { parseRealitySymbolManifest } from "./reality-traceability/manifest.ts";
 export {
   parseCanonicalDocument,
   parseChangelog,
   parseReadme,
 } from "./release/parse.ts";
-export type { CanonicalDocument, Changelog, Readme } from "./release/types.ts";
-
+export type {
+  CanonicalDocument,
+  Changelog,
+  Readme,
+} from "./release/types.ts";
 export { createFilesystemRepositoryObservationPort } from "./repository/create-observer.ts";
 export {
   observeRealitySymbolRepository,
-  type RealityRepositoryObservationIssue,
   type RealitySymbolRepositoryObservation,
 } from "./repository/observe-symbols.ts";
-export type {
-  RepositoryDirectoryEntry,
-  RepositoryDirectoryObservation,
-  RepositoryEntryKind,
-  RepositoryFileObservation,
-  RepositoryObservationPort,
-} from "./repository/types.ts";
+export type { RepositoryObservationPort } from "./repository/types.ts";
 export {
   createSemanticBundle,
   createSemanticCoverageGraph,
-  type SemanticBundleContent,
   type SemanticCoverageBundle,
   type SemanticCoverageGraph,
-  type SemanticCoverageProjection,
 } from "./semantic/coverage.ts";
 export {
   compileSemanticIr,
   type SemanticIr,
-  type SemanticIrMeaning,
 } from "./semantic/ir.ts";
 export {
   type PublishSemanticCoverageRequest,
@@ -246,9 +206,11 @@ export {
   inspectDocumentRelations,
   inspectQualityAnalysis,
   inspectQualityLocalItemOwnership,
+  inspectQualityVerification,
   inspectReleaseDocuments,
   type QualityLocalItemOwnershipModel,
   type QualitySemanticRelation,
+  type QualityVerificationEvaluation,
 } from "./semantic/relations.ts";
 export {
   parseSpecAnalysis,
@@ -271,15 +233,12 @@ export type {
 export {
   createFilesystemSemanticBundlePublisher,
   type SemanticBundlePublisher,
-  type SemanticBundlePublishReceipt,
-  type SemanticBundlePublishRequest,
 } from "./storage/semantic-store.ts";
 export {
-  discoverRepositoryTestFiles,
-  inspectTestCatalog,
-  loadTestCatalog,
+  readTestCatalog,
   type TestCatalog,
   type TestCatalogEntry,
+  type TestCatalogReadResult,
   type TestLevel,
   testLevels,
 } from "./test-catalog/inspect.ts";
@@ -325,7 +284,6 @@ export type {
   UxAnalysisModel,
   UxDefinitionModel,
   UxExperienceMap,
-  UxFormalInputObservation,
   UxIndexModel,
   UxPersonas,
   UxQualityExpectations,

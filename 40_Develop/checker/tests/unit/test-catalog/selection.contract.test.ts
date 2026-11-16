@@ -8,16 +8,13 @@
  * @scope test、catalog
  * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
+
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  discoverRepositoryTestFiles,
-  inspectTestCatalog,
-  loadTestCatalog,
-  type TestCatalog,
-} from "../../../../document-model/src/index.ts";
+import { readTestCatalog } from "../../../../document-model/src/index.ts";
 import { buildRegressionStagePlan } from "../../../src/test-catalog/plan.ts";
 import {
   inspectResourceIntensiveTestAuthority,
@@ -30,10 +27,10 @@ const checkerRoot = path.resolve(
   "../../..",
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
-const loadedCatalog = loadTestCatalog(
-  path.join(repositoryRoot, "07_Quality", "Registry/test-catalog.json"),
-);
-const catalog = loadedCatalog as TestCatalog;
+const catalogIntake = readTestCatalog(repositoryRoot);
+assert.equal(catalogIntake.status, "complete");
+const loadedCatalog = catalogIntake.catalog;
+const catalog = loadedCatalog;
 
 /**
  * 実在試験、登録試験、実行可能Ownerをexactに照合するを検証する。
@@ -48,10 +45,10 @@ const catalog = loadedCatalog as TestCatalog;
  * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("実在試験、登録試験、実行可能Ownerをexactに照合する", () => {
-  assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
+  assert.deepEqual(catalogIntake.failures, []);
   const expected =
     "40_Develop/coordinator/tests/integration/host-recovery-record.contract.test.ts";
-  assert.ok(discoverRepositoryTestFiles(repositoryRoot).includes(expected));
+  assert.ok(catalogIntake.observedFiles.includes(expected));
   for (const changed of [
     "40_Develop/coordinator/src/execution/recovery.ts",
     "40_Develop/coordinator/src/execution/operation.ts",
@@ -101,7 +98,7 @@ test("Docker Isolation全試験を収集し上位の同名試験を混同しな�
       id,
     );
   }
-  const found = discoverRepositoryTestFiles(repositoryRoot).filter((entry) =>
+  const found = catalogIntake.observedFiles.filter((entry) =>
     entry.startsWith("40_Develop/docker-isolation/"),
   );
   assert.deepEqual(
@@ -154,7 +151,7 @@ test("AM試験を収集しMCP内のAM名を持つ試験のOwnerを混同しな�
     (entry) => entry.owner === "access-management",
   );
   assert.ok(expected.length > 0);
-  const discovered = discoverRepositoryTestFiles(repositoryRoot);
+  const discovered = catalogIntake.observedFiles;
   for (const entry of expected)
     assert.ok(discovered.includes(entry.path), entry.path);
   const selected = selectRegressionTests(catalog, [
@@ -190,7 +187,7 @@ test("AM試験を収集しMCP内のAM名を持つ試験のOwnerを混同しな�
     ["mcp-server"],
   );
   assert.equal(
-    inspectTestCatalog(repositoryRoot, catalog).some(
+    catalogIntake.failures.some(
       (issue) =>
         issue.startsWith("unsupported_owner:") &&
         issue.includes("access-management"),
@@ -630,8 +627,37 @@ test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒
     ],
   };
   assert.ok(
-    inspectTestCatalog(repositoryRoot, invalid).includes(
+    readCatalogInput(invalid).failures.includes(
       `resource_intensive_default:${first.path}`,
     ),
   );
 });
+
+/**
+ * 不正台帳を完成受付へ渡すため、今回の読取りだけを固定本文へ差し替える。
+ * @responsibility 実在集合の検査は本番受付へ委譲し、試験後にreadを必ず復元する。
+ * @trace CQS-UT-010
+ * @precondition 実Repositoryの台帳を変更しない。
+ * @stimulus 該当Pathのreadだけを候補JSONへ差し替える。
+ * @observation 完成受付の失敗理由。
+ * @oracle 既存の未知実行条件拒否を維持する。
+ * @cleanup finallyでread関数を復元する。
+ */
+function readCatalogInput(candidate: unknown) {
+  const original = fs.readFileSync;
+  const target = path.join(
+    repositoryRoot,
+    "07_Quality",
+    "Registry",
+    "test-catalog.json",
+  );
+  fs.readFileSync = ((...args: Parameters<typeof fs.readFileSync>) =>
+    args[0] === target
+      ? JSON.stringify(candidate)
+      : Reflect.apply(original, fs, args)) as typeof fs.readFileSync;
+  try {
+    return readTestCatalog(repositoryRoot);
+  } finally {
+    fs.readFileSync = original;
+  }
+}

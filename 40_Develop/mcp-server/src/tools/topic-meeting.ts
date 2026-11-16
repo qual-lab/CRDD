@@ -5,19 +5,19 @@
 import { types } from "node:util";
 
 import {
-  parseTopicMarkdown,
   parseMeetingMarkdown,
+  parseTopicMarkdown,
+  readTopicMeetingList,
   type TopicMeetingAccess,
-  validateTopicMeetingListInput,
 } from "../../../document-model/src/index.ts";
 
 import {
   callKeys,
   inspectMcpEnvelope,
   inspectProtocolRequest,
+  type McpResponse,
   protocolComplete,
   protocolError,
-  type McpResponse,
 } from "../request/validation.ts";
 
 /**
@@ -392,20 +392,21 @@ export async function handleMcpTopicMeetingRequest(
         ...(args.limit === undefined ? {} : { limit: args.limit as number }),
         ...(Object.keys(query).length === 0 ? {} : { query }),
       };
-      try {
-        validateTopicMeetingListInput(kind, listInput);
-      } catch {
-        return protocolError(request.id, -32602, "Invalid params");
-      }
-      if (signal.aborted)
+
+      const result = readTopicMeetingList(
+        { kind, ...listInput },
+        () => {
+          const application = typeof access === "function" ? access() : access;
+          accessResolved = true;
+          return application;
+        },
+        signal,
+      );
+      if (result.status === "cancelled")
         return protocolError(request.id, -32800, "Request cancelled");
-      const application = typeof access === "function" ? access() : access;
-      accessResolved = true;
-      if (signal.aborted)
-        return protocolError(request.id, -32800, "Request cancelled");
-      if (application === null)
+      if (result.status !== "complete")
         return protocolError(request.id, -32602, "Invalid params");
-      const page = application[kind].list(listInput);
+      const page = result.page;
       return protocolComplete(request.id, {
         content: Object.freeze([
           { type: "text", text: `${page.records.length}件を取得しました。` },

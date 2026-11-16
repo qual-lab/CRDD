@@ -45,14 +45,6 @@
       ]
     },
     {
-      "symbolId": "domain-model.project-context-inspection",
-      "kind": "file",
-      "path": "src/project-context/inspect.ts",
-      "archIds": [
-        "ARCH-000005"
-      ]
-    },
-    {
       "symbolId": "domain-model.test.unit.project-context-inspection",
       "kind": "test-suite",
       "path": "tests/unit/project-context/inspect.contract.test.ts",
@@ -63,7 +55,7 @@
         "RCM-UT-014"
       ],
       "verifies": [
-        "domain-model.project-context-inspection"
+        "project-operation.domain.repository-project-context"
       ]
     },
     {
@@ -192,7 +184,7 @@
       ],
       "verifies": [
         "crdd-domain-library.source.src.reality.traceability.symbol.graph",
-        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
         "version-control.source.src.repository.location"
       ]
     },
@@ -281,14 +273,6 @@
       "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.graph",
       "kind": "file",
       "path": "src/reality-traceability/graph.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
-      "kind": "file",
-      "path": "src/reality-traceability/validate-manifest.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -842,14 +826,6 @@
       ]
     },
     {
-      "symbolId": "domain-model.artifact-inspection",
-      "kind": "file",
-      "path": "src/artifact/inspect.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "domain-model.test.unit.artifact-inspection",
       "kind": "test-suite",
       "path": "tests/unit/artifact/inspect.contract.test.ts",
@@ -861,7 +837,7 @@
         "RCM-UT-002"
       ],
       "verifies": [
-        "domain-model.artifact-inspection"
+        "document-model.source.src.artifact.parse-markdown"
       ]
     },
     {

@@ -16,8 +16,8 @@ import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
 } from "../../../src/artifact/checklist.ts";
+import type { ChecklistFailure } from "../../../src/artifact/types.ts";
 import {
-  type ChecklistFailure,
   parseDiscoveryAnalysis,
   parseDiscoveryDefinition,
   parseDiscoveryIndex,

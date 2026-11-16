@@ -4,12 +4,7 @@
  * @trace ARCH-000008
  */
 
-import { omitMarkdownFencedCode } from "../artifact/anchors.ts";
-import {
-  isMarkdownTableSeparator,
-  parseMarkdownTableRow,
-} from "../artifact/markdown.ts";
-import type { ArtifactSource, DocumentIssue } from "../artifact/types.ts";
+import type { ArtifactModel, DocumentIssue } from "../artifact/types.ts";
 /**
  * 分岐網羅表の件数・範囲・実測率の算術を検査する。
  * @responsibility 分岐網羅表の件数・範囲・実測率の算術を検査する。
@@ -25,13 +20,13 @@ import type { ArtifactSource, DocumentIssue } from "../artifact/types.ts";
  * @security 認可、実在、実行許可または品質全体の成立を保証しない。
  * @concurrency N/A: 共有可変状態を持たない。
  */
-export function inspectBranchCoverageTable(artifact: ArtifactSource) {
+export function inspectBranchCoverageTable(artifact: ArtifactModel) {
   const issues: DocumentIssue[] = [];
-  const sourcePath = artifact.path;
+  const sourcePath = artifact.sourceLocation.path;
   let numericRowsChecked = 0;
-  const lines = omitMarkdownFencedCode(artifact.content).split(/\r?\n/u);
+  const lines = artifact.verificationLines;
   for (let index = 0; index < lines.length - 2; index += 1) {
-    const headers = parseMarkdownTableRow(lines[index] as string);
+    const headers = lines[index]?.cells;
     if (!headers) continue;
     const numeratorIndex = headers.findIndex((header) =>
       ["到達分岐数（分子）", "Covered Branches (Numerator)"].includes(header),
@@ -46,12 +41,12 @@ export function inspectBranchCoverageTable(artifact: ArtifactSource) {
       numeratorIndex < 0 ||
       denominatorIndex < 0 ||
       percentageIndex < 0 ||
-      !isMarkdownTableSeparator(lines[index + 1] as string, headers.length)
+      lines[index + 1]?.separatorCellCount !== headers.length
     ) {
       continue;
     }
     for (let row = index + 2; row < lines.length; row += 1) {
-      const cells = parseMarkdownTableRow(lines[row] as string);
+      const cells = lines[row]?.cells;
       if (!cells) break;
       const values = [
         cells[numeratorIndex] ?? "",
@@ -152,9 +147,9 @@ export function inspectBranchCoverageTable(artifact: ArtifactSource) {
  * @security 認可、実在、実行許可または品質全体の成立を保証しない。
  * @concurrency N/A: 共有可変状態を持たない。
  */
-export function inspectRemediationTable(artifact: ArtifactSource) {
+export function inspectRemediationTable(artifact: ArtifactModel) {
   const issues: DocumentIssue[] = [];
-  const sourcePath = artifact.path;
+  const sourcePath = artifact.sourceLocation.path;
   let remediationRowsChecked = 0;
   const remediationHeaderAliases = {
     progress: ["処置進捗", "Remediation Progress"],
@@ -185,9 +180,9 @@ export function inspectRemediationTable(artifact: ArtifactSource) {
   const remediationPlaceholder =
     /^(?:|[-—–]|N\/A|TBD|TODO|None|なし|未定|未取得|未確認|対象外)$/iu;
 
-  const lines = omitMarkdownFencedCode(artifact.content).split(/\r?\n/u);
+  const lines = artifact.verificationLines;
   for (let index = 0; index < lines.length - 2; index += 1) {
-    const headers = parseMarkdownTableRow(lines[index] as string);
+    const headers = lines[index]?.cells;
     if (!headers) continue;
     const column = (name: RemediationColumn): number =>
       headers.findIndex((header) =>
@@ -202,8 +197,8 @@ export function inspectRemediationTable(artifact: ArtifactSource) {
     ).length;
     let precedingHeading = "";
     for (let previous = index - 1; previous >= 0; previous -= 1) {
-      if (/^\s*#{1,6}\s+/u.test(lines[previous] as string)) {
-        precedingHeading = lines[previous] as string;
+      if (/^\s*#{1,6}\s+/u.test(lines[previous]?.text ?? "")) {
+        precedingHeading = lines[previous]?.text ?? "";
         break;
       }
     }
@@ -215,7 +210,7 @@ export function inspectRemediationTable(artifact: ArtifactSource) {
     if (
       (stateColumnCount !== 3 &&
         !(stateColumnCount >= 1 && hasExplicitRemediationContext)) ||
-      !isMarkdownTableSeparator(lines[index + 1] as string, headers.length)
+      lines[index + 1]?.separatorCellCount !== headers.length
     ) {
       continue;
     }
@@ -264,7 +259,7 @@ export function inspectRemediationTable(artifact: ArtifactSource) {
       }
     }
     for (let row = index + 2; row < lines.length; row += 1) {
-      const cells = parseMarkdownTableRow(lines[row] as string);
+      const cells = lines[row]?.cells;
       if (!cells) break;
       if (cells.every((cell) => cell === "")) continue;
       remediationRowsChecked += 1;

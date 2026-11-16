@@ -79,7 +79,7 @@ UX定義の本文構造・引渡し・ChecklistはparseUxDefinitionで内容と�
 
 探索を`repository/discover.ts`、指定範囲と一段参照拡張を`repository/scope.ts`、現在参照先・固定Git履歴の読取り・短命cacheと参照mapを`repository/references.ts`へ移す。初期Root・基準版観測の値を明示入力とし、観測の先読み・新しい永続状態・一般I/O抽象を追加しない。固定履歴表の読取りは従来どおりFile探索の前に行い、検査後の参照mapも元の位置で作る。
 
-Project Context本文の固定構造とManifest Identity比較はDomainの`project-context/inspect.ts`へ分離する。表示用Parserとは受理条件が異なるため、そのParserへの置換で条件を強めない。Root検証・Manifest Path解決・通常File／Link確認・JSON解析・失敗診断と読取り順はCheckerに残す。旧Registry／Pipelineは撤去し、品質状態はDomain検査と既存診断変換、Realityはrepository/reality.tsの観測へ直接接続した。工程本文判定のDomain移管、専用診断変換の配置、旧Profile撤去は実装済み。全体回帰・独立確認・清掃の最終確認前であり、Repository全体の品質合格は主張しない。
+Project Context本文の固定構造は完成Parseの局所Issue、Manifest Identity比較はSemanticのproject_context_identityへ接続する。表示用内容捕捉とは受理条件が異なるため、Checkerは従来の固定構造Issueだけを同じ位置で配送し、内容捕捉側の追加Issueで条件を強めない。Root検証・Manifest Path解決・通常File／Link確認・JSON解析・失敗診断と読取り順はCheckerに残す。旧Registry／Pipelineは撤去し、品質状態はDomain検査と既存診断変換、Realityはrepository/reality.tsの観測へ直接接続した。工程本文判定のDomain移管、専用診断変換の配置、旧Profile撤去は実装済み。全体回帰・独立確認・清掃の最終確認前であり、Repository全体の品質合格は主張しない。
 
 ## Repository観測の配置整理 — 2026-10-20
 
@@ -99,7 +99,7 @@ Realityも同じ境界にそろえる。`report/reality.ts`は既存の三field�
 
 利用者承認により、本番Consumerが0件だった`findings/domain-outcome.ts`の汎用変換・専用結果型・旧ITを撤去する。文書モデルの四状態・部分内容・診断field・入力不変は実Producerの直接UTが確認する。本番Consumerのない結果オブジェクト受付は廃止し、そのAPIだけに存在した禁止field・不正相関の拒否契約を、本番の残存保証として表示しない。Checkerは本番Producerが返す結果から、用途別の診断・拒否・既存終了値へ接続する。汎用四状態を一律にChecker公開結果へ残す旧契約は退役し、その旧ITを本番接続の根拠へ流用しない。新しい汎用変換や状態管理は追加しない。
 
-Domainの成果物集合検査と用途別変換ではSchema invalidのIssueとGraph partialの非null結果を保持する。一方、現Quality本番呼出しはschemasを指定せず、品質状態の診断だけを公開する。文書公開入口の実入力不備・Realityの実Source欠測・Semantic入力欠測は診断と終了1、Semantic Root不正は終了2として検証する。Domain構造として妥当な未知kindはSurfaceの各本番変換が拒否する。公開三操作・JSON・文言・出力順・終了値は不変とし、詳細な検証条件はQA-000001のRCM-IT-011／RCM-UT-016が所有する。
+DomainのparseArtifactと後段の関係比較ではSchema invalidのIssueとGraph partialの非null結果を保持する。一方、現Quality本番呼出しはschemasを指定せず、品質状態の診断だけを公開する。文書公開入口の実入力不備・Realityの実Source欠測・Semantic入力欠測は診断と終了1、Semantic Root不正は終了2として検証する。Domain構造として妥当な未知kindはSurfaceの各本番変換が拒否する。公開三操作・JSON・文言・出力順・終了値は不変とし、詳細な検証条件はQA-000001のRCM-IT-011／RCM-UT-016が所有する。
 
 ## 移管後のSource構造と公開入口案 — 2026-10-19
 
@@ -234,6 +234,8 @@ UXの参照候補は完成分析モデルのformalInputTargetsから取得する
 受付・観測・意味・表示のSource分離を実装した。全体回帰の不合格や未実施項目を局所成功からPassへ読み替えない。巨大なProfileをそのままDomainへ移動したり、新しいRule登録基盤を追加したりしない。具体的な本文APIと既存Parserとの差は[Domain詳細](../domain-model/01_Architecture.md#可視本文表先頭headerの移管--2026-10-19)、共通リンクの意味は[リンク解析の境界](../domain-model/01_Architecture.md#共通リンク参照解析の移管--2026-10-19)に従う。
 
 ## 試験台帳・計画の入口 — 2026-10-19
+
+Catalogの完成受付は文書モデルのreadTestCatalogを一回呼び、構造診断とその回のobservedFilesを使う。計画のためだけの再走査はしない。JSON読取り／解析の例外、早期の構造不正による走査省略、実体照合で見つけた不整合を区別する。
 
 `src/cli/test-catalog.ts`の`runTestCatalog(CheckerRunRequest)`をPackage Rootと既存binの`--test-catalog`から利用する。引数は`--root`、`--changed`反復、`--base`、`--all`、`--levels`と既存の高負荷条件入力である。変更指定なしは台帳検査だけ、変更指定ありは回帰計画を返す。既定Rootは既存Version Controlでcwdから検証し、Git差分も同Packageの公開APIへ委譲する。
 
@@ -375,7 +377,7 @@ Checker
 | Artifact変換 | Domain `artifact/parse-markdown.ts`、`artifact/types.ts` | 取得済みMarkdown表現を意味Modelへ変換する |
 | 構造・関係検査 | Domain `artifact/validate-schema.ts`、`artifact/graph.ts`と工程別意味検査 | 単一成果物の構造と成果物間Relationを検査する |
 | 用途別検査 | 工程別検査と`repository/reality.ts` | 十工程を既存順で直接実行し、その後にRealityを観測する。Registryを介在させない |
-| 成果物集合の検査 | Domain `artifact/inspect.ts` | Source順の解析、Schema順の検査、関係Graphを構成し、表示はCheckerが行う |
+| 成果物の完成受付と横断比較 | Domain `artifact/parse-markdown.ts`、`semantic/relations.ts` | Source順にparseArtifactを適用し、明示SchemaのIssueとモデル間Graph比較を分離する。表示はCheckerが行う |
 | 診断 | `report/types.ts`、`report/convert.ts`、`report/document.ts`、`report/quality.ts`等 | 異なる既存shapeを維持して表示へ変換する。一律のrule・evidenceを追加しない |
 | 公開操作 | `cli/document.ts`、`cli/semantic.ts`、`cli/test-catalog.ts` | 既存三操作の引数・表示・終了値を所有する |
 | 文書観測の編成 | `repository/document.ts`と工程別八File | 工程を元の順に直接呼び、Realityはその後に実行する。旧Profile・互換中継・Rule Registryは持たない |

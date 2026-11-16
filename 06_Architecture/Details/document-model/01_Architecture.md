@@ -3,7 +3,7 @@
 成果物種別: Architecture詳細設計
 状態: 実装・限定検証・独立再レビュー済（全体回帰未実施。統合判断とは別）
 担当責任者: Qual-Lab
-最終更新日: 2026-11-15
+最終更新日: 2026-11-16
 
 <a id="model-boundary"></a>
 ## 1. 責務と依存
@@ -17,7 +17,7 @@
 
 通常ScreenはSPEC Readerの既存取得点で一度解析し、局所ChecklistのIssueをUI診断へ配送する。局所不備があっても同じ部分モデルを既存の関係比較へ渡す。文書と祖先のLinkを除外し、不在時の新しい作成義務は設けない。参照用のUI Definitionまで局所診断を追加する変更ではない。
 
-以下は人間が採用したモデル優先の方向を具体化した設計である。UI／SPEC分析・定義・台帳と、Screen内のPart・Detail対応根拠はモデル構築と既存の関係評価へ接続した。下流担当はArchitecture／Qualityが原文・出典付きの担当モデルを構築し、Semanticへ接続した。Definition対応の八観点根拠、Architectureの分析・定義・登録・横断文書・詳細本文、Qualityの工程別分析・統合・定義も内容モデルへ接続した。通常AREA／CMP／Visual／BHVも局所Checklist診断へ接続した。他工程には未接続・検査用投影が残り、現行の250公開項目全体がこの契約を満たすという説明ではない。型名を変えたりFileを移すだけで成果物の概念モデルが成立したとは扱わない。
+以下は人間が採用したモデル優先の方向を具体化した設計である。UI／SPEC分析・定義・台帳と、Screen内のPart・Detail対応根拠はモデル構築と既存の関係評価へ接続した。下流担当はArchitecture／Qualityが原文・出典付きの担当モデルを構築し、Semanticへ接続した。Definition対応の八観点根拠、Architectureの分析・定義・登録・横断文書・詳細本文、Qualityの工程別分析・統合・定義も内容モデルへ接続した。通常AREA／CMP／Visual／BHVも局所Checklist診断へ接続した。他工程には未接続・検査用投影が残り、現行の206公開項目全体がこの契約を満たすという説明ではない。型名を変えたりFileを移すだけで成果物の概念モデルが成立したとは扱わない。
 
 下流比較ではSemanticが期待関係・Owner Mode・中央／局所の被覆を評価する。ARCH／QAの第一読取りから作る内容モデル列と、後の所有投影用読取りは別の既存観測であり、それらを統合したり同一世代の保証を追加したりしない。UI件数はDirectory観測、SPEC件数は実在定義集合の件数を渡し、モデル配列長に置換しない。QA側の集合は旧サイズ比較、第一観測の内容モデルは可視行へのsubstring検索で旧combined本文includesの条件を保持する。文書内の自由文から記載されていない状態・品質を推論しない。
 
@@ -390,7 +390,7 @@ Stableの集合状態はSemanticのstable_canonical_documents、限定取得し�
 <a id="public-api"></a>
 ## 2. 公開入口とSource
 
-`40_Develop/document-model/src/index.ts`は明示公開250項目（値102・型148）を持つ。値には定数・Parser・検査を含み、250個の操作を意味しない。公開集合は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#document-layering)の全件棚卸しと固定期待値の契約試験で追跡する。文書単位のParse・モデルと、実利用または独立した完成契約を残し、内部構文Helperと部分更新はRootへ出さない。文書の保存・照会・連合操作や共通技術受付までParseだけへ押し込まず、未接続Capabilityの本番利用を主張しない。
+`40_Develop/document-model/src/index.ts`は明示公開206項目（値90・型116）を持つ。値には定数・Parser・検査を含み、206個の操作を意味しない。公開集合は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#document-layering)の全件棚卸しと固定期待値の契約試験で追跡する。文書単位のParse・モデルと、実利用または独立した完成契約を残し、内部構文Helperと部分更新はRootへ出さない。文書の保存・照会・連合操作や共通技術受付までParseだけへ押し込まず、未接続Capabilityの本番利用を主張しない。
 
 | Source | 所有する契約 |
 |---|---|
@@ -399,8 +399,14 @@ Stableの集合状態はSemanticのstable_canonical_documents、限定取得し�
 | activity/、topic/、meeting/ | 活動正本のCRUD・一覧・Relation・処置 |
 | project-context/ | 正本文書の3期待Identity照合、Source・Portfolio投影 |
 | semantic/、reality-traceability/ | IR・Coverage・Symbol宣言と観測 |
-| test-catalog/、quality-change-control/ | 試験台帳の構造・実在集合との整合検査と品質確認結果の純粋モデル |
+| test-catalog/、quality-change-control/ | readTestCatalogによる読取り・構造・実在集合との一回照合と、その同じ観測集合。品質確認結果の純粋モデル |
 | repository/、storage/ | 文書観測、Topic／Meeting・Semantic保存 |
+
+parseArtifactは共通構造・Identity・Related・Anchor・Linkと局所Issueを返し、明示したschemasだけを同じ結果へ適用する。Artifact内部の構造捕捉とSchema／Graphエンジンは非公開とする。横断的なGraph比較はinspectDocumentRelationsへ、品質表の算術・是正評価は解析済みArtifactを受けるinspectQualityVerificationへ接続する。Checkerは従来の各取得位置で必要なIssue集合だけを配送し、別readの統合や適用文書の追加はしない。
+
+Project Contextは単体Parseの部分結果と構造欠測を区別し、Manifestとの比較はSemanticが所有する。表示用の内容捕捉とCheckerの固定構造条件を混同せず、旧Consumerで検査していなかった局所Issueを新しい認可条件にしない。Reality Manifestは既存manifest.tsのparseRealitySymbolManifestがunknownを受け付け、JSON読取りの失敗と構造不正を区別する。
+
+readTopicMeetingListは入力検査、取消確認、呼出し側が所有する認可済み対象の一回解決、再度の取消確認、一覧取得を閉じる。resolverや保存読取りの例外は入力不正へ畳まない。Factoryは変更せず、新しいキャッシュ・Authority・Facadeを作らない。
 
 品質確認結果の純粋モデルを配置したことから、Checker本番の新Gateや受入権限を生成しない。Semantic公開の既存Publisher契約は維持し、HookをRootへ公開しない。
 

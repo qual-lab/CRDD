@@ -6,12 +6,11 @@
  */
 
 import { isAbsolute } from "node:path";
+import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
 import {
   createFilesystemRepositoryObservationPort,
   parseRepositoryProjectContextMarkdown,
 } from "../../../document-model/src/index.ts";
-import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
-import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -22,6 +21,7 @@ import {
 } from "../authorization/management.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
+import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
 import { parseContentAreaIds } from "../permission/validation.ts";
 import { locked } from "../storage/lock.ts";
@@ -138,7 +138,17 @@ function observeRegistration(
     return null;
   const manifest = manifestRead.manifest;
   if (manifest.repositoryId !== repositoryId) return null;
-  const context = parseRepositoryProjectContextMarkdown(contextFile.source);
+  const contextIntake = parseRepositoryProjectContextMarkdown(
+    contextFile.source,
+  );
+  const context = contextIntake.result;
+  if (context === null)
+    throw new Error(
+      contextIntake.issues.find(
+        (issue) =>
+          issue.kind === "artifact.project-context.projection-model-invalid",
+      )?.reason ?? "project_context_scene_invalid",
+    );
   if (
     context.projectId !== manifest.projectId ||
     context.repositoryId !== manifest.repositoryId ||

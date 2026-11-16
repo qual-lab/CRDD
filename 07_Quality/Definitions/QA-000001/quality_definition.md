@@ -1,12 +1,20 @@
 # QA-000001 リポジトリ検査と契約移行の検証定義
 
+## 完成受付と利用側の境界
+
+RCM-IT-005の公開元一覧は文書モデルの現行宣言元へ一致させ、撤去済み補助Moduleと重複を許可集合から除く。同じ既存検査を文書モデル単独でも実行し、他Packageの既存不整合でこの確認が未到達にならないことを確認する。全Packageの元の確認も削除しない。
+
+PPR-UT-017の既存Global Symbol Graph試験は、現行の完成Artifact Parse・品質Semantic・Coordinator試験補助への検証辺と、QA-000006の正式なHST-UT-001／ERB-UT-024を照合する。撤去済みNative Symbolを復活させず、現行System試験のScript／Task関係を維持する。PRL-IT-012の未署名CLI試験は現行三モデルを準備対象へ含め、helpの実起動と入力拒否を確認し、実Task／AI／Dockerを開始しない。
+
+RCM-UT-014はRootの固定集合206項目（値90・型116）と、内部Helperの非公開を確認する。RCM-UT-002はparseArtifactのSource・Identity・Related・部分モデル、明示Schemaの順序・適用回数・例外を確認する。品質表の算術・是正条件は捕捉済みArtifactから評価し、既存RCM-IT-011／AUH-IT-003で診断件数・順序・既存取得位置を維持する。Catalog受付は構造早期拒否時の走査0、不正JSON例外、正常受付の一回走査と同じobservedFilesを確認する。Project Contextの局所内容捕捉・固定構造条件・Manifest比較の責務と、null／部分結果を区別する。MCPの既存Topic／Meeting結合試験は、不正入力の解決0、取消前後のread0、対象解決一回、resolver例外と読取り例外の分類を維持する。旧容量境界129文字の検索語は拒否せず、対象解決まで到達することを確認する。
+
 ## Architecture・Qualityの完成ParseとSemanticの境界
 
 RCM-UT-002でArchitectureの本文初回／Checklist二回目の独立捕捉、取得後変更、局所とReady・被覆の併存時一件診断、Quality九文書の公開Parse、原文・状態・件数・部分関係・Map後勝ちと出典を確認する。既存の工程結合試験で、Ready・未知状態、二回読取り、Coverage欠測時のreturn、ひな型条件、担当・閉包・段階・境界、診断順と相関取得時の局所Issue非配送を確認する。Root契約・Symbol・QA・Catalogの接続を維持し、限定成功を全体回帰・実AI・Docker・Releaseの成立へ拡張しない。
 
 ## UI・SPECの完成Parseと関係評価の境界
 
-Screenは既存AUH-IT-003で、一回読取り、正常・Checklist欠測・不完全行、局所不備と関係不備の併存、局所Issueの一度配送、部分モデル保持、不在・祖先Link除外を確認する。RCM-UT-002でScreen専用code・理由・相対位置・本文非開示・不正details拒否を検証する。RCM-UT-014の固定公開契約は250項目と、内部Helperの非公開を確認し、Helper自体の反証試験は同Package内部Ownerから継続する。
+Screenは既存AUH-IT-003で、一回読取り、正常・Checklist欠測・不完全行、局所不備と関係不備の併存、局所Issueの一度配送、部分モデル保持、不在・祖先Link除外を確認する。RCM-UT-002でScreen専用code・理由・相対位置・本文非開示・不正details拒否を検証する。RCM-UT-014の固定公開契約は206項目と、内部Helperの非公開を確認し、Helper自体の反証試験は同Package内部Ownerから継続する。
 
 RCM-UT-002と既存AUH-IT-003で、通常AREA・CMP・Visual Baseline・BHVの局所Checklist診断を確認する。正常／不備本文、一回読取り、理由codeと相対位置、本文非開示、不在・非対象配置・Linkの除外を検証する。CMP作成義務や自由文の意味判定は追加せず、Screenも既存読取り位置で局所Issueを一度配送し、同じモデルを関係比較へ渡す。
 

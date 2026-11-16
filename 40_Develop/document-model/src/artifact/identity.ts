@@ -6,14 +6,12 @@
 
 import { omitMarkdownFencedCode } from "./anchors.ts";
 import { captureDocumentTableRows, parseMarkdownFences } from "./markdown.ts";
-import { parseMarkdownArtifact } from "./parse-markdown.ts";
 import type {
-  ArtifactModel,
   ArtifactSource,
   DocumentIssue,
-  ParseResult,
   DocumentTableRow,
   DocumentText,
+  ParseResult,
 } from "./types.ts";
 
 /**
@@ -23,7 +21,6 @@ import type {
  * @invariant 出現を定義所有・実在・認可の証明へ変換しない。
  */
 export type IdentityDocument = Readonly<{
-  artifact: ArtifactModel;
   source: ArtifactSource;
   tableRows: readonly DocumentTableRow[];
   occurrences: readonly string[];
@@ -52,7 +49,7 @@ export type IdentityDocument = Readonly<{
  * @security 所有・公開許可・品質成立を発行しない。
  * @concurrency N/A: 共有状態を持たない。
  */
-export function parseIdentityDocument(
+export function captureArtifactIdentity(
   source: ArtifactSource,
 ): ParseResult<IdentityDocument> & { result: IdentityDocument } {
   const captured = { path: source.path, content: source.content };
@@ -121,7 +118,6 @@ export function parseIdentityDocument(
   return {
     status: issues.length ? "partial" : "complete",
     result: {
-      artifact: parseMarkdownArtifact(captured),
       source: captured,
       tableRows: captureDocumentTableRows(captured),
       occurrences: Array.from(

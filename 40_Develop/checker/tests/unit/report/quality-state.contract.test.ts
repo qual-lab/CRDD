@@ -13,8 +13,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  inspectArtifactSources,
   inspectDocumentRelations,
+  parseArtifact,
 } from "../../../../document-model/src/index.ts";
 import { mapQualityDesignStateIssueToFinding } from "../../../src/report/quality.ts";
 
@@ -32,7 +32,7 @@ import { mapQualityDesignStateIssueToFinding } from "../../../src/report/quality
  */
 test("品質設計状態検査は両readinessの既存Findingを維持する", () => {
   for (const readiness of ["Quality Design Ready", "Quality Ready"] as const) {
-    const result = inspectArtifactSources({
+    const result = parseArtifactModels({
       sources: [
         {
           path: "07_Quality/canonical.md",
@@ -86,3 +86,35 @@ test("品質状態変換は未知Issueを拒否する", () =>
       ),
     /unknown_quality_design_state_issue:unexpected/u,
   ));
+
+/**
+ * 公開Parseとモデル間評価から試験用の観測列を組み立てる。
+ * @responsibility Source順・Schema順の局所Issueの後にGraph Issueを連結する。
+ * @trace RCM-UT-002
+ * @precondition 取得済みの固定SourceとSchemaだけを使う。
+ * @stimulus 完成受付と既存の横断評価へ渡す。
+ * @observation 部分モデルと全診断。
+ * @oracle 呼出し側の既存期待値で件数・順序・内容を照合する。
+ * @cleanup N/A: 局所値のみ。
+ */
+function parseArtifactModels(
+  input: Readonly<{
+    sources: ReadonlyArray<Parameters<typeof parseArtifact>[0]>;
+    schemas?: NonNullable<Parameters<typeof parseArtifact>[1]>["schemas"];
+  }>,
+) {
+  const parsed = input.sources.map((source) =>
+    parseArtifact(
+      source,
+      input.schemas === undefined ? {} : { schemas: input.schemas },
+    ),
+  );
+  const artifacts = parsed.map((outcome) => outcome.result);
+  return {
+    artifacts,
+    issues: [
+      ...parsed.flatMap((outcome) => outcome.issues),
+      ...inspectDocumentRelations({ kind: "artifact_relations", artifacts }),
+    ],
+  };
+}

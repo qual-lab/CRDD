@@ -5,9 +5,8 @@
  */
 
 import path from "node:path";
-import { isPrincipalId } from "../../../execution-model/src/index.ts";
 import { parseRepositoryProjectContextMarkdown } from "../../../document-model/src/index.ts";
-import { readStableFileSnapshot } from "./file-snapshot.ts";
+import { isPrincipalId } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -19,6 +18,7 @@ import {
   runTask,
 } from "../api.ts";
 import { bindTaskCliCancellationSignals } from "./cancellation.ts";
+import { readStableFileSnapshot } from "./file-snapshot.ts";
 import { readBoundedTaskRequestFromStdin, UsageError } from "./options.ts";
 /**
  * Project Commandを実行する。
@@ -190,11 +190,19 @@ export async function runSingleTaskCommand(args: readonly string[]) {
     const verified = getRepository(root);
     if (verified.status !== "completed")
       throw new UsageError("task_repository_configuration_unavailable");
-    const context = parseRepositoryProjectContextMarkdown(
+    const contextIntake = parseRepositoryProjectContextMarkdown(
       readStableFileSnapshot(
         path.join(root, "PROJECT_CONTEXT.md"),
       ).bytes.toString("utf8"),
     );
+    const context = contextIntake.result;
+    if (context === null)
+      throw new Error(
+        contextIntake.issues.find(
+          (issue) =>
+            issue.kind === "artifact.project-context.projection-model-invalid",
+        )?.reason ?? "project_context_scene_invalid",
+      );
     cancellation = bindTaskCliCancellationSignals(async () =>
       controller.abort(),
     );

@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import {
-  isProjectContextManifestIdentityInvalid,
-  isProjectContextProjectionInvalid,
+  inspectDocumentRelations,
+  parseRepositoryProjectContextMarkdown,
 } from "../../../src/index.ts";
 
 /**
@@ -33,10 +33,34 @@ test("Project Context本文は既存の五場面とIdentity・Checklistを要求
     new URL("../../../../../template/PROJECT_CONTEXT.md", import.meta.url),
     "utf8",
   );
-  assert.equal(isProjectContextProjectionInvalid(source, true), false);
+  assert.equal(
+    parseRepositoryProjectContextMarkdown(source, {
+      mode: "template",
+    }).issues.some(
+      (issue) =>
+        issue.kind === "artifact.project-context.projection-contract-invalid",
+    ),
+    false,
+  );
   const current = source.replaceAll("- [ ] ", "- [x] ");
-  assert.equal(isProjectContextProjectionInvalid(current, false), false);
-  assert.equal(isProjectContextProjectionInvalid(source, false), true);
+  assert.equal(
+    parseRepositoryProjectContextMarkdown(current, {
+      mode: "evaluated",
+    }).issues.some(
+      (issue) =>
+        issue.kind === "artifact.project-context.projection-contract-invalid",
+    ),
+    false,
+  );
+  assert.equal(
+    parseRepositoryProjectContextMarkdown(source, {
+      mode: "evaluated",
+    }).issues.some(
+      (issue) =>
+        issue.kind === "artifact.project-context.projection-contract-invalid",
+    ),
+    true,
+  );
   for (const invalid of [
     "",
     source.replace("## 2. 何が危ない、または止まっているか", ""),
@@ -51,7 +75,15 @@ test("Project Context本文は既存の五場面とIdentity・Checklistを要求
       "## 2. 何が危ない、または止まっているか",
     ),
   ])
-    assert.equal(isProjectContextProjectionInvalid(invalid, true), true);
+    assert.equal(
+      parseRepositoryProjectContextMarkdown(invalid, {
+        mode: "template",
+      }).issues.some(
+        (issue) =>
+          issue.kind === "artifact.project-context.projection-contract-invalid",
+      ),
+      true,
+    );
 });
 
 /**
@@ -76,43 +108,62 @@ test("Project Context Identityはv2 Manifestと既存規則で比較する", () 
     repositoryRole: "dev",
   };
   assert.equal(
-    isProjectContextManifestIdentityInvalid(source, manifest),
+    inspectDocumentRelations({
+      kind: "project_context_identity",
+      context: parseRepositoryProjectContextMarkdown(source),
+      manifest: manifest,
+    }).length > 0,
     false,
   );
   assert.equal(
-    isProjectContextManifestIdentityInvalid(source, {
-      ...manifest,
-      schema: "old",
-    }),
+    inspectDocumentRelations({
+      kind: "project_context_identity",
+      context: parseRepositoryProjectContextMarkdown(source),
+      manifest: {
+        ...manifest,
+        schema: "old",
+      },
+    }).length > 0,
     true,
   );
   assert.equal(
-    isProjectContextManifestIdentityInvalid(source, {
-      ...manifest,
-      projectId: "other",
-    }),
+    inspectDocumentRelations({
+      kind: "project_context_identity",
+      context: parseRepositoryProjectContextMarkdown(source),
+      manifest: {
+        ...manifest,
+        projectId: "other",
+      },
+    }).length > 0,
     true,
   );
   assert.equal(
-    isProjectContextManifestIdentityInvalid(
-      `${source}Project ID: \`other\``,
-      manifest,
-    ),
+    inspectDocumentRelations({
+      kind: "project_context_identity",
+      context: parseRepositoryProjectContextMarkdown(
+        `${source}Project ID: \`other\``,
+      ),
+      manifest: manifest,
+    }).length > 0,
     false,
   );
   assert.equal(
-    isProjectContextManifestIdentityInvalid(
-      source.replaceAll("`", ""),
-      manifest,
-    ),
+    inspectDocumentRelations({
+      kind: "project_context_identity",
+      context: parseRepositoryProjectContextMarkdown(
+        source.replaceAll("`", ""),
+      ),
+      manifest: manifest,
+    }).length > 0,
     true,
   );
   assert.throws(
     () =>
-      isProjectContextManifestIdentityInvalid(
-        source,
-        null as unknown as Record<string, unknown>,
-      ),
+      inspectDocumentRelations({
+        kind: "project_context_identity",
+        context: parseRepositoryProjectContextMarkdown(source),
+        manifest: null as unknown as Record<string, unknown>,
+      }).length > 0,
     TypeError,
   );
 });

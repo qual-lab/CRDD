@@ -4,13 +4,23 @@
  * @responsibility visibleLinesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
+import { omitMarkdownFencedCode, parseMarkdownAnchors } from "./anchors.ts";
+import { inspectRelatedOrder } from "./document-header.ts";
+import { captureArtifactIdentity } from "./identity.ts";
+import { parseMarkdownLinkTargets } from "./links.ts";
+import { isMarkdownTableSeparator, parseMarkdownTableRow } from "./markdown.ts";
 import type {
   ArtifactModel,
   ArtifactRelation,
   ArtifactSection,
   ArtifactSource,
   ChecklistResult,
+  ParseResult,
 } from "./types.ts";
+import {
+  type ArtifactSchema,
+  validateArtifactSchema,
+} from "./validate-schema.ts";
 
 /**
  * visible Linesを決定する。
@@ -147,6 +157,9 @@ function stableIds(value: string): string[] {
  * @concurrency N/A: parseMarkdownArtifactは共有非同期状態を持たない同期処理である。
  */
 export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
+  source = { path: source.path, content: source.content };
+  const identity = captureArtifactIdentity(source);
+  const related = inspectRelatedOrder(source);
   const lines = visibleLines(source.content);
   const headingEntries = lines.flatMap(({ line, text }) => {
     const heading = text.match(/^(#{1,6})\s+(.+?)\s*$/u);
@@ -239,6 +252,25 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
       });
     }
   return {
+    source,
+    anchors: parseMarkdownAnchors(source.content),
+    linkTargets: parseMarkdownLinkTargets(source.content),
+    identity: identity.result,
+    hasRelated: related.hasRelated,
+    localIssues: [...identity.issues, ...related.issues],
+    verificationLines: omitMarkdownFencedCode(source.content)
+      .split(/\r?\n/u)
+      .map((text) => {
+        const cells = parseMarkdownTableRow(text);
+        return {
+          text,
+          cells,
+          separatorCellCount:
+            cells && isMarkdownTableSeparator(text, cells.length)
+              ? cells.length
+              : null,
+        };
+      }),
     artifactType: property(lines, "成果物種別"),
     canonicalId,
     status: property(lines, "状態"),
@@ -249,4 +281,25 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
     checklist: checklistResults,
     sourceLocation: { path: source.path, line: 1 },
   };
+}
+
+/**
+ * 取得済み成果物を内容モデルと局所診断へ一括して受け付ける。
+ * @responsibility 構造・参照・Identity・Relatedと明示Schemaの診断を返す。
+ * @trace ARCH-000008
+ * @input source: 取得済み本文。options.schemas: 明示された適用Schema。
+ * @returns 部分内容も保持するParseResult。completeは品質Passではない。
+ * @effect N/A: File読取り・保存・外部送信は行わない。
+ * @failure Schema callbackの例外は伝播し、適用判定を省略しない。
+ */
+export function parseArtifact(
+  source: ArtifactSource,
+  options: Readonly<{ schemas?: readonly ArtifactSchema[] }> = {},
+): ParseResult<ArtifactModel> & Readonly<{ result: ArtifactModel }> {
+  const result = parseMarkdownArtifact(source);
+  const issues = [...result.localIssues];
+  for (const schema of options.schemas ?? [])
+    if (schema.matches(result))
+      issues.push(...validateArtifactSchema(result, schema).issues);
+  return { status: issues.length ? "partial" : "complete", result, issues };
 }

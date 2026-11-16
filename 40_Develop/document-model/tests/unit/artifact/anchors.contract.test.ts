@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { omitMarkdownFencedCode } from "../../../src/artifact/anchors.ts";
-import { parseMarkdownAnchors } from "../../../src/index.ts";
+import { parseArtifact } from "../../../src/index.ts";
 
 /**
  * Unicode・可視文字・重複と明示Anchorの解析結果を検証する。
@@ -58,11 +58,17 @@ test("Markdown Anchorは可視文字と重複順を維持する", () => {
     "-emoji",
     "emoji-",
   ];
-  const first = parseMarkdownAnchors(content);
+  const first = parseArtifact({ path: "fixture.md", content }).result.anchors;
   assert.deepEqual([...first], expectedAnchors);
-  assert.deepEqual([...parseMarkdownAnchors(content)], expectedAnchors);
-  first.clear();
-  assert.deepEqual([...parseMarkdownAnchors(content)], expectedAnchors);
+  assert.deepEqual(
+    [...parseArtifact({ path: "fixture.md", content }).result.anchors],
+    expectedAnchors,
+  );
+  (first as Set<string>).clear();
+  assert.deepEqual(
+    [...parseArtifact({ path: "fixture.md", content }).result.anchors],
+    expectedAnchors,
+  );
 });
 
 /**
@@ -93,7 +99,10 @@ test("Markdown Fence内と未閉鎖以降の見出しはAnchorにならない", 
     "# Unclosed",
   ];
   const content = lines.join("\r\n");
-  assert.deepEqual([...parseMarkdownAnchors(content)], ["visible", "final"]);
+  assert.deepEqual(
+    [...parseArtifact({ path: "fixture.md", content }).result.anchors],
+    ["visible", "final"],
+  );
   assert.equal(
     omitMarkdownFencedCode(content),
     ["# Visible", "", "", "", "", "", "", "", "", "# Final", "", ""].join("\n"),
@@ -103,5 +112,8 @@ test("Markdown Fence内と未閉鎖以降の見出しはAnchorにならない", 
     lines.length,
   );
   assert.equal(content, lines.join("\r\n"));
-  assert.deepEqual([...parseMarkdownAnchors("")], []);
+  assert.deepEqual(
+    [...parseArtifact({ path: "fixture.md", content: "" }).result.anchors],
+    [],
+  );
 });

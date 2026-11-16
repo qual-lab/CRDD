@@ -7,6 +7,7 @@
  * @scope artifact、ux
  * @boundary RCM-UT-002=N/A: 合成本文の同期解析。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -22,8 +23,8 @@ import {
   parseUxPersonas,
   parseUxQualityExpectations,
   parseUxServiceBlueprint,
-  type UxFormalInputObservation,
 } from "../../../src/index.ts";
+import type { UxFormalInputObservation } from "../../../src/ux/types.ts";
 import { uxChecklistItems } from "../../../src/ux/validation.ts";
 
 /**

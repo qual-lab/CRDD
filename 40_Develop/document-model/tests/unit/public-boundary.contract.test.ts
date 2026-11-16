@@ -14,6 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { buildArtifactGraph } from "../../src/artifact/graph.ts";
+import { validateArtifactSchema } from "../../src/artifact/validate-schema.ts";
 import * as domainLibrary from "../../src/index.ts";
 
 /**
@@ -71,7 +73,6 @@ function exportedNames(relativePath: string): readonly string[] {
 test("Package Rootは採用済みの固定公開集合だけを提供する", () => {
   assert.deepEqual(Object.keys(domainLibrary).sort(), [
     "applyProjectOperationCandidateDecision",
-    "buildArtifactGraph",
     "compileQualitySemanticRelations",
     "compileSemanticIr",
     "createFilesystemRepositoryObservationPort",
@@ -83,24 +84,16 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "createSemanticCoverageGraph",
     "createTopicOperations",
     "discoverRealitySymbols",
-    "discoverRepositoryTestFiles",
     "evaluateDefinitionPairEvidence",
     "federateTopicMeetingRelations",
     "fixQualityCandidate",
-    "inspectArtifactSources",
-    "inspectBranchCoverageTable",
     "inspectDocumentRelations",
     "inspectQualityAnalysis",
     "inspectQualityLocalItemOwnership",
+    "inspectQualityVerification",
     "inspectRealityTestCatalog",
-    "inspectRelatedOrder",
     "inspectReleaseDocuments",
-    "inspectRemediationTable",
-    "inspectTestCatalog",
     "integrateQualityGate",
-    "isProjectContextManifestIdentityInvalid",
-    "isProjectContextProjectionInvalid",
-    "loadTestCatalog",
     "observeRealitySymbolRepository",
     "parseArchitectureAnalysis",
     "parseArchitectureCrossModel",
@@ -108,6 +101,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseArchitectureDetail",
     "parseArchitectureDetailMap",
     "parseArchitectureIndex",
+    "parseArtifact",
     "parseCanonicalDocument",
     "parseChangeDocument",
     "parseChangeIndex",
@@ -121,11 +115,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseIaObjectRelation",
     "parseIaStateVisibility",
     "parseIaStructureNavigation",
-    "parseIdentityDocument",
-    "parseMarkdownAnchors",
-    "parseMarkdownArtifact",
     "parseMarkdownLinkReference",
-    "parseMarkdownLinkTargets",
     "parseMeetingMarkdown",
     "parseQualityAnalysis",
     "parseQualityCenter",
@@ -137,6 +127,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseQualityVerificationDesign",
     "parseQualityVerificationResult",
     "parseReadme",
+    "parseRealitySymbolManifest",
     "parseRepositoryProjectContextMarkdown",
     "parseRepositoryQualityProjectionMarkdown",
     "parseRepositoryReleaseProjectionMarkdown",
@@ -167,11 +158,10 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "projectProjectOperationSources",
     "publishSemanticCoverage",
     "readRepositoryProjectContext",
+    "readTestCatalog",
+    "readTopicMeetingList",
     "reenterQualityReview",
     "testLevels",
-    "validateArtifactSchema",
-    "validateRealitySymbolManifest",
-    "validateTopicMeetingListInput",
   ]);
   assert.deepEqual(exportedNames("../../src/index.ts"), [
     "ArchitectureAnalysis",
@@ -180,29 +170,17 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "ArchitectureDetailMapModel",
     "ArchitectureDetailModel",
     "ArchitectureIndex",
-    "ArtifactGraph",
-    "ArtifactGraphResult",
     "ArtifactModel",
-    "ArtifactRelation",
-    "ArtifactSchema",
-    "ArtifactSchemaValidationResult",
-    "ArtifactSection",
     "ArtifactSource",
-    "BuildArtifactGraphRequest",
     "CanonicalDocument",
     "ChangeDocument",
     "ChangeIndex",
     "Changelog",
-    "ChecklistFailure",
-    "ChecklistResult",
     "DiscoveryAnalysis",
     "DiscoveryDefinition",
     "DiscoveryIndex",
     "DocumentIssue",
-    "DocumentLocation",
     "DocumentRelationsRequest",
-    "DocumentResult",
-    "DocumentStatus",
     "FederatedProjectProjection",
     "FederatedProjectSource",
     "FixedQualityCandidate",
@@ -217,7 +195,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "MarkdownLinkReference",
     "MeetingOperations",
     "MeetingOutcomeCommandResult",
-    "MeetingOutcomeTarget",
     "MeetingRecord",
     "MeetingState",
     "ParseResult",
@@ -227,11 +204,9 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "ProjectOperationCandidateDecision",
     "ProjectOperationCandidateDecisionResult",
     "ProjectOperationProjection",
-    "ProjectOperationProjectionItem",
     "ProjectOperationRecord",
     "ProjectOperationRecordKind",
     "ProjectOperationSource",
-    "ProjectOperationSourceState",
     "PublishSemanticCoverageRequest",
     "PublishSemanticCoverageResult",
     "QualityAnalysis",
@@ -246,41 +221,24 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "QualitySemanticRelation",
     "QualityStrategy",
     "QualityVerificationDesign",
+    "QualityVerificationEvaluation",
     "QualityVerificationResult",
     "Readme",
-    "RealityRepositoryObservationIssue",
-    "RealitySymbol",
     "RealitySymbolDiscoveryRequest",
     "RealitySymbolDiscoveryResult",
     "RealitySymbolDiscoverySource",
     "RealitySymbolGraph",
-    "RealitySymbolKind",
     "RealitySymbolManifest",
-    "RealitySymbolNode",
     "RealitySymbolRepositoryObservation",
-    "RepositoryDirectoryEntry",
-    "RepositoryDirectoryObservation",
-    "RepositoryEntryKind",
-    "RepositoryFileObservation",
     "RepositoryObservationPort",
     "RepositoryProjectContext",
     "RepositoryProjectContextReadResult",
-    "RepositoryProjectContextScene",
-    "RepositoryProjectContextSceneKey",
-    "RepositoryProjectContextTable",
     "RepositoryQualityProjection",
-    "RepositoryReleaseDependency",
     "RepositoryReleaseProjection",
-    "RepositoryReleaseScope",
-    "SemanticBundleContent",
-    "SemanticBundlePublishReceipt",
-    "SemanticBundlePublishRequest",
     "SemanticBundlePublisher",
     "SemanticCoverageBundle",
     "SemanticCoverageGraph",
-    "SemanticCoverageProjection",
     "SemanticIr",
-    "SemanticIrMeaning",
     "SourceLocation",
     "SpecAnalysis",
     "SpecBehavior",
@@ -291,11 +249,12 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "SpecIndex",
     "TestCatalog",
     "TestCatalogEntry",
+    "TestCatalogReadResult",
     "TestLevel",
     "TopicMeetingAccess",
     "TopicMeetingDocument",
     "TopicMeetingListQuery",
-    "TopicMeetingListResult",
+    "TopicMeetingListReadResult",
     "TopicMeetingPage",
     "TopicMeetingRelation",
     "TopicMeetingRelationSource",
@@ -317,13 +276,11 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "UxAnalysisModel",
     "UxDefinitionModel",
     "UxExperienceMap",
-    "UxFormalInputObservation",
     "UxIndexModel",
     "UxPersonas",
     "UxQualityExpectations",
     "UxServiceBlueprint",
     "applyProjectOperationCandidateDecision",
-    "buildArtifactGraph",
     "compileQualitySemanticRelations",
     "compileSemanticIr",
     "createFilesystemRepositoryObservationPort",
@@ -335,24 +292,16 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "createSemanticCoverageGraph",
     "createTopicOperations",
     "discoverRealitySymbols",
-    "discoverRepositoryTestFiles",
     "evaluateDefinitionPairEvidence",
     "federateTopicMeetingRelations",
     "fixQualityCandidate",
-    "inspectArtifactSources",
-    "inspectBranchCoverageTable",
     "inspectDocumentRelations",
     "inspectQualityAnalysis",
     "inspectQualityLocalItemOwnership",
+    "inspectQualityVerification",
     "inspectRealityTestCatalog",
-    "inspectRelatedOrder",
     "inspectReleaseDocuments",
-    "inspectRemediationTable",
-    "inspectTestCatalog",
     "integrateQualityGate",
-    "isProjectContextManifestIdentityInvalid",
-    "isProjectContextProjectionInvalid",
-    "loadTestCatalog",
     "observeRealitySymbolRepository",
     "parseArchitectureAnalysis",
     "parseArchitectureCrossModel",
@@ -360,6 +309,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseArchitectureDetail",
     "parseArchitectureDetailMap",
     "parseArchitectureIndex",
+    "parseArtifact",
     "parseCanonicalDocument",
     "parseChangeDocument",
     "parseChangeIndex",
@@ -373,11 +323,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseIaObjectRelation",
     "parseIaStateVisibility",
     "parseIaStructureNavigation",
-    "parseIdentityDocument",
-    "parseMarkdownAnchors",
-    "parseMarkdownArtifact",
     "parseMarkdownLinkReference",
-    "parseMarkdownLinkTargets",
     "parseMeetingMarkdown",
     "parseQualityAnalysis",
     "parseQualityCenter",
@@ -389,6 +335,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseQualityVerificationDesign",
     "parseQualityVerificationResult",
     "parseReadme",
+    "parseRealitySymbolManifest",
     "parseRepositoryProjectContextMarkdown",
     "parseRepositoryQualityProjectionMarkdown",
     "parseRepositoryReleaseProjectionMarkdown",
@@ -419,11 +366,10 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "projectProjectOperationSources",
     "publishSemanticCoverage",
     "readRepositoryProjectContext",
+    "readTestCatalog",
+    "readTopicMeetingList",
     "reenterQualityReview",
     "testLevels",
-    "validateArtifactSchema",
-    "validateRealitySymbolManifest",
-    "validateTopicMeetingListInput",
   ]);
   const metadata = JSON.parse(
     fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
@@ -531,7 +477,7 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
  * @boundary RCM-UT-014=Direct Boundary: document-model Test Source→対象契約
  */
 test("Artifactの公開操作から解析・Schema検証・関係Graphを利用する", () => {
-  const parsed = domainLibrary.parseMarkdownArtifact({
+  const parsed = domainLibrary.parseArtifact({
     path: "02_UX/Definitions/UX-000001/ux_definition.md",
     content: `# UX-000001 Sample
 
@@ -555,7 +501,7 @@ UX ID: UX-000001
 - [x] 意味を保持した
 - OPEN: 人間確認待ち — 実利用を確認した
 `,
-  });
+  }).result;
   assert.equal(parsed.canonicalId, "UX-000001");
   assert.deepEqual(parsed.formalInputs, ["REQ-000001"]);
   assert.equal(parsed.status, "Canonical");
@@ -564,7 +510,7 @@ UX ID: UX-000001
     ["passed", "open"],
   );
 
-  const validation = domainLibrary.validateArtifactSchema(parsed, {
+  const validation = validateArtifactSchema(parsed, {
     id: "ux-definition",
     matches: () => true,
     requiredProperties: ["artifactType", "canonicalId", "status"],
@@ -603,22 +549,17 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
     exportedNames("../../src/index.ts").filter(
       (name) => name.includes("ArtifactGraph") || name === "buildArtifactGraph",
     ),
-    [
-      "ArtifactGraph",
-      "ArtifactGraphResult",
-      "BuildArtifactGraphRequest",
-      "buildArtifactGraph",
-    ],
+    [],
   );
-  const source = domainLibrary.parseMarkdownArtifact({
+  const source = domainLibrary.parseArtifact({
     path: "one.md",
     content: "# REQ-000001 One\n\n要求ID: REQ-000001\n",
-  });
-  const duplicate = domainLibrary.parseMarkdownArtifact({
+  }).result;
+  const duplicate = domainLibrary.parseArtifact({
     path: "two.md",
     content: "# REQ-000001 Two\n\n要求ID: REQ-000001\n",
-  });
-  const outcome = domainLibrary.buildArtifactGraph({
+  }).result;
+  const outcome = buildArtifactGraph({
     artifacts: [source, duplicate],
   });
   assert.equal(outcome.status, "partial");
@@ -649,7 +590,7 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
 test("Reality Traceabilityの宣言済み操作をRootから利用する", () => {
   assert.equal(typeof domainLibrary.createRealitySymbolGraph, "function");
   assert.equal(typeof domainLibrary.discoverRealitySymbols, "function");
-  assert.equal(typeof domainLibrary.validateRealitySymbolManifest, "function");
+  assert.equal(typeof domainLibrary.parseRealitySymbolManifest, "function");
   assert.equal("realitySymbolKinds" in domainLibrary, false);
 });
 
@@ -784,7 +725,7 @@ test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
  * @boundary RCM-UT-016=Direct Boundary: document-model Test Source→対象契約
  */
 test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () => {
-  const invalidContract = domainLibrary.validateRealitySymbolManifest(
+  const invalidContract = domainLibrary.parseRealitySymbolManifest(
     {
       contract: "wrong",
       contractRevision: 1,
@@ -815,7 +756,7 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
   );
 
   const absolutePath = "C:\\secret\\symbol.json";
-  const invalidLocation = domainLibrary.validateRealitySymbolManifest(
+  const invalidLocation = domainLibrary.parseRealitySymbolManifest(
     {},
     absolutePath,
   );

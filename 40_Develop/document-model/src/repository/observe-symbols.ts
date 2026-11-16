@@ -9,7 +9,7 @@ import type { Repository } from "../../../version-control/src/index.ts";
 import type { DocumentIssue } from "../artifact/types.ts";
 import { discoverRealitySymbols } from "../reality-traceability/discover.ts";
 import type { LoadedRealitySymbolManifest } from "../reality-traceability/manifest.ts";
-import { validateRealitySymbolManifest } from "../reality-traceability/validate-manifest.ts";
+import { parseRealitySymbolManifest } from "../reality-traceability/manifest.ts";
 import { createFilesystemRepositoryObservationPort } from "./create-observer.ts";
 
 /**
@@ -180,7 +180,7 @@ export function observeRealitySymbolRepository(
     }
     const symbolSources = new Map<string, string>();
     try {
-      const validated = validateRealitySymbolManifest(
+      const validated = parseRealitySymbolManifest(
         JSON.parse(manifest.source),
         manifestPath,
       );

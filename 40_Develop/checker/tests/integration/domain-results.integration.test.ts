@@ -15,12 +15,9 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  type ArtifactSchema,
-  inspectArtifactSources,
-  buildArtifactGraph,
+  inspectDocumentRelations,
   observeRealitySymbolRepository,
-  parseMarkdownArtifact,
-  validateArtifactSchema,
+  parseArtifact,
 } from "../../../document-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { runChecker, runSemanticCoverage } from "../../src/index.ts";
@@ -88,27 +85,29 @@ test("実Schema不正とGraph部分成立はDomain検査と本番変換の診断
     path,
     content: "# REQ-000001\n要求ID: REQ-000001\n",
   }));
-  const artifacts = sources.map(parseMarkdownArtifact);
-  const schema: ArtifactSchema = {
+  const artifacts = sources.map((source) => parseArtifact(source).result);
+  const schema = {
     id: "fixed",
     matches: () => true,
     requiredSections: ["Checklist"],
   };
-  const schemaResults = artifacts.map((artifact) =>
-    validateArtifactSchema(artifact, schema),
+  const schemaResults = sources.map((source) =>
+    parseArtifact(source, { schemas: [schema] }),
   );
   assert.ok(
     schemaResults.every(
-      ({ status, result }) => status === "invalid" && result === null,
+      ({ status, result }) => status === "partial" && result !== null,
     ),
   );
-  const graph = buildArtifactGraph({ artifacts });
-  assert.equal(graph.status, "partial");
-  assert.notEqual(graph.result, null);
-  const result = inspectArtifactSources({ sources, schemas: [schema] });
+  const graphIssues = inspectDocumentRelations({
+    kind: "artifact_relations",
+    artifacts,
+  });
+  assert.equal(graphIssues.length, 1);
+  const result = parseArtifactModels({ sources, schemas: [schema] });
   assert.deepEqual(
     result.issues.map(mapArtifactDomainIssueToCheckerFinding),
-    [...schemaResults.flatMap(({ issues }) => issues), ...graph.issues].map(
+    [...schemaResults.flatMap(({ issues }) => issues), ...graphIssues].map(
       mapArtifactDomainIssueToCheckerFinding,
     ),
   );
@@ -122,11 +121,9 @@ test("実Schema不正とGraph部分成立はDomain検査と本番変換の診断
       "artifact-canonical-id-duplicate",
     ],
   );
-  assert.deepEqual(result.graph, graph.result);
   assert.equal(result.artifacts.length, 2);
   assert.deepEqual(
-    inspectArtifactSources({ sources: sources.slice(0, 1), schemas: [] })
-      .issues,
+    parseArtifactModels({ sources: sources.slice(0, 1), schemas: [] }).issues,
     [],
   );
 });
@@ -326,3 +323,35 @@ test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
     );
   });
 });
+
+/**
+ * 公開Parseとモデル間評価から試験用の観測列を組み立てる。
+ * @responsibility Source順・Schema順の局所Issueの後にGraph Issueを連結する。
+ * @trace RCM-UT-002
+ * @precondition 取得済みの固定SourceとSchemaだけを使う。
+ * @stimulus 完成受付と既存の横断評価へ渡す。
+ * @observation 部分モデルと全診断。
+ * @oracle 呼出し側の既存期待値で件数・順序・内容を照合する。
+ * @cleanup N/A: 局所値のみ。
+ */
+function parseArtifactModels(
+  input: Readonly<{
+    sources: ReadonlyArray<Parameters<typeof parseArtifact>[0]>;
+    schemas?: NonNullable<Parameters<typeof parseArtifact>[1]>["schemas"];
+  }>,
+) {
+  const parsed = input.sources.map((source) =>
+    parseArtifact(
+      source,
+      input.schemas === undefined ? {} : { schemas: input.schemas },
+    ),
+  );
+  const artifacts = parsed.map((outcome) => outcome.result);
+  return {
+    artifacts,
+    issues: [
+      ...parsed.flatMap((outcome) => outcome.issues),
+      ...inspectDocumentRelations({ kind: "artifact_relations", artifacts }),
+    ],
+  };
+}

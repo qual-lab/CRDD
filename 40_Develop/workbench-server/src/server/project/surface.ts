@@ -21,11 +21,11 @@ import {
   type TopicRecord,
 } from "../../../../document-model/src/index.ts";
 import {
+  getRepository,
   type RemoteTarget,
-  type WorkingChanges,
   readRemoteTarget,
   readWorkingChanges,
-  getRepository,
+  type WorkingChanges,
 } from "../../../../version-control/src/index.ts";
 import {
   readWorkbenchOwnerArtifactCatalog,
@@ -386,8 +386,17 @@ export async function readWorkbenchProjectSurface(
     repositoryRoot,
     markdown,
   );
+  const contextIntake = parseRepositoryProjectContextMarkdown(markdown);
+  const context = contextIntake.result;
+  if (context === null)
+    throw new Error(
+      contextIntake.issues.find(
+        (issue) =>
+          issue.kind === "artifact.project-context.projection-model-invalid",
+      )?.reason ?? "project_context_scene_invalid",
+    );
   return Object.freeze({
-    context: parseRepositoryProjectContextMarkdown(markdown),
+    context,
     topics,
     meetings,
     plan,

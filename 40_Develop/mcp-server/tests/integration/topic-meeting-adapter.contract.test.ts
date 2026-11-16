@@ -12,7 +12,6 @@
  * @boundary CPR-IT-012=Direct Boundary: MCP Tool Call→Domain保存故障の公開応答
  */
 import assert from "node:assert/strict";
-import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 import {
   existsSync,
   lstatSync,
@@ -33,10 +32,10 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../vers
 import {
   getMcpTopicMeetingToolDefinitions,
   handleMcpTopicMeetingRequest,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_MEETING_CREATE_TOOL,
   MCP_MEETING_TREAT_OUTCOME_TOOL,
   MCP_MEETING_UPDATE_TOOL,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_TOPIC_CREATE_TOOL,
   MCP_TOPIC_GET_TOOL,
   MCP_TOPIC_LIST_TOOL,
@@ -44,6 +43,7 @@ import {
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
 } from "../../src/index.ts";
+import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
@@ -234,11 +234,19 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
           message: "Invalid params",
         });
       }
+      // 旧容量境界は入力不正ではない。認可済み対象の解決まで進む。
+      const beforeLongQuery = resolutions;
+      const longQuery = await invokeMcpRequest(
+        call(name, { query: "x".repeat(129), repositoryId: "repository.a" }),
+        dependencies,
+      );
+      assert.ok("error" in longQuery);
+      assert.equal(longQuery.error.code, -32602);
+      assert.equal(resolutions, beforeLongQuery + 1);
       const invalidQueries = [
         { states: ["unknown"] },
         { sort: "unknown" },
         { relation: "not-an-id" },
-        { query: "x".repeat(129) },
         { occurredFrom: "not-a-date" },
         { cursor: "malformed" },
         {

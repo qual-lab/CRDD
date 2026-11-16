@@ -20,7 +20,43 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
-import { inspectArtifactSources } from "../../../document-model/src/index.ts";
+import {
+  inspectDocumentRelations,
+  parseArtifact,
+} from "../../../document-model/src/index.ts";
+
+/**
+ * 公開Parseとモデル間評価から試験用の観測列を組み立てる。
+ * @responsibility Source順・Schema順の局所Issueの後にGraph Issueを連結する。
+ * @trace RCM-UT-002
+ * @precondition 取得済みの固定SourceとSchemaだけを使う。
+ * @stimulus 完成受付と既存の横断評価へ渡す。
+ * @observation 部分モデルと全診断。
+ * @oracle 呼出し側の既存期待値で件数・順序・内容を照合する。
+ * @cleanup N/A: 局所値のみ。
+ */
+function parseArtifactModels(
+  input: Readonly<{
+    sources: ReadonlyArray<Parameters<typeof parseArtifact>[0]>;
+    schemas?: NonNullable<Parameters<typeof parseArtifact>[1]>["schemas"];
+  }>,
+) {
+  const parsed = input.sources.map((source) =>
+    parseArtifact(
+      source,
+      input.schemas === undefined ? {} : { schemas: input.schemas },
+    ),
+  );
+  const artifacts = parsed.map((outcome) => outcome.result);
+  return {
+    artifacts,
+    issues: [
+      ...parsed.flatMap((outcome) => outcome.issues),
+      ...inspectDocumentRelations({ kind: "artifact_relations", artifacts }),
+    ],
+  };
+}
+
 import { runChecker as runDocumentChecker } from "../../src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
 import type { DocumentFinding } from "../../src/report/types.ts";
@@ -99,7 +135,7 @@ test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
  * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
 test("Domain成果物検査はMarkdownを解析してSchemaと関係を検査する", () => {
-  const result = inspectArtifactSources({
+  const result = parseArtifactModels({
     sources: [
       {
         path: "sample.md",
@@ -147,9 +183,12 @@ UX ID: UX-000001
     ),
     ["passed", "open"],
   );
-  assert.equal(
-    result.graph.artifactsById.get("UX-000001"),
-    result.artifacts[0],
+  assert.deepEqual(
+    inspectDocumentRelations({
+      kind: "artifact_relations",
+      artifacts: result.artifacts,
+    }),
+    [],
   );
 });
 
@@ -170,7 +209,7 @@ test("Domain成果物検査のSchema不整合とID重複をChecker診断へ変�
     path: "duplicate.md",
     content: "# REQ-000001 Duplicate\n\n成果物種別: Discovery定義\n",
   };
-  const result = inspectArtifactSources({
+  const result = parseArtifactModels({
     sources: [source, { ...source, path: "duplicate-2.md" }],
     schemas: [
       {

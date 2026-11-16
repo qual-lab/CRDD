@@ -15,14 +15,16 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import type { SemanticIr } from "../../../../document-model/src/index.ts";
+import {
+  observeRealitySymbolRepository,
+  parseRealitySymbolManifest,
+} from "../../../../document-model/src/index.ts";
 import { getRepository } from "../../../../version-control/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
   createSemanticCoverageGraphResult,
 } from "../../../src/repository/semantic.ts";
-import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../document-model/src/index.ts";
-import { observeRealitySymbolRepository } from "../../../../document-model/src/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -85,19 +87,19 @@ const discovery = {
 };
 
 /**
- * validateRealitySymbolManifestのTest準備責務を実行する。
+ * parseRealitySymbolManifestのTest準備責務を実行する。
  *
- * @responsibility validateRealitySymbolManifestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @responsibility parseRealitySymbolManifestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace PPR-UT-016
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus validateRealitySymbolManifestを呼び出す。
+ * @stimulus parseRealitySymbolManifestを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
-function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
-  const outcome = validateDomainRealitySymbolManifest(value, manifestPath);
+function parseManifestForTest(value: unknown, manifestPath: string) {
+  const outcome = parseRealitySymbolManifest(value, manifestPath);
   return {
     manifest: outcome.result,
     findings: outcome.issues.map((issue) => ({
@@ -738,7 +740,7 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
  * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Test Symbolはimplementsを所有できない", () => {
-  const validation = validateRealitySymbolManifest(
+  const validation = parseManifestForTest(
     {
       contract: "crdd/reality-symbol-manifest",
       contractRevision: 1,

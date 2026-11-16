@@ -8,19 +8,16 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type ArtifactSource,
-  inspectBranchCoverageTable,
   inspectDocumentRelations,
-  inspectRelatedOrder,
+  inspectQualityVerification,
   inspectReleaseDocuments,
-  inspectRemediationTable,
   parseArchitectureIndex,
+  parseArtifact,
   parseCanonicalDocument,
   parseChangeDocument,
   parseChangelog,
   parseDiscoveryIndex,
   parseIaIndex,
-  parseIdentityDocument,
-  parseMarkdownLinkTargets,
   parseQualityVerificationDesign,
   parseReadme,
   parseSpecIndex,
@@ -406,7 +403,10 @@ export function inspectDocumentRepository(
 
   const linkRecords: LinkRecord[] = [];
   for (const source of allMarkdownFiles) {
-    for (const raw of parseMarkdownLinkTargets(read(source))) {
+    for (const raw of parseArtifact({
+      path: relative(source),
+      content: read(source),
+    }).result.linkTargets) {
       linkRecords.push(resolveLinkWithFixedHistory(source, raw));
     }
   }
@@ -638,13 +638,13 @@ export function inspectDocumentRepository(
         relativePath.includes("/Evidence/")
       )
         continue;
-      const identity = parseIdentityDocument({
+      const identity = parseArtifact({
         path: relativePath,
         content: read(file),
       });
       const result = inspectDocumentRelations({
         kind: "discovery_identity_links",
-        document: identity.result,
+        document: identity.result.identity,
       });
       for (const issue of result) {
         const finding = mapDocumentIdentityIssueToFinding(issue);
@@ -695,12 +695,14 @@ export function inspectDocumentRepository(
 
   let relatedBlocks = 0;
   for (const file of markdownFiles) {
-    const result = inspectRelatedOrder({
+    const result = parseArtifact({
       path: relative(file),
       content: read(file),
     });
-    if (result.hasRelated) relatedBlocks += 1;
-    for (const issue of result.issues) {
+    if (result.result.hasRelated) relatedBlocks += 1;
+    for (const issue of result.issues.filter(
+      (issue) => issue.kind === "artifact.document-rule.related-order",
+    )) {
       const finding = mapDocumentRuleIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -711,11 +713,11 @@ export function inspectDocumentRepository(
   const stableIdDefinitions = new Map();
   for (const file of allMarkdownFiles) {
     const text = read(file);
-    const identity = parseIdentityDocument({
+    const identity = parseArtifact({
       path: relative(file),
       content: text,
     });
-    for (const id of identity.result.occurrences) {
+    for (const id of identity.result.identity.occurrences) {
       const items = stableIdOccurrences.get(id) ?? [];
       items.push(relative(file));
       stableIdOccurrences.set(id, items);
@@ -727,13 +729,15 @@ export function inspectDocumentRepository(
       continue;
     }
     const model = identity;
-    const definitionGroups = [model.result.stableIdDefinitions];
+    const definitionGroups = [model.result.identity.stableIdDefinitions];
     if (relative(file) === "02_UX/01_User_Experience.md")
       definitionGroups.push(
         parseUxIndex({ path: relative(file), content: text }).result
           .identityDefinitions,
       );
-    for (const issue of model.issues) {
+    for (const issue of model.issues.filter((issue) =>
+      issue.kind.startsWith("artifact.document-identity."),
+    )) {
       const finding = mapDocumentIdentityIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -755,12 +759,14 @@ export function inspectDocumentRepository(
 
   let numericRowsChecked = 0;
   for (const file of allMarkdownFiles) {
-    const result = inspectBranchCoverageTable({
-      path: relative(file),
-      content: read(file),
-    });
+    const result = inspectQualityVerification(
+      parseArtifact({
+        path: relative(file),
+        content: read(file),
+      }).result,
+    );
     numericRowsChecked += result.numericRowsChecked;
-    for (const issue of result.issues) {
+    for (const issue of result.branchIssues) {
       const finding = mapDocumentRuleIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
@@ -768,12 +774,14 @@ export function inspectDocumentRepository(
 
   let remediationRowsChecked = 0;
   for (const file of allMarkdownFiles) {
-    const result = inspectRemediationTable({
-      path: relative(file),
-      content: read(file),
-    });
+    const result = inspectQualityVerification(
+      parseArtifact({
+        path: relative(file),
+        content: read(file),
+      }).result,
+    );
     remediationRowsChecked += result.remediationRowsChecked;
-    for (const issue of result.issues) {
+    for (const issue of result.remediationIssues) {
       const finding = mapDocumentRuleIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }

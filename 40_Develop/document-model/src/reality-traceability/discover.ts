@@ -8,7 +8,7 @@ import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 import { validateRealitySymbolAnnotations } from "./annotations.ts";
 import { createRealityDomainIssue } from "./issue.ts";
 import type { LoadedRealitySymbolManifest } from "./manifest.ts";
-import { validateRealitySymbolManifest } from "./validate-manifest.ts";
+import { parseRealitySymbolManifest } from "./manifest.ts";
 
 /**
  * symbol-discoveryで使用するReality Symbol Discovery Sourceの値契約を定義する。
@@ -106,10 +106,7 @@ export function discoverRealitySymbols(
       );
       continue;
     }
-    const validated = validateRealitySymbolManifest(
-      parsed,
-      source.manifestPath,
-    );
+    const validated = parseRealitySymbolManifest(parsed, source.manifestPath);
     issues.push(...validated.issues);
     if (!validated.result) continue;
     if (validated.result.subsystem !== source.subsystem) {

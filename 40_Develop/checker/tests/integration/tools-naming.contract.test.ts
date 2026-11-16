@@ -17,8 +17,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  parseRealitySymbolManifest,
   type RealitySymbolManifest,
-  validateRealitySymbolManifest,
 } from "../../../document-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 
@@ -239,21 +239,15 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./activity/federate-relations.ts",
       "./activity/operations.ts",
       "./activity/types.ts",
-      "./artifact/anchors.ts",
       "./architecture/validation.ts",
       "./architecture/details.ts",
       "./change/parse.ts",
       "./change/types.ts",
       "./discovery/parse.ts",
       "./discovery/types.ts",
-      "./artifact/document-header.ts",
-      "./artifact/graph.ts",
       "./ia/parse.ts",
       "./ia/types.ts",
-      "./artifact/identity.ts",
-      "./artifact/inspect.ts",
       "./artifact/links.ts",
-      "./artifact/markdown.ts",
       "./artifact/parse-markdown.ts",
       "./quality/analysis.ts",
       "./quality/definition.ts",
@@ -267,13 +261,10 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./ui/types.ts",
       "./ux/parse.ts",
       "./ux/types.ts",
-      "./artifact/validate-schema.ts",
-      "./quality/verification-tables.ts",
       "./meeting/create-operations.ts",
       "./meeting/markdown.ts",
       "./meeting/types.ts",
       "./project-context/candidate-decision.ts",
-      "./project-context/inspect.ts",
       "./project-context/parse-context.ts",
       "./project-context/parse-quality.ts",
       "./project-context/parse-release.ts",
@@ -286,7 +277,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./reality-traceability/discover.ts",
       "./reality-traceability/graph.ts",
       "./reality-traceability/manifest.ts",
-      "./reality-traceability/validate-manifest.ts",
       "./repository/create-observer.ts",
       "./repository/observe-symbols.ts",
       "./repository/types.ts",
@@ -890,7 +880,7 @@ function collectVerifiedSymbolManifests(
     const realManifestPath = resolveOwnedFile(manifestPath, subsystemRoots);
     assert.ok(isContainedPath(realManifestPath, realRoot));
     assert.equal(realManifestPath, manifestPath, "aliased Manifest Path");
-    const outcome = validateRealitySymbolManifest(
+    const outcome = parseRealitySymbolManifest(
       JSON.parse(fs.readFileSync(realManifestPath, "utf8")),
       `${subsystem}/symbol.json`,
     );
@@ -976,6 +966,29 @@ test("宣言済みTSツールの公開Module間接続は既存契約に一致す
       path.join(repositoryRoot, ...profile.relativePath.split("/")),
       profile,
     );
+});
+
+/**
+ * 文書モデル単独の公開元を固定契約へ照合する。
+ * @responsibility 他Packageの不整合で文書モデルの確認が未到達になることを防ぐ。
+ * @trace RCM-IT-005
+ * @precondition 現行Rootと固定した公開元一覧。
+ * @stimulus 既存の公開契約検査を文書モデルへ適用する。
+ * @observation 公開元集合・重複・Headerと禁止形式。
+ * @oracle 完成操作の現行宣言元だけが固定集合と一致する。
+ * @cleanup N/A: Sourceを読むだけ。
+ * @boundary Source契約の確認であり実行成功や品質Passを主張しない。
+ */
+test("文書モデルの公開Moduleは完成操作の宣言元だけへ接続する", () => {
+  const profile = PUBLIC_INDEX_PROFILES.find(
+    (candidate) =>
+      candidate.relativePath === "40_Develop/document-model/src/index.ts",
+  );
+  assert.ok(profile);
+  assertPublicIndexContract(
+    path.join(repositoryRoot, profile.relativePath),
+    profile,
+  );
 });
 
 /**
@@ -1323,7 +1336,7 @@ test("検証Toolの成果物関係は言語非依存で禁止Pathと関係混在
     verifies: [],
   };
   const inspect = (symbol: unknown) =>
-    validateRealitySymbolManifest(
+    parseRealitySymbolManifest(
       {
         contract: "crdd/reality-symbol-manifest",
         contractRevision: 1,

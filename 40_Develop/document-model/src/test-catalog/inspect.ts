@@ -613,13 +613,15 @@ function markdownHeadingAnchorExists(
 export function inspectTestCatalog(
   repositoryRoot: string,
   candidate: unknown,
-): readonly string[] {
+): Readonly<{ failures: readonly string[]; observedFiles: readonly string[] }> {
   const failures: string[] = [];
-  if (!isRecord(candidate)) return ["test_catalog_not_object"];
+  let observedFiles: readonly string[] = [];
+  if (!isRecord(candidate))
+    return { failures: ["test_catalog_not_object"], observedFiles };
   failures.push(...inspectExactKeys(candidate, ROOT_KEYS, "root"));
   if (!Array.isArray(candidate.tests)) {
     failures.push("test_catalog_tests_not_array");
-    return [...new Set(failures)].sort(ordinal);
+    return { failures: [...new Set(failures)].sort(ordinal), observedFiles };
   }
   const catalog = candidate as unknown as TestCatalog;
   if (catalog.contract !== "crdd/test-catalog") failures.push("contract");
@@ -719,6 +721,7 @@ export function inspectTestCatalog(
   }
 
   const actualPaths = discoverRepositoryTestFiles(repositoryRoot);
+  observedFiles = actualPaths;
   const registeredPaths = validPaths.sort(ordinal);
   const actualSet = new Set(actualPaths.map((entry) => entry.toLowerCase()));
   const registeredSet = new Set(
@@ -952,5 +955,39 @@ export function inspectTestCatalog(
     if (!entry.executionProfiles?.includes("restricted_process"))
       failures.push(`windows_process_restricted_profile_missing:${entry.path}`);
   }
-  return [...new Set(failures)].sort(ordinal);
+  return { failures: [...new Set(failures)].sort(ordinal), observedFiles };
 }
+
+/**
+ * 固定Catalogの読取り・JSON受付・構造と実在照合を完了する。
+ * @responsibility 型付き台帳と同じ検査中に観測した試験集合だけを返す。
+ * @trace ARCH-000003
+ * @input repositoryRoot: 利用側が選定・検証したRepository Root。
+ * @returns 不正時は台帳を返さず、従来の拒否理由と観測済み集合を保持する。
+ * @effect 固定Catalogと既存の試験・設計成果物を読取りする。試験を実行しない。
+ * @failure 読取り不能・JSON不正は例外を伝播し、空台帳へ畳まない。
+ */
+export function readTestCatalog(repositoryRoot: string): TestCatalogReadResult {
+  const candidate = loadTestCatalog(
+    path.join(repositoryRoot, "07_Quality", "Registry", "test-catalog.json"),
+  );
+  const checked = inspectTestCatalog(repositoryRoot, candidate);
+  return checked.failures.length
+    ? { status: "invalid", catalog: null, ...checked }
+    : { status: "complete", catalog: candidate as TestCatalog, ...checked };
+}
+
+/** 完成受付の台帳と観測集合。不正時は型付き台帳を発行しない。 */
+export type TestCatalogReadResult =
+  | Readonly<{
+      status: "complete";
+      catalog: TestCatalog;
+      failures: readonly string[];
+      observedFiles: readonly string[];
+    }>
+  | Readonly<{
+      status: "invalid";
+      catalog: null;
+      failures: readonly string[];
+      observedFiles: readonly string[];
+    }>;

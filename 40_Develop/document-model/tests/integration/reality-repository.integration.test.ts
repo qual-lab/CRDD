@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { getRepository } from "../../../version-control/src/index.ts";
 
 import { createRealitySymbolGraph } from "../../src/reality-traceability/graph.ts";
-import { validateRealitySymbolManifest } from "../../src/reality-traceability/validate-manifest.ts";
+import { parseRealitySymbolManifest } from "../../src/reality-traceability/manifest.ts";
 import { createFilesystemRepositoryObservationPort } from "../../src/repository/create-observer.ts";
 
 /**
@@ -68,7 +68,7 @@ test("Repository観測をReality Symbol契約へ渡してGraphを構築する", 
       },
     ],
   };
-  const validated = validateRealitySymbolManifest(manifest, manifestPath);
+  const validated = parseRealitySymbolManifest(manifest, manifestPath);
   assert.deepEqual(validated.issues, []);
   assert.ok(validated.result);
   if (!validated.result) return;

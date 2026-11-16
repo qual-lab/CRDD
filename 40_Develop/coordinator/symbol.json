@@ -1485,7 +1485,6 @@
         "PRL-ST-004"
       ],
       "verifies": [
-        "coordinator.native-runtime-trace",
         "coordinator.source.scripts.verify.signed.general.task",
         "coordinator.task-runtime"
       ]
@@ -2305,7 +2304,15 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.native-runtime-trace"
+        "coordinator.test.support.runtime-trace-case"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.support.runtime-trace-case",
+      "kind": "file",
+      "path": "tests/support/runtime-trace-case.ts",
+      "archIds": [
+        "ARCH-000004"
       ]
     },
     {

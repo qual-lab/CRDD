@@ -15,8 +15,10 @@ import type {
   MeetingOutcomeCommandResult,
   ProjectOperationRecord,
   ProjectOperationRecordKind,
+  TopicMeetingAccess,
   TopicMeetingListQuery,
   TopicMeetingOperations,
+  TopicMeetingPage,
   TopicMeetingRelation,
   TopicMeetingRepository,
   TopicPromotionCommandResult,
@@ -585,3 +587,37 @@ export function createTopicMeetingOperations(
     },
   });
 }
+
+/**
+ * 一覧入力の受付から現在の操作対象解決と取得までを完了する。
+ * @responsibility 不正入力と取消は対象解決前に拒否し、解決後にも取消を確認する。
+ * @trace ARCH-000006
+ * @input input: 種別と一覧条件。resolveAccess: 呼出し側が所有する今回要求の認可済み対象解決。
+ * @returns 正常なPage、入力拒否、取消、非開示の対象未取得を区別する。
+ * @effect 許可された一回の対象解決と一回の一覧取得。操作間キャッシュなし。
+ * @failure 入力検査以外の例外は呼出し元へ伝播し、入力不正へ畳まない。
+ */
+export function readTopicMeetingList(
+  input: Parameters<TopicMeetingOperations["list"]>[0],
+  resolveAccess: () => TopicMeetingAccess | null,
+  signal?: AbortSignal,
+): TopicMeetingListReadResult {
+  const { kind, ...conditions } = input;
+  if (kind !== "topic" && kind !== "meeting")
+    return { status: "invalid", page: null };
+  try {
+    validateTopicMeetingListInput(kind, conditions);
+  } catch {
+    return { status: "invalid", page: null };
+  }
+  if (signal?.aborted) return { status: "cancelled", page: null };
+  const access = resolveAccess();
+  if (signal?.aborted) return { status: "cancelled", page: null };
+  if (access === null) return { status: "unavailable", page: null };
+  return { status: "complete", page: access[kind].list(conditions) };
+}
+
+/** 一覧受付の完了結果。取消・入力不正・対象拒否を同じ状態にしない。 */
+export type TopicMeetingListReadResult =
+  | Readonly<{ status: "complete"; page: TopicMeetingPage }>
+  | Readonly<{ status: "invalid" | "cancelled" | "unavailable"; page: null }>;

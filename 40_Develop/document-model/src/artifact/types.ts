@@ -95,6 +95,17 @@ export type ChecklistResult = Readonly<{
  * @compatibility ArtifactModelの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type ArtifactModel = Readonly<{
+  source: ArtifactSource;
+  anchors: ReadonlySet<string>;
+  linkTargets: readonly string[];
+  identity: import("./identity.ts").IdentityDocument;
+  hasRelated: boolean;
+  localIssues: readonly DocumentIssue[];
+  verificationLines: readonly Readonly<{
+    text: string;
+    cells: readonly string[] | null;
+    separatorCellCount: number | null;
+  }>[];
   artifactType: string | null;
   canonicalId: string | null;
   status: string | null;

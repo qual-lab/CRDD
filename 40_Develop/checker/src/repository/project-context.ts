@@ -3,25 +3,24 @@
  * @responsibility 対象列挙・実在確認・読取り・部分診断の追記を従来順で行う。
  * @trace ARCH-000001
  */
-import type { DocumentFinding } from "../report/types.ts";
-
-import {
-  lstatIfPresent,
-  pathContainsSymbolicLink,
-} from "../repository/observe.ts";
 
 import fs from "node:fs";
 import path from "node:path";
+import { REPOSITORY_MANIFEST_RELATIVE_PATH } from "../../../configuration-model/src/index.ts";
+import {
+  inspectDocumentRelations,
+  parseRepositoryProjectContextMarkdown,
+} from "../../../document-model/src/index.ts";
 
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import type { DocumentFinding } from "../report/types.ts";
 import {
-  isProjectContextProjectionInvalid,
-  isProjectContextManifestIdentityInvalid,
-} from "../../../document-model/src/index.ts";
-import { REPOSITORY_MANIFEST_RELATIVE_PATH } from "../../../configuration-model/src/index.ts";
+  lstatIfPresent,
+  pathContainsSymbolicLink,
+} from "../repository/observe.ts";
 
 /**
  * project-context成果物を観測し、本文・関係の意味をDomainへ渡す。
@@ -89,7 +88,16 @@ export function inspectProjectContextRepository(
       continue;
     }
     const content = read(target.file);
-    if (isProjectContextProjectionInvalid(content, target.template)) {
+    const context = parseRepositoryProjectContextMarkdown(content, {
+      mode: target.template ? "template" : "evaluated",
+      sourcePath: relative(target.file),
+    });
+    if (
+      context.issues.some(
+        (issue) =>
+          issue.kind === "artifact.project-context.projection-contract-invalid",
+      )
+    ) {
       add(
         "error",
         "project-context-projection-contract-invalid",
@@ -134,7 +142,13 @@ export function inspectProjectContextRepository(
           string,
           unknown
         >;
-        if (isProjectContextManifestIdentityInvalid(content, manifest))
+        if (
+          inspectDocumentRelations({
+            kind: "project_context_identity",
+            context,
+            manifest,
+          }).length > 0
+        )
           add(
             "error",
             "project-context-manifest-identity-mismatch",

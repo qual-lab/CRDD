@@ -39,7 +39,9 @@ test("現行Project Contextを五場面のRead Modelへ変換する", async () =
     path.join(repositoryRoot, "PROJECT_CONTEXT.md"),
     "utf8",
   );
-  const context = parseRepositoryProjectContextMarkdown(markdown);
+  const contextIntake = parseRepositoryProjectContextMarkdown(markdown);
+  const context = contextIntake.result;
+  assert.ok(context);
 
   assert.deepEqual(
     {
@@ -86,9 +88,7 @@ test("現行Project Contextを五場面のRead Modelへ変換する", async () =
  * @boundary PPR-IT-019=Direct Boundary: project-operation Test Source→対象契約
  */
 test("五場面が欠けたProject Contextを推測補完しない", () => {
-  assert.throws(
-    () =>
-      parseRepositoryProjectContextMarkdown(`# Project Context
+  const result = parseRepositoryProjectContextMarkdown(`# Project Context
 
 Project ID: \`project\`
 Repository ID: \`repository\`
@@ -99,8 +99,13 @@ Repository Role: \`development\`
 | 項目 | 状態 |
 |---|---|
 | Current | complete |
-`),
-    /project_context_scene_invalid/u,
+`);
+  assert.equal(result.status, "invalid");
+  assert.equal(result.result, null);
+  assert.ok(
+    result.issues.some(
+      (issue) => issue.reason === "project_context_scene_invalid",
+    ),
   );
 });
 

@@ -146,7 +146,7 @@
         "checker.repository-spec",
         "domain-model.artifact-checklist",
         "domain-model.artifact-phase-diagrams",
-        "domain-model.artifact-inspection",
+        "document-model.source.src.artifact.parse-markdown",
         "domain-model.artifact-ia",
         "domain-model.artifact-ui",
         "domain-model.artifact-change",
@@ -186,7 +186,7 @@
         "checker.public-entry",
         "checker.repository-reality",
         "checker.report-reality",
-        "domain-model.artifact-inspection",
+        "document-model.source.src.artifact.parse-markdown",
         "checker.report-semantic"
       ]
     },
@@ -203,7 +203,7 @@
       ],
       "verifies": [
         "checker.report-quality",
-        "domain-model.artifact-quality-state"
+        "domain-model.semantic-relations"
       ]
     },
     {
@@ -235,7 +235,7 @@
         "PPR-UT-017"
       ],
       "verifies": [
-        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
         "crdd-domain-library.source.src.repository.observation.reality.symbol.repository.observer",
         "checker.repository-semantic",
         "semantic-coverage.source.src.compilation.index",
