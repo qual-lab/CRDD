@@ -87,9 +87,14 @@ Quality ID: `QA-000008`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
 | [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | 生成BundleのRepository-local公開、置換、失敗時の一時物回収および再観測 |
+
+| [configuration-model](../../../06_Architecture/Details/configuration-model/01_Architecture.md) | 現在の局所責務・正常／失敗・終了条件を統合表の導出キーとLocal Itemへ対応付ける。旧機構の過去Passを流用しない |
+| [execution-model](../../../06_Architecture/Details/execution-model/01_Architecture.md) | 現在の局所責務・正常／失敗・終了条件を統合表の導出キーとLocal Itemへ対応付ける。旧機構の過去Passを流用しない |
+| [document-model](../../../06_Architecture/Details/document-model/01_Architecture.md) | Semantic出版の元対象・保存不明・一時物の終了と保持。活動CRUD・Context読取りとは観測を分ける |
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
 
 ## 2. Lifecycle
 

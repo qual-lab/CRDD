@@ -5617,6 +5617,76 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     `${valid.stdout}\n${valid.stderr}`,
   );
 
+  {
+    // 同じ不変fixtureから分類の差分だけを確認し、退役を未知領域の免除にしない。
+    const mapPath = path.join(
+      root,
+      "06_Architecture",
+      "07_Detail_Architecture_Map.md",
+    );
+    const originalMap = fs.readFileSync(mapPath, "utf8");
+    const retirement =
+      "\n## 5. 非現行の設計資料\n| 資料領域 | 現在Owner | 区分 | 理由 |\n|---|---|---|---|\n| [legacy](Details/legacy/01_Architecture.md) | sample | Retired | 旧実装の退役案内 |\n";
+    const legacyPath = path.join(
+      root,
+      "06_Architecture",
+      "Details",
+      "legacy",
+      "01_Architecture.md",
+    );
+    write(mapPath, originalMap + retirement);
+    write(legacyPath, "# 退役案内\n状態: Retired\n");
+    const retired = runChecker(root);
+    for (const code of [
+      "architecture-detail-contract-invalid",
+      "architecture-detail-area-coverage-mismatch",
+      "quality-architecture-detail-coverage-mismatch",
+      "ui-spec-detail-downstream-coverage-invalid",
+    ])
+      assert.deepEqual(
+        retired.report.findings.filter((finding) => finding.code === code),
+        valid.report.findings.filter((finding) => finding.code === code),
+      );
+    fs.rmSync(legacyPath);
+    assert.ok(
+      runChecker(root).report.findings.some(
+        (finding) =>
+          finding.code === "architecture-detail-document-missing" &&
+          finding.path.endsWith("legacy/01_Architecture.md"),
+      ),
+    );
+    write(legacyPath, "# 退役案内\n状態: Retired\n");
+    for (const mapBody of [
+      originalMap,
+      originalMap + retirement.replace("Retired", "Unknown"),
+      originalMap + retirement + retirement,
+      `${originalMap}\n## 2. 詳細設計領域\n| [legacy](Details/legacy/01_Architecture.md) | ARCH-000001 | 現行 | Candidate |${retirement}`,
+      `${originalMap}\n## 3. Architecture定義の閉包\n| ARCH-000001 | 定義 | legacy |${retirement}`,
+    ]) {
+      write(mapPath, mapBody);
+      const unknown = runChecker(root);
+      assert.ok(
+        unknown.report.findings.some(
+          (finding) =>
+            finding.code === "architecture-detail-contract-invalid" &&
+            finding.path.endsWith("legacy/01_Architecture.md"),
+        ),
+      );
+      assert.ok(
+        unknown.report.findings.some(
+          (finding) =>
+            finding.code === "architecture-detail-area-coverage-mismatch",
+        ),
+      );
+    }
+    fs.rmSync(mapPath);
+    assert.ok(
+      runChecker(root).report.findings.some(
+        (finding) => finding.code === "architecture-detail-map-missing",
+      ),
+    );
+  }
+
   root = architectureReconstructionFixtureRoot();
   fs.rmSync(
     path.join(
@@ -10289,6 +10359,116 @@ test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出す
 });
 
 /**
+ * 明示旧参照の適用と現在参照の分離を公開入口で検証する。
+ * @responsibility 出現単位の除外、Scope非拡張、計数、不適用・境界の診断を固定する。
+ * @trace AUH-IT-003
+ * @precondition 新規Repository内に履歴本文と現在文書を用意する。
+ * @stimulus 同じRepositoryへScope指定と参照Map指定でCheckerを実行する。
+ * @observation 診断、検査件数、Scope、参照Mapを比較する。
+ * @oracle 旧参照の存在だけ未検査とし、通常参照・境界・Related拒否を保持する。
+ * @cleanup 既存fixture hookが今回Rootだけを回収する。
+ * @boundary AUH-IT-003=Direct Boundary: 公開Checker→Repository観測
+ */
+test("明示旧参照は履歴本文だけで非activeとなり通常リンクと境界検査を隠さない", () => {
+  const root = fixture();
+  initializeGit(root);
+  const historicalPath = "Evidence/result.md";
+  write(path.join(root, "target.md"), "# Target\n");
+  write(
+    path.join(root, historicalPath),
+    [
+      "# Evidence",
+      "[旧参照][old](missing.md#old)",
+      "[旧参照][`source.ts`](removed.ts)",
+      "[normal](missing.md#old)",
+      "[旧参照][moved](../target.md#missing)",
+      "[旧参照][outside](../../outside.md)",
+      "[旧参照][encoding](%ZZ.md)",
+      "[旧参照][external](<https://example.invalid>)",
+      "[旧参照][encoded](%68ttps://example.invalid)",
+    ].join("\n"),
+  );
+  write(path.join(root, "current.md"), "[旧参照][invalid](missing.md)\n");
+  write(
+    path.join(root, "Evidence/related.md"),
+    "Related:\n- [旧参照][invalid](missing.md)\n",
+  );
+  write(
+    path.join(root, "99_Roadmap/Changes/CHG-000099/change.md"),
+    "# History\n[旧参照][old](missing.md)\n",
+  );
+  write(
+    path.join(root, "CHANGELOG.md"),
+    "# History\n[旧参照][old](missing.md)\n",
+  );
+  const scoped = runChecker(root, "--scope", historicalPath);
+  const findings = scoped.report.findings.filter(
+    (finding) => finding.path === historicalPath,
+  );
+  assert.equal(
+    findings.filter((finding) => finding.code === "broken-link").length,
+    1,
+  );
+  assert.equal(
+    findings.some((finding) => finding.code === "broken-anchor"),
+    false,
+  );
+  assert.ok(findings.some((finding) => finding.code === "outside-root-link"));
+  assert.ok(
+    findings.some((finding) => finding.code === "malformed-link-encoding"),
+  );
+  assert.equal(scoped.report.metrics.local_links_checked, 1);
+  assert.equal(scoped.report.metrics.anchors_checked, 0);
+  assert.equal(
+    findings.filter(
+      (finding) => finding.code === "historical-reference-not-allowed",
+    ).length,
+    2,
+  );
+  assert.equal(scoped.report.expanded_scope.includes("target.md"), false);
+  assert.ok(
+    scoped.report.unchecked.some((item) =>
+      item.includes("Historical link existence"),
+    ),
+  );
+  const full = runChecker(root, "--references", "target.md");
+  for (const source of ["current.md", "Evidence/related.md"]) {
+    assert.ok(
+      full.report.findings.some(
+        (finding) =>
+          finding.path === source &&
+          finding.code === "historical-reference-not-allowed",
+      ),
+    );
+    assert.ok(
+      full.report.findings.some(
+        (finding) => finding.path === source && finding.code === "broken-link",
+      ),
+    );
+  }
+  for (const source of [
+    "99_Roadmap/Changes/CHG-000099/change.md",
+    "CHANGELOG.md",
+  ])
+    assert.equal(
+      full.report.findings.some(
+        (finding) =>
+          finding.path === source &&
+          ["broken-link", "historical-reference-not-allowed"].includes(
+            finding.code,
+          ),
+      ),
+      false,
+    );
+  assert.equal(
+    full.report.references?.inbound.some(
+      (item) => item.source === historicalPath,
+    ),
+    false,
+  );
+});
+
+/**
  * 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないを検証する。
  *
  * @responsibility 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないの合否判定を所有する。
@@ -10350,6 +10530,23 @@ test("固定履歴本文が移行表のHashから変化した場合は拒否す�
     ),
     JSON.stringify(result.report.findings),
   );
+  fs.appendFileSync(
+    path.join(root, "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md"),
+    "[旧参照][追加](missing.md)\n",
+  );
+  const annotated = runChecker(root);
+  for (const code of [
+    "fixed-history-content-mismatch",
+    "historical-reference-not-allowed",
+  ])
+    assert.ok(
+      annotated.report.findings.some(
+        (finding) =>
+          finding.code === code &&
+          finding.path ===
+            "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md",
+      ),
+    );
 });
 
 /**
@@ -16525,4 +16722,61 @@ test("通常Screenは一回解析の局所Issueと部分関係を保持する", 
     absent.some((item) => item.code.startsWith("ui-screen-")),
     false,
   );
+});
+
+/**
+ * Changeの認識不能をChecker自身の対象選択結果として表示する。
+ * @responsibility Repository Mode別の検査Path・診断全field・短絡を固定する。
+ * @trace AUH-IT-003
+ * @precondition 一つの試験Repositoryへ認識可能／不能のChangeを置く。
+ * @stimulus generic、official、adopterへ構成差分を加えて同じ公開入口を呼ぶ。
+ * @observation 認識Path一覧とchange-trace-placement診断。
+ * @oracle 既存code・severity・Path・文言を保持し、不能時の集約ID照合を実行しない。
+ * @cleanup 登録済みhookが今回の試験Rootだけを回収する。
+ * @boundary AUH-IT-003=Direct Boundary: Repository観測→Checker公開結果。
+ */
+test("Changeの認識不能はMode別のPath一覧と短絡をCheckerで保持する", () => {
+  const root = fixture();
+  initializeGit(root);
+  const templatePath = "template/99_Roadmap/Changes/CHG-000001/change.md";
+  write(path.join(root, "outside/change.md"), "# Supporting note\n");
+  write(
+    path.join(root, "99_Roadmap/Changes/CHG-000001/change.md"),
+    "# Change Trace\n変更ID: CHG-000001\n",
+  );
+  write(path.join(root, templatePath), "# Change Trace\n変更ID: CHG-000001\n");
+  for (const mode of ["generic", "official", "adopter"] as const) {
+    if (mode === "official")
+      write(path.join(root, "01_Principles.md"), "# Principles\n");
+    if (mode === "adopter") fs.mkdirSync(path.join(root, "00_CRDD"));
+    const result = runChecker(root);
+    assert.equal(result.report.repository_mode, mode);
+    const patterns = [
+      "99_Roadmap/Changes/CHG-*/change.md",
+      ...(mode === "official"
+        ? ["template/99_Roadmap/Changes/CHG-*/change.md"]
+        : []),
+    ];
+    assert.deepEqual(result.report.recognized_change_trace_paths, patterns);
+    assert.deepEqual(
+      result.report.findings.filter(
+        (finding) => finding.code === "change-trace-placement",
+      ),
+      ["outside/change.md", ...(mode === "official" ? [] : [templatePath])].map(
+        (file) => ({
+          severity: "error",
+          code: "change-trace-placement",
+          path: file,
+          message: `The checker cannot recognize this Change Trace path in repository mode ${mode}. Recognized inspection paths: ${patterns.join(", ")}.`,
+        }),
+      ),
+    );
+    assert.equal(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "change-trace-aggregate-identity-mismatch",
+      ),
+      false,
+    );
+  }
 });

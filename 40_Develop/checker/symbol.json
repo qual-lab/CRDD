@@ -143,6 +143,9 @@
       "verifies": [
         "checker.artifact-relation-adapter",
         "checker.repository-ui",
+        "checker.repository-references",
+        "checker.repository-scope",
+        "domain-model.artifact-links",
         "checker.repository-spec",
         "domain-model.artifact-checklist",
         "domain-model.artifact-phase-diagrams",

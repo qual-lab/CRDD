@@ -448,6 +448,7 @@ export function inspectArchitectureRepository(
         );
         continue;
       }
+      if (detailMap?.retiredAreas.has(entry.name)) continue;
       const source = read(detailPath);
       const detailMarkdown = read(detailPath);
       const checklistSource = {

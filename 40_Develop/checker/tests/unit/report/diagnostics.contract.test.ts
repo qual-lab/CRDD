@@ -162,18 +162,6 @@ test("Release・配置・ひな型の完成操作は旧診断へ接続する", (
       "Flat CHG Markdown files are not canonical. Use 99_Roadmap/Changes/<CHG-ID>/change.md.",
     ],
     [
-      inspectChangePlacement({
-        kind: "unrecognized",
-        path: "change.md",
-        repositoryMode: "generic",
-        patterns: ["a", "b"],
-      }),
-      mapChangeDomainIssueToFinding,
-      "change-trace-placement",
-      "change.md",
-      "The checker cannot recognize this Change Trace path in repository mode generic. Recognized inspection paths: a, b.",
-    ],
-    [
       parseCommunication(
         { path: "communication.md", content: "" },
         { mode: "template" },

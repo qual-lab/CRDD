@@ -2,7 +2,7 @@
  * 選定値の純粋検査と内容Hashの共有Ownerを検証する。
  * @packageDocumentation
  * @responsibility Coordinator非読込、閉形式拒否、入力独立性と既存Hash byteを反証する。
- * @trace RCM-UT-001
+ * @trace RCM-UT-002
  * @level UT
  * @scope ai-selection/validationの明示選択と保存値Identity。
  * @boundary Domain Rootと同期値検査。外部AI・Docker・保存I/Oは使わない。
@@ -15,7 +15,7 @@ import { inspectAiSelectionChoice } from "../../../src/index.ts";
 /**
  * 実行機構なしで明示選択を検査できることを確認する。
  * @responsibility Coordinatorへの推移的な読込を子Processで拒否する。
- * @trace RCM-UT-001
+ * @trace RCM-UT-002
  * @precondition Node標準のModule hookが利用可能。
  * @stimulus Coordinator importを拒否してDomain Rootから検査する。
  * @observation 子Process終了値と検査結果。
@@ -47,7 +47,7 @@ test("選択値の検査はCoordinatorを読込み不能にしても成立する
 /**
  * 未信頼値を実行せず閉じた選択値へ固定する。
  * @responsibility Getter・Proxy・過剰field拒否と入力独立性を検証する。
- * @trace RCM-UT-001
+ * @trace RCM-UT-002
  * @precondition 合成の選択値だけを使用。
  * @stimulus 元値変更、不正field、Getter、Proxyを渡す。
  * @observation 独立Snapshot、拒否とhook呼出し数。

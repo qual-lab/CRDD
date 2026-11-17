@@ -105,6 +105,7 @@ export function selectDocumentScope(
     for (const record of linkRecords) {
       if (
         record.external ||
+        record.historicalAnnotation === "accepted" ||
         !record.target ||
         record.outsideRoot ||
         !allFileSet.has(record.target)

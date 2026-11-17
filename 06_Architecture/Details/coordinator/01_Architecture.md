@@ -467,7 +467,7 @@ B棚卸し基準版のSource108 Fileと公開19宣言の再編候補は、[統�
 
 B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安全性判定を既存検証Toolのscripts補助へ移し、その時点の製品Sourceは105 Fileとなった。通常Runtimeの公開API・許可・実行・保存は変えない。Doctorが使うLifecycle説明と開発Taskの時間計測は実Consumerがある。独立したTrust読取り評価は本番Consumerがなく、2026-10-23の人間承認で専用実装・試験を廃止した。上流の評価意図は未接続として保持する。旧`verify-signed-*`は署名不要の実責務に合わせFile名を整理するが、既存の結果識別子・理由・CLI引数を改変せず、署名Gateを追加しない。[B1の処置と検証範囲](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#9-b1不要候補と検証専用処理の処置)を参照する。
 
-OS判定は`objective/execute.ts`が`process.platform`を直接使用し、PID生存は`execution/kernel-lock.ts`の既存Lease Ownerが入力検査後に`process.kill(pid, 0)`で三値観測する。PAにOS／PIDの単純搬送APIは置かない。Lease入力・世代結合はCoordinator、子環境は`createChildProcessEnvironment`のOS／Profile差分と各操作固有設定へ接続する。OSのaliveは世代同一性の証明ではない。[PA標準API整理](../platform-access/01_Architecture.md#pa廃止へ向けた標準apiと環境入口の整理--2026-11-06)を参照する。
+OS判定は`objective/execute.ts`が`process.platform`を直接使用し、PID生存は`execution/kernel-lock.ts`の既存Lease Ownerが入力検査後に`process.kill(pid, 0)`で三値観測する。PAにOS／PIDの単純搬送APIは置かない。Lease入力・世代結合はCoordinator、子環境は`createChildProcessEnvironment`のOS／Profile差分と各操作固有設定へ接続する。OSのaliveは世代同一性の証明ではない。[PA標準API整理](../platform-access/01_Architecture.md)を参照する。
 
 旧B2専用の確認コード・固定OS端末契約は、本番ConsumerがないためPAと試験支援から代替なしで撤去した。認証loginが使う既存DIの対話Process・TTYと終了確認は別契約として維持する。
 
@@ -557,6 +557,7 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 | [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 実行事実と評価候補の読取り。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Partial |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider、Process、Docker、結果搬送の各phaseを診断可能にし、推測せず故障境界を返す。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI Adapterの適格性・計画を利用し、選定根拠、短命Grant、実行許可と再選定条件をEffect前に固定する。 | Partial |
+| [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | 共有Docker状態の記録・保持・回復相関。技術操作とFilesystem PrimitiveはDI／Lockに残す | Covered |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Transport非依存のTask公開契約。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Covered |
 | [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 独立した読取り評価との責務境界を保持する。v0.22では利用者Trust Policyの有効化・Provider起動接続を要求しない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | Repository送信Policy、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
@@ -606,6 +607,7 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
+| `coordinator.provider-availability` | State／Validation | Provider五軸の観測値評価 | unknown・preflight・利用不能を区別 | 未観測からavailable・実行Authorityを生成 | UT | N/A | ERB-UT-023の値・理由・禁止補完 | Provider・Filesystem Effect 0 | 実Hostと認証Observerの成立は別評価 |
 | `coord.advice-code-mode-host` | Interface／Sequence／Failure-Recovery | §7.5.1の公式CLI・Host、stdin入力、Docker隔離 | 未改造の公式配布と公開設定で助言結果を搬送し終了後確認まで到達 | 実行物欠落・差替え、起動失敗、不正通知・複数結果、取消・親Process喪失後の残存 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 配布Hash、構成、通知分類、結果、終了後の資源観測 | 所有資源不存在またはexact回復義務保持。観測不能は成功にしない | 公式CLIの公開経路、失敗・取消反証および実Provider E2E |
 | `coord.provider-selection` | Interface／Implementation Structure | Task属性、Provider／Model構成、Home、Trust結果 | 利用可能性・Policy・Trustを満たす計画だけをEffect前に固定 | 不正Home、未信頼Runtime、利用不能Modelの選択 | IT | Direct Boundary | 選定理由、再選定条件、Trust結果、Effect 0 | Provider Process未開始 | 実Provider／実Homeを使う結合確認 |
 | `coord.provider-attempt` | Sequence／Failure-Recovery | Task／Attempt、送信Authority、Provider Effect、Reviewer結果 | 同じIdentityで結果または理由別停止へ到達 | 承認不足、sandbox拒否、CLI exit、無許可送信、生結果の直接採用 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | phase診断、exit、送信範囲、候補状態 | Process／stream／Container回収、未採用候補隔離 | 実Providerによる双方向経路と候補Review |
@@ -1414,11 +1416,11 @@ Workbench助言の初期化失敗では、Operationが呼出し元へ返る前�
 | async利用側と再入場 | 未接続。同期wrapperへのPromise搬送を禁止し、Host→ProcessAbsence→RuntimeStateの取得と逆順解放、待機後のfresh観測を全利用側へ接続する。 |
 | 初期化途中・旧形式 | 未解決。部分snapshotを新形式へ捏造しない。旧三件の非使用、実停止・実削除は別のfresh根拠と承認が必要である。 |
 
-私有Nativeの[現在読取り](../platform-access/01_Architecture.md#別processからの現在読取り)は、上表の形状をcaller既知の参照・実体・全bytesへ照合する内部部品である。`Prepared`／`Published`は現在の唯一名だけを示し、過去のwrite／flush／rename／明示closeを復元しない。Native失敗の今回open・close確認も、保存済み履歴とは別に保持する。
+私有Nativeの[現在読取り](../platform-access/01_Architecture.md)は、上表の形状をcaller既知の参照・実体・全bytesへ照合する内部部品である。`Prepared`／`Published`は現在の唯一名だけを示し、過去のwrite／flush／rename／明示closeを復元しない。Native失敗の今回open・close確認も、保存済み履歴とは別に保持する。
 
 Coordinatorの記録Ownerは、再入場前の耐久参照、producer版、Schema、容量、現在Authorityとlineageを別に検証する。stage-onlyの公開継続、本番callerの再起動接続と全利用側への搬送は未接続である。自己生成Workerの意図的Process終了とfresh読取りから、旧三領域の非使用、清掃許可または元Taskの完了を推定しない。
 
-記録fileの旧Identityが返る前にProcessを失った場合は、同じ参照とcallerが独立保持した完全intentのbytes／対象bindingを、Nativeの[現在候補観測](../platform-access/01_Architecture.md#返却された実体情報がない場合の現在候補観測)へ渡す。今回の現在Identityを旧期待値へ付け替えず、元fileの連続性は未確認のまま保持する。参照と完全intentを最初の記録Effect前に保存・readbackするcaller接続、固定保存境界、共有容量予約、Native Protocol／Adapterおよびfreshな権限・対象・非使用・排他への再結合はOPENである。現在候補の受理だけでは再公開やRoot／marker処置を開始しない。
+記録fileの旧Identityが返る前にProcessを失った場合は、同じ参照とcallerが独立保持した完全intentのbytes／対象bindingを、Nativeの[現在候補観測](../platform-access/01_Architecture.md)へ渡す。今回の現在Identityを旧期待値へ付け替えず、元fileの連続性は未確認のまま保持する。参照と完全intentを最初の記録Effect前に保存・readbackするcaller接続、固定保存境界、共有容量予約、Native Protocol／Adapterおよびfreshな権限・対象・非使用・排他への再結合はOPENである。現在候補の受理だけでは再公開やRoot／marker処置を開始しない。
 
 #### 終端記録自身の管理清掃
 
@@ -1763,7 +1765,7 @@ Task関連確認の通常Readerと、元Operation Ownerを要求する対象Read
 
 記録後のTask回復も、検証済み現在Repositoryとexact IDを受ける通常CLI／公開Consumerへ統一する。旧`AfterRecorded`専用処理と`--after-recorded-docker-restart`は廃止し、旧flagは引数不正として処置前に拒否する。現在checkpoint・資源配列・実Owner・既存排他を再確認し、旧署名Manifest、AppData一覧、五件のrestart chainやsession handoffを通常回復のAuthorityへ再導入しない。旧`AfterVerified`修復引継ぎ・修復Gate・共通旧Readerも、現在経路との対応を確認して撤去した。実境界の未確認を撤去だけで成立へ変更しない。過去Evidenceの署名・本文は当時の記録として維持する。
 
-検証付き再起動と障害修復は、公式Path、Docker Incの有効な署名および同一操作中の実体Identity／Hash固定を共通のNative Trust境界として使用する。Dockerの版または過去操作のHashを次の操作へ固定せず、正規Updaterによる更新を再署名や再設定なしで受理する一方、署名不明、Path差、操作中の差替えまたは必要実体の欠落ではEffect 0とする。正常再起動は公式Desktop pluginの`S`停止を使用し、run Directoryを変更しない。正常起動が既知socket障害で成立しない場合は、同じ起動Effectを盲目的に再発行せず、正常再起動を終了してから既存の障害修復Lifecycleへ移る。障害修復だけが`K`停止、Docker WSL停止およびrun世代退避を所有する。子Job・EOF取消・応答の責務は[Native設計](../platform-access/01_Architecture.md#5-状態資源回復)を参照する。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。停止CLIのexit 0の後にも管理Process・CLI不存在、Linux Engineの既知停止およびWSL停止を確認する。起動後は信頼済みCLIによるLinux Engine応答を別に確認し、選択されたDocker backendの実装詳細であるWSL Distributionの`running`状態をEngine Readyの必須条件にしない。
+検証付き再起動と障害修復は、公式Path、Docker Incの有効な署名および同一操作中の実体Identity／Hash固定を共通のNative Trust境界として使用する。Dockerの版または過去操作のHashを次の操作へ固定せず、正規Updaterによる更新を再署名や再設定なしで受理する一方、署名不明、Path差、操作中の差替えまたは必要実体の欠落ではEffect 0とする。正常再起動は公式Desktop pluginの`S`停止を使用し、run Directoryを変更しない。正常起動が既知socket障害で成立しない場合は、同じ起動Effectを盲目的に再発行せず、正常再起動を終了してから既存の障害修復Lifecycleへ移る。障害修復だけが`K`停止、Docker WSL停止およびrun世代退避を所有する。子Job・EOF取消・応答の責務は[Native設計](../platform-access/01_Architecture.md)を参照する。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。停止CLIのexit 0の後にも管理Process・CLI不存在、Linux Engineの既知停止およびWSL停止を確認する。起動後は信頼済みCLIによるLinux Engine応答を別に確認し、選択されたDocker backendの実装詳細であるWSL Distributionの`running`状態をEngine Readyの必須条件にしない。
 
 Engine観測は`ready`、`known_unavailable`、起動直後のCLI Probe Timeoutである`transient_unavailable`、全体起動期限を超えた`startup_timeout`および`unknown`を区別する。再起動Effectがconfirmedになった後だけ、`known_unavailable`と`transient_unavailable`をHost Effectなしの読取り再観測へ接続し、冷間起動を考慮した180秒の全体期限まで待機する。単一ProbeのTimeoutを状態不明として即時終了せず、同じ起動Effectを再発行しない。全体期限超過は専用理由で停止し、取消、Trust変化、権限・資源不足および分類不能な一般エラーは待機対象へ広げず`unknown`で即時停止する。Engine Readyを同一実行内で確認できた場合は、起動要求直前からReadyまでの単調時計による所要時間を診断用の参考値として公開結果とEvidenceへ残す。再入場をまたいで開始時点を観測していない場合は推測せず未計測とし、この値をAuthority、成功条件または将来の固定Timeout根拠にしない。Engine named pipeも`present`、`absent`、`unknown`で観測し、明示的な`ENOENT`だけを`absent`とする。open後のclose失敗はEngine状態だけでなく資源回収状態にも保持し、Native helperのreleaseが成功しても上位のcleanupを確認済みにしない。
 
@@ -2514,9 +2516,9 @@ Owner喪失 → 同じ耐久記録へ再入場 → 現在Owner・実資源を再
 
 | Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
 |---|---|---|---|---|
-| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000008、ARCH-000010、ARCH-000012、ARCH-000014、ARCH-000015のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID。[Task詳細](03_Task_Architecture.md)の担当も同じ領域へ統合 | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000008、ARCH-000010、ARCH-000011、ARCH-000012、ARCH-000014、ARCH-000015のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID。[Task詳細](03_Task_Architecture.md)の担当も同じ領域へ統合 | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 
-担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000005.spec-000008`、`PRT-000005.spec-000009`、`PRT-000007.spec-000011`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`、`PRT-000013.spec-000018`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`
+担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000005.spec-000008`、`PRT-000005.spec-000009`、`PRT-000007.spec-000011`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`、`PRT-000013.spec-000018`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`、`PRT-000011.spec-000016`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 
@@ -2561,6 +2563,10 @@ State・History、Owner、Abort、故障設定、counter、Source依存は各ケ
 
 残る非変異44条件と切断点Producer経由25条件も同じ不変前提へ接続し、69条件を固有名の個別登録にする。切断点の保存本文・変異Source・Ownerは共有しない。正規／変異の二fixtureを同じ親内で比較する3群8条件は専用Rootを維持する。実Git変更検出の別Owner試験を固定投影へ置換しない。共有fixtureの未join・Owner・Lock／pending・保存領域の終了確認と最終Root清掃は全条件で維持する。
 
+### 所在初期化失敗のOwner — 2026-11-14
+
+`configuration/runtime-data.ts`は自身の領域初期化blockedを`RepositoryDataBlockedError`で搬送する。EM保存の`ExecutionStorageBlockedError`を生成せず、EM由来の失敗は同EM型のまま扱う。公開結果・Decision・EI診断と計測／検証scriptsは二型を明示的に捕捉し、元reason、既知Effect／観測不明、清掃確認、再試行可否と回復参照を保持する。Lock解放不明のcauseによる後段停止も維持し、任意Objectを擬似例外として受理しない。新しい共通例外PackageやRoot公開は追加しない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
@@ -2578,7 +2584,3 @@ State・History、Owner、Abort、故障設定、counter、Source依存は各ケ
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
-
-### 所在初期化失敗のOwner — 2026-11-14
-
-`configuration/runtime-data.ts`は自身の領域初期化blockedを`RepositoryDataBlockedError`で搬送する。EM保存の`ExecutionStorageBlockedError`を生成せず、EM由来の失敗は同EM型のまま扱う。公開結果・Decision・EI診断と計測／検証scriptsは二型を明示的に捕捉し、元reason、既知Effect／観測不明、清掃確認、再試行可否と回復参照を保持する。Lock解放不明のcauseによる後段停止も維持し、任意Objectを擬似例外として受理しない。新しい共通例外PackageやRoot公開は追加しない。

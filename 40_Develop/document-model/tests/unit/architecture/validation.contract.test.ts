@@ -354,6 +354,48 @@ test("Architecture詳細Mapは領域関係と閉包関係を分離する", () =>
     new Set(["ARCH-000001"]),
   );
   assert.deepEqual([...model.result.areas], ["core"]);
+  const retirementHeader =
+    "\n## 5. 非現行の設計資料\n| 資料領域 | 現在Owner | 区分 | 理由 |\n|---|---|---|---|\n";
+  const retirementRow =
+    "| [legacy](Details/legacy/01_Architecture.md) | core | Retired | 旧実装を撤去し上位義務を保持 |";
+  const retired = parseArchitectureDetailMap({
+    ...artifact,
+    content: content + retirementHeader + retirementRow,
+  });
+  assert.deepEqual([...retired.result.retiredAreas], ["legacy"]);
+  assert.deepEqual([...retired.result.areas], ["core"]);
+  assert.deepEqual(retired.issues, []);
+  for (const invalid of [
+    `${content}${retirementHeader}${retirementRow}\n${retirementRow}`,
+    content + retirementHeader + retirementRow.replaceAll("legacy", "core"),
+    content + retirementHeader + retirementRow.replace("Retired", "Unknown"),
+    content + retirementHeader + retirementRow.replace("| core |", "| |"),
+    content + retirementHeader + retirementRow.replace("[legacy]", "[別名]"),
+    `${content}\n## 2. 詳細設計領域\n| [legacy](Details/legacy/01_Architecture.md) | ARCH-000001 | 現行 | Candidate |${retirementHeader}${retirementRow}`,
+    `${content}\n## 3. Architecture定義の閉包\n| ARCH-000001 | 定義 | legacy |${retirementHeader}${retirementRow}`,
+    content.replace("| 詳細設計領域 |", "| 不明 |") +
+      retirementHeader +
+      retirementRow,
+    content + retirementHeader.replace("| 区分 |", "| 状態 |") + retirementRow,
+  ]) {
+    const rejected = parseArchitectureDetailMap({
+      ...artifact,
+      content: invalid,
+    });
+    assert.equal(rejected.status, "partial");
+    assert.equal(rejected.result.retiredAreas.size, 0);
+  }
+  assert.equal(
+    parseArchitectureDetailMap(artifact).result.retiredAreas.size,
+    0,
+  );
+  assert.equal(
+    parseArchitectureDetailMap({
+      ...artifact,
+      content: `${content}\n状態: Retired`,
+    }).result.retiredAreas.size,
+    0,
+  );
   assert.deepEqual([...model.result.relations], ["core|ARCH-000001"]);
   assert.deepEqual(
     [...model.result.closureRelations],
@@ -629,6 +671,30 @@ test("Architecture詳細閉包は領域・関係・Covered所有者を順に検�
     actualDefinitions: new Set<string>(),
     isArchitectureReady: false,
   };
+  const classified = {
+    ...request,
+    map: { ...request.map, retiredAreas: new Set(["legacy"]) },
+    actualDetailAreas: new Set(["a", "legacy"]),
+  };
+  assert.equal(
+    inspectArchitectureConsistency({
+      kind: "architecture_detail_coverage",
+      ...classified,
+    }).some(({ reason }) => reason === "detail-area-coverage-mismatch"),
+    false,
+  );
+  for (const actualDetailAreas of [
+    new Set(["a"]),
+    new Set(["a", "legacy", "unknown"]),
+  ])
+    assert.equal(
+      inspectArchitectureConsistency({
+        kind: "architecture_detail_coverage",
+        ...classified,
+        actualDetailAreas,
+      }).some(({ reason }) => reason === "detail-area-coverage-mismatch"),
+      true,
+    );
   assert.deepEqual(
     inspectArchitectureConsistency({
       kind: "architecture_detail_coverage",

@@ -2,6 +2,8 @@
 
 ## 現行の責務と公開境界
 
+旧参照の構文と意味は[文書化](../../../03_Documentation.md#編集可能な過去記録の旧参照)を正本とする。DMが履歴配置・Related・外部URLを照合した出現モデルに対し、Checkerは固定履歴契約との重複を確認し、不適用をhistorical-reference-not-allowedとして通常検査へ戻す。適用時もEncoding・Root・Link境界を確認するが、現在の存在／anchorだけを省略し、uncheckedへ表示する。Scope拡張と現在参照Mapには使わず、検査済み件数にも加算しない。旧移行表の固定履歴Readerは別契約として維持し、注記で内容Hash照合を迂回させない。新しい除外台帳、Git履歴探索、公開APIは追加しない。
+
 Checkerは検査対象の選択、Repositoryの実観測、DMの完成操作の編成、診断表示と終了値を所有する。文書の構文・内容・工程関係の意味RuleはDM、Git／Filesystem／認証／保存の技術Ruleはそれぞれの専門Ownerが正本である。以下の残存候補があるため、現時点で全Ruleの一正本化が完了したとは扱わない。
 
 公開値はrunChecker／runSemanticCoverage／runTestCatalogの三関数、公開型はCheckerRunRequest／CheckerResult／CheckerFindingの三型を維持する。Process接続はbin/checker.ts、配布入口はtemplate/tools/crdd-check.ts、内部の三操作選択はcli/command.tsが所有する。Repository観測・Mapper・回帰計画HelperをRootへ追加しない。通常文書診断、Rule付き診断、Semantic／Realityの診断は既存の異なるshapeを保持する。
@@ -35,6 +37,8 @@ Checkerは検査対象の選択、Repositoryの実観測、DMの完成操作の�
 棚卸しで挙げたArchitecture、UX／Discovery、Quality、作業Lifecycle、Release、Artifact命名・配置の候補を各Ownerへ接続した。これをRepository全体の未知Rule不存在や全体回帰成功の根拠にはしない。今回承認されたQuality欠測継続とは条件変更の範囲を分け、現行の診断code・文言・適用Scope、対象の安全な観測、終了値と検証義務を維持する。
 
 Change配置の認識可能PathとEvidence対象の選択はCheckerに残す。定義HeaderとIDは元の40行断面で取得し、Evidenceでは二回readの別モデルをChangeへ渡す。認識不能時とEvidence時のcontinueを維持する。次版Candidateの探索は既存someの短絡で行い、安定版Tagの比較へ適用条件を渡す。全Markdownを先に解析するCacheやモデル列に変えず、途中の読取り失敗と診断位置を維持する。
+
+認識不能はChecker自身の対象選択結果であり、DMへ渡してIssueへ変換し直さない。changeTraceRootForの失敗箇所で旧change-trace-placement診断を直接追加してcontinueする。Mode別の認識Path一覧・重要度・文言・Pathは不変。DMのinspectChangePlacementはfilename／evidence／aggregateだけを受け、Repository ModeやCheckerの検査Path一覧を知らない。
 
 Qualityの閉包と定義被覆は別の完成比較として元位置で実行する。既知リンクを先にlstatする不存在診断と、その後の物理列挙との集合比較は別観測のままである。Coverage欠測時は既知リンクの不足だけを確定し、全期待集合が必要な余分・件数差の判断を保留する。検証単位は同じArchitecture本文の観測から、Local Item件数は先勝ちOwner Mapから渡し、行数・Parse成功数へ置換しない。Center／Realityの件数Parseも同じ位置で行い、nullを0へ補完しない。
 
@@ -277,7 +281,7 @@ report/convert.tsで中立Issueを明示変換し、未知kindは例外として
 
 可視本文二方式・表行／区切り行・先頭Header抽出はArtifactと各工程の内部処理が所有する。Checkerは文書別の完成Parseのモデル値・局所Issueを使い、Related順序はparseArtifactのIssue、品質表は二つの元read位置でparseQualityTablesへ本文を渡し、モデルの区分別件数・Issueだけを従来どおり配送する。旧artifact/markdown.tsの抽出HelperをRootから直接呼ばない。Version／Statusなどの宣言の意味は各Owner、表示と元の取得位置はCheckerが維持し、RootやRepositoryの観測を本文解析へ移さない。
 
-共通リンク参照の抽出はparseArtifact(...).result.linkTargets、取得済みraw参照のtarget／anchor分解は独立受付parseMarkdownLinkReferenceへ接続する。内部のparseMarkdownLinkTargetsをRootから直接呼ばない。Checkerは返却値を既存resolveLocalTargetへ接続し、外部URL分類・Root境界・Link観測・固定Git履歴・Finding変換を維持する。参照文字列の解析成功から、参照の存在や安全性を推定しない。
+共通リンク参照の抽出はparseArtifact(...).result.linksのtargetと出現分類、取得済みraw参照のtarget／anchor分解は独立受付parseMarkdownLinkReferenceへ接続する。内部のparseMarkdownLinksをRootから直接呼ばない。Checkerは返却値を既存resolveLocalTargetへ接続し、外部URL分類・Root境界・Link観測・固定Git履歴・Finding変換を維持する。参照文字列の解析成功から、参照の存在や安全性を推定しない。
 
 UXの参照候補は完成分析モデルのformalInputTargetsから取得する。referenceRootは裸のRepository起点候補の組立て用文字列であり、Root検証や権限を意味しない。Markdown→HTML→裸Path→Entity順と重複flag合成を維持し、Checkerは既存のPath解決・Discovery Definition／Analysis識別・正式入力比較へ接続する。内部の候補構文処理をRootへ独立公開しない。
 
@@ -598,6 +602,12 @@ Test Catalogの定義、変更影響からの試験選択、試験段階の実�
 担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
+## 現行詳細と退役資料の観測
+
+既存の詳細設計Mapの§2を現行領域、§5を非現行資料の正本とする。DMの同じMapモデルをArchitecture・Quality・UI／SPEC後続対応の三Consumerが利用する。正しい表構造・区分・一意な登録が揃った非現行資料だけを完全詳細契約と現在の検証単位から外す。本文のRetired表示だけ、未知領域、Map欠測・不正・重複・現行との衝突では除外しない。
+
+実Directory集合は現行と非現行を合わせた登録集合へ照合し、非現行でもDirectory・01文書の欠測と通常リンクの不正を検出する。独立した読取り位置は統合せず、非現行の過去Relationを現在のCoverageへ足さない。廃止した実装の上位ARCH義務は、現在Ownerの局所設計または未接続・Partial／OPENとして保持する。
 
 ## Checklist
 

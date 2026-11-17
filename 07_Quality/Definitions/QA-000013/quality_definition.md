@@ -29,7 +29,9 @@ Quality ID: `QA-000013`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [checker](../../../06_Architecture/Details/checker/01_Architecture.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
-| [domain-model](../../../06_Architecture/Details/domain-model/01_Architecture.md) | Capability別公開入口と自己完結した結果契約により、利用側がChecker内部構造を理解せず共通能力を利用できること |
+
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
 
 ## 2. 事前条件
 

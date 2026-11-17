@@ -141,6 +141,7 @@ export type LinkRecord = LinkResolution &
   Readonly<{
     source: string;
     raw: string;
+    historicalAnnotation?: "accepted" | "invalid";
     fixedHistoricalReference: boolean;
     historicalTargetExists: boolean;
     historicalAnchorExists: boolean | null;

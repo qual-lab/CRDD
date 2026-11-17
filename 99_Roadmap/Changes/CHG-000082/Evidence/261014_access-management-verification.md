@@ -49,8 +49,8 @@ Workbench実行コマンドは`node --test --test-concurrency=1 ./tests/integrat
 
 根拠の実在試験は次の通り。各Package全回帰と個別Caseのassertionを組み合わせ、HeaderのTraceだけを成立根拠にしない。
 
-- [AM保存IT](../../../../40_Develop/access-management/tests/integration/state/file-store.contract.test.ts)
-- [AM初回接続IT](../../../../40_Develop/access-management/tests/integration/credential/initial-connection.contract.test.ts)
+- [旧参照][AM保存IT](../../../../40_Develop/access-management/tests/integration/state/file-store.contract.test.ts)
+- [旧参照][AM初回接続IT](../../../../40_Develop/access-management/tests/integration/credential/initial-connection.contract.test.ts)
 - [MCP能力IT](../../../../40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts)
 - [Workbench管理IT](../../../../40_Develop/workbench-server/tests/integration/management.integration.test.ts)
 - [Workbench Browser ST](../../../../40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts)
@@ -66,15 +66,15 @@ Workbench実行コマンドは`node --test --test-concurrency=1 ./tests/integrat
 | RFD-IT-017 | 確認済み | AM保存IT「提示の先行記録と確認は別改訂・exact Bindingで一回だけ保存する」「通常鍵発行の保存・読戻し・清掃故障はSecretを返さない」、Workbench鍵POST | exact相関、提示三状態の別改訂、保存不明からSecret返却0、非認可Effect0、一度提示と終了資源 | なし（通常発行ITの範囲）。本人受領・実Hostは別の義務 |
 | RFD-IT-018 | 確認済み | AM保存IT「通常鍵失効は最後の管理資格も失効し遅延提示で復活しない」「遅延提示確認は各Binding不一致と失効を拒否する」、Workbench鍵POST | 独立失効、次要求の旧鍵拒否、他資格保持、遅延提示による復活0、追加発行・交換0、終了条件 | なし（失効ITの範囲）。既に開始した処理の取消保証へ拡張しない |
 | RFD-IT-019 | 確認済み | AM許可集合・比較IT、Domain本文／集約IT、MCP実HTTPとWorkbench管理IT・Browser／Inspector | 認可・Root不明は全体停止、文書未確認・競合はnull本文／版で部分表示。三Identity競合の外国値非開示、公開直前集合差拒否、取消とdescriptor回収、completeだけリンク、状態相関の矛盾拒否 | なし（同Pathの物理実体不変や複数Repository原子的Snapshotを保証しない） |
-| RFD-UT-020 | 確認済み | [固定管理判定UT](../../../../40_Develop/access-management/tests/unit/access/management-permission.contract.test.ts)の全4 Case | 三Role×11要求、Role変更前後全組合せ、未知・禁止field・Accessor／Proxy拒否、入力不変 | なし（純粋判定の宣言範囲）。実保存・実入口の保証へ拡張しない |
+| RFD-UT-020 | 確認済み | [旧参照][固定管理判定UT](../../../../40_Develop/access-management/tests/unit/access/management-permission.contract.test.ts)の全4 Case | 三Role×11要求、Role変更前後全組合せ、未知・禁止field・Accessor／Proxy拒否、入力不変 | なし（純粋判定の宣言範囲）。実保存・実入口の保証へ拡張しない |
 | RFD-IT-021 | 確認済み | AM保存ITの七保存・故障反証、Workbench管理ITの登録解除中の既開始読取り保留 | 登録と公開の分離、解除で登録・Exposure両除去と本文保持。解除完了時の旧read未終了、解放後403・非公開・joinを別観測 | なし（解除成功を既開始処理の取消完了へ拡張しない） |
 | RFD-ST-022 | 確認済み | Workbench Browser STのmanagement／cros-management、MCP能力ITの十操作、Workbench管理ITの旧read分離 | administrator不在managerの七保存、自己内容変更後fresh GET403と管理継続、登録直後の未公開、公開・解除・本文保持。登録Identity読取りexact1・拒否内容追加0 | なし（登録の正当なIdentity読取りと内容認可を区別。解除と旧処理終了はITの別観測へ接続） |
-| RFD-UT-023 | 確認済み | [初回純粋判定UT](../../../../40_Develop/access-management/tests/unit/initialization/state-evaluation.contract.test.ts)の全3 Case | 初回24組合せ、欠測・未知の拒否、暗黙変換0、返却非共有 | なし（純粋判定の宣言範囲）。Host初期化完成とは別 |
+| RFD-UT-023 | 確認済み | [旧参照][初回純粋判定UT](../../../../40_Develop/access-management/tests/unit/initialization/state-evaluation.contract.test.ts)の全3 Case | 初回24組合せ、欠測・未知の拒否、暗黙変換0、返却非共有 | なし（純粋判定の宣言範囲）。Host初期化完成とは別 |
 | RFD-IT-024 | 確認済み | AM保存ITの初回相関・User・資格Case、AM初回接続IT、Host模擬TTY・MCP初回接続IT・Workbench connect POST | 相関と各出版順序、UUID・鍵追加0、限定要求のみ確認出版、読戻し・競合・取消・清掃・次要求認証 | なし（結合範囲）。実Host縦断はRFD-ST-026へ保持 |
 | RFD-IT-025 | 確認済み | AM初回接続IT「初回確認の実Process喪失はbase保持とnext再観測を分ける」、AM保存ITのProcess喪失・交換引継ぎ、MCP取消・応答喪失 | 新Process再観測、各故障段階の既知出版保持、提示取消・遅延・重複通知終了、別交換と旧鍵拒否、禁止Effect0 | なし（結合範囲）。実Hostは後続RFD-ST-026で確認 |
 | RFD-ST-026 | 部分確認 | MCP公開CLI ST、Workbench公開CLIの接続Case | 自己生成初回状態からの限定discoverと次要求、WB connect POST | 実Host→一度提示→実Surfaceの縦断は後続E2E |
 | RFD-UAT-027 | 未実施人間UAT | QA-000007の初回達成・理解Scenario | 未確認 | 人間の達成・次操作選択と理解。後続E2E |
-| RFD-UT-028 | 確認済み | [状態Parser UT](../../../../40_Develop/access-management/tests/unit/state/parse.contract.test.ts)の全7 Case | v2閉Schema、四初回変種、資格相関・歴史参照・交換状態、UTF-8容量境界 | なし（Parserの宣言範囲）。実保存と実入口は別 |
+| RFD-UT-028 | 確認済み | [旧参照][状態Parser UT](../../../../40_Develop/access-management/tests/unit/state/parse.contract.test.ts)の全7 Case | v2閉Schema、四初回変種、資格相関・歴史参照・交換状態、UTF-8容量境界 | なし（Parserの宣言範囲）。実保存と実入口は別 |
 
 利用側のRCM-IT-010、EST-IT-002／010／014、EST-ST-013／015、EST-UAT-007／009は別の義務集合であり、AM17項目の分母へ混入しない。実Provider・Task全体・Docker持越し義務もこの試験成功から閉じない。
 

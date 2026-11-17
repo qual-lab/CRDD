@@ -10,7 +10,173 @@
 
 ### モデル中心への再整理（UI／SPEC工程モデルの先行実装）
 
-<a id="document-public-inventory"></a>
+#### 現行案内・UIの追従とArchitecture／Qualityの残存整理 — 2026-11-17
+
+##### 現行設計と品質引渡しの是正 — 2026-11-17
+
+人間は上記残件の継続を指示した。変更分類は現行Ownerへの設計・品質追従と、退役資料の適用母集団の是正である。親担当はArchitecture・Quality・保守・実装規約と現行Source／試験を照合し、複数正本をまたぐため読取り専用の専門確認を受けた。発火はMapの一意な非現行登録、非発火は本文の退役表示だけ、境界は重複・現行との衝突・未知区分・Map不成立、情報欠測は除外せず診断する条件として具体化した。既存規則に根拠のないskipを加える案、旧Domain単位を3重複製する案、退役資料へ架空の詳細設計を足す案は採用しない。
+
+| 対象 | 是正と保持条件 |
+|---|---|
+| 詳細MapとDM | 既存Map内に非現行資料の所在・現在Owner・区分・理由を分離。既存MapモデルにretiredAreasを保持し、新しい公開操作・型・Registryを追加しない。不正・重複・現行衝突・Map不成立時は除外集合を空にする |
+| Checkerの3 Consumer | Architecture、Quality、UI／SPEC後続比較が同じMap分類を使う。実Directoryと現行＋非現行の登録集合の一致、01文書の存在、通常リンク検査は維持。未知資料を除外しない。独立した読取り位置をキャッシュ統合しない |
+| 現行3モデル | 既存の意味設計に基本ARCH、10適用判断、8Concern、7実装観点と3責務ずつの品質導出を接続。ConcernのPASSは設計処置のみ。Source・保存形式・Root集合・実行条件・既存試験の合格を新設しない |
+| 担当Relation | 旧PAの共有状態記録はCoordinator、旧crosの活動・過去文書情報はDMへ接続。公式素材はWorkbenchの表示・導線だけをPartialで保持し、権利・用途・判断者の記録と独立Trust評価は未接続のまま。退役Coveredを現在Ownerへ流用しない |
+| Qualityの現行集合 | 旧Domain7単位と退役設計の単位は通常の引渡し表から分離し、目標・Local ID・現在OwnerとOPENの処置を保持。3モデルの局所責務・結果・保存を既存正式IDへ接続し、配布／利用側閉包の上位義務を免除しない |
+| Source条件3組 | ARCH-000005／QA-000003、ARCH-000010／QA-000001・000006の内容を現行の公開判断操作、EM State Writer、AD同梱Catalog、CM希望設定保存とCoordinator選定へ揃える。上流ARCH-000010の旧外部Catalog説明も追従 |
+| 利用可否評価 | Coordinatorのprovider-availabilityとERB-UT-023へ正しく接続。旧AI Adapterへの誤配置とAIT-UT-005との誤対応を撤去し、独立Trust各軸の義務自体は保持 |
+| QAの退役機構 | Host終端専用記録・私有Native Reader・Native所在／entry frame・旧署名修復の本文を現行検証要求から撤去。通常回復のEffect前記録・元対象相関・取消／終了／回収の区別を現在Node・公式CLI・wxのOracleへ接続。旧専用3 IDは履歴IDとして退役を明示し、新方式へPassを転記しない |
+| 過去参照 | PA本文削除で切れた既存記録の4出現は、編集可能な過去説明と確認して旧参照注記だけを付与。リンク先・表示・当時の主張は維持し、固定byte記録・過去Runtime保持物は操作しない |
+
+既存のRCM-UT-002／AUH-IT-003へ、現行のみ・非現行のみ・重複・衝突・未知区分・Header欠測・Map欠測・非現行文書欠測・未登録Directoryを追加した。不変fixtureは共有し、各差分の現在入力と期待診断を直接比較する。既存の診断Code・文言・Severity・CLI・Root公開数を変更しない。ひな型とArchitectureの適用説明も同じ区分へ接続する。
+
+限定単体・診断変換55件と、既存Architecture結合1件が成功した。関連3設定の型検査も成功した。現在RepositoryへのArchitecture・Quality・SPECの専門観測では診断0だが、これを完全文書検査・全体回帰の成功としない。固定候補の技術・文書・準拠影響・直接伝播の独立確認を実施し、未確認の実境界・全体回帰・統合・Release判断は対象外とする。全体回帰・実AI・Docker・過去保持物の操作は実施しない。
+
+初回固定候補の完全文書Checkerは1207 Markdownでerror0／warning0だったが、独立レビューは意味上の残指摘を検出した。Mapの§2／§3重複による退役除外の穴、3モデルの汎用的なARCH担当説明と正式検証IDの誤対応、QAの正式STに残るNative停止保証・9処置・Required分類と現在本文の矛盾を統合した。全確認者へ一括是正案を再提示して整合を確認した後、Map重複節は除外失効、ARCH行は固有責務、CM公開はRCM-UT-014・設定受付は既存Checker／DM義務を保持したRCM-UT-002へ追従した。CMの3試験はtraceとimport順だけを是正し、検証本文を削減していない。Symbolも同じ正式IDへ追従した。DM保存は活動CRUD・Semantic出版・Context Reader、EM保存は配置・I/O・再入場を区別して実際の既存項目へ接続した。
+
+退役3 UTを現在の正式表に残したままRequiredから外す案は、既存の全件分類条件に矛盾するため採用しない。QA-000006内の独立した退役節へ元の3行を移し、Analysis／Definitionの現在Source対応、Required、統合の現行集合から3 IDだけを除いた。元ID・当時の定義と過去結果は保持し、新ID・代替実装・判定緩和はない。現行集合は207から204、履歴3件とは分ける。STは公式CLIの停止正常完了・status・既存Backend観測と操作終了を区別し、全Process不存在を要求しない。8処置の現在契約と旧9処置Schemaの拒否を維持し、Node・wx・DIへ移管済みの条件に残ったNative名称も追従した。
+
+是正後の関連単体・診断変換・CM受付は61件、Root集合1件、既存Catalog／Symbol／正式Local Item関係1件が成功した。型検査4設定・変更TSの警告禁止確認と差分空白確認も実施した。正式IDの意味をSourceヘッダーだけから推定したことを共通原因として、引渡し先の正式定義・実試験・現在Ownerを同じ導出キーで再照合した。新しい検査Frameworkを追加せず、既存のMap・正式表・契約試験へ反証を残した。完全文書検査の構造成功だけを意味上の独立確認へ代替しない。
+
+Architecture公開結合も、重複節の追加反証を含め再成功した。今回の最終限定確認は計64件成功、型検査4設定と警告禁止・作業本文の空白確認が成功した。独立再確認の途中で残ったCM公開IDの説明一句と、ST詳細反証の旧停止保証・旧Schema投影要求も正式な現在契約へ揃えた。技術・文書・限定準拠影響・直接伝播、3モデルの責務・品質引渡し、Qualityの独立再確認は今回範囲でPass、必須残指摘なし。これを全体回帰・実AI・実Docker・統合・Release判断へ読み替えない。
+
+最終本文を固定した完全文書Checkerは1207 Markdown、15830 Local Link、2956 Anchorを確認し、error0／warning0、終了code0で完了した。明示した過去参照の存在・Anchorを未検査とする既存表示は保持しており、過去の実在証明ではない。今回専用試験Rootだけを作成時の所在・dev／ino・非Linkと照合して回収し、不存在を確認した。過去保持物は操作していない。独立Trust評価・公式素材記録の未接続、実環境の未評価と全体回帰保留は解消済み扱いにせず、統合・Release判断へ進めていない。
+
+コミット前の再確認では、先行変更とCMの試験trace／Symbol追従を含む118 tracked差分を同じ承認範囲と照合し、新しい必須是正指摘はなかった。旧参照・Change受付も含む限定単体72件、公開Checker結合2件、Root集合1件、Catalog／Symbol／正式Local Item関係1件の計76件が成功した。型検査4設定、変更TS27 Fileの警告禁止確認、作業本文の空白確認、1207 Markdownの完全文書Checkerもerror0／warning0で再成功した。この再確認で作成した専用Rootだけを実体Identityと照合して回収し、不存在を確認した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。コミット・プッシュはFeature上の保存であり、main統合・採用・Release判断ではない。
+
+追記: 人間の追加指示により、PAの退役設計本文は削除した。現在Owner・保証変更・既存変更記録への短い退役案内だけを保持し、他の通常文書から旧節を指す参照は同じ退役案内へ更新した。過去CHG／Evidenceの参照先と本文は変更していない。以下の「PA本文の削除は未実装」という当初整理に対し、この本文削除だけを実施済へ更新する。検査母集団・詳細Map・品質引渡しの整理は未実装のままであり、後掲の16件は本文削除前の検査結果である。
+
+人間は現行案内・Project ContextとUIの旧実装説明を最新化し、退役PAの過去設計が通常文書に必要かを他の文書と比較、Architecture／Qualityの残件を整理するよう依頼した。親担当は現在のCLI受付・能力一覧・Task／Project入力・認証・結果と取消解除、Workspace操作、文書と検査の正本を照合し、読取り専用の専門確認を受けた。変更分類は既存契約への文書追従と一意な登録・配置漏れの是正であり、製品の権限・実行・回収条件は変更しない。
+
+| 今回是正した範囲 | 処置と保持条件 |
+|---|---|
+| 現行案内9リンク | Project ContextのPA未撤去段落を現在のNode／DI／Lock Ownerへ更新。CHG-000057のUI／SPEC／設計／品質・旧署名手順の現在案内、CHG-000017の退役したNative集計、CHG-000076の現在3モデル案内を追従。過去の判断・測定結果は遡及更新しない |
+| UIの旧実装説明5リンクと周辺記述 | Task／Projectの機械向けJSON＋明示主体、認証Loginだけの対話、診断・回復、Workspace候補、取消要求／終端／回収／Listener解除を分けて説明。廃止した端末Helper・同意コード・署名入口・表示関数を現在の機能として案内しない |
+| UI要求と未評価 | アクセシビリティ義務を保持し、参照先の節番号だけ追従。Workbenchの§9本文を完全保持。旧状態表示anchorは同目的の現在説明へ保持。今回の実端末・実認証・Provider／Docker再測定や全環境対応を主張しない |
+| Coordinator詳細設計のChecklist配置 | 後ろに追記された所在初期化のOwner小節をChecklist前へ移動。チェック項目・状態・本文・順序は保持し、末尾空行だけ整形 |
+| Quality統合の検証項目集合 | 正式定義に存在するQA-000006のHST-UT-001／ERB-UT-024、QA-000007のRFD-UT-030を§4の既存Local Item欄へ追記。他列・既存ID・Release処置・未確認を変えず、試験合格を追加しない |
+
+現行案内／UIとChecklistの是正後、Checkerはerror33から18、warning0となり、追加診断はない。Architecture／Project Contextの局所17試験、CLIの純粋受付・help・能力表示・不正認証受付の限定6試験は成功した。実Login・Task実行・Docker操作は呼ばない。今回のCLI試験Rootは既存Repository-local helperで回収した。全体回帰や人間の利用品質評価へ読み替えない。
+
+Qualityの登録追従後はerror16／warning0となった。開始時との診断多重集合比較は新規0・解消17で、残件は退役PAの旧リンク5、Architecture6、Quality5である。Quality解析の限定19試験も成功し、今回の限定試験は計42件成功した。独立確認は棚卸しアンカーの目的外着地1件を検出したため、同じIDを既存の全件棚卸し節直前へ移し、一意性と着地を再確認した。その他の今回差分に必須是正指摘はない。原文・比較結果を置いた今回専用試験Rootだけを作成時の所在・dev／inoと照合して回収し、不存在を確認した。過去保持物は操作していない。
+
+##### 退役文書の比較と次の是正案（未実装）
+
+通常の文書は現在の契約を主とし、当時の設計・結果はGitと既存CHG／Evidenceで追跡する方針に整理する。PAだけでなくcros（Historical Comparison）、artifact-signing／official-asset-governance（Superseded）、runtime-trust（廃止方式の比較設計）にも旧設計本文が残っている。一方、旧domain-modelの各Fileは現在Ownerへの短い誘導案内であり、現行詳細設計の提供ではない。
+
+PAの旧設計全文は、現在の仕様として残す必要はない。既存の退役案内を「廃止対象・現在Owner・保持／撤去した保証・未評価と記録への参照」に縮小し、当時の本文をGit／既存記録から辿る案が適切である。ただし、物理Directoryを現行設計と無条件に数えるarchitecture.tsとquality.ts、Canonicalと書かれた詳細Map、旧検証単位を持つQuality統合の一体整理が先に必要。HeaderにRetiredを付けるだけの一律skipや、退役資料へ架空の詳細表・UTを足す処置はしない。PA本文の削除・履歴移設・検査母集団の変更は今回実装せず、後続の設計判断へ残す。
+
+##### Architecture／Qualityの原因・Owner・最小是正案
+
+| 系統 | 確認した内容 | 次のOwnerと処置 |
+|---|---|---|
+| 現行3モデルの詳細契約 | CM／DM／EMはArchitecture詳細設計と宣言するが、領域・基本設計Relation・適用／Concern判断・Quality引渡しの所定情報が不足 | 各モデルの設計Ownerが現行の責務から具体化する。形式的N/A・未実施Passで埋めない |
+| 退役Domainの現行扱い | 退役案内を物理Directoryだけで現行詳細領域へ含め、Map集合・閉包と完全契約を要求している | Architecture／Checker Ownerが「現行詳細」と「退役案内・比較資料」を既存Mapと文書種別で整合させる。未知領域の欠落検出は維持する |
+| Quality詳細領域被覆 | configuration-model／document-model／execution-modelの3領域が統合側で不足 | 新3モデルの正式な引渡しを具体化した後、既存統合表へ接続する |
+| Quality検証単位 | 統合だけに旧crdd-domain-libraryのdependency-direction／public-surface／source-layout／consumer-closure／result-boundary／repository-boundary／distribution-identityが残る | 旧7単位を現在Ownerと保持義務へ対応付ける。単純削除・機械的な3重複製はしない |
+| PA検証段階 | platform-access.docker-repairは本文で退役・N/Aだが、統合では現行Covered単位のまま | 現在のDI／Coordinatorが保持する保証・撤去済みNative保証・未確認の実境界を分離し、現行対象を追従する。PAへ架空UTは追加しない |
+| 詳細→Goal | 統合だけにai-adapterとQA-000010の対応。AIT-UT-005はTrust各軸の純粋判定、詳細側もCoordinatorのProvider五軸評価と説明 | 実体のevaluateProviderAvailabilityはCoordinator execution/observation.tsにある。AI Adapterへの業務判断の復活や、Goalを増やすだけの修正はせず、評価対象と現在Ownerを照合して詳細／統合を追従する |
+| Goal→Local／Local集合 | 正式定義にある3 IDが統合§4だけ未追従 | 今回、既存2行のLocal Item欄に限定して是正 |
+| Source条件 | ARCH-000005とQA-000003、ARCH-000010とQA-000001／QA-000006の3組で本文不一致。キー欠落・余剰は0 | 前者は旧Acceptance Decision Port／Orchestratorと公開判断操作／Coordinator／State Writerの差、後者は外部構成からの選択と同梱Catalog／Repository別選択保存の差。上流の現契約を確認してAnalysisとDefinitionへ同じ意味を搬送する。比較を緩めない |
+
+残る設計・検査母集団の変更は、この整理だけを実装・完成扱いにしない。担当責任者はQual-LabのArchitecture／Qualityと各モデル・CheckerのOwner、再開契機は現行詳細と退役資料の区分・引渡し範囲の確定である。現在の未達として保持し、Release可または全体品質成立へ進めない。新しい共通Package・Manager・移行台帳や、実AI・Docker・過去保持物の操作は追加しない。
+
+#### 公開履歴のある過去参照への注記適用 — 2026-11-17
+
+人間は公開後も旧リンクが生じることを指摘し、公開時のタグ・署名・固定byteと、現在ブランチで保守する文書を分ける方針を承認した。直前の公開済み一律除外案は採用せず、03・12・19・51をこの区別へ是正した。既存のexact tagへ参照先を置換する案内補正とは別に、旧リンク先・表示名・当時の主張を変えない直前注記だけを許可する。公開タグ、署名、byte固定Evidenceと移行Manifestは変更しない。タグへの収録だけから本文の永久byte固定や注記可否を推定しない。
+
+着手前に全1207Markdownの完全なChecker結果を取得した。リンク診断3913件のうちChanges内は3902件で、初回は公開タグ収録3835件を除外候補としたが、人間の追加判断で再分類した。CHG-000070§6は、過去CHGの構造・案内更新とbyteがIdentityの固定Evidenceを明確に分けている。移行表のfixed_historyは当時の移動・Hashの記録であり、それだけを現在ブランチのchange.mdの永久byte固定宣言として扱わない。署名・固定Evidence、現行正本案内・必須導線は引き続き対象外とした。
+
+| 対象 | 処置と保持条件 |
+|---|---|
+| 過去の影響ファイル一覧・移動結果 | 3827出現。旧Path、矢印、表示名、当時の帰属を保持し、対象Markdownリンクの直前だけに注記 |
+| 過去の実装・試験・設計候補・段階結果の記述 | 67出現。日付・基準版と節本文を照合し、現在の案内ではない出現だけに注記 |
+| 合計 | 49文書・3894出現。今回の挿入だけを逆変換すると、全49文書が付与前のbyteと完全一致することを確認 |
+| Changes内の現在の案内 | 8出現を保留。CHG-000057冒頭の正本案内4・Release手順1、CHG-000017の現行カバレッジ案内2、CHG-000076の正本案内1。注記で欠落を隠さない |
+| Changes外の残存リンク | 11件は不変更。UI現行説明5、退役PA設計の参照5、Project Contextの旧見出し1。現在説明と履歴の整理を各Ownerへ残す |
+
+実資料の適用で表示名内code表記の注記が発火しないことを検出した。取得済みリンクの構文分類だけを最小是正し、コメント・Fenceの全token確認は維持、Inline codeのmaskは注記とリンク開始位置に限定した。表示名内のcodeは許容し、注記全体がcode／コメント内、間にコメントがある例と同target混在の反証を追加した。影響一覧と既に終了した移動結果のリンク直前にもexact注記を受け付けるよう、12と既存Change文法を追従した。通常項目・code削除表記・現在必要な後継導線を一般的に免除せず、codeへの注記・二重注記・余剰・階層の拒否は維持する。
+
+付与後のCheckerはerror33／warning0で終了code1。付与前3927件から3894件減少し、診断の多重集合比較で新規診断0、除外された出現が全て既存のリンク／アンカー診断であることを確認した。これは現在の到達性検査を過去参照から分離した結果であり、当時の存在確認・リンク復旧・検証Passの追加ではない。残る33件はリンク／アンカー19（broken-link14、broken-anchor5）とArchitecture／Quality整合14であり、正式入口全体の成功は主張しない。公開タグの全参照Identityは付与前後で一致する。
+
+変更分類は参照規則の限定例外の是正と既存記録への適用。対象は規則・既存Parser／文法・利用側・試験・品質定義と注記だけで、新しいFile・例外台帳・互換処理は追加しない。技術・文書・準拠影響・不足／直接伝播の独立確認を行う。全体回帰、実AI・Docker、過去Runtime保持物の操作、統合・Release判断は対象外とする。
+
+限定単体11件・公開Checker結合5件・台帳関係1件、型検査3設定・Biome・diff確認が成功した。固定候補の技術・文書・準拠影響・直接伝播の独立再確認は今回範囲でPass、必須残指摘なし。独立確認でも全49文書の計画・実体byte、文脈、現在案内8出現の保留、公開タグ不変、完全reportの多重集合差を照合した。全report・原文・計画を保持した今回専用Rootだけを作成時の実体Identityと照合して回収し、不存在を確認した。正式入口全体・全体回帰の成功ではない。
+
+#### 編集可能な過去記録の旧参照注記 — 2026-11-17
+
+人間は`[旧参照]`をInlineリンクの直前に付ける明示方式を採用し、CRDD規則との整合確認後の是正を依頼した。変更分類は文書参照規則の限定例外と、そのParser／Checkerへの接続である。親担当は文書化§4.7、変更§5.1、保守§3.4、文書監査、Checkerの固定履歴Reader・Scope・参照Map、Artifactの全利用側を照合し、読取り専用の専門確認を受けた。旧参照の意味は現在の到達性を要求しない過去記述であり、当時の実在・検証・現在の有効性を証明しない。
+
+| 編集対象 | 対応する意図・保持条件 |
+|---|---|
+| 03_Documentation§4.7 | 編集可能な過去本文の注記と、現行必須導線・Related・公開済み／固定byte記録の禁止を区別する |
+| 12_Change§5.1、19_Maintenance§3.4、51_Document_Audit§4.2 | 旧literalと当時の主張を保持し、固定履歴の既存Identity照合は免除しない。注記の用途と現在案内をレビューする |
+| DM ArtifactとUX利用側 | linkTargetsの文字列配列をlinksの出現モデルへ統一し、target・historical・Relatedを保持。履歴配置・Related・外部URLを文書規則として判定し、不適用は局所Issueと通常関係を残す。適用出現だけ現在のArtifact関係から除く。並列互換fieldと新Root公開は追加しない |
+| Checker Repository | DMの出現判定を固定履歴契約と照合。不適用は専用errorと通常検査。適用時は存在／anchorだけ未検査とし、Root・Encoding・Link境界を維持する |
+| Checker Scope／参照Map／計数 | 旧参照を現在のScope拡張・参照Mapへ使わず、存在・anchorの検査済み件数へ加算しない。既存uncheckedへ未検査を明示する |
+| 既存試験・品質定義・Symbol | RCM-UT-001／AUH-IT-003で、同じtargetの通常参照、定義との二重解決、非発火表記、誤用、境界、Scope、Map、計数、固定履歴Hash拒否を反証する |
+
+発火例はEvidence本文の注記付きInlineリンク。非発火例は通常リンク、注記とリンクの間の空白、escape、コード／コメント、参照形式。境界例は同じtargetの注記あり／なし混在とRelated内の注記であり、前者は出現を分離、後者はerrorと通常検査を行う。配置だけでは過去記述と証明できないため、文書監査が現行必須導線の隠蔽を確認する。情報不足の記録や公開済み／固定byte対象へ自動注記しない。
+
+これは既存Checkerの責務整理と同じ変更意図の途中追加であり、規範と直接利用側のGateを再開する。必須確認集合は技術独立レビュー、文書監査、準拠影響確認、不足／直接伝播監査とする。基準版の有効化、統合・リリース判断、Repository全体のPackage回帰、実AI・Docker・過去保持物の操作は対象外とする。既存3902件への一括注記や、新しい例外台帳・Git履歴探索は追加しない。
+
+限定確認はArtifact・文書・Schema・Graph関連27件、UX利用側とRoot公開集合14件、Checker公開入口のリンク・固定履歴5件が成功した。既存型検査3設定、変更TypeScriptのBiome確認、diff検査、新規規則の参照・見出しと例のFence除外も確認した。結合試験の最初の実行はWindows一時Pathの大小文字表記差によりGit初期化のassertionで停止した。判定を変えず、既存Repository-local試験RootをTEMPとして再実行し、成功後は各今回Rootを回収した。これらを正式入口全体や全Package回帰の成功へ読み替えない。
+
+途中の影響確認で、Artifactの現在関係生成が別の本文走査から旧参照を復活させ得ることを検出した。読取り専用確認を受け、文書規則の適用判定をDMへ一元化した。構文捕捉の位置と、既存の可視行が持つ表示列から元列への区間対応をUTF-16単位で照合し、適用する同じ出現だけを現在の関係から除く。同じtargetの通常参照、現行Path／Relatedの誤用は関係を保持し、誤用は単独Parseでもpartialと局所Issueを返す。新Manager・Facade・公開Helperを追加しない。
+
+初回固定候補の技術・文書・準拠影響・直接伝播確認では、F1（山括弧／Encoding付き外部URLの不適用分類）、F2（通常関係のFence／コメント条件の差）、F3（Checker設計の旧field案内）を検出し、候補を不合格として再開した。全指摘を統合して修正方針の整合確認を受けた後、F1は既存の参照分解へ接続、F2は元の可視本文生成と通常関係ループを維持して内部の元列対応だけを追加、F3は現行案内を更新した。4空白Fence、コメントで分割されたID、コメントで合成された見かけの注記、行内コメントとUnicode、CRLF、外部URLの山括弧・Title・一回Decodeを反証へ追加した。再修正後も限定46件、型検査3設定、Biome確認が成功し、既存Test Catalog／Symbol／Quality関係の限定1件も成功した。一般原因は、新しい注記の位置対応を作る際に通常本文の可視条件まで置換した点であり、同じ既存単体試験へ差分の反証を保持した。新しいChecker規則エンジンや共通Frameworkは不要と判断した。
+
+再固定候補の技術独立レビュー・文書監査・準拠影響確認・不足／直接伝播監査は今回範囲で全てPass、必須残指摘なし。これは限定差分の確認であり、Repository全体の準拠表明・文書検査・回帰、統合またはリリース可否の承認ではない。既存の旧リンクへの付与は未実施であり、編集可能性・過去記述・現在導線との区別を確認してから対象出現を選ぶ。新しい注記の実装だけを理由に残存リンク違反の解消件数を加算しない。
+
+#### Checker失敗全件の分類と限定是正 — 2026-11-17
+
+人間の継続指示に従い、欠落していた試験本体の全結果と文書検査の全結果を別々に取得した。変更分類は試験の固定期待集合と現行品質記録の追従であり、製品Source・公開契約・診断・検査条件を変更しない。過去記録や設計の意味を変える対象は今回の機械的是正から分離する。技術・文書の独立レビューと変更対象の限定試験を実施し、Repository全体のPackage回帰・実AI・Docker・過去保持物の操作は行わない。
+
+| 確認対象 | 完全取得した結果 | 処置 |
+|---|---|---|
+| Checker試験本体 | 473件、成功458・失敗14・skip1、取消0。約611秒 | 下記の3件と11件に全件分類。正式入口の成功とは扱わない |
+| VC Consumer固定集合 | 2件失敗 | 実利用を確認し、publicationの実行時利用とsemantic publish／Leaseの型参照を既存固定集合へ追加。Suiteの再実行は9件成功 |
+| 公開Module固定集合 | 1件失敗 | Coordinatorの旧一覧を是正後、同じassertionの後続で露出したEM／CMの旧一覧も現行Rootの宣言元に追従。全profileを照合し、当該試験1件成功。公開API自体は変更しない |
+| Windowsの試験準備 | 11件失敗 | Link作成EPERMの9件、Gitのsh.exeによるNamed Object作成拒否の2件。同じ11試験を権限のある実行条件で限定再確認し、成功11・失敗0・skip0。試験の省略、OS設定変更、拒否条件の緩和はない |
+| 文書検査 | 是正前3935件、是正後3927件、warning0 | 一意な追従漏れ8件のみ是正。残存違反は保持 |
+
+Windowsの11件は、外側へのSymbolic Link、正本文書Root Junction、公式ひな型Root Junction、Checker Root Junction、linked submodule marker、Git列挙の外側／欠測／Link、gitdir祖先Junction、Detail Readerの祖先Link、nested試験所有集合の9観点と、親Index mode観測不能、実物submoduleからの検査の2観点である。いずれも製品判定前の試験準備で失敗していた。限定再実行は新規試験領域だけを使用し、準備領域を終了時に回収した。
+
+品質定義13文書の現行ID集合は207件である。205件を記録した改訂d8b666d251f534df127433fc30e0cdce1706fc06との差分は、edd4d8bfaで追加済みのHST-UT-001とERB-UT-024の2件だけで、削除はない。既存試験・Symbol登録を確認し、Quality Centerと実装実体監査の現在件数だけを更新した。日付付き205件の過去記録を改変せず、件数更新を試験実行やPassの追加として扱わない。
+
+QA-000006の既存境界適用行に両IDを追記した。QA-000003／QA-000006の既存Checklistは、チェック状態・本文・順序・件数を完全一致で保持して末尾へ移動した。QA-000007のRFD-UT-030は、外部境界段階を既定値N/Aへ揃え、同一Process内の値検査という非該当理由は同じ行の対象説明へ保持した。Quality Centerの二つのリンクは、同じ実在見出しの区切り記号だけを修正した。これにより件数不一致2、境界段階1、適用区分1、Checklist配置2、アンカー2の計8診断が解消した。
+
+| 残存区分 | 件数 | 今回変更しない理由・次の確認Owner |
+|---|---:|---|
+| Changes内のリンク／アンカー | 3902 | 旧Pathを含む履歴と後日更新された本文が混在。既存移行表ではcurrent 1032、fixed_history 2237、未登録633件に分かれる。既存Hash照合やEvidence限定の履歴Readerを緩めず、保守Ownerが現在参照と当時の参照を分離してから移行方針を確定する |
+| 現行UI説明 | 5 | 撤去済み同意・端末実装へのリンク。単なるRenameではなく、UI／SPECの現行挙動との照合が必要 |
+| 退役PA詳細設計 | 5 | Retired文書のNative実装参照。現行Capabilityとして復活させず、保守Ownerが履歴参照としての扱いを確定する |
+| Project Context | 1 | PA未撤去時の説明と旧見出しへの参照。アンカーだけ現行へ向けると本文の意味が変わるため、現在地の説明と履歴を分離して是正する |
+| Architecture整合 | 7 | 詳細契約5、対象領域集合1、関係閉包1。退役domain-model案内を現行詳細として数える範囲と、CM／Coordinator／DM／EM等の正式設計表を確認する。検査通過のために架空の責務を追加しない |
+| Quality整合 | 7 | 詳細領域・単位・水準、詳細とGoal、GoalとLocal Item、Local ID集合、Source条件の各閉包。不足義務と退役platform-access.docker-repairの水準指定を現Ownerに照合し、検証義務を削らずに更新する |
+
+残るリンク3913件とArchitecture／Qualityの14件は、上表の分類と一致する。過去の履歴参照を一括置換したり、Retired文書を根拠なく現行対象から除外したりしない。これらの設計・履歴整理後に正式入口を再評価する。それまでChecker全体の回帰成立や文書検査Passは主張しない。
+
+型検査3設定、変更TypeScript 10FileのBiome check、diff検査が成功した。関連単体・VC Consumer 35件、公開Module固定集合1件、Quality定義・分析19件は全て成功。独立レビューに必須残指摘はない。完全ログ取得用の今回専用Rootは作成時の実体Identityを照合して回収し、不存在を確認した。全体回帰や正式入口の成功は主張しない。
+
+#### Change認識不能の診断をCheckerへ戻す — 2026-11-16
+
+人間は81cb27d1bのレビューを踏まえ、unrecognizedだけを戻し、他は変更しない最小是正を承認した。変更分類は不要なIssue往復の撤去であり、規則・診断・観測・短絡の変更ではない。親担当は入力Union・分岐・Mapper・利用側・旧試験を照合し、generic／official／adopterの認識集合、失敗時の後続処理、残る三比較の受理条件を着手前に確認した。技術と文書・直接伝播の独立レビュー、関連試験とChecker単体の全体回帰を対象とする。準拠表明、Repository全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+DMのinspectChangePlacementからunrecognized要求と分岐を撤去し、専用detailsの変数も不要化した。CheckerはchangeTraceRootFor失敗箇所で既存四fieldを直接追加し、同じ位置でcontinueする。到達不能となるMapper caseを撤去し、互換経路・新Helper・Facadeは作らない。Root227項目とChecker三関数・三型、filename／evidence／aggregate、40行Headerの観測を維持する。
+
+DMと表示Suiteの旧unrecognized試験は撤去し、その検証義務をChecker公開入口の既存結合Suiteへ移した。試験Rootの準備を一回とし、三Modeの構成差分で正本側／template側の認識Pathと診断全field、認識不能時の集約ID検査の短絡を確認する。新Suiteはなく、既存Source・verifies・Local Itemの対応は維持する。Architecture／QAも更新する。
+
+関連単体26件、三Modeを含む新結合1件、DM／Checkerの型検査と変更六TypeScript Sourceの整形・Lintが成功した。新結合の初回は試験Git Root未初期化で走査が空になる準備不備を検出し、既存initializeGitを追加して再実行した。失敗時と成功時の今回試験Rootは回収・不存在を確認した。固定候補の独立レビューに必須残指摘はない。
+
+Checkerの正式入口npm testを一回実行したが、format:checkがRepository全体の1022Fileを確認する段階で、未変更のCoordinator試験continuation-decision.integration.test.tsとtask-durable-foundation.contract.test.tsの整形不一致により停止した。両FileにHEADとの差分がないことを確認した。検査を迂回せず、Checker試験本体・verify:repositoryの成功は主張しない。今回の回帰用Rootは回収・不存在確認済み。この時点では対象外二Fileの整形是正を人間の判断待ちとし、製品Source・規則・Checkerの検査範囲は変更しなかった。
+
+追加承認後、対象二Fileのimportとassert.equalの改行だけをBiome formatで是正した。独立した読取り確認でも、式・文字列・assertion・import先に変更がない。正式入口の再実行は整形1022File・Checkerの二型設定・Lintを通過し、verify:repositoryで停止した。現在のRepository成果物1207Markdownの検査結果はerror3935／warning0で、broken-link3905、broken-anchor10、Architecture／Qualityの整合違反20。変更前の実行結果との同一性は確認しておらず、この件数を今回の変更起因または全て既存と断定しない。検査の無効化・文書の一括修正は行わない。
+
+静的段階を通過した同じ実行コードについて、停止した正式入口とは別の診断としてChecker試験本体を一回実行し、終了code1となった。確認できた失敗にVCの既知Consumer固定集合二件があり、該当Suiteの再確認では9件中7件成功・2件失敗だった。Repository Location／Local Ignoreの集合はexecution-model/storage/publication.tsが未追従、用途別Named Symbolの集合はdocument-model/semantic/publish.ts、execution-model/state/lease.ts、execution-model/storage/publication.tsが未追従。該当Suiteや三Sourceを今回変更しておらず、修正は別の判断対象とする。試験本体の失敗全体をこの二件だけと断定しない。正式回帰の失敗は保持し、診断実行を回帰成功へ読み替えない。
+
+正式入口・試験本体診断・VC局所再確認で今回作成した三つの試験用Rootはいずれも回収し、不存在を確認した。Repository全体のPackage回帰・実AI・Docker・過去保持物は操作していない。現在の作業変更は未コミットである。
+
 #### Checker累積差分の確定前確認 — 2026-11-16
 
 人間の指示に基づき、fa0006c7eからの累積差分を確認した。Quality欠測継続、基本図表示変換、Architectureモデル入力、UX／Discovery、Quality比較と残存四系統の相互作用、公開・利用側・試験・台帳・文書を対象とした。関連11試験Fileの149件、七つの型検査設定、37個の変更TypeScript Sourceの整形・Lintと差分空白検査が成功した。先行の固定候補で成功した限定結合・台帳・依存15件と試験領域の回収確認を区別して保持し、件数を単純に加算して全体網羅とはしない。
@@ -289,6 +455,7 @@ UI／SPEC移管の独立レビューは実装・Consumer・型依存・既存ass
 
 Architecture専用の件数／Directory反証試験一件は、assertionを削らずSemanticからArchitecture試験へ移した。Root・旧分岐なし・逆依存なし・未知kind拒否と既存診断変換を追従する。Rootは212項目（値93・型119）、Semantic残存は29kind（工程移管候補19／Semantic維持10）。下記210項目・37kindの表は移管前の全件調査断面として保持し、今回の追加二公開はArchitectureの完成比較とその入力契約である。限定回帰・独立レビューの結果は確定後に追記する。全体回帰・実AI・Docker・過去保持物は操作しない。
 
+<a id="document-public-inventory"></a>
 #### 残るRelationと公開物の全件棚卸し — 2026-11-16
 
 Architecture移管の独立レビューでは判定・依存・Consumer接続の退行指摘はなく、新規未知kind試験の個別HeaderにLocal Itemの追跡IDが欠ける一点を是正した。@trace RCM-UT-002の記載だけを追加し、Architecture15試験・当該FileのBiome・diff確認が成功した。是正と記録の読取り専用再確認で、残る必須指摘は0件となった。確認者は試験を実行しておらず、実装や試験本文は変更していない。

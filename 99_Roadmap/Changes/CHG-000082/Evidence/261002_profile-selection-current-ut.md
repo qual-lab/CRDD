@@ -17,7 +17,7 @@ Formatter、型二構成、Lintの後、既存六UT fileの60件がPass、Fail�
 
 親は現在の検証義務、Coding Standards、packageの既存選択試験集合、Sourceと試験を照合した。別の読取り専用確認者が六UT本体とImport時初期化、実操作への到達条件、Role反例と禁止範囲を確認し、最小試験修正を条件として着手可とした。後述の完成後確認とは分ける。
 
-試験修正は[provider-model-profile-runtime.contract.test.ts](../../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)の既存Case内の一assert追加だけ。正常Executor対照、正当Role不一致、不正Role拒否を分ける。新ID、Source変更、Catalog採用、実Authority発行や旧署名候補の更新を行わない。
+試験修正は[旧参照][provider-model-profile-runtime.contract.test.ts](../../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)の既存Case内の一assert追加だけ。正常Executor対照、正当Role不一致、不正Role拒否を分ける。新ID、Source変更、Catalog採用、実Authority発行や旧署名候補の更新を行わない。
 
 修正前はRole文字列のShape拒否がProfileとRoleの組合せ拒否に見えていた。現在のSourceは組合せを既に確認しており、今回検出したのは実装欠落ではなく反例の不足である。許可集合にある値同士の不一致を区別する既存の検証規律を適用するため、新しいRule、TemplateまたはChecker例外は追加しない。
 

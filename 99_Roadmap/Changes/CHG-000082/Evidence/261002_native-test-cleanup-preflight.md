@@ -117,8 +117,8 @@ Source、起動Patch、試験Patch、入力一覧、Builder、旧署名候補お
 
 | 対象 | 読取りで確認したこと | 未保証の範囲 |
 |---|---|---|
-| [Native試験Builder](../../../../40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile) | `startup-verification-run`は`/bin/bash -eu`と`pipefail`を使用する。timeout、試験、teeまたはgrep等の失敗ではRUNが失敗し、依存する後段`startup-verification-artifacts`のCOPYによる正常な成果物書出しは完成しない。 | 失敗時に別経路で得られるlog、Build基盤内の物理Rootの残存・消失、耐久的な再識別は未確認。書出し失敗を「全log消失」や「Root不存在」へ読み替えない。 |
-| [Build入力準備](../../../../40_Develop/coordinator/scripts/prepare-codex-advice-build.ts) | Context生成、固定入力照合、Manifestと保持条件の記録を所有する。結果は`buildExecuted: false`で、Build起動・待機・失敗後の書出しを実行しない。 | Context生成後からManifest保存・結果搬送までの途中失敗、Build／親Process喪失後の再識別と再入場は閉じていない。Contextの七日保持条件をNative試験Rootの保持保証へ流用しない。 |
+| [旧参照][Native試験Builder](../../../../40_Develop/coordinator/runtime/codex-advice-builder.Dockerfile) | `startup-verification-run`は`/bin/bash -eu`と`pipefail`を使用する。timeout、試験、teeまたはgrep等の失敗ではRUNが失敗し、依存する後段`startup-verification-artifacts`のCOPYによる正常な成果物書出しは完成しない。 | 失敗時に別経路で得られるlog、Build基盤内の物理Rootの残存・消失、耐久的な再識別は未確認。書出し失敗を「全log消失」や「Root不存在」へ読み替えない。 |
+| [旧参照][Build入力準備](../../../../40_Develop/coordinator/scripts/prepare-codex-advice-build.ts) | Context生成、固定入力照合、Manifestと保持条件の記録を所有する。結果は`buildExecuted: false`で、Build起動・待機・失敗後の書出しを実行しない。 | Context生成後からManifest保存・結果搬送までの途中失敗、Build／親Process喪失後の再識別と再入場は閉じていない。Contextの七日保持条件をNative試験Rootの保持保証へ流用しない。 |
 
 読取り対象のRepository上bytes SHA-256は、Dockerfileが`5255258d06ae861ea8e06a72468bbdf2ff6b81f2471a6eff70b1f6d802a31185`、準備Scriptが`9da0cc21e678ae3046c92b6dca9961e6423580f446b54e623307a2dcf55ac3bf`である。準備ScriptはDockerfile等をLF正規化してContextへ保存するため、これらを実行時Context内bytesのHashとは扱わない。今回Contextは新規作成していない。追補前の本記録SHA-256は`1c79271e506690b80b07907972781fa21879f374fdb518399e451671812f27cc`であり、旧独立確認の対象Hashは変更しない。
 

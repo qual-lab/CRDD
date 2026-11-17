@@ -297,13 +297,16 @@ Snapshot検査の既存ヘルパーへ接続する際は、Descriptor自身の`v
 | [SPEC-000028](../../../05_SPEC/Definitions/SPEC-000028/spec_definition.md) | `spec-000028.qa-000003` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: exactなTaskへの取消要求後、Process終了と終了後資源を観測し、取消完了を返す。境界: Task／試行／世代／取消権限の一致と不一致を分け、別対象へ取消を発行しない。失敗: 要求受理だけを終了とみなさず、終了観測不能時は結果不明と回復義務を保持する。観測不能: 不明を取消完了へ丸めず、取消の重複発行と新規Provider作用を0に保つ。失敗: 対象Identity不一致、古い世代、権限不一致、既に確定した結果または作用状態不明では、取消を新規発行しない。副作用: 検証済みの対象Taskと試行に限り、取消要求を一度だけ発行する。Providerの新規実行、別Taskの変更または正本更新は行わない。終了を確認できない場合は同じRecovery Identityへ未解消義務を結び、取消要求を再発行せず回復または再確認へ戻す | ST | `PRL-ST-003`、`PRL-ST-004`、`PRL-ST-001` |
 | [SPEC-000029](../../../05_SPEC/Definitions/SPEC-000029/spec_definition.md) | `spec-000029.qa-000003` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: exactな判断点へ許可された判断を記録し、同じTaskを再開可能にする。境界: Task／判断点／世代／決定権限の一致と不一致を分け、別対象へ判断を適用しない。失敗: 許可外入力や古い判断をEffect 0で拒否し、判断待ち状態を保持する。観測不能: 判断記録済みか不明な時に重複記録または新規Task作成を行わない。失敗: 古い世代、別Task、別判断点、許可外の選択肢、権限不一致または既に処置済みの判断はEffect 0で拒否する。副作用: 検証済みの判断点へ判断または入力を一度記録し、同じTaskへ再開可能通知を一度だけ渡す。新しいTaskや試行は自動作成しない。記録後に再開結果を観測できない場合は、判断を重複記録せず同じTaskの状態照会または回復へ戻す | IT／ST／UAT | `PRL-UAT-002`、`PRL-ST-004`、`PRL-IT-005` |
 | [ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md) | `arch-000004.qa-000003` | Architecture Definition（責務・境界・状態・故障） | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。所有する責務: Objective／Task受付、Project-level状態、判断待ち、取消、Recovery義務、再入場、結果。所有しない責務: Provider選定、OS操作、Transport、人間の採用判断。主な外部境界: Coordinator Execution Port、状態Store、人間判断。SPEC-000002: 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。Effect: 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。SPEC-000003: 観測不能や古い状態を進行中・完了へ推定しない。Effect: 読取り専用。TaskやProvider Processを変更しない。SPEC-000004: 古い権限、曖昧な識別情報、作用不明では再発行を拒否する。Effect: 本SPECは次の行動を分類する。実際の回復Effectは別のCapability取得後に限る。SPEC-000005: 由来不明、参照中、観測不能は削除せず、義務を保持する。Effect: 対象残存へのFilesystem Effectを発行する。対象外PathとProvider Effectは0。SPEC-000017: 応答喪失を未実行とみなさず、別依頼として再発行しない。Effect: 許可時だけ情報搬送または結果取得を行う。応答喪失後はProvider Effectを再発行しない。SPEC-000028: 取消要求の受理を終了とみなさず、競合完了と終了観測不能を区別する。Effect: exactなTask／Attemptへ取消を一度だけ発行し、新規Provider実行は0。SPEC-000029: 古い世代、別判断点、重複または競合を成功へ丸めない。Effect: 判断を一度記録して同じTaskへ再開可能通知を渡し、新規Task／Attemptは作らない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | ST | `PRL-ST-004`、`PRL-ST-001`、`PRL-ST-003` |
-| [ARCH-000005](../../../06_Architecture/Definitions/ARCH-000005/architecture_definition.md) | `arch-000005.qa-000003` | Architecture Definition（責務・境界・状態・故障） | Objective／Milestoneの受入、差戻し、判断待ちを、検証済みProject・対象・世代・判断Authorityへ一度だけ記録する。読取り投影、Task完了、Provider結果または下位状態から上位受入を推定しない。所有する責務: 公開判断操作、Decision記録、競合・重複・古い世代の拒否。所有しない責務: Task作成、Provider Effect、Projection生成、受入結果の自動決定。主な外部境界: Project運営者、Coordinator、Domain State Writer。SPEC-000002だけが限定した記録Effectへ到達し、SPEC-000006／SPEC-000007の読取り要求からは到達できない | UT／IT／ST／UAT | `PRL-UT-007`、`PRL-IT-008`、`PRL-ST-009`、`PRL-UAT-010` |
+| [ARCH-000005](../../../06_Architecture/Definitions/ARCH-000005/architecture_definition.md) | `arch-000005.qa-000003` | Architecture Definition（責務・境界・状態・故障） | Objective／Milestoneの受入、差戻し、判断待ちを、検証済みProject・対象・世代・判断Authorityへ一度だけ記録する。読取り投影、Task完了、Provider結果または下位状態から上位受入を推定しない。所有する責務: 公開判断操作、Decision記録、競合・重複・古い世代の拒否。所有しない責務: Task作成、Provider Effect、Projection生成、受入結果の自動決定。主な外部境界: Project運営者、Coordinator、Execution ModelのState Writer。SPEC-000002だけが限定した記録Effectへ到達し、SPEC-000006／SPEC-000007の読取り要求からは到達できない | UT／IT／ST／UAT | `PRL-UT-007`、`PRL-IT-008`、`PRL-ST-009`、`PRL-UAT-010` |
 ### Architecture詳細設計入力
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復と[Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)のObjective／Task、Objective／Milestone受入判断、Task内判断、取消、公開結果 |
-| [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
+
+| [execution-model](../../../06_Architecture/Details/execution-model/01_Architecture.md) | 現在の局所責務・正常／失敗・終了条件を統合表の導出キーとLocal Itemへ対応付ける。旧機構の過去Passを流用しない |
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
 
 ## 2. Lifecycle
 
@@ -533,6 +536,14 @@ Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorの
 
 Leaseの既存四操作・九候補はstate/lease.tsの実宣言を検証し、Rootの名前・overload・戻り値とRequest型は維持する。通常State保存への接続は既存withSnapshotOperationだけで、短期排他の保持区間と観測／通知順、元版・CAS・解放確認は変更しない。Source準備の反証は固定11Sourceを一回ずつ読み、Leaseを含むexportと未束縛factoryを毎fixture評価する。従来のMap／Owner非共有、override・変異・失敗後の再生成を維持し、単なる読取り数変更だけを成立根拠にしない。既存Suite・正式QA項目を維持してSymbolのPath／確認対象を追従する。
 
+
+
+## 保存正本と投影の型契約 — 2026-11-14
+
+既存PRL-UT-006の保存codec契約に、基準の展開形と保存正本／二投影の双方向代入・key集合一致の型確認を追加する。正本の19field、ProjectDefinitionと管理Projectの差、正本のnullableと投影のnon-null、readonly改訂／配列／元版、Lease実体のoptionalとnull許容を保持する。型負例は未使用の検査用関数に置いて実行せず、期待エラーが出ない場合にtscが失敗する。runtimeのtrue配列だけを型成立の証明にしない。
+
+通常のcodec往復・本文Hash・閉形式・初期化／投影の既存反例も限定実行する。型だけの整理から保存成功・実資源の安全・全体回帰成功を推定せず、結果と独立確認はCHG-000082の分離計画§14.57へ接続する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
@@ -546,10 +557,3 @@ Leaseの既存四操作・九候補はstate/lease.tsの実宣言を検証し、R
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
-
-
-## 保存正本と投影の型契約 — 2026-11-14
-
-既存PRL-UT-006の保存codec契約に、基準の展開形と保存正本／二投影の双方向代入・key集合一致の型確認を追加する。正本の19field、ProjectDefinitionと管理Projectの差、正本のnullableと投影のnon-null、readonly改訂／配列／元版、Lease実体のoptionalとnull許容を保持する。型負例は未使用の検査用関数に置いて実行せず、期待エラーが出ない場合にtscが失敗する。runtimeのtrue配列だけを型成立の証明にしない。
-
-通常のcodec往復・本文Hash・閉形式・初期化／投影の既存反例も限定実行する。型だけの整理から保存成功・実資源の安全・全体回帰成功を推定せず、結果と独立確認はCHG-000082の分離計画§14.57へ接続する。

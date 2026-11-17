@@ -1,5 +1,9 @@
 # 現行実装との照合
 
+## 現在の設計集合の再計数 — 2026-11-17
+
+現行13定義の正式検証項目は204件。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
+
 ## EIの正式項目登録と現在集合 — 2026-11-11
 
 判断State／History統合のPRL-UT-015／PRL-IT-014をQA-000003へ追加し、同定義は16項目、全13定義は205項目となった。新規2項目はDomain内部の値契約と直接保存境界を対象とし、Coordinator公開入口の成立を意味しない。QA-000012へERP-IT-006／007／008を正式登録し、全13定義を再計数した現在の設計集合は205項目（QA-000003は16項目、QA-000012は10項目）。以下の日付付き199項目等は過去の対象集合として保全する。登録・関係の成立は実行・正式Passを意味せず、全体回帰・実AI／Docker・ST／UAT・過去保持物の操作は行わない。[今回の限定確認](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)へ接続する。
@@ -32,8 +36,8 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 成果物種別: Quality現実照合
 状態: Blocked — Quality Design Review Pending
-進捗: 現行205項目の設計集合を同期。EI追加3項目は局所検証と正式評価を区別し、未観測・OPEN・正式Not Runを残す。全体の現実照合は確定しない
-現在範囲: 現行205 Local Item。過去の199／197項目・18 Architecture詳細設計領域の照合は履歴として区別する
+進捗: 現行204項目の設計集合を同期。追加項目の登録・局所検証と正式評価を区別し、未観測・OPEN・正式Not Runを残す。全体の現実照合は確定しない
+現在範囲: 現行204 Local Item。日付付き205／199／197項目・18 Architecture詳細設計領域の照合は履歴として区別する
 維持責任者: Qual-Lab
 
 
@@ -43,7 +47,7 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 205 |
+| Local Item数 | 204 |
 | 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的

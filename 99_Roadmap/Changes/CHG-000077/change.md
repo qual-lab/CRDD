@@ -57,11 +57,11 @@ Prompt、Validator、Controllerの結果分類、Architectureおよび変更台�
 <summary>全ファイルを表示</summary>
 
 - [`06_Architecture/Details/coordinator/01_Architecture.md`](../../../06_Architecture/Details/coordinator/01_Architecture.md)
-- [`40_Develop/coordinator/src/security/provider-task-packet-runtime.ts`](../../../40_Develop/coordinator/src/security/provider-task-packet-runtime.ts)
-- [`40_Develop/coordinator/src/security/provider-task-structured-result.ts`](../../../40_Develop/coordinator/src/security/provider-task-structured-result.ts)
-- [`40_Develop/coordinator/src/security/docker-process-controller.ts`](../../../40_Develop/coordinator/src/security/docker-process-controller.ts)
-- [`40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts)
-- [`40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts)
+- [旧参照][`40_Develop/coordinator/src/security/provider-task-packet-runtime.ts`](../../../40_Develop/coordinator/src/security/provider-task-packet-runtime.ts)
+- [旧参照][`40_Develop/coordinator/src/security/provider-task-structured-result.ts`](../../../40_Develop/coordinator/src/security/provider-task-structured-result.ts)
+- [旧参照][`40_Develop/coordinator/src/security/docker-process-controller.ts`](../../../40_Develop/coordinator/src/security/docker-process-controller.ts)
+- [旧参照][`40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts)
+- [旧参照][`40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts)
 - `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)

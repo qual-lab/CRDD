@@ -62,7 +62,6 @@ Architectureの[State九Fileの責務](../../../06_Architecture/Details/coordina
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [execution-intelligence](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
@@ -71,6 +70,10 @@ Architectureの[State九Fileの責務](../../../06_Architecture/Details/coordina
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | Architectureの意味単位、実装Symbol、Quality Local Itemおよび試験Symbolの対応関係を決定論的に投影する |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Project／Portfolio ProjectionのView State、欠測・制限・根拠表示 |
+
+| [document-model](../../../06_Architecture/Details/document-model/01_Architecture.md) | 現在の局所責務・正常／失敗・終了条件を統合表の導出キーとLocal Itemへ対応付ける。旧機構の過去Passを流用しない |
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
 
 ## 2. 試験段階と外部境界の適用
 

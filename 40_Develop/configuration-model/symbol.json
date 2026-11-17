@@ -59,7 +59,7 @@
         "QA-000001"
       ],
       "localTestIds": [
-        "RCM-UT-001"
+        "RCM-UT-002"
       ],
       "verifies": [
         "domain-model.ai-selection.validation"
@@ -101,10 +101,10 @@
       "kind": "test-suite",
       "path": "tests/unit/configuration/validate-declarations.contract.test.ts",
       "qaIds": [
-        "QA-000008"
+        "QA-000001"
       ],
       "localTestIds": [
-        "RDL-UT-005"
+        "RCM-UT-002"
       ],
       "verifies": [
         "runtime-data.source.src.core.runtime.data.contract"
@@ -245,7 +245,7 @@
         "QA-000001"
       ],
       "localTestIds": [
-        "RCM-UT-001"
+        "RCM-UT-014"
       ],
       "verifies": [
         "configuration-model.public-api"

@@ -1,14 +1,18 @@
 # CRDD内部ツールの品質の現在状態
 
+## 現在の設計集合の再計数 — 2026-11-17
+
+現行13定義の正式検証項目は204件。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
+
 ## EIの正式項目登録と現在の設計集合 — 2026-11-11
 
 判断State／History統合のPRL-UT-015／PRL-IT-014をQA-000003へ追加し、同定義は16項目、全13定義は205項目となった。新規2項目はDomain内部の値契約と直接保存境界を対象とし、Coordinator公開入口の成立を意味しない。EIのGroup保持・検索集計・Coordinator計測接続をQA-000012の正式項目ERP-IT-006／007／008へ登録した。全13定義の正式検証項目を重複なく再計数した現在値は205項目（QA-000003は16項目、QA-000012は10項目）。以下の199／198等の日付付き件数は当時の集合であり、現在値として加算・転用しない。設計項目登録はPass数・実行数ではなく、上位ST／UAT・全体品質の未評価を維持する。[登録範囲と結果](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)を参照する。
 
 人間承認により通常回復Namespaceを既存Node初期化へ統合し、専用Native保護・Protocolを撤去した。専用TEMP保護は運用前提であり、厳密SID／DACL・祖先Handleの同等性は主張しない。Home／Runtimeの保護は維持する。[今回の限定確認](04_Quality_Integration.md#namespaceのnode統合--2026-11-07)を参照する。過去保持物は不変更で、今回対象の限定独立レビューは完了した。Host限定fixture是正と今回試験物の回収は残件である。
 
-本番未使用の端末・確認コード・旧Root観測を退役した。共用処理の限定回帰と台帳整合は成功し、Windows保護やPA全体の撤去完了とはしない。[現在の限定結果](04_Quality_Integration.md#本番未使用の端末旧root観測の退役2026-11-06)を参照する。
+本番未使用の端末・確認コード・旧Root観測を退役した。共用処理の限定回帰と台帳整合は成功し、Windows保護やPA全体の撤去完了とはしない。[現在の限定結果](04_Quality_Integration.md#本番未使用の端末旧root観測の退役--2026-11-06)を参照する。
 
-2026-11-06の未接続Host終端退役時点では、専用記録・caller Leaseを退役し、Namespace・共有Pipe・通常Recoveryを維持した。当時の局所結果は[Quality Integration](04_Quality_Integration.md#未接続host終端機能の退役2026-11-06)と[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)を参照する。これは当時の結果であり、11/07のNamespace Node統合・Pipe整理後の現在状態や正式QA全体のPassを示さない。
+2026-11-06の未接続Host終端退役時点では、専用記録・caller Leaseを退役し、Namespace・共有Pipe・通常Recoveryを維持した。当時の局所結果は[Quality Integration](04_Quality_Integration.md#未接続host終端機能の退役--2026-11-06)と[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)を参照する。これは当時の結果であり、11/07のNamespace Node統合・Pipe整理後の現在状態や正式QA全体のPassを示さない。
 
 ## Checker試験回帰の是正完了 — 2026-11-06
 
@@ -165,7 +169,7 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 205 |
+| Local Item数 | 204 |
 
 ## 集計の履歴と現在への適用
 

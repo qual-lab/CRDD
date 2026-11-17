@@ -544,7 +544,10 @@ function inspectArchitectureDetailCoverage(
     actualDefinitions,
     isArchitectureReady,
   } = request;
-  const registeredDetailAreas = map?.areas ?? new Set<string>();
+  const registeredDetailAreas = new Set([
+    ...(map?.areas ?? []),
+    ...(map?.retiredAreas ?? []),
+  ]);
   const detailMapRelations = map?.relations ?? new Set<string>();
   const detailMapClosureRelations = map?.closureRelations ?? new Set<string>();
   const detailDocumentRelations = new Set(

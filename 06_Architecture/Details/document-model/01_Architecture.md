@@ -1,6 +1,71 @@
 # 文書モデルの責務と公開契約
 
 成果物種別: Architecture詳細設計
+詳細設計領域: document-model
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | Artifactと工程の完成Parse・局所Issueを所有し、適用選択と表示はCheckerに残す | Covered |
+| [ARCH-000002](../../Definitions/ARCH-000002/architecture_definition.md) | 文書契約と公開面・Consumerへの意味搬送を閉じる | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project Contextの現在投影と出典を扱い、読取りを受入判断にしない | Covered |
+| [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの内容・状態・改訂とCRUDを所有する | Covered |
+| [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | 診断用の文書モデル・Issueを返し、技術実行・CLI終了値は所有しない | Covered |
+| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 明示Repositoryの文書・活動を扱い、Git実体検証はVCへ委譲する | Covered |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | AM認可済み集合だけを読み、認証・認可を再実装しない | Covered |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 出典・過去参照と現在の関係を区別し、過去記録を新Authorityにしない | Covered |
+
+Coveredは局所責務の設計接続を表し、ARCH全体や実動作の合格ではない。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | 責務Ownerと禁止依存を固定する | [現行契約](#model-boundary) |
+| Interface Model | Required | 完成操作と部分結果を区別する | [現行契約](#public-api) |
+| Data Flow | Required | 受付から結果までの搬送を明示する | [現行契約](#consumers) |
+| State Model | Required | 現在版・候補・未確認を区別する | [現行契約](#storage) |
+| Sequence | Required | 検査・保存・終了の順を維持する | [現行契約](#storage) |
+| Failure／Recovery | Required | 拒否・部分成立・不明と再入場を区別する | [現行契約](#storage) |
+| Deployment | Required | Repository内所在とConsumer配置を固定する | [現行契約](#storage) |
+| Observability | Required | 理由・出典と未評価を失わない | [現行契約](#verification) |
+| Security Boundary | Required | 受付と認可を別Ownerにする | [現行契約](#consumers) |
+| Implementation Structure | Required | 意味Ownerと保存部品を分離する | [現行契約](#implementation-structure) |
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 改訂・期待Identity・共通Lockを別の保証として維持する | [既存の設計処置](#storage) |
+| Timing | PASS | 受付・現在観測・保存の時点と上位の許可を混同しない | [既存の設計処置](#consumers) |
+| Resource Lifecycle | PASS | 自分のLock・一時物・descriptorの終了と残存を結果に保持する | [既存の設計処置](#storage) |
+| External Boundary | PASS | VC・Filesystemの不存在と観測不能を区別する | [既存の設計処置](#storage) |
+| State／Consistency | PASS | 局所値の受付とモデル横断・上位判断の成立を区別する | [既存の設計処置](#model-boundary) |
+| Failure／Recovery | PASS | 不明を補完せず、自動再試行・移行・未知物削除を追加しない | [既存の設計処置](#storage) |
+| Observability | PASS | 内容モデル・理由・Issueと保存のEffect／終了相関を保持する | [既存の設計処置](#public-api) |
+| Security／Trust | PASS | 受付成功を現在認可・外部実行Authorityへ昇格しない | [既存の設計処置](#consumers) |
+
+- `PASS`: 詳細設計上の処置を記載した状態。試験・実境界・全体QAの合格ではない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。
+- `OPEN`: 未解決の設計事項がある状態。
+- `FAIL`: 必須設計と矛盾する状態。
+
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | モデル種別で受付条件が異なる | 型・規則の宣言Ownerごとに局所化 | 一律Readerや差替えFrameworkへ統合しない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.document-contracts` |
+| Common Contract | Required | 完成操作の結果相関を維持する | Rootから宣言元を直接公開 | 3モデル共通の結果Facadeは作らない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.package-boundary` |
+| Creation／Selection | Required | 固定対象と入力種別を照合する | 明示した入力から対象を構成 | 上位の認可・実行先を選ばない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.document-contracts` |
+| State-dependent Behavior | Required | 現在版により受理できる更新が異なる | 局所遷移と改訂照合 | 読取り成功を保存・実行許可にしない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.document-contracts` |
+| Composition／Recursion | Required | 複数の値と整合条件を組み合わせる | 既存の完成操作内で必要な値だけを合成 | 他モデルを直接参照しない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.document-contracts` |
+| Lifecycle Ownership | Required | 自分の保存資源を所有する | Lockと一時物の終了処置 | 未知・不明時の保全を維持する | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.document-storage` |
+| External Boundary | Required | Filesystem・VC・共通Lockを利用する | 専門Ownerの技術契約へ接続 | 外部事実をモデルだけから捏造しない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `document-model.document-storage` |
+
+## 入力・状態・保存境界の接続
+
+取得済み本文から型付きモデルと局所Issueを返し、複数モデルの関係を評価する。活動保存は現在改訂と取消を照合し、自分の保存だけを所有する。 不正入力・競合は後続Effectを開始せず、Effect後の不明は元の相関と残存を保持する。通常の読取りを暗黙更新へ変換せず、現在の保存形式・公開集合・期限・安全判定は変更しない。
 状態: 実装・限定検証・独立再レビュー済（全体回帰未実施。統合判断とは別）
 担当責任者: Qual-Lab
 最終更新日: 2026-11-16
@@ -8,9 +73,13 @@
 <a id="model-boundary"></a>
 ## 1. 責務と依存
 
+Artifactの参照モデルは`links`に未Decodeのtarget、出現ごとのhistorical区分（注記なしnull／適用declared／不適用invalid）、Related内かどうかを保持する。旧linkTargets文字列配列と並列の互換fieldは持たない。通常参照の三走査順・重複は維持し、exactな直前`[旧参照]`を持つ可視Inlineだけを分類する。参照形式への二重抽出とコード／コメント／escapeからの注記発火を防ぐ。履歴配置・Related・外部URLの文書規則はDMが判定し、不適用は局所Issueと通常の関係を保持する。適用した同じ出現だけをArtifactの現在関係から除き、同じtargetの他の出現へ波及させない。Filesystemの実在・境界、固定byte照合、検査Scopeと計数はCheckerが所有し、注記を当時の存在・安全・認可の証明として返さない。内部のUX正式入力Readerも新しい参照モデルからtargetを使う。Rootの公開項目数は変更しない。
+
 Quality内部の定義閉包・定義集合被覆・Local Item宣言件数は、既存inspectQualityConsistencyが取得済みモデルと観測集合から比較する。Architecture詳細の検証単位とQuality統合の一致は工程横断のため、既存inspectDocumentRelationsが所有する。両者の既存要求Unionへ用途を追加し、新しい公開関数・型・転送Wrapperは設けない。Filesystem観測・参照Path解決は行わず、Coverage欠測時の不足方向と余分方向の区別を維持する。先頭Coverage節の定義IDと先頭詳細処置節の参照targetは各完成Parseが捕捉し、CheckerはPath解決と実観測の集合化だけを行う。
 
 ReleaseはRoadmap表題・README版・観測済みTag・Evidence案内を比較する。共通Artifactは安定IDのファイル名禁止とEvidence名を比較し、Changeは定義Header・宣言IDと観測済み配置を比較する。Filesystemの探索・認可・安全性は所有しない。
+
+Change配置の比較はfilename／evidence／aggregateの三用途に限定する。Checkerが検査Pathを認識できない結果は文書の意味検査ではないため、unrecognizedという要求・Issueを持たない。認識不能の表示はCheckerが直接所有し、Repository Modeと認識Path一覧をDMへ伝播しない。公開関数・型の項目数は変更しない。
 
 配布ひな型の責任者宣言はUI／Architectureの明示templateモードで検査する。CommunicationとActor／System Sequenceはそれぞれの完成Parseとモデルを設け、原文・Artifact・主要節と部分結果を保持する。共通Helperへ工程固有の必須文言を集めず、各Ownerが固定条件を渡す。新しいSourceは対応Ownerがなかったcommunication/parse.tsだけとし、中間Facade・Rule Registry・第二の保存Schemaは作らない。追加公開は二Parse・二モデル型・独立した配置比較二操作であり、Rootは227項目（値103・型124）。既存Parserの通常モードの診断は変更しない。
 
@@ -484,9 +553,9 @@ Topicは22_Topics、Meetingは23_Meetingsの既存正本、Project ContextはPRO
 <a id="ui-spec-detail-placement"></a>
 ## 上流UI／SPEC Detailの局所分担
 
-[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)のARCH-000001、ARCH-000002、ARCH-000009、ARCH-000013について、以下の文書断面を担当する。中央表のコピーや、他モデルの実行・設定・認可を統合する第二の正本は作らない。
+[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)のARCH-000001、ARCH-000002、ARCH-000006、ARCH-000009、ARCH-000013、ARCH-000016について、以下の文書断面を担当する。中央表のコピーや、他モデルの実行・設定・認可を統合する第二の正本は作らない。
 
-担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000006.spec-000010`、`PRT-000008.spec-000012`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`
+担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000006.spec-000010`、`PRT-000008.spec-000012`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`、`PRT-000009.spec-000013`、`PRT-000017.spec-000022`
 
 | 対応関係 | この領域の担当 | 担当しない処理・未確認境界 |
 |---|---|---|
@@ -503,3 +572,33 @@ Topicは22_Topics、Meetingは23_Meetingsの既存正本、Project ContextはPRO
 公開集合・文書解析・三Identity・活動CRUD・Semantic出版・Repository境界と異常系を既存試験へ対応付ける。試験Rootは検証済みRepository直下の今回専用.crdd/testsへ限定し、同実体の清掃と不存在を確認する。
 
 移管後の限定回帰・独立レビュー結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で更新する。Source配置や単独型検査をもって全Consumer接続・同等保証・全体完成としない。全体回帰・実AI・Docker・過去保持物の操作は今回実施しない。
+
+## Qualityへの引渡し
+
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `document-model.package-boundary` | Interface／State／Failure | 完成Parse・工程モデル・横断関係と保存の公開境界 | 既存の完成操作・Owner・結果相関を保持 | 低位から上位への依存、不要Helper公開 | UT | N/A | RCM-UT-014の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+| `document-model.document-contracts` | Interface／State／Failure | 部分モデル・Issue・診断順とConsumerの結果相関 | 既存の完成操作・Owner・結果相関を保持 | 欠測の成功化、同一取得の情報喪失、独自再判定 | UT／IT | Adjacent 1 Block | RCM-UT-016／RCM-IT-011の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+| `document-model.document-storage` | Interface／State／Failure | Topic・Meeting・Context・Semanticの保存と終了 | 既存の完成操作・Owner・結果相関を保持 | 取消後Effect・別対象・改訂競合・終了不明 | IT | Direct Boundary | CPR-IT-010／011は活動CRUD、PPR-IT-018／RDL-IT-007はSemantic出版、PPR-IT-019はContext読取りを区別 | Readerは保存Effect 0。CRUD／出版は元対象と改訂を維持し、確定または未知残存・終了不明を返す | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+
+## 現行実装との照合
+
+上記導出キーは現在の責務と既存試験の接続であり、今回の試験実施結果ではない。実装・限定検証と変更経緯は[既存変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で追跡する。旧Domainの一括公開・共通Helper・結果の四状態を3モデルへ複製しない。配布launcherとReleaseの全Consumer閉包は上位Ownerの未完了義務として保持する。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 10種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

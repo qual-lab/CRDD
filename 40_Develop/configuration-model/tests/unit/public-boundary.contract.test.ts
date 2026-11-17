@@ -2,7 +2,7 @@
  * 設定モデルの公開集合とModel間の独立性を固定する。
  * @packageDocumentation
  * @responsibility 採用した24 Symbolをliteral期待へ固定し、汎用Helperの再公開を拒否する。
- * @trace RCM-UT-001
+ * @trace RCM-UT-014
  * @level UT
  * @scope Root、型宣言、Package公開metadata、Source import。
  * @boundary 読取りと同期値比較だけ。保存・AI・Dockerなし。
@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import * as configuration from "../../src/index.ts";
 
 const values = [
@@ -43,7 +43,7 @@ const types = [
   "ToolRuntimeConfigResult",
 ] as const;
 
-/** 完成した設定操作と主要契約だけをRootから公開する。 @trace RCM-UT-001 */
+/** 完成した設定操作と主要契約だけをRootから公開する。 @trace RCM-UT-014 */
 test("設定Rootは採用した10値・14型と単一公開入口だけを提供する", () => {
   assert.deepEqual(Object.keys(configuration).sort(), [...values].sort());
   assert.equal(
@@ -69,7 +69,7 @@ test("設定Rootは採用した10値・14型と単一公開入口だけを提供
   assert.deepEqual(metadata.exports, { ".": "./src/index.ts" });
 });
 
-/** Type・deep import・再exportでも他Modelへの依存を作らない。 @trace RCM-UT-001 */
+/** Type・deep import・再exportでも他Modelへの依存を作らない。 @trace RCM-UT-014 */
 test("設定Sourceは他Model・旧Domainのimportや再exportを持たない", () => {
   const pending = [fileURLToPath(new URL("../../src/", import.meta.url))];
   while (pending.length) {

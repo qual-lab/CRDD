@@ -365,11 +365,22 @@ export function inspectDocumentRepository(
 
   const linkRecords: LinkRecord[] = [];
   for (const source of allMarkdownFiles) {
-    for (const raw of parseArtifact({
+    for (const link of parseArtifact({
       path: relative(source),
       content: read(source),
-    }).result.linkTargets) {
-      linkRecords.push(resolveLinkWithFixedHistory(source, raw));
+    }).result.links) {
+      const record = resolveLinkWithFixedHistory(source, link.target);
+      if (link.historical === null) {
+        linkRecords.push(record);
+        continue;
+      }
+      linkRecords.push({
+        ...record,
+        historicalAnnotation:
+          link.historical === "declared" && !record.fixedHistoricalReference
+            ? "accepted"
+            : "invalid",
+      });
     }
   }
 
@@ -764,15 +775,12 @@ export function inspectDocumentRepository(
       }
       const aggregateRoot = changeTraceRootFor(file);
       if (!aggregateRoot) {
-        for (const issue of inspectChangePlacement({
-          kind: "unrecognized",
-          path: relative(file),
-          repositoryMode,
-          patterns: recognizedChangeTracePatterns,
-        })) {
-          const finding = mapChangeDomainIssueToFinding(issue);
-          add(finding.severity, finding.code, finding.path, finding.message);
-        }
+        add(
+          "error",
+          "change-trace-placement",
+          relative(file),
+          `The checker cannot recognize this Change Trace path in repository mode ${repositoryMode}. Recognized inspection paths: ${recognizedChangeTracePatterns.join(", ")}.`,
+        );
         continue;
       }
       for (const issue of inspectChangePlacement({

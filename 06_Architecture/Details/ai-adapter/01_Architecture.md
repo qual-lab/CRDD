@@ -244,7 +244,6 @@ Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり
 |---|---|---|---|---|---|---|---|---|---|
 | `ai-runtime.catalog-validation` | Schema／Validation | AI Adapter技術Catalog | 閉形式・用途・Effortの一意な対応 | 未知field、重複、Getter／Proxy、破損JSON | UT | N/A | RCM-UT-001／002の固定入力と拒否理由 | Hook・Provider Effect 0 | 実Provider対応は別評価 |
 | `ai-runtime.profile-resolution` | Interface／Data | 技術選定とCoordinator選定Consumer | 無変換、alias保持、同じIdentity | 未設定・非対応・別用途を補完 | UT／IT | Direct Boundary | RCM-UT-001／RCM-IT-005の選定と搬送結果 | 勝手な再選定・実行0 | 実Provider注入 |
-| `ai-runtime.availability` | State／Validation | CoordinatorのProvider五軸値評価 | unknown・preflightを区別 | 未観測をavailableへ丸める | UT | N/A | ERB-IT-006の純粋前提Oracleとしての値と理由。UTだけで構成選択IT成立を示さない | Authority・Provider Effect 0 | 実Host・認証Observerは上位Ownerで別評価 |
 | `ai-runtime.catalog-adoption` | State／Consistency | Coordinator Repository設定Store | 同じSnapshot、CASと認可を保持 | 競合、Link、観測不能、公開後の不明 | IT | Direct Boundary | RCM-IT-005／010の保存・応答・現在認可 | 暗黙再保存0、旧Store Effect 0 | 実設定移行 |
 | `ai-runtime.profile-administration` | Interface／Security | Workbench設定とMCP旧Tool拒否 | 管理Roleと選択Repository認可、新公開入口 | 旧Tool受理、無認可保存、応答喪失から再送 | IT／ST | Direct Boundary／System/E2E | RCM-IT-010／RCM-ST-012の全Role・Consumer集合・公開結果 | 旧設定操作Effect 0、所有処理終了 | 実Credential・人間操作 |
 | `coord.provider-attempt` | Interface／Validation | 用途別構造化結果 | 唯一のexact結果だけを受理 | 曖昧JSON、不足Envelope、上限逸脱 | UT | N/A | ERB-UT-032の容量・解析値・固定理由 | 生出力非公開、Process起動0 | 実CLI・終了・cleanupは既存IT／ST |
@@ -261,7 +260,7 @@ Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり
 | Variation | Required | Codex／Claude二具象がある | 共通計画・解析からProvider具象へ接続 | 仮想Provider Pluginを増やさない | Provider別の計画／解析拒否 | `coord.provider-attempt` |
 | Common Contract | Required | 同じ用途・Provider軸で利用する | Provider・用途で絞る型 | Taskと助言の受理条件を混ぜない | 用途差の誤受理 | `ai-runtime.profile-resolution` |
 | Creation／Selection | Required | 同梱技術値を一回検証する | 不変Catalogと明示選定 | 役割別設定・保存はCoordinator | 未設定・未対応は拒否 | `ai-runtime.catalog-validation` |
-| State-dependent Behavior | Required | 利用可否の値状態を返す | 五軸の純粋判定 | 現在状態Storeを作らない | unknownの成功化を拒否 | `ai-runtime.availability` |
+| State-dependent Behavior | Required | 用途とProviderに対応する計画・結果を区別する | 用途別の閉じた技術契約 | 実Hostの利用可否・現在認可は判断しない | 異なる用途・曖昧な結果を拒否 | `ai-runtime.catalog-validation` |
 | Composition／Recursion | Required | 共通処理と二具象を合成する | 具象は共通型を参照し実行時循環なし | 再帰Framework不要 | 循環・重複解析を防ぐ | `coord.provider-attempt` |
 | Lifecycle Ownership | Required | 同期変換と外部実行の寿命が異なる | 返却で局所変換完了、上位が資源回収 | ACK・Home Lock・Recoveryを持たない | 変換成功をcleanupへ換算しない | `coord.provider-attempt` |
 | External Boundary | Required | 同梱JSONと未信頼出力を受ける | 閉形式loaderと用途別解析 | 実Effectは上位Owner | 不正JSON・上限・秘密値を拒否 | `ai-runtime.catalog-validation` |

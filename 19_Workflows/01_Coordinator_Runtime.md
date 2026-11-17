@@ -4,7 +4,7 @@
 
 旧domain-modelのSourceは[文書モデル](../06_Architecture/Details/document-model/01_Architecture.md)・[実行モデル](../06_Architecture/Details/execution-model/01_Architecture.md)・[構成モデル](../06_Architecture/Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
 
-v0.22現在、Platform Access・Rust crate・固定Native exeと専用Build／coverage入口は退役した。以下のNative Build・計測手順は当時の再現用履歴であり、現行の通常確認手順として実行しない。現在のOwnerと保証差は[PA退役記録](../06_Architecture/Details/platform-access/01_Architecture.md#現在の構成--2026-11-11)を参照する。既存cacheや過去保持物をこの退役を理由に清掃しない。
+v0.22現在、Platform Access・Rust crate・固定Native exeと専用Build／coverage入口は退役した。以下のNative Build・計測手順は当時の再現用履歴であり、現行の通常確認手順として実行しない。現在のOwnerと保証差は[PA退役記録](../06_Architecture/Details/platform-access/01_Architecture.md)を参照する。既存cacheや過去保持物をこの退役を理由に清掃しない。
 
 Status: Candidate (Coordinator固有署名方式は物理撤去済み。撤去後の全体回帰・実境界検証は未完了)
 Owner: Qual-Lab

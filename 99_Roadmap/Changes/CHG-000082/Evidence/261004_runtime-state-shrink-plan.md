@@ -257,7 +257,7 @@ Project Runtimeの通常履歴については、人間確認により保持期�
 | 準拠監査 | 準拠基準・準拠表明を変える場合に追加する。保存縮小だけで全監査を発火しない。 |
 | 現時点で行わない操作 | 新しいProvider依頼、追加再起動、削除、署名、全E2Eの総当たり。今回は計画更新だけ。 |
 
-規則Ownerは[Runtime Data詳細設計](../../../../06_Architecture/Details/runtime-data/01_Architecture.md)、[Coding Standards](../../../../06_Architecture/99_Coding_Standards.md)、[Architecture](../../../../27_Architecture.md)、[品質保証](../../../../16_Quality_Assurance.md)、[Maintenance](../../../../19_Maintenance.md)である。
+規則Ownerは[旧参照][Runtime Data詳細設計](../../../../06_Architecture/Details/runtime-data/01_Architecture.md)、[Coding Standards](../../../../06_Architecture/99_Coding_Standards.md)、[Architecture](../../../../27_Architecture.md)、[品質保証](../../../../16_Quality_Assurance.md)、[Maintenance](../../../../19_Maintenance.md)である。
 
 対象外は、新しいDB、汎用強制削除、常設ログサービス、汎用Docker Orchestrator、Windows再起動機能、Linux実装、Provider機能追加、Project業務状態の統合である。既存セキュリティ保証は維持するが、目的に関係しない防御Frameworkを追加しない。
 

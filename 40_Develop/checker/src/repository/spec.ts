@@ -582,10 +582,21 @@ export function inspectSpecRepository(
       "06_Architecture",
       "Details",
     );
+    const detailMapPath = path.join(
+      root,
+      "06_Architecture",
+      "07_Detail_Architecture_Map.md",
+    );
+    const retiredAreas = lstatIfPresent(detailMapPath)?.isFile()
+      ? parseArchitectureDetailMap({
+          path: relative(detailMapPath),
+          content: read(detailMapPath),
+        }).result.retiredAreas
+      : new Set<string>();
     for (const entry of fs.readdirSync(architectureDetailsRoot, {
       withFileTypes: true,
     })) {
-      if (!entry.isDirectory()) continue;
+      if (!entry.isDirectory() || retiredAreas.has(entry.name)) continue;
       const detailPath = path.join(
         architectureDetailsRoot,
         entry.name,

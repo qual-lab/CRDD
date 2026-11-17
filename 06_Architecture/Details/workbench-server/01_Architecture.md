@@ -665,9 +665,11 @@ Checklist評価根拠: Remote MCP公開Schema、Local内部呼出し、Browser A
 
 | 現行対応表 | 担当Source Definition | 担当Detail | 状態 | 戻し先 |
 |---|---|---|---|---|
-| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000013 | SCR-000008／PRT-000008／BHV-000012 | Partial | 意味変更はUI-000008／SPEC-000012へ、配置変更はARCH-000013へ戻す |
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000013、ARCH-000017 | SCR-000008／PRT-000008／BHV-000012と公式素材の表示・導線断面 | Partial | 意味変更はUI-000008／SPEC-000012へ、配置変更はARCH-000013へ戻す |
 
-担当Interaction Relation: `PRT-000008.spec-000012`
+担当Interaction Relation: `PRT-000008.spec-000012`、`PRT-000019.spec-000024`
+
+公式素材のPRT-000019.spec-000024は表示・導線の担当だけを接続する。由来・権利・許可用途・判断者の記録は未接続であり、Brand表示をその記録の完成へ読み替えない。対応はPartialのまま保持し、新しい判断Storeを追加しない。
 
 ## Checklist
 

@@ -74,15 +74,6 @@ test("Change配置はHeader別観測と集約Identityを区別する", () => {
       inspectChangePlacement({ kind: "filename", path }).length,
       invalid ? 1 : 0,
     );
-  assert.deepEqual(
-    inspectChangePlacement({
-      kind: "unrecognized",
-      path: "change.md",
-      repositoryMode: "generic",
-      patterns: ["a", "b"],
-    })[0]?.details,
-    { repositoryMode: "generic", patterns: "a, b" },
-  );
 });
 
 /**
@@ -141,6 +132,51 @@ test("変更文書は見出しだけで打ち切りBlock不正では続行する
     ).issues.length,
     1,
   );
+  const historical = valid.replace("- [source]", "- [旧参照][source]");
+  assert.deepEqual(
+    parseChangeDocument(
+      { path: "99_Roadmap/Changes/CHG-000079/change.md", content: historical },
+      { mode: "canonical", expectedIdentity: "CHG-000079" },
+    ).issues,
+    [],
+  );
+  for (const entry of [
+    "- `old.md` → [source](./source.md)",
+    "- `old.md` → [旧参照][source](./source.md)",
+  ])
+    assert.deepEqual(
+      parseChangeDocument(
+        {
+          path: "99_Roadmap/Changes/CHG-000079/change.md",
+          content: valid.replace("- [source](./source.md)", entry),
+        },
+        { mode: "canonical", expectedIdentity: "CHG-000079" },
+      ).issues,
+      [],
+    );
+  for (const entry of [
+    "- [削除][source](./source.md)",
+    "- [旧参照] [source](./source.md)",
+    "  - [旧参照][source](./source.md)",
+    "- [旧参照]`source.md`（削除）",
+    "- [旧参照]`old.md` → [source](./source.md)",
+    "- `old.md` → [旧参照] [source](./source.md)",
+    "- [旧参照][旧参照][source](./source.md)",
+    "- [旧参照][source](./source.md) extra",
+  ])
+    assert.ok(
+      parseChangeDocument(
+        {
+          path: "99_Roadmap/Changes/CHG-000079/change.md",
+          content: valid.replace("- [source](./source.md)", entry),
+        },
+        { mode: "canonical", expectedIdentity: "CHG-000079" },
+      ).issues.some(
+        (issue) =>
+          issue.kind === "artifact.change.impact-files-contract-invalid",
+      ),
+      entry,
+    );
   assert.equal(
     parseChangeDocument(
       { path: "change.md", content: `${valid}\n### 影響ファイル` },

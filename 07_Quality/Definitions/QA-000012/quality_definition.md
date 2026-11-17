@@ -47,6 +47,9 @@ Quality ID: `QA-000012`
 |---|---|
 | [execution-intelligence](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
 
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
+
 ## 2. 事前条件
 
 Execution Identity、Source Identity、Observed At、観測状態、記録先の許可範囲と記録Attemptを固定する。秘密情報や生Provider出力を試験入力へ無条件に含めない。

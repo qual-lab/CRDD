@@ -7,7 +7,7 @@
 import { omitMarkdownFencedCode, parseMarkdownAnchors } from "./anchors.ts";
 import { inspectRelatedOrder } from "./document-header.ts";
 import { captureArtifactIdentity } from "./identity.ts";
-import { parseMarkdownLinkTargets } from "./links.ts";
+import { parseMarkdownLinkReference, parseMarkdownLinks } from "./links.ts";
 import { isMarkdownTableSeparator, parseMarkdownTableRow } from "./markdown.ts";
 import type {
   ArtifactModel,
@@ -28,7 +28,7 @@ import {
  * @responsibility visible Linesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input content: string
- * @returns readonly Readonly<{ line: number; text: string; }>[]を返す。
+ * @returns 既存の可視行と、UTF-16単位の表示列→元列の区間対応を返す。
  * @precondition 「content: string」がvisibleLinesの入力契約を満たす。
  * @postcondition visibleLinesの責務を完了した結果だけを返す。
  * @effect N/A: visibleLinesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -41,9 +41,15 @@ import {
 function visibleLines(content: string): readonly Readonly<{
   line: number;
   text: string;
+  columns: readonly (readonly [rendered: number, original: number])[];
 }>[] {
-  const visibleLineEntries: Array<Readonly<{ line: number; text: string }>> =
-    [];
+  const visibleLineEntries: Array<
+    Readonly<{
+      line: number;
+      text: string;
+      columns: readonly (readonly [number, number])[];
+    }>
+  > = [];
   let fence: Readonly<{ marker: string; length: number }> | null = null;
   let isInComment = false;
   for (const [index, original] of content.split(/\r?\n/u).entries()) {
@@ -64,6 +70,7 @@ function visibleLines(content: string): readonly Readonly<{
       continue;
     }
     let rendered = "";
+    const columns: Array<readonly [number, number]> = [];
     for (let cursor = 0; cursor < line.length; ) {
       if (isInComment) {
         const end = line.indexOf("-->", cursor);
@@ -77,15 +84,17 @@ function visibleLines(content: string): readonly Readonly<{
       }
       const start = line.indexOf("<!--", cursor);
       if (start < 0) {
+        if (cursor < line.length) columns.push([rendered.length, cursor]);
         rendered += line.slice(cursor);
         break;
       }
+      if (start > cursor) columns.push([rendered.length, cursor]);
       rendered += line.slice(cursor, start);
       isInComment = true;
       cursor = start + 4;
     }
     line = rendered;
-    visibleLineEntries.push({ line: index + 1, text: line });
+    visibleLineEntries.push({ line: index + 1, text: line, columns });
   }
   return visibleLineEntries;
 }
@@ -161,6 +170,46 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
   const identity = captureArtifactIdentity(source);
   const related = inspectRelatedOrder(source);
   const lines = visibleLines(source.content);
+  const parsedLinks = parseMarkdownLinks(source.content);
+  const historicalDocument =
+    /(?:^|\/)Evidence\//u.test(source.path) ||
+    /(?:^|\/)Changes\/CHG-\d{6}\//u.test(source.path) ||
+    /(?:^|\/)CHANGELOG\.md$/u.test(source.path);
+  const links: ArtifactModel["links"] = parsedLinks.map((link) => ({
+    target: link.target,
+    related: link.related,
+    historical: !link.historical
+      ? null
+      : historicalDocument &&
+          !link.related &&
+          !/^(?:https?|mailto|tel):/iu.test(
+            parseMarkdownLinkReference(link.target).target,
+          )
+        ? "declared"
+        : "invalid",
+  }));
+  const historicalPositions = new Set<string>();
+  const linkContent = omitMarkdownFencedCode(source.content);
+  let linkLine = 1;
+  let previousOffset = 0;
+  for (const [index, link] of parsedLinks.entries()) {
+    if (links[index]?.historical !== "declared") continue;
+    linkLine +=
+      linkContent.slice(previousOffset, link.offset).match(/\n/gu)?.length ?? 0;
+    const column =
+      link.offset - linkContent.lastIndexOf("\n", link.offset - 1) - 1;
+    historicalPositions.add(`${linkLine}:${column}`);
+    previousOffset = link.offset;
+  }
+  const linkIssues = links
+    .filter((link) => link.historical === "invalid")
+    .map((link) => ({
+      kind: "artifact.link.historical-reference-not-allowed",
+      targetIdentity: source.path,
+      location: { path: source.path },
+      reason: "historical_annotation_not_allowed",
+      details: { target: link.target },
+    }));
   const headingEntries = lines.flatMap(({ line, text }) => {
     const heading = text.match(/^(#{1,6})\s+(.+?)\s*$/u);
     const marker = heading?.[1];
@@ -206,8 +255,15 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
     ),
   ];
   const relations: ArtifactRelation[] = [];
-  for (const { line, text } of lines)
+  for (const { line, text, columns } of lines) {
     for (const match of text.matchAll(/\[([^\]]+)\]\(([^)]+)\)/gu)) {
+      const position = columns.findLast(
+        ([rendered]) => rendered <= match.index,
+      );
+      const originalColumn = position
+        ? position[1] + match.index - position[0]
+        : match.index;
+      if (historicalPositions.has(`${line}:${originalColumn}`)) continue;
       const targets = stableIds(`${match[1]} ${match[2]}`);
       for (const target of targets)
         relations.push({
@@ -216,6 +272,7 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
           location: { path: source.path, line },
         });
     }
+  }
   const checklistResults: ChecklistResult[] = [];
   const checklistSection = sections.find(
     (section) => section.title === "Checklist",
@@ -254,10 +311,10 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
   return {
     source,
     anchors: parseMarkdownAnchors(source.content),
-    linkTargets: parseMarkdownLinkTargets(source.content),
+    links,
     identity: identity.result,
     hasRelated: related.hasRelated,
-    localIssues: [...identity.issues, ...related.issues],
+    localIssues: [...identity.issues, ...related.issues, ...linkIssues],
     verificationLines: omitMarkdownFencedCode(source.content)
       .split(/\r?\n/u)
       .map((text) => {

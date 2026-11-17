@@ -17,7 +17,7 @@
 | 項目 | 確認・処置 |
 |---|---|
 | 分類・意図 | 同じ未リリースCHGの実装接続Gap是正。既存品質定義が要求する明示Profile搬送を接続する。 |
-| 根拠 | [QA-000003／PRL-UT-014・PRL-IT-012](../../../../07_Quality/Definitions/QA-000003/quality_definition.md)、[AI Runtime詳細設計§3](../../../../06_Architecture/Details/ai-runtime/01_Architecture.md#3-公開入口と依存方向)、SPEC-000011、ARCH-000012。 |
+| 根拠 | [QA-000003／PRL-UT-014・PRL-IT-012](../../../../07_Quality/Definitions/QA-000003/quality_definition.md)、[旧参照][AI Runtime詳細設計§3](../../../../06_Architecture/Details/ai-runtime/01_Architecture.md#3-公開入口と依存方向)、SPEC-000011、ARCH-000012。 |
 | 着手前整合確認 | 親の正本照合と別の読取り専用確認者が技術、工程境界、品質／影響を確認し、計画修正付き着手可とした。公開契約差分の明記、Workbenchとの操作区別、局所結果の限界を計画へ反映した。 |
 | 書込み範囲 | 現在Repositoryのみ。`.crdd`は非秘密の検証記録としてGit管理外へ保持する。 |
 | 不変範囲 | 認証、取消、Authority、公開結果、Catalog／Model、既存Resolver／Route／Grant、Executor限定指定、旧署名候補、品質件数およびHost停止。 |
@@ -29,13 +29,13 @@
 
 | 編集 | 対象 | 処置 |
 |---|---|---|
-| PFT-01 | [Objective入力](../../../../40_Develop/project-runtime/src/public-contract/objective-request.ts) | 三つの任意項目を全八組合せで検査。Profile形式を検査しexactに固定。明示undefinedを拒否し、省略時は生成しない。 |
-| PFT-02 | [MCP公開Schema](../../../../40_Develop/mcp/src/protocol/project-runtime-protocol.ts) | Objectiveだけの任意項目として公開し、required集合と未知field拒否を維持。 |
-| PFT-03 | [Task構成処理](../../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts) | 検証済みObjectiveからTaskへIDをexactに搬送する。選択・Authorityを新設しない。 |
-| PFT-04 | [公開入力UT](../../../../40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts) | 全八組合せ、不正型／形式、未知field、Accessor／Proxy非実行、Snapshot不変性。 |
-| PFT-05 | [MCP UT](../../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts) | 公開Schema、Profile／Provider四組合せの注入Core入力、認証・Core呼出し前の不正拒否。 |
-| PFT-06 | [Task搬送UT](../../../../40_Develop/coordinator/tests/unit/project-runtime-profile-transport.contract.test.ts) | 八組合せ×二Front Providerを実Task入力検査へ接続。省略、配列複製、権限非追加を確認。 |
-| PFT-07 | [Project Runtime詳細設計](../../../../06_Architecture/Details/project-runtime/01_Architecture.md#7-公開アプリケーション契約) | 入力契約、責務境界と別操作の扱いを明記。 |
+| PFT-01 | [旧参照][Objective入力](../../../../40_Develop/project-runtime/src/public-contract/objective-request.ts) | 三つの任意項目を全八組合せで検査。Profile形式を検査しexactに固定。明示undefinedを拒否し、省略時は生成しない。 |
+| PFT-02 | [旧参照][MCP公開Schema](../../../../40_Develop/mcp/src/protocol/project-runtime-protocol.ts) | Objectiveだけの任意項目として公開し、required集合と未知field拒否を維持。 |
+| PFT-03 | [旧参照][Task構成処理](../../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts) | 検証済みObjectiveからTaskへIDをexactに搬送する。選択・Authorityを新設しない。 |
+| PFT-04 | [旧参照][公開入力UT](../../../../40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts) | 全八組合せ、不正型／形式、未知field、Accessor／Proxy非実行、Snapshot不変性。 |
+| PFT-05 | [旧参照][MCP UT](../../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts) | 公開Schema、Profile／Provider四組合せの注入Core入力、認証・Core呼出し前の不正拒否。 |
+| PFT-06 | [旧参照][Task搬送UT](../../../../40_Develop/coordinator/tests/unit/project-runtime-profile-transport.contract.test.ts) | 八組合せ×二Front Providerを実Task入力検査へ接続。省略、配列複製、権限非追加を確認。 |
+| PFT-07 | [旧参照][Project Runtime詳細設計](../../../../06_Architecture/Details/project-runtime/01_Architecture.md#7-公開アプリケーション契約) | 入力契約、責務境界と別操作の扱いを明記。 |
 | PFT-08 | [Symbol Manifest](../../../../40_Develop/coordinator/symbol.json) | 新UTと既存Host候補Policy／UTを実在するARCH／QA Local Item／実装Symbolへ接続。 |
 | PFT-09 | [試験カタログ](../../../../07_Quality/Registry/test-catalog.json) | 新UTと先行Host候補UTを通常回帰へ登録。Local Itemの成立結果は変更しない。 |
 | PFT-10 | [CHG本文](../change.md)と本記録 | Finding、処置、限定結果、未確認範囲を同じCHGに保持。 |
@@ -43,7 +43,7 @@
 | 既存利用側 | 処置・限界 |
 |---|---|
 | CLI stdin→公開Composition | 同じObjective Inspectorと構成処理を利用するためfield搬送が追従する。実CLI起動は未確認。 |
-| MCP stdio／HTTP→Adapter→公開Composition | [配布入口](../../../../template/tools/crdd-mcp.ts)は同じ公開関数へ入力を渡す。入口Sourceは変更不要。Adapterへの注入Core captureは実Application全体の証明ではない。 |
+| MCP stdio／HTTP→Adapter→公開Composition | [旧参照][配布入口](../../../../template/tools/crdd-mcp.ts)は同じ公開関数へ入力を渡す。入口Sourceは変更不要。Adapterへの注入Core captureは実Application全体の証明ではない。 |
 | Workbench変更候補 | Prompt→Single Taskの別操作。既存の明示Profile経路を維持し、公開Objectiveと統合しない。 |
 | Resolver／Route／Grant | 形式受理と登録／適合性を区別する。未知ID・Provider不一致・有効Role不一致・exact ID不一致の既存UTを再実行。Reviewer非伝播は既存SourceのExecutor限定処理を維持し、今回の実Provider観測とは扱わない。 |
 | Queue／再入場 | 既存Applicationは所有Snapshot全体をrequestHash入力へ含めるためProfileも識別に含まれる。専用Profile再入場の実境界確認は未実施。 |
@@ -94,7 +94,7 @@
 
 変更分類は既存検証設計に対する局所試験の補強である。親がQA-000003、実Resolver、経路選択、Grant、既定JSON Catalog、Coding Standardsと先行Evidenceを照合した。公開契約、適用条件または正本の品質条件は追加しないため、Template移行・準拠監査は非該当。技術、文書および品質／直接影響の三観点を、同じ固定三file差分へ独立確認する。実Task、公開Transport、Provider、Host回収、全回帰、再署名は行わず、旧形式非使用方式の採否と実再起動・削除の別承認を保持する。
 
-編集は、既存[Profile試験](../../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)への実Resolver接続、[Symbol Manifest](../../../../40_Develop/coordinator/symbol.json)のGrant実装参照追加、本節の記録に限定する。既存Catalogには同じ試験fileが登録済みで、新しい試験file・Local Item・Canonical IDは作らない。既存Sourceの責務や選択Policyを試験都合で変更しない。
+編集は、既存[旧参照][Profile試験](../../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)への実Resolver接続、[Symbol Manifest](../../../../40_Develop/coordinator/symbol.json)のGrant実装参照追加、本節の記録に限定する。既存Catalogには同じ試験fileが登録済みで、新しい試験file・Local Item・Canonical IDは作らない。既存Sourceの責務や選択Policyを試験都合で変更しない。
 
 ### 観測範囲と結果
 

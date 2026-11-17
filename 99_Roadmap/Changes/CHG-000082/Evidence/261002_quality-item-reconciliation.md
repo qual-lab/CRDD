@@ -375,7 +375,7 @@ Formatter→Coordinator Source／Test型→対象二fileのLintは終了値0。�
 
 Profileを失わず搬送する局所境界とWorkbenchのHTTP入口を現行版で確認した。局所36試験とHTTP一試験は成功したが、`PRL-IT-012`全体の成立へは昇格しない。Productionコード、QA義務、Profile CatalogとAuthorityは変更していない。
 
-[Project Runtime詳細設計](../../../../06_Architecture/Details/project-runtime/01_Architecture.md)は、公開Objective（CLI／MCP）とWorkbenchの変更候補（Single Task）を別操作として定義している。UI、CLI、MCPという媒体名だけで両操作を同一化せず、各操作の入力・結果・Authorityを同じ操作の範囲で比較する。今回の照合は既存契約の検証であり、新しいUI Objective入口や別のProfile選択方式を追加しない。
+[旧参照][Project Runtime詳細設計](../../../../06_Architecture/Details/project-runtime/01_Architecture.md)は、公開Objective（CLI／MCP）とWorkbenchの変更候補（Single Task）を別操作として定義している。UI、CLI、MCPという媒体名だけで両操作を同一化せず、各操作の入力・結果・Authorityを同じ操作の範囲で比較する。今回の照合は既存契約の検証であり、新しいUI Objective入口や別のProfile選択方式を追加しない。
 
 | 境界 | 今回の根拠 | 残る確認 |
 |---|---|---|

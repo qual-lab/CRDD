@@ -10,6 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { buildArtifactGraph } from "../../../src/artifact/graph.ts";
 
 import {
   parseArtifact,
@@ -54,27 +55,183 @@ test("参照先は三走査順と重複Labelの後勝ちを維持する", () => 
     "shortcut.md",
   ];
   assert.deepEqual(
-    parseArtifact({ path: "fixture.md", content: input }).result.linkTargets,
+    parseArtifact({ path: "fixture.md", content: input }).result.links.map(
+      (link) => link.target,
+    ),
     expectedLinks,
   );
   assert.deepEqual(
-    parseArtifact({ path: "fixture.md", content: input }).result.linkTargets,
+    parseArtifact({ path: "fixture.md", content: input }).result.links.map(
+      (link) => link.target,
+    ),
     expectedLinks,
   );
   assert.deepEqual(
     parseArtifact({
       path: "fixture.md",
       content: "[label][ Mixed   Case ]\n[mixed case]: target.md",
-    }).result.linkTargets,
+    }).result.links.map((link) => link.target),
     ["target.md", "target.md"],
   );
   assert.deepEqual(
     parseArtifact({
       path: "fixture.md",
       content: "[unknown]\n![image](image.md)",
-    }).result.linkTargets,
+    }).result.links.map((link) => link.target),
     [],
   );
+});
+
+/**
+ * 旧参照注記の出現単位と非発火表記を検証する。
+ * @responsibility 通常参照・Related・参照定義との混在で除外範囲が広がらないことを固定する。
+ * @trace RCM-UT-001
+ * @precondition 同一target、参照形式、コード、コメント、エスケープを含む本文を使う。
+ * @stimulus Artifact完成Parseを呼ぶ。
+ * @observation linksのtarget・historical・relatedを比較する。
+ * @oracle 注記したInline出現だけhistoricalであり、通常参照と既存順序を保持する。
+ * @cleanup N/A: 純粋値のみ。
+ */
+test("旧参照注記は可視Inline出現だけを分類し参照定義へ二重解決しない", () => {
+  const source = [
+    "Related:",
+    "- [旧参照][related](related.md)",
+    "",
+    "[旧参照][label](same.md)",
+    "[current](same.md)",
+    "[旧参照] [space](space.md)",
+    "\\[旧参照][escaped](escaped.md)",
+    "`[旧参照][code](code.md)`",
+    "<!-- [旧参照][comment](comment.md) -->",
+    "[旧参照][referenced][ref]",
+    "[label]: accidental.md",
+    "[ref]: reference.md",
+    "```md",
+    "[旧参照][hidden](hidden.md)",
+    "```",
+  ].join("\n");
+  const links = parseArtifact({ path: "Evidence/result.md", content: source })
+    .result.links;
+  assert.deepEqual(
+    links.filter((link) => link.historical),
+    [
+      { target: "related.md", historical: "invalid", related: true },
+      { target: "same.md", historical: "declared", related: false },
+    ],
+  );
+  assert.equal(links.filter((link) => link.target === "same.md").length, 2);
+  assert.equal(
+    links.some((link) => link.target === "accidental.md"),
+    false,
+  );
+  assert.equal(
+    links.some((link) => link.target === "hidden.md"),
+    false,
+  );
+  for (const target of [
+    "space.md",
+    "escaped.md",
+    "code.md",
+    "comment.md",
+    "reference.md",
+  ])
+    assert.ok(
+      links.some((link) => link.target === target && !link.historical),
+      target,
+    );
+});
+
+/**
+ * 旧参照と現行関係の区別を単独ParseとGraphで検証する。
+ * @responsibility 注記した同一出現だけを除き、不適用注記の関係を保持する。
+ * @trace RCM-UT-001
+ * @precondition 同一targetの通常／旧参照、行内コメントとRelatedを含む本文を使う。
+ * @stimulus 完成Parseのモデルを既存Graphへ渡す。
+ * @observation 関係数・位置・局所Issue・incoming集合を取得する。
+ * @oracle 履歴本文の旧参照だけ非activeとし、不適用はpartialと通常関係を保持する。
+ * @cleanup N/A: 純粋値のみ。
+ */
+test("旧参照は同じ出現の現在関係だけを除き誤用は局所Issueと通常関係を保持する", () => {
+  const content =
+    "# History\n<!-- comment --> [旧参照][UX-000001](target.md) [UX-000001](target.md)\n";
+  const historical = parseArtifact({ path: "Evidence/result.md", content });
+  assert.equal(historical.result.relations.length, 1);
+  assert.equal(historical.result.relations[0]?.location.line, 2);
+  const target = parseArtifact({ path: "target.md", content: "# UX-000001\n" });
+  const graph = buildArtifactGraph({
+    artifacts: [historical.result, target.result],
+  });
+  assert.ok(graph.result);
+  assert.deepEqual(graph.result.incoming.get("UX-000001"), [historical.result]);
+  for (const source of [
+    { path: "current.md", content: "[旧参照][UX-000001](target.md)" },
+    {
+      path: "Evidence/related.md",
+      content: "Related:\n- [旧参照][UX-000001](target.md)",
+    },
+  ]) {
+    const outcome = parseArtifact(source);
+    assert.equal(outcome.status, "partial");
+    assert.ok(
+      outcome.issues.some(
+        (issue) =>
+          issue.kind === "artifact.link.historical-reference-not-allowed",
+      ),
+    );
+    assert.equal(outcome.result.relations.length, 1);
+  }
+  const ordinary = parseArtifact({
+    path: "current.md",
+    content:
+      "    ```\n[REQ-000002](hidden.md)\n    ```\n[REQ-<!-- comment -->000001](target.md)\n",
+  });
+  assert.deepEqual(
+    ordinary.result.relations.map((relation) => relation.target),
+    ["REQ-000001"],
+  );
+  const synthetic = parseArtifact({
+    path: "Evidence/result.md",
+    content: "[旧<!-- comment -->参照][REQ-000001](target.md)",
+  });
+  assert.equal(synthetic.result.relations.length, 1);
+  const unicode = parseArtifact({
+    path: "Evidence/result.md",
+    content:
+      "# History\r\n😀<!-- comment --> [旧参照][REQ-000001](target.md) [REQ-000001](target.md)\r\n",
+  });
+  assert.equal(unicode.result.relations.length, 1);
+  const codeLabel = parseArtifact({
+    path: "Evidence/result.md",
+    content:
+      "[旧参照][`source.ts`](source.ts) [normal](source.ts)\n`[旧参照][label](code.md)`\n<!-- [旧参照][label](comment.md) -->\n[旧参照]<!-- gap -->[label](gap.md)",
+  });
+  assert.deepEqual(
+    codeLabel.result.links
+      .filter((link) => link.historical === "declared")
+      .map((link) => link.target),
+    ["source.ts"],
+  );
+  assert.equal(
+    codeLabel.result.links.filter((link) => link.target === "source.ts").length,
+    2,
+  );
+  for (const target of [
+    "<https://example.invalid>",
+    'https://example.invalid "title"',
+    "%68ttps://example.invalid",
+  ]) {
+    const external = parseArtifact({
+      path: "Evidence/result.md",
+      content: `[旧参照][external](${target})`,
+    });
+    assert.equal(external.result.links[0]?.historical, "invalid", target);
+    assert.ok(
+      external.issues.some(
+        (issue) =>
+          issue.kind === "artifact.link.historical-reference-not-allowed",
+      ),
+    );
+  }
 });
 
 /**

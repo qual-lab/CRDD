@@ -9,45 +9,104 @@
  */
 
 import { omitMarkdownFencedCode } from "./anchors.ts";
+import { omitMarkdownCommentsAndFencedCode } from "./markdown.ts";
 import type { MarkdownLinkReference } from "./types.ts";
 
 /**
- * Markdown本文から参照先文字列を抽出する。
+ * Markdown本文から参照先と出現単位の注記を抽出する。
  *
  * @responsibility Inline・参照形式・短縮参照の順序と重複を保ち、Labelを解決する。
  * @trace ARCH-000008
  * @input text: string
- * @returns 未Decodeの参照先配列。本文順への並替え・重複排除・Path解決は行わない。
- * @precondition 「text: string」がparseMarkdownLinkTargetsの入力契約を満たす。
- * @postcondition parseMarkdownLinkTargetsの責務を完了した結果だけを返す。
- * @effect N/A: parseMarkdownLinkTargetsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: parseMarkdownLinkTargetsは独自の失敗分岐を所有しない。
- * @invariant parseMarkdownLinkTargetsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: parseMarkdownLinkTargetsはProcess内の同一Subsystemで完結する。
- * @security N/A: parseMarkdownLinkTargetsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: parseMarkdownLinkTargetsは共有非同期状態を持たない同期処理である。
+ * @returns 未Decodeの参照先と出現単位の旧参照注記。走査順と重複を維持する。
+ * @precondition textは取得済みの本文である。
+ * @postcondition 通常参照の三走査順と重複を保持し、注記した出現だけを分類する。
+ * @effect N/A: 入力と局所値だけを扱う。
+ * @failure N/A: 独自の失敗分岐を持たない。
+ * @invariant 未Decodeのtargetを保持し、並替え・重複排除しない。
+ * @boundary N/A: Process内の純粋な構文解析である。
+ * @security historicalは存在・安全・認可の証明ではない。
+ * @concurrency N/A: 共有状態を持たない。
  */
-export function parseMarkdownLinkTargets(text: string): string[] {
+export function parseMarkdownLinks(text: string): readonly Readonly<{
+  target: string;
+  historical: boolean;
+  related: boolean;
+  offset: number;
+}>[] {
   const content = omitMarkdownFencedCode(text);
+  const commentVisible = omitMarkdownCommentsAndFencedCode(content);
+  const visible = commentVisible.replace(/(`+)[\s\S]*?\1(?!`)/gu, (span) =>
+    span.replace(/[^\n]/g, " "),
+  );
   const definitions = new Map<string, string>();
   for (const match of content.matchAll(
     /^\s{0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)(?:\s+(?:["'(].*)?)?$/gmu,
   )) {
     definitions.set(normalizeReferenceLabel(match[1] ?? ""), match[2] ?? "");
   }
+  const annotatedRanges: Array<readonly [number, number]> = [];
+  const relatedRanges = [
+    ...content.matchAll(/^Related:\n(?:- [^\n]*(?:\n|$))+/gmu),
+  ].map((match) => [match.index, match.index + match[0].length] as const);
   const targets = [...content.matchAll(/(?<!!)\[[^\]]+\]\(([^)\n]+)\)/gu)].map(
-    (match) => match[1] ?? "",
+    (match) => {
+      const start = match.index;
+      const prefixStart = start - "[旧参照]".length;
+      const slashes =
+        content.slice(0, prefixStart).match(/\\+$/u)?.[0].length ?? 0;
+      const historical =
+        prefixStart >= 0 &&
+        visible.slice(prefixStart, start) === "[旧参照]" &&
+        visible[start] === "[" &&
+        commentVisible.slice(start, start + match[0].length) === match[0] &&
+        slashes % 2 === 0;
+      if (historical)
+        annotatedRanges.push([prefixStart, start + match[0].length]);
+      const related = relatedRanges.some(
+        ([from, to]) => start >= from && start < to,
+      );
+      return { target: match[1] ?? "", historical, related, offset: start };
+    },
   );
   for (const match of content.matchAll(/(?<!!)\[([^\]]+)\]\[([^\]]*)\]/gu)) {
+    if (
+      annotatedRanges.some(
+        ([start, end]) => match.index >= start && match.index < end,
+      )
+    )
+      continue;
     const label = normalizeReferenceLabel(match[2] || match[1] || "");
     const target = definitions.get(label);
-    if (target) targets.push(target);
+    if (target)
+      targets.push({
+        target,
+        historical: false,
+        offset: match.index,
+        related: relatedRanges.some(
+          ([from, to]) => match.index >= from && match.index < to,
+        ),
+      });
   }
   for (const match of content.matchAll(/(?<!!)\[([^\]\n]+)\](?!\[|\()/gu)) {
+    if (
+      annotatedRanges.some(
+        ([start, end]) => match.index >= start && match.index < end,
+      )
+    )
+      continue;
     const matchEnd = (match.index ?? 0) + match[0].length;
     if (content[matchEnd] === ":") continue;
     const target = definitions.get(normalizeReferenceLabel(match[1] ?? ""));
-    if (target) targets.push(target);
+    if (target)
+      targets.push({
+        target,
+        historical: false,
+        offset: match.index,
+        related: relatedRanges.some(
+          ([from, to]) => match.index >= from && match.index < to,
+        ),
+      });
   }
   return targets;
 }

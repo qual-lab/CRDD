@@ -13,6 +13,7 @@ import {
   inspectQualityConsistency,
   inspectQualityLocalItemOwnership,
   parseArchitectureDetail,
+  parseArchitectureDetailMap,
   parseArtifact,
   parseQualityAnalysis,
   parseQualityCenter,
@@ -629,6 +630,17 @@ export function inspectQualityRepository(
     add(finding.severity, finding.code, finding.path, finding.message);
   }
   const detailRoot = path.join(root, "06_Architecture", "Details");
+  const detailMapPath = path.join(
+    root,
+    "06_Architecture",
+    "07_Detail_Architecture_Map.md",
+  );
+  const retiredAreas = lstatIfPresent(detailMapPath)?.isFile()
+    ? parseArchitectureDetailMap({
+        path: relative(detailMapPath),
+        content: read(detailMapPath),
+      }).result.retiredAreas
+    : new Set<string>();
   const physicalDetailPaths = new Set(
     lstatIfPresent(detailRoot)?.isDirectory()
       ? fs
@@ -636,6 +648,7 @@ export function inspectQualityRepository(
           .filter(
             (entry) =>
               entry.isDirectory() &&
+              !retiredAreas.has(entry.name) &&
               lstatIfPresent(
                 path.join(detailRoot, entry.name, "01_Architecture.md"),
               )?.isFile(),

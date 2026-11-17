@@ -7,7 +7,7 @@ Architecture ID: `ARCH-000010`
 
 ## 1. 責務と境界
 
-Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。コード埋込みのモデル一覧ではなく検証済み外部構成から選ぶ。
+Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。AI Adapterの同梱技術Catalogと構成モデルのRepository別希望設定を区別し、Coordinatorが検証済み設定から選定する。設定の採用を実行Authorityへ読み替えない。
 
 | 区分 | 内容 |
 |---|---|

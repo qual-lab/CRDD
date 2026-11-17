@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility runtime-data:unit:contractが所有する検証責務を実行する。
- * @trace RDL-UT-005
+ * @trace RCM-UT-002
  * @level UT
  * @scope runtime-data、manifest
- * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RCM-UT-002=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -17,13 +17,13 @@ import { inspectRepositoryManifest } from "../../../src/manifest/validation.ts";
  * Repository ManifestはIdentityと宣言だけを受理するを検証する。
  *
  * @responsibility Repository ManifestはIdentityと宣言だけを受理するの合否判定を所有する。
- * @trace RDL-UT-005
+ * @trace RCM-UT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Repository ManifestはIdentityと宣言だけを受理するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-UT-005=Direct Boundary: runtime-data Test Source→対象契約
+ * @boundary RCM-UT-002=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Repository ManifestはIdentityと宣言だけを受理する", () => {
   const manifest = inspectRepositoryManifest({
@@ -77,13 +77,13 @@ test("Repository ManifestはIdentityと宣言だけを受理する", () => {
  * Repository ManifestはProject IDとRepository IDの混同を拒否することを検証する。
  *
  * @responsibility Manifest v2のIdentity分離とv1移行境界の合否判定を所有する。
- * @trace RDL-UT-005
+ * @trace RCM-UT-002
  * @precondition v1、Repository ID欠落および同値Identityの入力を使用する。
  * @stimulus 各入力をinspectRepositoryManifestへ渡す。
  * @observation Manifestの受理または拒否結果を観測する。
  * @oracle v1、欠落および同値Identityをすべて拒否する。
  * @cleanup N/A: 永続資源を作成しない。
- * @boundary RDL-UT-005=Direct Boundary: runtime-data Test Source→対象契約
+ * @boundary RCM-UT-002=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Repository ManifestはProject IDとRepository IDの混同を拒否する", () => {
   const base = {

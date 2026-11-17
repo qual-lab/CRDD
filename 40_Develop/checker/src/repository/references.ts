@@ -516,7 +516,8 @@ export function buildDocumentReferenceMap(
       }
     >();
     for (const record of linkRecords) {
-      if (record.external) continue;
+      if (record.external || record.historicalAnnotation === "accepted")
+        continue;
       if (
         record.target === referenceTarget ||
         (isTargetDirectory && isWithin(referenceTarget, record.target))
@@ -629,7 +630,15 @@ export function inspectDocumentLinks(
   let checkedLocalLinks = 0;
   let checkedAnchors = 0;
   for (const record of linkRecords) {
-    if (!checkedFiles.has(record.source) || record.external) continue;
+    if (!checkedFiles.has(record.source)) continue;
+    if (record.historicalAnnotation === "invalid")
+      add(
+        "error",
+        "historical-reference-not-allowed",
+        relative(record.source),
+        `[旧参照] is only allowed for local links in editable historical content, not current documents or Related: ${record.raw}`,
+      );
+    if (record.external) continue;
     const { source, raw, target, anchor } = record;
     if (record.decodeError) {
       add("warning", "malformed-link-encoding", relative(source), raw);
@@ -649,6 +658,12 @@ export function inspectDocumentLinks(
       add("warning", "symbolic-link-target", relative(source), raw);
       uncheckedItems.add(
         `Symbolic link target from ${relative(source)}: ${raw}`,
+      );
+      continue;
+    }
+    if (record.historicalAnnotation === "accepted") {
+      uncheckedItems.add(
+        `Historical link existence and anchor not inspected in ${relative(source)}`,
       );
       continue;
     }

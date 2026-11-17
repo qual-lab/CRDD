@@ -119,12 +119,13 @@ Quality ID: `QA-000007`
 | --- | --- |
 | [access-management](../../../06_Architecture/Details/access-management/01_Architecture.md) | 現在認可と鍵管理 |
 | [管理API・保存設計候補](../../../06_Architecture/Details/access-management/02_Management_State_and_API.md) | 登録解除両除去・鍵3分岐の論理条件。物理保存・配送観測は未成立 |
-| [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | 現在認可・古いExposure・非開示、Repository集約、Runtime間Handoffの検証義務。現在の認可Ownerと旧比較用設計を分け、未完成のHandoffを成立へ換算しない |
-| [domain-model](../../../06_Architecture/Details/domain-model/01_Architecture.md) | 認可済み集合だけの集約、検証済みRoot内のregular file／directory観測、Root外・link境界の拒否、観測不能と不存在の分離 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository Worktree操作、Local／Remote CROS Modeおよび既存Authorityの利用 |
+
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
 
 ## 2. 試験段階と外部境界の適用
 
@@ -181,7 +182,7 @@ Quality ID: `QA-000007`
 | `RFD-UAT-027` | 境界 | UAT | 初回設定の利用者達成・理解 | 初回Host入口とWorkbench案内→利用者 | User Acceptance | 未初期化・既存・確認済み途中・観測不能、正常達成、発行／記録不明、Host提示未確認・限定接続未確認、接続未成立 | 利用者が表示名入力・明示開始・Host鍵一度表示・接続操作・次要求の通常利用へ進み、各状態で次の行動を選ぶ。コピー後に追加受領ボタンを押す手順を要求しない | 達成結果、状態と次行動の理解、選択理由、表示名／UUID／鍵／Roleの区別、提示と初回限定接続・通常利用の個別理解、未理解範囲 | 正常に初回管理接続へ到達できる。表示名≠認証／Authority、サービス側提示≠本人受領保証、限定接続確認≠同要求の通常操作許可、既存拒否≠途中再観測を理解。初期化繰返し・Secret再表示・自動再発行を期待せず、両確定後だけ別明示指定交換へ進める | 参加条件・固定Scenario・非秘密の選択／理由／達成・Oracle。秘密値・個人情報を複製しない | 理解確認だけで保存・資源終了を証明しない。実処置は現在Host Authorityと同意範囲で行い、未許可Effect0は別観測、未判断を成功にしない | Manual |
 | `RFD-IT-029` | 境界 | IT | Git Lifecycle／Concurrency／Fault | Orchestrator明示要求→Version Control→実GitのWorktree／Branch／Ref | Direct Boundary | 同RepositoryのDirectと二Isolated、clean／dirty、固定対象Commit、参照中Commit、競合、別Processの共有Ref更新、作成／登録／取込／除去の各途中失敗 | 許可された作成・読取り・固定・Merge前計算・取込・除去を段階別に実行し、各故障点で同対象へ再入場する | 要求／受理／実Git結果、HEAD／Ref／Worktree登録／実体、元dirty・他Task成果、Lock解放、Task相関・記録と未解決参照を前後比較 | Direct選択だけではWorktree生成0。Merge前計算はTree／Branch更新0、Object生成を記録。明示取込前にRevision・認可・dirty方針を再確認。途中失敗を未発行へ巻戻さず二重取込0。継続利用で参照中のCommit・明示破棄範囲外の未保全成果の破棄0。不明は停止し別対象を処置しない | 固定Source／Git版・環境・合成Repository、段階と対象の相関、前後観測・失敗と再入場・Oracle判定。秘密値・製品本文・許可外Pathは保存しない | 短期Git処理・試験Process／Lockを終了。明示破棄した試験物の不存在と、保持対象・共有Git・他Workspaceの非破壊を確認。不明は同対象残件として保持 | Automated |
 
-| `RFD-UT-030` | 境界 | UT | Workspace保存値／純粋入力検査 | Domainの候補要求・保存値の検証 | N/A: 同一Process内の値検査のみ | 同Workspaceの要求と保存値、別Workspace、40／64桁Commit、欠測・余剰field、不正名、管理Path・Traversal・重複選択、関連CHG重複 | 候補保存値・要求・表示名・Commit形式の各検査へ合成値を渡す | 各値の受理／拒否とWorkspace相関 | 正常な閉形式と同Workspaceだけ受理。要求と期待HEADのCommit形式不一致、禁止Path、空・重複選択、欠測・余剰field、不正表示名・重複CHGを拒否し補完しない。Pathだけの選択は既存契約どおり受理 | 固定改訂版、非秘密の入力分類、受理／拒否、Oracle判定。候補本文・秘密・Host絶対Pathを記録しない | Filesystem／Git／保存Effect 0。値検査成功をGit作成・保存・採用・回収の成立へ換算しない | Automated |
+| `RFD-UT-030` | 境界 | UT | Workspace保存値／純粋入力検査 | Domainの候補要求・保存値の検証（同一Process内の値検査のみ） | N/A | 同Workspaceの要求と保存値、別Workspace、40／64桁Commit、欠測・余剰field、不正名、管理Path・Traversal・重複選択、関連CHG重複 | 候補保存値・要求・表示名・Commit形式の各検査へ合成値を渡す | 各値の受理／拒否とWorkspace相関 | 正常な閉形式と同Workspaceだけ受理。要求と期待HEADのCommit形式不一致、禁止Path、空・重複選択、欠測・余剰field、不正表示名・重複CHGを拒否し補完しない。Pathだけの選択は既存契約どおり受理 | 固定改訂版、非秘密の入力分類、受理／拒否、Oracle判定。候補本文・秘密・Host絶対Pathを記録しない | Filesystem／Git／保存Effect 0。値検査成功をGit作成・保存・採用・回収の成立へ換算しない | Automated |
 
 ### 通常管理の完全な導出対応
 

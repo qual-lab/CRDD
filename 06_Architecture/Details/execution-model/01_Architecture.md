@@ -1,6 +1,68 @@
 # 実行モデルの責務と単一保存契約
 
 成果物種別: Architecture詳細設計
+詳細設計領域: execution-model
+
+## 基本設計との関係
+
+| Architecture定義 | この領域が具体化する責務 | Relation状態 |
+|---|---|---|
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Objective計画・Task・Leaseの保存状態と局所遷移を所有し、実行順序は上位へ残す | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Blockerの提案・回答・適用結果を記録し、上位受入を自動推定しない | Covered |
+| [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Operation資源と回復・終了記録を保持し、技術終了未確認を成功にしない | Covered |
+| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 保存対象Repositoryと実行記録のBindingを照合する | Covered |
+| [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | State／Historyの単一Writer・CAS・保持・再入場を所有し、未知残存を保全する | Covered |
+
+Coveredは局所責務の設計接続を表し、ARCH全体や実動作の合格ではない。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | 責務Ownerと禁止依存を固定する | [現行契約](#model-boundary) |
+| Interface Model | Required | 完成操作と部分結果を区別する | [現行契約](#public-api) |
+| Data Flow | Required | 受付から結果までの搬送を明示する | [現行契約](#consumers) |
+| State Model | Required | 現在版・候補・未確認を区別する | [現行契約](#storage) |
+| Sequence | Required | 検査・保存・終了の順を維持する | [現行契約](#storage) |
+| Failure／Recovery | Required | 拒否・部分成立・不明と再入場を区別する | [現行契約](#storage) |
+| Deployment | Required | Repository内所在とConsumer配置を固定する | [現行契約](#storage) |
+| Observability | Required | 理由・出典と未評価を失わない | [現行契約](#verification) |
+| Security Boundary | Required | 受付と認可を別Ownerにする | [現行契約](#consumers) |
+| Implementation Structure | Required | 意味Ownerと保存部品を分離する | [現行契約](#implementation-structure) |
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 改訂・期待Identity・共通Lockを別の保証として維持する | [既存の設計処置](#storage) |
+| Timing | PASS | 受付・現在観測・保存の時点と上位の許可を混同しない | [既存の設計処置](#consumers) |
+| Resource Lifecycle | PASS | 自分のLock・一時物・descriptorの終了と残存を結果に保持する | [既存の設計処置](#storage) |
+| External Boundary | PASS | VC・Filesystemの不存在と観測不能を区別する | [既存の設計処置](#storage) |
+| State／Consistency | PASS | 局所値の受付とモデル横断・上位判断の成立を区別する | [既存の設計処置](#model-boundary) |
+| Failure／Recovery | PASS | 不明を補完せず、自動再試行・移行・未知物削除を追加しない | [既存の設計処置](#storage) |
+| Observability | PASS | 内容モデル・理由・Issueと保存のEffect／終了相関を保持する | [既存の設計処置](#public-api) |
+| Security／Trust | PASS | 受付成功を現在認可・外部実行Authorityへ昇格しない | [既存の設計処置](#consumers) |
+
+- `PASS`: 詳細設計上の処置を記載した状態。試験・実境界・全体QAの合格ではない。
+- `N/A`: Architecture上、そのConcern自体が存在しない状態。
+- `OPEN`: 未解決の設計事項がある状態。
+- `FAIL`: 必須設計と矛盾する状態。
+
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | モデル種別で受付条件が異なる | 型・規則の宣言Ownerごとに局所化 | 一律Readerや差替えFrameworkへ統合しない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.execution-state` |
+| Common Contract | Required | 完成操作の結果相関を維持する | Rootから宣言元を直接公開 | 3モデル共通の結果Facadeは作らない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.package-boundary` |
+| Creation／Selection | Required | 固定対象と入力種別を照合する | 明示した入力から対象を構成 | 上位の認可・実行先を選ばない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.execution-state` |
+| State-dependent Behavior | Required | 現在版により受理できる更新が異なる | 局所遷移と改訂照合 | 読取り成功を保存・実行許可にしない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.execution-state` |
+| Composition／Recursion | Required | 複数の値と整合条件を組み合わせる | 既存の完成操作内で必要な値だけを合成 | 他モデルを直接参照しない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.execution-state` |
+| Lifecycle Ownership | Required | 自分の保存資源を所有する | Lockと一時物の終了処置 | 未知・不明時の保全を維持する | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.state-publication` |
+| External Boundary | Required | Filesystem・VC・共通Lockを利用する | 専門Ownerの技術契約へ接続 | 外部事実をモデルだけから捏造しない | 変更時は対応する結果・利用側・失敗回帰を再照合 | `execution-model.state-publication` |
+
+## 入力・状態・保存境界の接続
+
+モデル別の完成操作を受付し、局所規則と全Stateの同版整合を照合し、元版CASと単一Writerを経て確定結果を返す。技術実行と上位スケジュールは所有しない。 不正入力・競合は後続Effectを開始せず、Effect後の不明は元の相関と残存を保持する。通常の読取りを暗黙更新へ変換せず、現在の保存形式・公開集合・期限・安全判定は変更しない。
 状態: 現行実装の設計。今回の限定検証・独立レビューは変更記録で追跡し、全体回帰とは区別する
 担当責任者: Qual-Lab
 最終更新日: 2026-11-15
@@ -195,3 +257,32 @@ Runtime import graphは実行時参照と型のみ参照を分けて確認する
 観測は上位が技術実行結果からEM所有の保存契約へ投影する。EMは新しいProbe・Docker操作を発行せず、故障原因や利用可能範囲の最終分類、認証・認可、修復の実行判断を所有しない。未観測・Process終了不明・Cleanup未確認を成功や不存在へ変換しない。保存の成立は診断・技術Effect・回復許可の成立ではない。
 
 この分担は旧Domain Modelの記録責務の移管先を明示するもので、CM／DMへの直接依存、新しい診断API、独自の技術資源照合を追加しない。
+
+## Qualityへの引渡し
+
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `execution-model.package-boundary` | Interface／State／Failure | 公開93項目・独立ロード・モデル間依存0 | 既存の完成操作・Owner・結果相関を保持 | 内部補助の公開、上位Consumer知識、逆依存 | UT | N/A | RCM-UT-014の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+| `execution-model.execution-state` | Interface／State／Failure | Task・Attempt・Blocker・Leaseと全Stateの相関 | 既存の完成操作・Owner・結果相関を保持 | 不正遷移・資源未確認の成功化・古い世代 | UT／IT | Direct Boundary | PRL-UT-006／ERB-IT-014の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+| `execution-model.state-publication` | Interface／State／Failure | Lock・CAS・pending・保存証拠の寿命 | 既存の完成操作・Owner・結果相関を保持 | 途中保存・別世代証拠・未知残存・終了不明 | IT | Direct Boundary | RDL-IT-001は配置、PRL-IT-013はState I/O・失効、ERB-IT-014はpending・出版不明・同ID再入場。PRL-IT-012の上位Transportとは分ける | 元版・同対象・一次失敗と未解決義務を保持し、未知・途中出版は保全する | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+
+## 現行実装との照合
+上記導出キーは現在の責務と既存試験の接続であり、今回の試験実施結果ではない。実装・限定検証と変更経緯は[既存変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で追跡する。旧Domainの一括公開・共通Helper・結果の四状態を3モデルへ複製しない。配布launcherとReleaseの全Consumer閉包は上位Ownerの未完了義務として保持する。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 10種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

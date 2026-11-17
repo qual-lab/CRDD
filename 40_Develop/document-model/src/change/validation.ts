@@ -24,12 +24,6 @@ export function inspectChangePlacement(
         identity: ChangeDocument;
       }>
     | Readonly<{
-        kind: "unrecognized";
-        path: string;
-        repositoryMode: string;
-        patterns: readonly string[];
-      }>
-    | Readonly<{
         kind: "aggregate";
         document: ChangeDocument;
         aggregateName: string;
@@ -37,7 +31,6 @@ export function inspectChangePlacement(
 ): readonly DocumentIssue[] {
   let reason: string;
   let file: string;
-  let details: DocumentIssue["details"] = {};
   switch (request.kind) {
     case "filename":
       if (!/^CHG-[^.]+\.md$/u.test(request.path.split("/").at(-1) ?? ""))
@@ -50,14 +43,6 @@ export function inspectChangePlacement(
         return [];
       reason = "change-trace-placement-evidence";
       file = request.heading.source.path;
-      break;
-    case "unrecognized":
-      reason = "change-trace-placement";
-      file = request.path;
-      details = {
-        repositoryMode: request.repositoryMode,
-        patterns: request.patterns.join(", "),
-      };
       break;
     case "aggregate": {
       const id = request.aggregateName.match(/^CHG-(?:[0-9]{6}|XXXXXX)/u)?.[0];
@@ -76,7 +61,7 @@ export function inspectChangePlacement(
       targetIdentity: file,
       location: { path: file },
       reason,
-      details,
+      details: {},
     },
   ];
 }
@@ -129,7 +114,7 @@ export function validateChangeDocument(
     ? document.impactLines.map((line) => line.text)
     : undefined;
   const impactLinePattern =
-    /^- (?:\[[^\]]+\]\([^)]+\)|`[^`]+`（(?:削除|削除または旧Path)）|`[^`]+` → \[[^\]]+\]\([^)]+\))$/u;
+    /^- (?:(?:\[旧参照\])?\[[^\]]+\]\([^)]+\)|`[^`]+`（(?:削除|削除または旧Path)）|`[^`]+` → (?:\[旧参照\])?\[[^\]]+\]\([^)]+\))$/u;
   if (
     !impactLines ||
     impactLines.length === 0 ||

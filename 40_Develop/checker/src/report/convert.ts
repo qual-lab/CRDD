@@ -402,15 +402,6 @@ export function mapChangeDomainIssueToFinding(
       message =
         "A file under Evidence contains a Change Trace header. Move the Change Trace definition into its owning Changes tree, or remove the Change Trace header from supporting evidence.";
       break;
-    case "artifact.change.change-trace-placement":
-      if (
-        typeof issue.details.repositoryMode !== "string" ||
-        typeof issue.details.patterns !== "string"
-      )
-        throw new Error("invalid_change_placement_issue_details");
-      code = "change-trace-placement";
-      message = `The checker cannot recognize this Change Trace path in repository mode ${issue.details.repositoryMode}. Recognized inspection paths: ${issue.details.patterns}.`;
-      break;
     case "artifact.change.change-trace-aggregate-identity-mismatch":
       code = "change-trace-aggregate-identity-mismatch";
       message =

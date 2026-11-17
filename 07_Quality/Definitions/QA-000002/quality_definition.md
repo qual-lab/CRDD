@@ -29,6 +29,9 @@ Quality ID: `QA-000002`
 | [quality-change-control](../../../06_Architecture/Details/quality-change-control/01_Architecture.md) | 固定改訂版、指摘、是正、Evidence、現在Gateの閉包 |
 | [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | Catalog closure、段階実行、資源集約試験のAuthorityおよび未実行理由の保持 |
 
+
+退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
+
 ## 2. 成立の流れ
 
 ```text

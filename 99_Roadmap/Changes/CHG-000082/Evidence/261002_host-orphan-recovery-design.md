@@ -1384,7 +1384,7 @@ Windowsの列挙順や列挙時metadataをfreshなfile状態へ読み替えな�
 
 保存境界の限定Pass後、親がCoordinator／Platform正本と既存marker producer・loaderを照合し、技術／lifecycleと品質／53の読み取り専用確認を統合した。両者は条件付き着手可であり、完成後の独立Passではない。次単位は既存固定guardの私有consumerへ新八読取りhandleを接続し、namespaceと合わせた十一実体のCurrent観測／Known再照合だけを扱う。Path受付、初期化、公開Protocol、非使用認定、Root／marker清掃と署名は範囲外である。
 
-markerに正式なbyte上限がない不足を確認したため、[Platform Details](../../../../06_Architecture/Details/platform-access/01_Architecture.md#対象一式の私有読取り接続)へ独立した64KiB受付、空／超過拒否、元bytes・EOF・前後長／実体照合を先に具体化した。旧LF付きJSONをintent正規化で変形せず、全legacy互換は後続Gateとする。名前・全位置の型／相異／期待値、部分取得・各終了・元理由の単調保持を反証対象へ加えた。対象の空状態・未知child不存在・非使用やAuthorityをmetadata観測から推定しない。以下に実装・局所試験の結果を分離する。独立確認はまだ未実施であり、新しい人間判断は現在不要。
+markerに正式なbyte上限がない不足を確認したため、[旧参照][Platform Details](../../../../06_Architecture/Details/platform-access/01_Architecture.md#対象一式の私有読取り接続)へ独立した64KiB受付、空／超過拒否、元bytes・EOF・前後長／実体照合を先に具体化した。旧LF付きJSONをintent正規化で変形せず、全legacy互換は後続Gateとする。名前・全位置の型／相異／期待値、部分取得・各終了・元理由の単調保持を反証対象へ加えた。対象の空状態・未知child不存在・非使用やAuthorityをmetadata観測から推定しない。以下に実装・局所試験の結果を分離する。独立確認はまだ未実施であり、新しい人間判断は現在不要。
 
 ### 対象一式の私有読取り — 局所結果（2026-10-03）
 

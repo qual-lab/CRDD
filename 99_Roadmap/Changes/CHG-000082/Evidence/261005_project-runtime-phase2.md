@@ -30,7 +30,7 @@
 
 | 正本・実装 | 保持している保証 | 縮小時の予定処置 |
 |---|---|---|
-| [詳細設計のINV-DURABLE-RECORD-CLOSED](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md) | exact Schema、File名と世代の結合、連続した不変世代履歴。 | 現在値保存へ変更する場合、意味を変更する不変条件として採否を明示する。Sourceだけ先に緩めない。 |
+| [旧参照][詳細設計のINV-DURABLE-RECORD-CLOSED](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md) | exact Schema、File名と世代の結合、連続した不変世代履歴。 | 現在値保存へ変更する場合、意味を変更する不変条件として採否を明示する。Sourceだけ先に緩めない。 |
 | `project-runtime-durable-foundation.ts`の`readEnvelopes`、状態Reader／Writer | 欠番・不正名・内容Hash不一致の拒否、expected generationの競合拒否。 | 読取り・書込み・再入場を一括移行する。旧形式の欠番拒否は維持する。 |
 | 同FileのQueue受付・選択・更新・回復 | requestHashによる同一依頼再入場、異なる依頼のIdentity競合拒否、Queue優先順位と使用中の非割込み。 | 終了済みQueueを単に消さず、最小の再受付防止情報へ処置する。利用側の再取得を閉じる。 |
 | 同FileのLease取得・解放・Owner喪失回復 | exact ownerGenerationに結合した取得／終了証拠と資源照合。 | Queue・候補採用の利用先ごとに消費終了を確認する。releasedだけで自動削除しない。 |
@@ -189,7 +189,7 @@ Repository全体の単一FileとProjectごとの単一Fileを比較し、Writer�
 
 両OwnerのhistoryはUTC時刻、対象Identity、終了分類、一次失敗、清掃結果と根拠参照を最小限で保持する。相関可能な順序値を持ち、時刻だけで実行順序を保証しない。Prompt、Provider出力全文、秘密値とPatch本体を含めず、履歴からAuthorityや仕事状態を復元しない。
 
-人間確認により、Project Runtimeの通常履歴は直近30日を保持し、起動・更新時にそれより古い要約を除く。100件および合計Byteの削除上限は採用しない。未受領・未解決の仕事はstate側に残し、正式Evidenceをこの期限で削除しない。期限外の行も全行検証し、途中行破損、未来時刻・時計逆行、履歴再書込みと保存失敗を処置する。履歴更新の短命な置換用Fileは[詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)に従う。通常の4File構成は、更新途中Fileが一切存在しない保証ではない。
+人間確認により、Project Runtimeの通常履歴は直近30日を保持し、起動・更新時にそれより古い要約を除く。100件および合計Byteの削除上限は採用しない。未受領・未解決の仕事はstate側に残し、正式Evidenceをこの期限で削除しない。期限外の行も全行検証し、途中行破損、未来時刻・時計逆行、履歴再書込みと保存失敗を処置する。履歴更新の短命な置換用Fileは[旧参照][詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)に従う。通常の4File構成は、更新途中Fileが一切存在しない保証ではない。
 
 ### 8.3. Candidateの承認済み保持方針
 
@@ -274,7 +274,7 @@ Repository全体の単一FileとProjectごとの単一Fileを比較し、Writer�
 
 ## 11. State／Queue部分codecの局所確認
 
-2026-10-05、[保存詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)の試行契約を実装した。JSON文字列からの閉じた形式検証、期待Binding、Hash、UTF-8上限、既存値制約、重複と孤立Queueの拒否を行う。State／Queueだけの部分codecであり、本番Port、保存先、実データを変更していない。
+2026-10-05、[旧参照][保存詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)の試行契約を実装した。JSON文字列からの閉じた形式検証、期待Binding、Hash、UTF-8上限、既存値制約、重複と孤立Queueの拒否を行う。State／Queueだけの部分codecであり、本番Port、保存先、実データを変更していない。
 
 Formatter→型→Lint→既存契約Checkerの静的Gateが成功した。同じ改訂版で局所6件、その後、対象結合試験ファイル全34件が成功した。確認commandは`node --test --test-concurrency=1 40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts`。Node.js v24.19.0、全package回帰ではない。
 
@@ -304,7 +304,7 @@ Formatter→型→Lint→既存契約Checkerの静的Gateが成功した。同�
 
 ## 13. 30日保持と履歴保存の局所確認
 
-2026-10-05、人間の採用判断に従い、Project Runtimeの通常履歴を直近30日だけ保持する設計へ更新した。件数・合計Byteによる削除上限は採用していない。[詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)を正本とし、本記録は実装・検証結果を保持する。
+2026-10-05、人間の採用判断に従い、Project Runtimeの通常履歴を直近30日だけ保持する設計へ更新した。件数・合計Byteによる削除上限は採用していない。[旧参照][詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)を正本とし、本記録は実装・検証結果を保持する。
 
 `project-runtime-history.ts`は旧Writerへ未接続の保存試行である。全行を逐次検証してから期限外の行を除き、固定名の短命候補から再入場する。取得済み排他のcanonical Root／Hashと保存先を結合し、fsync失敗後の候補も再入場時に改めてfsyncする。状態・Queue・未受領結果、Candidate、Evidenceを削除していない。
 
@@ -342,13 +342,13 @@ Formatter→型→Lint→既存契約Checkerの静的Gateが成功した。同�
 
 受付世代の採用判断は維持する。公開入口で新Request発行時の世代を固定し、旧進行中の再入場と終了済み旧Requestの拒否を分ける必要がある。履歴を再受付防止の正本へ戻さない。
 
-2026-10-05、人間は既存の運用を整理したstate.jsonで再現する方針を承認した。新しい結果取得・受領確認・既読管理は追加しない。integration／adoptionの意味、参照と回復、適用済み記録の保全を維持し、保存成功を利用者の受領へ読み替えない。[詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)へ反映する。今回の承認を物理移行成功、旧記録削除済みまたは②完了とは扱わない。
+2026-10-05、人間は既存の運用を整理したstate.jsonで再現する方針を承認した。新しい結果取得・受領確認・既読管理は追加しない。integration／adoptionの意味、参照と回復、適用済み記録の保全を維持し、保存成功を利用者の受領へ読み替えない。[旧参照][詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)へ反映する。今回の承認を物理移行成功、旧記録削除済みまたは②完了とは扱わない。
 
 次の接続前に、少なくとも旧Request再送、世代切替との競合、旧進行中のexact再入場、拒否前のState作成なし、採用後の公開失敗と重複適用防止、旧Writer再入場、pending残存とRoot不一致を反証する。固定pendingは変更前・候補の改訂番号とHash、Root結合を持ち、履歴保存と同じ短期排他で順序付ける。保護Decisionは既存の保護境界へ残す。
 
 ## 15. 既存の候補公開・適用結果の移行入力
 
-2026-10-05、承認済みの保存統合へ向けて、既存の結果保存Adapterへ読取り専用の全件抽出を追加した。既存Writerとwrite Portは変更せず、新しい受領・既読管理を追加していない。前節以前の「未受領結果」は当時の検討語であり、現在の完成条件には採用しない。現在の意味は[詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)の結果保存・採用後処理である。
+2026-10-05、承認済みの保存統合へ向けて、既存の結果保存Adapterへ読取り専用の全件抽出を追加した。既存Writerとwrite Portは変更せず、新しい受領・既読管理を追加していない。前節以前の「未受領結果」は当時の検討語であり、現在の完成条件には採用しない。現在の意味は[旧参照][詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)の結果保存・採用後処理である。
 
 | 確認 | 結果・限界 |
 |---|---|
@@ -373,7 +373,7 @@ Formatter→型→Lint→既存契約Checkerの静的Gateが成功した。同�
 
 ## 16. 旧Lease証拠と途中残存の読取り
 
-2026-10-05、既存の取得・解放処理を変更せず、Lease証拠と取得途中の残存を非破壊で収集する入口を追加した。保存統合と長期排他の置換を分離し、短期保存排他を外部待機に保持しない順序を[詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)へ反映した。
+2026-10-05、既存の取得・解放処理を変更せず、Lease証拠と取得途中の残存を非破壊で収集する入口を追加した。保存統合と長期排他の置換を分離し、短期保存排他を外部待機に保持しない順序を[旧参照][詳細設計](../../../../06_Architecture/Details/project-runtime/02_Detailed_Design.md#compact-runtime-storage)へ反映した。
 
 | 確認 | 結果・限界 |
 |---|---|

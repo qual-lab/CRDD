@@ -32,11 +32,11 @@ import {
  * 詳細設計Mapの領域と二種類の関係を表す。
  * @responsibility 詳細設計Mapの領域と二種類の関係を表す。
  * @trace ARCH-000008
- * @shape 原文・出典・台帳節とareas、relations、closureRelations。
- * @invariant 重複に対する既存の集合化と部分関係を保持する。
+ * @shape 原文・出典・台帳節、現行areas、明示登録したretiredAreas、現行の二種類の関係。
+ * @invariant 不正・重複・現行との衝突・Map不成立を退役の除外根拠にしない。
  * @boundary N/A: 取得済み値の結果モデル。
  * @security Fileの実在・認可・品質成立を保証しない。
- * @compatibility 現行の本文受理条件を維持する。
+ * @compatibility 現行関係を保持し、退役の除外根拠は一意に成立したMapへ限定する。
  */
 export type ArchitectureDetailMapModel = Readonly<{
   trace: ArchitectureDetailTrace;
@@ -47,6 +47,7 @@ export type ArchitectureDetailMapModel = Readonly<{
   areaSections: readonly DocumentSection[];
   closureSections: readonly DocumentSection[];
   areas: ReadonlySet<string>;
+  retiredAreas: ReadonlySet<string>;
   relations: ReadonlySet<string>;
   closureRelations: ReadonlySet<string>;
 }>;
@@ -100,7 +101,7 @@ export type ArchitectureDetailModel = Readonly<{
  * @responsibility 領域関係と閉包関係を別々に抽出する。
  * @trace ARCH-000008
  * @input artifact: 取得済み原文と位置。
- * @returns 登録領域・定義参照・担当追跡と文書内診断。実在定義集合との照合はSemanticが所有する。
+ * @returns 現行／非現行の登録領域・定義参照・担当追跡と診断。実在集合との照合は横断比較が所有する。
  * @precondition File取得と外部集合・Ready宣言の適用判断は呼出し元が所有する。
  * @postcondition 入力を変更せず、抽出可能な部分関係と中立Issueを返す。
  * @effect N/A: 同期的な値検査。
@@ -125,6 +126,28 @@ export function parseArchitectureDetailMap(
     "3. Architecture定義の閉包",
   );
   const registeredDetailAreas = new Set<string>();
+  const retiredAreaEntries: string[] = [];
+  let hasInvalidRetiredArea = false;
+  const retiredSections = captureDocumentSections(
+    visible,
+    "5. 非現行の設計資料",
+  );
+  for (const line of (retiredSections[0]?.body.text ?? "").split(/\r?\n/u)) {
+    const area = line.match(
+      /\]\(Details\/([a-z0-9-]+)\/01_Architecture\.md\)/u,
+    )?.[1];
+    if (!area) continue;
+    const cells = parseMarkdownTableRow(line);
+    retiredAreaEntries.push(area);
+    if (
+      cells?.length !== 4 ||
+      cells[0] !== `[${area}](Details/${area}/01_Architecture.md)` ||
+      !cells[1] ||
+      !["Retired", "Historical Comparison"].includes(cells[2] ?? "") ||
+      !cells[3]
+    )
+      hasInvalidRetiredArea = true;
+  }
   const detailMapRelations = new Set<string>();
   const detailMapClosureRelations = new Set<string>();
   const issues: DocumentIssue[] = [];
@@ -155,7 +178,22 @@ export function parseArchitectureDetailMap(
       if (/^[a-z0-9-]+$/u.test(area))
         detailMapClosureRelations.add(`${area}|${id}`);
   }
+  const retiredAreas = new Set(retiredAreaEntries);
   if (
+    retiredSections.length > 1 ||
+    (retiredAreaEntries.length > 0 &&
+      !(retiredSections[0]?.body.text ?? "").includes(
+        "| 資料領域 | 現在Owner | 区分 | 理由 |",
+      )) ||
+    retiredAreas.size !== retiredAreaEntries.length ||
+    [...retiredAreas].some((area) => registeredDetailAreas.has(area))
+  )
+    hasInvalidRetiredArea = true;
+  if (hasInvalidRetiredArea) retiredAreas.clear();
+  if (
+    hasInvalidRetiredArea ||
+    areaSections.length !== 1 ||
+    closureSections.length !== 1 ||
     !areaSection.includes(
       "| 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |",
     ) ||
@@ -171,6 +209,7 @@ export function parseArchitectureDetailMap(
       details: {},
     });
 
+  if (issues.length) retiredAreas.clear();
   return {
     status: issues.length ? "partial" : "complete",
     result: {
@@ -182,6 +221,7 @@ export function parseArchitectureDetailMap(
       areaSections,
       closureSections,
       areas: registeredDetailAreas,
+      retiredAreas,
       relations: detailMapRelations,
       closureRelations: detailMapClosureRelations,
     },

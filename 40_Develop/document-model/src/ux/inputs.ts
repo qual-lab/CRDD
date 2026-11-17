@@ -9,7 +9,7 @@
  */
 import path from "node:path";
 import { omitMarkdownFencedCode } from "../artifact/anchors.ts";
-import { parseMarkdownLinkTargets } from "../artifact/links.ts";
+import { parseMarkdownLinks } from "../artifact/links.ts";
 import type { UxFormalInputTarget } from "./types.ts";
 
 /**
@@ -56,8 +56,8 @@ export function parseUxFormalInputTargets(
       ),
     });
   };
-  for (const candidate of parseMarkdownLinkTargets(content))
-    addCandidate(candidate);
+  for (const candidate of parseMarkdownLinks(content))
+    addCandidate(candidate.target);
   for (const match of content.matchAll(
     /<a\s+[^>]*\bhref\s*=\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)'|(?<unquoted>[^\s"'=<>]+))[^>]*>/giu,
   ))

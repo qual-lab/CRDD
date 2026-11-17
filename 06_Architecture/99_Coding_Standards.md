@@ -59,7 +59,7 @@ CRDD所有のTypeScript packageは、全回帰用の公開`test` scriptから、
 
 ### Nativeビルドの対象環境と出力取得
 
-以下はPA退役前のBuild契約の履歴であり、現行のBuild・回帰にCargoを要求しない。再導入許可ではない。現在値は[PA退役記録](Details/platform-access/01_Architecture.md#現在の構成--2026-11-11)を参照する。
+以下はPA退役前のBuild契約の履歴であり、現行のBuild・回帰にCargoを要求しない。再導入許可ではない。現在値は[PA退役記録](Details/platform-access/01_Architecture.md)を参照する。
 
 CRDDが所有する`platform-access`の正式なBuild・Clippy・試験入口は、対象環境を`--target x86_64-pc-windows-msvc`で明示する。他の対象環境を採用する場合も明示指定を維持し、環境名の変更は対応Platformの設計と利用側へ接続する。
 

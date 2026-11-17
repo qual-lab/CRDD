@@ -97,7 +97,11 @@ export type ChecklistResult = Readonly<{
 export type ArtifactModel = Readonly<{
   source: ArtifactSource;
   anchors: ReadonlySet<string>;
-  linkTargets: readonly string[];
+  links: readonly Readonly<{
+    target: string;
+    historical: "declared" | "invalid" | null;
+    related: boolean;
+  }>[];
   identity: import("./identity.ts").IdentityDocument;
   hasRelated: boolean;
   localIssues: readonly DocumentIssue[];

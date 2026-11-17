@@ -888,7 +888,10 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       fs.unlinkSync(
         path.join(root, ".crdd", "domain-model", "state.pending.json"),
       );
-      assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model", "state.lock")), false);
+      assert.equal(
+        fs.existsSync(path.join(root, ".crdd", "domain-model", "state.lock")),
+        false,
+      );
     } else assert.equal(acquired.status, "completed");
     const statePort = ports.state;
     if (mode === "bound" && acquired.status === "completed") {

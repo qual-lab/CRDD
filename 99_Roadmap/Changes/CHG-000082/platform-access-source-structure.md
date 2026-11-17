@@ -549,7 +549,7 @@ PAの残存SourceはTypeScript 12・Rust 20で、未使用だから即時削除�
 
 着手前にPA詳細、Coordinatorの通常Operation生成、DIの環境／修復／実体処置と既存試験を照合した。変更分類は廃止候補の影響分析と設計候補の訂正であり、現行保護を撤廃する採用判断ではない。読取り専用の独立確認で境界と不足を確認し、記録後に限定的な文書・影響レビューを行う。実装や規範・Releaseを変えないため、それらの全面回帰・準拠／Release監査は追加しない。
 
-先行の「Namespace二段を先に統合する」という推奨は修正する。NativeはWindows保護を、Nodeは処置後の実体を確認しており、同じ検査の重複ではなかった。編成や名前をまとめるだけではPA依存・Native処理が減らず、不要なWrapperへ置換する作業は行わない。技術条件と外した場合の影響は[PA詳細](../../../06_Architecture/Details/platform-access/01_Architecture.md#nodejs側への統合承認済み)を正本とする。
+先行の「Namespace二段を先に統合する」という推奨は修正する。NativeはWindows保護を、Nodeは処置後の実体を確認しており、同じ検査の重複ではなかった。編成や名前をまとめるだけではPA依存・Native処理が減らず、不要なWrapperへ置換する作業は行わない。技術条件と外した場合の影響は[旧参照][PA詳細](../../../06_Architecture/Details/platform-access/01_Architecture.md#nodejs側への統合承認済み)を正本とする。
 
 ### 残存機能の処置と順序
 
@@ -559,7 +559,7 @@ PAの残存SourceはTypeScript 12・Rust 20で、未使用だから即時削除�
 | 2. Runtime State／Provider Home | Coordinatorの所在・Capability・Home使用 | 必要なPath・実体・同時利用条件をOwnerに残し、独立したNative観測を減らせるか評価 | 認証Homeは秘密情報を含み得るためNamespaceの判断を流用しない。OS主体・他利用者からの保護を外す影響は別判断 |
 | 3. OS既定所在・子環境 | Coordinator／DI／存続するNative搬送 | Nodeで取得できる値と、必要なコマンド差分だけをOwnerへ統合 | System Windows API／Known Folder値を環境変数や推測Pathと同値とはしない。全Callerの所在・環境契約を揃えてから共用搬送を撤去 |
 | 4. Entry観測・tree終端 | DI、終了確認を行う検証Tool | 実体処置・Processの既存Ownerへ技術責務を集約。taskkill等の必要なOS差分は薄く残す | raw reparse tag・Native File Identity、子孫終了をlstatやchild.killだけで確認済みにしない。DIを変更する場合はPA依存の解消に必要な理由と差分を事前表示 |
-| 5. Desktop HelperとGlobal Mutex | DIの修復／再起動 | OS固有の実処置は最後に残す。Mutexは[比較条件](../../../06_Architecture/Details/platform-access/01_Architecture.md#desktopの排他を共通lockへ寄せる場合の境界)を満たすなら共通Lockへ寄せる候補 | Repository／Session横断Scope・利用者結合・Helper保持区間・Crash残存の変更を確定前に採用しない。Job・Publisher照合の存廃も別々に評価 |
+| 5. Desktop HelperとGlobal Mutex | DIの修復／再起動 | OS固有の実処置は最後に残す。Mutexは[旧参照][比較条件](../../../06_Architecture/Details/platform-access/01_Architecture.md#desktopの排他を共通lockへ寄せる場合の境界)を満たすなら共通Lockへ寄せる候補 | Repository／Session横断Scope・利用者結合・Helper保持区間・Crash残存の変更を確定前に採用しない。Job・Publisher照合の存廃も別々に評価 |
 | 6. Artifact照合・共通Protocol・Build／配布 | すべての存続Native利用側 | 最後のNative利用側が消えた場合にまとめて撤去。Nativeが残るならその技術Ownerへの最小配置を別途確定 | PAを消すためだけに各OwnerへArtifact確認をコピーしたり、第二の共用Packageを作ったりしない |
 
 OS固有処理が必要と判断された場合も、それがPAという独立Packageを必須にするとは限らない。ただし、この段階でCoordinator／DIへ分割コピーした最終構成を固定しない。必要と採用された技術機能が残った時点で単一の実装Ownerを確定し、配布物・Build・Consumerを一括で追従する。移動だけをNode化・Native撤去と表示しない。
@@ -655,7 +655,7 @@ PA廃止の最終Gateは次のとおりとする。Native全廃と、必要なNa
 
 共通Lockはwx方式の3 Sourceとなり、CurrentState・共有Home・Runtime状態・Host操作に続いてEI／Topic／Meeting／一時Operationも同じ取得・所有確認・解放へ接続した。PAのPipe／Supervisor／Leaseは残さない。PAの未使用環境契約記述と2定数も撤去した。現在の接続、独立是正と検証限界は[Lock変更記録§15](lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)を参照する。
 
-PA全廃は未完了である。残るNative保護・OS観測・Desktop技術処理の利用先と外した場合の影響は[PA設計](../../../06_Architecture/Details/platform-access/01_Architecture.md#現在の残存範囲--2026-11-07)を正本とする。以下は段階ごとの調査・判断履歴であり、候補を現行Sourceへ読み替えない。
+PA全廃は未完了である。残るNative保護・OS観測・Desktop技術処理の利用先と外した場合の影響は[旧参照][PA設計](../../../06_Architecture/Details/platform-access/01_Architecture.md#現在の残存範囲--2026-11-07)を正本とする。以下は段階ごとの調査・判断履歴であり、候補を現行Sourceへ読み替えない。
 
 ## 共通Lockのwx化候補 — 2026-11-07
 
@@ -703,7 +703,7 @@ PAのPipe・非同期Worker／Supervisor・固定子起動と、DomainのFilesys
 
 PA通常96・Coordinator8・Checker35・VC13件成功、Namespace純粋／Protocol4件成功（3既存ignored）、Catalog439件valid、対象の型・書式・Rust全target確認成功。固定targetのrelease buildから配布Nativeを更新し、261,120 bytes・SHA-256 `6df45144263f041c2adf98279ae28440a7b4c0b5861560100c5e33d10736ffb6`をbootstrapと合成fixtureへ反映した。配布物自身の二mode不正要求も取得前拒否・revision 2・実体なし／未試行Receiptとして確認した。正式QA全体・実AI／Docker E2Eの成立ではない。独立レビューの旧Protocol説明指摘は親＋Recovery／revision 2へ是正し、再レビューに未解消の確定指摘はない。コミット・プッシュは未実施。
 
-Node統合案と、SID／DACL・祖先Handle保護を外した場合の影響は[PA詳細設計](../../../06_Architecture/Details/platform-access/01_Architecture.md#namespaceの旧子撤去とnodejs統合の検討--2026-11-06)に置く。Policy維持ならNodeの既存初期化OwnerからWindowsの保護付き作成を先に完了し、Nodeによる通常mkdir先行は行わない。Policy撤廃ならNode標準へ一本化できるが、Windowsのmode 0700は厳密DACLの代替ではない。現在の許可はこのPolicy変更を含まない。
+Node統合案と、SID／DACL・祖先Handle保護を外した場合の影響は[旧参照][PA詳細設計](../../../06_Architecture/Details/platform-access/01_Architecture.md#namespaceの旧子撤去とnodejs統合の検討--2026-11-06)に置く。Policy維持ならNodeの既存初期化OwnerからWindowsの保護付き作成を先に完了し、Nodeによる通常mkdir先行は行わない。Policy撤廃ならNode標準へ一本化できるが、Windowsのmode 0700は厳密DACLの代替ではない。現在の許可はこのPolicy変更を含まない。
 
 ## 本番未使用の端末・旧Root観測の撤去 — 2026-11-06
 

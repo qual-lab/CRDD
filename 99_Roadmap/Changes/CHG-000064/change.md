@@ -47,9 +47,9 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 - [`06_Architecture/Details/coordinator/01_Architecture.md`](<../../../06_Architecture/Details/coordinator/01_Architecture.md>)
 - [`06_Architecture/Details/coordinator/02_Threat_Model.md`](<../../../06_Architecture/Details/coordinator/02_Threat_Model.md>)
 - [`06_Architecture/Details/execution-intelligence/01_Architecture.md`](<../../../06_Architecture/Details/execution-intelligence/01_Architecture.md>)
-- [`06_Architecture/Details/mcp/01_Architecture.md`](<../../../06_Architecture/Details/mcp/01_Architecture.md>)
+- [旧参照][`06_Architecture/Details/mcp/01_Architecture.md`](<../../../06_Architecture/Details/mcp/01_Architecture.md>)
 - [`06_Architecture/Details/platform-access/01_Architecture.md`](<../../../06_Architecture/Details/platform-access/01_Architecture.md>)
-- [`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
+- [旧参照][`06_Architecture/Details/project-runtime/01_Architecture.md`](<../../../06_Architecture/Details/project-runtime/01_Architecture.md>)
 - [`07_Quality/01_Quality_Center.md`](<../../../07_Quality/01_Quality_Center.md>)
 - [`07_Quality/03_Verification_Design.md`](<../../../07_Quality/03_Verification_Design.md>)
 - [`07_Quality/Registry/test-catalog.json`](<../../../07_Quality/Registry/test-catalog.json>)
@@ -81,29 +81,29 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
 - [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
 - [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
-- [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts>)
-- [`40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts>)
+- [旧参照][`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts>)
+- [旧参照][`40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts>)
 - [`40_Develop/coordinator/src/index.ts`](<../../../40_Develop/coordinator/src/index.ts>)
-- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
+- [旧参照][`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
 - [`40_Develop/coordinator/tests/integration/cli-options.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts>)
-- [`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts>)
-- [`40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts>)
+- [旧参照][`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts>)
+- [旧参照][`40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts>)
 - [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts)
 - [`40_Develop/execution-intelligence/src/core/execution-intelligence.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/core/execution-intelligence.ts)
 - [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts>)
 - [`40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts>)
-- [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](<../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts>)
-- [`40_Develop/mcp/src/index.ts`](<../../../40_Develop/mcp/src/index.ts>)
-- [`40_Develop/mcp/src/transports/process-signal-shutdown.ts`](<../../../40_Develop/mcp/src/transports/process-signal-shutdown.ts>)
-- [`40_Develop/mcp/src/transports/stdio-transport.ts`](<../../../40_Develop/mcp/src/transports/stdio-transport.ts>)
-- [`40_Develop/mcp/src/transports/streamable-http-transport.ts`](<../../../40_Develop/mcp/src/transports/streamable-http-transport.ts>)
-- [`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](<../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts>)
-- [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](<../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts>)
-- [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](<../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts>)
-- [`40_Develop/project-runtime/src/application/project-runtime-state-query.ts`](<../../../40_Develop/project-runtime/src/application/project-runtime-state-query.ts>)
-- [`40_Develop/project-runtime/src/index.ts`](<../../../40_Develop/project-runtime/src/index.ts>)
-- [`40_Develop/project-runtime/src/public-contract/project-state-query.ts`](<../../../40_Develop/project-runtime/src/public-contract/project-state-query.ts>)
-- [`40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts`](<../../../40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts>)
+- [旧参照][`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](<../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts>)
+- [旧参照][`40_Develop/mcp/src/index.ts`](<../../../40_Develop/mcp/src/index.ts>)
+- [旧参照][`40_Develop/mcp/src/transports/process-signal-shutdown.ts`](<../../../40_Develop/mcp/src/transports/process-signal-shutdown.ts>)
+- [旧参照][`40_Develop/mcp/src/transports/stdio-transport.ts`](<../../../40_Develop/mcp/src/transports/stdio-transport.ts>)
+- [旧参照][`40_Develop/mcp/src/transports/streamable-http-transport.ts`](<../../../40_Develop/mcp/src/transports/streamable-http-transport.ts>)
+- [旧参照][`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](<../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts>)
+- [旧参照][`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](<../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts>)
+- [旧参照][`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](<../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts>)
+- [旧参照][`40_Develop/project-runtime/src/application/project-runtime-state-query.ts`](<../../../40_Develop/project-runtime/src/application/project-runtime-state-query.ts>)
+- [旧参照][`40_Develop/project-runtime/src/index.ts`](<../../../40_Develop/project-runtime/src/index.ts>)
+- [旧参照][`40_Develop/project-runtime/src/public-contract/project-state-query.ts`](<../../../40_Develop/project-runtime/src/public-contract/project-state-query.ts>)
+- [旧参照][`40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts`](<../../../40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts>)
 - [`51_Document_Audit.md`](<../../../51_Document_Audit.md>)
 - [`52_Conformance_Audit.md`](<../../../52_Conformance_Audit.md>)
 - [`53_Gap_Impact_Audit.md`](<../../../53_Gap_Impact_Audit.md>)
@@ -121,7 +121,7 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 - [`template/AGENTS.md`](<../../../template/AGENTS.md>)
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
 - [`template/tools/crdd-coordinator.ts`](<../../../template/tools/crdd-coordinator.ts>)
-- [`template/tools/crdd-mcp.ts`](<../../../template/tools/crdd-mcp.ts>)
+- [旧参照][`template/tools/crdd-mcp.ts`](<../../../template/tools/crdd-mcp.ts>)
 
 </details>
 
@@ -135,14 +135,14 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 
 ## 4. 設計と実装境界
 
-- [Project Runtimeアーキテクチャ](../../../06_Architecture/Details/project-runtime/01_Architecture.md): 状態参照要求、canonical投影、read-only ApplicationおよびState Port境界。
-- [MCP Transportアーキテクチャ](../../../06_Architecture/Details/mcp/01_Architecture.md): 3つのtool、stdio／HTTP共通Adapter、localhost、認証、header相関、取消および資源回収。
-- [状態参照公開契約](../../../40_Develop/project-runtime/src/public-contract/project-state-query.ts): 閉じた要求・結果と投影のtrust-boundary検証。
-- [状態参照Application](../../../40_Develop/project-runtime/src/application/project-runtime-state-query.ts): `readState`だけを受け取る非Effect処理。
-- [MCP Adapter](../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts): 同じcanonical操作のMCP投影。
-- [Streamable HTTP Transport](../../../40_Develop/mcp/src/transports/streamable-http-transport.ts): 2026-07-28 HTTP binding。
-- [MCP公開Launcher](../../../template/tools/crdd-mcp.ts): MCP Transportと公開Adapterを結合する利用者向け構成Root。
-- [Coordinator公開Adapter](../../../40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts): Repository Root、改訂版、選択利用者およびPersistence Adapterを、内部Pathを公開せずMCP構成Rootへ提供する。
+- [旧参照][Project Runtimeアーキテクチャ](../../../06_Architecture/Details/project-runtime/01_Architecture.md): 状態参照要求、canonical投影、read-only ApplicationおよびState Port境界。
+- [旧参照][MCP Transportアーキテクチャ](../../../06_Architecture/Details/mcp/01_Architecture.md): 3つのtool、stdio／HTTP共通Adapter、localhost、認証、header相関、取消および資源回収。
+- [旧参照][状態参照公開契約](../../../40_Develop/project-runtime/src/public-contract/project-state-query.ts): 閉じた要求・結果と投影のtrust-boundary検証。
+- [旧参照][状態参照Application](../../../40_Develop/project-runtime/src/application/project-runtime-state-query.ts): `readState`だけを受け取る非Effect処理。
+- [旧参照][MCP Adapter](../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts): 同じcanonical操作のMCP投影。
+- [旧参照][Streamable HTTP Transport](../../../40_Develop/mcp/src/transports/streamable-http-transport.ts): 2026-07-28 HTTP binding。
+- [旧参照][MCP公開Launcher](../../../template/tools/crdd-mcp.ts): MCP Transportと公開Adapterを結合する利用者向け構成Root。
+- [旧参照][Coordinator公開Adapter](../../../40_Develop/coordinator/src/composition/project-runtime-public-adapter.ts): Repository Root、改訂版、選択利用者およびPersistence Adapterを、内部Pathを公開せずMCP構成Rootへ提供する。
 
 ## 5. 正常・準正常・異常
 

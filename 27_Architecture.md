@@ -903,6 +903,8 @@ Quality／Development
 
 各詳細設計領域は、関連するARCH-ID、領域固有の責務、必要な詳細成果物、Engineering Concern、Qualityへの引渡しおよび現行実装との照合を自己完結して示す。Component、Interface、Data Flow、State、Sequence、Failure／Recovery、Deployment、ObservabilityおよびSecurity Boundaryを全数適用判定し、不要な成果物を形式的に作らない。`Required`は実在する節または成果物へ接続し、`N/A`にはArchitecture上の理由を必須とする。未検討、一般的な説明または存在しない節名を`N/A`や根拠へ使わない。
 
+詳細設計Mapでは現行領域と、退役案内・過去方式の比較資料を区別する。非現行資料は同じMapの「非現行の設計資料」に所在・現在Owner・`Retired`または`Historical Comparison`・理由を一意に登録し、現行領域と重複させない。本文の状態表示だけで完全詳細契約を免除せず、不正・不明な登録や未登録のDirectoryを検査対象から消さない。非現行でも文書の存在・通常参照の確認は維持する。現在のRelation・Quality引渡しには現行の設計だけを使い、退役した機構の上位義務は現在Ownerまたは未接続・Partial／OPENとして明示する。過去設計のCoveredを現在Ownerへ転記しない。
+
 Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External Boundary、State／Consistency、Failure／Recovery、ObservabilityおよびSecurity／Trustを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由と実在するEvidenceまたはRelated IDを保持する。`PASS`は詳細設計上の処置と根拠節が揃った状態であり、実装済みまたは試験済みを意味しない。`N/A`はArchitecture上、そのConcern自体が存在しない状態であり、未検討や後工程送りを意味しない。`OPEN`は未解決の設計事項、`FAIL`は必須設計との矛盾または必要設計の欠落を意味する。`OPEN`または`FAIL`を全体Passへ畳まない。
 
 Architecture Analysis、Architecture DefinitionおよびCanonicalな各詳細設計領域は、成果物種別ごとの可視`## Checklist`を末尾に持つ。AnalysisはUIまたはSPECだけを正式入力としたこと、上流Contractを保持したこと、責務・境界・状態所有・失敗・未確認事項・検証意図を処置したことを確認する。DefinitionはUI／SPEC両分析の多対多統合、基本設計の自己完結性、DetailsおよびQualityへの引渡しを確認する。DetailsはApplicability、Engineering Concern、Qualityへの具体的引渡しおよびReality Audit境界を確認する。Checklistは作成者の自己確認であり、Checkerの構造確認、独立レビューの意味確認または実装・試験結果を代替しない。

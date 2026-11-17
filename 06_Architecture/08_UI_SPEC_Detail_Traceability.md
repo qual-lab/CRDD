@@ -1,6 +1,6 @@
 # UI／SPEC Detail Architecture Traceability
 
-2026-10-19にartifact-signing／official-asset-governanceの実装Packageを廃止した。同名の詳細領域は旧方式の設計参照として保持し、該当行をPartialとする。現在の署名実装・素材管理Engineの存在を意味しない。上流の信頼判断・素材権利確認自体は維持し、廃止を新版の検証Passへ数えない。
+退役Package名を現行の担当領域として使わない。現在の詳細設計Mapと各領域の担当Relationから対応を投影する。旧署名方式の独立評価と公式素材の記録責務は未接続を保持し、設計上の表示・導線を実装完成へ読み替えない。
 
 成果物種別: Architecture入力・配置の統合投影
 状態: Candidate（ARCH-000013断面とDocker Isolation配置を限定更新。全体再評価は未完了）
@@ -8,7 +8,7 @@
 
 旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
 
-ARCH-000014に対応するSCR-000013／PRT-000013、BHV-000018、PRT-000013.spec-000018の三行は、設計参照の関係集合を示す。三行のruntime-trust／artifact-signingは歴史比較のみで、現行実装Ownerではない。現行境界はcoordinator／platform-access／version-control、独立評価器はMissing／OPENであり、CoverageはPartialのまま維持する。
+ARCH-000014に対応する三行はCoordinator／Version Controlの現行担当だけを示す。独立Trust評価器はMissing／OPENのままであり、CoverageはPartialとする。
 
 ## 1. 目的
 
@@ -33,24 +33,24 @@ Architecture Detail Area
 | UI Detail | Source UI | Architecture定義 | 詳細設計領域 | Coverage |
 |---|---|---|---|---|
 | [SCR-000001／PRT-000001](../04_UI/Details/Areas/operation/SCR-000001/screen.md) | UI-000001 | ARCH-000001 | checker、document-model | Covered |
-| [SCR-000002／PRT-000002](../04_UI/Details/Areas/operation/SCR-000002/screen.md) | UI-000002 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [SCR-000003／PRT-000003](../04_UI/Details/Areas/operation/SCR-000003/screen.md) | UI-000003 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [SCR-000004／PRT-000004](../04_UI/Details/Areas/project-context/SCR-000004/screen.md) | UI-000004 | ARCH-000005 | coordinator、cros、mcp-server | Covered |
-| [SCR-000005／PRT-000005](../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | ARCH-000007、ARCH-000008 | execution-intelligence、coordinator、docker-isolation、platform-access、execution-model、semantic-coverage | Covered |
-| [SCR-000006／PRT-000006](../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | ARCH-000009 | version-control、cros、configuration-model、document-model | Covered |
-| [SCR-000007／PRT-000007](../04_UI/Details/Areas/operation/SCR-000007/screen.md) | UI-000007 | ARCH-000012 | mcp-server、coordinator | Covered |
+| [SCR-000002／PRT-000002](../04_UI/Details/Areas/operation/SCR-000002/screen.md) | UI-000002 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [SCR-000003／PRT-000003](../04_UI/Details/Areas/operation/SCR-000003/screen.md) | UI-000003 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [SCR-000004／PRT-000004](../04_UI/Details/Areas/project-context/SCR-000004/screen.md) | UI-000004 | ARCH-000005 | coordinator、mcp-server | Covered |
+| [SCR-000005／PRT-000005](../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | ARCH-000007、ARCH-000008 | coordinator、execution-intelligence、execution-model、docker-isolation、semantic-coverage | Covered |
+| [SCR-000006／PRT-000006](../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | ARCH-000009 | document-model、configuration-model、version-control | Covered |
+| [SCR-000007／PRT-000007](../04_UI/Details/Areas/operation/SCR-000007/screen.md) | UI-000007 | ARCH-000012 | coordinator、mcp-server | Covered |
 | [SCR-000008／PRT-000008](../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | UI-000008 | ARCH-000013 | access-management、document-model、mcp-server、workbench-server | Partial |
-| [SCR-000009／PRT-000009](../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | UI-000009 | ARCH-000006 | cros | Covered |
-| [SCR-000010／PRT-000010](../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | ARCH-000010 | coordinator、cros | Covered |
-| [SCR-000011／PRT-000011](../04_UI/Details/Areas/configuration-trust/SCR-000011/screen.md) | UI-000011 | ARCH-000011 | platform-access | Covered |
-| [SCR-000012／PRT-000012](../04_UI/Details/Areas/operation/SCR-000012/screen.md) | UI-000012 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [SCR-000013／PRT-000013](../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Partial |
-| [SCR-000014／PRT-000014](../04_UI/Details/Areas/governance/SCR-000014/screen.md) | UI-000014 | ARCH-000002 | contract-migration、checker、version-control、document-model | Covered |
+| [SCR-000009／PRT-000009](../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | UI-000009 | ARCH-000006 | document-model | Covered |
+| [SCR-000010／PRT-000010](../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | ARCH-000010 | coordinator | Covered |
+| [SCR-000011／PRT-000011](../04_UI/Details/Areas/configuration-trust/SCR-000011/screen.md) | UI-000011 | ARCH-000011 | coordinator、docker-isolation | Covered |
+| [SCR-000012／PRT-000012](../04_UI/Details/Areas/operation/SCR-000012/screen.md) | UI-000012 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [SCR-000013／PRT-000013](../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | ARCH-000014 | coordinator、version-control | Partial |
+| [SCR-000014／PRT-000014](../04_UI/Details/Areas/governance/SCR-000014/screen.md) | UI-000014 | ARCH-000002 | checker、contract-migration、document-model、version-control | Covered |
 | [SCR-000015／PRT-000015](../04_UI/Details/Areas/governance/SCR-000015/screen.md) | UI-000015 | ARCH-000003 | quality-change-control、verification-runner | Covered |
-| [SCR-000016／PRT-000016](../04_UI/Details/Areas/operation/SCR-000016/screen.md) | UI-000016 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
-| [SCR-000017／PRT-000017](../04_UI/Details/Areas/project-context/SCR-000017/screen.md) | UI-000017 | ARCH-000016 | execution-intelligence、cros、version-control | Covered |
+| [SCR-000016／PRT-000016](../04_UI/Details/Areas/operation/SCR-000016/screen.md) | UI-000016 | ARCH-000015 | coordinator、mcp-server | Covered |
+| [SCR-000017／PRT-000017](../04_UI/Details/Areas/project-context/SCR-000017/screen.md) | UI-000017 | ARCH-000016 | document-model、execution-intelligence、version-control | Covered |
 | [SCR-000018／PRT-000018](../04_UI/Details/Areas/project-context/SCR-000018/screen.md) | UI-000018 | ARCH-000001 | checker、document-model | Covered |
-| [SCR-000019／PRT-000019](../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | UI-000019 | ARCH-000017 | official-asset-governance | Partial |
+| [SCR-000019／PRT-000019](../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | UI-000019 | ARCH-000017 | workbench-server | Partial |
 | [SCR-000020／PRT-000020](../04_UI/Details/Areas/operation/SCR-000020/screen.md) | UI-000020 | ARCH-000018 | execution-intelligence | Covered |
 
 ## 3. SPEC DetailからArchitectureへの全数対応
@@ -58,34 +58,34 @@ Architecture Detail Area
 | SPEC Detail | Source SPEC | Architecture定義 | 詳細設計領域 | Coverage |
 |---|---|---|---|---|
 | [BHV-000001](../05_SPEC/Details/BHV-000001/behavior.md) | SPEC-000001 | ARCH-000001 | checker、document-model | Covered |
-| [BHV-000002](../05_SPEC/Details/BHV-000002/behavior.md) | SPEC-000002 | ARCH-000004、ARCH-000005 | coordinator、docker-isolation、platform-access、cros、mcp-server | Covered |
-| [BHV-000003](../05_SPEC/Details/BHV-000003/behavior.md) | SPEC-000003 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [BHV-000004](../05_SPEC/Details/BHV-000004/behavior.md) | SPEC-000004 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [BHV-000005](../05_SPEC/Details/BHV-000005/behavior.md) | SPEC-000005 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [BHV-000006](../05_SPEC/Details/BHV-000006/behavior.md) | SPEC-000006 | ARCH-000005 | coordinator、cros、mcp-server | Covered |
-| [BHV-000007](../05_SPEC/Details/BHV-000007/behavior.md) | SPEC-000007 | ARCH-000005 | coordinator、cros、mcp-server | Covered |
-| [BHV-000008](../05_SPEC/Details/BHV-000008/behavior.md) | SPEC-000008 | ARCH-000007 | execution-intelligence、coordinator | Covered |
-| [BHV-000009](../05_SPEC/Details/BHV-000009/behavior.md) | SPEC-000009 | ARCH-000008 | coordinator、docker-isolation、platform-access、execution-model、semantic-coverage | Covered |
-| [BHV-000010](../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | ARCH-000009 | version-control、cros、configuration-model、document-model | Covered |
-| [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control、coordinator | Covered |
-| [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | mcp-server、coordinator | Covered |
+| [BHV-000002](../05_SPEC/Details/BHV-000002/behavior.md) | SPEC-000002 | ARCH-000004、ARCH-000005 | coordinator、docker-isolation、mcp-server | Covered |
+| [BHV-000003](../05_SPEC/Details/BHV-000003/behavior.md) | SPEC-000003 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [BHV-000004](../05_SPEC/Details/BHV-000004/behavior.md) | SPEC-000004 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [BHV-000005](../05_SPEC/Details/BHV-000005/behavior.md) | SPEC-000005 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [BHV-000006](../05_SPEC/Details/BHV-000006/behavior.md) | SPEC-000006 | ARCH-000005 | coordinator、mcp-server | Covered |
+| [BHV-000007](../05_SPEC/Details/BHV-000007/behavior.md) | SPEC-000007 | ARCH-000005 | coordinator、mcp-server | Covered |
+| [BHV-000008](../05_SPEC/Details/BHV-000008/behavior.md) | SPEC-000008 | ARCH-000007 | coordinator、execution-intelligence | Covered |
+| [BHV-000009](../05_SPEC/Details/BHV-000009/behavior.md) | SPEC-000009 | ARCH-000008 | coordinator、execution-model、docker-isolation、semantic-coverage | Covered |
+| [BHV-000010](../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | ARCH-000009 | document-model、configuration-model、version-control | Covered |
+| [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control | Covered |
+| [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | coordinator、mcp-server | Covered |
 | [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | access-management、document-model、mcp-server、workbench-server | Partial |
-| [BHV-000013](../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | ARCH-000006 | cros | Covered |
-| [BHV-000014](../05_SPEC/Details/BHV-000014/behavior.md) | SPEC-000014 | ARCH-000010 | coordinator、cros | Covered |
-| [BHV-000015](../05_SPEC/Details/BHV-000015/behavior.md) | SPEC-000015 | ARCH-000010 | coordinator、cros | Covered |
-| [BHV-000016](../05_SPEC/Details/BHV-000016/behavior.md) | SPEC-000016 | ARCH-000011 | platform-access | Covered |
-| [BHV-000017](../05_SPEC/Details/BHV-000017/behavior.md) | SPEC-000017 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [BHV-000018](../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Partial |
-| [BHV-000019](../05_SPEC/Details/BHV-000019/behavior.md) | SPEC-000019 | ARCH-000002 | contract-migration、checker、version-control、document-model | Covered |
+| [BHV-000013](../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | ARCH-000006 | document-model | Covered |
+| [BHV-000014](../05_SPEC/Details/BHV-000014/behavior.md) | SPEC-000014 | ARCH-000010 | coordinator | Covered |
+| [BHV-000015](../05_SPEC/Details/BHV-000015/behavior.md) | SPEC-000015 | ARCH-000010 | coordinator | Covered |
+| [BHV-000016](../05_SPEC/Details/BHV-000016/behavior.md) | SPEC-000016 | ARCH-000011 | coordinator | Covered |
+| [BHV-000017](../05_SPEC/Details/BHV-000017/behavior.md) | SPEC-000017 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [BHV-000018](../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | ARCH-000014 | coordinator、version-control | Partial |
+| [BHV-000019](../05_SPEC/Details/BHV-000019/behavior.md) | SPEC-000019 | ARCH-000002 | checker、contract-migration、document-model、version-control | Covered |
 | [BHV-000020](../05_SPEC/Details/BHV-000020/behavior.md) | SPEC-000020 | ARCH-000003 | quality-change-control、verification-runner | Covered |
-| [BHV-000021](../05_SPEC/Details/BHV-000021/behavior.md) | SPEC-000021 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
-| [BHV-000022](../05_SPEC/Details/BHV-000022/behavior.md) | SPEC-000022 | ARCH-000016 | execution-intelligence、cros、version-control | Covered |
+| [BHV-000021](../05_SPEC/Details/BHV-000021/behavior.md) | SPEC-000021 | ARCH-000015 | coordinator、mcp-server | Covered |
+| [BHV-000022](../05_SPEC/Details/BHV-000022/behavior.md) | SPEC-000022 | ARCH-000016 | document-model、execution-intelligence、version-control | Covered |
 | [BHV-000023](../05_SPEC/Details/BHV-000023/behavior.md) | SPEC-000023 | ARCH-000001 | checker、document-model | Covered |
-| [BHV-000024](../05_SPEC/Details/BHV-000024/behavior.md) | SPEC-000024 | ARCH-000017 | official-asset-governance | Partial |
-| [BHV-000026](../05_SPEC/Details/BHV-000026/behavior.md) | SPEC-000026 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
-| [BHV-000027](../05_SPEC/Details/BHV-000027/behavior.md) | SPEC-000027 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
-| [BHV-000028](../05_SPEC/Details/BHV-000028/behavior.md) | SPEC-000028 | ARCH-000004 | coordinator、docker-isolation、platform-access | Covered |
-| [BHV-000029](../05_SPEC/Details/BHV-000029/behavior.md) | SPEC-000029 | ARCH-000004 | coordinator、platform-access | Covered |
+| [BHV-000024](../05_SPEC/Details/BHV-000024/behavior.md) | SPEC-000024 | ARCH-000017 | workbench-server | Partial |
+| [BHV-000026](../05_SPEC/Details/BHV-000026/behavior.md) | SPEC-000026 | ARCH-000015 | coordinator、mcp-server | Covered |
+| [BHV-000027](../05_SPEC/Details/BHV-000027/behavior.md) | SPEC-000027 | ARCH-000015 | coordinator、mcp-server | Covered |
+| [BHV-000028](../05_SPEC/Details/BHV-000028/behavior.md) | SPEC-000028 | ARCH-000004 | coordinator、docker-isolation | Covered |
+| [BHV-000029](../05_SPEC/Details/BHV-000029/behavior.md) | SPEC-000029 | ARCH-000004 | coordinator | Covered |
 | [BHV-000030](../05_SPEC/Details/BHV-000030/behavior.md) | SPEC-000030 | ARCH-000018 | execution-intelligence | Covered |
 
 ## 4. Interaction Relationの全数対応
@@ -95,36 +95,36 @@ Architecture Detail Area
 | Interaction Relation | BHV | Architecture Relation Owner | Owner Mode | 詳細設計領域 | Coverage |
 |---|---|---|---|---|---|
 | `PRT-000001.spec-000001` | BHV-000001 | ARCH-000001 | Single | checker、document-model | Covered |
-| `PRT-000002.spec-000002` | BHV-000002 | ARCH-000004 | Single | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000002.spec-000003` | BHV-000003 | ARCH-000004 | Single | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000002.spec-000028` | BHV-000028 | ARCH-000004 | Single | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000002.spec-000029` | BHV-000029 | ARCH-000004 | Single | coordinator、platform-access | Covered |
-| `PRT-000003.spec-000004` | BHV-000004 | ARCH-000004 | Single | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000003.spec-000005` | BHV-000005 | ARCH-000004 | Single | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000004.spec-000002` | BHV-000002 | ARCH-000005 | Single | coordinator、cros、mcp-server | Covered |
-| `PRT-000004.spec-000006` | BHV-000006 | ARCH-000005 | Single | coordinator、cros、mcp-server | Covered |
-| `PRT-000004.spec-000007` | BHV-000007 | ARCH-000005 | Single | coordinator、cros、mcp-server | Covered |
-| `PRT-000005.spec-000008` | BHV-000008 | ARCH-000007 | Single | execution-intelligence、coordinator | Covered |
-| `PRT-000005.spec-000009` | BHV-000009 | ARCH-000008 | Single | coordinator、docker-isolation、platform-access、execution-model、semantic-coverage | Covered |
-| `PRT-000006.spec-000010` | BHV-000010 | ARCH-000009 | Single | version-control、cros、configuration-model、document-model | Covered |
-| `PRT-000006.spec-000031` | BHV-000031 | ARCH-000009 | Single | version-control、cros | Covered |
-| `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | mcp-server、coordinator | Covered |
+| `PRT-000002.spec-000002` | BHV-000002 | ARCH-000004 | Single | coordinator、docker-isolation | Covered |
+| `PRT-000002.spec-000003` | BHV-000003 | ARCH-000004 | Single | coordinator、docker-isolation | Covered |
+| `PRT-000002.spec-000028` | BHV-000028 | ARCH-000004 | Single | coordinator、docker-isolation | Covered |
+| `PRT-000002.spec-000029` | BHV-000029 | ARCH-000004 | Single | coordinator | Covered |
+| `PRT-000003.spec-000004` | BHV-000004 | ARCH-000004 | Single | coordinator、docker-isolation | Covered |
+| `PRT-000003.spec-000005` | BHV-000005 | ARCH-000004 | Single | coordinator、docker-isolation | Covered |
+| `PRT-000004.spec-000002` | BHV-000002 | ARCH-000005 | Single | coordinator、mcp-server | Covered |
+| `PRT-000004.spec-000006` | BHV-000006 | ARCH-000005 | Single | coordinator、mcp-server | Covered |
+| `PRT-000004.spec-000007` | BHV-000007 | ARCH-000005 | Single | coordinator、mcp-server | Covered |
+| `PRT-000005.spec-000008` | BHV-000008 | ARCH-000007 | Single | coordinator、execution-intelligence | Covered |
+| `PRT-000005.spec-000009` | BHV-000009 | ARCH-000008 | Single | coordinator、execution-model、docker-isolation、semantic-coverage | Covered |
+| `PRT-000006.spec-000010` | BHV-000010 | ARCH-000009 | Single | document-model、configuration-model、version-control | Covered |
+| `PRT-000006.spec-000031` | BHV-000031 | ARCH-000009 | Single | version-control | Covered |
+| `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | coordinator、mcp-server | Covered |
 | `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | access-management、document-model、mcp-server、workbench-server | Partial |
-| `PRT-000009.spec-000013` | BHV-000013 | ARCH-000006 | Single | cros | Covered |
-| `PRT-000010.spec-000014` | BHV-000014 | ARCH-000010 | Single | coordinator、cros | Covered |
-| `PRT-000010.spec-000015` | BHV-000015 | ARCH-000010 | Single | coordinator、cros | Covered |
-| `PRT-000011.spec-000005` | BHV-000005 | ARCH-000004、ARCH-000011 | Joint | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000011.spec-000016` | BHV-000016 | ARCH-000011 | Single | platform-access | Covered |
-| `PRT-000012.spec-000017` | BHV-000017 | ARCH-000004 | Single | coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000013.spec-000018` | BHV-000018 | ARCH-000014 | Single | runtime-trust、artifact-signing、coordinator、version-control | Partial |
-| `PRT-000014.spec-000019` | BHV-000019 | ARCH-000002 | Single | contract-migration、checker、version-control、document-model | Covered |
+| `PRT-000009.spec-000013` | BHV-000013 | ARCH-000006 | Single | document-model | Covered |
+| `PRT-000010.spec-000014` | BHV-000014 | ARCH-000010 | Single | coordinator | Covered |
+| `PRT-000010.spec-000015` | BHV-000015 | ARCH-000010 | Single | coordinator | Covered |
+| `PRT-000011.spec-000005` | BHV-000005 | ARCH-000004、ARCH-000011 | Joint | coordinator、docker-isolation | Covered |
+| `PRT-000011.spec-000016` | BHV-000016 | ARCH-000011 | Single | coordinator | Covered |
+| `PRT-000012.spec-000017` | BHV-000017 | ARCH-000004 | Single | coordinator、docker-isolation | Covered |
+| `PRT-000013.spec-000018` | BHV-000018 | ARCH-000014 | Single | coordinator、version-control | Partial |
+| `PRT-000014.spec-000019` | BHV-000019 | ARCH-000002 | Single | checker、contract-migration、document-model、version-control | Covered |
 | `PRT-000015.spec-000020` | BHV-000020 | ARCH-000003 | Single | quality-change-control、verification-runner | Covered |
-| `PRT-000016.spec-000021` | BHV-000021 | ARCH-000015 | Single | coordinator、cros、mcp-server | Covered |
-| `PRT-000016.spec-000026` | BHV-000026 | ARCH-000015 | Single | coordinator、cros、mcp-server | Covered |
-| `PRT-000016.spec-000027` | BHV-000027 | ARCH-000015 | Single | coordinator、cros、mcp-server | Covered |
-| `PRT-000017.spec-000022` | BHV-000022 | ARCH-000016 | Single | execution-intelligence、cros、version-control | Covered |
+| `PRT-000016.spec-000021` | BHV-000021 | ARCH-000015 | Single | coordinator、mcp-server | Covered |
+| `PRT-000016.spec-000026` | BHV-000026 | ARCH-000015 | Single | coordinator、mcp-server | Covered |
+| `PRT-000016.spec-000027` | BHV-000027 | ARCH-000015 | Single | coordinator、mcp-server | Covered |
+| `PRT-000017.spec-000022` | BHV-000022 | ARCH-000016 | Single | document-model、execution-intelligence、version-control | Covered |
 | `PRT-000018.spec-000023` | BHV-000023 | ARCH-000001 | Single | checker、document-model | Covered |
-| `PRT-000019.spec-000024` | BHV-000024 | ARCH-000017 | Single | official-asset-governance | Partial |
+| `PRT-000019.spec-000024` | BHV-000024 | ARCH-000017 | Single | workbench-server | Partial |
 | `PRT-000020.spec-000030` | BHV-000030 | ARCH-000018 | Single | execution-intelligence | Covered |
 
 `PRT-000011.spec-000005`は、実行時データの保持・清掃を所有するARCH-000011と、Effect不明・回復を所有するARCH-000004をまたぐ。片方へ意味を移さず、両責務が同じInteractionを共同で閉じる。
@@ -135,7 +135,7 @@ Architecture Detail Area
 
 旧domain-model領域の7Relationは、採用済みの3モデル境界へ対応付けた。成果物・契約・Contextはdocument-model、診断に関係する資源・回復の記録はexecution-model、Manifest読取りはconfiguration-modelが担当する。RepositoryのIdentity照合では、上位がManifestから期待3値を文書モデルへ渡し、両モデルを直接依存させない。Git差分選択・Commit・PushのPRT-000006.spec-000031にはモデル担当を設けず、WorkbenchがVCの完成操作を使用する。各モデルの局所分担は[文書モデル](Details/document-model/01_Architecture.md#ui-spec-detail-placement)、[実行モデル](Details/execution-model/01_Architecture.md#ui-spec-detail-placement)、[構成モデル](Details/configuration-model/01_Architecture.md#ui-spec-detail-placement)を正本とする。
 
-この変更は既存責務の配置伝播であり、7Relationの意味・認可・Effect・実装を新設しない。ARCH-000013のPartial、EIの未実装義務、対象外のcros／platform-access等の旧配置名と歴史的領域は維持し、全担当の現行化や実装完成を主張しない。Coveredは対応記述の閉包であり、Source・実境界・QA Passではない。
+現在の担当は現行領域の明示Relationと照合する。退役領域のCoveredを現在Ownerへ移植せず、ARCH-000013のPartial、独立Trustと公式素材記録、EIの未実装義務を保持する。Coveredは対応記述の閉包であり、Source・実境界・QA Passではない。
 
 Docker Isolationへの今回の伝播は上記8 Relationの技術担当だけである。受理はTask作成まで、状態照会は読取り、次行動は分類までに留め、照会・分類から新しいProbe／回収を発行しない。清掃の対象・許可・保持・保存と、引継ぎ・現在Grant・結果再取得・再発行判断は上位が所有する。診断の許可を修復／再起動の許可へ拡張しない。`PRT-000002.spec-000028`では検証済み対象の技術取消、Process／Container終端、所有資源の回収・不存在／不明の観測だけをDocker Isolationが担当し、Task Authority、取消編成、状態・Recovery保存および利用者結果は上位に残す。`PRT-000002.spec-000029`は判断記録と同じTaskへの再開可能通知まででProvider作用を開始しないため、Docker Isolationの担当へ追加しない。詳細は[DIの局所分担](Details/docker-isolation/01_Architecture.md#ui-spec-detail-placement)と[Coordinatorの局所分担](Details/coordinator/01_Architecture.md#ui-spec-detail-placement)を参照する。Coveredは配置対応の記述であり、実装・実境界・Package完成のPassではない。他行の旧配置名・全体再評価は今回変更していない。
 
