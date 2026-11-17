@@ -180,7 +180,6 @@ const qualitySources = [
   "07_Quality/Definitions/QA-000004/quality_definition.md",
   "07_Quality/Definitions/QA-000005/quality_definition.md",
   "07_Quality/Definitions/QA-000006/quality_definition.md",
-  "07_Quality/Definitions/QA-000010/quality_definition.md",
 ] as const;
 
 /**
