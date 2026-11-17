@@ -1179,7 +1179,7 @@ Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検�
 
 この件数はV6の選択したRuntime入力と固定成果物のための上限であり、Runtimeの履歴保持数や同時実行数ではない。秘密入力前に同じ固定入力を観測し、選択FileのGit Blob・modeと実行bytesの一致を確認する。文書・試験・未到達Componentの全体コピーを新規署名の前提にしない。
 
-旧方式の鍵参照・秘密入力・暗号署名とCoordinator固有Manifest準備は廃止した。[旧成果物署名設計](../artifact-signing/01_Architecture.md)は比較履歴に限定する。Coordinatorへ代替署名・秘密入力機構を追加しない。
+旧方式の鍵参照・秘密入力・暗号署名とCoordinator固有Manifest準備は廃止した。[成果物署名Packageの退役案内](../artifact-signing/01_Architecture.md)を参照し、当時の設計はGit履歴で追跡する。Coordinatorへ代替署名・秘密入力機構を追加しない。
 
 CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採る。v0.21の目標Release候補TreeにはSource、文書、試験および固定成果物`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含める。署名ManifestはCoordinator配布物の固定入口である`template/tools/coordinator/coordinator-package-manifest.json`へ置き、launcher、公開API改訂、`40_Develop`実装およびNative Runtime Artifactを同じ配布全体Identityへ結合する。実装、署名、昇格および検証は同じPathを正本として使用し、設定用の別Pathへ複製しない。
 

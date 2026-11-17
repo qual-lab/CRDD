@@ -24,7 +24,7 @@
 
 ## Runtime Domain共通保存の追加シナリオ — 2026-10-27
 
-[単一保存契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)と[検証への引渡し](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を既存RDL項目へ接続する。新Local Item・総数変更は行わず、すべてNot Run。
+[単一保存契約](../../../06_Architecture/Details/execution-model/01_Architecture.md#storage)と[検証への引渡し](../../../06_Architecture/Details/execution-model/01_Architecture.md#verification)を既存RDL項目へ接続する。新Local Item・総数変更は行わず、すべてNot Run。
 
 | 既存項目 | 入力・刺激／Oracle | 終了後に確認するもの |
 |---|---|---|
@@ -87,7 +87,7 @@ Quality ID: `QA-000008`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [各モデルの保存配置](../../../06_Architecture/Details/execution-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | 生成BundleのRepository-local公開、置換、失敗時の一時物回収および再観測 |
 
 | [configuration-model](../../../06_Architecture/Details/configuration-model/01_Architecture.md) | 現在の局所責務・正常／失敗・終了条件を統合表の導出キーとLocal Itemへ対応付ける。旧機構の過去Passを流用しない |

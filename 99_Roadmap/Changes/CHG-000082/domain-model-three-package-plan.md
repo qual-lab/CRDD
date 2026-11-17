@@ -4336,4 +4336,18 @@ case本体は元のclassifyResourcePublication、fresh ReaderのresourcePublicat
 
 completeStatePublicationは保存marker自体とともに撤去した。saveRecoveryHistoryは要約固定・履歴保存・最終fresh確認を一回で完結させ、Coordinatorの段階ループは撤去した。変更計画§14.64のmarker組込み案は実装せず、marker不要化で置き換えた。
 
+##### 退役設計本文の整理 — 2026-11-17
+
+旧Domainの5文書と、CROS・Artifact Signing・Official Asset Governance・Runtime Trustの4文書を、現在Ownerへの短い退役案内へ整理した。旧本文・転送見出し一覧は削除し、新しいArchiveや互換Anchorは作らない。当時の設計・観測結果はGit履歴と既存の変更・検証記録で追跡する。
+
+通常文書の参照は現在のモデル・保存・認可のOwnerへ接続し、旧Path棚卸しの件数や容量を現在の事実として扱わない。変更履歴内の削除済み見出しへの参照は、既存の`[旧参照]`規則で履歴と区別する。詳細設計Mapの非現行登録を維持し、4領域の分類をRetiredへ統一した。通常リンク・領域実在の検査は除外しない。
+
+署名機能と独立Trust評価器には代替実装を追加していない。公式資産の表示接続はPartial、権利・利用・判断記録の接続は未成立のままであり、ARCH・ReleaseのMissing／OPENを解消済みとしない。保存形式・Path・公開API・品質義務・判定結果は変更しない。
+
+Checkerの汎用Architecture試験は、Checklistの取得元だけを退役した署名設計から現行Checker設計へ変更した。15項目が同一であることを照合し、検証内容・期待値は維持した。限定22試験、Checkerの型検査2構成と対象試験の静的検査は成功した。文書検査は1,207文書・15,466リンク・2,877アンカーを確認し、Error／Warningは0件だった。中断された初回検査の空結果は採用していない。
+
+独立レビューで、過去Commit Cのexact Path許可一覧を現在Ownerへ置き換えた誤りを検出した。当該一覧は元の本文へ復元し、Workflowの今回差分をなくした。現在案内の参照更新と、過去の許可範囲・固定観測の保存は別の処置とする。Qualityのリンク表示名も現在の案内に揃え、導出キー・Local ID・判定・未確認本文は変更しない。
+
+指摘是正後の固定候補は、現在Owner・未達の意味確認と、文書・参照・試験接続・直接伝播の独立再確認の双方で必須残指摘0となった。今回専用試験Rootは、作成時の所在・dev／ino・Linkでないことを照合して回収し、不存在を確認した。全体回帰・実AI・Docker・過去保持物の操作は実施していない。これを全体品質・実環境・統合の成立へ読み替えない。
+
 </details>

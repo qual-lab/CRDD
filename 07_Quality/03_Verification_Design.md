@@ -38,7 +38,7 @@ Receiptの通常代役は実CLIと同じLF付きIDを返し、裸ID・CRLFも確
 
 対象は実行依頼の共通モデル・保存と任意実行の分離である。文書計画→Taskの自動変換や実行状態→文書進捗の自動同期は実装対象・完成条件へ追加しない。既存Objective／Milestoneの用途・Callerの分解済みTask搬送・明示された文書処理範囲はQA-000003の追加条件へ接続し、Source接続と実行結果を照合して評価する。局所成功又は過去のPassだけで未実施の追加条件を成立へ変更しない。
 
-[Runtime Domainの引渡し](../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を、QA-000003とQA-000008の既存項目に下位シナリオとして具体化した。新Schema・共通保存・一般CRUD・Core独立の各Source接続に伴う限定結果は[移管計画](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。前段のcodec・旧Writerの部分成立や現在の局所結果を、これら上位項目又は実データ移行の正式Passへ流用しない。既存項目数・過去Passを変更しない。
+[実行モデルの検証への引渡し](../06_Architecture/Details/execution-model/01_Architecture.md#verification)を、QA-000003とQA-000008の既存項目に下位シナリオとして具体化した。新Schema・共通保存・一般CRUD・Core独立の各Source接続に伴う限定結果は[移管計画](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。前段のcodec・旧Writerの部分成立や現在の局所結果を、これら上位項目又は実データ移行の正式Passへ流用しない。既存項目数・過去Passを変更しない。
 
 順序はL1のDomain／実保存、L2のCoordinator読込み不能なMCP／Workbench、L4のFake Executorによる調停を先行させる。実AI／実Dockerを使うL3／L5は別の実行許可とし、L1／L2の成立を待たせない。Core CRUDからAI・Docker・Git・認証が呼ばれない負対照、Automation保全、二重CAS、現在認可、五Contextの偽造・再使用、実保存の中断窓をそれぞれ観測する。
 

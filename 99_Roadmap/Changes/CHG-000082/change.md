@@ -15,7 +15,7 @@
 
 ## 現在状態
 
-Callerの分解済みTask群を渡す[公開入力契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#caller-task-graph-intake)をDomain検査・Coordinator本番組立て・MCPへ接続した。Plan＋Task別入力を1対1で受け、受付Hashに結合し、欠測補完・文書同期・新Storeを追加しない。AI選択設定の型・検査・保存と共通JSON解析、固定状態ファイルI/OをDomainへ移した。二Taskの本番組立て・実保存・再入場10件、設定保存11件、依存・閉集合・I/O24件、状態・公開契約等75件、公開境界12件は成功し、限定独立レビューは残指摘0。一般CRUD・Writer全面移管・Core単独稼働は未完了。Domain全回帰は既存台帳不整合による3試験不合格、Root Checkerも3,722エラーで全体不合格を維持する。詳細と中断試験の未確定清掃は[実施計画](runtime-responsibility-realignment-plan.md#7-現在の未確定事項と次作業)へ記録した。AI・Docker・過去保持物は操作していない。
+Callerの分解済みTask群を渡す[旧参照][公開入力契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#caller-task-graph-intake)をDomain検査・Coordinator本番組立て・MCPへ接続した。Plan＋Task別入力を1対1で受け、受付Hashに結合し、欠測補完・文書同期・新Storeを追加しない。AI選択設定の型・検査・保存と共通JSON解析、固定状態ファイルI/OをDomainへ移した。二Taskの本番組立て・実保存・再入場10件、設定保存11件、依存・閉集合・I/O24件、状態・公開契約等75件、公開境界12件は成功し、限定独立レビューは残指摘0。一般CRUD・Writer全面移管・Core単独稼働は未完了。Domain全回帰は既存台帳不整合による3試験不合格、Root Checkerも3,722エラーで全体不合格を維持する。詳細と中断試験の未確定清掃は[実施計画](runtime-responsibility-realignment-plan.md#7-現在の未確定事項と次作業)へ記録した。AI・Docker・過去保持物は操作していない。
 
 人間確認に基づき、CRDD文書群がMilestone／Roadmap／WBSの正本、CallerであるフロントAI等がTaskを計画・分解、Coordinatorが渡された小・中規模Taskを実行する分担へArchitecture／計画を整理した。既存Objective／Milestoneは実行依頼内のTask群／全体の受入・判断待ち・回復集約で、文書の同名概念との自動対応はない。基準版の1 Objective＋1 Task包装と、今回接続した分解済みTask搬送を区別する。文書処理はCallerの明示Taskに限り、自動同期・自動WBS生成・別の業務計画正本は追加しない。
 

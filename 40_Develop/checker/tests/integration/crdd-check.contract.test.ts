@@ -7956,7 +7956,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
       .replace(
         "\n## Qualityへの引渡し",
         "\n結果語彙は次の意味に限定する。\n\n- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。\n- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。\n- `OPEN`: 未解決の設計事項が残る状態。\n- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。\n\n## Qualityへの引渡し",
-      )}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Details/artifact-signing/01_Architecture.md"))}\n`,
+      )}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Details/checker/01_Architecture.md"))}\n`,
   );
   for (const model of [
     "02_Component_and_Responsibility_Model.md",

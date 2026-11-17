@@ -124,7 +124,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/domain-model/04_Storage_Path_Reality_Audit.md)
+- [現在のState保存](../../Details/execution-model/01_Architecture.md#storage)、[設定保存](../../Details/configuration-model/01_Architecture.md#storage)、[活動保存](../../Details/document-model/01_Architecture.md#storage)。当時のPath・残存量はGit履歴の観測であり、現在の値ではない
 - [現行照合先](../../Details/execution-model/03_Repository_Storage.md)
 
 ## Checklist

@@ -64,9 +64,9 @@ Architectureの[State九Fileの責務](../../../06_Architecture/Details/coordina
 |---|---|
 | [execution-intelligence](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
+| [活動Context](../../../06_Architecture/Details/document-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | [Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)のObjective、Task、判断、取消、回復、公開結果 |
-| [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [各モデルの保存配置](../../../06_Architecture/Details/execution-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | Architectureの意味単位、実装Symbol、Quality Local Itemおよび試験Symbolの対応関係を決定論的に投影する |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Project／Portfolio ProjectionのView State、欠測・制限・根拠表示 |

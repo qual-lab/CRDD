@@ -122,7 +122,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/artifact-signing/01_Architecture.md)
+- [現在の実行境界](../../Details/coordinator/01_Architecture.md)、[Git内容同一性](../../Details/version-control/01_Architecture.md)。独立Trust評価器は未接続であり、旧署名Packageの廃止を評価器の完成としない
 - [現行照合先](../../Details/coordinator/01_Architecture.md)
 
 ## Checklist

@@ -102,7 +102,7 @@ CPR-IT-010／011では、期待Projectを指定したTopic／Meeting両種別の
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復と[Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)の公開済み候補の明示採用、Lease、Revision／Scope再観測、Receiptおよび回復義務 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
+| [活動Context](../../../06_Architecture/Details/document-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Topic／Meeting操作、候補採否、競合・部分成功・結果不明からの再入場 |
 
 | [document-model](../../../06_Architecture/Details/document-model/01_Architecture.md) | 現在の局所責務・正常／失敗・終了条件を統合表の導出キーとLocal Itemへ対応付ける。旧機構の過去Passを流用しない |
@@ -158,7 +158,7 @@ CPR-IT-010／011では、期待Projectを指定したTopic／Meeting両種別の
 | `CPR-IT-011` | 異常 | IT | Record Operation／Failure Boundary | Topic／Meeting登録・更新・昇格／Outcome処置→Repository保存・読戻し・cleanup→失敗搬送 | Direct Boundary | 変換不正、更新前／実更新後例外、rename失敗、短命FileとLock cleanupの失敗・不存在、保存後読取り故障／欠落／bytes・ID・改訂・Project ID差 | 既存保存契約または標準Filesystem APIへ対象限定の故障を注入する | 呼出し件数、実Record改訂・本文、一次例外Identity、cause chain、cleanup例外と試行順、残存物、同一読取りsnapshotとLock保持を観測する | 変換不正は更新0回。一次失敗をcleanupで上書きせず、保存済み事実を入力不正・Effect 0へ偽装しない。close失敗でもunlinkを試み、ENOENT以外の回収失敗を保持する | 固定故障点、改訂、例外Identity／構造と残存物のOracle。実OS cleanup全体の証明とはしない | 対象外変更0、Commit／Push 0。注入復元後に実Handleと試験Rootを回収する | Automated |
 | `CPR-IT-012` | 異常 | IT | Record Operation／Public Failure | MCP／Workbench→Domain操作→内部故障の公開応答 | Direct Boundary | Schema不正、一覧の既知意味拒否、未知内部例外、実更新後の例外 | 公開入口へ固定入力と保存故障を渡す | 入力拒否と内部エラー、呼出し件数、保存済み改訂と公開情報を照合する | Schema拒否は配送0回。既知一覧拒否だけを入力不正として保持し、書込み例外は入力拒否へ戻さない。内部故障は固定本文で返し、秘密値・Pathを公開しない | Protocol code／HTTP status、配送件数、保存済み改訂、固定本文のOracle。内部エラーからrollback・Effect 0・cleanupを推定しない | 対象外変更0、Commit／Push 0、自己生成試験Root回収 | Automated |
 
-上記三項目の主要導出元は`ARCH-000006`の[Domain Model詳細設計§9.1](../../../06_Architecture/Details/domain-model/01_Architecture.md#91-状態保存と呼出し順)と`SPEC-000013`のLifecycle・部分成功条件である。012の公開応答は[MCP詳細設計§6](../../../06_Architecture/Details/mcp-server/01_Architecture.md#6-正常準正常異常)で具体化する。`CPR-IT-008`はReader専用のまま維持し、更新試験の成功を正本Effect 0の成立根拠へ流用しない。
+上記三項目の主要導出元は`ARCH-000006`の[文書モデルの保存と終了条件](../../../06_Architecture/Details/document-model/01_Architecture.md#storage)と`SPEC-000013`のLifecycle・部分成功条件である。012の公開応答は[MCP詳細設計§6](../../../06_Architecture/Details/mcp-server/01_Architecture.md#6-正常準正常異常)で具体化する。`CPR-IT-008`はReader専用のまま維持し、更新試験の成功を正本Effect 0の成立根拠へ流用しない。
 
 ## Semantic Coverage Pilot
 

@@ -122,7 +122,7 @@ MCPの配布Launcherも同じModule拒否条件で実起動し、既定stdioでC
 
 ## Runtime Domainの追加シナリオ — 2026-10-27
 
-Caller Task Graphの[公開入力契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#caller-task-graph-intake)を既存PRL-IT-012／013とPRL-ST-001の下位シナリオへ接続する。すべてNot Run。新しいLocal Itemや結果件数は発行しない。
+Caller Task Graphの[公開入力契約](../../../06_Architecture/Details/execution-model/01_Architecture.md#public-api)を既存PRL-IT-012／013とPRL-ST-001の下位シナリオへ接続する。すべてNot Run。新しいLocal Itemや結果件数は発行しない。
 
 | 反証する条件 | 必要な観測／Oracle |
 |---|---|
@@ -136,9 +136,9 @@ Caller Task Graphの[公開入力契約](../../../06_Architecture/Details/domain
 
 Task実行／Review条件、Objectiveの集約受入条件、実行全体のMilestone条件は別のOracleで確認する。Task成功から上位acceptや文書更新を自動生成しない。Mapだけで実保存・Process終了・実AIを成立扱いにせず、各既存QA Ownerの必要な実境界へ接続する。
 
-文書のMilestone／Roadmap／WBSと実行状態の[用途境界](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を既存PRL-IT-008／012へ接続する。実行内Objective／MilestoneのacceptedやTask completedだけで文書の進捗・正式受入を変更しないこと、Callerが明示した文書処理以外の文書更新を発行しないことを負例とする。小・中規模Taskの分解済み入力はCallerの責務であり、自動文書解析・WBS生成・同期を新しい完了条件にしない。現行公開入口の1 Objective＋1 Task包装と目標のTask Graph搬送を区別し、後者はNot Run。値・APIの移管が文書管理の別正本を作らないことを確認する。
+文書のMilestone／Roadmap／WBSと実行状態の[用途境界](../../../06_Architecture/Details/execution-model/01_Architecture.md#model-boundary)を既存PRL-IT-008／012へ接続する。実行内Objective／MilestoneのacceptedやTask completedだけで文書の進捗・正式受入を変更しないこと、Callerが明示した文書処理以外の文書更新を発行しないことを負例とする。小・中規模Taskの分解済み入力はCallerの責務であり、自動文書解析・WBS生成・同期を新しい完了条件にしない。現行公開入口の1 Objective＋1 Task包装と目標のTask Graph搬送を区別し、後者はNot Run。値・APIの移管が文書管理の別正本を作らないことを確認する。
 
-[API・状態境界の引渡し](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を既存項目の下位シナリオとして受け取る。新しいLocal Itemを発行せず、旧Passを継承しない。以下はすべてNot Run。
+[API・状態境界の引渡し](../../../06_Architecture/Details/execution-model/01_Architecture.md#verification)を既存項目の下位シナリオとして受け取る。新しいLocal Itemを発行せず、旧Passを継承しない。以下はすべてNot Run。
 
 | 既存項目 | 対象／正常条件と反証 | 観測・終了条件 |
 |---|---|---|

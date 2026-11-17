@@ -602,7 +602,7 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 | Discovery | [統合したDiscovery判断](../../../01_Discovery/01_Product_Discovery.md#current-discovery-decisions)、[個別探索分析](../../../01_Discovery/Analysis/) |
 | IA | [CRDD内部Toolの情報構造](../../../03_IA/01_Information_Architecture.md) |
 | Architecture | [旧参照][Project Operation Contextのアーキテクチャ](../../../06_Architecture/Details/project-operation/01_Architecture.md) |
-| CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/Details/cros/01_Architecture.md) |
+| 現在の認可・活動境界 | [Access Management](../../../06_Architecture/Details/access-management/01_Architecture.md)、[文書・活動](../../../06_Architecture/Details/document-model/02_Activity_Context.md) |
 | Runtime Data基準 | [旧参照][Runtime Dataの目標Architecture](../../../06_Architecture/Details/runtime-data/01_Architecture.md) |
 | Communication | [CRDD外部コミュニケーション](../../../17_Communication.md) |
 | Roadmap | [v0.22未完了作業](../../01_Roadmap.md#12-v0220--project運営複数repository) |

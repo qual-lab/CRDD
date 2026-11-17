@@ -133,9 +133,9 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 | Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](Details/execution-intelligence/01_Architecture.md) |
 | Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](Details/platform-access/01_Architecture.md) |
 | Version Control | Root検証、Binding、差替え可能なPort | [Version Control](Details/version-control/01_Architecture.md) |
-| 旧Artifact Signing（廃止） | 専用Package・署名機能は廃止。通常Runtimeの配置要素ではない | [成果物署名](Details/artifact-signing/01_Architecture.md) |
+| 旧Artifact Signing（廃止） | 専用Package・署名機能は廃止。通常Runtimeの配置要素ではない | [署名Packageの退役案内](Details/artifact-signing/01_Architecture.md) |
 | Checker | Generic Core、現行Profile、終了・回帰 | [Checker](Details/checker/01_Architecture.md) |
-| CROSの認可／Context操作 | 現在認可、Federation、Projection、候補Lifecycle | [Access Management](Details/access-management/01_Architecture.md)、[Domain Model](Details/domain-model/01_Architecture.md)、[Context操作](Details/document-model/02_Activity_Context.md) |
+| CROSの認可／Context操作 | 現在認可、Federation、Projection、候補Lifecycle | [Access Management](Details/access-management/01_Architecture.md)、[文書モデル](Details/document-model/01_Architecture.md)、[実行モデル](Details/execution-model/01_Architecture.md)、[構成モデル](Details/configuration-model/01_Architecture.md)、[Context操作](Details/document-model/02_Activity_Context.md) |
 | Source／Tests | Canonical責務との対応、未実装、旧Owner残存 | `40_Develop/**`、`template/tools/**`、`07_Quality/**` |
 
 発行／記録不明の通常発行はCredential IDとは別の元発行Identityで再観測し、交換Recoveryを追加しない。発行・記録確定後は「発行済み・受け渡し未確認」とし、別交換は別Operation／Recoveryで既存入口を再利用する。現在administratorとして接続不能なら既存Host交換2操作だけへ案内し、新Process・新Recoveryを作らない。指定交換は先発行鍵を含む対象User全旧有効資格、全員交換は先発行鍵を含む全旧有効資格を扱い、既存発行先・表示確認条件を維持する。旧事実を保持し、遅延旧応答の失効鍵利用表示、秘密再表示・保存・自動発行を禁止する。

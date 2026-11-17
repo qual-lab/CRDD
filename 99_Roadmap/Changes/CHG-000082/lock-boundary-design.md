@@ -11,7 +11,7 @@
 
 今回の変更は、共有実行境界の設計調査と移行計画の具体化である。製品Source、保存Schema、Lock方式、PA依存、配布物は変更しない。実AI・Docker・過去保持物も操作しない。技術・品質の着手前照合と独立レビュー、文書の直接参照・影響確認を行い、標準規範・Release・準拠表明は変更しないため全体準拠／Release監査は追加しない。
 
-この文書は変更計画と設計候補を所有する。現行の正本は[Domain保存設計](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md)、[Coordinator設計](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[PA設計](../../../06_Architecture/Details/platform-access/01_Architecture.md)であり、以下の候補を現在の公開契約として扱わない。新PackageのArchitecture ID、公開Symbol、Source分割は未確定である。
+この文書は変更計画と当時の設計候補を所有する。現在の正本は[共通Lock](../../../06_Architecture/Details/lock/01_Architecture.md)、[実行モデルの保存](../../../06_Architecture/Details/execution-model/01_Architecture.md#storage)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)である。以下の未確定事項・候補・途中結果は当時の経緯として保持し、現在の公開契約や現在の未達へ無条件に転用しない。
 
 保持する意図は、同じ資源の競合防止、別資源の独立利用、旧Ownerによる新OwnerのLock削除・遅延書込みの防止、部分Effect・終了不明・同じ回復参照の保持である。業務の実行可否・保存内容・Task再実行をLockへ移管しない。新しいManager／Registry／Storeは作らない。
 

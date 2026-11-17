@@ -93,7 +93,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 Related:
-- [旧時点の固定Path棚卸し](../domain-model/04_Storage_Path_Reality_Audit.md)
+- [旧Path棚卸しの退役案内](../domain-model/04_Storage_Path_Reality_Audit.md)。当時の観測本文はGit履歴から追跡する
 - [文書化](../../../03_Documentation.md#repository-local-working-storage)
 - [Coding Standards](../../99_Coding_Standards.md)
 

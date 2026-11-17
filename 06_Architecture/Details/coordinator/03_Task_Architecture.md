@@ -217,7 +217,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 人間判断は信頼入口の認証済み主体を要求時の回答先へ固定し、回答時にexact一致を確認する。要求・回答・後日適用・明示閉鎖は同じDomain State Writerへ接続する。判断用Bearer・Hash・再発行は生成せず、保存された判断値から現在の認可を作らない。
 
-提案の要求と受入判断はblockerIdを明示し、判断IDから問題を推測しない。同じBlockerへ新しいdecisionIdで再提案できるが、現在提案の回答先・対象・Queueとの一致を同Owner内で検査する。Blockerと提案・回答の1:N、承認／拒否／保留／中止の状態、および全履歴確認後の問題単位退役は[Domainの判断モデル](../domain-model/01_Architecture.md)を正本とし、Coordinatorで別の解消規則を実装しない。
+提案の要求と受入判断はblockerIdを明示し、判断IDから問題を推測しない。同じBlockerへ新しいdecisionIdで再提案できるが、現在提案の回答先・対象・Queueとの一致を同Owner内で検査する。Blockerと提案・回答の1:N、承認／拒否／保留／中止の状態、および全履歴確認後の問題単位退役は[実行モデルの判断・保存契約](../execution-model/01_Architecture.md)を正本とし、Coordinatorで別の解消規則を実装しない。
 
 判断・Blocker・対象世代の相関はDomainの`decision/operations.ts`で検査し、記録型は同じDomainの`decision/types.ts`が所有する。統合保存モデルは同じSnapshotへ接続する。未知欄・Identity差・対象世代の不整合は拒否してbytesを保全する。判断は単一Stateへ保存し、必要な履歴確定前に退役させない。旧Host別保存・判断回復Intent・世代チェーンを再構築しない。
 

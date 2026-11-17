@@ -2,9 +2,9 @@
 
 ## 3モデル分離の現在境界 — 2026-11-12
 
-旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
+旧domain-modelのSourceは[文書モデル](Details/document-model/01_Architecture.md)・[実行モデル](Details/execution-model/01_Architecture.md)・[構成モデル](Details/configuration-model/01_Architecture.md)へ分離した。型を含むモデル間直接依存は0とし、Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約はこの整理では変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管の限定確認と全体回帰の成立は区別し、実AI・Docker・過去保持物の操作を今回の確認へ含めない。
 
-2026-10-19にartifact-signing／official-asset-governanceの実装Packageを廃止した。以下の同名領域はSupersededな比較設計への参照であり、現行Packageの存在や実装完成を示さない。ARCH-IDとのRelationは旧設計の所在を失わないため保持する。
+artifact-signing／official-asset-governance等の退役領域は§5に登録し、短い現在Owner案内だけを残す。当時の設計・検証はGit履歴と既存変更記録へ分離する。現行のARCH-ID閉包は現在Ownerの担当断面から構成し、退役領域の旧Coveredを引き継がない。
 
 [Workspace横断契約](Details/coordinator/05_Workspace.md)はCoordinator詳細へ配置する。既存ARCH-000004／008／009／011／012／013／015の担当断面を接続し、独立Subsystemや新ARCH-IDは作らない。Git技術・Domain・認可・隔離の意味は各Ownerへ維持する。新方式のRelationは設計接続でありSource／検証完了を示さない。
 
@@ -32,7 +32,7 @@ Quality／Development
 
 ## 2. 詳細設計領域
 
-旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。旧crosは比較資料であり、他ARCHの状態は再評価しない。
+旧固定版の履歴: 固定8管理分担、登録解除・通常鍵3分岐の前回限定レビューは履歴として保持する。今回は承認済み初回Host設定をARCH-000013とAccess Management詳細から横断モデル・Workbench／MCP詳細へ候補伝播する。今回の固定12文書は契約・品質の限定独立再レビュー済み・全重大度の残指摘0で、前回Passを流用していない。Quality・Source・具体API／物理保存・本番接続は未完了。Architecture Ready・QA Handoff・実装／実E2E成立は主張しない。旧crosは現在Ownerへの退役案内であり、他ARCHの状態は再評価しない。
 
 現在の最小提示方式はAM詳細01の意味・順序、02の保存・確認対象Binding候補、Workbenchの短命提示、MCPの鍵非公開境界へ対応する。既存Details Relationを維持し、通常Receiptや新領域を追加しない。今回対応差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）、Source・Quality・本番接続は未完了。
 
@@ -83,7 +83,7 @@ Quality／Development
 | ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | workbench-server |
 | ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence、lock |
 
-ARCH-000014の上記関係集合は設計参照の閉包であり、実装Ownerの稼働一覧ではない。現在の境界確認はcoordinator／platform-access／version-control、独立評価器はMissing／OPEN、artifact-signing／runtime-trustは廃止方式の歴史比較のみである。
+ARCH-000014の上記関係集合は設計参照の閉包であり、実装Ownerの稼働一覧ではない。現在の実行境界とGit内容同一性はCoordinator／Version Controlの各契約に従う。独立評価器はMissing／OPENであり、artifact-signing／runtime-trustの退役案内を代替評価器として扱わない。
 
 Architecture定義と詳細設計領域は同じIdentityではない。新しい詳細領域を作る場合は本表と個別領域のRelationを同じ変更で更新し、どのARCH-IDも未接続または暗黙接続にしない。
 
@@ -112,7 +112,7 @@ Access Managementの元試行確定前UUID／鍵Effect 0、双方未初期化確
 |---|---|---|---|
 | [platform-access](Details/platform-access/01_Architecture.md) | Coordinator／Docker Isolation／Executor／Lock | Retired | 製品Nativeと旧保証は撤去。保持する技術責務は現在Ownerへ接続する |
 | [domain-model](Details/domain-model/01_Architecture.md) | configuration-model／document-model／execution-model | Retired | 3モデルへ分離済み。旧入口・共通Facadeは提供しない |
-| [cros](Details/cros/01_Architecture.md) | Access Management／Document Model／Coordinator／Workbench | Historical Comparison | 旧Packageは撤去。認証・認可・活動と投影の現行Ownerへ分離 |
-| [artifact-signing](Details/artifact-signing/01_Architecture.md) | Coordinator／Version Control／Release Owner | Historical Comparison | 専用署名Packageは撤去。独立Trustと配布義務の未接続は保持 |
-| [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | Workbench／公式素材の判断Owner | Historical Comparison | 専用Packageは撤去。ARCH-000017の権利・用途判断を免除しない |
-| [runtime-trust](Details/runtime-trust/01_Architecture.md) | Coordinator／Deployment Owner | Historical Comparison | 旧評価器は廃止。独立Trust評価の未接続はMissingとして保持 |
+| [cros](Details/cros/01_Architecture.md) | Access Management／Document Model／Coordinator／Workbench | Retired | 旧Packageは撤去。認証・認可・活動と投影の現行Ownerへ分離 |
+| [artifact-signing](Details/artifact-signing/01_Architecture.md) | Coordinator／Version Control／Release Owner | Retired | 専用署名Packageは撤去。独立Trustと配布義務の未接続は保持 |
+| [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | Workbench／公式素材の判断Owner | Retired | 専用Packageは撤去。ARCH-000017の権利・用途判断を免除しない |
+| [runtime-trust](Details/runtime-trust/01_Architecture.md) | Coordinator／Deployment Owner | Retired | 旧評価器は廃止。独立Trust評価の未接続はMissingとして保持 |

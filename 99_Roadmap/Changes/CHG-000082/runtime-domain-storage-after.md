@@ -7,11 +7,11 @@
 - 入力・段階: [Runtime責務再編計画](runtime-responsibility-realignment-plan.md)のA〜C。
 - 対象外: Source編集、Runtime状態・保持物の読取りと操作、AI再送、Docker操作、保存先有効化、リリース判断。
 
-後続の正式設計は[Runtime DomainのAPI・単一保存契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md)を正本とする。本資料のAPI候補・型名・更新方式は調査時点の案であり、正式設計と競合した場合に優先しない。基準版の宣言索引と未確定事項の経緯は保持する。
+現在のAPI・保存の正本は[実行モデル](../../../06_Architecture/Details/execution-model/01_Architecture.md)、設定は[構成モデル](../../../06_Architecture/Details/configuration-model/01_Architecture.md)、文書・活動は[文書モデル](../../../06_Architecture/Details/document-model/01_Architecture.md)を参照する。以下のAPI候補・型名・更新方式・基準版の宣言索引と未確定事項は調査時点の経緯であり、現在契約を置き換えない。
 
 ## 1. 結論と調査の限界
 
-後続の人間確認により、文書のMilestone／Roadmap／WBSはCRDD文書群、実行Taskの計画分解はフロントAI等のCaller、渡されたTaskの実行はCoordinatorとする。以下のPlan／Objective／Milestone移管案は実行依頼モデルだけを対象とし、文書の業務計画の別正本や自動同期を作る案ではない。現行用途と公開入口の差は[正式設計](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を参照する。
+後続の人間確認により、文書のMilestone／Roadmap／WBSはCRDD文書群、実行Taskの計画分解はフロントAI等のCaller、渡されたTaskの実行はCoordinatorとする。以下のPlan／Objective／Milestone移管案は実行依頼モデルだけを対象とし、文書の業務計画の別正本や自動同期を作る案ではない。現行用途と公開入口の差は[旧参照][正式設計](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を参照する。
 
 Domain Modelへ「業務上の値・局所操作・共通保存」を移し、Coordinatorには横断的な実行調停を残す。Executorは単一試行のLibraryとし、Domainを通してAIを起動する構造にはしない。
 
@@ -210,7 +210,7 @@ Domainは設定の形状・role/workType解決を所有し、Providerの実行�
    └ history.jsonl               完了要約。正式Evidenceとは別
 ```
 
-旧統合Schema `crdd-coordinator/current-state/v5`の名前だけを変えず、[固定した分解対応](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)に従ってSourceを`crdd-domain/runtime-state/v1`へ切り替える。定義はprojects、技術行はmanagedExecutionsに一度だけ保持し、既存の単一保存・全区画CASを維持する。既存実データの移行と保存先変更は今回実行しない。
+旧統合Schema `crdd-coordinator/current-state/v5`の名前だけを変えず、[旧参照][固定した分解対応](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)に従ってSourceを`crdd-domain/runtime-state/v1`へ切り替える。定義はprojects、技術行はmanagedExecutionsに一度だけ保持し、既存の単一保存・全区画CASを維持する。既存実データの移行と保存先変更は今回実行しない。
 
 | 正本の意味区画 | 現在のfield／型 | Afterの意味Ownerと更新境界 |
 |---|---|---|
@@ -400,7 +400,7 @@ L1/L2とFake ExecutorによるL4は実AI不要。L3/L5、Docker実境界、実�
 
 ### 2026-10-28の接続結果と残る検証
 
-`9f3599e20`以後の作業候補で、物理Reader／Writer・短期Owner・history I/Oと一回出版証拠をDomainへ移した。新配置と公開境界の正本は[正式詳細設計](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#70-現在の物理接続--2026-10-28)。Coordinatorの旧`storage/state.ts`・`history.ts`・`lock.ts`は撤去し、三十二用途は固定操作から同じDomain Writerへ接続する。任意Snapshot callbackのPackage間搬送はない。
+`9f3599e20`以後の作業候補で、物理Reader／Writer・短期Owner・history I/Oと一回出版証拠をDomainへ移した。新配置と公開境界の正本は[旧参照][正式詳細設計](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#70-現在の物理接続--2026-10-28)。Coordinatorの旧`storage/state.ts`・`history.ts`・`lock.ts`は撤去し、三十二用途は固定操作から同じDomain Writerへ接続する。任意Snapshot callbackのPackage間搬送はない。
 
 一般初期化・Plan保存、Objective／Taskの個別CRUDと用途別Queryも同じ物理Writerへ接続した。37のHost限定技術保存入口はVCの真正Root参照を必須にし、生Path・偽参照を拒否する。実行・終端のContextは元Owner identityを維持し、新しいMap・Lock・Registryを加えない。一般CRUDのために管理実行・AI選定・完了記録を生成しない。
 

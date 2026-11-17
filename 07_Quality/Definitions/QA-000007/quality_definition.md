@@ -120,7 +120,7 @@ Quality ID: `QA-000007`
 | [access-management](../../../06_Architecture/Details/access-management/01_Architecture.md) | 現在認可と鍵管理 |
 | [管理API・保存設計候補](../../../06_Architecture/Details/access-management/02_Management_State_and_API.md) | 登録解除両除去・鍵3分岐の論理条件。物理保存・配送観測は未成立 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [各モデルの保存配置](../../../06_Architecture/Details/execution-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository Worktree操作、Local／Remote CROS Modeおよび既存Authorityの利用 |
 
@@ -241,7 +241,7 @@ TTY／HTTP／Browserの提示観測、保存・資源終了、ユーザー理解
 
 `RFD-IT-029`の終了試験は、採用・取込済み又は不採用・破棄が確定した不要なWorktreeと専用Branchの削除まで確認する。採用時の取込成果・採用記録と未取込残差の処置、未merge不採用Branch、dirty／未追跡／ignoredを含む明示破棄を肯定例に含める。継続・期限付き明示保留・実行中・Gitのlock・対象不一致・期待HEAD変更・観測不能は拒否例とし、未Commit変更の存在だけを対象不明としない。Worktree実体／登録の不存在、続く専用Refの不存在、必要判断資料・他Workspaceの保全を別々に観測する。Worktreeだけ削除された後のBranch削除失敗と同対象再入場も反証し、部分成功を全体成功にしない。明示破棄範囲外の未保全成果は保護するが、確定した不採用成果の保持を要求しない。Commit Objectの即時消去はOracleに含めない。作成・観測・削除の部分試験だけでMerge・上位接続を含む項目全体をPassとしない。
 
-最新の[Access Management詳細](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench詳細](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP詳細](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Domain詳細](../../../06_Architecture/Details/domain-model/01_Architecture.md)から導出する。旧CROS詳細は比較用であり、最新契約の正本にしない。
+最新の[Access Management詳細](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench詳細](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP詳細](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[文書モデルの詳細](../../../06_Architecture/Details/document-model/01_Architecture.md)から導出する。旧CROS詳細は比較用であり、最新契約の正本にしない。
 
 | 検証対象 | Local Item | 責務境界 |
 | --- | --- | --- |

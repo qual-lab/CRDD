@@ -7,7 +7,7 @@
 最終更新日: 2026-10-22
 統合計画の初期基準（A着手前）: `1afbc6df4a76cd6800e20a5fa98a0c994577a42f`
 B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
-設計正本: [Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Domain Model](../../../06_Architecture/Details/domain-model/01_Architecture.md)
+設計正本: [Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[文書モデル](../../../06_Architecture/Details/document-model/01_Architecture.md)、[実行モデル](../../../06_Architecture/Details/execution-model/01_Architecture.md)、[構成モデル](../../../06_Architecture/Details/configuration-model/01_Architecture.md)
 
 ## 1. 今回の判断と境界
 
