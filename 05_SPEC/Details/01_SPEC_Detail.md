@@ -43,7 +43,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 | `SPEC-000015` | AIモデル構成を検証し実効選択を決める | Applicable／Covered | [BHV-000015](BHV-000015/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000016` | 実行時データの配置・保持・清掃を制御する | Applicable／Covered | [BHV-000016](BHV-000016/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000017` | Task情報と結果を同じ仕事へ引き継ぎ再取得する | Applicable／Covered | [BHV-000017](BHV-000017/behavior.md) | Canonical Definitionから導出 |
-| `SPEC-000018` | Runtimeの信頼要素を独立評価する | Applicable／Covered | [BHV-000018](BHV-000018/behavior.md) | Canonical Definitionから導出 |
+| `SPEC-000018` | 導入判断の根拠を区別して確認する | Applicable／Covered | [BHV-000018](BHV-000018/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000019` | 責務変更後の利用側閉包を検証する | Applicable／Covered | [BHV-000019](BHV-000019/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000020` | 変更・監査・試験・品質の閉包を評価する | Applicable／Covered | [BHV-000020](BHV-000020/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000021` | 外部送信の同意範囲を検証して送信する | Applicable／Covered | [BHV-000021](BHV-000021/behavior.md) | Canonical Definitionから導出 |
@@ -78,7 +78,7 @@ Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行�
 | [BHV-000015](BHV-000015/behavior.md) | AIモデル構成を検証し実効選択を決める | [SPEC-000015](../Definitions/SPEC-000015/spec_definition.md) | Covered |
 | [BHV-000016](BHV-000016/behavior.md) | 実行時データの配置・保持・清掃を制御する | [SPEC-000016](../Definitions/SPEC-000016/spec_definition.md) | Covered |
 | [BHV-000017](BHV-000017/behavior.md) | Task情報と結果を同じ仕事へ引き継ぎ再取得する | [SPEC-000017](../Definitions/SPEC-000017/spec_definition.md) | Covered |
-| [BHV-000018](BHV-000018/behavior.md) | Runtimeの信頼要素を独立評価する | [SPEC-000018](../Definitions/SPEC-000018/spec_definition.md) | Covered |
+| [BHV-000018](BHV-000018/behavior.md) | 導入判断の根拠を区別して確認する | [SPEC-000018](../Definitions/SPEC-000018/spec_definition.md) | Covered |
 | [BHV-000019](BHV-000019/behavior.md) | 責務変更後の利用側閉包を検証する | [SPEC-000019](../Definitions/SPEC-000019/spec_definition.md) | Covered |
 | [BHV-000020](BHV-000020/behavior.md) | 変更・監査・試験・品質の閉包を評価する | [SPEC-000020](../Definitions/SPEC-000020/spec_definition.md) | Covered |
 | [BHV-000021](BHV-000021/behavior.md) | 外部送信の同意範囲を検証して送信する | [SPEC-000021](../Definitions/SPEC-000021/spec_definition.md) | Covered |

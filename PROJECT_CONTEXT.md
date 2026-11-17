@@ -10,6 +10,8 @@ Repository Role: `crdd-standard`
 
 ## 1. 今どうなっているか
 
+専用Trust評価・素材管理の要求範囲を整理した。独立評価器・汎用Policy管理・公式素材の専用画面／API／Storeは開発残件から外す。既存Ownerの内容同一性・認可・隔離・品質確認と、素材文書の出所・権利・用途・対象版・判断者に基づく人間判断は維持する。旧専用機能・試験・QA本文を現行の要求として残さず、過去の事実はGitと変更・検証記録で追跡する。正式QAは191項目へ整理し、限定113試験・4型構成と独立再レビューの必須残指摘0を確認した。削除をPassへ数えず、全体回帰・実AI・Docker・過去保持物は対象外。
+
 Leaseの変更単位をstate/lease.tsへ分離した。公開四操作・候補九用途・Root観測・専用結果構築をまとめ、通常State CRUDへは既存の排他内更新だけで接続する。Rootは新宣言元から直接公開し、旧Wrapper・逆参照はない。公開93項目・保存形式・排他保持区間・観測順・CASを維持し、型／試験／Symbol／文書を追従した。Source準備はLeaseを含む11Fileを一回評価し、可変Map／Ownerは独立のまま。限定29項目・両型検査と静的確認が成功し、独立レビューの文書2箇所を是正後、技術／QA再確認の必須残指摘0を確認した。全体回帰・実AI・Docker・過去保持物は対象外。[Leaseの変更単位分離](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。
 
 EMのState／Taskに混在した全State候補・観測調停を整理した。Lease・閉鎖／退役の現在観測はState CRUD、Taskの操作調停はTask CRUD、全StateへのTask組込四関数はState validationへ移し、旧task/operationsを撤去。専用候補封筒・callbackの位置順・保存直前の期待本文再照合を維持し、公開93項目・保存形式・CASは不変更。代表実保存4親を含む限定65項目とEM／Co型検査が成功し、試験VMの依存欠測1件は是正済み。文書・Symbolを追従し、独立レビューのSymbol Path指摘2箇所を是正後、技術／QA再確認の必須残指摘0を確認した。全体回帰・実AI・Docker・過去保持物は対象外。[State・Taskの純粋候補と観測調停](99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)を参照する。

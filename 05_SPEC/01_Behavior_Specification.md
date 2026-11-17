@@ -50,7 +50,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 | [SPEC-000015](Definitions/SPEC-000015/spec_definition.md) | AIモデル構成を検証し実効選択を決める | `UX-000018` | `IA-000013` | `UI-000010` |
 | [SPEC-000016](Definitions/SPEC-000016/spec_definition.md) | 実行時データの配置・保持・清掃を制御する | `UX-000017`、`UX-000022` | `IA-000012`、`IA-000003` | `UI-000011` |
 | [SPEC-000017](Definitions/SPEC-000017/spec_definition.md) | Task情報と結果を同じ仕事へ引き継ぎ再取得する | `UX-000019`、`UX-000021` | `IA-000014`、`IA-000003` | `UI-000012` |
-| [SPEC-000018](Definitions/SPEC-000018/spec_definition.md) | Runtimeの信頼要素を独立評価する | `UX-000020`、`UX-000031` | `IA-000015` | `UI-000013` |
+| [SPEC-000018](Definitions/SPEC-000018/spec_definition.md) | 導入判断の根拠を区別して確認する | `UX-000020`、`UX-000031` | `IA-000015` | `UI-000013` |
 | [SPEC-000019](Definitions/SPEC-000019/spec_definition.md) | 責務変更後の利用側閉包を検証する | `UX-000007` | `IA-000005` | `UI-000014` |
 | [SPEC-000020](Definitions/SPEC-000020/spec_definition.md) | 変更・監査・試験・品質の閉包を評価する | `UX-000023`、`UX-000026`、`UX-000029` | `IA-000016` | `UI-000015` |
 | [SPEC-000021](Definitions/SPEC-000021/spec_definition.md) | 外部送信の同意範囲を検証して送信する | `UX-000024` | `IA-000014`、`IA-000017` | `UI-000016` |

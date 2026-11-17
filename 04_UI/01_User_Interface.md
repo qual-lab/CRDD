@@ -49,7 +49,7 @@ REQ
 | [UI-000010](Definitions/UI-000010/ui_definition.md) | Tool・AIモデル構成の選択 | `UX-000016`、`UX-000018` | `IA-000011`、`IA-000013` |
 | [UI-000011](Definitions/UI-000011/ui_definition.md) | 実行時データの保持・清掃 | `UX-000017`、`UX-000022` | `IA-000012`、`IA-000003` |
 | [UI-000012](Definitions/UI-000012/ui_definition.md) | Agent間の情報引継ぎと再接続 | `UX-000019`、`UX-000021` | `IA-000014`、`IA-000003` |
-| [UI-000013](Definitions/UI-000013/ui_definition.md) | Runtime信頼判断と公式識別 | `UX-000020`、`UX-000031` | `IA-000015` |
+| [UI-000013](Definitions/UI-000013/ui_definition.md) | 導入判断の根拠と公式識別 | `UX-000020`、`UX-000031` | `IA-000015` |
 | [UI-000014](Definitions/UI-000014/ui_definition.md) | 成立済み能力と利用側の確認 | `UX-000007` | `IA-000005` |
 | [UI-000015](Definitions/UI-000015/ui_definition.md) | 監査・変更・試験・品質の追跡 | `UX-000023`、`UX-000026`、`UX-000029` | `IA-000016` |
 | [UI-000016](Definitions/UI-000016/ui_definition.md) | 外部送信の同意・持帰り・採否 | `UX-000024` | `IA-000014`、`IA-000017` |

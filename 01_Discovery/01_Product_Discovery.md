@@ -95,7 +95,7 @@ UXへ引き渡す
 | [REQ-000022](Definitions/REQ-000022/requirement.md) | 実行時データの保持・清掃・回復 | [EXP-000016](Analysis/EXP-000016/exploration.md) | 要求採用 | Architecture、Maintenance、Verification |
 | [REQ-000023](Definitions/REQ-000023/requirement.md) | 異なるAI実行環境の開始から終了・回復までの接続部分離 | [EXP-000026](Analysis/EXP-000026/exploration.md) | 要求採用 | Architecture、Verification |
 | [REQ-000024](Definitions/REQ-000024/requirement.md) | 境界を越えるタスク結果の帰還 | [EXP-000027](Analysis/EXP-000027/exploration.md) | 要求採用 | UX、SPEC、Architecture |
-| [REQ-000025](Definitions/REQ-000025/requirement.md) | 導入責任者が所有する信頼方針 | [EXP-000028](Analysis/EXP-000028/exploration.md) | 要求採用 | Architecture、Verification |
+| [REQ-000025](Definitions/REQ-000025/requirement.md) | 導入責任者による利用判断 | [EXP-000028](Analysis/EXP-000028/exploration.md) | 要求採用 | Architecture、Verification |
 | [REQ-000026](Definitions/REQ-000026/requirement.md) | 判断・監査・是正の収束可能な閉包 | [EXP-000002](Analysis/EXP-000002/exploration.md) | 要求採用 | Agent、Maintenance、Audit |
 | [REQ-000027](Definitions/REQ-000027/requirement.md) | 外部情報の送信・昇格境界 | [EXP-000003](Analysis/EXP-000003/exploration.md) | 要求採用 | Principles、Communication、Dependency |
 | [REQ-000028](Definitions/REQ-000028/requirement.md) | AI入口と共通正本の分離 | [EXP-000006](Analysis/EXP-000006/exploration.md) | 要求採用 | Agent、Documentation |

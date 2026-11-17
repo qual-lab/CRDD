@@ -6,22 +6,19 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope authority、trust、loader
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: 既存Ownerの局所的な入力・権限・隔離規則を検証し、総合Trustの評価器は扱わない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-
 import {
   AUTHORITY_REGISTRY_CONTRACT,
   AUTHORITY_REGISTRY_INPUT_LIMITS,
-  validateAuthorityRegistryCandidate,
-} from "../../../src/execution/authority.ts";
-import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
   decodeCanonicalAuthorityTrustPolicyBytes,
   describeAuthorityTrustLoaderContract,
   loadAuthorityRegistryTrustCandidate,
+  validateAuthorityRegistryCandidate,
 } from "../../../src/execution/authority.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,

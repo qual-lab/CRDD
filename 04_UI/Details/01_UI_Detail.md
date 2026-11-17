@@ -40,7 +40,7 @@ Architecture／Quality
 | `UI-000010` | Tool・AIモデル構成の選択 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000010／PRT-000010](Areas/configuration-trust/SCR-000010/screen.md) | Canonical Definitionから導出 |
 | `UI-000011` | 実行時データの保持・清掃 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000011／PRT-000011](Areas/configuration-trust/SCR-000011/screen.md) | Canonical Definitionから導出 |
 | `UI-000012` | Agent間の情報引継ぎと再接続 | Applicable／Covered | [operation](Areas/operation/area.md) | [SCR-000012／PRT-000012](Areas/operation/SCR-000012/screen.md) | Canonical Definitionから導出 |
-| `UI-000013` | Runtime信頼判断と公式識別 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000013／PRT-000013](Areas/configuration-trust/SCR-000013/screen.md) | Canonical Definitionから導出 |
+| `UI-000013` | 導入判断の根拠と公式識別 | Applicable／Covered | [configuration-trust](Areas/configuration-trust/area.md) | [SCR-000013／PRT-000013](Areas/configuration-trust/SCR-000013/screen.md) | Canonical Definitionから導出 |
 | `UI-000014` | 成立済み能力と利用側の確認 | Applicable／Covered | [governance](Areas/governance/area.md) | [SCR-000014／PRT-000014](Areas/governance/SCR-000014/screen.md) | Canonical Definitionから導出 |
 | `UI-000015` | 監査・変更・試験・品質の追跡 | Applicable／Covered | [governance](Areas/governance/area.md) | [SCR-000015／PRT-000015](Areas/governance/SCR-000015/screen.md) | Canonical Definitionから導出 |
 | `UI-000016` | 外部送信の同意・持帰り・採否 | Applicable／Covered | [operation](Areas/operation/area.md) | [SCR-000016／PRT-000016](Areas/operation/SCR-000016/screen.md) | Canonical Definitionから導出 |
@@ -67,7 +67,7 @@ CMPは全件で理由付き未発行である。20 Logical Screenの意味順序
 | [SCR-000010](Areas/configuration-trust/SCR-000010/screen.md) | Tool・AIモデル構成の選択 | configuration-trust | [UI-000010](../Definitions/UI-000010/ui_definition.md) | PRT-000010 | Canonical |
 | [SCR-000011](Areas/configuration-trust/SCR-000011/screen.md) | 実行時データの保持・清掃 | configuration-trust | [UI-000011](../Definitions/UI-000011/ui_definition.md) | PRT-000011 | Canonical |
 | [SCR-000012](Areas/operation/SCR-000012/screen.md) | Agent間の情報引継ぎと再接続 | operation | [UI-000012](../Definitions/UI-000012/ui_definition.md) | PRT-000012 | Canonical |
-| [SCR-000013](Areas/configuration-trust/SCR-000013/screen.md) | Runtime信頼判断と公式識別 | configuration-trust | [UI-000013](../Definitions/UI-000013/ui_definition.md) | PRT-000013 | Canonical |
+| [SCR-000013](Areas/configuration-trust/SCR-000013/screen.md) | 導入判断の根拠と公式識別 | configuration-trust | [UI-000013](../Definitions/UI-000013/ui_definition.md) | PRT-000013 | Canonical |
 | [SCR-000014](Areas/governance/SCR-000014/screen.md) | 成立済み能力と利用側の確認 | governance | [UI-000014](../Definitions/UI-000014/ui_definition.md) | PRT-000014 | Canonical |
 | [SCR-000015](Areas/governance/SCR-000015/screen.md) | 監査・変更・試験・品質の追跡 | governance | [UI-000015](../Definitions/UI-000015/ui_definition.md) | PRT-000015 | Canonical |
 | [SCR-000016](Areas/operation/SCR-000016/screen.md) | 外部送信の同意・持帰り・採否 | operation | [UI-000016](../Definitions/UI-000016/ui_definition.md) | PRT-000016 | Canonical |

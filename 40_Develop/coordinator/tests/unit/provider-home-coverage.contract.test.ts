@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope provider、home、coverage
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: 既存Ownerの局所的な入力・権限・隔離規則を検証し、総合Trustの評価器は扱わない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -72,7 +72,7 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
   assert.deepEqual(PROVIDER_HOME_COVERAGE_TESTS, [
     "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/execution/executor.provider-home.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",

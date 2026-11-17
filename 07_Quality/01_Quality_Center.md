@@ -2,7 +2,7 @@
 
 ## 現在の設計集合の再計数 — 2026-11-17
 
-現行13定義の正式検証項目は204件。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
+現行13定義の正式検証項目は191件。独立Trust評価器・旧署名・素材専用Storeと既存確認の抽象的な重複だけの13項目を現行集合から撤去した。現在の具体的確認と素材文書による人間判断は維持し、撤去をPassに数えない。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
 
 ## EIの正式項目登録と現在の設計集合 — 2026-11-11
 
@@ -169,7 +169,7 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 204 |
+| Local Item数 | 191 |
 
 ## 集計の履歴と現在への適用
 
@@ -196,7 +196,7 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 | Executed | v0.22現在候補の局所確認、Portable回帰および更新候補の三独立確認を実行済み／署名実境界は未完了 | Coordinator Portableは2,117件中2,112 Pass・明示Skip 5・Fail 0、Production Selection対象試験は35／35 Pass、Workbenchは21／21 Pass、Checkerは375／375 Pass。独立レビュー・文書監査・Gap影響監査はFinding 0。旧Manifest削除後に前提不成立となっていた署名拒否fixtureも現在のManifestでPassした。v0.21の署名Recovery Matrixと4経路E2Eは履歴Baselineであり、v0.22現在候補の成立根拠へ流用しない |
 | Passed | 局所確認、Portable全体および更新候補の三独立確認はPass／Quality Readyは未成立 | 5件のSkipはHostまたは人間入力を必要とする明示的な条件付き実行である。Commit、再署名、署名拒否試験、直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eは未実施。履歴Baselineのv0.21 Source A、carrier BおよびRuntime Execution Identityをv0.22候補へ読み替えない |
 | Evidence | 現在候補の局所確認とPortable回帰Evidenceを収集済み／Release Verification Evidenceは未収集 | [Phase 5 Workbench Production Selection契約](../99_Roadmap/Changes/CHG-000082/Evidence/260929-1428_phase5-production-selection-contract.md)に原因、要求契約の是正、局所反証およびPortable全回帰を保存した。[Phase 5 Workbench Repository結合とSelection更新](../99_Roadmap/Changes/CHG-000082/Evidence/260929-1305_phase5-workbench-selection-binding.md)以前は前候補の履歴であり、現在候補の全体Passへ流用しない |
-| Reality Audit | Pending — 現在結果固定済み／残存Evidence待ち | v0.21履歴Baselineの最終署名結果だけを`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続した。v0.22現在候補は、再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2EのEvidence待ちである。`RCM-ST-012`、`ERB-ST-009`、`ERB-ST-011`その他の未観測義務を、v0.21の4経路成功やDocker Engine利用可能という非発火からPassへ変更しない |
+| Reality Audit | Pending — 現在結果固定済み／残存Evidence待ち | v0.21履歴Baselineの最終署名結果だけを`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続した。現在候補の確認待ちは既存の直接起動・実Provider・必要な実行経路の未観測範囲に限定する。専用の再署名・署名候補起動は要求しない。`RCM-ST-012`、`ERB-ST-009`、`ERB-ST-011`その他の未観測義務を、v0.21の4経路成功やDocker Engine利用可能という非発火からPassへ変更しない |
 
 Coordinator／Orchestratorの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。skip、fixture自己再現および外部実境界の自己申告を観測済みから除外し、v0.21対象では108件観測済み、22件未観測である。Quality Readyへ昇格せず、PT／LTは人間の明示許可がないため実行しない。
 

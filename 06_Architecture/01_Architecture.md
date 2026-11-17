@@ -18,7 +18,7 @@ Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
 Owner: Qual-Lab
 Last Updated: 2026-10-11
 
-旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。
 
 ## 1. 目的と現在状態
 
@@ -77,7 +77,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | 初回Host設定、最小ユーザー、現行Role認可、資格・独立失効・通常鍵交換2操作、認可済み集合の解決とContext集約 | UI-000008 | SPEC-000012 | Access Management／文書モデル（認可済みContext集約） |
-| [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | 旧Runtime Trust Evaluator（廃止・代替未接続） |
+| [実行物の確認根拠と導入判断](Definitions/ARCH-000014/architecture_definition.md) | 既存の確認根拠・未確認範囲と人間の導入判断の分離 | UI-000013 | SPEC-000018 | 既存の確認Ownerと導入責任者 |
 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | 出所、権利確認、許可用途、対象版、決定権限者の記録 | UI-000019 | SPEC-000024 | 公式Repositoryの素材収載判断 |
@@ -102,7 +102,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000011 | 各状態Owner、Domain Modelの保存・設定部品 | 現在状態、通常履歴、候補、正式Evidenceの用途を分ける。 |
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
 | ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 初回Host設定の状態・非秘密元試行相関・個別事実はAccess Managementが所有し、Host明示操作で開始する。Workbenchは案内のみ、MCPは初期化・状態照会とも非公開。通常Host回復は交換2操作だけで初回と分離する。Domain Modelは認可済みContext集約・中立部品だけを担当する。基本設計・AM詳細の前回限定Passは履歴。旧横断・Surface限定レビューは当時の固定版の履歴。今回の最小鍵提示候補は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、具体API・物理保存・本番公開入口・Sourceは未接続。 |
-| ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
+| ARCH-000014 | 現在の実行境界・Version Control・QA／Releaseと導入責任者 | 各Ownerの具体的確認を維持し、専用評価器・Policy管理は開発要求に含めない。 |
 | ARCH-000015 | Coordinator内Executionの候補本体、Task／Objectiveの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | 文書モデルのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |
 | ARCH-000017 | 公式素材管理と利用側 | 権利・用途・対象版の根拠を維持する。 |

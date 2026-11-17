@@ -1,14 +1,14 @@
 # UI／SPEC Detail Architecture Traceability
 
-退役Package名を現行の担当領域として使わない。現在の詳細設計Mapと各領域の担当Relationから対応を投影する。旧署名方式の独立評価と公式素材の記録責務は未接続を保持し、設計上の表示・導線を実装完成へ読み替えない。
+退役Package名を現行の担当領域として使わない。現在の詳細設計Mapと各領域の担当Relationから対応を投影する。独立評価器と公式素材の専用記録機能は開発対象外とし、既存確認・素材文書の人間判断・表示の未評価を区別する。
 
 成果物種別: Architecture入力・配置の統合投影
 状態: Candidate（ARCH-000013断面とDocker Isolation配置を限定更新。全体再評価は未完了）
 維持責任者: Qual-Lab
 
-旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。
 
-ARCH-000014に対応する三行はCoordinator／Version Controlの現行担当だけを示す。独立Trust評価器はMissing／OPENのままであり、CoverageはPartialとする。
+ARCH-000014に対応する三行はCoordinator／Version Controlの現行担当だけを示す。専用評価器の実装待ちは要求しない。既存確認結果の案内と人間判断の未評価はPartialとして保持する。
 
 ## 1. 目的
 
@@ -135,7 +135,7 @@ Architecture Detail Area
 
 旧domain-model領域の7Relationは、採用済みの3モデル境界へ対応付けた。成果物・契約・Contextはdocument-model、診断に関係する資源・回復の記録はexecution-model、Manifest読取りはconfiguration-modelが担当する。RepositoryのIdentity照合では、上位がManifestから期待3値を文書モデルへ渡し、両モデルを直接依存させない。Git差分選択・Commit・PushのPRT-000006.spec-000031にはモデル担当を設けず、WorkbenchがVCの完成操作を使用する。各モデルの局所分担は[文書モデル](Details/document-model/01_Architecture.md#ui-spec-detail-placement)、[実行モデル](Details/execution-model/01_Architecture.md#ui-spec-detail-placement)、[構成モデル](Details/configuration-model/01_Architecture.md#ui-spec-detail-placement)を正本とする。
 
-現在の担当は現行領域の明示Relationと照合する。退役領域のCoveredを現在Ownerへ移植せず、ARCH-000013のPartial、独立Trustと公式素材記録、EIの未実装義務を保持する。Coveredは対応記述の閉包であり、Source・実境界・QA Passではない。
+現在の担当は現行領域の明示Relationと照合する。退役領域のCoveredを現在Ownerへ移植せず、ARCH-000013のPartial、既存確認根拠・素材文書の人間判断の未評価、EIの未実装義務を保持する。Coveredは対応記述の閉包であり、Source・実境界・QA Passではない。
 
 Docker Isolationへの今回の伝播は上記8 Relationの技術担当だけである。受理はTask作成まで、状態照会は読取り、次行動は分類までに留め、照会・分類から新しいProbe／回収を発行しない。清掃の対象・許可・保持・保存と、引継ぎ・現在Grant・結果再取得・再発行判断は上位が所有する。診断の許可を修復／再起動の許可へ拡張しない。`PRT-000002.spec-000028`では検証済み対象の技術取消、Process／Container終端、所有資源の回収・不存在／不明の観測だけをDocker Isolationが担当し、Task Authority、取消編成、状態・Recovery保存および利用者結果は上位に残す。`PRT-000002.spec-000029`は判断記録と同じTaskへの再開可能通知まででProvider作用を開始しないため、Docker Isolationの担当へ追加しない。詳細は[DIの局所分担](Details/docker-isolation/01_Architecture.md#ui-spec-detail-placement)と[Coordinatorの局所分担](Details/coordinator/01_Architecture.md#ui-spec-detail-placement)を参照する。Coveredは配置対応の記述であり、実装・実境界・Package完成のPassではない。他行の旧配置名・全体再評価は今回変更していない。
 

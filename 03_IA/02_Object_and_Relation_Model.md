@@ -73,7 +73,7 @@
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | 「実行時データ・保持・清掃」のObject群（実行データの基点（Runtime Root）、実行データ（Data Item）、永続性（Durability）、保持条件（Retention）ほか）と関係図を横断確認 |
 | [IA-000013](Definitions/IA-000013/ia_definition.md) | 適用 | 「AIモデル構成・選択・再選定」のObject群（AIモデル（Model）、構成（Configuration）、作業上の役割（Task Role）、利用可否（Availability）ほか）と関係図を横断確認 |
 | [IA-000014](Definitions/IA-000014/ia_definition.md) | 適用 | 「受け渡す情報・Task・結果・帰還」のObject群（仕事用情報一式（Context Package）、情報源参照（Source Reference）、選択理由（Selection Reason）、作業（Task）ほか）と関係図を横断確認 |
-| [IA-000015](Definitions/IA-000015/ia_definition.md) | 適用 | 「準拠・改ざん有無・配布者・信頼方針」のObject群（準拠（Conformance）、完全性（Integrity）、配布者（Publisher）、信頼方針（Trust Policy）ほか）と関係図を横断確認 |
+| [IA-000015](Definitions/IA-000015/ia_definition.md) | 適用 | 「準拠・改ざん有無・配布者・導入判断の基準」のObject群（準拠（Conformance）、完全性（Integrity）、配布者（Publisher）、導入判断の基準ほか）と関係図を横断確認 |
 | [IA-000016](Definitions/IA-000016/ia_definition.md) | 適用 | 「変更・指摘・是正・試験・品質」のObject群（ロードマップ項目（Roadmap Item）、変更（Change）、変更ファイル（Changed File）、改訂版（Revision）ほか）と関係図を横断確認 |
 | [IA-000017](Definitions/IA-000017/ia_definition.md) | 適用 | 「外部送信先・目的・分類・同意・候補」のObject群（送信先（Destination）、目的（Purpose）、情報分類（Information Classification）、同意（Consent）ほか）と関係図を横断確認 |
 | [IA-000018](Definitions/IA-000018/ia_definition.md) | 適用 | 「物語・構造・図・引き渡す意図」のObject群（物語（Narrative）、構造化した詳細（Structured Detail）、図（Diagram）、図の要素（Diagram Element）ほか）と関係図を横断確認 |

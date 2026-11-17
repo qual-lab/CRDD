@@ -262,7 +262,7 @@ B3〜B5の旧Docker構成一致検査は、Executorのtests/support/isolation-pl
 B2の排他は、人間が採用した単一Host・協調wx方式へ切り替える。旧Worker／Supervisorのready往復・喪失通知・子終了専用試験は撤去対象であり、現在の保証として維持しない。`ERB-IT-003`は共通Lockの実Process競合、正常解放、Crash残存、元世代照合、停止下の明示再入場へ接続する。Coordinator側は共有Home／Runtime状態のScope、Host清掃前の保持確認と未確認結果の保全を検証する。項目の正式結果・歴史Evidenceを、Source移管や試験削減だけでPassへ変更しない。
 
 
-2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、現在OwnerのNode観測・共通Lock・通常回復記録は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`と現在のNode観測・共通wx排他・保存と終了相関の検証義務は保持し、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
+独立評価器・旧署名・旧codec専用の開発義務は撤去した。通常実行・保存・共通Lock・回復は既存Ownerの契約で維持する。具体的な残存確認はQA-000010に従い、旧方式の本文・試験を残さない。
 
 ## 追加通信条件の純粋構成（2026-10-21）
 

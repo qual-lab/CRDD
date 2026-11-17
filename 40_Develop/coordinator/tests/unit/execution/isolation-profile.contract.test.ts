@@ -6,15 +6,15 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope provider、isolation、profile
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: 既存Ownerの局所的な入力・権限・隔離規則を検証し、総合Trustの評価器は扱わない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  describeProviderIsolationContract,
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
-  describeProviderIsolationContract,
   validateProviderIsolationProfile,
 } from "../../../src/execution/preparation.ts";
 

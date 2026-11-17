@@ -113,7 +113,7 @@ Workbenchは後付けのUIではない。[入口再探索](../01_Discovery/Analy
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
 | macOS対応 | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | 実機Macまたは正式なmacOS実行環境を利用可能になった時点で、価値、対象構成、完成条件および版を再評価する |
-| Self-hosted Provider | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | 既存Adapter、Trust PolicyおよびCapability評価の実績後に、価値、安全性、費用および責任主体を再評価する |
+| Self-hosted Provider | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | 既存Adapter・実行許可・隔離の根拠が得られた後に、価値、安全性、費用および責任主体を再評価する |
 | 高度な実行・計画最適化 | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | v0.23の参照実証と実行評価から、人間判断と停止条件を保てる範囲を再評価する |
 | 複数Projectの横断調整・最適化 | Held | Unscheduled | [Product候補登録](../01_Discovery/02_Product_Candidates.md) | v0.22の読み取り専用Portfolio投影と後続の実行Evidenceを基に、Project間の優先順位、Capacity、投資判断およびEffect Authorityを別能力として採否する |
 
@@ -140,7 +140,7 @@ Workbenchは後付けのUIではない。[入口再探索](../01_Discovery/Analy
 | v0.21.0 | DiscoveryからQualityまでの工程成果物を自己完結した子成果物と統合投影へ分け、設計Meaningから実装Symbol、Quality Local Item、Test、Evidenceまでを追跡できる。Checker、共通Domain Library、Repository／Runtime Data境界および変更・検証規則を、特定AIの記憶やSourceの暗黙知に依存せず再利用できる | 工程成果物Repository Pattern、基本図と可視Checklist、Checker安定化、Reality Traceability、Semantic Coverage、CRDD Domain Library責務分離、Engineering Design／Implementation／Verification完全性、実装知識の上位還元 | Project Operation／Workbench／CROSの新Capability、Remote MCP、複数Project Federation、AI Runtime Registry、自律Operation実証、Linux常設運用 |
 | v0.22.0 | 複数ProjectのCRDD正本を中央へ移さず横断参照し、Projectの現在地・注意事項・会議から昇格した判断を目的別に把握できる。人間・AI・CLI・CI・MCP・最小Workbenchから同じ公開契約と構造化結果を利用し、認証・認可されたRemote MCPを含む入口から同じOperating ContextとHandoffへ接続できる | Project Management Projection、Topic、Meeting／Context Promotion、業務プロセス分析の目的別投影、Repository Capability Registry、Remote MCP、CROS、CROS Workbench、Agent Operating Context／Handoff、複数Projectの読み取り専用Portfolio投影、AI Runtime Registry／Profile | Workbench内の第二正本・独自業務ロジック、高度なGit Client、汎用Dashboard、固定Access Role階層、会話全文の自動同期、本格Trust Policy管理、自律Operation、Project間の自動優先順位・Capacity配分、Linux常設運用、耐久Queue、Remote Eventによる継続実行、Internet一般公開 |
 | v0.23.0 | v0.22で成立したCROSとAI Runtime設定を入力に、自律Operationの価値と安全境界を確認し、CROSをLinux Serverへ常設する。許可済みOperationを耐久Queueへ受け付け、時刻・Event、切断、取消、再起動およびRecoveryを跨いで限定的に完遂し、効果と人間負荷を実行知で評価できる | 自律Operationの意味契約と参照実証、Linux配布／Service運用、耐久Operation Queue、再開Scheduler、Remote Event Adapter、限定自律Operation、運用評価Gate | Remote MCP意味契約の再実装、Internet一般公開、Multi-tenant、無制限な自己目的生成、Organization全体の自動最適化 |
-| 将来版 | 独立Trust Policy、Self-hosted Provider、macOS、より高度なCapability Routing／再計画、Project間の投資・優先順位・Capacity最適化を、先行版のEvidenceに基づいて選択的に追加できる | 利用側からAdapterで参照するTrust Policy Capability、Provider／Platform Adapter、実行知、v0.22の複数Repository分離、v0.23の常設実行Evidence | Trust Policyの既存Runtimeへの埋込み、実環境の根拠がない対応表明、単一Scoreによる自動判断、人間または配置先所有者のAuthority代替 |
+| 将来版 | Self-hosted Provider、macOS、より高度なCapability Routing／再計画、Project間の投資・優先順位・Capacity最適化を、先行版のEvidenceに基づいて選択的に追加できる | Provider／Platform Adapter、実行知、v0.22の複数Repository分離、v0.23の常設実行Evidence | 実環境の根拠がない対応表明、単一Scoreによる自動判断、人間または配置先所有者のAuthority代替 |
 
 公開済みv0.19.0以前の到達点と移行情報は[CHANGELOG](../CHANGELOG.md)を正本とし、本書へ複製しない。発展の中心は、機能数ではなく人間が扱う抽象度である。v0.20は分離・観測・限定並列化、v0.21は工程・設計・実装・検証の共通基盤、v0.22は複数ProjectのContext把握と判断接続、v0.23は常設環境での限定的な継続実行を成立させる。将来の複数Project横断調整・最適化は、複数Projectを読めることではなく、Project間の資源・優先順位・投資およびEffect Authorityを扱う能力として別に判断する。
 

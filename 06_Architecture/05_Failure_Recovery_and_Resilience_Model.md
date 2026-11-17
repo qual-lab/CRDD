@@ -61,7 +61,7 @@ Last Updated: 2026-10-11
 | 投影・観測 | Projection／Diagnosis | 欠測、時点、根拠 | unknownを保持 | Source再取得または不足表示 |
 | 外部送信 | External Information Boundary | Consent Scope、Secret | Effect 0 | 新しい有効同意 |
 | 結果帰還 | Result Receiver | Request相関、未信頼性 | 隔離 | exact相関後も人間採否 |
-| Trust／権利 | Trust Evaluator／収載判断 | Publisher、用途、決定権限 | 未承認 | 必要な根拠と人間判断 |
+| Trust／権利 | 既存確認Owner／素材文書での人間判断 | Publisher、用途、決定権限 | 未承認 | 必要な根拠と人間判断 |
 | 契約移行 | Consumer Closure | 全Consumer、派生物、Release経路 | 旧処理を削除しない | 集合一致と全Consumer反証 |
 | 検査・品質 | Checker／Quality Center | 同じ改訂版、未確認範囲 | 全体Passを表示しない | 必須確認の完了または明示保留 |
 | 接続・管理認可 | Access Management | 固定管理分担と内容認可の分離、現行Role、失効、三可視境界、公開範囲と実アクセス | 必要状態不明や不認可は非開示拒否 | 現在Authorityと現在状態で再評価。Domainへ未許可集合を渡さない |

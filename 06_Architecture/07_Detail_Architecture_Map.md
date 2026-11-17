@@ -12,7 +12,7 @@ artifact-signing／official-asset-governance等の退役領域は§5に登録し
 状態: Candidate（ARCH-000013初回Host設定の伝播断面）
 維持責任者: Qual-Lab
 
-旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。
 
 ## 1. 目的
 
@@ -77,13 +77,13 @@ Quality／Development
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | coordinator、execution-model、configuration-model、lock |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | coordinator、mcp-server、workbench-server |
 | ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management、document-model、configuration-model、mcp-server、workbench-server、lock |
-| ARCH-000014 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | coordinator、version-control |
+| ARCH-000014 | [実行物の確認根拠と導入判断](Definitions/ARCH-000014/architecture_definition.md) | coordinator、version-control |
 | ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | ai-adapter、coordinator、executor、mcp-server、workbench-server |
 | ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | document-model、configuration-model、execution-intelligence、version-control、workbench-server |
 | ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | workbench-server |
 | ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence、lock |
 
-ARCH-000014の上記関係集合は設計参照の閉包であり、実装Ownerの稼働一覧ではない。現在の実行境界とGit内容同一性はCoordinator／Version Controlの各契約に従う。独立評価器はMissing／OPENであり、artifact-signing／runtime-trustの退役案内を代替評価器として扱わない。
+ARCH-000014の上記関係集合は設計参照の閉包であり、実装Ownerの稼働一覧ではない。現在の実行境界とGit内容同一性はCoordinator／Version Controlの各契約に従う。独立評価器の開発は現在の対象外であり、artifact-signing／runtime-trustの退役案内を代替評価器として扱わない。
 
 Architecture定義と詳細設計領域は同じIdentityではない。新しい詳細領域を作る場合は本表と個別領域のRelationを同じ変更で更新し、どのARCH-IDも未接続または暗黙接続にしない。
 
@@ -113,6 +113,6 @@ Access Managementの元試行確定前UUID／鍵Effect 0、双方未初期化確
 | [platform-access](Details/platform-access/01_Architecture.md) | Coordinator／Docker Isolation／Executor／Lock | Retired | 製品Nativeと旧保証は撤去。保持する技術責務は現在Ownerへ接続する |
 | [domain-model](Details/domain-model/01_Architecture.md) | configuration-model／document-model／execution-model | Retired | 3モデルへ分離済み。旧入口・共通Facadeは提供しない |
 | [cros](Details/cros/01_Architecture.md) | Access Management／Document Model／Coordinator／Workbench | Retired | 旧Packageは撤去。認証・認可・活動と投影の現行Ownerへ分離 |
-| [artifact-signing](Details/artifact-signing/01_Architecture.md) | Coordinator／Version Control／Release Owner | Retired | 専用署名Packageは撤去。独立Trustと配布義務の未接続は保持 |
+| [artifact-signing](Details/artifact-signing/01_Architecture.md) | Coordinator／Version Control／Release Owner | Retired | 専用署名Packageは撤去。独立評価器・専用署名の開発待ちは設けず、既存Ownerの確認と公開判断を維持 |
 | [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | Workbench／公式素材の判断Owner | Retired | 専用Packageは撤去。ARCH-000017の権利・用途判断を免除しない |
-| [runtime-trust](Details/runtime-trust/01_Architecture.md) | Coordinator／Deployment Owner | Retired | 旧評価器は廃止。独立Trust評価の未接続はMissingとして保持 |
+| [runtime-trust](Details/runtime-trust/01_Architecture.md) | Coordinator／Deployment Owner | Retired | 旧評価器は廃止。独立Trust評価器は開発対象外。既存Ownerの具体的確認は維持 |

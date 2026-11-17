@@ -7,13 +7,11 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope provider、home、mount、grant、runtime
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: 既存Ownerの局所的な入力・権限・隔離規則を検証し、総合Trustの評価器は扱わない。
  * @boundary PRL-UT-006=N/A: Process内のOperation相関と一回消費を合成Capabilityで検査する。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import type { OwnedOperationManagementBinding } from "../../../src/execution/operation.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   createIsolatedProviderHomeMountGrantRuntimeCandidate,
@@ -21,12 +19,13 @@ import {
   inspectRuntimeOwnedActiveProviderHomeMount,
   inspectRuntimeOwnedProviderHomeMountAuthorization,
   issueRuntimeOwnedProviderHomeMountGrant,
+  PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT,
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION,
   revokeRuntimeOwnedProviderHomeMountGrant,
   verifyRuntimeOwnedProviderHomeMountCompletion,
 } from "../../../src/execution/authority.ts";
-import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../../src/execution/authority.ts";
+import type { OwnedOperationManagementBinding } from "../../../src/execution/operation.ts";
 
 const identityHash = "1".repeat(64);
 

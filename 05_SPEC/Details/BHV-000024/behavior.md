@@ -21,9 +21,9 @@ Behavior ID: `BHV-000024`
 | Authority | Applicable | 権利確認と許可用途を決められる決定権限者。確認結果は収載・配布や用途外利用のAuthorityを含まない |
 | Input | Applicable | 公式素材の由来・権利・用途を確認するに必要な対象Identity、入力値、出所および観測時点 |
 | Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性および現在性をEffect前に確認する |
-| State／Transition | Applicable | 素材の由来、権利確認、許可した用途、決定権限者、対象版を記録して利用可否を返す。 |
+| State／Transition | Applicable | 保守者が素材文書の由来・権利根拠・許可用途・判断者・対象版を確認し、人間の収載・利用判断を文書に残す。専用の判断API・Storeは提供しない。 |
 | Sequence | Applicable | Trigger→Precondition／Authority／Validation→State／Effect→Resultの順を保つ |
-| Effect | Applicable | 由来・権利・許可用途・判断者を同じ素材へ記録する。実際の収載・配布は別の変更・Release Authorityを必要とする。 |
+| Effect | Applicable | 人間が既存の素材文書を更新する。製品による自動保存・収載・配布は行わず、実際の収載・配布は別の変更・Release Authorityを必要とする。 |
 | Output | Applicable | 確認済み・未確認・利用不可を区別し、許可範囲へ戻れる。 |
 | Failure | Applicable | 生成手段だけで権利を推定せず、用途外利用を許可しない。 |
 | Recovery | Applicable | 失敗理由と安全な戻り先を返す。 |
@@ -39,9 +39,9 @@ Authority・対象Identity・入力を検証
   ├─ 不足／不一致 → Effect 0で理由と戻り先
   └─ 成立
        ↓
-素材の由来、権利確認、許可した用途、決定権限者、対象版を記録して利用可否を返す。
+保守者が素材文書の由来・権利根拠・許可用途・判断者・対象版を確認し、人間の収載・利用判断を文書に残す。専用の判断API・Storeは提供しない。
        ↓
-Success／Reject／Failure／Unknownを同じContextで返す
+確認できた根拠・不足・人間判断を既存文書へ残す
 ```
 
 判定不能時: 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する
@@ -50,7 +50,7 @@ Success／Reject／Failure／Unknownを同じContextで返す
 
 | SCR／PRT／Interaction | 表示・操作する意味 | Result／Failure／Recovery | Coverage |
 |---|---|---|---|
-| [SCR-000019／PRT-000019.spec-000024](../../../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | 公式素材の由来・権利・用途を確認するの操作・状態・結果を利用者へ示す | Success／Reject／Failure／Unknown／Recovery | Covered |
+| [SCR-000019／PRT-000019.spec-000024](../../../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | 公式素材の由来・権利・用途を確認するの操作・状態・結果を利用者へ示す | 確認済み／未確認・人間の利用判断・確認先 | Covered |
 
 ## 5. Verification Intent
 

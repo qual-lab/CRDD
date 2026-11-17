@@ -2,7 +2,7 @@
 
 ## 現在の設計集合の再計数 — 2026-11-17
 
-現行13定義の正式検証項目は204件。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
+現行13定義の正式検証項目は191件。独立Trust評価器・旧署名・素材専用Storeと既存確認の抽象的な重複だけの13項目を現行集合から撤去した。現在の具体的確認と素材文書による人間判断は維持し、撤去をPassに数えない。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
 
 ## EIの正式項目登録と現在集合 — 2026-11-11
 
@@ -36,8 +36,8 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 成果物種別: Quality現実照合
 状態: Blocked — Quality Design Review Pending
-進捗: 現行204項目の設計集合を同期。追加項目の登録・局所検証と正式評価を区別し、未観測・OPEN・正式Not Runを残す。全体の現実照合は確定しない
-現在範囲: 現行204 Local Item。日付付き205／199／197項目・18 Architecture詳細設計領域の照合は履歴として区別する
+進捗: 現行191項目の設計集合を同期。項目の適用整理・局所検証と正式評価を区別し、未観測・OPEN・正式Not Runを残す。全体の現実照合は確定しない
+現在範囲: 現行191 Local Item。日付付き205／199／197項目・18 Architecture詳細設計領域の照合は履歴として区別する
 維持責任者: Qual-Lab
 
 
@@ -47,7 +47,7 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 204 |
+| Local Item数 | 191 |
 | 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的
@@ -192,18 +192,16 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | artifact-signing（廃止） | Package撤去 | 旧8／8は過去結果 | Legacy | 2026-10-19の人間判断で専用機能を撤去。新版Passへ流用しない |
 | checker | `40_Develop/checker` | 構造・Relation Error 0／Warning 0、Feature Branch固有の既知tag mismatch 1、全契約試験375／375 Pass | In Review | 構造・関係・Consumer Closure・Symbol Graphの機械確認は成立した。既知tag mismatchはv0.22 Release候補固定後に再評価し、独立レビューで意味妥当性を確認する |
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
-| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass、AI依頼Mode Router 4／4 Pass | Partial／Missing | 現行の期待Local Itemは採用範囲へ再接続した。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。独立Trust Policy起動接続は現行Scope外 |
+| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass、AI依頼Mode Router 4／4 Pass | Partial／Missing | 現行の期待Local Itemは採用範囲へ再接続した。`ERB-ST-011`の別Session handoff chainは未確認のまま維持する。AIT-ST-004は現在の実行経路・Reviewer結果の検証であり、独立Trust評価器の追加待ちではない |
 | crdd-domain-library | `40_Develop/crdd-domain-library` | 39／39 Pass | Partial | 8期待Local Itemのうち3件を接続。Filesystem Store LockはOS Kernel排他、二回復者と後続Ownerの別Process競合、同一targetのPath alias競合、不完全RecordのRecovery Identity非発行、回復時・通常Operation後・既存Record観測後のKernel Endpoint解放不明、exact Recovery Obligationの耐久保持・再入場、およびcleanup AuthorityのRoot／Path Scopeまで確認した。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
 | cros（旧Package） | Git Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312`の旧Source | 当時12／12 Pass、新版へ流用不可 | Historical | 現行Packageは撤去。認証・認可はAM、ContextはDomain、活動はOrchestrator、ProfileはAI Adapterへ接続。三状態の実操作比較・全Surface同値・実Task帰還はOPENを維持する |
 | execution-intelligence | `40_Develop/execution-intelligence` | 56／56 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
 | mcp | `40_Develop/mcp` | 32／32 Pass | Partial | 6期待Local Itemのうち4件を接続。Candidate Storeと四入口のEffect同等性が残る |
-| official-asset-governance（廃止） | Package撤去 | 旧11／11は過去結果 | Legacy | 専用判断・保存機能を撤去。素材の権利確認・公開判断と未評価の上流義務は維持 |
 | platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-ST-003`、`ERB-IT-002`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
 | project-operation | `40_Develop/project-operation` | 7／7 Pass | Partial | Project ContextとTopic／Meetingの固定Readerは成立した。永続CRUD、Outcome移管、Authorityおよび安全な削除は後続Phaseで継続する |
 | orchestrator | `40_Develop/coordinator` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
-| runtime-trust（旧実装廃止） | 独立評価器の代替は未接続 | 旧結果は歴史比較のみ | Legacy／代替Missing・OPEN | 旧runtime-trust詳細設計を歴史比較へ移し、Coordinator内の旧評価器を廃止。独立評価の上流意図は残るが、代替実装の成立・v0.22での実装確約・旧結果の流用はしない。Native／Git等の現在境界確認は既存Ownerが維持する |
 | Semantic Coverage（Domain／Checkerへ移管） | `domain-model/src/semantic`、`checker/src/repository/semantic.ts`、`checker/src/report/semantic.ts`、`checker/src/cli/semantic.ts` | 移管前17件を保持し追加4件を含む21／21成功、Domain全128件成功 | 移管範囲の回帰・独立再レビュー完了 | 独立Packageを撤去。公開CLI・保存失敗・Snapshot保全を新Ownerで確認。Pilot全意味の充足や正式全体QAのPassを意味しない |
 | 検証計画（Domain／Checkerへ移管） | `domain-model/src/test-catalog`、`checker/src/cli/test-catalog.ts` | 台帳／計画27件・公開接続7件成功。手動UAT1件未実施 | 局所移管・独立再レビュー完了、全体回帰は未成立 | catalog維持、一括自動実行廃止。Domain全体は許可Hostで155件中154成功・既存Lock競合待ち失敗、Repository-local TEMPでは別の既存試験前提が不成立。単独成功を合算して全体Passにしない |
 | version-control | `40_Develop/version-control` | 41／41 Pass | Covered Candidate | 固定Snapshot、Consumer ClosureおよびSystem移行Closureを接続。独立レビューで意味一致を確認する |
@@ -330,7 +328,6 @@ artifact-signingとofficial-asset-governanceは2026-10-19に廃止した。以�
 
 | 領域 | 接続済み／期待 | 残るLocal Item |
 |---|---:|---|
-| artifact-signing | 1／5 | `AIT-IT-007`、`AIT-IT-009`、`AIT-UT-011`、`AIT-UT-012` |
 | checker | 3／11 | `AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-009`、`RCM-IT-010`、`RCM-UT-001`、`RCM-UT-002` |
 | contract-migration | 0／4 | `RCM-IT-003`、`RCM-IT-004`、`RCM-IT-005`、`RCM-ST-012` |
 | coordinator | 16／17 | `ERB-ST-009` |
@@ -338,13 +335,11 @@ artifact-signingとofficial-asset-governanceは2026-10-19に廃止した。以�
 | cros | 10／14 | `EST-UAT-009`、`PPR-IT-001`、`PPR-ST-005`、`RFD-IT-013` |
 | execution-intelligence | 3／14 | `ERP-ST-004`、`PPR-IT-003`、`PPR-IT-004`、`PPR-IT-010`、`PPR-IT-012`、`PPR-UAT-008`、`PPR-UAT-009`、`PPR-UT-006`、`PPR-UT-011`、`PPR-UT-013`、`PPR-UT-014` |
 | mcp | 4／7 | `CPR-IT-001`、`EST-IT-010`、`RFD-ST-004` |
-| official-asset-governance | 4／8 | `OAG-ST-003`、`OAG-UAT-001`、`OAG-UAT-002`、`OAG-UAT-004` |
 | platform-access | 1／6 | `ERB-IT-002`、`ERB-IT-014`、`ERB-ST-009`、`PRL-ST-003`、`RDL-ST-002` |
 | project-operation | 0／8 | `CPR-IT-006`、`CPR-ST-005`、`CPR-UAT-007`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UAT-015`、`PPR-UT-006` |
 | orchestrator | 10／15 | `EST-IT-001`、`PRL-ST-003`、`PRL-ST-004`、`PRL-UAT-002`、`PRL-UAT-010` |
 | quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-IT-008`、`CQS-IT-009` |
 | runtime-data | 3／6 | `PPR-UT-006`、`RDL-ST-002`、`RFD-ST-003` |
-| runtime-trust | 0／4 | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005` |
 | semantic-coverage | 3／6 | `PPR-IT-004`、`RDL-IT-007`、`RDL-ST-002` |
 | verification-runner | 2／8 | `CQS-IT-003`、`CQS-IT-012`、`CQS-IT-013`、`ERB-IT-002`、`ERB-IT-004`、`ERB-ST-015` |
 | version-control | 6／7 | `PPR-UAT-009` |
@@ -392,11 +387,11 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 
 移管はQuality Definitionまたは既存Relationの削除、適用除外、完成認定ではない。v0.22で対応Capabilityの実装、実境界および人間受入を一体で再開する。
 
-### 13.1.1 採用Scopeとの対応 — OPEN
+### 13.1.1 採用Scopeとの対応
 
-移管一覧46件は履歴と追加義務の管理母集団であり、全件がv0.22へ採用済みという意味ではない。[Scope探索](../01_Discovery/Analysis/EXP-000034/exploration.md)と[CHGの対象外](../99_Roadmap/Changes/CHG-000082/change.md#対象外--変更してはならないこと)は本格Trust Policy管理をv0.22から外している。一方、`AIT-UAT-006`は利用者所有Policyを含む判断を要求する。安全上必要な信頼要素分離・署名検証と、対象外の本格管理との対応をまだ確定していない。
+移管一覧は当時の管理母集団であり、全件を現在の開発残件としない。今回の人間判断で独立Trust評価器・汎用Policy管理・素材専用機能を開発対象から外した。既存確認と素材文書での人間判断は維持し、未評価の人間確認をPassへ変えない。
 
-Qual-Labは最終Quality／Scope GateまでにSource固有の意味ごとに採用範囲を照合する。現在はOPENとして定義・Relation・未観測を保持し、分母の無断縮小、項目全体のN/A認定または対象外機能の先行実装を行わない。
+現在の適用範囲はQA-000010／QA-000011に対応させる。専用機能の復活や代替Storeの追加は行わない。
 
 ### 13.2 v0.21で処置する22件
 
@@ -420,7 +415,7 @@ Hybrid項目は、機械化可能な前提確認と、独立した意味評価�
 | `CQS-IT-001` | 変更担当から分離した独立レビュー担当 | 固定改訂版、必須監査集合、各確認結果、残存Risk | 結果を現在Gateへ統合し、判断先と未確認範囲を独立確認する | 独立レビュー集合の統合時。不整合では回帰・署名E2Eへ進まない |
 | `ERB-ST-009` | Docker Runtime運用担当 | `ERB-IT-012`／`ERB-ST-011`、署名済みCoordinator、exact Repair ID | 既知2領域の退避、Docker再起動、Engine readiness、再入場を実境界で観測する | 署名E2EのDocker修復時。Engine readyと終了後条件未確認ではQuality Readyを停止する |
 | `ERB-ST-011` | Docker Runtime運用担当と独立観測者 | record chain契約試験、署名済みCoordinator、Effect journal、Host資源Observer | 別Session継続、旧Effect非再発行、Engine／Host資源および終了後不存在を同一Identityで観測する | 署名E2Eのhandoff／recovery時。Worker自己申告だけではQuality Readyを停止する |
-| `OAG-ST-003` | 公式素材管理者と配布経路担当 | `OAG-IT-005`／`OAG-IT-006`／`OAG-IT-007`／`OAG-UT-008` | 用途拡張・対象外版・許可撤回で再配布を拒否し、影響範囲を特定する | 公式素材Governance確認時。新規配布Effectまたは影響先不明ではQuality Readyを停止する |
+| `OAG-ST-003` | 公式素材管理者と配布経路担当 | 素材文書、許可範囲、判断者、実際の利用先 | 用途外・対象外版・許可撤回の素材について、人間が利用先を確認して公開を見送る | 実際の素材変更・公開時。人間が素材文書と利用先を照合し、用途外・版外・撤回済みなら公開を止める |
 | `OAG-UAT-001` | 公式収載の決定権限者 | 完全な素材Identity、出所、権利、用途、版、判断Authority | 許可範囲を確認して収載を判断する | 公式素材UAT時。判断EvidenceなしではQuality Readyを停止する |
 | `OAG-UAT-002` | 公式収載の決定権限者 | 権利未確認・第三者模倣疑義の固定候補 | 権利を推定せず隔離を判断する | 公式素材UAT時。公式収載Effect 0を確認できなければQuality Readyを停止する |
 | `OAG-UAT-004` | 公式収載の決定権限者 | 権利者・許可文言・判断者・対象版の不足候補 | 不足を明示して判断権限者へ戻す | 公式素材UAT時。候補変更・削除または不足の隠蔽ではQuality Readyを停止する |

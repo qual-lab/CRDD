@@ -60,7 +60,7 @@ UXごとのIA分析
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 実行時データ・保持・清掃 | `UX-000017`、`UX-000022` |
 | [IA-000013](Definitions/IA-000013/ia_definition.md) | AIモデル構成・選択・再選定 | `UX-000018` |
 | [IA-000014](Definitions/IA-000014/ia_definition.md) | 受け渡す情報・Task・結果・帰還 | `UX-000019`、`UX-000021`、`UX-000024` |
-| [IA-000015](Definitions/IA-000015/ia_definition.md) | 準拠・改ざん有無・配布者・信頼方針 | `UX-000020`、`UX-000031` |
+| [IA-000015](Definitions/IA-000015/ia_definition.md) | 準拠・改ざん有無・配布者・導入判断の基準 | `UX-000020`、`UX-000031` |
 | [IA-000016](Definitions/IA-000016/ia_definition.md) | 変更・指摘・是正・試験・品質 | `UX-000023`、`UX-000026`、`UX-000029` |
 | [IA-000017](Definitions/IA-000017/ia_definition.md) | 外部送信先・目的・分類・同意・候補 | `UX-000024` |
 | [IA-000018](Definitions/IA-000018/ia_definition.md) | 物語・構造・図・引き渡す意図 | `UX-000027`、`UX-000028` |

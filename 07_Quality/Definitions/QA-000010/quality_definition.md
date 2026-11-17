@@ -1,188 +1,87 @@
-# QA-000010 配布物の完全性と信頼判断の検証定義
+# QA-000010 配布物の確認根拠と導入判断の検証定義
 
 成果物種別: Quality定義
 Quality ID: `QA-000010`
-検証目標: CRDD準拠、Artifact改ざん有無、Publisher、利用者所有Trust Policyおよび公式識別を独立に評価すること
-主な試験段階: Unit／Integration／System／User Acceptance
+検証目標: 既存Ownerの具体的確認を維持し、一要素を総合信頼へ広げず人間が導入を判断できること
+主な試験段階: Unit／Integration／User Acceptance
 状態: Canonical
 維持責任者: Qual-Lab
 
+## 現在の適用範囲
 
-2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
+独立Trust評価器・汎用Policy管理・専用署名の開発と検証は要求しない。既存Ownerの内容同一性・認可・隔離・結果搬送と、公開根拠に基づく人間判断は維持する。未評価・不明を信頼済みや品質確認済みにしない。
 
-## v0.22通常実行と配布評価の分離
-
-2026-10-19の人間判断で汎用`artifact-signing` Packageも廃止した。署名専用の`AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015`は現版の廃止方式に対する検証として対象外であり、削除をPassへ数えない。以下の汎用署名維持という記述は旧判断の比較履歴に限定する。必要Artifact同一性・実行認可・隔離の検証は維持し、未評価の上流Trust義務を署名機能廃止だけで完了としない。
-
-2026-10-14の人間判断で、CRDD独自署名を通常Runtimeの資格にしない。[Coordinatorの三分離](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従い、完全性／Publisher／準拠／公式表示の独立評価を維持する。Commit／Hashの同一性を真正性や実行Authorityへ昇格しない。
-
-| 既存Local Itemの母集団 | 現在の処置 |
-|---|---|
-| `AIT-IT-001`〜`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` | 上流の独立評価意図は維持するが、旧Coordinator評価器との実装関係を廃止し、代替未接続を未成立として保持する。結果から通常実行Capabilityを発行しない。利用者Trust Policyの将来範囲を今回新設しない |
-| `AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015` | Coordinator固有の旧署名・鍵Capability・promotion方式と専用試験／設定を退役した。既存結果は当時の方式に限定し、削除をPassへ数えない。維持するNative出所観測・通常Artifact・Process境界は現在のOwnerと個別試験へ接続する。汎用成果物署名も2026-10-19に廃止した。将来の正式配布の必要性は具体的Consumerから別途判断する |
-
-未署名通常実行と必要Artifact同一性はQA-000006へ、任意の正式配布真正性は本定義へ分ける。署名を実施しないことを署名試験Passにせず、適用範囲の訂正・旧方式との対応と未検証範囲を保持する。上流REQ／SPEC／ARCH、Domainと汎用成果物署名の前提はCHG-000082の直接伝播表で追跡し、QAだけで要求を再定義しない。旧runtime-trust Package自体の再実装不足とは扱わないが、上流の独立評価に対する代替未接続はArchitecture／QualityのGap（Missing／OPEN）として保持する。
+現行の検証項目は、下表の既存Ownerによる具体的確認と人間の導入判断だけに限定する。専用評価・署名方式の検証本文や開発待ちは残さず、当時の結果はGit履歴と既存変更記録で追跡する。撤去を検証成功と数えない。
 
 ## 1. 情報源と網羅条件
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
-| [REQ-000018](../../../01_Discovery/Definitions/REQ-000018/requirement.md) | `req-000018.qa-000010` | Requirement Definition（成立条件・失敗・検証意図） | 準拠、改ざん有無、配布者、公式表示を独立結果として返す。一要素のPassから他要素または実行許可を推定しない。公式、組織、手元開発Artifactへ同じ判定モデルを適用する。公式署名、組織署名、改ざん、未署名、準拠不成立を組み合わせ、各結果と最終方針判断を観測する | UT／IT／ST／UAT | `AIT-IT-001`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
-| [REQ-000025](../../../01_Discovery/Definitions/REQ-000025/requirement.md) | `req-000025.qa-000010` | Requirement Definition（成立条件・失敗・検証意図） | 方針の責任者、信頼配布者、用途、期限、例外を明示できる。未知配布者、失効鍵、条件外未署名Buildを外部変更の前に既定拒否する。鍵更新、失効、方針移行後に旧機能が再利用されない。公式、組織、手元、未知、失効、移行中のArtifactを評価し、方針判断、Capability発行、監査記録を観測する | UT／IT／ST／UAT | `AIT-IT-001`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
-| [REQ-000034](../../../01_Discovery/Definitions/REQ-000034/requirement.md) | `req-000034.qa-000010` | Requirement Definition（成立条件・失敗・検証意図） | clone／submodule取得した固定Commitから標準入口を発見できる。同梱Manifestと実行基盤が対象Commit／配布集合へ整合する。別リリースの手動DownloadやVersion推測なしに代表ツールを起動できる。fresh clone、submodule、版不一致、欠落実行基盤、改ざんManifestを用い、発見、拒否、代表起動を観測する | UT／IT | `AIT-IT-002`、`AIT-IT-003`、`AIT-UT-005` |
-| [UX-000020](../../../02_UX/Definitions/UX-000020/ux_definition.md) | `ux-000020.qa-000010` | UX Definition（利用者成果・重要場面・重要な失敗） | 準拠、改ざん有無、配布者、公式表示および実行許可を区別し、自分の環境の方針で公式版・派生版・組織版を選べる。重要場面「実行を信頼すると判断する場面」で、避ける失敗を利用者が正常状態や完了として誤認しない。入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。一つの署名やブランド表示への全保証集約とQual-Lab署名だけの実行資格化を反証する | UT／IT／ST／UAT | `AIT-IT-001`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
-| [UX-000031](../../../02_UX/Definitions/UX-000031/ux_definition.md) | `ux-000031.qa-000010` | UX Definition（利用者成果・重要場面・重要な失敗） | 公式入口や素材を識別でき、同時に署名・準拠・品質・発行元への信頼の根拠は別に確認できる。重要場面「公式表示を信頼判断へ用いる直前」で、視覚的な公式らしさを保証の証明と誤認しない。表示媒体や入口が変わっても、識別用途と保証根拠の境界を維持する。公式／非公式表示、保証根拠の欠落、見た目だけの信頼推定および識別不能な入口を反証する | UT／IT／ST／UAT | `AIT-IT-001`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
-| [IA-000015](../../../03_IA/Definitions/IA-000015/ia_definition.md) | `ia-000015.qa-000010` | IA Definition（情報・関係・状態・見つけ方） | 公式表示だけに頼らず、異なる根拠を分けて実行基盤を信頼するか決める。UX-000020: 確認済み（verified）／未確認（unverified）／信頼済み（trusted）／非信頼（not_trusted）を別軸にする。UX-000031: 識別済み（identified）／確認済み（verified）／信頼済み（trusted）／品質確認済み（quality_assured）を別軸にする | UT／IT／ST／UAT | `AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
-| [UI-000013](../../../04_UI/Definitions/UI-000013/ui_definition.md) | `ui-000013.qa-000010` | UI Definition（認識・操作・Feedback・失敗表示） | 配布元、改ざん有無、準拠、利用者の信頼方針を分けて判断できる。UX-000020: 実行環境の信頼の各要素を別々に評価する: 実行を信頼すると判断する場面: 保証要素と決定権限を分離表示する: 一つの署名表示を全保証と誤認する。UX-000031: 識別表示と保証の根拠を分けて確認する: 公式表示を信頼判断へ用いる直前: 識別表示と検証可能な信頼根拠を別に示す: アイコンや見た目を署名・準拠・品質保証と誤認する。UX-000020／IA-000015: 確認済み（verified）／未確認（unverified）／信頼済み（trusted）／非信頼（not_trusted）を別軸にする: 成果物（Artifact）→各根拠→利用者方針→導入判断。UX-000031／IA-000015: 識別済み（identified）／確認済み（verified）／信頼済み（trusted）／品質確認済み（quality_assured）を別軸にする: 公式表示→配布者（Publisher）→完全性→準拠→品質主張→利用判断 | UT／IT／ST／UAT | `AIT-ST-004`、`AIT-IT-003`、`AIT-IT-001`、`AIT-UT-005`、`AIT-UAT-006` |
-| [SPEC-000018](../../../05_SPEC/Definitions/SPEC-000018/spec_definition.md) | `spec-000018.qa-000010` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 公式署名を実行許可と同一視せず、Fork・組織署名・開発用未署名の扱いを方針で決める。境界: 準拠／完全性／配布者／利用者方針／品質根拠を別軸にし、一要素のPassを全体信頼へ広げない。失敗: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「読取り評価だけを返し、Runtime実行Capabilityを自動発行しない」と矛盾する結果を返さない。失敗: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。副作用: 読取り評価だけを返し、Runtime実行Capabilityを自動発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | UT／IT／ST／UAT | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
-| [ARCH-000014](../../../06_Architecture/Definitions/ARCH-000014/architecture_definition.md) | `arch-000014.qa-000010` | Architecture Definition（責務・境界・状態・故障） | verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資格へ集約しない。Forkや企業署名、許可されたLocal unsignedを利用者所有Policyで評価する。所有する責務: CRDD準拠、Artifact完全性、Publisher、利用者Trust Policy、公式識別の独立評価。所有しない責務: 利用者に代わる信頼判断、外部送信、候補採用。主な外部境界: Runtime Artifact、署名検証、Deployment OwnerのTrust Policy。SPEC-000018: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。Effect: 読取り評価だけを返し、Runtime実行Capabilityを自動発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | UT／IT／ST／UAT | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
+| [REQ-000018](../../../01_Discovery/Definitions/REQ-000018/requirement.md) | `req-000018.qa-000010` | Requirement Definition（成立条件・失敗・検証意図） | 既存Ownerの確認結果と公開文書から準拠、内容同一性、配布者、公式表示の根拠を別々に確認できる。一要素のPassから他要素または実行許可を推定しない。公式版・組織版・手元開発版へ専用の総合判定モデルを追加しない。既存確認の成功・不一致・観測不能と公式・非公式の表示を区別し、総合信頼や実行許可へ読み替えないことを確認する | UAT | `AIT-UAT-006` |
+| [REQ-000025](../../../01_Discovery/Definitions/REQ-000025/requirement.md) | `req-000025.qa-000010` | Requirement Definition（成立条件・失敗・検証意図） | 導入責任者と参照した公開根拠・未確認範囲を明示できる。根拠不明を信頼済みと説明せず、既存Ownerの操作許可・拒否条件を変更しない。導入判断を認証・認可・隔離の既存操作許可に代用しない。根拠と未確認範囲の区別、公式・非公式を理由に実行資格を自動付与しないことを照合する | UAT | `AIT-UAT-006` |
+| [UX-000020](../../../02_UX/Definitions/UX-000020/ux_definition.md) | `ux-000020.qa-000010` | UX Definition（利用者成果・重要場面・重要な失敗） | 準拠、改ざん有無、配布者、公式表示および実行許可を区別し、自分の環境の方針で公式版・派生版・組織版を選べる。重要場面「実行を信頼すると判断する場面」で、避ける失敗を利用者が正常状態や完了として誤認しない。入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。一つの署名やブランド表示への全保証集約とQual-Lab署名だけの実行資格化を反証する | UAT | `AIT-UAT-006` |
+| [UX-000031](../../../02_UX/Definitions/UX-000031/ux_definition.md) | `ux-000031.qa-000010` | UX Definition（利用者成果・重要場面・重要な失敗） | 公式入口や素材を識別でき、同時に署名・準拠・品質・発行元への信頼の根拠は別に確認できる。重要場面「公式表示を信頼判断へ用いる直前」で、視覚的な公式らしさを保証の証明と誤認しない。表示媒体や入口が変わっても、識別用途と保証根拠の境界を維持する。公式／非公式表示、保証根拠の欠落、見た目だけの信頼推定および識別不能な入口を反証する | UAT | `AIT-UAT-006` |
+| [IA-000015](../../../03_IA/Definitions/IA-000015/ia_definition.md) | `ia-000015.qa-000010` | IA Definition（情報・関係・状態・見つけ方） | 公式表示だけに頼らず、異なる根拠を分けて実行基盤を信頼するか決める。UX-000020: 各根拠の確認済み／未確認と人間の導入判断を区別する。UX-000031: 公式の識別表示と確認根拠・品質の対象範囲を区別し、総合的な信頼状態は生成しない | UAT | `AIT-UAT-006` |
+| [UI-000013](../../../04_UI/Definitions/UI-000013/ui_definition.md) | `ui-000013.qa-000010` | UI Definition（認識・操作・Feedback・失敗表示） | 配布元、改ざん有無、準拠、利用者の信頼方針を分けて判断できる。UX-000020: 既存Ownerの確認根拠と未確認範囲を区別する: 実行を信頼すると判断する場面: 保証要素と決定権限を分離表示する: 一つの署名表示を全保証と誤認する。UX-000031: 識別表示と保証の根拠を分けて確認する: 公式表示を信頼判断へ用いる直前: 識別表示と検証可能な信頼根拠を別に示す: アイコンや見た目を署名・準拠・品質保証と誤認する。UX-000020／IA-000015: 各根拠の確認済み／未確認と人間の導入判断を区別する: 成果物（Artifact）→各根拠→利用者方針→導入判断。UX-000031／IA-000015: 公式の識別表示と確認根拠・品質の対象範囲を区別し、総合的な信頼状態は生成しない: 公式表示→配布者（Publisher）→完全性→準拠→品質主張→利用判断 | UAT | `AIT-UAT-006` |
+| [SPEC-000018](../../../05_SPEC/Definitions/SPEC-000018/spec_definition.md) | `spec-000018.qa-000010` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 公式表示・署名・内容同一性を実行許可と同一視せず、確認できた根拠の範囲で導入責任者が判断する。境界: 準拠／完全性／配布者／利用者方針／品質根拠を別軸にし、一要素のPassを全体信頼へ広げない。失敗: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「既存根拠の案内だけを行い、総合評価・Policy保存・実行Capability発行は行わない」と矛盾する結果を返さない。失敗: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。副作用: 既存根拠の案内だけを行い、総合評価・Policy保存・実行Capability発行は行わない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | UAT | `AIT-UAT-006` |
+| [ARCH-000014](../../../06_Architecture/Definitions/ARCH-000014/architecture_definition.md) | `arch-000014.qa-000010` | Architecture Definition（責務・境界・状態・故障） | 各根拠の確認状態と人間の判断を区別し、製品が総合Trustを判定する契約を設けない。公式版・派生版・手元版の利用判断は導入責任者が行い、専用Policy評価機能は要求しない。所有する責務: 既存Ownerの確認根拠と人間の導入判断の分離。所有しない責務: 利用者に代わる信頼判断、外部送信、候補採用。主な外部境界: 既存Ownerの確認結果、公開文書、導入責任者。SPEC-000018: 一要素のPassから全体信頼を推定せず、不明を許可へ畳まない。Effect: 既存根拠の案内だけを行い、総合評価・Policy保存・実行Capability発行は行わない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | UAT | `AIT-UAT-006` |
+
 ### Architecture詳細設計入力
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 現在の実行経路・結果相関・観測不能の搬送 |
 
-独立評価器の現行実装はMissing／OPENであり、上表の既存境界の成立を代替評価器の成立へ換算しない。
+新しい評価器・Policy Store・署名機構は要求せず、既存Ownerの確認をここで再実装しない。
 
-歴史比較だけの入力は次のとおりである。現行設計の実装要求・Coverageには数えない。
-
-| 廃止方式の比較参照 | 当時の設計対象 |
-|---|---|
-
-
-退役領域の旧検証単位と保持義務は[統合表の処置](../../04_Quality_Integration.md#31-退役した設計単位の処置)に残す。現行詳細のCoverageへ混ぜず、上位の未接続を免除しない。
-
-## 2. 評価軸
-
-```text
-[配布物]
-   ├→ [CRDD準拠]
-   ├→ [Artifact完全性]
-   ├→ [Publisher]
-   ├→ [利用者Trust Policy]
-   └→ [公式配布物か]
-              ↓
-        [構造化した判断]
-```
-
-## 3. 試験段階と外部境界の適用
+## 2. 試験段階と外部境界の適用
 
 | 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
-| --- | --- | --- | --- | --- |
-| UT | Required | Trust各軸の判定と相関不変条件 | N/A | 各Sourceが要求する独立判定を結合前に反証するため |
-| IT | Required | 配布物Identity、各評価軸、観測値の直接・隣接結合。署名検証器は任意正式配布の適用時だけ | Related 2 Blocks | 各評価軸と観測値を結合して独立評価結果を返すため |
-| ST | Required | 配布物取得から独立評価結果の返却まで | System/E2E | 評価と実行許可の非同一、通常Runtime Authority非発行を確認するため |
-| UAT | Required | 利用者所有Policyによる公式・Fork・Local開発物の判断 | User Acceptance | 公式表示と利用許可を分けて判断できる利用者成果を確認するため |
+|---|---|---|---|---|
+| UT | Required | 現在のOwner局所検査 | N/A | 既存の具体的拒否条件を維持する |
+| IT | Required | 現在のTask／Reviewer結果搬送 | Direct Boundary | 既存AIT-IT-008の対象・結果相関を維持する |
+| ST | Conditional | 現在の実行経路・Reviewer | System/E2E | 当該経路変更時に選択する。独立評価器は対象外 |
+| UAT | Required | 根拠を読む人間の導入判断 | User Acceptance | 公式表示と全体信頼を混同しない |
 
 ### 条件区分の適用
 
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | AIT-IT-001 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | AIT-ST-004、AIT-UT-005、AIT-UAT-006、AIT-IT-007、AIT-IT-009、AIT-UT-011、AIT-UT-012、AIT-IT-013、AIT-IT-015 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
-| 準正常 | Required | AIT-IT-003 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
-| 異常 | Required | AIT-IT-002、AIT-IT-008 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
-| 回復 | Required | AIT-ST-010 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
+| 正常 | Required | AIT-IT-008 | 現在のTask／Reviewer契約を維持する |
+| 境界 | Required | AIT-ST-004、AIT-UT-005、AIT-UAT-006 | 結果相関・局所境界・人間判断を区別する |
+| 準正常 | N/A | - | この人間判断に独自の技術規則を新設しない。根拠不足はAIT-UAT-006で区別し、既存Ownerの観測不能はQA-000006で維持する |
+| 異常 | N/A | - | この人間判断に独自の技術拒否を新設しない。既存Ownerの拒否条件はQA-000001／QA-000006で維持する |
+| 回復 | N/A | - | この確認自体に独立Recoveryを設けない。各Ownerの回復義務は変更しない |
 
 ## 4. 検証項目
 
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `AIT-IT-001` | 正常 | IT | Contract／Trust | Artifact Observer→Trust Evaluator→Policy | Adjacent 1 Block | 署名者、完全性、準拠状態が既知の公式物・独自配布物・未署名Local開発物 | 各成果物を同じTrust Policyで評価する | AIT-IT-001として、「各成果物を同じTrust Policyで評価する」前後のArtifact Observer→Trust Evaluator→Policyについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 各軸を独立評価し、Policyに応じた利用判断を返す | AIT-IT-001、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「各軸を独立評価し、Policyに応じた利用判断を返す」および終了後条件「署名検証だけでRuntime Authorityを発行しない」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 署名検証だけでRuntime Authorityを発行しない | Automated |
-| `AIT-IT-002` | 異常 | IT | Integrity／Fault | Manifest・実行集合・Native成果物→Trust判定 | Related 2 Blocks | 検証済みmanifestとRuntime実行集合、Trust Policy、Native成果物、Publisher情報 | 各要素を一つずつ改変して再評価する | AIT-IT-002として、「各要素を一つずつ改変して再評価する」前後のManifest・実行集合・Native成果物→Trust判定について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 変更した軸だけでなく相関不変条件の差を検出し、Authority非発行 | AIT-IT-002、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「変更した軸だけでなく相関不変条件の差を検出し、Authority非発行」および終了後条件「署名／配置／Runtime Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 署名／配置／Runtime Effect 0 | Automated |
-| `AIT-IT-003` | 準正常 | IT | Contract／Unknown | 検証材料Reader→Trust Evaluator | Direct Boundary | Publisherまたは検証材料が不明・不足・読取不能な成果物 | 不足状態のままTrust評価を要求する | AIT-IT-003として、「不足状態のままTrust評価を要求する」前後の検証材料Reader→Trust Evaluatorについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | unknownをtrustedにせず、不足軸と再評価条件を返す | AIT-IT-003、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「unknownをtrustedにせず、不足軸と再評価条件を返す」および終了後条件「Runtime Authority 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Runtime Authority 0 | Automated |
-| `AIT-ST-004` | 境界 | ST | Scenario／Trust | 配布物観測→Policy評価→Runtime Authority Gate | System/E2E | 公式だがPolicy外、信頼済みFork、完全性Pass・準拠Failの組合せ | 各組合せへ同じTrust評価を適用する | AIT-ST-004として、「各組合せへ同じTrust評価を適用する」前後の配布物観測→Policy評価→Runtime Authority Gateについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 公式識別、信頼、完全性、準拠を一つのbooleanへ丸めない | AIT-ST-004、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「公式識別、信頼、完全性、準拠を一つのbooleanへ丸めない」および終了後条件「利用者Policyと矛盾するAuthority 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 利用者Policyと矛盾するAuthority 0 | Automated |
-| `AIT-UT-005` | 境界 | UT | Trust Semantics／Correlation | Trust各軸の純粋判定規則 | N/A | 準拠、完全性、Publisher、公式表示、Policyの正常・不明・不一致の組合せ | 一軸ずつ値を変えて利用判断を評価する | AIT-UT-005として、「一軸ずつ値を変えて利用判断を評価する」前後のTrust各軸の純粋判定規則について、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 各軸を独立結果として保ち、一軸のPassを全保証へ広げない | AIT-UT-005、固定入力「準拠、完全性、Publisher、公式表示、Policyの正常・不明・不一致の組合せ」、観測した差分と理由code、Oracle判定「各軸を独立結果として保ち、一軸のPassを全保証へ広げない」および終了後条件「署名検証・Runtime Authority Effect 0」を保存する | 署名検証・Runtime Authority Effect 0 | Automated |
-| `AIT-UAT-006` | 境界 | UAT | Acceptance／Trust | Trust結果→利用者判断 | User Acceptance | 公式、組織、Fork、未署名Local開発物の根拠と利用者所有Policy | 利用者が用途に応じて採用・拒否・保留を判断する | AIT-UAT-006として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 公式表示、検証結果、配布者、利用許可を区別して判断できる | AIT-UAT-006、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「公式表示、検証結果、配布者、利用許可を区別して判断できる」および終了後条件「判断から未承認Runtime Authorityを自動発行しない」を保存する | 判断から未承認Runtime Authorityを自動発行しない | Manual |
-| `AIT-IT-007` | 境界 | IT | Authorization／Concurrency | one-time Authorization→予約→鍵読取り→署名 | Related 2 Blocks | 同じ未使用Authorizationを同時に消費する二要求と、予約後失敗を注入できる固定入力 | 二要求を同時開始し、勝者の予約後に取消または署名失敗を発生させる | 勝者・敗者のRequest Identity、各Authorization状態の前後、要求別の鍵読取り回数、署名結果数、再利用試行結果を記録する | 勝者は最大一件、敗者は鍵read 0・署名Effect 0。失敗後もAuthorizationを未使用へ戻さない | AIT-IT-007、Request Identity集合、Authorization状態遷移、要求別鍵読取り回数、署名結果数、再利用試行結果およびOracle判定を保存する。Secret、鍵bytes、passphraseは保存しない | Authorizationは再利用不能で、署名結果は最大一件 | Automated |
-| `AIT-IT-008` | 異常 | IT | Signing／Secret Lifecycle | Key Capability→Secret Buffer observer→Signer→Publisher結果 | Direct Boundary | 検証済み単一Snapshot、正常・誤鍵のone-time Key Capability、期待／不一致Publisher、消費済みCapability、正常・署名失敗・取消の各終了経路 | 正常署名、誤鍵、Publisher不一致、Capability再利用、署名失敗、取消を個別に要求する | Snapshot／Request／Buffer Identity、Capability状態、acquire回数、zeroize要求・完了回数、Signer終了時live secret buffer件数、署名結果数、Publisher判定を記録する | 正常時だけPublisher結果を一件返す。誤鍵・Publisher不一致・再利用を拒否し、全終了経路でlive secret buffer 0とする | AIT-IT-008、非秘密のIdentity、Capability状態、Secret Buffer lifecycle eventと件数、署名結果数、Publisher判定、Oracleを保存する。Secret値、鍵bytes、passphraseは保存しない | 全終了経路でKey Capability失効、live secret buffer 0 | Automated |
-| `AIT-IT-009` | 境界 | IT | Result Boundary／Responsibility | Signer結果→Coordinator配置契約 | Adjacent 1 Block | 正常Signer結果と、Manifest Path・配置・公開fieldを混入した反例 | Signer結果Schemaと利用側契約を検査する | Signer結果field集合、拒否理由、Signer／配置Effect件数を記録する | Signerは署名値・Publisher・対象Identityだけを返し、Manifest生成・配置・公開判断を所有しない | AIT-IT-009、field集合、Schema判定、拒否理由、Effect件数を保存する | 不正field時の署名・配置Effect 0 | Automated |
-| `AIT-ST-010` | 回復 | ST | Promotion／Single Snapshot／Recovery | 単一Snapshot→署名→staging→Manifest配置→promotion→明示破棄 | System/E2E | 固定Snapshotと正常入力に加え、Distribution Root差、署名対象一件欠落、途中段階だけ別Snapshot、配置前後の各故障注入点 | 正常promotion、各反例、各配置故障、promotion後の明示破棄を個別に実行する | 各段階のSnapshot／staging／file object Identity、Distribution Root、対象集合、byte数、Hash、配置Effect、promotion後staging状態、明示破棄Effect、失敗段階、回復義務を記録する | Root差・対象漏れ・Snapshot混入は署名／配置Effect 0。正常時はstagingと最終Pathが同一file objectでbyte数・Hash一致。破棄は別Effectとして完了する | AIT-ST-010、各Identity、Root・対象集合、byte数・Hash、段階別Effect、promotion後staging状態、明示破棄、失敗理由、回復義務を保存する | promotion完了時は二名同一objectを許可する。明示破棄完了時だけ最終Path単独。失敗時はexact回復Identityを保持する | Automated |
-| `AIT-UT-011` | 境界 | UT | Signature Component | 署名PrimitiveとPublisher検証規則 | N/A | 期待Publisher、別Publisher、鍵差替え、無効署名 | 署名と検証規則を適用する | Publisher、payload Hash、署名結果、拒否理由を記録する | 期待Publisherの有効署名だけを受理し鍵内容を公開しない | 公開分類済み入力、Hash、結果、判定 | 秘密byte残存0 | Automated |
-| `AIT-UT-012` | 境界 | UT | One-shot Authorization | Authorization状態機械 | N/A | 未使用、予約済み、消費済み、失敗、競合要求 | Authorizationを原子的に予約・消費する | 状態遷移、勝者、敗者、鍵read回数を記録する | 一件だけが消費でき敗者と再利用要求は鍵を読まない | 入力、遷移、read回数、判定 | 再利用可能Authorization 0 | Automated |
-| `AIT-IT-013` | 境界 | IT | Signed Promotion Boundary | Signer→Staging→Manifest配置 | Adjacent 1 Block | 固定Snapshot、Root差、対象欠落、配置競合 | 署名結果を同じSnapshotのStagingへ配置する | Snapshot、署名、配置対象、競合、結果を記録する | 別Snapshotを混ぜず全対象が揃う場合だけ配置結果を返す | Snapshot、対象集合、配置結果、判定 | 部分配置0または同一Identityの回復義務 | Automated |
-
-### 配布担当者の固定端末入口
-
-| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `AIT-IT-015` | 境界 | IT | Terminal／Signing Entry | 固定端末入口→既存署名Command→画面保持 | Direct Boundary | 正常／未知／重複引数、期限／期限なし、TTY／非TTY、正常／失敗Command、EOF／取消 | 非秘密の固定入力でCommandと終了待ちを実行する | 搬送引数、単一UTC、Command呼出し回数、Reader接続順序、終了Code、Listener回収を観測する | 非TTY・不正入力はCommand呼出し0。秘密入力中は補助Readerなし。終了後だけ画面保持し、待機失敗が署名結果を上書きしない | 固定改訂版、非秘密入力、順序、Code、回収判定。秘密・実署名は試験に使用しない | Reader／Listener残存0、自動再試行0 | Automated |
+| `AIT-ST-004` | 境界 | ST | Execution／Result Correlation | 既存Coordinatorの実行経路・Reviewer結果 | System/E2E | 既存route／reviewerの正常・拒否・不明結果 | 既存の経路・結果搬送試験を実行する | 経路、入力と結果相関、拒否と未確認 | 正しい既存経路へ限定し、結果や不明状態を変換で失わない。独立Trust評価の成立根拠にしない | 固定した対象・入力、観測結果と未確認範囲を記録する。秘密値や不要な絶対Pathは保存しない | 追加Authority・暗黙再試行0、試験物回収 | Automated |
+| `AIT-UT-005` | 境界 | UT | Owner-local Validation | 既存OwnerのProvider Home・権限・隔離・Secret・egress・診断・Identity文法 | N/A | 各既存試験の正常・不正・境界値 | 既存Ownerの局所規則を反証する | 既存の判定・拒否理由・機密非開示 | 元の具体的検査を維持し、全体Trustや実行許可の判定器へ集約しない | 固定した対象・入力、観測結果と未確認範囲を記録する。秘密値や不要な絶対Pathは保存しない | 局所試験のEffect 0。既存assertを削らない | Automated |
+| `AIT-UAT-006` | 境界 | UAT | Human Judgment／Document Review | 公開根拠・既存確認結果→人間の導入判断 | User Acceptance | 公式／非公式表示と根拠の確認済み・未確認 | 導入責任者が既存文書と結果を読む | 区別できた根拠、判断理由、不足と未判断範囲 | 署名・公式表示・内容同一性だけで品質や実行許可を推定しない。Policy設定操作を要求しない | 固定した対象・入力、観測結果と未確認範囲を記録する。秘密値や不要な絶対Pathは保存しない | 専用Policy保存・評価API呼出し0。未実施をPassにしない | Manual |
+| `AIT-IT-008` | 正常 | IT | Reviewer／Task Contract | 既存Task設計・Reviewer実境界 | Direct Boundary | 既存のTaskとReviewer結果の入力 | 既存の契約試験で搬送と結果を照合する | 対象相関、結果と拒否・失敗 | Task／Reviewerの元の検証義務を維持する。旧鍵Capability／Signerの検証とは区別する | 固定した対象・入力、観測結果と未確認範囲を記録する。秘密値や不要な絶対Pathは保存しない | 実AIは別許可・非AIの結果で代替しない。試験物回収 | Automated |
 
-直接の導出元は[Coordinator詳細§9の移管前署名方式（比較基準）](../../../06_Architecture/Details/coordinator/01_Architecture.md#release-artifact-binding)の任意配布用端末境界である。[ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md)はCoordinator領域への追跡参照であり、Orchestratorの状態・Authorityを端末補助へ移すものではない。既存`AIT-IT-008`の秘密Bufferおよび`AIT-IT-009`のSigner結果責務を再定義しない。実Windows端末の表示確認と正式署名は、この非秘密ITの合格から推定しない。
+## 5. 評価とEvidence
 
-### 単一Native出所照合の検証義務
-
-Host終端記録のsave／read／対象観測も`AIT-IT-002`の実Source本文断面に含める。旧新二クラスで初回出所欠測・例外・実体差・token開始欠測、終了後の出所欠測・例外・改訂差・Artifact差・token失敗・直接実体差を個別に注入し、発行とdecoder回数、終了、同参照および保存Effectのfalse／true／nullを確認する。開発Context拒否とfresh再借用拒否、開始前・直前・終了後取消をそれぞれの実契約に適用する。終了後の改訂／出所Artifact／直接実体／token確認を一つずつ外した変異が専用反例で誤成功することを検出する。二回観測の実装側UTでは改訂差・Artifact差・通常／開発区分差・出所欠測を拒否し、cross-call比較を外した変異を検出する。模擬decoderを用いる本文試験は、独立frame検査を代替せず、廃止したWindows caller試験を現在の根拠にせず、実Native起動・実ACL・Docker／Provider E2Eへ昇格しない。
-
-共有回復領域初期化の追加断面は`AIT-IT-002`と既存`ERB-IT-003`へ接続する。初回出所欠測・実体不一致、各要求前後の出所欠測・例外・改訂完全tuple差・Artifact差・token失効を発生点別に反証する。2回目直前の拒否は1回目の親観測・終了確認を保持してProcess 1／Filesystem Effectなし、2回目終了後の拒否はProcess 2／初期化応答未採用／Filesystem Effect不明とする。正常時の照合回数は出所5・直接実体3・token開始1／確認4・補助要求2。pre／postの改訂比較とtoken確認を個別に外した局所変異が専用反例で検出されることを確認する。これは模擬Processを使った実Source本文の検証であり、実Native・実ACL・実共有Directory・実競合・Docker／Provider E2Eを証明しない。
-
-既存`AIT-IT-002`のNative同一性断面では、署名なしの実Git BlobとNativeを用い、Repository直下と採用先`01_CRDD/`配下の両方を確認する。文書だけの作業差分は受理し、Native bytes・mode・欠落Blob・欠落実行物・不正HEAD・不正Root・入れ子の不正Git境界・読取り例外・観測途中のNative差替えとHEAD移動は拒否する。Windowsの実junctionはHost試験で拒否し、試験後に自己生成Rootとjunctionの不存在を確認する。
-
-結果は同じRepository改訂版と単一Nativeの相関に限定する。署名、Publisher真正性、全Source一致、実行許可、Native補助Processの起動成功、Docker／Provider E2Eの成立へ拡張しない。保護Root／Provider HomeのSource接続は同じ`AIT-IT-002`の追加断面で確認し、通常の出所欠測・Artifact差・補助Process後のRevision変更／出所欠測／Artifactだけの不一致を拒否する。正常終了後の拒否でも補助子終了の事実を保持し、Capability非発行と回復必要状態を維持する。開発Contextの再借用と実行前後の実体確認は既存`ERB-IT-004`へ維持する。Sourceの結合試験は実Native・Docker・Provider E2Eとは区別し、未実測を完了へ昇格しない。
-
-## Semantic Coverage Pilot
-
-現在のSemantic Pilotに接続する追加項目はない。利用者Trust Policyの有効化とProvider起動Gateへの接続は将来範囲であり、現行の独立読取り評価や署名検証と混同しない。旧AIT-IT-014は上流の読取り評価を起動接続へ拡張したため除去し、IDは再利用しない。
-
-この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
-
-| Local ID | Semantic Key |
-|---|---|
-
-## 5. 署名入口とEvidence
-
-秘密入力前に非秘密の全検査を実行し、失敗時は鍵読取り、署名、配置およびAuthority発行を行わない。Evidenceは署名値や鍵を保持せず、検証した軸、対象Identity／Hash、Policy判定、非発行または後続Gateへの引き渡しを保持する。
-
-### 署名範囲縮小時の既存項目への適用
-
-[Coordinator詳細設計のV6方式](../../../06_Architecture/Details/coordinator/01_Architecture.md#署名範囲の縮小--v6方式と再編後の閉包)では、署名対象を固定Git版のRuntime実行集合とNativeへ限定する。以下は既存項目の具体的な反例・観測条件であり、新しいLocal Itemや実署名の合格を追加するものではない。
-
-| 既存項目 | 確認する条件 | 合格を推定してはならない範囲 |
-|---|---|---|
-| `AIT-IT-002` | Runtime、Policy、Native、Git由来またはV5／V6形式の不一致を秘密入力前に拒否する。文書だけの変更をRuntime改変として扱わない。 | 署名値が存在することから現在のRuntime Authority発行を推定しない。 |
-| `AIT-IT-003` | Root、検証材料または出所が観測不能なら、明示的な不存在・一致へ丸めず停止する。 | 観測できなかった検証材料を空集合や正常として扱わない。 |
-| `AIT-IT-013` | 最小準備の前後で選択集合・固定Commit／Tree・内容・Nativeが一致する。呼出し側が開始前に保持した両識別子を同値で搬送し、初回返却前中断でも既存Ownerのexact参照を再構成できる。不正・欠損入力は作成前に拒否し、配置競合と未確認終了では同じ回復参照を保持する。 | 準備と清掃の局所成功だけから署名・昇格全体を合格としない。 |
-| `AIT-ST-010` | 同じ操作Ownerで準備、対話署名、署名済み入口からの昇格、利用終了と清掃までを確認する。昇格未完了の唯一の署名結果を先に消さない。 | 非秘密の模擬Commandから実署名・本番昇格・正式Evidenceを推定しない。 |
-
-最小準備の試験は`AIT-IT-013`の配置前部分境界である。Signer結果の責務を所有する`AIT-IT-009`や、候補採否を所有する他のQuality項目へ流用しない。旧V5 Manifestを現在V6の正常入力に使う試験は前提の移行が必要であり、判定を緩めて正常化しない。
-
-Runtime資産移管の固定集合確認も`AIT-IT-013`の配布前部分境界として扱う。Docker Isolationの6資産とAI Adapterの5資産を本番収集本体・実安定読取り・metadata検査で観測し、11Path・canonical byte数／Hash・両Owner metadataと試験fixture除外を確認する。資産欠測・Owner metadata欠測・pending集合除去は狙った理由で拒否し、宣言だけの検査や無関係なVM例外を成功根拠にしない。現行Provider版・実行Path・設定HashとレシピCOPY／ENTRYPOINTの相関、助言contextの三入力搬送の3Caseは、QA-000006の前提資産相関試験へ分離する。この3Caseは旧署名収集・昇格の成立根拠に使わず、接続範囲と限界は同定義を正本とする。通常Runtimeに署名を再要求せず、この部分確認をLocal Item全体または全配布graphの合格へ昇格しない。
-
-### 責務再編後の閉包に対する反例と観測
-
-以下は段階3で固定する試験設計であり、未実行の新閉包をPassにしない。導出元はCoordinator詳細のV6方式と署名準備の一時領域である。既存Local Itemが所有する署名入力・配置・回復の条件を具体化し、Package改名だけで新しいIDを採番しない。
-
-| 既存項目 | 固定する入力・刺激 | 観測と判定 | 終了後条件 |
-|---|---|---|---|
-| `AIT-IT-002` | ai-adapter／domain-model／orchestrator／mcp-serverの到達Source、package metadata、登録子入口の一要素を変更・欠落させる。別に文書・未到達Sourceだけを変更する。 | 実行集合差は秘密入力前に拒否する。非実行変更はRuntime Identityを変えない。旧名の宣言だけ残る反例も拒否し、実際の依存抽出結果を比較する。 | 拒否経路の鍵read・署名・配置・Provider Effect 0。 |
-| `AIT-IT-003` | Git由来、Native実物、到達Source、Rootの一箇所を読取り不能にする。 | 観測不能を空集合・未到達・不存在へ変えず停止する。理由と対象の非秘密Identityを相関する。 | Runtime Authority非発行、exact未解決参照を保持。 |
-| `AIT-IT-013` | 開発Rootと採用先`01_CRDD`の各本体から最小準備し、旧Source Path、別Root、metadata欠落、公開前中断を個別に与える。 | 選択集合・Git Blob／mode・Native・固定Ownerを署名前後で比較する。全Repositoryコピーなし、未到達Workbench Browser Bundleなしを集合で確認する。 | 完成集合またはexact回復義務。未知の既存領域を上書き・削除しない。 |
-| `AIT-IT-015` | 再編後の単一Coordinator binへ、非秘密の署名入口引数をTTY／非TTYから搬送する。 | Command一回、秘密入力中の補助Reader 0、完了後だけ画面保持、終了Code非上書きを確認する。模擬Commandの成功は実TTY署名を代替しない。 | Reader／Listener 0、暗黙再試行0。 |
-| `AIT-ST-010` | 新閉包を固定Commitから準備し、外部TTY署名、署名済み固定入口から正式適用、利用終了、清掃を行う。適用前／適用後の中断を別scenarioにする。 | Manifest byte／Hash・Root・file object・同じ操作参照を各段階で相関する。適用済みの再入場は再署名・再適用0で清掃へ進む。 | 正常終了は`tmp/signature/`不存在。中断は唯一の署名結果とexact参照を保持し、清掃未確認を完了にしない。 |
-
-Evidenceは対象Commit／Runtime Identity、選択集合Hash、scenario、境界別結果・Effect件数・終了後観測を正式要約へ残す。入力全文・実行ごとの巨大書庫・秘密値を追加しない。旧版の結果は比較根拠として保持し、新閉包の実行結果と分離する。実境界署名は段階7で確認する。
+既存試験の内容・assert・実AIのopt-in条件は変更しない。局所試験のPassを人間判断・実境界・全体品質へ広げず、実行した範囲と未実施を記録する。
 
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
 |---|---|---|---|---|
-| RT | Required | 変更した意味と利用側から、再実行する既存Local Itemを選ぶ | Changeの通常検証範囲 | 未選択の範囲を明示し、選択した回帰の結果で評価する |
-| PT | N/A | 現在のQuality Contractに性能成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
-| LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
-
+| RT | Required | 変更した意味と利用側の限定回帰 | 通常検証範囲 | 未選択範囲を明示する |
+| PT | N/A | 新しい性能条件はない | N/A | Passへ読み替えない |
+| LT | N/A | 新しい長時間条件はない | N/A | Passへ読み替えない |
 
 ## UI／SPEC Detailからの観測条件
 
-Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。
-
 | Detail Source | Source Definition | 追加する観測条件 | 処置 |
 |---|---|---|---|
-| [SCR-000013／PRT-000013](../../../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
-| [BHV-000018](../../../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [SCR-000013／PRT-000013](../../../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | 既存根拠と未確認範囲の案内。専用画面は要求しない | Mapped |
+| [BHV-000018](../../../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | 人間判断と既存の操作許可を混同しない | Mapped |
 
 担当Interaction Relation: `PRT-000013.spec-000018`
-
-全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
 ## Checklist
 

@@ -87,7 +87,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 
 | 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |
 |---|---|---|
-| UX-000016 | Tool配布情報を管理する主体がCapability・Distribution・Manifestを保ち、利用可否と実行環境との結合を観測する責任がAvailabilityとBindingを観測する | Repository正本を管理する主体または導入環境の信頼方針を決める主体がTool利用と実行Authorityを許可する |
+| UX-000016 | Tool配布情報を管理する主体がCapability・Distribution・Manifestを保ち、利用可否と実行環境との結合を観測する責任がAvailabilityとBindingを観測する | Repository正本を管理する主体または導入環境の導入判断の基準を決める主体がTool利用と実行Authorityを許可する |
 
 責任と判断権限が同じ主体に属する場合も、情報を正確に保つ責任と、意味・状態・次の行動を確定する権限を同一視しない。各利用場面の導線は「利用場面」の対応表を正とし、結果なし、判断待ち、失敗、状態不明の場合も、根拠または安全な戻り先へ接続する。
 

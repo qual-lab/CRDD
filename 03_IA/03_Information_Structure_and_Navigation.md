@@ -84,7 +84,7 @@ Primary、Secondary、Referenceは情報上の優先度であり、画面の位�
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | Runtime RootからData Item・Durability・Retentionへ進み、残存時はRecovery Obligation・Cleanup Evidenceへ辿る |
 | [IA-000013](Definitions/IA-000013/ia_definition.md) | 適用 | Task RoleからConfiguration・Availabilityを確認し、SelectionとFallback Conditionへ辿る |
 | [IA-000014](Definitions/IA-000014/ia_definition.md) | 適用 | TaskからContext Package・Source Reference・Selection Reason・Handoff・Result・Decisionへ往復できるようにする |
-| [IA-000015](Definitions/IA-000015/ia_definition.md) | 適用 | DistributionからConformance・Integrity・Publisher・Quality Claimを確認し、Trust Policyによる判断へ進む |
+| [IA-000015](Definitions/IA-000015/ia_definition.md) | 適用 | DistributionからConformance・Integrity・Publisher・Quality Claimを確認し、既存根拠と未確認範囲を確認し、人間の導入判断へ進む |
 | [IA-000016](Definitions/IA-000016/ia_definition.md) | 適用 | Roadmap ItemからChange・Changed File・Revisionへ進み、Finding・Remediation・Test Layer・Evidence・Quality Stateを同じRevisionで辿る |
 | [IA-000017](Definitions/IA-000017/ia_definition.md) | 適用 | Destination・Purpose・ClassificationからConsentとOutbound Packageへ進み、結果はReturned Candidateとして採否へ戻す |
 | [IA-000018](Definitions/IA-000018/ia_definition.md) | 適用 | 物語で全体を理解し、構造化詳細と図へ進み、判断と引継ぎ義務へ辿る |

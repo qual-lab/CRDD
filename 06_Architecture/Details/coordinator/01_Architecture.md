@@ -559,7 +559,7 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI Adapterの適格性・計画を利用し、選定根拠、短命Grant、実行許可と再選定条件をEffect前に固定する。 | Partial |
 | [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | 共有Docker状態の記録・保持・回復相関。技術操作とFilesystem PrimitiveはDI／Lockに残す | Covered |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Transport非依存のTask公開契約。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Covered |
-| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 独立した読取り評価との責務境界を保持する。v0.22では利用者Trust Policyの有効化・Provider起動接続を要求しない。 | Partial |
+| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 既存のArtifact確認・現在認可・隔離の責務境界を保持する。独立評価器・Policy管理の実装待ちは設けない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | Repository送信Policy、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
 
 Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
@@ -611,7 +611,6 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 | `coord.advice-code-mode-host` | Interface／Sequence／Failure-Recovery | §7.5.1の公式CLI・Host、stdin入力、Docker隔離 | 未改造の公式配布と公開設定で助言結果を搬送し終了後確認まで到達 | 実行物欠落・差替え、起動失敗、不正通知・複数結果、取消・親Process喪失後の残存 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 配布Hash、構成、通知分類、結果、終了後の資源観測 | 所有資源不存在またはexact回復義務保持。観測不能は成功にしない | 公式CLIの公開経路、失敗・取消反証および実Provider E2E |
 | `coord.provider-selection` | Interface／Implementation Structure | Task属性、Provider／Model構成、Home、Trust結果 | 利用可能性・Policy・Trustを満たす計画だけをEffect前に固定 | 不正Home、未信頼Runtime、利用不能Modelの選択 | IT | Direct Boundary | 選定理由、再選定条件、Trust結果、Effect 0 | Provider Process未開始 | 実Provider／実Homeを使う結合確認 |
 | `coord.provider-attempt` | Sequence／Failure-Recovery | Task／Attempt、送信Authority、Provider Effect、Reviewer結果 | 同じIdentityで結果または理由別停止へ到達 | 承認不足、sandbox拒否、CLI exit、無許可送信、生結果の直接採用 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | phase診断、exit、送信範囲、候補状態 | Process／stream／Container回収、未採用候補隔離 | 実Providerによる双方向経路と候補Review |
-| `coord.signed-promotion` | Data Flow／Sequence | 任意正式配布のDistribution Root、Manifest、署名結果、staging（通常Runtimeの必須条件ではない） | 採用した配布範囲を一つの固定Snapshotとして署名し、競合なくpromotion | Root差、対象漏れ、別Snapshot混入、配置途中失敗 | IT／ST | IT: Adjacent 1 Block<br>ST: System/E2E | Manifest hash、Snapshot Identity、staging／promotion状態 | 失敗候補は正式配布不可、staging義務を保持。通常実行の許可とは独立 | 任意正式配布として適用した場合のRelease署名とpromotion |
 | `coord.task-recovery` | State Transition／Failure-Recovery | exact Task／Attempt／Recovery Identity | 取消要求後の終了状態を観測し、同じIdentityへ再入場 | Effect不明の再発行、別Task混入、要求受理だけの完了化 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 状態、資源、Recovery Identity | 不存在確認または義務保持 | 実Processの取消・競合完了・再入場 |
 | `coord.docker-repair-handoff` | Sequence／Failure-Recovery | repair／restart／handoff IdentityとHost資源 | 旧Effectを再発行せず、現在状態をfresh観測して同じ義務を継続 | stale socket残存、旧Runtime Effect再発行、別Session混入 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | Operation状態、Process／socket、Engine readiness、handoff chain | 不存在またはexact義務保持 | 実機停止・修復・再起動・別Runtime引継ぎの正式E2E |
 | `orchestrator.task-lifecycle` | Task詳細への投影 | Objective／Task | Task詳細参照 | Task詳細参照 | UT／IT | UT: Direct Boundary<br>IT: Adjacent 1 Block | Task詳細参照 | Task詳細参照 | Task詳細参照 |
@@ -649,7 +648,7 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 
 `workspace/`と`diagnostics/`は実責務へ分配して解体する。継続Workspaceの選択・寿命・採否は既にOrchestratorが所有するため、CoordinatorからWorkspaceを新たに管理させない。借用対象照合・変更Snapshot・一時Operation作成・技術的な修復Sessionの保存直列化とRoot保護候補は`execution/`、診断受付・表示は`cli/`が所有する。GitのHEAD／Tree・前後同一性観測はVersion Controlへ移し、Orchestratorはその公開操作を直接利用する。Coordinatorの40桁実行制限を汎用Git観測へ持ち込まない。
 
-`authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査の承認済み目標OwnerはDomain Modelの`plain-data/secret-validation.ts`とし、Workspace・送信範囲・実行入力・結果取込は同じ純粋検査の利用側とする。現SourceはDomain Modelへ移管済みで、CoordinatorはDomain Rootの公開Symbolを利用する。既知pattern・Path・文字列の検査を維持し、秘密値の保存・Credential管理・未知Secret不存在証明を追加しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
+`authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査の承認済み目標OwnerはDomain Modelの`plain-data/secret-validation.ts`とし、Workspace・送信範囲・実行入力・結果取込は同じ純粋検査の利用側とする。現SourceはDomain Modelへ移管済みで、CoordinatorはDomain Rootの公開Symbolを利用する。既知pattern・Path・文字列の検査を維持し、秘密値の保存・Credential管理・未知Secret不存在証明を追加しない。独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
 
 Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/recovery.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。判断はDomainの単一State Writerへ統合する。検証報告のsidecar保存だけをExecutorの`scripts/report.ts`が所有し、Domainの汎用JSON保存公開は撤去する。旧Journalの残る17操作は、唯一の本番Consumerが`a04ecb703`で撤去済みであり、旧回復Directoryへfallbackしない既存方針に従って退役する。現在の回復は`execution/recovery.ts`と現在状態checkpoint、Docker Isolationの実資源回収へ対応付け、旧方式の試験を現方式の保証と混同しない。`execution/controller.ts`は開始前予定保存、Host実遷移、清掃・Mount終了根拠の照合と後続checkpointを所有する。保存Schema・失敗分類・確定順序は維持し、StoreはReaderと既存Writer操作だけを提供する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
 
@@ -1142,83 +1141,11 @@ Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検�
 
 現行のレシピ・Provider設定・助言Image準備の入力搬送は、署名配布graphと独立した資産相関として維持する。専用の`runtime-assets.contract.test.ts`で既存の三つの検査本文を保持し、公式CLIの未改造利用と資産Owner間の接続を確認する。この局所検査を未知状態のEffect拒否、公式実行物検証、実Buildまたは実Docker隔離の証明へ拡張しない。検証義務の限定範囲はQA-000006を正本とする。
 
-### 移管前の署名方式（V6比較基準・現在の実行契約ではない）
+### 廃止した専用署名方式
 
-以下の旧方式は、過去能力と撤去・代替対象の照合に限って保持する。現在の通常Runtimeに必須署名、配布閉包、一回署名Capabilityまたは旧署名chainを要求する根拠へ再利用しない。
+専用署名・準備コピー・Manifest昇格の実装、検証本文、利用入口は現行の契約・開発残件に含めない。当時の設計と結果はGit履歴と既存変更記録で追跡する。現在の内容同一性・認可・隔離・結果搬送・回復はそれぞれの既存Ownerが維持する。
 
-独立Trust Policyの有効化とProvider起動へのAdapter接続は[Roadmapの将来版](../../../99_Roadmap/01_Roadmap.md#2-版ごとにできるようになること)の対象であり、現行Coordinatorの必須能力ではない。旧V6の署名・完全性・起動時再検証は当時の比較保証に限定し、現在の保証は§9の現在認可・固定入口・必要Artifact同一性へ接続し、独立読取り評価だけから実行Capabilityを発行しない。
-
-### 署名範囲の縮小 — V6方式と再編後の閉包
-
-2026-10-06の人間判断により、候補ごとのRepository全体展開と署名前／Manifest昇格時の全体Tree再構成を廃止する。現在SourceのManifest改訂版と署名domainは6／V6へ切替済みである。局所検証と必要な実署名・TTY・製品E2Eを区別し、Source接続だけで実Runtimeの利用可能を表示しない。今回の責務再編では、同じ閉包抽出に新しい公開入口・子入口・Package metadataを接続し、旧版の署名や検証結果を新しい実行Identityへ流用しない。
-
-| 観点 | 変更目標 | 維持する保証 |
-|---|---|---|
-| 実行対象 | 既存の実行閉包観測を使用する。Coordinatorのproduction allowlist、公開入口、登録済み子入口、到達した兄弟Componentとpackage metadataを対象にする。全`40_Develop`へ広げない。 | 集合内の欠落・追加・改変、集合外依存、未登録子入口と観測不能を拒否する。 |
-| Native／外部実行物 | Platform AccessのPath・bytes・Hash・protocol等を同じ署名Identityへ結合する。Provider image／binary／settingsは既存Provider Ownerの検証へ接続する。 | コードHash一致だけでNativeや外部Provider実行物の一致を推定しない。 |
-| Gitの出所 | CommitとTreeの結合は維持し、署名する選択FileとNativeのGit Blob・mode・正規化後bytesだけを照合する。 | 未Commitまたは別Commitの実行物混入を署名前に拒否する。非実行文書等の全体一致は保証しない。 |
-| 設定 | 固定Security Policyは署名対象のまま維持する。Repository Manifestと外部送信Policyはそれぞれの既存Ownerが検証・更新する。 | Repository固有設定を署名済みRuntime設定と誤表示せず、秘密・Credential・現在状態を署名対象に混ぜない。 |
-| 形式と利用側 | 新しい意味をManifest revision 6と署名domain V6で識別し、署名／検証を同時に変更する。 | V5署名をV6の現在実行許可へ読み替えない。必要な旧履歴専用検証は旧domainのまま分離する。 |
-| 一時配置 | 通常試験は作業Sourceで実行する。署名・原子配置に必要な最小集合だけを固定`tmp/signature/work/`へ配置する。 | 全Repositoryコピー、恒久候補Directoryの累積、新しい清掃Frameworkは作らない。 |
-
-> 2026-11-12追記: 以下はa04ecb703で撤去した署名準備経路の比較記録であり、現行の実行モデルTemporary Operation APIの本番接続を示さない。同APIも未接続機能として退役する。通常State／Attempt回復と、実行中の一時領域を各Ownerが直接回収する現行処理は別契約として維持する。
-
-署名準備はOrchestratorのAI実行キューとは別の入口であり、キューへの保存を回復参照の保持根拠にしない。起動するフロントAIが最初の作成前に`operationId`と`identity`を確定・保持し、CLIから準備処理へ同じ値を渡す。初期参照は既存Runtime Dataの固定Owner `coordinator-release-runtime`と世代`1`へ結合する。内部生成後の端末表示だけに依存せず、既存の一時操作記録とexact参照による再入場を利用する。識別子から操作能力を復元せず、新しいstate・キュー・回復DBを作らない。
-
-公開入口から、集合抽出、出所確認、秘密入力前の検査、同じ固定入力の再観測、署名、opaqueなManifest bytesの原子公開、結果受理と終了清掃までを一つの経路として接続する。失敗・中断時はexactな未解決対象をOwnerが再確認し、不明を不存在や成功へ畳まない。配置後のManifest一致だけで署名元Runtime・実際の起動物・現在Authorityの一致を推定しない。
-
-実行前後のHashはその観測時点の一致であり、途中の変更・復元や後続の子起動まで変更不能だった証明ではない。既存のRoot Protection、Native選択、子起動とEffect前の再検証の責務を維持し、未実装の保護を今回の縮小で完成へ昇格しない。全体Tree照合も実行中の変更不能を保証していたわけではない。
-
-必須反例は、文書のみの変更によるRuntime一致、実行Source／Policy／Nativeの変更拒否、未登録子入口と兄弟metadata欠落の拒否、Commit由来不一致、Repository設定やProvider Identity不一致の処置、観測後の差替え、V5／V6混在、Manifest公開競合、途中停止と再入場である。検証設計は既存QA-000010の項目を使用し、項目追加そのものを目的にしない。旧V5の全配布展開・旧候補Pathの記述は移管前の比較基準であり、V6の新規入口へ適用しない。現在の固定一時配置は末尾の「署名準備の一時領域」に従う。旧署名方式の残る記述と全利用側の対応は段階3で整理し、旧実物の清掃はフロントAIへ渡す。
-
-配布担当者の端末補助は`40_Develop/coordinator/scripts/sign-release-terminal.ts`へ固定する。候補ごとの一時Scriptを量産せず、候補Identityと非秘密の署名条件だけを引数で渡す。補助入口は単一の現在UTCから時刻を整え、既存の署名Commandを同一Processで呼ぶ。新しい子Process、秘密入力Owner、署名Authority、結果Storeまたは回復Frameworkを設けない。署名完了後だけ画面保持の入力を所有し、画面保持の失敗で署名結果を変更しない。窓の強制終了は完了・Effect 0と推定せず、既存Manifest検証へ戻す。既存共通Launcherの契約は維持する。
-
-### 選択した署名入力の観測予算
-
-署名準備が観測する選択File集合は、最大4096ファイル・合計64MiBの固定予算とする。件数と容量を別々に判定し、どちらかの超過、実体変更、alias、Root差または選択したGit由来不一致を拒否する。予算はRepository全体を展開する要求ではない。観測予算内であることを署名・Authorityの成立とは扱わない。Runtime packageやTrust Coreの別母集合の予算はこの値へ一括変更しない。
-
-この件数はV6の選択したRuntime入力と固定成果物のための上限であり、Runtimeの履歴保持数や同時実行数ではない。秘密入力前に同じ固定入力を観測し、選択FileのGit Blob・modeと実行bytesの一致を確認する。文書・試験・未到達Componentの全体コピーを新規署名の前提にしない。
-
-旧方式の鍵参照・秘密入力・暗号署名とCoordinator固有Manifest準備は廃止した。[成果物署名Packageの退役案内](../artifact-signing/01_Architecture.md)を参照し、当時の設計はGit履歴で追跡する。Coordinatorへ代替署名・秘密入力機構を追加しない。
-
-CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採る。v0.21の目標Release候補TreeにはSource、文書、試験および固定成果物`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含める。署名ManifestはCoordinator配布物の固定入口である`template/tools/coordinator/coordinator-package-manifest.json`へ置き、launcher、公開API改訂、`40_Develop`実装およびNative Runtime Artifactを同じ配布全体Identityへ結合する。実装、署名、昇格および検証は同じPathを正本として使用し、設定用の別Pathへ複製しない。
-
-配布には二つのIdentityを用いる。V6の現在の署名対象は上記の選択集合であり、以下のrevision 5の記述は旧母集団との比較だけに用いる。
-
-- リリースIdentity（Release Identity）は、Version、tag、Repository Commit／Tree、文書、移行およびCHANGELOGを含み、「このCRDD Releaseは何か」を示す。
-- Runtime実行Identity（Runtime Execution Identity）は、実行に影響する閉じた依存集合、Security Policyおよび固定Platform Access成果物を含み、「何の実行へAuthorityを与えるか」を示す。
-
-manifest revision 5は、Coordinatorのproduction distribution allowlistである`bin/**`、`src/**`、`runtime/**`、`policies/**`および`package.json`全体に加え、共通Launcherの正本が選ぶ署名・4経路・Recovery入口と、そこから静的に到達する選択済み`script`依存を自動走査する。2つの公開Launcherと、責務分離されたMCP、Orchestratorおよび実行知（Execution Intelligence）は、公開入口からcanonicalな静的importで到達する許可済み`src/**`と、そのNode module解釈を決める各componentの`package.json`を同じ実行閉包へ含める。したがってallowlist内の未参照Coordinator production sourceはIdentityを変えるが、未到達の兄弟Component、文書、試験およびbuild-only sourceは変えない。到達した兄弟Component／Launcher／protocol source、または到達Componentのpackage名・版・`private`・module種別を含むmetadataはIdentityを変える。package metadataの欠落・不正と実行集合外importは拒否する。このcontent root、Root Protection／Key Storage Policy Hash、Platform Access成果物のPath・target・protocol・toolchain・byte長・SHA-256からRuntime実行Identityを決定論的に算出し、Ed25519署名へ結合する。
-
-兄弟Componentは名称やDirectoryの存在ではなく、固定公開入口と登録された検証・子入口からの実際の依存だけで署名閉包へ入る。再編後はAI AdapterのProfile／Provider計画、Domain Modelの用途別公開入口、実行知とVersion Controlの到達部分を新Path・metadataへ接続する。Orchestrator／MCP Server／CROSは検証入口から必要な部分を含めるが、Coordinator本体から上位操作を再公開する理由にしない。WorkbenchのBrowser BundleやReactを閉包へ無条件に加えない。公開入口は軽量な責務別exportを用い、Catalog解決だけでStore・管理画面・全Domainを引き込まない。新しい閉包は実装後に抽出・照合し、以下の旧母集団を改名するだけで一致済みとしない。
-
-| 現行閉包の宣言 | 再編後の対象 | 同時に照合する利用側 |
-|---|---|---|
-| ai-runtime | ai-adapterの到達したProfile／Provider公開操作とmetadata | Coordinator実行・署名準備・検証入口。秘密Homeや外部CLI本体は別Ownerの実物検証を保持。 |
-| project-operation／runtime-dataの宣言とcrdd-domain-libraryの利用側 | domain-modelの用途別公開操作と一つのpackage metadata | Root／保存／署名一時操作と、検証入口が使用する成果物操作。現在の宣言外利用も不足として照合し、未到達の全機能を追加しない。 |
-| orchestrator | orchestratorの検証入口が到達した操作 | 本体の逆依存を撤去し、署名検証の実入口から下位呼出しまでを確認。 |
-| mcp | mcp-serverの登録検証入口からの到達部分 | 配布Launcher、stdio／HTTP試験入口、CROS能力接続。旧REST／Gatewayは撤去。 |
-| access-management／execution-intelligence／version-control | 維持するOwnerの到達部分とmetadata | 現在認可・記録・Git意味と新利用側の接続を保持。独自署名Packageは廃止。 |
-
-閉包表、Launcherのliteral import、子Process／Worker宣言、Source上の実呼出し、Package名・module解釈、Git由来、Native固定Pathを同じ改訂で更新する。表の予定処置だけからSource接続や署名検証Passを主張しない。
-
-TypeScript依存は正規表現ではなく、コメント、文字列、template、正規表現literalおよび構文tokenを区別するFail Closedの字句解析で抽出する。静的import、再export、動的import、型専用bindingおよび値bindingは、前のsemicolonや改行位置から逆算せず、括弧と宣言の終端を先頭から対応付ける一つのmodule宣言解釈から導出する。許可するmodule指定は、Node.jsが実在を確認できる`node:`組込みmoduleと、閉じた実行集合内へ正規解決されるrelative pathだけである。bare package、絶対Path、`file:`／`data:` URL、escapeを含むspecifier、許可された一つの検証入口を除く非literalの動的import、解析不能なsource、実行集合外へ解決される依存を拒否する。`createRequire`、bare `require`または`process.getBuiltinModule`による保護moduleの再取得も許可しない。共通Launcherは入口表の各対象をliteral importとして所有し、入口表とliteral依存を双方向に照合する。
-
-子Process、Workerおよび実行後Lifecycleの利用側閉包は、手書き一覧の存在だけでは成立しない。本番実行集合から導出したmodule宣言、能力binding、直接呼出しおよび全値利用と、許可するsource、所有関数、primitive、実行対象式、引数式、事前Authority証明および期待件数を持つ宣言集合を双方向に照合する。未知の実行対象、追加呼出し、別名・namespace・再export・関数値・property・依存注入による再搬送、または宣言だけで実利用がない状態を拒否する。CanonicalなPath、Identity、StateまたはCapabilityをConsumerが別の基準で再解釈・再構成してはならない。純粋な型import／型re-exportは実行能力取得とせず、値re-exportや未使用の値importは取得済み能力として扱う。固定`taskkill.exe`等の非Node成果物も、source単位の広い許可ではなく、正規の呼出し位置と証明済み実行対象へ結合する。旧revision、削除済みfield、別Path alias、Identity不一致または欠落fallbackを受理しない。
-
-content rootでは、署名対象の`.ts`、`.json`、`.policy`、`.py`、`.txt`および`.Dockerfile`をLFへ正規化する。Windows CheckoutのCRLFとLFは同じ正本内容として扱うが、行内容、終端改行、単独CRその他の差分は同一視しない。Native成果物その他の非テキストは生バイトの長さとSHA-256を完全一致させる。README、CHG、Roadmap、品質記録、試験source、build設定その他の実行集合外の変更はリリースIdentityを変えるが、Runtime実行Identityを変えない。
-
-Runtimeは現在CheckoutのRepository Tree全体を実行Authorityとして要求しない。固定manifest、閉じた実行集合、PolicyおよびNative成果物を起動前後に照合し、Runtime実行Identityの一致からAuthority候補を得る。これにより文書だけの修正後も同じRuntime実行Identityと既存の署名・E2E根拠を再利用できる一方、実行集合、PolicyまたはNative成果物が1 byteでも変われば再署名が必要になる。RecoveryもRepository Treeではなく、Runtime実行Identity、Operation、Resource、Provider／Home bindingおよびRecovery契約revisionへ結合する。
-
-署名入口は、非秘密条件と配布候補を確認するP検査、秘密入力、P検査が発行した一回限りの不透明な能力を消費する独立S検査、秘密鍵読取り、署名、配置、公開結果の順序を唯一の実行経路とする。P検査は入力のdata propertyを一度だけsnapshotし、Accessor、Proxy、欠落または追加fieldを拒否する。S検査はP検査の観測値を署名値として流用せず、同じ固定入力から配布物、Runtime実行Identity、Release Identityおよびstaging sessionを再観測する。S検査へ渡す能力を偽造、再構成または再利用できず、別のoptions、fallback値またはP／Sの観測値を混ぜない。
-
-保護対象経路の検証は、一般的なTypeScript解析器をRuntimeへ追加せず、CRDD公式Runtimeが宣言した署名、実行能力、回復および昇格の経路だけを限定した構文・binding・値由来グラフとして扱う。Actualグラフは実sourceの正規named import、所有関数、直接call、引数、結果binding、guard、最初のEffectおよび公開結果から導出し、独立に宣言したExpectedグラフと不足・余分の両方向で完全一致させる。別名、shadow、property化、関数値化、wrapper、結果再構成、guard前Effectまたは判定不能なescapeは拒否する。本文Hashとtoken列は変更検知の補助であり、binding、到達可能性、支配または値由来の証明を代替しない。
-
-署名Source Aからmanifest carrier Bへの境界は、署名済みManifestをJSON文書として再生成する境界ではなく、不透明なbyte列を固定Pathへ昇格するRelease Effectである。署名器が固定`.crdd/tmp/signature/work/`で完成・flush・再読取り済みのfileを入力とし、昇格Coreは一時Root、Source file、Repository Rootおよび両親DirectoryのIdentityを保持する。昇格コード自身も署名対象の閉じたRuntime実行集合へ含め、署名済み一時集合内のLauncherだけを実行入口にする。作業Checkoutの未署名コードへ一時Pathを渡してはならず、実行元が検証済みRepository直下の固定`.crdd/tmp/signature/work/`と一致しない場合はEffect 0で停止する。最終Pathへ段階的に書き込まず、同一Filesystem上の排他的なhard link作成によって完成fileだけを一度に公開し、開始時のsourceと公開後の二名が同じfile objectを指すこと、byte数およびSHA-256を確認する。公開Effectの中ではPathによるsource削除を行わない。一時側の名前は所有範囲を再確認する明示清掃へ委ね、昇格成功結果には残存状態を返す。公開昇格入口はそれに先立ち、固定公開鍵による署名、Source AのCommit／Treeと選択FileのGit由来、一時集合内の閉じたRuntime実行集合、Policy、Native成果物、配置先Repositoryの現在HEADおよび配置先不存在を同じ候補へ結合し、昇格後にも同じ検査をやり直す。Git管理外の依存物や一時物をGit由来検証へ混入させず、実行集合のbyte完全性は署名済み一時集合から検証する。API呼出し、link要求またはfile存在だけを昇格完了としない。正式適用後は末尾の一時領域契約で清掃し、旧release候補Directoryを恒久保持しない。
-
-昇格前の観測不能は不存在へ畳まずEffect 0で停止する。Process消失後は、`stagingだけに存在`、`stagingと最終Pathが同じfile objectを指す`、`明示破棄後に最終Pathだけに存在`の三状態を、同じ署名済みbyteとRoot／親Directory Identityで再構成して再入場する。二名が同じfile objectを指す状態を昇格成功の耐久状態とし、別Identityの二重存在、内容変化、Root／親Directory置換または観測不能では自動削除しない。公開後の失敗を推測rollbackせず、同じ昇格入口で正確な状態から収束させる。昇格成功はRelease Authority、Runtime Authority、Capability、Commit B、staging破棄完了または公開を単独では成立させない。
-
-リリースIdentity、Runtime実行Identityおよび作業対象のExecution Revisionは同一ではない。一般Task開始前後に観測するExecution Commit／Treeは変更候補を作るRepositoryのIdentityであり、Executor候補の`baseCommit`／`baseTree`はこれへ一致しなければならない。CRDD自身のDogfoodingと、親RepositoryがCRDDをsubmoduleとして利用する場合を同じIdentityへ畳み込まない。
+作業対象のExecution Commit／Treeは変更候補を作るRepositoryのIdentityであり、Executor候補の`baseCommit`／`baseTree`はこれへ一致しなければならない。CRDD自身のDogfoodingと、親RepositoryがCRDDをsubmoduleとして利用する場合を同じIdentityへ畳み込まない。
 
 作業対象Commitから外部送信Policy等の明示ファイルだけを読む場合、Git object readerは許可された読取り投影へ到達するTreeと対象fileだけを処理する。投影外の通常file、symlinkまたはgitlinkは作業対象へ含めず、親Repositoryが別位置にCRDD等のsubmoduleを持つことだけで対象fileの読取りを拒否しない。ただし、選択Path自体またはその祖先がsymlink／gitlink／未対応modeである場合と、Commit全体を隔離候補へ展開する場合は従来どおり拒否する。限定投影を、gitlink配下の横断読取りや全体展開の許可へ拡張しない。
 
@@ -1385,7 +1312,7 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 #### 終端記録の保存・再入場の候補契約
 
-2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 旧caller固有の容量、保存先、prepare／publish／readの接続要求も現行実装義務から外す。基準版`7c4100bc`以前の設計・Git履歴は比較専用とし、実清掃や同参照再入場の成功を示さない。
+2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧専用Source・試験は撤去済みで、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 旧caller固有の容量、保存先、prepare／publish／readの接続要求も現行実装義務から外す。基準版`7c4100bc`以前の設計・Git履歴は比較専用とし、実清掃や同参照再入場の成功を示さない。
 
 #### 限定保守のcaller接続と二回の短命処理
 
@@ -2381,7 +2308,7 @@ CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成�
 | Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Process Controller、候補ReviewおよびRecoveryの具象差を、Authority、結果、診断、取消とcleanupの共通契約へ揃える。 | 各具象は同じTask／Attempt Identity、Effect境界および終了後条件を保ち、固有出力を上位へ漏らさない。 | 新ProviderやOS経路だけが別の承認、状態、結果または資源回収規則を持つ。 | `coord.provider-selection`、`coord.provider-attempt`、`coord.task-recovery` |
 | Creation／Selection | Required | Role・Profile・利用可能性・実行許可の選択が必要である。 | AI Adapterで構成・適格性を解決し、Coordinatorで実Home・固定入口と必要Artifact同一性・現在の送信許可・短命GrantをEffect前に結合する。 | 選定とProvider Effectを分け、署名を通常実行資格にせず、独立Trust Policy Frameworkは要求しない。 | 選択後の再解釈や入口別選択で経路が不一致になる。 | `coord.provider-selection` |
 | State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | Task／Attempt／Process／Review／Recovery状態ごとに許可する操作を限定する。 | Effect不明やcleanup未確認を成功状態へ遷移させない。 | 状態分岐の分散で再発行や回復Identity喪失が起きる。 | `coord.provider-attempt`、`coord.task-recovery` |
-| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 選定、送信許可、Provider実行、Review、候補、cleanupを順序付きで合成する。 | 各段階は前段の確定結果だけを入力とし、循環再試行を作らない。 | 部分成功を全体成功に畳む、または同じEffectを再実行する。 | `coord.provider-attempt`、`coord.signed-promotion` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 選定、送信許可、Provider実行、Review、候補、cleanupを順序付きで合成する。 | 各段階は前段の確定結果だけを入力とし、循環再試行を作らない。 | 部分成功を全体成功に畳む、または同じEffectを再実行する。 | `coord.provider-attempt` |
 | Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | 子Process、stream、Container、候補一時領域とRecovery義務をTask／Attemptへ結ぶ。 | 生成したOwnerが移送またはcleanup確認まで責任を持つ。 | 利用側が完了を受け取っても資源と回復義務が残る。 | `coord.task-recovery`、`coord.docker-repair-handoff` |
 | External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Docker、OS Process、Filesystemを診断可能なAdapterで隔離する。 | 要求・開始・完了・結果搬送・終了後状態を同じOperationで相関する。 | CLIやOS差を成功／不存在へ畳み、原因境界を失う。 | `coord.provider-attempt`、`coord.docker-repair-handoff` |
 

@@ -1,4 +1,4 @@
-# SCR-000013 Runtime信頼判断と公式識別
+# SCR-000013 導入判断の根拠と公式識別
 
 成果物種別: Logical Screen Detail
 Screen ID: `SCR-000013`
@@ -7,41 +7,41 @@ Screen ID: `SCR-000013`
 
 ## 1. Screenの目的と入口・終了条件
 
-- 利用者の作業・認識目的: 配布元、改ざん有無、準拠、利用者の信頼方針を分けて判断できる。
+- 利用者の作業・認識目的: 配布元、改ざん有無、準拠、利用者の導入判断の基準を分けて判断できる。
 - 対象UI Definition: [UI-000013](../../../../Definitions/UI-000013/ui_definition.md)
 - Area: [configuration-trust](../area.md)
-- 入口: 利用者が「Runtime信頼判断と公式識別」を必要とし、対象Contextを識別できた時
-- 終了条件: 配布元、改ざん有無、準拠、利用者の信頼方針を分けて判断できる。 次の安全な行動または所有正本を選べる
-- Route／Surface候補: CLI、MCP、Markdownまたは将来GUI。SurfaceはScreen Identityではない
+- 入口: 利用者が「導入判断の根拠と公式識別」を必要とし、対象Contextを識別できた時
+- 終了条件: 配布元、改ざん有無、準拠、利用者の導入判断の基準を分けて判断できる。 次の安全な行動または所有正本を選べる
+- 提示範囲: 既存の公開文書・確認結果への案内。専用画面、CLI／MCP操作や将来GUIの開発要求は設けない
 
 ## 2. Screen Composition
 
 ```text
 +---------------- SCR-000013 ----------------+
-| PRT-000013  Runtime信頼判断と公式識別 |
+| PRT-000013  導入判断の根拠と公式識別 |
 |  現在状態 → 根拠・不足 → 主要操作 → 次の行動 |
 +-----------------------------------------------+
 ```
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000013` | 配布元、改ざん有無、準拠、利用者の信頼方針を分けて判断できる。 | 対象、状態、根拠、不足、観測時点、次行動 | 検証する／信頼方針を選ぶ／詳細を見る。 | ready／pending／blocked／unknown／restricted |
+| `PRT-000013` | 配布元、改ざん有無、準拠、利用者の導入判断の基準を分けて判断できる。 | 対象、状態、根拠、不足、観測時点、次行動 | 既存の確認結果・公開文書を見る／根拠と未確認範囲を確認する。 | ready／pending／blocked／unknown／restricted |
 
 ## 3. InteractionとBHV対応
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
-| `PRT-000013.spec-000018` | PRT-000013 | 検証する／信頼方針を選ぶ／詳細を見る。 | 受付、結果、失敗、判断不能および安全な次行動を区別する | [BHV-000018](../../../../../05_SPEC/Details/BHV-000018/behavior.md) | Covered |
+| `PRT-000013.spec-000018` | PRT-000013 | 既存の確認結果・公開文書を見る／根拠と未確認範囲を確認する。 | 受付、結果、失敗、判断不能および安全な次行動を区別する | [BHV-000018](../../../../../05_SPEC/Details/BHV-000018/behavior.md) | Covered |
 
 ## 4. State／Variant
 
 | State／Variant | 発生条件 | 表示する意味 | 操作 | 回復／次の状態 |
 |---|---|---|---|---|
-| ready | 必要情報とAuthorityを確認できる | 安全に主要操作へ進める | 検証する／信頼方針を選ぶ／詳細を見る。 | 結果を同じContextで確認 |
-| pending | 外部処理または人間判断を待つ | 未完了とOwnerを示す | 待機／取消／判断 | 同じIdentityで再観測 |
+| ready | 必要情報とAuthorityを確認できる | 安全に主要操作へ進める | 既存の確認結果・公開文書を見る／根拠と未確認範囲を確認する。 | 結果を同じContextで確認 |
+| pending | 人間の判断が未確定 | 未判断であることを素材文書または確認記録に示す | 根拠確認／人間判断 | 判断後の文書へ戻る |
 | blocked | 前提、権限または入力が不足 | 理由と影響範囲を示す | 修正／再確認 | readyへ戻る |
 | unknown／stale | 現在状態を断定できない | 正常・不存在と区別する | 再観測 | 根拠取得後に再判定 |
-| restricted | 開示または操作不可 | 許可範囲だけを示す | Authority確認 | Grant更新後に再評価 |
+| restricted | 開示または操作不可 | 許可範囲だけを示す | Authority確認 | 既存の開示担当または素材の判断権限者へ確認し、許可範囲の文書へ戻る |
 
 ## 5. VisualとAccessibility
 
@@ -56,18 +56,18 @@ Screen ID: `SCR-000013`
 
 | Candidate | 判定 | 反復根拠 | 昇格先／非昇格理由 |
 |---|---|---|---|
-| 状態・根拠・次行動 | Keep as PRT | 意味順序は共通だが実画面の構造反復は未確認 | Product固有GUIで複数画面の反復を確認するまでCMPを発行しない |
+| 状態・根拠・次行動 | N/A | 既存文書の読取り説明であり、製品Componentを要求しない | 専用Componentや将来GUIの開発待ちを設けない |
 
 ## 7. 未確認事項・戻り条件
 
 | 項目 | 現在状態 | Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
 | Product固有Layout | N/A | v0.22 UI工程Owner | v0.21の意味契約には影響しない | GUI Productを設計する時 |
-| CMP昇格 | OPEN | UI工程Owner | 再利用Component未発行 | 複数実画面で反復を確認した時 |
+| CMP昇格 | N/A | UI工程Owner | 専用画面・Componentの開発は要求しない | 別の製品要求が採用された時だけ再検討 |
 
 ## 補足分析
 
-v0.21のUI DefinitionをLogical Screenへ具体化した。SourceやWIPの配置をScreen Identityへ使っていない。
+本Detailは既存文書の読み順と根拠の区別を説明する。製品の新画面・非同期処理・State Store・Component化を要求しない。
 
 ## Checklist
 

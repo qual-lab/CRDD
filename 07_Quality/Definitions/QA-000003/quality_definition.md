@@ -169,7 +169,7 @@ Task実行／Review条件、Objectiveの集約受入条件、実行全体のMile
 不足する情報、観測不能、未知Model／分類、設定競合、Home不明、cleanup不明は成功・不存在へ丸めない。実AI・実認証・実Docker等は別承認の検証として区別する。②のAI再試行と保持物の観測／操作は行わない。
 
 
-2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
+独立評価器・旧署名・旧codec専用の開発義務は撤去した。通常実行・保存・共通Lock・回復は既存Ownerの契約で維持する。具体的な残存確認はQA-000010に従い、旧方式の本文・試験を残さない。
 
 ## 耐久受付と実行開始の分離の検証条件 — 2026-10-25
 
@@ -518,7 +518,7 @@ Git観測の移管では、Version Controlの現在改訂・HEAD／Tree・前後
 
 doctor、修復Owner／結果、再起動、Probeの要求・完了・取消・exact回復、計測と検証用Grammarは既存Suite／Local ItemのOracleを維持しPathを追従する。Probeの私有Mapは一実体とし、検証専用操作のConsumerはscripts／試験に限定する。要求前unknown保存・同じ参照・取消join・二保存・Lease解放と終了確定は別々に観測する。今回の有限代役・実Git／Filesystem／Processの成功から、実Docker・外部AI・全体QAの成功は主張しない。②のAI再試行・保持物操作は検証範囲外。
 
-Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は承認済み目標OwnerのDomain Model `plain-data/secret-validation.ts`へ移し、同じSymbol・条件・返却値、getter／Proxy等の既存反証と、Workspace・Decision・実行入力・結果取込の全利用側を照合する。移管だけを未知Secret不存在の保証へ拡張しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
+Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は承認済み目標OwnerのDomain Model `plain-data/secret-validation.ts`へ移し、同じSymbol・条件・返却値、getter／Proxy等の既存反証と、Workspace・Decision・実行入力・結果取込の全利用側を照合する。移管だけを未知Secret不存在の保証へ拡張しない。独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
 
 Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorのstate/probe-recordが所有するProbe保存・読戻し、およびHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
 

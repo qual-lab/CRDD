@@ -3,9 +3,7 @@
  *
  * @packageDocumentation
  * @responsibility 値の存在・構造・正規化・拒否理由を判定し、利用側試験の期待条件を共有する。
- * @trace AIT-IT-013
  * @trace AIT-UT-005
- * @trace AIT-UT-011
  * @trace CQS-UT-010
  * @trace ERB-IT-001
  * @trace ERB-IT-002

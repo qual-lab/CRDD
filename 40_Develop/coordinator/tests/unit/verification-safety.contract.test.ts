@@ -6,17 +6,17 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope verification、result、safety
- * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: 既存Ownerの局所的な入力・権限・隔離規則を検証し、総合Trustの評価器は扱わない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { types } from "node:util";
-import test from "node:test";
 import fs from "node:fs";
+import test from "node:test";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { snapshotPlainArray } from "../../src/input/snapshot.ts";
 import { createCandidateValidationFailureDiagnostic } from "../../src/execution/result.ts";
+import { snapshotPlainArray } from "../../src/input/snapshot.ts";
 
 /**
  * 本番と検証Toolの診断が旧件数を欠測へ変換しない。
@@ -124,8 +124,8 @@ test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () =
 
 import {
   evaluateVerificationSafetyObservation,
-  salvageVerificationRecoveryPair,
   salvageVerificationNullableRecovery,
+  salvageVerificationRecoveryPair,
 } from "../../scripts/verification-safety.ts";
 
 const hostA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
