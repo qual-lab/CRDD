@@ -168,9 +168,8 @@ Resource Bookの更新は次値を遷移検査内で一回検査し、元Book・
 
 | scope | 取得内容 |
 |---|---|
-| `intake` | `intakeEpoch`。出版確認用Readerを使用し、未初期化は明示null |
-| `queue` | `queueEntries`、`leaseIntents`、`intakeEpoch`を通常Readerの一回から取得 |
-| `execution` | `projects`、`queueEntries`、`intakeEpoch`、`schemaRevision` |
+| `queue` | `queueEntries`、`leaseIntents`を通常Readerの一回から取得 |
+| `execution` | `projects`、`queueEntries`、`schemaRevision` |
 | `workspace` | `projects`、`queueEntries`、`results`、`workspaces`、`snapshotRevision` |
 
 二引数形式の`operation`は現在Owner、`recovery`は真正Repositoryの権限境界を持ち、固定用途inputで読取り内容を選ぶ。未知用途はOwner callback・保存前に拒否する。同版の`operationStates`は元操作参照と終端判定の不変な組であり、IDだけで他版の操作と混ぜない。不存在と観測不能、読取り成功と解放成功を区別する。
@@ -193,6 +192,16 @@ Resource Bookの更新は次値を遷移検査内で一回検査し、元Book・
 Lease IntentはRepository・Project・Queue・種別からIdentityと回復IDを生成し、保存前通知・物理取得確認・Owner喪失観測で同じexact値を使う。呼出し側のOwner世代・Process IDと物理排他、回復順序は別の保証として保持する。
 
 <a id="storage"></a>
+
+### 実行の終了記録を保持する保存契約
+
+保存候補は`crdd-execution-model/state/v6`、内部投影は`project-snapshot/v9`を使用する。旧形式の互換Reader・自動移行は追加せず、既存保持物は今回処置しない。Coordinator整理のためのEM変更であり、独立した重複防止Storeや台帳を新設しない。
+
+Queueは受付と実行状態の正本であり、終了履歴が確定しただけでは削除しない。同じ記録の`historySettled`が履歴の保存確認又は既存の保持期限処置の確定を表す。新規受付はfalse、閉鎖・履歴照合後だけtrueへ進み、trueからの巻戻し、要求Hashの変更、通常の再開と記録削除を拒否する。履歴候補生成はtrueの記録を除き、二回目の保守で同じ履歴を作り直さない。
+
+結果・Leaseの清掃は従来今回確定した対象に限定する。保持したQueueが参照する結果は除去せず、未知・未解決・参照中の情報を成功や不要と読み替えない。過去に確定した対象まで清掃対象を広げる変更は今回含めない。
+
+受付世代と`intakeBindings`は撤去した。保存直前のfreshなQueue ID・要求Hash・Project・Milestone照合は維持し、未知IDのresumeは拒否する。新規開始の初回受付だけが既存初期化を使用する。既存createQueueのscheduled処置は初回Project候補を任意に受け取り、既存Queueを先に照合して、新規の場合だけProject・Milestone・Revisionと初版generationを検査し、一回の候補保存へ結合する。既存Projectを上書きせず、同ID競合で敗者Projectを残さない。実行ID・終端記録を削除して再実行可能に戻さない。旧形式Reader・自動移行は追加しない。
 ## 5. 保存・初期化・回復
 
 | 項目 | 現行契約 |

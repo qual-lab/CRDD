@@ -282,7 +282,6 @@ export async function queryActivity(
             projectId: request.projectId,
             repositoryRevision: revision,
           },
-          value.intakeEpoch,
         );
         if (result.observationState === "unknown") stateUnknown = true;
         else if (result.projection !== null)
@@ -485,29 +484,6 @@ export function compareActivityEventPositions(
     time ||
     (left.eventId < right.eventId ? 1 : left.eventId > right.eventId ? -1 : 0)
   );
-}
-
-/**
- * Remote Runtime Activity観測の閉じた構造を検証する。
- *
- * @responsibility Application ReaderまたはHTTP Responseの未信頼値を公開契約へ入る前に検証する。
- * @trace ARCH-000004
- * @trace ARCH-000007
- * @input valueに観測候補を受け取る。
- * @returns 契約へ適合する場合trueを返す。
- * @precondition valueを信頼済み型と仮定しない。
- * @postcondition Property、状態相関、Event上限およびContinuationを検査する。
- * @effect N/A: 値を観測するだけである。
- * @failure 不正値はfalseで拒否する。
- * @invariant observedとprojectionの相関を崩さない。
- * @boundary Runtime Activity Reader／HTTP JSONとCoordinator公開契約の境界。
- * @security 余剰Propertyを受理して秘密値を透過しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-export function inspectRuntimeActivityObservation(
-  value: unknown,
-): value is RuntimeActivityObservation {
-  return parseRuntimeActivityObservation(value) !== null;
 }
 
 /**

@@ -22,8 +22,8 @@ import {
   createMcpServerFactory,
   startMcpCoordinatorStreamableHttp,
   startMcpStreamableHttp,
-  type McpCoordinatorDependencies,
 } from "../../src/index.ts";
+import type { McpCoordinatorDependencies } from "@qual-lab/crdd-mcp/automation";
 import {
   protocolComplete,
   protocolError,
@@ -578,7 +578,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           const cancel = () => {
             wasCancelled = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v4",
               status: "cancelled",
               reason: "orchestrator_parent_lost",
               requestId: "integration-request",
@@ -613,6 +613,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
         },
         name: "crdd.run_objective",
         arguments: withCallerPlan({
+          operation: "start" as const,
           requestId: "integration-request",
           projectId: "integration-project",
           milestoneId: "integration-milestone",
@@ -625,7 +626,6 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           maximumReplans: 0,
           originLane: "interactive",
           adoptResult: false,
-          intakeEpoch: "fixture-epoch",
         }),
       },
     })}\n`,

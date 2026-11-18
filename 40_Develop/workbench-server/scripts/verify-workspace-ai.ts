@@ -356,6 +356,7 @@ async function verify(
       }, 20 * 60_000);
       const start = await owner.start(
         {
+          requestId: `request-${randomUUID()}`,
           mode: "workspace_edit",
           workType: "coding",
           prompt: `合成試験です。source.txtだけを${JSON.stringify(expected)}という一行（末尾改行あり）に変更してください。他のファイル・Git・.crddは変更せず、Commit等のGit操作をしないでください。完了時のchangedPathsはsource.txtだけです。`,
@@ -791,7 +792,11 @@ function assessFixtureRemoval(
       visit(root);
     };
     checkBoundary();
-    const readClosed = (historyCount: number, includeTask = false) => {
+    const readClosed = (
+      historyCount: number,
+      includeTask = false,
+      taskHistorySettled = false,
+    ) => {
       {
         const read = readState(verifiedRoot.capability, { scope: "recovery" });
         assert.equal(read.status, "completed");
@@ -807,6 +812,7 @@ function assessFixtureRemoval(
           assert.equal(queue.projectId, projectId);
           assert.equal(queue.milestoneId, null);
           assert.equal(queue.state, "completed");
+          assert.equal(queue.historySettled, taskHistorySettled);
           assert.ok(
             Number.isSafeInteger(queue.generation) && queue.generation > 0,
           );
@@ -828,19 +834,18 @@ function assessFixtureRemoval(
           );
           assert.equal(task.cleanupConfirmed, true);
           assert.deepEqual(task.recoveryIds, []);
-          assert.equal(
-            s.intakeBindings.filter((b) => b.queueId === requestId).length,
-            1,
-          );
           const rows = s.historyPending.filter((r) => r.id === requestId);
-          assert.equal(rows.length, 1);
-          assert.equal(rows[0]?.outcome, "completed");
-          assert.equal(rows[0]?.cleanup, "confirmed");
-          assert.equal(rows[0]?.primaryFailure, null);
+          assert.equal(rows.length, taskHistorySettled ? 0 : 1);
+          if (!taskHistorySettled) {
+            assert.equal(rows[0]?.outcome, "completed");
+            assert.equal(rows[0]?.cleanup, "confirmed");
+            assert.equal(rows[0]?.primaryFailure, null);
+          }
           const leases = s.leaseEvidence.filter(
             (r) => r.content.queueId === requestId,
           );
-          assert.ok(leases.length >= 2);
+          if (taskHistorySettled) assert.equal(leases.length, 0);
+          else assert.ok(leases.length >= 2);
           const pairs = new Map<
             string,
             { acquired: number; released: number }
@@ -867,9 +872,6 @@ function assessFixtureRemoval(
           s = {
             ...s,
             queueEntries: s.queueEntries.filter((q) => q.queueId !== requestId),
-            intakeBindings: s.intakeBindings.filter(
-              (b) => b.queueId !== requestId,
-            ),
             historyPending: s.historyPending.filter((r) => r.id !== requestId),
             leaseEvidence: s.leaseEvidence.filter(
               (r) => r.content.queueId !== requestId,
@@ -897,10 +899,6 @@ function assessFixtureRemoval(
           assert.equal(row.primaryFailure, null);
         }
         assert.deepEqual(s.queueEntries.map((q) => q.queueId).sort(), [
-          "queue-a",
-          "queue-b",
-        ]);
-        assert.deepEqual(s.intakeBindings.map((b) => b.queueId).sort(), [
           "queue-a",
           "queue-b",
         ]);
@@ -1109,10 +1107,9 @@ function assessFixtureRemoval(
         throw new Error("fixture_task_retirement_unconfirmed");
       assert.equal(maintained.reason, "orchestrator_terminal_records_retired");
       assert.equal(maintained.value, 1);
-      const retired = readClosed(historyCount);
+      const retired = readClosed(historyCount, realTask, true);
       for (const key of [
         "queueEntries",
-        "intakeBindings",
         "projects",
         "results",
         "leaseEvidence",
@@ -1133,7 +1130,7 @@ function assessFixtureRemoval(
       recorded: mode === "isolated" ? 1 : 0,
       expired: 0,
     });
-    const after = readClosed(0);
+    const after = readClosed(0, realTask, true);
     assert.deepEqual(after.results, before.results);
     assert.deepEqual(after.leaseEvidence, before.leaseEvidence);
     assert.deepEqual(after.queueEntries, before.queueEntries);

@@ -9,12 +9,184 @@
  * @boundary Provider AdapterとFake Runtime Portの局所境界。
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../../docker-isolation/tests/support/source-declaration.ts";
 
-import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
+/**
+ * @trace ERB-UT-023
+ * @precondition 実Advice Runtimeと失敗分類本文をメモリで実行する。
+ * @stimulus 起動発行後の失敗をcleanup確認済みの初期化失敗として返す。
+ * @observation 公開Runtime結果と上位へ渡る元失敗分類。
+ * @oracle Provider未発行・Host ID欠測と手動確認必要性を同時に保持する。
+ * @cleanup メモリのみ。実AI・Docker・保存なし。
+ */
+test("通常起動の発行後不明はAdvice結果でも手動確認必要性を保持する", async () => {
+  const source = readFileSync(
+    new URL("../../../src/execution/advice.ts", import.meta.url),
+    "utf8",
+  );
+  const declarations = [
+    "AdviceRuntimeError",
+    "createProviderAdviceRuntime",
+    "blocked",
+    "classifyProviderAdviceHostFailure",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  const runtime = runInNewContext(
+    `${declarations};({
+    run:createProviderAdviceRuntime({createOperation:async(_signal,verify)=>{
+      if(!verify())throw Error('boundary');
+      throw new AdviceRuntimeError('docker_environment_start_timeout', {
+        cleanupConfirmed:true,manualRecoveryRequired:true,hostRecoveryId:null
+      });
+    }}),classify:classifyProviderAdviceHostFailure
+  })`,
+    {
+      initializationFailures: new WeakMap(),
+      hostFailures: new WeakMap(),
+      isRuntimeProcessEffectBlocked: () => false,
+      isRuntimeProcessPoisoned: () => false,
+      safePlan: () => true,
+    },
+  ) as {
+    run: (
+      plan: unknown,
+      signal: AbortSignal,
+    ) => Promise<{
+      status: string;
+      cleanupConfirmed: boolean;
+      providerEffectIssued: boolean;
+    }>;
+    classify: (value: unknown) => {
+      manualRecoveryRequired: boolean;
+      hostRecoveryId: string | null;
+    };
+  };
+  const result = await runtime.run({}, new AbortController().signal);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(runtime.classify(result).manualRecoveryRequired, true);
+  assert.equal(runtime.classify(result).hostRecoveryId, null);
+});
+
+/**
+ * @trace ERB-UT-023
+ * @precondition Task／Adviceの本番依存の起動接続だけを実本文から取得する。
+ * @stimulus 起動拒否・終了不明・待機中の失効・正常起動。
+ * @observation 起動とHost生成の順序、元の失敗相関。
+ * @oracle readyかつ現在境界成立後だけHostを作り、未作成HostのIDを捏造しない。
+ * @cleanup メモリのみ。実AI・Docker・Filesystem書込みなし。
+ */
+test("通常起動の結果と現在境界が成立する前にHostを作成しない", async () => {
+  for (const file of ["controller", "advice"]) {
+    const source = readFileSync(
+      new URL(`../../../src/execution/${file}.ts`, import.meta.url),
+      "utf8",
+    );
+    const anchor = source.indexOf(
+      file === "controller"
+        ? "const productionDependencies ="
+        : "function createProductionDependencies(",
+    );
+    const begin = source.indexOf("createOperation: async", anchor);
+    const end = source.indexOf(
+      file === "controller"
+        ? "  classifyOperationCreationFailure:"
+        : "    bindRepository:",
+      begin,
+    );
+    assert.ok(anchor > 0 && begin > anchor && end > begin);
+    const property = stripTypeScriptTypes(
+      `const dependencies = {${source.slice(begin, end)}};`,
+    );
+    for (const mode of [
+      "ready",
+      "blocked",
+      "cleanup_unknown",
+      "revoked",
+      "throwing_boundary",
+    ]) {
+      const calls: string[] = [];
+      let live = true;
+      let startupObserved = false;
+      const startup = {
+        status:
+          mode === "blocked" || mode === "cleanup_unknown"
+            ? "blocked"
+            : "ready",
+        reason: "original_start_failure",
+        requestState: mode === "cleanup_unknown" ? "unknown" : "not_issued",
+        engineReady: mode !== "blocked",
+        cleanupConfirmed: mode !== "cleanup_unknown",
+      };
+      const create = runInNewContext(
+        `${property};dependencies.createOperation`,
+        {
+          repositoryRoot: "synthetic-root",
+          getRepository: () => ({ status: "completed" }),
+          getIsolationSettings: () => ({}),
+          startDockerEnvironment: async (request: {
+            verifyBoundary: () => boolean;
+          }) => {
+            calls.push("start");
+            assert.equal(request.verifyBoundary(), true);
+            if (mode === "revoked") live = false;
+            startupObserved = true;
+            return startup;
+          },
+          createProductionOperation: () => {
+            calls.push("host");
+            return { host: true };
+          },
+          throwProductionOperationFailure: (failure: unknown) => {
+            throw failure;
+          },
+          AdviceRuntimeError: class extends Error {
+            readonly failure: unknown;
+            constructor(reason: string, failure: unknown) {
+              super(reason);
+              this.failure = failure;
+            }
+          },
+        },
+      ) as (signal: AbortSignal, current: () => boolean) => Promise<unknown>;
+      const pending = create(new AbortController().signal, () => {
+        if (mode === "throwing_boundary" && startupObserved)
+          throw Error("boundary");
+        return live;
+      });
+      if (mode === "ready") {
+        await pending;
+        assert.deepEqual(calls, ["start", "host"]);
+      } else {
+        await assert.rejects(pending, (error: unknown) => {
+          const data = error as {
+            failure?: { hostRecoveryId: unknown; cleanupConfirmed: boolean };
+            hostRecoveryId?: unknown;
+            cleanupConfirmed?: boolean;
+          };
+          const failure = data.failure ?? data;
+          assert.equal(failure.hostRecoveryId, null);
+          assert.equal(failure.cleanupConfirmed, startup.cleanupConfirmed);
+          return true;
+        });
+        assert.deepEqual(calls, ["start"]);
+      }
+    }
+  }
+});
+
 import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
-import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
+import {
+  prepareAdviceTask,
+  prepareProviderAdvicePlan,
+} from "../../../src/execution/preparation.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 const selection = executionSelection("advice");
 const task = prepareAdviceTask({

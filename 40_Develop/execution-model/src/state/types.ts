@@ -84,19 +84,18 @@ export type SnapshotObservations = Readonly<{
  * Taskと技術操作を同じ改訂で保存する閉集合を定義する。
  * @responsibility 改訂・元Hash・物理結合を一組にし、モデルと技術終端を同じ保存単位で保持する。
  * @trace ARCH-000004、ARCH-000008
- * @shape 平坦な現在区画。Task未初期化時は業務結合と受付世代がともにnull。
+ * @shape 平坦な現在区画。Task未初期化時は業務結合がnull。
  * @invariant 二つの旧Snapshotや独立した配送・受領記録を内包しない。
  * @boundary 単一Writerへ接続する値モデル。
  * @security Schema成立を実資源観測や保存成功へ昇格しない。
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
 export type ExecutionStateSnapshot = Readonly<{
-  schema: "crdd-execution-model/state/v4";
+  schema: "crdd-execution-model/state/v6";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
   repositoryBindingId: string | null;
-  intakeEpoch: string | null;
   projects: readonly ProjectDefinition[];
   managedExecutions: readonly ManagedExecution[];
   operations: readonly OperationRecord[];
@@ -111,7 +110,6 @@ export type ExecutionStateSnapshot = Readonly<{
     )[];
   }>[];
   workspaces: readonly WorkspaceRecord[];
-  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
   queueEntries: readonly ProjectQueueEntry[];
   leaseEvidence: readonly LeaseEvidenceEnvelope[];
   leaseIntents: readonly Readonly<{
@@ -202,18 +200,17 @@ export type StoredTask = Omit<
 
 /**
  * 保存正本からProject・Queue・Workspaceを同版で導出する内部投影を定義する。
- * @responsibility 同じStateの値と受付世代、途中Lease、履歴未確定搬送を組み合わせる。
+ * @responsibility 同じStateの値と要求結合、途中Lease、履歴未確定搬送を組み合わせる。
  * @trace ARCH-000004
  * @shape 保存情報、受付結合、Project、Queue、Lease、結果、未搬送終了要約。
  * @invariant 投影を別Fileや旧Schemaの互換Readerとして扱わず、OS handleを含めない。
  * @boundary 単一保存正本とモデル別のメモリ内操作。
  * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility project-snapshot/v7は投影の識別であり、物理保存はstate/v4のまま。
+ * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v6。旧形式を自動変換しない。
  */
 export type Snapshot = Pick<
   ExecutionStateSnapshot,
   | "workspaces"
-  | "intakeBindings"
   | "queueEntries"
   | "leaseEvidence"
   | "leaseIntents"
@@ -224,11 +221,10 @@ export type Snapshot = Pick<
 > &
   Readonly<{
     schema: typeof PROJECT_SNAPSHOT_SCHEMA;
-    schemaRevision: 7;
+    schemaRevision: 9;
     repositoryRootHash: string;
     repositoryBindingId: string;
     snapshotRevision: number;
-    intakeEpoch: string;
     projects: readonly ProjectExecutionState[];
   }>;
 
@@ -422,7 +418,7 @@ export type ExecutionStoredManagedProject = Omit<
 
 /**
  * 共通状態の物理改訂と元本文Hashを表す。
- * @responsibility 業務世代・受付世代とは別の比較交換値を固定する。
+ * @responsibility 業務世代・実行IDとは別の比較交換値を固定する。
  * @trace ARCH-000008
  * @shape revision、payloadSha256。
  * @invariant 二値を同じ確定本文から導く。
@@ -732,7 +728,7 @@ export type LeaseAcquisitionRequest = Readonly<
 >;
 
 export const PROJECT_SNAPSHOT_SCHEMA =
-  "crdd-execution-model/project-snapshot/v7";
+  "crdd-execution-model/project-snapshot/v9";
 
 export const STORAGE_CONTRACT =
   "crdd-coordinator/orchestrator-durable-foundation/v1" as const;

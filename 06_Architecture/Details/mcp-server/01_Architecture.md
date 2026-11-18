@@ -1,5 +1,11 @@
 # MCP Transportアーキテクチャ
 
+## Objectiveの新規・再開区分
+
+`crdd.run_objective`は`operation: "start" | "resume"`を必須としてCoordinatorへそのまま搬送する。操作区分の省略・未知値は通常の入力拒否とし、互換補完しない。Adapter説明契約はv6、Objective結果はv4へ追従する。新規／再送／再開の判断と保存・実行のOwnerはCoordinatorであり、MCPは独自の再開台帳や再送を追加しない。受付世代は要求・状態照会の双方から撤去した。状態照会はv2で、内部初期化を発行しない。
+
+保存境界の公開Runtime停止は、既存の単純停止と`recoveryIds`を持つ閉形式を区別して捕捉する。後者は密な文字列配列・ID文法・一意性を検査し、IDありでは`unknown`・回収未確認・明示対応必要を必須とする。新しいkindを推測しない。ObjectiveのTask回復IDと義務の集合一致、Process再起動・投影相関の検査は変更しない。
+
 ## 実Objective結果のWorkspace観測搬送 — 2026-11-14
 
 runtime-activity-adapter ITは、実Coordinator受付・保存・有限Providerから返った二TaskのWorkspace観測を、実MCP結果Parserへ一続きで接続する。合成Projectionへの差替えで代用せず、全観測・Git HEAD不変・Queue状態の確認を維持する。実Git／保存の共通準備とexact Root清掃は下位Coの既存workspace-surface fixtureを一意に使い、MCPへ構築規則を複製しない。この限定試験は実AI・Docker・公開MCP Process E2Eの成立ではない。
@@ -34,11 +40,11 @@ Coordinatorの正常な回復ID／義務の集合は、公開結果の捕捉で�
 
 配布入口`template/tools/crdd-mcp-server.ts`もCoreを既定とする。単体stdio／HTTPでは起動RepositoryのManifestと真正Rootへ結合した定義操作を構成し、`--automation`を最初の引数として明示した場合だけCoordinatorの四操作を固定Moduleから構成する。読込み失敗は終了値2で停止しCore-onlyへfallbackしない。`--cros`は従来のAM認可付きCore入口であり、未接続の`--cros`と`--automation`の併用、重複又は位置違いは起動前に64で拒否する。Nodeの既存24.12.0下限は当入口の現在Processで検査し、Coordinator診断の読込みを必要としない。
 
-Package Rootと各公開Tool ModuleはCore構成だけでCoordinator／Executorを読み込まない。Task・状態・Workspaceの純粋な公開値検査はDomainを参照し、既存の同期結果Inspectorをasyncへ変更しない。Workspace実処置と実行状況の実取得は、その明示Callでだけ固定したCoordinator公開入口を読み込む。待機後の取消と現在認可を再確認し、Owner欠測からCore拒否又は自動実行へfallbackしない。汎用loader・Router・Registryは追加しない。
+Package RootはCore構成だけでCoordinator／Executorを読み込まない。Coordinator専用の7値・1型は、既存の`tools/task.ts`を指す正式な`@qual-lab/crdd-mcp/automation`入口から公開する。Objectiveの同期結果捕捉はCoordinatorの完成受付を直接呼び、MCPに転送Inspectorや意味検査を残さない。ServerはCoordinator構成時だけ同Moduleを読み込み、一覧と実行の両方をその読込み結果へ接続する。Workspaceの入力受付と実処置、実行状況の検査は、その明示Callでだけ固定したCoordinator公開入口を読み込む。待機後の取消と現在認可を再確認し、Owner欠測からCore拒否又は自動実行へfallbackしない。汎用loader・Router・Registryは追加しない。
 
 `tools/runtime.ts`はDomainの一般定義CRUDだけへ直接接続する。`crdd.get_runtime_definition`（plan/objectives/tasks）と`crdd.manage_runtime_definition`（initialize、plan.save、objective.create/update/delete、task.create/update/delete）の二Toolを、要求別Factoryの`runtimeDefinition`構成から登録する。AM認証構成は既存development内容権限を`resolveRuntimeContentAccess`で要求内Contextへ変換する。入力は`repositoryId`と操作別の閉じた`command`であり、Root・主体・認可関数をClientから受け取らない。Plan等の意味・DAG・参照・CASはDomainが検査する。
 
-応答はDomain結果を`structuredContent`と表示用textへ同じ内容で搬送する。unknown、競合、公開可能なexact回復参照を保持し、通信失敗を無保存又は再送許可に変換しない。AI実行・判断承認・Queue投入・文書同期は提供しない。Tool単体のCoordinator非読込と実Writer接続は、Server Root全体のCoordinator非読込成立とは別に確認する。既存任意Toolの読込み閉包が残る間はCore全体の成立を表示しない。
+応答はDomain結果を`structuredContent`と表示用textへ同じ内容で搬送する。unknown、競合、公開可能なexact回復参照を保持し、通信失敗を無保存又は再送許可に変換しない。CoreはAI実行・判断承認・Queue投入・文書同期を提供しない。Tool単体とServer Root・配布入口のCoordinator非読込は別々に確認する。実Provider検証Toolは同じ配布入口へ`--automation --stdio`を明示し、Core構成を実行構成と取り違えない。
 
 ## Core API接続の目標 — 2026-10-27
 
@@ -48,7 +54,7 @@ Package Rootと各公開Tool ModuleはCore構成だけでCoordinator／Executor�
 
 ### Coordinator統合後の通信名 — 2026-10-22
 
-Task状態のTool名は`crdd.get_coordinator_state`、起動構成の依存keyは`coordinator`とする。旧Tool名は一覧・Call受付から除き、旧構成keyは値が未定義でも拒否する。互換aliasを追加しない。Adapterの説明契約は`crdd-mcp/coordinator-adapter/v4`とし、Objective要求は`plan`と`taskInputs`を必須とする。`projectModelOwnership`は調停側の`coordinator`を表す。Protocol版`2026-07-28`、認証・取消・終了の意味は変更しない。
+Task状態のTool名は`crdd.get_coordinator_state`、起動構成の依存keyは`coordinator`とする。旧Tool名は一覧・Call受付から除き、旧構成keyは値が未定義でも拒否する。互換aliasを追加しない。Adapterの説明契約は`crdd-mcp/coordinator-adapter/v6`とし、Objective要求は`operation`、`plan`と`taskInputs`を必須とする。`projectModelOwnership`は調停側の`coordinator`を表す。Protocol版`2026-07-28`、認証・取消・終了の意味は変更しない。
 
 MCP内部の診断reasonは`mcp_*`へ統一する。ただし、Coordinatorから返る保存契約・Task結果reasonは別の移行単位として維持する。旧通信名の撤去は、保存Schemaや保持中の回復参照を変更する根拠にはしない。
 

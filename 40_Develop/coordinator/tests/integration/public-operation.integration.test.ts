@@ -28,10 +28,10 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
-  requireReadyRepositoryExecutionDataArea,
   RepositoryDataBlockedError,
+  requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { acceptResult } from "../../src/decision/acceptance.ts";
 import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
   inspectCoordinatorDecisionResult,
@@ -277,7 +277,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
   );
   assert.equal(initialized.status, "completed");
-  let intakeEpoch = initialized.value as string;
   let taskStarts = 0;
   const deliveredRequests: Readonly<Record<string, unknown>>[] = [];
   const publicationObservations: object[] = [];
@@ -405,11 +404,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       decisionDenied.reason,
       "orchestrator_authenticated_principal_not_verified",
     );
-    const acceptanceDenied = executeCoordinatorPublicAcceptanceDecision(
-      {},
-      root,
-      context,
-    );
+    const acceptanceDenied = acceptResult({}, root, context);
     assert.equal(
       acceptanceDenied.reason,
       "orchestrator_authenticated_principal_not_verified",
@@ -430,6 +425,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(before.observationState, "absent");
   const result = await runtime.run(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-public-runtime",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
@@ -443,7 +439,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
-      intakeEpoch,
     }),
     new AbortController().signal,
     root,
@@ -453,6 +448,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(result.reason, "orchestrator_quality_acceptance_required");
   const resumedPending = await runtime.run(
     withCallerPlan({
+      operation: "resume" as const,
       requestId: "request-public-runtime",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
@@ -466,7 +462,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
-      intakeEpoch,
     }),
     new AbortController().signal,
     root,
@@ -476,6 +471,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     resumedPending.reason,
     "orchestrator_quality_acceptance_required",
   );
+  assert.ok("queueId" in resumedPending && "queueId" in result);
   assert.equal(resumedPending.queueId, result.queueId);
   assert.equal(resumedPending.workspaceResults, undefined);
   assert.equal(taskStarts, 1);
@@ -513,7 +509,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     evidenceId: string,
     principalId = "local.email.fixture@example.invalid",
   ) =>
-    executeCoordinatorPublicAcceptanceDecision(
+    acceptResult(
       {
         contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
         decisionId,
@@ -587,11 +583,9 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(after.status, "completed");
   assert.equal(after.observationState, "observed");
   assert.equal(after.projection?.milestoneState, "accepted");
-  if ("intakeEpoch" in after && typeof after.intakeEpoch === "string")
-    intakeEpoch = after.intakeEpoch;
   assert.equal(
     result.contract,
-    "crdd-coordinator/orchestrator-objective-intake/v2",
+    "crdd-coordinator/orchestrator-objective-intake/v4",
   );
   assert.equal(result.requestId, "request-public-runtime");
   assert.equal(result.projectId, "project-public-runtime");
@@ -601,6 +595,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(taskStarts, 1);
   const cleanupBlocked = await runtime.run(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-candidate-cleanup-blocked",
       projectId: "project-candidate-cleanup-blocked",
       milestoneId: "milestone-candidate-cleanup-blocked",
@@ -614,7 +609,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: true,
-      intakeEpoch,
     }),
     new AbortController().signal,
     root,
@@ -632,6 +626,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   // Mock Taskの終了をAI実行済みのEI記録へ変換しない。
   const replay = await runtime.run(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-public-runtime",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
@@ -645,18 +640,18 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
-      intakeEpoch,
     }),
     new AbortController().signal,
     root,
     Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(replay.status, "completed", JSON.stringify(replay));
-  assert.equal(replay.reason, "orchestrator_objective_already_accepted");
+  assert.equal(replay.reason, "orchestrator_objective_request_reused");
   assert.equal(taskStarts, 1);
 
   const publicationBlocked = await runtime.run(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-public-runtime-publication-blocked",
       projectId: "project-public-runtime-publication-blocked",
       milestoneId: "milestone-public-runtime-publication-blocked",
@@ -670,7 +665,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
-      intakeEpoch,
     }),
     new AbortController().signal,
     root,
@@ -686,6 +680,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
 
   const diagnosticFailed = await runtime.run(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-public-runtime-diagnostic-failed",
       projectId: "project-public-runtime-diagnostic-failed",
       milestoneId: "milestone-public-runtime-diagnostic-failed",
@@ -699,7 +694,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
-      intakeEpoch,
     }),
     new AbortController().signal,
     root,
@@ -713,6 +707,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(taskStarts, 3);
   const graphRequest = {
     ...withCallerPlan({
+      operation: "start" as const,
       requestId: "request-public-runtime-two-tasks",
       projectId: "project-public-runtime-two-tasks",
       milestoneId: "milestone-public-runtime-two-tasks",
@@ -726,7 +721,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       originLane: "interactive",
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
-      intakeEpoch,
     }),
     plan: {
       milestoneAcceptanceCriteria: ["both caller Tasks completed"],
@@ -814,7 +808,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     root,
     { principalId: "local.email.fixture@example.invalid" },
   );
-  assert.equal(graphReplay.reason, "orchestrator_quality_acceptance_required");
+  assert.equal(graphReplay.reason, "orchestrator_objective_request_reused");
   assert.equal(taskStarts, 5);
   const changedGraph = await runtime.run(
     {
@@ -828,7 +822,10 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(changedGraph.status, "blocked");
-  assert.equal(changedGraph.reason, "orchestrator_intake_epoch_retired");
+  assert.equal(
+    changedGraph.reason,
+    "orchestrator_objective_request_identity_conflict",
+  );
   assert.equal(changedGraph.effectState, "no_effect");
   assert.equal(changedGraph.cleanupConfirmed, true);
   assert.equal(taskStarts, 5);

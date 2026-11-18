@@ -67,8 +67,7 @@ export function resolveCoordinatorLaunch(
   if (
     !target ||
     ![
-      "task",
-      "project",
+      "run",
       "doctor",
       "recovery",
       "maintenance",
@@ -82,21 +81,18 @@ export function resolveCoordinatorLaunch(
     return blocked("coordinator_launch_mode_invalid");
   if (!observation.stdoutWritable)
     return blocked("coordinator_launch_terminal_output_required");
-  if (target === "task" || target === "project") {
-    const init = target === "project" && action === "init";
+  if (target === "run") {
     if (
-      init
-        ? tail.length !== 1 || tail[0] !== "--json"
-        : action !== "run" ||
-          tail.length !== 4 ||
-          tail[0] !== "--request-stdin" ||
-          tail[1] !== "--json" ||
-          tail[2] !== "--principal-id" ||
-          !isPrincipalId(tail[3]) ||
-          !tail[3].startsWith("local.email.")
+      !["task", "objective", "advice"].includes(action ?? "") ||
+      tail.length !== 4 ||
+      tail[0] !== "--request-stdin" ||
+      tail[1] !== "--json" ||
+      tail[2] !== "--principal-id" ||
+      !isPrincipalId(tail[3]) ||
+      !tail[3].startsWith("local.email.")
     )
       return blocked("coordinator_launch_arguments_invalid");
-    if (!init && observation.stdoutIsTty)
+    if (observation.stdoutIsTty)
       return blocked("coordinator_launch_machine_output_required");
   }
   if (
@@ -194,8 +190,9 @@ export async function runCoordinatorCommand(
       process.stdout.write(JSON.stringify(getCapabilities()) + "\n");
       process.exitCode = 0;
     } else if (target === "auth") await runAuthenticationCommand(rest);
-    else if (target === "project") await runProjectCommand(rest);
-    else if (target === "task") await runSingleTaskCommand(rest);
+    else if (target === "run" && rest[0] === "objective")
+      await runProjectCommand(rest);
+    else if (target === "run") await runSingleTaskCommand(rest);
     else await runDoctorCommand(plan.forwardedArgs);
   } catch {
     process.stderr.write(

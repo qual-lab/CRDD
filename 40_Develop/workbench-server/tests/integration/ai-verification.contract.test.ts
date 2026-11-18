@@ -1220,7 +1220,6 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "release",
     ...emptyKeys,
     "queue-duplicate",
-    "binding-duplicate",
     "generation",
     "task-reference",
     "worktree",
@@ -1252,7 +1251,6 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "ai-lease-missing",
     "ai-lease-duplicate",
     "ai-extra-queue",
-    "ai-extra-binding",
     "ai-maintain-zero",
     "ai-maintain-blocked",
     "ai-maintain-two",
@@ -1273,9 +1271,6 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
       resultReference: null,
       resumeCondition: null,
     }));
-    const intakeBindings = ["queue-a", "queue-b"].map((queueId) => ({
-      queueId,
-    }));
     const projects = [
       {
         projectId: "project.workspace-verification",
@@ -1295,7 +1290,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         ],
       },
     ];
-    Object.assign(snapshot, { queueEntries, intakeBindings, projects });
+    Object.assign(snapshot, { queueEntries, projects });
     snapshot.managedExecutions = projects.map((project) => ({
       projectId: project.projectId,
       tasks: project.tasks.map((task) =>
@@ -1303,9 +1298,8 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
       ),
     }));
     const firstQueue = queueEntries[0];
-    const firstBinding = intakeBindings[0];
     const firstTask = projects[0]?.tasks[0];
-    assert.ok(firstQueue && firstBinding && firstTask);
+    assert.ok(firstQueue && firstTask);
     const isIsolated =
       scenario === "isolated" || scenario.startsWith("isolated-");
     snapshot.repositoryBindingId = "binding";
@@ -1398,6 +1392,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         ...queueEntries,
         {
           queueId: "request-abc",
+          historySettled: false,
           projectId: "project.workspace-verification",
           milestoneId: null,
           generation: 7,
@@ -1409,13 +1404,6 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
           singleTask,
         },
         ...(scenario === "ai-extra-queue"
-          ? [{ queueId: "request-other" }]
-          : []),
-      ];
-      snapshot.intakeBindings = [
-        ...intakeBindings,
-        { queueId: "request-abc" },
-        ...(scenario === "ai-extra-binding"
           ? [{ queueId: "request-other" }]
           : []),
       ];
@@ -1456,8 +1444,6 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     }
     if (emptyKeys.includes(scenario)) snapshot[scenario] = [{}];
     if (scenario === "queue-duplicate") queueEntries.splice(1, 1, firstQueue);
-    if (scenario === "binding-duplicate")
-      intakeBindings.splice(1, 1, firstBinding);
     if (scenario === "generation") Object.assign(firstQueue, { generation: 2 });
     if (scenario === "task-reference")
       Object.assign(firstTask, { operationId: "unexpected" });
@@ -1466,7 +1452,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.filter(q=>q.queueId!=='request-abc');snapshot.intakeBindings=snapshot.intakeBindings.filter(q=>q.queueId!=='request-abc');snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -2383,6 +2369,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
       exitCode: 0,
     };
     const snapshot = {
+      resultAvailable: true,
       requestId: "synthetic-verification",
       mode: "read_only_advice" as const,
       executionSelection: executionSelection("advice", {
@@ -2404,11 +2391,13 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
     };
     const fakeOwner = {
       start: async (input: {
+        requestId: string;
         contextReferences: string[];
         mode: string;
         choice: { provider: string; model: string; effort: string };
       }) => {
         starts++;
+        snapshot.requestId = input.requestId;
         assert.deepEqual([...input.contextReferences], ["PROJECT_CONTEXT.md"]);
         assert.equal(input.mode, "read_only_advice");
         assert.equal("externalSendConfirmed" in input, false);
@@ -2440,6 +2429,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         Error,
         getModelCatalog,
         process: processState,
+        randomUUID: () => "synthetic-verification",
         console: { log: (v: string) => output.push(v) },
         execFileSync: () => {
           throw new Error("git_process_forbidden");
@@ -2700,7 +2690,8 @@ for (const transport of ["tool-child-process"] as const) {
         const state = JSON.parse(fs.readFileSync(file, "utf8"));
         assert.deepEqual(state.operations, []);
         assert.deepEqual(state.unresolvedRecoveries, []);
-        assert.deepEqual(state.pendingDeliveries, []);
+        assert.equal(state.schema, "crdd-execution-model/state/v6");
+        assert.deepEqual(state.historyPending, []);
         assert.deepEqual(state.leaseIntents, []);
         assert.ok(
           state.queueEntries.every(
@@ -2897,6 +2888,7 @@ for (const transport of ["tool-child-process"] as const) {
     assert.equal(network.status, "ready");
     if (network.status !== "ready") throw Error("fixture_network_required");
     const command = {
+      requestId: "request-fixture-94872",
       mode: "read_only_advice" as const,
       workType: null,
       prompt: "合成情報だけを説明",
@@ -2905,12 +2897,12 @@ for (const transport of ["tool-child-process"] as const) {
       workspaceId: null,
     };
     for (const mode of ["normal", "cancel"] as const) {
+      const input = { ...command, requestId: `verification-${mode}` };
       boundaryTiming.setStage("start");
       const started = new Promise<void>((resolve) => {
         observedStarted = resolve;
       });
-      const accepted: WorkbenchAiRequestStartResult =
-        await client.start(command);
+      const accepted: WorkbenchAiRequestStartResult = await client.start(input);
       assert.equal(accepted.status, "accepted");
       assert.ok(accepted.requestId);
       await started;
@@ -2980,6 +2972,7 @@ for (const transport of ["tool-child-process"] as const) {
         new URLSearchParams({
           actionToken: model.actionToken,
           operation: "start",
+          requestId: command.requestId,
           mode: command.mode,
           workType: "",
           prompt: command.prompt,
@@ -3021,9 +3014,20 @@ for (const transport of ["tool-child-process"] as const) {
     });
     assert.equal(afterRetirement.status, "completed");
     assert.ok(afterRetirement.value);
+    assert.equal(afterRetirement.value.snapshot.queueEntries.length, 3);
+    assert.ok(
+      afterRetirement.value.snapshot.queueEntries.every(
+        (entry) =>
+          entry.historySettled &&
+          entry.singleTask?.phase === "settled" &&
+          entry.ownerGeneration === null,
+      ),
+    );
+    assert.equal(
+      Object.hasOwn(afterRetirement.value.snapshot, "intakeBindings"),
+      false,
+    );
     for (const key of [
-      "queueEntries",
-      "intakeBindings",
       "historyPending",
       "leaseIntents",
       "leaseEvidence",

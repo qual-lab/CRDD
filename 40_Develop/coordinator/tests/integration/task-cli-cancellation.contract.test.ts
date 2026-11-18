@@ -849,8 +849,8 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
       '...(await (async()=>{process.stdout.write("early");return runTask;})()(',
     ),
     original.replace(
-      "    return;\n  }\n  let cancellation",
-      "  }\n  let cancellation",
+      "    return;\n  }\n  const operation = args[0]",
+      "  }\n  const operation = args[0]",
     ),
   ];
   for (const mutation of mutations) assert.notEqual(mutation, original);

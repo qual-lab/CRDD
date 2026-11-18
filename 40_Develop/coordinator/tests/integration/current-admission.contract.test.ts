@@ -96,13 +96,11 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${canonicalJson({
-        schema: "crdd-execution-model/state/v4",
+        schema: "crdd-execution-model/state/v6",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
         repositoryBindingId: null,
-        intakeEpoch: null,
-        intakeBindings: [],
         projects: [],
         managedExecutions: [],
         workspaces: [],

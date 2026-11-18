@@ -20,6 +20,7 @@ import { runDoctor } from "./execution/diagnostics.ts";
 import {
   inspectRuntimeOwnedDockerTaskAdmission,
   projectRuntimeRepairObservation,
+  readRuntimeOwnedRecovery,
   repairRuntimeOwnedDockerRuntime,
   restartRuntimeOwnedDockerForRecovery,
   resumeRuntimeOwnedExecution,
@@ -76,8 +77,6 @@ export type { ExecutionSelection } from "../../execution-model/src/index.ts";
 export { acceptResult } from "./decision/acceptance.ts";
 export { submitDecision } from "./decision/lifecycle.ts";
 export { runObjective } from "./objective/composition.ts";
-export type { ProjectInitializationRequest } from "./state/initialize.ts";
-export { initializeProject } from "./state/initialize.ts";
 export { queryActivity } from "./state/observation.ts";
 export { queryState } from "./state/query.ts";
 export type {
@@ -118,6 +117,35 @@ export type ExecutionContext = Readonly<{
  * @compatibility 旧参照を自動変換しない。
  */
 export type RecoveryRequest = Readonly<{ recoveryId: string }>;
+
+/**
+ * 回復参照に結合した現在の保存記録を取得する。
+ * @responsibility 公開要求を読取り専用Ownerへ接続する。
+ * @trace ARCH-000004
+ * @input 元回復参照、現在Root、取消Signal。
+ * @returns 保存記録の有無又は観測不能。実資源の不存在は表さない。
+ * @precondition 入口が現在Repositoryの読取りを許可済み。
+ * @postcondition 回復・再起動・初期化を発行しない。
+ * @effect 既存の読取りと短期排他だけ。
+ * @failure 不正要求・Root・Signalは既存の公開拒否。
+ * @security 内部の保存本文・Path・Authorityを返さない。
+ */
+export function readRecovery(
+  request: RecoveryRequest,
+  context: ExecutionContext,
+  signal: AbortSignal,
+) {
+  const id = recoveryReference(request);
+  executionRoot(context);
+  return readRuntimeOwnedRecovery(
+    id,
+    context.rootCapability,
+    executionSignal(signal),
+  );
+}
+
+/** 現在の保存記録の照会結果。実資源の観測・回復完了とは独立している。 */
+export type RecoveryObservation = ReturnType<typeof readRecovery>;
 
 /**
  * 診断だけか、明示した隔離確認を含むかを指定する。
@@ -368,33 +396,21 @@ export async function retainRepair(
   );
 }
 
-export type { WorkspaceResult } from "./workspace/record.ts";
 export { readRepositoryNetworkHosts } from "./decision/external-send-policy.ts";
 export type { CoordinatorDecisionRequest } from "./decision/request.ts";
-export {
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  inspectCoordinatorDecisionRequest,
-} from "./decision/request.ts";
+export { inspectCoordinatorDecisionRequest } from "./decision/request.ts";
 export { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "./execution/authority.ts";
 export {
   getCapabilities,
   isSupportedNodeRuntime,
 } from "./execution/diagnostics.ts";
-export {
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  inspectCoordinatorObjectiveRequest,
-} from "./objective/plan.ts";
+export { inspectCoordinatorObjectiveRequest } from "./objective/plan.ts";
 export type { CoordinatorObjectiveRequest } from "./objective/types.ts";
+export { parseRuntimeActivityObservation } from "./state/observation.ts";
 export {
-  inspectRuntimeActivityObservation,
-  parseRuntimeActivityObservation,
-} from "./state/observation.ts";
-export {
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  inspectCoordinatorObjectiveResult,
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-  isCoordinatorObjectiveProjectionCorrelationValid,
-  isCoordinatorProjectionSemanticallyValid,
 } from "./state/projection.ts";
 export type {
   ActivityRepository,
@@ -408,7 +424,7 @@ export type {
 } from "./state/types.ts";
 export type { WorkspaceCommand, WorkspaceView } from "./workspace/commands.ts";
 export { inspectWorkspaceCommand } from "./workspace/commands.ts";
-export { inspectCoordinatorWorkspaceResults } from "./workspace/record.ts";
+export type { WorkspaceResult } from "./workspace/record.ts";
 
 /**
  * 正式認証操作の完了・不明・回収を識別する結果。

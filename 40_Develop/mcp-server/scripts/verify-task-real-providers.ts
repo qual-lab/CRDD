@@ -26,7 +26,6 @@ import {
 import {
   buildCoordinatorRealProviderReport,
   captureCanonicalRepositorySnapshot,
-  inspectPublishedCoordinatorIntakeEpoch,
   type JsonRecord,
   observePublicMcpProcess,
   type PublicProcessObservation,
@@ -338,7 +337,7 @@ function startPublicMcpProcess(sourceRoot: string, repositoryRoot: string) {
     "crdd-mcp-server.ts",
   );
   isMcpStartRequested = true;
-  return spawn(process.execPath, [entryPath, "--stdio"], {
+  return spawn(process.execPath, [entryPath, "--automation", "--stdio"], {
     cwd: repositoryRoot,
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
@@ -346,61 +345,13 @@ function startPublicMcpProcess(sourceRoot: string, repositoryRoot: string) {
 }
 
 /**
- * 公開MCP状態取得から新Requestの受付世代を得る。
- *
- * @responsibility 認証済みQueryと子Processの終端を確認し、発行時世代を固定する。
- * @trace ARCH-000004
- * @input 固定Source Root、Repository Root、ProjectとRevisionのQuery結合。
- * @returns 検査済みの受付世代。
- * @precondition 新版保存を明示初期化済みで、送信範囲は固定検証Task内である。
- * @postcondition 同Requestの再入場では呼び直して世代を付け替えない。
- * @effect localhostの公開MCP Processを起動し、状態Queryだけを発行する。
- * @failure 相関差、通信障害、未終了、Provider起動またはQuery停止を拒否する。
- * @invariant 初期化・Provider依頼・外部送信をこのQueryへ追加しない。
- * @boundary 固定検証Toolと公開MCP状態取得。
- * @security 内部保存を直接読まず、認証・認可済みの公開DTOだけを使用する。
- * @concurrency 入力EOFと子Process終了を確認してから値を返す。
- */
-async function readPublishedIntakeEpoch(
-  sourceRoot: string,
-  repositoryRoot: string,
-  request: { projectId: string; repositoryRevision: string },
-): Promise<string> {
-  const child = startPublicMcpProcess(sourceRoot, repositoryRoot);
-  const observed = observePublicMcpProcess(child, {
-    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
-    timeoutMs: PROCESS_TIMEOUT_MS,
-    closeInputWhen: ({ stdout }) => stdout.split(/\r?\n/u).some(Boolean),
-  });
-  child.stdin.write(
-    mcpEnvelope(
-      "intake-epoch",
-      {
-        requestId: "intake-epoch",
-        projectId: request.projectId,
-        repositoryRevision: request.repositoryRevision,
-      },
-      "crdd.get_coordinator_state",
-    ),
-  );
-  const observation = await observed;
-  const epoch = inspectPublishedCoordinatorIntakeEpoch(observation, {
-    requestId: "intake-epoch",
-    ...request,
-  });
-  if (epoch === null)
-    throw new Error("orchestrator_verification_state_unconfirmed");
-  return epoch;
-}
-
-/**
  * 新しい検証依頼の意味と範囲を固定する。
- * @responsibility Providerと採否を固定し、受付世代は発行直前の取得値を使う。
+ * @responsibility Provider・採否・呼出し側の実行IDを固定する。
  * @trace ARCH-000004
  * @input 共通の検証範囲、Run Identity、Provider、採否。
  * @returns 変更不能な新Request候補。
  * @precondition 基準Revisionと検証範囲が確認済み。
- * @postcondition 受信側に世代補完を求めない。
+ * @postcondition 受信側に実行IDの補完や未知IDの再開を求めない。
  * @effect N/A: 値の構築のみ。
  * @failure N/A: 外部処理を呼ばない。
  * @invariant 同じ依頼の再入場でIdentityや世代を変更しない。
@@ -530,10 +481,6 @@ async function main() {
   for (const [index, candidate] of objectives.entries()) {
     const request = Object.freeze({
       ...candidate,
-      intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
-        projectId: candidate.projectId,
-        repositoryRevision: repository.revisionIdentity,
-      }),
     });
     const snapshotBefore = captureCanonicalRepositorySnapshot(repositoryRoot);
     const child = startPublicMcpProcess(sourceRoot, repositoryRoot);
@@ -580,10 +527,6 @@ async function main() {
 
   const cancellationRequest = Object.freeze({
     ...commonFields,
-    intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
-      projectId: `crdd-orchestrator-public-cancel-${runId}`,
-      repositoryRevision: repository.revisionIdentity,
-    }),
     requestId: `orchestrator-public-cancel-${runId}`,
     projectId: `crdd-orchestrator-public-cancel-${runId}`,
     milestoneId: "public-provider-cancellation",
@@ -628,10 +571,6 @@ async function main() {
 
   const recoveryRequest = Object.freeze({
     ...commonFields,
-    intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
-      projectId: `crdd-orchestrator-public-recovery-${runId}`,
-      repositoryRevision: repository.revisionIdentity,
-    }),
     requestId: `orchestrator-public-recovery-${runId}`,
     projectId: `crdd-orchestrator-public-recovery-${runId}`,
     milestoneId: "public-provider-parent-loss-recovery",

@@ -39,6 +39,7 @@ const owner = createCoordinatorTaskRequests({
   },
 });
 const accepted = await owner.start({
+  requestId: "accepted-task-owner-request",
   mode: "read_only_advice",
   workType: null,
   prompt: "synthetic",

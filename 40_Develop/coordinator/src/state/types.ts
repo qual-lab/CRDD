@@ -147,7 +147,6 @@ export type CoordinatorStateQuery = Readonly<{
  * @compatibility CoordinatorStateQueryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorStateQueryResult = Readonly<{
-  intakeEpoch: string | null;
   contract: typeof COORDINATOR_STATE_QUERY_CONTRACT;
   status: "completed" | "blocked";
   reason: string;

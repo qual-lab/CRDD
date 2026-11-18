@@ -221,10 +221,8 @@ if (mode !== "recovery") {
   assert.ok(binding && otherBinding);
   const initial = Buffer.from(
     `${canonicalJson({
-      schema: "crdd-execution-model/state/v4",
+      schema: "crdd-execution-model/state/v6",
       repositoryBindingId: null,
-      intakeEpoch: null,
-      intakeBindings: [],
       projects: [],
       managedExecutions: [],
       workspaces: [],

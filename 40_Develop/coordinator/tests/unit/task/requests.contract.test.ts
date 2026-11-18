@@ -8,6 +8,7 @@
  * @boundary Surface入力と単発Owner。
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
@@ -54,18 +55,20 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
       "inspectTaskExecutionSelections",
       "randomUUID",
       "createCoordinatorSnapshotStatePort",
+      "createHash",
     ],
   )(
     () => ({ mode: "read_only_advice" }),
     () => ({
       status: "completed",
-      value: { queueEntries: [], intakeEpoch: "epoch" },
+      value: { queueEntries: [] },
     }),
     (value: unknown) => value,
     inspectExecutionSelection,
     inspectTaskExecutionSelections,
     forbidden,
     forbidden,
+    createHash,
   ) as (deps: object) => {
     start: (raw: unknown) => Promise<{ status: string; reason: string }>;
   };
@@ -269,6 +272,7 @@ test("単発Advice結果は旧量上限を超えて末尾まで捕捉する", ()
  */
 test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒否する", () => {
   const command = {
+    requestId: "request-fixture-7940",
     mode: "read_only_advice",
     workType: null,
     prompt: "合成入力",
@@ -277,6 +281,20 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     workspaceId: null,
   };
   assert.ok(inspectSingleTaskCommand(command));
+  const choice = inspectSingleTaskCommand({
+    ...command,
+    choice: { effort: "medium", model: "synthetic", provider: "codex" },
+  });
+  assert.ok(choice?.choice);
+  assert.equal(Object.isFrozen(choice.choice), true);
+  assert.deepEqual(Object.keys(choice.choice), ["provider", "model", "effort"]);
+  assert.deepEqual(
+    choice,
+    inspectSingleTaskCommand({
+      ...command,
+      choice: { provider: "codex", model: "synthetic", effort: "medium" },
+    }),
+  );
   assert.ok(
     inspectSingleTaskCommand({ ...command, prompt: "合成".repeat(16001) }),
   );
@@ -309,6 +327,7 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     { ...command, mode: "workspace_edit", allowedPaths: ["C:/other"] },
     { ...command, mode: "workspace_edit", allowedPaths: ["src", "src"] },
     { ...command, workspaceId: "wrong" },
+    { ...command, workspaceId: "11111111-1111-4111-8111-111111111111" },
     { ...command, candidateId: "old" },
     { ...command, profileId: "PROFILE-100001" },
     { ...command, choice: { provider: "codex" } },

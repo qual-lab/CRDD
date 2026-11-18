@@ -1,5 +1,9 @@
 # CROS Workbench詳細設計
 
+## 単発依頼IDの搬送と結果欠測
+
+AI依頼Formは依頼IDを画面内に一度保持し、通常POST／共有接続の両方でCoordinatorへそのまま渡す。再送でIDを変更せず、新しい依頼への明示切替だけ新IDを発行する。ServerはIDを補完・生成しない。再構成後は保存された元IDの状態を表示し、`resultAvailable: false`では空の正常回答を表示せず、本文は取得できない旨を示す。状態の再取得とAIへの再送は区別し、取消・認可の既存境界を維持する。
+
 ## AMとモデルの接続試験Owner — 2026-11-14
 
 既存runtime-definition ITはAMの実認可結果をEMの初期化・Plan保存・再読取りへ直接渡し、同じ値の双方向の型適合も確認する。既存management ITはAM許可集合からDM実本文を読み、本文版を中立SourceとPortfolioへ保持する。両試験は元の実AM・モデルWriter／Readerと清掃を維持し、認可結果の変換Wrapperを追加しない。AM単独の権限・失効・Manifest差の拒否試験とは分けて所有する。

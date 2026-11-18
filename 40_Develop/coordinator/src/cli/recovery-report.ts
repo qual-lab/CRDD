@@ -6,6 +6,36 @@
  */
 import { types } from "node:util";
 import { classifyDoctorOperationInitializationFailure } from "../execution/diagnostics.ts";
+import type { RecoveryObservation } from "../api.ts";
+
+/**
+ * 照会Ownerが生成した保存観測を表示する。
+ * @responsibility 記録の有無と実資源の状態を混同させない。
+ * @trace ARCH-000004
+ * @input 正式readRecoveryの結果とJSON表示指定。
+ * @returns 表示文字列と、照会不能時2の終了値。
+ * @precondition 外部JSONではなく同じProcessの正式Owner結果である。
+ * @postcondition 記録なしを資源不存在・回復完了へ変換しない。
+ * @effect 外部Effectなし。
+ * @security Ownerが投影した非秘密fieldだけを表示する。
+ */
+export function renderRecoveryObservation(
+  observation: RecoveryObservation,
+  json: boolean,
+) {
+  const label =
+    observation.observationState === "recorded"
+      ? "現在の保存記録を取得しました。"
+      : observation.observationState === "not_recorded"
+        ? "現在の保存正本に一致する記録はありません。資源の不存在や回復完了を意味しません。"
+        : "現在の保存記録を確認できません。自動再試行せず停止理由を確認してください。";
+  return Object.freeze({
+    stdout: json
+      ? `${JSON.stringify(observation)}\n`
+      : `${label}\n回復ID: ${observation.recoveryId}\n理由: ${observation.reason}\nDocker資源の現在状態は観測していません。保存時点の値: ${JSON.stringify(observation.record)}\n`,
+    exitCode: observation.status === "completed" ? 0 : 2,
+  });
+}
 
 /**
  * Doctor Command 失敗を人間向け表示へ整形する。

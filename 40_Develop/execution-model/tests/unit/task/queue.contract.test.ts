@@ -1,15 +1,18 @@
 /**
  * Queue受付・追加・照会の固定候補を検証する。
  * @packageDocumentation
- * @responsibility 旧epoch、同Identity、Hash差、Workspace結合を反証する。
+ * @responsibility 同Identity、Hash差、初回State捕捉とWorkspace結合を反証する。
  * @trace PRL-UT-007
  * @level UT
- * @scope 四つの固定値操作。実行選択・資源観測・保存は対象外。
+ * @scope 固定値操作と保存受付の値捕捉。実行選択・実資源観測・物理保存は対象外。
  * @boundary メモリの局所入力。全体codec・実Ownerの証明ではない。
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 import type {
   ProjectExecutionState,
   QueueEnqueueInput,
@@ -19,13 +22,97 @@ import type { Snapshot } from "../../../src/state/types.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
 import {
   projectCurrentState,
-  snapshotIntakeMatches,
+  snapshotRequestMatches,
 } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+import {
+  encodeStateValue,
+  snapshotStateArray,
+  snapshotStateRecord,
+} from "../../../src/state/operations.ts";
 import {
   prepareQueueEntryCreation,
   projectQueueEntry,
 } from "../../../src/task/crud.ts";
+
+/**
+ * 新しい初回Stateの捕捉は既存の閉じた値符号化を使用する。
+ * @responsibility 保存入口でGetter／Proxyを評価せず、後続の元参照変更を候補へ混ぜない。
+ * @trace PRL-UT-007
+ * @precondition 実createQueue宣言と既存の値捕捉器を使い、物理保存だけ有限代役とする。
+ * @stimulus Plain値、Getter、Proxyと捕捉後の元参照変更を与える。
+ * @observation 捕捉値、呼出し回数とGetter／Proxy呼出し数。
+ * @oracle 捕捉値は独立し、不正値は保存処置の前に拒否する。
+ * @cleanup N/A: メモリと既存Source解析のみ。
+ * @boundary 公開保存受付の局所値捕捉。実Writer・全State妥当性は結合試験で確認する。
+ */
+test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/task/crud.ts", import.meta.url),
+    "utf8",
+  );
+  const raw = { projectId: "project-a", nested: { values: [1] } };
+  let calls = 0;
+  let captured: unknown = null;
+  const create = compileFunction(
+    `return (${sourceDeclaration(source, "createQueue")});`,
+    [
+      "snapshotStateRecord",
+      "snapshotStateArray",
+      "encodeStateValue",
+      "blocked",
+      "withSnapshotOperation",
+      "prepareQueueEntryCreation",
+    ],
+  )(
+    snapshotStateRecord,
+    snapshotStateArray,
+    encodeStateValue,
+    (reason: string) => ({ status: "blocked", reason }),
+    (
+      _root: unknown,
+      _binding: string,
+      operation: (current: object) => unknown,
+    ) => {
+      calls++;
+      raw.projectId = "changed";
+      raw.nested.values.push(2);
+      return operation({});
+    },
+    (_current: unknown, _input: unknown, initial: unknown) => {
+      captured = initial;
+      return { status: "completed" };
+    },
+  );
+  assert.equal(
+    create({}, "binding", { kind: "scheduled", input: [{}, raw] }).status,
+    "completed",
+  );
+  assert.deepEqual(captured, {
+    projectId: "project-a",
+    nested: { values: [1] },
+  });
+  let hooks = 0;
+  for (const initial of [
+    {
+      get projectId() {
+        hooks++;
+        return "project-a";
+      },
+    },
+    new Proxy(raw, {
+      ownKeys() {
+        hooks++;
+        return Reflect.ownKeys(raw);
+      },
+    }),
+  ])
+    assert.equal(
+      create({}, "binding", { kind: "scheduled", input: [{}, initial] }).status,
+      "blocked",
+    );
+  assert.equal(hooks, 0);
+  assert.equal(calls, 1);
+});
 
 /**
  * 四操作の局所前提値を用意する。
@@ -44,12 +131,10 @@ function fixture() {
   const project = { projectId: "project-a" } as ProjectExecutionState;
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [project],
     queueEntries: [],
     workspaces: [],
@@ -70,7 +155,7 @@ function fixture() {
     scopeHash: "c".repeat(64),
   };
   const intake = {
-    epoch: "epoch-a",
+    operation: "start" as const,
     queueId: input.queueId,
     requestHash: input.requestHash,
     projectId: input.projectId,
@@ -90,39 +175,42 @@ function fixture() {
  * @boundary Domainの値モデル。保存・Scheduling・回復成立は別の利用側が確認する。
  */
 
-test("受付固定照合はepoch・ID・Hashを元の順序で保持する", () => {
+test("受付固定照合は実行ID・要求内容と明示再開を照合する", () => {
   const { current, input, intake } = fixture();
   const before = encodeStateValue(current);
-  assert.equal(snapshotIntakeMatches(current, intake), true);
+  assert.equal(snapshotRequestMatches(current, intake), true);
   for (const change of [
-    { epoch: "epoch-b" },
+    { queueId: "queue-missing", operation: "resume" as const },
     { queueId: "../escape" },
     { requestHash: "invalid" },
     { projectId: "../escape" },
     { milestoneId: "../escape" },
   ])
     assert.equal(
-      snapshotIntakeMatches(current, { ...intake, ...change }),
+      snapshotRequestMatches(current, { ...intake, ...change }),
       false,
     );
-  const created = prepareQueueEntryCreation(current, "epoch-a", input);
+  const created = prepareQueueEntryCreation(current, input);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
-  const rotated = { ...created.value.next, intakeEpoch: "epoch-b" };
-  assert.equal(snapshotIntakeMatches(rotated, intake), true);
+  const rotated = { ...created.value.next };
+  assert.equal(snapshotRequestMatches(rotated, intake), true);
   for (const change of [
-    { epoch: "epoch-b" },
+    { queueId: "queue-missing", operation: "resume" as const },
     { requestHash: "d".repeat(64) },
     { projectId: "project-b" },
     { milestoneId: "milestone-b" },
   ])
     assert.equal(
-      snapshotIntakeMatches(rotated, { ...intake, ...change }),
+      snapshotRequestMatches(rotated, { ...intake, ...change }),
       false,
     );
   assert.equal(
-    snapshotIntakeMatches({ ...rotated, intakeBindings: [] }, intake),
+    snapshotRequestMatches(
+      { ...rotated, queueEntries: [] },
+      { ...intake, operation: "resume" },
+    ),
     false,
   );
   assert.equal(encodeStateValue(current), before);
@@ -142,21 +230,20 @@ test("受付固定照合はepoch・ID・Hashを元の順序で保持する", () 
 test("Queue追加候補は同内容を再保存せず競合の理由を維持する", () => {
   const { current, input } = fixture();
   const before = encodeStateValue(current);
-  const created = prepareQueueEntryCreation(current, "epoch-a", input);
+  const created = prepareQueueEntryCreation(current, input);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
   const next = created.value.next;
   assert.equal(next.queueEntries.length, 1);
-  assert.deepEqual(next.intakeBindings, [
-    { queueId: "queue-a", epoch: "epoch-a" },
-  ]);
+  assert.equal(Object.hasOwn(next, "intakeBindings"), false);
   assert.strictEqual(next.results, current.results);
   assert.strictEqual(next.projects, current.projects);
   assert.equal(Object.isFrozen(created), true);
   assert.equal(Object.isFrozen(created.value), false);
   assert.deepEqual(created.value.value, {
     ...input,
+    historySettled: false,
     workspaceId: null,
     state: "queued",
     generation: 1,
@@ -164,7 +251,7 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
     resumeCondition: null,
     resultReference: null,
   });
-  const reused = prepareQueueEntryCreation(next, "epoch-a", input);
+  const reused = prepareQueueEntryCreation(next, input);
   assert.equal(reused.status, "completed");
   if (reused.status === "completed") {
     assert.equal(reused.value.next, null);
@@ -172,10 +259,13 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
   }
   // 既存受付の相関はHash/Project/Milestone/epochに限定される。ここで追加拒否条件を作らない。
   assert.equal(
-    prepareQueueEntryCreation({ ...next, intakeEpoch: "epoch-b" }, "epoch-a", {
-      ...input,
-      repositoryRevision: "d".repeat(40),
-    }).reason,
+    prepareQueueEntryCreation(
+      { ...next },
+      {
+        ...input,
+        repositoryRevision: "d".repeat(40),
+      },
+    ).reason,
     "orchestrator_queue_request_reused",
   );
   for (const change of [
@@ -184,19 +274,19 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
     { milestoneId: "milestone-b" },
   ])
     assert.equal(
-      prepareQueueEntryCreation(next, "epoch-b", {
+      prepareQueueEntryCreation(next, {
         ...input,
         ...change,
       }).reason,
       "orchestrator_queue_identity_conflict",
     );
   assert.equal(
-    prepareQueueEntryCreation(current, "epoch-b", input).reason,
-    "orchestrator_intake_epoch_retired",
+    prepareQueueEntryCreation(next, { ...input, requestHash: "d".repeat(64) })
+      .reason,
+    "orchestrator_queue_identity_conflict",
   );
   assert.equal(
-    prepareQueueEntryCreation({ ...current, projects: [] }, "epoch-a", input)
-      .reason,
+    prepareQueueEntryCreation({ ...current, projects: [] }, input).reason,
     "orchestrator_queue_input_invalid",
   );
   for (const change of [
@@ -206,7 +296,7 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
     { singleTask: {} },
   ])
     assert.equal(
-      prepareQueueEntryCreation(current, "epoch-a", {
+      prepareQueueEntryCreation(current, {
         ...input,
         ...change,
       } as unknown as QueueEnqueueInput).reason,
@@ -242,7 +332,7 @@ test("Queue追加は既存Workspace結合を補完しない", () => {
     lastResult: null,
     primaryFailure: null,
   };
-  const created = prepareQueueEntryCreation(current, "epoch-a", input);
+  const created = prepareQueueEntryCreation(current, input);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
@@ -254,7 +344,7 @@ test("Queue追加は既存Workspace結合を補完しない", () => {
   };
   const following = { ...input, queueId: "queue-b", workspaceId: id };
   assert.equal(
-    prepareQueueEntryCreation(connected, "epoch-a", following).status,
+    prepareQueueEntryCreation(connected, following).status,
     "completed",
   );
   for (const modified of [
@@ -274,7 +364,7 @@ test("Queue追加は既存Workspace結合を補完しない", () => {
     },
   ])
     assert.equal(
-      prepareQueueEntryCreation(modified, "epoch-a", following).reason,
+      prepareQueueEntryCreation(modified, following).reason,
       "orchestrator_workspace_not_ready",
     );
 });
@@ -316,7 +406,7 @@ test("QueueとProjectの投影は入力を保存候補へ変えない", () => {
     projectQueueEntry(current, "queue-a").reason,
     "orchestrator_queue_observation_unknown",
   );
-  const created = prepareQueueEntryCreation(current, "epoch-a", input);
+  const created = prepareQueueEntryCreation(current, input);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");

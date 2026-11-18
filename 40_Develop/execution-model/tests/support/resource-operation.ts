@@ -138,8 +138,6 @@ export function createResourceOperationFixture() {
     blockers: [],
     decisions: [],
     historyPending: [],
-    intakeBindings: [],
-    intakeEpoch: null,
     leaseEvidence: [],
     leaseIntents: [],
     managedExecutions: [],
@@ -178,7 +176,7 @@ export function createResourceOperationFixture() {
     repositoryBindingId: null,
     results: [],
     revision: 1,
-    schema: "crdd-execution-model/state/v4",
+    schema: "crdd-execution-model/state/v6",
     unresolvedRecoveries: [],
     workspaces: [],
   };

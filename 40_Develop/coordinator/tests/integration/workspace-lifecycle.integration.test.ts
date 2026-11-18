@@ -29,7 +29,7 @@ import {
   saveWorkspaceRecord,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { acceptResult } from "../../src/decision/acceptance.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
@@ -188,7 +188,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
           principalId: "principal-a",
         };
         if (!separate)
-          return executeCoordinatorPublicAcceptanceDecision(input, f.root, {
+          return acceptResult(input, f.root, {
             principalId: "principal-a",
           });
         const entry = pathToFileURL(
@@ -200,7 +200,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
               process.execPath,
               [
                 "-e",
-                `import {executeCoordinatorPublicAcceptanceDecision as run} from ${JSON.stringify(entry)}; console.log(JSON.stringify(run(${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
+                `import {acceptResult} from ${JSON.stringify(entry)}; console.log(JSON.stringify(acceptResult(${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
               ],
               { encoding: "utf8", windowsHide: true, timeout: 30_000 },
             )
@@ -1733,7 +1733,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
   assert.equal(physical.status, "completed");
   assert.ok(physical.value);
   const fixtureBytes = Buffer.from(
-    `${canonicalJson({ ...physical.value.snapshot, revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, intakeBindings: [...prior.intakeBindings, ...terminalQueues.map((entry) => ({ queueId: entry.queueId, epoch: prior.intakeEpoch }))], queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
+    `${canonicalJson({ ...physical.value.snapshot, revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
   );
   fs.writeFileSync(
     path.join(f.root, ".crdd", "domain-model", "state.json"),

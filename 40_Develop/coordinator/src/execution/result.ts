@@ -463,6 +463,14 @@ export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
 } as const);
 
 export const coordinatorTaskPublicReasons = Object.freeze([
+  "docker_environment_start_input_invalid",
+  "docker_environment_start_boundary_unconfirmed",
+  "docker_environment_start_observation_unknown",
+  "docker_environment_start_unavailable",
+  "docker_environment_start_request_unconfirmed",
+  "docker_environment_start_timeout",
+  "docker_environment_start_cancelled",
+  "docker_environment_start_cleanup_unconfirmed",
   "coordinator_task_workspace_review_completed",
   "coordinator_task_workspace_borrowing_unavailable",
   "coordinator_task_workspace_unexpected_changes",

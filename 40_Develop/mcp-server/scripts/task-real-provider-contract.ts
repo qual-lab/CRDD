@@ -15,13 +15,13 @@ import {
 } from "../../coordinator/scripts/task-diagnostic.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "../../coordinator/scripts/verification-safety.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
+import { inspectCoordinatorObjectiveResult } from "../../coordinator/src/index.ts";
 import { snapshotPlainRecord } from "../../coordinator/src/input/snapshot.ts";
 import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-diagnostic.ts";
 import {
   getRepository,
   readRepositorySnapshot,
 } from "../../version-control/src/index.ts";
-import { inspectMcpCoordinatorObjectiveResult } from "../src/index.ts";
 
 /**
  * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。
@@ -241,69 +241,6 @@ export type PublicProcessObservation = Readonly<{
 }>;
 
 const SELECTION_PREFIX = "[Coordinator selection] ";
-/**
- * 公開状態取得の完了観測から受付世代を検証する。
- * @responsibility DTO相関、通信と子Process終了、Provider非起動を一緒に判定する。
- * @trace ARCH-000004
- * @input 観測結果と状態取得の要求Identity。
- * @returns 一致する受付世代、またはnull。
- * @precondition 観測は既存の公開Process観測処置が生成する。
- * @postcondition 不明や矛盾を世代取得成功へ畳まない。
- * @effect N/A: 値の検査のみ。
- * @failure 不正DTO・通信失敗・相関差・未終了はnull。
- * @invariant 観測から初期化やProvider依頼を発行しない。
- * @boundary 公開MCP Queryと固定検証Task発行。
- * @security 内部保存・秘密値・Authorityを取得しない。
- * @concurrency N/A: 完了済みの一観測を評価する。
- */
-export function inspectPublishedCoordinatorIntakeEpoch(
-  observation: PublicProcessObservation,
-  request: Readonly<{
-    requestId: string;
-    projectId: string;
-    repositoryRevision: string;
-  }>,
-): string | null {
-  const response = observation.responses[0] as
-    | {
-        jsonrpc?: unknown;
-        id?: unknown;
-        error?: unknown;
-        result?: { isError?: unknown; structuredContent?: unknown };
-      }
-    | undefined;
-  if (
-    observation.responses.length !== 1 ||
-    observation.parseFailure ||
-    observation.streamFailure ||
-    observation.runtimeEventProtocolViolation ||
-    observation.timedOut ||
-    !observation.joined ||
-    !observation.inputEofIssued ||
-    !observation.outputWithinLimit ||
-    observation.launchError !== null ||
-    observation.exit?.code !== 0 ||
-    observation.exit.signal !== null ||
-    observation.processStartEvents.length !== 0 ||
-    observation.providerBoundaryEvents.length !== 0 ||
-    response?.jsonrpc !== "2.0" ||
-    response.id !== request.requestId ||
-    response.error !== undefined ||
-    response.result?.isError !== false
-  )
-    return null;
-  const state = inspectCoordinatorStateQueryResult(
-    response.result.structuredContent,
-  );
-  return state?.status === "completed" &&
-    state.cleanupConfirmed &&
-    state.requestId === request.requestId &&
-    state.projectId === request.projectId &&
-    state.repositoryRevision === request.repositoryRevision
-    ? state.intakeEpoch
-    : null;
-}
-
 const LIFECYCLE_PREFIX = "[Coordinator lifecycle] ";
 const RECOVERY_PREFIX = "[Coordinator recovery] ";
 const KNOWN_PREFIXES = Object.freeze([
@@ -1172,7 +1109,7 @@ function semanticResult(
   )
     return null;
   const structured = (envelope.result as JsonRecord).structuredContent;
-  return inspectMcpCoordinatorObjectiveResult(structured);
+  return inspectCoordinatorObjectiveResult(structured);
 }
 
 /**
@@ -2044,5 +1981,3 @@ export function buildCoordinatorRealProviderReport(
     results: Object.freeze(normalResults),
   });
 }
-
-import { inspectCoordinatorStateQueryResult } from "../../coordinator/src/state/projection.ts";

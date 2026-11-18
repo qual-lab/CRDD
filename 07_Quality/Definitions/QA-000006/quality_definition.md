@@ -1,5 +1,37 @@
 # QA-000006 外部実行境界の検証定義
 
+## 停止しない通常起動の有限確認
+
+手動確認の必要性の保持は内部Runtime結果・失敗分類で確認する。Task公開型にそのfieldがないことをfalseの保証と解釈しない。公開runTaskの有限Session接続は、起動期限の元理由・非成功・cleanup確認・回復ID非捏造・自動再送なしを確認する。Host／Provider生成0の内部試験と、公開搬送の試験を一つの実Docker E2E成立へ合算しない。
+
+ERB-UT-023の既存DI環境試験でEngine三値×Desktop三値、停止時一回start、running／unknown時の追加発行0、未発行／発行不明、取消・境界失効・90秒期限、元Owner終了とcleanup未確認を反証する。Executorの既存環境試験はDI関数との参照同一性を確認する。Coordinatorの既存助言結果試験はTask／Adviceの本番接続を有限代役で実行し、readyと現在境界が成立する前のHost生成0、元失敗のcleanupとHost ID欠測を確認する。新Suite・正式IDは作らない。実Desktop・実AI・全体回帰の成立は別の未実施範囲とする。
+
+## 現在の回復記録の照会
+
+既存PRL-ST-001／PRL-IT-012の回復CLI・公開Root試験に、Task／修復／Host／Probeのexact参照、未一致・別対象・重複・Reader失敗・Lock解放不明・破損・Probe Token照合失敗・取消を加える。記録の所在とProbe実体は既存Readerで照合し、Docker資源の現在状態は未観測とする。回復・再起動・保存・清掃を発行しない。`dockerResourcesObserved: false`と、保存時点の資源観測を明示する。内部Path・Identity本文・資格情報は公開しない。`not_recorded`を資源不存在又は再実行許可に変えない。新規の正式IDや試験Suiteは作らず、既存Source登録を維持する。
+
+有限Readerの四種反証と、公開Root／実Reader／実binの確認を分ける。自己生成Repositoryで照会前後のSnapshot不変・欠測時の停止・getter未実行を確認し、fixtureの終了hookでexact Rootを回収する。公開Root集合・CLI能力一覧改訂11・型契約も同時に追従する。正常記録の有限代役を四種全ての実保存E2E成立へ一般化せず、全体回帰・実AI・Docker・過去保持物の操作とは区別する。
+
+## 回復・保守CLIの操作構文
+
+既存PRL-IT-012のCLI試験とPRL-ST-001の回復CLI試験で、`recovery resume <id> --restart-docker`を再起動だけ、`maintenance repair`を修復だけ、`maintenance repair --retain <id>`を保持判断だけへ接続する。通常resumeは再起動を発行しない。API選択・一回発行・元参照・同じSignal・Listener解除・JSONと終了値を維持する。再起動完了をTask回復完了にしない。ID欠測・異種ID・未知／重複／競合flagと旧独立commandを処置前に拒否する。保持の期限・現在照合・未確認時停止は既存Ownerのままとし、実Docker又は保持物を使用しない有限代役の成功を実環境の回復成立へ一般化しない。
+
+## Objectiveの新規・明示再開の分離
+
+受付世代・`intakeBindings`と公開初期化を撤去した契約では、真正不存在の新規startだけが計画・選定後の初回State保存で内部初期化する。未知resume・不正計画・選定不一致は実行Stateを生成しない。Readerが用いる空の排他Directoryと、保存状態・実Lease・Provider Effectを区別する。同時初期化は同じ既存Writerを使い、Queue ID・Hash・Project・Milestoneのfresh照合、CAS・Owner・回復参照を維持する。二Processの受付前観測を揃え、同ID・異Projectでは敗者Projectの追加0、同内容では勝者のProject・内部IdentityとQueueだけが保持されることを確認する。空Snapshotの準備と、Project＋Queueの一回出版を区別する。旧Schema・pending・破損・観測不能を新品へ補完しない。公開Root・CLI・MCPの旧fieldと初期化commandの拒否を確認する。
+
+既存PRL-UT-006／014とPRL-IT-005は、`operation`の必須閉形式、start／resumeで同一の内容Hash、キー順正規化、同IDのScope変更拒否、未知ID再開の非新規化を確認する。start再送と終端resumeは、計画・現在選定・Task実行・回復・EI・履歴保守を再発行しない。事前取消・不正SignalはRoot・保存読取りより前に拒否する。
+
+既存Owner喪失・混在回復・非同期中断・PRL-ST-004のexact回復試験は、継続要求だけを明示resumeへ更新し、元の実保存・Lease・回復ID・技術終端・Task再試行・取消の検証を維持する。保存状態返却では元の回復義務とCleanup不明を保持し、対応Project／Milestoneのない投影を別版で補完しない。ERP-IT-008のGroup試験は実Task経路へ移した開始を一回だけ記録し、保存拒否・診断・元回復参照を維持する。MCPの既存Tool契約試験はoperationの必須性と搬送を確認する。全体回帰・実AI・Dockerは別の検証範囲とする。
+
+再送の結果は実MCP捕捉まで通し、通常稼働・終端投影欠測・回復必要の相関を反証する。通常の観測要求の`no_effect`を元実行の終了確認へ拡張しない。保存読取りの元回復IDをkind推測なしで保持し、重複ID・疎配列・不正文法・余剰field・相関不正は拒否する。内部の直接実行でも、未知IDのresumeはState生成・選定・保存・Lease取得・Task実行より前に拒否する。
+
+## 単発依頼のID固定と保存済み状態の再利用
+
+既存PRL-UT-006／PRL-IT-013は、呼出し側が固定した依頼ID、入力field順に依存しないHash、捕捉した選択の凍結、同ID・異内容拒否、別主体／Projectの非開示を確認する。同IDの二Session受付では実行Ownerを増やさず、最初の内部ID・選定・Revisionを保持する。保存競合の別主体記録を専用理由から開示しない。
+
+既存ERB-IT-021のWorkbench境界試験は、通常POST／共有接続のID搬送、Formの再描画でのID保持と明示新規切替、保存段階と結果本文欠測の分離を確認する。本文喪失・未知IDの観測／待機でProvider再送を行わず、別Sessionのcloseは元Ownerを停止しない。実Writer／Loopback HTTPの合成実行と、実AI／Dockerの試験は区別する。終了後は現行Schema、履歴待ち・技術区画・未解決回復・Leaseの終端と自己生成Rootの不存在を確認する。
+
 ## 履歴追記候補と物理保存のOwner分離
 
 HST-UT-001は既存の純粋履歴試験内で、Task／Decision混在順序、元byte保全、追加なしの同参照、同ID同内容の再送、異内容衝突、破損／未来の現行行、未来Task／Decision、不正JSON・未知fieldの例外と不正Decisionの拒否を確認する。形が不正な現行行はrecordJsonの解析より前に拒否し、局所移管で例外順を変えない。新品Nodeの既存RCM-IT-005は局所検査にState候補・保存依存が逆流しないことを確認する。

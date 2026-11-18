@@ -95,6 +95,7 @@ export async function handleSharedAiRequest({
         throw new Error("workbench_ai_request_mode_invalid");
       dispatched = true;
       result = await session.owner.start({
+        requestId: form.get("requestId") ?? "",
         mode,
         workType: form.get("workType")?.trim() || null,
         ...(choice ? { choice } : {}),
@@ -212,6 +213,7 @@ export async function handleAiRequestAction({
         throw new Error("workbench_ai_request_allowed_paths_invalid");
       const result = await aiRequests.start(
         Object.freeze({
+          requestId: form.get("requestId") ?? "",
           mode,
           workType,
           ...(choice ? { choice } : {}),
@@ -223,18 +225,9 @@ export async function handleAiRequestAction({
       );
       if (result.status === "accepted" && result.requestId !== null) {
         presentation.currentAiRequestId = result.requestId;
-        presentation.aiRequestSnapshot = Object.freeze({
-          requestId: result.requestId,
-          mode,
-          executionSelection: null,
-          status: "accepted",
-          reason: result.reason,
-          facts: Object.freeze([]),
-          sharedAnalysis: Object.freeze([]),
-          additionalInferences: Object.freeze([]),
-          nextOptions: Object.freeze([]),
-          candidate: null,
-        });
+        presentation.aiRequestSnapshot = await aiRequests.observe(
+          result.requestId,
+        );
         presentation.aiRequestNotice = "AI依頼を受け付けました。";
       } else {
         presentation.aiRequestNotice = `AI依頼を開始できませんでした: ${result.reason ?? "blocked"}`;

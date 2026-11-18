@@ -1,5 +1,25 @@
 # QA-000003 Project実行と回復の検証定義
 
+## Objective結果の完成受付
+
+列挙値・契約名・回復kind・判断結果のEffect状態・Candidate終了区分は、文字列型を先行確認する。PRL-UT-006／PRL-UT-014の既存試験で、toString・valueOf・Symbol.toPrimitiveとProxyを持つObjectを渡し、正常文字列の維持、不正値のnull拒否、変換hook実行0と例外非漏出を確認する。内部添字や安全整数確認済みの変換を未知入力と混同しない。
+
+PPR-UT-006／PRL-UT-006の状態照会試験で、実Producerの差戻し・回復必要を共通Parser、Objective結果、状態照会へ搬送する。PRL-UT-014のMCP試験は同じProducerの結果を両Toolへ接続し、既存のGetter／Proxy拒否、独立捕捉、回復ID／義務、Workspace相関、取消・不明・終了条件を維持する。PRL-IT-008の明示受入は公開名の本体で認証・世代・根拠・再送と保存bytes／履歴不変を確認する。新しい検証ID・試験File・保存形式は追加しない。
+
+## Coordinator Rootの完成操作と独立受付
+
+能力一覧の改訂11は、CLIとAPIの集合を別々に固定し、API集合にはメタ操作自身を除く完成17操作を過不足なく含める。既存Workbenchが利用する`readRepositoryNetworkHosts`を欠落させず、受付Helperを操作として追加しない。明示受入のAPI提供をCLI対応と誤認させない。
+
+PRL-IT-012の公開Root固定集合は26値・27型の境界を確認する。外部本番ConsumerがないTask内部受付・Node版判定・判断契約定数をRootから外し、活動の真偽値Wrapperは宣言ごと撤去する。内部CLIの受付・Node版検査と判断の契約照合、活動Parserの所有捕捉・余剰値拒否はOwner試験へ維持する。MCPが実使用する受付・結果相関を、公開数だけを理由に削除しない。
+
+## 回復記録の照会
+
+既存PRL-ST-001の回復CLI試験は、新しい`readRecovery`とCLIの保存観測も検証する。四種の参照・観測不能・書込み零回・実Reader／実binの保存不変・非秘密投影の詳細は[外部実行境界の照会義務](../QA-000006/quality_definition.md#現在の回復記録の照会)へ接続し、本項目や全体QAの成功状態を追加しない。
+
+## MCP Coreと任意実行入口の分離
+
+PRL-IT-012のruntime-definition試験は、Coordinator／Executorの読込みを拒否した子で公開Root・配布CLIの一般CRUD、再読取り、stale CAS、現在認可を維持する。任意構成の読込み失敗はCoreへfallbackせず、読込み中の取消は実行零回とする。Workspaceは待機前に元入力・配列・行を独立捕捉し、待機中の変更、Getter／Proxy、読込み失敗と取消の同時発生を有限子で反証する。PRL-UT-014の既存Adapter試験は正式automation入口の7値とCoordinator完成受付による同期結果検査を固定し、従来の入力拒否・結果相関・回復ID搬送を維持する。既存Transportの取消・Owner joinと活動Readerの終了確認は継続する。PRL-ST-001のSource試験は実Provider検証Toolの明示automation構成を固定し、撤去済みの世代取得Processを現役の終了確認へ数えない。入口分離の成功を実AI・Docker・全体回帰の成立へ一般化しない。
+
 ## Task参照検査の局所化
 
 PRL-UT-006のTask validation試験で、候補・回復・結果のnullable参照を同じ私有文法へ統合しても、null・非空・512文字境界・固定文字集合を変更しないことを確認する。必須参照はnullを拒否する。既存Task状態・Queue・回復候補・保存codecの全assertと公開集合を維持し、参照文法の受理を実在・回復許可・保存成功と扱わない。

@@ -381,6 +381,78 @@ test("単一Taskは受領APIを持たずCompletionで終端する", async () => 
   }
 });
 
+/**
+ * @trace CPR-IT-001
+ * @precondition Task Coreを有限RepositoryとOperation依存へ接続する。
+ * @stimulus 非同期待機相当の間にRepository観測を失効させる。
+ * @observation 同じ現在境界callbackとHost／Providerの発行数。
+ * @oracle 失効を検出し、後続のHost作成とProviderを発行しない。
+ * @cleanup メモリのみ。実Docker・AI・保存なし。
+ */
+test("通常起動待機中のTask境界は現在Repositoryを再確認する", async () => {
+  let live = true;
+  const harness = fixture({
+    inspectRepository: () =>
+      live
+        ? Object.freeze({
+            status: "candidate",
+            objectFormat: "sha1",
+            runtimeSupported: true,
+            revisionReported: false,
+            repositoryPathReported: false,
+          })
+        : null,
+    operationBoundaryObserver: (verify) => {
+      assert.equal(verify(), true);
+      live = false;
+      assert.equal(verify(), false);
+      throw Error("fixture_before_host");
+    },
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "upper-operation",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(harness.operationCreateCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+});
+
+/**
+ * @trace CPR-IT-001
+ * @precondition Host生成前の起動失敗を既存初期化失敗分類へ結合する。
+ * @stimulus 起動要求は発行済みだがEngine不明、CLIとLockの終了は確認済み。
+ * @observation Taskの公開結果とProvider発行数。
+ * @oracle cleanup確認と手動確認必要性を両立し、回復IDを捏造しない。
+ * @cleanup メモリのみ。実AI・Docker・保存なし。
+ */
+test("通常起動の発行後不明はTask結果でも手動確認必要性を保持する", async () => {
+  const harness = fixture({
+    operationBoundaryObserver: () => {
+      throw Error("startup");
+    },
+    classifyOperationCreationFailureOverride: () => ({
+      reason: "docker_environment_start_timeout",
+      hostRecoveryId: null,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: true,
+    }),
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "upper-operation",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "docker_environment_start_timeout");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(harness.operationCreateCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+});
+
 import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 
 const executedTaskTraceCases = new Set<string>();
@@ -710,6 +782,7 @@ function fixture(
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
+    operationBoundaryObserver?: (verify: () => boolean) => void;
     operationCreationFailure?:
       | "cleanup_confirmed"
       | "cleanup_unknown"
@@ -954,7 +1027,11 @@ function fixture(
           revisionReported: false,
           repositoryPathReported: false,
         })),
-    createOperation: async () => {
+    createOperation: async (
+      _signal: AbortSignal,
+      verifyBoundary: () => boolean,
+    ) => {
+      options.operationBoundaryObserver?.(verifyBoundary);
       operationCreateCount += 1;
       if (options.pauseOperationCreation)
         await new Promise<void>((resolve) => {

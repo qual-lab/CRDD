@@ -57,6 +57,7 @@ export type WorkbenchAiRequestSnapshot = Readonly<{
     | "unknown";
   reason: string | null;
   facts: readonly WorkbenchAiResultItem[];
+  resultAvailable: boolean;
   sharedAnalysis: readonly WorkbenchAiResultItem[];
   additionalInferences: readonly WorkbenchAiResultItem[];
   nextOptions: readonly WorkbenchAiResultItem[];

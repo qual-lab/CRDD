@@ -151,7 +151,6 @@ const SOURCE_ROLES = {
     "workspace/commands.ts",
     "workspace/operations.ts",
     "selection/resolve.ts",
-    "state/initialize.ts",
   ],
   storage: ["execution/intelligence.ts"],
   technicalExecution: [

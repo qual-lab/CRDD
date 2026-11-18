@@ -23,7 +23,11 @@ import * as executor from "../../src/index.ts";
  * @cleanup N/A: 外部資源を取得しない。
  * @boundary DIの実処理・外部資源成立は別契約で確認する。
  */
-test("Executorの環境二操作はDI公開関数を直接再exportする", () => {
+test("Executorの環境三操作はDI公開関数を直接再exportする", () => {
+  assert.equal(
+    executor.startDockerEnvironment,
+    isolation.startDockerEnvironment,
+  );
   assert.equal(
     executor.inspectDockerEnvironment,
     isolation.inspectDockerEnvironment,

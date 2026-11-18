@@ -66,15 +66,14 @@ function fixture() {
   assert.equal(validWorkspace(workspace), true);
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [],
     queueEntries: [
       {
+        historySettled: false,
         queueId: "queue-a",
         projectId: "project-a",
         milestoneId: "milestone-a",

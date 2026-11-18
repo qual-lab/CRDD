@@ -594,19 +594,17 @@ const RESOURCE_KEYS = [
  */
 function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
   return {
-    schema: "crdd-execution-model/state/v4",
+    schema: "crdd-execution-model/state/v6",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
     repositoryBindingId: null,
-    intakeEpoch: null,
     operations: [],
     unresolvedRecoveries: [],
     projects: [],
     managedExecutions: [],
     queueEntries: [],
     workspaces: [],
-    intakeBindings: [],
     leaseEvidence: [],
     leaseIntents: [],
     results: [],
@@ -711,7 +709,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(technical);
   const domainTechnical = {
     ...technical.snapshot,
-    schema: "crdd-execution-model/state/v4",
+    schema: "crdd-execution-model/state/v6",
     managedExecutions: [],
   };
   const domainRead = decodeStateSnapshot(
@@ -2528,7 +2526,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const unifiedTerminal = {
       ...emptyDefinitionFixture,
       repositoryBindingId: "binding-a",
-      intakeEpoch: "epoch-a",
       operations: [terminalOperation],
       projects: [{ ...projectFixture.state, tasks: [boundTask] }],
     };

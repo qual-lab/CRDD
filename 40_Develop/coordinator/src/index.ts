@@ -7,7 +7,6 @@
  * @security 内部Storage・Authority・Factoryを公開しない。
  */
 
-export type { WorkspaceResult } from "./workspace/record.ts";
 export {
   type AuthenticationRequest,
   type AuthenticationResult,
@@ -21,16 +20,14 @@ export {
   executeWorkspace,
   getAuthenticationStatus,
   getCapabilities,
-  initializeProject,
-  inspectSingleTaskCommand,
-  isSupportedNodeRuntime,
   openTaskSession,
-  type ProjectInitializationRequest,
   queryActivity,
   queryState,
+  type RecoveryObservation,
   type RecoveryRequest,
   type RecoveryResult,
   type RuntimeRepairResult,
+  readRecovery,
   readRepositoryNetworkHosts,
   recoverExecution,
   repairDockerRuntime,
@@ -46,26 +43,17 @@ export {
   type WorkspaceView,
 } from "./api.ts";
 export {
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
   type CoordinatorDecisionRequest,
   inspectCoordinatorDecisionRequest,
   inspectCoordinatorDecisionResult,
 } from "./decision/request.ts";
-export {
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  inspectCoordinatorObjectiveRequest,
-} from "./objective/plan.ts";
+export { inspectCoordinatorObjectiveRequest } from "./objective/plan.ts";
 export type { CoordinatorObjectiveRequest } from "./objective/types.ts";
+export { parseRuntimeActivityObservation } from "./state/observation.ts";
 export {
-  inspectRuntimeActivityObservation,
-  parseRuntimeActivityObservation,
-} from "./state/observation.ts";
-export {
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  inspectCoordinatorObjectiveResult,
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-  isCoordinatorObjectiveProjectionCorrelationValid,
-  isCoordinatorProjectionSemanticallyValid,
 } from "./state/projection.ts";
 export type {
   ActivityRepository,
@@ -81,4 +69,4 @@ export {
   inspectWorkspaceCommand,
   type WorkspaceCommand,
 } from "./workspace/commands.ts";
-export { inspectCoordinatorWorkspaceResults } from "./workspace/record.ts";
+export type { WorkspaceResult } from "./workspace/record.ts";

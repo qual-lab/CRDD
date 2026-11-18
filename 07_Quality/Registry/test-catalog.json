@@ -1782,7 +1782,8 @@
       "kind": "contract",
       "semanticTags": [
         "environment",
-        "notification"
+        "notification",
+        "startup"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -5870,6 +5871,7 @@
         "coordinator",
         "docker",
         "recovery",
+        "observation",
         "cli"
       ],
       "environment": "fixed_system_runtime",
@@ -7049,7 +7051,8 @@
         "project",
         "runtime",
         "adapter",
-        "protocol"
+        "protocol",
+        "result_capture"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -7201,7 +7204,8 @@
         "runtime",
         "state",
         "query",
-        "public"
+        "public",
+        "result_capture"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

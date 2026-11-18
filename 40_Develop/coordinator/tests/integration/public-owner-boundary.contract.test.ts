@@ -139,7 +139,7 @@ test("認証とProjectは解除throwと非releasedでも一次結果と回復参
    const options=await import(${JSON.stringify(options)});mock.module(${JSON.stringify(options)},{exports:{...options,readBoundedTaskRequestFromStdin:()=>({})}});
    mock.module(${JSON.stringify(cancellation)},{exports:{bindTaskCliCancellationSignals:()=>({status:"bound",unbind:()=>{if(${JSON.stringify(failure)}==="throw")throw Error("PRIVATE_DETAIL");return {status:"unknown"};}})}});
    const cli=await import(${JSON.stringify(entry)});
-   if(${JSON.stringify(target)}==="auth")await cli.runAuthenticationCommand(["status","codex","--json"]);else await cli.runProjectCommand(["run","--request-stdin","--json","--principal-id","local.email.fixture@example.invalid"]);
+   if(${JSON.stringify(target)}==="auth")await cli.runAuthenticationCommand(["status","codex","--json"]);else await cli.runProjectCommand(["objective","--request-stdin","--json","--principal-id","local.email.fixture@example.invalid"]);
    if(calls!==1)throw Error("incorrect_call_count");`;
       const child = spawnSync(
         process.execPath,
@@ -197,7 +197,7 @@ test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持す�
       reason: "project_arguments_invalid",
     },
     {
-      call: 'await runProjectCommand(["run", "--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);',
+      call: 'await runProjectCommand(["objective", "--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);',
       input: "{",
       reason: "task_request_invalid_json",
     },
@@ -331,6 +331,7 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
     "wait",
     "close",
     "wait_close",
+    "startup",
     "cancel",
   ]) {
     let starts = 0,
@@ -357,10 +358,12 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
             waits++;
             if (fault.startsWith("wait")) throw Error("PRIVATE_FIXTURE_DETAIL");
             return {
-              status: "completed",
+              status: fault === "startup" ? "blocked" : "completed",
               requestId: "request-fixture",
-              reason: null,
+              reason:
+                fault === "startup" ? "docker_environment_start_timeout" : null,
               cleanupConfirmed: true,
+              recoveryIds: [],
               secondaryFailures: [],
             };
           },
@@ -384,7 +387,7 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
       result.status,
       fault === "none"
         ? "completed"
-        : fault === "cancel"
+        : fault === "cancel" || fault === "startup"
           ? "blocked"
           : "unknown",
     );
@@ -394,6 +397,11 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
     );
     if (fault.startsWith("wait"))
       assert.equal(result.reason, "task_entry_unconfirmed");
+    if (fault === "startup") {
+      assert.equal(result.reason, "docker_environment_start_timeout");
+      assert.equal(result.cleanupConfirmed, true);
+      assert.deepEqual(Array.from(result.recoveryIds), []);
+    }
     assert.doesNotMatch(JSON.stringify(result), /PRIVATE_FIXTURE_DETAIL/);
   }
 });
@@ -453,7 +461,7 @@ test("CLIは明示したローカル要求主体だけを渡し、欠測時に�
       },
     });
     const args = [
-      "run",
+      "objective",
       "--request-stdin",
       "--json",
       ...(principal ? ["--principal-id", principal] : []),
@@ -470,32 +478,24 @@ test("CLIは明示したローカル要求主体だけを渡し、欠測時に�
 
 test("統合Rootは業務操作と単発実行の明示公開集合を保持する", () => {
   assert.deepEqual(Object.keys(coordinator).sort(), [
-    "COORDINATOR_HUMAN_DECISION_CONTRACT",
-    "COORDINATOR_OBJECTIVE_INTAKE_CONTRACT",
-    "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
     "acceptResult",
     "authenticateProvider",
     "diagnoseEnvironment",
     "executeWorkspace",
     "getAuthenticationStatus",
     "getCapabilities",
-    "initializeProject",
     "inspectCoordinatorDecisionRequest",
     "inspectCoordinatorDecisionResult",
     "inspectCoordinatorObjectiveRequest",
+    "inspectCoordinatorObjectiveResult",
     "inspectCoordinatorStateQuery",
     "inspectCoordinatorStateQueryResult",
-    "inspectCoordinatorWorkspaceResults",
-    "inspectRuntimeActivityObservation",
-    "inspectSingleTaskCommand",
     "inspectWorkspaceCommand",
-    "isCoordinatorObjectiveProjectionCorrelationValid",
-    "isCoordinatorProjectionSemanticallyValid",
-    "isSupportedNodeRuntime",
     "openTaskSession",
     "parseRuntimeActivityObservation",
     "queryActivity",
     "queryState",
+    "readRecovery",
     "readRepositoryNetworkHosts",
     "recoverExecution",
     "repairDockerRuntime",
@@ -587,8 +587,8 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   const cases = [
     {
       args: [
-        "project",
         "run",
+        "objective",
         "--request-stdin",
         "--json",
         "--principal-id",
@@ -599,8 +599,8 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     },
     {
       args: [
-        "project",
         "run",
+        "objective",
         "--request-stdin",
         "--json",
         "--principal-id",
@@ -611,8 +611,8 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     },
     {
       args: [
-        "project",
         "run",
+        "objective",
         "--request-stdin",
         "--json",
         "--principal-id",
@@ -623,8 +623,8 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     },
     {
       args: [
-        "project",
         "run",
+        "objective",
         "--request-stdin",
         "--json",
         "--principal-id",
@@ -652,16 +652,16 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   assert.doesNotMatch(commandSource, /orchestrator\/src/);
   for (const args of [
     [
-      "task",
       "run",
+      "task",
       "--request-stdin",
       "--json",
       "--principal-id",
       "local.email.fixture@example.invalid",
     ],
     [
-      "task",
       "run",
+      "task",
       "--request-stdin",
       "--json",
       "--principal-id",
@@ -696,16 +696,16 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   // Node拒否は表示形式にかかわらず操作前に停止する。
   for (const args of [
     [
-      "project",
       "run",
+      "objective",
       "--request-stdin",
       "--json",
       "--principal-id",
       "local.email.fixture@example.invalid",
     ],
     [
-      "task",
       "run",
+      "task",
       "--request-stdin",
       "--json",
       "--principal-id",

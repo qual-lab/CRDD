@@ -81,12 +81,10 @@ import { queueIsClosed } from "../../../src/state/crud.ts";
 function fixture() {
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [],
     queueEntries: [],
     workspaces: [],
@@ -584,6 +582,7 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
     queueEntries: [
       {
         queueId: "queue-a",
+        historySettled: false,
         projectId: "project-a",
         milestoneId: "milestone-a",
         repositoryRevision: request.target.repositoryRevision,
@@ -1167,6 +1166,7 @@ test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と�
         scopeHash: "c".repeat(64),
         originLane: "interactive" as const,
         state: "human_decision_required" as const,
+        historySettled: false,
         generation: 4,
         ownerGeneration: null,
         resumeCondition: null,

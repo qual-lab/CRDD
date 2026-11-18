@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { verifyRuntimePersistenceRepository } from "../../../coordinator/src/execution/persistence.ts";
+import { inspectCoordinatorObjectiveResult } from "../../../coordinator/src/index.ts";
 import { executeCoordinatorObjective } from "../../../coordinator/src/objective/execute.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../../../coordinator/src/state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
@@ -27,7 +28,6 @@ import { initializeExecutionStore } from "../../../execution-model/src/index.ts"
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   getMcpExecutionStatusToolDefinitions,
-  inspectMcpCoordinatorObjectiveResult,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_EXECUTION_STATUS_TOOL,
 } from "../../src/index.ts";
@@ -269,11 +269,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
     root,
     binding,
     base,
-    ports: createCoordinatorSnapshotPersistencePorts(
-      root,
-      binding,
-      initialized.value,
-    ),
+    ports: createCoordinatorSnapshotPersistencePorts(root, binding),
     snapshot: () => {
       const read = readFixtureSnapshot(root, binding);
       if (read.status !== "completed" || !read.value)
@@ -281,7 +277,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
       return read.value;
     },
   };
-  const initial = f.snapshot();
+  f.snapshot();
   const state = owner.snapshot().projects[0];
   assert.ok(state);
   let calls = 0;
@@ -351,7 +347,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
       },
     },
     withCallerPlan({
-      intakeEpoch: initial.intakeEpoch,
+      operation: "start" as const,
       requestId: "request-observation",
       projectId: "project-a",
       milestoneId: "milestone-a",
@@ -370,7 +366,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.equal(calls, 2);
   assert.equal(result.workspaceResults?.length, 2);
-  const projected = inspectMcpCoordinatorObjectiveResult(result);
+  const projected = inspectCoordinatorObjectiveResult(result);
   assert.ok(projected, JSON.stringify(result));
   assert.equal(projected.status, "blocked");
   assert.equal(projected.reason, result.reason);

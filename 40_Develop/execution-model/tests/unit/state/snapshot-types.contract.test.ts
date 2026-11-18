@@ -30,7 +30,7 @@ import type {
 
 /** @trace PRL-UT-006 基準の展開形を保存移行や互換Readerに使わない型Oracleとして保持する。 */
 type ExpectedOverview = Readonly<{
-  schema: "crdd-execution-model/state/v4";
+  schema: "crdd-execution-model/state/v6";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
@@ -51,8 +51,6 @@ type ExpectedProjection = Readonly<{
   repositoryRootHash: string;
   repositoryBindingId: string;
   snapshotRevision: number;
-  intakeEpoch: string;
-  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
   projects: readonly ProjectExecutionState[];
   queueEntries: readonly ProjectQueueEntry[];
   leaseEvidence: readonly LeaseEvidenceEnvelope[];
@@ -75,8 +73,8 @@ type ExpectedProjection = Readonly<{
   historyPending: readonly HistoryRow[];
 }> &
   Readonly<{
-    schema: "crdd-execution-model/project-snapshot/v7";
-    schemaRevision: 7;
+    schema: "crdd-execution-model/project-snapshot/v9";
+    schemaRevision: 9;
     decisions: readonly Decision[];
     blockers: readonly Blocker[];
   }>;
@@ -88,13 +86,11 @@ type ExpectedStoredState = Omit<ExpectedOverview, "schema"> &
     | "repositoryRootHash"
     | "snapshotRevision"
     | "repositoryBindingId"
-    | "intakeEpoch"
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-execution-model/state/v4";
+    schema: "crdd-execution-model/state/v6";
     repositoryBindingId: string | null;
-    intakeEpoch: string | null;
     projects: readonly ProjectDefinition[];
     managedExecutions: readonly ManagedExecution[];
   }>;

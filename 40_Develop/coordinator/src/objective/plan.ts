@@ -247,9 +247,9 @@ function inspectObjectiveRequestStrings(
 }
 
 const REQUIRED_REQUEST_KEYS = Object.freeze([
+  "operation",
   "plan",
   "taskInputs",
-  "intakeEpoch",
   "requestId",
   "projectId",
   "milestoneId",
@@ -321,7 +321,7 @@ export function inspectCoordinatorObjectiveRequest(
   const allowedPaths = inspectObjectiveRequestStrings(request.allowedPaths);
   const readPaths = inspectObjectiveRequestStrings(request.readPaths);
   if (
-    !validObjectiveRequestId(request.intakeEpoch) ||
+    (request.operation !== "start" && request.operation !== "resume") ||
     !validObjectiveRequestId(request.requestId) ||
     !validObjectiveRequestId(request.projectId) ||
     !validObjectiveRequestId(request.milestoneId) ||
@@ -372,7 +372,7 @@ export function inspectCoordinatorObjectiveRequest(
   return Object.freeze({
     plan,
     taskInputs,
-    intakeEpoch: request.intakeEpoch,
+    operation: request.operation,
     requestId: request.requestId,
     projectId: request.projectId,
     milestoneId: request.milestoneId,
@@ -396,7 +396,7 @@ export function inspectCoordinatorObjectiveRequest(
 }
 
 export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
-  "crdd-coordinator/orchestrator-objective-intake/v2" as const;
+  "crdd-coordinator/orchestrator-objective-intake/v4" as const;
 
 /**
  * Task定義と実行入力を一対一で固定する。

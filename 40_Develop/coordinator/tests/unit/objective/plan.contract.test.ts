@@ -25,6 +25,7 @@ import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 const objectiveRequest = Object.freeze(
   withCallerPlan({
+    operation: "start" as const,
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -37,7 +38,6 @@ const objectiveRequest = Object.freeze(
     maximumReplans: 1,
     originLane: "interactive" as const,
     adoptResult: false,
-    intakeEpoch: "fixture-epoch",
   }),
 );
 
@@ -178,6 +178,22 @@ test("Objectiveの要求・主体・Signal拒否は内部実行への接続前�
     unauthenticated.reason,
     "orchestrator_authenticated_principal_not_verified",
   );
+  const cancelled = new AbortController();
+  cancelled.abort();
+  for (const signal of [cancelled.signal, null as unknown as AbortSignal]) {
+    const result = await executeCoordinatorPublicObjective(
+      runtimeDependencies,
+      objectiveRequest,
+      signal,
+      "root-must-not-be-read",
+      { principalId: "principal-a" },
+    );
+    assert.equal(
+      result.reason,
+      "orchestrator_objective_cancelled_before_start",
+    );
+    assert.equal(result.effectState, "no_effect");
+  }
 });
 
 /**
@@ -432,7 +448,7 @@ test("計画と公開投影は旧件数と本文容量を超えても相関を�
   assert.equal(validated?.tasks.length, 1025);
   assert.equal(normalizeRepositoryRelativePath(longPath), longPath);
   const request = {
-    intakeEpoch: "epoch-a",
+    operation: "start" as const,
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",

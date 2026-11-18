@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { snapshotIntakeMatches } from "../../../src/state/validation.ts";
+import { snapshotRequestMatches } from "../../../src/state/validation.ts";
 import { classifyExecutionSnapshotReentry } from "../../../src/storage/store.ts";
 
 /**
@@ -27,15 +27,13 @@ import { classifyExecutionSnapshotReentry } from "../../../src/storage/store.ts"
  * @cleanup N/A: メモリ内の局所判定のみ。
  * @boundary 全体codec・実受付・現在Ownerの検証は別試験が所有する。
  */
-test("受付照合は新規の現世代と既存Queueの元世代を混同しない", () => {
+test("受付照合は新規開始と保存済み依頼の再開を混同しない", () => {
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [],
     queueEntries: [],
     workspaces: [],
@@ -47,27 +45,26 @@ test("受付照合は新規の現世代と既存Queueの元世代を混同しな
     blockers: [],
   };
   const intake = {
-    epoch: "epoch-a",
+    operation: "start" as const,
     queueId: "queue-a",
     requestHash: "b".repeat(64),
     projectId: "project-a",
     milestoneId: "milestone-a",
   };
   const before = JSON.stringify(current);
-  assert.equal(snapshotIntakeMatches(current, intake), true);
+  assert.equal(snapshotRequestMatches(current, intake), true);
   assert.equal(
-    snapshotIntakeMatches(current, {
+    snapshotRequestMatches(current, {
       ...intake,
-      epoch: "old-epoch",
+      operation: "resume" as const,
     }),
     false,
   );
   const queued: Snapshot = {
     ...current,
-    intakeEpoch: "epoch-b",
-    intakeBindings: [{ queueId: intake.queueId, epoch: intake.epoch }],
     queueEntries: [
       {
+        historySettled: false,
         workspaceId: null,
         queueId: intake.queueId,
         projectId: intake.projectId,
@@ -84,18 +81,21 @@ test("受付照合は新規の現世代と既存Queueの元世代を混同しな
       },
     ],
   };
-  assert.equal(snapshotIntakeMatches(queued, intake), true);
+  assert.equal(snapshotRequestMatches(queued, intake), true);
   for (const changed of [
-    { ...intake, epoch: "epoch-b" },
+    { ...intake, queueId: "queue-missing", operation: "resume" as const },
     { ...intake, requestHash: "c".repeat(64) },
     { ...intake, projectId: "project-b" },
     { ...intake, milestoneId: "milestone-b" },
     { ...intake, queueId: "" },
     { ...intake, requestHash: "invalid" },
   ])
-    assert.equal(snapshotIntakeMatches(queued, changed), false);
+    assert.equal(snapshotRequestMatches(queued, changed), false);
   assert.equal(
-    snapshotIntakeMatches({ ...queued, intakeBindings: [] }, intake),
+    snapshotRequestMatches(
+      { ...queued, queueEntries: [] },
+      { ...intake, operation: "resume" },
+    ),
     false,
   );
   assert.equal(JSON.stringify(current), before);

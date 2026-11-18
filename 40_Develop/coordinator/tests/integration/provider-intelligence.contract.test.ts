@@ -56,18 +56,13 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
     new URL("../../src/objective/execute.ts", import.meta.url),
     "utf8",
   );
-  const begin = source.indexOf("  let eiGroup:"),
+  const begin = source.indexOf("  const groupState:"),
     end = source.indexOf(
-      "  const execution = await runCoordinatorObjective(",
+      "  const execution = await executeAcceptedCoordinatorObjective(",
       begin,
     );
   assert.ok(begin >= 0 && end > begin);
-  const block = source
-    .slice(begin, end)
-    .replace(
-      "let eiGroup: { store: StoreOptions; groupId: string } | null",
-      "let eiGroup",
-    );
+  const block = stripTypeScriptTypes(source.slice(begin, end));
   const expected = `group-${createHash("sha256").update("project-a\0request-a").digest("hex").slice(0, 40)}`;
   for (const mode of [
     "repository_blocked",
@@ -75,29 +70,32 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
     "store_blocked",
   ] as const) {
     const ids: string[] = [];
-    const continued = vm.runInNewContext(`${block}\ntrue`, {
-      request: { projectId: "project-a", requestId: "request-a" },
-      repositoryRoot: "fixture",
-      createHash,
-      getRepository: () => {
-        if (mode === "repository_throw") throw Error("fixture");
-        return {
-          status: mode === "repository_blocked" ? "blocked" : "completed",
-          capability: {},
-        };
+    const continued = vm.runInNewContext(
+      `${block}\nbeginExecutionGroup();beginExecutionGroup();true`,
+      {
+        request: { projectId: "project-a", requestId: "request-a" },
+        repositoryRoot: "fixture",
+        createHash,
+        getRepository: () => {
+          if (mode === "repository_throw") throw Error("fixture");
+          return {
+            status: mode === "repository_blocked" ? "blocked" : "completed",
+            capability: {},
+          };
+        },
+        getExecutionIntelligenceStore: () => ({
+          directory: "fixture",
+          retentionDays: 1,
+        }),
+        createGroup: (_store: unknown, input: { groupId: string }) => ({
+          status: "blocked",
+          recordId: input.groupId,
+        }),
+        reportExecutionRecording: (result: { recordId: string }) =>
+          ids.push(result.recordId),
+        reportExecutionRecordingUnavailable: (id: string) => ids.push(id),
       },
-      getExecutionIntelligenceStore: () => ({
-        directory: "fixture",
-        retentionDays: 1,
-      }),
-      createGroup: (_store: unknown, input: { groupId: string }) => ({
-        status: "blocked",
-        recordId: input.groupId,
-      }),
-      reportExecutionRecording: (result: { recordId: string }) =>
-        ids.push(result.recordId),
-      reportExecutionRecordingUnavailable: (id: string) => ids.push(id),
-    });
+    );
     assert.equal(continued, true);
     assert.deepEqual(ids, [expected], mode);
   }
@@ -167,7 +165,7 @@ for (const kind of ["execution", "group"] as const) {
         new URL("../../src/objective/execute.ts", import.meta.url),
         "utf8",
       );
-      const begin = groupSource.indexOf("  let eiGroup:"),
+      const begin = groupSource.indexOf("  const groupState:"),
         end = groupSource.indexOf(
           "  const execution = await executeAcceptedCoordinatorObjective(",
           begin,
@@ -176,19 +174,23 @@ for (const kind of ["execution", "group"] as const) {
       const block = stripTypeScriptTypes(groupSource.slice(begin, end));
       expected = `group-${createHash("sha256").update("project-a\0request-a").digest("hex").slice(0, 40)}`;
       assert.equal(
-        vm.runInNewContext(`${block}\ntrue`, {
-          request: { projectId: "project-a", requestId: "request-a" },
-          repositoryRoot: "fixture",
-          createHash,
-          getRepository: () => ({ status: "completed", capability: {} }),
-          getExecutionIntelligenceStore: harness.getExecutionIntelligenceStore,
-          reportExecutionRecordingUnavailable:
-            harness.reportExecutionRecordingUnavailable,
-          createGroup: () => {
-            writes++;
-            throw Error("unreachable");
+        vm.runInNewContext(
+          `${block}\nbeginExecutionGroup();beginExecutionGroup();true`,
+          {
+            request: { projectId: "project-a", requestId: "request-a" },
+            repositoryRoot: "fixture",
+            createHash,
+            getRepository: () => ({ status: "completed", capability: {} }),
+            getExecutionIntelligenceStore:
+              harness.getExecutionIntelligenceStore,
+            reportExecutionRecordingUnavailable:
+              harness.reportExecutionRecordingUnavailable,
+            createGroup: () => {
+              writes++;
+              throw Error("unreachable");
+            },
           },
-        }),
+        ),
         true,
       );
     }

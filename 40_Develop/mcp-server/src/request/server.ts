@@ -39,11 +39,7 @@ import {
   handleMcpWorkspaceRequest,
   type WorkspaceAccessResolver,
 } from "../tools/workspace.ts";
-import {
-  getMcpCoordinatorToolDefinitions,
-  handleMcpCoordinatorRequest,
-  type McpCoordinatorDependencies,
-} from "../tools/task.ts";
+import type { McpCoordinatorDependencies } from "../tools/task.ts";
 import {
   getMcpProjectContextToolDefinitions,
   handleMcpProjectContextRequest,
@@ -159,6 +155,18 @@ export function createMcpServerFactory(
         throw new ProtocolError(-32602, "Invalid params");
       if (isList && signal.aborted)
         throw new ProtocolError(-32800, "Request cancelled");
+      let automation: typeof import("../tools/task.ts") | null = null;
+      if (coordinator) {
+        try {
+          automation = await import("../tools/task.ts");
+        } catch {
+          throw new ProtocolError(
+            signal.aborted ? -32800 : -32603,
+            signal.aborted ? "Request cancelled" : "Coordinator unavailable",
+          );
+        }
+      }
+      if (signal.aborted) throw new ProtocolError(-32800, "Request cancelled");
       const bindings: {
         definitions: readonly { name: string }[];
         invoke: McpRequestHandler;
@@ -175,11 +183,11 @@ export function createMcpServerFactory(
           invoke: (raw, current) =>
             handleMcpWorkspaceRequest(raw, workspace, current),
         });
-      if (coordinator)
+      if (coordinator && automation)
         bindings.push({
-          definitions: getMcpCoordinatorToolDefinitions(),
+          definitions: automation.getMcpCoordinatorToolDefinitions(),
           invoke: (raw, current) =>
-            handleMcpCoordinatorRequest(raw, coordinator, current),
+            automation.handleMcpCoordinatorRequest(raw, coordinator, current),
         });
       if (projectContext)
         bindings.push({
@@ -257,9 +265,13 @@ export function createMcpServerFactory(
         );
         const invoke =
           binding?.invoke ??
-          (coordinator
+          (coordinator && automation
             ? (raw: unknown, current: AbortSignal) =>
-                handleMcpCoordinatorRequest(raw, coordinator, current)
+                automation.handleMcpCoordinatorRequest(
+                  raw,
+                  coordinator,
+                  current,
+                )
             : null);
         if (!invoke) throw new ProtocolError(-32601, "Method not found");
         const combined = AbortSignal.any([signal, context.mcpReq.signal]);

@@ -18,6 +18,7 @@ import { selectionConfig } from "../fixtures/ai-selection.ts";
 
 const objective = Object.freeze(
   withCallerPlan({
+    operation: "start" as const,
     requestId: "request-1",
     projectId: "project-1",
     milestoneId: "milestone-1",
@@ -30,7 +31,6 @@ const objective = Object.freeze(
     maximumReplans: 0,
     originLane: "interactive" as const,
     adoptResult: false,
-    intakeEpoch: "fixture-epoch",
   }),
 );
 

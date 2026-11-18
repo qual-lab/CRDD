@@ -136,6 +136,7 @@ export async function handleRepositoryView({
           executionSelection:
             presentation.aiRequestSnapshot?.executionSelection ?? null,
           status: "unknown",
+          resultAvailable: false,
           reason: "observation_failed",
           facts: Object.freeze([]),
           sharedAnalysis: Object.freeze([]),

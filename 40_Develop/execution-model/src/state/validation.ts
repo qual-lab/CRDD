@@ -2002,8 +2002,6 @@ function validateStateTransitionValue(
       );
       const businessKeys = [
         "repositoryBindingId",
-        "intakeEpoch",
-        "intakeBindings",
         "queueEntries",
         "workspaces",
         "leaseEvidence",
@@ -2048,8 +2046,6 @@ function validateStateTransitionValue(
 
 const EMPTY_EXECUTION_TASK_SECTIONS = {
   repositoryBindingId: null,
-  intakeEpoch: null,
-  intakeBindings: [],
   projects: [],
   managedExecutions: [],
   queueEntries: [],
@@ -2386,23 +2382,23 @@ function validateSettlementTransition(
 
 /**
  * 発行時の受付結合を現在の保存値へ照合する。
- * @responsibility 新規受付と退役前の同内容再入場を区別する。
+ * @responsibility 新規開始と保存済み依頼の同内容再開を区別する。
  * @trace ARCH-000004
- * @input current: 保存値、intake: 発行時世代と依頼結合。
+ * @input current: 保存値、intake: 操作区分と実行ID・依頼結合。
  * @returns 受付可能ならtrue。
  * @precondition currentは検証済み。
- * @postcondition 退役済み世代を現在世代へ付け替えない。
+ * @postcondition 未知IDの再開を新規開始へ変換しない。
  * @effect N/A: 値比較のみ。
- * @failure 異内容、異結合、退役済み世代の再入場はfalse。
+ * @failure 異内容、異結合、未知IDの再開はfalse。
  * @invariant 同じProject名だけで再入場を許可しない。
  * @boundary Requestと保存契約。
- * @security 受付世代は実行Authorityではない。
+ * @security 保存された要求結合は実行Authorityではない。
  * @concurrency 同Ownerで保存直前にも使用する。
  */
-export function snapshotIntakeMatches(
+export function snapshotRequestMatches(
   current: Snapshot,
   intake: Readonly<{
-    epoch: string;
+    operation: "start" | "resume";
     queueId: string;
     requestHash: string;
     projectId: string;
@@ -2410,7 +2406,7 @@ export function snapshotIntakeMatches(
   }>,
 ): boolean {
   if (
-    !validId(intake.epoch) ||
+    !["start", "resume"].includes(intake.operation) ||
     !validId(intake.queueId) ||
     !isSha256Hex(intake.requestHash) ||
     !validId(intake.projectId) ||
@@ -2420,11 +2416,8 @@ export function snapshotIntakeMatches(
   const queue = current.queueEntries.find(
     (item) => item.queueId === intake.queueId,
   );
-  if (!queue) return current.intakeEpoch === intake.epoch;
+  if (!queue) return intake.operation === "start";
   return (
-    current.intakeBindings.some(
-      (item) => item.queueId === intake.queueId && item.epoch === intake.epoch,
-    ) &&
     queue.requestHash === intake.requestHash &&
     queue.projectId === intake.projectId &&
     queue.milestoneId === intake.milestoneId
@@ -2496,8 +2489,6 @@ export function decodeStateSnapshot(
         "operations",
         "unresolvedRecoveries",
         "repositoryBindingId",
-        "intakeEpoch",
-        "intakeBindings",
         "projects",
         "managedExecutions",
         "queueEntries",
@@ -2513,7 +2504,7 @@ export function decodeStateSnapshot(
       return null;
     const snapshot = value as ExecutionStateSnapshot;
     if (
-      snapshot.schema !== "crdd-execution-model/state/v4" ||
+      snapshot.schema !== "crdd-execution-model/state/v6" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -2735,7 +2726,7 @@ export function projectTaskSettlement(
  * @postcondition 旧形式の欠落を補完せず、孤立した参照を拒否する。
  * @effect N/A: 同期の値検査だけ。
  * @failure 不正構造と相関不一致はfalse。
- * @invariant 業務世代、受付世代と保存改訂を混同しない。
+ * @invariant 業務世代、実行IDと保存改訂を混同しない。
  * @boundary 保存EnvelopeとTask現在モデル。
  * @security 記録から実効LeaseやAuthorityを復元しない。
  * @concurrency N/A: 保存・排他取得を行わない。
@@ -2788,7 +2779,6 @@ function validExecutionTaskReferences(
   )
     return false;
   for (const key of [
-    "intakeBindings",
     "projects",
     "queueEntries",
     "leaseEvidence",
@@ -2809,6 +2799,7 @@ function validExecutionTaskReferences(
   if (
     snapshot.queueEntries.some(
       (entry) =>
+        !entry.historySettled &&
         entry.workspaceId != null &&
         !snapshot.workspaces.some(
           (workspace) => workspace.workspaceId === entry.workspaceId,
@@ -2828,19 +2819,6 @@ function validExecutionTaskReferences(
     )
   )
     return false;
-  const intake = new Set<string>();
-  for (const item of snapshot.intakeBindings) {
-    if (
-      !isStateObject(item) ||
-      !hasStateKeys(item, ["queueId", "epoch"]) ||
-      !validId(item.epoch) ||
-      !queues.has(item.queueId) ||
-      intake.has(item.queueId)
-    )
-      return false;
-    intake.add(item.queueId);
-  }
-  if (intake.size !== queues.size) return false;
   const evidenceGroups = new Map<string, LeaseEvidenceEnvelope[]>();
   for (const record of snapshot.leaseEvidence) {
     if (
@@ -3025,7 +3003,7 @@ function validExecutionTaskReferences(
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v4";
+export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v6";
 
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can
@@ -3163,17 +3141,14 @@ function projectExecutionSnapshotSections(
   const taskSections = {
     ...snapshot,
     repositoryBindingId: snapshot.repositoryBindingId ?? "",
-    intakeEpoch: snapshot.intakeEpoch ?? "",
     projects,
   };
-  if (snapshot.repositoryBindingId === null || snapshot.intakeEpoch === null) {
+  if (snapshot.repositoryBindingId === null) {
     if (
       snapshot.repositoryBindingId !== null ||
-      snapshot.intakeEpoch !== null ||
       [
         "projects",
         "queueEntries",
-        "intakeBindings",
         "workspaces",
         "leaseEvidence",
         "leaseIntents",
@@ -3193,7 +3168,6 @@ function projectExecutionSnapshotSections(
       return null;
   } else if (
     !validId(snapshot.repositoryBindingId) ||
-    !validId(snapshot.intakeEpoch) ||
     !projects.every(validState) ||
     !validExecutionTaskReferences(
       { ...taskSections, projects: definitionProjects },
@@ -3237,8 +3211,6 @@ export function validSnapshot(
         "repositoryRootHash",
         "repositoryBindingId",
         "snapshotRevision",
-        "intakeEpoch",
-        "intakeBindings",
         "projects",
         "queueEntries",
         "leaseEvidence",
@@ -3250,12 +3222,11 @@ export function validSnapshot(
         "workspaces",
       ]) ||
       value.schema !== PROJECT_SNAPSHOT_SCHEMA ||
-      value.schemaRevision !== 7 ||
+      value.schemaRevision !== 9 ||
       value.repositoryBindingId !== binding ||
       value.repositoryRootHash !== rootHash ||
       !validId(binding) ||
       !isSha256Hex(rootHash) ||
-      !validId(value.intakeEpoch) ||
       !Number.isSafeInteger(value.snapshotRevision) ||
       Number(value.snapshotRevision) < 1
     )
@@ -3978,16 +3949,14 @@ export function projectTaskSnapshot(
   repositoryRootHash: string,
 ): Snapshot | null {
   const s = decoded.snapshot;
-  if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
+  if (s.repositoryBindingId === null) return null;
   return {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash,
     repositoryBindingId: s.repositoryBindingId,
-    intakeEpoch: s.intakeEpoch,
     snapshotRevision: s.revision,
     projects: decoded.projects,
-    intakeBindings: s.intakeBindings,
     queueEntries: s.queueEntries,
     workspaces: s.workspaces,
     leaseEvidence: s.leaseEvidence,

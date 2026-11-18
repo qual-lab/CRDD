@@ -10,24 +10,26 @@
  * @security Task・送信許可・Credential・永続Stateを所有せず、実ID／固定構成の照合前に削除しない。
  */
 
-export { initializeIsolation } from "./docker-cli/environment.ts";
-export type { IsolationSettings } from "./docker-cli/environment.ts";
-export { describeIsolationConfiguration } from "./image/assets.ts";
 export type {
-  ResourceInspection,
-  ResourceTarget,
   ResourceCleanupResult,
+  ResourceInspection,
   ResourceSnapshot,
+  ResourceTarget,
 } from "./cleanup/types.ts";
+export type { IsolationSettings } from "./docker-cli/environment.ts";
+export { initializeIsolation } from "./docker-cli/environment.ts";
 export {
   inspectDockerEnvironment,
   restartDockerEnvironment,
+  startDockerEnvironment,
 } from "./docker-desktop/operations.ts";
 export type { DockerEnvironmentRestartEvent } from "./docker-desktop/restart.ts";
 export type {
   DockerEnvironmentRequest,
   DockerEnvironmentResult,
   DockerEnvironmentStatus,
+  EnvironmentStartRequest,
+  EnvironmentStartResult,
 } from "./docker-desktop/types.ts";
 export {
   cleanupIsolation,
@@ -43,4 +45,5 @@ export type {
   IsolationRequest,
   PreparedIsolation,
 } from "./execution/types.ts";
+export { describeIsolationConfiguration } from "./image/assets.ts";
 export type { IsolationConfiguration } from "./image/types.ts";

@@ -320,6 +320,7 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
     isStateObject(value) &&
     hasStateKeys(value, [
       "queueId",
+      "historySettled",
       "projectId",
       "milestoneId",
       "requestHash",
@@ -335,6 +336,10 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
       ...(Object.hasOwn(value, "singleTask") ? ["singleTask"] : []),
     ]) &&
     validId(value.queueId) &&
+    typeof value.historySettled === "boolean" &&
+    (!value.historySettled ||
+      (["completed", "cancelled"].includes(String(value.state)) &&
+        value.ownerGeneration === null)) &&
     validId(value.projectId) &&
     (Object.hasOwn(value, "singleTask")
       ? value.milestoneId === null &&

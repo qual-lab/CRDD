@@ -15,7 +15,7 @@ import {
   isStateObject,
   hasStateKeys,
 } from "./operations.ts";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { types } from "node:util";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
@@ -90,7 +90,7 @@ import {
   prepareStateHostSnapshot,
   prepareStateOperationSnapshot,
   projectCurrentState,
-  snapshotIntakeMatches,
+  snapshotRequestMatches,
   validSnapshot,
 } from "./validation.ts";
 import { validState } from "../task/validation.ts";
@@ -115,7 +115,7 @@ import { adoptionWasRejected } from "../workspace/validation.ts";
 /**
  * Coordinatorの現在状態・Queue・Leaseを単一Snapshotへ保存する。
  *
- * @responsibility 受付世代、保存比較交換、排他意図・根拠、終了整理と再入場を同じ保存Ownerへ結合する。
+ * @responsibility 要求結合、保存比較交換、排他意図・根拠、終了整理と再入場を同じ保存Ownerへ結合する。
  * @trace ARCH-000004
  */
 
@@ -150,12 +150,12 @@ export function observeSnapshotObligations(
 
 /**
  * 清掃済みの保存領域を新版の現在状態として初期化する。
- * @responsibility 明示的な切替でだけ受付世代を発行する。
+ * @responsibility 真正不存在だけを同じ保存Ownerで初期化する。
  * @trace ARCH-000004
  * @input workingDirectory: 検証対象Root、binding: Repository結合。
- * @returns 確定保存した受付世代、または保全停止。
+ * @returns 初期化の確定結果、または保全停止。
  * @precondition 旧記録の清掃はフロントAIが完了している。
- * @postcondition 同時初期化でも保存済みの一世代だけを返す。
+ * @postcondition 同時初期化でも先行する同じ結合の状態を上書きしない。
  * @effect 新品領域にstate.jsonを作成する。
  * @failure 旧記録、履歴、pending、破損、観測不能は初期化しない。
  * @invariant QueryやRequest受付による暗黙初期化を行わない。
@@ -166,14 +166,14 @@ export function observeSnapshotObligations(
 export function initializeExecutionStore(
   workingDirectory: Repository,
   binding: string,
-): StoreResult<string> {
+): StoreResult<null> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked("orchestrator_repository_root_invalid");
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
   const acquired = acquireSnapshotPilotLock(workingDirectory);
-  if (acquired.status !== "completed") return blocked(acquired.reason);
+  if (acquired.status !== "completed") return acquired;
   const owner = acquired.value;
-  let result: StoreResult<string>;
+  let result: StoreResult<null>;
   let boundaryError: ExecutionStorageBlockedError | null = null;
   try {
     result = initializeExecutionSnapshotOwned(owner, binding);
@@ -213,7 +213,7 @@ export function writeSnapshotState(
   stateJson: string,
   expectedGeneration: number,
   intake?: Readonly<{
-    epoch: string;
+    operation: "start" | "resume";
     queueId: string;
     requestHash: string;
     projectId: string;
@@ -252,8 +252,8 @@ export function writeSnapshotState(
       outcome = blocked("orchestrator_snapshot_absent");
     else {
       const current = observed.value;
-      if (intake && !snapshotIntakeMatches(current, intake))
-        outcome = blocked("orchestrator_intake_epoch_retired");
+      if (intake && !snapshotRequestMatches(current, intake))
+        outcome = blocked("orchestrator_queue_identity_conflict");
       else {
         const previous = current.projects.find(
           (item) => item.projectId === state.projectId,
@@ -864,12 +864,8 @@ export function readProjectExecutionState(
 }
 /** 複合取得で許可する保存区画。技術記録・Owner・生Snapshotは含めない。 */
 type StateReadViews = {
-  queue: Pick<Snapshot, "queueEntries" | "leaseIntents" | "intakeEpoch">;
-  intake: Pick<Snapshot, "intakeEpoch">;
-  execution: Pick<
-    Snapshot,
-    "projects" | "queueEntries" | "intakeEpoch" | "schemaRevision"
-  >;
+  queue: Pick<Snapshot, "queueEntries" | "leaseIntents">;
+  execution: Pick<Snapshot, "projects" | "queueEntries" | "schemaRevision">;
   workspace: Pick<
     Snapshot,
     "projects" | "queueEntries" | "results" | "workspaces" | "snapshotRevision"
@@ -940,17 +936,12 @@ export function readState<K extends keyof StateReadViews>(
   }
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked<never>("orchestrator_repository_root_invalid");
-  if (
-    scope !== "intake" &&
-    scope !== "execution" &&
-    scope !== "workspace" &&
-    scope !== "queue"
-  )
+  if (scope !== "execution" && scope !== "workspace" && scope !== "queue")
     return blocked<never>("orchestrator_state_read_scope_invalid");
-  const result =
-    scope === "intake"
-      ? readSnapshot(workingDirectory as Repository, binding as string, true)
-      : readSnapshot(workingDirectory as Repository, binding as string);
+  const result = readSnapshot(
+    workingDirectory as Repository,
+    binding as string,
+  );
   if (result.status !== "completed") return result;
   if (result.value === null) return completed<null>(result.reason, null);
   const current = result.value;
@@ -959,24 +950,20 @@ export function readState<K extends keyof StateReadViews>(
       ? {
           queueEntries: current.queueEntries,
           leaseIntents: current.leaseIntents,
-          intakeEpoch: current.intakeEpoch,
         }
-      : scope === "intake"
-        ? { intakeEpoch: current.intakeEpoch }
-        : scope === "execution"
-          ? {
-              projects: current.projects,
-              queueEntries: current.queueEntries,
-              intakeEpoch: current.intakeEpoch,
-              schemaRevision: current.schemaRevision,
-            }
-          : {
-              projects: current.projects,
-              queueEntries: current.queueEntries,
-              results: current.results,
-              workspaces: current.workspaces,
-              snapshotRevision: current.snapshotRevision,
-            };
+      : scope === "execution"
+        ? {
+            projects: current.projects,
+            queueEntries: current.queueEntries,
+            schemaRevision: current.schemaRevision,
+          }
+        : {
+            projects: current.projects,
+            queueEntries: current.queueEntries,
+            results: current.results,
+            workspaces: current.workspaces,
+            snapshotRevision: current.snapshotRevision,
+          };
   return completed<StateReadViews[K]>(
     result.reason,
     value as StateReadViews[K],
@@ -1020,7 +1007,7 @@ function executionContentTarget(request: unknown) {
  * @input access、kind、request: Host接続と固定CRUD用途・要求。
  * @returns 出版・読戻し・解放を区別した型付き結果。
  * @precondition 一般CRUDは管理実行参照のない定義だけを変更する。
- * @postcondition 対象外区画、元unknown・回復参照と受付世代を保つ。
+ * @postcondition 対象外区画、元unknown・回復参照と要求相関を保つ。
  * @effect 共通stateの既存pending・atomic replaceだけ。
  * @failure 拒否・競合は無出版、途中失敗はunknownと元参照。
  * @invariant 新Writer・Map・Registry・取引callbackを公開しない。
@@ -1198,7 +1185,7 @@ export function saveExecutionDefinition<
 function initializeExecutionSnapshotOwned(
   owner: StorageOwner,
   binding: string,
-): StoreResult<string> {
+): StoreResult<null> {
   const observed = readStorageSnapshotOwned(owner);
   if (
     observed.status !== "completed" &&
@@ -1209,23 +1196,17 @@ function initializeExecutionSnapshotOwned(
     observed.value?.snapshot.repositoryBindingId !== null &&
     observed.value
   )
-    return observed.value.snapshot.repositoryBindingId === binding &&
-      observed.value.snapshot.intakeEpoch
-      ? completed(
-          "orchestrator_snapshot_initialized",
-          observed.value.snapshot.intakeEpoch,
-        )
+    return observed.value.snapshot.repositoryBindingId === binding
+      ? completed("orchestrator_snapshot_initialized", null)
       : blocked("orchestrator_snapshot_binding_invalid");
   else {
     const revision = observed.value?.snapshot.revision ?? 0;
     const payload: Snapshot = {
       schema: PROJECT_SNAPSHOT_SCHEMA,
-      schemaRevision: 7,
+      schemaRevision: 9,
       repositoryRootHash: owner.repositoryRootHash,
       repositoryBindingId: binding,
       snapshotRevision: revision + 1,
-      intakeEpoch: `epoch-${randomUUID()}`,
-      intakeBindings: [],
       projects: [],
       workspaces: [],
       queueEntries: [],
@@ -1243,7 +1224,7 @@ function initializeExecutionSnapshotOwned(
       revision,
     );
     return saved.status === "completed"
-      ? completed("orchestrator_snapshot_initialized", saved.value.intakeEpoch)
+      ? completed("orchestrator_snapshot_initialized", null)
       : saved;
   }
 }
@@ -1253,7 +1234,7 @@ function initializeExecutionSnapshotOwned(
  * @responsibility 真正不存在を同じ短期排他下で確認し既存初回Writerへ接続する。
  * @trace ARCH-000008
  * @input access、request: 内容認可とexpectedAbsence:trueを伴う対象。
- * @returns 初回版と受付世代、又は固定拒否・未確定。
+ * @returns 初回保存の改訂確認、又は固定拒否・未確定。
  * @precondition 旧領域の移行・過去保持物の処置はこのAPIへ委譲しない。
  * @postcondition 既存状態を上書きせずProvider資格を要求しない。
  * @effect Repository内の既存共通状態だけ。
@@ -1270,7 +1251,7 @@ export function initializeExecutionState(
     milestoneId: string;
     expectedAbsence: true;
   }>,
-): ExecutionModelSaveResult<Readonly<{ intakeEpoch: string }>> {
+): ExecutionModelSaveResult<null> {
   const input = snapshotStateRecord(
     request,
     new Set(["projectId", "milestoneId", "expectedAbsence"]),
@@ -1304,7 +1285,7 @@ export function initializeExecutionState(
     };
   }
   const owner = acquisition.value;
-  let result: ExecutionModelSaveResult<Readonly<{ intakeEpoch: string }>> = {
+  let result: ExecutionModelSaveResult<null> = {
     status: "blocked",
     value: null,
     reason: "state_unavailable",
@@ -1341,7 +1322,7 @@ export function initializeExecutionState(
         publication = "confirmed";
         result = {
           status: "saved",
-          value: { intakeEpoch: saved.value },
+          value: null,
           version: {
             revision: current.value.snapshot.revision,
             payloadSha256: current.value.payloadSha256,
@@ -2022,6 +2003,8 @@ export function assertSnapshotTransition(
   payload: Snapshot,
   owner: SnapshotObservations,
 ): void {
+  if (!current && payload.queueEntries.some((queue) => queue.historySettled))
+    throw new Error("snapshot_execution_history_not_settled");
   if (
     !current &&
     (payload.decisions.length !== 0 || payload.blockers.length !== 0)
@@ -2084,12 +2067,44 @@ export function assertSnapshotTransition(
   if (current) {
     if (payload.schema !== current.schema)
       throw new Error("snapshot_schema_transition_invalid");
+    if (
+      current.queueEntries.some(
+        (queue) =>
+          !payload.queueEntries.some((item) => item.queueId === queue.queueId),
+      )
+    )
+      throw new Error("snapshot_execution_identity_removed");
+    for (const queue of payload.queueEntries) {
+      const before = current.queueEntries.find(
+        (item) => item.queueId === queue.queueId,
+      );
+      if (!before && queue.historySettled)
+        throw new Error("snapshot_execution_history_not_settled");
+      if (
+        before?.historySettled &&
+        encodeStateValue(before) !== encodeStateValue(queue)
+      )
+        throw new Error("snapshot_execution_terminal_changed");
+      if (
+        before &&
+        !before.historySettled &&
+        queue.historySettled &&
+        encodeStateValue(queue) !==
+          encodeStateValue({
+            ...before,
+            historySettled: true,
+            generation: before.generation + 1,
+          })
+      )
+        throw new Error("snapshot_execution_terminal_changed");
+    }
     const retired = new Set(
       current.queueEntries
         .filter(
           (queue) =>
-            !payload.queueEntries.some(
-              (item) => item.queueId === queue.queueId,
+            !queue.historySettled &&
+            payload.queueEntries.some(
+              (item) => item.queueId === queue.queueId && item.historySettled,
             ),
         )
         .map((item) => item.queueId),
@@ -2111,8 +2126,6 @@ export function assertSnapshotTransition(
       )
         throw new Error("snapshot_retirement_unconfirmed");
     }
-    if (retired.size > 0 !== (payload.intakeEpoch !== current.intakeEpoch))
-      throw new Error("snapshot_intake_epoch_transition_invalid");
     for (const collection of ["results", "leaseEvidence"] as const) {
       for (const old of current[collection])
         if (
@@ -2353,11 +2366,7 @@ export function assertSnapshotTransition(
             old[key as keyof ProjectQueueEntry],
         ) ||
         (encodeStateValue(next) !== encodeStateValue(old) &&
-          next.generation !== old.generation + 1) ||
-        current.intakeBindings.find((item) => item.queueId === old.queueId)
-          ?.epoch !==
-          payload.intakeBindings.find((item) => item.queueId === old.queueId)
-            ?.epoch
+          next.generation !== old.generation + 1)
       )
         throw new Error("snapshot_queue_generation_invalid");
     }

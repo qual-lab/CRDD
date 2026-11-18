@@ -55,7 +55,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   assert.equal(previous.status, "completed");
   if (previous.status !== "completed" || !previous.value)
     throw Error("fixture");
-  assert.ok(previous.value.intakeEpoch);
+  assert.equal(previous.value.schemaRevision, 9);
   const beforeSnapshot = JSON.parse(before.toString("utf8"));
   assert.equal(ports.state.readState("project-a").status, "completed");
   assert.equal(ports.state.readState("project-b").status, "completed");
@@ -102,10 +102,6 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       payloadSha256: createHash("sha256").update(before).digest("hex"),
     },
     queueEntries: [...beforeSnapshot.queueEntries, created.value],
-    intakeBindings: [
-      ...beforeSnapshot.intakeBindings,
-      { queueId: input.queueId, epoch: previous.value.intakeEpoch },
-    ],
   });
   const found = ports.state.readQueue("queue-a");
   assert.equal(found.status, "completed");

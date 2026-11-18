@@ -1820,7 +1820,7 @@ for (const publicationFault of [
         target.identity.consumer = "workbench";
       targetManagement = target.management;
       const initial = Buffer.from(
-        `${canonicalJson({ schema: "crdd-execution-model/state/v4", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], operations: [], unresolvedRecoveries: [] })}\n`,
+        `${canonicalJson({ schema: "crdd-execution-model/state/v6", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], operations: [], unresolvedRecoveries: [] })}\n`,
       );
       // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
       const snapshotArea = requireReadyRepositoryExecutionDataArea(

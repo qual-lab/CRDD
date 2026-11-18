@@ -18,12 +18,16 @@ import { isPrincipalId } from "../../../../execution-model/src/index.ts";
 import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
 import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 
-import { buildObjectiveTaskRequest } from "../../../src/objective/execute.ts";
+import {
+  buildObjectiveTaskRequest,
+  createCoordinatorObjectiveResult,
+} from "../../../src/objective/execute.ts";
 import { resolveTaskExecutionSelections } from "../../../src/selection/resolve.ts";
 import { selectionConfig } from "../../fixtures/ai-selection.ts";
 
 const objective = Object.freeze(
   withCallerPlan({
+    operation: "start" as const,
     requestId: "request-1",
     projectId: "project-1",
     milestoneId: "milestone-1",
@@ -36,7 +40,6 @@ const objective = Object.freeze(
     maximumReplans: 0,
     originLane: "interactive" as const,
     adoptResult: false,
-    intakeEpoch: "fixture-epoch",
   }),
 );
 
@@ -128,6 +131,10 @@ test("受付計画はexact参照だけ再利用し別参照と不正返却を検
       "createCoordinatorSnapshotPersistencePorts",
       "createCoordinatorTaskRecoveryAdapter",
       "executeCoordinatorObjective",
+      "readObjectiveReplay",
+      "createObjectiveIntake",
+      "initializeExecutionStore",
+      "verifyRuntimePersistenceRepository",
     ],
   )(
     isPrincipalId,
@@ -155,6 +162,10 @@ test("受付計画はexact参照だけ再利用し別参照と不正返却を検
       delivered = dependencies.plan;
       return { status: "blocked", reason: "finite_execution_reached" };
     },
+    () => null,
+    () => ({}),
+    () => ({ status: "completed", value: null }),
+    () => ({}),
   ) as (
     dependencies: {
       authenticatedPrincipalId: string;
@@ -222,4 +233,145 @@ test("受付計画はexact参照だけ再利用し別参照と不正返却を検
     if (value === request.plan) assert.equal(delivered, request.plan);
   }
   assert.equal(hooks, 0);
+  const identity = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "createObjectiveIntake"))});`,
+  )() as (
+    request: object,
+    binding: string,
+    principal: string,
+    clock: object,
+  ) => { queueId: string; requestHash: string };
+  const clock = {
+    createStableId: (_prefix: string, parts: string[]) => parts.join("/"),
+    createContentHash: (text: string) => text,
+  };
+  const original = identity(request, "binding", "principal-a", clock);
+  assert.deepEqual(
+    { ...original, operation: "resume" },
+    identity(
+      { ...request, operation: "resume" },
+      "binding",
+      "principal-a",
+      clock,
+    ),
+  );
+  const reordered = inspectCoordinatorObjectiveRequest(
+    Object.fromEntries(Object.entries(request).reverse()),
+  );
+  assert.ok(reordered);
+  assert.deepEqual(
+    original,
+    identity(reordered, "binding", "principal-a", clock),
+  );
+  const changed = identity(
+    { ...request, milestoneId: "other" },
+    "binding",
+    "principal-a",
+    clock,
+  );
+  assert.equal(changed.queueId, original.queueId);
+  assert.notEqual(changed.requestHash, original.requestHash);
+  const project = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "projectObjectiveReplay"))});`,
+    ["createCoordinatorObjectiveResult", "projectCoordinatorState"],
+  )(
+    createCoordinatorObjectiveResult,
+    (state: { milestone: { state: string } }) => ({
+      milestoneState: state.milestone.state,
+      nextAction: "recover",
+    }),
+  ) as (
+    request: object,
+    queue: object,
+    state: object | null,
+  ) => {
+    projection: object | null;
+    recoveryIds: string[];
+    cleanupConfirmed: boolean;
+    effectState: string;
+    manualRecoveryRequired: boolean;
+    status: string;
+  };
+  const queue = {
+    queueId: "queue",
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    repositoryRevision: request.repositoryRevision,
+    state: "recovery_required",
+    ownerGeneration: null,
+  };
+  const state = {
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    repositoryRevision: request.repositoryRevision,
+    milestone: { state: "executing" },
+    tasks: [
+      {
+        cleanupConfirmed: false,
+        recoveryUnresolved: true,
+        recoveryObligations: [
+          {
+            kind: "runtime_process",
+            recoveryId: "original-recovery",
+            phase: "required",
+          },
+        ],
+      },
+    ],
+  };
+  const replay = project(request, queue, state);
+  assert.equal(replay.effectState, "unknown");
+  assert.equal(replay.manualRecoveryRequired, true);
+  assert.equal(replay.cleanupConfirmed, false);
+  assert.deepEqual([...replay.recoveryIds], ["original-recovery"]);
+  assert.equal(
+    project(request, queue, { ...state, milestoneId: "newer" }).projection,
+    null,
+  );
+  assert.equal(
+    project(request, { ...queue, state: "completed" }, null).status,
+    "completed",
+  );
+  const execute = compileFunction(
+    `return (${sourceDeclaration(source, "executeCoordinatorObjective")});`,
+    ["isPrincipalId", "blocked", "createObjectiveIntake"],
+  )(
+    isPrincipalId,
+    (_request: unknown, reason: string) => ({ status: "blocked", reason }),
+    identity,
+  ) as (
+    deps: object,
+    input: object,
+    signal: AbortSignal,
+  ) => Promise<{ reason: string }>;
+  const forbidden = () => assert.fail("unknown resume must not issue effects");
+  let reads = 0;
+  const rejected = await execute(
+    {
+      authenticatedPrincipalId: "principal-a",
+      repositoryBindingId: "binding",
+      clockIdentity: clock,
+      plan: request.plan,
+      resolveTaskSelections: forbidden,
+      persistence: {
+        state: {
+          readQueue: () => {
+            reads++;
+            return { status: "blocked", reason: "fixture_missing" };
+          },
+          readState: forbidden,
+          writeState: forbidden,
+          enqueueOperation: forbidden,
+        },
+        get lease() {
+          return forbidden();
+        },
+      },
+      execution: { runSingleTaskAttempt: forbidden },
+    },
+    { ...request, operation: "resume" },
+    new AbortController().signal,
+  );
+  assert.equal(rejected.reason, "fixture_missing");
+  assert.equal(reads, 1);
 });

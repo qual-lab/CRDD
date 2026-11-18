@@ -866,7 +866,6 @@ export function projectLeaseOwnerLossState(
     value: {
       intents,
       queue,
-      intakeEpoch: current.intakeEpoch,
       identity: leaseIdentity(
         current.repositoryBindingId,
         projectId,

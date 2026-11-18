@@ -10,15 +10,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import test, { mock } from "node:test";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import {
   captureIsolationSettings,
   type IsolationSettings,
 } from "../../../src/docker-cli/environment.ts";
-import test, { mock } from "node:test";
 import type { BackendState } from "../../../src/docker-desktop/backend.ts";
 import type { EngineObservation } from "../../../src/docker-desktop/engine.ts";
-
 import type {
   RepairInput,
   RepairResult,
@@ -27,12 +27,209 @@ import type {
   RestartInput,
   RestartResult,
 } from "../../../src/docker-desktop/restart.ts";
+import type {
+  DesktopCommandResult,
+  EnvironmentStartRequest,
+  EnvironmentStartResult,
+} from "../../../src/docker-desktop/types.ts";
+
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
   userHomeDirectory: "C:\\Users\\test",
   desktop: Object.freeze({
     userDataDirectory: "C:\\Users\\test\\AppData\\Local",
   }),
+});
+
+/**
+ * @trace ERB-UT-023
+ * @precondition 通常起動の実本文をメモリ内で実行する。時刻・Desktop・Engineは有限代役。
+ * @stimulus 三値観測、一回起動、取消、失効、期限と終了失敗。
+ * @observation 発行順、元Ownerのclose、終了値と後続Effect。
+ * @oracle 停止確定時だけ一度start。不明・取消・終了未確認はreadyへ昇格しない。
+ * @cleanup メモリのみ。実Process・Docker・Filesystem書込みなし。
+ */
+test("通常起動は停止確認・一回発行・Engine応答・終了を別々に保証する", async () => {
+  const source = readFileSync(
+    new URL("../../../src/docker-desktop/operations.ts", import.meta.url),
+    "utf8",
+  );
+  const begin = source.indexOf("async function startDockerEnvironmentUsing(");
+  const end = source.indexOf("\n/**", begin);
+  assert.ok(begin > 0 && end > begin);
+  const body = stripTypeScriptTypes(source.slice(begin, end));
+  const run = runInNewContext(`${body};startDockerEnvironmentUsing`, {
+    types,
+    AbortSignal,
+  }) as (
+    input: EnvironmentStartRequest,
+    dependencies: unknown,
+  ) => Promise<EnvironmentStartResult>;
+  async function scenario(
+    options: {
+      initial?: EngineObservation["state"];
+      status?: DesktopCommandResult["status"];
+      issued?: boolean | null;
+      startCleanup?: boolean;
+      close?: boolean;
+      timeout?: boolean;
+      abort?: boolean;
+      revoke?: boolean;
+      observationCleanup?: boolean;
+      acquisitionCleanup?: boolean;
+      startCompleted?: boolean;
+      closeThrows?: boolean;
+    } = {},
+  ) {
+    const controller = new AbortController();
+    const calls: string[] = [];
+    let observations = 0,
+      time = 0,
+      live = true;
+    const result = await run(
+      { signal: controller.signal, verifyBoundary: () => live },
+      {
+        acquire: () => {
+          calls.push("acquire");
+          return {
+            cleanupConfirmed: options.acquisitionCleanup ?? true,
+            operations: {
+              verify: () => live,
+              command: async (action: string) => {
+                calls.push(action);
+                if (action === "start") {
+                  if (options.revoke) live = false;
+                  return {
+                    issued:
+                      options.issued === undefined ? true : options.issued,
+                    completed: options.startCompleted ?? true,
+                    cleanupConfirmed: options.startCleanup ?? true,
+                    status: "unknown",
+                  };
+                }
+                return {
+                  issued: true,
+                  completed: true,
+                  cleanupConfirmed: true,
+                  status: options.status ?? "stopped",
+                };
+              },
+              close: async () => {
+                calls.push("close");
+                if (options.closeThrows) throw Error("close");
+                return options.close ?? true;
+              },
+            },
+          };
+        },
+        observe: () => {
+          observations++;
+          return {
+            state:
+              observations === 1
+                ? (options.initial ?? "known_unavailable")
+                : observations === 2 || options.timeout || options.abort
+                  ? "known_unavailable"
+                  : "ready",
+            cleanup:
+              options.observationCleanup === false ? "unknown" : "confirmed",
+          };
+        },
+        now: () => time,
+        wait: async () => {
+          time += 90_000;
+          if (options.abort) controller.abort();
+        },
+      },
+    );
+    return { result, calls };
+  }
+  for (const initial of ["ready", "known_unavailable", "unknown"] as const) {
+    for (const status of ["running", "stopped", "unknown"] as const) {
+      const { result, calls } = await scenario({ initial, status });
+      assert.equal(
+        calls.filter((x) => x === "start").length,
+        initial === "known_unavailable" && status === "stopped" ? 1 : 0,
+      );
+      assert.equal(
+        result.status,
+        initial === "unknown" ||
+          (initial === "known_unavailable" && status === "unknown")
+          ? "blocked"
+          : "ready",
+      );
+      assert.equal(calls.includes("close"), initial === "known_unavailable");
+      assert.equal(calls.includes("stop"), false);
+    }
+  }
+  for (const issued of [false, null] as const) {
+    const { result, calls } = await scenario({ issued });
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.requestState,
+      issued === false ? "not_issued" : "unknown",
+    );
+    assert.equal(calls.at(-1), "close");
+  }
+  for (const options of [
+    { initial: "ready" as const, observationCleanup: false },
+    { acquisitionCleanup: false },
+    { startCompleted: false },
+    { closeThrows: true },
+  ]) {
+    const { result, calls } = await scenario(options);
+    assert.equal(result.status, "blocked");
+    if (options.observationCleanup === false) {
+      assert.equal(result.engineReady, true);
+      assert.deepEqual(calls, []);
+    } else assert.equal(calls.filter((x) => x === "close").length, 1);
+    if (options.startCompleted === false)
+      assert.equal(result.requestState, "issued");
+    else assert.equal(result.cleanupConfirmed, false);
+  }
+  for (const options of [
+    { startCleanup: false },
+    { close: false },
+    { timeout: true },
+    { abort: true },
+    { revoke: true },
+  ]) {
+    const { result, calls } = await scenario(options);
+    assert.equal(result.status, "blocked");
+    assert.equal(calls.at(-1), "close");
+    assert.equal(result.requestState, "issued");
+    if (options.startCleanup === false || options.close === false)
+      assert.equal(result.cleanupConfirmed, false);
+  }
+  let effects = 0;
+  const dependencies = {
+    observe: () => {
+      effects++;
+      throw Error("no observation");
+    },
+  };
+  const controller = new AbortController();
+  controller.abort();
+  assert.equal(
+    (
+      await run(
+        { signal: controller.signal, verifyBoundary: () => true },
+        dependencies,
+      )
+    ).status,
+    "blocked",
+  );
+  const getter = Object.defineProperty({}, "signal", {
+    get() {
+      effects++;
+      throw Error("getter");
+    },
+  });
+  assert.equal(
+    (await run(getter as EnvironmentStartRequest, dependencies)).status,
+    "blocked",
+  );
+  assert.equal(effects, 0);
 });
 
 /**

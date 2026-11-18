@@ -88,7 +88,7 @@ const {
   ) => Candidate<number>;
   prepareTerminalRecordRetirement: (
     current: Snapshot,
-    observations: Obligations & Settlement & { nextEpoch: () => string },
+    observations: Obligations & Settlement,
   ) => Candidate<number>;
   prepareHistoryTransfer: (
     current: Snapshot,
@@ -102,7 +102,7 @@ const {
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
@@ -110,6 +110,7 @@ const {
 
 function fixture() {
   const queue: ProjectQueueEntry = {
+    historySettled: false,
     queueId: "queue-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -136,12 +137,10 @@ function fixture() {
   ] as unknown as Snapshot["projects"];
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
     projects,
     queueEntries: [queue],
     workspaces: [],
@@ -167,7 +166,7 @@ function fixture() {
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
@@ -198,10 +197,6 @@ function observations() {
         calls.push(`history:${row.id}`);
         return "recorded" as const;
       },
-      nextEpoch: () => {
-        calls.push("epoch");
-        return "epoch-next";
-      },
     },
   };
 }
@@ -211,7 +206,7 @@ function observations() {
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
@@ -253,13 +248,13 @@ test("pending生成は時刻・Schemaを先に検査し既存対象の観測を�
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
  */
 
-test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepochを一回更新する", () => {
+test("履歴確定は閉鎖・再読後だけ実行記録を確定しIDと受付を保持する", () => {
   const f = fixture(),
     o = observations(),
     other = {
@@ -270,10 +265,6 @@ test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepo
   const current = {
     ...f.current,
     queueEntries: [...f.current.queueEntries, other],
-    intakeBindings: [
-      ...f.current.intakeBindings,
-      { queueId: "queue-other", epoch: "epoch-a" },
-    ],
     historyPending: [f.row],
   };
   const result = prepareTerminalRecordRetirement(current, o.ops);
@@ -283,16 +274,48 @@ test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepo
     "lease",
     "lease",
     "history:queue-a",
-    "epoch",
   ]);
   if (result.status === "completed")
     assert.deepEqual(result.value.next, {
       ...current,
-      intakeEpoch: "epoch-next",
-      queueEntries: [other],
-      intakeBindings: [{ queueId: "queue-other", epoch: "epoch-a" }],
+      queueEntries: [
+        {
+          ...f.queue,
+          historySettled: true,
+          generation: f.queue.generation + 1,
+        },
+        other,
+      ],
       historyPending: [],
     });
+  if (result.status === "completed" && result.value.next) {
+    const again = prepareHistoryPending(
+      result.value.next,
+      Date.parse(f.row.occurredAt),
+      observations().ops,
+    );
+    assert.equal(again.status, "completed");
+    if (again.status === "completed") assert.equal(again.value.value, 0);
+    const settledAgain = prepareTerminalRecordRetirement(
+      result.value.next,
+      observations().ops,
+    );
+    assert.equal(settledAgain.status, "completed");
+    if (settledAgain.status === "completed")
+      assert.equal(settledAgain.value.next, null);
+  }
+  const expired = prepareTerminalRecordRetirement(current, {
+    ...observations().ops,
+    historySettlement: () => "expired",
+  });
+  assert.equal(expired.status, "completed");
+  if (expired.status === "completed") {
+    assert.equal(expired.value.next?.queueEntries[0]?.historySettled, true);
+    assert.equal(
+      expired.value.next?.repositoryBindingId,
+      current.repositoryBindingId,
+    );
+  }
 });
 /**
  * 履歴不明・例外ではpendingと元版を保全する。
@@ -300,13 +323,13 @@ test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepo
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
  */
 
-test("退役は観測不能・非同期の履歴を拒否しepochを発行しない", () => {
+test("退役は観測不能・非同期の履歴を拒否し終了記録を保全する", () => {
   const f = fixture(),
     current = { ...f.current, historyPending: [f.row] },
     before = encodeStateValue(current);
@@ -333,7 +356,6 @@ test("退役は観測不能・非同期の履歴を拒否しepochを発行しな
       }),
     /observation/,
   );
-  assert.equal(o.calls.includes("epoch"), false);
   assert.equal(encodeStateValue(current), before);
 });
 /**
@@ -342,7 +364,7 @@ test("退役は観測不能・非同期の履歴を拒否しepochを発行しな
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
@@ -383,13 +405,13 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
  * @trace PRL-UT-006
  * @precondition 局所合成Snapshotで、完全codecの成立とは区別する。
  * @stimulus 正常・不一致・観測不能・例外を注入する。
- * @observation 元版本文、候補全文、観測順とepoch回数。
+ * @observation 元版本文、候補全文、観測順と終了記録の保持。
  * @oracle 確定前のpendingを除去せず、対象以外を保持する。
  * @cleanup N/A: メモリだけ。
  * @boundary Domain値候補と用途固定同期観測。
  */
 
-test("adoption-only退役と退役零件はepochを生成しない", () => {
+test("独立採用の退役と退役零件は対象外の結合を変更しない", () => {
   const f = fixture(),
     id = "adoption-a";
   const record: ResultRecord = {
@@ -438,9 +460,11 @@ test("adoption-only退役と退役零件はepochを生成しない", () => {
   const o = observations(),
     result = prepareTerminalRecordRetirement(current, o.ops);
   assert.equal(result.status, "completed");
-  assert.equal(o.calls.includes("epoch"), false);
   if (result.status === "completed") {
-    assert.equal(result.value.next?.intakeEpoch, current.intakeEpoch);
+    assert.equal(
+      result.value.next?.repositoryBindingId,
+      current.repositoryBindingId,
+    );
     assert.deepEqual(result.value.next?.results, []);
     assert.deepEqual(result.value.next?.queueEntries, current.queueEntries);
   }

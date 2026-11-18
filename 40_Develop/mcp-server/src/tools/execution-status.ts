@@ -137,12 +137,24 @@ export async function handleMcpExecutionStatusRequest(
   if (signal.aborted)
     return protocolError(request.id, -32800, "Request cancelled");
   let observation: RuntimeActivityObservation | null;
+  let ownedObservation: RuntimeActivityObservation | null;
   try {
+    const { parseRuntimeActivityObservation } = await import(
+      "../../../coordinator/src/index.ts"
+    );
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
     observation = await dependencies.read({
       projectId: args.projectId,
       ...(typeof args.cursor === "string" ? { cursor: args.cursor } : {}),
       limit: typeof args.limit === "number" ? args.limit : 20,
     });
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
+    ownedObservation =
+      observation === null
+        ? null
+        : parseRuntimeActivityObservation(observation);
   } catch {
     return signal.aborted
       ? protocolError(request.id, -32800, "Request cancelled")
@@ -150,8 +162,6 @@ export async function handleMcpExecutionStatusRequest(
   }
   if (signal.aborted)
     return protocolError(request.id, -32800, "Request cancelled");
-  const ownedObservation =
-    observation === null ? null : parseRuntimeActivityObservation(observation);
   if (
     observation !== null &&
     (ownedObservation === null || ownedObservation.projectId !== args.projectId)
@@ -177,7 +187,4 @@ export async function handleMcpExecutionStatusRequest(
   });
 }
 
-import {
-  parseRuntimeActivityObservation,
-  type RuntimeActivityObservation,
-} from "../../../coordinator/src/index.ts";
+import type { RuntimeActivityObservation } from "../../../coordinator/src/index.ts";

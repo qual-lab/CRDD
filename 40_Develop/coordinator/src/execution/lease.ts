@@ -510,7 +510,6 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         const settled = createCoordinatorSnapshotPersistencePorts(
           workingDirectory,
           binding,
-          initial.intakeEpoch,
         ).state.settleQueueLeaseRelease(
           queueId,
           initial.queue.generation,

@@ -11,8 +11,9 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -20,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import type {} from "../../../execution-model/src/index.ts";
 import {
   initializeExecutionStore,
+  createQueue,
   type ProjectExecutionState,
   queryPlan,
   readLease,
@@ -175,7 +177,7 @@ function readFixtureSnapshot(root: string, binding: string) {
   const projected = taskView(root, bytes);
   assert.deepEqual(projected.projects, observed.value.projects);
   assert.deepEqual(projected.queueEntries, observed.value.queueEntries);
-  assert.equal(projected.intakeEpoch, observed.value.intakeEpoch);
+  assert.equal(projected.schemaRevision, observed.value.schemaRevision);
   return { ...observed, value: projected };
 }
 
@@ -200,19 +202,14 @@ function taskView(root: string, bytes: string) {
   const decoded = observed.value;
   assert.ok(decoded);
   assert.equal(decoded.sourceText, bytes);
-  assert.ok(
-    decoded.snapshot.repositoryBindingId !== null &&
-      decoded.snapshot.intakeEpoch !== null,
-  );
+  assert.ok(decoded.snapshot.repositoryBindingId !== null);
   const view = {
-    schema: "crdd-execution-model/project-snapshot/v7" as const,
-    schemaRevision: 7 as const,
+    schema: "crdd-execution-model/project-snapshot/v9" as const,
+    schemaRevision: 9 as const,
     repositoryRootHash: rootHash,
     repositoryBindingId: decoded.snapshot.repositoryBindingId,
-    intakeEpoch: decoded.snapshot.intakeEpoch,
     snapshotRevision: decoded.snapshot.revision,
     projects: decoded.projects,
-    intakeBindings: decoded.snapshot.intakeBindings,
     queueEntries: decoded.snapshot.queueEntries,
     workspaces: decoded.snapshot.workspaces,
     leaseEvidence: decoded.snapshot.leaseEvidence,
@@ -258,7 +255,7 @@ for (const fault of ["unobservable", "alias"] as const) {
     if (acquired.status !== "completed")
       throw new Error("fixture_lease_failed");
     const beforeSnapshot = readFixtureSnapshot(root, "binding-a").value;
-    assert.ok(beforeSnapshot?.schemaRevision === 7);
+    assert.ok(beforeSnapshot?.schemaRevision === 9);
     const recoveryId = beforeSnapshot.leaseIntents[0]?.recoveryId;
     assert.ok(recoveryId);
     const temporary = path.join(root, ".crdd", "lock");
@@ -433,17 +430,17 @@ test("snapshot production: shared adoption evidence survives staged retirement",
 });
 
 /**
- * 公開初期化入口を実Processで通し、Queryや再初期化が世代を作り直さないことを検証する。
+ * 廃止した公開初期化commandを実Processで拒否しStateを作らないことを検証する。
  * @responsibility 運用手順と本番の明示初期化を同じ入口へ結合する。
  * @trace PRL-IT-012
  * @precondition 自己所有の新品Repositoryを使う。
  * @stimulus 公開launcherのproject initを二回実行する。
  * @observation 応答、保存世代とFile一覧を読む。
- * @oracle 同じ受付世代、単一state.json、Providerや旧Directoryなし。
+ * @oracle 二回とも同じ拒否でState・Provider・旧Directoryを作らない。
  * @cleanup fixtureの終了hookで所有Rootを回収する。
  * @boundary 公開launcher、CLI、実保存。
  */
-test("snapshot production: public initialization is explicit and idempotent", (t) => {
+test("snapshot production: removed initialization command cannot create state", (t) => {
   const { root } = fixture(t);
   const launcher = fileURLToPath(
     new URL("../../../../template/tools/crdd-coordinator.ts", import.meta.url),
@@ -455,27 +452,197 @@ test("snapshot production: public initialization is explicit and idempotent", (t
    * @precondition 新品のGit Repositoryと固定launcherを使用する。
    * @stimulus project init --jsonを実Processで実行する。
    * @observation 正式JSON応答を解析して返す。
-   * @oracle 初回と再実行は同じ受付世代でcompletedとなる。
+   * @oracle 初回と再実行はどちらも未知commandとして拒否される。
    * @cleanup 同期子Processは終了まで待ち、親試験がfixtureを回収する。
    * @boundary PRL-IT-012=Direct Boundary: 公開launcher→CLI→Repository保存。
    */
   const invoke = () =>
-    JSON.parse(
-      execFileSync(process.execPath, [launcher, "project", "init", "--json"], {
-        cwd: root,
-        windowsHide: true,
-        encoding: "utf8",
-      }),
-    );
+    spawnSync(process.execPath, [launcher, "project", "init", "--json"], {
+      cwd: root,
+      windowsHide: true,
+      encoding: "utf8",
+    });
   const first = invoke();
   const second = invoke();
-  assert.equal(first.status, "completed");
-  assert.equal(second.status, "completed");
-  assert.equal(second.value, first.value);
-  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "domain-model")), [
-    "state.json",
-  ]);
+  assert.equal(first.status, 64);
+  assert.equal(second.status, 64);
+  assert.equal(second.stderr, first.stderr);
+  assert.equal(first.stdout, "");
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
+    false,
+  );
   assert.equal(fs.existsSync(path.join(root, ".crdd", "orchestrator")), false);
+});
+
+/**
+ * 二Processの初回観測を揃え、同ID受付を既存Writerで一体化する。
+ * @responsibility 敗者Projectの残存と、同内容再送による初期値の上書きを反証する。
+ * @trace PRL-IT-005
+ * @precondition 各Caseの自己所有Repositoryと有効な初回Stateを用いる。
+ * @stimulus 両子がQueue不存在を観測してから、同内容又は異Projectの受付を解放する。
+ * @observation 子の終了、受付結果と同じSnapshotのProject・Queue・Hash。
+ * @oracle 保存するのは勝者のProjectとQueue一組だけ。同内容は元値を返し異内容は追加0。
+ * @cleanup finallyで両子の終了をjoinしてから既存fixtureがRootを回収する。
+ * @boundary Node子Process二つとEMの実Writer・共通Lock。
+ */
+test("初回StateとQueueの受付は二Processの古い観測でも一組だけを保存する", {
+  timeout: 60000,
+}, async (t) => {
+  const domainUrl = new URL(
+    "../../../execution-model/src/index.ts",
+    import.meta.url,
+  ).href;
+  const worker = `
+    import {createQueue,readState} from ${JSON.stringify(domainUrl)};
+    import {getRepository} from ${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)};
+    const [root,json]=process.argv.slice(1);
+    const input=JSON.parse(json);
+    const repository=getRepository(root);
+    if(repository.status!=="completed")throw Error("root_invalid");
+    const before=readState(repository.capability,"binding-a","execution");
+    if(before.status!=="completed")throw Error("observation_failed");
+    process.stdout.write(JSON.stringify({ready:true,queues:before.value?.queueEntries.length??0})+"\\n");
+    await new Promise(resolve=>process.stdin.once("data",resolve));
+    const result=createQueue(repository.capability,"binding-a",{kind:"scheduled",input:[input.queue,input.state]});
+    process.stdout.write(JSON.stringify(result)+"\\n");
+  `;
+  for (const sameContent of [false, true]) {
+    const { root, state } = fixture(t);
+    assert.equal(
+      initializeExecutionStore(
+        verifyRuntimePersistenceRepository(root),
+        "binding-a",
+      ).status,
+      "completed",
+    );
+    const queue = {
+      queueId: "parallel-request",
+      projectId: state.projectId,
+      milestoneId: state.milestoneId,
+      requestHash: "b".repeat(64),
+      originLane: "interactive" as const,
+      repositoryRevision: state.repositoryRevision,
+      scopeHash: "c".repeat(64),
+    };
+    const beforeAcceptance = fs.readFileSync(
+      path.join(root, ".crdd", "domain-model", "state.json"),
+      "utf8",
+    );
+    let stateHooks = 0;
+    const accessorState = {
+      ...state,
+      get projectId() {
+        stateHooks++;
+        return state.projectId;
+      },
+    };
+    const proxyState = new Proxy(state, {
+      ownKeys() {
+        stateHooks++;
+        return Reflect.ownKeys(state);
+      },
+    });
+    for (const invalid of [
+      accessorState,
+      proxyState,
+      { ...state, generation: 2 },
+      { ...state, projectId: "project-unbound" },
+      { ...state, milestoneId: "milestone-unbound" },
+      { ...state, repositoryRevision: "d".repeat(40) },
+    ]) {
+      const rejected = createQueue(
+        verifyRuntimePersistenceRepository(root),
+        "binding-a",
+        { kind: "scheduled", input: [queue, invalid] },
+      );
+      assert.equal(rejected.status, "blocked");
+      assert.equal(
+        fs.readFileSync(
+          path.join(root, ".crdd", "domain-model", "state.json"),
+          "utf8",
+        ),
+        beforeAcceptance,
+      );
+    }
+    assert.equal(stateHooks, 0);
+    const inputs = [
+      { queue, state },
+      {
+        queue: {
+          ...queue,
+          projectId: sameContent ? queue.projectId : "project-other",
+          requestHash: sameContent ? queue.requestHash : "d".repeat(64),
+        },
+        state: {
+          ...state,
+          projectId: sameContent ? state.projectId : "project-other",
+          ownerGeneration: "other-owner",
+        },
+      },
+    ];
+    const children = [];
+    try {
+      for (const input of inputs) {
+        const child = spawn(
+          process.execPath,
+          [
+            "--input-type=module",
+            "--eval",
+            worker,
+            root,
+            JSON.stringify(input),
+          ],
+          { windowsHide: true, stdio: "pipe" },
+        );
+        const ready = once(child.stdout, "data", {
+          signal: AbortSignal.timeout(15000),
+        });
+        const closed = once(child, "close");
+        closed.catch(() => {});
+        children.push({ child, ready, closed });
+        const [bytes] = await ready;
+        assert.deepEqual(JSON.parse(String(bytes)), { ready: true, queues: 0 });
+      }
+      const outcomes = [];
+      for (const item of children) {
+        const response = once(item.child.stdout, "data", {
+          signal: AbortSignal.timeout(15000),
+        });
+        item.child.stdin.end("go");
+        const [bytes] = await response;
+        outcomes.push(JSON.parse(String(bytes)));
+        const [code, signal] = await item.closed;
+        assert.equal(code, 0);
+        assert.equal(signal, null);
+      }
+      assert.equal(outcomes[0].status, "completed");
+      assert.equal(outcomes[1].status, sameContent ? "completed" : "blocked");
+      assert.equal(
+        outcomes[1].reason,
+        sameContent
+          ? "orchestrator_queue_request_reused"
+          : "orchestrator_queue_identity_conflict",
+      );
+      const saved = readFixtureSnapshot(root, "binding-a").value;
+      assert.ok(saved);
+      assert.equal(saved.projects.length, 1);
+      assert.equal(saved.queueEntries.length, 1);
+      assert.equal(saved.projects[0]?.projectId, state.projectId);
+      assert.equal(saved.projects[0]?.ownerGeneration, state.ownerGeneration);
+      assert.equal(saved.queueEntries[0]?.requestHash, queue.requestHash);
+      assert.equal(saved.queueEntries[0]?.queueId, queue.queueId);
+    } finally {
+      for (const item of children) {
+        if (item.child.exitCode === null && item.child.signalCode === null)
+          item.child.kill();
+        await item.closed;
+        assert.ok(
+          item.child.exitCode !== null || item.child.signalCode !== null,
+        );
+      }
+    }
+  }
 });
 
 /**
@@ -497,12 +664,29 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
     "binding-a",
   );
   assert.equal(initialized.status, "completed");
+  const beforeInitialization = fs.readFileSync(
+    path.join(root, ".crdd", "domain-model", "state.json"),
+    "utf8",
+  );
+  const beforeRevision = readFixtureSnapshot(root, "binding-a").value
+    ?.snapshotRevision;
   assert.equal(
     initializeExecutionStore(
       verifyRuntimePersistenceRepository(root),
       "binding-a",
     ).value,
     initialized.value,
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(root, ".crdd", "domain-model", "state.json"),
+      "utf8",
+    ),
+    beforeInitialization,
+  );
+  assert.equal(
+    readFixtureSnapshot(root, "binding-a").value?.snapshotRevision,
+    beforeRevision,
   );
   const persistence = createCurrentCoordinatorPersistencePorts(
     root,
@@ -553,7 +737,8 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
   const retired = readFixtureSnapshot(root, "binding-a");
   assert.equal(retired.value?.results.length, 0);
   assert.equal(retired.value?.leaseEvidence.length, 0);
-  assert.equal(retired.value?.intakeEpoch, initialized.value);
+  assert.equal(initialized.value, null);
+  assert.ok(retired.value);
   assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 0);
 });
 
@@ -575,12 +760,7 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
     "binding-a",
   );
   if (initial.status !== "completed") throw new Error("bootstrap_failed");
-  const epoch = initial.value;
-  const ports = createCoordinatorSnapshotPersistencePorts(
-    root,
-    "binding-a",
-    epoch,
-  );
+  const ports = createCoordinatorSnapshotPersistencePorts(root, "binding-a");
   const closed: ProjectExecutionState = {
     ...state,
     milestone: {
@@ -702,16 +882,17 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   );
   assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 1);
   const snapshot = readFixtureSnapshot(root, "binding-a");
-  assert.notEqual(snapshot.value?.intakeEpoch, epoch);
-  assert.equal(snapshot.value?.queueEntries.length, 0);
+  assert.equal(snapshot.value?.schemaRevision, 9);
+  assert.equal(snapshot.value?.queueEntries.length, 1);
+  assert.equal(snapshot.value?.queueEntries[0]?.historySettled, true);
   assert.equal(snapshot.value?.projects.length, 2);
   assert.equal(snapshot.value?.results.length, 2);
   assert.deepEqual(snapshot.value?.leaseEvidence, canonicalEvidence);
   assert.equal(snapshot.value?.historyPending.length, 0);
   assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 0);
-  assert.equal(ports.state.enqueueOperation(input).status, "blocked");
+  assert.equal(ports.state.enqueueOperation(input).status, "completed");
   const stale = {
-    epoch,
+    operation: "resume" as const,
     queueId: "queue-new",
     requestHash: "d".repeat(64),
     projectId: "project-new",
@@ -720,7 +901,6 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   const stalePorts = createCoordinatorSnapshotPersistencePorts(
     root,
     "binding-a",
-    epoch,
     stale,
   );
   const staleWrite = stalePorts.state.writeState(
@@ -728,7 +908,7 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
     0,
   );
   assert.equal(staleWrite.status, "blocked");
-  assert.equal(staleWrite.reason, "orchestrator_intake_epoch_retired");
+  assert.equal(staleWrite.reason, "orchestrator_queue_identity_conflict");
   assert.equal(staleWrite.manualRecoveryRequired, false);
   assert.equal(staleWrite.recoveryId, null);
   assert.equal(
@@ -789,20 +969,19 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
     const rootHash = fixtureRepositoryHash(root);
     assert.equal(
       seedSnapshot(root, {
-        schema: "crdd-execution-model/project-snapshot/v7",
-        schemaRevision: 7,
+        schema: "crdd-execution-model/project-snapshot/v9",
+        schemaRevision: 9,
         workspaces: [],
         repositoryRootHash: rootHash,
         repositoryBindingId: "binding-a",
         snapshotRevision: 1,
-        intakeEpoch: "epoch-a",
-        intakeBindings: [{ queueId, epoch: "epoch-a" }],
         projects:
           mode === "adoption_other"
             ? [state, { ...state, projectId: "project-b" }]
             : [state],
         queueEntries: [
           {
+            historySettled: false,
             workspaceId: null,
             queueId,
             projectId: mode === "adoption_other" ? "project-b" : "project-a",
@@ -871,11 +1050,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
           },
         )
       : null;
-    const ports = createCoordinatorSnapshotPersistencePorts(
-      root,
-      "binding-a",
-      "epoch-a",
-    );
+    const ports = createCoordinatorSnapshotPersistencePorts(root, "binding-a");
     const acquired = ports.lease.acquire(
       "project-a",
       queueId,
@@ -1120,14 +1295,12 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
     const { root, state } = fixture(t);
     const rootHash = fixtureRepositoryHash(root);
     const payload = {
-      schema: "crdd-execution-model/project-snapshot/v7",
-      schemaRevision: 7,
+      schema: "crdd-execution-model/project-snapshot/v9",
+      schemaRevision: 9,
       workspaces: [],
       repositoryRootHash: rootHash,
       repositoryBindingId: "binding-a",
       snapshotRevision: 1,
-      intakeEpoch: "epoch-a",
-      intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
       projects: [state],
       queueEntries: [
         {
@@ -1378,6 +1551,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
   const { root, state } = fixture(t);
   const rootHash = fixtureRepositoryHash(root);
   const queue = {
+    historySettled: false,
     workspaceId: null,
     queueId: "queue-a",
     projectId: "project-a",
@@ -1393,14 +1567,12 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
     resultReference: null,
   };
   const payload = {
-    schema: "crdd-execution-model/project-snapshot/v7",
-    schemaRevision: 7,
+    schema: "crdd-execution-model/project-snapshot/v9",
+    schemaRevision: 9,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
     projects: [state],
     queueEntries: [queue],
     leaseEvidence: [],
@@ -1449,11 +1621,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
     fs.existsSync(path.join(root, ".crdd", "domain-model", "results")),
     false,
   );
-  const ports = createCoordinatorSnapshotPersistencePorts(
-    root,
-    "binding-a",
-    "epoch-a",
-  );
+  const ports = createCoordinatorSnapshotPersistencePorts(root, "binding-a");
   const statePort = ports.state;
   const operation = ports.lease.acquire(
     "project-a",
@@ -1765,14 +1933,12 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
   const { root, state } = fixture(t);
   const repositoryRootHash = fixtureRepositoryHash(root);
   const payload = {
-    schema: "crdd-execution-model/project-snapshot/v7",
-    schemaRevision: 7,
+    schema: "crdd-execution-model/project-snapshot/v9",
+    schemaRevision: 9,
     workspaces: [],
     repositoryRootHash,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [state],
     queueEntries: [],
     leaseEvidence: [],
@@ -1783,11 +1949,7 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     blockers: [],
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
-  const ports = createCoordinatorSnapshotPersistencePorts(
-    root,
-    "binding-a",
-    "epoch-a",
-  );
+  const ports = createCoordinatorSnapshotPersistencePorts(root, "binding-a");
   const port = ports.state;
   assert.deepEqual(port.readState("project-a").value, state);
   assert.equal(port.readState("project-missing").value, null);
@@ -1819,10 +1981,9 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
   const retired = createCoordinatorSnapshotPersistencePorts(
     root,
     "binding-a",
-    "old-epoch",
   ).state;
   assert.equal(
-    retired.enqueueOperation({ ...input, queueId: "queue-retired" }).status,
+    retired.enqueueOperation({ ...input, requestHash: "d".repeat(64) }).status,
     "blocked",
   );
   assert.equal(fs.readFileSync(current, "utf8"), before);
@@ -1975,7 +2136,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const observed = readFixtureSnapshot(root, "binding-a");
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
-    if (observed.value.schema !== "crdd-execution-model/project-snapshot/v7")
+    if (observed.value.schema !== "crdd-execution-model/project-snapshot/v9")
       throw new Error("fixture_schema_invalid");
     const rootHash = observed.value.repositoryRootHash;
     const resultValue = {

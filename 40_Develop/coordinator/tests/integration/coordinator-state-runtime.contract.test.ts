@@ -134,12 +134,10 @@ const RESOURCE_KEYS = [
 ] as const;
 const emptyTaskSections = {
   repositoryBindingId: null,
-  intakeEpoch: null,
   projects: [],
   managedExecutions: [],
   queueEntries: [],
   workspaces: [],
-  intakeBindings: [],
   leaseEvidence: [],
   leaseIntents: [],
   results: [],
@@ -223,7 +221,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const first = {
     ...emptyTaskSections,
-    schema: "crdd-execution-model/state/v4",
+    schema: "crdd-execution-model/state/v6",
     revision: 1,
     previous: null,
     repositoryBinding: repository.repositoryBinding,
@@ -2681,7 +2679,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const freshState = JSON.parse(fs.readFileSync(freshStateFile, "utf8"));
     assert.deepEqual(freshState, {
       ...emptyTaskSections,
-      schema: "crdd-execution-model/state/v4",
+      schema: "crdd-execution-model/state/v6",
       revision: 1,
       previous: null,
       repositoryBinding: freshRepository.repositoryBinding,
@@ -3323,7 +3321,7 @@ for (const issuedFailure of [false, true]) {
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
-      `${canonicalJson({ ...emptyTaskSections, schema: "crdd-execution-model/state/v4", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
+      `${canonicalJson({ ...emptyTaskSections, schema: "crdd-execution-model/state/v6", revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
     );
     // 初期化の私有反例はDomainへ移管済み。このCaseは認証処置の前状態だけを配置する。
     // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
@@ -3650,7 +3648,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.ok(requestId);
     const snapshot = {
       ...emptyTaskSections,
-      schema: "crdd-execution-model/state/v4",
+      schema: "crdd-execution-model/state/v6",
       revision: 1,
       previous: null,
       repositoryBinding: repository.repositoryBinding,

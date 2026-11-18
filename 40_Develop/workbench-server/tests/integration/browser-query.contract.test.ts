@@ -47,11 +47,11 @@ test("通信設定は参考表示とし表示時Hashを要求へ搬送しない"
     import {stripTypeScriptTypes} from 'node:module';
     import vm from 'node:vm';
     import {createElement} from 'react';
-    let selected=''; let workType=''; let hook=0;
+    let selected=''; let workType=''; let hook=0;let identityState;
     const source=stripTypeScriptTypes(fs.readFileSync(${JSON.stringify(component)},'utf8'),{mode:'transform'});
     const module=new vm.SourceTextModule(source);
     await module.link(specifier=>{
-      const values=specifier==='react'?{createElement,useState:(initial)=>{const n=hook++;return[n===2?selected:n===1?workType:initial,()=>{}];}}:{ActionTokenInput:()=>null,EmptyState:()=>null,WorkbenchPanel:()=>null};
+      const values=specifier==='react'?{createElement,useState:(initial)=>{if(typeof initial==='function'){identityState??=initial();return[identityState,value=>{identityState=value;}];}const n=hook++;return[n===2?selected:n===1?workType:initial,()=>{}];}}:{ActionTokenInput:()=>null,EmptyState:()=>null,WorkbenchPanel:()=>null};
       return new vm.SyntheticModule(Object.keys(values),function(){for(const [key,value]of Object.entries(values))this.setExport(key,value);});
     });
     await module.evaluate();
@@ -70,6 +70,12 @@ test("通信設定は参考表示とし表示時Hashを要求へ搬送しない"
      */
     function find(element,predicate){if(!element||typeof element!=='object')return null;if(predicate(element))return element;for(const child of [element.props?.children].flat(Infinity)){const found=find(child,predicate);if(found)return found;}return null;}
     const tree=module.namespace.renderWorkbenchAiRequest('token',profiles,true,null,null,policies);
+    const identity=find(tree,e=>typeof e.type==='function'&&e.type.name==='AiRequestIdentity');assert.ok(identity);
+    const identityValue=()=>identity.type(identity.props);
+    const originalId=find(identityValue(),e=>e.props?.name==='requestId').props.value;
+    assert.match(originalId,/^request-/);assert.equal(find(identityValue(),e=>e.props?.name==='requestId').props.value,originalId);
+    find(identityValue(),e=>e.type==='button').props.onClick();assert.notEqual(find(identityValue(),e=>e.props?.name==='requestId').props.value,originalId);
+    identityState=undefined;assert.equal(find(identity.type({...identity.props,initialRequestId:'saved-request'}),e=>e.props?.name==='requestId').props.value,'saved-request');
     const profile=find(tree,e=>typeof e.type==='function'&&e.type.name==='AiRequestSelection');
     assert.ok(profile);assert.equal(profile.key,null);
     /**

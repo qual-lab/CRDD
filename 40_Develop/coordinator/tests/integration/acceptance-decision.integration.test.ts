@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { acceptResult } from "../../src/decision/acceptance.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import {
@@ -65,7 +65,7 @@ test("公開受入の不正要求はRootの取得前に入力拒否する", (t) 
   const cycle: unknown[] = [];
   cycle.push(cycle);
   for (const input of [getter, proxy, toJSON, cycle]) {
-    const result = executeCoordinatorPublicAcceptanceDecision(
+    const result = acceptResult(
       input,
       path.resolve(import.meta.dirname, "uncreated-input-boundary"),
       { principalId: "operator-a" },
@@ -140,20 +140,15 @@ test("公開受入は対象・世代・主体・根拠を検査し同一回答�
     { repositoryRevision: "b".repeat(40) },
     { principalId: "operator-b" },
   ]) {
-    const result = executeCoordinatorPublicAcceptanceDecision(
-      { ...input, ...changes },
-      root,
-      { principalId: "operator-a" },
-    );
+    const result = acceptResult({ ...input, ...changes }, root, {
+      principalId: "operator-a",
+    });
     assert.equal(result.status, "blocked");
     assert.equal(fs.readFileSync(file, "utf8"), before);
     assert.deepEqual(readHistory(), beforeHistory);
   }
-  assert.equal(
-    executeCoordinatorPublicAcceptanceDecision(input, root).status,
-    "blocked",
-  );
-  const held = executeCoordinatorPublicAcceptanceDecision(
+  assert.equal(acceptResult(input, root).status, "blocked");
+  const held = acceptResult(
     { ...input, decisionId: "proposal-held", decision: "wait" },
     root,
     { principalId: "operator-a" },
@@ -162,7 +157,7 @@ test("公開受入は対象・世代・主体・根拠を検査し同一回答�
   const heldSnapshot = JSON.parse(fs.readFileSync(file, "utf8"));
   assert.equal(heldSnapshot.blockers[0].status, "active");
   const heldRecord = JSON.stringify(heldSnapshot.decisions[0]);
-  const accepted = executeCoordinatorPublicAcceptanceDecision(input, root, {
+  const accepted = acceptResult(input, root, {
     principalId: "operator-a",
   });
   assert.equal(accepted.status, "completed", accepted.reason);
@@ -173,7 +168,7 @@ test("公開受入は対象・世代・主体・根拠を検査し同一回答�
   assert.equal(snapshot.blockers[0].status, "resolved");
   assert.equal(snapshot.blockers[0].currentDecisionId, input.decisionId);
   assert.equal(JSON.stringify(snapshot.decisions[0]), heldRecord);
-  const late = executeCoordinatorPublicAcceptanceDecision(
+  const late = acceptResult(
     {
       ...input,
       decisionId: "late-proposal",
@@ -189,7 +184,7 @@ test("公開受入は対象・世代・主体・根拠を検査し同一回答�
   assert.equal(late.status, "blocked");
   assert.equal(fs.readFileSync(file, "utf8"), after);
   const afterHistory = readHistory();
-  const replay = executeCoordinatorPublicAcceptanceDecision(input, root, {
+  const replay = acceptResult(input, root, {
     principalId: "operator-a",
   });
   assert.equal(replay.status, "completed", replay.reason);
@@ -199,11 +194,9 @@ test("公開受入は対象・世代・主体・根拠を検査し同一回答�
     { decision: "return" },
     { criterionEvidenceIds: ["different-evidence"] },
   ]) {
-    const conflict = executeCoordinatorPublicAcceptanceDecision(
-      { ...input, ...difference },
-      root,
-      { principalId: "operator-a" },
-    );
+    const conflict = acceptResult({ ...input, ...difference }, root, {
+      principalId: "operator-a",
+    });
     assert.equal(conflict.status, "blocked");
     assert.equal(fs.readFileSync(file, "utf8"), after);
     assert.deepEqual(readHistory(), afterHistory);

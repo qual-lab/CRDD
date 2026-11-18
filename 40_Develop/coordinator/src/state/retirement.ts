@@ -1,6 +1,6 @@
 /**
  * 終了記録を履歴へ移し、現在状態から退役させる。
- * @responsibility 履歴確定と受付世代切替を調整し、未解決状態を保全する。
+ * @responsibility 履歴確定と終了記録の確定状態を調整し、実行IDと未解決状態を保全する。
  * @trace ARCH-000004、ARCH-000008
  */
 
@@ -16,7 +16,7 @@ import type { StoreResult } from "./result.ts";
 
 /**
  * 終了要約を履歴へ移して現在記録を退役する。
- * @responsibility 履歴の確定後だけ閉じたQueueを除去し、同じ保存で受付世代を切り替える。
+ * @responsibility 履歴の確定後だけ終了記録のhistorySettledを確定し、Queueを除去しない。
  * @trace ARCH-000004、ARCH-000008
  * @input workingDirectory、binding: 検証対象と既存結合。Repository、結合と固定評価時刻。
  * @returns 元の候補結果を保存・解放確認後に返す。

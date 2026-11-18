@@ -901,6 +901,7 @@ test("HTTP子の故障は同ID観測を保持し終了未確認だけをsticky�
     let id: string | null = null;
     await assert.rejects(
       client.start({
+        requestId: "request-synthetic",
         mode: "read_only_advice",
         workType: null,
         workspaceId: null,
@@ -924,13 +925,13 @@ test("HTTP子の故障は同ID観測を保持し終了未確認だけをsticky�
     assert.equal(posts, 1);
     if (scenario === "cleanup-unknown") {
       assert.equal(id, null);
-      assert.equal(reads, 2);
+      assert.equal(reads, 1);
       await assert.rejects(
         client.observe("request-synthetic"),
         /request_unknown/,
       );
       await assert.rejects(close(), /client_process_cleanup_unknown/);
-      assert.equal(reads, 2);
+      assert.equal(reads, 1);
     } else {
       assert.equal(id, "request-synthetic");
       assert.ok(id);

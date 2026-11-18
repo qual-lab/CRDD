@@ -214,7 +214,8 @@ export function inspectCoordinatorDecisionResult(
     !validDecisionRequestText(v.reason) ||
     typeof v.cleanupConfirmed !== "boolean" ||
     typeof v.manualRecoveryRequired !== "boolean" ||
-    !["settled", "no_effect", "unknown"].includes(String(v.effectState)) ||
+    typeof v.effectState !== "string" ||
+    !["settled", "no_effect", "unknown"].includes(v.effectState) ||
     (v.decisionId !== null &&
       (typeof v.decisionId !== "string" ||
         !DECISION_REQUEST_ID.test(v.decisionId))) ||

@@ -5,7 +5,6 @@
  * @trace ARCH-000004
  */
 
-import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import {
   type DecisionRequest,
   ExecutionStorageBlockedError,
@@ -18,11 +17,12 @@ import {
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { snapshotJsonValue } from "../input/snapshot.ts";
+import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import {
   historyRepositoryInput,
   verifyRuntimePersistenceRepository,
 } from "../execution/persistence.ts";
+import { snapshotJsonValue } from "../input/snapshot.ts";
 import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/projection.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
@@ -80,7 +80,7 @@ function blocked(
  * @security 認証Principalをexact比較し、非公開Store Pathや秘密値を結果へ含めない。
  * @concurrency State世代とDecision Recordの排他的世代作成で競合を拒否する。
  */
-export function executeCoordinatorPublicAcceptanceDecision(
+export function acceptResult(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
@@ -254,32 +254,4 @@ export function executeCoordinatorPublicAcceptanceDecision(
       effectState: "unknown" as const,
     });
   }
-}
-
-/**
- * 上位で確定した操作主体をPublic Acceptance Decisionへ渡す。
- *
- * @responsibility 上位の操作主体と要求内の主体の一致を確認する入口を提供する。
- * @trace ARCH-000005
- * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
- * @returns executeCoordinatorPublicAcceptanceDecisionの結果を返す。
- * @precondition 呼出し側が操作主体の認証・認可を完了している。
- * @postcondition StoreやOSから操作主体を取得・補完しない。
- * @effect 同じStateの判断・適用結果・対象状態とHistoryを更新する。
- * @failure 操作主体未指定・要求との不一致またはRuntime Data観測不能を理由付き停止へ変換する。
- * @invariant 保存先の利用可否を本人認証として扱わない。
- * @boundary Local TransportとProduction Composition Rootの境界。
- * @security 外部要求のprincipalIdだけを信頼せず、上位の操作主体と照合する。
- * @concurrency 下位Storeの世代制御を維持する。
- */
-export function acceptResult(
-  rawRequest: unknown,
-  workingDirectory = process.cwd(),
-  authenticationContext?: Readonly<{ principalId: string }>,
-) {
-  return executeCoordinatorPublicAcceptanceDecision(
-    rawRequest,
-    workingDirectory,
-    authenticationContext,
-  );
 }

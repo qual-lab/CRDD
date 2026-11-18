@@ -38,7 +38,6 @@ import {
 } from "../fixtures/task-result-fixture.ts";
 
 const revision = "a".repeat(40);
-let fixtureIntakeEpoch = "fixture-epoch";
 type ObjectiveDependencies = Parameters<
   typeof runCoordinatorObjectiveWithPorts
 >[0];
@@ -130,7 +129,6 @@ function root(t: test.TestContext) {
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");
-  fixtureIntakeEpoch = initialized.value;
   return value;
 }
 
@@ -148,6 +146,7 @@ function root(t: test.TestContext) {
  */
 function request(overrides: Record<string, unknown> = {}) {
   return withCallerPlan({
+    operation: "start" as const,
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -160,7 +159,6 @@ function request(overrides: Record<string, unknown> = {}) {
     maximumReplans: 0,
     originLane: "interactive",
     adoptResult: false,
-    intakeEpoch: fixtureIntakeEpoch,
     ...overrides,
   });
 }
@@ -386,7 +384,7 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
 
   const unresolved = await runCoordinatorObjective(
     dependencies,
-    request(),
+    request({ operation: "resume" }),
     new AbortController().signal,
   );
   assert.equal(unresolved.reason, "orchestrator_task_recovery_not_settled");
@@ -396,7 +394,7 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
   settleRuntimeProcessAsFreshProcess(workingDirectory);
   const completedResult = await runCoordinatorObjective(
     dependencies,
-    request(),
+    request({ operation: "resume" }),
     new AbortController().signal,
   );
   assert.equal(

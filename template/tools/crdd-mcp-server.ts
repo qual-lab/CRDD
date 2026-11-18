@@ -26,13 +26,13 @@ import {
   createAccessMcpResolver,
   createMcpServerFactory,
   MCP_COORDINATOR_PROTOCOL_VERSION,
-  type McpCoordinatorDependencies,
   type McpServerDependencies,
   readMcpServerConfiguration,
   runMcpStdio,
   startMcpAuthenticatedStreamableHttp,
   startMcpStreamableHttp,
 } from "../../40_Develop/mcp-server/src/index.ts";
+import type { McpCoordinatorDependencies } from "../../40_Develop/mcp-server/src/tools/task.ts";
 import {
   getRepository,
   readGitUser,

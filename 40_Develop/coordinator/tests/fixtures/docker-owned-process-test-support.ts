@@ -676,7 +676,7 @@ export async function verifyNormalOwnerLifecycle(
       repository.borrowRuntimeOwnedCoordinatorStateRepository(otherManagement);
     assert.ok(binding && otherBinding);
     const initial = Buffer.from(
-      `${canonicalJson({ schema: "crdd-execution-model/state/v4", revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
+      `${canonicalJson({ schema: "crdd-execution-model/state/v6", revision: 1, repositoryBindingId: null, projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
     );
     if (repeatCount >= 2) {
       // 再入場Caseの初期値を自己生成領域へ配置する。初期化Writerの保証はDomainが検証する。

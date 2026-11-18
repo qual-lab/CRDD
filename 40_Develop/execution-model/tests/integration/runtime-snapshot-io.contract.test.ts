@@ -365,7 +365,6 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
   const snapshot = {
     projects: [{ projectId: "project-a" }],
     queueEntries: [{ queueId: "queue-a" }],
-    intakeEpoch: "epoch-a",
     schemaRevision: 7,
     results: [{ id: "result-a" }],
     workspaces: [{ workspaceId: "workspace-a" }],
@@ -403,12 +402,8 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     snapshotStateRecord,
   );
   for (const [scope, keys] of [
-    ["queue", ["queueEntries", "leaseIntents", "intakeEpoch"]],
-    ["intake", ["intakeEpoch"]],
-    [
-      "execution",
-      ["projects", "queueEntries", "intakeEpoch", "schemaRevision"],
-    ],
+    ["queue", ["queueEntries", "leaseIntents"]],
+    ["execution", ["projects", "queueEntries", "schemaRevision"]],
     [
       "workspace",
       ["projects", "queueEntries", "results", "workspaces", "snapshotRevision"],
@@ -417,7 +412,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     const before = reads;
     const actual = read(root, "binding-a", scope);
     assert.equal(reads, before + 1);
-    assert.equal(readModes.at(-1), scope === "intake" ? true : undefined);
+    assert.equal(readModes.at(-1), undefined);
     assert.equal(actual.status, "completed");
     assert.deepEqual(Object.keys(actual.value).sort(), [...keys].sort());
     for (const key of keys)
@@ -458,7 +453,7 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
-  for (const scope of ["intake", "execution", "workspace"] as const) {
+  for (const scope of ["queue", "execution", "workspace"] as const) {
     const empty: ReturnType<typeof domain.readState<typeof scope>> =
       domain.readState(verified.capability, "binding-a", scope);
     assert.equal(empty.status, "completed");
@@ -478,14 +473,13 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
     "binding-a",
     "workspace",
   );
-  const intake = domain.readState(verified.capability, "binding-a", "intake");
+  const queue = domain.readState(verified.capability, "binding-a", "queue");
   assert.equal(execution.status, "completed");
   assert.equal(workspace.status, "completed");
   assert.ok(execution.value && workspace.value);
-  assert.equal(intake.status, "completed");
-  assert.deepEqual(intake.value, { intakeEpoch: execution.value.intakeEpoch });
+  assert.equal(queue.status, "completed");
+  assert.deepEqual(queue.value?.queueEntries, execution.value.queueEntries);
   assert.deepEqual(Object.keys(execution.value).sort(), [
-    "intakeEpoch",
     "projects",
     "queueEntries",
     "schemaRevision",
@@ -505,8 +499,8 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   fs.writeFileSync(marker, fs.readFileSync(file));
   try {
     assert.deepEqual(
-      domain.readState(verified.capability, "binding-a", "intake").value,
-      intake.value,
+      domain.readState(verified.capability, "binding-a", "queue").status,
+      "blocked",
     );
     for (const scope of ["execution", "workspace"] as const)
       assert.equal(
@@ -517,7 +511,7 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
     fs.rmSync(marker);
   }
   fs.writeFileSync(file, "invalid fixture");
-  for (const scope of ["intake", "execution", "workspace"] as const) {
+  for (const scope of ["queue", "execution", "workspace"] as const) {
     const rejected: ReturnType<typeof domain.readState<typeof scope>> =
       domain.readState(verified.capability, "binding-a", scope);
     assert.equal(rejected.status, "blocked");
@@ -769,8 +763,6 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         previous: null,
         repositoryBinding: binding.repositoryBinding,
         repositoryBindingId: null,
-        intakeEpoch: null,
-        intakeBindings: [],
         projects: [],
         managedExecutions: [],
         workspaces: [],
@@ -828,12 +820,10 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
 
 const emptyTaskSections = {
   repositoryBindingId: null,
-  intakeEpoch: null,
   projects: [],
   managedExecutions: [],
   queueEntries: [],
   workspaces: [],
-  intakeBindings: [],
   leaseEvidence: [],
   leaseIntents: [],
   results: [],
@@ -1385,7 +1375,6 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   const queue = domain.createQueue(cap, "binding-a", {
     kind: "scheduled",
     input: [
-      initial.intakeEpoch,
       {
         queueId: "queue-a",
         projectId: "project-a",
@@ -1593,7 +1582,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   for (const invalid of [
     {
       ...next,
-      intakeBindings: [{ queueId: "queue-a", epoch: "different-epoch" }],
+      intakeBindings: [],
     },
     { ...next, results: [] },
     { ...next, leaseIntents: [] },
@@ -2450,6 +2439,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   const decodedSource = decodeStateSnapshot(sourceWithBlocker, physicalBinding);
   assert.ok(decodedSource);
   const recoveringQueue: domain.ProjectQueueEntry = {
+    historySettled: false,
     queueId: "queue-recovering",
     projectId: pendingState.projectId,
     milestoneId: pendingState.milestoneId,
@@ -2467,7 +2457,6 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   const recoverySource = {
     ...decodedSource.snapshot,
     queueEntries: [recoveringQueue],
-    intakeBindings: [{ queueId: recoveringQueue.queueId, epoch: "epoch-a" }],
   };
   const recoveryBytes = Buffer.from(`${encodeStateValue(recoverySource)}\n`);
   assert.ok(decodeStateSnapshot(recoveryBytes, physicalBinding));
@@ -2475,7 +2464,6 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     {
       ...before.value,
       queueEntries: recoverySource.queueEntries,
-      intakeBindings: recoverySource.intakeBindings,
     },
     recoveringQueue.queueId,
     recoveringQueue.generation,
@@ -3358,14 +3346,12 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-execution-model/project-snapshot/v7",
-    schemaRevision: 7,
+    schema: "crdd-execution-model/project-snapshot/v9",
+    schemaRevision: 9,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [state],
     queueEntries: [],
     leaseEvidence: [],
@@ -3466,14 +3452,12 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-execution-model/project-snapshot/v7",
-    schemaRevision: 7,
+    schema: "crdd-execution-model/project-snapshot/v9",
+    schemaRevision: 9,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [state],
     queueEntries: [],
     leaseEvidence: [],
@@ -3584,14 +3568,12 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-execution-model/project-snapshot/v7",
-    schemaRevision: 7,
+    schema: "crdd-execution-model/project-snapshot/v9",
+    schemaRevision: 9,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [state],
     queueEntries: [],
     leaseEvidence: [],

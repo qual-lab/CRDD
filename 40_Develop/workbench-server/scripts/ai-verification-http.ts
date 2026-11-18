@@ -1150,7 +1150,6 @@ export async function createWorkbenchAiVerificationHttpClient(
         request.contextReferences[0] !== "PROJECT_CONTEXT.md"
       )
         throw new Error("workbench_verification_context_mismatch");
-      const previous = (await read()).aiRequest.snapshot?.requestId;
       try {
         const response = await run(() =>
           requestInChild(
@@ -1159,6 +1158,7 @@ export async function createWorkbenchAiVerificationHttpClient(
             new URLSearchParams({
               actionToken: token,
               operation: "start",
+              requestId: request.requestId,
               mode: request.mode,
               workspaceId: request.workspaceId ?? "",
               workType: request.workType ?? "",
@@ -1180,7 +1180,7 @@ export async function createWorkbenchAiVerificationHttpClient(
           "workbench_verification_start_location",
         );
         const snapshot = (await read()).aiRequest.snapshot;
-        if (snapshot === null || snapshot.requestId === previous)
+        if (snapshot === null || snapshot.requestId !== request.requestId)
           throw new Error("workbench_ai_http_start_identity_unknown");
         assert.equal(snapshot.mode, request.mode);
         if (snapshot.executionSelection) {
@@ -1211,7 +1211,7 @@ export async function createWorkbenchAiVerificationHttpClient(
         const snapshot = observed?.aiRequest.snapshot;
         const requestId =
           snapshot != null &&
-          snapshot.requestId !== previous &&
+          snapshot.requestId === request.requestId &&
           snapshot.mode === request.mode &&
           (snapshot.executionSelection === null ||
             snapshot.executionSelection.workType === request.workType)

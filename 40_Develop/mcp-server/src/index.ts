@@ -1,7 +1,7 @@
 /**
- * MCP経由でCoordinatorを利用する公開境界。
+ * MCPのCore ToolとTransportを提供する公開境界。
  * @packageDocumentation
- * @responsibility MCP Protocol、Transport、Coordinator Adapterを明示的に公開する。
+ * @responsibility MCP Protocol、Core Tool、Transportを公開し、任意の実行Adapterはautomation入口へ分離する。
  * @trace ARCH-000012
  * @boundary MCP ClientとCoordinatorの境界。
  * @effect stdioまたはlocalhost HTTPの接続、応答、終了処理を発行し得る。
@@ -18,17 +18,6 @@ export {
   MCP_RUNTIME_MANAGE_TOOL,
   type RuntimeContentAccessResolver,
 } from "./tools/runtime.ts";
-export {
-  describeMcpCoordinatorAdapterContract,
-  handleMcpCoordinatorRequest,
-  inspectMcpCoordinatorObjectiveResult,
-  MCP_COORDINATOR_ADAPTER_CONTRACT,
-  type McpCoordinatorDependencies,
-  getMcpCoordinatorToolDefinitions,
-  MCP_COORDINATOR_DECISION_TOOL,
-  MCP_COORDINATOR_OBJECTIVE_TOOL,
-  MCP_COORDINATOR_STATE_TOOL,
-} from "./tools/task.ts";
 export {
   MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpResponse,

@@ -167,6 +167,51 @@ function AiRequestSelection({
 }
 
 /**
+ * 同じ依頼の再送ではIDを保ち、明示的な新規依頼だけIDを変更する。
+ * @responsibility 通常POSTと共有接続の両方へ同じ依頼IDを渡す。
+ * @trace ARCH-000015
+ * @input 初期の依頼IDと入力可否。
+ * @returns 依頼IDと新規依頼への切替操作。
+ * @effect 画面内の状態更新だけ。
+ * @security IDは実行許可ではなく照合参照として扱う。
+ */
+function AiRequestIdentity({
+  initialRequestId,
+  disabled,
+}: {
+  initialRequestId: string | null;
+  disabled: boolean;
+}): ReactElement {
+  const [requestId, setRequestId] = useState(
+    () => initialRequestId ?? `request-${globalThis.crypto.randomUUID()}`,
+  );
+  return createElement(
+    "div",
+    null,
+    createElement("input", {
+      type: "hidden",
+      name: "requestId",
+      value: requestId,
+    }),
+    createElement(
+      "p",
+      null,
+      `依頼ID: ${requestId}。再送は同じIDと内容を使います。内容を変える場合は新しい依頼へ切り替えてください。`,
+    ),
+    createElement(
+      "button",
+      {
+        type: "button",
+        disabled,
+        onClick: () =>
+          setRequestId(`request-${globalThis.crypto.randomUUID()}`),
+      },
+      "新しい依頼に切り替える",
+    ),
+  );
+}
+
+/**
  * Workbench AI依頼Panelを現在Sessionの一件だけから描画する。
  *
  * @responsibility モデル選択、依頼入力、実行状態、結果区分および取消導線を一画面へ投影する。
@@ -218,6 +263,10 @@ export function renderWorkbenchAiRequest(
         action: "/ai-request/action",
       },
       createElement(ActionTokenInput, { value: actionToken }),
+      createElement(AiRequestIdentity, {
+        initialRequestId: snapshot?.requestId ?? null,
+        disabled,
+      }),
       createElement("input", {
         type: "hidden",
         name: "operation",
@@ -379,22 +428,30 @@ function renderSnapshot(
       createElement("strong", null, snapshot.status),
       ` — ${modeLabel}${snapshot.reason === null ? "" : ` — ${snapshot.reason}`}`,
     ),
-    ...(snapshot.mode === "read_only_advice"
+    ...(snapshot.resultAvailable === false
       ? [
-          section("確認できた事実", snapshot.facts),
-          section("共有済み分析", snapshot.sharedAnalysis),
-          section("追加推論", snapshot.additionalInferences),
-          section("次の選択肢", snapshot.nextOptions),
-        ]
-      : [
           createElement(
             "p",
-            { key: "workspace-observation" },
-            snapshot.workspaceResult
-              ? `${snapshot.workspaceResult.workspaceId === null ? "Direct" : "Isolated Workspace"}: ${snapshot.workspaceResult.changedPaths === null ? "変更範囲は未観測" : snapshot.workspaceResult.changedPaths.length === 0 ? "変更なし" : `変更あり — ${snapshot.workspaceResult.changedPaths.join(" / ")}`}。変更の帰属は未判定、自動Commit・採用なし。`
-              : "作業領域の変更結果は未観測です。",
+            { key: "result-unavailable" },
+            "結果本文は取得できません。保存された実行状態を表示しており、AIへの再送は行いません。",
           ),
-        ]),
+        ]
+      : snapshot.mode === "read_only_advice"
+        ? [
+            section("確認できた事実", snapshot.facts),
+            section("共有済み分析", snapshot.sharedAnalysis),
+            section("追加推論", snapshot.additionalInferences),
+            section("次の選択肢", snapshot.nextOptions),
+          ]
+        : [
+            createElement(
+              "p",
+              { key: "workspace-observation" },
+              snapshot.workspaceResult
+                ? `${snapshot.workspaceResult.workspaceId === null ? "Direct" : "Isolated Workspace"}: ${snapshot.workspaceResult.changedPaths === null ? "変更範囲は未観測" : snapshot.workspaceResult.changedPaths.length === 0 ? "変更なし" : `変更あり — ${snapshot.workspaceResult.changedPaths.join(" / ")}`}。変更の帰属は未判定、自動Commit・採用なし。`
+                : "作業領域の変更結果は未観測です。",
+            ),
+          ]),
     snapshot.cleanupConfirmed === undefined
       ? null
       : createElement(

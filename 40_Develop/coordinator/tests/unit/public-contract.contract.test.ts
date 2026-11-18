@@ -195,6 +195,7 @@ test("単発結果検査は閉形式とRuntime発行回復参照の相関を維�
  */
 function objectiveRequest() {
   return withCallerPlan({
+    operation: "start" as const,
     requestId: "request-1",
     projectId: "project-1",
     milestoneId: "milestone-1",
@@ -207,7 +208,6 @@ function objectiveRequest() {
     maximumReplans: 1,
     originLane: "interactive",
     adoptResult: false,
-    intakeEpoch: "fixture-epoch",
   } as const);
 }
 
@@ -259,6 +259,16 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
   assert.notEqual(inspected, source);
   assert.ok(Object.isFrozen(inspected));
   assert.ok(Object.isFrozen(inspected.acceptanceCriteria));
+  for (const operation of [undefined, "new", "retry", null]) {
+    const value: Record<string, unknown> = { ...source, operation };
+    if (operation === undefined) delete value.operation;
+    assert.equal(inspectCoordinatorObjectiveRequest(value), null);
+  }
+  assert.equal(
+    inspectCoordinatorObjectiveRequest({ ...source, operation: "resume" })
+      ?.operation,
+    "resume",
+  );
 });
 
 /**

@@ -287,19 +287,17 @@ const taskExecutionSelections = () => ({
  */
 function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
   return {
-    schema: "crdd-execution-model/state/v4",
+    schema: "crdd-execution-model/state/v6",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
     repositoryBindingId: null,
-    intakeEpoch: null,
     operations: [],
     unresolvedRecoveries: [],
     projects: [],
     managedExecutions: [],
     queueEntries: [],
     workspaces: [],
-    intakeBindings: [],
     leaseEvidence: [],
     leaseIntents: [],
     results: [],
@@ -331,9 +329,8 @@ const empty = {
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
     ...emptyExecutionStateSnapshot(),
-    schema: "crdd-execution-model/state/v4",
+    schema: "crdd-execution-model/state/v6",
     repositoryBindingId: "binding-a",
-    intakeEpoch: "epoch-a",
     managedExecutions: [],
   };
   const core: ProjectDefinition = {
@@ -534,11 +531,12 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
   );
   assert.deepEqual(decodeStateSnapshot(bytes, binding)?.snapshot, snapshot);
   for (const invalid of [
+    { ...snapshot, schema: "crdd-execution-model/state/v5" },
     { ...snapshot, schema: "crdd-coordinator/current-state/v4" },
     { ...snapshot, schema: "crdd-coordinator/current-state/v3" },
     { ...snapshot, schema: "crdd-coordinator/current-state/v2" },
-    { ...snapshot, repositoryBindingId: "binding-a" },
-    { ...snapshot, intakeEpoch: "epoch-a" },
+    { ...snapshot, repositoryBindingId: "invalid/path" },
+    { ...snapshot, intakeEpoch: "retired-field" },
     { ...snapshot, snapshotRevision: 1 },
     { ...snapshot, repositoryRootHash: binding },
     { ...snapshot, revision: 2 },
@@ -881,15 +879,14 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   if (created.status !== "completed") throw new Error("state_fixture_invalid");
   const snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: binding,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
     projects: [created.state],
     queueEntries: [
       {
+        historySettled: false,
         workspaceId: null,
         queueId: "queue-a",
         projectId: "project-a",
@@ -955,8 +952,6 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   const unified = {
     ...emptyDefinitionFixture,
     repositoryBindingId: snapshot.repositoryBindingId,
-    intakeEpoch: snapshot.intakeEpoch,
-    intakeBindings: snapshot.intakeBindings,
     queueEntries: snapshot.queueEntries,
     projects: storedProjects,
   };

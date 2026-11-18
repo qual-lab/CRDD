@@ -203,6 +203,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       "createExecutor",
       "inspectDockerEnvironment",
       "restartDockerEnvironment",
+      "startDockerEnvironment",
       "inspectResources",
       "cleanupResources",
     ].sort());

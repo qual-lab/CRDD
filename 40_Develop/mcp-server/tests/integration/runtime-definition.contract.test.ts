@@ -9,17 +9,17 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/request/validation.ts";
 import {
   handleMcpRuntimeRequest,
-  MCP_RUNTIME_READ_TOOL,
   MCP_RUNTIME_MANAGE_TOOL,
+  MCP_RUNTIME_READ_TOOL,
 } from "../../src/tools/runtime.ts";
-import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/request/validation.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 
 const META = {
@@ -178,7 +178,14 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     }});
     const runtime = await import(${JSON.stringify(modules.runtime)});
     const sdk = await import(${JSON.stringify(modules.sdk)});
-    assert.equal(runtime.inspectMcpCoordinatorObjectiveResult(null),null);
+    for (const name of ["describeMcpCoordinatorAdapterContract","handleMcpCoordinatorRequest","MCP_COORDINATOR_ADAPTER_CONTRACT","getMcpCoordinatorToolDefinitions","MCP_COORDINATOR_DECISION_TOOL","MCP_COORDINATOR_OBJECTIVE_TOOL","MCP_COORDINATOR_STATE_TOOL"])
+      assert.equal(Object.hasOwn(runtime,name),false);
+    let automationCalls=0;
+    await assert.rejects(runtime.createMcpServerFactory({coordinator:{
+      authenticateClient:()=>{automationCalls++;throw Error("unexpected");},
+      runObjective:async()=>{automationCalls++;},submitDecision:async()=>{automationCalls++;},getProjectState:async()=>{automationCalls++;}
+    }}).createServer({jsonrpc:"2.0",id:0,method:"tools/list",params:{_meta:${JSON.stringify(META)}}},new AbortController().signal),error=>error.code===-32603);
+    assert.equal(automationCalls,0);
     const vc = await import(${JSON.stringify(modules.vc)});
     const verified = vc.getRepository(${JSON.stringify(root)});
     assert.equal(verified.status, "completed");
@@ -223,6 +230,32 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     { encoding: "utf8", stdio: "pipe", timeout: 60_000 },
   );
   assert.equal(output, "core_tool_crud_passed");
+  assert.equal(
+    execFileSync(
+      process.execPath,
+      [
+        "--eval",
+        `
+    import assert from "node:assert/strict";
+    import {registerHooks} from "node:module";
+    const controller=new AbortController();
+    let imports=0,calls=0;
+    registerHooks({resolve(specifier,context,next){
+      if(specifier.includes("coordinator/")){imports++;controller.abort();}
+      return next(specifier,context);
+    }});
+    const runtime=await import(${JSON.stringify(modules.runtime)});
+    assert.equal(imports,0);
+    const fail=()=>{calls++;throw Error("unexpected");};
+    await assert.rejects(runtime.createMcpServerFactory({coordinator:{authenticateClient:fail,runObjective:fail,submitDecision:fail,getProjectState:fail}}).createServer({jsonrpc:"2.0",id:1,method:"tools/list",params:{_meta:${JSON.stringify(META)}}},controller.signal),error=>error.code===-32800);
+    assert.ok(imports>0);assert.equal(calls,0);
+    process.stdout.write("automation_import_cancelled");
+  `,
+      ],
+      { encoding: "utf8", stdio: "pipe", windowsHide: true, timeout: 10000 },
+    ),
+    "automation_import_cancelled",
+  );
   fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
   fs.writeFileSync(
     path.join(root, ".crdd", "config", "repository-manifest.json"),
@@ -392,6 +425,61 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
     true,
   );
+});
+
+/**
+ * 遅延読込み前のWorkspace入力捕捉と取消を反証する。
+ * @responsibility 元参照の変更とimport失敗を実処置へ持ち込まない。
+ * @trace PRL-IT-012
+ * @precondition 有限Node子と合成Workspace要求だけを使用する。
+ * @stimulus import時に元入力を変更、又は取消と読込み失敗を同時に発生させる。
+ * @observation Resolver回数、拒否Code、Getter／Proxyの実行回数。
+ * @oracle 捕捉済みの正常入力だけがResolverへ到達し、取消・不正入力は零回。
+ * @cleanup 同期子の終了を待ち、保存・一時Fileは作らない。
+ * @boundary 公開MCP handlerとModule読込みの待機境界。
+ */
+test("Workspaceは読込み待機前の入力を捕捉し取消失敗を区別する", () => {
+  const module = new URL("../../src/index.ts", import.meta.url).href;
+  for (const mode of ["mutation", "cancel"]) {
+    const output = execFileSync(
+      process.execPath,
+      [
+        "--eval",
+        `
+      import assert from "node:assert/strict";
+      import {registerHooks} from "node:module";
+      const mode=${JSON.stringify(mode)}, controller=new AbortController();
+      let reads=0,hooks=0,imports=0;
+      const command={operation:"freeze",projectId:"project",queueId:"queue",workspaceId:"11111111-1111-4111-8111-111111111111",expectedGeneration:1,operationId:"22222222-2222-4222-8222-222222222222",baseCommit:"a".repeat(40),expectedHead:"a".repeat(40),selection:[{path:"src/code.ts",blobId:"a".repeat(40),mode:"100644"}],candidateName:null,relatedChangeIds:["CHG-000001"]};
+      registerHooks({resolve(s,c,next){if(s.includes("coordinator/")){
+        imports++;
+        if(mode==="cancel"){controller.abort();throw Error("unavailable");}
+        command.operation="invalid";command.expectedGeneration=-1;
+        command.selection[0].path="../outside";command.relatedChangeIds[0]="invalid";
+      }return next(s,c);}});
+      const api=await import(${JSON.stringify(module)});
+      const packet=(command)=>({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:api.MCP_WORKSPACE_MANAGE_TOOL,arguments:{repositoryId:"repository",command},_meta:${JSON.stringify(META)}}});
+      const resolve=()=>{reads++;return null;};
+      const proxy=new Proxy({}, {getPrototypeOf(){hooks++;throw Error("unexpected");}});
+      const accessor={};Object.defineProperty(accessor,"operation",{enumerable:true,get(){hooks++;return "freeze";}});
+      for(const invalid of [proxy,accessor,{...command,selection:[proxy]},{...command,selection:[accessor]}]){
+        const result=await api.handleMcpWorkspaceRequest(packet(invalid),resolve,controller.signal);
+        assert.equal(result.error.code,-32602);
+      }
+      assert.equal(hooks,0);assert.equal(imports,0);assert.equal(reads,0);
+      const pending=api.handleMcpWorkspaceRequest(packet(command),resolve,controller.signal);
+      command.candidateName="changed-after-call";
+      const result=await pending;
+      assert.ok(imports>0);
+      assert.equal(result.error.code,mode==="cancel"?-32800:-32603);
+      assert.equal(reads,mode==="cancel"?0:1);
+      process.stdout.write("workspace_boundary_passed");
+    `,
+      ],
+      { encoding: "utf8", stdio: "pipe", windowsHide: true, timeout: 10000 },
+    );
+    assert.equal(output, "workspace_boundary_passed");
+  }
 });
 
 /**

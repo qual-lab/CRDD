@@ -18,7 +18,10 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
+import {
+  initializeExecutionStore,
+  readState,
+} from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -79,7 +82,6 @@ function intakeDockerRecoveryReady(recoveryId: string) {
     cleanupReason: null,
   });
 }
-let fixtureIntakeEpoch = "fixture-epoch";
 type ObjectiveDependencies = Parameters<
   typeof runCoordinatorObjectiveWithPorts
 >[0];
@@ -129,7 +131,7 @@ function runCoordinatorObjective(
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-function root(t: test.TestContext) {
+function root(t: test.TestContext, initialize = true) {
   const parent = requireReadyRepositoryExecutionDataArea(
     ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       path.resolve(import.meta.dirname, "../../../.."),
@@ -164,12 +166,13 @@ function root(t: test.TestContext) {
     ],
     { windowsHide: true },
   );
-  const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(value),
-    "binding-a",
-  );
-  assert.equal(initialized.status, "completed");
-  fixtureIntakeEpoch = initialized.value as string;
+  if (initialize) {
+    const initialized = initializeExecutionStore(
+      verifyRuntimePersistenceRepository(value),
+      "binding-a",
+    );
+    assert.equal(initialized.status, "completed");
+  }
   return value;
 }
 /**
@@ -283,6 +286,7 @@ async function abandonProjectOperationAcquisition(
  */
 function request(overrides: Record<string, unknown> = {}) {
   return withCallerPlan({
+    operation: "start" as const,
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -295,7 +299,6 @@ function request(overrides: Record<string, unknown> = {}) {
     maximumReplans: 1,
     originLane: "interactive",
     adoptResult: false,
-    intakeEpoch: fixtureIntakeEpoch,
     ...overrides,
   });
 }
@@ -422,7 +425,7 @@ function settleRuntimeProcessAsFreshProcess(
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("public Objective intake binds, plans, executes and deduplicates the same request", async (t) => {
-  const workingDirectory = root(t);
+  const workingDirectory = root(t, false);
   let effects = 0;
   let selectionReads = 0;
   const defaults = taskExecutionSelections();
@@ -489,7 +492,23 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
       },
     },
   };
+  // Readerの排他Directoryだけを準備し、実行Stateは真正不存在のまま確認する。
+  const before = readState(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    "binding-a",
+    "execution",
+  );
+  assert.equal(before.status, "completed");
+  assert.equal(before.value, null);
   const untouched = runtimeSnapshot(workingDirectory);
+  const missing = await runCoordinatorObjective(
+    dependencies,
+    request({ operation: "resume" }),
+    new AbortController().signal,
+  );
+  assert.equal(missing.reason, "orchestrator_objective_request_not_found");
+  assert.equal(effects, 0);
+  assert.deepEqual(runtimeSnapshot(workingDirectory), untouched);
   for (const [input, pair] of [
     [{ ...request(), workType: "coding" }, defaults],
     [explicitRequest, defaults],
@@ -525,7 +544,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     explicitRequest,
     new AbortController().signal,
   );
-  assert.equal(first.status, "completed");
+  assert.equal(first.status, "completed", JSON.stringify(first));
   assert.equal(first.projection?.nextAction, "verify_objective_integration");
   assert.equal(effects, 1);
   assert.equal(selectionReads, 1);
@@ -534,10 +553,28 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     explicitRequest,
     new AbortController().signal,
   );
-  assert.equal(second.status, "completed", JSON.stringify(second));
+  assert.equal(second.status, "blocked", JSON.stringify(second));
+  assert.equal(second.reason, "orchestrator_objective_request_reused");
   assert.equal(effects, 1);
   assert.equal(selectionReads, 1);
   const savedBytes = runtimeSnapshot(workingDirectory);
+  for (const scope of [
+    { projectId: "other-project" },
+    { milestoneId: "other-milestone" },
+    { objective: "changed" },
+  ]) {
+    const rejected = await runCoordinatorObjective(
+      dependencies,
+      { ...explicitRequest, ...scope },
+      new AbortController().signal,
+    );
+    assert.equal(
+      rejected.reason,
+      "orchestrator_objective_request_identity_conflict",
+    );
+    assert.equal(rejected.effectState, "no_effect");
+    assert.deepEqual(runtimeSnapshot(workingDirectory), savedBytes);
+  }
   for (const change of [
     { workType: "coding" },
     { choice: { provider: "claude", model: "gpt-5.5", effort: "high" } },
@@ -602,15 +639,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
 test("public Objective re-entry reconciles a pre-publication owner loss before execution", async (t) => {
   const workingDirectory = root(t);
   const queueId = `queue-${createHash("sha256")
-    .update(
-      [
-        "binding-a",
-        "project-a",
-        "milestone-a",
-        "request-a",
-        "principal-a",
-      ].join("\0"),
-    )
+    .update(["binding-a", "principal-a", "request-a"].join("\0"))
     .digest("hex")
     .slice(0, 40)}`;
   const exactRequest = request();
@@ -622,6 +651,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
       .update(
         JSON.stringify({
           ...inspectCoordinatorObjectiveRequest(exactRequest),
+          operation: undefined,
           authenticatedPrincipalId: "principal-a",
           acceptanceCriteria: [...exactRequest.acceptanceCriteria],
           allowedPaths: [...exactRequest.allowedPaths],
@@ -720,7 +750,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
         },
       },
     },
-    exactRequest,
+    { ...exactRequest, operation: "resume" },
     new AbortController().signal,
   );
   assert.equal(result.status, "completed", JSON.stringify(result));
@@ -1385,7 +1415,7 @@ test("async recovery interruption preserves technical and Task settlement bounda
         );
       const resumed = runCoordinatorObjective(
         dependencies,
-        request({ maximumReplans: 0 }),
+        request({ operation: "resume", maximumReplans: 0 }),
         cancellation.signal,
       );
       await Promise.race([
@@ -1418,6 +1448,7 @@ test("async recovery interruption preserves technical and Task settlement bounda
         );
         assert.equal(written.status, "completed");
       }
+      assert.ok("queueId" in first);
       const queueId = first.queueId;
       assert.ok(queueId);
       const queueBefore = readProjectOperationQueueState(
@@ -1618,6 +1649,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
   assert.equal(first.manualRecoveryRequired, true);
   assert.equal(first.recoveryIds.includes(recoveryId), true);
+  assert.ok("recoveryObligations" in first);
   assert.equal(
     first.recoveryObligations.some(
       (entry) => entry.kind === "docker" && entry.recoveryId === recoveryId,
@@ -1635,7 +1667,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(recoveries, 0);
   const resumed = await runCoordinatorObjective(
     dependencies,
-    request({ maximumReplans: 0 }),
+    request({ operation: "resume", maximumReplans: 0 }),
     recoverySignal,
   );
   assert.equal(resumed.status, "blocked", JSON.stringify(resumed));
@@ -1651,7 +1683,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
 
   const completedRecovery = await runCoordinatorObjective(
     dependencies,
-    request({ maximumReplans: 0 }),
+    request({ operation: "resume", maximumReplans: 0 }),
     recoverySignal,
   );
   assert.equal(
@@ -1815,7 +1847,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     assert.equal(hostBefore.phase, "required");
     const resumed = await runCoordinatorObjective(
       dependencies,
-      request({ maximumReplans: 0 }),
+      request({ operation: "resume", maximumReplans: 0 }),
       new AbortController().signal,
     );
     assert.equal(resumed.reason, "orchestrator_task_recovery_not_settled");
@@ -1855,13 +1887,14 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     );
     const externalRecovery = await runCoordinatorObjective(
       dependencies,
-      request({ maximumReplans: 0 }),
+      request({ operation: "resume", maximumReplans: 0 }),
       new AbortController().signal,
     );
     assert.equal(
       externalRecovery.reason,
       "orchestrator_external_recovery_required",
     );
+    assert.ok("recoveryObligations" in externalRecovery);
     assert.deepEqual(externalRecovery.recoveryObligations, [
       { kind: "host", recoveryId: hostRecoveryId },
     ]);
@@ -2025,7 +2058,7 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
         },
       ],
     },
-    request({ maximumReplans: 0 }),
+    request({ operation: "resume", maximumReplans: 0 }),
     new AbortController().signal,
   );
   assert.equal(resumed.status, "completed", JSON.stringify(resumed));
@@ -2135,6 +2168,7 @@ for (const interruption of [
       new AbortController().signal,
     );
     assert.equal(initial.reason, "orchestrator_task_recovery_required");
+    assert.ok("queueId" in initial);
     const queueBefore = readProjectOperationQueueState(
       workingDirectory,
       "binding-a",
@@ -2176,7 +2210,7 @@ for (const interruption of [
     }
     const resumed = await runCoordinatorObjective(
       dependencies,
-      request({ maximumReplans: 0 }),
+      request({ operation: "resume", maximumReplans: 0 }),
       new AbortController().signal,
     );
     assert.equal(resumed.status, "completed");

@@ -19,6 +19,7 @@ import type {
   CompletionResult,
   ProcessStartedNotice,
 } from "../../../executor/src/index.ts";
+import { startDockerEnvironment } from "../../../executor/src/index.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
   readOperationStateStage,
@@ -43,6 +44,7 @@ import {
   revokeRuntimeOwnedProviderHomeMountGrant,
   verifyRuntimeOwnedProviderHomeMountCompletion,
 } from "./authority.ts";
+import { getIsolationSettings } from "./configuration.ts";
 import {
   createDevelopmentExecutionTiming,
   reserveRuntimeOwnedDevelopmentMeasurementTask,
@@ -1502,7 +1504,10 @@ type TaskRuntimeDependencies = Readonly<{
   }> | null;
   observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
-  createOperation: () => Operation | Promise<Operation>;
+  createOperation: (
+    signal: AbortSignal,
+    verifyBoundary: () => boolean,
+  ) => Operation | Promise<Operation>;
   classifyOperationCreationFailure: (
     error: unknown,
   ) => ProductionOperationFailure | null;
@@ -3386,7 +3391,17 @@ async function runCoordinatorTaskCore(
   let operation: Operation | null = null;
   let shouldRetainOperationRoot = false;
   try {
-    operation = await state.dependencies.createOperation();
+    operation = await state.dependencies.createOperation(
+      control.cancellationController.signal,
+      () => {
+        if (control.cancellationRequested || isRuntimeProcessEffectBlocked())
+          return false;
+        const current = state.dependencies.inspectRepository(repositoryRoot);
+        return (
+          current?.status === "candidate" && current.runtimeSupported === true
+        );
+      },
+    );
     control.ownedOperation = operation.owned;
     control.managementCapability = operation.managementCapability;
     control.hostRecoveryId = operation.hostRecoveryId;
@@ -4067,7 +4082,31 @@ const productionDependencies = Object.freeze<TaskRuntimeDependencies>({
     process.stderr,
   ),
   inspectRepository: inspectRepositoryObjectFormatCandidate,
-  createOperation: createProductionOperation,
+  createOperation: async (signal, current) => {
+    const verifyBoundary = () => {
+      try {
+        return !signal.aborted && current() === true;
+      } catch {
+        return false;
+      }
+    };
+    const startup = await startDockerEnvironment(
+      { signal, verifyBoundary },
+      getIsolationSettings(),
+    );
+    if (startup.status !== "ready" || !verifyBoundary())
+      throwProductionOperationFailure({
+        reason:
+          startup.status === "ready"
+            ? "docker_environment_start_boundary_unconfirmed"
+            : startup.reason,
+        hostRecoveryId: null,
+        cleanupConfirmed: startup.cleanupConfirmed,
+        manualRecoveryRequired:
+          !startup.cleanupConfirmed || startup.requestState !== "not_issued",
+      });
+    return createProductionOperation();
+  },
   classifyOperationCreationFailure: productionOperationFailure,
   cleanupOperation: cleanupOwnedOperationDirectoriesAsync,
   classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
@@ -4742,7 +4781,11 @@ function startRuntimeOwnedDevelopmentTask(
     observeLifecycleState: timing.observeLifecycleState,
     beginInvocation: boundary.beginInvocation,
     inspectRepository: guard(productionDependencies.inspectRepository),
-    createOperation: guard(productionDependencies.createOperation),
+    createOperation: (signal, current) =>
+      productionDependencies.createOperation(
+        signal,
+        () => boundary.checkNewWork() && current(),
+      ),
     bindRepository: guard((management, root) => {
       const result = bindRuntimeOwnedRepositoryOperation(management, root);
       if (

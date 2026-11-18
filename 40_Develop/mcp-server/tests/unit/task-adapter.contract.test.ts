@@ -14,21 +14,207 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-
+import { compileFunction } from "node:vm";
+import * as automation from "@qual-lab/crdd-mcp/automation";
 import {
   describeMcpCoordinatorAdapterContract,
   handleMcpCoordinatorRequest,
-  inspectMcpCoordinatorObjectiveResult,
   MCP_COORDINATOR_DECISION_TOOL,
   MCP_COORDINATOR_OBJECTIVE_TOOL,
-  MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_COORDINATOR_STATE_TOOL,
   type McpCoordinatorDependencies,
-} from "../../src/index.ts";
+} from "@qual-lab/crdd-mcp/automation";
+import {
+  inspectCoordinatorDecisionResult,
+  inspectCoordinatorObjectiveResult,
+  inspectWorkspaceCommand,
+} from "../../../coordinator/src/index.ts";
+import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
+import { projectCoordinatorState } from "../../../coordinator/src/state/projection.ts";
+import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/index.ts";
 import { protocolError } from "../../src/request/validation.ts";
 
 const revision = "a".repeat(40);
+
+/**
+ * @trace PRL-UT-014
+ * @precondition 判断結果とCandidate終了の正常な文字列入力を構築する。
+ * @stimulus effectState／dispositionへ変換hook付きObjectとProxyを与える。
+ * @observation 値拒否、未知コード実行0と正常入力の維持。
+ * @oracle 不正な型を正しい語彙へ暗黙変換せず、権限や保存処置へ進まない。
+ * @cleanup メモリのみ。
+ */
+test("判断とWorkspace受付も未知Objectを文字列へ変換しない", () => {
+  const outcome = decisionOutcome(decision());
+  const command = {
+    operation: "close-candidate",
+    projectId: "project-a",
+    queueId: "queue-a",
+    workspaceId: "00000000-0000-4000-8000-000000000001",
+    expectedGeneration: 1,
+    expectedCommit: null,
+    disposition: "adopted",
+  };
+  assert.ok(inspectCoordinatorDecisionResult(outcome));
+  assert.ok(inspectWorkspaceCommand(command));
+  for (const target of [
+    {
+      valid: outcome.effectState,
+      inspect: (value: unknown) =>
+        inspectCoordinatorDecisionResult({ ...outcome, effectState: value }),
+    },
+    {
+      valid: command.disposition,
+      inspect: (value: unknown) =>
+        inspectWorkspaceCommand({ ...command, disposition: value }),
+    },
+  ]) {
+    let calls = 0;
+    const convert = () => {
+      calls++;
+      return target.valid;
+    };
+    const hook = {
+      toString: convert,
+      valueOf: convert,
+      [Symbol.toPrimitive]: convert,
+    };
+    const proxy = new Proxy(
+      {},
+      {
+        get() {
+          calls++;
+          throw Error("proxy_get");
+        },
+      },
+    );
+    for (const value of [hook, proxy]) {
+      assert.doesNotThrow(() => assert.equal(target.inspect(value), null));
+      assert.equal(calls, 0);
+    }
+  }
+});
+
+/**
+ * @trace PRL-UT-014
+ * @precondition 同じ不変準備から差戻し・回復必要の状態だけを独立生成する。
+ * @stimulus Coの実Producer結果をObjective／状態Toolへ渡す。
+ * @observation 完成受付後の状態と回復参照、getterや元値を共有しない結果。
+ * @oracle 両状態を誤拒否せず、元のblocked／unknownと回復義務を保持する。
+ * @cleanup メモリのみ。実AI・Docker・保存なし。
+ */
+test("MCPはProducerの差戻しと回復必要を両Toolで保持する", async () => {
+  const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: revision,
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: ["受入"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["完了"] }],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["result.txt"],
+        conflictKeys: [],
+      },
+    ],
+    ownerGeneration: "owner-a",
+  });
+  assert.ok(created.state);
+  const base = created.state;
+  for (const mode of ["returned", "recovery_required"] as const) {
+    const recovery = mode === "recovery_required";
+    const projection = projectCoordinatorState({
+      ...base,
+      milestone: { ...base.milestone, state: mode },
+      objectives: base.objectives.map((entry) => ({
+        ...entry,
+        state: recovery ? "blocked" : "accepted",
+      })),
+      tasks: base.tasks.map((entry) => ({
+        ...entry,
+        state: recovery ? "recovery_required" : "completed",
+      })),
+    });
+    for (const tool of [
+      MCP_COORDINATOR_OBJECTIVE_TOOL,
+      MCP_COORDINATOR_STATE_TOOL,
+    ]) {
+      const response = await handleMcpCoordinatorRequest(
+        request("tools/call", {
+          _meta: META,
+          name: tool,
+          arguments:
+            tool === MCP_COORDINATOR_OBJECTIVE_TOOL
+              ? objective()
+              : {
+                  requestId: "state-a",
+                  projectId: "project-a",
+                  repositoryRevision: revision,
+                },
+        }),
+        dependencies({
+          runObjective: async (input) => ({
+            contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+            status: "blocked",
+            reason: "fixture_pending",
+            requestId: input.requestId,
+            projectId: "project-a",
+            milestoneId: "milestone-a",
+            queueId: null,
+            projection,
+            cleanupConfirmed: !recovery,
+            manualRecoveryRequired: recovery,
+            processRestartRequired: false,
+            recoveryIds: recovery ? ["host.fixture"] : [],
+            recoveryObligations: recovery
+              ? [{ kind: "host", recoveryId: "host.fixture" }]
+              : [],
+            effectState: recovery ? "unknown" : "no_effect",
+          }),
+          getProjectState: async (input) => ({
+            contract: "crdd-coordinator/orchestrator-state-query/v2",
+            status: "completed",
+            reason: "orchestrator_state_observed",
+            requestId: input.requestId,
+            projectId: "project-a",
+            repositoryRevision: revision,
+            observationState: "observed",
+            projection,
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            effectState: "no_effect",
+          }),
+        }),
+        new AbortController().signal,
+      );
+      assert.equal(response.error, undefined);
+      const result = response.result as {
+        structuredContent: {
+          reason: string;
+          projection: { milestoneState: string };
+          recoveryIds?: readonly string[];
+        };
+      };
+      assert.equal(result.structuredContent.projection.milestoneState, mode);
+      assert.notEqual(
+        result.structuredContent.reason,
+        "mcp_coordinator_result_invalid",
+      );
+      if (tool === MCP_COORDINATOR_OBJECTIVE_TOOL)
+        assert.deepEqual(
+          result.structuredContent.recoveryIds,
+          recovery ? ["host.fixture"] : [],
+        );
+    }
+  }
+});
 
 /**
  * MCPから二Taskの実行内容をDomain検査経由で搬送する。
@@ -117,7 +303,7 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
         assert.ok(Object.isFrozen(observed));
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
-          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
           status: "blocked",
           reason: "orchestrator_quality_acceptance_required",
           requestId: observed.requestId,
@@ -211,13 +397,12 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
         assert.deepEqual(authentication, { principalId: "principal-a" });
         assert.ok(Object.isFrozen(observed));
         return {
-          contract: "crdd-coordinator/orchestrator-state-query/v1",
+          contract: "crdd-coordinator/orchestrator-state-query/v2",
           status: "completed",
           reason: "orchestrator_state_observed",
           requestId: observed.requestId,
           projectId: observed.projectId,
           repositoryRevision: observed.repositoryRevision,
-          intakeEpoch: "epoch-a",
           observationState: "observed",
           projection,
           cleanupConfirmed: true,
@@ -287,6 +472,7 @@ function request(method: string, params: unknown, id = 1) {
  */
 function objective() {
   return withCallerPlan({
+    operation: "start" as const,
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -299,7 +485,6 @@ function objective() {
     maximumReplans: 1,
     originLane: "interactive",
     adoptResult: false,
-    intakeEpoch: "fixture-epoch",
   });
 }
 
@@ -530,7 +715,7 @@ function dependencies(
 ): McpCoordinatorDependencies {
   return {
     runObjective: async (input) => ({
-      contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+      contract: "crdd-coordinator/orchestrator-objective-intake/v4",
       status: "completed",
       reason: "objective_complete",
       cleanupConfirmed: true,
@@ -548,7 +733,7 @@ function dependencies(
     submitDecision: async (input) =>
       decisionOutcome({ ...decision(), ...input }),
     getProjectState: async (input) => ({
-      contract: "crdd-coordinator/orchestrator-state-query/v1",
+      contract: "crdd-coordinator/orchestrator-state-query/v2",
       status: "completed",
       reason: "orchestrator_state_absent",
       requestId: input.requestId,
@@ -580,6 +765,19 @@ function dependencies(
  * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP discovery and tool list expose the three public operations", async () => {
+  assert.deepEqual(
+    Object.keys(automation).sort(),
+    [
+      "MCP_COORDINATOR_ADAPTER_CONTRACT",
+      "MCP_COORDINATOR_DECISION_TOOL",
+      "MCP_COORDINATOR_OBJECTIVE_TOOL",
+      "MCP_COORDINATOR_STATE_TOOL",
+      "describeMcpCoordinatorAdapterContract",
+      "getMcpCoordinatorToolDefinitions",
+      "handleMcpCoordinatorRequest",
+    ].sort(),
+  );
+  assert.equal(inspectCoordinatorObjectiveResult(null), null);
   const discover = await handleMcpCoordinatorRequest(
     request("server/discover", { _meta: META }),
     dependencies(),
@@ -664,10 +862,15 @@ test("MCP Schemaは分類と明示選択をObjectiveだけの任意項目とし�
     false,
   );
   assert.equal(schema.required.includes("choice"), false);
-  assert.equal(schema.required.includes("intakeEpoch"), true);
+  assert.equal(schema.required.includes("intakeEpoch"), false);
   assert.equal(schema.required.includes("plan"), true);
   assert.equal(schema.required.includes("taskInputs"), true);
   assert.equal(schema.required.length, 15);
+  assert.equal(schema.required.includes("operation"), true);
+  assert.deepEqual(schema.properties.operation, {
+    type: "string",
+    enum: ["start", "resume"],
+  });
   assert.equal(schema.additionalProperties, false);
   for (const tool of tools.filter(
     (tool) => tool.name !== MCP_COORDINATOR_OBJECTIVE_TOOL,
@@ -827,14 +1030,13 @@ test("MCP state tool returns the canonical read-only result", async () => {
       getProjectState: async (input, observedAuthentication) => {
         authentication = observedAuthentication;
         return {
-          contract: "crdd-coordinator/orchestrator-state-query/v1",
+          contract: "crdd-coordinator/orchestrator-state-query/v2",
           status: "completed",
           reason: "orchestrator_state_absent",
           requestId: input.requestId,
           projectId: input.projectId,
           repositoryRevision: input.repositoryRevision,
           observationState: "absent",
-          intakeEpoch: "fixture-epoch",
           projection: null,
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
@@ -878,7 +1080,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
         assert.equal(signal, controller.signal);
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
-          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
@@ -1045,7 +1247,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
       }),
       dependencies({
         runObjective: async () => ({
-          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
@@ -1089,7 +1291,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
  */
 test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再構成する", async () => {
   const base = {
-    contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+    contract: "crdd-coordinator/orchestrator-objective-intake/v4",
     status: "blocked",
     reason: "recovery_required",
     requestId: "request-a",
@@ -1123,6 +1325,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       executing: 0,
       integration_pending: 0,
       accepted: 0,
+      returned: 0,
       blocked: 1,
       cancelled: 0,
     },
@@ -1164,6 +1367,491 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     recoveryRequired: true,
     nextAction: "recover",
   };
+  const source = fs.readFileSync(
+    new URL("../../../coordinator/src/objective/execute.ts", import.meta.url),
+    "utf8",
+  );
+  const result = compileFunction(
+    `return (${sourceDeclaration(source, "createCoordinatorObjectiveResult")});`,
+    [
+      "COORDINATOR_OBJECTIVE_INTAKE_CONTRACT",
+      "inspectCoordinatorWorkspaceResults",
+    ],
+  )(base.contract, () => assert.fail("workspace not used"));
+  const runningCounts = {
+    ...validProjection.taskCounts,
+    recovery_required: 0,
+    running: 1,
+  };
+  const runningProjection = {
+    ...validProjection,
+    milestoneState: "executing",
+    objectiveCounts: {
+      ...validProjection.objectiveCounts,
+      blocked: 0,
+      executing: 1,
+    },
+    taskCounts: runningCounts,
+    objectiveTaskSummaries: [
+      {
+        objectiveId: "objective-a",
+        objectiveState: "executing",
+        taskCounts: runningCounts,
+      },
+    ],
+    qualityState: "not_evaluated",
+    humanDecisionRequired: false,
+    recoveryRequired: false,
+    nextAction: "wait_for_task",
+  };
+  let projection = runningProjection;
+  const replay = compileFunction(
+    `return (${sourceDeclaration(source, "projectObjectiveReplay")});`,
+    ["createCoordinatorObjectiveResult", "projectCoordinatorState"],
+  )(result, () => projection) as (
+    request: object,
+    queue: object,
+    state: object | null,
+  ) => Record<string, unknown>;
+  const input = objective();
+  const queue = {
+    queueId: "queue-a",
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+    repositoryRevision: input.repositoryRevision,
+    state: "running",
+    ownerGeneration: "active-owner",
+  };
+  const state = {
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+    repositoryRevision: input.repositoryRevision,
+    milestone: { state: "executing" },
+    tasks: [
+      {
+        cleanupConfirmed: false,
+        recoveryUnresolved: false,
+        recoveryObligations: [],
+      },
+    ],
+  };
+  const running = replay(input, queue, state);
+  assert.ok(
+    inspectCoordinatorObjectiveResult(running),
+    JSON.stringify(running),
+  );
+  assert.equal(running.effectState, "no_effect");
+  const missingProjection = replay(
+    input,
+    { ...queue, state: "completed", ownerGeneration: null },
+    null,
+  );
+  assert.ok(inspectCoordinatorObjectiveResult(missingProjection));
+  assert.equal(missingProjection.projection, null);
+  const completedCounts = { ...runningCounts, running: 0, completed: 1 };
+  projection = {
+    ...runningProjection,
+    milestoneState: "accepted",
+    objectiveCounts: {
+      ...runningProjection.objectiveCounts,
+      executing: 0,
+      accepted: 1,
+    },
+    taskCounts: completedCounts,
+    objectiveTaskSummaries: [
+      {
+        objectiveId: "objective-a",
+        objectiveState: "accepted",
+        taskCounts: completedCounts,
+      },
+    ],
+    workProgress: "tasks_complete",
+    qualityState: "accepted",
+    nextAction: "complete",
+  };
+  const acceptedReplay = replay(
+    input,
+    { ...queue, state: "integration_pending", ownerGeneration: null },
+    {
+      ...state,
+      milestone: { state: "accepted" },
+      tasks: [
+        {
+          cleanupConfirmed: true,
+          recoveryUnresolved: false,
+          recoveryObligations: [],
+        },
+      ],
+    },
+  );
+  assert.equal(acceptedReplay.status, "completed");
+  assert.ok(inspectCoordinatorObjectiveResult(acceptedReplay));
+  projection = validProjection;
+  const recovering = replay(
+    input,
+    { ...queue, state: "recovery_required", ownerGeneration: null },
+    {
+      ...state,
+      tasks: [
+        {
+          cleanupConfirmed: true,
+          recoveryUnresolved: false,
+          recoveryObligations: [
+            { kind: "host", recoveryId: "host-original", phase: "required" },
+          ],
+        },
+      ],
+    },
+  );
+  assert.ok(inspectCoordinatorObjectiveResult(recovering));
+  assert.equal(recovering.cleanupConfirmed, false);
+  assert.deepEqual(recovering.recoveryIds, ["host-original"]);
+  const identity = compileFunction(
+    `return (${sourceDeclaration(source, "createObjectiveIntake")});`,
+  )();
+  const failedRead = compileFunction(
+    `return (${sourceDeclaration(source, "readObjectiveReplay")});`,
+    [
+      "createObjectiveIntake",
+      "readState",
+      "verifyRuntimePersistenceRepository",
+      "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
+    ],
+  )(
+    identity,
+    () => ({
+      status: "blocked",
+      reason: "store_read_unknown",
+      recoveryId: "store-original",
+    }),
+    () => ({}),
+    "crdd-coordinator/public-runtime/v2",
+  ) as (
+    input: object,
+    root: string,
+    binding: string,
+    principal: string,
+    clock: object,
+  ) => Record<string, unknown>;
+  const boundary = failedRead(input, "fixture", "binding", "principal", {
+    createStableId: () => "queue",
+    createContentHash: () => "hash",
+  });
+  assert.deepEqual(inspectCoordinatorObjectiveResult(boundary)?.recoveryIds, [
+    "store-original",
+  ]);
+  const core = compileFunction(
+    `return (${sourceDeclaration(source, "executeCoordinatorObjective")});`,
+    [
+      "isPrincipalId",
+      "createObjectiveIntake",
+      "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
+      "createCoordinatorState",
+      "objectiveSelectionsMatch",
+    ],
+  )(
+    () => true,
+    identity,
+    "crdd-coordinator/public-runtime/v2",
+    () => ({ status: "completed", state }),
+    () => true,
+  ) as (
+    deps: object,
+    input: object,
+    signal: AbortSignal,
+  ) => Promise<Record<string, unknown>>;
+  let queueReads = 0;
+  const coreBoundary = await core(
+    {
+      authenticatedPrincipalId: "principal",
+      repositoryBindingId: "binding",
+      clockIdentity: {
+        createStableId: () => "queue",
+        createContentHash: () => "hash",
+      },
+      plan: input.plan,
+      persistence: {
+        state: {
+          readQueue: () => {
+            queueReads++;
+            return {
+              status: "blocked",
+              reason: "store_read_unknown",
+              manualRecoveryRequired: true,
+              recoveryId: "queue-store-original",
+            };
+          },
+          readState: () => assert.fail("state must not be created"),
+          writeState: () => assert.fail("write forbidden"),
+          enqueueOperation: () => assert.fail("enqueue forbidden"),
+        },
+        get lease() {
+          return assert.fail("lease forbidden");
+        },
+      },
+      resolveTaskSelections: () => assert.fail("selection forbidden"),
+      execution: {
+        runSingleTaskAttempt: () => assert.fail("execution forbidden"),
+      },
+    },
+    { ...input, operation: "resume" },
+    new AbortController().signal,
+  );
+  assert.equal(queueReads, 1);
+  assert.deepEqual(
+    inspectCoordinatorObjectiveResult(coreBoundary)?.recoveryIds,
+    ["queue-store-original"],
+  );
+  for (const failedState of [
+    {
+      status: "completed",
+      reason: "state_missing_after_acceptance",
+      value: null,
+    },
+    {
+      status: "blocked",
+      reason: "state_read_unavailable",
+      value: null,
+      manualRecoveryRequired: false,
+      recoveryId: null,
+    },
+    {
+      status: "blocked",
+      reason: "state_read_unavailable",
+      value: null,
+      manualRecoveryRequired: true,
+      recoveryId: "post-enqueue-original",
+    },
+    {
+      status: "blocked",
+      reason: "initial_acceptance_unknown",
+      value: null,
+      manualRecoveryRequired: false,
+      recoveryId: "enqueue-original",
+      duringEnqueue: true,
+    },
+  ]) {
+    let reads = 0;
+    let saves = 0;
+    const saved = new Map();
+    const result = await core(
+      {
+        authenticatedPrincipalId: "principal",
+        repositoryBindingId: "binding",
+        clockIdentity: {
+          createStableId: () => "queue",
+          createContentHash: () => "hash",
+        },
+        plan: input.plan,
+        processSafety: { getProcessInstanceIdentity: () => "owner" },
+        resolveTaskSelections: () => ({ status: "resolved", value: {} }),
+        taskRecovery: {},
+        persistence: {
+          state: {
+            readState: () =>
+              ++reads === 1
+                ? { status: "completed", value: null }
+                : failedState,
+            writeState: () =>
+              assert.fail("initial state must not publish separately"),
+            enqueueOperation: () => {
+              saves++;
+              saved.set("queue", queue);
+              return "duringEnqueue" in failedState
+                ? failedState
+                : { status: "completed", reason: "accepted", value: queue };
+            },
+          },
+          lease: {
+            inspectAcquisitionOwner: () => ({
+              status: "completed",
+              value: { acquisition: null },
+            }),
+            acquire: () => assert.fail("Lease forbidden after failed read"),
+          },
+        },
+        execution: {
+          runSingleTaskAttempt: () =>
+            assert.fail("Provider forbidden after failed read"),
+        },
+      },
+      { ...input, operation: "start" },
+      new AbortController().signal,
+    );
+    const captured = inspectCoordinatorObjectiveResult(result);
+    assert.ok(captured);
+    assert.equal(captured.effectState, "unknown");
+    assert.equal(captured.cleanupConfirmed, false);
+    assert.equal(captured.manualRecoveryRequired, true);
+    assert.deepEqual(
+      captured.recoveryIds,
+      "recoveryId" in failedState && failedState.recoveryId
+        ? [failedState.recoveryId]
+        : [],
+    );
+    assert.equal(reads, "duringEnqueue" in failedState ? 1 : 2);
+    assert.equal(saves, 1);
+    assert.equal(saved.size, 1);
+    assert.strictEqual(saved.get("queue"), queue);
+  }
+  const ordinary = {
+    status: "blocked" as const,
+    reason: "orchestrator_state_generation_conflict",
+    value: null,
+    manualRecoveryRequired: false,
+    recoveryId: null,
+  };
+  const uncertain = {
+    ...ordinary,
+    reason: "store_unconfirmed",
+    manualRecoveryRequired: true,
+    recoveryId: "original-store-reference",
+  };
+  for (const [stage, outcome, pure] of [
+    ["enqueue", ordinary, true],
+    ["acquisition", { ...ordinary, reason: "lease_inspection_blocked" }, true],
+    ["acquisition", uncertain, false],
+    ["acquisition_other", uncertain, false],
+    ["initial_read", uncertain, false],
+    ["initial_read", ordinary, false],
+    ["reconciliation", uncertain, false],
+    ["reconciliation", ordinary, true],
+    ["queue_read", uncertain, false],
+    ["queue_read", ordinary, false],
+  ] as const) {
+    let stateReads = 0;
+    let enqueues = 0;
+    let reconciliations = 0;
+    let queueReads = 0;
+    const saved = new Map([["queue", queue]]);
+    const observed = await core(
+      {
+        authenticatedPrincipalId: "principal",
+        repositoryBindingId: "binding",
+        clockIdentity: {
+          createStableId: () => "queue",
+          createContentHash: () => "hash",
+        },
+        plan: input.plan,
+        resolveTaskSelections: () =>
+          assert.fail("selection forbidden after Store refusal"),
+        processSafety: {
+          getProcessInstanceIdentity: () => assert.fail("new owner forbidden"),
+        },
+        taskRecovery: {},
+        persistence: {
+          state: {
+            readState: () => {
+              stateReads++;
+              return stage === "initial_read"
+                ? outcome
+                : { status: "completed", value: state };
+            },
+            writeState: () => assert.fail("State publication forbidden"),
+            enqueueOperation: () => {
+              enqueues++;
+              return stage === "enqueue"
+                ? outcome
+                : { status: "completed", reason: "existing", value: queue };
+            },
+            readQueue: () => {
+              queueReads++;
+              assert.equal(stage, "queue_read");
+              return outcome;
+            },
+            updateQueue: () => assert.fail("Queue mutation forbidden"),
+          },
+          lease: {
+            inspectAcquisitionOwner: () =>
+              stage === "acquisition"
+                ? outcome
+                : {
+                    status: "completed",
+                    value: {
+                      acquisition:
+                        stage === "acquisition_other"
+                          ? {
+                              projectId: "other-project",
+                              recoveryId: uncertain.recoveryId,
+                            }
+                          : null,
+                    },
+                  },
+            reconcileOperationOwnerLoss: () => {
+              reconciliations++;
+              return stage === "reconciliation"
+                ? outcome
+                : { status: "completed", value: queue };
+            },
+            acquire: () => assert.fail("Lease acquisition forbidden"),
+          },
+        },
+        execution: {
+          runSingleTaskAttempt: () => assert.fail("Provider forbidden"),
+        },
+      },
+      { ...input, operation: "start" },
+      new AbortController().signal,
+    );
+    const captured = inspectCoordinatorObjectiveResult(observed);
+    assert.ok(captured, JSON.stringify(observed));
+    assert.equal(captured.effectState, pure ? "no_effect" : "unknown");
+    assert.equal(captured.cleanupConfirmed, pure);
+    assert.equal(captured.manualRecoveryRequired, !pure);
+    assert.deepEqual(
+      captured.recoveryIds,
+      outcome.recoveryId ? [outcome.recoveryId] : [],
+    );
+    assert.equal(
+      captured.reason,
+      stage === "acquisition_other"
+        ? "orchestrator_lease_acquisition_project_identity_mismatch"
+        : outcome.reason,
+    );
+    assert.equal(stateReads, stage.startsWith("acquisition") ? 0 : 1);
+    assert.equal(
+      enqueues,
+      ["enqueue", "reconciliation", "queue_read"].includes(stage) ? 1 : 0,
+    );
+    assert.equal(
+      reconciliations,
+      ["reconciliation", "queue_read"].includes(stage) ? 1 : 0,
+    );
+    assert.equal(queueReads, stage === "queue_read" ? 1 : 0);
+    assert.equal(saved.size, 1);
+    assert.strictEqual(saved.get("queue"), queue);
+  }
+  for (const invalid of [
+    { ...boundary, recoveryIds: ["duplicate", "duplicate"] },
+    { ...boundary, recoveryIds: Array(1) },
+    { ...boundary, recoveryIds: ["../invalid"] },
+    { ...boundary, unexpected: true },
+    {
+      ...boundary,
+      effectState: "no_effect",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+    },
+  ])
+    assert.equal(inspectCoordinatorObjectiveResult(invalid), null);
+  for (const count of [1025, Number.MAX_SAFE_INTEGER]) {
+    const counts = { ...validProjection.taskCounts, recovery_required: count };
+    assert.ok(
+      inspectCoordinatorObjectiveResult({
+        ...base,
+        projection: {
+          ...validProjection,
+          taskCounts: counts,
+          objectiveTaskSummaries: [
+            {
+              ...validProjection.objectiveTaskSummaries[0],
+              taskCounts: counts,
+            },
+          ],
+        },
+      }),
+    );
+  }
   const malformedItems = [
     {
       ...base,
@@ -1221,7 +1909,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         ...validProjection,
         taskCounts: {
           ...validProjection.taskCounts,
-          recovery_required: 1025,
+          recovery_required: 1026,
         },
         objectiveTaskSummaries: [
           {
@@ -1240,14 +1928,14 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         ...validProjection,
         taskCounts: {
           ...validProjection.taskCounts,
-          recovery_required: Number.MAX_SAFE_INTEGER,
+          recovery_required: Number.MAX_SAFE_INTEGER + 1,
         },
         objectiveTaskSummaries: [
           {
             ...validProjection.objectiveTaskSummaries[0],
             taskCounts: {
               ...validProjection.taskCounts,
-              recovery_required: Number.MAX_SAFE_INTEGER,
+              recovery_required: Number.MAX_SAFE_INTEGER + 1,
             },
           },
         ],
@@ -1263,7 +1951,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         },
         taskCounts: {
           ...validProjection.taskCounts,
-          recovery_required: 1025,
+          recovery_required: 1026,
         },
         objectiveTaskSummaries: [
           {
@@ -1536,7 +2224,7 @@ test("MCPは129件の回復IDと義務を全量搬送し集合差を拒否する
     recoveryId,
   }));
   const base = {
-    contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+    contract: "crdd-coordinator/orchestrator-objective-intake/v4",
     status: "blocked",
     reason: "recovery_required",
     requestId: "request-a",
@@ -1926,7 +2614,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
  */
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpCoordinatorAdapterContract(), {
-    contract: "crdd-mcp/coordinator-adapter/v4",
+    contract: "crdd-mcp/coordinator-adapter/v6",
     protocolVersion: MCP_COORDINATOR_PROTOCOL_VERSION,
     tools: [
       MCP_COORDINATOR_OBJECTIVE_TOOL,
@@ -1996,7 +2684,7 @@ test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持す�
     },
   };
   const raw = { ...base, workspaceResults: [observation] };
-  const observed = inspectMcpCoordinatorObjectiveResult(raw);
+  const observed = inspectCoordinatorObjectiveResult(raw);
   assert.ok(observed);
   observation.result.changedPaths.push("later.txt");
   assert.deepEqual(
@@ -2032,13 +2720,13 @@ test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持す�
     "mcp_coordinator_result_invalid",
   );
   assert.equal(
-    inspectMcpCoordinatorObjectiveResult({
+    inspectCoordinatorObjectiveResult({
       ...raw,
       workspaceResults: [{ ...observation, extra: true }],
     }),
     null,
   );
-  const failure = inspectMcpCoordinatorObjectiveResult({
+  const failure = inspectCoordinatorObjectiveResult({
     ...base,
     status: "blocked",
     reason: "original_failure",
@@ -2054,7 +2742,7 @@ test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持す�
   assert.deepEqual(failure?.recoveryIds, ["host-task.a"]);
   assert.equal(
     Object.hasOwn(
-      inspectMcpCoordinatorObjectiveResult(base) ?? {},
+      inspectCoordinatorObjectiveResult(base) ?? {},
       "workspaceResults",
     ),
     false,

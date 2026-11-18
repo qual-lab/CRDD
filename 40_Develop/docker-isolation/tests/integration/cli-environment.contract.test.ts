@@ -13,13 +13,13 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import {
-  initializeIsolation,
-  createWindowsPowerShellAuthenticodeEnvironment,
-  captureIsolationSettings,
-} from "../../src/docker-cli/environment.ts";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import {
+  captureIsolationSettings,
+  createWindowsPowerShellAuthenticodeEnvironment,
+  initializeIsolation,
+} from "../../src/docker-cli/environment.ts";
 import * as dockerIsolation from "../../src/index.ts";
 
 /**
@@ -253,6 +253,7 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
     "initializeIsolation",
     "describeIsolationConfiguration",
     "inspectDockerEnvironment",
+    "startDockerEnvironment",
     "restartDockerEnvironment",
     "cleanupIsolation",
     "inspectIsolation",

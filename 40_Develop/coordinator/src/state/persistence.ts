@@ -60,7 +60,10 @@ export type CoordinatorStatePort = Readonly<{
     resultFacts?: readonly ProjectTaskResultFact[],
   ) => PortResult<ProjectExecutionState>;
   readState: (projectId: string) => PortResult<ProjectExecutionState | null>;
-  enqueueOperation: (input: QueueEnqueueInput) => PortResult<ProjectQueueEntry>;
+  enqueueOperation: (
+    input: QueueEnqueueInput,
+    initialState?: ProjectExecutionState,
+  ) => PortResult<ProjectQueueEntry>;
   readQueue: (queueId: string) => PortResult<ProjectQueueEntry>;
   selectNextOperation: () => PortResult<ProjectQueueEntry | null>;
   updateQueue: (

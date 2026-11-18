@@ -12,6 +12,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -35,6 +36,161 @@ import {
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");
+
+/**
+ * 履歴確定後も同じ実行の終端を保存し、次回保守と再開で書き換えない。
+ * @responsibility 実WriterでID・照合値・終端保全と履歴の一回化を反証する。
+ * @trace PRL-IT-005
+ * @precondition 自己生成Repositoryに資源を発行していない合成終端だけを保存する。
+ * @stimulus 二回の保守と終端変更・削除・履歴確定取消を試みる。
+ * @observation 実行記録・履歴行・拒否後の元本文・排他解放を確認する。
+ * @oracle 同じIDと終了状態を保持し、履歴は一行、禁止変更は保存されない。
+ * @cleanup fixtureの終了hookで今回Rootを回収し不存在を確認する。
+ * @boundary 保存Owner・履歴・Filesystem。実AI・Docker・過去保持物は使わない。
+ */
+test("Host Windows: 履歴確定後も実行IDと終端を保持し二重搬送と再開を拒否する", (t) => {
+  const f = fixture(t);
+  const current = readSnapshot(f.root, "binding-a");
+  assert.ok(current.value);
+  const queue = {
+    queueId: "execution-retained",
+    historySettled: false,
+    projectId: "project-a",
+    milestoneId: null,
+    requestHash: "a".repeat(64),
+    scopeHash: "b".repeat(64),
+    repositoryRevision: "c".repeat(40),
+    originLane: "interactive" as const,
+    state: "completed" as const,
+    generation: 1,
+    ownerGeneration: null,
+    resumeCondition: null,
+    resultReference: null,
+    workspaceId: null,
+    singleTask: {
+      principalId: "principal-a",
+      mode: "read_only_advice" as const,
+      executionSelection: {
+        provider: "codex" as const,
+        modelIdentifier: "gpt-5.5",
+        identifierKind: "exact" as const,
+        reasoningEffort: "medium" as const,
+        purpose: "advice" as const,
+        catalogIdentity: "a".repeat(64),
+        configIdentity: "b".repeat(64),
+        role: "advice" as const,
+        workType: null,
+        source: "role_default" as const,
+      },
+      taskId: "task-retained",
+      attemptId: "attempt-retained",
+      operationId: "operation-retained",
+      phase: "settled" as const,
+      status: "completed" as const,
+      reason: null,
+      cleanupConfirmed: true,
+      recoveryIds: [],
+    },
+  };
+  const leaseEvidence = (["acquired", "released"] as const).map(
+    (disposition) => {
+      const content = {
+        kind: "canonical-adoption" as const,
+        queueId: "canonical",
+        ownerGeneration: "owner-retained",
+        ownerProcessId: process.pid,
+        disposition,
+      };
+      return {
+        schema: "crdd-coordinator/orchestrator-durable-foundation/v1" as const,
+        schemaRevision: 1 as const,
+        recordKind: "lease-evidence" as const,
+        repositoryBindingId: "binding-a",
+        projectId: queue.projectId,
+        createdGeneration: 1,
+        updatedGeneration: disposition === "acquired" ? 1 : 2,
+        contentHash: createHash("sha256")
+          .update(encodeStateValue(content))
+          .digest("hex"),
+        content,
+      };
+    },
+  );
+  const seeded = writeSnapshot(
+    f.root,
+    "binding-a",
+    encodeStateValue({
+      ...current.value,
+      snapshotRevision: current.value.snapshotRevision + 1,
+      queueEntries: [queue],
+      leaseEvidence,
+    }),
+    current.value.snapshotRevision,
+  );
+  assert.equal(seeded.status, "completed", seeded.reason);
+  const initializedQueue = readSnapshot(f.root, "binding-a");
+  assert.ok(initializedQueue.value);
+  const premature = writeSnapshot(
+    f.root,
+    "binding-a",
+    encodeStateValue({
+      ...initializedQueue.value,
+      snapshotRevision: initializedQueue.value.snapshotRevision + 1,
+      queueEntries: [{ ...queue, historySettled: true, generation: 2 }],
+    }),
+    initializedQueue.value.snapshotRevision,
+  );
+  assert.equal(premature.status, "blocked");
+  const settled = retireStateRecords(
+    historyInput(f.root),
+    "binding-a",
+    referenceTime,
+  );
+  assert.equal(settled.status, "completed", settled.reason);
+  const saved = readSnapshot(f.root, "binding-a");
+  assert.ok(saved.value);
+  assert.deepEqual(saved.value.queueEntries, [
+    { ...queue, historySettled: true, generation: 2 },
+  ]);
+  assert.deepEqual(saved.value.leaseEvidence, leaseEvidence);
+  const history = fs.readFileSync(f.current);
+  assert.equal(history.toString("utf8").trimEnd().split("\n").length, 1);
+  const repeated = retireStateRecords(
+    historyInput(f.root),
+    "binding-a",
+    referenceTime + 1,
+  );
+  assert.equal(repeated.status, "completed", repeated.reason);
+  assert.deepEqual(fs.readFileSync(f.current), history);
+  const before = readSnapshot(f.root, "binding-a");
+  assert.ok(before.value);
+  for (const entries of [
+    [],
+    [{ ...before.value.queueEntries[0], historySettled: false }],
+    [
+      {
+        ...before.value.queueEntries[0],
+        state: "queued",
+        historySettled: false,
+      },
+    ],
+    [{ ...before.value.queueEntries[0], requestHash: "d".repeat(64) }],
+  ]) {
+    const refused = writeSnapshot(
+      f.root,
+      "binding-a",
+      encodeStateValue({
+        ...before.value,
+        snapshotRevision: before.value.snapshotRevision + 1,
+        queueEntries: entries,
+        ...(entries.length ? {} : {}),
+      }),
+      before.value.snapshotRevision,
+    );
+    assert.equal(refused.status, "blocked");
+    assert.deepEqual(readSnapshot(f.root, "binding-a").value, before.value);
+  }
+});
 
 /**
  * 通常保守から同じ要約集合を再提示し、個別退役条件を維持する。
@@ -263,14 +419,12 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
       JSON.parse(row("expired", referenceTime - 31 * DAY)),
     ];
     const payload = {
-      schema: "crdd-execution-model/project-snapshot/v7",
-      schemaRevision: 7,
+      schema: "crdd-execution-model/project-snapshot/v9",
+      schemaRevision: 9,
       workspaces: [],
       repositoryRootHash: owner.repositoryRootHash,
       repositoryBindingId: "binding-a",
       snapshotRevision: initial.value.snapshotRevision + 1,
-      intakeEpoch: initial.value.intakeEpoch,
-      intakeBindings: [],
       projects: [],
       queueEntries: [],
       leaseEvidence: [],

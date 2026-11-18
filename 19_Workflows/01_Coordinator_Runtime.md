@@ -4,7 +4,7 @@
 
 旧domain-modelのSourceは[文書モデル](../06_Architecture/Details/document-model/01_Architecture.md)・[実行モデル](../06_Architecture/Details/execution-model/01_Architecture.md)・[構成モデル](../06_Architecture/Details/configuration-model/01_Architecture.md)へ分離する。型を含むモデル間直接依存は0とし、既存Consumerが必要な値を明示投影する。保存Path・Schema・Lock・CAS・既存の失敗／回復契約は変更しない。旧Domain表記は内容に応じてこの3 Ownerへ対応し、共通Packageや互換Facadeを意味しない。移管は限定確認中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。
 
-v0.22現在、Platform Access・Rust crate・固定Native exeと専用Build／coverage入口は退役した。以下のNative Build・計測手順は当時の再現用履歴であり、現行の通常確認手順として実行しない。現在のOwnerと保証差は[PA退役記録](../06_Architecture/Details/platform-access/01_Architecture.md)を参照する。既存cacheや過去保持物をこの退役を理由に清掃しない。
+v0.22現在、Platform Access・Rust crate・固定Native exeと専用Build／coverage入口は退役した。旧手順の本文は現行Workflowへ残さず、当時の実行根拠はCHG／EvidenceとGit履歴で参照する。現在のOwnerと保証差は[PA退役案内](../06_Architecture/Details/platform-access/01_Architecture.md)を参照する。既存cacheや過去保持物をこの退役だけで清掃しない。
 
 Status: Candidate (Coordinator固有署名方式は物理撤去済み。撤去後の全体回帰・実境界検証は未完了)
 Owner: Qual-Lab
@@ -47,18 +47,9 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 
 <a id="native-build-output"></a>
 
-## Nativeビルドの実行前・成果物取得確認
+## 退役Native手順の参照
 
-正式入口のBuild指定と出力取得は[コーディング規約](../06_Architecture/99_Coding_Standards.md#native-build-output)に従う。フロントAIは実行前と成果物取得時に次を確認する。
-
-- [ ] Build・Clippy・試験の対象環境が明示され、今回の目的と一致している。
-- [ ] 取得する成果物が今回指定した対象環境と`debug/release`に対応し、同じCargo実行の結果へ結合している。
-- [ ] 対象成果物の欠落を、無印出力や過去の別実行物へのfallbackで補っていない。
-- [ ] 無印DirectoryをCargoの補助出力と区別し、存在だけを理由に削除していない。
-
-対象環境不明、成果物欠落または複数候補で一意に特定できない場合は、取得・配布・検証を停止する。これは毎回評価する手順上のChecklistであり、今回の実行結果を示すチェック済み記録ではない。
-
-通常入口と検証入口は`40_Develop/platform-access/target/`をBuild cacheとして共有する。Coverageは今回Cargoが返した計測用実行物だけを使い、同じ`deps/`に残る過去の実行物を列挙して選ばない。計測profileと要約だけを`.crdd/tests/native-coverage-<一意suffix>/`へ生成し、正常終了後に回収する。失敗・中断時は小さな未処置領域を確認して清掃する。Native保護試験もBuild cacheを共有し、試験対象と結果だけをrun内に置く。実行前後の入力・実行物HashとDirectory Identityが変わった場合は成功を返さない。
+PA専用のビルド・Clippy・coverage手順は退役した。旧参照Anchorは案内のために維持するが、再現用の実行手順はここへ残さない。現在のNode.js・共通Lock・DI／Executorへの接続は[Coordinator実行設計](../06_Architecture/Details/coordinator/01_Architecture.md)を正本とし、過去の根拠は[責務整理の変更記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)から参照する。
 
 ## 通常回復NamespaceのNode境界試験
 
@@ -71,7 +62,7 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 この手順は、CRDD参照Runtimeを診断・実行・検証し、必要な場合に配布を発行する担当者向けである。一般利用者にRelease秘密鍵やpassphraseは不要である。機能の成立条件と未対応範囲は[振る舞い仕様](../05_SPEC/01_Behavior_Specification.md)、資源・権限・復旧方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証計画・現在品質は[品質確認](../07_Quality/01_Quality_Center.md)を正本とし、手順の実行だけで採用・Releaseを成立させない。
 
 1. 対象Repository、固定配布版、実行Node、選択ユーザー、許可された目的・送信先・情報範囲を確認する。
-2. 選択したclone／submodule／作業Checkoutと固定公開入口を確認し、基準Commit／Treeと実際の差分、必要Native・CLI・Image・設定の同一性を追跡する。CRDD署名の欠測だけを通常実行の拒否理由にしない。未確認Publisher・開発branch・変更済みCheckoutを公式真正性確認済みと表示しない。
+2. 選択したclone／submodule／作業Checkoutと固定公開入口を確認し、基準Commit／Treeと実際の差分、必要CLI・Image・設定の同一性を追跡する。CRDD署名の欠測だけを通常実行の拒否理由にしない。未確認Publisher・開発branch・変更済みCheckoutを公式真正性確認済みと表示しない。
 3. `capabilities --json`と診断結果を確認し、必要な準備が不成立なら止める。Helpに存在しないcommandを推測しない。
 4. 許可範囲内のTaskを実行し、結果と回収状態を確認する。Workspaceの変更は検証してから明示固定・採用・不採用を判断し、正本への採用は人間の決定権限に従う。
 5. 不明な残存、Identity差、失効または手動回復要求では通常Taskを再試行せず、仕様が示すexact IDと専用回復手順へ戻す。
@@ -84,14 +75,14 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 
 ローカル要求主体はGitメール由来の`local.email.<user.email>`であり、本人認証の証明ではない。フロントAIが対象Repositoryを現在Directoryにして、VCの読取り専用binからメールを取得する。Coordinatorは自動取得・補完せず、未設定・不正なら停止する。メールを変更すると別主体になり、既存記録へ自動再帰属しない。名前は表示用でIDには使わない。AM接続ではこのローカル方式へfallbackせず、認証済みAMユーザーIDを入口から渡す。
 
-通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task run`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`run task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
 $gitUser = & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\version-control\bin\version-control.ts" read-git-user --json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $gitUser.status -ne "completed" -or [string]::IsNullOrWhiteSpace($gitUser.email)) { throw "Git user.emailを確認してください。" }
 $principalId = "local.email.$($gitUser.email)"
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" task run --request-stdin --json --principal-id $principalId
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" doctor check --json
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" run task --request-stdin --json --principal-id $principalId
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --json
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-route-matrix.ts"
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-recovery-matrix.ts"
 ```
@@ -144,40 +135,45 @@ Coordinator／Orchestrator／Dockerの短命な実行記録は、長期の互換
 2. Coordinator／Orchestratorの現在処理と、その処理が所有するDocker資源を確認する。通常終了・回収できるものは既存入口で終了する。Docker永続データ、他用途のContainer／Network、認証Homeをこの整理で削除しない。共有Dockerを停止・再起動する必要がある場合は、影響を示して承認を得る。
 3. 候補Patch、未完了の採用・結果保存、有効な保護判断と正式Evidenceを確認する。必要な成果物をそれぞれのOwnerへ保全し、仕事の終了と記録清掃を区別する。旧記録をそのまま新Snapshotの有効仕事として復元しない。
 4. 停止・非使用と範囲を確認した旧実行記録・世代File・一時作業物を回収する。削除前に実体Pathが許可した用途別Root内であることを確認し、alias、用途不明、参照中または観測不能の対象は残して理由を返す。単に名前がCoordinator／Dockerに似ているという理由で消さない。
-5. 検証済みRepository Rootから新版の公開入口で `node template/tools/crdd-coordinator.ts project init --json` を実行し、`status=completed`と発行された受付世代を確認する。有効な現行形式の保存の再初期化は同じ世代を返し、旧形式や未知残存がある場合は保全停止する。CLI／MCPの状態取得は初期化しない。新Requestは認証済み状態取得の`intakeEpoch`を発行時に固定し、再入場では元の値を維持する。旧Reader／Writer／Fallbackを再接続せず、初回の状態保存、Queue受付、途中停止からの再入場と終了後の整理を確認する。
+5. 検証済みRepositoryで`run objective`の`operation: "start"`を実行する。有効な計画・選定の初回State保存で既存Writerが内部初期化するため、`project init`は使わない。同じ実行ID・内容の再送は保存状態だけを返し、途中継続は`operation: "resume"`で依頼する。未知IDの再開、旧形式・pending・破損・観測不能は停止し、CLI／MCPの状態照会は初期化しない。旧Reader／Writer／Fallbackを再接続せず、初回保存、Queue受付、途中停止からの再入場と終了後整理を確認する。
 6. 実施要約、保全対象、清掃対象、未処置と新しい版を既存の変更記録へ返す。清掃のための新しい恒久Directoryや移行台帳を増やさない。
 
 認証、署名秘密鍵、送信同意、候補本体と正式Evidenceは、実行記録の一括清掃から除外する。Repository外の対象は、既存の用途限定許可を確認できなければexact Rootと目的を示して人間判断へ戻す。掃除は旧形式の全世代変換や永続的な互換Readerの代わりであり、過去の不明なEffectを成功へ変更する処置ではない。
 
 ## コマンドの構文と利用状態
 
+`run objective`のJSON要求は`operation: "start"`で新規受付し、同じIDの再送では保存状態だけを確認する。中断後のTask継続を明示的に依頼する場合は、同じID・同じ内容で`operation: "resume"`を指定する。操作区分以外を変更した再開、存在しないIDの再開は拒否する。`recovery resume`は技術資源の回復であり、このTask継続とは異なる。受付世代の取得・指定と`project init`は不要で、旧fieldは互換補完せず拒否する。
+
+`run task`／`run advice`のJSON要求には`requestId`を必須とする。呼出し元は新しい依頼を作るときにIDを一度確定し、応答喪失時の再送では同じID・同じ内容を使う。同ID・同内容は保存済み受付を返し、異内容は実行前に拒否する。終了記録を再利用しても本文を復元できるとは限らず、`resultAvailable: false`は実行失敗を意味しない。別の依頼は別IDとする。
+
 以下はコマンドの構文を含む一覧であり、全項目が通常利用可能という意味ではない。目的から入口を選び、候補段階の操作を通常Taskの準備として試し続けない。
 
 | 目的・担当 | 使用する入口 | 成立条件と次の確認 |
 |---|---|---|
-| 利用者・呼出し元が準備を調べる | `doctor check`／`doctor check --json` | Providerを起動しない事前診断。一時領域の生成・回収を伴う。表示された候補を認証・隔離・実行許可の成立へ読み替えない |
+| 利用者・呼出し元が準備を調べる | `doctor`／`doctor --json` | Providerを起動しない事前診断。一時領域の生成・回収を伴う。表示された候補を認証・隔離・実行許可の成立へ読み替えない |
 | 呼出し元が利用可能な入口を調べる | `capabilities --json` | Local Personalで成立する公開commandだけを機械可読に返す |
-| 許可された一般Taskを実行する | `task run --request-stdin --json --principal-id <local-principal-id>` | 選択したCheckout・Repository・同意・Authority・Providerの各検査が必要。CRDD署名は不要。候補と回収結果を確認する |
+| 許可された一般Taskを実行する | `run task --request-stdin --json --principal-id <local-principal-id>` | 選択したCheckout・Repository・同意・Authority・Providerの各検査が必要。CRDD署名は不要。候補と回収結果を確認する |
+| 読取り専用の助言を依頼する | `run advice --request-stdin --json --principal-id <local-principal-id>` | 同じ単発受付へ`mode: "read_only_advice"`、`allowedPaths: []`、`workspaceId: null`を渡す。編集用途との不一致は実行前に拒否する。結果と回収状態を分けて確認する |
 | Workspaceの候補を固定・採用・不採用にする | Workbench／MCPの既存Workspace操作 | Coordinator CLIに旧Bundle／Storeのexport・discard・recover-storeはない。固定とGit統合・採用を区別する |
 | 復旧担当が残存資源を処置する | `recovery resume <id>` | exact IDと所有・状態が一致する場合だけ。通常Taskの自動再試行にしない。作成結果不明のDocker Taskは、後発の検証済みDocker Desktop再起動を明示結合できる専用形だけを使う |
-| 保守担当が隔離を検証する | `doctor isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
+| 保守担当が隔離を検証する | `doctor --isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
 | 開発・配布担当が検証する | 下記の固定Task検証と任意配布検査 | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
 
-CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\coordinator.ts task run --request-stdin --json --principal-id $principalId`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
+CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\coordinator.ts run task --request-stdin --json --principal-id $principalId`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
 
 以下の絶対Node placeholderは、version 24.12.0以上と実体を確認したNodeへ置き換える。Coordinator CLI、Release鍵生成、Release manifest署名および正式署名一般Task Runnerは、未対応Nodeを対話入力、Release検証またはEffectより前に拒否し、PATH上の別Nodeへfallbackしない。package scriptを使う検証では、親のnpmだけでなくscript内の`node`とその子Processも同じ検証済みNodeへ解決されることを確認する。親だけを絶対Pathで起動し、子がPATH上の旧Nodeへ戻る状態を検証済みと扱わない。Sourceや試験のPathは、現在DirectoryをRepository Identityとして意図的に使う公開契約を除き、module基準の絶対Pathへ固定する。
 
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor check
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor check --json
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor isolation --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --isolation --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" capabilities --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" recovery resume <recovery-id> --json
 $gitUser = & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\version-control\bin\version-control.ts" read-git-user --json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $gitUser.status -ne "completed" -or [string]::IsNullOrWhiteSpace($gitUser.email)) { throw "Git user.emailを確認してください。" }
 $principalId = "local.email.$($gitUser.email)"
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" task run --request-stdin --json --principal-id $principalId
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" run task --request-stdin --json --principal-id $principalId
 ```
 
 実行Pathを表す各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。現在の診断は検証済みRootから既存Git観測と局所診断へ接続する。診断が作る一時領域と回収も確認し、厳密なEffect 0とは扱わない。廃止したRelease manifest署名を通常手順へ戻さない。
@@ -250,11 +246,13 @@ Repository・Workspace・追加通信Allowlistは認証へ接続しない。実C
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 
+処置前に`coordinator recovery inspect <exact-recovery-id> --json`で現在の保存記録を取得できる。Probeでは保存記録と所在・Directory実体も照合するが、Docker資源の現在状態は観測又は操作しない。`not_recorded`でも資源不存在・回復完了とは判断せず、`unknown`では停止理由を確認する。保存済みの資源観測は現在の実体証明ではなく、回復時の既存Ownerによる再照合を省略しない。
+
 この経路のv0.20.0における正式4経路E2EとRecovery Matrixは当時の方式の履歴であり、新経路の成立根拠へ流用しない。現在の設計は選択Checkout／Packageの固定入口と必要Artifact同一性、現在の介入許可、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。Source切替と新経路の実測は未完了である。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/Details/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
 
 | 順序 | 操作 | 完了の意味 |
 |---|---|---|
-| 1 | `recovery restart-docker <docker-task-recovery-id> --json` | 同じ対象のための停止・起動・記録確定。Task回復完了ではない |
+| 1 | `recovery resume <docker-task-recovery-id> --restart-docker --json` | 同じ対象のための停止・起動・記録確定。Task回復完了ではない |
 | 2 | `recovery resume <same-docker-task-recovery-id> --json` | 現在状態の同じ再起動checkpointと対象資源を再確認し、Task固有の回復を行う |
 
 - Docker全体への停止影響を含む許可範囲を確認してから順序1を実行する。他Task、残存CLI、排他不成立または観測不能では停止し、対象を勝手に終了・削除しない。
@@ -269,7 +267,7 @@ Repository・Workspace・追加通信Allowlistは認証へ接続しない。実C
 
 採用済みの目標は、通常の不要な退避物を安全確認後に回収し、調査用の明示保持だけ既定7日で利用者管理へ引き渡す方式である。期限時は削除・延長を判断し、期限だけで自動削除しない。物理回収と期限付き引渡しは現在未実装であり、以下の現行CLIを引渡し完了の操作と解釈しない。Image・Volume・認証領域は対象外。実装上の条件は[修復退避物の後続処置](../06_Architecture/Details/coordinator/01_Architecture.md#repair-directory-disposition)を正本とする。
 
-現在の修復が保持判断待ちになり、その退避物を残すと人間が判断した場合は、同じRepositoryで`coordinator maintenance retain-repair <exact-repair-id> --json`を実行する。修復が返した現在形式のIDをそのまま指定し、別IDや任意Pathを補完しない。他のdoctor操作と混在させない。
+現在の修復が保持判断待ちになり、その退避物を残すと人間が判断した場合は、同じRepositoryで`coordinator maintenance repair --retain <exact-repair-id> --json`を実行する。修復が返した現在形式のIDをそのまま指定し、別IDや任意Pathを補完しない。他のdoctor操作と混在させない。
 
 この操作は修復技術Sessionを再取得せず、必要な既存metadataの出版とstate marker清掃を確定した上で、保持判断と既存履歴を保存する。Docker／Native技術処置を再取得せず、退避物を削除しない。保持確認と履歴確認が成立しても「保持済み・終了整理待ち」／exit 2であり、退避物の引渡し・状態除去・Task回復の完了ではない。開始前取消では判断を保存せず、保存成立後の取消で既存判断を巻き戻さない。保存や現在状態が不明なら同じIDを保持し、記録の手動編集や新しい修復で上書きしない。
 
@@ -277,7 +275,7 @@ Repository・Workspace・追加通信Allowlistは認証へ接続しない。実C
 
 ### v0.22責務再編後の移行方針
 
-統合CoordinatorはSnapshot v5だけを読み、新規初期化にはWorkspace空集合を含む。旧v1〜v4や未確定pendingをRuntimeで補完・移行しない。フロントAIが下表の非使用・現在参照・必要成果・未解決義務を確認し、必要な保全と清掃を終えてから明示初期化する。Snapshotを書き換えて新しい版番号を付ける処置は行わない。実データの移行・削除はexact Rootと対象の承認を得て実施し、合成試験の成功を移行済みの根拠にしない。
+統合Coordinatorの保存正本はstate/v6、内部投影はproject-snapshot/v9だけを使用し、新規初期化にはWorkspace空集合を含む。旧形式や未確定pendingを実行時に補完・移行しない。フロントAIが下表の非使用・現在参照・必要成果・未解決義務を確認し、承認された範囲の保全と清掃を終える。新規startの有効な初回受付だけが既存Writerで内部初期化し、状態照会や未知IDのresumeから初期化しない。Snapshotを書き換えて新しい版番号を付ける処置は行わない。実データの移行・削除はexact Rootと対象の承認を得て実施し、合成試験の成功を移行済みの根拠にしない。
 
 以下の旧署名由来を採用・引継ぐ操作は切替前Runtimeの運用履歴であり、新Runtimeの手順として実行しない。新形式への移行はフロントAIが[縮小設計の処置表](../06_Architecture/Details/coordinator/01_Architecture.md#正常復帰後の検証付き再起動)に従って行う。新Runtimeに旧形式Reader、旧Release chain採用または旧Container再利用を追加しない。
 

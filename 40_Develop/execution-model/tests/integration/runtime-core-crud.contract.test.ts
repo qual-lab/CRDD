@@ -371,7 +371,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
-  assert.equal(state.schema, "crdd-execution-model/state/v4");
+  assert.equal(state.schema, "crdd-execution-model/state/v6");
   for (const key of ["managedExecutions", "operations", "unresolvedRecoveries"])
     assert.deepEqual(state[key], []);
   for (const key of ["pendingDeliveries", "resultReceipts"])

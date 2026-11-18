@@ -15,7 +15,7 @@ import test from "node:test";
 import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { acceptResult } from "../../src/decision/acceptance.ts";
 import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
@@ -88,7 +88,7 @@ function acceptIntegratedResult(
     );
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
-    return executeCoordinatorPublicAcceptanceDecision(
+    return acceptResult(
       {
         contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
         decisionId: `decision-${input.projectId}-${suffix}`,
@@ -141,6 +141,7 @@ function fixture(t: test.TestContext) {
     throw new Error("fixture_bootstrap_failed");
   const request = Object.freeze(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-full",
       projectId: "project-full",
       milestoneId: "milestone-full",
@@ -153,7 +154,6 @@ function fixture(t: test.TestContext) {
       maximumReplans: 2,
       originLane: "interactive" as const,
       adoptResult: false,
-      intakeEpoch: initialized.value,
     }),
   );
   let attempts = 0;
@@ -266,6 +266,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
     new AbortController().signal,
   );
   assert.equal(first.reason, "orchestrator_replan_required");
+  assert.ok("queueId" in first);
   assert.equal(first.projection?.qualityState, "blocked");
   const replanned = resolveCoordinatorReplan(
     {
@@ -281,7 +282,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
   assert.equal(replanned.status, "completed");
   const second = await runCoordinatorObjective(
     context.dependencies,
-    context.request,
+    { ...context.request, operation: "resume" },
     new AbortController().signal,
   );
   assert.equal(
@@ -330,6 +331,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
     throw new Error("fixture_bootstrap_failed");
   const request = Object.freeze(
     withCallerPlan({
+      operation: "start" as const,
       requestId: "request-bounded-evaluation",
       projectId: "project-bounded-evaluation",
       milestoneId: "milestone-bounded-evaluation",
@@ -342,7 +344,6 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
       maximumReplans: 0,
       originLane: "interactive" as const,
       adoptResult: false,
-      intakeEpoch: initialized.value,
     }),
   );
   let active = 0;
@@ -488,7 +489,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     repositoryBindingId: deriveCoordinatorRepositoryBindingId(context.root),
     projectId: context.request.projectId,
     milestoneId: context.request.milestoneId,
-    queueId: first.queueId ?? "invalid",
+    queueId: "queueId" in first ? (first.queueId ?? "invalid") : "invalid",
     maximumReplans: context.request.maximumReplans,
   };
   const escalated = resolveCoordinatorReplan(input, () => ({
@@ -538,7 +539,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
   assert.equal(resumed.status, "completed");
   const completed = await runCoordinatorObjective(
     context.dependencies,
-    context.request,
+    { ...context.request, operation: "resume" },
     new AbortController().signal,
   );
   assert.equal(

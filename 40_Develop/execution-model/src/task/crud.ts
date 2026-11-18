@@ -20,6 +20,7 @@ import type {
   ExecutionModelAccess,
   StateVersion,
   Snapshot,
+  ProjectExecutionState,
 } from "../state/types.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
@@ -32,12 +33,12 @@ import type {
   QueueEnqueueInput,
   SingleTaskRecord,
 } from "./types.ts";
-import { snapshotIntakeMatches } from "../state/validation.ts";
 import { historyRow } from "../history/validation.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "../state/types.ts";
 import {
   validResultReference,
   validQueueEntry,
+  validState,
   inspectSingleTaskRecord,
 } from "./validation.ts";
 /**
@@ -462,9 +463,16 @@ export function createQueue(
   switch (captured.kind) {
     case "scheduled": {
       const tuple = snapshotStateArray(captured.input, 2);
-      if (tuple.status !== "ok" || tuple.value.length < 2)
+      if (tuple.status !== "ok" || tuple.value.length < 1)
         return blocked("orchestrator_snapshot_input_invalid");
-      const input = tuple.value as unknown as typeof captured.input;
+      let input = tuple.value as unknown as typeof captured.input;
+      if (tuple.value.length === 2 && input[1] !== undefined) {
+        try {
+          input = [input[0], JSON.parse(encodeStateValue(input[1]))];
+        } catch {
+          return blocked("orchestrator_snapshot_input_invalid");
+        }
+      }
 
       return withSnapshotOperation<
         Extract<
@@ -476,8 +484,8 @@ export function createQueue(
       );
     }
     case "single": {
-      const tuple = snapshotStateArray(captured.input, 2);
-      if (tuple.status !== "ok" || tuple.value.length < 2)
+      const tuple = snapshotStateArray(captured.input, 1);
+      if (tuple.status !== "ok" || tuple.value.length < 1)
         return blocked("orchestrator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
@@ -836,6 +844,8 @@ export function prepareQueueOperationUpdate(
   );
   if (previous?.singleTask)
     return blockedQueueCandidate("orchestrator_single_task_owner_required");
+  if (previous?.historySettled)
+    return blockedQueueCandidate("orchestrator_execution_already_settled");
   if (
     !validId(queueId) ||
     !Number.isSafeInteger(expectedGeneration) ||
@@ -1019,7 +1029,6 @@ export function prepareQueueRecoverySettlement(
  */
 export function prepareSingleTaskQueueCreation(
   current: Snapshot,
-  intakeEpoch: string,
   input: ProjectQueueEntry,
 ) {
   if (
@@ -1029,6 +1038,7 @@ export function prepareSingleTaskQueueCreation(
     input.singleTask.phase !== "accepted" ||
     input.state !== "queued" ||
     input.generation !== 1 ||
+    input.historySettled !== false ||
     input.ownerGeneration !== null ||
     input.resultReference !== null ||
     input.resumeCondition !== null
@@ -1038,27 +1048,15 @@ export function prepareSingleTaskQueueCreation(
     (entry) => entry.queueId === input.queueId,
   );
   if (existing) {
-    const epoch = current.intakeBindings.find(
-      (entry) => entry.queueId === input.queueId,
-    )?.epoch;
     const keys = [
       "projectId",
       "milestoneId",
       "requestHash",
-      "repositoryRevision",
       "scopeHash",
       "workspaceId",
     ] as const;
-    const identityKeys = [
-      "principalId",
-      "mode",
-      "executionSelection",
-      "taskId",
-      "attemptId",
-      "operationId",
-    ] as const;
-    return epoch === intakeEpoch &&
-      existing.singleTask &&
+    const identityKeys = ["principalId", "mode"] as const;
+    return existing.singleTask &&
       keys.every((key) => existing[key] === input[key]) &&
       identityKeys.every(
         (key) =>
@@ -1071,8 +1069,6 @@ export function prepareSingleTaskQueueCreation(
         })
       : blockedQueueCandidate("orchestrator_queue_identity_conflict");
   }
-  if (current.intakeEpoch !== intakeEpoch)
-    return blockedQueueCandidate("orchestrator_intake_epoch_retired");
   if (
     input.workspaceId != null &&
     (!current.queueEntries.some(
@@ -1092,10 +1088,6 @@ export function prepareSingleTaskQueueCreation(
     next: {
       ...current,
       queueEntries: [...current.queueEntries, input],
-      intakeBindings: [
-        ...current.intakeBindings,
-        { queueId: input.queueId, epoch: intakeEpoch },
-      ],
     },
     value: input,
   });
@@ -1333,7 +1325,7 @@ export function prepareUnstartedTaskQueueClosure(
  * 計画TaskのQueue追加候補を導出する。
  * @responsibility 同一受付・発行時世代・Workspace結合を保持する。
  * @trace ARCH-000004、ARCH-000008
- * @input current: 元Snapshot、intakeEpoch: 発行時世代、input: 計画TaskのQueue属性。
+ * @input current: 元Snapshot、input: 計画TaskのQueue属性。
  * @returns 元の結果封筒で固定候補又は投影を返す。
  * @precondition 既存短期Ownerがfresh SnapshotとRepository結合を検証済み。
  * @postcondition 元Snapshotと対象外の区画を変更しない。
@@ -1346,30 +1338,40 @@ export function prepareUnstartedTaskQueueClosure(
  */
 export function prepareQueueEntryCreation(
   current: Snapshot,
-  intakeEpoch: string,
   input: QueueEnqueueInput,
+  initialState?: ProjectExecutionState,
 ) {
   const existing = current.queueEntries.find(
     (item) => item.queueId === input.queueId,
   );
   if (existing) {
-    return snapshotIntakeMatches(current, {
-      epoch: intakeEpoch,
-      queueId: input.queueId,
-      requestHash: input.requestHash,
-      projectId: input.projectId,
-      milestoneId: input.milestoneId,
-    })
+    return existing.singleTask === undefined &&
+      existing.requestHash === input.requestHash &&
+      existing.projectId === input.projectId &&
+      existing.milestoneId === input.milestoneId
       ? completedQueueCandidate("orchestrator_queue_request_reused", {
           next: null,
           value: existing,
         })
       : blockedQueueCandidate("orchestrator_queue_identity_conflict");
   }
-  if (current.intakeEpoch !== intakeEpoch)
-    return blockedQueueCandidate("orchestrator_intake_epoch_retired");
+  if (initialState !== undefined) {
+    if (
+      !validState(initialState) ||
+      initialState.generation !== 1 ||
+      initialState.projectId !== input.projectId ||
+      initialState.milestoneId !== input.milestoneId ||
+      initialState.repositoryRevision !== input.repositoryRevision ||
+      current.projects.some(
+        (project) => project.projectId === initialState.projectId,
+      )
+    )
+      return blockedQueueCandidate("orchestrator_state_generation_conflict");
+    current = { ...current, projects: [...current.projects, initialState] };
+  }
   const value: ProjectQueueEntry = {
     ...input,
+    historySettled: false,
     workspaceId: input.workspaceId ?? null,
     state: "queued",
     generation: 1,
@@ -1402,10 +1404,6 @@ export function prepareQueueEntryCreation(
     next: {
       ...current,
       queueEntries: [...current.queueEntries, value],
-      intakeBindings: [
-        ...current.intakeBindings,
-        { queueId: value.queueId, epoch: intakeEpoch },
-      ],
     },
     value,
   });

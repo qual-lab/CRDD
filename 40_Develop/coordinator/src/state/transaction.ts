@@ -5,12 +5,12 @@
  */
 
 import { readState } from "../../../execution-model/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import {
   acquireCoordinatorSnapshotLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
   reconcileCoordinatorSnapshotLeaseOwnerLoss,
 } from "../execution/lease.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import { createCoordinatorSnapshotStatePort } from "../task/queue.ts";
 import type {
   CoordinatorLeasePort,
@@ -40,17 +40,13 @@ export function createCurrentCoordinatorPersistencePorts(
   const observed = readState(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    "intake",
+    "execution",
   );
   if (observed.reason === "orchestrator_snapshot_lock_release_unconfirmed")
     throw new Error("orchestrator_snapshot_lock_release_unconfirmed");
   if (observed.status !== "completed" || observed.value === null)
     throw new Error("orchestrator_snapshot_not_initialized");
-  return createCoordinatorSnapshotPersistencePorts(
-    workingDirectory,
-    binding,
-    observed.value.intakeEpoch,
-  );
+  return createCoordinatorSnapshotPersistencePorts(workingDirectory, binding);
 }
 
 /**
@@ -58,23 +54,22 @@ export function createCurrentCoordinatorPersistencePorts(
  *
  * @responsibility 既存Persistence Portを新版の保存・取得・回復へ結合する。
  * @trace ARCH-000004
- * @input 検証済みRepository Root、binding、Request発行時のintakeEpoch。
+ * @input 検証済みRepository Root、binding、任意の実行ID・要求内容の結合。
  * @returns 既存のState PortとLease Port。
- * @precondition 操作前に新版Snapshotを初期化し、発行時の受付世代を固定する。
+ * @precondition 新規開始の初回保存だけを既存の初期化へ接続し、再開は保存済み記録を要求する。
  * @postcondition 停止理由とexact回復参照を変更せず既存利用側へ返す。
  * @effect 構築時はなし。操作時の保存・実排他は各接続先が所有する。
  * @failure Operation回復のQueue欠落・結合不一致は停止する。
  * @invariant Adoption回復を通常Queueの更新へ変換しない。
  * @boundary CoreのPersistence PortとRepository内の統合保存。
- * @security 旧形式Fallback、暗黙初期化、受付世代の自動付替えを行わない。
+ * @security 旧形式Fallback、未知IDの再開からの初期化、要求内容の自動付替えを行わない。
  * @concurrency 各操作が既存の短期保存Ownerと実行Leaseの分離を維持する。
  */
 export function createCoordinatorSnapshotPersistencePorts(
   workingDirectory: string,
   repositoryBindingId: string,
-  intakeEpoch: string,
   intake?: Readonly<{
-    epoch: string;
+    operation: "start" | "resume";
     queueId: string;
     requestHash: string;
     projectId: string;
@@ -84,7 +79,6 @@ export function createCoordinatorSnapshotPersistencePorts(
   const state = createCoordinatorSnapshotStatePort(
     workingDirectory,
     repositoryBindingId,
-    intakeEpoch,
     intake,
   );
   const lease: CoordinatorLeasePort = Object.freeze({
@@ -96,11 +90,19 @@ export function createCoordinatorSnapshotPersistencePorts(
         queueId,
         kind,
       ),
-    inspectAcquisitionOwner: () =>
-      inspectCoordinatorSnapshotLeaseAcquisitionOwner(
+    inspectAcquisitionOwner: () => {
+      const observed = inspectCoordinatorSnapshotLeaseAcquisitionOwner(
         workingDirectory,
         repositoryBindingId,
-      ),
+      );
+      return intake?.operation === "start" &&
+        observed.status === "blocked" &&
+        observed.reason === "orchestrator_snapshot_absent" &&
+        !observed.manualRecoveryRequired &&
+        observed.recoveryId === null
+        ? completed("orchestrator_snapshot_absent", { acquisition: null })
+        : observed;
+    },
     reconcileOperationOwnerLoss: (projectId, queueId, observeOwner) => {
       const result = reconcileCoordinatorSnapshotLeaseOwnerLoss(
         workingDirectory,

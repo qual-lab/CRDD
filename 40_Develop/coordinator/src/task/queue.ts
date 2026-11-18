@@ -1,11 +1,12 @@
 /**
  * Task受付とQueueの状態更新を保存へ接続する。
- * @responsibility 受付世代・Queue遷移を判定し、既存の短期保存トランザクション内で確定する。
+ * @responsibility 要求相関・Queue遷移を判定し、既存の短期保存トランザクション内で確定する。
  * @trace ARCH-000004、ARCH-000008
  */
 
 import {
   createQueue,
+  initializeExecutionStore,
   type ProjectQueueEntry,
   readProjectExecutionState,
   readQueueEntry,
@@ -127,9 +128,9 @@ function chooseCoordinatorQueueOperation(
  * 統合保存用State／Queueの全操作を構成する。
  * @responsibility 既存Portの世代・選択・実行Owner・回復契約を同じ保存Ownerへ接続する。
  * @trace ARCH-000004
- * @input workingDirectory、binding、Request発行時に取得したintakeEpoch。
+ * @input workingDirectory、binding、任意の実行ID・要求内容の結合。
  * @returns State／Queue Port。既存本番Factoryは変更しない。
- * @precondition 全入力照合済みSnapshotと有効な発行時受付世代がある。
+ * @precondition 要求・計画・主体が検証済みで、再開時は同IDの記録がある。
  * @postcondition 各操作が同じ排他内の比較と保存確認を使用する。
  * @effect 操作時にだけ統合Snapshotを読取り・保存する。
  * @failure 世代・受付・Owner・回復不一致は保全停止する。
@@ -141,9 +142,8 @@ function chooseCoordinatorQueueOperation(
 export function createCoordinatorSnapshotStatePort(
   workingDirectory: string,
   binding: string,
-  intakeEpoch: string,
   intake?: Readonly<{
-    epoch: string;
+    operation: "start" | "resume";
     queueId: string;
     requestHash: string;
     projectId: string;
@@ -152,32 +152,47 @@ export function createCoordinatorSnapshotStatePort(
 ): CoordinatorStatePort {
   const storageRepository =
     verifyRuntimePersistenceRepository(workingDirectory);
-  if (!validIdentity(binding) || !validIdentity(intakeEpoch))
-    throw new Error("snapshot_port_binding_invalid");
+  if (!validIdentity(binding)) throw new Error("snapshot_port_binding_invalid");
   return Object.freeze({
     readWorkspaceTaskTarget: (queueId: string) =>
       resolveCoordinatorWorkspaceTaskTarget(workingDirectory, binding, queueId),
-    writeState: (state, expectedGeneration, resultFacts) =>
-      saveProjectExecutionState(
+    writeState: (state, expectedGeneration, resultFacts) => {
+      return saveProjectExecutionState(
         storageRepository,
         binding,
         state,
         expectedGeneration,
         intake,
         resultFacts,
-      ),
-    readState: (projectId) =>
-      readProjectExecutionState(storageRepository, binding, projectId),
-    enqueueOperation: (input) => {
+      );
+    },
+    readState: (projectId) => {
+      const observed = readProjectExecutionState(
+        storageRepository,
+        binding,
+        projectId,
+      );
+      return intake?.operation === "start" &&
+        observed.status === "blocked" &&
+        observed.reason === "orchestrator_snapshot_absent" &&
+        !observed.manualRecoveryRequired &&
+        observed.recoveryId === null
+        ? { status: "completed" as const, reason: observed.reason, value: null }
+        : observed;
+    },
+    enqueueOperation: (input, initialState) => {
+      if (initialState && intake?.operation === "start") {
+        const initialized = initializeExecutionStore(
+          storageRepository,
+          binding,
+        );
+        if (initialized.status !== "completed") return initialized;
+      }
       const result = createQueue(storageRepository, binding, {
         kind: "scheduled",
-        input: [intakeEpoch, input],
+        input: initialState ? [input, initialState] : [input],
       });
-      return intake &&
-        result.status === "blocked" &&
-        result.reason === "orchestrator_queue_identity_conflict"
-        ? { ...result, reason: "orchestrator_intake_epoch_retired" }
-        : result;
+      return result;
     },
     readQueue: (queueId) => readQueueEntry(storageRepository, binding, queueId),
     selectNextOperation: () =>
@@ -268,10 +283,10 @@ export function createCoordinatorSnapshotStatePort(
 import { validIdentity } from "../state/validation.ts";
 
 /**
- * 計画を生成せず単発Taskを同じ受付世代へ保存する。
+ * 計画を生成せず単発Taskを同じRepositoryへ保存する。
  * @responsibility 入力同一性と実Workspace所属を既存Snapshotで確定する。
  * @trace ARCH-000004
- * @input 現在Root、binding、受付世代、単発Queue。
+ * @input 現在Root、binding、単発Queue。
  * @returns 同一受付又は確定した新品Queue。
  * @precondition 上位で実Projectと主体を認可する。
  * @postcondition 保存確認より前に下位実行を開始しない。
@@ -285,13 +300,12 @@ import { validIdentity } from "../state/validation.ts";
 export function enqueueCoordinatorSingleTask(
   workingDirectory: string,
   binding: string,
-  intakeEpoch: string,
   input: ProjectQueueEntry,
 ): StoreResult<ProjectQueueEntry> {
   return createQueue(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    { kind: "single", input: [intakeEpoch, input] },
+    { kind: "single", input: [input] },
   );
 }
 

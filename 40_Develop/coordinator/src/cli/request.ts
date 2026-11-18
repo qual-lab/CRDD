@@ -11,12 +11,7 @@ import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import {
-  initializeProject,
-  inspectSingleTaskCommand,
-  runObjective,
-  runTask,
-} from "../api.ts";
+import { inspectSingleTaskCommand, runObjective, runTask } from "../api.ts";
 import { bindTaskCliCancellationSignals } from "./cancellation.ts";
 import { readStableFileSnapshot } from "./file-snapshot.ts";
 import { readBoundedTaskRequestFromStdin, UsageError } from "./options.ts";
@@ -37,24 +32,9 @@ import { readBoundedTaskRequestFromStdin, UsageError } from "./options.ts";
  * @concurrency runProjectCommandは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runProjectCommand(args: readonly string[]) {
-  if (args.length === 2 && args[0] === "init" && args[1] === "--json") {
-    try {
-      const result = initializeProject();
-      process.stdout.write(
-        `${JSON.stringify({ command: "project init", ...result })}\n`,
-      );
-      process.exitCode = result.status === "completed" ? 0 : 2;
-    } catch {
-      process.stdout.write(
-        `${JSON.stringify({ command: "project init", status: "blocked", reason: "coordinator_repository_root_not_verified" })}\n`,
-      );
-      process.exitCode = 2;
-    }
-    return;
-  }
   if (
     args.length !== 5 ||
-    args[0] !== "run" ||
+    args[0] !== "objective" ||
     args[1] !== "--request-stdin" ||
     args[2] !== "--json" ||
     args[3] !== "--principal-id" ||
@@ -145,8 +125,8 @@ export async function runProjectCommand(args: readonly string[]) {
 }
 
 /**
- * 通常Task CLIを共通の単発Ownerと上位の対象解決へ接続する。
- * @responsibility 明示Workspace、Repository別の固定選定、取消joinと結果公開。
+ * 編集・助言CLIを共通の単発Ownerと上位の対象解決へ接続する。
+ * @responsibility 用途一致、編集時の明示Workspace、固定選定、取消joinと結果公開。
  * @trace ARCH-000004
  * @trace ARCH-000012
  * @input --request-stdin --json --principal-idと共通SingleTaskCommand。
@@ -159,7 +139,7 @@ export async function runProjectCommand(args: readonly string[]) {
 export async function runSingleTaskCommand(args: readonly string[]) {
   if (
     args.length !== 5 ||
-    args[0] !== "run" ||
+    !["task", "advice"].includes(args[0] ?? "") ||
     args[1] !== "--request-stdin" ||
     args[2] !== "--json" ||
     args[3] !== "--principal-id" ||
@@ -167,23 +147,31 @@ export async function runSingleTaskCommand(args: readonly string[]) {
     !args[4].startsWith("local.email.")
   ) {
     process.stdout.write(
-      `${JSON.stringify({ command: "task", status: "blocked", reason: "task_arguments_invalid" }, null, 2)}\n`,
+      `${JSON.stringify({ command: args[0] === "advice" ? "advice" : "task", status: "blocked", reason: "task_arguments_invalid" }, null, 2)}\n`,
     );
     process.exitCode = 64;
     return;
   }
+  const operation = args[0] === "advice" ? "advice" : "task";
   let cancellation: ReturnType<typeof bindTaskCliCancellationSignals> | null =
     null;
   const controller = new AbortController();
   let report: Record<string, unknown> = {
-    command: "task",
+    command: operation,
     status: "blocked",
     reason: "task_entry_unconfirmed",
   };
   try {
     const command = inspectSingleTaskCommand(readBoundedTaskRequestFromStdin());
-    if (command?.mode !== "workspace_edit")
-      throw new UsageError("task_workspace_request_required");
+    if (
+      command?.mode !==
+      (operation === "advice" ? "read_only_advice" : "workspace_edit")
+    )
+      throw new UsageError(
+        operation === "advice"
+          ? "advice_request_required"
+          : "task_workspace_request_required",
+      );
     const root = resolveVerifiedRepositoryRootFromWorkingDirectory(
       process.cwd(),
     );
@@ -209,7 +197,7 @@ export async function runSingleTaskCommand(args: readonly string[]) {
     if (cancellation.status !== "bound")
       throw new UsageError("task_cancellation_binding_failed");
     report = {
-      command: "task",
+      command: operation,
       ...(await runTask(
         {
           rootCapability: verified.capability,
@@ -226,7 +214,7 @@ export async function runSingleTaskCommand(args: readonly string[]) {
   } catch (error) {
     report = {
       ...report,
-      command: "task",
+      command: operation,
       status: typeof report.requestId === "string" ? "unknown" : "blocked",
       cleanupConfirmed: false,
       reason:

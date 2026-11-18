@@ -27,12 +27,16 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import {
+  handleMcpCoordinatorRequest,
+  MCP_COORDINATOR_STATE_TOOL,
+} from "@qual-lab/crdd-mcp/automation";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/index.ts";
 import { inspectTaskStageDiagnostic } from "../../../coordinator/scripts/task-diagnostic.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import {
   buildCoordinatorRealProviderReport,
-  inspectPublishedCoordinatorIntakeEpoch,
   observePublicMcpProcess,
   type PublicProcessObservation,
 } from "../../scripts/task-real-provider-contract.ts";
@@ -1005,7 +1009,11 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
     verificationScriptSource.match(
       /closeInputWhen:\s*\(\{ stdout \}\)\s*=>\s*\n?\s*stdout\.split\(\/\\r\?\\n\/u\)\.some\(Boolean\)/gu,
     )?.length,
-    3,
+    2,
+  );
+  assert.match(
+    verificationScriptSource,
+    /spawn\(process\.execPath,\s*\[entryPath,\s*"--automation",\s*"--stdio"\]/u,
   );
 });
 /**
@@ -1088,7 +1096,7 @@ const semantic = (
           : status === "blocked"
             ? "orchestrator_acceptance_decision_required"
             : "orchestrator_milestone_accepted",
-      contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+      contract: "crdd-coordinator/orchestrator-objective-intake/v4",
       requestId: "request-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
@@ -1243,27 +1251,25 @@ const observation = (
   });
 };
 /**
- * 受付世代の公開取得が搬送・相関・終了条件を満たす場合だけ成功することを検証する。
- *
- * @responsibility 新Requestへ誤った受付世代や未確定応答を接続しない。
+ * 廃止した世代取得を現行の公開State Query契約へ接続し直す。
+ * @responsibility 旧fieldの互換補完をせず、現行DTOと入力拒否の境界を確認する。
  * @trace PRL-ST-001
- * @precondition AI実行を伴わない状態取得の完了観測を構築する。
- * @stimulus 搬送失敗、相関差、Provider開始、DTO不正を個別に注入する。
- * @observation 世代またはnullの判定を読む。
- * @oracle 正常だけ世代を返し、それ以外はnullを返す。
- * @cleanup N/A: 値だけを評価し実資源を作らない。
- * @boundary 公開MCP応答と新Requestの受付世代の境界。
+ * @precondition 認証済みの有限Backendと実MCP handlerを使う。
+ * @stimulus 正規State、旧Schema・余剰field・相関不正、不正要求を与える。
+ * @observation structuredContent、isErrorとBackend呼出し回数。
+ * @oracle 正常だけ閉じたDTOを返し、不正結果はunknown、不正入力はEffect前に拒否する。
+ * @cleanup N/A: 純粋な受付試験でProcessを起動しない。Process搬送とjoinは既存の観測試験が所有する。
+ * @boundary 公開MCP受付とCoordinatorの状態照会契約。
  */
-test("受付世代の公開取得は搬送・相関・終了条件を全て要求する", () => {
-  const request = {
-    requestId: "intake-epoch",
+test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を維持する", async () => {
+  const input = {
+    requestId: "state-read",
     projectId: "project-a",
     repositoryRevision: "a".repeat(40),
   };
   const state = {
-    ...request,
-    contract: "crdd-coordinator/orchestrator-state-query/v1",
-    intakeEpoch: "epoch-a",
+    ...input,
+    contract: "crdd-coordinator/orchestrator-state-query/v2",
     status: "completed",
     reason: "orchestrator_state_absent",
     observationState: "absent",
@@ -1272,62 +1278,75 @@ test("受付世代の公開取得は搬送・相関・終了条件を全て要�
     manualRecoveryRequired: false,
     effectState: "no_effect",
   };
-  const response = {
+  let reads = 0;
+  let returned: unknown = state;
+  const dependencies = {
+    authenticateClient: () => ({
+      status: "verified",
+      principalId: "principal-a",
+    }),
+    runObjective: async () => assert.fail("unexpected_execution"),
+    submitDecision: async () => assert.fail("unexpected_decision"),
+    getProjectState: async () => {
+      reads++;
+      return returned;
+    },
+  };
+  const request = {
     jsonrpc: "2.0",
-    id: request.requestId,
-    result: { isError: false, structuredContent: state },
+    id: "query",
+    method: "tools/call",
+    params: {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion":
+          MCP_COORDINATOR_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+      name: MCP_COORDINATOR_STATE_TOOL,
+      arguments: input,
+    },
   };
-  const quiet = {
-    selectionEvents: [],
-    processStartEvents: [],
-    runtimeEvents: [],
-    providerBoundaryEvents: [],
-  };
-  const inspect = (
-    responses: readonly unknown[],
-    overrides: Partial<PublicProcessObservation> = {},
-  ) =>
-    inspectPublishedCoordinatorIntakeEpoch(
-      observation(responses, { ...quiet, ...overrides }),
-      request,
-    );
-  assert.equal(inspect([response]), "epoch-a");
-  for (const overrides of [
-    { parseFailure: true },
-    { streamFailure: true },
-    { runtimeEventProtocolViolation: true },
-    { timedOut: true },
-    { joined: false },
-    { inputEofIssued: false },
-    { outputWithinLimit: false },
-    { launchError: "launch_failed" },
-    { exit: { code: 2, signal: null } },
-    { exit: { code: 0, signal: "SIGTERM" } },
-    { processStartEvents: observation([]).processStartEvents },
-    { providerBoundaryEvents: observation([]).providerBoundaryEvents },
-  ] as Partial<PublicProcessObservation>[])
-    assert.equal(inspect([response], overrides), null);
+  const good = await handleMcpCoordinatorRequest(request, dependencies);
+  assert.deepEqual(
+    (good.result as { structuredContent?: unknown })?.structuredContent,
+    state,
+  );
+  assert.equal((good.result as { isError?: boolean })?.isError, false);
   for (const invalid of [
-    { ...response, jsonrpc: "1.0" },
-    { ...response, id: "other" },
-    { ...response, error: {} },
-    { ...response, result: { ...response.result, isError: true } },
-    ...[
-      { requestId: "other" },
-      { projectId: "other" },
-      { repositoryRevision: "b".repeat(40) },
-      { intakeEpoch: null },
-      { cleanupConfirmed: false },
-      { status: "blocked" },
-      { unexpected: true },
-    ].map((change) => ({
-      ...response,
-      result: { isError: false, structuredContent: { ...state, ...change } },
-    })),
-  ])
-    assert.equal(inspect([invalid]), null);
-  assert.equal(inspect([]), null);
-  assert.equal(inspect([response, response]), null);
+    { ...state, contract: "crdd-coordinator/orchestrator-state-query/v1" },
+    { ...state, intakeEpoch: "old" },
+    { ...state, unexpected: true },
+    { ...state, cleanupConfirmed: false },
+    { ...state, effectState: "settled" },
+    { ...state, requestId: "../escape" },
+    { ...state, repositoryRevision: "invalid" },
+    null,
+  ]) {
+    returned = invalid;
+    const response = await handleMcpCoordinatorRequest(request, dependencies);
+    assert.equal((response.result as { isError?: boolean })?.isError, true);
+    assert.equal(
+      (
+        (response.result as { structuredContent?: unknown })
+          ?.structuredContent as { reason?: string }
+      )?.reason,
+      "mcp_coordinator_result_invalid",
+    );
+  }
+  for (const invalid of [
+    { ...input, intakeEpoch: "old" },
+    { ...input, requestId: "../escape" },
+    { ...input, repositoryRevision: "invalid" },
+    {},
+  ]) {
+    const before = reads;
+    const response = await handleMcpCoordinatorRequest(
+      { ...request, params: { ...request.params, arguments: invalid } },
+      dependencies,
+    );
+    assert.equal(response.error?.code, -32602);
+    assert.equal(reads, before);
+  }
 });
 
 const unchangedSnapshot = {
@@ -3938,7 +3957,6 @@ test("実Provider Toolはchoiceと検証分類を持つ現在Objectiveを構築�
       JSON.stringify(
         create(
           withCallerPlan({
-            intakeEpoch: "epoch-a",
             repositoryRevision: "a".repeat(40),
             objective: "合成一行を変更",
             acceptanceCriteria: ["合成結果"],

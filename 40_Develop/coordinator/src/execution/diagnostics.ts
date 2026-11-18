@@ -363,7 +363,7 @@ export function createDevelopmentExecutionTiming(
  * @responsibility 能力の表示と今回の操作許可を区別する。
  * @trace ARCH-000004
  * @input N/A: 外部入力を受けない。
- * @returns 不変な操作名・呼出し例の集合。
+ * @returns 自身を除く完成操作とCLI呼出し例の不変集合。要求・結果の補助受付は含めない。
  * @precondition 固定候補で全操作の接続を検証する。
  * @postcondition 未接続のinspect・候補CLIを一覧へ含めない。
  * @effect N/A: 固定記述の生成のみ。
@@ -376,19 +376,17 @@ export function createDevelopmentExecutionTiming(
 export function getCapabilities() {
   return Object.freeze({
     contract: "crdd-coordinator/capabilities",
-    contractRevision: 6,
+    contractRevision: 11,
     profile: "local_personal",
     commands: Object.freeze(
       [
-        "task run --request-stdin --json --principal-id <local.email.address>",
-        "project init --json",
-        "project run --request-stdin --json --principal-id <local.email.address>",
-        "doctor check [--json]",
-        "doctor isolation [--json]",
-        "recovery resume <id> [--json]",
-        "recovery restart-docker <id> [--json]",
-        "maintenance repair-docker [--json]",
-        "maintenance retain-repair <id> [--json]",
+        "run task --request-stdin --json --principal-id <local.email.address>",
+        "run objective --request-stdin --json --principal-id <local.email.address>",
+        "run advice --request-stdin --json --principal-id <local.email.address>",
+        "doctor [--isolation] [--json]",
+        "recovery resume <id> [--restart-docker] [--json]",
+        "recovery inspect <id> [--json]",
+        "maintenance repair [--retain <id>] [--json]",
         "auth status codex|claude [--json]",
         "auth login codex|claude",
         "capabilities --json",
@@ -396,7 +394,7 @@ export function getCapabilities() {
         Object.freeze({
           command: invocation
             .split(" ")
-            .slice(0, invocation.startsWith("capabilities ") ? 1 : 2)
+            .slice(0, /^(capabilities|doctor) /u.test(invocation) ? 1 : 2)
             .join(" "),
           availability: "available",
           invocation,
@@ -404,7 +402,6 @@ export function getCapabilities() {
       ),
     ),
     operations: Object.freeze([
-      "initializeProject",
       "runObjective",
       "runTask",
       "openTaskSession",
@@ -413,13 +410,13 @@ export function getCapabilities() {
       "executeWorkspace",
       "queryState",
       "queryActivity",
+      "readRepositoryNetworkHosts",
       "diagnoseEnvironment",
       "recoverExecution",
+      "readRecovery",
       "restartDockerForRecovery",
       "repairDockerRuntime",
       "retainRepair",
-      "readRepositoryAiSelection",
-      "saveRepositoryAiSelection",
       "getAuthenticationStatus",
       "authenticateProvider",
     ]),

@@ -703,7 +703,8 @@ export function inspectWorkspaceCommand(
   if (
     operation === "close-candidate" &&
     (!(r.expectedCommit === null || isGitObjectId(r.expectedCommit)) ||
-      !["adopted", "rejected"].includes(String(r.disposition)))
+      typeof r.disposition !== "string" ||
+      !["adopted", "rejected"].includes(r.disposition))
   )
     return null;
   if (operation === "freeze") {

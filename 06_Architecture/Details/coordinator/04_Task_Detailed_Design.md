@@ -48,7 +48,7 @@ Taskが観測した結果不明と、技術Operationのcleanup不明を区別す
 | 技術Operation | Task終端の同時保存まで保持。単独操作は既存の終了Writerで整理する |
 | 結果受領・配送 | 独立した受領本文・resultReceipts・resultAcceptanceIds・pendingDeliveries・ACK段階は持たない |
 
-状態はcrdd-execution-model/state/v4として、改訂・元Hash・物理Repository結合・各区画を一つのstate.jsonへ保存する。Task未使用の単独操作では業務結合と受付世代をnull、Task区画を空にする。旧二Snapshotを内包するEnvelopeや互換Readerは作らない。旧データの移行はフロントAIが担当する。
+状態はcrdd-execution-model/state/v6として、改訂・元Hash・物理Repository結合・各区画を一つのstate.jsonへ保存する。Task未使用の単独操作では業務結合と受付世代をnull、Task区画を空にする。旧二Snapshotを内包するEnvelopeや互換Readerは作らない。旧データの移行はフロントAIが担当する。
 
 ### 履歴とTask終端の保存順序
 

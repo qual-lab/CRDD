@@ -17,6 +17,7 @@ import {
 import {
   isPrincipalId,
   type ProjectExecutionState,
+  type ProjectQueueEntry,
   type ProjectTaskRecoveryObligation,
   readState,
   type TaskExecutionSelections,
@@ -74,6 +75,166 @@ import type {
   CoordinatorObjectiveIntakeDependencies,
   PublicExecutionDependencies,
 } from "./types.ts";
+
+/**
+ * ScopeをIDへ混ぜず、同じ主体の要求内容を一意に照合する。
+ * @responsibility 新規と再開の区分だけをHashから除外する。
+ * @trace ARCH-000004
+ * @input 捕捉済み要求、Repository結合、認証主体、既存のIdentity演算。
+ * @returns 保存受付へ渡す元IDと内容Hash。
+ * @effect なし。
+ * @security Hashは実行許可ではない。
+ */
+function createObjectiveIntake(
+  request: CoordinatorObjectiveRequest,
+  repositoryBindingId: string,
+  principalId: string,
+  clock: CoordinatorClockIdentityPort,
+) {
+  const { operation, ...content } = request;
+  void operation;
+  return {
+    operation: request.operation,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    queueId: clock.createStableId("queue", [
+      repositoryBindingId,
+      principalId,
+      request.requestId,
+    ]),
+    requestHash: clock.createContentHash(
+      JSON.stringify({ ...content, authenticatedPrincipalId: principalId }),
+    ),
+  };
+}
+
+/**
+ * 同じ保存断面から再送・終了済み再開を観測だけで返す。
+ * @responsibility Scope差と内容差を拒否し、未完了の明示再開だけ従来実行へ渡す。
+ * @trace ARCH-000004
+ * @input 捕捉済み要求と認可済みRoot・結合・主体。
+ * @returns 観測結果又は実行受付を続けるnull。
+ * @effect 保存読取りだけ。回復・初期化・EI・履歴保守はしない。
+ * @failure 読取り不明を不存在へ補完しない。
+ * @security 別Scopeの投影を返さず、保存値を実行Authorityにしない。
+ */
+function readObjectiveReplay(
+  request: CoordinatorObjectiveRequest,
+  workingDirectory: string,
+  repositoryBindingId: string,
+  principalId: string,
+  clock: CoordinatorClockIdentityPort,
+) {
+  const intake = createObjectiveIntake(
+    request,
+    repositoryBindingId,
+    principalId,
+    clock,
+  );
+  const observed = readState(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    repositoryBindingId,
+    "execution",
+  );
+  if (observed.status !== "completed")
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: observed.reason,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown" as const,
+      recoveryIds: Object.freeze(
+        observed.recoveryId ? [observed.recoveryId] : [],
+      ),
+    });
+  const queue = observed.value?.queueEntries.find(
+    (entry) => entry.queueId === intake.queueId,
+  );
+  if (!queue)
+    return request.operation === "resume"
+      ? blocked(request, "orchestrator_objective_request_not_found")
+      : null;
+  if (
+    queue.singleTask ||
+    queue.projectId !== request.projectId ||
+    queue.milestoneId !== request.milestoneId ||
+    queue.requestHash !== intake.requestHash
+  )
+    return blocked(request, "orchestrator_objective_request_identity_conflict");
+  const terminal = queue.state === "completed" || queue.state === "cancelled";
+  if (request.operation === "resume" && !terminal) return null;
+  const state = observed.value?.projects.find(
+    (entry) =>
+      entry.projectId === queue.projectId &&
+      entry.milestoneId === queue.milestoneId &&
+      entry.repositoryRevision === queue.repositoryRevision,
+  );
+  return projectObjectiveReplay(request, queue, state ?? null);
+}
+
+/**
+ * 保存済みQueueと対応するProjectから、回復情報を落とさず観測結果を作る。
+ * @responsibility 先行読取りと保存競合の返却を同じ相関規則へ接続する。
+ * @trace ARCH-000004
+ * @input 元要求、保存Queue、同断面のProject又は欠測。
+ * @returns Authorityを持たない状態投影。
+ * @effect なし。
+ * @security 別版・別Milestoneの投影を元実行へ付け替えない。
+ */
+function projectObjectiveReplay(
+  request: CoordinatorObjectiveRequest,
+  queue: ProjectQueueEntry,
+  observedState: ProjectExecutionState | null,
+) {
+  const state =
+    observedState?.projectId === queue.projectId &&
+    observedState.milestoneId === queue.milestoneId &&
+    observedState.repositoryRevision === queue.repositoryRevision
+      ? observedState
+      : null;
+  const obligations =
+    state?.tasks.flatMap((task) =>
+      task.recoveryObligations.filter((item) => item.phase !== "settled"),
+    ) ?? [];
+  const recoveryRequired =
+    obligations.length > 0 ||
+    queue.state === "recovery_required" ||
+    state?.tasks.some((task) => task.recoveryUnresolved) === true;
+  return createCoordinatorObjectiveResult(request, {
+    status: recoveryRequired
+      ? "blocked"
+      : queue.state === "cancelled"
+        ? "cancelled"
+        : queue.state === "completed" || state?.milestone.state === "accepted"
+          ? "completed"
+          : "blocked",
+    reason: "orchestrator_objective_request_reused",
+    queueId: queue.queueId,
+    projection:
+      recoveryRequired && obligations.length === 0
+        ? null
+        : state &&
+            (queue.state !== "completed" ||
+              state.milestone.state === "accepted") &&
+            (queue.state !== "cancelled" ||
+              state.milestone.state === "cancelled")
+          ? projectCoordinatorState(state)
+          : null,
+    // 観測要求は資源を作らない。元実行の終了確認はProjectionの進行と区別する。
+    cleanupConfirmed: !recoveryRequired,
+    manualRecoveryRequired: recoveryRequired,
+    processRestartRequired: obligations.some(
+      (entry) => entry.kind === "runtime_process",
+    ),
+    recoveryIds: obligations.map((entry) => entry.recoveryId),
+    recoveryObligations: obligations.map(({ kind, recoveryId }) => ({
+      kind,
+      recoveryId,
+    })),
+    effectState: recoveryRequired ? "unknown" : "no_effect",
+  });
+}
 
 /**
  * 初回の選定要求又は保存値の継承と明示要求を照合する。
@@ -343,7 +504,7 @@ function blocked(
 }
 
 /**
- * Coordinate one validated Objective through the Coordinator lifecycle.
+ * 捕捉済みObjectiveを既存の保存・実行Lifecycleへ接続する。
  *
  * @responsibility Coordinator Objective Applicationの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
@@ -351,11 +512,11 @@ function blocked(
  * @returns executeCoordinatorObjectiveの計算結果を返す。
  * @precondition 「dependencies: CoordinatorObjectiveExecutionDependencies、request: CoordinatorObjectiveRequest、cancellationSignal: AbortSignal」がexecuteCoordinatorObjectiveの入力契約を満たす。
  * @postcondition executeCoordinatorObjectiveの責務を完了した結果だけを返す。
- * @effect N/A: executeCoordinatorObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 既存のState保存・Lease・Task実行・回復Portへ委譲する。未知IDの再開はこれらの発行前に拒否する。
  * @failure executeCoordinatorObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant executeCoordinatorObjectiveは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: executeCoordinatorObjectiveはProcess内の同一Subsystemで完結する。
- * @security N/A: executeCoordinatorObjectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @invariant startの再送を明示再開へ変換せず、元のIdentityと保存・資源の安全条件を維持する。
+ * @boundary Objectiveの意味判断と保存・実行Portの境界。
+ * @security 認証済み主体・既存の実行Authorityを暗黙に拡張しない。
  * @concurrency executeCoordinatorObjectiveは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function executeCoordinatorObjective(
@@ -374,22 +535,11 @@ export async function executeCoordinatorObjective(
   )
     return blocked(request, "orchestrator_objective_request_invalid");
   const plan = dependencies.plan;
-  const queueId = dependencies.clockIdentity.createStableId("queue", [
+  const { queueId, requestHash } = createObjectiveIntake(
+    request,
     dependencies.repositoryBindingId,
-    request.projectId,
-    request.milestoneId,
-    request.requestId,
     dependencies.authenticatedPrincipalId,
-  ]);
-  const requestHash = dependencies.clockIdentity.createContentHash(
-    JSON.stringify({
-      ...request,
-      plan,
-      authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
-      acceptanceCriteria: [...request.acceptanceCriteria],
-      allowedPaths: [...request.allowedPaths],
-      readPaths: [...request.readPaths],
-    }),
+    dependencies.clockIdentity,
   );
   const scopeHash = dependencies.clockIdentity.createContentHash(
     JSON.stringify({
@@ -400,43 +550,75 @@ export async function executeCoordinatorObjective(
 
   const persistence = dependencies.persistence;
   const taskRecovery = dependencies.taskRecovery;
+  if (request.operation === "resume") {
+    const existing = persistence.state.readQueue(queueId);
+    if (existing.status !== "completed") {
+      if (existing.manualRecoveryRequired || existing.recoveryId)
+        return Object.freeze({
+          contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+          status: "blocked" as const,
+          reason: existing.reason,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown" as const,
+          recoveryIds: Object.freeze(
+            existing.recoveryId ? [existing.recoveryId] : [],
+          ),
+        });
+      return blocked(request, existing.reason);
+    }
+  }
   const acquisitionOwner = persistence.lease.inspectAcquisitionOwner();
   if (acquisitionOwner.status !== "completed")
-    return blocked(request, acquisitionOwner.reason, {
-      cleanupConfirmed: false,
-      manualRecoveryRequired: acquisitionOwner.manualRecoveryRequired,
-      recoveryIds:
-        acquisitionOwner.recoveryId === null
-          ? Object.freeze([])
-          : Object.freeze([acquisitionOwner.recoveryId]),
-      effectState: acquisitionOwner.manualRecoveryRequired
-        ? "unknown"
-        : "no_effect",
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: acquisitionOwner.reason,
+      cleanupConfirmed:
+        !acquisitionOwner.manualRecoveryRequired &&
+        acquisitionOwner.recoveryId === null,
+      manualRecoveryRequired:
+        acquisitionOwner.manualRecoveryRequired ||
+        acquisitionOwner.recoveryId !== null,
+      effectState:
+        acquisitionOwner.manualRecoveryRequired ||
+        acquisitionOwner.recoveryId !== null
+          ? ("unknown" as const)
+          : ("no_effect" as const),
+      recoveryIds: Object.freeze(
+        acquisitionOwner.recoveryId ? [acquisitionOwner.recoveryId] : [],
+      ),
     });
   const resolvedAcquisition = acquisitionOwner.value.acquisition;
   if (
     resolvedAcquisition !== null &&
     resolvedAcquisition.projectId !== request.projectId
   )
-    return blocked(
-      request,
-      "orchestrator_lease_acquisition_project_identity_mismatch",
-      {
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-        recoveryIds: Object.freeze([resolvedAcquisition.recoveryId]),
-        effectState: "unknown",
-      },
-    );
-  const observedState = persistence.state.readState(request.projectId);
-  let state = observedState;
-  if (state.status !== "completed")
-    return blocked(request, state.reason, {
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_lease_acquisition_project_identity_mismatch",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      effectState: "unknown",
+      recoveryIds: Object.freeze([resolvedAcquisition.recoveryId]),
+      effectState: "unknown" as const,
+    });
+  const observedState = persistence.state.readState(request.projectId);
+  let state = observedState;
+  let initialState: ProjectExecutionState | undefined;
+  if (state.status !== "completed")
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: state.reason,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown" as const,
+      recoveryIds: Object.freeze(state.recoveryId ? [state.recoveryId] : []),
     });
   if (state.value === null) {
+    if (request.operation === "resume")
+      return blocked(request, "orchestrator_objective_request_not_found");
     let selected: ReturnType<
       CoordinatorObjectiveExecutionDependencies["resolveTaskSelections"]
     >;
@@ -467,23 +649,11 @@ export async function executeCoordinatorObjective(
       )
     )
       return blocked(request, "coordinator_objective_selection_mismatch");
-    const written = persistence.state.writeState(created.state, 0);
-    if (written.status !== "completed")
-      return blocked(request, written.reason, {
-        cleanupConfirmed:
-          written.reason === "orchestrator_intake_epoch_retired" &&
-          !written.manualRecoveryRequired,
-        manualRecoveryRequired: written.manualRecoveryRequired,
-        effectState:
-          written.reason === "orchestrator_intake_epoch_retired" &&
-          !written.manualRecoveryRequired
-            ? "no_effect"
-            : "unknown",
-      });
+    initialState = created.state;
     state = Object.freeze({
       status: "completed" as const,
-      reason: written.reason,
-      value: written.value,
+      reason: "orchestrator_state_prepared",
+      value: created.state,
     });
   } else if (
     state.value.milestoneId !== request.milestoneId ||
@@ -500,26 +670,63 @@ export async function executeCoordinatorObjective(
     )
   )
     return blocked(request, "coordinator_objective_selection_mismatch");
-  const queued = persistence.state.enqueueOperation({
-    queueId,
-    ...(request.workspaceId === undefined
-      ? {}
-      : { workspaceId: request.workspaceId }),
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    requestHash,
-    originLane: request.originLane,
-    repositoryRevision: request.repositoryRevision,
-    scopeHash,
-  });
+  const queued = persistence.state.enqueueOperation(
+    {
+      queueId,
+      ...(request.workspaceId === undefined
+        ? {}
+        : { workspaceId: request.workspaceId }),
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      requestHash,
+      originLane: request.originLane,
+      repositoryRevision: request.repositoryRevision,
+      scopeHash,
+    },
+    initialState,
+  );
   if (queued.status !== "completed")
-    return blocked(request, queued.reason, {
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: queued.reason,
       cleanupConfirmed:
-        queued.reason === "orchestrator_intake_epoch_retired" &&
-        !queued.manualRecoveryRequired,
-      manualRecoveryRequired: queued.manualRecoveryRequired,
-      effectState: queued.manualRecoveryRequired ? "unknown" : "no_effect",
+        !queued.manualRecoveryRequired && queued.recoveryId === null,
+      manualRecoveryRequired:
+        queued.manualRecoveryRequired || queued.recoveryId !== null,
+      effectState:
+        queued.manualRecoveryRequired || queued.recoveryId !== null
+          ? ("unknown" as const)
+          : ("no_effect" as const),
+      recoveryIds: Object.freeze(queued.recoveryId ? [queued.recoveryId] : []),
     });
+  if (initialState) {
+    const observed = persistence.state.readState(request.projectId);
+    if (observed.status !== "completed" || observed.value === null)
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: observed.reason,
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown" as const,
+        recoveryIds: Object.freeze(
+          observed.status === "blocked" && observed.recoveryId
+            ? [observed.recoveryId]
+            : [],
+        ),
+      });
+    state = observed;
+  }
+  if (queued.reason === "orchestrator_queue_request_reused") {
+    // 保存競合でもstartを再開へ変換しない。終端resumeも技術回復へ進めない。
+    if (
+      request.operation === "start" ||
+      queued.value.state === "completed" ||
+      queued.value.state === "cancelled"
+    )
+      return projectObjectiveReplay(request, queued.value, state.value);
+  }
   let queue = queued.value;
   const recoveryQueueId =
     resolvedAcquisition?.queueId ??
@@ -552,23 +759,34 @@ export async function executeCoordinatorObjective(
       reconciled.status !== "completed" &&
       reconciled.reason !== "orchestrator_lease_owner_still_active"
     )
-      return blocked(request, reconciled.reason, {
-        cleanupConfirmed: !reconciled.manualRecoveryRequired,
-        manualRecoveryRequired: reconciled.manualRecoveryRequired,
-        recoveryIds:
-          reconciled.recoveryId === null
-            ? Object.freeze([])
-            : Object.freeze([reconciled.recoveryId]),
-        effectState: reconciled.manualRecoveryRequired
-          ? "unknown"
-          : "no_effect",
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: reconciled.reason,
+        cleanupConfirmed:
+          !reconciled.manualRecoveryRequired && reconciled.recoveryId === null,
+        manualRecoveryRequired:
+          reconciled.manualRecoveryRequired || reconciled.recoveryId !== null,
+        effectState:
+          reconciled.manualRecoveryRequired || reconciled.recoveryId !== null
+            ? ("unknown" as const)
+            : ("no_effect" as const),
+        recoveryIds: Object.freeze(
+          reconciled.recoveryId ? [reconciled.recoveryId] : [],
+        ),
       });
     const reread = persistence.state.readQueue(queueId);
     if (reread.status !== "completed")
-      return blocked(request, reread.reason, {
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: reread.reason,
         cleanupConfirmed: false,
-        manualRecoveryRequired: reread.manualRecoveryRequired,
-        effectState: "unknown",
+        manualRecoveryRequired: true,
+        effectState: "unknown" as const,
+        recoveryIds: Object.freeze(
+          reread.recoveryId ? [reread.recoveryId] : [],
+        ),
       });
     queue = reread.value;
   }
@@ -1625,6 +1843,11 @@ export async function executeCoordinatorPublicObjective(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
+  if (
+    !(cancellationSignal instanceof AbortSignal) ||
+    cancellationSignal.aborted
+  )
+    return blocked(request, "orchestrator_objective_cancelled_before_start");
   let repositoryRoot: string;
   try {
     repositoryRoot =
@@ -1639,6 +1862,14 @@ export async function executeCoordinatorPublicObjective(
       effectState: "no_effect" as const,
     });
   }
+  const replay = readObjectiveReplay(
+    request,
+    repositoryRoot,
+    deriveCoordinatorRepositoryBindingId(repositoryRoot),
+    authenticationContext.principalId,
+    createCoordinatorExecutionHostPorts().clockIdentity,
+  );
+  if (replay) return replay;
   const identity = readRepositorySnapshot(
     getRepository(repositoryRoot).capability,
   );
@@ -1664,33 +1895,40 @@ export async function executeCoordinatorPublicObjective(
       })
     );
   };
-  let eiGroup: { store: StoreOptions; groupId: string } | null = null;
+  const groupState: { group: { store: StoreOptions; groupId: string } | null } =
+    { group: null };
   const groupId = `group-${createHash("sha256").update(`${request.projectId}\0${request.requestId}`).digest("hex").slice(0, 40)}`;
-  try {
-    const repository = getRepository(repositoryRoot);
-    const store =
-      repository.status === "completed"
-        ? getExecutionIntelligenceStore(repository.capability, true)
-        : null;
-    if (store) {
-      const recorded = createGroup(store, {
-        groupId,
-        application: "CRDD",
-        operation: "objective_execution",
-        startedAt: new Date().toISOString(),
-        metadata: {
-          projectId: request.projectId,
-          requestId: request.requestId,
-        },
-      });
-      reportExecutionRecording(recorded);
-      if (recorded.status === "completed") eiGroup = { store, groupId };
-    } else {
-      reportExecutionRecordingUnavailable(groupId);
+  let groupAttempted = false;
+  const beginExecutionGroup = () => {
+    if (groupAttempted) return;
+    groupAttempted = true;
+    try {
+      const repository = getRepository(repositoryRoot);
+      const store =
+        repository.status === "completed"
+          ? getExecutionIntelligenceStore(repository.capability, true)
+          : null;
+      if (store) {
+        const recorded = createGroup(store, {
+          groupId,
+          application: "CRDD",
+          operation: "objective_execution",
+          startedAt: new Date().toISOString(),
+          metadata: {
+            projectId: request.projectId,
+            requestId: request.requestId,
+          },
+        });
+        reportExecutionRecording(recorded);
+        if (recorded.status === "completed")
+          groupState.group = { store, groupId };
+      } else {
+        reportExecutionRecordingUnavailable(groupId);
+      }
+    } catch (error) {
+      reportExecutionRecordingUnavailable(groupId, error);
     }
-  } catch (error) {
-    reportExecutionRecordingUnavailable(groupId, error);
-  }
+  };
   const execution = await executeAcceptedCoordinatorObjective(
     {
       authenticatedPrincipalId: authenticationContext.principalId,
@@ -1843,8 +2081,9 @@ export async function executeCoordinatorPublicObjective(
         }),
       observeRecoveryTransition: writeCoordinatorRecoveryDiagnostic,
       execution: {
-        runSingleTaskAttempt: (input) =>
-          runCoordinatorSingleTaskAttempt(
+        runSingleTaskAttempt: (input) => {
+          beginExecutionGroup();
+          return runCoordinatorSingleTaskAttempt(
             {
               startTask: (
                 taskRequest,
@@ -1864,18 +2103,27 @@ export async function executeCoordinatorPublicObjective(
                   {
                     ...executionMetadata,
                     ...(request.workType ? { workType: request.workType } : {}),
-                    ...(eiGroup ? { groupId: eiGroup.groupId } : {}),
+                    ...(groupState.group
+                      ? { groupId: groupState.group.groupId }
+                      : {}),
                   },
                 ),
               cancelTask: runtimeDependencies.cancelTask,
             },
             input,
-          ),
+          );
+        },
       },
     },
     request,
     cancellationSignal,
   );
+  if (
+    execution.contract === COORDINATOR_PUBLIC_RUNTIME_CONTRACT ||
+    execution.reason === "orchestrator_objective_request_reused"
+  )
+    return execution;
+  const eiGroup = groupState.group;
   if (eiGroup) {
     try {
       reportExecutionRecording(
@@ -2012,9 +2260,9 @@ function inspectBinding(raw: unknown, revision: string) {
  * @returns runCoordinatorObjectiveの計算結果を返す。
  * @precondition 「dependencies: CoordinatorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal」がrunCoordinatorObjectiveの入力契約を満たす。
  * @postcondition 検証済みの同じ受付Identityで実行し、停止結果を成功へ補正せず返す。
- * @effect 受付世代を観測し、既存保存PortとTask実行へ委譲する。停止以外の結果では同じRepositoryの終了後整理を呼ぶ。
+ * @effect 同じ実行IDの保存状態を観測し、既存保存PortとTask実行へ委譲する。停止以外の結果では同じRepositoryの終了後整理を呼ぶ。
  * @failure runCoordinatorObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant Binding・計画・受付世代の確認を実行より先に行い、終了後整理の不明をcleanup成功へ変えない。
+ * @invariant Binding・計画・要求相関の確認を実行より先に行い、終了後整理の不明をcleanup成功へ変えない。
  * @boundary Objective受付→Repositoryに結合した保存・実行Portの境界。
  * @security 認証済みPrincipalと検証済みBindingだけを接続し、Capabilityを公開結果へ含めない。
  * @concurrency 同じ取消Signalと保存世代を既存実行へ渡し、新しいLock・Writer・再試行を作らない。
@@ -2061,6 +2309,7 @@ async function executeAcceptedCoordinatorObjective(
 ) {
   if (
     !(cancellationSignal instanceof AbortSignal) ||
+    cancellationSignal.aborted ||
     !isPrincipalId(dependencies.authenticatedPrincipalId)
   )
     return blocked(
@@ -2084,6 +2333,15 @@ async function executeAcceptedCoordinatorObjective(
   }
   const binding = inspectBinding(rawBinding, request.repositoryRevision);
   if (!binding) return blocked(request, "orchestrator_binding_not_verified");
+  const hostPorts = createCoordinatorExecutionHostPorts();
+  const replay = readObjectiveReplay(
+    request,
+    binding.workingDirectory,
+    binding.repositoryBindingId,
+    dependencies.authenticatedPrincipalId,
+    hostPorts.clockIdentity,
+  );
+  if (replay) return replay;
 
   let rawPlan: unknown;
   try {
@@ -2099,29 +2357,12 @@ async function executeAcceptedCoordinatorObjective(
   if (!plan)
     return blocked(request, "orchestrator_plan_invalid_or_out_of_scope");
 
-  const hostPorts = createCoordinatorExecutionHostPorts();
-  const intake = {
-    epoch: request.intakeEpoch,
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    queueId: hostPorts.clockIdentity.createStableId("queue", [
-      binding.repositoryBindingId,
-      request.projectId,
-      request.milestoneId,
-      request.requestId,
-      dependencies.authenticatedPrincipalId,
-    ]),
-    requestHash: hostPorts.clockIdentity.createContentHash(
-      JSON.stringify({
-        ...request,
-        plan,
-        authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
-        acceptanceCriteria: [...request.acceptanceCriteria],
-        allowedPaths: [...request.allowedPaths],
-        readPaths: [...request.readPaths],
-      }),
-    ),
-  };
+  const intake = createObjectiveIntake(
+    request,
+    binding.repositoryBindingId,
+    dependencies.authenticatedPrincipalId,
+    hostPorts.clockIdentity,
+  );
   const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
@@ -2132,7 +2373,6 @@ async function executeAcceptedCoordinatorObjective(
       persistence: createCoordinatorSnapshotPersistencePorts(
         binding.workingDirectory,
         binding.repositoryBindingId,
-        request.intakeEpoch,
         intake,
       ),
       clockIdentity: hostPorts.clockIdentity,
@@ -2150,7 +2390,11 @@ async function executeAcceptedCoordinatorObjective(
     request,
     cancellationSignal,
   );
-  if (result.status === "blocked") return result;
+  if (
+    result.status === "blocked" ||
+    result.reason === "orchestrator_objective_request_reused"
+  )
+    return result;
   const maintenance = maintainCoordinatorSnapshot(
     binding.workingDirectory,
     binding.repositoryBindingId,

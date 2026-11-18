@@ -237,7 +237,7 @@ export type CallerTaskInput = Readonly<{
  * @compatibility 新形式だけを受け、旧Profile ID／Provider自動選択入力を拒否する。
  */
 export type CoordinatorObjectiveRequest = Readonly<{
-  intakeEpoch: string;
+  operation: "start" | "resume";
   requestId: string;
   projectId: string;
   milestoneId: string;

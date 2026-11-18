@@ -9,7 +9,9 @@ import {
   PROJECT_STATE_CONTRACT,
   type ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
+import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../objective/plan.ts";
 import { selectSchedulableProjectTasks } from "../task/scheduling.ts";
+import { inspectCoordinatorWorkspaceResults } from "../workspace/record.ts";
 import { validIdentity, validRevision } from "./validation.ts";
 
 /**
@@ -180,7 +182,6 @@ import type {
 } from "./types.ts";
 
 const resultKeys = new Set([
-  "intakeEpoch",
   "contract",
   "status",
   "reason",
@@ -291,6 +292,13 @@ export function inspectCoordinatorProjection(
 ): CoordinatorProjection | null {
   const record = snapshotPlainRecord(value, projectionKeys);
   if (!record) return null;
+  if (
+    typeof record.milestoneState !== "string" ||
+    typeof record.workProgress !== "string" ||
+    typeof record.qualityState !== "string" ||
+    typeof record.nextAction !== "string"
+  )
+    return null;
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
     OBJECTIVE_STATES,
@@ -340,12 +348,12 @@ export function inspectCoordinatorProjection(
       "accepted",
       "returned",
       "cancelled",
-    ].includes(String(record.milestoneState)) ||
+    ].includes(record.milestoneState) ||
     !["not_started", "in_progress", "tasks_complete"].includes(
-      String(record.workProgress),
+      record.workProgress,
     ) ||
     !["not_evaluated", "integration_pending", "accepted", "blocked"].includes(
-      String(record.qualityState),
+      record.qualityState,
     ) ||
     typeof record.humanDecisionRequired !== "boolean" ||
     typeof record.recoveryRequired !== "boolean" ||
@@ -357,7 +365,7 @@ export function inspectCoordinatorProjection(
       "human_decision",
       "recover",
       "complete",
-    ].includes(String(record.nextAction))
+    ].includes(record.nextAction)
   )
     return null;
   const projection = Object.freeze({
@@ -401,18 +409,15 @@ export function inspectCoordinatorStateQueryResult(
   const result = snapshotPlainRecord(value, resultKeys);
   if (
     !result ||
-    (result.status === "completed"
-      ? !validIdentity(result.intakeEpoch)
-      : result.intakeEpoch !== null) ||
+    typeof result.status !== "string" ||
+    typeof result.observationState !== "string" ||
     result.contract !== COORDINATOR_STATE_QUERY_CONTRACT ||
-    !["completed", "blocked"].includes(String(result.status)) ||
+    !["completed", "blocked"].includes(result.status) ||
     !validReason(result.reason) ||
     !validIdentity(result.requestId) ||
     !validIdentity(result.projectId) ||
     !validRevision(result.repositoryRevision) ||
-    !["observed", "absent", "unknown"].includes(
-      String(result.observationState),
-    ) ||
+    !["observed", "absent", "unknown"].includes(result.observationState) ||
     result.cleanupConfirmed !== true ||
     typeof result.manualRecoveryRequired !== "boolean" ||
     result.effectState !== "no_effect"
@@ -689,8 +694,323 @@ export function isCoordinatorObjectiveProjectionCorrelationValid(
 export const COORDINATOR_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/public-runtime/v2" as const;
 
+const OBJECTIVE_RESULT_KEYS = new Set([
+  "contract",
+  "status",
+  "reason",
+  "requestId",
+  "projectId",
+  "milestoneId",
+  "queueId",
+  "projection",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "processRestartRequired",
+  "recoveryIds",
+  "recoveryObligations",
+  "effectState",
+]);
+const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
+  "contract",
+  "status",
+  "reason",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "effectState",
+]);
+
+/**
+ * Objective結果の公開文字列を検査する。
+ * @responsibility 制御文字と既存の項目別境界を維持し、生の外部出力を返さない。
+ * @trace ARCH-000004
+ * @input 公開結果の候補値と項目別の既存上限。
+ * @returns 不正・不明ならnull又はfalse、成立時だけ所有済み値。
+ * @effect 外部Effect・認可・保存を行わない。
+ * @failure Getter・Proxy・欠測・相関不整合を正常結果へ補完しない。
+ * @boundary 未信頼の搬送結果とCoordinatorの公開値契約。
+ * @security 元参照の変更を結果へ持ち込まず、未許可fieldを透過しない。
+ */
+function objectiveResultText(value: unknown, maximum: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maximum &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
+  );
+}
+
+/**
+ * 回復参照と回復義務を同じ結果へ捕捉する。
+ * @responsibility 重複・欠測・集合差を拒否し、元のkindとexact参照を保持する。
+ * @trace ARCH-000004
+ * @input 回復ID配列と義務配列。
+ * @returns 不正・不明ならnull又はfalse、成立時だけ所有済み値。
+ * @effect 外部Effect・認可・保存を行わない。
+ * @failure Getter・Proxy・欠測・相関不整合を正常結果へ補完しない。
+ * @boundary 未信頼の搬送結果とCoordinatorの公開値契約。
+ * @security 元参照の変更を結果へ持ち込まず、未許可fieldを透過しない。
+ */
+function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
+  const ids = snapshotPlainArray(rawIds, Number.MAX_SAFE_INTEGER);
+  const obligations = snapshotPlainArray(
+    rawObligations,
+    Number.MAX_SAFE_INTEGER,
+  );
+  if (ids.status !== "ok" || obligations.status !== "ok") return null;
+  const copiedIds: string[] = [];
+  for (const id of ids.value) {
+    if (
+      !objectiveResultText(id, 512) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(id)
+    )
+      return null;
+    copiedIds.push(id);
+  }
+  const copiedObligations: Readonly<{ kind: string; recoveryId: string }>[] =
+    [];
+  for (const raw of obligations.value) {
+    const entry = snapshotPlainRecord(raw, new Set(["kind", "recoveryId"]));
+    if (
+      !entry ||
+      typeof entry.kind !== "string" ||
+      ![
+        "host",
+        "docker",
+        "candidate",
+        "candidate_store",
+        "runtime_process",
+      ].includes(entry.kind) ||
+      !objectiveResultText(entry.recoveryId, 512) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(entry.recoveryId)
+    )
+      return null;
+    copiedObligations.push(
+      Object.freeze({
+        kind: entry.kind,
+        recoveryId: entry.recoveryId,
+      }),
+    );
+  }
+  if (
+    new Set(copiedIds).size !== copiedIds.length ||
+    new Set(
+      copiedObligations.map((entry) => `${entry.kind}\0${entry.recoveryId}`),
+    ).size !== copiedObligations.length ||
+    copiedIds.length !==
+      new Set(copiedObligations.map((entry) => entry.recoveryId)).size ||
+    copiedIds.some(
+      (id) => !copiedObligations.some((entry) => entry.recoveryId === id),
+    )
+  )
+    return null;
+  return Object.freeze({
+    recoveryIds: Object.freeze(copiedIds),
+    recoveryObligations: Object.freeze(copiedObligations),
+  });
+}
+
+/**
+ * 実行前後のRuntime停止結果を独立捕捉する。
+ * @responsibility 不明・cleanup・手動確認とopaque回復参照の相関を維持する。
+ * @trace ARCH-000004
+ * @input 未信頼の停止結果と許可済み契約。
+ * @returns 不正・不明ならnull又はfalse、成立時だけ所有済み値。
+ * @effect 外部Effect・認可・保存を行わない。
+ * @failure Getter・Proxy・欠測・相関不整合を正常結果へ補完しない。
+ * @boundary 未信頼の搬送結果とCoordinatorの公開値契約。
+ * @security 元参照の変更を結果へ持ち込まず、未許可fieldを透過しない。
+ */
+function publicBlockedSnapshot(
+  raw: unknown,
+  expectedContracts: ReadonlySet<string>,
+) {
+  const record =
+    snapshotPlainRecord(raw, PUBLIC_BLOCKED_RESULT_KEYS) ??
+    snapshotPlainRecord(
+      raw,
+      new Set([...PUBLIC_BLOCKED_RESULT_KEYS, "recoveryIds"]),
+    );
+  if (
+    !record ||
+    typeof record.contract !== "string" ||
+    typeof record.effectState !== "string" ||
+    !expectedContracts.has(record.contract) ||
+    record.status !== "blocked" ||
+    !objectiveResultText(record.reason, 256) ||
+    typeof record.cleanupConfirmed !== "boolean" ||
+    typeof record.manualRecoveryRequired !== "boolean" ||
+    !["no_effect", "settled", "unknown"].includes(record.effectState) ||
+    (record.effectState === "unknown" &&
+      (record.cleanupConfirmed !== false ||
+        record.manualRecoveryRequired !== true)) ||
+    (record.effectState !== "unknown" &&
+      (record.cleanupConfirmed !== true ||
+        record.manualRecoveryRequired !== false))
+  )
+    return null;
+  if (Object.hasOwn(record, "recoveryIds")) {
+    const ids = snapshotPlainArray<string>(
+      record.recoveryIds,
+      Number.MAX_SAFE_INTEGER,
+    );
+    if (
+      ids.status !== "ok" ||
+      ids.value.some(
+        (id) =>
+          !objectiveResultText(id, 512) ||
+          !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(id),
+      ) ||
+      new Set(ids.value).size !== ids.value.length ||
+      (ids.value.length > 0 && record.effectState !== "unknown")
+    )
+      return null;
+    return Object.freeze({
+      ...record,
+      recoveryIds: Object.freeze([...ids.value]),
+    });
+  }
+  return Object.freeze({ ...record });
+}
+
+/**
+ * Objectiveの完成結果を同期で受け付ける。
+ * @responsibility 投影・終了・回復義務・Workspaceの相関をOwner内で完結させる。
+ * @trace ARCH-000004
+ * @input 未信頼結果と要求したWorkspace ID（省略時も結果内の同一性を検査）。
+ * @returns 不正・不明ならnull又はfalse、成立時だけ所有済み値。
+ * @effect 外部Effect・認可・保存を行わない。
+ * @failure Getter・Proxy・欠測・相関不整合を正常結果へ補完しない。
+ * @boundary 未信頼の搬送結果とCoordinatorの公開値契約。
+ * @security 元参照の変更を結果へ持ち込まず、未許可fieldを透過しない。
+ */
+export function inspectCoordinatorObjectiveResult(
+  raw: unknown,
+  expectedWorkspaceId?: string | null,
+): Readonly<Record<string, unknown>> | null {
+  const simple = publicBlockedSnapshot(
+    raw,
+    new Set([COORDINATOR_PUBLIC_RUNTIME_CONTRACT]),
+  );
+  if (simple) return simple;
+  const objective =
+    snapshotPlainRecord(raw, OBJECTIVE_RESULT_KEYS) ??
+    snapshotPlainRecord(
+      raw,
+      new Set([...OBJECTIVE_RESULT_KEYS, "workspaceResults"]),
+    );
+  if (objective) {
+    if (
+      typeof objective.status !== "string" ||
+      typeof objective.effectState !== "string"
+    )
+      return null;
+    const workspaceResults = Object.hasOwn(objective, "workspaceResults")
+      ? inspectCoordinatorWorkspaceResults(
+          objective.workspaceResults,
+          expectedWorkspaceId,
+        )
+      : undefined;
+    const recoveries = recoverySnapshot(
+      objective.recoveryIds,
+      objective.recoveryObligations,
+    );
+    const projection =
+      objective.projection === null
+        ? null
+        : inspectCoordinatorProjection(objective.projection);
+    // Task処理の完了と、Objective全体の採用完了は異なる。
+    // 内部進行値は変更せず、公開値だけを既存の採用相関へ合わせる。
+    const status =
+      objective.status === "completed" &&
+      projection !== null &&
+      projection.milestoneState !== "accepted"
+        ? "blocked"
+        : objective.status;
+    const hasRecovery = Boolean(recoveries?.recoveryIds.length);
+    const hasRuntimeProcessRecovery = Boolean(
+      recoveries?.recoveryObligations.some(
+        (entry) => entry.kind === "runtime_process",
+      ),
+    );
+    const isCorrelationValid =
+      projection === null ||
+      isCoordinatorObjectiveProjectionCorrelationValid(
+        {
+          status: status as "completed" | "blocked" | "cancelled",
+          cleanupConfirmed: Boolean(objective.cleanupConfirmed),
+          manualRecoveryRequired: Boolean(objective.manualRecoveryRequired),
+          processRestartRequired: Boolean(objective.processRestartRequired),
+          effectState: objective.effectState as
+            | "no_effect"
+            | "settled"
+            | "unknown",
+          recoveryCount: recoveries?.recoveryIds.length ?? 0,
+        },
+        projection,
+      );
+    if (
+      objective.contract !== COORDINATOR_OBJECTIVE_INTAKE_CONTRACT ||
+      (workspaceResults === null && objective.status === "completed") ||
+      !["completed", "blocked", "cancelled"].includes(objective.status) ||
+      !objectiveResultText(objective.reason, 256) ||
+      !validIdentity(objective.requestId) ||
+      !validIdentity(objective.projectId) ||
+      !validIdentity(objective.milestoneId) ||
+      (objective.queueId !== null && !validIdentity(objective.queueId)) ||
+      (objective.projection !== null && !projection) ||
+      (projection !== null &&
+        (projection.projectId !== objective.projectId ||
+          projection.milestoneId !== objective.milestoneId)) ||
+      typeof objective.cleanupConfirmed !== "boolean" ||
+      typeof objective.manualRecoveryRequired !== "boolean" ||
+      typeof objective.processRestartRequired !== "boolean" ||
+      !recoveries ||
+      !isCorrelationValid ||
+      !["no_effect", "settled", "unknown"].includes(objective.effectState) ||
+      (objective.status === "completed" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false ||
+          objective.processRestartRequired !== false ||
+          recoveries.recoveryIds.length !== 0 ||
+          objective.effectState === "unknown")) ||
+      (objective.effectState === "unknown" &&
+        (objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true)) ||
+      (objective.effectState !== "unknown" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false)) ||
+      (hasRecovery &&
+        (objective.status !== "blocked" ||
+          objective.effectState !== "unknown" ||
+          objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true)) ||
+      (objective.status === "cancelled" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false ||
+          objective.processRestartRequired !== false ||
+          hasRecovery ||
+          !["no_effect", "settled"].includes(objective.effectState))) ||
+      objective.processRestartRequired !== hasRuntimeProcessRecovery ||
+      (objective.processRestartRequired === true &&
+        (objective.status !== "blocked" ||
+          objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true ||
+          objective.effectState !== "unknown"))
+    )
+      return null;
+    return Object.freeze({
+      ...objective,
+      status,
+      projection,
+      ...recoveries,
+      ...(workspaceResults === undefined ? {} : { workspaceResults }),
+    });
+  }
+  return null;
+}
+
 export const COORDINATOR_STATE_QUERY_CONTRACT =
-  "crdd-coordinator/orchestrator-state-query/v1" as const;
+  "crdd-coordinator/orchestrator-state-query/v2" as const;
 
 const queryKeys = new Set([
   "requestId",

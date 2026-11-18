@@ -58,7 +58,9 @@ import {
   MCP_TOPIC_MEETING_TOOLS,
   MCP_RUNTIME_READ_TOOL,
   MCP_RUNTIME_MANAGE_TOOL,
-  type McpCoordinatorDependencies,
+} from "../../src/index.ts";
+import type { McpCoordinatorDependencies } from "@qual-lab/crdd-mcp/automation";
+import {
   readMcpServerConfiguration,
   startMcpAuthenticatedStreamableHttp,
   startMcpCoordinatorStreamableHttp,
@@ -466,14 +468,13 @@ function dependencies(
     runObjective: async () => assert.fail("objective not expected"),
     submitDecision: async () => assert.fail("decision not expected"),
     getProjectState: async (request) => ({
-      contract: "crdd-coordinator/orchestrator-state-query/v1",
+      contract: "crdd-coordinator/orchestrator-state-query/v2",
       status: "completed",
       reason: "orchestrator_state_absent",
       requestId: request.requestId,
       projectId: request.projectId,
       repositoryRevision: request.repositoryRevision,
       observationState: "absent",
-      intakeEpoch: "fixture-epoch",
       projection: null,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
@@ -1784,7 +1785,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v4",
               status: "cancelled",
               reason: "orchestrator_transport_disconnected",
               requestId: "objective-a",
@@ -1815,6 +1816,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
       _meta: META,
       name: "crdd.run_objective",
       arguments: withCallerPlan({
+        operation: "start" as const,
         requestId: "objective-a",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -1827,7 +1829,6 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
-        intakeEpoch: "fixture-epoch",
       }),
     },
   };
@@ -1890,7 +1891,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
             markAborted?.();
             releaseHandler = () =>
               resolve({
-                contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+                contract: "crdd-coordinator/orchestrator-objective-intake/v4",
                 status: "cancelled",
                 reason: "orchestrator_transport_shutdown",
                 requestId: "objective-signal",
@@ -1920,6 +1921,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
       _meta: META,
       name: "crdd.run_objective",
       arguments: withCallerPlan({
+        operation: "start" as const,
         requestId: "objective-signal",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -1932,7 +1934,6 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
-        intakeEpoch: "fixture-epoch",
       }),
     },
   };

@@ -448,6 +448,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
       ].includes(String(candidate.status)) &&
       isNullableString(candidate.reason) &&
       aiResultItemsAreValid(candidate.facts) &&
+      typeof candidate.resultAvailable === "boolean" &&
       aiResultItemsAreValid(candidate.sharedAnalysis) &&
       aiResultItemsAreValid(candidate.additionalInferences) &&
       aiResultItemsAreValid(candidate.nextOptions) &&

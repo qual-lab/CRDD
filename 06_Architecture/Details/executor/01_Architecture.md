@@ -1,5 +1,7 @@
 # Provider単段Executorの詳細設計
 
+通常起動の`startDockerEnvironment`と`EnvironmentStartRequest`／`EnvironmentStartResult`はDI正本を直接再公開する。独自起動手順・Wrapperは追加しない。停止／再起動／修復を含まない通常起動の実施判断はCoordinatorが所有する。
+
 ## 旧固定構成の有限Oracleと接続試験の所有 — 2026-11-14
 
 Executorが構築する固定入力を旧九argvへ写像する有限Oracleは、tests/support/isolation-plan.tsが所有する。旧固定Runtimeはtests/support/isolation-execution.tsへ置き、技術処理そのものはDIの既存実装を呼ぶ。製品のCompiler・Runtime・公開IFへ戻さず、型のコピーや転送入口も追加しない。
@@ -326,7 +328,7 @@ executor/src/
   └ cleanup.ts                元Snapshotの明示観測・単独回収をDIへ直接接続
 ```
 
-環境二操作はindex.tsからDIの同じ関数を直接再exportする。Executor内に環境用の独立実行Ownerや型定義を重複させない。
+環境三操作はindex.tsからDIの同じ関数を直接再exportする。Executor内に環境用の独立実行Ownerや型定義を重複させない。
 
 助言CommandはcreateExecutorへ渡された確定入力から内部構築する。上位へCommandを公開せず、専用の事前構築API・PreparedAdviceCommand・Command Hash往復は廃止する。Advice要求は共通のtarget／selectionと本文・許可参照・Network Policyだけを受ける。選定の識別種別・用途・Provider・Model・推論強度、本文長と参照、PolicyのProvider・正規Hashを既存Ownerで検査する。Policyは通常dataへ捕捉して固定し、後発変更を採用しない。上位Commandを含む旧要求は互換受理しない。
 
@@ -426,7 +428,7 @@ lifecycle/attempt.tsは固定Requestを共通DIの元準備へ渡し、同じ一
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | lifecycle/types.ts | 実Process開始と非秘密診断 |
 | `ExecutorRequest<K>`、`RecordProjection<K>` | lifecycle/types.ts → 用途別types.ts | 解決済み要求と実在する記録投影。固定Probeへ架空の投影は追加しない |
 | `Executor.start` | lifecycle/attempt.ts → lifecycle/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
-| 通常Rootの関数 | index.ts | 上記5関数に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
+| 通常Rootの関数 | index.ts | 通常起動の直接再公開を含む6関数に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
 
 TaskResultとAdviceResultの正本はAI Adapterであり、Executor Rootから再公開しない。CompletionResult<"attempt">.normalizedResultはその用途別内容だけを保持する。providerExecutionObservation、providerTurnObservation、reviewFindingsは固定nullableの外側fieldとする。正常完了・清掃確認・内容ありの共同成立時だけ保持し、それ以外はnullへ戻す。Executorの結果は是正許可や選定記録IDを含めず、上位の既存操作記録と原結果objectの相関で管理する。
 

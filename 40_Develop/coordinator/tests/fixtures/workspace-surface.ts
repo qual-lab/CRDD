@@ -78,11 +78,7 @@ export function prepareWorkspaceSurface(
     saveProjectExecutionState(repository, binding, created.state, 0).status,
     "completed",
   );
-  const ports = createCoordinatorSnapshotPersistencePorts(
-    root,
-    binding,
-    initialized.value,
-  );
+  const ports = createCoordinatorSnapshotPersistencePorts(root, binding);
   for (const queueId of ["queue-a", "queue-b"]) {
     const result = ports.state.enqueueOperation({
       queueId,
@@ -115,19 +111,14 @@ export function readFixtureSnapshot(root: string, binding: string) {
   });
   if (read.status !== "completed" || !read.value)
     return { ...read, value: null };
-  assert.ok(
-    read.value.snapshot.repositoryBindingId !== null &&
-      read.value.snapshot.intakeEpoch !== null,
-  );
+  assert.ok(read.value.snapshot.repositoryBindingId !== null);
   const projected = {
-    schema: "crdd-execution-model/project-snapshot/v7" as const,
-    schemaRevision: 7 as const,
+    schema: "crdd-execution-model/project-snapshot/v9" as const,
+    schemaRevision: 9 as const,
     repositoryRootHash: read.value.snapshot.repositoryBinding,
     repositoryBindingId: read.value.snapshot.repositoryBindingId,
-    intakeEpoch: read.value.snapshot.intakeEpoch,
     snapshotRevision: read.value.snapshot.revision,
     projects: read.value.projects,
-    intakeBindings: read.value.snapshot.intakeBindings,
     queueEntries: read.value.snapshot.queueEntries,
     workspaces: read.value.snapshot.workspaces,
     leaseEvidence: read.value.snapshot.leaseEvidence,
@@ -250,11 +241,7 @@ export function fixture(t: TestContext, independent = false) {
     ).status,
     "completed",
   );
-  const ports = createCoordinatorSnapshotPersistencePorts(
-    root,
-    binding,
-    initialized.value,
-  );
+  const ports = createCoordinatorSnapshotPersistencePorts(root, binding);
   const queued = ports.state.enqueueOperation({
     queueId: "queue-a",
     projectId: "project-a",

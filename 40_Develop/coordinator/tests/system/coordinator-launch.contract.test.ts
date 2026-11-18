@@ -13,6 +13,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveCoordinatorLaunch } from "../../src/cli/command.ts";
+import * as coordinatorRoot from "../../src/index.ts";
+
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const root = path.resolve(packageRoot, "../..");
 const launcher = path.join(packageRoot, "bin/coordinator.ts");
@@ -37,16 +39,24 @@ const terminal = {
 test("新文法は対象と操作を一意に解決し機械出力条件を維持する", () => {
   for (const args of [
     [
-      "task",
       "run",
+      "advice",
       "--request-stdin",
       "--json",
       "--principal-id",
       "local.email.fixture@example.invalid",
     ],
     [
-      "project",
       "run",
+      "task",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    [
+      "run",
+      "objective",
       "--request-stdin",
       "--json",
       "--principal-id",
@@ -63,7 +73,7 @@ test("新文法は対象と操作を一意に解決し機械出力条件を維�
   }
   assert.equal(
     resolveCoordinatorLaunch(["project", "init", "--json"], terminal).status,
-    "ready",
+    "blocked",
   );
   for (const args of [
     [
@@ -73,8 +83,24 @@ test("新文法は対象と操作を一意に解決し機械出力条件を維�
       "--principal-id",
       "local.email.fixture@example.invalid",
     ],
-    ["task", "run", "--request-stdin", "--json"],
-    ["project", "run", "--request-stdin", "--json"],
+    [
+      "task",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    [
+      "project",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    ["run", "task", "--request-stdin", "--json"],
+    ["run", "objective", "--request-stdin", "--json"],
     ["project", "--initialize", "--json"],
     ["automation", "capabilities", "--json"],
     ["interactive", "doctor"],
@@ -140,7 +166,7 @@ test("公開helpと能力一覧は新文法だけを案内する", () => {
       timeout: 15000,
     });
     assert.equal(child.status, 0, child.stderr);
-    assert.match(child.stdout, /task run --request-stdin --json/);
+    assert.match(child.stdout, /run task --request-stdin --json/);
     assert.doesNotMatch(
       child.stdout,
       /automation|interactive|verify-routes|sign-release/,
@@ -153,13 +179,25 @@ test("公開helpと能力一覧は新文法だけを案内する", () => {
   );
   assert.equal(child.status, 0, child.stderr);
   const value = JSON.parse(child.stdout);
-  assert.equal(value.contractRevision, 6);
+  assert.equal(value.contractRevision, 11);
   assert.equal(value.executionAuthorityIssued, false);
   assert.ok(value.operations.includes("runTask"));
   assert.ok(
     value.commands.some(
+      (command: { command: string }) => command.command === "run advice",
+    ),
+  );
+  assert.equal(value.operations.includes("readRepositoryAiSelection"), false);
+  assert.equal(value.operations.includes("saveRepositoryAiSelection"), false);
+  for (const operation of value.operations)
+    assert.equal(
+      typeof (coordinatorRoot as Record<string, unknown>)[operation],
+      "function",
+    );
+  assert.ok(
+    value.commands.some(
       (c: { invocation: string }) =>
-        c.invocation === "recovery resume <id> [--json]",
+        c.invocation === "recovery resume <id> [--restart-docker] [--json]",
     ),
   );
 });
@@ -245,10 +283,15 @@ test("同一Processの配送はPID・引数・stdin・cwdを維持し例外を�
   const command = pathToFileURL(
     path.join(packageRoot, "src/cli/command.ts"),
   ).href;
-  for (const fail of [false, true]) {
+  for (const { fail, operation } of [
+    { fail: false, operation: "task" },
+    { fail: true, operation: "task" },
+    { fail: false, operation: "advice" },
+    { fail: true, operation: "advice" },
+  ]) {
     const script = `import {mock} from"node:test";
  mock.module(${JSON.stringify(request)},{namedExports:{runProjectCommand:async()=>{},runSingleTaskCommand:async(args)=>{if(${fail})throw Error("PRIVATE_FIXTURE_DETAIL");const chunks=[];for await(const c of process.stdin)chunks.push(c);console.log(JSON.stringify({pid:process.pid,args,cwd:process.cwd(),input:Buffer.concat(chunks).toString("hex")}));process.exitCode=37;}}});
- const {runCoordinatorCommand}=await import(${JSON.stringify(command)});await runCoordinatorCommand(["task","run","--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);`;
+ const {runCoordinatorCommand}=await import(${JSON.stringify(command)});await runCoordinatorCommand(["run",${JSON.stringify(operation)},"--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);`;
     const input = Buffer.from('{"text":"日本語"}\n');
     const child = spawnSync(
       process.execPath,
@@ -270,7 +313,7 @@ test("同一Processの配送はPID・引数・stdin・cwdを維持し例外を�
       assert.deepEqual(JSON.parse(child.stdout), {
         pid: child.pid,
         args: [
-          "run",
+          operation,
           "--request-stdin",
           "--json",
           "--principal-id",

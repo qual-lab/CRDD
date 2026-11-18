@@ -28,6 +28,21 @@ export interface DesktopOperations {
   close(): Promise<boolean>;
 }
 
+/** 停止を伴わない通常起動。上位の現在境界を各Effect前に確認する。 */
+export type EnvironmentStartRequest = Readonly<{
+  signal: AbortSignal;
+  verifyBoundary: () => unknown;
+}>;
+
+/** 起動要求、Engine応答、観測ProcessとLockの終了を別事実として返す。 */
+export type EnvironmentStartResult = Readonly<{
+  status: "ready" | "blocked";
+  reason: string;
+  requestState: "not_issued" | "issued" | "unknown";
+  engineReady: boolean;
+  cleanupConfirmed: boolean;
+}>;
+
 /** wx取得の途中失敗による残存を、操作未取得と別に保持する。 */
 export type DesktopAcquisition = Readonly<{
   operations: DesktopOperations | null;

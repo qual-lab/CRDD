@@ -234,6 +234,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
        * @boundary 有限Ownerから実HTTP公開値。
        */
       const unavailable = (requestId: string): WorkbenchAiRequestSnapshot => ({
+        resultAvailable: false,
         requestId,
         mode: null,
         executionSelection: null,
@@ -365,6 +366,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     });
   const command = {
     operation: "start",
+    requestId: "shared-task-request",
     mode: "read_only_advice",
     workType: "",
     prompt: "合成入力",
@@ -496,6 +498,7 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
   let cancels = 0;
   const id = "request-before-restart";
   let saved: WorkbenchAiRequestSnapshot = {
+    resultAvailable: false,
     requestId: id,
     mode: "read_only_advice",
     executionSelection: executionSelection("advice"),

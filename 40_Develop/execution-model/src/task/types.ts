@@ -191,6 +191,7 @@ export type QueueEnqueueInput = Omit<
   | "resumeCondition"
   | "resultReference"
   | "singleTask"
+  | "historySettled"
   | "milestoneId"
 > &
   Readonly<{ milestoneId: string }>;
@@ -209,6 +210,7 @@ export type QueueEnqueueInput = Omit<
 
 export type ProjectQueueEntry = Readonly<{
   queueId: string;
+  historySettled: boolean;
   projectId: string;
   milestoneId: string | null;
   requestHash: string;

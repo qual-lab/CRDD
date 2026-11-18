@@ -108,6 +108,192 @@ import type {
   ResourceCleanupResult,
 } from "./types.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
+import {
+  loadDockerProbeRecoveryRecord,
+  parseDockerProbeRecoveryToken,
+} from "../state/probe-record.ts";
+
+/**
+ * 現在の回復記録を非秘密の保存観測へ投影する。
+ * @responsibility 保存時点の状態だけを選び、実資源の現在性を推測しない。
+ * @trace ARCH-000008
+ * @input 既存Readerが検査した操作記録。
+ * @returns Path・Identity本文を含まない保存観測。
+ * @effect 外部Effectなし。
+ * @security 資源ID、Mount、環境値、内部Hashを公開しない。
+ */
+function projectRecoveryRecord(operation: OperationRecord) {
+  const common = {
+    phase: operation.phase,
+    outcome:
+      operation.outcome === null
+        ? null
+        : Object.freeze({
+            status: operation.outcome.status,
+            cleanupConfirmed: operation.outcome.cleanupConfirmed,
+          }),
+    historyConfirmed: operation.history?.confirmed ?? null,
+  };
+  if (operation.kind === "runtime_repair")
+    return Object.freeze({
+      ...common,
+      kind: operation.kind,
+      disposition: operation.disposition,
+      resources: null,
+    });
+  return Object.freeze({
+    ...common,
+    kind: operation.kind,
+    lease: operation.lease,
+    hostCleanup: operation.host.cleanup,
+    resources:
+      operation.resources === null
+        ? null
+        : Object.freeze(
+            operation.resources.checkpoints.map((item) =>
+              Object.freeze({
+                key: item.key,
+                submission: item.submission,
+                observation: item.observation,
+              }),
+            ),
+          ),
+  });
+}
+
+/**
+ * 元の回復参照に一致する現在の保存記録だけを照会する。
+ * @responsibility 不一致、観測不能、保存時点の観測を分離する。
+ * @trace ARCH-000008
+ * @input exact回復ID、現在RepositoryのCapability、取消Signal。
+ * @returns recorded／not_recorded／unknown。Docker資源の現在状態は観測しない。
+ * @precondition 信頼した入口が現在Repositoryの読取りを許可している。
+ * @postcondition 照会から回復・再起動・初期化・清掃を発行しない。
+ * @effect 既存Readerの短期Lockと、Probeの元記録の読取りだけ。
+ * @failure 不正ID、破損、途中保存、解放不明、取消は固定理由で停止する。
+ * @invariant not_recordedを資源不存在又は再実行許可へ読み替えない。
+ * @boundary 保存正本と公開照会。
+ * @security 記録全体、Path、資格情報、生例外を返さない。
+ * @concurrency 同じReader断面で相関し、Lock解放確認後だけ記録を公開する。
+ */
+export function readRuntimeOwnedRecovery(
+  recoveryId: string,
+  rootCapability: unknown,
+  signal: AbortSignal,
+) {
+  const result = (
+    observationState: "recorded" | "not_recorded" | "unknown",
+    reason: string,
+    lockReleased: boolean,
+    record: ReturnType<typeof projectRecoveryRecord> | null = null,
+  ) =>
+    Object.freeze({
+      contract: "crdd-coordinator/recovery-observation/v1" as const,
+      status:
+        observationState === "unknown"
+          ? ("blocked" as const)
+          : ("completed" as const),
+      reason,
+      recoveryId,
+      observationState,
+      record,
+      dockerResourcesObserved: false as const,
+      lockReleased,
+    });
+  const cancellation = readExecutionCancellation(signal);
+  if (cancellation !== false)
+    return result(
+      "unknown",
+      cancellation === true
+        ? "coordinator_recovery_observation_cancelled"
+        : "coordinator_recovery_signal_invalid",
+      true,
+    );
+  let probe: ReturnType<typeof parseDockerProbeRecoveryToken> | null = null;
+  try {
+    if (recoveryId.startsWith("docker-task.")) {
+      if (!parseDockerTaskRecoveryId(recoveryId)) throw Error();
+    } else if (recoveryId.startsWith("docker-runtime-repair.")) {
+      if (
+        !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId)
+      )
+        throw Error();
+    } else if (recoveryId.startsWith("host.")) {
+      parseHostRecoveryToken(recoveryId);
+    } else {
+      probe = parseDockerProbeRecoveryToken(recoveryId);
+    }
+  } catch {
+    return result("unknown", "coordinator_recovery_id_invalid", true);
+  }
+  let lockReleased = false;
+  try {
+    const observed = readState(rootCapability, { scope: "recovery" });
+    lockReleased = observed.lockReleased;
+    if (readExecutionCancellation(signal) !== false)
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_cancelled",
+        lockReleased,
+      );
+    if (
+      observed.status !== "completed" ||
+      !lockReleased ||
+      observed.value === null
+    )
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_unknown",
+        lockReleased,
+      );
+    const matches = observed.value.snapshot.operations.filter((operation) => {
+      if (probe !== null) {
+        if (operation.kind !== "docker_task") return false;
+        const identity = JSON.parse(operation.identityJson);
+        return (
+          identity.operationMode === "boolean_probe" &&
+          path.basename(identity.hostPaths.root) === probe.rootName
+        );
+      }
+      return (
+        operation.recoveryId === recoveryId ||
+        (operation.kind === "docker_task" &&
+          operation.host.currentToken === recoveryId)
+      );
+    });
+    if (matches.length === 0)
+      return result("not_recorded", "coordinator_recovery_not_recorded", true);
+    if (matches.length !== 1 || !matches[0])
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_unknown",
+        true,
+      );
+    const operation = matches[0];
+    if (probe !== null) {
+      const identity = JSON.parse(operation.identityJson);
+      loadDockerProbeRecoveryRecord(recoveryId, identity.hostPaths.root);
+    }
+    if (readExecutionCancellation(signal) !== false)
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_cancelled",
+        true,
+      );
+    return result(
+      "recorded",
+      "coordinator_recovery_recorded",
+      true,
+      projectRecoveryRecord(operation),
+    );
+  } catch {
+    return result(
+      "unknown",
+      "coordinator_recovery_observation_unknown",
+      lockReleased,
+    );
+  }
+}
 /**
  * docker-cleanup-eligibilityで使用するDocker 清掃 Handoff 候補の値契約を定義する。
  *

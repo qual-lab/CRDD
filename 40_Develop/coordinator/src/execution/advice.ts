@@ -22,12 +22,14 @@ import type { RecordedAttemptResult } from "./types.ts";
 type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
 import { createFilesystemRepositoryObservationPort } from "../../../document-model/src/index.ts";
+import { startDockerEnvironment } from "../../../executor/src/index.ts";
 import {
+  getRepository,
   type Repository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-
 import { readRepositoryNetworkHosts } from "../decision/external-send-policy.ts";
+import { getIsolationSettings } from "./configuration.ts";
 import {
   type AdviceTaskPacket,
   issueRuntimeOwnedProviderAdvicePacket,
@@ -1104,7 +1106,10 @@ interface ProviderAdviceCallbacks {
  */
 export type ProviderAdviceRuntimeDependencies = Readonly<{
   recoveryCorrelationId?: string;
-  createOperation: () => Promise<Operation>;
+  createOperation: (
+    signal: AbortSignal,
+    verifyBoundary: () => boolean,
+  ) => Promise<Operation>;
   bindRepository: (
     managementCapability: unknown,
   ) => Readonly<{ operationId: string }> | null;
@@ -1279,7 +1284,13 @@ function createProviderAdviceRuntime(
     };
 
     try {
-      operation = await dependencies.createOperation();
+      operation = await dependencies.createOperation(
+        cancellationSignal,
+        () =>
+          !cancellationSignal.aborted &&
+          !isRuntimeProcessEffectBlocked() &&
+          safePlan(plan),
+      );
       if (cancellationSignal.aborted)
         throw new AdviceRuntimeError(
           "workbench_ai_advice_cancelled_during_operation_creation",
@@ -1660,7 +1671,9 @@ function createProviderAdviceRuntime(
         result,
         Object.freeze({
           cleanupConfirmed,
-          manualRecoveryRequired: !cleanupConfirmed,
+          manualRecoveryRequired:
+            !cleanupConfirmed ||
+            initializationFailure?.manualRecoveryRequired === true,
           hostRecoveryId: cleanupConfirmed
             ? null
             : (operation?.hostRecoveryId ??
@@ -1975,7 +1988,37 @@ function createProductionDependencies(
   repositoryRoot: string,
 ): ProviderAdviceRuntimeDependencies {
   return Object.freeze<ProviderAdviceRuntimeDependencies>({
-    createOperation: createProductionOperation,
+    createOperation: async (signal, current) => {
+      const verifyBoundary = () => {
+        try {
+          return (
+            !signal.aborted &&
+            current() === true &&
+            getRepository(repositoryRoot).status === "completed"
+          );
+        } catch {
+          return false;
+        }
+      };
+      const startup = await startDockerEnvironment(
+        { signal, verifyBoundary },
+        getIsolationSettings(),
+      );
+      if (startup.status !== "ready" || !verifyBoundary())
+        throw new AdviceRuntimeError(
+          startup.status === "ready"
+            ? "docker_environment_start_boundary_unconfirmed"
+            : startup.reason,
+          {
+            hostRecoveryId: null,
+            cleanupConfirmed: startup.cleanupConfirmed,
+            manualRecoveryRequired:
+              !startup.cleanupConfirmed ||
+              startup.requestState !== "not_issued",
+          },
+        );
+      return createProductionOperation();
+    },
     bindRepository: (managementCapability) =>
       bindRuntimeOwnedRepositoryOperation(managementCapability, repositoryRoot),
     observeProviderHome: inspectRuntimeOwnedWindowsProviderHomeCandidate,

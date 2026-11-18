@@ -18,7 +18,7 @@ import type {
   AcceptanceDecision,
   ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { acceptResult } from "../../src/decision/acceptance.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
@@ -103,7 +103,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       "accept",
       "objective",
     );
-    const accepted = executeCoordinatorPublicAcceptanceDecision(
+    const accepted = acceptResult(
       objectiveRequest,
       repository.root,
       Object.freeze({ principalId: "operator-a" }),
@@ -138,9 +138,9 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
             return Reflect.apply(originalRename, fs, [from, to]);
           }) as typeof originalRename)
         : null;
-    let result: ReturnType<typeof executeCoordinatorPublicAcceptanceDecision>;
+    let result: ReturnType<typeof acceptResult>;
     try {
-      result = executeCoordinatorPublicAcceptanceDecision(
+      result = acceptResult(
         milestoneRequest,
         repository.root,
         Object.freeze({ principalId: "operator-a" }),
@@ -172,7 +172,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       "state.json",
     );
     const beforeResend = fs.readFileSync(stateFile);
-    const resent = executeCoordinatorPublicAcceptanceDecision(
+    const resent = acceptResult(
       milestoneRequest,
       repository.root,
       Object.freeze({ principalId: "operator-a" }),

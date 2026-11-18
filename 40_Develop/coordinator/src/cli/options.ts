@@ -97,40 +97,78 @@ export function parseDoctorArguments(
   const args = snapshot.value,
     json = args.includes("--json");
   const [target, action, ...tail] = args;
-  const definitions: Readonly<Record<string, readonly string[]>> = {
-    doctor: ["check", "isolation"],
-    recovery: ["resume", "restart-docker"],
-    maintenance: ["repair-docker", "retain-repair"],
-  };
-  if (
-    !target ||
-    !action ||
-    !Object.hasOwn(definitions, target) ||
-    !definitions[target]?.includes(action)
-  )
-    return response("blocked", "doctor_arguments_invalid", null, json);
-  const needsId = target === "recovery" || action === "retain-repair";
-  const recoveryId = needsId ? (tail[0] ?? null) : null;
-  const flags = needsId ? tail.slice(1) : tail;
-  if (
-    (needsId && (!recoveryId || recoveryId.startsWith("--"))) ||
-    flags.length > 1 ||
-    (flags.length === 1 && flags[0] !== "--json")
-  )
-    return response("blocked", "doctor_arguments_invalid", null, json);
-  if (action === "restart-docker" && !parseDockerTaskRecoveryId(recoveryId))
-    return response("blocked", "doctor_arguments_invalid", null, json);
-  if (
-    action === "retain-repair" &&
-    !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
-      recoveryId ?? "",
+  if (target === "doctor") {
+    if (
+      args.slice(1).some((flag) => !["--isolation", "--json"].includes(flag)) ||
+      new Set(args).size !== args.length
     )
-  )
+      return response("blocked", "doctor_arguments_invalid", null, json);
+    return response(
+      "ok",
+      null,
+      Object.freeze({
+        json,
+        action: args.includes("--isolation") ? "isolation" : "check",
+        recoveryId: null,
+      }),
+      json,
+    );
+  }
+  let operation:
+    | "resume"
+    | "inspect"
+    | "restart-docker"
+    | "repair-docker"
+    | "retain-repair";
+  let recoveryId: string | null = null;
+  let flags: readonly string[];
+  if (target === "recovery" && (action === "resume" || action === "inspect")) {
+    recoveryId = tail[0] ?? null;
+    flags = tail.slice(1);
+    if (
+      !recoveryId ||
+      recoveryId.startsWith("--") ||
+      flags.some(
+        (flag) =>
+          !(
+            action === "inspect" ? ["--json"] : ["--json", "--restart-docker"]
+          ).includes(flag),
+      ) ||
+      new Set(flags).size !== flags.length
+    )
+      return response("blocked", "doctor_arguments_invalid", null, json);
+    operation =
+      action === "inspect"
+        ? "inspect"
+        : flags.includes("--restart-docker")
+          ? "restart-docker"
+          : "resume";
+    if (
+      operation === "restart-docker" &&
+      !parseDockerTaskRecoveryId(recoveryId)
+    )
+      return response("blocked", "doctor_arguments_invalid", null, json);
+  } else if (target === "maintenance" && action === "repair") {
+    const retain = tail[0] === "--retain";
+    recoveryId = retain ? (tail[1] ?? null) : null;
+    flags = retain ? tail.slice(2) : tail;
+    if (
+      flags.length > 1 ||
+      (flags.length === 1 && flags[0] !== "--json") ||
+      (retain &&
+        !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+          recoveryId ?? "",
+        ))
+    )
+      return response("blocked", "doctor_arguments_invalid", null, json);
+    operation = retain ? "retain-repair" : "repair-docker";
+  } else {
     return response("blocked", "doctor_arguments_invalid", null, json);
+  }
   return response(
     "ok",
     null,
-    Object.freeze({ json, action, recoveryId }),
+    Object.freeze({ json, action: operation, recoveryId }),
     json,
   );
 }

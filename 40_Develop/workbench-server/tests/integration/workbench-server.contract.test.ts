@@ -2590,6 +2590,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
               snapshot:
                 starts > 0
                   ? {
+                      resultAvailable: false,
                       requestId: "AIREQ-FAULT-001",
                       mode: "read_only_advice",
                       executionSelection: executionSelection("advice"),
@@ -2665,6 +2666,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
         let diagnostic: unknown;
         try {
           await application.start({
+            requestId: "request-fixture-89562",
             mode: "read_only_advice",
             workType: null,
             prompt: "固定故障検証",
@@ -2885,6 +2887,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
       return { status: "accepted", requestId: "request-test", reason: null };
     },
     observe: async (requestId) => ({
+      resultAvailable: true,
       requestId,
       mode: received?.mode ?? "read_only_advice",
       executionSelection: executionSelection("advice"),
@@ -2901,6 +2904,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
       candidate: null,
     }),
     cancel: async (requestId) => ({
+      resultAvailable: false,
       requestId,
       mode: "read_only_advice",
       executionSelection: executionSelection("advice"),
@@ -3532,6 +3536,7 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
       return { status: "accepted", requestId: "AIREQ-HTTP-001", reason: null };
     },
     observe: async (requestId) => ({
+      resultAvailable: false,
       requestId,
       mode: requestId === "AIREQ-HTTP-001" ? "read_only_advice" : null,
       executionSelection:
@@ -3565,6 +3570,7 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
       handle.baseUrl,
     );
     const command: WorkbenchAiRequestCommand = {
+      requestId: "AIREQ-HTTP-001",
       mode: "read_only_advice",
       workType: null,
       prompt: "固定検証依頼",

@@ -64,7 +64,18 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
   const actual = parseRepositoryProjectContextMarkdown(partial);
   assert.equal(actual.status, "partial");
   assert.ok(actual.result);
-  for (const fault of ["partial", "invalid", "read"] as const) {
+  for (const scenario of [
+    { operation: "task", fault: "partial" },
+    { operation: "task", fault: "invalid" },
+    { operation: "task", fault: "read" },
+    { operation: "task", fault: "mismatch" },
+    { operation: "advice", fault: "partial" },
+    { operation: "advice", fault: "invalid" },
+    { operation: "advice", fault: "read" },
+    { operation: "advice", fault: "mismatch" },
+  ] as const) {
+    const { operation, fault } = scenario;
+    const mode = operation === "advice" ? "read_only_advice" : "workspace_edit";
     let tasks = 0,
       binds = 0,
       releases = 0;
@@ -85,7 +96,14 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
       AbortController,
       UsageError: class extends Error {},
       isPrincipalId: () => true,
-      inspectSingleTaskCommand: () => ({ mode: "workspace_edit" }),
+      inspectSingleTaskCommand: () => ({
+        mode:
+          fault === "mismatch"
+            ? mode === "workspace_edit"
+              ? "read_only_advice"
+              : "workspace_edit"
+            : mode,
+      }),
       readBoundedTaskRequestFromStdin: () => ({}),
       resolveVerifiedRepositoryRootFromWorkingDirectory: () => "logical-root",
       getRepository: () => ({ status: "completed", capability }),
@@ -106,12 +124,16 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
           },
         };
       },
-      runTask: async (context: {
-        projectId: string;
-        rootCapability: unknown;
-        authorize: () => boolean;
-      }) => {
+      runTask: async (
+        context: {
+          projectId: string;
+          rootCapability: unknown;
+          authorize: () => boolean;
+        },
+        command: { mode: string },
+      ) => {
         tasks++;
+        assert.equal(command.mode, mode);
         assert.equal(context.projectId, actual.result?.projectId);
         assert.equal(context.rootCapability, capability);
         assert.equal(context.authorize(), true);
@@ -119,7 +141,7 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
       },
     }) as (args: readonly string[]) => Promise<void>;
     await run([
-      "run",
+      operation,
       "--request-stdin",
       "--json",
       "--principal-id",
@@ -128,6 +150,14 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
     const expected = fault === "partial" ? 1 : 0;
     assert.deepEqual([tasks, binds, releases], [expected, expected, expected]);
     const report = JSON.parse(output);
+    assert.equal(report.command, operation);
+    if (fault === "mismatch")
+      assert.equal(
+        report.reason,
+        operation === "advice"
+          ? "advice_request_required"
+          : "task_workspace_request_required",
+      );
     assert.equal(report.status, fault === "partial" ? "completed" : "blocked");
     assert.equal(localProcess.exitCode, fault === "partial" ? 0 : 2);
   }
@@ -394,7 +424,7 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
 test("検証付き再起動と通常回復はexact Taskを指定し旧flagを拒否する", () => {
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const restart = parseDoctorArguments(
-    ["recovery", "restart-docker", id, "--json"],
+    ["recovery", "resume", id, "--restart-docker", "--json"],
     undefined,
   );
   assert.equal(restart.status, "ok");
@@ -559,10 +589,7 @@ test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("doctorは診断と復旧に必要な引数だけを受理する", () => {
-  assert.equal(
-    parseDoctorArguments(["doctor", "check"], undefined).status,
-    "ok",
-  );
+  assert.equal(parseDoctorArguments(["doctor"], undefined).status, "ok");
   assert.equal(
     parseDoctorArguments(
       ["recovery", "resume", "host.safe", "--json"],
@@ -599,7 +626,7 @@ test("doctorは診断と復旧に必要な引数だけを受理する", () => {
  */
 test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理する", () => {
   const repair = parseDoctorArguments(
-    ["maintenance", "repair-docker", "--json"],
+    ["maintenance", "repair", "--json"],
     undefined,
   );
   assert.equal(repair.status, "ok");
@@ -632,7 +659,7 @@ test("修復保持はexact IDの単独操作だけを受理する", () => {
   const old = `docker-desktop-repair.${"c".repeat(32)}`;
   const flag = "--retain-docker-runtime-repair";
   const parsed = parseDoctorArguments(
-    ["maintenance", "retain-repair", id, "--json"],
+    ["maintenance", "repair", "--retain", id, "--json"],
     "ignored-environment-root",
   );
   assert.equal(parsed.status, "ok");
@@ -738,20 +765,38 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
   assert.equal(result.status, 0, result.stderr);
   const value = JSON.parse(result.stdout);
   assert.equal(value.contract, "crdd-coordinator/capabilities");
-  assert.equal(value.contractRevision, 6);
+  assert.equal(value.contractRevision, 11);
   assert.equal(value.executionAuthorityIssued, false);
+  assert.deepEqual(value.operations, [
+    "runObjective",
+    "runTask",
+    "openTaskSession",
+    "submitDecision",
+    "acceptResult",
+    "executeWorkspace",
+    "queryState",
+    "queryActivity",
+    "readRepositoryNetworkHosts",
+    "diagnoseEnvironment",
+    "recoverExecution",
+    "readRecovery",
+    "restartDockerForRecovery",
+    "repairDockerRuntime",
+    "retainRepair",
+    "getAuthenticationStatus",
+    "authenticateProvider",
+  ]);
+  assert.equal(value.operations.includes("getCapabilities"), false);
   assert.deepEqual(
     value.commands.map((c: { invocation: string }) => c.invocation),
     [
-      "task run --request-stdin --json --principal-id <local.email.address>",
-      "project init --json",
-      "project run --request-stdin --json --principal-id <local.email.address>",
-      "doctor check [--json]",
-      "doctor isolation [--json]",
-      "recovery resume <id> [--json]",
-      "recovery restart-docker <id> [--json]",
-      "maintenance repair-docker [--json]",
-      "maintenance retain-repair <id> [--json]",
+      "run task --request-stdin --json --principal-id <local.email.address>",
+      "run objective --request-stdin --json --principal-id <local.email.address>",
+      "run advice --request-stdin --json --principal-id <local.email.address>",
+      "doctor [--isolation] [--json]",
+      "recovery resume <id> [--restart-docker] [--json]",
+      "recovery inspect <id> [--json]",
+      "maintenance repair [--retain <id>] [--json]",
       "auth status codex|claude [--json]",
       "auth login codex|claude",
       "capabilities --json",
@@ -780,7 +825,7 @@ test("template toolsの安定入口はCoordinator共通Launcherへ同一Process�
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
   assert.equal(output.contract, "crdd-coordinator/capabilities");
-  assert.equal(output.contractRevision, 6);
+  assert.equal(output.contractRevision, 11);
   assert.equal(
     output.commands.some(
       (entry: { command?: string }) => entry.command === "mcp",
@@ -825,7 +870,26 @@ test("削除したcommandは互換処理へ入らず未知commandとして拒否
   );
   assert.equal(project.status, 64);
   assert.equal(project.stdout, "");
-  assert.match(project.stderr, /coordinator_launch_arguments_invalid/u);
+  assert.match(project.stderr, /coordinator_launch_mode_invalid/u);
+  for (const args of [
+    ["recovery", "restart-docker", "invalid"],
+    ["maintenance", "repair-docker"],
+    ["maintenance", "retain-repair", "invalid"],
+  ]) {
+    const rejected = spawnSync(
+      process.execPath,
+      [coordinatorExecutable, ...args, "--json"],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
+    assert.equal(rejected.status, 64, rejected.stderr);
+    assert.equal(
+      JSON.parse(rejected.stdout).reason,
+      "doctor_arguments_invalid",
+    );
+  }
 });
 
 /**
@@ -849,11 +913,14 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
     result.stdout.includes("--after-recorded-docker-restart"),
     false,
   );
-  assert.equal(result.stdout.includes("maintenance retain-repair"), true);
+  assert.equal(
+    result.stdout.includes("maintenance repair [--retain <id>]"),
+    true,
+  );
   assert.equal(result.stdout.includes("recovery resume"), true);
   assert.equal(result.status, 0);
   assert.equal(
-    result.stdout.includes("coordinator task run --request-stdin --json"),
+    result.stdout.includes("coordinator run task --request-stdin --json"),
     true,
   );
   assert.equal(result.stdout.includes("coordinator capabilities --json"), true);
@@ -887,8 +954,8 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
       process.execPath,
       [
         entry,
-        "task",
         "run",
+        "task",
         "--request-stdin",
         "--json",
         "--principal-id",
@@ -906,6 +973,47 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
       JSON.parse(ambiguous.stdout).reason,
       "task_request_invalid_json",
     );
+    for (const operation of ["task", "advice"]) {
+      const input = {
+        requestId: `mode-rejected-${operation}`,
+        mode: operation === "task" ? "read_only_advice" : "workspace_edit",
+        workType: null,
+        prompt: "合成入力。実行しない。",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: operation === "task" ? [] : ["src/file.ts"],
+        workspaceId: null,
+      };
+      const rejectedMode = spawnSync(
+        process.execPath,
+        [
+          entry,
+          "run",
+          operation,
+          "--request-stdin",
+          "--json",
+          "--principal-id",
+          "local.email.fixture@example.invalid",
+        ],
+        {
+          input: JSON.stringify(input),
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 15_000,
+        },
+      );
+      assert.equal(rejectedMode.status, 2, rejectedMode.stderr);
+      const report = JSON.parse(rejectedMode.stdout);
+      assert.equal(report.command, operation);
+      assert.equal(
+        report.reason,
+        operation === "advice"
+          ? "advice_request_required"
+          : "task_workspace_request_required",
+      );
+      assert.equal(report.status, "blocked");
+      assert.equal("requestId" in report, false);
+      assert.equal(rejectedMode.stdout.trim().split("\n").length, 1);
+    }
   }
 
   const invalidRepository = withUnsignedRuntimeFixture((root) =>
@@ -913,8 +1021,8 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
       process.execPath,
       [
         path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
-        "task",
         "run",
+        "task",
         "--request-stdin",
         "--json",
         "--principal-id",
@@ -939,7 +1047,7 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
   assert.equal("requestId" in rejected, false);
   const missingArguments = spawnSync(
     process.execPath,
-    [coordinatorExecutable, "task"],
+    [coordinatorExecutable, "run", "task"],
     {
       input: "synthetic-input-not-to-be-reported",
       encoding: "utf8",

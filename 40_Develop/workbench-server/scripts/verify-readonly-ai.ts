@@ -6,7 +6,7 @@
  */
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
@@ -146,6 +146,7 @@ async function main() {
     );
     timing.setStage("start");
     const start = await client.start({
+      requestId: `request-${randomUUID()}`,
       mode: "read_only_advice",
       workType: null,
       choice,

@@ -420,7 +420,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v2",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v4",
               status: "cancelled",
               reason: "orchestrator_parent_lost",
               requestId: "request-parent-loss",
@@ -456,6 +456,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
       },
       name: "crdd.run_objective",
       arguments: withCallerPlan({
+        operation: "start" as const,
         requestId: "request-parent-loss",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -468,7 +469,6 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
-        intakeEpoch: "fixture-epoch",
       }),
     },
   };
@@ -507,6 +507,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       },
       name: "crdd.run_objective",
       arguments: withCallerPlan({
+        operation: "start" as const,
         requestId: "request-recovery",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -519,7 +520,6 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         maximumReplans: 0,
         originLane: "interactive",
         adoptResult: false,
-        intakeEpoch: "fixture-epoch",
       }),
     },
   };

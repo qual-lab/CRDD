@@ -10,6 +10,7 @@ import {
   restartDockerForRecovery,
   repairDockerRuntime,
   retainRepair,
+  readRecovery,
 } from "../api.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -19,6 +20,7 @@ import { parseDoctorArguments, UsageError } from "./options.ts";
 import {
   renderDockerRecoveryDoctorReport,
   renderDoctorCommandFailure,
+  renderRecoveryObservation,
 } from "./recovery-report.ts";
 import { bindTaskCliCancellationSignals } from "./cancellation.ts";
 
@@ -55,7 +57,19 @@ export async function runDoctorCommand(
     const context = { rootCapability: verified.capability };
     let report: Readonly<Record<string, unknown>>;
     let cliCleanupConfirmed = true;
-    if (options.action === "check" || options.action === "isolation") {
+    if (options.action === "inspect") {
+      if (options.recoveryId === null)
+        throw new UsageError("doctor_arguments_invalid");
+      const observation = readRecovery(
+        { recoveryId: options.recoveryId },
+        context,
+        new AbortController().signal,
+      );
+      const rendered = renderRecoveryObservation(observation, json);
+      process.stdout.write(rendered.stdout);
+      process.exitCode = rendered.exitCode;
+      return;
+    } else if (options.action === "check" || options.action === "isolation") {
       const controller = new AbortController();
       const binding = bindTaskCliCancellationSignals(async () =>
         controller.abort(),

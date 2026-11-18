@@ -25,12 +25,13 @@
 
 | 接点 | 現行の入力・操作 | 表示と次の行動 | 保持する境界 |
 |---|---|---|---|
-| 案内・診断 | `help`、`capabilities --json`、`doctor check`、`doctor isolation` | 対応操作、診断理由、対象と次の処置を確認する | 構文受付・能力一覧から実行権限やDocker利用可能性を生成しない |
-| 単一Task | `task run --request-stdin --json --principal-id <local.email.address>` | 標準入力で構造化要求を渡し、標準出力のJSON終端結果を読む | 呼出し側がWorkspaceと主体を明示。Task結果のstdoutは非TTYを要求し、直接の人間向け表示は上位Clientが所有する |
-| Project | `project init --json`、`project run --request-stdin --json --principal-id <local.email.address>` | 初期化と目的実行を別操作として扱う | Task受付とProjectの目的・状態遷移を同一視しない |
+| 案内・診断 | `help`、`capabilities --json`、`doctor`、`doctor --isolation` | 対応操作、診断理由、対象と次の処置を確認する | 構文受付・能力一覧から実行権限やDocker利用可能性を生成しない |
+| 単一Task | `run task --request-stdin --json --principal-id <local.email.address>` | 標準入力で構造化要求を渡し、標準出力のJSON終端結果を読む | 呼出し側がWorkspaceと主体を明示。Task結果のstdoutは非TTYを要求し、直接の人間向け表示は上位Clientが所有する |
+| 読取り助言 | `run advice --request-stdin --json --principal-id <local.email.address>` | Repository Contextを基に助言を取得する | 本文は`read_only_advice`、編集Pathは空、Workspaceはnull。結果は助言であり変更・採用を意味しない |
+| Project | `run objective --request-stdin --json --principal-id <local.email.address>` | 有効な新規開始の初回保存で内部初期化する | Task受付とProjectの目的・状態遷移を同一視しない |
 | Provider認証 | `auth status codex\|claude [--json]`、`auth login codex\|claude` | 状態確認と公式対話ログインを区別する | Loginだけはstdin／stdoutを直接端末へ接続し、JSON出力を受け付けない。生対話をTask本文・診断・Snapshotへ保存しない |
 | 取消 | 実行中のCLIへSIGINT／SIGTERM | 取消要求後も終端結果を待つ | 要求受付、Process終了、回収確認、Listener解除を区別する |
-| 回復・保守 | `recovery resume <id>`、`recovery restart-docker <id>`、`maintenance repair-docker`、`maintenance retain-repair <id>` | exactな対象と結果を確認する | 実行許可や回収保証は各正式APIが判定。表示だけで再送・再起動・削除を許可しない |
+| 回復・保守 | `recovery inspect <id>`、`recovery resume <id>`、`recovery resume <id> --restart-docker`、`maintenance repair`、`maintenance repair --retain <id>` | exactな対象と結果を確認する | 実行許可や回収保証は各正式APIが判定。表示だけで再送・再起動・削除を許可しない |
 | Workspace候補 | Workbench／MCPとCoordinatorのWorkspace操作 | Workspace ID、Base／Candidate Commit、固定・採用・回収結果を分ける | 旧CLIのcandidate export／discardを現行入口として案内しない。採用はTask完了と別判断 |
 | Checker | 対象、`--json`、`--summary`、Scope | 診断、対象、未確認範囲を読む | 指摘0を全範囲検証済みやRelease可としない |
 

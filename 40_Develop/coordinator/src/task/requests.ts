@@ -59,7 +59,10 @@ import {
   resolveTaskExecutionSelections,
 } from "../selection/resolve.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import {
+  deriveCoordinatorRepositoryBindingId,
+  validIdentity,
+} from "../state/validation.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 import {
   closeUnstartedCoordinatorSingleTask,
@@ -79,6 +82,7 @@ import {
  * @compatibility 旧change_candidate／Bundle入力は受理しない。
  */
 export type SingleTaskCommand = Readonly<{
+  requestId: string;
   mode: SingleTaskRecord["mode"];
   workType: string | null;
   choice?: AiSelectionChoice;
@@ -155,6 +159,7 @@ export function inspectSingleTaskCommand(
   raw: unknown,
 ): SingleTaskCommand | null {
   const keys = [
+    "requestId",
     "mode",
     "workType",
     "prompt",
@@ -170,9 +175,14 @@ export function inspectSingleTaskCommand(
     r?.allowedPaths,
     Number.MAX_SAFE_INTEGER,
   );
+  const choice =
+    r && Object.hasOwn(r, "choice")
+      ? inspectAiSelectionChoice(r.choice)
+      : undefined;
   if (
     !r ||
-    Object.keys(r).length !== 6 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
+    Object.keys(r).length !== 7 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
+    !validIdentity(r.requestId) ||
     typeof r.mode !== "string" ||
     !["read_only_advice", "workspace_edit"].includes(r.mode) ||
     !(
@@ -180,7 +190,7 @@ export function inspectSingleTaskCommand(
       (typeof r.workType === "string" &&
         /^[a-z0-9][a-z0-9._-]*$/u.test(r.workType))
     ) ||
-    (Object.hasOwn(r, "choice") && !inspectAiSelectionChoice(r.choice)) ||
+    (Object.hasOwn(r, "choice") && !choice) ||
     typeof r.prompt !== "string" ||
     r.prompt.trim().length === 0 ||
     refs.status !== "ok" ||
@@ -203,11 +213,21 @@ export function inspectSingleTaskCommand(
   )
     return null;
   return Object.freeze({
-    ...r,
+    requestId: r.requestId,
+    mode: r.mode,
+    workType: r.workType,
+    prompt: r.prompt,
     contextReferences: refs.value,
     allowedPaths: paths.value,
-    ...(Object.hasOwn(r, "choice")
-      ? { choice: inspectAiSelectionChoice(r.choice) }
+    workspaceId: r.workspaceId,
+    ...(choice
+      ? {
+          choice: Object.freeze({
+            provider: choice.provider,
+            model: choice.model,
+            effort: choice.effort,
+          }),
+        }
       : {}),
   }) as SingleTaskCommand;
 }
@@ -274,8 +294,55 @@ export function createCoordinatorTaskRequests(
       return false;
     }
   };
-  const ports = (epoch: string) =>
-    createCoordinatorSnapshotStatePort(deps.root, deps.binding, epoch);
+  const ports = () =>
+    createCoordinatorSnapshotStatePort(deps.root, deps.binding);
+  const observeSaved = (requestId: string) => {
+    if (!authorized())
+      return view(
+        requestId,
+        null,
+        "unknown",
+        "orchestrator_task_not_available",
+      );
+    const current = readState(
+      verifyRuntimePersistenceRepository(deps.root),
+      deps.binding,
+      "queue",
+    );
+    const record =
+      current.status === "completed"
+        ? current.value?.queueEntries.find(
+            (entry) =>
+              entry.queueId === requestId &&
+              entry.projectId === deps.projectId &&
+              entry.singleTask?.principalId === deps.principalId,
+          )?.singleTask
+        : null;
+    if (!authorized())
+      return view(
+        requestId,
+        null,
+        "unknown",
+        "orchestrator_task_not_available",
+      );
+    return view(
+      requestId,
+      record ?? null,
+      !record
+        ? "unknown"
+        : record.phase === "settled"
+          ? record.status === "pending"
+            ? "unknown"
+            : record.status
+          : record.phase === "accepted"
+            ? "accepted"
+            : "running",
+      record?.reason ??
+        (record
+          ? "orchestrator_task_saved_state"
+          : "orchestrator_task_not_available"),
+    );
+  };
   const recoverRecord = async (requestId: string) => {
     const current = readState(
       verifyRuntimePersistenceRepository(deps.root),
@@ -291,6 +358,14 @@ export function createCoordinatorTaskRequests(
               entry.singleTask?.principalId === deps.principalId,
           )
         : null;
+    if (
+      queue?.singleTask?.phase === "settled" &&
+      queue.singleTask.cleanupConfirmed &&
+      queue.singleTask.recoveryIds.length === 0 &&
+      queue.ownerGeneration === null &&
+      !current.value?.leaseIntents.some((entry) => entry.queueId === requestId)
+    )
+      return observeSaved(requestId);
     if (
       !queue?.singleTask ||
       !deps.recover ||
@@ -472,7 +547,7 @@ export function createCoordinatorTaskRequests(
       const release = lease.release();
       const settled =
         release.status === "completed"
-          ? ports(current.value.intakeEpoch).settleQueueLeaseRelease(
+          ? ports().settleQueueLeaseRelease(
               requestId,
               savedQueue.generation,
               lease.ownerGeneration,
@@ -513,6 +588,43 @@ export function createCoordinatorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_request_rejected",
         };
+      const hash = (value: unknown) =>
+        createHash("sha256").update(JSON.stringify(value)).digest("hex");
+      const requestHash = hash(command);
+      let current = readState(
+        verifyRuntimePersistenceRepository(deps.root),
+        deps.binding,
+        "queue",
+      );
+      const existing =
+        current.status === "completed"
+          ? current.value?.queueEntries.find(
+              (entry) => entry.queueId === command.requestId,
+            )
+          : null;
+      if (existing) {
+        if (
+          !authorized() ||
+          existing.projectId !== deps.projectId ||
+          existing.singleTask?.principalId !== deps.principalId
+        )
+          return {
+            status: "blocked" as const,
+            requestId: null,
+            reason: "orchestrator_task_request_rejected",
+          };
+        if (existing.requestHash !== requestHash)
+          return {
+            status: "blocked" as const,
+            requestId: command.requestId,
+            reason: "orchestrator_task_request_identity_conflict",
+          };
+        return {
+          status: "accepted" as const,
+          requestId: command.requestId,
+          reason: "orchestrator_task_request_reused",
+        };
+      }
       if (
         [...requests.values()].some((item) =>
           ["accepted", "running"].includes(item.snapshot.status),
@@ -536,11 +648,6 @@ export function createCoordinatorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_session_capacity",
         };
-      let current = readState(
-        verifyRuntimePersistenceRepository(deps.root),
-        deps.binding,
-        "queue",
-      );
       if (
         current.status === "completed" &&
         current.value &&
@@ -587,6 +694,35 @@ export function createCoordinatorTaskRequests(
           "queue",
         );
       }
+      const concurrent =
+        current.status === "completed"
+          ? current.value?.queueEntries.find(
+              (entry) => entry.queueId === command.requestId,
+            )
+          : null;
+      if (concurrent) {
+        if (
+          !authorized() ||
+          concurrent.projectId !== deps.projectId ||
+          concurrent.singleTask?.principalId !== deps.principalId
+        )
+          return {
+            status: "blocked" as const,
+            requestId: null,
+            reason: "orchestrator_task_request_rejected",
+          };
+        return concurrent.requestHash === requestHash
+          ? {
+              status: "accepted" as const,
+              requestId: command.requestId,
+              reason: "orchestrator_task_request_reused",
+            }
+          : {
+              status: "blocked" as const,
+              requestId: command.requestId,
+              reason: "orchestrator_task_request_identity_conflict",
+            };
+      }
       const selection = deps.resolveSelection(command);
       const primary = inspectExecutionSelection(selection?.primary);
       const pair = inspectTaskExecutionSelections(
@@ -622,8 +758,7 @@ export function createCoordinatorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_configuration_unavailable",
         };
-      const requestId = `request-${randomUUID()}`;
-      const intakeEpoch = current.value.intakeEpoch;
+      const requestId = command.requestId;
       const record: SingleTaskRecord = {
         principalId: deps.principalId,
         mode: command.mode,
@@ -637,13 +772,12 @@ export function createCoordinatorTaskRequests(
         cleanupConfirmed: false,
         recoveryIds: [],
       };
-      const hash = (value: unknown) =>
-        createHash("sha256").update(JSON.stringify(value)).digest("hex");
       let queue: ProjectQueueEntry = {
+        historySettled: false,
         queueId: requestId,
         projectId: deps.projectId,
         milestoneId: null,
-        requestHash: hash(command),
+        requestHash,
         originLane: "interactive",
         repositoryRevision: revision,
         scopeHash: hash([
@@ -662,14 +796,22 @@ export function createCoordinatorTaskRequests(
       const saved = enqueueCoordinatorSingleTask(
         deps.root,
         deps.binding,
-        current.value.intakeEpoch,
         queue,
       );
       if (saved.status !== "completed")
         return {
           status: "blocked" as const,
           requestId: null,
-          reason: saved.reason,
+          reason:
+            saved.reason === "orchestrator_queue_identity_conflict"
+              ? "orchestrator_task_request_rejected"
+              : saved.reason,
+        };
+      if (saved.reason === "orchestrator_single_task_reused")
+        return {
+          status: "accepted" as const,
+          requestId,
+          reason: "orchestrator_task_request_reused",
         };
       const controller = new AbortController();
       const abort = () => controller.abort();
@@ -883,6 +1025,9 @@ export function createCoordinatorTaskRequests(
                 : "orchestrator_task_result_save_unconfirmed",
             ),
             ...(confirmed && outcome.advice ? outcome.advice : {}),
+            resultAvailable:
+              confirmed &&
+              (outcome.advice !== null || workspaceResult !== null),
             workspaceResult: confirmed ? workspaceResult : null,
           };
         } catch {
@@ -904,7 +1049,7 @@ export function createCoordinatorTaskRequests(
           const settled =
             released.status === "completed" &&
             queue.state !== "running" &&
-            ports(intakeEpoch).settleQueueLeaseRelease(
+            ports().settleQueueLeaseRelease(
               requestId,
               queue.generation,
               lease.ownerGeneration,
@@ -942,28 +1087,7 @@ export function createCoordinatorTaskRequests(
         );
       const item = requests.get(requestId);
       if (item) return item.snapshot;
-      const current = readState(
-        verifyRuntimePersistenceRepository(deps.root),
-        deps.binding,
-        "queue",
-      );
-      const record =
-        current.status === "completed"
-          ? current.value?.queueEntries.find(
-              (q) =>
-                q.queueId === requestId &&
-                q.projectId === deps.projectId &&
-                q.singleTask?.principalId === deps.principalId,
-            )?.singleTask
-          : null;
-      return view(
-        requestId,
-        record ?? null,
-        "unknown",
-        record
-          ? "orchestrator_task_body_unavailable"
-          : "orchestrator_task_not_available",
-      );
+      return observeSaved(requestId);
     },
     async cancel(requestId: string) {
       if (!authorized())
@@ -992,7 +1116,8 @@ export function createCoordinatorTaskRequests(
     },
     async wait(requestId: string) {
       const item = requests.get(requestId);
-      if (!item || !authorized())
+      if (!item) return observeSaved(requestId);
+      if (!authorized())
         return view(
           requestId,
           null,
@@ -1042,6 +1167,7 @@ function view(
 ) {
   return {
     requestId,
+    resultAvailable: false,
     mode: record?.mode ?? null,
     executionSelection: record?.executionSelection ?? null,
     status,

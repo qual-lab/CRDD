@@ -46,7 +46,6 @@ import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 export function queryCoordinatorState(
   state: Pick<CoordinatorStatePort, "readState">,
   request: CoordinatorStateQuery,
-  intakeEpoch: string,
 ): CoordinatorStateQueryResult {
   const observed = state.readState(request.projectId);
   if (observed.status !== "completed")
@@ -59,7 +58,6 @@ export function queryCoordinatorState(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown",
       projection: null,
-      intakeEpoch: null,
       cleanupConfirmed: true,
       manualRecoveryRequired: observed.manualRecoveryRequired,
       effectState: "no_effect",
@@ -74,7 +72,6 @@ export function queryCoordinatorState(
       repositoryRevision: request.repositoryRevision,
       observationState: "absent",
       projection: null,
-      intakeEpoch,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       effectState: "no_effect",
@@ -89,7 +86,6 @@ export function queryCoordinatorState(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown",
       projection: null,
-      intakeEpoch: null,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       effectState: "no_effect",
@@ -103,7 +99,6 @@ export function queryCoordinatorState(
     repositoryRevision: request.repositoryRevision,
     observationState: "observed",
     projection: projectCoordinatorState(observed.value),
-    intakeEpoch,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     effectState: "no_effect",
@@ -204,7 +199,6 @@ export function executeCoordinatorPublicStateQuery(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown" as const,
       projection: null,
-      intakeEpoch: null,
       cleanupConfirmed: true as const,
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
@@ -217,7 +211,7 @@ export function executeCoordinatorPublicStateQuery(
   if (
     snapshot.status !== "completed" ||
     snapshot.value === null ||
-    snapshot.value.schemaRevision !== 7
+    snapshot.value.schemaRevision !== 9
   )
     return Object.freeze({
       contract: COORDINATOR_STATE_QUERY_CONTRACT,
@@ -228,7 +222,6 @@ export function executeCoordinatorPublicStateQuery(
       repositoryRevision: request.repositoryRevision,
       observationState: "unknown" as const,
       projection: null,
-      intakeEpoch: null,
       cleanupConfirmed: true as const,
       manualRecoveryRequired:
         snapshot.status === "blocked" && snapshot.manualRecoveryRequired,
@@ -248,7 +241,6 @@ export function executeCoordinatorPublicStateQuery(
         }),
     },
     request,
-    current.intakeEpoch,
   );
 }
 

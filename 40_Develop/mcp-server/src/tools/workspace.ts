@@ -5,7 +5,11 @@
  * @trace ARCH-000013
  * @boundary MCP ProtocolとWorkspace Owner。
  */
-import { snapshotPlainRecord } from "../request/snapshot.ts";
+import {
+  snapshotOpenPlainRecord,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../request/snapshot.ts";
 import {
   callKeys,
   inspectMcpEnvelope,
@@ -208,29 +212,85 @@ export async function handleMcpWorkspaceRequest(
   const args =
     params &&
     snapshotPlainRecord(params.arguments, new Set(["repositoryId", "command"]));
-  const command = args && inspectWorkspaceCommand(args.command);
   if (
     !params ||
     !inspectMcpEnvelope(params._meta) ||
     !args ||
     typeof args.repositoryId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.repositoryId) ||
-    !command ||
     ![MCP_WORKSPACE_READ_TOOL, MCP_WORKSPACE_MANAGE_TOOL].includes(
       params.name as never,
-    ) ||
-    ["list", "get", "inspect", "candidate-diff"].includes(command.operation) !==
-      (params.name === MCP_WORKSPACE_READ_TOOL)
+    )
   )
     return protocolError(request.id, -32602, "Invalid params");
   if (signal.aborted)
     return protocolError(request.id, -32800, "Request cancelled");
+  const input = snapshotOpenPlainRecord(args.command);
+  if (!input) return protocolError(request.id, -32602, "Invalid params");
+  const captured: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (key === "selection" || key === "relatedChangeIds") {
+      const items = snapshotPlainArray(value, Number.MAX_SAFE_INTEGER);
+      if (items.status !== "ok")
+        return protocolError(request.id, -32602, "Invalid params");
+      const values: unknown[] = [];
+      for (const item of items.value) {
+        if (key === "relatedChangeIds") {
+          if (typeof item !== "string")
+            return protocolError(request.id, -32602, "Invalid params");
+          values.push(item);
+        } else {
+          const row = snapshotPlainRecord(
+            item,
+            new Set(["path", "blobId", "mode"]),
+          );
+          if (
+            !row ||
+            Object.values(row).some(
+              (entry) => entry !== null && typeof entry !== "string",
+            )
+          )
+            return protocolError(request.id, -32602, "Invalid params");
+          values.push(row);
+        }
+      }
+      Object.defineProperty(captured, key, {
+        value: Object.freeze(values),
+        enumerable: true,
+      });
+    } else {
+      if (
+        value !== null &&
+        !["string", "number", "boolean"].includes(typeof value)
+      )
+        return protocolError(request.id, -32602, "Invalid params");
+      Object.defineProperty(captured, key, { value, enumerable: true });
+    }
+  }
+  Object.freeze(captured);
+  let owner: typeof import("../../../coordinator/src/index.ts");
   try {
+    owner = await import("../../../coordinator/src/index.ts");
+  } catch {
+    return signal.aborted
+      ? protocolError(request.id, -32800, "Request cancelled")
+      : protocolError(request.id, -32603, "Workspace outcome unavailable");
+  }
+  try {
+    const { inspectWorkspaceCommand, executeWorkspace } = owner;
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
+    const command = inspectWorkspaceCommand(captured);
+    if (
+      !command ||
+      ["list", "get", "inspect", "candidate-diff"].includes(
+        command.operation,
+      ) !==
+        (params.name === MCP_WORKSPACE_READ_TOOL)
+    )
+      return protocolError(request.id, -32602, "Invalid params");
     const access = resolve(args.repositoryId);
     if (!access) throw new Error("workspace_access_unavailable");
-    const { executeWorkspace } = await import(
-      "../../../coordinator/src/index.ts"
-    );
     if (signal.aborted)
       return protocolError(request.id, -32800, "Request cancelled");
     if (!access.authorize()) throw new Error("workspace_access_unavailable");
@@ -251,5 +311,3 @@ export async function handleMcpWorkspaceRequest(
     return protocolError(request.id, -32603, "Workspace outcome unavailable");
   }
 }
-
-import { inspectWorkspaceCommand } from "../../../coordinator/src/index.ts";

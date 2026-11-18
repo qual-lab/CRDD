@@ -4,7 +4,6 @@
  * @trace ARCH-000008
  */
 import { adoptionWasRejected } from "../workspace/validation.ts";
-import { randomUUID } from "node:crypto";
 import type { Repository } from "../../../version-control/src/index.ts";
 import { prepareDecisionRetirement } from "../decision/validation.ts";
 import {
@@ -32,13 +31,13 @@ import {
 import type { HistoryRow } from "./types.ts";
 import type { Snapshot, SnapshotObservations } from "../state/types.ts";
 /**
- * 終了要約の生成、履歴確定、受付世代切替を接続する。
+ * 終了要約の生成、履歴確定、実行IDの保持を接続する。
  * @responsibility 閉じたQueueと専属の終了証拠を現在状態から退役する。
  * @trace ARCH-000004
  * @input Repository Root、binding、評価時刻。
  * @returns 退役件数または保全停止。
  * @precondition 本番の終了処置後に呼ぶ。Queryからは呼ばない。
- * @postcondition 履歴確定後だけQueueを除き、同じ保存で受付世代を切り替える。
+ * @postcondition 履歴確定後だけhistorySettledを確定し、Queueの実行ID・要求Hash・終端を保持する。
  * @effect 固定history.jsonlとstate.jsonを保存する。
  * @failure 保存失敗時は同じ終了時刻の要約を再送可能に保持する。
  * @invariant 最新Project、結果、受入判断、候補、保護Authorityは保持する。
@@ -80,7 +79,6 @@ export function retireStateRecords(
         obligations: () => observeSnapshotObligations(owner),
         historySettlement: (row: HistoryRow) =>
           inspectHistorySettlement(owner, row, now),
-        nextEpoch: () => `epoch-${randomUUID()}`,
       });
       if (terminal.status !== "completed") return terminal;
       const decisions = prepareDecisionRetirement(
@@ -309,6 +307,7 @@ function prepareHistoryPending(
   const rows = current.queueEntries
     .filter(
       (queue) =>
+        !queue.historySettled &&
         !current.historyPending.some((row) => row.id === queue.queueId) &&
         queueIsClosed(current, queue.queueId, observations.obligations()),
     )
@@ -367,7 +366,6 @@ function prepareTerminalRecordRetirement(
   observations: Readonly<{
     obligations: () => SnapshotObservations;
     historySettlement: (row: HistoryRow) => "recorded" | "expired" | null;
-    nextEpoch: () => string;
   }>,
 ) {
   const retired = new Set<string>();
@@ -389,16 +387,14 @@ function prepareTerminalRecordRetirement(
     next: retired.size
       ? {
           ...current,
-          intakeEpoch: current.queueEntries.some((queue) =>
-            retired.has(queue.queueId),
-          )
-            ? observations.nextEpoch()
-            : current.intakeEpoch,
-          queueEntries: current.queueEntries.filter(
-            (item) => !retired.has(item.queueId),
-          ),
-          intakeBindings: current.intakeBindings.filter(
-            (item) => !retired.has(item.queueId),
+          queueEntries: current.queueEntries.map((item) =>
+            retired.has(item.queueId)
+              ? {
+                  ...item,
+                  historySettled: true,
+                  generation: item.generation + 1,
+                }
+              : item,
           ),
           leaseEvidence: current.leaseEvidence.filter(
             (item) =>
@@ -452,9 +448,7 @@ function prepareTerminalRecordRetirement(
                       )),
                 ) &&
                 !current.queueEntries.some(
-                  (queue) =>
-                    queue.projectId === item.projectId &&
-                    !retired.has(queue.queueId),
+                  (queue) => queue.projectId === item.projectId,
                 ) &&
                 current.historyPending.some(
                   (row) =>
@@ -493,9 +487,7 @@ function prepareTerminalRecordRetirement(
                   ),
               ) ||
               current.queueEntries.some(
-                (queue) =>
-                  !retired.has(queue.queueId) &&
-                  queue.resultReference === item.identity,
+                (queue) => queue.resultReference === item.identity,
               ),
           ),
           historyPending: current.historyPending.filter(

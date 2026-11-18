@@ -45,6 +45,7 @@ import { encodeStateValue } from "../../../src/state/operations.ts";
 
 function fixture() {
   const queue: ProjectQueueEntry = {
+    historySettled: false,
     queueId: "queue-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -61,12 +62,10 @@ function fixture() {
   };
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [],
     queueEntries: [queue],
     workspaces: [],
@@ -523,7 +522,6 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
     assert.deepEqual(result.value.value, {
       intents: [f.intent],
       queue: f.queue,
-      intakeEpoch: f.current.intakeEpoch,
       identity: "project-operation-binding-a",
       recoveryId: "lease-acquisition-beca53628fa8df5e62cfb429478812053280ef5a",
       ...f.root,

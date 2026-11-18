@@ -18,6 +18,11 @@ import type { ProjectExecutionState } from "../../../../execution-model/src/inde
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
+import {
+  inspectCoordinatorObjectiveResult,
+  inspectCoordinatorProjection,
+  projectCoordinatorState,
+} from "../../../src/state/projection.ts";
 
 import {
   executeCoordinatorPublicStateQuery,
@@ -36,7 +41,7 @@ import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
  * @cleanup N/A: メモリ内だけ。
  * @boundary Co構成とEMの既存State照会。
  */
-test("現在Port構成はStateのintake viewだけを一度取得する", () => {
+test("現在Port構成はStateのexecution viewだけを一度取得する", () => {
   const source = stripTypeScriptTypes(
     sourceDeclaration(
       fs.readFileSync(
@@ -52,7 +57,7 @@ test("現在Port構成はStateのintake viewだけを一度取得する", () => 
   let reply: unknown = {
     status: "completed",
     reason: "ready",
-    value: { intakeEpoch: "epoch-a" },
+    value: {},
   };
   const port = {};
   const create = new Function(
@@ -65,14 +70,13 @@ test("現在Port構成はStateのintake viewだけを一度取得する", () => 
       calls++;
       assert.equal(actual, root);
       assert.equal(binding, "binding-a");
-      assert.equal(scope, "intake");
+      assert.equal(scope, "execution");
       return reply;
     },
     () => root,
-    (directory: string, binding: string, epoch: string) => {
+    (directory: string, binding: string) => {
       assert.equal(directory, "fixture-root");
       assert.equal(binding, "binding-a");
-      assert.equal(epoch, "epoch-a");
       return port;
     },
   );
@@ -114,7 +118,7 @@ test("現在Port構成はStateのintake viewだけを一度取得する", () => 
  * @cleanup N/A: Sourceの読取りと有限のメモリ代役だけ。
  * @boundary Co照会本文と固定下位結果。実Git・Lockの成立は主張しない。
  */
-test("公開状態照会は同版のProjectと受付世代を使い採用確認後だけ再取得する", () => {
+test("公開状態照会は同版のProjectを使い採用確認後だけ再取得する", () => {
   const source = stripTypeScriptTypes(
     sourceDeclaration(
       fs.readFileSync(
@@ -130,7 +134,6 @@ test("公開状態照会は同版のProjectと受付世代を使い採用確認�
     const capability = {};
     let reads = 0;
     let adoptionChecks = 0;
-    let displayedEpoch: string | null = null;
     const dependencies = {
       inspectCoordinatorStateQuery: () => request,
       isPrincipalId: () => true,
@@ -158,8 +161,7 @@ test("公開状態照会は同版のProjectと受付世代を使い採用確認�
             projects:
               mode === "absent" ? [] : [{ ...state, generation: reads }],
             queueEntries: [],
-            intakeEpoch: `epoch-${reads}`,
-            schemaRevision: 7,
+            schemaRevision: 9,
           },
         };
       },
@@ -173,10 +175,8 @@ test("公開状態照会は同版のProjectと受付世代を使い採用確認�
       queryCoordinatorState: (
         reader: Pick<CoordinatorStatePort, "readState">,
         query: typeof request,
-        epoch: string,
       ) => {
-        displayedEpoch = epoch;
-        return queryCoordinatorState(reader, query, epoch);
+        return queryCoordinatorState(reader, query);
       },
       COORDINATOR_PUBLIC_RUNTIME_CONTRACT: "public-fixture",
       COORDINATOR_STATE_QUERY_CONTRACT: "query-fixture",
@@ -194,15 +194,18 @@ test("公開状態照会は同版のProjectと受付世代を使い採用確認�
       assert.equal(result.status, "blocked");
       assert.equal(result.observationState, "unknown");
       assert.equal(result.manualRecoveryRequired, true);
-      assert.equal(displayedEpoch, null);
+      assert.equal(Object.hasOwn(result, "intakeEpoch"), false);
     } else {
       assert.equal(result.status, "completed");
       assert.equal(
         result.observationState,
         mode === "absent" ? "absent" : "observed",
       );
-      assert.equal(displayedEpoch, `epoch-${reads}`);
-      assert.equal(result.intakeEpoch, displayedEpoch);
+      assert.equal(
+        result.projection?.generation ?? null,
+        mode === "absent" ? null : reads,
+      );
+      assert.equal(Object.hasOwn(result, "intakeEpoch"), false);
       if (mode !== "absent") assert.equal(result.projection.generation, reads);
     }
   }
@@ -279,6 +282,222 @@ function runtimeState(): ProjectExecutionState {
 }
 
 /**
+ * 未信頼の列挙値を暗黙に文字列化しないことを確認する。
+ * @trace PRL-UT-006
+ * @precondition 正常な投影・Objective・状態照会・外側停止を一度構築する。
+ * @stimulus 列挙値・契約名・回復kindへ変換Hook付きObject又はProxyを渡す。
+ * @observation null拒否、例外非漏出と変換Hook／Proxyの実行数。
+ * @oracle 正常値は維持し、不正値は未知コードを一度も実行せず拒否する。
+ * @cleanup メモリのみ。保存・外部Processを使わない。
+ */
+test("結果受付は列挙値Objectの暗黙変換を実行しない", () => {
+  const projection = projectCoordinatorState(runtimeState());
+  const objective = {
+    contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+    status: "blocked",
+    reason: "fixture_pending",
+    requestId: "request-a",
+    projectId: projection.projectId,
+    milestoneId: projection.milestoneId,
+    queueId: null,
+    projection,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+    recoveryIds: [],
+    recoveryObligations: [],
+    effectState: "no_effect",
+  };
+  const query = {
+    contract: "crdd-coordinator/orchestrator-state-query/v2",
+    status: "completed",
+    reason: "orchestrator_state_observed",
+    requestId: "state-a",
+    projectId: projection.projectId,
+    repositoryRevision: revision,
+    observationState: "observed",
+    projection,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "no_effect",
+  };
+  const boundary = {
+    contract: "crdd-coordinator/public-runtime/v2",
+    status: "blocked",
+    reason: "fixture_blocked",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "no_effect",
+  };
+  const recoverable = {
+    ...objective,
+    projection: null,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    effectState: "unknown",
+    recoveryIds: ["host.fixture"],
+    recoveryObligations: [{ kind: "host", recoveryId: "host.fixture" }],
+  };
+  const cases: {
+    name: string;
+    valid: unknown;
+    inspect: (value: unknown) => unknown;
+  }[] = [];
+  for (const key of [
+    "milestoneState",
+    "workProgress",
+    "qualityState",
+    "nextAction",
+  ] as const)
+    cases.push({
+      name: `projection.${key}`,
+      valid: projection[key],
+      inspect: (value) =>
+        inspectCoordinatorProjection({ ...projection, [key]: value }),
+    });
+  for (const key of ["status", "observationState"] as const)
+    cases.push({
+      name: `query.${key}`,
+      valid: query[key],
+      inspect: (value) =>
+        inspectCoordinatorStateQueryResult({ ...query, [key]: value }),
+    });
+  for (const key of ["status", "effectState"] as const)
+    cases.push({
+      name: `objective.${key}`,
+      valid: objective[key],
+      inspect: (value) =>
+        inspectCoordinatorObjectiveResult({ ...objective, [key]: value }),
+    });
+  for (const key of ["contract", "effectState"] as const)
+    cases.push({
+      name: `boundary.${key}`,
+      valid: boundary[key],
+      inspect: (value) =>
+        inspectCoordinatorObjectiveResult({ ...boundary, [key]: value }),
+    });
+  cases.push({
+    name: "recovery.kind",
+    valid: "host",
+    inspect: (value) =>
+      inspectCoordinatorObjectiveResult({
+        ...recoverable,
+        recoveryObligations: [{ kind: value, recoveryId: "host.fixture" }],
+      }),
+  });
+  for (const entry of cases) {
+    assert.ok(entry.inspect(entry.valid), entry.name);
+    let calls = 0;
+    const convert = () => {
+      calls++;
+      return entry.valid;
+    };
+    const hook = {
+      toString: convert,
+      valueOf: convert,
+      [Symbol.toPrimitive]: convert,
+    };
+    const proxy = new Proxy(
+      {},
+      {
+        get() {
+          calls++;
+          throw Error("proxy_get");
+        },
+      },
+    );
+    for (const value of [hook, proxy]) {
+      assert.doesNotThrow(() =>
+        assert.equal(entry.inspect(value), null, entry.name),
+      );
+      assert.equal(calls, 0, entry.name);
+    }
+  }
+});
+
+/**
+ * @trace PPR-UT-006
+ * @precondition 同じState準備から差戻し・回復必要の差分だけを構築する。
+ * @stimulus 実Producerの投影を共通受付・状態結果・Objective結果へ渡す。
+ * @observation 状態と回復義務の保持、不正な組合せの拒否。
+ * @oracle Producer正本の両状態は誤拒否せず、回復必要を成功やID欠測へ畳まない。
+ * @cleanup メモリのみ。
+ */
+test("差戻しと回復必要はProducerから両結果受付まで一貫する", () => {
+  const base = runtimeState();
+  for (const mode of ["returned", "recovery_required"] as const) {
+    const state: ProjectExecutionState = {
+      ...base,
+      milestone: { ...base.milestone, state: mode },
+      objectives: base.objectives.map((entry) => ({
+        ...entry,
+        state: mode === "returned" ? "accepted" : "blocked",
+      })),
+      tasks: base.tasks.map((entry) => ({
+        ...entry,
+        state: mode === "returned" ? "completed" : "recovery_required",
+      })),
+    };
+    const projection = projectCoordinatorState(state);
+    assert.deepEqual(inspectCoordinatorProjection(projection), projection);
+    const query = {
+      contract: "crdd-coordinator/orchestrator-state-query/v2",
+      status: "completed",
+      reason: "orchestrator_state_observed",
+      requestId: "state-a",
+      projectId: state.projectId,
+      repositoryRevision: revision,
+      observationState: "observed",
+      projection,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect",
+    };
+    assert.deepEqual(
+      inspectCoordinatorStateQueryResult(query)?.projection,
+      projection,
+    );
+    const recovery = mode === "recovery_required";
+    const result = {
+      contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+      status: "blocked",
+      reason: "fixture_pending",
+      requestId: "request-a",
+      projectId: state.projectId,
+      milestoneId: state.milestoneId,
+      queueId: null,
+      projection,
+      cleanupConfirmed: !recovery,
+      manualRecoveryRequired: recovery,
+      processRestartRequired: false,
+      recoveryIds: recovery ? ["host.fixture"] : [],
+      recoveryObligations: recovery
+        ? [{ kind: "host", recoveryId: "host.fixture" }]
+        : [],
+      effectState: recovery ? "unknown" : "no_effect",
+    };
+    const captured = inspectCoordinatorObjectiveResult(result);
+    assert.ok(captured);
+    assert.deepEqual(captured.projection, projection);
+    assert.equal(
+      inspectCoordinatorObjectiveResult({
+        ...result,
+        recoveryIds: [],
+        recoveryObligations: [],
+      }) === null,
+      recovery,
+    );
+    assert.equal(
+      inspectCoordinatorProjection({
+        ...projection,
+        humanDecisionRequired: false,
+      }),
+      null,
+    );
+  }
+});
+
+/**
  * readerのTest準備責務を実行する。
  *
  * @responsibility readerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
@@ -332,7 +551,6 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
   const result = queryCoordinatorState(
     reader({ status: "completed", reason: "observed", value: runtimeState() }),
     request,
-    "fixture-epoch",
   );
   assert.equal(result.status, "completed");
   assert.equal(result.observationState, "observed");
@@ -364,7 +582,6 @@ test("状態不存在は失敗や成功推定ではなくabsent観測として�
   const result = queryCoordinatorState(
     reader({ status: "completed", reason: "absent", value: null }),
     request,
-    "fixture-epoch",
   );
   assert.equal(result.status, "completed");
   assert.equal(result.observationState, "absent");
@@ -391,7 +608,6 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
       value: { ...runtimeState(), repositoryRevision: "b".repeat(40) },
     }),
     request,
-    "fixture-epoch",
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "orchestrator_state_revision_mismatch");
@@ -421,7 +637,6 @@ test("観測不能と既存Recovery義務をEffect発行と混同しない", () 
       recoveryId: "recovery-a",
     }),
     request,
-    "fixture-epoch",
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.observationState, "unknown");

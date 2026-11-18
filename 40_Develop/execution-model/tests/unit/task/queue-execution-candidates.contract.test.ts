@@ -67,6 +67,7 @@ function fixture() {
   };
   assert.ok(inspectSingleTaskRecord(record));
   const entry: ProjectQueueEntry = {
+    historySettled: false,
     queueId: "queue-a",
     projectId: "project-a",
     milestoneId: null,
@@ -85,12 +86,10 @@ function fixture() {
   assert.equal(validQueueEntry(entry), true);
   const current: Snapshot = {
     schema: PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 7,
+    schemaRevision: 9,
     repositoryRootHash: "a".repeat(64),
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [],
     projects: [],
     queueEntries: [entry],
     workspaces: [],
@@ -165,32 +164,51 @@ function observations() {
  */
 
 test("単発受付候補は反復・旧epoch・元Identityを区別する", () => {
-  const { current, entry } = fixture();
+  const { current, entry, record } = fixture();
   const empty = { ...current, queueEntries: [] };
   const before = encodeStateValue(empty);
-  const created = prepareSingleTaskQueueCreation(empty, "epoch-a", entry);
+  const created = prepareSingleTaskQueueCreation(empty, entry);
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
   assert.strictEqual(created.value.value, entry);
   assert.strictEqual(created.value.next.projects, empty.projects);
   assert.equal(
-    prepareSingleTaskQueueCreation(created.value.next, "epoch-a", entry).reason,
+    prepareSingleTaskQueueCreation(created.value.next, entry).reason,
     "orchestrator_single_task_reused",
   );
+  const raced = prepareSingleTaskQueueCreation(created.value.next, {
+    ...entry,
+    repositoryRevision: "e".repeat(40),
+    singleTask: {
+      ...record,
+      taskId: "fresh-task",
+      attemptId: "fresh-attempt",
+      operationId: "fresh-operation",
+      executionSelection: {
+        ...record.executionSelection,
+        modelIdentifier: "new-model",
+      },
+    },
+  });
+  assert.equal(raced.reason, "orchestrator_single_task_reused");
+  if (raced.status === "completed") {
+    assert.strictEqual(raced.value.value, entry);
+    assert.equal(raced.value.next, null);
+  }
   assert.equal(
-    prepareSingleTaskQueueCreation(created.value.next, "epoch-a", {
+    prepareSingleTaskQueueCreation(created.value.next, {
       ...entry,
       requestHash: "d".repeat(64),
     }).reason,
     "orchestrator_queue_identity_conflict",
   );
   assert.equal(
-    prepareSingleTaskQueueCreation(empty, "retired", entry).reason,
+    prepareSingleTaskQueueCreation(empty, entry).reason,
     "orchestrator_intake_epoch_retired",
   );
   assert.equal(
-    prepareSingleTaskQueueCreation(empty, "epoch-a", {
+    prepareSingleTaskQueueCreation(empty, {
       ...entry,
       milestoneId: "milestone-a",
     }).reason,
