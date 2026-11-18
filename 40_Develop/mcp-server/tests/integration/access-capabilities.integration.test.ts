@@ -40,7 +40,6 @@ import {
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { executeWorkspace } from "../../../coordinator/src/index.ts";
-import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   activityId,
@@ -56,6 +55,7 @@ import {
   initializeExecutionStore,
   saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
+import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
@@ -914,7 +914,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       initializeExecutionStore(repository.capability, binding).status,
       "completed",
     );
-    const saved = createCoordinatorState({
+    const saved = projectExecutionFixture({
       taskExecutionSelections: taskExecutionSelections(),
       projectId: "project.fixture",
       milestoneId: "milestone.fixture",

@@ -9,22 +9,375 @@
  * @boundary N/A: Provider、公開CLIと永続Runtimeを起動しない。
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import test from "node:test";
 import { compileFunction } from "node:vm";
+import {
+  inspectTaskExecutionSelections,
+  isPrincipalId,
+} from "../../../../execution-model/src/index.ts";
+import {
+  fixtureTaskExecutionSelections,
+  projectExecutionFixture,
+  withCallerPlan,
+} from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
-import { isPrincipalId } from "../../../../execution-model/src/index.ts";
-import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
-import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
-
+import { createRuntimeProcessRecoveryIdentity } from "../../../src/execution/process-safety-state.ts";
 import {
   buildObjectiveTaskRequest,
   createCoordinatorObjectiveResult,
 } from "../../../src/objective/execute.ts";
+import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
+import { resolveCoordinatorReplan } from "../../../src/objective/replan.ts";
 import { resolveTaskExecutionSelections } from "../../../src/selection/resolve.ts";
+import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
+import {
+  inspectCoordinatorObjectiveResult,
+  inspectTaskStartCandidates,
+} from "../../../src/state/projection.ts";
+import { createCoordinatorTaskRecoveryAdapter } from "../../../src/task/dispatch.ts";
 import { selectionConfig } from "../../fixtures/ai-selection.ts";
 
+/**
+ * 候補不正による停止でも元の回復事実を保持する。
+ * @trace PRL-UT-014
+ * @precondition 本体の最終結果構築と回復保存直後の実Sourceを有限依存で組み立てる。
+ * @stimulus その断面のmetadataだけを不正にする。
+ * @observation 例外非漏出、元ID・種別・再起動、不正後の追加呼出し0。
+ * @oracle 不明を成功又は空の回復情報へ補完しない。
+ * @cleanup メモリのみ。
+ */
+test("最終読取りと回復保存後の候補不正はexact回復情報を保持して停止する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/objective/execute.ts", import.meta.url),
+    "utf8",
+  );
+  const blocked = compileFunction(
+    `return (${sourceDeclaration(source, "blocked")});`,
+    ["createCoordinatorObjectiveResult"],
+  )(createCoordinatorObjectiveResult) as (
+    ...args: unknown[]
+  ) => ReturnType<typeof createCoordinatorObjectiveResult>;
+  const request = inspectCoordinatorObjectiveRequest(objective);
+  assert.ok(request);
+  const base = projectExecutionFixture({
+    taskExecutionSelections: fixtureTaskExecutionSelections(),
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    repositoryRevision: request.repositoryRevision,
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: request.plan.milestoneAcceptanceCriteria,
+    objectives: request.plan.objectives,
+    tasks: request.plan.tasks,
+    ownerGeneration: "owner",
+  }).state;
+  const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const processId = createRuntimeProcessRecoveryIdentity(
+    "attempt",
+    "operation",
+  );
+  const obligations = [
+    {
+      kind: "docker" as const,
+      recoveryId: dockerId,
+      phase: "required" as const,
+    },
+    {
+      kind: "runtime_process" as const,
+      recoveryId: processId,
+      phase: "required" as const,
+    },
+  ];
+  const known = {
+    ...base,
+    tasks: base.tasks.map((task) => ({
+      ...task,
+      recoveryObligations: obligations,
+      recoveryUnresolved: true,
+    })),
+  };
+  const body = sourceDeclaration(source, "executeCoordinatorObjective");
+  let effects = 0;
+  const intake = compileFunction(`return (${body});`, [
+    "isPrincipalId",
+    "createObjectiveIntake",
+    "inspectTaskStartCandidates",
+    "blocked",
+  ])(
+    () => true,
+    () => ({ queueId: "queue", requestHash: "hash" }),
+    inspectTaskStartCandidates,
+    blocked,
+  ) as (
+    deps: object,
+    request: object,
+    signal: AbortSignal,
+  ) => Promise<ReturnType<typeof createCoordinatorObjectiveResult>>;
+  const initial = await intake(
+    {
+      authenticatedPrincipalId: "principal",
+      repositoryBindingId: "binding",
+      clockIdentity: { createContentHash: () => "hash" },
+      plan: request.plan,
+      persistence: {
+        lease: {
+          inspectAcquisitionOwner: () => ({
+            status: "completed",
+            value: { acquisition: null },
+          }),
+        },
+        state: {
+          readState: () => ({
+            status: "completed",
+            value: known,
+            taskStartCandidates: null,
+          }),
+          enqueueOperation: () => {
+            effects++;
+            assert.fail("候補不正で受付しない");
+          },
+        },
+      },
+    },
+    request,
+    new AbortController().signal,
+  );
+  assert.equal(effects, 0);
+  assert.deepEqual(
+    new Set(initial.recoveryIds),
+    new Set([dockerId, processId]),
+  );
+  assert.ok(inspectCoordinatorObjectiveResult(initial));
+  const tail = body.slice(
+    body.indexOf("const latest = persistence.state.readState"),
+    body.lastIndexOf("}"),
+  );
+  let reads = 0;
+  const evaluate = compileFunction(`return (async()=>{ ${tail} })();`, [
+    "persistence",
+    "request",
+    "execution",
+    "inspectTaskStartCandidates",
+    "blocked",
+    "projectCoordinatorState",
+    "createCoordinatorObjectiveResult",
+    "queueId",
+  ]);
+  for (const recordedInState of [true, false]) {
+    reads = 0;
+    const execution = {
+      status: "blocked",
+      reason: "fixture_unknown",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      processRestartRequired: true,
+      recoveryIds: recordedInState ? [] : [dockerId, processId],
+      recoveryObligations: recordedInState
+        ? []
+        : obligations.map(({ kind, recoveryId }) => ({ kind, recoveryId })),
+      effectState: "unknown",
+    };
+    const result = (await evaluate(
+      {
+        state: {
+          readState: () => {
+            reads++;
+            return {
+              status: "completed",
+              value: recordedInState ? known : base,
+              taskStartCandidates: {
+                projectId: base.projectId,
+                generation: base.generation,
+                taskIds: {},
+              },
+            };
+          },
+        },
+      },
+      request,
+      execution,
+      inspectTaskStartCandidates,
+      blocked,
+      () => assert.fail("不正な候補を投影しない"),
+      createCoordinatorObjectiveResult,
+      "queue",
+    )) as ReturnType<typeof createCoordinatorObjectiveResult>;
+    assert.equal(reads, 1);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.projection, null);
+    assert.equal(result.effectState, "unknown");
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.processRestartRequired, true);
+    assert.deepEqual(
+      new Set(result.recoveryIds),
+      new Set([dockerId, processId]),
+    );
+    assert.ok(inspectCoordinatorObjectiveResult(result));
+  }
+  for (const stage of ["recovering", "settled"]) {
+    const writeName = `${stage}Write`;
+    const start = body.indexOf(
+      "state = Object.freeze({",
+      body.indexOf(`if (${writeName}.status`),
+    );
+    const stop = body.indexOf(`recoveryState = ${writeName}.value;`, start);
+    const recovering = compileFunction(
+      `let state; ${body.slice(start, stop)} return null;`,
+      [
+        writeName,
+        "request",
+        "queueId",
+        "item",
+        "inspectTaskStartCandidates",
+        "blocked",
+      ],
+    );
+    const savedState =
+      stage === "settled"
+        ? {
+            ...known,
+            tasks: known.tasks.map((task) => ({
+              ...task,
+              recoveryObligations: task.recoveryObligations.map((item) =>
+                item.kind === "docker"
+                  ? { ...item, phase: "settled" as const }
+                  : item,
+              ),
+            })),
+          }
+        : known;
+    const result = recovering(
+      {
+        status: "completed",
+        reason: "saved",
+        value: savedState,
+        taskStartCandidates: null,
+      },
+      request,
+      "queue",
+      obligations[0],
+      inspectTaskStartCandidates,
+      blocked,
+    ) as ReturnType<typeof createCoordinatorObjectiveResult>;
+    assert.equal(result.effectState, "unknown");
+    assert.deepEqual(
+      new Set(result.recoveryIds),
+      new Set([dockerId, processId]),
+    );
+    assert.ok(inspectCoordinatorObjectiveResult(result));
+  }
+});
+
+/**
+ * 再計画保存の成功metadataを現在の結果と同じ断面で捕捉する。
+ * @trace PRL-UT-014
+ * @precondition 不変の初期Stateを一度だけ準備し、各差分は独立した値とPortを使う。
+ * @stimulus 成功Task IDの欠測・別対象・Proxyと、Project・世代の不一致を与える。
+ * @observation 後続Queue更新数、停止区分とhook実行回数。
+ * @oracle 不明な成功応答を完了や未実施へ補完せず、後続更新を停止する。
+ * @cleanup メモリのみ。
+ */
+test("再計画保存の成功metadata不正はQueueを進めず保存後不明にする", () => {
+  const base = projectExecutionFixture({
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    ownerGeneration: "owner-a",
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: ["done"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["file.txt"],
+        conflictKeys: [],
+      },
+    ],
+    taskExecutionSelections: fixtureTaskExecutionSelections(),
+  }).state;
+  let hooks = 0;
+  for (const mode of [
+    "ok",
+    "missing",
+    "wrong",
+    "proxy",
+    "project",
+    "generation",
+  ]) {
+    const before = {
+      ...structuredClone(base),
+      tasks: base.tasks.map((item) => ({
+        ...structuredClone(item),
+        state: "failed" as const,
+      })),
+    };
+    let queueWrites = 0;
+    const after = {
+      ...structuredClone(before),
+      generation: before.generation + 1,
+      ...(mode === "project" ? { projectId: "other" } : {}),
+      ...(mode === "generation" ? { generation: before.generation } : {}),
+    };
+    const port = {
+      readState: () => ({ status: "completed", value: before }),
+      readQueue: () => ({
+        status: "completed",
+        value: {
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          state: "replan_required",
+          ownerGeneration: null,
+          generation: 1,
+        },
+      }),
+      updateTask: () => ({
+        status: "completed",
+        value: after,
+        ...(mode === "missing"
+          ? {}
+          : {
+              taskUpdateTaskIds:
+                mode === "wrong"
+                  ? ["other"]
+                  : mode === "proxy"
+                    ? new Proxy(["task-a"], {
+                        get() {
+                          hooks++;
+                          throw Error("hook");
+                        },
+                      })
+                    : ["task-a"],
+            }),
+      }),
+      updateQueue: () => {
+        queueWrites++;
+        return { status: "completed" };
+      },
+    } as unknown as CoordinatorStatePort;
+    const result = resolveCoordinatorReplan(
+      port,
+      {
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        queueId: "queue-a",
+        maximumReplans: 1,
+      },
+      () => ({ disposition: "maintain_plan", reason: "fixture" }),
+    );
+    assert.equal(queueWrites, mode === "ok" ? 1 : 0, mode);
+    assert.equal(result.status, mode === "ok" ? "completed" : "blocked", mode);
+    if (mode !== "ok") {
+      assert.equal(result.effectState, "unknown");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+    }
+  }
+  assert.equal(hooks, 0);
+});
 const objective = Object.freeze(
   withCallerPlan({
     operation: "start" as const,
@@ -273,13 +626,18 @@ test("受付計画はexact参照だけ再利用し別参照と不正返却を検
   assert.notEqual(changed.requestHash, original.requestHash);
   const project = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "projectObjectiveReplay"))});`,
-    ["createCoordinatorObjectiveResult", "projectCoordinatorState"],
+    [
+      "createCoordinatorObjectiveResult",
+      "projectCoordinatorState",
+      "inspectTaskStartCandidates",
+    ],
   )(
     createCoordinatorObjectiveResult,
     (state: { milestone: { state: string } }) => ({
       milestoneState: state.milestone.state,
       nextAction: "recover",
     }),
+    () => ({}),
   ) as (
     request: object,
     queue: object,
@@ -334,11 +692,17 @@ test("受付計画はexact参照だけ再利用し別参照と不正返却を検
   );
   const execute = compileFunction(
     `return (${sourceDeclaration(source, "executeCoordinatorObjective")});`,
-    ["isPrincipalId", "blocked", "createObjectiveIntake"],
+    [
+      "isPrincipalId",
+      "blocked",
+      "createObjectiveIntake",
+      "inspectTaskExecutionSelections",
+    ],
   )(
     isPrincipalId,
     (_request: unknown, reason: string) => ({ status: "blocked", reason }),
     identity,
+    inspectTaskExecutionSelections,
   ) as (
     deps: object,
     input: object,
@@ -374,4 +738,249 @@ test("受付計画はexact参照だけ再利用し別参照と不正返却を検
   );
   assert.equal(rejected.reason, "fixture_missing");
   assert.equal(reads, 1);
+  let selectionHooks = 0;
+  let enqueues = 0;
+  const accessorSelections = {
+    get executor() {
+      selectionHooks++;
+      throw Error("selection_accessor_must_not_run");
+    },
+    reviewer: null,
+  };
+  const proxySelections = new Proxy(
+    {},
+    {
+      ownKeys() {
+        selectionHooks++;
+        throw Error("selection_proxy_must_not_run");
+      },
+    },
+  );
+  const resolved = resolveTaskExecutionSelections(selectionConfig(), {
+    workType: null,
+  });
+  assert.ok(resolved.value);
+  const missingWorkType = { ...resolved.value.executor };
+  Reflect.deleteProperty(missingWorkType, "workType");
+  for (const value of [
+    accessorSelections,
+    proxySelections,
+    {},
+    { executor: {} },
+    { ...resolved.value, executor: missingWorkType },
+  ]) {
+    const result = await execute(
+      {
+        authenticatedPrincipalId: "principal-a",
+        repositoryBindingId: "binding",
+        clockIdentity: clock,
+        plan: request.plan,
+        resolveTaskSelections: () => ({ status: "resolved", value }),
+        persistence: {
+          lease: {
+            inspectAcquisitionOwner: () => ({
+              status: "completed",
+              value: { acquisition: null },
+            }),
+          },
+          state: {
+            readState: () => ({ status: "completed", value: null }),
+            enqueueOperation: () => {
+              enqueues++;
+              return forbidden();
+            },
+          },
+        },
+        execution: { runSingleTaskAttempt: forbidden },
+      },
+      { ...request, operation: "start" },
+      new AbortController().signal,
+    );
+    assert.equal(result.reason, "orchestrator_input_invalid");
+  }
+  assert.equal(selectionHooks, 0);
+  assert.equal(enqueues, 0);
+});
+
+/**
+ * Owner喪失の観測後から通知までの順序とexact参照を確認する。
+ * @trace PRL-UT-014
+ * @precondition 本番関数の該当断面と有限保存Portを使用する。
+ * @stimulus 観測不明、保存拒否、保存後metadata不正、任意通知のthrow／拒否を与える。
+ * @observation 保存要求、通知順、後続到達と元回復ID。
+ * @oracle 保存不明は停止して元参照を返し、任意診断失敗で回復を停止しない。
+ * @cleanup N/A: Process内の独立した値だけ。
+ * @boundary Coordinatorの観測→完成保存→候補捕捉→通知の接続。
+ */
+test("Owner喪失保存の拒否と候補不正でも取得済みexact参照を保持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/objective/execute.ts", import.meta.url),
+    "utf8",
+  );
+  const body = sourceDeclaration(source, "executeCoordinatorObjective");
+  const begin = body.indexOf(
+    "if (applicationId === null && activeTasks.length > 0)",
+  );
+  const end = body.indexOf("if (!applicationId) {", begin);
+  assert.ok(begin >= 0 && end > begin);
+  const blocked = compileFunction(
+    `return (${sourceDeclaration(source, "blocked")});`,
+    ["createCoordinatorObjectiveResult"],
+  )(createCoordinatorObjectiveResult);
+  const evaluate = compileFunction(
+    `return (async()=>{let state=initial;let applicationId=null;
+    const activeTasks=state.value.tasks.filter(item=>["starting","running"].includes(item.state));
+    const operationIds=activeTasks.map(item=>item.operationId).filter(item=>item!==null);
+    ${body.slice(begin, end)}
+    return {status:"continued",value:state.value};
+  })();`,
+    [
+      "initial",
+      "request",
+      "queueId",
+      "taskRecovery",
+      "inspectRecoveryCorrelationBindings",
+      "persistence",
+      "inspectTaskStartCandidates",
+      "blocked",
+      "recoveryApplicationId",
+      "dependencies",
+    ],
+  );
+  const request = inspectCoordinatorObjectiveRequest(objective);
+  assert.ok(request);
+  const base = projectExecutionFixture({
+    taskExecutionSelections: fixtureTaskExecutionSelections(),
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    repositoryRevision: request.repositoryRevision,
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: request.plan.milestoneAcceptanceCriteria,
+    objectives: request.plan.objectives,
+    tasks: request.plan.tasks,
+    ownerGeneration: "owner",
+  }).state;
+  const first = base.tasks[0];
+  assert.ok(first);
+  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const active = {
+    ...base,
+    tasks: [
+      {
+        ...first,
+        state: "running",
+        startPhase: "running",
+        operationId: "operation-a",
+      },
+    ],
+  };
+  const saved = {
+    ...active,
+    generation: active.generation + 1,
+    tasks: [
+      {
+        ...active.tasks[0],
+        state: "recovery_required",
+        startPhase: "settled",
+        recoveryObligations: [
+          { kind: "docker", recoveryId, phase: "required" },
+        ],
+      },
+    ],
+  };
+  const bindings = [
+    { operationId: "operation-a", status: "matched", recoveryId },
+  ];
+  for (const profile of [
+    "unknown",
+    "save_failure",
+    "metadata",
+    "normal",
+    "notify_throw",
+    "notify_reject",
+  ]) {
+    const events: string[] = [];
+    const adapter = createCoordinatorTaskRecoveryAdapter({
+      resolveTaskRecoveryCorrelations() {
+        events.push("observe");
+        return profile === "unknown" ? null : bindings;
+      },
+      observeRecoveryTransition() {
+        events.push("notify");
+        if (profile === "notify_throw") throw Error("optional_diagnostic");
+        if (profile === "notify_reject")
+          return Promise.reject(Error("optional_diagnostic"));
+      },
+      recoverTaskRecovery() {
+        assert.fail("この断面で技術回収しない");
+      },
+    });
+    const result = (await evaluate(
+      { status: "completed", value: active },
+      request,
+      "queue",
+      adapter,
+      (raw: unknown) => raw,
+      {
+        state: {
+          updateTask(command: unknown, generation: number) {
+            events.push("save");
+            assert.deepEqual(command, {
+              kind: "task_owner_loss",
+              projectId: request.projectId,
+              bindings,
+            });
+            assert.equal(generation, active.generation);
+            return profile === "save_failure"
+              ? { status: "blocked", reason: "fixture_save_failure" }
+              : {
+                  status: "completed",
+                  value: saved,
+                  taskStartCandidates:
+                    profile === "metadata"
+                      ? null
+                      : {
+                          projectId: saved.projectId,
+                          generation: saved.generation,
+                          taskIds: [],
+                        },
+                };
+          },
+        },
+      },
+      inspectTaskStartCandidates,
+      blocked,
+      () => {
+        events.push("continue");
+        return "application";
+      },
+      { clockIdentity: {} },
+    )) as {
+      status: string;
+      effectState?: string;
+      cleanupConfirmed?: boolean;
+      manualRecoveryRequired?: boolean;
+      recoveryIds?: readonly string[];
+      recoveryObligations?: readonly unknown[];
+    };
+    if (["unknown", "save_failure", "metadata"].includes(profile)) {
+      assert.equal(result.status, "blocked");
+      assert.equal(result.effectState, "unknown");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.deepEqual(
+        events,
+        profile === "unknown" ? ["observe"] : ["observe", "save"],
+      );
+      if (profile !== "unknown") {
+        assert.deepEqual(result.recoveryIds, [recoveryId]);
+        assert.deepEqual(result.recoveryObligations, [
+          { kind: "docker", recoveryId },
+        ]);
+      }
+    } else {
+      assert.equal(result.status, "continued");
+      assert.deepEqual(events, ["observe", "save", "notify", "continue"]);
+    }
+  }
 });

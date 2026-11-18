@@ -30,8 +30,8 @@ import {
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
-import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/controller.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
+import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/observation.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
@@ -84,6 +84,10 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
     runtime("execution/recovery.ts"),
     /from\s+["'][^"']*provider-executor\.ts["']/,
   );
+  assert.doesNotMatch(
+    runtime("execution/operation.ts"),
+    /from\s+["']\.\/recovery\.ts["']/,
+  );
   const recoveryControllerImports = [
     ...runtime("execution/recovery.ts").matchAll(
       /import\s*\{([^}]+)\}\s*from\s*["']\.\/controller\.ts["']/g,
@@ -94,10 +98,24 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
       .map((name) => name.trim())
       .filter(Boolean),
   );
-  assert.deepEqual(recoveryControllerImports.sort(), [
-    "beginRuntimeOwnedCoordinatorHostSubmission",
-    "completeRuntimeOwnedCoordinatorHostSubmission",
-  ]);
+  assert.deepEqual(recoveryControllerImports, []);
+  for (const name of ["authority", "diagnostics"])
+    assert.doesNotMatch(
+      runtime(`execution/${name}.ts`),
+      /from\s+["']\.\/preparation\.ts["']/,
+    );
+  assert.doesNotMatch(
+    source("execution/preparation.ts"),
+    /export (?:function validateProviderIsolationProfile|const PROVIDER_ISOLATION_CONTRACT)/,
+  );
+  assert.doesNotMatch(
+    runtime("execution/provider-executor.ts"),
+    /from\s+["']\.\/controller\.ts["']/,
+  );
+  assert.doesNotMatch(
+    source("execution/controller.ts"),
+    /export function createRuntimeOwnedLifecycleNoticeReporter/,
+  );
   assert.doesNotMatch(
     runtime("execution/observation.ts"),
     /from\s+["'][^"']*(?:controller|recovery|settlement-store)\.ts["']/,
@@ -6009,7 +6027,7 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
  */
 test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを無視する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/controller.ts", import.meta.url),
+    new URL("../../src/execution/observation.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /describeDockerCommandSessionContract/);
@@ -6020,10 +6038,7 @@ test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを�
   const start = source.indexOf(
     "export function createRuntimeOwnedLifecycleNoticeReporter(",
   );
-  const end = source.indexOf(
-    "\nexport const COORDINATOR_TASK_RUNTIME_CONTRACT",
-    start,
-  );
+  const end = source.indexOf("\n/**", start);
   assert.ok(start >= 0 && end > start);
   let expire: (() => void) | null = null,
     cleared = 0;

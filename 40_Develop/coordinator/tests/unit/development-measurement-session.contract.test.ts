@@ -8,24 +8,27 @@
  * @scope development、measurement、session
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import fs from "node:fs";
-import { createHash } from "node:crypto";
-import { stripTypeScriptTypes } from "node:module";
+import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
-import { fileURLToPath } from "node:url";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/execution/controller.ts";
 import {
+  createDevelopmentExecutionTiming,
   createIsolatedDevelopmentMeasurementSessionCandidate,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
-  createDevelopmentExecutionTiming,
 } from "../../src/execution/diagnostics.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
+import type { DevelopmentOperationContext } from "../../src/execution/operation.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
+import { snapshotPlainRecord } from "../../src/input/snapshot.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
 
 const repositoryRoot = path.resolve(
@@ -33,6 +36,163 @@ const repositoryRoot = path.resolve(
 );
 const COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const TREE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+/**
+ * SessionとOperationが同じ失効するContextだけを一回結合する。
+ * @responsibility 拒否時の両Owner不変、元参照、取消・完了後の停止とalias分離を反証する。
+ * @trace PPR-UT-006
+ * @precondition 元Operation関数本体と独立した合成Sessionを使う。
+ * @stimulus false・未知戻り値・Promise・例外と正常結合、二重結合、取消・完了・管理失効。
+ * @observation 両Ownerの同じContext参照、binding更新有無と動的checkNewWork。
+ * @oracle 同期trueだけcommitし、拒否時は再入場可能、失効を通常経路のnullへ置き換えない。
+ * @cleanup 局所MapとSessionのみ。Filesystemと子Processは使わない。
+ * @boundary 診断SessionとOperation管理binding。
+ */
+test("診断Contextは結合失敗で両Ownerを保持し同じ参照で取消・完了に追従する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/operation.ts", import.meta.url),
+    "utf8",
+  );
+  const code =
+    stripTypeScriptTypes(
+      [
+        sourceDeclaration(source, "bindOwnedDevelopmentOperationContext"),
+        sourceDeclaration(
+          source,
+          "inspectRuntimeOwnedDevelopmentOperationContext",
+        ),
+        sourceDeclaration(source, "revokeOwnedOperationContextCapabilities"),
+      ].join("\n"),
+    ) +
+    "\n({bindOwnedDevelopmentOperationContext,inspectRuntimeOwnedDevelopmentOperationContext,revokeOwnedOperationContextCapabilities})";
+  for (const ending of ["cancel", "settle"] as const) {
+    const records = new WeakMap<
+      object,
+      { developmentContext?: DevelopmentOperationContext }
+    >();
+    const aliases = new WeakMap<object, Set<object>>();
+    const api = runInNewContext(code, {
+      operationManagementCapabilities: records,
+      operationContextAliases: aliases,
+      operationContextCapabilities: new WeakMap(),
+      mountCapabilities: new WeakMap(),
+      snapshotPlainRecord,
+      isObject: (value: unknown) => value !== null && typeof value === "object",
+      verifyOwnedOperationManagementCapability: (value: object) => {
+        if (!records.has(value)) throw Error("revoked");
+      },
+    }) as {
+      bindOwnedDevelopmentOperationContext: (
+        owner: object,
+        context: DevelopmentOperationContext,
+      ) => boolean;
+      inspectRuntimeOwnedDevelopmentOperationContext: (
+        owner: unknown,
+      ) => DevelopmentOperationContext | null;
+      revokeOwnedOperationContextCapabilities: (owned: object) => void;
+    };
+    let mode: unknown = false;
+    const { runtime, createOperation } = harness((owner, context) => {
+      if (mode === "throw") throw Error("bind_failed");
+      if (mode === "bind")
+        return api.bindOwnedDevelopmentOperationContext(owner, context);
+      return mode as boolean;
+    });
+    const signal = new AbortController();
+    const session = await runtime.request(configuration(), signal.signal);
+    assertPresent(session.capability);
+    const taskCapability = runtime.reserveTask(
+      session.capability,
+      task("codex"),
+    );
+    assertPresent(taskCapability);
+    const { management, repository } = createOperation();
+    const original = Object.freeze({});
+    records.set(management, original);
+    const owned = Object.freeze({});
+    const otherAlias = Object.freeze({});
+    records.set(otherAlias, original);
+    aliases.set(owned, new Set([management, otherAlias]));
+    assert.equal(
+      api.inspectRuntimeOwnedDevelopmentOperationContext(management),
+      null,
+    );
+    assert.equal(api.inspectRuntimeOwnedDevelopmentOperationContext({}), null);
+    for (const rejected of [false, undefined, Promise.resolve(true), "throw"]) {
+      mode = rejected;
+      assert.equal(
+        runtime.bindOperation(taskCapability, management, repository),
+        false,
+      );
+      assert.equal(runtime.operationContext(management), null);
+      assert.equal(records.get(management), original);
+    }
+    mode = "bind";
+    assert.equal(
+      runtime.bindOperation(taskCapability, management, repository),
+      true,
+    );
+    const context = runtime.operationContext(management);
+    assertPresent(context);
+    assert.equal(
+      api.inspectRuntimeOwnedDevelopmentOperationContext(management),
+      context,
+    );
+    assert.equal(runtime.operationContext(management), context);
+    assert.equal(context.newWorkContext, taskCapability);
+    assert.equal(
+      api.inspectRuntimeOwnedDevelopmentOperationContext(otherAlias),
+      null,
+    );
+    assert.equal(
+      api.inspectRuntimeOwnedDevelopmentOperationContext(management)
+        ?.cleanupContext,
+      context.cleanupContext,
+    );
+    assert.equal(context.checkNewWork(), true);
+    const captured = records.get(management);
+    assert.equal(
+      api.bindOwnedDevelopmentOperationContext(
+        management,
+        Object.freeze({ ...context }),
+      ),
+      false,
+    );
+    assert.equal(records.get(management), captured);
+    assert.equal(
+      runtime.bindOperation(taskCapability, management, repository),
+      false,
+    );
+    if (ending === "cancel") signal.abort();
+    else {
+      assert.equal(runtime.settleTask(taskCapability, "finished"), true);
+      const otherTask = runtime.reserveTask(session.capability, task("claude"));
+      assertPresent(otherTask);
+      assert.equal(
+        runtime.bindOperation(otherTask, management, repository),
+        false,
+      );
+      assert.equal(records.get(management), captured);
+    }
+    assert.equal(runtime.operationContext(management), context);
+    assert.equal(
+      api.inspectRuntimeOwnedDevelopmentOperationContext(management),
+      context,
+    );
+    assert.equal(context.checkNewWork(), false);
+    api.revokeOwnedOperationContextCapabilities(owned);
+    assert.equal(
+      api.inspectRuntimeOwnedDevelopmentOperationContext(management),
+      null,
+    );
+    assert.equal(records.has(otherAlias), false);
+    assert.equal(
+      api.bindOwnedDevelopmentOperationContext(management, context),
+      false,
+    );
+    runtime.cancel(session.capability);
+  }
+});
 
 /**
  * 計測の内部入力とTimelineに独自容量を再適用しない。
@@ -136,7 +296,12 @@ function configuration() {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
-function harness() {
+function harness(
+  bindOperationContext?: (
+    management: object,
+    context: DevelopmentOperationContext,
+  ) => boolean,
+) {
   const clock = { wall: 100, monotonic: 100 };
   const state = {
     identity: "2".repeat(64),
@@ -151,6 +316,7 @@ function harness() {
   const operations = new WeakSet<object>();
   const repositories = new WeakMap<object, object>();
   const runtime = createIsolatedDevelopmentMeasurementSessionCandidate({
+    ...(bindOperationContext ? { bindOperationContext } : {}),
     observe: () => {
       state.observationCount += 1;
       state.beforeObservation(state.observationCount);

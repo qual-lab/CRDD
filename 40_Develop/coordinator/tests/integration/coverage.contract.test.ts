@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { parseExactTsCoverageLcov } from "../../scripts/coverage.ts";
+
 const SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/src/execution/diagnostics.ts",
@@ -130,6 +131,62 @@ test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", 
       recheck: "LCOV grammar、Node coverageまたは固定母集団の変更時",
     },
   });
+});
+
+/**
+ * 同名関数の定義位置・多重度と集計の正確性を確認する。
+ * @responsibility 別行同名を受け入れ、真の重複と欠測・余剰・総数・covered不整合を拒否する。
+ * @trace ERB-IT-001
+ * @precondition 固定Source集合で同名二定義を異なる行に置く。
+ * @stimulus FNDAの順序と出現数、定義位置、FNF／FNHを個別に変更する。
+ * @observation 関数の分母分子と不正入力の拒否。
+ * @oracle 定義位置への推測割当てを行わず、名前別出現数と集計値を厳密照合する。
+ * @cleanup メモリ内文字列のみ。
+ * @boundary LCOV解析入力。
+ */
+test("LCOVの同名関数は定義位置と多重度を照合し集計値を維持する", () => {
+  const raw = exactLcov().replace(
+    "FN:1,fixture\nFNDA:1,fixture\nFNF:1\nFNH:1",
+    "FN:1,fixture\nFN:2,fixture\nFNDA:1,fixture\nFNDA:0,fixture\nFNF:2\nFNH:1",
+  );
+  const expected = { covered: 6, total: 7 };
+  assert.deepEqual(parseCoverage(raw).totals.functions, expected);
+  assert.deepEqual(
+    parseCoverage(
+      raw.replace(
+        "FNDA:1,fixture\nFNDA:0,fixture",
+        "FNDA:0,fixture\nFNDA:1,fixture",
+      ),
+    ).totals.functions,
+    expected,
+  );
+  assert.throws(
+    () => parseCoverage(raw.replace("FN:2,fixture", "FN:1,fixture")),
+    /duplicate FN/u,
+  );
+  assert.throws(
+    () => parseCoverage(raw.replace("FNDA:0,fixture\n", "")),
+    /inconsistent function records/u,
+  );
+  assert.throws(
+    () =>
+      parseCoverage(
+        raw.replace("FNDA:0,fixture", "FNDA:0,fixture\nFNDA:1,fixture"),
+      ),
+    /duplicate FNDA/u,
+  );
+  assert.throws(
+    () => parseCoverage(raw.replace("FNDA:0,fixture", "FNDA:0,other")),
+    /inconsistent function records/u,
+  );
+  assert.throws(
+    () => parseCoverage(raw.replace("FNF:2", "FNF:1")),
+    /inconsistent function records/u,
+  );
+  assert.throws(
+    () => parseCoverage(raw.replace("FNH:1", "FNH:2")),
+    /inconsistent function records/u,
+  );
 });
 
 /**

@@ -36,11 +36,11 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  loadHostRecoveryRecordByToken,
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   executionSelection,
   preparationSelection,

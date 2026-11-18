@@ -20,17 +20,26 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import type {} from "../../../execution-model/src/index.ts";
 import {
-  initializeExecutionStore,
   createQueue,
+  initializeExecutionStore,
+  type ProjectExecutionInitialization,
   type ProjectExecutionState,
   queryPlan,
   readLease,
   readState,
   recoverLease,
+  retireStateRecords,
   saveIntegrationRecord,
   savePlan,
   saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
+import {
+  initialExecutionInput,
+  projectExecutionFixture,
+  taskHandoffFixture,
+  taskStartedFixture,
+  taskStartFixture,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   getRepository,
   readRepositoryStorageIdentity,
@@ -46,21 +55,16 @@ import {
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
   reconcileCoordinatorSnapshotLeaseOwnerLoss,
 } from "../../src/execution/lease.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
+import {
+  historyRepositoryInput,
+  verifyRuntimePersistenceRepository,
+} from "../../src/execution/persistence.ts";
 import { projectState } from "../../src/state/projection.ts";
-import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
 import {
   createCoordinatorSnapshotPersistencePorts,
   createCurrentCoordinatorPersistencePorts,
 } from "../../src/state/transaction.ts";
-import {
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  reserveProjectTaskStart,
-  settleProjectTask,
-} from "../../src/task/lifecycle.ts";
-import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
+import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/operations.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -404,7 +408,15 @@ test("snapshot production: shared adoption evidence survives staged retirement",
     milestone: { ...state.milestone, criterionEvidenceIds: ["receipt-b"] },
   };
   assert.equal(ports.state.writeState(protectedState, 0).status, "completed");
-  assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 1);
+  const retirementNow1 = Date.now();
+  assert.equal(
+    retireStateRecords(
+      historyRepositoryInput(verifyRuntimePersistenceRepository(root)),
+      "binding-a",
+      retirementNow1,
+    ).value,
+    1,
+  );
   const retained = readFixtureSnapshot(root, "binding-a").value;
   assert.deepEqual(
     retained?.results.map((item) => item.identity),
@@ -422,7 +434,15 @@ test("snapshot production: shared adoption evidence survives staged retirement",
     ).status,
     "completed",
   );
-  assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 1);
+  const retirementNow2 = Date.now();
+  assert.equal(
+    retireStateRecords(
+      historyRepositoryInput(verifyRuntimePersistenceRepository(root)),
+      "binding-a",
+      retirementNow2,
+    ).value,
+    1,
+  );
   const closed = readFixtureSnapshot(root, "binding-a").value;
   assert.equal(closed?.results.length, 0);
   assert.deepEqual(closed?.leaseEvidence, otherEvidence);
@@ -509,6 +529,7 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
   `;
   for (const sameContent of [false, true]) {
     const { root, state } = fixture(t);
+    const initialization = initialExecutionInput(state);
     assert.equal(
       initializeExecutionStore(
         verifyRuntimePersistenceRepository(root),
@@ -531,30 +552,34 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
     );
     let stateHooks = 0;
     const accessorState = {
-      ...state,
+      ...initialization,
       get projectId() {
         stateHooks++;
         return state.projectId;
       },
     };
-    const proxyState = new Proxy(state, {
+    const proxyState = new Proxy(initialization, {
       ownKeys() {
         stateHooks++;
         return Reflect.ownKeys(state);
       },
     });
     for (const invalid of [
+      state,
       accessorState,
       proxyState,
-      { ...state, generation: 2 },
-      { ...state, projectId: "project-unbound" },
-      { ...state, milestoneId: "milestone-unbound" },
-      { ...state, repositoryRevision: "d".repeat(40) },
+      { ...initialization, generation: 2 },
+      { ...initialization, projectId: "project-unbound" },
+      { ...initialization, milestoneId: "milestone-unbound" },
+      { ...initialization, repositoryRevision: "d".repeat(40) },
     ]) {
       const rejected = createQueue(
         verifyRuntimePersistenceRepository(root),
         "binding-a",
-        { kind: "scheduled", input: [queue, invalid] },
+        {
+          kind: "scheduled",
+          input: [queue, invalid as unknown as ProjectExecutionInitialization],
+        },
       );
       assert.equal(rejected.status, "blocked");
       assert.equal(
@@ -567,7 +592,7 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
     }
     assert.equal(stateHooks, 0);
     const inputs = [
-      { queue, state },
+      { queue, state: initialization },
       {
         queue: {
           ...queue,
@@ -575,7 +600,7 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
           requestHash: sameContent ? queue.requestHash : "d".repeat(64),
         },
         state: {
-          ...state,
+          ...initialization,
           projectId: sameContent ? state.projectId : "project-other",
           ownerGeneration: "other-owner",
         },
@@ -616,7 +641,7 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
         assert.equal(code, 0);
         assert.equal(signal, null);
       }
-      assert.equal(outcomes[0].status, "completed");
+      assert.equal(outcomes[0].status, "completed", outcomes[0].reason);
       assert.equal(outcomes[1].status, sameContent ? "completed" : "blocked");
       assert.equal(
         outcomes[1].reason,
@@ -733,13 +758,29 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
   assert.equal(snapshot.value?.projects.length, 0);
   assert.equal(snapshot.value?.queueEntries.length, 0);
   assert.equal(snapshot.value?.results.length, 1);
-  assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 1);
+  const retirementNow3 = Date.now();
+  assert.equal(
+    retireStateRecords(
+      historyRepositoryInput(verifyRuntimePersistenceRepository(root)),
+      "binding-a",
+      retirementNow3,
+    ).value,
+    1,
+  );
   const retired = readFixtureSnapshot(root, "binding-a");
   assert.equal(retired.value?.results.length, 0);
   assert.equal(retired.value?.leaseEvidence.length, 0);
   assert.equal(initialized.value, null);
   assert.ok(retired.value);
-  assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 0);
+  const retirementNow4 = Date.now();
+  assert.equal(
+    retireStateRecords(
+      historyRepositoryInput(verifyRuntimePersistenceRepository(root)),
+      "binding-a",
+      retirementNow4,
+    ).value,
+    0,
+  );
 });
 
 /**
@@ -880,7 +921,15 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
     ),
     beforeRetirement,
   );
-  assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 1);
+  const retirementNow5 = Date.now();
+  assert.equal(
+    retireStateRecords(
+      historyRepositoryInput(verifyRuntimePersistenceRepository(root)),
+      "binding-a",
+      retirementNow5,
+    ).value,
+    1,
+  );
   const snapshot = readFixtureSnapshot(root, "binding-a");
   assert.equal(snapshot.value?.schemaRevision, 9);
   assert.equal(snapshot.value?.queueEntries.length, 1);
@@ -889,7 +938,15 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   assert.equal(snapshot.value?.results.length, 2);
   assert.deepEqual(snapshot.value?.leaseEvidence, canonicalEvidence);
   assert.equal(snapshot.value?.historyPending.length, 0);
-  assert.equal(maintainCoordinatorSnapshot(root, "binding-a").value, 0);
+  const retirementNow6 = Date.now();
+  assert.equal(
+    retireStateRecords(
+      historyRepositoryInput(verifyRuntimePersistenceRepository(root)),
+      "binding-a",
+      retirementNow6,
+    ).value,
+    0,
+  );
   assert.equal(ports.state.enqueueOperation(input).status, "completed");
   const stale = {
     operation: "resume" as const,
@@ -1800,7 +1857,7 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
     ).status,
     "completed",
   );
-  const reserved = reserveProjectTaskStart(
+  const reserved = taskStartFixture(
     state,
     state.generation,
     "task-a",
@@ -1818,7 +1875,7 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
     "completed",
   );
   state = reserved.state;
-  const prepared = prepareProjectTaskHandoff(
+  const prepared = taskHandoffFixture(
     state,
     state.generation,
     "task-a",
@@ -1836,7 +1893,7 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
     "completed",
   );
   state = prepared.state;
-  const started = observeProjectTaskStarted(
+  const started = taskStartedFixture(
     state,
     state.generation,
     "task-a",
@@ -1854,16 +1911,26 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
     "completed",
   );
   state = started.state;
-  const settled = settleProjectTask(state, state.generation, {
-    taskId: "task-a",
-    attemptId: "attempt-a",
-    operationId: "operation-a",
-    authorityBindingId: "authority-a",
-    outcome: "completed",
-    cleanupConfirmed: true,
-    recoveryObligations: [],
-    recoveryUnresolved: false,
-  });
+  // 余分な受領fieldを試す既知候補。終端の規則自体はEM単体と完成保存の試験が所有する。
+  const settled = {
+    state: {
+      ...state,
+      generation: state.generation + 1,
+      objectives: state.objectives.map((item) => ({
+        ...item,
+        state: "integration_pending" as const,
+      })),
+      tasks: state.tasks.map((item) => ({
+        ...item,
+        state: "completed" as const,
+        startPhase: "settled" as const,
+        cleanupConfirmed: true,
+        recoveryObligations: [],
+        recoveryUnresolved: false,
+        candidateId: null,
+      })),
+    },
+  };
   assert.ok(settled.state);
   const acceptance = {
     repositoryBindingId: "binding-a",
@@ -2367,7 +2434,7 @@ function fixture(t: test.TestContext) {
     ],
     { windowsHide: true },
   );
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",

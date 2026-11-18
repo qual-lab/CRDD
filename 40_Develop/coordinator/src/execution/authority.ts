@@ -44,20 +44,20 @@ import {
   snapshotPlainRecord,
 } from "../input/snapshot.ts";
 import { getIsolationSettings } from "./configuration.ts";
-import { inspectRuntimeOwnedDevelopmentOperationContext } from "./diagnostics.ts";
 import { acquireProviderHomeLock } from "./kernel-lock.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
+  inspectRuntimeOwnedDevelopmentOperationContext,
   verifyOwnedOperationManagementCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   PROVIDER_ISOLATION_CONTRACT_REVISION,
   validateProviderIsolationProfile,
-} from "./preparation.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
+} from "./validation.ts";
 
 export const AUTHORITY_FILE_BUNDLE_CONTRACT =
   "crdd-coordinator/authority-file-bundle";

@@ -29,6 +29,11 @@ import {
   saveWorkspaceRecord,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
+import {
+  taskHandoffFixture,
+  taskStartedFixture,
+  taskStartFixture,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { acceptResult } from "../../src/decision/acceptance.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
@@ -39,12 +44,6 @@ import {
   createCoordinatorExecutionHostPorts,
   runCoordinatorOperation,
 } from "../../src/task/dispatch.ts";
-import {
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  reserveProjectTaskStart,
-  settleProjectTask,
-} from "../../src/task/lifecycle.ts";
 import {
   resolveCoordinatorWorkspaceTaskTarget,
   workspacePlanReadyForAcceptance,
@@ -1302,7 +1301,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
      * @cleanup fixture終了時に所有Rootを回収する。
      * @boundary 実Snapshot・既存排他。本文の新永続先はない。
      */
-    const save = (next: ReturnType<typeof reserveProjectTaskStart>) => {
+    const save = (next: ReturnType<typeof taskStartFixture>) => {
       assert.equal(next.status, "completed", JSON.stringify(next));
       assert.ok(next.state);
       assert.equal(
@@ -1317,7 +1316,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
       state = next.state;
     };
     save(
-      reserveProjectTaskStart(
+      taskStartFixture(
         state,
         state.generation,
         taskId,
@@ -1326,7 +1325,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
       ),
     );
     save(
-      prepareProjectTaskHandoff(
+      taskHandoffFixture(
         state,
         state.generation,
         taskId,
@@ -1335,7 +1334,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
       ),
     );
     save(
-      observeProjectTaskStarted(
+      taskStartedFixture(
         state,
         state.generation,
         taskId,
@@ -1355,8 +1354,12 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
       path.join(target.value.executionTree, "source.txt"),
       `${taskId}\n`,
     );
-    save(
-      settleProjectTask(state, state.generation, {
+    const terminal = saveProjectExecutionState(
+      verifyRuntimePersistenceRepository(f.root),
+      f.binding,
+      {
+        kind: "task_settle",
+        projectId: state.projectId,
         taskId,
         attemptId: `attempt-${taskId}`,
         operationId: `operation-${taskId}`,
@@ -1365,8 +1368,11 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
         cleanupConfirmed: true,
         recoveryUnresolved: false,
         recoveryObligations: [],
-      }),
+        resultUnresolved: false,
+      },
+      state.generation,
     );
+    assert.equal(terminal.status, "completed", terminal.reason);
     assert.equal(fs.existsSync(f.tree), true);
     assert.equal(f.snapshot().workspaces.length, 1);
   }
@@ -2129,4 +2135,4 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
   }
 });
 
-import { inspectWorkspaceCommand } from "../../src/workspace/commands.ts";
+import { inspectWorkspaceCommand } from "../../src/workspace/operations.ts";

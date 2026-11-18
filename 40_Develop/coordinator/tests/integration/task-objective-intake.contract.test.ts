@@ -10,7 +10,6 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -21,20 +20,18 @@ import { fileURLToPath } from "node:url";
 import {
   initializeExecutionStore,
   readState,
+  saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  taskStartFixture,
+  withCallerPlan,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
-
-import { reserveProjectTaskStart } from "../../src/task/lifecycle.ts";
-import {
-  markProjectTaskRecoveryObligationRecovering,
-  settleProjectTaskRecoveryObligation,
-} from "../../src/task/recovery.ts";
 import type {
   CoordinatorSingleTaskAttemptInput,
   CoordinatorSingleTaskResult,
@@ -53,6 +50,7 @@ import {
   registerSyntheticOperations,
   settleSyntheticOperation,
 } from "../fixtures/task-result-fixture.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 const revision = "a".repeat(40);
 /**
@@ -376,37 +374,32 @@ function settleRuntimeProcessAsFreshProcess(
   assert.ok(task);
   assert.ok(obligation);
   if (obligation.phase === "required") {
-    const recovering = markProjectTaskRecoveryObligationRecovering(
-      state,
-      state.generation,
-      task.definition.id,
-      obligation.kind,
-      obligation.recoveryId,
-    );
-    assert.equal(recovering.status, "completed");
-    assert.ok(recovering.state);
-    const write = writeCoordinatorState(
-      workingDirectory,
+    const write = saveProjectExecutionState(
+      verifyRuntimePersistenceRepository(workingDirectory),
       repositoryBindingId,
-      recovering.state,
+      {
+        kind: "task_recovery_start",
+        projectId: state.projectId,
+        taskId: task.definition.id,
+        recoveryKind: obligation.kind,
+        recoveryId: obligation.recoveryId,
+      },
       state.generation,
     );
     assert.equal(write.status, "completed");
+    assert.ok(write.value);
     state = write.value;
   }
-  const settled = settleProjectTaskRecoveryObligation(
-    state,
-    state.generation,
-    task.definition.id,
-    obligation.kind,
-    obligation.recoveryId,
-  );
-  assert.equal(settled.status, "completed");
-  assert.ok(settled.state);
-  const write = writeCoordinatorState(
-    workingDirectory,
+  const write = saveProjectExecutionState(
+    verifyRuntimePersistenceRepository(workingDirectory),
     repositoryBindingId,
-    settled.state,
+    {
+      kind: "task_recovery_settle",
+      projectId: state.projectId,
+      taskId: task.definition.id,
+      recoveryKind: obligation.kind,
+      recoveryId: obligation.recoveryId,
+    },
     state.generation,
   );
   assert.equal(write.status, "completed");
@@ -2000,7 +1993,7 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
     "project-a",
   );
   assert.ok(stateRead.value);
-  const reserved = reserveProjectTaskStart(
+  const reserved = taskStartFixture(
     stateRead.value,
     stateRead.value.generation,
     "task-a",

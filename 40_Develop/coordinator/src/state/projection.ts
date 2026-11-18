@@ -4,13 +4,15 @@
  * @trace ARCH-000004
  */
 
-import type { ProjectTaskState } from "../../../execution-model/src/index.ts";
+import type {
+  ProjectTaskState,
+  TaskStartCandidates,
+} from "../../../execution-model/src/index.ts";
 import {
   PROJECT_STATE_CONTRACT,
   type ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../objective/plan.ts";
-import { selectSchedulableProjectTasks } from "../task/scheduling.ts";
 import { inspectCoordinatorWorkspaceResults } from "../workspace/record.ts";
 import { validIdentity, validRevision } from "./validation.ts";
 
@@ -45,24 +47,65 @@ function countStates<T extends string>(
 }
 
 /**
- * Coordinator 状態を公開結果へ投影する。
- *
- * @responsibility Coordinator 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * 開始候補の輸送形式と同じProject・世代への所属を捕捉する。
+ * @responsibility 密配列・一意なTask ID・同版相関を確認し、モデルの選抜規則は再実装しない。
  * @trace ARCH-000004
- * @input state: ProjectExecutionState
- * @returns CoordinatorProjectionを返す。
- * @precondition 「state: ProjectExecutionState」がprojectCoordinatorStateの入力契約を満たす。
- * @postcondition projectCoordinatorStateの責務を完了した結果だけを返す。
- * @effect N/A: projectCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure projectCoordinatorStateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant projectCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: projectCoordinatorStateはProcess内の同一Subsystemで完結する。
- * @security N/A: projectCoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: projectCoordinatorStateは共有非同期状態を持たない同期処理である。
+ * @input state: 保存確認済みState、input: 受け取った候補metadata。
+ * @returns 独立した固定値、又は輸送不正のnull。
+ * @precondition State自身は既存Readerで確認済み。
+ * @postcondition Getter・Proxyを実行せず、欠測を空候補へ補完しない。
+ * @effect なし。
+ * @boundary EMの観測とCoordinatorの実行・表示。
+ * @security 候補IDをAuthority又は予約済み状態として扱わない。
+ */
+export function inspectTaskStartCandidates(
+  state: ProjectExecutionState,
+  input: unknown,
+): TaskStartCandidates | null {
+  const record = snapshotPlainRecord(
+    input,
+    new Set(["projectId", "generation", "taskIds"]),
+  );
+  if (
+    !record ||
+    record.projectId !== state.projectId ||
+    record.generation !== state.generation
+  )
+    return null;
+  const ids = snapshotPlainArray(record.taskIds, Number.MAX_SAFE_INTEGER);
+  if (ids.status !== "ok") return null;
+  const seen = new Set<string>();
+  for (const id of ids.value) {
+    if (
+      typeof id !== "string" ||
+      seen.has(id) ||
+      !state.tasks.some((task) => task.definition.id === id)
+    )
+      return null;
+    seen.add(id);
+  }
+  return Object.freeze({
+    projectId: state.projectId,
+    generation: state.generation,
+    taskIds: Object.freeze([...seen]),
+  });
+}
+
+/**
+ * 同じ保存断面のStateと開始候補から公開状態を構築する。
+ * @responsibility 進行・品質・次の操作の投影を作り、候補の欠測を待機へ補完しない。
+ * @trace ARCH-000004
+ * @input state、candidates: 同じProject・generationの観測。
+ * @returns Coordinatorの公開投影。
+ * @failure 候補不正又は意味的不整合を例外として呼出し境界へ返す。
+ * @effect なし。
  */
 export function projectCoordinatorState(
   state: ProjectExecutionState,
+  candidates: TaskStartCandidates | null,
 ): CoordinatorProjection {
+  const observed = inspectTaskStartCandidates(state, candidates);
+  if (!observed) throw new Error("orchestrator_state_observation_unknown");
   const objectiveCounts = countStates(
     state.objectives.map((objective) => objective.state),
     OBJECTIVE_STATES,
@@ -116,7 +159,7 @@ export function projectCoordinatorState(
           ? ("verify_milestone_integration" as const)
           : objectiveCounts.integration_pending > 0
             ? ("verify_objective_integration" as const)
-            : selectSchedulableProjectTasks(state).length > 0
+            : observed.taskIds.length > 0
               ? ("schedule_task" as const)
               : ("wait_for_task" as const);
   const projection = Object.freeze({

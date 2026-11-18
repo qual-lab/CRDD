@@ -23,7 +23,7 @@ import {
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/execution/validation.ts";
 import {
   assertPresent,
   canonicalJson,

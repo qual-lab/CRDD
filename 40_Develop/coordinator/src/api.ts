@@ -422,8 +422,9 @@ export type {
   RuntimeActivityObservation,
   RuntimeActivityRequest,
 } from "./state/types.ts";
-export type { WorkspaceCommand, WorkspaceView } from "./workspace/commands.ts";
-export { inspectWorkspaceCommand } from "./workspace/commands.ts";
+export type { WorkspaceView } from "./workspace/commands.ts";
+export type { WorkspaceCommand } from "./workspace/operations.ts";
+export { inspectWorkspaceCommand } from "./workspace/operations.ts";
 export type { WorkspaceResult } from "./workspace/record.ts";
 
 /**

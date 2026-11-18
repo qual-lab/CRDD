@@ -19,7 +19,11 @@ import path, { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { createLocalPrincipalId } from "../../../execution-model/src/index.ts";
+import { readCoordinatorConfig } from "../../../configuration-model/src/index.ts";
+import {
+  createLocalPrincipalId,
+  retireStateRecords,
+} from "../../../execution-model/src/index.ts";
 
 /**
  * 診断の現在状態・全履歴取得を一つのEM Reader結果へ結合する。
@@ -240,7 +244,6 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
-import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
 import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
 import {
@@ -253,6 +256,7 @@ import {
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
+  getRepositoryFromWorkingDirectory,
   readRepositoryRevision,
 } from "../../../version-control/src/index.ts";
 import {
@@ -1215,6 +1219,9 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "direct",
     "isolated",
     "transfer",
+    "history-config-missing",
+    "history-config-changed",
+    "history-root-unavailable",
     "owner",
     "read",
     "release",
@@ -1452,7 +1459,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; let configurationReads=0; const Date={now:()=>123456}; const getRepositoryFromWorkingDirectory=()=>scenario==="history-root-unavailable"?{status:"blocked"}:{status:"completed",capability:{}}; const readCoordinatorConfig=()=>{configurationReads++;return scenario==="history-config-missing"?{status:"blocked"}:{status:"ready",config:{historyRetentionDays:scenario==="history-config-changed"&&configurationReads>1?31:30}};}; const retireStateRecords=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferHistory=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -3006,7 +3013,32 @@ for (const transport of ["tool-child-process"] as const) {
       throw Error("snapshot_required");
     assert.equal(state.value.snapshot.queueEntries.length, 3);
     assert.deepEqual(state.value.snapshot.leaseIntents, []);
-    const retired = maintainCoordinatorSnapshot(root, binding);
+    const retirementNow = Date.now();
+    const retirementRepository = getRepositoryFromWorkingDirectory(root);
+    assert.equal(retirementRepository.status, "completed");
+    if (retirementRepository.status !== "completed")
+      throw new Error("orchestrator_repository_root_invalid");
+    const retirementRoot = retirementRepository.capability;
+    const retirementConfig = readCoordinatorConfig(retirementRoot);
+    const retired = retireStateRecords(
+      {
+        root: retirementRoot,
+        historyRetentionDays:
+          retirementConfig.status === "ready"
+            ? retirementConfig.config.historyRetentionDays
+            : null,
+        revalidate(expectedHistoryRetentionDays?: number) {
+          if (expectedHistoryRetentionDays === undefined) return true;
+          const fresh = readCoordinatorConfig(retirementRoot);
+          return (
+            fresh.status === "ready" &&
+            fresh.config.historyRetentionDays === expectedHistoryRetentionDays
+          );
+        },
+      },
+      binding,
+      retirementNow,
+    );
     assert.equal(retired.status, "completed", retired.reason);
     assert.equal(retired.value, 3);
     const afterRetirement = readState(verified.capability, {

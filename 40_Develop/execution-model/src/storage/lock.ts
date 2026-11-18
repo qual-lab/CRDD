@@ -946,7 +946,7 @@ export function blocked<T>(
   reason: string,
   manualRecoveryRequired = false,
   recoveryId: string | null = null,
-): StoreResult<T> {
+): Extract<StoreResult<T>, { status: "blocked" }> {
   return Object.freeze({
     status: "blocked",
     reason,

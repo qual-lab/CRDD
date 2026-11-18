@@ -24,20 +24,90 @@ import {
   MCP_COORDINATOR_STATE_TOOL,
   type McpCoordinatorDependencies,
 } from "@qual-lab/crdd-mcp/automation";
+import { createRuntimeProcessRecoveryIdentity } from "../../../coordinator/src/execution/process-safety-state.ts";
 import {
   inspectCoordinatorDecisionResult,
+  inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
   inspectWorkspaceCommand,
 } from "../../../coordinator/src/index.ts";
-import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
-import { projectCoordinatorState } from "../../../coordinator/src/state/projection.ts";
+import { createCoordinatorObjectiveResult } from "../../../coordinator/src/objective/execute.ts";
+import {
+  inspectTaskStartCandidates,
+  projectCoordinatorState,
+} from "../../../coordinator/src/state/projection.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { inspectTaskExecutionSelections } from "../../../execution-model/src/index.ts";
+import {
+  projectExecutionFixture,
+  withCallerPlan,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/index.ts";
 import { protocolError } from "../../src/request/validation.ts";
 
 const revision = "a".repeat(40);
+
+/**
+ * 候補不明の公開停止をMCPでも欠落なく搬送する。
+ * @trace PRL-UT-014
+ * @precondition 回復ID二件と再起動必要性を持つProducer結果だけを使う。
+ * @stimulus 認証済みの有限Adapterへ停止結果を返す。
+ * @observation ID・種別・不明・清掃未確認・手動確認必要。
+ * @oracle 内部の候補情報を公開せず、元の回復事実を失わない。
+ * @cleanup メモリのみ。
+ */
+test("MCPは候補不明の停止でもexact回復情報と再起動必要性を保持する", async () => {
+  const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const processId = createRuntimeProcessRecoveryIdentity(
+    "attempt",
+    "operation",
+  );
+  const response = await handleMcpCoordinatorRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_COORDINATOR_OBJECTIVE_TOOL,
+      arguments: objective(),
+    }),
+    dependencies({
+      runObjective: async (input) => {
+        const parsed = inspectCoordinatorObjectiveRequest(input);
+        assert.ok(parsed);
+        return createCoordinatorObjectiveResult(parsed, {
+          status: "blocked",
+          reason: "orchestrator_state_observation_unknown",
+          projection: null,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          processRestartRequired: true,
+          recoveryIds: [dockerId, processId],
+          recoveryObligations: [
+            { kind: "docker", recoveryId: dockerId },
+            { kind: "runtime_process", recoveryId: processId },
+          ],
+          effectState: "unknown",
+        });
+      },
+    }),
+    new AbortController().signal,
+  );
+  assert.equal(response.error, undefined);
+  const result = (
+    response.result as {
+      structuredContent: ReturnType<typeof createCoordinatorObjectiveResult>;
+    }
+  ).structuredContent;
+  assert.deepEqual(result.recoveryIds, [dockerId, processId]);
+  assert.deepEqual(result.recoveryObligations, [
+    { kind: "docker", recoveryId: dockerId },
+    { kind: "runtime_process", recoveryId: processId },
+  ]);
+  assert.equal(result.effectState, "unknown");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(Object.hasOwn(result, "taskStartCandidates"), false);
+});
 
 /**
  * @trace PRL-UT-014
@@ -107,7 +177,7 @@ test("判断とWorkspace受付も未知Objectを文字列へ変換しない", ()
  * @cleanup メモリのみ。実AI・Docker・保存なし。
  */
 test("MCPはProducerの差戻しと回復必要を両Toolで保持する", async () => {
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -130,18 +200,21 @@ test("MCPはProducerの差戻しと回復必要を両Toolで保持する", async
   const base = created.state;
   for (const mode of ["returned", "recovery_required"] as const) {
     const recovery = mode === "recovery_required";
-    const projection = projectCoordinatorState({
-      ...base,
-      milestone: { ...base.milestone, state: mode },
-      objectives: base.objectives.map((entry) => ({
-        ...entry,
-        state: recovery ? "blocked" : "accepted",
-      })),
-      tasks: base.tasks.map((entry) => ({
-        ...entry,
-        state: recovery ? "recovery_required" : "completed",
-      })),
-    });
+    const projection = projectCoordinatorState(
+      {
+        ...base,
+        milestone: { ...base.milestone, state: mode },
+        objectives: base.objectives.map((entry) => ({
+          ...entry,
+          state: recovery ? "blocked" : "accepted",
+        })),
+        tasks: base.tasks.map((entry) => ({
+          ...entry,
+          state: recovery ? "recovery_required" : "completed",
+        })),
+      },
+      { projectId: base.projectId, generation: base.generation, taskIds: [] },
+    );
     for (const tool of [
       MCP_COORDINATOR_OBJECTIVE_TOOL,
       MCP_COORDINATOR_STATE_TOOL,
@@ -1407,8 +1480,16 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   let projection = runningProjection;
   const replay = compileFunction(
     `return (${sourceDeclaration(source, "projectObjectiveReplay")});`,
-    ["createCoordinatorObjectiveResult", "projectCoordinatorState"],
-  )(result, () => projection) as (
+    [
+      "createCoordinatorObjectiveResult",
+      "projectCoordinatorState",
+      "inspectTaskStartCandidates",
+    ],
+  )(
+    result,
+    () => projection,
+    () => ({}),
+  ) as (
     request: object,
     queue: object,
     state: object | null,
@@ -1424,6 +1505,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   };
   const state = {
     projectId: input.projectId,
+    generation: 1,
     milestoneId: input.milestoneId,
     repositoryRevision: input.repositoryRevision,
     milestone: { state: "executing" },
@@ -1546,15 +1628,17 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       "isPrincipalId",
       "createObjectiveIntake",
       "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
-      "createCoordinatorState",
+      "inspectTaskExecutionSelections",
       "objectiveSelectionsMatch",
+      "inspectTaskStartCandidates",
     ],
   )(
     () => true,
     identity,
     "crdd-coordinator/public-runtime/v2",
-    () => ({ status: "completed", state }),
+    inspectTaskExecutionSelections,
     () => true,
+    inspectTaskStartCandidates,
   ) as (
     deps: object,
     input: object,
@@ -1644,7 +1728,10 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         },
         plan: input.plan,
         processSafety: { getProcessInstanceIdentity: () => "owner" },
-        resolveTaskSelections: () => ({ status: "resolved", value: {} }),
+        resolveTaskSelections: () => ({
+          status: "resolved",
+          value: taskExecutionSelections(),
+        }),
         taskRecovery: {},
         persistence: {
           state: {
@@ -1745,7 +1832,15 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
               stateReads++;
               return stage === "initial_read"
                 ? outcome
-                : { status: "completed", value: state };
+                : {
+                    status: "completed",
+                    value: state,
+                    taskStartCandidates: {
+                      projectId: state.projectId,
+                      generation: state.generation,
+                      taskIds: [],
+                    },
+                  };
             },
             writeState: () => assert.fail("State publication forbidden"),
             enqueueOperation: () => {

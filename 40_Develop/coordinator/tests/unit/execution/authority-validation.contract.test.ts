@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  AUTHORITY_REGISTRY_INPUT_LIMITS,
   AUTHORITY_REGISTRY_CONTRACT,
+  AUTHORITY_REGISTRY_INPUT_LIMITS,
   describeAuthorityGrantVerifierContract,
   evaluateAuthorityGrantCandidate,
   validateAuthorityRegistryCandidate,
@@ -22,7 +22,7 @@ import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/execution/validation.ts";
 
 /**
  * profileのTest準備責務を実行する。

@@ -276,37 +276,55 @@ function validateFunctionRecords(
   expectedTotal: number,
   expectedCovered: number,
 ) {
-  const definitions = new Map<string, number>();
-  const executions = new Map<string, number>();
+  const definitions = new Map<string, Set<number>>();
+  const executions = new Map<string, number[]>();
   for (const line of lines) {
     if (line.startsWith("FN:")) {
       const separator = line.indexOf(",", 3);
       if (separator < 0) throw new Error("invalid FN");
       const lineNumber = positiveCount(line.slice(3, separator), "FN line");
       const name = line.slice(separator + 1);
-      if (name.length === 0 || definitions.has(name)) {
+      const positions = definitions.get(name) ?? new Set<number>();
+      if (name.length === 0 || positions.has(lineNumber)) {
         throw new Error("duplicate FN");
       }
-      definitions.set(name, lineNumber);
+      positions.add(lineNumber);
+      definitions.set(name, positions);
     }
     if (line.startsWith("FNDA:")) {
       const separator = line.indexOf(",", 5);
       if (separator < 0) throw new Error("invalid FNDA");
       const executionCount = count(line.slice(5, separator), "FNDA executions");
       const name = line.slice(separator + 1);
-      if (name.length === 0 || executions.has(name)) {
+      if (name.length === 0) {
         throw new Error("duplicate FNDA");
       }
-      executions.set(name, executionCount);
+      const counts = executions.get(name) ?? [];
+      counts.push(executionCount);
+      executions.set(name, counts);
     }
   }
+  for (const [name, counts] of executions) {
+    const positions = definitions.get(name);
+    if (positions && counts.length > positions.size)
+      throw new Error("duplicate FNDA");
+  }
+  // FNDAには定義位置がないため、同名の出現数と総数だけを照合する。
+  // 個々の実行回数を同名の特定定義へ推測で割り当てない。
+  const definitionCount = [...definitions.values()].reduce(
+    (total, positions) => total + positions.size,
+    0,
+  );
+  const executionCounts = [...executions.values()].flat();
   if (
-    definitions.size !== expectedTotal ||
-    executions.size !== expectedTotal ||
+    definitionCount !== expectedTotal ||
+    executionCounts.length !== expectedTotal ||
+    [...definitions].some(
+      ([name, positions]) => executions.get(name)?.length !== positions.size,
+    ) ||
     [...definitions.keys()].some((name) => !executions.has(name)) ||
     [...executions.keys()].some((name) => !definitions.has(name)) ||
-    [...executions.values()].filter((value) => value > 0).length !==
-      expectedCovered
+    executionCounts.filter((value) => value > 0).length !== expectedCovered
   ) {
     throw new Error("inconsistent function records");
   }

@@ -122,18 +122,14 @@ const SOURCE_ROLES = {
     "state/types.ts",
     "decision/request.ts",
     "state/persistence.ts",
-    "state/create.ts",
     "state/validation.ts",
     "objective/types.ts",
     "objective/plan.ts",
     "state/result.ts",
     "task/types.ts",
-    "task/scheduling.ts",
-    "task/lifecycle.ts",
-    "task/recovery.ts",
+    "workspace/record.ts",
   ],
   workflow: [
-    "state/retirement.ts",
     "state/observation.ts",
     "decision/lifecycle.ts",
     "decision/acceptance.ts",
@@ -141,11 +137,9 @@ const SOURCE_ROLES = {
     "objective/replan.ts",
     "state/query.ts",
     "task/dispatch.ts",
-    "workspace/record.ts",
   ],
   adapter: [
     "state/transaction.ts",
-    "task/queue.ts",
     "objective/composition.ts",
     "task/requests.ts",
     "workspace/commands.ts",
@@ -306,7 +300,7 @@ test("Task共有型のContract参照は二定数の型専用辺だけを許可�
   assert.throws(
     () =>
       assertPureImportEdges(
-        `${SOURCE_PREFIX}task/recovery.ts`,
+        `${SOURCE_PREFIX}workspace/record.ts`,
         scan(true, names),
       ),
     /private type dependency/u,
@@ -408,6 +402,11 @@ function assertPureImportEdges(
     if (typeOnly) {
       assert.ok(
         coreModules.includes(resolved) ||
+          (module === `${SOURCE_PREFIX}state/result.ts` &&
+            specifier === "../configuration/runtime-data.ts" &&
+            resolved === `${SOURCE_PREFIX}configuration/runtime-data.ts` &&
+            names.length === 1 &&
+            names[0] === "RepositoryDataBlockedError") ||
           (module === `${SOURCE_PREFIX}objective/types.ts` &&
             specifier === "../selection/resolve.ts" &&
             resolved === `${SOURCE_PREFIX}selection/resolve.ts` &&
@@ -450,6 +449,7 @@ function assertPureImportEdges(
       names.every((name) => {
         const allowed: Readonly<Record<string, readonly string[]>> = {
           "state/projection.ts": [
+            "TaskStartCandidates",
             "PROJECT_STATE_CONTRACT",
             "CoordinatorProjection",
             "ProjectExecutionState",
@@ -467,18 +467,15 @@ function assertPureImportEdges(
             "inspectDecision",
           ],
           "state/persistence.ts": [
+            "readProjectExecutionState",
+            "saveProjectExecutionState",
             "LeaseKind",
             "QueueEnqueueInput",
             "ProjectExecutionState",
+            "ProjectExecutionInitialization",
             "ProjectQueueEntry",
             "ProjectQueueState",
             "ProjectTaskResultFact",
-          ],
-          "state/create.ts": [
-            "ProjectObjectiveDefinition",
-            "ProjectTaskDefinition",
-            "TaskExecutionSelections",
-            "inspectTaskExecutionSelections",
           ],
           "state/validation.ts": [
             "PROJECT_STATE_CONTRACT",
@@ -501,20 +498,6 @@ function assertPureImportEdges(
             "ExecutionStorageBlockedError",
           ],
           "task/types.ts": ["WorkspaceResult", "ProjectTaskRecoveryKind"],
-          "task/scheduling.ts": ["ProjectExecutionState", "ProjectTaskRecord"],
-          "task/lifecycle.ts": [
-            "ProjectExecutionState",
-            "ProjectMilestoneState",
-            "ProjectTaskDefinition",
-            "ProjectTaskRecord",
-            "ProjectTaskRecoveryKind",
-            "ProjectTaskRecoveryObligation",
-            "ProjectTaskState",
-          ],
-          "task/recovery.ts": [
-            "ProjectExecutionState",
-            "ProjectTaskRecoveryKind",
-          ],
         };
         return (
           allowed[module.slice(SOURCE_PREFIX.length)]?.includes(name) === true
@@ -683,6 +666,35 @@ function importSpecifierScan(source: SourceFile) {
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する", () => {
+  const boundaryErrorEdge = {
+    specifier: "../configuration/runtime-data.ts",
+    typeOnly: true,
+    names: ["RepositoryDataBlockedError"],
+  };
+  assert.doesNotThrow(() =>
+    assertPureImportEdges(`${SOURCE_PREFIX}state/result.ts`, {
+      isConsistent: true,
+      edges: [boundaryErrorEdge],
+    }),
+  );
+  for (const [module, edge] of [
+    [
+      `${SOURCE_PREFIX}state/result.ts`,
+      { ...boundaryErrorEdge, typeOnly: false },
+    ],
+    [
+      `${SOURCE_PREFIX}state/result.ts`,
+      { ...boundaryErrorEdge, names: ["observeArea"] },
+    ],
+    [`${SOURCE_PREFIX}state/projection.ts`, boundaryErrorEdge],
+  ] as const) {
+    assert.throws(() =>
+      assertPureImportEdges(module, {
+        isConsistent: true,
+        edges: [{ ...edge, names: [...edge.names] }],
+      }),
+    );
+  }
   const selectionEdge = {
     specifier: "../selection/resolve.ts",
     typeOnly: true,
@@ -796,6 +808,59 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
         const scan = importSpecifierScan(source);
         assertPureImportEdges(moduleRelativePath, scan);
       }
+      const graph = new Map<string, string[]>();
+      const modulePaths = new Set(
+        allModules.map((file) => normalize(path.resolve(repositoryRoot, file))),
+      );
+      for (const file of allModules) {
+        const absolute = normalize(path.resolve(repositoryRoot, file));
+        const source = project.program.getSourceFile(absolute);
+        assert.ok(source);
+        const scan = importSpecifierScan(source);
+        assert.equal(scan.isConsistent, true, file);
+        graph.set(
+          absolute,
+          scan.edges
+            .filter((edge) => !edge.typeOnly && edge.specifier.startsWith("."))
+            .map((edge) =>
+              normalize(path.resolve(path.dirname(absolute), edge.specifier)),
+            )
+            .filter((target) => modulePaths.has(target)),
+        );
+      }
+      /** 型専用辺を除いた既存Source間の循環を拒否し、同じ走査を合成反例でも確認する。 */
+      const assertAcyclic = (edges: ReadonlyMap<string, readonly string[]>) => {
+        const visited = new Set<string>();
+        const active: string[] = [];
+        const visit = (file: string) => {
+          assert.equal(
+            active.includes(file),
+            false,
+            `runtime cycle: ${[...active, file].join(" -> ")}`,
+          );
+          if (visited.has(file)) return;
+          active.push(file);
+          for (const target of edges.get(file) ?? []) visit(target);
+          active.pop();
+          visited.add(file);
+        };
+        for (const file of edges.keys()) visit(file);
+      };
+      assertAcyclic(graph);
+      assert.throws(
+        () =>
+          assertAcyclic(
+            new Map([
+              ["a", ["b"]],
+              ["b", ["a"]],
+            ]),
+          ),
+        /runtime cycle/u,
+      );
+      assert.throws(
+        () => assertAcyclic(new Map([["a", ["a"]]])),
+        /runtime cycle/u,
+      );
     } finally {
       snapshot.dispose();
     }

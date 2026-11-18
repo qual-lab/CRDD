@@ -9,68 +9,64 @@
  * @scope repository、workspace、runtime
  * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
  */
-import {
-  workspaceWorktreeTarget,
-  workspaceWorktreeResult,
-  freezeWorkspaceCandidate,
-  mergeWorkspaceCandidate,
-  removeWorkspaceCandidate,
-} from "../../src/workspace/git.ts";
 
-import type {
-  WorkspaceCandidateRequest,
-  WorkspaceCandidateResult,
-  RepositoryWorktreeResult,
-} from "../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
-import {
-  readExecutionInventory,
-  readExecutionFile,
-  isExecutionRelativePath,
-} from "../../src/execution/files.ts";
-
-import { createHash, randomUUID } from "node:crypto";
 import childProcess, { execFileSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
-
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
-
+import type {
+  RepositoryWorktreeResult,
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+} from "../../../execution-model/src/index.ts";
 import {
+  createWorktree,
+  getRepository,
+  getWorktree,
+  type Repository,
+} from "../../../version-control/src/index.ts";
+import {
+  closeVerificationWorkspace,
+  prepareVerificationWorkspace,
+  readVerificationWorkspaceOutput,
+} from "../../scripts/workspace-task-fixture.ts";
+import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
+import {
+  isExecutionRelativePath,
+  readExecutionFile,
+  readExecutionInventory,
+} from "../../src/execution/files.ts";
+import {
+  bindRuntimeOwnedRepositoryOperation,
+  captureExecutionChangeSnapshot,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-  verifyOwnedOperationManagementMountBinding,
-  bindRuntimeOwnedRepositoryOperation,
-  captureExecutionChangeSnapshot,
   describeExecutionChangeSnapshotContract,
+  inspectBorrowedExecutionTarget,
   bindRuntimeOwnedExecutionSnapshot as materializeReceivedTarget,
-  projectReviewerReadContent,
-  verifyExecutionChangeSnapshot,
   observeBorrowedExecutionChanges,
   projectBorrowedExecutionResult,
-  inspectBorrowedExecutionTarget,
+  projectReviewerReadContent,
   readBorrowedExecutionBinding,
+  verifyExecutionChangeSnapshot,
+  verifyOwnedOperationManagementMountBinding,
 } from "../../src/execution/operation.ts";
-
-import {
-  getWorktree,
-  type Repository,
-  createWorktree,
-  getRepository,
-} from "../../../version-control/src/index.ts";
 import { createProviderDockerRuntimeDependencies } from "../../src/execution/preparation.ts";
-import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import {
-  prepareVerificationWorkspace,
-  readVerificationWorkspaceOutput,
-  closeVerificationWorkspace,
-} from "../../scripts/workspace-task-fixture.ts";
+  freezeWorkspaceCandidate,
+  mergeWorkspaceCandidate,
+  removeWorkspaceCandidate,
+  workspaceWorktreeResult,
+  workspaceWorktreeTarget,
+} from "../../src/workspace/git.ts";
 
 const CANDIDATE_TESTS_ROOT = path.resolve(
   import.meta.dirname,
@@ -2283,7 +2279,7 @@ test("固定は内容変更・管理Path・不正名を拒否し削除は明示�
   assert.deepEqual(fs.readdirSync(path.dirname(f.target(id))), ["worktree"]);
 });
 
-import { inspectWorkspaceCommand } from "../../src/workspace/commands.ts";
+import { inspectWorkspaceCommand } from "../../src/workspace/operations.ts";
 
 /**
  * FF可能時も二親Mergeを残し、再入場と独立Ref回収を確認する。

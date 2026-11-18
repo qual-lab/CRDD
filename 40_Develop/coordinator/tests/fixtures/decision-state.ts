@@ -3,6 +3,7 @@
  * @responsibility 公開判断操作の本番同等保存前提を共有する。
  * @trace PRL-IT-008、PRL-IT-014、PRL-ST-009
  */
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -14,18 +15,17 @@ import {
   type ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import {
+  projectExecutionFixture,
+  taskHandoffFixture,
+  taskStartedFixture,
+  taskStartFixture,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import {
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  reserveProjectTaskStart,
-  settleProjectTask,
-} from "../../src/task/lifecycle.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 
 /**
@@ -101,7 +101,7 @@ export function persistAcceptancePendingState(
   revision: string,
   outcome: "completed" | "failed" = "completed",
 ) {
-  const state = createCoordinatorState({
+  const state = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId,
     milestoneId: `milestone-${projectId}`,
@@ -142,7 +142,7 @@ export function persistAcceptancePendingState(
   assert.equal(port.writeState(current, 0).status, "completed");
   const transitions = [
     () =>
-      reserveProjectTaskStart(
+      taskStartFixture(
         current,
         current.generation,
         `task-${projectId}`,
@@ -150,7 +150,7 @@ export function persistAcceptancePendingState(
         `authority-${projectId}`,
       ),
     () =>
-      prepareProjectTaskHandoff(
+      taskHandoffFixture(
         current,
         current.generation,
         `task-${projectId}`,
@@ -158,24 +158,13 @@ export function persistAcceptancePendingState(
         `operation-${projectId}`,
       ),
     () =>
-      observeProjectTaskStarted(
+      taskStartedFixture(
         current,
         current.generation,
         `task-${projectId}`,
         `attempt-${projectId}`,
         `operation-${projectId}`,
       ),
-    () =>
-      settleProjectTask(current, current.generation, {
-        taskId: `task-${projectId}`,
-        attemptId: `attempt-${projectId}`,
-        operationId: `operation-${projectId}`,
-        authorityBindingId: `authority-${projectId}`,
-        outcome,
-        cleanupConfirmed: true,
-        recoveryObligations: [],
-        recoveryUnresolved: false,
-      }),
   ];
   for (const transition of transitions) {
     const next = transition();
@@ -186,6 +175,25 @@ export function persistAcceptancePendingState(
     );
     current = next.state;
   }
+  const terminal = port.updateTask(
+    {
+      kind: "task_settle",
+      projectId,
+      taskId: `task-${projectId}`,
+      attemptId: `attempt-${projectId}`,
+      operationId: `operation-${projectId}`,
+      authorityBindingId: `authority-${projectId}`,
+      outcome,
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+      resultUnresolved: false,
+    },
+    current.generation,
+  );
+  assert.equal(terminal.status, "completed", terminal.reason);
+  if (terminal.status !== "completed") throw Error("fixture_terminal_failed");
+  current = terminal.value;
   assert.equal(
     current.objectives[0]?.state,
     outcome === "completed" ? "integration_pending" : "blocked",

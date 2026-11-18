@@ -16,8 +16,12 @@ import type {
   ProjectExecutionState,
   ProjectTaskDefinition,
 } from "../../../../execution-model/src/index.ts";
-
-import { createCoordinatorState } from "../../../src/state/create.ts";
+import {
+  projectExecutionFixture,
+  taskHandoffFixture,
+  taskStartedFixture,
+  taskStartFixture,
+} from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   inspectCoordinatorProjection,
   isCoordinatorProjectionSemanticallyValid,
@@ -25,20 +29,6 @@ import {
   projectState,
 } from "../../../src/state/projection.ts";
 import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
-import {
-  applyCoordinatorPartialReplan,
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  reserveProjectTaskStart,
-  settleProjectTask,
-} from "../../../src/task/lifecycle.ts";
-import {
-  markProjectTaskRecoveryObligationRecovering,
-  recordProjectTaskOwnerLossRecoveries,
-  retrySettledProjectTaskRecoveries,
-  settleProjectTaskRecoveryObligation,
-} from "../../../src/task/recovery.ts";
-import { selectSchedulableProjectTasks } from "../../../src/task/scheduling.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -86,7 +76,7 @@ function stateFor(
   tasks: readonly ProjectTaskDefinition[],
   maximumConcurrency = 5,
 ) {
-  const result = createCoordinatorState({
+  const result = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "crdd",
     milestoneId: "v0.19",
@@ -134,9 +124,9 @@ function stateFor(
  * @observation 全量の状態・投影と不正入力の拒否を観測する。
  * @oracle 正常値は全量を保持し、重複IDと同時実行数不正は拒否する。
  * @cleanup N/A: メモリ内の値のみ。
- * @boundary 初期状態作成からDomain公開投影の検査。
+ * @boundary 既知の合成StateからCoordinator公開投影の検査。初期生成規則はEM試験が所有する。
  */
-it("状態作成は旧Objective・Task・本文・Path集合上限を復活させない", () => {
+it("公開投影は旧Objective・Task・本文・Path集合上限を復活させない", () => {
   const criteria = Array.from(
     { length: 129 },
     (_, index) => `${index}-${"a".repeat(513)}`,
@@ -168,28 +158,24 @@ it("状態作成は旧Objective・Task・本文・Path集合上限を復活さ�
     tasks,
     ownerGeneration: "owner-1",
   };
-  const result = createCoordinatorState(input);
+  const result = projectExecutionFixture(input);
   assert.equal(result.status, "completed");
   assert.ok(result.state);
   assert.equal(result.state.objectives.length, 129);
   assert.equal(result.state.tasks.length, 1025);
   assert.equal(result.state.tasks[1024]?.definition.allowedPaths[0], longPath);
-  const projection = projectCoordinatorState(result.state);
+  const firstTask = result.state.tasks[0];
+  assert.ok(firstTask);
+  const projection = projectCoordinatorState(result.state, {
+    projectId: result.state.projectId,
+    generation: result.state.generation,
+    taskIds: [firstTask.definition.id],
+  });
   assert.equal(
     inspectCoordinatorProjection(projection)?.objectiveTaskSummaries.length,
     129,
   );
   assert.equal(isCoordinatorProjectionSemanticallyValid(projection), true);
-  assert.equal(
-    createCoordinatorState({ ...input, maximumConcurrency: 6 }).status,
-    "blocked",
-  );
-  const firstTask = tasks[0];
-  assert.ok(firstTask);
-  assert.equal(
-    createCoordinatorState({ ...input, tasks: [firstTask, firstTask] }).status,
-    "blocked",
-  );
 });
 
 function start(
@@ -197,7 +183,7 @@ function start(
   taskId: string,
   attemptId = `attempt-${taskId}`,
 ) {
-  const reserved = reserveProjectTaskStart(
+  const reserved = taskStartFixture(
     state,
     state.generation,
     taskId,
@@ -206,7 +192,7 @@ function start(
   );
   assert.equal(reserved.status, "completed");
   assert.ok(reserved.state);
-  const prepared = prepareProjectTaskHandoff(
+  const prepared = taskHandoffFixture(
     reserved.state,
     reserved.state.generation,
     taskId,
@@ -215,7 +201,7 @@ function start(
   );
   assert.equal(prepared.status, "completed");
   assert.ok(prepared.state);
-  const observed = observeProjectTaskStarted(
+  const observed = taskStartedFixture(
     prepared.state,
     prepared.state.generation,
     taskId,
@@ -228,247 +214,6 @@ function start(
 }
 
 describe("Orchestrator state contract", () => {
-  /**
-   * Hostが有効なowner generationを供給しない場合は状態を作らないを検証する。
-   *
-   * @responsibility Hostが有効なowner generationを供給しない場合は状態を作らないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Hostが有効なowner generationを供給しない場合は状態を作らないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("Hostが有効なowner generationを供給しない場合は状態を作らない", () => {
-    const state = createCoordinatorState({
-      taskExecutionSelections: taskExecutionSelections(),
-      projectId: "crdd",
-      milestoneId: "v0.20",
-      repositoryRevision: revision,
-      maximumConcurrency: 1,
-      milestoneAcceptanceCriteria: ["全Taskが完了する"],
-      objectives: [
-        { id: "objective-1", acceptanceCriteria: ["結果が受理される"] },
-      ],
-      tasks: [task("task-1")],
-      ownerGeneration: "",
-    });
-
-    assert.equal(state.status, "blocked");
-    assert.equal(state.reason, "orchestrator_input_invalid");
-    assert.equal(state.state, null);
-  });
-
-  /**
-   * 受入条件の説明文をPathとして正規化しないを検証する。
-   *
-   * @responsibility 受入条件の説明文をPathとして正規化しないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 受入条件の説明文をPathとして正規化しないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("受入条件の説明文をPathとして正規化しない", () => {
-    const state = createCoordinatorState({
-      taskExecutionSelections: taskExecutionSelections(),
-      projectId: "crdd",
-      milestoneId: "v0.19",
-      repositoryRevision: revision,
-      maximumConcurrency: 1,
-      milestoneAcceptanceCriteria: ["末尾は\\nである"],
-      objectives: [
-        { id: "objective-1", acceptanceCriteria: ["値はC:\\workである"] },
-      ],
-      tasks: [task("task-1", [], ["src\\file.ts"])],
-      ownerGeneration: "owner-1",
-    });
-    assert.equal(state.status, "completed");
-    assert.equal(
-      state.state?.milestone.acceptanceCriteria[0],
-      "末尾は\\nである",
-    );
-    assert.equal(
-      state.state?.objectives[0]?.definition.acceptanceCriteria[0],
-      "値はC:\\workである",
-    );
-    assert.equal(
-      state.state?.tasks[0]?.definition.allowedPaths[0],
-      "src/file.ts",
-    );
-  });
-
-  /**
-   * Task定義のRepository外Pathを状態へ取り込まないを検証する。
-   *
-   * @responsibility Task定義のRepository外Pathを状態へ取り込まないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Task定義のRepository外Pathを状態へ取り込まないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("Task定義のRepository外Pathを状態へ取り込まない", () => {
-    for (const pathValue of ["C:\\outside", "/outside", "../outside"]) {
-      const state = createCoordinatorState({
-        taskExecutionSelections: taskExecutionSelections(),
-        projectId: "crdd",
-        milestoneId: "v0.20",
-        repositoryRevision: revision,
-        maximumConcurrency: 1,
-        milestoneAcceptanceCriteria: ["全Taskが完了する"],
-        objectives: [
-          { id: "objective-1", acceptanceCriteria: ["結果が受理される"] },
-        ],
-        tasks: [task("task-1", [], [pathValue])],
-        ownerGeneration: "owner-1",
-      });
-      assert.equal(state.status, "blocked");
-      assert.equal(state.reason, "orchestrator_task_definition_invalid");
-      assert.equal(state.state, null);
-    }
-  });
-
-  /**
-   * 7件の独立Taskから最大5件だけを選ぶを検証する。
-   *
-   * @responsibility 7件の独立Taskから最大5件だけを選ぶの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 7件の独立Taskから最大5件だけを選ぶの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("7件の独立Taskから最大5件だけを選ぶ", () => {
-    const state = stateFor(
-      Array.from({ length: 7 }, (_unused, index) => task(`task-${index + 1}`)),
-    );
-    assert.deepEqual(selectSchedulableProjectTasks(state), [
-      "task-1",
-      "task-2",
-      "task-3",
-      "task-4",
-      "task-5",
-    ]);
-  });
-
-  /**
-   * Dependency完了後だけ後続Taskをreadyへ進めるを検証する。
-   *
-   * @responsibility Dependency完了後だけ後続Taskをreadyへ進めるの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Dependency完了後だけ後続Taskをreadyへ進めるの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("Dependency完了後だけ後続Taskをreadyへ進める", () => {
-    let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
-    assert.deepEqual(selectSchedulableProjectTasks(state), ["task-a"]);
-    state = start(state, "task-a");
-    const settled = settleProjectTask(state, state.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome: "completed",
-      cleanupConfirmed: true,
-      recoveryObligations: [],
-      recoveryUnresolved: false,
-    });
-    assert.equal(settled.status, "completed");
-    assert.ok(settled.state);
-    assert.deepEqual(selectSchedulableProjectTasks(settled.state), ["task-b"]);
-  });
-
-  /**
-   * 同じPathまたはConflict keyのTaskを同時に選ばないを検証する。
-   *
-   * @responsibility 同じPathまたはConflict keyのTaskを同時に選ばないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 同じPathまたはConflict keyのTaskを同時に選ばないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("同じPathまたはConflict keyのTaskを同時に選ばない", () => {
-    const state = stateFor([
-      task("task-a", [], ["shared/file.txt"]),
-      task("task-b", [], ["shared/file.txt"]),
-      task("task-c", [], ["other.txt"], ["schema-x"]),
-      task("task-d", [], ["more.txt"], ["schema-x"]),
-    ]);
-    assert.deepEqual(selectSchedulableProjectTasks(state), [
-      "task-a",
-      "task-c",
-    ]);
-  });
-
-  /**
-   * 親Directoryと子Pathを競合として扱うを検証する。
-   *
-   * @responsibility 親Directoryと子Pathを競合として扱うの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 親Directoryと子Pathを競合として扱うの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("親Directoryと子Pathを競合として扱う", () => {
-    const state = stateFor([
-      task("task-a", [], ["src"]),
-      task("task-b", [], ["src/runtime/file.ts"]),
-      task("task-c", [], ["docs/file.md"]),
-    ]);
-    assert.deepEqual(selectSchedulableProjectTasks(state), [
-      "task-a",
-      "task-c",
-    ]);
-  });
-
-  /**
-   * cleanup不明のTaskを空き枠へ補正しないを検証する。
-   *
-   * @responsibility cleanup不明のTaskを空き枠へ補正しないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus cleanup不明のTaskを空き枠へ補正しないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("cleanup不明のTaskを空き枠へ補正しない", () => {
-    let state = stateFor([task("task-a"), task("task-b")], 1);
-    state = start(state, "task-a");
-    const settled = settleProjectTask(state, state.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome: "failed",
-      cleanupConfirmed: false,
-      recoveryObligations: [],
-      recoveryUnresolved: false,
-    });
-    assert.equal(settled.status, "completed");
-    assert.ok(settled.state);
-    assert.deepEqual(selectSchedulableProjectTasks(settled.state), []);
-  });
-
   /**
    * 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するを検証する。
    *
@@ -484,7 +229,8 @@ describe("Orchestrator state contract", () => {
   it("取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影する", () => {
     let state = stateFor([task("task-a")], 1);
     state = start(state, "task-a");
-    const settled = settleProjectTask(state, state.generation, {
+    // 終端規則はEM試験が所有し、ここでは投影・回復の既知入力だけを用意する。
+    const terminalFixture = {
       taskId: "task-a",
       attemptId: "attempt-task-a",
       operationId: "operation-task-a",
@@ -493,123 +239,43 @@ describe("Orchestrator state contract", () => {
       cleanupConfirmed: true,
       recoveryObligations: [],
       recoveryUnresolved: false,
-    });
+    } as const;
+    const settled = {
+      status: "completed" as const,
+      state: {
+        ...state,
+        generation: state.generation + 1,
+        milestone: { ...state.milestone, state: "cancelled" as const },
+        objectives: state.objectives.map((objective) => ({
+          ...objective,
+          state: "cancelled" as const,
+        })),
+        tasks: state.tasks.map((task) =>
+          task.definition.id !== terminalFixture.taskId
+            ? task
+            : {
+                ...task,
+                state: "cancelled" as const,
+                startPhase: "settled" as const,
+                cleanupConfirmed: terminalFixture.cleanupConfirmed,
+                recoveryObligations: terminalFixture.recoveryObligations,
+                recoveryUnresolved: terminalFixture.recoveryUnresolved,
+                candidateId: null,
+              },
+        ),
+      },
+    };
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
-    const projection = projectCoordinatorState(settled.state);
+    const projection = projectCoordinatorState(settled.state, {
+      projectId: settled.state.projectId,
+      generation: settled.state.generation,
+      taskIds: [],
+    });
     assert.equal(projection.milestoneState, "cancelled");
     assert.equal(projection.objectiveCounts.cancelled, 1);
     assert.equal(projection.taskCounts.cancelled, 1);
     assert.equal(projection.nextAction, "wait_for_task");
-  });
-
-  /**
-   * Recovery中はcleanup後も競合予約を維持するを検証する。
-   *
-   * @responsibility Recovery中はcleanup後も競合予約を維持するの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Recovery中はcleanup後も競合予約を維持するの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("Recovery中はcleanup後も競合予約を維持する", () => {
-    let state = stateFor([
-      task("task-a", [], ["shared/file.txt"]),
-      task("task-b", [], ["shared/file.txt"]),
-      task("task-c"),
-    ]);
-    state = start(state, "task-a");
-    const settled = settleProjectTask(state, state.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome: "recovery_required",
-      cleanupConfirmed: true,
-      recoveryObligations: [
-        {
-          kind: "docker",
-          recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
-          phase: "required",
-        },
-      ],
-      recoveryUnresolved: false,
-    });
-    assert.equal(settled.status, "completed");
-    assert.ok(settled.state);
-    assert.deepEqual(selectSchedulableProjectTasks(settled.state), ["task-c"]);
-  });
-
-  /**
-   * 古い世代と別attemptの結果を反映しないを検証する。
-   *
-   * @responsibility 古い世代と別attemptの結果を反映しないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 古い世代と別attemptの結果を反映しないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("古い世代と別attemptの結果を反映しない", () => {
-    const initial = stateFor([task("task-a")]);
-    const state = start(initial, "task-a");
-    assert.equal(
-      settleProjectTask(state, initial.generation, {
-        taskId: "task-a",
-        attemptId: "wrong-attempt",
-        operationId: "operation-task-a",
-        authorityBindingId: "authority-task-a",
-        outcome: "completed",
-        cleanupConfirmed: true,
-        recoveryObligations: [],
-        recoveryUnresolved: false,
-      }).reason,
-      "orchestrator_task_settlement_mismatch",
-    );
-  });
-
-  /**
-   * cycleと欠落DependencyをEffect前に拒否するを検証する。
-   *
-   * @responsibility cycleと欠落DependencyをEffect前に拒否するの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus cycleと欠落DependencyをEffect前に拒否するの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("cycleと欠落DependencyをEffect前に拒否する", () => {
-    for (const tasks of [
-      [task("task-a", ["task-b"]), task("task-b", ["task-a"])],
-      [task("task-a", ["missing"])],
-    ]) {
-      const result = createCoordinatorState({
-        taskExecutionSelections: taskExecutionSelections(),
-        projectId: "crdd",
-        milestoneId: "v0.19",
-        repositoryRevision: revision,
-        maximumConcurrency: 5,
-        milestoneAcceptanceCriteria: ["全体が整合する"],
-        objectives: [
-          {
-            id: "objective-1",
-            acceptanceCriteria: ["必要Taskが統合される"],
-          },
-        ],
-        tasks,
-        ownerGeneration: "owner-1",
-      });
-      assert.equal(result.status, "blocked");
-      assert.equal(result.reason, "orchestrator_task_graph_invalid");
-      assert.equal(result.state, null);
-    }
   });
 
   /**
@@ -627,7 +293,8 @@ describe("Orchestrator state contract", () => {
   it("Task完了だけではObjectiveまたはMilestoneを受け入れない", () => {
     let state = stateFor([task("task-a")]);
     state = start(state, "task-a");
-    const settled = settleProjectTask(state, state.generation, {
+    // 終端規則はEM試験が所有し、ここでは投影・回復の既知入力だけを用意する。
+    const terminalFixture = {
       taskId: "task-a",
       attemptId: "attempt-task-a",
       operationId: "operation-task-a",
@@ -636,108 +303,95 @@ describe("Orchestrator state contract", () => {
       cleanupConfirmed: true,
       recoveryObligations: [],
       recoveryUnresolved: false,
-    });
+    } as const;
+    const settled = {
+      status: "completed" as const,
+      state: {
+        ...state,
+        generation: state.generation + 1,
+        milestone: { ...state.milestone, state: state.milestone.state },
+        objectives: state.objectives.map((objective) => ({
+          ...objective,
+          state: "integration_pending" as const,
+        })),
+        tasks: state.tasks.map((task) =>
+          task.definition.id !== terminalFixture.taskId
+            ? task
+            : {
+                ...task,
+                state: "completed" as const,
+                startPhase: "settled" as const,
+                cleanupConfirmed: terminalFixture.cleanupConfirmed,
+                recoveryObligations: terminalFixture.recoveryObligations,
+                recoveryUnresolved: terminalFixture.recoveryUnresolved,
+                candidateId: null,
+              },
+        ),
+      },
+    };
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
     assert.equal(settled.state.objectives[0]?.state, "integration_pending");
     assert.equal(settled.state.milestone.state, "executing");
-    assert.deepEqual(projectCoordinatorState(settled.state), {
-      projectId: "crdd",
-      milestoneId: "v0.19",
-      generation: 5,
-      milestoneState: "executing",
-      objectiveCounts: {
-        planned: 0,
-        executing: 0,
-        integration_pending: 1,
-        accepted: 0,
-        returned: 0,
-        blocked: 0,
-        cancelled: 0,
-      },
-      taskCounts: {
-        planned: 0,
-        waiting_dependency: 0,
-        ready: 0,
-        starting: 0,
-        running: 0,
-        cleanup_pending: 0,
-        completed: 1,
-        failed: 0,
-        cancelled: 0,
-        recovery_required: 0,
-        superseded: 0,
-      },
-      objectiveTaskSummaries: [
-        {
-          objectiveId: "objective-1",
-          objectiveState: "integration_pending",
-          taskCounts: {
-            planned: 0,
-            waiting_dependency: 0,
-            ready: 0,
-            starting: 0,
-            running: 0,
-            cleanup_pending: 0,
-            completed: 1,
-            failed: 0,
-            cancelled: 0,
-            recovery_required: 0,
-            superseded: 0,
-          },
-        },
-      ],
-      workProgress: "tasks_complete",
-      qualityState: "integration_pending",
-      humanDecisionRequired: false,
-      recoveryRequired: false,
-      nextAction: "verify_objective_integration",
-    });
-  });
-
-  /**
-   * 生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えないを検証する。
-   *
-   * @responsibility 生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えない", () => {
-    let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
-    state = start(state, "task-a");
-    const failed = settleProjectTask(state, state.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome: "failed",
-      cleanupConfirmed: true,
-      recoveryObligations: [],
-      recoveryUnresolved: false,
-    });
-    assert.ok(failed.state);
-    const before = JSON.stringify(failed.state);
-    const rejected = applyCoordinatorPartialReplan(
-      failed.state,
-      failed.state.generation,
+    assert.deepEqual(
+      projectCoordinatorState(settled.state, {
+        projectId: settled.state.projectId,
+        generation: settled.state.generation,
+        taskIds: [],
+      }),
       {
-        failedTaskId: "task-a",
-        replacements: [task("task-c")],
-        maximumReplans: 1,
+        projectId: "crdd",
+        milestoneId: "v0.19",
+        generation: 5,
+        milestoneState: "executing",
+        objectiveCounts: {
+          planned: 0,
+          executing: 0,
+          integration_pending: 1,
+          accepted: 0,
+          returned: 0,
+          blocked: 0,
+          cancelled: 0,
+        },
+        taskCounts: {
+          planned: 0,
+          waiting_dependency: 0,
+          ready: 0,
+          starting: 0,
+          running: 0,
+          cleanup_pending: 0,
+          completed: 1,
+          failed: 0,
+          cancelled: 0,
+          recovery_required: 0,
+          superseded: 0,
+        },
+        objectiveTaskSummaries: [
+          {
+            objectiveId: "objective-1",
+            objectiveState: "integration_pending",
+            taskCounts: {
+              planned: 0,
+              waiting_dependency: 0,
+              ready: 0,
+              starting: 0,
+              running: 0,
+              cleanup_pending: 0,
+              completed: 1,
+              failed: 0,
+              cancelled: 0,
+              recovery_required: 0,
+              superseded: 0,
+            },
+          },
+        ],
+        workProgress: "tasks_complete",
+        qualityState: "integration_pending",
+        humanDecisionRequired: false,
+        recoveryRequired: false,
+        nextAction: "verify_objective_integration",
       },
     );
-    assert.equal(rejected.status, "blocked");
-    assert.equal(
-      rejected.reason,
-      "orchestrator_replan_invalid_or_out_of_scope",
-    );
-    assert.equal(JSON.stringify(rejected.state), before);
-    assert.deepEqual(rejected.taskIds, []);
   });
 
   /**
@@ -755,7 +409,8 @@ describe("Orchestrator state contract", () => {
   it("Recoveryを進捗や品質の成功へ補正しない", () => {
     let state = stateFor([task("task-a")]);
     state = start(state, "task-a");
-    const settled = settleProjectTask(state, state.generation, {
+    // 終端規則はEM試験が所有し、ここでは投影・回復の既知入力だけを用意する。
+    const terminalFixture = {
       taskId: "task-a",
       attemptId: "attempt-task-a",
       operationId: "operation-task-a",
@@ -770,9 +425,38 @@ describe("Orchestrator state contract", () => {
         },
       ],
       recoveryUnresolved: false,
-    });
+    } as const;
+    const settled = {
+      status: "completed" as const,
+      state: {
+        ...state,
+        generation: state.generation + 1,
+        milestone: { ...state.milestone, state: "recovery_required" as const },
+        objectives: state.objectives.map((objective) => ({
+          ...objective,
+          state: "blocked" as const,
+        })),
+        tasks: state.tasks.map((task) =>
+          task.definition.id !== terminalFixture.taskId
+            ? task
+            : {
+                ...task,
+                state: "recovery_required" as const,
+                startPhase: "settled" as const,
+                cleanupConfirmed: terminalFixture.cleanupConfirmed,
+                recoveryObligations: terminalFixture.recoveryObligations,
+                recoveryUnresolved: terminalFixture.recoveryUnresolved,
+                candidateId: null,
+              },
+        ),
+      },
+    };
     assert.ok(settled.state);
-    const projection = projectCoordinatorState(settled.state);
+    const projection = projectCoordinatorState(settled.state, {
+      projectId: settled.state.projectId,
+      generation: settled.state.generation,
+      taskIds: [],
+    });
     assert.equal(projection.workProgress, "in_progress");
     assert.equal(projection.qualityState, "blocked");
     assert.equal(projection.recoveryRequired, true);
@@ -780,298 +464,6 @@ describe("Orchestrator state contract", () => {
   });
 
   /**
-   * owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻すを検証する。
-   *
-   * @responsibility owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻すの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻すの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻す", () => {
-    const state = stateFor([task("task-a")]);
-    const reserved = reserveProjectTaskStart(
-      state,
-      state.generation,
-      "task-a",
-      "attempt-task-a",
-      "authority-task-a",
-    );
-    assert.ok(reserved.state);
-    const recovered = recordProjectTaskOwnerLossRecoveries(
-      reserved.state,
-      reserved.state.generation,
-      [],
-    );
-    assert.equal(recovered.status, "completed");
-    assert.equal(recovered.state?.tasks[0]?.state, "ready");
-    assert.equal(recovered.state?.tasks[0]?.operationId, null);
-    assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, []);
-    assert.equal(recovered.state?.milestone.state, "executing");
-  });
-
-  /**
-   * owner lossは開始済みTaskをexact Runtime Recoveryへ結合するを検証する。
-   *
-   * @responsibility owner lossは開始済みTaskをexact Runtime Recoveryへ結合するの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus owner lossは開始済みTaskをexact Runtime Recoveryへ結合するの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("owner lossは開始済みTaskをexact Runtime Recoveryへ結合する", () => {
-    const running = start(stateFor([task("task-a")]), "task-a");
-    const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-    const recovered = recordProjectTaskOwnerLossRecoveries(
-      running,
-      running.generation,
-      [
-        {
-          operationId: "operation-task-a",
-          status: "matched",
-          recoveryId,
-        },
-      ],
-    );
-    assert.equal(recovered.status, "completed");
-    assert.equal(recovered.state?.tasks[0]?.state, "recovery_required");
-    assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, [
-      { kind: "docker", recoveryId, phase: "required" },
-    ]);
-    assert.equal(recovered.state?.milestone.state, "recovery_required");
-  });
-
-  /**
-   * handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻すを検証する。
-   *
-   * @responsibility handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻すの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻すの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻す", () => {
-    const initial = stateFor([task("task-a")]);
-    const reserved = reserveProjectTaskStart(
-      initial,
-      initial.generation,
-      "task-a",
-      "attempt-task-a",
-      "authority-task-a",
-    );
-    assert.ok(reserved.state);
-    const prepared = prepareProjectTaskHandoff(
-      reserved.state,
-      reserved.state.generation,
-      "task-a",
-      "attempt-task-a",
-      "operation-task-a",
-    );
-    assert.ok(prepared.state);
-    const recovered = recordProjectTaskOwnerLossRecoveries(
-      prepared.state,
-      prepared.state.generation,
-      [
-        {
-          operationId: "operation-task-a",
-          status: "verified_absent",
-          recoveryId: null,
-        },
-      ],
-    );
-    assert.equal(recovered.status, "completed");
-    assert.equal(recovered.state?.tasks[0]?.state, "ready");
-    assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, []);
-  });
-
-  /**
-   * running Taskを不存在観測だけでreadyへ戻さないを検証する。
-   *
-   * @responsibility running Taskを不存在観測だけでreadyへ戻さないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus running Taskを不存在観測だけでreadyへ戻さないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("running Taskを不存在観測だけでreadyへ戻さない", () => {
-    const running = start(stateFor([task("task-a")]), "task-a");
-    const recovered = recordProjectTaskOwnerLossRecoveries(
-      running,
-      running.generation,
-      [
-        {
-          operationId: "operation-task-a",
-          status: "verified_absent",
-          recoveryId: null,
-        },
-      ],
-    );
-    assert.equal(recovered.status, "blocked");
-    assert.equal(recovered.state?.tasks[0]?.state, "running");
-  });
-
-  /**
-   * 複数種のRecoveryを項目ごとの受領状態で保持するを検証する。
-   *
-   * @responsibility 複数種のRecoveryを項目ごとの受領状態で保持するの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 複数種のRecoveryを項目ごとの受領状態で保持するの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("複数種のRecoveryを項目ごとの受領状態で保持する", () => {
-    let state = start(stateFor([task("task-a")]), "task-a");
-    const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-    const hostId = `host-task.${"d".repeat(64)}`;
-    const settled = settleProjectTask(state, state.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome: "recovery_required",
-      cleanupConfirmed: false,
-      recoveryObligations: [
-        { kind: "docker", recoveryId: dockerId, phase: "required" },
-        { kind: "host", recoveryId: hostId, phase: "required" },
-      ],
-      recoveryUnresolved: false,
-    });
-    assert.ok(settled.state);
-    state = settled.state;
-    const recovering = markProjectTaskRecoveryObligationRecovering(
-      state,
-      state.generation,
-      "task-a",
-      "docker",
-      dockerId,
-    );
-    assert.ok(recovering.state);
-    const itemSettled = settleProjectTaskRecoveryObligation(
-      recovering.state,
-      recovering.state.generation,
-      "task-a",
-      "docker",
-      dockerId,
-    );
-    assert.ok(itemSettled.state);
-    assert.deepEqual(itemSettled.state.tasks[0]?.recoveryObligations, [
-      { kind: "docker", recoveryId: dockerId, phase: "settled" },
-      { kind: "host", recoveryId: hostId, phase: "required" },
-    ]);
-    assert.equal(
-      retrySettledProjectTaskRecoveries(
-        itemSettled.state,
-        itemSettled.state.generation,
-        ["task-a"],
-      ).status,
-      "blocked",
-    );
-    const dockerSettled = itemSettled;
-    assert.ok(dockerSettled.state);
-    const hostRecovering = markProjectTaskRecoveryObligationRecovering(
-      dockerSettled.state,
-      dockerSettled.state.generation,
-      "task-a",
-      "host",
-      hostId,
-    );
-    assert.equal(hostRecovering.status, "completed");
-    assert.ok(hostRecovering.state);
-    const allSettled = settleProjectTaskRecoveryObligation(
-      hostRecovering.state,
-      hostRecovering.state.generation,
-      "task-a",
-      "host",
-      hostId,
-    );
-    assert.equal(allSettled.status, "completed");
-    assert.ok(allSettled.state);
-    assert.equal(
-      retrySettledProjectTaskRecoveries(
-        allSettled.state,
-        allSettled.state.generation,
-        ["task-a"],
-      ).status,
-      "blocked",
-      "義務phaseだけでは技術Cleanupの確認を代替しない",
-    );
-    const confirmed = {
-      ...allSettled.state,
-      tasks: allSettled.state.tasks.map((task) => ({
-        ...task,
-        cleanupConfirmed: true,
-      })),
-    };
-    const retryReady = retrySettledProjectTaskRecoveries(
-      confirmed,
-      confirmed.generation,
-      ["task-a"],
-    );
-    assert.equal(retryReady.status, "completed");
-    assert.equal(retryReady.state?.tasks[0]?.state, "ready");
-    assert.equal(retryReady.state?.tasks[0]?.attemptId, null);
-    assert.equal(retryReady.state?.tasks[0]?.operationId, null);
-    assert.ok(
-      retryReady.state?.tasks[0]?.recoveryObligations.every(
-        (item) => item.phase === "settled",
-      ),
-    );
-  });
-
-  /**
-   * Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さないを検証する。
-   *
-   * @responsibility Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さないの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さないの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さない", () => {
-    let state = start(stateFor([task("task-a")]), "task-a");
-    const runtimeProcessId = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
-    const settled = settleProjectTask(state, state.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome: "recovery_required",
-      cleanupConfirmed: false,
-      recoveryObligations: [
-        {
-          kind: "runtime_process",
-          recoveryId: runtimeProcessId,
-          phase: "required",
-        },
-      ],
-      recoveryUnresolved: true,
-    });
-    assert.equal(settled.status, "completed");
-    assert.ok(settled.state);
-    state = settled.state;
-    const retry = retrySettledProjectTaskRecoveries(state, state.generation, [
-      "task-a",
-    ]);
-    assert.equal(retry.status, "blocked");
-    assert.equal(retry.state?.tasks[0]?.state, "recovery_required");
   });
 
   /**
@@ -1104,38 +496,4 @@ describe("Orchestrator state contract", () => {
         "task_completion_then_objective_integration_then_milestone_integration",
     });
   });
-});
-/**
- * 結果受領を追加せず用途結果をTask終端へ反映する。
- * @responsibility 正常・失敗・取消の状態を区別し、元Taskを変更しない。
- * @trace PRL-UT-006
- * @precondition 純粋モデルの開始済みTask。
- * @stimulus 同じ実行相関の終端結果を適用する。
- * @observation Task状態、技術確認値と受領fieldの不存在。
- * @oracle 技術確認を保って結果を適用し、ACK情報を生成しない。
- * @cleanup 外部資源なし。
- * @boundary Taskの純粋状態遷移。
- */
-it("Task終端は結果受領を追加しない", () => {
-  for (const outcome of ["completed", "failed", "cancelled"] as const) {
-    const running = start(stateFor([task("task-a")]), "task-a");
-    const settled = settleProjectTask(running, running.generation, {
-      taskId: "task-a",
-      attemptId: "attempt-task-a",
-      operationId: "operation-task-a",
-      authorityBindingId: "authority-task-a",
-      outcome,
-      cleanupConfirmed: true,
-      recoveryObligations: [],
-      recoveryUnresolved: false,
-    });
-    assert.equal(settled.status, "completed");
-    assert.equal(settled.state?.tasks[0]?.state, outcome);
-    assert.equal(settled.state?.tasks[0]?.cleanupConfirmed, true);
-    assert.equal(
-      Object.hasOwn(settled.state?.tasks[0] ?? {}, "resultAcceptances"),
-      false,
-    );
-    assert.equal(running.tasks[0]?.state, "running");
-  }
 });

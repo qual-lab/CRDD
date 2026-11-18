@@ -3,19 +3,9 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-import path from "node:path";
-import { hashExecutionProjectDefinition } from "../objective/validation.ts";
-import {
-  leaseIdentity,
-  validId,
-  encodeStateValue,
-  isSha256Hex,
-  snapshotStateRecord,
-  normalizeRepositoryRelativePath,
-  isStateObject,
-  hasStateKeys,
-} from "./operations.ts";
+
 import { createHash } from "node:crypto";
+import path from "node:path";
 import { types } from "node:util";
 import type { Repository } from "../../../version-control/src/index.ts";
 import {
@@ -31,9 +21,14 @@ import {
   parseDockerTaskRecoveryId,
 } from "../attempt/validation.ts";
 import {
+  validateDecisionRetirement,
+  validateDecisionSnapshotTransition,
+} from "../decision/validation.ts";
+import {
   hashExecutionEntityDefinition,
   prepareExecutionDefinitionChange,
 } from "../objective/operations.ts";
+import { hashExecutionProjectDefinition } from "../objective/validation.ts";
 import type {
   HistoryRepositoryInput,
   SnapshotOwner,
@@ -77,41 +72,52 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../storage/store.ts";
 import type {
-  ProjectTaskResultFact,
   ProjectQueueEntry,
+  ProjectTaskResultFact,
   SingleTaskRecord,
 } from "../task/types.ts";
 import {
-  prepareUnifiedTaskSections,
-  projectTaskSnapshot,
-  decodeStateSnapshot,
-  EXECUTION_STATE_SCHEMA,
-  prepareAuthenticationUnknownClosureSnapshot,
-  prepareStateHostSnapshot,
-  prepareStateOperationSnapshot,
-  projectCurrentState,
-  snapshotRequestMatches,
-  validSnapshot,
-} from "./validation.ts";
-import { validState } from "../task/validation.ts";
+  captureTaskExecutionUpdate,
+  observeTaskStartCandidates,
+  prepareTaskExecutionUpdate,
+  validState,
+} from "../task/validation.ts";
+import type { ResultRecord } from "../workspace/types.ts";
+import { adoptionWasRejected } from "../workspace/validation.ts";
+import {
+  encodeStateValue,
+  hasStateKeys,
+  isSha256Hex,
+  isStateObject,
+  leaseIdentity,
+  normalizeRepositoryRelativePath,
+  snapshotStateRecord,
+  validId,
+} from "./operations.ts";
 import type {
   ExecutionContentViews,
   ExecutionDefinitionValues,
   ExecutionModelAccess,
   ExecutionModelReadResult,
   ExecutionModelSaveResult,
+  LeaseEvidenceEnvelope,
   ProjectExecutionState,
   Snapshot,
   SnapshotObservations,
-  LeaseEvidenceEnvelope,
 } from "./types.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "./types.ts";
 import {
-  validateDecisionRetirement,
-  validateDecisionSnapshotTransition,
-} from "../decision/validation.ts";
-import type { ResultRecord } from "../workspace/types.ts";
-import { adoptionWasRejected } from "../workspace/validation.ts";
+  decodeStateSnapshot,
+  EXECUTION_STATE_SCHEMA,
+  prepareAuthenticationUnknownClosureSnapshot,
+  prepareStateHostSnapshot,
+  prepareStateOperationSnapshot,
+  prepareUnifiedTaskSections,
+  projectCurrentState,
+  projectTaskSnapshot,
+  snapshotRequestMatches,
+  validSnapshot,
+} from "./validation.ts";
 /**
  * Coordinatorの現在状態・Queue・Leaseを単一Snapshotへ保存する。
  *
@@ -210,7 +216,7 @@ export function initializeExecutionStore(
 export function writeSnapshotState(
   workingDirectory: string | Repository,
   binding: string,
-  stateJson: string,
+  stateJson: string | import("../task/types.ts").TaskExecutionUpdate,
   expectedGeneration: number,
   intake?: Readonly<{
     operation: "start" | "resume";
@@ -220,26 +226,49 @@ export function writeSnapshotState(
     milestoneId: string;
   }>,
   resultFacts: readonly ProjectTaskResultFact[] = [],
-): StoreResult<ProjectExecutionState> {
-  let state: ProjectExecutionState;
+): StoreResult<ProjectExecutionState> &
+  Readonly<{ taskUpdateTaskIds?: readonly string[] }> {
+  let state!: ProjectExecutionState;
+  let taskUpdateTaskIds: readonly string[] | null = null;
+  let taskUpdate: Exclude<typeof stateJson, string> | null = null;
   try {
     if (
       !validId(binding) ||
-      typeof stateJson !== "string" ||
       !Number.isSafeInteger(expectedGeneration) ||
       expectedGeneration < 0
     )
       throw new Error("snapshot_state_input_invalid");
-    const parsed: unknown = JSON.parse(stateJson);
-    if (!validState(parsed) || parsed.generation !== expectedGeneration + 1)
-      throw new Error("snapshot_state_input_invalid");
-    Object.freeze(parsed.taskExecutionSelections.executor);
-    Object.freeze(parsed.taskExecutionSelections.reviewer);
-    Object.freeze(parsed.taskExecutionSelections);
-    state = parsed;
+    if (typeof stateJson !== "string") {
+      const captured = captureTaskExecutionUpdate(stateJson);
+      if (!captured) throw new Error("snapshot_state_input_invalid");
+      taskUpdate = captured;
+    } else {
+      const parsed: unknown = JSON.parse(stateJson);
+      if (!validState(parsed) || parsed.generation !== expectedGeneration + 1)
+        throw new Error("snapshot_state_input_invalid");
+      Object.freeze(parsed.taskExecutionSelections.executor);
+      Object.freeze(parsed.taskExecutionSelections.reviewer);
+      Object.freeze(parsed.taskExecutionSelections);
+      state = parsed;
+    }
   } catch {
     return blocked("orchestrator_state_generation_mismatch");
   }
+  const taskResultFacts: readonly ProjectTaskResultFact[] =
+    taskUpdate?.kind === "task_settle_before_effect" ||
+    taskUpdate?.kind === "task_settle"
+      ? [
+          {
+            taskId: taskUpdate.taskId,
+            attemptId: taskUpdate.attemptId,
+            operationId: taskUpdate.operationId,
+            recoveryUnresolved:
+              taskUpdate.kind === "task_settle"
+                ? taskUpdate.resultUnresolved
+                : taskUpdate.recoveryUnresolved,
+          },
+        ]
+      : resultFacts;
   const acquired = acquireSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
@@ -252,56 +281,84 @@ export function writeSnapshotState(
       outcome = blocked("orchestrator_snapshot_absent");
     else {
       const current = observed.value;
-      if (intake && !snapshotRequestMatches(current, intake))
+      if (
+        intake &&
+        (!snapshotRequestMatches(current, intake) ||
+          (taskUpdate !== null && intake.projectId !== taskUpdate.projectId))
+      )
         outcome = blocked("orchestrator_queue_identity_conflict");
       else {
-        const previous = current.projects.find(
-          (item) => item.projectId === state.projectId,
-        );
-        if (
-          previous?.generation === expectedGeneration + 1 &&
-          encodeStateValue(previous) === encodeStateValue(state)
-        ) {
-          const saved = writeSnapshotOwned(
-            lock,
-            binding,
-            encodeStateValue(current),
-            current.snapshotRevision - 1,
-            resultFacts.map((fact) => ({
-              ...fact,
-              projectId: state.projectId,
-            })),
+        let updateFailure: string | null = null;
+        if (taskUpdate) {
+          const previous = current.projects.find(
+            (item) => item.projectId === taskUpdate.projectId,
           );
-          outcome =
-            saved.status === "completed"
-              ? completed("orchestrator_state_durable", previous)
-              : saved;
-        } else if ((previous?.generation ?? 0) !== expectedGeneration)
-          outcome = blocked("orchestrator_state_generation_conflict");
+          if (!previous)
+            updateFailure = "orchestrator_state_generation_conflict";
+          else {
+            const prepared = prepareTaskExecutionUpdate(
+              previous,
+              expectedGeneration,
+              taskUpdate,
+            );
+            if (prepared.status !== "completed")
+              updateFailure = prepared.reason;
+            else {
+              state = prepared.state;
+              taskUpdateTaskIds = prepared.taskIds;
+            }
+          }
+        }
+        if (updateFailure) outcome = blocked(updateFailure);
         else {
-          const projects = previous
-            ? current.projects.map((item) =>
-                item.projectId === state.projectId ? state : item,
-              )
-            : [...current.projects, state];
-          const saved = writeSnapshotOwned(
-            lock,
-            binding,
-            encodeStateValue({
-              ...current,
-              snapshotRevision: current.snapshotRevision + 1,
-              projects,
-            }),
-            current.snapshotRevision,
-            resultFacts.map((fact) => ({
-              ...fact,
-              projectId: state.projectId,
-            })),
+          const previous = current.projects.find(
+            (item) => item.projectId === state.projectId,
           );
-          outcome =
-            saved.status === "completed"
-              ? completed("orchestrator_state_durable", state)
-              : saved;
+          if (
+            previous?.generation === expectedGeneration + 1 &&
+            encodeStateValue(previous) === encodeStateValue(state)
+          ) {
+            const saved = writeSnapshotOwned(
+              lock,
+              binding,
+              encodeStateValue(current),
+              current.snapshotRevision - 1,
+              taskResultFacts.map((fact) => ({
+                ...fact,
+                projectId: state.projectId,
+              })),
+            );
+            outcome =
+              saved.status === "completed"
+                ? completed("orchestrator_state_durable", previous)
+                : saved;
+          } else if ((previous?.generation ?? 0) !== expectedGeneration)
+            outcome = blocked("orchestrator_state_generation_conflict");
+          else {
+            const projects = previous
+              ? current.projects.map((item) =>
+                  item.projectId === state.projectId ? state : item,
+                )
+              : [...current.projects, state];
+            const saved = writeSnapshotOwned(
+              lock,
+              binding,
+              encodeStateValue({
+                ...current,
+                snapshotRevision: current.snapshotRevision + 1,
+                projects,
+              }),
+              current.snapshotRevision,
+              taskResultFacts.map((fact) => ({
+                ...fact,
+                projectId: state.projectId,
+              })),
+            );
+            outcome =
+              saved.status === "completed"
+                ? completed("orchestrator_state_durable", state)
+                : saved;
+          }
         }
       }
     }
@@ -317,7 +374,12 @@ export function writeSnapshotState(
   }
   if (!released)
     return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
-  return outcome;
+  return outcome.status === "completed" && taskUpdateTaskIds !== null
+    ? Object.freeze({
+        ...outcome,
+        taskUpdateTaskIds: Object.freeze([...taskUpdateTaskIds]),
+      })
+    : outcome;
 }
 
 /**
@@ -853,7 +915,7 @@ export function readProjectExecutionState(
     ? Rest
     : never
 ) {
-  return withSnapshotOperation<
+  const observed = withSnapshotOperation<
     Extract<
       ReturnType<typeof projectCurrentState>,
       { status: "completed" }
@@ -861,11 +923,22 @@ export function readProjectExecutionState(
   >(workingDirectory, binding, (current) =>
     projectCurrentState(current, ...input),
   );
+  return observed.status === "completed"
+    ? Object.freeze({
+        ...observed,
+        taskStartCandidates:
+          observed.value === null
+            ? null
+            : observeTaskStartCandidates(observed.value),
+      })
+    : observed;
 }
 /** 複合取得で許可する保存区画。技術記録・Owner・生Snapshotは含めない。 */
 type StateReadViews = {
   queue: Pick<Snapshot, "queueEntries" | "leaseIntents">;
-  execution: Pick<Snapshot, "projects" | "queueEntries" | "schemaRevision">;
+  execution: Pick<Snapshot, "projects" | "queueEntries" | "schemaRevision"> & {
+    taskStartCandidates: readonly import("../task/types.ts").TaskStartCandidates[];
+  };
   workspace: Pick<
     Snapshot,
     "projects" | "queueEntries" | "results" | "workspaces" | "snapshotRevision"
@@ -956,6 +1029,9 @@ export function readState<K extends keyof StateReadViews>(
             projects: current.projects,
             queueEntries: current.queueEntries,
             schemaRevision: current.schemaRevision,
+            taskStartCandidates: Object.freeze(
+              current.projects.map(observeTaskStartCandidates),
+            ),
           }
         : {
             projects: current.projects,
@@ -1545,24 +1621,40 @@ export function readExecutionContent<K extends keyof ExecutionContentViews>(
 export function saveProjectExecutionState(
   workingDirectory: Repository,
   binding: string,
-  state: ProjectExecutionState,
+  state: ProjectExecutionState | import("../task/types.ts").TaskExecutionUpdate,
   expectedGeneration: number,
   intake?: Parameters<typeof writeSnapshotState>[4],
   resultFacts: readonly ProjectTaskResultFact[] = [],
-): StoreResult<ProjectExecutionState> {
+) {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked("orchestrator_repository_root_invalid");
+    return blocked<ProjectExecutionState>(
+      "orchestrator_repository_root_invalid",
+    );
   try {
-    return writeSnapshotState(
+    const command = captureTaskExecutionUpdate(state);
+    const input = command ?? encodeStateValue(state);
+    if (command !== null && resultFacts.length !== 0)
+      return blocked<ProjectExecutionState>(
+        "orchestrator_snapshot_input_invalid",
+      );
+    const saved = writeSnapshotState(
       workingDirectory,
       binding,
-      encodeStateValue(state),
+      input,
       expectedGeneration,
       intake,
       resultFacts,
     );
+    return saved.status === "completed"
+      ? Object.freeze({
+          ...saved,
+          taskStartCandidates: observeTaskStartCandidates(saved.value),
+        })
+      : saved;
   } catch {
-    return blocked("orchestrator_snapshot_input_invalid");
+    return blocked<ProjectExecutionState>(
+      "orchestrator_snapshot_input_invalid",
+    );
   }
 }
 

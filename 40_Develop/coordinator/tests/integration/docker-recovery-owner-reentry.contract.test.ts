@@ -33,14 +33,14 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import * as homes from "../../src/execution/authority.ts";
-import * as development from "../../src/execution/diagnostics.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
 import * as repository from "../../src/execution/operation.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/operation.ts";
 import * as controller from "../../src/execution/provider-executor.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import type { RecoveryPlan } from "../../src/execution/types.ts";
 import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { verifyNormalOwnerLifecycle } from "../fixtures/docker-owned-process-test-support.ts";
 import { expectedHostCheckpoint } from "../fixtures/task-result-fixture.ts";
@@ -2343,6 +2343,14 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     consumer: "workbench" as const,
     operationId: "OP-123456",
     grantRef: "PHMGRANT-ABCDEF",
+    activeMountCapability: mount,
+    selectionHash: hashExecutionSelection(
+      executionSelection("executor", {
+        provider: "codex",
+        model: "gpt-5.5",
+        effort: "low",
+      }),
+    ),
     executionSelection: executionSelection("executor", {
       provider: "codex",
       model: "gpt-5.5",
@@ -2364,6 +2372,19 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   });
   let operations: Array<Record<string, unknown>> = [];
   let hostState = "host_only";
+  const hostRecord = () => ({
+    schema: "crdd-coordinator-host-recovery/v1",
+    rootName: "crdd-coordinator-doctor-11111111-1111-4111-8111-111111111111",
+    nonce: "11111111-1111-4111-8111-111111111111",
+    state: hostState,
+  });
+  const hostToken = () => {
+    const record = hostRecord();
+    return `host.${record.rootName}.${record.nonce}.${createHash("sha256")
+      .update(JSON.stringify(record) + "\n")
+      .digest("hex")}`;
+  };
+  let hostStartEffects = 0;
   let checkpointRevision = 1;
   let checkpointSaved = true,
     checkpointReleased = true,
@@ -2383,6 +2404,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let rejectedHostCompletions = 0;
   let lifecycleCalls = 0;
   let isReleaseSucceeds = true;
+  // 入口回数ではなく、Host開始の予定保存要求を数える。
   let startCalls = 0;
   let fixedInputs: unknown[] | null = null;
   let fixedBefore: unknown = null;
@@ -2391,37 +2413,8 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let lifecycleConfirmed = true;
   let lifecycleLockReleased = true;
   let taskBound = false;
-  const hostSubmission = await import("../../src/execution/controller.ts");
   const hostPersistence = await import("../../src/execution/persistence.ts");
   const mocks = [
-    mock.module(
-      new URL("../../src/execution/controller.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...hostSubmission,
-          beginRuntimeOwnedCoordinatorHostSubmission: () => {
-            startCalls++;
-            if (hostBeginFails)
-              return {
-                status: "blocked",
-                reason: "host_begin_save_failed",
-                hostTransitionConfirmed: false,
-              };
-            hostState = "docker_submission_started";
-            return { status: "completed", hostTransitionConfirmed: true };
-          },
-          completeRuntimeOwnedCoordinatorHostSubmission: () => {
-            if (hostCompleteFails) {
-              rejectedHostCompletions++;
-              return { status: "blocked", hostTransitionConfirmed: false };
-            }
-            restoreCalls++;
-            hostState = "host_only";
-            return { status: "completed", hostTransitionConfirmed: true };
-          },
-        },
-      },
-    ),
     mock.module(
       new URL("../../src/execution/provider-executor.ts", import.meta.url).href,
       {
@@ -2442,15 +2435,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../src/execution/diagnostics.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...development,
-          inspectRuntimeOwnedDevelopmentOperationContext: () => null,
-        },
-      },
-    ),
-    mock.module(
       new URL("../../src/execution/authority.ts", import.meta.url).href,
       {
         namedExports: {
@@ -2460,6 +2444,16 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
             observationCapability: {},
           }),
           consumeRuntimeOwnedProviderHomeObservationCapability: () => plan,
+          verifyRuntimeOwnedProviderHomeMountCompletion: (
+            value: unknown,
+            owner: unknown,
+            active: unknown,
+            operationId: unknown,
+          ) =>
+            value === mount &&
+            owner === management &&
+            active === mount &&
+            operationId === plan.operationId,
         },
       },
     ),
@@ -2486,6 +2480,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         namedExports: {
           ...repository,
           ...hostRuntime,
+          inspectRuntimeOwnedDevelopmentOperationContext: () => null,
           borrowRuntimeOwnedCoordinatorStateRepository: () => ({
             operationId: plan.operationId,
             repositoryBinding: hash,
@@ -2495,16 +2490,26 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
             operationId: plan.operationId,
           }),
           borrowOwnedHostRecoverySnapshot: () => ({
-            snapshot: { token: "host-token", record: { state: hostState } },
+            snapshot: { token: hostToken(), record: hostRecord() },
             hostPaths: {},
           }),
+          beginOwnedDockerSubmissionRecovery: () => {
+            hostStartEffects++;
+            hostState = "docker_submission_started";
+            return hostToken();
+          },
+          completeOwnedDockerSubmissionRecovery: () => {
+            restoreCalls++;
+            hostState = "host_only";
+            return hostToken();
+          },
           issueOwnedHostCleanupCapability: () => {
             capabilityCalls++;
             return {};
           },
           consumeOwnedHostRecoveryIdForCleanup: () => {
             consumeCalls++;
-            return "host-token";
+            return hostToken();
           },
         },
       },
@@ -2580,6 +2585,11 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
                   lockReleased: true,
                   value: {
                     snapshot: { operations, revision: checkpointRevision },
+                    operationStates: operations.map((operation) => ({
+                      kind: "docker_task",
+                      operation,
+                      resourcesSettled: true,
+                    })),
                     payloadSha256: checkpointReadMatches
                       ? hash
                       : "b".repeat(64),
@@ -2591,7 +2601,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
                       "not_requested"
                       ? {
                           recoveryId: "exact-id",
-                          hostToken: "host-token",
+                          hostToken: hostToken(),
                           before: Buffer.from(
                             `${canonicalJson({ operations, revision: checkpointRevision })}\n`,
                           ),
@@ -2603,6 +2613,47 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
             recoveryId: unknown,
             request: { kind: string; value: unknown },
           ) => {
+            if (request.kind === "host") {
+              const value = request.value as {
+                pendingTransitionJson: string | null;
+                currentToken: string;
+              };
+              const pending = value.pendingTransitionJson
+                ? JSON.parse(value.pendingTransitionJson)
+                : null;
+              if (pending?.nextState === "docker_submission_started") {
+                startCalls++;
+                if (hostBeginFails)
+                  return {
+                    status: "blocked",
+                    reason: "host_begin_save_failed",
+                    snapshotConfirmed: false,
+                    lockReleased: true,
+                  };
+              }
+              if (pending?.nextState === "host_only" && hostCompleteFails) {
+                rejectedHostCompletions++;
+                return {
+                  status: "blocked",
+                  reason: "host_complete_save_failed",
+                  snapshotConfirmed: false,
+                  lockReleased: true,
+                };
+              }
+              assert.ok(operations[0]);
+              operations[0].host = {
+                ...(operations[0].host as object),
+                ...value,
+              };
+              return {
+                status: "completed",
+                snapshotConfirmed: true,
+                lockReleased: true,
+                filesystemEffectIssued: true,
+                revision: checkpointRevision,
+                payloadSha256: hash,
+              };
+            }
             if (request.kind === "cleanup")
               return (() => ({
                 status: "completed",
@@ -2641,6 +2692,20 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
                 identityJson,
                 phase: "executing",
                 lease: "held",
+                resources: {
+                  snapshot: {
+                    resources: [
+                      [
+                        "create_subscription_auth_probe",
+                        plan.authContainerName,
+                      ],
+                      ["create_provider", plan.providerContainerName],
+                      ["create_proxy", plan.proxyContainerName],
+                      ["create_internal_network", plan.internalNetworkName],
+                      ["create_egress_network", plan.egressNetworkName],
+                    ].map(([key, name]) => ({ key, identity: { name } })),
+                  },
+                },
                 execution: {
                   providerStart: "not_started",
                   externalSend: "not_issued",
@@ -2652,7 +2717,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
                 outcome: null,
                 summarySha256: null,
                 host: {
-                  currentToken: "host-token",
+                  currentToken: hostToken(),
                   pendingTransitionJson: null,
                   cleanup: "not_requested",
                 },
@@ -2688,7 +2753,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               };
             assert.ok(operations[0]);
             operations[0].host = {
-              currentToken: "host-token",
+              currentToken: hostToken(),
               pendingTransitionJson: null,
               cleanup: "pending",
             };
@@ -2729,6 +2794,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     assert.deepEqual(operations, unregisteredBefore);
     assert.equal(hostState, unregisteredHost);
     const begun = runtime.beginRuntimeOwnedDockerRecovery(plan, management);
+    assert.equal(hostStartEffects, 1, "予定保存後に実Hostへ一回だけ要求する");
     assert.ok(begun && "recoveryCapability" in begun);
     const capability = begun.recoveryCapability;
     assert.equal(runtime.recordRuntimeOwnedDockerProviderSubmission({}), false);
@@ -2969,7 +3035,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     pendingFails = false;
     assert.equal(
       runtime.prepareRuntimeOwnedDockerHostCleanup(capability),
-      "host-token",
+      hostToken(),
     );
     assert.equal(consumeCalls, 1);
     assert.equal(
@@ -3092,7 +3158,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     operations[0].lease = "released";
     assert.equal(
       runtime.prepareRuntimeOwnedDockerHostCleanup(projectCapability),
-      "host-token",
+      hostToken(),
     );
     assert.equal(
       runtime.recordRuntimeOwnedDockerHostCleanupReceipt(projectCapability, {
@@ -3136,12 +3202,18 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       hostBeginFails = failure === "host";
       isReleaseSucceeds = false;
       const startsBefore = startCalls;
+      const effectsBefore: number = hostStartEffects;
       const failed = runtime.beginRuntimeOwnedDockerRecovery(plan, management);
       assert.ok(failed && "recoveryCapability" in failed);
       assert.equal(failed.status, "blocked");
       assert.equal(failed.recoveryId, "exact-id");
       const expectedStarts = startsBefore + (failure === "host" ? 1 : 0);
       assert.equal(startCalls, expectedStarts);
+      assert.equal(
+        hostStartEffects,
+        effectsBefore,
+        "予定保存拒否より前にHostへ要求しない",
+      );
       if (failure === "host")
         assert.equal(failed.reason, "host_begin_save_failed");
       const failedCapability = failed.recoveryCapability;

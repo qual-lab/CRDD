@@ -5,14 +5,76 @@
  * @trace ARCH-000008
  */
 
+import type { Writable } from "node:stream";
+import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
+import type { AttemptDiagnosticNotice } from "../../../executor/src/index.ts";
+import { snapshotPlainRecord } from "../input/snapshot.ts";
 import type {
   CandidateValidationFailureDiagnostic,
   TaskStageDiagnostic,
 } from "./result.ts";
-import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
-import { snapshotPlainRecord } from "../input/snapshot.ts";
 import type { RecoveryStartFailureDiagnostic } from "./types.ts";
-import type { AttemptDiagnosticNotice } from "../../../executor/src/index.ts";
+
+const LIFECYCLE_NOTICE_TIMEOUT_MS = 5_000;
+
+/**
+ * Runtime 所有 Lifecycle Notice Reporterを構築する。
+ *
+ * @responsibility Runtime 所有 Lifecycle Notice Reporterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input stream: Writable、prefix: Lifecycle／選定／送信案内の固定表示prefix。
+ * @returns write完了でresolve、error／close／既存期限でrejectする通知関数。
+ * @precondition 「stream: Writable」がcreateRuntimeOwnedLifecycleNoticeReporterの入力契約を満たす。
+ * @postcondition createRuntimeOwnedLifecycleNoticeReporterの責務を完了した結果だけを返す。
+ * @effect 呼出し時だけ既存streamへ非秘密通知を書き、同じ要求のListener／Timerを解除する。
+ * @failure createRuntimeOwnedLifecycleNoticeReporterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createRuntimeOwnedLifecycleNoticeReporterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createRuntimeOwnedLifecycleNoticeReporterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createRuntimeOwnedLifecycleNoticeReporterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
+export function createRuntimeOwnedLifecycleNoticeReporter(
+  stream: Writable,
+  prefix:
+    | "[Coordinator lifecycle]"
+    | "[Coordinator selection]"
+    | "[Coordinator authorization]" = "[Coordinator lifecycle]",
+) {
+  return (notice: Readonly<Record<string, unknown>>): Promise<void> => {
+    if (!stream.writable || stream.destroyed)
+      return Promise.reject(Error("lifecycle_notice_unavailable"));
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(
+        () => settle(false),
+        LIFECYCLE_NOTICE_TIMEOUT_MS,
+      );
+      const settle = (isValue: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        stream.off("error", onFailure);
+        stream.off("close", onFailure);
+        if (isValue) resolve();
+        else reject(Error("lifecycle_notice_unavailable"));
+      };
+      const onFailure = () => settle(false);
+      stream.once("error", onFailure);
+      stream.once("close", onFailure);
+      try {
+        stream.write(
+          `${prefix} ${JSON.stringify(notice)}\n`,
+          "utf8",
+          (error) => {
+            if (error === undefined || error === null) settle(true);
+          },
+        );
+      } catch {
+        settle(false);
+      }
+    });
+  };
+}
 
 /**
  * Provider観測の確認段階を区別する。

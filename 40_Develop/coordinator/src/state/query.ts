@@ -5,23 +5,27 @@
  * @trace ARCH-000005
  */
 
-import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import {
   ExecutionStorageBlockedError,
   isPrincipalId,
   type ProjectExecutionState,
-  readState,
   readProjectExecutionState,
+  readState,
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
+import { RepositoryDataBlockedError } from "../configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import { snapshotPlainArray } from "../input/snapshot.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
-import { projectCoordinatorState } from "./projection.ts";
+import {
+  inspectTaskStartCandidates,
+  projectCoordinatorState,
+} from "./projection.ts";
 
 import { coordinatorDataBoundaryBlocked, type StoreResult } from "./result.ts";
 
@@ -48,7 +52,11 @@ export function queryCoordinatorState(
   request: CoordinatorStateQuery,
 ): CoordinatorStateQueryResult {
   const observed = state.readState(request.projectId);
-  if (observed.status !== "completed")
+  if (
+    observed.status !== "completed" ||
+    (observed.value !== null &&
+      !inspectTaskStartCandidates(observed.value, observed.taskStartCandidates))
+  )
     return Object.freeze({
       contract: COORDINATOR_STATE_QUERY_CONTRACT,
       status: "blocked",
@@ -59,7 +67,8 @@ export function queryCoordinatorState(
       observationState: "unknown",
       projection: null,
       cleanupConfirmed: true,
-      manualRecoveryRequired: observed.manualRecoveryRequired,
+      manualRecoveryRequired:
+        observed.status === "blocked" && observed.manualRecoveryRequired,
       effectState: "no_effect",
     });
   if (observed.value === null)
@@ -98,7 +107,10 @@ export function queryCoordinatorState(
     projectId: request.projectId,
     repositoryRevision: request.repositoryRevision,
     observationState: "observed",
-    projection: projectCoordinatorState(observed.value),
+    projection: projectCoordinatorState(
+      observed.value,
+      observed.taskStartCandidates,
+    ),
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     effectState: "no_effect",
@@ -228,17 +240,29 @@ export function executeCoordinatorPublicStateQuery(
       effectState: "no_effect" as const,
     });
   const current = snapshot.value;
+  const candidateRecords = snapshotPlainArray(
+    current.taskStartCandidates,
+    Number.MAX_SAFE_INTEGER,
+  );
   return queryCoordinatorState(
     {
-      readState: (projectId) =>
-        Object.freeze({
+      readState: (projectId) => {
+        const project =
+          current.projects.find((item) => item.projectId === projectId) ?? null;
+        const candidates =
+          project && candidateRecords.status === "ok"
+            ? candidateRecords.value
+                .map((item) => inspectTaskStartCandidates(project, item))
+                .filter((item) => item !== null)
+            : [];
+        return Object.freeze({
           status: "completed",
           reason: "orchestrator_state_observed",
-          value:
-            current.projects.find(
-              (project) => project.projectId === projectId,
-            ) ?? null,
-        }),
+          taskStartCandidates:
+            candidates.length === 1 ? (candidates[0] ?? null) : null,
+          value: project,
+        });
+      },
     },
     request,
   );

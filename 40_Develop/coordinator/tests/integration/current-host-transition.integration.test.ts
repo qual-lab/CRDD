@@ -28,7 +28,6 @@ import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
-import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -40,13 +39,14 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  loadHostRecoveryRecordByToken,
 } from "../../src/execution/operation.ts";
 import {
   readOperationStateStage,
   saveOperationCheckpoint,
   saveOperationStart,
 } from "../../src/execution/persistence.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
+import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/recovery.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import {
   currentAuthenticationRecoveryCliSource,

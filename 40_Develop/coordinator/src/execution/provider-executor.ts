@@ -5,17 +5,7 @@
  * @boundary CoordinatorのHost管理とExecutorの技術生涯の間。
  */
 
-import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { types } from "node:util";
-import { getRepository } from "../../../version-control/src/index.ts";
-import {
-  beginProviderExecutionRecording,
-  captureProviderExecutionCompletion,
-  finishProviderExecutionRecording,
-  reportExecutionRecordingUnavailable,
-  type ProviderExecutionRecording,
-} from "./intelligence.ts";
-import { getIsolationSettings } from "./configuration.ts";
 import type { Provider } from "../../../ai-adapter/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import {
@@ -27,22 +17,32 @@ import {
   type ProcessStartedNotice,
   type StartResult,
 } from "../../../executor/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   completeRuntimeOwnedProviderHomeMount,
   consumeRuntimeOwnedProviderAuthority,
   revokeRuntimeOwnedProviderAuthority,
 } from "./authority.ts";
-import { createRuntimeOwnedLifecycleNoticeReporter } from "./controller.ts";
+import { getIsolationSettings } from "./configuration.ts";
 import {
-  borrowOwnedOperationExecutionSelection,
+  beginProviderExecutionRecording,
+  captureProviderExecutionCompletion,
+  finishProviderExecutionRecording,
+  type ProviderExecutionRecording,
+  reportExecutionRecordingUnavailable,
+} from "./intelligence.ts";
+import { createRuntimeOwnedLifecycleNoticeReporter } from "./observation.ts";
+import {
   borrowOwnedDockerExecutionPaths,
-  verifyRuntimeOwnedRepositoryOperation,
+  borrowOwnedOperationExecutionSelection,
   borrowRuntimeOwnedCoordinatorStateRepository,
+  verifyRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
 import {
   createAttemptPreparation,
   createProviderDockerRuntimeDependencies,
 } from "./preparation.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import {
   abandonRuntimeOwnedExecutorAttempt as abandonBoundExecutorAttempt,
   abandonRuntimeOwnedDockerRecovery,
@@ -60,7 +60,6 @@ import {
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./recovery.ts";
 import type {
-  ResourceCleanupResult,
   ExecutionRecordOperations,
   PreparationInput,
   PreparedAttemptPlan,
@@ -69,6 +68,7 @@ import type {
   Recovery,
   RecoveryPlan,
   RecoveryStartFailureDiagnostic,
+  ResourceCleanupResult,
 } from "./types.ts";
 import {
   inspectRecoveryStartFailureDiagnostic,

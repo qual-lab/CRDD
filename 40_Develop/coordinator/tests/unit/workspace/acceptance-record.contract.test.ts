@@ -317,7 +317,7 @@ test("固定候補操作は旧件数を超える入力を保持する", () => {
   }
 });
 
-import { inspectWorkspaceCommand } from "../../../src/workspace/commands.ts";
+import { inspectWorkspaceCommand } from "../../../src/workspace/operations.ts";
 import { inspectCoordinatorWorkspaceResults } from "../../../src/workspace/record.ts";
 
 /**

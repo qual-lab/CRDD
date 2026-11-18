@@ -21,12 +21,12 @@ import {
   initializeExecutionStore,
   readState,
 } from "../../../execution-model/src/index.ts";
+import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
@@ -238,7 +238,7 @@ function fixture(
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, binding);
   for (const projectId of projectIds) {
-    const created = createCoordinatorState({
+    const created = projectExecutionFixture({
       taskExecutionSelections: taskExecutionSelections(),
       projectId,
       milestoneId: "milestone-a",
@@ -412,9 +412,12 @@ test("scheduled work arriving after an interactive operation starts remains effe
       return null;
     },
   });
+  // 既存Blocker Gateの状態遷移判定を含め、Lease借用前の読取り順を固定する。
   assert.deepEqual(reads, [
     "resume",
     "result",
+    "state",
+    "state",
     "state",
     "lease",
     "lease",

@@ -1,7 +1,7 @@
 /**
- * execution-environmentに属する責務をまとめる。
+ * Host操作領域・借用Tree・Host記録と実体Capabilityを管理する。
  *
- * @responsibility FilesystemIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Host記録の生成・読取り・三値観測・遷移と、操作領域の所有・借用・清掃境界を所有する。
  * @trace ARCH-000008
  */
 
@@ -37,7 +37,6 @@ import {
 } from "./files.ts";
 import { acquireHostOperationLock } from "./kernel-lock.ts";
 import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
-import { loadHostRecoveryRecordByToken } from "./recovery.ts";
 import { formatHostRecoveryToken } from "./result.ts";
 
 /**
@@ -1644,6 +1643,168 @@ const OWNED_PREFIX = "crdd-coordinator-doctor-";
 const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
 
 /**
+ * 同じHostのRootとmarkerを、削除後も別々に観測する。
+ * @responsibility 正規の親・記録領域とtokenへ対象を固定し、観測不能を不存在へ畳まない。
+ * @trace ARCH-000008
+ * @input token: exact Host参照、expectedRoot: 現在Identityの絶対Root。
+ * @returns 二対象のpresent／absent／unknownと固定marker Path。
+ * @precondition 処置Ownerと保持排他は呼出し側が別に照合する。
+ * @postcondition ENOENTだけを不存在とし、両不存在だけでAuthorityを発行しない。
+ * @effect 同じ親・記録領域・Root・markerの読取りだけ。
+ * @failure 不正Path・link・親差・観測例外はunknown。
+ * @invariant 別親探索、旧形式探索、作成・削除を行わない。
+ * @boundary 現在Host IdentityとFilesystemの三値観測。
+ * @security Package内部の所在確認であり公開出力へPathを搬送しない。
+ * @concurrency 世代取得後と保存直前にも再観測する。
+ */
+export function observeHostRecoveryCleanup(
+  token: unknown,
+  expectedRoot: unknown,
+): Readonly<{
+  root: "present" | "absent" | "unknown";
+  marker: "present" | "absent" | "unknown";
+  markerPath: string | null;
+}> {
+  try {
+    const parsed = parseHostRecoveryToken(token);
+    if (
+      typeof expectedRoot !== "string" ||
+      !path.isAbsolute(expectedRoot) ||
+      path.resolve(expectedRoot) !== expectedRoot ||
+      path.basename(expectedRoot) !== parsed.rootName
+    )
+      throw new Error("host_recovery_root_mismatch");
+    const parent = path.dirname(expectedRoot);
+    const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
+    for (const location of [parent, directory]) {
+      const metadata = fs.lstatSync(location);
+      if (
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink() ||
+        fs.realpathSync(location) !== location
+      )
+        throw new Error("host_recovery_directory_untrusted");
+    }
+    const markerPath = path.join(
+      directory,
+      `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
+    );
+    const rootMetadata = fs.lstatSync(expectedRoot, { throwIfNoEntry: false });
+    const markerMetadata = fs.lstatSync(markerPath, { throwIfNoEntry: false });
+    if (
+      rootMetadata &&
+      (!rootMetadata.isDirectory() ||
+        rootMetadata.isSymbolicLink() ||
+        fs.realpathSync(expectedRoot) !== expectedRoot)
+    )
+      throw new Error("host_recovery_root_untrusted");
+    if (
+      markerMetadata &&
+      (!markerMetadata.isFile() || markerMetadata.isSymbolicLink())
+    )
+      throw new Error("host_recovery_record_untrusted");
+    return Object.freeze({
+      root: rootMetadata ? ("present" as const) : ("absent" as const),
+      marker: markerMetadata ? ("present" as const) : ("absent" as const),
+      markerPath,
+    });
+  } catch {
+    return Object.freeze({
+      root: "unknown" as const,
+      marker: "unknown" as const,
+      markerPath: null,
+    });
+  }
+}
+
+/**
+ * Host 回復 記録 By Tokenを読み込む。
+ *
+ * @responsibility Host 回復 記録 By Tokenの読取り元、Schema検証、読取不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input token: exact参照、expectedRoot: 元Ownerまたは現在操作に結合した絶対Root。
+ * @returns 同じRoot直下の親に保存されたexact markerと記録。
+ * @precondition 親scopeの処置許可は呼出し元が別に確認する。
+ * @postcondition 操作Root不存在でも同じ親以外を探索しない。
+ * @effect 親・記録Directory・markerの読取りだけ。作成・書込みなし。
+ * @failure loadHostRecoveryRecordByTokenは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant loadHostRecoveryRecordByTokenは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security loadHostRecoveryRecordByTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadHostRecoveryRecordByTokenは共有非同期状態を持たない同期処理である。
+ */
+export function loadHostRecoveryRecordByToken(
+  token: unknown,
+  expectedRoot: unknown,
+) {
+  const parsed = parseHostRecoveryToken(token);
+  if (
+    typeof expectedRoot !== "string" ||
+    !path.isAbsolute(expectedRoot) ||
+    path.resolve(expectedRoot) !== expectedRoot ||
+    path.basename(expectedRoot) !== parsed.rootName
+  )
+    throw new Error("host_recovery_root_mismatch");
+  const parent = path.dirname(expectedRoot);
+  const parentMetadata = fs.lstatSync(parent);
+  if (
+    !parentMetadata.isDirectory() ||
+    parentMetadata.isSymbolicLink() ||
+    fs.realpathSync(parent) !== parent
+  )
+    throw new Error("host_recovery_parent_untrusted");
+  const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
+  const realDirectory = fs.realpathSync(directory);
+  const directoryMetadata = fs.lstatSync(realDirectory);
+  if (
+    realDirectory !== directory ||
+    path.dirname(realDirectory) !== parent ||
+    !directoryMetadata.isDirectory() ||
+    directoryMetadata.isSymbolicLink()
+  )
+    throw new Error("host_recovery_directory_untrusted");
+  const marker = path.join(
+    realDirectory,
+    `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
+  );
+  const markerMetadata = fs.lstatSync(marker);
+  if (!markerMetadata.isFile() || markerMetadata.isSymbolicLink())
+    throw new Error("host_recovery_record_replaced");
+  const serialized = fs.readFileSync(marker, "utf8");
+  if (
+    createHash("sha256").update(serialized).digest("hex") !== parsed.recordHash
+  )
+    throw new Error("host_recovery_record_mismatch");
+  const record = JSON.parse(serialized);
+  if (
+    record.schema !== "crdd-coordinator-host-recovery/v1" ||
+    record.rootName !== parsed.rootName
+  ) {
+    throw new Error("host_recovery_record_mismatch");
+  }
+  const after = fs.lstatSync(marker);
+  if (
+    !after.isFile() ||
+    after.isSymbolicLink() ||
+    after.dev !== markerMetadata.dev ||
+    after.ino !== markerMetadata.ino ||
+    after.birthtimeMs !== markerMetadata.birthtimeMs ||
+    after.size !== markerMetadata.size ||
+    fs.realpathSync(directory) !== directory ||
+    fs.realpathSync(parent) !== parent
+  )
+    throw new Error("host_recovery_record_replaced");
+  return {
+    parsed,
+    parent,
+    directory: realDirectory,
+    marker,
+    record,
+    serialized,
+  };
+}
+
+/**
  * execution-environmentで使用するFilesystem Identityの値契約を定義する。
  *
  * @responsibility Filesystem IdentityのProperty、Identity、状態制約を型境界として所有する。
@@ -2091,6 +2252,7 @@ const operationContextAliases = new WeakMap<object, Set<object>>();
  */
 type OperationManagementIdentity = Readonly<{
   owned: object;
+  developmentContext?: DevelopmentOperationContext;
   operationId: string;
   createdAt: string;
   executionSelections?: Readonly<
@@ -2129,6 +2291,92 @@ const operationManagementCapabilities = new WeakMap<
   object,
   OperationManagementIdentity
 >();
+
+/**
+ * 同じ診断Sessionに結合した新規作業・清掃の参照を保持する。
+ * @responsibility 元Contextと動的失効確認を複製せず借りる。
+ * @trace ARCH-000004
+ * @shape 動的checkNewWorkと、元の新規作業・清掃Context参照。
+ * @invariant 取消・終了後も参照を保持し、動的検査は新規作業を拒否する。
+ * @boundary 診断Sessionと同じOperation管理binding。別aliasへ自動伝播しない。
+ * @security 参照自体はAuthorityではなく、保存・公開しない。
+ * @compatibility Process内の内部契約であり、永続SchemaとRoot公開は変更しない。
+ */
+export type DevelopmentOperationContext = Readonly<{
+  checkNewWork: () => boolean;
+  newWorkContext: object;
+  cleanupContext: object;
+}>;
+
+/**
+ * 診断Sessionの検査完了後だけ、元管理参照へContextを一回結合する。
+ * @responsibility 既存Operation bindingを利用し、別Contextの上書きを拒否する。
+ * @trace ARCH-000004
+ * @input 現在の管理Capabilityと、Sessionが検査後に固定した元Context。
+ * @returns 同じbindingへ初回結合した場合だけtrue。
+ * @precondition 呼出し側がTask・Session・Repository・Revisionを照合済みである。
+ * @postcondition 成功時だけ元参照を保持する。Session側の確定は呼出し側が行う。
+ * @effect 既存Map内の同じbinding参照だけを更新する。資源・権限を発行しない。
+ * @failure 検査失敗・二重結合では元bindingを変更せずfalse。
+ * @invariant Contextを再生成・上書きせず、取消を通常Operationへ読み替えない。
+ * @boundary 診断Sessionの結合と既存Operationの管理参照。
+ * @security 元管理参照を確認し、別aliasへの結合やAuthority発行は行わない。
+ * @concurrency 同期の検査と一回のMap更新のみ。更新後に外部処理を挟まない。
+ */
+export function bindOwnedDevelopmentOperationContext(
+  managementCapability: object,
+  context: DevelopmentOperationContext,
+): boolean {
+  try {
+    verifyOwnedOperationManagementCapability(managementCapability);
+    const binding = operationManagementCapabilities.get(managementCapability);
+    if (!binding || binding.developmentContext) return false;
+    const captured = snapshotPlainRecord(
+      context,
+      new Set(["checkNewWork", "newWorkContext", "cleanupContext"]),
+    );
+    if (
+      !captured ||
+      Object.keys(captured).length !== 3 ||
+      typeof captured.checkNewWork !== "function" ||
+      !isObject(captured.newWorkContext) ||
+      !isObject(captured.cleanupContext) ||
+      !Object.isFrozen(context)
+    )
+      return false;
+    operationManagementCapabilities.set(
+      managementCapability,
+      Object.freeze({ ...binding, developmentContext: context }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 元診断Sessionの動的検査とContext参照を同じOperationから借りる。
+ * @responsibility 通常Operationと未結合参照はnull、結合後の取消・終了は同じContextの検査で拒否する。
+ * @trace ARCH-000004
+ * @input 現在又は未検証の管理Capability。
+ * @returns 結合した元Context、又は未結合・失効参照のnull。
+ * @precondition 利用側はEffect前に既存の現在Owner確認を行う。
+ * @postcondition Contextを複製せず、取消・終了後も動的検査へ接続する。
+ * @effect N/A: 既存Mapの読取りのみ。
+ * @failure 不正・未結合・失効参照を解決し直さずnullとする。
+ * @invariant nullだけを実行許可の根拠にしない。
+ * @boundary Authority／RecoveryとOperation管理binding。
+ * @security 管理参照の現在確認と実処置の条件は利用側に維持する。
+ * @concurrency 取得後も同じ関数がSessionの取消・終了を動的に確認する。
+ */
+export function inspectRuntimeOwnedDevelopmentOperationContext(
+  managementCapability: unknown,
+): DevelopmentOperationContext | null {
+  return isObject(managementCapability)
+    ? (operationManagementCapabilities.get(managementCapability)
+        ?.developmentContext ?? null)
+    : null;
+}
 
 /**
  * execution-environmentで使用するOperation Generation 状態の値契約を定義する。
@@ -6914,6 +7162,5 @@ export function describeRepositoryOperationRuntimeContract() {
   });
 }
 
-import type { WorkspaceResult } from "../workspace/record.ts";
-
 import { hashExecutionSelection } from "../selection/resolve.ts";
+import type { WorkspaceResult } from "../workspace/record.ts";

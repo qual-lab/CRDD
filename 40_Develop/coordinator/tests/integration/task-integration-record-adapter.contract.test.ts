@@ -9,7 +9,6 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
-import { canonicalJson } from "../support/contract-assertions.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -23,16 +22,17 @@ import {
   selectQueueEntry,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
+import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
+import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/operations.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
  * 選択観測例外を実Storeで拒否し短期Ownerを解放する。
@@ -260,7 +260,7 @@ function fixture(t: test.TestContext) {
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",

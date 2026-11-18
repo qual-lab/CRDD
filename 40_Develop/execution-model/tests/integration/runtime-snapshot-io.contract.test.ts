@@ -12,11 +12,6 @@
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
 
-import {
-  hashExecutionStateContent,
-  leaseAcquisitionRecoveryId,
-  leaseIdentity,
-} from "../../src/state/operations.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -50,16 +45,21 @@ import {
   writeSnapshotState,
 } from "../../src/state/crud.ts";
 import {
+  encodeStateValue,
+  hashExecutionStateContent,
+  isSha256Hex,
+  leaseAcquisitionRecoveryId,
+  leaseIdentity,
+  snapshotStateRecord,
+} from "../../src/state/operations.ts";
+import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
   prepareStateHostSnapshot,
+  prepareUnifiedTaskSnapshot,
+  projectTaskSnapshot,
   validateUnifiedTransition,
 } from "../../src/state/validation.ts";
-import {
-  encodeStateValue,
-  isSha256Hex,
-  snapshotStateRecord,
-} from "../../src/state/operations.ts";
 import {
   acquireExecutionStateLock,
   acquireSnapshotPilotLock,
@@ -77,10 +77,7 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/storage/store.ts";
 import { prepareQueueRecoverySettlement } from "../../src/task/crud.ts";
-import {
-  prepareUnifiedTaskSnapshot,
-  projectTaskSnapshot,
-} from "../../src/state/validation.ts";
+import { initialExecutionInput } from "../fixtures/execution-plan.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
@@ -219,6 +216,142 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
     assert.equal(before.toString(), "before");
     assert.equal(candidate.toString(), "candidate");
   }
+});
+
+/**
+ * 回復phaseの有限保存を単一Writerと直後再送へ接続する。
+ * @trace PRL-IT-005
+ * @precondition 今回Rootの開始前終端と非Dockerの合成回復義務を使う。
+ * @stimulus start・settle・別ID再送・Cleanup未確認のretryを実保存へ渡す。
+ * @observation 保存bytes、世代、義務phaseとLock解放。
+ * @oracle 拒否と同一再送はbytes不変であり、処置済みをCleanup確認へ読み替えない。
+ * @cleanup fixtureの終了hookで今回Rootだけを回収する。
+ * @boundary EM完成保存と実Filesystem。実AI・Dockerなし。
+ */
+test("回復phaseの有限保存は同一再送とCleanup未確認の停止を維持する", (t) => {
+  const { root, state } = fixture(t);
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  if (repository.status !== "completed") throw Error("fixture_root_invalid");
+  const cap = repository.capability;
+  assert.equal(
+    domain.initializeExecutionStore(cap, "binding-a").status,
+    "completed",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(cap, "binding-a", state, 0).status,
+    "completed",
+  );
+  const reservation = domain.saveProjectExecutionState(
+    cap,
+    "binding-a",
+    {
+      kind: "task_start",
+      projectId: state.projectId,
+      taskId: "task-a",
+      attemptId: "attempt-a",
+      authorityBindingId: "authority-a",
+    },
+    state.generation,
+  );
+  assert.equal(reservation.status, "completed");
+  if (reservation.status !== "completed")
+    throw Error("fixture_reservation_failed");
+  const handoff = domain.saveProjectExecutionState(
+    cap,
+    "binding-a",
+    {
+      kind: "task_handoff",
+      projectId: state.projectId,
+      taskId: "task-a",
+      attemptId: "attempt-a",
+      operationId: "operation-a",
+    },
+    reservation.value.generation,
+  );
+  assert.equal(handoff.status, "completed");
+  if (handoff.status !== "completed") throw Error("fixture_handoff_failed");
+  const recoveryId =
+    "runtime-process.11111111-1111-4111-8111-111111111111.restart-" +
+    "a".repeat(40);
+  const terminal = domain.saveProjectExecutionState(
+    cap,
+    "binding-a",
+    {
+      kind: "task_settle_before_effect",
+      projectId: state.projectId,
+      taskId: "task-a",
+      attemptId: "attempt-a",
+      operationId: "operation-a",
+      authorityBindingId: "authority-a",
+      outcome: "recovery_required",
+      cleanupConfirmed: false,
+      recoveryUnresolved: false,
+      recoveryObligations: [
+        { kind: "runtime_process", recoveryId, phase: "required" },
+      ],
+    },
+    handoff.value.generation,
+  );
+  assert.equal(terminal.status, "completed", terminal.reason);
+  if (terminal.status !== "completed") throw Error("fixture_terminal_failed");
+  let current = terminal.value;
+  const file = path.join(root, ".crdd/domain-model/state.json");
+  for (const kind of ["task_recovery_start", "task_recovery_settle"] as const) {
+    const command = {
+      kind,
+      projectId: state.projectId,
+      taskId: "task-a",
+      recoveryKind: "runtime_process" as const,
+      recoveryId,
+    };
+    const generation = current.generation;
+    const saved = domain.saveProjectExecutionState(
+      cap,
+      "binding-a",
+      command,
+      generation,
+    );
+    assert.equal(saved.status, "completed", saved.reason);
+    if (saved.status !== "completed") throw Error("fixture_saved_failed");
+    assert.equal(saved.value.generation, generation + 1);
+    assert.equal(
+      saved.value.tasks[0]?.recoveryObligations[0]?.phase,
+      kind === "task_recovery_start" ? "recovering" : "settled",
+    );
+    const bytes = fs.readFileSync(file);
+    assert.equal(
+      domain.saveProjectExecutionState(cap, "binding-a", command, generation)
+        .status,
+      "completed",
+    );
+    assert.equal(
+      domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        { ...command, recoveryId: "other" },
+        generation,
+      ).status,
+      "blocked",
+    );
+    assert.deepEqual(fs.readFileSync(file), bytes);
+    current = saved.value;
+  }
+  const bytes = fs.readFileSync(file);
+  assert.equal(
+    domain.saveProjectExecutionState(
+      cap,
+      "binding-a",
+      {
+        kind: "task_recovery_retry",
+        projectId: state.projectId,
+        taskIds: ["task-a"],
+      },
+      current.generation,
+    ).status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(file), bytes);
 });
 
 /**
@@ -2164,6 +2297,342 @@ import {
 } from "../../src/state/validation.ts";
 
 /**
+ * 初回計画の拒否をStore作成前に閉じ、ProjectとQueueを同じ保存へ組み込む。
+ * @responsibility 旧State受付なし・入力hook非実行・generation 1と初期値同等を反証する。
+ * @trace PRL-IT-005
+ * @precondition 今回の合成Gitだけを使用する。
+ * @stimulus 不正Owner・上限・循環・旧State・getter・Proxyと有効な有限初期化入力。
+ * @observation 拒否時のstate.json不存在と成功後のProject・Queue。
+ * @oracle 不正入力で保存0、有効入力は元の初期値を一組保存する。
+ * @cleanup fixtureの終了hookで今回Rootだけを回収する。
+ * @boundary EM公開createQueueと実Filesystem。AI・Dockerなし。
+ */
+test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確定する", (t) => {
+  const { root, state } = fixture(t);
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  if (repository.status !== "completed") throw Error("fixture_root_invalid");
+  const initialization = initialExecutionInput(state);
+  const queue = {
+    queueId: "initial-request",
+    projectId: state.projectId,
+    milestoneId: state.milestoneId,
+    repositoryRevision: state.repositoryRevision,
+    requestHash: "a".repeat(64),
+    scopeHash: "b".repeat(64),
+    originLane: "scheduled" as const,
+  };
+  const request = (input: unknown) =>
+    domain.createQueue(repository.capability, "binding-a", {
+      kind: "scheduled",
+      input: [queue, input as domain.ProjectExecutionInitialization],
+    });
+  let hooks = 0;
+  const accessor = {
+    ...initialization,
+    get ownerGeneration() {
+      hooks++;
+      return "owner";
+    },
+  };
+  const proxy = new Proxy(initialization, {
+    ownKeys() {
+      hooks++;
+      return Reflect.ownKeys(initialization);
+    },
+  });
+  const firstTask = initialization.tasks[0];
+  assert.ok(firstTask);
+  const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+  for (const input of [
+    state,
+    accessor,
+    proxy,
+    { ...initialization, ownerGeneration: "" },
+    { ...initialization, maximumConcurrency: 0 },
+    { ...initialization, maximumConcurrency: 6 },
+    { ...initialization, projectId: "other-project" },
+    {
+      ...initialization,
+      tasks: [{ ...firstTask, dependencies: [firstTask.id] }],
+    },
+    {
+      ...initialization,
+      tasks: [{ ...firstTask, allowedPaths: ["../outside"] }],
+    },
+  ]) {
+    assert.equal(request(input).status, "blocked");
+    assert.equal(fs.existsSync(statePath), false);
+    assert.equal(fs.existsSync(path.dirname(statePath)), false);
+  }
+  assert.equal(hooks, 0);
+  for (const invalidQueue of [
+    { ...queue, queueId: "" },
+    { ...queue, queueId: "../outside" },
+    { ...queue, requestHash: "invalid" },
+    { ...queue, scopeHash: "invalid" },
+    { ...queue, originLane: "unknown" },
+    { ...queue, workspaceId: "../outside" },
+    { ...queue, workspaceId: 1 },
+    { ...queue, unknown: true },
+  ]) {
+    const isolated = fixture(t);
+    const isolatedRepository = getRepository(isolated.root);
+    assert.equal(isolatedRepository.status, "completed");
+    if (isolatedRepository.status !== "completed")
+      throw Error("fixture_root_invalid");
+    const rejected = domain.createQueue(
+      isolatedRepository.capability,
+      "binding-a",
+      {
+        kind: "scheduled",
+        input: [invalidQueue as domain.QueueEnqueueInput, initialization],
+      },
+    );
+    assert.equal(rejected.status, "blocked");
+    assert.equal(
+      fs.existsSync(path.join(isolated.root, ".crdd", "domain-model")),
+      false,
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(isolated.root, ".crdd", "domain-model", "state.json"),
+      ),
+      false,
+    );
+  }
+  const accepted = request(initialization);
+  assert.equal(accepted.status, "completed", accepted.reason);
+  const observed = readProjectExecutionState(
+    repository.capability,
+    "binding-a",
+    state.projectId,
+  );
+  assert.equal(observed.status, "completed", observed.reason);
+  if (observed.status !== "completed") throw Error("fixture_state_unavailable");
+  assert.deepEqual(observed.value, state);
+  const snapshot = readSnapshot(root, "binding-a");
+  assert.equal(snapshot.value?.projects.length, 1);
+  assert.equal(snapshot.value?.queueEntries.length, 1);
+  assert.equal(snapshot.value?.projects[0]?.generation, 1);
+  const bytes = fs.readFileSync(statePath, "utf8");
+  assert.equal(request(state).status, "blocked");
+  assert.equal(fs.readFileSync(statePath, "utf8"), bytes);
+  assert.equal(observed.taskStartCandidates?.projectId, state.projectId);
+  assert.equal(observed.taskStartCandidates?.generation, state.generation);
+  assert.deepEqual(observed.taskStartCandidates?.taskIds, [firstTask.id]);
+  const command = {
+    kind: "task_start" as const,
+    projectId: state.projectId,
+    taskId: firstTask.id,
+    attemptId: "attempt-a",
+    authorityBindingId: "authority-a",
+  };
+  const reserve = (generation: number, input = command) =>
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      input,
+      generation,
+    );
+  for (const [generation, input, reason] of [
+    [
+      state.generation + 1,
+      command,
+      "orchestrator_generation_or_identity_mismatch",
+    ],
+    [
+      state.generation,
+      { ...command, taskId: "missing" },
+      "orchestrator_task_not_schedulable",
+    ],
+  ] as const) {
+    const rejected = reserve(generation, input);
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, reason);
+    assert.equal(Object.hasOwn(rejected, "taskStartCandidates"), false);
+    assert.equal(fs.readFileSync(statePath, "utf8"), bytes);
+  }
+  const reserved = reserve(state.generation);
+  assert.equal(reserved.status, "completed", reserved.reason);
+  if (reserved.status !== "completed")
+    throw Error("fixture_reservation_failed");
+  assert.equal(reserved.value.generation, state.generation + 1);
+  assert.equal(reserved.value.tasks[0]?.startPhase, "reserved");
+  assert.equal(
+    reserved.taskStartCandidates.generation,
+    reserved.value.generation,
+  );
+  assert.deepEqual(reserved.taskStartCandidates.taskIds, []);
+  const reservedBytes = fs.readFileSync(statePath, "utf8");
+  const replay = reserve(state.generation);
+  assert.equal(replay.status, "completed", replay.reason);
+  if (replay.status !== "completed")
+    throw Error("fixture_reservation_replay_failed");
+  assert.equal(replay.value.generation, reserved.value.generation);
+  assert.equal(fs.readFileSync(statePath, "utf8"), reservedBytes);
+  assert.equal(
+    reserve(state.generation, { ...command, attemptId: "other-attempt" })
+      .status,
+    "blocked",
+  );
+  assert.equal(
+    reserve(state.generation, {
+      ...command,
+      authorityBindingId: "other-authority",
+    }).status,
+    "blocked",
+  );
+  const wrongRequest = domain.saveProjectExecutionState(
+    repository.capability,
+    "binding-a",
+    command,
+    state.generation,
+    {
+      operation: "start",
+      queueId: queue.queueId,
+      projectId: queue.projectId,
+      milestoneId: queue.milestoneId,
+      requestHash: "c".repeat(64),
+    },
+  );
+  assert.equal(wrongRequest.status, "blocked");
+  assert.equal(
+    reserve(reserved.value.generation).reason,
+    "orchestrator_task_not_schedulable",
+  );
+  assert.equal(fs.readFileSync(statePath, "utf8"), reservedBytes);
+  const handed = domain.saveProjectExecutionState(
+    repository.capability,
+    "binding-a",
+    {
+      kind: "task_handoff",
+      projectId: state.projectId,
+      taskId: firstTask.id,
+      attemptId: command.attemptId,
+      operationId: "operation-a",
+    },
+    reserved.value.generation,
+  );
+  assert.equal(handed.status, "completed", handed.reason);
+  if (handed.status !== "completed") throw Error("fixture_handoff_failed");
+  const handedBytes = fs.readFileSync(statePath, "utf8");
+  const handoff = {
+    kind: "task_handoff" as const,
+    projectId: state.projectId,
+    taskId: firstTask.id,
+    attemptId: command.attemptId,
+    operationId: "operation-a",
+  };
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      handoff,
+      reserved.value.generation,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      { ...handoff, operationId: "other-operation" },
+      reserved.value.generation,
+    ).status,
+    "blocked",
+  );
+  assert.equal(reserve(reserved.value.generation).status, "blocked");
+  assert.equal(fs.readFileSync(statePath, "utf8"), handedBytes);
+  const start = { ...handoff, kind: "task_started" as const };
+  const started = domain.saveProjectExecutionState(
+    repository.capability,
+    "binding-a",
+    start,
+    handed.value.generation,
+  );
+  assert.equal(started.status, "completed", started.reason);
+  if (started.status !== "completed") throw Error("fixture_started_failed");
+  const runningBytes = fs.readFileSync(statePath, "utf8");
+  assert.equal(started.value.tasks[0]?.state, "running");
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      start,
+      handed.value.generation,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      handoff,
+      reserved.value.generation,
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      { ...start, attemptId: "other" },
+      handed.value.generation,
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      start,
+      started.value.generation,
+    ).status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(statePath, "utf8"), runningBytes);
+  const terminal = {
+    ...handoff,
+    kind: "task_settle" as const,
+    authorityBindingId: "authority-a",
+    outcome: "completed" as const,
+    cleanupConfirmed: true,
+    recoveryObligations: [],
+    recoveryUnresolved: false,
+    resultUnresolved: false,
+    candidateId: null,
+  };
+  const terminalSaved = domain.saveProjectExecutionState(
+    repository.capability,
+    "binding-a",
+    terminal,
+    started.value.generation,
+  );
+  assert.equal(terminalSaved.status, "completed", terminalSaved.reason);
+  const terminalBytes = fs.readFileSync(statePath, "utf8");
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      terminal,
+      started.value.generation,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(
+      repository.capability,
+      "binding-a",
+      { ...terminal, resultUnresolved: true },
+      started.value.generation,
+    ).status,
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(statePath, "utf8"), terminalBytes);
+});
+
+/**
  * 自己生成Rootを既存の真正参照検査へ渡す。
  * @trace PRL-IT-005
  * @precondition 今回のfixtureだけを使う。
@@ -2179,6 +2648,138 @@ function initializeExecutionStore(root: string, binding: string) {
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   return initializeSnapshot(verified.capability, binding);
 }
+
+/**
+ * 開始前終端を既存Writerの一保存・再送・解放へ接続する。
+ * @trace PRL-IT-005
+ * @precondition 各outcomeは独立した今回Rootと実保存を使う。
+ * @stimulus 三結果、外部resultFacts注入、同一及び異内容の再送を与える。
+ * @observation 保存bytes・世代、TaskとObjective／Milestone、Operation区画。
+ * @oracle 同じ内部結果事実だけを使い、再送はbytes不変、不一致は保全停止する。
+ * @cleanup 既存fixtureの同一実体確認付き終了hook。
+ * @boundary 新品Git Repositoryと既存単一Writer。実AI・Dockerなし。
+ */
+test("開始前終端の有限保存は内部結果事実と三結果の再送を維持する", async (t) => {
+  for (const outcome of ["failed", "cancelled", "recovery_required"] as const)
+    await t.test(outcome, (subtest) => {
+      const { root, state } = fixture(subtest);
+      const repository = getRepository(root);
+      assert.equal(repository.status, "completed");
+      if (repository.status !== "completed")
+        throw Error("fixture_root_invalid");
+      const cap = repository.capability;
+      assert.equal(
+        domain.initializeExecutionStore(cap, "binding-a").status,
+        "completed",
+      );
+      assert.equal(
+        domain.saveProjectExecutionState(cap, "binding-a", state, 0).status,
+        "completed",
+      );
+      const reserved = domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        {
+          kind: "task_start",
+          projectId: state.projectId,
+          taskId: "task-a",
+          attemptId: "attempt-a",
+          authorityBindingId: "authority-a",
+        },
+        state.generation,
+      );
+      assert.equal(reserved.status, "completed");
+      if (reserved.status !== "completed")
+        throw Error("fixture_reservation_failed");
+      const prepared = domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        {
+          kind: "task_handoff",
+          projectId: state.projectId,
+          taskId: "task-a",
+          attemptId: "attempt-a",
+          operationId: "operation-a",
+        },
+        reserved.value.generation,
+      );
+      assert.equal(prepared.status, "completed");
+      if (prepared.status !== "completed")
+        throw Error("fixture_handoff_failed");
+      const command = {
+        kind: "task_settle_before_effect" as const,
+        projectId: state.projectId,
+        taskId: "task-a",
+        attemptId: "attempt-a",
+        operationId: "operation-a",
+        authorityBindingId: "authority-a",
+        outcome,
+        cleanupConfirmed: outcome !== "recovery_required",
+        recoveryObligations: [],
+        recoveryUnresolved: outcome === "recovery_required",
+      };
+      const file = path.join(root, ".crdd/domain-model/state.json");
+      const before = fs.readFileSync(file);
+      assert.equal(
+        domain.saveProjectExecutionState(
+          cap,
+          "binding-a",
+          command,
+          prepared.value.generation,
+          undefined,
+          [
+            {
+              taskId: "task-a",
+              attemptId: "attempt-a",
+              operationId: "operation-a",
+              recoveryUnresolved: false,
+            },
+          ],
+        ).status,
+        "blocked",
+      );
+      assert.deepEqual(fs.readFileSync(file), before);
+      const saved = domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        command,
+        prepared.value.generation,
+      );
+      assert.equal(saved.status, "completed", saved.reason);
+      if (saved.status !== "completed")
+        throw Error("fixture_settlement_failed");
+      assert.equal(saved.value.tasks[0]?.state, outcome);
+      assert.equal(saved.value.generation, prepared.value.generation + 1);
+      const bytes = fs.readFileSync(file);
+      const replay = domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        command,
+        prepared.value.generation,
+      );
+      assert.equal(replay.status, "completed", replay.reason);
+      assert.equal(
+        domain.saveProjectExecutionState(
+          cap,
+          "binding-a",
+          { ...command, authorityBindingId: "other" },
+          prepared.value.generation,
+        ).status,
+        "blocked",
+      );
+      assert.equal(
+        domain.saveProjectExecutionState(
+          cap,
+          "binding-a",
+          command,
+          saved.value.generation,
+        ).status,
+        "blocked",
+      );
+      assert.deepEqual(fs.readFileSync(file), bytes);
+      assert.equal(JSON.parse(bytes.toString()).operations.length, 0);
+    });
+});
 
 /**
  * 保存試験の既知の合成管理Projectを返す。
@@ -5758,4 +6359,109 @@ test("終了再入場は再入場理由だけを既存の用途限定Readerへ�
     ].includes(mode);
     assert.equal(scoped, early ? 0 : 1, mode);
   }
+});
+
+/**
+ * Owner喪失の有限保存で明示不存在と古い世代を区別する。
+ * @trace PRL-IT-005
+ * @precondition 今回Rootの初期状態とhandoff済みTaskだけを準備する。
+ * @stimulus 欠測集合、別Operation、明示不存在、遷移後の再要求を与える。
+ * @observation 保存bytes・世代と元Task相関、再要求拒否時の不変性。
+ * @oracle 欠測を不存在へせず、既存の世代・全活動集合の拒否を維持する。
+ * @cleanup fixture終了hookで今回Rootだけを回収する。
+ * @boundary EM公開保存と実Filesystem。AI・Dockerなし。
+ */
+test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) => {
+  const { root, state } = fixture(t);
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  if (repository.status !== "completed") throw Error("fixture_root_invalid");
+  const cap = repository.capability;
+  assert.equal(
+    domain.initializeExecutionStore(cap, "binding-a").status,
+    "completed",
+  );
+  assert.equal(
+    domain.saveProjectExecutionState(cap, "binding-a", state, 0).status,
+    "completed",
+  );
+  const reserved = domain.saveProjectExecutionState(
+    cap,
+    "binding-a",
+    {
+      kind: "task_start",
+      projectId: state.projectId,
+      taskId: "task-a",
+      attemptId: "attempt-a",
+      authorityBindingId: "authority-a",
+    },
+    state.generation,
+  );
+  assert.equal(reserved.status, "completed");
+  if (reserved.status !== "completed")
+    throw Error("fixture_reservation_failed");
+  const prepared = domain.saveProjectExecutionState(
+    cap,
+    "binding-a",
+    {
+      kind: "task_handoff",
+      projectId: state.projectId,
+      taskId: "task-a",
+      attemptId: "attempt-a",
+      operationId: "operation-a",
+    },
+    reserved.value.generation,
+  );
+  assert.equal(prepared.status, "completed");
+  if (prepared.status !== "completed") throw Error("fixture_handoff_failed");
+  const command = {
+    kind: "task_owner_loss" as const,
+    projectId: state.projectId,
+    bindings: [
+      {
+        operationId: "operation-a",
+        status: "verified_absent" as const,
+        recoveryId: null,
+      },
+    ],
+  };
+  const file = path.join(root, ".crdd/domain-model/state.json");
+  const before = fs.readFileSync(file);
+  for (const bindings of [
+    [],
+    [{ ...command.bindings[0], operationId: "other" }],
+  ])
+    assert.equal(
+      domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        { ...command, bindings } as typeof command,
+        prepared.value.generation,
+      ).status,
+      "blocked",
+    );
+  assert.deepEqual(fs.readFileSync(file), before);
+  const saved = domain.saveProjectExecutionState(
+    cap,
+    "binding-a",
+    command,
+    prepared.value.generation,
+  );
+  assert.equal(saved.status, "completed");
+  if (saved.status !== "completed") throw Error("fixture_owner_loss_failed");
+  assert.equal(saved.value.generation, prepared.value.generation + 1);
+  assert.equal(saved.value.tasks[0]?.state, "ready");
+  assert.equal(saved.value.tasks[0]?.operationId, null);
+  assert.deepEqual(saved.taskUpdateTaskIds, ["task-a"]);
+  const bytes = fs.readFileSync(file);
+  assert.equal(
+    domain.saveProjectExecutionState(
+      cap,
+      "binding-a",
+      command,
+      prepared.value.generation,
+    ).status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(file), bytes);
 });

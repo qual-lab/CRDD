@@ -6,7 +6,6 @@
  */
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 import { setImmediate } from "node:timers/promises";
 import { isDeepStrictEqual, types } from "node:util";
@@ -15,7 +14,6 @@ import type {
   IsolationExecution,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  saveRecoveryHistory,
   completeOperation,
   completeRecovery,
   type ExecutionOperationRecord,
@@ -33,6 +31,7 @@ import {
   resumeRepairRecordSave,
   type StateVersion,
   saveRecoveryCheckpoint,
+  saveRecoveryHistory,
   saveRepairRecord,
 } from "../../../execution-model/src/index.ts";
 import type {
@@ -60,22 +59,21 @@ import {
   saveResourceNotIssuedStage,
 } from "../execution/persistence.ts";
 import { snapshotJsonValue, snapshotPlainRecord } from "../input/snapshot.ts";
+import { hashExecutionSelection } from "../selection/resolve.ts";
+import {
+  loadDockerProbeRecoveryRecord,
+  parseDockerProbeRecoveryToken,
+} from "../state/probe-record.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
   providerHomesDirectoryCandidate,
   readExecutionCancellation,
   runtimeStateDirectoryCandidate,
+  verifyRuntimeOwnedProviderHomeMountCompletion,
 } from "./authority.ts";
 import { getIsolationSettings } from "./configuration.ts";
-import {
-  beginRuntimeOwnedCoordinatorHostSubmission,
-  completeRuntimeOwnedCoordinatorHostSubmission,
-} from "./controller.ts";
-import {
-  inspectRuntimeOwnedDevelopmentOperationContext,
-  recoverDockerIsolationProbe,
-} from "./diagnostics.ts";
+import { recoverDockerIsolationProbe } from "./diagnostics.ts";
 import {
   acquireExecutionStateLock,
   acquireHostOperationLock,
@@ -84,14 +82,19 @@ import {
 import {
   acquireHostOperationRecoveryGeneration,
   acquireHostOperationRecoveryGenerationByIdentity,
+  beginOwnedDockerSubmissionRecovery,
   borrowHostRecoveryManagementDirectory,
   borrowOwnedHostRecoverySnapshot,
   borrowOwnedOperationExecutionSelection,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
+  completeOwnedDockerSubmissionRecovery,
   confirmOwnedDockerAbsenceForRecovery,
   consumeOwnedHostRecoveryIdForCleanup,
+  inspectRuntimeOwnedDevelopmentOperationContext,
   issueOwnedHostCleanupCapability,
+  loadHostRecoveryRecordByToken,
+  observeHostRecoveryCleanup,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyHostOperationRecoveryGeneration,
@@ -108,10 +111,336 @@ import type {
   ResourceCleanupResult,
 } from "./types.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
-import {
-  loadDockerProbeRecoveryRecord,
-  parseDockerProbeRecoveryToken,
-} from "../state/probe-record.ts";
+
+/**
+ * Host開始の予定保存・実遷移・結果保存を同じ操作へ接続する。
+ *
+ * @responsibility Docker要求前にHost開始を現在状態へ確定し、中断後も同じ予定へ再入場する。
+ * @trace ARCH-000008
+ * @input managementCapability: 同じ実Host Owner、recoveryId: 保存済み操作のexact参照。
+ * @returns 保存・排他解放・Host要求と確認を分けた結果と同じ回復参照。
+ * @precondition 開始Identityが確定済みで、Home Leaseは開始Ownerが保持している。
+ * @postcondition 予定保存後だけHostを遷移させ、実token照合後だけ予定を解消する。
+ * @effect 同じRepositoryのstate.jsonと、所有済みHost記録の開始遷移のみ。
+ * @failure 別操作、実Host不一致、保存・解放不明、遷移例外は予定と回復参照を保持して停止する。
+ * @invariant Host開始確認をDocker受理・Provider開始・回復完了へ昇格しない。
+ * @boundary 本番開始Owner、現在状態Writerと同じHost Owner。
+ * @security 任意Path・予測token・Caller supplied遷移本文を受け付けない。
+ * @concurrency 同期Host遷移の前後を実Ownerで再観測し、各保存は元版照合する。
+ */
+export function beginRuntimeOwnedCoordinatorHostSubmission(
+  managementCapability: unknown,
+  recoveryId: unknown,
+) {
+  return transitionRuntimeOwnedCoordinatorHostSubmission(
+    managementCapability,
+    recoveryId,
+    false,
+  );
+}
+
+/**
+ * 実Hostの開始または通常復帰を同じ予定保存経路で確定する。
+ * @responsibility 処置前保存と実Ownerの前後観測を共通化する。
+ * @trace ARCH-000008
+ * @input managementCapability、recoveryId: 対象。isCompletingSubmission: 内部で固定した遷移方向。
+ * @returns 保存と実遷移の確認を分けた結果。
+ * @precondition 通常復帰の呼出し側は実清掃とMount結果を照合済み。
+ * @postcondition 後継tokenを観測できた場合だけ予定を解消する。
+ * @effect 同じ操作のHost記録とstate.jsonのみ。
+ * @failure 不一致・保存不明・応答喪失は予定とexact参照を保持する。
+ * @invariant 保存tokenからAuthorityを作らず、後継観測時に処置を再発行しない。
+ * @boundary 同じHost OwnerとRepository内の状態保存。
+ * @security 任意PathとCaller supplied予定を受け付けない。
+ * @concurrency 既存Writer排他と同期Host前後観測を用いる。
+ */
+function transitionRuntimeOwnedCoordinatorHostSubmission(
+  managementCapability: unknown,
+  recoveryId: unknown,
+  isCompletingSubmission: boolean,
+) {
+  const currentState = isCompletingSubmission
+    ? "docker_submission_started"
+    : "host_only";
+  const nextState = isCompletingSubmission
+    ? "host_only"
+    : "docker_submission_started";
+  const current = readOperationStateStage(managementCapability);
+  const repository =
+    borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+  const blocked = {
+    status: "blocked" as const,
+    reason: "coordinator_host_submission_invalid",
+    revision: null as number | null,
+    payloadSha256: null as string | null,
+    recoveryIds: Object.freeze([] as string[]),
+    recoveryId: typeof recoveryId === "string" ? recoveryId : null,
+    filesystemEffectIssued: false,
+    snapshotConfirmed: false,
+    lockReleased: current.lockReleased,
+    hostTransitionRequested: false,
+    hostTransitionConfirmed: false,
+  };
+  if (!repository || current.status !== "completed" || !current.value)
+    return Object.freeze({
+      ...blocked,
+      reason: current.status === "blocked" ? current.reason : blocked.reason,
+    });
+  const operation = current.value.snapshot.operations.find(
+    (item): item is ExecutionOperationRecord =>
+      item.kind === "docker_task" && item.recoveryId === recoveryId,
+  );
+  if (
+    operation?.phase !== "executing" ||
+    operation.host.cleanup !== "not_requested" ||
+    JSON.parse(operation.identityJson).operationId !== repository.operationId
+  )
+    return Object.freeze(blocked);
+  let saved = blocked;
+  let hostTransitionRequested = false;
+  try {
+    const host = borrowOwnedHostRecoverySnapshot(managementCapability);
+    let transition: {
+      currentToken: string;
+      expectedToken: string;
+      currentState: string;
+      nextState: string;
+    };
+    if (operation.host.pendingTransitionJson === null) {
+      if (
+        host.snapshot.record.state !== currentState ||
+        host.snapshot.token !== operation.host.currentToken
+      )
+        return Object.freeze(blocked);
+      const parsed = parseHostRecoveryToken(host.snapshot.token);
+      const nextHash = createHash("sha256")
+        .update(
+          `${JSON.stringify({ ...host.snapshot.record, state: nextState })}\n`,
+        )
+        .digest("hex");
+      const intent = {
+        currentToken: host.snapshot.token,
+        expectedToken: `host.${parsed.rootName}.${parsed.nonce}.${nextHash}`,
+        rootName: parsed.rootName,
+        nonce: parsed.nonce,
+        currentState,
+        nextState,
+        recordBefore: host.snapshot.record,
+      };
+      transition = intent;
+      const intentSaved = saveOperationCheckpoint(
+        managementCapability,
+        recoveryId,
+        {
+          kind: "host",
+          value: {
+            ...operation.host,
+            pendingTransitionJson: `${JSON.stringify(intent)}\n`,
+          },
+        },
+      );
+      if (intentSaved.status !== "completed")
+        return Object.freeze({ ...blocked, ...intentSaved });
+      saved = { ...blocked, ...intentSaved, status: "blocked" };
+    } else {
+      transition = JSON.parse(operation.host.pendingTransitionJson);
+      if (
+        transition.currentState !== currentState ||
+        transition.nextState !== nextState
+      )
+        return Object.freeze(blocked);
+    }
+    const before = borrowOwnedHostRecoverySnapshot(managementCapability);
+    if (before.snapshot.token === transition.currentToken) {
+      hostTransitionRequested = true;
+      const observed = isCompletingSubmission
+        ? completeOwnedDockerSubmissionRecovery(
+            managementCapability,
+            transition.currentToken,
+          )
+        : beginOwnedDockerSubmissionRecovery(
+            managementCapability,
+            repository.operationId,
+          );
+      if (observed !== transition.expectedToken)
+        throw new Error("coordinator_host_submission_unconfirmed");
+    } else if (before.snapshot.token !== transition.expectedToken) {
+      throw new Error("coordinator_host_submission_unconfirmed");
+    }
+    const after = borrowOwnedHostRecoverySnapshot(managementCapability);
+    if (
+      after.snapshot.token !== transition.expectedToken ||
+      after.snapshot.record.state !== nextState
+    )
+      throw new Error("coordinator_host_submission_unconfirmed");
+    const confirmed = saveOperationCheckpoint(
+      managementCapability,
+      recoveryId,
+      {
+        kind: "host",
+        value: {
+          currentToken: transition.expectedToken,
+          pendingTransitionJson: null,
+          cleanup: operation.host.cleanup,
+        },
+      },
+    );
+    return Object.freeze({
+      ...blocked,
+      ...confirmed,
+      hostTransitionRequested,
+      hostTransitionConfirmed: confirmed.status === "completed",
+    });
+  } catch {
+    return Object.freeze({
+      ...saved,
+      reason: "coordinator_host_submission_unconfirmed",
+      snapshotConfirmed: false,
+      filesystemEffectIssued:
+        saved.filesystemEffectIssued || hostTransitionRequested,
+      hostTransitionRequested,
+    });
+  }
+}
+
+/**
+ * 実資源回収とMount完了を照合してHostを通常状態へ戻す。
+ * @responsibility 最終Controller結果に依存せず実終了根拠をHost復帰へ接続する。
+ * @trace ARCH-000008
+ * @input managementCapability、recoveryId、plan、recoveryCapability: 元対象。cleanupOutcome、mountCompletion: 各Ownerの元結果。
+ * @returns 現在状態保存とHost実遷移の確認結果。
+ * @precondition 元Docker清掃とMount終了が同じ本番Ownerから返却されている。
+ * @postcondition exact五資源の回収を保存し、Host後継観測後だけ復帰予定を解消する。
+ * @effect 同じRepositoryのstate.jsonと所有Host記録だけ。
+ * @failure コピー・別対象・欠測・ID不明・保存不明はHost復帰前に拒否する。
+ * @invariant Home Lease解放・Host領域清掃・結果受理は別条件として維持する。
+ * @boundary 本番清掃・Mount・Hostの各Ownerと同じ操作の保存。
+ * @security 任意の成功booleanや保存値を実終了根拠にしない。
+ * @concurrency 各保存を既存排他で確定し、Host再入場では元結果を再照合する。
+ */
+export function completeRuntimeOwnedCoordinatorHostSubmission(
+  managementCapability: unknown,
+  recoveryId: unknown,
+  plan: import("./types.ts").RecoveryPlan &
+    Readonly<{ consumer: "coordinator_cli" | "orchestrator" | "workbench" }>,
+  mountCompletion: unknown,
+) {
+  const current = readOperationStateStage(managementCapability);
+  const blocked = Object.freeze({
+    status: "blocked" as const,
+    reason: "coordinator_host_completion_invalid",
+    recoveryId: typeof recoveryId === "string" ? recoveryId : null,
+    snapshotConfirmed: false,
+    filesystemEffectIssued: false,
+    lockReleased: current.lockReleased,
+    hostTransitionRequested: false,
+    hostTransitionConfirmed: false,
+  });
+  try {
+    const operation = current.value?.snapshot.operations.find(
+      (item): item is ExecutionOperationRecord =>
+        item.kind === "docker_task" && item.recoveryId === recoveryId,
+    );
+    const repository =
+      borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+    if (
+      current.status !== "completed" ||
+      !operation ||
+      !repository ||
+      operation.phase !== "executing"
+    )
+      return blocked;
+    const identity = JSON.parse(operation.identityJson);
+    const expectedNames = new Map([
+      ["create_subscription_auth_probe", plan.authContainerName],
+      ["create_provider", plan.providerContainerName],
+      ["create_proxy", plan.proxyContainerName],
+      ["create_internal_network", plan.internalNetworkName],
+      ["create_egress_network", plan.egressNetworkName],
+    ]);
+    const resources = operation.resources?.snapshot.resources;
+    if (
+      !resources ||
+      resources.length !== expectedNames.size ||
+      new Set(resources.map((resource) => resource.key)).size !==
+        expectedNames.size ||
+      resources.some(
+        (resource) =>
+          expectedNames.get(resource.key) !== resource.identity.name,
+      )
+    )
+      return blocked;
+    if (
+      !plan ||
+      plan.operationId !== repository.operationId ||
+      identity.operationId !== plan.operationId ||
+      identity.taskAttempt !== plan.taskAttempt ||
+      hashExecutionSelection(identity.executionSelection) !==
+        plan.selectionHash ||
+      Object.entries(plan.executionSelection).some(
+        ([key, value]) => identity.executionSelection[key] !== value,
+      ) ||
+      [
+        "provider",
+        "consumer",
+        "grantRef",
+        "stableLogicalHomeBindingHash",
+        "providerHomeIdentityHash",
+        "ownershipLabel",
+        "operationMode",
+      ].some(
+        (key) =>
+          identity[key] !== (plan as unknown as Record<string, unknown>)[key],
+      )
+    )
+      return blocked;
+    const host = borrowOwnedHostRecoverySnapshot(managementCapability);
+    if (operation.host.pendingTransitionJson === null) {
+      if (
+        host.snapshot.record.state !== "docker_submission_started" ||
+        host.snapshot.token !== operation.host.currentToken
+      )
+        return blocked;
+    } else {
+      const pending = JSON.parse(operation.host.pendingTransitionJson);
+      if (
+        pending.currentState !== "docker_submission_started" ||
+        pending.nextState !== "host_only"
+      )
+        return blocked;
+    }
+    if (
+      !current.value?.operationStates.some(
+        (state) =>
+          state.kind === "docker_task" &&
+          state.operation === operation &&
+          state.resourcesSettled,
+      ) ||
+      !verifyRuntimeOwnedProviderHomeMountCompletion(
+        mountCompletion,
+        managementCapability,
+        plan.activeMountCapability,
+        plan.operationId,
+        plan.stableLogicalHomeBindingHash,
+      )
+    )
+      return blocked;
+    const transition = transitionRuntimeOwnedCoordinatorHostSubmission(
+      managementCapability,
+      recoveryId,
+      true,
+    );
+    return Object.freeze({
+      ...transition,
+      filesystemEffectIssued: transition.filesystemEffectIssued,
+    });
+  } catch {
+    return Object.freeze({
+      ...blocked,
+      filesystemEffectIssued: false,
+    });
+  }
+}
 
 /**
  * 現在の回復記録を非秘密の保存観測へ投影する。
@@ -762,170 +1091,6 @@ export function evaluateManagedDockerCleanupEligibility(input: unknown) {
   } catch {
     return Object.freeze({ eligible: false, reason: "raw_invalid" });
   }
-}
-
-const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
-
-/**
- * 同じHostのRootとmarkerを、削除後も別々に観測する。
- * @responsibility 正規の親・記録領域とtokenへ対象を固定し、観測不能を不存在へ畳まない。
- * @trace ARCH-000008
- * @input token: exact Host参照、expectedRoot: 現在Identityの絶対Root。
- * @returns 二対象のpresent／absent／unknownと固定marker Path。
- * @precondition 処置Ownerと保持排他は呼出し側が別に照合する。
- * @postcondition ENOENTだけを不存在とし、両不存在だけでAuthorityを発行しない。
- * @effect 同じ親・記録領域・Root・markerの読取りだけ。
- * @failure 不正Path・link・親差・観測例外はunknown。
- * @invariant 別親探索、旧形式探索、作成・削除を行わない。
- * @boundary 現在Host IdentityとFilesystemの三値観測。
- * @security Package内部の所在確認であり公開出力へPathを搬送しない。
- * @concurrency 世代取得後と保存直前にも再観測する。
- */
-export function observeHostRecoveryCleanup(
-  token: unknown,
-  expectedRoot: unknown,
-): Readonly<{
-  root: "present" | "absent" | "unknown";
-  marker: "present" | "absent" | "unknown";
-  markerPath: string | null;
-}> {
-  try {
-    const parsed = parseHostRecoveryToken(token);
-    if (
-      typeof expectedRoot !== "string" ||
-      !path.isAbsolute(expectedRoot) ||
-      path.resolve(expectedRoot) !== expectedRoot ||
-      path.basename(expectedRoot) !== parsed.rootName
-    )
-      throw new Error("host_recovery_root_mismatch");
-    const parent = path.dirname(expectedRoot);
-    const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-    for (const location of [parent, directory]) {
-      const metadata = fs.lstatSync(location);
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        fs.realpathSync(location) !== location
-      )
-        throw new Error("host_recovery_directory_untrusted");
-    }
-    const markerPath = path.join(
-      directory,
-      `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
-    );
-    const rootMetadata = fs.lstatSync(expectedRoot, { throwIfNoEntry: false });
-    const markerMetadata = fs.lstatSync(markerPath, { throwIfNoEntry: false });
-    if (
-      rootMetadata &&
-      (!rootMetadata.isDirectory() ||
-        rootMetadata.isSymbolicLink() ||
-        fs.realpathSync(expectedRoot) !== expectedRoot)
-    )
-      throw new Error("host_recovery_root_untrusted");
-    if (
-      markerMetadata &&
-      (!markerMetadata.isFile() || markerMetadata.isSymbolicLink())
-    )
-      throw new Error("host_recovery_record_untrusted");
-    return Object.freeze({
-      root: rootMetadata ? ("present" as const) : ("absent" as const),
-      marker: markerMetadata ? ("present" as const) : ("absent" as const),
-      markerPath,
-    });
-  } catch {
-    return Object.freeze({
-      root: "unknown" as const,
-      marker: "unknown" as const,
-      markerPath: null,
-    });
-  }
-}
-
-/**
- * Host 回復 記録 By Tokenを読み込む。
- *
- * @responsibility Host 回復 記録 By Tokenの読取り元、Schema検証、読取不能時の拒否境界を所有する。
- * @trace ARCH-000008
- * @input token: exact参照、expectedRoot: 元Ownerまたは現在操作に結合した絶対Root。
- * @returns 同じRoot直下の親に保存されたexact markerと記録。
- * @precondition 親scopeの処置許可は呼出し元が別に確認する。
- * @postcondition 操作Root不存在でも同じ親以外を探索しない。
- * @effect 親・記録Directory・markerの読取りだけ。作成・書込みなし。
- * @failure loadHostRecoveryRecordByTokenは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant loadHostRecoveryRecordByTokenは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security loadHostRecoveryRecordByTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: loadHostRecoveryRecordByTokenは共有非同期状態を持たない同期処理である。
- */
-export function loadHostRecoveryRecordByToken(
-  token: unknown,
-  expectedRoot: unknown,
-) {
-  const parsed = parseHostRecoveryToken(token);
-  if (
-    typeof expectedRoot !== "string" ||
-    !path.isAbsolute(expectedRoot) ||
-    path.resolve(expectedRoot) !== expectedRoot ||
-    path.basename(expectedRoot) !== parsed.rootName
-  )
-    throw new Error("host_recovery_root_mismatch");
-  const parent = path.dirname(expectedRoot);
-  const parentMetadata = fs.lstatSync(parent);
-  if (
-    !parentMetadata.isDirectory() ||
-    parentMetadata.isSymbolicLink() ||
-    fs.realpathSync(parent) !== parent
-  )
-    throw new Error("host_recovery_parent_untrusted");
-  const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-  const realDirectory = fs.realpathSync(directory);
-  const directoryMetadata = fs.lstatSync(realDirectory);
-  if (
-    realDirectory !== directory ||
-    path.dirname(realDirectory) !== parent ||
-    !directoryMetadata.isDirectory() ||
-    directoryMetadata.isSymbolicLink()
-  )
-    throw new Error("host_recovery_directory_untrusted");
-  const marker = path.join(
-    realDirectory,
-    `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
-  );
-  const markerMetadata = fs.lstatSync(marker);
-  if (!markerMetadata.isFile() || markerMetadata.isSymbolicLink())
-    throw new Error("host_recovery_record_replaced");
-  const serialized = fs.readFileSync(marker, "utf8");
-  if (
-    createHash("sha256").update(serialized).digest("hex") !== parsed.recordHash
-  )
-    throw new Error("host_recovery_record_mismatch");
-  const record = JSON.parse(serialized);
-  if (
-    record.schema !== "crdd-coordinator-host-recovery/v1" ||
-    record.rootName !== parsed.rootName
-  ) {
-    throw new Error("host_recovery_record_mismatch");
-  }
-  const after = fs.lstatSync(marker);
-  if (
-    !after.isFile() ||
-    after.isSymbolicLink() ||
-    after.dev !== markerMetadata.dev ||
-    after.ino !== markerMetadata.ino ||
-    after.birthtimeMs !== markerMetadata.birthtimeMs ||
-    after.size !== markerMetadata.size ||
-    fs.realpathSync(directory) !== directory ||
-    fs.realpathSync(parent) !== parent
-  )
-    throw new Error("host_recovery_record_replaced");
-  return {
-    parsed,
-    parent,
-    directory: realDirectory,
-    marker,
-    record,
-    serialized,
-  };
 }
 
 /**

@@ -12,7 +12,10 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { withCallerPlan } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  projectExecutionFixture,
+  withCallerPlan,
+} from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   createCoordinatorObjectiveResult,
   createCoordinatorTaskExecutionSet,
@@ -20,7 +23,6 @@ import {
   runCoordinatorObjective,
 } from "../../../src/objective/execute.ts";
 import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
-import { createCoordinatorState } from "../../../src/state/create.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 const objectiveRequest = Object.freeze(
@@ -209,7 +211,7 @@ test("Objectiveの要求・主体・Signal拒否は内部実行への接続前�
  * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小する", () => {
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",

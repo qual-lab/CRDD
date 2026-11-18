@@ -21,6 +21,7 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/preparation.ts",
+  "40_Develop/coordinator/src/execution/validation.ts",
   "40_Develop/coordinator/src/execution/authority.ts",
   "40_Develop/coordinator/src/input/snapshot.ts",
 ]);
@@ -35,6 +36,8 @@ export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/local-authority.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/authority-grant.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/provider-advice-plan.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/claude-preparation.contract.test.ts",
 ]);
 
 const NODE_OPTIONS = Object.freeze([
@@ -80,9 +83,15 @@ function obligation(
 
 const coverageObligations = Object.freeze({
   "40_Develop/coordinator/src/execution/preparation.ts": obligation(
+    "本runはAuthorityとProfile検査を中心とし、残るPacket・実行準備の全分岐には到達していない",
+    "選定・Packet・MountとAuthorityを接続する準備経路の未到達分岐を本runだけで保証できない",
+    "既存のCodex／Claude準備、Packet消費、Provider開始拒否・回収の局所試験と結合試験で別途確認する",
+    "Provider準備、Packet、MountまたはAuthorityの接続変更時",
+  ),
+  "40_Develop/coordinator/src/execution/validation.ts": obligation(
     "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
     "Profile shapeまたは専用Homeマウント許可参照の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
-    "Profile revision 3、旧revision、namespace、Provider・Profile・Operation結合、上限および動的入力の正負・境界試験",
+    "Profile revision 4、旧revision、namespace、Provider・Profile・Operation結合、上限および動的入力の正負・境界試験",
     "Profile Schema、専用Homeマウント許可またはplain-data境界変更時",
   ),
   "40_Develop/coordinator/src/execution/authority.ts": obligation(

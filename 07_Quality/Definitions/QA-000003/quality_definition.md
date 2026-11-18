@@ -1,5 +1,69 @@
 # QA-000003 Project実行と回復の検証定義
 
+## Coverage集計と残る循環依存の是正 — 2026-11-18
+
+ERB-IT-001は同名でも別定義位置のFNを区別し、FNDAの同名出現数、FNF／FNHと実件数を照合する。同じ位置の重複、未知名、欠測、余剰、総数・covered不整合の拒否を保持し、FNDAを定義位置へ推測対応させない。PRL-IT-005の既存4Sourceを除外せず、従来9試験に助言Plan・Claude準備の2試験を追加し、実LCOVと連続二回の集計一致を確認する。集計成功を未到達分岐のPassへ置き換えない。
+
+PPR-UT-006はSessionとOperationの結合拒否・例外・非同期／未知戻り値で両Ownerが不変なこと、同じ元Context、新規／清掃参照、alias非伝播、二重結合拒否、取消・完了後の動的失効と元Operation失効を確認する。AuthorityとRecoveryの既存利用試験、PR-A-04のLease解放・中断再入場・exact証拠と資源不存在の実保存、Workspaceの入力・結果保存・Git後失敗とLease解放の既存試験へ接続する。PRL-IT-012の現行全Source母集団で型専用辺を除いた循環を拒否し、同じ走査へ循環・自己辺の反例を与える。公開Rootと保存Schema・安全判定は変更しない。
+
+## 隔離Profileの入力検査Owner — 2026-11-18
+
+AIT-UT-005／AIT-UT-006の既存Profile・Authority・Prelaunch試験で、閉形式、accessor／Proxy、静的参照、Provider／Operation相関、HTTPS Origin・重複・正規化とHash、既存上限と固定reasonを維持する。移管前後の同じ入力と既存assertを使用し、候補を実Authority確認済みへ補完しない。PRL-IT-005のCoverage対象へvalidation.tsを追加し、Preparationの現役責務も対象に残す。Source閉集合とRoot集合、診断受付と結果、旧Ownerの定義・import不在を限定確認する。
+
+## 表示通知のOwner統合 — 2026-11-18
+
+ERB-IT-002／ERB-IT-004の既存通知試験を同じobservation.tsの実体へ接続し、write完了待ち、backpressure、error・close、5秒期限、後着callbackの無視とListener／Timer解除を確認する。開始通知の一回搬送、通知失敗後の回収、待機中の取消と完了の既存検証を保持する。Provider実行接続からControllerへの実行時依存と旧Reporter定義が残らないことを確認し、公開集合は変えない。Source組立ての限定代役だけを実streamの完了確認と同一視しない。
+
+## Host開始・復帰の調停Owner — 2026-11-18
+
+PRL-IT-013／ERB-IT-003の再入場試験はRecoveryの実調停を実行し、既存保存境界で予定保存・結果保存の拒否を、Operation境界で実Host要求を観測する。予定保存失敗時は実Host要求0、同じ元入力での再入場、元Capability・token・五資源・清掃結果・Mount結果の相関を維持する。予定保存要求回数を実HostのEffect回数と同一視しない。既存の実Writer結合で保存失敗・応答喪失・後継token観測後の再発行0を確認する。
+
+子Process試験も同じ下位境界でHost要求と受付拒否時の変更0を確認する。Controllerへの旧module mockを残さず、RecoveryからControllerへの実行時依存がないことを既存契約試験で固定する。実AI・実Docker・全体回帰の成立は主張しない。
+
+## Host記録ReaderのOwner統合 — 2026-11-18
+
+ERB-IT-003／PRL-IT-013の既存Host記録試験で、明示Root、親・Link境界、Token／Hash、前後実体、改変・読取り不明とRoot不存在を区別する。非既定親の元Owner終了後回収、exact tokenへの別Process再入場を確認する。ERB-IT-014は既存の通常profile一件で、子Processの新しい読取りOwnerと元実保存・清掃Oracleを照合する。
+
+OperationがRecoveryへ実行時逆依存しないことを既存の依存契約試験で確認する。Reader／三値観測の本文・拒否条件は変えず、HostSubmission関数とその故障注入は本単位では維持する。観測のunknownをabsentへ補完せず、実Docker・実AIの成立へ拡張しない。
+
+## 保存接続Sourceの集約 — 2026-11-18
+
+state/transaction.tsへの統合では、PRL-IT-013の単発受付・開始更新・終端・未開始終了・Lease解放と失敗境界を維持する。PRL-IT-011のfresh Queue選択、interactive優先、実Owner待機、scheduled復帰とGetter評価順を確認する。助言の固定依頼ID一致、同ID・別主体の拒否と保存bytes不変、既存Blocker Gateを含むLease借用前の評価順を確認する。元の回復ID・再送・実行回数等のassertを削らず、旧所在へのmodule mockとimportも新しいOwnerへ追従する。
+
+公開Rootの固定集合、Source責務の全件分類、型・設計トレース・台帳と関係文書の限定確認を行う。関数の移動を循環依存の解消や全体回帰成立へ拡大解釈しない。今回試験Rootは既存終了hookだけで回収し、過去保持物は操作しない。
+
+## Owner喪失結合のモデルOwner接続 — 2026-11-18
+
+PRL-UT-006のreserved、開始済みmatched、handoff明示不存在、running不存在拒否の四試験は、検証内容を保持してEMへ移す。集合欠測・余剰・重複・別Operation、世代差、未知入力、非対象行不変と複数Task一世代更新を差分で反証する。同じOperation参照を持つ終了済み行をmatched／verified_absentの双方で用意し、対象外行の参照・本文不変を確認する。PRL-IT-005の実Writerでは明示不存在による相関解除、拒否bytes不変と遷移後再要求の拒否を確認する。
+
+CoordinatorのPRL-UT-014は観測不明による保存0、保存拒否／metadata不正後の後続0と元回復ID搬送、任意診断throw／拒否時の既存継続を区別する。既存のOwner喪失再入場の実保存結合も確認し、部分断面の有限Port試験だけからOwner不在の実観測成立を主張しない。
+
+## 回復義務更新のモデルOwner接続 — 2026-11-18
+
+PRL-UT-006の回復義務phase保持と外部Effect未解決の二試験を、assertを保持してEM snapshot-typesへ移す。元値不変、異phase・kind・ID・世代の拒否、Getter／Proxy非実行、直後再送、複数Task一世代更新、混合ready行の不変、1件不適格による全件拒否を差分で確認する。
+
+PRL-IT-005はEM実Writerの回復開始・処置済み保存と同一再送bytes不変、別ID及びCleanup未確認の拒否を確認する。Coordinatorの既存中断・取消・通知失敗・混在義務・exact回復再入場の試験は技術処置と通知順序の検証を維持する。試験準備も公開の有限保存を使用し、旧私有遷移や互換Readerへ迂回しない。
+
+## 通常終端のモデルOwner接続 — 2026-11-18
+
+PRL-UT-006のモデル局所五試験を、検証内容を保ってEM snapshot-typesへ移す。清掃未確認・依存充足・相関拒否・結果受領非追加の規則はEMが所有する。Coの取消・品質投影と回復試験のassertは残し、終端準備は既知の状態値へ置き換え、EM私有関数への直接／推移的参照や転送fixtureを追加しない。通常終端の候補・清掃・重複義務・上限文法・Objective／Milestone未受入の差分をモデル側で追加確認する。
+
+PRL-IT-005の保存は同内容の再送でbytes不変、同じ状態本文でも結果事実だけ異なる再送は拒否を確認する。PRL-IT-012は既存Operation原子整理のnormal／save_failure／history_missingを維持し、故障注入先だけを完成した有限更新へ追従する。開始候補の七差分は残し、通常終端の保存後metadata不正を加える。元回復ID・再起動必要性を保持し、確認済み終了へ新たな回復IDを捏造しない。
+
+判断fixtureとWorkspace結合はEM公開の有限終端保存へ接続し、旧受領field拒否の負例候補は既知値として保持する。今回Rootだけを既存hookで回収し、129 Operation長時間例・全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+## 開始前終端のモデルOwner接続 — 2026-11-18
+
+PRL-UT-006は引渡し準備済みの三outcome、元世代・Task／Attempt／Operation／Authority、回復義務、Objective／Milestoneと元値不変、余分field拒否を確認する。PRL-IT-005は独立Rootで失敗・取消・回復必要を実保存し、Caller resultFacts注入拒否、同内容再送bytes／世代不変、別相関・後続世代拒否を確認する。結果事実はEM内部で捕捉済み要求から一件だけ生成する。この三例のOperation集合は空であり、技術Operation整理の反証とは区別する。
+
+PRL-IT-012の追加一例は、既存の合成技術Operationと確認済み履歴を一件作り、開始前終端の直前にTaskのhandoffとexact参照結合を確認する。同じ有限保存のSnapshot改訂＋1にTask failed／settled、executor_resultの未解決falseと関連Operation除去が揃い、同要求再送でbytesが変わらないことを実Writerで確認する。合成技術完了を実Provider／Process開始の証明にはしない。無関係Operationの全組合せを新kindで確認したとは主張しない。
+
+既存の開始通知前後throw・同期throw・取消・metadata七差分を維持する。開始前終端保存拒否と保存後metadata不正でも元runtime_process回復ID、再起動必要性、unknown・清掃未確認・手動処置必要を返すことを確認する。前者ではhandoff_prepared、後者では保存済みsettledを観測し、応答不明を未実施へ畳まない。今回Rootだけを既存終了hookで回収し、通常終端の129 Operationケース・全体回帰・実AI・Docker・過去保持物は対象外とする。
+
+## 再計画・再試行のモデルOwner接続 — 2026-11-18
+
+PRL-UT-006の生存依存Taskがある場合の部分再計画拒否は、assertを保持してEMのsnapshot-typesへ移す。再試行回数と置換済みTask数の別上限、元世代、初期化対象、部分再計画だけのEvidence消去、Path拒否・定義順・直後再送をモデル側で確認する。PRL-IT-005の既存三結合試験は分類・人間判断・保存とQueueの順序、兄弟定義・Definition Hash・履歴保持を維持し、再送時の保存bytes／世代不変を追加する。PRL-UT-014は成功情報の欠測・別Task・別Project／世代・ProxyでもQueueを進めず、保存後不明・清掃未確認・手動確認必要を返すことを有限Portで確認する。既存試験の退役や実AI／Docker成功への換算は行わない。
+
 ## Objective結果の完成受付
 
 列挙値・契約名・回復kind・判断結果のEffect状態・Candidate終了区分は、文字列型を先行確認する。PRL-UT-006／PRL-UT-014の既存試験で、toString・valueOf・Symbol.toPrimitiveとProxyを持つObjectを渡し、正常文字列の維持、不正値のnull拒否、変換hook実行0と例外非漏出を確認する。内部添字や安全整数確認済みの変換を未知入力と混同しない。
@@ -27,6 +91,30 @@ PRL-UT-006のTask validation試験で、候補・回復・結果のnullable参�
 ## 受付済み計画のexact参照再利用
 
 PRL-UT-014は私有受付実行の製品宣言を使い、同じ受付で捕捉した計画だけを再利用することを確認する。同値別Objectは再検査し、範囲外・getter・Proxy・null・依存例外を内部実行へ渡さない。PRL-IT-005は既存の範囲外計画と未知field／accessor／Proxyの二試験に限定し、自己生成RepositoryでProject保存・Task Effectがないことと終了清掃を確認する。実保存の全正常経路・実AI・Docker・全体回帰の成功へ一般化しない。
+
+## Task引渡し・開始観測のモデルOwner接続 — 2026-11-18
+
+PRL-UT-006の既存EM snapshot-typesで、引渡し準備・開始観測を元世代、Task、Attempt、Operation及び直前phaseへ結合し、拒否理由・元値不変・generation＋1・選定参照保持を確認する。他Owner試験の前提は既知状態fixtureで用意し、製品の可否判定をfixtureの成功から主張しない。PRL-IT-005の自己所有Repositoryで3遷移の保存、直後状態だけの再送とbytes／世代不変、別ID・後続phaseでの再送拒否、既存要求結合を確認する。
+
+PRL-IT-012では通常実行、引渡し準備保存後の取消、開始観測保存後のmetadata不正を対象にする。通知受理集合へ追加するのは保存・metadata捕捉成功後だけとし、保存済みphaseと通知受理を同一視しない。不明結果は同じ元回復IDで終端保存し、終端保存又はQueue／Lease後処理が不明でもID・義務・再起動必要性を返却から落とさない。実AI・Docker及び129 Operation長時間ケースの再実行は本単位に含めない。
+
+## 初期Project生成のモデルOwner接続 — 2026-11-18
+
+初期生成のOwner・受入説明文・Repository Path・循環／欠落依存の4試験を、assertを維持してEMのsnapshot-typesへ移す。同じ既存PRL-UT-006に、容量境界のモデル側assertを維持する試験も配置する。Coordinatorの大規模投影と進行・Authority・回復の試験は残し、共有fixtureは既知の有効な値だけを生成する。fixtureからEM内部実装を再exportせず、公開境界の推移依存検査を維持する。
+
+PRL-IT-005の初回受付は不正Owner・上限・旧完成State・getter／Proxy・循環・対象違いをStore作成前に拒否し、入力hook 0・state.json不存在を確認する。正常入力はProjectとQueueを同じ候補へ一体保存し、generation 1・固定選定・Owner・初期値を照合する。二Processの同ID受付と保存後再読の既存試験を維持する。CoのSource閉集合は値だけのworkspace/recordを純粋分類へ置き、推移import・OS非依存を検査する。領域例外の型参照は元Module・実Path・単一Symbolだけに限定し、実行時参照・別Symbol・別呼出元の負例も維持する。
+
+## 開始候補と予約の同一モデルOwner — 2026-11-18
+
+PRL-UT-006の並列上限・Path／Conflict Key・親子Pathの三試験を既存EM snapshot-typesへ移す。依存充足・Cleanup不明・回復後の競合予約もモデル側の反証で維持し、Coordinator側にはHandoff以降の状態遷移と表示・搬送の検証を残す。合成予約fixtureは既知の前提値だけを作り、製品の予約検査・保存成功には数えない。
+
+PRL-IT-005は初回保存の同じ新品Rootで、保存Stateと非永続の開始候補のProject／世代相関、予約のgeneration＋1、古い世代・予約済みTaskの拒否と保存bytes不変を確認する。CoのPPR-UT-006は同版の開始候補を表示へ搬送し、欠測や別世代を待機へ補完しない。有限Executor結合は、予約保存後だけHandoffと実行へ進む条件を維持する。実AI・Docker・全体回帰の成立とは区別する。
+
+候補metadata由来の停止は、初回・recovering／settled保存後・最終読取りでも既知の元回復ID・種別・Process再起動必要性を維持する。PRL-UT-014の有限Source接続とMCP搬送で、公開Promiseへの例外漏出なし、projection null、unknown、清掃未確認、手動確認必要、元ID集合一致、停止後の追加Effectなしを確認する。未解決状態にIDがない場合も成功へ補完しない。
+
+## 履歴・退役の完成操作への直接接続 — 2026-11-18
+
+PRL-IT-012の既存実保存試験で、段階退役時の採用証拠、初回作成後の独立採用、終了Queue・実行ID保持と再送時不変を維持する。Coordinatorの履歴・退役専用転送Sourceは撤去し、EM完成操作へ渡すRoot確認・保持設定の初回取得とfresh確認・一呼出し一時刻・理由・保存順序を維持する。WorkbenchのERB-IT-021では既存清掃判断のSourceを有限代役で評価し、Root不明・設定欠測・設定変更は清掃不可、固定時刻と設定再確認の引数を照合する。新しい試験IDは追加せず、実AI・Dockerや実検証Scriptの成功を主張しない。
 
 ## 実ObjectiveからMCP結果への搬送試験Owner — 2026-11-14
 

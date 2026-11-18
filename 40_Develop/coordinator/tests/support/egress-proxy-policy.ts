@@ -8,12 +8,11 @@
  */
 import { createHash } from "node:crypto";
 import net from "node:net";
-
+import { validateProviderIsolationProfile } from "../../src/execution/validation.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../src/input/snapshot.ts";
-import { validateProviderIsolationProfile } from "../../src/execution/preparation.ts";
 
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;

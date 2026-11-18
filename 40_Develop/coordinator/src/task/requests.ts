@@ -60,16 +60,16 @@ import {
 } from "../selection/resolve.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
 import {
-  deriveCoordinatorRepositoryBindingId,
-  validIdentity,
-} from "../state/validation.ts";
-import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
-import {
   closeUnstartedCoordinatorSingleTask,
   createCoordinatorSnapshotStatePort,
   enqueueCoordinatorSingleTask,
   updateCoordinatorSingleTask,
-} from "./queue.ts";
+} from "../state/transaction.ts";
+import {
+  deriveCoordinatorRepositoryBindingId,
+  validIdentity,
+} from "../state/validation.ts";
+import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 
 /**
  * 単発操作の非永続入力。

@@ -19,8 +19,8 @@ import { saveRepositoryAiSelection } from "../../../configuration-model/src/inde
 import { readQueueEntry } from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
+import { updateCoordinatorSingleTask } from "../../src/state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
-import { updateCoordinatorSingleTask } from "../../src/task/queue.ts";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
 
 /**
@@ -106,6 +106,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     authorize: () => true,
   });
   const accepted = await session.start({
+    requestId: "advice-recovery-request",
     mode: "read_only_advice",
     workType: null,
     prompt: "synthetic",
@@ -115,6 +116,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
   });
   assert.equal(accepted.status, "accepted", JSON.stringify(accepted));
   assert.ok(accepted.requestId);
+  assert.equal(accepted.requestId, "advice-recovery-request");
   const outcome = await session.wait(accepted.requestId);
   assert.equal(calls, 1);
   assert.deepEqual(outcome.recoveryIds, [hostId, dockerId]);

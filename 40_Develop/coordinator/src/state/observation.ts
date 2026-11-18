@@ -252,6 +252,10 @@ export async function queryActivity(
       if (snapshot.status !== "completed") stateUnknown = true;
       else if (snapshot.value !== null) {
         const value = snapshot.value;
+        const candidateRecords = snapshotPlainArray(
+          value.taskStartCandidates,
+          Number.MAX_SAFE_INTEGER,
+        );
         for (const queue of value.queueEntries) {
           const record = queue.singleTask;
           if (queue.projectId === request.projectId && record)
@@ -267,15 +271,24 @@ export async function queryActivity(
         }
         const result = queryCoordinatorState(
           {
-            readState: (projectId) =>
-              Object.freeze({
+            readState: (projectId) => {
+              const project =
+                value.projects.find((item) => item.projectId === projectId) ??
+                null;
+              const candidates =
+                project && candidateRecords.status === "ok"
+                  ? candidateRecords.value
+                      .map((item) => inspectTaskStartCandidates(project, item))
+                      .filter((item) => item !== null)
+                  : [];
+              return Object.freeze({
                 status: "completed",
                 reason: "orchestrator_state_observed",
-                value:
-                  value.projects.find(
-                    (project) => project.projectId === projectId,
-                  ) ?? null,
-              }),
+                taskStartCandidates:
+                  candidates.length === 1 ? (candidates[0] ?? null) : null,
+                value: project,
+              });
+            },
           },
           {
             requestId: "runtime-activity-observation",
@@ -358,7 +371,10 @@ export async function queryActivity(
   return result;
 }
 
-import { inspectCoordinatorProjection } from "./projection.ts";
+import {
+  inspectCoordinatorProjection,
+  inspectTaskStartCandidates,
+} from "./projection.ts";
 import type {
   ActivityRepository,
   ActivitySource,

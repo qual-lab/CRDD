@@ -11,7 +11,6 @@ import type {
   ProjectExecutionState,
   ProjectTaskRecoveryKind,
 } from "../../../execution-model/src/index.ts";
-import { inspectWorkspaceResult } from "../workspace/record.ts";
 import {
   createRuntimeProcessRecoveryIdentity,
   getRuntimeProcessInstanceIdentity,
@@ -19,20 +18,13 @@ import {
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../execution/process-safety-state.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
-
+import { inspectTaskStartCandidates } from "../state/projection.ts";
 import {
   isCoordinatorRecoveryIdentity,
   validIdentity,
 } from "../state/validation.ts";
+import { inspectWorkspaceResult } from "../workspace/record.ts";
 
-import {
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  reserveProjectTaskStart,
-  settleProjectTask,
-  settleProjectTaskBeforeEffect,
-} from "./lifecycle.ts";
-import { selectSchedulableProjectTasks } from "./scheduling.ts";
 import type {
   CoordinatorExecutionDependencies,
   CoordinatorExecutionHostAdapterOptions,
@@ -434,39 +426,6 @@ function taskExecutionMap(
 }
 
 /**
- * persisted 状態を決定する。
- *
- * @responsibility persisted 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input dependencies: CoordinatorExecutionDependencies、state: ProjectExecutionState、expectedGeneration: number
- * @returns persistedStateの計算結果を返す。
- * @precondition 「dependencies: CoordinatorExecutionDependencies、state: ProjectExecutionState、expectedGeneration: number」がpersistedStateの入力契約を満たす。
- * @postcondition persistedStateの責務を完了した結果だけを返す。
- * @effect N/A: persistedStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: persistedStateは独自の失敗分岐を所有しない。
- * @invariant persistedStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: persistedStateはProcess内の同一Subsystemで完結する。
- * @security N/A: persistedStateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: persistedStateは共有非同期状態を持たない同期処理である。
- */
-function persistedState(
-  dependencies: CoordinatorExecutionDependencies,
-  state: ProjectExecutionState,
-  expectedGeneration: number,
-  resultFacts?: Parameters<
-    CoordinatorExecutionDependencies["persistence"]["state"]["writeState"]
-  >[2],
-) {
-  return resultFacts
-    ? dependencies.persistence.state.writeState(
-        state,
-        expectedGeneration,
-        resultFacts,
-      )
-    : dependencies.persistence.state.writeState(state, expectedGeneration);
-}
-
-/**
  * Own one durable Project operation from a queued request through all currently
  *
  * @responsibility Coordinator Operationの実行条件、Effect範囲、終了結果の境界を所有する。
@@ -501,6 +460,17 @@ export async function runCoordinatorOperation(
       effectState: "unknown",
     });
   let state = stateRead.value;
+  let startCandidates = inspectTaskStartCandidates(
+    state,
+    stateRead.taskStartCandidates,
+  );
+  if (!startCandidates)
+    return blocked(input, "orchestrator_state_observation_unknown", {
+      state,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
+    });
   let queue = queueRead.value;
   if (
     state.projectId !== input.projectId ||
@@ -583,6 +553,8 @@ export async function runCoordinatorOperation(
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
             processRestartRequired: terminal.processRestartRequired,
+            recoveryIds: terminal.recoveryIds,
+            recoveryObligations: terminal.recoveryObligations,
             effectState: "unknown",
           }),
     );
@@ -602,6 +574,8 @@ export async function runCoordinatorOperation(
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           processRestartRequired: terminal.processRestartRequired,
+          recoveryIds: terminal.recoveryIds,
+          recoveryObligations: terminal.recoveryObligations,
           effectState: "unknown",
         }),
       );
@@ -621,6 +595,8 @@ export async function runCoordinatorOperation(
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
             processRestartRequired: terminal.processRestartRequired,
+            recoveryIds: terminal.recoveryIds,
+            recoveryObligations: terminal.recoveryObligations,
             effectState: "unknown",
           }),
     );
@@ -631,14 +607,38 @@ export async function runCoordinatorOperation(
       state: ProjectExecutionState;
       completedTaskIds?: readonly string[];
       processRestartRequired?: boolean;
+      recoveryIds?: readonly string[];
+      recoveryObligations?: CoordinatorExecutionResult["recoveryObligations"];
     }>,
   ): CoordinatorExecutionResult => {
+    const recoveryObligations = [
+      ...options.state.tasks.flatMap((task) =>
+        task.recoveryObligations
+          .filter((item) => item.phase !== "settled")
+          .map(({ kind, recoveryId }) => ({ kind, recoveryId })),
+      ),
+      ...(options.recoveryObligations ?? []),
+    ].filter(
+      (item, index, all) =>
+        all.findIndex(
+          (other) =>
+            other.kind === item.kind && other.recoveryId === item.recoveryId,
+        ) === index,
+    );
+    const recoveryIds = [
+      ...new Set([
+        ...recoveryObligations.map((item) => item.recoveryId),
+        ...(options.recoveryIds ?? []),
+      ]),
+    ];
     const terminal = blocked(input, reason, {
       state: options.state,
       completedTaskIds: options.completedTaskIds ?? [],
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       processRestartRequired: options.processRestartRequired ?? false,
+      recoveryIds,
+      recoveryObligations,
       effectState: "unknown",
     });
     const recoveryQueue = dependencies.persistence.state.updateQueue(
@@ -668,6 +668,8 @@ export async function runCoordinatorOperation(
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         processRestartRequired: options.processRestartRequired ?? false,
+        recoveryIds,
+        recoveryObligations,
         effectState: "unknown",
       }),
     );
@@ -764,7 +766,12 @@ export async function runCoordinatorOperation(
   let processRestartRequired = false;
   while (true) {
     // 同じWorkspaceの予約・実行・結果保存を一件ずつ閉じる。
-    const selectedItems = selectSchedulableProjectTasks(state).slice(0, 1);
+    if (!inspectTaskStartCandidates(state, startCandidates))
+      return finalizeOwnedFailure("orchestrator_state_observation_unknown", {
+        state,
+        completedTaskIds,
+      });
+    const selectedItems = startCandidates.taskIds.slice(0, 1);
     if (selectedItems.length === 0) break;
     const attempts: Array<{
       taskId: string;
@@ -794,21 +801,14 @@ export async function runCoordinatorOperation(
         attemptId,
         execution.authorityBindingId,
       );
-      const reserved = reserveProjectTaskStart(
-        state,
-        state.generation,
-        taskId,
-        attemptId,
-        execution.authorityBindingId,
-      );
-      if (reserved.status !== "completed" || !reserved.state)
-        return finalizeOwnedFailure(reserved.reason, {
-          state,
-          completedTaskIds,
-        });
-      const reserveWrite = persistedState(
-        dependencies,
-        reserved.state,
+      const reserveWrite = dependencies.persistence.state.updateTask(
+        {
+          kind: "task_start",
+          projectId: state.projectId,
+          taskId,
+          attemptId,
+          authorityBindingId: execution.authorityBindingId,
+        },
         state.generation,
       );
       if (reserveWrite.status !== "completed")
@@ -816,22 +816,24 @@ export async function runCoordinatorOperation(
           state,
           completedTaskIds,
         });
-      state = reserved.state;
-      const prepared = prepareProjectTaskHandoff(
+      state = reserveWrite.value;
+      startCandidates = inspectTaskStartCandidates(
         state,
-        state.generation,
-        taskId,
-        attemptId,
-        operationId,
+        reserveWrite.taskStartCandidates,
       );
-      if (prepared.status !== "completed" || !prepared.state)
-        return finalizeOwnedFailure(prepared.reason, {
+      if (!startCandidates)
+        return finalizeOwnedFailure("orchestrator_state_observation_unknown", {
           state,
           completedTaskIds,
         });
-      const preparedWrite = persistedState(
-        dependencies,
-        prepared.state,
+      const preparedWrite = dependencies.persistence.state.updateTask(
+        {
+          kind: "task_handoff",
+          projectId: state.projectId,
+          taskId,
+          attemptId,
+          operationId,
+        },
         state.generation,
       );
       if (preparedWrite.status !== "completed")
@@ -839,7 +841,16 @@ export async function runCoordinatorOperation(
           state,
           completedTaskIds,
         });
-      state = prepared.state;
+      state = preparedWrite.value;
+      startCandidates = inspectTaskStartCandidates(
+        state,
+        preparedWrite.taskStartCandidates,
+      );
+      if (!startCandidates)
+        return finalizeOwnedFailure("orchestrator_state_observation_unknown", {
+          state,
+          completedTaskIds,
+        });
       attempts.push({
         taskId,
         attemptId,
@@ -856,23 +867,24 @@ export async function runCoordinatorOperation(
     const delegatedAttemptIds = new Set<string>();
     const observeStarted = (attempt: (typeof attempts)[number]) => {
       const observation = startObservationChain.then(() => {
-        const started = observeProjectTaskStarted(
-          state,
-          state.generation,
-          attempt.taskId,
-          attempt.attemptId,
-          attempt.operationId,
-        );
-        if (started.status !== "completed" || !started.state)
-          throw Error("task_start_save_unconfirmed");
-        const written = persistedState(
-          dependencies,
-          started.state,
+        const written = dependencies.persistence.state.updateTask(
+          {
+            kind: "task_started",
+            projectId: state.projectId,
+            taskId: attempt.taskId,
+            attemptId: attempt.attemptId,
+            operationId: attempt.operationId,
+          },
           state.generation,
         );
         if (written.status !== "completed")
           throw Error("task_start_save_unconfirmed");
         state = written.value;
+        startCandidates = inspectTaskStartCandidates(
+          state,
+          written.taskStartCandidates,
+        );
+        if (!startCandidates) throw Error("task_start_save_unconfirmed");
         startedAttemptIds.add(attempt.attemptId);
       });
       startObservationChain = observation.then(
@@ -1127,53 +1139,75 @@ export async function runCoordinatorOperation(
         recoveryUnresolved: isRecoveryUnresolved,
         candidateId: validatedOutcome?.candidateId ?? null,
       } as const;
-      const settlement = effectStarted
-        ? settleProjectTask(state, state.generation, settlementInput)
-        : settleProjectTaskBeforeEffect(state, state.generation, {
-            ...settlementInput,
-            outcome:
-              settlementInput.outcome === "completed"
-                ? "recovery_required"
-                : settlementInput.outcome,
-            cleanupConfirmed:
-              settlementInput.outcome === "completed"
-                ? false
-                : settlementInput.cleanupConfirmed,
-            recoveryUnresolved:
-              settlementInput.outcome === "completed"
-                ? true
-                : settlementInput.recoveryUnresolved,
-          });
-      if (settlement.status !== "completed" || !settlement.state)
-        return finalizeOwnedFailure(settlement.reason, {
-          state,
-          completedTaskIds,
-          processRestartRequired,
-        });
-      const settlementState = settlement.state;
-      const settlementWrite = persistedState(
-        dependencies,
-        settlementState,
-        state.generation,
-        [
-          {
-            taskId: settlementInput.taskId,
-            attemptId: settlementInput.attemptId,
-            operationId: settlementInput.operationId,
-            recoveryUnresolved:
-              !effectStarted && settlementInput.outcome === "completed"
-                ? true
-                : settlementInput.recoveryUnresolved,
-          },
-        ],
+      const savedTask = state.tasks.find(
+        (task) => task.definition.id === attempt.taskId,
       );
-      if (settlementWrite.status !== "completed")
-        return finalizeOwnedFailure(settlementWrite.reason, {
-          state,
-          completedTaskIds,
-          processRestartRequired,
-        });
-      state = settlementState;
+      const savedStartMatches =
+        savedTask?.state === "running" &&
+        savedTask.startPhase === "running" &&
+        savedTask.attemptId === attempt.attemptId &&
+        savedTask.operationId === attempt.operationId &&
+        savedTask.authorityBindingId === attempt.execution.authorityBindingId;
+      const settlementRequest =
+        effectStarted || savedStartMatches
+          ? {
+              kind: "task_settle" as const,
+              projectId: state.projectId,
+              ...settlementInput,
+              resultUnresolved:
+                !effectStarted && settlementInput.outcome === "completed"
+                  ? true
+                  : settlementInput.recoveryUnresolved,
+            }
+          : {
+              kind: "task_settle_before_effect" as const,
+              projectId: state.projectId,
+              taskId: settlementInput.taskId,
+              attemptId: settlementInput.attemptId,
+              operationId: settlementInput.operationId,
+              authorityBindingId: settlementInput.authorityBindingId,
+              outcome:
+                settlementInput.outcome === "completed"
+                  ? ("recovery_required" as const)
+                  : settlementInput.outcome,
+              cleanupConfirmed:
+                settlementInput.outcome === "completed"
+                  ? false
+                  : settlementInput.cleanupConfirmed,
+              recoveryObligations: settlementInput.recoveryObligations,
+              recoveryUnresolved:
+                settlementInput.outcome === "completed"
+                  ? true
+                  : settlementInput.recoveryUnresolved,
+            };
+      const settlementWrite = dependencies.persistence.state.updateTask(
+        settlementRequest,
+        state.generation,
+      );
+      const nextStartCandidates =
+        settlementWrite.status === "completed"
+          ? inspectTaskStartCandidates(
+              settlementWrite.value,
+              settlementWrite.taskStartCandidates,
+            )
+          : null;
+      if (settlementWrite.status !== "completed" || !nextStartCandidates)
+        return finalizeOwnedFailure(
+          settlementWrite.status === "completed"
+            ? "orchestrator_state_observation_unknown"
+            : settlementWrite.reason,
+          {
+            state,
+            completedTaskIds,
+            processRestartRequired,
+            recoveryIds: normalizedRecoveryObligations.map(
+              (item) => item.recoveryId,
+            ),
+            recoveryObligations: normalizedRecoveryObligations,
+          },
+        );
+      state = settlementWrite.value;
+      startCandidates = nextStartCandidates;
       if (!recoveryRequired && validatedOutcome?.status === "completed")
         completedTaskIds.push(attempt?.taskId ?? "invalid");
       if (recoveryRequired) {

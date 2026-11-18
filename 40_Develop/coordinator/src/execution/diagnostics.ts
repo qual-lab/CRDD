@@ -29,7 +29,6 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import {
   type CompletionResult,
   cleanupResources,
@@ -47,6 +46,7 @@ import {
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import {
   type DockerMounts,
   loadDockerProbeRecoveryRecord,
@@ -70,6 +70,7 @@ import { getIsolationSettings } from "./configuration.ts";
 import { observeLeaseOwner } from "./kernel-lock.ts";
 import {
   acquireHostOperationRecoveryGenerationByIdentity,
+  bindOwnedDevelopmentOperationContext,
   borrowRuntimeOwnedRepositorySource,
   classifyOwnedCoordinatorOperationCreationFailure,
   cleanupOwnedOperationDirectories,
@@ -77,6 +78,7 @@ import {
   createProviderEnvironment,
   createRuntimeOwnedCoordinatorOperation,
   credentialEnvironmentNamesPresent,
+  type DevelopmentOperationContext,
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
@@ -86,9 +88,9 @@ import {
   verifyOwnedMountCapability,
   verifyOwnedOperationManagementCapability,
 } from "./operation.ts";
-import { describeProviderIsolationContract } from "./preparation.ts";
 import { isRuntimeProcessEffectBlocked } from "./process-safety-state.ts";
 import { snapshotCoordinatorTaskRequest } from "./request.ts";
+import { describeProviderIsolationContract } from "./validation.ts";
 
 const STATE_LABELS = Object.freeze({
   "STATE-ADMISSION": "受付・実行条件の確認",
@@ -1171,6 +1173,10 @@ const sourceObservations = new WeakMap<
  * @compatibility Dependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type Dependencies = Readonly<{
+  bindOperationContext?: (
+    managementCapability: object,
+    context: DevelopmentOperationContext,
+  ) => boolean;
   observe: (configuration: Configuration) => Identity | null;
   wallNow: () => number;
   monotonicNow: () => number;
@@ -1212,6 +1218,7 @@ type Session = {
  * @compatibility TaskBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type TaskBinding = {
+  operationContext?: DevelopmentOperationContext;
   session: Session;
   task: Task;
   token: object;
@@ -1464,10 +1471,8 @@ function createSessionRuntime(dependencies: Dependencies) {
   const sessions = new WeakMap<object, Session>();
   const taskBindings = new WeakMap<object, TaskBinding>();
   const operationBindings = new WeakMap<object, TaskBinding>();
-  const operationContexts = new WeakMap<object, object>();
   const invocationBindings = new WeakMap<object, TaskBinding>();
   const cleanupBindings = new WeakMap<object, TaskBinding>();
-  const cleanupContexts = new WeakMap<object, object>();
   let admissionStarted = false;
 
   /**
@@ -1758,12 +1763,12 @@ function createSessionRuntime(dependencies: Dependencies) {
      * @returns bindOperationの計算結果を返す。
      * @precondition 「taskCapability: object、managementCapability: object、repositoryBindingCapability: object」がbindOperationの入力契約を満たす。
      * @postcondition bindOperationの責務を完了した結果だけを返す。
-     * @effect N/A: bindOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
-     * @failure bindOperationは入力不正または下位処理の失敗を呼出し側へ返す。
-     * @invariant bindOperationは入力から導いた結果以外の共有状態を変更しない。
-     * @boundary N/A: bindOperationはProcess内の同一Subsystemで完結する。
-     * @security bindOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
-     * @concurrency N/A: bindOperationは共有非同期状態を持たない同期処理である。
+     * @effect 本番ではSession照合と同じContextのOperation結合が同期trueの場合だけSession Mapを確定する。局所候補はSession内だけに結合する。
+     * @failure 不正・二重結合、設定されたcallbackのfalse・例外・未知戻り値ではSessionを確定しない。
+     * @invariant 元の新規／清掃参照と動的検査を保ち、取消・終了後を通常Operationへ戻さない。
+     * @boundary 診断Sessionと同じOperationの管理binding。
+     * @security 結合は資源・Authorityの発行ではない。Task・Repository・Revisionの元照合を維持する。
+     * @concurrency 同期trueからSession確定までawaitや外部処理を挟まない。
      */
     bindOperation(
       taskCapability: object,
@@ -1793,12 +1798,26 @@ function createSessionRuntime(dependencies: Dependencies) {
           repository.revision !== binding.session.configuration.expectedCommit
         )
           return false;
-        binding.managementCapability = managementCapability;
-        operationBindings.set(managementCapability, binding);
-        operationContexts.set(managementCapability, taskCapability);
         const cleanupContext = Object.freeze({});
+        const operationContext = Object.freeze({
+          checkNewWork: () =>
+            !binding.settled &&
+            checkBoundSession(binding.session)?.result.status === "recorded",
+          newWorkContext: taskCapability,
+          cleanupContext,
+        });
+        if (
+          dependencies.bindOperationContext &&
+          dependencies.bindOperationContext(
+            managementCapability,
+            operationContext,
+          ) !== true
+        )
+          return false;
+        binding.managementCapability = managementCapability;
+        binding.operationContext = operationContext;
+        operationBindings.set(managementCapability, binding);
         cleanupBindings.set(cleanupContext, binding);
-        cleanupContexts.set(managementCapability, cleanupContext);
         return true;
       } catch {
         return false;
@@ -1848,15 +1867,7 @@ function createSessionRuntime(dependencies: Dependencies) {
      */
     operationContext(managementCapability: object) {
       const binding = operationBindings.get(managementCapability);
-      return binding
-        ? Object.freeze({
-            checkNewWork: () =>
-              !binding.settled &&
-              checkBoundSession(binding.session)?.result.status === "recorded",
-            newWorkContext: operationContexts.get(managementCapability),
-            cleanupContext: cleanupContexts.get(managementCapability),
-          })
-        : null;
+      return binding?.operationContext ?? null;
     },
     /**
      * reserve Invocationを決定する。
@@ -2101,6 +2112,7 @@ function createSessionRuntime(dependencies: Dependencies) {
 
 const productionRuntime = createSessionRuntime(
   Object.freeze({
+    bindOperationContext: bindOwnedDevelopmentOperationContext,
     observe: observeProduction,
     wallNow: Date.now,
     monotonicNow: () => performance.now(),
@@ -2197,30 +2209,6 @@ export function cancelRuntimeOwnedDevelopmentMeasurementSession(
   capability: object,
 ) {
   return productionRuntime.cancel(capability);
-}
-
-/**
- * Runtime 所有 Development Operation Contextを観測する。
- *
- * @responsibility Runtime 所有 Development Operation Contextの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000004
- * @input managementCapability: unknown
- * @returns inspectRuntimeOwnedDevelopmentOperationContextの計算結果を返す。
- * @precondition 「managementCapability: unknown」がinspectRuntimeOwnedDevelopmentOperationContextの入力契約を満たす。
- * @postcondition inspectRuntimeOwnedDevelopmentOperationContextの責務を完了した結果だけを返す。
- * @effect N/A: inspectRuntimeOwnedDevelopmentOperationContextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectRuntimeOwnedDevelopmentOperationContextは独自の失敗分岐を所有しない。
- * @invariant inspectRuntimeOwnedDevelopmentOperationContextは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectRuntimeOwnedDevelopmentOperationContextはProcess内の同一Subsystemで完結する。
- * @security inspectRuntimeOwnedDevelopmentOperationContextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: inspectRuntimeOwnedDevelopmentOperationContextは共有非同期状態を持たない同期処理である。
- */
-export function inspectRuntimeOwnedDevelopmentOperationContext(
-  managementCapability: unknown,
-) {
-  return managementCapability && typeof managementCapability === "object"
-    ? productionRuntime.operationContext(managementCapability)
-    : null;
 }
 
 /**

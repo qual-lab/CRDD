@@ -22,8 +22,8 @@ import {
   readState,
   saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
+import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import {
@@ -54,7 +54,7 @@ export function prepareWorkspaceSurface(
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId,
     milestoneId: "milestone-a",
@@ -214,7 +214,7 @@ export function fixture(t: TestContext, independent = false) {
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",

@@ -13,6 +13,7 @@ import { devNull } from "node:os";
 import path from "node:path";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import {
+  readCoordinatorConfig,
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../configuration-model/src/index.ts";
@@ -23,19 +24,18 @@ import {
   type TaskSession,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
-import {
-  maintainCoordinatorSnapshot,
-  transferCoordinatorSnapshotHistory,
-} from "../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/validation.ts";
 import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
   createLocalPrincipalId,
   readState,
+  retireStateRecords,
+  transferHistory,
 } from "../../execution-model/src/index.ts";
 import {
   getRepository,
+  getRepositoryFromWorkingDirectory,
   readGitUser,
   resolveVerifiedRepositoryRoot,
 } from "../../version-control/src/index.ts";
@@ -1098,9 +1098,30 @@ function assessFixtureRemoval(
     }
     checkBoundary();
     if (realTask) {
-      const maintained = maintainCoordinatorSnapshot(
-        root,
+      const maintenanceNow = Date.now();
+      const maintenanceRepository = getRepositoryFromWorkingDirectory(root);
+      if (maintenanceRepository.status !== "completed")
+        throw new Error("orchestrator_repository_root_invalid");
+      const maintenanceRoot = maintenanceRepository.capability;
+      const maintenanceConfig = readCoordinatorConfig(maintenanceRoot);
+      const maintained = retireStateRecords(
+        {
+          root: maintenanceRoot,
+          historyRetentionDays:
+            maintenanceConfig.status === "ready"
+              ? maintenanceConfig.config.historyRetentionDays
+              : null,
+          revalidate(expectedHistoryRetentionDays?: number) {
+            if (expectedHistoryRetentionDays === undefined) return true;
+            const fresh = readCoordinatorConfig(maintenanceRoot);
+            return (
+              fresh.status === "ready" &&
+              fresh.config.historyRetentionDays === expectedHistoryRetentionDays
+            );
+          },
+        },
         deriveCoordinatorRepositoryBindingId(root),
+        maintenanceNow,
       );
       assert.equal(maintained.status, "completed");
       if (maintained.status !== "completed")
@@ -1118,9 +1139,30 @@ function assessFixtureRemoval(
         assert.deepEqual(retired[key], before[key]);
       checkBoundary();
     }
-    const transferred = transferCoordinatorSnapshotHistory(
-      root,
+    const transferNow = Date.now();
+    const transferRepository = getRepositoryFromWorkingDirectory(root);
+    if (transferRepository.status !== "completed")
+      throw new Error("orchestrator_repository_root_invalid");
+    const transferRoot = transferRepository.capability;
+    const transferConfig = readCoordinatorConfig(transferRoot);
+    const transferred = transferHistory(
+      {
+        root: transferRoot,
+        historyRetentionDays:
+          transferConfig.status === "ready"
+            ? transferConfig.config.historyRetentionDays
+            : null,
+        revalidate(expectedHistoryRetentionDays?: number) {
+          if (expectedHistoryRetentionDays === undefined) return true;
+          const fresh = readCoordinatorConfig(transferRoot);
+          return (
+            fresh.status === "ready" &&
+            fresh.config.historyRetentionDays === expectedHistoryRetentionDays
+          );
+        },
+      },
       deriveCoordinatorRepositoryBindingId(root),
+      transferNow,
     );
     assert.equal(transferred.status, "completed");
     if (transferred.status !== "completed")

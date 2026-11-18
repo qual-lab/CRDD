@@ -7,11 +7,14 @@
 
 import type {
   LeaseKind,
+  ProjectExecutionInitialization,
   ProjectExecutionState,
   ProjectQueueEntry,
   ProjectQueueState,
   ProjectTaskResultFact,
   QueueEnqueueInput,
+  readProjectExecutionState,
+  saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import type { PortResult } from "./result.ts";
 
@@ -58,11 +61,20 @@ export type CoordinatorStatePort = Readonly<{
     state: ProjectExecutionState,
     expectedGeneration: number,
     resultFacts?: readonly ProjectTaskResultFact[],
-  ) => PortResult<ProjectExecutionState>;
-  readState: (projectId: string) => PortResult<ProjectExecutionState | null>;
+  ) => ReturnType<typeof saveProjectExecutionState>;
+  readState: (
+    projectId: string,
+  ) => ReturnType<typeof readProjectExecutionState>;
+  updateTask: (
+    request: Exclude<
+      Parameters<typeof saveProjectExecutionState>[2],
+      ProjectExecutionState
+    >,
+    expectedGeneration: number,
+  ) => ReturnType<typeof saveProjectExecutionState>;
   enqueueOperation: (
     input: QueueEnqueueInput,
-    initialState?: ProjectExecutionState,
+    initialization?: ProjectExecutionInitialization,
   ) => PortResult<ProjectQueueEntry>;
   readQueue: (queueId: string) => PortResult<ProjectQueueEntry>;
   selectNextOperation: () => PortResult<ProjectQueueEntry | null>;

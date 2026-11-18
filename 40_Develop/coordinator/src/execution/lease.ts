@@ -14,6 +14,7 @@ import {
   readLease,
   recoverLease,
   releaseLease,
+  updateQueue,
 } from "../../../execution-model/src/index.ts";
 import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import {
@@ -35,7 +36,6 @@ import type {
 } from "../state/persistence.ts";
 import type { StoreResult } from "../state/result.ts";
 import { blocked, completed } from "../state/result.ts";
-import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
 import { verifyRuntimePersistenceRepository } from "./persistence.ts";
 
 /**
@@ -67,6 +67,53 @@ export type ActiveLease = Readonly<{
 }>;
 
 const activeLeases = new WeakMap<CoordinatorLease, ActiveLease>();
+
+/**
+ * 元Queue世代と資源不存在の観測を結合してLease解放を確定する。
+ * @responsibility Root・保存領域の前後実体確認と既存EMの解放遷移を同じ保存へ接続する。
+ * @trace ARCH-000004
+ * @input 構築時に検証済みRepository、binding、Queueと元世代。
+ * @returns 元Writerによる保存確定又はblocked。
+ * @precondition RootはPort構築時又は回復受付で検証済み。元Queue・Owner世代を渡す。
+ * @postcondition 元世代・資源の明示不存在・保存領域の前後実体が一致した変更だけを確定する。
+ * @effect 既存の短期排他・CASで解放を保存する。物理Lockを独自に削除しない。
+ * @failure 不存在・実体・保存又は読戻しが不明・不成立なら確定成功にしない。
+ * @invariant Queue保存成功を、新たな物理Lock削除や自動回復の許可へ変換しない。
+ * @boundary Leaseの解放確定と既存EM Writer。
+ * @security 他のQueue／Owner世代や未知の残存物を解放しない。
+ * @concurrency 既存Writerの短期排他・元版照合へ接続し、独自の排他を追加しない。
+ */
+export function settleCoordinatorSnapshotQueueLeaseRelease(
+  storageRepository: ReturnType<typeof verifyRuntimePersistenceRepository>,
+  binding: string,
+  queueId: string,
+  expectedGeneration: number,
+  ownerGeneration: string,
+) {
+  return updateQueue(storageRepository, binding, {
+    kind: "lease_released",
+    input: [
+      queueId,
+      expectedGeneration,
+      ownerGeneration,
+      {
+        resourcesAbsent: (repositoryRoot: string, identity: string) => {
+          const paths = resolveNamedPaths(repositoryRoot);
+          if (!paths) throw new Error("orchestrator_repository_root_invalid");
+          const boundary = assertArea(
+            repositoryRoot,
+            "domain-model",
+            paths.domainModel,
+          );
+          if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
+            return false;
+          assertAreaUnchanged(repositoryRoot, "domain-model", boundary);
+          return true;
+        },
+      },
+    ],
+  });
+}
 
 /**
  * 同じ実Leaseへ結合した観測値だけを借りる。
@@ -507,10 +554,13 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   if (!first) {
     if (initial.queue?.ownerGeneration) {
       if (!["leased", "running"].includes(initial.queue.state)) {
-        const settled = createCoordinatorSnapshotPersistencePorts(
-          workingDirectory,
+        const storageRepository =
+          verifyRuntimePersistenceRepository(workingDirectory);
+        if (!validIdentity(binding))
+          throw new Error("snapshot_port_binding_invalid");
+        const settled = settleCoordinatorSnapshotQueueLeaseRelease(
+          storageRepository,
           binding,
-        ).state.settleQueueLeaseRelease(
           queueId,
           initial.queue.generation,
           initial.queue.ownerGeneration,

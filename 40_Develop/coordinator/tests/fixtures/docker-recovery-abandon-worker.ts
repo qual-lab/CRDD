@@ -297,6 +297,7 @@ if (mode !== "recovery") {
   const observation = Object.freeze({});
   let observedPlan = plan;
   let afterStateRead: (() => void) | null = null;
+  let afterFullStateReadOnly = false;
   let hostStarts = 0;
   let startWrites = 0;
   const stateReads: ReturnType<typeof store.readOperationStateStage>[] = [];
@@ -386,21 +387,21 @@ if (mode !== "recovery") {
         import.meta.url,
       ).href
     );
-    const actualSubmission = await import(
-      new URL("../../src/execution/controller.ts", import.meta.url).href
+    const actualHostSubmission = await import(
+      new URL("../../src/execution/operation.ts", import.meta.url).href
     );
     const submissionMock = mock.module(
-      new URL("../../src/execution/controller.ts", import.meta.url).href,
+      new URL("../../src/execution/operation.ts", import.meta.url).href,
       {
         namedExports: {
-          ...actualSubmission,
-          beginRuntimeOwnedCoordinatorHostSubmission: (
+          ...actualHostSubmission,
+          beginOwnedDockerSubmissionRecovery: (
             ...args: Parameters<
-              typeof actualSubmission.beginRuntimeOwnedCoordinatorHostSubmission
+              typeof actualHostSubmission.beginOwnedDockerSubmissionRecovery
             >
           ) => {
             hostStarts++;
-            return actualSubmission.beginRuntimeOwnedCoordinatorHostSubmission(
+            return actualHostSubmission.beginOwnedDockerSubmissionRecovery(
               ...args,
             );
           },
@@ -445,7 +446,7 @@ if (mode !== "recovery") {
           ) => {
             const result = actualStore.readOperationStateStage(...args);
             stateReads.push(result);
-            if (afterStateRead) {
+            if (afterStateRead && (!afterFullStateReadOnly || !args[1])) {
               const hook = afterStateRead;
               afterStateRead = null;
               hook();
@@ -1150,24 +1151,35 @@ if (mode !== "recovery") {
       const readsBeforeInvalidation = stateReads.length;
       try {
         observedPlan = rootPlan;
+        afterFullStateReadOnly = true;
         afterStateRead = () => {
           fs.writeFileSync(head, "ref: refs/heads/unborn-fixture\n");
           invalidated++;
         };
+        const rootFailures: unknown[] = [];
         const rootRefused = owner.beginRuntimeOwnedDockerRecovery(
           rootPlan,
           management,
+          (diagnostic) => {
+            rootFailures.push(diagnostic);
+          },
         );
-        assert.ok(rootRefused && rootRefused.status === "blocked");
+        assert.ok(
+          rootRefused && rootRefused.status === "blocked",
+          JSON.stringify(rootFailures),
+        );
         assert.equal(invalidated, 1);
         assert.equal(afterStateRead, null);
         assert.equal("recoveryCapability" in rootRefused, false);
         assert.equal(hostStarts, startsBeforeConflict);
         assert.equal(startWrites, writesBeforeConflict);
-        assert.equal(stateReads.length, readsBeforeInvalidation + 1);
-        // 読取り自体は完了。その直後の失効を保存前の再検査が拒否する。
-        assert.equal(stateReads.at(-1)?.status, "completed");
-        assert.ok(stateReads.at(-1)?.value);
+        assert.equal(stateReads.length, readsBeforeInvalidation + 3);
+        // Identity事前確認→完全State観測→失効後の保存入力再検査を区別する。
+        const invalidationReads = stateReads.slice(readsBeforeInvalidation);
+        assert.equal(invalidationReads[0]?.status, "completed");
+        assert.equal(invalidationReads[1]?.status, "completed");
+        assert.ok(invalidationReads[1]?.value);
+        assert.equal(invalidationReads[2]?.status, "blocked");
         assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
         assert.deepEqual(fs.readFileSync(statePath), before);
         assert.deepEqual(fs.readFileSync(snapshot.hostPaths.marker), marker);
@@ -1183,6 +1195,7 @@ if (mode !== "recovery") {
         admissionChecks.push("root_invalid_after_state_read");
       } finally {
         observedPlan = plan;
+        afterFullStateReadOnly = false;
         afterStateRead = null;
         fs.writeFileSync(head, headBefore);
       }
@@ -1324,7 +1337,6 @@ if (mode !== "recovery") {
   let recoveryStoreMock: { restore(): void } | null = null;
   let recoveryHostMock: { restore(): void } | null = null;
   let admissionStoreMock: { restore(): void } | null = null;
-  let admissionSubmissionMock: { restore(): void } | null = null;
   let admissionHostMock: { restore(): void } | null = null;
   const recoveryAdmissionChecks: string[] = [];
   const admissionMutations: string[] = [];
@@ -1468,36 +1480,27 @@ if (mode !== "recovery") {
           },
         },
       );
-      const actualSubmission = await import(
-        "../../src/execution/controller.ts"
-      );
-      admissionSubmissionMock = mock.module(
-        new URL("../../src/execution/controller.ts", import.meta.url).href,
-        {
-          namedExports: {
-            ...actualSubmission,
-            ...Object.fromEntries(
-              (
-                [
-                  "beginRuntimeOwnedCoordinatorHostSubmission",
-                  "completeRuntimeOwnedCoordinatorHostSubmission",
-                ] as const
-              ).map((name) => [
-                name,
-                (...args: unknown[]) => {
-                  admissionMutations.push(name);
-                  return Reflect.apply(actualSubmission[name], undefined, args);
-                },
-              ]),
-            ),
-          },
-        },
-      );
       admissionHostMock = mock.module(
         new URL("../../src/execution/operation.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualHost,
+            beginOwnedDockerSubmissionRecovery: (
+              ...args: Parameters<
+                typeof actualHost.beginOwnedDockerSubmissionRecovery
+              >
+            ) => {
+              admissionMutations.push("beginOwnedDockerSubmissionRecovery");
+              return actualHost.beginOwnedDockerSubmissionRecovery(...args);
+            },
+            completeOwnedDockerSubmissionRecovery: (
+              ...args: Parameters<
+                typeof actualHost.completeOwnedDockerSubmissionRecovery
+              >
+            ) => {
+              admissionMutations.push("completeOwnedDockerSubmissionRecovery");
+              return actualHost.completeOwnedDockerSubmissionRecovery(...args);
+            },
             recoverOwnedOperationDirectories: (
               ...args: Parameters<
                 typeof actualHost.recoverOwnedOperationDirectories
@@ -1861,7 +1864,6 @@ if (mode !== "recovery") {
     recoveryStoreMock?.restore();
     recoveryHostMock?.restore();
     admissionStoreMock?.restore();
-    admissionSubmissionMock?.restore();
     admissionHostMock?.restore();
     for (const [name, original] of originals)
       processApi[name] = original as (...args: unknown[]) => unknown;

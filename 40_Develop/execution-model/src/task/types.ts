@@ -39,6 +39,104 @@ export type ProjectTaskDefinition = Readonly<{
 }>;
 
 /** 確定済み実行入力。設定モデルを参照せず、当時の選定と相関値を保持する。 */
+/**
+ * 同じProject・世代から導出した非永続の開始候補。
+ * @responsibility 観測したStateとの相関と定義順を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @invariant 予約・認可又は実Task開始を表さず、保存Stateへ書き戻さない。
+ */
+export type TaskStartCandidates = Readonly<{
+  projectId: string;
+  generation: number;
+  taskIds: readonly string[];
+}>;
+
+/**
+ * 管理Taskの開始・再計画・終端・回復義務更新を保存する有限要求。
+ * @responsibility 任意State差分ではなく、用途別の対象・元実行相関・結果事実を受け取る。
+ * @trace ARCH-000004、ARCH-000008
+ * @invariant 開始観測の保存をProviderの実開始又は新しいAuthorityと扱わない。
+ */
+export type TaskExecutionUpdate = Readonly<
+  | {
+      kind: "task_owner_loss";
+      projectId: string;
+      bindings: readonly Readonly<{
+        operationId: string;
+        status: "matched" | "verified_absent";
+        recoveryId: string | null;
+      }>[];
+    }
+  | {
+      kind: "task_recovery_start" | "task_recovery_settle";
+      projectId: string;
+      taskId: string;
+      recoveryKind: ProjectTaskRecoveryKind;
+      recoveryId: string;
+    }
+  | {
+      kind: "task_recovery_retry";
+      projectId: string;
+      taskIds: readonly string[];
+    }
+  | {
+      kind: "task_start";
+      projectId: string;
+      taskId: string;
+      attemptId: string;
+      authorityBindingId: string;
+    }
+  | {
+      kind: "task_handoff" | "task_started";
+      projectId: string;
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+    }
+  | {
+      kind: "task_retry";
+      projectId: string;
+      taskId: string;
+      previousRetryCount: number;
+      maximumReplans: number;
+    }
+  | {
+      kind: "task_replan";
+      projectId: string;
+      failedTaskId: string;
+      replacements: readonly ProjectTaskDefinition[];
+      maximumReplans: number;
+    }
+  | {
+      kind: "task_settle_before_effect";
+      projectId: string;
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+      authorityBindingId: string;
+      outcome: "failed" | "cancelled" | "recovery_required";
+      cleanupConfirmed: boolean;
+      recoveryObligations: readonly ProjectTaskRecoveryObligation[];
+      recoveryUnresolved: boolean;
+    }
+  | {
+      kind: "task_settle";
+      projectId: string;
+      taskId: string;
+      attemptId: string;
+      operationId: string;
+      authorityBindingId: string;
+      outcome: "completed" | "failed" | "cancelled" | "recovery_required";
+      cleanupConfirmed: boolean;
+      recoveryObligations: readonly ProjectTaskRecoveryObligation[];
+      recoveryUnresolved: boolean;
+      candidateId?: string | null;
+      /** 業務上の回復状態とは別に保持する、結果観測の未解決事実。 */
+      resultUnresolved: boolean;
+    }
+>;
+
+/** 確定済み実行入力。設定モデルを参照せず、当時の選定と相関値を保持する。 */
 export type ExecutionSelection = Readonly<{
   provider: "codex" | "claude";
   modelIdentifier: string;
@@ -328,11 +426,10 @@ export type QueueUpdateRequest = Readonly<
 export type QueueCreateRequest = Readonly<
   | {
       kind: "scheduled";
-      input: Parameters<
-        typeof import("./crud.ts").prepareQueueEntryCreation
-      > extends [unknown, ...infer Rest]
-        ? Rest
-        : never;
+      input: [
+        queue: QueueEnqueueInput,
+        initialization?: import("../state/types.ts").ProjectExecutionInitialization,
+      ];
     }
   | {
       kind: "single";

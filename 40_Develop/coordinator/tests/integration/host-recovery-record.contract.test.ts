@@ -39,15 +39,13 @@ import {
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
   getOwnedHostRecoveryIdByManagementCapability,
+  loadHostRecoveryRecordByToken,
+  observeHostRecoveryCleanup,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   transitionHostRecoveryState,
   verifyOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
-import {
-  loadHostRecoveryRecordByToken,
-  observeHostRecoveryCleanup,
-} from "../../src/execution/recovery.ts";
 import { formatHostRecoveryToken } from "../../src/execution/result.ts";
 import {
   classifyDockerProbeRecoveryChildren,
@@ -1759,7 +1757,7 @@ test("Host Windows: absent遷移の再入場は事前計算したexact tokenへ�
           path.resolve(import.meta.dirname, "../../src/execution/operation.ts"),
         ).href,
         pathToFileURL(
-          path.resolve(import.meta.dirname, "../../src/execution/recovery.ts"),
+          path.resolve(import.meta.dirname, "../../src/execution/operation.ts"),
         ).href,
         owned.root,
         token,

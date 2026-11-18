@@ -173,15 +173,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.state.retirement",
-      "kind": "file",
-      "path": "src/state/retirement.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.state.transaction",
       "kind": "file",
       "path": "src/state/transaction.ts",
@@ -193,7 +184,7 @@
     {
       "symbolId": "coordinator.source.src.task.queue",
       "kind": "file",
-      "path": "src/task/queue.ts",
+      "path": "src/state/transaction.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -575,7 +566,8 @@
       "kind": "file",
       "path": "src/execution/observation.ts",
       "archIds": [
-        "ARCH-000004"
+        "ARCH-000004",
+        "ARCH-000008"
       ]
     },
     {
@@ -1056,7 +1048,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.orchestrator.durable.foundation",
-        "orchestrator.state-core"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -1076,7 +1068,7 @@
         "coordinator.source.src.security.orchestrator.single.task.adapter",
         "orchestrator.execution",
         "orchestrator.source.src.ports.execution.port",
-        "orchestrator.state-core"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -1123,7 +1115,7 @@
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.objective-intake",
         "orchestrator.source.src.ports.execution.port",
-        "orchestrator.state-core"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -1174,7 +1166,7 @@
         "orchestrator.human-decision-application",
         "orchestrator.replanning-application",
         "domain-model.decision.operations",
-        "orchestrator.state-core"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -1466,7 +1458,7 @@
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.objective-application",
         "orchestrator.execution",
-        "orchestrator.state-core"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -2567,7 +2559,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.record",
       "kind": "file",
-      "path": "src/execution/result.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2720,7 +2712,7 @@
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "coordinator.source.src.composition.orchestrator.composition.root",
         "orchestrator.acceptance-decision-application",
-        "orchestrator.state-core",
+        "domain-model.task.crud",
         "orchestrator.decision.acceptance-decision-record"
       ]
     },
@@ -2860,7 +2852,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.isolation.profile",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/execution/validation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3407,18 +3399,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.state-core",
-      "kind": "file",
-      "path": "src/state/create.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000005"
-      ],
-      "implements": [
-        "orchestrator.objective-task-lifecycle"
-      ]
-    },
-    {
       "symbolId": "orchestrator.state-projection",
       "kind": "file",
       "path": "src/state/projection.ts",
@@ -3428,50 +3408,6 @@
       ],
       "implements": [
         "orchestrator.project-state-projection"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.task-scheduling",
-      "kind": "file",
-      "path": "src/task/scheduling.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.queue-lease-lifecycle"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.task-state-lifecycle",
-      "kind": "file",
-      "path": "src/task/lifecycle.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.objective-task-lifecycle"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.task-recovery-transitions",
-      "kind": "file",
-      "path": "src/task/recovery.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.recovery-obligation"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.objective-replan-transitions",
-      "kind": "file",
-      "path": "src/task/lifecycle.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.objective-task-lifecycle"
       ]
     },
     {
@@ -3608,7 +3544,7 @@
       "verifies": [
         "orchestrator.acceptance-decision-application",
         "orchestrator.source.src.public.contract.decision.request",
-        "orchestrator.state-core",
+        "domain-model.task.crud",
         "domain-model.decision.crud"
       ]
     },
@@ -3643,7 +3579,7 @@
       "verifies": [
         "orchestrator.objective-intake",
         "orchestrator.source.src.public.contract.objective.request",
-        "orchestrator.state-core"
+        "domain-model.task.crud"
       ]
     },
     {
@@ -3679,7 +3615,7 @@
       "verifies": [
         "orchestrator.source.src.ports.state.port",
         "orchestrator.source.src.public.contract.project.state.query",
-        "orchestrator.state-core",
+        "domain-model.task.crud",
         "orchestrator.state-query-application",
         "coordinator.state.request"
       ]
@@ -3710,13 +3646,7 @@
         "PRL-UT-007"
       ],
       "verifies": [
-        "orchestrator.state-core",
-        "orchestrator.state-projection",
-        "orchestrator.task-scheduling",
-        "orchestrator.task-state-lifecycle",
-        "orchestrator.task-recovery-transitions",
-        "orchestrator.objective-replan-transitions",
-        "domain-model.decision.crud"
+        "orchestrator.state-projection"
       ]
     },
     {
@@ -3887,7 +3817,7 @@
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "orchestrator.objective-application",
         "orchestrator.public-api",
-        "orchestrator.state-core",
+        "domain-model.task.crud",
         "orchestrator.state-query-application",
         "domain-model.runtime-area-result",
         "orchestrator.decision-public-operation",

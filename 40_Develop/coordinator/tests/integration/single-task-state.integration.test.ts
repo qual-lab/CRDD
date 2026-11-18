@@ -24,12 +24,12 @@ import {
 } from "../../../execution-model/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import {
   createCoordinatorSnapshotStatePort,
   enqueueCoordinatorSingleTask,
   updateCoordinatorSingleTask,
-} from "../../src/task/queue.ts";
+} from "../../src/state/transaction.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 import {
   executionSelection,
@@ -123,13 +123,15 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     }).status,
     "blocked",
   );
-  assert.equal(
-    enqueueCoordinatorSingleTask(root, binding, {
-      ...entry,
-      queueId: "request-retired",
-    }).status,
-    "blocked",
-  );
+  const stateFile = path.join(root, ".crdd/domain-model/state.json");
+  const beforeIdentityConflict = fs.readFileSync(stateFile);
+  const identityConflict = enqueueCoordinatorSingleTask(root, binding, {
+    ...entry,
+    singleTask: { ...record, principalId: "other-user" },
+  });
+  assert.equal(identityConflict.status, "blocked");
+  assert.equal(identityConflict.reason, "orchestrator_queue_identity_conflict");
+  assert.deepEqual(fs.readFileSync(stateFile), beforeIdentityConflict);
   const acquired = acquireCoordinatorSnapshotLease(
     root,
     binding,
@@ -1009,10 +1011,10 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       },
     );
     const queueStorage = mock.module(
-      new URL("../../src/task/queue.ts", import.meta.url).href,
+      new URL("../../src/state/transaction.ts", import.meta.url).href,
       {
         namedExports: {
-          ...(await import("../../src/task/queue.ts")),
+          ...(await import("../../src/state/transaction.ts")),
           ...Object.fromEntries(
             Object.entries(failures).filter(([name]) =>
               [

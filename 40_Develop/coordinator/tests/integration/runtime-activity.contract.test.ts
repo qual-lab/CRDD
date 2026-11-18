@@ -19,6 +19,7 @@ import {
   initializeExecutionStore,
   saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
+import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataArea,
@@ -26,7 +27,6 @@ import {
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { queryActivity } from "../../src/index.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
@@ -123,7 +123,7 @@ function state(root: string, revision: string) {
       .status,
     "completed",
   );
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId,
     milestoneId: "milestone-a",

@@ -3,43 +3,54 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-import {
-  leaseIdentity,
-  snapshotStateRecord,
-  snapshotStateArray,
-  validId,
-  encodeStateValue,
-} from "../state/operations.ts";
+
 import type { Repository } from "../../../version-control/src/index.ts";
+import { historyRow } from "../history/validation.ts";
+import type { ProjectObjectiveDefinition } from "../objective/types.ts";
+import { hasTaskDependencyCycle } from "../objective/validation.ts";
 import {
+  initializeExecutionStore,
   readExecutionContent,
   saveExecutionDefinition,
   withSnapshotOperation,
 } from "../state/crud.ts";
+import {
+  encodeStateValue,
+  leaseIdentity,
+  normalizeRepositoryRelativePath,
+  REVISION,
+  snapshotStateArray,
+  snapshotStateRecord,
+  validId,
+} from "../state/operations.ts";
 import type {
   ExecutionModelAccess,
-  StateVersion,
-  Snapshot,
+  ProjectExecutionInitialization,
   ProjectExecutionState,
+  Snapshot,
+  StateVersion,
+} from "../state/types.ts";
+import {
+  PROJECT_SNAPSHOT_SCHEMA,
+  PROJECT_STATE_CONTRACT,
 } from "../state/types.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
 import type {
   ProjectQueueEntry,
+  ProjectQueueState,
   ProjectTaskDefinition,
   QueueCreateRequest,
-  QueueUpdateRequest,
-  ProjectQueueState,
   QueueEnqueueInput,
+  QueueUpdateRequest,
   SingleTaskRecord,
 } from "./types.ts";
-import { historyRow } from "../history/validation.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../state/types.ts";
 import {
-  validResultReference,
-  validQueueEntry,
-  validState,
   inspectSingleTaskRecord,
+  inspectTaskExecutionSelections,
+  validQueueEntry,
+  validResultReference,
+  validState,
 } from "./validation.ts";
 /**
  * 同じSnapshotのQueue一件を照会する。
@@ -237,11 +248,11 @@ export function queryQueue(
  * Queueの固定処置を同じ保存Ownerで確定する。
  * @responsibility Intent・観測・元版の各必須条件を種別ごとに保持する。
  * @trace ARCH-000008
- * @input 検証済みRepository、結合と種別固定の必須入力。
+ * @input 検証済みRepository、結合、Queue入力と任意の有限初期化入力。
  * @returns 元の保存・拒否・不明結果。
  * @precondition 物理処置と認可は上位Ownerが所有する。
  * @postcondition 他区画とexact Identityを保持する。
- * @effect 元の短期排他・読取り・保存だけ。
+ * @effect 有効な初期化入力がある場合だけ既存Storeを初期化し、ProjectとQueueを同じ候補で保存する。
  * @failure 不正種別・競合・観測不能は拒否する。
  * @invariant Callbackの短絡順とLock内のRoot結合を変更しない。
  * @boundary モデル保存と上位の物理処置。
@@ -466,12 +477,58 @@ export function createQueue(
       if (tuple.status !== "ok" || tuple.value.length < 1)
         return blocked("orchestrator_snapshot_input_invalid");
       let input = tuple.value as unknown as typeof captured.input;
+      let initialState: ProjectExecutionState | undefined;
       if (tuple.value.length === 2 && input[1] !== undefined) {
         try {
-          input = [input[0], JSON.parse(encodeStateValue(input[1]))];
+          const initialization = snapshotStateRecord(
+            input[1],
+            new Set([
+              "taskExecutionSelections",
+              "projectId",
+              "milestoneId",
+              "repositoryRevision",
+              "maximumConcurrency",
+              "milestoneAcceptanceCriteria",
+              "objectives",
+              "tasks",
+              "ownerGeneration",
+            ]),
+          );
+          if (!initialization)
+            return blocked("orchestrator_snapshot_input_invalid");
+          const created = createProjectExecutionState(
+            JSON.parse(encodeStateValue(initialization)),
+          );
+          if (created.status !== "completed") return blocked(created.reason);
+          const queueInput = JSON.parse(encodeStateValue(input[0]));
+          const queueKeys = [
+            "queueId",
+            "projectId",
+            "milestoneId",
+            "requestHash",
+            "originLane",
+            "repositoryRevision",
+            "scopeHash",
+          ];
+          if (queueInput && Object.hasOwn(queueInput, "workspaceId"))
+            queueKeys.push("workspaceId");
+          const queue = snapshotStateRecord(queueInput, new Set(queueKeys));
+          if (!queue) return blocked("orchestrator_snapshot_input_invalid");
+          if (
+            created.state.projectId !== queue.projectId ||
+            created.state.milestoneId !== queue.milestoneId ||
+            created.state.repositoryRevision !== queue.repositoryRevision
+          )
+            return blocked("orchestrator_state_generation_conflict");
+          if (!validQueueEntry(createQueuedEntry(queueInput)))
+            return blocked("orchestrator_queue_input_invalid");
+          input = [queueInput, input[1]];
+          initialState = created.state;
         } catch {
           return blocked("orchestrator_snapshot_input_invalid");
         }
+        const initialized = initializeExecutionStore(workingDirectory, binding);
+        if (initialized.status !== "completed") return initialized;
       }
 
       return withSnapshotOperation<
@@ -480,7 +537,7 @@ export function createQueue(
           { status: "completed" }
         >["value"]["value"]
       >(workingDirectory, binding, (current) =>
-        prepareQueueEntryCreation(current, ...input),
+        prepareQueueEntryCreation(current, input[0], initialState),
       );
     }
     case "single": {
@@ -1369,16 +1426,7 @@ export function prepareQueueEntryCreation(
       return blockedQueueCandidate("orchestrator_state_generation_conflict");
     current = { ...current, projects: [...current.projects, initialState] };
   }
-  const value: ProjectQueueEntry = {
-    ...input,
-    historySettled: false,
-    workspaceId: input.workspaceId ?? null,
-    state: "queued",
-    generation: 1,
-    ownerGeneration: null,
-    resumeCondition: null,
-    resultReference: null,
-  };
+  const value = createQueuedEntry(input);
   if (
     !validQueueEntry(value) ||
     value.singleTask !== undefined ||
@@ -1407,6 +1455,24 @@ export function prepareQueueEntryCreation(
     },
     value,
   });
+}
+
+/**
+ * 計画Queueの初期値を一つの正本で構築する。
+ * @responsibility 受付前の構造確認と保存候補で同じ初期属性を使用する。
+ * @trace ARCH-000008
+ */
+function createQueuedEntry(input: QueueEnqueueInput): ProjectQueueEntry {
+  return {
+    ...input,
+    historySettled: false,
+    workspaceId: input.workspaceId ?? null,
+    state: "queued",
+    generation: 1,
+    ownerGeneration: null,
+    resumeCondition: null,
+    resultReference: null,
+  };
 }
 
 /**
@@ -1481,5 +1547,248 @@ function blockedQueueCandidate(
     value: null,
     manualRecoveryRequired,
     recoveryId,
+  });
+}
+
+/** 初回生成の内部結果。保存成功や実行許可ではない。 */
+type ProjectInitializationResult =
+  | Readonly<{
+      status: "completed";
+      reason: string;
+      state: ProjectExecutionState;
+      taskIds: readonly string[];
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: string;
+      state: null;
+      taskIds: readonly string[];
+    }>;
+
+/** 初期値の用途別正規化と重複拒否を保持する。@trace ARCH-000008 */
+function captureInitialStrings(
+  values: readonly string[],
+  kind: "identity_or_path" | "repository_path" | "human_text",
+): readonly string[] | null {
+  const resultItems: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== "string" || value.length === 0) return null;
+    const normalized =
+      kind === "repository_path"
+        ? normalizeRepositoryRelativePath(value)
+        : kind === "identity_or_path"
+          ? value.replaceAll("\\", "/")
+          : value;
+    if (normalized === null) return null;
+    const key = kind === "human_text" ? normalized : normalized.toUpperCase();
+    if (seen.has(key)) return null;
+    seen.add(key);
+    resultItems.push(normalized);
+  }
+  return Object.freeze(resultItems);
+}
+
+/** 初回Task定義を入力から独立した値へ捕捉する。@trace ARCH-000008 */
+function captureInitialTaskDefinition(
+  definition: ProjectTaskDefinition,
+): ProjectTaskDefinition | null {
+  if (!validId(definition.id) || !validId(definition.objectiveId)) return null;
+  const dependencies = captureInitialStrings(
+    definition.dependencies,
+    "identity_or_path",
+  );
+  const allowedPaths = captureInitialStrings(
+    definition.allowedPaths,
+    "repository_path",
+  );
+  const conflictKeys = captureInitialStrings(
+    definition.conflictKeys,
+    "identity_or_path",
+  );
+  if (
+    !dependencies ||
+    !allowedPaths ||
+    !conflictKeys ||
+    allowedPaths.length === 0
+  )
+    return null;
+  return Object.freeze({
+    id: definition.id,
+    objectiveId: definition.objectiveId,
+    dependencies,
+    allowedPaths,
+    conflictKeys,
+  });
+}
+
+/** 初回Objectiveの受入説明文をPath変換せず捕捉する。@trace ARCH-000008 */
+function captureInitialObjectiveDefinition(
+  definition: ProjectObjectiveDefinition,
+): ProjectObjectiveDefinition | null {
+  if (!validId(definition.id)) return null;
+  const acceptanceCriteria = captureInitialStrings(
+    definition.acceptanceCriteria,
+    "human_text",
+  );
+  if (!acceptanceCriteria || acceptanceCriteria.length === 0) return null;
+  return Object.freeze({ id: definition.id, acceptanceCriteria });
+}
+
+/**
+ * 初期化入力からgeneration 1のProject状態を組み立てる。
+ * @responsibility 選定・ID・定義・参照・DAG・依存待ち初期値と既存拒否理由を所有する。
+ * @trace ARCH-000008
+ * @input input: 計画・固定選定・Owner世代。I/O前に独立捕捉した値。
+ * @returns 初期状態又は既存の拒否理由。保存完了ではない。
+ * @precondition 保存利用側は閉形式捕捉を先行する。
+ * @postcondition generation 1を固定し、Authority・取消・外部実行を開始しない。
+ * @effect N/A: メモリ内の値処理だけ。
+ * @failure 不正選定・Identity・定義・依存をblockedとして返す。
+ * @invariant 既存の検査順と拒否理由を保持する。
+ * @boundary EM内部。製品Rootには公開しない。
+ * @security 秘密値や実行許可を生成しない。
+ * @concurrency N/A: 保存・競合確認は呼出し元の既存Writerが所有する。
+ */
+export function createProjectExecutionState(
+  input: ProjectExecutionInitialization,
+): ProjectInitializationResult {
+  const selections = inspectTaskExecutionSelections(
+    input.taskExecutionSelections,
+  );
+  if (
+    !selections ||
+    !validId(input.projectId) ||
+    !validId(input.milestoneId) ||
+    !validId(input.ownerGeneration) ||
+    !(
+      typeof input.repositoryRevision === "string" &&
+      REVISION.test(input.repositoryRevision)
+    ) ||
+    !Number.isSafeInteger(input.maximumConcurrency) ||
+    input.maximumConcurrency < 1 ||
+    input.maximumConcurrency > 5 ||
+    input.tasks.length === 0 ||
+    input.objectives.length === 0
+  ) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "orchestrator_input_invalid",
+      state: null,
+      taskIds: Object.freeze([]),
+    });
+  }
+  const definitions = input.tasks.map(captureInitialTaskDefinition);
+  const objectiveDefinitions = input.objectives.map(
+    captureInitialObjectiveDefinition,
+  );
+  const milestoneAcceptanceCriteria = captureInitialStrings(
+    input.milestoneAcceptanceCriteria,
+    "human_text",
+  );
+  if (definitions.some((definition) => !definition)) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "orchestrator_task_definition_invalid",
+      state: null,
+      taskIds: Object.freeze([]),
+    });
+  }
+  if (
+    objectiveDefinitions.some((definition) => !definition) ||
+    !milestoneAcceptanceCriteria ||
+    milestoneAcceptanceCriteria.length === 0
+  ) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "orchestrator_acceptance_definition_invalid",
+      state: null,
+      taskIds: Object.freeze([]),
+    });
+  }
+  const completeDefinitions = definitions as readonly ProjectTaskDefinition[];
+  const completeObjectiveDefinitions =
+    objectiveDefinitions as readonly ProjectObjectiveDefinition[];
+  const ids = new Set(completeDefinitions.map((definition) => definition.id));
+  const objectiveIds = new Set(
+    completeObjectiveDefinitions.map((definition) => definition.id),
+  );
+  if (
+    ids.size !== completeDefinitions.length ||
+    objectiveIds.size !== completeObjectiveDefinitions.length ||
+    completeDefinitions.some(
+      (definition) => !objectiveIds.has(definition.objectiveId),
+    ) ||
+    completeObjectiveDefinitions.some(
+      (objective) =>
+        !completeDefinitions.some(
+          (definition) => definition.objectiveId === objective.id,
+        ),
+    ) ||
+    completeDefinitions.some(
+      (definition) =>
+        definition.dependencies.includes(definition.id) ||
+        definition.dependencies.some((dependency) => !ids.has(dependency)),
+    ) ||
+    hasTaskDependencyCycle(completeDefinitions)
+  ) {
+    return Object.freeze({
+      status: "blocked",
+      reason: "orchestrator_task_graph_invalid",
+      state: null,
+      taskIds: Object.freeze([]),
+    });
+  }
+  const tasks = completeDefinitions.map((definition) =>
+    Object.freeze({
+      definition,
+      state:
+        definition.dependencies.length === 0
+          ? ("ready" as const)
+          : ("waiting_dependency" as const),
+      attemptId: null,
+      operationId: null,
+      authorityBindingId: null,
+      startPhase: "none" as const,
+      cleanupConfirmed: false,
+      recoveryObligations: Object.freeze([]),
+      recoveryUnresolved: false,
+      candidateId: null,
+      retryCount: 0,
+      supersededBy: null,
+    }),
+  );
+  const state = Object.freeze({
+    contract: PROJECT_STATE_CONTRACT,
+    taskExecutionSelections: selections,
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+    repositoryRevision: input.repositoryRevision,
+    generation: 1,
+    ownerGeneration: input.ownerGeneration,
+    decisionApplicationId: null,
+    maximumConcurrency: input.maximumConcurrency,
+    milestone: Object.freeze({
+      id: input.milestoneId,
+      acceptanceCriteria: milestoneAcceptanceCriteria,
+      state: "planned" as const,
+      criterionEvidenceIds: Object.freeze([]),
+    }),
+    objectives: Object.freeze(
+      completeObjectiveDefinitions.map((definition) =>
+        Object.freeze({
+          definition,
+          state: "planned" as const,
+          criterionEvidenceIds: Object.freeze([]),
+        }),
+      ),
+    ),
+    tasks: Object.freeze(tasks),
+  });
+  return Object.freeze({
+    status: "completed",
+    reason: "orchestrator_state_created",
+    state,
+    taskIds: Object.freeze(tasks.map((task) => task.definition.id)),
   });
 }

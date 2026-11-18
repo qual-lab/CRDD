@@ -1197,7 +1197,9 @@
       ],
       "verifies": [
         "domain-model.state.types",
-        "domain-model.state.codec"
+        "domain-model.state.codec",
+          "domain-model.task.crud",
+          "domain-model.task.queue"
       ]
     },
     {

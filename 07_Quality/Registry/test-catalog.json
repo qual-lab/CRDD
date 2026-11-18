@@ -5515,7 +5515,9 @@
       "semanticTags": [
         "project",
         "runtime",
-        "execution"
+        "execution",
+        "task-update-boundary",
+        "recovery-identity-preservation"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -7205,7 +7207,8 @@
         "state",
         "query",
         "public",
-        "result_capture"
+        "result_capture",
+        "recovery-obligation-merge"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -10505,7 +10508,10 @@
         "decision-history",
         "atomic-application",
         "history-reentry",
-        "retirement"
+        "retirement",
+        "task-update-reentry",
+        "task-recovery-phase",
+        "task-owner-loss"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -10520,7 +10526,9 @@
         "lock_release_observed",
         "history_confirmed_or_reported",
         "decision_not_reapplied",
-        "retirement_requires_exact_history"
+        "retirement_requires_exact_history",
+        "task_recovery_replay_preserves_bytes",
+        "owner_loss_absence_and_stale_request_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -11289,7 +11297,15 @@
       "semanticTags": [
         "state-schema",
         "projection",
-        "type-contract"
+        "type-contract",
+        "initial-execution",
+        "dependency-graph",
+        "task-start-candidates",
+        "task-handoff-started",
+        "task-pre-effect-settlement",
+        "task-terminal-settlement",
+        "task-recovery-update",
+        "task-owner-loss"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -11297,7 +11313,14 @@
       "postconditions": [
         "canonical_snapshot_shape_preserved",
         "projection_contracts_preserved",
-        "readonly_nullable_optional_preserved"
+        "readonly_nullable_optional_preserved",
+        "initial_execution_rejection_and_normalization_preserved",
+        "task_capacity_conflict_and_recovery_reservations_preserved",
+        "task_handoff_started_identity_and_phase_preserved",
+        "pre_effect_settlement_correlation_and_replay_preserved",
+        "task_terminal_rules_owner_preserved",
+        "task_recovery_phase_batch_and_replay_preserved",
+        "owner_loss_binding_and_absence_rules_preserved"
       ],
       "mandatoryByDefault": true
     },

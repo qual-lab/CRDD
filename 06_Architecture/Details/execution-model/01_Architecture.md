@@ -135,9 +135,19 @@ Taskの候補・回復・結果参照の文法はTask、計画定義HashはObjec
 <a id="public-api"></a>
 ## 3. 公開契約
 
-Rootは93項目（58値・35型）。完成した読取り・更新・終了・回復・履歴操作、独立した入力受付とモデル語彙を明示公開する。正確な集合は`src/index.ts`と固定期待値の公開契約試験で確認する。件数を目標にunknownや巨大Unionへ置換しない。
+Rootは95項目（58値・37型）。完成した読取り・更新・終了・回復・履歴操作、独立した入力受付とモデル語彙を明示公開する。正確な集合は`src/index.ts`と固定期待値の公開契約試験で確認する。件数を目標にunknownや巨大Unionへ置換しない。
 
-通常CRUDの`queryPlan`／`queryObjectives`／`queryTasks`／`queryQueue`と単件取得、同版複合取得の`readState`を区別する。`queryQueue`は現在の本番外部Consumerがなくても、採用済みの認証・対象限定付き通常一覧Capabilityとして維持する。他の92公開項目には本番の直接参照があるが、参照の存在だけを設計上の必要性の証明とはしない。
+管理Projectの読取り・保存成功結果は、同じProject・世代から導出した`taskStartCandidates`を非永続の観測として返す。並列枠・未回収資源の予約・Path／Conflict Key・定義順の規則はTaskが所有する。観測はAuthorityではなく、予約・引渡し・開始観測は既存の`saveProjectExecutionState`が有限の`task_start`／`task_handoff`／`task_started`要求を受け、同じ短期保存Ownerのfresh Stateで再検査する。保存形式・一般Task定義CRUD・他の更新の保存境界は変更しない。
+
+同じ保存入口は`task_retry`／`task_replan`も受け付ける。再試行の上限は対象TaskのretryCount、部分再計画の上限は置換済みTask数であり、共通counterへ統合しない。分類・再試行の実行判断とQueue再開はCoordinatorが所有する。EMはfresh状態で元世代・回数・置換範囲・依存と循環を照合し、保存とLock解放を確認した時だけ、同版の対象Task一覧`taskUpdateTaskIds`を非永続の成功情報として返す。直後再送はTask初期値・定義順・対象ObjectiveとMilestoneの確定状態まで一致する場合に限り、既存の同候補耐久確認へ接続する。
+
+`task_settle_before_effect`はstarting／handoff_preparedの開始前終端だけを扱う。結果解釈はCoordinatorが所有し、EMは元世代・Task／Attempt／Operation／Authority相関、失敗・取消・回復必要と回復義務を検査する。同じ捕捉値から結果事実を一件だけ内部生成し、Task終端と関連Operation整理を同じ物理Writerへ渡す。CallerのresultFacts追加は拒否し、candidateId等の余分fieldも無視しない。直後再送も同じ規則で候補を再構築して全文一致を確認し、内部結果事実を省略せず耐久再確認する。通常終端のphaseと混同せず、回復バッチは別の更新境界として扱う。
+
+通常のrunning終端は`task_settle`で扱う。清掃未確認の失敗はcleanup_pending、完了・取消は清掃確認を必須とし、候補は完了に限る。完了依存のready化とObjective／Milestoneの更新を同じ候補で行い、受入を自動確定しない。業務上のrecoveryUnresolvedと結果事実のresultUnresolvedを分け、結果事実はEMが同じ有限要求から内部生成する。同じTask本文でも結果事実だけ異なる再送は既存Writerの照合で拒否し、Task終端と技術Operation整理は一保存のままとする。Coordinatorの旧task/lifecycle.tsと保存転送関数は撤去し、回復義務の更新も同じ有限保存へ統合する。
+
+初回ProjectとQueueの作成は`createQueue`のscheduled操作で完結する。第二入力は完成Stateではなく`ProjectExecutionInitialization`とし、閉形式捕捉・入力検査をStore初期化より先に実施する。モデル内部でgeneration 1と依存待ちを組み立て、同じ保存候補へProjectとQueueを結合する。freshな同ID照合を優先し、再送で勝者のOwner・固定選定・初期値を置換しない。初期生成HelperはRootへ公開しない。Taskの開始・終了・回復義務更新は有限保存へ接続するが、Owner不在・元Operationの実観測はCoordinatorに残し、その結果からの状態結合は同じ有限保存が所有する。初期生成だけから全制御の移管済みを主張しない。
+
+通常CRUDの`queryPlan`／`queryObjectives`／`queryTasks`／`queryQueue`と単件取得、同版複合取得の`readState`を区別する。`queryQueue`は現在の本番外部Consumerがなくても、採用済みの認証・対象限定付き通常一覧Capabilityとして維持する。他の93公開項目には本番の直接参照があるが、参照の存在だけを設計上の必要性の証明とはしない。
 
 ### 独立した入力受付
 

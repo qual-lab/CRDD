@@ -14,7 +14,10 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
+import {
+  initializeExecutionStore,
+  saveProjectExecutionState,
+} from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -22,16 +25,9 @@ import {
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
-import {
-  markProjectTaskRecoveryObligationRecovering,
-  settleProjectTaskRecoveryObligation,
-} from "../../src/task/recovery.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
-import {
-  readCoordinatorState,
-  writeCoordinatorState,
-} from "../fixtures/task-persistence-fixture.ts";
+import { readCoordinatorState } from "../fixtures/task-persistence-fixture.ts";
 import {
   registerSyntheticOperations,
   settleSyntheticOperation,
@@ -233,42 +229,35 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
   assert.ok(task);
   assert.ok(obligation);
   if (obligation.phase === "required") {
-    const recovering = markProjectTaskRecoveryObligationRecovering(
-      state,
-      state.generation,
-      task.definition.id,
-      obligation.kind,
-      obligation.recoveryId,
-    );
-    assert.equal(recovering.status, "completed");
-    assert.ok(recovering.state);
-    const written = writeCoordinatorState(
-      workingDirectory,
+    const write = saveProjectExecutionState(
+      verifyRuntimePersistenceRepository(workingDirectory),
       "binding-a",
-      recovering.state,
+      {
+        kind: "task_recovery_start",
+        projectId: state.projectId,
+        taskId: task.definition.id,
+        recoveryKind: obligation.kind,
+        recoveryId: obligation.recoveryId,
+      },
       state.generation,
     );
-    assert.equal(written.status, "completed");
-    state = written.value;
+    assert.equal(write.status, "completed");
+    assert.ok(write.value);
+    state = write.value;
   }
-  const settled = settleProjectTaskRecoveryObligation(
-    state,
+  const write = saveProjectExecutionState(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    "binding-a",
+    {
+      kind: "task_recovery_settle",
+      projectId: state.projectId,
+      taskId: task.definition.id,
+      recoveryKind: obligation.kind,
+      recoveryId: obligation.recoveryId,
+    },
     state.generation,
-    task.definition.id,
-    obligation.kind,
-    obligation.recoveryId,
   );
-  assert.equal(settled.status, "completed");
-  assert.ok(settled.state);
-  assert.equal(
-    writeCoordinatorState(
-      workingDirectory,
-      "binding-a",
-      settled.state,
-      state.generation,
-    ).status,
-    "completed",
-  );
+  assert.equal(write.status, "completed");
 }
 
 /**

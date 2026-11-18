@@ -19,7 +19,6 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import * as executionModel from "../../../execution-model/src/index.ts";
 import {
-  saveRecoveryHistory,
   applyResourceCleanup,
   applyResourceEvent,
   completeOperation,
@@ -30,6 +29,7 @@ import {
   type RestartCheckpoint,
   readState,
   saveRecoveryCheckpoint,
+  saveRecoveryHistory,
 } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
@@ -59,6 +59,7 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  loadHostRecoveryRecordByToken,
   recoverOwnedOperationDirectories,
 } from "../../src/execution/operation.ts";
 import {
@@ -72,7 +73,6 @@ import {
 } from "../../src/execution/persistence.ts";
 import {
   finalizeRuntimeOwnedDockerRestartPreparation,
-  loadHostRecoveryRecordByToken,
   persistRuntimeOwnedDockerRestartCheckpoint,
   persistRuntimeOwnedDockerTaskRecoveryCheckpoint,
   prepareRuntimeOwnedDockerRestart,
@@ -2796,7 +2796,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ...attemptSelection(startPlan.executionSelection),
       activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
-      typeof import("../../src/execution/controller.ts").completeRuntimeOwnedCoordinatorHostSubmission
+      typeof import("../../src/execution/recovery.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
     const mountRuntime = await import("../../src/execution/authority.ts");
     const mountMock = t.mock.module("../../src/execution/authority.ts", {
@@ -2857,7 +2857,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     });
     try {
       const hostSource = fs.readFileSync(
-        new URL("../../src/execution/controller.ts", import.meta.url),
+        new URL("../../src/execution/recovery.ts", import.meta.url),
         "utf8",
       );
       const hostBody = [
@@ -2877,7 +2877,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ].join("\n");
       const hostStartRuntime = (await import(
         `data:text/javascript;base64,${Buffer.from(`${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
-      )) as typeof import("../../src/execution/controller.ts");
+      )) as typeof import("../../src/execution/recovery.ts");
       const beforeHostRequest = fs.readFileSync(freshStateFile);
       const wrongOwner =
         hostStartRuntime.beginRuntimeOwnedCoordinatorHostSubmission(

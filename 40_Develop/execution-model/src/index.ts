@@ -49,8 +49,8 @@ export type {
 } from "./decision/types.ts";
 export { inspectDecision } from "./decision/validation.ts";
 export {
-  saveRecoveryHistory,
   retireStateRecords,
+  saveRecoveryHistory,
   transferHistory,
 } from "./history/crud.ts";
 export {
@@ -69,30 +69,31 @@ export type {
 export { OBJECTIVE_STATES } from "./objective/types.ts";
 export { inspectExecutionPlan } from "./objective/validation.ts";
 export {
-  acquireLease,
-  readLease,
-  recoverLease,
-  releaseLease,
-} from "./state/lease.ts";
-export {
   initializeExecutionState,
   initializeExecutionStore,
   readProjectExecutionState,
   readState,
   saveProjectExecutionState,
 } from "./state/crud.ts";
-export type {
-  ExecutionModelAccess,
-  ExecutionStateSnapshot,
-  LeaseKind,
-  ProjectExecutionState,
-  StateVersion,
-} from "./state/types.ts";
-export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
+export {
+  acquireLease,
+  readLease,
+  recoverLease,
+  releaseLease,
+} from "./state/lease.ts";
 export {
   createLocalPrincipalId,
   isPrincipalId,
 } from "./state/operations.ts";
+export type {
+  ExecutionModelAccess,
+  ExecutionStateSnapshot,
+  LeaseKind,
+  ProjectExecutionInitialization,
+  ProjectExecutionState,
+  StateVersion,
+} from "./state/types.ts";
+export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
 export { resumeRepairRecordSave } from "./storage/publication.ts";
 export { ExecutionStorageBlockedError } from "./storage/store.ts";
 export {
@@ -119,6 +120,7 @@ export type {
   QueueEnqueueInput,
   SingleTaskRecord,
   TaskExecutionSelections,
+  TaskStartCandidates,
 } from "./task/types.ts";
 export { TASK_STATES } from "./task/types.ts";
 export {

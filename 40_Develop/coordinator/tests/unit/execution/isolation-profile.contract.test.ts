@@ -16,7 +16,7 @@ import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/execution/validation.ts";
 
 type ProfileFixture = Record<string, unknown> & {
   contract: string;

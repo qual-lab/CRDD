@@ -10,24 +10,19 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-
 import {
+  AUTHORITY_FILE_BUNDLE_CONTRACT,
   AUTHORITY_REGISTRY_CONTRACT,
-  validateAuthorityRegistryCandidate,
-} from "../../../src/execution/authority.ts";
-import { AUTHORITY_FILE_BUNDLE_CONTRACT } from "../../../src/execution/authority.ts";
-import {
-  describeAuthorityPrelaunchVerifierContract,
-  reverifyAuthorityBeforeProviderLaunch,
-} from "../../../src/execution/authority.ts";
-import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   decodeCanonicalAuthorityTrustPolicyBytes,
+  describeAuthorityPrelaunchVerifierContract,
+  reverifyAuthorityBeforeProviderLaunch,
+  validateAuthorityRegistryCandidate,
 } from "../../../src/execution/authority.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/execution/validation.ts";
 import { canonicalJson } from "../../support/contract-assertions.ts";
 
 /**

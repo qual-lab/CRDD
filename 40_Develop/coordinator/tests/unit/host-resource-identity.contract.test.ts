@@ -26,7 +26,7 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
  */
 test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要求する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/controller.ts", import.meta.url),
+    new URL("../../src/execution/recovery.ts", import.meta.url),
     "utf8",
   );
   const names = [

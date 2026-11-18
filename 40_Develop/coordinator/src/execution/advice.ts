@@ -63,6 +63,7 @@ import {
   classifyOwnedOperationDirectoryCreationFailure,
   cleanupOwnedOperationDirectoriesAsync,
   createRuntimeOwnedCoordinatorOperation,
+  observeHostRecoveryCleanup,
   recoverOwnedOperationDirectories,
   verifyOwnedOperationCleanupOutcome,
 } from "./operation.ts";
@@ -79,7 +80,6 @@ import {
 import {
   abandonRuntimeOwnedDockerRecovery,
   finalizeRuntimeOwnedDockerRecovery,
-  observeHostRecoveryCleanup,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerHostCleanupReceipt,
 } from "./recovery.ts";

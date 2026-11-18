@@ -8,30 +8,26 @@
  * @scope authority、file、bundle
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
-import { createHash } from "node:crypto";
-import assert from "node:assert/strict";
-import test from "node:test";
 
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import test from "node:test";
 import {
   AUTHORITY_FILE_BUNDLE_CONTRACT,
   AUTHORITY_FILE_BUNDLE_FILES,
   AUTHORITY_FILE_BUNDLE_INPUT_LIMITS,
-  describeAuthorityFileBundleContract,
-  loadAuthorityFileBundleCandidate,
-} from "../../../src/execution/authority.ts";
-import {
   AUTHORITY_REGISTRY_CONTRACT,
-  validateAuthorityRegistryCandidate,
-} from "../../../src/execution/authority.ts";
-import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
   decodeCanonicalAuthorityTrustPolicyBytes,
+  describeAuthorityFileBundleContract,
+  loadAuthorityFileBundleCandidate,
+  validateAuthorityRegistryCandidate,
 } from "../../../src/execution/authority.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/execution/validation.ts";
 import { canonicalJson } from "../../support/contract-assertions.ts";
 
 /**

@@ -101,7 +101,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const historyInputs = await import(${JSON.stringify(new URL("../../src/execution/persistence.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
-      const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
+      const record = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const id = process.argv[2], verified = vc.getRepository(process.cwd());
       /**
        * 公開Readerと実履歴のexact相関を観測する。

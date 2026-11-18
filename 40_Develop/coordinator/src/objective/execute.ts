@@ -15,12 +15,16 @@ import {
   type StoreOptions,
 } from "../../../execution-intelligence/src/index.ts";
 import {
+  inspectTaskExecutionSelections,
   isPrincipalId,
+  type ProjectExecutionInitialization,
   type ProjectExecutionState,
   type ProjectQueueEntry,
   type ProjectTaskRecoveryObligation,
   readState,
+  retireStateRecords,
   type TaskExecutionSelections,
+  type TaskStartCandidates,
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
@@ -37,18 +41,22 @@ import {
   reportExecutionRecording,
   reportExecutionRecordingUnavailable,
 } from "../execution/intelligence.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import {
+  historyRepositoryInput,
+  verifyRuntimePersistenceRepository,
+} from "../execution/persistence.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
 import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
-import { createCoordinatorState } from "../state/create.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
-import { projectCoordinatorState } from "../state/projection.ts";
+import {
+  inspectTaskStartCandidates,
+  projectCoordinatorState,
+} from "../state/projection.ts";
 
-import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 
@@ -57,12 +65,6 @@ import {
   createCoordinatorTaskRecoveryAdapter,
   runCoordinatorOperation,
 } from "../task/dispatch.ts";
-import {
-  markProjectTaskRecoveryObligationRecovering,
-  recordProjectTaskOwnerLossRecoveries,
-  retrySettledProjectTaskRecoveries,
-  settleProjectTaskRecoveryObligation,
-} from "../task/recovery.ts";
 import type {
   CoordinatorExecutionResult,
   CoordinatorTaskExecution,
@@ -170,7 +172,23 @@ function readObjectiveReplay(
       entry.milestoneId === queue.milestoneId &&
       entry.repositoryRevision === queue.repositoryRevision,
   );
-  return projectObjectiveReplay(request, queue, state ?? null);
+  const candidates = snapshotPlainArray(
+    observed.value?.taskStartCandidates,
+    Number.MAX_SAFE_INTEGER,
+  );
+  return projectObjectiveReplay(
+    request,
+    queue,
+    state ?? null,
+    state && candidates.status === "ok"
+      ? (() => {
+          const matches = candidates.value
+            .map((item) => inspectTaskStartCandidates(state, item))
+            .filter((item) => item !== null);
+          return matches.length === 1 ? (matches[0] ?? null) : null;
+        })()
+      : null,
+  );
 }
 
 /**
@@ -186,6 +204,7 @@ function projectObjectiveReplay(
   request: CoordinatorObjectiveRequest,
   queue: ProjectQueueEntry,
   observedState: ProjectExecutionState | null,
+  candidates: TaskStartCandidates | null,
 ) {
   const state =
     observedState?.projectId === queue.projectId &&
@@ -197,6 +216,11 @@ function projectObjectiveReplay(
     state?.tasks.flatMap((task) =>
       task.recoveryObligations.filter((item) => item.phase !== "settled"),
     ) ?? [];
+  if (state && !inspectTaskStartCandidates(state, candidates))
+    return blocked(request, "orchestrator_state_observation_unknown", {
+      knownState: state,
+      queueId: queue.queueId,
+    });
   const recoveryRequired =
     obligations.length > 0 ||
     queue.state === "recovery_required" ||
@@ -219,7 +243,7 @@ function projectObjectiveReplay(
               state.milestone.state === "accepted") &&
             (queue.state !== "cancelled" ||
               state.milestone.state === "cancelled")
-          ? projectCoordinatorState(state)
+          ? projectCoordinatorState(state, candidates)
           : null,
     // 観測要求は資源を作らない。元実行の終了確認はProjectionの進行と区別する。
     cleanupConfirmed: !recoveryRequired,
@@ -494,12 +518,58 @@ function blocked(
       recoveryId: string;
     }>[];
     effectState?: "no_effect" | "settled" | "unknown";
+    knownState?: ProjectExecutionState | null;
+    currentRecovery?: Readonly<{
+      kind: ProjectTaskRecoveryObligation["kind"];
+      recoveryId: string;
+    }>;
+    workspaceResults?: Parameters<
+      typeof createCoordinatorObjectiveResult
+    >[1]["workspaceResults"];
   }> = {},
 ) {
+  const { knownState, currentRecovery, ...result } = options;
+  if (knownState !== undefined || currentRecovery !== undefined) {
+    const obligations = [
+      ...(result.recoveryObligations ?? []),
+      ...(currentRecovery ? [currentRecovery] : []),
+      ...(knownState?.tasks.flatMap((task) =>
+        task.recoveryObligations.filter((item) => item.phase !== "settled"),
+      ) ?? []),
+    ];
+    const seen = new Set<string>();
+    const retained = obligations
+      .filter((item) => {
+        const identity = `${item.kind}:${item.recoveryId}`;
+        if (seen.has(identity)) return false;
+        seen.add(identity);
+        return true;
+      })
+      .map(({ kind, recoveryId }) => Object.freeze({ kind, recoveryId }));
+    return createCoordinatorObjectiveResult(request, {
+      ...result,
+      status: "blocked",
+      reason,
+      projection: null,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
+      processRestartRequired:
+        result.processRestartRequired === true ||
+        retained.some((item) => item.kind === "runtime_process"),
+      recoveryIds: [
+        ...new Set([
+          ...(result.recoveryIds ?? []),
+          ...retained.map((item) => item.recoveryId),
+        ]),
+      ],
+      recoveryObligations: retained,
+    });
+  }
   return createCoordinatorObjectiveResult(request, {
     status: "blocked",
     reason,
-    ...options,
+    ...result,
   });
 }
 
@@ -605,7 +675,7 @@ export async function executeCoordinatorObjective(
     });
   const observedState = persistence.state.readState(request.projectId);
   let state = observedState;
-  let initialState: ProjectExecutionState | undefined;
+  let initialization: ProjectExecutionInitialization | undefined;
   if (state.status !== "completed")
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -629,8 +699,10 @@ export async function executeCoordinatorObjective(
     }
     if (selected.status !== "resolved")
       return blocked(request, selected.reason);
-    const created = createCoordinatorState({
-      taskExecutionSelections: selected.value,
+    const selections = inspectTaskExecutionSelections(selected.value);
+    if (!selections) return blocked(request, "orchestrator_input_invalid");
+    initialization = Object.freeze({
+      taskExecutionSelections: selections,
       projectId: request.projectId,
       milestoneId: request.milestoneId,
       repositoryRevision: request.repositoryRevision,
@@ -640,27 +712,22 @@ export async function executeCoordinatorObjective(
       tasks: plan.tasks,
       ownerGeneration: dependencies.processSafety.getProcessInstanceIdentity(),
     });
-    if (created.status !== "completed") return blocked(request, created.reason);
-    if (
-      !objectiveSelectionsMatch(
-        request,
-        created.state.taskExecutionSelections,
-        true,
-      )
-    )
+    if (!objectiveSelectionsMatch(request, selections, true))
       return blocked(request, "coordinator_objective_selection_mismatch");
-    initialState = created.state;
-    state = Object.freeze({
-      status: "completed" as const,
-      reason: "orchestrator_state_prepared",
-      value: created.state,
-    });
   } else if (
     state.value.milestoneId !== request.milestoneId ||
     state.value.repositoryRevision !== request.repositoryRevision
   ) {
     return blocked(request, "orchestrator_existing_state_identity_mismatch");
   }
+  if (
+    state.value &&
+    !inspectTaskStartCandidates(state.value, state.taskStartCandidates)
+  )
+    return blocked(request, "orchestrator_state_observation_unknown", {
+      knownState: state.value,
+      queueId,
+    });
   if (
     state.value &&
     !objectiveSelectionsMatch(
@@ -683,7 +750,7 @@ export async function executeCoordinatorObjective(
       repositoryRevision: request.repositoryRevision,
       scopeHash,
     },
-    initialState,
+    initialization,
   );
   if (queued.status !== "completed")
     return Object.freeze({
@@ -700,7 +767,7 @@ export async function executeCoordinatorObjective(
           : ("no_effect" as const),
       recoveryIds: Object.freeze(queued.recoveryId ? [queued.recoveryId] : []),
     });
-  if (initialState) {
+  if (initialization) {
     const observed = persistence.state.readState(request.projectId);
     if (observed.status !== "completed" || observed.value === null)
       return Object.freeze({
@@ -716,6 +783,13 @@ export async function executeCoordinatorObjective(
             : [],
         ),
       });
+    if (
+      !inspectTaskStartCandidates(observed.value, observed.taskStartCandidates)
+    )
+      return blocked(request, "orchestrator_state_observation_unknown", {
+        knownState: observed.value,
+        queueId,
+      });
     state = observed;
   }
   if (queued.reason === "orchestrator_queue_request_reused") {
@@ -725,7 +799,12 @@ export async function executeCoordinatorObjective(
       queued.value.state === "completed" ||
       queued.value.state === "cancelled"
     )
-      return projectObjectiveReplay(request, queued.value, state.value);
+      return projectObjectiveReplay(
+        request,
+        queued.value,
+        state.value,
+        state.taskStartCandidates,
+      );
   }
   let queue = queued.value;
   const recoveryQueueId =
@@ -747,7 +826,10 @@ export async function executeCoordinatorObjective(
         status: "blocked",
         reason: "orchestrator_objective_already_running",
         queueId,
-        projection: projectCoordinatorState(state.value),
+        projection: projectCoordinatorState(
+          state.value,
+          state.taskStartCandidates,
+        ),
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         processRestartRequired: false,
@@ -828,19 +910,23 @@ export async function executeCoordinatorObjective(
           manualRecoveryRequired: true,
           effectState: "unknown",
         });
-      const bound = recordProjectTaskOwnerLossRecoveries(
-        state.value,
-        state.value.generation,
-        bindings,
+      const boundRecoveryObligations = Object.freeze(
+        bindings.flatMap((entry) =>
+          entry.status === "matched" && entry.recoveryId
+            ? [
+                Object.freeze({
+                  kind: "docker" as const,
+                  recoveryId: entry.recoveryId,
+                }),
+              ]
+            : [],
+        ),
       );
-      if (bound.status !== "completed" || !bound.state)
-        return blocked(request, bound.reason, {
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          effectState: "unknown",
-        });
-      const boundWrite = persistence.state.writeState(
-        bound.state,
+      const boundRecoveryIds = Object.freeze(
+        boundRecoveryObligations.map((entry) => entry.recoveryId),
+      );
+      const boundWrite = persistence.state.updateTask(
+        { kind: "task_owner_loss", projectId: request.projectId, bindings },
         state.value.generation,
       );
       if (boundWrite.status !== "completed")
@@ -848,12 +934,26 @@ export async function executeCoordinatorObjective(
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
+          recoveryIds: boundRecoveryIds,
+          recoveryObligations: boundRecoveryObligations,
         });
       state = Object.freeze({
-        status: "completed" as const,
-        reason: boundWrite.reason,
-        value: boundWrite.value,
+        ...boundWrite,
+        taskStartCandidates: inspectTaskStartCandidates(
+          boundWrite.value,
+          boundWrite.taskStartCandidates,
+        ),
       });
+      if (!state.taskStartCandidates)
+        return blocked(request, "orchestrator_state_observation_unknown", {
+          knownState: state.value,
+          queueId,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+          recoveryIds: boundRecoveryIds,
+          recoveryObligations: boundRecoveryObligations,
+        });
       for (const task of boundWrite.value.tasks) {
         for (const obligation of task.recoveryObligations) {
           await taskRecovery.observeTransition({
@@ -1029,9 +1129,16 @@ export async function executeCoordinatorObjective(
             ),
           };
         }
-        return isDeepStrictEqual(comparable, recoveryState)
-          ? currentState.value
-          : null;
+        if (!isDeepStrictEqual(comparable, recoveryState)) return null;
+        state = Object.freeze({
+          ...currentState,
+          taskStartCandidates: inspectTaskStartCandidates(
+            currentState.value,
+            currentState.taskStartCandidates,
+          ),
+        });
+        if (!state.taskStartCandidates) return null;
+        return currentState.value;
       } catch {
         return null;
       }
@@ -1059,25 +1166,14 @@ export async function executeCoordinatorObjective(
           entry.phase !== "settled",
       )) {
         if (item.phase === "required" && item.kind !== "docker") {
-          const recovering = markProjectTaskRecoveryObligationRecovering(
-            recoveryState,
-            recoveryState.generation,
-            item.taskId,
-            item.kind,
-            item.recoveryId,
-          );
-          if (recovering.status !== "completed" || !recovering.state)
-            return blocked(request, recovering.reason, {
-              cleanupConfirmed: false,
-              manualRecoveryRequired: true,
-              effectState: "unknown",
-              recoveryIds: [item.recoveryId],
-              recoveryObligations: [
-                Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
-              ],
-            });
-          const recoveringWrite = persistence.state.writeState(
-            recovering.state,
+          const recoveringWrite = persistence.state.updateTask(
+            {
+              kind: "task_recovery_start",
+              projectId: request.projectId,
+              taskId: item.taskId,
+              recoveryKind: item.kind,
+              recoveryId: item.recoveryId,
+            },
             recoveryState.generation,
           );
           if (recoveringWrite.status !== "completed")
@@ -1091,10 +1187,21 @@ export async function executeCoordinatorObjective(
               ],
             });
           state = Object.freeze({
-            status: "completed" as const,
-            reason: recoveringWrite.reason,
-            value: recoveringWrite.value,
+            ...recoveringWrite,
+            taskStartCandidates: inspectTaskStartCandidates(
+              recoveringWrite.value,
+              recoveringWrite.taskStartCandidates,
+            ),
           });
+          if (!state.taskStartCandidates)
+            return blocked(request, "orchestrator_state_observation_unknown", {
+              knownState: state.value,
+              queueId,
+              currentRecovery: item,
+              cleanupConfirmed: false,
+              manualRecoveryRequired: true,
+              effectState: "unknown",
+            });
           recoveryState = recoveringWrite.value;
           await taskRecovery.observeTransition({
             phase: "recovering",
@@ -1193,6 +1300,7 @@ export async function executeCoordinatorObjective(
             status: "completed" as const,
             reason: "coordinator_technical_recovery_observed",
             value: recoveryState,
+            taskStartCandidates: state.taskStartCandidates,
           });
           await taskRecovery.observeTransition({
             phase: "settled",
@@ -1206,25 +1314,14 @@ export async function executeCoordinatorObjective(
           });
           continue;
         }
-        const settledItem = settleProjectTaskRecoveryObligation(
-          recoveryState,
-          recoveryState.generation,
-          item.taskId,
-          item.kind,
-          item.recoveryId,
-        );
-        if (settledItem.status !== "completed" || !settledItem.state)
-          return blocked(request, settledItem.reason, {
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-            effectState: "unknown",
-            recoveryIds: [item.recoveryId],
-            recoveryObligations: [
-              Object.freeze({ kind: item.kind, recoveryId: item.recoveryId }),
-            ],
-          });
-        const settledWrite = persistence.state.writeState(
-          settledItem.state,
+        const settledWrite = persistence.state.updateTask(
+          {
+            kind: "task_recovery_settle",
+            projectId: request.projectId,
+            taskId: item.taskId,
+            recoveryKind: item.kind,
+            recoveryId: item.recoveryId,
+          },
           recoveryState.generation,
         );
         if (settledWrite.status !== "completed")
@@ -1238,10 +1335,21 @@ export async function executeCoordinatorObjective(
             ],
           });
         state = Object.freeze({
-          status: "completed" as const,
-          reason: settledWrite.reason,
-          value: settledWrite.value,
+          ...settledWrite,
+          taskStartCandidates: inspectTaskStartCandidates(
+            settledWrite.value,
+            settledWrite.taskStartCandidates,
+          ),
         });
+        if (!state.taskStartCandidates)
+          return blocked(request, "orchestrator_state_observation_unknown", {
+            knownState: state.value,
+            queueId,
+            currentRecovery: item,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            effectState: "unknown",
+          });
         recoveryState = settledWrite.value;
         await taskRecovery.observeTransition({
           phase: "settled",
@@ -1316,11 +1424,21 @@ export async function executeCoordinatorObjective(
           })),
         });
       recoveryState = saved.value;
-      state = {
-        status: "completed" as const,
-        reason: saved.reason,
-        value: saved.value,
-      };
+      state = Object.freeze({
+        ...saved,
+        taskStartCandidates: inspectTaskStartCandidates(
+          saved.value,
+          saved.taskStartCandidates,
+        ),
+      });
+      if (!state.taskStartCandidates)
+        return blocked(request, "orchestrator_state_observation_unknown", {
+          knownState: state.value,
+          queueId,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
       for (const item of recoveredDocker)
         await taskRecovery.observeTransition({
           phase: "verification_resources_finalized",
@@ -1394,21 +1512,26 @@ export async function executeCoordinatorObjective(
       )
       .map((task) => task.definition.id);
     if (retryTaskIds.length > 0) {
-      const retry = retrySettledProjectTaskRecoveries(
-        recoveryState,
+      const retryWrite = persistence.state.updateTask(
+        {
+          kind: "task_recovery_retry",
+          projectId: request.projectId,
+          taskIds: retryTaskIds,
+        },
         recoveryState.generation,
-        retryTaskIds,
       );
-      if (retry.status !== "completed")
-        return blocked(request, retry.reason, {
+      if (
+        retryWrite.status !== "completed" &&
+        [
+          "orchestrator_task_recovery_batch_invalid",
+          "orchestrator_task_recovery_batch_mismatch",
+        ].includes(retryWrite.reason)
+      )
+        return blocked(request, retryWrite.reason, {
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
           effectState: "no_effect",
         });
-      const retryWrite = persistence.state.writeState(
-        retry.state,
-        recoveryState.generation,
-      );
       if (retryWrite.status !== "completed")
         return blocked(request, retryWrite.reason, {
           cleanupConfirmed: false,
@@ -1416,10 +1539,20 @@ export async function executeCoordinatorObjective(
           effectState: "unknown",
         });
       state = Object.freeze({
-        status: "completed" as const,
-        reason: retryWrite.reason,
-        value: retryWrite.value,
+        ...retryWrite,
+        taskStartCandidates: inspectTaskStartCandidates(
+          retryWrite.value,
+          retryWrite.taskStartCandidates,
+        ),
       });
+      if (!state.taskStartCandidates)
+        return blocked(request, "orchestrator_state_observation_unknown", {
+          knownState: state.value,
+          queueId,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+        });
       recoveryState = retryWrite.value;
       await taskRecovery.observeTransition({
         phase: "retry_ready",
@@ -1437,6 +1570,8 @@ export async function executeCoordinatorObjective(
     const currentState = state.value;
     if (!currentState)
       return blocked(request, "orchestrator_state_observation_unknown", {
+        knownState: state.value,
+        queueId,
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -1453,7 +1588,10 @@ export async function executeCoordinatorObjective(
         status: "blocked",
         reason: "orchestrator_objective_queued_waiting_foreground",
         queueId,
-        projection: projectCoordinatorState(currentState),
+        projection: projectCoordinatorState(
+          currentState,
+          state.taskStartCandidates,
+        ),
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         processRestartRequired: false,
@@ -1467,7 +1605,10 @@ export async function executeCoordinatorObjective(
       status: "completed",
       reason: "orchestrator_tasks_already_integration_pending",
       queueId,
-      projection: projectCoordinatorState(state.value),
+      projection: projectCoordinatorState(
+        state.value,
+        state.taskStartCandidates,
+      ),
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       processRestartRequired: false,
@@ -1477,7 +1618,10 @@ export async function executeCoordinatorObjective(
     });
   }
   if (queue.state === "completed" && state.value) {
-    const projection = projectCoordinatorState(state.value);
+    const projection = projectCoordinatorState(
+      state.value,
+      state.taskStartCandidates,
+    );
     if (projection.milestoneState !== "accepted")
       return blocked(request, "orchestrator_terminal_replay_mismatch", {
         cleanupConfirmed: false,
@@ -1502,7 +1646,10 @@ export async function executeCoordinatorObjective(
       status: "cancelled",
       reason: "orchestrator_objective_already_cancelled",
       queueId,
-      projection: projectCoordinatorState(state.value),
+      projection: projectCoordinatorState(
+        state.value,
+        state.taskStartCandidates,
+      ),
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       processRestartRequired: false,
@@ -1519,7 +1666,10 @@ export async function executeCoordinatorObjective(
       status: "blocked",
       reason: `orchestrator_objective_${queue.state}`,
       queueId,
-      projection: projectCoordinatorState(state.value),
+      projection: projectCoordinatorState(
+        state.value,
+        state.taskStartCandidates,
+      ),
       cleanupConfirmed: !manualRecoveryRequired,
       manualRecoveryRequired,
       processRestartRequired: outstandingRecoveries.some(
@@ -1541,6 +1691,8 @@ export async function executeCoordinatorObjective(
   const executableState = state.value;
   if (!executableState)
     return blocked(request, "orchestrator_state_observation_unknown", {
+      knownState: state.value,
+      queueId,
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectState: "unknown",
@@ -1579,9 +1731,24 @@ export async function executeCoordinatorObjective(
     },
   );
   const latest = persistence.state.readState(request.projectId);
+  const latestCandidates =
+    latest.status === "completed" && latest.value
+      ? inspectTaskStartCandidates(latest.value, latest.taskStartCandidates)
+      : null;
+  if (latest.status === "completed" && latest.value && !latestCandidates)
+    return blocked(request, "orchestrator_state_observation_unknown", {
+      knownState: latest.value,
+      queueId,
+      recoveryIds: execution.recoveryIds,
+      recoveryObligations: execution.recoveryObligations,
+      processRestartRequired: execution.processRestartRequired,
+      ...(execution.workspaceResults === undefined
+        ? {}
+        : { workspaceResults: execution.workspaceResults }),
+    });
   const projection =
     latest.status === "completed" && latest.value
-      ? projectCoordinatorState(latest.value)
+      ? projectCoordinatorState(latest.value, latestCandidates)
       : null;
   return createCoordinatorObjectiveResult(request, {
     status: execution.status,
@@ -2395,9 +2562,13 @@ async function executeAcceptedCoordinatorObjective(
     result.reason === "orchestrator_objective_request_reused"
   )
     return result;
-  const maintenance = maintainCoordinatorSnapshot(
-    binding.workingDirectory,
+  const maintenanceNow = Date.now();
+  const maintenance = retireStateRecords(
+    historyRepositoryInput(
+      verifyRuntimePersistenceRepository(binding.workingDirectory),
+    ),
     binding.repositoryBindingId,
+    maintenanceNow,
   );
   if (maintenance.status !== "completed")
     return createCoordinatorObjectiveResult(request, {

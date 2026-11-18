@@ -8,10 +8,6 @@
 import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";
-import {
-  applyCoordinatorPartialReplan,
-  retryCoordinatorTask,
-} from "../task/lifecycle.ts";
 import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanDecision,
@@ -288,23 +284,47 @@ export function resolveCoordinatorReplan(
   // 分類は判断の発行ではない。認証済みrequest操作がBlockerとQueueを一度に保存する。
   if (decision.disposition === "human_decision")
     return blocked("orchestrator_human_decision_required");
-  const transition =
+  const expectedTaskIds =
     decision.disposition === "maintain_plan"
-      ? retryCoordinatorTask(
-          state,
-          state.generation,
-          failedTaskIds[0] ?? "",
-          input.maximumReplans,
-        )
-      : applyCoordinatorPartialReplan(state, state.generation, {
+      ? [failedTaskIds[0] ?? ""]
+      : decision.replacements.map((item) => item.id);
+  const written = statePort.updateTask(
+    decision.disposition === "maintain_plan"
+      ? {
+          kind: "task_retry",
+          projectId: input.projectId,
+          taskId: failedTaskIds[0] ?? "",
+          previousRetryCount:
+            state.tasks.find((task) => task.definition.id === failedTaskIds[0])
+              ?.retryCount ?? -1,
+          maximumReplans: input.maximumReplans,
+        }
+      : {
+          kind: "task_replan",
+          projectId: input.projectId,
           failedTaskId: decision.failedTaskId,
           replacements: decision.replacements,
           maximumReplans: input.maximumReplans,
-        });
-  if (transition.status !== "completed" || !transition.state)
-    return blocked(transition.reason);
-  const written = statePort.writeState(transition.state, state.generation);
-  if (written.status !== "completed") return blocked(written.reason, true);
+        },
+    state.generation,
+  );
+  if (written.status !== "completed")
+    return blocked(
+      written.reason,
+      ![
+        "orchestrator_retry_invalid_or_limit_exceeded",
+        "orchestrator_replan_invalid_or_out_of_scope",
+      ].includes(written.reason),
+    );
+  const taskIds = inspectStrings(written.taskUpdateTaskIds, true);
+  if (
+    !taskIds?.every(validId) ||
+    taskIds.length !== expectedTaskIds.length ||
+    taskIds.some((id, index) => id !== expectedTaskIds[index]) ||
+    written.value.projectId !== input.projectId ||
+    written.value.generation !== state.generation + 1
+  )
+    return blocked("orchestrator_state_observation_unknown", true);
   state = written.value;
   const queueUpdate = statePort.updateQueue(input.queueId, queue.generation, {
     state: "queued",
@@ -333,7 +353,7 @@ export function resolveCoordinatorReplan(
           : "orchestrator_human_decision_required",
     disposition: decision.disposition,
     generation: state.generation,
-    taskIds: transition.taskIds,
+    taskIds,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     effectState: "settled" as const,

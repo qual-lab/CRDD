@@ -3,13 +3,14 @@
  * @responsibility I/Oや新しい権限を発行せず、モデル固有の受入条件を判定する。
  * @trace ARCH-000008
  */
-import type { ProjectDefinition } from "../state/types.ts";
+
 import {
   hashExecutionStateContent,
   repositoryPathWithin,
   snapshotPlainArray,
   snapshotStateRecord,
 } from "../state/operations.ts";
+import type { ProjectDefinition } from "../state/types.ts";
 import type { ProjectTaskDefinition } from "../task/types.ts";
 import type {
   ExecutionPlanScope,
@@ -294,23 +295,7 @@ export function inspectPlanDefinition(raw: unknown): ObjectivePlan | null {
     )
   )
     return null;
-  const dependencies = new Map(
-    tasks.map((task) => [task.id, task.dependencies]),
-  );
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
-  const visit = (id: string): boolean => {
-    if (visiting.has(id)) return false;
-    if (visited.has(id)) return true;
-    visiting.add(id);
-    for (const dependency of dependencies.get(id) ?? []) {
-      if (!visit(dependency)) return false;
-    }
-    visiting.delete(id);
-    visited.add(id);
-    return true;
-  };
-  if (!tasks.every((task) => visit(task.id))) return null;
+  if (hasTaskDependencyCycle(tasks)) return null;
   return Object.freeze({
     milestoneAcceptanceCriteria,
     objectives: Object.freeze(objectives),
@@ -480,4 +465,35 @@ export function hashExecutionProjectDefinition(
       tasks: project.tasks,
     },
   });
+}
+
+/**
+ * 計画定義と初期生成が同じTask依存循環規則を使用する。
+ * @responsibility 参照検査済み定義のDAG条件をモデル内で一正本化する。
+ * @trace ARCH-000008
+ * @input definitions: 定義順のTask集合。
+ * @returns 循環が存在する場合だけtrue。
+ * @effect N/A: 局所の走査集合だけを使う。
+ * @boundary EM内部の値検査。Rootへ公開しない。
+ */
+export function hasTaskDependencyCycle(
+  definitions: readonly ProjectTaskDefinition[],
+) {
+  const dependencies = new Map(
+    definitions.map((definition) => [definition.id, definition.dependencies]),
+  );
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    for (const dependency of dependencies.get(id) ?? []) {
+      if (visit(dependency)) return true;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  };
+  return definitions.some((definition) => visit(definition.id));
 }

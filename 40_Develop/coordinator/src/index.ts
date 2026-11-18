@@ -68,5 +68,5 @@ export type {
 export {
   inspectWorkspaceCommand,
   type WorkspaceCommand,
-} from "./workspace/commands.ts";
+} from "./workspace/operations.ts";
 export type { WorkspaceResult } from "./workspace/record.ts";

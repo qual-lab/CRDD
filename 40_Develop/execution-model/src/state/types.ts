@@ -21,6 +21,23 @@ import type {
   TaskExecutionSelections,
 } from "../task/types.ts";
 import type { ResultRecord, WorkspaceRecord } from "../workspace/types.ts";
+
+/**
+ * 計画と固定選定から初回実行を作る入力。
+ * @boundary 利用側からcreateQueueへ渡す非秘密の定義とOwner世代。
+ * @invariant 完成State・保存世代・Authorityを受け取らず、保存形式は変更しない。
+ */
+export type ProjectExecutionInitialization = Readonly<{
+  taskExecutionSelections: TaskExecutionSelections;
+  projectId: string;
+  milestoneId: string;
+  repositoryRevision: string;
+  maximumConcurrency: number;
+  milestoneAcceptanceCriteria: readonly string[];
+  objectives: readonly ProjectObjectiveDefinition[];
+  tasks: readonly ProjectTaskDefinition[];
+  ownerGeneration: string;
+}>;
 /** モデルの値契約。型と利用側の投影は同じ定義を使用する。 */
 export const PROJECT_STATE_CONTRACT =
   "crdd-execution-model/project-state/v3" as const;

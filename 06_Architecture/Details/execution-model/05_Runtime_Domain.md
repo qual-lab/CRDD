@@ -1,5 +1,19 @@
 # 実行モデルのAPI・単一保存契約
 
+## Owner喪失観測の有限状態結合
+
+task_owner_lossは現在Ownerが不在であることを自ら観測せず、上位が確認した元Operationのmatched／verified_absent集合を受ける。既存Writerのfresh Stateで世代、全活動Task、引渡し済みOperationとの件数・一意性・集合一致を照合する。未信頼入力の未知field・Getter・Proxyは拒否する。
+
+未引渡しのreservedと、handoff準備済みかつ明示不存在だけを相関解除してreadyへ戻す。runningは不存在だけでは戻さず、matchedの元参照をdocker／required義務へ結合する。Task・Objective・Milestoneを一世代で更新し、非対象行は変更しない。遷移後の古い要求に新たな再送推定やno-opを設けず、旧規則どおり拒否する。別台帳・新Store・公開関数の追加はしない。
+
+## 管理Taskの回復義務更新
+
+Taskが回復開始・処置済み・再試行集合の規則を所有する。有限要求は既存saveProjectExecutionStateへ渡し、短期Writerがfresh状態の世代・対象Task・kind・exact回復IDと直前phaseを照合する。旧Coordinatorの3候補生成関数は撤去し、同じ拒否理由と保存形式を維持する。
+
+再試行は指定した全TaskについてCleanup確認・未解決なし・非空の全義務settledを確認する。1件でも不適格なら全件拒否する。recovery_required行だけreadyへ戻してretryCountを増やし、既にreadyの行は変更せず、settled義務を履歴として残す。対象ObjectiveとMilestoneのexecuting化を一候補・一世代で保存する。
+
+直後再送は確定候補の全文又はready確定条件を照合し、既存Writerの同候補耐久確認へ渡す。世代やretryCountを再加算しない。Callerの結果事実追加は拒否し、技術Cleanup・Process不存在・新しいAuthorityをこの状態更新から推定しない。
+
 > 2026-11-12の3モデル分離に伴う移管詳細。現在の公開入口、保持設定のInput／再検証scope、Helper局所化、AM Root、各保存Ownerは[実行モデル](01_Architecture.md)・[構成モデル](../configuration-model/01_Architecture.md)を正本とする。以下に残る過去時点のSource接続・公開候補・検証結果はその時点の比較基準であり、新3モデルの実装・回帰成立を示さない。Schema・Path・Lock・CAS・回復相関と既存処理順序は維持する。
 
 
@@ -245,7 +259,7 @@ TaskのallowedPathsはglobal書込み範囲、readPathsはglobal読取り範囲�
 
 | 現行接続 | 実際に確認していること | 移管方針 |
 |---|---|---|
-| `task/lifecycle.ts: settleProjectTask` | running・startPhase、Task／Attempt／Operation／authorityBindingの一致、cleanup・回復義務を照合してTaskを終端化する | 技術観測・真正根拠はExecutor、横断調停はCoordinator。根拠ID登録をTask完了の代わりにしない |
+| EM `task/validation.ts: prepareTaskSettlement` | running・startPhase、Task／Attempt／Operation／authorityBindingの一致、cleanup・回復義務を照合してTaskを終端化する | 既存saveProjectExecutionStateがfresh状態で規則を適用する。技術観測・真正根拠はExecutor、結果解釈・実行調停はCoordinator。根拠ID登録をTask完了の代わりにしない |
 | 同関数のObjective集約 | superseded以外の対象Taskがすべてcompletedならintegration_pendingへ進める。自動acceptはしない | 値の集約規則はDomainへ。元の技術終端条件を緩和しない |
 | Domain `decision/crud.ts`・`decision/operations.ts` | 受入対象はObjective／Milestone。accept／return／wait、対象世代・状態、根拠IDを照合する。Milestoneは全Objective受入を要求 | 要求・回答・適用を同じState候補へ導出する。新しい手動Task完了遷移なし |
 | Domain `decision/types.ts`・`decision/crud.ts`とCoordinator判断入口 | 対象・回答先・元世代・質問・選択肢・理由・根拠・適用を一つのStateへ記録し、同一回答の再入場と異内容拒否を保つ | 元本文と対象状態を同じWriterで照合し、独立した判断台帳や二段階記録を作らない |

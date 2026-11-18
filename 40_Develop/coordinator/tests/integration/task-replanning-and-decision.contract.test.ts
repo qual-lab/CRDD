@@ -19,13 +19,13 @@ import {
   initializeExecutionStore,
   readState,
 } from "../../../execution-model/src/index.ts";
+import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
 import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,
 } from "../../src/objective/types.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
   createCoordinatorExecutionHostPorts,
@@ -144,7 +144,7 @@ function fixture(t: test.TestContext) {
     ).status,
     "completed",
   );
-  const created = createCoordinatorState({
+  const created = projectExecutionFixture({
     taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -338,6 +338,34 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     ],
   );
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
+  assert.ok(state.status === "completed" && state.value);
+  const replayBytes = fs.readFileSync(stateFile);
+  const replay = createCurrentCoordinatorPersistencePorts(
+    root,
+    "binding-a",
+  ).state.updateTask(
+    {
+      kind: "task_replan",
+      projectId: input.projectId,
+      failedTaskId: "task-a",
+      maximumReplans: input.maximumReplans,
+      replacements: [
+        {
+          id: "task-b",
+          objectiveId: "objective-a",
+          dependencies: [],
+          allowedPaths: ["result.txt"],
+          conflictKeys: [],
+        },
+      ],
+    },
+    state.value.generation - 1,
+  );
+  assert.equal(replay.status, "completed", replay.reason);
+  assert.deepEqual(replay.status === "completed" && replay.taskUpdateTaskIds, [
+    "task-b",
+  ]);
+  assert.deepEqual(fs.readFileSync(stateFile), replayBytes);
   const publishedBytes = fs.readFileSync(stateFile);
   const publishedRead = readState(capability, { scope: "recovery" });
   assert.equal(publishedRead.status, "completed", publishedRead.reason);
@@ -533,6 +561,33 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
       beforeRetry.value?.tasks[0]?.retryCount,
     1,
   );
+  assert.ok(beforeRetry.status === "completed" && beforeRetry.value);
+  const stateFile = path.join(root, ".crdd/domain-model/state.json");
+  const replayBytes = fs.readFileSync(stateFile);
+  const request = {
+    kind: "task_retry",
+    projectId: input.projectId,
+    taskId: "task-a",
+    maximumReplans: 1,
+    previousRetryCount: 0,
+  } as const;
+  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const replay = ports.state.updateTask(
+    request,
+    beforeRetry.value.generation - 1,
+  );
+  assert.equal(replay.status, "completed", replay.reason);
+  assert.deepEqual(replay.status === "completed" && replay.taskUpdateTaskIds, [
+    "task-a",
+  ]);
+  assert.equal(
+    ports.state.updateTask(
+      { ...request, previousRetryCount: 1 },
+      beforeRetry.value.generation - 1,
+    ).status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(stateFile), replayBytes);
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
   const exhausted = resolveCoordinatorReplan(
     { ...input, maximumReplans: 1 },
