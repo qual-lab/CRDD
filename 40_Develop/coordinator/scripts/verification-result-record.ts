@@ -214,7 +214,8 @@ export function projectVerificationResult(
   const sourceScope = ownValue(value, "sourceScope");
   summary.sourceScope =
     sourceScope === "crdd-development-source-snapshot/v2" ||
-    sourceScope === "crdd-development-source-snapshot/v3"
+    sourceScope === "crdd-development-source-snapshot/v3" ||
+    sourceScope === "crdd-development-source-snapshot/v4"
       ? sourceScope
       : null;
   summary.sourceObservationStatus = known(

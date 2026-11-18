@@ -451,7 +451,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "ProjectTaskRecord",
     "ProjectTaskRecoveryKind",
     "ProjectTaskRecoveryObligation",
-    "ProjectTaskResultFact",
     "ProjectTaskState",
     "QueueEnqueueInput",
     "RepairCheckpoint",

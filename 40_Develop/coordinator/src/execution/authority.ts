@@ -514,7 +514,17 @@ const productionState = createRuntimeState({
   verifyOperation: verifyOwnedOperationManagementCapability,
   inspectActiveMount: inspectRuntimeOwnedActiveProviderHomeMount,
   loadActivatedAuthority: loadRuntimeOwnedLocalPersonalAuthority,
-  reverify: reverifyAuthorityBeforeProviderLaunch,
+  // 本番loaderが生成・独立凍結した候補だけを受ける内部接続。外部bytes受付には使わない。
+  reverify: (profile, bundle, rawContext) => {
+    const context = normalizeContext(rawContext);
+    return context
+      ? reverifyAuthorityCandidate(
+          profile,
+          bundle as AuthorityBundleCandidate,
+          context,
+        )
+      : prelaunchValidationBlocked("prelaunch_authority_context_invalid");
+  },
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
@@ -3175,9 +3185,14 @@ type Binding = Readonly<{
  * @security SourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility Sourceの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
+type AuthorityBundleCandidate = Extract<
+  ReturnType<typeof loadAuthorityFileBundleCandidate>,
+  { status: "candidate" }
+>;
+
 type Source = Readonly<{
   profile: unknown;
-  bundle: unknown;
+  bundle: AuthorityBundleCandidate;
   scopeId: string;
 }>;
 
@@ -3212,41 +3227,6 @@ type RuntimeDependencies = Readonly<{
   wallNow: () => number;
   verifyOperation: (binding: Binding, managementCapability: unknown) => boolean;
 }>;
-
-/**
- * canonical Jsonを決定する。
- *
- * @responsibility canonical Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000014
- * @input value: unknown
- * @returns stringを返す。
- * @precondition 「value: unknown」がcanonicalJsonの入力契約を満たす。
- * @postcondition canonicalJsonの責務を完了した結果だけを返す。
- * @effect N/A: canonicalJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure canonicalJsonは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant canonicalJsonは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: canonicalJsonはProcess内の同一Subsystemで完結する。
- * @security canonicalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: canonicalJsonは共有非同期状態を持たない同期処理である。
- */
-function localAuthorityCanonicalJson(value: unknown): string {
-  if (Array.isArray(value))
-    return `[${value.map(localAuthorityCanonicalJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record)
-      .sort()
-      .map(
-        (key) =>
-          `${JSON.stringify(key)}:${localAuthorityCanonicalJson(record[key])}`,
-      )
-      .join(",")}}`;
-  }
-  const serialized = JSON.stringify(value);
-  if (serialized === undefined)
-    throw new Error("local_personal_authority_json_invalid");
-  return serialized;
-}
 
 /**
  * Sourceを構築する。
@@ -3321,11 +3301,7 @@ function createSource(binding: Binding, now: number): Source | null {
     ],
   });
   if (registryCandidate.status !== "candidate") return null;
-  const registryBytes = Buffer.from(
-    localAuthorityCanonicalJson(registryCandidate.registry),
-    "utf8",
-  );
-  const trustPolicy = Object.freeze({
+  const trustPolicy = validateTrustPolicyCandidate({
     contract: AUTHORITY_TRUST_POLICY_CONTRACT,
     contractRevision: 1,
     policyId: `AUTHPOL-${specification.suffix}`,
@@ -3335,13 +3311,10 @@ function createSource(binding: Binding, now: number): Source | null {
     registryRevision: 1,
     registryHash: registryCandidate.registryHash,
   });
-  const trustPolicyBytes = Buffer.from(
-    localAuthorityCanonicalJson(trustPolicy),
-    "utf8",
-  );
-  const decodedPolicy =
-    decodeCanonicalAuthorityTrustPolicyBytes(trustPolicyBytes);
-  if (decodedPolicy.status !== "candidate") return null;
+  if (!trustPolicy) return null;
+  const trustPolicyHash = createHash("sha256")
+    .update(authorityPolicyCanonicalJson(trustPolicy))
+    .digest("hex");
   const manifest = Object.freeze({
     contract: AUTHORITY_FILE_BUNDLE_CONTRACT,
     contractRevision: 1,
@@ -3349,16 +3322,22 @@ function createSource(binding: Binding, now: number): Source | null {
     bundleRevision: 1,
     status: "active",
     previousBundleHash: null,
-    trustPolicyHash: decodedPolicy.trustPolicyHash,
+    trustPolicyHash,
     registryHash: registryCandidate.registryHash,
   });
-  const bundle = Object.freeze({
-    manifestBytes: Buffer.from(localAuthorityCanonicalJson(manifest), "utf8"),
-    trustPolicyBytes,
-    registryBytes,
+  const bundle: AuthorityBundleCandidate = Object.freeze({
+    status: "candidate",
+    reason: "runtime_file_bundle_path_acl_and_activation_required",
+    manifest,
+    bundleHash: createHash("sha256")
+      .update(canonicalJson(manifest))
+      .digest("hex"),
+    registry: registryCandidate.registry,
+    registryHash: registryCandidate.registryHash,
+    trustPolicy,
+    trustPolicyHash,
+    runtimeCapabilityIssued: false,
   });
-  if (loadAuthorityFileBundleCandidate(bundle).status !== "candidate")
-    return null;
   return Object.freeze({ profile, bundle, scopeId });
 }
 
@@ -3667,6 +3646,24 @@ export function reverifyAuthorityBeforeProviderLaunch(
         "prelaunch_authority_file_bundle_invalid",
       );
 
+    return reverifyAuthorityCandidate(rawProfile, bundle, context);
+  } catch {
+    return prelaunchValidationBlocked("prelaunch_authority_input_invalid");
+  }
+}
+
+/**
+ * 外部bytesの完成受付、または内部生成済み候補から起動時の現在Grantを照合する。
+ * @responsibility 期限・Provider・Operation・Scope・MountとHashの相関を同じ規則で評価する。
+ * @trace ARCH-000014
+ * @security 内部専用。候補を外部受付の省略資格として公開しない。毎回現在時刻を取得する。
+ */
+function reverifyAuthorityCandidate(
+  rawProfile: unknown,
+  bundle: AuthorityBundleCandidate,
+  context: NonNullable<ReturnType<typeof normalizeContext>>,
+) {
+  try {
     const evaluatedAt = runtimeNow();
     if (!evaluatedAt)
       return prelaunchValidationBlocked("prelaunch_runtime_clock_invalid");
@@ -7373,30 +7370,6 @@ export function isSupportedPosixAbsolutePathCandidate(
     path.posix.normalize(value) === value &&
     (value === "/" || !value.endsWith("/"))
   );
-}
-
-/**
- * Supported Authority Root Absolute Pathかを判定する。
- *
- * @responsibility Supported Authority Root Absolute Pathの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000014
- * @input value: unknown
- * @returns value is stringを返す。
- * @precondition 「value: unknown」がisSupportedAuthorityRootAbsolutePathの入力契約を満たす。
- * @postcondition isSupportedAuthorityRootAbsolutePathの責務を完了した結果だけを返す。
- * @effect isSupportedAuthorityRootAbsolutePathは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: isSupportedAuthorityRootAbsolutePathは独自の失敗分岐を所有しない。
- * @invariant isSupportedAuthorityRootAbsolutePathは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security isSupportedAuthorityRootAbsolutePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isSupportedAuthorityRootAbsolutePathは共有非同期状態を持たない同期処理である。
- */
-export function isSupportedAuthorityRootAbsolutePath(
-  value: unknown,
-): value is string {
-  return process.platform === "win32"
-    ? isSupportedWindowsAbsolutePathCandidate(value)
-    : isSupportedPosixAbsolutePathCandidate(value);
 }
 
 export const PROVIDER_AUTHENTICATION_CONTRACT =

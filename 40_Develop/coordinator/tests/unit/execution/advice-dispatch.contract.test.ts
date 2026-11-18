@@ -15,6 +15,7 @@ import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
   createAdviceDispatch,
+  createProviderAdviceAdapter,
   describeAdviceDispatchContract,
 } from "../../../src/execution/advice.ts";
 import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
@@ -37,6 +38,74 @@ assert.equal(prepared.status, "prepared");
 assert.ok(prepared.taskPacket);
 if (prepared.taskPacket === null) throw new Error("test_task_packet_required");
 const taskPacket = prepared.taskPacket;
+
+/**
+ * 助言Packet側の選定も各完成入口で一回独立捕捉する。
+ * @responsibility 検査済み値のHash計算へ切替えても未信頼Packetの受付を省かない。
+ * @trace ERB-UT-023
+ * @precondition 実Dispatch・Provider Adapterと正常な合成Packetを使う。
+ * @stimulus Packet選定の余剰field・Getter・Proxy・欠測を与える。
+ * @observation 拒否理由、実行可能PropertyとAdapter／Runtimeの呼出し数。
+ * @oracle 両入口ともProvider前で拒否し、hook・外部依存呼出し0。
+ * @cleanup メモリ値のみ。実AI・Dockerを起動しない。
+ * @boundary 助言Dispatchと単発Provider Adapterの独立した受付境界。
+ */
+test("助言Packet選定の余剰・実行可能Property・欠測は両入口でEffect前に拒否する", async () => {
+  let hooks = 0;
+  let calls = 0;
+  const dispatch = createAdviceDispatch(async () => {
+    calls++;
+    throw new Error("provider_must_not_run");
+  });
+  const adapter = createProviderAdviceAdapter(async () => {
+    calls++;
+    throw new Error("runtime_must_not_run");
+  });
+  const accessor = Object.defineProperty({ ...selection }, "modelIdentifier", {
+    enumerable: true,
+    get() {
+      hooks++;
+      return selection.modelIdentifier;
+    },
+  });
+  const proxy = new Proxy(
+    { ...selection },
+    {
+      ownKeys(target) {
+        hooks++;
+        return Reflect.ownKeys(target);
+      },
+      get(target, key, receiver) {
+        hooks++;
+        return Reflect.get(target, key, receiver);
+      },
+    },
+  );
+  for (const invalid of [
+    { ...selection, authority: true },
+    accessor,
+    proxy,
+    null,
+    {},
+  ]) {
+    const input = {
+      ...dispatchInput(),
+      taskPacket: {
+        ...taskPacket,
+        executionSelection: invalid as typeof selection,
+      },
+    };
+    const rejected = await dispatch(input, new AbortController().signal);
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "workbench_ai_advice_dispatch_input_invalid");
+    const direct = await adapter(input, new AbortController().signal);
+    assert.equal(direct.status, "blocked");
+    assert.equal(direct.reason, "workbench_ai_provider_profile_invalid");
+    assert.equal(direct.providerEffectIssued, false);
+    assert.equal(calls, 0);
+    assert.equal(hooks, 0);
+  }
+});
 
 const RAW_RESULT = JSON.stringify({
   status: "completed",

@@ -42,7 +42,7 @@ import type { Project } from "typescript/unstable/sync";
 import { API } from "typescript/unstable/sync";
 
 import {
-  bindTaskCliCancellationSignalsForTesting,
+  bindTaskCliCancellationSignalsToPort,
   createTaskCliCancellationLatch,
   projectTaskCliCancellationFailure,
 } from "../../src/cli/cancellation.ts";
@@ -144,7 +144,7 @@ test("CLI signal bindingは同一listenerを両signalへ結合して冪等に解
   const registrations: Array<readonly [string, () => void]> = [];
   const removals: Array<readonly [string, () => void]> = [];
   let cancellationEffects = 0;
-  const binding = bindTaskCliCancellationSignalsForTesting(
+  const binding = bindTaskCliCancellationSignalsToPort(
     {
       on: (signal, listener) => {
         registrations.push([signal, listener]);
@@ -199,7 +199,7 @@ test("CLI signal bindingは同一listenerを両signalへ結合して冪等に解
 test("CLI signal bindingは登録中signalも単一取消Effectへ収束する", () => {
   let cancellationEffects = 0;
   let firstListener: (() => void) | null = null;
-  const binding = bindTaskCliCancellationSignalsForTesting(
+  const binding = bindTaskCliCancellationSignalsToPort(
     {
       on: (signal, listener) => {
         if (signal === "SIGINT") {
@@ -240,7 +240,7 @@ test("CLI signal bindingは各登録失敗を取消と登録済みlistenerのrol
     const removals: string[] = [];
     let registrations = 0;
     let cancellationEffects = 0;
-    const binding = bindTaskCliCancellationSignalsForTesting(
+    const binding = bindTaskCliCancellationSignalsToPort(
       {
         on: () => {
           registrations += 1;
@@ -276,7 +276,7 @@ test("CLI signal bindingは各登録失敗を取消と登録済みlistenerのrol
 test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試行し非成功を保持する", () => {
   const rollbackAttempts: string[] = [];
   let registrations = 0;
-  const failedBinding = bindTaskCliCancellationSignalsForTesting(
+  const failedBinding = bindTaskCliCancellationSignalsToPort(
     {
       on: () => {
         registrations += 1;
@@ -295,7 +295,7 @@ test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試
   assert.deepEqual(rollbackAttempts, ["SIGINT", "SIGINT"]);
 
   const releaseAttempts: string[] = [];
-  const bound = bindTaskCliCancellationSignalsForTesting(
+  const bound = bindTaskCliCancellationSignalsToPort(
     {
       on: () => undefined,
       removeListener: (signal) => {

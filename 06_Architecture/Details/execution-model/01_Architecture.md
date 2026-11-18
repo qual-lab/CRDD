@@ -1,7 +1,17 @@
 # 実行モデルの責務と単一保存契約
 
+## 回復済みOperation参照の有限確定
+
+既存の`saveProjectExecutionState`は、`task_recovery_finalize`要求のProject IDとTask ID／回復ID集合を受け付ける。これは要求の分類であり、保存Schemaや新しい台帳ではない。同じ短期Writer内のfreshなProject・元世代・TaskのAttempt／Operation・Cleanup確認・未解決なし・exactなDocker回復義務の終端を照合し、既存の世代更新候補を生成する。空・重複・不正ID・別Task・非終端・古い世代は拒否し、単なる一世代差から同一再送成功を推定しない。
+
+Operationの退役とTaskの終了根拠の固定は、既存`normalizeTaskProjects`が所有する。全終端・履歴確認・未解決参照なしとTask／Attempt／Operation相関を維持し、局所候補の成功を資源回収・退役・出版成功へ読み替えない。CAS、保存後確認とLock解放の保証は既存Writerのままとする。
+
+`saveProjectExecutionState`は有限Task更新要求だけを受け付ける。初回Projectは既存のQueue受付と同時に作成し、任意State・JSON本文・外部結果事実による更新を提供しない。余剰引数は解釈せず拒否し、Task／Attempt／Operationと未解決観測の結果事実は終端要求から内部生成する。同一再送でも同じWriterで現在版と結果相関を確認する。低位の保存・履歴保持反例はEM自身の私有Writerを検証し、上位Consumerへその準備用入口を公開しない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: execution-model
+
+保存本文の破損、Task状態と実行Identityの不整合、Envelope不正と未確定pendingの拒否・保全規則はEMの保存Readerが所有し、その直接反証もEMの試験で行う。初期準備は正常な初回Queue＋Project受付を利用し、破損本文を受理させるための製品入口を追加しない。上位Coordinatorは現在の拒否結果の搬送、Scope・実Leaseとの接続、有限要求の再送を検証する。
 
 ## 基本設計との関係
 
@@ -135,7 +145,7 @@ Taskの候補・回復・結果参照の文法はTask、計画定義HashはObjec
 <a id="public-api"></a>
 ## 3. 公開契約
 
-Rootは95項目（58値・37型）。完成した読取り・更新・終了・回復・履歴操作、独立した入力受付とモデル語彙を明示公開する。正確な集合は`src/index.ts`と固定期待値の公開契約試験で確認する。件数を目標にunknownや巨大Unionへ置換しない。
+Rootは94項目（58値・36型）。完成した読取り・更新・終了・回復・履歴操作、独立した入力受付とモデル語彙を明示公開する。正確な集合は`src/index.ts`と固定期待値の公開契約試験で確認する。件数を目標にunknownや巨大Unionへ置換しない。
 
 管理Projectの読取り・保存成功結果は、同じProject・世代から導出した`taskStartCandidates`を非永続の観測として返す。並列枠・未回収資源の予約・Path／Conflict Key・定義順の規則はTaskが所有する。観測はAuthorityではなく、予約・引渡し・開始観測は既存の`saveProjectExecutionState`が有限の`task_start`／`task_handoff`／`task_started`要求を受け、同じ短期保存Ownerのfresh Stateで再検査する。保存形式・一般Task定義CRUD・他の更新の保存境界は変更しない。
 

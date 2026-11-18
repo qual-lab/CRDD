@@ -115,7 +115,6 @@ export type {
   ProjectTaskRecord,
   ProjectTaskRecoveryKind,
   ProjectTaskRecoveryObligation,
-  ProjectTaskResultFact,
   ProjectTaskState,
   QueueEnqueueInput,
   SingleTaskRecord,

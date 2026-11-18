@@ -19,14 +19,14 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../src/configuration/runtime-data.ts";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/execution/controller.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
 import {
-  assertSupportedCoordinatorNodeRuntime,
   cancelRuntimeOwnedDevelopmentMeasurementSession,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
   observeRuntimeOwnedDevelopmentSource,
   readRuntimeOwnedDevelopmentMeasurementTasks,
   requestRuntimeOwnedDevelopmentMeasurementSession,
-} from "../src/execution/diagnostics.ts";
+} from "../src/execution/measurement.ts";
 
 /**
  * measure-development-providersで使用するDependenciesの値契約を定義する。

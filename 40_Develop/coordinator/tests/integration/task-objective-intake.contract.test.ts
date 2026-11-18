@@ -22,10 +22,7 @@ import {
   readState,
   saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import {
-  taskStartFixture,
-  withCallerPlan,
-} from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
@@ -44,7 +41,6 @@ import {
   readProjectOperationQueueState,
   selectNextProjectOperation,
   updateProjectOperationQueueState,
-  writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
 import {
   registerSyntheticOperations,
@@ -1432,14 +1428,22 @@ test("async recovery interruption preserves technical and Task settlement bounda
       assert.equal(obligation?.phase, "required");
       let expected = before.value;
       if (scenario === "state_change") {
-        expected = { ...before.value, generation: before.value.generation + 1 };
-        const written = writeCoordinatorState(
-          workingDirectory,
+        const written = saveProjectExecutionState(
+          verifyRuntimePersistenceRepository(workingDirectory),
           "binding-a",
-          expected,
+          {
+            kind: "task_recovery_start",
+            projectId: "project-a",
+            taskId: "task-a",
+            recoveryKind: "docker",
+            recoveryId,
+          },
           before.value.generation,
         );
         assert.equal(written.status, "completed");
+        if (written.status !== "completed")
+          throw new Error("fixture_concurrent_recovery_change_failed");
+        expected = written.value;
       }
       assert.ok("queueId" in first);
       const queueId = first.queueId;
@@ -1993,23 +1997,19 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
     "project-a",
   );
   assert.ok(stateRead.value);
-  const reserved = taskStartFixture(
-    stateRead.value,
+  const reserved = saveProjectExecutionState(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    "binding-a",
+    {
+      kind: "task_start",
+      projectId: "project-a",
+      taskId: "task-a",
+      attemptId: "attempt-owner-loss",
+      authorityBindingId: "authority-owner-loss",
+    },
     stateRead.value.generation,
-    "task-a",
-    "attempt-owner-loss",
-    "authority-owner-loss",
   );
-  assert.ok(reserved.state);
-  assert.equal(
-    writeCoordinatorState(
-      workingDirectory,
-      "binding-a",
-      reserved.state,
-      stateRead.value.generation,
-    ).status,
-    "completed",
-  );
+  assert.equal(reserved.status, "completed", reserved.reason);
   const queueRead = readProjectOperationQueueState(
     workingDirectory,
     "binding-a",
@@ -2192,10 +2192,21 @@ for (const interruption of [
       assert.ok(current.value);
       const state = current.value;
       assert.equal(
-        writeCoordinatorState(
-          workingDirectory,
+        saveProjectExecutionState(
+          verifyRuntimePersistenceRepository(workingDirectory),
           "binding-a",
-          { ...state, generation: state.generation + 1 },
+          {
+            kind: "task_recovery_finalize",
+            projectId: state.projectId,
+            recoveries: state.tasks.flatMap((task) =>
+              task.recoveryObligations
+                .filter((item) => item.kind === "docker")
+                .map(({ recoveryId }) => ({
+                  taskId: task.definition.id,
+                  recoveryId,
+                })),
+            ),
+          },
           state.generation,
         ).status,
         "completed",

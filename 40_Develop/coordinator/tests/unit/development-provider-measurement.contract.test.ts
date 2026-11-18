@@ -170,7 +170,7 @@ test("Development Measurement入口はRuntime Data停止理由を保持する", 
 function fixture(outcomes: readonly string[]) {
   const capability = Object.freeze({});
   const sourceObservation = Object.freeze({
-    scope: "crdd-development-source-snapshot/v2",
+    scope: "crdd-development-source-snapshot/v4",
     expectedSourceSha256: "c".repeat(64),
   });
   const starts: string[] = [];

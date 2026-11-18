@@ -48,7 +48,7 @@ export function preparationSelection(candidate: unknown) {
       | "purpose"
       | "role"
     >,
-    selectionHash: hashExecutionSelection(candidate) ?? "invalid",
+    selectionHash: hashExecutionSelection(v) ?? "invalid",
   };
 }
 

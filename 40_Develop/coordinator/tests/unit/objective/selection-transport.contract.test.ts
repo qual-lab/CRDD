@@ -40,6 +40,106 @@ import { createCoordinatorTaskRecoveryAdapter } from "../../../src/task/dispatch
 import { selectionConfig } from "../../fixtures/ai-selection.ts";
 
 /**
+ * Docker回復の確定は任意State保存ではなく有限更新へ接続する。
+ * @responsibility 同じTask・回復IDと期待世代の搬送、保存後metadata拒否と元参照保全を確認する。
+ * @trace PRL-UT-014
+ * @precondition 実Objectiveの回復確定断面と有限の保存応答を使う。
+ * @stimulus 正常・fresh差・未回収・保存拒否・保存後候補欠測を与える。
+ * @observation 有限要求、保存回数、後続通知と元回復ID。
+ * @oracle 保存成功と同版候補の確認後だけ通知し、拒否時はexact参照を保持する。
+ * @cleanup メモリ値のみ。
+ * @boundary Coordinator調停とEMの完成更新。実WriterはEM試験で確認する。
+ */
+test("Docker回復確定は有限要求を渡し保存不明で元参照を保持する", async () => {
+  const source = stripTypeScriptTypes(
+    fs.readFileSync(
+      new URL("../../../src/objective/execute.ts", import.meta.url),
+      "utf8",
+    ),
+  );
+  const begin = source.indexOf(
+    "    const recoveredDocker = recoveries.filter(",
+  );
+  const end = source.indexOf("    const externallyOwnedItems", begin);
+  assert.ok(begin >= 0 && end > begin);
+  const stop = compileFunction(
+    `return (${sourceDeclaration(source, "blocked")});`,
+    ["createCoordinatorObjectiveResult"],
+  )(createCoordinatorObjectiveResult);
+  const id = "docker-task.exact";
+  const initial = {
+    projectId: "project-a",
+    generation: 4,
+    tasks: [
+      {
+        definition: { id: "task-a" },
+        attemptId: "attempt-a",
+        operationId: "operation-a",
+        cleanupConfirmed: true,
+        recoveryUnresolved: false,
+        recoveryObligations: [
+          { kind: "docker", recoveryId: id, phase: "settled" },
+        ],
+      },
+    ],
+  };
+  const evaluate = compileFunction(
+    `return (async()=>{
+    let recoveryState=initial; let state=null; let calls=0; const events=[];
+    const request={projectId:'project-a',milestoneId:'milestone-a'};const queueId='queue-a';
+    const recoveries=[{kind:'docker',taskId:'task-a',recoveryId:${JSON.stringify(id)}}];
+    const readCurrentRecoveryState=()=>scenario==='fresh_unknown'?null:initial;
+    const persistence={state:{writeState:()=>{throw Error('raw_state_writer_called')},updateTask:(input,generation)=>{
+      calls++;assert.deepEqual(input,{kind:'task_recovery_finalize',projectId:'project-a',recoveries:[{taskId:'task-a',recoveryId:${JSON.stringify(id)}}]});
+      assert.equal(generation,4);
+      if(scenario==='save_blocked')return {status:'blocked',reason:'save_unconfirmed'};
+      return {status:'completed',reason:'saved',value:{...initial,generation:5},taskStartCandidates:scenario==='metadata_unknown'?null:{projectId:'project-a',generation:5,taskIds:[]}};
+    }}};
+    const taskRecovery={observeTransition:async value=>events.push(value)};
+    ${source.slice(begin, end)}
+    return {status:'continued',calls,events,state};
+  })();`,
+    ["initial", "scenario", "assert", "blocked", "inspectTaskStartCandidates"],
+  );
+  for (const scenario of [
+    "normal",
+    "fresh_unknown",
+    "save_blocked",
+    "metadata_unknown",
+    "cleanup_unknown",
+  ]) {
+    const input =
+      scenario === "cleanup_unknown"
+        ? {
+            ...initial,
+            tasks: initial.tasks.map((task) => ({
+              ...task,
+              cleanupConfirmed: false,
+            })),
+          }
+        : initial;
+    const result = await evaluate(
+      input,
+      scenario,
+      assert,
+      stop,
+      inspectTaskStartCandidates,
+    );
+    if (scenario === "normal") {
+      assert.equal(result.status, "continued");
+      assert.equal(result.calls, 1);
+      assert.equal(result.events.length, 1);
+      assert.equal(result.events[0].phase, "verification_resources_finalized");
+    } else {
+      assert.equal(result.status, "blocked");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.deepEqual(result.recoveryIds, [id]);
+    }
+  }
+});
+
+/**
  * 候補不正による停止でも元の回復事実を保持する。
  * @trace PRL-UT-014
  * @precondition 本体の最終結果構築と回復保存直後の実Sourceを有限依存で組み立てる。

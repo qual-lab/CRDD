@@ -15,13 +15,12 @@ import test from "node:test";
 import { pathToFileURL } from "node:url";
 
 import {
-  beginRuntimeProcessEffectDrain,
   createRuntimeProcessRecoveryIdentity,
   createIsolatedRuntimeProcessSafetyStateCandidate,
   describeRuntimeProcessSafetyStateContract,
-  endRuntimeProcessEffectDrain,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
+  poisonRuntimeProcessAfterCleanupUnknown,
 } from "../../src/execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 
@@ -41,9 +40,9 @@ test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () 
   const firstProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
   const restartedProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
   assert.equal(firstProcess.isPoisoned(), false);
-  firstProcess.poisonInteractiveCleanup();
+  firstProcess.poisonCleanupUnknown();
   assert.equal(firstProcess.isPoisoned(), true);
-  firstProcess.poisonInteractiveCleanup();
+  firstProcess.poisonCleanupUnknown();
   assert.equal(firstProcess.isPoisoned(), true);
   assert.equal(restartedProcess.isPoisoned(), false);
 });
@@ -113,34 +112,6 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
 });
 
 /**
- * Host failure drainは所有tokenだけで解除でき既存poisonを消さないを検証する。
- *
- * @responsibility Host failure drainは所有tokenだけで解除でき既存poisonを消さないの合否判定を所有する。
- * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host failure drainは所有tokenだけで解除でき既存poisonを消さないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Host failure drainは所有tokenだけで解除でき既存poisonを消さない", () => {
-  const state = createIsolatedRuntimeProcessSafetyStateCandidate();
-  const drain = state.beginDrain();
-  assert.equal(state.isDraining(), true);
-  assert.equal(state.isEffectBlocked(), true);
-  assert.equal(state.endDrain(Object.freeze({})), false);
-  assert.equal(state.isDraining(), true);
-  assert.equal(state.endDrain(drain), true);
-  assert.equal(state.isEffectBlocked(), false);
-  state.poisonCleanupUnknown();
-  const laterDrain = state.beginDrain();
-  assert.equal(state.endDrain(laterDrain), true);
-  assert.equal(state.isPoisoned(), true);
-  assert.equal(state.isEffectBlocked(), true);
-});
-
-/**
  * Process poison契約は同期不可逆Gateとfresh Process境界を固定するを検証する。
  *
  * @responsibility Process poison契約は同期不可逆Gateとfresh Process境界を固定するの合否判定を所有する。
@@ -165,8 +136,6 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
       "signed_route_matrix_started_or_outer_execution_unknown",
     ],
     guardedEntrypoints: ["coordinator_task_before_all_effects"],
-    transientDrainTransition:
-      "synchronous_on_host_supervisor_failure_detection_until_all_cleanup_outcomes_are_confirmed_or_unknown_is_promoted_to_irreversible_poison",
     sameProcessResetAllowed: false,
     alreadyActiveOperationRetroactiveCancellationGuaranteed: false,
     recoveryBoundary: "fresh_process_only",
@@ -174,19 +143,19 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
 });
 
 /**
- * Host failure drain中はTask／External SendをEffect前に一時拒否し解除後はrestart要求しないを検証する。
+ * 回収不明のProcessはTask入力を読む前に再起動要求で拒否するを検証する。
  *
- * @responsibility Task／External Sendの一時拒否と解除後の通常入口復帰を確認する。
+ * @responsibility 回収不明のProcessでTask入力読取り前の拒否が不可逆に維持されることを確認する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus drain中と解除後にTask／External Sendの現在入口を実行する。
+ * @stimulus Cleanup不明の観測後にTaskの現在入口を繰り返し実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Host failure drain中はTask／External SendをEffect前に一時拒否し解除後はrestart要求しない", async () => {
-  const drain = beginRuntimeProcessEffectDrain();
+test("回収不明のProcessはTask入力を読む前に再起動要求で拒否する", async () => {
+  poisonRuntimeProcessAfterCleanupUnknown();
   let taskReads = 0;
   const taskInput = new Proxy(
     {},
@@ -207,12 +176,11 @@ test("Host failure drain中はTask／External SendをEffect前に一時拒否し
   );
   assert.throws(
     () => startRuntimeOwnedCoordinatorTask(taskInput, "C:\\repository"),
-    /coordinator_task_runtime_cleanup_in_progress/u,
+    /coordinator_task_process_restart_required/u,
   );
   assert.equal(taskReads, 0);
-  assert.equal(endRuntimeProcessEffectDrain(drain), true);
   assert.throws(
     () => startRuntimeOwnedCoordinatorTask(Object.freeze({}), "C:\\repository"),
-    /coordinator_task_workspace_target_invalid/u,
+    /coordinator_task_process_restart_required/u,
   );
 });

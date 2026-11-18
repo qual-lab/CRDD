@@ -22,7 +22,10 @@ import {
   selectQueueEntry,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  projectExecutionFixture,
+  initialExecutionInput,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
@@ -289,17 +292,19 @@ function fixture(t: test.TestContext) {
     "completed",
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
-  assert.equal(ports.state.writeState(created.state, 0).status, "completed");
   assert.equal(
-    ports.state.enqueueOperation({
-      queueId: "queue-a",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: "b".repeat(64),
-      originLane: "interactive",
-      repositoryRevision: "a".repeat(40),
-      scopeHash: "c".repeat(64),
-    }).status,
+    ports.state.enqueueOperation(
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: "b".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: "a".repeat(40),
+        scopeHash: "c".repeat(64),
+      },
+      initialExecutionInput(created.state),
+    ).status,
     "completed",
   );
   return { root };

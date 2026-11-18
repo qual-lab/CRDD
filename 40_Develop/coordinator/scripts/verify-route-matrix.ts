@@ -224,7 +224,7 @@ function snapshotRouteRecord(value: unknown) {
  */
 function validSourceIdentity(result: Readonly<Record<string, unknown>>) {
   return (
-    result.sourceScope === "crdd-development-source-snapshot/v2" &&
+    result.sourceScope === "crdd-development-source-snapshot/v4" &&
     typeof result.sourceSha256 === "string" &&
     SHA256.test(result.sourceSha256) &&
     result.sourceObservationStatus === "matched" &&

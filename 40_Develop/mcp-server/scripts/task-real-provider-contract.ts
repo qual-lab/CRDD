@@ -1388,7 +1388,7 @@ export function buildCoordinatorRealProviderReport(
   );
   const runtimeSource =
     source &&
-    source.scope === "crdd-development-source-snapshot/v3" &&
+    source.scope === "crdd-development-source-snapshot/v4" &&
     typeof source.sourceSha256 === "string" &&
     /^[a-f0-9]{64}$/u.test(source.sourceSha256) &&
     typeof source.mcpEntrySourceSha256 === "string" &&

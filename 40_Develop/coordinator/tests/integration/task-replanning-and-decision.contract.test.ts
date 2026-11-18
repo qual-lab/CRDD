@@ -19,7 +19,10 @@ import {
   initializeExecutionStore,
   readState,
 } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  initialExecutionInput,
+  projectExecutionFixture,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
 import type {
@@ -36,7 +39,6 @@ import {
   enqueueProjectOperation,
   readCoordinatorState,
   readProjectOperationQueueState,
-  writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -166,19 +168,20 @@ function fixture(t: test.TestContext) {
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("fixture");
   assert.equal(
-    writeCoordinatorState(root, "binding-a", created.state, 0).status,
-    "completed",
-  );
-  assert.equal(
-    enqueueProjectOperation(root, "binding-a", {
-      queueId: "queue-a",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: hash("request"),
-      originLane: "interactive",
-      repositoryRevision: revision,
-      scopeHash: hash("scope"),
-    }).status,
+    enqueueProjectOperation(
+      root,
+      "binding-a",
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: hash("request"),
+        originLane: "interactive",
+        repositoryRevision: revision,
+        scopeHash: hash("scope"),
+      },
+      initialExecutionInput(created.state),
+    ).status,
     "completed",
   );
   return {
@@ -450,7 +453,27 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");
   assert.equal(
-    writeCoordinatorState(root, "binding-a", state.value, 0).status,
+    createCurrentCoordinatorPersistencePorts(
+      root,
+      "binding-a",
+    ).state.updateTask(
+      {
+        kind: "task_replan",
+        projectId: "project-a",
+        failedTaskId: "task-a",
+        maximumReplans: input.maximumReplans,
+        replacements: [
+          {
+            id: "task-b",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: [],
+          },
+        ],
+      },
+      0,
+    ).status,
     "blocked",
   );
   assert.deepEqual(

@@ -20,8 +20,12 @@ import { fileURLToPath } from "node:url";
 import {
   initializeExecutionStore,
   readState,
+  type ProjectExecutionInitialization,
 } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  projectExecutionFixture,
+  initialExecutionInput,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
@@ -44,7 +48,33 @@ const revision = "a".repeat(40);
  * @boundary Domain候補→既存単一Writer。実AI・Docker・Scheduling判断の成立は対象外。
  */
 test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は書き換えない", (t) => {
-  const { root, ports } = fixture(t);
+  const { root, ports, initializations } = fixture(t);
+  const preparation = ports.state.enqueueOperation(
+    {
+      queueId: "queue-prior",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: hash("prior"),
+      originLane: "interactive",
+      repositoryRevision: revision,
+      scopeHash: hash("prior-scope"),
+    },
+    initializations["project-a"],
+  );
+  assert.equal(preparation.status, "completed", preparation.reason);
+  if (preparation.status !== "completed")
+    throw new Error("fixture_initial_queue_failed");
+  const prior = ports.state.updateQueue(
+    "queue-prior",
+    preparation.value.generation,
+    {
+      state: "cancelled",
+      lease: null,
+      resumeCondition: null,
+      resultReference: null,
+    },
+  );
+  assert.equal(prior.status, "completed", prior.reason);
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const previous = readState(
@@ -237,6 +267,8 @@ function fixture(
     "completed",
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, binding);
+  const initializations: Record<string, ProjectExecutionInitialization> =
+    Object.create(null);
   for (const projectId of projectIds) {
     const created = projectExecutionFixture({
       taskExecutionSelections: taskExecutionSelections(),
@@ -260,9 +292,14 @@ function fixture(
     assert.equal(created.status, "completed");
     if (created.status !== "completed")
       throw new Error("fixture_state_invalid");
-    assert.equal(ports.state.writeState(created.state, 0).status, "completed");
+    initializations[projectId] = initialExecutionInput(created.state);
   }
-  return { root, ports, children: childProcesses };
+  return {
+    root,
+    ports,
+    children: childProcesses,
+    initializations: Object.freeze(initializations),
+  };
 }
 /**
  * hashのTest準備責務を実行する。
@@ -291,21 +328,26 @@ const hash = (value: string) =>
  * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("interactive queue parks scheduled work without preempting an active owner", (t) => {
-  const { ports } = fixture(t);
+  const { ports, initializations } = fixture(t);
   for (const [queueId, originLane] of [
     ["queue-scheduled", "scheduled"],
     ["queue-interactive", "interactive"],
   ] as const)
     assert.equal(
-      ports.state.enqueueOperation({
-        queueId,
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        requestHash: hash(queueId),
-        originLane,
-        repositoryRevision: revision,
-        scopeHash: hash("scope"),
-      }).status,
+      ports.state.enqueueOperation(
+        {
+          queueId,
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          requestHash: hash(queueId),
+          originLane,
+          repositoryRevision: revision,
+          scopeHash: hash("scope"),
+        },
+        queueId === "queue-scheduled"
+          ? initializations["project-a"]
+          : undefined,
+      ).status,
       "completed",
     );
   const first = ports.state.selectNextOperation();
@@ -372,18 +414,21 @@ test("interactive queue parks scheduled work without preempting an active owner"
  * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("scheduled work arriving after an interactive operation starts remains effect-free", (t) => {
-  const { ports } = fixture(t);
+  const { ports, initializations } = fixture(t);
 
   assert.equal(
-    ports.state.enqueueOperation({
-      queueId: "queue-interactive",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: hash("interactive"),
-      originLane: "interactive",
-      repositoryRevision: revision,
-      scopeHash: hash("scope"),
-    }).status,
+    ports.state.enqueueOperation(
+      {
+        queueId: "queue-interactive",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: hash("interactive"),
+        originLane: "interactive",
+        repositoryRevision: revision,
+        scopeHash: hash("scope"),
+      },
+      initializations["project-a"],
+    ).status,
     "completed",
   );
   const lease = ports.lease.acquire(
@@ -485,22 +530,28 @@ test("scheduled work arriving after an interactive operation starts remains effe
  * @boundary PRL-IT-011=Direct Boundary: coordinator Test Source→対象契約
  */
 test("one Repository Binding cannot acquire two Project Operation leases", (t) => {
-  const { ports } = fixture(t, "binding-a", ["project-a", "project-b"]);
+  const { ports, initializations } = fixture(t, "binding-a", [
+    "project-a",
+    "project-b",
+  ]);
   for (const [projectId, queueId] of [
     ["project-a", "queue-a"],
     ["project-a", "queue-b"],
     ["project-b", "queue-c"],
   ] as const) {
     assert.equal(
-      ports.state.enqueueOperation({
-        queueId,
-        projectId,
-        milestoneId: "milestone-a",
-        requestHash: hash(queueId),
-        originLane: "interactive",
-        repositoryRevision: revision,
-        scopeHash: hash("scope"),
-      }).status,
+      ports.state.enqueueOperation(
+        {
+          queueId,
+          projectId,
+          milestoneId: "milestone-a",
+          requestHash: hash(queueId),
+          originLane: "interactive",
+          repositoryRevision: revision,
+          scopeHash: hash("scope"),
+        },
+        queueId === "queue-b" ? undefined : initializations[projectId],
+      ).status,
       "completed",
     );
   }
@@ -545,6 +596,7 @@ test("separate processes cannot both own one Repository Binding operation", asyn
     root: workingDirectory,
     ports,
     children: childProcesses,
+    initializations,
   } = fixture(t, "binding-race", ["project-a", "project-b", "project-c"]);
   for (const [projectId, queueId] of [
     ["project-a", "queue-a"],
@@ -552,15 +604,18 @@ test("separate processes cannot both own one Repository Binding operation", asyn
     ["project-c", "queue-c"],
   ] as const) {
     assert.equal(
-      ports.state.enqueueOperation({
-        queueId,
-        projectId,
-        milestoneId: "milestone-a",
-        requestHash: hash(queueId),
-        originLane: "interactive",
-        repositoryRevision: revision,
-        scopeHash: hash("scope"),
-      }).status,
+      ports.state.enqueueOperation(
+        {
+          queueId,
+          projectId,
+          milestoneId: "milestone-a",
+          requestHash: hash(queueId),
+          originLane: "interactive",
+          repositoryRevision: revision,
+          scopeHash: hash("scope"),
+        },
+        initializations[projectId],
+      ).status,
       "completed",
     );
   }

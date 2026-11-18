@@ -1,5 +1,30 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 内部生成・開発計測・Process停止の責務
+
+| 対象 | 所有する処理 | 持たない処理 |
+| --- | --- | --- |
+| `execution/authority.ts` | 検査済みの内部Profile・Registry・Policy・Manifestと既存Hash、起動時の現在Grant照合 | 内部値のbytes化・JSON再解析。外部bytesの完成受付は別に維持 |
+| `execution/measurement.ts` | 固定進捗・計測・限定Session・Task予約・期限・取消・Source観測 | 通常Doctor・Readiness・実隔離Probe。Rootへの公開・旧診断からの転送 |
+| `execution/diagnostics.ts` | 通常診断・実隔離Probe・回収・診断説明 | 未接続の合成claim専用Plan／Evaluator |
+| `execution/process-safety-state.ts` | Cleanup不明後の不可逆poisonとfresh Processの識別 | 本番の開始経路がないdrain、解除token・WeakSet・件数 |
+
+内部Authorityの固定候補は本番loaderの既存生成経路だけで保持する。外部から同形Objectを渡してもbytes受付を省略できない。起動直前のOperation・Mount・Provider・Scope・期限の確認、Grantの発行・消費・失効と既存Hash値は維持する。Candidateから実行資格を自動発行しない。
+
+開発Source観測は`crdd-development-source-snapshot/v4`。退役したdomain-modelを除き、configuration-model・document-model・execution-model・executorを含む現行12Packageを固定観測する。内容／実体を二回読み、前後差・Link・非通常File・観測不能を拒否する。新ScopeのHashを旧Scopeと同値扱いせず、期待Hashを自動補完・移行しない。検証記録の既存v2／v3読取りは過去結果の投影に限定する。
+
+旧合成専用の正常claim・状態列・入出力量・取消claimを検査する自己完結実装と専用試験は退役する。認証・課金はAD、Home・実行許可はAuthority、実Fakeの終了・取消・回収はDoctor／Executor／DIの既存試験が所有する。Doctorの既存JSONキーは維持し、内側の契約改訂を7へ更新する。実装説明は実Docker所有Fake観測だけとし、合成受付はretired、旧合成専用limitsはnull（非該当）へ変更する。実DI／Executorの期限・取消・安全条件は変更せず、診断を実Providerの能力総覧へ拡大しない。Cleanup不明の新規Task／助言拒否と元回復IDは維持し、実在しない一時drainの拒否理由を生成しない。
+
+## 内部受付の一回捕捉と未使用経路の撤去
+
+Docker回復後の終了参照の確定は、既存の`updateTask`へ`task_recovery_finalize`と対象Task ID・回復IDを渡す。State全体の複製や世代加算はCoordinatorで行わない。EMが同じWriterのfreshな元版から候補を作り、履歴・未解決参照・Operation終端の検査と退役を所有する。保存拒否・候補metadata欠測では、保存前から持つexact回復IDを初回停止結果へ保持する。State Portは有限Task更新だけを搬送し、旧`writeState`と外部結果事実の受付を持たない。初回準備はQueueとProjectの原子的受付へ接続し、任意の保持参照を検証する保存試験はEMが所有する。
+
+未信頼な実行選定は各受付境界で独立捕捉する。`hashExecutionSelection`は捕捉済みの選定を既存の十field順でHash化するだけとし、同じ値の検査を繰り返さない。依存先から新しく返る値の受付、起動直前のGrant・有効期限・Scope・Mount確認、保存Lock内のfresh照合とCASは別の保証として維持する。
+
+単発結果のWorkspace観測は結果受付で一回だけ捕捉し、後段の同じ呼出しではその固定値を使用する。用途とWorkspace IDの相関、保存成功後だけの結果公開は維持する。状態照会は同じ観測断面を完成投影へ一回渡し、候補の欠測・不正を未知として拒否する。候補不正はRevision差より先に拒否し、観測不能を空候補へ補完しない。
+
+未使用のObjective専用開発実行・取消入口、専用WeakMapと用途分岐は持たない。現役の開発計測は単発実行が返す取消操作を使い、元Completionの待機・期限・Listener解放を保持する。CLI取消試験は実際のSignal接続処理へ直接接続し、試験専用の転送入口を置かない。Root公開、CLI・保存形式、既存のProcess停止・回復条件は変更しない。
+
 ## Operation・Lease・Workspaceの依存方向
 
 診断SessionはTask・Repository・Revisionを照合した後、元Operationの既存管理bindingへ同じContext参照を一回だけ結合する。新しいMapや権限を作らず、同期trueが返る前はSession側の結合を確定しない。新規作業の動的検査と新規／清掃Contextは同じ参照のまま保持し、取消・終了後を通常Operationのnullへ読み替えない。AuthorityとRecoveryはOperationからこの参照を読み、診断処理へ逆参照しない。管理aliasへ自動伝播せず、既存のOperation失効で管理参照も失効する。
@@ -174,7 +199,7 @@ physicalIdentity未確定時は、取得前に不存在を確認した唯一のa
 
 ## PA退役後のSource／Git照合 — 2026-11-11
 
-開発実行は固定Sourceの内容・実体、Repositoryの改訂・Treeを照合し、前後Repository一致とSessionの期限・取消・実行回数・元Identity比較を維持する。Native成果物Hash・借用API・専用出所照合は対象成果物とともに撤去した。Source根拠は元Identityへ保持する。Source観測scopeは`crdd-development-source-snapshot/v3`。以下の過去段階のNative実装記述を現行要件へ読み替えない。既存保存field名に残るNative表記は、この整理を理由に変更しない。
+開発実行は固定Sourceの内容・実体、Repositoryの改訂・Treeを照合し、前後Repository一致とSessionの期限・取消・実行回数・元Identity比較を維持する。Native成果物Hash・借用API・専用出所照合は対象成果物とともに撤去した。Source根拠は元Identityへ保持する。Source観測scopeは`crdd-development-source-snapshot/v4`。以下の過去段階のNative実装記述を現行要件へ読み替えない。既存保存field名に残るNative表記は、この整理を理由に変更しない。
 
 ## Desktop修復の技術境界更新 — 2026-11-10
 
@@ -379,7 +404,7 @@ CLIは`run task`／`run advice`、`run objective`、`doctor`／`doctor --isolati
 
 ## 現行APIと名称整理 — 2026-10-22
 
-現行の単一CoordinatorがTask／Objective管理と単発Executionを所有する。旧`Orchestrator*`のTypeScript公開名は`Coordinator*`又は実責務名へ切り替え、全利用側を同時に追従する。業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`、Objective配下の開発用実行は`startRuntimeOwnedDevelopmentObjectiveTask`を使い、技術状態の排他・単発開発用実行と区別する。旧名aliasや別の状態管理は追加しない。
+現行の単一CoordinatorがTask／Objective管理と単発Executionを所有する。旧`Orchestrator*`のTypeScript公開名は`Coordinator*`又は実責務名へ切り替え、全利用側を同時に追従する。業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`を使う。開発計測の単発実行は`startRuntimeOwnedDevelopmentCoordinatorTask`で開始し、返された同じ実行の取消操作を使用する。未使用のObjective専用開発入口と専用取消Mapは持たない。旧名aliasや別の状態管理は追加しない。
 
 保存七Sourceのbytes凍結は名称整理時点の比較基準である。採用済みBの範囲で解除し、物理Root・Schema・共通Writer・履歴・耐久受領を一括して切り替える。安定ID、認可、実資源の観測と過去Evidenceは維持する。名称整理時点の限定差分と検証は[統合計画§34](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#34-統合後の識別子整理--着手範囲2026-10-22)、現在の保存切替は同計画§37.5を参照する。
 
@@ -1203,7 +1228,7 @@ Orchestrator実Provider検証Toolは、公開MCPの起動要求前と発行後�
 
 結果改訂12は作業対象の`executionIdentity`と実行Sourceの`runtimeSource`を分離する。後者はScope・内容Hash・Commit／Tree・入口文字列Hash・固定観測状態・署名不要の七項目だけを再構築し、実体Hash・時刻・絶対Root・未知fieldを公開しない。旧`distributionIdentity`や署名Manifestを新版の根拠へ流用せず、歴史Evidenceは不変更。正常二経路・取消・親喪失・同じRequestの再入場・公開受付世代取得・fixture復元を維持し、Source観測の成功だけをそれらの実成立と表示しない。
 
-旧署名資格の発行・消費・失効API、そのWeakMap・5秒寿命・同一性Record・試験専用factoryは撤去した。資格を一回消費する旧保証は退役し、別資格へ置換しない。TaskのProcess poison／drain拒否とExternal Sendの現在許可は、それぞれ現在の入口で確認する。旧APIへのProxy読取り試験はTask入力のget・ownKeys・descriptor読取り0の直接反証へ移し、旧資格だけの試験は公開namespaceから四入口が消えたことの反証へ置換した。Coordinator専用の署名Script・配布Identity・Manifest／Tree検証・固定AST graphと専用試験は物理撤去した。現在Treeの固定旧18Pathの明示不存在と通常入口・Task回復・Nativeの非依存を専用試験で確認する。汎用artifact-signingも廃止する一方、固定Native／公式CLI／Imageの検証は維持し、歴史Evidenceは変更しない。撤去後の全体回帰・実境界・最終独立レビューの完了は別に確認する。
+旧署名資格の発行・消費・失効API、そのWeakMap・5秒寿命・同一性Record・試験専用factoryは撤去した。資格を一回消費する旧保証は退役し、別資格へ置換しない。TaskのProcess poison拒否とExternal Sendの現在許可は、それぞれ現在の入口で確認する。旧APIへのProxy読取り試験はTask入力のget・ownKeys・descriptor読取り0の直接反証へ移し、旧資格だけの試験は公開namespaceから四入口が消えたことの反証へ置換した。Coordinator専用の署名Script・配布Identity・Manifest／Tree検証・固定AST graphと専用試験は物理撤去した。現在Treeの固定旧18Pathの明示不存在と通常入口・Task回復・Nativeの非依存を専用試験で確認する。汎用artifact-signingも廃止する一方、固定Native／公式CLI／Imageの検証は維持し、歴史Evidenceは変更しない。撤去後の全体回帰・実境界・最終独立レビューの完了は別に確認する。
 
 Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検査は退役対象とし、2026-10-19に汎用`artifact-signing`も廃止した。正式配布署名の将来採用は具体的Consumerから別途判断する。Nativeの単一Git出所観測、必要Artifact Hash、公式CLI／Image、現在認可、Docker隔離・取消・回収はこの退役へ含めない。先行して共通Launcherの`sign-release`／`promote-release`をmode集合・dispatch・help・端末条件から削除し、旧modeは引数・端末条件を問わず既存`coordinator_launch_mode_invalid`／exit64で対象Tool読込み前に拒否する。通常Task・対話・自動処理・経路検証・回復検証・Claude認証の入口は維持する。旧Script本体・graph・配布Identity・専用試験と設定の物理撤去は別に閉じ、Launcher撤去だけでFramework全体の退役完了としない。
 

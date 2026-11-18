@@ -10,9 +10,14 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import vm from "node:vm";
-import { reverifyAuthorityBeforeProviderLaunch } from "../../../src/execution/authority.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
+import {
+  evaluateAuthorityGrantCandidate,
+  reverifyAuthorityBeforeProviderLaunch,
+} from "../../../src/execution/authority.ts";
 import {
   createIsolatedLocalPersonalAuthorityRuntimeCandidate,
   describeLocalPersonalAuthorityRuntimeContract,
@@ -48,16 +53,79 @@ test("署名資格なしで両Providerを現在Operationへ結合する", () => 
     });
     const source = runtime.load(binding, management);
     assert.ok(source);
+    const canonical = (value: unknown): string => {
+      if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+      if (value && typeof value === "object") {
+        const record = value as Record<string, unknown>;
+        return `{${Object.keys(record)
+          .sort()
+          .map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`)
+          .join(",")}}`;
+      }
+      return JSON.stringify(value);
+    };
+    const context = {
+      ...binding,
+      scopeId: source.scopeId,
+      providerHomeMountGrantRef: "PHMGRANT-123456",
+    };
     const verified = reverifyAuthorityBeforeProviderLaunch(
       source.profile,
-      source.bundle,
       {
-        ...binding,
-        scopeId: source.scopeId,
-        providerHomeMountGrantRef: "PHMGRANT-123456",
+        manifestBytes: Buffer.from(canonical(source.bundle.manifest)),
+        trustPolicyBytes: Buffer.from(canonical(source.bundle.trustPolicy)),
+        registryBytes: Buffer.from(canonical(source.bundle.registry)),
       },
+      context,
     );
     assert.equal(verified.status, "candidate");
+    const implementation = fs.readFileSync(
+      new URL("../../../src/execution/authority.ts", import.meta.url),
+      "utf8",
+    );
+    let evaluatedAt = verified.verification.prelaunchCheckedAt;
+    const reverify = vm.compileFunction(
+      `return (${stripTypeScriptTypes(sourceDeclaration(implementation, "reverifyAuthorityCandidate"))})(profile, bundle, context);`,
+      ["profile", "bundle", "context"],
+      {
+        contextExtensions: [
+          {
+            runtimeNow: () => evaluatedAt,
+            evaluateAuthorityGrantCandidate,
+            prelaunchValidationBlocked: (reason: string) => ({
+              status: "blocked",
+              reason,
+            }),
+          },
+        ],
+      },
+    );
+    const internal = reverify(source.profile, source.bundle, context);
+    assert.deepEqual(
+      JSON.parse(JSON.stringify(internal)),
+      JSON.parse(JSON.stringify(verified)),
+    );
+    assert.equal(Object.isFrozen(source.bundle), true);
+    assert.equal(Object.isFrozen(source.bundle.registry.grants), true);
+    assert.equal(Object.isFrozen(source.bundle.trustPolicy), true);
+    assert.equal(Object.hasOwn(source.bundle, "registryBytes"), false);
+    assert.equal(
+      reverifyAuthorityBeforeProviderLaunch(
+        source.profile,
+        source.bundle,
+        context,
+      ).status,
+      "blocked",
+    );
+    assert.equal(
+      Reflect.set(source.bundle.trustPolicy, "status", "revoked"),
+      false,
+    );
+    evaluatedAt = "9999-01-01T00:00:00.000Z";
+    assert.equal(
+      reverify(source.profile, source.bundle, context).status,
+      "blocked",
+    );
     assert.equal(verified.verification.provider, provider);
     assert.equal(Object.hasOwn(verified.verification, "profileId"), false);
     assert.equal(verified.verification.operationId, binding.operationId);

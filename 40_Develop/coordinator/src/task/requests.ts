@@ -998,10 +998,7 @@ export function createCoordinatorTaskRequests(
             cleanupConfirmed: outcome.cleanupConfirmed,
             recoveryIds: outcome.recoveryIds,
           };
-          const workspaceResult =
-            outcome.workspaceResult === null
-              ? null
-              : inspectWorkspaceResult(outcome.workspaceResult);
+          const workspaceResult = outcome.workspaceResult;
           if (
             outcome.mode !== command.mode ||
             (command.mode === "read_only_advice" &&

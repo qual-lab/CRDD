@@ -7,10 +7,9 @@
  * @security 認証・権限・外部送信・保存・実行を開始しない。
  */
 import { createHash } from "node:crypto";
-import {
-  type ExecutionSelection,
-  type TaskExecutionSelections,
-  inspectExecutionSelection,
+import type {
+  ExecutionSelection,
+  TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
 import {
   validateAiSelectionConfig as validateDomainAiSelectionConfig,
@@ -297,20 +296,37 @@ export type ExecutionSelectionResult = Readonly<
  * 確定済み実行入力の非Authority Identityを導く。
  * @responsibility Provider・選定元・当時の構成を正規化順序のままHash化する。
  * @trace ARCH-000004
- * @input candidate: 十項目の未信頼な選定候補。
- * @returns 正規SHA-256又は不正時null。
- * @precondition 実行可否・認可は別Ownerが検査する。
+ * @input value: 受付で検査・独立捕捉済みの十項目の選定、又は受付拒否のnull。
+ * @returns 固定field順の正規SHA-256、又はnull。
+ * @precondition 未信頼入力は呼出し元でinspectExecutionSelectionにより捕捉する。実行可否・認可は別Ownerが検査する。
  * @postcondition 元値を変更せず当時の値を保持する。
- * @effect N/A: 値検査と局所Hash計算のみ。
- * @failure 型・相関不正はnull。
+ * @effect N/A: 局所Hash計算のみ。入力検査を繰り返さない。
+ * @failure 受付拒否のnullをHashへ変換しない。
  * @invariant Hashを実行Authorityにしない。
  * @boundary Task・Packet・保存選定の値相関。
  * @security 設定Storeや現在Catalogへアクセスしない。
  * @concurrency 同期で独立Snapshotだけを使用する。
  */
-export function hashExecutionSelection(candidate: unknown): string | null {
-  const value = inspectExecutionSelection(candidate);
+export function hashExecutionSelection(
+  value: ExecutionSelection | null,
+): string | null {
   return value
-    ? createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")
+    ? createHash("sha256")
+        .update(
+          JSON.stringify({
+            provider: value.provider,
+            modelIdentifier: value.modelIdentifier,
+            identifierKind: value.identifierKind,
+            reasoningEffort: value.reasoningEffort,
+            purpose: value.purpose,
+            catalogIdentity: value.catalogIdentity,
+            configIdentity: value.configIdentity,
+            role: value.role,
+            workType: value.workType,
+            source: value.source,
+          }),
+          "utf8",
+        )
+        .digest("hex")
     : null;
 }

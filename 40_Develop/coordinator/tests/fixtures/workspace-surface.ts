@@ -20,9 +20,11 @@ import type { TestContext } from "node:test";
 import {
   initializeExecutionStore,
   readState,
-  saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  projectExecutionFixture,
+  initialExecutionInput,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
@@ -37,11 +39,11 @@ import { taskExecutionSelections } from "./ai-selection.ts";
  * @responsibility 公開操作の所属・選択の前提を作る。
  * @trace CPR-IT-001
  * @precondition 自己生成Rootと固定Git Commit。
- * @stimulus 初期化、Project保存、二Queue受付。
+ * @stimulus 共通状態初期化、初回Project付きQueue受付、二件目のQueue受付。
  * @observation 各Writerの完了。
  * @oracle 保存拒否を前提成立と扱わない。
  * @cleanup 呼出し側がexact Rootを回収する。
- * @boundary 実Snapshot・Native排他。
+ * @boundary 実Snapshot・共通File排他。
  */
 export function prepareWorkspaceSurface(
   root: string,
@@ -74,22 +76,23 @@ export function prepareWorkspaceSurface(
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
-  assert.equal(
-    saveProjectExecutionState(repository, binding, created.state, 0).status,
-    "completed",
-  );
   const ports = createCoordinatorSnapshotPersistencePorts(root, binding);
   for (const queueId of ["queue-a", "queue-b"]) {
-    const result = ports.state.enqueueOperation({
-      queueId,
-      projectId,
-      milestoneId: "milestone-a",
-      requestHash: queueId === "queue-a" ? "a".repeat(64) : "c".repeat(64),
-      originLane: "interactive",
-      repositoryRevision: base,
-      scopeHash: "b".repeat(64),
-    });
+    const result = ports.state.enqueueOperation(
+      {
+        queueId,
+        projectId,
+        milestoneId: "milestone-a",
+        requestHash: queueId === "queue-a" ? "a".repeat(64) : "c".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: base,
+        scopeHash: "b".repeat(64),
+      },
+      queueId === "queue-a" ? initialExecutionInput(created.state) : undefined,
+    );
     assert.equal(result.status, "completed", JSON.stringify(result));
+    if (queueId === "queue-a")
+      assert.deepEqual(ports.state.readState(projectId).value, created.state);
   }
   return binding;
 }
@@ -232,26 +235,21 @@ export function fixture(t: TestContext, independent = false) {
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
-  assert.equal(
-    saveProjectExecutionState(
-      verifyRuntimePersistenceRepository(root),
-      binding,
-      created.state,
-      0,
-    ).status,
-    "completed",
-  );
   const ports = createCoordinatorSnapshotPersistencePorts(root, binding);
-  const queued = ports.state.enqueueOperation({
-    queueId: "queue-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    requestHash: "a".repeat(64),
-    originLane: "interactive",
-    repositoryRevision: base,
-    scopeHash: "b".repeat(64),
-  });
+  const queued = ports.state.enqueueOperation(
+    {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "a".repeat(64),
+      originLane: "interactive",
+      repositoryRevision: base,
+      scopeHash: "b".repeat(64),
+    },
+    initialExecutionInput(created.state),
+  );
   assert.equal(queued.status, "completed", JSON.stringify(queued));
+  assert.deepEqual(ports.state.readState("project-a").value, created.state);
   const workspaceId = randomUUID();
   const common = {
     ownerRepositoryRoot: root,

@@ -52,6 +52,41 @@ const verificationScriptSource = fs.readFileSync(
 );
 
 /**
+ * 実入口のImport解決と不正引数の処置前拒否を確認する。
+ * @responsibility 本文抜出し試験では検出できない移管先の未接続を拒否する。
+ * @trace PRL-ST-004
+ * @precondition 起動Sourceの引数拒否はRepository観測・MCP開始より前にある。
+ * @stimulus 不正引数だけを付けた新品Node Processで正式入口を起動する。
+ * @observation 終了値と検証未開始の公開結果。
+ * @oracle Importエラーでなく既存のblocked結果となり、MCP・Providerを開始しない。
+ * @cleanup spawnSyncで元子Processの終了を待つ。試験領域は作成しない。
+ * @boundary Node ESMの実接続とCLI受付。実AI・Dockerは起動しない。
+ */
+test("実検証入口は計測Ownerを解決し不正引数を処置前に拒否する", () => {
+  const entry = fileURLToPath(
+    new URL("../../scripts/verify-task-real-providers.ts", import.meta.url),
+  );
+  const child = spawnSync(process.execPath, [entry, "--invalid"], {
+    encoding: "utf8",
+    windowsHide: true,
+    shell: false,
+    timeout: 15_000,
+  });
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 2, child.stderr);
+  const result = JSON.parse(child.stdout);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.phase, "verification_not_started");
+  assert.equal(result.childProcessStarted, false);
+  assert.equal(result.childProcessJoined, true);
+  assert.equal(result.effectState, "no_effect");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.runtimeSource, null);
+});
+
+/**
  * @trace PRL-ST-001
  * @precondition 起動設定の実本文だけをメモリで実行し、DI初期化は有限代役にする。
  * @stimulus Desktop所在の有無と、起動後の親環境変更。
@@ -1533,7 +1568,7 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
     aiSelectionObservationStatus: "matched",
     executionIdentity: { commit: "a".repeat(40), tree: "b".repeat(40) },
     runtimeSource: {
-      scope: "crdd-development-source-snapshot/v3",
+      scope: "crdd-development-source-snapshot/v4",
       sourceSha256: "c".repeat(64),
       crddCommit: "d".repeat(40),
       crddTree: "e".repeat(40),
@@ -1696,7 +1731,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
         scenario === "source_missing"
           ? null
           : {
-              scope: "crdd-development-source-snapshot/v3",
+              scope: "crdd-development-source-snapshot/v4",
               sourceSha256: "c".repeat(64),
               sourceIdentitySha256: "d".repeat(64),
             },
@@ -1813,6 +1848,7 @@ test("Orchestrator検証のSource不成立は終了事実を変えず公開値�
     null,
     { ...source, scope: "other" },
     { ...source, scope: "crdd-development-source-snapshot/v2" },
+    { ...source, scope: "crdd-development-source-snapshot/v3" },
     { ...source, sourceSha256: "bad" },
     { ...source, mcpEntrySourceSha256: "bad" },
     { ...source, crddCommit: "bad" },
@@ -3973,6 +4009,7 @@ test("実Provider Toolはchoiceと検証分類を持つ現在Objectiveを構築�
       ),
     );
     assert.ok(inspectCoordinatorObjectiveRequest(request));
+    assert.equal(request.operation, "start");
     assert.equal(request.workType, `verification-${provider}`);
     assert.equal(request.choice.provider, provider);
     assert.equal("requestedExecutorProvider" in request, false);

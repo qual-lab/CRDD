@@ -80,7 +80,6 @@ import {
   captureTaskExecutionUpdate,
   observeTaskStartCandidates,
   prepareTaskExecutionUpdate,
-  validState,
 } from "../task/validation.ts";
 import type { ResultRecord } from "../workspace/types.ts";
 import { adoptionWasRejected } from "../workspace/validation.ts";
@@ -202,21 +201,21 @@ export function initializeExecutionStore(
  * 統合保存上のProject状態だけを同じ排他内で更新する。
  * @responsibility 既存State世代の比較と他区画の保全を接続する。
  * @trace ARCH-000004
- * @input workingDirectory、binding、stateJson、expectedGeneration。
+ * @input workingDirectory、binding、有限Task更新要求、expectedGenerationと任意の受付相関。
  * @returns 保存済みProject状態、または記録を保全した停止。
  * @precondition 全入力を照合したSnapshotが既に存在する。
  * @postcondition Snapshot改訂とState世代を別々に検証し、解放確認後に成功する。
  * @effect 統合state.jsonと固定pendingだけを更新する。
  * @failure 入力不正、不存在、世代競合、pendingまたは保存不明で停止する。
- * @invariant Queue、受付結合、Lease、結果と未搬送履歴を変更しない。
- * @boundary 明示的な接続試行から統合保存への境界。本番Factoryは切り替えない。
+ * @invariant 対象Taskの終端・履歴・Operation相関を保持し、Queue・受付結合・Lease等の対象外区画を変更しない。
+ * @boundary 管理Taskの有限要求から既存の統合保存への境界。
  * @security 旧形式Fallback、初期化、Authority発行と旧記録削除を行わない。
  * @concurrency 読取り・比較・保存まで一つの短期Ownerを保持し外部待機しない。
  */
 export function writeSnapshotState(
   workingDirectory: string | Repository,
   binding: string,
-  stateJson: string | import("../task/types.ts").TaskExecutionUpdate,
+  request: import("../task/types.ts").TaskExecutionUpdate,
   expectedGeneration: number,
   intake?: Readonly<{
     operation: "start" | "resume";
@@ -225,12 +224,9 @@ export function writeSnapshotState(
     projectId: string;
     milestoneId: string;
   }>,
-  resultFacts: readonly ProjectTaskResultFact[] = [],
 ): StoreResult<ProjectExecutionState> &
   Readonly<{ taskUpdateTaskIds?: readonly string[] }> {
-  let state!: ProjectExecutionState;
-  let taskUpdateTaskIds: readonly string[] | null = null;
-  let taskUpdate: Exclude<typeof stateJson, string> | null = null;
+  let taskUpdate: typeof request;
   try {
     if (
       !validId(binding) ||
@@ -238,25 +234,15 @@ export function writeSnapshotState(
       expectedGeneration < 0
     )
       throw new Error("snapshot_state_input_invalid");
-    if (typeof stateJson !== "string") {
-      const captured = captureTaskExecutionUpdate(stateJson);
-      if (!captured) throw new Error("snapshot_state_input_invalid");
-      taskUpdate = captured;
-    } else {
-      const parsed: unknown = JSON.parse(stateJson);
-      if (!validState(parsed) || parsed.generation !== expectedGeneration + 1)
-        throw new Error("snapshot_state_input_invalid");
-      Object.freeze(parsed.taskExecutionSelections.executor);
-      Object.freeze(parsed.taskExecutionSelections.reviewer);
-      Object.freeze(parsed.taskExecutionSelections);
-      state = parsed;
-    }
+    const captured = captureTaskExecutionUpdate(request);
+    if (!captured) throw new Error("snapshot_state_input_invalid");
+    taskUpdate = captured;
   } catch {
     return blocked("orchestrator_state_generation_mismatch");
   }
   const taskResultFacts: readonly ProjectTaskResultFact[] =
-    taskUpdate?.kind === "task_settle_before_effect" ||
-    taskUpdate?.kind === "task_settle"
+    taskUpdate.kind === "task_settle_before_effect" ||
+    taskUpdate.kind === "task_settle"
       ? [
           {
             taskId: taskUpdate.taskId,
@@ -268,11 +254,12 @@ export function writeSnapshotState(
                 : taskUpdate.recoveryUnresolved,
           },
         ]
-      : resultFacts;
+      : [];
   const acquired = acquireSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
   let outcome: StoreResult<ProjectExecutionState>;
+  let taskUpdateTaskIds: readonly string[] | null = null;
   let boundaryError: ExecutionStorageBlockedError | null = null;
   try {
     const observed = readSnapshotOwned(lock, binding, true);
@@ -284,80 +271,66 @@ export function writeSnapshotState(
       if (
         intake &&
         (!snapshotRequestMatches(current, intake) ||
-          (taskUpdate !== null && intake.projectId !== taskUpdate.projectId))
+          intake.projectId !== taskUpdate.projectId)
       )
         outcome = blocked("orchestrator_queue_identity_conflict");
       else {
-        let updateFailure: string | null = null;
-        if (taskUpdate) {
-          const previous = current.projects.find(
-            (item) => item.projectId === taskUpdate.projectId,
-          );
-          if (!previous)
-            updateFailure = "orchestrator_state_generation_conflict";
-          else {
-            const prepared = prepareTaskExecutionUpdate(
-              previous,
-              expectedGeneration,
-              taskUpdate,
-            );
-            if (prepared.status !== "completed")
-              updateFailure = prepared.reason;
-            else {
-              state = prepared.state;
-              taskUpdateTaskIds = prepared.taskIds;
-            }
-          }
-        }
-        if (updateFailure) outcome = blocked(updateFailure);
+        const previous = current.projects.find(
+          (item) => item.projectId === taskUpdate.projectId,
+        );
+        if (!previous)
+          outcome = blocked("orchestrator_state_generation_conflict");
         else {
-          const previous = current.projects.find(
-            (item) => item.projectId === state.projectId,
+          const prepared = prepareTaskExecutionUpdate(
+            previous,
+            expectedGeneration,
+            taskUpdate,
           );
-          if (
-            previous?.generation === expectedGeneration + 1 &&
-            encodeStateValue(previous) === encodeStateValue(state)
-          ) {
-            const saved = writeSnapshotOwned(
-              lock,
-              binding,
-              encodeStateValue(current),
-              current.snapshotRevision - 1,
-              taskResultFacts.map((fact) => ({
-                ...fact,
-                projectId: state.projectId,
-              })),
-            );
-            outcome =
-              saved.status === "completed"
-                ? completed("orchestrator_state_durable", previous)
-                : saved;
-          } else if ((previous?.generation ?? 0) !== expectedGeneration)
-            outcome = blocked("orchestrator_state_generation_conflict");
+          if (prepared.status !== "completed")
+            outcome = blocked(prepared.reason);
           else {
-            const projects = previous
-              ? current.projects.map((item) =>
-                  item.projectId === state.projectId ? state : item,
-                )
-              : [...current.projects, state];
-            const saved = writeSnapshotOwned(
-              lock,
-              binding,
-              encodeStateValue({
-                ...current,
-                snapshotRevision: current.snapshotRevision + 1,
-                projects,
-              }),
-              current.snapshotRevision,
-              taskResultFacts.map((fact) => ({
-                ...fact,
-                projectId: state.projectId,
-              })),
-            );
-            outcome =
-              saved.status === "completed"
-                ? completed("orchestrator_state_durable", state)
-                : saved;
+            const state = prepared.state;
+            taskUpdateTaskIds = prepared.taskIds;
+            const facts = taskResultFacts.map((fact) => ({
+              ...fact,
+              projectId: state.projectId,
+            }));
+            if (
+              previous.generation === expectedGeneration + 1 &&
+              encodeStateValue(previous) === encodeStateValue(state)
+            ) {
+              const saved = writeSnapshotOwned(
+                lock,
+                binding,
+                encodeStateValue(current),
+                current.snapshotRevision - 1,
+                facts,
+              );
+              outcome =
+                saved.status === "completed"
+                  ? completed("orchestrator_state_durable", previous)
+                  : saved;
+            } else if (previous.generation !== expectedGeneration)
+              outcome = blocked("orchestrator_state_generation_conflict");
+            else {
+              const saved = writeSnapshotOwned(
+                lock,
+                binding,
+                encodeStateValue({
+                  ...current,
+                  snapshotRevision: current.snapshotRevision + 1,
+                  projects: current.projects.map((item) =>
+                    item.projectId === state.projectId ? state : item,
+                  ),
+                }),
+                current.snapshotRevision,
+                facts,
+              );
+              outcome =
+                saved.status === "completed"
+                  ? completed("orchestrator_state_durable", state)
+                  : saved;
+            }
           }
         }
       }
@@ -1604,46 +1577,53 @@ export function readExecutionContent<K extends keyof ExecutionContentViews>(
 }
 
 /**
- * 管理実行Ownerが検査した一Project状態を保存する。
+ * 有限Task更新を同じOwnerの現在版から構築して保存する。
  * @responsibility 完了・受領の既存相関を保持し一般定義CRUDと区別する。
  * @trace ARCH-000008
- * @input workingDirectory、binding、state、expectedGeneration、intake、resultFacts: 既存管理実行の固定入力。
+ * @input workingDirectory、binding、有限Task更新要求、expectedGeneration、intake: 既存管理実行の固定入力。
  * @returns 管理Projectの保存結果。
- * @precondition 実行Ownerが状態遷移・受領・実Leaseを検査している。
+ * @precondition 実行Ownerが操作対象と実Leaseを確認し、EMがfinite要求から状態遷移を構築する。
  * @postcondition 任意Snapshotや他区画の変更を受け付けない。
  * @effect 同じ短期Ownerと単一Writerだけ。
  * @failure 不正値・元版差・受領相関差・保存不明を拒否する。
  * @invariant 一般CRUDから完了・受入を捏造しない。
  * @boundary 管理実行の状態OwnerとDomain保存。
- * @security 生Snapshot Writerを公開しない。
+ * @security 任意State・生JSON・外部結果事実を受け付けず、余剰引数は拒否する。
  * @concurrency CASと解放確認を同じ保存呼出しへ閉じる。
  */
 export function saveProjectExecutionState(
   workingDirectory: Repository,
   binding: string,
-  state: ProjectExecutionState | import("../task/types.ts").TaskExecutionUpdate,
+  request: import("../task/types.ts").TaskExecutionUpdate,
   expectedGeneration: number,
   intake?: Parameters<typeof writeSnapshotState>[4],
-  resultFacts: readonly ProjectTaskResultFact[] = [],
-) {
+  ...unexpected: never[]
+):
+  | (Extract<ReturnType<typeof writeSnapshotState>, { status: "completed" }> &
+      Readonly<{
+        taskStartCandidates: ReturnType<typeof observeTaskStartCandidates>;
+      }>)
+  | Extract<ReturnType<typeof writeSnapshotState>, { status: "blocked" }> {
+  if (unexpected.length !== 0)
+    return blocked<ProjectExecutionState>(
+      "orchestrator_snapshot_input_invalid",
+    );
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked<ProjectExecutionState>(
       "orchestrator_repository_root_invalid",
     );
   try {
-    const command = captureTaskExecutionUpdate(state);
-    const input = command ?? encodeStateValue(state);
-    if (command !== null && resultFacts.length !== 0)
+    const command = captureTaskExecutionUpdate(request);
+    if (command === null)
       return blocked<ProjectExecutionState>(
         "orchestrator_snapshot_input_invalid",
       );
     const saved = writeSnapshotState(
       workingDirectory,
       binding,
-      input,
+      command,
       expectedGeneration,
       intake,
-      resultFacts,
     );
     return saved.status === "completed"
       ? Object.freeze({

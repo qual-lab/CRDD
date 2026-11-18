@@ -36,7 +36,7 @@ import {
 
 test("開発実行はNativeなしでも元SourceとGitの前後一致を要求する", () => {
   const source = readFileSync(
-    new URL("../../src/execution/diagnostics.ts", import.meta.url),
+    new URL("../../src/execution/measurement.ts", import.meta.url),
     "utf8",
   );
   assert.equal(source.includes("platform-access/src"), false);
@@ -191,7 +191,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
  * @responsibility 公開Root注入口を増やさず、実Filesystemの反例を確認する。
  * @trace ERB-IT-004
  * @precondition 現行Source本文を読める。
- * @stimulus 固定10対象Packageと対象外の旧Coordinator一Directoryを最小Sourceで構成し、試験コピーのRoot定数だけを置き換える。
+ * @stimulus 固定12対象Packageと対象外の旧Coordinator一Directoryを最小Sourceで構成し、試験コピーのRoot定数だけを置き換える。
  * @observation 実本文の観測結果と自己生成Root。
  * @oracle 呼出し元が内容Hash・実体Hash・拒否を比較できる。
  * @cleanup 呼出し元のfinallyで自己生成Rootだけを削除する。
@@ -202,7 +202,7 @@ async function createSourceObservationFixture(readMutation = "") {
   const root = directory.path;
   try {
     const fullSource = readFileSync(
-      new URL("../../src/execution/diagnostics.ts", import.meta.url),
+      new URL("../../src/execution/measurement.ts", import.meta.url),
       "utf8",
     );
     const declarations = [
@@ -226,7 +226,10 @@ async function createSourceObservationFixture(readMutation = "") {
       "ai-adapter",
       "coordinator",
       "docker-isolation",
-      "domain-model",
+      "configuration-model",
+      "document-model",
+      "execution-model",
+      "executor",
       "execution-intelligence",
       "lock",
       "mcp-server",
@@ -281,7 +284,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility Snapshotをコピー署名やRoot実体Hashと混同しないことを検証する。
    * @trace ERB-IT-004
-   * @precondition 固定10対象Packageと対象外の旧Coordinator一Directoryの通常Fileが存在する。
+   * @precondition 固定Scopeの全対象Packageと対象外の旧Coordinator一Directoryの通常Fileが存在する。
    * @stimulus 対象外更新、config／schemasの追加・内容変更・削除、任意Scope追加、同内容File交換を行う。
    * @observation 各観測の内容Hashと実体Hash。
    * @oracle 対象外は不変、対象内追加・内容変更は内容差、同内容交換は実体差となる。
@@ -293,8 +296,8 @@ if (process.argv[2] !== "--probe") {
     try {
       const first = fixture.observe();
       assert.ok(first);
-      assert.equal(first.fileCount, 18);
-      assert.equal(first.scope, "crdd-development-source-snapshot/v3");
+      assert.equal(first.fileCount, 24);
+      assert.equal(first.scope, "crdd-development-source-snapshot/v4");
       assert.ok(Object.isFrozen(first));
       writeFileSync(
         path.join(
@@ -351,6 +354,23 @@ if (process.argv[2] !== "--probe") {
       const changed = fixture.observe();
       assert.ok(changed);
       assert.notEqual(changed.sourceSha256, first.sourceSha256);
+      for (const packageName of [
+        "configuration-model",
+        "document-model",
+        "execution-model",
+        "executor",
+      ]) {
+        const before = fixture.observe();
+        assert.ok(before);
+        writeFileSync(
+          path.join(fixture.root, "40_Develop", packageName, "src", "entry.ts"),
+          "export const value = 3;\n",
+        );
+        const after = fixture.observe();
+        assert.ok(after);
+        assert.notEqual(after.sourceSha256, before.sourceSha256, packageName);
+        assert.equal(after.fileCount, before.fileCount);
+      }
     } finally {
       fixture.cleanup();
     }
@@ -390,7 +410,7 @@ if (process.argv[2] !== "--probe") {
       );
       const observed = fixture.observe();
       assert.ok(observed);
-      assert.equal(observed.fileCount, 21);
+      assert.equal(observed.fileCount, 27);
       assert.ok(observed.totalBytes > 64 * 1024 * 1024);
       assert.equal(observed.sourceSha256.length, 64);
       assert.equal(observed.sourceIdentitySha256.length, 64);
@@ -482,7 +502,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility Sourceの正常増加を独自の集合予算で拒否しない。
    * @trace ERB-IT-004
-   * @precondition 9対象Package・18通常File（別に対象外の旧Coordinator一Directory）の最小Fixtureが存在する。
+   * @precondition 12対象Package・24通常File（別に対象外の旧Coordinator一Directory）の最小Fixtureが存在する。
    * @stimulus File数2048、Directory数2048、64MiBの境界と各超過を作る。
    * @observation 各Snapshotの件数・byte数。
    * @oracle 旧境界の両側で対象全体を観測する。
@@ -495,14 +515,14 @@ if (process.argv[2] !== "--probe") {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
       const extras = path.join(base, "extras");
       mkdirSync(extras);
-      for (let i = 0; i < 2030; i += 1)
+      for (let i = 0; i < 2024; i += 1)
         writeFileSync(path.join(extras, `${i}.ts`), "");
       assert.equal(fixture.observe()?.fileCount, 2048);
       writeFileSync(path.join(extras, "overflow.ts"), "");
       assert.equal(fixture.observe()?.fileCount, 2049);
       rmSync(extras, { recursive: true });
       mkdirSync(extras);
-      for (let i = 0; i < 2038; i += 1) mkdirSync(path.join(extras, String(i)));
+      for (let i = 0; i < 2035; i += 1) mkdirSync(path.join(extras, String(i)));
       assert.ok(fixture.observe());
       mkdirSync(path.join(extras, "overflow"));
       assert.ok(fixture.observe());
@@ -562,7 +582,7 @@ if (process.argv[2] !== "--probe") {
   test("development source snapshot enumerates beyond the former limit and closes its exact handle", () => {
     const source = stripTypeScriptTypes(
       readFileSync(
-        new URL("../../src/execution/diagnostics.ts", import.meta.url),
+        new URL("../../src/execution/measurement.ts", import.meta.url),
         "utf8",
       ),
     );
@@ -689,7 +709,7 @@ if (process.argv[2] !== "--probe") {
       assert.ok((positions[1] as number) < position);
     const before = inventory();
     const { observeRuntimeOwnedDevelopmentSource } = await import(
-      "../../src/execution/diagnostics.ts"
+      "../../src/execution/measurement.ts"
     );
     const expected = observeRuntimeOwnedDevelopmentSource();
     assert.ok(expected);

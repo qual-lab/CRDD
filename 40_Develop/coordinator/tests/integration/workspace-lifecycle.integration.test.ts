@@ -29,11 +29,6 @@ import {
   saveWorkspaceRecord,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
-import {
-  taskHandoffFixture,
-  taskStartedFixture,
-  taskStartFixture,
-} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { acceptResult } from "../../src/decision/acceptance.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
@@ -1290,58 +1285,40 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
     const initialState = f.snapshot().projects[0];
     assert.ok(initialState);
     let state = initialState;
-    /**
-     * 実Writerへ次Snapshotを現在世代付きで保存する。
-     * @responsibility 実Writerへ次Snapshotを現在世代付きで保存する。
-     * @trace PRL-IT-013
-     * @precondition 直前に読んだ実stateと固定Root。
-     * @stimulus 遷移成功を確認し世代を付け保存する。
-     * @observation 保存結果と更新後state。
-     * @oracle 保存拒否を成功扱いせず次の期待世代を維持する。
-     * @cleanup fixture終了時に所有Rootを回収する。
-     * @boundary 実Snapshot・既存排他。本文の新永続先はない。
-     */
-    const save = (next: ReturnType<typeof taskStartFixture>) => {
-      assert.equal(next.status, "completed", JSON.stringify(next));
-      assert.ok(next.state);
-      assert.equal(
-        saveProjectExecutionState(
-          verifyRuntimePersistenceRepository(f.root),
-          f.binding,
-          next.state,
-          state.generation,
-        ).status,
-        "completed",
+    for (const command of [
+      {
+        kind: "task_start" as const,
+        projectId: state.projectId,
+        taskId,
+        attemptId: `attempt-${taskId}`,
+        authorityBindingId: `authority-${taskId}`,
+      },
+      {
+        kind: "task_handoff" as const,
+        projectId: state.projectId,
+        taskId,
+        attemptId: `attempt-${taskId}`,
+        operationId: `operation-${taskId}`,
+      },
+      {
+        kind: "task_started" as const,
+        projectId: state.projectId,
+        taskId,
+        attemptId: `attempt-${taskId}`,
+        operationId: `operation-${taskId}`,
+      },
+    ]) {
+      const next = saveProjectExecutionState(
+        verifyRuntimePersistenceRepository(f.root),
+        f.binding,
+        command,
+        state.generation,
       );
-      state = next.state;
-    };
-    save(
-      taskStartFixture(
-        state,
-        state.generation,
-        taskId,
-        `attempt-${taskId}`,
-        `authority-${taskId}`,
-      ),
-    );
-    save(
-      taskHandoffFixture(
-        state,
-        state.generation,
-        taskId,
-        `attempt-${taskId}`,
-        `operation-${taskId}`,
-      ),
-    );
-    save(
-      taskStartedFixture(
-        state,
-        state.generation,
-        taskId,
-        `attempt-${taskId}`,
-        `operation-${taskId}`,
-      ),
-    );
+      assert.equal(next.status, "completed", next.reason);
+      if (next.status !== "completed")
+        throw new Error("fixture_task_update_failed");
+      state = next.value;
+    }
     assert.equal(
       f.operate({
         operation: "discard",

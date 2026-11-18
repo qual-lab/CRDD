@@ -52,10 +52,20 @@ export function queryCoordinatorState(
   request: CoordinatorStateQuery,
 ): CoordinatorStateQueryResult {
   const observed = state.readState(request.projectId);
+  let projection: ReturnType<typeof projectCoordinatorState> | null = null;
+  if (observed.status === "completed" && observed.value !== null) {
+    try {
+      projection = projectCoordinatorState(
+        observed.value,
+        observed.taskStartCandidates,
+      );
+    } catch {
+      // 不正・欠測の候補を空の開始候補へ補完しない。
+    }
+  }
   if (
     observed.status !== "completed" ||
-    (observed.value !== null &&
-      !inspectTaskStartCandidates(observed.value, observed.taskStartCandidates))
+    (observed.value !== null && projection === null)
   )
     return Object.freeze({
       contract: COORDINATOR_STATE_QUERY_CONTRACT,
@@ -107,10 +117,7 @@ export function queryCoordinatorState(
     projectId: request.projectId,
     repositoryRevision: request.repositoryRevision,
     observationState: "observed",
-    projection: projectCoordinatorState(
-      observed.value,
-      observed.taskStartCandidates,
-    ),
+    projection,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     effectState: "no_effect",

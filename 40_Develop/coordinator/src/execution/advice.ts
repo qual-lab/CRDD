@@ -68,7 +68,6 @@ import {
   verifyOwnedOperationCleanupOutcome,
 } from "./operation.ts";
 import {
-  isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "./process-safety-state.ts";
@@ -611,8 +610,9 @@ function isValidDispatchInput(input: AdviceDispatchInput): boolean {
     ) &&
     fixed !== null &&
     fixed.role === "advice" &&
-    hashExecutionSelection(input.taskPacket.executionSelection) ===
-      hashExecutionSelection(fixed)
+    hashExecutionSelection(
+      inspectExecutionSelection(input.taskPacket.executionSelection),
+    ) === hashExecutionSelection(fixed)
   );
 }
 
@@ -801,8 +801,9 @@ function executionSelectionIsValid(input: AdviceProviderInput) {
   return (
     selection !== null &&
     selection.role === "advice" &&
-    hashExecutionSelection(input.taskPacket.executionSelection) ===
-      hashExecutionSelection(selection)
+    hashExecutionSelection(
+      inspectExecutionSelection(input.taskPacket.executionSelection),
+    ) === hashExecutionSelection(selection)
   );
 }
 
@@ -1243,11 +1244,9 @@ function createProviderAdviceRuntime(
         false,
         true,
       );
-    if (isRuntimeProcessEffectBlocked())
+    if (isRuntimeProcessPoisoned())
       return blocked(
-        isRuntimeProcessPoisoned()
-          ? "workbench_ai_advice_process_restart_required"
-          : "workbench_ai_advice_runtime_cleanup_in_progress",
+        "workbench_ai_advice_process_restart_required",
         false,
         true,
       );
@@ -1288,7 +1287,7 @@ function createProviderAdviceRuntime(
         cancellationSignal,
         () =>
           !cancellationSignal.aborted &&
-          !isRuntimeProcessEffectBlocked() &&
+          !isRuntimeProcessPoisoned() &&
           safePlan(plan),
       );
       if (cancellationSignal.aborted)
@@ -1791,8 +1790,9 @@ function validSelection(
     controlCapability !== null &&
     useCapability !== null &&
     selection.executorProvider === plan.provider &&
-    hashExecutionSelection(selection.executionSelection) ===
-      hashExecutionSelection(plan.executionSelection) &&
+    hashExecutionSelection(
+      inspectExecutionSelection(selection.executionSelection),
+    ) === hashExecutionSelection(plan.executionSelection) &&
     selection.selectedModel === plan.exactModelId &&
     selection.selectedEffort === plan.reasoningEffort &&
     typeof selection.speedMode === "string" &&
@@ -1822,8 +1822,12 @@ function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
     initial.taskAttempt === refreshed.taskAttempt &&
     initial.selectionHash === refreshed.selectionHash &&
     initial.executorProvider === refreshed.executorProvider &&
-    hashExecutionSelection(initial.executionSelection) ===
-      hashExecutionSelection(refreshed.executionSelection) &&
+    hashExecutionSelection(
+      inspectExecutionSelection(initial.executionSelection),
+    ) ===
+      hashExecutionSelection(
+        inspectExecutionSelection(refreshed.executionSelection),
+      ) &&
     initial.selectedModel === refreshed.selectedModel &&
     initial.selectedEffort === refreshed.selectedEffort &&
     initial.speedMode === refreshed.speedMode &&

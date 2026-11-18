@@ -180,6 +180,10 @@ AMの現在認可からの本番搬送、実Root読取り、不完全性の公�
 
 固定本文Readerの局所接続では、PPR-IT-019として実Git Root内の本文→解析→三Identity照合を観測する。不存在、Directory／Link、1 MiB境界／超過、不正Markdown、Project／Repository／Role各不一致、読取り途中変更と下位例外、取得descriptorの終了、固定失敗結果・Path／原文非透過を反証する。本文相関revisionは解析したUTF-8 textのSHA-256として、同一textで一致、空白変更で解析結果が同じでも不一致、固定prefixと小文字hex、失敗結果の非返却を確認する。成功Contextと本文版を同じ試験で中立SourceからPortfolioへ渡す範囲だけPPR-IT-002にも接続する。AM本番Consumer、複数File原子性、生byte同一性、正式Local Item全体評価はこの試験だけで成立としない。読取り不成立をmissing／nullへ変換しない。
 
+## 同じ観測断面の一回投影 — 2026-11-18
+
+PPR-UT-006は状態照会を完成投影へ一回接続し、候補欠測・同版相関差・未知Task・重複・実行可能Propertyの拒否を維持する。正常観測、真正不存在、Revision差、候補とRevisionがともに不正な場合を区別する。候補不正の拒否優先、認証・認可、状態変更なしを保持し、取得済みの候補を捨てて同じ値を再捕捉しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

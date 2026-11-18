@@ -1133,6 +1133,14 @@ HST-UT-001では要約の元Buffer参照、LF有無・固定Hash・不正入力�
 | `ERB-UT-037` | 境界 | UT | 修復Native相関／純粋frame | `ARCH-000008`・同利用者Mutex名と固定H応答 | N/A | 固定32byte Hash、空出力容量、flush拒否 | 同じ捕捉値からMutex名と41byte H応答を生成する | 旧Mutex prefix、Hash全byte、magic／status／payload、書込み結果 | 同じHashを使い、write／flush失敗を成功にしない。相関値を認可やMutex現在所有へ昇格しない | 純粋入力と全byte assertion。実利用者・Native取得は別IT | Process／Filesystem／Docker Effect 0 | Automated |
 | `ERB-UT-039` | 境界 | UT | Native単一entry／同期終端順序 | `ARCH-000008`・Platform Access単一entry観測の取得・照会・解放・応答確定 | N/A | 正常payload、二つの不存在、他open失敗、query／close不明、write／部分write／flush拒否 | private同期処理へ固定closureとメモリwriterを渡す | 全イベント列、同handle搬送、exitと全文／部分出力bytes | open不成立ではquery／close0。成功取得ではquery成否によらずclose一回。close不明では応答0。二つの不存在以外をAへしない。出力失敗は3 | 独立固定行列の順序・値assertion。実Win32と固定配布は別IT | OS Process／Filesystem／Docker Effect 0 | Automated |
 
+## 助言Packetの選定受付維持 — 2026-11-18
+
+ERB-UT-023は、選定Hash計算の再検査撤去後もDispatchとProvider Adapterの両入口でPacket側の完全選定を一回独立捕捉する。余剰field・Getter・Proxy・欠測は拒否し、hook実行0、Adapter／Runtime呼出し0、Provider Effect未発行を確認する。正常な選定・既存Hash・現在Grant／期限／Mountの再確認は維持する。
+
+## 開発Source観測の利用側接続
+
+ERB-IT-021の既存Workspace検証試験は、同意なし・不正引数の正式CLIを実Nodeで起動し、現在の計測OwnerへのImport解決後に処置前拒否となることを確認する。合成Sourceは現行v4へ合わせ、前後のScope・内容・実体差の拒否を維持する。読取り試験のID生成は有限代役を明示し、発行した同じ要求IDと取消対象の相関を確認する。製品の取消・期限・回収条件は変更せず、実AI・Dockerを起動しない限定試験として扱う。
+
 ## Checklist
 
 

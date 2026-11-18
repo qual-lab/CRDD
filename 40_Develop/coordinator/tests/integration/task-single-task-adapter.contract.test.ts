@@ -19,7 +19,6 @@ import {
   type CoordinatorTaskDependencies,
   describeCoordinatorSingleTaskAdapterContract,
   runCoordinatorSingleTaskAttempt,
-  startRuntimeOwnedCoordinatorTask,
 } from "../../src/execution/controller.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
 import { validSingleTaskResult } from "../../src/task/dispatch.ts";
@@ -84,11 +83,6 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
     assert.deepEqual(inspectWorkspaceResult(value), value);
   }
 });
-
-import {
-  beginRuntimeProcessEffectDrain,
-  endRuntimeProcessEffectDrain,
-} from "../../src/execution/process-safety-state.ts";
 
 const CONTRACT = "crdd-coordinator/orchestrator-single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
@@ -807,7 +801,6 @@ test("開始前の取消はTask Effect 0のcancelledとして閉じる", async (
 test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () => {
   for (const [message, processRestartRequired] of [
     ["coordinator_task_process_restart_required", true],
-    ["coordinator_task_runtime_cleanup_in_progress", false],
   ] as const) {
     const { dependencies } = harness({
       startTask: () => {
@@ -1548,7 +1541,6 @@ test("契約表示はProject状態・後続Task・受入の非所有を宣言す
 test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する", () => {
   assert.deepEqual(COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS, [
     "coordinator_task_process_restart_required",
-    "coordinator_task_runtime_cleanup_in_progress",
     "coordinator_task_workspace_target_invalid",
   ]);
   const runtimeSource = fs.readFileSync(
@@ -1557,15 +1549,6 @@ test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する",
   );
   for (const rejection of COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS)
     assert.equal(runtimeSource.includes(`"${rejection}"`), true, rejection);
-  const drain = beginRuntimeProcessEffectDrain();
-  try {
-    assert.throws(
-      () => startRuntimeOwnedCoordinatorTask({}, "C:\\repository"),
-      /coordinator_task_runtime_cleanup_in_progress/u,
-    );
-  } finally {
-    assert.equal(endRuntimeProcessEffectDrain(drain), true);
-  }
 });
 
 /**

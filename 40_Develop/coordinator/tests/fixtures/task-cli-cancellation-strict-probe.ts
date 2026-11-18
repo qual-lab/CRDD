@@ -10,7 +10,7 @@
  */
 import { EventEmitter } from "node:events";
 
-import { bindTaskCliCancellationSignalsForTesting } from "../../src/cli/cancellation.ts";
+import { bindTaskCliCancellationSignalsToPort } from "../../src/cli/cancellation.ts";
 
 const scenario = process.argv[2];
 if (
@@ -21,7 +21,7 @@ if (
 let cancellationEffects = 0;
 let outputCount = 0;
 const signals = new EventEmitter();
-const binding = bindTaskCliCancellationSignalsForTesting(
+const binding = bindTaskCliCancellationSignalsToPort(
   {
     on: (signal, listener) => signals.on(signal, listener),
     removeListener: (signal, listener) =>

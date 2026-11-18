@@ -48,7 +48,6 @@ test("通常起動の発行後不明はAdvice結果でも手動確認必要性�
     {
       initializationFailures: new WeakMap(),
       hostFailures: new WeakMap(),
-      isRuntimeProcessEffectBlocked: () => false,
       isRuntimeProcessPoisoned: () => false,
       safePlan: () => true,
     },

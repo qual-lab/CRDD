@@ -24,7 +24,7 @@ import {
   createDevelopmentExecutionTiming,
   createIsolatedDevelopmentMeasurementSessionCandidate,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
-} from "../../src/execution/diagnostics.ts";
+} from "../../src/execution/measurement.ts";
 import type { DevelopmentOperationContext } from "../../src/execution/operation.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 import { snapshotPlainRecord } from "../../src/input/snapshot.ts";
@@ -207,7 +207,7 @@ test("診断Contextは結合失敗で両Ownerを保持し同じ参照で取消�
  */
 test("計測TaskとTimelineは旧量上限を再適用しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/diagnostics.ts", import.meta.url),
+    new URL("../../src/execution/measurement.ts", import.meta.url),
     "utf8",
   );
   const capture = runInNewContext(

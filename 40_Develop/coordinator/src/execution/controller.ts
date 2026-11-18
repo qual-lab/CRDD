@@ -40,7 +40,7 @@ import {
   createDevelopmentExecutionTiming,
   reserveRuntimeOwnedDevelopmentMeasurementTask,
   writeDevelopmentMeasurementProgress,
-} from "./diagnostics.ts";
+} from "./measurement.ts";
 import {
   finishProviderExecutionRecording,
   type ProviderExecutionRecording,
@@ -77,7 +77,6 @@ import {
   revokeRuntimeOwnedProviderTaskPacket,
 } from "./preparation.ts";
 import {
-  isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "./process-safety-state.ts";
@@ -142,7 +141,6 @@ const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
  */
 export const COORDINATOR_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
   "coordinator_task_process_restart_required",
-  "coordinator_task_runtime_cleanup_in_progress",
   "coordinator_task_workspace_target_invalid",
 ] as const);
 
@@ -2168,7 +2166,9 @@ function packetRequest(
     allowedPaths: request.allowedPaths,
     readPaths: request.readPaths,
     reviewerReadProjection,
-    selectionHash: hashExecutionSelection(request.executionSelection),
+    selectionHash: hashExecutionSelection(
+      inspectExecutionSelection(request.executionSelection),
+    ),
   });
 }
 
@@ -2991,7 +2991,7 @@ async function runCoordinatorTaskCore(
     operation = await state.dependencies.createOperation(
       control.cancellationController.signal,
       () => {
-        if (control.cancellationRequested || isRuntimeProcessEffectBlocked())
+        if (control.cancellationRequested || isRuntimeProcessPoisoned())
           return false;
         const current = state.dependencies.inspectRepository(repositoryRoot);
         return (
@@ -4239,12 +4239,8 @@ export function startRuntimeOwnedCoordinatorTask(
   rawWorkspaceTarget?: BorrowedExecutionTarget,
   executionMetadata: Readonly<Record<string, string>> = {},
 ) {
-  if (isRuntimeProcessEffectBlocked()) {
-    throw new Error(
-      isRuntimeProcessPoisoned()
-        ? "coordinator_task_process_restart_required"
-        : "coordinator_task_runtime_cleanup_in_progress",
-    );
+  if (isRuntimeProcessPoisoned()) {
+    throw new Error("coordinator_task_process_restart_required");
   }
   if (
     observeProviderStarted !== undefined &&
@@ -4299,38 +4295,29 @@ export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
   return taskProductionRuntime.cancel(controlCapability);
 }
 
-/** 開発用の限定受付は通常Taskの公開入口と分離する。 */
-const developmentObjectiveCancellations = new WeakMap<
-  object,
-  () => Promise<unknown>
->();
-
 /**
  * Runtime 所有 Development Taskを開始する。
  *
  * @responsibility Runtime 所有 Development Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input Task要求、Repository Root、開発Session、候補処置、回復相関IDと任意のProvider接続用Host Process開始確認。
- * @returns startRuntimeOwnedDevelopmentTaskの計算結果を返す。
- * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、candidateDisposition: "discard" | "orchestrator_owned"、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentTaskの入力契約を満たす。
- * @postcondition startRuntimeOwnedDevelopmentTaskの責務を完了した結果だけを返す。
- * @effect N/A: startRuntimeOwnedDevelopmentTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure startRuntimeOwnedDevelopmentTaskは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant startRuntimeOwnedDevelopmentTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: startRuntimeOwnedDevelopmentTaskはProcess内の同一Subsystemで完結する。
- * @security startRuntimeOwnedDevelopmentTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency startRuntimeOwnedDevelopmentTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @input Task要求、Repository Root、開発Sessionと任意のProvider接続用Host Process開始確認。
+ * @returns startRuntimeOwnedDevelopmentCoordinatorTaskの計算結果を返す。
+ * @precondition Task要求と開発Sessionは既存の限定受付で検査する。
+ * @postcondition startRuntimeOwnedDevelopmentCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect 開発SessionのTaskを予約し、既存Runtimeの開始・取消と期限Timer・Abort Listenerを結合する。
+ * @failure 受付拒否は開始せず、開始後の失敗は同じSessionをcleanup_unknownで終端化して搬送する。
+ * @invariant 許可・期限・取消・元Completionとcleanup条件を維持し、独自のObjective取消Mapを作らない。
+ * @boundary 開発計測Sessionから既存Task Runtimeへの限定実行境界。
+ * @security startRuntimeOwnedDevelopmentCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency 明示取消・期限・Abortを同じ実行へ配送し、Completion待機後のfinallyでTimerとListenerを解除する。
  */
-function startRuntimeOwnedDevelopmentTask(
+export function startRuntimeOwnedDevelopmentCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   sessionCapability: object,
-  candidateDisposition: "discard" | "orchestrator_owned",
-  recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
   ) => void | Promise<void>,
-  consumer: "coordinator_cli" | "orchestrator" = "coordinator_cli",
 ) {
   if (
     observeProviderStarted !== undefined &&
@@ -4415,9 +4402,9 @@ function startRuntimeOwnedDevelopmentTask(
   const started = runtime.start(
     boundary.request,
     boundary.repositoryRoot,
-    recoveryCorrelationId,
+    null,
     observeProviderStarted,
-    consumer,
+    "coordinator_cli",
   );
   const cancel = () => runtime.cancel(started.controlCapability);
   let cancellation: Promise<unknown> | null = null;
@@ -4465,114 +4452,13 @@ function startRuntimeOwnedDevelopmentTask(
       timing.finish();
       clearTimeout(timer);
       boundary.signal.removeEventListener("abort", requestCancellation);
-      developmentObjectiveCancellations.delete(started.controlCapability);
     });
-  if (candidateDisposition === "orchestrator_owned")
-    developmentObjectiveCancellations.set(started.controlCapability, cancel);
   return Object.freeze({
     ...started,
     completion,
     cancel,
     readExecutionTiming: timing.snapshot,
   });
-}
-
-/**
- * Comparison-only development Tasks discard their candidates on completion.
- *
- * @responsibility Runtime 所有 Development Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
- * @trace ARCH-000004
- * @input Task要求、Repository Root、開発Sessionと任意のProvider接続用Host Process開始確認。
- * @returns startRuntimeOwnedDevelopmentCoordinatorTaskの計算結果を返す。
- * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object」がstartRuntimeOwnedDevelopmentCoordinatorTaskの入力契約を満たす。
- * @postcondition startRuntimeOwnedDevelopmentCoordinatorTaskの責務を完了した結果だけを返す。
- * @effect N/A: startRuntimeOwnedDevelopmentCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: startRuntimeOwnedDevelopmentCoordinatorTaskは独自の失敗分岐を所有しない。
- * @invariant startRuntimeOwnedDevelopmentCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: startRuntimeOwnedDevelopmentCoordinatorTaskはProcess内の同一Subsystemで完結する。
- * @security startRuntimeOwnedDevelopmentCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: startRuntimeOwnedDevelopmentCoordinatorTaskは共有非同期状態を持たない同期処理である。
- */
-export function startRuntimeOwnedDevelopmentCoordinatorTask(
-  rawRequest: unknown,
-  repositoryRoot: unknown,
-  sessionCapability: object,
-  observeProviderStarted?: (
-    notice: ProcessStartedNotice,
-  ) => void | Promise<void>,
-) {
-  return startRuntimeOwnedDevelopmentTask(
-    rawRequest,
-    repositoryRoot,
-    sessionCapability,
-    "discard",
-    null,
-    observeProviderStarted,
-  );
-}
-
-/**
- * Coordinator owns candidate integration and cleanup after Task completion.
- *
- * @responsibility Runtime 所有 Development Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
- * @trace ARCH-000004
- * @input Task要求、Repository Root、開発Session、回復相関IDと任意のProvider接続用Host Process開始確認。
- * @returns startRuntimeOwnedDevelopmentObjectiveTaskの計算結果を返す。
- * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentObjectiveTaskの入力契約を満たす。
- * @postcondition startRuntimeOwnedDevelopmentObjectiveTaskの責務を完了した結果だけを返す。
- * @effect N/A: startRuntimeOwnedDevelopmentObjectiveTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: startRuntimeOwnedDevelopmentObjectiveTaskは独自の失敗分岐を所有しない。
- * @invariant startRuntimeOwnedDevelopmentObjectiveTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: startRuntimeOwnedDevelopmentObjectiveTaskはProcess内の同一Subsystemで完結する。
- * @security startRuntimeOwnedDevelopmentObjectiveTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: startRuntimeOwnedDevelopmentObjectiveTaskは共有非同期状態を持たない同期処理である。
- */
-export function startRuntimeOwnedDevelopmentObjectiveTask(
-  rawRequest: unknown,
-  repositoryRoot: unknown,
-  sessionCapability: object,
-  recoveryCorrelationId: unknown = null,
-  observeProviderStarted?: (
-    notice: ProcessStartedNotice,
-  ) => void | Promise<void>,
-) {
-  const started = startRuntimeOwnedDevelopmentTask(
-    rawRequest,
-    repositoryRoot,
-    sessionCapability,
-    "orchestrator_owned",
-    recoveryCorrelationId,
-    observeProviderStarted,
-    "orchestrator",
-  );
-  return Object.freeze({
-    status: started.status,
-    controlCapability: started.controlCapability,
-    completion: started.completion.then((outcome) => outcome.taskResult),
-  });
-}
-
-/**
- * Runtime 所有 Development Coordinator Taskを取り消す。
- *
- * @responsibility Runtime 所有 Development Coordinator Taskの取消条件、終了状態、残存Effectの境界を所有する。
- * @trace ARCH-000004
- * @input controlCapability: object
- * @returns cancelRuntimeOwnedDevelopmentObjectiveTaskの計算結果を返す。
- * @precondition 「controlCapability: object」がcancelRuntimeOwnedDevelopmentObjectiveTaskの入力契約を満たす。
- * @postcondition cancelRuntimeOwnedDevelopmentObjectiveTaskの責務を完了した結果だけを返す。
- * @effect N/A: cancelRuntimeOwnedDevelopmentObjectiveTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: cancelRuntimeOwnedDevelopmentObjectiveTaskは独自の失敗分岐を所有しない。
- * @invariant cancelRuntimeOwnedDevelopmentObjectiveTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: cancelRuntimeOwnedDevelopmentObjectiveTaskはProcess内の同一Subsystemで完結する。
- * @security cancelRuntimeOwnedDevelopmentObjectiveTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency cancelRuntimeOwnedDevelopmentObjectiveTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-export function cancelRuntimeOwnedDevelopmentObjectiveTask(
-  controlCapability: object,
-) {
-  const cancel = developmentObjectiveCancellations.get(controlCapability);
-  return cancel ? cancel() : Promise.resolve(false);
 }
 
 /**
@@ -4644,7 +4530,7 @@ export function describeCoordinatorTaskRuntimeContract() {
     processPoisonGate:
       "before_operation_console_workspace_provider_and_network",
     processRestartProjection:
-      "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
+      "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_and_manual_recovery_reason",
     cancellation: Object.freeze({
       liveControlReceipt:
         "exact_status_reason_cancellation_requested_process_termination_observed",

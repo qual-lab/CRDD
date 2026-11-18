@@ -8,34 +8,12 @@
  * @boundary PRL-IT-005=Direct Boundary: 試験から統合保存。
  */
 
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  projectExecutionFixture,
+  initialExecutionInput,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
-/**
- * 新版PortのwriteStateを試験から呼ぶ。
- * @responsibility 旧保存方式を使わず既存の検証入力を搬送する。
- * @trace PRL-IT-005
- * @precondition Repositoryは試験側で明示初期化済み。
- * @stimulus 新版のwriteStateへ入力を渡す。
- * @observation 返された保存結果を観測する。
- * @oracle 呼出し元のassertionで元の成立条件を判定する。
- * @cleanup Repository全体を試験hookで回収する。
- * @boundary PRL-IT-005=Direct Boundary: 試験から新版Port。
- */
-export function writeCoordinatorState(
-  root: string,
-  binding: string,
-  ...args: Parameters<
-    ReturnType<
-      typeof createCurrentCoordinatorPersistencePorts
-    >["state"]["writeState"]
-  >
-) {
-  return createCurrentCoordinatorPersistencePorts(
-    root,
-    binding,
-  ).state.writeState(...args);
-}
 /**
  * 新版PortのreadStateを試験から呼ぶ。
  * @responsibility 旧保存方式を使わず既存の検証入力を搬送する。
@@ -130,11 +108,12 @@ export function enqueueProjectOperation(
       ],
       ownerGeneration: "fixture-owner",
     });
-    if (
-      created.status !== "completed" ||
-      ports.state.writeState(created.state, 0).status !== "completed"
-    )
+    if (created.status !== "completed")
       throw new Error("snapshot_fixture_state_failed");
+    return ports.state.enqueueOperation(
+      input,
+      args[1] ?? initialExecutionInput(created.state),
+    );
   }
   return createCurrentCoordinatorPersistencePorts(
     root,

@@ -25,8 +25,8 @@ import {
 import {
   isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-  observeRuntimeOwnedDevelopmentSource,
 } from "../src/execution/diagnostics.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/measurement.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,
@@ -238,7 +238,7 @@ type RouteExpectation = Readonly<{
  */
 type SourceIdentity = RuntimeRecord &
   Readonly<{
-    scope: "crdd-development-source-snapshot/v2";
+    scope: "crdd-development-source-snapshot/v4";
     sourceSha256: string;
     sourceIdentitySha256: string;
     crddCommit: string;
@@ -1383,7 +1383,7 @@ function validSourceIdentity(
   source: RuntimeRecord | null,
 ): source is SourceIdentity {
   return (
-    source?.scope === "crdd-development-source-snapshot/v2" &&
+    source?.scope === "crdd-development-source-snapshot/v4" &&
     sha256(source.sourceSha256) &&
     sha256(source.sourceIdentitySha256) &&
     isCanonicalCrddGitObjectId(source.crddCommit) &&

@@ -297,13 +297,14 @@ test("Source観測は固定語彙とHashで投影し旧Producerの配布情報�
   for (const scope of [
     "crdd-development-source-snapshot/v2",
     "crdd-development-source-snapshot/v3",
+    "crdd-development-source-snapshot/v4",
   ])
     assert.equal(
       projectVerificationResult({ sourceScope: scope }).sourceScope,
       scope,
     );
   const valid = {
-    sourceScope: "crdd-development-source-snapshot/v3",
+    sourceScope: "crdd-development-source-snapshot/v4",
     sourceSha256: "a".repeat(64),
     crddCommit: "b".repeat(40),
     crddTree: "c".repeat(40),

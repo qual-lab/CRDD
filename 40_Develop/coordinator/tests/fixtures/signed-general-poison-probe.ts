@@ -48,7 +48,7 @@ const patchHash = createHash("sha256")
   .digest("hex");
 
 const source = Object.freeze({
-  scope: "crdd-development-source-snapshot/v2",
+  scope: "crdd-development-source-snapshot/v4",
   sourceSha256: "0".repeat(64),
   sourceIdentitySha256: "9".repeat(64),
   crddCommit: baseCommit,

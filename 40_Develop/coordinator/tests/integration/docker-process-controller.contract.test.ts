@@ -30,7 +30,7 @@ import {
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
-import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
+import { createDevelopmentMeasurementConstraints } from "../../src/execution/measurement.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/observation.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,

@@ -482,7 +482,7 @@ AI選定・通信・保持の設定はConfiguration Modelの各モデルと共�
 
 短期保存時の区画遷移・閉鎖・退役条件もDomain `state/transition.ts`へ実体移管する。Writerが使用する`assertSnapshotTransition`と観測型、Coordinatorの退役処理が使用する四つの既存条件関数をRootから明示公開する。有限の二観測の生成とI/O・現在Owner照合は既存Writer側に残し、同じ短期Owner・元の検査位置で呼ぶ。値又は観測callbackだけを保存Authorityにせず、汎用validator登録・新Map・旧配置の互換Fileは追加しない。これは物理Writer全面移管の前提であり、その完了ではない。
 
-受付世代と同内容再入場の照合は同じ`state/transition.ts`、Task結果受領の競合検査は`task/crud.ts`へ集約する。Queueの事前照合とWriterの排他内fresh照合は同じ二関数を利用し、保存側からCoordinatorの状態判断を逆参照しない。四項目の`ProjectTaskResultFact`はDomain `task/types.ts`が所有し、既存State PortとWriterで共用する。型の共通化で実行時のexact四key検査や元Owner照合を省略しない。Taskの受領・回復状態を更新する残りの実行操作はCoordinatorに保つ。
+受付相関・元世代と同内容再入場は`state/crud.ts`の保存境界、有限Task更新の意味は`task/validation.ts`、モデル横断の整合は`state/validation.ts`が所有する。Queueの事前照合とWriterの排他内fresh照合を維持し、保存側からCoordinatorの状態判断を逆参照しない。四項目の`ProjectTaskResultFact`は`task/types.ts`の内部型であり、終端要求の同じTask／Attempt／Operationと未解決観測から内部生成する。RootやState Portから外部注入を受け付けず、Coordinatorは更新内容を有限要求として搬送する。
 
 Workspaceの統合結果候補と現在記録更新は`workspace/crud.ts`の`prepareIntegrationRecordCreation`／`prepareWorkspaceRecordUpdate`、Project現在値の固定投影は`state/crud.ts`の`projectCurrentState`が所有する。三値だけをRootから公開し、Store factory、任意Snapshot取引、保存Ownerを公開しない。Coordinatorの既存wrapperが同じ短期Owner内のfresh Snapshotへ適用し、保存CAS・解放・失敗搬送を維持する。
 

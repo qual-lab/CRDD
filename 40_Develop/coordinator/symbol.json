@@ -2487,7 +2487,7 @@
     {
       "symbolId": "coordinator.source.src.core.development.execution.timing",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/execution/measurement.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -2511,7 +2511,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.session",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/execution/measurement.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2519,7 +2519,7 @@
     {
       "symbolId": "coordinator.source.task.development-source-observation",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/execution/measurement.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2543,7 +2543,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.constraints",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/execution/measurement.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3137,7 +3137,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "orchestrator.task.requests"
+        "orchestrator.task.requests",
+        "orchestrator.workspace.record"
       ]
     },
     {
@@ -3617,7 +3618,8 @@
         "orchestrator.source.src.public.contract.project.state.query",
         "domain-model.task.crud",
         "orchestrator.state-query-application",
-        "coordinator.state.request"
+        "coordinator.state.request",
+        "orchestrator.state-projection"
       ]
     },
     {

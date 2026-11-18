@@ -278,16 +278,6 @@ export function createCoordinatorSnapshotStatePort(
   return Object.freeze({
     readWorkspaceTaskTarget: (queueId: string) =>
       resolveCoordinatorWorkspaceTaskTarget(workingDirectory, binding, queueId),
-    writeState: (state, expectedGeneration, resultFacts) => {
-      return saveProjectExecutionState(
-        storageRepository,
-        binding,
-        state,
-        expectedGeneration,
-        intake,
-        resultFacts,
-      );
-    },
     updateTask: (request, expectedGeneration) =>
       saveProjectExecutionState(
         storageRepository,

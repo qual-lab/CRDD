@@ -1,5 +1,9 @@
 # CROS Workbench詳細設計
 
+## 検証Toolの開発Source観測接続
+
+Workspace検証ToolはCoordinatorの`execution/measurement.ts`からSource観測を直接取得し、同じScope・内容・実体の前後比較を維持する。旧診断Moduleからの転送を要求しない。対象集合の正本は[Coordinator設計](../coordinator/01_Architecture.md)とする。既存の同意なし・不正引数の実CLI拒否試験で、入口のImport解決まで確認する。合成Source fixtureは現行v4に合わせ、検証Toolの起動確認を実AI・Dockerの成功へ拡張しない。
+
 ## 単発依頼IDの搬送と結果欠測
 
 AI依頼Formは依頼IDを画面内に一度保持し、通常POST／共有接続の両方でCoordinatorへそのまま渡す。再送でIDを変更せず、新しい依頼への明示切替だけ新IDを発行する。ServerはIDを補完・生成しない。再構成後は保存された元IDの状態を表示し、`resultAvailable: false`では空の正常回答を表示せず、本文は取得できない旨を示す。状態の再取得とAIへの再送は区別し、取消・認可の既存境界を維持する。

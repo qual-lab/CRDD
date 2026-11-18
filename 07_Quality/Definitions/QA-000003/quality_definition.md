@@ -652,7 +652,54 @@ Leaseの既存四操作・九候補はstate/lease.tsの実宣言を検証し、R
 
 通常のcodec往復・本文Hash・閉形式・初期化／投影の既存反例も限定実行する。型だけの整理から保存成功・実資源の安全・全体回帰成功を推定せず、結果と独立確認はCHG-000082の分離計画§14.57へ接続する。
 
+## 内部旧入口と結果再検査の撤去 — 2026-11-18
+
+PRL-UT-006は、単発結果のWorkspace観測を一回独立捕捉し、不正Path拒否・用途／Workspace相関・保存失敗時の非成功を維持する。PRL-IT-012は全Coordinator Sourceの依存確認と併せ、未使用八関数、Objective専用取消Map、試験専用Signal転送入口が復活していないことを確認する。既存CLI取消試験は実Signal接続処理へ直接接続し、取消一回・同じPromiseの待機・登録失敗時の巻戻し・Listener解放を維持する。ProcessのCleanup不明時の停止は維持する。未接続drainは後続の内部生成・開発計測整理で撤去した。
+
+## 回復済み参照の有限確定 — 2026-11-19
+
+PRL-UT-006は、`task_recovery_finalize`の閉入力、対象集合の非空・一意性、Project／Task／回復ID、元世代、Attempt／Operationの保持、Cleanup・未解決・終端phaseを確認する。古い世代を同一再送の成功へ補完しない。統合Snapshot試験では同じ有限候補を既存のOperation退役・Task終了根拠の固定へ接続し、履歴未確認・別Attempt・Task省略の拒否を維持する。
+
+PRL-UT-014はCoordinatorがState全体や世代加算を渡さず、同じ対象集合と期待世代を既存更新Portへ送ることを確認する。fresh観測差・未回収・保存拒否・保存後候補欠測では、通知を進めず元のexact回復IDを初回停止結果に保持する。旧Portと任意State受付の全面撤去、試験準備の移管、実Filesystemの新しい一体経路、全体回帰・実AI／Dockerは、この局所確認の完了範囲へ含めない。
+
+## 利用側の試験準備を有限受付へ接続 — 2026-11-19
+
+PRL-IT-005／011／013は、初回QueueとProjectの同時受付を使って準備し、既存Projectに初期化を重ねない。判断用Taskの開始・引渡し・開始確認は有限更新へ接続する。Project初期値の同値性、追加Queueの一改訂と既存区画の保全、世代差・途中取消・回復ID・履歴・Workspace寿命の既存反証を維持する。PPR-IT-012とEST-IT-010の活動照会は同じ正規受付後の実状態を読み、出所・現在認可・部分失敗の分類を確認する。
+
+この移行は任意Stateの保存保証をConsumer側の試験準備で代用するものではない。低位の保存競合・破損試験のOwner整理と、旧Port／任意State受付の撤去は別に完了を確認する。
+
+EMの回復phase・開始前終端・Owner喪失の有限保存試験も、同じ初回受付から準備し元Projectとの同値性を確認する。有限要求、同一再送、異内容、Cleanup不明、明示不存在、古い世代、外部結果事実の注入拒否と正本bytes保全は維持する。長期Leaseの共通準備も同じ受付を使い、通常の対象外区画保全・Owner喪失・解放意図・遅延回復と新Owner保全を限定確認する。
+
+## 保存Reader反証のOwnerと有限Portの再送 — 2026-11-19
+
+PRL-IT-012の破損本文、Project構造不正、不可能なTask状態／Identity三反例、Envelope／pending六反例は、EMの公開Readerへ直接接続する。初回Queue＋Project受付から正常状態を準備し、各拒否理由、回復必要表示、正本・pending・Directory一覧の保全を維持する。Coordinatorの試験Helperへ逆依存せず、悪い本文の構築と拒否・元bytes保全のOracleを区別する。
+
+Coordinator側は同じ有限Task開始の直後再送と異なるAuthority再送を区別し、前者は同bytes・後者は既存の有限要求の理由で拒否する。RootとBindingを閉じるPortは二引数の有限更新と読取りへ接続し、選定値の不変性、Project世代、実Leaseの条件を保持する。Queue／Leaseの六試験も初回受付へ準備を統合し、既存の再送・Scope・不正Identity・終了保存失敗の全反証を維持する。
+
+## 任意State保存入口の撤去と結果事実の内部生成 — 2026-11-19
+
+PRL-IT-005／012は、初回Project作成をQueueの原子的受付へ、以後のTask更新を用途固定の有限要求へ接続する。State Portに旧`writeState`が存在しないこと、EM公開保存がState全体・JSON・旧第六引数の外部結果事実を拒否して元bytesを保全することを確認する。結果事実は終端要求の同Task／Attempt／Operationと未解決観測からのみ生成し、同一再送でも現在版とWriterの相関検査を通す。
+
+採用結果の参照あり／なしでの段階退役、別ProjectのLease証拠保全、閉Queue履歴の一回確定、旧受付とMilestone差の拒否はEMの保存・履歴試験が所有する。任意の参照値を作るために公開保存APIを追加せず、EMの既存私有Snapshot Writerを検証する。Leaseの保存前提に使う合成観測は実Hostの不存在・実排他解放の保証へ拡張しない。
+
+pendingの作成拒否・部分作成・置換・観測不能・既存物・遅延履歴・現在本文不明は、正常な初回受付後の有限Task更新で反証する。Decision対象の改訂番号は実際のTask準備と適用結果から取得し、固定値で受付を迂回しない。旧容量境界の正確なbytes検査はEM私有Writerの範囲で維持する。
+
+## 内部生成・開発計測・Process停止の限定検証
+
+PRL-UT-006は内部Authorityと外部canonical bytesの全verification値一致、固定値の変更不可、偽候補の外部受付拒否、起動時の期限切れを確認する。従来の外部bytesの正規性・Hash・余分field・Proxy拒否、warm cache時のOperation再照合も維持する。
+
+PPR-UT-006／PPR-IT-010は移管先measurementの計測・Session・取消・期限・元Operation結合を確認する。ERB-IT-004は現行12Package・Scope v4、対象外の旧Directory／.crddの不変、対象内の内容・実体差、旧容量境界の両側、途中変更拒否を自己生成Rootで確認する。PRL-IT-012は新Sourceを技術実行の閉集合へ分類し、逆依存を拒否する。
+
+退役したdrain専用token試験と合成claim専用Plan／Evaluator試験は成功件数へ数えず撤去する。PRL-IT-005のpoison後の入力読取り0・Effect前拒否・fresh Processと、ERB-UT-023の助言Effect非発行は維持する。Doctorの説明契約は既存の三試験で維持し、実AI・Docker未実施を実境界成立と扱わない。
+
+限定回帰の結果と独立レビューは[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md)で追跡する。全体回帰・実AI・Docker・過去保持物は今回の対象外。
+
+## Package外の開発Source観測利用側
+
+PRL-ST-004はMCP所有の正式検証入口を不正引数だけで実Node起動し、Import解決後に検証未開始・子未開始・回収確認済みの既存拒否結果となることを確認する。Sourceの正常値は現行v4だけとし、旧v2／v3・不正Hash・欠測・途中差を成功へ昇格しない。新規Objective構築では`operation: "start"`を明示し、現行の完成受付が受理することと旧fieldを拒否することを維持する。これらは実Provider検証Tool自体の契約試験であり、実AI・Dockerの成功証拠ではない。
+
 ## Checklist
+
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

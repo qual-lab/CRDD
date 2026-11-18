@@ -139,14 +139,14 @@ export function createTaskCliCancellationLatch(
  * @returns bindTaskCliCancellationSignalsToPortの計算結果を返す。
  * @precondition 「port: TaskCliSignalPort、requestCancellation: () => Promise<unknown>」がbindTaskCliCancellationSignalsToPortの入力契約を満たす。
  * @postcondition bindTaskCliCancellationSignalsToPortの責務を完了した結果だけを返す。
- * @effect N/A: bindTaskCliCancellationSignalsToPortは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure bindTaskCliCancellationSignalsToPortは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant bindTaskCliCancellationSignalsToPortは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: bindTaskCliCancellationSignalsToPortはProcess内の同一Subsystemで完結する。
+ * @effect 指定Portへ同一Listenerを登録し、Signal時に取消を要求する。登録失敗時は登録済みListenerを解除する。
+ * @failure 登録・解除の失敗は非成功で返し、取消の同期throw・rejectは既存Latchで観測する。
+ * @invariant 重複Signalを一回の取消と同じPromiseへ収束し、解除不明を成功へ畳まない。
+ * @boundary CLI Signalの登録先と単発実行の取消境界。
  * @security N/A: bindTaskCliCancellationSignalsToPortはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: bindTaskCliCancellationSignalsToPortは共有非同期状態を持たない同期処理である。
+ * @concurrency Signal登録中の通知・重複通知・取消待機とfinally解除を同じLatchに結合する。
  */
-function bindTaskCliCancellationSignalsToPort(
+export function bindTaskCliCancellationSignalsToPort(
   port: TaskCliSignalPort,
   requestCancellation: () => Promise<unknown>,
 ) {
@@ -249,29 +249,6 @@ export function bindTaskCliCancellationSignals(
     }),
     requestCancellation,
   );
-}
-
-/**
- * Task Cli Cancellation Signals For TestingをIdentityへ結合する。
- *
- * @responsibility Task Cli Cancellation Signals For Testingの結合条件、相関Identity、不一致の拒否境界を所有する。
- * @trace ARCH-000004
- * @input port: TaskCliSignalPort、requestCancellation: () => Promise<unknown>
- * @returns bindTaskCliCancellationSignalsForTestingの計算結果を返す。
- * @precondition 「port: TaskCliSignalPort、requestCancellation: () => Promise<unknown>」がbindTaskCliCancellationSignalsForTestingの入力契約を満たす。
- * @postcondition bindTaskCliCancellationSignalsForTestingの責務を完了した結果だけを返す。
- * @effect N/A: bindTaskCliCancellationSignalsForTestingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: bindTaskCliCancellationSignalsForTestingは独自の失敗分岐を所有しない。
- * @invariant bindTaskCliCancellationSignalsForTestingは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: bindTaskCliCancellationSignalsForTestingはProcess内の同一Subsystemで完結する。
- * @security N/A: bindTaskCliCancellationSignalsForTestingはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: bindTaskCliCancellationSignalsForTestingは共有非同期状態を持たない同期処理である。
- */
-export function bindTaskCliCancellationSignalsForTesting(
-  port: TaskCliSignalPort,
-  requestCancellation: () => Promise<unknown>,
-) {
-  return bindTaskCliCancellationSignalsToPort(port, requestCancellation);
 }
 
 /**

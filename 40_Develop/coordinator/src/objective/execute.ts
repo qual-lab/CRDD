@@ -674,18 +674,20 @@ export async function executeCoordinatorObjective(
       effectState: "unknown" as const,
     });
   const observedState = persistence.state.readState(request.projectId);
-  let state = observedState;
   let initialization: ProjectExecutionInitialization | undefined;
-  if (state.status !== "completed")
+  if (observedState.status !== "completed")
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
-      reason: state.reason,
+      reason: observedState.reason,
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectState: "unknown" as const,
-      recoveryIds: Object.freeze(state.recoveryId ? [state.recoveryId] : []),
+      recoveryIds: Object.freeze(
+        observedState.recoveryId ? [observedState.recoveryId] : [],
+      ),
     });
+  let state = observedState;
   if (state.value === null) {
     if (request.operation === "resume")
       return blocked(request, "orchestrator_objective_request_not_found");
@@ -1408,8 +1410,15 @@ export async function executeCoordinatorObjective(
             recoveryId: entry.recoveryId,
           })),
         });
-      const saved = persistence.state.writeState(
-        { ...recoveryState, generation: recoveryState.generation + 1 },
+      const saved = persistence.state.updateTask(
+        {
+          kind: "task_recovery_finalize",
+          projectId: request.projectId,
+          recoveries: recoveredDocker.map(({ taskId, recoveryId }) => ({
+            taskId,
+            recoveryId,
+          })),
+        },
         recoveryState.generation,
       );
       if (saved.status !== "completed")
@@ -1438,6 +1447,11 @@ export async function executeCoordinatorObjective(
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
+          recoveryIds: recoveredDocker.map((entry) => entry.recoveryId),
+          recoveryObligations: recoveredDocker.map(({ recoveryId }) => ({
+            kind: "docker" as const,
+            recoveryId,
+          })),
         });
       for (const item of recoveredDocker)
         await taskRecovery.observeTransition({
@@ -1764,32 +1778,6 @@ export async function executeCoordinatorObjective(
     ...(execution.workspaceResults === undefined
       ? {}
       : { workspaceResults: execution.workspaceResults }),
-  });
-}
-
-/**
- * Coordinator Objective Intake 契約の公開契約を記述する。
- *
- * @responsibility Coordinator Objective Intake 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeCoordinatorObjectiveIntakeContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorObjectiveIntakeContractの入力契約を満たす。
- * @postcondition describeCoordinatorObjectiveIntakeContractの責務を完了した結果だけを返す。
- * @effect N/A: describeCoordinatorObjectiveIntakeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeCoordinatorObjectiveIntakeContractは独自の失敗分岐を所有しない。
- * @invariant describeCoordinatorObjectiveIntakeContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeCoordinatorObjectiveIntakeContractはProcess内の同一Subsystemで完結する。
- * @security N/A: describeCoordinatorObjectiveIntakeContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeCoordinatorObjectiveIntakeContractは共有非同期状態を持たない同期処理である。
- */
-export function describeCoordinatorObjectiveIntakeContract() {
-  return Object.freeze({
-    contract: COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-    transports: Object.freeze(["cli", "mcp"]),
-    duplicateRequest: "same_queue_and_latest_state_no_duplicate_effect",
-    scopeExpansionByPlanner: false,
-    ownerLossObservation: "platform_adapter_only",
   });
 }
 

@@ -9,6 +9,180 @@
 B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
 設計正本: [Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[文書モデル](../../../06_Architecture/Details/document-model/01_Architecture.md)、[実行モデル](../../../06_Architecture/Details/execution-model/01_Architecture.md)、[構成モデル](../../../06_Architecture/Details/configuration-model/01_Architecture.md)
 
+## Package外の開発Source観測利用側の是正 — 2026-11-19
+
+今回の再確認は直前3点の利用側追従であり、変更分類は既存契約への接続修正。Coordinator内の21File回帰と内部Source検索だけでは、MCP／Workbench所有へ移った検証ToolのImportを保証していなかった。基準は直前の作業差分で、公開Root・CLI引数・保存形式・認可・期限・回収・過去保持物は変更しない。親が実際の入口・利用先の設計・Scope判定・全Importを照合してから編集した。独立レビューと利用側の限定回帰・文書確認を行い、全体回帰・実AI・Dockerは実施しない。
+
+| 確認した漏れ | 最小是正 | 保持条件と反証 |
+| --- | --- | --- |
+| MCP／Workbench検証Toolの旧診断Module Import | Source観測をmeasurementへ直接接続 | 旧Moduleへの再export・新Facadeは追加しない。実入口を不正引数だけで起動してImport解決と処置前拒否を確認 |
+| MCPのSource v3要求と旧合成fixture | 現行v4へ追従 | 旧v2／v3の明示拒否を維持し、Hashの補完・変換・保存物の移行をしない |
+| 限定回帰で露出した新規Objectiveの操作区分欠測 | 検証Toolの新規構築関数がstartを明示 | 受付側に省略補完せず、現行完成受付の受理と旧field拒否を確認 |
+| Workbench読取り試験のID生成代役欠測 | VM準備へ有限randomUUIDを明示 | 発行IDと同じ取消対象をassertし、製品Source・取消・期限を変更しない |
+
+MCP初回48件は47成功・1失敗（8,172.7951ms）。Import解決とScope追従の反証は成功したが、新規Objective構築に必須operationがなく現行受付が拒否した。Workbench初回18件は17成功・1失敗（90,494.1118ms）。既存の読取り本文試験にrandomUUIDがなく、引数構築時の例外でstart呼出し0となっていた。両者とも上表の最小範囲で是正し、検査・assertを緩和していない。
+
+是正後はMCPの同じ試験File全48件が成功（7,420.0891ms）、Workbenchは変更観点の「Workspace実AI試験CLI」「Workspace試験main」「読取り試験は元HTTP診断」の三Caseを明示選択して全3件成功（2,019.9933ms）。これは二実行51件の限定成功であり、初回の成功分を加算せず、Workbench全Fileの最終版再実行とも表示しない。試験が作成した領域は既存fixtureの清掃で回収し、過去保持物を操作していない。
+
+両利用側Packageの整形・strict型・Lintは成功。警告0、既存情報はMCP2件／Workbench4件。台帳の既存ID・Owner・環境・Effect区分は変更せず、ScopeとImportの検証観点を追従する。同じFile内へのCase追加のため新しい台帳項目やSymbolは不要。二者の実行入口を所有するMCP／WorkbenchのSourceを追従しただけで、CoordinatorのSource・公開IFは追加変更しない。
+
+再発防止は新しいChecker機構ではなく、移管先だけでなく実利用Packageの型検査と実入口の拒否試験を対象に含めることとする。本文抜出しのVM試験をImport解決の証拠にしない。
+
+今回の固定候補の独立レビューは残指摘0。確認者は実入口の不正引数拒否が観測・設定・Fixture作成・MCP開始より前にあり、未開始側の例外処理と終了処理もFile操作しないことを確認した。Source v4限定、旧版拒否、新規操作区分と取消IDの相関、試験・文書の未実施範囲にも必須漏れはなかった。五指定文書の限定確認は直接参照を含む134／1,207 Markdown、0 error・0 warning（38,079ms）。台帳421試験はvalidで、台帳確認自体の試験起動・Effectはない。差分形式も成功した。以上で今回の利用側是正だけを限定完了とする。全体回帰・実AI・Docker・過去保持物・コミット／プッシュは未実施で、現在、人間による追加判断は必要ない。
+
+### MCP設計の既存節への統合
+
+続く再確認で、MCP設計の「公開MCP実行の検証Tool所有」に旧47試験・Source v3・検証CLIを起動しないという説明が残り、直前に冒頭へ追加した現在説明と矛盾していた。文書限定検査の成功を意味上の整合証明と扱わず、実装・既存の48件成功結果・不正引数での実入口拒否試験へ照合した。
+
+冒頭の重複節を撤去して既存の所有節へ統合し、48試験・現行v4限定と旧v2／v3拒否・不正引数だけでの正式入口起動を明示する。measurement直参照、Source正本への参照、新規startの明示、公開情報の制約と実AI／Docker未実施の境界は統合後も保持する。変更分類は一意な文書追従で、製品コード・試験・台帳・CLI・保存形式は変更しない。実行する確認は対象文書・参照の限定検査と独立レビューのみとし、実行時挙動を変えないため試験本体の再実行・全体回帰・実AI・Docker・過去保持物の操作は行わない。
+
+限定文書確認は二指定Fileから直接参照を含む42／1,207 Markdown、0 error・0 warning（37,021ms）で成功した。独立レビューは残指摘0で、撤去したMCP冒頭節への参照残りもなかった。実行時挙動を変更しない今回の文書追従を完了とし、製品コード・試験・台帳はこの是正で変更していない。結果記録以外の追加是正は不要である。
+
+## 内部Authority生成・開発計測・未接続drainの整理 — 2026-11-19
+
+変更分類は内部責務整理と現行Source観測の不整合是正。基準は0eae2634と先行する有限State保存整理の作業差分。公開CLI・Root・保存形式・認可・期限・実技術Cleanupを変更しない。着手前に二確認者が読み取り専用でAuthorityの信頼境界、計測の実Consumerと依存閉包を照合した。独立Sourceレビューと限定試験・文書／台帳確認を行い、全体回帰・実AI・Docker・過去保持物・コミット／プッシュは今回実行しない。
+
+| 対応対象 | 旧能力と利用側 | 今回の処置と保持条件 |
+| --- | --- | --- |
+| 内部Authority | Local Personal生成→起動前照合。外部File Bundle受付は別の未信頼境界 | 内部Profile／Registry／Policy／Manifestを独立凍結し既存Hashを直接保持。内部bytes化・再解析と重複codecを撤去。外部canonical拒否と毎回の現在Operation／Grant期限／Scope／Mount照合は維持 |
+| 開発計測 | Controller・計測／一般Task検証Script。Timing・Constraints・Session・Source観測 | 同じ所有状態のままmeasurementへ一体移管し利用側を直接接続。旧診断から転送しない。旧domain-model欠測を修正し現行12PackageのScope v4へ追従 |
+| 合成専用機構 | 旧Plan／Evaluatorの専用UTのみ。通常実行にも計測にも未接続 | 常にnot_implementedのPlanと合成claimだけを検査する処理・専用helper・試験を退役。認証／課金・Home／許可・実Fakeの終了／取消／回収は現Ownerの既存試験に残す。Doctorの内側の契約改訂7で合成受付をretired、旧limitsをnullへ修正し、JSONキーと実技術制約を維持する |
+| 未接続drain | 本番の開始側なし。専用試験のみ | token・WeakSet・件数・開始／終了・一時拒否・同義readerを撤去。回収不明後の不可逆poison・fresh Process・入力読取り0・Effect前拒否を維持 |
+
+新Store／Registry／Owner照合機構は追加しない。measurementは既存の実責務をまとめる一Fileであり、Session Map・取消・期限・予約を分散させない。Scope変更は期待Hashの自動補完・過去記録の変更を行わず、検証結果Readerは既存v2／v3を保ったままv4を投影する。合成専用試験やdrain試験の退役をPass件数に置換しない。
+
+初回14File回帰は180件中3件失敗。旧32件上限の期待、子Processの移管前URL、新規比較試験の別VM Realmによる未信頼Context拒否が原因で、現行保証に合わせて試験準備を修正し再実行180件成功（8,036.621ms）。製品の未信頼入力検査は緩めていない。次の6File接続回帰は94件中4件失敗。12Packageへ増えた期待件数3箇所と新Sourceの責務閉集合登録1箇所が未追従であり、是正した。最終結果は下記に分けて記録する。
+
+固定候補への二者独立レビューで、Authority／drainの変更には残指摘なし。開発計測／診断側に、撤去済み合成機構を現役表示するDoctor値と未施行limits、Source観測JSDocの旧9Packageの二指摘があった。両確認者へ統合修正方針を提示して整合後、診断の内側改訂7・実Fakeのみの実装説明・retired・limits:nullと固定期待試験、JSDocの固定Scope全Packageへ是正する。新しい互換処理は作らず、実技術制約とAuthorityの信頼境界は変更しない。
+
+### 今回3点の最終限定結果
+
+再レビューで残った試験コメント一箇所の旧10Package表記を、実対象・guard・assertを変えず「固定Scopeの全対象Package」へ修正した。両確認者へ統合方針を提示して整合後に適用した。最終実行後の変更はこのコメントと結果記録だけであり、実行した保証内容を変更しない。
+
+実行入口はCoordinator Directoryで`node --experimental-test-module-mocks --test --test-concurrency=1 --test-skip-pattern=^(Host Windows:|Windows Process Gate:)`へ次の21Fileを明示したもの。実AI・Dockerへ接続しない契約試験だけを使用した。
+
+| 群 | 明示した試験（すべてCoordinatorのtests配下） |
+| --- | --- |
+| Authority 5File | unit/executionのauthority-bundle、authority-policy、authority-validation、authority-grant、local-authority各contract.test.ts |
+| Provider 3File | unit/executionのprovider-lifecycle、provider-execution、advice-runtime-result各contract.test.ts |
+| Process／受付 2File | integration/runtime-process-safety-state.contract.test.ts、integration/task-single-task-adapter.contract.test.ts |
+| 計測 4File | unit/development-measurement-constraints.contract.test.ts、unit/development-measurement-session.contract.test.ts、unit/development-provider-measurement.contract.test.ts、integration/development-execution-timing.contract.test.ts |
+| Source／記録 2File | integration/development-native-observation.integration.test.ts、system/verification-result-record.contract.test.ts |
+| 検証Script 3File | systemのsigned-general-task-verification、signed-reviewer-boundary-verification、signed-route-matrix-verification各contract.test.ts |
+| 診断／依存 2File | unit/execution/diagnostics.contract.test.ts、integration/task-platform-independence.contract.test.ts |
+
+最終結果は280成功、失敗・取消・skip・todoは0、53,714.9544ms、終了値0。先行する180成功と初回94件の実行を加算しない。Source観測試験の作成物は既存の自己生成Fixtureのfinally清掃へ接続し、過去保持物を変更しない。
+
+製品・試験の整形／strict型検査／Lintと二つの設計対応検査は成功（警告0、既存情報174件）。台帳421試験はvalidであり、台帳検査自身は試験未起動・Effectなし。三指定文書の限定検査は直接参照を含む143／1,207 Markdown、0 error・0 warning（40,081ms）。結果記録後の三指定文書の再確認も143／1,207 Markdown、0 error・0 warning（37,546ms）で成功し、台帳421試験と差分形式も再確認した。
+
+二者独立レビューの修正版ではAuthority／drainに残指摘なし、計測／診断の旧説明二件とコメント一件を上記のとおり是正した。最終コメント・記録の二者再確認は残指摘0で完了した。今回3点だけを限定完了とし、先行変更全体や未実施範囲へ拡張しない。全体回帰・実AI・Docker・過去保持物・コミット／プッシュは未実施。現在、人間による追加判断は必要ない。
+
+## 内部旧入口と同一受付の重複検査撤去 — 2026-11-18
+
+### 続行: 回復済み参照の有限確定 — 2026-11-19
+
+状態: 本番呼出しの切替と有限候補生成を実装。旧Portと任意State受付の全面撤去は未完了。着手前に単純な追加保存の削除案を反証し、読取り専用確認者が導入履歴と現行Ownerを照合した。世代加算は旧ACK整理から残ったOperation退役の発火点であり、fresh読取りだけへ置換するとTaskの終了根拠が固定されない。このため既存`TaskExecutionUpdate`へ用途固定の`task_recovery_finalize`を追加し、新しいPort・Store・Writer・Fileを作らず、既存更新入口から同じ統合保存へ接続した。
+
+CoordinatorはProject ID、Task ID／回復ID集合と期待世代だけを渡す。EMは同じWriter内のfreshなStateから候補を作り、既存`normalizeTaskProjects`が全終端・履歴確認・未解決なし・元Task／Attempt／Operation相関を照合して参照を退役する。保存SchemaとRoot公開集合は不変。新要求では一世代差だけを同一再送成功と推定せず拒否し、上位の明示再開が現在状態を取得する既存経路を使う。
+
+局所反証で、保存成功後の候補metadata欠測時に元回復IDが落ちる経路を確認し、既知Stateからの推測ではなく元のexact集合を初回停止結果へ渡すよう是正した。新しい回復IDや権限は発行しない。試験追加時の断片型除去の構文不整合は実Source全体の型除去後に断面を選ぶ方法へ修正した。また既存の現在回復試験の正常fixtureにはProject／Task所属と開始候補metadataが欠けていたため、実受付へ現在の形を渡し、metadata欠測・世代差の拒否例を追加した。製品側の検査・Timeout・処置条件は緩和していない。
+
+限定確認はTask局所・Snapshot統合退役・公開RootとCoの回復調停を対象とし、実AI・Docker・過去保持物・全体回帰は対象外。直接の保存先・物理出版・Lock／CASを変更せず、局所候補・有限保存Portの成功を実資源回収や新しい一体E2Eの成立へ拡張しない。
+
+次は関連18試験・fixtureの初期準備を既存の初回Queue受付へ、通常遷移を有限更新へ追従し、低位保存・任意Stateの反証をEM Ownerへ整理する。その閉包をもって旧`writeState` Port、任意State／外部resultFacts受付とraw文字列分岐を撤去する。試験だけ旧Writerへ付け替え、この段階全体を完了扱いしない。
+
+独立レビューで、世代差を新しい理由へ変更せず既存の`orchestrator_state_generation_conflict`を維持するよう指摘を受け、回復条件不成立も既存の`orchestrator_task_recovery_not_settled`へ統一した。修正版の限定六Fileは74件すべて成功、失敗・取消・skip・todoは0（19,617.671ms）。両Packageの整形・型・LintとCoの設計対応確認は成功（警告0、既存情報はCo174件／EM34件）。文書限定検査は四指定Fileから直接参照を含む154／1,207 Markdown、0 error・0 warning（40,198ms）。台帳は421試験をvalidとし試験未起動・Effectなしを明示した。独立再レビューは今回の限定範囲で残指摘0。確認者の回復確定UT一件も成功（234.4487ms）で、74件との重複を加算しない。これは本番呼出し切替の限定完了であり、上記の旧受付撤去や実境界・全体回帰まで完了とはしない。
+
+基準は`0eae2634b`。利用者が採用した段階的な撤去の第1段階として、未使用入口と同一受付内の再検査だけを整理した。公開Root・CLI・保存形式・Hashの既存byte・拒否条件は維持する。State全体を渡す旧保存Port、Authorityの内部生成と再解析、開発計測／合成検査の配置、未接続drainの必要性評価は次段階であり、今回完了とはしない。
+
+| 対象 | 処置と保持する保証 |
+|---|---|
+| 未使用八関数 | Objective専用開発開始・取消、uniqueStrings、Authority Root判定の転送、Context Capability照会、Objective契約説明、対話Cleanup poisonの転送、drain照会を撤去。利用側のないContext型も削除。実Ownerの失効と現在のpoisonは維持 |
+| 専用状態と転送 | Objective専用取消WeakMap・分岐と不要引数を撤去し、現役の開発開始本体を既存の名前へ統合。元Completion待機・期限・取消・Timer／Listener解放を保持。CLI試験は実Signal接続処理へ直接接続 |
+| 同一受付の再検査 | Workspace観測の捕捉済み値を再利用。選定Hashを捕捉済み値の固定十field計算へ限定。状態照会は同じ断面を完成投影へ一回渡す。候補不正の拒否優先、未知を空へ補完しない条件を保持 |
+| 独立した受付と現在性 | 新しい依存返却値・助言Packet側の選定受付、起動直前のGrant／期限／Scope／Mount、保存Lock内のfresh本文とCASは維持。保存Identityは既存ReaderからOperation／選定検査までの閉包を確認 |
+
+着手前は現行Architecture、呼出し元、Maintenance・Coding Standards・QAを照合した。変更分類は内部構造整理であり、新しい共有契約・Facade・保存領域を作らない。技術・品質と直接文書影響を一人の独立確認者でレビューし、文書の限定Checkerと台帳確認を実行する。規範・準拠基準を変更しないため準拠監査は追加しない。
+
+初回の限定回帰171件は成功したが、独立レビューでHash変更による助言Packet側二受付の欠落を検出した。両入口へ受付を維持し、余剰field・Getter・Proxy・欠測の拒否、hook実行0、Adapter／Runtime呼出し0を既存試験へ追加した。新しい状態や権限は作らない。初回文書CheckerのQA三件は新節が末尾Checklistの後にあった配置不整合であり、本文側へ移した。触った開発開始・Signal接続の定型コメントも実際のEffectと解放へ追従した。
+
+是正後の固定製品Sourceに対する限定16試験Fileは186件すべて成功、失敗・取消・skip・todoは0、29,969.1371ms。既存試験の検証義務を削らず、公開入口、選定Grant、両Provider準備、Process安全状態、現役開発Session、CLI取消、状態照会と単発受付を確認した。整形・型検査・Lint（既存情報174件、警告0）とRuntime／Task設計対応検査は成功。全体回帰・実AI・Docker・過去保持物の操作・統合・リリースは未実施。
+
+是正後の文書限定検査は六指定Fileから直接参照を含む229／1,207 Markdownを確認し、0 error・0 warning（38,262ms）。台帳は421試験をvalidとし、試験未起動・Effectなしを明示した。独立再レビューは今回の技術・品質・直接文書影響の範囲で残指摘0。確認者が別に実行した助言Dispatch七件も全成功（368.8461ms）で、186件との重複を加算しない。製品Sourceは差引290行減り、新File・状態・Wrapper・下位Packageへの移管は増やしていない。これは第1段階の限定完了であり、Coordinator全体の簡素化完了や全体回帰成立とは扱わない。
+
+### 続行: 利用側の試験準備を有限受付へ接続 — 2026-11-19
+
+Workspace・判断・Task実行・Queue優先度・活動照会の試験準備を、既存の初回Queue＋Project原子的受付へ接続した。判断用Taskの開始／引渡し／開始確認と、Objective回復中の並行変更・開始予約・終了参照確定は有限更新へ接続する。既存Projectへ初期化を重ねず、追加Queueの試験では先行依頼を正規受付・取消した断面から一改訂と他区画保全を検証する。新しい試験用Writerや互換Facadeは追加していない。
+
+CoとMCPの整形・型・Lint・設計対応確認は成功。活動照会の限定九件は全成功（18,378.0144ms）、MCPの活動照会一件は成功（8,895.396ms）。受入・継続判断・統合結果・再計画・Workspaceの限定五Fileは31件すべて成功（885,228.0934ms）。その後に再計画の古い世代拒否とWorkspace二Taskの開始準備も有限更新へ変更し、再計画三件（68,422.5628ms）とWorkspace当該一件（56,932.2114ms）を再確認した。31件と重複する再確認を加算しない。不要になった`writeCoordinatorState`試験ヘルパーは撤去し、Source参照0を確認した。
+
+独立した読み取り専用レビューと追加差分の再レビューは、世代競合・Scope・取消・回復参照・既存assertと清掃の維持を確認し残指摘0。文書限定検査は二指定Fileから69／1,207 Markdown、0 error・0 warning。台帳421試験はvalid、試験未起動・Effectなし。Task実行・Objective受付・Queue優先度の限定三Fileは77件すべて成功、失敗・取消・skip・todoは0（1,727,596.266ms）。このうち129 Operationを実保存して終端で整理する既存Caseは739,352.5859msを要したが、その検証内容や件数は削除していない。別の試験改訂や全体回帰の成功へ合成しない。
+
+旧`writeState` PortとEMの任意State受付はまだ残る。未移行の低位保存・破損・競合反例のOwner整理、残るfixture接続と旧受付そのものの撤去を完了扱いしない。全体回帰・実AI・Docker・過去保持物操作は未実施。
+
+追加調査で、旧受領再提示用の`task-result-publication-worker.ts`が未使用のまま残っていたため撤去した。導入`7c4100bc2`と利用側削除`b2bdf0d0c`を照合し、当時のTask実行試験の唯一の起動箇所は既に削除済みである。現行Source・試験・Symbol・台帳の参照0、動的な起動組立てなしを確認し、代替workerは作らない。独立した削除閉包のレビューも残指摘0。現役の検証義務・assertは削除していない。
+
+EM自身の回復phase・開始前終端・Owner喪失の有限保存三試験は、初期raw保存だけを同じ正規初回受付へ置換し、元Projectとの同値assertを追加した。後続の有限更新・同一／異内容再送・古い世代・外部結果事実の注入拒否・bytes保全は不変。限定六件（子Case込み）は全成功、失敗・取消・skip・todoは0（25,407.2573ms）、EM静的確認は成功、独立静的レビューは残指摘0。
+
+Coの長期Lease用`currentQueueFixture`も初回受付へ統合し、元Projectの同値assertを追加した。一般CRUDの対象外保全・Owner終了後回復・Queue所有前の解放意図回復・遅延回復で新Ownerを保全する四件は全成功（32,991.7233ms）。初期Snapshotの改訂数が一回減ることを、Task世代やQueue世代の変更と混同しない。独立レビューは共有利用23箇所を照合し、初期の全体改訂数への固定依存なし、Queue世代・故障注入位置・新Owner保全を維持していることを確認し残指摘0。文書とQAの独立確認も、限定結果と未完了範囲の区別を維持して残指摘0である。
+
+### 続行: 保存Readerの試験Ownerと有限Port再送 — 2026-11-19
+
+変更分類は既存試験の責務移管と正規受付への接続である。先行の着手前確認で、保存本文の規則はEM、上位のScope・実Lease・有限更新の搬送はCoordinatorと照合した。対象の保存Schema・公開API・理由実値・安全判定は変更せず、新しいFile・Helper・Facade・製品APIを追加しない。技術・品質・直接文書影響は読み取り専用の独立確認と限定Checkerで確認し、規範変更・全体回帰・実境界E2Eは対象にしない。
+
+| 既存の検証義務 | 配置と接続 |
+|---|---|
+| 破損本文・Project必須field欠測 | Coordinatorの試験からEMの既存`runtime-snapshot-io`へ移管。EM公開Reader、同じ理由・回復必要表示・元bytes保全を確認 |
+| 不可能なTask状態／実行Identity三反例 | 同じEM試験へ移管。各反例の独立Root、状態とOperation／phaseの矛盾、拒否時の本文保全を維持 |
+| Envelope／未確定pending六反例 | 同じEM試験へ移管。必須欄・未知欄・Schema・改訂・Hashとpendingの拒否、File一覧・本文・pending保全を維持 |
+| 通常の保存・読取り・同一／異内容再送とRoot／Binding閉包 | Coordinatorへ残し、正規初回受付後の`task_start`有限更新へ接続。選定値の不変性、世代、再送時の同bytes、異Authorityの拒否を維持 |
+| Queue／Lease六試験 | 初期の任意State保存だけを初回Queue＋Project原子的受付へ統合。正常・Scope差・不正Identity・実Lease・終了保存失敗の既存assertを維持 |
+
+移管した試験にCoordinatorのimportはない。不正本文の整列はEMの既存`encodeStateValue`で行うが、Oracleは実Readerの拒否・理由・回復必要表示と元bytes保全であり、符号化の同値性を合格根拠にしない。試験名・Traceは保持し、三試験の実体はEMへ一つずつ移した。既存台帳の同じ安定IDへ検証内容を追従し、試験数を増減させるための複製はしない。
+
+初回のCoordinator二件確認は、異Authority再送の期待理由だけが旧raw保存の理由のままで一件失敗した。製品を変更せず、既存有限要求の`orchestrator_generation_or_identity_mismatch`へ期待値を追従した。修正後のCoordinator限定八件は全成功、失敗・取消・skip・todoは0（49,807.4931ms）。EM限定三件も全成功、失敗・取消・skip・todoは0（18,080.2026ms）。整形・型・LintとCoの設計対応確認は成功、既存情報Co174件／EM34件と警告0を維持した。Windowsの一時的なFileマップ競合で整形が一度停止したが、再実行で成功し、その後に静的確認から試験を実行した。
+
+独立静的レビューは反例の全数、拒否と保全のOracle、初期の全体改訂差、故障注入位置、移管先の依存閉包を確認し残指摘0。旧`writeState` Port・任意State／外部結果事実の受付・raw文字列分岐はまだ撤去完了ではない。任意の履歴参照を付け外しする保持・退役試験、残る低位保存反証とfixtureの整理を先に閉じる。全体回帰・実AI・Docker・過去保持物操作は未実施で、今回の局所成功をその保証へ拡大しない。
+
+文書・QA・台帳の独立再確認も残指摘0。文書限定検査は三指定Fileから直接参照を含む94／1,207 Markdown、0 error・0 warning（38,484ms）。台帳の421試験はvalidで、この台帳確認自体は試験未起動・Effectなし。`git diff HEAD --check`も成功した。
+
+### 旧State保存Portと任意State受付の撤去 — 2026-11-19
+
+利用者の1〜3一括実施指示に従い、残る任意State準備、旧入口、公開型、利用側・試験・設計・QAを同じ範囲で整理する。変更分類は内部の責務整理と公開受付の限定であり、保存形式・認可・期限・CAS・技術資源の扱いは変更しない。先行の着手前整合確認を、EMの履歴保持・閉Queue・故障注入の具体化へ接続した。製品Sourceの責務確認、全反例のOwner対応、限定回帰、読み取り専用の独立レビューと文書／台帳の限定確認を行う。準拠基準・Release・OS保証を変更しないため、それらの採用判断や実境界監査は追加しない。
+
+| 対象 | 最終処置と保持する保証 |
+|---|---|
+| Coordinator State Port | `writeState`と外部結果事実の型・転送closureを撤去。初回Queue＋Project受付と有限`updateTask`だけへ接続 |
+| EM公開保存 | `saveProjectExecutionState`は有限Task要求だけを受付。Stateの符号化Fallback・外部結果事実・余剰引数の無視を撤去し、旧入力は明示拒否 |
+| EM内部Task保存 | JSON本文分岐と任意Project挿入を削除。Lock内のfresh元版、intake相関、有限候補、再送の耐久再確認、CAS、境界例外と解放確認を維持 |
+| 結果事実とRoot | 終端要求から同Task／Attempt／Operationの結果事実を内部生成。利用のなくなった`ProjectTaskResultFact`のRoot公開を撤去。Rootは94項目（58値・36型） |
+| 通常準備・故障 | Task開始・終端、追加Project、Queue全操作とpending／rename故障は既存の正規受付・有限要求へ接続。正常準備のProject同値と保存metadataを確認 |
+| 保持・退役の二試験 | CoordinatorからEMの既存保存試験へ移管。任意の参照値の生成はEM私有Writerに限定し、参照中結果、他Project証拠、履歴一回性、古い受付の拒否を維持 |
+| 低位のWriter | EMが所有する私有のSnapshot出版・Codec検証は維持。Consumer向けの任意State受付や互換Readerではなく、保存実装自身の反証に使用 |
+
+新しいFile、Facade、Store、Manager、互換Writerは追加していない。Coordinatorの初回読取りは成功確認後に可変な成功Stateを宣言し、EMの成功時metadataは明示した型でも必須とする。これは型の相関を正確にする変更で、追加の成功推定・再検査・保存Effectを作らない。現在のScope外や将来要求をモデル側へ移管しない。
+
+限定確認の初回はEM22件中19成功・3失敗、Co10件中9成功・1失敗であった。失敗は、移管した合成physicalIdentityの64hex契約、初回受付が付与するQueue保存metadata、正規のTask開始・完了で進んだ後のDecision対象改訂の試験準備差である。製品判定を緩めず、合成識別値を現契約へ合わせ、正常metadataへ明示fixture値を重ね、固定改訂番号を実準備世代へ追従した。失敗したEM三件とCo一件は修正後に全成功（49,855.6181ms／24,613.4806ms）。初回のCommand結果を成功へ書き換えず、この補完確認と区別する。
+
+新候補はState全体・JSONの公開入口拒否と元bytes保全、旧第六引数の拒否、Portの旧Property不存在も反証した。独立静的再レビューは、Sourceの拒否順・再送・内部結果相関・例外／解放、移管先の依存、fixture是正、全反例の維持を確認し残指摘0。文書・QA・台帳の独立確認も残指摘0である。
+
+| 最終の限定確認 | 結果 |
+|---|---|
+| EM公開Root・Task局所・Snapshot遷移の三File | 25成功、失敗・取消・skip・todo各0、912.5518ms |
+| Co公開入口・依存境界・選定搬送の三File | 23成功、失敗・取消・skip・todo各0、19,914.3547ms |
+| EM保存・保持・Decision・pending故障・有限再送の選択範囲 | 22成功、失敗・取消・skip・todo各0、174,207.1981ms |
+| Co保存・初回競合・Lease・統合Snapshotの選択範囲 | 10成功、失敗・取消・skip・todo各0、248,233.3159ms |
+| Co Task終端・履歴不整合・保存不明・輸送不正の選択範囲 | 14成功、失敗・取消・skip・todo各0、355,781.6427ms |
+| Co Objective回復・取消・状態差・再入場の選択範囲 | 12成功、失敗・取消・skip・todo各0、364,268.2127ms |
+
+上表は別々の限定Commandの結果で、全体回帰の一回成功へ合成しない。Nodeの集計は子Caseを含む。旧容量境界の正確なbytes試験は初回の限定実行で成功（48,067.2934ms）しており、後続のfixture是正でその経路を変更していないため再実行へ重複追加していない。旧容量制限を戻したり、129 Operationの既存検証を削除したりしていない。
+
+両Packageの静的確認は成功（警告0、既存情報Co174件／EM34件）。文書限定検査は五指定Fileから155／1,207 Markdown、0 error・0 warning（53,900ms）。台帳は421試験をvalidとし、その台帳確認自体は試験未起動・Effectなし。`git diff HEAD --check`成功。Coの本番Sourceに旧`writeState`呼出し・Propertyはなく、`ProjectTaskResultFact`の参照はEM内部だけである。
+
+以上で今回指示された1〜3、すなわち残存試験準備の整理、旧State保存入口の撤去と利用側の追従、限定回帰・独立レビューを限定完了とする。私有のSnapshot出版・Codecを製品の任意State受付へ復活させず、保存Schemaと既存の安全条件を維持する。
+
+全体回帰・実AI・Docker・過去保持物操作、Commit／Push、main統合・Releaseはこの指示範囲では実施しない。これは旧保存入口の撤去範囲であり、Coordinator全体の残る簡素化候補まで完了としない。
+
 ## 1. 今回の判断と境界
 
 人間から提示された統合計画を、第二段階の残る実行順序として採用する。従来の二Packageを維持する目標を変更し、専門Packageへ技術責務を戻した後、旧Orchestratorを新Coordinatorへ再編する。この採用時点では現行Sourceの所有関係を切替完了まで変更済みと扱わなかった。現在の物理移管候補と検証中の範囲は§32に従う。

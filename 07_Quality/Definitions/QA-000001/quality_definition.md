@@ -272,6 +272,10 @@ RCM-IT-010の旧CROS汎用Tool Registry専用試験は、本番Consumer未接続
 
 旧`workbench-ai/`の試験は`execution/`へ追従し、Schema・Hash入力・完全選定／通信方針固定・一回消費・取消join・結果参照検査を維持する。内部Symbolの呼出し元名除去は通信上のcontract／revision／reason／modeを変更する根拠にしない。実Provider・実Dockerの再試行と②保持物の操作はこの整理の検証範囲へ含めない。
 
+## 選定受付とHash計算の分離 — 2026-11-18
+
+RCM-UT-001は、未信頼選定の不足・過剰・Getter・Proxy・役割相関の拒否を受付Ownerで維持する。捕捉済み選定のHashは受付を再実行せず、従来の十field順・固定SHA-256・各fieldの内容差・入力順非依存と元値の後続変更からの独立を確認する。Hashの一致を現在の実行許可・認可の代替にしない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

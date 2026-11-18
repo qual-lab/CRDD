@@ -16,10 +16,13 @@ import path from "node:path";
 import test from "node:test";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
+  createQueue,
   initializeExecutionStore,
-  saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  initialExecutionInput,
+  projectExecutionFixture,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataArea,
@@ -106,7 +109,7 @@ function repository(t: test.TestContext, repositoryId: string, commit = true) {
 
 /**
  * 実現在状態を保存する。
- * @responsibility 初期化と既存状態Writerを使い新版状態を準備する。
+ * @responsibility 初回の実Queue受付と同時にProject状態を準備する。
  * @trace PPR-IT-012
  * @precondition 検証済みRepository内の自己生成Fixtureだけを使用する。
  * @stimulus 対象操作へ固定入力と境界反例を渡す。
@@ -116,7 +119,6 @@ function repository(t: test.TestContext, repositoryId: string, commit = true) {
  * @boundary PPR-IT-012=Adjacent 1 Block: 実Store Reader→活動投影。
  */
 function state(root: string, revision: string) {
-  // 旧Composition式で保存し、新Reader側だけ新helperを使う片方向互換。
   const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
   assert.equal(
     initializeExecutionStore(verifyRuntimePersistenceRepository(root), binding)
@@ -144,12 +146,25 @@ function state(root: string, revision: string) {
   });
   assert.ok(created.state);
   assert.equal(
-    saveProjectExecutionState(
-      verifyRuntimePersistenceRepository(root),
-      binding,
-      created.state,
-      0,
-    ).status,
+    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+      kind: "scheduled",
+      input: [
+        {
+          queueId: "queue-a",
+          projectId,
+          milestoneId: "milestone-a",
+          requestHash: createHash("sha256")
+            .update("activity-request")
+            .digest("hex"),
+          originLane: "interactive",
+          repositoryRevision: revision,
+          scopeHash: createHash("sha256")
+            .update("activity-scope")
+            .digest("hex"),
+        },
+        initialExecutionInput(created.state),
+      ],
+    }).status,
     "completed",
   );
 }

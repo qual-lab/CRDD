@@ -1034,7 +1034,7 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           if (sourceReads > 1 && scenario === "source-unknown")
             throw new Error("synthetic_observation_unknown");
           return {
-            scope: "crdd-development-source-snapshot/v2",
+            scope: "crdd-development-source-snapshot/v4",
             sourceSha256:
               sourceReads > 1 && scenario === "source-changed"
                 ? "different"
@@ -2056,7 +2056,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
     const output: string[] = [];
     const processState = { exitCode: 0 };
     const snapshot = {
-      requestId: "synthetic-request",
+      requestId: "request-synthetic",
       status: "blocked",
       reason: "synthetic_cancelled",
       executionStatus: "cancelled",
@@ -2085,6 +2085,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
       Buffer,
       projectVerificationTransportFailure,
       provider: "claude",
+      randomUUID: () => "synthetic",
       choice: { provider: "claude", model: "opus", effort: "medium" },
       permitted: () => true,
       verified: { capability: {} },
@@ -2094,7 +2095,8 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
         policies: { claude: { policyHash: "a".repeat(64) } },
       }),
       createWorkbenchAiVerificationHttpClient: async () => ({
-        start: async () => {
+        start: async (request: { requestId: string }) => {
+          assert.equal(request.requestId, snapshot.requestId);
           starts++;
           if (scenario === "before-accept") throw transport;
           if (scenario === "accept-unknown")

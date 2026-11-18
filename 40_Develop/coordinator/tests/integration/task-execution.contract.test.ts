@@ -17,7 +17,10 @@ import path from "node:path";
 import test from "node:test";
 import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  projectExecutionFixture,
+  initialExecutionInput,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
@@ -33,7 +36,6 @@ import {
   enqueueProjectOperation,
   readCoordinatorState,
   readProjectOperationQueueState,
-  writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
 import { settleSyntheticOperations } from "../fixtures/task-result-fixture.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
@@ -342,17 +344,20 @@ function fixture(
   });
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("fixture_failed");
-  const saved = writeCoordinatorState(root, "binding-a", created.state, 0);
-  assert.equal(saved.status, "completed", saved.reason);
-  const queued = enqueueProjectOperation(root, "binding-a", {
-    queueId: "queue-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    requestHash: hash("request"),
-    originLane: "interactive",
-    repositoryRevision: revision,
-    scopeHash: hash("scope"),
-  });
+  const queued = enqueueProjectOperation(
+    root,
+    "binding-a",
+    {
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: hash("request"),
+      originLane: "interactive",
+      repositoryRevision: revision,
+      scopeHash: hash("scope"),
+    },
+    initialExecutionInput(created.state),
+  );
   assert.equal(queued.status, "completed", queued.reason);
   const input = {
     workingDirectory: root,

@@ -8,7 +8,6 @@
 
 import { createHash } from "node:crypto";
 import { PROJECT_STATE_CONTRACT } from "../../../execution-model/src/index.ts";
-import { normalizeRepositoryRelativePath } from "../input/snapshot.ts";
 
 export const COORDINATOR_MAXIMUM_CONCURRENCY = 5;
 
@@ -80,45 +79,6 @@ export function isCoordinatorRecoveryIdentity(value: unknown): value is string {
     value.length <= 512 &&
     /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
   );
-}
-
-/**
- * Stringsを重複のない順序へ正規化する。
- *
- * @responsibility Stringsの重複判定、順序規則、結果集合境界を所有する。
- * @trace ARCH-000004
- * @input values: readonly string[]、kind: "identity_or_path" | "repository_path" | "human_text"
- * @returns readonly string[] | nullを返す。
- * @precondition 「values: readonly string[]、kind: "identity_or_path" | "repository_path" | "human_text"」がuniqueStringsの入力契約を満たす。
- * @postcondition uniqueStringsの責務を完了した結果だけを返す。
- * @effect N/A: uniqueStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: uniqueStringsは独自の失敗分岐を所有しない。
- * @invariant uniqueStringsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: uniqueStringsはProcess内の同一Subsystemで完結する。
- * @security N/A: uniqueStringsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: uniqueStringsは共有非同期状態を持たない同期処理である。
- */
-export function uniqueStrings(
-  values: readonly string[],
-  kind: "identity_or_path" | "repository_path" | "human_text",
-): readonly string[] | null {
-  const resultItems: string[] = [];
-  const seen = new Set<string>();
-  for (const value of values) {
-    if (typeof value !== "string" || value.length === 0) return null;
-    const normalized =
-      kind === "repository_path"
-        ? normalizeRepositoryRelativePath(value)
-        : kind === "identity_or_path"
-          ? value.replaceAll("\\", "/")
-          : value;
-    if (normalized === null) return null;
-    const key = kind === "human_text" ? normalized : normalized.toUpperCase();
-    if (seen.has(key)) return null;
-    seen.add(key);
-    resultItems.push(normalized);
-  }
-  return Object.freeze(resultItems);
 }
 
 /**

@@ -37,7 +37,7 @@ import {
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../../src/execution/controller.ts";
-import { createDevelopmentExecutionTiming } from "../../src/execution/diagnostics.ts";
+import { createDevelopmentExecutionTiming } from "../../src/execution/measurement.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
@@ -5397,7 +5397,7 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   );
   assert.equal(
     contract.processRestartProjection,
-    "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
+    "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_and_manual_recovery_reason",
   );
   assert.deepEqual(contract.cancellation, {
     liveControlReceipt:
@@ -6292,9 +6292,9 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       harness.lifecycleStates.at(-1),
       "STATE-PROCESS-RESTART-REQUIRED",
     );
-    assert.equal(processSafetyState.isEffectBlocked(), true);
+    assert.equal(processSafetyState.isPoisoned(), true);
     assert.equal(
-      createIsolatedRuntimeProcessSafetyStateCandidate().isEffectBlocked(),
+      createIsolatedRuntimeProcessSafetyStateCandidate().isPoisoned(),
       false,
     );
     await assertTerminalRuntimeTraceCase(

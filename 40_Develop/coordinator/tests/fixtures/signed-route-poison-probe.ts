@@ -52,7 +52,7 @@ function completed(route: SignedGeneralTaskRouteProfile) {
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v2",
+    sourceScope: "crdd-development-source-snapshot/v4",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,

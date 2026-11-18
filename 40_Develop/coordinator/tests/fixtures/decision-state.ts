@@ -16,9 +16,7 @@ import {
 } from "../../../execution-model/src/index.ts";
 import {
   projectExecutionFixture,
-  taskHandoffFixture,
-  taskStartedFixture,
-  taskStartFixture,
+  initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -139,41 +137,49 @@ export function persistAcceptancePendingState(
   );
   const port = ports.state;
   let current: ProjectExecutionState = state.state;
-  assert.equal(port.writeState(current, 0).status, "completed");
-  const transitions = [
-    () =>
-      taskStartFixture(
-        current,
-        current.generation,
-        `task-${projectId}`,
-        `attempt-${projectId}`,
-        `authority-${projectId}`,
-      ),
-    () =>
-      taskHandoffFixture(
-        current,
-        current.generation,
-        `task-${projectId}`,
-        `attempt-${projectId}`,
-        `operation-${projectId}`,
-      ),
-    () =>
-      taskStartedFixture(
-        current,
-        current.generation,
-        `task-${projectId}`,
-        `attempt-${projectId}`,
-        `operation-${projectId}`,
-      ),
-  ];
-  for (const transition of transitions) {
-    const next = transition();
-    assert.ok(next.state);
-    assert.equal(
-      port.writeState(next.state, current.generation).status,
-      "completed",
-    );
-    current = next.state;
+  const queueId = `queue-${projectId}`;
+  const queued = port.enqueueOperation(
+    {
+      queueId,
+      projectId,
+      milestoneId: current.milestone.id,
+      requestHash: createHash("sha256").update(queueId).digest("hex"),
+      originLane: "interactive",
+      repositoryRevision: revision,
+      scopeHash: createHash("sha256").update(projectId).digest("hex"),
+    },
+    initialExecutionInput(current),
+  );
+  assert.equal(queued.status, "completed", queued.reason);
+  assert.deepEqual(port.readState(projectId).value, current);
+  for (const command of [
+    {
+      kind: "task_start" as const,
+      projectId,
+      taskId: `task-${projectId}`,
+      attemptId: `attempt-${projectId}`,
+      authorityBindingId: `authority-${projectId}`,
+    },
+    {
+      kind: "task_handoff" as const,
+      projectId,
+      taskId: `task-${projectId}`,
+      attemptId: `attempt-${projectId}`,
+      operationId: `operation-${projectId}`,
+    },
+    {
+      kind: "task_started" as const,
+      projectId,
+      taskId: `task-${projectId}`,
+      attemptId: `attempt-${projectId}`,
+      operationId: `operation-${projectId}`,
+    },
+  ]) {
+    const next = port.updateTask(command, current.generation);
+    assert.equal(next.status, "completed", next.reason);
+    if (next.status !== "completed")
+      throw new Error("fixture_task_update_failed");
+    current = next.value;
   }
   const terminal = port.updateTask(
     {
@@ -199,17 +205,6 @@ export function persistAcceptancePendingState(
     outcome === "completed" ? "integration_pending" : "blocked",
   );
   assert.equal(current.milestone.state, "executing");
-  const queueId = `queue-${projectId}`;
-  const queued = port.enqueueOperation({
-    queueId,
-    projectId,
-    milestoneId: current.milestone.id,
-    requestHash: createHash("sha256").update(queueId).digest("hex"),
-    originLane: "interactive",
-    repositoryRevision: revision,
-    scopeHash: createHash("sha256").update(projectId).digest("hex"),
-  });
-  assert.equal(queued.status, "completed", queued.reason);
   const acquired = ports.lease.acquire(projectId, queueId, "project-operation");
   assert.equal(acquired.status, "completed", acquired.reason);
   assert.ok(acquired.value && queued.value);

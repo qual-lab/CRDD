@@ -551,7 +551,6 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_result_observation_invalid",
   "coordinator_task_review_remediation_invalid",
   "coordinator_task_reviewer_read_projection_failed",
-  "coordinator_task_runtime_cleanup_in_progress",
   "coordinator_task_scope_recognized_secret_rejected",
   "coordinator_task_selection_failed",
   "coordinator_task_selection_notice_unavailable",

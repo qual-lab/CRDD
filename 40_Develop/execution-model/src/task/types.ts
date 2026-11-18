@@ -59,6 +59,11 @@ export type TaskStartCandidates = Readonly<{
  */
 export type TaskExecutionUpdate = Readonly<
   | {
+      kind: "task_recovery_finalize";
+      projectId: string;
+      recoveries: readonly Readonly<{ taskId: string; recoveryId: string }>[];
+    }
+  | {
       kind: "task_owner_loss";
       projectId: string;
       bindings: readonly Readonly<{

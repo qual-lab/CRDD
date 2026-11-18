@@ -21,7 +21,11 @@ import {
   prepareStateHostSnapshot,
 } from "../../../src/state/validation.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
-import { validState } from "../../../src/task/validation.ts";
+import {
+  validState,
+  captureTaskExecutionUpdate,
+  prepareTaskExecutionUpdate,
+} from "../../../src/task/validation.ts";
 
 /**
  * 開始保存と終端準備を一つの完成操作として検証する。
@@ -2740,7 +2744,27 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       const decoded = decodeStateSnapshot(multi, binding);
       const view = decoded?.projects[0];
       assert.ok(decoded && view);
-      const proposed = { ...view, generation: view.generation + 1 };
+      const finalization = captureTaskExecutionUpdate({
+        kind: "task_recovery_finalize",
+        projectId: view.projectId,
+        recoveries: view.tasks.flatMap((task) =>
+          task.recoveryObligations
+            .filter((item) => item.kind === "docker")
+            .map(({ recoveryId }) => ({
+              taskId: task.definition.id,
+              recoveryId,
+            })),
+        ),
+      });
+      assert.ok(finalization);
+      const candidate = prepareTaskExecutionUpdate(
+        view,
+        view.generation,
+        finalization,
+      );
+      assert.equal(candidate.status, "completed");
+      const proposed = candidate.state;
+      assert.deepEqual(proposed, { ...view, generation: view.generation + 1 });
       const completed = prepareUnifiedTaskSnapshot(
         multi,
         proposed,

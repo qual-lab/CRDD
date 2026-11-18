@@ -15,13 +15,183 @@ import { stripTypeScriptTypes } from "node:module";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
 import type { ProjectExecutionState } from "../../../src/state/types.ts";
+import {
+  fixtureTaskExecutionSelections,
+  projectExecutionFixture,
+} from "../../fixtures/execution-plan.ts";
 
 import {
   inspectSingleTaskRecord,
   recoveryObligations,
   validState,
   validResultReference,
+  captureTaskExecutionUpdate,
+  prepareTaskExecutionUpdate,
 } from "../../../src/task/validation.ts";
+
+/**
+ * 回復済み参照の確定要求はState全体を受け取らずexactなTaskと回復IDへ限定する。
+ * @responsibility 空・重複・別Task・未終端・未回収・別世代を候補へ昇格しない。
+ * @trace PRL-UT-006
+ * @precondition 純粋fixtureの同じTask・Attempt・Operationと終端義務を使う。
+ * @stimulus 閉入力の正常値、実行可能Propertyと各相関の差分を与える。
+ * @observation 独立捕捉、世代だけ進む候補、元State不変と拒否。
+ * @oracle 正常だけ一世代進み、古い世代を成功と推定しない。
+ * @cleanup メモリ値のみ。
+ * @boundary Task局所の候補生成。Operation退役と出版は別の統合試験が所有する。
+ */
+test("回復参照の有限確定は同じ終端Taskだけを候補にする", () => {
+  const created = projectExecutionFixture({
+    taskExecutionSelections: fixtureTaskExecutionSelections(),
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: ["done"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["src/a.ts"],
+        conflictKeys: [],
+      },
+    ],
+    ownerGeneration: "owner-a",
+  });
+  const reference = "docker-task.exact";
+  const originalTask = created.state.tasks[0];
+  assert.ok(originalTask);
+  const task = {
+    ...originalTask,
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    startPhase: "settled" as const,
+    cleanupConfirmed: true,
+    recoveryUnresolved: false,
+    recoveryObligations: [
+      {
+        kind: "docker" as const,
+        recoveryId: reference,
+        phase: "settled" as const,
+      },
+    ],
+  };
+  const state = { ...created.state, generation: 6, tasks: [task] };
+  const raw = {
+    kind: "task_recovery_finalize",
+    projectId: state.projectId,
+    recoveries: [{ taskId: "task-a", recoveryId: reference }],
+  };
+  const command = captureTaskExecutionUpdate(raw);
+  assert.ok(command);
+  const result = prepareTaskExecutionUpdate(state, 6, command);
+  assert.equal(result.status, "completed");
+  assert.deepEqual(result.state, { ...state, generation: 7 });
+  assert.deepEqual(result.taskIds, ["task-a"]);
+  assert.equal(state.generation, 6);
+  const rawReference = raw.recoveries[0];
+  assert.ok(rawReference);
+  rawReference.recoveryId = "changed";
+  assert.equal(
+    prepareTaskExecutionUpdate(state, 6, command).status,
+    "completed",
+  );
+  for (const candidate of [
+    state,
+    { ...state, generation: 5 },
+    { ...state, generation: 7 },
+  ]) {
+    if (candidate.generation !== 6) {
+      assert.equal(
+        prepareTaskExecutionUpdate(candidate, 6, command).status,
+        "blocked",
+      );
+      assert.equal(
+        prepareTaskExecutionUpdate(candidate, 6, command).reason,
+        "orchestrator_state_generation_conflict",
+      );
+    }
+  }
+  for (const difference of [
+    { attemptId: null },
+    { operationId: null },
+    { cleanupConfirmed: false },
+    { recoveryUnresolved: true },
+    { startPhase: "running" as const },
+    {
+      recoveryObligations: [
+        {
+          kind: "docker" as const,
+          recoveryId: reference,
+          phase: "required" as const,
+        },
+      ],
+    },
+  ]) {
+    assert.equal(
+      prepareTaskExecutionUpdate(
+        { ...state, tasks: [{ ...task, ...difference }] },
+        6,
+        command,
+      ).status,
+      "blocked",
+    );
+    assert.equal(
+      prepareTaskExecutionUpdate(
+        { ...state, tasks: [{ ...task, ...difference }] },
+        6,
+        command,
+      ).reason,
+      "orchestrator_task_recovery_not_settled",
+    );
+  }
+  const duplicate = captureTaskExecutionUpdate({
+    ...raw,
+    recoveries: [
+      { taskId: "task-a", recoveryId: reference },
+      { taskId: "task-a", recoveryId: reference },
+    ],
+  });
+  assert.ok(duplicate);
+  assert.equal(
+    prepareTaskExecutionUpdate(state, 6, duplicate).status,
+    "blocked",
+  );
+  for (const recoveries of [
+    [],
+    [{ taskId: "task-a" }],
+    [{ taskId: "task-a", recoveryId: reference, authority: true }],
+  ])
+    assert.equal(captureTaskExecutionUpdate({ ...raw, recoveries }), null);
+  let hooks = 0;
+  for (const invalid of [
+    Object.defineProperty({ ...raw }, "recoveries", {
+      enumerable: true,
+      get() {
+        hooks++;
+        return [];
+      },
+    }),
+    {
+      ...raw,
+      recoveries: [
+        new Proxy(
+          { taskId: "task-a", recoveryId: reference },
+          {
+            ownKeys() {
+              hooks++;
+              return [];
+            },
+          },
+        ),
+      ],
+    },
+  ])
+    assert.equal(captureTaskExecutionUpdate(invalid), null);
+  assert.equal(hooks, 0);
+});
 
 /**
  * 三つのTask参照が同じ元文法で検査されることを確認する。

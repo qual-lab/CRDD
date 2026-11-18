@@ -23,6 +23,69 @@ import {
   snapshotPlainRecord,
 } from "../../../src/input/snapshot.ts";
 import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
+import { inspectWorkspaceResult } from "../../../src/workspace/record.ts";
+
+/**
+ * 単発結果のWorkspace観測は一回捕捉した固定値を後段へ渡す。
+ * @responsibility 重複検査を撤去しても不正Pathの拒否と元配列からの独立を維持する。
+ * @trace PRL-UT-006
+ * @precondition 実結果受付宣言と実Workspace検査を使用する。
+ * @stimulus 正常観測・越境Pathと元配列の後続変更を与える。
+ * @observation 受付回数、固定結果と不正拒否。
+ * @oracle 一回で独立捕捉し、後段Ownerに二つ目のWorkspace受付を残さない。
+ * @cleanup メモリ値のみ。
+ * @boundary 実行結果の受付と単発記録Owner。
+ */
+test("単発Workspace結果は一回捕捉して同じ固定観測を再利用する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/task/requests.ts", import.meta.url),
+    "utf8",
+  );
+  let inspections = 0;
+  const capture = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "snapshotSingleTaskOutcome"))});`,
+    ["snapshotPlainArray", "snapshotPlainRecord", "inspectWorkspaceResult"],
+  )(snapshotPlainArray, snapshotPlainRecord, (value: unknown) => {
+    inspections++;
+    return inspectWorkspaceResult(value);
+  }) as (
+    value: unknown,
+  ) => { workspaceResult: ReturnType<typeof inspectWorkspaceResult> } | null;
+  const paths = ["src/file.ts"];
+  const raw = {
+    mode: "workspace_edit",
+    status: "completed",
+    reason: null,
+    cleanupConfirmed: true,
+    recoveryIds: [],
+    advice: null,
+    workspaceResult: {
+      workspaceId: "11111111-1111-4111-8111-111111111111",
+      changedPaths: paths,
+      canonicalRepositoryChanged: false,
+      changeAttribution: "unattributed",
+      workspaceDeletionIssued: false,
+    },
+  };
+  const accepted = capture(raw);
+  assert.ok(accepted?.workspaceResult);
+  assert.equal(inspections, 1);
+  paths.push("later.ts");
+  assert.deepEqual(accepted.workspaceResult.changedPaths, ["src/file.ts"]);
+  assert.ok(Object.isFrozen(accepted.workspaceResult.changedPaths));
+  assert.equal(
+    capture({
+      ...raw,
+      workspaceResult: { ...raw.workspaceResult, changedPaths: ["../outside"] },
+    }),
+    null,
+  );
+  assert.equal(inspections, 2);
+  assert.doesNotMatch(
+    sourceDeclaration(source, "createCoordinatorTaskRequests"),
+    /\binspectWorkspaceResult\s*\(/u,
+  );
+});
 
 /**
  * Resolverの未信頼返却値は内部受渡しの簡素化後も受付で拒否する。

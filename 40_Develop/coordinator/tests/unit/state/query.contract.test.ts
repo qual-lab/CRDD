@@ -24,6 +24,7 @@ import {
   inspectCoordinatorProjection,
   inspectTaskStartCandidates,
   projectCoordinatorState,
+  COORDINATOR_STATE_QUERY_CONTRACT,
 } from "../../../src/state/projection.ts";
 
 import {
@@ -31,6 +32,74 @@ import {
   queryCoordinatorState,
 } from "../../../src/state/query.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
+
+/**
+ * 照会は同じ断面の候補を完成投影で一度だけ受け付ける。
+ * @responsibility 検査済み候補の破棄と再捕捉をなくし、不正候補の拒否を維持する。
+ * @trace PPR-UT-006
+ * @precondition 実照会宣言、実投影と合成の正常Stateを使用する。
+ * @stimulus 正常・欠測・世代差・Revision差・候補とRevision両方の不正を与える。
+ * @observation 完成投影の呼出し数と拒否理由、状態変更なし。
+ * @oracle 一回の投影で受け付け、候補不正をRevision不正より先に拒否する。
+ * @cleanup メモリ値のみ。
+ * @boundary EMの観測結果と公開照会の投影。
+ */
+test("状態照会は完成投影で一度だけ候補を受け付ける", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/state/query.ts", import.meta.url),
+    "utf8",
+  );
+  const state = runtimeState();
+  const before = JSON.stringify(state);
+  const base = {
+    projectId: state.projectId,
+    generation: state.generation,
+    taskIds: ["task-a"],
+  };
+  let projections = 0;
+  const query = new Function(
+    "projectCoordinatorState",
+    "inspectTaskStartCandidates",
+    "COORDINATOR_STATE_QUERY_CONTRACT",
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "queryCoordinatorState"))});`,
+  )(
+    (...args: Parameters<typeof projectCoordinatorState>) => {
+      projections++;
+      return projectCoordinatorState(...args);
+    },
+    () => assert.fail("duplicate_candidate_intake"),
+    COORDINATOR_STATE_QUERY_CONTRACT,
+  ) as typeof queryCoordinatorState;
+  for (const [metadata, repositoryRevision, reason] of [
+    [base, request.repositoryRevision, "orchestrator_state_observed"],
+    [
+      null,
+      request.repositoryRevision,
+      "orchestrator_state_observation_unknown",
+    ],
+    [
+      { ...base, generation: base.generation + 1 },
+      request.repositoryRevision,
+      "orchestrator_state_observation_unknown",
+    ],
+    [base, "b".repeat(40), "orchestrator_state_revision_mismatch"],
+    [null, "b".repeat(40), "orchestrator_state_observation_unknown"],
+  ] as const) {
+    projections = 0;
+    const result = query(
+      reader({
+        status: "completed",
+        reason: "observed",
+        value: state,
+        taskStartCandidates: metadata,
+      }),
+      { ...request, repositoryRevision },
+    );
+    assert.equal(result.reason, reason);
+    assert.equal(projections, 1);
+  }
+  assert.equal(JSON.stringify(state), before);
+});
 
 /**
  * 保存失敗の結果は別Taskの既知義務と今回の回復参照を併合する。

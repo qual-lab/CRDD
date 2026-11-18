@@ -8,10 +8,8 @@
 import type {
   LeaseKind,
   ProjectExecutionInitialization,
-  ProjectExecutionState,
   ProjectQueueEntry,
   ProjectQueueState,
-  ProjectTaskResultFact,
   QueueEnqueueInput,
   readProjectExecutionState,
   saveProjectExecutionState,
@@ -57,19 +55,11 @@ export type CoordinatorStatePort = Readonly<{
       head: string | null;
     }>
   >;
-  writeState: (
-    state: ProjectExecutionState,
-    expectedGeneration: number,
-    resultFacts?: readonly ProjectTaskResultFact[],
-  ) => ReturnType<typeof saveProjectExecutionState>;
   readState: (
     projectId: string,
   ) => ReturnType<typeof readProjectExecutionState>;
   updateTask: (
-    request: Exclude<
-      Parameters<typeof saveProjectExecutionState>[2],
-      ProjectExecutionState
-    >,
+    request: Parameters<typeof saveProjectExecutionState>[2],
     expectedGeneration: number,
   ) => ReturnType<typeof saveProjectExecutionState>;
   enqueueOperation: (

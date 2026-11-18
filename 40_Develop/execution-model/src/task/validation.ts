@@ -1691,12 +1691,64 @@ export function prepareTaskOwnerLoss(
   });
 }
 
-/** 元世代の有限更新と、直後状態の同要求再確認を同じ規則で扱う。 @trace ARCH-000004、ARCH-000008 */
+/** 用途別の有限更新を元世代へ適用し、対応する要求だけ直後再送を同じ規則で確認する。 @trace ARCH-000004、ARCH-000008 */
 export function prepareTaskExecutionUpdate(
   state: ProjectExecutionState,
   expectedGeneration: number,
   request: TaskExecutionUpdate,
 ) {
+  if (request.kind === "task_recovery_finalize") {
+    if (state.generation !== expectedGeneration)
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "orchestrator_state_generation_conflict",
+        state,
+        taskIds: Object.freeze([]),
+      });
+    const pairs = new Set<string>();
+    if (
+      state.projectId !== request.projectId ||
+      request.recoveries.length === 0 ||
+      request.recoveries.some(({ taskId, recoveryId }) => {
+        const pair = `${taskId}\0${recoveryId}`;
+        const task = state.tasks.find((item) => item.definition.id === taskId);
+        if (
+          !validId(taskId) ||
+          !validResultReference(recoveryId) ||
+          pairs.has(pair) ||
+          !task?.attemptId ||
+          !task.operationId ||
+          task.startPhase !== "settled" ||
+          !task.cleanupConfirmed ||
+          task.recoveryUnresolved ||
+          !task.recoveryObligations.some(
+            (item) =>
+              item.kind === "docker" &&
+              item.recoveryId === recoveryId &&
+              item.phase === "settled",
+          )
+        )
+          return true;
+        pairs.add(pair);
+        return false;
+      })
+    )
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "orchestrator_task_recovery_not_settled",
+        state,
+        taskIds: Object.freeze([]),
+      });
+    // Operation・履歴・未解決参照の最終判定と退役は既存の統合Writerが所有する。
+    return Object.freeze({
+      status: "completed" as const,
+      reason: "orchestrator_state_durable",
+      state: Object.freeze({ ...state, generation: state.generation + 1 }),
+      taskIds: Object.freeze([
+        ...new Set(request.recoveries.map((item) => item.taskId)),
+      ]),
+    });
+  }
   if (request.kind === "task_owner_loss")
     return prepareTaskOwnerLoss(state, expectedGeneration, request.bindings);
   if (request.kind === "task_recovery_retry") {
@@ -2093,6 +2145,14 @@ export function captureTaskExecutionUpdate(
     input,
     new Set(["kind", "projectId", "taskIds"]),
   );
+  const finalization = snapshotStateRecord(
+    input,
+    new Set(["kind", "projectId", "recoveries"]),
+  );
+  const finalizationItems = snapshotStateArray(
+    finalization?.recoveries,
+    Number.MAX_SAFE_INTEGER,
+  );
   const ownerLoss = snapshotStateRecord(
     input,
     new Set(["kind", "projectId", "bindings"]),
@@ -2109,11 +2169,26 @@ export function captureTaskExecutionUpdate(
     runningSettlement ??
     recovery ??
     recoveryRetry ??
+    finalization ??
     ownerLoss;
   if (
     !command ||
     !validId(command.projectId) ||
     !(
+      (finalization?.kind === "task_recovery_finalize" &&
+        finalizationItems.status === "ok" &&
+        finalizationItems.value.length > 0 &&
+        finalizationItems.value.every((item) => {
+          const value = snapshotStateRecord(
+            item,
+            new Set(["taskId", "recoveryId"]),
+          );
+          return (
+            value !== null &&
+            validId(value.taskId) &&
+            validResultReference(value.recoveryId)
+          );
+        })) ||
       (ownerLoss?.kind === "task_owner_loss" &&
         ownerBindings.status === "ok" &&
         ownerBindings.value.every(

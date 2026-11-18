@@ -12,6 +12,7 @@ import {
   inspectTaskExecutionSelections,
 } from "../../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
@@ -236,19 +237,64 @@ test("固定選定のHashは移管前のbyteと一致する", () => {
     source: "explicit",
   };
   assert.equal(
-    hashExecutionSelection(selection),
+    hashExecutionSelection(inspectExecutionSelection(selection)),
     "5fa860b97b4251d54285de02ae6b0a4c25ecdf967e1d4958cc3dd91c8b06a70e",
   );
   assert.equal(
     hashExecutionSelection(
-      Object.fromEntries(Object.entries(selection).reverse()),
+      inspectExecutionSelection(
+        Object.fromEntries(Object.entries(selection).reverse()),
+      ),
     ),
-    hashExecutionSelection(selection),
+    hashExecutionSelection(inspectExecutionSelection(selection)),
   );
-  assert.equal(hashExecutionSelection({ ...selection, authority: true }), null);
+  assert.equal(
+    hashExecutionSelection(
+      inspectExecutionSelection({ ...selection, authority: true }),
+    ),
+    null,
+  );
 });
 
 import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
+
+/**
+ * 捕捉済み選定のHash生成は受付検査を再実行しない。
+ * @responsibility 固定byteと内容差を維持し二重捕捉を防ぐ。
+ * @trace RCM-UT-001
+ * @precondition 実Hash宣言とEM受付で独立捕捉した値を使用する。
+ * @stimulus 正常値・nullと入力元の後続変更を与える。
+ * @observation 固定Hash、検査関数の未呼出し、元値からの独立。
+ * @oracle 検査を呼べば失敗する接続でも同じHashを返す。
+ * @cleanup メモリ値のみ。
+ * @boundary 未信頼入力受付と検査済み値のHash計算。
+ */
+test("捕捉済み選定のHashは受付を繰り返さず固定byteを保つ", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/selection/resolve.ts", import.meta.url),
+    "utf8",
+  );
+  const hash = compileFunction(
+    `return (${stripTypeScriptTypes(sourceDeclaration(source, "hashExecutionSelection"))});`,
+    ["createHash", "inspectExecutionSelection"],
+  )(createHash, () =>
+    assert.fail("duplicate_selection_inspection"),
+  ) as typeof hashExecutionSelection;
+  const resolved = resolveExecutionSelection(config(), {
+    role: "executor",
+    workType: "coding",
+  });
+  assert.ok(resolved.value);
+  const raw = { ...resolved.value };
+  const captured = inspectExecutionSelection(raw);
+  assert.ok(captured);
+  const expected = createHash("sha256")
+    .update(JSON.stringify(captured), "utf8")
+    .digest("hex");
+  raw.modelIdentifier = "changed-after-intake";
+  assert.equal(hash(captured), expected);
+  assert.equal(hash(null), null);
+});
 
 /**
  * 保存された選定組の役割と設定相関を検査する。
@@ -347,7 +393,9 @@ test("選定Hashは十項目を固定しキー順によらず内容差を区別�
   assert.match(identity ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(
     hashExecutionSelection(
-      Object.fromEntries(Object.entries(source).reverse()),
+      inspectExecutionSelection(
+        Object.fromEntries(Object.entries(source).reverse()),
+      ),
     ),
     identity,
   );
@@ -363,11 +411,18 @@ test("選定Hashは十項目を固定しキー順によらず内容差を区別�
     { workType: null },
     { source: "role_default" },
   ]) {
-    const changed = hashExecutionSelection({ ...source, ...difference });
+    const changed = hashExecutionSelection(
+      inspectExecutionSelection({ ...source, ...difference }),
+    );
     assert.ok(changed);
     assert.notEqual(changed, identity);
   }
-  assert.equal(hashExecutionSelection({ ...source, authority: true }), null);
+  assert.equal(
+    hashExecutionSelection(
+      inspectExecutionSelection({ ...source, authority: true }),
+    ),
+    null,
+  );
 });
 
 /**

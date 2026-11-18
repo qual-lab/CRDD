@@ -161,6 +161,7 @@ const SOURCE_ROLES = {
     "execution/recovery.ts",
     "execution/observation.ts",
     "execution/diagnostics.ts",
+    "execution/measurement.ts",
     "execution/preparation.ts",
     "execution/provider-executor.ts",
     "execution/advice.ts",
@@ -452,7 +453,6 @@ function assertPureImportEdges(
             "TaskStartCandidates",
             "PROJECT_STATE_CONTRACT",
             "CoordinatorProjection",
-            "ProjectExecutionState",
             "OBJECTIVE_STATES",
             "TASK_STATES",
             "inspectTaskExecutionSelections",
@@ -475,7 +475,6 @@ function assertPureImportEdges(
             "ProjectExecutionInitialization",
             "ProjectQueueEntry",
             "ProjectQueueState",
-            "ProjectTaskResultFact",
           ],
           "state/validation.ts": [
             "PROJECT_STATE_CONTRACT",
@@ -814,6 +813,12 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
       );
       for (const file of allModules) {
         const absolute = normalize(path.resolve(repositoryRoot, file));
+        const body = fs.readFileSync(absolute, "utf8");
+        assert.doesNotMatch(
+          body,
+          /\b(?:startRuntimeOwnedDevelopmentObjectiveTask|cancelRuntimeOwnedDevelopmentObjectiveTask|developmentObjectiveCancellations|uniqueStrings|isSupportedAuthorityRootAbsolutePath|verifyOwnedOperationContextCapability|describeCoordinatorObjectiveIntakeContract|poisonRuntimeProcessAfterInteractiveCleanupUnknown|isRuntimeProcessEffectDraining|beginRuntimeProcessEffectDrain|endRuntimeProcessEffectDrain|isRuntimeProcessEffectBlocked|planProviderLifecycle|syntheticFakeObservationInternal|evaluateSyntheticFakeProviderObservationCandidate|localAuthorityCanonicalJson|bindTaskCliCancellationSignalsForTesting)\b/u,
+          file,
+        );
         const source = project.program.getSourceFile(absolute);
         assert.ok(source);
         const scan = importSpecifierScan(source);

@@ -2351,7 +2351,9 @@
       "humanInput": false,
       "postconditions": [
         "result_observed",
-        "owned_resources_settled_or_reported"
+        "owned_resources_settled_or_reported",
+        "workspace_result_captured_once",
+        "invalid_workspace_result_rejected"
       ],
       "mandatoryByDefault": true
     },
@@ -2405,7 +2407,9 @@
       "semanticTags": [
         "ai",
         "verification",
-        "diagnostics"
+          "diagnostics",
+          "source-scope-v4",
+          "entry-module-resolution"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -3704,7 +3708,9 @@
       "postconditions": [
         "canonical_encoding_observed",
         "hostile_values_rejected",
-        "identity_resource_correlation_preserved"
+        "identity_resource_correlation_preserved",
+        "finite_recovery_candidate_retires_operations",
+        "unconfirmed_history_retains_operations"
       ],
       "mandatoryByDefault": true
     },
@@ -4022,7 +4028,9 @@
         "unknown_configuration_rejected",
         "stored_selection_restored_without_current_catalog",
         "invalid_stored_selection_rejected",
-        "provider_effect_zero"
+        "provider_effect_zero",
+        "captured_selection_hash_without_revalidation",
+        "selection_hash_bytes_unchanged"
       ],
       "mandatoryByDefault": true
     },
@@ -5171,9 +5179,8 @@
       "kind": "integration",
       "semanticTags": [
         "development",
-        "native",
-        "observation",
-        "bounded-source-snapshot",
+        "node-source-observation",
+        "source-snapshot-v4",
         "read-only-cli",
         "git-provenance"
       ],
@@ -5491,7 +5498,10 @@
         "project",
         "runtime",
         "durable",
-        "foundation"
+        "foundation",
+        "finite-task-update",
+        "bound-port-reentry",
+        "no-raw-state-port"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -5590,7 +5600,9 @@
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
-        "owned_resources_settled_or_reported"
+        "owned_resources_settled_or_reported",
+        "unused_internal_entrypoints_absent",
+        "runtime_import_graph_acyclic"
       ],
       "mandatoryByDefault": true
     },
@@ -5789,8 +5801,9 @@
       "semanticTags": [
         "runtime",
         "process",
-        "safety",
-        "state"
+        "cleanup-unknown",
+        "irreversible-poison",
+        "pre-effect-rejection"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -6161,7 +6174,9 @@
         "verification",
         "script",
         "exact_operation",
-        "unresolved_result_preservation"
+          "unresolved_result_preservation",
+          "source-scope-v4",
+          "entry-module-resolution"
       ],
       "environment": "fixed_system_runtime",
       "externalProviderEffect": false,
@@ -7214,7 +7229,9 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed"
+        "result_observed",
+        "task_candidates_projected_once",
+        "invalid_candidates_rejected_before_revision_mismatch"
       ],
       "mandatoryByDefault": true
     },
@@ -7480,7 +7497,8 @@
       "kind": "contract",
       "semanticTags": [
         "provider",
-        "lifecycle"
+        "doctor-description",
+        "non-authoritative-probe"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -8481,6 +8499,8 @@
       "humanInput": false,
       "postconditions": [
         "external_send_confirmation_required",
+        "packet_selection_rejected_at_both_advice_boundaries",
+        "invalid_packet_selection_provider_effect_zero",
         "provider_execution_at_most_once",
         "pre_effect_cancellation_effect_zero",
         "post_effect_cancellation_not_completed",
@@ -10267,7 +10287,9 @@
       "postconditions": [
         "frozen_selection_pair_preserved",
         "accepted_plan_reused_only_by_exact_reference",
-        "no_reselection_or_authority_issued"
+        "no_reselection_or_authority_issued",
+        "finite_recovery_finalization_command_only",
+        "finalization_failure_preserves_exact_recovery_ids"
       ],
       "mandatoryByDefault": true
     },
@@ -10511,7 +10533,13 @@
         "retirement",
         "task-update-reentry",
         "task-recovery-phase",
-        "task-owner-loss"
+        "task-owner-loss",
+        "corrupt-state-reader",
+        "impossible-task-identity",
+        "snapshot-envelope-preservation",
+        "adoption-reference-retirement",
+        "closed-queue-history",
+        "finite-save-only"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -10528,7 +10556,10 @@
         "decision_not_reapplied",
         "retirement_requires_exact_history",
         "task_recovery_replay_preserves_bytes",
-        "owner_loss_absence_and_stale_request_preserved"
+        "owner_loss_absence_and_stale_request_preserved",
+        "invalid_snapshot_bytes_preserved",
+        "legacy_state_and_external_facts_rejected",
+        "referenced_adoption_evidence_retained"
       ],
       "mandatoryByDefault": true
     },
@@ -10644,7 +10675,9 @@
       "postconditions": [
         "result_observed",
         "unknown_not_absent",
-        "task_reference_grammar_preserved"
+        "task_reference_grammar_preserved",
+        "recovery_finalization_input_closed",
+        "stale_finalization_generation_rejected"
       ],
       "mandatoryByDefault": true
     },

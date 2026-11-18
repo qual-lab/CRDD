@@ -1,7 +1,7 @@
 /**
- * runtime-process-safety-stateに属する責務をまとめる。
+ * 回収不明を観測したProcessの新規Effect停止と再起動識別を所有する。
  *
- * @responsibility getRuntimeProcessInstanceIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 不可逆の停止状態とProcessごとの回復Identityを保持し、解除経路や一時drainを作らない。
  * @trace ARCH-000008
  */
 
@@ -136,31 +136,12 @@ export function inspectRuntimeProcessRecoveryIdentity(
  */
 export function createIsolatedRuntimeProcessSafetyStateCandidate() {
   let isPoisoned = false;
-  const drains = new WeakSet<object>();
-  let drainCount = 0;
   const poisonCleanupUnknown = () => {
     isPoisoned = true;
   };
-  const beginDrain = () => {
-    const token = Object.freeze({});
-    drains.add(token);
-    drainCount += 1;
-    return token;
-  };
-  const endDrain = (token: unknown) => {
-    if (!token || typeof token !== "object" || !drains.delete(token))
-      return false;
-    drainCount -= 1;
-    return true;
-  };
   return Object.freeze({
     poisonCleanupUnknown,
-    poisonInteractiveCleanup: poisonCleanupUnknown,
-    beginDrain,
-    endDrain,
     isPoisoned: () => isPoisoned,
-    isEffectBlocked: () => isPoisoned || drainCount > 0,
-    isDraining: () => drainCount > 0,
   });
 }
 
@@ -187,26 +168,6 @@ export function poisonRuntimeProcessAfterCleanupUnknown() {
 }
 
 /**
- * poison Runtime Process After Interactive 清掃 Unknownを決定する。
- *
- * @responsibility poison Runtime Process After Interactive 清掃 Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns N/A: poisonRuntimeProcessAfterInteractiveCleanupUnknownは戻り値を返さない。
- * @precondition 「N/A: 実行時引数を受け取らない。」がpoisonRuntimeProcessAfterInteractiveCleanupUnknownの入力契約を満たす。
- * @postcondition poisonRuntimeProcessAfterInteractiveCleanupUnknownの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: poisonRuntimeProcessAfterInteractiveCleanupUnknownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: poisonRuntimeProcessAfterInteractiveCleanupUnknownは独自の失敗分岐を所有しない。
- * @invariant poisonRuntimeProcessAfterInteractiveCleanupUnknownは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: poisonRuntimeProcessAfterInteractiveCleanupUnknownはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: poisonRuntimeProcessAfterInteractiveCleanupUnknownは共有非同期状態を持たない同期処理である。
- */
-export function poisonRuntimeProcessAfterInteractiveCleanupUnknown() {
-  poisonRuntimeProcessAfterCleanupUnknown();
-}
-
-/**
  * Runtime Process Poisonedかを判定する。
  *
  * @responsibility Runtime Process Poisonedの判定条件とtrue／false境界を所有する。
@@ -224,86 +185,6 @@ export function poisonRuntimeProcessAfterInteractiveCleanupUnknown() {
  */
 export function isRuntimeProcessPoisoned() {
   return productionState.isPoisoned();
-}
-
-/**
- * Runtime Process Effect Drainを開始する。
- *
- * @responsibility Runtime Process Effect Drainの開始条件、初期状態、開始失敗境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns beginRuntimeProcessEffectDrainの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がbeginRuntimeProcessEffectDrainの入力契約を満たす。
- * @postcondition beginRuntimeProcessEffectDrainの責務を完了した結果だけを返す。
- * @effect N/A: beginRuntimeProcessEffectDrainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: beginRuntimeProcessEffectDrainは独自の失敗分岐を所有しない。
- * @invariant beginRuntimeProcessEffectDrainは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: beginRuntimeProcessEffectDrainはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: beginRuntimeProcessEffectDrainは共有非同期状態を持たない同期処理である。
- */
-export function beginRuntimeProcessEffectDrain() {
-  return productionState.beginDrain();
-}
-
-/**
- * end Runtime Process Effect Drainを決定する。
- *
- * @responsibility end Runtime Process Effect Drainの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input token: unknown
- * @returns endRuntimeProcessEffectDrainの計算結果を返す。
- * @precondition 「token: unknown」がendRuntimeProcessEffectDrainの入力契約を満たす。
- * @postcondition endRuntimeProcessEffectDrainの責務を完了した結果だけを返す。
- * @effect N/A: endRuntimeProcessEffectDrainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: endRuntimeProcessEffectDrainは独自の失敗分岐を所有しない。
- * @invariant endRuntimeProcessEffectDrainは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security endRuntimeProcessEffectDrainはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: endRuntimeProcessEffectDrainは共有非同期状態を持たない同期処理である。
- */
-export function endRuntimeProcessEffectDrain(token: unknown) {
-  return productionState.endDrain(token);
-}
-
-/**
- * Runtime Process Effect Blockedかを判定する。
- *
- * @responsibility Runtime Process Effect Blockedの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns isRuntimeProcessEffectBlockedの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がisRuntimeProcessEffectBlockedの入力契約を満たす。
- * @postcondition isRuntimeProcessEffectBlockedの責務を完了した結果だけを返す。
- * @effect N/A: isRuntimeProcessEffectBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isRuntimeProcessEffectBlockedは独自の失敗分岐を所有しない。
- * @invariant isRuntimeProcessEffectBlockedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: isRuntimeProcessEffectBlockedはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isRuntimeProcessEffectBlockedは共有非同期状態を持たない同期処理である。
- */
-export function isRuntimeProcessEffectBlocked() {
-  return productionState.isEffectBlocked();
-}
-
-/**
- * Runtime Process Effect Drainingかを判定する。
- *
- * @responsibility Runtime Process Effect Drainingの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns isRuntimeProcessEffectDrainingの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がisRuntimeProcessEffectDrainingの入力契約を満たす。
- * @postcondition isRuntimeProcessEffectDrainingの責務を完了した結果だけを返す。
- * @effect N/A: isRuntimeProcessEffectDrainingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isRuntimeProcessEffectDrainingは独自の失敗分岐を所有しない。
- * @invariant isRuntimeProcessEffectDrainingは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: isRuntimeProcessEffectDrainingはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isRuntimeProcessEffectDrainingは共有非同期状態を持たない同期処理である。
- */
-export function isRuntimeProcessEffectDraining() {
-  return productionState.isDraining();
 }
 
 /**
@@ -335,8 +216,6 @@ export function describeRuntimeProcessSafetyStateContract() {
       "signed_route_matrix_started_or_outer_execution_unknown",
     ]),
     guardedEntrypoints: Object.freeze(["coordinator_task_before_all_effects"]),
-    transientDrainTransition:
-      "synchronous_on_host_supervisor_failure_detection_until_all_cleanup_outcomes_are_confirmed_or_unknown_is_promoted_to_irreversible_poison",
     sameProcessResetAllowed: false,
     alreadyActiveOperationRetroactiveCancellationGuaranteed: false,
     recoveryBoundary: "fresh_process_only",

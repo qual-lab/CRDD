@@ -22,6 +22,7 @@ import {
 } from "../../src/input/snapshot.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 import { createRecoveryFixture } from "../support/recovery.ts";
+import { inspectTaskStartCandidates } from "../../src/state/projection.ts";
 
 const source = fs.readFileSync(
   new URL("../../src/execution/recovery.ts", import.meta.url),
@@ -2719,12 +2720,21 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
     "queue",
     "state_blocked",
     "queue_blocked",
+    "candidates_absent",
+    "candidates_generation",
     "null",
     "throw",
   ]) {
     const state = {
+      projectId: "project",
       generation: 5,
-      tasks: [{ recoveryId: "exact", phase: "recovering" }],
+      tasks: [
+        {
+          definition: { id: "task-a" },
+          recoveryId: "exact",
+          phase: "recovering",
+        },
+      ],
     };
     const queue = {
       queueId: "queue",
@@ -2735,6 +2745,7 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
     const current = runInNewContext(`${body}; readCurrentRecoveryState`, {
       JSON,
       isDeepStrictEqual,
+      inspectTaskStartCandidates,
       cancellationSignal: { aborted: scenario === "cancel" },
       recoveryProcess: "owner",
       recoveryQueue: queue,
@@ -2753,6 +2764,17 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
             if (scenario === "throw") throw new Error("fixture");
             return {
               status: scenario === "state_blocked" ? "blocked" : "completed",
+              taskStartCandidates:
+                scenario === "candidates_absent"
+                  ? null
+                  : {
+                      projectId: state.projectId,
+                      generation:
+                        scenario === "candidates_generation"
+                          ? state.generation + 1
+                          : state.generation,
+                      taskIds: [],
+                    },
               value:
                 scenario === "null"
                   ? null

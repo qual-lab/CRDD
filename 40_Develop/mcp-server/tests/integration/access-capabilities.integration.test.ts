@@ -52,10 +52,13 @@ import {
 } from "../../../document-model/src/index.ts";
 import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
+  createQueue,
   initializeExecutionStore,
-  saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { projectExecutionFixture } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import {
+  initialExecutionInput,
+  projectExecutionFixture,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
@@ -937,8 +940,25 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     });
     assert.ok(saved.state);
     assert.equal(
-      saveProjectExecutionState(repository.capability, binding, saved.state, 0)
-        .status,
+      createQueue(repository.capability, binding, {
+        kind: "scheduled",
+        input: [
+          {
+            queueId: "queue.fixture",
+            projectId: "project.fixture",
+            milestoneId: "milestone.fixture",
+            requestHash: createHash("sha256")
+              .update("activity-request")
+              .digest("hex"),
+            originLane: "interactive",
+            repositoryRevision: sourceA.revision,
+            scopeHash: createHash("sha256")
+              .update("activity-scope")
+              .digest("hex"),
+          },
+          initialExecutionInput(saved.state),
+        ],
+      }).status,
       "completed",
     );
     const history = {

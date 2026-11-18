@@ -2216,22 +2216,6 @@ type OperationContextIdentity = Readonly<{
   createdAt: string;
 }>;
 
-/**
- * execution-environmentで使用する所有 Operation Contextの値契約を定義する。
- *
- * @responsibility 所有 Operation ContextのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape OwnedOperationContextが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OwnedOperationContextで宣言した値と責務の対応を維持する。
- * @boundary N/A: OwnedOperationContextの宣言は外部境界を開かない。
- * @security OwnedOperationContextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OwnedOperationContextの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type OwnedOperationContext = Readonly<{
-  operationId: string;
-  createdAt: string;
-}>;
-
 const operationContextCapabilities = new WeakMap<
   object,
   OperationContextIdentity
@@ -5395,46 +5379,6 @@ export function createOwnedOperationContextCapability(
   aliases.add(capability);
   operationContextAliases.set(owned, aliases);
   return capability;
-}
-
-/**
- * 所有 Operation Context Capabilityを検証する。
- *
- * @responsibility 所有 Operation Context Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
- * @trace ARCH-000008
- * @input capability: unknown
- * @returns OwnedOperationContextを返す。
- * @precondition 「capability: unknown」がverifyOwnedOperationContextCapabilityの入力契約を満たす。
- * @postcondition verifyOwnedOperationContextCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: verifyOwnedOperationContextCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure verifyOwnedOperationContextCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifyOwnedOperationContextCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyOwnedOperationContextCapabilityはProcess内の同一Subsystemで完結する。
- * @security verifyOwnedOperationContextCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyOwnedOperationContextCapabilityは共有非同期状態を持たない同期処理である。
- */
-export function verifyOwnedOperationContextCapability(
-  capability: unknown,
-): OwnedOperationContext {
-  const capabilityObject = isObject(capability) ? capability : null;
-  const context = capabilityObject
-    ? (operationContextCapabilities.get(capabilityObject) ?? null)
-    : null;
-  if (!context) throw new Error("owned_operation_context_capability_required");
-  const identity = ownedIdentities.get(context.owned);
-  if (
-    !identity?.children ||
-    identity.operationId !== context.operationId ||
-    identity.createdAt !== context.createdAt
-  ) {
-    if (capabilityObject) operationContextCapabilities.delete(capabilityObject);
-    throw new Error("owned_operation_context_capability_revoked");
-  }
-  validateOwnedOperationIdentity(context.owned, identity);
-  return Object.freeze({
-    operationId: context.operationId,
-    createdAt: context.createdAt,
-  });
 }
 
 /**

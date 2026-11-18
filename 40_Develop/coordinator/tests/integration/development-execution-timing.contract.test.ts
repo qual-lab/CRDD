@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   createDevelopmentExecutionTiming,
   writeDevelopmentMeasurementProgress,
-} from "../../src/execution/diagnostics.ts";
+} from "../../src/execution/measurement.ts";
 
 /**
  * 契約外の非同期writerを表示成功へ昇格しないことを確認する。
@@ -200,18 +200,18 @@ for (const mode of ["throw", "partial"] as const) {
 }
 
 /**
- * 未知状態・大量通知・任意文字列を公開しないを検証する。
+ * 既知通知は全件保持し未知状態・任意文字列を公開しないを検証する。
  *
- * @responsibility 未知状態・大量通知・任意文字列を公開しないの合否判定を所有する。
+ * @responsibility 既知通知は全件保持し未知状態・任意文字列を公開しないの合否判定を所有する。
  * @trace PPR-IT-010
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 未知状態・大量通知・任意文字列を公開しないの対象操作を実行する。
+ * @stimulus 既知通知は全件保持し未知状態・任意文字列を公開しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-IT-010=Direct Boundary: coordinator Test Source→対象契約
  */
-test("未知状態・大量通知・任意文字列を公開しない", () => {
+test("既知通知は全件保持し未知状態・任意文字列を公開しない", () => {
   const lines: string[] = [];
   const timing = createDevelopmentExecutionTiming(
     () => 1,
@@ -228,8 +228,8 @@ test("未知状態・大量通知・任意文字列を公開しない", () => {
   }
   timing.finish();
   assert.equal(timing.snapshot().measurementComplete, false);
-  assert.ok(timing.snapshot().intervals.length <= 32);
-  assert.ok(lines.length <= 32);
+  assert.equal(timing.snapshot().intervals.length, 100);
+  assert.equal(lines.length, 100);
   assert.ok(lines.every((line) => Buffer.byteLength(line) <= 256));
   assert.equal(lines.join("").includes("secret"), false);
   assert.equal(writeDevelopmentMeasurementProgress("secret_path_token"), false);
@@ -249,7 +249,7 @@ test("未知状態・大量通知・任意文字列を公開しない", () => {
  */
 test("実子ProcessのUTF-8表示を同期結果へ投影する", () => {
   const moduleUrl = new URL(
-    "../../src/execution/diagnostics.ts",
+    "../../src/execution/measurement.ts",
     import.meta.url,
   ).href;
   const text = "[進行状況] 受付・実行条件の確認\n";

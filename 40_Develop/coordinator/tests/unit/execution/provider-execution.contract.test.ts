@@ -21,11 +21,7 @@ import fs from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
-import {
-  beginRuntimeProcessEffectDrain,
-  endRuntimeProcessEffectDrain,
-  poisonRuntimeProcessAfterCleanupUnknown,
-} from "../../../src/execution/process-safety-state.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "../../../src/execution/process-safety-state.ts";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
@@ -845,38 +841,6 @@ test("Mount後の再Selectionが初回Selectionと異なる場合はProvider Eff
     current.calls.filter((call) => call === "cleanup-operation").length,
     1,
   );
-});
-
-/**
- * 片付け中はOperationとProvider Effectを発行しないを検証する。
- *
- * @responsibility 片付け中はOperationとProvider Effectを発行しないを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 片付け中はOperationとProvider Effectを発行しないの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("片付け中はOperationとProvider Effectを発行しない", async () => {
-  const current = fixture();
-  const token = beginRuntimeProcessEffectDrain();
-  try {
-    const result = await createIsolatedProviderAdviceRuntimeCandidate(
-      current.dependencies,
-    ).run(plan, new AbortController().signal);
-    assert.equal(result.status, "blocked");
-    assert.equal(
-      result.reason,
-      "workbench_ai_advice_runtime_cleanup_in_progress",
-    );
-    assert.equal(result.providerEffectIssued, false);
-    assert.equal(result.cleanupConfirmed, true);
-    assert.deepEqual(current.calls, []);
-  } finally {
-    assert.equal(endRuntimeProcessEffectDrain(token), true);
-  }
 });
 
 /**
