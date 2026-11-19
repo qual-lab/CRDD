@@ -59,18 +59,15 @@ import {
   saveResourceNotIssuedStage,
 } from "../execution/persistence.ts";
 import { snapshotJsonValue, snapshotPlainRecord } from "../input/snapshot.ts";
-import { hashExecutionSelection } from "../selection/resolve.ts";
 import {
   loadDockerProbeRecoveryRecord,
   parseDockerProbeRecoveryToken,
 } from "../state/probe-record.ts";
 import {
-  consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
   providerHomesDirectoryCandidate,
   readExecutionCancellation,
   runtimeStateDirectoryCandidate,
-  verifyRuntimeOwnedProviderHomeMountCompletion,
 } from "./authority.ts";
 import { getIsolationSettings } from "./configuration.ts";
 import { recoverDockerIsolationProbe } from "./diagnostics.ts";
@@ -85,13 +82,11 @@ import {
   beginOwnedDockerSubmissionRecovery,
   borrowHostRecoveryManagementDirectory,
   borrowOwnedHostRecoverySnapshot,
-  borrowOwnedOperationExecutionSelection,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
   completeOwnedDockerSubmissionRecovery,
   confirmOwnedDockerAbsenceForRecovery,
   consumeOwnedHostRecoveryIdForCleanup,
-  inspectRuntimeOwnedDevelopmentOperationContext,
   issueOwnedHostCleanupCapability,
   loadHostRecoveryRecordByToken,
   observeHostRecoveryCleanup,
@@ -145,7 +140,7 @@ export function beginRuntimeOwnedCoordinatorHostSubmission(
  * @trace ARCH-000008
  * @input managementCapability、recoveryId: 対象。isCompletingSubmission: 内部で固定した遷移方向。
  * @returns 保存と実遷移の確認を分けた結果。
- * @precondition 通常復帰の呼出し側は実清掃とMount結果を照合済み。
+ * @precondition 通常復帰の呼出し側は元Ownerと実清掃を照合済み。
  * @postcondition 後継tokenを観測できた場合だけ予定を解消する。
  * @effect 同じ操作のHost記録とstate.jsonのみ。
  * @failure 不一致・保存不明・応答喪失は予定とexact参照を保持する。
@@ -304,17 +299,17 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
 }
 
 /**
- * 実資源回収とMount完了を照合してHostを通常状態へ戻す。
+ * 実資源回収と元実行Ownerを照合してHostを通常状態へ戻す。
  * @responsibility 最終Controller結果に依存せず実終了根拠をHost復帰へ接続する。
  * @trace ARCH-000008
- * @input managementCapability、recoveryId、plan、recoveryCapability: 元対象。cleanupOutcome、mountCompletion: 各Ownerの元結果。
+ * @input managementCapability、recoveryId、plan、recoveryCapability: 元対象と同じ実行Owner。
  * @returns 現在状態保存とHost実遷移の確認結果。
- * @precondition 元Docker清掃とMount終了が同じ本番Ownerから返却されている。
+ * @precondition 元Docker清掃が同じ本番Ownerから返却されている。
  * @postcondition exact五資源の回収を保存し、Host後継観測後だけ復帰予定を解消する。
  * @effect 同じRepositoryのstate.jsonと所有Host記録だけ。
  * @failure コピー・別対象・欠測・ID不明・保存不明はHost復帰前に拒否する。
  * @invariant Home Lease解放・Host領域清掃・結果受理は別条件として維持する。
- * @boundary 本番清掃・Mount・Hostの各Ownerと同じ操作の保存。
+ * @boundary 本番清掃・Home・Hostの各Ownerと同じ操作の保存。
  * @security 任意の成功booleanや保存値を実終了根拠にしない。
  * @concurrency 各保存を既存排他で確定し、Host再入場では元結果を再照合する。
  */
@@ -323,7 +318,7 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
   recoveryId: unknown,
   plan: import("./types.ts").RecoveryPlan &
     Readonly<{ consumer: "coordinator_cli" | "orchestrator" | "workbench" }>,
-  mountCompletion: unknown,
+  recoveryCapability: unknown,
 ) {
   const current = readOperationStateStage(managementCapability);
   const blocked = Object.freeze({
@@ -337,6 +332,15 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
     hostTransitionConfirmed: false,
   });
   try {
+    const record = durableRecord(recoveryCapability);
+    if (
+      !record ||
+      record.managementCapability !== managementCapability ||
+      record.recoveryId !== recoveryId ||
+      record.operationId !== plan.operationId ||
+      !record.cleanupCheckpoint
+    )
+      return blocked;
     const operation = current.value?.snapshot.operations.find(
       (item): item is ExecutionOperationRecord =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
@@ -375,15 +379,13 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
       plan.operationId !== repository.operationId ||
       identity.operationId !== plan.operationId ||
       identity.taskAttempt !== plan.taskAttempt ||
-      hashExecutionSelection(identity.executionSelection) !==
-        plan.selectionHash ||
-      Object.entries(plan.executionSelection).some(
-        ([key, value]) => identity.executionSelection[key] !== value,
+      !isDeepStrictEqual(
+        identity.executionSelection,
+        plan.executionSelection,
       ) ||
       [
         "provider",
         "consumer",
-        "grantRef",
         "stableLogicalHomeBindingHash",
         "providerHomeIdentityHash",
         "ownershipLabel",
@@ -415,13 +417,6 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
           state.kind === "docker_task" &&
           state.operation === operation &&
           state.resourcesSettled,
-      ) ||
-      !verifyRuntimeOwnedProviderHomeMountCompletion(
-        mountCompletion,
-        managementCapability,
-        plan.activeMountCapability,
-        plan.operationId,
-        plan.stableLogicalHomeBindingHash,
       )
     )
       return blocked;
@@ -1094,149 +1089,6 @@ export function evaluateManagedDockerCleanupEligibility(input: unknown) {
 }
 
 /**
- * 保守候補の判定に必要な閉じた根拠集合を定義する。
- *
- * @responsibility 承認、対象、非使用、排他、耐久意図を別の条件として保持する。
- * @trace ARCH-000008
- * @shape Hashで固定した単一対象と、条件ごとの確認結果。
- * @invariant 未記載、未知値および観測不能は確認済みを意味しない。
- * @boundary 信頼された観測実装から内部判定への入力境界。
- * @security 入力自体はAuthorityではなく、判定結果から削除権限を発行しない。
- * @compatibility v1は空のhost_only領域だけに限定し、未知の資源クラスを拒否する。
- */
-export type HostOrphanRecoveryEvidence = Readonly<{
-  resourceClass: "empty_host_only_v1";
-  snapshotSha256: string;
-  approval: "fresh_exact" | "missing" | "denied" | "unknown";
-  ownerScope: "confirmed" | "mismatch" | "unknown";
-  identity: "exact" | "mismatch" | "unknown";
-  recordState: "host_only" | "other" | "unknown";
-  children: "six_empty_exact" | "different" | "unknown";
-  dockerBinding: "absent" | "present" | "unknown";
-  nonUse: "confirmed" | "in_use" | "unknown";
-  initializationFence: "confirmed" | "missing" | "unknown";
-  legacyFence: "confirmed" | "not_needed" | "missing" | "unknown";
-  kernelLock: "held" | "busy" | "unknown";
-  durableIntent:
-    | "exact_non_authority_checkpoint"
-    | "missing"
-    | "mismatch"
-    | "unknown";
-}>;
-
-/**
- * 実行権限を持たない候補判定を表す。
- *
- * @responsibility 条件充足と実処置・清掃完了を明示的に分離する。
- * @trace ARCH-000008
- * @shape candidate_readyまたはblocked、理由、対象Hash、非発行の固定field。
- * @invariant 全結果でAuthority非発行、清掃未確認、本番経路未接続を維持する。
- * @boundary 内部設計候補だけに利用し、公開Recovery結果として返さない。
- * @security 回復Token、Host Pathまたは削除Capabilityを含まない。
- * @compatibility 完成済みRecoveryのrecovered／cleanupConfirmed:trueへ変換してはならない。
- */
-export type HostOrphanRecoveryPlan = Readonly<{
-  status: "candidate_ready" | "blocked";
-  reason: string;
-  snapshotSha256: string | null;
-  authorityConferred: false;
-  cleanupConfirmed: false;
-  productionConnected: false;
-}>;
-
-const REQUIRED_GATES = Object.freeze({
-  approval: ["fresh_exact"],
-  ownerScope: ["confirmed"],
-  identity: ["exact"],
-  recordState: ["host_only"],
-  children: ["six_empty_exact"],
-  dockerBinding: ["absent"],
-  nonUse: ["confirmed"],
-  initializationFence: ["confirmed"],
-  legacyFence: ["confirmed", "not_needed"],
-  kernelLock: ["held"],
-  durableIntent: ["exact_non_authority_checkpoint"],
-} as const);
-
-/**
- * 渡された根拠集合を保守候補の条件と照合する。
- *
- * @responsibility 条件の欠落、差替え、観測不能を拒否し、充足時も候補判定だけを返す。
- * @trace ARCH-000008
- * @input 信頼された観測実装が生成する根拠集合の候補値。
- * @returns Authorityを持たない固定された候補判定。
- * @precondition N/A: 不正な値も受け取り、未知または未確認として拒否する。
- * @postcondition 元のRecovery IDを生成せず、実行や清掃成立を主張しない。
- * @effect N/A: Filesystem、Process、Lock、Providerを操作しない純粋な判定である。
- * @failure Proxy、Accessor、未知field、欠落および条件不成立をblockedとして返す。
- * @invariant inputの値や外部状態を変更せず、観測の実在性を自己証明しない。
- * @boundary 内部Policyの入力／判定境界。本番観測・CLIは未接続。
- * @security Hashや確認値をBearer権限へ変換せず、元TaskのAuthorityを再構成しない。
- * @concurrency N/A: 外部資源を所有せず、同期的に入力のown data fieldだけを照合する。
- */
-export function evaluateHostOrphanRecoveryPlan(
-  input: unknown,
-): HostOrphanRecoveryPlan {
-  let snapshotSha256: string | null = null;
-  let reason = "host_orphan_evidence_invalid";
-  if (
-    input !== null &&
-    typeof input === "object" &&
-    !types.isProxy(input) &&
-    !Array.isArray(input)
-  ) {
-    const prototype = Object.getPrototypeOf(input);
-    const descriptors = Object.getOwnPropertyDescriptors(input);
-    const allowed = new Set([
-      "resourceClass",
-      "snapshotSha256",
-      ...Object.keys(REQUIRED_GATES),
-    ]);
-    const keys = Reflect.ownKeys(input);
-    if (
-      (prototype === Object.prototype || prototype === null) &&
-      keys.length === allowed.size &&
-      keys.every(
-        (key) =>
-          typeof key === "string" &&
-          allowed.has(key) &&
-          Object.hasOwn(descriptors[key] ?? {}, "value"),
-      )
-    ) {
-      const hash: unknown = descriptors.snapshotSha256?.value;
-      if (typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash)) {
-        snapshotSha256 = hash;
-        reason = "host_orphan_resource_class_unsupported";
-        if (descriptors.resourceClass?.value === "empty_host_only_v1") {
-          reason = "host_orphan_candidate_conditions_satisfied";
-          for (const [gate, expected] of Object.entries(REQUIRED_GATES)) {
-            const observed: unknown = descriptors[gate]?.value;
-            if (
-              typeof observed !== "string" ||
-              !(expected as readonly string[]).includes(observed)
-            ) {
-              reason = `host_orphan_${gate}_unconfirmed`;
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-  return Object.freeze({
-    status:
-      reason === "host_orphan_candidate_conditions_satisfied"
-        ? "candidate_ready"
-        : "blocked",
-    reason,
-    snapshotSha256,
-    authorityConferred: false,
-    cleanupConfirmed: false,
-    productionConnected: false,
-  });
-}
-
-/**
  * 検証済みRepositoryの現在記録からHost／Probe回復先を解決する。
  * @responsibility exact参照、単一一致、Readerの排他解放を照合する。
  * @trace ARCH-000008
@@ -1386,7 +1238,6 @@ type ProductionPlan = Readonly<{
   consumer: "coordinator_cli" | "workbench" | "orchestrator";
   operationId: string;
   recoveryCorrelationId?: string | null;
-  grantRef: string;
   executionSelection: ExecutionSelection;
   taskAttempt: 0 | 1;
   providerHomeIdentityHash: string;
@@ -1442,11 +1293,9 @@ type DurableRecord = {
   dockerCompletion?: unknown;
   terminalObservation?: RecordedAttemptObservation;
   settlementResult?: ReturnType<typeof completeOperation>;
-  mountCompletion?: unknown;
   cleanupCheckpoint?: Readonly<{ revision: number; payloadSha256: string }>;
   normalRestoration?: {
     plan: unknown;
-    mountCompletion: unknown;
     identityJson: string;
     result: ReturnType<typeof completeRuntimeOwnedCoordinatorHostSubmission>;
   };
@@ -3893,7 +3742,6 @@ function validProductionPlan(plan: ProductionPlan) {
     ["workbench", "coordinator_cli", "orchestrator"].includes(plan.consumer) &&
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
-    /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     inspectExecutionSelection(plan.executionSelection)?.provider ===
       plan.provider &&
     (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
@@ -3972,9 +3820,6 @@ function beginProductionRecovery(
   try {
     if (!validProductionPlan(plan)) return null;
     stage = "operation_context";
-    const development =
-      inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
-    if (development && !development.checkNewWork()) return null;
     stage = "plan_validation";
     const nonce = randomBytes(32).toString("hex");
     const identityJson = prepareRuntimeOwnedRepositoryDockerOperationIdentity(
@@ -3988,9 +3833,7 @@ function beginProductionRecovery(
     const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate(
       plan.provider,
     );
-    const home = consumeRuntimeOwnedProviderHomeObservationCapability(
-      observation.observationCapability,
-    );
+    const home = observation.providerHome;
     if (
       observation.status !== "candidate" ||
       !home ||
@@ -4164,12 +4007,11 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
     const initialHostRecoveryId = ownedHost.snapshot.token;
     const initialHostRecovery = ownedHost.snapshot;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v4",
+      schema: "crdd-coordinator/operation-identity/v5",
       operationNonce,
       provider: plan.provider,
       consumer,
       operationId: plan.operationId,
-      grantRef: plan.grantRef,
       executionSelection: plan.executionSelection,
       taskAttempt: plan.taskAttempt,
       stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
@@ -4618,36 +4460,10 @@ export function recordRuntimeOwnedDockerAbsence(
 }
 
 /**
- * 元Mount終了結果を同じ操作のHost復帰へ保持する。
- * @responsibility 元Mount終了結果を同じ操作のHost復帰へ保持する。
+ * 実清掃とHome解放からHost通常復帰と実Lease解放を確定する。
+ * @responsibility 実清掃とHome解放からHost通常復帰と実Lease解放を確定する。
  * @trace ARCH-000008
- * @input recoveryCapability: 元Owner。mountCompletion: 元Mount結果。
- * @returns 結果保持時true。真正性はHost復帰時に元計画と照合する。
- * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
- * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
- * @effect N/A: 元結果のProcess内保持だけ。
- * @failure 元Owner・結果欠落はfalse。
- * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
- * @boundary 本番Docker OwnerとRepository内の現在状態。
- * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
- * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
- */
-export function recordRuntimeOwnedNormalMountCompletion(
-  recoveryCapability: unknown,
-  mountCompletion: unknown,
-) {
-  const record = durableRecord(recoveryCapability);
-  if (!record || !mountCompletion || typeof mountCompletion !== "object")
-    return false;
-  record.mountCompletion = mountCompletion;
-  return true;
-}
-
-/**
- * 実清掃とMount終了からHost通常復帰と実Lease解放を確定する。
- * @responsibility 実清掃とMount終了からHost通常復帰と実Lease解放を確定する。
- * @trace ARCH-000008
- * @input recoveryCapability、managementCapability: 元Owner。rawCompletion: 元計画・清掃・Mount結果。
+ * @input recoveryCapability、managementCapability: 元Owner。rawCompletion: 元計画。
  * @returns 元の終了限定Capability、または停止結果。
  * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
  * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
@@ -4664,23 +4480,16 @@ function completeProductionRecovery(
   rawCompletion: unknown,
 ) {
   const record = durableRecord(recoveryCapability);
-  const completion = snapshotPlainRecord(
-    rawCompletion,
-    new Set(["plan", "mountCompletion"]),
-  );
+  const completion = snapshotPlainRecord(rawCompletion, new Set(["plan"]));
   if (
     !record ||
     record.managementCapability !== managementCapability ||
     !completion ||
-    !record.cleanupCheckpoint ||
-    completion.mountCompletion !== record.mountCompletion
+    !record.cleanupCheckpoint
   )
     return Object.freeze({ status: "blocked" as const });
   if (record.normalRestoration) {
-    if (
-      completion.plan !== record.normalRestoration.plan ||
-      completion.mountCompletion !== record.normalRestoration.mountCompletion
-    )
+    if (completion.plan !== record.normalRestoration.plan)
       return Object.freeze({ status: "blocked" as const });
   }
   if (
@@ -4720,11 +4529,10 @@ function completeProductionRecovery(
       completion.plan as Parameters<
         typeof completeRuntimeOwnedCoordinatorHostSubmission
       >[2],
-      completion.mountCompletion,
+      recoveryCapability,
     );
     record.normalRestoration = {
       plan: completion.plan,
-      mountCompletion: completion.mountCompletion,
       identityJson: previous.identityJson,
       result: restored,
     };
@@ -4970,7 +4778,6 @@ export function registerRuntimeOwnedReviewFindings(
     record.dockerCompletion !== result ||
     !terminal ||
     terminal.homeLeaseReleased !== true ||
-    !terminal.mountLeaseReleased ||
     !terminal.recoveryCompleted ||
     terminal.recoveryId !== record.recoveryId ||
     terminal.operationId !== record.operationId ||
@@ -4978,13 +4785,6 @@ export function registerRuntimeOwnedReviewFindings(
     !result.cleanupConfirmed ||
     result.cancellationRequested ||
     result.operationId !== record.operationId ||
-    !borrowOwnedOperationExecutionSelection(
-      record.managementCapability,
-      plan.selectionRecordId,
-      plan.selectionHash,
-      plan.taskAttempt,
-      plan.executionSelection,
-    ) ||
     record.operationId !== plan.operationId ||
     plan.operationMode !== "isolated_task" ||
     plan.taskRole !== "reviewer" ||
@@ -7361,8 +7161,6 @@ export function recordRuntimeOwnedAttemptCleanup(
     managementCapability,
     recoveryId,
     observations,
-    mountCompletion,
-    mountLeaseReleased,
     homeLeaseReleased,
   } = input;
   let recoveryCompleted = false;
@@ -7375,7 +7173,6 @@ export function recordRuntimeOwnedAttemptCleanup(
     record.recoveryId !== recoveryId
   )
     return Object.freeze({
-      mountLeaseReleased,
       homeLeaseReleased,
       recoveryCompleted,
       recoveryFinalizationCapability,
@@ -7393,18 +7190,11 @@ export function recordRuntimeOwnedAttemptCleanup(
       }) !== true
     )
       throw new Error("docker_absence_record_failed");
-    if (mountLeaseReleased && mountCompletion) {
-      if (
-        recordRuntimeOwnedNormalMountCompletion(
-          recoveryCapability,
-          mountCompletion,
-        ) !== true
-      )
-        throw new Error("mount_completion_record_failed");
+    if (homeLeaseReleased) {
       const completion = completeRuntimeOwnedDockerRecovery(
         recoveryCapability,
         managementCapability,
-        Object.freeze({ plan, mountCompletion }),
+        Object.freeze({ plan }),
       );
       if (
         homeLeaseReleased &&
@@ -7422,7 +7212,6 @@ export function recordRuntimeOwnedAttemptCleanup(
     recoveryFinalizationCapability = null;
   }
   return Object.freeze({
-    mountLeaseReleased,
     homeLeaseReleased,
     recoveryCompleted,
     recoveryFinalizationCapability,

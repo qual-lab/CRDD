@@ -236,13 +236,11 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
         const target = {
           provider,
           operationId: "OP-123456",
-          grantRef: "PHMGRANT-123456",
           workspaceSourcePath: "C:\\fixture\\workspace",
           temporarySourcePath: "C:\\fixture\\tmp",
           providerHomeSourcePath: "C:\\fixture\\home",
           providerHomeIdentityHash: "a".repeat(64),
           stableLogicalHomeBindingHash: "d".repeat(64),
-          activeMountCapability: {},
           workspaceProtection: {
             gitSourcePath: "C:\\fixture\\git-reference",
             internalSourcePath: "C:\\fixture\\internal",

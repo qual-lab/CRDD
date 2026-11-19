@@ -18,11 +18,6 @@ import {
   type StartResult,
 } from "../../../executor/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import {
-  completeRuntimeOwnedProviderHomeMount,
-  consumeRuntimeOwnedProviderAuthority,
-  revokeRuntimeOwnedProviderAuthority,
-} from "./authority.ts";
 import { getIsolationSettings } from "./configuration.ts";
 import {
   beginProviderExecutionRecording,
@@ -34,7 +29,6 @@ import {
 import { createRuntimeOwnedLifecycleNoticeReporter } from "./observation.ts";
 import {
   borrowOwnedDockerExecutionPaths,
-  borrowOwnedOperationExecutionSelection,
   borrowRuntimeOwnedCoordinatorStateRepository,
   verifyRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
@@ -116,11 +110,6 @@ function createExecutionRecordOperations(
   owned: PreparedAttemptPlan<Provider>,
   technical: RecoveryPlan,
   management: unknown,
-  admission: {
-    authorityConsumed: boolean;
-    mountAttempted: boolean;
-    mountCompleted: boolean;
-  },
   recording: { value: ProviderExecutionRecording | null; attempted: boolean },
   executionMetadata: Readonly<Record<string, string>>,
   recordings?: ProviderExecutionRecording[],
@@ -133,40 +122,15 @@ function createExecutionRecordOperations(
         : false,
     beginRecovery: (plan, candidate, observeFailure) => {
       if (plan !== technical || candidate !== management) return null;
-      const complete = borrowOwnedOperationExecutionSelection(
-        management,
-        owned.selectionRecordId,
-        owned.selectionHash,
-        owned.taskAttempt,
-        plan.executionSelection,
-      );
-      if (!complete) return null;
-      return beginRuntimeOwnedDockerRecovery(
-        { ...owned, executionSelection: complete },
-        management,
-        observeFailure,
-      );
+      return beginRuntimeOwnedDockerRecovery(owned, management, observeFailure);
     },
     bindInitializationFailure: bindRuntimeOwnedDockerInitializationFailure,
     abandonRecovery: abandonRuntimeOwnedDockerRecovery,
     verifyRecoveryBinding: verifyRuntimeOwnedDockerRecoveryBinding,
-    completeMount: (mount, owner) => {
-      if (mount === owned.activeMountCapability && owner === management)
-        admission.mountAttempted = true;
-      const result = completeRuntimeOwnedProviderHomeMount(mount, owner);
-      if (
-        mount === owned.activeMountCapability &&
-        owner === management &&
-        result.status === "completed"
-      )
-        admission.mountCompleted = true;
-      return result;
-    },
     completeCleanup: (input) =>
       input.plan === technical && input.managementCapability === management
         ? recordRuntimeOwnedAttemptCleanup({ ...input, plan: owned })
         : {
-            mountLeaseReleased: false,
             homeLeaseReleased: false,
             recoveryCompleted: false,
             recoveryFinalizationCapability: null,
@@ -208,11 +172,6 @@ function createExecutionRecordOperations(
     recordTerminalObservation: recordRuntimeOwnedDockerTerminalObservation,
     recordResourceNotIssued: recordRuntimeOwnedDockerResourceNotIssued,
     recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
-    consumeProviderAuthority: (use, mount, owner) => {
-      const result = consumeRuntimeOwnedProviderAuthority(use, mount, owner);
-      if (result) admission.authorityConsumed = true;
-      return result;
-    },
     reportProviderProcessStarted: createRuntimeOwnedLifecycleNoticeReporter(
       process.stderr,
     ),
@@ -256,43 +215,6 @@ function createBlockedPreparationStart(
     proxyCredentialReported: false,
     preparationFailed: true,
   });
-}
-
-/**
- * 消費済み準備が技術開始前に拒否されたとき元のAuthorityとMountだけを閉じる。
- * @responsibility 未消費Authorityの失効と未返却Mountの終了を上位Ownerで確認する。
- * @trace ARCH-000008
- * @effect 同じ準備のAuthority失効・Mount返却だけ。Home Leaseへ触れない。
- */
-function settleUnstartedPreparation(
-  plan: PreparedAttemptPlan<Provider>,
-  management: unknown,
-  admission: {
-    authorityConsumed: boolean;
-    mountAttempted: boolean;
-    mountCompleted: boolean;
-  },
-): boolean {
-  if (admission.authorityConsumed) return false;
-  let revoked = false;
-  try {
-    revoked =
-      revokeRuntimeOwnedProviderAuthority(
-        plan.authorityControlCapability,
-        management,
-      ).status === "revoked";
-  } catch {}
-  if (!admission.mountAttempted) {
-    admission.mountAttempted = true;
-    try {
-      admission.mountCompleted =
-        completeRuntimeOwnedProviderHomeMount(
-          plan.activeMountCapability,
-          management,
-        ).status === "completed";
-    } catch {}
-  }
-  return revoked && admission.mountCompleted;
 }
 
 // Host開始保存と実行調停の相互参照では、初期化中にRuntimeを呼ばない。
@@ -339,20 +261,7 @@ export function startRuntimeOwnedDockerProcessController(
       selectedModel: selection.model,
       selectedEffort: selection.effort,
     });
-  const plan = owner.consume(
-    prepared.preparedCapability,
-    input.managementCapability,
-  );
-  if (!plan)
-    return Object.freeze({
-      ...createBlockedPreparationStart(
-        "docker_process_controller_plan_invalid",
-      ),
-      preparationFailed: false,
-      selectionNotice: selection.notice,
-      selectedModel: selection.model,
-      selectedEffort: selection.effort,
-    });
+  const plan = prepared.plan;
   const technical = plan;
   const recording: {
     value: ProviderExecutionRecording | null;
@@ -360,11 +269,6 @@ export function startRuntimeOwnedDockerProcessController(
   } = {
     value: null,
     attempted: false,
-  };
-  const admission = {
-    authorityConsumed: false,
-    mountAttempted: false,
-    mountCompleted: false,
   };
   let started: StartResult<"attempt">;
   try {
@@ -375,7 +279,6 @@ export function startRuntimeOwnedDockerProcessController(
           plan,
           technical,
           input.managementCapability,
-          admission,
           recording,
           executionMetadata,
           recordings,
@@ -391,18 +294,6 @@ export function startRuntimeOwnedDockerProcessController(
     started = createBlockedPreparationStart(
       "docker_process_controller_start_failed_closed",
     );
-  }
-  if (started.status !== "started" && !admission.authorityConsumed) {
-    const cleanupConfirmed = settleUnstartedPreparation(
-      plan,
-      input.managementCapability,
-      admission,
-    );
-    started = Object.freeze({
-      ...started,
-      cleanupConfirmed,
-      manualRecoveryRequired: !cleanupConfirmed || started.recoveryId !== null,
-    });
   }
   if (started.status === "started") {
     const completion = started.completion.then((result) => {
@@ -454,11 +345,9 @@ export function abandonRuntimeOwnedExecutorAttempt(
 ): boolean {
   return abandonBoundExecutorAttempt(recovery, management);
 }
-/** 不正な回復開始後の記録・Mount終了を試み、元回復参照と清掃未確認を保持する。 */
+/** 不正な回復開始のOwner終了を試み、元回復参照と清掃未確認を保持する。 */
 function settleInvalidRecoveryStart(
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,
-  plan: RecoveryPlan,
-  managementCapability: object,
   recoveryCapability: unknown,
   recoveryId: string | null,
   reason: string,
@@ -468,12 +357,6 @@ function settleInvalidRecoveryStart(
       state.dependencies.abandonRecovery?.(recoveryCapability);
     } catch {}
   }
-  try {
-    state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
-  } catch {}
   return createUnstartedResult({
     status: "blocked",
     reason: reason,
@@ -514,7 +397,7 @@ function commandRestrictionAllows(restriction: unknown, purpose: string) {
  * 上位が確定した一試行を実行し、技術通知を自身の保存へ接続する。
  * @responsibility 通知へ保存結果を返さず、上位の完了投影だけで耐久受理を表す。
  * @trace ARCH-000008
- * @effect 同じ記録への更新・Grant終了と、下位Executorの明示開始。
+ * @effect 同じ記録への更新と、下位Executorの明示開始。
  */
 function startRecordedAttempt(
   executor: Executor<"attempt">,
@@ -526,9 +409,7 @@ function startRecordedAttempt(
   restriction?: unknown,
 ): RecordedStartResult {
   let restrictionRejected = false;
-  let mountCompletion: Readonly<{ status: string }> | null = null;
   let cleanup: ResourceCleanupResult = {
-    mountLeaseReleased: false,
     homeLeaseReleased: false,
     recoveryCompleted: false,
     recoveryFinalizationCapability: null,
@@ -623,16 +504,6 @@ function startRecordedAttempt(
         // 任意診断は実行結果・元回復参照を変更しない。
       }
     },
-    onResourcesClosed: () => {
-      mountCompletion = operations.completeMount(
-        plan.activeMountCapability,
-        management,
-      );
-      cleanup = {
-        ...cleanup,
-        mountLeaseReleased: mountCompletion.status === "completed",
-      };
-    },
     onCleanupCompleted: (observation) => {
       terminalObservation =
         restrictionRejected && observation.primaryFailure
@@ -664,14 +535,9 @@ function startRecordedAttempt(
         recoveryId: recovery.recoveryId,
         observations: observation.resources,
         resourceSnapshot: observation.resourceSnapshot,
-        mountCompletion,
-        mountLeaseReleased: cleanup.mountLeaseReleased,
         homeLeaseReleased: observation.homeLeaseReleased,
       });
-      if (
-        saved.mountLeaseReleased !== cleanup.mountLeaseReleased ||
-        saved.homeLeaseReleased !== cleanup.homeLeaseReleased
-      )
+      if (saved.homeLeaseReleased !== cleanup.homeLeaseReleased)
         throw Error("cleanup_record_inconsistent");
       cleanup = saved;
     },
@@ -727,9 +593,6 @@ function startRecordedAttempt(
     } catch {
       /* 同じ未開始参照と回復義務を保持する。 */
     }
-    try {
-      operations.completeMount(plan.activeMountCapability, management);
-    } catch {}
     return started;
   }
   return Object.freeze({
@@ -741,8 +604,7 @@ function startRecordedAttempt(
         const observation = terminalObservation;
         if (!observation) throw Error("terminal_observation_missing");
         const revisionValid = !!operations.verifyRevision(management, plan);
-        const taskCleanupConfirmed =
-          result.cleanupConfirmed && cleanup.mountLeaseReleased;
+        const taskCleanupConfirmed = result.cleanupConfirmed;
         const final: RecordedAttemptResult = Object.freeze({
           ...result,
           ...cleanup,
@@ -769,9 +631,7 @@ function startRecordedAttempt(
               ? null
               : recovery.recoveryId,
           manualRecoveryRequired:
-            result.manualRecoveryRequired ||
-            !cleanup.mountLeaseReleased ||
-            !cleanup.recoveryCompleted,
+            result.manualRecoveryRequired || !cleanup.recoveryCompleted,
           ...(!revisionValid
             ? {
                 status: "blocked" as const,
@@ -789,7 +649,6 @@ function startRecordedAttempt(
             final,
             Object.freeze({
               ...observation,
-              mountLeaseReleased: cleanup.mountLeaseReleased,
               recoveryCompleted: cleanup.recoveryCompleted,
             }),
           );
@@ -818,7 +677,7 @@ function startRecordedAttempt(
 function startHostAttempt(
   executor: Executor<"attempt">,
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,
-  preparedCapability: unknown,
+  inputPlan: unknown,
   managementCapability: unknown,
   registerRecoveryHandoff: unknown,
   commandRestriction: unknown,
@@ -837,44 +696,17 @@ function startHostAttempt(
       reason: "docker_process_controller_effect_unavailable",
     });
   }
-  const plan = preparedCapability as RecoveryPlan;
+  const plan = inputPlan as RecoveryPlan;
   if (!plan)
     return createUnstartedResult({
       status: "blocked",
       reason: "docker_process_controller_plan_invalid",
     });
   if (!state.dependencies.verifyRevision(managementCapability, plan)) {
-    const completed = state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
     return createUnstartedResult({
       status: "blocked",
       reason: "docker_process_controller_revision_invalid",
-      cleanupConfirmed: completed.status === "completed",
-    });
-  }
-  const authority = state.dependencies.consumeProviderAuthority(
-    plan.authorityUseCapability,
-    plan.activeMountCapability,
-    managementCapability,
-  );
-  if (
-    !authority ||
-    authority.operationId !== plan.operationId ||
-    authority.provider !== plan.provider ||
-    authority.providerHomeMountGrantRef !== plan.grantRef ||
-    authority.runtimeAuthorityIssued !== true ||
-    authority.providerEffectAllowed !== true
-  ) {
-    const completed = state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
-    return createUnstartedResult({
-      status: "blocked",
-      reason: "docker_process_controller_authority_invalid",
-      cleanupConfirmed: completed.status === "completed",
+      cleanupConfirmed: true,
     });
   }
   let recoveryStartFailure: RecoveryStartFailureDiagnostic | null = null;
@@ -958,24 +790,14 @@ function startHostAttempt(
               exactBlocked.recoveryCapability,
             );
           } catch {}
-          try {
-            state.dependencies.completeMount(
-              plan.activeMountCapability,
-              managementCapability,
-            );
-          } catch {}
           return stopped;
         }
       }
       if (!malformedCapability && exactBlocked) {
-        const completed = state.dependencies.completeMount(
-          plan.activeMountCapability,
-          managementCapability,
-        );
         return createUnstartedResult({
           status: "blocked",
           reason: resolveRecoveryStartReason(exactBlocked.reason),
-          cleanupConfirmed: completed.status === "completed",
+          cleanupConfirmed: true,
           recoveryId: exactBlocked.recoveryId,
           manualRecoveryRequired: true,
         });
@@ -983,20 +805,14 @@ function startHostAttempt(
       if (malformedCapability || malformedRecoveryId)
         return settleInvalidRecoveryStart(
           state,
-          plan,
-          managementCapability,
           malformedCapability,
           malformedRecoveryId,
           "docker_process_controller_recovery_identity_invalid",
         );
-      const completed = state.dependencies.completeMount(
-        plan.activeMountCapability,
-        managementCapability,
-      );
       return createUnstartedResult({
         status: "blocked",
         reason: resolveRecoveryStartReason(ownDataValue(recovery, "reason")),
-        cleanupConfirmed: completed.status === "completed",
+        cleanupConfirmed: true,
         recoveryId: malformedRecoveryId,
         manualRecoveryRequired:
           ownDataValue(recovery, "manualRecoveryRequired") === true,
@@ -1018,8 +834,6 @@ function startHostAttempt(
     ) {
       return settleInvalidRecoveryStart(
         state,
-        plan,
-        managementCapability,
         readyRecovery.recoveryCapability,
         parsedRecoveryId?.token ?? null,
         "docker_process_controller_recovery_identity_invalid",
@@ -1034,8 +848,6 @@ function startHostAttempt(
     ) {
       return settleInvalidRecoveryStart(
         state,
-        plan,
-        managementCapability,
         readyRecovery.recoveryCapability,
         parsedRecoveryId.token,
         "docker_process_controller_recovery_handoff_unavailable",

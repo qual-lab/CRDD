@@ -70,7 +70,6 @@ const COMPLETION_KEYS = Object.freeze([
   "dockerEffectStarted",
   "hostPathReported",
   "manualRecoveryRequired",
-  "mountLeaseReleased",
   "homeLeaseReleased",
   "networksAbsent",
   "normalizedResult",
@@ -293,14 +292,12 @@ export function projectAttemptResult(
   );
   const containersAbsent = readOwnDataProperty(record, "containersAbsent");
   const networksAbsent = readOwnDataProperty(record, "networksAbsent");
-  const mountLeaseReleased = readOwnDataProperty(record, "mountLeaseReleased");
   const homeLeaseReleased = readOwnDataProperty(record, "homeLeaseReleased");
   const recoveryCompleted = readOwnDataProperty(record, "recoveryCompleted");
   const isCleanupFromResources =
     processTreeTerminated === true &&
     containersAbsent === true &&
     networksAbsent === true &&
-    mountLeaseReleased === true &&
     homeLeaseReleased === true;
   const providerRequestStarted = readOwnDataProperty(
     record,
@@ -338,7 +335,6 @@ export function projectAttemptResult(
     typeof processTreeTerminated !== "boolean" ||
     typeof containersAbsent !== "boolean" ||
     typeof networksAbsent !== "boolean" ||
-    typeof mountLeaseReleased !== "boolean" ||
     typeof homeLeaseReleased !== "boolean" ||
     typeof recoveryCompleted !== "boolean" ||
     cleanupConfirmed !== isCleanupFromResources ||

@@ -17,43 +17,8 @@ import { resolveCoordinatorPlatformAdapter } from "../../src/execution/diagnosti
 import { createCoordinatorWindowsPlatformAdapter } from "../../src/execution/diagnostics.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { compileWindowsRootObservationCandidate } from "../../src/execution/authority.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
-
-/**
- * rootObservationのTest準備責務を実行する。
- *
- * @responsibility rootObservationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-UT-014
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus rootObservationを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-function rootObservation() {
-  const entityCount = 3;
-  return {
-    allOwnersTrusted: true,
-    entityCount,
-    filesystemClass: "local",
-    objectBirthtimeNanoseconds: "1700000000000000000",
-    objectDeviceId: "1234",
-    objectFileId: "5678",
-    otherWriteAceCount: 0,
-    reparsePointCount: 0,
-    rootDaclProtected: true,
-    rootRole: "runtime",
-    runtimeDenyAceCount: 0,
-    runtimePrincipalIdentityHash: "a".repeat(64),
-    runtimePrincipalBinding: "selected_local_user_binding_caller_claim",
-    runtimeReadExecuteEntityCount: entityCount,
-    runtimeRootInheritanceRuleCount: 1,
-    runtimeWriteEntityCount: entityCount,
-  };
-}
 
 /**
  * operationsのTest準備責務を実行する。
@@ -92,7 +57,7 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
   const adapter = createCoordinatorWindowsPlatformAdapter();
   assert.deepEqual(adapter.describe(), {
     contract: "crdd-coordinator/orchestrator-platform-contract",
-    contractRevision: 2,
+    contractRevision: 3,
     platformFamily: "windows",
     supportedBoundaries: ["principal_provider_home", "lock_lease"],
     satisfiedGuarantees: {
@@ -112,11 +77,6 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
         "repository_root_identity",
         "bounded_path_resolution",
       ],
-      runtime_root_recovery: [
-        "managed_root",
-        "protection",
-        "resource_identity",
-      ],
     },
     authorityGeneration: "none",
     unsupportedPlatformFallback: "none",
@@ -125,7 +85,6 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
     "filesystem_repository",
     "lock_lease",
     "principal_provider_home",
-    "runtime_root_recovery",
   ]);
 });
 
@@ -189,12 +148,7 @@ test("Windows Adapterは完成保証だけを解決し、部分抽出境界を�
     resolveCoordinatorPlatformAdapter(
       "windows",
       [adapter],
-      [
-        "filesystem_repository",
-        "process_cancellation",
-        "container_host",
-        "runtime_root_recovery",
-      ],
+      ["filesystem_repository", "process_cancellation", "container_host"],
     ),
     {
       status: "blocked",
@@ -203,7 +157,6 @@ test("Windows Adapterは完成保証だけを解決し、部分抽出境界を�
         "filesystem_repository",
         "process_cancellation",
         "container_host",
-        "runtime_root_recovery",
       ],
     },
   );
@@ -251,6 +204,10 @@ test("Repository Root解決は既存実装と同じ受理・拒否を閉結果�
 test("旧子環境導出を公開せず取消境界を未対応で拒否する", () => {
   const adapter = createCoordinatorWindowsPlatformAdapter();
   assert.equal(
+    Object.hasOwn(adapter.operations, "runtime_root_recovery"),
+    false,
+  );
+  assert.equal(
     Object.hasOwn(adapter.operations, "process_cancellation"),
     false,
   );
@@ -272,34 +229,6 @@ test("旧子環境導出を公開せず取消境界を未対応で拒否する",
       reason: "platform_boundary_unsupported",
       unsupportedBoundaries: ["process_cancellation"],
     },
-  );
-});
-
-/**
- * Runtime Root保護観測は既存実装と同一のHash候補・拒否を返すを検証する。
- *
- * @responsibility Runtime Root保護観測は既存実装と同一のHash候補・拒否を返すの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Runtime Root保護観測は既存実装と同一のHash候補・拒否を返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Runtime Root保護観測は既存実装と同一のHash候補・拒否を返す", () => {
-  const group = operations("runtime_root_recovery");
-  const compileRootObservationCandidate =
-    group.compileRootObservationCandidate as (
-      rawObservation: unknown,
-    ) => Readonly<Record<string, unknown>>;
-  assert.deepEqual(
-    compileRootObservationCandidate(rootObservation()),
-    compileWindowsRootObservationCandidate(rootObservation()),
-  );
-  assert.deepEqual(
-    compileRootObservationCandidate({}),
-    compileWindowsRootObservationCandidate({}),
   );
 });
 

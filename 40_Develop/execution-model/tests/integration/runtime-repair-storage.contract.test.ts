@@ -1699,12 +1699,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       .digest("hex");
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const taskIdentity = {
-      schema: "crdd-coordinator/operation-identity/v4",
+      schema: "crdd-coordinator/operation-identity/v5",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer: "orchestrator",
       operationId: "OP-234567",
-      grantRef: "PHMGRANT-FIXTURE",
       executionSelection: executionSelection("executor", {
         provider: "claude",
         model: "opus",

@@ -184,13 +184,13 @@ DI共通回収を通常Sessionと単独再入場の双方から利用し、全Re
 
 公開Executorはstart／cancelのsignatureを明示し、Factoryがその型を満たすことを確認する。実装のReturnType／Parametersから公開契約を導出しない。選択三項目は全存在・全不存在の正例と六つの部分集合の型負例を確認し、型検査のexpect-error未消費を成功と扱わない。既存callback拒否・取消のinvalid／duplicate／要求・終了観測の相関と元Control／Promiseのlifecycleを維持する。
 
-構成・準備・隔離接続も、既存の名前付き契約を再利用する。固定所在入力の必須性、Session Receiptの明示と欠測時の未確認、生Process注入拒否、準備拒否の全null／false、両Providerの取消・失効・一回消費を確認する。通常Sessionへ試験Candidateの表示を混入させず、期限超過分類ではbyte項目を補完しない。型だけのRoot公開追加が実行時公開集合やEffect順序を変えないことを、型負例・純粋分類・有限代役の既存回帰で確認する。実AI・実Dockerの再実行を今回の型整理の成立根拠には用いない。
+構成・準備・隔離接続も既存の名前付き契約を再利用する。固定所在入力の必須性、Session Receiptの明示と欠測時の未確認、生Process注入拒否、準備拒否のplan:nullとProvider開始0を確認する。同期prepareは完全選定・試行番号・Home四値を直接計画へ保持し、独立した準備Store・取消・消費・期限を設けない。実Executorの取消・一回開始・清掃と元回復参照を維持する。型負例・純粋分類・有限代役の成功を実AI・実Dockerの再実行へ換算しない。
 
 ## Executorの明示結果型とFactory入力
 
 単発実行の境界縮小では、上位正本を削らず、Executor向け実値から作成時刻・速度設定・助言Task／Projection Hashと不要Pathが除かれることを確認する。型検査だけでなく元callback宣言を有限代役へ接続し、exact key集合、全保持値、元の選定結合・Packet Hash、消費回数と他Effect 0を照合する。Script／data URLのfixtureも同じ最小値へ追従させる。上位の全PathとDocker Isolationのmanagement借用を不要と解釈しない。未完の準備Owner・Plan・回復終端分離を、この投影試験の成功から完成扱いにしない。
 
-型Owner整理では、共有型と非exportの準備専用型を区別し、別名・空の型演算・Docker清掃型の重複を再導入しない。共通化後の準備計画は両Providerの正例、購読種別不一致、Codexへの作業量追加、Claudeの作業量欠測、必須の回復相関・助言四項目・Authority制御参照・二時計・選択通知の欠測、任意Command目的を型負例で固定する。型だけの負例を実実行の拒否証明に置き換えず、既存のRuntime検査・二WeakMap別実体・一回消費・取消・清掃の試験を維持する。移管前の45共通keyとClaude固有keyをexact集合と型検査で照合し、基底計画の変更による暗黙継承も検知する。
+型Owner整理では共有型と非exportの準備専用型を区別し、別名・空の型演算・Docker清掃型の重複を再導入しない。両Providerの正例、購読種別不一致、Codexへの作業量追加、Claudeの作業量欠測、回復相関・助言四項目・完全選定・試行番号・Home四値・選択通知の欠測、任意Command目的を型負例で固定する。旧Authority制御参照・準備時計・二WeakMap・固定旧key数を条件にせず、現行の直接計画とExecutorの実開始・取消・清掃を確認する。型負例をRuntime拒否の証明へ置き換えない。
 
 両Factoryは名前付きObject一引数と`StartResult`／`CompletionResult`の明示返却型へ揃え、結果型の正本を`attempt/types.ts`に置く。開始のProvider不正・準備拒否・準備後実行拒否・成功の四経路を実公開Factory宣言で確認し、準備失敗表示と選択三値の値・null・省略を維持する。準備内部fieldが結果や変数経由の余剰propertyから再流入しないことをReflect.ownKeysのexact集合で検査する。終了の五清掃条件と三終端状態、内容・二観測・所見・回復Capabilityのmask条件は維持する。今回の削除は準備内部診断の開始結果への混入に限定し、保存形式・理由値・公開Root集合を変えない。
 
@@ -236,7 +236,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 
 | 確認対象 | 所有する試験 | 正常・反証条件 |
 |---|---|---|
-| Coordinatorの共通`prepare(PreparationInput)` | 両Providerの上位準備契約、DI接続代役 | 用途別exact field、一回消費、別Owner・選定差替え・取消・期限の拒否 |
+| Coordinatorの共通`prepare(PreparationInput)` | 両Providerの上位準備契約、DI接続代役 | 用途別exact field、完全選定・試行・Home四値の保持、別Operation・役割・Provider・Packet不一致の拒否と直接plan返却 |
 | 助言内容 | AI Adapter `tests/unit/provider/advice-result.contract.test.ts` | 四区分・容量・重複JSON Key・許可参照。ExecutorはEnvelope解析との接続を検査 |
 | 共通completion | Executor単独試験・公開境界試験 | Task／Adviceとも清掃後の型付き内容。旧六中間APIがRootへ存在しない |
 | 是正許可のOwner | Executor `review-delivery.contract.test.ts`、Coordinator `docker-recovery-owner-reentry.contract.test.ts`とTask runtime契約 | Executorは正常完了・清掃確認・未取消・是正要求時だけ所見を返し、終端通知故障でも内容完了を改ざんしない。Coordinatorは元CompletionResult・handoff・終端／Home／Mount／Recovery・操作／選定・初回レビューを共同照合して既存の一回使用許可を発行する。コピー・別操作・欠測・取消・approved・空所見・件数差・二回目レビューは発行しない |
@@ -251,7 +251,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | 保証と主な反例 | 単独で再実行する試験 | 観測する終了条件 |
 |---|---|---|
 | CoordinatorなしのRootロード、必要な公開集合、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map・内部Key・形式タグ定数の非公開 |
-| 上位準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | coordinator/tests/unit/execution/attempt-preparation.contract.test.ts | 上位が両ProviderのMapを所有。回収不明を消費成功にしない |
+| 上位準備の完全選定・試行番号・Home四値・管理参照、同期拒否と開始後の元回復参照保持 | coordinator/tests/unit/execution/attempt-preparation.contract.test.ts | 計画を直接返し準備Storeを作らない。実開始・実清掃・回復引渡しの有無を区別する |
 | Codex／Claudeの局所候補Oracle、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 候補内の順序・join・一回性・相関と試験領域処置。本番Factory・Home・DI実行の証明には使わない |
 | 製品公開Factory、両Providerの内容・取消と記録 | coordinator/tests/integration/provider-attempt-host.contract.test.ts、provider-real-cli.contract.test.ts | 公開createExecutor→共通DIの有限CLI接続、必須通知、Home生存・解放、Receipt・回収・元Completion、親IPCを確認 |
 | 固定構成の非秘密診断投影 | executor/tests/unit/observation.contract.test.ts | 元操作・Providerの相関を保ち、Command・Home Pathを公開しない |
@@ -259,7 +259,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | 開始基本条件と固定Commandの完全照合 | executor/tests/unit/plan.contract.test.ts | 基本検査の成立を完全計画の検証と混同しない |
 | 技術理由集合と一次故障診断の閉形式 | executor/tests/unit/attempt/validation.contract.test.ts | 発行理由と保存受理集合をexact照合し、未知理由・不正Turn報告値を拒否する |
 | 回復開始診断・回復応答の閉形式・exact参照・Home相関 | coordinator/tests/unit/execution/recovery-start-diagnostic.contract.test.ts、recovery-projection.contract.test.ts | CoordinatorをOwnerとし、Proxy・accessor・余分field・欠測を拒否してunknownを補完しない |
-| 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 物理清掃五条件と保存受理の64組合せ×三状態を区別する。保存拒否でも技術解放の観測と元回復参照を維持し、Task成功へは昇格させない |
+| 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 物理清掃四条件と保存受理の32組合せ×三状態を区別する。保存拒否でも技術解放の観測と元回復参照を維持し、Task成功へは昇格させない |
 | Home技術Leaseの取得・解放・Owner終了 | coordinator/tests/integration/docker-process-controller.contract.test.ts | 取得後の開始拒否はEffect 0とrelease一回。保存拒否でもrelease一回。清掃不明は明示Owner終了まで保持し、別Owner・進行中・二重解放を拒否する |
 | 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/attempt/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
 | 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/attempt/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
@@ -416,7 +416,7 @@ Probe inspect移管では既存`ERB-IT-004`へ、固定構成とpayload候補の
 | 既存Local Item | 維持する検証義務と訂正 |
 |---|---|
 | `ERB-IT-001`〜`ERB-IT-004`、`ERB-ST-005`、`ERB-ST-030` | 要求・開始・Effect・取消・清掃・unknown・同じRecovery IDを維持。署名拒否で終わっていたCaseを本来の拒否条件まで到達させる。未署名通常入口から実隔離・結果帰還まで新しい実測が必要 |
-| `ERB-UT-023` | 許可と結果分類を維持。署名／Hash一致だけでは送信・Repository／Home利用を許可しない |
+| `ERB-UT-023` | 許可と結果分類を維持。署名／本文Hash一致や観測Homeの値だけでは送信・Repository／Home利用を許可しない |
 | `ERB-ST-009`、`ERB-IT-014` | 既存修復の安全な運用介入・現在実資源観測を維持。旧署名版・Release chainによる再入場は旧方式比較基準であり、Commit／Hashへ置換しない。旧記録はフロントAI移行完了まで現在制御へ採用しない |
 
 反証は、①未署名でも現在認可・固定入口・用途・Home・隔離条件が成立すれば実行へ到達、②署名成功／Hash一致だけでは実行許可0、③必要Artifactの差は同一性不成立として停止しPublisher偽装とは混同しない、④Root／入口／必要Hash観測不能は新Effect0、⑤既発行Effect・清掃不明・元Recovery IDを保持、⑥任意配布署名の失敗と通常Runtimeが独立、を用いる。通常Consumerの旧Gate撤去と、その取消・回収条件は現行Source・試験で確認する。専用静的検査・Coordinator固有署名Toolは退役済み、旧回復fixtureは未移行であり、過去成功・Case数・署名結果から新経路全体のPassを推定しない。新Local Itemを機械的に増やさず、Source切替時に既存項目の導出・Test・Evidence接続を再照合する。
@@ -518,6 +518,10 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 Engine観測移管では既存`ERB-IT-014`／`ERB-IT-001`へ、再起動と修復の固定構成差、Publisher前後変化、明示pipe不存在と観測不能、close不明を接続する。回収不明は同一操作の初回・待機再観測で共有し、以後の観測0、最終blocked、元のexact IDと現在の操作cleanup値保持を確認する。移管した三Caseの判定内容は維持し、合成境界の成功を実Publisher・実pipe・再起動完了へ拡張しない。新Local Itemは追加しない。
 
 AI Adapterの解決済み公開境界では、既存`ERB-UT-023`へPlanの許可参照・固定Schema・内容条件との相関、`ERB-UT-016`へ認証の終了不明と非0成功文面の拒否、`ERB-UT-032`へEnvelopeと非0終了分類を接続する。`ERB-IT-002`／`ERB-IT-004`はExecutorの計画搬送・通知待ち・取消・清掃と型付き助言の直接配送を確認する。未信頼JSON／保存Readerは検査を維持し、同Processの検査済み内容をJSON再生成して再解析しない。Provider五軸の純粋判定はCoordinatorが所有し、`ERB-IT-006`の利用可能性確認に対するUT補助Oracleとする。構成選択・保存・実Provider境界のITを代替せず、Artifact Trustの`AIT-UT-005`へ接続しない。有限試験を実AI・実認証・実Docker成立へ読み替えない。
+
+`ERB-UT-016`の認証入口反証は、両Providerのstatus／loginへHome観測拒否を与え、一次理由と回復分類の保持、認証開始0を確認する。明示的なEffect 0は清掃未確認にせず、Effect不明・残存ありを清掃成功へ変換しない。旧Helper終了fieldをNode観測の清掃根拠に使用しない。
+
+`ERB-IT-003`のDoctor公開結果確認では、改訂14と、未使用の合成環境由来の転送名・フィルタ成功field／checkの不存在を固定する。Hostの認証変数名検出と値非記録、既存の実隔離観測と未評価の区別、元の診断順・終了整理は維持する。削除した合成判定を実隔離の成功や検証免除へ読み替えない。
 
 Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`ARCH-000010`の技術Catalog・Repository選択境界を、AI Adapter詳細設計§7の公開契約へ具体化して導出する。`ERB-UT-032`は既存ITの実CLI終了を、`ERB-UT-033`は実課金防止を証明しない。課金方針はCoordinator詳細設計§7のAPI key fallback／追加購入非対応を引き継ぎ、未実装の有料APIを新機能として採用しない。
 
@@ -636,13 +640,13 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 | `ERB-IT-020` | 境界 | IT | Browser Lifecycle Observation | localhost Listener／所有Browser Process→終了後観測 | Direct Boundary | 応答しないが接続を受理するListener、close後の接続拒否、不正Port、遅延正常終了するProcess、Signalまで残るProcess、親終了後も残る子Process、同じPIDと異なる世代Identity、未検証Identity、順不同の親・子・孫、および前段cleanup失敗 | TCP接続状態と所有Process終了を局所境界で観測する。終了要求直前にTreeを再取得し、正常終了期限後だけexactな世代Identityを再確認してGraphの深い順にFallback Signalを発行する。cleanup段へ失敗を注入する | present／absent／unknown、normal／sigterm／sigkill／unknown、子孫Fallback有無、Signal順、Tree不存在、cleanup実行順および集約Errorを相互に区別して記録する | 接続拒否だけを不存在とし、timeout・分類不能をunknownへ保つ。親終了後に残る子Processへ限定Fallbackを実発行して最終0件を確認する。同じPIDでも世代Identity不一致または安全なIdentity未確認ならSignal Effect 0とする。残存Processは孫→子→親の順に処置し、一段のcleanup失敗後も後続清掃を各一回試行して全Errorを集約する | ERB-IT-020、Listener三値反例、遅延正常終了、SIGTERM fallback、残存子Process fallback、世代Identity不一致／未検証Effect 0、深度順、cleanup失敗後の後続段実行、Error集約、Oracleおよび終了後状態を保存する。Port、PIDおよび実行Pathは保存しない | Test Listener 0、所有Child Process 0 | Automated |
 | `ERB-IT-021` | 境界 | IT | Workbench Production Shell | Repository／Remote CROS→Workbench Server→Browser相当Consumer | Direct Boundary | 検証済みRepository Root、公式Logo、固定Route、許可済みPortfolio、明示選択Repository、Project検索・状態・Cursor、Topic／Meeting Query・Relation・昇格入力、Repository Tree／Diff Query、Orchestrator現在状態、Execution Event、Remote Credential／Exposure、AI Profile、AI依頼種別、根拠参照付きAI結果、変更候補の安全な確認MetadataとCandidate ID、採用／破棄／保留、確認有無、HEAD、Allowlist外Path、不許可Methodおよびclose | Workbenchを一時Portで開始し、Shell、CSS、Logo、Health、Portfolio検索・状態絞込み・継続読込・Project Detail、Repository未選択時のTopic／Meeting非表示、選択RepositoryのRemote Topic／Meeting一覧・Detail・更新・Owner Repository付きRelation遷移、Repository単体のTopic／Meeting絞込み・実在CHGへのTopic昇格、Repository Tree遅延展開・File Diff、Runtime Activity継続読込、AI依頼の読取り助言／変更候補と項目別根拠参照、変更候補の確認・採用・破棄・保留、別Candidate IDと確認なしの拒否、Remote接続・失効および拒否入力を要求して終了する | Bind Address、Status、Header、Brand Asset、Shell内状態、Portfolio表示Project・Source状態・Query拘束Cursor・Source別五場面・欠測表示、選択Repository、Topic／Meeting Query保持・Detail Revision・Relation存在状態・Owner Repository・遷移先・更新先・昇格後状態、Tree Directory・Cursor・変更区分・Prepared／Working Patch・切詰め、Project限定Event順序・Cursor、AI Applicationへ渡したProfile ID・依頼種別・結果区分・根拠参照表示、変更候補のCandidate ID・確認Metadata・選択Action・確認有無・採否結果、Remote Readerへ渡したRepository集合、失効後表示、拒否結果、Healthおよびclose後Connectionを記録する | `127.0.0.1`だけへBindし、Direction A Shellと承認済み公式Logoを固定Routeで返す。Portfolioは許可済みProjectだけを安定順序で検索・状態絞込みし、検索条件へ拘束したCursorで最大20件ずつ読む。別条件Cursorを拒否し、選択ProjectはRepository Sourceごとの五場面を表示してmissingを完全状態へ畳まない。Topic／MeetingはQuery条件に一致するCanonical Recordだけを安定順序とQuery拘束Cursorで表示し、Detailは同じRevisionのCanonical Markdownへ戻れる。Remoteでは現在PortfolioのRepositoryを明示選択するまでTopic／Meetingを表示せず、選択RepositoryだけをMCPへ渡す。Grant外ID、取得失敗または未選択をLocal Repositoryの結果で補完せず、別RepositoryのRelationはMCPが返したOwner Repositoryへ明示切替する。Repository単体では実在Topic／Meeting／CHGだけを固定Routeへ接続し、欠落Relationをリンク化せず、任意Pathを受けない。Topic昇格は実在CHGと期待改訂を確認し、状態・Relation・終了表を一つの次版へ更新する。Repository TreeはDirectory単位で遅延展開し、選択FileのPrepared／Working差分を分離する。越境Path、別Directory Cursorおよび未追跡File内容の暗黙読取りを拒否する。Runtime EventはProject限定・上限付き・新しい順で読み、観測不能を0件へ畳まない。AI依頼はProfile IDと読取り助言／変更候補をApplicationへexactに渡し、各結果項目の本文と一件以上の根拠参照を同じ区分へ表示する。読取り助言を変更候補へ読み替えない。変更候補はStoreから再読取りした同じCandidate IDと安全な確認Metadataだけを表示し、採用・破棄ごとの明示確認を必須にする。別Candidate ID、確認なし、競合RevisionまたはScope不一致を拒否し、保留ではEffect 0とする。採用操作はCommit／Pushを発行しない。RemoteではGrant外RepositoryをReaderへ渡さず、失効後に直前の現在状態またはEventを表示しない。任意Repository Pathと書込みMethodを拒否する | ERB-IT-021、固定Route分類、Status、Security Header、Brand Asset読込、Portfolio Query・Cursor・Project Detail・Source欠測、選択Repository、Topic／Meeting Query・Detail・更新先・Relation Owner・遷移先・Topic昇格、Repository Tree／Diff、Runtime Event Page、AI Profile ID・依頼種別・結果区分・根拠参照表示、変更候補のCandidate ID・確認Metadata・Action・確認有無・採否結果、Remote Grant、Local fallback 0、未接続／観測不能表示、拒否結果、close後Connection拒否およびOracle判定を保存する。Prompt、AI結果本文、Candidate本文、Absolute Path、File内容全量、Logo bytes、Tokenおよび生Event内容は保存しない | 未選択／Grant外Repository Effect 0、Local fallback 0、Listener 0、Connection 0、Credential永続保持0、確認前AI候補採用0、Commit 0、Push 0 | Automated |
 | `ERB-ST-022` | 境界 | ST | Workbench Actual Browser／Visual Gate | Workbench Production Server→専用Browser Profile→Rendered DOM観測 | System/E2E | 固定したProduction Source、公式Logo、Desktop／Tablet／Mobile、100%／200%／400%、文字下限、操作対象下限、画像読込、Overflow、Focus順、Browser正常終了猶予および所有子Process残存 | Production Serverを起動し、各Profileと倍率で主要Screenを実Browser表示する。必須画面TargetのReact commit後に画像集合を取得して確定を有限時間待ち、終了時は終了直前Tree取得、正常終了、exactな世代Identity限定Fallback、最終不存在確認を順に行う | Browser版、Profile、倍率、実効Viewport、Scroll幅、最小文字、最小操作対象、画像成功・失敗、Focus順、未接続状態、終了経路、子Process fallback有無、終了処理・Tree観測所要時間および全資源終了を記録する | 公式LogoとDirection Aの情報階層がReactで表示され、Server Shell、未接続、描画途中または画像読込み途中を成功扱いせず、評価した不適合を隠さない。PIDだけで別Processを終了せず、正常終了猶予後も残る同一世代Identityだけを限定処置し、最終不存在を確認する。人間が許容したProfile不適合は理由と範囲をEvidenceへ残す | ERB-ST-022、固定Revision、対象Profile、倍率、集約測定値、Brand Asset結果、許容判断、終了経路、fallback有無、終了所要時間、Oracleおよび資源別終了後状態を保存する。DOM本文、Absolute Path、PIDおよびProfile Pathは保存しない | Browser Process Tree 0、専用Profile 0、Workbench Listener 0、Repository書込み0 | Hybrid |
-| `ERB-UT-023` | 境界 | UT | AI Request Mode Router／Advice Task／Send Dispatch／Result Parser | Workbench AI Application入力→一依頼の外部送信確認→内容Hash付き許可済み読取り投影→Coordinator Mode Router→専用Dispatch→依頼種別別Executor→許可済み参照へ拘束した結果正規化 | N/A | 読取り助言、変更候補、既定CatalogのRevision 0、負数・小数の不正Revision、不正種別、余分なKey、送信未確認、Effect前取消、Effect後取消競合、Provider例外、cleanup不明、未知Request ID、投影Hash不一致、秘密Prompt、越境参照、Repository Operation結合不能、Mount Grant発行時観測と消費直前fresh観測、再観測不能、初回Selection失効失敗、不正な再Selection、Selection意味差、根拠参照なし・投影外参照・重複Key・複数JSON・過大値を含む不正入力／結果 | 固定投影、検証済みProfile、Catalog Revision、Fake Provider Adapter、Fake Executorおよび生結果文字列を注入し、Execution Plan、Task Packet生成、Repository Operation結合、Authority消費、初回Selection、Mount Grant発行、Provider Home再観測、Grant消費、旧Selection失効、Effect直前Selection再発行、Packet発行、Recovery登録、Process開始、観測、取消、Grant失効、Operation cleanup、単一JSON正規化および不正結果の帰還を要求する。Repository StoreからConsumerまでのRevision 0搬送は`RCM-IT-005`で補完する | 選択Executor、Profile ID、Provider、Catalog Revision、依頼種別、送信確認、投影Hash、Task Hash、許可済み参照、Request ID、Repository結合、発行用観測Capabilityと消費用fresh観測Capabilityの分離、Grant失効件数、Grant消費件数、初回／再発行Selection、Packet／Recovery／Processの発行件数、Effect件数、cleanup件数、Process poison件数、状態、理由、結果区分、項目別根拠参照および生出力非公開を記録する | Revision 0は検証済み既定Catalogの初期Snapshotとしてexactに保持し、負数・小数は実行計画前に拒否する。読取り助言Operationを元Repository Identityへ結合できなければSelectionを発行しない。この結合からProvider Mount、Path搬送または任意読取りAuthorityを生成しない。初回SelectionをProvider／ProfileのMount照合前に発行し、Mount Grant消費後に失効する。同じ入力からEffect直前に再発行し、Provider、Profile、Model、推論強度、速度および選定理由が初回と完全一致する場合だけPacketへ進む。発行済みSelectionは意味検証前からcleanup対象として保持する。不正な再Selectionまたは意味差では新旧Selectionを失効し、Packet／Process／Provider Effectを0、Operation cleanupを1とする。初回Selection失効が再試行後も不成立なら、Operation cleanup成功だけを全体cleanup成功へ畳まずProcessをpoisonする。Mount Grant発行に使った一回限りの観測Capabilityを消費時に再利用しない。fresh再観測が不成立なら、未消費Mount Grantと初回Selectionを各1回失効し、Grant消費、Packet、Recovery、ProcessおよびProvider Effectを0、Operation cleanupを1、Process poisonを0にする。送信確認は同じTask Hash、Catalog Revision、Profile ID、Providerへ結合して一回だけ消費し、未確認・Effect前取消ではProvider Effect 0、Effect後取消・Provider例外・cleanup不明では自動再送0かつunknownとする。読取り助言と変更候補を別Executorへ一回だけ配送し、取消後の遅延完了でcancelledを上書きせず、未知Identityへ架空ProfileまたはModeを返さない。各結果項目は本文と一件以上の許可済み根拠参照を持ち、曖昧JSONや不正結果を部分公開しない | ERB-UT-023、固定入力分類、Catalog Revision境界、投影完全性、Task Packet、Repository Operation結合、Authority Scope、Grant発行用観測と消費用fresh観測、初回／再発行Selection、選択Executor、公開Snapshot、不正結果分類、許可済み参照集合、Grant失効・消費、Packet、Recovery、Process、Provider Effect、cleanupおよびProcess poisonの件数とOracle判定を保存する。Prompt、投影本文、Repository Path、AI結果本文および生Provider出力は保存しない | Fake Provider以外の外部Effect 0、Repository結合不能時のSelection 0、再観測不能時の未消費Mount Grant失効1、初回Selection失効1、Grant消費0、Packet発行0、Recovery登録0、Process開始0、Provider Effect 0、Operation cleanup 1、Process poison 0、不正再Selection時の新旧Selection失効2、初回Selection失効継続失敗時のcleanup未確認とProcess poison、Filesystem Effect 0、候補生成0、候補採用0、自動再送0、取消後状態上書き0、不正結果の部分表示0、生Provider出力公開0 | Automated |
+| `ERB-UT-023` | 境界 | UT | AI Request Mode Router／Advice Task／Send Dispatch／Result Parser | Workbench AI Application入力→許可済み読取り投影→Coordinator Mode Router→用途別Packet→同期prepareの直接計画→依頼種別別Executor→結果正規化 | N/A | 読取り助言・変更候補、Catalog Revision 0と不正Revision、不正種別・余分Key、Effect前後取消、Provider例外、cleanup不明、未知ID、投影／Packet本文Hash差、秘密Prompt、越境参照、Repository Operation結合不能、完全選定・役割・試行・Home実体の不一致、根拠欠測・投影外参照・重複Key・複数JSON等の不正入力／結果 | 固定投影、検証済み完全選定、Catalog Identity、有限Provider／Executorと生結果文字列を渡す。計画、現在Operationとの結合、非発行preflight、一回のHome受付、Packet発行、同期prepare、Recovery登録、Process開始・観測・取消、Packet失効、Operation cleanup、結果正規化を要求する。Revision 0のStore搬送はRCM-IT-005で補完する | Provider・完全選定十項目・役割・試行番号・Catalog Identity・依頼種別・投影／Task／Packet本文Hash・許可参照・Request ID・Repository結合・Home観測値・Packet／Recovery／Process／Effectの件数・実cleanup・Process poison・元理由・exact回復参照と非公開条件 | Revision 0を既定Catalogの初期Snapshotとして保持し、負数・小数を計画前に拒否する。現在Repository Operationへ結合不能又はpreflight不成立ならHome観測・Packet・Provider Effectを0とする。元の不変完全選定と試行番号、Node観測のHome四値を同期prepareへ直接渡し、別Operation・役割・Provider・Packet差を拒否する。Selection／Home Grant、借戻しHash、準備Store・消費token・専用期限を要求しない。実Home wx取得・解放はExecutorが所有し、同期準備成功を実資源取得や回収へ換算しない。Packet失効の拒否・不明・例外では他の終了処理を飛ばさず、元理由・exact回復参照・清掃未確認とProcess poisonを保持する。用途別Executorへ一回だけ配送し、取消後の遅延完了でcancelledを上書きせず、自動再送しない。各結果項目は許可済み根拠参照を持ち、不正結果を部分公開しない | 固定入力、Catalog境界、投影とPacket本文、現在Operation、完全選定・Home四値、用途別Executor、公開Snapshot、不正結果、Packet失効、Recovery・Process・Effect・cleanup・poison件数と独立Oracleを保存する。Prompt・投影本文・Repository Path・AI本文・生Provider出力は保存しない | 有限代役以外の外部Effect 0、結合不能・preflight拒否時Home観測0、Packet・Recovery・Process・Provider Effect 0。失効不成立時のcleanup未確認・Process poisonと後続終了処理、実取消・実Home排他／解放・exact回復参照を維持する。Filesystem Effect・候補生成／採用・自動再送・取消後状態上書き・不正結果部分表示・生出力公開0 | Automated |
 
 `ERB-IT-004`の本番隔離入口は、上位からのCLI・環境・OS指定、未知field、Proxy、Accessorをgetter／観測前に拒否する。公開Factory実本文から実Candidateへ接続し、最下位だけの模擬で正常要求列、初回CLI観測失敗、同snapshot再確認失敗、環境不明と短期cleanup時の再確認を検証する。CLI二理由を区別し、環境例外を同じ例外のまま保持、不明時の新Process0と取得済みconfigの回収を確認する。CLI／Engine／最小環境／Process終端方式は独立した固定期待で照合する。この局所接続を実Docker・Host全体の成立へ昇格しない。
 
-`ERB-UT-023`のDocker技術計画断面は、既存命名の全文、二namespace、小文字64hex Identity、suffixとlabel、63／64文字境界、乱数Bufferの7／8／9・31／32／33byteと取得例外の同一性を確認する。旧上位UT一件をDIの既存Suiteへ移し、新Local Itemは作らない。上位`PRL-UT-014`では両Providerの実準備→消費から取得列`[8,32]`、五名・labelと九commandの搬送を照合する。最初の不正Bufferでも二度目取得を維持し、取得例外以後は取得しない。不成立時は取得済みMount返却1・Authority発行0・Docker要求0を確認し、Mount取得前へ処理順を変えない。純粋計画の成功は実Docker成立を意味しない。
+`ERB-UT-023`のDocker技術計画断面は、既存命名の全文、二namespace、小文字64hex Identity、suffixとlabel、63／64文字境界、乱数Bufferの7／8／9・31／32／33byteと取得例外の同一性を確認する。旧上位UT一件はDIの既存Suiteへ移し、新Local Itemは作らない。上位`PRL-UT-014`では両Providerの同期prepareから取得列`[8,32]`、五名・labelと九commandの搬送を照合する。最初の不正Bufferでも二度目取得を維持し、取得例外以後は取得しない。不成立時はProvider開始0・Docker要求0とする。準備時には物理Home Leaseを取得せず、架空のMount返却を要求しない。純粋計画の成功は実Docker成立を意味しない。
 
-`ERB-UT-023`では、Workbenchの明示AI実行をSelection不要の`none`へ畳まない。`beneficial`／`explicit_user_delegation`、明示Provider／Profile、Coordinator役割およびOperation Identityを要求fieldとして検査する。Productionが生成した初回・再発行要求を実Selection Runtimeへ直接渡し、旧Grant失効、新Grant消費およびProvider準備境界まで確認する。Mockが発行済み結果を返すことだけをProduction契約成立の根拠にしない。
+`ERB-UT-023`ではWorkbenchの明示AI実行を選定不要のnoneへ畳まない。beneficial／explicit_user_delegation、明示した完全選定、Coordinator役割およびOperation Identityを要求fieldとして検査する。Home前の事前確認は許可tokenを発行せず、現在OperationとProvider適合を確認する。元の不変選定と試行番号、Node観測のHome四値を同期prepareへ直接渡し、用途別Packet・技術五項目投影・実行記録との一致を確認する。Selection Grant専用正例を成功件数へ数えず退役し、Provider開始前拒否と現役Packet・取消・Recoveryの反証は維持する。
 
 `ERB-UT-023`の助言初期化失敗では、下位作成境界の清掃確認true／false、分類のない例外および取得済み参照あり／なしを分ける。Operation未返却だけで清掃未確認へ読み替えず、既知trueは維持、false／未知は停止とする。初回Runtime結果の私有分類、元結果Objectへの結合、copy後の非結合、公開JSONへの参照非漏えい、Provider開始0およびpoison要否を観測する。これは現在Process内の初回結果までの契約であり、後段投影・Request Owner・fresh Process再入場、実資源不存在または実清掃成功の証明にはしない。
 
@@ -711,30 +715,6 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 担当Interaction Relation: `PRT-000005.spec-000009`、`PRT-000010.spec-000015`
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
-
-## Host残存の限定回復に追加する観測条件
-
-[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の限定経路は未完成である。内部PolicyのUTとは分け、次の既存検証義務に観測条件を追加する。記載だけでは実施済みまたはCoveredとしない。
-
-| Local Item | 追加する反証・観測 | 終了後条件／現在状態 |
-|---|---|---|
-| `ERB-IT-001` | 選択ユーザー・Root・marker・全六childのexact結合、処置前のfresh再確認、限定削除と直接不存在観測。 | 全対象の明示不存在と全handle／observer／Lock解放を別々に確認する。OPEN: 実処置未接続。 |
-| `ERB-IT-002` | Identity差替え、非空child、未知child、別状態、Docker結合、使用中、初期化中および承認不一致。 | 処置前の拒否ではFilesystem／Provider Effect 0。OPEN: 実境界の拒否未観測。 |
-| `ERB-IT-003` | 部分清掃後のProcess喪失と同一対象への再入場。新しいfresh承認と保護済みlineageを検証し、既に処置済みの対象を別物へ置換しない。 | 発行済みEffect、残存対象、回復義務を保持する。OPEN: 保護済み再入場未接続。 |
-| `ERB-IT-004` | 旧形式のproducer／consumer観測が不完全、Lockだけ取得可能、markerだけ存在、非使用・不存在観測不能。 | unknownを非使用・不存在へ畳まず、追加Effect 0で停止する。OPEN: 実観測未接続。 |
-| `ERB-ST-030` | 将来の正式入口で、同じ実残存クラスを安全なfixtureとして発生させ、対象提示→承認→fresh確認→処置→最終観測を相関する。 | 新Provider依頼とDocker永続データ削除0。全資源不存在またはexactな回復義務を保持する。OPEN: 公開入口未接続。 |
-| `ERB-UAT-007` | 元Taskの回復権限と新しい限定保守承認の違い、実在対象と対象外、拒否時の理由を利用者が理解できるか確認する。 | 承認だけを実行・清掃完了へ表示しない。OPEN: 利用者確認未実施。 |
-
-Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上表の既存Local Itemへ次を追加する。Windows再起動やDockerの空一覧を合格条件の代替にしない。
-
-| Local Item | 所有範囲方式の追加観測／反証 |
-|---|---|
-| `ERB-IT-001` | 作成前の利用抑止から、所有処理の実終了、同じ対象の排他、処置と不存在確認、全Lock／handle解放までの順序を観測する。現在は未接続。 |
-| `ERB-IT-002` | 初期化中、診断・通常回収の競合、取消後の遅延取得、所有子Process残存、対象外Processの巻込みを別に反証する。処置前に拒否し、既存の他Operationへ停止・削除を発行しない。 |
-| `ERB-IT-003` | 親Process喪失、利用抑止または排他喪失、部分処置後の再入場を確認する。前回の非使用結果を再入場時のfresh観測に流用しない。 |
-| `ERB-IT-004` | 新しいLock導入後も旧形式を使える旧版／複製Runtime／別入口の未確認があれば停止する。Process名・件数0、空Root、Docker資源なしまたはhandle取得だけを非使用根拠としない。 |
-| `ERB-ST-030` | 公開入口へ接続する段階で、上記の取得・診断・通常回収・保守の母集団が同じ所有境界へ接続しているか確認する。OS全体の再起動や全Docker処理停止を暗黙に要求しない。 |
-| `ERB-UAT-007` | Coordinator所有の対象だけを提示し、元Taskとの対応が不明でも出所不明の任意フォルダと混同させない。実停止や削除には別の対象・影響確認が必要と理解できるか確認する。 |
 
 ## Docker回復・現在状態縮小の検証補強
 
@@ -899,11 +879,11 @@ Codexの内部error Itemは総件数とCode Mode文字列一致件数だけを�
 ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範囲で次を確認する。これは実AI・Docker操作の許可ではない。
 
 - Domain解決を拒否した新品ProcessでExecutor公開Rootをロードでき、局所捕捉・内部理由表を公開しない。
-- Executorは技術五項目の欠測・余剰・不正用途・Model／Effort／識別種別差と完全選定の混入、技術Planの不一致を拒否する。Coordinatorは完全選定Hash・Packet相関を準備時に検査し、開始時には同じ元記録と技術入力・管理Ownerの結合を再確認する。
+- Executorは技術五項目の欠測・余剰・不正用途・Model／Effort／識別種別差と完全選定の混入、技術Planの不一致を拒否する。Coordinatorは元計画の完全選定・役割・試行とPacket相関を準備時に直接照合し、開始時には同じ元記録と技術入力・管理Ownerの結合を再確認する。
 - Proxy・accessor・特殊prototype・symbol key・疎配列を実行せず拒否し、入力・許可参照を独立した不変値へ固定する。
 - 完了理由の発行集合とDomain保存受理集合を双方向に照合し、未知・欠測を受理しない。旧診断の完全形と新診断の部分欠測を混同しない。
-- 上位の完全選定借用は同じ有効Operation・選定ID・Hash・試行番号だけを受理し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術五項目へ置換しない。ロールとTask／Adviceの相関は上位準備で検査し、Executorの技術入力へroleを含めた場合は余剰として拒否する。
-- ModelSelection／TaskPacket／AdvicePacketの上位化では、Taskの操作ID・Hash・試行番号・stdin搬送、およびAdviceの操作ID・Hash・Provider・四非共有条件・選定roleの一軸差替えを、Authority発行前の拒否とMount借用終了まで確認する。Executorには管理Packetや選定記録ID・試行番号・利用側相関を渡さず、技術五項目・対象・排他的な実行内容を明示投影する。未知metadataのaccessor非評価、別Plan／別Owner callbackのEffect前拒否、準備消費後の開始拒否における未消費Authority失効とMount返却、上位の原結果・選定借用に基づく許可発行を反証する。既存のStandaloneはCoordinator非存在で同じ技術入力を構築できることを確認する。
+- 上位の完全選定は同じ有効Operation・役割・試行番号・Packetと直接照合し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術五項目へ置換しない。ロールとTask／Adviceの相関は上位準備で検査し、Executorの技術入力へroleを含めた場合は余剰として拒否する。
+- 完全選定／TaskPacket／AdvicePacketの上位化では、Taskの操作ID・本文Hash・試行番号・stdin搬送、およびAdviceの操作ID・本文Hash・Provider・四非共有条件・選定roleの一軸差替えを準備時に拒否する。Executorには管理Packetや上位試行・利用側相関を渡さず、技術五項目・対象・排他的な実行内容を明示投影する。未知metadataのaccessor非評価、別Plan／別Owner callbackのEffect前拒否を反証する。同期prepare自体は物理資源を取得しない。開始受付でRecovery未引渡しと引渡し後を区別し、後者は元Recovery Ownerとexact参照を保持する。既存StandaloneはCoordinator非存在で同じ技術入力を構築できることを確認する。
 
 ### ExecutorのDI結果直接接続の追加反証
 
@@ -922,7 +902,7 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 - 回復開始診断の型・固定段階・失敗通知はCoordinatorに存在し、Executor製品Sourceに残らない。上位Reporterへ直接報告し、Workbench／Coordinator検証ツールは同じCoordinator検査正本で未知値・余分field・別相関を拒否する。
 - 上位で記録確定後にHomeを取得する。競合・未開始記録保存の失敗でも同じ回復参照を保持し、未開始を清掃完了へ変換しない。
 - モデル入力はexact五項目の不変コピーを経てAI Adapterの既存Resolverへ四項目だけを渡し、identifierKindを含む一致とCatalog Identity非搬送を確認する。独自のModel／Effort列挙を持たない。
-- 基本形の一正本をHome取得前と完全構成照合前に使う。三用途・編集／レビューの正規構成、操作・Grant・選定・Offering・Mount・資源Identity・Home四Hash・九Command順序の負例を確認する。本文128KiB超も受理し、Path禁止文字、Advice Hash差、Command argv差は完全照合の独立した負例とする。不正基本形では下位Session開始零を観測する。単一Command開始・契約説明は試験入口だけに存在し、通常Rootと製品Runtime接続に露出しない。構成診断の固定event・fieldと秘密非搬送、任意通知失敗の非波及を維持する。
+- 基本形の一正本をHome取得前と完全構成照合前に使う。三用途・編集／レビューの正規構成、操作・完全選定・Offering・Mount・資源Identity・Home実体情報・九Command順序の負例を確認する。本文128KiB超も受理し、Path禁止文字、Advice本文Hash差、Command argv差は独立の負例とする。不正基本形で下位開始0、構成診断の固定fieldと秘密非搬送、任意通知失敗の非波及を維持する。選定／Mount Grantを条件にしない。
 - 助言参照はAI Adapterの同じ入力ParserをExecutor準備と内容検査で利用する。256・257・1024・1025件と513byte超参照の受理、周辺空白・重複・sparse・symbol・accessor・Proxy拒否、元値変更後の不変性を確認する。不正入力の乱数・Home・隔離Runtime構築は零。Setup理由Mapは継承名を拒否し、未知用途を固定fallbackへ閉じる。
 - 必須の通知はvoid／Promise<void>を待ち、throw／reject時は次の新規Effectを出さず技術回収する。任意onCompleted／onDiagnosticの例外を結果へ伝播しない。
 - 開始済みProcessの同期技術signalと公開非同期通知を区別する。公開通知pending中も技術回収は一回進むが、Parserは零回、completionは未確定。resolve後だけParser一回、遅いreject・取消ならParser零回・同じID・技術回収事実を保持する。不正Provider結果を即時通知成功と遅延成功の両経路へ流し、理由・一次故障・結果本文・Hash・byte数・清掃を含む同一結果とParser各一回を確認する。
@@ -940,7 +920,7 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 
 Reader受渡しは`bindResultReader`として、記録操作はDependencies直下の`recordTaskAttempt`として確認する。任意の記録結果通知だけを`TaskExecutionCallbacks`へ分離し、保存未設定・保存例外・通知失敗を区別する。同期捕捉の欠測・重複・終了後拒否と、Provider準備操作束の正常・検査拒否・取消は名称整理後も維持する。旧Portや旧Callback型への互換中継を追加しない。
 
-回復開始診断は本番関数本文の8停止点とreadyで、未登録・正常・同期例外・即時拒否・後着拒否・未完了を比較する。開始は同期で返り、readyで通知0、停止で通知一回、元結果・exact参照・保存回数・Host要求回数が不変であることを確認する。メモリ代役の回数比較を実資源の回収証明へ読み替えない。検証専用準備Adapterのoperations改名は既存の両Provider準備・拒否・取消・一回消費試験で確認する。
+回復開始診断は本番関数本文の8停止点とreadyで、未登録・正常・同期例外・即時拒否・後着拒否・未完了を比較する。開始は同期で返り、readyで通知0、停止で通知一回、元結果・exact参照・保存回数・Host要求回数が不変であることを確認する。メモリ代役の回数比較を実資源の回収証明へ読み替えない。両Providerの準備は同期plan返却と入力拒否を確認し、取消・一回開始・回収は実行Ownerの既存試験へ接続する。
 
 stdout観測は同期void以外を既存失敗経路へ接続し、Promise成功・即時拒否・後着拒否・pendingでも完了待ちを追加しない。probeが不正返却を外へ搬送し、そのchunkからreadyを成立させず既知readyは維持することを確認する。模擬Processの終了と自己所有合成子のexit／stdio終了を分け、実Dockerや実Windows資源の全体回収成立は主張しない。退役したPlatform故障購読・Native Protocol・喪失監視を再実装しない。
 
@@ -1023,7 +1003,7 @@ Attempt診断・回収移管では、基準版の現在資源回収・Owner再�
 | 実AI用Toolの製品接続 | provider-attempt-host／provider-real-cli.contract.test.tsで公開Executor→共通DIを通し、両ProviderのEnvelope、編集・レビュー・取消、元記録・子IPC・限定清掃を確認。旧Session代役は経由しない |
 | 最後の診断中の取消 | attempt-common.contract.test.ts及びprovider-attempt-host.contract.test.tsで終端診断内の取消を受理し、最終cancelled・内容／Hash／所見非公開を確認。先行blocked理由・元回復ID・回収事実は保持。onCompletedの取消は拒否 |
 | Homeの生涯 | 現在HomeのNode実体再確認と共通Lock保持確認、Provider送信前通知中の喪失、assertLive例外、解放拒否を分け、後続Effect0・元回復参照・回収と解放未確認の保持を確認 |
-| Operation Identity v3と資源Bookの正例 | Task結果fixtureはOperation Identity v3とDomainのsubmission→receipt→cleanupイベントを経由。Operation Identity v2を正例として再受理しない |
+| Operation Identity v5と資源Bookの正例 | Task結果fixtureはOperation Identity v5とEMのsubmission→receipt→cleanupイベントを経由する。旧v4・grantRefを正例として再受理しない |
 | 子本文の資源Oracle | current-host-transition.integration.test.tsのVM局所試験で完全五key、auth unknown／他資源未要求、元断面の全文保持、実ID・Receipt由来を確認。合法な値の変異と比較省略を負対照にする |
 | 管理情報 | Executor公開境界試験でExecutor／DIの全Symbolの現存Sourceと識別子重複を検査。実AI用Toolの旧試験Runtime参照も拒否 |
 
@@ -1135,7 +1115,7 @@ HST-UT-001では要約の元Buffer参照、LF有無・固定Hash・不正入力�
 
 ## 助言Packetの選定受付維持 — 2026-11-18
 
-ERB-UT-023は、選定Hash計算の再検査撤去後もDispatchとProvider Adapterの両入口でPacket側の完全選定を一回独立捕捉する。余剰field・Getter・Proxy・欠測は拒否し、hook実行0、Adapter／Runtime呼出し0、Provider Effect未発行を確認する。正常な選定・既存Hash・現在Grant／期限／Mountの再確認は維持する。
+ERB-UT-023はDispatchとProvider受付で必要な未信頼入力を独立捕捉し、元の不変完全選定をPacket・準備計画へ直接搬送する。余剰field・Getter・Proxy・欠測を拒否し、hook実行0、Adapter／Runtime呼出し0、Provider Effect未発行を確認する。Packet本文Hash・現在Operation・Home実体の検査は維持し、選定借戻しHash・別Grant・TTLを再導入しない。
 
 ## 開発Source観測の利用側接続
 

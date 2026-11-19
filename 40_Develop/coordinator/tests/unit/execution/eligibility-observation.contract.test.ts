@@ -10,6 +10,17 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { compileFunction } from "node:vm";
+import { inspectExecutionSelection } from "../../../../execution-model/src/index.ts";
+import { resolveModelSelection } from "../../../../ai-adapter/src/index.ts";
+import {
+  snapshotPlainRecord,
+  snapshotPlainArray,
+} from "../../../src/input/snapshot.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { evaluateProviderAvailability } from "../../../src/execution/observation.ts";
 
 import {
@@ -325,4 +336,116 @@ test("公開契約はcaller claimと有料API fallbackを認めない", () => {
   assert.equal(contract.paidApiFallback, "prohibited_unsupported_by_default");
   assert.equal(contract.verifiedEligibilityClaimAllowed, false);
   assert.equal(contract.automaticFallbackAfterProviderRequestAllowed, false);
+});
+
+/**
+ * 単一・二選定の完全捕捉と非発行preflightを同じ現在観測へ接続する。
+ * @responsibility 退役Grantを再発行せず適合・不正値・未知利用可能性を拒否する。
+ * @trace PRL-UT-006
+ * @precondition 実宣言と実選定検査に有限の現在Operation・利用可能性観測だけを渡す。
+ * @stimulus 正常二用途、別操作、不正選定、欠測・重複Providerを渡す。
+ * @observation 独立凍結された完全選定と観測回数・固定拒否。
+ * @oracle 一断面観測で適合し、人工ID・Capabilityを返さない。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 現役非発行preflightとProvider適合。
+ */
+test("非発行preflightは単一と二選定を同一観測断面で照合する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/authority.ts", import.meta.url),
+    "utf8",
+  );
+  const body = stripTypeScriptTypes(
+    [
+      sourceDeclaration(source, "selectionEligibilityFailure"),
+      sourceDeclaration(source, "preflightRuntimeOwnedDelegationSelections"),
+    ].join("\n"),
+  );
+  let observations = 0;
+  let providers: unknown = [
+    { provider: "codex", status: "eligible", reason: "ready" },
+    { provider: "claude", status: "eligible", reason: "ready" },
+  ];
+  const preflight = compileFunction(
+    `${body}\nreturn preflightRuntimeOwnedDelegationSelections;`,
+    [
+      "verifyOwnedOperationManagementCapability",
+      "verifyRuntimeOwnedRepositoryOperation",
+      "observeRuntimeOwnedProviderEligibility",
+      "snapshotPlainRecord",
+      "snapshotPlainArray",
+      "inspectExecutionSelection",
+      "resolveModelSelection",
+    ],
+  )(
+    () => ({ operationId: "OP-123456" }),
+    () => ({ operationId: "OP-123456" }),
+    () => {
+      observations++;
+      return providers;
+    },
+    snapshotPlainRecord,
+    snapshotPlainArray,
+    inspectExecutionSelection,
+    resolveModelSelection,
+  );
+  const first = executionSelection();
+  const second = executionSelection("independent_reviewer", {
+    provider: "claude",
+    model: "opus",
+    effort: "high",
+  });
+  for (const selections of [[first], [first, second]]) {
+    observations = 0;
+    const result = preflight(
+      {},
+      { operationId: "OP-123456", executionSelections: selections },
+    );
+    assert.equal(result.status, "candidate");
+    assert.equal(result.operationId, "OP-123456");
+    assert.deepEqual(Array.from(result.executionSelections), selections);
+    assert.ok(Object.isFrozen(result.executionSelections));
+    for (let index = 0; index < selections.length; index++) {
+      assert.notEqual(result.executionSelections[index], selections[index]);
+      assert.ok(Object.isFrozen(result.executionSelections[index]));
+    }
+    assert.deepEqual(
+      Object.keys(result).sort(),
+      ["status", "operationId", "executionSelections"].sort(),
+    );
+    assert.equal(observations, 1);
+  }
+  for (const input of [
+    { operationId: "OP-654321", executionSelections: [first] },
+    { operationId: "OP-123456", executionSelections: [] },
+    { operationId: "OP-123456", executionSelections: [first, first, first] },
+    {
+      operationId: "OP-123456",
+      executionSelections: [{ ...first, modelIdentifier: "retired-model" }],
+    },
+    {
+      operationId: "OP-123456",
+      executionSelections: [
+        {
+          ...first,
+          identifierKind: first.identifierKind === "exact" ? "alias" : "exact",
+        },
+      ],
+    },
+  ])
+    assert.equal(preflight({}, input).status, "blocked");
+  for (const missing of [
+    [],
+    [{ provider: first.provider, status: "ineligible", reason: "unknown" }],
+    [
+      { provider: first.provider, status: "eligible", reason: "ready" },
+      { provider: first.provider, status: "eligible", reason: "duplicate" },
+    ],
+  ]) {
+    providers = missing;
+    assert.equal(
+      preflight({}, { operationId: "OP-123456", executionSelections: [first] })
+        .status,
+      "blocked",
+    );
+  }
 });

@@ -203,47 +203,6 @@ export function classifyCoordinatorTaskTerminalLifecycleState(
   return "STATE-BLOCKED-CLEAN" as const;
 }
 
-/**
- * Testable projection used only after the outer development cleanup settles.
- *
- * @responsibility Development Task 結果 After Outer 清掃の公開field、秘匿境界、投影不能時の結果境界を所有する。
- * @trace ARCH-000004
- * @input taskResult: Readonly<Record<string, unknown>>、cleanupConfirmed: boolean
- * @returns projectDevelopmentTaskResultAfterOuterCleanupの計算結果を返す。
- * @precondition 「taskResult: Readonly<Record<string, unknown>>、cleanupConfirmed: boolean」がprojectDevelopmentTaskResultAfterOuterCleanupの入力契約を満たす。
- * @postcondition projectDevelopmentTaskResultAfterOuterCleanupの責務を完了した結果だけを返す。
- * @effect N/A: projectDevelopmentTaskResultAfterOuterCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure projectDevelopmentTaskResultAfterOuterCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant projectDevelopmentTaskResultAfterOuterCleanupは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: projectDevelopmentTaskResultAfterOuterCleanupはProcess内の同一Subsystemで完結する。
- * @security projectDevelopmentTaskResultAfterOuterCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: projectDevelopmentTaskResultAfterOuterCleanupは共有非同期状態を持たない同期処理である。
- */
-export function projectDevelopmentTaskResultAfterOuterCleanup(
-  taskResult: Readonly<Record<string, unknown>>,
-  cleanupConfirmed: boolean,
-) {
-  if (cleanupConfirmed) return taskResult;
-  const snapshot: Record<string, unknown> = Object.create(null);
-  const descriptors = Object.getOwnPropertyDescriptors(taskResult);
-  for (const key of Reflect.ownKeys(descriptors)) {
-    if (typeof key !== "string")
-      throw new Error("development_task_result_projection_invalid");
-    if (key === "providerTurnObservations") continue;
-    const descriptor = descriptors[key];
-    if (
-      !descriptor ||
-      !Object.hasOwn(descriptor, "value") ||
-      descriptor.get !== undefined ||
-      descriptor.set !== undefined ||
-      descriptor.enumerable !== true
-    )
-      throw new Error("development_task_result_projection_invalid");
-    snapshot[key] = descriptor.value;
-  }
-  return Object.freeze(snapshot);
-}
-
 const recoveryObservationKeys = new Set([
   "status",
   "reason",
@@ -453,11 +412,8 @@ function isSha256Hex(value: unknown): value is string {
 export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
   prepareFailed: "coordinator_task_provider_prepare_failed",
   modelSelectionInvalid: "coordinator_task_provider_model_selection_invalid",
-  mountAuthorizationInvalid:
-    "coordinator_task_provider_mount_authorization_invalid",
   taskPacketInvalid: "coordinator_task_provider_task_packet_invalid",
   planInvalid: "coordinator_task_provider_plan_invalid",
-  authorityInvalid: "coordinator_task_provider_authority_invalid",
   recoveryCorrelationInvalid:
     "coordinator_task_provider_recovery_correlation_invalid",
 } as const);
@@ -495,10 +451,6 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_candidate_verification_failed",
   "coordinator_task_control_invalid",
   "coordinator_task_completed",
-  "coordinator_task_development_invocation_not_authorized",
-  "coordinator_task_development_invocation_settlement_invalid",
-  "coordinator_task_development_permission_expired",
-  "coordinator_task_development_permission_required",
   "coordinator_task_docker_finalization_capability_missing",
   "coordinator_task_docker_recovery_finalization_unconfirmed",
   "coordinator_task_docker_recovery_handoff_state_invalid",
@@ -522,8 +474,6 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
   "coordinator_task_independent_review_not_approved",
   "coordinator_task_internal_outcome_invalid",
-  "coordinator_task_mount_grant_consume_failed",
-  "coordinator_task_mount_grant_issue_failed",
   "coordinator_task_operation_cleanup_outcome_invalid",
   "coordinator_task_operation_cleanup_unconfirmed",
   "coordinator_task_operation_creation_failed",
@@ -537,10 +487,6 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_process_start_failed",
   "coordinator_task_provider_failed",
   "coordinator_task_provider_home_observation_failed",
-  "coordinator_task_provider_home_reobservation_failed",
-  "coordinator_task_provider_selection_refresh_failed",
-  "coordinator_task_provider_selection_refresh_mismatch",
-  "coordinator_task_provider_selection_refresh_revoke_failed",
   "coordinator_task_read_projection_recognized_secret_rejected",
   "coordinator_task_recovery_correlation_invalid",
   "coordinator_task_remediated_candidate_invalid",

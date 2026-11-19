@@ -42,7 +42,7 @@
 
 ## 契約と反証例
 
-候補契約の正本は[Coordinator詳細設計§11](../../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)。この記録は採用理由・進行・検証状態を所有し、契約を複製しない。
+候補契約の正本は[旧参照][Coordinator詳細設計§11](../../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)。この記録は採用理由・進行・検証状態を所有し、契約を複製しない。
 
 | 例 | 第一単位の処置 | 後段の必要根拠 |
 |---|---|---|
@@ -278,7 +278,7 @@ r4原記録と旧r3は不変だった。起動shimまでの再識別、35件の�
 
 基準Commit `276f993e660a1ab2c041538b665953a9dfe100b5`のcleanな状態から、全利用側移行の前提となる共有回復記録Directoryの所有を確認した。親と読取り専用確認者は、`ensureHostRecoveryDirectory`内の失敗時rmdirが他Taskの使用と競合し得ることを照合した。Operation失敗時に共有Directoryを削除しない方針は、同じCHGで承認済みの限定Recoveryを成立させる前提是正として着手可だった。新しいphase、管理ID、公開Capabilityまたは実操作許可は追加しない。
 
-契約の正本は[Coordinator詳細設計§11](../../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)。共有DirectoryをOperation一時Rootと分け、mkdir呼出しのEEXISTだけをfresh検証へ合流させる。観測・検証失敗を通常Errorのまま上位の清掃確認trueへ既定化せず、既存InitializationFailureの清掃未確認・回復IDなしとして搬送する。Tokenは生成しない。不明時はOperator確認待ちで、元Task再開や自動retryは追加しない。
+契約の正本は[旧参照][Coordinator詳細設計§11](../../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)。共有DirectoryをOperation一時Rootと分け、mkdir呼出しのEEXISTだけをfresh検証へ合流させる。観測・検証失敗を通常Errorのまま上位の清掃確認trueへ既定化せず、既存InitializationFailureの清掃未確認・回復IDなしとして搬送する。Tokenは生成しない。不明時はOperator確認待ちで、元Task再開や自動retryは追加しない。
 
 | 編集対象 | 処置・変更しない範囲 |
 |---|---|
@@ -424,7 +424,7 @@ Formatter、二型構成、Warningを失敗とするLint、三静的Contract、C
 
 ## 終端記録の保存・再入場 — 候補契約の具体化
 
-基準Commitは`2db37721f29ab16534e6237fdae2b4a0c4b723bb`。元markerを処置後も同じ回復対象へ戻れるよう、[詳細設計の候補契約](../../../../06_Architecture/Details/coordinator/01_Architecture.md#終端記録の保存再入場の候補契約)を具体化する。記録は対象・進行を追う手掛かりであり、元TaskのAuthorityまたは清掃成功の正本にしない。
+基準Commitは`2db37721f29ab16534e6237fdae2b4a0c4b723bb`。元markerを処置後も同じ回復対象へ戻れるよう、[旧参照][詳細設計の候補契約](../../../../06_Architecture/Details/coordinator/01_Architecture.md#終端記録の保存再入場の候補契約)を具体化する。記録は対象・進行を追う手掛かりであり、元TaskのAuthorityまたは清掃成功の正本にしない。
 
 ### 変更経路と着手前整合
 
@@ -701,7 +701,7 @@ r5文書入力のscoped Checkerも25278ms、Exit 0、Finding 0、Warning 0、関
 | 元Loader／cold再入場／管理清掃 | 変更しない。元Token Loaderをterminal Authorityへ流用しない。 | freshなOwner、同じcaller参照、保護、Identityと非使用へ再結合し、Evidence引渡し後だけ記録自身を限定清掃する。 |
 | 旧三Root・実Provider Task | 停止Gateを維持、操作0。 | 旧形式の非使用とexact処置の根拠・別承認。形式UTのPassを清掃許可にしない。 |
 
-Schemaの正本は[Coordinator詳細設計](../../../../06_Architecture/Details/coordinator/01_Architecture.md#終端intentの閉じた搬送形式)。正常例は両producerの完全snapshot、非発火例はRoot未作成、境界例はu32／8KiB・bytes差、情報不足例は欠落Identity・不明producerとして処置する。形状を受理しても実由来・現在権限・非使用・保存・清掃を証明しない。完全intentの現在のconsumerは内部UTだけであり、公開Capabilityとして表示しない。
+Schemaの正本は[旧参照][Coordinator詳細設計](../../../../06_Architecture/Details/coordinator/01_Architecture.md#終端intentの閉じた搬送形式)。正常例は両producerの完全snapshot、非発火例はRoot未作成、境界例はu32／8KiB・bytes差、情報不足例は欠落Identity・不明producerとして処置する。形状を受理しても実由来・現在権限・非使用・保存・清掃を証明しない。完全intentの現在のconsumerは内部UTだけであり、公開Capabilityとして表示しない。
 
 ### 局所検証結果
 

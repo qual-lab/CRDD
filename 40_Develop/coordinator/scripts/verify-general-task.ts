@@ -26,7 +26,7 @@ import {
   isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/execution/diagnostics.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/measurement.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "./measure-development-providers.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,

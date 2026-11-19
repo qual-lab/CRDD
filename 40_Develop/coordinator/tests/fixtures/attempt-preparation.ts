@@ -23,19 +23,16 @@ import type {
  * @responsibility 公開metadataと実行Planを混同せず、従来の技術構成反証を維持する。
  * @trace PRL-UT-014
  * @effect 試験内のMapのみ。Home取得・Command発行・永続化は行わない。
- * @invariant 上位への内部Plan投影は試験のconsumeだけで、製品Sourceには存在しない。
+ * @invariant 上位記録と下位Planは合成せず、試験の観測callbackで別々に渡す。
  */
 export function createAttemptPreparation<P extends Provider>(
   provider: P,
   dependencies: PreparationHost<P>,
-): Omit<AttemptPreparation<P>, "consume"> &
-  Readonly<{
-    consumeRecord: AttemptPreparation<P>["consume"];
-    consume(
-      prepared: unknown,
-      management: unknown,
-    ): (PreparedAttemptPlan<P> & TestAttemptPlan) | null;
-  }> {
+  observePlan?: (
+    plan: PreparedAttemptPlan<P>,
+    technicalPlan: TestAttemptPlan,
+  ) => void,
+): AttemptPreparation<P> {
   const plans = new WeakMap<Executor<"attempt">, TestAttemptPlan>();
   const owner = createOwner(provider, dependencies, (request, random) => {
     const values = [random.randomBytes(8), random.randomBytes(32)];
@@ -71,14 +68,13 @@ export function createAttemptPreparation<P extends Provider>(
   });
   return Object.freeze({
     ...owner,
-    consumeRecord: owner.consume,
-    consume: (prepared: unknown, management: unknown) => {
-      const owned = owner.consume(prepared, management);
-      if (!owned) return null;
-      const plan = plans.get(owned.executor);
+    prepare: (input: Parameters<AttemptPreparation<P>["prepare"]>[0]) => {
+      const prepared = owner.prepare(input);
+      if (prepared.status !== "prepared") return prepared;
+      const plan = plans.get(prepared.plan.executor);
       if (!plan) throw Error("fixture_plan_missing");
-      return Object.freeze({ ...owned, ...plan }) as PreparedAttemptPlan<P> &
-        TestAttemptPlan;
+      observePlan?.(prepared.plan, plan);
+      return prepared;
     },
   });
 }

@@ -283,18 +283,18 @@ test("開始拒否は清掃と元回復参照と下位義務を独立に保持�
 });
 
 /**
- * 五つの物理清掃条件と保存受理の全組合せを照合する。
+ * 四つの物理清掃条件と保存受理の全組合せを照合する。
  * @responsibility 一条件の欠測も成功や結果公開へ丸めないことを反証する。
  * @trace ERB-UT-023
  * @precondition 実Controllerの純粋な終端投影宣言だけを構文木から抽出する。
- * @stimulus 64組合せとcompleted／blocked／cancelledを渡す。
+ * @stimulus 32組合せとcompleted／blocked／cancelledを渡す。
  * @observation 状態、元回復参照、本文とHash、回復Capabilityを照合する。
  * @oracle 全条件成立時だけ清掃確定し、本文公開はさらにcompletedを要する。
  * @cleanup N/A: 実Process、保存、Dockerを操作しない。
  * @boundary ERB-UT-023=Direct Boundary: Controller終端の相関不変条件。
 
  */
-test("終端結果は技術清掃と上位保存の全64組合せを区別し、上位判断を所有しない", () => {
+test("終端結果は技術清掃と上位保存の全32組合せを区別し、上位判断を所有しない", () => {
   const source = readFileSync(
     new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
@@ -306,7 +306,6 @@ test("終端結果は技術清掃と上位保存の全64組合せを区別し、
     "processTreeTerminationConfirmed",
     "containersAbsent",
     "networksAbsent",
-    "mountLeaseReleased",
     "homeLeaseReleased",
     "recoveryCompleted",
   ] as const;
@@ -316,7 +315,7 @@ test("終端結果は技術清掃と上位保存の全64組合せを区別し、
   });
   const findings = Object.freeze([{ message: "Synthetic finding." }]);
   const capability = Object.freeze({});
-  for (let bits = 0; bits < 64; bits++) {
+  for (let bits = 0; bits < 1 << keys.length; bits++) {
     const flags = Object.fromEntries(
       keys.map((key, index) => [key, !!(bits & (1 << index))]),
     );
@@ -325,7 +324,6 @@ test("終端結果は技術清掃と上位保存の全64組合せを区別し、
         status,
         reason: null,
         operationId: "OP-000001",
-        selectionRecordId: "selection",
         recoveryId: "exact-recovery",
         ...flags,
         providerRequestStarted: true,
@@ -339,7 +337,7 @@ test("終端結果は技術清掃と上位保存の全64組合せを区別し、
         subscriptionAuthConfirmed: true,
         recoveryFinalizationCapability: capability,
       });
-      const clean = (bits & 23) === 23;
+      const clean = keys.slice(0, 4).every((key) => flags[key]);
       assert.equal(result.cleanupConfirmed, clean);
       assert.equal(result.status, clean ? status : "blocked");
       assert.equal(result.recoveryId, "exact-recovery");

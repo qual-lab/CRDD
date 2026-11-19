@@ -30,7 +30,6 @@
     "src/execution/diagnostics.ts",
     "bin/coordinator.ts",
     "scripts/check-dynamic-fake-provider-coverage.ts",
-    "scripts/check-provider-authority-coverage.ts",
     "scripts/check-provider-home-coverage.ts",
     "scripts/check-runtime-traceability.ts",
     "scripts/check-task-design-traceability.ts",

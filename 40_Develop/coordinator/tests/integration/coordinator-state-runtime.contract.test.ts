@@ -281,13 +281,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
     operationId: repository.operationId,
     recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: executionSelection("executor", {
       provider: "claude",
       model: "opus",
@@ -2426,7 +2425,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         observation: "not_requested",
       })),
       homeLeaseReleased: true,
-      mountLeaseReleased: true,
       recoveryCompleted: true,
       primaryFailure: lifecycle.primaryFailure,
     });
@@ -2522,7 +2520,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       provider: "claude" as const,
       consumer: "orchestrator" as const,
       operationId: freshRepository.operationId,
-      grantRef: identity.grantRef,
       executionSelection: identity.executionSelection,
       taskAttempt: identity.taskAttempt,
       stableLogicalHomeBindingHash: identity.stableLogicalHomeBindingHash,
@@ -2790,35 +2787,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     let completeCalls = 0;
     let isFailHostObservation = false;
     let hostObservationCalls = 0;
-    const mountResult = Object.freeze({});
+    const recoveryOwner = Object.freeze({});
     const completionPlan = {
       ...startPlan,
       ...attemptSelection(startPlan.executionSelection),
-      activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
       typeof import("../../src/execution/recovery.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
-    const mountRuntime = await import("../../src/execution/authority.ts");
-    const mountMock = t.mock.module("../../src/execution/authority.ts", {
-      namedExports: {
-        ...mountRuntime,
-        verifyRuntimeOwnedProviderHomeMountCompletion(
-          result: unknown,
-          owner: unknown,
-          active: unknown,
-          operationId: unknown,
-          home: unknown,
-        ) {
-          return (
-            result === mountResult &&
-            owner === freshManagement &&
-            active === completionPlan.activeMountCapability &&
-            operationId === completionPlan.operationId &&
-            home === completionPlan.stableLogicalHomeBindingHash
-          );
-        },
-      },
-    });
     const hostStartMock = t.mock.module("../../src/execution/operation.ts", {
       namedExports: {
         ...executionEnvironment,
@@ -2869,15 +2844,25 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../src/selection/resolve.ts", import.meta.url).href}";`,
+        'import { isDeepStrictEqual } from "node:util";',
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../execution-model/src/index.ts", import.meta.url).href}";`,
-        `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
+        "let fixtureOwner, fixtureRecord; export function bindFixtureRecovery(owner, record) { fixtureOwner=owner; fixtureRecord=record; } function durableRecord(owner) { return owner===fixtureOwner ? fixtureRecord : null; }",
         `import { saveOperationCheckpoint, readOperationStateStage } from "${new URL("../../src/execution/persistence.ts", import.meta.url).href}";`,
       ].join("\n");
       const hostStartRuntime = (await import(
         `data:text/javascript;base64,${Buffer.from(`${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
-      )) as typeof import("../../src/execution/recovery.ts");
+      )) as typeof import("../../src/execution/recovery.ts") & {
+        bindFixtureRecovery(owner: object, record: object): void;
+      };
+      const fixtureRecovery = {
+        managementCapability: freshManagement,
+        recoveryId: freshStarted.recoveryId,
+        operationId: completionPlan.operationId,
+        cleanupCheckpoint: {},
+        homeLeaseReleased: true,
+      };
+      hostStartRuntime.bindFixtureRecovery(recoveryOwner, fixtureRecovery);
       const beforeHostRequest = fs.readFileSync(freshStateFile);
       const wrongOwner =
         hostStartRuntime.beginRuntimeOwnedCoordinatorHostSubmission(
@@ -2966,23 +2951,26 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.equal(beginCalls, 2);
       assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
       const completeHost = (
-        mount: unknown = mountResult,
+        owner: unknown = recoveryOwner,
         plan: typeof completionPlan = completionPlan,
       ) =>
         hostStartRuntime.completeRuntimeOwnedCoordinatorHostSubmission(
           freshManagement,
           freshStarted.recoveryId,
           plan,
-          mount,
+          owner,
         );
-      for (const mount of [{}, null]) {
-        const invalid = completeHost(mount);
+      for (const owner of [{}, null]) {
+        const invalid = completeHost(owner);
         assert.equal(invalid.status, "blocked");
         assert.equal(invalid.hostTransitionRequested, false);
         assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
       }
+      fixtureRecovery.recoveryId = "other-recovery";
+      assert.equal(completeHost().status, "blocked");
+      assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
+      fixtureRecovery.recoveryId = freshStarted.recoveryId;
       for (const plan of [
-        { ...completionPlan, selectionHash: "f".repeat(64) },
         { ...completionPlan, operationId: "OP-DIFFERENT" },
         {
           ...completionPlan,
@@ -2992,7 +2980,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           },
         },
       ])
-        assert.equal(completeHost(mountResult, plan).status, "blocked");
+        assert.equal(completeHost(recoveryOwner, plan).status, "blocked");
       const intentPending = completeHost();
       assert.equal(intentPending.status, "blocked");
       assert.equal(intentPending.hostTransitionRequested, false);
@@ -3128,7 +3116,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.deepEqual(fs.readFileSync(freshStateFile), completeBytes);
     } finally {
       hostStartMock.restore();
-      mountMock.restore();
       const remainingHost = borrowOwnedHostRecoverySnapshot(freshManagement);
       if (remainingHost.snapshot.record.state === "docker_submission_started") {
         completeOwnedDockerSubmissionRecovery(
@@ -3340,7 +3327,6 @@ for (const issuedFailure of [false, true]) {
         provider: "claude",
         consumer: "workbench",
         operationId: repository.operationId,
-        grantRef: "PHMGRANT-FIXTURE",
         executionSelection: executionSelection("executor", {
           provider: "claude",
           model: "opus",
@@ -3606,13 +3592,12 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       .digest("hex");
     const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const identityJson = `${JSON.stringify({
-      schema: "crdd-coordinator/operation-identity/v4",
+      schema: "crdd-coordinator/operation-identity/v5",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer,
       operationId: repository.operationId,
       recoveryCorrelationId: "task-operation-a",
-      grantRef: "PHMGRANT-FIXTURE",
       executionSelection: executionSelection("executor", {
         provider: "claude",
         model: "opus",

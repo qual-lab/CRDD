@@ -19,8 +19,11 @@ import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
 import {
   bindIsolationRuntime,
   describeIsolationContract,
+  isAttemptPlanValid,
+  resolveIsolationCommandInput,
 } from "../../../executor/scripts/executor-test.ts";
 import type { DockerIsolationRuntimePlan } from "../../../executor/tests/support/isolation-execution.ts";
+import type { TestAttemptPlan } from "../../../executor/scripts/executor-test.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -37,14 +40,12 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   loadHostRecoveryRecordByToken,
+  recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/execution/operation.ts";
-import {
-  executionSelection,
-  preparationSelection,
-} from "../fixtures/ai-selection.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 
 /**
@@ -82,125 +83,90 @@ function createPlanFixture(
       effort: isCompatibilityTask ? "medium" : "low",
     },
   );
-  const model = selected.modelIdentifier;
   const managementCapability =
     ownerBinding?.managementCapability ?? Object.freeze({});
   const operationId = ownerBinding?.mountBinding.operationId ?? "OP-123456";
   const mountCapability = Object.freeze({});
-  const mountAuthorizationCapability = Object.freeze({});
-  const selectionUseCapability = Object.freeze({});
-  const activeMountCapability = Object.freeze({});
-  const authorityUseCapability = Object.freeze({});
-  const authorityControlCapability = Object.freeze({});
-  let randomValue = 0;
-  const adapter = createAttemptPreparation(provider, {
-    verifyOperationMount: () =>
-      Object.freeze({
-        operationId,
-        createdAt: "2026-08-25T00:00:00.000Z",
-        mounts:
-          ownerBinding?.mountBinding.mounts ??
-          Object.freeze({
-            workspace: "C:\\operation\\workspace",
-            providerHome: "C:\\operation\\provider-home",
-            tmp: "C:\\operation\\tmp",
-            events: "C:\\operation\\events",
-            projection: "C:\\operation\\projection",
-            management: "C:\\operation\\management",
-          }),
-      }),
-    activateMount: () =>
-      Object.freeze({
-        status: "activated",
-        grant: Object.freeze({
-          grantRef: "PHMGRANT-123456",
-          provider,
-          operationId,
-          providerHomeIdentityHash: "d".repeat(64),
-          stableLogicalHomeBindingHash: "1".repeat(64),
-        }),
-        activeMountCapability,
-      }),
-    borrowMountSource: () => `C:\\provider-homes\\${provider}`,
-    completeMount: () => Object.freeze({ status: "completed" }),
-    wallNow: () => 1_000,
-    monotonicNow: () => 2_000,
-    randomBytes: (size) => {
-      randomValue += 1;
-      return Buffer.alloc(size, randomValue);
-    },
-    consumeModelSelection: () =>
-      Object.freeze({
-        selectionRecordId: "MODELSEL-12345678",
-        operationId,
-        executorProvider: provider,
-        model,
-        ...preparationSelection(selected),
-        selectionHash: hashExecutionSelection(selected) as string,
-        taskAttempt: 0 as const,
-        effort: isCompatibilityTask ? ("medium" as const) : ("low" as const),
-        speedMode: "normal" as const,
-        selectionNotice:
-          "[委譲経路選定] front=codex executor=claude\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
-      }),
-    consumeTaskPacket: () =>
-      Object.freeze({
-        operationId,
-        taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
-        taskRole: taskRole ?? "executor",
-        taskAttempt: 0 as const,
-        selectionHash: hashExecutionSelection(selected) as string,
-        taskWorkload: {
-          readPathCount: 1,
-          allowedPathCount: 1,
-          acceptanceCriterionCount: 1,
-          remediationFindingCount: 0,
-        },
-        taskPacketHash: "d".repeat(64),
-        prompt: "Execute the exact isolated task.",
-        additionalHosts: Object.freeze([]),
-        promptTransport: "provider_stdin_only" as const,
-      }),
-    consumeAdvicePacket: () => {
-      return Object.freeze({
-        contract: "crdd-executor/advice-input",
-        contractRevision: 2,
-        packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
-        operationId,
-        ...preparationSelection(selected),
-        provider,
-        taskHash: "2".repeat(64),
-        projectionHash: "3".repeat(64),
-
-        packetHash: "5".repeat(64),
-        additionalHosts: Object.freeze([]),
-        providerPrompt: "Give advice from the supplied projection.",
-        allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-        repositoryMounted: false as const,
-        workspaceMounted: false as const,
-        toolsAllowed: false as const,
-        sessionPersistenceAllowed: false as const,
-      });
-    },
-    issueProviderAuthority: () =>
-      Object.freeze({
-        status: "issued",
-        useCapability: authorityUseCapability,
-        controlCapability: authorityControlCapability,
-        operationId,
-        provider,
-        providerHomeMountGrantRef: "PHMGRANT-123456",
-        runtimeAuthorityIssued: true,
-      }),
-    revokeProviderAuthority: () => Object.freeze({ status: "revoked" }),
+  const providerHome = Object.freeze({
+    provider,
+    providerHomeSourcePath: `C:\\provider-homes\\${provider}`,
+    providerHomeIdentityHash: "d".repeat(64),
+    stableLogicalHomeBindingHash: "1".repeat(64),
   });
+  let randomValue = 0;
+  const technicalPlans: TestAttemptPlan[] = [];
+  const adapter = createAttemptPreparation(
+    provider,
+    {
+      verifyOperationMount: () =>
+        Object.freeze({
+          operationId,
+          createdAt: "2026-08-25T00:00:00.000Z",
+          mounts:
+            ownerBinding?.mountBinding.mounts ??
+            Object.freeze({
+              workspace: "C:\\operation\\workspace",
+              providerHome: "C:\\operation\\provider-home",
+              tmp: "C:\\operation\\tmp",
+              events: "C:\\operation\\events",
+              projection: "C:\\operation\\projection",
+              management: "C:\\operation\\management",
+            }),
+        }),
+      randomBytes: (size) => {
+        randomValue += 1;
+        return Buffer.alloc(size, randomValue);
+      },
+      consumeTaskPacket: () =>
+        Object.freeze({
+          operationId,
+          taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+          taskRole: taskRole ?? "executor",
+          taskAttempt: 0 as const,
+          executionSelection: selected,
+          taskWorkload: {
+            readPathCount: 1,
+            allowedPathCount: 1,
+            acceptanceCriterionCount: 1,
+            remediationFindingCount: 0,
+          },
+          taskPacketHash: "d".repeat(64),
+          prompt: "Execute the exact isolated task.",
+          additionalHosts: Object.freeze([]),
+          promptTransport: "provider_stdin_only" as const,
+        }),
+      consumeAdvicePacket: () => {
+        return Object.freeze({
+          contract: "crdd-executor/advice-input",
+          contractRevision: 2,
+          packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+          operationId,
+          executionSelection: selected,
+          provider,
+          taskHash: "2".repeat(64),
+          projectionHash: "3".repeat(64),
+
+          packetHash: "5".repeat(64),
+          additionalHosts: Object.freeze([]),
+          providerPrompt: "Give advice from the supplied projection.",
+          allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
+          repositoryMounted: false as const,
+          workspaceMounted: false as const,
+          toolsAllowed: false as const,
+          sessionPersistenceAllowed: false as const,
+        });
+      },
+    },
+    (_upper, technical) => technicalPlans.push(technical),
+  );
   const prepared = isAdvice
     ? adapter.prepare({
         purpose: "advice",
         managementCapability: managementCapability,
         mountCapability: mountCapability,
-        mountAuthorizationCapability: mountAuthorizationCapability,
-        selectionUseCapability: selectionUseCapability,
+        providerHome,
+        executionSelection: selected,
+        taskAttempt: 0,
         recoveryCorrelationId: null,
         consumer: "workbench",
         packetCapability: Object.freeze({}),
@@ -211,8 +177,9 @@ function createPlanFixture(
           purpose: "task",
           managementCapability: managementCapability,
           mountCapability: mountCapability,
-          mountAuthorizationCapability: mountAuthorizationCapability,
-          selectionUseCapability: selectionUseCapability,
+          providerHome,
+          executionSelection: selected,
+          taskAttempt: 0,
           recoveryCorrelationId: null,
           consumer: "coordinator_cli",
           packetCapability: Object.freeze({}),
@@ -221,17 +188,20 @@ function createPlanFixture(
           purpose: "probe",
           managementCapability: managementCapability,
           mountCapability: mountCapability,
-          mountAuthorizationCapability: mountAuthorizationCapability,
-          selectionUseCapability: selectionUseCapability,
+          providerHome,
+          executionSelection: selected,
+          taskAttempt: 0,
           recoveryCorrelationId: null,
           consumer: "coordinator_cli",
         });
   assert.equal(prepared.status, "prepared");
-  const plan = adapter.consume(
-    prepared.preparedCapability,
-    managementCapability,
-  );
+  const plan = technicalPlans[0];
   assert.ok(plan);
+  assert.ok(isAttemptPlanValid(plan), "fixture_basic_plan");
+  assert.ok(
+    resolveIsolationCommandInput(plan, "C:\\operation\\tmp"),
+    "fixture_command_configuration",
+  );
   return { plan, managementCapability };
 }
 
@@ -405,8 +375,6 @@ test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", a
   assert.equal(result.cleanup.confirmed, true);
   assert.equal(cleanups, 1);
 });
-
-import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 
 /**
  * 元清掃結果と同じOwner・回復相関を縮約せず搬送する。
@@ -680,7 +648,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
 });
 
 /**
- * Root存続中のSupervisor失効を本番世代状態と実binderへ接続する。
+ * Root存続中の共通Lock失効を本番世代状態と実binderへ接続する。
  * @responsibility liveを戻しても元Ownerからの後発要求を復活させない。
  * @trace ERB-IT-003
  * @trace ERB-IT-004
@@ -688,7 +656,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
  * @stimulus 元auth create／startの肯定到達後、assertLiveをfalse・trueの順にする。
  * @observation 上位false観測、固定技術値の配送、実体・marker本文不変と解放一回。
  * @oracle 元Owner拒否は上位の責務とし、固定値を使う下位が上位Queryを再評価しない。
- * @cleanup 同じmoduleの真正清掃とmock復元を別finallyで保証する。
+ * @cleanup 元Ownerの失効を保ったまま既存Recoveryで今回のRoot・記録を回収しmockを復元する。
  * @boundary 論理Kernel故障・実Filesystem・本番private世代。実Kernel故障やDaemon終端は証明しない。
  */
 test("Host Windows: 世代失効は上位で拒否し固定値から上位を再照会しない", async () => {
@@ -700,22 +668,30 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
   let live = true,
     falseObservations = 0,
     releases = 0;
+  let releaseGenerationLock: (() => boolean) | undefined;
   const kernelMock = mock.module(kernelUrl.href, {
     namedExports: {
       ...kernel,
-      acquireHostOperationLock: async () => ({
-        status: "acquired",
-        lock: {
-          assertLive: () => {
-            if (!live) falseObservations++;
-            return live;
+      acquireHostOperationLock: () => {
+        let held = true;
+        const release = () => {
+          if (!held) return false;
+          held = false;
+          releases++;
+          return true;
+        };
+        releaseGenerationLock = release;
+        return {
+          status: "acquired",
+          lock: {
+            assertLive: () => {
+              if (!live) falseObservations++;
+              return held && live;
+            },
+            release,
           },
-          release: async () => {
-            releases++;
-            return "released";
-          },
-        },
-      }),
+        };
+      },
     },
   });
   try {
@@ -736,6 +712,8 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
       path.join(area.directory, "generation-loss-"),
     );
     const owned = host.createOwnedOperationDirectories(parent);
+    const recoveryId = host.getOwnedHostRecoveryId(owned);
+    const marker = loadHostRecoveryRecordByToken(recoveryId, owned.root).marker;
     const mount = host.createOwnedMountCapability(owned);
     const management = host.createOwnedOperationManagementCapability(
       host.createOwnedOperationContextCapability(owned),
@@ -763,10 +741,6 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
         assert.ok(command);
         return command;
       });
-      const marker = loadHostRecoveryRecordByToken(
-        host.borrowOwnedHostRecoverySnapshot(management).snapshot.token,
-        owned.root,
-      ).marker;
       const beforeRoot = fs.lstatSync(owned.root, { bigint: true });
       const beforeMarker = fs.lstatSync(marker, { bigint: true });
       const markerBytes = fs.readFileSync(marker);
@@ -827,13 +801,26 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
         assert.equal(afterMarker[key], beforeMarker[key]);
       }
       assert.deepEqual(fs.readFileSync(marker), markerBytes);
-    } finally {
-      const outcome = await host.cleanupOwnedOperationDirectoriesAsync(owned);
-      assert.equal(
-        host.verifyOwnedOperationCleanupOutcome(outcome, owned),
-        "completed",
+      await assert.rejects(
+        () => host.cleanupOwnedOperationDirectoriesAsync(owned),
+        /owned_operation_directory_replaced/u,
       );
+      assert.equal(fs.existsSync(owned.root), true);
+      assert.deepEqual(fs.readFileSync(marker), markerBytes);
+    } finally {
+      assert.ok(releaseGenerationLock);
+      assert.equal(releaseGenerationLock(), true);
       assert.equal(releases, 1);
+      const recovered = recoverOwnedOperationDirectories(
+        recoveryId,
+        null,
+        owned.root,
+      );
+      assert.equal(recovered.status, "recovered", JSON.stringify(recovered));
+      assert.equal(recovered.reason, "host_cleanup_recovered");
+      assert.equal(recovered.recoveryId, null);
+      assert.equal(releases, 1);
+      assert.equal(fs.existsSync(marker), false);
       assert.equal(fs.existsSync(owned.root), false);
       assert.equal(fs.realpathSync(parent), parent);
       fs.rmSync(parent, { recursive: true });

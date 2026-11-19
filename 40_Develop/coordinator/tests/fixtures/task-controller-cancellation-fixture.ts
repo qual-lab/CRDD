@@ -32,9 +32,6 @@ export function createTaskControllerCancellationFixture(
   dockerCleanupConfirmed: boolean,
 ) {
   const processes = createOwnedProcessFixture();
-  const preparedCapability = Object.freeze({});
-  const activeMountCapability = Object.freeze({});
-  const authorityUseCapability = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   const stableLogicalHomeBindingHash = "d".repeat(64);
   const recoveryId = `docker-task.${stableLogicalHomeBindingHash}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -61,7 +58,6 @@ export function createTaskControllerCancellationFixture(
     provider: "claude" as const,
     consumer: "orchestrator" as const,
     operationId,
-    grantRef: "PHMGRANT-123456",
     ...attemptSelection(
       executionSelection("executor", {
         provider: "claude",
@@ -70,8 +66,6 @@ export function createTaskControllerCancellationFixture(
       }),
     ),
     taskAttempt: 0 as const,
-    activeMountCapability,
-    authorityUseCapability,
     providerHomeSourcePath: "C:\\fixture\\claude-home",
     providerHomeIdentityHash: "a".repeat(64),
     stableLogicalHomeBindingHash,
@@ -83,12 +77,17 @@ export function createTaskControllerCancellationFixture(
     ownershipLabel: "crdd.coordinator.runtime=0101010101010101",
     providerImageDigest: `sha256:${"a".repeat(64)}`,
     proxyImageDigest: `sha256:${"b".repeat(64)}`,
-    selectionRecordId: "MODELSEL-12345678",
     subscriptionOffering: "claude_max" as const,
     selectedModel: "opus",
     selectedEffort: "low" as const,
     operationMode: "isolated_task" as const,
     taskRole: "executor" as const,
+    taskWorkload: Object.freeze({
+      readPathCount: 1,
+      allowedPathCount: 1,
+      acceptanceCriterionCount: 1,
+      remediationFindingCount: 0,
+    }),
     taskPacketRef: `TASKPKT-${"A".repeat(32)}`,
     taskPacketHash: "c".repeat(64),
     providerInput: "fixed fixture only",
@@ -98,6 +97,14 @@ export function createTaskControllerCancellationFixture(
       Object.freeze({ purpose, argv: [purpose] }),
     ),
   });
+  // 有限Docker代役が資源ごとの作成応答と同じIDの回収観測を所有する。
+  // 実Dockerの作成・不存在を主張せず、未知のpurposeには成功IDを補完しない。
+  const resourceIds = new Map(
+    plan.isolationRequest.resources.map((resource, index) => [
+      resource.key,
+      (index + 1).toString(16).repeat(64),
+    ]),
+  );
   let startProjections = 0;
   let completionProjections = 0;
   let terminationCount = 0;
@@ -106,12 +113,7 @@ export function createTaskControllerCancellationFixture(
   let controllerControl: object | null = null;
   const controller = createExecutorTestCandidate({
     effectExecutorAvailable: true,
-    verifyRevision: () => ({ revisionCurrent: true }),
-    consumePreparedPlan: (prepared, management) => {
-      assert.equal(prepared, preparedCapability);
-      assert.equal(management, managementCapability);
-      return plan;
-    },
+    verifyRevision: (candidate) => candidate === managementCapability,
     beginRecovery: () => ({ status: "ready", recoveryId, recoveryCapability }),
     verifyRecoveryBinding: (capability, id, management, home) =>
       capability === recoveryCapability &&
@@ -119,18 +121,6 @@ export function createTaskControllerCancellationFixture(
       management === managementCapability &&
       home === stableLogicalHomeBindingHash,
     abandonRecovery: (capability) => capability === recoveryCapability,
-    consumeProviderAuthority: (use, active, management) => {
-      assert.equal(use, authorityUseCapability);
-      assert.equal(active, activeMountCapability);
-      assert.equal(management, managementCapability);
-      return {
-        operationId,
-        provider: "claude",
-        providerHomeMountGrantRef: plan.grantRef,
-        runtimeAuthorityIssued: true,
-        providerEffectAllowed: true,
-      };
-    },
     startCommand: (command) => {
       if (command.purpose === "start_provider_attached") {
         const owned = processes.start();
@@ -161,7 +151,9 @@ export function createTaskControllerCancellationFixture(
                   forcedLoginMethod: "claudeai",
                   subscriptionType: "max",
                 })
-              : "",
+              : command.purpose.startsWith("create_")
+                ? (resourceIds.get(command.purpose) ?? "")
+                : "",
           stderr: "",
           outputExceeded: false,
         }),
@@ -179,11 +171,18 @@ export function createTaskControllerCancellationFixture(
         processTreeTerminated: true,
         containersAbsent: dockerCleanupConfirmed,
         networksAbsent: dockerCleanupConfirmed,
+        resourceObservations: plan.isolationRequest.resources.map(
+          (resource) => ({
+            purpose:
+              resource.key as keyof import("../../../docker-isolation/tests/support/cleanup.ts").DockerResourceReceipts,
+            plannedResourceName: resource.name,
+            dockerId: resourceIds.get(resource.key) ?? null,
+            observation: dockerCleanupConfirmed
+              ? ("absent" as const)
+              : ("unknown" as const),
+          }),
+        ),
       };
-    },
-    completeMount: () => {
-      events.push("mount-complete");
-      return { status: "completed" };
     },
     completeRecovery: (capability) => {
       assert.equal(capability, recoveryCapability);
@@ -199,13 +198,9 @@ export function createTaskControllerCancellationFixture(
       events.push("docker-absence");
       return true;
     },
-    recordMountCompletion: () => {
-      events.push("mount-receipt");
-      return true;
-    },
   });
   return {
-    preparedCapability,
+    plan,
     recoveryId,
     events,
     productionAuthority: controller.productionAuthority,
@@ -221,17 +216,18 @@ export function createTaskControllerCancellationFixture(
       );
     },
     startProcess: (
-      prepared: unknown,
+      planInput: unknown,
       management: unknown,
       registerHandoff: (capability: unknown, id: unknown) => boolean,
       restriction?: unknown,
     ) => {
       const raw = controller.start(
-        prepared,
+        planInput,
         management,
         registerHandoff,
         restriction,
       );
+      if (raw.status !== "started") events.push(`start-rejected:${raw.reason}`);
       const projected = projectAttemptStartResult(raw, recoveryId, operationId);
       assert.ok(projected);
       assert.equal(projected.status, "started");
@@ -241,6 +237,10 @@ export function createTaskControllerCancellationFixture(
       return {
         ...projected,
         completion: projected.completion.then((result: unknown) => {
+          if (!processStarted)
+            events.push(
+              `completion-before-process:${String((result as { reason?: unknown }).reason)}`,
+            );
           const completion = projectAttemptResult(
             result,
             recoveryId,

@@ -257,7 +257,6 @@ if (mode !== "recovery") {
     provider: "codex" as const,
     consumer: "workbench" as const,
     operationId: binding.operationId,
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: executionSelection("executor", {
       provider: "codex",
       model: "gpt-5.5",

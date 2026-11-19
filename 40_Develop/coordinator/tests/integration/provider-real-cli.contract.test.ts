@@ -368,7 +368,7 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
  * @responsibility 手組みの正規化結果で本番解析を迂回しない。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
- * @precondition Home観測・NamedPipe Lease・DI物理処置と清掃観測を有限代役化する。Host・Executor・Parser・Normalizerは実体。
+ * @precondition Home観測・共通Lock・DI物理処置と清掃観測を有限代役化する。Host・Executor・Parser・Normalizerは実体。
  * @stimulus 両Provider正常、Schema・Identity・項目・参照違反、Transport不成立とCodex重複Key。
  * @observation 固定PromptとSchema、一次理由、技術終端・意味結果、正規化Receipt。
  * @oracle 意味拒否を技術成功へ丸めず、詳細な固定理由だけを返す。
@@ -397,7 +397,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     let fixture=null,live=false,releases=0;
     process.env.LOCALAPPDATA='C:/fixture'.replaceAll('/',String.fromCharCode(92));
     mock.module(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))},{namedExports:{...platform,
-      observeProviderHome:provider=>({status:'candidate',provider,processEffectIssued:true,helperExitConfirmed:true,artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)}),
+      observeProviderHome:provider=>({status:'candidate',provider,processEffectIssued:false,manualRecoveryRequired:false,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)}),
       }});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;live=false;return true;}}};}
     }});

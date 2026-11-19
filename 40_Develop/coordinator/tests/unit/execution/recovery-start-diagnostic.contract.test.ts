@@ -52,7 +52,6 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
   );
   for (const stage of [
     "plan_validation",
-    "operation_context",
     "identity_preflight",
     "identity_kind",
     "identity_missing",
@@ -90,9 +89,6 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           Buffer,
           JSON,
           validProductionPlan: () => stage !== "plan_validation",
-          inspectRuntimeOwnedDevelopmentOperationContext: () => ({
-            checkNewWork: () => stage !== "operation_context",
-          }),
           inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
             homeObservations++;
             return {

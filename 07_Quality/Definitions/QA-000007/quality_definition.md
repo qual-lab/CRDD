@@ -1,5 +1,9 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## 未接続Root保護候補の退役 — 2026-11-19
+
+専用のRoot保護Policy評価・合成Root観測候補は現役のRoot／Path／認可判断に使われていないため、その二試験と登録を退役する。RFD-UT-006のRepository・Project・Binding・Grant・Exposureの既存規則は維持し、未接続候補の削除を当該項目全体の免除や成功へ数えない。Node／VC／各保存Ownerの実体・Link・Root差、現在認可、Lock／Revision、観測不能時停止の検証は従来の実Ownerで継続する。
+
 ## モデル接続試験を利用側へ配置 — 2026-11-14
 
 既存RFD-IT-013のCore定義Context→実Writer試験はWorkbenchのruntime-definition IT、RFD-IT-019の許可集合→実本文版→Portfolio試験はWorkbenchのmanagement ITへ移す。全assert・実認可・保存／本文観測・同じfixture清掃を維持し、AM単独の認可検査と上位接続を分離する。内容認可結果のAM所有型とEM受入型は、同じ実値の双方向代入で確認する。新しいQA項目や全体Passは作らない。

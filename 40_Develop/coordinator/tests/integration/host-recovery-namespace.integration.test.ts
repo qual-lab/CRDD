@@ -163,7 +163,13 @@ import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../sr
   assert.equal(Object.hasOwn(report.egress, "activation"), false);
   assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
   assert.equal(report.diagnosticMode, "passive_preflight");
-  assert.equal(report.reportVersion, 12);
+  assert.equal(report.reportVersion, 16);
+  assert.equal(Object.hasOwn(report.credentials, "forwardedNames"), false);
+  assert.equal(Object.hasOwn(report.credentials, "environmentFiltered"), false);
+  assert.equal(report.credentials.valuesRecorded, false);
+  assert.ok(Array.isArray(report.credentials.detectedNames));
+  assert.equal(REQUIRED_CHECK_IDS.includes("execution.credential_environment"), false);
+  assert.equal(report.checks.some(item => item.id === "execution.credential_environment"), false);
   assert.equal(Object.hasOwn(report, "repositoryLocation"), true);
   assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
   assert.equal(report.repositoryLocation.pathReported, false);

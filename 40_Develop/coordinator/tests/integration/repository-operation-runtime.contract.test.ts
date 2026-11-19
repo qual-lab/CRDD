@@ -25,9 +25,7 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import {
-  bindOwnedOperationExecutionSelection,
   bindRuntimeOwnedRepositoryOperation,
-  borrowOwnedOperationExecutionSelection,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
@@ -42,10 +40,6 @@ import {
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "../../src/execution/operation.ts";
-import {
-  attemptSelection,
-  executionSelection,
-} from "../fixtures/ai-selection.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -141,8 +135,6 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
   }
 });
 
-import { hashExecutionSelection } from "../../src/selection/resolve.ts";
-
 /**
  * Windowsの上位bit付き実体IDを操作の作成・再検証・回収へ接続する。
  * @responsibility Directory・File・descriptorの識別表現を全取得点で一致させる。
@@ -185,179 +177,9 @@ test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立�
   const root = path.resolve(import.meta.dirname, "../../../..");
   assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
   assert.ok(verifyRuntimeOwnedRepositoryOperation(management));
-  const selected = executionSelection();
-  const selectionHash = hashExecutionSelection(selected);
-  assert.ok(selectionHash);
-  const selectionId = "MODELSEL-12345678";
-  const technical = attemptSelection(selected).executionSelection;
-  assert.equal(
-    borrowOwnedOperationExecutionSelection(
-      management,
-      selectionId,
-      selectionHash,
-      0,
-      technical,
-    ),
-    null,
-  );
-  assert.equal(
-    bindOwnedOperationExecutionSelection({}, selectionId, selected, 0),
-    false,
-  );
-  assert.equal(
-    bindOwnedOperationExecutionSelection(management, selectionId, selected, 0),
-    true,
-  );
-  assert.equal(
-    bindOwnedOperationExecutionSelection(management, selectionId, selected, 0),
-    true,
-  );
-  assert.deepEqual(
-    borrowOwnedOperationExecutionSelection(
-      management,
-      selectionId,
-      selectionHash,
-      0,
-      technical,
-    ),
-    selected,
-  );
-  assert.equal(
-    borrowOwnedOperationExecutionSelection(
-      management,
-      selectionId,
-      selectionHash,
-      1,
-      technical,
-    ),
-    null,
-  );
-  assert.equal(
-    borrowOwnedOperationExecutionSelection(
-      management,
-      "MODELSEL-87654321",
-      selectionHash,
-      0,
-      technical,
-    ),
-    null,
-  );
-  assert.equal(
-    borrowOwnedOperationExecutionSelection(
-      management,
-      selectionId,
-      "f".repeat(64),
-      0,
-      technical,
-    ),
-    null,
-  );
-  assert.equal(
-    bindOwnedOperationExecutionSelection(
-      management,
-      selectionId,
-      { ...selected, modelIdentifier: "other-model" },
-      0,
-    ),
-    false,
-  );
-  const borrowedStages = [];
-  for (const [role, attempt] of [
-    ["independent_reviewer", 0],
-    ["executor", 1],
-    ["independent_reviewer", 1],
-    ["advice", 0],
-  ] as const) {
-    const selection = executionSelection(role);
-    const id = `MODELSEL-${role.toUpperCase().replaceAll("_", "-")}-${attempt}`;
-    const projected = attemptSelection(selection);
-    borrowedStages.push({ id, attempt, projected });
-    assert.equal(
-      bindOwnedOperationExecutionSelection(management, id, selection, attempt),
-      true,
-    );
-    assert.deepEqual(
-      borrowOwnedOperationExecutionSelection(
-        management,
-        id,
-        projected.selectionHash,
-        attempt,
-        projected.executionSelection,
-      ),
-      selection,
-    );
-    assert.equal(
-      borrowOwnedOperationExecutionSelection(
-        management,
-        id,
-        projected.selectionHash,
-        attempt,
-        { ...projected.executionSelection, extra: true },
-      ),
-      null,
-    );
-    assert.equal(
-      borrowOwnedOperationExecutionSelection(
-        management,
-        id,
-        projected.selectionHash,
-        attempt,
-        { ...projected.executionSelection, identifierKind: "wrong" },
-      ),
-      null,
-    );
-  }
-  assert.equal(
-    bindOwnedOperationExecutionSelection(
-      management,
-      "MODELSEL-DIFFERENT",
-      selected,
-      0,
-    ),
-    false,
-  );
-  assert.equal(
-    bindOwnedOperationExecutionSelection(
-      management,
-      "MODELSEL-ADVICE-ONE",
-      executionSelection("advice"),
-      1,
-    ),
-    false,
-  );
-  assert.equal(
-    bindOwnedOperationExecutionSelection(
-      management,
-      "MODELSEL-COORDINATOR",
-      executionSelection("coordinator"),
-      0,
-    ),
-    false,
-  );
   cleanupOwnedOperationDirectories(owned);
   cleaned = true;
   assert.equal(fs.existsSync(owned.root), false);
-  for (const { id, attempt, projected } of borrowedStages)
-    assert.equal(
-      borrowOwnedOperationExecutionSelection(
-        management,
-        id,
-        projected.selectionHash,
-        attempt,
-        projected.executionSelection,
-      ),
-      null,
-    );
-  assert.equal(
-    borrowOwnedOperationExecutionSelection(
-      management,
-      selectionId,
-      selectionHash,
-      0,
-      technical,
-    ),
-    null,
-  );
 });
 
 /**

@@ -1168,12 +1168,11 @@ function fixtureOperation(
     management,
     repository,
     identity: {
-      schema: "crdd-coordinator/operation-identity/v4",
+      schema: "crdd-coordinator/operation-identity/v5",
       operationNonce: nonce,
       provider: "claude",
       consumer: "coordinator_cli",
       operationId: repository.operationId,
-      grantRef: "PHMGRANT-FIXTURE",
       executionSelection: executionSelection("executor", {
         provider: "claude",
         model: "opus",

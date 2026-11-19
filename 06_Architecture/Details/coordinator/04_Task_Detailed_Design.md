@@ -112,7 +112,7 @@ Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表�
 | 再入場・再計画 | 保存した組を引き継ぐ。設定Readerを再度呼ばず、別Modelへ補完・fallbackしない |
 | 旧保存値 | 必須選定のない旧Stateは受理しない。移行はフロントAIが実行前に確認し、過去の実行値を現在設定から捏造しない。歴史Evidenceと保持中の②は対象外 |
 
-この変更は選定保持の保存基盤であり、Model Grant・Packet・全実行Consumerの新方式接続が終わるまでは、新設定による本番実行の完成を主張しない。単発Taskの主担当保存と、各stageのDocker Operation Identity v2へ、対象役割の完全選定と試行番号を搬送する。
+選定保持は、単発Taskの主担当と各stageのOperation Identity v5へ、役割に対応する完全選定と試行番号を直接搬送する。Selection Grantや別の選定ID／Hashを保存正本にせず、同期prepareから同じPlanを開始・Recoveryへ渡す。本文・資源Snapshot・現在Ownerの既存保存保証は維持する。
 
 ## Related
 
@@ -663,7 +663,7 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 |---|---|---|
 | 過去に何が起きたか | providerStart／externalSend／sharedWriteの記録 | Process開始・正常出力・cleanupから三値を推測して既知化すること |
 | 旧実行が今後Effectを発行できるか | 同じ操作のProcess・全資源・Mount・Home排他・Ownerの終了確認、未解決義務 | 過去のEffectがunknownであることだけを現在の実行能力ありと扱うこと |
-| 新規試行を開始してよいか | 生存中の同じTask Owner、現在のPacket／Selection／Home・Provider Authority／送信同意、既存レビューと一回限りの限定是正許可 | 資源不存在・保存候補の妥当性・attempt番号だけを実行許可と扱うこと |
+| 新規試行を開始してよいか | 生存中の同じTask Owner、現在のPacket／Selection／Homeの相関と送信同意、既存レビューと一回限りの限定是正許可 | 資源不存在・保存候補の妥当性・attempt番号だけを実行許可と扱うこと |
 
 同じTask・同じHostの通常継続では、旧技術実行の終端と次の実行許可、入力・Workspaceと前結果の整合を別々に検査する。正常な編集→レビュー→限定是正→再レビューを対象とし、三値のunknownと旧Identityは変更しない。Owner喪失後の未発行stage再開、結果不明・取消不明の自動再送、別Task／別Host、未解決の資源・排他・回復義務へ適用しない。通常継続の実装接続と検証はCHG-000082で追跡し、この原則の採用だけを実装済みとは扱わない。
 

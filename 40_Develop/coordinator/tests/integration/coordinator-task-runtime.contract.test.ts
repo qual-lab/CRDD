@@ -31,13 +31,11 @@ import {
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
 import {
   createIsolatedCoordinatorTaskRuntimeCandidate,
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../../src/execution/controller.ts";
-import { createDevelopmentExecutionTiming } from "../../src/execution/measurement.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
@@ -54,7 +52,6 @@ import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/exec
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
   coordinatorTaskPublicReasons,
-  projectDevelopmentTaskResultAfterOuterCleanup,
 } from "../../src/execution/result.ts";
 import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
 import {
@@ -218,42 +215,22 @@ const resourcesByTransition = new Map<string, readonly string[]>([
   ["TRANS-OPERATION-TO-AUTHORIZED", ["RES-OPERATION-WORKSPACE"]],
   [
     "TRANS-AUTHORIZED-TO-EXECUTOR-CLEAN",
-    [
-      "RES-LOGICAL-HOME-LOCK",
-      "RES-RUNTIME-STATE-LOCK",
-      "RES-MOUNT-GRANT",
-      "RES-DOCKER-OWNED",
-    ],
+    ["RES-LOGICAL-HOME-LOCK", "RES-RUNTIME-STATE-LOCK", "RES-DOCKER-OWNED"],
   ],
   ["TRANS-EXECUTOR-TO-CANDIDATE", []],
   [
     "TRANS-CANDIDATE-TO-REVIEWER-CLEAN",
-    [
-      "RES-LOGICAL-HOME-LOCK",
-      "RES-RUNTIME-STATE-LOCK",
-      "RES-MOUNT-GRANT",
-      "RES-DOCKER-OWNED",
-    ],
+    ["RES-LOGICAL-HOME-LOCK", "RES-RUNTIME-STATE-LOCK", "RES-DOCKER-OWNED"],
   ],
   ["TRANS-REVIEWER-TO-REMEDIATION", []],
   [
     "TRANS-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
-    [
-      "RES-LOGICAL-HOME-LOCK",
-      "RES-RUNTIME-STATE-LOCK",
-      "RES-MOUNT-GRANT",
-      "RES-DOCKER-OWNED",
-    ],
+    ["RES-LOGICAL-HOME-LOCK", "RES-RUNTIME-STATE-LOCK", "RES-DOCKER-OWNED"],
   ],
   ["TRANS-REMEDIATION-EXECUTOR-TO-CANDIDATE", []],
   [
     "TRANS-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
-    [
-      "RES-LOGICAL-HOME-LOCK",
-      "RES-RUNTIME-STATE-LOCK",
-      "RES-MOUNT-GRANT",
-      "RES-DOCKER-OWNED",
-    ],
+    ["RES-LOGICAL-HOME-LOCK", "RES-RUNTIME-STATE-LOCK", "RES-DOCKER-OWNED"],
   ],
   [
     "TRANS-REVIEWER-TO-HOST-CLEAN",
@@ -270,7 +247,6 @@ const TERMINAL_RESOURCES = Object.freeze([
   "RES-HOST-GENERATION",
   "RES-LOGICAL-HOME-LOCK",
   "RES-RUNTIME-STATE-LOCK",
-  "RES-MOUNT-GRANT",
   "RES-DOCKER-OWNED",
   "RES-OPERATION-WORKSPACE",
   "RES-TASK-CONTROL",
@@ -452,8 +428,6 @@ test("通常起動の発行後不明はTask結果でも手動確認必要性を�
   assert.equal(harness.operationCreateCount(), 0);
   assert.equal(harness.processStartCount(), 0);
 });
-
-import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 
 const executedTaskTraceCases = new Set<string>();
 
@@ -744,9 +718,6 @@ function request(overrides: Record<string, unknown> = {}) {
  */
 function fixture(
   options: {
-    beginInvocation?: Parameters<
-      typeof createIsolatedCoordinatorTaskRuntimeCandidate
-    >[0]["beginInvocation"];
     observeStartRegistration?: (observer: unknown) => void;
     admitState?: (
       provider: "codex" | "claude",
@@ -826,11 +797,15 @@ function fixture(
       | "provider_independent"
       | "execution_context_independent";
     slateUnavailable?: boolean;
-    selectionMismatchAt?: number;
-    selectionRefreshFailureAt?: number;
-    selectionRefreshMismatchAt?: number;
-    selectionRefreshValue?: unknown;
-    selectionRefreshRevokeFailureAt?: number;
+    selectionPreflightFailureAt?: number;
+    selectionPreflightMismatchAt?: number;
+    selectionPreflightValue?: unknown;
+    packetIssueInvalid?: boolean;
+    grantRevokeFailure?: Readonly<{
+      target: "packet" | "mount";
+      outcome: "blocked" | "unknown" | "throw";
+    }>;
+    poisonNotificationThrows?: boolean;
     providerHomeObservationFailure?: Readonly<{
       at: 1 | 2;
       classification:
@@ -901,9 +876,8 @@ function fixture(
   let hostCleanupConfirmedCount = 0;
   let providerCleanupConfirmedCount = 0;
   let selectionCount = 0;
-  let selectionRevokeCount = 0;
+  let packetRevokeCount = 0;
   let providerHomeObservationCount = 0;
-  let mountGrantIssueCount = 0;
   let dockerFinalizeCount = 0;
   let dockerReceiptCount = 0;
   let dockerIntentCount = 0;
@@ -955,7 +929,6 @@ function fixture(
         : "absent",
       "RES-LOGICAL-HOME-LOCK": isOutstandingProvider ? "preserved" : "absent",
       "RES-RUNTIME-STATE-LOCK": isOutstandingProvider ? "preserved" : "absent",
-      "RES-MOUNT-GRANT": isOutstandingProvider ? "preserved" : "absent",
       "RES-DOCKER-OWNED": isOutstandingDockerRecovery
         ? "preserved"
         : processStartCount === 0
@@ -977,7 +950,6 @@ function fixture(
   };
   const dependencies = {
     reportProviderBoundaryDiagnostic: options.reportDiagnostic,
-    beginInvocation: options.beginInvocation,
     observeLifecycleState: (state: string) => {
       const observed = options.timingObserver?.(state);
       lifecycleStates.push(state);
@@ -1106,6 +1078,8 @@ function fixture(
     },
     poisonProcessAfterCleanupUnknown: () => {
       poisonProcessCount += 1;
+      if (options.poisonNotificationThrows)
+        throw Error("fixture_poison_notification_failed");
     },
     isProcessPoisoned: () => {
       if (options.isProcessPoisonedThrows)
@@ -1152,24 +1126,56 @@ function fixture(
             if (options.externalSendNoticeOutcome === "reject")
               return Promise.reject(Error("notice"));
           },
-    preflightSlate: (
+    preflightSelections: (
       _management: object,
       selection: Record<string, unknown>,
     ) => {
       slateRequests.push(selection);
-      return options.slateUnavailable
+      const values = selection.executionSelections as Array<
+        ReturnType<typeof executionSelection>
+      >;
+      const stage = values.length === 1;
+      if (stage) {
+        selectionCount++;
+        selectionRequests.push({
+          operationId: selection.operationId,
+          executionSelection: values[0],
+          taskAttempt: selectionCount > 2 ? 1 : 0,
+        });
+      }
+      const expected = values.map((value, index) => {
+        const changedProvider =
+          values.length === 2
+            ? index === 0
+              ? options.slateExecutorProvider
+              : options.slateReviewerProvider
+            : options.selectionPreflightMismatchAt === selectionCount
+              ? value.provider === "codex"
+                ? "claude"
+                : "codex"
+              : undefined;
+        return changedProvider && changedProvider !== value.provider
+          ? { ...value, provider: changedProvider }
+          : value;
+      });
+      if (
+        stage &&
+        selectionCount === 1 &&
+        Object.hasOwn(options, "selectionPreflightValue")
+      )
+        expected[0] = options.selectionPreflightValue as ReturnType<
+          typeof executionSelection
+        >;
+      return options.slateUnavailable ||
+        (stage && options.selectionPreflightFailureAt === selectionCount)
         ? Object.freeze({
             status: "blocked",
             reason: "delegation_slate_reviewer_unavailable",
-            providerEffectAllowed: false,
           })
         : Object.freeze({
             status: "candidate",
-            executorProvider: options.slateExecutorProvider ?? "claude",
-            reviewerProvider: options.slateReviewerProvider ?? "codex",
-            reviewerIndependence:
-              options.reviewerIndependence ?? "provider_independent",
-            providerEffectAllowed: false,
+            operationId: selection.operationId,
+            executionSelections: expected,
           });
     },
     materializeWorkspace: () => {
@@ -1208,98 +1214,31 @@ function fixture(
               }),
             ]),
           }),
-    issueSelection: (
-      _management: object,
-      selection: Record<string, unknown>,
-    ) => {
-      selectionCount += 1;
-      if (selectionCount % 2 === 1) selectionRequests.push(selection);
-      const selected = selection.executionSelection as ReturnType<
-        typeof executionSelection
-      >;
-      const executor = selected.provider;
-      const logicalSelectionCount = Math.ceil(selectionCount / 2);
-      const selectionPhase = selectionCount % 2 === 1 ? "initial" : "refresh";
+    observeProviderHome: (provider: "codex" | "claude") => {
+      providerHomeObservationCount++;
       selectionLifecycleEvents.push(
-        `selection:${logicalSelectionCount}:${selectionPhase}`,
-      );
-      if (
-        selectionPhase === "refresh" &&
-        options.selectionRefreshFailureAt === logicalSelectionCount
-      )
-        return Object.freeze({
-          status: "blocked",
-          reason: "fixture_selection_refresh_failed",
-        });
-      return Object.freeze({
-        status: "issued",
-        executorProvider:
-          (selectionPhase === "initial" &&
-            options.selectionMismatchAt === logicalSelectionCount) ||
-          (selectionPhase === "refresh" &&
-            options.selectionRefreshMismatchAt === logicalSelectionCount)
-            ? executor === "codex"
-              ? "claude"
-              : "codex"
-            : executor,
-        operationId: selection.operationId,
-        executionSelection:
-          selectionPhase === "refresh" &&
-          logicalSelectionCount === 1 &&
-          Object.hasOwn(options, "selectionRefreshValue")
-            ? options.selectionRefreshValue
-            : selected,
-        taskAttempt: selection.taskAttempt,
-        selectionHash: hashExecutionSelection(selected),
-        selectionNotice: `selection-${logicalSelectionCount}`,
-        controlCapability: Object.freeze({}),
-        useCapability: Object.freeze({}),
-      });
-    },
-    revokeSelection: () => {
-      selectionRevokeCount += 1;
-      selectionLifecycleEvents.push(`selection-revoke:${selectionRevokeCount}`);
-      return Object.freeze({
-        status:
-          options.selectionRefreshRevokeFailureAt === selectionRevokeCount
-            ? "blocked"
-            : "revoked",
-      });
-    },
-    observeProviderHome: () => {
-      providerHomeObservationCount += 1;
-      selectionLifecycleEvents.push(
-        `provider-home:${providerHomeObservationCount}`,
+        "provider-home:" + providerHomeObservationCount,
       );
       if (
         options.providerHomeObservationFailure?.at ===
         providerHomeObservationCount
-      ) {
+      )
         return Object.freeze({
           status: "blocked",
-          reason: `fixture_provider_home_${options.providerHomeObservationFailure.classification}`,
-          observationCapability: null,
+          reason:
+            "fixture_provider_home_" +
+            options.providerHomeObservationFailure.classification,
         });
-      }
       return Object.freeze({
         status: "candidate",
-        observationCapability: Object.freeze({}),
+        providerHome: Object.freeze({
+          provider,
+          providerHomeSourcePath: "C:/synthetic/provider-home/" + provider,
+          providerHomeIdentityHash: "a".repeat(64),
+          stableLogicalHomeBindingHash: "d".repeat(64),
+        }),
       });
     },
-    issueMountGrant: () => {
-      mountGrantIssueCount += 1;
-      return Object.freeze({
-        status: "issued",
-        controlCapability: Object.freeze({}),
-        useCapability: Object.freeze({}),
-      });
-    },
-    consumeMountGrant: () =>
-      Object.freeze({
-        status: "consumed",
-        mountAuthorizationCapability: Object.freeze({}),
-      }),
-    revokeMountGrant: () => Object.freeze({ status: "revoked" }),
     issueTaskPacket: (
       _management: object,
       _repository: object,
@@ -1334,12 +1273,20 @@ function fixture(
         Object.freeze({ role: taskRole, provider }),
       );
       return Object.freeze({
-        status: "issued",
+        status: options.packetIssueInvalid ? "blocked" : "issued",
         controlCapability: Object.freeze({}),
         useCapability,
       });
     },
-    revokeTaskPacket: () => Object.freeze({ status: "revoked" }),
+    revokeTaskPacket: () => {
+      packetRevokeCount++;
+      const outcome =
+        options.grantRevokeFailure?.target === "packet"
+          ? options.grantRevokeFailure.outcome
+          : null;
+      if (outcome === "throw") throw Error("fixture_packet_revoke_failed");
+      return Object.freeze({ status: outcome ?? "revoked" });
+    },
     startProcess: (
       provider: "codex" | "claude",
       input: import("../../src/execution/types.ts").PreparationInput,
@@ -1427,7 +1374,7 @@ function fixture(
         registerRecoveryHandoff(recoveryCapability, activeRecoveryId),
         true,
       );
-      const reviewerAttempt = Math.ceil(selectionCount / 2) > 3 ? 1 : 0;
+      const reviewerAttempt = selectionCount > 3 ? 1 : 0;
       const effectiveReviewerDecision =
         role === "reviewer" && reviewerAttempt === 1
           ? (options.finalReviewerDecision ?? reviewerDecision)
@@ -1775,9 +1722,8 @@ function fixture(
     selectionRequests,
     selectionNotices,
     externalSendNotices,
-    selectionRevokeCount: () => selectionRevokeCount,
+    packetRevokeCount: () => packetRevokeCount,
     providerHomeObservationCount: () => providerHomeObservationCount,
-    mountGrantIssueCount: () => mountGrantIssueCount,
     authorizedProviderSets,
     events,
     selectionLifecycleEvents,
@@ -1899,7 +1845,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         stages.push(`${provider}:${role}:${attempt}`);
         const suffix = index.toString(16).padStart(16, "0");
         const identity = {
-          schema: "crdd-coordinator/operation-identity/v4",
+          schema: "crdd-coordinator/operation-identity/v5",
           operationNonce: suffix.repeat(4),
           provider,
           consumer: "orchestrator",
@@ -1909,7 +1855,6 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
             fault === "correlation" && index === 3
               ? "other-task-operation"
               : "task-operation-continuation",
-          grantRef: "PHMGRANT-CONTINUATION",
           executionSelection: executionSelection(
             role === "executor" ? "executor" : "independent_reviewer",
             {
@@ -2285,53 +2230,6 @@ test("Workspace実行は旧Bundleを準備せず既存の正常・是正・取�
 });
 
 /**
- * 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するを検証する。
- *
- * @responsibility 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するの合否判定を所有する。
- * @trace ERB-IT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続する", async () => {
-  const reservations: string[] = [];
-  let consumptionCount = 0;
-  let settlementCount = 0;
-  const harness = fixture({
-    reviewerDecision: "changes_requested",
-    finalReviewerDecision: "approved",
-    beginInvocation: (provider, role) => {
-      reservations.push(`${provider}:${role}`);
-      return Object.freeze({
-        commandRestriction: (purpose: string) => {
-          assert.equal(purpose, "start_provider_attached");
-          consumptionCount += 1;
-          return true;
-        },
-        settle: () => {
-          settlementCount += 1;
-        },
-      });
-    },
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "completed");
-  assert.deepEqual(reservations, [
-    "claude:executor",
-    "codex:reviewer",
-    "claude:executor",
-    "codex:reviewer",
-  ]);
-  assert.equal(consumptionCount, 4);
-  assert.equal(settlementCount, 4);
-  assert.equal(harness.cleanupCount(), 1);
-});
-
-/**
  * 固定利用側をExecutor・Reviewerへ同じ値で伝播する。
  *
  * @responsibility 相関IDから独立した用途搬送と未知用途のEffect前拒否を確認する。
@@ -2485,95 +2383,6 @@ test("Task開始観測の不正登録はEffect前に拒否する", () => {
 });
 
 /**
- * 呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収するを検証する。
- *
- * @responsibility 呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収する", async () => {
-  const harness = fixture({ beginInvocation: () => null });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(
-    result.reason,
-    "coordinator_task_development_invocation_not_authorized",
-  );
-  assert.equal(harness.providerHomeObservationCount(), 0);
-  assert.equal(harness.mountGrantIssueCount(), 0);
-  assert.equal(harness.processStartCount(), 0);
-  assert.equal(harness.cleanupCount(), 1);
-  assert.equal(result.cleanupConfirmed, true);
-});
-
-/**
- * Provider終了後の開発Identity再検証が失敗した場合は成功を公開しないを検証する。
- *
- * @responsibility Provider終了後の開発Identity再検証が失敗した場合は成功を公開しないの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Provider終了後の開発Identity再検証が失敗した場合は成功を公開しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Provider終了後の開発Identity再検証が失敗した場合は成功を公開しない", async () => {
-  const harness = fixture({
-    beginInvocation: () => ({
-      commandRestriction: () => true,
-      settle: () => false,
-    }),
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_development_invocation_settlement_invalid",
-  );
-  assert.equal(harness.processStartCount(), 1);
-  assert.equal(harness.cleanupCount(), 1);
-  assert.equal(result.cleanupConfirmed, true);
-});
-
-/**
- * 呼出し予約後の準備失敗でも終了記録を一回だけ残すを検証する。
- *
- * @responsibility 呼出し予約後の準備失敗でも終了記録を一回だけ残すの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 呼出し予約後の準備失敗でも終了記録を一回だけ残すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("呼出し予約後の準備失敗でも終了記録を一回だけ残す", async () => {
-  let settlementCount = 0;
-  const harness = fixture({
-    prepareWorkloadSplit: true,
-    beginInvocation: () => ({
-      commandRestriction: () => true,
-      settle: () => {
-        settlementCount += 1;
-      },
-    }),
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(harness.processStartCount(), 0);
-  assert.equal(settlementCount, 1);
-  assert.equal(result.cleanupConfirmed, true);
-});
-
-/**
  * 作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しないを検証する。
  *
  * @responsibility 作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しないの合否判定を所有する。
@@ -2602,20 +2411,12 @@ for (const [providerReason, publicReason] of [
     "coordinator_task_provider_model_selection_invalid",
   ],
   [
-    "claude_docker_runtime_mount_authorization_invalid",
-    "coordinator_task_provider_mount_authorization_invalid",
-  ],
-  [
     "codex_docker_runtime_task_packet_invalid",
     "coordinator_task_provider_task_packet_invalid",
   ],
   [
     "claude_docker_runtime_plan_invalid",
     "coordinator_task_provider_plan_invalid",
-  ],
-  [
-    "codex_docker_runtime_authority_invalid",
-    "coordinator_task_provider_authority_invalid",
   ],
   [
     "claude_docker_runtime_recovery_correlation_invalid",
@@ -3137,37 +2938,6 @@ test("Candidate結合済みReviewer投影を作れなければReviewer Effect前
 });
 
 /**
- * 外周Candidate破棄が未確認ならturn観測だけを開発結果から除去するを検証する。
- *
- * @responsibility 外周Candidate破棄が未確認ならturn観測だけを開発結果から除去するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 外周Candidate破棄が未確認ならturn観測だけを開発結果から除去するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("外周Candidate破棄が未確認ならturn観測だけを開発結果から除去する", () => {
-  const projected = projectDevelopmentTaskResultAfterOuterCleanup(
-    Object.freeze({
-      status: "completed",
-      reason: "coordinator_task_candidate_approved",
-      cleanupConfirmed: true,
-      candidateRecoveryId: "candidate.recovery.example",
-      providerTurnObservations: Object.freeze([
-        Object.freeze({ provider: "claude", providerReportedTurns: 9 }),
-      ]),
-    }),
-    false,
-  );
-  assert.equal(Object.hasOwn(projected, "providerTurnObservations"), false);
-  assert.equal(projected.status, "completed");
-  assert.equal(projected.cleanupConfirmed, true);
-  assert.equal(projected.candidateRecoveryId, "candidate.recovery.example");
-});
-
-/**
  * lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しないを検証する。
  *
  * @responsibility lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しないの合否判定を所有する。
@@ -3190,68 +2960,6 @@ test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を�
   assert.deepEqual(throwing.effectCounts(), baseline.effectCounts());
   assert.deepEqual(throwing.lifecycleStates, baseline.lifecycleStates);
 });
-
-for (const scenario of [
-  "normal",
-  "remediation",
-  "clean_failure",
-  "cleanup_unknown",
-] as const) {
-  /**
-   * 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じを検証する。
-   *
-   * @responsibility 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じの合否判定を所有する。
-   * @trace PRL-IT-012
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
-   */
-  test(`受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じ`, async () => {
-    const options: Parameters<typeof fixture>[0] =
-      scenario === "remediation"
-        ? {
-            reviewerDecision: "changes_requested",
-            finalReviewerDecision: "approved",
-          }
-        : scenario === "clean_failure"
-          ? { processCleanFailureRole: "executor" }
-          : scenario === "cleanup_unknown"
-            ? { cleanupThrows: true }
-            : {};
-    const baseline = fixture(options);
-    const timing = createDevelopmentExecutionTiming(
-      () => {
-        throw new Error("private clock");
-      },
-      () => {
-        throw new Error("private sink");
-      },
-    );
-    const measured = fixture({
-      ...options,
-      timingObserver: timing.observeLifecycleState,
-    });
-    const results = [];
-    for (const harness of [baseline, measured]) {
-      const started = harness.runtime.start(request(), "C:\\repository");
-      results.push(await started.completion);
-    }
-    timing.finish();
-    assert.deepEqual(results[1], results[0]);
-    assert.deepEqual(measured.effectCounts(), baseline.effectCounts());
-    assert.deepEqual(measured.lifecycleStates, baseline.lifecycleStates);
-    assert.equal(Object.hasOwn(results[1] ?? {}, "executionTiming"), false);
-    assert.equal(timing.snapshot().measurementComplete, false);
-    assert.equal(timing.snapshot().progressOutputConfirmed, false);
-    assert.deepEqual(
-      timing.snapshot().intervals.map((row) => row.state),
-      measured.lifecycleStates,
-    );
-  });
-}
 
 /**
  * 受動Lifecycle通知の拒否を受付・遷移と元結果から分離する。
@@ -3364,22 +3072,25 @@ test("固定した両Providerの選定をEffect前確認と独立Reviewerへ接�
       harness.selectionRequests.map((x) => x.executionSelection),
       [selections.executor, selections.reviewer],
     );
-    assert.deepEqual(
-      harness.slateRequests[0]?.taskExecutionSelections,
-      selections,
-    );
-    const captured = harness.slateRequests[0]
-      ?.taskExecutionSelections as typeof selections;
-    assert.notEqual(captured, selections);
+    assert.deepEqual(harness.slateRequests[0]?.executionSelections, [
+      selections.executor,
+      selections.reviewer,
+    ]);
+    const captured = harness.slateRequests[0]?.executionSelections as [
+      typeof selections.executor,
+      typeof selections.reviewer,
+    ];
+    assert.notEqual(captured[0], selections.executor);
+    assert.notEqual(captured[1], selections.reviewer);
     assert.equal(Object.isFrozen(captured), true);
-    assert.equal(
-      harness.selectionRequests[0]?.executionSelection,
-      captured.executor,
-    );
-    assert.equal(
-      harness.selectionRequests[1]?.executionSelection,
-      captured.reviewer,
-    );
+    for (const [index, selected] of captured.entries()) {
+      assert.equal(Object.isFrozen(selected), true);
+      const stageSelection =
+        harness.selectionRequests[index]?.executionSelection;
+      assert.deepEqual(stageSelection, selected);
+      assert.notEqual(stageSelection, selected);
+      assert.equal(Object.isFrozen(stageSelection), true);
+    }
   }
 });
 
@@ -3428,36 +3139,37 @@ test("是正時も受付時の選定組を保持して別の希望へ再選定�
 });
 
 /**
- * 再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させるを検証する。
+ * 各Stageのpreflight選定差は当該StageのHome観測・起動前に拒否するを検証する。
  *
- * @responsibility 再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させるの合否判定を所有する。
+ * @responsibility 各Stageのpreflight選定差は当該StageのHome観測・起動前に拒否するの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させるの対象操作を実行する。
+ * @stimulus 各Stageのpreflight選定差は当該StageのHome観測・起動前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させる", async () => {
-  for (const selectionMismatchAt of [1, 2, 3, 4]) {
+test("各Stageのpreflight選定差は当該StageのHome観測・起動前に拒否する", async () => {
+  for (const selectionPreflightMismatchAt of [1, 2, 3, 4]) {
     const harness = fixture({
-      selectionMismatchAt,
+      selectionPreflightMismatchAt,
       reviewerDecision: "changes_requested",
       finalReviewerDecision: "approved",
     });
     const result = await harness.runtime.start(request(), "C:\\repository")
       .completion;
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "coordinator_task_selection_slate_mismatch");
-    assert.equal(harness.processStartCount(), selectionMismatchAt - 1);
-    assert.equal(harness.selectionNotices.length, selectionMismatchAt - 1);
-    assert.equal(harness.selectionRevokeCount(), selectionMismatchAt);
+    assert.equal(result.reason, "coordinator_task_selection_failed");
+    assert.equal(harness.processStartCount(), selectionPreflightMismatchAt - 1);
+    assert.equal(
+      harness.selectionNotices.length,
+      selectionPreflightMismatchAt - 1,
+    );
     assert.equal(
       harness.providerHomeObservationCount(),
-      2 * (selectionMismatchAt - 1),
+      selectionPreflightMismatchAt - 1,
     );
-    assert.equal(harness.mountGrantIssueCount(), selectionMismatchAt - 1);
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
     assert.equal(result.canonicalRepositoryChanged, false);
@@ -3465,125 +3177,131 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
 });
 
 /**
- * 時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進むを検証する。
- *
- * @responsibility 時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進むの合否判定を所有する。
+ * 各Stageの実Home観測を一回にし、固定選定のまま開始する。
  * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進むの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 有限Task依存だけ。
+ * @observation Home観測回数、元選定、開始と通知。
+ * @cleanup メモリ内Taskの終端。
  */
-test("時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進む", async () => {
+test("Provider Homeを各Stage一回観測して同じ完全選定で開始する", async () => {
   const harness = fixture();
   const result = await harness.runtime.start(request(), "C:\\repository")
     .completion;
   assert.equal(result.status, "completed");
-  assert.deepEqual(harness.selectionLifecycleEvents.slice(0, 5), [
-    "selection:1:initial",
+  assert.deepEqual(harness.selectionLifecycleEvents, [
     "provider-home:1",
     "provider-home:2",
-    "selection-revoke:1",
-    "selection:1:refresh",
   ]);
+  assert.equal(harness.providerHomeObservationCount(), 2);
   assert.equal(harness.events[0], "notice:executor");
   assert.equal(harness.processStartCount(), 2);
 });
 
 /**
- * Provider Homeの不正・不明分類は初回観測と再観測のどちらでもProvider起動前に停止するを検証する。
- *
- * @responsibility Provider HomeのDirectory分類とTask RuntimeのProcess Gateを結合し、不正・不明なHomeからProvider Process Effectが発行されないことを判定する。
+ * 各StageのHome不成立を、そのStageのProvider開始前に拒否する。
  * @trace ERB-IT-008
- * @precondition 下位Platform Accessがmissing、regular file、link／reparse、異なるIdentity、権限不足、観測不能をblockedへ分類する。
- * @stimulus 各blocked分類を初回観測またはMount Grant発行後の再観測としてTask Runtimeへ返す。
- * @observation Task結果理由、Provider Home観測回数、Mount Grant発行回数およびProvider Process Effect回数を観測する。
- * @oracle 初回失敗は観測1回・Grant 0・Process 0、再観測失敗は観測2回・Grant 1・Process 0で理由付きblockedになる。
- * @cleanup Task Runtimeが未消費SelectionおよびMount Grantを失効し、Provider Processを残さない。
- * @boundary ERB-IT-008=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition Node観測の有限分類を返す。
+ * @stimulus Executor又はReviewerのHomeを不正・不明にする。
+ * @observation 元理由、観測数、開始数と清掃結果。
+ * @oracle 失敗Stage以降は開始せず、先行Stageの観測を消さない。
+ * @cleanup メモリ内Taskの終端。
  */
-test("Provider Homeの不正・不明分類は初回観測と再観測のどちらでもProvider起動前に停止する", async () => {
-  const classifications = [
+test("各StageのHome不正・不明は当該Provider開始前に停止する", async () => {
+  for (const classification of [
     "missing",
     "regular_file",
     "link_or_reparse",
     "foreign_identity",
     "insufficient_permission",
     "unknown",
-  ] as const;
-
-  for (const classification of classifications) {
+  ] as const)
     for (const at of [1, 2] as const) {
       const harness = fixture({
         providerHomeObservationFailure: { at, classification },
       });
       const result = await harness.runtime.start(request(), "C:\\repository")
         .completion;
-
-      assert.equal(result.status, "blocked", `${classification}:${at}`);
+      assert.equal(result.status, "blocked", classification + ":" + at);
       assert.equal(
         result.reason,
-        at === 1
-          ? "coordinator_task_provider_home_observation_failed"
-          : "coordinator_task_provider_home_reobservation_failed",
-        `${classification}:${at}`,
+        "coordinator_task_provider_home_observation_failed",
       );
       assert.equal(harness.providerHomeObservationCount(), at);
-      assert.equal(harness.mountGrantIssueCount(), at === 1 ? 0 : 1);
-      assert.equal(harness.processStartCount(), 0);
+      assert.equal(harness.processStartCount(), at - 1);
       assert.equal(result.cleanupConfirmed, true);
       assert.equal(result.manualRecoveryRequired, false);
     }
-  }
 });
 
 /**
- * Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止するを検証する。
+ * 残るPacket失効の不明を元の失敗と分けて保持する。
+ * @trace CPR-IT-001
+ * @precondition Packet発行拒否の有限fixture。
+ * @stimulus 失効の成功・拒否・未知値・例外とpoison通知例外。
+ * @observation 失効一回、一次理由、元Host参照、清掃と再起動分類。
+ * @oracle 不明だけを要回復とし、通知例外で一次結果を消さない。
+ * @cleanup 元Ownerの既存終了・保持処理。
+ */
+test("Packet失効の拒否・未知値・例外は元理由と回復参照を保持する", async () => {
+  for (const outcome of ["revoked", "blocked", "unknown", "throw"] as const)
+    for (const poisonNotificationThrows of [false, true]) {
+      const harness = fixture({
+        packetIssueInvalid: true,
+        ...(outcome === "revoked"
+          ? {}
+          : { grantRevokeFailure: { target: "packet" as const, outcome } }),
+        poisonNotificationThrows,
+      });
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
+      const confirmed = outcome === "revoked";
+      assert.equal(result.reason, "coordinator_task_packet_issue_failed");
+      assert.equal(result.cleanupConfirmed, confirmed);
+      assert.equal(result.manualRecoveryRequired, !confirmed);
+      assert.equal(result.processRestartRequired, !confirmed);
+      assert.equal(
+        result.hostRecoveryId,
+        confirmed ? null : "host.fixture.recovery.record",
+      );
+      assert.equal(harness.packetRevokeCount(), 1);
+      assert.equal(harness.processStartCount(), 0);
+      assert.equal(harness.cleanupCount(), confirmed ? 1 : 0);
+      assert.equal(harness.abandonOperationCount(), confirmed ? 0 : 1);
+    }
+});
+
+/**
+ * preflight選定の不成立・完全値差はProvider Effect前に停止するを検証する。
  *
- * @responsibility Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止するの合否判定を所有する。
+ * @responsibility preflight選定の不成立・完全値差はProvider Effect前に停止するの合否判定を所有する。
  * @trace CPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止するの対象操作を実行する。
+ * @stimulus preflight選定の不成立・完全値差はProvider Effect前に停止するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止する", async () => {
+test("preflight選定の不成立・完全値差はProvider Effect前に停止する", async () => {
   const original = fixedSelections().executor;
-  for (const [selectionRefreshValue, matches] of [
+  for (const [selectionPreflightValue, matches] of [
     [Object.fromEntries(Object.entries(original).reverse()), true],
     [{ ...original, modelIdentifier: "different-model" }, false],
     [{ ...original, configIdentity: "f".repeat(64) }, false],
     [{ ...original, unknown: true }, false],
     [null, false],
   ] as const) {
-    const harness = fixture({ selectionRefreshValue });
+    const harness = fixture({ selectionPreflightValue });
     const result = await harness.runtime.start(request(), "C:\\repository")
       .completion;
     assert.equal(result.status, matches ? "completed" : "blocked");
     assert.equal(harness.processStartCount(), matches ? 2 : 0);
     if (!matches)
-      assert.equal(
-        result.reason,
-        "coordinator_task_provider_selection_refresh_mismatch",
-      );
+      assert.equal(result.reason, "coordinator_task_selection_failed");
   }
   for (const [options, reason] of [
-    [
-      { selectionRefreshFailureAt: 1 },
-      "coordinator_task_provider_selection_refresh_failed",
-    ],
-    [
-      { selectionRefreshMismatchAt: 1 },
-      "coordinator_task_provider_selection_refresh_mismatch",
-    ],
-    [
-      { selectionRefreshRevokeFailureAt: 1 },
-      "coordinator_task_provider_selection_refresh_revoke_failed",
-    ],
+    [{ selectionPreflightFailureAt: 1 }, "coordinator_task_selection_failed"],
+    [{ selectionPreflightMismatchAt: 1 }, "coordinator_task_selection_failed"],
   ] as const) {
     const harness = fixture(options);
     const result = await harness.runtime.start(request(), "C:\\repository")
@@ -5060,76 +4778,6 @@ test("Production入口は署名資格なしで未解決の実行対象を拒否�
       startRuntimeOwnedCoordinatorTask(request(), "not-an-absolute-repository"),
     /coordinator_task_workspace_target_invalid/u,
   );
-});
-
-/**
- * 実Operationの管理参照だけを許可元へ結合する。
- *
- * @responsibility 署名資格ではなく現在の実Operation所有と失効を本番loaderで確認する。
- * @trace PRL-IT-005
- * @precondition 検証済みRepository内に自己生成Operationを作成する。
- * @stimulus 正規・偽造・別Operation・清掃後の管理参照で許可元を要求する。
- * @observation Source、Operation ID、清掃後の不存在とcache再利用拒否を確認する。
- * @oracle 同じ実Operationだけ受理し、署名資格を要求せず失効後はcacheを返さない。
- * @cleanup 各Operationを既存Ownerで清掃し、登録hookで自己生成親を回収する。
- * @boundary PRL-IT-005=Related 2 Blocks: Operation管理参照→許可元生成。
- */
-test("本番許可元は実Operationに結合し清掃後のcacheを拒否する", (t) => {
-  const parent = createTaskRuntimeTestDirectory(t, "crdd-local-authority-");
-  const owned = createOwnedOperationDirectories(parent);
-  let foreign: ReturnType<typeof createOwnedOperationDirectories> | null = null;
-  try {
-    const context = createOwnedOperationContextCapability(owned);
-    const management = createOwnedOperationManagementCapability(
-      context,
-      createOwnedMountCapability(owned),
-    );
-    const operation = verifyOwnedOperationManagementCapability(management);
-    const binding = {
-      operationId: operation.operationId,
-      provider: "claude",
-    };
-    const source = loadRuntimeOwnedLocalPersonalAuthority(binding, management);
-    assert.ok(source);
-    assert.equal(
-      loadRuntimeOwnedLocalPersonalAuthority(binding, management),
-      source,
-    );
-    assert.equal(
-      loadRuntimeOwnedLocalPersonalAuthority(binding, undefined),
-      null,
-    );
-    assert.equal(loadRuntimeOwnedLocalPersonalAuthority(binding, {}), null);
-    assert.equal(
-      loadRuntimeOwnedLocalPersonalAuthority(
-        { ...binding, operationId: "OP-123456" },
-        management,
-      ),
-      null,
-    );
-    foreign = createOwnedOperationDirectories(parent);
-    const foreignManagement = createOwnedOperationManagementCapability(
-      createOwnedOperationContextCapability(foreign),
-      createOwnedMountCapability(foreign),
-    );
-    assert.equal(
-      loadRuntimeOwnedLocalPersonalAuthority(binding, foreignManagement),
-      null,
-    );
-    cleanupOwnedOperationDirectories(owned);
-    assert.equal(fs.existsSync(owned.root), false);
-    assert.equal(
-      loadRuntimeOwnedLocalPersonalAuthority(binding, management),
-      null,
-    );
-  } finally {
-    if (foreign) {
-      cleanupOwnedOperationDirectories(foreign);
-      assert.equal(fs.existsSync(foreign.root), false);
-    }
-    if (fs.existsSync(owned.root)) cleanupOwnedOperationDirectories(owned);
-    assert.equal(fs.existsSync(owned.root), false);
-  }
 });
 
 /**

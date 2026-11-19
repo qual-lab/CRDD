@@ -35,11 +35,8 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
     "terminal_promise",
     "absence_promise",
     "absence_object",
-    "mount_promise",
-    "mount_object",
   ] as const) {
     const management = {},
-      prepared = {},
       recovery = {};
     const plan = {
       ...attemptPlan(),
@@ -77,28 +74,16 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
             ],
     };
     let terminalResult: unknown = null;
-    let callbackCalls = 0,
-      consumed = false;
+    let callbackCalls = 0;
+    let recoveryStarts = 0;
     const dependencies: ExecutorTestDependencies = {
       effectExecutorAvailable: true,
-      verifyRevision: () => true,
-      consumePreparedPlan: (p, m) => {
-        if (p !== prepared || m !== management || consumed) return null;
-        consumed = true;
-        return plan;
+      verifyRevision: (m, p) =>
+        m === management && p.operationId === plan.operationId,
+      beginRecovery: () => {
+        recoveryStarts++;
+        return { status: "ready", recoveryId, recoveryCapability: recovery };
       },
-      consumeProviderAuthority: () => ({
-        operationId: plan.operationId,
-        provider: plan.provider,
-        providerHomeMountGrantRef: plan.grantRef,
-        runtimeAuthorityIssued: true,
-        providerEffectAllowed: true,
-      }),
-      beginRecovery: () => ({
-        status: "ready",
-        recoveryId,
-        recoveryCapability: recovery,
-      }),
       verifyRecoveryBinding: () => true,
       startCommand: (command) => ({
         started: async () => true,
@@ -155,16 +140,6 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
           : mode === "absence_object"
             ? {}
             : true) as unknown as boolean,
-      recordMountCompletion: () =>
-        (mode === "mount_promise"
-          ? Promise.reject(Error("synthetic_mount"))
-          : mode === "mount_object"
-            ? {}
-            : true) as unknown as boolean,
-      completeMount: () => {
-        events.push("mount");
-        return { status: "completed" };
-      },
       completeRecovery: () => {
         events.push("recovery");
         return {
@@ -185,8 +160,13 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
       },
     };
     const runtime = createExecutorTestCandidate(dependencies);
-    const started = runtime.start(prepared, management, () => true);
+    const started = runtime.start(plan, management, () => true);
     assert.equal(started.status, "started");
+    const duplicate = runtime.start(plan, management, () => true);
+    assert.equal(duplicate.status, "blocked");
+    assert.equal(duplicate.reason, "docker_process_controller_plan_invalid");
+    assert.equal(duplicate.dockerEffectStarted, false);
+    assert.equal(recoveryStarts, 1);
     if (started.status !== "started") continue;
     const result = await started.completion;
     if (mode === "terminal_throw" || mode === "terminal_promise") {
@@ -202,7 +182,7 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
       assert.equal(callbackCalls, 1);
       continue;
     }
-    if (mode.startsWith("absence_") || mode.startsWith("mount_")) {
+    if (mode.startsWith("absence_")) {
       assert.equal(result.status, "completed");
       assert.equal(result.cleanupConfirmed, true);
       assert.equal(result.homeLeaseReleased, true);
@@ -212,7 +192,6 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
       assert.equal(result.recoveryFinalizationCapability, null);
       assert.equal(terminalResult, result);
       assert.equal(events.includes("recovery"), false);
-      assert.equal(events.includes("mount"), true);
       assert.equal(callbackCalls, 1);
       continue;
     }

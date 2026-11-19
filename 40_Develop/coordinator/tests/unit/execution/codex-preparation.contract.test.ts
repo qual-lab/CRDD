@@ -33,7 +33,6 @@ import {
 import { snapshotCoordinatorTaskRequest } from "../../../src/execution/request.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import {
   createPreparationFailure,
   createProviderDockerRuntimeDependencies,
@@ -44,7 +43,6 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "../../../src/execution/provider-executor.ts";
 import {
-  preparationSelection,
   executionSelection,
   taskExecutionSelections,
 } from "../../fixtures/ai-selection.ts";
@@ -192,8 +190,6 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
   assert.equal(files[0]?.content, content);
 });
 
-import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
-
 /**
  * 上位の管理情報がExecutor向け実値へ流れないことを反証する。
  * @responsibility 型の削除だけでなく選定・Packet・Pathの明示投影を確認する。
@@ -210,26 +206,12 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     new URL("../../../src/execution/preparation.ts", import.meta.url),
     "utf8",
   );
-  const completeSelection = { marker: "upper" };
   const technicalSelection = { marker: "technical" };
-  const selection = {
-    selectionRecordId: "selection",
-    operationId: "operation",
-    executorProvider: "codex",
-    executionSelection: completeSelection,
-    selectionHash: "hash",
-    taskAttempt: 0,
-    model: "model",
-    effort: "low",
-    speedMode: "normal",
-    selectionNotice: "notice",
-  };
   const packet = {
     allowedReferences: ["reference"],
     packetRef: "packet",
     operationId: "operation",
     executionSelection: technicalSelection,
-    selectionHash: "hash",
     provider: "codex",
     taskHash: "upper-task",
     projectionHash: "upper-projection",
@@ -242,9 +224,7 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     toolsAllowed: false,
     sessionPersistenceAllowed: false,
   };
-  let selectionConsumed = 0,
-    packetConsumed = 0,
-    operationBound = 0,
+  let packetConsumed = 0,
     unexpected = 0;
   const unused = () => {
     unexpected++;
@@ -253,7 +233,6 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
   const declarations = [
     "createProviderDockerRuntimeDependencies",
     "consumeAttemptAdvicePacket",
-    "consumeAttemptModelSelection",
   ]
     .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
     .join("\n");
@@ -276,37 +255,11 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
         target: { executionTree: "execution" },
         protection: { gitSourcePath: "git", internalSourcePath: "internal" },
       }),
-      activateRuntimeOwnedProviderHomeMount: unused,
-      borrowRuntimeOwnedActiveProviderHomeMountSource: unused,
-      completeRuntimeOwnedProviderHomeMount: unused,
       randomBytes: unused,
-      performance: { now: unused },
       consumeRuntimeOwnedProviderTaskPacket: unused,
-      issueRuntimeOwnedProviderAuthority: unused,
-      revokeRuntimeOwnedProviderAuthority: unused,
       consumeRuntimeOwnedProviderAdvicePacket: () => {
         packetConsumed++;
         return packet;
-      },
-      consumeRuntimeOwnedDelegationSelectionGrant: () => {
-        selectionConsumed++;
-        return selection;
-      },
-      projectAttemptSelection: () => ({
-        executionSelection: technicalSelection,
-        selectionHash: "hash",
-      }),
-      bindOwnedOperationExecutionSelection: (
-        _management: unknown,
-        id: unknown,
-        complete: unknown,
-        ordinal: unknown,
-      ) => {
-        assert.equal(id, "selection");
-        assert.strictEqual(complete, completeSelection);
-        assert.equal(ordinal, 0);
-        operationBound++;
-        return true;
       },
     },
   );
@@ -326,23 +279,6 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     gitSourcePath: "git",
     internalSourcePath: "internal",
   });
-  const model = callbacks.consumeModelSelection({}, {});
-  assert.equal(Object.hasOwn(model, "speedMode"), false);
-  assert.deepEqual(
-    Object.keys(model).sort(),
-    Object.keys(selection)
-      .filter((key) => key !== "speedMode")
-      .sort(),
-  );
-  for (const key of Object.keys(model)) {
-    if (key !== "executionSelection")
-      assert.strictEqual(
-        model[key],
-        selection[key as keyof typeof selection],
-        key,
-      );
-  }
-  assert.strictEqual(model.executionSelection, technicalSelection);
   const advice = callbacks.consumeAdvicePacket({}, {});
   assert.deepEqual(
     Object.keys(advice).sort(),
@@ -355,11 +291,7 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     assert.strictEqual(advice[key], packet[key as keyof typeof packet], key);
   assert.equal(packet.taskHash, "upper-task");
   assert.equal(packet.projectionHash, "upper-projection");
-  assert.equal(selection.speedMode, "normal");
-  assert.deepEqual(
-    [selectionConsumed, packetConsumed, operationBound, unexpected],
-    [1, 1, 1, 0],
-  );
+  assert.deepEqual([packetConsumed, unexpected], [1, 0]);
 });
 
 /**
@@ -388,46 +320,31 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
   assert.deepEqual(
     Object.keys(first).sort(),
     [
-      "activateMount",
-      "borrowMountSource",
-      "completeMount",
       "consumeAdvicePacket",
-      "consumeModelSelection",
       "consumeTaskPacket",
-      "issueProviderAuthority",
-      "monotonicNow",
       "randomBytes",
-      "revokeProviderAuthority",
       "verifyOperationMount",
-      "wallNow",
     ].sort(),
   );
   for (const key of Object.keys(first) as (keyof typeof first)[]) {
     assert.equal(typeof first[key], "function");
-    if (key !== "monotonicNow" && key !== "verifyOperationMount")
-      assert.equal(first[key], second[key]);
+    if (key !== "verifyOperationMount") assert.equal(first[key], second[key]);
   }
-  assert.equal(Number.isFinite(first.wallNow()), true);
-  assert.equal(Number.isFinite(first.monotonicNow()), true);
   const result = createPreparationFailure("fixed_preparation_failure");
   assert.equal(Object.isFrozen(result), true);
   assert.deepEqual(result, {
     status: "blocked",
     reason: "fixed_preparation_failure",
-    preparedCapability: null,
+    plan: null,
     operationId: null,
-    grantRef: null,
-    selectionRecordId: null,
     selectedModel: null,
     selectedEffort: null,
     selectionNotice: null,
-    providerHomeMountLeaseActive: false,
     dockerEffectIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
     processEffectIssued: false,
     providerRequestIssued: false,
-    runtimeAuthorityIssued: false,
     operationCapabilityIssued: false,
     hostPathReported: false,
     proxyCredentialReported: false,
@@ -436,18 +353,25 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
 
 /**
  * 技術Command検査用の試験投影を介さず、本番の準備記録を確認する。
- * @responsibility 完全Planの往復廃止と記録用投影の狭さを実返却値で反証する。
+ * @responsibility 上位計画の直接返却と、技術実行・記録投影の分離を実返却値で反証する。
  * @trace PRL-UT-014
  * @precondition 本番準備OwnerとRequestを受ける実Factory。Home・Docker操作は行わない。
- * @stimulus Probe・編集・レビューの準備を一回消費する。
+ * @stimulus Probe・編集・レビューの準備計画を直接取得する。
  * @observation 上位記録とExecutorのkey、五資源・Image・Mode、元参照。
- * @oracle Command・本文・Authorityは記録投影へ出ず、Plan／prepareは公開されない。
+ * @oracle Command・本文・Authorityは記録投影へ出ず、内部計画の技術実行は同じ元Executorが所有する。
  * @cleanup メモリ内の候補のみ。外部資源は生成しない。
  */
-test("本番の準備記録は完全Planを受け戻さず試行専用Executorを保持する", () => {
+test("本番の準備は上位計画を直接返し技術実行と記録投影を分離する", () => {
   for (const mode of ["probe", "executor", "reviewer"] as const) {
+    let observedPlan:
+      | import("../../../src/execution/types.ts").PreparedAttemptPlan<"codex">
+      | null = null;
     const fixture = createFixture(
-      {},
+      {
+        observePlan: (plan) => {
+          observedPlan = plan;
+        },
+      },
       mode !== "probe",
       mode === "reviewer" ? "reviewer" : "executor",
     );
@@ -457,16 +381,16 @@ test("本番の準備記録は完全Planを受け戻さず試行専用Executor�
         : { purpose: "task" as const, packetCapability: Object.freeze({}) }),
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
     });
     assert.equal(prepared.status, "prepared");
-    const owned = fixture.adapter.consumeRecord(
-      prepared.preparedCapability,
-      fixture.managementCapability,
-    );
+    const owned = observedPlan as
+      | import("../../../src/execution/types.ts").PreparedAttemptPlan<"codex">
+      | null;
     assert.ok(owned);
     assert.equal("commands" in owned, false);
     assert.equal("providerInput" in owned, false);
@@ -493,13 +417,23 @@ test("本番の準備記録は完全Planを受け戻さず試行専用Executor�
     );
     for (const key of Object.keys(projection) as (keyof typeof projection)[])
       assert.equal(projection[key], owned[key]);
-    assert.equal(
-      fixture.adapter.consumeRecord(
-        prepared.preparedCapability,
-        fixture.managementCapability,
-      ),
-      null,
-    );
+    assert.strictEqual(prepared.plan, owned);
+    const refused = owned.executor.start({
+      managementCapability: fixture.managementCapability,
+      reference: { recoveryId: "invalid", recoveryCapability: {} },
+    });
+    assert.equal(refused.status, "blocked");
+    const duplicate = owned.executor.start({
+      managementCapability: fixture.managementCapability,
+      reference: {
+        recoveryId: `docker-task.${owned.stableLogicalHomeBindingHash}.${"1".repeat(64)}.${"2".repeat(64)}`,
+        recoveryCapability: {},
+      },
+    });
+    assert.equal(duplicate.status, "blocked");
+    assert.equal(duplicate.reason, "docker_process_controller_plan_invalid");
+    assert.equal(duplicate.dockerEffectStarted, false);
+    assert.equal(duplicate.providerRequestStarted, false);
   }
 });
 
@@ -507,18 +441,6 @@ const fixedSelection = executionSelection("executor", {
   provider: "codex",
   model: "gpt-5.5",
   effort: "low",
-});
-const MODEL_SELECTION = Object.freeze({
-  selectionRecordId: "MODELSEL-12345678",
-  operationId: "OP-123456",
-  executorProvider: "codex" as const,
-  ...preparationSelection(fixedSelection),
-  selectionHash: hashExecutionSelection(fixedSelection) as string,
-  taskAttempt: 0 as const,
-  model: fixedSelection.modelIdentifier,
-  effort: fixedSelection.reasoningEffort,
-  speedMode: "normal" as const,
-  selectionNotice: "受付時固定選定",
 });
 
 /**
@@ -536,7 +458,12 @@ const MODEL_SELECTION = Object.freeze({
 function createFixture(
   overrides: Partial<
     Parameters<typeof createAttemptPreparation<"codex">>[1]
-  > = {},
+  > & {
+    executionSelection?: ReturnType<typeof executionSelection>;
+    observePlan?: (
+      plan: import("../../../src/execution/types.ts").PreparedAttemptPlan<"codex">,
+    ) => void;
+  } = {},
   isTaskMode = false,
   taskRole: "executor" | "reviewer" = "executor",
 ) {
@@ -550,18 +477,17 @@ function createFixture(
         },
       )
     : fixedSelection;
+  const {
+    executionSelection: selectedOverride,
+    observePlan,
+    ...hostOverrides
+  } = overrides;
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
-  const mountAuthorizationCapability = Object.freeze({});
-  const selectionUseCapability = Object.freeze({});
-  const activeMountCapability = Object.freeze({});
-  const authorityUseCapability = Object.freeze({});
-  const authorityControlCapability = Object.freeze({});
-  let wallClockMs = 1_000;
-  let monotonicMs = 2_000;
-  let completionCount = 0;
-  let revocationCount = 0;
   let randomValue = 0;
+  let technicalPlan:
+    | import("../../../../executor/scripts/executor-test.ts").TestAttemptPlan
+    | null = null;
   const dependencies = {
     verifyOperationMount: (management: unknown, mount: unknown) => {
       assert.equal(management, managementCapability);
@@ -579,48 +505,9 @@ function createFixture(
         }),
       });
     },
-    activateMount: (authorization: unknown, management: unknown) => {
-      assert.equal(authorization, mountAuthorizationCapability);
-      assert.equal(management, managementCapability);
-      return Object.freeze({
-        status: "activated",
-        grant: Object.freeze({
-          grantRef: "PHMGRANT-123456",
-          provider: "codex",
-          operationId: "OP-123456",
-          providerHomeIdentityHash: "b".repeat(64),
-          stableLogicalHomeBindingHash: "1".repeat(64),
-        }),
-        activeMountCapability,
-      });
-    },
-    borrowMountSource: (active: unknown, management: unknown) => {
-      assert.equal(active, activeMountCapability);
-      assert.equal(management, managementCapability);
-      return "C:\\Users\\person\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\codex";
-    },
-    completeMount: (active: unknown, management: unknown) => {
-      assert.equal(active, activeMountCapability);
-      assert.equal(management, managementCapability);
-      completionCount += 1;
-      return Object.freeze({ status: "completed" });
-    },
-    wallNow: () => wallClockMs,
-    monotonicNow: () => monotonicMs,
     randomBytes: (size: number) => {
       randomValue += 1;
       return Buffer.alloc(size, randomValue);
-    },
-    consumeModelSelection: (selection: unknown, management: unknown) => {
-      assert.equal(selection, selectionUseCapability);
-      assert.equal(management, managementCapability);
-      return Object.freeze({
-        ...MODEL_SELECTION,
-        ...preparationSelection(selected),
-        selectionHash: hashExecutionSelection(selected) as string,
-        model: selected.modelIdentifier,
-        effort: selected.reasoningEffort,
-      });
     },
     consumeTaskPacket: () =>
       Object.freeze({
@@ -628,46 +515,38 @@ function createFixture(
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole,
         taskAttempt: 0 as const,
-        selectionHash: hashExecutionSelection(selected) as string,
+        executionSelection: selected,
         taskPacketHash: "a".repeat(64),
         prompt: "Implement the bounded local candidate.",
         additionalHosts: Object.freeze([]),
         promptTransport: "provider_stdin_only" as const,
       }),
-    issueProviderAuthority: (management: unknown, active: unknown) => {
-      assert.equal(management, managementCapability);
-      assert.equal(active, activeMountCapability);
-      return Object.freeze({
-        status: "issued",
-        useCapability: authorityUseCapability,
-        controlCapability: authorityControlCapability,
-        operationId: "OP-123456",
-        provider: "codex",
-        providerHomeMountGrantRef: "PHMGRANT-123456",
-        runtimeAuthorityIssued: true,
-      });
-    },
-    revokeProviderAuthority: (control: unknown, management: unknown) => {
-      assert.equal(control, authorityControlCapability);
-      assert.equal(management, managementCapability);
-      revocationCount += 1;
-      return Object.freeze({ status: "revoked" });
-    },
-    ...overrides,
+    ...hostOverrides,
   };
-  const adapter = createAttemptPreparation("codex", dependencies);
+  const adapter = createAttemptPreparation(
+    "codex",
+    dependencies,
+    (upper, lower) => {
+      technicalPlan = lower;
+      observePlan?.(upper);
+    },
+  );
   return {
     adapter,
+    getTechnicalPlan: () => {
+      if (!technicalPlan) throw Error("fixture_plan_missing");
+      return technicalPlan;
+    },
     managementCapability,
     mountCapability,
-    mountAuthorizationCapability,
-    selectionUseCapability,
-    getCompletionCount: () => completionCount,
-    getRevocationCount: () => revocationCount,
-    advanceBeyondLifetime: () => {
-      wallClockMs += 30_000;
-      monotonicMs += 30_000;
-    },
+    executionSelection: selectedOverride ?? selected,
+    providerHome: Object.freeze({
+      provider: "codex" as const,
+      providerHomeSourcePath:
+        "C:\\Users\\person\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\codex",
+      providerHomeIdentityHash: "b".repeat(64),
+      stableLogicalHomeBindingHash: "1".repeat(64),
+    }),
   };
 }
 
@@ -677,7 +556,7 @@ function createFixture(
  * @responsibility 第3実行モードのIdentity、標準入力およびMount境界を判定する。
  * @trace PRL-UT-014
  * @precondition 固定Model Selectionと有効なAdvice Packetを使用する。
- * @stimulus prepareAdviceを実行してPlanを一回消費する。
+ * @stimulus prepareAdvice相当の入力を準備し、返された計画を確認する。
  * @observation operationMode、Packet Identity、CommandおよびWorkspace Mountを観測する。
  * @oracle workbench_adviceでありRepository／Workspaceを共有しない。
  * @cleanup Provider Effectを発行しないため外部資源はない。
@@ -700,37 +579,23 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
       describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const dependencies = {
-    consumeModelSelection: () => ({
-      ...MODEL_SELECTION,
-      ...preparationSelection(
-        executionSelection("advice", {
-          provider: "codex",
-          model: "gpt-5.6-sol",
-          effort: "low",
-        }),
-      ),
-      selectionHash: hashExecutionSelection(
-        executionSelection("advice", {
-          provider: "codex",
-          model: "gpt-5.6-sol",
-          effort: "low",
-        }),
-      ) as string,
+    executionSelection: executionSelection("advice", {
+      provider: "codex",
       model: "gpt-5.6-sol",
+      effort: "low",
     }),
     consumeAdvicePacket: () =>
       Object.freeze({
         contract: "crdd-executor/advice-input",
         contractRevision: 2,
+        executionSelection: executionSelection("advice", {
+          provider: "codex",
+          model: "gpt-5.6-sol",
+          effort: "low",
+        }),
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
-        ...preparationSelection(
-          executionSelection("advice", {
-            provider: "codex",
-            model: "gpt-5.6-sol",
-            effort: "low",
-          }),
-        ),
+
         provider: "codex" as const,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
@@ -747,7 +612,16 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
   };
   for (const change of [
     { operationId: "OP-654321" },
-    { selectionHash: "f".repeat(64) },
+    {
+      executionSelection: {
+        ...executionSelection("executor", {
+          provider: "codex",
+          model: "gpt-5.5",
+          effort: "low",
+        }),
+        configIdentity: "f".repeat(64),
+      },
+    },
     { provider: "claude" },
     { repositoryMounted: true },
     { workspaceMounted: true },
@@ -760,16 +634,11 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
       },
     },
   ]) {
-    let authorities = 0;
     const rejected = createFixture(
       {
         ...dependencies,
         consumeAdvicePacket: () =>
           ({ ...dependencies.consumeAdvicePacket(), ...change }) as never,
-        issueProviderAuthority: () => {
-          authorities++;
-          throw Error("unexpected_authority");
-        },
       },
       true,
     );
@@ -777,8 +646,11 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
       purpose: "advice",
       managementCapability: rejected.managementCapability,
       mountCapability: rejected.mountCapability,
-      mountAuthorizationCapability: rejected.mountAuthorizationCapability,
-      selectionUseCapability: rejected.selectionUseCapability,
+      providerHome: rejected.providerHome,
+
+      executionSelection: rejected.executionSelection,
+
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "workbench",
       packetCapability: {},
@@ -787,31 +659,27 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
     assert.equal(result.status, "blocked");
     assert.equal(result.providerRequestIssued, false);
     assert.equal(result.dockerEffectIssued, false);
-    assert.equal(authorities, 0);
-    assert.equal(rejected.getCompletionCount(), 1);
   }
   const fixture = createFixture(dependencies, true);
   const prepared = fixture.adapter.prepare({
     purpose: "advice",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "workbench",
     packetCapability: Object.freeze({}),
     packetOwnerCapability: Object.freeze({}),
   });
   assert.equal(prepared.status, "prepared");
-  const plan = fixture.adapter.consume(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
+  const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
   assert.equal(plan.operationMode, "workbench_advice");
-  assert.equal(plan.consumer, "workbench");
+  assert.equal(prepared.plan.consumer, "workbench");
   assert.equal(
-    plan.advicePacketRef,
+    prepared.plan.advicePacketRef,
     "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
   );
   assert.equal(plan.providerInput, "Give advice from the supplied projection.");
@@ -850,17 +718,15 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
     purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
     packetCapability: Object.freeze({}),
   });
   assert.equal(prepared.status, "prepared");
-  const plan = fixture.adapter.consume(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
+  const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
   const firstCommand = plan.commands[0];
   assert.ok(firstCommand);
@@ -914,18 +780,18 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
 });
 
 /**
- * 説明可能な低推論選定を固定Docker command planへ一度だけ結合するを検証する。
+ * 低推論選定を固定計画と元Executorの再開始拒否へ接続するを検証する。
  *
- * @responsibility 説明可能な低推論選定を固定Docker command planへ一度だけ結合するの合否判定を所有する。
+ * @responsibility 低推論選定を固定計画と元Executorの再開始拒否へ接続するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 説明可能な低推論選定を固定Docker command planへ一度だけ結合するの対象操作を実行する。
+ * @stimulus 低推論選定を固定計画と元Executorの再開始拒否へ接続するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("説明可能な低推論選定を固定Docker command planへ一度だけ結合する", () => {
+test("低推論選定を固定計画と元Executorの再開始拒否へ接続する", () => {
   const randomCalls: number[] = [];
   const fixture = createFixture({
     randomBytes: (size: number) => {
@@ -937,8 +803,9 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     purpose: "probe",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
   });
@@ -946,16 +813,27 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.equal(prepared.selectedModel, "gpt-5.5");
   assert.equal(prepared.selectedEffort, "low");
   assert.equal(Object.hasOwn(prepared, "selectedModelTier"), false);
-  assert.equal(prepared.selectionNotice, "受付時固定選定");
-  const publicJson = JSON.stringify(prepared);
+  assert.equal(
+    prepared.selectionNotice,
+    [
+      fixture.executionSelection.provider,
+      fixture.executionSelection.modelIdentifier,
+      fixture.executionSelection.reasoningEffort,
+      fixture.executionSelection.role,
+      fixture.executionSelection.source,
+    ].join(" / "),
+  );
+  const { plan: internalPlan, ...presentation } = prepared;
+  assert.strictEqual(internalPlan.executor, prepared.plan.executor);
+  const publicJson = JSON.stringify({
+    ...presentation,
+    recordProjection: internalPlan.executor.recordProjection,
+  });
   assert.doesNotMatch(publicJson, /Users\\\\person/);
   assert.doesNotMatch(publicJson, /CRDD_PROXY_AUTH/);
   assert.doesNotMatch(publicJson, /create_provider/);
 
-  const plan = fixture.adapter.consume(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
+  const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
   assert.deepEqual(randomCalls, [8, 32]);
   const expectedNames = {
@@ -1072,7 +950,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     assert.throws(() => assertResourceBinding({ ...plan, commands }));
   }
   assert.equal(plan.providerContainerName, `crdd-codex-${"b".repeat(16)}`);
-  assert.equal(plan.selectionRecordId, "MODELSEL-12345678");
+
   const purposes = plan.commands.map((candidate) => candidate.purpose);
   assert.deepEqual(purposes, [
     "create_subscription_auth_probe",
@@ -1119,27 +997,36 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     provider.argv.some((value) => value.startsWith("OPENAI_API_KEY=")),
     false,
   );
-  assert.equal(
-    fixture.adapter.consume(
-      prepared.preparedCapability,
-      fixture.managementCapability,
-    ),
-    null,
-  );
+  const firstStart = prepared.plan.executor.start({
+    managementCapability: fixture.managementCapability,
+    reference: { recoveryId: "invalid", recoveryCapability: {} },
+  });
+  assert.equal(firstStart.status, "blocked");
+  const duplicateStart = prepared.plan.executor.start({
+    managementCapability: fixture.managementCapability,
+    reference: {
+      recoveryId: `docker-task.${prepared.plan.stableLogicalHomeBindingHash}.${"1".repeat(64)}.${"2".repeat(64)}`,
+      recoveryCapability: {},
+    },
+  });
+  assert.equal(duplicateStart.status, "blocked");
+  assert.equal(duplicateStart.reason, "docker_process_controller_plan_invalid");
+  assert.equal(duplicateStart.dockerEffectStarted, false);
+  assert.equal(duplicateStart.providerRequestStarted, false);
 });
 
 /**
  * 乱数の不正取得と例外が準備後の権限発行へ進まないことを確認する。
- * @responsibility 取得順とMount返却を既存準備から観測する。
+ * @responsibility 取得順と計画拒否を既存準備から観測する。
  * @trace PRL-UT-014
  * @precondition 固定選定と模擬Mountを持つ実準備Adapterを使う。
  * @stimulus 各取得の短長違反と例外を与える。
- * @observation 乱数呼出列、準備結果、Mount返却とAuthority件数。
- * @oracle 不正Bufferでも二取得を維持し、例外以後は取得しない。Mount返却1、Authority0。
+ * @observation 乱数呼出列、準備結果、計画拒否回数。
+ * @oracle 不正Bufferでも二取得を維持し、例外以後は取得しない。Provider実行0。
  * @cleanup N/A: 値fixtureのみでDocker・外部AI・実Mountを取得しない。
  * @boundary PRL-UT-014=Direct Boundary: 準備Owner→DI値生成。
  */
-test("DI乱数検査の不成立は既存準備のMount返却と発行前停止を保つ", () => {
+test("DI乱数検査の不成立は発行前停止を保つ", () => {
   for (const mode of [
     "short8",
     "long8",
@@ -1149,7 +1036,6 @@ test("DI乱数検査の不成立は既存準備のMount返却と発行前停止�
     "throw32",
   ]) {
     const randomCalls: number[] = [];
-    let authorityCalls = 0;
     const fixture = createFixture({
       randomBytes: (size: number) => {
         randomCalls.push(size);
@@ -1163,66 +1049,23 @@ test("DI乱数検査の不成立は既存準備のMount返却と発行前停止�
           1,
         );
       },
-      issueProviderAuthority: () => {
-        authorityCalls += 1;
-        throw new Error("forbidden");
-      },
     });
     const prepared = fixture.adapter.prepare({
       purpose: "probe",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
     });
     assert.equal(prepared.status, "blocked");
     assert.deepEqual(randomCalls, mode === "throw8" ? [8] : [8, 32]);
-    assert.equal(fixture.getCompletionCount(), 1);
-    assert.equal(authorityCalls, 0);
+
     assert.equal(prepared.dockerEffectIssued, false);
   }
 });
-/**
- * cancelはMount leaseを完了しprepared capabilityを再利用不能にするを検証する。
- *
- * @responsibility cancelはMount leaseを完了しprepared capabilityを再利用不能にするの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus cancelはMount leaseを完了しprepared capabilityを再利用不能にするの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("cancelはMount leaseを完了しprepared capabilityを再利用不能にする", () => {
-  const fixture = createFixture();
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  const cancelled = fixture.adapter.cancel(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(cancelled.status, "cancelled");
-  assert.equal(fixture.getCompletionCount(), 1);
-  assert.equal(fixture.getRevocationCount(), 1);
-  assert.equal(
-    fixture.adapter.cancel(
-      prepared.preparedCapability,
-      fixture.managementCapability,
-    ).status,
-    "blocked",
-  );
-});
-
 /**
  * Task Packetをstdin専用入力と隔離workspace RW mountへ結合するを検証する。
  *
@@ -1241,23 +1084,24 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
     purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
     recoveryCorrelationId: "recovery.fixture-executor",
     consumer: "coordinator_cli",
     packetCapability: Object.freeze({}),
   });
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectedModel, "gpt-5.5");
-  const plan = fixture.adapter.consume(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
+  const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
   assert.equal(plan.operationMode, "isolated_task");
   assert.equal(plan.taskRole, "executor");
-  assert.equal(plan.recoveryCorrelationId, "recovery.fixture-executor");
-  assert.equal(plan.consumer, "coordinator_cli");
+  assert.equal(
+    prepared.plan.recoveryCorrelationId,
+    "recovery.fixture-executor",
+  );
+  assert.equal(prepared.plan.consumer, "coordinator_cli");
   assert.equal(plan.workspaceMountMode, "read_write");
   assert.equal(plan.providerInput, "Implement the bounded local candidate.");
   const argv = plan.commands.flatMap((command) => command.argv);
@@ -1304,13 +1148,11 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
           taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
           taskRole: "reviewer" as const,
           taskAttempt: 0 as const,
-          selectionHash: hashExecutionSelection(
-            executionSelection("independent_reviewer", {
-              provider: "codex",
-              model: "gpt-5.5",
-              effort: "medium",
-            }),
-          ) as string,
+          executionSelection: executionSelection("independent_reviewer", {
+            provider: "codex",
+            model: "gpt-5.5",
+            effort: "medium",
+          }),
           taskPacketHash: "a".repeat(64),
           prompt: "Review the bounded local candidate.",
           additionalHosts: Object.freeze([]),
@@ -1324,17 +1166,15 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
     purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
     packetCapability: Object.freeze({}),
   });
   assert.equal(prepared.status, "prepared");
-  const plan = fixture.adapter.consume(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
+  const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
   const provider = plan.commands.find(
     (candidate) => candidate.purpose === "create_provider",
@@ -1356,7 +1196,7 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
 /**
  * Packet相関の拒否を上位へ移してもEffect前停止を維持する。
  *
- * @responsibility Operation・選定Hash・試行番号・本文搬送の相関拒否を固定する。
+ * @responsibility Operation・完全選定・試行番号・本文搬送の相関拒否を固定する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Packetの四相関を一件ずつ差し替える。
@@ -1365,7 +1205,7 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Task Packetの相関不一致は上位準備で拒否しAuthorityを発行しない", () => {
+test("Task Packetの相関不一致は上位準備で拒否しPlanを発行しない", () => {
   const selected = executionSelection("executor", {
     provider: "codex",
     model: "gpt-5.5",
@@ -1379,7 +1219,7 @@ test("Task Packetの相関不一致は上位準備で拒否しAuthorityを発行
     taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskRole: "executor",
     taskAttempt: 0,
-    selectionHash: hashExecutionSelection(selected),
+    executionSelection: selected,
     taskPacketHash: "a".repeat(64),
     prompt: "synthetic",
     additionalHosts: Object.freeze([]),
@@ -1387,18 +1227,18 @@ test("Task Packetの相関不一致は上位準備で拒否しAuthorityを発行
   };
   for (const change of [
     { operationId: "OP-654321" },
-    { selectionHash: "f".repeat(64) },
+    {
+      executionSelection: {
+        ...base.executionSelection,
+        configIdentity: "f".repeat(64),
+      },
+    },
     { taskAttempt: 1 },
     { promptTransport: "argv" },
   ]) {
-    let authorities = 0;
     const fixture = createFixture(
       {
         consumeTaskPacket: () => ({ ...base, ...change }) as never,
-        issueProviderAuthority: () => {
-          authorities++;
-          throw Error("unexpected_authority");
-        },
       },
       true,
     );
@@ -1407,47 +1247,14 @@ test("Task Packetの相関不一致は上位準備で拒否しAuthorityを発行
       packetCapability: {},
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
     });
     assert.equal(result.status, "blocked");
-    assert.equal(authorities, 0);
-    assert.equal(fixture.getCompletionCount(), 1);
   }
-});
-
-/**
- * 期限切れ候補を発行前に閉じる。
- * @responsibility 元の期限・Mount回収条件を維持する。
- * @trace PRL-UT-014
- * @precondition 有効な準備候補。
- * @stimulus 二時計を期限外へ進める。
- * @observation 消費拒否とMount終了回数。
- * @oracle Provider Effectを発行しない。
- * @cleanup 合成値だけ。
- */
-test("期限切れprepared planはProvider EffectなしでMount leaseを回収する", () => {
-  const fixture = createFixture();
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  fixture.advanceBeyondLifetime();
-  assert.equal(
-    fixture.adapter.consume(
-      prepared.preparedCapability,
-      fixture.managementCapability,
-    ),
-    null,
-  );
-  assert.equal(fixture.getCompletionCount(), 1);
 });
 
 /**
@@ -1481,8 +1288,9 @@ test("Executor seccomp profileを検証できなければProvider planを発行�
       purpose: "task",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
       packetCapability: Object.freeze({}),
@@ -1494,301 +1302,35 @@ test("Executor seccomp profileを検証できなければProvider planを発行�
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.reason, "codex_docker_runtime_plan_invalid");
   assert.equal(prepared.providerRequestIssued, false);
-  assert.equal(fixture.getCompletionCount(), 1);
-  assert.equal(fixture.getRevocationCount(), 0);
 });
 
 /**
- * Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収するを検証する。
+ * production adapterは偽造Operationを実行前に拒否するを検証する。
  *
- * @responsibility Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収するの合否判定を所有する。
+ * @responsibility production adapterは未発行のCapabilityと未接続Selection 選定入力を拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収するの対象操作を実行する。
+ * @stimulus production adapterは未発行のCapabilityと未接続Selection 選定入力を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
-  const fixture = createFixture({
-    consumeModelSelection: () =>
-      Object.freeze({
-        ...MODEL_SELECTION,
-        operationId: "OP-654321",
-      }),
-  });
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "codex_docker_runtime_plan_invalid");
-  assert.equal(fixture.getCompletionCount(), 1);
-});
-
-/**
- * Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続するを検証する。
- *
- * @responsibility Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続する", () => {
-  let randomValue = 40;
-  const selectionRuntime =
-    createIsolatedDelegationSelectionGrantRuntimeCandidate({
-      verifyOperation: () =>
-        Object.freeze({
-          operationId: "OP-123456",
-          createdAt: "2026-08-24T00:00:00.000Z",
-        }),
-      observeProviderEligibility: () =>
-        Object.freeze([
-          Object.freeze({
-            provider: "claude",
-            status: "eligible",
-            reason: "ready",
-          }),
-          Object.freeze({
-            provider: "codex",
-            status: "eligible",
-            reason: "ready",
-          }),
-        ]),
-      wallNow: () => 1_000,
-      monotonicNow: () => 2_000,
-      randomBytes: (size: number) => {
-        randomValue += 1;
-        return Buffer.alloc(size, randomValue);
-      },
-    });
-  const fixture = createFixture(
-    {
-      consumeModelSelection: (selection, management) => {
-        const consumed = selectionRuntime.consume(selection, management);
-        return consumed
-          ? {
-              ...consumed,
-              ...preparationSelection(consumed.executionSelection),
-            }
-          : null;
-      },
-    },
-    true,
-  );
-  const issued = selectionRuntime.issue(fixture.managementCapability, {
-    operationId: "OP-123456",
-    taskAttempt: 0,
-    executionSelection: fixedSelection,
-  });
-  assert.equal(issued.status, "issued");
-
-  const prepared = fixture.adapter.prepare({
-    purpose: "task",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: issued.useCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-    packetCapability: Object.freeze({}),
-  });
-  assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectionRecordId, issued.selectionRecordId);
-  assert.equal(prepared.selectedModel, issued.selectedModel);
-  assert.equal(
-    selectionRuntime.consume(
-      issued.useCapability,
-      fixture.managementCapability,
-    ),
-    null,
-  );
-});
-
-/**
- * Selection GrantをconsumeできなければMount leaseだけ回収して停止するを検証する。
- *
- * @responsibility Selection GrantをconsumeできなければMount leaseだけ回収して停止するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Selection GrantをconsumeできなければMount leaseだけ回収して停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Selection GrantをconsumeできなければMount leaseだけ回収して停止する", () => {
-  const fixture = createFixture({
-    consumeModelSelection: () => null,
-  });
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "codex_docker_runtime_model_selection_invalid");
-  assert.equal(fixture.getCompletionCount(), 1);
-});
-
-/**
- * Provider Authorityを発行できなければMount leaseを返しPlanを作らないを検証する。
- *
- * @responsibility Provider Authorityを発行できなければMount leaseを返しPlanを作らないの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Provider Authorityを発行できなければMount leaseを返しPlanを作らないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Provider Authorityを発行できなければMount leaseを返しPlanを作らない", () => {
-  const fixture = createFixture({
-    issueProviderAuthority: () =>
-      Object.freeze({
-        status: "blocked",
-        useCapability: null,
-        controlCapability: null,
-        operationId: null,
-        provider: null,
-        providerHomeMountGrantRef: null,
-        runtimeAuthorityIssued: false,
-      }),
-  });
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "codex_docker_runtime_authority_invalid");
-  assert.equal(fixture.getCompletionCount(), 1);
-});
-
-/**
- * 不一致の発行済みProvider Authorityは失効してMount leaseを返すを検証する。
- *
- * @responsibility 不一致の発行済みProvider Authorityは失効してMount leaseを返すの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 不一致の発行済みProvider Authorityは失効してMount leaseを返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("不一致の発行済みProvider Authorityは失効してMount leaseを返す", () => {
-  let revocations = 0;
-  const fixture = createFixture({
-    issueProviderAuthority: () =>
-      Object.freeze({
-        status: "issued",
-        useCapability: Object.freeze({}),
-        controlCapability: Object.freeze({}),
-        operationId: "OP-654321",
-        provider: "codex",
-        providerHomeMountGrantRef: "PHMGRANT-123456",
-        runtimeAuthorityIssued: true,
-      }),
-    revokeProviderAuthority: () => {
-      revocations += 1;
-      return Object.freeze({ status: "revoked" });
-    },
-  });
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "codex_docker_runtime_authority_invalid");
-  assert.equal(fixture.getCompletionCount(), 1);
-  assert.equal(revocations, 1);
-});
-
-/**
- * prepared取消はAuthority失効とMount解放の両方を要求するを検証する。
- *
- * @responsibility prepared取消はAuthority失効とMount解放の両方を要求するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus prepared取消はAuthority失効とMount解放の両方を要求するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("prepared取消はAuthority失効とMount解放の両方を要求する", () => {
-  const fixture = createFixture({
-    revokeProviderAuthority: () => Object.freeze({ status: "blocked" }),
-  });
-  const prepared = fixture.adapter.prepare({
-    purpose: "probe",
-    managementCapability: fixture.managementCapability,
-    mountCapability: fixture.mountCapability,
-    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-    selectionUseCapability: fixture.selectionUseCapability,
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
-  assert.equal(prepared.status, "prepared");
-  const cancelled = fixture.adapter.cancel(
-    prepared.preparedCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(cancelled.status, "blocked");
-  assert.equal(
-    cancelled.reason,
-    "codex_docker_runtime_authority_revoke_invalid",
-  );
-  assert.equal(fixture.getCompletionCount(), 1);
-});
-
-/**
- * production adapterは未発行のCapabilityと未接続Selection Grantを拒否するを検証する。
- *
- * @responsibility production adapterは未発行のCapabilityと未接続Selection Grantを拒否するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus production adapterは未発行のCapabilityと未接続Selection Grantを拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
+test("production adapterは未発行のCapabilityと未接続Selection 選定入力を拒否する", () => {
   const prepared = startRuntimeOwnedDockerProcessController(
     "codex",
     {
       purpose: "probe",
       managementCapability: {},
       mountCapability: {},
-      mountAuthorizationCapability: {},
-      selectionUseCapability: {},
+      providerHome: {
+        provider: "codex",
+        providerHomeSourcePath: "C:\\home",
+        providerHomeIdentityHash: "a".repeat(64),
+        stableLogicalHomeBindingHash: "b".repeat(64),
+      },
+      executionSelection: fixedSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
     },
@@ -1815,7 +1357,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
  */
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeProviderDockerRuntimeAdapterContract("codex");
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 10);
   assert.equal(
     contract.providerHomeCrossProcessLease,
     "docker_global_provider_home_identity_container_name_fail_closed",
@@ -1835,7 +1377,7 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
     "NO_PROXY_EMPTY",
   ]);
   assert.equal(contract.commandPlanReported, false);
-  assert.match(contract.providerAuthority, /short_lived/u);
+  assert.equal(Object.hasOwn(contract, "providerAuthority"), false);
   assert.equal(
     contract.processController,
     "production_runtime_owned_controller_and_fixed_docker_effect_connected",
@@ -1843,17 +1385,17 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
 });
 
 /**
- * GrantとPacketの操作・役割・試行・選定Hashの差替えを起動前に拒否する。
+ * 入力とPacketの操作・役割・試行・完全選定の差替えを起動前に拒否する。
  * @responsibility 完全選定の各fieldとstage相関を独立に反証する。
  * @trace PRL-UT-014
  * @precondition 正規Executor選定と同じPacket基準Hashを合成する。
- * @stimulus Grantだけ又はPacketだけの一項目を変更する。
- * @observation 拒否、Mount返却、Authority非発行とProvider要求非発行を確認する。
- * @oracle 不一致は全件blockedで、Authority発行0・Mount返却1。
+ * @stimulus 選定入力だけ又はPacketだけの一項目を変更する。
+ * @observation 拒否、計画拒否、Plan非発行とProvider要求非発行を確認する。
+ * @oracle 不一致は全件blockedで、Plan非発行。
  * @cleanup N/A: 実Docker・Processを作らない。
  * @boundary PRL-UT-014=N/A: 局所準備の代役。
  */
-test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒否する", () => {
+test("入力とPacketの完全選定・stage差替えをProvider Effect前に拒否する", () => {
   const original = executionSelection("executor", {
     provider: "codex",
     model: "gpt-5.5",
@@ -1872,24 +1414,10 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
     { source: "role_default" },
   ];
   for (const change of changes) {
-    let authorities = 0;
     const selected = { ...original, ...change };
     const fixture = createFixture(
       {
-        consumeModelSelection: () => ({
-          ...MODEL_SELECTION,
-          ...preparationSelection(selected as typeof original),
-          selectionHash: hashExecutionSelection(selected) ?? "0".repeat(64),
-          model:
-            typeof selected.modelIdentifier === "string"
-              ? selected.modelIdentifier
-              : original.modelIdentifier,
-          effort: selected.reasoningEffort as typeof original.reasoningEffort,
-        }),
-        issueProviderAuthority: () => {
-          authorities++;
-          throw Error("unexpected_authority");
-        },
+        executionSelection: selected as typeof original,
       },
       true,
     );
@@ -1897,24 +1425,23 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
       purpose: "task",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
       packetCapability: Object.freeze({}),
     });
     assert.equal(result.status, "blocked", JSON.stringify(change));
-    assert.equal(authorities, 0);
-    assert.equal(fixture.getCompletionCount(), 1);
+
     assert.equal(result.providerRequestIssued, false);
   }
   for (const changed of [
     { operationId: "OP-999999" },
     { taskAttempt: 1 },
-    { selectionHash: "d".repeat(64) },
+    { executionSelection: { ...original, configIdentity: "d".repeat(64) } },
     { taskRole: "reviewer" },
   ]) {
-    let authorities = 0;
     const fixture = createFixture(
       {
         consumeTaskPacket: () =>
@@ -1923,7 +1450,7 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
             taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
             taskRole: "executor" as const,
             taskAttempt: 0 as const,
-            selectionHash: hashExecutionSelection(original) as string,
+            executionSelection: original,
             taskPacketHash: "a".repeat(64),
             prompt: "Synthetic bounded instruction",
             additionalHosts: Object.freeze([]),
@@ -1936,10 +1463,6 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
               >[1]["consumeTaskPacket"]
             >
           >,
-        issueProviderAuthority: () => {
-          authorities++;
-          throw Error("unexpected_authority");
-        },
       },
       true,
     );
@@ -1947,31 +1470,30 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
       purpose: "task",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
       packetCapability: Object.freeze({}),
     });
     assert.equal(result.status, "blocked", JSON.stringify(changed));
-    assert.equal(authorities, 0);
-    assert.equal(fixture.getCompletionCount(), 1);
   }
 });
 
 /**
  * 固定利用側を相関IDから独立して計画へ搬送し、不正値を準備前に拒否する。
  *
- * @responsibility 三利用側の搬送と不正値時のMount・Authority非発行を確認する。
+ * @responsibility 三利用側の搬送と不正値時の計画拒否・Plan非発行を確認する。
  * @trace PRL-UT-014
  * @precondition 固定Task Packetと模擬Mountを持つ準備Adapterを使用する。
  * @stimulus 各利用側を相関あり・なしで準備し、不正値も渡す。
- * @observation 消費した計画、Mount有効化回数と返却理由を読む。
- * @oracle 利用側は入力定数と一致し、不正値時はMount有効化0で拒否する。
+ * @observation 返された計画、Operation観測回数と返却理由を読む。
+ * @oracle 利用側は入力定数と一致し、不正値時はOperation観測0で拒否する。
  * @cleanup N/A: Process外資源を生成しない。
  * @boundary PRL-UT-014=Direct Boundary: Task準備入口→固定Provider計画。
  */
-test("固定利用側は相関IDと独立し不正値はMount有効化前に拒否する", () => {
+test("固定利用側は相関IDと独立し不正値はOperation観測前に拒否する", () => {
   for (const consumer of [
     "coordinator_cli",
     "workbench",
@@ -1983,27 +1505,33 @@ test("固定利用側は相関IDと独立し不正値はMount有効化前に拒�
         purpose: "task",
         managementCapability: fixture.managementCapability,
         mountCapability: fixture.mountCapability,
-        mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-        selectionUseCapability: fixture.selectionUseCapability,
+        providerHome: fixture.providerHome,
+        executionSelection: fixture.executionSelection,
+        taskAttempt: 0,
         recoveryCorrelationId: correlation,
         consumer: consumer,
         packetCapability: Object.freeze({}),
       });
       assert.equal(prepared.status, "prepared");
-      const plan = fixture.adapter.consume(
-        prepared.preparedCapability,
-        fixture.managementCapability,
-      );
+      const plan = fixture.getTechnicalPlan();
       assert.ok(plan);
-      assert.equal(plan.consumer, consumer);
-      assert.equal(plan.recoveryCorrelationId, correlation);
+      assert.equal(prepared.plan.consumer, consumer);
+      assert.equal(prepared.plan.recoveryCorrelationId, correlation);
     }
   }
-  for (const consumer of [null, "transient", "durable", {}, 0]) {
+  for (const consumer of [
+    undefined,
+    null,
+    "unknown",
+    "transient",
+    "durable",
+    {},
+    0,
+  ]) {
     let activationCount = 0;
     const fixture = createFixture(
       {
-        activateMount: () => {
+        verifyOperationMount: () => {
           activationCount += 1;
           throw new Error("unexpected_mount_activation");
         },
@@ -2014,8 +1542,9 @@ test("固定利用側は相関IDと独立し不正値はMount有効化前に拒�
       purpose: "task",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
-      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
-      selectionUseCapability: fixture.selectionUseCapability,
+      providerHome: fixture.providerHome,
+      executionSelection: fixture.executionSelection,
+      taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: consumer,
       packetCapability: Object.freeze({}),

@@ -8,6 +8,11 @@
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { types } from "node:util";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createAuthenticationFixture } from "../support/authentication.ts";
 import {
   authenticateProvider,
@@ -19,6 +24,72 @@ import {
 } from "../../src/api.ts";
 import { evaluateProviderAuthentication } from "../../../ai-adapter/src/authentication/result.ts";
 const STABLE_LOGICAL_HOME_BINDING_HASH = "a".repeat(64);
+
+/**
+ * Home観測拒否を旧Helperの終了不明へ誤変換しない。
+ * @responsibility 未開始の拒否と回収未確認を分離する。
+ * @trace ERB-UT-016
+ * @precondition 実受付宣言の観測境界だけを有限代役へ置換する。
+ * @stimulus 両Provider・status/loginへEffect 0、残存あり、不明の観測を渡す。
+ * @observation 一次理由、清掃確認、回復分類と後続開始回数。
+ * @oracle 明示的Effect 0だけcleanとし、不明を成功へ変換しない。
+ * @cleanup メモリ内代役のみ。実Home・Docker・AIへ接続しない。
+ * @boundary 実受付本文と観測結果搬送。実OS観測の検証ではない。
+ */
+test("認証入口はHome観測の実Effectと回復分類を保持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/authority.ts", import.meta.url),
+    "utf8",
+  );
+  const build = compileFunction(
+    `${stripTypeScriptTypes(
+      sourceDeclaration(source, "runProviderAuthenticationRequest"),
+    )};return runProviderAuthenticationRequest;`,
+    [
+      "types",
+      "readExecutionCancellation",
+      "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+      "consumeRuntimeOwnedProviderHomeObservationCapability",
+      "consumeRuntimeOwnedProviderHomeMountSourceCapability",
+      "authenticateProvider",
+    ],
+  );
+  for (const provider of ["codex", "claude"])
+    for (const action of ["status", "login"])
+      for (const processEffectIssued of [false, true, undefined]) {
+        let starts = 0;
+        const observed = {
+          status: "blocked",
+          reason: "provider_home_node_observation_unavailable",
+          processEffectIssued,
+          manualRecoveryRequired: processEffectIssued !== false,
+        };
+        const unexpected = () => {
+          starts++;
+          throw Error("unexpected_start");
+        };
+        const run = build(
+          types,
+          () => false,
+          () => observed,
+          unexpected,
+          unexpected,
+          unexpected,
+        );
+        const result = await run(action, { provider });
+        assert.equal(result.reason, observed.reason);
+        assert.equal(result.provider, provider);
+        assert.equal(result.action, action);
+        assert.equal(result.authenticationStatus, "unknown");
+        assert.equal(result.providerEffectIssued, false);
+        assert.equal(result.cleanupConfirmed, processEffectIssued === false);
+        assert.equal(
+          result.manualRecoveryRequired,
+          observed.manualRecoveryRequired,
+        );
+        assert.equal(starts, 0);
+      }
+});
 
 /**
  * 依存拒否がSUTへ捕捉されても試験Oracleの違反を失わせない。

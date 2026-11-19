@@ -41,21 +41,14 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
     consumer: "orchestrator",
     operationId: "OP-123456",
     taskAttempt: 0,
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: { provider: "claude" },
-    selectionHash: "selected",
     stableLogicalHomeBindingHash: "home",
     providerHomeIdentityHash: "identity",
     ownershipLabel: "crdd.owner=fixture",
     operationMode: "isolated_task",
-    activeMountCapability: {},
     ...Object.fromEntries(names.map(([key, field]) => [field, `crdd-${key}`])),
   };
-  const {
-    selectionHash: _selectionHash,
-    activeMountCapability: _activeMountCapability,
-    ...identity
-  } = plan;
+  const identity = plan;
   const resources = names.map(([key]) => ({
     key,
     request: "issued",
@@ -94,7 +87,7 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
   let operation: unknown = original,
     transitions = 0;
   const capability = {},
-    mount = {};
+    recoveryCapability = {};
   const complete = runInNewContext(
     `${sourceDeclaration(source, "completeRuntimeOwnedCoordinatorHostSubmission")};completeRuntimeOwnedCoordinatorHostSubmission`,
     {
@@ -111,21 +104,24 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
       borrowRuntimeOwnedCoordinatorStateRepository: () => ({
         operationId: plan.operationId,
       }),
-      hashExecutionSelection: () => "selected",
+      isDeepStrictEqual: (a: unknown, b: unknown) =>
+        JSON.stringify(a) === JSON.stringify(b),
+      durableRecord: (value: unknown) =>
+        value === recoveryCapability
+          ? {
+              managementCapability: capability,
+              recoveryId: "exact-recovery",
+              operationId: plan.operationId,
+              cleanupCheckpoint: true,
+              homeLeaseReleased: true,
+            }
+          : null,
       borrowOwnedHostRecoverySnapshot: () => ({
         snapshot: {
           token: "host-current",
           record: { state: "docker_submission_started" },
         },
       }),
-      verifyRuntimeOwnedProviderHomeMountCompletion: (
-        value: unknown,
-        management: unknown,
-        active: unknown,
-      ) =>
-        value === mount &&
-        management === capability &&
-        active === plan.activeMountCapability,
       transitionRuntimeOwnedCoordinatorHostSubmission: () => {
         transitions++;
         return { status: "completed", filesystemEffectIssued: true };
@@ -135,10 +131,10 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
     management: unknown,
     recoveryId: string,
     plan: unknown,
-    mount: unknown,
+    recoveryCapability: unknown,
   ) => { status: string };
   assert.equal(
-    complete(capability, "exact-recovery", plan, mount).status,
+    complete(capability, "exact-recovery", plan, recoveryCapability).status,
     "completed",
   );
   assert.equal(transitions, 1, "観測Image差だけではHost復帰を拒否しない");
@@ -168,13 +164,13 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
   ]) {
     operation = { ...original, resources: changed };
     assert.equal(
-      complete(capability, "exact-recovery", plan, mount).status,
+      complete(capability, "exact-recovery", plan, recoveryCapability).status,
       "blocked",
     );
   }
   operation = original;
   assert.equal(
-    complete(capability, "foreign-recovery", plan, mount).status,
+    complete(capability, "foreign-recovery", plan, recoveryCapability).status,
     "blocked",
   );
   assert.equal(
@@ -182,7 +178,7 @@ test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要�
       capability,
       "exact-recovery",
       { ...plan, stableLogicalHomeBindingHash: "foreign" },
-      mount,
+      recoveryCapability,
     ).status,
     "blocked",
   );

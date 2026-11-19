@@ -270,33 +270,20 @@ function createProcessHarness(
       fs.writeFileSync(file, "BEFORE\n");
       return { status: "materialized", workspaceCapability: capability() };
     },
-    preflightSlate: () => ({
+    preflightSelections: (_management, request) => ({
       status: "candidate",
-      executorProvider: "claude",
-      reviewerProvider: "codex",
-      reviewerIndependence: "provider_independent",
-      providerEffectAllowed: false,
-    }),
-    issueSelection: (_management, request) => ({
-      ...issue(),
       operationId: request.operationId,
-      taskAttempt: request.taskAttempt,
-      executorProvider: (request.executionSelection as { provider: string })
-        .provider,
-      executionSelection: request.executionSelection,
-      selectionNotice: "isolated-process-test",
+      executionSelections: request.executionSelections,
     }),
-    revokeSelection: revoke,
-    observeProviderHome: () => ({
+    observeProviderHome: (provider) => ({
       status: "candidate",
-      observationCapability: capability(),
+      providerHome: {
+        provider,
+        providerHomeSourcePath: "C:/synthetic/provider-home/" + provider,
+        providerHomeIdentityHash: "a".repeat(64),
+        stableLogicalHomeBindingHash: "d".repeat(64),
+      },
     }),
-    issueMountGrant: issue,
-    consumeMountGrant: (use) => {
-      consume(use);
-      return { status: "consumed", mountAuthorizationCapability: capability() };
-    },
-    revokeMountGrant: revoke,
     resolveExternalSendPolicy: () => ({
       status: "resolved",
       capability: capability(),
@@ -323,13 +310,13 @@ function createProcessHarness(
       if (input.purpose !== "task") throw Error("fixture_purpose_invalid");
       const role = assignments.get(input.packetCapability as object);
       assert.ok(role);
-      consume(input.selectionUseCapability as object);
+      assert.equal(input.executionSelection.provider, _provider);
+      assert.equal(input.providerHome.provider, _provider);
       consume(input.packetCapability as object);
-      const prepared = controllerFixture?.preparedCapability ?? capability();
       const management = input.managementCapability as object;
       if (controllerFixture)
         return controllerFixture.startProcess(
-          prepared,
+          controllerFixture.plan,
           management,
           registerRecoveryHandoff,
           restriction,
@@ -587,7 +574,7 @@ for (const cleanupConfirmed of [true, false]) {
       controller.processes.ready(),
       started.completion.then((result) => {
         throw new Error(
-          `Task completed before cancellation: ${JSON.stringify(result)}`,
+          `Task completed before cancellation: ${JSON.stringify(result)}; controller events: ${JSON.stringify(controller.events)}`,
         );
       }),
     ]);
@@ -619,8 +606,6 @@ for (const cleanupConfirmed of [true, false]) {
         "process-absence-observed",
         "docker-cleanup",
         "docker-absence",
-        "mount-complete",
-        "mount-receipt",
         "recovery-finalizable",
         "host-intent",
         "host-cleanup",

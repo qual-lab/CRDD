@@ -95,7 +95,6 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     { commands: [...probe.commands].reverse() },
     { commands: [] },
     { commands: probe.commands.map((c) => ({ ...c, argv: ["bad\0arg"] })) },
-    { activeMountCapability: null },
     { stableLogicalHomeBindingHash: "bad" },
     {
       executionSelection: {
@@ -231,10 +230,8 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
   }
   const basicFailures: TestAttemptPlan[] = [
     { ...probe, operationId: "bad" },
-    { ...probe, grantRef: "bad" },
     { ...probe, provider: "codex" },
     { ...probe, subscriptionOffering: "chatgpt_subscription_oauth" },
-    { ...probe, activeMountCapability: null as unknown as object },
     { ...probe, providerHomeIdentityHash: "bad" },
     { ...probe, stableLogicalHomeBindingHash: "bad" },
     { ...probe, commands: [...probe.commands].reverse() },

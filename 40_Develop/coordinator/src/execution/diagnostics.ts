@@ -43,14 +43,7 @@ import {
 } from "../state/probe-record.ts";
 import type { CoordinatorExecutionPublicationObservation } from "../task/types.ts";
 import {
-  compileWindowsRootObservationCandidate,
-  describeAuthorityFileBundleContract,
-  describeAuthorityGrantVerifierContract,
-  describeAuthorityPrelaunchVerifierContract,
-  describeAuthorityTrustLoaderContract,
   describeProviderHomeContract,
-  describeProviderHomeMountGrantContract,
-  describeRootProtectionPolicyContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "./authority.ts";
 import { getIsolationSettings } from "./configuration.ts";
@@ -60,7 +53,6 @@ import {
   classifyOwnedCoordinatorOperationCreationFailure,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
-  createProviderEnvironment,
   createRuntimeOwnedCoordinatorOperation,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
@@ -71,7 +63,6 @@ import {
   verifyHostOperationRecoveryGeneration,
   verifyOwnedMountCapability,
 } from "./operation.ts";
-import { describeProviderIsolationContract } from "./validation.ts";
 
 /**
  * 現在実装した公開操作とCLI相当だけを返す。
@@ -447,7 +438,6 @@ export const REQUIRED_CHECK_IDS = Object.freeze([
   "repository.identity",
   "operation.directories",
   "execution.filesystem",
-  "execution.credential_environment",
   "execution.credential_isolation",
   "execution.egress",
   "provider.codex.discovery",
@@ -907,13 +897,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
   const ownedDirectories = owned.directories;
   let shouldRetainOperationDirectories = false;
   try {
-    const providerEnvironment = createProviderEnvironment(
-      process.env,
-      ownedDirectories,
-    );
     const credentialNames = credentialEnvironmentNamesPresent(process.env);
-    const forwardedCredentialNames =
-      credentialEnvironmentNamesPresent(providerEnvironment);
     const repository = probeGitRepository(cwd);
     const providers = Object.freeze({
       codex: discoverCommand("codex"),
@@ -988,13 +972,6 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
       ),
       check("execution.filesystem", isolationCheckStatus, isolation.reason),
       check(
-        "execution.credential_environment",
-        forwardedCredentialNames.length === 0 ? "confirmed" : "blocked",
-        forwardedCredentialNames.length === 0
-          ? null
-          : "credential_environment_filter_failed",
-      ),
-      check(
         "execution.credential_isolation",
         isIsolationActive && isolation.status === "confirmed"
           ? "confirmed"
@@ -1018,7 +995,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
     const readiness = evaluateReadiness(checks);
 
     const report = {
-      reportVersion: 12,
+      reportVersion: 16,
       diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",
@@ -1031,9 +1008,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
       repository,
       credentials: {
         detectedNames: credentialNames,
-        forwardedNames: forwardedCredentialNames,
         valuesRecorded: false,
-        environmentFiltered: forwardedCredentialNames.length === 0,
         isolationEnforcement:
           isIsolationActive && isolation.status === "confirmed"
             ? "confirmed_for_fake_probe"
@@ -1047,7 +1022,6 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
         enforcement: isolation.status,
         profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
       },
-      rootProtectionPolicy: describeRootProtectionPolicyContract(),
       repositoryLocation: {
         status: repositoryLocation.status,
         contract: repositoryLocation.capability?.contract ?? null,
@@ -1061,12 +1035,6 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
           isIsolationActive && isolation.status === "confirmed"
             ? "blocked"
             : "not_evaluated",
-        isolationProfileContract: describeProviderIsolationContract(),
-        authorityVerifier: describeAuthorityGrantVerifierContract(),
-        authorityTrustLoader: describeAuthorityTrustLoaderContract(),
-        authorityFileBundle: describeAuthorityFileBundleContract(),
-        authorityPrelaunchVerifier:
-          describeAuthorityPrelaunchVerifierContract(),
         proxyTopology: describeIsolationConfiguration("claude").proxy,
       },
       recovery: shouldRetainOperationDirectories
@@ -2691,7 +2659,7 @@ export const DOCKER_ISOLATION_PROFILE = Object.freeze({
 export const PROVIDER_LIFECYCLE_CONTRACT =
   "crdd-coordinator/provider-lifecycle";
 
-export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 7;
+export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 8;
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 
@@ -2728,7 +2696,6 @@ export function describeProviderLifecycleContract() {
     }),
     authenticationPolicyState: "approved_policy_only",
     dedicatedProviderHome: describeProviderHomeContract(),
-    providerHomeMountGrant: describeProviderHomeMountGrantContract(),
     limits: null,
     fixedDigestImageRequired: true,
     fixedDigestImageConfigured: false,
@@ -3088,7 +3055,7 @@ export function writeCoordinatorExecutionIntelligenceDiagnostic(
 export const COORDINATOR_PLATFORM_CONTRACT =
   "crdd-coordinator/orchestrator-platform-contract" as const;
 
-export const COORDINATOR_PLATFORM_CONTRACT_REVISION = 2;
+export const COORDINATOR_PLATFORM_CONTRACT_REVISION = 3;
 
 /**
  * CoordinatorのIF-PLATFORM境界群。
@@ -3103,7 +3070,6 @@ export const COORDINATOR_PLATFORM_BOUNDARIES = Object.freeze([
   "lock_lease",
   "process_cancellation",
   "container_host",
-  "runtime_root_recovery",
 ] as const);
 
 /**
@@ -3121,7 +3087,7 @@ export type CoordinatorPlatformBoundary =
   (typeof COORDINATOR_PLATFORM_BOUNDARIES)[number];
 
 /**
- * Closed operation-name population per boundary for contract revision 2.
+ * Closed operation-name population per boundary for contract revision 3.
  * Boundary support is resolved by exact match against this population, so a
  * family whose required set is empty is unresolvable by every adapter — an
  * empty set means "cannot resolve", never "trivially satisfied". Adding
@@ -3134,7 +3100,6 @@ export const COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS = Object.freeze({
   lock_lease: Object.freeze(["observeLeaseOwner"]),
   process_cancellation: Object.freeze([]),
   container_host: Object.freeze(["observeContainerHostRecoveryState"]),
-  runtime_root_recovery: Object.freeze(["compileRootObservationCandidate"]),
 } as const satisfies Readonly<
   Record<CoordinatorPlatformBoundary, readonly string[]>
 >);
@@ -3179,12 +3144,6 @@ export const COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES = Object.freeze({
     "mount",
     "process",
     "cleanup",
-  ]),
-  runtime_root_recovery: Object.freeze([
-    "managed_root",
-    "protection",
-    "resource_identity",
-    "recovery_absence",
   ]),
 } as const satisfies Readonly<
   Record<CoordinatorPlatformBoundary, readonly string[]>
@@ -3759,11 +3718,6 @@ const SATISFIED_GUARANTEES = Object.freeze({
     "repository_root_identity",
     "bounded_path_resolution",
   ]),
-  runtime_root_recovery: Object.freeze([
-    "managed_root",
-    "protection",
-    "resource_identity",
-  ]),
 } as const);
 
 const REPOSITORY_ROOT_BLOCKED_REASONS = new Set([
@@ -3863,10 +3817,6 @@ export function createCoordinatorWindowsPlatformAdapter(): CoordinatorPlatformAd
       }),
       filesystem_repository: Object.freeze({
         resolveRepositoryRoot,
-      }),
-      runtime_root_recovery: Object.freeze({
-        compileRootObservationCandidate: (rawObservation: unknown) =>
-          compileWindowsRootObservationCandidate(rawObservation),
       }),
     }),
   });

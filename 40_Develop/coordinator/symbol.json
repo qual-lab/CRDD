@@ -797,7 +797,6 @@
         "coordinator.provider.execution-adapter",
         "coordinator.provider.preparation-lifecycle",
         "coordinator.provider.execution-types",
-        "coordinator.source.src.security.delegation.selection.grant.runtime",
         "coordinator.source.src.security.docker.process.controller"
       ]
     },
@@ -840,26 +839,11 @@
         "coordinator.execution.provider-result-reasons",
         "coordinator.execution.result-reasons",
         "coordinator.provider-model-selection-runtime",
-        "coordinator.source.src.core.development.execution.timing",
         "coordinator.source.src.core.runtime.process.safety.state",
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.local.personal.authority.runtime",
         "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.task-runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.development-execution-timing",
-      "kind": "test-suite",
-      "path": "tests/integration/development-execution-timing.contract.test.ts",
-      "qaIds": [
-        "QA-000004"
-      ],
-      "localTestIds": [
-        "PPR-IT-010"
-      ],
-      "verifies": [
-        "coordinator.source.src.core.development.execution.timing"
       ]
     },
     {
@@ -873,7 +857,6 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.source.src.security.development.measurement.session",
         "coordinator.source.task.development-source-observation",
         "coordinator.source.src.security.provider.home.windows.adapter"
       ]
@@ -927,7 +910,6 @@
         "ai-adapter.profile.subscription-status",
         "ai-adapter.output.provider-error",
         "coordinator.source.src.core.task.cli.cancellation",
-        "coordinator.source.src.security.development.measurement.constraints",
         "docker-isolation.execution.cli-environment",
         "coordinator.source.src.security.docker.process.controller",
         "coordinator.task-runtime"
@@ -1185,20 +1167,6 @@
         "coordinator.task.task-attempt-runtime",
         "coordinator.task-runtime",
         "orchestrator.workspace.record"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.provider-authority-coverage",
-      "kind": "test-suite",
-      "path": "tests/integration/provider-authority-coverage.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-005"
-      ],
-      "verifies": [
-        "coordinator.source.scripts.check.provider.authority.coverage"
       ]
     },
     {
@@ -1544,56 +1512,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.authority-file-bundle",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/authority-bundle.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.authority.file.bundle",
-        "coordinator.source.src.security.authority.grant.verifier",
-        "coordinator.source.src.security.authority.trust.loader",
-        "coordinator.source.src.security.provider.isolation.profile"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.authority-grant-verifier",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/authority-validation.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.authority.grant.verifier",
-        "coordinator.source.src.security.provider.isolation.profile"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.authority-prelaunch-verifier",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/prelaunch-validation.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.authority.file.bundle",
-        "coordinator.source.src.security.authority.grant.verifier",
-        "coordinator.source.src.security.authority.prelaunch.verifier",
-        "coordinator.source.src.security.authority.trust.loader",
-        "coordinator.source.src.security.provider.isolation.profile"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.authority-root-path-lexical",
       "kind": "test-suite",
       "path": "tests/unit/execution/root-path.contract.test.ts",
@@ -1605,22 +1523,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.authority.root.path.lexical"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.authority-trust-loader",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/authority-policy.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.authority.grant.verifier",
-        "coordinator.source.src.security.authority.trust.loader",
-        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1639,8 +1541,7 @@
         "coordinator.provider.execution-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
         "coordinator.provider.preparation-lifecycle",
-        "coordinator.provider.execution-types",
-        "coordinator.source.src.security.delegation.selection.grant.runtime"
+        "coordinator.provider.execution-types"
       ]
     },
     {
@@ -1691,7 +1592,6 @@
         "coordinator.provider.preparation-lifecycle",
         "coordinator.provider.execution-types",
         "ai-adapter.codex.authentication",
-        "coordinator.source.src.security.delegation.selection.grant.runtime",
         "coordinator.source.src.security.docker.effect.runtime"
       ]
     },
@@ -1724,50 +1624,6 @@
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "orchestrator.storage.result-record",
         "orchestrator.storage.types"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.delegation-selection-grant-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/delegation-selection-grant.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.delegation.selection.grant.runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.development-measurement-constraints",
-      "kind": "test-suite",
-      "path": "tests/unit/development-measurement-constraints.contract.test.ts",
-      "qaIds": [
-        "QA-000004"
-      ],
-      "localTestIds": [
-        "PPR-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.development.measurement.constraints"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.development-measurement-session",
-      "kind": "test-suite",
-      "path": "tests/unit/development-measurement-session.contract.test.ts",
-      "qaIds": [
-        "QA-000004"
-      ],
-      "localTestIds": [
-        "PPR-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.development.measurement.session",
-        "coordinator.source.src.security.provider.home.windows.adapter",
-        "coordinator.task-runtime"
       ]
     },
     {
@@ -1858,21 +1714,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.local-personal-authority-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/local-authority.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.authority.prelaunch.verifier",
-        "coordinator.source.src.security.local.personal.authority.runtime"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.node-runtime-version",
       "kind": "test-suite",
       "path": "tests/unit/execution/runtime-version.contract.test.ts",
@@ -1931,23 +1772,8 @@
         "coordinator.host-execution.kernel-lock",
         "orchestrator.task.windows-platform-adapter",
         "coordinator.source.src.security.provider.home.windows.adapter",
-        "coordinator.source.src.security.root.observation",
         "orchestrator.source.src.ports.platform.contract",
         "version-control.source.src.repository.location"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.provider-authority-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/authority-grant.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.provider-authority-runtime"
       ]
     },
     {
@@ -1979,39 +1805,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.provider-home-mount-grant-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/provider-home-mount-authorization.contract.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005",
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.execution.environment",
-        "coordinator.source.src.security.provider.home.mount.grant",
-        "coordinator.source.src.security.provider.home.mount.grant.runtime",
-        "coordinator.provider-authority-runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.provider-home-mount-grant",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/provider-home-mount-grant.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.provider.home.mount.grant"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.provider-home-observation",
       "kind": "test-suite",
       "path": "tests/unit/execution/provider-home-observation.contract.test.ts",
@@ -2040,20 +1833,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.provider-isolation-profile",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/isolation-profile.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.provider.isolation.profile"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.provider-lifecycle",
       "kind": "test-suite",
       "path": "tests/unit/execution/provider-lifecycle.contract.test.ts",
@@ -2066,20 +1845,6 @@
       "verifies": [
         "coordinator.source.src.security.provider.lifecycle",
         "ai-adapter.authentication-policy"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.provider-model-profile-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/fixed-selection-runtime.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.delegation.selection.grant.runtime"
       ]
     },
     {
@@ -2257,36 +2022,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.root-observation",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/root-observation.contract.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "PRL-UT-014",
-        "RFD-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.root.observation"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.root-protection-policy",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/root-protection-policy.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.root.protection.policy"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.runtime-trace-case",
       "kind": "test-suite",
       "path": "tests/unit/runtime-trace-case.contract.test.ts",
@@ -2461,14 +2196,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.delegation.selection.grant.runtime",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.core.task.cli.cancellation",
       "kind": "file",
       "path": "src/cli/cancellation.ts",
@@ -2482,14 +2209,6 @@
       "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.core.development.execution.timing",
-      "kind": "file",
-      "path": "src/execution/measurement.ts",
-      "archIds": [
-        "ARCH-000018"
       ]
     },
     {
@@ -2509,17 +2228,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.development.measurement.session",
-      "kind": "file",
-      "path": "src/execution/measurement.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.task.development-source-observation",
       "kind": "file",
-      "path": "src/execution/measurement.ts",
+      "path": "scripts/measure-development-providers.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2538,14 +2249,6 @@
       "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.development.measurement.constraints",
-      "kind": "file",
-      "path": "src/execution/measurement.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {
@@ -2717,14 +2420,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.scripts.check.provider.authority.coverage",
-      "kind": "module",
-      "path": "scripts/check-provider-authority-coverage.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
       "kind": "file",
       "path": "src/execution/operation.ts",
@@ -2826,23 +2521,7 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.authority.file.bundle",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.authority.grant.verifier",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.authority.trust.loader",
       "kind": "file",
       "path": "src/execution/authority.ts",
       "archIds": [
@@ -2946,14 +2625,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.root.observation",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
       "kind": "file",
       "path": "src/execution/observation.ts",
@@ -2965,22 +2636,6 @@
       "symbolId": "coordinator.source.scripts.check.provider.home.coverage",
       "kind": "module",
       "path": "scripts/check-provider-home-coverage.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.provider.home.mount.grant.runtime",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.provider.home.mount.grant",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3007,14 +2662,6 @@
       "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.root.protection.policy",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000014"
       ]
     },
     {
@@ -3057,14 +2704,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.host.orphan.recovery.policy",
-      "kind": "file",
-      "path": "src/execution/recovery.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.host-operation-lock-activation",
       "kind": "test-suite",
       "path": "tests/unit/host-operation-lock-activation.contract.test.ts",
@@ -3076,20 +2715,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.execution.environment"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/orphan-recovery-policy.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.host.orphan.recovery.policy"
       ]
     },
     {

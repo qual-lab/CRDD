@@ -1265,7 +1265,6 @@ export function validateOperationIdentity(
     "provider",
     "consumer",
     "operationId",
-    "grantRef",
     "executionSelection",
     "taskAttempt",
     "stableLogicalHomeBindingHash",
@@ -1308,7 +1307,6 @@ export function validateOperationIdentity(
     isSha256Hex(identity.repositoryBinding) &&
     (identity.provider === "codex" || identity.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(String(identity.operationId ?? "")) &&
-    /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(String(identity.grantRef ?? "")) &&
     inspectExecutionSelection(identity.executionSelection)?.provider ===
       identity.provider &&
     (identity.taskAttempt === 0 || identity.taskAttempt === 1) &&
@@ -2005,7 +2003,7 @@ export const DOCKER_TASK_RECOVERY_ID =
   /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u;
 
 export const OPERATION_IDENTITY_SCHEMA =
-  "crdd-coordinator/operation-identity/v4";
+  "crdd-coordinator/operation-identity/v5";
 
 /**
  * Host Snapshotの契約を検証する。

@@ -87,13 +87,12 @@ export function createResourceOperationFixture() {
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",
@@ -128,7 +127,7 @@ export function createResourceOperationFixture() {
   // 一つの既知入力だけを宣言する。任意Identityから保存候補を作るHelperではない。
   const identityJson = `${JSON.stringify(identity)}\n`;
   const identitySha256 =
-    "cb2c43f922c0797cf926c2336a25dfa3dfcc2ed41bbede7ea53512757e75f922";
+    "88e09f4fbc2730783b29881afac4dba4b088aef7320dbe2731e46b7e6565126a";
   assert.equal(
     createHash("sha256").update(identityJson).digest("hex"),
     identitySha256,

@@ -523,14 +523,12 @@ test("Attemptの欠測・accessor・内側Proxyは乱数取得前に非評価で
   };
   const target = {
     operationId: "OP-123456",
-    grantRef: "PHMGRANT-123456",
     provider: "codex",
     workspaceSourcePath: "C:/fixture/work",
     temporarySourcePath: "C:/fixture/tmp",
     providerHomeSourcePath: "C:/fixture/home",
     providerHomeIdentityHash: "a".repeat(64),
     stableLogicalHomeBindingHash: "d".repeat(64),
-    activeMountCapability: {},
   };
   const base = { kind: "attempt", purpose: "probe", target, selection: {} };
   /**

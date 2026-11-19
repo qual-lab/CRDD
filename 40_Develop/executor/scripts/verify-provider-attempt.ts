@@ -81,7 +81,6 @@ export function verifyStandaloneProviderAttempt() {
       }
       return resolved;
     }});
-    const {createHash}=await import("node:crypto");
     const {writeReport,readReport}=await import(${JSON.stringify(new URL("./report.ts", import.meta.url).href)});
     const fixtureRoot=${JSON.stringify(fixtureRoot)};
     const {attemptPlan,attemptTarget}=await import(${JSON.stringify(new URL("../tests/fixtures/attempt-plan.ts", import.meta.url).href)});
@@ -107,7 +106,7 @@ export function verifyStandaloneProviderAttempt() {
       assert.throws(()=>fs.openSync(lock,'wx'),{code:'EEXIST'});
       let lockHeld=true,sequence=0;
       const snapshot=()=>fs.readdirSync(directory).sort().map(name=>[name,fs.readFileSync(path.join(directory,name)).toString('base64')]);
-      const management={},prepared={},mount={},authority={},recovery={};
+      const management={},recovery={};
       const recoveryId='docker-task.'+'d'.repeat(64)+'.'+'e'.repeat(64)+'.'+'f'.repeat(64);
       const commit=(kind,owner=management,gate=()=>true)=>{
         if(!lockHeld||owner!==management||gate()!==true)return false;
@@ -130,11 +129,10 @@ export function verifyStandaloneProviderAttempt() {
       let plan={
         isolationRequest:attemptPlan().isolationRequest,
         provider,consumer:'coordinator_cli',operationId:'OP-123456',
-        grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
+        taskAttempt:0,
         executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-5.5':'opus',identifierKind:provider==='codex'?'exact':'alias',
           reasoningEffort:'low',purpose:'task',catalogIdentity:'a'.repeat(64),
           configIdentity:'b'.repeat(64),role:'executor',workType:null,source:'explicit'},
-        activeMountCapability:mount,authorityUseCapability:authority,
         providerHomeSourcePath:'C:\\synthetic-not-accessed\\home',
         providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),
         authContainerName:'crdd-auth-'+suffix,providerContainerName:'crdd-'+provider+'-'+suffix,
@@ -147,16 +145,15 @@ export function verifyStandaloneProviderAttempt() {
         commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
       };
       const fullSelection=plan.executionSelection;
-      const selectionHash=createHash("sha256").update(JSON.stringify(fullSelection),"utf8").digest("hex");
-      plan={...plan,selectionHash,executionSelection:{provider:fullSelection.provider,modelIdentifier:fullSelection.modelIdentifier,identifierKind:fullSelection.identifierKind,reasoningEffort:fullSelection.reasoningEffort,purpose:fullSelection.purpose}};
+      plan={...plan,executionSelection:{provider:fullSelection.provider,modelIdentifier:fullSelection.modelIdentifier,identifierKind:fullSelection.identifierKind,reasoningEffort:fullSelection.reasoningEffort,purpose:fullSelection.purpose}};
       const tmp='C:/synthetic-not-accessed/tmp';
       {
         const built=preparationInput.prepare(
 {randomBytes:size=>Buffer.alloc(size,1)},
-{kind:'attempt',purpose:'probe',target:{...attemptTarget(plan,'C:/synthetic-not-accessed/work',tmp),providerHomeSourcePath:'C:/synthetic-not-accessed/home',activeMountCapability:mount},selection:plan.executionSelection}
+{kind:'attempt',purpose:'probe',target:{...attemptTarget(plan,'C:/synthetic-not-accessed/work',tmp),providerHomeSourcePath:'C:/synthetic-not-accessed/home'},selection:plan.executionSelection}
 );
         assert.ok(built);
-        plan=Object.freeze({...built,authorityUseCapability:authority});
+        plan=Object.freeze(built);
         assert.ok(executionInput.resolveValidatedPlan(plan,tmp));
       }
       const resources=[
@@ -169,23 +166,14 @@ export function verifyStandaloneProviderAttempt() {
         dockerId:null,observation:'absent'}));
       const calls=[],events=[],notices=[];
       let terminal=null,terminalResult=null;
-      let consumed=false,cleanups=0,mounts=0,finalizations=0;
+      let cleanups=0,finalizations=0;
       const providerWaiting=Promise.withResolvers();
       const providerWait=Promise.withResolvers();
       const cleanupEntered=Promise.withResolvers();
       const cleanupWait=Promise.withResolvers();
       const deps={
         effectExecutorAvailable:true,
-        verifyRevision:()=>({revisionCurrent:true}),
-        consumePreparedPlan:(p,m)=>{
-          if(p!==prepared||m!==management||consumed)return null;
-          consumed=true;return plan;
-        },
-        consumeProviderAuthority:(a,mt,m)=>{
-          assert.equal(a,authority);assert.equal(mt,mount);assert.equal(m,management);
-          return {operationId:plan.operationId,provider:plan.provider,
-            providerHomeMountGrantRef:plan.grantRef,runtimeAuthorityIssued:true,providerEffectAllowed:true};
-        },
+        verifyRevision:(m,p)=>m===management&&p.operationId===plan.operationId?{revisionCurrent:true}:null,
         beginRecovery:()=>{
           assert.equal(commit('recovery_opened'),true);
           return {status:'ready',recoveryId,recoveryCapability:recovery};
@@ -221,11 +209,9 @@ export function verifyStandaloneProviderAttempt() {
             containersAbsent:scenario!=='cleanup_unknown',networksAbsent:scenario!=='cleanup_unknown',
             resourceObservations:scenario==='cleanup_unknown'?null:resources};
         },
-        completeMount:()=>{assert.equal(commit('mount_closed'),true);mounts++;return {status:'completed'};},
         completeRecovery:()=>{assert.equal(commit('recovery_closed'),true);finalizations++;return {status:'completed',recoveryFinalizationCapability:{}};},
         verifyHomeLeaseRelease:()=>true,
         recordDockerAbsence:(_r,observed,snapshot)=>{assert.deepEqual([...observed].sort((a,b)=>a.key.localeCompare(b.key)),resources.map(r=>({key:r.purpose,observation:r.observation})).sort((a,b)=>a.key.localeCompare(b.key)));assert.ok(snapshot);for(const r of resources)assert.equal(snapshot.resources.find(v=>v.key===r.purpose).identity.name,r.plannedResourceName);return commit('absence_observed');},
-        recordMountCompletion:()=>commit('mount_recorded'),
         markResourceSubmission:()=>commit('submission_planned'),
         recordResourceReceipt:()=>commit('receipt_recorded'),
         recordProviderSubmission:(r)=>{
@@ -243,9 +229,9 @@ export function verifyStandaloneProviderAttempt() {
       const runtime=create(deps);
       assert.equal(runtime.productionAuthority,false);
       const handoff=(r,id)=>{assert.equal(r,recovery);assert.equal(id,recoveryId);events.push("handoff");return true;};
-      const started=runtime.start(prepared,management,handoff);
+      const started=runtime.start(plan,management,handoff);
       assert.equal(started.status,'started',scenario);
-      assert.equal(runtime.start(prepared,management).status,'blocked');
+      assert.equal(runtime.start(plan,management).status,'blocked');
       let settled=false;
       const completion=started.completion.then(result=>{settled=true;return result;});
       if(scenario==='cancel'){
@@ -276,10 +262,9 @@ export function verifyStandaloneProviderAttempt() {
       assert.equal(calls.reduce((n,c)=>n+c.terminated,0),scenario==='cancel'?1:0);
       assert.equal(result.status,scenario==='normal'?'completed':scenario==='cancel'?'cancelled':'blocked',provider+':'+mode+':'+scenario+':'+result.reason);
       assert.equal(result.cleanupConfirmed,scenario!=='cleanup_unknown');
-      assert.equal(result.manualRecoveryRequired,scenario==='cleanup_unknown',JSON.stringify({provider,mode,scenario,reason:result.reason,mounts,finalizations,terminal}));
+      assert.equal(result.manualRecoveryRequired,scenario==='cleanup_unknown',JSON.stringify({provider,mode,scenario,reason:result.reason,finalizations,terminal}));
       assert.equal(result.recoveryId,scenario==='cleanup_unknown'?recoveryId:null);
-      assert.equal(mounts,scenario==='cleanup_unknown'?0:1);
-      assert.equal(finalizations,mounts);
+      assert.equal(finalizations,scenario==='cleanup_unknown'?0:1);
       assert.equal(notices.length,1);
       if(scenario==='normal'){
         assert.match(result.resultSha256,/^[a-f0-9]{64}$/);
@@ -397,10 +382,8 @@ export function verifyStandaloneProviderAttempt() {
             assert.ok(
               [
                 "recovery_opened",
-                "mount_closed",
                 "recovery_closed",
                 "absence_observed",
-                "mount_recorded",
                 "submission_planned",
                 "receipt_recorded",
                 "provider_submission",

@@ -19,7 +19,7 @@
 - Provider Credential、Release秘密鍵、Tokenおよびその他の秘密値
 - Task Packet、読取り投影、候補Workspaceおよび構造化結果
 - 外部送信、Provider起動、候補操作、Docker復旧のAuthority
-- Container、network、Mount Grant、Process、Lock、一時領域およびRecovery record
+- Container、network、Docker Mount、Process、Home wx Lock、一時領域およびRecovery record
 - 任意正式配布の署名manifest、Platform Access成果物および配布TreeのIdentity
 - 人間の入力、取消、Risk受容、統合およびReleaseの決定権限
 - Project／Milestone／Objective／Taskの状態、Operation Queue、世代、Lease、Conflict予約、Integration候補および受入Evidence
@@ -51,8 +51,8 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | 選択入口・必要Artifactの不一致 | 別実行物、構成取り違え | 選択Checkout／Packageの固定入口、必要Native・CLI・Image・設定のIdentity／Hashと用途限定条件。CRDD署名や巨大な実行閉包を必須にしない | 不一致・観測不能は対象Effect前に拒否 |
 | Hash・Commitを真正性やAuthorityと誤認 | 未承認送信、偽Publisher表示 | 同一性、Publisher真正性、現在の用途別実行許可を独立評価。任意配布署名から通常実行Capabilityを発行しない | 署名・HashだけでTaskを許可しない |
 | SecretのPrompt・log・環境流出 | Account侵害、外部漏えい | Secret値をTask Packetへ含めない、専用Provider Home、最小環境、出力抑制 | `credentialReported=false`、既知Secret検査 |
-| Repository外Pathへの逸脱 | 別Project破壊、情報漏えい | 検証済みworktree root、相対Path閉集合、Mount Grant、reparse／Identity確認 | Canonical Repository未変更、Grant失効 |
-| RoleとAuthorityの混同 | 未承認Effect | Authorityを操作別Capabilityに分離し、一回消費・期限・対象を固定 | 未消費Capability失効 |
+| Repository外Pathへの逸脱 | 別Project破壊、情報漏えい | 検証済みworktree root、相対Path閉集合、固定Docker Mount、Link／実体確認 | Canonical Repository未変更、対象外の読書き0 |
+| RoleとAuthorityの混同 | 未承認Effect | 現在Task・Operation、完全選定・役割・試行、Packetと送信同意の直接照合。観測Homeを新しい許可tokenへ昇格しない | 不一致のEffect前拒否、元の取消・回復参照の保持 |
 | Provider同士の直接実行 | Scope・Credential・Cost拡張 | Coordinatorだけが各Provider Processを起動し、出力を次のAuthorityへ直接流用しない | 全子Process不存在 |
 | 外部送信の過剰化 | 許可外情報送信 | Repository-local Policy、Provider・目的・情報分類・Subscriptionの固定、最小投影 | 許可境界と実送信先を照合 |
 | 候補の取り違え・直接反映 | 誤変更、Canonical破壊 | base Commit、Path、内容Hash、Candidate ID、構造化結果の照合。Reviewerはread-only | 採用前はCanonical未変更 |
@@ -109,7 +109,7 @@ Provider HomeはOSから選択ユーザーを結合し、Repository-local `.crdd
 
 ## 7. 取消・回復・Fail Closed
 
-Providerの終了、Promiseの完了または取消要求の受理はcleanup完了を意味しない。成功結果は、Process tree、Container、network、Mount Grant、Console reader、候補一時領域、LockおよびRecovery義務が確認できた場合だけ返す。
+Providerの終了、Promiseの完了または取消要求の受理はcleanup完了を意味しない。成功結果は、Process・Container・networkの終了／不存在、Home実排他の解放、対象の一時領域・LockとRecovery義務が各Ownerで確認できた場合だけ返す。合成Mount完了証明や許可tokenの失効を物理終了の代用にしない。
 
 確認できない場合は、既知のRecovery ID、`manualRecoveryRequired`、`processRestartRequired`および`effectStateUnknown`を正確に返す。未知状態を推測して消去せず、再起動だけで義務を解消したとみなさない。復旧後も元Taskを自動再実行しない。
 

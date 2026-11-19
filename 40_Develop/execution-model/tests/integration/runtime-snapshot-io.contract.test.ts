@@ -1779,13 +1779,12 @@ function recoveryWriterValues() {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",
@@ -5397,13 +5396,12 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",

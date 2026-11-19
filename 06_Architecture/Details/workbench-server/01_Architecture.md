@@ -2,7 +2,7 @@
 
 ## 検証Toolの開発Source観測接続
 
-Workspace検証ToolはCoordinatorの`execution/measurement.ts`からSource観測を直接取得し、同じScope・内容・実体の前後比較を維持する。旧診断Moduleからの転送を要求しない。対象集合の正本は[Coordinator設計](../coordinator/01_Architecture.md)とする。既存の同意なし・不正引数の実CLI拒否試験で、入口のImport解決まで確認する。合成Source fixtureは現行v4に合わせ、検証Toolの起動確認を実AI・Dockerの成功へ拡張しない。
+Workspace検証ToolはCoordinatorの`scripts/measure-development-providers.ts`からSource観測を直接取得し、同じScope・内容・実体の前後比較を維持する。旧診断Moduleからの転送を要求しない。対象集合の正本は[Coordinator設計](../coordinator/01_Architecture.md)とする。既存の同意なし・不正引数の実CLI拒否試験で、入口のImport解決まで確認する。合成Source fixtureは現行v4に合わせ、検証Toolの起動確認を実AI・Dockerの成功へ拡張しない。
 
 ## 単発依頼IDの搬送と結果欠測
 

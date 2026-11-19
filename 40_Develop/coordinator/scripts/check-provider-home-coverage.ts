@@ -32,7 +32,6 @@ export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
   "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
   "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",
@@ -82,10 +81,10 @@ function obligation(
 
 const coverageObligations = Object.freeze({
   "40_Develop/coordinator/src/execution/authority.ts": obligation(
-    "実行OSと反対側のplatform dispatchおよび全複合短絡を同一runで到達していない／未到達分岐なし／未到達分岐なしを目標に専用coverageで別途確認する",
-    "将来のPath規則変更で反対OSのdispatchまたは稀な不正segmentを誤分類する可能性／現固定版のpure配置候補には追加残存riskなし／一回限り遷移、bindingまたは期限判定の退行",
-    "Windows／POSIXの正負・境界fixture、予約名限定mapping全件およびProvider HomeのWindows利用側試験／Codex／Claude、Root境界、Path非出力、長さ、動的入力および非昇格試験／全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
-    "Path lexical規則、platform dispatchまたはProvider Home Root source変更時／Provider Home layout、Root source、Provider集合または保護Effect着手時／Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
+    "実行OSと反対側のplatform dispatchおよび全複合短絡を同一runで到達していない",
+    "Path規則変更で反対OSのdispatchまたは稀な不正segmentを誤分類する可能性",
+    "Windows／POSIXの正負・境界fixture、予約名限定mapping全件、Codex／ClaudeのRoot境界・動的入力・非Effect試験",
+    "Path字句規則、platform dispatch、Provider Home配置、Root sourceまたはProvider集合の変更時",
   ),
   "40_Develop/coordinator/src/input/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",

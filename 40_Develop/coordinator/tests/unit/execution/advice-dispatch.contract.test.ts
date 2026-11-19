@@ -150,7 +150,7 @@ function dispatchInput() {
 test("確定した一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
   assert.deepEqual(describeAdviceDispatchContract().authorityScope, [
     "taskHash",
-    "selectionHash",
+    "executionSelection",
     "provider",
   ]);
   let calls = 0;

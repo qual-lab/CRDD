@@ -29,67 +29,7 @@ import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
-import {
-  consumeRuntimeOwnedProviderHomeObservationCapability,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "../../src/execution/authority.ts";
-
-test("開発実行はNativeなしでも元SourceとGitの前後一致を要求する", () => {
-  const source = readFileSync(
-    new URL("../../src/execution/measurement.ts", import.meta.url),
-    "utf8",
-  );
-  assert.equal(source.includes("platform-access/src"), false);
-  const body = stripTypeScriptTypes(
-    sourceDeclaration(source, "observeProduction"),
-  );
-  for (const scenario of [
-    "normal",
-    "revision",
-    "tree",
-    "source",
-    "missing_source",
-    "git_changed",
-  ]) {
-    const sourceObservations = new WeakMap<object, object>();
-    let reads = 0;
-    const repository = { revisionIdentity: "commit", snapshotIdentity: "tree" };
-    const observe = runInNewContext(`(${body})`, {
-      getRepository: () => ({ capability: {} }),
-      readRepositorySnapshot: () => {
-        reads++;
-        return scenario === "git_changed" && reads === 2
-          ? { ...repository, snapshotIdentity: "other" }
-          : repository;
-      },
-      observeRuntimeOwnedDevelopmentSource: () =>
-        scenario === "missing_source"
-          ? null
-          : {
-              sourceSha256: "source",
-              sourceIdentitySha256: "physical",
-              scope: "scope",
-            },
-      sourceObservations,
-      digest: JSON.stringify,
-    }) as (input: object) => object | null;
-    const result = observe({
-      repositoryRoot: "root",
-      expectedCommit: scenario === "revision" ? "other" : "commit",
-      expectedTree: scenario === "tree" ? "other" : "tree",
-      expectedSourceSha256: scenario === "source" ? "other" : "source",
-    });
-    if (scenario === "normal") {
-      assert.ok(result);
-      assert.equal(reads, 2);
-      assert.equal(Object.hasOwn(result, "nativeIdentitySha256"), false);
-      assert.deepEqual(
-        JSON.parse(JSON.stringify(sourceObservations.get(result))),
-        { scope: "scope", expectedSourceSha256: "source" },
-      );
-    } else assert.equal(result, null, scenario);
-  }
-});
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
 
 test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLinkを拒否する", {
   skip: process.platform !== "win32",
@@ -106,12 +46,18 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
     const first = inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
     assert.equal(first.status, "candidate");
     assert.equal(first.processEffectIssued, false);
-    assert.equal(first.helperSpawnAttempts, 0);
+    for (const key of [
+      "helperSpawnAttempts",
+      "helperSpawned",
+      "helperExitConfirmed",
+      "nativeSourceRevision",
+      "artifactVerifiedBeforeAndAfter",
+      "processTreeTerminationConfirmed",
+    ])
+      assert.equal(Object.hasOwn(first, key), false);
     assert.equal("providerHomeProtectionHash" in first, false);
     assert.equal("localUserBindingHash" in first, false);
-    const observed = consumeRuntimeOwnedProviderHomeObservationCapability(
-      first.observationCapability,
-    );
+    const observed = "providerHome" in first ? first.providerHome : null;
     assert.ok(observed);
     for (const candidate of [home, home.toUpperCase()]) {
       const standalone = observeProviderHome("codex", candidate);
@@ -127,9 +73,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
     }
     writeFileSync(path.join(home, "non-secret-fixture.txt"), "updated");
     const updated = inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
-    const current = consumeRuntimeOwnedProviderHomeObservationCapability(
-      updated.observationCapability,
-    );
+    const current = "providerHome" in updated ? updated.providerHome : null;
     assert.ok(current);
     assert.equal(
       current.providerHomeIdentityHash,
@@ -140,9 +84,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
       observed.stableLogicalHomeBindingHash,
     );
     const claude = inspectRuntimeOwnedWindowsProviderHomeCandidate("claude");
-    const separate = consumeRuntimeOwnedProviderHomeObservationCapability(
-      claude.observationCapability,
-    );
+    const separate = "providerHome" in claude ? claude.providerHome : null;
     assert.ok(separate);
     assert.notEqual(
       separate.stableLogicalHomeBindingHash,
@@ -202,7 +144,10 @@ async function createSourceObservationFixture(readMutation = "") {
   const root = directory.path;
   try {
     const fullSource = readFileSync(
-      new URL("../../src/execution/measurement.ts", import.meta.url),
+      new URL(
+        "../../scripts/measure-development-providers.ts",
+        import.meta.url,
+      ),
       "utf8",
     );
     const declarations = [
@@ -582,7 +527,10 @@ if (process.argv[2] !== "--probe") {
   test("development source snapshot enumerates beyond the former limit and closes its exact handle", () => {
     const source = stripTypeScriptTypes(
       readFileSync(
-        new URL("../../src/execution/measurement.ts", import.meta.url),
+        new URL(
+          "../../scripts/measure-development-providers.ts",
+          import.meta.url,
+        ),
         "utf8",
       ),
     );
@@ -709,7 +657,7 @@ if (process.argv[2] !== "--probe") {
       assert.ok((positions[1] as number) < position);
     const before = inventory();
     const { observeRuntimeOwnedDevelopmentSource } = await import(
-      "../../src/execution/measurement.ts"
+      "../../scripts/measure-development-providers.ts"
     );
     const expected = observeRuntimeOwnedDevelopmentSource();
     assert.ok(expected);

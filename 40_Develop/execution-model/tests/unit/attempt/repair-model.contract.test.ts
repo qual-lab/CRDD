@@ -3627,12 +3627,11 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const taskIdentity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-234567",
-    grantRef: "PHMGRANT-FIXTURE",
     // 保存codec用の閉じた合成値。Catalog解決やAI実行の成立を表さない。
     executionSelection: {
       provider: "claude",

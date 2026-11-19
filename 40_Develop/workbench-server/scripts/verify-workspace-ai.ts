@@ -17,7 +17,7 @@ import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../configuration-model/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/measurement.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/scripts/measure-development-providers.ts";
 import {
   executeWorkspace,
   openTaskSession,

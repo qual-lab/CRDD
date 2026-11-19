@@ -116,13 +116,6 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
     "node_physical_directory_observation_no_acl_verification",
   );
   assert.equal(home.selectedLocalUserBinder, "not_performed");
-  const grant = describeProviderLifecycleContract().providerHomeMountGrant;
-  assert.equal(grant.grantIssued, false);
-  assert.equal(grant.tokenCopyOrInjectionAllowed, false);
-  assert.equal(grant.operationEndRevocationRequired, true);
-  assert.equal(grant.revocationEffect, "not_implemented");
-  assert.equal(grant.structuralCore, "implemented_candidate_non_authoritative");
-  assert.equal(grant.mountAdapter, "not_implemented");
 });
 
 /**

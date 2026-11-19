@@ -13,7 +13,6 @@ import test from "node:test";
 
 import {
   describeProviderHomeContract,
-  evaluateWindowsProviderHomeLayoutCandidate,
   PROVIDER_HOME_CONTRACT,
   PROVIDER_HOME_CONTRACT_REVISION,
 } from "../../../src/execution/authority.ts";
@@ -48,164 +47,23 @@ test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ"
   assert.equal(contract.selectedLocalUserBindingRequired, false);
   assert.equal(contract.ownerAndDaclVerificationRequired, false);
   assert.equal(contract.osPermissions, "operator_precondition");
-  assert.equal(
-    contract.mountGrant.structuralCore,
-    "implemented_candidate_non_authoritative",
-  );
-  assert.equal(contract.mountGrant.grantIssued, false);
-  assert.equal(contract.mountGrant.mountAdapter, "not_implemented");
-  assert.equal(
-    contract.mountGrantRuntime.store,
-    "process_local_atomic_map_plus_durable_runtime_state_lease",
-  );
-  assert.equal(contract.mountGrantRuntime.usageLimit, 1);
-  assert.equal(contract.mountGrantRuntime.providerHomeMounted, false);
 });
 
 /**
- * Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さないを検証する。
+ * Home契約は保護・認証・mount Grantの実装済み主張へ昇格しないことを検証する。
  *
- * @responsibility Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さないの合否判定を所有する。
+ * @responsibility Home契約の実観測と未実装の保証を区別する。
  * @trace AIT-UT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さないの対象操作を実行する。
+ * @stimulus 現行Home契約を取得する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さない", () => {
-  for (const provider of ["codex", "claude"]) {
-    const result = evaluateWindowsProviderHomeLayoutCandidate({
-      provider,
-      localAppDataRoot: "C:\\Users\\selected\\AppData\\Local",
-    });
-    assert.equal(result.status, "candidate");
-    assert.equal(result.provider, provider);
-    assert.equal(result.homeLayoutCandidate, true);
-    assert.equal(result.protectionVerified, false);
-    assert.equal(result.authSessionVerified, false);
-    assert.equal(result.providerHomeMountGrantIssued, false);
-    assert.equal(result.filesystemEffectIssued, false);
-    assert.equal(result.runtimeAuthorityIssued, false);
-    assert.equal(result.operationCapabilityIssued, false);
-    assert.equal(result.pathReported, false);
-    assert.equal(JSON.stringify(result).includes("selected"), false);
-  }
-});
-
-/**
- * 不正なWindows Root候補とunsupported Providerをlayout候補にしないを検証する。
- *
- * @responsibility 不正なWindows Root候補とunsupported Providerをlayout候補にしないの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 不正なWindows Root候補とunsupported Providerをlayout候補にしないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("不正なWindows Root候補とunsupported Providerをlayout候補にしない", () => {
-  for (const localAppDataRoot of [
-    "",
-    ".",
-    "provider-home",
-    "C:\\Users\\selected\\.codex\\",
-    "C:\\operation\\provider-home\\",
-    "C:/Users/selected/AppData/Local",
-  ]) {
-    assert.equal(
-      evaluateWindowsProviderHomeLayoutCandidate({
-        provider: "codex",
-        localAppDataRoot,
-      }).status,
-      "blocked",
-    );
-  }
-  assert.equal(
-    evaluateWindowsProviderHomeLayoutCandidate({
-      provider: "other",
-      localAppDataRoot: "C:\\Users\\selected\\AppData\\Local",
-    }).reason,
-    "provider_home_provider_not_supported",
-  );
-  assert.equal(
-    evaluateWindowsProviderHomeLayoutCandidate({
-      provider: "codex",
-      localAppDataRoot: `C:\\${"a".repeat(4_060)}`,
-    }).reason,
-    "provider_home_layout_invalid",
-  );
-});
-
-/**
- * 余分field、accessor、Proxyを処置前にfail closedとするを検証する。
- *
- * @responsibility 余分field、accessor、Proxyを処置前にfail closedとするの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 余分field、accessor、Proxyを処置前にfail closedとするの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("余分field、accessor、Proxyを処置前にfail closedとする", () => {
-  assert.equal(
-    evaluateWindowsProviderHomeLayoutCandidate({
-      provider: "codex",
-      localAppDataRoot: "C:\\Users\\selected\\AppData\\Local",
-      token: "must-not-be-accepted",
-    }).reason,
-    "provider_home_layout_input_invalid",
-  );
-  const accessor = Object.create(null) as Record<string, unknown>;
-  Object.defineProperty(accessor, "provider", {
-    get: () => "codex",
-    enumerable: true,
-  });
-  Object.defineProperty(accessor, "localAppDataRoot", {
-    value: "C:\\Users\\selected\\AppData\\Local",
-    enumerable: true,
-  });
-  assert.equal(
-    evaluateWindowsProviderHomeLayoutCandidate(accessor).status,
-    "blocked",
-  );
-  assert.equal(
-    evaluateWindowsProviderHomeLayoutCandidate(
-      new Proxy(
-        {},
-        {
-          ownKeys() {
-            throw new Error("must_not_escape");
-          },
-        },
-      ),
-    ).status,
-    "blocked",
-  );
-});
-
-/**
- * layout候補は保護・認証・mount Grantの実装済み主張へ昇格しないを検証する。
- *
- * @responsibility layout候補は保護・認証・mount Grantの実装済み主張へ昇格しないの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus layout候補は保護・認証・mount Grantの実装済み主張へ昇格しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("layout候補は保護・認証・mount Grantの実装済み主張へ昇格しない", () => {
+test("Home契約は未実装の保護・認証を成立扱いしない", () => {
   const contract = describeProviderHomeContract();
-  assert.equal(
-    contract.layoutCandidateInputSource,
-    "caller_supplied_windows_absolute_path_candidate_non_authority",
-  );
+  assert.equal(Object.hasOwn(contract, "layoutCandidateInputSource"), false);
   assert.equal(
     contract.requiredEffectRootSource,
     "upper_configured_provider_home_parent",

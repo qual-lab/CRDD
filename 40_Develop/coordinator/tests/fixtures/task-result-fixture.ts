@@ -117,13 +117,12 @@ export function registerSyntheticOperations(
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const suffix = index.toString(16).padStart(16, "0");
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v4",
+      schema: "crdd-coordinator/operation-identity/v5",
       operationNonce: index.toString(16).padStart(64, "0"),
       provider: "claude",
       consumer: "orchestrator",
       operationId: `OP-${123456 + index}`,
       recoveryCorrelationId: operationId,
-      grantRef: "PHMGRANT-FIXTURE",
       taskAttempt: 0 as const,
       executionSelection: executionSelection("executor", {
         provider: "claude",

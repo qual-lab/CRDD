@@ -58,13 +58,12 @@ function summaryFixture(
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: nonce,
     provider: "claude",
     consumer,
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",

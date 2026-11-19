@@ -2,13 +2,13 @@
 
 ## Coverage集計と残る循環依存の是正 — 2026-11-18
 
-ERB-IT-001は同名でも別定義位置のFNを区別し、FNDAの同名出現数、FNF／FNHと実件数を照合する。同じ位置の重複、未知名、欠測、余剰、総数・covered不整合の拒否を保持し、FNDAを定義位置へ推測対応させない。PRL-IT-005の既存4Sourceを除外せず、従来9試験に助言Plan・Claude準備の2試験を追加し、実LCOVと連続二回の集計一致を確認する。集計成功を未到達分岐のPassへ置き換えない。
+ERB-IT-001は同名でも別定義位置のFNを区別し、FNDAの同名出現数、FNF／FNHと実件数を照合する。同じ位置の重複、未知名、欠測、余剰、総数・covered不整合の拒否を保持し、FNDAを定義位置へ推測対応させない。退役したProvider Authority専用Coverage集計を継続義務にせず、現役の共有LCOV解析と各Ownerの回帰を区別する。集計成功を未到達分岐のPassへ置き換えない。
 
-PPR-UT-006はSessionとOperationの結合拒否・例外・非同期／未知戻り値で両Ownerが不変なこと、同じ元Context、新規／清掃参照、alias非伝播、二重結合拒否、取消・完了後の動的失効と元Operation失効を確認する。AuthorityとRecoveryの既存利用試験、PR-A-04のLease解放・中断再入場・exact証拠と資源不存在の実保存、Workspaceの入力・結果保存・Git後失敗とLease解放の既存試験へ接続する。PRL-IT-012の現行全Source母集団で型専用辺を除いた循環を拒否し、同じ走査へ循環・自己辺の反例を与える。公開Rootと保存Schema・安全判定は変更しない。
+PPR-UT-006は通常runTask二回の外側計測を確認し、開発用Session／Operation Contextの結合・失効を通常認可の保証に使用しない。PR-A-04のLease解放・中断再入場・exact証拠と資源不存在の実保存、Workspaceの入力・結果保存・Git後失敗とLease解放の既存試験を維持する。PRL-IT-012の現行全Source母集団で型専用辺を除いた循環を拒否し、同じ走査へ循環・自己辺の反例を与える。公開Rootと保存Schema・安全判定は変更しない。
 
-## 隔離Profileの入力検査Owner — 2026-11-18
+## 自作許可元と独立Provider Authorityの退役
 
-AIT-UT-005／AIT-UT-006の既存Profile・Authority・Prelaunch試験で、閉形式、accessor／Proxy、静的参照、Provider／Operation相関、HTTPS Origin・重複・正規化とHash、既存上限と固定reasonを維持する。移管前後の同じ入力と既存assertを使用し、候補を実Authority確認済みへ補完しない。PRL-IT-005のCoverage対象へvalidation.tsを追加し、Preparationの現役責務も対象に残す。Source閉集合とRoot集合、診断受付と結果、旧Ownerの定義・import不在を限定確認する。
+自作Isolation Profile／Registry、人工的な許可IDとHash・改訂版照合、Local許可元cache・更新期限、独立したProvider AuthorityとPrepared専用期限の検証義務は退役する。専用試験・集計の削除をPassや現役境界の免除へ換算しない。現在Operation・Home／Mount・固定選定・Packet・送信範囲・取消・Cleanup・exact回復参照の共用義務は維持し、実際の準備・開始・回復Ownerへ接続する。
 
 ## 表示通知のOwner統合 — 2026-11-18
 
@@ -16,7 +16,7 @@ ERB-IT-002／ERB-IT-004の既存通知試験を同じobservation.tsの実体へ�
 
 ## Host開始・復帰の調停Owner — 2026-11-18
 
-PRL-IT-013／ERB-IT-003の再入場試験はRecoveryの実調停を実行し、既存保存境界で予定保存・結果保存の拒否を、Operation境界で実Host要求を観測する。予定保存失敗時は実Host要求0、同じ元入力での再入場、元Capability・token・五資源・清掃結果・Mount結果の相関を維持する。予定保存要求回数を実HostのEffect回数と同一視しない。既存の実Writer結合で保存失敗・応答喪失・後継token観測後の再発行0を確認する。
+PRL-IT-013／ERB-IT-003の再入場試験はRecoveryの実調停を実行し、既存保存境界で予定保存・結果保存の拒否を、Operation境界で実Host要求を観測する。予定保存失敗時は実Host要求0、同じ元入力での再入場、元管理参照・exact回復CapabilityとID・Host token・元Plan・五資源観測・清掃checkpointと後段の実Home解放の相関を維持する。予定保存要求回数を実HostのEffect回数と同一視しない。既存の実Writer結合で保存失敗・応答喪失・後継token観測後の再発行0を確認する。
 
 子Process試験も同じ下位境界でHost要求と受付拒否時の変更0を確認する。Controllerへの旧module mockを残さず、RecoveryからControllerへの実行時依存がないことを既存契約試験で固定する。実AI・実Docker・全体回帰の成立は主張しない。
 
@@ -328,7 +328,7 @@ Cの物理移管当時は保存七Sourceを凍結し、同一実体へのspecifi
 
 判断入口へのPrincipal観測の同居では、関数本文・Headerの移管前後一致とRootの公開集合を静的に照合し、既存の公開Owner境界・判断操作の回帰を実施する。呼出しごとの保護Store観測、completed以外のunknown、未作成Storeの初期化可能性を変更しない。配置の同居を認証・Authority拡張や実Storeの新しい保証成立と扱わず、保存七Sourceは変更しない。
 
-統合前のExecution縮小では、二Factoryの本文同一性と本番Codex→Claudeの生成位置・順序はSource差分で、本番準備Ownerの参照同一性と同Provider別候補／Provider間の二WeakMap非共有は既存準備試験で確認する。Taskの開始／終端投影はController実体へ接続し、aliasによる重複評価だけを除いて相関・不正入力の母集団を維持する。助言のRequest／Dispatch拒否は同じblocked結果、unknownは別状態として確認し、Runtime純転送の撤去で元Signal・一回実行・元Host参照・cleanupを失わないことを確認する。内部export縮小は値・型本体とRoot公開集合を変更せず、未使用説明の撤去を既存の実検査や安定test IDの削除へ拡張しない。Storageの本文Hashを維持する。
+Executionの準備接続では、両Providerの同期prepareが不変の完全選定・試行番号・Home四値から計画を直接返すことを確認する。準備Store・二WeakMap・消費tokenを設けず、現在Operation、用途別Packet、Provider・役割・試行の不一致を受付で拒否する。Taskの開始／終端投影と助言のRequest／Dispatch拒否・unknown分類、元Signal、一回開始、元Host参照、実cleanupを維持する。内部export縮小はRoot公開集合を変えず、Storageの本文Hashと実Ownerの保存条件を維持する。
 
 統合前の構造整理では[両Packageの移行計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#24-両packageのafterを基準にした統合前整理)を既存の単発実行・上位Task・元観測・状態保存の検証面へ接続する。基準83／71 Sourceの処置対応を確認し、削除前に全Consumerと保持Capabilityを照合する。統合前はRoot公開集合・値契約・拒否理由を維持し、開始通知、取消join、元結果・exact回復参照、観測失効、Writer内fresh再確認、本番／候補の独立性を確認する。Cの公開切替は新入口から全利用側までの閉包を別途確認する。
 
@@ -336,7 +336,7 @@ Cの物理移管当時は保存七Sourceを凍結し、同一実体へのspecifi
 
 CLIの責務整理では、元Errorを実行側で登録してCLI表示で同じ回復参照を取得でき、コピーErrorから参照を復元しないことを確認する。現在Rootの検証失敗は回復対象Readerへ進まず、Reader欠測・解放不明・単一一致不成立は停止する。端末のcleanup unknown→同じProcess poison、Signalの一回取消・登録Rollback・解放結果、Node版のEffect前拒否、旧Path中継なしと公開Root集合不変を、移設先の既存単体・結合・操作境界試験へ接続する。実行中の処理がないことやSource配置だけを、実Docker回収・実Provider成功の証明にしない。
 
-C前のTask入力／助言分離では、既存入力Snapshot、助言受付・Profile／配送／結果、Provider実行、Task／開発Taskの試験を移設先へ接続する。Task入力が助言Moduleの実行依存を読み込まないこと、公開Rootの関数名集合が不変であること、既存の拒否・取消・一回送信・cleanup／unknownを保持することを確認する。入力検査成功を実AI・実Dockerの成立へ昇格しない。
+C前のTask入力／助言分離では、既存入力Snapshot、助言受付・固定選定／配送／結果、Provider実行、Task／開発Taskの試験を移設先へ接続する。Task入力が助言Moduleの実行依存を読み込まないこと、公開Rootの関数名集合が不変であること、既存の拒否・取消・一回送信・cleanup／unknownを保持することを確認する。入力検査成功を実AI・実Dockerの成立へ昇格しない。
 
 元観測の限定分離は既存ERB-IT-002／ERB-IT-004とPRL-IT-013の検証面へ接続する。本番・候補Ownerの交差、コピー結果、別Owner／操作／回復参照、同期callbackの正常・false・throw後失効を反証する。外側確認後に失効した通知はWriter排他内で再確認して拒否し、本文を変更しない。照合Ownerは既存の非耐久二WeakMapだけを持ち、Root公開・Map公開・再入場時の復元を追加しない。限定試験を実Dockerや実AIの成立へ昇格しない。過去Evidenceと全体品質評価は維持する。
 
@@ -471,9 +471,9 @@ Snapshot検査の既存ヘルパーへ接続する際は、Descriptor自身の`v
 | `PRL-IT-011` | 境界 | IT | Resource Lifecycle／Concurrency | Queue→Project Operation Lease→Scheduler Slot→Task開始 | Related 2 Blocks | 同じProjectの競合予約、期限切れLease、cleanup不明Leaseおよび利用可能Slot | 予約、更新、解放および再利用を要求する | Queue Item、Lease、Slot、TaskのIdentity、Owner、世代、状態遷移、解放確認およびEffect件数を記録する | 同じOwner・世代だけがLeaseを更新・解放でき、cleanup不明または期限切れを安全確認なしに再利用しない | PRL-IT-011、各資源Identity、Owner・世代、状態遷移、解放確認、競合理由、Effect件数およびOracle判定を保存する | 正常完了時はLease／Slot残存0。観測不能時は再利用せず回復義務を保持する | Automated |
 | `PRL-IT-012` | 境界 | IT | Application Contract／Transport | UI・CLI・MCP Adapter→Coordinator公開操作→Core | Related 2 Blocks | 同一のProject Authority、workType／choice、Core結果と、Authority追加・成功意味変更・field欠落・Reviewerへの明示choice誤伝播を含むTransport反例 | 各入口から同じ公開操作を要求し、受付で固定したExecutor／Reviewer選定をCoreへ搬送する | Adapter入力、Core入力、固定選定、Authority差分、Core結果、公開結果、Effect件数および拒否理由をTransport間で比較する | Transportは選定を再解決せず、ReviewerへExecutorの明示choiceを継承せず、Authority、成功条件または回復意味を新設しない。搬送確認と固定選定Grantの下位安全検査は別Oracleとし、搬送成功だけでGrant成立を主張しない | PRL-IT-012、Transport別入力・結果、固定選定、Authority差分、Effect件数、拒否理由およびOracle判定を保存する | 正常時は同じCore Effect一件。選定不一致・不正入力ではProvider Effect 0 | Automated |
 | `PRL-IT-013` | 回復 | IT | Recovery State／Re-entry | Task／Recovery Store→再入場Application | Related 2 Blocks | 同じTask Identityの取消済み、Effect不明、cleanup未確認、回復可能状態、同じRuntime Stateに複数Recoveryが残る状態 | Recovery recordを読み同じTaskへ再入場し、複数件では選択したexact Recoveryだけを順次処置する | Task／Recovery Identity、全Inventory、対象Scope、状態、再発行Effect、終了後義務を記録する | 別Taskや新Authorityを作らず同じRecovery義務を継続し、未選択Recoveryを削除または完了化しない | Identity、Inventory差、状態遷移、Effect件数、判定 | 重複Effect 0、別Task 0、未選択Recovery変更0 | Automated |
-| `PRL-UT-014` | 正常 | UT | 公開操作の意味と選定搬送 | Coordinator Objective入力・固定選定組の搬送／下位の選定境界 | N/A | 分類・明示選択の有無、十項目の選定組、未知field、動的入力と内部Path。下位の旧入力拒否・Grant相関反例は各既存Suiteで別評価する | Objective入力を固定し、同じ設定由来の選定組をTaskへ搬送する。下位の選択・Grantは各OwnerのOracleで検査する | 正規化入力、選定組、拒否理由と操作別の下位判定を、責務を混ぜず確認する | 搬送は完全な値を保持し、再選定・Authority発行を行わない。既存下位の選択・Authority・成功／回復条件は別Oracleを維持し、純粋搬送の成功からGrant成立を推定しない | Transport別入力、選定の全項目・出所、旧入力拒否、下位ごとの独立結果 | 外部Effect 0 | Automated |
+| `PRL-UT-014` | 正常 | UT | 公開操作の意味と選定搬送 | Coordinator Objective入力・固定選定組の搬送／下位の選定境界 | N/A | 分類・明示選択の有無、十項目の選定組、未知field、動的入力と内部Path。下位の旧入力拒否・現在Operation相関反例は各既存Suiteで別評価する | Objective入力を固定し、同じ設定由来の選定組をTaskへ搬送する。下位の選定・開始・取消は各OwnerのOracleで検査する | 正規化入力、選定組、拒否理由と操作別の下位判定を、責務を混ぜず確認する | 搬送は完全な値を保持し、再選定・Authority発行を行わない。既存下位の選択・Authority・成功／回復条件は別Oracleを維持し、純粋搬送の成功から実開始・回収成立を推定しない | Transport別入力、選定の全項目・出所、旧入力拒否、下位ごとの独立結果 | 外部Effect 0 | Automated |
 
-Local Personal許可元の`PRL-UT-006`では、cache確認より前のOperation照合を各load一回、strict trueだけの受理、false／非boolean／例外、Provider差・不正Operation・余分な旧Profile入力、時計不正、30秒境界と期限内失効を確認する。両Providerのoperation／Home実体・保護／Egress結合、TTL、一回消費、revoke、fresh観測とisolation／prelaunchの相関を検査する。同Provider・同Homeでも別OperationのGrant消費を拒否し、拒否後に元Operationでだけ一回成功する反例を含める。Model Grant／Packetの完全選定・役割・試行番号・操作相関はモデル側の別Oracleとして維持し、署名不在だけを拒否理由にしない。`PRL-IT-005`では実管理参照の同じOperation、偽造・別Operation・清掃後失効を通常Taskと同じOwnerで確認し、Source生成を外部送信許可やProvider Effectへ昇格しない。旧署名用の静的検査、他Native入口および実Provider／全体E2Eは別の未完了範囲として保持する。
+PRL-UT-006の状態遷移・現在Operation・Home実体・完全選定・Packet・回復相関等の現役義務は維持する。Local Source／Provider Authority／Selection Grant／Home Mount Grantと専用Store・期限の試験は退役し、撤去をPassに数えない。起動前の元管理参照と現在Operation・Provider・用途・役割・試行・Packet本文の照合は既存の開始受付で確認し、偽参照・別Operation・現在性不明を処置前に拒否する。完全選定と試行番号は計画・実行記録で保持し、人工選定ID／借戻しHashを要求しない。実Provider／全体E2Eは別の未確認範囲として保持する。
 
 ## Semantic Coverage Pilot
 
@@ -531,7 +531,7 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
-## Host残存の保守候補判定
+## Host回復の相関・排他と保存
 
 `docker-recovery-owner-reentry`では、`PRL-IT-013`の未登録Capability／Ownerと不正completionを公開Owner入口へ渡し、拒否時のHost復帰・Lease解放・lifecycle保存・清掃Capability発行の増分0、operations全文とHost観測不変を確認する。Host完了依存の拒否では正常解放の証明を返さず、清掃準備も未発行とし、同じCapability／Owner／元completionの再入場だけを既存の肯定経路へ戻す。再入場Caseの下位は模擬である。実Host／Writerの完了意図・pending・応答喪失・元版／token保持は`coordinator-state-runtime`の実Host試験を共同根拠とし、旧AppData pointerの欠測・partial・replacement形式を再現しない。正常1回の別Caseは、実Root／Home排他／Host／現在Writerと真正Host清掃を接続する。Home観測・Docker証明だけを厳密tupleで模擬し、実Leaseの競合拒否と再取得、清掃前finalizeの本文／履歴不変、清掃結果コピーの拒否、対象だけの履歴化／除去、非対象全文保持とHost／marker／短命物不存在を確認する。清掃例外・世代解放falseでは、同じ清掃本文の反証で後続全回収・模擬復元、最初の失敗保持とRoot削除0を確認する。新正常1回の限定成立から、同一Host／Home直列2回、abandon物理回復、実Dockerや通常完了Capability全体の成立を推定しない。旧3Caseは撤去済みであり、現行正常1／2回・別Process放棄回復を検証先とする。
 
@@ -545,17 +545,14 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 `PRL-UT-006`の旧同期排他controllerと未使用解放集約の局所試験は退役した。共通JSON保存の削除四状態はDomain Modelの私有分類UTで維持し、現在のSnapshot再入場は元版／次版Hash・Repository結合・初回Root・unknown・不正版を既存UTで確認する。旧Journalのmove十六組・directory清掃分類は旧本番Consumer撤去に伴い退役し、現行回復の根拠にしない。現行の全解放・一次失敗保持・解放不明停止はKernel／現在WriterとDI回収試験へ接続し、純粋分類の成功を実OS回収の証明にしない。
 
-`PRL-UT-006`には[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の内部候補判定を含める。十一の必須条件を一件ずつ不成立、unknown、欠落へ変え、対象外資源クラス、不正Hash、未知field、AccessorおよびProxyを拒否する。全条件の局所fixtureが成立してもAuthority非発行、清掃未確認、本番未接続を返すことをOracleとする。
 
 同じ`PRL-UT-006`でHost Lockの取得待機後の世代再検証も確認する。待機前の所有者・世代参照と記録Hash値を捕捉し、待機中の失効、所有者／Identity／世代の置換、記録Hash変更、別Lock設定、再観測不能を一件ずつ与える。不一致では後着した新Lockだけを一回解放し、既存Lockへの操作0、旧世代への公開0を確認する。解放の実終端前は結果を返さず、解放throw・不明はprocess停止対象へ分類する。Lockなしの既知取得失敗は元分類を保つ。Lockなしの回収不明と取得例外はfreshに再検証し、同じ現在世代だけ失効とContext Capability取消へ接続する。不一致・観測不能では旧世代変更0、既存Lock操作0を保ち、全例でprocess停止対象とする。Lockを伴う回収不明と、後着Lock解放の確認付き失敗も分類を保持する。これは局所settlementの観測であり、実OS排他、Root清掃、作成前排他または旧形式の非使用を証明しない。
 
-このUTは根拠値の純粋な照合だけであり、実在する所有権・非使用・Lock・不存在を証明しない。実観測と処置の義務はQA-000006が所有する。局所Passを新しいRecovery経路の完成、既存Host三件の清掃またはQuality Readyへ昇格させない。
+直前のHost Lock局所試験は、待機後の照合と下位処置の発行条件を確認する。局所Passだけから実在する所有権・非使用・Lock・不存在を証明せず、実観測と処置の既存義務はQA-000006へ接続する。
 
 同じ`PRL-UT-006`で共有回復Directoryの初期化を確認する。既存成功、mkdir成功、mkdirのEEXIST競合をfresh検証へ戻し、共有Directory削除0・他Task記録操作0を確認する。初期観測unknown／throw、mkdir結果不明、EEXIST後の不正Path・reparse・Identity読取りthrow・unknown、既存Directory検証失敗を拒否し、`cleanupConfirmed:false`／回復IDなしを保持する。Root・marker作成前の拒否とnamespace状態不明を全Effect 0へ畳まない。試験依存は実Filesystemを操作せず、このUTの成功を実OSの境界保証または実清掃へ昇格しない。
 
-同じ`PRL-UT-006`の追加局所範囲として、未接続の同一Process lease候補を確認する。取得前／登録中取消、取消後の後着取得、取得・解放の期限切替、二重解放、Server close後の個別socket待機、bind失敗、重複・不正通知、依存例外および期限後の後着終端を処置する。要求前通知から成功を発行しない。確定した未確認結果は後着成功で上書きせず、通知所有者を保持する。Oracleは通知処置だけであり、`closed`からnative endgame、Operation全体の清掃、対象の非使用または削除権限を推定しない。本番入口・OS Adapter・Root／marker処置・全利用側移行には未接続であり、実境界の義務はQA-000006に残す。
 
-期限登録中の同期取消では登録・解除を一回に限定し、listenを発行しない。取得要求の保留と結果Promiseを分け、期限後またはlisten例外後の先行close通知で購読を外さない。後着取得へ一回closeを発行し、その後の対応終端で登録を解除しても、先に返した不明結果は同一のまま保持する。
 
 
 同じ`PRL-UT-006`でDocker診断回復のHost排他接続順を確認する。現在の本番関数bodyを変更せず局所依存へ接続し、正常、Token／Host世代／親の不正、取得null／例外、取得後の記録不明、Docker依存失敗、解放不明、Host Root名差およびHost nonce差の十一経路を与える。Probe nonceとHost nonceは異なる値にする。未取得では対象Rootの記録読取り0・Docker利用0、取得後の対象差・記録不明ではDocker利用0を確認する。同じ排他ObjectをHost清掃へ渡し、取得後の失敗でも一回解放する。解放不明では成功・清掃確認を返さず、現在のexact回復参照、手動回復の必要性と清掃未確認を保持する。これは本番bodyの呼出順・結果相関のUTであり、実排他、Docker回収、実フォルダ不存在、旧三Rootの非使用または全Recoveryの成立を証明しない。
@@ -564,22 +561,7 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 同じ`PRL-UT-006`と`PRL-IT-013`で、再起動最終観測の要求状態・Effect不明を既存finalizeから保存する契約を確認する。上位unknown・回収confirmed・結果blocked・最終not_issued・Effect不明falseだけを新しい終了許容形とし、上位の未発行化や再起動成功へ変換しない。上位issued／confirmedとの矛盾、最終unknown／issued、Effect不明true、回収不明、欠測・余分field・Proxy／getter、旧result、確定後の全field変更と二要求目を拒否する。completed側の最終confirmed・Effect不明falseも共同要求する。実finalize→Writer読戻し→終端／履歴へ接続し、両利用側が同じ純粋判定を使うこと、Task資源終了・Owner退役・Host不存在・Lease・排他・履歴の各条件を壊した反例とEffect条件省略変異を確認する。通知／保存／解放不明は未発行確定へ補完しない。現在保持する旧形式の実証結果を推測移行せず、本契約の実装・検証は未完了として追跡する。
 
-`PRL-UT-006`では、Host対象確認の専用frameについてnonce、revision、型・相異、独立namespace期待値、選択利用者、取得数と初回closeの相関を確認する。観測成功＋外側close不明でSnapshotを出さず元観測失敗を捏造しないこと、部分取得・不正boolean・余剰bytes・入力getter／Proxy／共有memory・偽要求参照を拒否することを、現在のcodec／Adapterへ接続する。初回要求は完全intentを必要とせず、Current結果と独立期待値のKnown照合を分け、Current成功でも保護・全終了を必須とする。純値成功を実OS観測、署名配布物、非使用・実処置または全Recoveryの成立へ昇格しない。
 
-### 既知7バイトfileの専用記録候補
-
-`PRL-UT-006`で[Coordinatorの既知fileクラス](../../../06_Architecture/Details/coordinator/01_Architecture.md#既知の7バイト試験ファイルを含む対象)の専用revision 3候補を確認する。十二実体・固定file名／親・7bytes・固定Hash・リンク数1・全Identity相異・世代名対応・人間保守producerだけを受理し、空クラスrevision 2との両方向の混用を拒否する。対象Rootの構造検査と上位Ownerのexact選択許可を区別する。旧保存／読戻し／観測入口が新候補を受け付けないこと、Proxy／Accessor実行0、nested不変値、正規bytes往復とBOM・重複key・余剰・非正規数値・共有memoryの拒否をOracleとする。
-
-同じ`PRL-UT-006`で、専用十二実体観測のCurrent／namespace-Known要求登録と応答を確認する。旧新magic・改訂版・要求の混用、偽私有参照、短縮・余剰・nonce差、十二Identityの型・相異、固定7bytes／リンク数1／Hash、九対象と外側資源の終了相関を反証する。namespace-Knownは三namespace実体と選択利用者だけの独立期待値として扱い、全対象Knownへ昇格しない。応答形状の成功を実Processの正常搬送や保存成功へ読み替えない。
-
-専用十二実体の保存／読戻しframeも同じ`PRL-UT-006`へ接続する。471bytes header・全十二Identity・file長／リンク数／Hash・独立本文／Hash・三固定名の欠落と混用を拒否し、本文1／8192bytesを受理、0／8193bytesを拒否する。各位置の型差とalias、file固定値の全byte差を反証する。保存の部分receipt・九対象観測を縮約せず、読戻しは対象Snapshotなし・対象取得0と現在Reader／世代排他終了を保持する。局所encoderの成功を実保存・正常再入場・清掃成功にしない。
-
-Coordinator Adapterでも、専用保存／読戻しの私有登録と旧形式・逆mode・clone拒否を確認する。現factory Sourceが構成する要求を独立offsetで解析し、471bytes header、十二Identity、file条件、同参照と完全正規本文／Hashを照合する。保存応答の全392payload bytes差、切断・余剰、旧内包frame、不正成功を反証し、部分保存・元理由・receiptを同参照で保持する。読戻しは対象未取得と現在記録を区別する。搬送Ownerの本番bodyを合成Workerへ接続して、旧新両クラスで固定mode、exit不一致、解析不能と部分receiptを確認する。合成Workerを実Native正常保存の根拠にしない。
-
-専用候補の二回観測では、十二Identityの六field、選択利用者、marker Hashとfileの長さ・リンク数・Hashを比較する。初回拒否・終了未確認・取消では二回目0、再要求生成中の取消・生成失敗も二回目0を確認する。二回目の拒否・終了未確認・例外では初回receiptを保持する。下位が実行前に拒否した理由は保持し、成功を返したのにhelper終了が未確認の場合だけ共同観測未成立とする。私有の旧／新Current要求、namespace-Known要求、cloneの混用も反証する。
-
-
-これらは期待値・正規bytes・観測frameの局所確認である。実fileの内容・リンク数、非使用、保存、十二実体の実搬送、処置と部分再入場の成立はQA-000006で別に確認する。既存Local Itemへ接続し、局所Case追加をLocal Item全義務の完了や全体件数の更新理由にしない。
 
 Host終端専用環境の十五入力区分は、本番未使用入口の撤去に伴い2026-11-09に退役した。削除を成功へ換算しない。`PRL-UT-006`の共用環境試験は維持し、共通の本番関数bodyへ合成OS・所在を与え、Windows固定の取得不能を空環境へfallbackしないこと、Profile要求時だけ検証済み値を付与することを確認する。既存の台帳IDは追跡用に維持するが、Host終端環境の提供や実OS所在・保護・正常保存の成立根拠として扱わない。Docker署名確認の固定五項目への投影はDI側の既存環境試験で確認する。
 
@@ -616,21 +598,23 @@ Host終端専用環境の十五入力区分は、本番未使用入口の撤去�
 
 Provider準備のPRL-UT-014と共有の通知・失敗・排他義務は維持する。本番未接続のHost終端記録と専用caller Leaseの退役により、そのin-process-lifecycle専用試験接続を撤去する。加えて本番未使用の端末・確認コードと旧Root／AppContainer受付の専用試験を退役し、共有Pipe・通常Process poison・Provider Home・SID反例を維持する。Namespace・通常Recovery・共有Pipeの成立を代替なしで削除したことにはしない。
 
-C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、現在stateのSettlement Writer、共通JSONのDomain committed-json、Host callerのhost-submissionの確定順はそれぞれ現行ITで検査し、退役した旧Journal試験を新版の根拠へ流用しない。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
+C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、現在stateのSettlement Writer、共通JSONのDomain committed-json、Host callerのhost-submissionの確定順はそれぞれ現行ITで検査し、退役した旧Journal試験を新版の根拠へ流用しない。未接続の旧PR03候補と、その後の未接続RootObservation候補は退役する。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
 
 ## Workspace・診断Folderの解体に伴う検証
 
-Source配置の変更からWorkspace管理・診断の成立条件を変更しない。既存のRepository結合・借用Tree・変更Snapshot試験で、別Operation／偽Capability、Revision変化、Git実体差替え、保護マスク改変、dirtyを含む差分、Reviewer投影と容量・秘密検査を維持する。通常結合とSettlementの再検証条件差を消さず、借用Treeを自己生成一時物として清掃しない。Root観測候補の非Authority・未実装・観測不能を保持する。
+Task／助言の未消費Packet・Mount失効では、成功・拒否・観測不能・例外を独立して与え、失効各一回、残る失効と終了処理の継続、元の一次理由・exact回復参照・清掃未確認・再利用禁止を確認する。poison通知とRecovery放棄の例外でも元結果を失わせず、Host物理清掃だけの成功で失効未確認を補完しない。
+
+Source配置の変更からWorkspace管理・診断の成立条件を変更しない。既存のRepository結合・借用Tree・変更Snapshot試験で、別Operation／偽Capability、Revision変化、Git実体差替え、保護マスク改変、dirtyを含む差分、Reviewer投影と容量・秘密検査を維持する。通常結合とSettlementの再検証条件差を消さず、借用Treeを自己生成一時物として清掃しない。現役Node／VCによるRoot・Link・実体観測と、観測不能時の拒否を保持する。
 
 Git観測の移管では、Version Controlの現在改訂・HEAD／Tree・前後差替え・欠測とLinked Worktreeを実Gitで確認し、Orchestratorの受付・状態・採用が同じ公開操作へ接続されることを閉包検査する。Coordinatorの実行制限を汎用観測の権限へ昇格しない。
 
 doctor、修復Owner／結果、再起動、Probeの要求・完了・取消・exact回復、計測と検証用Grammarは既存Suite／Local ItemのOracleを維持しPathを追従する。Probeの私有Mapは一実体とし、検証専用操作のConsumerはscripts／試験に限定する。要求前unknown保存・同じ参照・取消join・二保存・Lease解放と終了確定は別々に観測する。今回の有限代役・実Git／Filesystem／Processの成功から、実Docker・外部AI・全体QAの成功は主張しない。②のAI再試行・保持物操作は検証範囲外。
 
-Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は承認済み目標OwnerのDomain Model `plain-data/secret-validation.ts`へ移し、同じSymbol・条件・返却値、getter／Proxy等の既存反証と、Workspace・Decision・実行入力・結果取込の全利用側を照合する。移管だけを未知Secret不存在の保証へ拡張しない。独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
+自作Profile／Registry、Local Source、独立Provider Authority、Selection／Home Mount Grant、Prepared Storeとその専用Coverageは退役する。PRL-UT-006等の共用項目全体は撤去せず、現在Operation・Home実体・完全選定・Packet本文・送信範囲・実取消・実Cleanup・exact回復参照の検証義務を現役Ownerで維持する。Rootは不変とし、Operation Identity v5ではgrantRefを持たず旧v4を拒否する。Root字句検査と現役Node／VC観測、秘密情報検査の条件・返却値とgetter／Proxy反証、Workspace・Decision・実行入力・結果取込の接続を維持する。未知Secret不存在へ保証を拡張せず、独立Trust評価器を開発残件へ戻さない。過去保持物は操作せず、互換Readerや自動補完を追加しない。
 
 Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorのstate/probe-recordが所有するProbe保存・読戻し、およびHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
 
-固定選定の実行接続では、完全選定十項目の各一項目差、操作・役割・試行番号・Packet Hash差、別stageのGrant、更新時の意味差、旧Profile／Route入力の拒否を反証する。既存のTTL・一回消費・失効・Home排他・取消・回収Oracleは維持する。Operation Identity v2／現在StateとProject Snapshot v5は旧形式を補完せず拒否し、保存・読戻し後だけDocker Effectへ進む。Owner喪失の再入場では現在設定／Catalogの読取りと本文再実行を0件とする。合成試験の成功は実AI・実認証・実Docker、人間操作又は公開利用側の全面切替を証明しない。
+固定選定の実行接続では、完全選定十項目の各一項目差、操作・役割・試行番号・Packet本文Hash差、旧Profile／Route入力の拒否を反証する。完全選定は不変の元計画から直接渡し、事前確認不成立ならHome観測・Packet発行・Provider Effectを0とする。Selection発行／借戻しHash／TTL／未消費失効と準備Store消費を前提にせず、同期prepareの計画、実Home排他、取消・回収と元参照の相関を確認する。Operation Identity v5とProject Snapshot v6は旧形式を補完せず拒否し、保存・読戻し後だけDocker Effectへ進む。Owner喪失の再入場では現在設定／Catalog読取りと本文再実行を0件とする。Packet失効の拒否・不明・例外は実清掃と区別して元理由・exact回復参照と清掃未確認を保持する。合成試験は実AI・認証・Docker又は公開利用側の全面成立を証明しない。
 
 ## 保持設定の試験Owner — 2026-11-15
 
@@ -686,9 +670,15 @@ pendingの作成拒否・部分作成・置換・観測不能・既存物・遅�
 
 ## 内部生成・開発計測・Process停止の限定検証
 
-PRL-UT-006は内部Authorityと外部canonical bytesの全verification値一致、固定値の変更不可、偽候補の外部受付拒否、起動時の期限切れを確認する。従来の外部bytesの正規性・Hash・余分field・Proxy拒否、warm cache時のOperation再照合も維持する。
+Local許可元と独立Provider Authorityの専用試験・Coverageは退役する。PRL-UT-006の現在Operation・Home／Mount・固定選定・Packet・取消・回復の共用義務は現役Ownerに維持し、退役機構を別名で再実装しない。計測用Contextを通常認可へ混入させない。
 
-PPR-UT-006／PPR-IT-010は移管先measurementの計測・Session・取消・期限・元Operation結合を確認する。ERB-IT-004は現行12Package・Scope v4、対象外の旧Directory／.crddの不変、対象内の内容・実体差、旧容量境界の両側、途中変更拒否を自己生成Rootで確認する。PRL-IT-012は新Sourceを技術実行の閉集合へ分類し、逆依存を拒否する。
+PPR-UT-006は通常runTask二回の外側計測、明示主体・別ID、旧設定拒否、期限・取消の最終返却待機、Timer／Listener解放、回復参照・一次結果保持を確認する。専用Session／呼出し制約／段階Timingの3試験は退役し、削除をPassへ数えない。PPR-IT-010の本来のClock／来歴の検証義務は既存Ownerへ維持し、退役した開発Timingの試験へ戻さない。ERB-IT-004は現行12Package・Scope v4、対象外の旧Directory／.crddの不変、対象内の内容・実体差、旧容量境界の両側、途中変更拒否を自己生成Rootで確認する。PRL-IT-012は製品Sourceが開発Scriptへ逆依存しないことと、旧専用入口・Context・会計の不存在を確認する。
+
+PPR-UT-006の取消・期限反証では、通常Taskと同じ待機後の閲覧認可を確認し、元結果・exact回復参照・清掃状態が保持されることを検証する。取消と正常完了が競合する場合も二件目を開始せず、認可の失効を取消の代用にしない。
+
+PRL-UT-014のPlatform契約は改訂3へ追従し、未接続Root候補の操作枠・保証宣言を含めない閉集合を確認する。専用Root候補の二試験は退役し、その削除を成功へ数えない。現役のProvider Home観測、Repository解決、Owner生存観測、未対応境界の拒否とコピー／差替え拒否は既存混合試験へ維持する。
+
+計測結果取得後の出力Directory差・書込み例外でも、元Task結果・一次理由・cleanup・exact回復集合を保持する。出力未確認は副次失敗として返し、Taskの再実行、回収成功の捏造、Path・生例外の公開を行わない。標準出力自体の搬送失敗は成功として扱わない。
 
 退役したdrain専用token試験と合成claim専用Plan／Evaluator試験は成功件数へ数えず撤去する。PRL-IT-005のpoison後の入力読取り0・Effect前拒否・fresh Processと、ERB-UT-023の助言Effect非発行は維持する。Doctorの説明契約は既存の三試験で維持し、実AI・Docker未実施を実境界成立と扱わない。
 

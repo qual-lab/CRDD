@@ -6,11 +6,8 @@
  */
 
 import { setImmediate } from "node:timers/promises";
-import { types } from "node:util";
-import {
-  type ExecutionSelection,
-  inspectExecutionSelection,
-} from "../../../execution-model/src/index.ts";
+import { isDeepStrictEqual, types } from "node:util";
+import { inspectExecutionSelection } from "../../../execution-model/src/index.ts";
 import type {
   CompletionResult,
   ProcessStartedNotice,
@@ -27,20 +24,10 @@ import type {
   CoordinatorSingleTaskResult,
 } from "../task/types.ts";
 import {
-  consumeRuntimeOwnedProviderHomeMountGrant,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  issueRuntimeOwnedDelegationSelectionGrant,
-  issueRuntimeOwnedProviderHomeMountGrant,
-  preflightRuntimeOwnedDelegationExecutionSlate,
-  revokeRuntimeOwnedDelegationSelectionGrant,
-  revokeRuntimeOwnedProviderHomeMountGrant,
+  preflightRuntimeOwnedDelegationSelections,
 } from "./authority.ts";
 import { getIsolationSettings } from "./configuration.ts";
-import {
-  createDevelopmentExecutionTiming,
-  reserveRuntimeOwnedDevelopmentMeasurementTask,
-  writeDevelopmentMeasurementProgress,
-} from "./measurement.ts";
 import {
   finishProviderExecutionRecording,
   type ProviderExecutionRecording,
@@ -108,7 +95,6 @@ import {
   createTaskStageDiagnostic,
   projectCoordinatorTaskPublicReason,
   projectCurrentDockerAdmission,
-  projectDevelopmentTaskResultAfterOuterCleanup,
 } from "./result.ts";
 import type { PreparationInput } from "./types.ts";
 import { resolveRecoveryReference } from "./validation.ts";
@@ -1090,13 +1076,6 @@ interface TaskRuntimeCallbacks {
  * @compatibility 通信・保存Schema、取消・回復条件を維持する。
  */
 type TaskRuntimeDependencies = Readonly<{
-  beginInvocation?: (
-    provider: Provider,
-    role: TaskRole,
-  ) => Readonly<{
-    commandRestriction: (purpose: string) => boolean;
-    settle: () => unknown;
-  }> | null;
   observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
   createOperation: (
@@ -1133,32 +1112,11 @@ type TaskRuntimeDependencies = Readonly<{
     mountCapability: object,
     readPaths: readonly string[],
   ) => RuntimeRecord | null;
-  issueSelection: (
+  preflightSelections: (
     managementCapability: object,
     request: RuntimeRecord,
-  ) => RuntimeRecord;
-  preflightSlate: (
-    managementCapability: object,
-    request: RuntimeRecord,
-  ) => RuntimeRecord;
-  revokeSelection: (
-    controlCapability: object,
-    managementCapability: object,
   ) => RuntimeRecord;
   observeProviderHome: (provider: Provider) => RuntimeRecord;
-  issueMountGrant: (
-    managementCapability: object,
-    observationCapability: object,
-  ) => RuntimeRecord;
-  consumeMountGrant: (
-    useCapability: object,
-    managementCapability: object,
-    observationCapability: object,
-  ) => RuntimeRecord;
-  revokeMountGrant: (
-    controlCapability: object,
-    managementCapability: object,
-  ) => RuntimeRecord;
   resolveExternalSendPolicy: (
     managementCapability: object,
     repositoryBindingCapability: object,
@@ -1185,7 +1143,7 @@ type TaskRuntimeDependencies = Readonly<{
       recoveryCapability: unknown,
       recoveryId: unknown,
     ) => boolean,
-    commandRestriction?: (purpose: string) => boolean,
+    commandRestriction: undefined,
     observeProviderStarted?: (
       notice: ProcessStartedNotice,
     ) => void | Promise<void>,
@@ -2166,9 +2124,7 @@ function packetRequest(
     allowedPaths: request.allowedPaths,
     readPaths: request.readPaths,
     reviewerReadProjection,
-    selectionHash: hashExecutionSelection(
-      inspectExecutionSelection(request.executionSelection),
-    ),
+    executionSelection: request.executionSelection,
   });
 }
 
@@ -2210,49 +2166,13 @@ function projectProviderPreparationFailure(reason: unknown) {
     return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
   if (reason.endsWith("_docker_runtime_model_selection_invalid"))
     return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.modelSelectionInvalid;
-  if (reason.endsWith("_docker_runtime_mount_authorization_invalid"))
-    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.mountAuthorizationInvalid;
   if (reason.endsWith("_docker_runtime_task_packet_invalid"))
     return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.taskPacketInvalid;
   if (reason.endsWith("_docker_runtime_plan_invalid"))
     return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.planInvalid;
-  if (reason.endsWith("_docker_runtime_authority_invalid"))
-    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.authorityInvalid;
   if (reason.endsWith("_docker_runtime_recovery_correlation_invalid"))
     return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.recoveryCorrelationInvalid;
   return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
-}
-
-/**
- * Provider Selectionが同一かを判定する。
- *
- * @responsibility Provider Selectionの同一性Propertyと一致／不一致境界を所有する。
- * @trace ARCH-000004
- * @input left: 初回封筒、a: 初回に捕捉済みの選定、right: 再発行封筒
- * @returns sameProviderSelectionの計算結果を返す。
- * @precondition aは初回受付で独立・凍結捕捉済み。再発行側は未信頼の依存返却値。
- * @postcondition sameProviderSelectionの責務を完了した結果だけを返す。
- * @effect N/A: sameProviderSelectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: sameProviderSelectionは独自の失敗分岐を所有しない。
- * @invariant sameProviderSelectionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: sameProviderSelectionはProcess内の同一Subsystemで完結する。
- * @security sameProviderSelectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: sameProviderSelectionは共有非同期状態を持たない同期処理である。
- */
-function sameProviderSelection(
-  left: RuntimeRecord,
-  a: ExecutionSelection,
-  right: RuntimeRecord,
-) {
-  const b = inspectExecutionSelection(right.executionSelection);
-  return (
-    b !== null &&
-    left.executorProvider === a.provider &&
-    right.executorProvider === b.provider &&
-    left.operationId === right.operationId &&
-    left.taskAttempt === right.taskAttempt &&
-    JSON.stringify(a) === JSON.stringify(b)
-  );
 }
 
 /**
@@ -2422,56 +2342,22 @@ function reportTaskStage(
 }
 
 /**
- * Stageを実行する。
+ * Taskの一段を実行する。
  *
- * @responsibility Stageの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility Task一段の実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input args: Parameters<typeof executeStageBody>
+ * @input state: RuntimeState、operation: Operation、request: AcceptedTaskRequest、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageの計算結果を返す。
- * @precondition 「args: Parameters<typeof executeStageBody>」がexecuteStageの入力契約を満たす。
+ * @precondition 「state: RuntimeState、operation: Operation、request: AcceptedTaskRequest、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、reviewerReadProjection: RuntimeRecord | null」がexecuteStageの入力契約を満たす。
  * @postcondition executeStageの責務を完了した結果だけを返す。
- * @effect N/A: executeStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: executeStageは独自の失敗分岐を所有しない。
- * @invariant executeStageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: executeStageはProcess内の同一Subsystemで完結する。
+ * @effect executeStageは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure executeStageは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeStageは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
  * @security executeStageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency executeStageは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-async function executeStage(...args: Parameters<typeof executeStageBody>) {
-  const dependencies = args[0].dependencies;
-  const invocation = dependencies.beginInvocation?.(args[7], args[5]);
-  if (dependencies.beginInvocation && !invocation)
-    return blocked("coordinator_task_development_invocation_not_authorized");
-  args[10] = invocation?.commandRestriction;
-  let result: Awaited<ReturnType<typeof executeStageBody>>;
-  let settlement: unknown;
-  try {
-    result = await executeStageBody(...args);
-  } finally {
-    settlement = invocation?.settle();
-  }
-  return settlement === false
-    ? blocked("coordinator_task_development_invocation_settlement_invalid")
-    : result;
-}
-
-/**
- * Stage Bodyを実行する。
- *
- * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
- * @trace ARCH-000004
- * @input state: RuntimeState、operation: Operation、request: AcceptedTaskRequest、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null
- * @returns executeStageBodyの計算結果を返す。
- * @precondition 「state: RuntimeState、operation: Operation、request: AcceptedTaskRequest、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
- * @postcondition executeStageBodyの責務を完了した結果だけを返す。
- * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant executeStageBodyは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security executeStageBodyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency executeStageBodyは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-async function executeStageBody(
+async function executeStage(
   state: TaskRuntimeState,
   operation: Operation,
   request: AcceptedTaskRequest,
@@ -2482,7 +2368,6 @@ async function executeStageBody(
   expectedProvider: Provider,
   remediationCapability: object | null,
   control: ControlRecord,
-  commandRestriction?: (purpose: string) => boolean,
   reviewerReadProjection: RuntimeRecord | null = null,
 ) {
   if (control.cancellationRequested) {
@@ -2494,144 +2379,95 @@ async function executeStageBody(
     role === "executor" ? "executor" : "independent_reviewer",
     taskAttempt,
   );
-  let selection = state.dependencies.issueSelection(
-    operation.managementCapability,
-    selectionInput,
-  );
-  const provider =
-    selection.executorProvider === "codex" ||
-    selection.executorProvider === "claude"
-      ? selection.executorProvider
-      : null;
   const executionSelection = inspectExecutionSelection(
-    selection.executionSelection,
+    selectionInput.executionSelection,
   );
-  let selectionControl = objectCapability(selection.controlCapability);
+  if (!executionSelection) return blocked("coordinator_task_selection_failed");
+  const provider = executionSelection.provider;
   let startedProcessControl: object | null = null;
   let startedDockerRecoveryId: string | null = null;
-  if (
-    selection.status !== "issued" ||
-    !provider ||
-    !executionSelection ||
-    !selectionControl ||
-    !objectCapability(selection.useCapability)
-  ) {
-    return blocked("coordinator_task_selection_failed");
-  }
-  let mountControl: object | null = null;
   let taskControl: object | null = null;
-  const revokeUnconsumed = () => {
-    if (taskControl) {
-      state.dependencies.revokeTaskPacket(
-        taskControl,
-        operation.managementCapability,
-      );
+  const revokeUnconsumed = (reason: CoordinatorTaskPublicReason) => {
+    let revocationConfirmed = true;
+    const task = taskControl;
+    taskControl = null;
+    if (task) {
+      try {
+        if (
+          state.dependencies.revokeTaskPacket(
+            task,
+            operation.managementCapability,
+          ).status !== "revoked"
+        )
+          revocationConfirmed = false;
+      } catch {
+        revocationConfirmed = false;
+      }
     }
-    if (mountControl) {
-      state.dependencies.revokeMountGrant(
-        mountControl,
-        operation.managementCapability,
-      );
+    if (!revocationConfirmed) {
+      try {
+        poisonRuntimeProcess(state, control);
+      } catch {
+        // controlは通知前にpoison済み。通知例外で一次理由・元回復参照を失わせない。
+      }
     }
-    if (selectionControl) {
-      state.dependencies.revokeSelection(
-        selectionControl,
-        operation.managementCapability,
-      );
-    }
+    return blocked(
+      reason,
+      !revocationConfirmed,
+      revocationConfirmed ? null : operation.hostRecoveryId,
+      null,
+      null,
+      revocationConfirmed,
+    );
   };
   try {
     if (
       provider !== expectedProvider ||
-      provider !== executionSelection.provider ||
-      selection.operationId !== operation.operationId ||
-      selection.taskAttempt !== taskAttempt ||
-      hashExecutionSelection(executionSelection) !==
-        hashExecutionSelection(selectionInput.executionSelection)
+      !isDeepStrictEqual(executionSelection, selectionInput.executionSelection)
     ) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_selection_slate_mismatch");
+      return revokeUnconsumed("coordinator_task_selection_slate_mismatch");
     }
-    const first = state.dependencies.observeProviderHome(provider);
-    const firstObservation = objectCapability(first.observationCapability);
-    if (first.status !== "candidate" || !firstObservation) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_provider_home_observation_failed");
-    }
-    const mount = state.dependencies.issueMountGrant(
+    const preflight = state.dependencies.preflightSelections(
       operation.managementCapability,
-      firstObservation,
+      Object.freeze({
+        operationId: operation.operationId,
+        executionSelections: Object.freeze([executionSelection]),
+      }),
     );
-    mountControl = objectCapability(mount.controlCapability);
-    const mountUse = objectCapability(mount.useCapability);
-    if (mount.status !== "issued" || !mountControl || !mountUse) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_mount_grant_issue_failed");
-    }
-    const second = state.dependencies.observeProviderHome(provider);
-    const secondObservation = objectCapability(second.observationCapability);
-    if (second.status !== "candidate" || !secondObservation) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_provider_home_reobservation_failed");
-    }
-    const consumedMount = state.dependencies.consumeMountGrant(
-      mountUse,
-      operation.managementCapability,
-      secondObservation,
-    );
-    const mountAuthorization = objectCapability(
-      consumedMount.mountAuthorizationCapability,
-    );
-    if (consumedMount.status !== "consumed" || !mountAuthorization) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_mount_grant_consume_failed");
-    }
-    mountControl = null;
-    const revokedSelection = state.dependencies.revokeSelection(
-      selectionControl,
-      operation.managementCapability,
-    );
-    selectionControl = null;
-    if (revokedSelection.status !== "revoked") {
-      return blocked(
-        "coordinator_task_provider_selection_refresh_revoke_failed",
+    if (
+      preflight.status !== "candidate" ||
+      preflight.operationId !== operation.operationId ||
+      !Array.isArray(preflight.executionSelections) ||
+      preflight.executionSelections.length !== 1 ||
+      !isDeepStrictEqual(preflight.executionSelections[0], executionSelection)
+    )
+      return blocked("coordinator_task_selection_failed");
+    const observation = state.dependencies.observeProviderHome(provider);
+    const providerHome = observation.providerHome;
+    if (
+      observation.status !== "candidate" ||
+      !providerHome ||
+      typeof providerHome !== "object"
+    )
+      return revokeUnconsumed(
+        "coordinator_task_provider_home_observation_failed",
       );
-    }
-    const refreshedSelection = state.dependencies.issueSelection(
-      operation.managementCapability,
-      selectionInput,
-    );
-    const refreshedSelectionControl = objectCapability(
-      refreshedSelection.controlCapability,
-    );
-    const refreshedSelectionUse = objectCapability(
-      refreshedSelection.useCapability,
-    );
-    if (
-      refreshedSelection.status !== "issued" ||
-      !refreshedSelectionControl ||
-      !refreshedSelectionUse
-    ) {
-      return blocked("coordinator_task_provider_selection_refresh_failed");
-    }
-    selectionControl = refreshedSelectionControl;
-    if (
-      !sameProviderSelection(selection, executionSelection, refreshedSelection)
-    ) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_provider_selection_refresh_mismatch");
-    }
-    selection = refreshedSelection;
     try {
       const pending = state.dependencies.reportSelectionNotice?.(
         Object.freeze({
           event: "coordinator_selection_before_provider_effect",
           taskRole: role,
           provider,
-          model: selection.selectedModel,
-          effort: selection.selectedEffort,
-          speedMode: selection.speedMode,
-          selectionReason: selection.selectionNotice,
+          model: executionSelection.modelIdentifier,
+          effort: executionSelection.reasoningEffort,
+          speedMode: "normal",
+          selectionReason: [
+            executionSelection.provider,
+            executionSelection.modelIdentifier,
+            executionSelection.reasoningEffort,
+            executionSelection.role,
+            executionSelection.source,
+          ].join(" / "),
           inputBasis:
             "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
           callerDeclaredAttributes: Object.freeze([
@@ -2667,12 +2503,12 @@ async function executeStageBody(
       packet?.status === "blocked" &&
       packet.reason === "provider_task_packet_recognized_secret_rejected"
     ) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_remediation_recognized_secret_rejected");
+      return revokeUnconsumed(
+        "coordinator_task_remediation_recognized_secret_rejected",
+      );
     }
     if (packet?.status !== "issued" || !taskControl || !taskUse) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_packet_issue_failed");
+      return revokeUnconsumed("coordinator_task_packet_issue_failed");
     }
     const process = state.dependencies.startProcess(
       provider,
@@ -2680,8 +2516,9 @@ async function executeStageBody(
         purpose: "task",
         managementCapability: operation.managementCapability,
         mountCapability: operation.mountCapability,
-        mountAuthorizationCapability: mountAuthorization,
-        selectionUseCapability: refreshedSelectionUse,
+        providerHome: providerHome as PreparationInput["providerHome"],
+        executionSelection,
+        taskAttempt,
         packetCapability: taskUse,
         recoveryCorrelationId: control.recoveryCorrelationId,
         consumer: control.consumer,
@@ -2705,12 +2542,11 @@ async function executeStageBody(
         });
         return true;
       },
-      commandRestriction,
+      undefined,
       control.observeProviderStarted,
       control.executionMetadata,
       control.executionRecordings,
     );
-    selectionControl = null;
     taskControl = null;
     if (process.preparationFailed === true)
       return blocked(
@@ -2863,7 +2699,13 @@ async function executeStageBody(
       provider,
       selectionNotice:
         stringValue(process.selectionNotice) ??
-        stringValue(selection.selectionNotice),
+        [
+          executionSelection.provider,
+          executionSelection.modelIdentifier,
+          executionSelection.reasoningEffort,
+          executionSelection.role,
+          executionSelection.source,
+        ].join(" / "),
       normalizedResult: result.normalizedResult,
       providerExecutionObservation: result.providerExecutionObservation ?? null,
       remediationCapability: reviewRemediation,
@@ -2890,8 +2732,7 @@ async function executeStageBody(
         startedDockerRecoveryId,
       );
     }
-    revokeUnconsumed();
-    return blocked("coordinator_task_stage_failed_closed");
+    return revokeUnconsumed("coordinator_task_stage_failed_closed");
   }
 }
 
@@ -3029,36 +2870,33 @@ async function runCoordinatorTaskCore(
     ) {
       return blocked("coordinator_task_external_send_policy_unresolved");
     }
-    const slate = state.dependencies.preflightSlate(
+    const fixedSelections = request.taskExecutionSelections;
+    if (!fixedSelections)
+      return blocked("coordinator_task_execution_slate_unavailable");
+    const slate = state.dependencies.preflightSelections(
       operation.managementCapability,
       Object.freeze({
         operationId: operation.operationId,
-        taskExecutionSelections: request.taskExecutionSelections,
+        executionSelections: Object.freeze([
+          fixedSelections.executor,
+          fixedSelections.reviewer,
+        ]),
       }),
     );
-    const slateExecutorProvider =
-      slate.executorProvider === "codex" || slate.executorProvider === "claude"
-        ? slate.executorProvider
-        : null;
-    const slateReviewerProvider =
-      slate.reviewerProvider === "codex" || slate.reviewerProvider === "claude"
-        ? slate.reviewerProvider
-        : null;
+    const slateExecutorProvider = fixedSelections.executor.provider;
+    const slateReviewerProvider = fixedSelections.reviewer.provider;
     const reviewerIndependence =
-      slate.reviewerIndependence === "provider_independent" ||
-      slate.reviewerIndependence === "execution_context_independent"
-        ? slate.reviewerIndependence
-        : null;
+      slateExecutorProvider === slateReviewerProvider
+        ? "execution_context_independent"
+        : "provider_independent";
     if (
       slate.status !== "candidate" ||
-      !slateExecutorProvider ||
-      !slateReviewerProvider ||
-      !reviewerIndependence ||
-      slate.providerEffectAllowed !== false ||
-      slateExecutorProvider !==
-        request.taskExecutionSelections?.executor.provider ||
-      slateReviewerProvider !==
-        request.taskExecutionSelections?.reviewer.provider
+      slate.operationId !== operation.operationId ||
+      !Array.isArray(slate.executionSelections) ||
+      !isDeepStrictEqual(slate.executionSelections, [
+        fixedSelections.executor,
+        fixedSelections.reviewer,
+      ])
     ) {
       return blocked("coordinator_task_execution_slate_unavailable");
     }
@@ -3221,7 +3059,6 @@ async function runCoordinatorTaskCore(
       slateReviewerProvider,
       null,
       control,
-      undefined,
       reviewerReadProjection,
     );
     if (reviewer.status !== "completed") {
@@ -3372,7 +3209,6 @@ async function runCoordinatorTaskCore(
         reviewer.provider as Provider,
         null,
         control,
-        undefined,
         remediationReviewerReadProjection,
       );
       if (reviewer.status !== "completed") {
@@ -3713,13 +3549,8 @@ const productionDependencies = Object.freeze<TaskRuntimeDependencies>({
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: bindRuntimeOwnedExecutionSnapshot,
   projectReviewerReadContent: projectReviewerReadContent,
-  issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
-  preflightSlate: preflightRuntimeOwnedDelegationExecutionSlate,
-  revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
+  preflightSelections: preflightRuntimeOwnedDelegationSelections,
   observeProviderHome: inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
-  consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
-  revokeMountGrant: revokeRuntimeOwnedProviderHomeMountGrant,
   resolveExternalSendPolicy: resolveRuntimeOwnedExternalSendPolicy,
   prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,
   reportSelectionNotice: createRuntimeOwnedLifecycleNoticeReporter(
@@ -4296,172 +4127,6 @@ export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
 }
 
 /**
- * Runtime 所有 Development Taskを開始する。
- *
- * @responsibility Runtime 所有 Development Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
- * @trace ARCH-000004
- * @input Task要求、Repository Root、開発Sessionと任意のProvider接続用Host Process開始確認。
- * @returns startRuntimeOwnedDevelopmentCoordinatorTaskの計算結果を返す。
- * @precondition Task要求と開発Sessionは既存の限定受付で検査する。
- * @postcondition startRuntimeOwnedDevelopmentCoordinatorTaskの責務を完了した結果だけを返す。
- * @effect 開発SessionのTaskを予約し、既存Runtimeの開始・取消と期限Timer・Abort Listenerを結合する。
- * @failure 受付拒否は開始せず、開始後の失敗は同じSessionをcleanup_unknownで終端化して搬送する。
- * @invariant 許可・期限・取消・元Completionとcleanup条件を維持し、独自のObjective取消Mapを作らない。
- * @boundary 開発計測Sessionから既存Task Runtimeへの限定実行境界。
- * @security startRuntimeOwnedDevelopmentCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency 明示取消・期限・Abortを同じ実行へ配送し、Completion待機後のfinallyでTimerとListenerを解除する。
- */
-export function startRuntimeOwnedDevelopmentCoordinatorTask(
-  rawRequest: unknown,
-  repositoryRoot: unknown,
-  sessionCapability: object,
-  observeProviderStarted?: (
-    notice: ProcessStartedNotice,
-  ) => void | Promise<void>,
-) {
-  if (
-    observeProviderStarted !== undefined &&
-    typeof observeProviderStarted !== "function"
-  )
-    throw new Error("coordinator_task_start_observer_invalid");
-  const timing = createDevelopmentExecutionTiming(
-    undefined,
-    writeDevelopmentMeasurementProgress,
-  );
-  const boundary = reserveRuntimeOwnedDevelopmentMeasurementTask(
-    sessionCapability,
-    rawRequest,
-    repositoryRoot,
-  );
-  if (!boundary)
-    throw new Error("coordinator_task_development_permission_required");
-  /**
-   * guardを決定する。
-   *
-   * @responsibility guardの導出に必要な入力、判定規則、返却結果の境界を所有する。
-   * @trace ARCH-000004
-   * @input action: (...args: Args) => Result
-   * @returns guardの計算結果を返す。
-   * @precondition 「action: (...args: Args) => Result」がguardの入力契約を満たす。
-   * @postcondition guardの責務を完了した結果だけを返す。
-   * @effect N/A: guardは入力と局所値だけを扱い、外部または共有Effectを発行しない。
-   * @failure guardは入力不正または下位処理の失敗を呼出し側へ返す。
-   * @invariant guardは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary N/A: guardはProcess内の同一Subsystemで完結する。
-   * @security guardはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
-   * @concurrency N/A: guardは共有非同期状態を持たない同期処理である。
-   */
-  function guard<Args extends unknown[], Result>(
-    action: (...args: Args) => Result,
-  ) {
-    return (...args: Args): Result => {
-      if (!boundary?.checkNewWork())
-        throw new Error("coordinator_task_development_permission_expired");
-      return action(...args);
-    };
-  }
-  const runtime = createRuntime({
-    ...productionDependencies,
-    observeLifecycleState: timing.observeLifecycleState,
-    beginInvocation: boundary.beginInvocation,
-    inspectRepository: guard(productionDependencies.inspectRepository),
-    createOperation: (signal, current) =>
-      productionDependencies.createOperation(
-        signal,
-        () => boundary.checkNewWork() && current(),
-      ),
-    bindRepository: guard((management, root) => {
-      const result = bindRuntimeOwnedRepositoryOperation(management, root);
-      if (
-        !result ||
-        !boundary.bindOperation(management, result.repositoryBindingCapability)
-      )
-        return null;
-      return result;
-    }),
-    prepareDockerRecoveryState: guard((root) =>
-      root === boundary.repositoryRoot
-        ? inspectRuntimeOwnedDockerTaskAdmission(root)
-        : Object.freeze({
-            status: "blocked",
-            reason: "coordinator_current_admission_unconfirmed",
-            lockReleased: true,
-          }),
-    ),
-    observeProviderHome: (provider) =>
-      inspectRuntimeOwnedWindowsProviderHomeCandidate(provider),
-    materializeWorkspace: guard(productionDependencies.materializeWorkspace),
-    preflightSlate: guard(productionDependencies.preflightSlate),
-    issueSelection: guard(productionDependencies.issueSelection),
-    issueMountGrant: guard(productionDependencies.issueMountGrant),
-    consumeMountGrant: guard(productionDependencies.consumeMountGrant),
-    issueTaskPacket: guard(productionDependencies.issueTaskPacket),
-    startProcess: guard(productionDependencies.startProcess),
-    captureCandidate: guard(productionDependencies.captureCandidate),
-  });
-  const started = runtime.start(
-    boundary.request,
-    boundary.repositoryRoot,
-    null,
-    observeProviderStarted,
-    "coordinator_cli",
-  );
-  const cancel = () => runtime.cancel(started.controlCapability);
-  let cancellation: Promise<unknown> | null = null;
-  const requestCancellation = () => {
-    cancellation ??= cancel();
-    void cancellation.catch(() => {});
-  };
-  const timer = setTimeout(
-    requestCancellation,
-    Math.max(0, boundary.expiresAtMs - Date.now()),
-  );
-  boundary.signal.addEventListener("abort", requestCancellation, {
-    once: true,
-  });
-  if (boundary.signal.aborted) requestCancellation();
-  const completion = started.completion
-    .then(async (taskResult) => {
-      if (cancellation) await cancellation.catch(() => {});
-      const cleanupConfirmed = taskResult.cleanupConfirmed === true;
-      const publishedTaskResult = projectDevelopmentTaskResultAfterOuterCleanup(
-        taskResult,
-        cleanupConfirmed,
-      );
-      boundary.finish(cleanupConfirmed ? "finished" : "cleanup_unknown");
-      timing.finish();
-      return Object.freeze({
-        status:
-          taskResult.status === "completed" && cleanupConfirmed
-            ? "completed"
-            : "blocked",
-        executionSourceKind: "fixed_development_candidate",
-        releaseAuthorityConferred: false,
-        taskResult: publishedTaskResult,
-        cleanupConfirmed,
-        manualRecoveryRequired:
-          taskResult.manualRecoveryRequired || !cleanupConfirmed,
-        executionTiming: timing.snapshot(),
-      });
-    })
-    .catch((error: unknown) => {
-      boundary.finish("cleanup_unknown");
-      throw error;
-    })
-    .finally(() => {
-      timing.finish();
-      clearTimeout(timer);
-      boundary.signal.removeEventListener("abort", requestCancellation);
-    });
-  return Object.freeze({
-    ...started,
-    completion,
-    cancel,
-    readExecutionTiming: timing.snapshot,
-  });
-}
-
-/**
  * Isolated Coordinator Task Runtime 候補を構築する。
  *
  * @responsibility Isolated Coordinator Task Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -4705,6 +4370,5 @@ export function describeCoordinatorSingleTaskAdapterContract() {
   });
 }
 
-import { hashExecutionSelection } from "../selection/resolve.ts";
 import type { WorkspaceResult } from "../workspace/record.ts";
 import { inspectWorkspaceResult } from "../workspace/record.ts";

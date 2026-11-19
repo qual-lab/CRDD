@@ -6,19 +6,14 @@
  * @trace PRL-IT-005
  * @level IT
  * @scope coordinator、claude、delegation
- * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
+ * @boundary PRL-IT-005=Related 2 Blocks: Task選定→Provider準備・実行→回収
  */
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import assert from "node:assert/strict";
-import {
-  executionSelection,
-  preparationSelection,
-} from "../fixtures/ai-selection.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
 import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
-import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority.ts";
 
 /**
  * Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するを検証する。
@@ -35,198 +30,58 @@ import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execu
 test("Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続する", async () => {
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
-  const mountAuthorizationCapability = Object.freeze({});
-  const activeMountCapability = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   let randomValue = 0;
-  let mountCompletionCount = 0;
   let recoveryCompletionCount = 0;
-  const authorityRuntime = createIsolatedProviderAuthorityRuntimeCandidate({
-    verifyOperation: (capability: unknown) => {
-      assert.equal(capability, managementCapability);
-      return Object.freeze({
-        operationId: "OP-123456",
-        createdAt: "2026-08-24T00:00:00.000Z",
-      });
-    },
-    inspectActiveMount: (active: unknown, management: unknown) => {
-      assert.equal(active, activeMountCapability);
-      assert.equal(management, managementCapability);
-      return Object.freeze({
-        status: "active",
-        grantRef: "PHMGRANT-123456",
-        provider: "claude",
-        operationId: "OP-123456",
-        providerHomeMountGrantIssued: true,
-        providerHomeMounted: true,
-      });
-    },
-    loadActivatedAuthority: () =>
-      Object.freeze({
-        profile: Object.freeze({}),
-        bundle: Object.freeze({}),
-        scopeId: "SCOPE-123456",
-      }),
-    reverify: (_profile: unknown, _bundle: unknown, context: unknown) => {
-      const current = context as Record<string, string>;
-      return Object.freeze({
-        status: "candidate" as const,
-        reason: "runtime_file_bundle_path_acl_and_activation_required",
-        verification: Object.freeze({
-          profileHash: "1".repeat(64),
-          registryId: "AUTHREG-123456",
-          registryRevision: 1,
-          registryHash: "2".repeat(64),
-          grantRef: "AUTH-123456",
-          grantRevision: 1,
-          provider: current.provider as string,
-          operationId: current.operationId as string,
-          scopeId: current.scopeId as string,
-          providerHomeMountGrantRef:
-            current.providerHomeMountGrantRef as string,
-          providerHomeMountGrantIssued: false,
-          providerHomeMountGrantVerification: "runtime_capability_required",
-          bundleId: "AUTHBUNDLE-123456",
-          bundleRevision: 1,
-          bundleHash: "3".repeat(64),
-          trustPolicyId: "AUTHPOL-123456",
-          trustPolicyRevision: 1,
-          trustPolicyHash: "4".repeat(64),
-          evaluatedAt: "2026-08-24T00:00:00.000Z",
-          validUntil: "2026-08-25T00:00:00.000Z",
-          prelaunchCheckedAt: "2026-08-24T00:00:00.000Z",
-        }),
-        runtimeCapabilityIssued: false,
-      });
-    },
-    wallNow: () => 1_000,
-    monotonicNow: () => 2_000,
-    randomBytes: (size: number) => {
-      randomValue += 1;
-      return Buffer.alloc(size, randomValue);
-    },
+  let technicalPlan:
+    | import("../../../executor/scripts/executor-test.ts").TestAttemptPlan
+    | null = null;
+  const selected = executionSelection("executor", {
+    provider: "claude",
+    model: "opus",
+    effort: "low",
   });
-  const selectionRuntime =
-    createIsolatedDelegationSelectionGrantRuntimeCandidate({
-      verifyOperation: (candidate: unknown) => {
-        assert.equal(candidate, managementCapability);
+  const adapter = createAttemptPreparation(
+    "claude",
+    {
+      verifyOperationMount: (management: unknown, mount: unknown) => {
+        assert.equal(management, managementCapability);
+        assert.equal(mount, mountCapability);
         return Object.freeze({
           operationId: "OP-123456",
           createdAt: "2026-08-24T00:00:00.000Z",
+          mounts: Object.freeze({
+            workspace: "C:\\crdd\\operation\\workspace",
+            providerHome: "C:\\crdd\\operation\\provider-home",
+            tmp: "C:\\crdd\\operation\\tmp",
+            events: "C:\\crdd\\operation\\events",
+            projection: "C:\\crdd\\operation\\projection",
+            management: "C:\\crdd\\operation\\management",
+          }),
         });
       },
-      observeProviderEligibility: () =>
-        Object.freeze([
-          Object.freeze({
-            provider: "codex" as const,
-            status: "eligible" as const,
-            reason: "ready" as const,
-          }),
-          Object.freeze({
-            provider: "claude" as const,
-            status: "eligible" as const,
-            reason: "ready" as const,
-          }),
-        ]),
-      wallNow: () => 1_000,
-      monotonicNow: () => 2_000,
       randomBytes: (size: number) => {
         randomValue += 1;
         return Buffer.alloc(size, randomValue);
       },
-    });
-  const issued = selectionRuntime.issue(managementCapability, {
-    operationId: "OP-123456",
-    taskAttempt: 0,
-    executionSelection: executionSelection("executor", {
-      provider: "claude",
-      model: "opus",
-      effort: "low",
-    }),
-  });
-  assert.equal(issued.status, "issued");
-  assert.equal(issued.executorProvider, "claude");
-  assert.match(issued.selectionNotice ?? "", /opus/);
-
-  /**
-   * completeMountのTest準備責務を実行する。
-   *
-   * @responsibility completeMountがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-   * @trace PRL-IT-005
-   * @precondition 呼出し元Test Caseが必要な入力を渡す。
-   * @stimulus completeMountを呼び出す。
-   * @observation 返却値、生成fixtureまたは観測値を取得する。
-   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
-   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
-   */
-  const completeMount = (active: unknown, management: unknown) => {
-    assert.equal(active, activeMountCapability);
-    assert.equal(management, managementCapability);
-    mountCompletionCount += 1;
-    return Object.freeze({ status: "completed" });
-  };
-  const adapter = createAttemptPreparation("claude", {
-    verifyOperationMount: (management: unknown, mount: unknown) => {
-      assert.equal(management, managementCapability);
-      assert.equal(mount, mountCapability);
-      return Object.freeze({
-        operationId: "OP-123456",
-        createdAt: "2026-08-24T00:00:00.000Z",
-        mounts: Object.freeze({
-          workspace: "C:\\crdd\\operation\\workspace",
-          providerHome: "C:\\crdd\\operation\\provider-home",
-          tmp: "C:\\crdd\\operation\\tmp",
-          events: "C:\\crdd\\operation\\events",
-          projection: "C:\\crdd\\operation\\projection",
-          management: "C:\\crdd\\operation\\management",
-        }),
-      });
     },
-    activateMount: (authorization: unknown, management: unknown) => {
-      assert.equal(authorization, mountAuthorizationCapability);
-      assert.equal(management, managementCapability);
-      return Object.freeze({
-        status: "activated",
-        grant: Object.freeze({
-          grantRef: "PHMGRANT-123456",
-          provider: "claude",
-          operationId: "OP-123456",
-          providerHomeIdentityHash: "c".repeat(64),
-          stableLogicalHomeBindingHash: "1".repeat(64),
-        }),
-        activeMountCapability,
-      });
+    (_upper, lower) => {
+      technicalPlan = lower;
     },
-    borrowMountSource: (active: unknown, management: unknown) => {
-      assert.equal(active, activeMountCapability);
-      assert.equal(management, managementCapability);
-      return "C:\\Users\\person\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude";
-    },
-    completeMount,
-    wallNow: () => 1_000,
-    monotonicNow: () => 2_000,
-    randomBytes: (size: number) => {
-      randomValue += 1;
-      return Buffer.alloc(size, randomValue);
-    },
-    consumeModelSelection: (useCapability: unknown, management: unknown) => {
-      const consumed = selectionRuntime.consume(useCapability, management);
-      return consumed
-        ? { ...consumed, ...preparationSelection(consumed.executionSelection) }
-        : null;
-    },
-    issueProviderAuthority: (management: unknown, active: unknown) =>
-      authorityRuntime.issue(management, active),
-    revokeProviderAuthority: (control: unknown, management: unknown) =>
-      authorityRuntime.revoke(control, management),
-  });
+  );
   const prepared = adapter.prepare({
     purpose: "probe",
     managementCapability: managementCapability,
     mountCapability: mountCapability,
-    mountAuthorizationCapability: mountAuthorizationCapability,
-    selectionUseCapability: issued.useCapability,
+    providerHome: {
+      provider: "claude",
+      providerHomeSourcePath:
+        "C:\\Users\\person\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude",
+      providerHomeIdentityHash: "c".repeat(64),
+      stableLogicalHomeBindingHash: "1".repeat(64),
+    },
+    executionSelection: selected,
+    taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
   });
@@ -237,9 +92,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   const purposes: string[] = [];
   const controller = createExecutorTestCandidate({
     effectExecutorAvailable: true,
-    verifyRevision: () => Object.freeze({ revisionCurrent: true }),
-    consumePreparedPlan: (candidate: unknown, management: unknown) =>
-      adapter.consume(candidate, management),
+    verifyRevision: (candidate) => candidate === managementCapability,
     beginRecovery: () =>
       Object.freeze({
         status: "ready" as const,
@@ -315,7 +168,6 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
           observation: "absent" as const,
         })),
       }),
-    completeMount,
     completeRecovery: (capability: unknown, management: unknown) => {
       assert.equal(capability, recoveryCapability);
       assert.equal(management, managementCapability);
@@ -325,16 +177,9 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
         recoveryFinalizationCapability: Object.freeze({}),
       });
     },
-    consumeProviderAuthority: (
-      use: unknown,
-      active: unknown,
-      management: unknown,
-    ) => authorityRuntime.consume(use, active, management),
   });
-  const started = controller.start(
-    prepared.preparedCapability,
-    managementCapability,
-  );
+  assert.ok(technicalPlan);
+  const started = controller.start(technicalPlan, managementCapability);
   assert.equal(started.status, "started");
   assert.ok(started.completion);
   const result = await started.completion;
@@ -342,8 +187,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   assert.deepEqual(result.normalizedResult, { status: true });
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(Object.hasOwn(result, "selectionRecordId"), false);
-  assert.equal(prepared.selectionRecordId, issued.selectionRecordId);
-  assert.equal(mountCompletionCount, 1);
+  assert.deepEqual(prepared.plan.executionSelection, selected);
   assert.equal(recoveryCompletionCount, 1);
   assert.deepEqual(purposes, [
     "create_subscription_auth_probe",

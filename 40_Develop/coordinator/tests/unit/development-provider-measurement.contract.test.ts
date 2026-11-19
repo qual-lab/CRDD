@@ -16,20 +16,19 @@ import path from "node:path";
 import test from "node:test";
 import { compileFunction } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 /**
- * 計測設定ReaderのFile量拒否だけを撤去したことを検証する。
- * @responsibility 旧128KiB超の設定を既存の検証Ownerへ全量渡す。
+ * 計測CLIの全量入力と、出力失敗時の取得済み結果保持を検証する。
+ * @responsibility 旧128KiB超の搬送と元Task結果・回復参照の保全を確認する。
  * @trace PPR-UT-006
  * @precondition 全I/OとProvider実行を局所代役にする。
- * @stimulus 正常FileとLinkの設定を読み取る。
+ * @stimulus 正常File・Link、出力Directory差と書込み例外を与える。
  * @observation 元設定、実行回数、結果書込みとlistener解放。
- * @oracle 正常量は搬送、Linkは実行前拒否、外部Effectなし。
+ * @oracle 正常量は搬送、Linkは実行前拒否、出力失敗でも元結果保持・再実行なし。
  * @cleanup メモリ内代役だけ。
  * @boundary 計測CLIの内部設定読取り。
  */
-test("計測設定は旧128KiBを超えても通常実体なら全量搬送する", async () => {
+test("計測CLIは全量入力を搬送し出力失敗でも元結果と回復参照を保持する", async () => {
   const source = fs.readFileSync(
     new URL("../../scripts/measure-development-providers.ts", import.meta.url),
     "utf8",
@@ -41,6 +40,10 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
   let calls = 0;
   let writes = 0;
   let listeners = 0;
+  let output = "";
+  let finished = false;
+  let outputFailure = "none";
+  let measurement: Record<string, unknown> = { status: "completed" };
   const processStub = {
     versions: { node: process.versions.node },
     argv: ["node", "script"],
@@ -48,7 +51,12 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
     pid: 1,
     on: () => listeners++,
     off: () => listeners--,
-    stdout: { write: () => true },
+    stdout: {
+      write: (text: string) => {
+        output = text;
+        return true;
+      },
+    },
     exitCode: 0,
   };
   const filesystem = {
@@ -57,13 +65,16 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
       isFile: () => target.endsWith(".json"),
       isSymbolicLink: () => link && target.endsWith(".json"),
       size: Buffer.byteLength(raw),
-      dev: 1,
+      dev: finished && outputFailure === "directory" ? 2 : 1,
       ino: 1,
       birthtimeMs: 1,
     }),
     realpathSync: { native: (target: string) => target },
     readFileSync: () => raw,
-    writeFileSync: () => writes++,
+    writeFileSync: () => {
+      writes++;
+      if (outputFailure === "write") throw Error("private path and details");
+    },
   };
   const main = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "main"))});`,
@@ -91,7 +102,8 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
     async (value: unknown) => {
       calls++;
       assert.deepEqual(value, configuration);
-      return { status: "completed" };
+      finished = true;
+      return measurement;
     },
     AbortController,
   ) as () => Promise<void>;
@@ -102,6 +114,42 @@ test("計測設定は旧128KiBを超えても通常実体なら全量搬送す�
   link = true;
   await assert.rejects(main(), /measurement_request_invalid/u);
   assert.equal(calls, 1);
+  link = false;
+  measurement = {
+    status: "blocked",
+    reason: "original_task_failure",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    recoveryIds: ["exact-recovery-id"],
+    results: [
+      {
+        result: {
+          requestId: "exact-task-id",
+          recoveryIds: ["exact-recovery-id"],
+        },
+      },
+    ],
+  };
+  for (const fault of ["directory", "write"]) {
+    outputFailure = fault;
+    finished = false;
+    const before: number = calls;
+    await main();
+    const report = JSON.parse(output);
+    assert.equal(calls, before + 1);
+    assert.equal(report.status, "blocked");
+    assert.equal(report.reason, measurement.reason);
+    assert.equal(report.cleanupConfirmed, false);
+    assert.deepEqual(report.recoveryIds, ["exact-recovery-id"]);
+    assert.deepEqual(report.results, measurement.results);
+    assert.equal(report.outputConfirmed, false);
+    assert.deepEqual(report.secondaryFailures, [
+      "measurement_output_unconfirmed",
+    ]);
+    assert.equal(output.includes("private path"), false);
+    assert.equal(listeners, 0);
+    assert.equal(processStub.exitCode, 2);
+  }
 });
 
 import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
@@ -110,7 +158,6 @@ import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,
 } from "../../scripts/measure-development-providers.ts";
-import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
 type Dependencies = Parameters<
   typeof createIsolatedDevelopmentProviderMeasurementCandidate
@@ -155,209 +202,337 @@ test("Development Measurement入口はRuntime Data停止理由を保持する", 
     });
   }
 });
+
 /**
- * fixtureのTest準備責務を実行する。
- *
- * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * 通常Task計測の独立した局所準備。
+ * @responsibility 可変な時計・Source・結果・TimerをCaseごとに分離する。
  * @trace PPR-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus fixtureを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 外部I/Oと実Taskは使用しない。
+ * @stimulus 任意の通常Task結果列を渡す。
+ * @observation 実行ID、元結果、取消SignalとTimer解放を返す。
+ * @oracle 各Caseで独立に期待値を固定する。
+ * @cleanup メモリ内代役だけ。
+ * @boundary Scriptと完成Task操作。
  */
 function fixture(outcomes: readonly string[]) {
-  const capability = Object.freeze({});
-  const sourceObservation = Object.freeze({
-    scope: "crdd-development-source-snapshot/v4",
-    expectedSourceSha256: "c".repeat(64),
-  });
   const starts: string[] = [];
-  let cancellationCount = 0;
-  let time = 0;
-  const tasks = (["codex", "claude"] as const).map((provider) => {
-    const parsed = snapshotCoordinatorTaskRequest({
-      taskExecutionSelections: taskExecutionSelections(provider),
-      objective: "Update fixture",
-      acceptanceCriteria: ["Expected content"],
-      allowedPaths: ["fixture.txt"],
-      readPaths: ["fixture.txt"],
-      workClass: "bounded_implementation",
-      planState: "complete",
-      risk: "low",
-      difficulty: "low",
-      decisionImpact: "limited",
-      isLocalCandidateOnly: true,
-      hasUnresolvedDirection: false,
-      requiresCrossContextAlignment: false,
-    });
-    assert.equal(parsed?.status, "accepted");
-    if (parsed?.status !== "accepted") throw new Error("fixture_invalid");
-    return parsed.request;
+  const returned: unknown[] = [];
+  const capability = Object.freeze({
+    contract: "crdd-version-control/repository-location/v1" as const,
   });
-  const dependencies = {
-    request: async () => ({ status: "authorized", capability }),
-    tasks: (candidate: object) => {
-      assert.equal(candidate, capability);
-      return tasks;
-    },
-    inspect: () => ({ invocationCount: starts.length * 2, sourceObservation }),
-    cancel: (candidate: object) => {
-      assert.equal(candidate, capability);
-      cancellationCount += 1;
-      return true;
-    },
-    now: () => time++,
-    start: (
-      task: Record<string, unknown>,
-      _root: string,
-      candidate: object,
-    ) => {
-      assert.equal(candidate, capability);
-      const outcome = outcomes[starts.length];
-      starts.push(
-        String(
-          (task.taskExecutionSelections as { executor: { provider: string } })
-            .executor.provider,
-        ),
-      );
-      if (outcome === "throw") throw new Error("private details");
-      return {
-        readExecutionTiming: () => ({ finished: true }),
-        completion:
-          outcome === "reject"
-            ? Promise.reject(new Error("private details"))
-            : Promise.resolve({
-                status: outcome === "success" ? "completed" : "blocked",
-                cleanupConfirmed: outcome !== "cleanup_unknown",
-                manualRecoveryRequired:
-                  outcome === "cleanup_unknown" ||
-                  outcome === "manual_recovery",
-                taskResult: { processRestartRequired: outcome === "restart" },
-              }),
-      };
-    },
+  let sourceCalls = 0;
+  let time = 0;
+  let wall = 100;
+  let cleared = 0;
+  let cancelTimer: (() => void) | null = null;
+  let changeSource = false;
+  let missingSource = false;
+  let runOverride: Dependencies["runTask"] | null = null;
+  const configuration = {
+    projectId: "PRJ-000001",
+    principalId: "local:test",
+    expiresAtMs: 1100,
+    expectedSourceSha256: "c".repeat(64),
+    tasks: [
+      { requestId: "task-one", choice: { provider: "codex" } },
+      { requestId: "task-two", choice: { provider: "claude" } },
+    ],
   };
+  const dependencies = {
+    now: () => time++,
+    wallNow: () => wall,
+    getRepository: () => ({
+      status: "completed",
+      reason: "repository_root_verified",
+      capability,
+    }),
+    observeSource: () => {
+      sourceCalls++;
+      if (missingSource) return null;
+      return Object.freeze({
+        scope: "crdd-development-source-snapshot/v4",
+        sourceSha256:
+          changeSource && sourceCalls > 1 ? "d".repeat(64) : "c".repeat(64),
+        sourceIdentitySha256: "e".repeat(64),
+        fileCount: 1,
+        totalBytes: 1,
+      });
+    },
+    setTimer: ((callback: () => void, delay: number) => {
+      assert.equal(delay, 1000);
+      cancelTimer = callback;
+      return 1;
+    }) as unknown as Dependencies["setTimer"],
+    clearTimer: (() => {
+      cleared++;
+    }) as Dependencies["clearTimer"],
+    runTask: async (context, command, signal) => {
+      assert.equal(context.rootCapability, capability);
+      assert.equal(context.principalId, configuration.principalId);
+      assert.equal(context.projectId, configuration.projectId);
+      assert.equal(context.authorize(), true);
+      starts.push(String((command as { requestId: string }).requestId));
+      if (runOverride) return runOverride(context, command, signal);
+      const outcome = outcomes[starts.length - 1];
+      if (outcome === "throw" || outcome === "reject")
+        throw Error("private details");
+      const result = Object.freeze({
+        status:
+          outcome === "success"
+            ? ("completed" as const)
+            : outcome === "unknown"
+              ? ("unknown" as const)
+              : ("blocked" as const),
+        requestId: starts.at(-1) ?? null,
+        reason: "normal_task_result",
+        cleanupConfirmed: outcome !== "cleanup_unknown",
+        recoveryIds: outcome === "manual_recovery" ? ["exact-recovery-id"] : [],
+        secondaryFailures:
+          outcome === "secondary" ? ["normal_close_failed"] : [],
+      });
+      returned.push(result);
+      return result;
+    },
+  } satisfies Dependencies;
   return {
-    runtime: createIsolatedDevelopmentProviderMeasurementCandidate(
-      dependencies as unknown as Dependencies,
-    ),
+    runtime:
+      createIsolatedDevelopmentProviderMeasurementCandidate(dependencies),
+    dependencies,
+    configuration,
     starts,
-    sourceObservation,
-    cancellationCount: () => cancellationCount,
+    returned,
+    cleared: () => cleared,
+    sourceCalls: () => sourceCalls,
+    fireDeadline: () => {
+      wall = 1100;
+      assert.ok(cancelTimer);
+      cancelTimer();
+    },
+    changeSource: () => {
+      changeSource = true;
+    },
+    missingSource: () => {
+      missingSource = true;
+    },
+    overrideRun: (run: Dependencies["runTask"]) => {
+      runOverride = run;
+    },
   };
 }
 
 /**
- * 比較は固定2Taskを一回ずつ実行し終了時にsessionを失効するを検証する。
- *
- * @responsibility 比較は固定2Taskを一回ずつ実行し終了時にsessionを失効するの合否判定を所有する。
+ * 通常Taskを二回だけ実行し、元結果を外側計測へ保持する。
+ * @responsibility 旧Session・会計を再構築せず完成操作を利用する。
  * @trace PPR-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 比較は固定2Taskを一回ずつ実行し終了時にsessionを失効するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 二つの別IDと明示主体を渡す。
+ * @stimulus 完了二件とcleanな不成功を実行する。
+ * @observation 実行ID、元参照、Source回数、Timer解放。
+ * @oracle cleanな不成功を再送せず別IDへ進む。
+ * @cleanup Timer代役の解放を確認。
+ * @boundary Script→runTask。
  */
-test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効する", async () => {
-  const value = fixture(["success", "success"]);
-  const result = await value.runtime.run(
-    {},
-    "repository",
-    new AbortController().signal,
-  );
-  assert.equal(result.status, "completed");
-  assert.equal(Reflect.get(result, "contractRevision"), 3);
-  const accounting = Reflect.get(result, "invocationAccounting");
-  assert.ok(accounting);
-  assert.equal(accounting.sourceObservation, value.sourceObservation);
-  assert.deepEqual(value.starts, ["codex", "claude"]);
-  assert.equal(value.cancellationCount(), 1);
+test("通常Task二件を一回ずつ計測し元結果を保持する", async () => {
+  for (const outcomes of [
+    ["success", "success"],
+    ["clean_failure", "success"],
+  ]) {
+    const value = fixture(outcomes);
+    const result = await value.runtime.run(
+      value.configuration,
+      "repository",
+      new AbortController().signal,
+    );
+    assert.deepEqual(value.starts, ["task-one", "task-two"]);
+    assert.equal(
+      result.status,
+      outcomes[0] === "success" ? "completed" : "blocked",
+    );
+    assert.equal(result.contractRevision, 4);
+    assert.equal(result.results[0]?.result, value.returned[0]);
+    assert.equal(result.sourceBefore?.sourceSha256, "c".repeat(64));
+    assert.equal(value.sourceCalls(), 2);
+    assert.equal(value.cleared(), 1);
+    assert.equal(Object.hasOwn(result, "invocationAccounting"), false);
+    assert.equal(Object.hasOwn(result, "executionTiming"), false);
+  }
 });
 
 /**
- * cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較するを検証する。
- *
- * @responsibility cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較するの合否判定を所有する。
+ * 不明・回収・終了失敗を次のTaskへ伝播させない。
+ * @responsibility exact回復参照と一次結果を保持する。
  * @trace PPR-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 独立した故障結果を渡す。
+ * @stimulus 各失敗で実行する。
+ * @observation 二件目未実行と元結果・回復集合。
+ * @oracle 終了不明を成功やcleanな業務失敗へ変換しない。
+ * @cleanup Timer代役の解放を確認。
+ * @boundary Script→runTask最終結果。
  */
-test("cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較する", async () => {
-  const value = fixture(["clean_failure", "success"]);
-  const result = await value.runtime.run(
-    {},
-    "repository",
-    new AbortController().signal,
-  );
-  assert.equal(result.status, "blocked");
-  assert.deepEqual(value.starts, ["codex", "claude"]);
-  assert.equal(value.cancellationCount(), 1);
-});
-
-for (const failure of [
-  "cleanup_unknown",
-  "manual_recovery",
-  "restart",
-  "throw",
-  "reject",
-] as const) {
-  /**
-   * ${failure}なら次Taskを開始せず終了するを検証する。
-   *
-   * @responsibility ${failure}なら次Taskを開始せず終了するの合否判定を所有する。
-   * @trace PPR-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus ${failure}なら次Taskを開始せず終了するの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
-   */
-  test(`${failure}なら次Taskを開始せず終了する`, async () => {
-    const value = fixture([failure, "success"]);
+test("回収不明・回復参照・終了失敗・例外で後続を停止する", async () => {
+  for (const fault of [
+    "cleanup_unknown",
+    "manual_recovery",
+    "secondary",
+    "unknown",
+    "throw",
+    "reject",
+  ]) {
+    const value = fixture([fault, "success"]);
     const result = await value.runtime.run(
-      {},
+      value.configuration,
       "repository",
       new AbortController().signal,
     );
     assert.equal(result.status, "blocked");
-    assert.deepEqual(value.starts, ["codex"]);
-    assert.equal(value.cancellationCount(), 1);
+    assert.deepEqual(value.starts, ["task-one"]);
+    assert.equal(value.cleared(), 1);
     assert.equal(JSON.stringify(result).includes("private details"), false);
-    if (failure === "manual_recovery")
-      assert.equal(Reflect.get(result, "manualRecoveryRequired"), true);
-    if (failure === "reject")
-      assert.deepEqual(Reflect.get(result, "incompleteTaskTiming"), {
-        finished: true,
-      });
-  });
-}
+    if (fault === "manual_recovery")
+      assert.deepEqual(result.recoveryIds, ["exact-recovery-id"]);
+    if (value.returned.length)
+      assert.equal(result.results[0]?.result, value.returned[0]);
+  }
+});
 
 /**
- * 取消済みならProviderを開始しないを検証する。
- *
- * @responsibility 取消済みならProviderを開始しないの合否判定を所有する。
+ * 不正・旧形式・取消済み要求はTaskへ渡さない。
+ * @responsibility 主体・ID・Sourceの暗黙補完を禁止する。
  * @trace PPR-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 取消済みならProviderを開始しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 同じ局所準備を各Caseで新規構築する。
+ * @stimulus 欠測・旧形式・重複ID・取消・Source欠測を与える。
+ * @observation Task開始0。
+ * @oracle 無効入力に互換変換を追加しない。
+ * @cleanup 開始済みTimerがなければ解放を捏造しない。
+ * @boundary 計測Script受付。
  */
-test("取消済みならProviderを開始しない", async () => {
-  const value = fixture(["success", "success"]);
-  const abort = new AbortController();
-  abort.abort();
-  const result = await value.runtime.run({}, "repository", abort.signal);
-  assert.equal(result.status, "blocked");
-  assert.deepEqual(value.starts, []);
-  assert.equal(value.cancellationCount(), 1);
+test("旧形式・重複ID・欠測・取消済み・Source不明は実行前に拒否する", async () => {
+  for (const fault of [
+    "legacy",
+    "duplicate",
+    "principal",
+    "expired",
+    "source",
+    "cancel",
+  ]) {
+    const value = fixture(["success", "success"]);
+    const abort = new AbortController();
+    let input: unknown = value.configuration;
+    if (fault === "legacy") input = { repositoryRoot: "repository", tasks: [] };
+    if (fault === "duplicate") {
+      const first = value.configuration.tasks[0];
+      assert.ok(first);
+      value.configuration.tasks[1] = first;
+    }
+    if (fault === "principal") value.configuration.principalId = "";
+    if (fault === "expired") value.configuration.expiresAtMs = 100;
+    if (fault === "source") value.missingSource();
+    if (fault === "cancel") abort.abort();
+    const result = await value.runtime.run(input, "repository", abort.signal);
+    assert.equal(result.status, "blocked");
+    assert.deepEqual(value.starts, []);
+  }
+});
+
+/**
+ * 取消は同じSignalへ配送し、通常Taskの最終返却より早く終了しない。
+ * @responsibility 外部Abortと期限をjoin前の完了に読み替えない。
+ * @trace PPR-UT-006
+ * @precondition runTask最終返却を手動で保留する。
+ * @stimulus 外部取消又は期限到達を通知してから返却を解放する。
+ * @observation Signal、結果閲覧認可、外側Promise、Timer解放、元結果と回復参照。
+ * @oracle 取消後も閲覧認可と元結果を保持し、返却待機して二件目を開始しない。
+ * @cleanup 保留したPromiseを必ず完了させる。
+ * @boundary Script取消→完成Taskの取消join。
+ */
+test("外部取消と期限は通常Taskの最終返却を待つ", async () => {
+  for (const mode of [
+    "abort",
+    "deadline",
+    "abort-completed",
+    "deadline-completed",
+  ]) {
+    const value = fixture([]);
+    const abort = new AbortController();
+    let release: (() => void) | undefined;
+    let observed: AbortSignal | undefined;
+    let authorization: (() => boolean) | undefined;
+    const finalResult = Object.freeze({
+      status: mode.endsWith("completed")
+        ? ("completed" as const)
+        : ("cancelled" as const),
+      requestId: "task-one",
+      reason: "task_cancelled",
+      cleanupConfirmed: mode.endsWith("completed"),
+      recoveryIds: mode.endsWith("completed")
+        ? []
+        : ["exact-cancelled-task-recovery"],
+      secondaryFailures: [],
+    });
+    value.overrideRun(async (context, _command, signal) => {
+      observed = signal;
+      authorization = context.authorize;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      // 通常Taskのwaitは終了待機後にも閲覧認可を確認する。
+      assert.equal(context.authorize(), true);
+      return finalResult;
+    });
+    let settled = false;
+    const completion = value.runtime
+      .run(value.configuration, "repository", abort.signal)
+      .finally(() => {
+        settled = true;
+      });
+    assert.ok(release);
+    if (mode.startsWith("abort")) abort.abort();
+    else value.fireDeadline();
+    assert.equal(observed?.aborted, true);
+    assert.equal(authorization?.(), true);
+    await Promise.resolve();
+    assert.equal(settled, false);
+    assert.equal(value.cleared(), 0);
+    release();
+    const result = await completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.results[0]?.result, finalResult);
+    assert.deepEqual(result.recoveryIds, finalResult.recoveryIds);
+    assert.equal(result.cleanupConfirmed, finalResult.cleanupConfirmed);
+    assert.deepEqual(value.starts, ["task-one"]);
+    assert.equal(value.cleared(), 1);
+  }
+});
+
+/**
+ * Source前後差と時計失敗でも元Task結果を失わない。
+ * @responsibility 計測不成立とTaskのcleanup結果を分ける。
+ * @trace PPR-UT-006
+ * @precondition 通常Taskは既知の完了結果を返す。
+ * @stimulus Source差又は終了時計例外を与える。
+ * @observation 元結果、計測状態、回収確認。
+ * @oracle 計測失敗をTask失敗や回復参照欠測へ変換しない。
+ * @cleanup Timer代役を解放する。
+ * @boundary 観測と実行結果。
+ */
+test("Source差と終了時計失敗は計測だけを不成立にする", async () => {
+  for (const fault of ["source", "clock"]) {
+    const value = fixture(["success", "success"]);
+    if (fault === "source") value.changeSource();
+    else {
+      let calls = 0;
+      value.dependencies.now = () => {
+        if (calls++) throw Error("clock");
+        return 0;
+      };
+    }
+    const result = await value.runtime.run(
+      value.configuration,
+      "repository",
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.results[0]?.result, value.returned[0]);
+    assert.equal(value.cleared(), 1);
+  }
 });

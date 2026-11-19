@@ -151,7 +151,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     inspectCoordinatorRuntimeTraceability(trace, repositoryReader),
     {
       status: "accepted",
-      resources: 7,
+      resources: 6,
       states: 17,
       transitions: 18,
       attemptClassifications: 0,
@@ -606,6 +606,7 @@ test("CLIは受付・表示と取消に閉じ実Ownerから逆参照されない
     "cancellation.ts",
     "command.ts",
     "doctor.ts",
+    "file-snapshot.ts",
     "options.ts",
     "recovery-report.ts",
     "request.ts",

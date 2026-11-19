@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import { readRepositoryAiSelection } from "../../configuration-model/src/index.ts";
 import { resolveRepositoryExecutionDataPaths } from "../../coordinator/src/configuration/runtime-data.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/measurement.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/scripts/measure-development-providers.ts";
 import { resolveTaskExecutionSelections } from "../../coordinator/src/selection/resolve.ts";
 import { createFilesystemRepositoryObservationPort } from "../../document-model/src/index.ts";
 import {

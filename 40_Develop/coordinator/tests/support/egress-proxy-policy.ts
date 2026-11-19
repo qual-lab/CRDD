@@ -8,14 +8,10 @@
  */
 import { createHash } from "node:crypto";
 import net from "node:net";
-import { validateProviderIsolationProfile } from "../../src/execution/validation.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../src/input/snapshot.ts";
-
-export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
-export const EGRESS_PROXY_CONTRACT_REVISION = 1;
 
 const REGISTRY_METADATA = Object.freeze({
   specialPurposeRegistryLastUpdated: "2025-10-09",
@@ -176,26 +172,6 @@ const IPV6_ALLOCATED_ENTRIES: readonly string[] = Object.freeze([
   "2a10::/12",
   "2c00::/12",
 ]);
-
-/**
- * egress-proxy-policyを停止結果として構築する。
- *
- * @responsibility egress-proxy-policyの停止理由、未発行Effect、公開結果境界を所有する。
- * @trace ARCH-000015
- * @input reason: string
- * @returns blockedの計算結果を返す。
- * @precondition 「reason: string」がblockedの入力契約を満たす。
- * @postcondition blockedの責務を完了した結果だけを返す。
- * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: blockedは独自の失敗分岐を所有しない。
- * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
- * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
- */
-function blocked(reason: string) {
-  return Object.freeze({ status: "blocked", reason, policy: null });
-}
 
 /**
  * Ipv4を構造化値へ解析する。
@@ -480,69 +456,6 @@ function classifyAddress(address: unknown) {
 }
 
 /**
- * Egress Proxy Policy 候補を機械利用可能な契約へ変換する。
- *
- * @responsibility Egress Proxy Policy 候補の入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
- * @trace ARCH-000015
- * @input rawProfile: unknown
- * @returns compileEgressProxyPolicyCandidateの計算結果を返す。
- * @precondition 「rawProfile: unknown」がcompileEgressProxyPolicyCandidateの入力契約を満たす。
- * @postcondition compileEgressProxyPolicyCandidateの責務を完了した結果だけを返す。
- * @effect N/A: compileEgressProxyPolicyCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure compileEgressProxyPolicyCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant compileEgressProxyPolicyCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: compileEgressProxyPolicyCandidateはProcess内の同一Subsystemで完結する。
- * @security compileEgressProxyPolicyCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: compileEgressProxyPolicyCandidateは共有非同期状態を持たない同期処理である。
- */
-export function compileEgressProxyPolicyCandidate(rawProfile: unknown) {
-  let validation: ReturnType<typeof validateProviderIsolationProfile>;
-  try {
-    validation = validateProviderIsolationProfile(rawProfile);
-  } catch {
-    return blocked("profile_candidate_invalid");
-  }
-  if (
-    validation.status !== "candidate" ||
-    validation.reason !== "authority_verification_required"
-  ) {
-    return blocked("profile_candidate_required");
-  }
-  try {
-    const hostnames = validation.profile.egress.origins.map((origin) =>
-      new URL(origin).hostname.toLowerCase(),
-    );
-    if (
-      hostnames.length === 0 ||
-      new Set(hostnames).size !== hostnames.length
-    ) {
-      return blocked("profile_origins_invalid");
-    }
-    const policy = Object.freeze({
-      contract: EGRESS_PROXY_CONTRACT,
-      contractRevision: EGRESS_PROXY_CONTRACT_REVISION,
-      status: "candidate",
-      authorization: "authority_verification_required",
-      profileHash: validation.profileHash,
-      provider: validation.profile.provider,
-      allowedHostnames: Object.freeze([...hostnames].sort()),
-      allowedPort: 443,
-      allowedMethod: "CONNECT",
-      directProviderEgress: false,
-      ipLiteralAllowed: false,
-      privateAddressAllowed: false,
-    });
-    return Object.freeze({
-      status: "candidate",
-      reason: "authority_verification_required",
-      policy,
-    });
-  } catch {
-    return blocked("profile_origins_invalid");
-  }
-}
-
-/**
  * Connect Authorityを構造化値へ解析する。
  *
  * @responsibility Connect Authorityの入力文法、解析結果、不正文法の拒否境界を所有する。
@@ -606,34 +519,12 @@ export function evaluateProxyConnectForFixture(
 ) {
   const policyValue = snapshotPlainRecord(
     policy,
-    new Set([
-      "contract",
-      "contractRevision",
-      "status",
-      "authorization",
-      "profileHash",
-      "provider",
-      "allowedHostnames",
-      "allowedPort",
-      "allowedMethod",
-      "directProviderEgress",
-      "ipLiteralAllowed",
-      "privateAddressAllowed",
-    ]),
+    new Set(["allowedHostnames", "allowedPort"]),
   );
   const requestValue = snapshotPlainRecord(
     request,
     new Set(["method", "authority"]),
   );
-  if (
-    policyValue?.status !== "candidate" ||
-    policyValue.authorization !== "authority_verification_required"
-  ) {
-    return Object.freeze({
-      decision: "deny",
-      reason: "policy_candidate_required",
-    });
-  }
   if (requestValue?.method !== "CONNECT") {
     return Object.freeze({
       decision: "deny",
@@ -641,13 +532,13 @@ export function evaluateProxyConnectForFixture(
     });
   }
   const allowedHostnames = snapshotPlainArray<unknown>(
-    policyValue.allowedHostnames,
+    policyValue?.allowedHostnames,
     16,
   );
   if (
     allowedHostnames.status !== "ok" ||
     allowedHostnames.value.some((hostname) => typeof hostname !== "string") ||
-    typeof policyValue.allowedPort !== "number"
+    typeof policyValue?.allowedPort !== "number"
   ) {
     return Object.freeze({
       decision: "deny",

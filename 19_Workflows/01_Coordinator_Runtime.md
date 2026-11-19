@@ -10,6 +10,12 @@ Status: Candidate (Coordinator固有署名方式は物理撤去済み。撤去�
 Owner: Qual-Lab
 Last Updated: 2026-10-24
 
+## 現行の実行準備と保存形式
+
+Coordinatorは現在Operation、完全選定・役割・試行、Packetと観測済みHome四値を同期prepareへ渡し、返された計画を直接開始へ接続する。選定／Home Grant、Prepared専用Store・消費操作・期限を手順として要求しない。実Homeのwx排他、Executorの一回開始・取消・終了待機、DIの資源回収、元Recovery記録を別々に確認する。
+
+新規記録と再入場のOperation Identityはv5であり、旧v4 IdentityとgrantRefを含む保存記録は現行Readerで拒否し、旧mountLeaseReleasedを終了成立の証拠には使わない。過去保持物は今回操作せず、互換Readerや自動移行を追加しない。旧未完了記録があれば新Schemaへ補完して再実行せず、人間の判断に戻す。限定回帰の成功は全体回帰・実AI・実Dockerの完了を意味しない。
+
 ## 通常実行と正式配布の分離
 
 現在の方針は[Coordinator詳細の三分離](../06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従う。CRDD独自署名、署名Manifest、署名Runtime Capabilityは通常Task・助言・候補生成・認証・回復の事前準備にしない。通常入口は選択Checkout／Package・現在の要求認可・必要Artifactの同一性を確認する。正式配布の真正性検査は必要時の別手順とし、通常実行許可を発行しない。
@@ -33,17 +39,18 @@ Workbench経由の合成Contextは、Metadataと見出しだけでなく、現�
 
 ## 開発実測入力の新方式への移行
 
-フロントAIは旧実測packetをRuntimeへ互換読込みさせず、現在のSourceから入力を作り直す。`40_Develop/coordinator/scripts/measure-development-providers.ts --describe-source`は読取りだけを行い、Scopeと`expectedSourceSha256`を返す。署名・Native配布コピー・Task・Docker・Providerの準備は行わない。観測不能なら入力を補完せず停止する。
+開発計測は通常の`runTask`二件を外側から計測する。フロントAIは旧実測packetを互換読込みさせず、現在Sourceと通常操作に合わせて入力を作り直す。`40_Develop/coordinator/scripts/measure-development-providers.ts --describe-source`は読取りだけでScopeと`expectedSourceSha256`を返し、設定保存・Task・Docker・Provider準備を行わない。
 
-- [ ] 同じ作業Treeで取得した期待Hashを、新入力の`expectedSourceSha256`へ設定する。Source変更後は再取得する。
-- [ ] 旧`expectedPackageContentRootSha256`、`nativeDistributionRoot`、`expectedNativeRelease`は削除し、各fieldを含む旧packetを再利用しない。
-- [ ] Repository Root、期待Commit／Tree、固定二Task、期限、現在の送信許可は別に確認する。Source照会の成功から実行許可を推定しない。
-- [ ] 実測結果の`sourceObservation`が、照会したScopeと期待Hashへ対応することを確認する。Root・実体Hash・tokenを入力やログへ複製しない。
-- [ ] 旧配布コピーや旧packetの清掃は、参照・非使用・所有実体を確認したフロントAIが行う。履歴Evidence・署名・Hashは変更しない。
+- 新設定は`projectId`、`principalId`、`expiresAtMs`、`expectedSourceSha256`、`tasks`の五項目を明示する。
+- `tasks`は別の`requestId`を持つ通常SingleTaskCommand二件とする。通常の`choice`、Workspace、送信確認等の契約を使用し、旧内部Task要求から変換しない。
+- 主体は起動した信頼済みローカル利用者が明示する。CoordinatorにOS主体やAM主体を推測させず、この入口をRemote認証へ流用しない。
+- Source変更後は期待Hashを再取得する。観測不能時にHashを補完しない。Source照会を実行許可へ昇格しない。
+- 計測結果は改訂4で、`sourceBefore`・`sourceAfter`と各Taskの最終結果・経過時間を確認する。Root・内部実体Hash・Promptを別途記録しない。
+- 専用Session・段階別Timing・四回／八回の会計・各段階のSource失効は提供しない。期限又は取消は通常Taskへ配送し、回収・終了待機を省略しない。
+- unknown、取消、回収未確認、回復参照又は終了失敗がある場合は二件目を開始せず、元結果とexact回復参照に従う。同じTaskの再送、Docker再起動、自動修復は行わない。
+- 旧packet・過去結果・保持物をScriptが自動移行・削除しない。処置が必要なら参照・非使用・所有実体と個別の許可を確認する。
 
-Source／Session／結果搬送の新接続は限定確認済みで、旧署名API・専用Toolは撤去済みである。撤去後の全体回帰・実Provider・全体E2Eは未成立である。Source照会だけから実Provider実測・全体E2E成功を主張しない。
-
-新しい実測結果契約は改訂3で、Source照合情報は`invocationAccounting.sourceObservation`に保持する。これはadmission時の固定候補の情報であり、結果閲覧時のSource再観測ではない。旧結果を新しい実測の根拠へ読み替えない。
+Source前後一致は連続不変性、ロード済みModuleとの原子的一致、Publisher真正性を証明しない。今回の限定確認と、未実施の実AI・Docker・全体回帰を分ける。
 
 <a id="native-build-output"></a>
 

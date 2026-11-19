@@ -12,9 +12,9 @@
 
 Objectiveの外部要求受付と内部実行を分離し、同じProcess内で受付済みrequest全体を再捕捉しない。内部の既存実行本体は取消Signal・認証主体・Binding・未知Planを確認してから保存と実行へ進む。選定Resolverは同じ設定から生成した二役割の凍結成功値をそのまま組にし、助言Plan・Task Packetも受付で捕捉した選定を返却とHashへ使用する。外部入力、依存Callback、保存の検査まで一律に撤去したものではない。
 
-Taskの内部Stageも、既存要求受付の成功型を直接使用する。選定Grantへの要求では、受付済み組から担当役割の値を取り出し、同じ組を再捕捉しない。未知の依存結果は別に検査し、Grant更新時はProvider・操作ID・試行番号と正規化済み選定内容を比較する。比較だけのために選定Hashの受付検査を繰り返さず、保存Hash・一回消費・鮮度・元操作結合の条件は維持する。技術投影は正規Grant消費値又はPacket受付の捕捉値を受け、下位へ保存元情報を渡さない。
+Taskの内部Stageも既存要求受付の成功型を直接使用し、受付済み組から担当役割の完全選定を取り出して試行番号とともに同期prepareへ渡す。未知の依存結果と現在Operation・Provider適合は必要な境界で確認する。選定Grantの発行・更新・消費、借戻しHashやMapを持たず、技術投影は同じ完全値からExecutorへ渡す五項目だけを構築する。保存元情報を下位へ渡さない。
 
-Grantの更新受付もreplacementを一度だけ捕捉し、元選定Hash・試行番号・現在の操作IDを確認した同じ値を既存の発行本体へ渡す。操作確認や利用可否観測のCallback後に生要求を読み直さない。発行本体は現在の利用可否・技術適合・時計・IDとMap登録を所有し、有効な元Grantの置換は新Grantの発行成功後だけ行う。無効・期限切れの元Grantは従来どおり退役し、更新拒否・確認例外・利用不可・ID失敗では有効な元Grantを保持する。
+選定値は受付で独立捕捉した不変の元計画に保持し、事前確認のCallback後に生要求を読み直さない。別Operation・Provider・役割・試行・Packetの不一致は開始前に拒否する。人工的な選定ID・時計・Map登録を使わず、実Home wx排他、Executorの一回開始・取消、Recoveryと耐久記録を各Ownerで確認する。
 
 [Runtime Domainの公開操作](../execution-model/05_Runtime_Domain.md#runtime-domain-api)を定義・判断・受付の正本とする。Plan保存は実行受付ではなく、受付も開始ではない。Coordinatorは同じ定義改訂をAdmissionへ渡し、Scheduling・Claimと実行権限の横断調停を所有する。定義変更・対象Hash・CAS・管理実行記録の相関を維持し、Task編集からAttempt／cleanupを変更させない。既存判断記録・根拠ID・局所受入をDomainへ移し、技術完了・Queue／Workspace相関は元Ownerで維持する。非管理完了APIを追加せず、既存受入条件も緩めない。
 
@@ -76,7 +76,7 @@ Task側の論理69 Sourceと旧単発実行側の81 Sourceを、同じTree内の
 | 最終責務Owner | 所有する判断・処理 | 所有しないもの |
 |---|---|---|
 | Objective／Task | 目標、計画、Task Graph、予約、Attemptの進行、再試行・再計画、Provider／Model選択戦略 | Provider固有CLI、隔離基盤の技術処置 |
-| Execution | 単発AIの開始・取消join・結果返却、元操作・選択Grant・Authority相関、技術回復結果の接続 | 目標やTask Graphの進行、Workspaceの採否 |
+| Execution | 単発AIの開始・取消join・結果返却、元操作・完全選定・Packet相関、技術回復結果の接続 | 目標やTask Graphの進行、Workspaceの採否 |
 | Decision | 人間判断、Acceptance、Repository送信Policyと依頼の用途拘束 | Dockerの通信強制、Providerの技術Catalog |
 | Workspace | 作業対象と継続寿命、Candidateの明示固定・採否・取込要求 | Git実操作、AI完了だけによる自動Commit／Merge |
 | State | 意味上の現在状態、投影、照会 | 物理保存・技術回収の実処置 |
@@ -103,7 +103,7 @@ coordinator/                  # Cで現Orchestratorを改名した後の目標
 
 現Orchestratorに空の`execution/`、Facade、汎用Port Frameworkを先行作成しない。既存`CoordinatorExecutionPort`等を今回の接続契約として再利用し、最終的な統合では不要なPackage間中継だけを除く。TaskはAttemptを管理し、Executionは解決済みの作業対象で単発実行する。開始通知・取消join・結果正規化を削除条件へ含め、型だけのPortを重複実装と同一視しない。
 
-RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DI／PAの技術回収を分離する。Host資源はExecutionの許可・相関、DI／PAの技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。専用の外部送信同意・確認コード・永続同意・送信Grantは廃止し、認可済みRepository依頼と現在の送信Policyを用いる。Home／Mount／モデル選定や限定是正の許可は別契約として維持する。
+RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DIと現役Node処理の技術回収を分離する。Host資源はExecutionの許可・相関、DIと現役Node処理の技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。専用の外部送信同意・確認コード・永続同意・送信Grantは廃止し、認可済みRepository依頼と現在の送信Policyを用いる。実Home排他・Mount構成・完全選定と限定是正の許可は別契約として維持する。
 
 活動の公開複合Readerは`state/observation.ts`、値契約・検査・Cursorは`state/activity-{types,validation,cursor}.ts`が所有する。現在状態とExecution Intelligenceの分析用実行履歴は独立して観測し、EIをTask進行やRecoveryの状態正本にしない。出所・Cursor・ページングとWorkbench／MCPの共通利用を維持する。保存Binding導出は`state/validation.ts`が所有し、認証・認可IdentityやRoot能力へ昇格しない。Taskと技術実行の状態正本は共通Storageへ統合し、EIまで一つの履歴へ混ぜない。
 
@@ -116,7 +116,7 @@ RecoveryはTaskとしての次の処置、Executionの元結果・資源・回�
 | 接続 | Task／Objectiveに残すもの | Executionに残すもの | 除去又は削減するもの |
 |---|---|---|---|
 | `execution/controller.ts` → `execution/controller.ts` | Attempt／Operation／判断権限／Revisionの相関、解決済み対象の構造変換、元Control存続中の配送捕捉、上位結果契約 | 開始・完了の値検査、Executor初回通知の結合、取消一回搬送と元完了join、cleanup／回復参照と結果の正規化 | 旧Package Rootを経由する内部import。二つのAttempt実体は役割が異なるため維持 |
-| `task/requests.ts` → `execution/controller.ts` / `execution/result.ts` / `execution/operation.ts` | 現在Root・Profile改訂・認可の再確認、助言の固定Snapshot、実行対象・利用側の束縛、Task受付／保存／再入場 | Executor→Reviewerの順序、元Operation／Grant／Packet／Home相関、単一Runtime・Control、取消・回収・終端・配送閉包 | Package間の参照だけを直接接続。引数の並べ替えとconsumer固定を持つclosureは削除しない |
+| `task/requests.ts` → `execution/controller.ts` / `execution/result.ts` / `execution/operation.ts` | 現在Root・認可の再確認、助言の固定Snapshot、実行対象・利用側の束縛、Task受付／保存／再入場 | Executor→Reviewerの順序、元Operation／完全選定／Packet／Home相関、単一Runtime・Control、取消・回収・終端・配送閉包 | Package間の参照だけを直接接続。引数の並べ替えとconsumer固定を持つclosureは削除しない |
 | `objective/execute.ts` → EM有限保存／`execution/recovery.ts` | Task義務・世代・同じAttempt／Operation／Recoveryと、単一SnapshotのTask終端・次処置 | exact技術回収、Host／Home、終端・履歴・固定結果、私有Capabilityと一回性 | 不要な中継と別ACK Writer／後続配送解除段。技術回収と業務受領の意味は混同しない |
 
 Task開始通知と終端保存は別の事実である。元Controlの結果読取り参照は開始直後・Control除去前に捕捉する。通知・捕捉失敗でも開始済みTaskの完了と取消join・回収を待つ。技術終端・cleanup・実履歴行の確認後、同じSnapshot候補でTask終端と関連Operation除去を確定し、readbackとOwner解放を確認する。
@@ -178,7 +178,7 @@ Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)�
 
 Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向に利用し、逆依存は作らない。診断は上位公開操作へ依存せず、本番Reporterは各一つを維持する。既存と同じIdentity検査をModelの内部関数へ統合し、戻り値の型判定注釈だけ補う。結果検査には元のRuntime発行回復ID集合を渡し、単なるDTO形式検査へ縮小しない。旧組立てFileやCapability別barrelは残さず、Rootの公開26値・27型、公開引数・結果、永続契約・認証順・同意Hash・取消と回復の順序は変えない。
 
-非公開実装の検証はCoordinator所有試験へ置く。Objectiveの選定搬送は、Producerの入力変換とConsumerの要求検査へ分け、同じ設定由来のExecutor／Reviewer組を照合する。Home利用許可はoperation・provider・Home実体／保護へ限定し、完全選定を保持するModel Grant／Packetとは分離する。モデル側との相関はoperationとproviderで行い、[Home許可の契約](01_Architecture.md#74-provider-homeマウント許可)に従う。公開APIの追加、試験専用の製品中継、純粋な搬送だけによる下位実行成立の主張は行わない。
+非公開実装の検証はCoordinator所有試験へ置く。ObjectiveのProducerとTaskのConsumerで、同じ設定から固定したExecutor／Reviewerの完全選定を直接照合する。Homeは非秘密の四値として同期準備へ渡し、独立した選定／Home許可tokenは発行しない。実Home wx排他とDIの技術実行・回収は[Home観測と排他の契約](01_Architecture.md#74-provider-homeの観測と排他)に従う。純粋な搬送の成功を実AI・Docker境界の成立へ換算しない。
 
 Workspace操作は完成入口`executeWorkspace`、入力は`WorkspaceCommand`、読取り投影・実行観測は`WorkspaceView`／`WorkspaceResult`をRootから公開する。Task対象の解決・具体保存・Lease・VC接続は内部Ownerへ閉じ、Host Pathや内部CapabilityをSurfaceへ返さない。接続と検証境界は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)を参照する。
 
@@ -487,7 +487,7 @@ Coordinatorの純粋判定はOS固有のPath、principal、Filesystem保護、Lo
 
 Objectiveは任意の作業分類`workType`と編集担当の明示選択`choice`（Provider／Model／Effort）を受ける。初回だけRepository設定から編集担当・独立レビュー担当の組を固定し、Project rootへ保存する。レビューへ明示選択を継承しない。同じMilestoneへの再受付では、明示された分類・選択を保存値と照合し、不一致はenqueue前に拒否する。省略された項目は保存値を継承し、現在設定やCatalogを読み直さない。旧`requestedProfileId`／Provider自動選択入力は受理しない。入力やMCP metadataからAuthorityを生成しない。
 
-WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。Objectiveの入力・保存選定・Taskへの組搬送に加え、Model Grant／Task Packet／PreparedPlan／SingleTask／Operation Identity v2の内部接続を実装した。Home許可はoperation・provider・Homeへ分離済みである。公開利用側のAI選定接続と旧Profile Store撤去は完了し、正式API・CLIも実装候補へ切り替えた。固定全体回帰と最終レビューは変更計画で追跡し、内部接続の限定試験を実AIの完成へ換算しない。
+WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveへ統合しない。Objective入力・保存選定・Taskへの組搬送、完全選定付きPacket、同期prepareの計画、Operation Identity v5を接続する。選定／Home GrantとPrepared専用Storeは持たず、現行Ownerの実Home排他・取消・回収を維持する。限定試験と実AI・Docker・全体回帰の成立は分けて変更計画で追跡する。
 
 Project State参照は`requestId`、`projectId`および`repositoryRevision`だけを受け取る。状態参照の処理は読取りAPIだけを呼び、書込み、Queue更新、Lease、Task実行または判断Capabilityを構成しない。結果は次を区別する。
 
@@ -581,7 +581,7 @@ Package作成、純粋な判定の試験合格または安全な拒否だけで�
 |---|---|---|---|---|---|---|
 | Variation | Required | 公開入口と実行、保存、OS観測の違いが存在する。 | Transport差は各Server、Provider差はAI Adapter、OS差は既存技術Ownerの用途固定Node.js処理へ閉じる。Coordinatorは公開結果を解釈する。 | 純粋な判定は具象Runtime、Transport、OS、保存方式を知らない。 | 個別入口だけがAuthorityや結果意味を変更する。 | `orchestrator.public-application` |
 | Common Contract | Required | 複数入口が同じObjective・判断・状態操作を利用する。 | 公開DTOと検査関数、Identity・結果・回復義務を共通化し、同じCoordinator APIへ配送する。 | 共通契約をPort注入Frameworkの採用理由にしない。 | 新入口だけが異なるAuthority、完了、RetryまたはRecovery意味を持つ。 | `orchestrator.public-application`<br>`orchestrator.task-lifecycle`<br>`orchestrator.acceptance-decision` |
-| Creation／Selection | Required | Objective要求の分類・明示選択、Authorityと現在状態の照合が必要である。 | Coordinatorは初回だけRepository設定から役割別選定を固定し、再受付は保存値との相関を検査する。下位のGrant接続は別単位で評価する。 | 任意Adapterを本番から注入せず、読取り操作から実行能力を構成しない。 | 入力が黙って別選定へ畳まれるか、設定再読で既存選定が変わる。 | `orchestrator.public-application` |
+| Creation／Selection | Required | Objective要求の分類・明示選択、Authorityと現在状態の照合が必要である。 | Coordinatorは初回だけRepository設定から役割別選定を固定し、再受付は保存値との相関を検査する。下位の技術五項目・実Home排他・開始／取消は各Ownerで評価する。 | 任意Adapterを本番から注入せず、読取り操作から実行能力を構成しない。 | 入力が黙って別選定へ畳まれるか、設定再読で既存選定が変わる。 | `orchestrator.public-application` |
 | State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | Task、Decision、Lease、Recovery、Effect状態が許可する遷移をCoreが所有する。 | 下位完了やProjectionから上位Authorityを生成しない。 | 分散した状態分岐が二重実行や受入推定を起こす。 | `orchestrator.task-lifecycle`、`orchestrator.acceptance-decision` |
 | Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | Objective、Milestone、Task Graphを明示した親子関係と停止条件で構成する。 | 子の完了を親の受入へ自動昇格せず、循環依存を作らない。 | Graphの部分成立がProject全体の完成へ畳まれる。 | `orchestrator.task-lifecycle`、`orchestrator.acceptance-decision` |
 | Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Task、Attempt、Lease、Queue、Decision、Recovery義務を同じCoordinatorの実行Identityへ結ぶ。 | Owner移送、失効またはcleanup確認まで状態を完了にしない。 | LeaseやRecovery義務を失い、同じTaskへ再入場できない。 | `orchestrator.task-lifecycle` |

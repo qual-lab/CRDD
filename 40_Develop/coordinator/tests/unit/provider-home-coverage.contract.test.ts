@@ -73,7 +73,6 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
     "40_Develop/coordinator/tests/integration/coverage.contract.test.ts",

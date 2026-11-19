@@ -724,7 +724,7 @@ export function observeExecutionSettlementRepository(access: unknown) {
  * 同じ実行Ownerが照合した有限の終端観測を表す。
  * @responsibility Docker型への依存なしに元の終了事実だけを保存へ渡す。
  * @trace ARCH-000008
- * @shape 資源観測、一次失敗、Home・Mount・回復の終了観測。
+ * @shape 資源観測、一次失敗、Home排他・回復の終了観測。
  * @invariant この構造自体を実終了の証明にしない。
  * @boundary 元の観測Ownerと保存内の相関検査。
  * @security 実行又は回復Authorityを含めない。
@@ -735,7 +735,6 @@ export type ExecutionTerminalStorageObservation = Readonly<{
   resources: readonly unknown[];
   primaryFailure: unknown;
   homeLeaseReleased: boolean;
-  mountLeaseReleased: boolean;
   recoveryCompleted: boolean;
 }>;
 
@@ -814,7 +813,7 @@ export function observeExecutionTerminalForStorage(
   if (
     !Array.isArray(resources) ||
     types.isProxy(resources) ||
-    ["homeLeaseReleased", "mountLeaseReleased", "recoveryCompleted"].some(
+    ["homeLeaseReleased", "recoveryCompleted"].some(
       (key) => typeof data(value, key) !== "boolean",
     )
   )

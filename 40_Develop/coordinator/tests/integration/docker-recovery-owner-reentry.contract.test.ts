@@ -40,7 +40,6 @@ import { loadHostRecoveryRecordByToken } from "../../src/execution/operation.ts"
 import * as controller from "../../src/execution/provider-executor.ts";
 import type { RecoveryPlan } from "../../src/execution/types.ts";
 import { snapshotJsonValue } from "../../src/input/snapshot.ts";
-import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { verifyNormalOwnerLifecycle } from "../fixtures/docker-owned-process-test-support.ts";
 import { expectedHostCheckpoint } from "../fixtures/task-result-fixture.ts";
@@ -2335,22 +2334,12 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   const management = Object.freeze({});
   const context = Object.freeze({});
   const cleanup = Object.freeze({});
-  const mount = Object.freeze({});
   const completion = Object.freeze({});
   const hash = "a".repeat(64);
   const plan = Object.freeze({
     provider: "codex" as const,
     consumer: "workbench" as const,
     operationId: "OP-123456",
-    grantRef: "PHMGRANT-ABCDEF",
-    activeMountCapability: mount,
-    selectionHash: hashExecutionSelection(
-      executionSelection("executor", {
-        provider: "codex",
-        model: "gpt-5.5",
-        effort: "low",
-      }),
-    ),
     executionSelection: executionSelection("executor", {
       provider: "codex",
       model: "gpt-5.5",
@@ -2441,19 +2430,8 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
           ...homes,
           inspectRuntimeOwnedWindowsProviderHomeCandidate: () => ({
             status: "candidate",
-            observationCapability: {},
+            providerHome: plan,
           }),
-          consumeRuntimeOwnedProviderHomeObservationCapability: () => plan,
-          verifyRuntimeOwnedProviderHomeMountCompletion: (
-            value: unknown,
-            owner: unknown,
-            active: unknown,
-            operationId: unknown,
-          ) =>
-            value === mount &&
-            owner === management &&
-            active === mount &&
-            operationId === plan.operationId,
         },
       },
     ),
@@ -2480,7 +2458,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         namedExports: {
           ...repository,
           ...hostRuntime,
-          inspectRuntimeOwnedDevelopmentOperationContext: () => null,
           borrowRuntimeOwnedCoordinatorStateRepository: () => ({
             operationId: plan.operationId,
             repositoryBinding: hash,
@@ -2866,11 +2843,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     );
     operations[0].phase = "executing";
     lifecycleFails = true;
-    assert.equal(
-      runtime.recordRuntimeOwnedNormalMountCompletion(capability, mount),
-      true,
-    );
-    const raw = { plan, mountCompletion: mount };
+    const raw = { plan };
     assert.equal(
       runtime.completeRuntimeOwnedDockerRecovery(capability, management, raw)
         .status,
@@ -2942,7 +2915,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     hostCompleteFails = false;
     for (const [owner, value] of [
       [{}, raw],
-      [management, { ...raw, mountCompletion: {} }],
+      [management, { ...raw, unexpected: {} }],
       [management, undefined],
     ]) {
       const beforeCounts: number[] = [
@@ -2982,8 +2955,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       recoveryId: "exact-id",
       resourceSnapshot: { resources: [] },
       observations: [],
-      mountCompletion: null,
-      mountLeaseReleased: false,
       homeLeaseReleased: true,
     });
     assert.equal(technical.homeLeaseReleased, true);
@@ -3003,7 +2974,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     for (const value of [
       { ...raw, cleanupOutcome: {} },
       { ...raw, plan: { ...plan } },
-      { ...raw, mountCompletion: {} },
+      { ...raw, unexpected: {} },
     ]) {
       assert.equal(
         runtime.completeRuntimeOwnedDockerRecovery(
@@ -3056,7 +3027,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         processTreeTerminationConfirmed: true,
         containersAbsent: true,
         networksAbsent: true,
-        mountLeaseReleased: true,
         recoveryCompleted: true,
         homeLeaseReleased: true,
       },
@@ -3109,10 +3079,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     );
 
     assert.equal(
-      runtime.recordRuntimeOwnedNormalMountCompletion(projectCapability, mount),
-      true,
-    );
-    assert.equal(
       runtime.recordRuntimeOwnedAttemptCleanup({
         plan: projectPlan as unknown as RecoveryPlan,
         recoveryCapability: projectCapability,
@@ -3120,8 +3086,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         recoveryId: "exact-id",
         resourceSnapshot: { resources: [] },
         observations: [],
-        mountCompletion: null,
-        mountLeaseReleased: false,
         homeLeaseReleased: true,
       }).homeLeaseReleased,
       true,
@@ -3132,7 +3096,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         management,
         {
           plan: projectPlan,
-          mountCompletion: mount,
         },
       ).status,
       "completed",
@@ -3149,7 +3112,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         processTreeTerminationConfirmed: true,
         containersAbsent: true,
         networksAbsent: true,
-        mountLeaseReleased: true,
         recoveryCompleted: true,
         homeLeaseReleased: true,
       },
@@ -3321,8 +3283,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         recoveryId: "exact-id",
         resourceSnapshot: { resources: [] },
         observations: [],
-        mountCompletion: null,
-        mountLeaseReleased: false,
         homeLeaseReleased: true,
       });
       const unresolvedBeforeAbandon = structuredClone(operations);
@@ -3373,16 +3333,11 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
     "none",
     "copy",
     "capability",
-    "selection",
-    "selection_hash",
-    "selection_attempt",
-    "selection_content",
     "operation",
     "terminal_missing",
     "terminal_operation",
     "terminal_recovery",
     "home",
-    "mount",
     "recovery",
     "cleanup",
     "cancel",
@@ -3408,8 +3363,6 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
     };
     const plan = {
       operationId: "OP-123456",
-      selectionRecordId: "selection",
-      selectionHash: "selection-hash",
       executionSelection: { provider: "codex", modelIdentifier: "synthetic" },
       operationMode: "isolated_task",
       taskRole: "reviewer",
@@ -3419,7 +3372,6 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
       operationId: "OP-123456",
       recoveryId: "exact-recovery",
       homeLeaseReleased: true,
-      mountLeaseReleased: true,
       recoveryCompleted: true,
     };
     const record = {
@@ -3430,17 +3382,11 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
       terminalObservation: terminal as typeof terminal | undefined,
       normalRestoration: { plan } as { plan: typeof plan } | undefined,
     };
-    if (fault === "selection") plan.selectionRecordId = "other";
-    if (fault === "selection_hash") plan.selectionHash = "other";
-    if (fault === "selection_attempt") plan.taskAttempt = 1;
-    if (fault === "selection_content")
-      plan.executionSelection.modelIdentifier = "other";
     if (fault === "operation") result.operationId = "OP-654321";
     if (fault === "terminal_missing") record.terminalObservation = undefined;
     if (fault === "terminal_operation") terminal.operationId = "OP-654321";
     if (fault === "terminal_recovery") terminal.recoveryId = "other";
     if (fault === "home") terminal.homeLeaseReleased = false;
-    if (fault === "mount") terminal.mountLeaseReleased = false;
     if (fault === "recovery") terminal.recoveryCompleted = false;
     if (fault === "cleanup") result.cleanupConfirmed = false;
     if (fault === "cancel") result.cancellationRequested = true;
@@ -3457,20 +3403,6 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
       `${declaration}\nregisterRuntimeOwnedReviewFindings`,
       {
         durableRecord: (c: object) => (c === capability ? record : null),
-        borrowOwnedOperationExecutionSelection: (
-          owner: unknown,
-          id: unknown,
-          hash: unknown,
-          attempt: unknown,
-          selection: { modelIdentifier: string },
-        ) =>
-          owner === record.managementCapability &&
-          id === "selection" &&
-          hash === "selection-hash" &&
-          attempt === 0 &&
-          selection.modelIdentifier === "synthetic"
-            ? selection
-            : null,
         registerTaskRemediation: (
           id: string,
           attempt: number,

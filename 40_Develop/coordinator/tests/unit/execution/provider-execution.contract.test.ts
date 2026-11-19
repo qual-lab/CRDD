@@ -32,7 +32,6 @@ import {
   classifyProviderAdviceHostFailure,
   type ProviderAdviceRuntimeDependencies,
 } from "../../../src/execution/advice.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation.ts";
 import { types } from "node:util";
 
@@ -166,8 +165,6 @@ test("助言は引渡し済みDocker参照を初回失敗まで保持し正式�
   }
 });
 
-import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
-
 /**
  * fixture用の試験入力または観測処理を提供する。
  *
@@ -183,27 +180,18 @@ import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 function fixture(
   overrides: Partial<ProviderAdviceRuntimeDependencies> = {},
   options: Readonly<{
-    mountReobservationUnavailable?: boolean;
-    realSelectionRuntime?: boolean;
-    selectionRefreshRevokeFailure?: boolean;
-    selectionRefreshUnavailable?: boolean;
-    selectionRefreshMismatch?: boolean;
-    selectionCorrelationMismatch?: Readonly<{
-      index: 0 | 1;
-      field: "operationId" | "taskAttempt" | "selectionHash";
-    }>;
+    selectionPreflightMismatch?: boolean;
+    selectionPreflightUnavailable?: boolean;
+    packetIssueInvalid?: boolean;
+    packetRevokeOutcome?: "false" | "unknown" | "throw";
+    recoveryAbandonOutcome?: "false" | "unknown" | "throw";
+    startAfterHandoffThrows?: boolean;
+    poisonNotificationThrows?: boolean;
   }> = {},
 ) {
   const owned = Object.freeze({});
   const mountCapability = Object.freeze({});
   const managementCapability = Object.freeze({});
-  const grantObservationCapability = Object.freeze({});
-  const mountObservationCapability = Object.freeze({});
-  const mountControl = Object.freeze({});
-  const mountUse = Object.freeze({});
-  const mountAuthorization = Object.freeze({});
-  const selectionControls = [Object.freeze({}), Object.freeze({})];
-  const selectionUses = [Object.freeze({}), Object.freeze({})];
   const packetOwner = Object.freeze({});
   const packetUse = Object.freeze({});
   const processControl = Object.freeze({});
@@ -211,39 +199,7 @@ function fixture(
   const calls: string[] = [];
   const runtimeObservation = {
     providerHomeCount: 0,
-    mountGrantConsumed: false,
-    selectionIssueCount: 0,
   };
-  let selectionRandomValue = 0;
-  const selectionRuntime =
-    createIsolatedDelegationSelectionGrantRuntimeCandidate({
-      verifyOperation: (candidate: unknown) => {
-        assert.equal(candidate, managementCapability);
-        return Object.freeze({
-          operationId: "OP-123456",
-          createdAt: "2026-09-29T00:00:00.000Z",
-        });
-      },
-      observeProviderEligibility: () =>
-        Object.freeze([
-          Object.freeze({
-            provider: "codex",
-            status: "eligible",
-            reason: "ready",
-          }),
-          Object.freeze({
-            provider: "claude",
-            status: "eligible",
-            reason: "ready",
-          }),
-        ]),
-      wallNow: () => 1_000,
-      monotonicNow: () => 2_000,
-      randomBytes: (size: number) => {
-        selectionRandomValue += 1;
-        return Buffer.alloc(size, selectionRandomValue);
-      },
-    });
   const adviceJson = JSON.stringify({
     status: "completed",
     facts: [],
@@ -268,141 +224,73 @@ function fixture(
     },
     observeProviderHome: () => {
       calls.push("observe-provider-home");
-      if (
-        runtimeObservation.providerHomeCount === 1 &&
-        options.mountReobservationUnavailable === true
-      ) {
-        runtimeObservation.providerHomeCount += 1;
-        return Object.freeze({
-          status: "unavailable" as const,
-          provider: plan.provider,
-        });
-      }
-      const observationCapability =
-        runtimeObservation.providerHomeCount === 0
-          ? grantObservationCapability
-          : mountObservationCapability;
-      runtimeObservation.providerHomeCount += 1;
+      runtimeObservation.providerHomeCount++;
       return Object.freeze({
         status: "candidate" as const,
         provider: plan.provider,
-        observationCapability,
+        providerHome: Object.freeze({
+          provider: plan.provider,
+          providerHomeSourcePath: "C:\\provider-home",
+          providerHomeIdentityHash: "a".repeat(64),
+          stableLogicalHomeBindingHash: "b".repeat(64),
+        }),
       });
     },
-    issueMountGrant: (
-      _managementCapability: unknown,
-      observationCapability: unknown,
-    ) => {
-      assert.equal(observationCapability, grantObservationCapability);
-      return Object.freeze({
-        status: "issued" as const,
-        controlCapability: mountControl,
-        useCapability: mountUse,
-      });
-    },
-    consumeMountGrant: (
-      _useCapability: unknown,
-      _managementCapability: unknown,
-      observationCapability: unknown,
-    ) => {
-      calls.push("consume-mount-grant");
-      runtimeObservation.mountGrantConsumed = true;
-      assert.equal(observationCapability, mountObservationCapability);
-      return Object.freeze({
-        status: "consumed" as const,
-        mountAuthorizationCapability: mountAuthorization,
-      });
-    },
-    revokeMountGrant: () => {
-      calls.push("revoke-mount-grant");
-      return Object.freeze({ status: "revoked" as const });
-    },
-    issueSelection: (selectionCapability: unknown, request: unknown) => {
-      calls.push("issue-selection");
+    preflightSelections: (_management: unknown, request: unknown) => {
+      calls.push("preflight-selections");
       const record = request as Readonly<Record<string, unknown>>;
       assert.deepEqual(record, {
         operationId: "OP-123456",
-        taskAttempt: 0,
-        executionSelection: plan.executionSelection,
+        executionSelections: [plan.executionSelection],
       });
-      const index = runtimeObservation.selectionIssueCount;
-      runtimeObservation.selectionIssueCount += 1;
-      if (options.realSelectionRuntime === true)
-        return selectionRuntime.issue(selectionCapability, request);
+      if (options.selectionPreflightUnavailable)
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "provider_unavailable",
+        });
       return Object.freeze({
-        status: "issued" as const,
-        controlCapability: selectionControls[index],
-        useCapability: selectionUses[index],
-        operationId:
-          options.selectionCorrelationMismatch?.index === index &&
-          options.selectionCorrelationMismatch.field === "operationId"
-            ? "OP-654321"
-            : "OP-123456",
-        selectionHash:
-          options.selectionCorrelationMismatch?.index === index &&
-          options.selectionCorrelationMismatch.field === "selectionHash"
-            ? "f".repeat(64)
-            : hashExecutionSelection(plan.executionSelection),
-        executorProvider: plan.provider,
-        executionSelection: plan.executionSelection,
-        taskAttempt:
-          options.selectionCorrelationMismatch?.index === index &&
-          options.selectionCorrelationMismatch.field === "taskAttempt"
-            ? 1
-            : 0,
-        selectedModel:
-          index === 1 && options.selectionRefreshUnavailable === true
-            ? "invalid-model"
-            : plan.exactModelId,
-        selectedEffort: plan.reasoningEffort,
-        speedMode: "normal",
-        selectionNotice:
-          index === 1 && options.selectionRefreshMismatch === true
-            ? "workbench-advice-changed-selection"
-            : "workbench-advice-fixed-selection",
+        status: "candidate" as const,
+        operationId: "OP-123456",
+        executionSelections: [
+          options.selectionPreflightMismatch
+            ? { ...plan.executionSelection, configIdentity: "f".repeat(64) }
+            : plan.executionSelection,
+        ],
       });
-    },
-    revokeSelection: (controlCapability: unknown, capability: unknown) => {
-      calls.push("revoke-selection");
-      if (
-        runtimeObservation.selectionIssueCount === 1 &&
-        options.selectionRefreshRevokeFailure === true
-      )
-        return Object.freeze({ status: "blocked" as const });
-      if (options.realSelectionRuntime === true)
-        return selectionRuntime.revoke(controlCapability, capability);
-      return Object.freeze({ status: "revoked" as const });
     },
     issuePacket: (input: Readonly<Record<string, unknown>>) => {
       calls.push("issue-packet");
       assert.equal(input.taskHash, plan.taskHash);
       assert.equal(input.projectionHash, plan.projectionHash);
       return Object.freeze({
-        status: "issued" as const,
+        status: options.packetIssueInvalid
+          ? ("blocked" as const)
+          : ("issued" as const),
         ownerCapability: packetOwner,
         useCapability: packetUse,
       });
     },
-    revokePacket: () => true,
+    revokePacket: () => {
+      calls.push("revoke-packet");
+      if (options.packetRevokeOutcome === "throw")
+        throw Error("fixture_packet_revoke_failed");
+      return options.packetRevokeOutcome === "unknown"
+        ? undefined
+        : options.packetRevokeOutcome === "false"
+          ? false
+          : true;
+    },
     startProcess: (
       _provider: "codex" | "claude",
       input: PreparationInput,
       register: unknown,
     ) => {
-      const { managementCapability: capability, selectionUseCapability } =
-        input;
-      if (options.realSelectionRuntime === true) {
-        const consumedSelection = selectionRuntime.consume(
-          selectionUseCapability,
-          capability,
-        );
-        assert.ok(consumedSelection);
-        assert.equal(consumedSelection.executorProvider, plan.provider);
-        assert.deepEqual(
-          consumedSelection.executionSelection,
-          plan.executionSelection,
-        );
-      }
+      assert.strictEqual(input.managementCapability, managementCapability);
+      assert.deepEqual(input.executionSelection, plan.executionSelection);
+      assert.equal(input.taskAttempt, 0);
+      assert.equal(input.providerHome.provider, plan.provider);
+      assert.equal(Object.hasOwn(input, "selectionUseCapability"), false);
+      assert.equal(Object.hasOwn(input, "mountAuthorizationCapability"), false);
       calls.push("start-process");
       calls.push("register-recovery");
       assert.equal(
@@ -412,6 +300,8 @@ function fixture(
         ),
         true,
       );
+      if (options.startAfterHandoffThrows)
+        throw Error("fixture_start_after_handoff_failed");
       return Object.freeze({
         status: "started" as const,
         dockerEffectStarted: true,
@@ -448,9 +338,25 @@ function fixture(
       calls.push("finalize-docker-recovery");
       return Object.freeze({ status: "completed" as const });
     },
-    abandonDockerRecovery: () => true,
-    abandonOperation: async () => Object.freeze({ status: "retained" }),
-    poisonAfterCleanupUnknown: () => calls.push("poison"),
+    abandonDockerRecovery: () => {
+      calls.push("abandon-docker-recovery");
+      if (options.recoveryAbandonOutcome === "throw")
+        throw Error("fixture_recovery_abandon_failed");
+      return options.recoveryAbandonOutcome === "unknown"
+        ? undefined
+        : options.recoveryAbandonOutcome === "false"
+          ? false
+          : true;
+    },
+    abandonOperation: async () => {
+      calls.push("abandon-operation");
+      return Object.freeze({ status: "retained" });
+    },
+    poisonAfterCleanupUnknown: () => {
+      calls.push("poison");
+      if (options.poisonNotificationThrows)
+        throw Error("fixture_poison_notification_failed");
+    },
     ...overrides,
   }) as unknown as ProviderAdviceRuntimeDependencies;
   return Object.freeze({
@@ -557,12 +463,8 @@ test("署名資格なしで実行しHost／Docker cleanup完了後にだけ助�
   assert.deepEqual(current.calls, [
     "create-operation",
     "bind-repository",
-    "issue-selection",
+    "preflight-selections",
     "observe-provider-home",
-    "observe-provider-home",
-    "consume-mount-grant",
-    "revoke-selection",
-    "issue-selection",
     "issue-packet",
     "start-process",
     "register-recovery",
@@ -574,19 +476,19 @@ test("署名資格なしで実行しHost／Docker cleanup完了後にだけ助�
 });
 
 /**
- * Production要求を実Selection Runtimeへ直接接続できることを検証する。
+ * Production要求の完全選定を直接準備入力へ接続することを検証する。
  *
- * @responsibility Workbenchが生成した初回・再発行Selection要求を実Selection Runtimeへ渡し、Grantの発行・失効・消費まで同じLifecycleで成立することの合否判定を所有する。
+ * @responsibility Workbenchが生成した完全選定を実Selection Runtimeへ渡し、完全選定の搬送まで同じLifecycleで成立することを確認する。
  * @trace ERB-UT-023
  * @precondition Workbench Production Runtimeの他境界は決定論的fixtureとし、Selection境界だけを実Runtimeへ接続する。
  * @stimulus 明示Codex Profileを持つWorkbench助言を実行する。
- * @observation Production要求、Selection発行回数、旧Grant失効、再発行Grant消費およびProvider Effectを観測する。
- * @oracle 初回と再発行の2 Grantが実Runtimeから発行され、旧Grantは失効し、新GrantはProvider準備で一回だけ消費されて助言が完了する。
+ * @observation Production要求、Selection発行一回、同Grant消費とProvider Effectを観測する。
+ * @oracle 完全選定をProvider準備へ直接搬送して助言が完了する。
  * @cleanup Workbench LifecycleがOperationとProvider資源を清掃し、Selection Authorityは失効または消費済みになる。
- * @boundary ERB-UT-023=Direct Boundary: Workbench Production Runtime→Delegation Selection Grant Runtime→Provider準備
+ * @boundary ERB-UT-023=Direct Boundary: Workbench Production Runtime→Delegation 入力選定→Provider準備
  */
 test("Production要求を実Selection Runtimeへ直接接続できる", async () => {
-  const current = fixture({}, { realSelectionRuntime: true });
+  const current = fixture();
   const result = await createIsolatedProviderAdviceRuntimeCandidate(
     current.dependencies,
   ).run(plan, new AbortController().signal);
@@ -597,64 +499,38 @@ test("Production要求を実Selection Runtimeへ直接接続できる", async ()
     providerEffectIssued: true,
     cleanupConfirmed: true,
   });
-  assert.equal(current.runtimeObservation.selectionIssueCount, 2);
-  assert.equal(
-    current.calls.filter((call) => call === "revoke-selection").length,
-    1,
-  );
+  assert.equal(current.runtimeObservation.providerHomeCount, 1);
 });
 
 /**
- * Mount Grant発行後のfresh再観測が不成立ならProvider Effectを発行しないことを検証する。
- *
- * @responsibility 一回限りの観測Capabilityを再利用せず、Mount Grant消費直前の観測不能をFail Closedにする。
+ * Home準備前の非発行判定が不成立なら資源許可へ進まない。
+ * @responsibility Provider可用性不成立をGrant発行の代用にせず早期拒否する。
  * @trace ERB-UT-023
- * @precondition Grant発行時の観測は成立し、消費直前の再観測だけが不成立である。
- * @stimulus Workbench助言Production Runtimeを実行する。
- * @observation 結果理由、Grant失効・消費、Selection、Packet、Recovery、Process、Provider Effect、Operation cleanupおよびProcess poisonの件数を観測する。
- * @oracle 再観測固有理由でblockedとなり、未消費Grant失効1、Operation cleanup 1、その他の後続Authority・Effect・poison 0になる。
- * @cleanup Operation cleanupが完了し、Process外資源を残さない。
- * @boundary ERB-UT-023=Direct Boundary: Provider Home観測→Mount Grant消費
+ * @precondition 局所preflightだけをblockedへ差し替える。
+ * @stimulus 通常の固定助言計画を実行する。
+ * @observation Home観測、Selection発行、Mount消費、Provider EffectとOperation清掃。
+ * @oracle Home観測・Grant発行・Provider Effectは0、取得済みOperationだけ清掃する。
+ * @cleanup メモリ内代役のOperation清掃を確認する。
+ * @boundary 助言の非発行preflightとHome準備。
  */
-test("Mount Grant消費直前のfresh再観測が不成立ならProvider Effectを発行しない", async () => {
-  const current = fixture({}, { mountReobservationUnavailable: true });
+test("助言の非発行preflight拒否はHome観測とProvider要求より前に停止する", async () => {
+  const current = fixture({}, { selectionPreflightUnavailable: true });
   const result = await createIsolatedProviderAdviceRuntimeCandidate(
     current.dependencies,
   ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "workbench_ai_advice_mount_reobservation_unavailable",
-  );
-  assert.equal(result.providerEffectIssued, false);
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(current.runtimeObservation.providerHomeCount, 2);
-  assert.equal(current.runtimeObservation.mountGrantConsumed, false);
-  assert.equal(current.runtimeObservation.selectionIssueCount, 1);
-  assert.equal(
-    current.calls.filter((call) => call === "revoke-mount-grant").length,
-    1,
-  );
-  assert.equal(
-    current.calls.filter((call) => call === "issue-selection").length,
-    1,
-  );
-  assert.equal(
-    current.calls.filter((call) => call === "revoke-selection").length,
-    1,
-  );
-  assert.equal(current.calls.includes("issue-packet"), false);
-  assert.equal(current.calls.includes("register-recovery"), false);
+  assert.equal(result.reason, "workbench_ai_advice_selection_unavailable");
+  assert.equal(current.runtimeObservation.providerHomeCount, 0);
   assert.equal(current.calls.includes("start-process"), false);
   assert.equal(
     current.calls.filter((call) => call === "cleanup-operation").length,
     1,
   );
-  assert.equal(current.calls.includes("poison"), false);
+  assert.equal(result.cleanupConfirmed, true);
 });
 
 /**
- * Repository結合が不成立ならSelectionとProvider Effectを発行しないことを検証する。
+ * Repository結合が不成立なら選定観測とProvider Effectへ進まないことを検証する。
  *
  * @responsibility Workbench助言Operationを元Repository Identityへ結合できない状態をFail Closedにする。
  * @trace ERB-UT-023
@@ -663,9 +539,9 @@ test("Mount Grant消費直前のfresh再観測が不成立ならProvider Effect�
  * @observation 結果理由、Selection、Mount、Packet、Process、Provider EffectおよびOperation cleanupを観測する。
  * @oracle Repository結合固有理由でblockedとなり、後続Authority・Effect 0、Operation cleanup 1になる。
  * @cleanup Operation cleanupが完了し、Process外資源を残さない。
- * @boundary ERB-UT-023=Direct Boundary: Repository Identity→Selection Grant
+ * @boundary ERB-UT-023=Direct Boundary: Repository Identity→選定適合の現在観測
  */
-test("Repository結合が不成立ならSelectionとProvider Effectを発行しない", async () => {
+test("Repository結合が不成立なら選定観測とProvider Effectへ進まない", async () => {
   const current = fixture({ bindRepository: () => null });
   const result = await createIsolatedProviderAdviceRuntimeCandidate(
     current.dependencies,
@@ -677,7 +553,6 @@ test("Repository結合が不成立ならSelectionとProvider Effectを発行し�
   );
   assert.equal(result.providerEffectIssued, false);
   assert.equal(result.cleanupConfirmed, true);
-  assert.equal(current.calls.includes("issue-selection"), false);
   assert.equal(current.calls.includes("observe-provider-home"), false);
   assert.equal(current.calls.includes("issue-packet"), false);
   assert.equal(current.calls.includes("start-process"), false);
@@ -735,106 +610,26 @@ test("RO Operation参照の保存拒否はProvider前で停止しHost回収結�
 });
 
 /**
- * 初回Selectionを失効できなければ再発行とProvider Effectへ進まないことを検証する。
+ * preflightの完全選定が固定計画と異なる場合はProvider Effectを発行しない。
  *
- * @responsibility Mount後のSelection更新前に旧Authorityの失効を必須とし、失効不能時に後続Authorityを発行しない。
+ * @responsibility 短命Selection発行時の固定計画との差をProvider Effect前に拒否する。
  * @trace ERB-UT-023
- * @precondition Repository結合、初回Selection、Provider Home再観測およびMount Grant消費は成立する。
- * @stimulus 初回Selectionの失効だけを不成立にしてWorkbench助言Runtimeを実行する。
- * @observation Selection発行・失効、Packet、Process、Provider EffectおよびOperation cleanupを観測する。
- * @oracle Selection再発行0、Packet・Process・Provider Effect 0、Operation cleanup 1となり、失効不明をcleanup成功へ畳まない。
- * @cleanup catch経路が旧Selection失効を再試行し、なお失敗する場合はProcessをpoisonする。
- * @boundary ERB-UT-023=Direct Boundary: Mount完了→旧Selection失効
- */
-test("初回Selectionを失効できなければ再発行とProvider Effectへ進まない", async () => {
-  const current = fixture({}, { selectionRefreshRevokeFailure: true });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
-    current.dependencies,
-  ).run(plan, new AbortController().signal);
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "workbench_ai_advice_selection_refresh_revoke_failed",
-  );
-  assert.equal(result.providerEffectIssued, false);
-  assert.equal(result.cleanupConfirmed, false);
-  assert.equal(current.runtimeObservation.selectionIssueCount, 1);
-  assert.equal(
-    current.calls.filter((call) => call === "revoke-selection").length,
-    2,
-  );
-  assert.equal(current.calls.includes("issue-packet"), false);
-  assert.equal(current.calls.includes("start-process"), false);
-  assert.equal(
-    current.calls.filter((call) => call === "cleanup-operation").length,
-    1,
-  );
-  assert.equal(current.calls.includes("poison"), true);
-});
-
-/**
- * 再発行Selectionが不正でも取得済みAuthorityを失効することを検証する。
- *
- * @responsibility 再Selectionの検証前にCleanup Authorityを保持し、不正RecordをAuthority残存へ変換しない。
- * @trace ERB-UT-023
- * @precondition 初回Selection失効後に、ControlとUseを持つがModelが不正な再Selectionが発行される。
- * @stimulus 不正な再SelectionでWorkbench助言Runtimeを実行する。
- * @observation 二回のSelection、両Selection失効、Packet、Process、Provider EffectおよびOperation cleanupを観測する。
- * @oracle 再Selection不成立理由でblockedとなり、新旧Selectionを失効してProvider Effect 0で閉じる。
+ * @precondition Repository結合、非発行preflight、Provider Home再観測およびMount Grant消費は成立する。
+ * @stimulus 唯一Selectionの完全選定を固定計画から変更してWorkbench助言Runtimeを実行する。
+ * @observation 一回のSelection、その失効、Packet、Process、Effectおよびcleanupを観測する。
+ * @oracle Selection不成立理由でblockedとなり、唯一Selectionを失効してProvider Effect 0で閉じる。
  * @cleanup Operation cleanupが完了し、Process外資源を残さない。
- * @boundary ERB-UT-023=Direct Boundary: Selection再発行→Selection検証
+ * @boundary ERB-UT-023=Direct Boundary: Mount完了→Effect直前Selection発行
  */
-test("不正な再Selectionは取得済みAuthorityを失効してProvider Effectへ進まない", async () => {
-  const current = fixture({}, { selectionRefreshUnavailable: true });
+test("preflightの完全選定が固定計画と異なる場合はProvider Effectを発行しない", async () => {
+  const current = fixture({}, { selectionPreflightMismatch: true });
   const result = await createIsolatedProviderAdviceRuntimeCandidate(
     current.dependencies,
   ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "workbench_ai_advice_selection_refresh_unavailable",
-  );
+  assert.equal(result.reason, "workbench_ai_advice_selection_unavailable");
   assert.equal(result.providerEffectIssued, false);
   assert.equal(result.cleanupConfirmed, true);
-  assert.equal(current.runtimeObservation.selectionIssueCount, 2);
-  assert.equal(
-    current.calls.filter((call) => call === "revoke-selection").length,
-    2,
-  );
-  assert.equal(current.calls.includes("issue-packet"), false);
-  assert.equal(current.calls.includes("start-process"), false);
-  assert.equal(
-    current.calls.filter((call) => call === "cleanup-operation").length,
-    1,
-  );
-});
-
-/**
- * Mount後の再Selectionが初回Selectionと異なる場合はProvider Effectを発行しないことを検証する。
- *
- * @responsibility 短命Selection更新時の意味変更をProvider Effect前に拒否する。
- * @trace ERB-UT-023
- * @precondition Repository結合、初回Selection、Provider Home再観測およびMount Grant消費は成立する。
- * @stimulus 再Selectionの理由だけを初回から変更してWorkbench助言Runtimeを実行する。
- * @observation 二回のSelection、旧Selection失効、新Selection失効、Packet、Process、Effectおよびcleanupを観測する。
- * @oracle 意味不一致固有理由でblockedとなり、二つのSelectionを失効してProvider Effect 0で閉じる。
- * @cleanup Operation cleanupが完了し、Process外資源を残さない。
- * @boundary ERB-UT-023=Direct Boundary: Mount完了→Effect直前Selection更新
- */
-test("Mount後の再Selectionが初回Selectionと異なる場合はProvider Effectを発行しない", async () => {
-  const current = fixture({}, { selectionRefreshMismatch: true });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
-    current.dependencies,
-  ).run(plan, new AbortController().signal);
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "workbench_ai_advice_selection_refresh_mismatch");
-  assert.equal(result.providerEffectIssued, false);
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(current.runtimeObservation.selectionIssueCount, 2);
-  assert.equal(
-    current.calls.filter((call) => call === "revoke-selection").length,
-    2,
-  );
   assert.equal(current.calls.includes("issue-packet"), false);
   assert.equal(current.calls.includes("start-process"), false);
   assert.equal(
@@ -868,6 +663,120 @@ test("Host cleanup不成立後は助言を公開せず回復状態を保持す�
   assert.equal(result.providerEffectIssued, true);
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.advice, null);
+});
+
+/**
+ * 助言のPacket失効結果を他の終了処理と分けて保持する。
+ * @responsibility 拒否・未知値・例外を成功にせず、後続失効とHost処置を継続する。
+ * @trace ERB-UT-023
+ * @precondition Packet受付が不成立の局所fixtureを使う。
+ * @stimulus 各失効の成功・拒否・未知値・例外とpoison通知例外を与える。
+ * @observation 失効回数、一次理由、私有Host参照、清掃・保持とpoison。
+ * @oracle 成功だけをcleanとし、Packet例外でも後続失効と元結果登録を行う。
+ * @cleanup メモリ内の終了処理。実資源を生成しない。
+ * @boundary 助言catchと未消費Authority・Hostの終了。
+ */
+test("助言のPacket失効拒否・未知値・例外でも後続処置と元結果を保持する", async () => {
+  for (const target of ["packet"] as const) {
+    for (const outcome of [
+      "success",
+      "rejected",
+      "unknown",
+      "throw",
+    ] as const) {
+      for (const poisonNotificationThrows of [false, true]) {
+        const confirmed = outcome === "success";
+        const current = fixture(
+          {},
+          {
+            packetIssueInvalid: true,
+            ...(!confirmed
+              ? {
+                  packetRevokeOutcome:
+                    outcome === "rejected" ? ("false" as const) : outcome,
+                }
+              : {}),
+            poisonNotificationThrows,
+          },
+        );
+        const result = await createIsolatedProviderAdviceRuntimeCandidate(
+          current.dependencies,
+        ).run(plan, new AbortController().signal);
+        assert.equal(
+          result.reason,
+          "workbench_ai_advice_runtime_packet_unavailable",
+        );
+        assert.equal(result.cleanupConfirmed, confirmed);
+        assert.equal(result.providerEffectIssued, false);
+        const failure = classifyProviderAdviceHostFailure(result);
+        assert.equal(failure?.manualRecoveryRequired, !confirmed);
+        assert.equal(
+          failure?.hostRecoveryId,
+          confirmed ? null : "HOST-RECOVERY",
+        );
+        assert.equal(failure?.dockerRecoveryId, null);
+        for (const [call, count] of [
+          ["revoke-packet", target === "packet" ? 1 : 0],
+          ["cleanup-operation", 1],
+          ["abandon-operation", confirmed ? 0 : 1],
+          ["poison", confirmed ? 0 : 1],
+        ] as const)
+          assert.equal(
+            current.calls.filter((x) => x === call).length,
+            count,
+            call,
+          );
+        assert.equal(current.calls.includes("start-process"), false);
+      }
+    }
+  }
+});
+
+/**
+ * 回復放棄不明でも元Docker参照とHost保持を継続する。
+ * @responsibility Packet失効例外と回復放棄例外を独立して捕捉する。
+ * @trace ERB-UT-023
+ * @precondition 開始境界がexact Docker参照を引き渡してから失敗する。
+ * @stimulus 失効例外と回復放棄の成功・拒否・未知値・例外を組み合わせる。
+ * @observation 各処置の回数、一次理由と元Host・Docker参照。
+ * @oracle 全処置を一回試み、poison通知例外でも元結果と参照を保持する。
+ * @cleanup 模擬の保持処理。実Docker・Processを作らない。
+ * @boundary 助言の開始失敗と失効・回復引渡し・結果登録。
+ */
+test("助言は失効例外と回復放棄不明でも元Docker参照とHost保持を失わない", async () => {
+  for (const outcome of ["success", "false", "unknown", "throw"] as const) {
+    for (const poisonNotificationThrows of [false, true]) {
+      const current = fixture(
+        {},
+        {
+          startAfterHandoffThrows: true,
+          packetRevokeOutcome: "throw",
+          ...(outcome === "success" ? {} : { recoveryAbandonOutcome: outcome }),
+          poisonNotificationThrows,
+        },
+      );
+      const result = await createIsolatedProviderAdviceRuntimeCandidate(
+        current.dependencies,
+      ).run(plan, new AbortController().signal);
+      assert.equal(result.reason, "workbench_ai_advice_runtime_failed_closed");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.deepEqual(classifyProviderAdviceHostFailure(result), {
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        hostRecoveryId: "HOST-RECOVERY",
+        dockerRecoveryId,
+      });
+      for (const call of [
+        "revoke-packet",
+        "abandon-docker-recovery",
+        "abandon-operation",
+        "poison",
+      ])
+        assert.equal(current.calls.filter((x) => x === call).length, 1, call);
+      assert.equal(current.calls.includes("cleanup-operation"), false);
+      assert.equal(current.calls.includes("finalize-docker-recovery"), false);
+    }
+  }
 });
 
 /**
@@ -1293,55 +1202,43 @@ test("技術Planの往復を廃止し上位は同じ試行専用Executorを開�
 
 /**
  * 消費した準備が実行開始前に拒否された経路を閉じる。
- * @responsibility 未消費AuthorityとMountの返却を一回ずつ確認する。
+ * @responsibility 同じ実行計画とOperation参照を開始・記録へ接続する。
  * @trace ERB-UT-023
  * @precondition 同一Ownerの合成参照と有限の開始代役だけ。
- * @stimulus 計画拒否・改訂拒否・同期例外・Authority消費済み拒否。
- * @observation 失効・Mount返却回数と清掃結果、別PlanのEffect前拒否。
- * @oracle 未消費時は失効1・返却1、消費済みは上位失効0。別Ownerは実操作0。
- * @cleanup N/A: Docker・実Authority・Fileを使用しない。
+ * @stimulus 計画拒否・改訂拒否・同期例外・Recovery引渡し後拒否。
+ * @observation 開始回数と拒否結果、別Planの記録前拒否。
+ * @oracle 同じExecutorは開始一回、別Plan・別Ownerの記録操作0。
+ * @cleanup N/A: Docker・実Home・Fileを使用しない。
  */
-test("上位準備消費後の開始拒否は元AuthorityとMountを重複なく閉じる", () => {
+test("準備計画の開始拒否は元選定と同じExecutor・Operation相関を保持する", () => {
   const source = fs.readFileSync(
     new URL("../../../src/execution/provider-executor.ts", import.meta.url),
     "utf8",
   );
-  for (const mode of [
-    "plan_invalid",
-    "revision_invalid",
-    "throws",
-    "consumed",
-    "revoke_failed",
-    "consume_null",
-    "mount_failed",
-  ]) {
+  for (const mode of ["throws", "refused", "recovery_attempted"]) {
     const management = {};
-    const control = {};
     const technical = attemptPlan();
     const owned = {
       ...technical,
-      authorityUseCapability: {},
-      authorityControlCapability: control,
-      selectionRecordId: "MODELSEL-UPPER",
-      selectionHash: "a".repeat(64),
+      executionSelection: selection,
       taskAttempt: 0,
       consumer: "workbench",
+      executor: {},
     };
-    let revoked = 0,
-      mounts = 0,
-      revisions = 0;
+    let revisions = 0,
+      recoveryCalls = 0,
+      starts = 0;
+    const noop = () => {
+      throw Error("unexpected_effect");
+    };
     const preparation = {
       prepare: () => ({
         status: "prepared",
-        preparedCapability: {},
+        plan: owned,
         selectionNotice: "selected",
         selectedModel: "opus",
         selectedEffort: "low",
       }),
-      consume: () => (mode === "consume_null" ? null : owned),
-    };
-    const noop = () => {
-      throw Error("unexpected_effect");
     };
     const bindings: Record<string, unknown> = {
       codexPreparation: preparation,
@@ -1358,8 +1255,6 @@ test("上位準備消費後の開始拒否は元AuthorityとMountを重複なく
       "recordRuntimeOwnedDockerTerminalObservation",
       "recordRuntimeOwnedDockerResourceNotIssued",
       "recordRuntimeOwnedDockerResourceReceipt",
-      "borrowOwnedOperationExecutionSelection",
-      "beginRuntimeOwnedDockerRecovery",
     ])
       bindings[name] = noop;
     Object.assign(bindings, {
@@ -1367,61 +1262,41 @@ test("上位準備消費後の開始拒否は元AuthorityとMountを重複なく
         executor: { start: (...args: unknown[]) => unknown },
         state: { dependencies: unknown },
         plan: unknown,
-        management: unknown,
-      ) => executor.start(plan, management, state.dependencies),
+        candidate: unknown,
+      ) => executor.start(plan, candidate, state.dependencies),
+      beginRuntimeOwnedDockerRecovery: (plan: unknown, candidate: unknown) => {
+        assert.strictEqual(plan, owned);
+        assert.strictEqual(candidate, management);
+        recoveryCalls++;
+        return null;
+      },
       process: { stderr: {} },
       createRuntimeOwnedLifecycleNoticeReporter: () => noop,
       verifyRuntimeOwnedRepositoryOperation: () => {
         revisions++;
         return true;
       },
-      consumeRuntimeOwnedProviderAuthority: () => ({
-        operationId: owned.operationId,
-      }),
-      revokeRuntimeOwnedProviderAuthority: (c: unknown, m: unknown) => {
-        assert.strictEqual(c, control);
-        assert.strictEqual(m, management);
-        revoked++;
-        return { status: mode === "revoke_failed" ? "blocked" : "revoked" };
-      },
-      completeRuntimeOwnedProviderHomeMount: (c: unknown, m: unknown) => {
-        assert.strictEqual(c, owned.activeMountCapability);
-        assert.strictEqual(m, management);
-        mounts++;
-        return { status: mode === "mount_failed" ? "blocked" : "completed" };
-      },
       executor: {
         start: (
           plan: unknown,
-          m: unknown,
+          candidate: unknown,
           callbacks: {
             verifyRevision: (m: unknown, p: unknown) => unknown;
             beginRecovery: (p: unknown, m: unknown) => unknown;
-            completeMount: (p: unknown, m: unknown) => unknown;
-            consumeProviderAuthority: (
-              a: unknown,
-              b: unknown,
-              c: unknown,
-            ) => unknown;
           },
         ) => {
-          assert.equal(callbacks.verifyRevision(m, {}), false);
+          starts++;
+          assert.strictEqual(plan, owned);
+          assert.strictEqual(candidate, management);
+          assert.equal(callbacks.verifyRevision(candidate, {}), false);
           assert.equal(callbacks.verifyRevision({}, plan), false);
-          assert.equal(callbacks.beginRecovery({}, m), null);
+          assert.equal(callbacks.beginRecovery({}, candidate), null);
+          assert.equal(callbacks.beginRecovery(plan, {}), null);
           assert.equal(revisions, 0);
+          assert.equal(recoveryCalls, 0);
           if (mode === "throws") throw Error("start_failed");
-          if (
-            mode === "revision_invalid" ||
-            mode === "consumed" ||
-            mode === "mount_failed"
-          )
-            callbacks.completeMount(owned.activeMountCapability, m);
-          if (mode === "consumed")
-            callbacks.consumeProviderAuthority(
-              owned.authorityUseCapability,
-              owned.activeMountCapability,
-              m,
-            );
+          if (mode === "recovery_attempted")
+            callbacks.beginRecovery(plan, candidate);
           return {
             status: "blocked",
             reason: "synthetic",
@@ -1435,7 +1310,6 @@ test("上位準備消費後の開始拒否は元AuthorityとMountを重複なく
     Object.assign(owned, { executor: bindings.executor });
     const declarations = [
       "createBlockedPreparationStart",
-      "settleUnstartedPreparation",
       "createExecutionRecordOperations",
       "startRuntimeOwnedDockerProcessController",
     ]
@@ -1455,57 +1329,11 @@ test("上位準備消費後の開始拒否は元AuthorityとMountを重複なく
     assert.equal(result.selectionNotice, "selected");
     assert.equal(result.selectedModel, "opus");
     assert.equal(result.selectedEffort, "low");
-    assert.equal(
-      revoked,
-      mode === "consumed" || mode === "consume_null" ? 0 : 1,
-      mode,
-    );
-    assert.equal(mounts, mode === "consume_null" ? 0 : 1, mode);
-    assert.equal(
-      result.cleanupConfirmed,
-      !["consumed", "revoke_failed", "consume_null", "mount_failed"].includes(
-        mode,
-      ),
-      mode,
-    );
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(starts, 1);
+    assert.equal(recoveryCalls, mode === "recovery_attempted" ? 1 : 0);
   }
-});
-
-/**
- * 助言Grantの初回と更新で操作・試行・選定Hashの差を拒否する。
- * @responsibility 別操作又は異なる試行の値をProviderへ搬送しない。
- * @trace ERB-UT-023
- * @precondition 既存合成Runtimeの一項目だけを差し替える。
- * @stimulus 初回・更新それぞれ三項目の差を返す。
- * @observation 元Grant失効、Packet／Process呼出しとEffect。
- * @oracle 各差でblocked、Packet／Process／Provider 0かつ取得済みGrantを失効する。
- * @cleanup 同じRuntimeが取得済みOperationとGrantを解放する。
- * @boundary ERB-UT-023=Direct Boundary: 助言Runtime→合成Grant発行境界。
- */
-test("助言の初回・更新Grantは別操作・試行・選定HashをEffect前に拒否する", async () => {
-  for (const index of [0, 1] as const)
-    for (const field of [
-      "operationId",
-      "taskAttempt",
-      "selectionHash",
-    ] as const) {
-      const current = fixture(
-        {},
-        { selectionCorrelationMismatch: { index, field } },
-      );
-      const result = await createIsolatedProviderAdviceRuntimeCandidate(
-        current.dependencies,
-      ).run(plan, new AbortController().signal);
-      assert.equal(result.status, "blocked", index + ":" + field);
-      assert.equal(result.providerEffectIssued, false);
-      assert.equal(current.calls.includes("issue-packet"), false);
-      assert.equal(current.calls.includes("start-process"), false);
-      assert.equal(
-        current.calls.filter((x) => x === "revoke-selection").length,
-        index + 1,
-      );
-      assert.equal(result.cleanupConfirmed, true);
-    }
 });
 
 /**
@@ -1555,7 +1383,6 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
     "onProviderSubmitting",
     "onResourceCreated",
     "onStarted",
-    "onResourcesClosed",
     "onCleanupCompleted",
   ];
   const verify = (text: string) => {
@@ -1646,16 +1473,13 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
         assert.strictEqual(supplied, reference);
         assert.ok(callbacks);
         if (mode.startsWith("start_refused")) return blocked;
-        callbacks.onResourcesClosed?.(observation);
         callbacks.onCleanupCompleted?.(observation);
         return { status: "started", completion: Promise.resolve(raw) };
       },
     };
     const operations = {
       verifyRevision: () => true,
-      completeMount: () => ({ status: "completed" }),
       completeCleanup: () => ({
-        mountLeaseReleased: true,
         homeLeaseReleased: true,
         recoveryCompleted: true,
         recoveryFinalizationCapability: {},
@@ -1802,9 +1626,7 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
   );
   const plan = attemptPlan();
   const result = run(executor, plan, management, reference, {
-    completeMount: () => ({ status: "completed" }),
     completeCleanup: () => ({
-      mountLeaseReleased: true,
       homeLeaseReleased: true,
       recoveryCompleted: false,
       recoveryFinalizationCapability: null,

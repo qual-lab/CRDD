@@ -9,6 +9,32 @@
 B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
 設計正本: [Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[文書モデル](../../../06_Architecture/Details/document-model/01_Architecture.md)、[実行モデル](../../../06_Architecture/Details/execution-model/01_Architecture.md)、[構成モデル](../../../06_Architecture/Details/configuration-model/01_Architecture.md)
 
+## Local許可体系の退役 — 2026-11-19
+
+以前の本計画で保持対象としていた内部Profile・Registry・Local Grant、人工IDとHash・改訂照合、30秒cache・更新5分期限・独立Provider Authorityの5秒期限を、人間の指示により退役する。準備計画の30秒期限と専用時計、専用試験・Coverage入口も撤去する。下記の過去の配置表・試験集合は当時の履歴であり、現在の保持契約ではない。現在の設計はCoordinator Architecture、今回の限定確認と未実施範囲は変更記録を正本とする。
+
+一回開始、現在Operation、Selection／Mount、Home排他、記録・回収の既存実処理は今回変更していない。これらも維持確定ではなく次段の必要性吟味対象とする。別の許可台帳・成功stub・互換Wrapperは追加しない。
+
+## 未接続Root保護・観測・Home Layout候補の退役 — 2026-11-19
+
+現行の通常Run／Doctor／Auth／Recovery／Maintenanceに候補評価の本番Callerがないことを確認し、Root保護Policy、合成Root観測Codec、常時未実装Root観測入口、Home Layout候補と専用Helperを撤去した。§38.17の未実装Root候補を保持する方針は当時の配置判断であり、本単位で退役へ更新する。既存実装を別Fileへ移す処置や互換Wrapperは追加しない。
+
+現役のHome所在・Provider／Repository横断Binding・Node実体観測・Grant・共通wx排他・認証・Recovery・Windows Path検査は維持する。Platform内側契約は改訂3で候補専用枠を除き、Home契約は改訂7で未使用Layout入力説明を除く。DoctorのRoot保護Policy説明も除去し、未実装保護を成立扱いしない。通常公開Rootと保存Schemaは不変。専用二試験と登録だけを退役し、QA正式項目と混合試験の現役義務は維持する。削除をPassへ数えず、限定試験・独立レビューは[変更記録](change.md#残る機能必要性監査からの是正--2026-11-19)へ記録する。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+## 開発計測の製品経路分離 — 2026-11-19
+
+分離前の`execution/measurement.ts`は表示用の計測だけではなく、二Taskの予約、Taskあたり四回・Session全体八回の呼出し制限、Source／Repositoryの現在性、期限・取消・各段階での失効確認を所有する。Controller専用入口、Operationへの開発Context結合、AuthorityとRecoveryの開発Context検査へ接続している。これらを単にScriptへ移すだけでは、製品が開発専用Runtimeを支える構造は解消しない。人間が通常Task二回の外側計測と、専用の段階計測・呼出し制約・各段階Source失効の撤去を承認した。
+
+| 項目 | 通常の完成操作への統一案 | 保持又は変更する意味 |
+| --- | --- | --- |
+| 実行 | 計測Scriptから通常の`runTask`を二回呼ぶ | 通常の受付・保存・排他・認可・取消join・回復を利用し、専用Task Runtimeを廃止する |
+| 入力 | 呼出し元がProject・Principal・Workspaceと通常Task要求を明示する | 旧計測設定から主体・Workspace・新IDを推測生成しない。旧設定の互換変換は作らない |
+| 計測 | Scriptで経過時間と開始前／終了後のSource観測を取得する | 製品内の段階別Timingと各Provider呼出しの専用Session会計は撤去。通常Taskの実行上限・失効・回収保証は変更しない |
+| 期限・取消 | Scriptの期限で通常Taskへ取消を送り、完了・終了を待つ | 専用Sessionの各段階でのSource失効確認と同等の保証とは扱わない |
+| 撤去対象 | Controllerの専用start、Operationの開発Context、Authority／Recoveryの開発分岐、専用Session Mapと予約 | 旧Sessionを別名又は別Fileへそのまま移すことはしない |
+
+承認済み方針に従い、製品の専用入口・Context・Invocation Wrapper・結果投影とmeasurement.tsを撤去し、既存Scriptへ通常runTask二回の外側計測と必要なSource観測だけを統合した。旧Sessionを別Fileへ移す処置はしていない。専用三試験は退役し、通常取消・回収・現在性の混合試験は維持する。旧設定のReader・移行・補完は追加しない。
+
 ## Package外の開発Source観測利用側の是正 — 2026-11-19
 
 今回の再確認は直前3点の利用側追従であり、変更分類は既存契約への接続修正。Coordinator内の21File回帰と内部Source検索だけでは、MCP／Workbench所有へ移った検証ToolのImportを保証していなかった。基準は直前の作業差分で、公開Root・CLI引数・保存形式・認可・期限・回収・過去保持物は変更しない。親が実際の入口・利用先の設計・Scope判定・全Importを照合してから編集した。独立レビューと利用側の限定回帰・文書確認を行い、全体回帰・実AI・Dockerは実施しない。

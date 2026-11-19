@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 /**
  * 読取り助言の受付・送信同意・Provider配送・結果受理を所有する。
  *
@@ -47,12 +48,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  consumeRuntimeOwnedProviderHomeMountGrant,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  issueRuntimeOwnedDelegationSelectionGrant,
-  issueRuntimeOwnedProviderHomeMountGrant,
-  revokeRuntimeOwnedDelegationSelectionGrant,
-  revokeRuntimeOwnedProviderHomeMountGrant,
+  preflightRuntimeOwnedDelegationSelections,
 } from "./authority.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -210,8 +207,6 @@ export type AdviceDispatch = (
   input: AdviceDispatchInput,
   cancellationSignal: AbortSignal,
 ) => Promise<CoordinatorAiRequestResult>;
-
-import { hashExecutionSelection } from "../selection/resolve.ts";
 
 /**
  * 固定Contextの読取り助言だけを単発実行Ownerへ提供する。
@@ -583,7 +578,11 @@ export function describeAdviceDispatchContract() {
     contract: PROVIDER_ADVICE_DISPATCH_RUNTIME_CONTRACT,
     contractRevision: PROVIDER_ADVICE_DISPATCH_RUNTIME_CONTRACT_REVISION,
     authority: "authorized_repository_request",
-    authorityScope: Object.freeze(["taskHash", "selectionHash", "provider"]),
+    authorityScope: Object.freeze([
+      "taskHash",
+      "executionSelection",
+      "provider",
+    ]),
     maximumProviderExecutionsPerRequest: 1,
     automaticRetryAllowed: false,
     cleanupConfirmationRequired: true,
@@ -610,9 +609,10 @@ function isValidDispatchInput(input: AdviceDispatchInput): boolean {
     ) &&
     fixed !== null &&
     fixed.role === "advice" &&
-    hashExecutionSelection(
+    isDeepStrictEqual(
       inspectExecutionSelection(input.taskPacket.executionSelection),
-    ) === hashExecutionSelection(fixed)
+      fixed,
+    )
   );
 }
 
@@ -801,9 +801,10 @@ function executionSelectionIsValid(input: AdviceProviderInput) {
   return (
     selection !== null &&
     selection.role === "advice" &&
-    hashExecutionSelection(
+    isDeepStrictEqual(
       inspectExecutionSelection(input.taskPacket.executionSelection),
-    ) === hashExecutionSelection(selection)
+      selection,
+    )
   );
 }
 
@@ -1115,11 +1116,7 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
     managementCapability: unknown,
   ) => Readonly<{ operationId: string }> | null;
   observeProviderHome: typeof inspectRuntimeOwnedWindowsProviderHomeCandidate;
-  issueMountGrant: typeof issueRuntimeOwnedProviderHomeMountGrant;
-  consumeMountGrant: typeof consumeRuntimeOwnedProviderHomeMountGrant;
-  revokeMountGrant: typeof revokeRuntimeOwnedProviderHomeMountGrant;
-  issueSelection: typeof issueRuntimeOwnedDelegationSelectionGrant;
-  revokeSelection: typeof revokeRuntimeOwnedDelegationSelectionGrant;
+  preflightSelections: typeof preflightRuntimeOwnedDelegationSelections;
   issuePacket: typeof issueRuntimeOwnedProviderAdvicePacket;
   revokePacket: typeof revokeRuntimeOwnedProviderAdvicePacket;
   startProcess: typeof startRuntimeOwnedDockerProcessController;
@@ -1252,15 +1249,13 @@ function createProviderAdviceRuntime(
       );
 
     let operation: Operation | null = null;
-    let mountControl: object | null = null;
-    let selectionControl: object | null = null;
     let packetOwner: object | null = null;
     let processControl: object | null = null;
     let recoveryCapability: object | null = null;
     let dockerRecoveryId: string | null = null;
     let recoveryHandoffRejected = false;
     let recoveryFinalizationCapability: object | null = null;
-    let selectionCleanupConfirmed = true;
+    let authorityCleanupConfirmed = true;
     let providerEffectIssued = false;
     let isOperationCleaned = false;
     let abortListener: (() => void) | null = null;
@@ -1306,7 +1301,6 @@ function createProviderAdviceRuntime(
           "workbench_ai_advice_repository_binding_unavailable",
         );
 
-      const selectionInput = selectionRequest(plan, operation.operationId);
       try {
         await dependencies.observeOperation?.({
           operationId: operation.operationId,
@@ -1317,113 +1311,34 @@ function createProviderAdviceRuntime(
           "workbench_ai_advice_operation_save_unconfirmed",
         );
       }
-      const selection = dependencies.issueSelection(
+      const preflight = dependencies.preflightSelections(
         operation.managementCapability,
-        selectionInput,
+        Object.freeze({
+          operationId: operation.operationId,
+          executionSelections: Object.freeze([plan.executionSelection]),
+        }),
       ) as RuntimeRecord;
-      selectionControl = objectValue(selection.controlCapability);
-      let selectionUse = objectValue(selection.useCapability);
       if (
-        !validSelection(
-          selection,
-          selectionControl,
-          selectionUse,
-          plan,
-          operation.operationId,
-        )
+        preflight.status !== "candidate" ||
+        preflight.operationId !== operation.operationId ||
+        !Array.isArray(preflight.executionSelections) ||
+        !isDeepStrictEqual(preflight.executionSelections, [
+          plan.executionSelection,
+        ])
       )
         throw new AdviceRuntimeError(
           "workbench_ai_advice_selection_unavailable",
         );
 
-      const observation = dependencies.observeProviderHome(
-        plan.provider,
-      ) as RuntimeRecord;
-      const observationCapability = objectValue(
-        observation.observationCapability,
-      );
+      const observation = dependencies.observeProviderHome(plan.provider);
+      const providerHome = observation.providerHome;
       if (
         observation.status !== "candidate" ||
-        !observationCapability ||
-        observation.provider !== plan.provider
+        !providerHome ||
+        providerHome.provider !== plan.provider
       )
         throw new AdviceRuntimeError(
           "workbench_ai_advice_provider_home_unavailable",
-        );
-
-      const mount = dependencies.issueMountGrant(
-        operation.managementCapability,
-        observationCapability,
-      ) as RuntimeRecord;
-      mountControl = objectValue(mount.controlCapability);
-      const mountUse = objectValue(mount.useCapability);
-      if (mount.status !== "issued" || !mountControl || !mountUse)
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_mount_grant_unavailable",
-        );
-      const mountObservation = dependencies.observeProviderHome(
-        plan.provider,
-      ) as RuntimeRecord;
-      const mountObservationCapability = objectValue(
-        mountObservation.observationCapability,
-      );
-      if (
-        mountObservation.status !== "candidate" ||
-        !mountObservationCapability ||
-        mountObservation.provider !== plan.provider
-      )
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_mount_reobservation_unavailable",
-        );
-      const consumedMount = dependencies.consumeMountGrant(
-        mountUse,
-        operation.managementCapability,
-        mountObservationCapability,
-      ) as RuntimeRecord;
-      const mountAuthorization = objectValue(
-        consumedMount.mountAuthorizationCapability,
-      );
-      if (consumedMount.status !== "consumed" || !mountAuthorization)
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_mount_authorization_unavailable",
-        );
-
-      const revokedSelection = dependencies.revokeSelection(
-        selectionControl,
-        operation.managementCapability,
-      ) as RuntimeRecord;
-      if (revokedSelection.status !== "revoked")
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_selection_refresh_revoke_failed",
-        );
-      selectionControl = null;
-      const refreshedSelection = dependencies.issueSelection(
-        operation.managementCapability,
-        selectionInput,
-      ) as RuntimeRecord;
-      const refreshedSelectionControl = objectValue(
-        refreshedSelection.controlCapability,
-      );
-      const refreshedSelectionUse = objectValue(
-        refreshedSelection.useCapability,
-      );
-      selectionControl = refreshedSelectionControl;
-      if (
-        !validSelection(
-          refreshedSelection,
-          refreshedSelectionControl,
-          refreshedSelectionUse,
-          plan,
-          operation.operationId,
-        )
-      )
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_selection_refresh_unavailable",
-        );
-      selectionUse = refreshedSelectionUse;
-      if (!sameSelection(selection, refreshedSelection))
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_selection_refresh_mismatch",
         );
       const packet = dependencies.issuePacket({
         operationId: operation.operationId,
@@ -1448,8 +1363,9 @@ function createProviderAdviceRuntime(
           purpose: "advice",
           managementCapability: operation.managementCapability,
           mountCapability: operation.mountCapability,
-          mountAuthorizationCapability: mountAuthorization,
-          selectionUseCapability: selectionUse,
+          providerHome,
+          executionSelection: plan.executionSelection,
+          taskAttempt: 0,
           packetCapability: packetUse,
           packetOwnerCapability: packetOwner,
           recoveryCorrelationId: dependencies.recoveryCorrelationId,
@@ -1481,8 +1397,6 @@ function createProviderAdviceRuntime(
           "workbench_ai_advice_provider_preparation_failed",
         );
       packetOwner = null;
-      selectionControl = null;
-      mountControl = null;
       processControl = objectValue(process.controlCapability);
       const completion = process.completion;
       providerEffectIssued = process.dockerEffectStarted === true;
@@ -1602,30 +1516,29 @@ function createProviderAdviceRuntime(
           );
         } catch {}
       }
-      if (packetOwner) dependencies.revokePacket(packetOwner);
-      if (selectionControl && operation) {
+      const packet = packetOwner;
+      packetOwner = null;
+      if (packet) {
         try {
-          const revokedSelection = dependencies.revokeSelection(
-            selectionControl,
-            operation.managementCapability,
-          ) as RuntimeRecord;
-          if (revokedSelection.status === "revoked") selectionControl = null;
-          else selectionCleanupConfirmed = false;
+          if (dependencies.revokePacket(packet) !== true)
+            authorityCleanupConfirmed = false;
         } catch {
-          selectionCleanupConfirmed = false;
+          authorityCleanupConfirmed = false;
         }
       }
-      if (mountControl && operation)
-        dependencies.revokeMountGrant(
-          mountControl,
-          operation.managementCapability,
-        );
-      if (recoveryCapability && operation)
-        dependencies.abandonDockerRecovery(
-          recoveryCapability,
-          operation.managementCapability,
-        );
-
+      if (recoveryCapability && operation) {
+        try {
+          if (
+            dependencies.abandonDockerRecovery(
+              recoveryCapability,
+              operation.managementCapability,
+            ) !== true
+          )
+            authorityCleanupConfirmed = false;
+        } catch {
+          authorityCleanupConfirmed = false;
+        }
+      }
       const initializationFailure =
         error instanceof AdviceRuntimeError
           ? (initializationFailures.get(error) ?? null)
@@ -1651,14 +1564,20 @@ function createProviderAdviceRuntime(
       }
       cleanupConfirmed =
         cleanupConfirmed &&
-        selectionCleanupConfirmed &&
+        authorityCleanupConfirmed &&
         dockerRecoveryId === null;
       if (operation && !cleanupConfirmed) {
         try {
           await dependencies.abandonOperation(operation.managementCapability);
         } catch {}
       }
-      if (!cleanupConfirmed) dependencies.poisonAfterCleanupUnknown();
+      if (!cleanupConfirmed) {
+        try {
+          dependencies.poisonAfterCleanupUnknown();
+        } catch {
+          // 終了通知の例外でも一次結果と同じ回復参照を登録する。
+        }
+      }
       const result = blocked(
         error instanceof AdviceRuntimeError
           ? error.reason
@@ -1728,111 +1647,6 @@ class AdviceRuntimeError extends Error {
     this.reason = reason;
     if (hostFailure !== null) initializationFailures.set(this, hostFailure);
   }
-}
-
-/**
- * 読取り助言Runtime境界におけるselectionRequestの処理境界を固定する。
- *
- * @responsibility 読取り助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
- * @trace ARCH-000008
- * @input 宣言された引数だけを受け取る。
- * @returns 宣言された結果型を返す。
- * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
- * @postcondition 成功時だけ検証済みの結果を返す。
- * @effect 宣言または注入された依存以外へEffectを発行しない。
- * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
- * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
- * @boundary 呼出し元と本Moduleの局所責務境界。
- * @security 秘密値と未許可情報を出力またはlogへ追加しない。
- * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
- */
-
-function selectionRequest(
-  plan: ProviderAdviceExecutionPlan,
-  operationId: string,
-) {
-  return Object.freeze({
-    operationId,
-    taskAttempt: 0,
-    executionSelection: plan.executionSelection,
-  });
-}
-
-/**
- * 読取り助言のSelectionが固定実行計画と一致するか判定する。
- *
- * @responsibility Provider Effect前に固定選定、Model、推論強度およびCapabilityの完全性を検査する。
- * @trace ARCH-000010
- * @input selection: Selection結果、controlCapability: 制御Capability、useCapability: 利用Capability、plan: 固定実行計画
- * @returns 固定実行計画と完全一致する発行済みSelectionだけtrueを返す。
- * @precondition Selection結果はCoordinatorのSelection境界から返されている。
- * @postcondition trueでもProvider Effect Authorityを発行しない。
- * @effect N/A: 入力値の比較だけを行う。
- * @failure 不足、不一致または不正状態をfalseへ閉じる。
- * @invariant Repository／Workspace共有可否を変更しない。
- * @boundary 読取り助言LifecycleとSelection Grant境界。
- * @security Capability自体を公開結果へ含めない。
- * @concurrency N/A: 共有状態を持たない同期判定である。
- */
-function validSelection(
-  selection: RuntimeRecord,
-  controlCapability: object | null,
-  useCapability: object | null,
-  plan: ProviderAdviceExecutionPlan,
-  operationId: string,
-) {
-  return (
-    selection.operationId === operationId &&
-    selection.taskAttempt === 0 &&
-    selection.selectionHash ===
-      hashExecutionSelection(plan.executionSelection) &&
-    selection.status === "issued" &&
-    controlCapability !== null &&
-    useCapability !== null &&
-    selection.executorProvider === plan.provider &&
-    hashExecutionSelection(
-      inspectExecutionSelection(selection.executionSelection),
-    ) === hashExecutionSelection(plan.executionSelection) &&
-    selection.selectedModel === plan.exactModelId &&
-    selection.selectedEffort === plan.reasoningEffort &&
-    typeof selection.speedMode === "string" &&
-    typeof selection.selectionNotice === "string"
-  );
-}
-
-/**
- * Mount前後のSelectionが同じ意味を保持するか判定する。
- *
- * @responsibility 短命Selectionの再発行によってProvider、固定選定、Model、推論強度、速度または理由が変化しないことを保証する。
- * @trace ARCH-000010
- * @input initial: Mount前Selection、refreshed: Effect直前Selection
- * @returns 意味Propertyが完全一致する場合だけtrueを返す。
- * @precondition 両Selectionは同じOperationと入力から発行されている。
- * @postcondition Capability Object Identityは比較対象に含めない。
- * @effect N/A: 入力値の比較だけを行う。
- * @failure 意味差または不足Propertyをfalseへ閉じる。
- * @invariant Selectionの短命性と一回消費性を変更しない。
- * @boundary Mount前選定とProvider Effect直前選定の境界。
- * @security Selection理由以外の内部状態を公開しない。
- * @concurrency N/A: 共有状態を持たない同期判定である。
- */
-function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
-  return (
-    initial.operationId === refreshed.operationId &&
-    initial.taskAttempt === refreshed.taskAttempt &&
-    initial.selectionHash === refreshed.selectionHash &&
-    initial.executorProvider === refreshed.executorProvider &&
-    hashExecutionSelection(
-      inspectExecutionSelection(initial.executionSelection),
-    ) ===
-      hashExecutionSelection(
-        inspectExecutionSelection(refreshed.executionSelection),
-      ) &&
-    initial.selectedModel === refreshed.selectedModel &&
-    initial.selectedEffort === refreshed.selectedEffort &&
-    initial.speedMode === refreshed.speedMode &&
-    initial.selectionNotice === refreshed.selectionNotice
-  );
 }
 
 /**
@@ -2026,11 +1840,7 @@ function createProductionDependencies(
     bindRepository: (managementCapability) =>
       bindRuntimeOwnedRepositoryOperation(managementCapability, repositoryRoot),
     observeProviderHome: inspectRuntimeOwnedWindowsProviderHomeCandidate,
-    issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
-    consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
-    revokeMountGrant: revokeRuntimeOwnedProviderHomeMountGrant,
-    issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
-    revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
+    preflightSelections: preflightRuntimeOwnedDelegationSelections,
     issuePacket: issueRuntimeOwnedProviderAdvicePacket,
     revokePacket: revokeRuntimeOwnedProviderAdvicePacket,
     startProcess: startRuntimeOwnedDockerProcessController,

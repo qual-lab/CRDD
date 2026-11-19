@@ -23,7 +23,7 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
-import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/measurement.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../scripts/measure-development-providers.ts";
 import {
   getRepository,
   readRepositorySnapshot,

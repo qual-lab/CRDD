@@ -442,7 +442,6 @@ export function completeOperation(
         operation.host.cleanup !== "confirmed" ||
         operation.lease !== "released" ||
         !terminal.homeLeaseReleased ||
-        !terminal.mountLeaseReleased ||
         !terminal.recoveryCompleted ||
         operation.execution.ownerEffect !== "disabled"
       )
@@ -555,7 +554,6 @@ export function writeOwnedHistoryCheckpoint(
     !settlement ||
     !cleanupStatus ||
     !dockerTerminal?.homeLeaseReleased ||
-    !dockerTerminal.mountLeaseReleased ||
     !dockerTerminal.recoveryCompleted
   )
     return writeStateSnapshot(null, null, null, null);
@@ -620,7 +618,6 @@ export function completeOwnedSettlement(
     !settlement ||
     !cleanupStatus ||
     !dockerTerminal?.homeLeaseReleased ||
-    !dockerTerminal.mountLeaseReleased ||
     !dockerTerminal.recoveryCompleted
   )
     return writeStateSnapshot(null, null, null, null);
@@ -707,7 +704,6 @@ export function publishOwnedHistory(
     !settlement ||
     !cleanupStatus ||
     !terminal?.homeLeaseReleased ||
-    !terminal.mountLeaseReleased ||
     !terminal.recoveryCompleted
   )
     return writeStateSnapshot(null, null, null, null);

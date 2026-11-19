@@ -1,12 +1,11 @@
 /**
- * Coordinatorが所有する準備候補・一回消費・権限相関の型を定義する。
+ * Coordinatorが所有する同期準備・完全選定・実行記録の型を定義する。
  * @packageDocumentation
- * @responsibility 準備のStore・期限・取消と実行へ渡す候補を所有し、Docker操作を実装しない。
+ * @responsibility 同期準備の入力と実行計画・回復記録の相関を所有し、Docker操作を実装しない。
  * @trace ARCH-000008
  * @trace ARCH-000015
  */
 import type {
-  ModelSelection as AiModelSelection,
   Provider,
   ReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
@@ -50,21 +49,10 @@ export type AttemptBinding = Readonly<{
   }>;
 }>;
 
-/**
- * 有効化したProvider Home Grantの値契約。
- *
- * @responsibility 操作・Provider・Homeとローカル主体の固定対応を保持する。
- * @trace ARCH-000015
- * @shape Grant参照、Provider・操作Identityと四Hash。
- * @invariant 取得済みGrantを再発行・補完しない。
- * @boundary Home Mount Ownerと共通準備の間。
- * @security ローカル主体とHomeの結合を省略しない。
- * @compatibility 既存activateMount結果のGrantをそのまま使用する。
- */
-export type MountGrant = Readonly<{
-  grantRef: string;
-  provider: string;
-  operationId: string;
+/** 上位のNode観測で確定した非秘密のHome実体。許可tokenではない。 */
+export type ProviderHome = Readonly<{
+  provider: Provider;
+  providerHomeSourcePath: string;
   providerHomeIdentityHash: string;
   stableLogicalHomeBindingHash: string;
 }>;
@@ -78,8 +66,9 @@ export type MountGrant = Readonly<{
 export type PreparationInput = Readonly<{
   managementCapability: unknown;
   mountCapability: unknown;
-  mountAuthorizationCapability: unknown;
-  selectionUseCapability: unknown;
+  providerHome: ProviderHome;
+  executionSelection: ExecutionSelection;
+  taskAttempt: 0 | 1;
   recoveryCorrelationId: unknown;
   consumer: unknown;
 }> &
@@ -94,22 +83,14 @@ export type PreparationInput = Readonly<{
   );
 
 /**
- * 一回消費される準備候補を管理するOwner。Factory呼出し自体は実行ではない。
- * @responsibility prepare・cancel・consumeの契約を明示する。
+ * 固定Providerの同期準備Owner。Factory呼出し自体は実行ではない。
+ * @responsibility prepareが返す計画と拒否の契約を明示する。
  * @trace ARCH-000015
  * @invariant 本番の返却型と公開型を別々に定義しない。
  */
 export type AttemptPreparation<P extends Provider = Provider> = Readonly<{
   productionAuthority: false;
   prepare: (input: PreparationInput) => PreparationResult<P>;
-  cancel: (
-    prepared: unknown,
-    management: unknown,
-  ) => PreparationCancellationResult;
-  consume: (
-    prepared: unknown,
-    management: unknown,
-  ) => PreparedAttemptPlan<P> | null;
 }>;
 
 /**
@@ -131,102 +112,37 @@ export type PreparationResult<P extends Provider = Provider> =
 export type PreparationFailure = Readonly<{
   status: "blocked";
   reason: string;
-  preparedCapability: null;
+  plan: null;
   operationId: null;
-  grantRef: null;
-  selectionRecordId: null;
   selectedModel: null;
   selectedEffort: null;
   selectionNotice: null;
-  providerHomeMountLeaseActive: false;
   dockerEffectIssued: false;
   filesystemEffectIssued: false;
   networkEffectIssued: false;
   processEffectIssued: false;
   providerRequestIssued: false;
-  runtimeAuthorityIssued: false;
   operationCapabilityIssued: false;
   hostPathReported: false;
   proxyCredentialReported: false;
 }>;
 
 /**
- * 準備候補の取消・失効と拒否を区別する。
- * @responsibility 元操作の参照が返る終了結果だけを拒否結果から区別する。
- * @trace ARCH-000015
- * @invariant blockedでは操作参照を補完しない。
- */
-export type PreparationCancellationResult =
-  | PreparationFailure
-  | Readonly<
-      Omit<PreparationFailure, "status" | "operationId" | "grantRef"> & {
-        status: "cancelled" | "expired";
-        operationId: string;
-        grantRef: string;
-      }
-    >;
-
-/**
- * 準備計画へ結合する発行済みAuthority参照の型契約。
+ * 二Providerの現在Operation確認とPacket受付を接続する型契約。
  *
- * @responsibility 利用と失効の不透明参照を区別する。
+ * @responsibility 現在Operationの確認とPacket消費の既存関数を保持する。
  * @trace ARCH-000015
- * @shape authorityUseCapabilityとauthorityControlCapability。
- * @invariant 参照の内容や名前から権限を再構成しない。
- * @boundary 準備StoreとAuthority Ownerの間。
- * @security 公開・永続化しないProcess内の参照である。
- * @compatibility 既存PreparedPlanが持つ二参照を維持する。
- */
-export type PreparedAuthority = Readonly<{
-  authorityUseCapability: object;
-  authorityControlCapability: object;
-}>;
-
-/**
- * 二Providerの既存準備状態を共通処理へ接続する型契約。
- *
- * @responsibility Mount・Packet・Authorityと候補Storeの既存関数を保持する。
- * @trace ARCH-000015
- * @shape 二WeakMap、二時計、Mount操作、Packet消費とAuthority発行・失効。
- * @invariant Store・Authority Ownerを生成せず、呼出し側の具体値型を維持する。
+ * @shape 現在Operation・作業領域の確認とPacket消費。
+ * @invariant Storeを生成せず、呼出し側の具体値型を維持する。
  * @boundary Coordinator内の既存準備Ownerと共通準備処理の間。
  * @security PacketとCapabilityを公開結果に複製しない。
- * @compatibility 既存RuntimeStateの使用fieldだけへ構造的に接続する。
+ * @compatibility 実際に呼び出す準備依存だけを接続する。
  */
-export type ProviderDockerPreparationState<
-  M,
-  T,
-  A,
-  P extends object,
-> = Readonly<{
-  prepared: WeakMap<object, NoInfer<P> & PreparedAuthority>;
-  managementCapabilities: WeakMap<object, object>;
+export type ProviderPreparationDependencies<T, A> = Readonly<{
   verifyOperationMount: (
     managementCapability: unknown,
     mountCapability: unknown,
   ) => AttemptBinding;
-  activateMount: (
-    mountAuthorizationCapability: unknown,
-    managementCapability: unknown,
-  ) => Readonly<{
-    status: string;
-    grant: MountGrant | null;
-    activeMountCapability: object | null;
-  }>;
-  borrowMountSource: (
-    activeMountCapability: unknown,
-    managementCapability: unknown,
-  ) => string | null;
-  completeMount: (
-    activeMountCapability: unknown,
-    managementCapability: unknown,
-  ) => Readonly<{ status: string }>;
-  wallNow: () => number;
-  monotonicNow: () => number;
-  consumeModelSelection: (
-    useCapability: unknown,
-    managementCapability: unknown,
-  ) => M | null;
   consumeTaskPacket?: (
     useCapability: unknown,
     managementCapability: unknown,
@@ -235,22 +151,6 @@ export type ProviderDockerPreparationState<
     useCapability: unknown,
     ownerCapability: unknown,
   ) => A | null;
-  issueProviderAuthority: (
-    managementCapability: unknown,
-    activeMountCapability: unknown,
-  ) => Readonly<{
-    status: string;
-    useCapability: object | null;
-    controlCapability: object | null;
-    operationId: string | null;
-    provider: string | null;
-    providerHomeMountGrantRef: string | null;
-    runtimeAuthorityIssued: boolean;
-  }>;
-  revokeProviderAuthority: (
-    controlCapability: unknown,
-    managementCapability: unknown,
-  ) => Readonly<{ status: string }>;
 }>;
 
 /**
@@ -259,7 +159,7 @@ export type ProviderDockerPreparationState<
  * @responsibility 操作・Home・Packet・Modelと実行コマンドの相関を一つの型Ownerへまとめる。
  * @trace ARCH-000015
  * @shape 共通計画fieldとProvider別購読種別、Claudeだけの作業量。
- * @invariant CodexへClaude作業量を追加せず、発行済みAuthorityと実行成功を区別する。
+ * @invariant CodexへClaude作業量を追加せず、準備成立と実行成功を区別する。
  * @boundary CoordinatorのDocker準備・計画・Lifecycleの型境界。
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
@@ -268,15 +168,12 @@ export type RecoveryPlan = RecordProjection<"attempt"> &
   ExecutorRequest<"attempt">["target"] &
   Readonly<{
     provider: Provider;
-    executionSelection: AiModelSelection;
+    executionSelection: ExecutionSelection;
     executor: Executor<"attempt">;
-    authorityUseCapability: object;
     additionalHosts: readonly string[] | null;
     taskRole: "executor" | "reviewer" | null;
     taskWorkload?: unknown;
     adviceAllowedReferences?: readonly string[] | null;
-    selectionRecordId: string;
-    selectionHash: string;
     taskAttempt: 0 | 1;
     taskPacketRef: string | null;
     taskPacketHash: string | null;
@@ -286,7 +183,7 @@ export type RecoveryPlan = RecordProjection<"attempt"> &
     recoveryCorrelationId?: string | null;
   }>;
 
-/** AuthorityとMount相関を付加したProvider別の準備済み計画。 */
+/** Mount相関を付加したProvider別の準備済み計画。 */
 export type PreparedAttemptPlan<P extends Provider> = Readonly<
   Omit<
     RecoveryPlan,
@@ -306,9 +203,6 @@ export type PreparedAttemptPlan<P extends Provider> = Readonly<
     advicePacketRef: string | null;
     advicePacketHash: string | null;
     adviceAllowedReferences: readonly string[] | null;
-    authorityControlCapability: object;
-    preparedWallClockMs: number;
-    preparedMonotonicMs: number;
     selectionNotice: string;
   }
 > &
@@ -330,9 +224,7 @@ export type AdvicePacket = Readonly<{
   allowedReferences: readonly string[];
   packetRef: string;
   operationId: string;
-  executionSelection: AiModelSelection &
-    Readonly<{ role: ExecutionSelection["role"] }>;
-  selectionHash: string;
+  executionSelection: ExecutionSelection;
   provider: Provider;
   packetHash: string;
   additionalHosts: readonly string[];
@@ -341,30 +233,6 @@ export type AdvicePacket = Readonly<{
   workspaceMounted: false;
   toolsAllowed: false;
   sessionPersistenceAllowed: false;
-}>;
-
-/**
- * 共通実行計画が照合する消費済みModel選定の値契約。
- *
- * @responsibility 操作・Providerと上位で固定した技術選定の相関を保持する。
- * @trace ARCH-000015
- * @shape 選定ID、操作ID、実行Provider、技術五項目、完全選定Hash、Attempt、Model、努力量と通知。
- * @invariant 選定の発行・消費は既存Ownerが行い、この型から権限を導出しない。
- * @boundary 選定OwnerとCoordinatorの実行計画構築の間。
- * @security 不透明Capabilityや認証情報を含めない。
- * @compatibility 既存消費結果の使用fieldだけを構造的に受理する。
- */
-export type ModelSelection = Readonly<{
-  selectionRecordId: string;
-  operationId: string;
-  executorProvider: Provider;
-  executionSelection: AiModelSelection &
-    Readonly<{ role: ExecutionSelection["role"] }>;
-  selectionHash: string;
-  taskAttempt: 0 | 1;
-  model: string;
-  effort: ReasoningEffort;
-  selectionNotice: string;
 }>;
 
 /**
@@ -384,7 +252,7 @@ export type TaskPacket = Readonly<{
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";
   taskAttempt: 0 | 1;
-  selectionHash: string;
+  executionSelection: ExecutionSelection;
   taskWorkload?: unknown;
   taskPacketHash: string;
   prompt: string;
@@ -413,54 +281,40 @@ export type ConsumedTaskPacket<P extends Provider> = Omit<
  *
  * @responsibility 状態Storeを外から渡さず既存操作だけを受け取る。
  * @trace ARCH-000015
- * @shape 共通準備操作から二Storeを除き、乱数供給を加えた依存。
+ * @shape 現在Operation確認・Packet消費と乱数供給。
  * @invariant 候補Storeの共有や持込みを型の入力契約にしない。
  * @boundary 共通準備Runtimeと本番・局所試験の組立て境界。
  * @security Capabilityをこの型から生成・永続化しない。
  * @compatibility 既存二ProviderのFactory依存を維持する。
  */
-export type PreparationHost<P extends Provider> = Omit<
-  ProviderDockerPreparationState<
-    ModelSelection,
-    ConsumedTaskPacket<P>,
-    AdvicePacket,
-    Omit<
-      PreparedAttemptPlan<P>,
-      "authorityUseCapability" | "authorityControlCapability"
-    >
-  >,
-  "prepared" | "managementCapabilities"
-> &
-  Readonly<{ randomBytes: (size: number) => Buffer }>;
+export type PreparationHost<P extends Provider> =
+  ProviderPreparationDependencies<ConsumedTaskPacket<P>, AdvicePacket> &
+    Readonly<{ randomBytes: (size: number) => Buffer }>;
 
 /**
- * 照合済みDocker準備候補の公開結果を定義する。
+ * 同じCoordinator内の開始Ownerへ渡す準備結果を定義する。
  *
- * @responsibility 内部計画と公開可能な準備結果の境界を固定する。
+ * @responsibility 準備成立と実行開始・終了を区別する。
  * @trace ARCH-000015
- * @shape 準備参照、操作・選定値、Lease状態とEffect前の固定値。Claudeだけに作業量を持つ。
+ * @shape 同じ操作・Home・完全選定の計画とEffect前の表示値。Claudeだけに作業量を持つ。
  * @invariant preparedをProvider実行完了へ読み替えない。
- * @boundary 準備Storeと既存利用側の結果境界。
- * @security Path、秘密、commandと内部Authorityを公開しない。
+ * @boundary 同期準備と既存利用側の結果境界。
+ * @security 内部計画を外部の応答や保存診断へ複製しない。
  * @compatibility Provider別結果のfield有無と値を維持する。
  */
 export type PreparedAttempt<P extends Provider = Provider> = Readonly<{
   status: "prepared";
   reason: string;
-  preparedCapability: object;
+  plan: PreparedAttemptPlan<P>;
   operationId: string;
-  grantRef: string;
-  selectionRecordId: string;
   selectedModel: string;
   selectedEffort: ReasoningEffort;
   selectionNotice: string;
-  providerHomeMountLeaseActive: true;
   dockerEffectIssued: false;
   filesystemEffectIssued: false;
   networkEffectIssued: false;
   processEffectIssued: false;
   providerRequestIssued: false;
-  runtimeAuthorityIssued: false;
   operationCapabilityIssued: false;
   hostPathReported: false;
   proxyCredentialReported: false;
@@ -519,10 +373,6 @@ export type ExecutionRecordOperations = Readonly<{
     managementCapability: unknown,
     stableLogicalHomeBindingHash: unknown,
   ) => boolean;
-  completeMount: (
-    activeMountCapability: unknown,
-    managementCapability: unknown,
-  ) => Readonly<{ status: string }>;
   completeCleanup: (input: AttemptCleanupInput) => ResourceCleanupResult;
   markResourceSubmission?: (
     recoveryCapability: object,
@@ -545,21 +395,10 @@ export type ExecutionRecordOperations = Readonly<{
     result: object,
     observation: RecordedAttemptObservation,
   ) => void;
-  consumeProviderAuthority: (
-    useCapability: unknown,
-    activeMountCapability: unknown,
-    managementCapability: unknown,
-  ) => Readonly<{
-    operationId: string;
-    provider: string;
-    providerHomeMountGrantRef: string;
-    runtimeAuthorityIssued: true;
-    providerEffectAllowed: true;
-  }> | null;
 }> &
   ProviderExecutionCallbacks;
 
-/** 記録・Grant終了の結果を上位で保持する。 */
+/** 実資源・Home解放と記録の結果を上位で保持する。 */
 export type AttemptCleanupInput = Readonly<{
   plan: RecoveryPlan;
   recoveryCapability: object;
@@ -567,14 +406,11 @@ export type AttemptCleanupInput = Readonly<{
   recoveryId: string;
   observations: AttemptTerminalObservation["resources"];
   resourceSnapshot: AttemptTerminalObservation["resourceSnapshot"];
-  mountCompletion: Readonly<{ status: string }> | null;
-  mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
 }>;
 
 /** 上位の排他解放・回復記録の確定状態。Dockerの不存在とは区別する。 */
 export type ResourceCleanupResult = Readonly<{
-  mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
   recoveryCompleted: boolean;
   recoveryFinalizationCapability: object | null;
@@ -607,10 +443,9 @@ export type BlockedRecovery = Readonly<{
 /** 元完了結果に上位所有の解放・記録状態を付加する。 */
 export type RecordedAttemptResult = CompletionResult<"attempt"> &
   ResourceCleanupResult;
-/** 元の終端観測にMount解放と回復記録の確定状態を付加する。 */
+/** 元の終端観測に回復記録の確定状態を付加する。 */
 export type RecordedAttemptObservation = AttemptTerminalObservation &
   Readonly<{
-    mountLeaseReleased: boolean;
     recoveryCompleted: boolean;
   }>;
 /** 開始結果を保持し、完了Promiseを上位記録済み結果へ接続する。 */

@@ -118,9 +118,11 @@ function operation() {
  */
 function packet() {
   return {
-    selectionHash: hashExecutionSelection(
-      executionSelection("executor"),
-    ) as string,
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
     objective: "Update the isolated fixture and keep its behavior explicit.",
     acceptanceCriteria: [
       "The requested text is present.",
@@ -152,6 +154,7 @@ function reviewerPacket(
     readPaths: readonly string[];
     reviewerReadProjection: null;
   } = packet(),
+  provider: "codex" | "claude" = "codex",
 ) {
   const candidatePatchHash = "1".repeat(64);
   const files = Object.freeze([
@@ -166,9 +169,11 @@ function reviewerPacket(
   ]);
   return {
     ...source,
-    selectionHash: hashExecutionSelection(
-      executionSelection("independent_reviewer"),
-    ) as string,
+    executionSelection: executionSelection("independent_reviewer", {
+      provider,
+      model: provider === "codex" ? "gpt-5.5" : "opus",
+      effort: "medium",
+    }),
     reviewerReadProjection: {
       status: "projected",
       candidatePatchHash,
@@ -277,8 +282,6 @@ test("Task PacketとReviewer診断は旧本文・件数上限を再適用しな�
     cleanupOwnedOperationDirectories(current.owned);
   }
 });
-
-import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
 
 /**
  * Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すを検証する。
@@ -513,16 +516,19 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
       0,
       isolated.externalSendPolicyCapability,
       null,
-      reviewerPacket({
-        objective: "Update the bounded documentation candidate.",
-        acceptanceCriteria: [
-          "README.md explains the current bounded behavior.",
-          "No unstated repository-wide release gate is added.",
-        ],
-        allowedPaths: ["README.md"],
-        readPaths: ["README.md"],
-        reviewerReadProjection: null,
-      }),
+      reviewerPacket(
+        {
+          objective: "Update the bounded documentation candidate.",
+          acceptanceCriteria: [
+            "README.md explains the current bounded behavior.",
+            "No unstated repository-wide release gate is added.",
+          ],
+          allowedPaths: ["README.md"],
+          readPaths: ["README.md"],
+          reviewerReadProjection: null,
+        },
+        "claude",
+      ),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
     const consumed = isolated.runtime.consume(
@@ -574,13 +580,16 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         0,
         isolated.externalSendPolicyCapability,
         null,
-        reviewerPacket({
-          objective: request.objective,
-          acceptanceCriteria: request.acceptanceCriteria,
-          allowedPaths: request.allowedPaths,
-          readPaths: request.readPaths,
-          reviewerReadProjection: null,
-        }),
+        reviewerPacket(
+          {
+            objective: request.objective,
+            acceptanceCriteria: request.acceptanceCriteria,
+            allowedPaths: request.allowedPaths,
+            readPaths: request.readPaths,
+            reviewerReadProjection: null,
+          },
+          "claude",
+        ),
       );
       if (issued?.status !== "issued") assert.fail("packet must be issued");
       const consumed = isolated.runtime.consume(
@@ -1102,7 +1111,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前�
  */
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 21);
+  assert.equal(contract.contractRevision, 22);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",

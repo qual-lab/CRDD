@@ -184,11 +184,9 @@ export function buildTaskTrialRequest(
         providerHomeIdentityHash: home.providerHomeIdentityHash,
         stableLogicalHomeBindingHash: home.stableLogicalHomeBindingHash,
         operationId,
-        grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
       },
       workspaceSourcePath: work,
       temporarySourcePath: path.join(root, "tmp"),
-      activeMountCapability: {},
       providerHomeSourcePath: homePath,
       workspaceProtection: {
         gitSourcePath: path.join(work, ".git"),

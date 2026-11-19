@@ -37,13 +37,11 @@ export function createAttemptExecutionFixture() {
       target: {
         provider: value.provider,
         operationId: value.operationId,
-        grantRef: value.grantRef,
         workspaceSourcePath: "C:/synthetic/work",
         temporarySourcePath: "C:/synthetic/tmp",
         providerHomeSourcePath: value.providerHomeSourcePath,
         providerHomeIdentityHash: value.providerHomeIdentityHash,
         stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash,
-        activeMountCapability: value.activeMountCapability,
       },
     },
     { tmp: "C:/synthetic/tmp", management: "C:/synthetic/management" },

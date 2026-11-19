@@ -14,180 +14,10 @@ import { describeDockerProviderAssets } from "../../../docker-isolation/src/imag
 import { describeDockerProxyTopology } from "../../../docker-isolation/src/network/policy.ts";
 
 import {
-  PROVIDER_INPUT_LIMITS,
-  PROVIDER_ISOLATION_CONTRACT,
-  validateProviderIsolationProfile,
-} from "../../src/execution/validation.ts";
-import {
-  compileEgressProxyPolicyCandidate,
   describeSpecialPurposeRegistrySnapshot,
   evaluateProxyConnectForFixture,
   evaluateResolvedAddressesForFixture,
 } from "../support/egress-proxy-policy.ts";
-
-/**
- * rawProfileのTest準備責務を実行する。
- *
- * @responsibility rawProfileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace AIT-UT-005
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus rawProfileを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-function rawProfile(overrides = {}) {
-  return {
-    contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 4,
-    provider: "codex",
-    operationId: "OP-000001",
-    authMethod: "subscription_oauth",
-    authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
-    providerHomeMountGrant: {
-      provider: "codex",
-      operationId: "OP-000001",
-      issuer: "runtime_owned",
-      requiredState: "active",
-      verification: "runtime_capability_required",
-    },
-    egress: { origins: ["https://api.example.test"] },
-    ...overrides,
-  };
-}
-
-/**
- * 生Profileを内部検証してAuthority未確認のPolicy候補だけを作るを検証する。
- *
- * @responsibility 生Profileを内部検証してAuthority未確認のPolicy候補だけを作るの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 生Profileを内部検証してAuthority未確認のPolicy候補だけを作るの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("生Profileを内部検証してAuthority未確認のPolicy候補だけを作る", () => {
-  const result = compileEgressProxyPolicyCandidate(rawProfile());
-  assert.equal(result.status, "candidate");
-  assert.equal(result.reason, "authority_verification_required");
-  assert.deepEqual(result.policy.allowedHostnames, ["api.example.test"]);
-  assert.equal(result.policy.directProviderEgress, false);
-});
-
-/**
- * 自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しないを検証する。
- *
- * @responsibility 自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しないの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しない", () => {
-  const validation = validateProviderIsolationProfile(rawProfile());
-  for (const forged of [
-    validation,
-    { ...validation, profileHash: "a".repeat(64) },
-    {
-      ...validation,
-      profile: {
-        ...validation.profile,
-        egress: { origins: ["https://other.example.test"] },
-      },
-    },
-    {
-      status: "candidate",
-      reason: "authority_verification_required",
-      profileHash: "a".repeat(64),
-      profile: validation.profile,
-    },
-  ])
-    assert.equal(compileEgressProxyPolicyCandidate(forged).status, "blocked");
-});
-
-/**
- * 不正ProfileとOriginは例外を漏らさずblockedへ閉じるを検証する。
- *
- * @responsibility 不正ProfileとOriginは例外を漏らさずblockedへ閉じるの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 不正ProfileとOriginは例外を漏らさずblockedへ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("不正ProfileとOriginは例外を漏らさずblockedへ閉じる", () => {
-  for (const candidate of [
-    null,
-    {},
-    rawProfile({ egress: { origins: ["not a URL"] } }),
-    rawProfile({ extra: true }),
-  ]) {
-    assert.doesNotThrow(() => compileEgressProxyPolicyCandidate(candidate));
-    assert.equal(
-      compileEgressProxyPolicyCandidate(candidate).status,
-      "blocked",
-    );
-  }
-});
-
-/**
- * Profile budget超過はPolicy経路でも例外なくblockedにするを検証する。
- *
- * @responsibility Profile budget超過はPolicy経路でも例外なくblockedにするの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Profile budget超過はPolicy経路でも例外なくblockedにするの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Profile budget超過はPolicy経路でも例外なくblockedにする", () => {
-  const excessive = rawProfile();
-  excessive.egress.origins = Array.from(
-    { length: PROVIDER_INPUT_LIMITS.originCount + 1 },
-    (unusedOrigin, index) => {
-      void unusedOrigin;
-      return `https://api-${String(index).padStart(2, "0")}.example.test`;
-    },
-  );
-  assert.doesNotThrow(() => compileEgressProxyPolicyCandidate(excessive));
-  assert.equal(compileEgressProxyPolicyCandidate(excessive).status, "blocked");
-});
-
-/**
- * Profile accessorはPolicy経路でも実行しないを検証する。
- *
- * @responsibility Profile accessorはPolicy経路でも実行しないの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Profile accessorはPolicy経路でも実行しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Profile accessorはPolicy経路でも実行しない", () => {
-  let calls = 0;
-  const value = rawProfile();
-  Object.defineProperty(value, "egress", {
-    enumerable: true,
-    get() {
-      calls += 1;
-      return { origins: ["https://api.example.test"] };
-    },
-  });
-  assert.equal(compileEgressProxyPolicyCandidate(value).status, "blocked");
-  assert.equal(calls, 0);
-});
 
 /**
  * CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にするを検証する。
@@ -202,7 +32,10 @@ test("Profile accessorはPolicy経路でも実行しない", () => {
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にする", () => {
-  const policy = compileEgressProxyPolicyCandidate(rawProfile()).policy;
+  const policy = Object.freeze({
+    allowedHostnames: ["api.example.test"],
+    allowedPort: 443,
+  });
   assert.equal(
     evaluateProxyConnectForFixture(policy, {
       method: "CONNECT",

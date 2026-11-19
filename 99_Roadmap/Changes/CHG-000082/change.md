@@ -1,5 +1,160 @@
 # CROS WorkbenchのProduction実装
 
+変更ID: `CHG-000082`
+状態（Status）: `In Progress`
+担当責任者: Qual-Lab
+最終更新日: 2026-11-19
+
+## 選定・準備・Home利用許可の単純化 — 2026-11-19
+
+### 撤去後の再照合による追従是正
+
+再確認で、製品Sourceから撤去したPrepared消費を、Executorの試験支援とその八利用Fileが代役で再現していたことを確認した。人間の是正指示により、支援の`consumePreparedPlan`とopaqueな準備参照を撤去し、元の技術計画を直接開始する。実一回開始・現在管理Owner・Recovery相関・取消・清掃・結果搬送の検証は維持する。専用tokenを別名で再導入せず、既存のLifecycle Controlと実受付の検証へ接続する。文書に残る選定Hashとv5 Identityの誤った保存項目説明も実Producer／Readerへ合わせる。
+
+分類は試験支援・利用側と現行文書の追従是正であり、製品Source・公開API・保存形式・安全判定・期限は変更しない。親が直接利用元と正常計画・不正計画・元管理Owner・二重開始・取消・回収不明を着手前に照合し、限定回帰、作者と分離した技術レビュー、文書・参照確認を行う。準拠基準・決定権限・Releaseを変更しないため準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは対象外とする。
+
+旧消費callback・opaque準備参照・未使用の消費済みbooleanを撤去した。支援の一回開始は製品と同じ既存Lifecycle Controlに接続し、二回目のRecovery作成を拒否する。元管理参照の拒否は既存verifyRevisionへ移し、誤ってObjectを返していた代役を真偽値へ是正した。別Owner時のCommand／Recovery開始0、取消・清掃不明とexact参照を維持する。試験内だけのconsumer拒否Ruleは実Coordinator受付へ戻し、unknown／undefinedの反証をその既存表へ移した。消滅したMount通知の期待値だけを撤去し、実終了順序は維持した。
+
+Coordinatorの静的検査・二追跡検査は成功し、警告0・既存情報179。限定三Fileの118試験、上位受付の二試験、Executor公開境界・レビュー搬送の五試験、Workbench summaryの二試験が成功した。作者の先行確認・重複再実行は合算しない。Executor48 File、Workbench109 Fileの型・整形・Lintも成功。今回の試験物は各既存終了処理で回収し、Host子Processの終了・不存在を確認した。
+
+独立技術レビューで見つかった元Owner拒否のtruthy Objectと消滅イベント期待を修正し、固定版の追加指摘は0件。独立文書レビューでは旧完全選定借用の残存一箇所も直接照合へ是正した。旧Mount Owner・消滅したverifier／借用APIを説明する段落も、元Executor通知・既存durableRecord・cleanupCheckpoint・terminalObservationへ更新した。旧許可経路の語を現行保証へ置換するだけではなく、実Producer／Readerと照合して記述した。
+
+是正後の再照合では、全Toolの現役TypeScriptに旧consumePreparedPlan／preparedCapability／Mount完了callback・イベントの残存0を確認した。旧Grant・人工選定IDの残存は、旧field拒否と公開非存在を確認する負例二箇所だけである。今回の現行設計・QAに記載したRuntimeOwned照合／借用／完了関数は、すべて製品Sourceに実在する。Catalog403 Fileはvalid、試験起動・Effectなし。修正文書の限定確認は248／1207文書、エラー0・警告0、差分形式確認も成功した。文書の最終一点を修正した局所独立再レビューも追加指摘0件。今回の範囲内で追加の対応漏れは検出していないが、全体回帰・実AI・Dockerの成立は主張しない。
+
+必要性監査を受け、人間はSelection／Prepared、Mount Grant、保存処理の順で整理することを指示し、Mount Grantの撤去に伴う保存形式更新も明示承認した。完全選定・役割・試行番号を上位の不変計画に直接保持し、Executor構築時だけ技術値へ投影する。選定GrantのMap・30秒期限・利用／失効token・人工選定ID・Hash借戻し、準備の二WeakMapと即時消費、Home Grant・5分期限・観測／所在Capability・10秒期限・疑似Mount完了証明を撤去する。実Homeの共通wx排他・Pathと実体確認、既存のTask／Executor／DI取消、実資源終端、保存のCAS・Writer・exact回復参照は変更対象と区別する。
+
+Operation Identityはv5へ更新し、grantRefと独立したmountLeaseReleased終端条件を撤去する。互換Reader・ダミー値・常時trueの代替証明は追加しない。旧v4を含むStateは新Readerが拒否し、終了済み旧Operationも対象となる。旧記録の完結や移行は別の明示操作であり、今回は既存保存物の参照・変更・削除・自動移行を行わない。Rootの関数集合は維持するが、Executor要求型・EM保存受付・内部終了契約は新形へ追従する。
+
+変更分類は内部許可体系の削減と保存受付の破壊的改訂である。親が実Consumerと入力・開始・取消・回収・再入場を照合し、担当を分離した読取り確認者が選定・Home・保存の必要性と変更影響を確認した。試験は退役機構専用の条件と、実機能の検証義務を区別して追従する。対象Packageの静的検査・直接影響する限定回帰、独立技術レビュー、文書／台帳／参照の確認を行う。CRDDの準拠基準・決定権限・Releaseは変更しないため準拠監査を追加しない。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは対象外とする。Receipt必須保存の保証変更とHost marker／EMの保存統合は別単位で扱い、本単位の完了へ混ぜない。
+
+### 実装と限定検証
+
+Selection／Prepared／Home Grantの製品経路を撤去し、完全選定・Home観測値・元計画を直接搬送した。Host復帰は元の実清掃・保存Owner・計画を照合し、その後の最終終端で実Home解放を確認する。Host復帰前へHome解放済み条件を追加しない。退役機構専用の四試験FileとCoverage入口二つを撤去し、現役preflight・役割・Packet・取消・回復の義務は既存試験へ移した。
+
+| 対象 | 限定結果 |
+|---|---|
+| Coordinator | 型・整形・Lint・二追跡検査成功。995 File、警告0・情報179。八Fileの192試験成功。別実行のjunction一試験も通常Windows権限で成功。実保存を伴う通常継続一試験は初回実行で成功し、繰返していない |
+| EM | 型・整形・Lint成功。純粋な状態遷移・履歴・修復三File32試験と、終端保存一File四試験が成功。v5の固定JSONに対応する既知Hashを更新し、旧v4と余分なgrantRefを拒否する反証を維持 |
+| Executor | 型・整形・Lint成功。公開境界四試験、終端共同条件を含むController五試験が成功。共同条件は実清掃四条件と保存受理の32組合せとし、旧synthetic Mount条件だけを撤去 |
+| Workbench | 型・整形・Lint成功。summary観測二試験成功。子Process文字列fixtureの旧Grant・選定ID・Hash・未使用完了callbackを撤去 |
+| 台帳 | Catalogは403 Fileでvalid。試験起動・Effectなし。Runtime追跡は旧Mount Grant資源だけを除いた六資源へ追従 |
+
+同じ試験の是正前実行・作者試験・再実行を合算しない。限定回帰で見つかった旧理由、旧Prepared消費期待、独立捕捉後の参照同一期待、固定Hash、現行CLI File集合の追従漏れは、現役保証の反証を維持して試験側で是正した。junction作成のEPERMは製品判定前の実行環境制限として分離し、対象一試験だけ通常Windows権限で再確認した。作成した試験領域は既存の終了処理で回収し、失敗した二つのjunction準備Rootも不存在確認済みである。全体回帰、実AI・Docker、過去保持物操作は行っていない。
+
+作者から分離した技術レビューで、本番の完全選定・Packet・元Operation、取消・実Home排他・清掃・Host復帰順序、EM v5受付とWriter保証、Executor要求、ScriptとWorkbench接続を照合した。機能の指摘は0件。説明残骸二箇所と、試験の配列対Object比較では独立捕捉を証明しない一点を是正し、元選定と捕捉要素それぞれの別参照・凍結を検証する形で該当一試験が成功、独立再レビューの追加指摘0件となった。再試験を192件へ重複加算しない。
+
+Architecture・QA・Workflowの十Fileを追従した。限定文書確認は276／1207文書、エラー0・警告0。独立文書レビューで、Coordinator設計の旧「保存形式不変」と退役Grant／PAを現行Ownerとする二系統の記載を是正し、修正版の局所再レビューは追加指摘0件となった。関数集合の維持と、要求型・保存形式の更新を区別する。現役Packet／ControlのCapabilityと歴史段階の記録は、本単位の撤去へ拡張しない。現在、人間による追加判断は必要なく、Receipt保証変更・Host marker／EM保存統合・取消状態の追加簡素化は別単位の残件である。
+
+## Local許可体系撤去の利用側・文書追従漏れ是正 — 2026-11-19
+
+再確認で、Executorの非AI検証ScriptとWorkbenchのsummary観測試験の子Process文字列に、旧Authority参照と未呼出の消費代役が残ることを検出した。型検査の対象にならない文字列内の追従漏れであり、人間の是正指示により宣言・Plan field・代役だけを除去する。独立した本番権限を発行しないことのassert、開始・取消・清掃不明・通知保存例外・元Owner相関・summary搬送の既存検証は維持する。現行設計三文書とQAに残る準備期限・二時計・別Authorityの消費説明を、一回消費・現在Operation・既存Recoveryの説明へ追従する。
+
+変更分類は既存撤去契約への利用側接続・文書追従であり、着手前に二つの文字列fixtureと実Consumerを照合し、独立確認者も撤去対象が未使用であることを確認した。製品Source・公開API・保存形式・安全判定・実行期限は変更しない。対象二Packageの静的検査、既存二Suiteだけの限定回帰、独立完成レビューと文書／参照確認を実施する。準拠基準・決定権限・Releaseを変えないため準拠監査は追加せず、全体回帰・実AI・Docker・過去保持物・コミット・プッシュは対象外とする。
+
+静的検査はExecutor48ファイル（情報8件・警告0）とWorkbench109ファイル（情報4件・警告0）で型・整形・Lintが成功。限定回帰はExecutorのpublic-boundary 4件、Workbenchのsummary観測2件が全成功し、失敗・skip・取消0。検証Scriptは既存の自己生成領域の回収と不存在確認まで完了した。後続の文書確認・独立レビュー結果は実施後に追記する。
+
+初回の文書限定確認は220／1207文書でエラー0・警告0。独立レビューが追加で検出したExecutor設計の旧型・期限・失効説明三箇所と、隣接する古い宣言数の案内を是正した。現行Source・Script・試験の旧参照field／発行消費代役／準備時計・定数、現行設計・QA・Workflowの旧PreparedAuthority／二時計期限／未消費別Authorityの説明は検索残存0である。退役説明と現役MountGrant・Selection・通知の期限を混同せず、歴史Evidenceと既存の意味IDは書き換えない。
+
+修正版の限定文書確認も126／1207文書でエラー0・警告0、固定六ファイルと直接接続の独立再レビューは指摘0件。既存の開始・取消・回収・保存・結果搬送のassertと現役の別期限が不変であることを確認した。差分形式確認も成功。今回の全体回帰・実AI・Docker・過去保持物操作・コミット・プッシュは未実施である。
+
+## 自作Local許可体系と重複期限の撤去 — 2026-11-19
+
+人間の指示により、自作Profile・Registry・Local Grant、人工的なAUTHREG／AUTH／SCOPE識別子、それらのHash・改訂版・相互照合、30秒cacheと更新される5分期限を撤去する。同一同期呼出し内で発行・消費する別Provider Authorityの5秒期限・専用Map／WeakMap・失効処理、および準備計画の30秒期限・時計も撤去対象とした。名前変更・成功stub・別台帳・代替期限は追加しない。
+
+変更分類は内部許可契約の削減であり、既存の開始・取消・失敗時の資源所有を着手前に照合した。Preparedの管理参照一致と一回消費、現在Operation、Selection／Mount、Home排他、必要記録・回収の実処理は今回変更せず、残すことを最終決定したものとは扱わない。人間が次段で吟味する四条件へ、残存処理とOwnerを対応付ける。Root公開・永続形式・実行Timeoutは変更しない。Doctorの退役専用説明二項目を除き、診断改訂は15とする。
+
+既存の退役専用試験・集計は撤去し、混在する開始一回・取消・Egress・Home／Recovery観点は維持して利用側を追従する。限定した静的検査・回帰、独立技術レビュー、文書と登録情報の照合を行う。準拠基準・決定権限・Releaseを変更しないため準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは対象外とする。検証結果は実施後に記録する。
+
+撤去後の検索では旧Source／Factory／人工ID・参照field・専用拒否理由の本番残存は0。準備結果の旧許可発行fieldと期限・時計の型も撤去し、旧理由の変換と専用試験入力も除去した。内側準備契約はCodex改訂9／Claude改訂8。別名許可・成功stub・新しいRegistryは追加していない。
+
+最初の限定確認で、旧expired期待と撤廃済み文字列容量上限の拒否期待、Link作成権限、旧非同期Lock代役を検出した。期待だけを現契約へ追従し、容量上限は製品へ戻さず長い参照の正常保持を確認した。同期wxの取得・boolean解放へ試験代役を追従し、失効Ownerの通常清掃拒否と記録不変を確認してから、元のexact参照で既存の別回復Ownerへ接続する。製品の失効・回復判定は緩めない。途中の10ファイル実行332件中331成功・1失敗を上書きせず、是正後の固定実行では同じ10ファイル332件が全成功、失敗・skip・取消0（24,560.8396ms）。Executorの試験支援追従は別の1件が成功し、重複する作者試験や先行実行を合算しない。
+
+Coordinatorの全静的gateは999ファイル、型・整形・二追跡検査成功、Lint警告0・情報176件。Executor型検査も成功。Catalogは407ファイルでvalid、試験起動・Effectなし。限定文書確認は248／1207文書でエラー0・警告0。独立技術レビューでは旧説明・死field・QAの旧失効説明を是正し、修正版の残指摘0を確認した。今回の失敗実行が作った四つのgeneration-loss領域は各固定Root・元記録Hash・exact参照を照合して既存Recoveryで回収し、Root・marker・親の不存在を確認した。権限失敗で作った空Namespace試験領域も今回物だけを回収した。過去保持物は操作していない。
+
+QAの旧Authority終了説明を是正した後の限定再確認も156／1207文書でエラー0・警告0。試験支援に残った未参照の準備期限定数も除去し、Executor型検査と同じレビュー搬送1件の再実行、限定独立再レビューで残指摘0を確認した。同じ試験の再実行は成功件数へ加算しない。
+
+## Packet／Mount失効とHome観測の追加閉包 — 2026-11-19
+
+再照合で、Selectionだけを確認していた終了処理にPacket／Mount失効の返却無視が残り、Home Node観測にも未使用effects引数と旧Helper／Native専用fieldが残ることを確認した。人間の是正指示により、既存失効不明処理への接続と旧データの撤去に限定する。失効成功・拒否・観測不能・例外を分離し、呼出し一回・終了処理継続・元理由／回復参照・既存poisonを維持する。AdviceのRecovery放棄とpoison通知の例外も結果構築を飛ばさない閉包へ含める。新Store・Manager・Wrapper、Root公開・保存形式・期限の変更は行わない。
+
+Node観測の内側改訂9ではHelper／配布物／Process群終了の未使用fieldだけを撤去し、Node読取りのEffect 0と回復不要を明示する。対応する契約・実体試験と、有限代役の旧fieldを追従する。実ProcessやDIの同名終了fieldは対象外とし、Path・Link・実体・旧Lock・Capabilityの期限と一回消費を維持する。着手前整合、限定回帰、独立技術レビューと文書／登録確認を実行し、準拠基準・決定権限・Release不変のため準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+固定版ではTaskのPacket／Mountも明示的revokedだけを成立とし、AdviceはPacket／Recovery放棄のtrue、Selection／Mountのrevokedだけを成立とした。独立した例外境界と元参照の局所解除により各呼出しは一回、後続の失効・終了処理を継続する。Task16・Advice16・Recovery放棄を含む8条件の反証で、poison通知例外でも一次理由・元Host／Docker参照・清掃未確認を保持することを確認した。Sourceに旧Helper専用fieldの生成・参照はなく、再導入拒否の不存在assertだけを試験に残す。
+
+Coordinatorの型・整形・Lint・二追跡検査は成功、情報176件・警告0。通常Windows権限で、Task Runtime・Advice Runtime・Home観測UT・認証UT・新品Home／Source観測ITの5ファイル218件が成功（30,164.0563ms）、有限CLI代役の変更対象1ケースも成功（11,698.7523ms）。二実行219件の限定結果であり、先行253件や作者の局所8ケースを加算しない。Home撤去・失効終了の独立完成レビューは各指摘0件。試験は今回の自己生成領域を既存清掃で回収し、全体回帰・実AI・Docker・過去保持物・コミット・プッシュは未実施である。
+
+文書の限定確認は238／1207文書でエラー0・警告0。Catalogは412ファイルでvalid、試験起動・Effectなし。旧生成field／旧確認フラグの製品Source残存、公開Root・API・下位三Packageの差分はいずれもなく、差分形式確認も成功した。
+
+## 残る機能必要性監査からの是正 — 2026-11-19
+
+人間は、認証の旧Helper結果判定の是正、未接続候補の撤去、Selection Grant往復とDoctor合成環境の整理、Local許可構造の再評価の順に進めることを承認した。通常Run／Doctor／Auth／Recovery／Maintenanceの成立済み保証を削減対象と混同せず、公開Root・保存Schema・実技術Cleanup・現在Operation・世代・一回消費・exact回復参照を維持する。変更分類は内部接続是正と未接続機能の退役であり、各単位の着手前整合、限定回帰、独立レビューと文書／台帳追従を行う。準拠基準・決定権限・Releaseは変更せず、全体回帰・実AI・Docker・過去保持物は操作しない。
+
+最初の認証是正では、Node観測のEffect 0拒否をHelper終了未確認へ誤変換する受付だけを修正した。明示的なProcess Effectなし・回復不要の場合だけ清掃確認済みとし、元理由と回復分類を保持する。実受付本文の抽出試験へ両Provider×status／login×Effectなし／あり／不明の12条件を追加し、認証開始0と分類保持を確認した。認証開始後の排他・取消・保存・Cleanup・Recoveryは不変。型・整形・Lint・追跡検査と認証Suite43件は成功、独立レビュー指摘0。後続の候補撤去やGrant簡略化の完了をこの結果から推定しない。
+
+Doctorの未使用合成環境は、専用組立て・変数集合・コピー処理と、転送名／フィルタ成功field・合成判定だけを撤去する。診断改訂14へ明示的に追従し、Hostの変数名検出・秘密値非記録・実隔離観測と現在の失敗条件は保持する。受動DoctorのOperation取得・終了整理は実Host資源の別契約として今回は変更しない。新しいDI観測APIや代替環境組立ては追加しない。
+
+SelectionはHome前の非発行適合確認とHome後の一回発行へ整理し、事前確認と発行の適合Ruleを同じOwnerへ集約した。初回発行・失効・再発行の往復、未接続supersede、比較専用処理と旧refresh三理由は撤去する。30秒TTL・一回消費・元Operation／役割／試行／完全選定Hashと現在性は維持する。独立レビューでTaskだけ未消費Selectionの失効結果を無視する経路を検出し、既存poison・元Host回復参照・清掃未確認へ接続した。失効要求は一回、通知例外でも元理由・参照を保持し、後段でcleanへ上書きしない。内側契約は改訂6とし、Rootと保存形式は不変である。
+
+固定版の最初の限定10ファイル回帰は253件中251成功・2失敗だった。失敗は模擬Docker回収を持つHost取消試験で、Claude Planの作業量欠測、有限Docker代役の作成ID／回収観測欠測、旧清掃通知順の期待という試験接続不整合を検出した。Coordinatorの試験2ファイルだけへ、元要求と一致する作業量、現行Planの各資源へ一意の64桁IDと同じIDの不存在／不明観測、現行Ownerの通知順を明示した。製品・AD・Executorの検査や期限を緩めず、取消一回・実子終了・投影・回収／保持・exact参照の検証内容を維持した。独立レビューで代役による成功補完がないことを確認し指摘0件。
+
+最終固定版で同じ10ファイルを通常Windows権限・直列で再実行し、253成功・失敗／取消／skip／todo各0、35,242.3103ms、Exit 0だった。初回失敗を成功へ読み替えず、別実行として記録する。最終の型・整形・Lint・二追跡検査は成功、既存情報174件・警告0。Catalogは412ファイルでvalid、試験起動なし。限定文書検査は294／1207文書でエラー0・警告0。Root候補退役、Doctor診断、Grantと失効不明是正、試験接続追従の独立再レビューはすべて指摘0件。今回の自己生成試験物は既存清掃とexact対象の不存在確認で閉じ、過去保持物は操作していない。全体回帰・実AI・Docker・コミット・プッシュは未実施である。
+
+Local Profile／Registryの再評価では、外部の登録・管理・失効Consumerはなく、自己生成の単一GrantとProfileが起動許可の発行／消費の同一性照合に使われていることを確認した。独立Registry機能を維持する根拠とは区別し、用途固定Local許可へ縮小する余地はある。ただし現在のScope・Home・Egress・有効期限を削除する許可ではない。30秒cache・5分Grant・5秒起動Authorityの役割と所有先を確定する別設計単位へ残し、今回は再評価までとする。現行の許可判定を勝手に緩めず、新しいStoreやRegistryは追加しない。
+
+未接続候補の単位では、Root保護Policy評価、合成Root観測Codec、常時未実装Root観測入口、Home Layout評価と専用Helperを代替なしで撤去した。現役のProvider Home所在・Node実体観測・Binding・Grant・認証・回復とWindows Path検査は維持する。Platform内側契約は改訂3で`runtime_root_recovery`枠・保証を削除し、Home契約は改訂7で未使用Layout説明を削除する。DoctorのRoot保護候補説明も削除し、この単位では報告改訂13とした。通常Root公開・保存Schema・既存安全判定は不変。専用二試験とSymbol／Catalogを退役し、混合Platform／Home試験の現役義務とQA正式項目は保持する。削除をPassへ換算しない。後続Doctor合成環境整理とは別の変更として追跡する。
+
+候補撤去後の型・整形・Lint・二追跡検査は成功（既存情報174件、警告0）。Home／Platform／Windows AdapterとNamespaceの4ファイルは29件中28成功・1失敗であり、全成功とはしない。失敗は既存Namespace反証の自己生成RootでLink作成がEPERMとなり製品処理前に停止したもので、拒否条件は緩めない。試験が保持した今回のRoot `.crdd/tests/node-namespace-IirVet` はこの時点で未操作であり、過去保持物とは区別する。候補専用二試験の削除はこの件数へ含めない。Root公開は不変、SymbolのJSONは319登録、Catalogは412ファイルへ追従した。
+
+EPERMの1件は通常権限で同じ試験本体を単独再実行し成功した。最初の4ファイル実行をExit 0へ読み替えず、限定再確認として区別する。先行runの自己生成Rootは子Processがstatus 1／signalなし／起動例外なしで終了し、Link作成直前の既知空Directory `link-target`だけが残ることを確認した。検証済みRepository-localのexact Root、通常Directory・非Link・canonical Path、現在の実体同一性と空内容を照合し、非再帰の空Directory削除だけで今回分を回収して不存在を確認した。過去保持物や未知内容は操作していない。
+
+## 開発計測を通常Taskの外側へ統一 — 2026-11-19
+
+追加照合で、計測の取消・期限によって入口認可まで失効し、通常Taskの待機後認可が終了結果・exact回復参照を隠す接続不備を検出した。既存試験へ待機後認可の反証を追加して失敗を再現し、Scriptのローカル入口認可と、Signal／後続開始条件を分離した。通常Task APIの認可規則・保存形式・Root公開は変更しない。取消・期限の二系統と正常完了との競合でも、元結果・清掃状態・exact回復参照の保持、最終返却待機、後続開始0を確認する。これは既存実装契約の是正であり、Architecture・QAと直接試験を更新し、限定回帰と独立技術レビューを行う。準拠基準・決定権限は不変のため準拠監査は追加しない。
+
+是正後のCoordinator型・整形・Lint・追跡検査は成功し、計測・公開Owner境界・Platform依存境界の3試験ファイル24件が成功した。既知のLint情報174件は警告・エラーと区別する。今回の取消・認可分離とArchitecture／QA追従の独立レビューは指摘0件で、対象文書と直接参照先の限定確認は229／1207文書でエラー0・警告0。現在、人間による追加判断は必要ない。全体回帰・実AI・Docker・過去保持物の操作は実施していない。
+
+人間は通常runTask二回の外側計測と、専用の段階別Timing・四回／八回会計・各段階Source失効の撤去を承認した。既存計測ScriptはProject・Principal・期限・期待Source Hash・通常Task二件を明示受付し、通常の保存・認可・Workspace・排他・取消join・回復へ接続する。旧設定の変換、新しいPrincipalやTask IDの推測生成、新Store／Facade／Registryは追加しない。
+
+製品のmeasurement.ts、Controller専用startとInvocation Wrapper、Operationの開発Context、Authority／Recoveryの開発分岐、専用結果投影を撤去する。必要なSource v4観測は既存計測Scriptへ集約し、MCP・Workbench・一般Task検証の利用側を直接追従する。専用Session／Constraints／Timingの三試験とその登録は退役し、削除をPassに数えない。現役の通常取消・回収・現在Owner・初回exact参照の混合検証は残す。
+
+結果改訂4は通常Taskの最終返却までの経過時間とSource前後観測を表し、旧段階別計測やSourceの連続失効との同等保証は主張しない。後続停止はstatusだけでなくcleanup、exact回復集合、secondaryFailuresを確認する。取消後に早期完了せず、通常Taskの最終返却まで待ってTimerとListenerを解放する。Rootと内部実体Hash・Promptは結果へ追加しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+初回独立レビューで、計測後の出力Directory確認・保存失敗が取得済みTask結果／回復IDを消す経路を検出した。出力段階だけを局所catchし、元結果・一次理由・cleanup・回復集合を保持したままblocked、`outputConfirmed:false`と固定副次理由を返すよう是正した。Directory差と書込み例外を本番main本文の局所試験で反証し、再送・新しい保存台帳・秘密値の公開は追加しない。
+
+Coordinatorの型・静的・追跡検査、MCP／Workbenchの型・静的検査は成功。初回の関連5ファイル34件、Task／Process／Sourceの3ファイル260件が成功し、出力是正後の計測／Source2ファイル16件と依存境界／Authority／回復診断／Coverage4ファイル19件も成功した。重なるCaseを別の新規成功件数へ加算しない。MCP／Workbenchの実入口不正引数・Source・取消結果搬送は各3件成功し、実AI・Dockerへ接続していない。Catalogは414ファイルで整合した。
+
+Authorityの最終Sourceによる4 Source・8ファイルのCoverage集計は通知を記録したまま二回一致し、行7,957／12,635・関数127／282・分岐616／706だった。未到達の義務は保持する。payload SHA-256は`cadab6806d7314cc46780da0d23b9eecaee7cc3671b03c971aa110f50f0fd286`。先行Trust単位の集計と対象Sourceの違いを区別し、過去結果を上書きしない。
+
+最終閉包確認で、生成経路のない旧開発理由四値を公開理由の閉集合から撤去した。再導入拒否のprefix判定は、独立レビューが見つけた語境界の未発火を是正し、旧四理由を含む反例と現行全Sourceへ同じ判定を適用した。型・静的検査と境界／計測／診断の最終20件、是正後の境界6件は成功。Source・利用側・文書を含む独立再レビューは残指摘0で、現在、人間による追加判断は必要ない。
+
+限定文書検査は250／1207文書でエラー0・警告0。退役試験への歴史CHGリンクは10ファイル30出現だけに既存規約の旧参照注記を加え、当時本文・結果・URLを維持した。CHGヘッダーが追記で規定の先頭40行を外れたため、変更ID・状態・Ownerをタイトル直下へ戻し、最終更新日を同期した。検査側の規約は変更していない。全体回帰・実AI・Docker・過去保持物の操作、コミット・プッシュは実施していない。
+
+## 未接続の外部Trust受付とLocalの往復変換の撤去 — 2026-11-19
+
+基準`d848b5ce`で外部File Bundle・Trust Policy・Registry bytes・外部prelaunch受付には製品Consumerがなく、Doctorの説明と専用試験だけが参照していた。専用受付・型・定数・説明、専用3試験と台帳登録を撤去し、LocalのPolicy／Manifest生成とBundle／Policy Hash照合も代替なしで撤去する。旧試験の退役を検証成功へ換算しない。
+
+Local許可元は独立凍結したProfile・Registry・Scopeを直接渡す。現役RegistryのGrant評価、Profile／Registry Hashと改訂版、Grant・Provider・Operation・Scope・Homeの相関、30秒の許可元cache、5分のGrant期限、Capabilityの5秒・単調時計・一回消費・失効は維持する。外部入力を内部候補へ昇格する入口や互換Wrapperは追加しない。Doctorの`egress`の旧Trust説明3項目だけは明示的に縮小し、Root公開契約と保存形式は変更しない。
+
+Coordinatorの整形・型・Lint・二つの追跡検査、現役Authority／Profile／準備／Snapshotと依存境界の限定12試験ファイル102件は成功。Test Catalogは417ファイルで整合し、対象文書の限定検査は248／1207文書でエラー0・警告0。独立レビューは残指摘0。
+
+追加の`provider-authority:coverage`集計は初回未成立だった。既存Local Authority試験の`stripTypeScriptTypes`が出すNode.jsの実験機能通知で、集計入口のstderr空条件に停止した。同じ8ファイル・起動構成の原因確認では試験Process終了値0、標準エラーは当該通知1件、LCOV出力ありを確認し、試験失敗と通知の分類不整合として是正した。
+
+通知を隠すflagや任意stderrの無視は追加せず、既知通知一件の固定本文・help行・真の入力終端までの一致だけを受理して`diagnostics`へ記録する。未知・重複・余剰stderr、実行失敗、不正LCOVの拒否と60秒期限は維持し、二回比較はCoverageと通知の両方を対象とする。既存のCoverage結果shapeを保ち、結果の最上位に`diagnostics`を追加した。専用の反証を既存試験へ追加して3件成功、4 Source・8試験ファイルの実集計は二回一致した。行7,958／12,639、関数127／282、分岐616／706の到達であり、未到達義務をPassへ変換しない。集計payloadのSHA-256は`2672bfe1af99fdeaefdca07f731eaa3bac3871d86e35c165eed69f0d857fb14a`。
+
+Coverageの独立レビューで、正規表現の`$`が許容する末尾改行を追加空行の反例として検出した。真の入力終端へ是正し、正規CRLF受理と追加LF／CRLF拒否を試験へ追従した。最終の型・静的確認と3試験、実集計二回一致は成功、独立再レビューは残指摘0。対象の限定文書検査は168／1207文書でエラー0・警告0。
+
+本節実施時は開発計測の分離が未完了だった。専用保証を外す人間の承認と、その後の実装は[開発計測の製品経路分離](coordinator-consolidation-plan.md#開発計測の製品経路分離--2026-11-19)へ追跡する。全体回帰・実AI・実Docker・過去保持物の操作は実施しない。
+
+## 未接続Host残存回復候補の撤去 — 2026-11-19
+
+基準`d848b5ce`で、`evaluateHostOrphanRecoveryPlan`は専用単体試験以外の利用先がなく、実観測・処置・公開入口へ未接続だった。現行製品の通常Recoveryとは区別し、候補判定、専用型、専用単体試験、SymbolとTest Catalogの登録を代替なしで撤去した。旧Native清掃・専用記録候補の設計と品質定義も現在の義務から除外する。退役した試験はPassへ換算しない。
+
+通常Recoveryのexact回復参照、現在Owner・世代の照合、長期／短期排他、共有回復Directory、助言初期化失敗時の初回参照保持は維持する。由来や非使用を確定できないHost残存を推測で削除する機能は提供しない。過去Evidenceと判断履歴は保持し、過去の物理残存は走査・変更しない。
+
+限定確認ではCoordinatorの整形・型・Lint・二つの追跡検査と、回復投影・回復開始診断・Platform非依存の3試験ファイル16件が成功した。全体回帰、実AI、実Docker、過去保持物の操作は実施していない。外部TrustとLocal Grantの整理、開発計測の製品経路からの分離は別の後続作業であり、本撤去で完了とはしない。
+
+独立レビューで見つかった旧Orphan義務の文書残存を是正し、再レビューは残指摘0。対象文書と直接参照先の限定検査は248／1207文書でエラー0・警告0、Test Catalogは420ファイルで整合した。履歴内の旧設計リンク4出現だけに既存規約の`[旧参照]`を付け、当時の本文・結果値は変更していない。
+
 ## 未接続Temporary Operationの退役 — 2026-11-12
 
 現行の実行モデルから、旧署名準備向けTemporary Operationの作成・再開・根拠昇格・終了、専用のMap・型・故障注入Variantを代替なしで撤去する。基準38d51403fの全製品src／bin／scriptsとtemplateではRoot再export以外のCallerはなく、最後の本番Caller `prepare-release-runtime.ts` はa04ecb703で署名準備・昇格一式とともに撤去されている。以後の移管とwx化は専用ライブラリの保持・試験であり、本番再接続ではなかった。
@@ -7,11 +162,6 @@
 共有の固定領域・File I/O・Error class・通常State／Attemptの回復は変更しない。既存の専用IT／STとfixture二個を退役し、Catalog・Symbolのactive集合を追従する。正式QA ID・元の検証義務と過去Evidenceは保持し、旧一時操作の自動化slice退役を全項目の免除や成功へ読み替えない。
 
 過去のtmp／.operations記録は今回未走査・未操作であり、不存在と断定しない。旧APIによる自動再開・清掃は提供しなくなるため、由来不明物は保全し、必要な場合は対象確認と個別承認を伴う処置へ残す。互換Reader・移行・代替Store・新しい清掃Toolは追加しない。
-
-変更ID: `CHG-000082`
-状態（Status）: `In Progress`
-担当責任者: Qual-Lab
-最終更新日: 2026-10-14
 
 ## 現在状態
 

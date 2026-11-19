@@ -16,70 +16,36 @@ import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
 import { inspectExecutionSelection } from "../../../execution-model/src/index.ts";
 
 /**
- * 上位fixtureの完全選定をExecutor向けの技術値へ投影する。
- * @responsibility 正常時は六項目と完全Hash、不正値は拒否試験用にそのまま搬送する。
- * @trace ERB-UT-023
- * @precondition 試験の合成値だけを受ける。
- * @stimulus 完全値又は意図した不正値を渡す。
- * @observation 技術投影と相関Hash。
- * @oracle 保存元情報を正常な下位入力に含めない。
- * @cleanup N/A: 局所値だけ。
- * @boundary 上位代役とExecutorの入力。
- */
-export function preparationSelection(candidate: unknown) {
-  const v = inspectExecutionSelection(candidate);
-  const value = v
-    ? Object.freeze({
-        provider: v.provider,
-        modelIdentifier: v.modelIdentifier,
-        identifierKind: v.identifierKind,
-        reasoningEffort: v.reasoningEffort,
-        purpose: v.purpose,
-        role: v.role,
-      })
-    : candidate;
-  return {
-    executionSelection: value as Pick<
-      ExecutionSelection,
-      | "provider"
-      | "modelIdentifier"
-      | "identifierKind"
-      | "reasoningEffort"
-      | "purpose"
-      | "role"
-    >,
-    selectionHash: hashExecutionSelection(v) ?? "invalid",
-  };
-}
-
-import { hashExecutionSelection } from "../../src/selection/resolve.ts";
-
-/**
- * 検査済み上位選定からExecutor用の五項目だけを作る。
- * @responsibility ロールは準備側に残し、完全Hashを変更しない。
+ * 完全選定から下位Executorに必要な技術五項目だけを投影する。
+ * @responsibility 上位の役割・保存相関と技術入力を分離し、選定Hashを生成しない。
  * @trace ERB-UT-023
  * @precondition 合成選定だけを使用する。
- * @stimulus 完全選定を渡す。
- * @observation roleを含まない選定と元Hash。
+ * @stimulus 完全選定又は意図した不正値を渡す。
+ * @observation roleを含まない技術選定。
  * @oracle 不正選定は補完せず反例のまま返す。
  * @cleanup N/A: 値の生成だけ。
  * @boundary 上位fixtureとExecutor。
  */
 export function attemptSelection(candidate: unknown) {
-  const projected = preparationSelection(candidate);
-  const v = inspectExecutionSelection(candidate);
-  return v
-    ? {
-        selectionHash: projected.selectionHash,
-        executionSelection: Object.freeze({
-          provider: v.provider,
-          modelIdentifier: v.modelIdentifier,
-          identifierKind: v.identifierKind,
-          reasoningEffort: v.reasoningEffort,
-          purpose: v.purpose,
-        }),
-      }
-    : projected;
+  const value = inspectExecutionSelection(candidate);
+  return {
+    executionSelection: value
+      ? Object.freeze({
+          provider: value.provider,
+          modelIdentifier: value.modelIdentifier,
+          identifierKind: value.identifierKind,
+          reasoningEffort: value.reasoningEffort,
+          purpose: value.purpose,
+        })
+      : (candidate as Pick<
+          ExecutionSelection,
+          | "provider"
+          | "modelIdentifier"
+          | "identifierKind"
+          | "reasoningEffort"
+          | "purpose"
+        >),
+  };
 }
 
 /**

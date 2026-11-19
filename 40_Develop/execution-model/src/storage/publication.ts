@@ -1394,7 +1394,6 @@ function commitStateSnapshotOwned(
         ) ||
         !settlement.cleanupStatus ||
         !settlement.dockerTerminal?.homeLeaseReleased ||
-        !settlement.dockerTerminal.mountLeaseReleased ||
         !settlement.dockerTerminal.recoveryCompleted ||
         settlement.historyInitial ||
         settlement.historyPublish
@@ -1643,7 +1642,6 @@ function commitStateSnapshotOwned(
           (next.host.cleanup !== "confirmed" ||
             next.lease !== "released" ||
             settlement.dockerTerminal?.homeLeaseReleased !== true ||
-            settlement.dockerTerminal?.mountLeaseReleased !== true ||
             settlement.dockerTerminal?.recoveryCompleted !== true ||
             !areTaskResourcesSettled(next))
         )
@@ -1706,7 +1704,6 @@ function commitStateSnapshotOwned(
             : operation.history.confirmed || previous.history?.confirmed) ||
           !settlement.cleanupStatus ||
           settlement.dockerTerminal?.homeLeaseReleased !== true ||
-          settlement.dockerTerminal.mountLeaseReleased !== true ||
           settlement.dockerTerminal.recoveryCompleted !== true
         )
           throw new Error("history_checkpoint_unconnected");

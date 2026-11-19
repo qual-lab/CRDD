@@ -48,7 +48,6 @@ import {
 } from "../../src/execution/persistence.ts";
 import * as controller from "../../src/execution/provider-executor.ts";
 import type { RecoveryPlan } from "../../src/execution/types.ts";
-import { hashExecutionSelection } from "../../src/selection/resolve.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -713,9 +712,7 @@ export async function verifyNormalOwnerLifecycle(
       provider: "codex" as const,
       consumer: "workbench" as const,
       operationId: binding.operationId,
-      grantRef: "PHMGRANT-FIXTURE",
       executionSelection: resolvedSelection,
-      selectionHash: hashExecutionSelection(resolvedSelection),
       taskAttempt: 0 as const,
       providerHomeIdentityHash: hash,
       stableLogicalHomeBindingHash: hash,
@@ -822,13 +819,10 @@ export async function verifyNormalOwnerLifecycle(
       "activated",
     );
     const hostBefore = hostRuntime.borrowOwnedHostRecoverySnapshot(management);
-    const observation = Object.freeze({});
     const proofs = new Map<
       object,
       {
         recoveryId: string;
-        mount: Readonly<{ status: "completed" }>;
-        activeMount: object;
         completionPlan: object;
         dockerResult: Readonly<{
           status: "completed";
@@ -884,27 +878,9 @@ export async function verifyNormalOwnerLifecycle(
               assert.equal(provider, plan.provider);
               return {
                 status: "candidate",
-                observationCapability: observation,
+                providerHome: plan,
               };
             },
-            consumeRuntimeOwnedProviderHomeObservationCapability: (
-              value: unknown,
-            ) => (value === observation ? plan : null),
-            verifyRuntimeOwnedProviderHomeMountCompletion: (
-              value: unknown,
-              owner: unknown,
-              active: unknown,
-              operationId: unknown,
-              home: unknown,
-            ) =>
-              [...proofs.values()].some(
-                (proof) =>
-                  value === proof.mount &&
-                  owner === management &&
-                  active === proof.activeMount &&
-                  operationId === plan.operationId &&
-                  home === hash,
-              ),
           },
         },
       ),
@@ -1025,14 +1001,10 @@ export async function verifyNormalOwnerLifecycle(
       assert.ok(
         ![...proofs.values()].some((proof) => proof.recoveryId === recoveryId),
       );
-      const activeMount = Object.freeze({});
       const proof: NonNullable<ReturnType<typeof proofs.get>> = {
         recoveryId,
-        mount: Object.freeze({ status: "completed" as const }),
-        activeMount,
         completionPlan: Object.freeze({
           ...plan,
-          activeMountCapability: activeMount,
         }),
         dockerResult: Object.freeze({
           status: "completed" as const,
@@ -1136,17 +1108,9 @@ export async function verifyNormalOwnerLifecycle(
           management,
           {
             plan: proof.completionPlan,
-            mountCompletion: proof.mount,
           },
         ).status,
         "blocked",
-      );
-      assert.equal(
-        ownerRuntime.recordRuntimeOwnedNormalMountCompletion(
-          capability,
-          proof.mount,
-        ),
-        true,
       );
       if (round > 0) {
         const previousProof = [...proofs.values()][0];
@@ -1157,7 +1121,6 @@ export async function verifyNormalOwnerLifecycle(
             management,
             {
               plan: previousProof.completionPlan,
-              mountCompletion: proof.mount,
             },
           ).status,
           "blocked",
@@ -1175,8 +1138,6 @@ export async function verifyNormalOwnerLifecycle(
         recoveryId,
         resourceSnapshot,
         observations: resources,
-        mountCompletion: proof.mount,
-        mountLeaseReleased: true,
         homeLeaseReleased,
       });
       assert.equal(
@@ -1381,7 +1342,6 @@ export async function verifyNormalOwnerLifecycle(
         processTreeTerminationConfirmed: true,
         containersAbsent: true,
         networksAbsent: true,
-        mountLeaseReleased: true,
         homeLeaseReleased: true,
         recoveryCompleted: true,
       });

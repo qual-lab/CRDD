@@ -161,7 +161,6 @@ const SOURCE_ROLES = {
     "execution/recovery.ts",
     "execution/observation.ts",
     "execution/diagnostics.ts",
-    "execution/measurement.ts",
     "execution/preparation.ts",
     "execution/provider-executor.ts",
     "execution/advice.ts",
@@ -811,14 +810,25 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
       const modulePaths = new Set(
         allModules.map((file) => normalize(path.resolve(repositoryRoot, file))),
       );
+      const retiredSymbols =
+        /\b(?:startRuntimeOwnedDevelopmentObjectiveTask|cancelRuntimeOwnedDevelopmentObjectiveTask|developmentObjectiveCancellations|uniqueStrings|isSupportedAuthorityRootAbsolutePath|verifyOwnedOperationContextCapability|describeCoordinatorObjectiveIntakeContract|poisonRuntimeProcessAfterInteractiveCleanupUnknown|isRuntimeProcessEffectDraining|beginRuntimeProcessEffectDrain|endRuntimeProcessEffectDrain|isRuntimeProcessEffectBlocked|planProviderLifecycle|syntheticFakeObservationInternal|evaluateSyntheticFakeProviderObservationCandidate|localAuthorityCanonicalJson|bindTaskCliCancellationSignalsForTesting|startRuntimeOwnedDevelopmentCoordinatorTask|DevelopmentOperationContext|createDevelopmentExecutionTiming|createDevelopmentMeasurementConstraints|projectDevelopmentTaskResultAfterOuterCleanup|coordinator_task_development_[A-Za-z0-9_]+)\b/u;
+      for (const reason of [
+        "coordinator_task_development_invocation_not_authorized",
+        "coordinator_task_development_invocation_settlement_invalid",
+        "coordinator_task_development_permission_expired",
+        "coordinator_task_development_permission_required",
+      ]) {
+        assert.throws(() =>
+          assert.doesNotMatch(
+            `export const reason = "${reason}";`,
+            retiredSymbols,
+          ),
+        );
+      }
       for (const file of allModules) {
         const absolute = normalize(path.resolve(repositoryRoot, file));
         const body = fs.readFileSync(absolute, "utf8");
-        assert.doesNotMatch(
-          body,
-          /\b(?:startRuntimeOwnedDevelopmentObjectiveTask|cancelRuntimeOwnedDevelopmentObjectiveTask|developmentObjectiveCancellations|uniqueStrings|isSupportedAuthorityRootAbsolutePath|verifyOwnedOperationContextCapability|describeCoordinatorObjectiveIntakeContract|poisonRuntimeProcessAfterInteractiveCleanupUnknown|isRuntimeProcessEffectDraining|beginRuntimeProcessEffectDrain|endRuntimeProcessEffectDrain|isRuntimeProcessEffectBlocked|planProviderLifecycle|syntheticFakeObservationInternal|evaluateSyntheticFakeProviderObservationCandidate|localAuthorityCanonicalJson|bindTaskCliCancellationSignalsForTesting)\b/u,
-          file,
-        );
+        assert.doesNotMatch(body, retiredSymbols, file);
         const source = project.program.getSourceFile(absolute);
         assert.ok(source);
         const scan = importSpecifierScan(source);

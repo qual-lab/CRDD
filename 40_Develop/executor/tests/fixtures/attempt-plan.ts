@@ -31,7 +31,6 @@ export function attemptPlan(): TestAttemptPlan {
       input: { provider: "claude", mode: "read_only_probe" },
     }),
     operationId: "OP-123456",
-    grantRef: "PHMGRANT-123456",
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",
@@ -39,7 +38,6 @@ export function attemptPlan(): TestAttemptPlan {
       reasoningEffort: "low",
       purpose: "task",
     },
-    activeMountCapability: {},
     providerHomeSourcePath: "C:/synthetic-not-accessed/home",
     providerHomeIdentityHash: "a".repeat(64),
     stableLogicalHomeBindingHash: "d".repeat(64),
@@ -95,13 +93,11 @@ export function attemptTarget(
 ) {
   return {
     operationId: plan.operationId,
-    grantRef: plan.grantRef,
     provider: plan.provider,
     workspaceSourcePath,
     temporarySourcePath,
     providerHomeSourcePath: plan.providerHomeSourcePath,
     providerHomeIdentityHash: plan.providerHomeIdentityHash,
     stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
-    activeMountCapability: plan.activeMountCapability,
   };
 }

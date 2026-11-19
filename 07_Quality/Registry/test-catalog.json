@@ -5152,26 +5152,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:development-execution-timing",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/development-execution-timing.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "development",
-        "execution",
-        "timing"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:integration:development-native-observation",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/development-native-observation.integration.test.ts",
@@ -5682,26 +5662,6 @@
         "single",
         "task",
         "adapter"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:provider-authority-coverage",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/provider-authority-coverage.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "authority",
-        "coverage"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -6314,63 +6274,8 @@
       ],
       "mandatoryByDefault": true
     },
-    {
-      "id": "coordinator:unit:authority-file-bundle",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/authority-bundle.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "authority",
-        "file",
-        "bundle"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:authority-grant-verifier",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/authority-validation.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "authority",
-        "grant",
-        "verifier"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:authority-prelaunch-verifier",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/prelaunch-validation.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "authority",
-        "prelaunch",
-        "verifier"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
+
+
     {
       "id": "coordinator:unit:authority-root-path-lexical",
       "owner": "coordinator",
@@ -6391,25 +6296,7 @@
       ],
       "mandatoryByDefault": true
     },
-    {
-      "id": "coordinator:unit:authority-trust-loader",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/authority-policy.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "authority",
-        "trust",
-        "loader"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
+
     {
       "id": "coordinator:unit:claude-docker-runtime-adapter",
       "owner": "coordinator",
@@ -6804,64 +6691,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:delegation-selection-grant-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/delegation-selection-grant.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "delegation",
-        "selection",
-        "grant",
-        "runtime"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:development-measurement-constraints",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/development-measurement-constraints.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "development",
-        "measurement",
-        "constraints"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:development-measurement-session",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/development-measurement-session.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "development",
-        "measurement",
-        "session"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:development-provider-measurement",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/development-provider-measurement.contract.test.ts",
@@ -7005,26 +6834,6 @@
         "egress",
         "proxy",
         "policy"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:local-personal-authority-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/local-authority.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "local",
-        "personal",
-        "authority",
-        "runtime"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -7317,25 +7126,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:provider-authority-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/authority-grant.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "authority",
-        "runtime"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:provider-billing-policy",
       "owner": "ai-adapter",
       "path": "40_Develop/ai-adapter/tests/unit/billing/policy.contract.test.ts",
@@ -7393,47 +7183,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:provider-home-mount-grant-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/provider-home-mount-authorization.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "home",
-        "mount",
-        "grant",
-        "runtime"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:provider-home-mount-grant",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "home",
-        "mount",
-        "grant"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:provider-home-observation",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/execution/provider-home-observation.contract.test.ts",
@@ -7471,25 +7220,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:provider-isolation-profile",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/isolation-profile.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "isolation",
-        "profile"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:provider-lifecycle",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
@@ -7505,28 +7235,6 @@
       "humanInput": false,
       "postconditions": [
         "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:provider-model-profile-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/fixed-selection-runtime.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "fixed-selection",
-        "grant",
-        "one-shot"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "selection_operation_bound",
-        "retired_profile_rejected",
-        "selection_one_use",
-        "provider_effect_zero"
       ],
       "mandatoryByDefault": true
     },
@@ -7562,27 +7270,6 @@
         "operation-lock",
         "activation",
         "lifecycle"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed",
-        "source_unchanged"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:host-orphan-recovery-policy",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/orphan-recovery-policy.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "orphan",
-        "recovery",
-        "policy"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -7645,43 +7332,6 @@
         "release",
         "identity",
         "grammar"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:root-observation",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/root-observation.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "root",
-        "observation"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:root-protection-policy",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/root-protection-policy.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "root",
-        "protection",
-        "policy"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

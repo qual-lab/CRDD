@@ -12,11 +12,11 @@ import test from "node:test";
 import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  consumeRuntimeOwnedProviderHomeObservationCapability,
 } from "../../../src/execution/authority.ts";
 
 test("Provider HomeのNode契約はNative・OS主体・ACL検証を成功扱いしない", () => {
   const contract = describeProviderHomeWindowsAdapterContract();
+  assert.equal(contract.contractRevision, 10);
   assert.equal(contract.locationSource, "upper_configuration");
   assert.equal(
     contract.observation,
@@ -26,11 +26,17 @@ test("Provider HomeのNode契約はNative・OS主体・ACL検証を成功扱い�
   assert.equal(contract.osPrincipalVerification, false);
   assert.equal(contract.processEffectIssued, false);
   assert.equal(contract.credentialContentRead, false);
-  assert.equal(contract.mountGrantIssued, false);
   const invalid = inspectRuntimeOwnedWindowsProviderHomeCandidate("other");
   assert.equal(invalid.status, "blocked");
-  assert.equal(invalid.helperSpawnAttempts, 0);
+  for (const key of [
+    "helperSpawnAttempts",
+    "helperSpawned",
+    "helperExitConfirmed",
+    "nativeSourceRevision",
+    "artifactVerifiedBeforeAndAfter",
+    "processTreeTerminationConfirmed",
+  ])
+    assert.equal(Object.hasOwn(invalid, key), false);
   assert.equal(invalid.processEffectIssued, false);
-  assert.equal(invalid.runtimeOwnedObservationCapabilityIssued, false);
-  assert.equal(consumeRuntimeOwnedProviderHomeObservationCapability({}), null);
+  assert.equal(invalid.manualRecoveryRequired, false);
 });

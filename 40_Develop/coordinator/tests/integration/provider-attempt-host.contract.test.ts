@@ -50,7 +50,7 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
       live=false;releases=0;observations=0;failKind=mode;cancelPromise=null;f.calls.length=0;f.processTermination=true;f.pendingRun=false;
       const root=fs.mkdtempSync(path.join(parent,'executor-host-contract-'));
       const identity=fs.statSync(root,{bigint:true});
-      const request={kind:'attempt',purpose:'probe',target:{operationId:'OP-123456',grantRef:'PHMGRANT-123456',provider:'claude',workspaceSourcePath:path.join(root,'work'),temporarySourcePath:path.join(root,'tmp'),providerHomeSourcePath:'C:\\\\fixture\\\\home',providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),activeMountCapability:{}},selection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task'}};
+      const request={kind:'attempt',purpose:'probe',target:{operationId:'OP-123456',provider:'claude',workspaceSourcePath:path.join(root,'work'),temporarySourcePath:path.join(root,'tmp'),providerHomeSourcePath:'C:\\\\fixture\\\\home',providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)},selection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task'}};
       const waiting=Promise.withResolvers();let cancelRelease=null,gateUsed=false;
       f.waitGate=async argv=>{if(!gateUsed&&argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)===String(f.request.resources.findIndex(r=>r.key==='create_provider')+1).repeat(64)&&['cancel','process_unknown'].includes(mode)){gateUsed=true;waiting.resolve();await new Promise(resolve=>cancelRelease=resolve);}};
       f.terminationFilter=argv=>!(mode==='process_unknown'&&argv[0]==='start'&&argv.at(-1)==='2'.repeat(64));

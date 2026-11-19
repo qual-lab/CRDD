@@ -432,7 +432,6 @@ export type AttemptRequest = Readonly<{
   selection: ModelSelection;
   target: Readonly<{
     operationId: string;
-    grantRef: string;
     provider: string;
     workspaceSourcePath: string;
     temporarySourcePath: string;
@@ -443,7 +442,6 @@ export type AttemptRequest = Readonly<{
     providerHomeSourcePath: string;
     providerHomeIdentityHash: string;
     stableLogicalHomeBindingHash: string;
-    activeMountCapability: object;
   }>;
 }> &
   (
@@ -474,9 +472,7 @@ export type AttemptPlan = AttemptRecordProjection &
     additionalHosts: readonly string[] | null;
     provider: Provider;
     operationId: string;
-    grantRef: string;
     executionSelection: ModelSelection;
-    activeMountCapability: object;
     providerHomeSourcePath: string;
     providerHomeIdentityHash: string;
     stableLogicalHomeBindingHash: string;

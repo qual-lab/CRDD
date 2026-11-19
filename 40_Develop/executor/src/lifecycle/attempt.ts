@@ -1196,14 +1196,12 @@ export function prepareAttempt(
     return null;
   const targetData = copyPlainDataRecord(rawTarget, [
     "operationId",
-    "grantRef",
     "provider",
     "workspaceSourcePath",
     "temporarySourcePath",
     "providerHomeSourcePath",
     "providerHomeIdentityHash",
     "stableLogicalHomeBindingHash",
-    "activeMountCapability",
     ...(Object.hasOwn(rawTarget, "workspaceProtection")
       ? ["workspaceProtection"]
       : []),
@@ -1211,7 +1209,6 @@ export function prepareAttempt(
   if (!targetData || paths.tmp !== targetData.temporarySourcePath) return null;
   for (const key of [
     "operationId",
-    "grantRef",
     "provider",
     "workspaceSourcePath",
     "temporarySourcePath",
@@ -1220,11 +1217,6 @@ export function prepareAttempt(
     "stableLogicalHomeBindingHash",
   ])
     if (typeof targetData[key] !== "string") return null;
-  if (
-    !targetData.activeMountCapability ||
-    typeof targetData.activeMountCapability !== "object"
-  )
-    return null;
   let protection:
     | Readonly<{ gitSourcePath: string; internalSourcePath: string }>
     | undefined;
@@ -1340,9 +1332,7 @@ export function prepareAttempt(
     providerPlan,
     provider,
     operationId: target.operationId,
-    grantRef: target.grantRef,
     executionSelection: selection,
-    activeMountCapability: target.activeMountCapability,
     providerHomeSourcePath: target.providerHomeSourcePath,
     providerHomeIdentityHash: target.providerHomeIdentityHash,
     stableLogicalHomeBindingHash: target.stableLogicalHomeBindingHash,
@@ -2218,12 +2208,9 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
-    /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     parseModelSelection(plan.executionSelection)?.provider === plan.provider &&
     plan.subscriptionOffering ===
       getAuthenticationDefinition(plan.provider).offering &&
-    plan.activeMountCapability !== null &&
-    typeof plan.activeMountCapability === "object" &&
     (plan.operationMode === "boolean_probe" || isTaskPlan || isAdvicePlan) &&
     (isTaskPlan
       ? (plan.taskRole === "executor" || plan.taskRole === "reviewer") &&

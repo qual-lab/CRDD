@@ -42,7 +42,6 @@ test("保存Identity拒否はNative Home観測より前に停止する", () => {
       "\nbeginProductionRecovery",
     {
       validProductionPlan: () => true,
-      inspectRuntimeOwnedDevelopmentOperationContext: () => null,
       randomBytes: () => Buffer.alloc(32, 1),
       prepareRuntimeOwnedRepositoryDockerOperationIdentity: () => null,
       inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
@@ -90,7 +89,6 @@ test("資源Identityの非文字列は変換・環境観測・保存前に拒否
       inspectExecutionSelection: () => ({ provider: "claude" }),
       HEX64: /^[a-f0-9]{64}$/u,
       randomBytes: () => Buffer.alloc(32, 1),
-      inspectRuntimeOwnedDevelopmentOperationContext: () => null,
       inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
         effects++;
       },
@@ -155,7 +153,6 @@ function productionPlan(operationId: string, stableHome: string) {
     provider: "claude" as const,
     consumer: "orchestrator" as const,
     operationId,
-    grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",
     providerHomeIdentityHash: "8".repeat(64),
     stableLogicalHomeBindingHash: stableHome,

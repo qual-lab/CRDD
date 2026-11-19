@@ -10,11 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { types } from "node:util";
-import {
-  type ExecutionSelection,
-  inspectExecutionSelection,
-  parseHostRecoveryToken,
-} from "../../../execution-model/src/index.ts";
+import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
 import type { Lock } from "../../../lock/src/index.ts";
 import {
   getRepository,
@@ -27,7 +23,6 @@ import {
 } from "../../../version-control/src/index.ts";
 import { checkRepositoryRuntimeDataProtectionDirectory } from "../configuration/runtime-data.ts";
 import { containsRecognizedSecretMaterial } from "../input/secret-validation.ts";
-import { snapshotPlainRecord } from "../input/snapshot.ts";
 import type { Operation } from "./controller.ts";
 import {
   type ExecutionFileEntry,
@@ -1623,21 +1618,6 @@ export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "SSH_AUTH_SOCK",
 ]);
 
-const WINDOWS_RUNTIME_ENV = Object.freeze([
-  "COMSPEC",
-  "PATHEXT",
-  "SYSTEMDRIVE",
-  "SYSTEMROOT",
-  "WINDIR",
-]);
-
-const POSIX_RUNTIME_ENV = Object.freeze([
-  "LANG",
-  "LC_ALL",
-  "LC_CTYPE",
-  "SHELL",
-]);
-
 const OWNED_PREFIX = "crdd-coordinator-doctor-";
 
 const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
@@ -2236,22 +2216,8 @@ const operationContextAliases = new WeakMap<object, Set<object>>();
  */
 type OperationManagementIdentity = Readonly<{
   owned: object;
-  developmentContext?: DevelopmentOperationContext;
   operationId: string;
   createdAt: string;
-  executionSelections?: Readonly<
-    Partial<
-      Record<
-        "executor0" | "reviewer0" | "executor1" | "reviewer1" | "advice0",
-        Readonly<{
-          selectionRecordId: string;
-          selection: ExecutionSelection;
-          selectionHash: string;
-          taskAttempt: 0 | 1;
-        }>
-      >
-    >
-  >;
 }>;
 
 /**
@@ -2275,92 +2241,6 @@ const operationManagementCapabilities = new WeakMap<
   object,
   OperationManagementIdentity
 >();
-
-/**
- * 同じ診断Sessionに結合した新規作業・清掃の参照を保持する。
- * @responsibility 元Contextと動的失効確認を複製せず借りる。
- * @trace ARCH-000004
- * @shape 動的checkNewWorkと、元の新規作業・清掃Context参照。
- * @invariant 取消・終了後も参照を保持し、動的検査は新規作業を拒否する。
- * @boundary 診断Sessionと同じOperation管理binding。別aliasへ自動伝播しない。
- * @security 参照自体はAuthorityではなく、保存・公開しない。
- * @compatibility Process内の内部契約であり、永続SchemaとRoot公開は変更しない。
- */
-export type DevelopmentOperationContext = Readonly<{
-  checkNewWork: () => boolean;
-  newWorkContext: object;
-  cleanupContext: object;
-}>;
-
-/**
- * 診断Sessionの検査完了後だけ、元管理参照へContextを一回結合する。
- * @responsibility 既存Operation bindingを利用し、別Contextの上書きを拒否する。
- * @trace ARCH-000004
- * @input 現在の管理Capabilityと、Sessionが検査後に固定した元Context。
- * @returns 同じbindingへ初回結合した場合だけtrue。
- * @precondition 呼出し側がTask・Session・Repository・Revisionを照合済みである。
- * @postcondition 成功時だけ元参照を保持する。Session側の確定は呼出し側が行う。
- * @effect 既存Map内の同じbinding参照だけを更新する。資源・権限を発行しない。
- * @failure 検査失敗・二重結合では元bindingを変更せずfalse。
- * @invariant Contextを再生成・上書きせず、取消を通常Operationへ読み替えない。
- * @boundary 診断Sessionの結合と既存Operationの管理参照。
- * @security 元管理参照を確認し、別aliasへの結合やAuthority発行は行わない。
- * @concurrency 同期の検査と一回のMap更新のみ。更新後に外部処理を挟まない。
- */
-export function bindOwnedDevelopmentOperationContext(
-  managementCapability: object,
-  context: DevelopmentOperationContext,
-): boolean {
-  try {
-    verifyOwnedOperationManagementCapability(managementCapability);
-    const binding = operationManagementCapabilities.get(managementCapability);
-    if (!binding || binding.developmentContext) return false;
-    const captured = snapshotPlainRecord(
-      context,
-      new Set(["checkNewWork", "newWorkContext", "cleanupContext"]),
-    );
-    if (
-      !captured ||
-      Object.keys(captured).length !== 3 ||
-      typeof captured.checkNewWork !== "function" ||
-      !isObject(captured.newWorkContext) ||
-      !isObject(captured.cleanupContext) ||
-      !Object.isFrozen(context)
-    )
-      return false;
-    operationManagementCapabilities.set(
-      managementCapability,
-      Object.freeze({ ...binding, developmentContext: context }),
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 元診断Sessionの動的検査とContext参照を同じOperationから借りる。
- * @responsibility 通常Operationと未結合参照はnull、結合後の取消・終了は同じContextの検査で拒否する。
- * @trace ARCH-000004
- * @input 現在又は未検証の管理Capability。
- * @returns 結合した元Context、又は未結合・失効参照のnull。
- * @precondition 利用側はEffect前に既存の現在Owner確認を行う。
- * @postcondition Contextを複製せず、取消・終了後も動的検査へ接続する。
- * @effect N/A: 既存Mapの読取りのみ。
- * @failure 不正・未結合・失効参照を解決し直さずnullとする。
- * @invariant nullだけを実行許可の根拠にしない。
- * @boundary Authority／RecoveryとOperation管理binding。
- * @security 管理参照の現在確認と実処置の条件は利用側に維持する。
- * @concurrency 取得後も同じ関数がSessionの取消・終了を動的に確認する。
- */
-export function inspectRuntimeOwnedDevelopmentOperationContext(
-  managementCapability: unknown,
-): DevelopmentOperationContext | null {
-  return isObject(managementCapability)
-    ? (operationManagementCapabilities.get(managementCapability)
-        ?.developmentContext ?? null)
-    : null;
-}
 
 /**
  * execution-environmentで使用するOperation Generation 状態の値契約を定義する。
@@ -3613,31 +3493,6 @@ function validateDirectorySnapshot(snapshot: DirectorySnapshot): string {
     throw new Error("owned_operation_mount_replaced");
   }
   return snapshot.root;
-}
-
-/**
- * copy If Presentを決定する。
- *
- * @responsibility copy If Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input target: Record<string, string>、source: unknown、name: string
- * @returns N/A: copyIfPresentは戻り値を返さない。
- * @precondition 「target: Record<string, string>、source: unknown、name: string」がcopyIfPresentの入力契約を満たす。
- * @postcondition copyIfPresentの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: copyIfPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: copyIfPresentは独自の失敗分岐を所有しない。
- * @invariant copyIfPresentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: copyIfPresentはProcess内の同一Subsystemで完結する。
- * @security copyIfPresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: copyIfPresentは共有非同期状態を持たない同期処理である。
- */
-function copyIfPresent(
-  target: Record<string, string>,
-  source: unknown,
-  name: string,
-): void {
-  const candidate = ownString(source, name);
-  if (candidate !== null) target[name] = candidate;
 }
 
 /**
@@ -5478,137 +5333,6 @@ export function verifyOwnedOperationManagementCapability(
 }
 
 /**
- * 消費した完全選定を既存Operation Ownerへ結合する。
- * @responsibility Executorへ保存元を渡さず同じOwnerで保存Identityを維持する。
- * @trace ARCH-000015
- * @input 現在の管理参照、選定ID、完全選定と試行番号。
- * @returns 元Ownerへの結合が成立した場合だけtrue。
- * @precondition 上位の選定Capability消費後に呼ぶ。
- * @postcondition 既存WeakMapの同じ管理recordの固定五用途だけに不変値を保持する。
- * @effect Process内の既存recordを更新する。保存・資源取得なし。
- * @failure 別Owner・不正値・異なる再結合はfalse。
- * @invariant 新しいMap・永続状態・Authorityを追加しない。
- * @boundary Coordinator内の選定OwnerとOperation保存Owner。
- * @security 選定Hashを権限へ変換しない。
- * @concurrency 同期結合しOperationの既存失効と共に解放する。
- */
-export function bindOwnedOperationExecutionSelection(
-  management: unknown,
-  selectionRecordId: string,
-  candidate: unknown,
-  taskAttempt: 0 | 1,
-): boolean {
-  try {
-    verifyOwnedOperationManagementCapability(management);
-    const binding = operationManagementCapabilities.get(management as object);
-    const selection = inspectExecutionSelection(candidate);
-    const selectionHash = hashExecutionSelection(selection);
-    if (
-      !binding ||
-      !selection ||
-      !selectionHash ||
-      !/^MODELSEL-[A-Z0-9-]{8,80}$/u.test(selectionRecordId) ||
-      (taskAttempt !== 0 && taskAttempt !== 1)
-    )
-      return false;
-    const slot =
-      selection.purpose === "advice" &&
-      selection.role === "advice" &&
-      taskAttempt === 0
-        ? "advice0"
-        : selection.purpose === "task" && selection.role === "executor"
-          ? taskAttempt === 0
-            ? "executor0"
-            : "executor1"
-          : selection.purpose === "task" &&
-              selection.role === "independent_reviewer"
-            ? taskAttempt === 0
-              ? "reviewer0"
-              : "reviewer1"
-            : null;
-    if (!slot) return false;
-    const next = Object.freeze({
-      selectionRecordId,
-      selection,
-      selectionHash,
-      taskAttempt,
-    });
-    if (binding.executionSelections?.[slot])
-      return (
-        JSON.stringify(binding.executionSelections[slot]) ===
-        JSON.stringify(next)
-      );
-    operationManagementCapabilities.set(
-      management as object,
-      Object.freeze({
-        ...binding,
-        executionSelections: Object.freeze({
-          ...binding.executionSelections,
-          [slot]: next,
-        }),
-      }),
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 元Operationに結合した完全選定だけを保存Ownerへ貸し出す。
- * @responsibility 管理参照・選定ID・完全Hash・試行番号・exact五技術項目の一致を要求する。
- * @trace ARCH-000015
- * @input 現在の管理参照と技術計画の非Authority相関。
- * @returns 元の完全選定又はnull。
- * @precondition 同じOperation Ownerが現在も有効である。
- * @postcondition 下位から完全選定を再受理しない。
- * @effect 元OwnerのFilesystem実体確認だけ。
- * @failure 欠測・失効・別相関はnull。
- * @invariant 記録を新しい実行許可へ昇格しない。
- * @boundary Coordinatorの実行と保存Identityの組立て。
- * @security 公開Rootへ返却しない。
- * @concurrency 同期借用。新しい排他を作らない。
- */
-export function borrowOwnedOperationExecutionSelection(
-  management: unknown,
-  selectionRecordId: string,
-  selectionHash: string,
-  taskAttempt: 0 | 1,
-  technicalSelection: unknown,
-) {
-  try {
-    verifyOwnedOperationManagementCapability(management);
-    const keys = new Set([
-      "provider",
-      "modelIdentifier",
-      "identifierKind",
-      "reasoningEffort",
-      "purpose",
-    ]);
-    const technical = snapshotPlainRecord(technicalSelection, keys);
-    if (!technical || Object.keys(technical).length !== keys.size) return null;
-    const selections = operationManagementCapabilities.get(
-      management as object,
-    )?.executionSelections;
-    for (const value of Object.values(selections ?? {})) {
-      if (
-        value.selectionRecordId === selectionRecordId &&
-        value.selectionHash === selectionHash &&
-        value.taskAttempt === taskAttempt &&
-        [...keys].every(
-          (key) =>
-            technical[key] === value.selection[key as keyof ExecutionSelection],
-        )
-      )
-        return value.selection;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * 所有 Operation Management Mount Bindingを検証する。
  *
  * @responsibility 所有 Operation Management Mount Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
@@ -6323,42 +6047,6 @@ export function recoverOwnedOperationDirectories(
     }
   }
   return result;
-}
-
-/**
- * Provider Environmentを構築する。
- *
- * @responsibility Provider Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input baseEnvironment: unknown、directories: OperationDirectories
- * @returns Record<string, string>を返す。
- * @precondition 「baseEnvironment: unknown、directories: OperationDirectories」がcreateProviderEnvironmentの入力契約を満たす。
- * @postcondition createProviderEnvironmentの責務を完了した結果だけを返す。
- * @effect N/A: createProviderEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createProviderEnvironmentは独自の失敗分岐を所有しない。
- * @invariant createProviderEnvironmentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createProviderEnvironmentはProcess内の同一Subsystemで完結する。
- * @security createProviderEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createProviderEnvironmentは共有非同期状態を持たない同期処理である。
- */
-export function createProviderEnvironment(
-  baseEnvironment: unknown,
-  directories: OperationDirectories,
-): Record<string, string> {
-  const environment: Record<string, string> = {};
-  copyIfPresent(environment, baseEnvironment, "PATH");
-  copyIfPresent(environment, baseEnvironment, "Path");
-  for (const name of WINDOWS_RUNTIME_ENV)
-    copyIfPresent(environment, baseEnvironment, name);
-  for (const name of POSIX_RUNTIME_ENV)
-    copyIfPresent(environment, baseEnvironment, name);
-  environment.HOME = directories.providerHome;
-  environment.USERPROFILE = directories.providerHome;
-  environment.TEMP = directories.tmp;
-  environment.TMP = directories.tmp;
-  environment.GIT_CONFIG_NOSYSTEM = "1";
-  environment.GIT_TERMINAL_PROMPT = "0";
-  return environment;
 }
 
 /**
@@ -7106,5 +6794,4 @@ export function describeRepositoryOperationRuntimeContract() {
   });
 }
 
-import { hashExecutionSelection } from "../selection/resolve.ts";
 import type { WorkspaceResult } from "../workspace/record.ts";

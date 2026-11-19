@@ -279,13 +279,12 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v4",
+    schema: "crdd-coordinator/operation-identity/v5",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",
@@ -467,7 +466,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
               : "not_requested",
         })),
         homeLeaseReleased: true,
-        mountLeaseReleased: true,
         recoveryCompleted: true,
         primaryFailure: lifecycle.primaryFailure,
       });
@@ -1630,13 +1628,12 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
       hostHash;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v4",
+      schema: "crdd-coordinator/operation-identity/v5",
       operationNonce: nonce,
       provider: "claude",
       consumer: "orchestrator",
       operationId: "OP-123456",
       recoveryCorrelationId: "task-operation-a",
-      grantRef: "PHMGRANT-FIXTURE",
       executionSelection: {
         provider: "claude",
         modelIdentifier: "opus",

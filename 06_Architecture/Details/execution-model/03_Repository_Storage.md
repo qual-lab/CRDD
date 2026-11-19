@@ -5,6 +5,10 @@
 
 共通排他の現在の名前と所在は[Lock設計](../lock/01_Architecture.md#lockの名前と所在)を正本とする。EMの物理排他は`.crdd/lock/execution-model.state.lock`、長期Leaseは同じ共通Directory内の対象別Fileへ接続する。以下に残る旧Kernel・旧配置の説明から現在の排他所在を導出しない。`domain-model/state.lock`は別の保存markerであり、今回の保存簡素化で撤去した。
 
+## Operation Identityと終了保存の現在契約
+
+実行のOperation Identityは`crdd-coordinator/operation-identity/v5`とし、完全選定・試行番号・Operation／Home／Host相関を保存する。旧v4と`grantRef`を含む旧構造は受理せず、互換Reader・暗黙補完・自動変換を置かない。終了観測の旧`mountLeaseReleased`は受付契約から除き、元の実行Ownerへ照合した資源終端・実Home解放・Recovery確定を、既存Writer・CAS・現在版照合で保存する。Schema更新は過去保持物の移行・削除を実行する許可ではなく、本変更では操作しない。
+
 ## 共通状態保存の配置切替 — 2026-10-28
 
 [Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。人間承認により共通保存先を`.crdd/domain-model/`へ統一する。製品は新配置だけを読み書きし、実データの移行・切戻しは[フロントAI手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ分離する。今回のSource切替は実データ移行済みを意味しない。
@@ -213,7 +217,7 @@ Related:
 | 領域 | 所有する情報 | 主な終了条件 |
 |---|---|---|
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
-| `domain-model/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | Domainが物理保存を所有し、[単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。別寿命のcaller接続は[既存契約](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)を維持する |
+| `domain-model/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | Domainが物理保存を所有し、[単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。通常Recoveryは[対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)を維持し、元の参照が不明なHost残存を推測回収しない |
 | `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |

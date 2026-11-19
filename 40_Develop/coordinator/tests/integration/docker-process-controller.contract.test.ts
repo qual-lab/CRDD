@@ -30,7 +30,6 @@ import {
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
-import { createDevelopmentMeasurementConstraints } from "../../src/execution/measurement.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/observation.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
@@ -105,10 +104,6 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
       /from\s+["']\.\/preparation\.ts["']/,
     );
   assert.doesNotMatch(
-    source("execution/preparation.ts"),
-    /export (?:function validateProviderIsolationProfile|const PROVIDER_ISOLATION_CONTRACT)/,
-  );
-  assert.doesNotMatch(
     runtime("execution/provider-executor.ts"),
     /from\s+["']\.\/controller\.ts["']/,
   );
@@ -163,10 +158,7 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
-function createPlan(
-  activeMountCapability: object,
-  authorityUseCapability: object,
-) {
+function createPlan() {
   const suffix = "0101010101010101";
   const purposes = [
     "create_subscription_auth_probe",
@@ -211,7 +203,6 @@ function createPlan(
     provider: "claude" as const,
     consumer: "coordinator_cli" as const,
     operationId: "OP-123456",
-    grantRef: "PHMGRANT-123456",
     ...attemptSelection(
       executionSelection("executor", {
         provider: "claude",
@@ -220,8 +211,6 @@ function createPlan(
       }),
     ),
     taskAttempt: 0 as const,
-    activeMountCapability,
-    authorityUseCapability,
     providerHomeSourcePath: "C:\\runtime-owned\\claude-home",
     providerHomeIdentityHash: "a".repeat(64),
     stableLogicalHomeBindingHash: "d".repeat(64),
@@ -235,7 +224,6 @@ function createPlan(
       "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
     proxyImageDigest:
       "sha256:f8dad0fbda2d96669dff0a7a0d56864047640af0f4514cbd1383abada91d5d68",
-    selectionRecordId: "MODELSEL-12345678",
     subscriptionOffering: "claude_max" as const,
     selectedModel: "opus",
     selectedEffort: "low" as const,
@@ -360,7 +348,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
     ["claude", claudeAdvice, null, "not_applicable", "not_applicable"],
   ] as const) {
     const argv = executionPlan.argv;
-    const base = createPlan({}, {});
+    const base = createPlan();
     const commands = planDockerIsolationCommands({
       authenticationContainerName: base.authContainerName,
       executionContainerName: base.providerContainerName,
@@ -400,13 +388,6 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         reportProviderBoundaryDiagnostic: (notice: unknown) => {
           notices.push(notice);
         },
-        consumeProviderAuthority: () => ({
-          operationId: base.operationId,
-          provider,
-          providerHomeMountGrantRef: base.grantRef,
-          runtimeAuthorityIssued: true,
-          providerEffectAllowed: true,
-        }),
       },
       {
         ...(role ? providerStartObservationTaskPlan : {}),
@@ -460,7 +441,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       },
     );
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(started.status, "started");
@@ -502,7 +483,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
   const fixture = createFixture();
   let handedOffRecoveryId: unknown = null;
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
     (_capability: unknown, recoveryId: unknown) => {
       handedOffRecoveryId = recoveryId;
@@ -652,7 +633,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
 
   const blockedFixture = createFixture({ verifyRevision: () => false });
   const blockedStart = blockedFixture.controller.start(
-    blockedFixture.preparedCapability,
+    blockedFixture.plan,
     blockedFixture.managementCapability,
   );
   for (const impossible of [
@@ -690,7 +671,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
 test("実Controllerのclean blockedとmanual blockedをexact projectionする", () => {
   const cleanFixture = createFixture({ verifyRevision: () => false });
   const cleanBlocked = cleanFixture.controller.start(
-    cleanFixture.preparedCapability,
+    cleanFixture.plan,
     cleanFixture.managementCapability,
   );
   assert.equal(cleanBlocked.status, "blocked");
@@ -706,7 +687,7 @@ test("実Controllerのclean blockedとmanual blockedをexact projectionする", 
       }),
   });
   const manualBlocked = manualFixture.controller.start(
-    manualFixture.preparedCapability,
+    manualFixture.plan,
     manualFixture.managementCapability,
   );
   assert.equal(manualBlocked.status, "blocked");
@@ -813,13 +794,10 @@ function createFixture(
   planOverrides: Record<string, unknown> = {},
 ) {
   const managementCapability = Object.freeze({});
-  const preparedCapability = Object.freeze({});
-  const activeMountCapability = Object.freeze({});
-  const authorityUseCapability = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   const plan = Object.freeze({
     additionalHosts: null,
-    ...createPlan(activeMountCapability, authorityUseCapability),
+    ...createPlan(),
     ...attemptSelection(
       executionSelection(
         planOverrides.operationMode === "workbench_advice"
@@ -841,8 +819,8 @@ function createFixture(
     ),
     ...planOverrides,
   });
-  let mountCompletionCount = 0;
   let recoveryCompletionCount = 0;
+  let recoveryStartCount = 0;
   let commandCount = 0;
   let cleanupCount = 0;
   let terminal:
@@ -856,7 +834,6 @@ function createFixture(
     | null = null;
   let terminalResult: object | null = null;
   const recoveryEvents: string[] = [];
-  const recoveryConsumers: unknown[] = [];
   let recordedResourceObservations: unknown = null;
   let recordedResourceSnapshot: ResourceSnapshot | null = null;
   const resourceObservations = Object.freeze([
@@ -893,20 +870,9 @@ function createFixture(
   ]);
   const dependencies = {
     effectExecutorAvailable: true,
-    verifyRevision: () => Object.freeze({ revisionCurrent: true }),
-    consumePreparedPlan: (prepared: unknown, management: unknown) => {
-      assert.equal(prepared, preparedCapability);
-      assert.equal(management, managementCapability);
-      if (
-        !["coordinator_cli", "workbench", "orchestrator"].includes(
-          plan.consumer,
-        )
-      )
-        return null;
-      return plan;
-    },
+    verifyRevision: (candidate: unknown) => candidate === managementCapability,
     beginRecovery: () => {
-      recoveryConsumers.push(plan.consumer);
+      recoveryStartCount++;
       return Object.freeze({
         status: "ready" as const,
         recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
@@ -959,10 +925,6 @@ function createFixture(
         resourceObservations,
       });
     },
-    completeMount: () => {
-      mountCompletionCount += 1;
-      return Object.freeze({ status: "completed" });
-    },
     completeRecovery: () => {
       recoveryCompletionCount += 1;
       recoveryEvents.push("recovery-completed");
@@ -994,26 +956,6 @@ function createFixture(
       recoveryEvents.push("docker-absence");
       return true;
     },
-    recordMountCompletion: () => {
-      recoveryEvents.push("mount-completion");
-      return true;
-    },
-    consumeProviderAuthority: (
-      use: unknown,
-      active: unknown,
-      management: unknown,
-    ) => {
-      assert.equal(use, authorityUseCapability);
-      assert.equal(active, activeMountCapability);
-      assert.equal(management, managementCapability);
-      return Object.freeze({
-        operationId: "OP-123456",
-        provider: "claude",
-        providerHomeMountGrantRef: "PHMGRANT-123456",
-        runtimeAuthorityIssued: true as const,
-        providerEffectAllowed: true as const,
-      });
-    },
     recordTerminalObservation: (
       _recovery: object,
       result: object,
@@ -1034,13 +976,11 @@ function createFixture(
     plan,
     recoveryCapability,
     managementCapability,
-    preparedCapability,
     getCommandCount: () => commandCount,
     getCleanupCount: () => cleanupCount,
-    getMountCompletionCount: () => mountCompletionCount,
     getRecoveryCompletionCount: () => recoveryCompletionCount,
+    getRecoveryStartCount: () => recoveryStartCount,
     getRecoveryEvents: () => [...recoveryEvents],
-    getRecoveryConsumers: () => [...recoveryConsumers],
     getRecordedResourceObservations: () => recordedResourceObservations,
     getRecordedResourceSnapshot: () => recordedResourceSnapshot,
     resourceObservations,
@@ -1048,63 +988,18 @@ function createFixture(
 }
 
 /**
- * Controllerが固定利用側を開始Ownerへ搬送し、未指定・未知用途を拒否する。
- *
- * @responsibility 最新計画の必須利用側とEffect前拒否を確認する。
- * @trace ERB-IT-002
- * @precondition 正規計画・管理Capabilityと模擬実行依存を用意する。
- * @stimulus 三利用側および欠落・未知値の計画をControllerへ渡す。
- * @observation 開始Ownerへ渡された利用側とDocker Command回数を読む。
- * @oracle 正規用途は保持し、欠落・未知用途は開始OwnerとDocker Commandを呼ばない。
- * @cleanup 正規用途の模擬実行は既存終了・回収経路へ収束する。
- * @boundary ERB-IT-002=Direct Boundary: Provider計画→Controller→開始Owner。
- */
-test("Controllerは固定利用側を保持し未指定・未知用途をEffect前に拒否する", async () => {
-  for (const consumer of ["coordinator_cli", "workbench", "orchestrator"]) {
-    const fixture = createFixture({}, { consumer });
-    const started = fixture.controller.start(
-      fixture.preparedCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(started.status, "started");
-    const result = await started.completion;
-    assert.equal(result?.status, "completed");
-    assert.deepEqual(fixture.getRecoveryConsumers(), [consumer]);
-  }
-  for (const consumer of [
-    undefined,
-    null,
-    "unknown",
-    "transient",
-    "durable",
-    {},
-    0,
-  ]) {
-    const fixture = createFixture({}, { consumer });
-    const result = fixture.controller.start(
-      fixture.preparedCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "docker_process_controller_plan_invalid");
-    assert.deepEqual(fixture.getRecoveryConsumers(), []);
-    assert.equal(fixture.getCommandCount(), 0);
-  }
-});
-
-/**
  * Controllerが共通資源文法の不成立を開始前に拒否する。
  * @responsibility 八fieldの対応と重複名拒否を実Controller入口で確認する。
  * @trace ERB-IT-002
  * @precondition 正規Planと発行回数を記録する模擬依存を用意する。
  * @stimulus 各資源fieldの不正と重複名を持つ計画を渡す。
- * @observation blocked理由、回復開始、commandとMount完了の回数。
+ * @observation blocked理由、回復開始とcommandの回数。
  * @oracle 準備済み計画の不正は従来のplan_invalidでEffect前に停止する。
  * @cleanup N/A: 外部資源を取得しない。
  * @boundary Controllerの開始入口とDI文法。
  */
 test("ControllerはDI資源文法の不成立を回復開始とEffect前に拒否する", () => {
-  const base = createPlan({}, {});
+  const base = createPlan();
   for (const changes of [
     ...[
       "authContainerName",
@@ -1120,100 +1015,58 @@ test("ControllerはDI資源文法の不成立を回復開始とEffect前に拒�
   ]) {
     const fixture = createFixture({}, changes);
     const rejected = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.reason, "docker_process_controller_plan_invalid");
     assert.equal(fixture.getCommandCount(), 0);
-    assert.equal(fixture.getMountCompletionCount(), 0);
-    assert.deepEqual(fixture.getRecoveryConsumers(), []);
+    assert.equal(fixture.getRecoveryStartCount(), 0);
   }
+  const foreignOwner = createFixture();
+  const rejected = foreignOwner.controller.start(foreignOwner.plan, {});
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.reason, "docker_process_controller_revision_invalid");
+  assert.equal(foreignOwner.getCommandCount(), 0);
+  assert.equal(foreignOwner.getRecoveryStartCount(), 0);
 });
 
 /**
- * Mountの元完了結果を縮約せず回復Ownerへ渡す。
- *
- * @responsibility 結果Objectの出自を照合できるまま搬送する。
- * @trace ERB-IT-002
- * @precondition 自己生成のControllerと固定Mount結果を使う。
- * @stimulus Mount成功と失敗を実行する。
- * @observation 回復Ownerへ搬送された結果と呼出し回数を確認する。
- * @oracle 成功は元Objectそのものを一度渡し、失敗は渡さない。
- * @cleanup N/A: 実DockerやFilesystem資源を作らない。
- * @boundary ERB-IT-002=Direct Boundary: Controller→Mount終了→回復Owner。
- */
-test("ControllerはMount元完了結果を同じ回復Ownerへ搬送する", async () => {
-  for (const status of ["completed", "blocked"]) {
-    const completion = Object.freeze({ status });
-    const receivedEvents: unknown[] = [];
-    const fixture = createFixture({
-      completeMount: () => completion,
-      recordMountCompletion: (_recovery: object, result: unknown) => {
-        receivedEvents.push(result);
-        return true;
-      },
-    });
-    const started = fixture.controller.start(
-      fixture.preparedCapability,
-      fixture.managementCapability,
-    );
-    await started.completion;
-    assert.equal(receivedEvents.length, status === "completed" ? 1 : 0);
-    if (status === "completed") assert.equal(receivedEvents[0], completion);
-    else assert.equal(fixture.getRecoveryCompletionCount(), 0);
-  }
-});
-
-/**
- * 終了Ownerへ計画と清掃・Mountの元結果を一緒に搬送する。
+ * 終了Ownerへ実清掃後に元計画を搬送する。
  * @responsibility 真正性の再照合に必要な元objectを保持する。
  * @trace ERB-IT-002
  * @precondition 模擬Controllerと自己生成結果を使用する。
- * @stimulus 清掃成功、不一致、Mount失敗と保存失敗を実行する。
+ * @stimulus 清掃成功、不一致と保存失敗を実行する。
  * @observation 終了callbackの引数、同一性、外側freezeと呼出し数。
- * @oracle 成功時だけ同じOwnerと元三objectを渡し、失敗時は呼ばない。
+ * @oracle 成功時だけ同じOwnerと元計画を渡し、失敗時は呼ばない。
  * @cleanup N/A: 実Docker・Filesystem資源を作成しない。
  * @boundary Controllerから同じ操作の回復終了Owner。
  */
-test("終了Ownerへ元清掃とMount結果を縮約せず渡す", async () => {
-  for (const mode of [
-    "valid",
-    "cleanup_invalid",
-    "mount_failed",
-    "record_failed",
-  ]) {
+test("終了Ownerへ実清掃後に元計画を渡す", async () => {
+  for (const mode of ["valid", "cleanup_invalid", "record_failed"]) {
     const cleanup = Object.freeze({
       confirmed: true,
       processTreeTerminated: true,
       containersAbsent: true,
       networksAbsent: true,
     });
-    const mount = Object.freeze({
-      status: mode === "mount_failed" ? "blocked" : "completed",
-    });
     let completed = 0;
     const fixture = createFixture({
       cleanupOwnedResources: async () => cleanup,
       verifyCleanupOutcome: () =>
         mode === "cleanup_invalid" ? null : fixture.resourceObservations,
-      completeMount: () => mount,
-      recordMountCompletion: () => mode !== "record_failed",
+      recordDockerAbsence: () => mode !== "record_failed",
       completeRecovery: (
         recovery: unknown,
         management: unknown,
         context: Readonly<{
           plan: unknown;
-          cleanupOutcome: unknown;
-          mountCompletion: unknown;
         }>,
       ) => {
         completed += 1;
         assert.equal(recovery, fixture.recoveryCapability);
         assert.equal(management, fixture.managementCapability);
         assert.equal(context.plan, fixture.plan);
-        assert.equal(context.cleanupOutcome, cleanup);
-        assert.equal(context.mountCompletion, mount);
         assert.ok(Object.isFrozen(context));
         return Object.freeze({
           status: "completed",
@@ -1222,7 +1075,7 @@ test("終了Ownerへ元清掃とMount結果を縮約せず渡す", async () => {
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     await started.completion;
@@ -1237,7 +1090,7 @@ test("終了Ownerへ元清掃とMount結果を縮約せず渡す", async () => {
  * @trace ERB-IT-002
  * @precondition 成功形の清掃を返す模擬Controllerを使用する。
  * @stimulus 清掃相関検査を不一致または例外にする。
- * @observation Mount完了、回復完了、absence記録と公開結果を確認する。
+ * @observation 回復完了、absence記録と公開結果を確認する。
  * @oracle 相関不成立なら完了処置を発行せず清掃未確認で停止する。
  * @cleanup N/A: Docker・Provider・Filesystemの実資源は作成しない。
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→実清掃相関→終端処置。
@@ -1253,7 +1106,7 @@ test("Controllerは実清掃相関の不一致と例外で終端完了を拒否�
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     const result = await started.completion;
@@ -1263,7 +1116,6 @@ test("Controllerは実清掃相関の不一致と例外で終端完了を拒否�
       result.reason,
       "docker_process_controller_cleanup_unconfirmed",
     );
-    assert.equal(fixture.getMountCompletionCount(), 0);
     assert.equal(fixture.getRecoveryCompletionCount(), 0);
     assert.equal(fixture.getRecoveryEvents().includes("docker-absence"), false);
   }
@@ -1285,7 +1137,7 @@ test("終端観測は固定callbackで清掃後に一回渡され制御を復活
   const fixture = createFixture();
   assert.equal(fixture.readTerminal(), null);
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   const result = await started.completion;
@@ -1304,7 +1156,6 @@ test("終端観測は固定callbackで清掃後に一回渡され制御を復活
     ),
   );
   assert.equal(terminal.primaryFailure, null);
-  assert.equal(terminal.mountLeaseReleased, true);
   assert.equal(terminal.recoveryCompleted, true);
   assert.equal(terminal.homeLeaseReleased, true);
   assert.equal(
@@ -1352,7 +1203,7 @@ test("Home解放の実観測は回復後続失敗と区別し照合例外を肯�
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     const result = await started.completion;
@@ -1368,7 +1219,6 @@ test("Home解放の実観測は回復後続失敗と区別し照合例外を肯�
     const observation = fixture.readTerminal();
     assert.ok(observation);
     assert.equal(observation.recoveryCompleted, false);
-    assert.equal(observation.mountLeaseReleased, true);
     assert.equal(observation.homeLeaseReleased, release === "released");
   }
 });
@@ -1433,7 +1283,7 @@ test("Home技術LeaseはExecutorが開始拒否・保存拒否・Owner終了ま�
         : {}),
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => mode !== "handoff_rejected",
     );
@@ -1453,8 +1303,7 @@ test("Home技術LeaseはExecutorが開始拒否・保存拒否・Owner終了ま�
       if (mode.startsWith("acquire_"))
         assert.equal(started.manualRecoveryRequired, true);
       if (mode.startsWith("acquire_"))
-        assert.equal(fixture.getMountCompletionCount(), 1);
-      assert.equal(fixture.getCommandCount(), 0, mode);
+        assert.equal(fixture.getCommandCount(), 0, mode);
       continue;
     }
     assert.equal(
@@ -1590,7 +1439,7 @@ test("認証診断は非0拒否を変えず本体の失敗へ漏れない", asyn
       },
     });
     const result = await fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     ).completion;
     assert.equal(
@@ -1635,10 +1484,8 @@ test("認証診断は非0拒否を変えず本体の失敗へ漏れない", asyn
       terminateAndWait: async () => true,
     }),
   });
-  await fixture.controller.start(
-    fixture.preparedCapability,
-    fixture.managementCapability,
-  ).completion;
+  await fixture.controller.start(fixture.plan, fixture.managementCapability)
+    .completion;
   const primary = notices.find(
     (n) => n.event === "coordinator_provider_boundary_settled",
   )?.primaryFailure as Record<string, unknown>;
@@ -1726,7 +1573,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
         },
       });
       const started = fixture.controller.start(
-        fixture.preparedCapability,
+        fixture.plan,
         fixture.managementCapability,
       );
       const result = await started.completion;
@@ -1900,7 +1747,7 @@ test("検査済み助言四区分をcleanup後に返す", async () => {
       },
     );
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(started.status, "started");
@@ -2004,7 +1851,7 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
       },
     );
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(started.status, "started");
@@ -2069,7 +1916,7 @@ test("Windows Process Gate: Provider実ProcessのOS起動確認後だけRuntime�
     providerStartObservationTaskPlan,
   );
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   const result = await started.completion;
@@ -2112,14 +1959,6 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
   ];
   const fixture = createFixture(
     {
-      consumeProviderAuthority: () =>
-        Object.freeze({
-          operationId: "OP-123456",
-          provider: "codex",
-          providerHomeMountGrantRef: "PHMGRANT-123456",
-          runtimeAuthorityIssued: true as const,
-          providerEffectAllowed: true as const,
-        }),
       startCommand: (command: { purpose: string }) => ({
         started: async () => true,
         wait: async () => ({
@@ -2199,7 +2038,7 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
   );
 
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   const result = await started.completion;
@@ -2276,7 +2115,7 @@ test("Provider境界診断の失敗はAuthority・Effect・完了結果を変更
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   const result = await started.completion;
@@ -2330,7 +2169,7 @@ test("Provider commandの同期起動失敗を実Process開始として公開し
     providerStartObservationTaskPlan,
   );
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   const result = await started.completion;
@@ -2388,7 +2227,7 @@ test("Provider commandの非同期起動失敗も開始観測とProvider Effect�
     providerStartObservationTaskPlan,
   );
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   const result = await started.completion;
@@ -2533,7 +2372,7 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
         providerStartObservationTaskPlan,
       );
       const result = await fixture.controller.start(
-        fixture.preparedCapability,
+        fixture.plan,
         fixture.managementCapability,
         () => true,
         undefined,
@@ -2613,7 +2452,7 @@ test("実Process開始観測を公開できなければ対象Processを終了し
     providerStartObservationTaskPlan,
   );
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
     () => true,
     undefined,
@@ -2751,7 +2590,7 @@ async function runCreateCancellationRace(
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(started.status, "started");
@@ -2768,7 +2607,7 @@ async function runCreateCancellationRace(
   assert.equal(result.cancellationRequested, true);
   assert.deepEqual(
     commands,
-    createPlan({}, {})
+    createPlan()
       .commands.map((entry) => entry.purpose)
       .slice(0, commands.indexOf(purpose) + 1),
   );
@@ -2785,7 +2624,6 @@ async function runCreateCancellationRace(
   assert.equal(events.at(-1), "cleanup");
   assert.equal(result.cleanupConfirmed, cleanupConfirmed);
   assert.equal(result.manualRecoveryRequired, !cleanupConfirmed);
-  assert.equal(fixture.getMountCompletionCount(), cleanupConfirmed ? 1 : 0);
   assert.equal(fixture.getRecoveryCompletionCount(), cleanupConfirmed ? 1 : 0);
   assert.equal(result.recoveryId, cleanupConfirmed ? null : started.recoveryId);
   if (outcome === "null") assert.ok(terminationCount >= 1);
@@ -2922,18 +2760,18 @@ for (const outcome of [
 }
 
 /**
- * 追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しないを検証する。
+ * 追加制約のtrueはRepository改訂検査を代替せず、不正な改訂を起動しないを検証する。
  *
- * @responsibility 追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しないの合否判定を所有する。
+ * @responsibility 追加制約のtrueはRepository改訂検査を代替せず、不正な改訂を起動しないの合否判定を所有する。
  * @trace ERB-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しないの対象操作を実行する。
+ * @stimulus 追加制約のtrueはRepository改訂検査を代替せず、不正な改訂を起動しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
-test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しない", () => {
+test("追加制約のtrueはRepository改訂検査を代替せず、不正な改訂を起動しない", () => {
   let restrictionCalls = 0;
   let recoveryCalls = 0;
   /**
@@ -2953,20 +2791,20 @@ test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを
     return true;
   };
   const fixture = createFixture({
-    consumeProviderAuthority: () => null,
+    verifyRevision: () => false,
     beginRecovery: () => {
       recoveryCalls += 1;
       return null;
     },
   });
   const result = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
     () => true,
     restriction,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "docker_process_controller_authority_invalid");
+  assert.equal(result.reason, "docker_process_controller_revision_invalid");
   assert.equal(restrictionCalls, 0);
   assert.equal(recoveryCalls, 0);
   assert.equal(fixture.getCommandCount(), 0);
@@ -2981,7 +2819,7 @@ test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを
   );
 });
 
-for (const deniedPurpose of createPlan({}, {}).commands.map(
+for (const deniedPurpose of createPlan().commands.map(
   (command) => command.purpose,
 )) {
   /**
@@ -3000,7 +2838,7 @@ for (const deniedPurpose of createPlan({}, {}).commands.map(
     const fixture = createFixture();
     const observedPurposes: string[] = [];
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => true,
       (purpose: string) => {
@@ -3027,7 +2865,6 @@ for (const deniedPurpose of createPlan({}, {}).commands.map(
       false,
     );
     assert.equal(fixture.getCleanupCount(), 1);
-    assert.equal(fixture.getMountCompletionCount(), 1);
     assert.equal(fixture.getRecoveryCompletionCount(), 1);
     for (const projectCompletion of [projectAttemptResult])
       assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
@@ -3079,7 +2916,7 @@ test("追加制約は例外・非Boolean・非同期・Proxyを拒否し、例�
   ]) {
     const fixture = createFixture();
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => true,
       restriction,
@@ -3126,51 +2963,7 @@ for (const stop of [
    * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
    */
   test(`実測制約をControllerへ接続し、準備待機後の${stop}を起動直前に照合する`, async () => {
-    let wallTimeMs = 100;
-    let bindingSha256 = "1".repeat(64);
-    /**
-     * observeのTest準備責務を実行する。
-     *
-     * @responsibility observeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-     * @trace ERB-IT-002
-     * @precondition 呼出し元Test Caseが必要な入力を渡す。
-     * @stimulus observeを呼び出す。
-     * @observation 返却値、生成fixtureまたは観測値を取得する。
-     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
-     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
-     */
-    const observe = () => ({
-      bindingSha256,
-      wallTimeMs,
-      monotonicTimeMs: wallTimeMs,
-    });
-    const scopeSha256 = "2".repeat(64);
-    const constraints = createDevelopmentMeasurementConstraints(
-      {
-        bindingSha256,
-        expiresAtMs: 1_100,
-        tasks: [
-          { scopeSha256, executor: "claude", reviewer: "codex" },
-          {
-            scopeSha256: "3".repeat(64),
-            executor: "codex",
-            reviewer: "claude",
-          },
-        ],
-      },
-      observe(),
-    );
-    assert.ok(constraints);
-    const task = constraints.reserveTask(scopeSha256, observe());
-    assert.equal(task.status, "recorded");
-    const invocation = constraints.reserveInvocation(
-      task.value,
-      "claude",
-      "executor",
-      observe(),
-    );
-    assert.equal(invocation.status, "recorded");
+    let allowed = true;
     let markReady: () => void = () => {};
     const ready = new Promise<void>((resolve) => {
       markReady = resolve;
@@ -3211,28 +3004,18 @@ for (const stop of [
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => true,
       (purpose: string) => {
         if (purpose !== "start_provider_attached") return true;
         consumeCalls += 1;
-        return (
-          constraints.consumeInvocation(
-            invocation.value,
-            task.value,
-            "claude",
-            "executor",
-            observe(),
-          ).status === "recorded"
-        );
+        return allowed;
       },
     );
     assert.equal(started.status, "started");
     await ready;
-    if (stop === "expired") wallTimeMs = 1_100;
-    if (stop === "cancelled") constraints.cancel();
-    if (stop === "identity_mismatch") bindingSha256 = "4".repeat(64);
+    if (stop !== "none") allowed = false;
     releaseGate();
     const result = await started.completion;
     assert.ok(result);
@@ -3241,16 +3024,6 @@ for (const stop of [
     assert.equal(consumeCalls, 1);
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(fixture.getCleanupCount(), 1);
-    assert.equal(constraints.inspect().invocationCount, 1);
-    assert.equal(
-      constraints.settleInvocation(invocation.value).status,
-      "recorded",
-    );
-    assert.equal(
-      constraints.settleTask(task.value, "finished").status,
-      "recorded",
-    );
-    assert.equal(constraints.inspect().productionAuthorityConferred, false);
   });
 }
 
@@ -3270,7 +3043,7 @@ test("制約内から取消が発生しても新しいcommandを起動しない"
   const fixture = createFixture();
   let cancellation: Promise<unknown> | null = null;
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
     () => true,
     (purpose: string) => {
@@ -3314,7 +3087,7 @@ test("追加制約の拒否後もcleanup不明はRecovery必要として保持�
     }),
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
     () => true,
     () => false,
@@ -3344,7 +3117,7 @@ test("追加制約の拒否後もcleanup不明はRecovery必要として保持�
 test("固定command planを完了後に全resource不存在とlease解放へ閉じる", async () => {
   const fixture = createFixture();
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(started.status, "started");
@@ -3355,7 +3128,6 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(result.processTreeTerminationConfirmed, true);
   assert.equal(result.containersAbsent, true);
   assert.equal(result.networksAbsent, true);
-  assert.equal(result.mountLeaseReleased, true);
   assert.equal(result.recoveryCompleted, true);
   assert.equal(result.resultBytes, Buffer.byteLength(createProviderOutput()));
   assert.match(result.resultSha256 ?? "", /^[a-f0-9]{64}$/);
@@ -3365,11 +3137,9 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(result.subscriptionAuthConfirmed, true);
   assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
   assert.equal(fixture.getCleanupCount(), 1);
-  assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 1);
-  assert.deepEqual(fixture.getRecoveryEvents().slice(-3), [
+  assert.deepEqual(fixture.getRecoveryEvents().slice(-2), [
     "docker-absence",
-    "mount-completion",
     "recovery-completed",
   ]);
   const recorded = fixture.getRecordedResourceObservations();
@@ -3419,7 +3189,7 @@ test("Docker create前の耐久submission markerを書けなければEffectを�
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(started.status, "started");
@@ -3496,7 +3266,7 @@ test("Provider要求は同期保存後だけ発行し保存中取消で停止す
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     control = started.controlCapability;
@@ -3550,7 +3320,7 @@ test("予定保存後の取消callbackは用途を直接渡し保存拒否で要
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     control = started.controlCapability;
@@ -3571,7 +3341,7 @@ test("予定保存後の取消callbackは用途を直接渡し保存拒否で要
     },
   });
   const failed = startFailure.controller.start(
-    startFailure.preparedCapability,
+    startFailure.plan,
     startFailure.managementCapability,
   );
   const failedResult = await failed.completion;
@@ -3623,7 +3393,7 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
     },
   });
   const result = await fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   ).completion;
   assert.equal(result?.status, "blocked");
@@ -3660,16 +3430,6 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
     const notices: Array<Record<string, unknown>> = [];
     const fixture = createFixture(
       {
-        reportProviderBoundaryDiagnostic: (notice: Record<string, unknown>) =>
-          notices.push(notice),
-        consumeProviderAuthority: () =>
-          Object.freeze({
-            operationId: "OP-123456",
-            provider: "codex",
-            providerHomeMountGrantRef: "PHMGRANT-123456",
-            runtimeAuthorityIssued: true as const,
-            providerEffectAllowed: true as const,
-          }),
         startCommand: (command: { purpose: string }) => {
           if (command.purpose === "start_provider_attached")
             providerStarted = true;
@@ -3696,6 +3456,8 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
             terminateAndWait: async () => true,
           });
         },
+        reportProviderBoundaryDiagnostic: (notice: Record<string, unknown>) =>
+          notices.push(notice),
       },
       {
         provider: "codex",
@@ -3704,7 +3466,7 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
       },
     );
     const result = await fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     ).completion;
     assert.ok(result);
@@ -3742,14 +3504,6 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
     let providerStarted = false;
     const fixture = createFixture(
       {
-        consumeProviderAuthority: () =>
-          Object.freeze({
-            operationId: "OP-123456",
-            provider: "codex",
-            providerHomeMountGrantRef: "PHMGRANT-123456",
-            runtimeAuthorityIssued: true as const,
-            providerEffectAllowed: true as const,
-          }),
         startCommand: (command: { purpose: string }) => {
           if (command.purpose === "start_provider_attached")
             providerStarted = true;
@@ -3782,7 +3536,7 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
       },
     );
     const result = await fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     ).completion;
     assert.ok(result);
@@ -3829,7 +3583,7 @@ test("Claude Max以外のSubscription OfferingではProvider request前に停止
     },
   });
   const result = await fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   ).completion;
   assert.equal(result?.status, "blocked");
@@ -3937,7 +3691,7 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
       }),
     });
     const result = await fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     ).completion;
     assert.ok(result);
@@ -4009,7 +3763,7 @@ test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行�
       },
     });
     const result = await fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     ).completion;
     assert.equal(result?.status, "blocked");
@@ -4063,7 +3817,7 @@ test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文�
       }),
     });
     const result = await fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     ).completion;
     assert.equal(result?.reason, "provider_process_exit_nonzero");
@@ -4111,7 +3865,7 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
     }),
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.ok(started.completion);
@@ -4196,7 +3950,7 @@ for (const dockerCleanupConfirmed of [true, false]) {
     });
     assert.equal(fixture.controller.productionAuthority, false);
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(started.status, "started");
@@ -4337,7 +4091,7 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(started.status, "started");
@@ -4409,7 +4163,7 @@ test("cleanup待機中の遅延取消はcompletedをcancelledへ再settleする"
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   await cleanupStarted;
@@ -4481,7 +4235,7 @@ test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きし
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   await cleanupStarted;
@@ -4525,7 +4279,7 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
     }),
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.ok(started.completion);
@@ -4547,7 +4301,6 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
     Object.freeze({ ...result, reason: "provider_result_invalid" }),
     started.recoveryId,
   );
-  assert.equal(fixture.getMountCompletionCount(), 0);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
 });
 
@@ -4585,7 +4338,7 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
     }),
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.ok(started.completion);
@@ -4667,7 +4420,7 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
     },
   );
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.ok(started.completion);
@@ -4771,7 +4524,7 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
         },
       );
       const started = fixture.controller.start(
-        fixture.preparedCapability,
+        fixture.plan,
         fixture.managementCapability,
       );
       assert.ok(started.completion);
@@ -4888,7 +4641,7 @@ test("Claude Reviewerの構造不正理由を実Controllerから安全な固定�
         },
       );
       const started = fixture.controller.start(
-        fixture.preparedCapability,
+        fixture.plan,
         fixture.managementCapability,
       );
       assert.ok(started.completion);
@@ -4927,13 +4680,12 @@ test("Claude Reviewerの構造不正理由を実Controllerから安全な固定�
 test("Recovery記録前と偽造production CapabilityはDocker Effectを開始しない", async () => {
   const fixture = createFixture({ beginRecovery: () => null });
   const blocked = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(blocked.status, "blocked");
   assert.equal(blocked.dockerEffectStarted, false);
   assert.equal(fixture.getCommandCount(), 0);
-  assert.equal(fixture.getMountCompletionCount(), 1);
 
   assert.equal(
     startRuntimeOwnedDockerProcessController("codex", {} as never, () => true)
@@ -4996,7 +4748,7 @@ test("Recovery開始成功形でもexact ID・Home binding・Capability不一致
       },
     });
     const blocked = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(blocked.status, "blocked");
@@ -5012,7 +4764,6 @@ test("Recovery開始成功形でもexact ID・Home binding・Capability不一致
       !recovery.expectedCleanupConfirmed,
     );
     assert.equal(fixture.getCommandCount(), 0);
-    assert.equal(fixture.getMountCompletionCount(), 1);
     assert.equal(abandonCount, recovery.abandonExpected);
   }
 });
@@ -5058,7 +4809,7 @@ test("Recovery成功unionはready exact形とopaque bindingを必須にしdurabl
       },
     });
     const blocked = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(blocked.status, "blocked");
@@ -5097,7 +4848,7 @@ test("Recovery初期化がexact ID付きで安全停止した場合は下位理�
       }),
   });
   const blocked = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(blocked.status, "blocked");
@@ -5110,7 +4861,6 @@ test("Recovery初期化がexact ID付きで安全停止した場合は下位理�
   assert.equal(blocked.manualRecoveryRequired, true);
   assert.equal(blocked.dockerEffectStarted, false);
   assert.equal(fixture.getCommandCount(), 0);
-  assert.equal(fixture.getMountCompletionCount(), 1);
 });
 
 /**
@@ -5136,7 +4886,7 @@ test("Recovery初期化のexact IDは現在のProvider Home bindingと一致し�
       }),
   });
   const blocked = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(blocked.status, "blocked");
@@ -5188,13 +4938,6 @@ test("Owner付き初期化停止は照合済み理由と回復参照を搬送す
           throw new Error("fixture_release_failed");
         return false;
       },
-      ...(mode === "verified_cleanup_throws"
-        ? {
-            completeMount: () => {
-              throw new Error("fixture_mount_failed");
-            },
-          }
-        : {}),
       bindInitializationFailure:
         mode === "missing"
           ? undefined
@@ -5220,7 +4963,7 @@ test("Owner付き初期化停止は照合済み理由と回復参照を搬送す
             },
     });
     const stopped = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(stopped.status, "blocked");
@@ -5268,7 +5011,7 @@ test("Owner付き初期化停止は照合済み理由と回復参照を搬送す
       },
     });
     const stopped = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(
@@ -5321,7 +5064,7 @@ test("exact ID付き安全停止も余分field・accessor・Proxyから公開理
   ]) {
     const fixture = createFixture({ beginRecovery: () => malformed });
     const blocked = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(blocked.status, "blocked");
@@ -5359,7 +5102,7 @@ test("Recovery bindingまたはabort不明はexact IDを保持してEffect 0へ�
       abandonRecovery,
     });
     const blocked = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(blocked.status, "blocked");
@@ -5429,7 +5172,7 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
         }),
     });
     const blocked = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(blocked.status, "blocked");
@@ -5483,7 +5226,7 @@ test("Recovery開始段階は受動通知だけへ結合し公開結果を変え
             },
     });
     const result = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
     );
     assert.equal(result.status, "blocked");
@@ -5498,7 +5241,7 @@ test("Recovery開始段階は受動通知だけへ結合し公開結果を変え
       }),
     });
     const unchanged = baseline.controller.start(
-      baseline.preparedCapability,
+      baseline.plan,
       baseline.managementCapability,
     );
     assert.equal(unchanged.status, "blocked");
@@ -5536,34 +5279,6 @@ test("Recovery開始段階は受動通知だけへ結合し公開結果を変え
 });
 
 /**
- * 起動直前Authority不成立ならMountを返しDocker Effectを開始しないを検証する。
- *
- * @responsibility 起動直前Authority不成立ならMountを返しDocker Effectを開始しないの合否判定を所有する。
- * @trace ERB-IT-002
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 起動直前Authority不成立ならMountを返しDocker Effectを開始しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
- */
-test("起動直前Authority不成立ならMountを返しDocker Effectを開始しない", () => {
-  const fixture = createFixture({ consumeProviderAuthority: () => null });
-  const blocked = fixture.controller.start(
-    fixture.preparedCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(blocked.status, "blocked");
-  assert.equal(blocked.reason, "docker_process_controller_authority_invalid");
-  assert.equal(blocked.dockerEffectStarted, false);
-  assert.equal(blocked.cleanupConfirmed, true);
-  assert.equal(blocked.manualRecoveryRequired, false);
-  assert.equal(fixture.getCommandCount(), 0);
-  assert.equal(fixture.getMountCompletionCount(), 1);
-  assert.equal(fixture.getRecoveryCompletionCount(), 0);
-});
-
-/**
  * 起動直前にRepository Revisionが一致しなければEffectを開始しないを検証する。
  *
  * @responsibility 起動直前にRepository Revisionが一致しなければEffectを開始しないの合否判定を所有する。
@@ -5578,7 +5293,7 @@ test("起動直前Authority不成立ならMountを返しDocker Effectを開始�
 test("起動直前にRepository Revisionが一致しなければEffectを開始しない", () => {
   const fixture = createFixture({ verifyRevision: () => null });
   const blocked = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(blocked.status, "blocked");
@@ -5587,7 +5302,6 @@ test("起動直前にRepository Revisionが一致しなければEffectを開始�
   assert.equal(blocked.cleanupConfirmed, true);
   assert.equal(blocked.manualRecoveryRequired, false);
   assert.equal(fixture.getCommandCount(), 0);
-  assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
 });
 
@@ -5614,7 +5328,7 @@ test("Provider完了後にRepository Revisionが変わればResultを公開し�
     },
   });
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
   );
   assert.equal(started.status, "started");
@@ -5669,7 +5383,7 @@ test("呼出し単位の開始通知は診断後に一回だけ搬送される",
       },
     });
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => true,
       undefined,
@@ -5692,7 +5406,7 @@ test("呼出し単位の開始通知は診断後に一回だけ搬送される",
   let rejectedNoticeCount = 0;
   const rejected = createFixture({ verifyRevision: () => false });
   const result = rejected.controller.start(
-    rejected.preparedCapability,
+    rejected.plan,
     rejected.managementCapability,
     () => true,
     undefined,
@@ -5720,7 +5434,7 @@ test("呼出し単位の開始通知失敗は既存回収経路へ収束する",
   for (const mode of ["reject", "throw"]) {
     const fixture = createFixture();
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => true,
       undefined,
@@ -5763,7 +5477,7 @@ test("呼出し単位の開始通知待機中も元の取消と完了を維持�
   });
   const fixture = createFixture();
   const started = fixture.controller.start(
-    fixture.preparedCapability,
+    fixture.plan,
     fixture.managementCapability,
     () => true,
     undefined,
@@ -5821,7 +5535,7 @@ test("開始確認の保留は技術完了と回収を阻害せず遅い拒否�
     t.after(() => release());
     const fixture = createFixture();
     const started = fixture.controller.start(
-      fixture.preparedCapability,
+      fixture.plan,
       fixture.managementCapability,
       () => true,
       undefined,
@@ -5946,7 +5660,7 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
           },
         });
         const started = fixture.controller.start(
-          fixture.preparedCapability,
+          fixture.plan,
           fixture.managementCapability,
           () => true,
           undefined,

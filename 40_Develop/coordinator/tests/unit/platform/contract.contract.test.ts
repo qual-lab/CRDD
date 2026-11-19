@@ -115,14 +115,13 @@ function syntheticAdapter(
 test("Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開する", () => {
   assert.deepEqual(describeCoordinatorPlatformContract(), {
     contract: "crdd-coordinator/orchestrator-platform-contract",
-    contractRevision: 2,
+    contractRevision: 3,
     boundaries: [
       "principal_provider_home",
       "filesystem_repository",
       "lock_lease",
       "process_cancellation",
       "container_host",
-      "runtime_root_recovery",
     ],
     boundaryOperations: {
       principal_provider_home: ["observeProviderHomeCandidate"],
@@ -130,7 +129,6 @@ test("Platform契約は境界母集団・操作名対応・非fallbackを閉集�
       lock_lease: ["observeLeaseOwner"],
       process_cancellation: [],
       container_host: ["observeContainerHostRecoveryState"],
-      runtime_root_recovery: ["compileRootObservationCandidate"],
     },
     boundaryGuarantees: {
       principal_provider_home: [
@@ -161,12 +159,6 @@ test("Platform契約は境界母集団・操作名対応・非fallbackを閉集�
         "owner_loss",
       ],
       container_host: ["fixed_image", "network", "mount", "process", "cleanup"],
-      runtime_root_recovery: [
-        "managed_root",
-        "protection",
-        "resource_identity",
-        "recovery_absence",
-      ],
     },
     boundarySupport:
       "declared_boundary_and_all_architecture_guarantees_and_exact_operation_name_match",
@@ -565,7 +557,6 @@ test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsna
       lock_lease: canonicalOperations("lock_lease"),
       process_cancellation: canonicalOperations("process_cancellation"),
       container_host: canonicalOperations("container_host"),
-      runtime_root_recovery: canonicalOperations("runtime_root_recovery"),
     }),
   });
   const resolution = resolveCoordinatorPlatformAdapter(
@@ -605,7 +596,6 @@ test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
       "filesystem_repository",
       "lock_lease",
       "container_host",
-      "runtime_root_recovery",
     ]);
     assert.ok(Object.isFrozen(resolution.adapter));
     assert.ok(Object.isFrozen(resolution.adapter.operations));

@@ -104,13 +104,11 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       target: {
         provider: current.plan.provider,
         operationId: current.plan.operationId,
-        grantRef: current.plan.grantRef,
         workspaceSourcePath: "C:/synthetic/work",
         temporarySourcePath: "C:/synthetic/tmp",
         providerHomeSourcePath: current.plan.providerHomeSourcePath,
         providerHomeIdentityHash: current.plan.providerHomeIdentityHash,
         stableLogicalHomeBindingHash: current.plan.stableLogicalHomeBindingHash,
-        activeMountCapability: current.plan.activeMountCapability,
       },
     };
     const executor = createExecutor(
@@ -537,11 +535,7 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
     } else {
       assert.equal(diagnostics.length, 0);
     }
-    for (const name of [
-      "mountLeaseReleased",
-      "recoveryCompleted",
-      "recoveryFinalizationCapability",
-    ])
+    for (const name of ["recoveryCompleted", "recoveryFinalizationCapability"])
       assert.equal(name in result, false);
   }
 });
@@ -732,11 +726,9 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
       target: {
         provider: plan.provider,
         operationId: plan.operationId,
-        grantRef: plan.grantRef,
         providerHomeSourcePath: plan.providerHomeSourcePath,
         providerHomeIdentityHash: plan.providerHomeIdentityHash,
         stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
-        activeMountCapability: plan.activeMountCapability,
         workspaceSourcePath: "C:/synthetic/work",
         temporarySourcePath: "C:/synthetic/tmp",
       },
